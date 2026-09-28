@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T04:21:42.572Z",
+  "publicadoEm": "2026-09-28T04:22:02.742Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -114,20 +114,6 @@
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-rm008fatia3l",
-      "nome": "RM-008 fatia 3: licoes viram avisos de policy",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-008",
-      "branch": "ork/ork-rm008fatia3l-full",
-      "atualizadaEm": "2026-09-28T04:21:42.387Z",
-      "entregue": "7af7a92",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
