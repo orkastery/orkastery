@@ -113,17 +113,13 @@ test('TC5: fonte corrompida recusa registro e spawn do observador antes de stder
   const sensor = require('../src/adapters/codex-controller-sensor');
   const original = sensor.registrarFonteController;
   const validar = mock.method(sensor, 'registrarFonteController', (dir: string, esperado: unknown) => {
-    const file = path.join(dir, 'state.json');
-    // O processo do controlador reescreve state.json de forma assincrona. Escrever a corrupcao
-    // uma vez so e torcer: se a reescrita cair entre ela e a leitura do validador, a fonte volta
-    // a ser valida, o registro acontece e o teste reprova sem defeito nenhum no produto.
-    // Corrompe ate a divergencia GRUDAR no readback, e so entao valida.
-    esperarCondicao(() => {
-      const state = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (state.cwd === '/cwd-divergente') return true;
-      fs.writeFileSync(file, JSON.stringify({ ...state, cwd: '/cwd-divergente' }), { mode: 0o600 });
-      return false;
-    });
+    // A corrupcao vai no launch.json, que o controlador grava uma vez no lancamento e nunca mais.
+    // No state.json ela nao gruda: o worker vivo o regrava inteiro a cada evento, e a regravacao
+    // que caisse entre a corrupcao e a leitura do validador desfazia a fonte corrompida. A recusa
+    // de cwd divergente no state.json esta coberta no teste do sensor, sem processo vivo.
+    const file = path.join(dir, 'launch.json');
+    const launch = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, JSON.stringify({ ...launch, cwd: '/cwd-divergente' }), { mode: 0o600 });
     return original(dir, esperado);
   });
   try {

@@ -127,7 +127,12 @@ function comLockWatcher<T>(dir: string, action: () => T): T | null {
   }
 }
 
-function lerFonte(file: string, anterior: FonteCursor | undefined, agoraMs: number, sessionId: string, fixada?: FonteController): {
+/**
+ * `agoraMs` só vem quando o relógio é injetado. Sem ele, a referência de "evento do futuro" é o
+ * relógio depois da leitura: a linha que o runtime anexou durante a observação não é futura, e
+ * descartá-la perdia o terminal do turno.
+ */
+function lerFonte(file: string, anterior: FonteCursor | undefined, agoraMs: number | undefined, sessionId: string, fixada?: FonteController): {
   cursor: FonteCursor; cresceu: boolean; quando: number; bytes: number; temMais: boolean;
 } {
   const fd = fs.openSync(file, fixada
@@ -152,6 +157,7 @@ function lerFonte(file: string, anterior: FonteCursor | undefined, agoraMs: numb
     let offset = mesmo ? anterior.offset : 0;
     const buffer = Buffer.alloc(Math.min(BLOCO_WATCH_BYTES, stat.size - offset));
     const n = fs.readSync(fd, buffer, 0, buffer.length, offset);
+    const agora = agoraMs ?? Date.now();
     const fim = buffer.subarray(0, n).lastIndexOf(10);
     let terminal = mesmo ? anterior.terminal : null;
     if (fim >= 0) {
@@ -161,7 +167,7 @@ function lerFonte(file: string, anterior: FonteCursor | undefined, agoraMs: numb
         if ((e?.type === 'thread.started' && e.thread_id !== sessionId) ||
             (e?.type === 'session_meta' && e.payload?.id !== sessionId)) throw new Error('log/rollout pertence a outra sessão');
       }
-      for (const t of parser.push(buffer.subarray(0, fim + 1), agoraMs)) terminal = t;
+      for (const t of parser.push(buffer.subarray(0, fim + 1), agora)) terminal = t;
       offset += fim + 1;
     } else if (n >= LIMITE_LINHA_CODEX) {
       // Uma linha sem limite não retém o cursor para sempre nem permite alegar sucesso.
@@ -171,7 +177,7 @@ function lerFonte(file: string, anterior: FonteCursor | undefined, agoraMs: numb
     const parcial = n < BLOCO_WATCH_BYTES && stat.size > offset;
     return { cursor: { file, ino: stat.ino, tamanho: stat.size, offset, parser: parser.estado, terminal, parcial },
       cresceu: parser.eventosValidos > 0,
-      quando: Math.min(agoraMs, stat.mtimeMs), bytes: n, temMais: stat.size > offset };
+      quando: Math.min(agora, stat.mtimeMs), bytes: n, temMais: stat.size > offset };
   } finally { fs.closeSync(fd); }
 }
 
@@ -269,7 +275,8 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
         dirSessoes: path.join(dir, 'sessoes'), sessionId, cwd, despachoEm: sessao.despachadaEm, agoraMs: now,
         fixacao: path.join(dir, 'sessoes', `watcher-source-${chave}.json`),
         vinculo: { thread: thread.id, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
-      snapshot = lerSnapshotController(fonteControlador, { agoraMs: now });
+      // Relógio injetado vale como está; o real é lido pelo sensor depois do state.json.
+      snapshot = lerSnapshotController(fonteControlador, opcoes.agoraMs === undefined ? {} : { agoraMs: now });
     }
     const file = path.join(pasta, 'cursor.json');
     const cursor = lerJson<Cursor>(file) ?? { schema: 'ork.session-cursor/v1', sessionId,
@@ -284,7 +291,7 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
     for (const [nome, fonte] of Object.entries(fontes)) {
       if (!fonte || !fs.existsSync(fonte)) continue;
       let leitura;
-      try { leitura = lerFonte(fonte, cursor.fontes[nome], now, sessionId, nome === 'rollout' ? fonteControlador ?? undefined : undefined); }
+      try { leitura = lerFonte(fonte, cursor.fontes[nome], opcoes.agoraMs === undefined ? undefined : now, sessionId, nome === 'rollout' ? fonteControlador ?? undefined : undefined); }
       catch (e) {
         if (nome !== 'rollout' || (e as Error).message !== 'log/rollout pertence a outra sessão') throw e;
         delete cursor.fontes[nome];

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -194,6 +194,71 @@ test('close fora da janela e terminal nativo de outra sessão são recusados na 
     f.escrever('state.json', { ...estadoBase, processoRuntime: { ...f.runtime, pid: f.runtime.pid + 1 } });
     assert.throws(() => lerSnapshotController(fonte, { agoraMs: AGORA }), /identidade do runtime divergente da registrada/);
   } finally { f.limpar(); }
+});
+
+test('close gravado durante a releitura não é futuro com o relógio real; close do futuro segue recusado', () => {
+  const f = fixture();
+  const estadoBase = { instancia: INSTANCIA, vinculo: f.vinculo, cwd: f.cwd, sessionId: SID, pid: f.identidade.pid,
+    processoController: f.identidade, processoRuntime: f.runtime, rollout: f.rollout, estado: 'completed', turno: 'turn-1' };
+  // O módulo real: o `import * as fs` compilado é uma cópia só com getters, que não se simula.
+  const fsReal: typeof fs = require('node:fs');
+  const abrir = fsReal.openSync;
+  let abertura: ReturnType<typeof mock.method> | null = null;
+  try {
+    const fonte = registrarFonteController(f.dir, f.esperado);
+    f.escrever('state.json', { ...estadoBase });
+    // O worker grava o close no instante em que a releitura abre o state.json: depois do começo da
+    // chamada, com o relógio real já adiante. É o close legítimo que chega durante a observação.
+    let fechouEm: string | null = null;
+    abertura = mock.method(fsReal, 'openSync', (...args: Parameters<typeof fs.openSync>) => {
+      if (fechouEm === null && String(args[0]).endsWith('state.json')) {
+        const antes = Date.now();
+        while (Date.now() <= antes + 2) { /* o close acontece estritamente depois do início da releitura */ }
+        fechouEm = new Date().toISOString();
+        abertura!.mock.restore();
+        f.escrever('state.json', { ...estadoBase, processoEncerrado: { em: fechouEm, code: 0, signal: null } });
+      }
+      return abrir(...args);
+    });
+    const lido = lerSnapshotController(fonte);
+    assert.ok(fechouEm, 'o close não foi gravado durante a releitura');
+    assert.equal(lido.fechamento?.em, fechouEm);
+    assert.equal(lido.exitCode, 0);
+    assert.equal(lido.exitCodeFonte, 'controller.close');
+    // O relógio lido depois não abre brecha: close no futuro continua recusado.
+    f.escrever('state.json', { ...estadoBase, processoEncerrado: { em: new Date(Date.now() + 3_600_000).toISOString(), code: 0, signal: null } });
+    assert.throws(() => lerSnapshotController(fonte), /close do controller fora da janela do despacho/);
+  } finally { abertura?.mock.restore(); f.limpar(); }
+});
+
+test('state.json trocado por rename entre o lstat e o open é relido; troca sem fim segue recusada', () => {
+  const f = fixture();
+  const fsReal: typeof fs = require('node:fs');
+  const abrir = fsReal.openSync;
+  const alvo = path.join(f.dir, 'state.json');
+  // Como o worker grava: arquivo temporário privado e rename, um inode novo a cada gravação. A troca
+  // acontece na abertura, depois do lstat que a leitura já fez.
+  let trocas = 0, limite = 1, dentro = false;
+  const abertura = mock.method(fsReal, 'openSync', (...args: Parameters<typeof fs.openSync>) => {
+    if (!dentro && String(args[0]) === alvo && trocas < limite) {
+      dentro = true;
+      try {
+        const tmp = alvo + '.tmp';
+        fsReal.writeFileSync(tmp, fsReal.readFileSync(alvo), { flag: 'wx', mode: 0o600 });
+        fsReal.renameSync(tmp, alvo);
+        trocas++;
+      } finally { dentro = false; }
+    }
+    return abrir(...args);
+  });
+  try {
+    const fonte = registrarFonteController(f.dir, f.esperado);
+    assert.equal(trocas, 1);
+    assert.equal(fonte.sessionId, SID);
+    trocas = 0; limite = Infinity;
+    assert.throws(() => registrarFonteController(f.dir, f.esperado), /descritor de state.json divergente do inode conferido/);
+    assert.equal(trocas, 5);
+  } finally { abertura.mock.restore(); f.limpar(); }
 });
 
 test('fonte fixada persiste entre polls e restart e dispensa qualquer redescoberta', () => {

@@ -4,6 +4,22 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+## Não publicado
+
+### Corrigido
+
+- **Observação de sessão codex sob carga** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
+  Com a máquina ocupada, o registro e o observador recusavam uma sessão legítima, e o `ork-verify`
+  do CI caía com um teste diferente a cada rodada:
+  - o `state.json` do controller, que o worker regrava por arquivo temporário e rename, trocava de
+    inode entre a conferência e a abertura, e o sensor recusava a fonte. Agora ele confere e abre de
+    novo, até cinco vezes, e só aceita o descritor cujo inode é o conferido;
+  - o relógio de referência era lido antes do `state.json` e do rollout. O close e as linhas
+    gravados durante a leitura pareciam do futuro, e o observador morria sem `phase_result`. Agora
+    o relógio é lido depois da leitura, e o que vem do futuro de fato continua recusado.
+- O teste da fonte corrompida corrompe o `launch.json`, que o controller grava uma vez só. No
+  `state.json`, a regravação do worker podia desfazer a corrupção antes da validação.
+
 ## 0.4.1 — 28/09/2026
 
 Primeira publicação da linha 0.4 no npm. A tag `v0.4.0` não chegou ao registro: a prova de origem
