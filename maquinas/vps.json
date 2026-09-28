@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T13:39:43.174Z",
+  "publicadoEm": "2026-09-28T13:45:01.607Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -119,20 +119,6 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-testesinstav",
-      "nome": "Testes instaveis do CI",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-testesinstav-go",
-      "atualizadaEm": "2026-09-28T13:34:56.780Z",
-      "entregue": "0b00683",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-versao041url",
       "nome": "Versao 0.4.1: URL do repositorio para a prova de origem do npm",
       "modo": "#Fast",
@@ -140,7 +126,7 @@
       "status": "aberta",
       "roadmap": "RM-046",
       "branch": "ork/ork-versao041url-go",
-      "atualizadaEm": "2026-09-28T13:36:08.173Z",
+      "atualizadaEm": "2026-09-28T13:45:01.170Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
