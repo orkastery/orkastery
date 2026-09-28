@@ -4,6 +4,19 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+## Não publicado
+
+### Corrigido
+
+- **Três testes instáveis do CI** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - o leitor de YAML do núcleo lia o SHA curto `0123456` como o número `123456`. Inteiro com zero à
+    esquerda ou além da precisão segura agora fica texto, e o `ork docs verificar` deixa de acusar
+    como inexistente um commit que existe;
+  - o lock do observador de sessão caía com `ENOENT` quando o dono o soltava no meio do recovery
+    de outro processo. Agora o outro processo assume o lock livre, e o resultado continua único;
+  - as fixtures do controller simulado criavam pastas com o `umask` de quem roda. Em conta com
+    `umask 002`, o sensor recusava, com razão, a fonte com escrita do grupo.
+
 ## 0.4.0 — 28/09/2026
 
 ### Adicionado

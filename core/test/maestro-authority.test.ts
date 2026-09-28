@@ -47,7 +47,8 @@ function reviewFixture(maxThreads = 3) {
   const record = (extra: Record<string, unknown> = {}) => registrar(dir, delivery, 'phase_result', { ...result, ...extra });
   const observe = (reason?: string, receiptExtra: Record<string, unknown> = {}) => {
     const log = path.join(dir, 'sessoes', 'fixture.codex.jsonl');
-    fs.mkdirSync(path.dirname(log), { recursive: true });
+    // 0700: a mesma pasta depois guarda a fonte do controller, que recusa ancestral com escrita alheia.
+    fs.mkdirSync(path.dirname(log), { recursive: true, mode: 0o700 });
     const line = (value: unknown) => JSON.stringify(value) + '\n';
     fs.writeFileSync(log, line({ type: 'thread.started', thread_id: session.sessionId }) +
       line({ type: 'turn.started', turn_id: 'fixture-turn' }) +
