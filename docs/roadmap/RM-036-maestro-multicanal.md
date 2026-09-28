@@ -1,0 +1,93 @@
+---
+id: RM-036
+tipo: roadmap
+titulo: Condução multicanal do Maestro no núcleo
+categoria: iniciativa
+pai: null
+features: [FEAT-029]
+owner: Julio
+atualizado_em: 2026-09-27T13:00:00-03:00
+estado:
+  ciclo: Em validação
+  documentacao: Em revisão
+  codigo: PR aberto
+  testes: Aprovados
+  deploy: Não implantado
+  exposicao: Flag desligada
+  habilitacao: Pendente
+evidencias:
+  codigo:
+    commit: null
+    pr: null
+sdlc:
+  thread: ork-i36multicana
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
+---
+
+# RM-036 — Condução multicanal do Maestro no núcleo
+
+> **Em uma frase:** Um Maestro, vários canais: o despacho que chega de outro canal é o próprio dono, e o núcleo coordena em vez de derrubar a sessão.
+
+<!-- ork-docs:relance:inicio -->
+
+| Ciclo do item | Código | Testes | Deploy | Exposição |
+| --- | --- | --- | --- | --- |
+| Em validação | PR aberto | Aprovados | Não implantado | Flag desligada |
+
+<!-- ork-docs:relance:fim -->
+
+- **Features:** [FEAT-029](../produto/FEAT-029-conducao-multicanal.md) Condução multicanal da thread
+- **Thread:** `ork-i36multicana`
+
+## Problema e resultado
+
+- **Problema:** uma conversa em outro canal era tratada como intrusa. Em 19/09/2026 duas sessões de canais diferentes rodaram build e teste juntas na mesma worktree, o `verify` gravou `code: -1` como reprovação, e o único jeito de destravar foi matar a sessão do outro canal.
+- **Resultado:** uma execução por worktree, em qualquer canal; o segundo pedido recebe na hora quem conduz e o que fazer; a mesma fase com o mesmo pedido não abre sessão nova; handoff explícito, sem matar processo por fora.
+- **Métrica:** execuções concorrentes na mesma worktree (meta: zero) e recusas `conducao.em-andamento` que viraram handoff ou espera, contadas no ledger.
+
+## Escopo e validação
+
+- **Escopo:** lease de execução `exec:<thread>` nos pontos de entrada que executam (`ork phase run`, `ork verify`, `ork fix`, `ork retry run` e o `ork_verify` do MCP); canal e correlação no despacho; recusa tipada com as três ações; despacho idempotente; `ork conducao status|assumir`; recuperação de condução órfã com prova; a mesma linha de condução em todas as telas e hosts.
+- **Fora de escopo:** multi-dono, interface web, contrato de HITL e desempenho do `ork verify`.
+- **Validação:** 20 testes novos (`core/test/conducao-*.test.ts`), incluindo o caso de aceite do incidente: dois `ork verify` reais na mesma worktree, e só um executa.
+
+## Plano e decisões
+
+- **Ordem acordada em 20/09/2026:** depois de #Fast ([RM-042](RM-042-modo-fast.md)) e do verify rápido ([RM-037](RM-037-verify-rapido-e-confiavel.md)).
+- **Decisão do dono sobre o segundo pedido (D2, 27/09/2026):** recusa imediata, com `--esperar` como opção, e explicando sempre para o humano quem conduz e o que fazer.
+- **Decisões do PLAN seguidas:** família nova `exec` (D1); prazo do teto real da operação, renovado (D3); reentrada pela identidade do despacho (D4); registro de seis canais separado do de HITL (D5); canal declarado pela borda, sem autoridade (D6); vida provada pelo kernel ou pelo runtime (D7); encerramento pelo controle do runtime (D8); leitura e texto em um lugar só (D9); idempotência por fase e sha do prompt (D10).
+
+## Estado com evidências
+
+- GO entregue na thread `ork-i36multicana` (27/09/2026): o lease mora no estado canônico do projeto, e a raiz e as worktrees disputam o mesmo arquivo.
+- A recusa chega igual pelo CLI (código de saída `3`) e pelo MCP; os adaptadores Hermes e OpenClaw declaram o canal deles.
+- Conhecido: os leases das famílias antigas continuam por checkout; `ork` chamado da raiz e de uma worktree não se excluem nelas.
+
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
+
+<!-- ork-docs:estado:inicio -->
+
+| Dimensão | Estado | Evidência | Data | Responsável |
+| --- | --- | --- | --- | --- |
+| Ciclo do item | Em validação | — | 2026-09-27 | Julio |
+| Documentação | Em revisão | — | 2026-09-27 | Julio |
+| Código | PR aberto | — | 2026-09-27 | Julio |
+| Testes | Aprovados | — | 2026-09-27 | Julio |
+| Deploy | Não implantado | — | 2026-09-27 | Julio |
+| Exposição | Flag desligada | — | 2026-09-27 | Julio |
+| Habilitação | Pendente | — | 2026-09-27 | Julio |
+
+<!-- ork-docs:estado:fim -->
+
+## Responsabilidades e histórico
+
+- **RACI:** R: agentes do Orkastery (Claude, Codex) · A: Julio · C: — · I: —
+- **Agentes e autonomia:** execução por agente dentro do modo da thread; revisão e decisão final: Julio.
+
+| Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
+| --- | --- | --- | --- |
+| 2026-09-19 | thread aberta | thread `ork-i36multicana` | Julio |
+| 2026-09-27 | D2 respondida: recusa imediata, sempre explicada para o humano | Telegram, 27/09 10:53 | Julio |
+| 2026-09-27 | GO entregue | thread `ork-i36multicana`, PR da entrega | Julio |

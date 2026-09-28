@@ -1,0 +1,47 @@
+name: Ideia ou pedido de funcionalidade
+description: Um problema real que o ork ainda não resolve
+labels: ["ideia"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Comece pelo problema, não pela solução. Antes, confira o [roadmap](https://github.com/Orkastery/orkastery/blob/main/docs/roadmap/README.md):
+        se o item já existe, comente nele o seu caso.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: O problema
+      description: O que você tentou fazer, o que aconteceu e quanto isso custa hoje (tempo, retrabalho, risco).
+    validations:
+      required: true
+
+  - type: textarea
+    id: hoje
+    attributes:
+      label: Como você contorna hoje
+      description: O que você faz no lugar, com os comandos, se houver.
+    validations:
+      required: false
+
+  - type: textarea
+    id: pronto
+    attributes:
+      label: Como saberíamos que ficou pronto
+      description: Um critério que um comando consiga provar. Critério sem prova é prosa.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: modo
+    attributes:
+      label: Em que modo de condução isso aparece
+      options:
+        - "#Classic"
+        - "#Maestro"
+        - "#Auto"
+        - "#Fast"
+        - todos
+        - não sei
+    validations:
+      required: false

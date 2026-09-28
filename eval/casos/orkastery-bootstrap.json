@@ -1,0 +1,136 @@
+{
+  "skill": "orkastery-bootstrap",
+  "casos": [
+    {
+      "id": "orkastery-bootstrap/roteia-sem-executar",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Um pedido novo chega num repositorio com orkastery.yaml e a skill raiz precisa dizer o que acontece agora.",
+      "esperado": "A skill roteia para o comando `ork` certo e nao executa fase nenhuma por conta propria.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Um roteador fino",
+          "porque": "a frase que separa roteador de implementacao, que e a regra do catalogo inteiro"
+        },
+        {
+          "tipo": "contem",
+          "valor": "A metodologia executavel mora no nucleo",
+          "porque": "o motivo pelo qual a prosa nao pode virar a fonte de verdade"
+        }
+      ]
+    },
+    {
+      "id": "orkastery-bootstrap/auto-dispensa-verify",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A thread e #Auto e o agente propoe pular a verificacao porque ninguem vai pausar mesmo.",
+      "esperado": "Recusado: o modo decide se o veredito espera o humano, nunca se a verificacao acontece.",
+      "racionalizacao": "Como e #Auto, da para pular o verify.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "modo afrouxa a pausa, NUNCA a verificacao",
+          "porque": "a regra central dos 5 modos, escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "rodam identicos em `#Classic` e em `#Auto`",
+          "porque": "o que torna a regra verificavel: as mesmas verificacoes nos dois extremos do espectro"
+        }
+      ]
+    },
+    {
+      "id": "orkastery-bootstrap/score-depois",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma thread foi entregue sem score e o builder quer abrir a proxima antes de avaliar.",
+      "esperado": "Recusado: entrega sem MASTER log nao aconteceu; nos modos sem pausa o score vai para a fila de batch, que continua humana.",
+      "racionalizacao": "Depois eu dou o score da thread anterior.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Entrega sem MASTER log nao aconteceu",
+          "porque": "a regra inviolavel, ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "fila de batch",
+          "porque": "o caminho que substitui a pausa nos modos autonomos, sem tirar o humano"
+        }
+      ]
+    },
+    {
+      "id": "orkastery-bootstrap/pedido-sem-tag",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O pedido do builder nao traz #TAG nenhuma.",
+      "esperado": "Vale o conduction.default_mode do manifesto, e quem decide isso e o nucleo, nao o host.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "conduction.default_mode",
+          "porque": "o fallback declarado quando o pedido nao traz tag"
+        },
+        {
+          "tipo": "contem",
+          "valor": "allowed_modes",
+          "porque": "a validacao que fica no nucleo e nao no adaptador"
+        }
+      ]
+    },
+    {
+      "id": "orkastery-bootstrap/host-escreve-codigo",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O host tem contexto suficiente para aplicar a correcao sozinho e propoe fazer isso.",
+      "esperado": "Recusado: a camada que apresenta nunca escreve codigo de produto.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nunca escreve codigo de produto",
+          "porque": "a regra de camada que preserva auditoria, isolamento e metrica"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Adaptador que implementa a demanda",
+          "porque": "a bandeira vermelha correspondente, para o revisor poder nomear o defeito"
+        }
+      ]
+    },
+    {
+      "id": "orkastery-bootstrap/frase-exata",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Sessão limpa recebe literalmente orkastery maestro; não há pedido de criação.",
+      "esperado": "Consulta somente leitura, contexto fixado, panorama e HITL compreensível.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "orkastery maestro",
+          "porque": "Entrada conversacional explícita"
+        },
+        {
+          "tipo": "contem",
+          "valor": "ork_maestro",
+          "porque": "Leitura canônica"
+        },
+        {
+          "tipo": "contem",
+          "valor": "maestro.project.ambiguous",
+          "porque": "Sem escolha silenciosa"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Prioridade máxima: usabilidade HITL",
+          "porque": "Prioridade do builder"
+        },
+        {
+          "tipo": "contem",
+          "valor": "a frase não abre outra orquestração",
+          "porque": "Fase filha não recursa"
+        }
+      ]
+    }
+  ]
+}

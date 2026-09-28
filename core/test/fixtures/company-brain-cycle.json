@@ -1,0 +1,1 @@
+{"schema":"ork.brain-cycle-corpus/v1","simulation":true,"types":["thread_created","phase_dispatch","phase_result","hitl_requested","hitl_answered","hitl_confirmed","hitl_expired","autonomous_decision","human_gate","claim_added","verify_run","artifact_delivered","ship_done","postmortem_recorded","master_done","score_proposto"]}

@@ -1,0 +1,103 @@
+{
+  "skill": "goal-definition",
+  "casos": [
+    {
+      "id": "goal-definition/explora-antes-de-definir",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Uma demanda entra no GOAL num repositorio que o agente nunca leu.",
+      "esperado": "O GOAL cita arquivos e trechos concretos, escreve as premissas e vira claims com comando.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Exploracao do repositorio real",
+          "porque": "o passo que separa GOAL de resumo plausivel"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Cite arquivos e trechos concretos ou a exploracao nao aconteceu",
+          "porque": "o criterio mecanico que um revisor consegue conferir"
+        }
+      ]
+    },
+    {
+      "id": "goal-definition/ja-conheco-o-framework",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A demanda toca uma stack que o modelo domina e ele propoe pular a exploracao.",
+      "esperado": "Recusado: a exploracao mira o repositorio real, nao a memoria do modelo.",
+      "racionalizacao": "Eu ja conheco esse framework, da para pular a exploracao.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nao a memoria do modelo",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Um GOAL sem arquivo nem trecho citado",
+          "porque": "a bandeira vermelha que torna a recusa verificavel"
+        }
+      ]
+    },
+    {
+      "id": "goal-definition/adjetivo-como-metrica",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O criterio de sucesso proposto e que a funcionalidade funcione bem e o usuario goste.",
+      "esperado": "Recusado: criterios sao observaveis, nunca adjetivos, e viram claims com comando.",
+      "racionalizacao": "O criterio e que funcione bem e o usuario goste.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nunca adjetivo",
+          "porque": "a regra escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Criterio de sucesso escrito com adjetivo",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "goal-definition/premissas-obvias",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A stack e o publico parecem evidentes e escrever premissas parece cerimonia.",
+      "esperado": "Recusado: premissa implicita e a maior fonte de retrabalho e e tratada como defeito de processo.",
+      "racionalizacao": "Listar premissa e burocracia, elas sao obvias.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Premissa implicita e a maior fonte de retrabalho",
+          "porque": "o custo declarado, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Premissas ausentes",
+          "porque": "a bandeira vermelha que nomeia onde a conta chega"
+        }
+      ]
+    },
+    {
+      "id": "goal-definition/repositorio-vazio",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O repositorio alvo esta vazio e o agente reporta que nao ha o que explorar.",
+      "esperado": "Explorar repositorio vazio tambem e explorar: escreve-se o que foi verificado ausente.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Explorar repositorio vazio tambem e explorar",
+          "porque": "a regra que impede a ausencia de virar premissa implicita"
+        },
+        {
+          "tipo": "contem",
+          "valor": "reproduzir o defeito e criterio obrigatorio",
+          "porque": "o par da regra para demanda de correcao, no mesmo item"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "id": "fx-fase-orfa",
+  "sobre": "fx-fase-orfa da I-01",
+  "porque": "Reproduzir o incidente com estado real em sandbox e comparar observação com contrato versionado.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "detectadas": 3,
+    "latenciaMaxMin": 10,
+    "motivos": [
+      "runtime.silencio"
+    ],
+    "automaticas": 0,
+    "precisamDeHumano": 3
+  },
+  "replay": [
+    {
+      "threadOrigem": "ork-elevarqualid",
+      "fonte": ".orkastery/threads/ork-elevarqualid/ledger.jsonl",
+      "sha256": "f3f8b5df8d72eacd3dc66aedf47120d8c69ad34e3263e775ed0c6893628618d7",
+      "linhasDoPrefixo": [
+        6,
+        8
+      ],
+      "consultaEm": "2026-09-07T15:47:18.799Z",
+      "eventos": [
+        {
+          "ts": "2026-09-07T15:37:18.799Z",
+          "tipo": "phase_dispatch",
+          "fase": "GO",
+          "sessionId": "01a07c84-4636-7a40-8485-e5a11a4f6db0",
+          "runtime": "codex",
+          "origem": "phase.run"
+        },
+        {
+          "ts": "2026-09-07T15:37:18.799Z",
+          "tipo": "phase_dispatch_verified",
+          "fase": "GO",
+          "sessionId": "01a07c84-4636-7a40-8485-e5a11a4f6db0"
+        },
+        {
+          "ts": "2026-09-07T15:37:18.799Z",
+          "tipo": "autonomous_decision",
+          "fase": "GO",
+          "sessionId": "01a07c84-4636-7a40-8485-e5a11a4f6db0"
+        }
+      ]
+    },
+    {
+      "threadOrigem": "ork-grandeevoluc",
+      "fonte": ".orkastery/threads/ork-grandeevoluc/ledger.jsonl",
+      "sha256": "a4ad63d61fe746965dd28a9267a7e766149696280bb7ad42ff6a388f34e22559",
+      "linhasDoPrefixo": [
+        10,
+        12
+      ],
+      "consultaEm": "2026-09-07T15:00:43.661Z",
+      "eventos": [
+        {
+          "ts": "2026-09-07T14:50:43.661Z",
+          "tipo": "phase_dispatch",
+          "fase": "GO",
+          "sessionId": "01a07c59-9d9e-7981-885a-7f0634a07169",
+          "runtime": "codex",
+          "origem": "phase.run"
+        },
+        {
+          "ts": "2026-09-07T14:50:43.662Z",
+          "tipo": "phase_dispatch_verified",
+          "fase": "GO",
+          "sessionId": "01a07c59-9d9e-7981-885a-7f0634a07169"
+        },
+        {
+          "ts": "2026-09-07T14:50:43.662Z",
+          "tipo": "autonomous_decision",
+          "fase": "GO",
+          "sessionId": "01a07c59-9d9e-7981-885a-7f0634a07169"
+        }
+      ]
+    },
+    {
+      "threadOrigem": "ork-trocarosdois",
+      "fonte": ".orkastery/threads/ork-trocarosdois/ledger.jsonl",
+      "sha256": "e4c993a13a9e928896dfbd832f1be73b53364a2b343959072bcd5008756d0ad5",
+      "linhasDoPrefixo": [
+        3,
+        5
+      ],
+      "consultaEm": "2026-09-07T12:40:49.654Z",
+      "eventos": [
+        {
+          "ts": "2026-09-07T12:30:49.654Z",
+          "tipo": "phase_dispatch",
+          "fase": "GOAL",
+          "sessionId": "01a07bd9-892a-7280-b0fc-67a472a9f039",
+          "runtime": "codex",
+          "origem": "phase.run"
+        },
+        {
+          "ts": "2026-09-07T12:30:49.654Z",
+          "tipo": "phase_dispatch_verified",
+          "fase": "GOAL",
+          "sessionId": "01a07bd9-892a-7280-b0fc-67a472a9f039"
+        },
+        {
+          "ts": "2026-09-07T12:30:49.654Z",
+          "tipo": "autonomous_decision",
+          "fase": "GOAL",
+          "sessionId": "01a07bd9-892a-7280-b0fc-67a472a9f039"
+        }
+      ]
+    }
+  ],
+  "limiteDaProva": "Replay do primeiro despacho Codex visto pela main em 07/09: prefixo append-only anterior ao próximo redespacho, limitado a dez minutos. Eventos antigos anexados pela reconciliação posterior não estavam visíveis nesse prefixo. Sensores externos de commit/rollout não fazem parte desta captura. GO-FIX I-06: este prefixo nao comprova morte. Tres alertas humanos, sem autorizar retry automatico."
+}

@@ -1,0 +1,34 @@
+// Padronizacao de Markdown da documentacao de produto e do roadmap (Orkastery, I-44).
+// Divisao de trabalho: este linter cobre a FORMA do Markdown; `ork docs verificar` cobre
+// frontmatter, leitura (TDAH), paridade com o codigo e com o git.
+{
+  "globs": [
+    "docs/README.md",
+    "docs/comecar/**/*.md",
+    "docs/guias/**/*.md",
+    "docs/referencia/**/*.md",
+    "docs/conceitos/**/*.md",
+    "docs/produto/**/*.md",
+    "docs/roadmap/**/*.md",
+    "docs/padroes/**/*.md",
+    "README.md",
+    "README.pt-BR.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "ATTRIBUTION.md",
+    "adapters/README.md"
+  ],
+  "config": {
+    "default": true,
+    // Prosa em portugues nao quebra linha em 80 colunas: um paragrafo e uma linha.
+    "MD013": false,
+    // "Historico" e "Comportamento" repetem entre paginas, nunca entre irmaos do mesmo titulo.
+    "MD024": { "siblings_only": true },
+    // O modelo usa a mesma forma de lista ordenada que o padrao do dono.
+    "MD029": { "style": "one_or_ordered" },
+    // HTML so para imagem, selo e dobra de detalhe; layout em HTML esconde a resposta da primeira linha.
+    "MD033": { "allowed_elements": ["img", "picture", "source", "br", "sub", "sup", "kbd", "details", "summary"] }
+  }
+}

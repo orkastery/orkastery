@@ -1,0 +1,26 @@
+{
+  "name": "@orkastery/openclaw-plugin",
+  "version": "0.3.0",
+  "description": "Plugin Orkastery para OpenClaw: 25 tools ork_* que traduzem intencao em chamada de CLI do nucleo `ork`. Zero regra de negocio no host.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "openclaw": ">=2026.7.1"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}

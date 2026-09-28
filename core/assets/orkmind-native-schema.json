@@ -1,0 +1,32 @@
+{
+  "schema": "ork.native-entry-fields/v1",
+  "fields": [
+    "author_id",
+    "collection",
+    "conflict",
+    "content",
+    "content_hash",
+    "created_at",
+    "embedding",
+    "encrypted",
+    "encryption_meta",
+    "essence",
+    "expires_at",
+    "id",
+    "injection_risk",
+    "layer_generated_at",
+    "mandatory",
+    "metadata",
+    "parent_id",
+    "priority",
+    "protected",
+    "scope",
+    "source",
+    "structure",
+    "tags",
+    "updated_at",
+    "url",
+    "version",
+    "visibility"
+  ]
+}

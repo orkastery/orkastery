@@ -1,0 +1,16 @@
+{
+  "id": "fx-modo-aposentado-leitor",
+  "sobre": "Thread e recibo gravados em #Look ou #Ork continuam sendo LIDOS inteiros depois da aposentadoria: a tag certa, a estrutura de blocos do modo e a profundidade do recibo assinado.",
+  "porque": "O jeito conhecido de esta remoção parecer certa e não ser é encolher o LEITOR junto com o ESCRITOR. As três threads reais (ork-smokeb0 em 02/09, ork-b2worktree e ork-b4adapt em 03/09) estão fechadas mas continuam abrindo, e há 276 ocorrências desses modos no estado em disco. Se a matriz encolhesse, `tagDoModo` devolveria `#?look` no board e um pedido `ork.hitl/v1` com `modo: look, profundidade: profunda` deixaria de validar EM SILÊNCIO: o produto passaria a negar o recibo que ele mesmo emitiu e assinou.",
+  "precisa": ["git"],
+  "esperado": {
+    "tags": ["#Look", "#Ork"],
+    "pausas": [6, 5],
+    "recibosValidos": 2,
+    "todoAposentadoTemDefinicao": true,
+    "nenhumAposentadoEscrivel": true,
+    "todoVivoEhLegado": true,
+    "profundidadeDeLook": "profunda",
+    "profundidadeDeOrk": "detalhada"
+  }
+}

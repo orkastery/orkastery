@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 670" width="1160" height="670" role="img" aria-label="Auditores periodicos do Orkastery: packs por estagio do produto e o que uma rodada produz">
+  <title>Orkastery, auditores periodicos e hardening gradual</title>
+  <defs><marker id="s" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 L11 6 L1 11 z" fill="#54688A"/></marker></defs>
+  <rect x="0" y="0" width="1160" height="670" rx="16" fill="#0F1520"/>
+  <text x="40" y="54" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" fill="#E6EDF7">Auditores periodicos, em hardening gradual</text>
+  <text x="40" y="82" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#8FA3BE">Voce cria sem carregar o peso das boas praticas no dia 1. A exigencia sobe junto com o produto, e o auditor nunca aplica correcao sozinho.</text>
+  <text x="40" y="118" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6" fill="#4FB6E8">1. O QUE ESTA LIGADO DEPENDE DO ESTAGIO DECLARADO NO MANIFESTO</text>
+  <rect x="40" y="130" width="346" height="190" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <rect x="40" y="142" width="4" height="166" rx="2" fill="#45C08A"/>
+  <text x="60" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#E6EDF7">nascente</text>
+  <text x="156" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#6F8AAB">pre-MVP</text>
+  <rect x="60" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#45C08A" stroke-width="1"/>
+  <text x="68" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">clean-code</text>
+  <rect x="218" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#45C08A" stroke-width="1"/>
+  <text x="226" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">reuse</text>
+  <rect x="60" y="195" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="68" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">architecture</text>
+  <text x="200" y="207.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <rect x="218" y="195" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="226" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">data-model</text>
+  <text x="358" y="207.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <rect x="60" y="216" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="68" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">ux</text>
+  <text x="200" y="228.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <rect x="218" y="216" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="226" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">security-privacy</text>
+  <text x="358" y="228.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <rect x="60" y="237" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="68" y="249.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">process</text>
+  <text x="200" y="249.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <text x="60" y="278" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#45C08A">So avisa. O builder cria livre</text>
+  <text x="60" y="293" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">e o auditor anota.</text>
+  <rect x="407" y="130" width="346" height="190" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <rect x="407" y="142" width="4" height="166" rx="2" fill="#4FB6E8"/>
+  <text x="427" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#E6EDF7">crescendo</text>
+  <text x="533" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#6F8AAB">MVP no ar</text>
+  <rect x="427" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#4FB6E8" stroke-width="1"/>
+  <text x="435" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">clean-code</text>
+  <rect x="585" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#4FB6E8" stroke-width="1"/>
+  <text x="593" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">reuse</text>
+  <rect x="427" y="195" width="148" height="18" rx="5" fill="#12251E" stroke="#4FB6E8" stroke-width="1"/>
+  <text x="435" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">architecture</text>
+  <rect x="585" y="195" width="148" height="18" rx="5" fill="#12251E" stroke="#4FB6E8" stroke-width="1"/>
+  <text x="593" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">data-model</text>
+  <rect x="427" y="216" width="148" height="18" rx="5" fill="#12251E" stroke="#4FB6E8" stroke-width="1"/>
+  <text x="435" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">ux</text>
+  <rect x="585" y="216" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="593" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">security-privacy</text>
+  <text x="725" y="228.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <rect x="427" y="237" width="148" height="18" rx="5" fill="#101827" stroke="#2A3446" stroke-width="0.8"/>
+  <text x="435" y="249.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#4E617D">process</text>
+  <text x="567" y="249.8" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#3E4E68">off</text>
+  <text x="427" y="278" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#4FB6E8">Achado critico vira proposta</text>
+  <text x="427" y="293" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">prioritaria no roadmap.</text>
+  <rect x="774" y="130" width="346" height="190" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <rect x="774" y="142" width="4" height="166" rx="2" fill="#F2A03D"/>
+  <text x="794" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#E6EDF7">maduro</text>
+  <text x="870" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#6F8AAB">usuarios reais</text>
+  <rect x="794" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="802" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">clean-code</text>
+  <rect x="952" y="174" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="960" y="186.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">reuse</text>
+  <rect x="794" y="195" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="802" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">architecture</text>
+  <rect x="952" y="195" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="960" y="207.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">data-model</text>
+  <rect x="794" y="216" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="802" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">ux</text>
+  <rect x="952" y="216" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="960" y="228.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">security-privacy</text>
+  <rect x="794" y="237" width="148" height="18" rx="5" fill="#12251E" stroke="#F2A03D" stroke-width="1"/>
+  <text x="802" y="249.8" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#C9D8EC">process</text>
+  <text x="794" y="278" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#F2A03D">A recorrencia promove a policy de</text>
+  <text x="794" y="293" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">warn para block: 2 propoem controle,</text>
+  <text x="794" y="308" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">3 propoem bloqueante.</text>
+  <text x="40" y="352" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6" fill="#4FB6E8">2. O QUE UMA RODADA FAZ, E O QUE ELA NUNCA FAZ</text>
+  <rect x="40" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="54" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">O host dispara</text>
+  <text x="54" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">cron ou schedule do</text>
+  <text x="54" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">proprio orquestrador</text>
+  <text x="54" y="478" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="9.5" fill="#F2A03D">ork audit run &lt;pack&gt;</text>
+  <line x1="211" y1="429" x2="219" y2="429" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="222" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="236" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">O ork monta o prompt</text>
+  <text x="236" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">escopo incremental por</text>
+  <text x="236" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">--since, esforco eco na</text>
+  <text x="236" y="438" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">janela ociosa</text>
+  <line x1="393" y1="429" x2="401" y2="429" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="404" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="418" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">O runtime le</text>
+  <text x="418" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">so leitura. Nada de</text>
+  <text x="418" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">escrita no codigo do</text>
+  <text x="418" y="438" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">produto</text>
+  <line x1="575" y1="429" x2="583" y2="429" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="586" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="600" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">Achados com prova</text>
+  <text x="600" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">evidencia arquivo:linha,</text>
+  <text x="600" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">claim, estimativa e passo</text>
+  <text x="600" y="438" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">irreversivel destacado</text>
+  <line x1="757" y1="429" x2="765" y2="429" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="768" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="782" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">O ork reverifica</text>
+  <text x="782" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">reexecuta as claims do</text>
+  <text x="782" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">auditor: nem o auditor</text>
+  <text x="782" y="438" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">se auto-reporta</text>
+  <text x="782" y="478" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="9.5" fill="#F2A03D">ork audit verify</text>
+  <line x1="939" y1="429" x2="947" y2="429" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="950" y="366" width="168" height="126" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="964" y="388" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">Sai PROPOSTA</text>
+  <text x="964" y="408" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">bloco obrigatorio de</text>
+  <text x="964" y="423" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">propostas ao roadmap.</text>
+  <text x="964" y="438" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">Nunca correcao aplicada</text>
+  <text x="964" y="478" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="9.5" fill="#F2A03D">ork audit report</text>
+  <rect x="40" y="516" width="530" height="112" rx="12" fill="#111A28" stroke="#33415C"/>
+  <rect x="40" y="528" width="4" height="88" rx="2" fill="#F2A03D"/>
+  <text x="64" y="542" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#F2A03D">3. VOCE DECIDE O QUE VIRA TRABALHO</text>
+  <text x="64" y="566" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#F2A03D">ork thread new --from-finding &lt;id&gt;</text>
+  <text x="64" y="586" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">A evidencia, a claim e a proposta viajam junto para o GOAL da</text>
+  <text x="64" y="602" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">thread nova. Sem retrabalho de reescrever o achado.</text>
+  <text x="64" y="620" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6F8AAB">ork audit divida</text>
+  <text x="184" y="620" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#6F8AAB">mostra o que segue aberto e o que ja se repetiu.</text>
+  <rect x="590" y="516" width="530" height="112" rx="12" fill="#111A28" stroke="#33415C"/>
+  <rect x="590" y="528" width="4" height="88" rx="2" fill="#45C08A"/>
+  <text x="614" y="542" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#45C08A">SEM LLM NENHUM: A VARREDURA DETERMINISTICA</text>
+  <text x="614" y="566" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#9FE3C4">ork audit surface</text>
+  <text x="614" y="586" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">Superficie de ataque de rede em regras fixas SP8..SP12: rota sem</text>
+  <text x="614" y="602" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">auth, admin exposto, rota sem rate limit, CORS permissivo, payload</text>
+  <text x="614" y="618" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">sem esquema. Sai diferente de zero quando acha. Roda em CI.</text>
+  <text x="1120" y="656" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54688A">orkastery / docs/diagramas/auditores-e-hardening.svg</text>
+</svg>

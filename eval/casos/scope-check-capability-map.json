@@ -1,0 +1,121 @@
+{
+  "skill": "scope-check-capability-map",
+  "casos": [
+    {
+      "id": "scope-check-capability-map/devolve-com-o-que-falta",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Uma demanda chega pedindo algo que o produto ainda nao faz.",
+      "esperado": "A fase 0 devolve nomeando o que falta e o que destravaria, antes de qualquer thread gastar janela.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "ela devolve o que falta, com nome",
+          "porque": "a promessa da fase 0"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Devolver \"nao da\" sem o que falta e recusa, nao scope check",
+          "porque": "o contrato de devolucao"
+        }
+      ]
+    },
+    {
+      "id": "scope-check-capability-map/comeco-e-vejo-depois",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente propoe comecar e descobrir no caminho o que falta.",
+      "esperado": "Recusado: descobrir a falta no GO custa a thread inteira; o scope check custa um comando.",
+      "racionalizacao": "Comeco e vejo no caminho o que falta.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Capacidade de produto",
+          "porque": "o eixo do mapa que responde essa pergunta antes do GOAL"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Demanda que pede capacidade inexistente sem isso estar escrito",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "scope-check-capability-map/doctor-com-fail",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O preflight contextual do modo indica falha relevante no bloco inicial, mas o agente quer despachar porque o pedido usa Auto.",
+      "esperado": "Recusado: prontoPrimeiroBloco falso ou falha relevante do bloco inicial impede seu despacho; Auto nao remove verificacao.",
+      "racionalizacao": "Ignoro qualquer fail porque escolhi Auto.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Confira `prontoPrimeiroBloco` e os checks do bloco inicial",
+          "porque": "a regra contextual fora da tabela de racionalizacoes"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Despacho iniciado com `prontoPrimeiroBloco` falso ou falha relevante do bloco inicial",
+          "porque": "a bandeira vermelha correspondente continua bloqueante"
+        }
+      ]
+    },
+    {
+      "id": "scope-check-capability-map/regiao-ja-sob-lease",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A regiao que a demanda vai tocar ja esta sob lease de outra thread.",
+      "esperado": "A capacidade de paralelismo e parte do mapa: a colisao aparece antes, com fila prevista.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Capacidade de paralelismo",
+          "porque": "o eixo do mapa que cobre lease e teto de threads"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Regiao de arquivos ja sob lease de outra thread",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "scope-check-capability-map/dependencia-futura",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Maestro tem primeiro bloco pronto e um runtime indisponivel apenas num bloco futuro.",
+      "esperado": "Informe a dependencia futura; nao a apresente como impedimento do bloco inicial pronto nem prometa entrega completa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "`prontoTodosBlocos` informa dependencias dos blocos futuros",
+          "porque": "separa o diagnostico futuro do bloco inicial"
+        },
+        {
+          "tipo": "contem",
+          "valor": "anuncie essas limitacoes sem confundi-las com impedimento do bloco inicial",
+          "porque": "orienta comunicar a limitacao sem trocar seu alcance"
+        }
+      ]
+    },
+    {
+      "id": "scope-check-capability-map/doctor-global-opcional",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O preflight do modo esta pronto, mas o doctor amplo acusa ausencia de runtime que o modo nao usa.",
+      "esperado": "Siga a prontidao contextual e seus limites; diagnostico global e opcional, sem retirar gates do despacho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O `ork doctor` sem modo e um diagnostico amplo opcional, com inventario global",
+          "porque": "a consulta global tem alcance diferente do preflight contextual"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o preflight contextual nem deve competir com ele como rota obrigatoria de despacho",
+          "porque": "impede restaurar dependencia irrelevante como gate geral"
+        }
+      ]
+    }
+  ]
+}

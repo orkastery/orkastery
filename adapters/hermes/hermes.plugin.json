@@ -1,0 +1,43 @@
+{
+  "name": "orkastery",
+  "displayName": "Orkastery",
+  "version": "{{versao}}",
+  "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`. O Hermes vira podio: le a #TAG do pedido, chama o `ork` e apresenta os gates ao humano.",
+  "license": "MIT",
+  "kind": "skill-router",
+  "skills": [
+    "./skills/orkastery-devmaster"
+  ],
+  "bin": {
+    "ork_maestro": "./bin/ork-maestro.sh",
+    "ork-abrir-thread": "./bin/ork-abrir-thread.sh",
+    "ork_brain": "./bin/ork-brain.sh",
+    "ork_objective_status": "./bin/ork-objective-status.sh",
+    "ork_objective_message": "./bin/ork-objective-message.sh",
+    "ork_gate_answer": "./bin/ork-hitl-answer.py",
+    "ork_session_answer": "./bin/ork-hitl-answer.py"
+  },
+  "requires": {
+    "ork": ">=0.1.0",
+    "comando": "{{ork_bin}}"
+  },
+  "conduction": {
+    "tags": [
+      "#Classic",
+      "#Maestro",
+      "#Auto",
+      "#Fast"
+    ],
+    "aposentadas": [
+      "#Look",
+      "#Ork"
+    ],
+    "parse": "ork modos --do-pedido \"<pedido>\"",
+    "nota": "O host transporta a tag. A validacao contra conduction.allowed_modes e do nucleo. Uma #TAG aposentada recebe recusa tipada modo.aposentado do nucleo, com saida != 0; o host nao a traduz nem a ignora."
+  },
+  "onboarding": {
+    "pauta": "ork onboarding",
+    "estado": "ork onboarding show --json",
+    "nota": "Etapas e validação são do núcleo; valores secretos somente em ~/.hermes/.env."
+  }
+}

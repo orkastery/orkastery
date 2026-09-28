@@ -1,0 +1,103 @@
+{
+  "skill": "roadmap-keeper",
+  "casos": [
+    {
+      "id": "roadmap-keeper/registra-antes-de-abrir",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Uma demanda nova chega do builder.",
+      "esperado": "Ela entra registrada com titulo, origem e problema antes de virar `ork thread new`.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Registrar antes de abrir",
+          "porque": "o primeiro item de conduta"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Origem sempre",
+          "porque": "a regra que impede item orfao no quadro"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-keeper/registro-depois",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente propoe abrir a thread agora e registrar a demanda depois.",
+      "esperado": "Recusado: registrar depois e registrar do jeito que a memoria contar.",
+      "racionalizacao": "Abro a thread agora e registro depois.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "A demanda entra com titulo, origem e o problema que resolve",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Thread aberta sem item de roadmap correspondente",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-keeper/auditor-corrige-direto",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Um pack de auditoria acha um problema e o agente aplica a correcao direto.",
+      "esperado": "Recusado: auditor propoe, roadmap decide; correcao aplicada por auditor e mudanca sem dono e sem gate.",
+      "racionalizacao": "O auditor achou, ja corrijo direto.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Proposta de auditor entra como proposta",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Achado de auditor aplicado como correcao direta",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-keeper/cabe-mais-uma-thread",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O quadro ja esta no teto de paralelismo e o agente quer abrir mais uma thread pequena.",
+      "esperado": "Recusado: o teto e o do manifesto, medido, nao o do otimismo.",
+      "racionalizacao": "Cabe mais uma thread em paralelo, e pequena.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "concurrency.max_parallel_threads",
+          "porque": "o campo do manifesto que fixa o teto real"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Numero de threads ativas acima do teto do manifesto",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "roadmap-keeper/escopo-encolhe-em-silencio",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Um item sai do escopo durante a execucao, sem registro.",
+      "esperado": "Recusado: escopo que encolhe em silencio e escopo que reaparece como surpresa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Item que sai do escopo sai com decisao registrada",
+          "porque": "a regra de conduta"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Escopo reduzido sem registro de quem decidiu",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    }
+  ]
+}

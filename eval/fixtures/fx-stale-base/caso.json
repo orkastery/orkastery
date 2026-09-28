@@ -1,0 +1,12 @@
+{
+  "id": "fx-stale-base",
+  "sobre": "A branch base recebe um commit depois de a thread carimbar a sua base. A auditoria da worktree, que passava, passa a reprovar com a correcao acionavel.",
+  "porque": "Base que anda embaixo de uma thread longa e a classe de falha `base-avancou` do POSTMORTEM. Sem deteccao, o CHECK aprova um diff contra um mundo que nao existe mais e o merge descobre isso no pior momento.",
+  "precisa": ["git"],
+  "esperado": {
+    "auditavaAntes": true,
+    "auditaDepois": false,
+    "checkDaBase": "fail",
+    "correcao": "ork worktree sync evl-baseandou"
+  }
+}

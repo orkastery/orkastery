@@ -1,0 +1,18 @@
+# Substitua /CAMINHO/orkastery pelo checkout principal e confira o PATH do host.
+# Instale junto das entradas existentes com crontab. Nunca usar cron LLM deliver=origin.
+# A rotina inclui $HOME/.local/bin; outro prefixo usa ORK_PULSE_RUNTIME_BIN.
+# O launcher carrega monitor/pulse-write-scope.json do projeto alvo (D17).
+# Sem arquivo nem ORK_PULSE_WRITE_SCOPE, apenas observa e entrega alertas.
+# Ambiente e arquivo divergentes interrompem a rodada com erro explicito.
+# Novos IDs exigem decisao explicita. Nao carregar credenciais no launcher.
+# SHIP requer rebuild de core/dist na main e prova de escopo antes de concluir.
+# Threads protegidas sao recusadas; nao usar escopo global nem derivado do inventario.
+#
+# A batida e de 15 em 15 minutos e quem decide se ESTA batida entrega e o nucleo (I-50, RM-039):
+# pergunta nova ao dono sai na batida seguinte; o resumo periodico so sai quando a janela da
+# cadencia virou. A cadencia e a tag que o dono manda no canal, sem editar este arquivo:
+# #OrkPulseOff (8h, as 08h, 16h e 00h), #OrkPulseOn (2h), #OrkPulseOn-15m, -30m e -60m (o padrao).
+# A entrega e UM resumo por varredura, nunca uma mensagem por item: entregar por item a cada
+# poucos minutos inunda o canal do dono. Esse teto nao e configuravel, e vive no nucleo.
+PATH=/usr/local/bin:/usr/bin:/bin
+*/15 * * * * /CAMINHO/orkastery/monitor/varredura-pulse.sh

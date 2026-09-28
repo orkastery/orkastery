@@ -1,0 +1,94 @@
+# Manifesto do Orkastery (v1, bloco B0)
+# Gerado por `ork init`. Fonte unica da configuracao do projeto.
+# Limite duro de 16 KB: prosa longa vai para a memoria com tag, nao para este arquivo.
+
+project:
+  name: "orkastery"
+  # abbrev: ate 3 caracteres [a-z0-9], parte 1 do slug de sessao, unica no workspace
+  abbrev: "ork"
+  stage: nascente
+
+board:
+  adapter: hermes-kanban
+  default: default
+
+runtime:
+  # Runtimes homologados:
+  #   claude-bg (padrao, mais maduro): despacha `claude --bg`, sessao visivel no app
+  #             e em `claude agents --json`
+  #   codex: despacha `codex exec` headless na sessao autenticada do Codex CLI,
+  #          verificado no rollout de $CODEX_HOME/sessions (requer `codex login`)
+  adapter: claude-bg
+  model: opus
+  effort: high
+  # subscription-only: proibido despachar por provider pago (cobra por token, fora da assinatura)
+  provider_policy: subscription-only
+  # sandbox do runtime codex: read-only | workspace-write | danger-full-access
+  # (danger-full-access SO onde o bubblewrap nao roda; `ork doctor` tem a sonda)
+  sandbox: workspace-write
+  # A entrada ork e os adapters removem credenciais pagas sob subscription-only.
+
+conduction:
+  # modo usado quando o pedido do builder nao traz #TAG
+  default_mode: classic
+  allowed_modes: [classic, maestro, auto, fast]
+
+worktree:
+  base_branch: "main"
+  dir: ".claude/worktrees"
+  por_thread: true
+
+verify:
+  build: "npm --prefix core run build"
+  test: "npm --prefix core test"
+  # typecheck: nao detectado
+  # I-54 (RM-037): compila uma vez antes das claims e confere o produto do preparo ao fim da rodada.
+  preparo: "npm --prefix core run build && npm --prefix core run build:test"
+
+ci:
+  # O SHIP consulta o check obrigatório no SHA candidato antes de tomar o lease da base.
+  required_for_ship: true
+  context: ork-verify
+  # O runner hospedado não oferece OrkMind/PostgreSQL local nem user namespaces. A suíte
+  # hermética mantém essas integrações na verificação integral da estação de desenvolvimento.
+  command: "npm --prefix core run test:ci"
+
+concurrency:
+  max_parallel_threads: 3
+
+handoff:
+  # gate de tokens (bloco B1): rotaciona a sessao acima destas ocupacoes de janela
+  rotate_above: 0.70
+  force_rotate_above: 0.85
+
+retry:
+  # autonomia do bloco B3: retry tipado por motivo de gate e fila duravel de rate limit
+  # max_tentativas e o LIMITE DE ESCALACAO: estourado, pausa qualquer modo, ate #Auto
+  max_tentativas: 3
+  # janela usada so quando o runtime diz "rate limit" e NAO diz a hora do reset
+  janela_padrao_min: 60
+  escalar_esforco: true
+
+memory:
+  # files = fallback honesto sem OrkMind (handoff por arquivos, ponteiro path#ancora)
+  # orkmind = camada semantica do bloco B6 por cima, com degradacao honesta para files
+  mode: orkmind
+  tenant: orkastery
+  # NOME da variavel de ambiente com a DSN da base PROPRIA deste tenant, nunca a DSN.
+  # Banco governado do Company Brain: memória e projeção B1 no mesmo tenant.
+  database_url_env: "ORKASTERY_BRAIN_READ_DATABASE_URL"
+  cli: orkmind
+  timeout_ms: 15000
+
+audit:
+  # governanca de custo dos auditores periodicos (bloco B5, visao secao 5.3)
+  # janela ociosa da assinatura: fora dela a rodada so anda com --agora <quem>
+  janela_ociosa: "22:00-06:00"
+  effort: eco
+  since_padrao: 7d
+  graphify: auto
+
+policies:
+  provider: block
+  segredo_em_prompt: block
+  push_direto_na_base: block

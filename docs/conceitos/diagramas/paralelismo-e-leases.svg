@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 630" width="1160" height="630" role="img" aria-label="Threads paralelas do Orkastery isoladas por worktree, serializadas por leases tipados e por uma fila de merge">
+  <title>Orkastery, paralelismo sem colisao</title>
+  <defs><marker id="s" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 L11 6 L1 11 z" fill="#54688A"/></marker></defs>
+  <rect x="0" y="0" width="1160" height="630" rx="16" fill="#0F1520"/>
+  <text x="40" y="54" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" fill="#E6EDF7">N threads em paralelo, sem colisao</text>
+  <text x="40" y="82" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#8FA3BE">O "max 2 ciclos" deixou de ser disciplina humana e virou recurso gerenciado: worktree isolada, lease tipado e fila duravel.</text>
+  <rect x="40" y="112" width="336" height="384" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <text x="62" y="140" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#4FB6E8">1. UMA THREAD, UMA WORKTREE</text>
+  <text x="62" y="160" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">Base resolvida e carimbada pelo ork,</text>
+  <text x="62" y="176" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">nunca escolhida pelo executor.</text>
+  <rect x="62" y="194" width="292" height="84" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="62" y="206" width="4" height="60" rx="2" fill="#45C08A"/>
+  <text x="80" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#E6EDF7">ork-checkout-f34</text>
+  <text x="80" y="237" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6F8AAB">.claude/worktrees/ork-checkout</text>
+  <text x="80" y="254" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#9FD4F2">path:src/checkout/**</text>
+  <text x="80" y="270" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#45C08A">conduzindo GO-CHECK</text>
+  <rect x="62" y="292" width="292" height="84" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="62" y="304" width="4" height="60" rx="2" fill="#F2A03D"/>
+  <text x="80" y="316" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#E6EDF7">ork-pagament-f34</text>
+  <text x="80" y="335" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6F8AAB">.claude/worktrees/ork-pagament</text>
+  <text x="80" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#9FD4F2">path:src/checkout/**</text>
+  <text x="80" y="368" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#F2A03D">espera: regiao ja tomada</text>
+  <rect x="62" y="390" width="292" height="84" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="62" y="402" width="4" height="60" rx="2" fill="#45C08A"/>
+  <text x="80" y="414" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#E6EDF7">ork-docs-full</text>
+  <text x="80" y="433" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6F8AAB">.claude/worktrees/ork-docs</text>
+  <text x="80" y="450" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#9FD4F2">path:docs/**</text>
+  <text x="80" y="466" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#45C08A">conduzindo o ciclo inteiro</text>
+  <line x1="200" y1="288" x2="200" y2="290" stroke="#0F1520"/>
+  <rect x="396" y="112" width="336" height="384" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <text x="418" y="140" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#F2A03D">2. LEASES TIPADOS, COM TTL</text>
+  <text x="418" y="160" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">Duas threads que declaram o mesmo</text>
+  <text x="418" y="176" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">recurso sao serializadas sozinhas.</text>
+  <rect x="418" y="196" width="292" height="44" rx="8" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="434" y="215" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#F2A03D">main-tree</text>
+  <text x="434" y="231" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">o merge para a base, um de cada vez</text>
+  <rect x="418" y="250" width="292" height="44" rx="8" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="434" y="269" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#F2A03D">worktree-write:&lt;thread&gt;</text>
+  <text x="434" y="285" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">so a dona escreve na propria worktree</text>
+  <rect x="418" y="304" width="292" height="44" rx="8" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="434" y="323" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#F2A03D">path:&lt;glob&gt;</text>
+  <text x="434" y="339" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">a regiao de codigo declarada no GO</text>
+  <rect x="418" y="358" width="292" height="44" rx="8" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="434" y="377" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#F2A03D">board:&lt;card&gt;</text>
+  <text x="434" y="393" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">o card do board nao e tocado em dobro</text>
+  <rect x="418" y="412" width="292" height="44" rx="8" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="434" y="431" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" fill="#F2A03D">service:&lt;porta&gt;</text>
+  <text x="434" y="447" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">a porta local nao sobe duas vezes</text>
+  <text x="418" y="474" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6F8AAB">TTL padrao de 30 min: lease esquecido</text>
+  <text x="418" y="488" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#6F8AAB">expira e nao trava a fabrica.</text>
+  <rect x="752" y="112" width="368" height="384" rx="12" fill="#18202E" stroke="#3A4C68" stroke-width="1.4"/>
+  <text x="774" y="140" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#45C08A">3. FILA SERIALIZADA NO SHIP</text>
+  <text x="774" y="160" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">O merge queue e a lease main-tree mais</text>
+  <text x="774" y="176" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">a fila duravel do escalonador.</text>
+  <rect x="774" y="196" width="324" height="48" rx="8" fill="#12251E" stroke="#2C6B52"/>
+  <text x="792" y="217" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#E6EDF7">ork-docs-full</text>
+  <text x="792" y="234" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#45C08A">SEGURA main-tree agora</text>
+  <line x1="936" y1="246" x2="936" y2="254" stroke="#54688A" stroke-width="1.4" marker-end="url(#s)"/>
+  <rect x="774" y="258" width="324" height="48" rx="8" fill="#1C1608" stroke="#7A5A24"/>
+  <text x="792" y="279" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#E6EDF7">ork-checkout-f34</text>
+  <text x="792" y="296" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">1o na fila</text>
+  <line x1="936" y1="308" x2="936" y2="316" stroke="#54688A" stroke-width="1.4" marker-end="url(#s)"/>
+  <rect x="774" y="320" width="324" height="48" rx="8" fill="#141E2D" stroke="#33415C"/>
+  <text x="792" y="341" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#E6EDF7">ork-pagament-f34</text>
+  <text x="792" y="358" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">2o na fila</text>
+  <rect x="774" y="382" width="324" height="98" rx="10" fill="#111A28" stroke="#33415C"/>
+  <text x="792" y="404" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#9FE3C4">ork ship &lt;thread&gt; --para main</text>
+  <text x="792" y="426" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">merge --no-ff atras da lease main-tree</text>
+  <text x="792" y="444" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">push PROVADO: o ork confere no remoto com</text>
+  <text x="792" y="460" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9FD4F2">git ls-remote</text>
+  <text x="880" y="460" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">, sem confiar no self-report.</text>
+  <rect x="40" y="518" width="1080" height="66" rx="12" fill="#111A28" stroke="#33415C"/>
+  <rect x="40" y="530" width="4" height="42" rx="2" fill="#4FB6E8"/>
+  <text x="64" y="546" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700" fill="#4FB6E8">ork board plan</text>
+  <text x="196" y="546" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">o escalonador responde quem avanca agora, quem espera e por que.</text>
+  <text x="64" y="568" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">O teto de paralelismo vem de concurrency.max_parallel_threads no orkastery.yaml, nao de disciplina de quem esta conduzindo.</text>
+  <text x="1120" y="612" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54688A">orkastery / docs/diagramas/paralelismo-e-leases.svg</text>
+</svg>

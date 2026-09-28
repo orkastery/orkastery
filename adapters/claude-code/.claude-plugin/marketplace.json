@@ -1,0 +1,15 @@
+{
+  "name": "orkastery",
+  "description": "Marketplace do Orkastery: o catalogo de skills finas, os comandos de fase e o guard PreToolUse.",
+  "owner": { "name": "Julio Pessoa e contribuidores do Orkastery" },
+  "plugins": [
+    {
+      "name": "orkastery",
+      "source": "./",
+      "displayName": "Orkastery",
+      "description": "Conducao de looping threads em 6 fases com gates humanos, estado em disco e MASTER log com score de 0 a 5.",
+      "version": "{{versao}}",
+      "license": "MIT"
+    }
+  ]
+}

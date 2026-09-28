@@ -1,0 +1,77 @@
+{
+  "name": "@orkastery/cli",
+  "version": "0.3.0",
+  "description": "Conduz agentes de código (Claude Code, Codex) em threads verificáveis: seis fases, quatro modos por #TAG, claims reexecutadas e entrega com push provado. Sem LLM embutido.",
+  "license": "MIT",
+  "homepage": "https://github.com/Orkastery/orkastery#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Orkastery/orkastery.git",
+    "directory": "core"
+  },
+  "bugs": {
+    "url": "https://github.com/Orkastery/orkastery/issues"
+  },
+  "keywords": [
+    "orkastery",
+    "ork",
+    "claude-code",
+    "codex",
+    "ai-agents",
+    "agentic-coding",
+    "orquestracao",
+    "verification",
+    "looping-threads",
+    "cli",
+    "ledger",
+    "hitl"
+  ],
+  "bin": {
+    "ork": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "!dist/.tsbuildinfo",
+    "assets/",
+    "schemas/",
+    "skills/",
+    "references/",
+    "eval/",
+    "adapters/",
+    "!adapters/**/test/",
+    "!adapters/**/__pycache__/",
+    "!adapters/claude-code/ACTIVATION.md",
+    "monitor/",
+    "!monitor/*.test.cjs",
+    "!monitor/pulse-write-scope.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build && npm run build:test && node --test dist-test/test/*.test.js",
+    "test:ci": "npm run build && npm run build:test && node scripts/test-ci.js",
+    "ork": "node dist/index.js",
+    "prepack": "npm run build && node scripts/preparar-pacote.js",
+    "postpack": "node scripts/preparar-pacote.js --limpar"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "markdownlint-cli2": "^0.23.3",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "smol-toml": "1.8.0",
+    "zod": "3.25.76",
+    "zod-to-json-schema": "3.25.2"
+  }
+}

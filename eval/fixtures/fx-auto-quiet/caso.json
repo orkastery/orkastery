@@ -1,0 +1,11 @@
+{
+  "id": "fx-auto-quiet",
+  "sobre": "Prova SIMULADA de silêncio por modo, preservando policy",
+  "esperado": {
+    "simulado": true,
+    "pedidosRecusados": 2,
+    "humanosSemEscalacao": 0,
+    "policyPreservada": true
+  },
+  "porque": "Exercitar guardas HITL reais em sandbox SIMULADO; impedir retorno de aprovação cega ou previsão incompatível com o modo."
+}

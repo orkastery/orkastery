@@ -1,0 +1,102 @@
+{
+  "skill": "code-reviewer",
+  "casos": [
+    {
+      "id": "code-reviewer/cinco-eixos-com-escopo",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O diff da thread chega para revisao.",
+      "esperado": "O escopo e declarado antes dos achados e os cinco eixos sao percorridos, cada um com achados ou um 'nenhum' explicito.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O escopo e declarado antes dos achados",
+          "porque": "o item que torna a revisao reproduzivel"
+        },
+        {
+          "tipo": "contem",
+          "valor": "silencio nao e evidencia de que se olhou",
+          "porque": "a razao de o eixo vazio precisar de um 'nenhum' escrito"
+        }
+      ]
+    },
+    {
+      "id": "code-reviewer/reviewer-corrige",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O reviewer encontra um problema simples e propoe corrigir no mesmo diff.",
+      "esperado": "Recusado: a separacao e a regra central; o achado vira tarefa de GO com commit proprio.",
+      "racionalizacao": "Ja que achei, corrijo aqui mesmo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "quem revisa nao corrige",
+          "porque": "a regra central da skill, escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Commit do reviewer dentro da branch que ele esta revisando",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "code-reviewer/rebaixa-por-pressa",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Um bloqueador e rebaixado para aviso porque a entrega esta perto.",
+      "esperado": "Recusado: categoria nao se negocia por pressa; o rebaixamento e o defeito de processo que o eixo expoe.",
+      "racionalizacao": "Deixo como aviso para nao travar a entrega.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Categoria nao se negocia por pressa",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Achado sem categoria, ou sem o `REVIEW n`",
+          "porque": "a bandeira vermelha que cobra categoria e item"
+        }
+      ]
+    },
+    {
+      "id": "code-reviewer/eixo-nao-se-aplica",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "Um dos cinco eixos parece nao se aplicar ao diff.",
+      "esperado": "Escreve-se 'nenhum' e o motivo: eixo em branco e indistinguivel de eixo esquecido.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Os cinco eixos sao percorridos, todos",
+          "porque": "a regra que impede eixo silenciosamente pulado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "REVIEW 7",
+          "porque": "o formato de citacao por item, que faz o achado resolver a mesma linha para todos"
+        }
+      ]
+    },
+    {
+      "id": "code-reviewer/duplicacao-sem-dono",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O reviewer aponta duplicacao sem dizer de onde o codigo deveria vir.",
+      "esperado": "Achado incompleto: apontar duplicacao sem apontar o dono e sugestao vazia.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Duplicacao apontada sem dizer de onde o codigo deveria vir",
+          "porque": "a bandeira vermelha correspondente"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Revisao sem escopo declarado nao e reproduzivel",
+          "porque": "o par da regra de conduta, no mesmo bloco"
+        }
+      ]
+    }
+  ]
+}

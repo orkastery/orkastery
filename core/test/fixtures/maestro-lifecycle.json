@@ -1,0 +1,7 @@
+{
+  "simulated": true,
+  "runtime": "codex",
+  "roles": ["PLAN", "GO", "CHECK"],
+  "sessions": ["fixture-conductor", "fixture-executor", "fixture-reviewer"],
+  "expected": {"blocker": "policy.violation", "ship": "incomplete", "master": "pending", "humanApprovals": 0}
+}

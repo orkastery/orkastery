@@ -1,0 +1,19 @@
+{
+  "id": "fx-adapter-editado-detectado",
+  "sobre": "Uma cópia de adapter editada fora do catálogo continua sendo DETECTADA, NOMEADA e classificada como `copia-editada`, e continua barrando; a saída traz o diff e um caminho de UM comando, sem oferecer `--force`.",
+  "porque": "R1 do GOAL chama esta de a remoção com maior risco, e pelo motivo certo: a cerimônia de instalação é o único mecanismo que pega uma cópia instalada editada à mão, e nenhum teste da suíte alcança isso, porque a suíte roda sobre o CATÁLOGO e não sobre a cópia. Trocar uma recusa barulhenta por nada seria trocar investigação de madrugada por defeito que ninguém vê. O que muda é o que BARRA, não o que DETECTA: no adapter real do Hermes, dos 9 divergentes, 7 são `catalogo-andou` e se resolvem sozinhos, e sobram 2 para o operador decidir — incluindo exatamente o `skills/orkastery-devmaster/SKILL.md` que o dono investigou de madrugada. `naoOfereceForce` é a metade que impede o regime antigo de voltar: `--force` ressincronizava tudo sem mostrar o que mudava, e era o único caminho de saída oferecido.",
+  "precisa": [],
+  "esperado": {
+    "semDivergenciaAoInstalar": true,
+    "reciboGravado": true,
+    "reinstalarNaoAcusa": true,
+    "detectouAEdicao": true,
+    "nomeiaOArquivo": true,
+    "classificouComoCopiaEditada": true,
+    "barrouSemDecisao": true,
+    "temDiffNaSaida": true,
+    "temUmComando": true,
+    "naoOfereceForce": true,
+    "umComandoResolve": true
+  }
+}

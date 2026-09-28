@@ -1,0 +1,21 @@
+{
+  "id": "fx-modo-aposentado-escritor",
+  "sobre": "Modo aposentado escrito em qualquer entrada recebe recusa TIPADA `modo.aposentado`, que nomeia o modo pedido e oferece só substitutos que existem hoje.",
+  "porque": "Ignorar em silêncio é o pecado que o produto inteiro combate, e seria o pior resultado possível desta aposentadoria: o builder escreve `#Look` no pedido e recebe uma thread em `#Auto` sem saber que trocou de regime de supervisão. `semModoInexistente` cobra que toda #TAG do texto da recusa é um modo da matriz, e `semCicloParcialNaOferta` cobra que o substituto oferecido é de ciclo completo: com a I-42 o `#Fast` existe, mas só roda a GO e não substitui um modo de vigilância máxima.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "recusasNoParse": 2,
+    "recusasNaCriacao": 2,
+    "tagsReconhecidas": 2,
+    "todasTipadas": true,
+    "nomeiaOModoPedido": true,
+    "substitutosVivos": true,
+    "semMaestroNaOferta": true,
+    "semModoInexistente": true,
+    "semCicloParcialNaOferta": true,
+    "initSoComVivos": true,
+    "initTemTodosOsVivos": true
+  }
+}

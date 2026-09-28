@@ -1,0 +1,25 @@
+{
+  "id": "fx-indice-reversao",
+  "sobre": "Uma entrega revertida depois do ship se rebaixa SOZINHA no caminho que o produto percorre de verdade: `ork master` mostra a reversão em vez de \"sem tropeço\", e a aceitação por omissão grava score 2, não 5, sem ninguém pontuar nada.",
+  "porque": "É o canário que libera a saída da fila de ratificação de score, e prova a propriedade exata que a fila não entregava: ela tinha 13 entradas esperando nota humana justamente porque lembrete não converte em nota, e nenhuma delas dizia se a entrega havia sido desfeita depois. Na primeira versão ele chamava `registrarReversaoDaEntrega` À MÃO, e o CHECK de 20/09/2026 provou com `git revert` real que isso não provava nada: no produto o único chamador era o começo de um `ork ship` SEGUINTE da mesma thread, que depois do MASTER não acontece, e `ork master --aceitar-omissao` gravava score 5 com a justificativa \"sem reversão\" sobre uma entrega desfeita. Agora o canário roda o que o dono roda: `tabelaDeEntregas` e `aceitarPorOmissao`. A detecção ancora no marcador que o próprio git escreve (\"This reverts commit <sha>\") e não em diff de árvore, porque um arquivo que voltou ao estado anterior pode ser trabalho de outra thread, e chamar isso de reversão rebaixaria entrega alheia por coincidência. A idempotência é condição dura agora que a detecção roda em toda consulta: sem ela, abrir a tabela afundaria a nota da thread a cada vez.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "antesDeTudo": 5,
+    "depoisDoShip": 5,
+    "depoisDaReversao": 2,
+    "tabelaMostraAReversao": true,
+    "tabelaDizSemTropeco": false,
+    "indiceDoAceite": 2,
+    "scoreGravado": 2,
+    "regimeGravado": "omissao",
+    "masterLogScore": 2,
+    "justificativaDizSemReversao": false,
+    "justificativaCitaAReversao": true,
+    "avaliadoPor": "nucleo ork (omissao)",
+    "depoisDeRepetir": 2,
+    "rollbacks": 1,
+    "eventoNoCatalogo": true
+  }
+}

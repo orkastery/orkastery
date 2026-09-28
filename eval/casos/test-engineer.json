@@ -1,0 +1,122 @@
+{
+  "skill": "test-engineer",
+  "casos": [
+    {
+      "id": "test-engineer/suite-verde-ganha",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A thread chega ao CHECK com a suite verde.",
+      "esperado": "A comparacao e contra a baseline e o reviewer procura afrouxamento, nao so vermelho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Suite verde precisa ser ganha, nao declarada",
+          "porque": "a regra central da skill"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Procurar o afrouxamento",
+          "porque": "a conduta que separa revisao de teste de leitura de log"
+        }
+      ]
+    },
+    {
+      "id": "test-engineer/teste-flaky-pulado",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Um teste instavel foi marcado para pular no mesmo commit da correcao.",
+      "esperado": "Recusado: pular teste e mudanca de escopo com registro; sem registro e o defeito saindo pela porta dos fundos.",
+      "racionalizacao": "Esse teste era flaky, marquei para pular.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "teste marcado para pular",
+          "porque": "o que a conduta manda procurar, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`skip` novo sem registro",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "test-engineer/assercao-ajustada",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A assercao foi trocada pelo valor que o codigo produz hoje.",
+      "esperado": "Recusado: ajustar o esperado ao observado transforma defeito em contrato.",
+      "racionalizacao": "Ajustei a assercao para o valor certo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Ajustar o esperado ao observado e a forma mais comum de transformar defeito em contrato",
+          "porque": "a regra em negrito, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Assercao alterada sem razao escrita",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "test-engineer/cobertura-de-cabeca",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O relatorio traz uma cobertura estimada de oitenta por cento, sem ferramenta na maquina.",
+      "esperado": "Recusado: numero sem origem nao entra; sem ferramenta, a cobertura sai unavailable com o motivo.",
+      "racionalizacao": "Cobertura esta em uns 80 por cento.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Reportar numero com origem",
+          "porque": "a regra de honestidade de medicao, fora da tabela"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Lacuna e publicada como lacuna, nunca como zero",
+          "porque": "a formulacao que o revisor consegue citar"
+        }
+      ]
+    },
+    {
+      "id": "test-engineer/correcao-sem-reproducao",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Uma correcao chega sem teste que reproduza o defeito.",
+      "esperado": "Recusado: correcao cujo defeito nunca foi reproduzido nao prova que corrigiu nada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Exigir o teste que reproduz o defeito",
+          "porque": "o item de conduta da skill"
+        },
+        {
+          "tipo": "contem",
+          "valor": "que ele falhasse antes da correcao",
+          "porque": "a condicao que torna a reproducao real"
+        }
+      ]
+    },
+    {
+      "id": "test-engineer/sem-baseline",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A thread chega ao CHECK sem baseline gravada.",
+      "esperado": "Falha de processo: sem baseline, falha nao distingue regressao de divida pre-existente.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Nenhuma baseline gravada antes do GO",
+          "porque": "a bandeira vermelha correspondente"
+        },
+        {
+          "tipo": "contem",
+          "valor": "verify.regression",
+          "porque": "o motivo tipado que so existe porque a baseline existe"
+        }
+      ]
+    }
+  ]
+}

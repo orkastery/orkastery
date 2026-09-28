@@ -1,0 +1,163 @@
+{
+  "skill": "narrative-guardian",
+  "casos": [
+    {
+      "id": "narrative-guardian/numero-com-origem",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Um README novo vai ser publicado com metricas do produto.",
+      "esperado": "Todo numero publicado tem origem colada, e toda capacidade descrita existe hoje.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Todo numero publicado tem origem colada",
+          "porque": "a primeira regra do canon"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Capacidade descrita e capacidade que existe hoje",
+          "porque": "a regra que separa produto de roadmap"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/quinze-minutos-mais-ou-menos",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O quickstart promete quinze minutos, estimados de cabeca.",
+      "esperado": "Recusado: metrica de tempo e cronometrada, com o registro do run publicado junto.",
+      "racionalizacao": "Uns 15 minutos, e mais ou menos isso.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Metrica de tempo e cronometrada",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o run foi executado e o registro publicado junto",
+          "porque": "a evidencia que a promessa exige"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/roadmap-no-presente",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma capacidade que so existe no roadmap e descrita no presente do indicativo.",
+      "esperado": "Recusado: roadmap se escreve como roadmap; presente do indicativo para o que nao existe e a mentira que matou o produto original.",
+      "racionalizacao": "Vai existir na proxima versao, ja escrevo no presente.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Roadmap se escreve como roadmap",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Verbo no presente para funcionalidade de roadmap",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/campo-vazio",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Um campo de metrica fica em branco porque ninguem conseguiu medir.",
+      "esperado": "Recusado: lacuna e publicada como lacuna; campo vazio vira zero na proxima leitura.",
+      "racionalizacao": "Deixo o campo vazio, ninguem repara.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Lacuna e publicada como lacuna",
+          "porque": "a regra do canon, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Campo de metrica em branco em vez de `unavailable`",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/doc-desatualizado",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O documento diverge do codigo e alguem propoe deixar como esta porque o codigo esta certo.",
+      "esperado": "Recusado: divergencia entre doc e codigo e defeito do doc, e vira tarefa.",
+      "racionalizacao": "O doc esta desatualizado, mas o codigo esta certo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Divergencia entre doc e codigo e defeito do doc",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "vira tarefa, nao nota de rodape",
+          "porque": "o destino do defeito"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/comparacao-de-cabeca",
+      "tipo": "racionalizacao",
+      "gravidade": "menor",
+      "cenario": "Uma comparacao com o concorrente e publicada sem metodo nem data.",
+      "esperado": "Recusado: comparacao publicada precisa de metodo e data, ou e propaganda com cara de dado.",
+      "racionalizacao": "Comparei com o concorrente de cabeca.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Comparacao publicada precisa de metodo e data",
+          "porque": "a resposta a desculpa, dentro da tabela"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Benchmark citado sem maquina, regime e repeticao",
+          "porque": "a bandeira vermelha correspondente, fora da tabela"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/unavailable-fica-feio",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Alguem quer tirar o `unavailable` do README porque fica feio.",
+      "esperado": "Recusado: feio e o numero falso descoberto depois; a honestidade de medicao e parte do produto.",
+      "racionalizacao": "Tiro o `unavailable`, fica feio no README.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "honestidade de medicao e parte do produto",
+          "porque": "a resposta a desculpa"
+        },
+        {
+          "tipo": "contem",
+          "valor": "`unavailable` com o motivo, nunca zero",
+          "porque": "a regra do canon, fora da tabela de desculpas"
+        }
+      ]
+    },
+    {
+      "id": "narrative-guardian/changelog-sem-master-log",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O changelog cita uma entrega que nao tem MASTER log correspondente.",
+      "esperado": "Bandeira vermelha: entrega sem MASTER log nao aconteceu, e o canon nao publica o que o ledger nao prova.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Changelog citando entrega sem MASTER log correspondente",
+          "porque": "a bandeira vermelha correspondente"
+        },
+        {
+          "tipo": "contem",
+          "valor": "nenhuma divergencia entre o artefato e o que o ledger prova",
+          "porque": "a condicao de saida da skill"
+        }
+      ]
+    }
+  ]
+}

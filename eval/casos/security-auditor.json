@@ -1,0 +1,102 @@
+{
+  "skill": "security-auditor",
+  "casos": [
+    {
+      "id": "security-auditor/escopo-e-historico",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A auditoria de seguranca comeca sobre a branch da thread.",
+      "esperado": "O escopo e declarado, o historico entra no escopo e a condicao de passagem e zero bloqueadores.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "zero bloqueadores de seguranca, em qualquer modo",
+          "porque": "a condicao dura, valida ate no modo mais autonomo"
+        },
+        {
+          "tipo": "contem",
+          "valor": "O historico entra no escopo",
+          "porque": "a regra que impede a auditoria de olhar so a arvore"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/segredo-so-no-fixture",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma chave real aparece em um fixture de teste e o agente considera isso inofensivo.",
+      "esperado": "Recusado: fixture esta no escopo, e credencial em teste e credencial vazada.",
+      "racionalizacao": "A chave esta so no fixture de teste.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Fixture de teste e config de exemplo estao no escopo",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "SEC 1",
+          "porque": "o item da checklist que o achado viola"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/cola-o-segredo-no-relatorio",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente quer colar o trecho vazado no relatorio para o time ver.",
+      "esperado": "Recusado: relatorio de vazamento que imprime o segredo e um segundo vazamento.",
+      "racionalizacao": "Colo o trecho no relatorio para o time ver.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Relatorio de vazamento que imprime o segredo e um segundo vazamento",
+          "porque": "a regra em negrito, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "O achado nomeia o padrao, o arquivo e a linha",
+          "porque": "a forma correta de reportar"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/commit-apagado",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O token foi commitado e depois removido em outro commit.",
+      "esperado": "Continua vazado: apagar da arvore nao apaga do historico, e a rotacao precisa ser verificada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Apagar da arvore nao apaga do historico",
+          "porque": "a regra que fecha a saida mais comum"
+        },
+        {
+          "tipo": "contem",
+          "valor": "git log -p",
+          "porque": "o comando que percorre o intervalo do historico"
+        }
+      ]
+    },
+    {
+      "id": "security-auditor/nada-encontrado",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "A auditoria termina sem achados e o relatorio diz apenas 'nada encontrado'.",
+      "esperado": "Insuficiente: ausencia e afirmada como resultado de verificacao, com o que foi olhado.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Ausencia e afirmada como resultado",
+          "porque": "a regra de conduta que separa auditado de nao olhado"
+        },
+        {
+          "tipo": "contem",
+          "valor": "\"Nada encontrado\" sem dizer o que foi olhado",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "fx-listagem-abertas",
+  "sobre": "O default de `ork thread list` mostra o que ainda pede atenção (aberta e pausada) e omite a fechada, avisando que omitiu; `--todas` abre o resto.",
+  "porque": "O custo medido era o DEFAULT e não a falta de flag: em 20/09/2026 o comando imprimia 137 linhas para as 31 que interessavam, e 71 delas (52 por cento) eram threads `Sessão adotada claude-bg <uuid>`, lixo do mecanismo de adoção de 07 a 14/09. Quem pagava era quem não sabia que existia flag, porque flag nenhuma existia. A thread PAUSADA é a razão de o default ser \"não fechadas\" e não \"só abertas\", que era o texto do GOAL: esconder a pausada seria esconder justamente a que mais pede atenção. O canário roda em sandbox porque `ork thread list` dentro de uma worktree lê o estado da árvore principal (M8): conferir \"no projeto\" seria afirmar contagem de artefato vivo, que reprova sozinha quando a branch cresce.",
+  "precisa": ["git"],
+  "esperado": {
+    "noDefault": ["aberta", "pausada"],
+    "defaultTemAAberta": true,
+    "defaultTemAPausada": true,
+    "defaultEscondeAFechada": true,
+    "comTodas": 3,
+    "todasTemAFechada": true,
+    "somaBate": true,
+    "avisaQueEscondeu": true
+  }
+}

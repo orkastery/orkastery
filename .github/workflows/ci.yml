@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ork-verify:
+    name: ork-verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: instalar e compilar
+        run: npm ci && npm run build
+        working-directory: core
+      - name: CHECK independente
+        run: node core/dist/index.js ci run --bundle .ork-ci/bundle.json
+
+  # I-44: documentacao de produto e roadmap como codigo. O markdownlint cobre a FORMA do
+  # Markdown; o `ork docs verificar` cobre frontmatter, leitura, referencias e paridade com o
+  # codigo e com o git (por isso o historico inteiro: o commit de merge tem de estar na main).
+  documentacao:
+    name: documentacao (markdownlint e paridade)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: instalar e compilar
+        run: npm ci && npm run build
+        working-directory: core
+      - name: forma do Markdown
+        run: core/node_modules/.bin/markdownlint-cli2
+      - name: paridade com o codigo e o git
+        run: node core/dist/index.js docs verificar
+      - name: links relativos
+        run: node core/scripts/checar-links.cjs
+
+  nucleo:
+    name: nucleo ork (build, testes, canarios)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: instalar
+        run: npm ci
+        working-directory: core
+
+      - name: compilar
+        run: npm run build
+        working-directory: core
+
+      # A suite do nucleo roda em node --test, sem rede.
+      - name: testes
+        run: npm run test:ci
+        working-directory: core
+
+      # Canarios de comportamento + corpus das skills finas.
+      # Sai diferente de zero em qualquer falha.
+      - name: canarios e corpus das skills
+        run: node core/dist/index.js eval
+
+      # Template quebrado nao pode chegar a virar despacho.
+      - name: lint dos templates de prompt
+        run: node core/dist/index.js prompt lint
+
+      - name: lint dos templates de auditoria
+        run: node core/dist/index.js audit lint
+
+# Nota deliberada: `ork doctor` NAO roda aqui. Ele exige o runtime adapter
+# instalado na maquina, e um runner de CI nao tem um. Rodar doctor no CI
+# significaria ou um job vermelho por um motivo que nao e defeito, ou um
+# doctor afrouxado para caber no CI. Nenhuma das duas serve.

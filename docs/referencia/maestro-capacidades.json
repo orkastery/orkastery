@@ -1,0 +1,73 @@
+{
+  "schema": "ork.maestro-capabilities/v1",
+  "thread": "ork-i32bootstrap",
+  "stage": "candidate-go",
+  "humanUsabilityPriority": "maximum",
+  "liveReceipts": null,
+  "documents": [
+    "README.pt-BR.md",
+    "docs/comecar/quickstart.md",
+    "docs/referencia/cli.md",
+    "docs/conceitos/visao-geral.md"
+  ],
+  "capabilities": [
+    {
+      "id": "snapshot",
+      "scope": "read-only",
+      "claims": [
+        "C21",
+        "C23",
+        "C26",
+        "C31",
+        "C34"
+      ],
+      "evidence": [
+        "core/test/maestro-snapshot.test.ts",
+        "core/test/maestro-cli.test.ts",
+        "core/test/mcp-maestro.test.ts"
+      ],
+      "command": "npm --prefix core run build:test && node --test core/dist-test/test/maestro-snapshot.test.js core/dist-test/test/mcp-maestro.test.js"
+    },
+    {
+      "id": "same-harness",
+      "scope": "proven-sessions",
+      "claims": [
+        "C37",
+        "C40"
+      ],
+      "evidence": [
+        "core/test/maestro-authority.test.ts",
+        "core/test/maestro-isolation.test.ts"
+      ],
+      "command": "npm --prefix core run build:test && node --test core/dist-test/test/maestro-authority.test.js core/dist-test/test/maestro-isolation.test.js"
+    },
+    {
+      "id": "native-hitl",
+      "scope": "callback-only-live-pending",
+      "claims": [
+        "C63",
+        "C67",
+        "C73",
+        "C77",
+        "C82"
+      ],
+      "evidence": [
+        "core/test/hitl-native-delivery.test.ts",
+        "adapters/hermes/test/hitl_native_channel_test.py",
+        "adapters/openclaw/test/hitl-native-channel.test.mjs"
+      ],
+      "command": "npm --prefix core run build:test && node --test core/dist-test/test/hitl-native-delivery.test.js"
+    },
+    {
+      "id": "host-parity",
+      "scope": "simulated-installations",
+      "claims": [
+        "C88"
+      ],
+      "evidence": [
+        "core/test/maestro-parity.test.ts"
+      ],
+      "command": "npm --prefix core run build:test && node --test core/dist-test/test/maestro-parity.test.js"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "descricao": "Fixture minima do bloco B0: pedido do builder com #TAG de modo VIVO produz slug de 3 partes, blocos do modo e numero de pausas humanas. I-43 tirou daqui os casos de #Look e #Ork: eles pararam de ser escritos, e a recusa deles e provada por fx-modo-aposentado-escritor.",
+  "manifesto": {
+    "project": {
+      "name": "orkastery",
+      "abbrev": "ork"
+    }
+  },
+  "casos": [
+    {
+      "pedido": "Fecha o nucleo do bloco B0 do Orkastery #Auto",
+      "nome": "core b0",
+      "modoEsperado": "auto",
+      "slugEsperado": "ork-coreb0-full",
+      "blocosEsperados": [
+        "GOAL-PLAN-GO-CHECK-SHIP-MASTER"
+      ],
+      "pausasEsperadas": 0
+    },
+    {
+      "pedido": "Ajuste simples e claro no rodape #Maestro",
+      "nome": "rodape",
+      "modoEsperado": "maestro",
+      "slugEsperado": "ork-rodape-f12",
+      "blocosEsperados": [
+        "GOAL-PLAN",
+        "GO-CHECK-SHIP",
+        "MASTER"
+      ],
+      "pausasEsperadas": 1
+    },
+    {
+      "pedido": "Premissas delicadas do pipeline #Classic",
+      "nome": "pipeline",
+      "modoEsperado": "classic",
+      "slugEsperado": "ork-pipeline-goal",
+      "blocosEsperados": [
+        "GOAL",
+        "PLAN",
+        "GO-CHECK",
+        "SHIP-MASTER"
+      ],
+      "pausasEsperadas": 3
+    },
+    {
+      "pedido": "Arruma o typo do rodape #Fast",
+      "nome": "typo rodape",
+      "modoEsperado": "fast",
+      "slugEsperado": "ork-typorodape-go",
+      "blocosEsperados": [
+        "GO"
+      ],
+      "pausasEsperadas": 0
+    },
+    {
+      "pedido": "Pedido sem tag nenhuma",
+      "nome": "semtag",
+      "modoEsperado": null,
+      "slugEsperado": "ork-semtag-goal",
+      "blocosEsperados": [
+        "GOAL",
+        "PLAN",
+        "GO-CHECK",
+        "SHIP-MASTER"
+      ],
+      "pausasEsperadas": 3
+    }
+  ]
+}

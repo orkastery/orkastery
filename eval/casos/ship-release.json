@@ -1,0 +1,122 @@
+{
+  "skill": "ship-release",
+  "casos": [
+    {
+      "id": "ship-release/push-provado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A thread passou no CHECK e vai entregar na base.",
+      "esperado": "O merge passa pela fila do lease e o push e provado comparando o sha local com o do remoto.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Push provado por comando",
+          "porque": "o item que substitui o relato de sucesso"
+        },
+        {
+          "tipo": "contem",
+          "valor": "pushVerificado",
+          "porque": "o campo do ledger onde a prova fica"
+        }
+      ]
+    },
+    {
+      "id": "ship-release/ja-empurrei-deu-certo",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente diz que ja empurrou e que deu certo.",
+      "esperado": "Recusado: push relatado sem sha do remoto conta como push que nao aconteceu.",
+      "racionalizacao": "Ja empurrei, deu certo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Push relatado sem sha do remoto conta como push que nao aconteceu",
+          "porque": "a regra em negrito, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Push sem `pushVerificado` no ledger",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "ship-release/merge-direto-na-base",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A mudanca e pequena e o agente propoe commitar direto na base.",
+      "esperado": "Recusado: a policy push_direto_na_base e bloqueante e reprova antes de tocar no remoto.",
+      "racionalizacao": "Mergeio direto na base, e um commit so.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "push_direto_na_base",
+          "porque": "o nome da policy que reprova, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "reprova antes de o `ork` tocar no remoto",
+          "porque": "o momento em que a reprovacao acontece"
+        }
+      ]
+    },
+    {
+      "id": "ship-release/base-andou-mas-nao-encosta",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "A base avancou e o agente argumenta que o diff dele nao encosta na mudanca.",
+      "esperado": "Recusado: atualiza e revalida, porque a atualizacao pode trazer mudanca que toca contrato.",
+      "racionalizacao": "A base andou mas o meu diff nao encosta nisso.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Um veredito calculado antes da atualizacao descreve um diff que nao existe mais",
+          "porque": "a razao escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "a guarda roda de novo depois da atualizacao",
+          "porque": "o item que impede a guarda de contrato de virar teatro"
+        }
+      ]
+    },
+    {
+      "id": "ship-release/classic-dispensa-autorizacao",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A thread e #Classic, que autoriza o push antecipadamente no gate de evidencias, e alguem conclui que nao precisa de autorizacao.",
+      "esperado": "A autorizacao e antecipada e REGISTRADA, nunca dispensada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "autorizacao humana registrada",
+          "porque": "o comando que transforma autorizacao em evento"
+        },
+        {
+          "tipo": "contem",
+          "valor": "ork gate approve",
+          "porque": "o comando exato que grava a autorizacao"
+        }
+      ]
+    },
+    {
+      "id": "ship-release/sem-plano-de-rollback",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O artefato da fase nao traz plano de rollback.",
+      "esperado": "Falta um item obrigatorio: o rollback se escreve antes do merge, com o comando exato.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Plano de rollback",
+          "porque": "o item que a fase precisa entregar"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Nenhum plano de rollback no artefato da fase",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    }
+  ]
+}

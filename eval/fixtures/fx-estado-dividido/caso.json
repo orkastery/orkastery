@@ -1,0 +1,15 @@
+{
+  "id": "fx-estado-dividido",
+  "sobre": "fx-estado-dividido da I-01",
+  "porque": "Reproduzir o incidente com estado real em sandbox e comparar observação com contrato versionado.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "eventosMain": 14,
+    "eventosWorktree": 90,
+    "auditOk": false,
+    "syncOk": false,
+    "copiasPreservadas": true
+  }
+}

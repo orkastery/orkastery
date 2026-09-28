@@ -1,0 +1,83 @@
+{
+  "skill": "thread-tracing",
+  "casos": [
+    {
+      "id": "thread-tracing/reconstroi-do-gravado",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Alguem precisa entender o que aconteceu numa thread ja fechada.",
+      "esperado": "O rastro sai do que esta gravado e responde pedido, decisor, evidencia, motivo tipado e origem de cada numero.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Um roteador fino de leitura",
+          "porque": "o papel da skill, que e so ler"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Evento sem evidencia e anotacao, nao rastro",
+          "porque": "o criterio que separa rastro de narrativa"
+        }
+      ]
+    },
+    {
+      "id": "thread-tracing/escreve-para-completar",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Falta um evento no ledger e o agente propoe escrever um para completar a historia.",
+      "esperado": "Recusado: observabilidade nao escreve no estado; evento inventado depois e reconstrucao, nao rastro.",
+      "racionalizacao": "Escrevo um evento a mais para deixar o rastro completo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "nunca escreve no estado",
+          "porque": "a regra em negrito, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "observabilidade que altera o que observa deixa de ser observabilidade",
+          "porque": "a razao, dita de forma citavel"
+        }
+      ]
+    },
+    {
+      "id": "thread-tracing/estimativa-como-leitura",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O runtime nao expoe o gasto de token e o agente apresenta uma estimativa como medida.",
+      "esperado": "Recusado: sem medida, sai unavailable com o motivo; estimativa apresentada como leitura e o comeco de todo painel falso.",
+      "racionalizacao": "O token gasto deve ter sido uns X.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O que o runtime nao expoe sai `unavailable`, com o motivo",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Lacuna e publicada como lacuna, nunca como zero",
+          "porque": "a formulacao em negrito que o revisor consegue citar"
+        }
+      ]
+    },
+    {
+      "id": "thread-tracing/reordena-o-ledger",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O ledger fica dificil de ler e alguem propoe reordena-lo.",
+      "esperado": "Recusado: o ledger e append-only e a ordem e evidencia; legibilidade e trabalho da apresentacao.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "a ordem e evidencia",
+          "porque": "a razao de nao reordenar"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Metrica com numero redondo e sem origem",
+          "porque": "a bandeira vermelha vizinha, que fecha o mesmo tema"
+        }
+      ]
+    }
+  ]
+}

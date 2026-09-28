@@ -1,0 +1,54 @@
+name: Bug
+description: Alguma coisa não faz o que a documentação diz que faz
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bug de documentação vale tanto quanto bug de código. Se o README diz que algo
+        funciona e na sua máquina não funciona, isso é um defeito do projeto, e não um
+        mal-entendido seu.
+
+        Para vulnerabilidade de segurança, **não** use este formulário. Veja SECURITY.md.
+
+  - type: textarea
+    id: comando
+    attributes:
+      label: O comando exato que você rodou
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: saida
+    attributes:
+      label: A saída real
+      description: Cole a saída, não a descrição dela.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que você esperava
+      description: E, se possível, onde a documentação diz isso.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Saída de `ork doctor`
+      description: Ela diz o que vale na sua máquina agora, e resolve metade dos casos.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Orkastery
+      placeholder: "a saída de: ork --version (ou o sha do commit)"
+    validations:
+      required: true

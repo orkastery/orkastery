@@ -1,0 +1,15 @@
+{
+  "id": "fx-concurrency",
+  "sobre": "Duas threads pedem regioes que se cruzam: path:core/src/** e path:core/src/board.ts. A primeira leva o lease, a segunda entra na fila na posicao 1 com motivo tipado.",
+  "porque": "Threads paralelas so valem se a colisao for detectada por glob e nao por intuicao. A segunda thread precisa ESPERAR, com posicao e motivo, em vez de escrever por cima: sem fila, paralelismo vira corrida e o prejuizo aparece no merge.",
+  "precisa": ["git"],
+  "esperado": {
+    "primeiraAdquiriu": true,
+    "segundaAdquiriu": false,
+    "segundaNaFila": true,
+    "posicaoDaSegunda": 1,
+    "motivoDaSegunda": "lease.busy",
+    "colidiuComAThread": "evl-primeira",
+    "threadDaPrimeira": "evl-primeira"
+  }
+}

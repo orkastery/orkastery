@@ -1,0 +1,2716 @@
+{
+  "$ref": "#/definitions/MaestroSnapshot",
+  "definitions": {
+    "MaestroSnapshot": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "ork.maestro-snapshot/v1"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "project": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "origin": {
+              "type": "string",
+              "enum": [
+                "installation",
+                "cwd",
+                "worktree",
+                "selection"
+              ]
+            },
+            "fingerprint": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "origin",
+            "fingerprint"
+          ],
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "number",
+              "const": 50
+            },
+            "bytes": {
+              "type": "number",
+              "const": 65536
+            },
+            "sourceMs": {
+              "type": "number",
+              "const": 2000
+            },
+            "totalMs": {
+              "type": "number",
+              "const": 10000
+            }
+          },
+          "required": [
+            "items",
+            "bytes",
+            "sourceMs",
+            "totalMs"
+          ],
+          "additionalProperties": false
+        },
+        "sections": {
+          "type": "object",
+          "properties": {
+            "portfolio": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "demands": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "threads": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "sessions": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "blockers": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "leases": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "retries": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "hitl": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "ship": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "master": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            },
+            "nextActions": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "empty",
+                    "unavailable",
+                    "stale",
+                    "conflict"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "observedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "fingerprint": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 50
+                    },
+                    "omitted": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "nextOffset": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "limit": {
+                      "type": "number",
+                      "const": 50
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "offset",
+                    "returned",
+                    "omitted",
+                    "nextOffset",
+                    "limit"
+                  ],
+                  "additionalProperties": false
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "status": {
+                        "type": "string",
+                        "maxLength": 512
+                      },
+                      "refs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 16
+                      },
+                      "facts": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "action": {
+                        "type": "object",
+                        "properties": {
+                          "operation": {
+                            "type": "string",
+                            "enum": [
+                              "thread.status",
+                              "thread.observe",
+                              "hitl.decide",
+                              "git.status",
+                              "git.commit",
+                              "verify",
+                              "ship",
+                              "retry",
+                              "master",
+                              "phase",
+                              "creation"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 512
+                          },
+                          "preconditions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 512
+                            },
+                            "maxItems": 10
+                          },
+                          "readback": {
+                            "type": "string",
+                            "maxLength": 512
+                          }
+                        },
+                        "required": [
+                          "operation",
+                          "available",
+                          "reason",
+                          "preconditions",
+                          "readback"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "title",
+                      "status",
+                      "refs",
+                      "facts"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 50
+                },
+                "gaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "maxItems": 50
+                }
+              },
+              "required": [
+                "state",
+                "source",
+                "observedAt",
+                "fingerprint",
+                "coverage",
+                "items",
+                "gaps"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "portfolio",
+            "demands",
+            "threads",
+            "sessions",
+            "blockers",
+            "leases",
+            "retries",
+            "hitl",
+            "ship",
+            "master",
+            "nextActions"
+          ],
+          "additionalProperties": false
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "maxItems": 100
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "schema",
+        "observedAt",
+        "fingerprint",
+        "project",
+        "limits",
+        "sections",
+        "gaps",
+        "conflicts"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

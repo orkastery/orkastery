@@ -1,0 +1,103 @@
+{
+  "skill": "check-quality",
+  "casos": [
+    {
+      "id": "check-quality/veredito-unico",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A thread chega ao CHECK com implementacao pronta e baseline gravada.",
+      "esperado": "O CHECK reexecuta contra a baseline, preenche os cinco eixos e consolida exatamente um veredito.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "exatamente um veredito",
+          "porque": "a regra que impede relatorio com duas conclusoes"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Comparacao contra a baseline",
+          "porque": "o passo que separa regressao de divida pre-existente"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/so-um-aviso",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Um achado incomodo e rebaixado a aviso para nao segurar a entrega.",
+      "esperado": "Aviso passa com registro nominal de quem aceitou e por que; sem registro e aviso escondido.",
+      "racionalizacao": "So um aviso, da para passar.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "todo aviso aceito carregando seu registro",
+          "porque": "a condicao que torna o aviso auditavel, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Aviso aceito sem nome de quem aceitou",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/reexecucao-parcial",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Depois de uma correcao tipo B, o agente propoe reexecutar so o que mudou.",
+      "esperado": "Recusado: correcao tipo B devolveu a tarefa ao GO, e o CHECK seguinte e reexecucao completa.",
+      "racionalizacao": "A correcao foi pequena, nao precisa rodar tudo de novo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "o CHECK seguinte e uma reexecucao completa, nunca parcial",
+          "porque": "a regra escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Correcao tipo B seguida de reexecucao parcial",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/check-que-corrige",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O reviewer encontra um defeito simples e propoe corrigir ali mesmo.",
+      "esperado": "Recusado: CHECK nao corrige; o achado vira tarefa de GO com commit proprio.",
+      "racionalizacao": "Ja que achei, corrijo aqui mesmo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Ela nao corrige o que encontra",
+          "porque": "a separacao declarada logo no topo da skill"
+        },
+        {
+          "tipo": "contem",
+          "valor": "correcao e trabalho de GO",
+          "porque": "o destino do achado"
+        }
+      ]
+    },
+    {
+      "id": "check-quality/auto-check-mais-leve",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A thread e #Auto e alguem sugere um CHECK mais leve, ja que nao ha pausa.",
+      "esperado": "Recusado: o modo afrouxa a pausa, nunca a verificacao; o CHECK e o mesmo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "valida em qualquer modo, inclusive `#Auto`",
+          "porque": "a condicao dura de seguranca dita para o modo mais autonomo"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Todos reprovam em qualquer modo",
+          "porque": "a regra dos motivos tipados"
+        }
+      ]
+    }
+  ]
+}

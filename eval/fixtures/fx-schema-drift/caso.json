@@ -1,0 +1,15 @@
+{
+  "id": "fx-schema-drift",
+  "sobre": "Seis mutacoes do MASTER log valido: contrato trocado sem trocar a versao, score fora da escala, classe de falha inventada, fase fora do ciclo canonico, justificativa vazia e evidencia ausente.",
+  "porque": "O MASTER log e contrato publico congelado (ork.master-log/v1). Se ele aceitar mutacao em silencio, a telemetria de conducao deixa de ser comparavel entre threads e o score vira opiniao com formato de dado. O canario le a mesma fixture b2-master-log que a suite ja usa: uma fonte, dois consumidores.",
+  "precisa": [],
+  "esperado": {
+    "validoPassa": true,
+    "contratoTrocado": true,
+    "scoreForaDaEscala": true,
+    "classeInventada": true,
+    "faseForaDoCiclo": true,
+    "justificativaVazia": true,
+    "evidenciaAusente": true
+  }
+}

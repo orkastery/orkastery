@@ -1,0 +1,91 @@
+{
+  "kind": "fixture",
+  "simulated": true,
+  "author": "agent",
+  "selfReport": true,
+  "deliveredSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hosts": [],
+  "sites": [],
+  "expected": "rejected-not-live",
+  "candidate": {
+    "kind": "native-capture",
+    "simulated": false,
+    "author": "host",
+    "selfReport": false,
+    "deliveredSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "hosts": [
+      {
+        "host": "codex",
+        "newSession": true,
+        "reusedSession": false,
+        "sessionId": "fixture-codex",
+        "authentication": "ok",
+        "snapshotOrigin": "canonical",
+        "phrase": "orkastery maestro",
+        "installedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nativeReference": "fixture-only",
+        "actionReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "hitlReference": "fixture-only"
+      },
+      {
+        "host": "claude-code",
+        "newSession": true,
+        "reusedSession": false,
+        "sessionId": "fixture-claude-code",
+        "authentication": "ok",
+        "snapshotOrigin": "canonical",
+        "phrase": "orkastery maestro",
+        "installedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nativeReference": "fixture-only",
+        "actionReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "hitlReference": "fixture-only"
+      },
+      {
+        "host": "hermes",
+        "newSession": true,
+        "reusedSession": false,
+        "sessionId": "fixture-hermes",
+        "authentication": "ok",
+        "snapshotOrigin": "canonical",
+        "phrase": "orkastery maestro",
+        "installedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nativeReference": "fixture-only",
+        "actionReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "hitlReference": "fixture-only"
+      },
+      {
+        "host": "openclaw",
+        "newSession": true,
+        "reusedSession": false,
+        "sessionId": "fixture-openclaw",
+        "authentication": "ok",
+        "snapshotOrigin": "canonical",
+        "phrase": "orkastery maestro",
+        "installedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "nativeReference": "fixture-only",
+        "actionReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "hitlReference": "fixture-only"
+      }
+    ],
+    "sites": [
+      {
+        "site": "orkastery",
+        "publicationReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "publishedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "servedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "site": "orkmind",
+        "publicationReference": "fixture-only",
+        "readbackReference": "fixture-only",
+        "publishedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "servedHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ]
+  }
+}

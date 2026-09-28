@@ -1,0 +1,102 @@
+{
+  "skill": "web-performance-auditor",
+  "casos": [
+    {
+      "id": "web-performance-auditor/mede-antes-de-afirmar",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O alvo tem superficie sensivel a latencia e a thread mexeu no caminho quente.",
+      "esperado": "As medidas trazem numero, unidade e metodo, na mesma maquina e no mesmo regime.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Medir antes de afirmar",
+          "porque": "o item de conduta que governa a secao inteira"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Comparar na mesma maquina e no mesmo regime",
+          "porque": "a condicao que impede comparar maquinas em vez de codigo"
+        }
+      ]
+    },
+    {
+      "id": "web-performance-auditor/ficou-mais-rapido",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente afirma que ficou visivelmente mais rapido.",
+      "esperado": "Recusado: sem numero, unidade e metodo, e opiniao, e opiniao nao passa em gate.",
+      "racionalizacao": "Ficou visivelmente mais rapido.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "\"Ficou mais rapido\" sem medida e opiniao",
+          "porque": "a regra em negrito, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Afirmacao de ganho sem numero e sem metodo",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "web-performance-auditor/uma-execucao-basta",
+      "tipo": "racionalizacao",
+      "gravidade": "menor",
+      "cenario": "O agente roda o benchmark uma vez e apresenta o resultado como medida.",
+      "esperado": "Recusado: uma execucao unica vira estimated, nunca runtime_reported.",
+      "racionalizacao": "Rodei uma vez e ja deu para ver.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Uma execucao unica vira `estimated`, nunca `runtime_reported`",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "repeticao suficiente para separar sinal de ruido",
+          "porque": "a condicao que a regra impoe"
+        }
+      ]
+    },
+    {
+      "id": "web-performance-auditor/sem-superficie-web",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O alvo da thread nao tem superficie web nem caminho sensivel a latencia.",
+      "esperado": "A secao existe assim mesmo e contem a dispensa escrita, com o motivo.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "condicional e nunca ausente",
+          "porque": "a regra que impede a secao de sumir"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Decidir e registrar a aplicabilidade",
+          "porque": "o primeiro item de conduta"
+        }
+      ]
+    },
+    {
+      "id": "web-performance-auditor/zero-onde-nao-mediu",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O relatorio preenche com zero os campos que ninguem conseguiu medir.",
+      "esperado": "Recusado: o que nao foi medido sai unavailable com o motivo; zero e um dado, e um dado falso.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Declarar origem em todo numero",
+          "porque": "o item de conduta correspondente"
+        },
+        {
+          "tipo": "contem",
+          "valor": "nao medivel",
+          "porque": "a mesma disciplina do gate de tokens do nucleo, citada como precedente"
+        }
+      ]
+    }
+  ]
+}

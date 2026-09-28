@@ -1,0 +1,20 @@
+{
+  "id": "fx-check-runtime-cruzado",
+  "sobre": "Uma thread que exige validação cruzada RECUSA o CHECK no mesmo runtime que fez o GO, com motivo tipado que nomeia o runtime e diz o que destrava; aceita em outro runtime; e a thread que não exige despacha normalmente.",
+  "porque": "É a viga (a) do Objective Envelope, a única regra do produto que dizia \"quem valida não pode ser quem executou\", e ela estava presa dentro de um mecanismo que nunca rodou: valia só na criação do envelope, para três threads com zero sessões, e `validationRuntimes` não aparecia em nenhum arquivo além de `objective.ts` e `index.ts`. O regime que ela combate está medido: das 137 threads, 16 registram sessões de GO e de CHECK, e em 11 delas o CHECK rodou apenas em runtime que o GO também usou; as quatro mais recentes (I-32, I-33, I-34, I-35) são todas `claude-bg` conferindo `claude-bg`. Os três lados são exigidos porque só o positivo não provaria nada: uma regra que nunca recusa e uma regra que recusa sempre são igualmente inúteis.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "recusaMesmoRuntime": true,
+    "recusaTipada": true,
+    "recusaNomeiaORuntimeDoGo": true,
+    "recusaDizOQueDestrava": true,
+    "aceitaOutroRuntime": true,
+    "semExigenciaDespacha": true,
+    "naoVazaParaOGo": true,
+    "motivoNoCatalogo": true,
+    "semRetryAutomatico": true,
+    "escalaParaHumano": true
+  }
+}

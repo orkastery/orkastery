@@ -1,0 +1,102 @@
+{
+  "skill": "plan-specification",
+  "casos": [
+    {
+      "id": "plan-specification/tarefas-com-verify",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O PLAN precisa virar tarefas que o GO consiga executar uma a uma.",
+      "esperado": "Cada tarefa cabe em um commit atomico, declara touch_paths e carrega um verify executavel.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Um verify executavel por tarefa",
+          "porque": "o item que impede tarefa sem criterio de pronto"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Tarefa sem verify e desejo, nao tarefa",
+          "porque": "a formulacao que o revisor consegue citar"
+        }
+      ]
+    },
+    {
+      "id": "plan-specification/tarefa-grande-mas-coesa",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma tarefa toca quinze arquivos e o agente argumenta que ela e coesa demais para fatiar.",
+      "esperado": "Recusado: acima de cinco arquivos a tarefa volta a ser fatiada, antes do GO.",
+      "racionalizacao": "Essa tarefa e grande mas coesa, deixa inteira.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "No maximo cinco arquivos por tarefa",
+          "porque": "o limite numerico, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Tarefa que toca mais de cinco arquivos",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "plan-specification/decide-no-meio-do-go",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente propoe deixar um tradeoff em aberto para decidir durante a implementacao.",
+      "esperado": "Recusado: decisao tem domicilio unico e trava ao fechar; reabrir e decisao nova com registro.",
+      "racionalizacao": "Depois eu decido esse tradeoff, no meio do GO.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Decisoes D1..Dn com domicilio unico",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "nunca edicao silenciosa",
+          "porque": "o que diferencia reabertura de reescrita"
+        }
+      ]
+    },
+    {
+      "id": "plan-specification/touch-paths-obvios",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A thread roda em paralelo com outra e o PLAN nao declara touch_paths.",
+      "esperado": "O lease sai do touch_paths: regiao nao declarada e colisao esperando acontecer.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Regiao nao declarada e colisao esperando acontecer",
+          "porque": "a consequencia direta de nao declarar"
+        },
+        {
+          "tipo": "contem",
+          "valor": "path:<glob>",
+          "porque": "o lease que a declaracao justifica"
+        }
+      ]
+    },
+    {
+      "id": "plan-specification/plan-que-implementa",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O PLAN chega com o codigo pronto embutido.",
+      "esperado": "Recusado: PLAN nao implementa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "PLAN nao implementa",
+          "porque": "o contrato da fase, repetido onde o revisor procura"
+        },
+        {
+          "tipo": "contem",
+          "valor": "PLAN que ja traz o codigo pronto",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    }
+  ]
+}

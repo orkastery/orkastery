@@ -1,0 +1,43 @@
+{
+  "id": "orkastery",
+  "name": "Orkastery",
+  "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.",
+  "version": "0.3.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "ork_maestro",
+      "ork_onboarding",
+      "ork_doctor",
+      "ork_modo_do_pedido",
+      "ork_thread_new",
+      "ork_thread_status",
+      "ork_phase_run",
+      "ork_phase_list",
+      "ork_objective_status",
+      "ork_objective_message",
+      "ork_portfolio_list",
+      "ork_brain_status",
+      "ork_brain_query",
+      "ork_brain_get",
+      "ork_claims_add",
+      "ork_verify",
+      "ork_verify_baseline",
+      "ork_worktree_ensure",
+      "ork_worktree_audit",
+      "ork_gate_answer",
+      "ork_session_answer",
+      "ork_ship",
+      "ork_master",
+      "ork_board",
+      "ork_master_batch"
+    ]
+  }
+}

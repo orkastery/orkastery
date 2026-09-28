@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 490" width="1160" height="490" role="img" aria-label="Os tres modos vivos de conducao do Orkastery e onde cada um pausa para o humano">
+  <title>Orkastery, espectro de conducao por #TAG</title>
+  <rect x="0" y="0" width="1160" height="490" rx="16" fill="#0F1520"/>
+
+  <text x="40" y="54" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" fill="#E6EDF7">O espectro de conducao</text>
+  <text x="40" y="82" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#8FA3BE">A #TAG vai no proprio pedido ao orquestrador e define quantas vezes o ciclo para para voce. Ela nunca muda o que e verificado.</text>
+
+  <rect x="40" y="100" width="1080" height="30" rx="8" fill="#1C1608" stroke="#7A5A24"/>
+  <text x="58" y="120" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#F2A03D">REGRA CENTRAL: o modo afrouxa a PAUSA, nunca a VERIFICACAO. Claims, verify e policies rodam identicos nos tres.</text>
+
+  <!-- cabecalho de fases -->
+  <text x="276" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">GOAL</text>
+  <text x="429" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">PLAN</text>
+  <text x="582" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">GO</text>
+  <text x="735" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">CHECK</text>
+  <text x="888" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">SHIP</text>
+  <text x="1041" y="163" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="1.4" fill="#6F8AAB">MASTER</text>
+
+  <!-- guias entre colunas de fase -->
+  <line x1="353" y1="172" x2="353" y2="400" stroke="#1E2938" stroke-width="1"/>
+  <line x1="506" y1="172" x2="506" y2="400" stroke="#1E2938" stroke-width="1"/>
+  <line x1="659" y1="172" x2="659" y2="400" stroke="#1E2938" stroke-width="1"/>
+  <line x1="812" y1="172" x2="812" y2="400" stroke="#1E2938" stroke-width="1"/>
+  <line x1="965" y1="172" x2="965" y2="400" stroke="#1E2938" stroke-width="1"/>
+
+  <!-- #Classic -->
+  <text x="40" y="196" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#E6EDF7">#Classic</text>
+  <rect x="128" y="182" width="56" height="18" rx="9" fill="#1C1608" stroke="#7A5A24"/>
+  <text x="156" y="195" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="0.8" fill="#F2A03D">PADRAO</text>
+  <text x="40" y="214" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">4 blocos, 3 pausas</text>
+  <rect x="205" y="172" width="143" height="40" rx="8" fill="#141E2D" stroke="#46587A"/><rect x="343" y="172" width="5" height="40" rx="2" fill="#F2A03D"/>
+  <text x="276" y="197" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">GOAL</text>
+  <text x="276" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">objetivo</text>
+  <rect x="358" y="172" width="143" height="40" rx="8" fill="#141E2D" stroke="#46587A"/><rect x="496" y="172" width="5" height="40" rx="2" fill="#F2A03D"/>
+  <text x="429" y="197" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">PLAN</text>
+  <text x="429" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">plano</text>
+  <rect x="511" y="172" width="296" height="40" rx="8" fill="#141E2D" stroke="#46587A"/><rect x="802" y="172" width="5" height="40" rx="2" fill="#F2A03D"/>
+  <text x="659" y="197" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">GO - CHECK</text>
+  <text x="659" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">evidencias, com push ja autorizado</text>
+  <rect x="817" y="172" width="296" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
+  <text x="965" y="197" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">SHIP - MASTER</text>
+  <text x="965" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">entrega sozinha, score vai para o batch</text>
+
+  <!-- #Maestro -->
+  <text x="40" y="274" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#E6EDF7">#Maestro</text>
+  <text x="40" y="292" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">3 blocos, 1 pausa</text>
+  <rect x="205" y="250" width="296" height="40" rx="8" fill="#141E2D" stroke="#46587A"/><rect x="496" y="250" width="5" height="40" rx="2" fill="#F2A03D"/>
+  <text x="353" y="275" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">GOAL - PLAN</text>
+  <text x="353" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">premissas</text>
+  <rect x="511" y="250" width="449" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
+  <text x="735" y="275" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">GO - CHECK - SHIP</text>
+  <text x="735" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">entrega com as evidencias anexadas ao ledger</text>
+  <rect x="970" y="250" width="143" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
+  <text x="1041" y="275" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">MASTER</text>
+  <text x="1041" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">score em batch</text>
+
+  <!-- #Auto -->
+  <text x="40" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#E6EDF7">#Auto</text>
+  <text x="40" y="370" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">1 bloco, 0 pausas</text>
+  <rect x="205" y="328" width="908" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
+  <text x="659" y="353" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">GOAL - PLAN - GO - CHECK - SHIP - MASTER</text>
+  <text x="659" y="384" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">o ciclo inteiro numa sessao so; policy block e escalacao tipada ainda param, e toda decisao autonoma vai ao ledger</text>
+
+  <!-- legenda -->
+  <line x1="40" y1="410" x2="1120" y2="410" stroke="#1E2938" stroke-width="1"/>
+  <rect x="40" y="428" width="5" height="20" rx="2" fill="#F2A03D"/>
+  <text x="56" y="443" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">bloco que PARA e espera o veredito humano</text>
+  <rect x="380" y="428" width="18" height="20" rx="5" fill="#12251E" stroke="#2C6B52"/>
+  <text x="408" y="443" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#C9D8EC">bloco que SEGUE sozinho, com a decisao registrada no ledger</text>
+  <text x="1120" y="443" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" fill="#54688A">ork modos</text>
+  <text x="40" y="470" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54688A">Sem #TAG no pedido vale conduction.default_mode do manifesto, que vem classic. #Look e #Ork foram aposentados na I-43: escrever recusa, ler continua.</text>
+  <text x="1120" y="470" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54688A">orkastery / docs/diagramas/espectro-de-modos.svg</text>
+</svg>

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-test/
+
+# copias efemeras que o prepack monta para o tarball do npm
+/skills/
+/references/
+/eval/
+/adapters/
+/LICENSE
+/monitor/

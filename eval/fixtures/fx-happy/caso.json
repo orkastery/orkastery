@@ -1,0 +1,18 @@
+{
+  "id": "fx-happy",
+  "sobre": "O ciclo que funciona: thread aberta no modo do pedido, fase montada com prompt gravado e hash, e claim que passa na reexecucao no HEAD real.",
+  "porque": "Um corpus que so tem canario de falha nao percebe quando o caminho feliz para de funcionar. Este e o unico que reprova se o produto deixar de fazer o basico.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "slug": "evl-checkout-goal",
+    "modo": "classic",
+    "pausas": 3,
+    "promptGravado": true,
+    "promptSha256Hex": true,
+    "despachoBloqueado": false,
+    "verifyOk": true,
+    "motivos": []
+  }
+}

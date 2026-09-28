@@ -1,0 +1,94 @@
+{
+  "contrato": "ork.setup/v1",
+  "atualizadoEm": "2026-09-27T12:01:21.235Z",
+  "modos": {
+    "classic": {
+      "blocos": [
+        {
+          "runtime": "claude-bg",
+          "model": "opus",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-5.6-sol:xhigh"
+          ]
+        },
+        {
+          "runtime": "claude-bg",
+          "model": "fable-5-1",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-5.6-sol:xhigh"
+          ]
+        },
+        {
+          "runtime": "claude-bg",
+          "model": "opus",
+          "effort": "xhigh",
+          "fallback": [
+            "codex:gpt-5.6-sol:high"
+          ]
+        },
+        {
+          "runtime": "claude-bg",
+          "model": "opus",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-5.6-terra:medium"
+          ]
+        }
+      ]
+    },
+    "maestro": {
+      "blocos": [
+        {
+          "runtime": "claude-bg",
+          "model": "fable-5-1",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-6-astra:high"
+          ]
+        },
+        {
+          "runtime": "claude-bg",
+          "model": "opus",
+          "effort": "xhigh",
+          "fallback": [
+            "codex:gpt-5.6-sol:high"
+          ]
+        },
+        {
+          "runtime": "claude-bg",
+          "model": "sonnet",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-5.6-terra:medium"
+          ]
+        }
+      ]
+    },
+    "auto": {
+      "blocos": [
+        {
+          "runtime": "claude-bg",
+          "model": "opus",
+          "effort": "max",
+          "fallback": [
+            "codex:gpt-5.6-sol:xhigh"
+          ]
+        }
+      ]
+    },
+    "fast": {
+      "blocos": [
+        {
+          "runtime": "claude-bg",
+          "model": "sonnet",
+          "effort": "high",
+          "fallback": [
+            "codex:gpt-5.6-terra:high"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "fx-donewhen-executavel",
+  "sobre": "Um critério de pronto cujo comando FALHA reprova o verify, e o veredito nomeia o critério que falhou; o critério sustentado pelo comando passa; e registrar de novo não duplica claim.",
+  "porque": "É a viga (b) do Objective Envelope, e salvá-la não foi mover código: foi criar capacidade. Dentro do envelope, `doneWhen` era PROSA — `objective.ts:205` despejava os itens como lista no `SPEC.md` e nenhum código os executava, e os critérios do envelope real eram frases como \"D1: ork phase run recusa o despacho quando o objective da thread não está approved, com teste que cobre a recusa\": bonito, e impossível de reprovar. As duas metades são exigidas porque critério que só passa não prova nada. A idempotência é condição: `ork verify` roda em toda fase, e uma claim por critério por rodada transformaria a lista num acumulador em vez de uma verificação.",
+  "precisa": ["git"],
+  "esperado": {
+    "criteriosViraramClaim": 2,
+    "naoDuplicaAoRepetir": true,
+    "verifyReprovou": true,
+    "motivoTipado": true,
+    "vereditoNomeiaOCriterio": true,
+    "criterioSustentadoPassa": true,
+    "marcadaComoDoNucleo": true
+  }
+}

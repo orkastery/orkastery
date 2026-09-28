@@ -1,0 +1,20 @@
+{
+  "id": "fx-hitl-latency",
+  "sobre": "fx-hitl-latency: preserva alerta I-01 e acrescenta resposta CLI I-03 SIMULADA",
+  "porque": "Reproduzir o incidente com estado real em sandbox e comparar observação com contrato versionado.",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "latenciaMin": 4,
+    "enviadas": 1,
+    "repetidas": 0,
+    "sinkRecebeu": true,
+    "simulado": true,
+    "respostaRecebida": true,
+    "respostaAbaixo60s": true,
+    "idempotente": true,
+    "adulteradaRecusada": true,
+    "conteudoAusente": true
+  }
+}

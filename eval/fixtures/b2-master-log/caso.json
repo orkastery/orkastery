@@ -1,0 +1,91 @@
+{
+  "descricao": "Contrato congelado do MASTER log (bloco B2): o que passa, o que reprova e por que.",
+  "contrato": "ork.master-log/v1",
+  "camposObrigatorios": [
+    "contrato",
+    "versao",
+    "thread",
+    "slug",
+    "projeto",
+    "modo",
+    "tag",
+    "fases",
+    "score",
+    "justificativa",
+    "avaliadoPor",
+    "avaliadoEm",
+    "classesDeFalha",
+    "resumo",
+    "base",
+    "evidencia"
+  ],
+  "classesFixas": [
+    "sem-falha",
+    "erro-de-spec",
+    "base-avancou",
+    "conflito",
+    "rate-limit",
+    "modelo",
+    "processo",
+    "scope-creep",
+    "outra"
+  ],
+  "valido": {
+    "contrato": "ork.master-log/v1",
+    "versao": 1,
+    "thread": "ork-checkout",
+    "slug": "ork-checkout-f12",
+    "projeto": { "name": "orkastery", "abbrev": "ork" },
+    "modo": "ork",
+    "tag": "#Ork",
+    "variante": null,
+    "fases": ["GOAL", "PLAN", "GO", "CHECK", "SHIP", "MASTER"],
+    "score": 4,
+    "justificativa": "entregou o combinado; a base andou no meio e exigiu ressincronizacao",
+    "avaliadoPor": "dono-do-projeto",
+    "avaliadoEm": "2026-01-15T12:00:00.000Z",
+    "classesDeFalha": ["base-avancou"],
+    "resumo": "thread ork-checkout fechada com score 4/5",
+    "base": { "branch": "main", "commit": "0123456789abcdef0123456789abcdef01234567" },
+    "worktree": null,
+    "evidencia": {
+      "ledger": ".orkastery/threads/ork-checkout/ledger.jsonl",
+      "postmortem": ".orkastery/threads/ork-checkout/POSTMORTEM.json",
+      "eventos": 12,
+      "sessoes": 3,
+      "claims": 4
+    }
+  },
+  "invalidos": [
+    {
+      "nome": "score fora da escala de 0 a 5",
+      "mudanca": { "score": 7 },
+      "erroEsperado": "inteiro de 0 a 5"
+    },
+    {
+      "nome": "score sem justificativa",
+      "mudanca": { "justificativa": "" },
+      "erroEsperado": "justificativa"
+    },
+    {
+      "nome": "classe de falha fora do catalogo fixo",
+      "mudanca": { "classesDeFalha": ["quase-deu-certo"] },
+      "erroEsperado": "catalogo fixo"
+    },
+    {
+      "nome": "fase fora do ciclo canonico",
+      "mudanca": { "fases": ["GOAL", "F7"] },
+      "erroEsperado": "fora do ciclo canonico"
+    },
+    {
+      "nome": "contrato trocado sem trocar a versao",
+      "mudanca": { "contrato": "ork.master-log/v2" },
+      "erroEsperado": "contrato"
+    },
+    {
+      "nome": "sem evidencia apontando ledger e postmortem",
+      "mudanca": { "evidencia": { "eventos": 0 } },
+      "erroEsperado": "evidencia"
+    }
+  ]
+}

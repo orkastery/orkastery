@@ -1,0 +1,10 @@
+# Worktrees das threads sao efemeras: o estado que importa fica em .orkastery/threads/
+.claude/worktrees/
+node_modules/
+# Estado do ork (threads, ledger, auditorias, segredo local de HITL): e da maquina que conduz,
+# nunca do repositorio. Inclui as arvores temporarias do `ork ship` e a pasta privada.
+.orkastery/
+
+# bytecode do Python dos adapters (o CI roda unittest do hermes e o cache sujava a arvore)
+__pycache__/
+*.pyc

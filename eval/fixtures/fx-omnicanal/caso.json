@@ -1,0 +1,17 @@
+{
+  "id": "fx-omnicanal",
+  "sobre": "Prova SIMULADA de que os quatro canais homologados respondem e ficam distinguiveis no recibo",
+  "esperado": {
+    "simulado": true,
+    "canaisRegistrados": 4,
+    "transportes": 2,
+    "chavesIndependentes": 2,
+    "aprovados": 4,
+    "canaisDistinguiveis": 4,
+    "canalPorInferencia": 0,
+    "recusas": 5,
+    "humanosSemIngresso": 0,
+    "ofertaDisponivel": 4
+  },
+  "porque": "D12 exige HITL omnicanal nos quatro hosts homologados com identidade, correlacao e recibo equivalentes, e FX1 exige que a chave de ingresso seja de cada canal. O canario impede quatro regressoes: reduzir a lista de canais, voltar a gravar recibo que nao distingue Hermes de OpenClaw, aceitar resposta sem ingresso homologado (aprovacao cega, transcrito de tool ou canal de outro transporte), e voltar a compartilhar uma chave entre os dois canais de telegram."
+}

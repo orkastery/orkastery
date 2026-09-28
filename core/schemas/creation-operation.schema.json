@@ -1,0 +1,365 @@
+{
+  "$ref": "#/definitions/CreationOperation",
+  "definitions": {
+    "CreationOperation": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "ork.creation-operation/v1"
+        },
+        "operationId": {
+          "type": "string",
+          "pattern": "^cop-[a-f0-9]{32}$"
+        },
+        "version": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "requestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "request": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "create_entity",
+                "create_entity_with_ticket",
+                "open_ticket"
+              ]
+            },
+            "entity": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "initiative"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+                },
+                "parentId": {
+                  "type": "string",
+                  "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 10000,
+                  "default": ""
+                },
+                "acceptanceCriteria": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "maxItems": 100
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "parentId",
+                "title",
+                "acceptanceCriteria"
+              ],
+              "additionalProperties": false
+            },
+            "entityId": {
+              "type": "string",
+              "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+            },
+            "expectedParentVersion": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "expectedEntityVersion": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "request": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            },
+            "doneWhen": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "minItems": 1,
+              "maxItems": 100
+            },
+            "workspaceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+              },
+              "maxItems": 30
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "look",
+                "ork",
+                "classic",
+                "maestro",
+                "auto",
+                "fast"
+              ]
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "projectId": {
+                  "type": "string",
+                  "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+                },
+                "delivery": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "initiatives"
+                  ]
+                },
+                "initiativeIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+                  }
+                }
+              },
+              "required": [
+                "projectId",
+                "delivery",
+                "initiativeIds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "key",
+            "action",
+            "request",
+            "doneWhen",
+            "workspaceIds",
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "received",
+            "entity_persisted",
+            "ticket_persisted",
+            "completed",
+            "recoverable_failure",
+            "compensating",
+            "compensation_failed",
+            "compensated"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reserved": {
+          "type": "object",
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "pattern": "^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$"
+            },
+            "ticketId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^obj-cop-[a-f0-9]{32}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "threadIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+-[a-z0-9]{1,12}$"
+              },
+              "maxItems": 8
+            }
+          },
+          "required": [
+            "entityId",
+            "ticketId",
+            "threadIds"
+          ],
+          "additionalProperties": false
+        },
+        "confirmed": {
+          "type": "object",
+          "properties": {
+            "entityVersion": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ticket": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "entityVersion",
+            "ticket"
+          ],
+          "additionalProperties": false
+        },
+        "nextAction": {
+          "type": "string",
+          "enum": [
+            "resume",
+            "compensate",
+            "none",
+            "manual"
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^creation\\.[a-z_]+$"
+                },
+                "message": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "origin": {
+                "type": "string",
+                "const": "ork.creation"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "received",
+                  "entity_persisted",
+                  "ticket_persisted",
+                  "completed",
+                  "recoverable_failure",
+                  "compensating",
+                  "compensation_failed",
+                  "compensated"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "sequence",
+              "at",
+              "origin",
+              "state",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schema",
+        "operationId",
+        "version",
+        "principal",
+        "requestHash",
+        "request",
+        "state",
+        "createdAt",
+        "updatedAt",
+        "reserved",
+        "confirmed",
+        "nextAction",
+        "error",
+        "receipts",
+        "events"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

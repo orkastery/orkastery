@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 660" width="1160" height="660" role="img" aria-label="Gate de tokens, handoff triado em tres niveis e recuperacao tardia por ork recall">
+  <title>Orkastery, gate de tokens e handoff triado</title>
+  <defs><marker id="s" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M1 1 L11 6 L1 11 z" fill="#54688A"/></marker><marker id="sa" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M1 1 L11 6 L1 11 z" fill="#7A5A24"/></marker></defs>
+  <rect x="0" y="0" width="1160" height="660" rx="16" fill="#0F1520"/>
+  <text x="40" y="54" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="700" fill="#E6EDF7">Gate de tokens e handoff triado</text>
+  <text x="40" y="82" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#8FA3BE">A sessao seguinte nao herda a janela inteira. Ela herda o que foi triado, e busca o resto no momento em que precisa.</text>
+  <text x="40" y="118" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6" fill="#4FB6E8">1. MEDIR</text>
+  <rect x="40" y="130" width="230" height="128" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <text x="60" y="158" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#E6EDF7">A fase termina</text>
+  <text x="60" y="182" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">O loop decide o proximo passo:</text>
+  <text x="60" y="200" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">avancar ou refazer a fase.</text>
+  <text x="60" y="228" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#F2A03D">Antes de despachar</text>
+  <text x="60" y="246" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#F2A03D">qualquer coisa, o gate roda.</text>
+  <line x1="274" y1="194" x2="304" y2="194" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="312" y="118" width="356" height="170" rx="10" fill="#18202E" stroke="#3A4C68" stroke-width="1.4"/>
+  <text x="332" y="144" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" font-weight="700" fill="#F2A03D">ork gate next</text>
+  <text x="332" y="164" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8FA3BE">Ocupacao da janela da sessao atual</text>
+  <rect x="332" y="176" width="316" height="16" rx="8" fill="#101827" stroke="#2B3A50"/>
+  <rect x="333" y="177" width="219" height="14" rx="7" fill="#2C6B52"/>
+  <rect x="552" y="177" width="47" height="14" fill="#7A5A24"/>
+  <rect x="599" y="177" width="48" height="14" rx="7" fill="#7A2E2A"/>
+  <line x1="552" y1="171" x2="552" y2="197" stroke="#F2A03D" stroke-width="1.6"/>
+  <line x1="599" y1="171" x2="599" y2="197" stroke="#E8615B" stroke-width="1.6"/>
+  <text x="552" y="212" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#F2A03D">0.70</text>
+  <text x="599" y="212" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#E8615B">0.85</text>
+  <text x="332" y="234" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">0.70 rotate_above: gira se o proximo passo for pesado</text>
+  <text x="332" y="250" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#8FA3BE">0.85 force_rotate_above: gira sempre</text>
+  <text x="332" y="270" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#6F8AAB">fonte declarada, nunca inventada: runtime_reported,</text>
+  <text x="332" y="282" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" fill="#6F8AAB">estimated, informada, unavailable</text>
+  <line x1="672" y1="160" x2="690" y2="160" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <line x1="672" y1="228" x2="690" y2="228" stroke="#54688A" stroke-width="1.6" marker-end="url(#s)"/>
+  <rect x="696" y="132" width="180" height="56" rx="10" fill="#12251E" stroke="#2C6B52"/>
+  <text x="786" y="156" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700" fill="#9FE3C4">same-session</text>
+  <text x="786" y="176" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">segue na mesma sessao</text>
+  <rect x="696" y="200" width="180" height="56" rx="10" fill="#1C1608" stroke="#7A5A24"/>
+  <text x="786" y="224" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700" fill="#F2A03D">new-session</text>
+  <text x="786" y="244" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#C08A3A">abre sessao nova</text>
+  <rect x="892" y="132" width="228" height="124" rx="10" fill="#111A28" stroke="#33415C"/>
+  <text x="912" y="156" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.3" fill="#6F8AAB">NOS DOIS CASOS</text>
+  <text x="912" y="178" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#C9D8EC">evento token_gate no ledger:</text>
+  <text x="912" y="196" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">ocupacao, fonte, proximo</text>
+  <text x="912" y="212" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">passo, veredito e razao.</text>
+  <text x="912" y="234" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">O vies e pro-rotacao: mais</text>
+  <text x="912" y="250" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#8FA3BE">janela, mais acerto.</text>
+  <line x1="786" y1="256" x2="786" y2="300" stroke="#7A5A24" stroke-width="1.6" marker-end="url(#sa)"/>
+  <rect x="40" y="306" width="1080" height="212" rx="12" fill="#18202E" stroke="#2B3A50"/>
+  <text x="64" y="334" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6" fill="#4FB6E8">2. TRIAR O QUE ATRAVESSA</text>
+  <text x="320" y="334" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#6F8AAB">nada entra no prompt da nova sessao sem origem declarada</text>
+  <text x="1096" y="334" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#54688A">ork handoff export</text>
+  <rect x="64" y="348" width="333" height="152" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="64" y="360" width="4" height="128" rx="2" fill="#F2A03D"/>
+  <text x="84" y="374" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" letter-spacing="1.1" fill="#F2A03D">CRITICO</text>
+  <text x="84" y="394" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">vai INLINE, sempre</text>
+  <text x="84" y="416" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">decisoes locked, criterios de sucesso,</text>
+  <text x="84" y="434" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">estado do mundo, claims pendentes,</text>
+  <text x="84" y="452" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">baseline.</text>
+  <text x="84" y="488" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">Entra inteiro no prompt da nova sessao.</text>
+  <rect x="413" y="348" width="333" height="152" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="413" y="360" width="4" height="128" rx="2" fill="#4FB6E8"/>
+  <text x="433" y="374" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" letter-spacing="1.1" fill="#4FB6E8">IMPORTANTE</text>
+  <text x="433" y="394" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">vira PONTEIRO</text>
+  <text x="433" y="416" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">specs, evidencias, diffs e trechos</text>
+  <text x="433" y="434" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">ligados a tarefa.</text>
+  <text x="433" y="470" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9FD4F2">{id, tier, source, location,</text>
+  <text x="433" y="488" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#9FD4F2">retrieve_via, retrieve_when}</text>
+  <rect x="762" y="348" width="333" height="152" rx="10" fill="#141E2D" stroke="#2B3A50"/>
+  <rect x="762" y="360" width="4" height="128" rx="2" fill="#8FA3BE"/>
+  <text x="782" y="374" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" letter-spacing="1.1" fill="#8FA3BE">RESUMIVEL</text>
+  <text x="782" y="394" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#E6EDF7">vira RESUMO com proveniencia</text>
+  <text x="782" y="416" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">historico de tentativas, logs,</text>
+  <text x="782" y="434" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">exploracao ja concluida.</text>
+  <text x="782" y="470" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">Texto curto, com a origem</text>
+  <text x="782" y="488" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#8FA3BE">declarada junto.</text>
+  <rect x="40" y="536" width="1080" height="80" rx="12" fill="#111A28" stroke="#33415C"/>
+  <rect x="40" y="548" width="4" height="56" rx="2" fill="#45C08A"/>
+  <text x="64" y="562" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.6" fill="#45C08A">3. RECUPERAR TARDE</text>
+  <text x="64" y="586" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#9FE3C4">ork recall &lt;thread-id&gt; --fase CHECK</text>
+  <text x="400" y="586" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#8FA3BE">resolve so os ponteiros cujo retrieve_when casa com o momento, nunca a janela inteira.</text>
+  <text x="64" y="606" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#6F8AAB">Regime orkmind: busca por tag. Regime files: leitura dirigida por path#ancora. O ponteiro e o mesmo; muda a via, e a via e declarada.</text>
+  <text x="1120" y="646" text-anchor="end" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#54688A">orkastery / docs/diagramas/gate-de-tokens-e-handoff.svg</text>
+</svg>

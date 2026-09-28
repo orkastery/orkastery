@@ -1,0 +1,10 @@
+{
+  "id": "fx-blanket-approve",
+  "sobre": "Prova SIMULADA de recusa de aprovação cega (I-43: um modo vivo, `#Classic`, o único que abre pedido de gate em GOAL)",
+  "esperado": {
+    "simulado": true,
+    "recusas": 2,
+    "humanos": 0
+  },
+  "porque": "Exercitar guardas HITL reais em sandbox SIMULADO; impedir retorno de aprovação cega ou previsão incompatível com o modo."
+}

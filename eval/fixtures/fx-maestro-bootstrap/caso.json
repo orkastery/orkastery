@@ -1,0 +1,21 @@
+{
+  "id": "fx-maestro-bootstrap",
+  "sobre": "SIMULADO: consulta, ação com readback e policy block no modo Auto",
+  "porque": "Exercitar o núcleo em projeto temporário sem confundir fixture com ativação live dos hosts.",
+  "precisa": [
+    "git"
+  ],
+  "entrada": "orkastery maestro",
+  "esperado": {
+    "simulado": true,
+    "contract": "ork.maestro-snapshot/v1",
+    "queryExit": 0,
+    "createsThread": false,
+    "childRedispatch": false,
+    "actionCalls": 1,
+    "readbackMatches": true,
+    "autoPolicyBlocked": true,
+    "noDispatch": true,
+    "promptNotWritten": true
+  }
+}

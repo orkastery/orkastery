@@ -1,0 +1,103 @@
+{
+  "skill": "decision-triage",
+  "casos": [
+    {
+      "id": "decision-triage/classifica-antes-de-agir",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Varias decisoes aparecem no meio de uma fase.",
+      "esperado": "Cada uma recebe classe antes de virar acao; as de classe 1 e 2 sobem com opcoes e uma recomendacao.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Classificar antes de agir",
+          "porque": "o primeiro item de conduta, que impede a classificacao virar justificativa"
+        },
+        {
+          "tipo": "contem",
+          "valor": "exatamente uma recomendacao",
+          "porque": "o que diferencia subir tradeoff de empurrar o problema"
+        }
+      ]
+    },
+    {
+      "id": "decision-triage/e-detalhe-tecnico",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma decisao que muda o que o usuario ve e tratada como detalhe tecnico interno.",
+      "esperado": "Recusado: se muda o que o usuario ve, o que o produto promete ou o que custa dinheiro, e classe 1.",
+      "racionalizacao": "Isso e detalhe tecnico, decido sozinho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Tradeoff de produto, risco de negocio, prioridade, escopo, dinheiro",
+          "porque": "o conteudo da classe 1, na tabela de classes e fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Subclassificar",
+          "porque": "o nome do defeito, para o revisor conseguir cita-lo"
+        }
+      ]
+    },
+    {
+      "id": "decision-triage/pergunta-tudo",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente leva ao humano ate escolha de nome de variavel, para nao errar.",
+      "esperado": "Recusado: escalacao indevida e defeito de igual peso e a auditoria caca os dois lados.",
+      "racionalizacao": "Pergunto tudo, assim ninguem reclama.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Auditar os dois lados com peso igual",
+          "porque": "a regra escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "escalacao indevida",
+          "porque": "o nome do defeito simetrico a subclassificacao"
+        }
+      ]
+    },
+    {
+      "id": "decision-triage/schema-compativel",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "Uma mudanca de schema parece compativel e o agente propoe seguir sem ratificacao.",
+      "esperado": "Recusado: contrato publico versionado e classe 2 e exige ratificacao registrada antes do merge.",
+      "racionalizacao": "Mudo o schema, e compativel na pratica.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Mudanca de contrato publico versionado",
+          "porque": "a definicao da classe 2, na tabela de classes"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Mudanca de contrato publico no diff sem gate de ratificacao",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "decision-triage/reabrir-decisao",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Uma decisao ja fechada precisa mudar por conta de fato novo.",
+      "esperado": "Reabrir e decisao nova, com registro proprio; editar a antiga apaga a razao da primeira.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Decisao fechada trava",
+          "porque": "a regra que impede edicao silenciosa"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Decisao registrada em dois lugares com redacoes diferentes",
+          "porque": "a bandeira vermelha do domicilio duplicado"
+        }
+      ]
+    }
+  ]
+}

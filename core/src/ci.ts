@@ -1,0 +1,216 @@
+/** GitHub CI como CHECK independente (I-12). */
+import { ManifestoCarregado } from './manifest';
+import { exec } from './util';
+import { verificar, ResultadoVerify } from './verify';
+import { comandosDoManifesto, commitReal, executar, prazoDoComando, verificarClaim } from './verify';
+import { lerClaims } from './claims';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Claim } from './types';
+import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
+import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
+import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { dirThread } from './thread';
+
+export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
+
+export interface ResultadoCi {
+  schema: 'ork.ci-status/v1';
+  required: boolean;
+  ok: boolean;
+  provider: 'github';
+  repository: string | null;
+  sha: string;
+  context: string;
+  state: EstadoCi;
+  url: string | null;
+  detail: string;
+}
+
+export type ExecutorCi = (input: { repository: string; sha: string; context: string }) =>
+  { ok: boolean; stdout: string; stderr: string; code: number };
+
+export interface BundleCi {
+  schema: 'ork.ci-bundle/v1';
+  thread: string;
+  base: string;
+  claims: Claim[];
+  /** Claims that require the installation host and remain mandatory in local SHIP verify. */
+  deferredClaims?: Array<{ id: string; reason: 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' }>;
+  commands: { name: string; command: string }[];
+}
+
+const MARCADORES_DE_HOST = [
+  /(^|[\s;&|])\/home\//,
+  /(^|[\s;&|])localhost(?=[:/\s;&|]|$)/,
+  /verify-company-brain-live\.cjs/,
+];
+// Alguns verificadores misturam casos hermeticos com casos que, por contrato, leem
+// repositorios irmaos ou o estado local da thread. Classificar por executavel inteiro
+// dispensaria tambem os casos hermeticos; a unidade correta e o caso selecionado.
+const CASOS_DE_VERIFICADOR_LOCAIS = [
+  /verify-goal-c2-b3\.cjs\s+(?:P2|P3|P4|P5)(?:\s|$)/,
+  /verify-check-c2-b3\.cjs\s+(?:docs-metrics|d12-ratification)(?:\s|$)/,
+];
+const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
+  /verify-check-c2-b3\.cjs\s+channel-offer(?:\s|$)/,
+];
+function exigeIntegracaoLocal(command:string):boolean {
+  return [...command.matchAll(/(?:^|[\s/])([a-z0-9-]+\.test\.js)(?=$|[\s;&|])/g)]
+    .some(match=>TESTES_DE_INTEGRACAO_LOCAL.has(match[1]));
+}
+
+/**
+ * CI hosted cannot impersonate an installed host.  Those claims are not dropped:
+ * the bundle names them as deferred and `ork ship` still runs the complete local
+ * verification before consulting GitHub.  Only checkout-hermetic claims execute in
+ * the independent runner.
+ */
+export function motivoDiferimentoCi(
+  claim: Claim,
+  raiz: string
+): 'artifact-not-in-checkout' | 'host-runtime-required' | 'local-integration-required' | null {
+  // `git ls-files` aceita um pathspec absoluto que esteja dentro desta worktree,
+  // mas o mesmo texto aponta para uma worktree inexistente no runner hospedado.
+  if (path.isAbsolute(claim.arquivo)) return 'artifact-not-in-checkout';
+  const tracked = exec('git', ['ls-files', '--error-unmatch', '--', claim.arquivo], raiz);
+  if (!tracked.ok) return 'artifact-not-in-checkout';
+  if (claim.verificar.some((command) => MARCADORES_DE_HOST.some((marker) => marker.test(command)))) {
+    return 'host-runtime-required';
+  }
+  if (claim.verificar.some((command) => CASOS_DE_VERIFICADOR_LOCAIS.some((caso) => caso.test(command)))) {
+    return 'host-runtime-required';
+  }
+  if (claim.verificar.some((command) => exigeIntegracaoLocal(command)
+    || CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL.some((caso) => caso.test(command)))) {
+    return 'local-integration-required';
+  }
+  return null;
+}
+
+export function repositorioGitHub(url: string): string | null {
+  const match = url.trim().replace(/\.git$/, '').match(/(?:github\.com[/:])([^/]+\/[^/]+)$/i);
+  return match?.[1] ?? null;
+}
+
+function executorPadrao(input: { repository: string; sha: string; context: string }) {
+  return exec('gh', [
+    'api', `repos/${input.repository}/commits/${input.sha}/check-runs`,
+    '-H', 'Accept: application/vnd.github+json',
+  ], process.cwd(), 120000);
+}
+
+export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao): ResultadoCi {
+  const { ci } = carregado.manifesto;
+  const context = ci.context || 'ork-verify';
+  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: 'gate de CI não exigido pelo manifesto' };
+  const remote = exec('git', ['remote', 'get-url', remoto], carregado.raiz);
+  const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
+  if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: `remoto ${remoto} não é um repositório GitHub reconhecível` };
+  const result = executor({ repository, sha, context });
+  if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || 'consulta ao GitHub falhou').trim().slice(0, 400) };
+  let payload: { check_runs?: Array<{ name?: string; status?: string; conclusion?: string | null; html_url?: string }> };
+  try {
+    payload = JSON.parse(result.stdout) as typeof payload;
+  } catch {
+    return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: 'GitHub devolveu uma resposta de checks inválida' };
+  }
+  const checks = (payload.check_runs ?? []).filter((check) => check.name === context);
+  if (!checks.length) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'missing', url: null, detail: `check ${context} não encontrado no commit` };
+  const check = checks.at(-1)!;
+  const status = check.status ?? 'unknown';
+  const conclusion = check.conclusion ?? '';
+  const url = check.html_url ?? '';
+  const state: EstadoCi = status !== 'completed' ? 'pending' : conclusion === 'success' ? 'success' : 'failure';
+  return { schema: 'ork.ci-status/v1', required: true, ok: state === 'success', provider: 'github', repository, sha, context, state, url: url || null, detail: state === 'success' ? 'CHECK independente verde no GitHub' : `check ${context}: ${status}/${conclusion || 'sem conclusão'}` };
+}
+
+export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {
+  const verify = verificar(carregado, threadId);
+  const context = carregado.manifesto.ci.context || 'ork-verify';
+  const repository = process.env.GITHUB_REPOSITORY ?? null;
+  return {
+    status: {
+      schema: 'ork.ci-status/v1', required: true, ok: verify.ok, provider: 'github', repository,
+      sha: verify.commit, context, state: verify.ok ? 'success' : 'failure',
+      url: process.env.GITHUB_SERVER_URL && repository && process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}` : null,
+      detail: verify.ok ? 'ork verify aprovado no runner independente' : `ork verify reprovou: ${verify.motivos.join(', ')}`,
+    },
+    verify,
+  };
+}
+
+/**
+ * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (com o campo `lint`) que
+ * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
+ * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
+ */
+export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avisos: string[] } {
+  const recusas: string[] = [], avisos: string[] = [];
+  for (const claim of claims) {
+    for (const achado of analisarComandos(claim.verificar)) {
+      const linha = linhaDoLintDeClaim(claim.id, achado);
+      if (achado.regra === 'suite-inteira' && claim.lint !== undefined) recusas.push(linha);
+      else avisos.push(achado.regra === 'suite-inteira' ? `${linha} (claim anterior ao lint: so aviso)` : linha);
+    }
+  }
+  return { recusas, avisos };
+}
+
+export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
+  opcoes: { aoAvisar?: (linha: string) => void } = {}): string {
+  const commands = carregado.manifesto.ci.command
+    ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
+    : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+  const activeClaims = lerClaims(carregado.raiz, threadId).filter(
+    (claim) => claim.estado !== 'retirada'
+  );
+  const lint = lintDoBundle(activeClaims);
+  if (lint.recusas.length || lint.avisos.length) {
+    registrar(dirThread(carregado.raiz, threadId), threadId, TIPOS_DE_EVENTO.lintDeClaim,
+      { recusas: lint.recusas, avisos: lint.avisos });
+  }
+  for (const aviso of lint.avisos) opcoes.aoAvisar?.(aviso);
+  if (lint.recusas.length) {
+    throw new Error(`claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ` +
+      lint.recusas.join('\n  '));
+  }
+  const classified = activeClaims.map((claim) => ({
+    claim,
+    reason: motivoDiferimentoCi(claim, carregado.raiz),
+  }));
+  const bundle: BundleCi = {
+    schema: 'ork.ci-bundle/v1',
+    thread: threadId,
+    base: carregado.manifesto.worktree.base_branch,
+    claims: classified.filter((item) => item.reason === null).map((item) => item.claim),
+    deferredClaims: classified
+      .filter((item) => item.reason !== null)
+      .map((item) => ({ id: item.claim.id, reason: item.reason! })),
+    commands,
+  };
+  const dir = path.join(carregado.raiz, '.ork-ci');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'bundle.json');
+  fs.writeFileSync(file, JSON.stringify(bundle, null, 2) + '\n', 'utf8');
+  return file;
+}
+
+export function executarBundleCi(carregado: ManifestoCarregado, file = '.ork-ci/bundle.json') {
+  const absolute = path.resolve(carregado.raiz, file);
+  const stat = fs.statSync(absolute);
+  if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('bundle de CI ausente ou acima de 1 MiB');
+  const bundle = JSON.parse(fs.readFileSync(absolute, 'utf8')) as BundleCi;
+  if (bundle.schema !== 'ork.ci-bundle/v1' || !/^ork-[a-z0-9-]+$/.test(bundle.thread) || !Array.isArray(bundle.claims) || !Array.isArray(bundle.commands)) throw new Error('bundle de CI inválido');
+  // O CI roda o mesmo preparo do `ork verify` local (I-54), uma vez e antes das claims: a claim
+  // que passa na maquina de quem entrega passa aqui pelo mesmo caminho. Como no verify, o
+  // preparo nao e condicao de claim; ele so deixa a compilacao pronta e sai no resultado.
+  const comandoDoPreparo = carregado.manifesto.verify.preparo;
+  const preparo = comandoDoPreparo
+    ? executar('preparo', comandoDoPreparo, carregado.raiz, prazoDoComando(carregado.manifesto, 'preparo'))
+    : null;
+  const claims = bundle.claims.map((claim) => verificarClaim(claim, carregado.raiz));
+  const commands = bundle.commands.map((item) => executar(item.name, item.command, carregado.raiz));
+  const ok = claims.every((item) => item.verificado || item.motivo === 'claims.unverifiable') && commands.every((item) => item.ok);
+  return { schema: 'ork.ci-run/v1' as const, ok, thread: bundle.thread, commit: commitReal(carregado.raiz), preparo, claims, commands };
+}

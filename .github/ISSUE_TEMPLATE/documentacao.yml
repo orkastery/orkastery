@@ -1,0 +1,26 @@
+name: Documentação
+description: Uma página errada, desatualizada, confusa ou que falta
+labels: ["documentação"]
+body:
+  - type: input
+    id: pagina
+    attributes:
+      label: Qual página
+      placeholder: "docs/guias/modos.md, ou o link"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: O que está errado ou confuso
+      description: Cite o trecho. Se a página diverge do código, diga o comando que mostra a divergência.
+    validations:
+      required: true
+
+  - type: textarea
+    id: sugestao
+    attributes:
+      label: Como deveria ficar
+    validations:
+      required: false

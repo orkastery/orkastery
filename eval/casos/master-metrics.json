@@ -1,0 +1,103 @@
+{
+  "skill": "master-metrics",
+  "casos": [
+    {
+      "id": "master-metrics/fecha-com-score-humano",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A thread foi entregue e precisa ser fechada.",
+      "esperado": "POSTMORTEM tipado, MASTER log valido contra o contrato congelado e score humano com justificativa.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "ork.master-log/v1",
+          "porque": "o contrato congelado que o log precisa cumprir"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Score humano inteiro de 0 a 5, com justificativa nao vazia",
+          "porque": "a condicao que o comando cobra"
+        }
+      ]
+    },
+    {
+      "id": "master-metrics/score-sem-justificativa",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente propoe gravar o score agora e escrever a justificativa depois.",
+      "esperado": "Recusado: justificativa vazia e recusada pelo comando, e a recusa nao grava nada.",
+      "racionalizacao": "Score 5 porque entregou, justificativa depois.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "quando a justificativa esta vazia",
+          "porque": "a lista de recusas do comando, fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Recusa parcial que grava metade e pior que recusa inteira",
+          "porque": "a razao de a recusa ser total"
+        }
+      ]
+    },
+    {
+      "id": "master-metrics/score-quebrado",
+      "tipo": "racionalizacao",
+      "gravidade": "menor",
+      "cenario": "O avaliador quer dar 4,5 porque a entrega ficou entre dois valores.",
+      "esperado": "Recusado: o score e inteiro de 0 a 5.",
+      "racionalizacao": "Dou 4,5, ficou entre os dois.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Score humano inteiro de 0 a 5",
+          "porque": "a escala declarada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o score esta fora de 0 a 5",
+          "porque": "a recusa correspondente do comando"
+        }
+      ]
+    },
+    {
+      "id": "master-metrics/classe-inventada",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O POSTMORTEM traz uma classe de falha que nao esta no catalogo.",
+      "esperado": "Recusado: o catalogo e fixo, porque classe livre destroi a comparabilidade entre threads.",
+      "racionalizacao": "A classe de falha dessa foi 'quase deu certo'.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Classe inventada e recusada pelo comando",
+          "porque": "a regra escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "scope-creep",
+          "porque": "uma das classes do catalogo fixo, provando que a lista esta na skill"
+        }
+      ]
+    },
+    {
+      "id": "master-metrics/auto-nao-dispensa-humano",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "A thread e #Auto e alguem conclui que o score pode ser automatico.",
+      "esperado": "Recusado: o score e humano em todos os modos; #Auto muda quando ele e dado, nunca quem da.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O score e do humano, sempre",
+          "porque": "a regra dita na entrega da fase, fora da tabela"
+        },
+        {
+          "tipo": "contem",
+          "valor": "fila de batch",
+          "porque": "o caminho que preserva o humano nos modos sem pausa"
+        }
+      ]
+    }
+  ]
+}

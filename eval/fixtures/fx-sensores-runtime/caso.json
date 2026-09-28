@@ -1,0 +1,17 @@
+{
+  "id": "fx-sensores-runtime",
+  "sobre": "Integração I-04 com hook/CLI, supervisor e watcher em sandbox Git",
+  "porque": "Medir ingestão, classificações, morte e domicílio único sem credenciais ou estado operacional; T9 comprova runtimes reais separadamente.",
+  "precisa": ["git"],
+  "esperado": {
+    "tipoProva": "harness isolado; protocolo Codex sintético",
+    "classificacoes": ["fase_concluida", "human.pending", "gate_blocked"],
+    "subprocessosComRecibo": 3,
+    "hookAbaixo5s": true,
+    "morteAntesDoLimite": false,
+    "morteLatenciaMs": 600000,
+    "mortosSemEvento": 0,
+    "duplicatas": 0,
+    "estadoUnico": true
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "orkastery",
+  "displayName": "Orkastery",
+  "description": "Conducao de looping threads em 6 fases com gates humanos, estado em disco e MASTER log com score de 0 a 5. As skills sao roteadores finos: quem executa e o nucleo `ork`.",
+  "version": "{{versao}}",
+  "author": {
+    "name": "Julio Pessoa e contribuidores do Orkastery"
+  },
+  "license": "MIT",
+  "skills": [
+    "./skills/core/orkastery-bootstrap",
+    "./skills/core/thread-state",
+    "./skills/governance/decision-triage",
+    "./skills/governance/narrative-guardian",
+    "./skills/governance/roadmap-keeper",
+    "./skills/governance/scope-check-capability-map",
+    "./skills/observability/thread-tracing",
+    "./skills/phases/check-quality",
+    "./skills/phases/go-implementation",
+    "./skills/phases/goal-definition",
+    "./skills/phases/master-metrics",
+    "./skills/phases/plan-specification",
+    "./skills/phases/ship-release",
+    "./skills/reviewers/code-reviewer",
+    "./skills/reviewers/security-auditor",
+    "./skills/reviewers/test-engineer",
+    "./skills/reviewers/web-performance-auditor",
+    "./skills/core/onboarding"
+  ],
+  "commands": "./commands",
+  "keywords": [
+    "orquestracao",
+    "metodologia",
+    "governanca",
+    "telemetria"
+  ]
+}

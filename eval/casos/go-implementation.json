@@ -1,0 +1,103 @@
+{
+  "skill": "go-implementation",
+  "casos": [
+    {
+      "id": "go-implementation/baseline-antes-do-primeiro-commit",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "A thread entra no GO e precisa comecar a implementar.",
+      "esperado": "A worktree e garantida, a baseline e gravada antes da primeira linha e cada tarefa vira um commit atomico.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Baseline gravada antes da primeira linha",
+          "porque": "o passo que separa regressao de divida pre-existente"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Um commit atomico por tarefa",
+          "porque": "o limite que torna a entrega reversivel e revisavel"
+        }
+      ]
+    },
+    {
+      "id": "go-implementation/rodei-e-passou",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente reporta que rodou a suite localmente e ela passou.",
+      "esperado": "Recusado: passagem relatada nao e passagem; o `ork verify` reexecuta no HEAD real.",
+      "racionalizacao": "Eu rodei e passou, pode confiar.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Passagem relatada por agente nao e passagem",
+          "porque": "a regra ancorada fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "reexecuta claims e comandos do manifesto no HEAD real",
+          "porque": "o mecanismo que substitui a confianca"
+        }
+      ]
+    },
+    {
+      "id": "go-implementation/arvore-principal",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente propoe trabalhar direto na arvore principal porque a worktree parece cerimonia.",
+      "esperado": "Recusado: a arvore principal nao e area de trabalho de thread nenhuma.",
+      "racionalizacao": "Mexo direto na arvore principal, e mais rapido.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "A arvore principal nao e area de trabalho de thread nenhuma",
+          "porque": "a regra fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Trabalho acontecendo fora da worktree da thread",
+          "porque": "a bandeira vermelha correspondente"
+        }
+      ]
+    },
+    {
+      "id": "go-implementation/melhoria-oportunista",
+      "tipo": "racionalizacao",
+      "gravidade": "menor",
+      "cenario": "O agente aproveita a passagem pelo arquivo e corrige outra coisa que viu pela frente.",
+      "esperado": "Recusado: melhoria fora das tarefas do PLAN e scope creep e vira proposta, nunca commit escondido.",
+      "racionalizacao": "Aproveitei e arrumei outra coisa no caminho.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "scope creep",
+          "porque": "o nome do defeito, para o revisor conseguir cita-lo"
+        },
+        {
+          "tipo": "contem",
+          "valor": "vira proposta, nunca commit escondido",
+          "porque": "o destino correto do achado"
+        }
+      ]
+    },
+    {
+      "id": "go-implementation/teste-ja-falhava",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Um teste esta vermelho e o agente afirma que ele ja falhava antes da thread.",
+      "esperado": "Isso e afirmacao verificavel: a baseline responde por comando, e a divida entra declarada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "comando que passava antes e falha agora sai como",
+          "porque": "a regra que classifica a falha por comparacao, nao por opiniao"
+        },
+        {
+          "tipo": "contem",
+          "valor": "verify.regression",
+          "porque": "o motivo tipado que o gate usa"
+        }
+      ]
+    }
+  ]
+}

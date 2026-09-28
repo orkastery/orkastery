@@ -1,0 +1,4 @@
+name: orkastery-hitl
+version: 0.1.0
+description: Resposta HITL pelos callbacks autenticados Telegram ou Discord nativo, sem tool do modelo.
+kind: standalone

@@ -1,0 +1,14 @@
+{
+  "id": "fx-objective-oscillation",
+  "sobre": "Um objetivo revisado repetidamente não pode consumir a orquestra em loop.",
+  "porque": "A terceira revisão consecutiva aciona uma pausa tipada e preserva todas as versões do Objective Envelope para diagnóstico humano.",
+  "precisa": ["git"],
+  "esperado": {
+    "threads": 3,
+    "revisions": 3,
+    "state": "paused",
+    "reason": "objective.oscillation",
+    "history": 3,
+    "currentVersion": 4
+  }
+}

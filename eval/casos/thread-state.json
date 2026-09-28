@@ -1,0 +1,82 @@
+{
+  "skill": "thread-state",
+  "casos": [
+    {
+      "id": "thread-state/retoma-do-disco",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "Uma sessao nova precisa retomar uma thread que outra sessao abriu ontem.",
+      "esperado": "O estado e lido por comando, do disco, e a fase atual sai do thread.json e do ledger.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "ork thread status",
+          "porque": "o comando que le o estado real em vez de reconstruir por memoria"
+        },
+        {
+          "tipo": "contem",
+          "valor": "o prompt exato com `sha256`",
+          "porque": "o que torna o pedido de cada sessao uma evidencia e nao uma lembranca"
+        }
+      ]
+    },
+    {
+      "id": "thread-state/edita-o-json-na-mao",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O agente quer corrigir um campo do thread.json abrindo o arquivo no editor.",
+      "esperado": "Recusado: todo campo tem um comando que o escreve, e o comando tambem registra no ledger.",
+      "racionalizacao": "E mais rapido editar o thread.json na mao.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Editar `thread.json` com editor de texto e corromper estado",
+          "porque": "a regra escrita fora da tabela de desculpas"
+        },
+        {
+          "tipo": "contem",
+          "valor": "Append-only",
+          "porque": "o motivo pelo qual escrita manual quebra o historico"
+        }
+      ]
+    },
+    {
+      "id": "thread-state/ledger-append-only",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Um evento ficou errado no ledger e alguem propoe reescrever a linha.",
+      "esperado": "Recusado: correcao entra como evento novo; historico editado deixa de ser historico.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Correcao entra como evento novo",
+          "porque": "a regra que preserva o rastro"
+        },
+        {
+          "tipo": "contem",
+          "valor": "historico editado deixa de ser historico",
+          "porque": "a consequencia, dita de forma que o revisor consegue citar"
+        }
+      ]
+    },
+    {
+      "id": "thread-state/disco-diverge-do-runtime",
+      "tipo": "borda",
+      "gravidade": "menor",
+      "cenario": "O thread.json diz que uma sessao esta viva e o runtime nao a reconhece.",
+      "esperado": "A divergencia e dita em voz alta, e o estado real do runtime vence o gravado.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "O estado real vence o estado gravado",
+          "porque": "a regra de precedencia entre disco e runtime"
+        },
+        {
+          "tipo": "contem",
+          "valor": "aparece como divergencia",
+          "porque": "o comportamento esperado quando os dois discordam"
+        }
+      ]
+    }
+  ]
+}

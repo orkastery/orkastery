@@ -1,0 +1,102 @@
+{
+  "skill": "onboarding",
+  "casos": [
+    {
+      "id": "onboarding/retomada",
+      "tipo": "caminho-feliz",
+      "gravidade": "maior",
+      "cenario": "O builder retorna a uma entrevista interrompida com algumas respostas já registradas.",
+      "esperado": "Consulta o estado e a pauta do CLI antes de perguntar somente as pendências.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "ork onboarding show --json",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        },
+        {
+          "tipo": "contem",
+          "valor": "A ordem, o contrato e a validação pertencem ao núcleo",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        }
+      ]
+    },
+    {
+      "id": "onboarding/credencial",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O builder oferece uma credencial e o agente sugere guardá-la junto da entrevista.",
+      "esperado": "Não ecoa nem persiste valores secretos; registra somente referência pública permitida.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Valores secretos ficam em",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        },
+        {
+          "tipo": "contem",
+          "valor": "não o repita",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        }
+      ],
+      "racionalizacao": "É mais rápido declarar concluído sem conferir as restrições e a evidência."
+    },
+    {
+      "id": "onboarding/idempotencia",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "O builder repete a mesma resposta e quer preservar a autoria e os registros anteriores.",
+      "esperado": "Reenvia pelo núcleo idempotente e só executa reset quando houver pedido explícito.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Repetir conteúdo idêntico preserva autoria",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        },
+        {
+          "tipo": "contem",
+          "valor": "Reset exige pedido explícito",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        }
+      ]
+    },
+    {
+      "id": "onboarding/files",
+      "tipo": "racionalizacao",
+      "gravidade": "maior",
+      "cenario": "O driver de memória falha e o agente sugere anunciar publicação mesmo assim para concluir.",
+      "esperado": "Conclui a entrevista local e apresenta o motivo tipado sem alegar memória publicada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "a entrevista pode concluir em arquivos",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        },
+        {
+          "tipo": "contem",
+          "valor": "Não anuncie memória publicada",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        }
+      ],
+      "racionalizacao": "É mais rápido declarar concluído sem conferir as restrições e a evidência."
+    },
+    {
+      "id": "onboarding/autoria",
+      "tipo": "borda",
+      "gravidade": "maior",
+      "cenario": "Uma retomada #Auto não contém as respostas do humano nem prova temporal de funcionamento.",
+      "esperado": "Não inventa respostas ou autoria e distingue eval estrutural da execução observada.",
+      "assercoes": [
+        {
+          "tipo": "contem",
+          "valor": "Não invente resposta nem autoria",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        },
+        {
+          "tipo": "contem",
+          "valor": "Eval estrutural não prova comportamento de LLM",
+          "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
+        }
+      ]
+    }
+  ]
+}

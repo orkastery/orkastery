@@ -1,0 +1,49 @@
+# Publica o @orkastery/cli no npm por Trusted Publishing (OIDC): nenhum token nem senha fica em
+# maquina nenhuma. O dono configura uma vez no npmjs.com: pacote @orkastery/cli > Settings >
+# Trusted publishing > GitHub Actions, com organizacao `orkastery`, repositorio `orkastery` e
+# workflow `publicar.yml`. Dispara pela tag `v<versao>` num commit da main, e so publica quando a
+# tag bate com o package.json e os canarios do produto passam.
+name: Publicar no npm
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publicar:
+    name: publicar @orkastery/cli
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted Publishing exige npm 11.5.1 ou mais novo.
+      - name: npm atual
+        run: npm install -g npm@latest
+
+      - name: a tag e a versao do pacote
+        run: test "v$(node -p "require('./core/package.json').version")" = "$GITHUB_REF_NAME"
+
+      - name: a tag esta na main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: instalar e compilar
+        run: npm ci && npm run build
+        working-directory: core
+
+      - name: canarios do produto
+        run: node core/dist/index.js eval --so-canarios
+
+      - name: publicar
+        run: npm publish --access public
+        working-directory: core

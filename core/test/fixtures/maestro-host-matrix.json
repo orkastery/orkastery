@@ -1,0 +1,12 @@
+{
+  "schema": "ork.maestro-host-matrix/v1",
+  "evidenceKind": "simulated",
+  "phrase": "orkastery maestro",
+  "hosts": [
+    { "host": "codex", "entry": "skills/ork/SKILL.md", "transport": "mcp", "hitl": "mcp-local" },
+    { "host": "claude-code", "entry": "commands/ork.md", "transport": "mcp", "hitl": "mcp-local" },
+    { "host": "hermes", "entry": "bin/ork-maestro.sh", "transport": "argv", "hitl": "native-or-telegram-configured" },
+    { "host": "openclaw", "entry": "dist/index.js", "transport": "argv", "hitl": "native-or-telegram-configured" }
+  ],
+  "liveActivation": "pending"
+}
