@@ -280,7 +280,7 @@ test('pausa humana aberta nao ocupa vaga, mas sessao ainda working segue ocupand
   assert.equal(esperando.vagas[0].situacao, 'pausada');
   assert.equal(esperando.vagas[0].motivo, 'human.pending');
   assert.equal(esperando.emAndamento, 0);
-  assert.match(esperando.vagas[0].correcao, /ork gate approve/);
+  assert.match(esperando.vagas[0].correcao, /ork gate request/);
 
   // Sessao BLOQUEADA em HITL e a pausa ja chegada: tambem nao ocupa.
   const bloqueada = planejar(p.carregado, {

@@ -39,7 +39,7 @@
   <text x="659" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#F2A03D">evidencias, com push ja autorizado</text>
   <rect x="817" y="172" width="296" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
   <text x="965" y="197" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">SHIP - MASTER</text>
-  <text x="965" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">entrega sozinha, score vai para o batch</text>
+  <text x="965" y="228" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">entrega sozinha, aceite por omissao</text>
 
   <!-- #Maestro -->
   <text x="40" y="274" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#E6EDF7">#Maestro</text>
@@ -52,7 +52,7 @@
   <text x="735" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">entrega com as evidencias anexadas ao ledger</text>
   <rect x="970" y="250" width="143" height="40" rx="8" fill="#12251E" stroke="#2C6B52"/>
   <text x="1041" y="275" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" fill="#9FE3C4">MASTER</text>
-  <text x="1041" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">score em batch</text>
+  <text x="1041" y="306" text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#5FA98A">aceite por omissao</text>
 
   <!-- #Auto -->
   <text x="40" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="700" fill="#E6EDF7">#Auto</text>

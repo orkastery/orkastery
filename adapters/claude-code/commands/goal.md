@@ -37,10 +37,11 @@ ork claims add <thread> <arquivo> --claim "<alegacao>" --verificar "<comando>" -
 ork verify <thread> --so-claims
 ```
 
-5. Se o modo pausa neste bloco, apresenta a evidencia ao builder e para. A liberacao e registrada:
+5. Se o modo pausa neste bloco, apresenta a evidencia ao builder e para. O pedido sai do nucleo, e a
+   liberacao so e registrada quando o builder responde pelo canal autenticado:
 
 ```bash
-ork gate approve <thread> objetivo --por "<quem>"
+ork gate request <thread>
 ```
 
 ## Regras do adaptador

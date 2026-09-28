@@ -73,7 +73,7 @@ ork pulse --json
 ork board plan
 ork doctor
 ork modos
-ork master --batch
+ork master
 ```
 
 Use apenas as consultas necessarias. Nao rode todas a cada mensagem. O preflight pertence ao

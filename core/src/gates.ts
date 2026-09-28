@@ -121,10 +121,12 @@ export function descreverMotivo(motivo: MotivoGate, detalhe: string): string {
 }
 
 /**
- * `ork gate approve`: o humano autoriza uma pausa do modo pela linha de comando.
+ * `ork gate approve`, APOSENTADO: aprovacao sem pedido e recusada. A pausa se libera pela
+ * resposta ao `ork gate request`, que chega pelo ingresso humano autenticado.
  *
- * E o que torna a "autorizacao antecipada de push" do `#Classic` verificavel: ela vira um
- * evento no ledger com quem autorizou e quando, em vez de memoria de conversa.
+ * Antes da aposentadoria, era o que tornava verificavel a "autorizacao antecipada de push"
+ * do `#Classic`: ela virava um evento no ledger com quem autorizou e quando, em vez de
+ * memoria de conversa.
  */
 export function aprovarGateHumano(
   _raiz: string,

@@ -27,11 +27,12 @@ ork worktree audit <thread>
 ork phase list <thread>
 ```
 
-4. Consolida UM veredito (PASSOU, PRECISA DE MUDANCA, BLOQUEADO) e, se o modo pausa, apresenta ao
-   builder e espera:
+4. Consolida UM veredito (PASSOU, PRECISA DE MUDANCA, BLOQUEADO) e, se o modo pausa, abre o pedido
+   e espera. O builder responde pelo canal autenticado (dialogo nativo do host, ou
+   `/ork gate <thread> <pedido> <resposta>` no Telegram); o agente nunca responde por ele:
 
 ```bash
-ork gate approve <thread> evidencias --por "<quem>"
+ork gate request <thread>
 ```
 
 ## Regras do adaptador

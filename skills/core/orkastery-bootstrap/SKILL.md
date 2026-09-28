@@ -110,7 +110,7 @@ No pedido de despacho, descreva o objetivo e o escopo de todas as fases do bloco
 
 Quando `ork_observe` mostrar `turno.estado=encerrado`, reconcilie o ultimo resultado oficial e os artefatos do bloco. Isso indica um turno encerrado, nao `phase_result`, fase concluida ou entrega. Os campos nativos `state` e `status` podem divergir; preserve a divergencia em vez de interpretar `working` isoladamente. Atividade posterior invalida a evidencia de turno encerrado. Sem resultado suficiente, registre o ponto pendente e use somente a continuacao suportada pelo nucleo, sem duplicar despacho nem fabricar conclusao. Nao use sleeps longos ou polling repetido para transformar silencio em prova de vida, morte ou progresso.
 
-Despacho nao e conclusao. Testes, CHECK, SHIP e MASTER sao provas diferentes. Entregue mudancas, validacao, publicacao efetiva e pendencias, com links uteis ao dono. SHIP usa `ork ship`; score humano pendente continua na fila de batch `ork master --batch`. Entrega sem MASTER log nao aconteceu; publicacao e ratificacao continuam distintas.
+Despacho nao e conclusao. Testes, CHECK, SHIP e MASTER sao provas diferentes. Entregue mudancas, validacao, publicacao efetiva e pendencias, com links uteis ao dono. SHIP usa `ork ship`; entrega sem nota humana e aceita por omissao com o indice do ledger (`ork master`), e a nota humana sobrescreve. Entrega sem MASTER log nao aconteceu; publicacao e ratificacao continuam distintas.
 ## Racionalizacoes comuns
 Despacho, silêncio ou modo Auto nunca substituem resultado, `verify` e recibos.
 ## Bandeiras vermelhas

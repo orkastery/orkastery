@@ -1,8 +1,8 @@
 ---
 name: decision-triage
-description: "A disciplina de delegacao: classifica cada decisao em classe 1 (humano decide), 2 (contrato publico, exige ratificacao) ou 3 (delegada, registrada), e sobe tradeoff real com opcoes e uma recomendacao. Roteia para ork gate approve."
+description: "A disciplina de delegacao: classifica cada decisao em classe 1 (humano decide), 2 (contrato publico, exige ratificacao) ou 3 (delegada, registrada), e sobe tradeoff real com opcoes e uma recomendacao. Roteia para ork gate request."
 bucket: governance
-roteia: "ork gate approve <thread> <sobre> --por <quem>"
+roteia: "ork gate request <thread>"
 license: MIT
 ---
 
@@ -25,8 +25,8 @@ atras de "detalhe tecnico": ela classifica, registra o que e delegado e sobe o q
 ## Como rotear
 
 ```bash
-ork gate approve <thread> <sobre> --por <quem>   # decisao humana registrada
-ork phase list <thread>                          # a auditoria de delegacao le daqui
+ork gate request <thread>    # abre o pedido; o humano responde pelo canal autenticado
+ork phase list <thread>      # a auditoria de delegacao le daqui
 ```
 
 ## Conduta

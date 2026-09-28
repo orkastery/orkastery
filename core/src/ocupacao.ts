@@ -43,7 +43,7 @@ export const EVENTOS_QUE_DESTRAVAM: readonly string[] = [
   TIPOS_DE_EVENTO.masterConcluido,
 ];
 
-/** O evento e uma autorizacao humana ja registrada (`ork gate approve`)? */
+/** O evento e uma autorizacao humana ja registrada (resposta ao `ork gate request`)? */
 export function ehAprovacaoHumana(e: EventoLedger): boolean {
   return e.tipo === TIPOS_DE_EVENTO.pausaHumana && e.estado === 'aprovado';
 }

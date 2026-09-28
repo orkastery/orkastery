@@ -14,6 +14,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   imprime a correção exata e grava `policy_warn`, sem parar nada; em `block`, reprova como as
   outras policies. O `ork licoes` diz quais propostas já podem ser declaradas.
 
+### Corrigido
+
+- **Nenhuma superfície ensina comando aposentado**
+  ([RM-046](docs/roadmap/RM-046-go-to-open-source.md)). As correções impressas pelo núcleo
+  (`board`, `retry`, `fix`, `doctor`, `ship`), o guard e os comandos do Claude Code, as skills,
+  os guias e a definição de pronto deixam de mandar rodar `ork gate approve`,
+  `ork master --batch` e `ork objective`.
+  - A pausa se libera pela resposta ao `ork gate request`, que chega pelo canal autenticado.
+  - O push se autoriza no próprio `ork ship <thread> --para <base> --autorizar-push <quem>`.
+  - As entregas se veem com `ork master`; a tool `ork_master_batch` do OpenClaw roda
+    `ork master --todas --json`.
+  - Os scripts `ork-objective-*` do Hermes saíram; as duas tools `ork_objective_*` do OpenClaw
+    ficam no catálogo e dizem que devolvem a recusa `objective.aposentado`.
+
 ## 0.3.0 — 27/09/2026
 
 ### Adicionado

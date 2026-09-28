@@ -147,8 +147,9 @@ Um **gate** é um ponto do ciclo em que o `ork` decide se passa. Quando reprova,
 escreve prosa: escreve um dos **12 motivos tipados**, e cada motivo tem uma ação de retry
 determinada. Ver [`verificacao.md`](../guias/verificacao.md).
 
-Uma **pausa humana** e outra coisa: e o gate do modo, esperando `ork gate approve`. Ela vai ao
-ledger com o assunto, quem autorizou e o canal.
+Uma **pausa humana** e outra coisa: e o gate do modo, esperando a resposta ao pedido que
+`ork gate request` abre. A resposta chega pelo canal autenticado e vai ao ledger com o assunto,
+quem autorizou e o canal.
 
 ## Ledger
 
@@ -234,7 +235,8 @@ Um número de 0 a 5, dado por um humano, com **justificativa obrigatória**, res
 > De 0 a 5, quão inteligentemente isso foi entregue?
 
 Metrica diz o custo. O score diz se o **caminho** foi esperto. Nos modos sem pausa de MASTER,
-a thread vai para a fila de `ork master --batch`.
+a entrega e aceita por omissao, com o indice derivado do ledger (`ork master`), e a nota
+humana, quando vier, sobrescreve.
 
 ## Policy
 

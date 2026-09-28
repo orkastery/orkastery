@@ -93,7 +93,7 @@ test('o validador de v1 nunca aceita um v2, e o de v2 nunca aceita um v1', () =>
     contrato: 'ork.hitl/v2', id: 'novo', thread: 'ork-exemplo', fase: 'PLAN', modo: 'auto',
     criadoEm: '2026-09-20T19:00:00.000Z', profundidade: 'profunda', classe: 'decidido',
     decidido: 'A fila de score sai do pulse', porque: 'ninguém espera por ela para avançar',
-    comoMudar: 'ork master --batch mostra a fila inteira',
+    comoMudar: 'ork master --todas mostra a fila inteira',
     custoDeReverter: { agora: 'uma linha de configuração', depois: 'uma linha de configuração' },
     criterio: { tipo: 'medicao', referencia: 'ork pulse --sem-runtime --json' },
   };

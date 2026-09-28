@@ -25,10 +25,11 @@ ork master classes
 ork master <thread> --score <0-5> --justificativa "<texto>" --classe <classe> --por "<quem>"
 ```
 
-4. Nos modos sem pausa de MASTER, mostra a fila que ainda espera humano:
+4. Nos modos sem pausa de MASTER, a entrega e aceita a menos que o builder diga o contrario. Mostra
+   as entregas com o indice derivado do ledger, inclusive as ja pontuadas:
 
 ```bash
-ork master --batch
+ork master --todas
 ```
 
 ## Regras do adaptador

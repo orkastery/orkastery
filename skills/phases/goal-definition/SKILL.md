@@ -21,7 +21,7 @@ ork thread new "<nome>" --mode <modo>
 ork phase run <thread> GOAL --prompt "<pedido do builder>"
 ork claims add <thread> <arquivo> --claim "<alegacao>" --verificar "<comando>" --fase GOAL
 ork verify <thread> --so-claims
-ork gate approve <thread> objetivo --por <quem>
+ork gate request <thread>
 ```
 
 ## O que o GOAL entrega
