@@ -4,7 +4,7 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-## Não publicado
+## 0.4.0 — 28/09/2026
 
 ### Adicionado
 
@@ -14,8 +14,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   imprime a correção exata e grava `policy_warn`, sem parar nada; em `block`, reprova como as
   outras policies. O `ork licoes` diz quais propostas já podem ser declaradas.
 
+### Mudado
+
+- **Nova frase de apresentação** no README e na descrição do pacote: "A software factory of AI
+  agents that proves its work: parallel threads, verified results, and short decisions only when
+  they matter."
+
 ### Corrigido
 
+- `ork ci run` não rodava o `verify.preparo` do manifesto: a claim que usava a compilação do
+  preparo passava no `ork verify` local e reprovava no CI. Agora os dois rodam o mesmo preparo.
 - **Nenhuma superfície ensina comando aposentado**
   ([RM-046](docs/roadmap/RM-046-go-to-open-source.md)). As correções impressas pelo núcleo
   (`board`, `retry`, `fix`, `doctor`, `ship`), o guard e os comandos do Claude Code, as skills,
@@ -130,8 +138,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - `ork --version` imprimia a ajuda inteira.
 - Uma thread `#Fast` entregue derrubava `ork master`, o aceite por omissão e o pulse com "fase
   MASTER não pertence a nenhum bloco". O ciclo do `#Fast` não tem MASTER: o score dele é de lote.
-- `ork ci run` não rodava o `verify.preparo` do manifesto: a claim que usava a compilação do
-  preparo passava no `ork verify` local e reprovava no CI. Agora os dois rodam o mesmo preparo.
 - Fase despachada de dentro de uma worktree lia o setup da própria worktree e caía no default; o
   setup local agora vem da raiz de estado.
 
