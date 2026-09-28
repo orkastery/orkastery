@@ -1,0 +1,10 @@
+# Reservas do roadmap
+
+Quem está com cada item agora. Gerado pelo `ork roadmap pegar` e pelo `ork roadmap soltar`;
+não edite à mão. Antes de começar um item: `ork roadmap reservas`.
+
+| Item | Com quem | Máquina | Thread | Desde | Nota |
+| --- | --- | --- | --- | --- | --- |
+| RM-008 | Julio Pessoa | vps | — | 28/09 01:04 | — |
+
+Horários de Brasília.
