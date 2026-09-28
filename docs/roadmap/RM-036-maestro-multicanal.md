@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: [FEAT-029]
 owner: Julio
-atualizado_em: 2026-09-27T13:00:00-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
-  ciclo: Em validação
+  ciclo: Piloto
   documentacao: Em revisão
-  codigo: PR aberto
+  codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
-  exposicao: Flag desligada
+  deploy: Produção
+  exposicao: Parcial
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-i36multicana
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-036 — Condução multicanal do Maestro no núcleo
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | PR aberto | Aprovados | Não implantado | Flag desligada |
+| Piloto | Mesclado | Aprovados | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
@@ -71,12 +71,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | PR aberto | — | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Não implantado | — | 2026-09-27 | Julio |
-| Exposição | Flag desligada | — | 2026-09-27 | Julio |
+| Deploy | Produção | — | 2026-09-27 | Julio |
+| Exposição | Parcial | — | 2026-09-27 | Julio |
 | Habilitação | Pendente | — | 2026-09-27 | Julio |
 
 <!-- ork-docs:estado:fim -->

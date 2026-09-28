@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-008]
 owner: Julio
-atualizado_em: 2026-09-27T09:40:50-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: e324025
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-i49contas
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-040 — Estado de conta compartilhado entre projetos
@@ -69,7 +69,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `e324025` | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
 | Deploy | Produção | — | 2026-09-27 | Julio |
 | Exposição | Parcial | — | 2026-09-27 | Julio |

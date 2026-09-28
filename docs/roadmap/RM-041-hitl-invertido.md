@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-011, FEAT-012, FEAT-021]
 owner: Julio
-atualizado_em: 2026-09-27T09:40:50-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: f9d9bc1
-    pr: 19
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: ork-i41hitlinver
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-041 — HITL invertido: decisão tomada, lote e pergunta rara
@@ -69,7 +69,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Disponível | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `f9d9bc1` · PR #19 | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
 | Deploy | Produção | — | 2026-09-27 | Julio |
 | Exposição | Geral | — | 2026-09-27 | Julio |

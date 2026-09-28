@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-27T11:05:34-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 415f89a
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-gotoopensour
   modo: "#Fast"
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-046 — GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar
@@ -113,7 +113,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `415f89a` | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Em execução | — | 2026-09-27 | Julio |
 | Deploy | Não implantado | — | 2026-09-27 | Julio |
 | Exposição | Flag desligada | — | 2026-09-27 | Julio |

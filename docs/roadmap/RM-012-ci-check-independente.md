@@ -17,8 +17,8 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: 1ff709c
-    pr: 1
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: null
   modo: null
@@ -68,7 +68,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Disponível | — | 2026-09-24 | Julio |
 | Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `1ff709c` · PR #1 | 2026-09-24 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-24 | Julio |
 | Testes | Aprovados | — | 2026-09-24 | Julio |
 | Deploy | Produção | — | 2026-09-24 | Julio |
 | Exposição | Geral | — | 2026-09-24 | Julio |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-003, FEAT-026, FEAT-027]
 owner: Julio
-atualizado_em: 2026-09-27T09:40:50-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 5c064e3
-    pr: 28
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: ork-i52setupporb
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-047 — Fábrica em várias máquinas, com threads em mais de um computador
@@ -86,7 +86,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `5c064e3` · PR #28 | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
 | Deploy | Produção | — | 2026-09-27 | Julio |
 | Exposição | Parcial | — | 2026-09-27 | Julio |

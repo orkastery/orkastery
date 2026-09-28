@@ -17,8 +17,8 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: 34e424e
-    pr: 14
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: ork-i34claudebgr
   modo: "#Auto"
@@ -67,7 +67,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Concluído | — | 2026-09-24 | Julio |
 | Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `34e424e` · PR #14 | 2026-09-24 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-24 | Julio |
 | Testes | Aprovados | — | 2026-09-24 | Julio |
 | Deploy | Produção | — | 2026-09-24 | Julio |
 | Exposição | Geral | — | 2026-09-24 | Julio |

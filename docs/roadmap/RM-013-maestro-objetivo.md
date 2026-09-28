@@ -17,8 +17,8 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: eb778c0
-    pr: 2
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: null
   modo: null
@@ -66,7 +66,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Descontinuado | — | 2026-09-24 | Julio |
 | Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `eb778c0` · PR #2 | 2026-09-24 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-24 | Julio |
 | Testes | Aprovados | — | 2026-09-24 | Julio |
 | Deploy | Não implantado | — | 2026-09-24 | Julio |
 | Exposição | Flag desligada | — | 2026-09-24 | Julio |
