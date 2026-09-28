@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-28T18:12:41.916Z",
+  "publicadoEm": "2026-09-28T18:15:02.790Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -114,20 +114,6 @@
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-orkverifyins",
-      "nome": "ork-verify instavel no push da main",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-orkverifyins-go",
-      "atualizadaEm": "2026-09-28T18:06:16.840Z",
-      "entregue": "8e6ddda",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
