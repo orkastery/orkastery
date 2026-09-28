@@ -94,7 +94,7 @@
         },
         {
           "tipo": "contem",
-          "valor": "ork gate approve",
+          "valor": "--autorizar-push <quem>",
           "porque": "o comando exato que grava a autorizacao"
         }
       ]

@@ -19,7 +19,7 @@ tradeoff do humano: ela despacha a fase pelo `ork` e transforma o plano em taref
 ```bash
 ork phase run <thread> PLAN --prompt "<pedido do builder>"
 ork lease acquire "path:<glob>" --thread <thread> --motivo "PLAN reservou a regiao"
-ork gate approve <thread> premissas --por <quem>
+ork gate request <thread>
 ork handoff export <thread> --proxima-fase GO
 ```
 

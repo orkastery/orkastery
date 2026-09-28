@@ -72,7 +72,7 @@ Vale para `ork phase list`, `ork retry list`/`plan`/`run`/`resume`/`parse`,
 `ork orquestracao status` (`ork monitor`), `ork board`, `ork lease list`/`acquire`,
 `ork pulse`, `ork audit show`, a janela ociosa do `ork audit run`, `ork doctor`,
 `ork thread status`, `ork verify`, `ork master`, `ork ship`, `ork ledger stats`,
-`ork gate approve`, o texto do `ork maestro` e a apresentação HITL.
+o texto do `ork maestro` e a apresentação HITL.
 
 Dado de máquina não muda: ledger, `--json`, contratos, recibos, claims e hashes continuam em
 UTC ISO. Texto gravado como prova (detalhe, evidência, correção) guarda o ISO e é localizado
@@ -649,8 +649,7 @@ CHECK/verify oficial, SHIP e provas live seguem pendentes deste candidato.
 > "<critério> :: <comando>"`. Veja a aposentadoria na
 > [RM-043](../roadmap/RM-043-aposentadoria.md).
 
-Para criar um novo envelope com validação no mesmo harness, usava-se
-`ork objective new <titulo> --request <pedido> --done <criterio> --execution-runtime codex --validation-runtimes codex --independence sessions`.
+Para criar um novo envelope com validação no mesmo harness, usava-se `ork objective new <titulo> --request <pedido> --done <criterio> --execution-runtime codex --validation-runtimes codex --independence sessions`.
 O modo era opt-in; envelopes anteriores mantêm seus hashes e regras de ensemble.
 Neste modo, os revisores suportados são do runtime `codex`; informe explicitamente
 `--validation-runtimes codex`. O runtime de execução pode continuar `claude-bg`.

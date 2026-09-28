@@ -238,7 +238,7 @@ cadastrou e autenticou pelo CLI oficial, para contas que ele tem direito de usar
 do provedor (a responsabilidade por esses termos é do operador, SECURITY.md), e nunca usa
 perfil de API paga. A troca por login perdido segue ligada por padrão. A troca manual e
 explícita do operador (`ork accounts`, `ork setup`) continua possível. A autorização segue a mesma regra do resto do retry: num bloco que pausa, a
-ação espera `ork gate approve`; no `#Maestro` e no `#Auto`, o `ork` troca sozinho e grava
+ação espera a resposta humana ao `ork gate request`; no `#Maestro` e no `#Auto`, o `ork` troca sozinho e grava
 `runtime_profile_rotated` com quem decidiu, a evidência e a razão. Estourar `retry.max_tentativas` e produção parcial sob cota
 esgotada pausam **qualquer** modo, inclusive o `#Auto`. Perfil não é eixo de independência do
 CHECK: dois perfis do mesmo runtime não viram dois avaliadores.

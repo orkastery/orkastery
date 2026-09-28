@@ -208,7 +208,7 @@ test('a escalada do B3 pausa ate o #Auto, que nao tem pausa prevista', () => {
     motivo: 'human.pending',
     modo: 'auto',
     detalhe: 'limite de 3 tentativas estourado pelo mesmo motivo na fase GO',
-    correcao: `ork gate approve ${thread.id} retry --por <quem>`,
+    correcao: `ork gate request ${thread.id}`,
     fase: 'GO',
     pausaQualquerModo: true,
   });
@@ -218,7 +218,7 @@ test('a escalada do B3 pausa ate o #Auto, que nao tem pausa prevista', () => {
   assert.equal(l.pausas.length, 1);
   assert.equal(l.pausas[0].fase, 'GO');
   assert.match(l.pausas[0].detalhe, /limite de 3 tentativas/);
-  assert.match(l.pausas[0].correcao, /ork gate approve/);
+  assert.match(l.pausas[0].correcao, /ork gate request/);
   p.limpar();
 });
 

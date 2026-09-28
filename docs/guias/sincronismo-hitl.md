@@ -92,7 +92,7 @@ vínculos ausentes e preserva backup quando incorpora arquivos legados compatív
 Arquivo conflitante reprova com `tree.blocked`; reconciliar as evidências vem antes de
 tentar novamente. `worktree audit` compara os caminhos físicos e a contagem dos ledgers.
 
-`ork pulse --json` reúne monitor, sessões e `master --batch` no contrato `ork.pulse/v1`.
+`ork pulse --json` reúne monitor, sessões e as entregas sem score (`ork master`) no contrato `ork.pulse/v1`.
 A fila humana usa tempo real de espera e impacto. Uma mesma pausa observada pelo monitor
 e pelo radar não duplica o alerta. `hitl.desconhecido` inclui as últimas N linhas limpas
 (`--linhas`, padrão 20), sem inventar pergunta ou opções. Fontes indisponíveis ficam

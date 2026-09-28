@@ -148,7 +148,7 @@ MASTER logs, e propõe mudança no próprio Orkastery.
 | Regra | O que acha |
 | --- | --- |
 | `PR1` | Entrega sem MASTER log (uma entrega sem MASTER log não aconteceu) |
-| `PR2` | Thread entregue sem score humano, parada na fila de batch |
+| `PR2` | Thread entregue sem score humano registrado |
 | `PR3` | O mesmo motivo tipado de gate reprovando de novo, em threads diferentes |
 | `PR4` | Claim não-verificável recorrente: a fase alega e não declara como comprovar |
 | `PR5` | Decisão autonoma sem evidência declarada no ledger |

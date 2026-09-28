@@ -52,7 +52,7 @@ const BLOQUEIOS = [
     nome: 'reset-destrutivo',
     regex: /\bgit\s+(?:reset\s+--hard|clean\s+-[a-zA-Z]*[fd]|checkout\s+--\s+\.)/,
     motivo: 'descarte em massa apaga trabalho nao commitado sem deixar rastro',
-    caminho: 'descarte por arquivo, ou registre a decisao antes: ork gate approve <thread> <sobre> --por <quem>',
+    caminho: 'descarte por arquivo; se o descarte amplo for mesmo necessario, peca a decisao ao dono: ork gate request <thread>',
   },
   {
     nome: 'remocao-recursiva-ampla',

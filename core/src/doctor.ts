@@ -313,7 +313,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             (esperando.length > 0 ? `; proxima janela em ${formatarDataHoraRotulada(esperando[0].liberaEm)}` : ''),
       correcao:
         escalados.length > 0
-          ? `pedido escalado alem do limite de retry.max_tentativas: ork retry list e ork gate approve`
+          ? `pedido escalado alem do limite de retry.max_tentativas: ork retry list e ork gate request <thread>`
           : esperando.length > 0
             ? 'ork retry resume retoma o que ja liberou'
             : undefined,

@@ -57,14 +57,14 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_claims_add` | Registra alegacao verificavel com o comando que a comprova |
 | `ork_verify` / `ork_verify_baseline` | Reexecuta no HEAD real; grava a baseline antes do GO |
 | `ork_worktree_ensure` / `ork_worktree_audit` | Worktree isolada, conferida no proprio git |
-| `ork_objective_status` | Retoma o ticket canônico compartilhado com o Kanban |
-| `ork_objective_message` | Preserva no ticket uma mensagem do canal autenticado |
+| `ork_objective_status` / `ork_objective_message` | Aposentadas com o `ork objective` na I-43: devolvem a recusa tipada `objective.aposentado` |
 | `ork_portfolio_list` | Lista produtos, projetos e iniciativas canônicos |
 | `ork_gate_answer` | Resposta humana correlacionada a um gate |
 | `ork_session_answer` | Resposta humana correlacionada a uma sessão |
 | `ork_ship` | Merge serializado por lease e push provado contra o remoto |
 | `ork_master` | POSTMORTEM tipado e o score HUMANO de 0 a 5 |
-| `ork_board` / `ork_master_batch` | Escalonador e fila de score |
+| `ork_board` | Escalonador: quem avanca agora e quem espera |
+| `ork_master_batch` | Todas as entregas, com o indice do ledger (`ork master --todas`; a fila de score saiu na I-43) |
 
 ## A #TAG de conducao
 

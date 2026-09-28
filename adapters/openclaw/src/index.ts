@@ -267,13 +267,15 @@ const FERRAMENTAS: FerramentaOrk[] = [
   },
   {
     name: 'ork_objective_status',
-    description: 'Retoma no canal o mesmo ticket canônico e histórico vistos no Kanban.',
+    description:
+      'Aposentado na I-43 junto com ork objective: devolve a recusa tipada objective.aposentado, com saida != 0. Estado de uma entrega: ork_thread_status. Ciclos ligados a um produto, projeto ou iniciativa: ork portfolio inspect <id> --json.',
     parameters: schema({ objective: { type: 'string', description: 'ID obj-* do ticket' } }),
     argv: (p) => ['objective', 'status', texto(p, 'objective'), '--json'],
   },
   {
     name: 'ork_objective_message',
-    description: 'Preserva no ticket uma mensagem recebida pelo canal autenticado. Não aprova gates.',
+    description:
+      'Aposentado na I-43 junto com ork objective: devolve a recusa tipada objective.aposentado, com saida != 0, e nao grava nada. Resposta do dono a uma pausa vai por ork_gate_answer ou ork_session_answer.',
     parameters: schema({
       objective: { type: 'string', description: 'ID obj-* do ticket' },
       author: { type: 'string', description: 'Identidade fornecida pelo gateway autenticado' },
@@ -422,9 +424,9 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_master_batch',
     description:
-      'A fila de score dos modos sem pausa de MASTER. Fila que ninguem passa e score que nao existe.',
+      'Todas as entregas em JSON, com o indice derivado do ledger, as ja pontuadas e as aceitas por omissao. Roda ork master --todas; o nome e da antiga fila de score (ork master --batch), aposentada na I-43.',
     parameters: schema({}),
-    argv: () => ['master', '--batch'],
+    argv: () => ['master', '--todas', '--json'],
   },
 ];
 

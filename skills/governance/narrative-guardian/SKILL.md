@@ -25,7 +25,7 @@ nao existe nao vira promessa em README.
 ```bash
 ork verify <thread>        # o que a maquina realmente prova hoje
 ork phase list <thread>    # a origem de cada evidencia citada
-ork master --batch         # o que ja foi fechado e pode ser citado como entregue
+ork master --todas         # o que ja foi fechado e pode ser citado como entregue
 ```
 
 ## As regras do canon

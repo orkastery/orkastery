@@ -1526,7 +1526,7 @@ function comandoGate(args: Args): number {
     const sobre = args.posicionais[3];
     const por = texto(args.opcoes.por) ?? texto(args.opcoes.quem);
     if (!id || !sobre || !por) {
-      console.error('uso: ork gate approve <thread-id> <sobre> --por <quem>');
+      console.error('gate approve aposentado: aprovação sem pedido é recusada. Use ork gate request <thread-id> e responda pelo ingresso humano autenticado.');
       return 2;
     }
     lerThread(carregado.raiz, id);

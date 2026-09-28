@@ -15,14 +15,14 @@ faz, o nucleo vence, e a divergencia e defeito da skill.
 | phases | [goal-definition](phases/goal-definition/SKILL.md) | `ork phase run <t> GOAL`, `ork claims add` |
 | phases | [plan-specification](phases/plan-specification/SKILL.md) | `ork phase run <t> PLAN`, `ork lease acquire` |
 | phases | [go-implementation](phases/go-implementation/SKILL.md) | `ork worktree ensure`, `ork verify --baseline` |
-| phases | [check-quality](phases/check-quality/SKILL.md) | `ork verify`, `ork gate approve` |
+| phases | [check-quality](phases/check-quality/SKILL.md) | `ork verify`, `ork gate request` |
 | phases | [ship-release](phases/ship-release/SKILL.md) | `ork ship` |
-| phases | [master-metrics](phases/master-metrics/SKILL.md) | `ork master`, `ork master --batch` |
+| phases | [master-metrics](phases/master-metrics/SKILL.md) | `ork master`, `ork master --aceitar-omissao` |
 | reviewers | [code-reviewer](reviewers/code-reviewer/SKILL.md) | `references/code-review-axes.md` |
 | reviewers | [security-auditor](reviewers/security-auditor/SKILL.md) | `references/security-checklist.md` |
 | reviewers | [test-engineer](reviewers/test-engineer/SKILL.md) | `references/testing-patterns.md` |
 | reviewers | [web-performance-auditor](reviewers/web-performance-auditor/SKILL.md) | `references/performance-checklist.md` |
-| governance | [decision-triage](governance/decision-triage/SKILL.md) | `ork gate approve` |
+| governance | [decision-triage](governance/decision-triage/SKILL.md) | `ork gate request` |
 | governance | [narrative-guardian](governance/narrative-guardian/SKILL.md) | `ork verify`, `ork phase list` |
 | governance | [roadmap-keeper](governance/roadmap-keeper/SKILL.md) | `ork board`, `ork thread new` |
 | governance | [scope-check-capability-map](governance/scope-check-capability-map/SKILL.md) | `ork doctor`, `ork board plan` |

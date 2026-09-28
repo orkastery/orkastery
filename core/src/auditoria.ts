@@ -414,7 +414,7 @@ export const PACKS: Readonly<Record<PackDeAuditoria, DefinicaoDePack>> = {
       },
       {
         id: 'PR2',
-        regra: 'Thread entregue sem score humano registrado, parada na fila de batch.',
+        regra: 'Thread entregue sem score humano registrado.',
         evidencia: 'thread entregue sem master_done.por humano correspondente ao score',
       },
       {

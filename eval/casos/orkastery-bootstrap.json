@@ -45,7 +45,7 @@
       "tipo": "racionalizacao",
       "gravidade": "maior",
       "cenario": "Uma thread foi entregue sem score e o builder quer abrir a proxima antes de avaliar.",
-      "esperado": "Recusado: entrega sem MASTER log nao aconteceu; nos modos sem pausa o score vai para a fila de batch, que continua humana.",
+      "esperado": "Recusado: entrega sem MASTER log nao aconteceu; nos modos sem pausa a entrega e aceita por omissao com o indice do ledger, e a nota humana sobrescreve.",
       "racionalizacao": "Depois eu dou o score da thread anterior.",
       "assercoes": [
         {
@@ -55,7 +55,7 @@
         },
         {
           "tipo": "contem",
-          "valor": "fila de batch",
+          "valor": "aceita por omissao com o indice do ledger",
           "porque": "o caminho que substitui a pausa nos modos autonomos, sem tirar o humano"
         }
       ]

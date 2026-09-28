@@ -18,8 +18,8 @@ o push comparando o sha local com o que o remoto reporta**.
 
 ```bash
 ork worktree sync <thread>                  # rebasa quando a base avancou
-ork gate approve <thread> push --por <quem> # autorizacao humana registrada
 ork ship <thread> --para main --dry-run     # ensaio: mostra tudo, nao toca em nada
+# autorizacao humana registrada: vai no proprio ship, com o nome de quem autorizou
 ork ship <thread> --para main --autorizar-push <quem>
 ork phase list <thread>                     # a prova: mergeSha, shaRemoto, pushVerificado
 ```

@@ -285,10 +285,9 @@ ork recall prd-corrigirofil --fase CHECK      # resolve SO os ponteiros daquele 
 ## 8. Entregue
 
 ```bash
-# nos modos que pausam no SHIP, a autorizacao humana e explicita
-ork gate approve prd-corrigirofil push --por "seu-nome"
-
 ork ship prd-corrigirofil --para main --dry-run
+
+# nos modos que pausam no SHIP, a autorizacao humana e explicita e vai no proprio ship
 ork ship prd-corrigirofil --para main --autorizar-push "seu-nome"
 ```
 
@@ -312,10 +311,12 @@ ork master prd-corrigirofil --score 4 \
 Isso grava o `POSTMORTEM.json` (com classe de falha das nove fixas) e o `master-log.json` (nó
 contrato congelado `ork.master-log/v1`). Score sem justificativa é recusado, em qualquer modo.
 
-Nos modos que não pausam no MASTER, a thread cai na fila de batch:
+Nos modos que não pausam no MASTER, a entrega é aceita por omissão, com o índice derivado do
+ledger. A nota humana, quando vier, sobrescreve:
 
 ```bash
-ork master --batch        # as threads entregues e ainda sem score
+ork master                    # as entregas, com o indice derivado do ledger
+ork master --aceitar-omissao  # aceita as entregues, com indice e insumos no ledger
 ```
 
 ---

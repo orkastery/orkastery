@@ -14,7 +14,7 @@ import { consultarSessoes } from './adapters/claude-bg';
  *      violacao de custo e gastar de novo, e a politica `subscription-only` esta no manifesto.
  *   2. **O modo afrouxa a PAUSA, nunca a VERIFICACAO.** A politica e identica em
  *      `#Classic` e em `#Auto`. O que muda e a AUTORIZACAO: num bloco de loop que pausa,
- *      a acao espera `ork gate approve`; num bloco sem pausa (`#Maestro`, `#Auto`) o
+ *      a acao espera a resposta humana ao `ork gate request`; num bloco sem pausa (`#Maestro`, `#Auto`) o
  *      `ork` executa sozinho e grava a decisao autonoma no ledger.
  *   3. **O limite de escalacao pausa QUALQUER modo.** Estouradas as tentativas do
  *      manifesto pelo MESMO motivo na MESMA fase, a acao vira `escalar-humano`,
@@ -270,7 +270,7 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     automatica: false,
     porque:
       'nao e reprovacao de verdade, e espera de autorizacao: automatizar a espera seria a maquina se autorizando',
-    correcao: 'ork gate approve <thread> <sobre> --por <quem>',
+    correcao: 'ork gate request <thread>',
   },
 };
 
@@ -843,7 +843,7 @@ export function retomarPedido(
       motivo: 'human.pending',
       modo: thread.modo,
       detalhe: escolha.razao,
-      correcao: `ork gate approve ${thread.id} retomada --por <quem>`,
+      correcao: `ork gate request ${thread.id}`,
       fase: pedido.fase,
       slug: pedido.slug,
       pedido: pedido.id,
@@ -1285,7 +1285,7 @@ export function executarRetry(
         motivo: plano.acao === 'sem-retry' ? (plano.motivo as MotivoGate) : 'human.pending',
         modo: thread.modo,
         detalhe: plano.razao,
-        correcao: plano.politica?.correcao ?? `ork gate approve ${threadId} retry --por <quem>`,
+        correcao: plano.politica?.correcao ?? `ork gate request ${threadId}`,
         fase: plano.fase,
         origem: 'retry.run',
         pausaQualquerModo: true,
@@ -1429,7 +1429,7 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
   const escalar = (razao: string, diagnostico: string): ResultadoDeRetry => {
     if (!opcoes.dryRun) {
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'human.pending', modo: thread.modo, detalhe: diagnostico,
-        diagnostico, correcao: `ork gate approve ${thread.id} retomada --por <quem>`, fase, origem: 'retry.rotacao', pausaQualquerModo: true });
+        diagnostico, correcao: `ork gate request ${thread.id}`, fase, origem: 'retry.rotacao', pausaQualquerModo: true });
       registrar(dir, thread.id, TIPOS_DE_EVENTO.retryEscalado, { fase, motivo, origem: 'retry.rotacao', acao: plano.acao,
         tentativas: plano.tentativas, limite: plano.limite, modo: thread.modo, razao });
     }

@@ -154,8 +154,7 @@ export function autorizacaoDePush(
     por: '',
     razao:
       `o modo ${tag} pausa no push e ainda nao ha autorizacao humana registrada. ` +
-      `Autorize com: ork gate approve ${thread.id} push --por <quem>  ` +
-      `ou rode: ork ship ${thread.id} --para <branch> --autorizar-push <quem>`,
+      `Autorize na entrega: ork ship ${thread.id} --para <branch> --autorizar-push <quem>`,
   };
 }
 
@@ -426,7 +425,7 @@ export function ship(
     return bloquear(
       'human.pending',
       autorizacao.razao,
-      `ork gate approve ${threadId} push --por <quem>`
+      `ork ship ${threadId} --para <branch> --autorizar-push <quem>`
     );
   }
 

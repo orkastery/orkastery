@@ -20,7 +20,7 @@ silencio. **Demanda que vira thread sem estar registrada e trabalho sem dono e s
 ork board                       # o estado de todas as threads
 ork board plan                  # quem avanca agora, quem espera e por que
 ork thread new "<nome>" --mode <modo>
-ork master --batch              # o que fechou e ainda espera score
+ork master                      # as entregas, com o indice derivado do ledger
 ```
 
 ## Conduta

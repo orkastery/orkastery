@@ -474,7 +474,7 @@ function reverificarSobConducao(
       modo: thread.modo,
       detalhe: razao,
       evidencia: `rodada ${rodada} de GO-FIX/CHECK-REVERIFY na thread ${threadId}`,
-      correcao: `ork gate approve ${threadId} evidencias --por <quem>`,
+      correcao: `ork gate request ${threadId}`,
       rodada,
       limite,
       pausaQualquerModo: true,

@@ -191,8 +191,8 @@ não compila sem política).
    qualquer espécie. A lição que originou essa regra custou dinheiro de verdade, e por isso ela
    e código, não lembrete no README.
 2. **O modo afrouxa a pausa, nunca a verificação.** A política de retry e idêntica no `#Classic` e
-   no `#Auto`. O que muda e a **autorização**: num bloco que pausa, a ação espera
-   `ork gate approve`; num bloco sem pausa, o `ork` executa e grava a decisão autonoma.
+   no `#Auto`. O que muda e a **autorização**: num bloco que pausa, a ação espera a resposta
+   humana ao `ork gate request`; num bloco sem pausa, o `ork` executa e grava a decisão autonoma.
 3. **O limite de escalação pausa qualquer modo.** Estouradas as `retry.max_tentativas` do
    manifesto pelo **mesmo motivo** na **mesma fase**, a ação vira `escalar-humano`, inclusive
    no `#Auto`.

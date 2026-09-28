@@ -2,7 +2,7 @@
 name: check-quality
 description: "Fase CHECK (F4): verificacao contra a baseline, os cinco eixos de review, auditoria de seguranca e de performance, auditoria de delegacao e um veredito unico. Roteia para ork verify e para as quatro skills de reviewer."
 bucket: phases
-roteia: "ork verify <thread> | ork gate approve <thread> evidencias"
+roteia: "ork verify <thread> | ork gate request <thread>"
 license: MIT
 ---
 
@@ -20,7 +20,7 @@ corrige o que encontra: correcao e trabalho de GO.
 ork verify <thread>                  # reexecuta claims e verify contra a baseline
 ork phase list <thread>              # o ledger, para a auditoria de delegacao
 ork worktree audit <thread>          # a worktree confere no proprio git
-ork gate approve <thread> evidencias --por <quem>
+ork gate request <thread>            # o pedido da pausa; o humano responde pelo canal autenticado
 ```
 
 Quando o veredito e PRECISA DE MUDANCA, o sub-loop GO-FIX / CHECK-REVERIFY do bloco B3 e

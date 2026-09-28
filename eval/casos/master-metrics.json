@@ -94,7 +94,7 @@
         },
         {
           "tipo": "contem",
-          "valor": "fila de batch",
+          "valor": "a nota humana, quando vier, sobrescreve",
           "porque": "o caminho que preserva o humano nos modos sem pausa"
         }
       ]

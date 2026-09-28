@@ -22,7 +22,7 @@ ork thread status <thread>    # o estado gravado cruzado com o runtime real
 ork sessions --all            # as sessoes vivas do runtime
 ork claims list <thread>      # as alegacoes e o estado de cada uma
 ork board                     # todas as threads, uma visao
-ork master --batch            # o que fechou e ainda espera score
+ork master                   # as entregas, com o indice derivado do ledger
 ```
 
 ## O que o rastro precisa responder

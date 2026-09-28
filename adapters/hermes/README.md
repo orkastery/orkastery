@@ -44,16 +44,14 @@ ork adapter install hermes --dry-run             # lista o que seria escrito
 | `hermes.plugin.json` | Declara a skill, o binario do `ork` e as tags de conducao |
 | `bin/ork-abrir-thread.sh` | Abre a thread com o modo lido do pedido, em um comando |
 | `bin/ork-brain.sh` | Consulta o Company Brain pelo contrato e identidade autenticada do OrkMind |
-| `bin/ork-objective-status.sh` | Lê o ticket canônico compartilhado com o Kanban |
-| `bin/ork-objective-message.sh` | Grava a mensagem do canal no histórico do ticket |
 
-## Continuidade com o Kanban
+## Tickets `obj-*` aposentados
 
-Quando uma conversa mencionar um `obj-*`, use `ork_objective_status` para retomar o estado
-canônico e `ork_objective_message` para preservar a mensagem do Telegram. O Kanban relê o
-mesmo `messages.jsonl`, então o dono pode trocar de canal sem duplicar a demanda. O identificador
-do autor deve vir do gateway autenticado. Mensagens de conversa não aprovam gates: decisões
-continuam passando pelos comandos HITL correlacionados.
+`ork_objective_status` e `ork_objective_message` sairam com o `ork objective` na I-43: o nucleo
+recusa qualquer subcomando com `objective.aposentado` e saida != 0. O estado de uma entrega vem de
+`ork thread status <thread>`; os ciclos ligados a um produto, projeto ou iniciativa, de
+`ork portfolio inspect <id> --json`. Mensagem de conversa continua sem aprovar gate: a decisao do
+dono passa pelo `/ork gate <thread> <pedido> <resposta>` correlacionado.
 
 ## O encolhimento, que e o ponto
 
