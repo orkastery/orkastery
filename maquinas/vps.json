@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T04:24:28.163Z",
+  "publicadoEm": "2026-09-28T04:28:56.973Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -21,14 +21,28 @@
       "paradaDesde": null
     },
     {
+      "id": "ork-comandosapos",
+      "nome": "Comandos aposentados fora dos docs e adaptadores",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-046",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T04:28:54.417Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
       "id": "ork-frasedeapres",
       "nome": "Frase de apresentacao: a fabrica que prova o proprio trabalho",
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-046",
-      "branch": "main",
-      "atualizadaEm": "2026-09-28T04:24:25.646Z",
+      "branch": "ork/ork-frasedeapres-go",
+      "atualizadaEm": "2026-09-28T04:25:06.885Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
