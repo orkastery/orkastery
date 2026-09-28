@@ -54,7 +54,8 @@ exec ${JSON.stringify(path.join(simulado, 'codex'))} "$@"
 
 function contaCodex(raiz: string, runtimeHome: string, id: string): string {
   const dir = path.join(raiz, 'contas', id);
-  fs.mkdirSync(dir, { recursive: true });
+  // 0700 como o do simulado: o CODEX_HOME da conta guarda o rollout, e o sensor recusa escrita alheia.
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.copyFileSync(path.join(runtimeHome, 'cenario.json'), path.join(dir, 'cenario.json'));
   fs.writeFileSync(path.join(dir, '.stub-logado'), '');
   adicionarPerfil(raiz, { id, runtime: 'codex', dir });

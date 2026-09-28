@@ -37,7 +37,9 @@ export function escalar(bruto: string): ValorYaml {
   if (t === '{}') return {};
   if (t === 'true' || t === 'yes') return true;
   if (t === 'false' || t === 'no') return false;
-  if (/^-?\d+$/.test(t)) return Number(t);
+  // Inteiro so vira numero quando volta igual ao texto. Zero a esquerda (um SHA curto como
+  // `0123456`) e digitos alem da precisao segura ficam texto, porque o numero perderia informacao.
+  if (/^-?(0|[1-9]\d*)$/.test(t) && Number.isSafeInteger(Number(t))) return Number(t);
   if (/^-?\d*\.\d+$/.test(t)) return Number(t);
   if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
     return t.slice(1, -1);

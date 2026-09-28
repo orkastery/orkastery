@@ -327,6 +327,30 @@ test('paridade com o git: Mesclado so vale com commit que esta na base', () => {
   } finally { p.limpar(); }
 });
 
+test('paridade com o git: SHA curto so de digitos com zero a esquerda chega inteiro ao verificador', () => {
+  // Na leitura do YAML, 0123456 virava o numero 123456: o teste acima caia quando o SHA sorteado tinha essa forma.
+  const valor = (yaml: string) => (lerYaml(yaml) as Record<string, unknown>).v;
+  assert.equal(valor('v: 0123456\n'), '0123456');
+  assert.equal(valor('v: 1234567\n'), 1234567);
+  assert.equal(valor('v: 12345678901234567890\n'), '12345678901234567890');
+  assert.equal(valor('v: 0\n'), 0);
+  assert.equal(valor('v: -42\n'), -42);
+  const p = projetoComDocs('docs-paridade-zero');
+  try {
+    escrever(p.dir, 'docs/roadmap/RM-001-rotacao.md', itemDeRoadmap({ estado: `
+  ciclo: Em validação
+  documentacao: Em revisão
+  codigo: Mesclado
+  testes: Aprovados
+  deploy: Não implantado
+  exposicao: Flag desligada
+  habilitacao: Pendente`, evidencias: '\n  codigo:\n    commit: 0123456\n    pr: 15' }));
+    const achados = verificarDocs(p.dir, { ajudaDoCli: AJUDA }).achados;
+    assert.ok(achados.some((a) => a.regra === 'docs.paridade.git' && a.mensagem.includes('o commit 0123456 não existe')),
+      JSON.stringify(achados.map((a) => a.mensagem)));
+  } finally { p.limpar(); }
+});
+
 test('coerencia entre dimensoes: Concluido sem codigo Mesclado reprova', () => {
   const p = projetoComDocs('docs-coerencia');
   try {

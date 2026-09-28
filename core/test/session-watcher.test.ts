@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
@@ -137,6 +137,27 @@ test('lock recupera identidade morta e duas instâncias concorrentes persistem u
     // Após rotação/replay, o resultado do despacho continua único.
     fs.renameSync(p.log, p.log + '.old'); fs.writeFileSync(p.log, linha({ type: 'turn.completed' }));
     p.run(2000); assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 1);
+  } finally { p.limpar(); }
+});
+
+test('dono que solta o lock no meio do recovery não derruba o outro observador: ele assume e grava um único resultado', () => {
+  const p = fixture();
+  try {
+    p.run(10);
+    fs.appendFileSync(p.log, linha({ type: 'turn.completed' })); p.receipt();
+    const sensor = path.join(p.dirEstado, 'sensores', fs.readdirSync(path.join(p.dirEstado, 'sensores'))[0]);
+    const lock = path.join(sensor, 'watch.lock');
+    // Dono vivo com o lock recém-criado, ainda sem owner.json: o segundo observador cai no recovery.
+    fs.mkdirSync(lock);
+    // A corrida do CI, sem depender de tempo: o dono solta o lock entre o EEXIST e a leitura da idade dele.
+    const fsReal = require('node:fs'), statReal = fsReal.statSync;
+    const stat = mock.method(fsReal, 'statSync', (alvo: fs.PathLike, ...resto: unknown[]) => {
+      if (String(alvo) === lock && fsReal.existsSync(lock)) fsReal.rmdirSync(lock);
+      return statReal(alvo, ...resto);
+    });
+    try { assert.equal(p.run(1000).ocupado, undefined); } finally { stat.mock.restore(); }
+    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 1);
+    assert.equal(fs.existsSync(lock), false, 'o lock assumido é devolvido ao fim');
   } finally { p.limpar(); }
 });
 

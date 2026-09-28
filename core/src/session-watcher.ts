@@ -88,6 +88,24 @@ function lerJson<T>(file: string): T | null {
   return JSON.parse(fs.readFileSync(file, 'utf8')) as T;
 }
 
+/**
+ * Sob o mutex de recovery: `true` quando o lock ficou livre (dono morto, lock sem dono vencido, ou
+ * dono vivo que soltou o lock no meio da leitura) e `false` quando o dono segue vivo.
+ */
+function lockLiberado(lock: string, owner: string): boolean {
+  try {
+    const atual = lerJson<{ identidade: IdentidadeProcesso | null }>(owner);
+    if (atual ? estadoProcesso(atual.identidade) !== 'ausente' : Date.now() - fs.statSync(lock).mtimeMs < 60000) return false;
+    if (atual) fs.unlinkSync(owner);
+    fs.rmdirSync(lock);
+    return true;
+  } catch (e) {
+    // O dono vivo pode soltar o lock entre o EEXIST e esta leitura: sumir aqui quer dizer lock livre, não falha.
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return true;
+    throw e;
+  }
+}
+
 /** Recovery serializado: quem perde o mutex não remove lock recém-adquirido. */
 function comLockWatcher<T>(dir: string, action: () => T): T | null {
   const lock = path.join(dir, 'watch.lock'), recover = path.join(dir, 'recover.lock');
@@ -99,10 +117,7 @@ function comLockWatcher<T>(dir: string, action: () => T): T | null {
     if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     try { fs.mkdirSync(recover); } catch { return null; }
     try {
-      const atual = lerJson<{ identidade: IdentidadeProcesso | null }>(owner);
-      if (atual ? estadoProcesso(atual.identidade) !== 'ausente' : Date.now() - fs.statSync(lock).mtimeMs < 60000) return null;
-      if (atual) fs.unlinkSync(owner);
-      fs.rmdirSync(lock);
+      if (!lockLiberado(lock, owner)) return null;
       try { criar(); } catch (erro) { if ((erro as NodeJS.ErrnoException).code === 'EEXIST') return null; throw erro; }
     } finally { fs.rmdirSync(recover); }
   }

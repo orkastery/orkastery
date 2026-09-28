@@ -12,11 +12,13 @@ export function controllerSimulado(raiz?: string,
      * (N1) antes faz `git commit` pelo shell na worktree, sem passar pelo ledger. */
     fixture?: string } = {}) {
   const dir = raiz ?? dirTemporario('controller');
-  const bin = path.join(dir, 'fake-bin'); fs.mkdirSync(bin);
-  const runtimeHome = path.join(dir, 'runtime'); fs.mkdirSync(runtimeHome);
+  // Modos explícitos: o sensor recusa fonte com escrita alheia, e o umask de quem roda (002 em
+  // muitas contas Linux) não pode decidir se o teste passa.
+  const bin = path.join(dir, 'fake-bin'); fs.mkdirSync(bin, { mode: 0o700 });
+  const runtimeHome = path.join(dir, 'runtime'); fs.mkdirSync(runtimeHome, { mode: 0o700 });
   fs.writeFileSync(path.join(runtimeHome, 'cenario.json'), JSON.stringify(opcoes));
   fs.writeFileSync(path.join(bin, 'codex'), `#!${process.execPath}
-const fs=require('fs'),rl=require('readline');let cwd,turn='turn-1',request=0,skillRoots=[];\nconst captura=${JSON.stringify(opcoes.capturarEnv ?? null)};\nif(captura)fs.appendFileSync(captura.arquivo,JSON.stringify({recebidas:captura.nomes.filter(n=>n in process.env),home:!!process.env.HOME})+'\\n');
+process.umask(0o022);const fs=require('fs'),rl=require('readline');let cwd,turn='turn-1',request=0,skillRoots=[];\nconst captura=${JSON.stringify(opcoes.capturarEnv ?? null)};\nif(captura)fs.appendFileSync(captura.arquivo,JSON.stringify({recebidas:captura.nomes.filter(n=>n in process.env),home:!!process.env.HOME})+'\\n');
 const sid=require('crypto').randomUUID(),opcoesCenario=JSON.parse(fs.readFileSync(process.env.CODEX_HOME+'/cenario.json','utf8')),cenario=opcoesCenario.cenario;
 const out=v=>process.stdout.write(JSON.stringify(v)+'\\n');
 const roll=process.env.CODEX_HOME+'/rollout.jsonl';
