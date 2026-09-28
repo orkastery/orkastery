@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T04:49:31.204Z",
+  "publicadoEm": "2026-09-28T04:53:22.965Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -113,6 +113,20 @@
       "roadmap": null,
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-versao040doo",
+      "nome": "Versao 0.4.0 do @orkastery/cli",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-046",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T04:53:20.472Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
