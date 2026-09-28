@@ -112,7 +112,7 @@ import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } f
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
 import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
-import { avaliarPolicies } from './policies';
+import { avaliarPolicies, linhasDeAviso } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
@@ -1049,6 +1049,7 @@ function comandoPhase(args: Args): number {
       console.log(`  modelo/esforco : ${r.model}/${r.effort}`);
       // O prompt inteiro nao cabe na tela: o argumento longo aparece mascarado.
       console.log(`  comando        : ${r.comando.map((c) => (c.length > 80 ? '"<prompt>"' : c)).join(' ')}`);
+      for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
       return 0;
     }
     if (r.bloqueado) {
@@ -1067,6 +1068,7 @@ function comandoPhase(args: Args): number {
       return 1;
     }
     console.log(`Fase ${fase} despachada como background agent.`);
+    for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
     console.log(`  sessionId      : ${r.sessionId}`);
     console.log(`  slug da sessao : ${r.slug} (${descreverSlug(r.slug)})`);
     console.log(`  prompt         : ${r.promptPath}`);

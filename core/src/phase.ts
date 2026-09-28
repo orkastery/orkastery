@@ -16,10 +16,10 @@ import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado } from './manifest';
 import { resolverRuntime, runtimeConhecido } from './runtimes';
-import { configDoBloco, lerSetup, limitesDoBloco } from './setup';
+import { configDoBloco, fallbackDoBloco, lerSetup, limitesDoBloco } from './setup';
 import { definicaoDoModo, INVARIANTES } from './modos';
 import { registrarGateBloqueado } from './gates';
-import { avaliarPolicies, bloqueantes, motivoDominante, ViolacaoDePolicy } from './policies';
+import { avaliarPolicies, avisos, bloqueantes, motivoDominante, ViolacaoDePolicy } from './policies';
 import { enfileirar, marcarContaDaFalha } from './ratelimit';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
@@ -671,8 +671,23 @@ function rodarFaseSobLock(
   // Gate tipado do bloco B1: as policies do manifesto valem ANTES do despacho, em
   // qualquer modo. Prompt reprovado nem chega a ser gravado em disco: gravar um prompt
   // com credencial e criar um segundo vazamento no proprio repositorio.
-  const violacoes = avaliarPolicies(manifesto, { gate: 'phase.dispatch', prompt });
+  // RM-008 (fatia 3): as licoes que viraram policy recebem os fatos da thread, calculados aqui.
+  const blocoDespachado = blocoDaThread(thread, fase);
+  const violacoes = avaliarPolicies(manifesto, {
+    gate: 'phase.dispatch', prompt, threadId: thread.id, modo: thread.modo, fase,
+    bloco: thread.blocos.indexOf(blocoDespachado) + 1,
+    blocoComGo: blocoDespachado.fases.includes('GO'),
+    temBaseline: lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada),
+    fallbackDoBloco: fallbackDoBloco(setup, thread.modo, fase),
+  });
   const bloqueiam = bloqueantes(violacoes);
+  // Warn registra e segue: o aviso vai ao ledger (fora do ensaio) e o despacho continua.
+  if (!opcoes.dryRun) {
+    for (const v of avisos(violacoes)) {
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.politicaAviso, { gate: 'phase.dispatch', fase, slug,
+        policy: v.policy, detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
+    }
+  }
   if (bloqueiam.length > 0) {
     const detalhe = bloqueiam.map((v) => `${v.policy}: ${v.detalhe}`).join('; ');
     // Bloco B3: violacao de CUSTO sai tipada como tal. E o que permite a politica de

@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ClasseDeFalha, MasterLog, Postmortem } from './types';
+import { POLICIES_CONHECIDAS } from './policies';
 
 /** A licao de UMA thread fechada. */
 export interface LicaoDaThread {
@@ -170,10 +171,15 @@ export function propostasDePolicy(raiz: string, agoraIso: string = new Date().to
   const limite = Date.parse(agoraIso) - JANELA_DA_PROPOSTA_DIAS * 86_400_000;
   const recentes = lerLicoes(raiz).filter((l) => Date.parse(l.fechadaEm) >= limite);
   const { motivos, classes } = recorrencias(recentes);
-  return [...motivos, ...classes].filter((r) => r.threads.length >= PISO_DA_PROPOSTA).map((r) => ({
-    chave: r.chave, tipo: r.tipo, nome: r.nome, threads: [...r.threads], janelaDias: JANELA_DA_PROPOSTA_DIAS,
-    sugestao: `policy \`${r.nome.replace(/[^a-z0-9]+/gi, '_')}\` em warn: ` + (r.dica ?? 'revisar a causa comum antes da proxima thread'),
-  }));
+  return [...motivos, ...classes].filter((r) => r.threads.length >= PISO_DA_PROPOSTA).map((r) => {
+    const policy = r.nome.replace(/[^a-z0-9]+/gi, '_');
+    const dica = r.dica ?? 'revisar a causa comum antes da proxima thread';
+    // RM-008 (fatia 3): com avaliador no nucleo, a proposta ja diz como vira policy de verdade.
+    const sugestao = policy in POLICIES_CONHECIDAS
+      ? `policy \`${policy}\` executavel: declare \`${policy}: warn\` em policies: do orkastery.yaml; o que evita: ${dica}`
+      : `policy \`${policy}\` em warn: ${dica}`;
+    return { chave: r.chave, tipo: r.tipo, nome: r.nome, threads: [...r.threads], janelaDias: JANELA_DA_PROPOSTA_DIAS, sugestao };
+  });
 }
 
 /**

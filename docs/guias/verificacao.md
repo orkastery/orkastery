@@ -445,12 +445,29 @@ policies:
   provider: block             # despacho redirecionado para provider pago
   segredo_em_prompt: block    # segredo entrando no texto do prompt
   push_direto_na_base: block  # push na branch base sem passar pelo ship
+  verify_regression: warn     # bloco com GO despachado sem baseline gravada
+  verify_failed: warn         # a mesma conferencia, com o nome que o loop tambem propoe
+  runtime_unavailable: warn   # bloco despachado sem runtime de fallback declarado
+  tree_blocked: warn          # ship com a branch da thread atras da base
 ```
 
 | Severidade | Efeito |
 | --- | --- |
 | `block` | Para o ciclo em **qualquer** modo, inclusive o `#Auto`. Vira `policy.violation`, que escala para humano e não tem retry automático |
-| `warn` | Registra e segue. Recorrência no board de dívida pode propor a promoção para `block` |
+| `warn` | Registra e segue: grava `policy_warn` no ledger da thread e imprime uma linha com a correção exata. Nunca para o ciclo |
+| `off` | Não avalia |
+
+As quatro policies de baixo nasceram do loop de aprendizado (RM-008, fatia 3): são as lições
+que se repetiram em 3 ou mais threads e que o `ork` confere sem ambiguidade.
+
+| Policy | Gate | Confere | Correção que ela imprime |
+| --- | --- | --- | --- |
+| `verify_regression` / `verify_failed` | despacho | o bloco que contém GO sai sem baseline | `ork verify <thread> --baseline` |
+| `runtime_unavailable` | despacho | o bloco não declara runtime de fallback | `ork setup <modo> --bloco N --fallback <runtime:modelo>` |
+| `tree_blocked` | ship | a ponta da base não está contida na branch da thread | `ork worktree sync <thread>` |
+
+Elas só avaliam com os fatos da thread; sem thread, como na checagem de ambiente do CLI, ficam
+em silêncio. O `ork licoes` diz, em cada proposta, se ela já pode ser declarada assim.
 
 A política `provider_policy: subscription-only` do bloco `runtime` é o que da sentido a policy
 `provider`: ela declara que este projeto só despacha pela assinatura local, e transforma

@@ -108,6 +108,8 @@ export const TIPOS_DE_EVENTO = {
   lintDeClaim: 'claim_lint',
   // I-55 (RM-008): a mesma falha em 3+ threads fechadas virou proposta de policy (so proposta).
   politicaProposta: 'policy_proposta',
+  // RM-008 (fatia 3): policy em warn que disparou num gate. Registra e segue; nunca bloqueia.
+  politicaAviso: 'policy_warn',
   // I-36 (RM-036): conducao multicanal. O segundo pedido recusado, o despacho repetido que nao abriu
   // sessao nova, a liberacao com prova (fim da sessao ou dono morto), o handoff e a renovacao do prazo.
   conducaoRecusada: 'conducao_recusada',

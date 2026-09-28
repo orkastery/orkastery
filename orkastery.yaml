@@ -92,3 +92,8 @@ policies:
   provider: block
   segredo_em_prompt: block
   push_direto_na_base: block
+  # RM-008 (fatia 3): licoes do loop que o ork confere sem ambiguidade. Warn registra e segue.
+  verify_regression: warn
+  verify_failed: warn
+  runtime_unavailable: warn
+  tree_blocked: warn
