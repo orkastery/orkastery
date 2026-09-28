@@ -210,7 +210,7 @@ inclusive um agente com acesso integral ao sistema de arquivos, pode ler a chave
 servidor MCP em outra conta ou sandbox quando precisar distingui-lo desses processos.
 
 O OrkMind usa Python, Postgres e pgvector e mora [em outro
-repositório](https://github.com/Orkastery/OrkMind). O pacote npm do Orkastery distribui
+repositório](https://github.com/orkastery/OrkMind). O pacote npm do Orkastery distribui
 `core/assets/orkmind_bridge.py`. O driver encontra o Python pelo shebang do executável
 `orkmind` instalado e chama a biblioteca desse ambiente, incluindo o G3 nativo.
 O checkout externo permanece intacto. JSON passa por stdin; a credencial exclusiva entra

@@ -4,10 +4,17 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-## Não publicado
+## 0.4.1 — 28/09/2026
+
+Primeira publicação da linha 0.4 no npm. A tag `v0.4.0` não chegou ao registro: a prova de origem
+do npm recusou a URL do repositório escrita com maiúscula. Tudo o que está na 0.4.0, abaixo, sai
+nesta versão.
 
 ### Corrigido
 
+- A URL do repositório no pacote, nos READMEs, nos guias e nos modelos de issue passa a ser
+  `github.com/orkastery/orkastery`, em minúsculas, como a prova de origem do npm exige. O
+  workflow de publicação confere essa URL antes de compilar.
 - **Três testes instáveis do CI** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   - o leitor de YAML do núcleo lia o SHA curto `0123456` como o número `123456`. Inteiro com zero à
     esquerda ou além da precisão segura agora fica texto, e o `ork docs verificar` deixa de acusar
@@ -17,7 +24,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - as fixtures do controller simulado criavam pastas com o `umask` de quem roda. Em conta com
     `umask 002`, o sensor recusava, com razão, a fonte com escrita do grupo.
 
-## 0.4.0 — 28/09/2026
+## 0.4.0 — 28/09/2026 (não publicada no npm)
 
 ### Adicionado
 

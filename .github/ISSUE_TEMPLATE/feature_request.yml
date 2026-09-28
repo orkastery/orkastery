@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Comece pelo problema, não pela solução. Antes, confira o [roadmap](https://github.com/Orkastery/orkastery/blob/main/docs/roadmap/README.md):
+        Comece pelo problema, não pela solução. Antes, confira o [roadmap](https://github.com/orkastery/orkastery/blob/main/docs/roadmap/README.md):
         se o item já existe, comente nele o seu caso.
 
   - type: textarea

@@ -205,10 +205,10 @@ The [docs home](docs/README.md) is organized by what you want to do now:
 
 | Project | What it is |
 | --- | --- |
-| **[orkastery](https://github.com/Orkastery/orkastery)** | This repository: the `ork` core, the adapters, the skills and the auditors |
-| **[OrkMind](https://github.com/Orkastery/OrkMind)** | The memory layer: Postgres with pgvector, an ontology and tag search; optional |
+| **[orkastery](https://github.com/orkastery/orkastery)** | This repository: the `ork` core, the adapters, the skills and the auditors |
+| **[OrkMind](https://github.com/orkastery/OrkMind)** | The memory layer: Postgres with pgvector, an ontology and tag search; optional |
 | **orkastery-web** | The website and user docs, with the architecture one-pager |
-| **[orkmind-web](https://github.com/Orkastery/orkmind-web)** | The OrkMind web interface |
+| **[orkmind-web](https://github.com/orkastery/orkmind-web)** | The OrkMind web interface |
 
 ## Maestro in the conversation (code delivered, live activation pending)
 

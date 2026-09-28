@@ -1,16 +1,16 @@
 {
   "name": "@orkastery/cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "A software factory of AI agents that proves its work: parallel threads, verified results, and short decisions only when they matter.",
   "license": "MIT",
-  "homepage": "https://github.com/Orkastery/orkastery#readme",
+  "homepage": "https://github.com/orkastery/orkastery#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Orkastery/orkastery.git",
+    "url": "git+https://github.com/orkastery/orkastery.git",
     "directory": "core"
   },
   "bugs": {
-    "url": "https://github.com/Orkastery/orkastery/issues"
+    "url": "https://github.com/orkastery/orkastery/issues"
   },
   "keywords": [
     "orkastery",

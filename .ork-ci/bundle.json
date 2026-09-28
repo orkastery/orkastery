@@ -1,53 +1,11 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-testesinstav",
+  "thread": "ork-versao041url",
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-testesinstav",
-      "fase": "GO",
-      "arquivo": "core/src/yaml.ts",
-      "alegacao": "SHA curto com zero a esquerda sobrevive como texto e a paridade com o git nao acusa commit que existe",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='paridade com o git' core/dist-test/test/docs.test.js"
-      ],
-      "criadoEm": "2026-09-28T13:34:56.105Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-testesinstav",
-      "fase": "GO",
-      "arquivo": "core/src/session-watcher.ts",
-      "alegacao": "Lock solto pelo dono no meio do recovery nao derruba o outro observador e o resultado segue unico",
-      "negativa": false,
-      "verificar": [
-        "node --test --test-name-pattern='lock recupera|dono que solta o lock' core/dist-test/test/session-watcher.test.js"
-      ],
-      "criadoEm": "2026-09-28T13:34:56.341Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
-      "thread": "ork-testesinstav",
-      "fase": "GO",
-      "arquivo": "core/test/controller-simulado.ts",
-      "alegacao": "Os testes do controller simulado passam com umask 002",
-      "negativa": false,
-      "verificar": [
-        "umask 002; node --test core/dist-test/test/phase-controller-sensors.test.js core/dist-test/test/cota-terminal.test.js core/dist-test/test/maestro-authority.test.js"
-      ],
-      "criadoEm": "2026-09-28T13:34:56.566Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C4",
-      "thread": "ork-testesinstav",
+      "thread": "ork-versao041url",
       "fase": "GO",
       "arquivo": "docs",
       "alegacao": "A documentacao passa na paridade, no lint e nos links",
@@ -56,7 +14,49 @@
         "node core/dist/index.js docs verificar",
         "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-28T13:34:56.779Z",
+      "criadoEm": "2026-09-28T13:35:01.671Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-versao041url",
+      "fase": "GO",
+      "arquivo": "eval",
+      "alegacao": "Os canarios do produto passam, como no workflow de publicacao",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-canarios"
+      ],
+      "criadoEm": "2026-09-28T13:35:03.093Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-versao041url",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O pacote diz 0.4.1 e a URL do repositorio e a exigida pela prova de origem do npm",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.4.1 && node -e 'const p=require(\"./core/package.json\"); process.exit(p.repository.url===\"git+https://github.com/orkastery/orkastery.git\"?0:1)' && grep -q '^## 0.4.1 — ' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-09-28T13:36:08.172Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-versao041url",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "Nenhuma URL do GitHub com Orkastery maiusculo fora do caso de teste do parser",
+      "negativa": true,
+      "verificar": [
+        "! git grep -nI 'github.com/Orkastery' -- . ':!core/test/ci.test.ts' ':!.ork-ci'"
+      ],
+      "criadoEm": "2026-09-28T13:45:01.169Z",
       "estado": "verificado",
       "lint": []
     }

@@ -2,7 +2,7 @@
   "id": "orkastery",
   "name": "Orkastery",
   "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "configSchema": {
     "type": "object",
     "properties": {},
