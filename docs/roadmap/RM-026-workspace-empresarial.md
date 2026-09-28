@@ -17,7 +17,7 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 580abb9
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-c1oitocartoe
@@ -68,7 +68,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-09-24 | Julio |
 | Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `580abb9` | 2026-09-24 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-24 | Julio |
 | Testes | Aprovados | — | 2026-09-24 | Julio |
 | Deploy | Produção | — | 2026-09-24 | Julio |
 | Exposição | Parcial | — | 2026-09-24 | Julio |

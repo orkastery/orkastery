@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-010]
 owner: Julio
-atualizado_em: 2026-09-24T21:33:12-03:00
+atualizado_em: 2026-09-27T23:46:56-03:00
 estado:
   ciclo: Concluído
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: 1e00996
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-i0404sensore
   modo: "#Auto"
   fase: MASTER
-  status: aberta
+  status: fechada
 ---
 
 # RM-004 — Sensores por hooks e watcher do codex
@@ -65,13 +65,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Concluído | — | 2026-09-24 | Julio |
-| Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `1e00996` | 2026-09-24 | Julio |
-| Testes | Aprovados | — | 2026-09-24 | Julio |
-| Deploy | Produção | — | 2026-09-24 | Julio |
-| Exposição | Geral | — | 2026-09-24 | Julio |
-| Habilitação | Concluída | — | 2026-09-24 | Julio |
+| Ciclo do item | Concluído | — | 2026-09-27 | Julio |
+| Documentação | Em revisão | — | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
+| Testes | Aprovados | — | 2026-09-27 | Julio |
+| Deploy | Produção | — | 2026-09-27 | Julio |
+| Exposição | Geral | — | 2026-09-27 | Julio |
+| Habilitação | Concluída | — | 2026-09-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

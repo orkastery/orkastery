@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-018]
 owner: Julio
-atualizado_em: 2026-09-27T09:40:50-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Disponível
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Concluída
 evidencias:
   codigo:
-    commit: f4a7823
-    pr: 20
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: ork-i44docscomoc
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-044 — Documentação como código com paridade
@@ -70,7 +70,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Disponível | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `f4a7823` · PR #20 | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
 | Deploy | Produção | — | 2026-09-27 | Julio |
 | Exposição | Geral | — | 2026-09-27 | Julio |

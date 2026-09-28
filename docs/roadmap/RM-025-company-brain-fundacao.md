@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024]
 owner: Julio
-atualizado_em: 2026-09-24T21:33:13-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 9b7fef1
+    commit: 10ca416
     pr: null
 sdlc:
   thread: ork-companybrai2
   modo: "#Maestro"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-025 — Company Brain: fundação
@@ -67,13 +67,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-24 | Julio |
-| Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `9b7fef1` | 2026-09-24 | Julio |
-| Testes | Aprovados | — | 2026-09-24 | Julio |
-| Deploy | Produção | — | 2026-09-24 | Julio |
-| Exposição | Parcial | — | 2026-09-24 | Julio |
-| Habilitação | Em andamento | — | 2026-09-24 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-27 | Julio |
+| Documentação | Em revisão | — | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
+| Testes | Aprovados | — | 2026-09-27 | Julio |
+| Deploy | Produção | — | 2026-09-27 | Julio |
+| Exposição | Parcial | — | 2026-09-27 | Julio |
+| Habilitação | Em andamento | — | 2026-09-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

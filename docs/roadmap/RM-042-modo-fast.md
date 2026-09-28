@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002]
 owner: Julio
-atualizado_em: 2026-09-27T09:40:50-03:00
+atualizado_em: 2026-09-27T23:46:57-03:00
 estado:
-  ciclo: Piloto
+  ciclo: Disponível
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
   deploy: Produção
-  exposicao: Parcial
+  exposicao: Geral
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 80b366e
-    pr: 26
+    commit: 10ca416
+    pr: null
 sdlc:
   thread: ork-i42modofastu
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-042 — Modo #Fast: uma fase, sem cerimônia
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Piloto | Mesclado | Aprovados | Produção | Parcial |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -66,12 +66,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
+| Ciclo do item | Disponível | — | 2026-09-27 | Julio |
 | Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `80b366e` · PR #26 | 2026-09-27 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
 | Testes | Aprovados | — | 2026-09-27 | Julio |
 | Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
+| Exposição | Geral | — | 2026-09-27 | Julio |
 | Habilitação | Em andamento | — | 2026-09-27 | Julio |
 
 <!-- ork-docs:estado:fim -->
