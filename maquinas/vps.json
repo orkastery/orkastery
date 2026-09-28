@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T04:04:52.075Z",
+  "publicadoEm": "2026-09-28T04:09:10.148Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -119,14 +119,28 @@
       "paradaDesde": null
     },
     {
+      "id": "ork-novafrasedea",
+      "nome": "Nova frase de apresentacao: fabrica de agentes que presta contas",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-046",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T04:09:07.684Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
       "id": "ork-rm008fatia3l",
       "nome": "RM-008 fatia 3: licoes viram avisos de policy",
       "modo": "#Auto",
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-008",
-      "branch": "main",
-      "atualizadaEm": "2026-09-28T04:04:49.564Z",
+      "branch": "ork/ork-rm008fatia3l-full",
+      "atualizadaEm": "2026-09-28T04:04:58.176Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
