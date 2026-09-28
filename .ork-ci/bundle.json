@@ -4,20 +4,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C2",
-      "thread": "ork-versao041url",
-      "fase": "GO",
-      "arquivo": "README.md",
-      "alegacao": "Nenhuma URL do GitHub com Orkastery maiusculo fora do caso de teste do parser",
-      "negativa": true,
-      "verificar": [
-        "! git grep -nI 'github.com/Orkastery' -- . ':!core/test/ci.test.ts'"
-      ],
-      "criadoEm": "2026-09-28T13:35:01.228Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
       "thread": "ork-versao041url",
       "fase": "GO",
@@ -57,6 +43,20 @@
         "npm --prefix core run build:test >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.4.1 && node -e 'const p=require(\"./core/package.json\"); process.exit(p.repository.url===\"git+https://github.com/orkastery/orkastery.git\"?0:1)' && grep -q '^## 0.4.1 — ' CHANGELOG.md"
       ],
       "criadoEm": "2026-09-28T13:36:08.172Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-versao041url",
+      "fase": "GO",
+      "arquivo": "README.md",
+      "alegacao": "Nenhuma URL do GitHub com Orkastery maiusculo fora do caso de teste do parser",
+      "negativa": true,
+      "verificar": [
+        "! git grep -nI 'github.com/Orkastery' -- . ':!core/test/ci.test.ts' ':!.ork-ci'"
+      ],
+      "criadoEm": "2026-09-28T13:45:01.169Z",
       "estado": "verificado",
       "lint": []
     }
