@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/@orkastery/cli?label=%40orkastery%2Fcli)](https://www.npmjs.com/package/@orkastery/cli) [![licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 
-![Uma fábrica de software de agentes de IA que presta contas a você: GOAL, PLAN, GO, CHECK, SHIP e MASTER.](docs/assets/social-preview.png)
+![Uma fábrica de software de agentes de IA que prova o próprio trabalho: GOAL, PLAN, GO, CHECK, SHIP e MASTER.](docs/assets/social-preview.png)
 
 > **Em uma frase:** o `ork` conduz agentes de IA (Claude Code e Codex) em threads paralelas de seis fases, confere cada afirmação contra o repositório antes de ela valer e só chama você quando a decisão é de fato sua.
 
