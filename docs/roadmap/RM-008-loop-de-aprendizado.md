@@ -65,6 +65,7 @@ sdlc:
 ## Estado com evidências
 
 - Implementado na thread `ork-i55loopdeapr` e mesclado em 27/09/2026 (PR #38), em produção desde então. Com o histórico real (36 threads fechadas), `ork licoes` já propõe cinco policies: `claims.failed`, `verify.regression`, `runtime.unavailable`, `tree.blocked` e a classe `processo`.
+- Fatia 3 (28/09/2026, thread `ork-rm008fatia3l`): três das cinco já são policy executável, declaradas em `warn` no `orkastery.yaml` deste repositório. São elas `verify_regression` (e `verify_failed`), `runtime_unavailable` e `tree_blocked`. `claims.failed` e `processo` seguem como proposta, porque o `ork` não tem como conferir antes do fato.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
