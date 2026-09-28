@@ -313,17 +313,30 @@ test('paridade com o git: Mesclado so vale com commit que esta na base', () => {
     achados = verificarDocs(p.dir, { ajudaDoCli: AJUDA }).achados;
     assert.ok(achados.some((a) => a.regra === 'docs.paridade.git' && /não existe/.test(a.mensagem)));
 
+    // Cada passo de git precisa dar certo: o CI ja reprovou a ultima asercao sem dizer por que, e
+    // um checkout ou commit que falhasse em silencio produziria exatamente esse sintoma.
+    const git = (...args: string[]) => {
+      const r = exec('git', args, p.dir);
+      assert.ok(r.ok, `git ${args.join(' ')} falhou: ${r.stderr.trim()}`);
+      return r.stdout.trim();
+    };
+
     // Commit de uma branch que nunca foi mesclada: existe, mas nao esta na main.
-    exec('git', ['checkout', '-q', '-b', 'lateral'], p.dir);
+    git('checkout', '-q', '-b', 'lateral');
     const lateral = commitar(p.dir, 'lateral.txt', 'x\n', 'lateral');
-    exec('git', ['checkout', '-q', 'main'], p.dir);
+    assert.equal(git('rev-parse', 'lateral'), lateral);
+    git('checkout', '-q', 'main');
     escrever(p.dir, 'docs/roadmap/RM-001-rotacao.md', itemDeRoadmap({ estado: estadoMesclado, evidencias: `\n  codigo:\n    commit: ${lateral.slice(0, 7)}\n    pr: 15` }));
     achados = verificarDocs(p.dir, { ajudaDoCli: AJUDA }).achados;
     assert.ok(achados.some((a) => a.regra === 'docs.paridade.git' && /não está na main/.test(a.mensagem)));
 
     const naMain = commitar(p.dir, 'main.txt', 'y\n', 'na main');
+    assert.equal(git('branch', '--show-current'), 'main');
+    assert.equal(git('rev-parse', 'main'), naMain);
     escrever(p.dir, 'docs/roadmap/RM-001-rotacao.md', itemDeRoadmap({ estado: estadoMesclado, evidencias: `\n  codigo:\n    commit: ${naMain.slice(0, 7)}\n    pr: 15` }));
-    assert.deepEqual(regras(verificarDocs(p.dir, { ajudaDoCli: AJUDA }).achados), []);
+    // As mensagens, e nao so a regra: se reprovar de novo no CI, o log diz qual das tres foi.
+    assert.deepEqual(verificarDocs(p.dir, { ajudaDoCli: AJUDA }).achados
+      .filter((a) => a.gravidade === 'erro').map((a) => `${a.regra}: ${a.mensagem}`), []);
   } finally { p.limpar(); }
 });
 

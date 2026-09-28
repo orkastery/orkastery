@@ -74,19 +74,39 @@ function conferirDiretorioDaFonte(dir: string, dirSessoes: string, uid: number):
   return real;
 }
 
+/**
+ * Quantas vezes a conferência lstat/abertura se repete quando o inode muda entre as duas. O worker
+ * grava o state.json por arquivo temporário e rename: cada gravação é um inode novo, e sob carga
+ * ela cai entre o lstat e o open. Só se aceita descritor cujo inode é o conferido; o limite impede
+ * laço sem fim contra quem troca o arquivo sem parar.
+ */
+const TENTATIVAS_DE_INODE = 5;
+
 /** Abre sem seguir link, confere descritor/inode, modo, dono e limite antes de decodificar. */
 function lerMetadado(dir: string, nome: string, uid: number, obrigatorio = true): Record<string, any> | null {
   const file = path.join(dir, nome);
-  let antes: fs.Stats;
-  try { antes = fs.lstatSync(file); }
-  catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT' && !obrigatorio) return null;
-    return recusar(`metadado ${nome} de controller ausente`);
+  for (let tentativa = 1; ; tentativa++) {
+    let antes: fs.Stats;
+    try { antes = fs.lstatSync(file); }
+    catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT' && !obrigatorio) return null;
+      return recusar(`metadado ${nome} de controller ausente`);
+    }
+    if (!antes.isFile() || antes.isSymbolicLink()) recusar(`metadado ${nome} de controller não é arquivo regular`);
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    let st: fs.Stats;
+    try { st = fs.fstatSync(fd); } catch (e) { fs.closeSync(fd); throw e; }
+    if (st.isFile() && (st.ino !== antes.ino || st.dev !== antes.dev) && tentativa < TENTATIVAS_DE_INODE) {
+      // Substituído por rename entre o lstat e o open: confere e abre de novo, do zero.
+      fs.closeSync(fd);
+      continue;
+    }
+    return lerDescritorConferido(fd, st, antes, nome, uid);
   }
-  if (!antes.isFile() || antes.isSymbolicLink()) recusar(`metadado ${nome} de controller não é arquivo regular`);
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+}
+
+function lerDescritorConferido(fd: number, st: fs.Stats, antes: fs.Stats, nome: string, uid: number): Record<string, any> {
   try {
-    const st = fs.fstatSync(fd);
     if (!st.isFile() || st.ino !== antes.ino || st.dev !== antes.dev) recusar(`descritor de ${nome} divergente do inode conferido`);
     if (st.uid !== uid) recusar(`metadado ${nome} de controller de outro uid`);
     if ((st.mode & 0o777) !== MODO_METADADO) recusar(`metadado ${nome} de controller não é privado 0600`);
@@ -314,10 +334,13 @@ export function registrarFonteController(dir: string, esperado: EsperadoControll
 
 /** Releitura da fonte fixada. Nunca descobre outro processo, nem aceita override de rollout. */
 export function lerSnapshotController(fonte: FonteController, opcoes: { agoraMs?: number } = {}): SnapshotController {
-  const agora = opcoes.agoraMs ?? Date.now();
   const real = conferirDiretorioDaFonte(fonte.dir, path.dirname(fonte.dir), fonte.uid);
   if (real !== fonte.dir) recusar('fonte de controller mudou de caminho real');
   const estado = conferirEstado(lerMetadado(real, 'state.json', fonte.uid)!, fonte);
+  // O relógio de referência é o do fim da leitura. O worker grava o close quando o runtime fecha,
+  // e isso pode acontecer entre o início desta releitura e a leitura do state.json: esse close não
+  // está no futuro. Com o relógio lido antes, ele era recusado e o watcher morria sem phase_result.
+  const agora = opcoes.agoraMs ?? Date.now();
   if (!mesmaIdentidade(identidadeValida(estado.processoController, fonte.uid), fonte.processoController)) recusar('identidade do controller divergente da registrada');
   if (!mesmaIdentidade(identidadeValida(estado.processoRuntime, fonte.uid), fonte.processoRuntime)) recusar('identidade do runtime divergente da registrada');
   const rollout = conferirFonteDeRollout(estado.rollout, fonte.uid, fonte.sessionId, fonte.cwd,
