@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-28T16:45:02.360Z",
+  "publicadoEm": "2026-09-28T17:28:08.476Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -113,6 +113,20 @@
       "roadmap": null,
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-marcanorepos",
+      "nome": "Marca no repositorio: logo e previa social nova",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-046",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T17:28:05.292Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
