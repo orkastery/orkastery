@@ -34,6 +34,10 @@ jobs:
       - name: a tag e a versao do pacote
         run: test "v$(node -p "require('./core/package.json').version")" = "$GITHUB_REF_NAME"
 
+      # A prova de origem do npm exige a URL exata do repositorio que compila, com a mesma caixa.
+      - name: a URL do repositorio no pacote
+        run: test "$(node -p "require('./core/package.json').repository.url")" = "git+https://github.com/$GITHUB_REPOSITORY.git"
+
       - name: a tag esta na main
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 

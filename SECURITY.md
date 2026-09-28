@@ -5,7 +5,7 @@
 Não abra issue pública para vulnerabilidade.
 
 Use o canal privado do GitHub: **Security** > **Report a vulnerability** no repositório
-[Orkastery/orkastery](https://github.com/Orkastery/orkastery/security/advisories/new).
+[Orkastery/orkastery](https://github.com/orkastery/orkastery/security/advisories/new).
 
 Inclua, se puder:
 

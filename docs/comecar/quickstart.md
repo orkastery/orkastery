@@ -48,7 +48,7 @@ O pacote é escopado porque o nome curto `ork` no registry já é de outro proje
 Se você quer compilar do fonte, por exemplo para trabalhar no próprio núcleo:
 
 ```bash
-git clone https://github.com/Orkastery/orkastery.git
+git clone https://github.com/orkastery/orkastery.git
 cd orkastery/core
 npm install
 npm run build      # gera dist/index.js, o bin `ork`

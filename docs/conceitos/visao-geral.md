@@ -213,7 +213,7 @@ e um ponteiro pedido fora do momento volta **sem o conteúdo**.
 | Regime | O que e |
 | --- | --- |
 | `files` | O fallback honesto: handoff por arquivos, ponteiro `path#ancora`, recall por leitura dirigida |
-| `orkmind` | A camada semântica do [OrkMind](https://github.com/Orkastery/OrkMind) por cima, com busca por tag |
+| `orkmind` | A camada semântica do [OrkMind](https://github.com/orkastery/OrkMind) por cima, com busca por tag |
 
 A degradação de `orkmind` para `files` tem **motivo tipado**, e o ciclo não para por causa
 dela. `ork memory status` mostra o regime efetivo. Ver [`memoria-e-handoff.md`](../guias/memoria-e-handoff.md).

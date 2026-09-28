@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Vulnerabilidade de segurança
-    url: https://github.com/Orkastery/orkastery/security/advisories/new
+    url: https://github.com/orkastery/orkastery/security/advisories/new
     about: Não abra issue pública. Use o canal privado; veja SECURITY.md.
   - name: Documentação
-    url: https://github.com/Orkastery/orkastery/blob/main/docs/README.md
+    url: https://github.com/orkastery/orkastery/blob/main/docs/README.md
     about: Começar, guias, referência, conceitos, produto e roadmap.
   - name: A fonte de verdade é o próprio CLI
-    url: https://github.com/Orkastery/orkastery/blob/main/docs/referencia/cli.md
+    url: https://github.com/orkastery/orkastery/blob/main/docs/referencia/cli.md
     about: "Antes de abrir issue: ork --help, ork doctor, ork modos, ork retry policy."
