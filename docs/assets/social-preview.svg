@@ -9,11 +9,12 @@
   <rect x="48" y="48" width="1184" height="544" rx="28" fill="none" stroke="#2B3A50" stroke-width="2"/>
 
   <text x="96" y="150" font-family="Liberation Sans, FreeSans, sans-serif" font-size="30" font-weight="700" fill="#4FB6E8" letter-spacing="6">ORKASTERY</text>
-  <text x="96" y="238" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#E6EDF7">Your agents say “done”.</text>
-  <text x="96" y="310" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#F2A03D">ork re-runs it.</text>
-  <text x="96" y="362" font-family="Liberation Sans, FreeSans, sans-serif" font-size="26" fill="#8FA3BE">Seus agentes dizem “pronto”. O ork reexecuta.</text>
+  <text x="96" y="228" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#E6EDF7">A software factory of AI agents</text>
+  <text x="96" y="296" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#F2A03D">that answers to you.</text>
+  <text x="96" y="344" font-family="Liberation Sans, FreeSans, sans-serif" font-size="26" fill="#C9D8EC">Parallel work, proven results, and short decisions only when they matter.</text>
+  <text x="96" y="382" font-family="Liberation Sans, FreeSans, sans-serif" font-size="22" fill="#8FA3BE">Uma fábrica de software de agentes de IA que presta contas a você.</text>
 
-  <g font-family="Liberation Mono, FreeMono, monospace" font-size="22" font-weight="700">
+  <g transform="translate(0,12)" font-family="Liberation Mono, FreeMono, monospace" font-size="22" font-weight="700">
     <rect x="96" y="410" width="136" height="54" rx="10" fill="#18202E" stroke="#4FB6E8" stroke-width="2"/>
     <text x="164" y="445" text-anchor="middle" fill="#E6EDF7">GOAL</text>
     <text x="246" y="445" text-anchor="middle" fill="#54688A">›</text>
