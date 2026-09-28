@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T04:14:39.302Z",
+  "publicadoEm": "2026-09-28T04:15:02.173Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -114,20 +114,6 @@
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-novafrasedea",
-      "nome": "Nova frase de apresentacao: fabrica de agentes que presta contas",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-046",
-      "branch": "ork/ork-novafrasedea-go",
-      "atualizadaEm": "2026-09-28T04:10:47.274Z",
-      "entregue": "539a0b5",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
