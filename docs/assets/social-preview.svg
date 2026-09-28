@@ -10,9 +10,9 @@
 
   <text x="96" y="150" font-family="Liberation Sans, FreeSans, sans-serif" font-size="30" font-weight="700" fill="#4FB6E8" letter-spacing="6">ORKASTERY</text>
   <text x="96" y="228" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#E6EDF7">A software factory of AI agents</text>
-  <text x="96" y="296" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#F2A03D">that answers to you.</text>
-  <text x="96" y="344" font-family="Liberation Sans, FreeSans, sans-serif" font-size="26" fill="#C9D8EC">Parallel work, proven results, and short decisions only when they matter.</text>
-  <text x="96" y="382" font-family="Liberation Sans, FreeSans, sans-serif" font-size="22" fill="#8FA3BE">Uma fábrica de software de agentes de IA que presta contas a você.</text>
+  <text x="96" y="296" font-family="Liberation Sans, FreeSans, sans-serif" font-size="58" font-weight="700" fill="#F2A03D">that proves its work.</text>
+  <text x="96" y="344" font-family="Liberation Sans, FreeSans, sans-serif" font-size="26" fill="#C9D8EC">Parallel threads, verified results, and short decisions only when they matter.</text>
+  <text x="96" y="382" font-family="Liberation Sans, FreeSans, sans-serif" font-size="22" fill="#8FA3BE">Uma fábrica de software de agentes de IA que prova o próprio trabalho.</text>
 
   <g transform="translate(0,12)" font-family="Liberation Mono, FreeMono, monospace" font-size="22" font-weight="700">
     <rect x="96" y="410" width="136" height="54" rx="10" fill="#18202E" stroke="#4FB6E8" stroke-width="2"/>

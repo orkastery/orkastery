@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/@orkastery/cli?label=%40orkastery%2Fcli)](https://www.npmjs.com/package/@orkastery/cli) [![MIT license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-![A software factory of AI agents that answers to you: GOAL, PLAN, GO, CHECK, SHIP and MASTER.](docs/assets/social-preview.png)
+![A software factory of AI agents that proves its work: GOAL, PLAN, GO, CHECK, SHIP and MASTER.](docs/assets/social-preview.png)
 
 > **In one sentence:** `ork` conducts AI coding agents (Claude Code and Codex) through parallel six-phase threads, checks every claim against the repository before it counts, and only calls you when the decision is really yours.
 
