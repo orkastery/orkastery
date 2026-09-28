@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-28T18:15:02.790Z",
+  "publicadoEm": "2026-09-28T18:23:13.362Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -113,6 +113,20 @@
       "roadmap": null,
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-roadmapestad",
+      "nome": "Roadmap: estado real de 28/09",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-044",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T18:23:10.137Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
