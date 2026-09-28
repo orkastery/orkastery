@@ -6,9 +6,9 @@ categoria: iniciativa
 pai: null
 features: [FEAT-011, FEAT-012, FEAT-021]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-09-28T15:23:46-03:00
 estado:
-  ciclo: Disponível
+  ciclo: Concluído
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Disponível | Mesclado | Aprovados | Produção | Geral |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -59,7 +59,7 @@ sdlc:
 ## Estado com evidências
 
 - Merge `f9d9bc1` (PR #19, 24/09/2026) pelo CI independente.
-- MASTER pendente.
+- MASTER aceito por omissão em 27/09/2026, score gravado 4/5.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -67,13 +67,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Disponível | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Geral | — | 2026-09-27 | Julio |
-| Habilitação | Concluída | — | 2026-09-27 | Julio |
+| Ciclo do item | Concluído | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
+| Testes | Aprovados | — | 2026-09-28 | Julio |
+| Deploy | Produção | — | 2026-09-28 | Julio |
+| Exposição | Geral | — | 2026-09-28 | Julio |
+| Habilitação | Concluída | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -86,3 +86,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-09-20 | thread aberta | cobrança do dono | Julio |
 | 2026-09-24 | mesclado pelo CI independente | PR #19, merge `f9d9bc1` | Julio |
+| 2026-09-28 | concluído | em produção desde o merge; MASTER aceito por omissão em 27/09/2026 (score gravado 4/5) | Julio |
