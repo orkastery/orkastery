@@ -1,6 +1,6 @@
 # @orkastery/cli, the `ork` core
 
-**Your agents say "done". `ork` re-runs it.**
+**A software factory of AI agents that answers to you: parallel work, proven results, and short decisions only when they matter.**
 
 `ork` conducts coding agents (Claude Code, Codex) through six-phase threads, verifies every
 claim by re-running the command that proves it, and only delivers with the push proven on the

@@ -1,7 +1,7 @@
 {
   "name": "@orkastery/cli",
   "version": "0.3.0",
-  "description": "Conduz agentes de código (Claude Code, Codex) em threads verificáveis: seis fases, quatro modos por #TAG, claims reexecutadas e entrega com push provado. Sem LLM embutido.",
+  "description": "A software factory of AI agents that answers to you: parallel work, proven results, and short decisions only when they matter.",
   "license": "MIT",
   "homepage": "https://github.com/Orkastery/orkastery#readme",
   "repository": {
