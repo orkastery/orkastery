@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.3.0",
-  "publicadoEm": "2026-09-28T13:15:03.221Z",
+  "publicadoEm": "2026-09-28T13:34:08.772Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -127,6 +127,20 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-testesinstav-go",
       "atualizadaEm": "2026-09-28T13:10:35.040Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-versao041url",
+      "nome": "Versao 0.4.1: URL do repositorio para a prova de origem do npm",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-046",
+      "branch": "main",
+      "atualizadaEm": "2026-09-28T13:34:06.168Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
