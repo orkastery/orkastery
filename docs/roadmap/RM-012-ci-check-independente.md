@@ -6,9 +6,9 @@ categoria: iniciativa
 pai: null
 features: [FEAT-005, FEAT-006]
 owner: Julio
-atualizado_em: 2026-09-24T21:30:00-03:00
+atualizado_em: 2026-09-28T15:23:46-03:00
 estado:
-  ciclo: Disponível
+  ciclo: Concluído
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Disponível | Mesclado | Aprovados | Produção | Geral |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -48,7 +48,7 @@ sdlc:
 ## Escopo e validação
 
 - **Entregue:** 2 de 3 resultados.
-- **Faltando:** proteção nativa da `main`, recusada com HTTP 403 pelo plano atual do GitHub para repositório privado.
+- **Proteção nativa da `main`:** ligada em 28/09/2026 no repositório público, com os 4 checks obrigatórios e sem push forçado. Até então, recusada com HTTP 403 no repositório privado.
 
 ## Plano e decisões
 
@@ -66,13 +66,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Disponível | — | 2026-09-24 | Julio |
-| Documentação | Em revisão | — | 2026-09-24 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-24 | Julio |
-| Testes | Aprovados | — | 2026-09-24 | Julio |
-| Deploy | Produção | — | 2026-09-24 | Julio |
-| Exposição | Geral | — | 2026-09-24 | Julio |
-| Habilitação | Concluída | — | 2026-09-24 | Julio |
+| Ciclo do item | Concluído | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
+| Testes | Aprovados | — | 2026-09-28 | Julio |
+| Deploy | Produção | — | 2026-09-28 | Julio |
+| Exposição | Geral | — | 2026-09-28 | Julio |
+| Habilitação | Concluída | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -84,3 +84,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-13 | entregue em parte (2 de 3) | PR #1, merge `1ff709c` | Julio |
+| 2026-09-28 | concluído | proteção nativa da `main` no repositório público, com os 4 checks obrigatórios | Julio |

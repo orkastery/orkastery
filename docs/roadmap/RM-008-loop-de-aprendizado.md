@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-006, FEAT-028]
 owner: Julio
-atualizado_em: 2026-09-28T01:14:06-03:00
+atualizado_em: 2026-09-28T15:24:01-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 10ca416
+    commit: 7af7a92
     pr: null
 sdlc:
   thread: ork-rm008fatia3l
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-008 — Loop de aprendizado
@@ -75,7 +75,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-09-28 | Julio |
 | Documentação | Em revisão | — | 2026-09-28 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
+| Código | Mesclado | commit `7af7a92` | 2026-09-28 | Julio |
 | Testes | Aprovados | — | 2026-09-28 | Julio |
 | Deploy | Produção | — | 2026-09-28 | Julio |
 | Exposição | Parcial | — | 2026-09-28 | Julio |
