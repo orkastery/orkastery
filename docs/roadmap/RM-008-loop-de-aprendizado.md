@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-006, FEAT-028]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-09-28T01:14:06-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -20,10 +20,10 @@ evidencias:
     commit: 10ca416
     pr: null
 sdlc:
-  thread: ork-i57entregasp
+  thread: ork-rm008fatia3l
   modo: "#Auto"
-  fase: MASTER
-  status: fechada
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-008 — Loop de aprendizado
@@ -52,6 +52,7 @@ sdlc:
 - **Critério de aceite:** uma lição ratificada reaparece no próximo ciclo; recorrência gera proposta de policy.
 - **Incluído:** a lição tirada dos `POSTMORTEM.json` e `master-log.json` das threads fechadas, no GOAL e no PLAN, em qualquer regime; a proposta de policy no ledger do projeto ao fechar uma thread; `ork licoes`.
 - **Fatia 2, entregas por PR (27/09/2026, thread `ork-i57entregasp`):** o merge `ship(<thread>)` na base remota, com o CI verde no head do PR, vira `ship_done` (`ork ship registrar-pr`), e o MASTER por omissão fecha a thread. Sem isso, a thread entregue por PR ficava aberta e fora do loop.
+- **Fatia 3, lições viram avisos (28/09/2026, thread `ork-rm008fatia3l`):** as três lições que o `ork` confere sem ambiguidade viram policy executável em `warn`, por decisão do dono. São elas: GO sem baseline (`verify_regression`, e `verify_failed` com a mesma conferência), bloco sem runtime de fallback (`runtime_unavailable`) e ship com a branch atrás da base (`tree_blocked`). O aviso grava `policy_warn` e imprime a correção; nada para. As outras propostas seguem como lição no GOAL e no PLAN.
 - **Fora:** criar policy sozinho (é do dono); busca semântica das lições ([RM-038](RM-038-busca-semantica-na-memoria.md)).
 
 ## Plano e decisões
@@ -64,6 +65,7 @@ sdlc:
 ## Estado com evidências
 
 - Implementado na thread `ork-i55loopdeapr` e mesclado em 27/09/2026 (PR #38), em produção desde então. Com o histórico real (36 threads fechadas), `ork licoes` já propõe cinco policies: `claims.failed`, `verify.regression`, `runtime.unavailable`, `tree.blocked` e a classe `processo`.
+- Fatia 3 (28/09/2026, thread `ork-rm008fatia3l`): três das cinco já são policy executável, declaradas em `warn` no `orkastery.yaml` deste repositório. São elas `verify_regression` (e `verify_failed`), `runtime_unavailable` e `tree_blocked`. `claims.failed` e `processo` seguem como proposta, porque o `ork` não tem como conferir antes do fato.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -71,13 +73,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
-| Habilitação | Em andamento | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
+| Testes | Aprovados | — | 2026-09-28 | Julio |
+| Deploy | Produção | — | 2026-09-28 | Julio |
+| Exposição | Parcial | — | 2026-09-28 | Julio |
+| Habilitação | Em andamento | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -92,3 +94,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | implementado | lição no GOAL e no PLAN em qualquer regime, proposta de policy por recorrência | Julio |
 | 2026-09-27 | em produção na VPS de referência | merge `96a030d` (PR #38); `ork licoes` já lista cinco propostas no histórico real | Julio |
 | 2026-09-27 | fatia 2: entregas por PR fecham pelo MASTER | 25 threads entregues por PR estavam abertas e fora do loop | Julio |
+| 2026-09-28 | fatia 3: três lições viram avisos de policy | decisão do dono (HITL 6 = a); só as que o `ork` confere sem ambiguidade | Julio |

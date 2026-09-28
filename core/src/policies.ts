@@ -24,6 +24,23 @@ export interface ContextoDePolicy {
   para?: string;
   /** Branch base do projeto (do manifesto). */
   baseBranch?: string;
+  /**
+   * RM-008 (fatia 3): fatos da thread, calculados por quem chama o gate. Cada policy nova so
+   * avalia quando o fato dela veio; sem thread (como na checagem de ambiente do CLI), silencio.
+   */
+  threadId?: string;
+  modo?: string;
+  fase?: string;
+  /** Numero do bloco (1..N) que conduz a fase, para o comando de correcao do setup. */
+  bloco?: number;
+  /** O bloco despachado contem a fase GO. */
+  blocoComGo?: boolean;
+  /** A thread ja gravou a baseline (`ork verify <thread> --baseline`). */
+  temBaseline?: boolean;
+  /** A ordem de fallback de runtimes do bloco despachado (vazia quando nao declarada). */
+  fallbackDoBloco?: string[];
+  /** Gate `ship`: a ponta da base nao esta contida na branch da thread. */
+  branchAtrasDaBase?: boolean;
 }
 
 export interface ViolacaoDePolicy {
@@ -97,6 +114,24 @@ export const POLICIES_CONHECIDAS: Readonly<Record<string, { quando: PontoDeGate[
     quando: ['ship'],
     descricao: 'proibe entregar sem branch de thread (push direto na base)',
   },
+  // RM-008 (fatia 3): licoes do loop de aprendizado que o `ork` sabe conferir sem ambiguidade.
+  // O nome e o mesmo que o `ork licoes` propoe, para a proposta ser declarada como veio.
+  verify_regression: {
+    quando: ['phase.dispatch'],
+    descricao: 'avisa quando o bloco que contem GO sai sem baseline gravada',
+  },
+  verify_failed: {
+    quando: ['phase.dispatch'],
+    descricao: 'avisa quando o bloco que contem GO sai sem baseline gravada (mesma conferencia de verify_regression)',
+  },
+  runtime_unavailable: {
+    quando: ['phase.dispatch'],
+    descricao: 'avisa quando o bloco despachado nao declara runtime de fallback',
+  },
+  tree_blocked: {
+    quando: ['ship'],
+    descricao: 'avisa quando a branch da thread esta atras da base',
+  },
 };
 
 function severidade(bruta: string | undefined): Severidade {
@@ -113,6 +148,8 @@ export function policiesDesconhecidas(manifesto: Manifesto): string[] {
 export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): ViolacaoDePolicy[] {
   const declaradas = manifesto.policies ?? {};
   const violacoes: ViolacaoDePolicy[] = [];
+  // verify_regression e verify_failed conferem a mesma coisa: um aviso so, com o nome da primeira declarada.
+  let baselineJaAvaliada = false;
 
   for (const [nome, bruta] of Object.entries(declaradas)) {
     const conhecida = POLICIES_CONHECIDAS[nome];
@@ -174,9 +211,55 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
       }
       continue;
     }
+
+    if (nome === 'verify_regression' || nome === 'verify_failed') {
+      if (baselineJaAvaliada) continue;
+      baselineJaAvaliada = true;
+      if (ctx.blocoComGo === true && ctx.temBaseline === false) {
+        violacoes.push({
+          policy: nome,
+          severidade: sev,
+          motivo: 'policy.violation',
+          detalhe: 'o bloco que contem GO vai sair sem baseline: uma falha que ja existia passaria por regressao desta thread',
+          correcao: `ork verify ${ctx.threadId ?? '<thread>'} --baseline`,
+        });
+      }
+      continue;
+    }
+
+    if (nome === 'runtime_unavailable') {
+      if (Array.isArray(ctx.fallbackDoBloco) && ctx.fallbackDoBloco.length === 0) {
+        violacoes.push({
+          policy: nome,
+          severidade: sev,
+          motivo: 'policy.violation',
+          detalhe: 'o bloco nao declara runtime de fallback: se o runtime cair, a fase para ate alguem trocar a mao',
+          correcao: `ork setup ${ctx.modo ?? '<modo>'} --bloco ${ctx.bloco ?? 'N'} --fallback <runtime:modelo>`,
+        });
+      }
+      continue;
+    }
+
+    if (nome === 'tree_blocked') {
+      if (ctx.branchAtrasDaBase === true) {
+        violacoes.push({
+          policy: nome,
+          severidade: sev,
+          motivo: 'policy.violation',
+          detalhe: `a branch "${ctx.de ?? 'da thread'}" esta atras de "${ctx.para ?? ctx.baseBranch ?? 'base'}": a entrega mistura a mudanca com o que a base ja andou`,
+          correcao: `ork worktree sync ${ctx.threadId ?? '<thread>'}`,
+        });
+      }
+      continue;
+    }
   }
 
   return violacoes;
+}
+
+/** So as violacoes com severidade `warn` (as que registram e seguem). */
+export function avisos(violacoes: ViolacaoDePolicy[]): ViolacaoDePolicy[] {
+  return violacoes.filter((v) => v.severidade === 'warn');
 }
 
 /** So as violacoes com severidade `block` (as que reprovam em qualquer modo). */
@@ -196,6 +279,14 @@ export function motivoDominante(violacoes: ViolacaoDePolicy[]): MotivoGate {
   return violacoes.some((v) => v.motivo === 'cost.violation')
     ? 'cost.violation'
     : 'policy.violation';
+}
+
+/** RM-008 (fatia 3): as linhas de aviso (policies em warn) para a saida do CLI. Nada quando nao ha aviso. */
+export function linhasDeAviso(violacoes: ViolacaoDePolicy[], recuo = '  '): string[] {
+  return avisos(violacoes).flatMap((v) => [
+    `${recuo}aviso da policy ${v.policy}: ${v.detalhe}`,
+    `${recuo}  correcao: ${v.correcao}`,
+  ]);
 }
 
 /** Texto das violacoes para a saida do CLI. */

@@ -42,7 +42,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-005](RM-005-master-e-digest.md) | MASTER ratificado e digest semanal | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-006](RM-006-orkmind-na-fabrica.md) | OrkMind ligado na fábrica | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-007](RM-007-telemetria-economica.md) | Telemetria econômica no ledger | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
+| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-009](RM-009-playbook-dos-runtimes.md) | Playbook dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-012](RM-012-ci-check-independente.md) | CI como CHECK independente | Disponível | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-013](RM-013-maestro-objetivo.md) | Maestro Mode B7: objetivo e envelope | Descontinuado | Mesclado | Aprovados | Não implantado | 2026-09-24 |

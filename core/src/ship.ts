@@ -23,7 +23,7 @@ import { adquirirRegiao, esperandoPor, liberar, lerLease, LEASE_MAIN_TREE } from
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
-import { avaliarPolicies, bloqueantes, ViolacaoDePolicy } from './policies';
+import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy } from './policies';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
 import { agora, exec } from './util';
@@ -430,14 +430,28 @@ export function ship(
     );
   }
 
-  // 2. Policies do manifesto que valem no gate `ship`.
+  // 2. Policies do manifesto que valem no gate `ship`. RM-008 (fatia 3): a branch da thread
+  // atras da base e fato do git, calculado aqui (a ponta da base nao esta contida na branch).
+  const pontaDe = shaDaRef(raiz, `refs/heads/${de}`);
+  const pontaPara = shaDaRef(raiz, `refs/heads/${para}`);
+  const branchAtrasDaBase = pontaDe && pontaPara && de !== para
+    ? !exec('git', ['merge-base', '--is-ancestor', pontaPara, pontaDe], raiz).ok
+    : undefined;
   const violacoes = avaliarPolicies(manifesto, {
     gate: 'ship',
     de,
     para,
     baseBranch: manifesto.worktree.base_branch,
+    threadId,
+    branchAtrasDaBase,
   });
   r.violacoes = violacoes;
+  if (!r.dryRun) {
+    for (const v of avisos(violacoes)) {
+      registrar(dir, threadId, TIPOS_DE_EVENTO.politicaAviso, { gate: 'ship', de, para,
+        policy: v.policy, detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
+    }
+  }
   const bloqueiam = bloqueantes(violacoes);
   if (bloqueiam.length > 0) {
     return bloquear(
@@ -766,6 +780,7 @@ export function textoDoShip(r: ResultadoShip): string {
       `  ci             ${r.ci.required ? `${r.ci.state.toUpperCase()} ${r.ci.context} em ${r.ci.sha.slice(0, 8)}` : 'não exigido'}`
     );
   }
+  linhas.push(...linhasDeAviso(r.violacoes ?? []));
   if (r.leaseOcupadoPor) {
     comHorario = true;
     linhas.push(

@@ -4,6 +4,16 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+## Não publicado
+
+### Adicionado
+
+- **Lições viram avisos de policy** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md), fatia 3):
+  `verify_regression` e `verify_failed` (bloco com GO sem baseline), `runtime_unavailable` (bloco
+  sem runtime de fallback) e `tree_blocked` (ship com a branch atrás da base). Em `warn`, o gate
+  imprime a correção exata e grava `policy_warn`, sem parar nada; em `block`, reprova como as
+  outras policies. O `ork licoes` diz quais propostas já podem ser declaradas.
+
 ## 0.3.0 — 27/09/2026
 
 ### Adicionado
