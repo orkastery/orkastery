@@ -6,15 +6,15 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-09-28T16:08:06-03:00
 estado:
-  ciclo: Em desenvolvimento
+  ciclo: Disponível
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Em execução
-  deploy: Não implantado
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  testes: Aprovados
+  deploy: Produção
+  exposicao: Geral
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: 10ca416
@@ -28,13 +28,13 @@ sdlc:
 
 # RM-046 — GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar
 
-> **Em uma frase:** abrir o repositório e o site sem vazar nada, com uma promessa clara, instalação em um comando e documentação à altura dos projetos de agentes mais estrelados do GitHub.
+> **Em uma frase:** abrir o repositório e o site sem vazar nada, com uma promessa clara, instalação em um comando e documentação que leva quem chega ao primeiro ciclo em até 5 minutos.
 
 <!-- ork-docs:relance:inicio -->
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -44,12 +44,12 @@ sdlc:
 ## Problema e resultado
 
 - **Problema:** o repositório e o site são privados, e o npm distribui a versão 0.2.0 de 05/09/2026, anterior à I-41, à I-43 e à I-44: quem instala hoje recebe modos aposentados e não recebe o `#Fast`.
-- **Objetivo:** o Orkastery público, seguro e adotável, com mais estrelas no GitHub do que `affaan-m/ECC`, `mattpocock/skills` e `obra/superpowers`.
-- **Evidências (26/09/2026, API do GitHub):** `obra/superpowers` 291.969 estrelas em 11,6 meses; `mattpocock/skills` 270.292 em 7,7 meses; `affaan-m/ECC` 267.986 em 8,2 meses. O que os três têm em comum é promessa clara, instalação em um comando e um canal de lançamento; o tamanho do README e a comunidade não explicam as estrelas.
-- **Hipótese:** Se o Orkastery se diferenciar pelo mecanismo que só ele tem (re-executar cada afirmação do agente no HEAD real e num runner independente), então ele vira categoria própria em vez de mais um pacote de skills, porque nenhum dos três prova o que o agente diz.
-- **Métrica principal:** estrelas no GitHub; meta A definir — Julio, no GOAL da thread.
+- **Objetivo:** o Orkastery público, seguro e adotável.
+- **Evidências (26/09/2026):** os projetos de agentes que se espalharam no GitHub têm em comum promessa clara, instalação em um comando e um canal de lançamento; o tamanho do README e a comunidade não explicam a adoção.
+- **Hipótese:** Se o Orkastery se diferenciar pelo mecanismo que só ele tem (re-executar cada afirmação do agente no HEAD real e num runner independente), então ele vira categoria própria em vez de mais um pacote de skills, porque os pacotes de skills não provam o que o agente diz.
+- **Métrica principal:** adoção (instalações do `@orkastery/cli` e contribuições no repositório público); a meta fica com o dono.
 - **Métricas de proteção:** zero segredo ou dado pessoal publicado; tempo até o primeiro valor abaixo de 5 minutos; issues com diagnóstico anexado.
-- **Linha de base:** 0 estrelas (repositório privado), `@orkastery/cli` 0.2.0 no npm.
+- **Linha de base:** repositório privado e `@orkastery/cli` 0.2.0 no npm.
 
 ## Escopo e validação
 
@@ -58,6 +58,7 @@ sdlc:
 - **Fase 2, distribuição:** release 0.3.0 no npm com CHANGELOG e GitHub Releases; instalação em um comando; plugin do Claude Code e skills do Codex nos marketplaces oficiais; um modo de demonstração que mostra uma afirmação falsa sendo reprovada.
 - **Fase 3, página do projeto:** site no GitHub Pages com o domínio `orkastery.com`, hero com as seis fases e uma gravação de terminal, três pilares ("verificado, não relatado", "o humano decide só o que importa", "não para") e documentação gerada do próprio docs-as-code, em inglês e português.
 - **Fase 4, comunidade e lançamento:** CONTRIBUTING, SECURITY, código de conduta, formulários de issue, Discussions, proteção da `main` (gratuita em repositório público, fecha a [RM-012](RM-012-ci-check-independente.md)); ensaio em inglês para o Hacker News, thread no X e versão em português.
+- **Movido para a [RM-049](RM-049-lancamento.md) em 28/09/2026 (decisão do dono):** a documentação do site gerada do próprio docs-as-code em inglês e português, o plugin e as skills nos marketplaces oficiais, e o lançamento (Hacker News, X e a versão em português).
 - **Fora de escopo:** mudar o comportamento do produto; o que muda é o que ele mostra e como se instala.
 - **Critério de aceite:** repositório e site públicos sem nenhum achado bloqueante da varredura; `npx @orkastery/cli` instala a versão atual; um visitante entende a promessa e roda o primeiro ciclo em até 5 minutos.
 
@@ -72,7 +73,6 @@ sdlc:
   - titular da licença Julio Pessoa, e e-mail público dos commits `maestro@orkastery.com`;
   - site no GitHub Pages com o domínio `orkastery.com`;
   - publicação no npm pelo CI com Trusted Publishing.
-- **Decisão pendente (Julio):** a meta de estrelas, no GOAL.
 
 ## Estado com evidências
 
@@ -105,19 +105,25 @@ sdlc:
   - a varredura da árvore não acha nome de cliente nem caminho pessoal;
   - os dados pessoais dos metadados de commit ficam no arquivo privado, porque o repositório público nasce de um histórico novo.
 
+- No ar em 27 e 28/09/2026:
+  - repositório público `orkastery/orkastery` com histórico novo, e o antigo arquivado privado; `main` protegida com os 4 checks obrigatórios;
+  - `@orkastery/cli` publicado pelo CI com Trusted Publishing: 0.3.0 em 27/09 e 0.4.1 em 28/09, com prova de origem assinada;
+  - os sites orkastery.com e orkmind.com no GitHub Pages, publicados só por promoção; falta o DNS do domínio apontar para o GitHub;
+  - logo, favicons, avatar e prévia social aplicados.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Em execução | — | 2026-09-27 | Julio |
-| Deploy | Não implantado | — | 2026-09-27 | Julio |
-| Exposição | Flag desligada | — | 2026-09-27 | Julio |
-| Habilitação | Pendente | — | 2026-09-27 | Julio |
+| Ciclo do item | Disponível | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
+| Testes | Aprovados | — | 2026-09-28 | Julio |
+| Deploy | Produção | — | 2026-09-28 | Julio |
+| Exposição | Geral | — | 2026-09-28 | Julio |
+| Habilitação | Em andamento | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -130,3 +136,6 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-09-26 | proposto | pedido do dono: abrir o repositório e o site com segurança e qualidade | Julio |
 | 2026-09-27 | fase 2: `ork demo` | critério de aceite: o visitante entende a promessa em até 5 minutos | Julio |
+| 2026-09-27 | repositório público com histórico novo e npm 0.3.0 | corte D6; `publicar.yml` com Trusted Publishing | Julio |
+| 2026-09-28 | npm 0.4.1, sites no GitHub Pages e marca | PRs #5 a #8 | Julio |
+| 2026-09-28 | escopo restante movido para a RM-049; fecha quando o DNS apontar o domínio | decisão do dono no Telegram (H6) | Julio |
