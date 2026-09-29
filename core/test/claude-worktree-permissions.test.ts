@@ -97,8 +97,9 @@ test('I-34: PLAN claude-bg libera ork_artifact_write e nega escrita de arquivo n
         assert.equal(args.includes(flag), false, `${perfil} ${flag}`);
       for (const proibida of ['thread_new','phase_run','request_decision','gate_request'])
         assert.equal(allow.includes(`mcp__orkastery__ork_${proibida}`), false);
-      // GO-FIX 1: PLAN não implementa, então nenhum mutador além do artefato, em nenhum perfil.
-      assert.deepEqual(allow, [...leituras, 'mcp__orkastery__ork_artifact_write']);
+      // GO-FIX 1: PLAN não implementa, então nenhum mutador além do artefato, em nenhum perfil. RM-037 (S7):
+      // a decisão autônoma fica, porque decidir não é implementar.
+      assert.deepEqual(allow, [...leituras, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']);
       if (perfil === 'interactive') {
         assert.equal(deny.length, 3);
       } else {
