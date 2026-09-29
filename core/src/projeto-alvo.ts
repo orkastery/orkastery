@@ -208,17 +208,32 @@ function gravarRegistro(registro: RegistroDeProjetos): void {
 }
 
 /**
- * Registra (ou atualiza) o projeto da raiz informada. A raiz vira a canonica: registrar de dentro
+ * O projeto de um caminho qualquer dentro dele: a raiz do manifesto e, quando ela e a worktree de
+ * uma thread, a arvore principal (se a principal tem o proprio manifesto). `null` sem manifesto.
+ */
+function projetoDoCaminho(caminho: string): { raiz: string; carregado: ManifestoCarregado } | null {
+  const local = carregarManifesto(caminho);
+  if (!local) return null;
+  const raizLocal = fs.realpathSync(local.raiz), canonica = raizCanonica(raizLocal);
+  if (canonica !== raizLocal) {
+    const principal = carregarManifesto(canonica);
+    if (principal && fs.realpathSync(principal.raiz) === canonica) return { raiz: canonica, carregado: principal };
+  }
+  return { raiz: raizLocal, carregado: local };
+}
+
+/**
+ * Registra (ou atualiza) o projeto do caminho informado. A raiz vira a canonica: registrar de dentro
  * da worktree de uma thread registra a arvore principal.
  */
-export function registrarProjeto(raiz: string, fonte: FonteDoRegistro,
+export function registrarProjeto(caminho: string, fonte: FonteDoRegistro,
     opcoes: { quando?: string; esperaMs?: number } = {}): ProjetoRegistrado {
-  const canonica = raizCanonica(raiz);
-  const carregado = carregarManifesto(canonica) ?? carregarManifesto(raiz);
-  if (!carregado) {
-    throw new ErroDeProjeto('projeto.sem-manifesto', `nenhum manifesto do ork em ${raizParaExibir(canonica)}`, [],
+  const achado = projetoDoCaminho(caminho);
+  if (!achado) {
+    throw new ErroDeProjeto('projeto.sem-manifesto', `nenhum manifesto do ork em ${raizParaExibir(path.resolve(caminho))}`, [],
       'Rode `ork init` na raiz do projeto antes de registrá-lo.');
   }
+  const { raiz: canonica, carregado } = achado;
   if (carregado.erros.length) throw new Error(`registro de projetos: manifesto inválido em ${carregado.caminho}`);
   const quando = opcoes.quando ?? new Date().toISOString();
   const novo: Omit<ProjetoRegistrado, 'registradoEm'> = {
@@ -337,14 +352,12 @@ export function candidatosDoHost(cwd: string): { raiz: string; candidato: Candid
   for (const p of lerRegistroDeProjetos().projetos) {
     if (manifestoPresente(p.raiz)) saida.set(p.raiz, candidatoDoRegistro(p));
   }
-  const local = subirAte(path.resolve(cwd), NOME_MANIFESTO) ?? subirAte(path.resolve(cwd), NOME_MANIFESTO_LEGADO);
-  if (local) {
-    const raiz = raizCanonica(local);
-    const carregado = carregarManifesto(raiz) ?? carregarManifesto(local);
-    if (carregado && !saida.has(raiz)) {
-      saida.set(raiz, { nome: carregado.manifesto.project.name, abbrev: carregado.manifesto.project.abbrev,
-        raiz: raizParaExibir(raiz), remoto: remotoDoProjeto(raiz, carregado.manifesto.fabrica?.remoto ?? 'origin'), presente: true });
-    }
+  const temManifesto = subirAte(path.resolve(cwd), NOME_MANIFESTO) ?? subirAte(path.resolve(cwd), NOME_MANIFESTO_LEGADO);
+  const local = temManifesto ? projetoDoCaminho(temManifesto) : null;
+  if (local && !saida.has(local.raiz)) {
+    const { raiz, carregado } = local;
+    saida.set(raiz, { nome: carregado.manifesto.project.name, abbrev: carregado.manifesto.project.abbrev,
+      raiz: raizParaExibir(raiz), remoto: remotoDoProjeto(raiz, carregado.manifesto.fabrica?.remoto ?? 'origin'), presente: true });
   }
   return [...saida.entries()].map(([raiz, candidato]) => ({ raiz, candidato }))
     .sort((a, b) => a.candidato.nome.localeCompare(b.candidato.nome) || a.raiz.localeCompare(b.raiz));
