@@ -413,7 +413,7 @@ Uso: ork <comando> [argumentos]
         [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
         [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
 
-  brain status|inventory|get|query|receipts|sync|reconcile|apply|rollback|bind
+  brain status|inventory|get|query|receipts|context|sync|reconcile|apply|rollback|bind
   memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
