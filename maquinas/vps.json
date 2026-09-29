@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:45:09.990Z",
+  "publicadoEm": "2026-09-29T11:49:21.200Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -52,12 +52,12 @@
       "id": "ork-rm050guiadec",
       "nome": "RM-050: guia de contribuição no repositório do Orkastery",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-050",
       "branch": "ork/ork-rm050guiadec-full",
-      "atualizadaEm": "2026-09-29T02:42:11.409Z",
-      "entregue": null,
+      "atualizadaEm": "2026-09-29T11:49:20.979Z",
+      "entregue": "3c7e8a7",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
