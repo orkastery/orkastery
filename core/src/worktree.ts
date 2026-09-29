@@ -14,7 +14,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { registrar, TIPOS_DE_EVENTO } from './ledger';
+import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { leasesDaThread, liberar, nomeDeLease } from './leases';
 import { ManifestoCarregado } from './manifest';
 import { criarWorktree, dirThread, gravarThread, lerThread } from './thread';
@@ -170,6 +170,8 @@ export interface ResultadoSync {
   ok: boolean;
   jaAtualizada: boolean;
   rebaseFeito: boolean;
+  /** RM-037 (defeitosdeco D-5): branch sem commit proprio recriada no SHA da base, sem rebase. */
+  recriada?: boolean;
   dir: string;
   branch: string;
   base: string;
@@ -181,6 +183,29 @@ export interface ResultadoSync {
   correcao: string;
   passos: string[];
   dryRun: boolean;
+}
+
+/**
+ * RM-037 (defeitosdeco D-5): o que a branch tem de proprio. Bases conhecidas da thread sao o
+ * `base.commit` carimbado na criacao e cada `shaBase` que um sync ja incorporou (lidos do ledger);
+ * commit que o git nao tem mais nao entra. `proprios` conta o que o HEAD tem fora delas e da base
+ * atual (`null` sem nenhuma base conhecida); `pontoDePartida` e a base conhecida mais nova que e
+ * ancestral do HEAD; `semAncestral` diz que HEAD e base atual nao tem historia em comum.
+ */
+export function historiaPropria(raiz: string, thread: Thread, dir: string, shaBase: string):
+    { proprios: number | null; pontoDePartida: string | null; semAncestral: boolean } {
+  const git = (...args: string[]) => exec('git', args, dir);
+  const sincronizadas = lerLedger(dirThread(raiz, thread.id))
+    .filter(e => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada && typeof e.shaBase === 'string' && e.shaBase !== '')
+    .map(e => String(e.shaBase));
+  const conhecidas = [...new Set([thread.base?.commit, ...sincronizadas])]
+    .filter((sha): sha is string => typeof sha === 'string' && /^[a-f0-9]{40,64}$/.test(sha) && git('cat-file', '-e', `${sha}^{commit}`).ok);
+  const semAncestral = git('merge-base', 'HEAD', shaBase).code === 1;
+  const pontoDePartida = [...conhecidas].reverse().find(sha => git('merge-base', '--is-ancestor', sha, 'HEAD').ok) ?? null;
+  if (!conhecidas.length) return { proprios: null, pontoDePartida, semAncestral };
+  const contagem = git('rev-list', '--count', 'HEAD', '--not', ...conhecidas, shaBase);
+  const proprios = contagem.ok && /^\d+$/.test(contagem.stdout.trim()) ? Number(contagem.stdout.trim()) : null;
+  return { proprios, pontoDePartida, semAncestral };
 }
 
 /**
@@ -287,6 +312,52 @@ export function sincronizarWorktree(
       detalhe: `a base ${base} ja esta incorporada: nada a sincronizar`,
       correcao: '',
     };
+  }
+
+  // RM-037 (defeitosdeco D-5): depois do corte de 27/09 a base tem raiz nova. Branch sem commit
+  // proprio nao e rebasada: o rebase sem ancestral comum reaplicaria a historia antiga inteira. Ela
+  // e recriada no SHA da base com `reset --keep`, que aborta se houvesse mudanca local a perder (a
+  // arvore ja foi conferida limpa). Com commit proprio e sem ancestral comum, a branch fica como esta
+  // e a correcao exata reaplica so o que e dela.
+  const historia = historiaPropria(raiz, thread, dir, shaBase);
+  if (historia.proprios === 0) {
+    passos.push(`git reset --keep ${shaBase}`);
+    if (opcoes.dryRun) {
+      return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: true, jaAtualizada: false, rebaseFeito: false, recriada: false,
+        motivo: null, detalhe: `a branch ${branch} nao tem commit proprio: o sync real a recriaria na base ${base} atual, sem rebase`,
+        correcao: '' };
+    }
+    let recriacao;
+    try { recriacao = comEstadoParaGit(raiz, id, dir, () => exec('git', ['reset', '--keep', shaBase], dir)); }
+    catch (e) {
+      return { ...vazio, shaBase, shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
+        motivo: 'tree.blocked', detalhe: (e as Error).message,
+        correcao: 'inspecione a cópia local e a fonte canônica preservadas antes de repetir o sync' };
+    }
+    const shaDepois = exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+    if (!recriacao.ok || shaDepois !== shaBase) {
+      return { ...vazio, shaBase, shaAntes, shaDepois, ok: false, jaAtualizada: false, rebaseFeito: false, motivo: 'tree.blocked',
+        detalhe: `a recriacao da branch ${branch} na base falhou: ${(recriacao.stderr || recriacao.stdout).trim().split('\n').slice(-2).join(' | ')}`,
+        correcao: `confira a worktree ${dir} e rode de novo: ork worktree sync ${id}` };
+    }
+    const detalhe = historia.semAncestral
+      ? `branch sem commit proprio recriada a partir da base ${base} atual; a base foi reescrita e nao tinha historia em comum com ela`
+      : `branch sem commit proprio recriada a partir da base ${base} atual`;
+    registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes, shaDepois,
+      rebaseFeito: false, recriada: true, semAncestral: historia.semAncestral, detalhe });
+    return { ...vazio, shaBase, shaAntes, shaDepois, ok: true, jaAtualizada: false, rebaseFeito: false, recriada: true,
+      motivo: null, detalhe, correcao: '' };
+  }
+  if (historia.semAncestral) {
+    const onto = historia.pontoDePartida
+      ? `git -C ${dir} rebase --onto ${shaBase} ${historia.pontoDePartida}`
+      : `git -C ${dir} rebase --onto ${shaBase} <commit onde a branch da thread comecou>`;
+    const detalhe = `a base ${base} foi reescrita e nao tem historia em comum com a branch ${branch}, que tem ` +
+      `${historia.proprios ?? 'um numero desconhecido de'} commit(s) proprio(s): o rebase reaplicaria a historia antiga inteira`;
+    if (!opcoes.dryRun) registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes,
+      rebaseFeito: false, motivo: 'tree.blocked', semAncestral: true, detalhe });
+    return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
+      motivo: 'tree.blocked', detalhe, correcao: `reaplique so os commits da thread sobre a base nova: ${onto}` };
   }
 
   if (opcoes.dryRun) {
