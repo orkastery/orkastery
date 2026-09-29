@@ -6,15 +6,15 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-28T16:08:06-03:00
+atualizado_em: 2026-09-28T21:09:17-03:00
 estado:
-  ciclo: Disponível
+  ciclo: Concluído
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
   deploy: Produção
   exposicao: Geral
-  habilitacao: Em andamento
+  habilitacao: Concluída
 evidencias:
   codigo:
     commit: 10ca416
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Disponível | Mesclado | Aprovados | Produção | Geral |
+| Concluído | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -108,7 +108,7 @@ sdlc:
 - No ar em 27 e 28/09/2026:
   - repositório público `orkastery/orkastery` com histórico novo, e o antigo arquivado privado; `main` protegida com os 4 checks obrigatórios;
   - `@orkastery/cli` publicado pelo CI com Trusted Publishing: 0.3.0 em 27/09 e 0.4.1 em 28/09, com prova de origem assinada;
-  - os sites orkastery.com e orkmind.com no GitHub Pages, publicados só por promoção; falta o DNS do domínio apontar para o GitHub;
+  - os sites orkastery.com e orkmind.com no GitHub Pages, publicados só por promoção, com o domínio apontado e HTTPS obrigatório desde 28/09/2026;
   - logo, favicons, avatar e prévia social aplicados.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -117,13 +117,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Disponível | — | 2026-09-28 | Julio |
+| Ciclo do item | Concluído | — | 2026-09-28 | Julio |
 | Documentação | Em revisão | — | 2026-09-28 | Julio |
 | Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
 | Testes | Aprovados | — | 2026-09-28 | Julio |
 | Deploy | Produção | — | 2026-09-28 | Julio |
 | Exposição | Geral | — | 2026-09-28 | Julio |
-| Habilitação | Em andamento | — | 2026-09-28 | Julio |
+| Habilitação | Concluída | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -139,3 +139,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | repositório público com histórico novo e npm 0.3.0 | corte D6; `publicar.yml` com Trusted Publishing | Julio |
 | 2026-09-28 | npm 0.4.1, sites no GitHub Pages e marca | PRs #5 a #8 | Julio |
 | 2026-09-28 | escopo restante movido para a RM-049; fecha quando o DNS apontar o domínio | decisão do dono no Telegram (H6) | Julio |
+| 2026-09-28 | concluído | orkastery.com e orkmind.com no ar pelo domínio, com HTTPS obrigatório; o escopo restante segue na RM-049 | Julio |
