@@ -99,13 +99,15 @@ Align behavior, changelog, docs, version and applicable distribution. Use `ork v
 `ork ship` and `ork master` through gates, distinguishing commits, local tests, official
 receipts and publication. Never claim delivery without proof. Honor session/version limits.
 
-## Common rationalizations
+## Racionalizacoes comuns (Common rationalizations)
 
-- “#Auto lets me approve for the owner”: silence is not human approval; HMAC stays unchanged.
-- “The test should pass”: run it; a registered claim is not an official receipt.
-- “Installing a skill grants access”: preferences do not change native permissions.
+| Excuse | Reality |
+| --- | --- |
+| “#Auto lets me approve for the owner” | Silence is not human approval; HMAC stays unchanged. |
+| “The test should pass” | Run it; a registered claim is not an official receipt. |
+| “Installing a skill grants access” | Preferences do not change native permissions. |
 
-## Red flags
+## Bandeiras vermelhas (Red flags)
 
 Invented authorship, assumed state, public secrets, reservation inferred from a query or
 methodology duplicated in a host. Static evals do not prove real LLM behavior.

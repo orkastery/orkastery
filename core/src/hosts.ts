@@ -300,7 +300,7 @@ export interface ResultadoInstalacao {
   ok: boolean;
   orkBin: string;
   pitfalls: Pitfall[];
-  experiencia?: { ativa: boolean; arquivos: string[]; skill: string };
+  experiencia?: { ativa: boolean; arquivos: string[]; skill: string; aviso?: string };
 }
 
 export interface OpcoesInstalacao {
@@ -400,8 +400,20 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
   const carregado = carregarManifesto(projeto);
   if (carregado?.raiz === projeto && carregado.erros.length) throw Error('experiencia.config.invalid: confira o manifesto');
   const preferencias = carregado?.raiz === projeto ? resolverExperiencia(carregado.manifesto.owner) : null;
-  const planoExperiencia = preferencias && (host === 'codex' || host === 'claude-code')
-    ? planejarExperiencia(projeto, host, preferencias.experience ? path.join(destino, 'skills', 'core') : null) : null;
+  const hostComBloco = host === 'codex' || host === 'claude-code';
+  const diretorioExperiencia = path.join(destino, 'skills', 'core');
+  let avisoExperiencia: string | undefined;
+  if (preferencias?.experience && host !== 'openclaw') {
+    const skillRelativa = host === 'hermes' ? `skills/${preferencias.skill}/SKILL.md`
+      : `skills/core/${preferencias.skill}/SKILL.md`;
+    if (!fontes.some(f => f.relativo === skillRelativa)) {
+      avisoExperiencia = `Pacote de experiência pulado: a skill ${preferencias.skill} não está no catálogo. O restante da instalação do adaptador segue normalmente.`;
+    } else if (hostComBloco && /[\r\n`]/.test(diretorioExperiencia)) {
+      avisoExperiencia = 'Pacote de experiência pulado: o caminho das skills contém quebra de linha ou crase, incompatível com o bloco de instruções. O restante da instalação do adaptador segue normalmente.';
+    }
+  }
+  const planoExperiencia = preferencias && hostComBloco && !avisoExperiencia
+    ? planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null) : null;
 
   // O preflight cobre todos os destinos antes de copiar o primeiro arquivo.
   for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
@@ -504,8 +516,9 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ok: !barrado,
     orkBin,
     pitfalls: def.pitfalls,
-    ...(preferencias ? { experiencia: { ativa: host !== 'openclaw' && preferencias.experience,
-      arquivos: planoExperiencia?.mudancas.map(m => path.relative(projeto, m.arquivo)) ?? [], skill: preferencias.skill } } : {}),
+    ...(preferencias ? { experiencia: { ativa: host !== 'openclaw' && preferencias.experience && !avisoExperiencia,
+      arquivos: planoExperiencia?.mudancas.map(m => path.relative(projeto, m.arquivo)) ?? [], skill: preferencias.skill,
+      ...(avisoExperiencia ? { aviso: avisoExperiencia } : {}) } } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;
 
@@ -592,6 +605,7 @@ export function textoDosPitfalls(host: Host): string {
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
   const linhas: string[] = [];
   if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada' : 'desativada ou sem integração de skills'} (${r.experiencia.skill}).`);
+  if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
   linhas.push(
     r.dryRun
       ? `Simulacao (--dry-run) da instalacao do adaptador ${r.host}: nada foi escrito.`

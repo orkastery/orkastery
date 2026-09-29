@@ -116,6 +116,7 @@ const ENTRADAS: { arquivo: string; registra?: 'no main' | 'na entrada'; razao?: 
   { arquivo: 'core/src/maestro-runtime.ts', razao: '--native devolve ao Maestro o JSON das observações nativas, sem horário' },
   { arquivo: 'core/src/mcp-ship.ts', razao: '--worker devolve ao servidor MCP o resultado do ship em JSON (dado de máquina)' },
   { arquivo: 'core/src/mcp-git.ts', razao: '--worker devolve ao servidor MCP o resultado do commit em JSON (dado de máquina)' },
+  { arquivo: 'core/src/mcp-experiencia.ts', razao: '--consulta-experiencia devolve ao servidor MCP painéis em JSON (dado de máquina), sem apresentar horários a pessoas' },
   { arquivo: 'core/src/session-watcher.ts', razao: '--run grava eventos no ledger (ISO) e não escreve texto para pessoa' },
   { arquivo: 'core/src/memory-prospective.ts', razao: '--dry-run imprime o resumo JSON do plano de memória (dado de máquina)' },
   { arquivo: 'core/src/adapters/codex-runner.ts', razao: '--run supervisiona o codex e grava recibo JSON' },

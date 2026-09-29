@@ -98,11 +98,13 @@ Alinhe comportamento, changelog, docs, versão e distribuição aplicáveis. Use
 `ork ship` e `ork master` pelos gates, distinguindo commit, teste local, recibo oficial e
 publicação. Não afirme entrega sem prova. Respeite limite de sessão e versão decididos.
 
-## Racionalizações comuns
+## Racionalizacoes comuns
 
-- “#Auto deixa aprovar pelo dono”: silêncio não é aprovação humana; HMAC não muda.
-- “O teste deve passar”: execute; claim cadastrada não é recibo oficial.
-- “Instalar a skill concede acesso”: preferências não alteram permissões nativas.
+| Desculpa | Realidade |
+| --- | --- |
+| “#Auto deixa aprovar pelo dono” | Silêncio não é aprovação humana; HMAC não muda. |
+| “O teste deve passar” | Execute; claim cadastrada não é recibo oficial. |
+| “Instalar a skill concede acesso” | Preferências não alteram permissões nativas. |
 
 ## Bandeiras vermelhas
 
