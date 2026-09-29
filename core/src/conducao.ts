@@ -130,10 +130,13 @@ export function identidadeDoAmbiente(threadId: string, ambiente: NodeJS.ProcessE
   try { eventos = lerLedger(dirThread(raiz, threadId)); } catch { return doAmbiente; }
   const despachoId = (e: Record<string, unknown>) => (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId;
   const despachos = eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.faseDespachada);
+  const doPar = doAmbiente ? despachos.filter(e => despachoId(e) === doAmbiente).at(-1) : undefined;
+  // GO-FIX (R2 do CHECK): o codex despachado de dentro de uma sessao Claude herda o
+  // CLAUDE_CODE_SESSION_ID dela, mas o par do ambiente e do proprio processo codex, por despacho.
+  if (doPar?.runtime === 'codex') return doAmbiente;
   const daSessao = despachos.filter(e => e.sessionId === sessao && typeof despachoId(e) === 'string').at(-1);
   if (daSessao) return String(despachoId(daSessao));
   if (!doAmbiente) return null;
-  const doPar = despachos.filter(e => despachoId(e) === doAmbiente).at(-1);
   if (doPar && (doPar.runtime ?? 'claude-bg') === 'claude-bg' && typeof doPar.sessionId === 'string' && doPar.sessionId !== sessao) return null;
   return doAmbiente;
 }

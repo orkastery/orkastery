@@ -232,6 +232,22 @@ test('defeitosdeco D-4: par de despacho vazado de outra thread nao vale; a sessa
   } finally { p.limpar(); }
 });
 
+test('defeitosdeco D-4 (R2): codex despachado de dentro de uma sessao claude-bg da mesma thread fica com a identidade dele', () => {
+  const p = projetoTemporario('contexto-codex-filho');
+  try {
+    const { a } = duasThreads(p);
+    // A sessao claude-bg A (despacho ID_A) despacha um CHECK codex da propria thread.
+    const idCodex = 'c1c1c1c1-4444-4444-8444-cccccccccccc';
+    registrar(dirThread(p.dir, a.id), a.id, 'phase_dispatch', { fase: 'CHECK', runtime: 'codex', sessionId: '019a0000-0000-7000-8000-000000000002',
+      identidade: { schema: 'ork.dispatch-identity/v1', dispatchId: idCodex, threadId: a.id, role: 'executor' } });
+    // O codex herda o CLAUDE_CODE_SESSION_ID da sessao A, mas o par e o do despacho dele.
+    const doCodex = { ORK_DISPATCH_ID: idCodex, ORK_DISPATCH_THREAD: a.id, CLAUDE_CODE_SESSION_ID: SESSAO_A };
+    assert.equal(identidadeDoAmbiente(a.id, doCodex, p.dir), idCodex);
+    // A propria sessao A, sem par no ambiente, continua se reconhecendo pelo ledger.
+    assert.equal(identidadeDoAmbiente(a.id, { CLAUDE_CODE_SESSION_ID: SESSAO_A }, p.dir), ID_A);
+  } finally { p.limpar(); }
+});
+
 test('defeitosdeco D-4: com o par vazado, o verify do CLI nao reentra a conducao da outra thread', (t) => {
   const p = projetoTemporario('contexto-vazado-verify');
   const runtime = runtimeFalso('contexto-vazado-verify');
