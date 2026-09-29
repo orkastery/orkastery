@@ -20,7 +20,9 @@ const SRC = path.join(RAIZ, 'core/src');
 const MODULOS_KG1 = ['intelligence-graph-contract.ts', 'intelligence-benchmark-contract.ts'];
 /** RM-031 KG2: extratores puros; recebem bytes e o compilador por parametro. */
 const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-extract-ts.ts', 'intelligence-graph-extract-md.ts'];
-const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS];
+/** RM-031 KG2 (D8): a unica borda de E/S da familia, que le o repositorio Git local. */
+const MODULO_KG2_LEITURA = 'intelligence-graph-repo.ts';
+const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -148,6 +150,18 @@ test('KG2 boundary: extratores puros nao tocam processo, rede, arquivo, relogio,
     assert.ok(deCrypto.every((d) => DE_CRYPTO_PERMITIDOS.has(d)), `${modulo} importa de node:crypto: ${deCrypto}`);
     const semanticos = [...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t));
     assert.deepEqual(semanticos, [], modulo);
+  }
+});
+
+test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa arquivo, caminho e processo do Node', () => {
+  const imports = importsComTipo(MODULO_KG2_LEITURA);
+  const externos = imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort();
+  assert.deepEqual(externos, ['node:child_process', 'node:fs', 'node:path']);
+  for (const i of imports.filter((x) => x.modulo.startsWith('./intelligence-'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
+  const { identificadores } = simbolos(MODULO_KG2_LEITURA);
+  for (const proibido of ['exec', 'execSync', 'shell', 'fetch', 'eval', 'Function']) assert.ok(!identificadores.has(proibido), proibido);
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG2_LEITURA)) {
+    assert.ok(!importacoes(f).includes('./intelligence-graph-repo'), `${f} importa a borda de E/S`);
   }
 });
 

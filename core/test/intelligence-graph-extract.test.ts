@@ -3,15 +3,21 @@
  *
  * Grupos: "KG2 extract" (o que sai e de onde), "KG2 provenance" (evidencia contra os bytes),
  * "KG2 determinism" (mesma entrada, mesmo grafo) e "KG2 limits" (o que nao se prova fica fora e
- * declarado). Todos os repositorios aqui sao sinteticos e ficam em memoria.
+ * declarado). Os repositorios sao sinteticos: em memoria, ou Git temporario para a leitura e o
+ * comando provisorio.
  */
 import { strict as assert } from 'node:assert';
+import { execFileSync, spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import * as ts from 'typescript';
 import {
   conferirFontes, digestDoGrafo, validarGrafo, type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
 import { slugDoGithub } from '../src/intelligence-graph-extract-md';
+import { lerRepositorio } from '../src/intelligence-graph-repo';
+import { dirTemporario } from './apoio';
 import {
   extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
@@ -340,6 +346,106 @@ test('KG2 extract: slug de ancora como o do GitHub', () => {
     ['snake_case e CAIXA', 'snake_case-e-caixa'],
   ];
   for (const [titulo, slug] of casos) assert.equal(slugDoGithub(titulo), slug, titulo);
+});
+
+/** Repositorio Git temporario com identidade local e sem assinatura. */
+function repositorioGit(arquivos: Record<string, string>): string {
+  const dir = dirTemporario('kg2-repo');
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, stdio: 'pipe' });
+  git('init', '-q');
+  git('config', 'user.email', 'teste@orkastery.local');
+  git('config', 'user.name', 'Teste Orkastery');
+  git('config', 'commit.gpgsign', 'false');
+  for (const [p, c] of Object.entries(arquivos)) {
+    fs.mkdirSync(path.dirname(path.join(dir, p)), { recursive: true });
+    fs.writeFileSync(path.join(dir, p), c);
+  }
+  git('add', '--', ...Object.keys(arquivos));
+  git('commit', '-q', '-m', 'inicial');
+  return dir;
+}
+const REPO_GIT = {
+  'orkastery.yaml': 'project:\n  name: "demo"\n  abbrev: "dem"\n',
+  'src/a.ts': "import { b } from './b';\nexport function a() { return b(); }\n",
+  'src/b.ts': 'export function b() { return 1; }\n',
+  'docs/x.md': '# X\n\nVeja [a](../src/a.ts).\n',
+};
+
+test('KG2 extract: a leitura do repositorio Git fixa revisao, fontes rastreadas, repositorio e ACL', () => {
+  const dir = repositorioGit(REPO_GIT);
+  try {
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir }).toString().trim();
+    fs.writeFileSync(path.join(dir, 'nao-rastreado.ts'), 'export const z = 1;\n');
+    const e = lerRepositorio(path.join(dir, 'src'));
+    assert.equal(e.repository_id, 'demo');
+    assert.equal(e.tenant_id, 'local');
+    assert.deepEqual(e.acl_refs, ['repo:demo:leitura']);
+    assert.equal(e.revision, head);
+    assert.equal(e.revision_unavailable_reason, null);
+    assert.deepEqual(e.fontes.map((f) => f.path).sort(), ['docs/x.md', 'orkastery.yaml', 'src/a.ts', 'src/b.ts']);
+    const { grafo } = extrairGrafo(e, { ts });
+    assert.equal(grafo.snapshot.revision, head);
+    assert.ok(temAresta(grafo, 'calls symbol:src/a.ts#a -> symbol:src/b.ts#b'));
+    assert.ok(temAresta(grafo, 'references section:docs/x.md#x -> file:src/a.ts'));
+    assert.equal(lerRepositorio(dir, { repository_id: 'outro', tenant_id: 'org', acl_refs: ['acl:x'] }).repository_id, 'outro');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('KG2 limits: arvore modificada tira a revisao; link simbolico e arquivo sumido ficam fora e declarados', () => {
+  const dir = repositorioGit(REPO_GIT);
+  try {
+    fs.symlinkSync('b.ts', path.join(dir, 'src/ligado.ts'));
+    execFileSync('git', ['add', '--', 'src/ligado.ts'], { cwd: dir });
+    execFileSync('git', ['commit', '-q', '-m', 'link'], { cwd: dir });
+    fs.rmSync(path.join(dir, 'docs/x.md'));
+    fs.appendFileSync(path.join(dir, 'src/b.ts'), '// mudou\n');
+    const e = lerRepositorio(dir);
+    assert.equal(e.revision, null);
+    assert.equal(e.revision_unavailable_reason, 'working-tree-modified');
+    assert.deepEqual([...(e.excluidas ?? [])].sort((x, y) => x.path.localeCompare(y.path)), [
+      { path: 'docs/x.md', motivo: 'ausente-na-arvore' }, { path: 'src/ligado.ts', motivo: 'link-simbolico' },
+    ]);
+    const { relatorio, grafo } = extrairGrafo(e, { ts });
+    assert.deepEqual(relatorio.excluidas.map((x) => x.motivo).sort(), ['ausente-na-arvore', 'link-simbolico']);
+    assert.ok(!grafo.snapshot.source_manifest.some((m) => m.path === 'src/ligado.ts' || m.path === 'docs/x.md'));
+    fs.rmSync(path.join(dir, 'orkastery.yaml'));
+    assert.throws(() => lerRepositorio(dir), /^Error: extracao\.repositorio\.sem-id/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('KG2 determinism: o comando provisorio verifica, amostra e confere a amostra auditada', () => {
+  const dir = repositorioGit(REPO_GIT);
+  const script = path.resolve(__dirname, '../../scripts/extrair-grafo.cjs');
+  const rodar = (...args: string[]) => spawnSync(process.execPath, [script, '--raiz', dir, ...args], { encoding: 'utf8', timeout: 120_000 });
+  try {
+    const v = rodar('--verificar');
+    assert.equal(v.status, 0, v.stdout + v.stderr);
+    assert.match(v.stdout, /conferirFontes verificada/);
+    assert.match(v.stdout, /ordem invertida: .* igual/);
+    assert.match(v.stdout, /ordem embaralhada: .* igual/);
+    const amostra = JSON.parse(rodar('--amostra', '2').stdout);
+    assert.ok(amostra.arestas.length > 0);
+    const arquivo = path.join(dir, 'amostra.json');
+    // Sem veredito, a conferencia reprova: a amostra so vale depois da auditoria manual.
+    fs.writeFileSync(arquivo, JSON.stringify(amostra));
+    assert.equal(rodar('--conferir-amostra', arquivo).status, 1);
+    for (const item of amostra.arestas) Object.assign(item, { veredito: 'supported', nota: 'conferida no teste' });
+    fs.writeFileSync(arquivo, JSON.stringify(amostra));
+    const c = rodar('--conferir-amostra', arquivo);
+    assert.equal(c.status, 0, c.stdout + c.stderr);
+    // Trecho auditado que nao bate mais com a fonte reprova.
+    amostra.arestas[0].evidencia.trecho_sha256 = '0'.repeat(64);
+    fs.writeFileSync(arquivo, JSON.stringify(amostra));
+    const d = rodar('--conferir-amostra', arquivo);
+    assert.equal(d.status, 1);
+    assert.match(d.stdout, /nenhuma evidencia com o trecho auditado/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 /** Embaralhamento reproduzivel (LCG), para a permutacao nao depender de acaso. */
