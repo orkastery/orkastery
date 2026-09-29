@@ -258,6 +258,8 @@ export interface Manifesto {
     tenant: string;
     /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
     timeout_ms: number;
+    /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
+    embedding?: ConfigDeEmbedding;
   };
   /** Governanca de custo dos auditores periodicos (bloco B5, visao secao 5.3). */
   audit: {
@@ -1230,6 +1232,48 @@ export type MotivoDeDegradacao =
   | 'dsn.env-ausente'
   | 'cli.ausente'
   | 'orkmind.indisponivel';
+
+/** I-38 (D5): `none` desliga os embeddings; `openrouter` e o unico primario homologado. */
+export type ProviderDeEmbedding = 'none' | 'openrouter';
+
+/**
+ * I-38 (D5): bloco `memory.embedding` do manifesto.
+ *
+ * A chave entra pelo NOME da variavel de ambiente (`api_key_env`), nunca pelo valor. Embedding
+ * pago e opt-in separado deste bloco: `runtime.provider_policy` continua governando o despacho.
+ */
+export interface ConfigDeEmbedding {
+  provider: ProviderDeEmbedding;
+  /** Modelo do provider primario, no formato `org/nome`. Vazio com `provider: none`. */
+  model: string;
+  /** Dimensao pedida ao primario (`request_dimensions`) e conferida vetor a vetor. */
+  dim: number;
+  /** NOME da variavel com a chave dedicada. Vazio com `provider: none`. */
+  api_key_env: string;
+  /** Modelo local offline (`org/nome` no cache do Hugging Face). Vazio = sem fallback local. */
+  fallback_model: string;
+  /** Teto de tokens estimados por execucao de `ork memory index`, conferido antes da rede. */
+  max_tokens_por_execucao: number;
+}
+
+/**
+ * I-38 (D6): por que a busca por significado nao esta usando o provider primario.
+ *
+ * Separado de `MotivoDeDegradacao` de proposito: embedding ausente nunca derruba o regime
+ * `orkmind` (P6 do GOAL). O recall por tag segue identico com qualquer um destes motivos.
+ */
+export type MotivoDeEmbeddings =
+  | 'embeddings.nao-configurado'
+  | 'embeddings.chave-ausente'
+  | 'embeddings.provider-indisponivel'
+  | 'embeddings.timeout'
+  | 'embeddings.local-ausente'
+  | 'embeddings.dependencia-ausente'
+  | 'embeddings.indice-ausente'
+  | 'embeddings.dimensao-divergente'
+  | 'embeddings.espaco-vetorial-divergente'
+  | 'embeddings.orcamento-excedido'
+  | 'embeddings.conteudo-recusado';
 
 /** Prioridade de uma entrada de memoria. STRING, nunca numero (contrato do OrkMind). */
 export type PrioridadeDeMemoria = 'critical' | 'high' | 'medium' | 'low';

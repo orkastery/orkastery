@@ -196,6 +196,15 @@ memory:
   database_url_env: ""
   cli: orkmind
   timeout_ms: 15000
+  # busca por significado (ork memory search --texto): sem o bloco, provider none (desligada).
+  # api_key_env recebe o NOME da variavel com a chave dedicada, nunca o valor.
+  # embedding:
+  #   provider: "none"            # none | openrouter
+  #   model: "qwen/qwen3-embedding-8b"
+  #   dim: 1024
+  #   api_key_env: "ORKASTERY_EMBEDDING_API_KEY"
+  #   fallback_model: ""          # modelo local offline, ex.: intfloat/multilingual-e5-small
+  #   max_tokens_por_execucao: 1000000
 
 audit:
   # governanca de custo dos auditores periodicos (bloco B5)

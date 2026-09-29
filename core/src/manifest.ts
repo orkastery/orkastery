@@ -6,7 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerYaml, ValorYaml } from './yaml';
-import { Manifesto, Modo } from './types';
+import { ConfigDeEmbedding, Manifesto, Modo } from './types';
 import { modoAposentado, ORDEM_DOS_MODOS, parseModo, substitutosVivos } from './modos';
 import { ORDEM_DOS_RUNTIMES, RUNTIME_PADRAO, runtimeConhecido } from './runtimes';
 import { SANDBOX_PADRAO, SANDBOXES_DO_CODEX } from './adapters/codex';
@@ -14,6 +14,7 @@ import { validarAbbrev } from './slug';
 import { exec, subirAte } from './util';
 import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
+import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -104,6 +105,74 @@ export function validarOptInPlaybook(valor: unknown): boolean {
     throw new Error('playbook deve conter somente ativo booleano explicito');
   }
   return (valor as { ativo: boolean }).ativo;
+}
+
+/** I-38 (D5): sem o bloco `memory.embedding`, os embeddings ficam desligados. */
+export const EMBEDDING_PADRAO: Readonly<ConfigDeEmbedding> = Object.freeze({
+  provider: 'none', model: '', dim: 1024, api_key_env: '', fallback_model: '', max_tokens_por_execucao: 1_000_000,
+});
+
+const MODELO_HF = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const CHAVES_DE_EMBEDDING = ['provider', 'model', 'dim', 'api_key_env', 'fallback_model', 'max_tokens_por_execucao'];
+
+/**
+ * I-38 (D5): le e valida `memory.embedding`. A chave so entra pelo NOME da variavel: valor com
+ * cara de chave ou DSN reprova o manifesto, e nome da lista de provider pago tambem, porque a
+ * entrada do `ork` apagaria a variavel sob `subscription-only` e o preflight reprovaria o codex.
+ */
+function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]): ConfigDeEmbedding | undefined {
+  if (bruto === undefined || bruto === null) return undefined;
+  if (typeof bruto !== 'object' || Array.isArray(bruto)) {
+    erros.push('memory.embedding precisa ser um bloco com provider, model, dim, api_key_env, fallback_model e max_tokens_por_execucao');
+    return undefined;
+  }
+  const e = bruto as Record<string, ValorYaml>;
+  for (const chave of Object.keys(e)) {
+    if (!CHAVES_DE_EMBEDDING.includes(chave)) {
+      erros.push(`memory.embedding.${chave} nao existe (a chave entra pelo ambiente: declare so o NOME em api_key_env)`);
+    }
+  }
+  const provider = texto(e.provider, EMBEDDING_PADRAO.provider).trim();
+  if (provider !== 'none' && provider !== 'openrouter') {
+    erros.push(`memory.embedding.provider invalido: "${provider}" (aceitos: none, openrouter)`);
+  }
+  const model = texto(e.model, '').trim();
+  const apiKeyEnv = texto(e.api_key_env, '').trim();
+  const fallback = texto(e.fallback_model, '').trim();
+  const inteiro = (chave: string, v: ValorYaml, padrao: number, min: number, max: number): number => {
+    if (v === undefined || v === null) return padrao;
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+    if (!Number.isInteger(n) || n < min || n > max) {
+      erros.push(`memory.embedding.${chave} precisa ser inteiro entre ${min} e ${max} (recebido ${JSON.stringify(v)})`);
+      return padrao;
+    }
+    return n;
+  };
+  const dim = inteiro('dim', e.dim, EMBEDDING_PADRAO.dim, 32, 4096);
+  const teto = inteiro('max_tokens_por_execucao', e.max_tokens_por_execucao, EMBEDDING_PADRAO.max_tokens_por_execucao, 1, 10_000_000);
+  if (apiKeyEnv.includes('://') || /^sk-/i.test(apiKeyEnv)) {
+    erros.push('memory.embedding.api_key_env recebe o NOME da variavel de ambiente com a chave, nunca o valor da chave nem uma DSN');
+  } else if (apiKeyEnv !== '' && !/^[A-Z][A-Z0-9_]*$/.test(apiKeyEnv)) {
+    erros.push('memory.embedding.api_key_env invalido: esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]* (o valor recebido nao e repetido)');
+  } else if ((ENVS_DE_PROVIDER_PAGO as readonly string[]).includes(apiKeyEnv)) {
+    erros.push(`memory.embedding.api_key_env nao pode ser ${apiKeyEnv}: nomes de provider pago sao removidos sob subscription-only; use uma chave dedicada com nome proprio`);
+  } else if (apiKeyEnv !== '' && apiKeyEnv === variavelDaDsn) {
+    erros.push('memory.embedding.api_key_env nao pode repetir memory.database_url_env: a DSN nunca vai ao provider');
+  }
+  if (provider === 'openrouter') {
+    if (!MODELO_HF.test(model)) erros.push(`memory.embedding.model invalido: "${model}" (esperado org/nome, por exemplo qwen/qwen3-embedding-8b)`);
+    if (apiKeyEnv === '') erros.push('memory.embedding.api_key_env e obrigatorio com provider openrouter (o NOME da variavel com a chave dedicada)');
+  }
+  if (fallback !== '' && !MODELO_HF.test(fallback)) {
+    erros.push(`memory.embedding.fallback_model invalido: "${fallback}" (esperado org/nome de um modelo do Hugging Face)`);
+  }
+  return { provider: provider === 'openrouter' ? 'openrouter' : 'none', model, dim, api_key_env: apiKeyEnv,
+    fallback_model: fallback, max_tokens_por_execucao: teto };
+}
+
+/** I-38 (D5): leitura unica da configuracao de embedding, com o padrao `none`. */
+export function configDeEmbedding(manifesto: Pick<Manifesto, 'memory'>): ConfigDeEmbedding {
+  return { ...EMBEDDING_PADRAO, ...(manifesto.memory.embedding ?? {}) };
 }
 
 /** I-33 (N2): texto e numero que dizem sim ou nao sem ambiguidade; o resto nao e reconhecido. */
@@ -276,6 +345,7 @@ export function carregarManifesto(dirInicial: string = process.cwd()): Manifesto
         '(o `ork` nao adivinha DSN, e base alheia e pior do que base nenhuma)'
     );
   }
+  const embedding = lerEmbedding(memory.embedding, variavelDaDsn, erros);
 
   const bytes = Buffer.byteLength(bruto, 'utf8');
   if (bytes > LIMITE_MANIFESTO_BYTES) {
@@ -364,6 +434,7 @@ export function carregarManifesto(dirInicial: string = process.cwd()): Manifesto
       cli: texto(memory.cli, 'orkmind'),
       tenant: texto(memory.tenant, '') || nomeProjeto,
       timeout_ms: numero(memory.timeout_ms, 15000),
+      ...(embedding ? { embedding } : {}),
     },
     // Bloco B5: governanca de custo dos auditores. Ausente no manifesto quer dizer
     // "nao declarada", nao "sem limite": a rodada avisa que so `eco` e o escopo
