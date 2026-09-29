@@ -1,82 +1,98 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-i31kg1contra",
+  "thread": "ork-companybrai3",
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-i31kg1contra",
-      "fase": "PLAN",
-      "arquivo": "core/schemas/company-brain.schema.json",
-      "alegacao": "E2/E4 atual: os três hashes locais inspecionados permanecem congelados; Company Brain v1 conserva authority=ork, kinds prod/proj/init e payload de Event limitado a Entity/Assertion/null. Não comprova integração externa.",
+      "id": "C6",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-cli.ts",
+      "alegacao": "S6: context e somente leitura: o transporte recebe so query e get, funciona com ativacao de escrita desligada, recusa --principal e --dsn com brain.argument.invalid e nao escreve na pasta da thread",
       "negativa": false,
       "verificar": [
-        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\"),crypto=require(\"node:crypto\");for(const [file,expected] of [[\"core/schemas/company-brain.schema.json\",\"a1dddf24f16fd875ac6fc979ef165eaff2012c4f3dd80b4687173925867a8166\"],[\"core/test/fixtures/company-brain-v1.json\",\"76dbbd35f2c4bfc0d509b8c98666e5a61203669731eae55e58315407f2afe9f1\"],[\"core/assets/orkmind-native-schema.json\",\"6c6fe6125c4734a60373ee713dada3b6f168abec98a9c66952d5cf1a424043ef\"]])assert.equal(crypto.createHash(\"sha256\").update(fs.readFileSync(file)).digest(\"hex\"),expected);const s=JSON.parse(fs.readFileSync(\"core/schemas/company-brain.schema.json\"));assert.equal(s.$id,\"orkmind.company-brain/v1\");assert.equal(s.$defs.Source.properties.authority.const,\"ork\");assert.deepEqual(s.$defs.Entity.properties.kind.enum,[\"prod\",\"proj\",\"init\"]);assert.deepEqual(s.$defs.Event.properties.payload.anyOf,[{\"$ref\":\"#/$defs/Entity\"},{\"$ref\":\"#/$defs/Assertion\"},{type:\"null\"}]);console.log(\"KG1 current compatibility: 3 frozen hashes; closed Company Brain v1 unchanged\");'"
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S6 \" core/test/company-brain-context.test.ts"
       ],
-      "criadoEm": "2026-09-17T01:53:26.566Z",
-      "estado": "verificado"
-    },
-    {
-      "id": "C18",
-      "thread": "ork-i31kg1contra",
-      "fase": "GO",
-      "arquivo": "core/package.json",
-      "alegacao": "S7 (substitui C8): build e suite hermetica do core passam no HEAD real, no mesmo comando que o CI roda; a suite inteira do manifesto continua no ork verify, comparada a baseline desta thread.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build",
-        "npm --prefix core run test:ci"
-      ],
-      "criadoEm": "2026-09-29T01:15:39.826Z",
+      "criadoEm": "2026-09-29T02:09:11.159Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C19",
-      "thread": "ork-i31kg1contra",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
-      "alegacao": "T3: o item RM-031 liga os dois contratos KG1 pelos identificadores definidos nos modulos, separa contrato entregue, benchmark nao executado e pacotes KG2 a KG7 futuros, e passa na paridade do docs verificar.",
+      "id": "C7",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-mcp.ts",
+      "alegacao": "S7a: ork_brain_context e registrada no MCP como leitura (readOnlyHint true) sem concessao de escrita, com schema fechado que recusa identidade vinda de argumento",
       "negativa": false,
       "verificar": [
-        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/roadmap/RM-031-grafo-de-codigo.md\",\"utf8\");for(const [doc,mod,id] of [[\"grafo-deterministico-kg1.md\",\"intelligence-graph-contract.ts\",\"ork.code-artifact-graph/v1\"],[\"benchmark-grafo-kg1.md\",\"intelligence-benchmark-contract.ts\",\"ork.graph-benchmark/v1\"]]){assert.ok(d.includes(\"](../referencia/contratos/\"+doc+\")\"),doc);assert.ok(fs.existsSync(\"docs/referencia/contratos/\"+doc),doc);assert.ok(d.includes(\"`\"+id+\"`\"),id);assert.ok(fs.readFileSync(\"core/src/\"+mod,\"utf8\").includes(\"\\x27\"+id+\"\\x27\"),mod)}assert.match(d,/experimento não foi executado/);for(const k of [\"KG2\",\"KG3\",\"KG4\",\"KG5\",\"KG6\",\"KG7\"])assert.ok(d.includes(\"(\"+k+\")\"),k);console.log(\"RM-031: contratos e escopo KG1 conferidos\")'",
-        "npm --prefix core run build && node core/dist/index.js docs verificar"
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-mcp.test.js && grep -q \"'ork_brain_context'\" core/src/company-brain-mcp.ts"
       ],
-      "criadoEm": "2026-09-29T01:15:45.472Z",
+      "criadoEm": "2026-09-29T02:09:13.705Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C20",
-      "thread": "ork-i31kg1contra",
-      "fase": "GO",
-      "arquivo": "docs/conceitos/arquitetura.md",
-      "alegacao": "T3: a arquitetura lista os dois modulos KG1 existentes em core/src e separa contrato (entregue), servico (KG2 a KG5, inexistente) e evidencia de economia (inexistente), com links locais validos.",
+      "id": "C8",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/index.ts",
+      "alegacao": "S7b: o plugin OpenClaw expoe ork_brain_context (fonte, dist e manifesto) e o Hermes cobre context pelo repasse existente de ork brain",
       "negativa": false,
       "verificar": [
-        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/conceitos/arquitetura.md\",\"utf8\");for(const m of [\"intelligence-graph-contract.ts\",\"intelligence-benchmark-contract.ts\"]){assert.ok(d.includes(\"| `\"+m+\"` |\"),m);assert.ok(fs.existsSync(\"core/src/\"+m),m)}const s=d.slice(d.indexOf(\"## 9. Grafo determinístico no KG1\"));assert.ok(s.length>200);assert.match(s,/\\| Contrato \\|.*\\| entregue \\|/);assert.match(s,/\\| Serviço \\|.*\\| não existe \\|/);assert.match(s,/\\| Evidência de economia \\|.*\\| não existe \\|/);console.log(\"arquitetura: camadas KG1 conferidas\")'",
-        "node core/scripts/checar-links.cjs"
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-hosts.test.js && grep -q 'ork_brain_context' adapters/openclaw/src/index.ts && grep -q 'ork_brain_context' adapters/openclaw/dist/index.js && grep -q '\"ork_brain_context\"' adapters/openclaw/openclaw.plugin.json"
       ],
-      "criadoEm": "2026-09-29T01:15:49.971Z",
+      "criadoEm": "2026-09-29T02:09:15.711Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C21",
-      "thread": "ork-i31kg1contra",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/README.md",
-      "alegacao": "T3: a linha do RM-031 no indice do roadmap e exatamente a que o gerador do nucleo produz a partir do frontmatter do item.",
+      "id": "C9",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
+      "alegacao": "S8a: RM-025 nao da mais o B3 como entregue, registra o B4.1 desta thread e passa no validador de docs, no markdownlint e na checagem de links",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build && node -e 'const d=require(\"./core/dist/docs.js\"),fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const {docs}=d.carregarDocs(process.cwd());const linha=d.tabelaDoRoadmap(docs).split(\"\\n\").find(l=>l.startsWith(\"| [RM-031]\"));assert.ok(linha);assert.ok(fs.readFileSync(\"docs/roadmap/README.md\",\"utf8\").split(\"\\n\").includes(linha));console.log(\"indice: linha do RM-031 igual a gerada\")'"
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && ! grep -q 'C2/B3 (merge' docs/roadmap/RM-025-company-brain-fundacao.md && grep -q 'B4.1' docs/roadmap/RM-025-company-brain-fundacao.md"
       ],
-      "criadoEm": "2026-09-29T01:15:52.904Z",
+      "criadoEm": "2026-09-29T02:09:18.892Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "S8b: RM-026 descreve o workspace conduzido por agentes, CLI, MCP e hosts, sem interface web, registra que o K2 saiu com a interface web e nao cita o nome da interface removida",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'sem interface web' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'K2' docs/roadmap/RM-026-workspace-empresarial.md && ! git grep -n -iE 'orkmind[- _]?web|orkastery[- _]?web' -- docs/roadmap docs/produto"
+      ],
+      "criadoEm": "2026-09-29T02:09:21.424Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-companybrai3",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-024-company-brain-no-cli.md",
+      "alegacao": "S8c: FEAT-024 lista os subcomandos que o codigo tem, inclusive context, e descreve a identidade como credencial do transporte, nao login",
+      "negativa": false,
+      "verificar": [
+        "for s in status inventory get query receipts reconcile context sync apply rollback bind; do grep -q \"ork brain $s\" docs/produto/FEAT-024-company-brain-no-cli.md || exit 1; done && ! grep -q 'login do OrkMind' docs/produto/FEAT-024-company-brain-no-cli.md"
+      ],
+      "criadoEm": "2026-09-29T02:09:23.259Z",
       "estado": "verificado",
       "lint": []
     }
   ],
   "deferredClaims": [
+    {
+      "id": "C1",
+      "reason": "artifact-not-in-checkout"
+    },
     {
       "id": "C2",
       "reason": "artifact-not-in-checkout"
@@ -91,46 +107,6 @@
     },
     {
       "id": "C5",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C6",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C9",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C10",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C11",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C12",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C13",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C14",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C15",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C16",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C17",
       "reason": "artifact-not-in-checkout"
     }
   ],

@@ -24,6 +24,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork master pedir`: a nota do MASTER com prova de canal. `ork master` com `--por` vindo de
     processo de host é recusado com `master.prova-de-canal`, e a `ork_master` do OpenClaw deixa de
     receber nome de pessoa.
+- **Pacote de contexto citável do Company Brain** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  `ork brain context --thread <id> --ids <ids>` devolve o pacote `ork.brain-context/v1`, com cada
+  entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
+  tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
+  leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
 
 ## 0.4.3 — 29/09/2026
 

@@ -25,6 +25,7 @@
       "ork_brain_status",
       "ork_brain_query",
       "ork_brain_get",
+      "ork_brain_context",
       "ork_claims_add",
       "ork_verify",
       "ork_verify_baseline",

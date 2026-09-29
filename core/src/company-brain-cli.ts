@@ -12,7 +12,8 @@ import { readSourceFile, SourceScope } from './company-brain-source';
 import { brainAdmin, reconcileBrain, applyBrain } from './company-brain-migration';
 import { atomicJson, readJournal } from './company-brain-journal';
 import { digest, validateContract } from './company-brain-contract';
-export const BRAIN_READ=['status','inventory','get','query','receipts','reconcile'] as const;
+import { buildContext } from './company-brain-context';
+export const BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context'] as const;
 export const BRAIN_WRITE=['sync','apply','rollback','bind'] as const;
 export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,string|boolean>,positionals:string[]=[],transport?:BrainTransport):any{
   const context=memoryState(c);c=context.loaded;const config=c.manifesto.memory;
@@ -34,6 +35,19 @@ export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,s
   if(sub==='reconcile'){
     if(options['dry-run']!==true)throw Error('brain.migration.dry-run-required');
     return{state:'ok',...reconcileBrain(c,scope,value('batch')??'inventory-'+digest(readPortfolio(c.raiz)).slice(0,20))};
+  }
+  // B4.1: só leitura, por isso fica antes da ativação. Sem --ids, vale o escopo vinculado da thread.
+  if(sub==='context'){
+    let ids=(value('ids')??'').split(',').map(s=>s.trim()).filter(Boolean);
+    const bindingFile=path.join(dirThread(c.raiz,thread),'brain-scope.json');
+    if(!ids.length&&fs.existsSync(bindingFile)){
+      let binding:any;try{binding=JSON.parse(fs.readFileSync(bindingFile,'utf8'));}catch{throw Error('brain.scope.invalid');}
+      // Mesma conferência do sync: o escopo vinculado vale só se for desta thread e do formato gravado pelo bind.
+      if(binding?.schema!=='ork.brain-cycle-scope/v1'||binding.version!==1||binding.thread!==thread||typeof binding.projectId!=='string'||
+        !Array.isArray(binding.initiativeIds)||binding.initiativeIds.some((i:unknown)=>typeof i!=='string'))throw Error('brain.scope.invalid');
+      ids=[binding.projectId,...binding.initiativeIds];
+    }
+    return buildContext(c,ids,client,thread);
   }
   // Existing reviewed activation plus dedicated Brain DB grants: neither grants the other.
   exigirAtivacao(c,thread,'memory');
