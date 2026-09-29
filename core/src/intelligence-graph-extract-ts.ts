@@ -194,6 +194,107 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   const viaImportLocal = (s: TS.Symbol | undefined, sf: TS.SourceFile): boolean =>
     !!s && (s.flags & S.Alias) !== 0 && (s.declarations ?? []).some((d) => ehImportLocal(d, sf));
 
+  /** Especificadores literais de import, reexport, `import =`, tipo importado, `require` e `import()`. */
+  function especificadoresEm(raiz: TS.Node): string[] {
+    const r: string[] = [];
+    const coletar = (n: TS.Node): void => {
+      let esp: string | null = null;
+      if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) esp = literal(n.moduleSpecifier);
+      else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) esp = literal(n.moduleReference.expression);
+      else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) esp = literal(n.argument.literal);
+      else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
+      if (esp !== null) r.push(esp);
+      ts.forEachChild(n, coletar);
+    };
+    coletar(raiz);
+    return r;
+  }
+
+  const DECLARACOES: [string, string][] = [['.d.ts', '.js'], ['.d.cts', '.cjs'], ['.d.mts', '.mjs']];
+  const existe = (p: string): string | null => (p !== '' && arquivos.has(p) && !emNodeModules(p) ? p : null);
+  /** Implementacao ao lado de um arquivo de declaracao: e ela que roda. */
+  function implementacaoDe(declaracao: string): string | null {
+    for (const [ext, impl] of DECLARACOES) if (declaracao.endsWith(ext)) return existe(declaracao.slice(0, -ext.length) + impl);
+    return null;
+  }
+  /** Resolucao do Node para especificador relativo: exato em ESM; em CommonJS, extensao, `main` e `index`. */
+  function resolverNode(de: string, especificador: string, esm: boolean): string | null {
+    const base = caminhoLiteral(de, especificador);
+    if (base === null) return null;
+    if (esm) return existe(base);
+    const comoArquivo = (p: string): string | null => existe(p) ?? existe(`${p}.js`) ?? existe(`${p}.json`) ?? existe(`${p}.node`);
+    const pacote = existe(`${base}/package.json`) ? e.texto(`${base}/package.json`) : undefined;
+    if (pacote !== undefined) {
+      try {
+        const main: unknown = JSON.parse(pacote).main;
+        const m = typeof main === 'string' && main ? caminhoLiteral(`${base}/package.json`, main.startsWith('.') ? main : `./${main}`) : null;
+        const r = m === null ? null : comoArquivo(m) ?? existe(`${m}/index.js`) ?? existe(`${m}/index.json`);
+        if (r !== null) return r;
+      } catch {
+        // package.json invalido: o Node cai no index, como abaixo.
+      }
+    }
+    return comoArquivo(base) ?? existe(`${base}/index.js`) ?? existe(`${base}/index.json`) ?? existe(`${base}/index.node`);
+  }
+
+  // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
+  // runtime. Onde divergem, a aresta de import vai ao que roda e nenhum simbolo passa por ali (D3).
+  const resolucoes = new Map<string, Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>>();
+  const divergentesGlobais = new Set<string>();
+  for (const fonte of e.fontes) {
+    const sf = programa.getSourceFile(absoluto(fonte.path));
+    if (!sf || sf.fileName !== absoluto(fonte.path)) continue;
+    const ext = extensao(fonte.path), mapa = new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
+    for (const esp of especificadoresEm(sf)) {
+      if (mapa.has(esp)) continue;
+      const doCompilador = resolver(esp, fonte.path);
+      let alvo = doCompilador, divergente = false;
+      if (EXTENSOES_JS.includes(ext) && (esp.startsWith('./') || esp.startsWith('../'))) {
+        const runtime = resolverNode(fonte.path, esp, ext === '.mjs');
+        if (runtime !== doCompilador) {
+          divergente = true;
+          alvo = runtime ?? doCompilador;
+        }
+      }
+      const impl = !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
+      if (impl !== null) {
+        divergente = true;
+        alvo = impl;
+      }
+      mapa.set(esp, { alvo, divergente, doCompilador });
+      if (divergente) divergentesGlobais.add(`${fonte.path}\u0000${esp}`);
+    }
+    resolucoes.set(fonte.path, mapa);
+  }
+
+  const comDivergencia = new Set([...divergentesGlobais].map((k) => k.slice(0, k.indexOf('\u0000'))));
+
+  /**
+   * A cadeia de alias passa por um import divergente: num salto dela, ou num modulo intermediario que
+   * reexporta o que o compilador liga e o runtime nao (`module.exports = require('./a.js')`).
+   */
+  const especificadoresDaDeclaracao = new Map<TS.Node, string[]>();
+  function cadeiaDivergente(s: TS.Symbol | undefined, destino: string | null): boolean {
+    const vistos = new Set<TS.Symbol>();
+    for (let atual = s; atual && (atual.flags & S.Alias) !== 0 && !vistos.has(atual); atual = checker.getImmediateAliasedSymbol(atual)) {
+      vistos.add(atual);
+      for (const d of atual.declarations ?? []) {
+        const p = relativo(d.getSourceFile().fileName);
+        if (p === null) continue;
+        let topo: TS.Node = d;
+        while (topo.parent && !ts.isSourceFile(topo.parent)) topo = topo.parent;
+        let esps = especificadoresDaDeclaracao.get(topo);
+        if (!esps) especificadoresDaDeclaracao.set(topo, (esps = especificadoresEm(topo)));
+        for (const esp of esps) {
+          if (divergentesGlobais.has(`${p}\u0000${esp}`)) return true;
+          const salto = resolucoes.get(p)?.get(esp)?.doCompilador ?? null;
+          if (salto !== null && salto !== destino && comDivergencia.has(salto)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   for (const fonte of e.fontes) {
     const sf = programa.getSourceFile(absoluto(fonte.path));
     // Fonte que o compilador trocou por outra (pacote duplicado) nao e lida: o no seria do outro arquivo.
@@ -202,7 +303,6 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       continue;
     }
     const arquivo: RefDeNo = { kind: 'file', path: fonte.path, fragment: null };
-    const fonteJs = EXTENSOES_JS.includes(extensao(fonte.path));
     const trecho = (n: TS.Node, fim = n.getEnd()): Trecho => ({ path: fonte.path, inicio: n.getStart(sf), fim });
     const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, t: Trecho): void => {
       saida.arestas.push({ kind, from, to, extrator: e.extrator, metodo: 'ast', trecho: t });
@@ -214,32 +314,30 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       saida.diagnosticos.push({ kind, path: fonte.path, reference: reference.replace(/\s+/g, ' '), extrator: e.extrator });
     };
 
-    // Especificadores do arquivo, antes de tudo: o alvo do compilador e o que o runtime carrega.
-    const alvos = new Map<string, { alvo: string | null; divergente: boolean }>();
-    const importados = new Set<string>(), divergentes = new Set<string>();
-    const especificadores: string[] = [];
-    const coletar = (n: TS.Node): void => {
-      let esp: string | null = null;
-      if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) esp = literal(n.moduleSpecifier);
-      else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) esp = literal(n.moduleReference.expression);
-      else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) esp = literal(n.argument.literal);
-      else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
-      if (esp !== null) especificadores.push(esp);
-      ts.forEachChild(n, coletar);
+    const alvos = resolucoes.get(fonte.path) ?? new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
+    // Arquivo que o compilador ligou no lugar do que roda: nenhuma chamada deste arquivo vai a ele.
+    const divergentes = new Set([...alvos.values()].filter((r) => r.divergente && r.doCompilador !== null).map((r) => r.doCompilador as string));
+    // AN3: classes importadas por nome aqui; `this` e `super` so ligam a membro delas em outro arquivo.
+    const classesImportadas = new Set<TS.Symbol>();
+    const importada = (nome: TS.Node | undefined): void => {
+      const s0 = nome ? checker.getSymbolAtLocation(nome) : undefined;
+      if (!s0 || (s0.flags & S.Alias) === 0) return;
+      const alvo = checker.getAliasedSymbol(s0), arquivoDoAlvo = alvo.declarations?.[0] ? relativo(alvo.declarations[0].getSourceFile().fileName) : null;
+      if (cadeiaDivergente(s0, arquivoDoAlvo)) return;
+      if (alvo.flags & S.Class) classesImportadas.add(alvo);
     };
-    coletar(sf);
-    for (const esp of especificadores) {
-      if (alvos.has(esp)) continue;
-      const doCompilador = resolver(esp, fonte.path), exato = caminhoLiteral(fonte.path, esp);
-      // D3: JS que pede `./a.js` com `a.ts` ao lado, ou `.d.ts` no lugar da implementacao, roda outro
-      // arquivo do que o compilador liga: a aresta vai ao arquivo que roda, sem aresta de simbolo.
-      const divergente = doCompilador !== null && exato !== null && exato !== doCompilador && arquivos.has(exato)
-        && !emNodeModules(exato) && (fonteJs || doCompilador.endsWith('.d.ts'));
-      const alvo = divergente ? exato : doCompilador;
-      alvos.set(esp, { alvo, divergente });
-      if (alvo !== null) importados.add(alvo);
-      if (divergente) divergentes.add(doCompilador as string);
-    }
+    const nomesDoPadrao = (n: TS.BindingName): void => {
+      if (ts.isIdentifier(n)) importada(n);
+      else for (const el of n.elements) if (ts.isBindingElement(el)) nomesDoPadrao(el.name);
+    };
+    const juntarImportadas = (n: TS.Node): void => {
+      if (ts.isImportClause(n)) importada(n.name);
+      else if (ts.isImportSpecifier(n)) importada(n.name);
+      else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) importada(n.name);
+      else if (ts.isVariableDeclaration(n) && n.initializer && ehRequire(n.initializer)) nomesDoPadrao(n.name);
+      ts.forEachChild(n, juntarImportadas);
+    };
+    juntarImportadas(sf);
 
     // Declaracoes de topo e membros de classe de topo (D4).
     const declarar = (d: TS.Node): RefDeNo | null => {
@@ -293,32 +391,36 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       return r;
     };
     const simboloImportado = (nome: TS.Node, t: Trecho): void => {
-      const { ref } = alvoDo(semAlias(checker.getSymbolAtLocation(nome)));
-      if (ref && !divergentes.has(ref.path)) aresta('imports', arquivo, ref, t);
+      const s0 = checker.getSymbolAtLocation(nome), { ref } = alvoDo(semAlias(s0));
+      if (ref && !divergentes.has(ref.path) && !cadeiaDivergente(s0, ref.path)) aresta('imports', arquivo, ref, t);
       else lacuna('import-sem-simbolo', nome);
     };
 
     /** D3: alvo de chamada pela ligacao lexica do callee, nunca pelo tipo inferido do objeto. */
     function alvoDaChamada(callee: TS.Expression): { ref: RefDeNo | null; categoria: string } {
-      let r: { ref: RefDeNo | null; categoria: string }, ligado: boolean;
+      let r: { ref: RefDeNo | null; categoria: string }, ligado: boolean, alias: TS.Symbol | undefined;
       if (ts.isIdentifier(callee)) {
-        const s0 = checker.getSymbolAtLocation(callee);
-        r = alvoDo(semAlias(s0));
-        ligado = viaImportLocal(s0, sf as TS.SourceFile);
+        alias = checker.getSymbolAtLocation(callee);
+        r = alvoDo(semAlias(alias));
+        ligado = viaImportLocal(alias, sf as TS.SourceFile);
       } else if (ts.isPropertyAccessExpression(callee)) {
         const objeto = callee.expression;
         if (objeto.kind === K.ThisKeyword || objeto.kind === K.SuperKeyword) {
-          // Membro herdado so liga se a classe dele vier de um arquivo que este importa.
-          r = alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
-          ligado = !!r.ref && importados.has(r.ref.path);
+          // Membro de outro arquivo so liga se a classe que o declara foi importada por nome aqui.
+          const membro = semAlias(checker.getSymbolAtLocation(callee.name)), classe = membro?.declarations?.[0]?.parent;
+          const simboloDaClasse = classe && ts.isClassDeclaration(classe) && classe.name ? checker.getSymbolAtLocation(classe.name) : undefined;
+          r = alvoDo(membro);
+          ligado = !!simboloDaClasse && classesImportadas.has(simboloDaClasse);
         } else if (ts.isIdentifier(objeto)) {
-          const s0 = checker.getSymbolAtLocation(objeto), dono = semAlias(s0);
+          alias = checker.getSymbolAtLocation(objeto);
+          const dono = semAlias(alias);
           if (!dono || (dono.flags & (S.Class | S.Enum | S.ValueModule | S.NamespaceModule)) === 0) return { ref: null, categoria: 'chamada-por-tipo' };
           r = alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
-          ligado = viaImportLocal(s0, sf as TS.SourceFile);
+          ligado = viaImportLocal(alias, sf as TS.SourceFile);
         } else return { ref: null, categoria: 'chamada-por-tipo' };
       } else return { ref: null, categoria: 'chamada-nao-resolvida' };
       if (!r.ref) return r;
+      if (cadeiaDivergente(alias, r.ref.path)) return { ref: null, categoria: 'chamada-por-import-divergente' };
       // Alvo em outro arquivo so com ligacao deste arquivo: import local, nunca global de script.
       if (r.ref.path !== fonte.path && !ligado) return { ref: null, categoria: 'chamada-global-entre-arquivos' };
       if (divergentes.has(r.ref.path)) return { ref: null, categoria: 'chamada-por-import-divergente' };

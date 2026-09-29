@@ -573,6 +573,40 @@ test('KG2 provenance: todo link extraido existe no markdown-it, e todo link do m
   assert.ok(nossos.size >= 8, `corpus exercita links: ${nossos.size}`);
 });
 
+test('KG2 limits: import que o Node resolve diferente do compilador nao liga simbolo, nem por modulo intermediario', () => {
+  const impl = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const { grafo, relatorio } = extrair({
+    'a.js': impl, 'a.ts': 'export function f() { return 2; }\n',
+    'b.cjs': "const { f } = require('./a');\nfunction g() { return f(); }\nmodule.exports = { g };\n",
+    'dir/index.js': impl, 'dir/index.ts': 'export function f() {}\n',
+    'c.cjs': "const { f } = require('./dir');\nfunction h() { return f(); }\nmodule.exports = { h };\n",
+    'mid.cjs': "module.exports = require('./a.js');\n",
+    'd.ts': "import { f } from './mid.cjs';\nimport * as m from './mid.cjs';\nexport function k() { return f() + m.f(); }\n",
+    'lib/foo.d.ts': 'export declare function f(): number;\n', 'lib/foo.js': 'exports.f = () => 1;\n',
+    'e.ts': "import { f } from './lib/foo';\nexport function j() { return f(); }\n",
+    'x.d.cts': 'export declare function f(): number;\n', 'x.cjs': 'exports.f = () => 1;\n',
+    'y.cts': "import { f } from './x.cjs';\nexport function q() { return f(); }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), []);
+  assert.deepEqual(arestas(grafo, 'imports'), [
+    'imports file:b.cjs -> file:a.js', 'imports file:c.cjs -> file:dir/index.js', 'imports file:d.ts -> file:mid.cjs',
+    'imports file:e.ts -> file:lib/foo.js', 'imports file:mid.cjs -> file:a.js', 'imports file:y.cts -> file:x.cjs',
+  ]);
+  assert.equal(relatorio.lacunas_por_categoria['import-divergente'], 5);
+});
+
+test('KG2 limits: this e super so ligam a membro de classe importada por nome, nao por import de efeito', () => {
+  const { grafo } = extrair({
+    's.ts': 'class B { m() {} }\n',
+    'a.ts': "import './s';\nexport class A extends B { n() { this.m(); super.m(); } }\n",
+    'b.ts': 'export class Base { m() {} }\n',
+    'c.ts': "import { Base } from './b';\nexport class Filha extends Base { n() { this.m(); } }\n",
+    'd.ts': 'export function f() { return 2; }\n', 'd.js': 'exports.f = () => 1;\n',
+    'e.ts': "import { f } from './d';\nexport function g() { return f(); }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), ['calls symbol:c.ts#Filha.n -> symbol:b.ts#Base.m', 'calls symbol:e.ts#g -> symbol:d.ts#f']);
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');
