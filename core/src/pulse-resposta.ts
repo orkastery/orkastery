@@ -412,17 +412,24 @@ function loteDeNovo(raiz: string, servido: LoteServido, numeros: readonly number
 /** O MESMO lote de novo, para quem repete o sim porque nao viu a mensagem chegar. */
 function reenviarLote(raiz: string, servido: LoteServido, numeros: readonly number[], canal: 'telegram' | 'terminal',
   quando: string): string {
-  const perguntas: PerguntaDoLote[] = servido.perguntas.filter(p => numeros.includes(p.numero)).map(p => {
+  const semRecomendada: number[] = [];
+  const perguntas: PerguntaDoLote[] = servido.perguntas.filter(p => numeros.includes(p.numero)).flatMap(p => {
     // Registro gravado antes do RM-048 nao tem a recomendada: ela sai de novo do pedido servido.
+    // Sem ela, a pergunta nao e reenviada no contrato curto (que exige uma recomendada), e o
+    // nucleo nunca inventa uma: o dono recebe a linha para responder pelo numero.
     const recomendada = p.recomendada ?? recomendadaDoRegistro(raiz, p);
-    return {
+    if (!recomendada) { semRecomendada.push(p.numero); return []; }
+    return [{
       numero: p.numero, thread: p.thread, fase: p.fase, pergunta: p.pergunta, pedidoId: p.pedidoId,
       ...(p.corpo ? { corpo: p.corpo } : {}), ...(p.ato ? { ato: p.ato } : {}), desde: p.desde ?? null,
       alternativas: p.letras.map((letra, i) => ({ letra: letra as typeof LETRAS[number], texto: p.alternativas[i],
         consequencia: p.consequencias[i], ...(recomendada?.letra === letra ? { recomendada: { porque: recomendada.porque } } : {}) })),
-    };
+    }];
   });
-  return textoDoLote({ contrato: 'ork.hitl-lote/v1', perguntas, restantes: 0, recusadas: [], abertas: 0 }, { canal, quando });
+  const aviso = semRecomendada.length
+    ? [`Pergunta${semRecomendada.length === 1 ? '' : 's'} ${semRecomendada.join(', ')}: responda pelo número e a letra, por exemplo ${semRecomendada[0]}a.`] : [];
+  if (!perguntas.length) return aviso.join('\n') || 'Nenhuma pergunta para reenviar agora.';
+  return [textoDoLote({ contrato: 'ork.hitl-lote/v1', perguntas, restantes: 0, recusadas: [], abertas: 0 }, { canal, quando }), ...aviso].join('\n');
 }
 
 /** A recomendada de uma pergunta servida, relida do pedido exato que saiu com o numero. */
@@ -710,6 +717,13 @@ function responderLivre(raiz: string, envelope: RespostaHumana, trecho: TrechoLi
   if (pedido && ehV2(pedido) && pedido.classe === 'pergunta' && pedido.irreversivel) {
     return volta(`${tg ? '🔒 ' : '! '}A pergunta ${p.numero} é sem volta; palavra solta não registra. Responda com o número e a letra: ` +
       `${p.letras.map((l, i) => `${p.numero}${l} (${p.alternativas[i]})`).join(', ')}.`, 'irreversivel');
+  }
+  // D2: a resposta solta nao diz a qual pedido se refere; com mais de um aberto na thread, nem
+  // letra nem digito soltos registram. Numerados ("1a") e por codigo ("DE6H a") continuam valendo.
+  const abertos = pedidosAbertosDaThread(raiz, p.thread, quando);
+  if (abertos > 1) {
+    return volta(`${tg ? '⚠️ ' : '! '}a thread da pergunta ${p.numero} tem ${abertos} pedidos abertos; resposta solta não registra. ` +
+      `Mande o número e a letra: ${p.letras.map((l, i) => `${p.numero}${l} (${p.alternativas[i]})`).join(', ')}.`, 'varios-pedidos-na-thread');
   }
   const r = letraDaPalavra(raiz, p, trecho, quando);
   if ('detalhe' in r) return resultado('lote', textoDoDetalhe(raiz, r.detalhe, String(p.numero), canal));

@@ -56,11 +56,16 @@ function projeto(nome: string) {
 test('o formato aprovado: título no fuso do dono, grupos na ordem com ícones, um item por linha', () => {
   const { p } = projeto('roadmap-status-formato');
   try {
-    const s = montarStatusDoRoadmap(p.dir, { quando: QUANDO, projeto: 'orkastery' });
+    // O título sai no fuso do dono, num instante fixo.
+    assert.equal(textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: QUANDO, projeto: 'orkastery' })).split('\n')[0],
+      'Roadmap do Orkastery (28/09, 21:10)');
+    // "Entregue hoje" compara com o dia do `ship_done`, que o ledger carimba com o relógio real:
+    // o relatório é consultado no mesmo relógio, senão a virada do dia muda o grupo.
+    const s = montarStatusDoRoadmap(p.dir, { projeto: 'orkastery' });
     assert.equal(s.contrato, CONTRATO_STATUS_DO_ROADMAP);
     const texto = textoDoStatusDoRoadmap(s);
     const linhas = texto.split('\n');
-    assert.equal(linhas[0], 'Roadmap do Orkastery (28/09, 21:10)');
+    assert.match(linhas[0], /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
     // Os grupos com item aparecem na ordem aprovada; o vazio (Piloto, Refinamento) não sai.
     const cabecalhos = linhas.filter(l => GRUPOS_DO_ROADMAP.some(g => l === `${g.icone} ${g.titulo}`));
     assert.deepEqual(cabecalhos, ['✅ Concluídos', '🟢 Disponíveis com algo em aberto', '🚀 Entregue hoje',

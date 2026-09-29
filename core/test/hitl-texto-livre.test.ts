@@ -108,7 +108,13 @@ test('com mais de um pedido aberto na mesma thread, palavra não registra; a let
       alvo: { tipo: 'session', sessionId: 'sessao-SIMULADA', runtime: 'claude-bg' } });
     const palavra = c.responder('aprovo', 'telegram:-7:50', depois(5));
     assert.equal(palavra.registradas.length, 0);
-    assert.match(palavra.mensagem, /tem 2 pedidos abertos; resposta por palavra não registra/);
+    assert.match(palavra.mensagem, /tem 2 pedidos abertos; resposta solta não registra/);
+    // A letra solta também não diz a qual dos dois pedidos se refere.
+    const solta = c.responder('a', 'telegram:-7:52', depois(5));
+    assert.equal(solta.registradas.length, 0);
+    const numerada = c.responder('1 aprovo', 'telegram:-7:53', depois(5));
+    assert.equal(numerada.registradas.length, 0);
+    assert.match(numerada.mensagem, /tem 2 pedidos abertos; resposta por palavra não registra/);
     const letra = c.responder('1a', 'telegram:-7:51', depois(6));
     assert.deepEqual(letra.registradas.map(x => x.estado), ['aprovado'], letra.mensagem);
   } finally { c.limpar(); }
