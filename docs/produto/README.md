@@ -46,7 +46,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-021](FEAT-021-ingresso-hitl-telegram.md) | Ingresso HITL pelo Telegram | feature | vigente | MOD-06 | 2026-09-24 |
 | [FEAT-022](FEAT-022-auditoria-e-divida.md) | Auditoria periódica e board de dívida | feature | vigente | MOD-02 | 2026-09-24 |
 | [FEAT-023](FEAT-023-onboarding-do-projeto.md) | Onboarding do projeto | feature | vigente | MOD-01 | 2026-09-24 |
-| [FEAT-024](FEAT-024-company-brain-no-cli.md) | Company Brain no CLI | feature | vigente | MOD-05 | 2026-09-24 |
+| [FEAT-024](FEAT-024-company-brain-no-cli.md) | Company Brain no CLI | feature | vigente | MOD-05 | 2026-09-28 |
 | [FEAT-025](FEAT-025-catalogo-de-portfolio.md) | Catálogo de portfólio | feature | vigente | MOD-01 | 2026-09-24 |
 | [FEAT-026](FEAT-026-reservas-do-roadmap.md) | Reservas de item do roadmap entre máquinas | feature | vigente | MOD-01 | 2026-09-27 |
 | [FEAT-027](FEAT-027-fabrica-compartilhada.md) | Fábrica compartilhada entre máquinas | feature | vigente | MOD-01 | 2026-09-27 |
