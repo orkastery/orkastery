@@ -198,8 +198,14 @@ export function historiaPropria(raiz: string, thread: Thread, dir: string, shaBa
   const sincronizadas = lerLedger(dirThread(raiz, thread.id))
     .filter(e => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada && typeof e.shaBase === 'string' && e.shaBase !== '')
     .map(e => String(e.shaBase));
-  const conhecidas = [...new Set([thread.base?.commit, ...sincronizadas])]
-    .filter((sha): sha is string => typeof sha === 'string' && /^[a-f0-9]{40,64}$/.test(sha) && git('cat-file', '-e', `${sha}^{commit}`).ok);
+  // GO-FIX (R1): no ciclo `merge-branch`, `base.commit` e a ponta da branch que ja existia, com os
+  // commits proprios dela. Nao e base: vale so o ponto onde ela sai da base atual, quando existe.
+  const inicio = thread.base?.commit;
+  const valido = (sha: unknown): sha is string => typeof sha === 'string' && /^[a-f0-9]{40,64}$/.test(sha) &&
+    git('cat-file', '-e', `${sha}^{commit}`).ok;
+  const pontoDaCriacao = thread.variante !== 'merge-branch' ? inicio
+    : valido(inicio) ? (git('merge-base', inicio, shaBase).stdout.trim() || null) : null;
+  const conhecidas = [...new Set([pontoDaCriacao, ...sincronizadas])].filter(valido);
   const semAncestral = git('merge-base', 'HEAD', shaBase).code === 1;
   const pontoDePartida = [...conhecidas].reverse().find(sha => git('merge-base', '--is-ancestor', sha, 'HEAD').ok) ?? null;
   if (!conhecidas.length) return { proprios: null, pontoDePartida, semAncestral };
