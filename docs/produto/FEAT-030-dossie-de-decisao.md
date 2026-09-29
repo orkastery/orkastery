@@ -57,6 +57,8 @@ fontes:
   - Brain indisponível, proibido ou em conflito: o dossiê devolve o estado recebido, sem decisão montada só da fonte.
   - `--decisao` com formato inválido: `brain.dossie.decisao-invalida`. Id desconhecido: `state empty` com a lacuna `decisao.desconhecida`.
   - Opção fora da lista fechada do `ork brain` (por exemplo `--principal`): `brain.argument.invalid`. Escopo vinculado fora do formato do bind: `brain.scope.invalid`.
+  - Linha de decisão que o contrato do Brain não representa (horário fora do formato, em ledgers antigos): a linha vira a lacuna `citacao.incompleta` e o resto do dossiê segue.
+  - Sem a chave do canal nem os verificadores públicos no ambiente, a resposta que entrou pelo Telegram não se prova e sai como `resposta.sem-prova`; a do MCP local se prova pelo recibo local.
 - **Pós-condições:** nada é gravado. Decidir continua sendo `ork decisao registrar` (decisão delegada) ou a resposta do dono pelo ingresso autenticado.
 - **Regras de negócio:**
   - BR-030-01: a resposta do dono só é conteúdo quando o recibo do ingresso confere pelas validadoras do núcleo (`reciboHumanoConfere`); sem prova, sai do conteúdo e vira `resposta.sem-prova`.
@@ -74,7 +76,7 @@ fontes:
 - **Contrato:** `ork.dossie-de-decisao/v1` com `vinculo`, `contexto`, `decisoes`, `lacunas` e `digest`.
 - **Vínculo:** `objetivo`, `projeto` e `brain` (`thread_id`, `objective_id`, `project_id`, `initiative_ids`, os campos do `cycle` dos eventos do Brain).
 - **Decisão:** `classe` (`decidido`, `pergunta`, `legado`), `autoria` (`autonoma` ou `dono`), `brain` (`assertion_id`, `event_id`, `source_event_id`), `citacao` (`instance`, `source_ref`, `source_hash`, `source_version`, `location`) e `frescor` (`confere`, `divergente`, `ausente-no-brain`, `retido`). A pergunta traz as alternativas, o `estado` (`decidida`, `sem-prova`, `aguardando`) e a resposta com quem, origem, canal, recibo e evidência do ingresso.
-- **Lacunas:** `objetivo.ausente`, `objetivo.indisponivel`, `projeto.ausente`, `vinculo.divergente`, `alternativas.nao-registradas`, `resposta.pendente`, `resposta.sem-prova`, `decisao.fora-do-contrato`, `decisao.humana-sem-ingresso`, `decisao.desconhecida`, `brain.ausente`, `fonte.divergente` e `brain.retido`.
+- **Lacunas:** `objetivo.ausente`, `objetivo.indisponivel`, `projeto.ausente`, `vinculo.divergente`, `alternativas.nao-registradas`, `resposta.pendente`, `resposta.sem-prova`, `decisao.fora-do-contrato`, `decisao.humana-sem-ingresso`, `decisao.desconhecida`, `citacao.incompleta`, `brain.ausente`, `fonte.divergente` e `brain.retido`.
 - **Digest:** sha256 do JSON canônico do dossiê com o digest do pacote de contexto no lugar do pacote; o horário da consulta fica fora.
 - **APIs:** a mesma seleção do Brain (`orkmind brain request`, operação `query`), e `get` só quando uma seleção mistura retidos e ausentes.
 

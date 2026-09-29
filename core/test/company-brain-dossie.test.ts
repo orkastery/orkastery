@@ -207,6 +207,24 @@ test('S4 cada decisão traz a citação inteira da linha e os ids fact- e event-
   } finally { p.limpar(); }
 });
 
+test('S4 linha que o contrato do Brain não representa vira citacao.incompleta e não derruba o dossiê', () => {
+  const p = montar('dossie-s4-contrato');
+  try {
+    const id = thread(p, 'Dossiê S4 contrato');
+    // Horário com nanossegundos, como em ledgers escritos à mão antes do contrato: a captura recusa a linha.
+    const n = linhaCrua(p, id, { ts: '2026-09-06T02:16:12.289794251Z', tipo: 'autonomous_decision', fase: 'GO',
+      decisao: 'HORARIO-FORA-DO-CONTRATO', autorizadoPor: '#TAG #Auto', evidencia: 'fixture SIMULADA', eventId: randomUUID() });
+    assert.throws(() => fatosDaThread(p, id), /brain\.contract\.invalid/);
+    const { pedido } = decidir(p, id);
+    const d = buildDossie(p.carregado, id, undefined, brainFalso(p));
+    assert.equal(d.state, 'ok');
+    assert.deepEqual(d.decisoes.map(x => x.id), [pedido.id]);
+    assert.equal((d.decisoes[0] as any).citacao.source_ref, `threads/${id}/ledger.jsonl#L${n + 1}`);
+    assert.deepEqual(lacunasDe(d, `threads/${id}/ledger.jsonl#L${n}`), ['citacao.incompleta']);
+    assert.ok(!JSON.stringify(d).includes('HORARIO-FORA-DO-CONTRATO'));
+  } finally { p.limpar(); }
+});
+
 test('S5 a decisão informada sai com os campos do registro, autoria autônoma, reversão e a lacuna das alternativas', () => {
   const p = montar('dossie-s5');
   try {
