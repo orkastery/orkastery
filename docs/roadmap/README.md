@@ -67,7 +67,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-043](RM-043-aposentadoria.md) | Aposentadoria de cinco mecanismos | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-044](RM-044-documentacao-como-codigo.md) | Documentação como código com paridade | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Disponível | Mesclado | Aprovados | Produção | 2026-09-28 |
+| [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-27 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-28 |
