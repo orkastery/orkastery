@@ -125,3 +125,10 @@ test('sem guia na pasta de contribuicao a checagem reprova', () => {
     assert.deepEqual(checar(raiz).falhas, ['docs/guias/contribuir: nenhum guia encontrado']);
   });
 });
+
+test('os guias e os modelos desta arvore citam so o que existe', () => {
+  // Sem rodar os blocos: rodar aqui rodaria a propria suite. A claim da thread roda o script inteiro.
+  const r = checarGuias(raizDoRepo, { executar: false });
+  assert.deepEqual(r.falhas, []);
+  assert.ok(r.rodados > 0, 'os guias tem blocos bash que a checagem roda');
+});

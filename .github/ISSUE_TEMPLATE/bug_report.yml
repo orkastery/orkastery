@@ -1,6 +1,6 @@
 name: Bug
 description: Alguma coisa não faz o que a documentação diz que faz
-labels: ["bug"]
+labels: ["bug", "needs triage"]
 body:
   - type: markdown
     attributes:
@@ -10,6 +10,8 @@ body:
         mal-entendido seu.
 
         Para vulnerabilidade de segurança, **não** use este formulário. Veja SECURITY.md.
+
+        Quando abrir issue, discussão ou PR: [o que contribuir](https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/o-que-contribuir.md).
 
   - type: textarea
     id: comando

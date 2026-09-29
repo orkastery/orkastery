@@ -1,4 +1,7 @@
-<!-- Seção em branco faz o PR voltar. Veja CONTRIBUTING.md. -->
+<!--
+Seção em branco faz o PR voltar. O guia de PR:
+https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/pull-request.md
+-->
 
 ## O problema
 
@@ -13,10 +16,13 @@
 <!--
 Cole a SAÍDA REAL, não a descrição dela. Nada entra sem evidência executável.
 
-  cd core && npm ci && npm run build && npm test
-  node core/dist/index.js eval
-  node core/dist/index.js prompt lint
-  node core/dist/index.js docs verificar
+Os comandos estão no guia de testes:
+https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/testes-e-verificacao.md
+
+Mexeu em texto? Também os do guia de documentação:
+https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/documentacao.md
+
+Usou o ork? Cole a saída de `ork verify <thread>` e deixe o `.ork-ci/bundle.json` no último commit.
 -->
 
 ```text
@@ -25,8 +31,9 @@ Cole a SAÍDA REAL, não a descrição dela. Nada entra sem evidência executáv
 ## Baseline
 
 <!--
-Algum destes já falhava ANTES da sua mudança? Se sim, diga qual: é dívida pré-existente, e
-não é sua. É a mesma distinção que `ork verify --baseline` faz, e ela vale para gente também.
+Algum comando já falhava ANTES da sua mudança? Diga qual, com a saída na `main`: é dívida
+anterior, e não é sua. Como separar:
+https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/testes-e-verificacao.md#falha-anterior-ou-regressão
 -->
 
 ## O risco
@@ -41,9 +48,11 @@ não é sua. É a mesma distinção que `ork verify --baseline` faz, e ela vale 
 - [ ] Não adiciono dependência de runtime ao núcleo sem issue aberta antes.
 - [ ] Não substituo nenhuma lacuna de medida por zero ou por estimativa não declarada.
 - [ ] Skill nova (se houver) tem corpus em `eval/casos/`.
+- [ ] Mudança de comportamento (se houver) tem linha na seção "Não publicado" do `CHANGELOG.md`.
 
 ## Uso de agente
 
 - Modelos usados: <!-- ou "nenhum" -->
 - Host ou interface: <!-- ou "nenhum" -->
+- [ ] Commit com trecho escrito por agente traz o trailer `Co-Authored-By:`.
 - [ ] Eu, autor humano, revisei e aprovei o diff inteiro antes de enviar.
