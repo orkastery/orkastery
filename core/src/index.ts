@@ -126,7 +126,7 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, exigirManifesto } from './manifest';
+import { carregarManifesto, configDeEmbedding, exigirManifesto } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
@@ -141,7 +141,8 @@ import {
   textoDoEstado,
   textoDoSync,
 } from './memoria';
-import { criarEscopoDeLeitura, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -424,6 +425,8 @@ Uso: ork <comando> [argumentos]
   memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
   memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
         [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
+  memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
+        [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
@@ -3320,8 +3323,52 @@ function comandoMemory(args: Args): number {
     return 0;
   }
 
+  if (sub === 'index') {
+    const modelo = texto(args.opcoes.modelo) ?? 'primario';
+    if (!['primario', 'fallback', 'todos'].includes(modelo)) {
+      console.error('uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]');
+      return 2;
+    }
+    const memoria = abrirMemoria(carregado);
+    if (!memoria.ativo) {
+      const falha = { motivo: memoria.estado.motivo, detalhe: memoria.estado.detalhe, correcao: memoria.estado.correcao };
+      if (args.opcoes.json === true) console.log(JSON.stringify(falha, null, 2));
+      else console.error(`memory.index: regime ${memoria.regime} (${memoria.estado.motivo}); ${memoria.estado.correcao}`);
+      return 1;
+    }
+    const config = configDeEmbedding(carregado.manifesto);
+    const driver = configDoManifesto(carregado.manifesto);
+    const embedder = new DriverCliOrkMind(driver);
+    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
+    const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
+      dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
+      chavePresente: !!config.api_key_env && (process.env[config.api_key_env] ?? '').trim() !== '',
+      embeddar: (p, o) => embedder.embeddar(p, o) }));
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify(modelo === 'todos' ? { alvo: 'todos', resultados } : resultados[0], null, 2));
+    } else {
+      for (const r of resultados) console.log(textoDoIndice(r));
+    }
+    return resultados.some(r => !r.dryRun && r.motivo) ? 1 : 0;
+  }
+
   console.error(`subcomando desconhecido: memory ${sub}`);
   return 2;
+}
+
+/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
+function textoDoIndice(r: ResultadoDoIndice): string {
+  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
+  return [
+    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
+    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
+    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
+    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
+    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
+    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
+    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
+  ].join('\n');
 }
 
 export function main(argv: string[]): number {
