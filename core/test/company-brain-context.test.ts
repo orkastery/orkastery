@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { createInitiative, createProduct, createProject, readPortfolio } from '../src/portfolio';
 import { stateFile } from '../src/project-state';
@@ -123,8 +124,11 @@ test('S4 lacunas tipadas por item, calculadas da entidade, e id desconhecido sem
     assert.ok(!ids(pacote).includes('init-nobody-here'));
     const projeto = pacote.itens.find(i => i.id === 'proj-alpha-core') as any;
     assert.deepEqual(projeto.owner, { raw: 'Equipe', state: 'legacy-label' });
-    const ordenadas = [...pacote.lacunas].sort((a, b) => a.id.localeCompare(b.id) || a.codigo.localeCompare(b.codigo));
-    assert.deepEqual(pacote.lacunas, ordenadas);
+    assert.deepEqual(pacote.lacunas.map(l => `${l.id} ${l.codigo}`), [
+      'init-alpha-one dono.sem-principal', 'init-alpha-two dono.sem-principal', 'init-alpha-two observado.desconhecido',
+      'init-alpha-two registrado.desconhecido', 'init-nobody-here entidade.desconhecida', 'prod-alpha dono.sem-principal',
+      'prod-alpha observado.desconhecido', 'prod-alpha registrado.desconhecido', 'proj-alpha-core dono.sem-principal',
+      'proj-alpha-core observado.desconhecido', 'proj-alpha-core registrado.desconhecido']);
   } finally { p.limpar(); }
 });
 
@@ -178,9 +182,101 @@ test('D7 Brain indisponível ou recusando encerra o pacote sem montar conteúdo 
       assert.deepEqual([pacote.itens, pacote.lacunas, pacote.digest], [[], [], null]);
     }
     let consultas = 0;
-    const getRecusado: BrainTransport = r => r.operation === 'query' ? (consultas++, { schema: BRAIN_API, state: 'empty', items: [] })
+    const getRecusado: BrainTransport = r => r.operation === 'query' ? (consultas++, { schema: BRAIN_API, state: 'ok', items: [{ state: 'withheld' }] })
       : { schema: BRAIN_API, state: 'forbidden' };
-    assert.equal(buildContext(p.carregado, ['init-alpha-one'], getRecusado, 'thread-d7').state, 'forbidden');
+    assert.equal(buildContext(p.carregado, ['init-alpha-one', 'init-alpha-two'], getRecusado, 'thread-d7').state, 'forbidden');
     assert.equal(consultas, 1);
+  } finally { p.limpar(); }
+});
+
+test('S3 item retido não puxa pais que só a fonte local conhece', () => {
+  const p = montar('brain-context-s3-retido');
+  try {
+    const pacote = buildContext(p.carregado, ['init-alpha-secret'], brainFalso(fonte(p), ['init-alpha-secret']), 'thread-s3');
+    assert.deepEqual(pacote.itens, [{ id: 'init-alpha-secret', estado: 'retido', frescor: 'retido', origem: 'brain' }]);
+    assert.deepEqual(pacote.lacunas, [{ id: 'init-alpha-secret', codigo: 'brain.retido' }]);
+  } finally { p.limpar(); }
+});
+
+test('S5 o digest e a ordem não dependem do locale do processo', () => {
+  const p = projetoTemporario('brain-context-locale');
+  try {
+    createProduct(p.dir, { id: 'prod-alpha', title: 'Alpha' });
+    createProject(p.dir, { id: 'proj-alpha-core', productId: 'prod-alpha', title: 'Núcleo' });
+    // Em da-DK, "aa" vem depois de "z": com localeCompare a ordem, e o digest, mudariam.
+    for (const id of ['init-alpha-abc', 'init-alpha-aab']) createInitiative(p.dir, { id, projectId: 'proj-alpha-core', title: id });
+    const dist = path.resolve(__dirname, '..');
+    const script = `const {exigirManifesto}=require(${JSON.stringify(path.join(dist, 'src/manifest.js'))});`
+      + `const {buildContext}=require(${JSON.stringify(path.join(dist, 'src/company-brain-context.js'))});`
+      + `const r=buildContext(exigirManifesto(${JSON.stringify(p.dir)}),['init-alpha-abc','init-alpha-aab'],()=>({schema:'orkmind.company-brain-api/v1',state:'empty',items:[]}),'thread-locale');`
+      + `process.stdout.write(JSON.stringify({ids:r.itens.map(i=>i.id),digest:r.digest}));`;
+    const rodar = (locale: string) => {
+      const r = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', timeout: 30000,
+        env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: p.dir, LANG: locale, LC_ALL: locale } });
+      assert.equal(r.status, 0, r.stderr);
+      return JSON.parse(r.stdout);
+    };
+    const c = rodar('C.UTF-8'), dinamarques = rodar('da_DK.UTF-8');
+    assert.deepEqual(c.ids, ['prod-alpha', 'proj-alpha-core', 'init-alpha-aab', 'init-alpha-abc']);
+    assert.deepEqual(dinamarques, c);
+  } finally { p.limpar(); }
+});
+
+test('S1 sem --ids vale o escopo vinculado da thread, e escopo inválido é recusado', () => {
+  const p = montar('brain-context-escopo');
+  try {
+    const thread = novaThread(p.carregado, { nome: 'Escopo', modo: 'auto' }).thread.id;
+    const arquivo = path.join(dirThread(p.dir, thread), 'brain-scope.json'), brain = brainFalso(fonte(p));
+    const escopo = { schema: 'ork.brain-cycle-scope/v1', version: 1, thread, projectId: 'proj-alpha-core', delivery: 'initiatives', initiativeIds: ['init-alpha-two'] };
+    fs.writeFileSync(arquivo, JSON.stringify(escopo));
+    const pacote = runBrain(p.carregado, 'context', { thread }, [], brain);
+    assert.deepEqual(pacote.pedido, ['init-alpha-two', 'proj-alpha-core']);
+    assert.deepEqual(ids(pacote), ['prod-alpha', 'proj-alpha-core', 'init-alpha-two']);
+    // Espaço depois da vírgula, comum em host de chat, não invalida o pedido.
+    assert.deepEqual(runBrain(p.carregado, 'context', { thread, ids: 'init-alpha-one, prod-alpha' }, [], brain).pedido, ['init-alpha-one', 'prod-alpha']);
+    for (const invalido of ['{', JSON.stringify({ ...escopo, thread: 'outra-thread' }), JSON.stringify({ ...escopo, initiativeIds: 'init-alpha-two' }),
+      JSON.stringify({ ...escopo, schema: 'ork.brain-cycle-scope/v2' })]) {
+      fs.writeFileSync(arquivo, invalido);
+      assert.throws(() => runBrain(p.carregado, 'context', { thread }, [], brain), /brain\.scope\.invalid/);
+    }
+    fs.rmSync(arquivo);
+    assert.throws(() => runBrain(p.carregado, 'context', { thread }, [], brain), /brain\.context\.ids-required/);
+  } finally { p.limpar(); }
+});
+
+test('S1 até 1000 ids por pedido; o fecho com pais vai ao Brain em lotes de no máximo 1000', () => {
+  const p = projetoTemporario('brain-context-lotes');
+  try {
+    const modelo: Omit<BrainEntity, 'id' | 'kind' | 'parent_id' | 'aliases' | 'source'> = { schema: 'orkmind.company-brain-entity/v1',
+      tenant_id: p.carregado.manifesto.memory.tenant, version: 1, workspace_ids: [], depends_on: [], title: 'x', description: '', status: 'idea',
+      acceptance_criteria: [], owner: { raw: null, state: 'unknown', principal: null }, acl_ref: 'ork-factory', observed_at: null, recorded_at: null };
+    const entidade = (id: string, kind: 'prod' | 'proj' | 'init', parent_id: string | null): BrainEntity => ({ ...modelo, id, kind, parent_id,
+      aliases: [{ system: 'ork', instance: 'orkastery', id }], source: { authority: 'ork', instance: 'orkastery', source_ref: `portfolio.json#${id}`,
+        source_hash: digest(id), source_version: 1, location: `id:${id}` } });
+    const inits = Array.from({ length: 1000 }, (_, i) => `init-lote-${String(i).padStart(4, '0')}`);
+    const lotes: number[] = [];
+    const base = brainFalso([entidade('prod-lote', 'prod', null), entidade('proj-lote-core', 'proj', 'prod-lote'), ...inits.map(id => entidade(id, 'init', 'proj-lote-core'))]);
+    const brain: BrainTransport = r => { if (r.operation === 'query') lotes.push((r.payload as any).facets.ids.length); return base(r); };
+    const pacote = buildContext(p.carregado, inits, brain, 'thread-lotes');
+    assert.equal(pacote.itens.length, 1002);
+    assert.deepEqual(lotes, [1000, 1, 1]);
+    assert.throws(() => buildContext(p.carregado, [...inits, 'init-lote-extra'], brain, 'thread-lotes'), /brain\.context\.too-many/);
+  } finally { p.limpar(); }
+});
+
+test('D7 caso misto de retido e ausente usa get, com teto por pacote', () => {
+  const p = projetoTemporario('brain-context-get');
+  try {
+    const pedidos = Array.from({ length: 102 }, (_, i) => `init-misto-${String(i).padStart(3, '0')}`);
+    const chamadas: string[] = [];
+    const pacote = buildContext(p.carregado, pedidos, brainFalso([], [pedidos[0]], chamadas), 'thread-get');
+    assert.equal(pacote.state, 'unavailable');
+    assert.equal(pacote.error, 'brain.context.get-limit');
+    assert.equal(chamadas.filter(o => o === 'get').length, 100);
+    // Sem retido no lote, o que faltou é desconhecido e nenhum get é feito.
+    const semRetido: string[] = [];
+    const vazio = buildContext(p.carregado, pedidos.slice(0, 3), brainFalso([], [], semRetido), 'thread-get');
+    assert.deepEqual([vazio.state, semRetido], ['empty', ['query']]);
+    assert.deepEqual(vazio.lacunas.map(l => l.codigo), ['entidade.desconhecida', 'entidade.desconhecida', 'entidade.desconhecida']);
   } finally { p.limpar(); }
 });

@@ -24,7 +24,12 @@ export interface PacoteDeContexto {
 const ID = /^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$/;
 const ORDEM: Record<string, number> = { prod: 0, proj: 1, init: 2 };
 const LIMITE = 1000;
+/** Teto de `get` por pacote: só o caso misto (alguns retidos, alguns ausentes) precisa deles. */
+const LIMITE_DE_GET = 100;
 const kindDe = (id: string) => id.slice(0, 4);
+/** Por code point: o digest é identidade citável e não pode depender do locale do processo. */
+const comparar = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+// Além do que o D7 lista, `conflict` também encerra: resposta de conflito não é conteúdo citável.
 const falha = (state: string) => ['forbidden', 'unavailable', 'conflict'].includes(state);
 
 /** A citação só vale inteira: sem um dos campos, o item sai do conteúdo e vira lacuna. */
@@ -42,38 +47,47 @@ function citacaoDe(source: any): Citacao | null {
  */
 export function buildContext(c: ManifestoCarregado, ids: string[], transport: BrainTransport, thread: string): PacoteDeContexto {
   const tenant = c.manifesto.memory.tenant;
-  const pedido = [...new Set(ids)].sort();
+  const pedido = [...new Set(ids)].sort(comparar);
   if (!pedido.length) throw Error('brain.context.ids-required');
   if (pedido.some(id => !ID.test(id))) throw Error('brain.context.id-invalid');
+  if (pedido.length > LIMITE) throw Error('brain.context.too-many');
   const fonte = new Map(portfolioEntities(readPortfolio(c.raiz),
     { tenant, instance: c.manifesto.project.name, thread, aclRef: 'ork-factory' }).map(e => [e.id, e]));
   const base = { schema: CONTEXT_SCHEMA, tenant, contrato: CONTRACT_HASH, thread, pedido };
-  const encerrar = (r: BrainResponse): PacoteDeContexto =>
+  const encerrar = (r: { state: BrainResponse['state']; error?: string }): PacoteDeContexto =>
     ({ ...base, state: r.state, ...(r.error ? { error: r.error } : {}), itens: [], lacunas: [], digest: null, consultadoEm: new Date().toISOString() });
 
-  const escopo = new Set<string>(), brain = new Map<string, any>(), retidos = new Set<string>();
-  const incluir = (id: string | null | undefined) => { for (let atual = id; atual && !escopo.has(atual); atual = fonte.get(atual)?.parent_id) escopo.add(atual); };
-  pedido.forEach(incluir);
-  // O pai de um id que só o Brain conhece vem do próprio Brain; prod-init-proj termina em três voltas.
-  for (let pendentes = [...escopo], volta = 0; pendentes.length && volta < 3; volta++) {
-    if (escopo.size > LIMITE) throw Error('brain.context.too-many');
-    const r = transport({ schema: BRAIN_API, operation: 'query', payload: validateContract({ schema: 'orkmind.company-brain-selection/v1',
-      tenant_id: tenant, facets: { ids: pendentes, kinds: [], workspace_ids: [], source_instances: [] }, mode: 'selection',
-      limit: Math.min(LIMITE, pendentes.length), offset: 0 }) });
-    if (falha(r.state)) return encerrar(r);
-    const pedidos = new Set(pendentes);
-    for (const item of Array.isArray(r.items) ? r.items : [])
-      if (item?.state === 'ok' && pedidos.has(item.entity?.id)) brain.set(item.entity.id, item.entity);
-    // Retido chega sem id na seleção; só o `get` atribui a retenção a um id.
-    for (const id of pendentes) if (!brain.has(id)) {
-      const g = transport({ schema: BRAIN_API, operation: 'get', payload: { tenant_id: tenant, id } });
-      if (falha(g.state)) return encerrar(g);
-      if (g.state === 'withheld') retidos.add(id);
-      else if (g.state === 'ok' && (g.entity as any)?.id === id) brain.set(id, g.entity);
+  const escopo = new Set<string>(pedido), brain = new Map<string, any>(), retidos = new Set<string>();
+  // O pai só entra por um filho visível e tem kind acima dele: init, proj e prod fecham em três voltas.
+  const pai = (id: string, parent: unknown) =>
+    typeof parent === 'string' && ID.test(parent) && ORDEM[kindDe(parent)] < ORDEM[kindDe(id)] ? parent : null;
+  let gets = 0;
+  for (let pendentes = pedido; pendentes.length;) {
+    for (let inicio = 0; inicio < pendentes.length; inicio += LIMITE) {
+      const lote = pendentes.slice(inicio, inicio + LIMITE), doLote = new Set(lote);
+      const r = transport({ schema: BRAIN_API, operation: 'query', payload: validateContract({ schema: 'orkmind.company-brain-selection/v1',
+        tenant_id: tenant, facets: { ids: lote, kinds: [], workspace_ids: [], source_instances: [] }, mode: 'selection',
+        limit: lote.length, offset: 0 }) });
+      if (falha(r.state)) return encerrar(r);
+      const itens = Array.isArray(r.items) ? r.items : [];
+      for (const item of itens) if (item?.state === 'ok' && doLote.has(item.entity?.id)) brain.set(item.entity.id, item.entity);
+      // Retido chega sem id na seleção. Sem retido no lote, o que faltou é desconhecido; com todos os
+      // faltantes retidos, não há o que atribuir. Só no caso misto o `get` diz qual id é qual.
+      const faltantes = lote.filter(id => !brain.has(id)), retidosNoLote = itens.filter((i: any) => i?.state === 'withheld').length;
+      if (retidosNoLote && retidosNoLote === faltantes.length) faltantes.forEach(id => retidos.add(id));
+      else if (retidosNoLote) for (const id of faltantes) {
+        if (++gets > LIMITE_DE_GET) return encerrar({ state: 'unavailable', error: 'brain.context.get-limit' });
+        const g = transport({ schema: BRAIN_API, operation: 'get', payload: { tenant_id: tenant, id } });
+        if (falha(g.state)) return encerrar(g);
+        if (g.state === 'withheld') retidos.add(id);
+        else if (g.state === 'ok' && (g.entity as any)?.id === id) brain.set(id, g.entity);
+      }
     }
-    const antes = new Set(escopo);
-    for (const id of pendentes) incluir(brain.get(id)?.parent_id);
-    pendentes = [...escopo].filter(id => !antes.has(id));
+    const novos: string[] = [];
+    for (const id of pendentes) if (!retidos.has(id))
+      for (const parent of [pai(id, fonte.get(id)?.parent_id), pai(id, brain.get(id)?.parent_id)])
+        if (parent && !escopo.has(parent)) { escopo.add(parent); novos.push(parent); }
+    pendentes = novos.sort(comparar);
   }
 
   const itens: ItemDeContexto[] = [], lacunas: Lacuna[] = [];
@@ -97,8 +111,8 @@ export function buildContext(c: ManifestoCarregado, ids: string[], transport: Br
     if ((entidade.observed_at ?? null) === null) lacuna(id, 'observado.desconhecido');
     if ((entidade.recorded_at ?? null) === null) lacuna(id, 'registrado.desconhecido');
   }
-  itens.sort((a, b) => ORDEM[kindDe(a.id)] - ORDEM[kindDe(b.id)] || a.id.localeCompare(b.id));
-  lacunas.sort((a, b) => a.id.localeCompare(b.id) || a.codigo.localeCompare(b.codigo));
+  itens.sort((a, b) => ORDEM[kindDe(a.id)] - ORDEM[kindDe(b.id)] || comparar(a.id, b.id));
+  lacunas.sort((a, b) => comparar(a.id, b.id) || comparar(a.codigo, b.codigo));
   // O digest cobre o que foi dito e de onde veio; o horário da consulta fica fora para o pacote ser reproduzível.
   const corpo = { ...base, state: (itens.length ? 'ok' : 'empty') as BrainResponse['state'], itens, lacunas };
   return { ...corpo, digest: digest(corpo), consultadoEm: new Date().toISOString() };

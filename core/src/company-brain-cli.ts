@@ -38,9 +38,15 @@ export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,s
   }
   // B4.1: só leitura, por isso fica antes da ativação. Sem --ids, vale o escopo vinculado da thread.
   if(sub==='context'){
-    let ids=(value('ids')??'').split(',').filter(Boolean);
+    let ids=(value('ids')??'').split(',').map(s=>s.trim()).filter(Boolean);
     const bindingFile=path.join(dirThread(c.raiz,thread),'brain-scope.json');
-    if(!ids.length&&fs.existsSync(bindingFile)){const binding=JSON.parse(fs.readFileSync(bindingFile,'utf8'));ids=[binding.projectId,...(binding.initiativeIds??[])].filter(Boolean);}
+    if(!ids.length&&fs.existsSync(bindingFile)){
+      let binding:any;try{binding=JSON.parse(fs.readFileSync(bindingFile,'utf8'));}catch{throw Error('brain.scope.invalid');}
+      // Mesma conferência do sync: o escopo vinculado vale só se for desta thread e do formato gravado pelo bind.
+      if(binding?.schema!=='ork.brain-cycle-scope/v1'||binding.version!==1||binding.thread!==thread||typeof binding.projectId!=='string'||
+        !Array.isArray(binding.initiativeIds)||binding.initiativeIds.some((i:unknown)=>typeof i!=='string'))throw Error('brain.scope.invalid');
+      ids=[binding.projectId,...binding.initiativeIds];
+    }
     return buildContext(c,ids,client,thread);
   }
   // Existing reviewed activation plus dedicated Brain DB grants: neither grants the other.
