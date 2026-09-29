@@ -126,7 +126,7 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, diretorioDoProjeto, exigirManifesto } from './manifest';
+import { carregarManifesto, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
@@ -220,8 +220,9 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, CONTRATO_PROJETOS, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo, listarProjetos, ProjetoAlvo,
-  raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, resolverProjetoAlvo, SAIDA_DE_PROJETO,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo, FORA_DA_CONSULTA,
+  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
+  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -2138,12 +2139,33 @@ function comandoLease(args: Args): number {
   return 2;
 }
 
+/**
+ * RM-052: o cabecalho do board. O board le as threads DESTE projeto nesta maquina; o roadmap nunca
+ * e lido aqui, e "0 threads" nunca quer dizer "roadmap vazio". As outras maquinas so entram com a
+ * fabrica compartilhada e um remoto de verdade.
+ */
+function consultaDoBoard(carregado: ManifestoCarregado, opcoes: { plano: boolean; todos: boolean }) {
+  const remoto = carregado.manifesto.fabrica.remoto;
+  const comFabrica = !opcoes.plano && fabricaCompartilhada(carregado.manifesto);
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  return consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: [`${FORA_DA_CONSULTA.threadsDaMaquina}${opcoes.todos ? ' (todos os perfis)' : ''}`,
+      ...(comFabrica && url !== null ? [`outras máquinas (ork/fabrica-estado em ${remoto})`] : [])],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas,
+      ...(url === null ? [semRemoto(remoto)] : comFabrica ? [] : [FORA_DA_CONSULTA.outrasMaquinas])],
+  });
+}
+
 function comandoBoard(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const todos = args.opcoes.all === true || args.opcoes.todos === true;
   if (sub === 'plan' || sub === 'plano') {
     const plano = planejar(carregado);
-    console.log(args.opcoes.json === true ? JSON.stringify(plano, null, 2) : textoDoPlano(plano));
+    const consulta = consultaDoBoard(carregado, { plano: true, todos: false });
+    if (args.opcoes.json === true) console.log(JSON.stringify({ ...plano, consulta }, null, 2));
+    else console.log([...linhasDaConsulta(consulta), '', textoDoPlano(plano)].join('\n'));
     return 0;
   }
   if (sub === 'reap') {
@@ -2157,21 +2179,31 @@ function comandoBoard(args: Args): number {
     console.error('uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]');
     return 2;
   }
-  const todos = args.opcoes.all === true || args.opcoes.todos === true;
+  const consulta = consultaDoBoard(carregado, { plano: false, todos });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify(threadsDeTodosOsPerfis(carregado, todos), null, 2));
+    // RM-052 (D6): objeto com o cabecalho; a lista de threads continua inteira em `threads`.
+    console.log(JSON.stringify({ contrato: CONTRATO_DO_BOARD, consulta, threads: threadsDeTodosOsPerfis(carregado, todos) }, null, 2));
     return 0;
   }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(textoDoBoard(carregado, todos));
   // I-51 (RM-047): com a fabrica compartilhada, o board mostra tambem as outras maquinas.
   if (fabricaCompartilhada(carregado.manifesto)) {
-    const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
-      semRemoto: args.opcoes['sem-remoto'] === true });
     console.log('');
-    console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    // RM-052: sem o remoto, nada foi lido; dizer "nenhuma publicou" seria a frase do incidente de 29/09.
+    if (consulta.projeto.remoto === null) {
+      console.log(`Outras maquinas: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${carregado.manifesto.fabrica.remoto}; nada foi lido de ork/fabrica-estado.`);
+    } else {
+      const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
+        semRemoto: args.opcoes['sem-remoto'] === true });
+      console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    }
   }
   return 0;
 }
+
+/** RM-052 (D6): `ork board --json` deixou de ser lista para carregar o cabecalho da consulta. */
+const CONTRATO_DO_BOARD = 'ork.board/v1';
 
 /**
  * I-51 (RM-047): `ork fabrica` mostra o que cada maquina conduz; `ork fabrica publicar` grava o
@@ -2231,8 +2263,23 @@ function comandoFabrica(args: Args): number {
     console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair');
     return 2;
   }
-  const painel = lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
-  console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  const painel = url === null ? { maquinas: [], atualizado: false, ponta: null }
+    : lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
+  const consulta = consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: url === null ? [] : [`ork/fabrica-estado em ${remoto} (${painel.atualizado ? 'lido agora' : 'última cópia local'})`],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
+  });
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    return 0;
+  }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
+  console.log(url === null
+    ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
+    : textoDaFabrica(painel, nomeDaMaquina()));
   return 0;
 }
 
@@ -2575,7 +2622,10 @@ function comandoRoadmap(args: Args): number {
   }
   if (sub === 'status') {
     // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
+    const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
+      naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork fabrica)'] });
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }

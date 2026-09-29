@@ -19,6 +19,13 @@ Descoberta ambígua retorna `maestro.project.ambiguous`, sem escolher o primeiro
 candidato. Ausência e escape de escopo retornam `maestro.project.missing` e
 `maestro.project.scope`. Nenhum desses erros cria projeto ou catálogo.
 
+RM-052 (aditivo, opcional no validador e sempre preenchido pelo produtor):
+`project.root` é a raiz exibida com `~`, `project.remote` é o remoto da fábrica
+sem credencial (`null` sem remoto) e `notConsulted` lista o que o panorama não
+lê: roadmap, reservas, outras máquinas e, fora do MCP, quantos outros projetos a
+máquina conhece. Zero threads no panorama nunca quer dizer roadmap vazio.
+`origin: selection` é o projeto pedido por `--projeto` ou `ORK_PROJETO`.
+
 Limites: 50 itens por seção/página, JSON de até 64 KiB, prazo de fonte remota
 de 2 s e total de 10 s. Cobertura registra omissões e o próximo offset.
 Esses limites são contrato; tempo real medido exige evidência própria.

@@ -443,6 +443,19 @@ export function outrosProjetosConhecidos(raiz: string): number {
   return listarProjetos().filter((p) => p.presente && p.raiz !== canonica).length;
 }
 
+/** As fontes que uma leitura pode deixar de fora, na mesma frase em todo comando e canal. */
+export const FORA_DA_CONSULTA = Object.freeze({
+  roadmap: 'roadmap (ork roadmap status)',
+  reservas: 'reservas do roadmap (ork roadmap reservas)',
+  outrasMaquinas: 'outras máquinas (ork fabrica)',
+  threadsDaMaquina: 'threads deste projeto nesta máquina',
+});
+
+/** A lacuna de quem nao tem o remoto: nada foi lido de la, e isso nao e "nenhuma publicou". */
+export function semRemoto(remoto: string): string {
+  return `outras máquinas: o projeto não tem o remoto ${remoto}, nada foi lido de ork/fabrica-estado`;
+}
+
 export const ORIGENS_DO_PROJETO: Readonly<Record<OrigemDoProjeto, string>> = Object.freeze({
   opcao: 'pela opção --projeto',
   ambiente: 'por ORK_PROJETO',
@@ -457,15 +470,18 @@ export const ORIGENS_DO_PROJETO: Readonly<Record<OrigemDoProjeto, string>> = Obj
  * e nao revela os demais).
  */
 export function consultaDoProjeto(carregado: ManifestoCarregado,
-    opcoes: { lido: string[]; naoLido: string[]; origem?: OrigemDoProjeto; outrosProjetos?: boolean }): ConsultaDoProjeto {
+    opcoes: { lido: string[]; naoLido: string[]; origem?: OrigemDoProjeto; outrosProjetos?: boolean;
+      /** A URL ja lida por quem chama (`remotoDoProjeto`), para nao consultar o git duas vezes. */
+      remoto?: string | null }): ConsultaDoProjeto {
   const alvo = projetoAlvoAtual();
   const origem = opcoes.origem ?? (alvo && path.resolve(alvo.raiz) === path.resolve(carregado.raiz) ? alvo.origem : 'cwd');
   const outros = opcoes.outrosProjetos === false ? 0 : outrosProjetosConhecidos(carregado.raiz);
+  const remoto = opcoes.remoto !== undefined ? opcoes.remoto
+    : remotoDoProjeto(carregado.raiz, carregado.manifesto.fabrica?.remoto ?? 'origin');
   return {
     contrato: CONTRATO_CONSULTA,
     projeto: { nome: carregado.manifesto.project.name, abbrev: carregado.manifesto.project.abbrev,
-      raiz: raizParaExibir(carregado.raiz), remoto: remotoDoProjeto(carregado.raiz, carregado.manifesto.fabrica?.remoto ?? 'origin'),
-      origem },
+      raiz: raizParaExibir(carregado.raiz), remoto, origem },
     lido: [...opcoes.lido],
     naoLido: [...opcoes.naoLido, ...(outros > 0 ? [`outros projetos desta máquina: ${outros} (ork projetos)`] : [])],
   };

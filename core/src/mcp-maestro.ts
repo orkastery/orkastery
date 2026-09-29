@@ -15,7 +15,8 @@ export function registerMaestro(register:Register,options:{root:string;threadId?
     if((args.section===undefined)!==(args.offset===undefined))throw Error('maestro.page.invalid');
     const threadId=args.threadId??options.threadId;
     if(threadId)options.checkThread(threadId);
-    const context=discoverMaestro({cwd:options.root,pinned:options.root});
+    // RM-052 (D5): fixado no projeto servido; os outros projetos da maquina nao entram na conta.
+    const context=discoverMaestro({cwd:options.root,pinned:options.root,countOtherProjects:false});
     const result=readMaestro(context,{threadId,native:true,offsets:args.section?{[args.section]:args.offset!}:undefined,
       host:{tools:options.tools(),child:!!options.threadId}});
     return {content:[{type:'text',text:JSON.stringify(result)}]};

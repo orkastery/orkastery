@@ -21,15 +21,20 @@ function json(dir: string, ...args: string[]) {
 test('board list/plan JSON serializam contratos existentes em fixtures vazias e com leases', () => {
   const p = projetoTemporario('onboarding-json-board');
   try {
-    assert.deepEqual(json(p.dir, 'board', 'list'), []);
+    // RM-052 (D6): o board em JSON e um objeto com o cabecalho da consulta; a lista continua inteira em `threads`.
+    const vazio = json(p.dir, 'board', 'list');
+    assert.equal(vazio.contrato, 'ork.board/v1');
+    assert.equal(vazio.consulta.projeto.nome, p.carregado.manifesto.project.name);
+    assert.deepEqual(vazio.threads, []);
     const a = novaThread(p.carregado, { nome: 'Primeira', modo: 'auto' }).thread;
     const b = novaThread(p.carregado, { nome: 'Segunda', modo: 'auto' }).thread;
     adquirirRegiao(p.dir, 'path:core', { thread: a.id, motivo: 'fixture' });
     adquirirRegiao(p.dir, 'path:core', { thread: b.id, motivo: 'fixture' });
-    assert.deepEqual(json(p.dir, 'board', 'list'), threadsDeTodosOsPerfis(p.carregado, false));
-    const r = json(p.dir, 'board', 'plan'), esperado = planejar(p.carregado, { estados: null, agora: r.decididoEm });
-    // Compara a decisão no mesmo instante, sem remover campos do contrato.
+    assert.deepEqual(json(p.dir, 'board', 'list').threads, threadsDeTodosOsPerfis(p.carregado, false));
+    const { consulta, ...r } = json(p.dir, 'board', 'plan'), esperado = planejar(p.carregado, { estados: null, agora: r.decididoEm });
+    // Compara a decisão no mesmo instante, sem remover campos do contrato; a consulta e o acrescimo da RM-052.
     assert.deepEqual(r, esperado);
+    assert.ok(consulta.naoLido.includes('roadmap (ork roadmap status)'));
     const texto = cli(p.dir, 'board', 'list');
     assert.equal(texto.status, 0, texto.stderr); assert.match(texto.stdout, /PERFIL/);
     assert.match(cli(p.dir, 'board', 'plan').stdout, /Escalonador/);

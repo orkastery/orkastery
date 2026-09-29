@@ -40,6 +40,21 @@
             "fingerprint": {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
+            },
+            "root": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "remote": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -2697,6 +2712,14 @@
             "maxLength": 512
           },
           "maxItems": 100
+        },
+        "notConsulted": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "maxItems": 20
         }
       },
       "required": [
