@@ -13,6 +13,7 @@ import { CONTRATO_DECISAO_AUTONOMA } from '../src/decisao-autonoma';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { Thread } from '../src/types';
+import { TOOLS_FILHO_CODEX } from '../src/mcp-install';
 
 async function filho(body: (p: ProjetoDeTeste, propria: Thread, outra: Thread, c: Client) => Promise<void>) {
   const p = projetoTemporario('rm037-decisao-mcp');
@@ -71,4 +72,10 @@ test('defeito 1: recusas do MCP nao gravam nada: outra thread, criterio que nao 
     assert.equal(lerLedger(dir).length, antes);
     assert.equal(lerLedger(dirThread(p.dir, outra.id)).length, antesOutra);
   });
+});
+
+test('defeito 1: a ferramenta tem o grant de mutacao do filho codex, sem virar decisao do dono', () => {
+  assert.ok((TOOLS_FILHO_CODEX as readonly string[]).includes('ork_decision_record'),
+    'sem o grant, o codex com approval_policy never recusaria a chamada');
+  assert.ok(!TOOLS_FILHO_CODEX.some(t => /gate|request_decision|phase_run/.test(t)));
 });

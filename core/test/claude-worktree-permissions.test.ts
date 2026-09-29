@@ -16,7 +16,7 @@ import { exec } from '../src/util';
 
 const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list']
   .map(nome => `mcp__orkastery__ork_${nome}`);
-const mutacoes = ['artifact_write', 'claim_add', 'git_commit', 'verify', 'ship']
+const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'git_commit', 'verify', 'ship']
   .map(nome => `mcp__orkastery__ork_${nome}`);
 function preparar(nome: string, perfil: 'interactive' | 'worktree', modo: 'auto' | 'maestro' = 'auto') {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-c35-container-'));
