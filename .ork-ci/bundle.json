@@ -1,108 +1,136 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-hitlhumanono",
+  "thread": "ork-i31kg1contra",
   "base": "main",
   "claims": [
     {
-      "id": "C3",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/hitl-gates.ts",
-      "alegacao": "C3 (RM-048 item 3): o gate reaberto no mesmo contexto mantem o codigo curto; \"1a\" e \"<codigo> a\" enviados depois do prazo de uma hora registram no pedido renovado quando a pergunta e identica e recusam quando ela mudou; o \"sim\" ao resumo mais recente continua valendo depois do prazo.",
+      "id": "C1",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/schemas/company-brain.schema.json",
+      "alegacao": "E2/E4 atual: os três hashes locais inspecionados permanecem congelados; Company Brain v1 conserva authority=ork, kinds prod/proj/init e payload de Event limitado a Entity/Assertion/null. Não comprova integração externa.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-codigo-estavel.test.js"
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\"),crypto=require(\"node:crypto\");for(const [file,expected] of [[\"core/schemas/company-brain.schema.json\",\"a1dddf24f16fd875ac6fc979ef165eaff2012c4f3dd80b4687173925867a8166\"],[\"core/test/fixtures/company-brain-v1.json\",\"76dbbd35f2c4bfc0d509b8c98666e5a61203669731eae55e58315407f2afe9f1\"],[\"core/assets/orkmind-native-schema.json\",\"6c6fe6125c4734a60373ee713dada3b6f168abec98a9c66952d5cf1a424043ef\"]])assert.equal(crypto.createHash(\"sha256\").update(fs.readFileSync(file)).digest(\"hex\"),expected);const s=JSON.parse(fs.readFileSync(\"core/schemas/company-brain.schema.json\"));assert.equal(s.$id,\"orkmind.company-brain/v1\");assert.equal(s.$defs.Source.properties.authority.const,\"ork\");assert.deepEqual(s.$defs.Entity.properties.kind.enum,[\"prod\",\"proj\",\"init\"]);assert.deepEqual(s.$defs.Event.properties.payload.anyOf,[{\"$ref\":\"#/$defs/Entity\"},{\"$ref\":\"#/$defs/Assertion\"},{type:\"null\"}]);console.log(\"KG1 current compatibility: 3 frozen hashes; closed Company Brain v1 unchanged\");'"
       ],
-      "criadoEm": "2026-09-29T02:07:00.611Z",
+      "criadoEm": "2026-09-17T01:53:26.566Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C18",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "S7 (substitui C8): build e suite hermetica do core passam no HEAD real, no mesmo comando que o CI roda; a suite inteira do manifesto continua no ork verify, comparada a baseline desta thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run test:ci"
+      ],
+      "criadoEm": "2026-09-29T01:15:39.826Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/hitl-classificacao.ts",
-      "alegacao": "C4 (RM-048 item 6): motivo tecnico (runtime, verify, claims, artefato, formato, vaga) nao vira pergunta ao dono e aparece no resumo como \"Conosco\"; decisao do dono (pausa, policy, custo, credencial, limite de retry) continua pergunta.",
+      "id": "C19",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "T3: o item RM-031 liga os dois contratos KG1 pelos identificadores definidos nos modulos, separa contrato entregue, benchmark nao executado e pacotes KG2 a KG7 futuros, e passa na paridade do docs verificar.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-dono-orquestrador.test.js"
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/roadmap/RM-031-grafo-de-codigo.md\",\"utf8\");for(const [doc,mod,id] of [[\"grafo-deterministico-kg1.md\",\"intelligence-graph-contract.ts\",\"ork.code-artifact-graph/v1\"],[\"benchmark-grafo-kg1.md\",\"intelligence-benchmark-contract.ts\",\"ork.graph-benchmark/v1\"]]){assert.ok(d.includes(\"](../referencia/contratos/\"+doc+\")\"),doc);assert.ok(fs.existsSync(\"docs/referencia/contratos/\"+doc),doc);assert.ok(d.includes(\"`\"+id+\"`\"),id);assert.ok(fs.readFileSync(\"core/src/\"+mod,\"utf8\").includes(\"\\x27\"+id+\"\\x27\"),mod)}assert.match(d,/experimento não foi executado/);for(const k of [\"KG2\",\"KG3\",\"KG4\",\"KG5\",\"KG6\",\"KG7\"])assert.ok(d.includes(\"(\"+k+\")\"),k);console.log(\"RM-031: contratos e escopo KG1 conferidos\")'",
+        "npm --prefix core run build && node core/dist/index.js docs verificar"
       ],
-      "criadoEm": "2026-09-29T02:07:03.136Z",
+      "criadoEm": "2026-09-29T01:15:45.472Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C6",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/master.ts",
-      "alegacao": "C6 (RM-048 item 8): ork master com --por chamado de processo de host (canal diferente de cli) e recusado com motivo tipado master.prova-de-canal; nota e ratificacao que chegam pelo ingresso autenticado gravam master_done com canal, recibo e evidencia; a ork_master do OpenClaw nao aceita nome de pessoa.",
+      "id": "C20",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/conceitos/arquitetura.md",
+      "alegacao": "T3: a arquitetura lista os dois modulos KG1 existentes em core/src e separa contrato (entregue), servico (KG2 a KG5, inexistente) e evidencia de economia (inexistente), com links locais validos.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/master-prova-canal.test.js"
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/conceitos/arquitetura.md\",\"utf8\");for(const m of [\"intelligence-graph-contract.ts\",\"intelligence-benchmark-contract.ts\"]){assert.ok(d.includes(\"| `\"+m+\"` |\"),m);assert.ok(fs.existsSync(\"core/src/\"+m),m)}const s=d.slice(d.indexOf(\"## 9. Grafo determinístico no KG1\"));assert.ok(s.length>200);assert.match(s,/\\| Contrato \\|.*\\| entregue \\|/);assert.match(s,/\\| Serviço \\|.*\\| não existe \\|/);assert.match(s,/\\| Evidência de economia \\|.*\\| não existe \\|/);console.log(\"arquitetura: camadas KG1 conferidas\")'",
+        "node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-29T02:07:07.670Z",
+      "criadoEm": "2026-09-29T01:15:49.971Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C7",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/pulse-resposta.ts",
-      "alegacao": "C7 (paridade de rota): as formas novas da gramatica do ingresso sao as mesmas no nucleo, no Hermes e no OpenClaw (fonte e dist), e os testes de ingresso dos dois adaptadores passam.",
+      "id": "C21",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T3: a linha do RM-031 no indice do roadmap e exatamente a que o gerador do nucleo produz a partir do frontmatter do item.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/pulse-gramatica-ingresso.test.js",
-        "cd adapters/hermes && python3 -m unittest discover -s test -p 'hitl_ingress_test.py'",
-        "env -u FORCE_COLOR node --test adapters/openclaw/test/hitl-ingress.test.mjs adapters/openclaw/test/hitl-answer.test.mjs"
+        "npm --prefix core run build && node -e 'const d=require(\"./core/dist/docs.js\"),fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const {docs}=d.carregarDocs(process.cwd());const linha=d.tabelaDoRoadmap(docs).split(\"\\n\").find(l=>l.startsWith(\"| [RM-031]\"));assert.ok(linha);assert.ok(fs.readFileSync(\"docs/roadmap/README.md\",\"utf8\").split(\"\\n\").includes(linha));console.log(\"indice: linha do RM-031 igual a gerada\")'"
       ],
-      "criadoEm": "2026-09-29T02:07:10.218Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C9",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "docs",
-      "alegacao": "C9 (docs): as paginas de produto, o guia de sincronismo HITL, a referencia do CLI e o RM-048 descrevem o contrato curto, as formas aceitas, a linha estavel, o status report e a nota com prova, e passam na paridade, no markdownlint e nos links.",
-      "negativa": false,
-      "verificar": [
-        "node core/dist/index.js docs verificar",
-        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
-      ],
-      "criadoEm": "2026-09-29T02:07:16.434Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C10",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/hitl-gates.ts",
-      "alegacao": "C10 (negativa, prova intacta): o corpo de assinaturaDaResposta e autenticarResposta e byte a byte o da base (merge-base com origin/main), e hitl-native.ts, hitl-ingress-receipt.ts, hitl-local-atestado.ts e hitl-local-receipt.ts nao mudam contra essa base.",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const c=require('child_process'),f=require('fs');const base=c.execSync('git merge-base origin/main HEAD').toString().trim();const corpo=(t,n)=>{const i=t.indexOf('export function '+n+'(');return i<0?'':t.slice(i,t.indexOf('\\n}\\n',i))};const a=c.execSync('git show '+base+':core/src/hitl-gates.ts').toString(),b=f.readFileSync('core/src/hitl-gates.ts','utf8');for(const n of ['assinaturaDaResposta','autenticarResposta'])if(!corpo(a,n)||corpo(a,n)!==corpo(b,n)){console.error('divergiu: '+n);process.exit(1)}\"",
-        "git diff --quiet \"$(git merge-base origin/main HEAD)\" -- core/src/hitl-native.ts core/src/hitl-ingress-receipt.ts core/src/hitl-local-atestado.ts core/src/hitl-local-receipt.ts"
-      ],
-      "criadoEm": "2026-09-29T02:07:57.034Z",
+      "criadoEm": "2026-09-29T01:15:52.904Z",
       "estado": "verificado",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C1",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
       "id": "C2",
       "reason": "artifact-not-in-checkout"
     },
     {
+      "id": "C3",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C4",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
       "id": "C5",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C6",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C9",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C10",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C11",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C12",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C13",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C14",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C15",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C16",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C17",
       "reason": "artifact-not-in-checkout"
     }
   ],
