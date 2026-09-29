@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T16:32:24.864Z",
+  "publicadoEm": "2026-09-29T16:32:30.231Z",
   "threads": [
     {
       "id": "ork-rm052projeto",
@@ -15,6 +15,20 @@
       "roadmap": "RM-052",
       "branch": "ork/ork-rm052projeto-full",
       "atualizadaEm": "2026-09-29T16:32:21.267Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-rm053network",
+      "nome": "RM-053 Orkastery Network: maquinas de uma pessoa em rede",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-053",
+      "branch": "ork/ork-rm053network-full",
+      "atualizadaEm": "2026-09-29T16:32:27.397Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
