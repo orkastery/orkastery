@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T01:16:40.805Z",
+  "versaoOrk": "0.4.2",
+  "publicadoEm": "2026-09-29T01:28:49.829Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -77,15 +77,15 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-orkdespachac",
-      "nome": "ork despacha com umask sem escrita de grupo",
+      "id": "ork-semorkmindwe",
+      "nome": "Sem OrkMind Web, sem Orkastery Web e sem a pronuncia do nome",
       "modo": "#Fast",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-orkdespachac-go",
-      "atualizadaEm": "2026-09-29T01:12:50.882Z",
-      "entregue": "741ac48",
+      "roadmap": "RM-049",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:28:47.046Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
