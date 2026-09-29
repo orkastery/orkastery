@@ -74,7 +74,7 @@ function embaralhar(itens, semente) {
 
 function extrair(entrada) {
   const inicio = process.hrtime.bigint();
-  const r = extrairGrafo(entrada, { ts });
+  const r = extrairGrafo(entrada, { ts, unicode: process.versions.unicode });
   return { ...r, ms: Number((process.hrtime.bigint() - inicio) / 1000000n) };
 }
 

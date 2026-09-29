@@ -153,10 +153,10 @@ test('KG2 boundary: extratores puros nao tocam processo, rede, arquivo, relogio,
   }
 });
 
-test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa arquivo, caminho e processo do Node', () => {
+test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa arquivo, caminho, processo e hash do Node', () => {
   const imports = importsComTipo(MODULO_KG2_LEITURA);
   const externos = imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort();
-  assert.deepEqual(externos, ['node:child_process', 'node:fs', 'node:path']);
+  assert.deepEqual(externos, ['node:child_process', 'node:crypto', 'node:fs', 'node:path']);
   for (const i of imports.filter((x) => x.modulo.startsWith('./intelligence-'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
   const { identificadores } = simbolos(MODULO_KG2_LEITURA);
   for (const proibido of ['exec', 'execSync', 'shell', 'fetch', 'eval', 'Function']) assert.ok(!identificadores.has(proibido), proibido);

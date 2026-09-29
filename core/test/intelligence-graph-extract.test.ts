@@ -22,6 +22,7 @@ import {
   extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
 
+const PARSER = { ts, unicode: String(process.versions.unicode) };
 const fontesDe = (arquivos: Record<string, string | Uint8Array>): FonteDoRepositorio[] =>
   Object.entries(arquivos).map(([p, c]) => ({ path: p, bytes: typeof c === 'string' ? Buffer.from(c, 'utf8') : c }));
 
@@ -32,7 +33,7 @@ function entrada(arquivos: Record<string, string | Uint8Array>, extra: Partial<E
   };
 }
 const extrair = (arquivos: Record<string, string | Uint8Array>, extra: Partial<EntradaDeExtracao> = {}): ResultadoDaExtracao =>
-  extrairGrafo(entrada(arquivos, extra), { ts });
+  extrairGrafo(entrada(arquivos, extra), PARSER);
 
 const rotulo = (g: GrafoCodigo) => {
   const nos = new Map(g.nodes.map((n) => [n.node_id, `${n.kind}:${n.locator.path}${n.locator.fragment === null ? '' : `#${n.locator.fragment}`}`]));
@@ -189,7 +190,7 @@ test('KG2 provenance: o grafo sai na forma canonica do contrato, com digest igua
   assert.equal(r.relatorio.graph_digest, r.digest);
   assert.equal(r.relatorio.snapshot_id, r.grafo.snapshot.snapshot_id);
   assert.deepEqual(r.grafo.snapshot.extractors, [
-    { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: '1.0.0' },
+    { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: `1.0.0+unicode.${process.versions.unicode}` },
     { extractor_id: 'ork.repo-files', extractor_version: '1.0.0' }, { extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}` },
   ]);
 });
@@ -506,7 +507,7 @@ test('KG2 extract: a leitura do repositorio Git fixa revisao, fontes rastreadas,
     assert.equal(e.revision, head);
     assert.equal(e.revision_unavailable_reason, null);
     assert.deepEqual(e.fontes.map((f) => f.path).sort(), ['docs/x.md', 'orkastery.yaml', 'src/a.ts', 'src/b.ts']);
-    const { grafo } = extrairGrafo(e, { ts });
+    const { grafo } = extrairGrafo(e, PARSER);
     assert.equal(grafo.snapshot.revision, head);
     assert.ok(temAresta(grafo, 'calls symbol:src/a.ts#a -> symbol:src/b.ts#b'));
     assert.ok(temAresta(grafo, 'references section:docs/x.md#x -> file:src/a.ts'));
@@ -530,7 +531,7 @@ test('KG2 limits: arvore modificada tira a revisao; link simbolico e arquivo sum
     assert.deepEqual([...(e.excluidas ?? [])].sort((x, y) => x.path.localeCompare(y.path)), [
       { path: 'docs/x.md', motivo: 'ausente-na-arvore' }, { path: 'src/ligado.ts', motivo: 'link-simbolico' },
     ]);
-    const { relatorio, grafo } = extrairGrafo(e, { ts });
+    const { relatorio, grafo } = extrairGrafo(e, PARSER);
     assert.deepEqual(relatorio.excluidas.map((x) => x.motivo).sort(), ['ausente-na-arvore', 'link-simbolico']);
     assert.ok(!grafo.snapshot.source_manifest.some((m) => m.path === 'src/ligado.ts' || m.path === 'docs/x.md'));
     fs.rmSync(path.join(dir, 'orkastery.yaml'));
@@ -571,6 +572,37 @@ test('KG2 determinism: o comando provisorio verifica, amostra e confere a amostr
   }
 });
 
+test('KG2 limits: pasta rastreada trocada por link simbolico para fora nao e lida', () => {
+  const dir = repositorioGit({ ...REPO_GIT, 'docs/y.md': '# Y\n' }), fora = dirTemporario('kg2-fora');
+  try {
+    fs.writeFileSync(path.join(fora, 'x.md'), '# Segredo de fora do repositorio\n');
+    fs.writeFileSync(path.join(fora, 'y.md'), '# Outro de fora\n');
+    fs.rmSync(path.join(dir, 'docs'), { recursive: true, force: true });
+    fs.symlinkSync(fora, path.join(dir, 'docs'));
+    const e = lerRepositorio(dir);
+    assert.ok(!e.fontes.some((f) => f.path.startsWith('docs/')));
+    assert.deepEqual((e.excluidas ?? []).filter((x) => x.path.startsWith('docs/')).map((x) => x.motivo).sort(), ['fora-do-repositorio', 'fora-do-repositorio']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(fora, { recursive: true, force: true });
+  }
+});
+
+test('KG2 limits: filtro do Git que muda os bytes tira a revisao, mesmo com o status limpo', () => {
+  const dir = repositorioGit({ ...REPO_GIT, '.gitattributes': '*.md text eol=crlf\n' });
+  try {
+    fs.rmSync(path.join(dir, 'docs/x.md'));
+    execFileSync('git', ['checkout', '--', 'docs/x.md'], { cwd: dir });
+    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: dir }).toString(), '');
+    assert.ok(fs.readFileSync(path.join(dir, 'docs/x.md'), 'utf8').includes('\r\n'));
+    const e = lerRepositorio(dir);
+    assert.equal(e.revision, null);
+    assert.equal(e.revision_unavailable_reason, 'filtro-do-git');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 /** Embaralhamento reproduzivel (LCG), para a permutacao nao depender de acaso. */
 function embaralhar<T>(itens: readonly T[], semente: number): T[] {
   const r = [...itens];
@@ -585,7 +617,7 @@ function embaralhar<T>(itens: readonly T[], semente: number): T[] {
 
 test('KG2 determinism: ordem de leitura invertida, embaralhada e repetida dao o mesmo grafo, digest e relatorio', () => {
   const base = entrada({ ...REPO_TS, ...REPO_MD, 'src/extra.ts': "import { soma } from './util';\nexport const x = soma(1, 1);\n" });
-  const a = extrairGrafo(base, { ts });
+  const a = extrairGrafo(base, PARSER);
   const variantes = [
     { ...base, fontes: [...base.fontes].reverse() },
     ...[1, 7, 42, 2026].map((s) => ({ ...base, fontes: embaralhar(base.fontes, s) })),
@@ -593,7 +625,7 @@ test('KG2 determinism: ordem de leitura invertida, embaralhada e repetida dao o 
     base,
   ];
   for (const v of variantes) {
-    const b = extrairGrafo(v, { ts });
+    const b = extrairGrafo(v, PARSER);
     assert.equal(b.digest, a.digest);
     assert.deepEqual(b.grafo, a.grafo);
     assert.deepEqual(b.relatorio, a.relatorio);

@@ -53,8 +53,12 @@ export interface EntradaDeExtracao {
   excluidas?: readonly Exclusao[];
 }
 
-/** D1: o compilador chega por parametro; este modulo so conhece o seu tipo. */
-export interface Parser { ts: typeof TS }
+/**
+ * D1: o compilador chega por parametro; este modulo so conhece o seu tipo. `unicode` e a versao do
+ * Unicode do motor JavaScript (`process.versions.unicode`): o slug depende dela e entra na versao do
+ * extrator Markdown.
+ */
+export interface Parser { ts: typeof TS; unicode: string }
 
 /** Extremidade de aresta antes do ID: tipo e localizador. */
 export interface RefDeNo { kind: TipoDeNo; path: string; fragment: string | null }
@@ -113,7 +117,7 @@ export function extensaoDe(caminho: string): string {
   return i <= 0 ? '' : nome.slice(i).toLowerCase();
 }
 
-/** D8: id de blob do Git, calculado dos bytes; igual ao `git hash-object` do arquivo. */
+/** D8: id de blob do Git, calculado dos bytes; igual ao `git hash-object --no-filters` do arquivo. */
 export function idDeBlob(bytes: Uint8Array): string {
   return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 }
@@ -184,7 +188,8 @@ function contagemVazia<T extends string>(chaves: readonly T[]): Record<T, number
  * contrato estourado (D10), e `grafo.*` se o resultado violar o contrato (defeito do extrator).
  */
 export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): ResultadoDaExtracao {
-  const { ts } = parser;
+  const { ts, unicode } = parser;
+  if (!/^[0-9]+(\.[0-9]+)*$/.test(unicode)) falha('extracao.entrada.unicode-invalido');
   const acl = [...new Set(entrada.acl_refs)].sort(compararUtf8);
   const access: Acesso = { tenant_id: entrada.tenant_id, acl_refs: acl };
   const authority = `git:${entrada.repository_id}`;
@@ -263,7 +268,7 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   const extratores: Extrator[] = [
     { extractor_id: EXTRATOR_ARQUIVOS, extractor_version: VERSAO_KG2 },
     { extractor_id: EXTRATOR_ID, extractor_version: VERSAO_KG2 },
-    { extractor_id: EXTRATOR_MD, extractor_version: VERSAO_KG2 },
+    { extractor_id: EXTRATOR_MD, extractor_version: `${VERSAO_KG2}+unicode.${unicode}` },
     { extractor_id: EXTRATOR_TS, extractor_version: versaoTs },
   ];
   const versoes = new Map(extratores.map((e) => [e.extractor_id, e.extractor_version]));
