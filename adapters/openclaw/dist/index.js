@@ -301,6 +301,15 @@ const FERRAMENTAS = [
         argv: (p) => ['brain', 'get', texto(p, 'id'), '--thread', texto(p, 'thread')],
     },
     {
+        name: 'ork_brain_context',
+        description: 'Pacote de contexto citável do Company Brain: entidades pedidas e seus pais, cada uma com a citação da fonte, o frescor contra o portfólio e as lacunas. Só leitura.',
+        parameters: schema({
+            thread: { type: 'string' },
+            ids: { type: 'string', description: 'ids do portfólio separados por vírgula (prod-, proj-, init-)' },
+        }),
+        argv: (p) => ['brain', 'context', '--thread', texto(p, 'thread'), '--ids', texto(p, 'ids')],
+    },
+    {
         name: 'ork_claims_add',
         description: 'Registra uma alegacao verificavel com o comando que a comprova. Toda citacao de arquivo ou teste vira claim.',
         parameters: schema({
