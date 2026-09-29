@@ -218,7 +218,7 @@ import {
 import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
-import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -428,6 +428,7 @@ Uso: ork <comando> [argumentos]
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
@@ -1881,11 +1882,14 @@ function comandoShip(args: Args): number {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
     const remoto = texto(args.opcoes.remoto);
-    if (!alvo && args.opcoes.todas !== true) {
-      console.error('uso: ork ship registrar-pr <thread-id> | --todas [--remoto R] [--json]');
+    // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
+    const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
+    if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
+      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json]');
       return 2;
     }
-    const r = alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
+    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr) })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
