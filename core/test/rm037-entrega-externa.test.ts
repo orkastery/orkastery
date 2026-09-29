@@ -160,3 +160,25 @@ test('defeito 5 (A4, S9): o PR precisa citar a thread e ter entrado na branch pa
     assert.equal(lerThread(p.dir, t.id).faseAtual, 'MASTER');
   } finally { p.limpar(); }
 });
+
+test('defeito 5 (N4, G3): a branch ork/<thread>-full e o id em maiusculas valem; consulta falha diz que falhou', () => {
+  const { p, t, dir } = projeto('rm037-externa-branch', { 'orkastery/orkastery.com': '' });
+  try {
+    const registrar = (gh: ReturnType<typeof github>) =>
+      registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: gh.executor, publicar: false });
+    const respostas = prMesclado(t.id) as Record<string, unknown>;
+    delete respostas['repos/orkastery/orkastery.com'];
+    const falhou = registrar(github(respostas));
+    assert.equal(falhou.acao, 'recusada');
+    assert.match(falhou.motivo, /a consulta de orkastery\/orkastery\.com ao GitHub falhou/);
+    const maiusculas = registrar(github(prMesclado(t.id, { body: `Entrega da ${t.id.toUpperCase()}.` })));
+    assert.equal(maiusculas.acao, 'registrou', maiusculas.motivo);
+    assert.equal(lerLedger(dir).filter(x => x.tipo === 'ship_done').length, 1);
+  } finally { p.limpar(); }
+  const outro = projeto('rm037-externa-branch-ork', { 'orkastery/orkastery.com': '' });
+  try {
+    const r = registrarEntregaExternaPorPr(outro.p.carregado, outro.t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, publicar: false,
+      executorGitHub: github(prMesclado(outro.t.id, { body: null, title: 'Entrega', head: { sha: HEAD_PR, ref: `ork/${outro.t.id}-full` } })).executor });
+    assert.equal(r.acao, 'registrou', r.motivo);
+  } finally { outro.p.limpar(); }
+});

@@ -165,13 +165,16 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   // vinculo, qualquer PR mesclado do repositorio viraria entrega de qualquer thread; sem a base, um PR
   // empilhado numa branch de feature contaria como entrega.
   const vinculo = [pr.title, pr.body, pr.head?.ref].filter((x): x is string => typeof x === 'string')
-    .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9-])`).test(x));
+    // N4 do CHECK 2: a branch do proprio ork e `ork/<thread>-<variante>`, entao o hifen depois do id vale;
+    // letra ou digito colado nao (outro id). Sem diferenciar maiusculas.
+    .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i').test(x));
   if (!vinculo) {
     return resultado(threadId, 'recusada', `o PR #${n} de ${repo} nao cita a thread ${threadId} no titulo, no corpo nem na branch`, { mergeSha, headSha });
   }
   const repositorio = lerJson<{ default_branch?: string }>(gh(`repos/${repo}`));
-  if (!repositorio || repositorio.default_branch !== base) {
-    return resultado(threadId, 'recusada', `o PR #${n} entrou em ${base}, e a branch padrao de ${repo} e ${repositorio?.default_branch ?? 'desconhecida'}`,
+  if (!repositorio) return resultado(threadId, 'recusada', `a consulta de ${repo} ao GitHub falhou`, { mergeSha, headSha });
+  if (repositorio.default_branch !== base) {
+    return resultado(threadId, 'recusada', `o PR #${n} entrou em ${base}, e a branch padrao de ${repo} e ${repositorio.default_branch ?? 'desconhecida'}`,
       { mergeSha, headSha });
   }
 
