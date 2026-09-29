@@ -400,7 +400,9 @@ for (const perfis of [true, false]) {
         if (commit) commitar(p.dir, 'produto-da-sessao.txt', 'fatia da sessao\n', 'commit da sessao pelo shell antes da cota');
         erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'rate_limit', "You've hit your limit \u00b7 resets in 3 hours");
         claude.estadoDaSessao('failed');
-        esperarCondicao(() => lerLedger(dir).some(e => e.tipo === 'phase_result'), 20000);
+        // RM-037 (defeitosdeco D-7): como na versao codex, a observacao e conduzida aqui mesmo; o
+        // teste caiu no CI (PR #14, Node 20) esperando 20 s pelo watcher destacado sob carga.
+        esperarResultado(p.carregado, dir, r.sessionId as string);
         assert.equal(lerLedger(dir).find(e => e.tipo === 'phase_result')?.motivo, 'runtime.quota-exhausted');
         assert.equal(lerLedger(dir).find(e => e.tipo === 'session_sensor_registered')?.head, antes);
         assert.equal(headDe(p.dir) !== antes, commit);
