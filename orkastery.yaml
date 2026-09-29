@@ -54,7 +54,9 @@ ci:
   command: "npm --prefix core run test:ci"
 
 concurrency:
-  max_parallel_threads: 3
+  # 5 sessoes ao mesmo tempo (decisao do dono em 28/09/2026). A CPU fica protegida no kernel da
+  # maquina, fora do ork: teto de CPU para o usuario que roda os agentes e monitor que avisa acima de 95%.
+  max_parallel_threads: 5
 
 handoff:
   # gate de tokens (bloco B1): rotaciona a sessao acima destas ocupacoes de janela
