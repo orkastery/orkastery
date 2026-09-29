@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { Manifesto } from './types';
+import { configDeEmbedding } from './manifest';
 import {
   ColecaoDoOrk,
   ConsultaPorTag,
@@ -166,6 +167,61 @@ export interface DriverDeMemoria {
   submeterHandoff?(pedido: PedidoDeHandoff): ResultadoDeHandoff;
   recuperar?(colecao: string, id: string): EntradaDeMemoria | null;
   contagens?(): Record<string, number>;
+  /** I-38 (T2): vetores pela operacao `embed` da ponte. Unico caminho que leva a chave. */
+  embeddar?(pedido: PedidoDeEmbedding, opcoes?: { timeoutMs?: number }): RespostaDeEmbedding;
+}
+
+/** I-38 (D1, D4): pedido de embedding. `documento` indexa; `consulta` busca. */
+export interface PedidoDeEmbedding {
+  papel: 'consulta' | 'documento';
+  alvo: 'primario' | 'fallback';
+  modelo: string;
+  dim: number;
+  textos: string[];
+}
+
+export interface RespostaDeEmbedding {
+  alvo: 'primario' | 'fallback';
+  modelo: string;
+  dim: number;
+  vetores: number[][];
+}
+
+/** Limites da operacao `embed` (D10): lote e tamanho de texto, sem truncar em silencio. */
+export const EMBED_MAX_TEXTOS = 32;
+export const EMBED_MAX_CARACTERES = 24_000;
+const MODELO_DE_EMBEDDING = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Codigos tipados que a ponte pode devolver na operacao `embed`. */
+export const CODIGOS_DE_EMBEDDING: readonly string[] = [
+  'memory.embed.invalid', 'embeddings.chave-ausente', 'embeddings.provider-indisponivel', 'embeddings.timeout',
+  'embeddings.local-ausente', 'embeddings.dependencia-ausente', 'embeddings.dimensao-divergente',
+  'embeddings.conteudo-recusado',
+];
+
+/** Copia validada: o que vai a ponte e exatamente o que foi conferido aqui. */
+export function validarPedidoDeEmbedding(bruto: PedidoDeEmbedding): PedidoDeEmbedding {
+  const p = bruto as unknown as Record<string, unknown>;
+  if (!objetoDeConsulta(p) || Object.keys(p).some(k => !['papel', 'alvo', 'modelo', 'dim', 'textos'].includes(k)) ||
+      !['consulta', 'documento'].includes(p.papel as string) || !['primario', 'fallback'].includes(p.alvo as string) ||
+      typeof p.modelo !== 'string' || !MODELO_DE_EMBEDDING.test(p.modelo) ||
+      !Number.isInteger(p.dim) || Number(p.dim) < 32 || Number(p.dim) > 4096 ||
+      !Array.isArray(p.textos) || p.textos.length < 1 || p.textos.length > EMBED_MAX_TEXTOS ||
+      !p.textos.every(t => typeof t === 'string' && t.trim() !== '' && t.length <= EMBED_MAX_CARACTERES)) {
+    throw new Error('memory.embed.invalid');
+  }
+  return { papel: p.papel as PedidoDeEmbedding['papel'], alvo: p.alvo as PedidoDeEmbedding['alvo'],
+    modelo: p.modelo, dim: Number(p.dim), textos: [...(p.textos as string[])] };
+}
+
+/** Resposta da ponte conferida: um vetor finito por texto, todos na dimensao pedida. */
+export function conferirRespostaDeEmbedding(r: unknown, pedido: PedidoDeEmbedding): RespostaDeEmbedding {
+  const o = r as Record<string, unknown>;
+  if (!objetoDeConsulta(o) || o.alvo !== pedido.alvo || o.modelo !== pedido.modelo || o.dim !== pedido.dim ||
+      !Array.isArray(o.vetores)) throw new Error('memory.transport.embed');
+  if (o.vetores.length !== pedido.textos.length || !o.vetores.every(v => Array.isArray(v) && v.length === pedido.dim &&
+      v.every(x => typeof x === 'number' && Number.isFinite(x)))) throw new Error('embeddings.dimensao-divergente');
+  return { alvo: pedido.alvo, modelo: pedido.modelo, dim: pedido.dim, vetores: o.vetores as number[][] };
 }
 
 export const LIMITE_CONSULTA_PADRAO = 100;
@@ -274,6 +330,8 @@ export interface ConfigDoDriver {
   /** Valor da DSN lido do ambiente. Vazio quer dizer "nao ligue". */
   dsn: string;
   timeoutMs: number;
+  /** I-38 (D5): NOME da variavel com a chave de embedding; o valor e lido so na operacao `embed`. */
+  variavelDaChaveDeEmbedding?: string;
 }
 
 /**
@@ -307,9 +365,17 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     return match[2] ? [match[1], match[2]] : [match[1]];
   }
 
+  /** Valor da chave de embedding no ambiente do `ork`; nunca guardado no driver. */
+  private chaveDeEmbedding(): string {
+    const nome = this.config.variavelDaChaveDeEmbedding ?? '';
+    return nome ? (process.env[nome] ?? '').trim() : '';
+  }
+
   private contemSegredo(valor: unknown): boolean {
     const segredo = this.config.dsn;
     const proibidos = [segredo];
+    const chave = this.chaveDeEmbedding();
+    if (chave.length >= 12) proibidos.push(chave);
     try { const senha = new URL(segredo).password; if (senha.length >= 12) proibidos.push(senha, decodeURIComponent(senha)); } catch { /* DSN opaca */ }
     const examinar = (x: unknown): boolean => typeof x === 'string'
       ? proibidos.some(p => p && x.includes(p))
@@ -317,19 +383,24 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     return examinar(valor);
   }
 
-  private rodar(pedido: Record<string, unknown>): unknown {
+  private rodar(pedido: Record<string, unknown>, timeoutMs: number = this.config.timeoutMs): unknown {
     if (!this.config.dsn.trim()) throw new Error('dsn.env-ausente');
     if (this.contemSegredo(pedido)) throw new Error('memory.transport.secret: conteudo recusado');
     const [python, ...prefixo] = this.python();
     const ponte = [path.join(__dirname, '../assets/orkmind_bridge.py'),
       path.join(__dirname, '../../assets/orkmind_bridge.py')].find(p => fs.existsSync(p));
     if (!ponte) throw new Error('memory.transport.bridge: ponte ausente no pacote');
-    const env: NodeJS.ProcessEnv = { ORKMIND_DATABASE_URL: this.config.dsn, PYTHONDONTWRITEBYTECODE: '1' };
-    for (const nome of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'SYSTEMROOT']) {
+    // I-38 (D1): `embed` nao toca a base, entao nao recebe a DSN; a chave vai SO ao `embed` primario.
+    const embed = pedido.op === 'embed';
+    const env: NodeJS.ProcessEnv = embed ? { PYTHONDONTWRITEBYTECODE: '1' }
+      : { ORKMIND_DATABASE_URL: this.config.dsn, PYTHONDONTWRITEBYTECODE: '1' };
+    for (const nome of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'SYSTEMROOT', 'HF_HOME', 'HF_HUB_CACHE']) {
       if (process.env[nome]) env[nome] = process.env[nome];
     }
+    const chave = embed && pedido.alvo === 'primario' ? this.chaveDeEmbedding() : '';
+    if (chave) env.ORKMIND_EMBEDDING_API_KEY = chave;
     const r = spawnSync(python, [...prefixo, ponte], {
-      encoding: 'utf8', input: JSON.stringify(pedido), timeout: this.config.timeoutMs,
+      encoding: 'utf8', input: JSON.stringify(pedido), timeout: timeoutMs,
       maxBuffer: 32 * 1024 * 1024, env,
     });
     // Nunca reutilizar stdout, stderr, error.message ou causa de uma falha do filho.
@@ -341,7 +412,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     if (r.status !== 0) {
       let code = '';
       try { code = JSON.parse(r.stdout)?.error; } catch { /* nenhum detalhe do filho */ }
-      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation'].includes(code) ? code : 'memory.transport.failed');
+      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation', ...CODIGOS_DE_EMBEDDING].includes(code) ? code : 'memory.transport.failed');
     }
     let json: unknown;
     try { json = JSON.parse(r.stdout); } catch { throw new Error('memory.transport.json'); }
@@ -414,6 +485,12 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     return e;
   }
 
+  embeddar(pedido: PedidoDeEmbedding, opcoes: { timeoutMs?: number } = {}): RespostaDeEmbedding {
+    const p = validarPedidoDeEmbedding(pedido);
+    if (p.alvo === 'primario' && !this.chaveDeEmbedding()) throw new Error('embeddings.chave-ausente');
+    return conferirRespostaDeEmbedding(this.rodar({ op: 'embed', ...p }, opcoes.timeoutMs), p);
+  }
+
   submeterHandoff(pedido: PedidoDeHandoff): ResultadoDeHandoff {
     try {
       const r = this.rodar({ op: 'handoff', pedido }) as ResultadoDeHandoff;
@@ -425,6 +502,15 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     }
   }
 
+}
+
+/** Vetor do dublê: cada palavra soma 1 numa posicao por hash; normalizado. Deterministico. */
+export function vetorDeDuble(texto: string, dim: number): number[] {
+  const v = new Array<number>(dim).fill(0);
+  const palavras = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  for (const palavra of palavras) v[createHash('sha256').update(palavra).digest().readUInt32BE(0) % dim] += 1;
+  const norma = Math.hypot(...v);
+  return norma === 0 ? v.map((_, i) => (i === 0 ? 1 : 0)) : v.map(x => x / norma);
 }
 
 function tagsFixasDaDecisao(tags: Record<string, string[]>): Record<string, string[]> {
@@ -511,6 +597,10 @@ export class DriverEmMemoria implements DriverDeMemoria {
   private contador = 0;
   /** Quando false, o driver se declara indisponivel: e o teste de degradacao. */
   ligado = true;
+  /** I-38: quais alvos de embedding o dublê atende; o resto responde com o motivo tipado. */
+  embedding: { primario: boolean; fallback: boolean } = { primario: true, fallback: true };
+  /** Pedidos de embedding recebidos, para as assercoes de custo (chamadas ao provider). */
+  readonly pedidosDeEmbedding: PedidoDeEmbedding[] = [];
 
   constructor(entradas: EntradaDeMemoria[] = []) {
     for (const e of entradas) this.entradas.push(e);
@@ -625,6 +715,18 @@ export class DriverEmMemoria implements DriverDeMemoria {
       session_entry_id: sessao.id, package_entry_id: pacote.id, package_id: packageId, readback: true };
   }
 
+  /**
+   * Dublê declarado de embedding: saco de palavras com hash, sem semantica nenhuma. Serve para
+   * provar contrato (dimensao, tenant, idempotencia, custo) sem rede e sem modelo.
+   */
+  embeddar(pedido: PedidoDeEmbedding): RespostaDeEmbedding {
+    const p = validarPedidoDeEmbedding(pedido);
+    if (!this.ligado) throw new Error('memory.transport.unavailable');
+    if (!this.embedding[p.alvo]) throw new Error(p.alvo === 'primario' ? 'embeddings.chave-ausente' : 'embeddings.local-ausente');
+    this.pedidosDeEmbedding.push(p);
+    return { alvo: p.alvo, modelo: p.modelo, dim: p.dim, vetores: p.textos.map(t => vetorDeDuble(t, p.dim)) };
+  }
+
   /** So para os testes: injeta uma entrada que o `ork` nunca gravaria (humano, mandatory). */
   semear(entrada: EntradaDeMemoria): EntradaDeMemoria {
     this.entradas.push(entrada);
@@ -647,6 +749,7 @@ export function configDoManifesto(manifesto: Manifesto): ConfigDoDriver & { modo
     dsn: variavel ? (process.env[variavel] ?? '') : '',
     timeoutMs: manifesto.memory.timeout_ms || 15000,
     tenant: manifesto.memory.tenant || manifesto.project.name,
+    variavelDaChaveDeEmbedding: configDeEmbedding(manifesto).api_key_env,
   };
 }
 
