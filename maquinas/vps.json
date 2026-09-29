@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:49:36.159Z",
+  "publicadoEm": "2026-09-29T01:51:14.566Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -89,6 +89,20 @@
       "esperaVoce": true,
       "pergunta": "plano",
       "paradaDesde": "2026-09-29T00:35:39.661Z"
+    },
+    {
+      "id": "ork-openclawsema",
+      "nome": "OpenClaw sem as duas tools aposentadas de objective",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-043",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:51:11.811Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     }
   ]
 }

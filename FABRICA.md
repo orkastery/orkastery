@@ -5,11 +5,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-companybrai3 | #Auto | GOAL | RM-025 | — | 28/09 22:49 |
-| vps | ork-defeitosdeco | #Auto | GOAL | RM-037 | — | 28/09 22:49 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 28/09 22:49 |
-| vps | ork-hitlhumanono | #Auto | GOAL | RM-048 | — | 28/09 22:49 |
-| vps | ork-i31kg1contra | #Maestro | GO | — | — | 28/09 22:49 |
-| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 28/09 22:49 |
+| vps | ork-companybrai3 | #Auto | GOAL | RM-025 | — | 28/09 22:51 |
+| vps | ork-defeitosdeco | #Auto | GOAL | RM-037 | — | 28/09 22:51 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 28/09 22:51 |
+| vps | ork-hitlhumanono | #Auto | GOAL | RM-048 | — | 28/09 22:51 |
+| vps | ork-i31kg1contra | #Maestro | GO | — | — | 28/09 22:51 |
+| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 28/09 22:51 |
+| vps | ork-openclawsema | #Fast | GO | RM-043 | — | 28/09 22:51 |
 
 Horários de Brasília.
