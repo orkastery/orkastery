@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T00:45:01.587Z",
+  "publicadoEm": "2026-09-29T00:50:54.842Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -15,6 +15,20 @@
       "roadmap": null,
       "branch": "ork/ork-atualizarro2-full",
       "atualizadaEm": "2026-09-14T05:17:41.266Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-docsdossites",
+      "nome": "Docs dos sites de altissima qualidade: linguagem, diagramas, i18n PT EN ES, cobertura e tipografia",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-049",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T00:50:52.119Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
