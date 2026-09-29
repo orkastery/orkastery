@@ -19,9 +19,11 @@ const SRC = path.join(RAIZ, 'core/src');
 const MODULOS_KG1 = ['intelligence-graph-contract.ts', 'intelligence-benchmark-contract.ts'];
 /** Allowlist explicita do fechamento transitivo dos modulos KG1. */
 const EXTERNOS_PERMITIDOS = new Set(['zod', 'node:crypto']);
-/** Globais que dariam processo, rede, arquivo, relogio ou avaliacao dinamica a um modulo puro. */
+/** Globais que dariam processo, rede, arquivo, relogio, acaso ou avaliacao dinamica a um modulo puro. */
 const GLOBAIS_PROIBIDOS = ['process', 'require', 'fetch', 'eval', 'Function', 'globalThis', 'XMLHttpRequest', 'WebSocket',
-  'setTimeout', 'setInterval', 'setImmediate', 'performance', 'now'];
+  'setTimeout', 'setInterval', 'setImmediate', 'performance', 'now', 'random', 'randomUUID', 'randomBytes', 'getRandomValues'];
+/** De `node:crypto`, so o hash deterministico. */
+const DE_CRYPTO_PERMITIDOS = new Set(['createHash']);
 const TERMO_SEMANTICO = /embedding|vector|similar|sqlite|postgres|tree-?sitter|pdfjs|openai|anthropic|orkmind/i;
 /** D9: hashes do GOAL E2 e E4, congelados nesta entrega. */
 const CONGELADOS: [string, string][] = [
@@ -48,16 +50,24 @@ function fechamento(inicio: string): { locais: Set<string>; externos: Set<string
   return { locais, externos };
 }
 
-function simbolos(rel: string): { identificadores: Set<string>; literais: string[] } {
+function simbolos(rel: string): { identificadores: Set<string>; literais: string[]; relogio: number; deCrypto: string[] } {
   const fonte = ts.createSourceFile(rel, ler(rel), ts.ScriptTarget.ES2022, true);
-  const identificadores = new Set<string>(), literais: string[] = [];
+  const identificadores = new Set<string>(), literais: string[] = [], deCrypto: string[] = [];
+  let relogio = 0;
   const visitar = (n: ts.Node): void => {
     if (ts.isIdentifier(n)) identificadores.add(n.text);
     else if (ts.isStringLiteralLike(n)) literais.push(n.text);
+    // `new Date()` le o relogio; `Date.parse` de texto fornecido continua puro.
+    if (ts.isNewExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'Date') relogio++;
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.moduleSpecifier.text === 'node:crypto') {
+      const nomes = n.importClause?.namedBindings;
+      if (!nomes || !ts.isNamedImports(nomes) || n.importClause?.name) deCrypto.push('*');
+      else nomes.elements.forEach((e) => deCrypto.push((e.propertyName ?? e.name).text));
+    }
     ts.forEachChild(n, visitar);
   };
   visitar(fonte);
-  return { identificadores, literais };
+  return { identificadores, literais, relogio, deCrypto };
 }
 
 test('KG1 boundary: Company Brain v1, corpus C1 e schema nativo ficam byte a byte', () => {
@@ -85,11 +95,13 @@ test('KG1 boundary: modulos KG1 so dependem de zod e node:crypto, no fechamento 
   assert.deepEqual([...fechamento('intelligence-benchmark-contract.ts').locais].sort(), [...MODULOS_KG1].sort());
 });
 
-test('KG1 boundary: modulos KG1 nao tocam processo, rede, arquivo, relogio nem busca semantica', () => {
+test('KG1 boundary: modulos KG1 nao tocam processo, rede, arquivo, relogio, acaso nem busca semantica', () => {
   for (const modulo of MODULOS_KG1) {
-    const { identificadores, literais } = simbolos(modulo);
+    const { identificadores, literais, relogio, deCrypto } = simbolos(modulo);
     assert.ok(identificadores.size > 50, `${modulo}: parser leu o arquivo`);
     for (const g of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(g), `${modulo} usa ${g}`);
+    assert.equal(relogio, 0, `${modulo} le o relogio com new Date()`);
+    assert.ok(deCrypto.every((d) => DE_CRYPTO_PERMITIDOS.has(d)), `${modulo} importa de node:crypto: ${deCrypto}`);
     const semanticos = [...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t));
     assert.deepEqual(semanticos, [], modulo);
   }
