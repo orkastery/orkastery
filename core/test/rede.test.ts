@@ -11,7 +11,9 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { acharBinario, forjaPorNome, forjasDaMaquina, pastasDeBinarios, versaoDoBinario } from '../src/rede-forja';
-import { dirTemporario } from './apoio';
+import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
+import { exec } from '../src/util';
+import { dirTemporario, projetoTemporario } from './apoio';
 
 /** A forja e os runtimes falsos: um script so, que decide pelo nome com que foi chamado. */
 const SCRIPT_FALSO = `#!${process.execPath}
@@ -196,4 +198,79 @@ test('RM-053 forja: binario fora do PATH e achado nas pastas de usuario; versao 
     fs.writeFileSync(path.join(f.bin, 'lixo'), SCRIPT_FALSO, { mode: 0o755 });
     assert.equal(versaoDoBinario(path.join(f.bin, 'lixo'), f.amb), null);
   } finally { f.limpar(); }
+});
+
+/** Um diretorio com manifesto, que a rede reconhece como raiz de projeto. */
+function comManifesto(dir: string, nome = 'x'): string {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'orkastery.yaml'), `project:\n  name: ${nome}\n`);
+  return dir;
+}
+
+test('RM-053 projetos: o registro da RM-052 (raiz, remoto) e lido; remoto sai sem credencial', () => {
+  const d = dirTemporario('rede-projetos-registro');
+  try {
+    const a = comManifesto(path.join(d, 'a')), b = comManifesto(path.join(d, 'b'));
+    const arquivo = path.join(d, 'projetos.json');
+    fs.writeFileSync(arquivo, JSON.stringify({ contrato: 'ork.projetos/v1', atualizadoEm: '2026-09-29T20:00:00.000Z', projetos: [
+      { nome: 'orkastery', abbrev: 'ork', raiz: a, fonte: 'init', registradoEm: '2026-09-29T20:00:00.000Z', atualizadoEm: '2026-09-29T20:00:00.000Z',
+        remoto: 'https://x-access-token:ghp_FAKEtoken0123456789abcdefghij@github.com/orkastery/orkastery.git' },
+      { nome: 'sumido', abbrev: 's', raiz: path.join(d, 'nao-existe'), remoto: null },
+      { nome: 'nome com espaco', raiz: b },
+      { nome: 'relativo', raiz: 'b' },
+    ] }));
+    const r = projetosConhecidos({ arquivo });
+    assert.equal(r.registro.estado, 'lido');
+    assert.deepEqual(r.projetos.map((p) => [p.nome, p.remoto, p.fonte, p.presente]), [
+      ['orkastery', 'https://github.com/orkastery/orkastery.git', 'registro', true],
+      ['sumido', null, 'registro', false],
+    ]);
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 projetos: formas toleradas (mapa por nome, caminho, remotos) e registro de outra versao ou ilegivel ignorado', () => {
+  const d = dirTemporario('rede-projetos-formas');
+  try {
+    const alfa = comManifesto(path.join(d, 'alfa')), beta = comManifesto(path.join(d, 'beta'));
+    const arquivo = path.join(d, 'projetos.json');
+    fs.writeFileSync(arquivo, JSON.stringify({ projetos: {
+      alfa: { caminho: alfa, remotos: { origin: 'git@github.com:pessoa/alfa.git', up: 'https://h/up.git' } },
+      beta: { raiz: beta, remotos: [{ nome: 'up', url: 'https://u:p@h/up.git' }, { nome: 'origin', url: 'https://u:p@h/beta.git' }] },
+    } }));
+    assert.deepEqual(projetosConhecidos({ arquivo }).projetos.map((p) => [p.nome, p.remoto]),
+      [['alfa', 'git@github.com:pessoa/alfa.git'], ['beta', 'https://h/beta.git']]);
+    fs.writeFileSync(arquivo, JSON.stringify({ contrato: 'ork.projetos/v2', projetos: [{ nome: 'alfa', raiz: alfa }] }));
+    assert.deepEqual(projetosConhecidos({ arquivo }), { registro: { arquivo, estado: 'invalido', projetos: [] }, projetos: [] });
+    fs.writeFileSync(arquivo, '{ nao e json');
+    assert.equal(projetosConhecidos({ arquivo }).registro.estado, 'invalido');
+    assert.equal(projetosConhecidos({ arquivo: path.join(d, 'nada.json') }).registro.estado, 'ausente');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 projetos: sem registro, a reserva e o projeto do cwd e o ultimo retrato; a mesma raiz nao repete', () => {
+  const p = projetoTemporario('rede-projetos-cwd', true);
+  const outro = comManifesto(dirTemporario('rede-projetos-outro'));
+  try {
+    exec('git', ['remote', 'set-url', 'origin', 'https://pessoa:ghp_FAKEtoken0123456789abcdefghij@github.com/pessoa/produto.git'], p.dir);
+    const r = projetosConhecidos({ arquivo: path.join(p.dir, 'nao-existe.json'), diretorio: p.dir, anteriores: [
+      { nome: 'outro', remoto: 'https://h/outro.git', caminho: outro },
+      { nome: 'velho', remoto: null, caminho: '/caminho/que/nao/existe' },
+      { nome: 'orkastery', remoto: null, caminho: p.dir },
+    ] });
+    assert.equal(r.registro.estado, 'ausente');
+    assert.deepEqual(r.projetos.map((x) => [x.nome, x.fonte, x.remoto, x.caminho]), [
+      ['orkastery', 'cwd', 'https://github.com/pessoa/produto.git', p.dir],
+      ['outro', 'retrato', 'https://h/outro.git', outro],
+    ]);
+  } finally { p.limpar(); fs.rmSync(outro, { recursive: true, force: true }); }
+});
+
+test('RM-053 projetos: limparRemoto tira usuario e senha e recusa o que nao e remoto', () => {
+  assert.equal(limparRemoto('https://user:pass@host.com/a/b.git'), 'https://host.com/a/b.git');
+  assert.equal(limparRemoto('https://ghp_FAKEtoken0123456789abcdefghij@github.com/x/y'), 'https://github.com/x/y');
+  assert.equal(limparRemoto('ssh://git@host.com/a/b.git'), 'ssh://host.com/a/b.git');
+  assert.equal(limparRemoto('git@github.com:dono/repo.git'), 'git@github.com:dono/repo.git');
+  assert.equal(limparRemoto('/srv/git/repo.git'), '/srv/git/repo.git');
+  assert.equal(limparRemoto('texto qualquer'), null);
+  assert.equal(limparRemoto(42), null);
 });
