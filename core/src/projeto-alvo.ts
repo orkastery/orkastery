@@ -157,11 +157,26 @@ export function raizCanonica(raiz: string): string {
   try { return fs.realpathSync(raizDoEstado(real)); } catch { return real; }
 }
 
+/**
+ * A URL do remoto sem usuario nem senha: saem inteiros, nao so redigidos, como a RM-053 le o
+ * registro. A forma scp do git (`git@host:dono/repo.git`) e caminho local ficam como estao: o
+ * usuario de transporte nao e segredo. URL que nao se deixa ler cai na redacao de sempre.
+ */
+export function remotoSemCredencial(url: string): string {
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) return url;
+  try {
+    const u = new URL(url);
+    if (!u.username && !u.password) return url;
+    u.username = ''; u.password = '';
+    return u.toString();
+  } catch { return redigirCredenciaisUrl(url); }
+}
+
 /** URL do remoto, sem credencial. `null` quando o projeto nao tem aquele remoto. */
 export function remotoDoProjeto(raiz: string, remoto = 'origin'): string | null {
   const r = exec('git', ['remote', 'get-url', remoto], raiz, 5000);
   const url = r.ok ? r.stdout.trim() : '';
-  return url ? redigirCredenciaisUrl(url) : null;
+  return url ? remotoSemCredencial(url) : null;
 }
 
 /**

@@ -3463,6 +3463,13 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 /** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
+/**
+ * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
+ * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
+ * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
+ */
+export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
+
 /** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
 function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
@@ -3473,7 +3480,11 @@ function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
 export function main(argvBruto: string[]): number {
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
-  const { argv, projeto } = extrairOpcaoDeProjeto(argvBruto);
+  const extraida = extrairOpcaoDeProjeto(argvBruto);
+  const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
+  const argv = proprio && extraida.projeto !== undefined
+    ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
+  const projeto = proprio ? undefined : extraida.projeto;
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
@@ -3509,7 +3520,7 @@ export function main(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando)) fixarAlvoDoProcesso(projeto);
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
   else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'

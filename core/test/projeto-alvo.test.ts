@@ -16,7 +16,7 @@ import { exec } from '../src/util';
 import {
   CONTRATO_PROJETOS, ENV_PROJETO, ENV_PROJETO_EXPLICITO, ErroDeProjeto, caminhoDoRegistro, consultaDoProjeto,
   esquecerProjeto, fixarProjetoAlvo, linhasDaConsulta, listarProjetos, lerRegistroDeProjetos, raizParaExibir,
-  registrarProjeto, registrarProjetoEmSilencio, resolverProjetoAlvo,
+  registrarProjeto, registrarProjetoEmSilencio, remotoSemCredencial, resolverProjetoAlvo,
 } from '../src/projeto-alvo';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 
@@ -58,8 +58,7 @@ test('registro ork.projetos/v1: raiz canonica, remoto sem credencial, datas, 060
       assert.equal(primeiro.abbrev, 'alf');
       assert.equal(primeiro.raiz, fs.realpathSync(p.dir));
       assert.equal(primeiro.fonte, 'init');
-      assert.ok(primeiro.remoto && !primeiro.remoto.includes('ghp_'), `remoto redigido: ${primeiro.remoto}`);
-      assert.match(primeiro.remoto!, /github\.com\/exemplo\/alfa\.git$/);
+      assert.equal(primeiro.remoto, 'https://github.com/exemplo/alfa.git', 'usuario e senha saem inteiros, como a RM-053 le');
 
       const bruto = fs.readFileSync(caminhoDoRegistro(), 'utf8');
       assert.equal(JSON.parse(bruto).contrato, CONTRATO_PROJETOS);
@@ -219,4 +218,12 @@ test('trava do registro: trava de processo morto e retomada; trava de processo v
       assert.equal(registrarProjeto(p.dir, 'init').nome, 'delta');
     } finally { p.limpar(); }
   });
+});
+
+test('remoto sem credencial: userinfo sai inteiro; scp do git, caminho local e URL limpa ficam como estao', () => {
+  assert.equal(remotoSemCredencial('https://x-access-token:ghp_' + 'c'.repeat(36) + '@github.com/o/r.git'), 'https://github.com/o/r.git');
+  assert.equal(remotoSemCredencial('ssh://git:segredo@gitlab.com:2222/g/r.git'), 'ssh://gitlab.com:2222/g/r.git');
+  assert.equal(remotoSemCredencial('https://github.com/orkastery/orkastery.git'), 'https://github.com/orkastery/orkastery.git');
+  assert.equal(remotoSemCredencial('git@github.com:orkastery/orkastery.git'), 'git@github.com:orkastery/orkastery.git');
+  assert.equal(remotoSemCredencial('/srv/git/orkastery.git'), '/srv/git/orkastery.git');
 });
