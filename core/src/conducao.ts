@@ -310,12 +310,19 @@ export interface ConducaoTomada {
   converterEmSessao(dados: { sessionId: string; runtime: string; perfil: string | null; prazoMs: number }): void;
   liberar(): void;
   /**
-   * RM-037 (rm037defeito, A-1 do CHECK 3): o pedido recusado antes de virar sessao (sem vaga, sem baseline)
-   * devolve o lease que a tomada consumiu: a reserva do mesmo canal ou a sessao `blocked` sucedida. Sem
-   * isso a reserva do dono sumia, e a sessao bloqueada, se respondida, voltava a rodar sem lease. Sem lease
-   * consumido, e o mesmo que `liberar`.
+   * RM-037 (rm037defeito, A-1 do CHECK 3): toda saida que nao virou sessao (sem vaga, sem baseline, falha de
+   * contexto, de perfil ou do adapter, rate limit) devolve o lease que a tomada consumiu: a reserva do mesmo
+   * canal ou a sessao `blocked` sucedida. Sem isso a reserva do dono sumia, e a sessao bloqueada, se
+   * respondida, voltava a rodar sem lease. Sem lease consumido, e o mesmo que `liberar`.
    */
   devolver(): void;
+  /**
+   * RM-037 (R5-B1 do CHECK 5): a sucessao que a tomada fez ainda vale? A tomada retida para a baseline decide
+   * a sucessao da sessao `blocked` e so despacha a sucessora minutos depois, com o lock HITL livre no meio: o
+   * dono pode ter respondido a sessao antiga. Chamado sob o lock HITL, antes de tocar a worktree, pergunta ao
+   * runtime de novo. Sem sessao sucedida, vale.
+   */
+  sucessaoAindaVale(): boolean;
 }
 
 export interface ConducaoOcupada {
@@ -328,6 +335,8 @@ export interface ConducaoOcupada {
 export type TomadaDeConducao = ConducaoTomada | ConducaoOcupada;
 
 interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean; substituido?: Lease;
+  /** A consulta ao runtime do pedido que tomou (os testes injetam); sem ela, o controle nativo. */
+  consultarSessao?: ConsultaDeSessao;
   /** O descritor ja foi fechado: fechar de novo poderia fechar outro arquivo que reusou o numero. */
   encerrada?: boolean }
 
@@ -494,7 +503,9 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
   const propria = emCurso.get(k);
   if (propria && !propria.convertida) {
     propria.profundidade++;
-    return reentrada(propria.identidade, () => { propria.profundidade--; });
+    // R5-S2 do CHECK 5: a reentrada renova o lease de quem a segura (a baseline dentro da tomada retida).
+    return reentrada(propria.identidade, () => { propria.profundidade--; },
+      (prazo, agoraMs = Date.now()) => renovar(raiz, threadId, propria, prazo, agoraMs));
   }
   const existente = lerLease(raiz, nomeDaConducao(threadId));
   if (pedido.identidade && existente?.conducao?.identidade === pedido.identidade) {
@@ -530,7 +541,8 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       conducao: dadosDoPedido(pedido, identidade, donoProcesso()),
     };
     regravarLease(raiz, lease);
-    const estado: EmCurso = { identidade, profundidade: 0, lease, fd, convertida: false, ...(saida.substituido ? { substituido: saida.substituido } : {}) };
+    const estado: EmCurso = { identidade, profundidade: 0, lease, fd, convertida: false, ...(saida.substituido ? { substituido: saida.substituido } : {}),
+      ...(pedido.consultarSessao ? { consultarSessao: pedido.consultarSessao } : {}) };
     emCurso.set(k, estado);
     return {
       ok: true,
@@ -540,6 +552,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       converterEmSessao: (dados) => converter(raiz, k, estado, dados),
       liberar: () => liberarPropria(raiz, k, estado),
       devolver: () => devolverPropria(raiz, threadId, k, estado),
+      sucessaoAindaVale: () => sucessaoAindaVale(raiz, threadId, estado),
     };
   } catch (e) {
     try { fs.closeSync(fd); } catch { /* ja fechado */ }
@@ -547,19 +560,31 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
   }
 }
 
-function reentrada(identidade: string, sair: () => void): ConducaoTomada {
+function reentrada(identidade: string, sair: () => void,
+  renovarExterno: (prazoDoProximoMs: number, agoraMs?: number) => void = () => undefined): ConducaoTomada {
   let saiu = false;
   return {
     ok: true, reentrada: true, identidade,
-    renovar: () => undefined,
+    renovar: renovarExterno,
     converterEmSessao: () => undefined,
     liberar: () => { if (!saiu) { saiu = true; sair(); } },
     devolver: () => { if (!saiu) { saiu = true; sair(); } },
+    sucessaoAindaVale: () => true,
   };
 }
 
+/** Ver `ConducaoTomada.sucessaoAindaVale`. Sessao sucedida que voltou a trabalhar derruba a sucessao. */
+function sucessaoAindaVale(raiz: string, threadId: string, estado: EmCurso): boolean {
+  const dono = estado.substituido?.conducao?.dono;
+  if (!dono || dono.tipo !== 'sessao' || estado.convertida || estado.encerrada) return true;
+  const r = (estado.consultarSessao ?? consultaNativa)(dono, raiz, threadId);
+  // Sem resposta do runtime nao ha prova de que ela segue parada: a sucessao nao vale.
+  if (!r.ok) return false;
+  return r.estado === 'blocked' || (r.estado !== null && TERMINAIS.includes(r.estado));
+}
+
 function renovar(raiz: string, threadId: string, estado: EmCurso, prazoDoProximoMs: number, agoraMs: number): void {
-  if (estado.convertida) return;
+  if (estado.convertida || estado.encerrada) return;
   const falta = Date.parse(estado.lease.expiraEm) - agoraMs;
   if (falta >= prazoDoProximoMs + MARGEM_DO_PRAZO_MS) return;
   const c = estado.lease.conducao!;
@@ -575,7 +600,7 @@ function renovar(raiz: string, threadId: string, estado: EmCurso, prazoDoProximo
 
 function converter(raiz: string, k: string, estado: EmCurso,
   dados: { sessionId: string; runtime: string; perfil: string | null; prazoMs: number }): void {
-  if (estado.convertida) return;
+  if (estado.convertida || estado.encerrada) return;
   const c = estado.lease.conducao!;
   estado.lease = {
     ...estado.lease,

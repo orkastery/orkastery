@@ -713,11 +713,12 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
     const retida = r.retida;
     if (retida) {
       delete r.retida;
-      try { garantirBaselineDoDespacho(carregado, threadId, opcoes, retida.identidade); }
-      catch (e) { retida.devolver(); throw e; }
-      r = rodar(retida);
-      // A segunda passada converte a tomada em sessao ou a devolve; devolver de novo e inocuo.
-      retida.devolver();
+      // A segunda passada converte a tomada em sessao ou a devolve; devolver de novo e inocuo, e o `finally`
+      // cobre tambem a excecao (lock HITL ocupado, por exemplo: R5-A1 do CHECK 5).
+      try {
+        garantirBaselineDoDespacho(carregado, threadId, opcoes, retida.identidade);
+        r = rodar(retida);
+      } finally { retida.devolver(); }
     }
     const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
     if (!esperavel || !prazo || Date.now() >= prazo) return r;
@@ -881,6 +882,13 @@ function rodarFaseSobLock(
     const semVaga = vagaDoDespacho(carregado, thread.id);
     if (semVaga) return recusaPorVaga(semVaga);
   } else if (tomadaPrevia) {
+    // R5-B1 do CHECK 5: entre a sucessao da sessao blocked (1a passada) e aqui, a suite rodou com o lock HITL
+    // livre. Sob o lock de novo, o runtime confirma que a sucedida continua parada; se o dono a respondeu,
+    // ela recebe o lease de volta e este pedido espera a vez.
+    if (!tomadaPrevia.sucessaoAindaVale()) {
+      tomadaPrevia.devolver();
+      return ocupadaPor({ ok: false, idempotente: false, atual: conducaoDaThread(raiz, thread.id) }, true);
+    }
     conducao = tomadaPrevia;
   } else {
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);

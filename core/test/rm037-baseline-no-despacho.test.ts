@@ -267,3 +267,42 @@ test('defeito 1 (S-1): a repeticao depois da baseline nao duplica os avisos de p
     assert.equal(avisos.length, 1);
   } finally { encerrar(dir); f.restaurar(); p.limpar(); }
 });
+
+// CHECK 5 (R5-B1, R5-A1).
+
+test('defeito 1 (R5-B1): o dono responde a sessao blocked durante a baseline e a sucessora nao sai', () => {
+  const { p, f } = projetoCodex('rm037-baseline-respondida');
+  const claude = runtimeFalso('rm037-baseline-respondida');
+  try {
+    const t = novaThread(p.carregado, { nome: 'respondida', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const s1 = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(s1.verificada, true, s1.erro);
+    claude.estadoDaSessao('blocked');
+    // A suite roda com o lock HITL livre: no meio dela, o dono responde e a S1 volta a trabalhar.
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require('fs').writeFileSync(${JSON.stringify(path.join(claude.dir, 'state'))}, 'running')`)}`;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sucessora SIMULADA FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.erro);
+    const eventos = lerLedger(dir);
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex'), false, 'nenhuma segunda sessao na worktree');
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), true);
+    const depois = conducaoDaThread(p.dir, t.id);
+    assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', s1.sessionId], 'a S1 respondida segue com o lease');
+  } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (R5-A1): lock HITL ocupado na repeticao nao perde a reserva do dono', () => {
+  const { p, f } = projetoCodex('rm037-baseline-lock');
+  try {
+    const t = novaThread(p.carregado, { nome: 'lock', modo: 'auto' }).thread;
+    assert.equal(assumirConducao(p.dir, t.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
+    // Durante a suite, outro processo toma o lock HITL (o pulse, uma resposta) e o segura por 3 s.
+    const lock = path.join(dirThread(p.dir, t.id), '.hitl.lock');
+    // `setsid`: o executor do verify encerra o grupo de processos do comando ao fim dele.
+    p.carregado.manifesto.verify.test = `sh -c ${JSON.stringify(`setsid flock -x ${lock} sleep 3 < /dev/null > /dev/null 2>&1 & sleep 0.5`)}`;
+    assert.throws(() => rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' }),
+      /HITL ocupado/);
+    assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
+    const espera = Date.now() + 4000; while (Date.now() < espera) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+  } finally { f.restaurar(); p.limpar(); }
+});

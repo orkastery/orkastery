@@ -633,6 +633,13 @@ function redespacharSobLock(
     identidade: identidade.dispatchId, prazoMs: prazoDaSessao(doBlocoDaConducao) };
   let conducao: ConducaoTomada | null = null;
   if (tomadaPrevia) {
+    // R5-B1 do CHECK 5: a sucedida que o dono respondeu durante a baseline recebe o lease de volta.
+    if (!tomadaPrevia.sucessaoAindaVale()) {
+      tomadaPrevia.devolver();
+      const recusa = recusaDeConducao(thread.id, conducaoDaThread(raiz, thread.id), pedidoDeConducao);
+      registrarRecusa(raiz, recusa);
+      return { ...vazio, ok: false, motivo: 'conducao.em-andamento', detalhe: recusa.texto, dryRun: false };
+    }
     conducao = tomadaPrevia;
   } else if (!opcoes.dryRun) {
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);
@@ -793,8 +800,8 @@ function redespacharSobLock(
       dryRun: false,
     };
   } finally {
-    // Retomada que nao virou sessao devolve a conducao; a que virou ja a entregou a sessao.
-    // Retomada que nao virou sessao devolve o que a tomada consumiu; a que virou, devolver nao faz nada.
+    // Retomada que nao virou sessao devolve a conducao, com o que a tomada consumiu; a que virou ja a
+    // entregou a sessao, e devolver entao nao faz nada.
     conducao?.devolver();
   }
 }
