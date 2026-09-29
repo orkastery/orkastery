@@ -142,7 +142,7 @@ import {
   textoDoEstado,
   textoDoSync,
 } from './memoria';
-import { COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
 import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
 import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
@@ -3357,7 +3357,7 @@ function comandoMemory(args: Args): number {
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
-      chavePresente: !!config.api_key_env && (process.env[config.api_key_env] ?? '').trim() !== '',
+      chavePresente: !!config.api_key_env && chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
       embeddar: (p, o) => embedder.embeddar(p, o) }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(modelo === 'todos' ? { alvo: 'todos', resultados } : resultados[0], null, 2));
@@ -3434,6 +3434,7 @@ function textoDoIndice(r: ResultadoDoIndice): string {
     `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
     `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
     `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
+    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
     `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
     ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
     ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),

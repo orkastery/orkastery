@@ -15,6 +15,7 @@ import { exec, subirAte } from './util';
 import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
+import { MODELO_DE_EMBEDDING } from './orkmind';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -112,7 +113,6 @@ export const EMBEDDING_PADRAO: Readonly<ConfigDeEmbedding> = Object.freeze({
   provider: 'none', model: '', dim: 1024, api_key_env: '', fallback_model: '', max_tokens_por_execucao: 1_000_000,
 });
 
-const MODELO_HF = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const CHAVES_DE_EMBEDDING = ['provider', 'model', 'dim', 'api_key_env', 'fallback_model', 'max_tokens_por_execucao'];
 
 /**
@@ -120,6 +120,12 @@ const CHAVES_DE_EMBEDDING = ['provider', 'model', 'dim', 'api_key_env', 'fallbac
  * cara de chave ou DSN reprova o manifesto, e nome da lista de provider pago tambem, porque a
  * entrada do `ork` apagaria a variavel sob `subscription-only` e o preflight reprovaria o codex.
  */
+/** Valor que parece segredo (URL, prefixo de chave, sequencia longa) nunca e repetido num erro. */
+function exibir(v: ValorYaml): string {
+  const t = typeof v === 'string' ? v : JSON.stringify(v);
+  return /:\/\/|\bsk-|[A-Za-z0-9_-]{32,}/.test(t) ? '(valor omitido: parece segredo)' : JSON.stringify(v);
+}
+
 function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]): ConfigDeEmbedding | undefined {
   if (bruto === undefined || bruto === null) return undefined;
   if (typeof bruto !== 'object' || Array.isArray(bruto)) {
@@ -134,7 +140,7 @@ function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]):
   }
   const provider = texto(e.provider, EMBEDDING_PADRAO.provider).trim();
   if (provider !== 'none' && provider !== 'openrouter') {
-    erros.push(`memory.embedding.provider invalido: "${provider}" (aceitos: none, openrouter)`);
+    erros.push(`memory.embedding.provider invalido: ${exibir(provider)} (aceitos: none, openrouter)`);
   }
   const model = texto(e.model, '').trim();
   const apiKeyEnv = texto(e.api_key_env, '').trim();
@@ -143,7 +149,7 @@ function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]):
     if (v === undefined || v === null) return padrao;
     const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
     if (!Number.isInteger(n) || n < min || n > max) {
-      erros.push(`memory.embedding.${chave} precisa ser inteiro entre ${min} e ${max} (recebido ${JSON.stringify(v)})`);
+      erros.push(`memory.embedding.${chave} precisa ser inteiro entre ${min} e ${max} (recebido ${exibir(v)})`);
       return padrao;
     }
     return n;
@@ -160,11 +166,11 @@ function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]):
     erros.push('memory.embedding.api_key_env nao pode repetir memory.database_url_env: a DSN nunca vai ao provider');
   }
   if (provider === 'openrouter') {
-    if (!MODELO_HF.test(model)) erros.push(`memory.embedding.model invalido: "${model}" (esperado org/nome, por exemplo qwen/qwen3-embedding-8b)`);
+    if (!MODELO_DE_EMBEDDING.test(model)) erros.push(`memory.embedding.model invalido: ${exibir(model)} (esperado org/nome, por exemplo qwen/qwen3-embedding-8b)`);
     if (apiKeyEnv === '') erros.push('memory.embedding.api_key_env e obrigatorio com provider openrouter (o NOME da variavel com a chave dedicada)');
   }
-  if (fallback !== '' && !MODELO_HF.test(fallback)) {
-    erros.push(`memory.embedding.fallback_model invalido: "${fallback}" (esperado org/nome de um modelo do Hugging Face)`);
+  if (fallback !== '' && !MODELO_DE_EMBEDDING.test(fallback)) {
+    erros.push(`memory.embedding.fallback_model invalido: ${exibir(fallback)} (esperado org/nome de um modelo do Hugging Face)`);
   }
   return { provider: provider === 'openrouter' ? 'openrouter' : 'none', model, dim, api_key_env: apiKeyEnv,
     fallback_model: fallback, max_tokens_por_execucao: teto };

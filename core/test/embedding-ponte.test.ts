@@ -170,12 +170,15 @@ q = {'op': 'query', 'collection': 'handoff', 'tags': {'project': ['fabrica'], 's
 e = MemoryEntry(id='propria', collection='handoff', content='Contexto', tags=q['tags'])
 class Store:
     async def search_by_tags(self, *a, **k): return [e]
+    async def search_by_text(self, *a, **k): return [e]
     async def count(self, c=None): return 1
     async def list_collections(self): return ['handoff']
 async def run():
     assert (await b.execute({'op': 'stats'}, Store())) == {'handoff': 1}
     assert (await b.execute(q, Store()))[0]['id'] == 'propria'
     assert (await b.execute({'op': 'export', 'collection': 'handoff'}, Store()))[0]['id'] == 'propria'
+    assert (await b.execute({'op': 'health'}, Store()))['contagens'] == {'handoff': 1}
+    assert (await b.execute({'op': 'fts', 'tenant': 'fabrica', 'texto': 'contexto'}, Store())) == {'ids': ['propria']}
     assert 'ORKMIND_DATABASE_URL' not in os.environ
     try:
         await b.main(pedido())
@@ -208,4 +211,35 @@ async def run():
 asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'u'.repeat(24)].join('-') });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /prefixo ok/);
+});
+
+test('fallback declara em truncados o texto acima do contexto do modelo local, nunca em silencio', () => {
+  const r = rodarPython(String.raw`
+import torch
+class Tok:
+    def __call__(self, textos, truncation=False, padding=False, max_length=None, return_tensors=None):
+        ids = [[1] * len(t.split()) for t in textos]
+        if not truncation:
+            return {'input_ids': ids}
+        n = min(max(len(i) for i in ids), max_length)
+        return {'input_ids': torch.ones(len(textos), n, dtype=torch.long), 'attention_mask': torch.ones(len(textos), n, dtype=torch.long)}
+class Saida:
+    def __init__(self, h): self.last_hidden_state = h
+class Modelo:
+    def __call__(self, input_ids=None, attention_mask=None): return Saida(torch.ones(input_ids.shape[0], input_ids.shape[1], 48))
+local = object.__new__(b.LocalEmbeddingProvider)
+local._torch, local._pooling, local._tokenizer, local._model, local._dim, local._max, local.truncados = torch, 'mean', Tok(), Modelo(), 48, 4, []
+async def run():
+    vetores = await local.embed_batch(['curto', 'um dois tres quatro cinco seis', 'tres palavras aqui'])
+    assert local.truncados == [1], local.truncados
+    assert len(vetores) == 3 and all(len(v) == 48 for v in vetores)
+    b.LocalEmbeddingProvider = lambda modelo: local
+    out = await b.embed(pedido(alvo='fallback', modelo='org/local', dim=48, textos=['um dois tres quatro cinco', 'ok']))
+    assert out['truncados'] == [0], out['truncados']
+    prov.OpenRouterEmbeddingProvider = Falso
+    assert (await b.embed(pedido(dim=48)))['truncados'] == []
+    print('truncamento ok')
+asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 't'.repeat(24)].join('-') });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /truncamento ok/);
 });

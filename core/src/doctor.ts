@@ -11,7 +11,7 @@ import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
 import { MODOS } from './modos';
-import { resolverRegime } from './orkmind';
+import { chaveDeEmbeddingAceita, resolverRegime } from './orkmind';
 import { ETAPAS_ONBOARDING, lerOnboarding } from './onboarding';
 import { ManifestoCarregado } from './manifest';
 import { lerFilaDeRetomada } from './ratelimit';
@@ -80,7 +80,6 @@ function versaoNode(): number {
   return Number(process.versions.node.split('.')[0]);
 }
 
-/** Checks locais; ler a entrevista não abre driver, banco, runtime ou rede. */
 /**
  * I-38 (T7): a chave de embedding aparece pelo NOME, nunca pelo valor. Ausente e aviso (a busca
  * cai para o fallback local ou para FTS e o regime segue); nome de provider pago e falha, porque a
@@ -99,13 +98,20 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
     return { nome, nivel: 'fail', detalhe: `memory.embedding com provider ${config.provider} sem api_key_env`,
       correcao: 'declare em memory.embedding.api_key_env o NOME da variavel com a chave dedicada' };
   }
-  if ((env[variavel] ?? '').trim() !== '') {
+  const valor = (env[variavel] ?? '').trim();
+  const dsn = carregado.manifesto.memory.database_url_env ? (env[carregado.manifesto.memory.database_url_env] ?? '') : '';
+  if (valor !== '' && !chaveDeEmbeddingAceita(valor, dsn)) {
+    return { nome, nivel: 'fail', detalhe: `${variavel} tem valor recusado: parece URL, DSN ou texto com espaco (valor nunca impresso)`,
+      correcao: `confira se ${variavel} guarda a chave dedicada, e nao outra credencial` };
+  }
+  if (valor !== '') {
     return { nome, nivel: 'ok', detalhe: `${variavel} presente no ambiente (valor nunca impresso); ${config.provider} ${config.model}` };
   }
   return { nome, nivel: 'warn', detalhe: `${variavel} ausente do ambiente: a busca por significado usa o fallback local ou cai para FTS; o regime nao muda`,
     correcao: `exporte ${variavel} com a chave dedicada ao Orkastery (com limite de credito no painel do provider)` };
 }
 
+/** Checks locais; ler a entrevista não abre driver, banco, runtime ou rede. */
 export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   const estado = lerOnboarding(carregado.raiz);
   const pendentes = ETAPAS_ONBOARDING.filter(e => estado.etapas[e] === null);

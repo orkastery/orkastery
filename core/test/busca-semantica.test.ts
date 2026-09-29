@@ -29,7 +29,7 @@ const TEMAS: Record<string, number> = {
 function conceitual(p: PedidoDeEmbedding): RespostaDeEmbedding {
   return { alvo: p.alvo, modelo: p.modelo, dim: p.dim, vetores: p.textos.map(t => {
     const v = new Array<number>(p.dim).fill(0);
-    for (const w of t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').match(/[a-z0-9]+/g) ?? []) {
+    for (const w of t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) ?? []) {
       if (w in TEMAS) v[TEMAS[w]] += 1;
     }
     const n = Math.hypot(...v);

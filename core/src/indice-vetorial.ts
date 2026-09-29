@@ -17,7 +17,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
-import { COLECOES_DO_ORK, EMBED_MAX_CARACTERES, PedidoDeEmbedding, RespostaDeEmbedding } from './orkmind';
+import { COLECOES_DO_ORK, EMBED_MAX_CARACTERES, MODELO_DE_EMBEDDING, PedidoDeEmbedding, RespostaDeEmbedding } from './orkmind';
 import { procurarSegredos } from './policies';
 import { ColecaoDoOrk, ConfigDeEmbedding, ConsultaPorTag, EntradaDeMemoria, MotivoDeEmbeddings } from './types';
 
@@ -78,6 +78,8 @@ export interface ResultadoDoIndice {
   removidos: number;
   recusados: number;
   foraDoLimite: number;
+  /** Textos acima do contexto do modelo local, embedados pelo comeco (so no fallback). */
+  truncados: number;
   tokensEstimados: number;
   custoEstimadoUsd: number | null;
   chamadasAoProvider: number;
@@ -196,7 +198,7 @@ export function tokensEstimados(conteudo: string): number {
  * null quando o modelo nao esta no cache (a busca cai para FTS com `embeddings.local-ausente`).
  */
 export function dimDoModeloLocal(modelo: string, env: NodeJS.ProcessEnv = process.env): number | null {
-  if (!modelo || !/^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/.test(modelo)) return null;
+  if (!modelo || !MODELO_DE_EMBEDDING.test(modelo)) return null;
   const hub = env.HF_HUB_CACHE || path.join(env.HF_HOME || path.join(env.HOME || os.homedir(), '.cache', 'huggingface'), 'hub');
   const repo = path.join(hub, `models--${modelo.replace('/', '--')}`);
   try {
@@ -212,6 +214,7 @@ export function codigoDeEmbedding(erro: unknown): MotivoDeEmbeddings {
   const m = erro instanceof Error ? erro.message : '';
   const tipado = /^embeddings\.[a-z-]+/.exec(m)?.[0];
   if (m === 'memory.transport.timeout') return 'embeddings.timeout';
+  if (m.startsWith('memory.transport.secret')) return 'embeddings.conteudo-recusado';
   return (tipado as MotivoDeEmbeddings | undefined) ?? 'embeddings.provider-indisponivel';
 }
 
@@ -254,7 +257,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   const indexaveis = universo.filter(e => e.content.length <= EMBED_MAX_CARACTERES && !conteudoRecusado(e.content) && e.content.trim());
   const base: ResultadoDoIndice = { alvo: o.alvo, modelo: null, dim: null, arquivo: null, dryRun: o.dryRun,
     universo: universo.length, coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
-    foraDoLimite: foraDoLimite.length, tokensEstimados: 0, custoEstimadoUsd: 0, chamadasAoProvider: 0, motivo: null, detalhe: '' };
+    foraDoLimite: foraDoLimite.length, truncados: 0, tokensEstimados: 0, custoEstimadoUsd: 0, chamadasAoProvider: 0, motivo: null, detalhe: '' };
   if ('motivo' in espaco) {
     const tokens = indexaveis.reduce((t, e) => t + tokensEstimados(e.content), 0);
     return { ...base, tokensEstimados: tokens, motivo: espaco.motivo, detalhe: espaco.detalhe };
@@ -295,6 +298,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
         indice.entradas[e.id] = { colecao: e.collection, sha256: sha256DoConteudo(e.content), vetor: codificarVetor(resposta.vetores[j]) };
         r.embedados += 1;
       });
+      r.truncados += resposta.truncados?.length ?? 0;
     } catch (erro) {
       motivo = codigoDeEmbedding(erro);
     }

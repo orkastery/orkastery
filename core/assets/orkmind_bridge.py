@@ -292,6 +292,8 @@ class LocalEmbeddingProvider:
         self._dim = int(self._model.config.hidden_size)
         self._max = min(int(getattr(self._tokenizer, 'model_max_length', LOCAL_MAX_TOKENS) or LOCAL_MAX_TOKENS),
                         LOCAL_MAX_TOKENS)
+        # Texto acima do contexto do modelo local e embedado pelo comeco e DECLARADO (nunca em silencio).
+        self.truncados = []
 
     @property
     def dim(self):
@@ -302,6 +304,8 @@ class LocalEmbeddingProvider:
 
     async def embed_batch(self, texts):
         torch = self._torch
+        self.truncados = [i for i, ids in enumerate(self._tokenizer(texts, truncation=False)['input_ids'])
+                          if len(ids) > self._max]
         lote = self._tokenizer(texts, padding=True, truncation=True, max_length=self._max, return_tensors='pt')
         with torch.inference_mode():
             saida = self._model(**lote).last_hidden_state
@@ -323,16 +327,19 @@ async def embed(request):
         raise QueryError('embeddings.conteudo-recusado')
     prefixo = model_prefix(request['modelo'], request['papel'])
     entrada = [prefixo + t for t in textos]
+    truncados = []
     if request['alvo'] == 'primario':
         vetores = await embed_primary(request['modelo'], request['dim'], entrada)
     else:
-        vetores = await LocalEmbeddingProvider(request['modelo']).embed_batch(entrada)
+        local = LocalEmbeddingProvider(request['modelo'])
+        vetores = await local.embed_batch(entrada)
+        truncados = list(local.truncados)
     # A biblioteca nao confere a dimensao devolvida (D8): a ponte confere vetor a vetor.
     if (not isinstance(vetores, list) or len(vetores) != len(textos)
             or any(not isinstance(v, list) or len(v) != request['dim']
                    or not all(isinstance(x, float) and math.isfinite(x) for x in v) for v in vetores)):
         raise QueryError('embeddings.dimensao-divergente')
-    return {'alvo': request['alvo'], 'modelo': request['modelo'], 'dim': request['dim'],
+    return {'alvo': request['alvo'], 'modelo': request['modelo'], 'dim': request['dim'], 'truncados': truncados,
             'vetores': [[round(x, 7) for x in v] for v in vetores]}
 
 
@@ -345,11 +352,17 @@ async def health(store):
     """Sonda barata (I-38 T4): contagens, versao da biblioteca e dependencias do fallback, sem rede nem torch."""
     import importlib.metadata
     import importlib.util
+    # Versao e dependencias sao informacao, nao saude: falha nelas nunca derruba o regime.
     try:
         versao = importlib.metadata.version('orkmind')
-    except importlib.metadata.PackageNotFoundError:
+    except Exception:
         versao = None
-    dependencias = all(importlib.util.find_spec(m) is not None for m in ('torch', 'transformers', 'huggingface_hub'))
+    def presente(modulo):
+        try:
+            return importlib.util.find_spec(modulo) is not None
+        except Exception:
+            return False
+    dependencias = all(presente(m) for m in ('torch', 'transformers', 'huggingface_hub'))
     return {'contagens': {c: await store.count(c) for c in await store.list_collections()},
             'orkmind': versao, 'fallback': {'dependencias': dependencias}}
 

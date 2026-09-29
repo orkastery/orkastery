@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
 import { DriverEmMemoria, filtrarPorTags } from '../src/orkmind';
 import {
-  arquivoDoIndice, dimDoModeloLocal, FonteDeMemoria, impressaoDaBase, indexar, lerIndice, OpcoesDoIndice,
+  arquivoDoIndice, codigoDeEmbedding, dimDoModeloLocal, FonteDeMemoria, impressaoDaBase, indexar, lerIndice, OpcoesDoIndice,
   PRECO_USD_POR_TOKEN, universoDoTenant,
 } from '../src/indice-vetorial';
 import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria } from '../src/types';
@@ -213,6 +213,17 @@ test('fallback le a dimensao nativa do cache local e responde local-ausente sem 
     assert.equal(r.custoEstimadoUsd, 0, 'o fallback local nao cobra');
     assert.ok(c.driver.pedidosDeEmbedding.every(p => p.alvo === 'fallback' && p.dim === 48));
   } finally { c.limpar(); fs.rmSync(cache, { recursive: true, force: true }); }
+});
+
+test('truncados do modelo local sao somados e recusa por segredo no transporte vira conteudo-recusado', () => {
+  const c = cenario(BASICO());
+  try {
+    const r = indexar(c.opcoes({ embeddar: p => ({ ...c.driver.embeddar(p), truncados: [0, 2] }) }));
+    assert.equal(r.truncados, 2);
+    assert.equal(codigoDeEmbedding(new Error('memory.transport.secret: conteudo recusado')), 'embeddings.conteudo-recusado');
+    assert.equal(codigoDeEmbedding(new Error('memory.transport.timeout')), 'embeddings.timeout');
+    assert.equal(codigoDeEmbedding(new Error('qualquer outra coisa')), 'embeddings.provider-indisponivel');
+  } finally { c.limpar(); }
 });
 
 // ---------------------------------------------------------------------------

@@ -315,3 +315,14 @@ print('ponte fts: tenant obrigatorio, colecoes do ork, ordem e corte comprovados
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /ponte fts:/);
 });
+
+test('valor recusado na variavel da chave (URL ou a propria DSN) nunca vai ao filho', () => {
+  const f = fixture(`console.log(JSON.stringify({alvo:'primario',modelo:'org/m',dim:32,vetores:[Array(32).fill(1)]}))`, 3000, 'TEST_EMBEDDING_KEY_RECUSADA');
+  const pedido = { papel: 'consulta' as const, alvo: 'primario' as const, modelo: 'org/m', dim: 32, textos: ['texto'] };
+  try {
+    for (const valor of ['https://outra.local/segredo-de-teste', sentinel, 'duas partes']) {
+      process.env.TEST_EMBEDDING_KEY_RECUSADA = valor;
+      assert.throws(() => f.driver.embeddar(pedido), e => e instanceof Error && e.message === 'embeddings.chave-ausente');
+    }
+  } finally { delete process.env.TEST_EMBEDDING_KEY_RECUSADA; f.limpar(); }
+});

@@ -148,12 +148,6 @@ export function casaTags(entrada: EntradaDeMemoria, consulta: Record<string, str
   return todasCasaram || (entrada.mandatory && algumaCasou);
 }
 
-/**
- * O transporte ate o OrkMind.
- *
- * A interface existe para que o nucleo nao saiba se a memoria e um subprocess Python, uma
- * API HTTP ou um dublê de teste. Ela e o unico ponto que conhece o OrkMind de verdade.
- */
 /** I-38 (T4): o que a operacao `health` da ponte observou. */
 export interface SaudeDaPonte {
   contagens: Record<string, number>;
@@ -163,6 +157,12 @@ export interface SaudeDaPonte {
   fallback: { dependencias: boolean };
 }
 
+/**
+ * O transporte ate o OrkMind.
+ *
+ * A interface existe para que o nucleo nao saiba se a memoria e um subprocess Python, uma
+ * API HTTP ou um dublê de teste. Ela e o unico ponto que conhece o OrkMind de verdade.
+ */
 export interface DriverDeMemoria {
   nome: string;
   /** Health check barato. `ok: false` degrada o regime para `files`, com detalhe. */
@@ -200,12 +200,23 @@ export interface RespostaDeEmbedding {
   modelo: string;
   dim: number;
   vetores: number[][];
+  /** Indices dos textos acima do contexto do modelo local, embedados pelo comeco (declarado). */
+  truncados?: number[];
 }
 
 /** Limites da operacao `embed` (D10): lote e tamanho de texto, sem truncar em silencio. */
 export const EMBED_MAX_TEXTOS = 32;
 export const EMBED_MAX_CARACTERES = 24_000;
-const MODELO_DE_EMBEDDING = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** Domicilio unico do formato `org/nome` de modelo de embedding (primario e fallback). */
+export const MODELO_DE_EMBEDDING = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/**
+ * O valor lido da variavel declarada so vale como chave se nao parecer outra coisa: URL, DSN,
+ * texto com espaco ou a propria DSN da memoria nunca vao ao provider (nome trocado por engano).
+ */
+export function chaveDeEmbeddingAceita(valor: string, dsn: string): boolean {
+  return valor !== '' && !/\s/.test(valor) && !valor.includes('://') && valor !== dsn.trim();
+}
 
 /** Codigos tipados que a ponte pode devolver na operacao `embed`. */
 export const CODIGOS_DE_EMBEDDING: readonly string[] = [
@@ -236,7 +247,11 @@ export function conferirRespostaDeEmbedding(r: unknown, pedido: PedidoDeEmbeddin
       !Array.isArray(o.vetores)) throw new Error('memory.transport.embed');
   if (o.vetores.length !== pedido.textos.length || !o.vetores.every(v => Array.isArray(v) && v.length === pedido.dim &&
       v.every(x => typeof x === 'number' && Number.isFinite(x)))) throw new Error('embeddings.dimensao-divergente');
-  return { alvo: pedido.alvo, modelo: pedido.modelo, dim: pedido.dim, vetores: o.vetores as number[][] };
+  const truncados = o.truncados === undefined ? [] : o.truncados;
+  if (!Array.isArray(truncados) || !truncados.every(i => Number.isInteger(i) && i >= 0 && i < pedido.textos.length)) {
+    throw new Error('memory.transport.embed');
+  }
+  return { alvo: pedido.alvo, modelo: pedido.modelo, dim: pedido.dim, vetores: o.vetores as number[][], truncados: truncados as number[] };
 }
 
 export const LIMITE_CONSULTA_PADRAO = 100;
@@ -383,13 +398,15 @@ export class DriverCliOrkMind implements DriverDeMemoria {
   /** Valor da chave de embedding no ambiente do `ork`; nunca guardado no driver. */
   private chaveDeEmbedding(): string {
     const nome = this.config.variavelDaChaveDeEmbedding ?? '';
-    return nome ? (process.env[nome] ?? '').trim() : '';
+    const valor = nome ? (process.env[nome] ?? '').trim() : '';
+    return chaveDeEmbeddingAceita(valor, this.config.dsn) ? valor : '';
   }
 
   private contemSegredo(valor: unknown): boolean {
     const segredo = this.config.dsn;
     const proibidos = [segredo];
-    const chave = this.chaveDeEmbedding();
+    const nome = this.config.variavelDaChaveDeEmbedding ?? '';
+    const chave = nome ? (process.env[nome] ?? '').trim() : '';
     if (chave.length >= 12) proibidos.push(chave);
     try { const senha = new URL(segredo).password; if (senha.length >= 12) proibidos.push(senha, decodeURIComponent(senha)); } catch { /* DSN opaca */ }
     const examinar = (x: unknown): boolean => typeof x === 'string'

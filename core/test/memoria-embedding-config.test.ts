@@ -91,6 +91,17 @@ test('provider desconhecido, dim fora da faixa e chave literal reprovam o manife
   assert.ok(carregar(COMPLETO.replace('    api_key_env: "EXEMPLO_EMBEDDING_API_KEY"\n', '')).erros.some(e => e.includes('obrigatorio com provider openrouter')));
 });
 
+test('erro do bloco nunca repete valor com cara de segredo colado no campo errado', () => {
+  const chave = ['sk', 'or', 'v1', 'e'.repeat(40)].join('-');
+  for (const campo of [['"openrouter"', JSON.stringify(chave)], ['"qwen/qwen3-embedding-8b"', JSON.stringify(chave)],
+    ['"intfloat/multilingual-e5-small"', JSON.stringify(chave)], ['dim: 1024', `dim: "${chave}"`]]) {
+    const c = carregar(COMPLETO.replace(campo[0], campo[1]));
+    assert.ok(c.erros.length > 0);
+    assert.ok(!c.erros.join('\n').includes(chave), campo[0]);
+    assert.ok(c.erros.join('\n').includes('valor omitido'));
+  }
+});
+
 test('provider none aceita o bloco sem chave nem modelo', () => {
   const c = carregar('  embedding:\n    provider: none\n');
   assert.deepEqual(c.erros, []);

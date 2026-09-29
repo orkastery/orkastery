@@ -22,7 +22,7 @@ import { memoryState } from './project-state';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { dirEstado, ManifestoCarregado } from './manifest';
+import { configDeEmbedding, dirEstado, ManifestoCarregado } from './manifest';
 import { CONTRATO_ONBOARDING, ETAPAS_ONBOARDING, jsonCanonico, lerOnboarding } from './onboarding';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -42,9 +42,9 @@ import {
   resolverRegime,
   violacoesDeGovernanca,
   configDoManifesto,
+  chaveDeEmbeddingAceita,
   SaudeDaPonte,
 } from './orkmind';
-import { configDeEmbedding } from './manifest';
 import {
   arquivoDoIndice, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice, universoDoTenant,
   vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
@@ -300,7 +300,9 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
   const env = opcoes.env ?? process.env;
   const configurado = config.provider !== 'none';
   const variavel = config.api_key_env;
-  const chavePresente = !!variavel && (env[variavel] ?? '').trim() !== '';
+  const bruto = variavel ? (env[variavel] ?? '').trim() : '';
+  const chavePresente = !!variavel && chaveDeEmbeddingAceita(bruto, dsn);
+  const recusada = bruto !== '' && !chavePresente;
   const dimLocal = configurado && config.fallback_model ? dimDoModeloLocal(config.fallback_model, env) : null;
   const dependencias = saude?.fallback.dependencias ?? false;
   const fallback = { modelo: config.fallback_model || null, presente: dimLocal !== null, dependencias, dim: dimLocal };
@@ -333,7 +335,7 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
           : !dependencias ? `fallback ${fallback.modelo} sem torch/transformers no interpretador da ponte: a busca cai para FTS`
             : `busca usa o fallback local ${fallback.modelo} (${fallback.dim} dim)` +
               (existe(fallback.modelo, fallback.dim) ? '' : '; indice local ausente: rode ork memory index --modelo fallback');
-    estado.detalhe = `${variavel} nao esta no ambiente (valor nunca impresso); ${local}`;
+    estado.detalhe = `${variavel} ${recusada ? 'tem valor recusado (parece URL, DSN ou texto com espaco; nunca impresso)' : 'nao esta no ambiente (valor nunca impresso)'}; ${local}`;
     estado.correcao = `exporte ${variavel} com a chave dedicada ao Orkastery; o valor nunca vai ao manifesto`;
   }
   if (opcoes.universo) {

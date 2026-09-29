@@ -204,3 +204,19 @@ test('estado direto sem ponte sondada nunca afirma fallback usavel', () => {
     assert.match(e.detalhe, /ponte nao sondada/);
   } finally { m.limpar(); hf.limpar(); }
 });
+
+test('valor da variavel que parece URL, DSN ou texto com espaco nao conta como chave e nunca e impresso', () => {
+  const m = manifesto(BLOCO());
+  try {
+    for (const valor of ['postgresql://leitor:' + 'segredo'.repeat(3) + '@db.local/base', 'duas palavras', 'https://exemplo.local/x']) {
+      const e = estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', '', { env: { [CHAVE]: valor } });
+      assert.equal(e.chavePresente, false);
+      assert.equal(e.motivo, 'embeddings.chave-ausente');
+      assert.match(e.detalhe, /valor recusado/);
+      assert.ok(!JSON.stringify(e).includes(valor));
+    }
+    const dsn = 'dbname=memoria user=leitor';
+    assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsn, { env: { [CHAVE]: dsn } }).chavePresente, false);
+    assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsn, { env: { [CHAVE]: VALOR } }).chavePresente, true);
+  } finally { m.limpar(); }
+});

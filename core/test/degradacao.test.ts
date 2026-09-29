@@ -261,6 +261,8 @@ test('embeddings indisponiveis nunca derrubam o regime; health que falha degrada
     const semEmbedding = montarPromptComMemoria(antes, atual, 'GO', 'implementar', abrirMemoria(antes, { driver }));
     assert.equal(comBloco.injecao.decisoes, semEmbedding.injecao.decisoes);
     assert.equal(comBloco.injecao.itens.length, semEmbedding.injecao.itens.length, 'nada semantico entra no prompt sozinho');
+    assert.equal(comBloco.injecao.texto, semEmbedding.injecao.texto, 'o texto injetado no prompt e o mesmo');
+    assert.equal(comBloco.prompt, semEmbedding.prompt, 'o prompt inteiro e o mesmo');
 
     driver.ligado = false;
     const caida = abrirMemoria(carregado, { driver });

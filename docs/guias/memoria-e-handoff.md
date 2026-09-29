@@ -273,7 +273,9 @@ Como funciona:
   tem o seu, e reconstruí-lo é `ork memory index`.
 - **O que é indexado.** Só o universo governado do tenant (as coleções do `ork`, com o filtro
   de injeção e de visibilidade da biblioteca). Conteúdo com padrão de segredo e entrada acima de
-  24.000 caracteres ficam fora, contados no relatório; nada é truncado em silêncio.
+  24.000 caracteres ficam fora, contados no relatório; nada é truncado em silêncio. No fallback
+  local, texto acima do contexto do modelo (512 tokens no `multilingual-e5-small`) é embedado
+  pelo começo e aparece em `truncados` no relatório do `ork memory index`.
 - **O ranking.** Cosseno da consulta contra o índice do mesmo modelo e dimensão, FTS da
   biblioteca filtrado pelo tenant, e fusão RRF (k = 60). A cadeia do vetor é primário, fallback
   local, nenhum; sem vetor, a busca cai para FTS e declara `origem` e `motivo`.
@@ -301,7 +303,9 @@ fábrica, as sessões despachadas também a herdam e podem usar a busca; por iss
 dedicada e ter limite de crédito.
 
 Reindexação de madrugada. O `ork` não instala cron. Se quiser, instale uma linha dentro da
-janela ociosa declarada em `audit.janela_ociosa`, com a DSN e a chave no ambiente do cron:
+janela ociosa declarada em `audit.janela_ociosa`, com a DSN e a chave no ambiente do cron. Com
+`--modelo todos`, o comando sai 1 quando um dos alvos não indexa (por exemplo, sem a chave), e o
+alvo que indexou fica gravado; o motivo de cada um está no JSON:
 
 ```bash
 # 03:15, dentro de audit.janela_ociosa (22:00-06:00); ajuste o caminho do projeto

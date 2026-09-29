@@ -46,7 +46,7 @@ for par in "${PARES[@]}"; do
     exit 2
   fi
   tags=$(node -e '
-    const palavras = process.argv[2].toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").match(/[a-z0-9]{4,}/g) || [];
+    const palavras = process.argv[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]{4,}/g) || [];
     console.log(JSON.stringify({ project: [process.argv[1]], domain: [...new Set(palavras)] }));
   ' "$TENANT" "$frase")
   alvo=$(ork memory search --texto "$termo" --modo fts --limite 100 --json | ids)
