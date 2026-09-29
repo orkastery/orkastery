@@ -98,6 +98,13 @@ test('registro de worktree grava a arvore principal; raiz sem manifesto fica aus
       assert.ok(exec('git', ['worktree', 'add', '-b', 'ork/teste', wt], p.dir).ok);
       assert.equal(registrarProjeto(wt, 'thread new').raiz, fs.realpathSync(p.dir));
       assert.deepEqual(listarProjetos().map((x) => [x.nome, x.presente]), [['beta', true]]);
+      // F2 do CHECK: o nome do projeto pedido de dentro da worktree dele fica na worktree; de fora, a principal.
+      const sub = path.join(wt, 'docs'); fs.mkdirSync(sub, { recursive: true });
+      assert.equal(resolverProjetoAlvo({ opcao: 'beta', ambiente: {}, cwd: sub })?.raiz, fs.realpathSync(wt));
+      assert.equal(resolverProjetoAlvo({ ambiente: { [ENV_PROJETO]: 'bet' }, cwd: wt })?.raiz, fs.realpathSync(wt));
+      assert.equal(resolverProjetoAlvo({ ambiente: { [ENV_PROJETO_EXPLICITO]: '1' }, cwd: wt })?.raiz, fs.realpathSync(wt));
+      assert.equal(resolverProjetoAlvo({ opcao: 'beta', ambiente: {}, cwd: dirTemporario('projeto-alvo-fora') })?.raiz, fs.realpathSync(p.dir));
+      assert.equal(resolverProjetoAlvo({ opcao: p.dir, ambiente: {}, cwd: wt })?.raiz, fs.realpathSync(p.dir), 'caminho explicito vale como pedido');
       fs.renameSync(path.join(p.dir, 'orkastery.yaml'), path.join(p.dir, 'orkastery.yaml.bak'));
       assert.deepEqual(listarProjetos().map((x) => [x.nome, x.presente]), [['beta', false]]);
       const e = recusa(() => resolverProjetoAlvo({ opcao: 'beta', ambiente: {} }), 'projeto.desconhecido');

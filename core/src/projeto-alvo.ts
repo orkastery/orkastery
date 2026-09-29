@@ -357,8 +357,19 @@ function raizPorNome(valor: string): string {
     'Veja os registrados com `ork projetos`; registre uma cópia com `ork projetos registrar <caminho>`.');
 }
 
+/**
+ * F2 do CHECK: o nome aponta a arvore principal; quem ja esta numa copia DESSE projeto (a worktree de
+ * uma thread) fica nela. Sem isso, `ORK_PROJETO` herdado numa worktree faria `ork docs verificar` ler
+ * a `main`. Caminho explicito nao passa por aqui: vale o caminho pedido.
+ */
+function copiaDoCwd(raiz: string, cwd: string): string {
+  const local = subirAte(path.resolve(cwd), NOME_MANIFESTO) ?? subirAte(path.resolve(cwd), NOME_MANIFESTO_LEGADO);
+  if (!local) return raiz;
+  try { return raizCanonica(local) === raiz ? fs.realpathSync(local) : raiz; } catch { return raiz; }
+}
+
 function resolverValor(valor: string, cwd: string): string {
-  return ehCaminho(valor) ? raizPorCaminho(valor, cwd) : raizPorNome(valor);
+  return ehCaminho(valor) ? raizPorCaminho(valor, cwd) : copiaDoCwd(raizPorNome(valor), cwd);
 }
 
 /** Os candidatos de um host sem cwd de projeto: o registro presente e o projeto do cwd, sem repetir. */
@@ -410,7 +421,7 @@ export function resolverProjetoAlvo(entrada: EntradaDaResolucao = {}): ProjetoAl
   if (doAmbiente) return { raiz: resolverValor(doAmbiente, cwd), origem: 'ambiente', pedido: doAmbiente };
   if (host) {
     const candidatos = candidatosDoHost(cwd);
-    if (candidatos.length === 1) return { raiz: candidatos[0].raiz, origem: 'unico-conhecido', pedido: null };
+    if (candidatos.length === 1) return { raiz: copiaDoCwd(candidatos[0].raiz, cwd), origem: 'unico-conhecido', pedido: null };
     if (candidatos.length > 1) {
       throw new ErroDeProjeto('projeto.escolha',
         `${candidatos.length} projetos conhecidos nesta máquina e nenhum foi pedido; o ork não escolhe pelo diretório do gateway`,
