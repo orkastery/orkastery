@@ -8,7 +8,7 @@ roadmap: [RM-025, RM-026]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-28T23:25:00-03:00
-versao: main@8469e4b
+versao: main@460d8ea
 fontes:
   codigo:
     - core/src/company-brain-cli.ts
@@ -44,7 +44,7 @@ fontes:
 
 > **Em uma frase:** O `ork brain` consulta, cita e sincroniza o Company Brain do OrkMind pela identidade do transporte autenticado, somente leitura por padrão e com recibo por operação.
 
-- **Estado:** vigente · **Verificado em:** 2026-09-28 · **Versão:** main@8469e4b
+- **Estado:** vigente · **Verificado em:** 2026-09-28 · **Versão:** main@460d8ea
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-05](MOD-05-memoria-e-registro.md)
 - **Roadmap:** [RM-025](../roadmap/RM-025-company-brain-fundacao.md), [RM-026](../roadmap/RM-026-workspace-empresarial.md)
 - **Dono da página / aprovador:** Julio / Julio
