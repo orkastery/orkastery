@@ -317,17 +317,45 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(self.msg.reply_text.call_args.args, ('Orkastery, 2 respostas registradas SIMULADAS',))
 
     async def test_pulse_shape_is_strict_and_ordinary_chat_goes_to_the_assistant(self):
-        for text in ['1a', '1a, 2c', 'p4ej sim', 'K3F9 agora não', '#orkpulseoff', ' #OrkPulseOn. ']:
+        # RM-048 (D2): a resposta numerada em prosa curta tambem e resposta, e vai ao nucleo.
+        for text in ['1a', '1a, 2c', 'p4ej sim', 'K3F9 agora não', '#orkpulseoff', ' #OrkPulseOn. ',
+                     '1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', 'DE6H aprovo com a ressalva do risco']:
             with self.subTest(text=text), patch.object(ingress.subprocess, 'run', return_value=self.pulse_receipt()):
                 ingress._entries.clear(); self.say(text)
                 self.assertEqual(self.invoke()['action'], 'skip')
                 await self.finish()
-        for text in ['oi tudo bem', 'HMMM ok', '7XYZ b', 'P4EJ', '1ab', 'bora 2', '1a\n2b',
-                     'fica em #OrkPulseOn hoje', '#OrkPulseOff-15m', '#OrkPulseOn-45m']:
+        # Palavra solta sem janela de escuta aberta e conversa com o assistente: nada e interceptado.
+        for text in ['oi tudo bem', 'HMMM ok', '7XYZ b', 'P4EJ', '1ab', 'bora 2', '1. I-31. Aprovar',
+                     'fica em #OrkPulseOn hoje', '#OrkPulseOff-15m', '#OrkPulseOn-45m', 'sim', 'aprovo', 'a', '1',
+                     '1' + ' ' * 400 + 'a']:
             with self.subTest(text=text), patch.object(ingress.subprocess, 'run') as run:
                 ingress._entries.clear(); self.say(text)
                 self.assertIsNone(self.invoke())
                 run.assert_not_called()
+
+    async def test_bare_word_only_while_the_core_listening_window_is_open(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            monitor = Path(root) / '.orkastery' / 'monitor'
+            monitor.mkdir(parents=True)
+            escuta = monitor / 'pulse-escuta.json'
+            with patch.dict(os.environ, {'ORK_HITL_ROOT': root}):
+                aberta = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat().replace('+00:00', 'Z')
+                escuta.write_text(json.dumps({'contrato': 'ork.pulse-escuta/v1', 'livreAte': aberta}))
+                for text in ['sim', 'Aprovo!', 'pode seguir', 'a', '1', 'Não']:
+                    with self.subTest(text=text), patch.object(ingress.subprocess, 'run', return_value=self.pulse_receipt()):
+                        ingress._entries.clear(); self.say(text)
+                        self.assertEqual(self.invoke()['action'], 'skip')
+                        await self.finish()
+                # Janela vencida, contrato estranho ou arquivo grande demais: volta ao assistente.
+                vencida = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat().replace('+00:00', 'Z')
+                for conteudo in [json.dumps({'contrato': 'ork.pulse-escuta/v1', 'livreAte': vencida}),
+                                 json.dumps({'contrato': 'outro/v1', 'livreAte': aberta}), 'x' * 5000, 'nao e json']:
+                    escuta.write_text(conteudo)
+                    with self.subTest(conteudo=conteudo[:20]), patch.object(ingress.subprocess, 'run') as run:
+                        ingress._entries.clear(); self.say('sim')
+                        self.assertIsNone(self.invoke())
+                        run.assert_not_called()
 
     async def test_pulse_keeps_every_gate_refusal(self):
         self.say('1a')

@@ -23,11 +23,20 @@ NATIVE_COMMAND = re.compile(r'^/ork (offer|gate|session) ([a-zA-Z0-9][a-zA-Z0-9.
 # (GRAMATICA_DO_PULSE, core/src/pulse-resposta.ts) e um teste do nucleo confere que continuam
 # iguais. O codigo comeca por letra e tem digito: conversa comum nao tem esta forma, e ele
 # nunca se confunde com a resposta ao lote, que comeca pelo numero da pergunta.
-PULSE_CONSENT = re.compile(r'^[ \t]*(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}[ \t]+[^\r\n]{1,40}$', re.IGNORECASE)
+PULSE_CONSENT = re.compile(r'^[ \t]*(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}[ \t]+[^\r\n]{1,200}$', re.IGNORECASE)
 PULSE_LOTE = re.compile(r'^[ \t]*[0-9]{1,2}[ \t]*[a-zA-Z](?:[ \t,;]*[0-9]{1,2}[ \t]*[a-zA-Z])*[ \t]*[.!]?[ \t]*$')
 # I-50 (RM-039): a tag da cadencia do resumo, sozinha na mensagem. Comeca por '#': nunca se
 # confunde com as outras duas formas, e tag no meio de uma frase continua indo para o assistente.
 PULSE_CADENCIA = re.compile(r'^[ \t]*#OrkPulse(?:On(?:-(?:15|30|60)m)?|Off)[ \t]*[.!]?[ \t]*$', re.IGNORECASE)
+# RM-048 (D2 e D3): as formas do texto livre, geradas no nucleo do vocabulario fechado. `lista`
+# ("1. B, 2. aprovo") e interceptada sempre; `livre` ("sim", "aprovo", "a") so enquanto a janela
+# de escuta do nucleo estiver aberta: fora dela, a palavra vai ao assistente, como sempre foi. A
+# janela e dica de rota, nao prova: a mensagem ainda passa pela assinatura e pela regra do nucleo.
+PULSE_LISTA = re.compile(r'^[ \t]*[0-9]{1,2}(?:[ \t]*[.):-])?[ \t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?)(?:[ \t\r\n,;]*[0-9]{1,2}(?:[ \t]*[.):-])?[ \t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))*[ \t]*(?:[.!][ \t]*)?$', re.IGNORECASE)
+PULSE_LIVRE = re.compile(r'^[ \t]*(?:[1-4]|(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))[ \t]*(?:[.!]+[ \t]*)?$', re.IGNORECASE)
+# Texto acima disto nunca e testado contra as formas: elas rodam antes da allowlist.
+PULSE_TETO = 300
+ESCUTA_TETO = 4096
 # O endereco do pulse no corpo assinado: nem thread nem pedido. Quem traduz e o nucleo.
 PULSE_ALVO, PULSE_ENDERECO = 'pulse', 'resposta'
 CORE_TIMEOUT = 10
@@ -55,9 +64,30 @@ def _status(entry=None, replay=False):
             'effect': effect, 'confirmation': confirmation, 'replay': replay}
 
 
+def _escuta_aberta(root):
+    """Janela da palavra solta (ork.pulse-escuta/v1), lida com teto de bytes, sem seguir erro."""
+    try:
+        if not os.path.isabs(root):
+            return False
+        with open(os.path.join(root, '.orkastery', 'monitor', 'pulse-escuta.json'), 'rb') as f:
+            raw = f.read(ESCUTA_TETO + 1)
+        if len(raw) > ESCUTA_TETO:
+            return False
+        value = json.loads(raw)
+        until = value.get('livreAte') if isinstance(value, dict) and value.get('contrato') == 'ork.pulse-escuta/v1' else None
+        return (isinstance(until, str)
+                and datetime.fromisoformat(until.replace('Z', '+00:00')) > datetime.now(timezone.utc))
+    except Exception:
+        return False
+
+
 def _is_pulse(text):
-    return '\x00' not in text and bool(PULSE_CONSENT.fullmatch(text) or PULSE_LOTE.fullmatch(text)
-                                         or PULSE_CADENCIA.fullmatch(text))
+    if '\x00' in text or len(text) > PULSE_TETO:
+        return False
+    if (PULSE_CONSENT.fullmatch(text) or PULSE_LOTE.fullmatch(text) or PULSE_CADENCIA.fullmatch(text)
+            or PULSE_LISTA.fullmatch(text)):
+        return True
+    return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
 
 
 def _receipt_ok(receipt, operation, pedido):

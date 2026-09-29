@@ -18,7 +18,7 @@ test('T17: instalador distribui layout único e suíte de ingresso preserva recu
     for (const dir of [path.join(root, 'adapters/hermes'), installed]) {
       const result = run(['-m', 'unittest', 'discover', '-s', 'test', '-p', 'hitl_ingress_test.py'], dir);
       assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stderr, /Ran 20 tests/);
+      assert.match(result.stderr, /Ran 21 tests/);
       assert.doesNotMatch(result.stderr, /skipped=/);
     }
     fs.mkdirSync(path.join(installed, 'hitl-ingress'));

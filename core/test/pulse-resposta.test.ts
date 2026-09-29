@@ -363,8 +363,17 @@ test('a forma da resposta: o que é resposta ao resumo, o que é resposta ao lot
     assert.equal(interpretarRespostaDoPulse(resumo).forma, 'consentimento', resumo);
   }
   // Conversa comum continua sendo conversa: palavra de quatro letras não tem dígito.
-  for (const conversa of ['HMMM ok', 'oi tudo bem', 'BORA ver isso', '1ab', 'bora 2', '', 'P4EJ', '1a\n2b', 'x'.repeat(201), '7XYZ b']) {
+  for (const conversa of ['HMMM ok', 'oi tudo bem', 'BORA ver isso', '1ab', 'bora 2', '', 'P4EJ', 'x'.repeat(201), '7XYZ b',
+    '1. I-31. Aprovar', '1. faça o deploy', 'sim, pode mandar o relatório']) {
     assert.equal(interpretarRespostaDoPulse(conversa).forma, 'desconhecida', conversa);
+  }
+  // RM-048 (D2): a resposta numerada em linhas, ou com ponto e palavra, é a forma `lista`.
+  for (const lista of ['1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', '3 detalhes']) {
+    assert.equal(interpretarRespostaDoPulse(lista).forma, 'lista', lista);
+  }
+  // E a palavra solta é a forma `livre`: quem decide se ela registra é o núcleo, pela regra fechada.
+  for (const livre of ['aprovo', 'Sim!', 'pode seguir.', 'a', '1', 'ok', 'Não', 'detalhes']) {
+    assert.equal(interpretarRespostaDoPulse(livre).forma, 'livre', livre);
   }
 });
 

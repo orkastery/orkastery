@@ -27,6 +27,7 @@ import * as path from 'node:path';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { autenticarResposta, RespostaHumana } from './hitl-gates';
+import { consentimentoDoTrecho, lerTrecho } from './hitl-texto-livre';
 
 export const CONTRATO_CONSENTIMENTO = 'ork.pulse-consent/v1' as const;
 
@@ -154,7 +155,8 @@ export function interpretarResposta(bruto: unknown, codigo: string): RespostaDoC
   if (limpo !== corpo && corpo === '') return undefined; // só o código, sem escolha, não é resposta
   if (['a', 's', 'sim', 'pode', 'manda'].includes(corpo)) return 'sim';
   if (['b', 'n', 'nao', 'não', 'agora nao', 'agora não'].includes(corpo)) return 'nao';
-  return undefined;
+  // RM-048 (D2): o mesmo vocabulario fechado do texto livre ("pode seguir", "aprovo", "depois").
+  return consentimentoDoTrecho(lerTrecho(corpo));
 }
 
 /**

@@ -2,6 +2,8 @@
 /** D12: this host is the `openclaw` channel, and the channel is signed, not labelled. */
 import { createHash, createHmac } from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 
 interface NativeEvent {
   content: string; channel: string; commandAuthorized?: boolean; accountId?: string;
@@ -18,14 +20,38 @@ interface NativeApi { on: (name: 'inbound_claim', handler: (event: NativeEvent, 
  * stay equal. The code starts with a letter and has a digit: ordinary chat never has this shape,
  * and it never reads as an answer to the batch, which starts with the question number.
  */
-const PULSE_CONSENT = new RegExp("^[ \\t]*(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}[ \\t]+[^\\r\\n]{1,40}$", 'i');
+const PULSE_CONSENT = new RegExp("^[ \\t]*(?=[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{0,2}[2-9])[A-HJKMNP-TV-Z][2-9A-HJKMNP-TV-Z]{3}[ \\t]+[^\\r\\n]{1,200}$", 'i');
 const PULSE_LOTE = new RegExp("^[ \\t]*[0-9]{1,2}[ \\t]*[a-zA-Z](?:[ \\t,;]*[0-9]{1,2}[ \\t]*[a-zA-Z])*[ \\t]*[.!]?[ \\t]*$");
 /** I-50 (RM-039): the pulse cadence tag, alone in the message. It starts with '#', so it never reads as the other two. */
 const PULSE_CADENCIA = new RegExp("^[ \\t]*#OrkPulse(?:On(?:-(?:15|30|60)m)?|Off)[ \\t]*[.!]?[ \\t]*$", 'i');
 /** The pulse address inside the signed body: neither a thread nor a request. The core translates. */
 const PULSE_ALVO = 'pulse', PULSE_ENDERECO = 'resposta';
-export function isPulseAnswer(text: string): boolean {
-  return !text.includes('\0') && (PULSE_CONSENT.test(text) || PULSE_LOTE.test(text) || PULSE_CADENCIA.test(text));
+/**
+ * RM-048 (D2 and D3): the free-text shapes, generated in the core from the closed vocabulary. `lista`
+ * ("1. B, 2. aprovo") is always claimed; `livre` ("sim", "aprovo", "a") only while the core's
+ * listening window is open: outside it, the word goes to the assistant, as it always did. The
+ * window is a routing hint, not proof: the message still goes through the signature and the core rule.
+ */
+const PULSE_LISTA = new RegExp("^[ \\t]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?)(?:[ \\t\\r\\n,;]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))*[ \\t]*(?:[.!][ \\t]*)?$", 'i');
+const PULSE_LIVRE = new RegExp("^[ \\t]*(?:[1-4]|(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))[ \\t]*(?:[.!]+[ \\t]*)?$", 'i');
+/** Text above this is never tested against the shapes: they run before the allowlist. */
+const PULSE_TETO = 300, ESCUTA_TETO = 4096;
+
+/** The bare-word window (ork.pulse-escuta/v1), read with a byte cap; any error closes it. */
+export function listeningOpen(root: string | undefined, now = Date.now()): boolean {
+  try {
+    if (!root || !isAbsolute(root)) return false;
+    const raw = readFileSync(join(root, '.orkastery', 'monitor', 'pulse-escuta.json'));
+    if (raw.length > ESCUTA_TETO) return false;
+    const value = JSON.parse(raw.toString('utf8'));
+    return value?.contrato === 'ork.pulse-escuta/v1' && typeof value.livreAte === 'string' && Date.parse(value.livreAte) > now;
+  } catch { return false; }
+}
+
+export function isPulseAnswer(text: string, root: string | undefined = process.env.ORK_HITL_ROOT): boolean {
+  if (text.includes('\0') || text.length > PULSE_TETO) return false;
+  if (PULSE_CONSENT.test(text) || PULSE_LOTE.test(text) || PULSE_CADENCIA.test(text) || PULSE_LISTA.test(text)) return true;
+  return PULSE_LIVRE.test(text) && listeningOpen(root);
 }
 
 export function registerHitlIngress(api: NativeApi, bin: string): void {
