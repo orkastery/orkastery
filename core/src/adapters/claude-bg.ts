@@ -13,7 +13,7 @@ import { exec as executar, noPath } from '../util';
 import { ambienteDeAssinatura } from '../runtime-ambiente';
 import * as path from 'node:path';
 import { ContextoRuntime, validarContextoRuntime } from '../runtime-context';
-import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
+import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -634,9 +634,14 @@ export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   return { ok: true, detalhe: `claude auth status: loggedIn (${metodo})` };
 }
 
-/** Comando de anexar a sessao (precisa de TTY, entao o CLI imprime em vez de executar). */
-export function comandoAttach(sessionId: string): string {
-  return `claude attach ${sessionId}`;
+/**
+ * Comando de anexar a sessao (precisa de TTY, entao o CLI imprime em vez de executar). RM-037
+ * (defeitosdeco D-2): sessao de um perfil so e anexada com o `CLAUDE_CONFIG_DIR` daquela conta.
+ */
+export function comandoAttach(sessionId: string, configDir?: string | null): string {
+  if (!configDir) return `claude attach ${sessionId}`;
+  const dir = /^[A-Za-z0-9_./-]+$/.test(configDir) ? configDir : `'${configDir.replace(/'/g, `'\\''`)}'`;
+  return `CLAUDE_CONFIG_DIR=${dir} claude attach ${sessionId}`;
 }
 
 /**
@@ -732,9 +737,38 @@ export function logsDaSessao(id: string, linhas = 60, ambiente: NodeJS.ProcessEn
 /** Para uma sessao em background (o `claude stop` tambem trabalha com o id curto). */
 export function parar(chave: string, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): { ok: boolean; texto: string } {
   const sessao = acharSessao(chave, listarSessoes(undefined, true, ambiente));
-  const id = sessao?.id ?? (sessao?.sessionId ?? chave).slice(0, 8);
-  const r = exec('claude', ['stop', id], undefined, 60000, ambiente);
+  return pararAchada(sessao ?? { sessionId: chave }, ambiente);
+}
+
+/** Para a sessao ja achada numa conta, com o ambiente dessa conta, sem listar de novo. */
+export function pararAchada(sessao: Pick<SessaoRuntime, 'sessionId' | 'id'>, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()):
+    { ok: boolean; texto: string } {
+  const r = exec('claude', ['stop', sessao.id ?? sessao.sessionId.slice(0, 8)], undefined, 60000, ambiente);
   return { ok: r.ok, texto: limparAnsi(r.stdout + r.stderr).trim() };
+}
+
+/** RM-037 (defeitosdeco D-2): a sessao achada, a conta onde ela esta e o ambiente dessa conta. */
+export interface SessaoNaConta { sessao: SessaoRuntime; perfil: PerfilDeDespacho | null; configDir: string; ambiente: NodeJS.ProcessEnv }
+
+/**
+ * RM-037 (defeitosdeco D-2): o `claude agents` so lista a sessao para a conta que a despachou, entao
+ * uma chave e procurada no ambiente do processo e em cada perfil claude-bg informado, sem repetir
+ * diretorio efetivo. Consulta que falha nao vira "nao encontrada": vai para `falhas`.
+ */
+export function acharSessaoNasContas(chave: string, perfis: readonly PerfilDeDespacho[]): { achadas: SessaoNaConta[]; falhas: string[] } {
+  const achadas: SessaoNaConta[] = [], falhas: string[] = [], vistos = new Set<string>();
+  for (const perfil of [null, ...perfis.filter(p => p.runtime === 'claude-bg')]) {
+    let ambiente: NodeJS.ProcessEnv, configDir: string;
+    try { ambiente = ambienteDoPerfil(perfil); configDir = path.resolve(diretorioEfetivo('claude-bg', perfil, ambiente)); }
+    catch (e) { falhas.push(`${perfil?.id ?? 'processo'}: ${(e as Error).message}`); continue; }
+    if (vistos.has(configDir)) continue;
+    vistos.add(configDir);
+    const consulta = consultarSessoes(undefined, true, ambiente);
+    if (!consulta.ok) { falhas.push(`${perfil?.id ?? 'processo'}: ${consulta.detalhe}`); continue; }
+    const sessao = acharSessao(chave, consulta.sessoes);
+    if (sessao) achadas.push({ sessao, perfil, configDir, ambiente });
+  }
+  return { achadas, falhas };
 }
 
 /**
