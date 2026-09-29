@@ -1,161 +1,52 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-defeitosdeco",
+  "thread": "ork-versao043ope",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/test/cota-terminal.test.ts",
-      "alegacao": "T7 (D-7): os quatro testes \"N1 claude-bg\" conduzem a observacao no proprio processo (esperarResultado, 30 s), como a versao codex, e passam sem depender do watcher destacado; com os watchers congelados por SIGSTOP passaram 3 de 3.",
+      "thread": "ork-versao043ope",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O CLI se declara 0.4.3, o CHANGELOG fecha a 0.4.3 e o adaptador OpenClaw acompanha",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"N1 claude-bg\" core/dist-test/test/cota-terminal.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\"",
-        "awk \"/N1 claude-bg/,0\" core/test/cota-terminal.test.ts | grep -q \"esperarResultado(p.carregado, dir, r.sessionId as string)\""
+        "npm --prefix core run build >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.4.3 && grep -q '^## 0.4.3 — ' CHANGELOG.md && ! grep -q '^## Não publicado' CHANGELOG.md && grep -q '\"version\": \"0.4.3\"' adapters/openclaw/package.json adapters/openclaw/openclaw.plugin.json"
       ],
-      "criadoEm": "2026-09-29T02:15:12.421Z",
+      "criadoEm": "2026-09-29T11:14:45.721Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versao043ope",
+      "fase": "GO",
+      "arquivo": "docs",
+      "alegacao": "A documentação passa na paridade, no lint e nos links",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T11:14:45.930Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C3",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/sessoes.ts",
-      "alegacao": "T2 (D-2): `ork sessions stop|logs|attach <id>` acha a sessao despachada num perfil claude-bg que nao e a conta do processo e age com o CLAUDE_CONFIG_DIR desse perfil (stop e logs rodam com o env da conta; attach imprime o prefixo CLAUDE_CONFIG_DIR); sessao ausente em todas as contas continua saindo 1 com \"nao encontrada no runtime\".",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build >/dev/null 2>&1 && npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-2\" core/dist-test/test/sessoes-cli.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\""
-      ],
-      "criadoEm": "2026-09-29T02:21:12.709Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C5",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/conducao.ts",
-      "alegacao": "T4 (D-4): o despacho claude-bg leva ORK_DISPATCH_ID, ORK_DISPATCH_THREAD e ORK_CANAL em --settings env e o processo claude nasce sem eles, mesmo quando quem despacha tem um par vazado; dentro de uma sessao Claude, identidadeDoAmbiente so aceita a identidade que o ledger da thread liga ao CLAUDE_CODE_SESSION_ID, e o verify com par de outra sessao e recusado por conducao sem executar nada.",
+      "thread": "ork-versao043ope",
+      "fase": "GO",
+      "arquivo": "eval",
+      "alegacao": "Os canários de comportamento passam",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-4\" core/dist-test/test/conducao-verify.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\"",
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/conducao-verify.test.js core/dist-test/test/despacho.test.js"
+        "node core/dist/index.js eval --so-canarios"
       ],
-      "criadoEm": "2026-09-29T02:28:55.194Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C6",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/worktree.ts",
-      "alegacao": "T5 (D-5): `ork worktree sync` numa branch sem commit proprio sobre base reescrita (sem ancestral comum) recria a branch no SHA da base, sem rebase, e a branch fica so com a raiz nova; com commit proprio e sem ancestral comum, a branch fica intacta e a recusa tree.blocked traz o comando exato `git -C <wt> rebase --onto <base> <ponto de partida>`, que rodado reaplica so o commit da thread.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-5\" core/dist-test/test/worktree.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\"",
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/worktree.test.js"
-      ],
-      "criadoEm": "2026-09-29T02:32:20.901Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C7",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/retry.ts",
-      "alegacao": "T6 (D-6): model_not_found na transcricao vira runtime.model-unavailable sem tirar o perfil do rodizio; o retry redespacha o mesmo prompt no perfil b com o mesmo modelo, depois no fallback do bloco com o modelo dele, e sem destino escala human.pending com a correcao exata `ork setup <modo> --bloco N --model <modelo acessivel>, ou declare no mesmo bloco --fallback runtime:modelo`.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-6\" core/dist-test/test/cota-terminal.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\"",
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/falha-de-conta-frases.test.js core/dist-test/test/rotacao-retry.test.js"
-      ],
-      "criadoEm": "2026-09-29T02:39:24.359Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C8",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "T8: os sete defeitos estao documentados no CHANGELOG (Nao publicado), no guia de verificacao (motivo runtime.model-unavailable, blocked depois do Stop, identidade por sessao, sessions por perfil), na referencia do CLI e no RM-037; os READMEs dizem 22 motivos tipados; markdownlint e `ork docs verificar` passam.",
-      "negativa": false,
-      "verificar": [
-        "grep -qF \"runtime.model-unavailable\" docs/guias/verificacao.md && grep -qF \"Sete defeitos de condução\" CHANGELOG.md && grep -qF \"defeitos de condução\" docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF \"22 motivos tipados\" README.pt-BR.md",
-        "npm --prefix core run build >/dev/null 2>&1 && node core/dist/index.js docs verificar >/dev/null 2>&1 && core/node_modules/.bin/markdownlint-cli2 >/dev/null 2>&1"
-      ],
-      "criadoEm": "2026-09-29T02:44:20.198Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C9",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/session-watcher-claude.ts",
-      "alegacao": "T1 (D-1, com o GO-FIX R6): sessao claude-bg em blocked com processo vivo depois de Stop correlacionado, sem sessao_bloqueada pendente e status nao ocupado, vira gate_blocked human.pending na segunda leitura (>= 5 s), com a prova do ork ou com o que faltou dela no diagnostico, e nunca artifact.missing automatico; sem Stop, com bloqueio pendente ou status busy continua esperando.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-1\" core/dist-test/test/session-watcher-claude.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\"",
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/session-watcher-claude.test.js"
-      ],
-      "criadoEm": "2026-09-29T03:11:22.134Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C10",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/worktree.ts",
-      "alegacao": "GO-FIX R1 (D-5): numa thread merge-branch com commits proprios, o sync com a base que so avancou rebasa e mantem F1 e F2 na branch (nunca recria na base), e sobre base reescrita recusa sem apontar a ponta da branch como ponto de partida do rebase --onto.",
-      "negativa": true,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-5 \\(R1\\)\" core/dist-test/test/worktree.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\""
-      ],
-      "criadoEm": "2026-09-29T03:11:25.146Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C11",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/conducao.ts",
-      "alegacao": "GO-FIX R2 (D-4): um codex despachado de dentro de uma sessao claude-bg da mesma thread, com o CLAUDE_CODE_SESSION_ID dela herdado, fica com a identidade do proprio despacho codex; a sessao claude-bg sem par no ambiente continua se reconhecendo pelo ledger.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-4 \\(R2\\)\" core/dist-test/test/conducao-verify.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\""
-      ],
-      "criadoEm": "2026-09-29T03:11:28.307Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C12",
-      "thread": "ork-defeitosdeco",
-      "fase": "GOAL",
-      "arquivo": "core/src/retry.ts",
-      "alegacao": "GO-FIX R3 e R4 (D-6): o texto do agente codex declarando runtime.model-unavailable vira runtime.unavailable comum; o destino que recusou o modelo no proprio redespacho nao e tentado de novo no retry seguinte; e na rotacao por cota o destino que recusa o modelo sai da rotacao com a fila guardando runtime.quota-exhausted.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test --test-reporter=tap --test-name-pattern=\"defeitosdeco D-6 \\(R[34]\" core/dist-test/test/cota-terminal.test.js 2>&1 | grep -E \"^# (pass|fail) \" | tr \"\\n\" \" \" | grep -qE \"# pass [1-9][0-9]* # fail 0\""
-      ],
-      "criadoEm": "2026-09-29T03:11:30.543Z",
+      "criadoEm": "2026-09-29T11:14:46.145Z",
       "estado": "verificado",
       "lint": []
     }
   ],
-  "deferredClaims": [
-    {
-      "id": "C4",
-      "reason": "local-integration-required"
-    }
-  ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
