@@ -301,9 +301,11 @@ test('defeito 1 (R5-A1): lock HITL ocupado na repeticao nao perde a reserva do d
     // manda (S3 do CHECK 6: sem relogio). `setsid`: o executor do verify encerra o grupo do comando ao fim.
     const lock = path.join(dirThread(p.dir, t.id), '.hitl.lock');
     const script = path.join(p.dir, 'segurar-lock.sh');
-    fs.writeFileSync(script, `#!/bin/sh\ntouch ${JSON.stringify(segura)}\n` +
-      `setsid flock -x ${JSON.stringify(lock)} sh -c 'touch ${pego}; while [ -e ${segura} ]; do sleep 0.05; done' </dev/null >/dev/null 2>&1 &\n` +
-      `while [ ! -e ${JSON.stringify(pego)} ]; do sleep 0.05; done\n`, { mode: 0o755 });
+    // AV2 do CHECK 7: os dois lacos tem teto (400 x 0,05 s), para o teste nunca prender a suite nem deixar
+    // processo vivo sem prazo; SG3: os caminhos vao ao filho pelo ambiente, sem depender de aspas.
+    fs.writeFileSync(script, `#!/bin/sh\nexport SEGURA=${JSON.stringify(segura)} PEGO=${JSON.stringify(pego)}\ntouch "$SEGURA"\n` +
+      `setsid flock -x ${JSON.stringify(lock)} sh -c 'touch "$PEGO"; i=0; while [ -e "$SEGURA" ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done' </dev/null >/dev/null 2>&1 &\n` +
+      `i=0; while [ ! -e "$PEGO" ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done\n`, { mode: 0o755 });
     p.carregado.manifesto.verify.test = `sh ${JSON.stringify(script)}`;
     assert.throws(() => rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' }),
       /HITL ocupado/);
@@ -327,6 +329,9 @@ test('defeito 1 (A2 do CHECK 6): no retry, a sucedida que o dono respondeu duran
     const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', relativo, hashDoPrompt(prompt), { runtime: 'codex', model: 'modelo-SIMULADO' });
     assert.equal(r.motivo, 'conducao.em-andamento', r.detalhe);
     assert.equal(lerLedger(dir).some(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex'), false, 'nenhuma segunda sessao');
+    // SG2 do CHECK 7: a recusa veio da segunda passada, depois da baseline, e nao de uma recusa na primeira.
+    const tipos = lerLedger(dir).map(e => e.tipo);
+    assert.ok(tipos.includes('baseline_recorded') && tipos.includes('conducao_devolvida'), tipos.join(', '));
     const depois = conducaoDaThread(p.dir, t.id);
     assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', s1.sessionId]);
   } finally { f.restaurar(); p.limpar(); claude.restaurar(); }

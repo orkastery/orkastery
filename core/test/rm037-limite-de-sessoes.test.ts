@@ -319,5 +319,18 @@ test('conducao (S1 do CHECK 6): sucedida que sumiu do runtime, sem perfil, acabo
     estado = 'running';
     assert.equal(tomada.sucessaoAindaVale(), false);
     tomada.devolver();
+
+    // AV1 do CHECK 7: com perfil (varias contas), ausente pode ser leitura pela conta errada: a sucessao nao vale.
+    const outra = novaThread(p.carregado, { nome: 'com perfil', modo: 'auto' }).thread;
+    assert.equal(registrarConducaoDaSessao(p.dir, outra.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'c'.repeat(64), prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000113', runtime: 'claude-bg', perfil: 'conta-b' }), true);
+    let comPerfil: string | null = 'blocked';
+    const t2 = tomarConducao(p.dir, outra.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'd'.repeat(64), prazoMs: 60_000,
+      consultarSessao: () => ({ ok: true, estado: comPerfil, detalhe: 'SIMULADO' }) });
+    assert.equal(t2.ok, true);
+    if (!t2.ok) return;
+    comPerfil = null;
+    assert.equal(t2.sucessaoAindaVale(), false, 'sessao ausente na conta consultada nao prova fim');
+    t2.devolver();
   } finally { p.limpar(); }
 });
