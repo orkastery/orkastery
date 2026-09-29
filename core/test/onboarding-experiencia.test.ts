@@ -20,6 +20,10 @@ test('maestro persiste owner, preserva objetivos, demais seções e autoria na r
     assert.ok(fs.readFileSync(p.carregado.caminho, 'utf8').includes(yaml.slice(yaml.indexOf('board:'))));
     const repetido = gravarEtapa(p.dir, 'maestro', { owner: { experience: false } }, 'outro');
     assert.deepEqual(repetido, r);
+    const atualizado = fs.readFileSync(p.carregado.caminho, 'utf8').replace('language: "pt-BR"', 'language: "en-US"');
+    fs.writeFileSync(p.carregado.caminho, atualizado);
+    gravarEtapa(p.dir, 'maestro', { owner: { experience: true } }, 'configurador');
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.language, 'en-US', 'opt-in não regrava idioma de uma resposta antiga');
     assert.equal(ETAPAS_ONBOARDING.length, 9);
   } finally { p.limpar(); }
 });

@@ -224,6 +224,7 @@ export function gravarEtapa(raiz: string, nome: string, conteudo: unknown, por =
   exigirAutor(por);
   validarConteudo(etapa, conteudo);
   return comTrava(raiz, () => {
+    const solicitadas = conteudo;
     const { estado } = lerParaMutacao(raiz), anterior = estado.etapas[etapa];
     // Configurar preferências não apaga objetivos ou outras respostas da etapa maestro.
     if (etapa === 'maestro' && objeto(conteudo) && objeto(conteudo.owner) && anterior && objeto(anterior.conteudo)) {
@@ -234,7 +235,9 @@ export function gravarEtapa(raiz: string, nome: string, conteudo: unknown, por =
     }
     validarConteudo(etapa, conteudo);
     if (anterior && jsonCanonico(anterior.conteudo) === jsonCanonico(conteudo)) return estado;
-    const preferencias = etapa === 'maestro' ? prepararPreferencias(raiz, conteudo) : null;
+    // Persistir só chaves deste pedido: uma resposta antiga não vence edição explícita do manifesto.
+    validarConteudo(etapa, solicitadas);
+    const preferencias = etapa === 'maestro' ? prepararPreferencias(raiz, solicitadas) : null;
     const timestamp = new Date().toISOString();
     estado.etapas[etapa] = { respondidaEm: timestamp, por, conteudo };
     estado.atualizadoEm = dataMaisRecente([estado.atualizadoEm, timestamp]);
