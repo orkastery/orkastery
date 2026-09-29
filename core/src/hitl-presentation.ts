@@ -13,6 +13,7 @@ import { alvoDoPedido, chaveDaEscolha, ehV2, escolhasDoPedido, expiracaoDoPedido
 import { Canal, CanalOferecido, ofertaDeCanais, ofertaNativa, reservaDoPedido } from './hitl-canais';
 import { provenNativeOffer } from './hitl-native-offer';
 import { formatarDataHoraRotulada, formatarPrazo } from './horario';
+import { entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 
 /**
  * I-35: prazo do pedido no fuso do dono, absoluto e rotulado, para JSON de exibição
@@ -30,24 +31,27 @@ export function prazoLocalDoPedido(pedido: PedidoHitlQualquer, agora?: string): 
  * e o que ele troca é o número pela letra. Um `decidido` não passa por aqui de propósito: ele
  * não tem escolha a oferecer, e montar um diálogo para um fato consumado é pedir ação por engano.
  */
-export function apresentarDecisao(pedido: PedidoHitlQualquer, agora?: string): { mensagem: string; escolhas: { const: string; title: string }[] } {
+export function apresentarDecisao(pedido: PedidoHitlQualquer, agora?: string, desde?: string | null): { mensagem: string; escolhas: { const: string; title: string }[] } {
   validarPedidoHitl(pedido);
   const aceita = respostaAceitaDoPedido(pedido);
   if (!aceita) throw new Error('decisão informada não tem diálogo: ela não pede nada');
   const livre = aceita.tipo === 'texto';
   const escolhas = escolhasDoPedido(pedido).map(o => ({ const: chaveDaEscolha(pedido, o.numero), title: redigirSegredos(o.texto) }));
-  const v2 = ehV2(pedido) && pedido.classe === 'pergunta' ? pedido : undefined;
+  // RM-048 (D1): a pergunta v2 sai pelo contrato curto, o mesmo do Telegram e do lote. O v1 fica
+  // byte a byte abaixo: recibo antigo continua batendo com o texto que o dono viu.
+  if (ehV2(pedido) && pedido.classe === 'pergunta') {
+    const curto = montarPedidoCurto(entradaDoPedido(pedido, desde ?? pedido.criadoEm),
+      { quando: agora ?? new Date().toISOString(), responder: livre ? { tipo: 'texto' } : { tipo: 'dialogo' } });
+    return { mensagem: textoDoPedidoCurto(curto, 'terminal'), escolhas };
+  }
   const expiracao = expiracaoDoPedido(pedido);
   const linhas = [
     `Orkastery · ${pedido.fase}`,
     `• Decisão: ${redigirSegredos(textoDoPedido(pedido))}`,
     `• Recomendo: ${redigirSegredos(recomendacaoDoPedido(pedido))}`,
-    ...escolhas.flatMap((o, i) => [
-      `  ${o.const}. ${o.title}`,
-      ...(v2 ? [`     → ${redigirSegredos(v2.alternativas[i].consequencia)}`] : []),
-    ]),
+    ...escolhas.map(o => `  ${o.const}. ${o.title}`),
     livre ? '• Resposta: escreva sua resposta; o texto será enviado literalmente.'
-      : `• Resposta: selecione uma opção no diálogo. Se necessário, digite ${v2 ? 'a letra' : 'o número'}.`,
+      : '• Resposta: selecione uma opção no diálogo. Se necessário, digite o número.',
     ...(livre && escolhas.length ? ['  Exemplo: digitar “2” envia o texto “2”, sem selecionar a segunda opção.'] : []),
     `• Prazo: ${formatarPrazo(prazoDoPedido(pedido), { rotulo: true, agora })}. Sem resposta, ${
       expiracao === 'esperar' ? 'aguardamos' : expiracao === 'seguir-recomendada' ? 'sigo com a recomendada' : 'o pedido será escalado'}.`,

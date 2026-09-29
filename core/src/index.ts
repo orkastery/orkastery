@@ -3,6 +3,7 @@ import { runBrain } from './company-brain-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
+import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -76,7 +77,7 @@ import { montarPulse, textoDoPulse } from './pulse';
 import { interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
-import { TipoDeCriterio } from './hitl-contract';
+import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
 import { montarMonitor, textoDoMonitor } from './orquestracao';
 import {
   carimbarAchado,
@@ -383,6 +384,7 @@ Uso: ork <comando> [argumentos]
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
         [--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]
   gate request <thread-id> [--motivo M]     Apresenta pedido HITL correlacionado à pausa
+        [--formato telegram|terminal]           no contrato curto, com o codigo estavel para responder
   gate answer <thread-id> <pedido>          Recebe envelope do ingresso humano autenticado
         --resposta-stdin --por Q --mensagem ID --origem telegram [--canal hermes|openclaw]
         [--conta ID]  conta homologada do canal; obrigatoria no canal openclaw
@@ -1473,6 +1475,16 @@ function comandoConducao(args: Args): number {
   throw new Error('uso: ork conducao status|assumir <thread-id>');
 }
 
+/** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
+function textoDoGateCurto(raiz: string, pedido: PedidoHitlQualquer, canal: 'telegram' | 'terminal'): string {
+  const quando = new Date().toISOString();
+  const eventos = lerLedger(dirThread(raiz, pedido.thread));
+  const codigo = (pedido as { codigo?: unknown }).codigo;
+  const curto = montarPedidoCurto(entradaDoPedido(pedido, desdeDoPedido(eventos, pedido)),
+    { quando, responder: typeof codigo === 'string' ? { tipo: 'codigo', codigo } : { tipo: 'dialogo' } });
+  return textoDoPedidoCurto(curto, canal);
+}
+
 function comandoGate(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
@@ -1491,7 +1503,12 @@ function comandoGate(args: Args): number {
   if (sub === 'request') {
     const id = args.posicionais[2];
     if (!id) throw new Error('gate request exige thread');
-    console.log(JSON.stringify(abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo))));
+    const formato = texto(args.opcoes.formato);
+    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('gate request: --formato telegram|terminal');
+    const pedido = abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo));
+    // RM-048 (D1): com --formato, o que sai e o pedido no contrato curto, pronto para o canal, com
+    // o codigo estavel na ultima linha. Sem ele, o JSON de sempre, para quem integra.
+    console.log(formato ? textoDoGateCurto(carregado.raiz, pedido, formato) : JSON.stringify(pedido));
     return 0;
   }
   if (sub === 'answer') {

@@ -97,7 +97,7 @@ test('ponta a ponta: UM resumo, o sim pelo Telegram, o lote a-d, "1a 2c", e o le
     assert.equal(sim.resposta, 'sim');
     assert.match(sim.mensagem, /^📋 Orkastery, 3 perguntas/);
     for (const n of [1, 2, 3]) assert.match(sim.mensagem, new RegExp(`^${n}\\. ork-`, 'm'));
-    assert.match(sim.mensagem, /a\) Aprovar com as evidências apresentadas {2}✅ recomendada/);
+    assert.match(sim.mensagem, /a\) Aprovar com as evidências apresentadas ✅ recomendada: a fase segue e o bloco avança/);
     assert.match(sim.mensagem, /c\) Continuar esperando/);
     assert.equal(/[0-9a-f]{8}-[0-9a-f]{4}-/.test(sim.mensagem), false, 'identificador longo vazou para o dono');
     // O pedido de cada gate nasceu AGORA, em v2, com o prazo contado a partir do sim.

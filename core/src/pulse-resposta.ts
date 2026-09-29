@@ -29,7 +29,8 @@ import { abrirPedidoGate, autenticarResposta, EnderecoAssinado, MOTIVOS_DE_ESCAL
 import { alvoDoPedido, AtoIrreversivel, chaveDaEscolha, estadoDoPedido, motivoDoPedido,
   PedidoHitlQualquer, prazoDoPedido, validarPedidoHitl } from './hitl-contract';
 import { comLockDaConversa } from './monitor-lock';
-import { LETRAS, montarLote, PerguntaDoLote, textoDoLote } from './hitl-lote';
+import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, textoDoLote } from './hitl-lote';
+import { desdeDoPedido } from './hitl-curto';
 import { ItemClassificavel } from './hitl-classificacao';
 import { CADENCIAS, extrairTagDoPulse, gravarCadencia, lerCadencia, TagDoPulse, textoDaCadencia } from './pulse-cadencia';
 import { lerLedger } from './ledger';
@@ -100,6 +101,11 @@ export interface PerguntaServida {
   /** O texto de cada alternativa, para a confirmacao dizer ao dono o que ficou registrado. */
   alternativas: string[];
   consequencias: string[];
+  /** RM-048 (D1): a recomendada e o que o contrato curto mostra, para o reenvio sair igual. */
+  recomendada?: { letra: string; porque: string };
+  corpo?: string[];
+  ato?: AtoIrreversivel;
+  desde?: string | null;
   pergunta: string;
   prazo: string | null;
   servidaEm: string;
@@ -299,12 +305,20 @@ export function servirLote(raiz: string, entrada: {
   }
   const lote = montarLote(abertos.map(a => a.pedido), { numeroInicial: inicio });
   const restantes = [...ocupadas, ...candidatos.slice(i)];
+  // RM-048 (D1): "desde" sai do ledger, do primeiro pedido com o mesmo codigo; renovar nao zera.
+  for (const p of lote.perguntas) {
+    const pedido = abertos.find(a => a.pedido.id === p.pedidoId)!.pedido;
+    try { p.desde = desdeDoPedido(lerLedger(dirThread(raiz, pedido.thread)), pedido); } catch { p.desde = pedido.criadoEm; }
+  }
   const novas: PerguntaServida[] = lote.perguntas.map(p => {
     const pedido = abertos.find(a => a.pedido.id === p.pedidoId)!.pedido;
+    const recomendada = p.alternativas.find(a => a.recomendada);
     return {
       numero: p.numero, thread: pedido.thread, fase: pedido.fase, pedidoId: pedido.id,
       pedidoSha256: sha(JSON.stringify(pedido)), letras: p.alternativas.map(a => a.letra),
       alternativas: p.alternativas.map(a => a.texto), consequencias: p.alternativas.map(a => a.consequencia),
+      ...(recomendada ? { recomendada: { letra: recomendada.letra, porque: recomendada.recomendada!.porque } } : {}),
+      ...(p.corpo ? { corpo: p.corpo } : {}), ...(p.ato ? { ato: p.ato } : {}), desde: p.desde ?? null,
       pergunta: p.pergunta, prazo: prazoDoPedido(pedido) ?? null, servidaEm: quando,
     };
   });
@@ -319,7 +333,7 @@ export function servirLote(raiz: string, entrada: {
     quando, resumoSha256: entrada.pedido.resumoSha256, candidatos: restantes,
     prazoMin: PRAZO_PADRAO_MIN, estadoDir: entrada.estadoDir,
   }) : undefined;
-  const texto = textoDoLote(lote, { canal: entrada.canal, naoEsperam,
+  const texto = textoDoLote(lote, { canal: entrada.canal, naoEsperam, quando,
     ...(proximo ? { proximo: { codigo: proximo.codigo, faltam: restantes.length } } : {}) });
   return { texto, numeros, restantes, naoEsperam, ...(proximo ? { proximo } : {}) };
 }
@@ -328,22 +342,40 @@ export function servirLote(raiz: string, entrada: {
  * O lote de um sim ja servido, para quem pede de novo, ou o aviso de que ele ja nao serve. Reenviar
  * pergunta morta (toda respondida ou vencida) seria pedir uma resposta que o gate vai recusar.
  */
-function loteDeNovo(servido: LoteServido, numeros: readonly number[], codigo: string, quando: string,
+function loteDeNovo(raiz: string, servido: LoteServido, numeros: readonly number[], codigo: string, quando: string,
   canal: 'telegram' | 'terminal', aberto?: PedidoDeConsentimento): string {
   const vivas = servido.perguntas.filter(p => numeros.includes(p.numero) && perguntaViva(p, quando)).map(p => p.numero);
-  if (vivas.length) return reenviarLote(servido, vivas, canal);
+  if (vivas.length) return reenviarLote(raiz, servido, vivas, canal, quando);
   return `As perguntas do código ${codigo} já foram respondidas ou venceram. ` +
     (aberto ? `Para as de agora, responda ${aberto.codigo} a.` : 'O próximo resumo traz as que ainda esperarem você.');
 }
 
 /** O MESMO lote de novo, para quem repete o sim porque nao viu a mensagem chegar. */
-function reenviarLote(servido: LoteServido, numeros: readonly number[], canal: 'telegram' | 'terminal'): string {
-  const perguntas: PerguntaDoLote[] = servido.perguntas.filter(p => numeros.includes(p.numero)).map(p => ({
-    numero: p.numero, thread: p.thread, fase: p.fase, pergunta: p.pergunta, pedidoId: p.pedidoId,
-    alternativas: p.letras.map((letra, i) => ({ letra: letra as typeof LETRAS[number], texto: p.alternativas[i],
-      consequencia: p.consequencias[i] })),
-  }));
-  return textoDoLote({ contrato: 'ork.hitl-lote/v1', perguntas, restantes: 0, recusadas: [], abertas: 0 }, { canal });
+function reenviarLote(raiz: string, servido: LoteServido, numeros: readonly number[], canal: 'telegram' | 'terminal',
+  quando: string): string {
+  const perguntas: PerguntaDoLote[] = servido.perguntas.filter(p => numeros.includes(p.numero)).map(p => {
+    // Registro gravado antes do RM-048 nao tem a recomendada: ela sai de novo do pedido servido.
+    const recomendada = p.recomendada ?? recomendadaDoRegistro(raiz, p);
+    return {
+      numero: p.numero, thread: p.thread, fase: p.fase, pergunta: p.pergunta, pedidoId: p.pedidoId,
+      ...(p.corpo ? { corpo: p.corpo } : {}), ...(p.ato ? { ato: p.ato } : {}), desde: p.desde ?? null,
+      alternativas: p.letras.map((letra, i) => ({ letra: letra as typeof LETRAS[number], texto: p.alternativas[i],
+        consequencia: p.consequencias[i], ...(recomendada?.letra === letra ? { recomendada: { porque: recomendada.porque } } : {}) })),
+    };
+  });
+  return textoDoLote({ contrato: 'ork.hitl-lote/v1', perguntas, restantes: 0, recusadas: [], abertas: 0 }, { canal, quando });
+}
+
+/** A recomendada de uma pergunta servida, relida do pedido exato que saiu com o numero. */
+function recomendadaDoRegistro(raiz: string, p: PerguntaServida): { letra: string; porque: string } | undefined {
+  try {
+    const evento = lerLedger(dirThread(raiz, p.thread))
+      .find(e => e.tipo === 'hitl_requested' && (e.pedido as { id?: string } | undefined)?.id === p.pedidoId);
+    const pergunta = perguntaDoPedido(evento!.pedido as PedidoHitlQualquer, p.numero);
+    if ('motivo' in pergunta) return undefined;
+    const r = pergunta.alternativas.find(a => a.recomendada);
+    return r ? { letra: r.letra, porque: r.recomendada!.porque } : undefined;
+  } catch { return undefined; }
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +456,7 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
       // O dono pediu de novo, por outra mensagem: ele recebe o mesmo lote, e nao silencio.
       const aberto = !estado.respondido && Date.parse(quando) < Date.parse(estado.pedido.prazo) && estado.pedido.candidatos.length
         ? estado.pedido : undefined;
-      return resultado('consentimento', loteDeNovo(servido, numeros, codigo, quando, canal, aberto), { resposta: 'sim', repetida: false });
+      return resultado('consentimento', loteDeNovo(raiz, servido, numeros, codigo, quando, canal, aberto), { resposta: 'sim', repetida: false });
     }
     return resultado('consentimento', `O código ${codigo} não é o do resumo aberto. O resumo aberto usa ${estado.pedido.codigo}: ` +
       `responda ${estado.pedido.codigo} a para receber as perguntas.`);
@@ -461,7 +493,7 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
     { resposta: 'nao', repetida: mesmaMensagem });
   }
   if (r.repetida && r.respondido.numeros) {
-    return resultado('consentimento', loteDeNovo(lerLoteServido(raiz, estadoDir), r.respondido.numeros, codigo, quando, canal),
+    return resultado('consentimento', loteDeNovo(raiz, lerLoteServido(raiz, estadoDir), r.respondido.numeros, codigo, quando, canal),
       { resposta: 'sim', repetida: mesmaMensagem });
   }
   const entregue = servirLote(raiz, { pedido: r.pedido, quando, canal, estadoDir });
