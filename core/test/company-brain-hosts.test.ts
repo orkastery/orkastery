@@ -29,3 +29,20 @@ test('T18: ensaio SIMULADO dos quatro hosts preserva consulta e não inventa pri
     assert.equal(results.length,4);assert.equal(new Set(results.map(r=>JSON.stringify(r.request))).size,1);
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('B4.1: context chega aos hosts de CLI pelo repasse do Hermes e pela tool do plugin OpenClaw',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'brain-hosts-context-')),root=path.resolve(__dirname,'../../..');
+  try{
+    const executable=path.join(dir,'ork-simulated');
+    fs.writeFileSync(executable,`#!/bin/sh\nprintf '%s\\n' "$@"\n`,{mode:0o755});
+    const hermes=instalarAdaptador('hermes',{projeto:dir,catalogo:root,orkBin:executable});assert.equal(hermes.ok,true);
+    const run=spawnSync('/bin/sh',[path.join(hermes.destino,'bin/ork-brain.sh'),'context','--thread','thread-one','--ids','init-alpha-one,prod-alpha'],{encoding:'utf8',timeout:5000});
+    assert.equal(run.status,0,run.stderr);
+    assert.deepEqual(run.stdout.trim().split('\n'),['brain','context','--thread','thread-one','--ids','init-alpha-one,prod-alpha']);
+    const openclaw=instalarAdaptador('openclaw',{projeto:dir,catalogo:root,orkBin:executable});assert.equal(openclaw.ok,true);
+    const plugin=path.join(dir,'.openclaw','extensions','orkastery');
+    const manifesto=JSON.parse(fs.readFileSync(path.join(plugin,'openclaw.plugin.json'),'utf8'));
+    assert.ok(manifesto.contracts.tools.includes('ork_brain_context'));
+    const entry=fs.readFileSync(path.join(plugin,'dist','index.js'),'utf8');
+    assert.match(entry,/name: 'ork_brain_context'[\s\S]*?\['brain', 'context', '--thread', texto\(p, 'thread'\), '--ids', texto\(p, 'ids'\)\]/);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
