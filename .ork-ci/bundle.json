@@ -4,76 +4,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-companybrai3",
-      "fase": "GOAL",
-      "arquivo": "core/src/company-brain-context.ts",
-      "alegacao": "S1: ork brain context devolve ork.brain-context/v1 com os ids pedidos mais a cadeia de ancestrais (init, proj, prod) em ordem estavel",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S1 \" core/test/company-brain-context.test.ts"
-      ],
-      "criadoEm": "2026-09-29T02:09:01.751Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-companybrai3",
-      "fase": "GOAL",
-      "arquivo": "core/src/company-brain-context.ts",
-      "alegacao": "S2: todo item com estado ok traz source_ref, source_hash, source_version e location; item sem algum desses campos sai de itens e vira lacuna citacao.incompleta",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S2 \" core/test/company-brain-context.test.ts"
-      ],
-      "criadoEm": "2026-09-29T02:09:03.477Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C3",
-      "thread": "ork-companybrai3",
-      "fase": "GOAL",
-      "arquivo": "core/src/company-brain-context.ts",
-      "alegacao": "S3: cada item recebe exatamente um frescor entre confere, divergente, ausente-no-brain, ausente-na-fonte e retido, recomputando portfolioEntities sobre o portfolio canonico; os cinco casos tem teste",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S3 \" core/test/company-brain-context.test.ts"
-      ],
-      "criadoEm": "2026-09-29T02:09:05.457Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C4",
-      "thread": "ork-companybrai3",
-      "fase": "GOAL",
-      "arquivo": "core/src/company-brain-context.ts",
-      "alegacao": "S4: lacunas tipadas por item (dono.sem-principal, observado.desconhecido, registrado.desconhecido e as de frescor); id ausente na fonte e no Brain vira entidade.desconhecida",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S4 \" core/test/company-brain-context.test.ts"
-      ],
-      "criadoEm": "2026-09-29T02:09:07.364Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C5",
-      "thread": "ork-companybrai3",
-      "fase": "GOAL",
-      "arquivo": "core/src/company-brain-context.ts",
-      "alegacao": "S5: o mesmo estado de fonte e de Brain produz o mesmo digest do pacote (sem horario dentro do digest) e mudar um item da fonte muda o digest",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/company-brain-context.test.js && grep -q \"test('S5 \" core/test/company-brain-context.test.ts"
-      ],
-      "criadoEm": "2026-09-29T02:09:09.263Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C6",
       "thread": "ork-companybrai3",
       "fase": "GOAL",
@@ -158,7 +88,28 @@
       "lint": []
     }
   ],
-  "deferredClaims": [],
+  "deferredClaims": [
+    {
+      "id": "C1",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C2",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C3",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C4",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C5",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
   "commands": [
     {
       "name": "ci",
