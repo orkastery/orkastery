@@ -11,5 +11,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-hitlhumanono | #Auto | GOAL | RM-048 | — | 28/09 23:26 |
 | vps | ork-i31kg1contra | #Maestro | GO | — | — | 28/09 23:26 |
 | vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 28/09 23:26 |
+| vps | ork-rm050guiadec | #Auto | GOAL | RM-050 | — | 28/09 23:26 |
 
 Horários de Brasília.

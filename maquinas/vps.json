@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T02:26:12.272Z",
+  "publicadoEm": "2026-09-29T02:26:23.873Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -91,15 +91,15 @@
       "paradaDesde": "2026-09-29T00:35:39.661Z"
     },
     {
-      "id": "ork-roadmaprm050",
-      "nome": "roadmap: RM-050, guia de contribuição nos repositórios e nos sites",
-      "modo": "#Fast",
-      "fase": "GO",
+      "id": "ork-rm050guiadec",
+      "nome": "RM-050: guia de contribuição no repositório do Orkastery",
+      "modo": "#Auto",
+      "fase": "GOAL",
       "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-roadmaprm050-go",
-      "atualizadaEm": "2026-09-29T02:16:09.544Z",
-      "entregue": "c2a71d1",
+      "roadmap": "RM-050",
+      "branch": "HEAD",
+      "atualizadaEm": "2026-09-29T02:26:20.980Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
