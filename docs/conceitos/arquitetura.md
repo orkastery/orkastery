@@ -166,6 +166,13 @@ não pela ordem alfabética.
 | `evalrunner.ts` | O corpus das skills finas e o runner de avaliação |
 | `catalogo.ts` | O catálogo de skills e referências, com sha256 por arquivo |
 
+### Contratos de inteligência (KG1)
+
+| Módulo | Papel |
+| --- | --- |
+| `intelligence-graph-contract.ts` | Contrato `ork.code-artifact-graph/v1`: identidade canônica, proveniência por aresta e ACL, sem I/O |
+| `intelligence-benchmark-contract.ts` | Contrato `ork.graph-benchmark/v1`: registro A/B e veredito puro, sem executar modelo |
+
 ### Ambiente e hosts
 
 | Módulo | Papel |
@@ -298,3 +305,22 @@ Leitura e escrita têm autoridades diferentes. A identidade vem do transporte au
 O B1 roda sobre PostgreSQL, sem fixture nem fallback em produção, com documentos e decisões nativos, referências fixadas e CAS transacional com `SELECT ... FOR UPDATE`.
 
 Escopo ainda não entregue: B3–B7, K3–K7, cuidadores, Atlas, ponte semântica de dados e world model. A arquitetura completa desses cortes permanece no plano, não no contrato vigente.
+
+## 9. Grafo determinístico no KG1
+
+O [RM-031](../roadmap/RM-031-grafo-de-codigo.md) quer que as fases peçam só o contexto de que
+precisam, por um grafo local de código e documentos. O KG1 entrega a primeira de três coisas
+distintas, e só ela:
+
+| Camada | O que é | Estado no KG1 |
+| --- | --- | --- |
+| Contrato | [grafo](../referencia/contratos/grafo-deterministico-kg1.md) e [benchmark](../referencia/contratos/benchmark-grafo-kg1.md) versionados, validação pura e corpus sintético | entregue |
+| Serviço | extração, índice, consulta, incremental e consumo pelas fases (KG2 a KG5) | não existe |
+| Evidência de economia | registro `measured` do benchmark, com recibos revisados | não existe |
+
+O grafo é projeção descartável: não substitui o estado em arquivos do Ork nem o Company
+Brain. O contrato do grafo não é emitido como evento do OrkMind e não amplia o schema
+`orkmind.company-brain/v1`, que fica byte a byte. O caminho determinístico não usa vetor,
+embedding nem similaridade; a busca semântica opcional do OrkMind continua separada.
+Contrato válido não prova economia: só um registro medido, completo e aprovado pelo veredito
+do benchmark pode sustentar essa afirmação.
