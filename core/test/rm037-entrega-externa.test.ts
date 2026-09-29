@@ -14,7 +14,7 @@ import { ExecutorGitHub, registrarEntregaExternaPorPr, registrarEntregaPorPr } f
 import { ExecutorCi } from '../src/ci';
 import { carregarManifesto } from '../src/manifest';
 import { lerLedger } from '../src/ledger';
-import { dirThread, lerThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const MERGE = 'e29d05e7a3c3e94129bb7dcc6ca66e292e27466a', HEAD_PR = '14b264e40c04b0bbb1ce36338208197f6ddec6ff';
@@ -32,12 +32,14 @@ function github(respostas: Record<string, unknown>) {
   return { executor, chamadas };
 }
 
-const PR_MESCLADO = {
+/** O PR mesclado como a API devolve; o corpo cita a thread, como os PRs reais da ork-siteshomesco. */
+const prMesclado = (thread: string, pr: Record<string, unknown> = {}) => ({
+  'repos/orkastery/orkastery.com': { default_branch: 'main' },
   'repos/orkastery/orkastery.com/pulls/6': { merged: true, merge_commit_sha: MERGE, html_url: 'https://github.com/orkastery/orkastery.com/pull/6',
-    base: { ref: 'main' }, head: { sha: HEAD_PR } },
+    title: 'Homes completas', body: `Thread ${thread}: homes e Contribuir.`, base: { ref: 'main' }, head: { sha: HEAD_PR, ref: 'site/homes' }, ...pr },
   'repos/orkastery/orkastery.com/branches/main': { commit: { sha: PONTA } },
   [`repos/orkastery/orkastery.com/compare/${MERGE}...${PONTA}`]: { status: 'ahead' },
-};
+});
 
 function projeto(nome: string, declarados: Record<string, string>) {
   const p = projetoTemporario(nome);
@@ -52,7 +54,7 @@ test('defeito 5: PR mesclado em repositorio declarado sem CI vira ship_done com 
   try {
     // O caminho antigo nao tinha como: ele so procura ship(<thread>) no origin local.
     assert.equal(registrarEntregaPorPr(p.carregado, t.id, { buscar: false, publicar: false }).acao, 'sem-merge');
-    const gh = github(PR_MESCLADO);
+    const gh = github(prMesclado(t.id));
     const r = registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: gh.executor, publicar: false });
     assert.equal(r.acao, 'registrou', r.motivo);
     const e = lerLedger(dir).find(x => x.tipo === 'ship_done')!;
@@ -79,7 +81,7 @@ test('defeito 5: recusa repositorio nao declarado, PR aberto e merge fora da pon
     const aberto = github({ 'repos/orkastery/orkastery.com/pulls/6': { merged: false, merge_commit_sha: null, base: { ref: 'main' }, head: { sha: HEAD_PR } } });
     assert.equal(registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: aberto.executor, publicar: false }).acao, 'sem-merge');
 
-    const divergente = github({ ...PR_MESCLADO, [`repos/orkastery/orkastery.com/compare/${MERGE}...${PONTA}`]: { status: 'diverged' } });
+    const divergente = github({ ...prMesclado(t.id), [`repos/orkastery/orkastery.com/compare/${MERGE}...${PONTA}`]: { status: 'diverged' } });
     const r = registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: divergente.executor, publicar: false });
     assert.equal(r.acao, 'recusada');
     assert.match(r.motivo, /nao esta na ponta de orkastery\/orkastery\.com:main/);
@@ -90,7 +92,7 @@ test('defeito 5: recusa repositorio nao declarado, PR aberto e merge fora da pon
 test('defeito 5: repositorio declarado com check exige o CI verde no head do PR', () => {
   const { p, t, dir } = projeto('rm037-externa-ci', { 'orkastery/orkastery.com': 'build' });
   try {
-    const gh = github(PR_MESCLADO);
+    const gh = github(prMesclado(t.id));
     const ci = (conclusion: string): ExecutorCi => ({ repository, sha, context }) => {
       assert.deepEqual([repository, sha, context], ['orkastery/orkastery.com', HEAD_PR, 'build']);
       return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ check_runs: [{ name: 'build', status: 'completed', conclusion, html_url: 'https://ci.example/1' }] }) };
@@ -132,5 +134,29 @@ test('defeito 5: o manifesto le ci.external_repositories e recusa forma invalida
     const naoDeclarado = ork(['ship', 'registrar-pr', t.id, '--repo', 'orkastery/orkastery.com', '--pr', '6']);
     assert.equal(naoDeclarado.codigo, 1);
     assert.match(naoDeclarado.saida, /nao esta declarado em ci\.external_repositories/);
+  } finally { p.limpar(); }
+});
+
+test('defeito 5 (A4, S9): o PR precisa citar a thread e ter entrado na branch padrao; a fase so avanca', () => {
+  const { p, t, dir } = projeto('rm037-externa-vinculo', { 'orkastery/orkastery.com': '' });
+  try {
+    const registrar = (gh: ReturnType<typeof github>) =>
+      registrarEntregaExternaPorPr(p.carregado, t.id, { repositorio: 'orkastery/orkastery.com', pr: 6, executorGitHub: gh.executor, publicar: false });
+    const semVinculo = registrar(github(prMesclado(t.id, { body: 'Thread ork-outra-coisa: homes.', title: 'Homes' })));
+    assert.equal(semVinculo.acao, 'recusada');
+    assert.match(semVinculo.motivo, new RegExp(`nao cita a thread ${t.id}`));
+    const prefixo = registrar(github(prMesclado(t.id, { body: `Thread ${t.id}x: homes.` })));
+    assert.equal(prefixo.acao, 'recusada', 'id que so comeca igual nao e vinculo');
+    const empilhado = registrar(github({ ...prMesclado(t.id, { base: { ref: 'feature/base' } }),
+      'repos/orkastery/orkastery.com/branches/feature%2Fbase': { commit: { sha: PONTA } } }));
+    assert.equal(empilhado.acao, 'recusada');
+    assert.match(empilhado.motivo, /entrou em feature\/base, e a branch padrao de orkastery\/orkastery\.com e main/);
+    assert.equal(lerLedger(dir).some(x => x.tipo === 'ship_done'), false);
+
+    // Pela branch do PR tambem vale; e a thread ja no MASTER nao volta ao SHIP.
+    const t2 = lerThread(p.dir, t.id); t2.faseAtual = 'MASTER'; gravarThread(p.dir, t2);
+    const pelaBranch = registrar(github(prMesclado(t.id, { body: null, head: { sha: HEAD_PR, ref: `site/${t.id}` } })));
+    assert.equal(pelaBranch.acao, 'registrou', pelaBranch.motivo);
+    assert.equal(lerThread(p.dir, t.id).faseAtual, 'MASTER');
   } finally { p.limpar(); }
 });
