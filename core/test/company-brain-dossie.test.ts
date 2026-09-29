@@ -20,6 +20,7 @@ import { BRAIN_API, BrainTransport } from '../src/company-brain-client';
 import { BrainEvent, digest } from '../src/company-brain-contract';
 import { buildContext } from '../src/company-brain-context';
 import { portfolioEntities, readCycle } from '../src/company-brain-source';
+import { runBrain } from '../src/company-brain-cli';
 import { buildDossie, DOSSIE_SCHEMA, Dossie } from '../src/company-brain-dossie';
 
 semAutoridadeHitlNoAmbiente();
@@ -339,5 +340,30 @@ test('S9 o filtro aceita o id do pedido ou o fact-, desconhecido vira lacuna, in
     assert.equal(antes.digest, depois.digest);
     decidir(p, id, { decidido: 'terceira decisão' });
     assert.notEqual(buildDossie(p.carregado, id, undefined, brain).digest, antes.digest);
+  } finally { p.limpar(); }
+});
+
+test('S10 ork brain dossie é somente leitura: só query no transporte, ativação desligada, nada gravado e opção fora da lista recusada', () => {
+  const p = montar('dossie-s10');
+  try {
+    const id = thread(p, 'Dossiê S10');
+    vincular(p, id, 'proj-alpha-core', []);
+    decidir(p, id);
+    const dir = dirThread(p.dir, id);
+    const retrato = () => (fs.readdirSync(dir, { recursive: true }) as string[]).sort().map(f => {
+      const alvo = path.join(dir, f);
+      return fs.statSync(alvo).isFile() ? `${f}:${createHash('sha256').update(fs.readFileSync(alvo)).digest('hex')}` : f;
+    });
+    const antes = retrato(), chamadas: string[] = [];
+    const d = runBrain(p.carregado, 'dossie', { thread: id, json: true }, [], brainFalso(p, { chamadas }));
+    assert.equal(d.schema, DOSSIE_SCHEMA); assert.equal(d.state, 'ok');
+    assert.deepEqual([...new Set(chamadas)], ['query']);
+    assert.deepEqual(retrato(), antes);
+    // Ativação de escrita desligada: a escrita do `ork brain` recusa, a leitura do dossiê responde.
+    assert.throws(() => runBrain(p.carregado, 'sync', { thread: id }, [], brainFalso(p)));
+    assert.equal(runBrain(p.carregado, 'dossie', { thread: id, decisao: d.decisoes[0].id }, [], brainFalso(p)).decisoes.length, 1);
+    for (const opcao of ['principal', 'dsn', 'raiz'])
+      assert.throws(() => runBrain(p.carregado, 'dossie', { thread: id, [opcao]: 'x' }, [], brainFalso(p)), /brain\.argument\.invalid/);
+    assert.throws(() => runBrain(p.carregado, 'dossie', {}, [], brainFalso(p)), /brain\.thread\.required/);
   } finally { p.limpar(); }
 });

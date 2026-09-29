@@ -13,12 +13,13 @@ import { brainAdmin, reconcileBrain, applyBrain } from './company-brain-migratio
 import { atomicJson, readJournal } from './company-brain-journal';
 import { digest, validateContract } from './company-brain-contract';
 import { buildContext } from './company-brain-context';
-export const BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context'] as const;
+import { buildDossie } from './company-brain-dossie';
+export const BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context','dossie'] as const;
 export const BRAIN_WRITE=['sync','apply','rollback','bind'] as const;
 export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,string|boolean>,positionals:string[]=[],transport?:BrainTransport):any{
   const context=memoryState(c);c=context.loaded;const config=c.manifesto.memory;
   if(![...BRAIN_READ,...BRAIN_WRITE].includes(sub as any))throw Error('brain.operation.invalid');
-  const allowed=new Set(['thread','json','id','ids','kinds','workspaces','limit','offset','batch','dry-run','plan','expected-sha256','project','initiatives']);
+  const allowed=new Set(['thread','json','id','ids','kinds','workspaces','limit','offset','batch','dry-run','plan','expected-sha256','project','initiatives','decisao']);
   if(Object.keys(options).some(k=>!allowed.has(k)))throw Error('brain.argument.invalid');
   const value=(name:string)=>typeof options[name]==='string'?options[name] as string:undefined;
   const thread=value('thread');
@@ -49,6 +50,8 @@ export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,s
     }
     return buildContext(c,ids,client,thread);
   }
+  // K3.1: dossiê de decisão, só leitura como o contexto; decidir continua no registro e no ingresso.
+  if(sub==='dossie')return buildDossie(c,thread,value('decisao'),client);
   // Existing reviewed activation plus dedicated Brain DB grants: neither grants the other.
   exigirAtivacao(c,thread,'memory');
   const dir=dirThread(c.raiz,thread);
