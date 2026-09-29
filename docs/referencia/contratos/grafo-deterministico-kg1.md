@@ -156,8 +156,9 @@ caminho da fonte. Erro de validação sai na posição da entrada, também quand
 
 Caminho é relativo à raiz declarada, com `/` e caixa preservada. São recusados: absoluto,
 `\`, `:` no primeiro segmento (drive ou esquema de URL), `.`, `..`, segmento vazio,
-qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1 e controles bidirecionais.
-ZWJ e ZWNJ são aceitos, porque emoji e escritas como a persa dependem deles. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
+qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1, controles bidirecionais e
+marcas invisíveis sem uso em nome (hífen suave, espaço de largura zero, juntores de palavra e
+BOM). ZWJ e ZWNJ são aceitos, porque emoji e escritas como a persa dependem deles. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
 caminhos do manifesto que coincidem na forma NFC são recusados
 (`grafo.manifesto.caminho-ambiguo`), porque um sistema de arquivos que normaliza os
 fundiria. Fragmentos de localizador seguem a mesma regra de controle. Arquivo cujo caminho o
@@ -185,9 +186,11 @@ allowlist e ACL viva ficam no KG6. Veja
 O corpus `core/test/fixtures/code-artifact-graph-v1.json` é sintético: um grafo válido com
 os quatro tipos de nó e os seis de aresta, uma fonte PDF por página, o digest esperado e
 casos inválidos em JSON Patch com o código de erro esperado. Outra implementação pode
-rodar os mesmos casos, desde que siga a precedência: versão, estrutura, regras semânticas na
-ordem manifesto, extratores, nós, arestas, hierarquia e diagnósticos, e só então o recálculo
-de IDs.
+rodar os mesmos casos, desde que siga a precedência: versão, estrutura, coerência da revisão
+do snapshot, regras semânticas na ordem manifesto, extratores, nós, arestas (com a regra de
+pai único dentro do laço de arestas), ciclo de `contains` e diagnósticos, e só então o
+recálculo de IDs. Cada caso do corpus aplica uma mutação só; a ordem das checagens dentro de
+cada etapa é a do código de referência.
 
 ```sh
 npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js

@@ -233,10 +233,11 @@ export function derivarIds(rascunho: GrafoCodigo): GrafoCodigo {
 }
 
 /**
- * Controle C0 e C1 e controles bidirecionais, que fazem um nome parecer outro. ZWJ e ZWNJ ficam:
- * emoji e escritas como a persa e as indicas dependem deles.
+ * Controle C0 e C1, controles bidirecionais e marcas invisiveis sem uso em nome (hifen suave,
+ * espaco de largura zero, juntores de palavra, BOM), que fazem um nome parecer outro. ZWJ e ZWNJ
+ * ficam: emoji e escritas como a persa e as indicas dependem deles.
  */
-const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
+const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
 const SURROGATE_ISOLADO = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const textoValido = (t: string): boolean => !CONTROLE.test(t) && !SURROGATE_ISOLADO.test(t);
 
@@ -510,7 +511,8 @@ export function conferirFontes(entrada: unknown, fontes: ReadonlyMap<string, Fon
   const manifesto = new Map(g.snapshot.source_manifest.map((m) => [m.path, m]));
   for (const [p, f] of fontes) {
     if (!manifesto.has(p)) falha('grafo.fonte.fora-do-manifesto');
-    if (!['texto', 'binario', 'pdf'].includes((f as { tipo: unknown }).tipo as string)) falha('grafo.fonte.tipo-desconhecido');
+    const tipo = f !== null && typeof f === 'object' ? (f as { tipo: unknown }).tipo : undefined;
+    if (!['texto', 'binario', 'pdf'].includes(tipo as string)) falha('grafo.fonte.tipo-desconhecido');
   }
   const fontesVerificadas: string[] = [], fontesIndisponiveis: string[] = [];
   g.snapshot.source_manifest.forEach((m, i) => {

@@ -344,7 +344,9 @@ test('KG1 security: so metodo deterministico e classe EXTRACTED sustentam aresta
 
 test('KG1 security: ZWJ e ZWNJ sao aceitos; controles bidirecionais nao', () => {
   for (const ok of ['docs/\u{1F469}\u200d\u{1F4BB}.md', 'src/a\u200cb.ts']) assert.equal(caminhoValido(ok), true, JSON.stringify(ok));
-  for (const nao of ['src/\u202ests.ppa', 'src/a\u2066b.ts', 'src/a\u200fb.ts']) assert.equal(caminhoValido(nao), false, JSON.stringify(nao));
+  for (const nao of ['src/\u202ests.ppa', 'src/a\u2066b.ts', 'src/a\u200fb.ts', 'd\u200bocs/adr-001.md', 'src/a\u00adb.ts', 'src/a\u2060b.ts', '\ufeffsrc/a.ts']) {
+    assert.equal(caminhoValido(nao), false, JSON.stringify(nao));
+  }
   const g = structuredClone(GRAFO), secao = g.nodes.find((n) => n.kind === 'section' && n.locator.path === 'docs/guia.md') as GrafoCodigo['nodes'][number];
   secao.locator.fragment = '\u{1F469}\u200d\u{1F4BB} contribuindo';
   assert.equal(validarGrafo(derivarIds(g)).nodes.length, GRAFO.nodes.length);
@@ -353,6 +355,8 @@ test('KG1 security: ZWJ e ZWNJ sao aceitos; controles bidirecionais nao', () => 
 test('KG1 security: tipo de fonte desconhecido falha fechado, sem virar verificado', () => {
   const fontes = new Map(fontesDoCorpus()) as Map<string, unknown>;
   fontes.set('src/app.ts', { tipo: 'utf8', bytes: bytesDe(fontesDoCorpus(), 'src/app.ts') });
+  assert.throws(() => conferirFontes(GRAFO, fontes as Map<string, FonteFornecida>), comCodigo('grafo.fonte.tipo-desconhecido'));
+  fontes.set('src/app.ts', null);
   assert.throws(() => conferirFontes(GRAFO, fontes as Map<string, FonteFornecida>), comCodigo('grafo.fonte.tipo-desconhecido'));
 });
 
