@@ -216,7 +216,7 @@ test('a busca por tag nao muda com indice e busca semantica', () => {
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const DUBLE = path.resolve(__dirname, '../../dist/orkmind.js');
 
-function projetoComOrkmindFalso(nome: string) {
+function projetoComOrkmindFalso(nome: string, embedderConceitual = false) {
   const p = projetoTemporario(nome);
   const dados = MEMORIA().map(e => ({ ...e, tags: { project: [e.tags.project[0] === 'fabrica' ? 'orkastery' : 'alheio'] }, created_at: e.criadaEm }));
   fs.writeFileSync(path.join(p.dir, 'dados.json'), JSON.stringify(dados));
@@ -230,6 +230,10 @@ const d=new (require(${JSON.stringify(DUBLE)}).DriverEmMemoria)(dados.map(e=>({.
 if (q.op==='health') console.log(JSON.stringify({contagens:cont,orkmind:'teste',fallback:{dependencias:false}}));
 else if (q.op==='export') console.log(JSON.stringify(dados.filter(e=>e.collection===q.collection)));
 else if (q.op==='fts') console.log(JSON.stringify({ids:d.buscarTexto(q.tenant,q.texto)}));
+else if (q.op==='embed' && ${embedderConceitual}) { const temas=${JSON.stringify(TEMAS)};
+  console.log(JSON.stringify({alvo:q.alvo,modelo:q.modelo,dim:q.dim,vetores:q.textos.map(t=>{const v=Array(q.dim).fill(0);
+    for (const w of t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9]+/g)||[]) if (w in temas) v[temas[w]]+=1;
+    const n=Math.hypot(...v); return n===0?v.map((_,i)=>i===q.dim-1?1:0):v.map(x=>x/n);})})); }
 else if (q.op==='embed') console.log(JSON.stringify(d.embeddar({papel:q.papel,alvo:q.alvo,modelo:q.modelo,dim:q.dim,textos:q.textos})));
 else { console.log(JSON.stringify({error:'memory.bridge.failed'})); process.exit(1); }
 `, { mode: 0o755 });
@@ -291,4 +295,34 @@ test('--texto nao combina com --tags nem --thread, e a ajuda anuncia a busca', (
     assert.equal(ork(p.dir, ['memory', 'search', '--texto', 'x', '--modo', 'magico'], {}).codigo, 2);
     assert.match(ork(p.dir, ['--help'], {}).saida, /memory search --texto/);
   } finally { p.limpar(); }
+});
+
+test('prova do C4: o script imprime os tres conjuntos e a exclusiva da busca semantica', (t) => {
+  const p = projetoComOrkmindFalso('i38-prova', true);
+  t.after(p.limpar);
+  const script = path.resolve(__dirname, '../../scripts/prova-busca-semantica.sh');
+  const env = { TESTE_BUSCA_DSN: 'postgresql://leitor:senha@db.local:5432/memoria',
+    TESTE_BUSCA_KEY: ['chave', 'de', 'teste', 'da', 'prova'].join('-') };
+  const rodar = (args: string[]) => {
+    try {
+      return { saida: execFileSync('bash', [script, ...args], { cwd: p.dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'],
+        env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...env } }), codigo: 0 };
+    } catch (e) {
+      const erro = e as { status?: number; stdout?: string; stderr?: string };
+      return { saida: (erro.stdout ?? '') + (erro.stderr ?? ''), codigo: erro.status ?? -1 };
+    }
+  };
+  const semIndice = rodar([]);
+  assert.equal(semIndice.codigo, 1, 'sem indice nao ha exclusiva, e a prova reprova');
+  assert.doesNotMatch(semIndice.saida, /exclusiva da busca semantica/);
+  assert.equal(ork(p.dir, ['memory', 'index', '--json'], env).codigo, 0);
+  const r = rodar(['rotacao|trocar de conta quando acaba a cota']);
+  assert.equal(r.codigo, 0, r.saida);
+  assert.match(r.saida, /alvo \(FTS do termo\)\s+decision\/rot/);
+  assert.match(r.saida, /tag equivalente\s+\(nenhuma\)/);
+  assert.match(r.saida, /FTS da parafrase\s+\(nenhuma\)/);
+  assert.match(r.saida, /semantica top 5\s+decision\/rot.*\[origem primario org\/primario\]/);
+  assert.match(r.saida, /exclusiva da busca semantica: decision\/rot/);
+  assert.doesNotMatch(r.saida, /alheia/);
+  assert.equal(rodar(['sem-separador']).codigo, 2);
 });
