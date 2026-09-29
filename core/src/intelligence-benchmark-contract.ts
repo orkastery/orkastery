@@ -221,6 +221,15 @@ function conferirCusto(m: z.infer<typeof medidaDeCustoSchema>, onde: string): vo
 function conferirLatencia(m: z.infer<typeof medidaDeLatenciaSchema>, onde: string): void {
   conferirMedida(m, false, onde);
   if (m.value !== null && m.method !== METODO_DE_LATENCIA) falha('benchmark.metrica.latencia-sem-relogio-monotonico', onde);
+  // Tokenizador nao mede tempo: latencia medida vem do executor.
+  if (m.source === 'tokenizer_exact') falha('benchmark.metrica.origem-invalida', onde);
+}
+
+/** Custo por tabela herda a origem dos tokens que ele multiplica. */
+function conferirOrigemDoCusto(custo: z.infer<typeof medidaDeCustoSchema>, tokens: z.infer<typeof medidaDeTokensSchema>, onde: string): void {
+  if (custo.value !== null && custo.rate_card !== null && ORIGENS_DE_CONSUMO_MEDIDO.includes(custo.source) && custo.source !== tokens.source) {
+    falha('benchmark.metrica.origem-invalida', onde);
+  }
 }
 
 function conferirSeed(c: Execucao['controls'], onde: string): void {
@@ -255,15 +264,18 @@ function conferirTokens(r: Execucao, requisicoes: Set<string>, onde: string): vo
     }
   });
   // A metrica primaria tambem se concilia: total declarado sem as requisicoes que o somam nao vale.
+  // So a tentativa nao concluida que caiu antes da primeira requisicao mede zero sem requisicoes.
+  const caiuAntes = r.outcome !== 'completed' && r.requests.length === 0;
   for (const k of ['logical_total_tokens', ...TOKENS] as const) {
     const medida = m[k];
     if (medida.value === null) continue;
-    // Consumo medido acima de zero exige as requisicoes; tentativa que caiu antes da primeira mede zero.
-    if ((ORIGENS_DE_CONSUMO_MEDIDO as readonly string[]).includes(medida.source) && medida.value > 0 && r.requests.length === 0) {
+    if ((ORIGENS_DE_CONSUMO_MEDIDO as readonly string[]).includes(medida.source) && r.requests.length === 0 && !(caiuAntes && medida.value === 0)) {
       falha('benchmark.metrica.sem-requisicoes', onde);
     }
     if (r.requests.length && medida.value !== r.requests.reduce((s, q) => s + PARCELAS[k](q), 0)) falha('benchmark.metrica.requisicoes-divergentes', onde);
   }
+  // Sem requisicao ao modelo nao ha chamada de ferramenta pedida por ele.
+  if (r.requests.length === 0 && m.tool_calls.value !== null && m.tool_calls.value > 0) falha('benchmark.metrica.chamadas-sem-requisicao', onde);
 }
 
 function conferirProtocolo(p: Protocolo): void {
@@ -340,6 +352,7 @@ export function validarBenchmark(entrada: unknown): RegistroDeBenchmark {
   conferirMedida(b.index_preparation.logical_total_tokens, true, 'index_preparation.logical_total_tokens');
   conferirLatencia(b.index_preparation.latency_ms, 'index_preparation.latency_ms');
   conferirCusto(b.index_preparation.cost, 'index_preparation.cost');
+  conferirOrigemDoCusto(b.index_preparation.cost, b.index_preparation.logical_total_tokens, 'index_preparation.cost');
   if (b.receipts_review.state === 'reviewed' && b.receipts_review.receipt_ref === null) falha('benchmark.revisao.sem-recibo');
 
   const tarefas = new Map(p.tasks.map((t) => [t.task_id, t])), pares = new Map(p.pairs.map((q) => [q.pair_id, q]));
@@ -359,8 +372,10 @@ export function validarBenchmark(entrada: unknown): RegistroDeBenchmark {
       falha('benchmark.metrica.contexto-sem-janela', onde);
     }
     conferirMedida(r.metrics.tool_calls, true, `${onde}.metrics.tool_calls`);
+    if (r.metrics.tool_calls.source === 'tokenizer_exact') falha('benchmark.metrica.origem-invalida', `${onde}.metrics.tool_calls`);
     conferirLatencia(r.metrics.latency_ms, `${onde}.metrics.latency_ms`);
     conferirCusto(r.metrics.cost, `${onde}.metrics.cost`);
+    conferirOrigemDoCusto(r.metrics.cost, r.metrics.logical_total_tokens, `${onde}.metrics.cost`);
     conferirAuditoria(r, p, onde);
     if (r.warmup) {
       if (r.pair_id !== null || r.repetition !== null) falha('benchmark.warmup.com-par', onde);

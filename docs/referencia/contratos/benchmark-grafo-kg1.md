@@ -65,11 +65,13 @@ com `logical_total_tokens`. Origem equivalente entre braços é a mesma `source`
 Métricas auxiliares: `residual_context_tokens` (com janela e ponto de leitura),
 `tool_calls` (convenção fixada no protocolo), `latency_ms` (relógio monotônico, de ponta a
 ponta) e `cost` (moeda, natureza paga, marginal ou atribuída, e tabela de preço quando
-calculado). Custo de assinatura não atribuível é `null` com motivo. Latência medida pelo
-executor com relógio monotônico usa `runtime_reported`. Custo calculado por tabela sobre
-tokens medidos usa a origem dos tokens (`runtime_reported` ou `tokenizer_exact`) e exige
-`rate_card`; custo aproximado é `estimated` e não conta como métrica requerida. Tentativa que
-caiu antes da primeira requisição registra consumo medido zero, sem requisições.
+calculado). Custo de assinatura não atribuível é `null` com motivo. O validador confere as
+origens: latência e chamadas de ferramenta nunca são `tokenizer_exact` (latência medida pelo
+executor com relógio monotônico é `runtime_reported`); custo calculado por tabela sobre tokens
+medidos tem `rate_card` e a mesma origem de `logical_total_tokens`; custo aproximado é
+`estimated` e não conta como métrica requerida. Só a tentativa não concluída que caiu antes da
+primeira requisição registra consumo medido zero sem requisições, e então sem chamada de
+ferramenta; tentativa `completed` sempre traz suas requisições.
 
 ## Veredito
 

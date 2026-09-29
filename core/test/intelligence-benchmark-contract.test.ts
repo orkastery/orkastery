@@ -124,10 +124,17 @@ test('KG1 measurement: tentativa que caiu antes da primeira requisicao mede zero
   for (const k of ['logical_total_tokens', 'input_total_tokens', 'output_total_tokens', 'cached_input_tokens', 'reasoning_tokens'] as const) {
     t.metrics[k] = { ...t.metrics[k], value: 0 };
   }
+  t.metrics.tool_calls.value = 0;
   assert.deepEqual(validarBenchmark(r), r);
   assert.equal(avaliarBenchmark(r).porTarefa[0].medianaA, (1450 + 1350) / 2);
+  t.metrics.tool_calls.value = 2;
+  assert.throws(() => validarBenchmark(r), comCodigo('benchmark.metrica.chamadas-sem-requisicao'));
+  t.metrics.tool_calls.value = 0;
   t.metrics.logical_total_tokens.value = 1;
   assert.throws(() => validarBenchmark(r), comCodigo('benchmark.metrica.total-inconsistente'));
+  t.metrics.logical_total_tokens.value = 0;
+  t.outcome = 'completed';
+  assert.throws(() => validarBenchmark(r), comCodigo('benchmark.metrica.sem-requisicoes'), 'concluida sempre traz requisicoes');
 });
 
 test('KG1 measurement: numero nao finito e recusado mesmo fora do JSON', () => {

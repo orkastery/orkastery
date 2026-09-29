@@ -3185,6 +3185,120 @@
     },
     {
       "group": "measurement",
+      "name": "concluida-com-consumo-zero-sem-requisicoes",
+      "code": "benchmark.metrica.sem-requisicoes",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/3/requests",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/logical_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/input_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/output_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/cached_input_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/reasoning_tokens/value",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "chamadas-de-ferramenta-sem-requisicao",
+      "code": "benchmark.metrica.chamadas-sem-requisicao",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/5/requests",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/logical_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/input_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/output_total_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/cached_input_tokens/value",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/reasoning_tokens/value",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "latencia-por-tokenizador",
+      "code": "benchmark.metrica.origem-invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/latency_ms/source",
+          "value": "tokenizer_exact"
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "custo-por-tabela-com-outra-origem",
+      "code": "benchmark.metrica.origem-invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/cost",
+          "value": {
+            "value": 0.12,
+            "unit": "USD",
+            "source": "tokenizer_exact",
+            "method": "tabela",
+            "method_version": "1",
+            "evidence_ref": {
+              "ref": "synthetic://kg1/custo.json",
+              "sha256": "dd8f2e4463d04e90cf7685b707c13dfe4e0831a5d22b5d8185c9f85f54f7efaa"
+            },
+            "unavailable_reason": null,
+            "cost_kind": "attributed",
+            "rate_card": {
+              "id": "tabela-sintetica",
+              "version": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "group": "measurement",
       "name": "consumo-sem-requisicoes",
       "code": "benchmark.metrica.sem-requisicoes",
       "patch": [
