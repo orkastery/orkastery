@@ -1221,6 +1221,56 @@
     },
     {
       "group": "graph",
+      "name": "contains-duplicada-exata",
+      "code": "grafo.aresta.duplicada",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/edges/-",
+          "value": {
+            "edge_id": "edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+            "kind": "contains",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "from": "node-c79ad65739d27fd23989982e5d1695fbdc41aa689923faf55e8fc2502c198c81",
+            "to": "node-335c63da3d0e6783186a33d1a82a8923304c0644654f672870d3a93b84d7221c",
+            "evidence": [
+              {
+                "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+                "path": "docs/guia.md",
+                "source_hash": "d4ada3f2be5adf435afe9c7663e12fc4a4ab9da4bfa32c1837d4da7144ff1069",
+                "source_version": "d6cf3e5eda2e1982614bd34b41a937757250c752",
+                "authority": "git:repo-sintetico",
+                "extractor_id": "ork.md-structure",
+                "extractor_version": "0.0.0-sintetico",
+                "extraction_method": "structured",
+                "confidence_class": "EXTRACTED",
+                "span": {
+                  "type": "text",
+                  "byte_start": 8,
+                  "byte_end": 25,
+                  "line_start": null,
+                  "line_end": null
+                },
+                "access": {
+                  "tenant_id": "synthetic",
+                  "acl_refs": [
+                    "acl:repo-sintetico:leitura"
+                  ]
+                }
+              }
+            ],
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "group": "graph",
       "name": "contains-fora-do-arquivo",
       "code": "grafo.aresta.fora-do-arquivo",
       "patch": [

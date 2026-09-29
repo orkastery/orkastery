@@ -232,8 +232,11 @@ export function derivarIds(rascunho: GrafoCodigo): GrafoCodigo {
   return canonizar(g);
 }
 
-/** Controle C0 e C1, e marcas invisiveis ou bidirecionais que fazem um nome parecer outro. */
-const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
+/**
+ * Controle C0 e C1 e controles bidirecionais, que fazem um nome parecer outro. ZWJ e ZWNJ ficam:
+ * emoji e escritas como a persa e as indicas dependem deles.
+ */
+const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/;
 const SURROGATE_ISOLADO = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const textoValido = (t: string): boolean => !CONTROLE.test(t) && !SURROGATE_ISOLADO.test(t);
 
@@ -376,10 +379,6 @@ function semantica(g: GrafoCodigo): void {
     if (!MATRIZ_DE_ARESTAS[a.kind][de.kind].includes(para.kind)) falha('grafo.aresta.kind-incompativel', onde);
     // Hierarquia e declaracao moram dentro de um arquivo; a relacao entre arquivos e imports ou references.
     if ((a.kind === 'contains' || a.kind === 'declares') && de.locator.path !== para.locator.path) falha('grafo.aresta.fora-do-arquivo', onde);
-    if (a.kind === 'contains') {
-      if (pais.has(a.to)) falha('grafo.aresta.contains-com-dois-pais', onde);
-      pais.add(a.to);
-    }
     // D5: conjuncao das restricoes das extremidades e das evidencias, nunca uniao de permissoes.
     const exigidas = new Set([...de.access.acl_refs, ...para.access.acl_refs]), vistas = new Set<string>();
     a.evidence.forEach((e, j) => {
@@ -405,6 +404,9 @@ function semantica(g: GrafoCodigo): void {
     arestas.add(a.edge_id);
     triplas.add(tripla);
     if (a.kind === 'contains') {
+      // Depois da duplicata: a mesma aresta repetida e duplicata, nao um segundo pai.
+      if (pais.has(a.to)) falha('grafo.aresta.contains-com-dois-pais', onde);
+      pais.add(a.to);
       const lista = contidos.get(a.from) ?? [];
       lista.push(a.to);
       contidos.set(a.from, lista);
@@ -506,7 +508,10 @@ function linhaDoByte(quebras: readonly number[], o: number): number {
 export function conferirFontes(entrada: unknown, fontes: ReadonlyMap<string, FonteFornecida>): ConferenciaDeFontes {
   const g = validarGrafo(entrada);
   const manifesto = new Map(g.snapshot.source_manifest.map((m) => [m.path, m]));
-  for (const p of fontes.keys()) if (!manifesto.has(p)) falha('grafo.fonte.fora-do-manifesto');
+  for (const [p, f] of fontes) {
+    if (!manifesto.has(p)) falha('grafo.fonte.fora-do-manifesto');
+    if (!['texto', 'binario', 'pdf'].includes((f as { tipo: unknown }).tipo as string)) falha('grafo.fonte.tipo-desconhecido');
+  }
   const fontesVerificadas: string[] = [], fontesIndisponiveis: string[] = [];
   g.snapshot.source_manifest.forEach((m, i) => {
     const onde = `snapshot.source_manifest.${i}`, f = fontes.get(m.path);

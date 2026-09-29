@@ -13,7 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
-  CLASSE_DE_CONFIANCA, GRAFO_SCHEMA, METODOS_DE_EXTRACAO, TIPOS_DE_ARESTA, TIPOS_DE_NO, canonico, compararUtf8,
+  CLASSE_DE_CONFIANCA, GRAFO_SCHEMA, METODOS_DE_EXTRACAO, TIPOS_DE_ARESTA, TIPOS_DE_NO, caminhoValido, canonico, compararUtf8,
   conferirFontes, derivarIds, digestDoGrafo, grafoSchema, idDoNo, validarGrafo,
   type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
@@ -340,6 +340,20 @@ test('KG1 security: so metodo deterministico e classe EXTRACTED sustentam aresta
   assert.equal(CLASSE_DE_CONFIANCA, 'EXTRACTED');
   const texto = fs.readFileSync(path.join(RAIZ, 'core/schemas/code-artifact-graph.v1.schema.json'), 'utf8');
   for (const proibido of ['INFERRED', 'embedding', 'vector', 'similarity', 'confidence"']) assert.ok(!texto.includes(proibido), proibido);
+});
+
+test('KG1 security: ZWJ e ZWNJ sao aceitos; controles bidirecionais nao', () => {
+  for (const ok of ['docs/\u{1F469}\u200d\u{1F4BB}.md', 'src/a\u200cb.ts']) assert.equal(caminhoValido(ok), true, JSON.stringify(ok));
+  for (const nao of ['src/\u202ests.ppa', 'src/a\u2066b.ts', 'src/a\u200fb.ts']) assert.equal(caminhoValido(nao), false, JSON.stringify(nao));
+  const g = structuredClone(GRAFO), secao = g.nodes.find((n) => n.kind === 'section' && n.locator.path === 'docs/guia.md') as GrafoCodigo['nodes'][number];
+  secao.locator.fragment = '\u{1F469}\u200d\u{1F4BB} contribuindo';
+  assert.equal(validarGrafo(derivarIds(g)).nodes.length, GRAFO.nodes.length);
+});
+
+test('KG1 security: tipo de fonte desconhecido falha fechado, sem virar verificado', () => {
+  const fontes = new Map(fontesDoCorpus()) as Map<string, unknown>;
+  fontes.set('src/app.ts', { tipo: 'utf8', bytes: bytesDe(fontesDoCorpus(), 'src/app.ts') });
+  assert.throws(() => conferirFontes(GRAFO, fontes as Map<string, FonteFornecida>), comCodigo('grafo.fonte.tipo-desconhecido'));
 });
 
 test('KG1 security: erro de validacao nao ecoa caminho nem conteudo da fonte', () => {

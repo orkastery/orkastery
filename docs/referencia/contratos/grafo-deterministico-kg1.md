@@ -44,7 +44,7 @@ JSON canônico: chaves na ordem dos bytes UTF-8 (a ordem de code points), sem es
 número finito, inteiro seguro em posição e contagem. String sai como no `JSON.stringify` do
 ECMAScript: escapa só aspas, barra invertida e controle abaixo de U+0020 (`\b`, `\f`, `\n`,
 `\r`, `\t`, os demais como `\u00xx` minúsculo); todo o resto vai cru em UTF-8, sem `\u` para
-não-ASCII. Hash é SHA-256 sobre os bytes UTF-8 desse texto. Conjuntos (manifesto, extratores, nós, arestas, evidências, diagnósticos) são
+não-ASCII. Surrogate isolado nunca chega à forma canônica: o contrato o recusa antes. Hash é SHA-256 sobre os bytes UTF-8 desse texto. Conjuntos (manifesto, extratores, nós, arestas, evidências, diagnósticos) são
 ordenados na forma canônica; `acl_refs` já chega ordenado e sem repetição.
 
 | ID | Deriva de |
@@ -147,19 +147,22 @@ de vazamento de um serviço de consulta que ainda não existe.
 | `conferirFontes(entrada, fontes)` | hash, tamanho, UTF-8 e spans contra bytes fornecidos |
 
 O erro traz o código e a posição estrutural (`edges.3.evidence.0`), nunca conteúdo nem
-caminho da fonte. Em `validarGrafo` a posição é a da entrada; em `conferirFontes`, a da forma
-canônica que `validarGrafo` devolve. Famílias: `grafo.versao`, `grafo.estrutura`,
+caminho da fonte. Erro de validação sai na posição da entrada, também quando vem de dentro de
+`conferirFontes`; erro de conferência de bytes sai na posição da forma canônica que
+`validarGrafo` devolve. Tipo de fonte fora de `texto`, `binario` e `pdf` é recusado. Famílias: `grafo.versao`, `grafo.estrutura`,
 `grafo.caminho`, `grafo.texto`, `grafo.canonico`, `grafo.manifesto`, `grafo.extrator`,
 `grafo.snapshot`, `grafo.id`, `grafo.no`, `grafo.aresta`, `grafo.proveniencia`, `grafo.span`,
 `grafo.acesso`, `grafo.fonte` e `grafo.diagnostico`.
 
 Caminho é relativo à raiz declarada, com `/` e caixa preservada. São recusados: absoluto,
 `\`, `:` no primeiro segmento (drive ou esquema de URL), `.`, `..`, segmento vazio,
-qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1 e marcas invisíveis ou
-bidirecionais. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
+qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1 e controles bidirecionais.
+ZWJ e ZWNJ são aceitos, porque emoji e escritas como a persa dependem deles. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
 caminhos do manifesto que coincidem na forma NFC são recusados
 (`grafo.manifesto.caminho-ambiguo`), porque um sistema de arquivos que normaliza os
-fundiria. Fragmentos de localizador seguem a mesma regra de controle e marcas.
+fundiria. Fragmentos de localizador seguem a mesma regra de controle. Arquivo cujo caminho o
+contrato recusa fica fora do grafo, e a v1 não tem onde registrar essa exclusão: o produtor
+(KG2) tem de reportá-la fora do contrato até uma versão futura.
 
 Limites: 100 mil entradas de manifesto, 100 mil nós, 500 mil arestas, 64 evidências por
 aresta, 32 referências de ACL, 32 extratores, caminho de até 1024 caracteres. Acima deles o
@@ -182,7 +185,9 @@ allowlist e ACL viva ficam no KG6. Veja
 O corpus `core/test/fixtures/code-artifact-graph-v1.json` é sintético: um grafo válido com
 os quatro tipos de nó e os seis de aresta, uma fonte PDF por página, o digest esperado e
 casos inválidos em JSON Patch com o código de erro esperado. Outra implementação pode
-rodar os mesmos casos.
+rodar os mesmos casos, desde que siga a precedência: versão, estrutura, regras semânticas na
+ordem manifesto, extratores, nós, arestas, hierarquia e diagnósticos, e só então o recálculo
+de IDs.
 
 ```sh
 npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js
