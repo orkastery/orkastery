@@ -44,11 +44,17 @@ export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
 function despachoDeOutraThread(raiz: string, threadId: string): Record<string, unknown> {
   const thread = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim(), id = (process.env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim();
   if (!thread || thread === threadId || !/^[a-z0-9]{1,3}-[a-z0-9]{1,12}$/.test(thread) || !/^[a-f0-9-]{36}$/.test(id)) return {};
+  // R5-A2 do CHECK 5: a mesma conferencia D-4 da reentrada. O par que o daemon do `claude --bg` vazou e um
+  // despacho real, que o ledger confirma; so a sessao que o recebeu de fato o valida.
   let confirmado = false;
-  try {
-    confirmado = lerLedger(dirThread(raiz, thread)).some((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada &&
-      (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId === id);
-  } catch { /* thread de outro projeto ou ilegivel: sem prova, sem rastro */ }
+  try { confirmado = identidadeDoAmbiente(thread, process.env, raiz) === id; }
+  catch { /* thread de outro projeto ou ilegivel: sem prova, sem rastro */ }
+  if (confirmado) {
+    try {
+      confirmado = lerLedger(dirThread(raiz, thread)).some((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada &&
+        (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId === id);
+    } catch { confirmado = false; }
+  }
   return confirmado ? { despachoNoAmbiente: { thread, dispatchId: id } } : {};
 }
 

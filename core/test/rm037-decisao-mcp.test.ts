@@ -127,6 +127,15 @@ test('defeito 1 (S-3): o MCP filho grava o despacho que conhece; sessao de outra
     registrar(dirThread(p.dir, outra.id), outra.id, 'phase_dispatch', { fase: 'GO', identidade: { dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' } });
     const doCli = registrarDecisao(p.dir, propria.id, entrada).evento;
     assert.deepEqual(doCli.despachoNoAmbiente, { thread: outra.id, dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' });
+    // R5-A2 do CHECK 5: o par que o daemon do claude --bg vazou para OUTRA sessao nao vira rastro.
+    const vazada = novaThread(p.carregado, { nome: 'vazada', modo: 'auto' }).thread;
+    registrar(dirThread(p.dir, vazada.id), vazada.id, 'phase_dispatch', { fase: 'GO', runtime: 'claude-bg',
+      sessionId: '12121212-3434-4565-8787-909090909090', identidade: { dispatchId: '44444444-5555-4666-8777-888888888888' } });
+    const sessaoAntes = process.env.CLAUDE_CODE_SESSION_ID;
+    process.env.ORK_DISPATCH_ID = '44444444-5555-4666-8777-888888888888'; process.env.ORK_DISPATCH_THREAD = vazada.id;
+    process.env.CLAUDE_CODE_SESSION_ID = 'abababab-cdcd-4efe-8121-343434343434';
+    try { assert.equal(registrarDecisao(p.dir, propria.id, entrada).evento.despachoNoAmbiente, undefined); }
+    finally { if (sessaoAntes === undefined) delete process.env.CLAUDE_CODE_SESSION_ID; else process.env.CLAUDE_CODE_SESSION_ID = sessaoAntes; }
   } finally {
     for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.th]] as const) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
