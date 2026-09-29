@@ -19,8 +19,10 @@ const RAIZ = path.resolve(__dirname, '../../..');
 const SRC = path.join(RAIZ, 'core/src');
 const MODULOS_KG1 = ['intelligence-graph-contract.ts', 'intelligence-benchmark-contract.ts'];
 /** RM-031 KG2: extratores puros; recebem bytes e o compilador por parametro. */
-const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-extract-ts.ts'];
+const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-extract-ts.ts', 'intelligence-graph-extract-md.ts'];
 const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS];
+/** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
+const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
 const EXTERNOS_KG2 = new Set(['zod', 'node:crypto', 'typescript']);
 /** Allowlist explicita do fechamento transitivo dos modulos KG1. */
@@ -129,17 +131,18 @@ test('KG1 boundary: modulos KG1 nao tocam processo, rede, arquivo, relogio, acas
 test('KG2 boundary: extratores puros so alcancam a familia do grafo, zod e node:crypto; typescript so como tipo', () => {
   for (const modulo of MODULOS_KG2_PUROS) {
     const { locais, externos } = fechamento(modulo);
-    assert.ok([...locais].every((l) => FAMILIA_DO_GRAFO.includes(l)), `${modulo}: ${[...locais]}`);
+    assert.ok([...locais].every((l) => FAMILIA_DO_GRAFO.includes(l) || APOIO_PURO_KG2.includes(l)), `${modulo}: ${[...locais]}`);
     assert.ok([...externos].every((e) => EXTERNOS_KG2.has(e)), `${modulo}: ${[...externos]}`);
     for (const i of importsComTipo(modulo).filter((x) => x.modulo === 'typescript')) assert.ok(i.soTipo, `${modulo} importa typescript em tempo de execucao`);
   }
   assert.ok(importsComTipo('intelligence-graph-extract.ts').some((i) => i.modulo === './intelligence-graph-contract' && !i.soTipo));
+  for (const apoio of APOIO_PURO_KG2) assert.deepEqual(importsComTipo(apoio), [], `${apoio} continua sem import`);
 });
 
 test('KG2 boundary: extratores puros nao tocam processo, rede, arquivo, relogio, acaso nem busca semantica', () => {
-  for (const modulo of MODULOS_KG2_PUROS) {
+  for (const modulo of [...MODULOS_KG2_PUROS, ...APOIO_PURO_KG2]) {
     const { identificadores, literais, relogio, deCrypto } = simbolos(modulo);
-    assert.ok(identificadores.size > 50, `${modulo}: parser leu o arquivo`);
+    assert.ok(identificadores.size > (APOIO_PURO_KG2.includes(modulo) ? 10 : 50), `${modulo}: parser leu o arquivo`);
     for (const g of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(g), `${modulo} usa ${g}`);
     assert.equal(relogio, 0, `${modulo} le o relogio com new Date()`);
     assert.ok(deCrypto.every((d) => DE_CRYPTO_PERMITIDOS.has(d)), `${modulo} importa de node:crypto: ${deCrypto}`);

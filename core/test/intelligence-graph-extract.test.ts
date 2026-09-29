@@ -11,6 +11,7 @@ import * as ts from 'typescript';
 import {
   conferirFontes, digestDoGrafo, validarGrafo, type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
+import { slugDoGithub } from '../src/intelligence-graph-extract-md';
 import {
   extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
@@ -181,7 +182,164 @@ test('KG2 provenance: o grafo sai na forma canonica do contrato, com digest igua
   assert.equal(digestDoGrafo(r.grafo), r.digest);
   assert.equal(r.relatorio.graph_digest, r.digest);
   assert.equal(r.relatorio.snapshot_id, r.grafo.snapshot.snapshot_id);
-  assert.deepEqual(r.grafo.snapshot.extractors, [{ extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}` }]);
+  assert.deepEqual(r.grafo.snapshot.extractors, [
+    { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: '1.0.0' },
+    { extractor_id: 'ork.repo-files', extractor_version: '1.0.0' }, { extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}` },
+  ]);
+});
+
+const GUIA = [
+  '# Guia',
+  '',
+  '## Configuração',
+  '',
+  'Veja [util](../src/util.ts) antes de mudar a soma, e o [ADR](adr/ADR-001.md#decisão).',
+  '',
+  '```sh',
+  '[falso](../src/util.ts) RM-001',
+  '```',
+  '',
+  'Texto com `[codigo](../src/util.ts)` e <!-- [comentario](../src/util.ts) RM-001 --> fim.',
+  '',
+  '## Configuração',
+  '',
+  'Externo [site](https://exemplo.com), quebrado [x](nao-existe.md), pasta [d](../src/), âncora ruim [a](adr/ADR-001.md#nao-tem),',
+  'local [topo](#guia) e imagem ![logo](../assets/logo.png). Cita RM-001 e FEAT-999.',
+  '',
+].join('\n');
+const ADR = [
+  '---',
+  'id: ADR-001',
+  'tipo: adr',
+  'pai: RM-001',
+  'roadmap: [RM-001, RM-404]',
+  'fontes:',
+  '  codigo:',
+  '    - src/util.ts',
+  '    - src/nao-existe.ts',
+  '  simbolos:',
+  '    - src/util.ts#soma',
+  '    - src/util.ts#nada',
+  '---',
+  '',
+  '# ADR-001 Soma pura',
+  '',
+  '## Decisão',
+  '',
+  'Origem: [guia](../guia.md#configuração).',
+  '',
+].join('\n');
+const REPO_MD = {
+  'src/util.ts': UTIL,
+  'src/ref.ts': '// RM-001: a soma mora em util\nexport const REF = 1;\n',
+  'docs/guia.md': GUIA,
+  'docs/adr/ADR-001.md': ADR,
+  'docs/roadmap/RM-001.md': '---\nid: RM-001\ntipo: roadmap\n---\n\n# RM-001 Base\n\nDecidido no ADR-001.\n',
+  'docs/roadmap/_modelo.md': '---\nid: RM-000\ntipo: roadmap\n---\n\n# Modelo\n',
+  'assets/logo.png': new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe]),
+  'data/x.json': '{"a": 1}\n',
+  'scripts/y.py': 'print(1)\n',
+  LICENSE: 'MIT\n',
+};
+const textoMd = Object.fromEntries(Object.entries(REPO_MD).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+
+test('KG2 extract: Markdown gera secoes, links, artefatos, frontmatter e mencoes de ID', () => {
+  const { grafo } = extrair(REPO_MD);
+  const md = arestas(grafo).filter((a) => !/^(declares|contains symbol|calls|imports)/.test(a));
+  assert.deepEqual(md, [
+    'contains file:docs/adr/ADR-001.md -> section:docs/adr/ADR-001.md#adr-001-soma-pura',
+    'contains file:docs/adr/ADR-001.md -> section:docs/adr/ADR-001.md#decisão',
+    'contains file:docs/guia.md -> section:docs/guia.md#configuração',
+    'contains file:docs/guia.md -> section:docs/guia.md#configuração-1',
+    'contains file:docs/guia.md -> section:docs/guia.md#guia',
+    'contains file:docs/roadmap/RM-001.md -> section:docs/roadmap/RM-001.md#rm-001-base',
+    'contains file:docs/roadmap/_modelo.md -> section:docs/roadmap/_modelo.md#modelo',
+    'derived_from artifact:docs/adr/ADR-001.md#ADR-001 -> file:src/util.ts',
+    'references artifact:docs/adr/ADR-001.md#ADR-001 -> artifact:docs/roadmap/RM-001.md#RM-001',
+    'references artifact:docs/adr/ADR-001.md#ADR-001 -> symbol:src/util.ts#soma',
+    'references file:src/ref.ts -> artifact:docs/roadmap/RM-001.md#RM-001',
+    'references section:docs/adr/ADR-001.md#adr-001-soma-pura -> artifact:docs/adr/ADR-001.md#ADR-001',
+    'references section:docs/adr/ADR-001.md#decisão -> section:docs/guia.md#configuração',
+    'references section:docs/guia.md#configuração -> file:src/util.ts',
+    'references section:docs/guia.md#configuração -> section:docs/adr/ADR-001.md#decisão',
+    'references section:docs/guia.md#configuração-1 -> artifact:docs/roadmap/RM-001.md#RM-001',
+    'references section:docs/guia.md#configuração-1 -> file:assets/logo.png',
+    'references section:docs/guia.md#configuração-1 -> file:docs/adr/ADR-001.md',
+    'references section:docs/guia.md#configuração-1 -> section:docs/guia.md#guia',
+    'references section:docs/roadmap/RM-001.md#rm-001-base -> artifact:docs/adr/ADR-001.md#ADR-001',
+    'references section:docs/roadmap/RM-001.md#rm-001-base -> artifact:docs/roadmap/RM-001.md#RM-001',
+  ]);
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'artifact').map((n) => n.locator.fragment).sort(), ['ADR-001', 'RM-001']);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unsupported-language').map((d) => [d.path, d.reference, d.extractor_id]), [
+    ['LICENSE', null, 'ork.repo-files'], ['assets/logo.png', '.png', 'ork.repo-files'],
+    ['data/x.json', '.json', 'ork.repo-files'], ['scripts/y.py', '.py', 'ork.repo-files'],
+  ]);
+});
+
+test('KG2 extract: pai e roadmap para o mesmo artefato viram uma aresta com duas evidencias no frontmatter', () => {
+  const { grafo } = extrair(REPO_MD);
+  assert.deepEqual(trechos(grafo, textoMd, 'references artifact:docs/adr/ADR-001.md#ADR-001 -> artifact:docs/roadmap/RM-001.md#RM-001'), ['RM-001', 'RM-001']);
+  assert.deepEqual(trechos(grafo, textoMd, 'derived_from artifact:docs/adr/ADR-001.md#ADR-001 -> file:src/util.ts'), ['src/util.ts']);
+  assert.deepEqual(trechos(grafo, textoMd, 'references section:docs/guia.md#configuração -> file:src/util.ts'), ['[util](../src/util.ts)']);
+  assert.deepEqual(trechos(grafo, textoMd, 'contains file:docs/guia.md -> section:docs/guia.md#configuração-1'), ['## Configuração']);
+  assert.deepEqual(trechos(grafo, textoMd, 'references section:docs/guia.md#configuração-1 -> file:assets/logo.png'), ['![logo](../assets/logo.png)']);
+});
+
+test('KG2 provenance: evidencias do Markdown usam o metodo de cada prova e batem com os bytes', () => {
+  const { grafo } = extrair(REPO_MD);
+  const fontes = new Map<string, FonteFornecida>(fontesDe(REPO_MD).map((f) => [f.path, { tipo: f.path.endsWith('.png') ? 'binario' : 'texto', bytes: f.bytes }]));
+  assert.equal(conferirFontes(grafo, fontes).estado, 'verificada');
+  const r = rotulo(grafo), metodos = new Set<string>();
+  for (const a of grafo.edges) {
+    for (const e of a.evidence) {
+      metodos.add(`${a.kind}/${e.extractor_id}/${e.extraction_method}`);
+      if (e.extractor_id === 'ork.id-mention') assert.equal(e.extraction_method, 'text-location', r(a.from));
+    }
+  }
+  for (const m of ['contains/ork.md-structure/structured', 'references/ork.md-structure/explicit-link', 'references/ork.md-structure/structured',
+    'derived_from/ork.md-structure/structured', 'references/ork.id-mention/text-location']) assert.ok(metodos.has(m), m);
+  assert.deepEqual(grafo.snapshot.extractors.map((x) => x.extractor_id), ['ork.id-mention', 'ork.md-structure', 'ork.repo-files', 'ork.ts-ast']);
+});
+
+test('KG2 limits: codigo, comentario, link sem alvo, pasta, ancora ruim e ID inexistente ficam fora e declarados', () => {
+  const { grafo, relatorio } = extrair(REPO_MD);
+  const guia = arestas(grafo).filter((a) => a.includes('section:docs/guia.md'));
+  // Uma evidencia so para util a partir de #configuração: a do codigo cercado, a do span e a do comentario nao contam.
+  assert.deepEqual(trechos(grafo, textoMd, 'references section:docs/guia.md#configuração -> file:src/util.ts').length, 1);
+  assert.ok(!guia.some((a) => a.includes('nao-existe') || a.includes('file:src ->') || a.includes('#nao-tem')));
+  const listadas = relatorio.lacunas.map((l) => `${l.categoria} ${l.path}:${l.linha} ${l.detalhe}`).sort();
+  assert.deepEqual(listadas, [
+    'ancora-nao-resolvida docs/guia.md:15 adr/ADR-001.md#nao-tem',
+    'frontmatter-sem-alvo docs/adr/ADR-001.md:5 roadmap: RM-404',
+    'frontmatter-sem-alvo docs/adr/ADR-001.md:9 fontes.codigo: src/nao-existe.ts',
+    'frontmatter-sem-alvo docs/adr/ADR-001.md:12 fontes.simbolos: src/util.ts#nada',
+    'link-para-diretorio docs/guia.md:15 ../src/',
+    'link-sem-alvo docs/guia.md:15 nao-existe.md',
+  ].sort());
+  assert.equal(relatorio.lacunas_por_categoria['link-externo'], 1);
+  assert.equal(relatorio.lacunas_por_categoria['id-sem-artefato'], 1);
+  assert.ok(!grafo.nodes.some((n) => n.locator.fragment === 'RM-000'), 'modelo nao e artefato');
+});
+
+test('KG2 limits: ID de artefato repetido em dois arquivos nao vira artefato em nenhum', () => {
+  const { grafo, relatorio } = extrair({
+    'a.md': '---\nid: RM-002\ntipo: roadmap\n---\n\n# A\n', 'b.md': '---\nid: RM-002\ntipo: roadmap\n---\n\n# B\n', 'c.md': 'Cita RM-002.\n',
+  });
+  assert.equal(grafo.nodes.filter((n) => n.kind === 'artifact').length, 0);
+  assert.deepEqual(relatorio.lacunas.filter((l) => l.categoria === 'artefato-id-repetido').map((l) => l.path), ['a.md', 'b.md']);
+  assert.deepEqual(arestas(grafo, 'references'), []);
+});
+
+test('KG2 extract: slug de ancora como o do GitHub', () => {
+  const casos: [string, string][] = [
+    ['6. Três leitores e fatos de SDLC (adaptação Orkastery)', '6-três-leitores-e-fatos-de-sdlc-adaptação-orkastery'],
+    ['1. Instale o `ork`', '1-instale-o-ork'],
+    ['Um Maestro, vários canais (I-36)', 'um-maestro-vários-canais-i-36'],
+    ['RM-031 : Grafo', 'rm-031--grafo'],
+    ['Veja [o guia](x.md) já', 'veja-o-guia-já'],
+    ['snake_case e CAIXA', 'snake_case-e-caixa'],
+  ];
+  for (const [titulo, slug] of casos) assert.equal(slugDoGithub(titulo), slug, titulo);
 });
 
 /** Embaralhamento reproduzivel (LCG), para a permutacao nao depender de acaso. */
@@ -197,7 +355,7 @@ function embaralhar<T>(itens: readonly T[], semente: number): T[] {
 }
 
 test('KG2 determinism: ordem de leitura invertida, embaralhada e repetida dao o mesmo grafo, digest e relatorio', () => {
-  const base = entrada({ ...REPO_TS, 'src/extra.ts': "import { soma } from './util';\nexport const x = soma(1, 1);\n" });
+  const base = entrada({ ...REPO_TS, ...REPO_MD, 'src/extra.ts': "import { soma } from './util';\nexport const x = soma(1, 1);\n" });
   const a = extrairGrafo(base, { ts });
   const variantes = [
     { ...base, fontes: [...base.fontes].reverse() },

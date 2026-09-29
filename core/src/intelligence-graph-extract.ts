@@ -14,17 +14,24 @@ import {
   type Acesso, type Aresta, type Diagnostico, type EntradaDoManifesto, type Evidencia, type Extrator, type GrafoCodigo, type No,
   type TipoDeAresta, type TipoDeNo,
 } from './intelligence-graph-contract';
+import { CHAVES_DO_FRONTMATTER, PADRAO_DE_ID, extrairMarkdown } from './intelligence-graph-extract-md';
 import { OPCOES_TS_DESCRITAS, extrairTypeScript } from './intelligence-graph-extract-ts';
 
 export const EXTRATOR_TS = 'ork.ts-ast';
+export const EXTRATOR_MD = 'ork.md-structure';
+export const EXTRATOR_ID = 'ork.id-mention';
+/** D9: declara o arquivo do manifesto que nenhum extrator leu. */
+export const EXTRATOR_ARQUIVOS = 'ork.repo-files';
 /** Versao da regra de extracao; a do compilador entra no `extractor_version` do `ork.ts-ast`. */
 export const VERSAO_KG2 = '1.0.0';
 export const RELATORIO_SCHEMA = 'ork.graph-extraction-report/v0' as const;
 export const CONFIG_SCHEMA = 'ork.graph-extraction-config/v0' as const;
 export const EXTENSOES_TS = ['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'] as const;
+export const EXTENSOES_MD = ['.markdown', '.md'] as const;
 /** D7: categorias de lacuna volumosas saem so na contagem; as demais saem tambem listadas. */
 export const LACUNAS_SO_CONTAGEM: ReadonlySet<string> = new Set([
   'chamada-fora-de-simbolo', 'chamada-nao-resolvida', 'chamada-alvo-fora-do-grafo', 'chamada-por-tipo', 'import-sem-simbolo',
+  'id-sem-artefato', 'link-externo',
 ]);
 
 export type MetodoDeExtracao = Evidencia['extraction_method'];
@@ -226,17 +233,29 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
     achados.lacunas.push(...a.lacunas);
   };
   const caminhos = aceitas.map((f) => f.path);
-  const fontesTs: FonteDeTexto[] = [];
+  const fontesTs: FonteDeTexto[] = [], fontesMd: FonteDeTexto[] = [];
   for (const p of caminhos) {
-    if (!(EXTENSOES_TS as readonly string[]).includes(extensaoDe(p))) continue;
+    const ext = extensaoDe(p), ehTs = (EXTENSOES_TS as readonly string[]).includes(ext), ehMd = (EXTENSOES_MD as readonly string[]).includes(ext);
+    if (!ehTs && !ehMd) {
+      // D9: o arquivo vira no, e o diagnostico diz que o conteudo dele nao foi lido.
+      achados.diagnosticos.push({ kind: 'unsupported-language', path: p, reference: ext || null, extrator: EXTRATOR_ARQUIVOS });
+      continue;
+    }
     const t = texto(p);
     if (t === undefined) achados.lacunas.push({ categoria: 'utf8-invalido', path: p, inicio: null, detalhe: null });
-    else fontesTs.push({ path: p, texto: t });
+    else (ehTs ? fontesTs : fontesMd).push({ path: p, texto: t });
   }
   const versaoTs = `${VERSAO_KG2}+typescript.${ts.version}`;
   juntar(extrairTypeScript({ fontes: fontesTs, arquivos: caminhos, texto, extrator: EXTRATOR_TS }, ts));
+  const simbolos = new Set(achados.nos.filter((r) => r.kind === 'symbol').map((r) => `${r.path}#${r.fragment}`));
+  juntar(extrairMarkdown({ fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID }));
 
-  const extratores: Extrator[] = [{ extractor_id: EXTRATOR_TS, extractor_version: versaoTs }];
+  const extratores: Extrator[] = [
+    { extractor_id: EXTRATOR_ARQUIVOS, extractor_version: VERSAO_KG2 },
+    { extractor_id: EXTRATOR_ID, extractor_version: VERSAO_KG2 },
+    { extractor_id: EXTRATOR_MD, extractor_version: VERSAO_KG2 },
+    { extractor_id: EXTRATOR_TS, extractor_version: versaoTs },
+  ];
   const versoes = new Map(extratores.map((e) => [e.extractor_id, e.extractor_version]));
   const versaoDe = (id: string): string => versoes.get(id) ?? falha('extracao.interna.extrator-desconhecido');
 
@@ -308,6 +327,7 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   const config = {
     schema: CONFIG_SCHEMA, authority, acl_refs: acl, evidencias_por_aresta: GRAFO_LIMITES.evidenciasPorAresta,
     typescript: { extensoes: EXTENSOES_TS, opcoes: OPCOES_TS_DESCRITAS },
+    markdown: { extensoes: EXTENSOES_MD, ancora: 'github-slug', artefato: PADRAO_DE_ID.source, frontmatter: CHAVES_DO_FRONTMATTER },
   };
   const rascunho: GrafoCodigo = {
     schema: GRAFO_SCHEMA, tenant_id: entrada.tenant_id, repository_id: entrada.repository_id,
