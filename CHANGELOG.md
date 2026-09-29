@@ -8,6 +8,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
+    fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou
+    DSN, nome da lista de provider pago e a variável da DSN;
+  - `ork memory index [--modelo primario|fallback|todos] [--dry-run]`: índice vetorial local e
+    derivado do tenant, fora do git, idempotente, com tokens e custo estimados antes da rede;
+  - `ork memory search --texto "<frase>"`: vetor e FTS por RRF dentro do tenant, com a origem
+    declarada e `deterministico: false`; a busca por tag, o recall e o prompt não mudam;
+  - `ork memory status` passa a sondar a ponte (`health`) e mostra o estado dos embeddings, a
+    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa
+    "embeddings desativados" deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
+  - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
+    de embedding pelo nome.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última

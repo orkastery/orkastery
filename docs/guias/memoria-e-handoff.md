@@ -215,13 +215,98 @@ repositório](https://github.com/orkastery/OrkMind). O pacote npm do Orkastery d
 `orkmind` instalado e chama a biblioteca desse ambiente, incluindo o G3 nativo.
 O checkout externo permanece intacto. JSON passa por stdin; a credencial exclusiva entra
 somente no ambiente do filho. Erros do subprocesso são redigidos, sem refletir stderr ou
-DSN. O ambiente da ponte não recebe chaves de providers; a camada semântica trabalha sem
-embedder e sem embeddings pagos.
+DSN. A ponte só instancia embedder na operação `embed`, que não recebe a DSN; a chave de
+embedding, quando configurada, entra no ambiente do filho só nessa operação (veja
+[Busca por significado](#busca-por-significado-embeddings)). Leitura, `add` e `handoff`
+continuam sem embedder.
 
 A base precisa ter o schema OrkMind inicializado. O health check não provisiona tabelas;
 `memory.schema.absent` informa schema ausente e o regime efetivo degrada para `files`.
 Na fábrica, somente `orkastery` está ativo, com a variável exclusiva acima. Outros tenants
 permanecem reservados. Não há fallback para outra DSN.
+
+### Busca por significado (embeddings)
+
+A busca por tag continua sendo o caminho determinístico: é ela que monta o prompt, o recall e o
+handoff, e duas execuções iguais montam o mesmo prompt. A busca por significado é uma superfície
+**separada**, que acha pela paráfrase o que a tag e o FTS da mesma frase não acham. Todo
+resultado dela sai marcado `deterministico: false`, e nada semântico entra no prompt sozinho.
+
+Configuração, no bloco `memory` do manifesto. Sem o bloco, vale `provider: none` e a busca por
+significado fica desligada:
+
+```yaml
+memory:
+  # ... chaves de sempre ...
+  embedding:
+    provider: "openrouter"                        # none (padrao) | openrouter
+    model: "qwen/qwen3-embedding-8b"
+    dim: 1024
+    api_key_env: "ORKASTERY_EMBEDDING_API_KEY"    # NOME da variavel, nunca o valor
+    fallback_model: "intfloat/multilingual-e5-small"   # modelo local offline; vazio = sem fallback
+    max_tokens_por_execucao: 1000000              # teto de cada ork memory index, conferido antes da rede
+```
+
+O manifesto recusa valor com cara de chave ou DSN em `api_key_env`, recusa nome da lista de
+provider pago (a entrada do `ork` apaga esses nomes sob `subscription-only`) e recusa repetir
+a variável da DSN. Use uma chave dedicada ao Orkastery, com limite de crédito no painel do
+provider. Como a configuração de memória vem do manifesto canônico da raiz do projeto, o
+bloco só vale nas worktrees depois de mesclado.
+
+Os três comandos:
+
+```bash
+ork memory status --json            # estado sondado: chave (nome e presença), fallback, índices, cobertura
+ork memory status --sondar          # uma chamada real pelo caminho ativo, com a latência medida
+ork memory index --dry-run --json   # tokens e custo estimados, sem chave e sem chamar o provider
+ork memory index                    # indexa o tenant (idempotente); --modelo primario|fallback|todos
+ork memory search --texto "trocar de conta quando acaba a cota" --json
+```
+
+Como funciona:
+
+- **Onde mora o vetor.** Num índice local e derivado, no estado canônico do projeto
+  (`.orkastery/memoria/vetores/<tenant>/<modelo>-<dim>.json`, pasta 0700, arquivo 0600, fora
+  do git). O OrkMind continua a fonte da verdade e nada é gravado na base. Cada vetor é
+  chaveado por id, sha256 do conteúdo, modelo e dimensão: conteúdo que mudou reembeda só aquela
+  entrada, e índice de outro modelo, dimensão, tenant ou base nunca é misturado. Cada máquina
+  tem o seu, e reconstruí-lo é `ork memory index`.
+- **O que é indexado.** Só o universo governado do tenant (as coleções do `ork`, com o filtro
+  de injeção e de visibilidade da biblioteca). Conteúdo com padrão de segredo e entrada acima de
+  24.000 caracteres ficam fora, contados no relatório; nada é truncado em silêncio.
+- **O ranking.** Cosseno da consulta contra o índice do mesmo modelo e dimensão, FTS da
+  biblioteca filtrado pelo tenant, e fusão RRF (k = 60). A cadeia do vetor é primário, fallback
+  local, nenhum; sem vetor, a busca cai para FTS e declara `origem` e `motivo`.
+- **Degradação tipada, nunca queda de regime.** Chave ausente, provider fora, timeout, modelo
+  local ausente, índice ausente, dimensão divergente e orçamento excedido têm motivo próprio
+  (`embeddings.*`), separado dos motivos de degradação do regime. Sem embeddings, o regime
+  `orkmind` e o recall por tag seguem idênticos.
+- **Fallback local.** Roda offline na ponte (transformers em CPU, `local_files_only`), com o
+  modelo baixado uma vez para o cache do Hugging Face da máquina; a ponte nunca baixa nada
+  sozinha. Custa zero em dinheiro e alguns segundos de CPU por chamada fria, e usa um índice
+  próprio, porque vetores de modelos diferentes não se comparam.
+
+Custo e saída de conteúdo. O texto de cada entrada indexada e de cada consulta vai ao OpenRouter
+e ao provedor que ele rotear; confira no painel do OpenRouter a opção que restringe provedores
+que retêm ou treinam com entradas. O `ork` mostra estimativa, não fatura: tokens por
+`ceil(caracteres / 3)` e o preço de uma tabela datada. Em 29/09/2026, `qwen/qwen3-embedding-8b`
+custava US$ 0,01 por milhão de tokens de entrada; confira a qualquer momento com
+`curl -s https://openrouter.ai/api/v1/embeddings/models`. O valor real fica no painel de
+atividade do OpenRouter.
+
+O que `subscription-only` cobre e o que não cobre. A política continua governando o despacho
+de runtimes: nenhuma fase roda por provider pago. Embedding pago é opt-in separado e explícito
+do bloco `memory.embedding`, com chave de nome próprio. Se a chave estiver no ambiente da
+fábrica, as sessões despachadas também a herdam e podem usar a busca; por isso ela deve ser
+dedicada e ter limite de crédito.
+
+Reindexação de madrugada. O `ork` não instala cron. Se quiser, instale uma linha dentro da
+janela ociosa declarada em `audit.janela_ociosa`, com a DSN e a chave no ambiente do cron:
+
+```bash
+# 03:15, dentro de audit.janela_ociosa (22:00-06:00); ajuste o caminho do projeto
+15 3 * * * cd /caminho/do/projeto && ork memory index --modelo todos --json >> .orkastery/memoria/index.log 2>&1
+```
 
 ### Tags da fábrica e recall
 
