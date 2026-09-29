@@ -1,19 +1,277 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-roadmaprm050",
+  "thread": "ork-i31kg1contra",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-roadmaprm050",
-      "fase": "GO",
-      "arquivo": "docs",
-      "alegacao": "O roadmap com o RM-050 passa na paridade, no lint e nos links",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/schemas/company-brain.schema.json",
+      "alegacao": "E2/E4 atual: os três hashes locais inspecionados permanecem congelados; Company Brain v1 conserva authority=ork, kinds prod/proj/init e payload de Event limitado a Entity/Assertion/null. Não comprova integração externa.",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\"),crypto=require(\"node:crypto\");for(const [file,expected] of [[\"core/schemas/company-brain.schema.json\",\"a1dddf24f16fd875ac6fc979ef165eaff2012c4f3dd80b4687173925867a8166\"],[\"core/test/fixtures/company-brain-v1.json\",\"76dbbd35f2c4bfc0d509b8c98666e5a61203669731eae55e58315407f2afe9f1\"],[\"core/assets/orkmind-native-schema.json\",\"6c6fe6125c4734a60373ee713dada3b6f168abec98a9c66952d5cf1a424043ef\"]])assert.equal(crypto.createHash(\"sha256\").update(fs.readFileSync(file)).digest(\"hex\"),expected);const s=JSON.parse(fs.readFileSync(\"core/schemas/company-brain.schema.json\"));assert.equal(s.$id,\"orkmind.company-brain/v1\");assert.equal(s.$defs.Source.properties.authority.const,\"ork\");assert.deepEqual(s.$defs.Entity.properties.kind.enum,[\"prod\",\"proj\",\"init\"]);assert.deepEqual(s.$defs.Event.properties.payload.anyOf,[{\"$ref\":\"#/$defs/Entity\"},{\"$ref\":\"#/$defs/Assertion\"},{type:\"null\"}]);console.log(\"KG1 current compatibility: 3 frozen hashes; closed Company Brain v1 unchanged\");'"
       ],
-      "criadoEm": "2026-09-29T02:16:09.542Z",
+      "criadoEm": "2026-09-17T01:53:26.566Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C2",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "S1 prospectiva para GO: contrato do grafo KG1 fechado/versionado com identidades canônicas, endpoints e vocabulário validados; casos de conformidade graph executados. Ainda não implementado no bloco GOAL-PLAN.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 graph' core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-17T01:53:26.601Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C3",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "S2 prospectiva para GO: proveniência por aresta validada contra snapshot/hash/arquivo/span/extrator fornecidos; permutação preserva conteúdo canônico. Não comprova rebuild de índice KG3 nem verdade de extração.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 provenance' core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-17T01:53:26.635Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C4",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "S3 prospectiva para GO: contrato conserva restrições de tenant/ACL e recusa proveniência inferida/vetorial ou identidade forjada; especifica não vazamento sem alegar enforcement de serviço ainda inexistente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 security' core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-17T01:53:26.674Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C5",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/src/intelligence-benchmark-contract.ts",
+      "alegacao": "S4 prospectiva para GO: formato A/B valida controles equivalentes, origem/unidade das medidas, amostra/pares/retries e ausência explícita de dados; não trata estimativa como consumo medido.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 measurement' core/dist-test/test/intelligence-benchmark-contract.test.js"
+      ],
+      "criadoEm": "2026-09-17T01:53:26.714Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C6",
+      "thread": "ork-i31kg1contra",
+      "fase": "PLAN",
+      "arquivo": "core/src/intelligence-benchmark-contract.ts",
+      "alegacao": "S5 prospectiva para GO: avaliação pura diferencia not-run/inconclusive/fail/pass; pass exige mediana B menor, rigor preservado e auditoria integral sem aresta falsa; fixtures sintéticas não autorizam economia real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 verdict' core/dist-test/test/intelligence-benchmark-contract.test.js"
+      ],
+      "criadoEm": "2026-09-17T01:53:26.748Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C9",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/schemas/code-artifact-graph.v1.schema.json",
+      "alegacao": "T1/D1: o JSON Schema publicado de ork.code-artifact-graph/v1 e exatamente a geracao zod-to-json-schema do grafoSchema, com dialeto draft-07 declarado e additionalProperties false na raiz; o teste do grupo KG1 graph compara igualdade estrutural.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 graph' core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T00:55:08.380Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-graph-contract.test.ts",
+      "alegacao": "T1: a suite de conformidade do grafo roda os grupos KG1 graph, KG1 provenance e KG1 security, cada um com casos positivos e negativos, e passa inteira no HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T00:55:10.236Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/code-artifact-graph-v1.json",
+      "alegacao": "T1: o corpus sintetico do grafo (data_class synthetic) traz um grafo valido com os 4 tipos de no e os 6 de aresta, digest esperado, fontes texto e PDF por pagina e casos invalidos em JSON Patch com codigo esperado; a suite o consome e passa.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/code-artifact-graph-v1.json\"),assert=require(\"node:assert/strict\");assert.equal(c.data_class,\"synthetic\");assert.equal(c.schema,\"ork.code-artifact-graph-conformance/v1\");for(const g of [\"graph\",\"provenance\",\"security\"])assert.ok(c.invalid.filter(x=>x.group===g).length>=10,g);assert.deepEqual([...new Set(c.graph.nodes.map(n=>n.kind))].sort(),[\"artifact\",\"file\",\"section\",\"symbol\"]);assert.equal(new Set(c.graph.edges.map(a=>a.kind)).size,6);console.log(\"corpus KG1 grafo:\",c.invalid.length,\"casos invalidos\")'",
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T00:55:14.637Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/grafo-deterministico-kg1.md",
+      "alegacao": "T1: o documento do contrato do grafo cita o identificador ork.code-artifact-graph/v1, as quatro funcoes publicas e so codigos de erro que existem no modulo; links locais resolvem e o Markdown passa no lint do projeto.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/referencia/contratos/grafo-deterministico-kg1.md\",\"utf8\"),m=fs.readFileSync(\"core/src/intelligence-graph-contract.ts\",\"utf8\");assert.ok(d.includes(\"`ork.code-artifact-graph/v1`\")&&m.includes(\"\\x27ork.code-artifact-graph/v1\\x27\"));for(const f of [\"validarGrafo\",\"digestDoGrafo\",\"derivarIds\",\"conferirFontes\"]){assert.ok(d.includes(\"`\"+f+\"(\"),f);assert.match(m,new RegExp(\"export (function|const) \"+f+\"\\\\b\"),f)}const codigos=[...d.matchAll(/`(grafo\\.[a-z-]+(?:\\.[a-z-]+)?)`/g)].map(x=>x[1]);assert.ok(codigos.length>=10);for(const c of codigos)assert.ok(m.includes(c),c);console.log(\"doc KG1 grafo:\",codigos.length,\"codigos conferidos\")'",
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/grafo-deterministico-kg1.md"
+      ],
+      "criadoEm": "2026-09-29T00:55:19.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/schemas/graph-benchmark.v1.schema.json",
+      "alegacao": "T2/D1: o JSON Schema publicado de ork.graph-benchmark/v1 e exatamente a geracao zod-to-json-schema do benchmarkSchema, com dialeto draft-07 e additionalProperties false na raiz; o teste do grupo KG1 measurement compara igualdade estrutural.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG1 measurement' core/dist-test/test/intelligence-benchmark-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T01:09:02.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-benchmark-contract.test.ts",
+      "alegacao": "T2: a suite de conformidade do benchmark roda os grupos KG1 measurement e KG1 verdict, cada um com casos positivos e negativos, e passa inteira no HEAD.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-benchmark-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T01:09:04.050Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/graph-benchmark-v1.json",
+      "alegacao": "T2: o corpus sintetico do benchmark (data_class synthetic) traz um registro completo com retry e aquecimento, um registro not-run, casos invalidos com codigo esperado e casos de veredito com resultado e motivos esperados, sem nenhum caso publicavel; a suite o consome e passa.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/graph-benchmark-v1.json\"),assert=require(\"node:assert/strict\");assert.equal(c.data_class,\"synthetic\");assert.equal(c.record.data_class,\"synthetic\");assert.equal(c.not_run.status,\"not-run\");assert.equal(c.not_run.runs.length,0);assert.equal(c.expected.publicavel,false);assert.ok(c.invalid.length>=10&&c.verdicts.length>=10);assert.ok(c.verdicts.every(v=>v.resultado===\"fail\"||v.resultado===\"inconclusive\"));console.log(\"corpus KG1 benchmark:\",c.invalid.length,\"invalidos,\",c.verdicts.length,\"vereditos\")'",
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-benchmark-contract.test.js"
+      ],
+      "criadoEm": "2026-09-29T01:09:08.641Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/benchmark-grafo-kg1.md",
+      "alegacao": "T2: o documento do protocolo cita ork.graph-benchmark/v1, as tres funcoes publicas, os quatro resultados do veredito e as origens de medida do modulo, declara que o KG1 nao executa o experimento; links locais resolvem e o Markdown passa no lint.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/referencia/contratos/benchmark-grafo-kg1.md\",\"utf8\"),m=fs.readFileSync(\"core/src/intelligence-benchmark-contract.ts\",\"utf8\");assert.ok(d.includes(\"`ork.graph-benchmark/v1`\")&&m.includes(\"\\x27ork.graph-benchmark/v1\\x27\"));assert.ok(d.includes(\"**Não executa o experimento.**\"));for(const f of [\"validarBenchmark\",\"avaliarBenchmark\",\"mediana\"]){assert.ok(d.includes(\"`\"+f+\"(\"),f);assert.match(m,new RegExp(\"export function \"+f+\"\\\\b\"),f)}for(const r of [\"not-run\",\"fail\",\"inconclusive\",\"pass\",\"runtime_reported\",\"tokenizer_exact\",\"estimated\",\"unavailable\"]){assert.ok(d.includes(\"`\"+r+\"`\"),r);assert.ok(m.includes(\"\\x27\"+r+\"\\x27\"),r)}const fam=[...d.matchAll(/`(benchmark\\.[a-z]+)`/g)].map(x=>x[1]);assert.ok(fam.length>=10);for(const f of fam)assert.ok(m.includes(\"\\x27\"+f+\".\"),f);console.log(\"doc KG1 benchmark:\",fam.length,\"familias conferidas\")'",
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/benchmark-grafo-kg1.md"
+      ],
+      "criadoEm": "2026-09-29T01:09:14.610Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-kg1-boundary.test.ts",
+      "alegacao": "S6 (substitui C7): compatibilidade C1 preservada com os tres hashes congelados, contratos KG1 puros com allowlist transitiva de imports e sem consumo por outro modulo do nucleo (sem integracao KG2 a KG7); documentacao do produto passa em docs verificar, links locais resolvem e o Markdown tocado passa no lint.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js core/dist-test/test/company-brain-contract.test.js core/dist-test/test/company-brain-access.test.js core/dist-test/test/company-brain-permissions.test.js",
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/grafo-deterministico-kg1.md docs/referencia/contratos/benchmark-grafo-kg1.md docs/roadmap/RM-031-grafo-de-codigo.md docs/roadmap/README.md docs/conceitos/arquitetura.md"
+      ],
+      "criadoEm": "2026-09-29T01:15:37.969Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "S7 (substitui C8): build e suite hermetica do core passam no HEAD real, no mesmo comando que o CI roda; a suite inteira do manifesto continua no ork verify, comparada a baseline desta thread.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run test:ci"
+      ],
+      "criadoEm": "2026-09-29T01:15:39.826Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "T3: o item RM-031 liga os dois contratos KG1 pelos identificadores definidos nos modulos, separa contrato entregue, benchmark nao executado e pacotes KG2 a KG7 futuros, e passa na paridade do docs verificar.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/roadmap/RM-031-grafo-de-codigo.md\",\"utf8\");for(const [doc,mod,id] of [[\"grafo-deterministico-kg1.md\",\"intelligence-graph-contract.ts\",\"ork.code-artifact-graph/v1\"],[\"benchmark-grafo-kg1.md\",\"intelligence-benchmark-contract.ts\",\"ork.graph-benchmark/v1\"]]){assert.ok(d.includes(\"](../referencia/contratos/\"+doc+\")\"),doc);assert.ok(fs.existsSync(\"docs/referencia/contratos/\"+doc),doc);assert.ok(d.includes(\"`\"+id+\"`\"),id);assert.ok(fs.readFileSync(\"core/src/\"+mod,\"utf8\").includes(\"\\x27\"+id+\"\\x27\"),mod)}assert.match(d,/experimento não foi executado/);for(const k of [\"KG2\",\"KG3\",\"KG4\",\"KG5\",\"KG6\",\"KG7\"])assert.ok(d.includes(\"(\"+k+\")\"),k);console.log(\"RM-031: contratos e escopo KG1 conferidos\")'",
+        "npm --prefix core run build && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-29T01:15:45.472Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/conceitos/arquitetura.md",
+      "alegacao": "T3: a arquitetura lista os dois modulos KG1 existentes em core/src e separa contrato (entregue), servico (KG2 a KG5, inexistente) e evidencia de economia (inexistente), com links locais validos.",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const d=fs.readFileSync(\"docs/conceitos/arquitetura.md\",\"utf8\");for(const m of [\"intelligence-graph-contract.ts\",\"intelligence-benchmark-contract.ts\"]){assert.ok(d.includes(\"| `\"+m+\"` |\"),m);assert.ok(fs.existsSync(\"core/src/\"+m),m)}const s=d.slice(d.indexOf(\"## 9. Grafo determinístico no KG1\"));assert.ok(s.length>200);assert.match(s,/\\| Contrato \\|.*\\| entregue \\|/);assert.match(s,/\\| Serviço \\|.*\\| não existe \\|/);assert.match(s,/\\| Evidência de economia \\|.*\\| não existe \\|/);console.log(\"arquitetura: camadas KG1 conferidas\")'",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T01:15:49.971Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-i31kg1contra",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T3: a linha do RM-031 no indice do roadmap e exatamente a que o gerador do nucleo produz a partir do frontmatter do item.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e 'const d=require(\"./core/dist/docs.js\"),fs=require(\"node:fs\"),assert=require(\"node:assert/strict\");const {docs}=d.carregarDocs(process.cwd());const linha=d.tabelaDoRoadmap(docs).split(\"\\n\").find(l=>l.startsWith(\"| [RM-031]\"));assert.ok(linha);assert.ok(fs.readFileSync(\"docs/roadmap/README.md\",\"utf8\").split(\"\\n\").includes(linha));console.log(\"indice: linha do RM-031 igual a gerada\")'"
+      ],
+      "criadoEm": "2026-09-29T01:15:52.904Z",
       "estado": "verificado",
       "lint": []
     }
