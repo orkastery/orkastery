@@ -19,10 +19,11 @@
  * A consequencia de cada alternativa NAO e inventada: ela sai da acao que a alternativa executa,
  * por mapa congelado. Acao e o que de fato acontece; texto livre seria opiniao.
  */
-import { alvoDoPedido, ehV2, escolhasDoPedido, PedidoHitl, PedidoHitlQualquer, recomendacaoDoPedido,
-  textoDoPedido } from './hitl-contract';
+import { AcaoAoExpirar, AtoIrreversivel, alvoDoPedido, ehV2, escolhasDoPedido, expiracaoDoPedido, PedidoHitl,
+  PedidoHitlQualquer, prazoDoPedido, recomendacaoDoPedido, textoDoPedido } from './hitl-contract';
 import { MotivoGate } from './types';
 import { redigirSegredos } from './hitl';
+import { montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 
 export const CONTRATO_LOTE = 'ork.hitl-lote/v1' as const;
 
@@ -67,6 +68,18 @@ export interface PerguntaDoLote {
   alternativas: Alternativa[];
   /** O identificador longo do pedido. Fica nos dados, nunca no texto ao dono. */
   pedidoId: string;
+  /**
+   * RM-048 (D1): o que o contrato curto precisa para dizer o que trava e o que acontece sem
+   * resposta. Opcionais porque um lote reenviado do registro antigo nao os tem, e o texto sai
+   * completo sem eles.
+   */
+  alvo?: { tipo: 'gate' } | { tipo: 'session'; sessionId: string };
+  corpo?: string[];
+  ato?: AtoIrreversivel;
+  expiracao?: AcaoAoExpirar;
+  prazo?: string | null;
+  /** Desde quando o dono e esperado nesta pergunta. */
+  desde?: string | null;
 }
 
 export interface RecusaDeFormato {
@@ -130,6 +143,17 @@ export function alternativaRecomendada(pedido: PedidoHitlQualquer): number {
   return citadas.length === 1 ? citadas[0].i : -1;
 }
 
+/** O que o contrato curto le do pedido alem das alternativas: alvo, corpo, ato e expiracao. */
+function contextoDaPergunta(pedido: PedidoHitlQualquer): Pick<PerguntaDoLote, 'alvo' | 'corpo' | 'ato' | 'expiracao' | 'prazo'> {
+  const alvo = alvoDoPedido(pedido);
+  const v2 = ehV2(pedido) && pedido.classe === 'pergunta' ? pedido : undefined;
+  return {
+    alvo: alvo?.tipo === 'session' ? { tipo: 'session', sessionId: alvo.sessionId } : { tipo: 'gate' },
+    ...(v2 ? { corpo: [...v2.corpo] } : {}), ...(v2?.ato ? { ato: v2.ato } : {}),
+    expiracao: expiracaoDoPedido(pedido), prazo: prazoDoPedido(pedido) ?? null,
+  };
+}
+
 /**
  * Traduz um pedido em pergunta do lote, ou diz por que ele nao virou uma.
  *
@@ -149,7 +173,8 @@ export function perguntaDoPedido(pedido: PedidoHitlQualquer, numero: number): Pe
 
   const declaradas = alternativasDeclaradas(pedido);
   if (declaradas) {
-    return { numero, thread: pedido.thread ?? null, fase: pedido.fase ?? null, pergunta, alternativas: declaradas, pedidoId: pedido.id };
+    return { numero, thread: pedido.thread ?? null, fase: pedido.fase ?? null, pergunta, alternativas: declaradas, pedidoId: pedido.id,
+      ...contextoDaPergunta(pedido) };
   }
   // I-41 (T4c): o parser da recomendacao e exclusivo do v1, e a porta se fecha aqui.
   //
@@ -167,7 +192,7 @@ export function perguntaDoPedido(pedido: PedidoHitlQualquer, numero: number): Pe
   if (recomendada < 0) return recusa('a recomendação não nomeia exatamente uma alternativa');
 
   return {
-    numero, thread: pedido.thread ?? null, fase: pedido.fase ?? null, pergunta, pedidoId: pedido.id,
+    numero, thread: pedido.thread ?? null, fase: pedido.fase ?? null, pergunta, pedidoId: pedido.id, ...contextoDaPergunta(pedido),
     alternativas: opcoes.map((o, i) => ({
       letra: LETRAS[i], texto: linha(o.texto), consequencia: CONSEQUENCIA_DA_ACAO[o.acao],
       ...(i === recomendada ? { recomendada: { porque: linha(recomendacaoDoPedido(pedido)) } } : {}),
@@ -210,17 +235,18 @@ export function guardadasDepoisDoLote(lote: LoteDePerguntas): number {
   return lote.restantes;
 }
 
-function corpoDaPergunta(p: PerguntaDoLote, marca: string): string[] {
-  const cabecalho = [p.thread, p.fase].filter(Boolean).join(' · ');
-  return [
-    `${p.numero}. ${cabecalho || 'sem thread'}`,
-    `   ${p.pergunta}`,
-    ...p.alternativas.flatMap(a => [
-      `   ${a.letra}) ${a.texto}${a.recomendada ? `  ${marca}recomendada` : ''}`,
-      `      → ${a.consequencia}`,
-      ...(a.recomendada ? [`      porquê: ${a.recomendada.porque}`] : []),
-    ]),
-  ];
+/**
+ * RM-048 (D1): cada pergunta do lote sai pelo contrato curto, com o numero no titulo. A linha de
+ * como responder e uma so, no fim do lote, porque o dono responde todas numa mensagem: "1a 2c".
+ */
+function corpoDaPergunta(p: PerguntaDoLote, canal: 'telegram' | 'terminal', quando: string): string[] {
+  const curto = montarPedidoCurto({
+    thread: p.thread, fase: p.fase, pergunta: p.pergunta, alvo: p.alvo, corpo: p.corpo, ato: p.ato,
+    expiracao: p.expiracao, prazo: p.prazo, desde: p.desde,
+    alternativas: p.alternativas.map(a => ({ chave: a.letra, texto: a.texto, consequencia: a.consequencia,
+      ...(a.recomendada ? { recomendada: { porque: a.recomendada.porque } } : {}) })),
+  }, { quando, responder: { tipo: 'numero', numero: p.numero } });
+  return textoDoPedidoCurto(curto, canal).split('\n');
 }
 
 /** A5: a frase dos pedidos que nao viraram pergunta, com a concordancia certa para o dono ler. */
@@ -242,6 +268,8 @@ export interface OpcoesDoTextoDoLote {
   proximo?: { codigo: string; faltam: number };
   /** Gates que estavam no resumo e ja nao esperavam o dono quando ele disse sim. */
   naoEsperam?: number;
+  /** O instante da mensagem, para "desde" e "ate" sairem no relogio do dono. */
+  quando?: string;
 }
 
 /**
@@ -251,15 +279,17 @@ export interface OpcoesDoTextoDoLote {
 export function textoDoLote(lote: LoteDePerguntas, opcoes: OpcoesDoTextoDoLote): string {
   if (lote.contrato !== CONTRATO_LOTE) throw new Error('lote HITL: contrato inválido');
   const telegram = opcoes.canal === 'telegram';
+  const quando = opcoes.quando ?? new Date().toISOString();
   const n = lote.perguntas.length;
   const exemplo = lote.perguntas.map(p => `${p.numero}${p.alternativas[0].letra}`).join(' ');
   const faltam = opcoes.proximo?.faltam ?? lote.restantes;
   return [
     `${telegram ? '📋 ' : ''}Orkastery, ${n === 1 ? '1 pergunta' : `${n} perguntas`}`,
     '',
-    ...lote.perguntas.flatMap((p, i) => [...corpoDaPergunta(p, telegram ? '✅ ' : '← '), ...(i < n - 1 ? [''] : [])]),
+    ...lote.perguntas.flatMap((p, i) => [...corpoDaPergunta(p, opcoes.canal, quando), ...(i < n - 1 ? [''] : [])]),
     '',
-    ...(n ? [`Responda com o número e a letra, por exemplo: ${exemplo}.`] : ['Nenhuma pergunta em formato respondível agora.']),
+    ...(n ? [`${telegram ? '↩️ ' : ''}Responda com o número e a letra, por exemplo: ${exemplo}. Evidências: ${lote.perguntas[0].numero} detalhes.`]
+      : ['Nenhuma pergunta em formato respondível agora.']),
     ...(opcoes.proximo && faltam
       ? [`Falta${faltam === 1 ? '' : 'm'} ${faltam}. Para receber as próximas, responda ${opcoes.proximo.codigo} a.`]
       : faltam ? [`Sobra${faltam === 1 ? '' : 'm'} ${faltam} para o próximo lote.`] : []),

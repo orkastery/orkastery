@@ -45,19 +45,26 @@ test('o resumo carrega as quatro contagens, as threads travadas e a pergunta do 
   ];
   // I-41 (GO-FIX 1, B3): quem diz quantas perguntas vão sair é quem avaliou a fila; aqui, duas.
   const resumo = resumirHitl(itens, { quando: AGORA, prontas: 2 });
-  assert.equal(resumo.total, 4);
+  // RM-048 (D6): a vaga parada é impedimento técnico; sai de "Esperando você" e vai para "Conosco".
+  assert.equal(resumo.total, 3);
   assert.equal(resumo.urgentes, 1);
-  assert.equal(resumo.bloqueantes, 3);
+  assert.equal(resumo.bloqueantes, 2);
   assert.equal(resumo.criticos, 1);
   assert.equal(resumo.prontas, 2);
-  assert.deepEqual(resumo.threadsBloqueadas, ['ork-companybrai2', 'ork-i31kg1contra', 'ork-i42modofastu']);
+  assert.deepEqual(resumo.threadsBloqueadas, ['ork-i31kg1contra', 'ork-i42modofastu']);
+  assert.equal(resumo.tecnicos, 1);
+  assert.deepEqual(resumo.threadsTecnicas, ['ork-companybrai2']);
   assert.equal(resumo.pergunta, 'Posso te mandar as perguntas agora?');
 
   for (const canal of CANAIS) {
     const texto = textoDoResumo(resumo, { canal });
-    assert.match(texto, /4/, canal);
+    assert.match(texto, /3/, canal);
     assert.match(texto, /[Pp]erguntas para você:? +2/, canal);
     assert.match(texto, /Posso te mandar as perguntas agora\?$/m, canal);
+    // A pergunta vem no alto, logo depois do título, com a linha de como responder.
+    assert.match(texto.split('\n')[1], /Posso te mandar as perguntas agora\?$/, canal);
+    assert.match(texto.split('\n')[2], /Responda/, canal);
+    assert.match(texto, /Conosco, impedimento técnico: 1 \(ork-companybrai2\)\. Não precisa de você\./, canal);
     for (const t of resumo.threadsBloqueadas) assert.equal(texto.includes(t), true, `${canal} sem ${t}`);
     // A nota de entrega pendente não entra na contagem de travamento, e não é nomeada como tal.
     assert.equal(texto.includes('ork-b2auditoria'), false, canal);

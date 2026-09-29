@@ -205,21 +205,20 @@ test('a apresentação do v1 continua a de antes, linha por linha', () => {
   assert.deepEqual(escolhas, [{ const: '1', title: 'Aprovar' }, { const: '2', title: 'Revisar' }]);
 });
 
-test('a apresentação do v2 acrescenta a consequência de cada alternativa e troca o número pela letra', () => {
+test('a apresentação do v2 sai pelo contrato curto: consequência na linha, letra, uma recomendada', () => {
   const p = pergunta() as PerguntaAoDono;
   const { mensagem, escolhas } = apresentarDecisao(p, p.criadoEm);
   const linhas = mensagem.split('\n');
-  assert.deepEqual(linhas.slice(0, 7), [
-    'Orkastery · GO',
-    '• Decisão: A entrega do pulse pode passar a mandar um resumo por hora?',
-    '• Recomendo: a) Sim, um resumo por hora: foi o que você pediu',
-    '  a. Sim, um resumo por hora',
-    '     → você recebe no máximo 24 por dia',
-    '  b. Não, mantenha por item',
-    '     → volta a mandar uma mensagem por item',
-  ]);
-  assert.equal(linhas[7], '• Resposta: selecione uma opção no diálogo. Se necessário, digite a letra.');
-  assert.ok(linhas[8].endsWith('. Sem resposta, sigo com a recomendada.'), linhas[8]);
+  // RM-048 (D1): o mesmo contrato do Telegram e do lote; no terminal, marcadores em texto.
+  assert.equal(linhas[0], `Orkastery · ${p.thread} · GO`);
+  assert.equal(linhas[1], 'Pergunta: A entrega do pulse pode passar a mandar um resumo por hora?');
+  assert.ok(linhas[2].startsWith('Situação: A fase GO está parada esperando você'), linhas[2]);
+  assert.ok(linhas[2].endsWith('sigo com a recomendada.'), linhas[2]);
+  assert.ok(linhas.includes('a) Sim, um resumo por hora [recomendada]: você recebe no máximo 24 por dia'), mensagem);
+  assert.ok(linhas.includes('   porquê: foi o que você pediu'), mensagem);
+  assert.ok(linhas.includes('b) Não, mantenha por item: volta a mandar uma mensagem por item'), mensagem);
+  assert.equal(linhas.at(-1), 'Responda selecionando a opção no diálogo; digitar a letra também vale.');
+  assert.ok(linhas.length <= 15);
   assert.deepEqual(escolhas, [
     { const: 'a', title: 'Sim, um resumo por hora' },
     { const: 'b', title: 'Não, mantenha por item' },

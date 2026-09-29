@@ -4,7 +4,7 @@ tipo: feature
 titulo: Entrega e índice de condução (MASTER)
 estado: vigente
 pai: MOD-04
-roadmap: [RM-005, RM-043]
+roadmap: [RM-005, RM-043, RM-048]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-24T21:30:00-03:00
@@ -14,19 +14,24 @@ fontes:
     - core/src/master.ts
     - core/src/indice.ts
     - core/src/master-digest.ts
+    - core/src/master-nota.ts
   testes:
     - core/test/master.test.ts
     - core/test/indice.test.ts
     - core/test/master-omissao.test.ts
+    - core/test/master-prova-canal.test.ts
   simbolos:
     - core/src/indice.ts#calcularIndice
     - core/src/master.ts#CLASSES_DE_FALHA
     - core/src/master-digest.ts#montarDigest
+    - core/src/master-nota.ts#exigirNotaSemHost
   contratos:
     - ork.master-digest/v1
+    - ork.master-nota/v1
   comandos:
     - ork master
     - ork master classes
+    - ork master pedir
 ---
 
 # FEAT-015 — Entrega e índice de condução (MASTER)
@@ -35,12 +40,13 @@ fontes:
 
 - **Estado:** vigente · **Verificado em:** 2026-09-24 · **Versão:** main@f9d9bc1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-04](MOD-04-atencao-humana.md)
-- **Roadmap:** [RM-005](../roadmap/RM-005-master-e-digest.md), [RM-043](../roadmap/RM-043-aposentadoria.md)
+- **Roadmap:** [RM-005](../roadmap/RM-005-master-e-digest.md), [RM-043](../roadmap/RM-043-aposentadoria.md), [RM-048](../roadmap/RM-048-hitl-humano-no-centro.md)
 - **Dono da página / aprovador:** Julio / Julio
 
 ## Comportamento
 
-- **Casos de uso e operações:** fechar thread, ver entregas com o índice, aceitar por omissão, digest semanal.
+- **Casos de uso e operações:** fechar thread, ver entregas com o índice, aceitar por omissão, digest semanal, pedir a nota ao dono pelo canal.
+- **Nota com prova de origem (RM-048):** `ork master pedir <thread>` devolve a linha `<código> <0 a 5> <porquê>`; o dono responde pelo Telegram, o ingresso assina no endereço do pulse e o `master_done` grava o remetente autenticado, o canal, a mensagem, o sha da prova e a evidência com o envelope. `ork master` com `--por` (nota, `ratificar`, `batch --aceitar`, `digest responder`) chamado de processo de host é recusado com `master.prova-de-canal`; o canal é lido só do ambiente. `ORK_CANAL=cli` não absolve sessão despachada, Claude Code nem Codex. Limite: quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo sem `CODEX_SANDBOX` não é reconhecido; é a mesma fronteira do `humano-no-cli` do SHIP.
 - **Pré-condições e gatilho:** SHIP feito ou artefato com hash conferido.
 - **Fluxo principal:**
 

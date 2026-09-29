@@ -186,6 +186,11 @@ export interface OpcoesMaster {
    * o regime dele e derivado do modo, como sempre foi.
    */
   regime?: ScoreHumano['regime'];
+  /**
+   * RM-048 (item 8): o recibo do canal que trouxe a nota (origem, canal, conta, mensagem, instante,
+   * sha da prova, evidencia). So o caminho do ingresso autenticado preenche; vai ao `master_done`.
+   */
+  prova?: Record<string, unknown>;
 }
 
 export interface ResultadoMaster {
@@ -399,6 +404,7 @@ export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster):
     classesDeFalha: masterLog.classesDeFalha, regime: postmortem.score.regime,
     contrato: CONTRATO_MASTER_LOG, arquivo: path.relative(raizDoEstado(raiz), r.caminhoMasterLog), estado: 'thread fechada',
     masterLogSha256: hashDocumento(r.caminhoMasterLog), postmortemSha256: hashDocumento(r.caminhoPostmortem),
+    ...(opcoes.prova ? { prova: 'ingresso-autenticado', ...opcoes.prova } : {}),
   });
   return r;
 }
