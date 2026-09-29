@@ -119,6 +119,27 @@ function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
   return null;
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 3; achado N1 da rodada 2 do CHECK): a sessao com conducao VIVA que mesmo
+ * assim nao ocupa vaga do despacho. Sao so duas: a parada (sem trabalho no ledger ha mais que `staleMin`,
+ * o mesmo teto do escalonador) e a que escalou para o humano depois de comecar (`gate_blocked`
+ * `human.pending` sem destravamento). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
+ * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
+ * verifica de novo. Somente leitura.
+ */
+export function sessaoLivreDaVaga(eventos: EventoLedger[], desde: string, agora: string, staleMin: number): 'stale' | 'human.pending' | null {
+  const ultima = ultimaAtividadeEm(eventos);
+  if (ultima !== null && minutos(ultima, agora) >= staleMin) return 'stale';
+  const inicio = Date.parse(desde);
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i];
+    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || e.motivo !== 'human.pending' || Date.parse(e.ts) < inicio) continue;
+    const resolvida = eventos.slice(i + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
+    return resolvida ? null : 'human.pending';
+  }
+  return null;
+}
+
 /** A thread tem pausa humana ABERTA? Mesmas tres fontes do monitor, resumidas. */
 function pausaHumanaAberta(
   thread: Thread,

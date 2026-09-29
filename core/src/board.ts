@@ -34,6 +34,7 @@ import {
   ehAprovacaoHumana,
   EVENTOS_QUE_DESTRAVAM,
   OcupacaoDaThread,
+  sessaoLivreDaVaga,
 } from './ocupacao';
 import { dirThread, lerThread, listarIds, pausasDaThread } from './thread';
 import { PedidoNaFila, PlanoDoEscalonador, ThreadNoBoard, VagaDaThread } from './types';
@@ -126,9 +127,6 @@ export interface SessaoQueOcupa { thread: string; fase: string | null; sessao: s
 /** A recusa do portao de vaga do despacho, com quem ocupa e a correcao. */
 export interface VagaRecusada { limite: number; ocupam: SessaoQueOcupa[]; detalhe: string; correcao: string }
 
-/** Classes do escalonador que nao ocupam vaga: esperar humano, impedimento aberto, parada (06/09/2026). */
-const NAO_OCUPAM: readonly string[] = ['pausa-humana', 'impedida', 'stale'];
-
 /**
  * RM-037 (rm037defeito, defeito 3): o portao de vaga do `ork phase run`. Com `max_parallel_threads: 5`,
  * um sexto despacho saiu as 09h03 de 29/09/2026 com cinco sessoes vivas: o `phase run` nao consultava
@@ -136,8 +134,8 @@ const NAO_OCUPAM: readonly string[] = ['pausa-humana', 'impedida', 'stale'];
  *
  * Ocupa vaga a outra thread cuja conducao `exec:<thread>` e de uma sessao viva (a prova que vale para
  * claude-bg de qualquer conta e para codex, liberada por `phase_result`, `sessao_morta` ou
- * `session_superseded`) e que o escalonador (`avaliarOcupacao`) nao da como pausa humana, impedida ou
- * parada: a mesma regra do board, para os dois nunca discordarem (achado A1 do CHECK). Ocupa tambem o
+ * `session_superseded`), salvo a sessao parada ou escalada para o humano (`sessaoLivreDaVaga`; achados A1 e
+ * N1 do CHECK: a pausa prevista e o verify reprovado nao param a sessao, e ela segue contando). Ocupa tambem o
  * despacho em curso de outra thread (conducao de processo do `phase.run` ou do `retry.run`), senao dois
  * pedidos simultaneos passariam juntos. A conducao da propria thread tem portao proprio. Somente leitura.
  */
@@ -154,10 +152,8 @@ export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, 
     const despachando = atual.dono.tipo === 'processo' && (atual.operacao === 'phase.run' || atual.operacao === 'retry.run');
     if (atual.dono.tipo !== 'sessao' && !despachando) continue;
     if (atual.dono.tipo === 'sessao') {
-      try {
-        const oc = avaliarOcupacao(lerThread(raiz, id), lerLedger(dirThread(raiz, id)), { agora: quando, estados: null, staleMin });
-        if (NAO_OCUPAM.includes(oc.classe)) continue;
-      } catch { /* thread ilegivel: a conducao viva continua contando */ }
+      try { if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin)) continue; }
+      catch { /* ledger ilegivel: a conducao viva continua contando */ }
     }
     ocupam.push({ thread: id, fase: atual.fase, desde: atual.desde,
       sessao: atual.dono.tipo === 'sessao' ? atual.dono.sessionId : null,

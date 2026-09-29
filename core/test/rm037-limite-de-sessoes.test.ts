@@ -118,23 +118,37 @@ test('defeito 3 (B1): o CLI diz quem ocupa, cita slot_refused e sai com 3, a esp
   } finally { p.limpar(); }
 });
 
-test('defeito 3 (A1): sessao em pausa humana, impedida ou parada nao ocupa vaga, como no escalonador', () => {
+test('defeito 3 (A1, N1): sessao viva em pausa prevista ou com verify reprovado ocupa; parada ou escalada ao dono, nao', () => {
   const p = projetoTemporario('rm037-limite-ocupacao');
   try {
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
     const nova = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
-    const pausada = threadComSessaoViva(p, 'pausada', 'claude-bg', 21);
-    registrar(dirThread(p.dir, pausada.id), pausada.id, 'gate_blocked', { gate: 'phase.dispatch', motivo: 'human.pending', fase: 'GO' });
+    const conta = (id: string) => vagaDoDespacho(p.carregado, nova.id)?.ocupam.some(o => o.thread === id) ?? false;
+    // #Classic: o despacho grava a pausa prevista ao fim do bloco e a sessao segue rodando.
+    const classica = novaThread(p.carregado, { nome: 'classica', modo: 'classic' }).thread;
+    assert.equal(registrarConducaoDaSessao(p.dir, classica.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000020', runtime: 'claude-bg', perfil: null }), true);
+    registrar(dirThread(p.dir, classica.id), classica.id, 'human_gate', { fase: 'GOAL', estado: 'prevista ao fim do bloco' });
+    assert.equal(conta(classica.id), true, 'a pausa prevista nao para a sessao do bloco');
+    registrar(dirThread(p.dir, classica.id), classica.id, 'phase_result', { fase: 'GOAL', sessionId: '00000000-0000-4000-8000-000000000020' });
+
+    // #Auto: o verify reprovou no meio do GO e a sessao segue corrigindo.
     const impedida = threadComSessaoViva(p, 'impedida', 'codex', 22);
-    registrar(dirThread(p.dir, impedida.id), impedida.id, 'gate_blocked', { gate: 'verify', motivo: 'verify.failed' });
+    registrar(dirThread(p.dir, impedida.id), impedida.id, 'gate_blocked', { gate: 'verify', motivo: 'verify.regression' });
+    assert.equal(conta(impedida.id), true, 'verify reprovado nao para a sessao');
+    registrar(dirThread(p.dir, impedida.id), impedida.id, 'phase_result', { fase: 'GO', sessionId: impedida.sessionId });
+
+    // Escalou para o dono depois de comecar: esperar humano nao ocupa.
+    const escalada = threadComSessaoViva(p, 'escalada', 'claude-bg', 21);
+    registrar(dirThread(p.dir, escalada.id), escalada.id, 'gate_blocked', { gate: 'phase.dispatch', motivo: 'human.pending', fase: 'GO' });
+    assert.equal(conta(escalada.id), false);
+    // Parada: despachada ha 10 horas e sem evento desde entao (stale_after_min padrao: 240).
     const parada = threadComSessaoViva(p, 'parada', 'claude-bg', 23);
-    // Despachada ha 10 horas e sem evento desde entao (stale_after_min padrao: 240).
     const antigo = new Date(Date.now() - 10 * 3600_000).toISOString();
     fs.appendFileSync(path.join(dirThread(p.dir, parada.id), 'ledger.jsonl'),
       JSON.stringify({ ts: antigo, thread: parada.id, tipo: 'phase_dispatch', fase: 'GO', sessionId: parada.sessionId, eventId: 'e-antigo' }) + '\n');
-    assert.equal(vagaDoDespacho(p.carregado, nova.id), null, 'nenhuma das tres ocupa vaga');
-    const ativa = threadComSessaoViva(p, 'ativa', 'codex', 24);
-    assert.deepEqual(vagaDoDespacho(p.carregado, nova.id)?.ocupam.map(o => o.thread), [ativa.id]);
+    assert.equal(conta(parada.id), false);
+    assert.equal(vagaDoDespacho(p.carregado, nova.id), null, 'so as duas que nao ocupam restaram');
   } finally { p.limpar(); }
 });
 
