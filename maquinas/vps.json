@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:43:28.460Z",
+  "publicadoEm": "2026-09-29T11:44:57.203Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -35,6 +35,20 @@
       "paradaDesde": "2026-09-29T00:35:39.661Z"
     },
     {
+      "id": "ork-rm049marketp",
+      "nome": "RM-049: marketplaces e textos do lançamento",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-049",
+      "branch": "HEAD",
+      "atualizadaEm": "2026-09-29T11:44:54.359Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
       "id": "ork-rm050guiadec",
       "nome": "RM-050: guia de contribuição no repositório do Orkastery",
       "modo": "#Auto",
@@ -55,8 +69,8 @@
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-049",
-      "branch": "HEAD",
-      "atualizadaEm": "2026-09-29T11:43:25.421Z",
+      "branch": "ork/ork-siteshomesco-full",
+      "atualizadaEm": "2026-09-29T11:43:35.606Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
