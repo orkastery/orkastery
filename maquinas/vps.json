@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T00:13:52.701Z",
+  "publicadoEm": "2026-09-29T00:15:02.346Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -58,20 +58,6 @@
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-rm046conclui",
-      "nome": "RM-046 concluida: dominios no ar com HTTPS",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-046",
-      "branch": "ork/ork-rm046conclui-go",
-      "atualizadaEm": "2026-09-29T00:09:36.333Z",
-      "entregue": "81bb33b",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
