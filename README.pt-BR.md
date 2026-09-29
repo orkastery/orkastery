@@ -207,9 +207,9 @@ A [página inicial dos docs](docs/README.md) organiza tudo pelo que você quer f
 | Projeto | O que é |
 | --- | --- |
 | **[orkastery](https://github.com/orkastery/orkastery)** | Este repositório: o núcleo `ork`, os adaptadores, as skills e os auditores |
-| **[OrkMind](https://github.com/orkastery/OrkMind)** | A camada de memória: Postgres com pgvector, ontologia e busca por tag; opcional |
-| **orkastery-web** | Site e documentação para usuários, com o OnePager de arquitetura |
-| **[orkmind-web](https://github.com/orkastery/orkmind-web)** | A interface web do OrkMind |
+| **[OrkMind](https://github.com/orkastery/orkmind)** | A camada de memória: Postgres com pgvector, ontologia e busca por tag; opcional |
+| **[orkastery.com](https://github.com/orkastery/orkastery.com)** | Site e documentação para usuários |
+| **[orkmind.com](https://github.com/orkastery/orkmind.com)** | O site do OrkMind |
 
 <!-- maestro-i32:begin -->
 ## Maestro na conversa (I-32: código entregue, ativação live pendente)
@@ -223,7 +223,7 @@ A [página inicial dos docs](docs/README.md) organiza tudo pelo que você quer f
 
 ## Créditos e licença
 
-> **Nenhum metrônomo transformou alguém em Bernstein.** Maestria não é andamento: é saber, depois de cada apresentação, o que você fez, quanto custou e quão bem foi feito, e ser melhor na próxima. Essa é a fase que chamamos de MASTER, e é por isso que o projeto se chama Orkastery (*or-KAS-te-ri*).
+> **Nenhum metrônomo transformou alguém em Bernstein.** Maestria não é andamento: é saber, depois de cada apresentação, o que você fez, quanto custou e quão bem foi feito, e ser melhor na próxima. Essa é a fase que chamamos de MASTER, e é por isso que o projeto se chama Orkastery.
 
 - Implementação original, licença [MIT](LICENSE), com [crédito a quem veio antes](ATTRIBUTION.md).
 - [Contribuir](CONTRIBUTING.md) · [Segurança](SECURITY.md) · [Quickstart](docs/comecar/quickstart.md) · [Arquitetura](docs/conceitos/arquitetura.md)

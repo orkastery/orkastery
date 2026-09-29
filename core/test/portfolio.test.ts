@@ -72,7 +72,7 @@ test('portfólio mantém produto, projeto multirrepositório e iniciativas', () 
   const p = projetoTemporario('portfolio');
   try {
     createProduct(p.dir, { id: 'prod-orkastery', title: 'Orkastery' });
-    createProject(p.dir, { id: 'proj-maestro-workspace', productId: 'prod-orkastery', title: 'Maestro Workspace', workspaceIds: ['orkastery', 'orkmind', 'orkmind-web'] });
+    createProject(p.dir, { id: 'proj-maestro-workspace', productId: 'prod-orkastery', title: 'Maestro Workspace', workspaceIds: ['orkastery', 'orkmind', 'site'] });
     createInitiative(p.dir, { id: 'init-ontology', projectId: 'proj-maestro-workspace', title: 'Ontologia' });
     createInitiative(p.dir, { id: 'init-kanban', projectId: 'proj-maestro-workspace', title: 'Kanban', dependsOn: ['init-ontology'] });
     assert.equal(listEntities(p.dir, 'project', 'prod-orkastery').length, 1);

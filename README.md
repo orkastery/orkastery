@@ -207,9 +207,9 @@ The [docs home](docs/README.md) is organized by what you want to do now:
 | Project | What it is |
 | --- | --- |
 | **[orkastery](https://github.com/orkastery/orkastery)** | This repository: the `ork` core, the adapters, the skills and the auditors |
-| **[OrkMind](https://github.com/orkastery/OrkMind)** | The memory layer: Postgres with pgvector, an ontology and tag search; optional |
-| **orkastery-web** | The website and user docs, with the architecture one-pager |
-| **[orkmind-web](https://github.com/orkastery/orkmind-web)** | The OrkMind web interface |
+| **[OrkMind](https://github.com/orkastery/orkmind)** | The memory layer: Postgres with pgvector, an ontology and tag search; optional |
+| **[orkastery.com](https://github.com/orkastery/orkastery.com)** | The website and user docs |
+| **[orkmind.com](https://github.com/orkastery/orkmind.com)** | The OrkMind site |
 
 ## Maestro in the conversation (code delivered, live activation pending)
 
@@ -221,7 +221,7 @@ The [docs home](docs/README.md) is organized by what you want to do now:
 
 ## Credits and license
 
-> **No metronome ever turned anyone into Bernstein.** Mastery is not tempo: it is knowing, after each performance, what you did, what it cost and how well it went, and being better at the next one. That is the phase we call MASTER, and it is why the project is called Orkastery (*or-KAS-te-ree*).
+> **No metronome ever turned anyone into Bernstein.** Mastery is not tempo: it is knowing, after each performance, what you did, what it cost and how well it went, and being better at the next one. That is the phase we call MASTER, and it is why the project is called Orkastery.
 
 - Original implementation, [MIT](LICENSE) license, with [credit to those who came before](ATTRIBUTION.md).
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Quickstart](docs/comecar/quickstart.md) · [Architecture](docs/conceitos/arquitetura.md)
