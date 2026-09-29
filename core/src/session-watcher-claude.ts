@@ -51,6 +51,8 @@ export interface FonteClaude {
 export interface CursorClaude {
   schema: 'ork.session-cursor-claude/v1'; sessionId: string; despachoEm: string;
   ausenteDesde?: number; doneDesde?: number; mortoDesde?: number; desconhecidoDesde?: number; consultaFalhaDesde?: number;
+  /** RM-037 (defeitosdeco D-1): primeira leitura de `blocked` vivo depois do Stop correlacionado. */
+  bloqueadoDesde?: number;
   pid?: number; identidade?: IdentidadeProcesso | null;
 }
 
@@ -170,6 +172,19 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
       : { terminal: true, classificacao: 'fase_concluida', motivo: null, fonte: `${sinal}; ${prova.fonte}`, conclusaoNativa, stop };
     return { ...c, dependeDoStop: true };
   };
+  // RM-037 (defeitosdeco D-1): turno encerrado pelo Stop e sessão viva em `blocked` é o Claude Code
+  // dizendo que o texto final pediu resposta. Nunca conclui direto: com a prova do `ork`, a pausa
+  // humana abre (`human.pending`); sem ela, vale o motivo da prova, como nos outros terminais.
+  const esperaHumana = (): ClassificacaoClaude => {
+    const sinal = 'Stop correlacionado e sessão viva à espera humana (blocked)';
+    const prova = e.prova();
+    const c: TerminalClaude = !prova.ok
+      ? { ...bloqueio(`${sinal}; sem prova do ork: ${prova.fonte}`, prova.motivo ?? 'human.pending'),
+          diagnostico: `sem prova do ork: ${prova.fonte}` }
+      : { ...bloqueio(`${sinal}; ${prova.fonte}; o humano decide`, 'human.pending'),
+          diagnostico: 'a fase tem a prova do ork e a sessão espera resposta humana (blocked): o humano decide' };
+    return { ...c, dependeDoStop: true };
+  };
   const venceu = (desde: number) => agora - desde >= e.limiteMs;
   // Sem prova para concluir nem para bloquear: `runtime.unavailable` reexecutaria o mesmo prompt
   // sobre uma fase que pode ter terminado. O observador encerra sem gate e o radar de liveness
@@ -193,6 +208,7 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
   const estado = r.state === 'running' || r.state === 'busy' ? 'working' : r.state;
   if (estado !== 'done') delete cursor.doneDesde;
   if (estado !== 'working' && estado !== 'blocked') delete cursor.mortoDesde;
+  if (estado !== 'blocked') delete cursor.bloqueadoDesde;
   if (['done', 'failed', 'stopped', 'working', 'blocked'].includes(estado ?? '')) delete cursor.desconhecidoDesde;
   switch (estado) {
     case 'done': {
@@ -224,6 +240,16 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
         return bloqueio(`processo da sessão morreu sem terminal nativo nem Stop correlacionado (estado ${estado})`);
       }
       delete cursor.mortoDesde;
+      // D-1: a segunda leitura, com pelo menos um intervalo do observador, separa o `blocked` estável
+      // de um instante de transição logo depois do Stop. `status` ocupado ainda é trabalho.
+      const ocupado = ['busy', 'running', 'working'].includes(r.status ?? '');
+      if (estado === 'blocked' && stop && !bloqueioPendente(e.eventos, e.sessao) && !ocupado) {
+        cursor.bloqueadoDesde ??= agora;
+        if (agora - cursor.bloqueadoDesde < INTERVALO_WATCH_CLAUDE_MS)
+          return espera('turno encerrado pelo Stop com a sessão à espera humana (blocked); aguardando a segunda observação');
+        return esperaHumana();
+      }
+      delete cursor.bloqueadoDesde;
       return espera(estado === 'blocked' ? 'sessão bloqueada à espera humana' : 'sessão trabalhando');
     }
     default:
