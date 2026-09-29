@@ -35,7 +35,9 @@ const falha = (): ClassificacaoCodex => ({ classificacao: 'gate_blocked', motivo
 const sucesso = (): ClassificacaoCodex => ({ classificacao: 'fase_concluida', motivo: null });
 const humano = (): ClassificacaoCodex => ({ classificacao: 'human.pending', motivo: 'human.pending' });
 /** I-33 (D12): motivos da conta so saem de erro estruturado do runtime (`falhaDeContaDoErroCodex`). */
-const MOTIVOS_DA_CONTA: readonly string[] = ['runtime.quota-exhausted', 'runtime.auth-missing'];
+const MOTIVOS_DA_CONTA: readonly string[] = ['runtime.quota-exhausted', 'runtime.auth-missing',
+  // GO-FIX (R3, RM-037): o modelo inacessivel tambem so vale do erro estruturado, nunca do texto do agente.
+  'runtime.model-unavailable'];
 function motivo(v: unknown): ClassificacaoCodex | null {
   if (v === undefined || v === null) return null;
   if (typeof v !== 'string' || !Object.hasOwn(DESCRICAO_DO_MOTIVO, v)) return falha();

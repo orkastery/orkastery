@@ -105,7 +105,7 @@ O modo afrouxa a PAUSA. O modo NUNCA afrouxa a VERIFICAÇÃO.
 - **CHECK independente:** `ork ci prepare` exporta as claims e o job `ork-verify` do GitHub as reexecuta no SHA exato.
 - **Push provado:** por `git ls-remote`, nunca pelo código de saída do `git push`.
 - **Prompt com sha256 e trio efetivo no ledger:** runtime, modelo e esforço de cada fase são fato, não declaração.
-- **19 motivos tipados de gate, cada um com a sua ação de retry:** `ork retry policy`. `cost.violation` nunca recebe retry automático.
+- **22 motivos tipados de gate, cada um com a sua ação de retry:** `ork retry policy`. `cost.violation` nunca recebe retry automático.
 
 ### Atenção humana em camadas
 
@@ -158,7 +158,7 @@ ork adapter install claude-code --dry-run
 | Capacidade | Estado |
 | --- | --- |
 | Threads, seis fases, quatro modos, ledger, worktrees, leases, board | **funciona** |
-| Claims, baseline, `verify` no HEAD real, 19 motivos tipados, GO-FIX | **funciona** |
+| Claims, baseline, `verify` no HEAD real, 22 motivos tipados, GO-FIX | **funciona** |
 | CI como CHECK independente no SHA exato | **funciona**; proteção nativa da `main` depende do plano do GitHub ([RM-012](docs/roadmap/RM-012-ci-check-independente.md)) |
 | `ork ship` com push provado | **funciona** |
 | Rotação de contas entre perfis e runtimes | **funciona**; estado da conta ainda é por projeto ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)) |

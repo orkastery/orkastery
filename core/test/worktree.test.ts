@@ -151,3 +151,116 @@ test('worktree release remove a worktree, limpa o registro e recusa arvore suja'
   assert.equal(denovo.branch, r.branch);
   p.limpar();
 });
+
+// ---------------------------------------------------------------------------
+// RM-037 (defeitosdeco D-5): o corte de 27/09 reescreveu a `main` com raiz nova. Numa branch sem
+// commit proprio, o sync faria `git rebase` de historias sem relacao e reaplicaria a historia antiga
+// inteira sobre a base nova, exatamente o que a trava pre-push barra.
+// ---------------------------------------------------------------------------
+
+/** Reescreve a `main` do projeto de teste com uma raiz nova, como o corte fez. Devolve o SHA novo. */
+function reescreverBase(raiz: string): string {
+  const git = (...args: string[]) => { const r = exec('git', args, raiz); assert.equal(r.ok, true, r.stderr); return r.stdout.trim(); };
+  git('checkout', '-q', '--orphan', 'base-nova');
+  fs.writeFileSync(path.join(raiz, 'raiz-nova.txt'), 'historia nova depois do corte\n');
+  git('add', '--', 'raiz-nova.txt');
+  git('commit', '-q', '-m', 'raiz nova depois do corte');
+  git('branch', '-M', 'base-nova', 'main');
+  return git('rev-parse', 'HEAD');
+}
+const raizes = (dir: string) => exec('git', ['rev-list', '--max-parents=0', 'HEAD'], dir).stdout.trim().split('\n').filter(Boolean);
+
+test('defeitosdeco D-5: branch sem commit proprio sobre base reescrita e recriada na base, sem rebase', () => {
+  const p = projetoTemporario('wt-base-reescrita');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'Sem commit proprio', modo: 'auto' });
+    const wt = garantirWorktree(p.carregado, thread.id);
+    const antes = exec('git', ['rev-parse', 'HEAD'], wt.dir).stdout.trim();
+    const raizAntiga = raizes(wt.dir);
+    const nova = reescreverBase(p.dir);
+    assert.equal(exec('git', ['merge-base', 'HEAD', nova], wt.dir).code, 1, 'as historias nao tem ancestral comum');
+
+    const ensaio = sincronizarWorktree(p.carregado, thread.id, { dryRun: true });
+    assert.equal(ensaio.ok, true);
+    assert.ok(ensaio.passos.includes(`git reset --keep ${nova}`), ensaio.passos.join(' | '));
+    assert.equal(ensaio.passos.some(s => s.startsWith('git rebase ')), false, 'o ensaio nao planeja rebase');
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], wt.dir).stdout.trim(), antes, 'o ensaio nao mexe na branch');
+
+    const r = sincronizarWorktree(p.carregado, thread.id);
+    assert.equal(r.ok, true, r.detalhe);
+    assert.deepEqual([r.recriada, r.rebaseFeito, r.shaAntes, r.shaDepois], [true, false, antes, nova]);
+    assert.match(r.detalhe, /branch sem commit proprio recriada a partir da base main atual/);
+    assert.deepEqual(raizes(wt.dir), [nova], 'a branch tem so a raiz nova');
+    assert.equal(raizes(wt.dir).some(x => raizAntiga.includes(x)), false, 'nada da historia antiga veio junto');
+    const evento = lerLedger(dirThread(p.dir, thread.id)).filter(e => e.tipo === 'worktree_synced').at(-1)!;
+    assert.deepEqual([evento.recriada, evento.shaAntes, evento.shaDepois, evento.semAncestral], [true, antes, nova, true]);
+    assert.equal(sincronizarWorktree(p.carregado, thread.id).jaAtualizada, true, 'o proximo sync ja encontra a base');
+  } finally { p.limpar(); }
+});
+
+test('defeitosdeco D-5: branch com commit proprio sobre base reescrita fica como esta e recebe o rebase --onto exato', () => {
+  const p = projetoTemporario('wt-base-reescrita-propria');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'Com commit proprio', modo: 'auto' });
+    const wt = garantirWorktree(p.carregado, thread.id);
+    const inicio = lerThread(p.dir, thread.id).base.commit;
+    const proprio = commitar(wt.dir, 'da-thread.txt', 'trabalho da thread\n', 'trabalho da thread');
+    const nova = reescreverBase(p.dir);
+
+    const r = sincronizarWorktree(p.carregado, thread.id);
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, 'tree.blocked');
+    assert.match(r.detalhe, /foi reescrita e nao tem historia em comum com a branch .* que tem 1 commit\(s\) proprio\(s\)/);
+    assert.equal(r.correcao, `reaplique so os commits da thread sobre a base nova: git -C ${wt.dir} rebase --onto ${nova} ${inicio}`);
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], wt.dir).stdout.trim(), proprio, 'a branch nao foi tocada');
+    assert.equal(exec('git', ['status', '--porcelain'], wt.dir).stdout.trim(), '', 'nenhum rebase pela metade');
+    // A correcao dita, rodada, reaplica so o commit da thread sobre a raiz nova.
+    assert.equal(exec('git', ['-C', wt.dir, 'rebase', '--onto', nova, inicio], wt.dir).ok, true);
+    assert.deepEqual(raizes(wt.dir), [nova]);
+    assert.equal(exec('git', ['rev-list', '--count', `${nova}..HEAD`], wt.dir).stdout.trim(), '1');
+  } finally { p.limpar(); }
+});
+
+// GO-FIX (R1 do CHECK): no ciclo `merge-branch`, `base.commit` e a ponta da branch que ja existia,
+// com os commits proprios dela. Tomado como base, zerava a contagem e o sync recriaria a branch na
+// base, deixando esses commits so no reflog.
+function threadMergeBranch(p: ReturnType<typeof projetoTemporario>) {
+  exec('git', ['branch', 'feature/x'], p.dir);
+  exec('git', ['switch', '-q', 'feature/x'], p.dir);
+  const f1 = commitar(p.dir, 'f1.txt', 'primeiro da feature\n', 'F1');
+  const f2 = commitar(p.dir, 'f2.txt', 'segundo da feature\n', 'F2');
+  exec('git', ['switch', '-q', 'main'], p.dir);
+  const { thread } = novaThread(p.carregado, { nome: 'Merge branch', modo: 'classic', variante: 'merge-branch', branch: 'feature/x' });
+  assert.equal(thread.base.commit, f2, 'a base carimbada do merge-branch e a ponta da branch');
+  return { thread, f1, f2, wt: thread.worktree as string };
+}
+
+test('defeitosdeco D-5 (R1): merge-branch com commits proprios e base que so avancou e rebasada, sem perder F1 e F2', () => {
+  const p = projetoTemporario('wt-merge-branch');
+  try {
+    const { thread, f1, f2, wt } = threadMergeBranch(p);
+    const m1 = commitar(p.dir, 'base.txt', 'a base andou\n', 'M1');
+    const r = sincronizarWorktree(p.carregado, thread.id);
+    assert.equal(r.ok, true, r.detalhe);
+    assert.equal(r.recriada ?? false, false, 'a branch com commits proprios nunca e recriada na base');
+    assert.equal(r.rebaseFeito, true);
+    for (const arquivo of ['f1.txt', 'f2.txt', 'base.txt']) assert.ok(fs.existsSync(path.join(wt, arquivo)), arquivo);
+    assert.equal(exec('git', ['merge-base', '--is-ancestor', m1, 'HEAD'], wt).ok, true);
+    const assuntos = exec('git', ['log', '--format=%s', `${m1}..HEAD`], wt).stdout.trim().split('\n');
+    assert.deepEqual(assuntos, ['F2', 'F1'], `os dois commits proprios seguem na branch (${f1.slice(0, 8)}, ${f2.slice(0, 8)} reaplicados)`);
+  } finally { p.limpar(); }
+});
+
+test('defeitosdeco D-5 (R1): merge-branch sobre base reescrita recusa sem apontar a ponta da branch como ponto de partida', () => {
+  const p = projetoTemporario('wt-merge-branch-reescrita');
+  try {
+    const { thread, f2, wt } = threadMergeBranch(p);
+    const nova = reescreverBase(p.dir);
+    const r = sincronizarWorktree(p.carregado, thread.id);
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, 'tree.blocked');
+    assert.equal(r.correcao, `reaplique so os commits da thread sobre a base nova: git -C ${wt} rebase --onto ${nova} <commit onde a branch da thread comecou>`);
+    assert.equal(r.correcao.includes(f2), false, 'rebase --onto a partir da ponta descartaria os commits da feature');
+    assert.equal(exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim(), f2, 'a branch nao foi tocada');
+  } finally { p.limpar(); }
+});
