@@ -4,6 +4,21 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T16:10:03.791Z",
-  "threads": []
+  "publicadoEm": "2026-09-29T16:32:24.864Z",
+  "threads": [
+    {
+      "id": "ork-rm052projeto",
+      "nome": "RM-052 projeto-alvo explicito e resposta honesta nos hosts",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-052",
+      "branch": "ork/ork-rm052projeto-full",
+      "atualizadaEm": "2026-09-29T16:32:21.267Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    }
+  ]
 }
