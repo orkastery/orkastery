@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T00:31:22.558Z",
+  "publicadoEm": "2026-09-29T00:31:25.619Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -38,15 +38,15 @@
       "id": "ork-i36buscasema",
       "nome": "I-38 busca semantica e embeddings na memoria",
       "modo": "#Classic",
-      "fase": "GOAL",
+      "fase": "PLAN",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-i36buscasema-goal",
-      "atualizadaEm": "2026-09-29T00:30:21.841Z",
+      "atualizadaEm": "2026-09-29T00:31:25.384Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
+      "esperaVoce": true,
+      "pergunta": "plano",
+      "paradaDesde": "2026-09-29T00:31:25.368Z"
     },
     {
       "id": "ork-maestroworks",
