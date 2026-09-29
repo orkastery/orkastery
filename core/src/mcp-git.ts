@@ -1,5 +1,5 @@
-/** Commit estreito no núcleo instalado. Repositórios com hooks/helpers ficam
- * explicitamente indisponíveis; nenhum hook ou configuração é desativado. */
+/** Commit estreito no núcleo instalado. Repositórios com hooks/helpers que as operações
+ * executariam ficam explicitamente indisponíveis; nenhum hook ou configuração é desativado. */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -79,6 +79,9 @@ function configPassiva(chave: string, valor: string, credenciaisInertes = false)
   // Definição não executa nada: a ausência de uso efetivo é provada abaixo.
   if (/^filter\.[a-zA-Z0-9._-]+\.(clean|smudge|process|required)$/.test(chave)) return valor.length<=8192 && !valor.includes('\0');
   if (['user.name','user.email'].includes(chave)) return !!valor.trim() && valor.length<=512 && !/[\x00-\x1f]/.test(valor);
+  // RM-037 (defeitosdeco D-3): a seção do próprio produto (por exemplo `orkastery.cortefeito`, lida
+  // pela trava do corte no pre-push). O Git nunca lê essa seção, então ela não executa nada.
+  if (/^orkastery\.[a-z0-9-]+$/.test(chave)) return valor.length<=512 && !/[\x00-\x1f\x7f]/.test(valor);
   if (['core.filemode','core.logallrefupdates','core.ignorecase','core.precomposeunicode'].includes(chave)) return /^(true|false)$/.test(valor);
   if (chave==='core.repositoryformatversion') return valor==='0';
   if (['core.bare','commit.gpgsign','tag.gpgsign','core.fsmonitor'].includes(chave)) return valor==='false';
@@ -125,7 +128,24 @@ function atributosPassivos(wt:string,id:string,selecionados:string[]):string {
   }
   return resultados.join('\0');
 }
-function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados:string[]): string {
+/**
+ * RM-037 (defeitosdeco D-3): hooks que os comandos Git do status e do commit (`config`, `ls-files`,
+ * `check-attr`, `rev-parse`, `symbolic-ref`, `diff`, `diff-tree`, `add` e `commit` sem `--amend`)
+ * nunca invocam. Lista positiva: nome fora dela (`pre-commit`, `commit-msg`, `reference-transaction`,
+ * `post-index-change`, nome que o Git criar amanhã) continua recusado, e nada é desativado.
+ */
+export const HOOKS_INERTES_DO_COMMIT: ReadonlySet<string> = new Set(['pre-push', 'pre-rebase', 'post-checkout', 'post-merge',
+  'pre-receive', 'update', 'proc-receive', 'post-receive', 'post-update', 'push-to-checkout', 'applypatch-msg',
+  'pre-applypatch', 'post-applypatch', 'sendemail-validate', 'pre-merge-commit', 'post-rewrite',
+  'p4-changelist', 'p4-prepare-changelist', 'p4-post-changelist', 'p4-pre-submit']);
+/** O que a operação faria com o hook e a saída exata, para a recusa nomear os dois. */
+export interface HooksDaOperacao { inertes: ReadonlySet<string>; correcao: string }
+export const HOOKS_DO_COMMIT: HooksDaOperacao = { inertes: HOOKS_INERTES_DO_COMMIT,
+  correcao: 'o commit do MCP o executaria; commite pelo shell da worktree, onde o hook roda como sempre' };
+/** Padrão estrito (SHIP): merge e push executariam qualquer hook, inclusive o pre-push. */
+export const HOOKS_ESTRITOS: HooksDaOperacao = { inertes: new Set(),
+  correcao: 'o SHIP do MCP o executaria (merge ou push); entregue por PR com o bundle do ork ci prepare, ou pelo ork ship do CLI' };
+function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados:string[],hooksDaOperacao:HooksDaOperacao=HOOKS_ESTRITOS): string {
   fisico(path.dirname(comum),comum); fisico(comum,gitdir);
   for(const nome of ['objects','refs','logs','info'])arvoreMetadados(comum,path.join(comum,nome));
   for(const nome of ['index','logs','refs'])arvoreMetadados(gitdir,path.join(gitdir,nome));
@@ -143,8 +163,10 @@ function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados
     if (fs.lstatSync(hooks,{throwIfNoEntry:false})) {
       fisico(base,hooks);
       for(const nome of fs.readdirSync(hooks)) {
-        const f=path.join(hooks,nome),s=fs.lstatSync(f);
-        if(!s.isFile() || s.isSymbolicLink() || (!nome.endsWith('.sample') && (s.mode&0o111)!==0)) falha('execution-profile.unsupported: hooks preservados');
+        const f=path.join(hooks,nome),s=fs.lstatSync(f),rotulo=nome.replace(/[^A-Za-z0-9._-]/g,'?').slice(0,64);
+        if(!s.isFile() || s.isSymbolicLink()) falha(`execution-profile.unsupported: hooks preservados (${rotulo} nao e arquivo regular)`);
+        if(!nome.endsWith('.sample') && (s.mode&0o111)!==0 && !hooksDaOperacao.inertes.has(nome))
+          falha(`execution-profile.unsupported: hooks preservados (${rotulo}); ${hooksDaOperacao.correcao}`);
       }
     }
   }
@@ -167,7 +189,7 @@ export function estadoGitMcp(raiz:string,threadId:string) {
   const marcador=path.join(wt,'.git');fisico(wt,marcador,true);
   const match=/^gitdir: (.+)\s*$/.exec(fs.readFileSync(marcador,'utf8'));if(!match)falha('worktree.invalid');
   const comum=path.join(raiz,'.git'),gitdir=path.resolve(wt,match![1].trim());
-  perfil(wt,comum,gitdir,t.id,[]);
+  perfil(wt,comum,gitdir,t.id,[],HOOKS_DO_COMMIT);
   if(raizDoEstado(wt)!==raiz)falha('worktree.invalid');
   const branch=branchDaWorktree(t),destino=c.manifesto.worktree.base_branch;
   if(git(wt,['symbolic-ref','--quiet','--short','HEAD']).trim()!==branch)falha('branch.invalid');
@@ -196,10 +218,10 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     const comum=path.join(raiz,'.git'),gitdir=path.resolve(wt,match![1].trim());
     fisico(comum,gitdir);
     if(raizDoEstado(wt)!==raiz) falha('worktree.invalid');
-    const originalPerfil=perfil(wt,comum,gitdir,t.id,p.paths);
+    const originalPerfil=perfil(wt,comum,gitdir,t.id,p.paths,HOOKS_DO_COMMIT);
     const conferir=() => {
       validarArquivosEstadoMcp(raiz,t.id);
-      if(perfil(wt,comum,gitdir,t.id,p.paths)!==originalPerfil) falha('execution-profile.changed');
+      if(perfil(wt,comum,gitdir,t.id,p.paths,HOOKS_DO_COMMIT)!==originalPerfil) falha('execution-profile.changed');
       if(git(wt,['rev-parse','HEAD']).trim()!==p.expectedHead) falha('head.stale');
       if(git(wt,['symbolic-ref','--quiet','--short','HEAD']).trim()!==branchDaWorktree(t)) falha('branch.invalid');
       for(const nome of ['MERGE_HEAD','CHERRY_PICK_HEAD','REVERT_HEAD','rebase-merge','rebase-apply'])
@@ -229,7 +251,7 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
       git(wt,['commit','-m',p.mensagem,'--',...p.paths]);
       commit=git(wt,['rev-parse','HEAD']).trim();
     });
-    if(perfil(wt,comum,gitdir,t.id,p.paths)!==originalPerfil) falha('execution-profile.changed');
+    if(perfil(wt,comum,gitdir,t.id,p.paths,HOOKS_DO_COMMIT)!==originalPerfil) falha('execution-profile.changed');
     estadoAuditado=auditarEstado(raiz,t.id,wt).nivel==='ok';
     if(!estadoAuditado) falha('state.audit-failed');
     if(!commit || git(wt,['rev-parse','HEAD^']).trim()!==p.expectedHead) falha('commit.parent-invalid');
