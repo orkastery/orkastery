@@ -10,7 +10,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { criarServidorMcp } from '../src/mcp-server';
 import { CONTRATO_DECISAO_AUTONOMA, registrarDecisao } from '../src/decisao-autonoma';
-import { lerLedger } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { Thread } from '../src/types';
 import { TOOLS_FILHO_CODEX } from '../src/mcp-install';
@@ -118,10 +118,15 @@ test('defeito 1 (S-3): o MCP filho grava o despacho que conhece; sessao de outra
     assert.equal(r.error, false, r.text);
     const e = lerLedger(dirThread(p.dir, propria.id)).find(x => x.eventId === r.data().eventId)!;
     assert.deepEqual([e.origem, e.canal, e.despacho], ['mcp', 'codex', '22222222-3333-4444-8555-666666666666']);
-    process.env.ORK_DISPATCH_ID = '77777777-8888-4999-8aaa-bbbbbbbbbbbb'; process.env.ORK_DISPATCH_THREAD = 'ork-outra-thread';
-    const doCli = registrarDecisao(p.dir, propria.id, { decidido: 'x', porque: 'y', comoMudar: 'z', custoDeReverter: { agora: 'a', depois: 'b' },
-      criterio: { tipo: 'medicao', referencia: 'true' }, quemDecidiu: 'sessao', evidencia: 'e' }).evento;
-    assert.deepEqual(doCli.despachoNoAmbiente, { thread: 'ork-outra-thread', dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' });
+    const entrada = { decidido: 'x', porque: 'y', comoMudar: 'z', custoDeReverter: { agora: 'a', depois: 'b' },
+      criterio: { tipo: 'medicao' as const, referencia: 'true' }, quemDecidiu: 'sessao', evidencia: 'e' };
+    const outra = novaThread(p.carregado, { nome: 'outra', modo: 'auto' }).thread;
+    process.env.ORK_DISPATCH_ID = '77777777-8888-4999-8aaa-bbbbbbbbbbbb'; process.env.ORK_DISPATCH_THREAD = outra.id;
+    // S-b do CHECK 4: sem o despacho no ledger da outra thread, o par do ambiente nao vira rastro.
+    assert.equal(registrarDecisao(p.dir, propria.id, entrada).evento.despachoNoAmbiente, undefined);
+    registrar(dirThread(p.dir, outra.id), outra.id, 'phase_dispatch', { fase: 'GO', identidade: { dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' } });
+    const doCli = registrarDecisao(p.dir, propria.id, entrada).evento;
+    assert.deepEqual(doCli.despachoNoAmbiente, { thread: outra.id, dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' });
   } finally {
     for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.th]] as const) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;

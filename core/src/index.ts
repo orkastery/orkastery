@@ -1068,6 +1068,7 @@ function comandoPhase(args: Args): number {
     }
     // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
     if (r.motivo === 'baseline.pendente') {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, detalhe: r.erro }, null, 2)); return 1; }
       console.error(`Despacho recusado: ${r.erro}`);
       console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
       return 1;

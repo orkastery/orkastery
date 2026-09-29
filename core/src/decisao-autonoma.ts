@@ -37,10 +37,19 @@ import { canalDoProcesso, ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, id
 
 export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
 
-/** A sessao de OUTRA thread que registra aqui tambem deixa rastro (S-3 do CHECK 3). */
-function despachoDeOutraThread(threadId: string): Record<string, unknown> {
+/**
+ * A sessao de OUTRA thread que registra aqui tambem deixa rastro (S-3 do CHECK 3). So o par que o ledger
+ * daquela thread confirma (S-b do CHECK 4): o par vazado do daemon do `claude --bg` nao vira rastro falso.
+ */
+function despachoDeOutraThread(raiz: string, threadId: string): Record<string, unknown> {
   const thread = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim(), id = (process.env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim();
-  return thread && thread !== threadId && /^[a-f0-9-]{36}$/.test(id) ? { despachoNoAmbiente: { thread, dispatchId: id } } : {};
+  if (!thread || thread === threadId || !/^[a-z0-9]{1,3}-[a-z0-9]{1,12}$/.test(thread) || !/^[a-f0-9-]{36}$/.test(id)) return {};
+  let confirmado = false;
+  try {
+    confirmado = lerLedger(dirThread(raiz, thread)).some((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada &&
+      (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId === id);
+  } catch { /* thread de outro projeto ou ilegivel: sem prova, sem rastro */ }
+  return confirmado ? { despachoNoAmbiente: { thread, dispatchId: id } } : {};
 }
 
 /** O canal do processo; canal fora do registro nao impede a decisao, e fica dito como tal. */
@@ -149,7 +158,7 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
       // despachada carrega a identidade do despacho no ambiente; o dono no terminal, nao.
       canal: entrada.origem === 'mcp' && entrada.host ? entrada.host : canalSeguro(),
       despacho: entrada.despacho !== undefined ? entrada.despacho : identidadeDoAmbiente(t.id, process.env, raiz),
-      ...despachoDeOutraThread(t.id),
+      ...despachoDeOutraThread(raiz, t.id),
     });
     return { pedido, evento };
   });
