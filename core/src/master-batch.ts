@@ -22,7 +22,7 @@ export function listarBatch(raiz: string, todas = false) {
     proposta: p.thread.score_proposto ?? null, assinatura: p.thread.score_proposto ? assinaturaProposta(p.thread.score_proposto) : null }));
 }
 export interface SelecaoMaster { thread: string; assinatura: string; classe?: ClasseDeFalha }
-export function ratificarBatch(raiz: string, selecao: SelecaoMaster[], por: string) {
+export function ratificarBatch(raiz: string, selecao: SelecaoMaster[], por: string, prova?: Record<string, unknown>) {
   exigirAutoriaHumana(por);
   if (!selecao.length || new Set(selecao.map(s => s.thread)).size !== selecao.length) throw new Error('selecione threads distintas explicitamente');
   const disponiveis = listarBatch(raiz);
@@ -30,7 +30,8 @@ export function ratificarBatch(raiz: string, selecao: SelecaoMaster[], por: stri
     const item = disponiveis.find(i => i.thread === s.thread);
     if (!item?.proposta || item.assinatura !== s.assinatura) throw new Error(`proposta ausente ou alterada: ${s.thread}; revise o batch`);
     const p = item.proposta;
-    const opcoes: OpcoesMaster = { score: p.valor, justificativa: p.justificativa, classes: s.classe ? [s.classe] : p.classes, resumo: p.resumo, por };
+    const opcoes: OpcoesMaster = { score: p.valor, justificativa: p.justificativa, classes: s.classe ? [s.classe] : p.classes, resumo: p.resumo, por,
+      ...(prova ? { prova } : {}) };
     preflightMaster(raiz, s.thread, opcoes);
     return { id: s.thread, opcoes };
   });

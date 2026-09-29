@@ -25,6 +25,8 @@ const PULSE_ALVO = 'pulse', PULSE_ENDERECO = 'resposta';
  */
 const PULSE_LISTA = new RegExp("^[ \\t]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?)(?:[ \\t\\r\\n,;]*[0-9]{1,2}(?:[ \\t]*[.):-])?[ \\t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))*[ \\t]*(?:[.!][ \\t]*)?$", 'i');
 const PULSE_LIVRE = new RegExp("^[ \\t]*(?:[1-4]|(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))[ \\t]*(?:[.!]+[ \\t]*)?$", 'i');
+/** RM-048 (item 8): the digest keyboard line goes to the core at the same signed address. */
+const PULSE_RATIFICACAO = new RegExp("^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za-z0-9._-]{1,80}){2,3}[ \\t]*$", 'i');
 /** Text above this is never tested against the shapes: they run before the allowlist. */
 const PULSE_TETO = 300, ESCUTA_TETO = 4096;
 /** The bare-word window (ork.pulse-escuta/v1), read with a byte cap; any error closes it. */
@@ -45,7 +47,8 @@ export function listeningOpen(root, now = Date.now()) {
 export function isPulseAnswer(text, root = process.env.ORK_HITL_ROOT) {
     if (text.includes('\0') || text.length > PULSE_TETO)
         return false;
-    if (PULSE_CONSENT.test(text) || PULSE_LOTE.test(text) || PULSE_CADENCIA.test(text) || PULSE_LISTA.test(text))
+    if (PULSE_CONSENT.test(text) || PULSE_LOTE.test(text) || PULSE_CADENCIA.test(text) || PULSE_LISTA.test(text) ||
+        PULSE_RATIFICACAO.test(text))
         return true;
     return PULSE_LIVRE.test(text) && listeningOpen(root);
 }

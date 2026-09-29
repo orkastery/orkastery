@@ -62,12 +62,12 @@ export function lerDigest(raiz: string, semana: string): DigestSemanal {
       !Array.isArray(job.paginas) || !Array.isArray(job.recibos)) throw new Error('digest inválido');
   return job;
 }
-export function responderLoteDigest(raiz: string, resposta: string, por: string) {
+export function responderLoteDigest(raiz: string, resposta: string, por: string, prova?: Record<string, unknown>) {
   const partes = resposta.trim().split(/\s+/);
   if (partes.length !== 3 || partes[0] !== 'ratificar-lote') throw new Error('resposta de lote inválida');
   const job = lerDigest(raiz, partes[1]);
   if (!job.concluidoEm || partes[2] !== job.assinatura) throw new Error('lote não entregue ou assinatura divergente');
-  return ratificarBatch(raiz, job.selecao, por);
+  return ratificarBatch(raiz, job.selecao, por, prova);
 }
 export function enviarDigest(opcoes: { raiz: string; quando?: string; transporte?: TransportePulse; enviar?: (p: PaginaDigest) => ReciboHost }): { code: number; detalhe: string; enviadas: number; semana: string | null } {
   const quando = opcoes.quando ?? new Date().toISOString(), semana = sextaLocal(quando);

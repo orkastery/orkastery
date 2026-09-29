@@ -33,6 +33,10 @@ import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM,
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TrechoLivre } from './hitl-texto-livre';
 import { apresentarHitl } from './hitl-presentation';
+import { CONTRATO_PEDIDO_DE_NOTA, lerNota, mensagemJaUsadaEmNota, PedidoDeNota, pedidoDeNotaDoCodigo, reciboDoCanal } from './master-nota';
+import { autoriaHumana, parseClasse, registrarMaster } from './master';
+import { ratificarBatch } from './master-batch';
+import { responderLoteDigest } from './master-digest';
 import { ItemClassificavel, quemDecide } from './hitl-classificacao';
 import { CADENCIAS, extrairTagDoPulse, gravarCadencia, lerCadencia, TagDoPulse, textoDaCadencia } from './pulse-cadencia';
 import { lerLedger } from './ledger';
@@ -68,7 +72,11 @@ export const GRAMATICA_DO_PULSE = Object.freeze({
   // interceptada sempre; `livre` so dentro da janela de escuta (`pulse-escuta.json`).
   lista: FORMAS_DO_TEXTO_LIVRE.lista,
   livre: FORMAS_DO_TEXTO_LIVRE.livre,
+  // RM-048 (item 8): o teclado do digest semanal ("ratificar <thread> <assinatura> <classe>" e
+  // "ratificar-lote <semana> <assinatura>") passa pelo mesmo endereco assinado, e nao pelo agente.
+  ratificacao: '^[ \\t]*ratificar(?:-lote)?(?:[ \\t]+[A-Za-z0-9._-]{1,80}){2,3}[ \\t]*$',
 });
+const RATIFICACAO = new RegExp(GRAMATICA_DO_PULSE.ratificacao, 'i');
 const CONSENTIMENTO = new RegExp(GRAMATICA_DO_PULSE.consentimento, 'i');
 const LOTE = new RegExp(GRAMATICA_DO_PULSE.lote);
 const CADENCIA = new RegExp(GRAMATICA_DO_PULSE.cadencia, 'i');
@@ -79,6 +87,7 @@ export type RespostaInterpretada =
   | { forma: 'lista'; itens: { numero: number; trecho: TrechoLivre }[] }
   | { forma: 'livre'; trecho: TrechoLivre }
   | { forma: 'cadencia'; tag: TagDoPulse }
+  | { forma: 'ratificacao'; texto: string }
   | { forma: 'desconhecida' };
 
 /** O que o dono quis dizer, pela forma. Nada aqui le intencao: ou a forma bate, ou nao. */
@@ -91,6 +100,7 @@ export function interpretarRespostaDoPulse(texto: unknown): RespostaInterpretada
   }
   const lista = lerLista(texto);
   if (lista) return { forma: 'lista', itens: lista };
+  if (RATIFICACAO.test(texto)) return { forma: 'ratificacao', texto: texto.trim() };
   if (CONSENTIMENTO.test(texto)) return { forma: 'consentimento', codigo: texto.trim().slice(0, 4).toUpperCase() };
   const tag = CADENCIA.test(texto) ? extrairTagDoPulse(texto) : null;
   if (tag) return { forma: 'cadencia', tag };
@@ -738,6 +748,74 @@ export function atualizarEscuta(raiz: string, quando: string, estadoDir?: string
 }
 
 // ---------------------------------------------------------------------------
+// RM-048 (item 8): a nota do MASTER e a ratificacao, pelo mesmo endereco assinado.
+// ---------------------------------------------------------------------------
+
+/**
+ * "K7QX 4 entregou o que pedi": a nota vai ao ledger com `por` = o remetente autenticado e com o
+ * recibo do canal. Quem chama ja conferiu a prova; aqui so se le o conteudo. Nota humana que ja
+ * existe nao e trocada por este caminho; a aceita por omissao e, porque a nota do dono sobrescreve.
+ */
+function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
+  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  const tg = opcoes.canal === 'telegram';
+  const nota = lerNota(envelope.resposta.trim().slice(p.codigo.length));
+  if (!nota) {
+    return resultado('nota', `Para dar a nota de ${p.thread}, responda ${p.codigo} <0 a 5> <porquê>, por exemplo: ` +
+      `${p.codigo} 4 entregou o que pedi. Nada foi registrado.`, { recusas: [{ motivo: 'nota.formato' }] });
+  }
+  if (mensagemJaUsadaEmNota(raiz, p.thread, envelope.mensagem)) {
+    return resultado('nota', `A nota de ${p.thread} desta mensagem já estava registrada.`, { repetida: true });
+  }
+  const t = lerThread(raiz, p.thread);
+  if (t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor)) {
+    return resultado('nota', `${tg ? '⚠️ ' : '! '}${p.thread} já tem nota humana ${t.score.valor}/5; a nota não muda por aqui.`,
+      { recusas: [{ motivo: 'nota.ja-dada' }] });
+  }
+  try {
+    const prova = reciboDoCanal(raiz, envelope, { notaPedida: { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: p.pedidoId, codigo: p.codigo },
+      enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: p.codigo,
+        respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
+    registrarMaster(raiz, p.thread, { score: nota.score, justificativa: nota.justificativa, por: envelope.por, refazer: !!t.score, prova });
+    return resultado('nota', `${tg ? '🧾 ' : ''}Nota ${nota.score}/5 registrada para ${p.thread}, por ${envelope.por}. ` +
+      'O índice derivado do ledger continua ao lado.', { registradas: [{ numero: 0, thread: p.thread, letra: String(nota.score), estado: 'nota', repetida: false }] });
+  } catch (e) {
+    return resultado('nota', `${tg ? '⚠️ ' : '! '}não consegui registrar a nota de ${p.thread}: ${(e as Error).message.slice(0, 160)}`,
+      { recusas: [{ motivo: 'nota.recusada' }] });
+  }
+}
+
+/** O teclado do digest: a ratificacao da proposta, com o remetente autenticado e o recibo. */
+function responderRatificacao(raiz: string, envelope: RespostaHumana, texto: string,
+  opcoes: { canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
+  const tg = opcoes.canal === 'telegram';
+  const partes = texto.split(/\s+/);
+  const prova = () => reciboDoCanal(raiz, envelope, { ratificacao: { contrato: CONTRATO_PEDIDO_DE_NOTA, texto },
+    enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE,
+      respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
+  try {
+    let feitas: { thread: string; score: number }[];
+    if (partes[0].toLowerCase() === 'ratificar-lote' && partes.length === 3) {
+      feitas = responderLoteDigest(raiz, ['ratificar-lote', partes[1], partes[2]].join(' '), envelope.por, prova())
+        .map(r => ({ thread: r.thread.id, score: r.masterLog.score }));
+    } else {
+      const classe = parseClasse(partes[3]);
+      if (partes[0].toLowerCase() !== 'ratificar' || partes.length !== 4 || !classe) {
+        return resultado('nota', 'Para ratificar, use a linha do teclado do digest: ratificar <thread> <assinatura> <classe>.',
+          { recusas: [{ motivo: 'ratificacao.formato' }] });
+      }
+      feitas = ratificarBatch(raiz, [{ thread: partes[1], assinatura: partes[2], classe }], envelope.por, prova())
+        .map(r => ({ thread: r.thread.id, score: r.masterLog.score }));
+    }
+    return resultado('nota', `${tg ? '🧾 ' : ''}Ratificado por ${envelope.por}: ${feitas.map(f => `${f.thread} ${f.score}/5`).join(', ')}.`,
+      { registradas: feitas.map(f => ({ numero: 0, thread: f.thread, letra: String(f.score), estado: 'nota', repetida: false })) });
+  } catch (e) {
+    return resultado('nota', `${tg ? '⚠️ ' : '! '}não consegui ratificar: ${(e as Error).message.slice(0, 160)}`,
+      { recusas: [{ motivo: 'ratificacao.recusada' }] });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // O receptor.
 // ---------------------------------------------------------------------------
 
@@ -752,7 +830,7 @@ export interface RegistroDaResposta {
 export interface ResultadoDaRespostaDoPulse {
   contrato: typeof CONTRATO_RESPOSTA_DO_PULSE;
   ok: true;
-  tipo: 'consentimento' | 'lote' | 'cadencia' | 'codigo' | 'nao-entendida';
+  tipo: 'consentimento' | 'lote' | 'cadencia' | 'codigo' | 'nota' | 'nao-entendida';
   resposta?: 'sim' | 'nao';
   /** I-50: a cadencia gravada, quando a mensagem era a tag. */
   cadencia?: TagDoPulse;
@@ -801,7 +879,8 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
     const r = lido.forma === 'lote' ? responderAsPerguntas(raiz, envelope, lido.escolhas, { quando, canal, estadoDir })
       : lido.forma === 'lista' ? responderALista(raiz, envelope, lido.itens, { quando, canal, estadoDir })
         : lido.forma === 'livre' ? responderLivre(raiz, envelope, lido.trecho, { quando, canal, estadoDir })
-          : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir });
+          : lido.forma === 'ratificacao' ? responderRatificacao(raiz, envelope, lido.texto, { canal, estadoDir })
+            : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir });
     // RM-048 (D3): a janela da palavra solta acompanha o que ainda espera o dono agora.
     try { atualizarEscuta(raiz, quando, estadoDir); } catch { /* dica de rota; a prova nao depende dela */ }
     return r;
@@ -825,6 +904,9 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
     // RM-048 (D4): o codigo curto de um gate ("DE6H a") responde ao gate, pelo mesmo endereco assinado.
     const peloGate = responderPorCodigoDeGate(raiz, envelope, codigo, { quando, canal });
     if (peloGate) return peloGate;
+    // RM-048 (item 8): o codigo de um pedido de nota do MASTER ("K7QX 4 entregou o que pedi").
+    const nota = pedidoDeNotaDoCodigo(raiz, codigo, estadoDir);
+    if (nota) return responderNota(raiz, envelope, nota, { canal, estadoDir });
     if (!estado) return resultado('consentimento', `Não reconheço o código ${codigo} agora: nenhum resumo ou pergunta aberta usa ele. ` +
       'Quando houver pergunta para você, o resumo avisa.');
     return resultado('consentimento', `O código ${codigo} não é o do resumo aberto nem de uma pergunta aberta. O resumo aberto usa ` +

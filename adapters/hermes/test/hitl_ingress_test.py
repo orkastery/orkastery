@@ -319,7 +319,9 @@ class IngressTest(unittest.IsolatedAsyncioTestCase):
     async def test_pulse_shape_is_strict_and_ordinary_chat_goes_to_the_assistant(self):
         # RM-048 (D2): a resposta numerada em prosa curta tambem e resposta, e vai ao nucleo.
         for text in ['1a', '1a, 2c', 'p4ej sim', 'K3F9 agora não', '#orkpulseoff', ' #OrkPulseOn. ',
-                     '1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', 'DE6H aprovo com a ressalva do risco']:
+                     '1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', 'DE6H aprovo com a ressalva do risco',
+                     'K7QX 4 entregou o que pedi', 'ratificar ork-simulado ' + 'a' * 64 + ' processo',
+                     'ratificar-lote 2026-09-25 ' + 'b' * 64]:
             with self.subTest(text=text), patch.object(ingress.subprocess, 'run', return_value=self.pulse_receipt()):
                 ingress._entries.clear(); self.say(text)
                 self.assertEqual(self.invoke()['action'], 'skip')

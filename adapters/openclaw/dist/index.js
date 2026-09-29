@@ -358,23 +358,11 @@ const FERRAMENTAS = [
     },
     {
         name: 'ork_master',
-        description: 'Fecha a thread: POSTMORTEM tipado, MASTER log no contrato congelado e o score HUMANO de 0 a 5 com justificativa. Nunca invente a nota.',
+        description: 'Pede ao dono a nota do MASTER (0 a 5, com o porque) de uma entrega: devolve a linha com o codigo curto para mostrar a ele. A nota volta pelo Telegram, com a prova do ingresso. Esta tool nunca grava nota e nao recebe nome de pessoa (RM-048).',
         parameters: schema({
             thread: { type: 'string' },
-            score: { type: 'string', description: 'inteiro de 0 a 5, dado pelo humano' },
-            justificativa: { type: 'string' },
-            quem: { type: 'string' },
         }),
-        argv: (p) => [
-            'master',
-            texto(p, 'thread'),
-            '--score',
-            texto(p, 'score'),
-            '--justificativa',
-            texto(p, 'justificativa'),
-            '--por',
-            texto(p, 'quem'),
-        ],
+        argv: (p) => ['master', 'pedir', texto(p, 'thread'), '--formato', 'telegram'],
     },
     {
         name: 'ork_board',

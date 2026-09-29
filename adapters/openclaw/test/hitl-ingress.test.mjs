@@ -148,7 +148,8 @@ test('I-41 (GO-FIX 1): the answer to the pulse is signed at the pulse address an
     const ctx = { channelId: 'telegram', accountId: 'simulated', senderId: '42', conversationId: '-7', messageId: '20' };
     const evento = content => ({ content, channel: 'telegram', commandAuthorized: true, accountId: 'simulated',
       senderId: '42', conversationId: '-7', messageId: '20', timestamp: Date.now() });
-    for (const texto of ['P4EJ a', '1a 2c', '#OrkPulseOn-15m', '1. B, 2. A', '1 aprovo', 'DE6H aprovo com a ressalva do risco']) {
+    for (const texto of ['P4EJ a', '1a 2c', '#OrkPulseOn-15m', '1. B, 2. A', '1 aprovo', 'DE6H aprovo com a ressalva do risco',
+      'K7QX 4 entregou o que pedi', `ratificar ork-simulado ${'a'.repeat(64)} processo`]) {
       recibo(valido);
       const r = await handler(evento(texto), ctx);
       assert.equal(r.reply.text, valido.mensagem, texto);

@@ -5,6 +5,7 @@ import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -456,7 +457,11 @@ Uso: ork <comando> [argumentos]
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
   master <thread-id> --score 0-5 --justificativa "<texto>"
         [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
-                                            Fecha a thread: POSTMORTEM + MASTER log + score
+                                            Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
+                                            de processo de host e recusado com master.prova-de-canal)
+  master pedir <thread-id> [--formato telegram|terminal|json]
+                                            Pede a nota ao dono com codigo curto; ele responde pelo Telegram
+                                            (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
   master [--todas] [--json]                 As entregas, com o indice derivado do ledger
   master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
   master classes                            As classes de falha fixas do POSTMORTEM
@@ -2329,9 +2334,19 @@ function comandoMaster(args: Args): number {
     const r = auditarMaster(carregado.raiz);
     console.log(JSON.stringify(r, null, 2)); return r.ok ? 0 : 1;
   }
+  if (primeiro === 'pedir') {
+    // RM-048 (item 8): a nota com prova. O canal mostra a linha; o dono responde pelo Telegram.
+    const id = args.posicionais[2];
+    const formato = texto(args.opcoes.formato) ?? 'telegram';
+    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
+    const pedido = pedirNota(carregado.raiz, id);
+    console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
+    return 0;
+  }
   if (primeiro === 'digest') {
     const sub = args.posicionais[2];
     if (sub === 'responder') {
+      exigirNotaSemHost();
       console.log(JSON.stringify(responderLoteDigest(carregado.raiz, texto(args.opcoes.resposta) ?? '', texto(args.opcoes.por) ?? '').map(r => ({ thread: r.thread.id, score: r.masterLog.score })), null, 2));
       return 0;
     }
@@ -2352,6 +2367,7 @@ function comandoMaster(args: Args): number {
     return 0;
   }
   if (primeiro === 'ratificar' || ((args.opcoes.batch === true || primeiro === 'batch') && args.opcoes.aceitar)) {
+    exigirNotaSemHost();
     let selecao: SelecaoMaster[];
     if (primeiro === 'ratificar') {
       const partes = (texto(args.opcoes.resposta) ?? '').trim().split(/\s+/);
@@ -2438,6 +2454,8 @@ function comandoMaster(args: Args): number {
     console.log(JSON.stringify(proporMaster(carregado.raiz, id, opcoesMaster), null, 2));
     return 0;
   }
+  // RM-048 (D8): nota em nome de pessoa, de processo de host, so pelo ingresso autenticado.
+  exigirNotaSemHost();
   const r = registrarMaster(carregado.raiz, id, opcoesMaster);
   console.log(textoDoMaster(r));
   // Bloco B6: fechada a thread, a licao (POSTMORTEM + score) vai para a colecao

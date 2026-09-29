@@ -135,9 +135,9 @@ Quando o bloco nao pausa (`#Maestro`, `#Auto`, `#Fast`), o `ork` registra a deci
 
 ## Passo 5: a entrega e o MASTER
 
-O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; ninguem digita nota para a fila
-andar. `ork master` mostra as entregas; `ork master --aceitar-omissao` aceita as pendentes com
-registro; a nota humana sobrescreve. `ork master --batch` saiu na I-43 (`master.fila-aposentada`).
+O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master --aceitar-omissao` aceita as
+pendentes com registro. Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
+e o ingresso prova a origem. Nunca `--por` em nome dele: daqui da `master.prova-de-canal` (RM-048).
 
 Memoria "degradada" tem dois portoes: a variavel da DSN no ambiente do processo
 (`memory_degraded` com `dsn.env-ausente`) e a ativacao de escrita com aceite humano

@@ -8,6 +8,14 @@ import { registrar } from '../src/ledger';
 import { proporMaster } from '../src/master';
 import { montarPulse, textoDoPulse } from '../src/pulse';
 
+/** RM-048 (item 8): o dono no terminal, sem marca de host no ambiente; so dai `--por` vale. */
+function terminal(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const n of ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME']) delete env[n];
+  return env;
+}
+
+
 test('pulse põe a entrega sem nota na faixa automática, com as nove respostas de ratificação executáveis', () => {
   const p = projetoTemporario('master-pulse');
   try {
@@ -23,7 +31,7 @@ test('pulse põe a entrega sem nota na faixa automática, com as nove respostas 
     assert.equal(item.opcoes.length, 9);
     assert.match(item.pergunta, /4\/5.*justificativa apresentada/);
     const cli = path.resolve(__dirname, '../../dist/index.js');
-    execFileSync(process.execPath, [cli, 'master', 'ratificar', '--resposta', item.opcoes[0], '--por', 'Julio'], { cwd: p.dir });
+    execFileSync(process.execPath, [cli, 'master', 'ratificar', '--resposta', item.opcoes[0], '--por', 'Julio'], { cwd: p.dir, env: terminal() });
     assert.equal(lerThread(p.dir, t.id).status, 'fechada');
     assert.equal(lerThread(p.dir, t.id).score?.avaliadoPor, 'Julio');
   } finally { p.limpar(); }

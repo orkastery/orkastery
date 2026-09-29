@@ -34,6 +34,9 @@ PULSE_CADENCIA = re.compile(r'^[ \t]*#OrkPulse(?:On(?:-(?:15|30|60)m)?|Off)[ \t]
 # janela e dica de rota, nao prova: a mensagem ainda passa pela assinatura e pela regra do nucleo.
 PULSE_LISTA = re.compile(r'^[ \t]*[0-9]{1,2}(?:[ \t]*[.):-])?[ \t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?)(?:[ \t\r\n,;]*[0-9]{1,2}(?:[ \t]*[.):-])?[ \t]*(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))*[ \t]*(?:[.!][ \t]*)?$', re.IGNORECASE)
 PULSE_LIVRE = re.compile(r'^[ \t]*(?:[1-4]|(?:[a-d]|pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|aprovada|aprovar|aprova|segue|siga|seguir|manda|confirmo|confirmado|de acordo|agora n[aã]o|n[aã]o|n|recuso|recusado|recusar|reprovo|reprovado|revisar|revis[aã]o|refazer|volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?))[ \t]*(?:[.!]+[ \t]*)?$', re.IGNORECASE)
+# RM-048 (item 8): a linha do teclado do digest ("ratificar <thread> <assinatura> <classe>") vai ao
+# nucleo pelo mesmo endereco assinado; o agente nao escreve mais `--por` em nome do dono.
+PULSE_RATIFICACAO = re.compile(r'^[ \t]*ratificar(?:-lote)?(?:[ \t]+[A-Za-z0-9._-]{1,80}){2,3}[ \t]*$', re.IGNORECASE)
 # Texto acima disto nunca e testado contra as formas: elas rodam antes da allowlist.
 PULSE_TETO = 300
 ESCUTA_TETO = 4096
@@ -85,7 +88,7 @@ def _is_pulse(text):
     if '\x00' in text or len(text) > PULSE_TETO:
         return False
     if (PULSE_CONSENT.fullmatch(text) or PULSE_LOTE.fullmatch(text) or PULSE_CADENCIA.fullmatch(text)
-            or PULSE_LISTA.fullmatch(text)):
+            or PULSE_LISTA.fullmatch(text) or PULSE_RATIFICACAO.fullmatch(text)):
         return True
     return bool(PULSE_LIVRE.fullmatch(text)) and _escuta_aberta(os.environ.get('ORK_HITL_ROOT', ''))
 
