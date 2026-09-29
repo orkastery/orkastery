@@ -327,7 +327,17 @@ export interface ConducaoOcupada {
 
 export type TomadaDeConducao = ConducaoTomada | ConducaoOcupada;
 
-interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean; substituido?: Lease }
+interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean; substituido?: Lease;
+  /** O descritor ja foi fechado: fechar de novo poderia fechar outro arquivo que reusou o numero. */
+  encerrada?: boolean }
+
+/** Fecha a tomada uma vez so (RM-037, CHECK 4): liberar e devolver podem ser chamados mais de uma vez. */
+function encerrar(k: string, estado: EmCurso): void {
+  if (estado.encerrada) return;
+  estado.encerrada = true;
+  if (emCurso.get(k) === estado) emCurso.delete(k);
+  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+}
 /** Conducoes que ESTE processo segura, pela chave canonica: a reentrada no mesmo processo. */
 const emCurso = new Map<string, EmCurso>();
 
@@ -575,13 +585,12 @@ function converter(raiz: string, k: string, estado: EmCurso,
   };
   regravarLease(raiz, estado.lease);
   estado.convertida = true;
-  emCurso.delete(k);
-  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+  encerrar(k, estado);
 }
 
 function devolverPropria(raiz: string, threadId: string, k: string, estado: EmCurso): void {
   const anterior = estado.substituido;
-  if (estado.convertida || estado.profundidade > 0 || !anterior) { liberarPropria(raiz, k, estado); return; }
+  if (estado.convertida || estado.encerrada || estado.profundidade > 0 || !anterior) { liberarPropria(raiz, k, estado); return; }
   const atual = lerLease(raiz, estado.lease.nome);
   // So devolve por cima do proprio lease: outro dono que tenha chegado depois nunca e sobrescrito.
   if (atual?.conducao?.identidade === estado.identidade && atual.conducao.dono.tipo === 'processo') {
@@ -594,19 +603,17 @@ function devolverPropria(raiz: string, threadId: string, k: string, estado: EmCu
       razao: 'o pedido foi recusado antes de virar sessao: o lease que a tomada consumiu volta a quem o tinha',
     });
   }
-  emCurso.delete(k);
-  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+  encerrar(k, estado);
 }
 
 function liberarPropria(raiz: string, k: string, estado: EmCurso): void {
-  if (estado.convertida) return;
+  if (estado.convertida || estado.encerrada) return;
   if (estado.profundidade > 0) { estado.profundidade--; return; }
   const atual = lerLease(raiz, estado.lease.nome);
   if (atual?.conducao?.identidade === estado.identidade && atual.conducao.dono.tipo === 'processo') {
     try { fs.unlinkSync(caminhoLease(raiz, estado.lease.nome)); } catch { /* ja saiu */ }
   }
-  emCurso.delete(k);
-  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+  encerrar(k, estado);
 }
 
 /**

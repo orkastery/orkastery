@@ -8,13 +8,13 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario, runtimePorConta } from './apoio';
+import { projetoTemporario, runtimeFalso, runtimePorConta } from './apoio';
 import { controllerSimulado } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
 import { baselineDoDespachoNecessaria, hashDoPrompt, rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
-import { registrarConducaoDaSessao } from '../src/conducao';
+import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao } from '../src/conducao';
 import { criarServidorMcp } from '../src/mcp-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -207,4 +207,63 @@ test('defeito 1 (G2): no MCP, thread que ja conduz recebe a resposta da conducao
     assert.match(texto, /conducao\.em-andamento/);
     assert.doesNotMatch(texto, /baseline\.pendente/);
   } finally { await client.close(); await server.close(); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+// CHECK 4 (B-1, A-1r, S-1).
+
+test('defeito 1 (B-1): a sucessora de uma sessao blocked, no codex sem baseline, grava a baseline e sai', () => {
+  const { p, f } = projetoCodex('rm037-baseline-sucessora');
+  const claude = runtimeFalso('rm037-baseline-sucessora');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'sucessora', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const bloqueada = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(bloqueada.verificada, true, bloqueada.erro);
+    claude.estadoDaSessao('blocked');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sucessora SIMULADA FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespachoCodex = eventos.findIndex(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespachoCodex, `baseline antes da sucessora: ${eventos.map(e => e.tipo).join(', ')}`);
+    assert.equal(eventos.some(e => e.tipo === 'conducao_recusada'), false, 'a baseline rodou como reentrada da tomada');
+    const d = eventos.find(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex')!;
+    assert.equal(conducaoDaThread(p.dir, t.id)?.identidade, (d.identidade as { dispatchId: string }).dispatchId,
+      'a sessao herdou a identidade gravada no lease: ela reentra na propria conducao');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (A-1r): a vaga tomada durante a suite recusa a repeticao e devolve a reserva do dono', () => {
+  const { p, f } = projetoCodex('rm037-baseline-reserva');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const t = novaThread(p.carregado, { nome: 'reserva', modo: 'auto' }).thread;
+    const outra = novaThread(p.carregado, { nome: 'chega no meio', modo: 'auto' }).thread;
+    assert.equal(assumirConducao(p.dir, t.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
+    // O teste do manifesto e a propria suite: enquanto ela roda, outra thread ganha uma sessao viva.
+    const conducao = path.resolve(__dirname, '../src/conducao');
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require(${JSON.stringify(conducao)}).registrarConducaoDaSessao(` +
+      `${JSON.stringify(p.dir)}, ${JSON.stringify(outra.id)}, { canal: 'cli', operacao: 'phase.run', fase: 'GO', prazoMs: 3600000 }, ` +
+      `{ sessionId: '00000000-0000-4000-8000-000000000091', runtime: 'codex', perfil: null })`)}`;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' });
+    assert.equal(r.motivo, 'concurrency.limite', r.erro);
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), true, 'a baseline foi gravada e continua valendo');
+    assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
+  } finally { f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (S-1): a repeticao depois da baseline nao duplica os avisos de policy', () => {
+  const { p, f } = projetoCodex('rm037-baseline-avisos');
+  let dir = '';
+  try {
+    p.carregado.manifesto.policies = { runtime_unavailable: 'warn' };
+    const t = novaThread(p.carregado, { nome: 'avisos', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const avisos = lerLedger(dir).filter(e => e.tipo === 'policy_warn' && e.policy === 'runtime_unavailable');
+    assert.equal(avisos.length, 1);
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); }
 });

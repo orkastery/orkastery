@@ -677,23 +677,24 @@ export function baselineDoDespachoNecessaria(carregado: ManifestoCarregado, thre
 
 /**
  * Grava a baseline do despacho quando ela e necessaria, pela mesma `gravarBaseline` do CLI e fora do lock
- * HITL. `ork phase run` e o redespacho do `ork retry` (fallback para o codex) chamam aqui so depois que o
- * despacho, sob a conducao tomada, devolveu `baseline.pendente`: a conducao acabou de ser liberada, entao
- * nao ha `conducao_recusada` de uma baseline que ninguem pediu. Outra conducao que chegue no meio recebe a
- * recusa dela, e o despacho repetido tambem.
+ * HITL. O despacho (`ork phase run`, e o redespacho do `ork retry` quando o fallback leva ao codex) chega
+ * aqui depois de passar por todos os portoes e RETENDO a conducao que tomou (B-1 e A-1r do CHECK 4): a
+ * baseline roda como reentrada dessa mesma conducao, sem `conducao_recusada` e sem soltar a reserva do dono
+ * ou a sessao bloqueada que a tomada sucedeu. A segunda passada do despacho usa a tomada retida.
  */
-export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): void {
+export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun,
+  identidade?: string): void {
   if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes)) return;
   try {
     gravarBaseline(carregado, threadId, undefined,
-      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null }, 'phase.run');
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}) }, 'phase.run');
   } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
 }
 
 /** Despacha a fase pelo runtime adapter e registra tudo no ledger da thread. */
 export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): ResultadoRun {
-  const rodar = (segunda = false): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
-    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes, segunda));
+  const rodar = (retida?: ConducaoTomada): ResultadoRunRetido => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
+    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes, retida));
   // I-36 (D2): `--esperar` espera a vez FORA do lock HITL (que serializa respostas do dono) e so
   // depois repete o pedido. Sem ele, a recusa sai na hora.
   // RM-037 (defeito 3): a vaga do projeto espera do mesmo jeito, fora do lock, antes de repetir.
@@ -703,14 +704,20 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
       esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
       esperarVaga(carregado, threadId, Math.max(0, prazo - Date.now()));
     }
-    let r = rodar();
-    // RM-037 (defeito 1; N3, G2 do CHECK 2): o despacho so pede a baseline depois de passar por todos os
-    // portoes, com a conducao da thread ja tomada (orfa liberada, sucessao feita). Ela e gravada aqui, fora
-    // do lock HITL (que e nao bloqueante e recusaria respostas do dono por minutos), e o despacho repete
-    // uma vez. No MCP, que nao roda a suite, a pendencia volta como esta.
-    if (r.motivo === 'baseline.pendente' && opcoes.baselinePeloDespacho !== false) {
-      garantirBaselineDoDespacho(carregado, threadId, opcoes);
-      r = rodar(true);
+    let r: ResultadoRunRetido = rodar();
+    // RM-037 (defeito 1; N3 e G2 do CHECK 2, B-1 e A-1r do CHECK 4): o despacho so pede a baseline depois de
+    // passar por todos os portoes, retendo a conducao que tomou (orfa liberada, sucessao feita, reserva
+    // usada). Ela e gravada aqui, fora do lock HITL (que e nao bloqueante e recusaria respostas do dono por
+    // minutos), como reentrada da tomada retida, e o despacho repete uma vez com ela. No MCP, que nao roda a
+    // suite, a pendencia volta como esta e a tomada ja foi devolvida.
+    const retida = r.retida;
+    if (retida) {
+      delete r.retida;
+      try { garantirBaselineDoDespacho(carregado, threadId, opcoes, retida.identidade); }
+      catch (e) { retida.devolver(); throw e; }
+      r = rodar(retida);
+      // A segunda passada converte a tomada em sessao ou a devolve; devolver de novo e inocuo.
+      retida.devolver();
     }
     const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
     if (!esperavel || !prazo || Date.now() >= prazo) return r;
@@ -719,13 +726,20 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
   }
 }
 
+/** A primeira passada que parou para a baseline devolve a tomada retida junto (interno ao `rodarFase`). */
+type ResultadoRunRetido = ResultadoRun & { retida?: ConducaoTomada };
+
 function rodarFaseSobLock(
   carregado: ManifestoCarregado,
   threadId: string,
   opcoes: OpcoesRun,
-  /** S-1 do CHECK 3: a repeticao depois da baseline nao grava de novo os avisos da primeira passada. */
-  segundaPassada = false
-): ResultadoRun {
+  /**
+   * A tomada que a primeira passada reteve para a baseline (CHECK 4). Com ela, esta e a repeticao: nao toma a
+   * conducao de novo e nao grava de novo os avisos da primeira passada (S-1 do CHECK 3).
+   */
+  tomadaPrevia?: ConducaoTomada
+): ResultadoRunRetido {
+  const segundaPassada = tomadaPrevia !== undefined;
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const fase = opcoes.fase;
@@ -825,7 +839,9 @@ function rodarFaseSobLock(
   }
   // I-36 (T7, T14): validado o pedido, a conducao da thread, antes de tocar a worktree. A mesma fase com o
   // mesmo prompt de quem conduz devolve a sessao em andamento sem chamar o adapter; outro pedido recebe a recusa.
-  const identidade = novaIdentidadeDeDespacho(thread.id, fase);
+  // Na repeticao, a identidade e a da tomada retida: a sessao reentra pela identidade gravada no lease (D4).
+  const identidade = tomadaPrevia ? { ...novaIdentidadeDeDespacho(thread.id, fase), dispatchId: tomadaPrevia.identidade }
+    : novaIdentidadeDeDespacho(thread.id, fase);
   const canal = opcoes.canal ?? canalDoProcesso();
   const pedidoDeConducao: PedidoDeConducao = { canal, correlacao: opcoes.correlacao ?? null, operacao: 'phase.run', fase,
     promptSha256: sha, identidade: identidade.dispatchId, prazoMs: prazoDaSessao(limites) };
@@ -864,6 +880,8 @@ function rodarFaseSobLock(
     if (atual) return ocupadaPor({ ok: false, idempotente: atual.fase === fase && atual.promptSha256 === sha, atual }, false);
     const semVaga = vagaDoDespacho(carregado, thread.id);
     if (semVaga) return recusaPorVaga(semVaga);
+  } else if (tomadaPrevia) {
+    conducao = tomadaPrevia;
   } else {
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);
     if (!tomada.ok) return ocupadaPor(tomada, true);
@@ -873,18 +891,20 @@ function rodarFaseSobLock(
     if (conducao) {
       // A vaga e a baseline sao conferidas COM a conducao tomada (N2, N3 do CHECK 2): a tomada consulta o
       // runtime, libera a orfa e faz a sucessao, e nenhum desses caminhos pode furar o limite nem soltar o
-      // codex sem baseline. O `finally` devolve a conducao nas duas recusas.
-      // A-1 do CHECK 3: nas duas recusas a tomada DEVOLVE o que consumiu (reserva do canal, sessao blocked).
+      // codex sem baseline. Quem recusa antes da sessao DEVOLVE o que a tomada consumiu (A-1 do CHECK 3),
+      // pelo `finally`.
       const semVaga = vagaDoDespacho(carregado, thread.id, undefined, conducaoDaThread(raiz, thread.id)?.desde);
-      if (semVaga) { conducao.devolver(); conducao = null; return recusaPorVaga(semVaga); }
+      if (semVaga) return recusaPorVaga(semVaga);
       if (baselineDoDespachoNecessaria(carregado, thread.id, opcoes)) {
-        conducao.devolver(); conducao = null;
         const erro = `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes do despacho` +
           (opcoes.baselinePeloDespacho === false ? ', e o MCP nao roda a suite' : ', e ela nao foi gravada') +
           `; rode ork verify ${thread.id} --baseline pelo CLI e repita o despacho`;
-        return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+        const pendente: ResultadoRunRetido = { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
           verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: false,
           runtime, model, effort, bloqueado: true, motivo: 'baseline.pendente', violacoes, erro };
+        // Na primeira passada do CLI e do retry, a tomada fica retida para a baseline (o `finally` nao a solta).
+        if (opcoes.baselinePeloDespacho !== false && !segundaPassada) { pendente.retida = conducao; conducao = null; }
+        return pendente;
       }
     }
     const cwd = thread.worktree ?? raiz;
@@ -1149,8 +1169,9 @@ function rodarFaseSobLock(
       violacoes,
     };
   } finally {
-    // Despacho que nao virou sessao devolve a conducao; o que virou ja a entregou a sessao.
-    conducao?.liberar();
+    // Despacho que nao virou sessao devolve a conducao, com o que a tomada consumiu (reserva do canal, sessao
+    // blocked sucedida); o que virou ja a entregou a sessao, e devolver entao nao faz nada.
+    conducao?.devolver();
   }
 }
 
