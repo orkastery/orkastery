@@ -69,9 +69,11 @@ calculado). Custo de assinatura não atribuível é `null` com motivo. O validad
 origens: latência e chamadas de ferramenta nunca são `tokenizer_exact` (latência medida pelo
 executor com relógio monotônico é `runtime_reported`); custo calculado por tabela sobre tokens
 medidos tem `rate_card` e a mesma origem de `logical_total_tokens`; custo aproximado é
-`estimated` e não conta como métrica requerida. Só a tentativa não concluída que caiu antes da
+`estimated` e não conta como métrica requerida. Toda requisição tem ao menos um token de
+entrada. Consumo medido em tentativa `completed` sempre traz as requisições; sem telemetria por
+requisição, os tokens ficam `unavailable`. Só a tentativa não concluída que caiu antes da
 primeira requisição registra consumo medido zero sem requisições, e então sem chamada de
-ferramenta; tentativa `completed` sempre traz suas requisições.
+ferramenta.
 
 ## Veredito
 

@@ -3299,6 +3299,70 @@
     },
     {
       "group": "measurement",
+      "name": "requisicao-sem-token-de-entrada",
+      "code": "benchmark.estrutura.invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/3/requests/0/input_total_tokens",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "chamadas-pelo-tokenizador",
+      "code": "benchmark.metrica.origem-invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/tool_calls/source",
+          "value": "tokenizer_exact"
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "latencia-do-preparo-pelo-tokenizador",
+      "code": "benchmark.metrica.origem-invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/index_preparation/latency_ms/source",
+          "value": "tokenizer_exact"
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "custo-do-preparo-com-outra-origem",
+      "code": "benchmark.metrica.origem-invalida",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/index_preparation/cost",
+          "value": {
+            "value": 0.02,
+            "unit": "USD",
+            "source": "tokenizer_exact",
+            "method": "tabela",
+            "method_version": "1",
+            "evidence_ref": {
+              "ref": "synthetic://kg1/custo-preparo.json",
+              "sha256": "626b5c7d53a329160fef11f77c7167e82ef6e9b174ffd68b135db3297bc889be"
+            },
+            "unavailable_reason": null,
+            "cost_kind": "attributed",
+            "rate_card": {
+              "id": "tabela-sintetica",
+              "version": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "group": "measurement",
       "name": "consumo-sem-requisicoes",
       "code": "benchmark.metrica.sem-requisicoes",
       "patch": [
@@ -8310,6 +8374,86 @@
           "op": "replace",
           "path": "/index_preparation/logical_total_tokens/source",
           "value": "estimated"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "concluida-sem-telemetria-por-requisicao",
+      "resultado": "inconclusive",
+      "motivos": [
+        "metrica-primaria-ausente"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/7/requests",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/logical_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-telemetria-por-requisicao"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/input_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-telemetria-por-requisicao"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/output_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-telemetria-por-requisicao"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/cached_input_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-telemetria-por-requisicao"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/reasoning_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-telemetria-por-requisicao"
+          }
         }
       ]
     }

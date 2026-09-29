@@ -84,9 +84,12 @@ export const metricasSchema = z.object({
   cost: medidaDeCustoSchema,
 }).strict();
 
-/** Uma requisicao ao modelo, em delta: telemetria cumulativa chega aqui ja convertida. */
+/**
+ * Uma requisicao ao modelo, em delta: telemetria cumulativa chega aqui ja convertida. Toda
+ * requisicao real envia ao menos um token; requisicao zerada nao sustenta consumo medido.
+ */
 export const requisicaoSchema = z.object({
-  request_id: id, input_total_tokens: inteiro, output_total_tokens: inteiro, cached_input_tokens: inteiro, reasoning_tokens: inteiro,
+  request_id: id, input_total_tokens: z.number().int().min(1).max(MAX), output_total_tokens: inteiro, cached_input_tokens: inteiro, reasoning_tokens: inteiro,
 }).strict();
 
 /** D6: tudo o que fica igual nos dois bracos do par. */
@@ -274,8 +277,6 @@ function conferirTokens(r: Execucao, requisicoes: Set<string>, onde: string): vo
     }
     if (r.requests.length && medida.value !== r.requests.reduce((s, q) => s + PARCELAS[k](q), 0)) falha('benchmark.metrica.requisicoes-divergentes', onde);
   }
-  // Sem requisicao ao modelo nao ha chamada de ferramenta pedida por ele.
-  if (r.requests.length === 0 && m.tool_calls.value !== null && m.tool_calls.value > 0) falha('benchmark.metrica.chamadas-sem-requisicao', onde);
 }
 
 function conferirProtocolo(p: Protocolo): void {
@@ -373,6 +374,10 @@ export function validarBenchmark(entrada: unknown): RegistroDeBenchmark {
     }
     conferirMedida(r.metrics.tool_calls, true, `${onde}.metrics.tool_calls`);
     if (r.metrics.tool_calls.source === 'tokenizer_exact') falha('benchmark.metrica.origem-invalida', `${onde}.metrics.tool_calls`);
+    // Consumo medido zero sem requisicao e a tentativa que caiu antes da primeira: nao ha chamada pedida.
+    const primaria = r.metrics.logical_total_tokens;
+    if (r.requests.length === 0 && primaria.value === 0 && ORIGENS_DE_CONSUMO_MEDIDO.includes(primaria.source) &&
+        r.metrics.tool_calls.value !== null && r.metrics.tool_calls.value > 0) falha('benchmark.metrica.chamadas-sem-requisicao', `${onde}.metrics.tool_calls`);
     conferirLatencia(r.metrics.latency_ms, `${onde}.metrics.latency_ms`);
     conferirCusto(r.metrics.cost, `${onde}.metrics.cost`);
     conferirOrigemDoCusto(r.metrics.cost, r.metrics.logical_total_tokens, `${onde}.metrics.cost`);
