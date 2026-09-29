@@ -51,7 +51,7 @@ export function runBrain(c:ManifestoCarregado,sub:string,options:Record<string,s
     return buildContext(c,ids,client,thread);
   }
   // K3.1: dossiê de decisão, só leitura como o contexto; decidir continua no registro e no ingresso.
-  if(sub==='dossie')return buildDossie(c,thread,value('decisao'),client);
+  if(sub==='dossie')return buildDossie(c,thread,options.decisao===undefined?undefined:value('decisao')??'',client);
   // Existing reviewed activation plus dedicated Brain DB grants: neither grants the other.
   exigirAtivacao(c,thread,'memory');
   const dir=dirThread(c.raiz,thread);

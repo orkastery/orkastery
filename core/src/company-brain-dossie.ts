@@ -29,7 +29,8 @@ export interface LacunaDoDossie { id: string; codigo: CodigoDeLacunaDoDossie; }
 /** Os ids do fato no Brain, os mesmos que `readCycle` grava ao capturar a linha. */
 export interface IdsNoBrain { assertion_id: string; event_id: string; source_event_id: string; }
 export interface FatoCitado { brain: IdsNoBrain; citacao: Citacao; frescor: Exclude<FrescorDoFato, 'retido'>; }
-export interface FatoRetido { brain: IdsNoBrain; frescor: 'retido'; }
+/** BR-030-05: retido pelo Brain sai só com o id do fato no Brain e o frescor, como no pacote de contexto. */
+export interface FatoRetido { id: string; frescor: 'retido'; }
 export type ClasseDeDecisao = 'decidido' | 'pergunta' | 'legado';
 export interface Alternativa {
   numero: number; letra: string | null; texto: string; acao: string; consequencia: string | null; recomendada: boolean; porque: string | null;
@@ -39,18 +40,22 @@ export type RespostaDoDono = FatoRetido | (FatoCitado & {
   canal: string | null; recebidoEm: string | null; recibo: string | null; evidencia: string | null; evidenciaSha256: string | null;
 });
 interface Comum extends FatoCitado { id: string; fase: string | null; em: string; }
-export type ItemDeDecisao = (FatoRetido & { id: string; classe: ClasseDeDecisao })
+export type ItemDeDecisao = FatoRetido
   | (Comum & { classe: 'decidido'; contrato: string; autoria: 'autonoma'; decidido: string; porque: string; comoMudar: string;
     custoDeReverter: { agora: string; depois: string }; criterio: { tipo: string; referencia: string };
     quemDecidiu: string; evidencia: string; razao: string; reverte: string | null; revertidaPor: string | null })
   | (Comum & { classe: 'pergunta'; contrato: string; autoria: 'dono' | null; pergunta: string; sobre: string;
-    alternativas: Alternativa[]; recomendacao: string | null; estado: 'decidida' | 'sem-prova' | 'aguardando'; resposta: RespostaDoDono | null })
+    alternativas: Alternativa[]; recomendacao: string | null; prazo: string | null;
+    estado: 'decidida' | 'retida' | 'sem-prova' | 'aguardando'; resposta: RespostaDoDono | null })
   | (Comum & { classe: 'legado'; contrato: 'legado'; autoria: 'autonoma'; decidido: string; quemDecidiu: string | null;
     evidencia: string | null; razao: string | null; rastroCompleto: boolean });
 export interface VinculoDoDossie {
   objetivo: { id: string; titulo: string; estado: string; envelopeHash: string; origem: 'ticket' | 'lista-de-threads' } | null;
   projeto: { productId: string | null; projectId: string; initiativeIds: string[]; origem: 'escopo-vinculado' | 'objetivo' } | null;
-  /** O vínculo nos nomes e ids do `cycle` dos eventos do Brain. */
+  /**
+   * O vínculo com os nomes do `cycle` dos eventos do Brain. A captura de hoje só preenche `project_id` e
+   * `initiative_ids`, pelo escopo vinculado, e grava `objective_id` nulo (FEAT-030, fora deste corte).
+   */
   brain: { thread_id: string; objective_id: string | null; project_id: string | null; initiative_ids: string[] };
 }
 export interface Dossie {
@@ -114,13 +119,18 @@ function vinculoDaThread(raiz: string, t: Thread, lacuna: (id: string, codigo: C
     projeto = { productId: doObjetivo.productId, projectId: doObjetivo.projectId, initiativeIds: ordenados(doObjetivo.initiativeIds), origem: 'objetivo' };
   } else lacuna(t.id, 'projeto.ausente');
 
-  const objetivo = achado ? { id: achado.o.id, titulo: achado.o.title, estado: achado.o.status, envelopeHash: achado.o.envelope.hash, origem: achado.origem } : null;
+  // Título e estado ficam fora do envelope com hash: o que faltar sai vazio, nunca `undefined` no digest.
+  const objetivo = achado ? { id: achado.o.id, titulo: texto(achado.o.title) ?? '', estado: texto(achado.o.status) ?? '',
+    envelopeHash: achado.o.envelope.hash, origem: achado.origem } : null;
   return { objetivo, projeto, brain: { thread_id: t.id, objective_id: objetivo?.id ?? null, project_id: projeto?.projectId ?? null,
     initiative_ids: projeto?.initiativeIds ?? [] } };
 }
 
 type EstadoNoBrain = { ok: Map<string, any>; retidos: Set<string> };
-/** Uma seleção por lote de ids `fact-…`; retido chega sem id, e só o caso misto pede `get`, como no contexto. */
+/**
+ * Uma seleção por lote de ids `fact-…`; retido chega sem id, e só o caso misto pede `get`, como no contexto.
+ * Seleção que não responde `ok` nem `empty` fecha o dossiê: sem estado conhecido, nada local vira conteúdo.
+ */
 function consultarFatos(transport: BrainTransport, tenant: string, ids: string[]): EstadoNoBrain | BrainResponse {
   const ok = new Map<string, any>(), retidos = new Set<string>();
   let gets = 0;
@@ -128,7 +138,7 @@ function consultarFatos(transport: BrainTransport, tenant: string, ids: string[]
     const lote = ids.slice(inicio, inicio + LIMITE), doLote = new Set(lote);
     const r = transport({ schema: BRAIN_API, operation: 'query', payload: validateContract({ schema: 'orkmind.company-brain-selection/v1',
       tenant_id: tenant, facets: { ids: lote, kinds: [], workspace_ids: [], source_instances: [] }, mode: 'selection', limit: lote.length, offset: 0 }) });
-    if (falha(r.state)) return r;
+    if (r.state !== 'ok' && r.state !== 'empty') return r;
     const itens = Array.isArray(r.items) ? r.items : [];
     for (const item of itens) if (item?.state === 'ok' && doLote.has(item.entity?.id)) ok.set(item.entity.id, item.entity);
     const faltantes = lote.filter(id => !ok.has(id)), retidosNoLote = itens.filter((i: any) => i?.state === 'withheld').length;
@@ -148,32 +158,29 @@ interface Linha { n: number; e: EventoLedger; evento: BrainEvent | null; }
 const TIPOS_DO_DOSSIE = new Set(['autonomous_decision', 'hitl_requested', 'human_gate', 'human_decision']);
 
 /**
- * P2: o ledger é lido pela `readCycle`, a mesma leitura da captura. Uma linha que o contrato do Brain
- * não representa (horário fora do formato, por exemplo) derruba a leitura inteira; então cada linha de
- * decisão é lida sozinha, com o número dela, e a que não ganha id no Brain fica sem citação.
+ * P2: o ledger é lido pela `readCycle`, a mesma leitura da captura. Uma linha que o contrato do Brain não
+ * representa (horário fora do formato, em ledgers antigos) derruba a leitura inteira; então a faixa que
+ * recusa é partida ao meio até isolar a linha, que fica sem id no Brain. Qualquer outro erro (linha
+ * corrompida, de outra thread) continua recusando o dossiê, como recusa a captura.
  */
 function linhasDoLedger(bytes: Buffer, scope: SourceScope): Linha[] {
-  try {
-    const lidas = readCycle(bytes, scope);
-    const brutas = bytes.subarray(0, lidas.completeBytes).toString('utf8').split('\n');
-    return lidas.records.map((r, i) => ({ n: i + 1, e: JSON.parse(brutas[i]) as EventoLedger, evento: r.event }));
-  } catch {
-    const linhas: Linha[] = [];
-    let inicio = 0, n = 0;
-    for (const raw of bytes.subarray(0, bytes.lastIndexOf(10) + 1).toString('utf8').split('\n').slice(0, -1)) {
-      const fim = inicio + Buffer.byteLength(raw) + 1;
-      n++;
-      let e: EventoLedger | null = null;
-      try { e = JSON.parse(raw); } catch { e = null; }
-      if (e && TIPOS_DO_DOSSIE.has(e.tipo)) {
-        let evento: BrainEvent | null = null;
-        try { evento = readCycle(bytes.subarray(0, fim), scope, inicio).records[0]?.event ?? null; } catch { evento = null; }
-        linhas.push({ n, e, evento });
-      }
-      inicio = fim;
+  const brutas = bytes.subarray(0, bytes.lastIndexOf(10) + 1).toString('utf8').split('\n').slice(0, -1);
+  const inicios = [0];
+  for (const raw of brutas) inicios.push(inicios[inicios.length - 1] + Buffer.byteLength(raw) + 1);
+  const linhas: Linha[] = [];
+  const faixa = (de: number, ate: number): void => {
+    try {
+      readCycle(bytes.subarray(0, inicios[ate]), scope, inicios[de]).records
+        .forEach((r, i) => linhas.push({ n: de + i + 1, e: JSON.parse(brutas[de + i]) as EventoLedger, evento: r.event }));
+    } catch (erro) {
+      if ((erro as Error).message !== 'brain.contract.invalid') throw erro;
+      if (ate - de === 1) { linhas.push({ n: de + 1, e: JSON.parse(brutas[de]) as EventoLedger, evento: null }); return; }
+      const meio = de + Math.floor((ate - de) / 2);
+      faixa(de, meio); faixa(meio, ate);
     }
-    return linhas;
-  }
+  };
+  if (brutas.length) faixa(0, brutas.length);
+  return linhas.filter(l => TIPOS_DO_DOSSIE.has(l.e.tipo));
 }
 
 /**
@@ -182,8 +189,9 @@ function linhasDoLedger(bytes: Buffer, scope: SourceScope): Linha[] {
  * recibo conferido e decisão fora do contrato viram lacuna, nunca conteúdo.
  */
 export function buildDossie(c: ManifestoCarregado, thread: string, decisao: string | undefined, transport: BrainTransport): Dossie {
-  const filtro = decisao ? decisao : null;
-  if (filtro !== null && !ID_DE_DECISAO.test(filtro)) throw Error('brain.dossie.decisao-invalida');
+  // Filtro vazio é erro, não a thread inteira: quem pede uma decisão recebe essa ou a recusa.
+  if (decisao !== undefined && !ID_DE_DECISAO.test(decisao)) throw Error('brain.dossie.decisao-invalida');
+  const filtro = decisao ?? null;
   const t = lerThread(c.raiz, thread), tenant = c.manifesto.memory.tenant;
   const lacunas: LacunaDoDossie[] = [];
   const lacuna = (id: string, codigo: CodigoDeLacunaDoDossie) => { lacunas.push({ id, codigo }); };
@@ -197,7 +205,7 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
   const linhas = linhasDoLedger(bytes, { tenant, instance: c.manifesto.project.name, thread: t.id, aclRef: 'ork-factory' });
 
   // Cada linha é classificada uma vez, pelo validador do contrato; o que não valida é formato anterior.
-  const classe = new Map<Linha, ClasseDeDecisao>(), respostas = new Map<string, Linha[]>(), revertidaPor = new Map<string, string>();
+  const classe = new Map<Linha, ClasseDeDecisao>(), respostas = new Map<string, Linha[]>(), revertidaPor = new Map<string, Linha>();
   const semIngresso: Linha[] = [];
   const pedidoDe = (l: Linha) => l.e.pedido as PedidoHitlQualquer;
   for (const l of linhas) {
@@ -206,7 +214,7 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
       let decidido = false;
       try { validarPedidoHitlV2(p); decidido = p.classe === 'decidido'; } catch { decidido = false; }
       classe.set(l, decidido ? 'decidido' : 'legado');
-      if (decidido && typeof l.e.reverte === 'string') revertidaPor.set(l.e.reverte, (p as DecisaoInformada).id);
+      if (decidido && typeof l.e.reverte === 'string') revertidaPor.set(l.e.reverte, l);
     } else if (l.e.tipo === 'hitl_requested') {
       try { validarPedidoHitl(p); if (alvoDoPedido(p)?.tipo === 'gate') classe.set(l, 'pergunta'); } catch { /* fora do contrato: não é pergunta */ }
     } else if (l.e.tipo === 'human_gate' && typeof l.e.pedidoId === 'string') respostas.set(l.e.pedidoId, [...(respostas.get(l.e.pedidoId) ?? []), l]);
@@ -232,7 +240,9 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
     contexto = buildContext(c, [vinculo.projeto.projectId, ...vinculo.projeto.initiativeIds], transport, t.id);
     if (falha(contexto.state)) return encerrar(contexto);
   }
-  const fatos = [...new Set([...escolhidas, ...provadas.values()].flatMap(l => l.evento ? [l.evento.aggregate_id] : []))].sort(comparar);
+  // A decisão que desfaz outra também é conferida: a relação é conteúdo dela, e some se ela estiver retida.
+  const reversoras = escolhidas.flatMap(l => classe.get(l) === 'decidido' ? [revertidaPor.get(idDe(l))].filter((x): x is Linha => !!x) : []);
+  const fatos = [...new Set([...escolhidas, ...provadas.values(), ...reversoras].flatMap(l => l.evento ? [l.evento.aggregate_id] : []))].sort(comparar);
   let noBrain: EstadoNoBrain = { ok: new Map(), retidos: new Set() };
   if (fatos.length) {
     const r = consultarFatos(transport, tenant, fatos);
@@ -243,7 +253,7 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
   const ids = (evento: BrainEvent): IdsNoBrain => ({ assertion_id: evento.aggregate_id, event_id: evento.id, source_event_id: evento.source_event_id });
   const fato = (evento: BrainEvent): FatoCitado | FatoRetido => {
     const id = evento.aggregate_id;
-    if (noBrain.retidos.has(id)) { lacuna(id, 'brain.retido'); return { brain: ids(evento), frescor: 'retido' }; }
+    if (noBrain.retidos.has(id)) { lacuna(id, 'brain.retido'); return { id, frescor: 'retido' }; }
     const { instance, source_ref, source_hash, source_version, location } = evento.source, b = noBrain.ok.get(id);
     const frescor = !b ? 'ausente-no-brain' : b.source?.source_hash === source_hash && b.source?.source_ref === source_ref ? 'confere' : 'divergente';
     if (frescor === 'ausente-no-brain') lacuna(id, 'brain.ausente');
@@ -251,20 +261,21 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
     return { brain: ids(evento), citacao: { instance, source_ref, source_hash, source_version, location }, frescor };
   };
 
+  const visivel = (l: Linha | undefined) => !!l?.evento && !noBrain.retidos.has(l.evento.aggregate_id);
   const decisoes: ItemDeDecisao[] = [];
   for (const l of escolhidas) {
     // Sem id no Brain não há citação: a decisão vira lacuna, nunca conteúdo.
     if (!l.evento) { lacuna(idDe(l), 'citacao.incompleta'); continue; }
     const id = idDe(l), f = fato(l.evento), e = l.e, tipo = classe.get(l)!;
     // D6: retido pelo Brain não mostra nem o conteúdo local (BR-024-03).
-    if (f.frescor === 'retido') { decisoes.push({ id, classe: tipo, ...f }); continue; }
+    if (f.frescor === 'retido') { decisoes.push(f); continue; }
     const comum = { id, fase: texto(e.fase), em: e.ts, ...f };
     if (tipo === 'decidido') {
       const p = pedidoDe(l) as DecisaoInformada;
       decisoes.push({ ...comum, classe: tipo, contrato: p.contrato, autoria: 'autonoma', decidido: p.decidido, porque: p.porque, comoMudar: p.comoMudar,
         custoDeReverter: { agora: p.custoDeReverter.agora, depois: p.custoDeReverter.depois }, criterio: { tipo: p.criterio.tipo, referencia: p.criterio.referencia },
         quemDecidiu: String(e.quemDecidiu ?? ''), evidencia: String(e.evidencia ?? ''), razao: String(e.razao ?? ''),
-        reverte: texto(e.reverte), revertidaPor: revertidaPor.get(p.id) ?? null });
+        reverte: texto(e.reverte), revertidaPor: visivel(revertidaPor.get(p.id)) ? String(pedidoDe(revertidaPor.get(p.id)!).id) : null });
       // D-G3: o contrato do `decidido` não guarda alternativas; o `comoMudar` é o caminho de volta.
       lacuna(id, 'alternativas.nao-registradas');
     } else if (tipo === 'pergunta') {
@@ -274,18 +285,21 @@ export function buildDossie(c: ManifestoCarregado, thread: string, decisao: stri
           consequencia: a.consequencia, recomendada: a.recomendada === true, porque: a.porque ?? null }))
         : (p as PedidoHitl).opcoes.map(o => ({ numero: o.numero, letra: null, texto: o.texto, acao: o.acao, consequencia: null, recomendada: false, porque: null }));
       const provada = provadas.get(id), gates = respostas.get(id) ?? [];
-      let resposta: RespostaDoDono | null = null;
+      let resposta: RespostaDoDono | null = null, estado: 'decidida' | 'retida' | 'sem-prova' | 'aguardando' = 'aguardando';
       if (provada) {
         const r = fato(provada.evento!), g = provada.e, escolha = alternativas.find(a => a.numero === g.opcao);
+        // Resposta retida: nem a escolha nem a autoria saem da linha local.
+        estado = r.frescor === 'retido' ? 'retida' : 'decidida';
         resposta = r.frescor === 'retido' ? r : { ...r, opcao: Number.isInteger(g.opcao) ? g.opcao as number : null, letra: escolha?.letra ?? null,
           texto: escolha?.texto ?? null, veredito: texto(g.estado), quem: String(g.autorizadoPor ?? ''), origem: String(g.origem ?? ''),
           canal: texto(g.canal), recebidoEm: texto(g.recebidoEm), recibo: texto(g.recibo), evidencia: texto(g.evidencia), evidenciaSha256: texto(g.evidenciaSha256) };
-      } else if (gates.length) lacuna(id, 'resposta.sem-prova');
+      } else if (gates.length) { estado = 'sem-prova'; lacuna(id, 'resposta.sem-prova'); }
       else lacuna(id, 'resposta.pendente');
-      decisoes.push({ ...comum, classe: tipo, contrato: p.contrato, autoria: provada ? 'dono' : null, pergunta: String((p as { pergunta: string }).pergunta),
+      // O prazo vai como está no pedido; vencido ou não é leitura de quem consulta, e o digest não depende do relógio.
+      decisoes.push({ ...comum, classe: tipo, contrato: p.contrato, autoria: estado === 'decidida' ? 'dono' : null, pergunta: String((p as { pergunta: string }).pergunta),
         sobre: alvoDoPedido(p)?.tipo === 'gate' ? String((alvoDoPedido(p) as { sobre: string }).sobre) : '', alternativas,
-        recomendacao: p.contrato === 'ork.hitl/v2' ? null : texto((p as PedidoHitl).recomendacao),
-        estado: provada ? 'decidida' : gates.length ? 'sem-prova' : 'aguardando', resposta });
+        recomendacao: p.contrato === 'ork.hitl/v2' ? null : texto((p as PedidoHitl).recomendacao), prazo: texto((p as { prazo?: unknown }).prazo),
+        estado, resposta });
     } else {
       const rastro = rastroDaDecisao(e);
       decisoes.push({ ...comum, classe: tipo, contrato: 'legado', autoria: 'autonoma', decidido: texto(e.decisao) ?? '',

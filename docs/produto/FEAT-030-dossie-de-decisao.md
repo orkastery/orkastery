@@ -55,9 +55,11 @@ fontes:
 
 - **Alternativas, erros e recuperação:**
   - Brain indisponível, proibido ou em conflito: o dossiê devolve o estado recebido, sem decisão montada só da fonte.
-  - `--decisao` com formato inválido: `brain.dossie.decisao-invalida`. Id desconhecido: `state empty` com a lacuna `decisao.desconhecida`.
+  - `--decisao` vazio, sem valor ou com formato inválido: `brain.dossie.decisao-invalida`. Id desconhecido: `state empty` com a lacuna `decisao.desconhecida`.
+  - Seleção do Brain que não responde `ok` nem `empty`: o dossiê fecha com o estado recebido.
   - Opção fora da lista fechada do `ork brain` (por exemplo `--principal`): `brain.argument.invalid`. Escopo vinculado fora do formato do bind: `brain.scope.invalid`.
-  - Linha de decisão que o contrato do Brain não representa (horário fora do formato, em ledgers antigos): a linha vira a lacuna `citacao.incompleta` e o resto do dossiê segue.
+  - Linha de decisão que o contrato do Brain não representa (horário fora do formato, em ledgers antigos): a linha vira a lacuna `citacao.incompleta` e o resto do dossiê segue. Linha corrompida recusa o dossiê com `brain.source.corrupt`, como recusa a captura.
+  - Pedido renovado aparece como pergunta própria; o pedido antigo mostra o `prazo` dele, e a ligação entre os dois fica para depois.
   - Sem a chave do canal nem os verificadores públicos no ambiente, a resposta que entrou pelo Telegram não se prova e sai como `resposta.sem-prova`; a do MCP local se prova pelo recibo local.
 - **Pós-condições:** nada é gravado. Decidir continua sendo `ork decisao registrar` (decisão delegada) ou a resposta do dono pelo ingresso autenticado.
 - **Regras de negócio:**
@@ -65,17 +67,18 @@ fontes:
   - BR-030-02: `human_decision`, o relato de alguém sobre o dono sem recibo, nunca vira decisão: só a lacuna `decisao.humana-sem-ingresso`.
   - BR-030-03: a decisão informada não guarda alternativas no contrato; o dossiê mostra o como mudar e a lacuna `alternativas.nao-registradas`.
   - BR-030-04: decisão gravada antes do contrato sai como `legado`, com o rastro normalizado e a lacuna `decisao.fora-do-contrato`.
-  - BR-030-05: fato retido pela ACL do Brain sai só com o id e o frescor `retido`, sem valor, nem o da fonte local (a mesma regra da BR-024-03).
+  - BR-030-05: fato retido pela ACL do Brain sai só com o id do fato no Brain (`fact-…`) e o frescor `retido`, sem valor, nem o da fonte local (a mesma regra da BR-024-03). Resposta retida deixa a pergunta em `estado: retida`, sem autoria; decisão que desfaz outra, se retida, não aparece no `revertidaPor`.
 - **Critérios de aceite e testes:**
   - Dada uma resposta do dono com recibo que não confere, quando o dossiê é pedido, então a resposta não aparece e a lacuna `resposta.sem-prova` aparece (`core/test/company-brain-dossie.test.ts`, S6).
   - Dada uma decisão, quando o dossiê é pedido, então o `fact-…` do item é o mesmo que a captura do Brain gera para a linha (`core/test/company-brain-dossie.test.ts`, S4).
+  - Dada uma resposta de recusa com recibo válido, quando o dossiê é pedido, então ela sai como decisão do dono, porque a prova vale para qualquer veredito (`core/test/company-brain-dossie.test.ts`, S6).
 - **Interface e acessibilidade:** não se aplica: CLI, MCP e hosts, sem interface web (decisão do dono de 28/09/2026).
 
 ## Dados e contratos
 
 - **Contrato:** `ork.dossie-de-decisao/v1` com `vinculo`, `contexto`, `decisoes`, `lacunas` e `digest`.
-- **Vínculo:** `objetivo`, `projeto` e `brain` (`thread_id`, `objective_id`, `project_id`, `initiative_ids`, os campos do `cycle` dos eventos do Brain).
-- **Decisão:** `classe` (`decidido`, `pergunta`, `legado`), `autoria` (`autonoma` ou `dono`), `brain` (`assertion_id`, `event_id`, `source_event_id`), `citacao` (`instance`, `source_ref`, `source_hash`, `source_version`, `location`) e `frescor` (`confere`, `divergente`, `ausente-no-brain`, `retido`). A pergunta traz as alternativas, o `estado` (`decidida`, `sem-prova`, `aguardando`) e a resposta com quem, origem, canal, recibo e evidência do ingresso.
+- **Vínculo:** `objetivo`, `projeto` e `brain` (`thread_id`, `objective_id`, `project_id`, `initiative_ids`, com os nomes do `cycle` dos eventos do Brain). A captura de hoje preenche `project_id` e `initiative_ids` só pelo escopo vinculado e grava `objective_id` nulo.
+- **Decisão:** `classe` (`decidido`, `pergunta`, `legado`), `autoria` (`autonoma` ou `dono`), `brain` (`assertion_id`, `event_id`, `source_event_id`), `citacao` (`instance`, `source_ref`, `source_hash`, `source_version`, `location`) e `frescor` (`confere`, `divergente`, `ausente-no-brain`, `retido`). A pergunta traz as alternativas, o `prazo`, o `estado` (`decidida`, `retida`, `sem-prova`, `aguardando`) e a resposta com quem, origem, canal, recibo e evidência do ingresso.
 - **Lacunas:** `objetivo.ausente`, `objetivo.indisponivel`, `projeto.ausente`, `vinculo.divergente`, `alternativas.nao-registradas`, `resposta.pendente`, `resposta.sem-prova`, `decisao.fora-do-contrato`, `decisao.humana-sem-ingresso`, `decisao.desconhecida`, `citacao.incompleta`, `brain.ausente`, `fonte.divergente` e `brain.retido`.
 - **Digest:** sha256 do JSON canônico do dossiê com o digest do pacote de contexto no lugar do pacote; o horário da consulta fica fora.
 - **APIs:** a mesma seleção do Brain (`orkmind brain request`, operação `query`), e `get` só quando uma seleção mistura retidos e ausentes.

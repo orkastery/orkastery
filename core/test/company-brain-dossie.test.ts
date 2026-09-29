@@ -16,6 +16,9 @@ import { registrarDecisao } from '../src/decisao-autonoma';
 import { abrirPedidoGate, assinaturaDaResposta, responderGate, RespostaHumana } from '../src/hitl-gates';
 import { PedidoHitlQualquer } from '../src/hitl-contract';
 import { CreationActor, startCreation } from '../src/creation-operation';
+import { criarIngressoLocal } from '../src/hitl-local';
+import { aprovacaoHumanaProvada } from '../src/gates';
+import { lerLedger } from '../src/ledger';
 import { BRAIN_API, BrainTransport } from '../src/company-brain-client';
 import { BrainEvent, digest } from '../src/company-brain-contract';
 import { buildContext } from '../src/company-brain-context';
@@ -157,6 +160,12 @@ test('S2 o objetivo vem do ticket ou da lista de threads, o projeto do escopo vi
     fs.writeFileSync(arquivo, JSON.stringify(objetivo, null, 2));
     const pelaLista = buildDossie(p.carregado, listada, undefined, brainFalso(p));
     assert.equal(pelaLista.vinculo.objetivo?.origem, 'lista-de-threads'); assert.equal(pelaLista.vinculo.projeto?.origem, 'objetivo');
+    // Título e estado ficam fora do envelope com hash: sem eles, o campo sai vazio e o digest se refaz pela saída.
+    delete objetivo.title; delete objetivo.status;
+    fs.writeFileSync(arquivo, JSON.stringify(objetivo, null, 2));
+    const semTitulo = buildDossie(p.carregado, listada, undefined, brainFalso(p));
+    assert.equal(semTitulo.vinculo.objetivo?.titulo, ''); assert.equal(semTitulo.vinculo.objetivo?.estado, '');
+    assert.equal(digest(semHorario(JSON.parse(JSON.stringify(semTitulo)))), semTitulo.digest);
 
     // Escopo gravado fora do formato do bind é recusado, como no `ork brain context`.
     fs.writeFileSync(path.join(dirThread(p.dir, solta), 'brain-scope.json'), JSON.stringify({ schema: 'outro', thread: solta }));
@@ -176,6 +185,7 @@ test('S3 o contexto é o pacote do buildContext para o projeto vinculado e o dig
     assert.equal(d.contexto?.digest, pacote.digest);
     assert.deepEqual(d.contexto?.itens.map(i => i.id), ['prod-alpha', 'proj-alpha-core', 'init-alpha-one']);
     assert.equal(d.digest, digest(semHorario(d)));
+    assert.equal(d.digest, digest(semHorario(JSON.parse(JSON.stringify(d)))), 'o digest se refaz a partir do JSON publicado');
     // Outro Brain, outro contexto: o digest do dossiê muda junto.
     const entidade = portfolioEntities(readPortfolio(p.dir), { tenant: p.carregado.manifesto.memory.tenant, instance: INSTANCIA, thread: '', aclRef: 'ork-factory' })
       .find(e => e.id === 'init-alpha-one')!;
@@ -222,6 +232,15 @@ test('S4 linha que o contrato do Brain não representa vira citacao.incompleta e
     assert.equal((d.decisoes[0] as any).citacao.source_ref, `threads/${id}/ledger.jsonl#L${n + 1}`);
     assert.deepEqual(lacunasDe(d, `threads/${id}/ledger.jsonl#L${n}`), ['citacao.incompleta']);
     assert.ok(!JSON.stringify(d).includes('HORARIO-FORA-DO-CONTRATO'));
+    // Uma segunda linha fora do contrato depois da decisão: a bisseção isola as duas.
+    const m = linhaCrua(p, id, { ts: '2026-09-07T21:59:46.446520+00:00', tipo: 'autonomous_decision', fase: 'GO', decisao: 'outra', autorizadoPor: '#TAG',
+      evidencia: 'x', eventId: randomUUID() });
+    const duas = buildDossie(p.carregado, id, undefined, brainFalso(p));
+    assert.deepEqual(duas.decisoes.map(x => x.id), [pedido.id]);
+    assert.deepEqual(lacunasDe(duas, `threads/${id}/ledger.jsonl#L${m}`), ['citacao.incompleta']);
+    // Linha corrompida não é degradação: o dossiê recusa, como a captura.
+    fs.appendFileSync(path.join(dirThread(p.dir, id), 'ledger.jsonl'), '{"tipo":"human_gate","pedidoId\n');
+    assert.throws(() => buildDossie(p.carregado, id, undefined, brainFalso(p)), /brain\.source\.corrupt/);
   } finally { p.limpar(); }
 });
 
@@ -241,6 +260,12 @@ test('S5 a decisão informada sai com os campos do registro, autoria autônoma, 
     assert.equal(a.revertidaPor, segunda.id); assert.equal(a.reverte, null);
     assert.equal(b.reverte, primeira.id); assert.equal(b.revertidaPor, null);
     for (const x of [a, b]) assert.ok(lacunasDe(d, x.id).includes('alternativas.nao-registradas'));
+    // A relação é conteúdo da decisão que desfaz: retida ela, a desfeita não diz quem a desfez.
+    const fatoDaSegunda = fatosDaThread(p, id).find(e => e.source_event_id === lerLedger(dirThread(p.dir, id))
+      .find(x => (x.pedido as { id?: string } | undefined)?.id === segunda.id)!.eventId)!;
+    const comRetida = buildDossie(p.carregado, id, primeira.id, brainFalso(p, { retidos: [fatoDaSegunda.aggregate_id] }));
+    assert.equal((comRetida.decisoes[0] as any).revertidaPor, null);
+    assert.ok(!JSON.stringify(comRetida).includes(segunda.id));
   } finally { p.limpar(); }
 });
 
@@ -259,6 +284,14 @@ test('S6 a resposta do dono só é conteúdo com o recibo conferido; sem prova o
     assert.equal(item.resposta.veredito, 'aprovado'); assert.match(item.resposta.recibo, /^[a-f0-9]{64}$/);
     assert.match(item.resposta.brain.assertion_id, /^fact-[a-f0-9]{64}$/);
     assert.deepEqual(lacunasDe(provada, pedido.id), []);
+    assert.equal(item.prazo, (pedido as { prazo: string }).prazo);
+    // Resposta retida pelo Brain: nem a escolha nem a autoria saem da linha local.
+    const gate = fatosDaThread(p, id).find(e => (e.payload as any)?.predicate === 'human_gate')!;
+    const retida = comIngressoSimulado(() => buildDossie(p.carregado, id, pedido.id, brainFalso(p, { retidos: [gate.aggregate_id] })));
+    const escondida = retida.decisoes[0] as any;
+    assert.equal(escondida.estado, 'retida'); assert.equal(escondida.autoria, null);
+    assert.deepEqual(escondida.resposta, { id: gate.aggregate_id, frescor: 'retido' });
+    assert.ok(!JSON.stringify(retida).includes('telegram:42'));
 
     // Sem a chave do canal, o mesmo recibo não se prova: a resposta sai do conteúdo.
     const semChave = buildDossie(p.carregado, id, undefined, brainFalso(p));
@@ -276,12 +309,34 @@ test('S6 a resposta do dono só é conteúdo com o recibo conferido; sem prova o
     assert.equal((adulterada.decisoes.find(x => x.id === pedido.id) as any).estado, 'sem-prova');
     fs.writeFileSync(ledger, original);
 
+    // Recusar com recibo válido também é decisão do dono: a prova vale para qualquer veredito.
+    const recusada = perguntar(p, 'Dossiê S6 recusada');
+    responder(p, recusada.id, recusada.pedido, '2');
+    const r = comIngressoSimulado(() => buildDossie(p.carregado, recusada.id, undefined, brainFalso(p)));
+    const rec = r.decisoes.find(x => x.id === recusada.pedido.id) as any;
+    assert.equal(rec.estado, 'decidida'); assert.equal(rec.resposta.veredito, 'recusado'); assert.equal(rec.resposta.opcao, 2);
+    const gateRecusado = lerLedger(dirThread(p.dir, recusada.id)).find(e => e.tipo === 'human_gate')!;
+    assert.equal(comIngressoSimulado(() => aprovacaoHumanaProvada(p.dir, recusada.id, gateRecusado)), false, 'a prova de aprovação não serviria aqui');
+
     // Pergunta aberta, sem resposta: aguardando o dono.
     const aberta = perguntar(p, 'Dossiê S6 aberta');
     const espera = buildDossie(p.carregado, aberta.id, undefined, brainFalso(p));
     const pendente = espera.decisoes.find(x => x.id === aberta.pedido.id) as any;
     assert.equal(pendente.estado, 'aguardando'); assert.equal(pendente.resposta, null);
     assert.deepEqual(lacunasDe(espera, aberta.pedido.id), ['resposta.pendente']);
+  } finally { p.limpar(); }
+});
+
+test('S6 a resposta pelo MCP local se prova pelo recibo local, sem chave de canal no ambiente', async () => {
+  const p = montar('dossie-s6-local');
+  try {
+    const { id, pedido } = perguntar(p, 'Dossiê S6 local');
+    const ingresso = criarIngressoLocal(p.dir, { host: 'codex', connectionId: 'conn-dossie' }, async () => ({ action: 'accept', content: { opcao: '1' } }));
+    await ingresso.solicitar(id, pedido.id);
+    const d = buildDossie(p.carregado, id, undefined, brainFalso(p));
+    const item = d.decisoes.find(x => x.id === pedido.id) as any;
+    assert.equal(item.estado, 'decidida'); assert.equal(item.autoria, 'dono');
+    assert.equal(item.resposta.origem, 'mcp-local'); assert.equal(item.resposta.quem, 'mcp-local:codex');
   } finally { p.limpar(); }
 });
 
@@ -321,13 +376,18 @@ test('S8 frescor de cada fato contra o Brain, retido sem conteúdo, e Brain indi
     assert.equal(por(pedidos[0]).frescor, 'confere');
     assert.equal(por(pedidos[1]).frescor, 'divergente'); assert.deepEqual(lacunasDe(d, diverge.aggregate_id), ['fonte.divergente']);
     assert.equal(por(pedidos[2]).frescor, 'ausente-no-brain'); assert.deepEqual(lacunasDe(d, falta.aggregate_id), ['brain.ausente']);
-    assert.deepEqual(por(pedidos[3]), { id: pedidos[3], classe: 'decidido', brain: { assertion_id: retida.aggregate_id, event_id: retida.id,
-      source_event_id: retida.source_event_id }, frescor: 'retido' });
+    // BR-030-05: só o id do fato no Brain e o frescor; nem a classe nem o id do pedido saem da linha local.
+    assert.deepEqual(d.decisoes.find(x => x.id === retida.aggregate_id), { id: retida.aggregate_id, frescor: 'retido' });
+    assert.equal(por(pedidos[3]), undefined);
     assert.deepEqual(lacunasDe(d, retida.aggregate_id), ['brain.retido']);
     assert.ok(!JSON.stringify(d).includes('decisão retida'));
     // Caso misto (um retido, um ausente): só aí o `get` diz qual id é qual.
     assert.ok(chamadas.includes('get'));
 
+    // Seleção com estado que não é ok nem empty também fecha: sem estado conhecido, nada local vira conteúdo.
+    const estranho: BrainTransport = () => ({ schema: BRAIN_API, state: 'withheld' });
+    const recusada = buildDossie(p.carregado, id, undefined, estranho);
+    assert.equal(recusada.state, 'withheld'); assert.deepEqual(recusada.decisoes, []); assert.equal(recusada.digest, null);
     const fora = buildDossie(p.carregado, id, undefined, brainFalso(p, { fora: true }));
     assert.equal(fora.state, 'unavailable'); assert.equal(fora.error, 'brain.transport.unavailable');
     assert.deepEqual(fora.decisoes, []); assert.deepEqual(fora.lacunas, []); assert.equal(fora.digest, null);
@@ -353,7 +413,7 @@ test('S9 o filtro aceita o id do pedido ou o fact-, desconhecido vira lacuna, in
     const vazio = buildDossie(p.carregado, id, desconhecida, brain);
     assert.equal(vazio.state, 'empty'); assert.deepEqual(vazio.decisoes, []);
     assert.deepEqual(lacunasDe(vazio, desconhecida), ['decisao.desconhecida']);
-    for (const invalido of ['xyz', 'fact-123', '../ledger']) assert.throws(() => buildDossie(p.carregado, id, invalido, brain), /brain\.dossie\.decisao-invalida/);
+    for (const invalido of ['', 'xyz', 'fact-123', '../ledger']) assert.throws(() => buildDossie(p.carregado, id, invalido, brain), /brain\.dossie\.decisao-invalida/);
     const antes = buildDossie(p.carregado, id, undefined, brain), depois = buildDossie(p.carregado, id, undefined, brain);
     assert.equal(antes.digest, depois.digest);
     decidir(p, id, { decidido: 'terceira decisão' });
@@ -383,5 +443,19 @@ test('S10 ork brain dossie é somente leitura: só query no transporte, ativaç�
     for (const opcao of ['principal', 'dsn', 'raiz'])
       assert.throws(() => runBrain(p.carregado, 'dossie', { thread: id, [opcao]: 'x' }, [], brainFalso(p)), /brain\.argument\.invalid/);
     assert.throws(() => runBrain(p.carregado, 'dossie', {}, [], brainFalso(p)), /brain\.thread\.required/);
+    // `--decisao` sem valor (o parser devolve true) ou vazio é recusado, não vira a thread inteira.
+    for (const decisao of [true, '']) assert.throws(() => runBrain(p.carregado, 'dossie', { thread: id, decisao }, [], brainFalso(p)), /brain\.dossie\.decisao-invalida/);
+    // O caminho do recibo lê .orkastery/private e hitl-ingress: o estado inteiro fica igual.
+    const { id: perguntada, pedido } = perguntar(p, 'Dossiê S10 perguntada');
+    responder(p, perguntada, pedido);
+    const estado = path.join(p.dir, '.orkastery');
+    const tudo = () => (fs.readdirSync(estado, { recursive: true }) as string[]).sort().map(f => {
+      const alvo = path.join(estado, f);
+      return fs.lstatSync(alvo).isFile() ? `${f}:${createHash('sha256').update(fs.readFileSync(alvo)).digest('hex')}` : f;
+    });
+    const antesDoRecibo = tudo();
+    const lida = comIngressoSimulado(() => runBrain(p.carregado, 'dossie', { thread: perguntada }, [], brainFalso(p)));
+    assert.equal((lida.decisoes.find((x: any) => x.id === pedido.id) as any).estado, 'decidida');
+    assert.deepEqual(tudo(), antesDoRecibo);
   } finally { p.limpar(); }
 });
