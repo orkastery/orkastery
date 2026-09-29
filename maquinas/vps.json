@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:49:30.501Z",
+  "publicadoEm": "2026-09-29T11:50:14.360Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -43,6 +43,20 @@
       "roadmap": "RM-049",
       "branch": "ork/ork-rm049marketp-full",
       "atualizadaEm": "2026-09-29T11:45:09.752Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-rm050guiade2",
+      "nome": "RM-050: guia de contribuição do OrkMind",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-050",
+      "branch": "HEAD",
+      "atualizadaEm": "2026-09-29T11:50:11.536Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
