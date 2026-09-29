@@ -103,10 +103,12 @@ test('I-34: uma fonte só não basta; done sem Stop espera e encerra inconclusiv
   } finally { p.limpar(); }
 });
 
-test('I-34: blocked não conclui; Stop resolve bloqueio anterior; bloqueio depois do Stop impede a conclusão', () => {
+test('I-34: blocked sem Stop não conclui; Stop resolve bloqueio anterior; bloqueio depois do Stop impede a conclusão', () => {
+  // RM-037 (defeitosdeco D-1): este caso tinha Stop em 20 s e esperava `blocked` vivo sem resultado
+  // para sempre, que é o defeito da f15c7158. Sem Stop, `blocked` continua sem concluir; com Stop,
+  // os testes D-1 abaixo cobrem a pausa humana.
   const p = fixture();
   try {
-    p.evento('stop', 20);
     assert.equal(p.observar(30, [{ state: 'blocked', pid: process.pid }]).concluido, false);
     assert.equal(p.observar(3600, [{ state: 'blocked', pid: process.pid }]).concluido, false);
     assert.equal(p.resultados().length, 0);
@@ -692,4 +694,90 @@ test('GO-FIX 2 (D15, achado 5): estado, status e erro nativos entram normalizado
   assert.equal(normalizarNativo(7), null); assert.equal(normalizarNativo(controle), null);
   assert.equal(normalizarNativo('a'.repeat(63) + '😀'), 'a'.repeat(63) + '😀');
   assert.equal(normalizarNativo('a'.repeat(100)), 'a'.repeat(64));
+});
+
+// ---------------------------------------------------------------------------
+// RM-037 (defeitosdeco D-1): a sessão claude-bg que encerra o turno (Stop correlacionado) e fica
+// em `blocked` com o processo vivo nunca concluía a fase, e a pausa humana não abria. Evidência: PLAN
+// da ork-i36buscasema, sessão f15c7158, Stop às 22:05 e `phase_result` só às 22:46, com o processo
+// morto. Com Stop correlacionado, a segunda leitura abre a pausa humana pelo motivo da prova.
+// ---------------------------------------------------------------------------
+
+test('defeitosdeco D-1: blocked vivo depois do Stop, com a prova do ork, abre human.pending na segunda leitura', () => {
+  const p = fixture();
+  try {
+    // A sequência medida na f15c7158: Stop, SubagentStop e a notificação de ociosidade, nada depois.
+    p.gravarArtefato(); p.evento('heartbeat', 10); p.evento('stop', 20); p.evento('subagent_stop', 23);
+    p.evento('notification', 80, { notificationType: 'idle_prompt' });
+    const registro = [{ state: 'blocked', status: 'idle', pid: process.pid }];
+    const primeira = p.observar(90, registro);
+    assert.equal(primeira.concluido, false, 'a primeira leitura só marca o instante');
+    assert.match(String(primeira.espera), /aguardando a segunda observação/);
+    const r = p.observar(90 + INTERVALO_WATCH_CLAUDE_MS / 1000, registro);
+    assert.deepEqual([r.concluido, r.classificacao], [true, 'gate_blocked']);
+    const [pr] = p.resultados();
+    assert.equal(pr.motivo, 'human.pending');
+    assert.equal(pr.estadoNativo, 'blocked'); assert.equal(pr.pidNativo, process.pid);
+    assert.match(String(pr.fonte), /Stop correlacionado e sessão viva à espera humana \(blocked\); docs\/goal\.md gravado/);
+    assert.match(String(pr.diagnostico), /o humano decide/);
+    assert.equal((pr.provaOrk as { ok: boolean }).ok, true);
+    assert.equal(pr.conclusaoNativa, false, 'blocked não é conclusão nativa');
+    // A pausa humana abre: o gate tipado que o `ork gate request` exige está no ledger.
+    const gates = p.eventos().filter(e => e.tipo === 'gate_blocked');
+    assert.deepEqual(gates.map(e => e.motivo), ['human.pending']);
+    assert.equal(p.eventos().some(e => e.tipo === 'fase_concluida'), false, 'blocked nunca conclui direto');
+    assert.equal(p.observar(3600, registro).concluido, true, 'idempotente');
+    assert.equal(p.resultados().length, 1);
+  } finally { p.limpar(); }
+});
+
+test('defeitosdeco D-1 (R6): sem a prova, blocked depois do Stop tambem abre human.pending, nunca artifact.missing automatico', () => {
+  const plano = fixture({ fase: 'PLAN' });
+  try {
+    plano.evento('stop', 20);
+    plano.observar(30, [{ state: 'blocked', status: 'idle', pid: process.pid }]);
+    assert.equal(plano.observar(36, [{ state: 'blocked', status: 'idle', pid: process.pid }]).classificacao, 'gate_blocked');
+    const [pr] = plano.resultados();
+    assert.equal(pr.motivo, 'human.pending', 'a sessao espera resposta: quem responde e o humano');
+    assert.match(String(pr.fonte), /à espera humana \(blocked\); sem prova do ork: docs\/plan\.md não foi gravado/);
+    assert.match(String(pr.diagnostico), /a sessão espera resposta humana \(blocked\) e a fase ainda não tem a prova do ork/);
+    assert.equal(plano.eventos().some(e => e.motivo === 'artifact.missing'), false);
+  } finally { plano.limpar(); }
+  const goal = fixture();
+  try {
+    goal.evento('stop', 20);
+    goal.observar(30, [{ state: 'blocked', pid: process.pid }]);
+    assert.equal(goal.observar(36, [{ state: 'blocked', pid: process.pid }]).classificacao, 'gate_blocked');
+    assert.equal(goal.resultados()[0].motivo, 'human.pending');
+    assert.equal(goal.eventos().some(e => e.motivo === 'runtime.unavailable'), false, 'nunca reexecuta a fase');
+  } finally { goal.limpar(); }
+});
+
+test('defeitosdeco D-1: blocked continua esperando sem Stop, com bloqueio pendente, com status ocupado ou antes do intervalo', () => {
+  const casos: { nome: string; preparar: (f: ReturnType<typeof fixture>) => void; registro: Partial<RegistroAgenteClaude> }[] = [
+    { nome: 'sem Stop', preparar: f => { f.evento('heartbeat', 20); }, registro: { state: 'blocked', status: 'idle', pid: process.pid } },
+    { nome: 'permissão pedida depois do Stop', preparar: f => { f.evento('stop', 20); f.evento('permission_request', 25); },
+      registro: { state: 'blocked', status: 'idle', pid: process.pid } },
+    { nome: 'status busy', preparar: f => { f.evento('stop', 20); }, registro: { state: 'blocked', status: 'busy', pid: process.pid } },
+  ];
+  for (const caso of casos) {
+    const f = fixture();
+    try {
+      f.gravarArtefato(); caso.preparar(f);
+      assert.equal(f.observar(30, [caso.registro]).concluido, false, caso.nome);
+      assert.equal(f.observar(3600, [caso.registro]).concluido, false, caso.nome);
+      assert.equal(f.resultados().length, 0, caso.nome);
+    } finally { f.limpar(); }
+  }
+  const cedo = fixture();
+  try {
+    cedo.gravarArtefato(); cedo.evento('stop', 20);
+    cedo.observar(30, [{ state: 'blocked', pid: process.pid }]);
+    assert.equal(cedo.observar(30 + INTERVALO_WATCH_CLAUDE_MS / 1000 - 1, [{ state: 'blocked', pid: process.pid }]).concluido, false,
+      'antes de um intervalo do observador a leitura ainda é a primeira');
+    // Outro estado no meio zera a contagem: working depois do blocked não herda o instante.
+    cedo.observar(40, [{ state: 'working', pid: process.pid }]);
+    assert.equal(cedo.observar(41, [{ state: 'blocked', pid: process.pid }]).concluido, false);
+    assert.equal(cedo.observar(41 + INTERVALO_WATCH_CLAUDE_MS / 1000, [{ state: 'blocked', pid: process.pid }]).classificacao, 'gate_blocked');
+  } finally { cedo.limpar(); }
 });

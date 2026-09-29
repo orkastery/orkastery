@@ -500,6 +500,9 @@ export type MotivoGate =
   // por isso tem motivo proprio e politica propria (rotacao de perfil, D5 e D11).
   | 'runtime.quota-exhausted'
   | 'runtime.auth-missing'
+  // RM-037 (defeitosdeco D-6): o modelo pedido nao existe ou a CONTA nao tem acesso a ele. A conta
+  // funciona para os outros modelos, entao o perfil nao sai do rodizio; o retry troca o destino.
+  | 'runtime.model-unavailable'
   // Bloco B3: violacao de CUSTO (despacho redirecionado para provider pago). E o unico
   // motivo que NUNCA recebe retry automatico: reexecutar violacao de custo e gastar de novo.
   | 'cost.violation'
@@ -1508,7 +1511,7 @@ export interface SinalDeRateLimit {
  * hora de volta (mesmos padroes do rate limit, nunca inventada); auth ausente nunca tem prazo.
  */
 export interface SinalDeFalhaDeConta {
-  motivo: 'runtime.quota-exhausted' | 'runtime.auth-missing';
+  motivo: 'runtime.quota-exhausted' | 'runtime.auth-missing' | 'runtime.model-unavailable';
   resetEm: string | null;
   fonte: FonteDoReset;
   trecho: string;

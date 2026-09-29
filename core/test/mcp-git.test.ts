@@ -227,3 +227,62 @@ test('Git MCP: thread #Fast nao commita contrato publico; a mesma thread commita
   } finally {p.limpar();if(anterior===undefined)delete process.env.HOME;else process.env.HOME=anterior;
     if(xdg===undefined)delete process.env.XDG_CONFIG_HOME;else process.env.XDG_CONFIG_HOME=xdg;fs.rmSync(home,{recursive:true,force:true});}
 });
+
+// ---------------------------------------------------------------------------
+// RM-037 (defeitosdeco D-3): `ork_git_status` e `ork_git_commit` recusavam o repositorio com
+// `hooks preservados` por causa do pre-push da trava do corte, que `git add` e `git commit` nunca
+// executam, e cairiam em `configuracao preservada` pela chave `orkastery.cortefeito`. Hook e config
+// que a operacao nunca executa passam; hook que ela executaria continua recusado, com nome e saida.
+// ---------------------------------------------------------------------------
+import { HOOKS_DO_COMMIT, perfilGitMcp } from '../src/mcp-git';
+
+function hookSentinela(raiz: string, nome: string): { body: string; sentinela: string; hook: string } {
+  const hook = path.join(raiz, '.git/hooks', nome), sentinela = path.join(raiz, `hook-${nome}-executado`);
+  const body = '#!/bin/sh\nprintf executado > "' + sentinela + '"\nexit 1\n';
+  fs.writeFileSync(hook, body, { mode: 0o755 });
+  return { body, sentinela, hook };
+}
+
+test('defeitosdeco D-3: pre-push proprio e orkastery.cortefeito nao impedem status nem commit, e o hook nao roda', async () => fixture(async f => {
+  const h = hookSentinela(f.raiz, 'pre-push');
+  f.git(['config', 'orkastery.corteFeito', 'true']);
+  const estado = estadoGitMcp(f.raiz, f.id);
+  assert.equal(estado.source.head, f.pedido.expectedHead);
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.ok, true, r.erro ?? '');
+  assert.equal(f.git(['rev-parse', 'HEAD^']).trim(), f.pedido.expectedHead);
+  assert.equal(fs.readFileSync(h.hook, 'utf8'), h.body, 'o hook fica intacto');
+  assert.equal(fs.existsSync(h.sentinela), false, 'o pre-push nao roda no commit');
+  assert.equal(f.git(['config', '--get', 'orkastery.corteFeito']).trim(), 'true', 'a configuracao fica intacta');
+}));
+
+for (const nome of ['pre-commit', 'commit-msg', 'reference-transaction', 'post-index-change', 'hook-que-o-git-inventar']) {
+  test(`defeitosdeco D-3: hook ${nome}, que o commit executaria ou que e desconhecido, recusa nomeando o hook e a saida`, async () => fixture(async f => {
+    const h = hookSentinela(f.raiz, nome);
+    const r = await commitMcp(f.raiz, f.pedido);
+    assert.equal(r.ok, false);
+    assert.equal(r.erro, `mcp.git.execution-profile.unsupported: hooks preservados (${nome}); ${HOOKS_DO_COMMIT.correcao}`);
+    assert.throws(() => estadoGitMcp(f.raiz, f.id), new RegExp(`hooks preservados \\(${nome}\\); o commit do MCP o executaria`));
+    assert.equal(fs.existsSync(h.sentinela), false);
+    assert.equal(f.git(['rev-parse', 'HEAD']).trim(), f.pedido.expectedHead);
+  }));
+}
+
+test('defeitosdeco D-3: o SHIP continua estrito, porque o push executaria o pre-push, e a recusa nomeia o hook', async () => fixture(async f => {
+  hookSentinela(f.raiz, 'pre-push');
+  const gitdir = path.resolve(f.wt, /^gitdir: (.+)\s*$/.exec(fs.readFileSync(path.join(f.wt, '.git'), 'utf8'))![1].trim());
+  assert.throws(() => perfilGitMcp(f.wt, path.join(f.raiz, '.git'), gitdir, f.id, []),
+    /execution-profile\.unsupported: hooks preservados \(pre-push\); o SHIP do MCP o executaria \(merge ou push\); entregue por PR/);
+  assert.match(perfilGitMcp(f.wt, path.join(f.raiz, '.git'), gitdir, f.id, [], HOOKS_DO_COMMIT), /^[a-f0-9]{64}$/);
+  // Hook que nao e arquivo regular continua recusado mesmo com nome inerte.
+  fs.rmSync(path.join(f.raiz, '.git/hooks/pre-push')); fs.symlinkSync('/bin/true', path.join(f.raiz, '.git/hooks/pre-push'));
+  assert.throws(() => perfilGitMcp(f.wt, path.join(f.raiz, '.git'), gitdir, f.id, [], HOOKS_DO_COMMIT), /hooks preservados \(pre-push nao e arquivo regular\)/);
+}));
+
+test('defeitosdeco D-3: fora da secao orkastery, chave desconhecida continua recusada', async () => fixture(async f => {
+  f.git(['config', 'orkastery.corteFeito', 'true']);
+  f.git(['config', 'produto.qualquer', 'valor']);
+  const r = await commitMcp(f.raiz, f.pedido);
+  assert.equal(r.ok, false);
+  assert.match(r.erro!, /configuracao preservada/);
+}));
