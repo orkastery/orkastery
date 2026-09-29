@@ -145,6 +145,10 @@ test('sem chave o primario recusa com motivo tipado e zero chamadas', () => {
     const r = indexar(c.opcoes({ chavePresente: false }));
     assert.equal(r.motivo, 'embeddings.chave-ausente');
     assert.equal(r.chamadasAoProvider, 0);
+    const recusada = indexar(c.opcoes({ chavePresente: false, chaveRecusada: true }));
+    assert.equal(recusada.motivo, 'embeddings.chave-ausente');
+    assert.match(recusada.detalhe, /valor recusado/);
+    assert.doesNotMatch(r.detalhe, /valor recusado/);
     const nenhum = indexar(c.opcoes({ config: { ...CONFIG, provider: 'none' } }));
     assert.equal(nenhum.motivo, 'embeddings.nao-configurado');
     assert.equal(nenhum.custoEstimadoUsd, 0);

@@ -249,7 +249,8 @@ memory:
 
 O manifesto recusa valor com cara de chave ou DSN em `api_key_env`, recusa nome da lista de
 provider pago (a entrada do `ork` apaga esses nomes sob `subscription-only`) e recusa repetir
-a variável da DSN. Use uma chave dedicada ao Orkastery, com limite de crédito no painel do
+a variável da DSN. No ambiente, um valor com cara de URL, de DSN ou com espaço na variável da
+chave é recusado: conta como chave ausente, nunca vai ao provider e o `ork doctor` acusa falha. Use uma chave dedicada ao Orkastery, com limite de crédito no painel do
 provider. Como a configuração de memória vem do manifesto canônico da raiz do projeto, o
 bloco só vale nas worktrees depois de mesclado.
 

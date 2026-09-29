@@ -65,3 +65,16 @@ test('doctor declara a chave de embedding pelo nome: none ok, presente ok, ausen
     assert.ok(!JSON.stringify(falha).includes(valor));
   } finally { nenhum.limpar(); declarado.limpar(); pago.limpar(); }
 });
+
+test('doctor acusa falha quando o valor da variavel da chave parece URL, DSN ou texto com espaco, sem imprimir', () => {
+  const declarado = manifesto(BLOCO('FABRICA_EMBEDDING_KEY'));
+  try {
+    const dsn = 'postgresql://leitor:' + 'senha-longa-de-teste' + '@db.local:5432/base';
+    for (const valor of ['https://exemplo.local/' + 'x'.repeat(20), dsn, 'duas partes separadas', 'senha-longa-de-teste']) {
+      const c = checarChaveDeEmbedding(declarado.carregado, { FABRICA_EMBEDDING_KEY: valor, FABRICA_DSN: dsn });
+      assert.equal(c.nivel, 'fail', valor.slice(0, 5));
+      assert.match(c.detalhe, /valor recusado/);
+      assert.ok(!JSON.stringify(c).includes(valor));
+    }
+  } finally { declarado.limpar(); }
+});

@@ -238,6 +238,8 @@ export interface OpcoesDoIndice {
   universo: EntradaDeMemoria[];
   dryRun: boolean;
   chavePresente: boolean;
+  /** A variavel existe, mas o valor foi recusado (URL, DSN ou texto com espaco). */
+  chaveRecusada?: boolean;
   embeddar?: Embeddar;
   env?: NodeJS.ProcessEnv;
 }
@@ -277,7 +279,9 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
     detalhe: preco === undefined ? `preco de ${espaco.modelo} fora da tabela datada: custo nao estimado` : '' };
   if (o.dryRun) return r;
   if (o.alvo === 'primario' && !o.chavePresente) {
-    return { ...r, motivo: 'embeddings.chave-ausente', detalhe: 'a variavel declarada em memory.embedding.api_key_env nao esta no ambiente' };
+    return { ...r, motivo: 'embeddings.chave-ausente', detalhe: o.chaveRecusada
+      ? 'a variavel declarada em memory.embedding.api_key_env tem valor recusado (parece URL, DSN ou texto com espaco; nunca impresso)'
+      : 'a variavel declarada em memory.embedding.api_key_env nao esta no ambiente' };
   }
   // D11: o teto de dinheiro vale antes de qualquer chamada; o fallback local nao cobra.
   if (o.alvo === 'primario' && tokens > o.config.max_tokens_por_execucao) {

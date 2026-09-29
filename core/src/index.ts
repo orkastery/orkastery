@@ -3358,6 +3358,8 @@ function comandoMemory(args: Args): number {
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
       chavePresente: !!config.api_key_env && chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
+      chaveRecusada: !!config.api_key_env && (process.env[config.api_key_env] ?? '').trim() !== '' &&
+        !chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
       embeddar: (p, o) => embedder.embeddar(p, o) }));
     if (args.opcoes.json === true) {
       console.log(JSON.stringify(modelo === 'todos' ? { alvo: 'todos', resultados } : resultados[0], null, 2));

@@ -215,7 +215,13 @@ export const MODELO_DE_EMBEDDING = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Z
  * texto com espaco ou a propria DSN da memoria nunca vao ao provider (nome trocado por engano).
  */
 export function chaveDeEmbeddingAceita(valor: string, dsn: string): boolean {
-  return valor !== '' && !/\s/.test(valor) && !valor.includes('://') && valor !== dsn.trim();
+  if (valor === '' || /\s/.test(valor) || valor.includes('://') || valor === dsn.trim()) return false;
+  // A senha da DSN sozinha tambem nunca vai ao provider como Bearer.
+  try {
+    const senha = new URL(dsn).password;
+    if (senha && (valor === senha || valor === decodeURIComponent(senha))) return false;
+  } catch { /* DSN opaca (key=value): a comparacao inteira acima ja vale */ }
+  return true;
 }
 
 /** Codigos tipados que a ponte pode devolver na operacao `embed`. */

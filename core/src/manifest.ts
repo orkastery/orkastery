@@ -115,17 +115,17 @@ export const EMBEDDING_PADRAO: Readonly<ConfigDeEmbedding> = Object.freeze({
 
 const CHAVES_DE_EMBEDDING = ['provider', 'model', 'dim', 'api_key_env', 'fallback_model', 'max_tokens_por_execucao'];
 
-/**
- * I-38 (D5): le e valida `memory.embedding`. A chave so entra pelo NOME da variavel: valor com
- * cara de chave ou DSN reprova o manifesto, e nome da lista de provider pago tambem, porque a
- * entrada do `ork` apagaria a variavel sob `subscription-only` e o preflight reprovaria o codex.
- */
 /** Valor que parece segredo (URL, prefixo de chave, sequencia longa) nunca e repetido num erro. */
 function exibir(v: ValorYaml): string {
   const t = typeof v === 'string' ? v : JSON.stringify(v);
   return /:\/\/|\bsk-|[A-Za-z0-9_-]{32,}/.test(t) ? '(valor omitido: parece segredo)' : JSON.stringify(v);
 }
 
+/**
+ * I-38 (D5): le e valida `memory.embedding`. A chave so entra pelo NOME da variavel: valor com
+ * cara de chave ou DSN reprova o manifesto, e nome da lista de provider pago tambem, porque a
+ * entrada do `ork` apagaria a variavel sob `subscription-only` e o preflight reprovaria o codex.
+ */
 function lerEmbedding(bruto: ValorYaml, variavelDaDsn: string, erros: string[]): ConfigDeEmbedding | undefined {
   if (bruto === undefined || bruto === null) return undefined;
   if (typeof bruto !== 'object' || Array.isArray(bruto)) {

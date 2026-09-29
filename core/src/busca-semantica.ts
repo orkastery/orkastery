@@ -118,6 +118,7 @@ function ladoVetorial(o: OpcoesDaBusca): { alvo: AlvoDeEmbedding | null; modelo:
       falhar(alvo, 'embeddings.espaco-vetorial-divergente', 'consulta e indice de modelos ou dimensoes diferentes');
       continue;
     }
+    if (resposta.truncados?.length) detalhes.push(`${alvo}: consulta acima do contexto do modelo, embedada pelo comeco`);
     const ranking = [...vetoresCoerentes(lido.indice, o.universo)]
       .map(([id, v]) => ({ id, sim: cosseno(vetor, v) }))
       .sort((a, b) => b.sim - a.sim || a.id.localeCompare(b.id));

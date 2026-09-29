@@ -218,5 +218,10 @@ test('valor da variavel que parece URL, DSN ou texto com espaco nao conta como c
     const dsn = 'dbname=memoria user=leitor';
     assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsn, { env: { [CHAVE]: dsn } }).chavePresente, false);
     assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsn, { env: { [CHAVE]: VALOR } }).chavePresente, true);
+    const dsnUrl = 'postgresql://leitor:' + 'senha%2Fcom-barra' + '@db.local:5432/base';
+    for (const senha of ['senha%2Fcom-barra', 'senha/com-barra']) {
+      assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsnUrl, { env: { [CHAVE]: senha } }).chavePresente, false);
+    }
+    assert.equal(estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, 'fabrica', dsnUrl, { env: { [CHAVE]: VALOR } }).chavePresente, true);
   } finally { m.limpar(); }
 });
