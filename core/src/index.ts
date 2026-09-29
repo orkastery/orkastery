@@ -204,6 +204,10 @@ import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadm
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
+import { registrarNaRede } from './rede-adesao';
+import { ehNomeDeForja } from './rede-forja';
+import { lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
@@ -495,6 +499,13 @@ Uso: ork <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
+  network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
+                                            com a fonte, as lacunas e o que nao foi lido (RM-053)
+  network entrar [--maquina NOME]           Esta maquina entra na rede: repositorio privado <usuario>/orkastery-network
+        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato
+  network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
+                                            entrar, sai sozinho na batida do pulse e nos eventos de thread
+  network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
   docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
@@ -2218,6 +2229,68 @@ function comandoFabrica(args: Args): number {
 }
 
 /**
+ * RM-053: `ork network` e a Orkastery Network, as maquinas de uma pessoa em rede. Roda de qualquer
+ * diretorio, com ou sem projeto: a rede e da pessoa, nao de um repositorio. O projeto do diretorio
+ * atual, quando ha, so entra no retrato e na leitura da fabrica legada.
+ */
+function comandoNetwork(args: Args): number {
+  const sub = args.posicionais[1];
+  const diretorio = process.cwd();
+  const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
+    '[--repositorio [DONO/]NOME] | network publicar [--forcar] [--json] | network sair';
+  const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
+  if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
+      (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
+    console.error(uso);
+    return 2;
+  }
+  if (sub === 'entrar') {
+    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio });
+    console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
+      `privado${r.criado ? ', criado agora' : ''}).`);
+    console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
+    console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
+    if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
+      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
+    }
+    return 0;
+  }
+  if (sub === 'sair') {
+    const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
+      ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
+      : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) {
+      console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
+    }
+    return 0;
+  }
+  if (sub === 'publicar') {
+    if (args.opcoes.silencioso === true) {
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 15 min) e nao espera.
+      try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
+      catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
+    }
+    const r = publicarRede({ diretorio, forcar: args.opcoes.forcar === true, forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else console.log(r.acao === 'publicou'
+      ? `Rede: ${r.maquina} publicou o retrato em ${r.casa} (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
+      : r.acao === 'ocupado'
+        ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
+        : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    return 0;
+  }
+  if (sub !== undefined && sub !== 'status') {
+    console.error(`subcomando desconhecido: network ${sub}`);
+    console.error(uso);
+    return 2;
+  }
+  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio });
+  console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDaRede(status));
+  return 0;
+}
+
+/**
  * `ork orquestracao status` (alias `ork monitor`): pausas e impedimentos de uma chamada.
  *
  * Existe para o orquestrador ser PROATIVO: ele roda isto em laco, ve quem esta parado
@@ -3581,6 +3654,8 @@ export function main(argv: string[]): number {
     }
     case 'fabrica':
       return comandoFabrica(args);
+    case 'network':
+      return comandoNetwork(args);
     case 'licoes':
       return comandoLicoes(args);
     case 'ciclos':
