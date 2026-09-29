@@ -195,6 +195,11 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       lint.recusas.join('\n  '));
   }
   const destino = destinoDoBundle(carregado, threadId);
+  // Achado S8 do CHECK: a worktree registrada que sumiu nao e silencio; o bundle na raiz vem com aviso.
+  const registrada = lerThread(carregado.raiz, threadId).worktree;
+  if (registrada && destino !== registrada) {
+    opcoes.aoAvisar?.(`a worktree ${registrada} da thread nao existe mais; o bundle vai para a raiz do projeto`);
+  }
   const classified = activeClaims.map((claim) => ({
     claim,
     reason: motivoDiferimentoCi(claim, destino),

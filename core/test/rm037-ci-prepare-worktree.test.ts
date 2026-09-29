@@ -41,3 +41,17 @@ test('defeito 6: thread sem worktree continua gravando na raiz', () => {
     assert.equal(prepararBundleCi(p.carregado, thread.id), path.join(p.dir, '.ork-ci', 'bundle.json'));
   } finally { p.limpar(); }
 });
+
+test('defeito 6 (S8): worktree registrada que sumiu leva o bundle para a raiz com aviso', () => {
+  const p = projetoTemporario('rm037-ci-worktree-sumiu');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'sumiu', modo: 'auto' });
+    garantirWorktree(p.carregado, thread.id);
+    const worktree = lerThread(p.dir, thread.id).worktree as string;
+    fs.rmSync(worktree, { recursive: true, force: true });
+    const avisos: string[] = [];
+    const arquivo = prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) });
+    assert.equal(arquivo, path.join(p.dir, '.ork-ci', 'bundle.json'));
+    assert.deepEqual(avisos, [`a worktree ${worktree} da thread nao existe mais; o bundle vai para a raiz do projeto`]);
+  } finally { p.limpar(); }
+});
