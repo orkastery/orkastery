@@ -33,8 +33,14 @@ import { exigirRastroDeDecisaoAutonoma, lerLedger, registrar, TIPOS_DE_EVENTO } 
 import { dirThread, listarIds, lerThread } from './thread';
 import { EventoLedger } from './types';
 import { exigirModoVivo } from './modos';
+import { canalDoProcesso, identidadeDoAmbiente } from './conducao';
 
 export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
+
+/** O canal do processo; canal fora do registro nao impede a decisao, e fica dito como tal. */
+function canalSeguro(): string {
+  try { return canalDoProcesso(); } catch { return 'desconhecido'; }
+}
 
 /** D3/M7: o p90 das 155 fases ja medidas. Acima disso a fase esta no decil mais alto do projeto. */
 export const LIMIAR_DE_DECISOES_POR_FASE = 13;
@@ -131,6 +137,10 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
       contratoDecisao: CONTRATO_DECISAO_AUTONOMA, fase: pedido.fase, decisao: pedido.decidido, ...rastro,
       pedido, ...(entrada.reverte ? { reverte: entrada.reverte } : {}),
       origem: entrada.origem ?? 'cli', ...(entrada.host ? { host: entrada.host } : {}),
+      // RM-037 (S5 do CHECK): a porta e quem chamou, pelo processo e nao pelo texto de `quemDecidiu`. A sessao
+      // despachada carrega a identidade do despacho no ambiente; o dono no terminal, nao.
+      canal: entrada.origem === 'mcp' && entrada.host ? entrada.host : canalSeguro(),
+      despacho: identidadeDoAmbiente(t.id, process.env, raiz),
     });
     return { pedido, evento };
   });

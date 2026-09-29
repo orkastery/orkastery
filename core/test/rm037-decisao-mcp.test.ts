@@ -9,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { criarServidorMcp } from '../src/mcp-server';
-import { CONTRATO_DECISAO_AUTONOMA } from '../src/decisao-autonoma';
+import { CONTRATO_DECISAO_AUTONOMA, registrarDecisao } from '../src/decisao-autonoma';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { Thread } from '../src/types';
@@ -78,4 +78,29 @@ test('defeito 1: a ferramenta tem o grant de mutacao do filho codex, sem virar d
   assert.ok((TOOLS_FILHO_CODEX as readonly string[]).includes('ork_decision_record'),
     'sem o grant, o codex com approval_policy never recusaria a chamada');
   assert.ok(!TOOLS_FILHO_CODEX.some(t => /gate|request_decision|phase_run/.test(t)));
+});
+
+test('defeito 1 (S5): o rastro grava a porta e o despacho do processo, nao so o texto de quemDecidiu', () => {
+  const p = projetoTemporario('rm037-decisao-cli-despacho');
+  const antes = { id: process.env.ORK_DISPATCH_ID, th: process.env.ORK_DISPATCH_THREAD, sessao: process.env.CLAUDE_CODE_SESSION_ID };
+  try {
+    const t = novaThread(p.carregado, { nome: 'cli', modo: 'auto' }).thread;
+    const entrada = { decidido: 'x', porque: 'y', comoMudar: 'z', custoDeReverter: { agora: 'a', depois: 'b' },
+      criterio: { tipo: 'medicao' as const, referencia: 'true' }, quemDecidiu: 'o dono', evidencia: 'e' };
+    delete process.env.CLAUDE_CODE_SESSION_ID;
+    // Processo de uma sessao despachada desta thread: a identidade vai ao evento, mesmo que o texto diga "o dono".
+    process.env.ORK_DISPATCH_ID = '11111111-2222-4333-8444-555555555555'; process.env.ORK_DISPATCH_THREAD = t.id;
+    const daSessao = registrarDecisao(p.dir, t.id, entrada).evento;
+    assert.equal(daSessao.despacho, '11111111-2222-4333-8444-555555555555');
+    assert.equal(daSessao.origem, 'cli');
+    assert.equal(typeof daSessao.canal, 'string');
+    // O terminal do dono nao tem despacho no ambiente.
+    delete process.env.ORK_DISPATCH_ID; delete process.env.ORK_DISPATCH_THREAD;
+    assert.equal(registrarDecisao(p.dir, t.id, entrada).evento.despacho, null);
+  } finally {
+    for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.th], ['CLAUDE_CODE_SESSION_ID', antes.sessao]] as const) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    p.limpar();
+  }
 });
