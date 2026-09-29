@@ -1053,6 +1053,19 @@ function comandoPhase(args: Args): number {
       console.log(args.opcoes.json === true && r.recusa ? JSON.stringify(r.recusa, null, 2) : r.recusa?.texto ?? r.erro);
       return 3;
     }
+    // RM-037 (defeito 3): a recusa por vaga e espera, como a da conducao (codigo 3), e diz quem ocupa.
+    if (r.motivo === 'concurrency.limite' && r.vaga) {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, ...r.vaga }, null, 2)); return 3; }
+      console.log(`Despacho recusado: concurrency.limite. O projeto ja tem ${r.vaga.ocupam.length} sessao(oes) viva(s) ` +
+        `em outras threads e o limite e ${r.vaga.limite} (concurrency.max_parallel_threads).`);
+      for (const o of r.vaga.ocupam) {
+        console.log(`  ${o.thread.padEnd(20)} ${(o.fase ?? '-').padEnd(6)} ` +
+          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso'}, desde ${localizarTextoRotulado(o.desde)}`);
+      }
+      console.log(`  correcao: ${r.vaga.correcao}`);
+      console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
+      return 3;
+    }
     if (r.dryRun && !r.bloqueado) {
       console.log('Simulacao (--dry-run), nada foi despachado.');
       console.log(`  slug da sessao : ${r.slug}`);

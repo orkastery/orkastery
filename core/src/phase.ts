@@ -1,5 +1,5 @@
 import { comLockHitl } from './hitl-gates';
-import { esperarVaga, vagaDoDespacho } from './board';
+import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
 import { gravarBaseline } from './verify';
 import { ErroDeConducao } from './conducao';
 import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidadeDeDespacho } from './runtime-context';
@@ -645,6 +645,8 @@ export interface ResultadoRun {
   conducao?: ConducaoAtual;
   /** I-36 (T12): a recusa tipada, com as tres acoes e o texto para o humano. */
   recusa?: RecusaDeConducao;
+  /** RM-037 (defeito 3): a recusa por vaga, com quem ocupa e a correcao. */
+  vaga?: VagaRecusada;
 }
 
 /**
@@ -798,7 +800,8 @@ function rodarFaseSobLock(
   }
   // RM-037 (defeito 3): o limite de sessoes do projeto vale no despacho, nao so no board. A recusa nao
   // abre sessao nem toca a worktree; o `slot_refused` e a prova, fora da conta de atividade da thread.
-  const semVaga = vagaDoDespacho(carregado, thread.id);
+  // A thread que ja conduz fica com a resposta da conducao (idempotente ou em andamento), nao com a vaga.
+  const semVaga = conducaoDaThread(raiz, thread.id) ? null : vagaDoDespacho(carregado, thread.id);
   if (semVaga) {
     if (!opcoes.dryRun) {
       registrar(dir, thread.id, TIPOS_DE_EVENTO.vagaRecusada, { gate: 'phase.dispatch', motivo: 'concurrency.limite', fase, slug,
@@ -807,7 +810,8 @@ function rodarFaseSobLock(
     }
     return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
       verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
-      runtime, model, effort, bloqueado: true, motivo: 'concurrency.limite', violacoes, erro: `${semVaga.detalhe}; ${semVaga.correcao}` };
+      runtime, model, effort, bloqueado: true, motivo: 'concurrency.limite', violacoes, erro: `${semVaga.detalhe}; ${semVaga.correcao}`,
+      vaga: semVaga };
   }
   // I-36 (T7, T14): validado o pedido, a conducao da thread, antes de tocar a worktree. A mesma fase com o
   // mesmo prompt de quem conduz devolve a sessao em andamento sem chamar o adapter; outro pedido recebe a recusa.
