@@ -53,6 +53,7 @@ Prefira MCP no projeto fixado pelo servidor, sem outro root/cwd. No Claude com s
 | Acao | Ferramenta MCP | CLI quando a ferramenta nao esta disponivel |
 |---|---|---|
 | Estado/documentos/claims | `ork_thread_status`, `ork_phase_list`, `ork_artifact_read/write`, `ork_claims_list`, `ork_claim_add` | `ork thread status <thread>`, `ork phase list <thread>`, `ork claims` |
+| Decisao autonoma (sem perguntar ao dono) | `ork_decision_record` | `ork decisao registrar <thread>` |
 | Demanda nova | `ork_thread_new(nome, modo)` | `ork thread new "<nome>" --mode <modo> --worktree auto` |
 | Despacho | `ork_phase_run(threadId, fase, prompt, runtime?, model?, effort?, dryRun?)` | `ork phase run <thread> GOAL --prompt "<pedido>"` |
 | Progresso nativo | `ork_observe(threadId)` | `ork thread status <thread>` |
