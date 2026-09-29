@@ -9,6 +9,7 @@ import { procurarSegredos } from './policies';
 import { ConteudoOnboarding, EtapaOnboarding, Onboarding, RespostaOnboarding } from './types';
 import { CHAVE_DO_FUSO, FUSO_DE_BRASILIA, normalizarFuso } from './horario';
 import { resolverExperiencia, validarPreferencias } from './experiencia';
+import { lerYaml } from './yaml';
 
 export const CONTRATO_ONBOARDING = 'ork.onboarding/v1';
 export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> = [
@@ -198,16 +199,16 @@ function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
   const stat = fs.lstatSync(arquivo);
   if (!stat.isFile() || stat.nlink !== 1) throw Error('experiencia.manifesto.unsafe');
   const anterior = fs.readFileSync(arquivo, 'utf8'), eol = anterior.includes('\r\n') ? '\r\n' : '\n';
-  const linhas = anterior.split(eol), ocorrencias = linhas.map((l, i) => /^owner\s*:/.test(l) ? i : -1).filter(i => i >= 0);
+  const linhas = anterior.split(eol), ocorrencias = linhas.map((l, i) => /^(?:owner|"owner"|'owner')\s*:/.test(l) ? i : -1).filter(i => i >= 0);
   if (ocorrencias.length > 1) throw Error('experiencia.manifesto.conflict: owner duplicado');
   let inicio = ocorrencias[0];
   if (inicio === undefined) { inicio = linhas.length; linhas.push('owner:'); }
-  if (!/^owner\s*:\s*(?:\{\}\s*)?(?:#.*)?$/.test(linhas[inicio])) throw Error('experiencia.manifesto.conflict: owner não é mapa em bloco');
+  if (!/^(?:owner|"owner"|'owner')\s*:\s*(?:\{\}\s*)?(?:#.*)?$/.test(linhas[inicio])) throw Error('experiencia.manifesto.conflict: owner não é mapa em bloco');
   linhas[inicio] = linhas[inicio].replace('{}', '');
   let fim = inicio + 1;
   while (fim < linhas.length && !/^[^\s#][^:]*:/.test(linhas[fim])) fim++;
   for (const [k, v] of Object.entries(validarPreferencias(conteudo.owner))) {
-    const re = new RegExp('^  ' + k + '\\s*:');
+    const re = new RegExp('^  (?:' + k + '|"' + k + '"|\x27' + k + '\x27)\\s*:');
     const indices = linhas.slice(inicio + 1, fim).map((l, i) => re.test(l) ? i + inicio + 1 : -1).filter(i => i >= 0);
     if (indices.length > 1) throw Error('experiencia.manifesto.conflict: preferência duplicada');
     const linha = `  ${k}: ${JSON.stringify(v)}`;
@@ -216,6 +217,11 @@ function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
   }
   const proximo = linhas.join(eol);
   if (Buffer.byteLength(proximo) > LIMITE_MANIFESTO_BYTES) throw Error('experiencia.manifesto.large');
+  // Sintaxes/indentações não representadas pelo editor não podem descartar dados do YAML.
+  const dados = lerYaml(anterior), novos = lerYaml(proximo);
+  if (!objeto(dados) || !objeto(novos)) throw Error('experiencia.manifesto.conflict');
+  const esperado = { ...dados, owner: { ...(objeto(dados.owner) ? dados.owner : {}), ...validarPreferencias(conteudo.owner) } };
+  if (jsonCanonico(novos as ConteudoOnboarding) !== jsonCanonico(esperado as ConteudoOnboarding)) throw Error('experiencia.manifesto.conflict: edição perderia dados');
   return { arquivo, anterior, proximo, modo: stat.mode };
 }
 

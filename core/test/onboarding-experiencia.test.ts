@@ -48,6 +48,24 @@ test('entrada inválida, owner duplicado e symlink recusam antes de gravar entre
   } finally { p.limpar(); }
 });
 
+test('chaves YAML entre aspas preservam preferências e indentação incompatível não perde dados', () => {
+  const p = projetoTemporario('onboarding-experiencia-yaml');
+  try {
+    const original = fs.readFileSync(p.carregado.caminho, 'utf8');
+    fs.writeFileSync(p.carregado.caminho, original.replace('owner:', '"owner":\n  "language": pt-BR\n  depth: curta'));
+    gravarEtapa(p.dir, 'maestro', { owner: { experience: false } });
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.language, 'pt-BR');
+    gravarEtapa(p.dir, 'maestro', { owner: { language: 'en-US' } });
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.language, 'en-US');
+    const incomum = original.replace('owner:', 'owner:\n    language: pt-BR\n    depth: curta');
+    fs.writeFileSync(p.carregado.caminho, incomum);
+    const entrevista = fs.readFileSync(caminhoOnboarding(p.dir));
+    assert.throws(() => gravarEtapa(p.dir, 'maestro', { owner: { experience: true } }), /conflict/);
+    assert.equal(fs.readFileSync(p.carregado.caminho, 'utf8'), incomum);
+    assert.deepEqual(fs.readFileSync(caminhoOnboarding(p.dir)), entrevista);
+  } finally { p.limpar(); }
+});
+
 test('consulta CLI e pauta mostram dados efetivos sem criar resposta', () => {
   const p = projetoTemporario('onboarding-experiencia-cli');
   try {
