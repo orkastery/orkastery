@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:49:27.332Z",
+  "publicadoEm": "2026-09-29T01:49:36.159Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -27,8 +27,8 @@
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-037",
-      "branch": "main",
-      "atualizadaEm": "2026-09-29T01:48:31.668Z",
+      "branch": "ork/ork-defeitosdeco-full",
+      "atualizadaEm": "2026-09-29T01:49:35.916Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
