@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:47:23.003Z",
+  "publicadoEm": "2026-09-29T01:48:23.401Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -21,20 +21,6 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-cincosessoes",
-      "nome": "Cinco sessoes em paralelo com teto de CPU no kernel",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-047",
-      "branch": "ork/ork-cincosessoes-go",
-      "atualizadaEm": "2026-09-29T01:37:25.684Z",
-      "entregue": "64a8cbb",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-docsdossites",
       "nome": "Docs dos sites de altissima qualidade: linguagem, diagramas, i18n PT EN ES, cobertura e tipografia",
       "modo": "#Auto",
@@ -43,6 +29,20 @@
       "roadmap": "RM-049",
       "branch": "ork/ork-docsdossites-full",
       "atualizadaEm": "2026-09-29T01:08:32.148Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-hitlhumanono",
+      "nome": "HITL humano no centro: pedido curto, texto livre claro e status report unico",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-048",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:48:20.785Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
