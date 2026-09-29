@@ -16,8 +16,8 @@ import { abrirPedidoGate, prepararPedidoGate, registrarPedidoHitl } from '../src
 import { aprovacoesHumanas } from '../src/gates';
 import { PerguntaAoDono } from '../src/hitl-contract';
 import { JANELA_DO_TEXTO_LIVRE_MIN, resolverTrecho, lerTrecho } from '../src/hitl-texto-livre';
-import { dirThread } from '../src/thread';
-import { lerLedger } from '../src/ledger';
+import { dirThread, novaThread } from '../src/thread';
+import { lerLedger, registrar } from '../src/ledger';
 import { lerConsentimento } from '../src/pulse-consentimento';
 import { atualizarEscuta, lerLoteServido, responderPeloPulse } from '../src/pulse-resposta';
 
@@ -88,7 +88,7 @@ test('ambíguo volta como pergunta com as opções reais, e nada é registrado',
     const duas = c.responder('aprovo', 'telegram:-7:40', depois(5));
     assert.equal(duas.registradas.length, 0);
     assert.match(duas.mensagem, /Há 2 perguntas esperando você, e uma palavra só não diz qual; nada foi registrado\./);
-    assert.match(duas.mensagem, /1 \(ork-/);
+    assert.match(duas.mensagem, /1 com a letra \(ork-/);
     // "não" para um gate serve para revisar e para esperar: volta com as letras de verdade.
     const nao = c.responder('1 não', 'telegram:-7:41', depois(6));
     assert.equal(nao.registradas.length, 0);
@@ -108,7 +108,7 @@ test('com mais de um pedido aberto na mesma thread, palavra não registra; a let
       alvo: { tipo: 'session', sessionId: 'sessao-SIMULADA', runtime: 'claude-bg' } });
     const palavra = c.responder('aprovo', 'telegram:-7:50', depois(5));
     assert.equal(palavra.registradas.length, 0);
-    assert.match(palavra.mensagem, /tem 2 pedidos abertos; resposta solta não registra/);
+    assert.match(palavra.mensagem, /Há 2 perguntas esperando você, e uma palavra só não diz qual; nada foi registrado\./);
     // A letra solta também não diz a qual dos dois pedidos se refere.
     const solta = c.responder('a', 'telegram:-7:52', depois(5));
     assert.equal(solta.registradas.length, 0);
@@ -117,6 +117,22 @@ test('com mais de um pedido aberto na mesma thread, palavra não registra; a let
     assert.match(numerada.mensagem, /tem 2 pedidos abertos; resposta por palavra não registra/);
     const letra = c.responder('1a', 'telegram:-7:51', depois(6));
     assert.deepEqual(letra.registradas.map(x => x.estado), ['aprovado'], letra.mensagem);
+  } finally { c.limpar(); }
+});
+
+test('B1 do CHECK: palavra solta não cai numa pergunta de outra thread quando há um gate aberto fora do lote', () => {
+  const c = comLote('livre-outra-thread', 1);
+  try {
+    const y = c.itens[0].thread!;
+    // Um gate de OUTRA thread mostrado pelo `gate request --formato`, fora do lote.
+    const { thread: x } = novaThread(c.p.carregado, { nome: 'xray classic', modo: 'classic' });
+    registrar(dirThread(c.p.dir, x.id), x.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
+    const gate = abrirPedidoGate(c.p.dir, x.id, 'human.pending', depois(2)) as PerguntaAoDono;
+    const r = c.responder('aprovo', 'telegram:-7:55', depois(3));
+    assert.equal(r.registradas.length, 0, r.mensagem);
+    assert.match(r.mensagem, /Há 2 perguntas esperando você/);
+    assert.match(r.mensagem, new RegExp(`${gate.codigo} a`));
+    assert.equal(humanos(c.p.dir, y).length + humanos(c.p.dir, x.id).length, 0);
   } finally { c.limpar(); }
 });
 
@@ -145,7 +161,7 @@ test('a palavra solta vale na janela curta; depois dela, só número ou código'
     const tarde = depois(1 + JANELA_DO_TEXTO_LIVRE_MIN + 1);
     const r = c.responder('aprovo', 'telegram:-7:70', tarde);
     assert.equal(r.registradas.length, 0);
-    assert.match(r.mensagem, /Não há pergunta recente para responder só com uma palavra; nada foi registrado\./);
+    assert.match(r.mensagem, /A pergunta que espera você não acabou de sair por aqui; palavra solta não registra\. Responda: 1 com a letra/);
     assert.equal(humanos(c.p.dir, t).length, 0);
     const numero = c.responder('1a', 'telegram:-7:71', depois(1 + JANELA_DO_TEXTO_LIVRE_MIN + 2));
     assert.deepEqual(numero.registradas.map(x => x.estado), ['aprovado'], numero.mensagem);

@@ -368,7 +368,7 @@ test('a forma da resposta: o que é resposta ao resumo, o que é resposta ao lot
     assert.equal(interpretarRespostaDoPulse(conversa).forma, 'desconhecida', conversa);
   }
   // RM-048 (D2): a resposta numerada em linhas, ou com ponto e palavra, é a forma `lista`.
-  for (const lista of ['1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', '3 detalhes']) {
+  for (const lista of ['1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', '3 detalhes', '1 s', '2 n']) {
     assert.equal(interpretarRespostaDoPulse(lista).forma, 'lista', lista);
   }
   // E a palavra solta é a forma `livre`: quem decide se ela registra é o núcleo, pela regra fechada.

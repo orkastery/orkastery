@@ -576,8 +576,9 @@ mudou o que o núcleo traduz depois dela.
   `esperar`, `detalhes` e parentes), letra `a` a `d` e dígito `1` a `4`. A palavra casa a ação da
   alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de
   um pedido aberto na mesma thread, palavra não registra. A palavra solta, sem número nem código,
-  só vale nos 60 minutos depois de a pergunta sair, com uma pergunta aberta, e nunca para ato sem
-  volta. Ela só é interceptada no Telegram enquanto `.orkastery/monitor/pulse-escuta.json`
+  só vale nos 60 minutos depois de a pergunta sair pelo núcleo, quando ela é o único pedido aberto
+  para o dono em todas as threads (gate mostrado por `gate request`, sessão ou lote), e nunca para
+  ato sem volta. Ela só é interceptada no Telegram enquanto `.orkastery/monitor/pulse-escuta.json`
   (`ork.pulse-escuta/v1`) disser que a janela está aberta; fora dela, vai ao assistente.
 - **Linha estável:** o gate reaberto no mesmo contexto mantém o código, e o código só muda quando
   a pergunta muda. Resposta a pedido vencido vai ao pedido renovado quando a essência (pergunta,
@@ -590,7 +591,9 @@ mudou o que o núcleo traduz depois dela.
 - **Nota do MASTER com prova:** `ork master pedir <thread>` devolve `<código> <0 a 5> <porquê>`; a
   resposta do dono passa pela mesma `autenticarResposta` no endereço do pulse, e o `master_done`
   guarda o remetente autenticado, o canal, a mensagem, o sha da prova e a evidência com o envelope.
-  `ork master` com `--por` vindo de processo de host recebe `master.prova-de-canal`.
+  `ork master` com `--por` vindo de processo de host recebe `master.prova-de-canal`, e `ORK_CANAL=cli`
+  não absolve sessão despachada (`ORK_DISPATCH_ID`), Claude Code (`CLAUDECODE`) nem Codex
+  (`CODEX_SANDBOX`).
 - **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
   quem apaga as variáveis do próprio host passa como terminal. O diálogo MCP de nota para Claude
   Code e Codex fica para depois.

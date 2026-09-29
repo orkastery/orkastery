@@ -35,6 +35,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { exigirEntrega } from './thread-close';
 import { canalDoProcesso } from './conducao';
 import { gerarCodigo } from './pulse-consentimento';
+import { comLockDaConversa } from './monitor-lock';
 import type { RespostaHumana } from './hitl-gates';
 import { CanalDeConducao } from './types';
 
@@ -50,8 +51,16 @@ const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 export function exigirNotaSemHost(ambiente: NodeJS.ProcessEnv = process.env): void {
   let canal: CanalDeConducao;
   try { canal = canalDoProcesso(undefined, ambiente); } catch { canal = 'mcp'; }
-  if (canal !== 'cli') {
-    throw new Error(`${ERRO_PROVA_DE_CANAL}: nota em nome de pessoa vinda de ${canal} exige a prova de canal do ingresso. ` +
+  // B2 do CHECK: `ORK_CANAL=cli` NAO absolve. A sessao despachada herda `ORK_CANAL=cli` quando a
+  // thread e conduzida do terminal, e o Claude Code e o Codex marcam os proprios processos. Qualquer
+  // marca de host ou de despacho recusa, mesmo com o canal declarado como terminal.
+  const marca = canal !== 'cli' ? canal
+    : ambiente.ORK_DISPATCH_ID ? 'sessão despachada (ORK_DISPATCH_ID)'
+      : ambiente.CLAUDECODE === '1' ? 'claude-code (CLAUDECODE)'
+        : ambiente.CODEX_SANDBOX || ambiente.CODEX_SANDBOX_NETWORK_DISABLED ? 'codex (CODEX_SANDBOX)'
+          : (ambiente.HERMES_HOME ?? '').trim() ? 'hermes (HERMES_HOME)' : undefined;
+  if (marca) {
+    throw new Error(`${ERRO_PROVA_DE_CANAL}: nota em nome de pessoa vinda de ${marca} exige a prova de canal do ingresso. ` +
       'Peça a nota com ork master pedir <thread>: o dono responde pelo Telegram com o código, e a nota é gravada com o recibo.');
   }
 }
@@ -91,14 +100,20 @@ function gravarNotas(raiz: string, notas: Record<string, PedidoDeNota>, estadoDi
 export function pedirNota(raiz: string, thread: string, opcoes: { quando?: string; estadoDir?: string; codigosEmUso?: readonly string[] } = {}): PedidoDeNota {
   const quando = opcoes.quando ?? new Date().toISOString();
   exigirEntrega(raiz, thread);
-  const notas = lerNotas(raiz, opcoes.estadoDir);
-  const existente = Object.values(notas).find(n => n.thread === thread);
-  if (existente && !notaDada(raiz, existente)) return existente;
-  const codigo = gerarCodigo([...Object.keys(notas), ...(opcoes.codigosEmUso ?? [])]);
-  const pedido: PedidoDeNota = { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: randomUUID(), thread, codigo, criadoEm: quando };
-  registrar(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.notaPedida, { fase: 'MASTER', pedidoId: pedido.pedidoId, codigo });
-  gravarNotas(raiz, { ...Object.fromEntries(Object.entries(notas).filter(([, n]) => n.thread !== thread)), [codigo]: pedido }, opcoes.estadoDir);
-  return pedido;
+  const estadoDir = opcoes.estadoDir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
+  // A4 do CHECK: o registro dos pedidos de nota tem dois escritores (pedir e o receptor do pulse);
+  // um de cada vez, pelo mesmo lock da conversa.
+  return comLockDaConversa(estadoDir, () => {
+    const notas = lerNotas(raiz, estadoDir);
+    const existente = Object.values(notas).find(n => n.thread === thread);
+    if (existente && !notaDada(raiz, existente)) return existente;
+    // A1 do CHECK: o codigo da nota nao repete o de gate aberto nem o do resumo (quem chama passa).
+    const codigo = gerarCodigo([...Object.keys(notas), ...(opcoes.codigosEmUso ?? [])]);
+    const pedido: PedidoDeNota = { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: randomUUID(), thread, codigo, criadoEm: quando };
+    registrar(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.notaPedida, { fase: 'MASTER', pedidoId: pedido.pedidoId, codigo });
+    gravarNotas(raiz, { ...Object.fromEntries(Object.entries(notas).filter(([, n]) => n.thread !== thread)), [codigo]: pedido }, estadoDir);
+    return pedido;
+  });
 }
 
 /** A nota deste pedido ja foi dada pelo canal. */

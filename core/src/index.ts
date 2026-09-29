@@ -76,7 +76,7 @@ import {
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
 import { textoDoRadar, varrerSessoes } from './hitl';
 import { montarPulse, textoDoPulse } from './pulse';
-import { interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
+import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
 import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
@@ -2339,7 +2339,7 @@ function comandoMaster(args: Args): number {
     const id = args.posicionais[2];
     const formato = texto(args.opcoes.formato) ?? 'telegram';
     if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
-    const pedido = pedirNota(carregado.raiz, id);
+    const pedido = pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) });
     console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
     return 0;
   }

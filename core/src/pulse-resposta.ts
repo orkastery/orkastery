@@ -24,14 +24,14 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { formatarHora } from './horario';
-import { abrirPedidoGate, autenticarResposta, contextoHitlDosEventos, EnderecoAssinado, MOTIVOS_DE_ESCALACAO_HUMANA,
+import { abrirPedidoGate, autenticarResposta, comLockHitl, contextoHitlDosEventos, EnderecoAssinado, MOTIVOS_DE_ESCALACAO_HUMANA,
   prepararPedidoGate, renovarPedidoDoGate, responderGate, RespostaHumana } from './hitl-gates';
 import { alvoDoPedido, AtoIrreversivel, chaveDaEscolha, ehV2, escolhasDoPedido, estadoDoPedido, motivoDoPedido,
   PedidoHitlQualquer, PerguntaAoDono, prazoDoPedido, validarPedidoHitl } from './hitl-contract';
 import { comLockDaConversa } from './monitor-lock';
 import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM, TETO_DE_PERGUNTAS_POR_LOTE, textoDoLote } from './hitl-lote';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
-import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TrechoLivre } from './hitl-texto-livre';
+import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TETO_DA_FORMA, TrechoLivre } from './hitl-texto-livre';
 import { apresentarHitl } from './hitl-presentation';
 import { CONTRATO_PEDIDO_DE_NOTA, lerNota, mensagemJaUsadaEmNota, PedidoDeNota, pedidoDeNotaDoCodigo, reciboDoCanal } from './master-nota';
 import { autoriaHumana, parseClasse, registrarMaster } from './master';
@@ -92,13 +92,16 @@ export type RespostaInterpretada =
 
 /** O que o dono quis dizer, pela forma. Nada aqui le intencao: ou a forma bate, ou nao. */
 export function interpretarRespostaDoPulse(texto: unknown): RespostaInterpretada {
-  if (typeof texto !== 'string' || texto.length > 260) return { forma: 'desconhecida' };
+  if (typeof texto !== 'string' || texto.length > TETO_DA_FORMA) return { forma: 'desconhecida' };
+  // S2 do CHECK: a lista vem antes, porque "1 s" e "1 n" sao palavras do vocabulario e nao letras.
+  // "1a 2c" casa as duas e sai igual pelas duas; o lote segue para letra fora de a-d ("1e").
+  const lista = lerLista(texto);
+  if (lista && lista.some(i => i.trecho.tipo !== 'letra')) return { forma: 'lista', itens: lista };
   if (LOTE.test(texto)) {
     const escolhas = [...texto.matchAll(/([0-9]{1,2})[ \t]*([a-zA-Z])/g)]
       .map(m => ({ numero: Number(m[1]), letra: m[2].toLowerCase() }));
     return { forma: 'lote', escolhas };
   }
-  const lista = lerLista(texto);
   if (lista) return { forma: 'lista', itens: lista };
   if (RATIFICACAO.test(texto)) return { forma: 'ratificacao', texto: texto.trim() };
   if (CONSENTIMENTO.test(texto)) return { forma: 'consentimento', codigo: texto.trim().slice(0, 4).toUpperCase() };
@@ -480,6 +483,23 @@ export function pedidosComCodigo(raiz: string, codigo: string): PedidoComCodigo[
   return achados;
 }
 
+/** A1 do CHECK: os codigos curtos em uso agora (gates abertos e o resumo), para a nota nao repetir. */
+export function codigosEmUso(raiz: string, estadoDir?: string): string[] {
+  const codigos: string[] = [];
+  const estado = (() => { try { return lerConsentimento(raiz, estadoDir); } catch { return undefined; } })();
+  if (estado) codigos.push(estado.pedido.codigo);
+  for (const id of listarIds(raiz)) {
+    try {
+      if (lerThread(raiz, id).status === 'fechada') continue;
+      for (const e of lerLedger(dirThread(raiz, id))) {
+        const c = (e.pedido as { codigo?: unknown } | undefined)?.codigo;
+        if (e.tipo === 'hitl_requested' && typeof c === 'string') codigos.push(c);
+      }
+    } catch { /* thread ilegivel nao contribui */ }
+  }
+  return codigos;
+}
+
 /** O bloco de evidencia a um pedido de distancia (item 4): artefato, claims, riscos e diff. */
 export function textoDoDetalhe(raiz: string, pedido: PedidoHitlQualquer, chave: string, canal: 'telegram' | 'terminal'): string {
   const a = apresentarHitl(raiz, pedido.thread, pedido.profundidade);
@@ -513,6 +533,12 @@ function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo
       'Responda pelo número da pergunta no lote, por exemplo 1a.', { recusas: [{ motivo: 'codigo.ambiguo' }] });
   }
   const { thread, pedido, eventos } = achados[0];
+  // A3 do CHECK: a MESMA mensagem entregue de novo pelo gateway e repetida, nunca renova nem grava.
+  const mesma = eventos.find(e => e.tipo === 'human_gate' && e.mensagem === envelope.mensagem);
+  if (mesma) {
+    return resultado('codigo', `${codigo}: esta mensagem já estava registrada (${String(mesma.estado)}).`,
+      { repetida: true, registradas: [{ numero: 0, thread, letra: '', estado: String(mesma.estado), repetida: true }] });
+  }
   const resto = envelope.resposta.trim().slice(codigo.length).trim();
   if (/^(detalhes?|evid[eê]ncias?|\?)[.!]?$/i.test(resto)) return resultado('codigo', textoDoDetalhe(raiz, pedido, codigo, canal));
   const anterior = eventos.find(e => e.tipo === 'human_gate' && e.pedidoId === pedido.id);
@@ -670,22 +696,61 @@ function responderALista(raiz: string, envelope: RespostaHumana, itens: { numero
   return detalhes.length ? { ...r, mensagem: [r.mensagem, ...detalhes].join('\n\n').slice(0, TETO_DA_MENSAGEM) } : r;
 }
 
-/** Uma pergunta que acabou de sair e ainda espera: a unica a que a palavra solta pode se referir. */
-interface PedidoRecente { tipo: 'consentimento'; codigo: string }
-interface PerguntaRecente { tipo: 'pergunta'; servida: PerguntaServida }
+/**
+ * B1 do CHECK: tudo o que espera o dono agora, em TODAS as threads, e nao so o que saiu no lote.
+ * A palavra solta nao diz a que se refere; ela so pode registrar quando isto tiver UM item, e ele
+ * for o que o nucleo acabou de mandar (consentimento ou pergunta do lote na janela curta). Um gate
+ * mostrado por `gate request --formato`, um pedido de sessao, uma pergunta de outra thread: tudo
+ * conta, porque o dono pode estar respondendo a qualquer um deles.
+ */
+export interface AbertoDoDono {
+  tipo: 'consentimento' | 'pergunta' | 'pedido';
+  rotulo: string;
+  /** Saiu pelo nucleo ha menos de `JANELA_DO_TEXTO_LIVRE_MIN`. So assim a palavra solta vale. */
+  recente: boolean;
+  codigo?: string;
+  servida?: PerguntaServida;
+}
 
-/** D3: o que a palavra solta pode querer dizer agora. Janela curta, sem resposta ainda. */
-export function pedidosRecentes(raiz: string, quando: string, estadoDir?: string): (PedidoRecente | PerguntaRecente)[] {
+export function abertosDoDono(raiz: string, quando: string, estadoDir?: string): AbertoDoDono[] {
   const janela = JANELA_DO_TEXTO_LIVRE_MIN * 60000, agora = Date.parse(quando);
-  const recentes: (PedidoRecente | PerguntaRecente)[] = [];
+  const abertos: AbertoDoDono[] = [];
   const estado = lerConsentimento(raiz, estadoDir);
-  if (estado && !estado.respondido && estado.pedido.candidatos.length && agora - Date.parse(estado.pedido.criadoEm) < janela) {
-    recentes.push({ tipo: 'consentimento', codigo: estado.pedido.codigo });
+  if (estado && !estado.respondido && estado.pedido.candidatos.length) {
+    abertos.push({ tipo: 'consentimento', codigo: estado.pedido.codigo, rotulo: `${estado.pedido.codigo} a (receber as perguntas)`,
+      recente: agora - Date.parse(estado.pedido.criadoEm) < janela });
   }
-  for (const p of lerLoteServido(raiz, estadoDir).perguntas) {
-    if (perguntaEmAberto(p, quando) && agora - Date.parse(p.servidaEm) < janela) recentes.push({ tipo: 'pergunta', servida: p });
+  // A mesma pergunta (mesma thread e mesmo alvo) conta uma vez, servida ou nao, vencida ou nao.
+  const chave = (q: PedidoHitlQualquer) => { const a = alvoDoPedido(q); return `${q.thread}|${a?.tipo === 'session' ? `s:${a.sessionId}` : `g:${q.fase}`}`; };
+  const vistas = new Set<string>();
+  for (const p of lerLoteServido(raiz, estadoDir).perguntas.filter(q => perguntaEmAberto(q, quando))) {
+    const pedido = pedidoDaServida(raiz, p);
+    if (pedido) vistas.add(chave(pedido));
+    abertos.push({ tipo: 'pergunta', servida: p, rotulo: `${p.numero} com a letra (${[p.thread, p.fase].filter(Boolean).join(' · ')})`,
+      recente: agora - Date.parse(p.servidaEm) < janela });
   }
-  return recentes;
+  for (const id of listarIds(raiz)) {
+    try {
+      const t = lerThread(raiz, id);
+      if (t.status === 'fechada') continue;
+      const eventos = lerLedger(dirThread(raiz, id));
+      const contexto = contextoHitlDosEventos(t, eventos);
+      const respondidos = new Set(eventos.filter(e => ['human_gate', 'session_answered'].includes(e.tipo)).map(e => String(e.pedidoId)));
+      for (const e of eventos) {
+        if (e.tipo !== 'hitl_requested' || e.contexto !== contexto) continue;
+        const q = e.pedido as PedidoHitlQualquer;
+        try {
+          if (!alvoDoPedido(q) || respondidos.has(q.id) || estadoDoPedido(q, quando) !== 'aberto' || quemDecide(motivoDoPedido(q)) !== 'dono') continue;
+        } catch { continue; }
+        if (vistas.has(chave(q))) continue;
+        vistas.add(chave(q));
+        const codigo = ehV2(q) && q.classe === 'pergunta' ? q.codigo : undefined;
+        abertos.push({ tipo: 'pedido', recente: false, ...(codigo ? { codigo } : {}),
+          rotulo: codigo ? `${codigo} a (${q.thread} · ${q.fase})` : `${q.thread} · ${q.fase}` });
+      }
+    } catch { /* thread ilegivel nao entra na conta; a palavra solta so fica mais cautelosa */ }
+  }
+  return abertos;
 }
 
 /**
@@ -695,24 +760,27 @@ export function pedidosRecentes(raiz: string, quando: string, estadoDir?: string
 function responderLivre(raiz: string, envelope: RespostaHumana, trecho: TrechoLivre,
   opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes, tg = canal === 'telegram';
-  const recentes = pedidosRecentes(raiz, quando, estadoDir);
+  const abertos = abertosDoDono(raiz, quando, estadoDir);
   const volta = (mensagem: string, motivo: string) => resultado('nao-entendida', mensagem, { recusas: [{ motivo }] });
-  if (!recentes.length) {
-    return volta('Não há pergunta recente para responder só com uma palavra; nada foi registrado. ' +
+  if (!abertos.length) {
+    return volta('Não há pergunta aberta para responder só com uma palavra; nada foi registrado. ' +
       'Responda com o número e a letra (por exemplo 1a) ou com o código da pergunta (por exemplo DE6H a).', 'sem-pergunta-recente');
   }
-  if (recentes.length > 1) {
-    const lista = recentes.map(r => r.tipo === 'consentimento' ? `${r.codigo} a (receber as perguntas)`
-      : `${r.servida.numero} (${[r.servida.thread, r.servida.fase].filter(Boolean).join(' · ')})`).join('; ');
-    return volta(`Há ${recentes.length} perguntas esperando você, e uma palavra só não diz qual; nada foi registrado. ` +
-      `Responda pelo número e a letra: ${lista}.`, 'varias-perguntas');
+  if (abertos.length > 1) {
+    const lista = abertos.slice(0, 5).map(a => a.rotulo).join('; ') + (abertos.length > 5 ? `; e mais ${abertos.length - 5}` : '');
+    return volta(`Há ${abertos.length} perguntas esperando você, e uma palavra só não diz qual; nada foi registrado. ` +
+      `Responda pelo número ou pelo código: ${lista}.`, 'varias-perguntas');
   }
-  const [unico] = recentes;
+  const [unico] = abertos;
+  if (!unico.recente) {
+    return volta(`A pergunta que espera você não acabou de sair por aqui; palavra solta não registra. Responda: ${unico.rotulo}.`,
+      'sem-pergunta-recente');
+  }
   if (unico.tipo === 'consentimento') {
     // O resumo pergunta sim ou nao: a palavra vira a letra, e o caminho e o do codigo, com a prova de sempre.
-    return responderAoResumo(raiz, envelope, unico.codigo, { quando, canal, estadoDir, palavra: trecho });
+    return responderAoResumo(raiz, envelope, unico.codigo!, { quando, canal, estadoDir, palavra: trecho });
   }
-  const p = unico.servida;
+  const p = unico.servida!;
   const pedido = pedidoDaServida(raiz, p);
   if (pedido && ehV2(pedido) && pedido.classe === 'pergunta' && pedido.irreversivel) {
     return volta(`${tg ? '🔒 ' : '! '}A pergunta ${p.numero} é sem volta; palavra solta não registra. Responda com o número e a letra: ` +
@@ -720,9 +788,9 @@ function responderLivre(raiz: string, envelope: RespostaHumana, trecho: TrechoLi
   }
   // D2: a resposta solta nao diz a qual pedido se refere; com mais de um aberto na thread, nem
   // letra nem digito soltos registram. Numerados ("1a") e por codigo ("DE6H a") continuam valendo.
-  const abertos = pedidosAbertosDaThread(raiz, p.thread, quando);
-  if (abertos > 1) {
-    return volta(`${tg ? '⚠️ ' : '! '}a thread da pergunta ${p.numero} tem ${abertos} pedidos abertos; resposta solta não registra. ` +
+  const naThread = pedidosAbertosDaThread(raiz, p.thread, quando);
+  if (naThread > 1) {
+    return volta(`${tg ? '⚠️ ' : '! '}a thread da pergunta ${p.numero} tem ${naThread} pedidos abertos; resposta solta não registra. ` +
       `Mande o número e a letra: ${p.letras.map((l, i) => `${p.numero}${l} (${p.alternativas[i]})`).join(', ')}.`, 'varios-pedidos-na-thread');
   }
   const r = letraDaPalavra(raiz, p, trecho, quando);
@@ -781,16 +849,22 @@ function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
   if (mensagemJaUsadaEmNota(raiz, p.thread, envelope.mensagem)) {
     return resultado('nota', `A nota de ${p.thread} desta mensagem já estava registrada.`, { repetida: true });
   }
-  const t = lerThread(raiz, p.thread);
-  if (t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor)) {
-    return resultado('nota', `${tg ? '⚠️ ' : '! '}${p.thread} já tem nota humana ${t.score.valor}/5; a nota não muda por aqui.`,
-      { recusas: [{ motivo: 'nota.ja-dada' }] });
-  }
   try {
-    const prova = reciboDoCanal(raiz, envelope, { notaPedida: { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: p.pedidoId, codigo: p.codigo },
-      enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: p.codigo,
-        respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
-    registrarMaster(raiz, p.thread, { score: nota.score, justificativa: nota.justificativa, por: envelope.por, refazer: !!t.score, prova });
+    // A4 do CHECK: ler a nota que existe e gravar a nova sob o lock da thread, para uma nota humana
+    // dada no mesmo instante por outro caminho nao ser sobrescrita.
+    const ja = comLockHitl(raiz, p.thread, () => {
+      const t = lerThread(raiz, p.thread);
+      if (t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor)) return t.score.valor;
+      const prova = reciboDoCanal(raiz, envelope, { notaPedida: { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: p.pedidoId, codigo: p.codigo },
+        enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: p.codigo,
+          respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);
+      registrarMaster(raiz, p.thread, { score: nota.score, justificativa: nota.justificativa, por: envelope.por, refazer: !!t.score, prova });
+      return undefined;
+    });
+    if (ja !== undefined) {
+      return resultado('nota', `${tg ? '⚠️ ' : '! '}${p.thread} já tem nota humana ${ja}/5; a nota não muda por aqui.`,
+        { recusas: [{ motivo: 'nota.ja-dada' }] });
+    }
     return resultado('nota', `${tg ? '🧾 ' : ''}Nota ${nota.score}/5 registrada para ${p.thread}, por ${envelope.por}. ` +
       'O índice derivado do ledger continua ao lado.', { registradas: [{ numero: 0, thread: p.thread, letra: String(nota.score), estado: 'nota', repetida: false }] });
   } catch (e) {
@@ -890,11 +964,16 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
   // A conversa do pulse tem dois escritores (a varredura e este receptor): um de cada vez.
   const estadoDir = opcoes.estadoDir ?? path.join(raizDoEstado(raiz), '.orkastery', 'monitor');
   return comLockDaConversa(estadoDir, () => {
-    const r = lido.forma === 'lote' ? responderAsPerguntas(raiz, envelope, lido.escolhas, { quando, canal, estadoDir })
+    const r = ((): ResultadoDaRespostaDoPulse => { try { return lido.forma === 'lote' ? responderAsPerguntas(raiz, envelope, lido.escolhas, { quando, canal, estadoDir })
       : lido.forma === 'lista' ? responderALista(raiz, envelope, lido.itens, { quando, canal, estadoDir })
         : lido.forma === 'livre' ? responderLivre(raiz, envelope, lido.trecho, { quando, canal, estadoDir })
           : lido.forma === 'ratificacao' ? responderRatificacao(raiz, envelope, lido.texto, { canal, estadoDir })
             : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir });
+    } catch (e) {
+      // S3 do CHECK: estado ilegivel ou falha inesperada vira resposta util, nunca silencio nem erro cru.
+      return resultado('nao-entendida', `Não consegui concluir esta resposta agora (${(e as Error).message.slice(0, 120)}). ` +
+        'Confira em ork pulse e mande de novo em um minuto.', { recusas: [{ motivo: 'erro-interno' }] });
+    } })();
     // RM-048 (D3): a janela da palavra solta acompanha o que ainda espera o dono agora.
     try { atualizarEscuta(raiz, quando, estadoDir); } catch { /* dica de rota; a prova nao depende dela */ }
     return r;
@@ -915,11 +994,16 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
       const aberto = estado && !estado.respondido && estado.pedido.candidatos.length ? estado.pedido : undefined;
       return resultado('consentimento', loteDeNovo(raiz, servido, numeros, codigo, quando, canal, aberto), { resposta: 'sim', repetida: false });
     }
+    // RM-048 (item 8): o codigo de um pedido de nota do MASTER ("K7QX 4 entregou o que pedi").
+    // A1 do CHECK: se o mesmo codigo tambem e de um gate aberto, nada e escolhido pelo dono.
+    const nota = pedidoDeNotaDoCodigo(raiz, codigo, estadoDir);
+    if (nota && pedidosComCodigo(raiz, codigo).length) {
+      return resultado('codigo', `O código ${codigo} é de uma nota e de uma pergunta ao mesmo tempo; nada foi registrado. ` +
+        'Responda a pergunta pelo número do lote e peça outro código de nota (ork master pedir).', { recusas: [{ motivo: 'codigo.ambiguo' }] });
+    }
     // RM-048 (D4): o codigo curto de um gate ("DE6H a") responde ao gate, pelo mesmo endereco assinado.
     const peloGate = responderPorCodigoDeGate(raiz, envelope, codigo, { quando, canal });
     if (peloGate) return peloGate;
-    // RM-048 (item 8): o codigo de um pedido de nota do MASTER ("K7QX 4 entregou o que pedi").
-    const nota = pedidoDeNotaDoCodigo(raiz, codigo, estadoDir);
     if (nota) return responderNota(raiz, envelope, nota, { canal, estadoDir });
     if (!estado) return resultado('consentimento', `Não reconheço o código ${codigo} agora: nenhum resumo ou pergunta aberta usa ele. ` +
       'Quando houver pergunta para você, o resumo avisa.');

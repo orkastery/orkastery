@@ -18,6 +18,7 @@ import { aceitarPorOmissao, masterRatificado, proporMaster } from '../src/master
 import { listarBatch } from '../src/master-batch';
 import { ERRO_PROVA_DE_CANAL, exigirNotaSemHost, lerNota, pedirNota } from '../src/master-nota';
 import { responderPeloPulse } from '../src/pulse-resposta';
+import { prepararPedidoGate, registrarPedidoHitl } from '../src/hitl-gates';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { raizDoEstado } from '../src/estado-thread';
 import { main } from '../src/index';
@@ -36,9 +37,10 @@ const masterDone = (dir: string, id: string) => lerLedger(dirThread(dir, id)).fi
 
 /** Roda `main` com o ambiente de um processo de host, e devolve o ambiente como estava. */
 function comAmbiente<T>(env: Record<string, string | undefined>, f: () => T): T {
-  const nomes = ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME', ...Object.keys(env)];
+  const marcas = ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME', 'ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'CODEX_SANDBOX', 'CODEX_SANDBOX_NETWORK_DISABLED'];
+  const nomes = [...marcas, ...Object.keys(env)];
   const antes = Object.fromEntries(nomes.map(n => [n, process.env[n]]));
-  for (const n of ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME']) delete process.env[n];
+  for (const n of marcas) delete process.env[n];
   for (const [n, v] of Object.entries(env)) if (v === undefined) delete process.env[n]; else process.env[n] = v;
   try { return f(); } finally {
     for (const [n, v] of Object.entries(antes)) if (v === undefined) delete process.env[n]; else process.env[n] = v;
@@ -46,7 +48,10 @@ function comAmbiente<T>(env: Record<string, string | undefined>, f: () => T): T 
 }
 
 test('o canal do processo decide a recusa, lido só do ambiente: argv não conta', () => {
-  for (const env of [{ CLAUDECODE: '1' }, { ORK_CANAL: 'openclaw' }, { ORK_CANAL: 'codex' }, { HERMES_HOME: '/home/simulado/.hermes' }]) {
+  // B2 do CHECK: `ORK_CANAL=cli` herdado pela sessão despachada, ou declarado ao lado de uma marca de host, não absolve.
+  for (const env of [{ CLAUDECODE: '1' }, { ORK_CANAL: 'openclaw' }, { ORK_CANAL: 'codex' }, { HERMES_HOME: '/home/simulado/.hermes' },
+    { ORK_CANAL: 'cli', CLAUDECODE: '1' }, { ORK_CANAL: 'cli', ORK_DISPATCH_ID: '11111111-1111-4111-8111-111111111111' },
+    { CODEX_SANDBOX: 'seatbelt' }, { CODEX_SANDBOX_NETWORK_DISABLED: '1' }]) {
     assert.throws(() => exigirNotaSemHost(env), new RegExp(ERRO_PROVA_DE_CANAL), JSON.stringify(env));
   }
   assert.doesNotThrow(() => exigirNotaSemHost({}));
@@ -148,6 +153,25 @@ test('a ratificação do teclado do digest passa pelo ingresso, com o recibo', (
     assert.equal(feito.por, 'telegram:42');
     assert.equal(feito.prova, 'ingresso-autenticado');
     assert.equal(feito.canal, 'hermes');
+  } finally { restaurar(); p.limpar(); }
+});
+
+test('A1 do CHECK: código de nota que também é de gate aberto não vira veredito nem nota', () => {
+  const p = projetoTemporario('master-prova-colisao'), restaurar = ambienteDoIngresso();
+  try {
+    const t = entregou(p, 'entrega com colisao');
+    const pedido = pedirNota(p.dir, t.id, { quando: QUANDO });
+    // Um gate aberto de outra thread com o MESMO código, forçado.
+    const { thread: g } = novaThread(p.carregado, { nome: 'gate classic', modo: 'classic' });
+    registrar(dirThread(p.dir, g.id), g.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
+    const preparado = prepararPedidoGate(p.dir, g.id, 'human.pending', QUANDO);
+    assert.ok('novo' in preparado);
+    registrarPedidoHitl(p.dir, { ...preparado.novo, codigo: pedido.codigo });
+    const monitor = path.join(raizDoEstado(p.dir), '.orkastery', 'monitor');
+    const r = responderPeloPulse(p.dir, dizer(`${pedido.codigo} 2 faltou teste`, 'telegram:-7:930', QUANDO), { quando: QUANDO, estadoDir: monitor });
+    assert.match(r.mensagem, /é de uma nota e de uma pergunta ao mesmo tempo; nada foi registrado/);
+    assert.equal(masterDone(p.dir, t.id).length, 0);
+    assert.equal(lerLedger(dirThread(p.dir, g.id)).some(e => e.tipo === 'human_gate'), false);
   } finally { restaurar(); p.limpar(); }
 });
 

@@ -11,7 +11,7 @@ import { montarPulse, textoDoPulse } from '../src/pulse';
 /** RM-048 (item 8): o dono no terminal, sem marca de host no ambiente; so dai `--por` vale. */
 function terminal(): NodeJS.ProcessEnv {
   const env = { ...process.env };
-  for (const n of ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME']) delete env[n];
+  for (const n of ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME', 'ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'CODEX_SANDBOX', 'CODEX_SANDBOX_NETWORK_DISABLED']) delete env[n];
   return env;
 }
 

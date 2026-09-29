@@ -114,6 +114,31 @@ test('o código vale depois do prazo e depois de "continuar esperando", sempre n
   } finally { c.limpar(); }
 });
 
+test('A2 e A3 do CHECK: a linha velha não desfaz veredito definitivo, e a mesma mensagem é repetida', () => {
+  const c = cenarioDoPulse('estavel-definitivo', 1);
+  try {
+    c.varrer(QUANDO);
+    const consentimento = lerConsentimento(c.p.dir, c.monitor)!.pedido.codigo;
+    c.responder(`${consentimento} a`, 'telegram:-7:700', depois(5));
+    const t = c.itens[0].thread!;
+    const servida = lerLoteServido(c.p.dir, c.monitor).perguntas[0];
+    const codigo = (lerLedger(dirThread(c.p.dir, t)).find(e => e.tipo === 'hitl_requested' &&
+      (e.pedido as { id: string }).id === servida.pedidoId)!.pedido as PerguntaAoDono).codigo;
+    // Depois do prazo, o dono aprova pelo código: vai ao pedido renovado.
+    const aprova = c.responder(`${codigo} a`, 'telegram:-7:701', depois(80));
+    assert.deepEqual(aprova.registradas.map(x => x.estado), ['aprovado'], aprova.mensagem);
+    // O número velho do lote não vira "recusado" em cima do aprovado.
+    const velho = c.responder('1b', 'telegram:-7:702', depois(81));
+    assert.equal(velho.registradas.length, 0, velho.mensagem);
+    assert.deepEqual(humanos(c.p.dir, t).map(h => h.estado), ['aprovado']);
+    // A mesma mensagem entregue de novo pelo gateway é repetida, sem pedido novo.
+    const pedidosAntes = lerLedger(dirThread(c.p.dir, t)).filter(e => e.tipo === 'hitl_requested').length;
+    const de = c.responder(`${codigo} a`, 'telegram:-7:701', depois(81));
+    assert.equal(de.repetida, true, de.mensagem);
+    assert.equal(lerLedger(dirThread(c.p.dir, t)).filter(e => e.tipo === 'hitl_requested').length, pedidosAntes);
+  } finally { c.limpar(); }
+});
+
 test('código em duas threads, desconhecido ou de contexto velho nunca registra', () => {
   const c = cenarioDoPulse('estavel-colisao', 2);
   try {

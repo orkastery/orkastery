@@ -284,7 +284,10 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   // comando que o resolve; a unicidade precisa nascer com o primeiro pedido que o carrega.
   // RM-048 (D4): o gate reaberto no MESMO contexto e pelo mesmo motivo reaproveita o codigo do
   // pedido anterior. Era a troca de codigo a cada hora que fazia a linha recebida virar po.
-  const anterior = (pedidoAtual as { codigo?: unknown } | undefined)?.codigo;
+  // A2 do CHECK: gate ja respondido de forma definitiva (aprovado ou recusado) neste contexto nao
+  // empresta o codigo: o que renasce depois dele e outra pergunta, com outro codigo.
+  const definitivo = gateRespondidoDeVez(eventos, contexto, motivo);
+  const anterior = definitivo ? undefined : (pedidoAtual as { codigo?: unknown } | undefined)?.codigo;
   const codigo = typeof anterior === 'string' ? anterior : gerarCodigo(eventos.flatMap(e => {
     const c = (e.pedido as { codigo?: unknown } | undefined)?.codigo;
     return typeof c === 'string' ? [c] : [];
@@ -320,6 +323,14 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   return { novo: pedido };
 }
 
+/** Algum pedido deste gate (contexto e motivo) ja recebeu veredito definitivo (nao `aguardando`). */
+function gateRespondidoDeVez(eventos: readonly EventoLedger[], contexto: string, motivo: string): boolean {
+  const ids = new Set(eventos.filter(e => e.tipo === 'hitl_requested' && e.contexto === contexto &&
+    alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' && motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo)
+    .map(e => (e.pedido as { id: string }).id));
+  return eventos.some(e => e.tipo === 'human_gate' && ids.has(String(e.pedidoId)) && e.estado !== 'aguardando');
+}
+
 /**
  * RM-048 (D4): o que faz dois pedidos de gate serem a MESMA pergunta para o dono. O identificador,
  * o instante e o prazo mudam a cada renovacao; o que o dono leu e respondeu nao pode mudar.
@@ -350,6 +361,10 @@ export function renovarPedidoDoGate(raiz: string, original: PedidoHitlQualquer, 
   const t = lerThread(raiz, original.thread), eventos = lerLedger(dirThread(raiz, original.thread));
   const evento = eventos.find(e => e.tipo === 'hitl_requested' && (e.pedido as { id?: string } | undefined)?.id === original.id);
   if (!evento || evento.contexto !== contextoHitlDosEventos(t, eventos)) throw new Error('pedido antigo: fase, modo ou sessão mudou');
+  // A2 do CHECK: a linha velha nao desfaz um veredito definitivo dado por outra linha.
+  if (gateRespondidoDeVez(eventos, evento.contexto as string, motivoDoPedido(original))) {
+    throw new Error('pedido antigo: o gate já foi respondido');
+  }
   const preparado = prepararPedidoGate(raiz, original.thread, motivoDoPedido(original), quando);
   const candidato = 'aberto' in preparado ? preparado.aberto : preparado.novo;
   if (essenciaDoPedido(candidato) !== essenciaDoPedido(original)) throw new Error('pedido antigo: a pergunta mudou desde que saiu');
