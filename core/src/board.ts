@@ -139,7 +139,9 @@ export interface VagaRecusada { limite: number; ocupam: SessaoQueOcupa[]; detalh
  * despacho em curso de outra thread (conducao de processo do `phase.run` ou do `retry.run`), senao dois
  * pedidos simultaneos passariam juntos. A conducao da propria thread tem portao proprio. Somente leitura.
  */
-export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, quando: string = agora()): VagaRecusada | null {
+export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, quando: string = agora(),
+  /** S-5 do CHECK 3: o `desde` da tomada deste despacho; despacho em curso de outra thread so conta se veio antes. */
+  desdeProprio?: string): VagaRecusada | null {
   const { raiz, manifesto } = carregado;
   const limite = Math.max(1, manifesto.concurrency.max_parallel_threads);
   const staleMin = manifesto.concurrency.stale_after_min;
@@ -151,6 +153,8 @@ export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, 
     if (!atual) continue;
     const despachando = atual.dono.tipo === 'processo' && (atual.operacao === 'phase.run' || atual.operacao === 'retry.run');
     if (atual.dono.tipo !== 'sessao' && !despachando) continue;
+    // Dois despachos disputando a ultima vaga nao se recusam um ao outro: quem tomou antes fica com ela.
+    if (despachando && desdeProprio && (atual.desde > desdeProprio || (atual.desde === desdeProprio && id > threadId))) continue;
     if (atual.dono.tipo === 'sessao') {
       try { if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin)) continue; }
       catch { /* ledger ilegivel: a conducao viva continua contando */ }

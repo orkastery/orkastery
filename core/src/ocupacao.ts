@@ -123,20 +123,27 @@ function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
  * RM-037 (rm037defeito, defeito 3; achado N1 da rodada 2 do CHECK): a sessao com conducao VIVA que mesmo
  * assim nao ocupa vaga do despacho. Sao so duas: a parada (sem trabalho no ledger ha mais que `staleMin`,
  * o mesmo teto do escalonador) e a que escalou para o humano depois de comecar (`gate_blocked`
- * `human.pending` sem destravamento). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
+ * `human.pending` sem destravamento, ou sessao bloqueada no runtime), e a que o pulse declarou em silencio
+ * (`runtime.silencio`). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
  * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
  * verifica de novo. Somente leitura.
  */
-export function sessaoLivreDaVaga(eventos: EventoLedger[], desde: string, agora: string, staleMin: number): 'stale' | 'human.pending' | null {
+export function sessaoLivreDaVaga(eventos: EventoLedger[], desde: string, agora: string, staleMin: number):
+  'stale' | 'human.pending' | 'runtime.silencio' | null {
   const ultima = ultimaAtividadeEm(eventos);
   if (ultima !== null && minutos(ultima, agora) >= staleMin) return 'stale';
   const inicio = Date.parse(desde);
-  for (let i = eventos.length - 1; i >= 0; i--) {
-    const e = eventos[i];
-    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || e.motivo !== 'human.pending' || Date.parse(e.ts) < inicio) continue;
-    const resolvida = eventos.slice(i + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
-    return resolvida ? null : 'human.pending';
+  const depois = eventos.filter((e) => Date.parse(e.ts) >= inicio);
+  // A-2 e S-7 do CHECK 3: o silencio que o pulse declarou (`runtime.silencio`) e a sessao bloqueada no runtime
+  // esperando o dono tambem nao executam; os dois saem da conta ate o evento que os resolve.
+  for (let i = depois.length - 1; i >= 0; i--) {
+    const e = depois[i];
+    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || (e.motivo !== 'human.pending' && e.motivo !== 'runtime.silencio')) continue;
+    const resolvida = depois.slice(i + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
+    if (!resolvida) return e.motivo as 'human.pending' | 'runtime.silencio';
   }
+  const bloqueio = depois.filter((e) => e.tipo === 'sessao_bloqueada' || e.tipo === 'sessao_destravada').at(-1);
+  if (bloqueio?.tipo === 'sessao_bloqueada') return 'human.pending';
   return null;
 }
 

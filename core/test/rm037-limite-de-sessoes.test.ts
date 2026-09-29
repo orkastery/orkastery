@@ -10,7 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ajustarManifesto, projetoTemporario, runtimePorConta } from './apoio';
 import { vagaDoDespacho } from '../src/board';
-import { conducaoDaThread, registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
+import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
 import { lerLedger, registrar } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { dirThread, novaThread } from '../src/thread';
@@ -192,4 +192,79 @@ test('defeito 3 (N2): a conducao orfa da propria thread, liberada pela tomada, n
     assert.equal(eventos.some(e => e.tipo === 'phase_dispatch'), false);
     assert.equal(conducaoDaThread(p.dir, t.id), null, 'a tomada foi devolvida');
   } finally { p.limpar(); claude.restaurar(); }
+});
+
+// CHECK 3 (A-1, A-2, S-5, S-7).
+
+test('defeito 3 (A-1): a recusa por vaga devolve a reserva do dono', () => {
+  const p = projetoTemporario('rm037-limite-devolve');
+  const claude = runtimePorConta('rm037-limite-devolve');
+  try {
+    claude.conta(p.dir, 'a');
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    // Reserva do canal cli: o proximo pedido do mesmo canal a consumiria.
+    const reservada = novaThread(p.carregado, { nome: 'reservada', modo: 'auto' }).thread;
+    assert.equal(assumirConducao(p.dir, reservada.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
+    threadComSessaoViva(p, 'enche o projeto', 'codex', 71);
+    const r = rodarFase(p.carregado, reservada.id, { fase: 'GOAL', prompt: 'depois da reserva', canal: 'cli' });
+    assert.equal(r.motivo, 'concurrency.limite', r.erro);
+    assert.equal(conducaoDaThread(p.dir, reservada.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
+    assert.ok(lerLedger(dirThread(p.dir, reservada.id)).some(e => e.tipo === 'conducao_devolvida'));
+  } finally { p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 3 (A-1): a tomada que sucedeu uma sessao bloqueada a devolve quando o pedido e recusado', () => {
+  const p = projetoTemporario('rm037-limite-devolve-sessao');
+  try {
+    const t = novaThread(p.carregado, { nome: 'bloqueada', modo: 'auto' }).thread;
+    const sessionId = '00000000-0000-4000-8000-000000000072';
+    assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'a'.repeat(64), prazoMs: 3600_000 },
+      { sessionId, runtime: 'claude-bg', perfil: 'a' }), true);
+    // O runtime diz que a sessao esta blocked: o despacho seguinte da fase a sucede.
+    const tomada = tomarConducao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'b'.repeat(64), prazoMs: 60_000,
+      consultarSessao: () => ({ ok: true, estado: 'blocked', detalhe: 'SIMULADO: blocked' }) });
+    assert.equal(tomada.ok, true);
+    assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'processo');
+    if (tomada.ok) tomada.devolver();
+    const depois = conducaoDaThread(p.dir, t.id);
+    assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', sessionId], 'a sessao bloqueada segue com o lease');
+    assert.ok(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'conducao_devolvida'));
+  } finally { p.limpar(); }
+});
+
+test('defeito 3 (A-2, S-7): silencio do pulse e sessao bloqueada no runtime liberam a vaga ate o evento que resolve', () => {
+  const p = projetoTemporario('rm037-limite-silencio');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const nova = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
+    const conta = () => (vagaDoDespacho(p.carregado, nova.id)?.ocupam.length ?? 0) > 0;
+    const muda = threadComSessaoViva(p, 'muda', 'codex', 81);
+    const dirMuda = dirThread(p.dir, muda.id);
+    assert.equal(conta(), true);
+    registrar(dirMuda, muda.id, 'gate_blocked', { gate: 'liveness', motivo: 'runtime.silencio', fase: 'GO', origem: 'pulse' });
+    assert.equal(conta(), false, 'sessao em silencio nao ocupa');
+    registrar(dirMuda, muda.id, 'gate_passed', { fase: 'GO', motivo: 'runtime.silencio' });
+    assert.equal(conta(), true, 'o silencio resolvido devolve a sessao a conta');
+    registrar(dirMuda, muda.id, 'sessao_bloqueada', { fase: 'GO', sessionId: muda.sessionId });
+    assert.equal(conta(), false, 'bloqueada no runtime esperando o dono nao ocupa');
+    registrar(dirMuda, muda.id, 'sessao_destravada', { fase: 'GO', sessionId: muda.sessionId });
+    assert.equal(conta(), true);
+  } finally { p.limpar(); }
+});
+
+test('defeito 3 (S-5): dois despachos na ultima vaga, fica quem tomou antes', () => {
+  const p = projetoTemporario('rm037-limite-desempate');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const a = novaThread(p.carregado, { nome: 'primeiro', modo: 'auto' }).thread;
+    const b = novaThread(p.carregado, { nome: 'segundo', modo: 'auto' }).thread;
+    const tomada = tomarConducao(p.dir, a.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 60_000 });
+    assert.equal(tomada.ok, true);
+    try {
+      const desdeA = conducaoDaThread(p.dir, a.id)!.desde;
+      const depois = new Date(Date.parse(desdeA) + 1000).toISOString(), antes = new Date(Date.parse(desdeA) - 1000).toISOString();
+      assert.deepEqual(vagaDoDespacho(p.carregado, b.id, undefined, depois)?.ocupam.map(o => o.thread), [a.id], 'b tomou depois: a fica');
+      assert.equal(vagaDoDespacho(p.carregado, b.id, undefined, antes), null, 'b tomou antes: a nao o recusa');
+    } finally { if (tomada.ok) tomada.liberar(); }
+  } finally { p.limpar(); }
 });
