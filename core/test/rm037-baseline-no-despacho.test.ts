@@ -293,16 +293,41 @@ test('defeito 1 (R5-B1): o dono responde a sessao blocked durante a baseline e a
 
 test('defeito 1 (R5-A1): lock HITL ocupado na repeticao nao perde a reserva do dono', () => {
   const { p, f } = projetoCodex('rm037-baseline-lock');
+  const segura = path.join(p.dir, 'segura-o-lock'), pego = path.join(p.dir, 'lock-pego');
   try {
     const t = novaThread(p.carregado, { nome: 'lock', modo: 'auto' }).thread;
     assert.equal(assumirConducao(p.dir, t.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
-    // Durante a suite, outro processo toma o lock HITL (o pulse, uma resposta) e o segura por 3 s.
+    // Durante a suite, outro processo toma o lock HITL (o pulse, uma resposta) e so o solta quando o teste
+    // manda (S3 do CHECK 6: sem relogio). `setsid`: o executor do verify encerra o grupo do comando ao fim.
     const lock = path.join(dirThread(p.dir, t.id), '.hitl.lock');
-    // `setsid`: o executor do verify encerra o grupo de processos do comando ao fim dele.
-    p.carregado.manifesto.verify.test = `sh -c ${JSON.stringify(`setsid flock -x ${lock} sleep 3 < /dev/null > /dev/null 2>&1 & sleep 0.5`)}`;
+    const script = path.join(p.dir, 'segurar-lock.sh');
+    fs.writeFileSync(script, `#!/bin/sh\ntouch ${JSON.stringify(segura)}\n` +
+      `setsid flock -x ${JSON.stringify(lock)} sh -c 'touch ${pego}; while [ -e ${segura} ]; do sleep 0.05; done' </dev/null >/dev/null 2>&1 &\n` +
+      `while [ ! -e ${JSON.stringify(pego)} ]; do sleep 0.05; done\n`, { mode: 0o755 });
+    p.carregado.manifesto.verify.test = `sh ${JSON.stringify(script)}`;
     assert.throws(() => rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' }),
       /HITL ocupado/);
     assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
-    const espera = Date.now() + 4000; while (Date.now() < espera) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
-  } finally { f.restaurar(); p.limpar(); }
+  } finally { fs.rmSync(segura, { force: true }); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (A2 do CHECK 6): no retry, a sucedida que o dono respondeu durante a baseline recebe o lease de volta', () => {
+  const { p, f } = projetoCodex('rm037-baseline-retry-respondida');
+  const claude = runtimeFalso('rm037-baseline-retry-respondida');
+  try {
+    const t = novaThread(p.carregado, { nome: 'retry respondida', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const s1 = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(s1.verificada, true, s1.erro);
+    claude.estadoDaSessao('blocked');
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require('fs').writeFileSync(${JSON.stringify(path.join(claude.dir, 'state'))}, 'running')`)}`;
+    const prompt = 'retomada SIMULADA FINALIZAR-SIMULADO';
+    const relativo = path.join('.orkastery', 'threads', t.id, 'prompts', 'retomada.md');
+    fs.writeFileSync(path.join(p.dir, relativo), prompt);
+    const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', relativo, hashDoPrompt(prompt), { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.detalhe);
+    assert.equal(lerLedger(dir).some(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex'), false, 'nenhuma segunda sessao');
+    const depois = conducaoDaThread(p.dir, t.id);
+    assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', s1.sessionId]);
+  } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
 });

@@ -575,12 +575,16 @@ function reentrada(identidade: string, sair: () => void,
 
 /** Ver `ConducaoTomada.sucessaoAindaVale`. Sessao sucedida que voltou a trabalhar derruba a sucessao. */
 function sucessaoAindaVale(raiz: string, threadId: string, estado: EmCurso): boolean {
+  // S2 do CHECK 6: tomada ja encerrada nao converte mais em sessao; despachar com ela deixaria a sessao sem lease.
+  if (estado.encerrada) return false;
   const dono = estado.substituido?.conducao?.dono;
-  if (!dono || dono.tipo !== 'sessao' || estado.convertida || estado.encerrada) return true;
+  if (!dono || dono.tipo !== 'sessao' || estado.convertida) return true;
   const r = (estado.consultarSessao ?? consultaNativa)(dono, raiz, threadId);
   // Sem resposta do runtime nao ha prova de que ela segue parada: a sucessao nao vale.
   if (!r.ok) return false;
-  return r.estado === 'blocked' || (r.estado !== null && TERMINAIS.includes(r.estado));
+  // S1 do CHECK 6: a sessao que sumiu do runtime, sem perfil, acabou; a mesma prova de `provaDeFimDaSessao`.
+  if (r.estado === null) return !dono.perfil;
+  return r.estado === 'blocked' || TERMINAIS.includes(r.estado);
 }
 
 function renovar(raiz: string, threadId: string, estado: EmCurso, prazoDoProximoMs: number, agoraMs: number): void {

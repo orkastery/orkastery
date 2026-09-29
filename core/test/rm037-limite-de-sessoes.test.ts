@@ -280,3 +280,44 @@ test('defeito 3 (A-3): o bloqueio de OUTRA sessao da thread nao libera a vaga da
     assert.deepEqual(vagaDoDespacho(p.carregado, nova.id)?.ocupam.map(o => o.thread), [viva.id]);
   } finally { p.limpar(); }
 });
+
+test('conducao (S5 do CHECK 6): a reentrada renova o lease de quem a segura; tomada encerrada nao regrava nada', () => {
+  const p = projetoTemporario('rm037-conducao-renovar');
+  try {
+    const t = novaThread(p.carregado, { nome: 'renovar', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const externa = tomarConducao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 1000 });
+    assert.equal(externa.ok, true);
+    if (!externa.ok) return;
+    const dentro = tomarConducao(p.dir, t.id, { canal: 'cli', operacao: 'baseline', prazoMs: 1000, identidade: externa.identidade });
+    assert.equal(dentro.ok && dentro.reentrada, true);
+    if (dentro.ok) { dentro.renovar(3600_000); dentro.liberar(); }
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'conducao_renovada').length, 1, 'a reentrada renovou o lease retido');
+    externa.devolver();
+    assert.equal(conducaoDaThread(p.dir, t.id), null);
+    externa.renovar(3600_000);
+    externa.converterEmSessao({ sessionId: '00000000-0000-4000-8000-000000000111', runtime: 'codex', perfil: null, prazoMs: 1000 });
+    assert.equal(conducaoDaThread(p.dir, t.id), null, 'tomada encerrada nao regrava lease');
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'conducao_renovada').length, 1);
+    assert.equal(externa.sucessaoAindaVale(), false, 'tomada encerrada nunca libera despacho');
+  } finally { p.limpar(); }
+});
+
+test('conducao (S1 do CHECK 6): sucedida que sumiu do runtime, sem perfil, acabou: a sucessao vale', () => {
+  const p = projetoTemporario('rm037-conducao-sumiu');
+  try {
+    const t = novaThread(p.carregado, { nome: 'sumiu', modo: 'auto' }).thread;
+    assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'a'.repeat(64), prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000112', runtime: 'claude-bg', perfil: null }), true);
+    let estado: string | null = 'blocked';
+    const tomada = tomarConducao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', promptSha256: 'b'.repeat(64), prazoMs: 60_000,
+      consultarSessao: () => ({ ok: true, estado, detalhe: 'SIMULADO' }) });
+    assert.equal(tomada.ok, true);
+    if (!tomada.ok) return;
+    estado = null;
+    assert.equal(tomada.sucessaoAindaVale(), true);
+    estado = 'running';
+    assert.equal(tomada.sucessaoAindaVale(), false);
+    tomada.devolver();
+  } finally { p.limpar(); }
+});

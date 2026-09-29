@@ -12,8 +12,9 @@ import { projetoTemporario, runtimePorConta } from './apoio';
 import { controllerSimulado } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
-import { modoDaSessaoDoBloco, rodarFase } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { hashDoPrompt, modoDaSessaoDoBloco, rodarFase } from '../src/phase';
+import { redespachar } from '../src/retry';
+import { dirThread, lerThread, novaThread } from '../src/thread';
 import { Modo } from '../src/types';
 import { exec } from '../src/util';
 
@@ -92,3 +93,24 @@ for (const caso of [
     } finally { encerrar(dir); f.restaurar(); p.limpar(); }
   });
 }
+
+test('defeito 2 (A1 do CHECK 6): o redespacho do retry no claude-bg segue a regra do bloco', () => {
+  const p = projetoTemporario('rm037-modo-retry');
+  const claude = runtimePorConta('rm037-modo-retry');
+  try {
+    claude.conta(p.dir, 'a');
+    const negaEscrita = (modo: Modo) => {
+      const t = novaThread(p.carregado, { nome: `retry ${modo}`, modo }).thread;
+      const prompt = `plano SIMULADO do ${modo}`;
+      const relativo = path.join('.orkastery', 'threads', t.id, 'prompts', 'plano.md');
+      fs.mkdirSync(path.dirname(path.join(p.dir, relativo)), { recursive: true });
+      fs.writeFileSync(path.join(p.dir, relativo), prompt);
+      const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'PLAN', relativo, hashDoPrompt(prompt), { runtime: 'claude-bg', dryRun: true });
+      assert.equal(r.ok, true, r.detalhe);
+      const i = r.comando.indexOf('--disallowedTools');
+      return i >= 0 && /\bWrite\b/.test(r.comando[i + 1]);
+    };
+    assert.equal(negaEscrita('auto'), false, 'no #Auto o bloco segue para o GO: a retomada do PLAN escreve');
+    assert.equal(negaEscrita('classic'), true, 'no #Classic o bloco termina no PLAN: a retomada nao escreve');
+  } finally { p.limpar(); claude.restaurar(); }
+});
