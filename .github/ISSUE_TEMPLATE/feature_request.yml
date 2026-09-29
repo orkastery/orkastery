@@ -1,10 +1,13 @@
 name: Ideia ou pedido de funcionalidade
 description: Um problema real que o ork ainda não resolve
-labels: ["ideia"]
+labels: ["enhancement", "needs triage"]
 body:
   - type: markdown
     attributes:
       value: |
+        Ideia ainda aberta, ou que mexe em contrato? Comece pelo
+        [Discussions, categoria Ideas](https://github.com/orkastery/orkastery/discussions/categories/ideas).
+
         Comece pelo problema, não pela solução. Antes, confira o [roadmap](https://github.com/orkastery/orkastery/blob/main/docs/roadmap/README.md):
         se o item já existe, comente nele o seu caso.
 

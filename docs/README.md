@@ -35,6 +35,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Auditoria](guias/auditoria.md) | Você quer manter o produto saudável ao longo do tempo |
 | [Onboarding do projeto](guias/onboarding.md) | Você está trazendo um repositório novo para o `ork` |
 | [Várias máquinas](guias/varias-maquinas.md) | Você conduz o mesmo produto de mais de um computador, ou com mais de um builder |
+| [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |
 
 ## Referência
 
@@ -67,7 +68,7 @@ Produto e roadmap vivem em páginas com frontmatter, conferidas contra o código
 
 | Documento | Para que serve |
 | --- | --- |
-| [Contribuir](../CONTRIBUTING.md) | Como contribuir, o que um bom PR traz e como uma versão é publicada |
+| [Contribuir](../CONTRIBUTING.md) | O índice dos guias de contribuição: o que contribuir, ambiente, testes, PR, triagem e publicação |
 | [Segurança](../SECURITY.md) | Como reportar vulnerabilidade, e qual é a superfície real do produto |
 | [Código de conduta](../CODE_OF_CONDUCT.md) | Como a comunidade se trata |
 | [Créditos](../ATTRIBUTION.md) | A quem publicou primeiro as ideias em que o produto se apoia |

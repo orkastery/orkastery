@@ -1,7 +1,13 @@
 name: Documentação
 description: Uma página errada, desatualizada, confusa ou que falta
-labels: ["documentação"]
+labels: ["documentation", "needs triage"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Correção pequena? Um PR direto também serve. Onde cada doc mora e como conferir:
+        [guia de documentação](https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/documentacao.md).
+
   - type: input
     id: pagina
     attributes:

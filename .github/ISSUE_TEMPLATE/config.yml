@@ -3,9 +3,18 @@ contact_links:
   - name: Vulnerabilidade de segurança
     url: https://github.com/orkastery/orkastery/security/advisories/new
     about: Não abra issue pública. Use o canal privado; veja SECURITY.md.
+  - name: Ideia ainda aberta
+    url: https://github.com/orkastery/orkastery/discussions/categories/ideas
+    about: Feature nova ou mudança de contrato começa por uma conversa.
+  - name: Dúvida de uso
+    url: https://github.com/orkastery/orkastery/discussions/categories/q-a
+    about: A resposta fica achável para quem vier depois.
   - name: Documentação
     url: https://github.com/orkastery/orkastery/blob/main/docs/README.md
     about: Começar, guias, referência, conceitos, produto e roadmap.
+  - name: Como contribuir
+    url: https://github.com/orkastery/orkastery/blob/main/CONTRIBUTING.md
+    about: Um guia por tarefa, do clone ao PR verde.
   - name: A fonte de verdade é o próprio CLI
     url: https://github.com/orkastery/orkastery/blob/main/docs/referencia/cli.md
     about: "Antes de abrir issue: ork --help, ork doctor, ork modos, ork retry policy."
