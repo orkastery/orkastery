@@ -4,9 +4,21 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-## Não publicado
+## 0.4.2 — 28/09/2026
+
+### Mudado
+
+- **Decisões do tamanho de um dia cheio** no README e no README do pacote: toda pergunta que o
+  `ork` traz é curta, organizada, com alternativas e uma recomendação, pensada para quem conduz
+  dezenas de frentes ao mesmo tempo.
 
 ### Corrigido
+
+- **Sessões despachadas nascem sem escrita de grupo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
+  Com o `umask 002` comum em contas Linux, o Codex criava o histórico da sessão com escrita de grupo,
+  o sensor recusava a fonte, e o `ork` perdia a visão da sessão, que seguia rodando sem registro. O
+  `ork` agora acrescenta os bits 022 ao próprio umask ao iniciar, sem afrouxar um umask mais
+  restrito, e tudo o que ele cria ou despacha herda isso.
 
 - **Observação de sessão codex sob carga** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)).
   Com a máquina ocupada, o registro e o observador recusavam uma sessão legítima, e o `ork-verify`
