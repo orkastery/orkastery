@@ -289,14 +289,12 @@ flowchart LR
     H["Hermes · OpenClaw · Claude Code · Codex"] --> O["Orkastery\nexecução e evidência"]
     O -->|"captura idempotente\nreceipt + proveniência"| B[("OrkMind Company Brain")]
     B -->|"consulta autorizada\nidentidade do transporte"| O
-    W["OrkMind Web\ndocumentos · decisões · Kanban"] -->|"B1 API\nCAS + referências"| B
-    B -->|"ACL revalidada\na cada chamada"| W
 ```
 
 O schema versionado distingue entidades, relações, eventos e referências. `prod → proj → init` conserva a identidade do portfólio; a dimensão legada `project` não é reinterpretada. Captura da factory inclui fases, HITL, decisões, resultados, claims e artefatos com origem e chave idempotente.
 
 Leitura e escrita têm autoridades diferentes. A identidade vem do transporte autenticado. Escrita exige revisão esperada quando o registro é editável; versões anteriores permanecem em histórico append-only. No fluxo protegido do Ork, ativação exige hash do plano, aceite explícito, lease, receipt e readback. `reconcile` e `rollback` não apagam o evento original.
 
-O workspace K2 usa o B1 real por PostgreSQL, sem fixture ou fallback em produção. O backend mantém documentos e decisões nativos, referências fixadas e CAS transacional com `SELECT ... FOR UPDATE`. A UI projeta o mesmo estado no Kanban e nas páginas de conhecimento; cache do navegador não é autoridade.
+O B1 roda sobre PostgreSQL, sem fixture nem fallback em produção, com documentos e decisões nativos, referências fixadas e CAS transacional com `SELECT ... FOR UPDATE`.
 
 Escopo ainda não entregue: B3–B7, K3–K7, cuidadores, Atlas, ponte semântica de dados e world model. A arquitetura completa desses cortes permanece no plano, não no contrato vigente.
