@@ -783,6 +783,10 @@ export interface SessaoNaConta { sessao: SessaoRuntime; perfil: PerfilDeDespacho
  */
 export function acharSessaoNasContas(chave: string, perfis: readonly PerfilDeDespacho[]): { achadas: SessaoNaConta[]; falhas: string[] } {
   const achadas: SessaoNaConta[] = [], falhas: string[] = [], vistos = new Set<string>();
+  // GO-FIX (R5a): cada consulta pode custar dezenas de segundos sob carga. UUID completo e unico em
+  // qualquer conta, entao a busca para na primeira que acha; prefixo ou nome consulta todas, para
+  // recusar a chave ambigua.
+  const unica = UUID_CLAUDE.test(chave);
   for (const perfil of [null, ...perfis.filter(p => p.runtime === 'claude-bg')]) {
     let ambiente: NodeJS.ProcessEnv, configDir: string;
     try { ambiente = ambienteDoPerfil(perfil); configDir = path.resolve(diretorioEfetivo('claude-bg', perfil, ambiente)); }
@@ -793,6 +797,7 @@ export function acharSessaoNasContas(chave: string, perfis: readonly PerfilDeDes
     if (!consulta.ok) { falhas.push(`${perfil?.id ?? 'processo'}: ${consulta.detalhe}`); continue; }
     const sessao = acharSessao(chave, consulta.sessoes);
     if (sessao) achadas.push({ sessao, perfil, configDir, ambiente });
+    if (sessao && unica) break;
   }
   return { achadas, falhas };
 }

@@ -66,9 +66,13 @@ test('defeitosdeco D-2: sessions stop, logs e attach acham a sessao no perfil qu
     assert.match(parada.stdout, new RegExp(`sessao ${sessao} parada \\(perfil a\\)`));
     assert.ok(claude.envs().includes(`stop ${contaA}`), `o claude stop rodou com o CLAUDE_CONFIG_DIR do perfil: ${claude.envs().join(' | ')}`);
 
+    const antes = claude.envs().length;
     const logs = run('sessions', 'logs', sessao);
     assert.equal(logs.status, 0, logs.stdout + logs.stderr);
     assert.ok(claude.envs().includes(`logs ${contaA}`));
+    // GO-FIX (R5a): com o UUID completo, a busca para na conta que achou; b nao e consultada.
+    assert.deepEqual(claude.envs().slice(antes).filter(l => l.startsWith('agents ')).map(l => l.slice(7)),
+      [process.env.CLAUDE_CONFIG_DIR, contaA]);
 
     const attach = run('sessions', 'attach', sessao);
     assert.equal(attach.status, 0, attach.stdout + attach.stderr);
