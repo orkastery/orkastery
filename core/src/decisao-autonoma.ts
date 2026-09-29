@@ -83,6 +83,13 @@ export interface EntradaDaDecisao {
   /** O pedido de uma decisao anterior desta thread que esta desfaz. E o que conta a reversao. */
   reverte?: string;
   quando?: string;
+  /**
+   * RM-037 (rm037defeito, defeito 1): por onde a decisao chegou. O CLI (`ork decisao registrar`) e o
+   * padrao; a sessao codex, cujo sandbox nao grava o ledger, registra pelo MCP (`ork_decision_record`).
+   * A validacao e o evento sao os mesmos; so o registro diz a porta e o host.
+   */
+  origem?: 'cli' | 'mcp';
+  host?: string;
 }
 
 /**
@@ -123,6 +130,7 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
     const evento = registrar(dir, t.id, TIPOS_DE_EVENTO.decisaoAutonoma, {
       contratoDecisao: CONTRATO_DECISAO_AUTONOMA, fase: pedido.fase, decisao: pedido.decidido, ...rastro,
       pedido, ...(entrada.reverte ? { reverte: entrada.reverte } : {}),
+      origem: entrada.origem ?? 'cli', ...(entrada.host ? { host: entrada.host } : {}),
     });
     return { pedido, evento };
   });
