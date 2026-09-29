@@ -1,6 +1,6 @@
 # skills/
 
-Catalogo do Orkastery: as 17 skills que levam a metodologia das 6 fases para qualquer host
+Catalogo do Orkastery: as skills que levam a metodologia das 6 fases para qualquer host
 compativel. Buckets: `core/`, `phases/`, `reviewers/`, `governance/`, `observability/`.
 
 **Regra do catalogo, herdada do original e mantida aqui:** cada skill e um **roteador fino que
@@ -11,6 +11,7 @@ faz, o nucleo vence, e a divergencia e defeito da skill.
 | Bucket | Skill | Roteia para |
 |---|---|---|
 | core | [orkastery-bootstrap](core/orkastery-bootstrap/SKILL.md) | `ork modos`, `ork thread new`, `ork board` |
+| core | [orchestration-experience](core/orchestration-experience/SKILL.md) / [pt-BR](core/orchestration-experience-pt-br/SKILL.md) | `ork experiencia show`, `ork onboarding` |
 | core | [thread-state](core/thread-state/SKILL.md) | `ork thread status`, `ork phase list` |
 | phases | [goal-definition](phases/goal-definition/SKILL.md) | `ork phase run <t> GOAL`, `ork claims add` |
 | phases | [plan-specification](phases/plan-specification/SKILL.md) | `ork phase run <t> PLAN`, `ork lease acquire` |
@@ -30,7 +31,7 @@ faz, o nucleo vence, e a divergencia e defeito da skill.
 
 ## Evals
 
-Os 87 casos que protegem estas skills ficam em [`eval/casos/`](../eval/casos/) e rodam por
+Os casos que protegem estas skills ficam em [`eval/casos/`](../eval/casos/) e rodam por
 `ork eval`. Cada skill tem no minimo tres casos, cobrindo caminho feliz, resistencia a
 racionalizacao e borda de dominio. O runner julga a **metade estatica** (as regras que precisam
 existir no arquivo para o comportamento ser possivel) e diz em voz alta que a **metade
@@ -38,6 +39,7 @@ comportamental e `unavailable`**, nunca `passing`: lacuna e publicada como lacun
 
 ## Instalacao nos hosts
 
-`ork adapter install claude-code|hermes|openclaw` instala estas mesmas skills no host, sem copiar o
-catalogo: **uma copia so**, declarada caminho a caminho no manifesto do plugin. Duas copias do
-catalogo divergem, e a divergencia so aparece quando ja custou uma entrega.
+`ork adapter install claude-code|codex` copia o catálogo e declara suas entradas no host.
+Hermes recebe a entrada própria e as duas variantes de experiência. OpenClaw ainda não
+recebe skills do pacote. A fonte permanece neste catálogo; recibos registram os hashes
+instalados. Preferências vêm de `ork experiencia show --json` no projeto da sessão.
