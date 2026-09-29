@@ -12,7 +12,7 @@ import { projetoTemporario, runtimePorConta } from './apoio';
 import { controllerSimulado } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
-import { baselineDoDespachoNecessaria, garantirBaselineDoDespacho, hashDoPrompt, rodarFase } from '../src/phase';
+import { baselineDoDespachoNecessaria, hashDoPrompt, rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
 import { registrarConducaoDaSessao } from '../src/conducao';
 import { criarServidorMcp } from '../src/mcp-server';
@@ -136,15 +136,40 @@ test('defeito 1 (A2): o redespacho do retry para o codex tambem grava a baseline
   } finally { encerrar(dir); f.restaurar(); p.limpar(); }
 });
 
-test('defeito 1 (S2): thread que ja conduz nao ganha baseline nem conducao_recusada espuria', () => {
+test('defeito 1 (S2): thread com sessao viva recebe a recusa da conducao, sem baseline nem conducao_recusada de baseline', () => {
   const { p, f } = projetoCodex('rm037-baseline-conduz');
+  const claude = runtimePorConta('rm037-baseline-conduz');
+  let dir = '';
   try {
+    claude.conta(p.dir, 'a');
     const t = novaThread(p.carregado, { nome: 'conduz', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const viva = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA viva', runtime: 'claude-bg' });
+    assert.equal(viva.verificada, true, viva.erro);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'outro pedido FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.erro);
+    const eventos = lerLedger(dir);
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), false);
+    assert.equal(eventos.some(e => e.tipo === 'conducao_recusada' && (e.pedido as { operacao?: string } | undefined)?.operacao === 'baseline'), false,
+      'nenhuma baseline foi pedida a toa');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (N3): conducao orfa da propria thread nao solta o codex sem baseline', () => {
+  const { p, f } = projetoCodex('rm037-baseline-orfa');
+  const claude = runtimePorConta('rm037-baseline-orfa');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'orfa', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    // Sessao claude-bg que o runtime ja nao lista: a tomada libera a orfa com prova.
     assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
-      { sessionId: '00000000-0000-4000-8000-000000000041', runtime: 'codex', perfil: null }), true);
-    garantirBaselineDoDespacho(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO' });
-    const tipos = lerLedger(dirThread(p.dir, t.id)).map(e => e.tipo);
-    assert.equal(tipos.includes('baseline_recorded'), false);
-    assert.equal(tipos.includes('conducao_recusada'), false);
-  } finally { f.restaurar(); p.limpar(); }
+      { sessionId: '00000000-0000-4000-8000-000000000051', runtime: 'claude-bg', perfil: null }), true);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'depois da orfa FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespacho = eventos.findIndex(e => e.tipo === 'phase_dispatch');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespacho, `baseline antes da sessao: ${eventos.map(e => e.tipo).join(', ')}`);
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
 });

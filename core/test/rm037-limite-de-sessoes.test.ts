@@ -174,3 +174,22 @@ test('defeito 3 (S1, S3): o despacho em curso de outra thread ocupa; a thread qu
     assert.equal(r.motivo, 'conducao.em-andamento');
   } finally { p.limpar(); }
 });
+
+test('defeito 3 (N2): a conducao orfa da propria thread, liberada pela tomada, nao fura o limite', () => {
+  const p = projetoTemporario('rm037-limite-orfa');
+  const claude = runtimePorConta('rm037-limite-orfa');
+  try {
+    claude.conta(p.dir, 'a');
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    threadComSessaoViva(p, 'ocupa', 'codex', 61);
+    const t = novaThread(p.carregado, { nome: 'orfa', modo: 'auto' }).thread;
+    assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000062', runtime: 'claude-bg', perfil: null }), true);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'depois da orfa' });
+    assert.equal(r.motivo, 'concurrency.limite', r.erro);
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'slot_refused'), true);
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch'), false);
+    assert.equal(conducaoDaThread(p.dir, t.id), null, 'a tomada foi devolvida');
+  } finally { p.limpar(); claude.restaurar(); }
+});

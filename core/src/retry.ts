@@ -31,7 +31,7 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
-  estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
+  baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
 import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
@@ -501,6 +501,11 @@ export interface ResultadoDoRedespacho {
   sessionId: string | null;
   verificada: boolean;
   motivo: MotivoGate | null;
+  /**
+   * RM-037 (defeito 1): o redespacho parou antes da sessao porque falta a baseline do bloco com GO no codex.
+   * Interno: `redespachar` grava a baseline e repete; se ainda faltar, sai como `runtime.unavailable`.
+   */
+  baselinePendente?: true;
   detalhe: string;
   /** Sinal de rate limit quando o redespacho morreu pelo mesmo motivo de novo. */
   sinal: SinalDeRateLimit | null;
@@ -540,8 +545,11 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
   promptRelativo: string, sha: string, opcoes: OpcoesDeRedespacho = {}): ResultadoDoRedespacho {
   const run = () => redespacharSobLock(carregado, lerThread(carregado.raiz, thread.id), fase, promptRelativo, sha, opcoes);
   if (opcoes.dryRun) return run();
-  // RM-037 (defeito 1, achado A2 do CHECK): o fallback do bloco leva a retomada ao codex; sem a baseline
-  // do despacho, a sessao pararia antes do GO pelo mesmo EROFS. Fora do lock HITL, como no phase run.
+  // RM-037 (defeito 1; A2, G1 e N3 do CHECK): o fallback do bloco leva a retomada ao codex. O redespacho
+  // pede a baseline depois das guardas baratas e com a conducao tomada; ela e gravada aqui, fora do lock
+  // HITL, e a retomada repete uma vez, como no `ork phase run`.
+  const r = comLockHitl(carregado.raiz, thread.id, run);
+  if (!r.baselinePendente) return r;
   garantirBaselineDoDespacho(carregado, thread.id, { fase, prompt: '', runtime: opcoes.runtime ?? undefined,
     model: opcoes.model ?? undefined, effort: opcoes.effort ?? undefined, ...(opcoes.canal ? { canal: opcoes.canal } : {}) });
   return comLockHitl(carregado.raiz, thread.id, run);
@@ -647,6 +655,10 @@ function redespacharSobLock(
       doBloco
     );
     const rt = resolverRuntime(runtime);
+    if (!opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, { fase, prompt: '', runtime, model, effort })) {
+      return { ...vazio, ok: false, motivo: 'runtime.unavailable', baselinePendente: true, dryRun: false,
+        detalhe: `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes da retomada` };
+    }
     // D14 (GO-FIX 2): a retomada claude-bg abre com a mesma colaboração e o mesmo contexto de
     // runtime do `ork phase run`; sem eles, o PLAN retomado saía sem negar Edit, Write e
     // NotebookEdit e sem a allowlist do núcleo. O ramo Codex não muda.
