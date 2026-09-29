@@ -71,7 +71,8 @@ fontes:
 - **Regras de negócio:**
   - BR-030-01: o `ork` nunca escolhe um projeto no lugar de quem pediu; ambiguidade é recusa com candidatos.
   - BR-030-02: sem `--projeto` e sem `ORK_PROJETO`, o terminal segue o diretório atual.
-  - BR-030-03: tool de host aceita só nome de projeto; caminho só no `--projeto` do terminal.
+  - BR-030-03: no host, `--projeto` aceita só nome de projeto, venha da tool que vier; caminho só no terminal.
+  - BR-030-07: nome que aponta o projeto do cwd usa a cópia do cwd (a worktree da thread); caminho explícito vale como pedido.
   - BR-030-04: o MCP continua fixado na instalação; o parâmetro `projeto` só confere.
   - BR-030-05: sem o remoto, board e fábrica dizem que nada foi lido de `ork/fabrica-estado`; nunca "nenhuma publicou ainda".
   - BR-030-06: comandos com `--projeto` próprio (`network`, da RM-054) recebem a opção intacta.

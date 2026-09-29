@@ -51,6 +51,12 @@ Uma raiz que perdeu o manifesto aparece em `ork projetos` como ausente e sai da 
 
 O servidor MCP declara `instalacao`: ele nasce fixado num projeto e o parâmetro `projeto` só confere.
 
+- No host (`ORK_PROJETO_EXPLICITO=1`), `--projeto` só aceita **nome**: caminho recusa com
+  `projeto.desconhecido` e os registrados como candidatos. `ORK_PROJETO`, que é configuração de
+  quem opera o host, segue aceitando caminho.
+- Nome (e o único candidato do host) que aponta o mesmo projeto do cwd usa a cópia do cwd: dentro da
+  worktree de uma thread, vale a worktree. Caminho explícito vale como pedido.
+
 Recusas tipadas, com a lista de candidatos (`nome`, `abbrev`, `raiz` com `~`, `remoto`, `presente`)
 e a correção. No CLI, saída 4; com `--json`, o objeto `{erro, detalhe, candidatos, correcao}`.
 
