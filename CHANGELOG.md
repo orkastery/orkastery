@@ -4,6 +4,13 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+## Não publicado
+
+### Removido
+
+- **Tools aposentadas no OpenClaw:** `ork_objective_status` e `ork_objective_message` saem do plugin.
+  Desde a I-43 elas só devolviam a recusa `objective.aposentado`. O plugin fica com 23 tools.
+
 ## 0.4.2 — 28/09/2026
 
 ### Mudado
