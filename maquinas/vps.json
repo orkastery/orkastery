@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T00:31:25.619Z",
+  "publicadoEm": "2026-09-29T00:35:39.936Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -42,11 +42,11 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-i36buscasema-goal",
-      "atualizadaEm": "2026-09-29T00:31:25.384Z",
+      "atualizadaEm": "2026-09-29T00:35:39.678Z",
       "entregue": null,
       "esperaVoce": true,
       "pergunta": "plano",
-      "paradaDesde": "2026-09-29T00:31:25.368Z"
+      "paradaDesde": "2026-09-29T00:35:39.661Z"
     },
     {
       "id": "ork-maestroworks",
