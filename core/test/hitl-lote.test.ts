@@ -130,9 +130,9 @@ test('o texto do lote é topificado, responde por número e letra, e não mostra
   const lote = montarLote([pedido({ id: 'a1' }), pedido({ id: 'a2' }), pedido({ id: 'a3' })]);
   for (const canal of CANAIS) {
     const texto = textoDoLote(lote, { canal });
-    assert.match(texto, /^ {3}a\) Aprovar com as evidências apresentadas/m, canal);
-    assert.match(texto, /^ {6}→ a fase segue e o bloco avança$/m, canal);
-    assert.match(texto, /^ {6}porquê: /m, canal);
+    // RM-048 (D1): contrato curto, uma linha por alternativa com a consequência junto.
+    assert.match(texto, /^a\) Aprovar com as evidências apresentadas.*: a fase segue e o bloco avança$/m, canal);
+    assert.match(texto, /^ {3}porquê: /m, canal);
     // O exemplo tem a forma que o dono digita e que o ingresso reconhece: "1a 2c".
     assert.match(texto, /Responda com o número e a letra, por exemplo: 1a 2a 3a\./, canal);
     // Sem identificador longo e sem JSON, igual à camada 1.
@@ -148,9 +148,10 @@ test('telegram e terminal marcam a recomendada de jeitos diferentes, com o mesmo
   const telegram = textoDoLote(lote, { canal: 'telegram' });
   const terminal = textoDoLote(lote, { canal: 'terminal' });
   assert.match(telegram, /✅ recomendada/);
-  assert.match(terminal, /← recomendada/);
+  assert.match(terminal, /\[recomendada\]/);
   assert.equal(terminal.includes('✅'), false);
-  const semMarca = (t: string) => t.replace(/[📋✅]|←/g, '')
+  // RM-048 (D1): os marcadores mudam, o conteúdo não.
+  const semMarca = (t: string) => t.replace(/📋 |✅ |❓ |⏳ |↩️ |🔒 |\[|\]|Pergunta: |Situação: |^! /gm, '')
     .split('\n').map(l => l.replace(/ +/g, ' ').trimEnd()).join('\n').replace(/^ /gm, '');
   assert.equal(semMarca(telegram), semMarca(terminal));
 });

@@ -4,14 +4,14 @@ tipo: roadmap
 titulo: "HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal"
 categoria: melhoria
 pai: null
-features: []
+features: [FEAT-011, FEAT-014, FEAT-015, FEAT-021]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:10-03:00
+atualizado_em: 2026-09-28T23:59:00-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em validação
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,10 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-hitlhumanono
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-048 — HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em validação | Branch criada | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -78,13 +80,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-09-27 | Julio |
-| Documentação | Rascunho | — | 2026-09-27 | Julio |
-| Código | Não iniciado | — | 2026-09-27 | Julio |
-| Testes | Não iniciados | — | 2026-09-27 | Julio |
-| Deploy | Não implantado | — | 2026-09-27 | Julio |
-| Exposição | Flag desligada | — | 2026-09-27 | Julio |
-| Habilitação | Pendente | — | 2026-09-27 | Julio |
+| Ciclo do item | Em validação | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | Branch criada | — | 2026-09-28 | Julio |
+| Testes | Aprovados | — | 2026-09-28 | Julio |
+| Deploy | Não implantado | — | 2026-09-28 | Julio |
+| Exposição | Flag desligada | — | 2026-09-28 | Julio |
+| Habilitação | Pendente | — | 2026-09-28 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -92,8 +94,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Hermes registrou a demanda a pedido do dono; execução virá por thread no modo do núcleo; a decisão final é de Julio.
-- **Próxima ação, responsável e prazo:** abrir a thread do item e levar ao dono a decisão de aceitar linguagem natural como resposta válida.
+- **Próxima ação, responsável e prazo:** merge do PR da thread `ork-hitlhumanono` pelo condutor, com o CI verde, e o piloto de uma semana no Telegram desta máquina medindo resposta sem registro no ledger.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-27 | item criado | pedido do dono no Telegram: HITL precisa ser resumido, claro, com opções e recomendação, pensado para quem tem TDAH e dezenas de atividades em paralelo | Julio |
+| 2026-09-28 | decisões do dono: texto livre inequívoco registra, ambíguo volta como pergunta; padrão curto em todo canal; status report único; nota do MASTER com prova de canal; linha que não vence em uma hora | pedido direto do dono, thread `ork-hitlhumanono` | Julio |
+| 2026-09-28 | os 8 itens entregues na branch da thread (contrato `ork.hitl-curto/v1`, texto livre, linha estável, "Conosco", `ork roadmap status`, `ork master pedir`) | thread `ork-hitlhumanono`, #Auto, decisões D3 a D9 no ledger | agente condutor; decisão final de Julio |

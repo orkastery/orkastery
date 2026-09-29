@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ManifestoCarregado } from './manifest';
 import { runBrain } from './company-brain-cli';
-export const BRAIN_READ_TOOLS=['ork_brain_status','ork_brain_inventory','ork_brain_get','ork_brain_query','ork_brain_receipts'] as const;
+export const BRAIN_READ_TOOLS=['ork_brain_status','ork_brain_inventory','ork_brain_get','ork_brain_query','ork_brain_receipts','ork_brain_context'] as const;
 export const BRAIN_WRITE_TOOLS=['ork_brain_sync','ork_brain_apply','ork_brain_rollback','ork_brain_bind'] as const;
 /** Installation supplies exact grants; presence of a tool is never activation or human identity. */
 export function registerBrainTools(register:(name:string,config:any,handler:any)=>void,load:()=>ManifestoCarregado,
@@ -10,6 +10,7 @@ export function registerBrainTools(register:(name:string,config:any,handler:any)
   const id=z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/),base=z.object({threadId:id}).strict();
   const definitions:[string,z.AnyZodObject][]=[['status',base],['inventory',base],['get',base.extend({id})],['receipts',base.extend({id})],
     ['query',base.extend({ids:z.array(id).max(1000).optional(),kinds:z.array(z.enum(['prod','proj','init','assertion'])).optional(),limit:z.number().int().min(1).max(1000).optional()})],
+    ['context',base.extend({ids:z.array(id).min(1).max(1000).optional()})],
     ['sync',base],['apply',base.extend({plan:z.string().min(1).max(512),expectedSha256:z.string().regex(/^[a-f0-9]{64}$/)})],
     ['rollback',base.extend({batch:id})],['bind',base.extend({project:id,initiatives:z.array(id).min(1).max(1000)})]];
   for(const [operation,inputSchema] of definitions){

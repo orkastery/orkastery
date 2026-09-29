@@ -148,7 +148,8 @@ test('I-41 (GO-FIX 1): the answer to the pulse is signed at the pulse address an
     const ctx = { channelId: 'telegram', accountId: 'simulated', senderId: '42', conversationId: '-7', messageId: '20' };
     const evento = content => ({ content, channel: 'telegram', commandAuthorized: true, accountId: 'simulated',
       senderId: '42', conversationId: '-7', messageId: '20', timestamp: Date.now() });
-    for (const texto of ['P4EJ a', '1a 2c', '#OrkPulseOn-15m']) {
+    for (const texto of ['P4EJ a', '1a 2c', '#OrkPulseOn-15m', '1. B, 2. A', '1 aprovo', 'DE6H aprovo com a ressalva do risco',
+      'K7QX 4 entregou o que pedi', `ratificar ork-simulado ${'a'.repeat(64)} processo`]) {
       recibo(valido);
       const r = await handler(evento(texto), ctx);
       assert.equal(r.reply.text, valido.mensagem, texto);
@@ -160,9 +161,26 @@ test('I-41 (GO-FIX 1): the answer to the pulse is signed at the pulse address an
         'openclaw', 'simulated', e.origem, e.por, e.mensagem, e.recebidoEm, texto])).digest('hex'));
     }
     // Ordinary chat is not claimed; a pulse-shaped message outside Telegram is not claimed either.
-    for (const texto of ['oi tudo bem', 'HMMM ok', '7XYZ b', '1ab', 'fica em #OrkPulseOn hoje', '#OrkPulseOff-15m']) {
+    for (const texto of ['oi tudo bem', 'HMMM ok', '7XYZ b', '1ab', 'fica em #OrkPulseOn hoje', '#OrkPulseOff-15m',
+      '1. I-31. Aprovar', 'sim', 'aprovo', 'a', '1' + ' '.repeat(400) + 'a']) {
       assert.equal((await handler(evento(texto), ctx)).handled, false, texto);
     }
+    // RM-048 (D3): the bare word is claimed only while the core's listening window is open.
+    const monitor = path.join(dir, '.orkastery', 'monitor');
+    fs.mkdirSync(monitor, { recursive: true });
+    const escuta = (livreAte, contrato = 'ork.pulse-escuta/v1') =>
+      fs.writeFileSync(path.join(monitor, 'pulse-escuta.json'), JSON.stringify({ contrato, livreAte }));
+    escuta(new Date(Date.now() + 30 * 60000).toISOString());
+    for (const texto of ['sim', 'Aprovo!', 'pode seguir', 'a', '1', 'Não']) {
+      recibo(valido);
+      assert.equal((await handler(evento(texto), ctx)).reply.text, valido.mensagem, texto);
+    }
+    escuta(new Date(Date.now() - 60000).toISOString());
+    assert.equal((await handler(evento('sim'), ctx)).handled, false, 'expired window');
+    escuta(new Date(Date.now() + 30 * 60000).toISOString(), 'outro/v1');
+    assert.equal((await handler(evento('sim'), ctx)).handled, false, 'foreign contract');
+    fs.writeFileSync(path.join(monitor, 'pulse-escuta.json'), 'x'.repeat(5000));
+    assert.equal((await handler(evento('sim'), ctx)).handled, false, 'oversized file');
     assert.equal((await handler({ ...evento('1a'), channel: 'discord' }, { ...ctx, channelId: 'discord' })).handled, false);
     // Same identity checks as the gate: another sender is denied before the core is called.
     fs.rmSync(path.join(dir, 'received.json'), { force: true });

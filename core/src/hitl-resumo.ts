@@ -17,7 +17,7 @@
 import { formatarDataHoraRotulada } from './horario';
 import { DecisaoParaODono, FaseAcimaDoLimiar, LIMIAR_DE_DECISOES_POR_FASE } from './decisao-autonoma';
 import {
-  ContagemDeClassificacao, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN, OpcoesDeClassificacao,
+  ContagemDeClassificacao, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN, OpcoesDeClassificacao, quemDecide,
 } from './hitl-classificacao';
 
 export const CONTRATO_RESUMO = 'ork.hitl-resumo/v1' as const;
@@ -80,6 +80,12 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   acimaDoLimiar: FaseAcimaDoLimiar[];
   /** I-51 (RM-047): as outras maquinas da fabrica, quando ela e compartilhada e alguma publicou. */
   outrasMaquinas?: ResumoDeMaquina[];
+  /**
+   * RM-048 (item 6, D6): o que e impedimento tecnico, e por isso do orquestrador. Fica FORA de
+   * "Esperando voce" e das contagens do dono, e aparece numa linha propria, "Conosco".
+   */
+  tecnicos: number;
+  threadsTecnicas: string[];
 }
 
 export interface OpcoesDeResumo {
@@ -97,7 +103,10 @@ export interface OpcoesDeResumo {
 
 export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesDeResumo): ResumoHitl {
   const janelaMin = opcoes.janelaMin ?? JANELA_PADRAO_MIN;
-  const contagem = contarClassificacoes(itens, { quando: opcoes.quando, janelaMin, atoDoItem: opcoes.atoDoItem });
+  // RM-048 (D6): o que e do dono e contado para ele; o que e tecnico e dito a parte.
+  const doDono = itens.filter(i => quemDecide(i.motivo) === 'dono');
+  const tecnicos = itens.filter(i => quemDecide(i.motivo) === 'orquestrador');
+  const contagem = contarClassificacoes(doDono, { quando: opcoes.quando, janelaMin, atoDoItem: opcoes.atoDoItem });
   const prontas = opcoes.prontas ?? 0;
   return {
     contrato: CONTRATO_RESUMO, consultadoEm: opcoes.quando, janelaMin, ...contagem,
@@ -105,7 +114,15 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
     pergunta: prontas > 0 ? PERGUNTA_DO_RESUMO : null,
     decisoes: [...(opcoes.decisoes ?? [])], acimaDoLimiar: [...(opcoes.acimaDoLimiar ?? [])],
     ...(opcoes.outrasMaquinas?.length ? { outrasMaquinas: opcoes.outrasMaquinas.map(m => ({ ...m, esperando: [...m.esperando] })) } : {}),
+    tecnicos: tecnicos.length,
+    threadsTecnicas: [...new Set(tecnicos.map(i => i.thread).filter((t): t is string => !!t))].sort(),
   };
+}
+
+/** RM-048 (D6): a linha do que e tecnico, igual nos dois canais. Nao pede nada ao dono. */
+export function linhaDosTecnicos(r: ResumoHitl): string {
+  const nomes = r.threadsTecnicas.length ? ` (${nomearThreads(r.threadsTecnicas)})` : '';
+  return `Conosco, impedimento técnico: ${r.tecnicos}${nomes}. Não precisa de você.`;
 }
 
 /** Quantas threads de outra maquina o resumo nomeia antes de contar o resto. */
@@ -148,10 +165,11 @@ export function linhasDasDecisoes(r: ResumoHitl, marcador: string, recuo: string
   const mostradas = r.decisoes.slice(-TETO_DE_DECISOES_DETALHADAS), sobra = r.decisoes.length - mostradas.length;
   return [
     ...(r.decisoes.length ? [`${marcador}Decidi sem te perguntar: ${r.decisoes.length}`] : []),
+    // RM-048 (item 4): duas linhas por decisao, efeito primeiro; o resto do detalhe esta no placar.
     ...mostradas.flatMap(d => [
       `${recuo}• ${d.thread} ${d.fase}: ${uma(d.decidido)}`,
-      `${recuo}  porquê: ${uma(d.porque, 120)}. Para mudar: ${uma(d.comoMudar, 120)}.`,
-      `${recuo}  reverter agora: ${uma(d.custoDeReverter.agora, 80)}; depois: ${uma(d.custoDeReverter.depois, 80)}.`,
+      `${recuo}  porquê: ${uma(d.porque, 120)}. Para mudar: ${uma(d.comoMudar, 120)}; ` +
+        `reverter agora: ${uma(d.custoDeReverter.agora, 80)}; depois: ${uma(d.custoDeReverter.depois, 80)}.`,
     ]),
     ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork decisao placar <thread>`] : []),
     ...r.acimaDoLimiar.map(f => `${recuo}${marcador ? '⚠️ ' : '! '}${f.thread} ${f.fase} já tomou ${f.decididas} decisões sozinha, ` +
@@ -206,28 +224,37 @@ function linhaDeResposta(codigo?: string): string[] {
     : ['Responda: a (sim) ou b (agora não).'];
 }
 
-/** O fecho do resumo: a pergunta do dono quando ha o que mandar, e a frase honesta quando nao ha. */
-function fecho(r: ResumoHitl, codigo: string | undefined): string[] {
-  return r.pergunta ? [r.pergunta, ...linhaDeResposta(codigo)] : [SEM_PERGUNTA_NO_RESUMO];
+/**
+ * RM-048 (item 4): a pergunta sai no ALTO, logo depois do titulo, com a linha de como responder.
+ * Em 27/09 ela ficou escondida no fim, depois de tres blocos de decisoes informadas. Sem pergunta,
+ * a frase honesta continua sendo a ultima linha.
+ */
+function abertura(r: ResumoHitl, codigo: string | undefined, marca: string, resposta: string): string[] {
+  return r.pergunta ? [`${marca}${r.pergunta}`, ...linhaDeResposta(codigo).map(l => `${resposta}${l}`), ''] : [];
+}
+
+function fecho(r: ResumoHitl): string[] {
+  return r.pergunta ? [] : ['', SEM_PERGUNTA_NO_RESUMO];
 }
 
 function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
   const quando = formatarDataHoraRotulada(r.consultadoEm, { agora: r.consultadoEm });
   const linhas = [
     `🔔 Orkastery, resumo de ${quando}`,
-    '',
+    ...abertura(r, codigo, '❓ ', '↩️ '),
+    ...(r.pergunta ? [] : ['']),
     `Esperando você: ${r.total}`,
     `⏱ Urgentes: ${r.urgentes}`,
     `⛔ Travando o avanço: ${r.bloqueantes}${r.threadsBloqueadas.length ? `, em ${r.threadsBloqueadas.length} threads` : ''}`,
     ...(r.threadsBloqueadas.length ? [`   ${nomearThreads(r.threadsBloqueadas)}`] : []),
     `🔒 Sem volta depois de feito: ${r.criticos}`,
     `❓ ${linhaDasPerguntas(r.prontas)}`,
+    ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
     ...(r.outrasMaquinas?.length ? ['', ...linhasDasOutrasMaquinas(r, '🖥️ ', '   ')] : []),
-    '',
-    ...fecho(r, codigo),
+    ...fecho(r),
   ];
   return linhas.join('\n');
 }
@@ -246,18 +273,19 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
   const regua = `  ${'-'.repeat(largura)}  ${'-'.repeat(numero)}`;
   const linhas = [
     `Orkastery, resumo de ${quando}`,
-    '',
+    ...abertura(r, codigo, '', ''),
+    ...(r.pergunta ? [] : ['']),
     `  ${'o que'.padEnd(largura)}  ${'quantos'.padStart(numero)}`,
     regua,
     ...celulas.map(([nome, n]) => `  ${nome.padEnd(largura)}  ${String(n).padStart(numero)}`),
     ...(r.threadsBloqueadas.length
       ? ['', `  threads travadas (${r.threadsBloqueadas.length}): ${nomearThreads(r.threadsBloqueadas)}`] : []),
+    ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),
     ...(r.outrasMaquinas?.length ? ['', ...linhasDasOutrasMaquinas(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),
-    '',
-    ...fecho(r, codigo),
+    ...fecho(r),
   ];
   return linhas.join('\n');
 }

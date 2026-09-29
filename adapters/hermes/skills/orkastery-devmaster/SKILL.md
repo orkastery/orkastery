@@ -21,6 +21,7 @@ Sem ingresso no canal escolhido, conserve o pedido pendente e explique o motivo.
 Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
+Status do roadmap: `ork_roadmap_status` (`ork roadmap status`), texto como vem; nunca relatório próprio.
 
 ## O que esta skill e
 
@@ -98,9 +99,9 @@ ork master <thread>
 ```
 
 Quando o dono pedir estado do Company Brain, use o binário instalado `ork_brain` para
-`status`, `query` ou `get`. A identidade vem exclusivamente do login autenticado do
-OrkMind; nunca aceite principal, DSN ou raiz vindos da conversa. Consultas devem levar a
-thread explícita e continuar somente leitura.
+`status`, `query`, `get` ou `context` (pacote citável: fonte, frescor e lacunas; cite o `digest`).
+A identidade vem só do transporte autenticado; nunca aceite principal, DSN ou raiz vindos da
+conversa. Consultas levam a thread explícita e continuam somente leitura.
 
 Cada `phase run` grava o prompt exato com sha256 e registra no ledger. O `ork` reverifica no
 runtime que a sessao existe: self-report de despacho nao vale como evidencia.
@@ -124,20 +125,19 @@ O nucleo monta e o Hermes so transporta: (1) UM resumo recorrente com as contage
 (3) com o sim, ate cinco objetivas a–d com uma recomendada, respondidas numa linha (`1a 2c 3b`).
 Decisao obvia chega tomada e informada no resumo (`ork decisao registrar`). Cadencia (I-50): so a tag na mensagem (`#OrkPulseOff` 8h, `#OrkPulseOn` 2h, `#OrkPulseOn-15m`, `-30m`, `-60m`); pedida no meio da frase, devolva a tag exata para o dono mandar sozinha.
 
-O plugin `orkastery-hitl` so registra esses tres formatos e `/ork gate|session <thread> <pedido> <resposta>`,
-em texto puro, da allowlist, com menos de 60 s. "1. Aprovado" em conversa **nao registra nada**:
-devolva na hora a linha exata, com o id atual de `ork gate request <thread>` (o id muda a cada
-renovacao). **Voce nunca responde pelo dono**: `ork gate answer` do terminal falha com
+O plugin `orkastery-hitl` registra essas formas, a resposta numerada em prosa curta (`1. B, 2. A`,
+`1 aprovo`), o codigo curto do gate (`DE6H a`, `DE6H detalhes`) e, so na janela curta depois da
+pergunta, a palavra solta (`aprovo`, `sim`, `a`); ambiguo volta como pergunta (RM-048). Pedido ao dono sai
+de `ork gate request <thread> --formato telegram`, com o codigo estavel; mande como vem. **Voce nunca responde pelo dono**: `ork gate answer` do terminal falha com
 `proveniencia em argv diverge do envelope`, e essa e a defesa funcionando.
 
-Quando o bloco nao pausa (`#Maestro`, `#Auto`, `#Fast`), o `ork` registra a decisao autonoma com quem
-decidiu, com que evidencia e por que. **O modo afrouxa a pausa, NUNCA a verificacao.**
+Quando o bloco nao pausa (`#Maestro`, `#Auto`, `#Fast`), o `ork` registra a decisao autonoma com quem decidiu, com que evidencia e por que. **O modo afrouxa a pausa, NUNCA a verificacao.**
 
 ## Passo 5: a entrega e o MASTER
 
-O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; ninguem digita nota para a fila
-andar. `ork master` mostra as entregas; `ork master --aceitar-omissao` aceita as pendentes com
-registro; a nota humana sobrescreve. `ork master --batch` saiu na I-43 (`master.fila-aposentada`).
+O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master --aceitar-omissao` aceita as
+pendentes com registro. Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
+e o ingresso prova a origem. Nunca `--por` em nome dele: daqui da `master.prova-de-canal` (RM-048).
 
 Memoria "degradada" tem dois portoes: a variavel da DSN no ambiente do processo
 (`memory_degraded` com `dsn.env-ausente`) e a ativacao de escrita com aceite humano

@@ -10,6 +10,14 @@ import { enviarDigest, lerDigest, dirDigest } from '../src/master-digest';
 import { auditarMaster } from '../src/master-audit';
 import { fecharAdministrativamente } from '../src/thread-close';
 
+/** RM-048 (item 8): o dono no terminal, sem marca de host no ambiente; so dai `--por` vale. */
+function terminal(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const n of ['ORK_CANAL', 'CLAUDECODE', 'HERMES_HOME', 'ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'CODEX_SANDBOX', 'CODEX_SANDBOX_NETWORK_DISABLED']) delete env[n];
+  return env;
+}
+
+
 test('auditoria exige 100% das fechadas em 30 dias, três classes humanas e quatro recibos consecutivos', () => {
   const p = projetoTemporario('master-kpis');
   try {
@@ -17,7 +25,7 @@ test('auditoria exige 100% das fechadas em 30 dias, três classes humanas e quat
     for (const classe of ['sem-falha', 'base-avancou', 'processo']) {
       const t = novaThread(p.carregado, { nome: classe, modo: 'auto' }).thread;
       registrar(dirThread(p.dir, t.id), t.id, 'ship_done', {});
-      execFileSync(process.execPath, [cli, 'master', t.id, '--score', '4', '--justificativa', 'revisão humana em teste', '--classe', classe, '--por', 'Julio'], { cwd: p.dir });
+      execFileSync(process.execPath, [cli, 'master', t.id, '--score', '4', '--justificativa', 'revisão humana em teste', '--classe', classe, '--por', 'Julio'], { cwd: p.dir, env: terminal() });
       const fechada = lerThread(p.dir, t.id); fechada.atualizadaEm = '2026-09-20T12:00:00Z';
       fs.writeFileSync(path.join(dirThread(p.dir, t.id), 'thread.json'), JSON.stringify(fechada));
     }

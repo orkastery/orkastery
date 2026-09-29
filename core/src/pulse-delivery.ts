@@ -12,7 +12,7 @@ import { contextoSeguro, redigirSegredos } from './hitl';
 import { formatarPrazo, fusoDoManifesto, legendaDoFuso, localizarTexto, registrarFonteDoFuso } from './horario';
 import { CanalDoResumo, ResumoDeMaquina, ResumoHitl, resumirHitl, textoDoResumo } from './hitl-resumo';
 import { abrirConsentimento, lerConsentimento, PRAZO_PADRAO_MIN } from './pulse-consentimento';
-import { avaliarFila, chaveDoGate, gatesJaServidos, threadsComPerguntaViva } from './pulse-resposta';
+import { avaliarFila, chaveDoGate, gatesJaServidos, threadsComPerguntaViva, atualizarEscuta } from './pulse-resposta';
 import { JANELA_PADRAO_MIN } from './hitl-classificacao';
 import { expiracaoDoPedido, prazoDoPedido } from './hitl-contract';
 import { adquirirLockMonitor, comLockDaConversa } from './monitor-lock';
@@ -210,6 +210,8 @@ export function varrerPulse(opcoes: {
       const consentimento=fila.candidatos.length?comLockDaConversa(dir,()=>abrirConsentimento(raiz,{quando,
         resumoSha256:assinaturaDoResumo(resumo),candidatos:fila.candidatos,prazoMin:Math.max(janelaMin,PRAZO_PADRAO_MIN),estadoDir:dir})):undefined;
       entregar(textoDoResumo(resumo,{canal,codigo:consentimento?.codigo}),'o resumo');
+      // RM-048 (D3): o resumo acabou de sair; a palavra solta ("sim") vale na janela curta dele.
+      try { atualizarEscuta(raiz,quando,dir); } catch { /* dica de rota; a prova nao depende dela */ }
       // Marcado so depois do recibo do transporte: envio que falhou preserva a novidade.
       for(const item of itens) vistas[item.id]=assinaturaPulse(item);
       for(const d of decisoes) vistas[chaveDaDecisao(d.id)]='informada';

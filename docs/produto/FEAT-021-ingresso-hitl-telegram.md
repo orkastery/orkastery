@@ -4,7 +4,7 @@ tipo: feature
 titulo: Ingresso HITL pelo Telegram
 estado: vigente
 pai: MOD-06
-roadmap: [RM-003, RM-041]
+roadmap: [RM-003, RM-041, RM-048]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-24T21:30:00-03:00
@@ -19,11 +19,13 @@ fontes:
     - adapters/hermes/test/hitl_ingress_test.py
     - adapters/openclaw/test/hitl-ingress.test.mjs
     - core/test/hitl-ingress-receipt.test.ts
+    - core/test/pulse-gramatica-ingresso.test.ts
   simbolos:
     - core/src/hitl-ingress-receipt.ts#validarEvidenciaDoIngresso
   contratos:
     - ork.pulse-resposta/v1
     - ork.hitl-ingress/v1
+    - ork.pulse-escuta/v1
   comandos:
     - ork gate answer
     - ork pulse responder
@@ -35,12 +37,13 @@ fontes:
 
 - **Estado:** vigente · **Verificado em:** 2026-09-24 · **Versão:** main@f9d9bc1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-02](SYS-02-hosts-e-canais.md) > [MOD-06](MOD-06-integracao-com-hosts.md)
-- **Roadmap:** [RM-003](../roadmap/RM-003-hitl-bidirecional-telegram.md), [RM-041](../roadmap/RM-041-hitl-invertido.md)
+- **Roadmap:** [RM-003](../roadmap/RM-003-hitl-bidirecional-telegram.md), [RM-041](../roadmap/RM-041-hitl-invertido.md), [RM-048](../roadmap/RM-048-hitl-humano-no-centro.md)
 - **Dono da página / aprovador:** Julio / Julio
 
 ## Comportamento
 
-- **Casos de uso e operações:** responder gate, responder o código do resumo, responder o lote.
+- **Casos de uso e operações:** responder gate, responder o código do resumo, responder o lote, responder pelo código do gate, responder em texto livre curto, dar a nota do MASTER e ratificar pelo teclado do digest.
+- **Formas que o ingresso intercepta (RM-048):** as de sempre (`P4EJ a`, `1a 2c`, `#OrkPulse...`), a resposta numerada (`1. B, 2. A`, `1 aprovo`, `3 detalhes`), a linha do digest (`ratificar ...`) e, só com a janela de escuta do núcleo aberta (`pulse-escuta.json`), a palavra solta (`aprovo`, `sim`, `a`). O texto depois do código curto vai a 200 caracteres. Texto acima de 300 caracteres nunca é testado contra as formas, e as expressões não têm backtracking caro, porque rodam antes da allowlist. As fontes são as mesmas no núcleo e nos dois adaptadores (`core/test/pulse-gramatica-ingresso.test.ts`).
 - **Pré-condições e gatilho:** remetente e chat na allowlist; bot correto; chave de ingresso configurada.
 - **Fluxo principal:**
 

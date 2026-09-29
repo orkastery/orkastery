@@ -27,6 +27,7 @@ import * as path from 'node:path';
 import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { autenticarResposta, RespostaHumana } from './hitl-gates';
+import { consentimentoDoTrecho, lerTrecho } from './hitl-texto-livre';
 
 export const CONTRATO_CONSENTIMENTO = 'ork.pulse-consent/v1' as const;
 
@@ -154,7 +155,8 @@ export function interpretarResposta(bruto: unknown, codigo: string): RespostaDoC
   if (limpo !== corpo && corpo === '') return undefined; // só o código, sem escolha, não é resposta
   if (['a', 's', 'sim', 'pode', 'manda'].includes(corpo)) return 'sim';
   if (['b', 'n', 'nao', 'não', 'agora nao', 'agora não'].includes(corpo)) return 'nao';
-  return undefined;
+  // RM-048 (D2): o mesmo vocabulario fechado do texto livre ("pode seguir", "aprovo", "depois").
+  return consentimentoDoTrecho(lerTrecho(corpo));
 }
 
 /**
@@ -236,6 +238,12 @@ export function abrirConsentimento(raiz: string, entrada: {
  */
 export function responderConsentimento(raiz: string, entrada: {
   codigo: string; envelope: RespostaHumana; quando?: string; estadoDir?: string;
+  /**
+   * RM-048 (D5): o "sim" ao resumo MAIS RECENTE vale depois do prazo. O lote que ele libera
+   * reconfere cada gate na hora (`servirLote`), entao o prazo so fazia o dono receber outro
+   * codigo. O padrao continua estrito para quem chama sem pedir isto.
+   */
+  aceitarVencido?: boolean;
 }): { resposta: RespostaDoConsentimento; repetida: boolean; pedido: PedidoDeConsentimento; respondido: ConsentimentoRespondido } {
   const quando = entrada.quando ?? new Date().toISOString();
   const estado = lerConsentimento(raiz, entrada.estadoDir);
@@ -258,7 +266,7 @@ export function responderConsentimento(raiz: string, entrada: {
     }
     return { resposta: estado.respondido.resposta, repetida: true, pedido, respondido: estado.respondido };
   }
-  if (Date.parse(quando) >= Date.parse(pedido.prazo)) {
+  if (Date.parse(quando) >= Date.parse(pedido.prazo) && entrada.aceitarVencido !== true) {
     throw new Error('consentimento do pulse: pedido vencido; nenhuma autorização concedida');
   }
   if (!resposta) throw new Error('consentimento do pulse: responda com a (sim) ou b (agora não)');

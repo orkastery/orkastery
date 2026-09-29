@@ -282,6 +282,15 @@ const FERRAMENTAS = [
         argv: (p) => ['brain', 'get', texto(p, 'id'), '--thread', texto(p, 'thread')],
     },
     {
+        name: 'ork_brain_context',
+        description: 'Pacote de contexto citável do Company Brain: entidades pedidas e seus pais, cada uma com a citação da fonte, o frescor contra o portfólio e as lacunas. Só leitura.',
+        parameters: schema({
+            thread: { type: 'string' },
+            ids: { type: 'string', description: 'ids do portfólio separados por vírgula (prod-, proj-, init-)' },
+        }),
+        argv: (p) => ['brain', 'context', '--thread', texto(p, 'thread'), '--ids', texto(p, 'ids')],
+    },
+    {
         name: 'ork_claims_add',
         description: 'Registra uma alegacao verificavel com o comando que a comprova. Toda citacao de arquivo ou teste vira claim.',
         parameters: schema({
@@ -358,29 +367,23 @@ const FERRAMENTAS = [
     },
     {
         name: 'ork_master',
-        description: 'Fecha a thread: POSTMORTEM tipado, MASTER log no contrato congelado e o score HUMANO de 0 a 5 com justificativa. Nunca invente a nota.',
+        description: 'Pede ao dono a nota do MASTER (0 a 5, com o porque) de uma entrega: devolve a linha com o codigo curto para mostrar a ele. A nota volta pelo Telegram, com a prova do ingresso. Esta tool nunca grava nota e nao recebe nome de pessoa (RM-048).',
         parameters: schema({
             thread: { type: 'string' },
-            score: { type: 'string', description: 'inteiro de 0 a 5, dado pelo humano' },
-            justificativa: { type: 'string' },
-            quem: { type: 'string' },
         }),
-        argv: (p) => [
-            'master',
-            texto(p, 'thread'),
-            '--score',
-            texto(p, 'score'),
-            '--justificativa',
-            texto(p, 'justificativa'),
-            '--por',
-            texto(p, 'quem'),
-        ],
+        argv: (p) => ['master', 'pedir', texto(p, 'thread'), '--formato', 'telegram'],
     },
     {
         name: 'ork_board',
         description: 'Todas as threads em uma visao, e o escalonador dizendo quem avanca agora e quem espera.',
         parameters: schema({}),
         argv: () => ['board', 'plan'],
+    },
+    {
+        name: 'ork_roadmap_status',
+        description: 'Status report unico do roadmap no formato aprovado pelo dono (grupos com icones, #HITL e o fecho). Somente leitura: transporte o texto como vem, sem reescrever.',
+        parameters: schema({}),
+        argv: () => ['roadmap', 'status'],
     },
     {
         name: 'ork_master_batch',

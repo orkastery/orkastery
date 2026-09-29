@@ -3,6 +3,9 @@ import { runBrain } from './company-brain-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
+import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
+import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -73,10 +76,10 @@ import {
 import { devolverVagas, textoDoBoard, textoDoPlano, textoDoReap, planejar, threadsDeTodosOsPerfis } from './board';
 import { textoDoRadar, varrerSessoes } from './hitl';
 import { montarPulse, textoDoPulse } from './pulse';
-import { interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
+import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
-import { TipoDeCriterio } from './hitl-contract';
+import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
 import { montarMonitor, textoDoMonitor } from './orquestracao';
 import {
   carimbarAchado,
@@ -383,6 +386,7 @@ Uso: ork <comando> [argumentos]
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
         [--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]
   gate request <thread-id> [--motivo M]     Apresenta pedido HITL correlacionado à pausa
+        [--formato telegram|terminal]           no contrato curto, com o codigo estavel para responder
   gate answer <thread-id> <pedido>          Recebe envelope do ingresso humano autenticado
         --resposta-stdin --por Q --mensagem ID --origem telegram [--canal hermes|openclaw]
         [--conta ID]  conta homologada do canal; obrigatoria no canal openclaw
@@ -413,7 +417,7 @@ Uso: ork <comando> [argumentos]
         [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
         [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
 
-  brain status|inventory|get|query|receipts|sync|reconcile|apply|rollback|bind
+  brain status|inventory|get|query|receipts|context|sync|reconcile|apply|rollback|bind
   memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
@@ -453,7 +457,11 @@ Uso: ork <comando> [argumentos]
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
   master <thread-id> --score 0-5 --justificativa "<texto>"
         [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
-                                            Fecha a thread: POSTMORTEM + MASTER log + score
+                                            Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
+                                            de processo de host e recusado com master.prova-de-canal)
+  master pedir <thread-id> [--formato telegram|terminal|json]
+                                            Pede a nota ao dono com codigo curto; ele responde pelo Telegram
+                                            (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
   master [--todas] [--json]                 As entregas, com o indice derivado do ledger
   master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
   master classes                            As classes de falha fixas do POSTMORTEM
@@ -473,6 +481,8 @@ Uso: ork <comando> [argumentos]
         [--pedido "<texto>"] [--template ID]
   prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
 
+  roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
+                                            voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
@@ -1473,6 +1483,16 @@ function comandoConducao(args: Args): number {
   throw new Error('uso: ork conducao status|assumir <thread-id>');
 }
 
+/** RM-048 (D1): o gate aberto no contrato curto, com o codigo estavel e o "desde" do ledger. */
+function textoDoGateCurto(raiz: string, pedido: PedidoHitlQualquer, canal: 'telegram' | 'terminal'): string {
+  const quando = new Date().toISOString();
+  const eventos = lerLedger(dirThread(raiz, pedido.thread));
+  const codigo = (pedido as { codigo?: unknown }).codigo;
+  const curto = montarPedidoCurto(entradaDoPedido(pedido, desdeDoPedido(eventos, pedido)),
+    { quando, responder: typeof codigo === 'string' ? { tipo: 'codigo', codigo } : { tipo: 'dialogo' } });
+  return textoDoPedidoCurto(curto, canal);
+}
+
 function comandoGate(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
@@ -1491,7 +1511,12 @@ function comandoGate(args: Args): number {
   if (sub === 'request') {
     const id = args.posicionais[2];
     if (!id) throw new Error('gate request exige thread');
-    console.log(JSON.stringify(abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo))));
+    const formato = texto(args.opcoes.formato);
+    if (formato !== undefined && formato !== 'telegram' && formato !== 'terminal') throw new Error('gate request: --formato telegram|terminal');
+    const pedido = abrirPedidoGate(carregado.raiz, id, texto(args.opcoes.motivo));
+    // RM-048 (D1): com --formato, o que sai e o pedido no contrato curto, pronto para o canal, com
+    // o codigo estavel na ultima linha. Sem ele, o JSON de sempre, para quem integra.
+    console.log(formato ? textoDoGateCurto(carregado.raiz, pedido, formato) : JSON.stringify(pedido));
     return 0;
   }
   if (sub === 'answer') {
@@ -2309,9 +2334,19 @@ function comandoMaster(args: Args): number {
     const r = auditarMaster(carregado.raiz);
     console.log(JSON.stringify(r, null, 2)); return r.ok ? 0 : 1;
   }
+  if (primeiro === 'pedir') {
+    // RM-048 (item 8): a nota com prova. O canal mostra a linha; o dono responde pelo Telegram.
+    const id = args.posicionais[2];
+    const formato = texto(args.opcoes.formato) ?? 'telegram';
+    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
+    const pedido = pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) });
+    console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
+    return 0;
+  }
   if (primeiro === 'digest') {
     const sub = args.posicionais[2];
     if (sub === 'responder') {
+      exigirNotaSemHost();
       console.log(JSON.stringify(responderLoteDigest(carregado.raiz, texto(args.opcoes.resposta) ?? '', texto(args.opcoes.por) ?? '').map(r => ({ thread: r.thread.id, score: r.masterLog.score })), null, 2));
       return 0;
     }
@@ -2332,6 +2367,7 @@ function comandoMaster(args: Args): number {
     return 0;
   }
   if (primeiro === 'ratificar' || ((args.opcoes.batch === true || primeiro === 'batch') && args.opcoes.aceitar)) {
+    exigirNotaSemHost();
     let selecao: SelecaoMaster[];
     if (primeiro === 'ratificar') {
       const partes = (texto(args.opcoes.resposta) ?? '').trim().split(/\s+/);
@@ -2418,6 +2454,8 @@ function comandoMaster(args: Args): number {
     console.log(JSON.stringify(proporMaster(carregado.raiz, id, opcoesMaster), null, 2));
     return 0;
   }
+  // RM-048 (D8): nota em nome de pessoa, de processo de host, so pelo ingresso autenticado.
+  exigirNotaSemHost();
   const r = registrarMaster(carregado.raiz, id, opcoesMaster);
   console.log(textoDoMaster(r));
   // Bloco B6: fechada a thread, a licao (POSTMORTEM + score) vai para a colecao
@@ -2468,9 +2506,15 @@ function comandoRoadmap(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
     return 0;
   }
+  if (sub === 'status') {
+    // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
+    return 0;
+  }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
     return 2;
   }
   const opcoes = {

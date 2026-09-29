@@ -63,6 +63,7 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_ship` | Merge serializado por lease e push provado contra o remoto |
 | `ork_master` | POSTMORTEM tipado e o score HUMANO de 0 a 5 |
 | `ork_board` | Escalonador: quem avanca agora e quem espera |
+| `ork_roadmap_status` | Status report unico do roadmap (`ork roadmap status`), transportado como vem |
 | `ork_master_batch` | Todas as entregas, com o indice do ledger (`ork master --todas`; a fila de score saiu na I-43) |
 
 ## A #TAG de conducao

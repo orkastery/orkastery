@@ -62,6 +62,8 @@ export const TIPOS_DE_EVENTO = {
   leaseEnfileirado: 'lease_queued',
   postmortemGravado: 'postmortem_recorded',
   masterConcluido: 'master_done',
+  // RM-048 (item 8): o pedido de nota ao dono, com codigo curto; a nota volta pelo ingresso.
+  notaPedida: 'master_nota_pedida',
   scoreProposto: 'score_proposto',
   masterMigrado: 'master_migrated',
   threadFechadaAdmin: 'thread_closed_admin',
