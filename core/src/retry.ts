@@ -31,7 +31,7 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
-  estadoParaDespacho, prazoDaSessao } from './phase';
+  estadoParaDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
 import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
@@ -679,7 +679,8 @@ function redespacharSobLock(
       logDir: path.join(dirThread(raiz, thread.id), 'sessoes'),
       vinculo: { thread: thread.id, fase, promptSha256: sha },
       ...(perfil ? { perfil } : {}),
-      ...(runtime === 'claude-bg' ? { contextoRuntime, ...(fase === 'PLAN' ? { colaboracao: 'plan' as const } : {}) } : {}),
+      // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
+      ...(runtime === 'claude-bg' ? { contextoRuntime, ...(modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}) } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });

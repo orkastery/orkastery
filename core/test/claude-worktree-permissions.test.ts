@@ -159,7 +159,9 @@ test('GO-FIX 2 (D14): retry run claude-bg sai com as mesmas flags de permissão 
     plugin: args.includes('--plugin-dir'), estrito: args.includes('--strict-mcp-config'),
     modo: args.includes('--permission-mode'), agente: args.includes('--agent') });
   for (const perfil of ['interactive', 'worktree'] as const) {
-    const f = preparar('claude-retry-' + perfil, perfil);
+    // RM-037 (defeito 2): o modo plano vale para o bloco que termina no PLAN. No #Maestro o PLAN fecha o
+    // bloco GOAL-PLAN; no #Auto o bloco segue para o GO e a sessao sai sem modo plano (rm037-modo-do-bloco).
+    const f = preparar('claude-retry-' + perfil, perfil, 'maestro');
     try {
       for (const fase of ['PLAN', 'GO'] as const) {
         const run = rodarFase(f.p.carregado, f.t.id, { fase, runtime: 'claude-bg', prompt: 'retomada ' + fase, dryRun: true });

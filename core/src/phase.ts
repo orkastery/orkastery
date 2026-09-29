@@ -339,6 +339,21 @@ function schemaDeClaimsDoPacote(): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, unknown>;
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 2): o modo da sessao sai do BLOCO, nao da fase de entrada. O modo plano
+ * (codex em `collaborationMode: plan`; claude-bg sem Edit/Write e com MCP so de consulta) e o review
+ * nativo do codex (`review/start`) valem para a sessao inteira. Aplicados pela fase de entrada, o PLAN
+ * redespachado de um bloco GOAL..MASTER abria a sessao em modo plano e ela nao podia seguir para o GO
+ * (rollout 01a0ed23, 29/09/2026), e o CHECK de entrada no codex so revisava, sem SHIP nem MASTER. Os
+ * dois modos ficam para o bloco que termina na propria fase de entrada. Domicilio unico: `ork phase run`
+ * e o redespacho do `ork retry` leem daqui.
+ */
+export function modoDaSessaoDoBloco(thread: Thread, fase: Fase): { plano: boolean; revisaoNativa: boolean } {
+  const bloco = blocoDaThread(thread, fase);
+  const terminaNaEntrada = bloco.fases[bloco.fases.length - 1] === fase;
+  return { plano: fase === 'PLAN' && terminaNaEntrada, revisaoNativa: fase === 'CHECK' && terminaNaEntrada };
+}
+
 /** Slug da sessao que conduz esta fase, rotacionando quando o slug ja foi usado na thread. */
 export function slugDaSessao(thread: Thread, fase: Fase): string {
   const bloco = blocoDaThread(thread, fase);
@@ -839,6 +854,7 @@ function rodarFaseSobLock(
     }
 
     const pausaAoFim = pausaNaThread(thread, fase);
+    const modoDaSessao = modoDaSessaoDoBloco(thread, fase);
     const claimsSchema = fase === 'GO' && runtime === 'codex'
       ? schemaDeClaimsDoPacote()
       : undefined;
@@ -856,12 +872,12 @@ function rodarFaseSobLock(
       vinculo: { thread: thread.id, fase, promptSha256: sha },
       contextoRuntime,
       ...(perfil ? { perfil } : {}),
-      ...(fase === 'PLAN' ? { colaboracao: 'plan' as const } : {}),
+      ...(modoDaSessao.plano ? { colaboracao: 'plan' as const } : {}),
       ...(claimsSchema ? { outputSchema: claimsSchema } : {}),
       // `thread.base.branch` vira a branch fonte quando a thread ganha worktree
       // (`ork/<slug>`). O review nativo precisa comparar essa fonte com a base de
       // integração do projeto; usar a própria fonte produz um diff vazio.
-      ...(fase === 'CHECK' && runtime === 'codex' ? { reviewBaseBranch: manifesto.worktree.base_branch } : {}),
+      ...(modoDaSessao.revisaoNativa && runtime === 'codex' ? { reviewBaseBranch: manifesto.worktree.base_branch } : {}),
       ...(limites ? { duracaoMaximaMs: limites.duracaoMs } : {}),
       // I-36 (D4): a sessao filha herda a identidade do despacho e o canal; e assim que ela reentra.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
