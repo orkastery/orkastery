@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:48:28.771Z",
+  "publicadoEm": "2026-09-29T01:48:34.268Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -29,6 +29,20 @@
       "roadmap": "RM-025",
       "branch": "main",
       "atualizadaEm": "2026-09-29T01:48:26.221Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-defeitosdeco",
+      "nome": "Defeitos de conducao achados em 28-09: conclusao claude-bg, perfis, git com hooks, contexto vazado",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:48:31.668Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
