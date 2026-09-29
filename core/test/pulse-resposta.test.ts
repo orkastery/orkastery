@@ -241,9 +241,11 @@ test('gate que o dono já recebeu não toca resumo sozinho, e volta entre as per
     assert.deepEqual(r.registradas.map(x => [x.numero, x.estado]), [[2, 'aguardando']]);
     // A pergunta 1 vence sem resposta. Nenhum dos dois toca resumo sozinho: o dono já os viu.
     assert.equal(c.varrer(depois(70)).enviadas, 0, 'gate já oferecido voltou a tocar sozinho');
-    // O código usado não reenvia pergunta morta: diz que ela venceu, em vez de pedir resposta recusável.
+    // RM-048 (D4): o código usado reenvia a pergunta ainda sem resposta, mesmo depois do prazo de
+    // uma hora: o número dela continua valendo, e a resposta vai ao pedido renovado.
     const velho = c.responder(`${codigo} a`, 'telegram:-7:802', depois(71));
-    assert.match(velho.mensagem, new RegExp(`As perguntas do código ${codigo} já foram respondidas ou venceram\\.`));
+    assert.match(velho.mensagem, /^1\. ork-/m);
+    assert.equal(/^2\. ork-/m.test(velho.mensagem), false, 'a respondida não volta');
     // Novidade de verdade (um item novo) traz o resumo, e os dois gates voltam entre as perguntas.
     const { thread: nova } = novaThread(c.p.carregado, { nome: 'india classic', modo: 'classic' });
     registrar(dirThread(c.p.dir, nova.id), nova.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });

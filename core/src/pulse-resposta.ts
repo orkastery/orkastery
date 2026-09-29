@@ -25,16 +25,18 @@ import { createHash } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { formatarHora } from './horario';
 import { abrirPedidoGate, autenticarResposta, EnderecoAssinado, MOTIVOS_DE_ESCALACAO_HUMANA,
-  prepararPedidoGate, responderGate, RespostaHumana } from './hitl-gates';
-import { alvoDoPedido, AtoIrreversivel, chaveDaEscolha, estadoDoPedido, motivoDoPedido,
-  PedidoHitlQualquer, prazoDoPedido, validarPedidoHitl } from './hitl-contract';
+  prepararPedidoGate, renovarPedidoDoGate, responderGate, RespostaHumana } from './hitl-gates';
+import { alvoDoPedido, AtoIrreversivel, chaveDaEscolha, ehV2, escolhasDoPedido, estadoDoPedido, motivoDoPedido,
+  PedidoHitlQualquer, PerguntaAoDono, prazoDoPedido, validarPedidoHitl } from './hitl-contract';
 import { comLockDaConversa } from './monitor-lock';
-import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, textoDoLote } from './hitl-lote';
-import { desdeDoPedido } from './hitl-curto';
+import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM, TETO_DE_PERGUNTAS_POR_LOTE, textoDoLote } from './hitl-lote';
+import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
+import { apresentarHitl } from './hitl-presentation';
 import { ItemClassificavel } from './hitl-classificacao';
 import { CADENCIAS, extrairTagDoPulse, gravarCadencia, lerCadencia, TagDoPulse, textoDaCadencia } from './pulse-cadencia';
 import { lerLedger } from './ledger';
-import { dirThread } from './thread';
+import { dirThread, lerThread, listarIds } from './thread';
+import { EventoLedger } from './types';
 import { abrirConsentimento, ALVO_DO_PULSE, CandidatoDoLote, ENDERECO_DA_RESPOSTA, lerConsentimento,
   marcarLoteEntregue, PedidoDeConsentimento, PRAZO_PADRAO_MIN, responderConsentimento } from './pulse-consentimento';
 
@@ -123,6 +125,16 @@ export interface LoteServido {
 /** Quanto tempo uma pergunta respondida continua no registro, para "ja estava registrada". */
 const GUARDA_DO_RESPONDIDO_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * RM-048 (D4): quanto tempo o NUMERO de uma pergunta nao respondida continua valendo depois de
+ * servido. O prazo do pedido e de uma hora; o numero que o dono recebeu nao pode vencer junto:
+ * respondido depois, ele vai ao pedido renovado quando a pergunta e a mesma.
+ */
+export const GUARDA_DA_PERGUNTA_MS = 24 * 60 * 60 * 1000;
+
+/** O maior numero que a gramatica do ingresso le (dois digitos). */
+const MAIOR_NUMERO = 99;
+
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export function arquivoDoLoteServido(raiz: string, estadoDir?: string): string {
@@ -152,15 +164,38 @@ export function perguntaViva(p: PerguntaServida, quando: string): boolean {
   return !p.respondida && (p.prazo === null || Date.parse(quando) < Date.parse(p.prazo));
 }
 
+/**
+ * RM-048 (D4): a pergunta que o dono ainda pode responder pelo numero. Sem resposta e dentro da
+ * guarda de 24 h desde que saiu: depois do prazo do pedido ela vai ao pedido renovado.
+ */
+export function perguntaEmAberto(p: PerguntaServida, quando: string): boolean {
+  return !p.respondida && (perguntaViva(p, quando) || Date.parse(quando) - Date.parse(p.servidaEm) < GUARDA_DA_PERGUNTA_MS);
+}
+
 /** O que sai do registro: vencida sem resposta, ou respondida ha mais de um dia. */
 function podar(lote: LoteServido, quando: string): LoteServido {
   const agora = Date.parse(quando);
   const perguntas = lote.perguntas.filter(p => perguntaViva(p, quando) ||
+    (!p.respondida && agora - Date.parse(p.servidaEm) < GUARDA_DA_PERGUNTA_MS) ||
     (p.respondida && agora - Date.parse(p.respondida.em) < GUARDA_DO_RESPONDIDO_MS));
   const numeros = new Set(perguntas.map(p => p.numero));
   const porCodigo = Object.fromEntries(Object.entries(lote.porCodigo)
     .map(([codigo, ns]) => [codigo, ns.filter(n => numeros.has(n))] as const).filter(([, ns]) => ns.length));
   return { ...lote, perguntas, porCodigo };
+}
+
+/**
+ * O primeiro numero do proximo lote. Continua os do registro, para "1a" nunca querer dizer duas
+ * perguntas; quando passaria de 99, que a gramatica nao le, volta ao menor bloco livre.
+ */
+function numeroInicialLivre(servido: LoteServido): number {
+  const usados = new Set(servido.perguntas.map(p => p.numero));
+  const seguinte = Math.max(0, ...usados) + 1;
+  if (seguinte + TETO_DE_PERGUNTAS_POR_LOTE - 1 <= MAIOR_NUMERO) return seguinte;
+  for (let n = 1; n + TETO_DE_PERGUNTAS_POR_LOTE - 1 <= MAIOR_NUMERO; n++) {
+    if (Array.from({ length: TETO_DE_PERGUNTAS_POR_LOTE }, (_, i) => n + i).every(k => !usados.has(k))) return n;
+  }
+  return 1;
 }
 
 /** Threads com pergunta servida esperando resposta: elas nao entram de novo no resumo. */
@@ -285,7 +320,7 @@ export function servirLote(raiz: string, entrada: {
   const { quando } = entrada;
   let servido = podar(lerLoteServido(raiz, entrada.estadoDir), quando);
   const vivas = new Set(servido.perguntas.filter(p => perguntaViva(p, quando)).map(p => p.thread));
-  const inicio = servido.perguntas.reduce((max, p) => Math.max(max, p.numero), 0) + 1;
+  const inicio = numeroInicialLivre(servido);
   const abertos: { candidato: CandidatoDoLote; pedido: PedidoHitlQualquer }[] = [];
   // Thread ocupada agora (despacho ou outra resposta segurando o lock) nao e thread que deixou de
   // esperar: ela vai para o proximo lote, e nao some do que o dono pediu.
@@ -344,7 +379,7 @@ export function servirLote(raiz: string, entrada: {
  */
 function loteDeNovo(raiz: string, servido: LoteServido, numeros: readonly number[], codigo: string, quando: string,
   canal: 'telegram' | 'terminal', aberto?: PedidoDeConsentimento): string {
-  const vivas = servido.perguntas.filter(p => numeros.includes(p.numero) && perguntaViva(p, quando)).map(p => p.numero);
+  const vivas = servido.perguntas.filter(p => numeros.includes(p.numero) && perguntaEmAberto(p, quando)).map(p => p.numero);
   if (vivas.length) return reenviarLote(raiz, servido, vivas, canal, quando);
   return `As perguntas do código ${codigo} já foram respondidas ou venceram. ` +
     (aberto ? `Para as de agora, responda ${aberto.codigo} a.` : 'O próximo resumo traz as que ainda esperarem você.');
@@ -379,6 +414,147 @@ function recomendadaDoRegistro(raiz: string, p: PerguntaServida): { letra: strin
 }
 
 // ---------------------------------------------------------------------------
+// RM-048 (D4): a linha que o dono recebeu vale enquanto o gate esperar a mesma pergunta.
+// ---------------------------------------------------------------------------
+
+/**
+ * O pedido que recebe a resposta: o proprio, quando ainda esta aberto ou ja foi respondido (ai o
+ * caminho de sempre diz "repetida" ou "divergente"), ou o renovado, quando venceu sem resposta.
+ */
+export function pedidoParaResponder(raiz: string, pedido: PedidoHitlQualquer, quando: string):
+  { vigente: PedidoHitlQualquer; renovadoDe?: string } {
+  const respondido = lerLedger(dirThread(raiz, pedido.thread))
+    .some(e => ['human_gate', 'session_answered'].includes(e.tipo) && e.pedidoId === pedido.id);
+  if (respondido || estadoDoPedido(pedido, quando) === 'aberto') return { vigente: pedido };
+  return { vigente: renovarPedidoDoGate(raiz, pedido, quando), renovadoDe: pedido.id };
+}
+
+export interface PedidoComCodigo { thread: string; pedido: PerguntaAoDono; eventos: EventoLedger[] }
+
+/**
+ * As threads abertas cujo ultimo pedido de gate com este codigo existe. Codigo que casa com mais
+ * de uma thread e devolvido inteiro: quem chama pergunta de volta, nunca escolhe (R3).
+ */
+export function pedidosComCodigo(raiz: string, codigo: string): PedidoComCodigo[] {
+  const alvo = codigo.trim().toUpperCase(), achados: PedidoComCodigo[] = [];
+  for (const id of listarIds(raiz)) {
+    try {
+      if (lerThread(raiz, id).status === 'fechada') continue;
+      const eventos = lerLedger(dirThread(raiz, id));
+      const ultimo = eventos.filter(e => e.tipo === 'hitl_requested').map(e => e.pedido as PedidoHitlQualquer)
+        .filter(q => ehV2(q) && q.classe === 'pergunta' && q.alvo.tipo === 'gate' && String(q.codigo).toUpperCase() === alvo).at(-1);
+      if (ultimo) achados.push({ thread: id, pedido: ultimo as PerguntaAoDono, eventos });
+    } catch { /* thread ilegivel nao responde por codigo */ }
+  }
+  return achados;
+}
+
+/** O bloco de evidencia a um pedido de distancia (item 4): artefato, claims, riscos e diff. */
+export function textoDoDetalhe(raiz: string, pedido: PedidoHitlQualquer, chave: string, canal: 'telegram' | 'terminal'): string {
+  const a = apresentarHitl(raiz, pedido.thread, pedido.profundidade);
+  const tg = canal === 'telegram';
+  return [
+    `${tg ? '🔎 ' : ''}Evidências de ${chave} (${pedido.thread} · ${pedido.fase})`,
+    ...(a.artefato ? ['', 'Artefato:', a.artefato] : []),
+    '', 'Claims:', a.claims, '', 'Riscos:', a.riscos,
+    ...(a.diff ? ['', 'Diff:', a.diff] : []),
+  ].join('\n').slice(0, TETO_DA_MENSAGEM);
+}
+
+/** As alternativas reais em uma linha, para devolver a pergunta sem chutar veredito. */
+export function opcoesReais(pedido: PedidoHitlQualquer, prefixo: string): string {
+  return escolhasDoPedido(pedido).map(o => `${prefixo}${chaveDaEscolha(pedido, o.numero)} (${o.texto})`).join(', ');
+}
+
+/** A letra que o dono digitou depois do codigo: a-d ou 1-4. Palavra fica para o texto livre (T3). */
+function escolhaDigitada(pedido: PedidoHitlQualquer, resto: string): number {
+  const limpo = resto.trim().toLowerCase().replace(/[.!]+$/, '').trim();
+  return escolhasDoPedido(pedido).findIndex(o => chaveDaEscolha(pedido, o.numero) === limpo || String(o.numero) === limpo);
+}
+
+/**
+ * "DE6H a": a resposta a um gate pelo codigo curto que o dono recebeu, sem numero de lote e sem
+ * identificador longo. A prova e a do endereco do pulse, a mesma do lote: o codigo esta DENTRO do
+ * texto assinado, e o rastro grava o que o nucleo traduziu. Devolve `undefined` quando nenhum gate
+ * aberto usa o codigo, para o chamador dizer isso com as palavras dele.
+ */
+function responderPorCodigoDeGate(raiz: string, envelope: RespostaHumana, codigo: string,
+  opcoes: { quando: string; canal: 'telegram' | 'terminal' }): ResultadoDaRespostaDoPulse | undefined {
+  const { quando, canal } = opcoes, tg = canal === 'telegram';
+  const achados = pedidosComCodigo(raiz, codigo);
+  if (!achados.length) return undefined;
+  if (achados.length > 1) {
+    return resultado('codigo', `O código ${codigo} está em ${achados.length} threads (${achados.map(a => a.thread).join(', ')}). ` +
+      'Responda pelo número da pergunta no lote, por exemplo 1a.', { recusas: [{ motivo: 'codigo.ambiguo' }] });
+  }
+  const { thread, pedido, eventos } = achados[0];
+  const resto = envelope.resposta.trim().slice(codigo.length).trim();
+  if (/^(detalhes?|evid[eê]ncias?|\?)[.!]?$/i.test(resto)) return resultado('codigo', textoDoDetalhe(raiz, pedido, codigo, canal));
+  const anterior = eventos.find(e => e.tipo === 'human_gate' && e.pedidoId === pedido.id);
+  if (anterior && anterior.estado !== 'aguardando') {
+    return resultado('codigo', `${tg ? '⚠️ ' : '! '}${codigo} já foi respondido (${String(anterior.estado)}) às ` +
+      `${formatarHora(anterior.ts, { agora: quando })}; a resposta não muda.`, { recusas: [{ motivo: 'ja-respondido' }] });
+  }
+  const indice = escolhaDigitada(pedido, resto);
+  if (indice < 0) {
+    return resultado('codigo', `Não entendi "${resto.slice(0, 40)}" para ${codigo}. Responda com uma destas: ${opcoesReais(pedido, `${codigo} `)}.`,
+      { recusas: [{ motivo: 'nao-entendida' }] });
+  }
+  return registrarPorCodigo(raiz, envelope, { thread, pedido, codigo, indice, quando, canal, rastroExtra: {} });
+}
+
+/** Registra a escolha num pedido achado pelo codigo, renovando-o se venceu. Nao escolhe nada. */
+export function registrarPorCodigo(raiz: string, envelope: RespostaHumana, e: {
+  thread: string; pedido: PedidoHitlQualquer; codigo: string; indice: number; quando: string; canal: 'telegram' | 'terminal';
+  rastroExtra: Record<string, unknown>;
+}): ResultadoDaRespostaDoPulse {
+  const tg = e.canal === 'telegram';
+  let vigente: PedidoHitlQualquer, renovadoDe: string | undefined;
+  try {
+    const anterior = lerLedger(dirThread(raiz, e.thread)).find(x => x.tipo === 'human_gate' && x.pedidoId === e.pedido.id);
+    // Respondido com "continuar esperando", o gate ainda espera: a nova resposta vai ao renovado.
+    ({ vigente, renovadoDe } = anterior && anterior.estado === 'aguardando'
+      ? { vigente: renovarPedidoDoGate(raiz, e.pedido, e.quando), renovadoDe: e.pedido.id }
+      : pedidoParaResponder(raiz, e.pedido, e.quando));
+  } catch (erro) {
+    const m = (erro as Error).message;
+    if (m.includes('a pergunta mudou')) {
+      // A pergunta de agora e outra, com outro codigo: ela e aberta e mostrada, nunca respondida.
+      try {
+        const agora = abrirPedidoGate(raiz, e.thread, motivoDoPedido(e.pedido), e.quando);
+        const novo = (agora as { codigo?: unknown }).codigo;
+        const texto = typeof novo === 'string' ? textoDoPedidoCurto(montarPedidoCurto(entradaDoPedido(agora),
+          { quando: e.quando, responder: { tipo: 'codigo', codigo: novo } }), e.canal) : '';
+        return resultado('codigo', [`${tg ? '⚠️ ' : '! '}A pergunta de ${e.codigo} mudou desde que saiu; nada foi registrado. A de agora:`, '', texto].join('\n'),
+          { recusas: [{ motivo: 'pergunta-mudou' }] });
+      } catch { /* cai na frase de baixo */ }
+    }
+    return resultado('codigo', `${tg ? '⚠️ ' : '! '}${e.codigo} já não espera você: a fase mudou desde que a pergunta saiu. Nada foi registrado.`,
+      { recusas: [{ motivo: 'pedido-antigo' }] });
+  }
+  const chave = chaveDaEscolha(vigente, e.indice + 1);
+  const derivada: RespostaHumana = { ...envelope, resposta: chave };
+  const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, envelope,
+    rastro: { contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: e.codigo, letra: chave, respostaDoDonoSha256: sha(envelope.resposta),
+      ...(renovadoDe ? { renovadoDe } : {}), ...e.rastroExtra } };
+  try {
+    const r = responderGate(raiz, e.thread, vigente.id, derivada, e.quando, assinado);
+    const o = escolhasDoPedido(vigente)[e.indice];
+    const consequencia = ehV2(vigente) && vigente.classe === 'pergunta' ? vigente.alternativas[e.indice]?.consequencia : undefined;
+    return resultado('codigo', `${tg ? '✅ ' : ''}${e.codigo} → ${chave}) ${o.texto}${consequencia ? `: ${consequencia}` : ''}.`,
+      { registradas: [{ numero: 0, thread: e.thread, letra: chave, estado: r.estado, repetida: r.repetida }], repetida: r.repetida });
+  } catch (erro) {
+    const m = (erro as Error).message;
+    const motivo = m.includes('ocupado') ? `a thread de ${e.codigo} estava ocupada; mande de novo em um minuto.`
+      : m.includes('proveniência') || m.includes('não autenticada') ? `não consegui provar a origem da resposta a tempo; mande ${e.codigo} ${chave} de novo.`
+      : m.includes('já respondido') ? `${e.codigo} já tinha resposta registrada; a resposta não muda.`
+      : m.includes('pedido antigo') ? `${e.codigo} já não espera você: a fase mudou desde que a pergunta saiu. Nada foi registrado.`
+      : `não consegui registrar ${e.codigo}: ${m.slice(0, 120)}`;
+    return resultado('codigo', `${tg ? '⚠️ ' : '! '}${motivo}`, { recusas: [{ motivo }] });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // O receptor.
 // ---------------------------------------------------------------------------
 
@@ -393,7 +569,7 @@ export interface RegistroDaResposta {
 export interface ResultadoDaRespostaDoPulse {
   contrato: typeof CONTRATO_RESPOSTA_DO_PULSE;
   ok: true;
-  tipo: 'consentimento' | 'lote' | 'cadencia' | 'nao-entendida';
+  tipo: 'consentimento' | 'lote' | 'cadencia' | 'codigo' | 'nao-entendida';
   resposta?: 'sim' | 'nao';
   /** I-50: a cadencia gravada, quando a mensagem era a tag. */
   cadencia?: TagDoPulse;
@@ -447,34 +623,31 @@ function responderAoResumo(raiz: string, envelope: RespostaHumana, codigo: strin
   opcoes: { quando: string; canal: 'telegram' | 'terminal'; estadoDir?: string }): ResultadoDaRespostaDoPulse {
   const { quando, canal, estadoDir } = opcoes;
   const estado = lerConsentimento(raiz, estadoDir);
-  if (!estado) return resultado('consentimento', 'Não há resumo esperando resposta agora. Quando houver pergunta para você, o resumo avisa.');
-  if (estado.pedido.codigo !== codigo) {
+  if (!estado || estado.pedido.codigo !== codigo) {
     const servido = lerLoteServido(raiz, estadoDir);
     const numeros = servido.porCodigo[codigo];
     // Sim repetido a um codigo que ja serviu lote: devolve o MESMO lote, nunca um novo.
     if (numeros?.length) {
       // O dono pediu de novo, por outra mensagem: ele recebe o mesmo lote, e nao silencio.
-      const aberto = !estado.respondido && Date.parse(quando) < Date.parse(estado.pedido.prazo) && estado.pedido.candidatos.length
-        ? estado.pedido : undefined;
+      // RM-048 (D5): o resumo mais recente nao vence para o sim; o codigo dele continua valendo.
+      const aberto = estado && !estado.respondido && estado.pedido.candidatos.length ? estado.pedido : undefined;
       return resultado('consentimento', loteDeNovo(raiz, servido, numeros, codigo, quando, canal, aberto), { resposta: 'sim', repetida: false });
     }
-    return resultado('consentimento', `O código ${codigo} não é o do resumo aberto. O resumo aberto usa ${estado.pedido.codigo}: ` +
-      `responda ${estado.pedido.codigo} a para receber as perguntas.`);
+    // RM-048 (D4): o codigo curto de um gate ("DE6H a") responde ao gate, pelo mesmo endereco assinado.
+    const peloGate = responderPorCodigoDeGate(raiz, envelope, codigo, { quando, canal });
+    if (peloGate) return peloGate;
+    if (!estado) return resultado('consentimento', `Não reconheço o código ${codigo} agora: nenhum resumo ou pergunta aberta usa ele. ` +
+      'Quando houver pergunta para você, o resumo avisa.');
+    return resultado('consentimento', `O código ${codigo} não é o do resumo aberto nem de uma pergunta aberta. O resumo aberto usa ` +
+      `${estado.pedido.codigo}: responda ${estado.pedido.codigo} a para receber as perguntas.`);
   }
   let r: ReturnType<typeof responderConsentimento>;
   try {
-    r = responderConsentimento(raiz, { codigo, envelope, quando, estadoDir });
+    // RM-048 (D5): o sim ao resumo mais recente vale depois do prazo; o lote reconfere cada gate.
+    r = responderConsentimento(raiz, { codigo, envelope, quando, estadoDir, aceitarVencido: true });
   } catch (e) {
     const m = (e as Error).message;
     if (!m.startsWith('consentimento do pulse: ')) throw e;
-    if (m.includes('vencido')) {
-      // Vencido nao autoriza, e o dono nao fica sem caminho: o mesmo conjunto ganha codigo novo.
-      if (!estado.pedido.candidatos.length) return resultado('consentimento', `Este resumo venceu às ${formatarHora(estado.pedido.prazo, { agora: quando })}.`);
-      const novo = abrirConsentimento(raiz, { quando, resumoSha256: estado.pedido.resumoSha256,
-        candidatos: estado.pedido.candidatos, prazoMin: PRAZO_PADRAO_MIN, estadoDir });
-      return resultado('consentimento', `Este resumo venceu às ${formatarHora(estado.pedido.prazo, { agora: quando })}. ` +
-        `Para receber as perguntas agora, responda ${novo.codigo} a.`);
-    }
     if (m.includes('divergente')) {
       const antes = estado.respondido!;
       return resultado('consentimento', antes.resposta === 'sim'
@@ -517,7 +690,10 @@ function marcarLoteEntregueSeAindaFor(raiz: string, quando: string, estadoDir: s
 function motivoParaODono(p: PerguntaServida, letra: string, erro: Error, quando: string): string {
   const m = erro.message, n = p.numero;
   if (m.includes('expirado')) return `a pergunta ${n} venceu às ${formatarHora(p.prazo, { agora: quando })}; o próximo resumo a traz de novo se ela ainda esperar você.`;
+  if (m.includes('a pergunta mudou')) return `a pergunta ${n} mudou desde que saiu; nada foi registrado, e ela volta no próximo resumo com o texto de agora.`;
   if (m.includes('pedido antigo')) return `a pergunta ${n} já não espera você: a fase mudou desde que ela saiu.`;
+  // RM-048 (D4): vencida, a renovacao so acontece se o gate ainda espera; senao, ela e historia.
+  if (/pausa humana nesta fase|conclusão da fase|escalação tipada não comprovada/.test(m)) return `a pergunta ${n} já não espera você.`;
   if (m.includes('já respondido')) return `a pergunta ${n} já tinha resposta registrada; a resposta não muda.`;
   if (m.includes('ocupado')) return `a thread da pergunta ${n} estava ocupada; mande ${n}${letra} de novo em um minuto.`;
   if (m.includes('proveniência') || m.includes('não autenticada')) return `não consegui provar a origem da resposta ${n} a tempo; mande ${n}${letra} de novo.`;
@@ -548,13 +724,17 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
     }
     const p = servido.perguntas.find(q => q.numero === numero);
     if (!p) {
-      const abertas = servido.perguntas.filter(q => perguntaViva(q, quando)).map(q => q.numero);
+      const abertas = servido.perguntas.filter(q => perguntaEmAberto(q, quando)).map(q => q.numero);
       const motivo = `não há pergunta ${numero} ${abertas.length ? `aberta; as abertas são ${abertas.join(', ')}` : 'aberta agora'}.`;
       recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
     }
     const indice = p.letras.indexOf(letra);
     if (indice < 0) {
       const motivo = `a pergunta ${numero} vai de a até ${p.letras.at(-1)}; "${letra}" não é uma das alternativas.`;
+      recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
+    }
+    if (!p.respondida && !perguntaEmAberto(p, quando)) {
+      const motivo = `a pergunta ${numero} saiu há mais de 24 h; ela volta no próximo resumo se ainda esperar você.`;
       recusas.push({ numero, motivo }); linhas.push(`${telegram ? '⚠️ ' : '! '}${motivo}`); continue;
     }
     if (p.respondida) {
@@ -575,10 +755,14 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
       const pedido = evento!.pedido as PedidoHitlQualquer;
       // O numero aponta para o pedido que saiu, byte a byte. Pedido trocado nao recebe a letra.
       if (sha(JSON.stringify(pedido)) !== p.pedidoSha256) throw new Error('pedido antigo: fase, modo ou sessão mudou');
-      const derivada: RespostaHumana = { ...envelope, resposta: chaveDaEscolha(pedido, indice + 1) };
+      // RM-048 (D4): vencido e sem resposta, o numero vai ao pedido renovado, e so quando a
+      // pergunta e o contexto sao os mesmos. Respondido, segue o caminho de sempre (repetida).
+      const { vigente, renovadoDe } = pedidoParaResponder(raiz, pedido, quando);
+      const derivada: RespostaHumana = { ...envelope, resposta: chaveDaEscolha(vigente, indice + 1) };
       const assinado: EnderecoAssinado = { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, envelope,
-        rastro: { contrato: CONTRATO_RESPOSTA_DO_PULSE, numero, letra, respostaDoDonoSha256: sha(envelope.resposta) } };
-      const r = responderGate(raiz, p.thread, p.pedidoId, derivada, quando, assinado);
+        rastro: { contrato: CONTRATO_RESPOSTA_DO_PULSE, numero, letra, respostaDoDonoSha256: sha(envelope.resposta),
+          ...(renovadoDe ? { renovadoDe } : {}) } };
+      const r = responderGate(raiz, p.thread, vigente.id, derivada, quando, assinado);
       registradas.push({ numero, thread: p.thread, letra, estado: r.estado, repetida: r.repetida });
       linhas.push(`${telegram ? '✅ ' : ''}${numero} → ${letra}) ${p.alternativas[indice]}: ${p.consequencias[indice]}.`);
       servido = { ...servido, perguntas: servido.perguntas.map(q => q.numero === numero
@@ -592,10 +776,10 @@ function responderAsPerguntas(raiz: string, envelope: RespostaHumana, escolhas: 
   const cabecalho = registradas.length
     ? `${telegram ? '📝 ' : ''}Orkastery, ${registradas.length === 1 ? '1 resposta registrada' : `${registradas.length} respostas registradas`}`
     : `${telegram ? '📝 ' : ''}Orkastery, nenhuma resposta registrada`;
-  const pendentes = servido.perguntas.filter(q => perguntaViva(q, quando)).map(q => q.numero);
+  const pendentes = servido.perguntas.filter(q => perguntaEmAberto(q, quando)).map(q => q.numero);
   const aberto = lerConsentimento(raiz, estadoDir);
-  const proximo = aberto && !aberto.respondido && aberto.pedido.candidatos.length && Date.parse(quando) < Date.parse(aberto.pedido.prazo)
-    ? aberto.pedido : undefined;
+  // RM-048 (D5): o codigo do resumo mais recente continua valendo depois do prazo.
+  const proximo = aberto && !aberto.respondido && aberto.pedido.candidatos.length ? aberto.pedido : undefined;
   const texto = [
     cabecalho, '', ...linhas,
     ...(pendentes.length ? ['', `Ainda sem resposta: ${pendentes.join(', ')}.`] : []),

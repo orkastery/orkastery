@@ -236,6 +236,12 @@ export function abrirConsentimento(raiz: string, entrada: {
  */
 export function responderConsentimento(raiz: string, entrada: {
   codigo: string; envelope: RespostaHumana; quando?: string; estadoDir?: string;
+  /**
+   * RM-048 (D5): o "sim" ao resumo MAIS RECENTE vale depois do prazo. O lote que ele libera
+   * reconfere cada gate na hora (`servirLote`), entao o prazo so fazia o dono receber outro
+   * codigo. O padrao continua estrito para quem chama sem pedir isto.
+   */
+  aceitarVencido?: boolean;
 }): { resposta: RespostaDoConsentimento; repetida: boolean; pedido: PedidoDeConsentimento; respondido: ConsentimentoRespondido } {
   const quando = entrada.quando ?? new Date().toISOString();
   const estado = lerConsentimento(raiz, entrada.estadoDir);
@@ -258,7 +264,7 @@ export function responderConsentimento(raiz: string, entrada: {
     }
     return { resposta: estado.respondido.resposta, repetida: true, pedido, respondido: estado.respondido };
   }
-  if (Date.parse(quando) >= Date.parse(pedido.prazo)) {
+  if (Date.parse(quando) >= Date.parse(pedido.prazo) && entrada.aceitarVencido !== true) {
     throw new Error('consentimento do pulse: pedido vencido; nenhuma autorização concedida');
   }
   if (!resposta) throw new Error('consentimento do pulse: responda com a (sim) ou b (agora não)');
