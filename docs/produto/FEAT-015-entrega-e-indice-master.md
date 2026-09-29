@@ -46,7 +46,7 @@ fontes:
 ## Comportamento
 
 - **Casos de uso e operações:** fechar thread, ver entregas com o índice, aceitar por omissão, digest semanal, pedir a nota ao dono pelo canal.
-- **Nota com prova de origem (RM-048):** `ork master pedir <thread>` devolve a linha `<código> <0 a 5> <porquê>`; o dono responde pelo Telegram, o ingresso assina no endereço do pulse e o `master_done` grava o remetente autenticado, o canal, a mensagem, o sha da prova e a evidência com o envelope. `ork master` com `--por` (nota, `ratificar`, `batch --aceitar`, `digest responder`) chamado de processo de host é recusado com `master.prova-de-canal`; o canal é lido só do ambiente. Limite: quem apaga as variáveis do próprio host passa como terminal, a mesma fronteira do `humano-no-cli` do SHIP.
+- **Nota com prova de origem (RM-048):** `ork master pedir <thread>` devolve a linha `<código> <0 a 5> <porquê>`; o dono responde pelo Telegram, o ingresso assina no endereço do pulse e o `master_done` grava o remetente autenticado, o canal, a mensagem, o sha da prova e a evidência com o envelope. `ork master` com `--por` (nota, `ratificar`, `batch --aceitar`, `digest responder`) chamado de processo de host é recusado com `master.prova-de-canal`; o canal é lido só do ambiente. `ORK_CANAL=cli` não absolve sessão despachada, Claude Code nem Codex. Limite: quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo sem `CODEX_SANDBOX` não é reconhecido; é a mesma fronteira do `humano-no-cli` do SHIP.
 - **Pré-condições e gatilho:** SHIP feito ou artefato com hash conferido.
 - **Fluxo principal:**
 

@@ -595,8 +595,10 @@ mudou o que o núcleo traduz depois dela.
   não absolve sessão despachada (`ORK_DISPATCH_ID`), Claude Code (`CLAUDECODE`) nem Codex
   (`CODEX_SANDBOX`).
 - **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
-  quem apaga as variáveis do próprio host passa como terminal. O diálogo MCP de nota para Claude
-  Code e Codex fica para depois.
+  quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo que não exporta
+  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal e a aceita por omissão não tomam o lock
+  da thread; só a nota pelo canal toma. O diálogo MCP de nota para Claude Code e Codex fica para
+  depois.
 
 ## D. Rollback
 

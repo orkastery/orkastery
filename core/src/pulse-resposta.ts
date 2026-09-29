@@ -33,6 +33,7 @@ import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM,
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TETO_DA_FORMA, TrechoLivre } from './hitl-texto-livre';
 import { apresentarHitl } from './hitl-presentation';
+import { esperaDoDono } from './roadmap-status';
 import { CONTRATO_PEDIDO_DE_NOTA, lerNota, mensagemJaUsadaEmNota, PedidoDeNota, pedidoDeNotaDoCodigo, reciboDoCanal } from './master-nota';
 import { autoriaHumana, parseClasse, registrarMaster } from './master';
 import { ratificarBatch } from './master-batch';
@@ -592,8 +593,10 @@ export function registrarPorCodigo(raiz: string, envelope: RespostaHumana, e: {
           { recusas: [{ motivo: 'pergunta-mudou' }] });
       } catch { /* cai na frase de baixo */ }
     }
-    return resultado('codigo', `${tg ? '⚠️ ' : '! '}${e.codigo} já não espera você: a fase mudou desde que a pergunta saiu. Nada foi registrado.`,
-      { recusas: [{ motivo: 'pedido-antigo' }] });
+    return resultado('codigo', m.includes('o gate já foi respondido')
+      ? `${tg ? '⚠️ ' : '! '}${e.codigo} já foi respondido por outra linha; a resposta não muda.`
+      : `${tg ? '⚠️ ' : '! '}${e.codigo} já não espera você: a fase mudou desde que a pergunta saiu. Nada foi registrado.`,
+    { recusas: [{ motivo: 'pedido-antigo' }] });
   }
   const chave = chaveDaEscolha(vigente, e.indice + 1);
   const derivada: RespostaHumana = { ...envelope, resposta: chave };
@@ -722,7 +725,9 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
   }
   // A mesma pergunta (mesma thread e mesmo alvo) conta uma vez, servida ou nao, vencida ou nao.
   const chave = (q: PedidoHitlQualquer) => { const a = alvoDoPedido(q); return `${q.thread}|${a?.tipo === 'session' ? `s:${a.sessionId}` : `g:${q.fase}`}`; };
-  const vistas = new Set<string>();
+  // Os gates que o resumo aberto oferece sao o que o "sim" pede: o consentimento os representa.
+  const vistas = new Set<string>(estado && !estado.respondido
+    ? estado.pedido.candidatos.map(c => `${c.thread}|g:${c.fase ?? ''}`) : []);
   for (const p of lerLoteServido(raiz, estadoDir).perguntas.filter(q => perguntaEmAberto(q, quando))) {
     const pedido = pedidoDaServida(raiz, p);
     if (pedido) vistas.add(chave(pedido));
@@ -747,6 +752,17 @@ export function abertosDoDono(raiz: string, quando: string, estadoDir?: string):
         const codigo = ehV2(q) && q.classe === 'pergunta' ? q.codigo : undefined;
         abertos.push({ tipo: 'pedido', recente: false, ...(codigo ? { codigo } : {}),
           rotulo: codigo ? `${codigo} a (${q.thread} · ${q.fase})` : `${q.thread} · ${q.fase}` });
+      }
+      // Segunda passada do CHECK: o gate cujo pedido venceu continua esperando o dono, e a linha
+      // dele ("DE6H a") nao vence (D4). Ele conta mesmo sem pedido aberto agora.
+      const gate = `${id}|g:${t.faseAtual}`;
+      if (!vistas.has(gate)) {
+        const espera = esperaDoDono(raiz, t, quando);
+        if (espera && !abertos.some(a => a.servida?.thread === id)) {
+          vistas.add(gate);
+          abertos.push({ tipo: 'pedido', recente: false, ...(espera.codigo ? { codigo: espera.codigo } : {}),
+            rotulo: espera.codigo ? `${espera.codigo} a (${id} · ${t.faseAtual})` : `${id} · ${t.faseAtual}` });
+        }
       }
     } catch { /* thread ilegivel nao entra na conta; a palavra solta so fica mais cautelosa */ }
   }
@@ -971,7 +987,10 @@ export function responderPeloPulse(raiz: string, envelope: RespostaHumana, opcoe
             : responderAoResumo(raiz, envelope, lido.codigo, { quando, canal, estadoDir });
     } catch (e) {
       // S3 do CHECK: estado ilegivel ou falha inesperada vira resposta util, nunca silencio nem erro cru.
-      return resultado('nao-entendida', `Não consegui concluir esta resposta agora (${(e as Error).message.slice(0, 120)}). ` +
+      // O detalhe fica no stderr de quem chamou (o adaptador nao o repassa): caminho local e
+      // mensagem interna nao vao ao Telegram.
+      console.error(`pulse responder: ${(e as Error).message}`);
+      return resultado('nao-entendida', 'Não consegui concluir esta resposta agora (erro interno do núcleo). ' +
         'Confira em ork pulse e mande de novo em um minuto.', { recusas: [{ motivo: 'erro-interno' }] });
     } })();
     // RM-048 (D3): a janela da palavra solta acompanha o que ainda espera o dono agora.
@@ -1059,6 +1078,7 @@ function marcarLoteEntregueSeAindaFor(raiz: string, quando: string, estadoDir: s
 function motivoParaODono(p: PerguntaServida, letra: string, erro: Error, quando: string): string {
   const m = erro.message, n = p.numero;
   if (m.includes('expirado')) return `a pergunta ${n} venceu às ${formatarHora(p.prazo, { agora: quando })}; o próximo resumo a traz de novo se ela ainda esperar você.`;
+  if (m.includes('o gate já foi respondido')) return `a pergunta ${n} já foi respondida por outra linha; a resposta não muda.`;
   if (m.includes('a pergunta mudou')) return `a pergunta ${n} mudou desde que saiu; nada foi registrado, e ela volta no próximo resumo com o texto de agora.`;
   if (m.includes('pedido antigo')) return `a pergunta ${n} já não espera você: a fase mudou desde que ela saiu.`;
   // RM-048 (D4): vencida, a renovacao so acontece se o gate ainda espera; senao, ela e historia.

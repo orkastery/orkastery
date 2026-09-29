@@ -136,6 +136,20 @@ test('B1 do CHECK: palavra solta não cai numa pergunta de outra thread quando h
   } finally { c.limpar(); }
 });
 
+test('segunda passada do CHECK: gate de outra thread com pedido vencido ainda espera o dono e conta', () => {
+  const c = comLote('livre-gate-vencido', 1);
+  try {
+    const { thread: x } = novaThread(c.p.carregado, { nome: 'xray classic', modo: 'classic' });
+    registrar(dirThread(c.p.dir, x.id), x.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
+    // O pedido de X saiu duas horas antes e venceu; o gate continua esperando, e a linha dele vale.
+    abrirPedidoGate(c.p.dir, x.id, 'human.pending', new Date(Date.parse(QUANDO) - 2 * 3600000).toISOString());
+    const r = c.responder('aprovo', 'telegram:-7:56', depois(3));
+    assert.equal(r.registradas.length, 0, r.mensagem);
+    assert.match(r.mensagem, /Há 2 perguntas esperando você/);
+    assert.equal(humanos(c.p.dir, c.itens[0].thread!).length + humanos(c.p.dir, x.id).length, 0);
+  } finally { c.limpar(); }
+});
+
 test('palavra solta nunca registra ato sem volta; número e letra registram', () => {
   const c = cenarioDoPulse('livre-sem-volta', 1);
   try {
