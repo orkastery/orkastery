@@ -5,11 +5,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-atualizarro2 | #Auto | GOAL | — | — | 28/09 22:30 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 28/09 22:30 |
-| vps | ork-i31kg1contra | #Maestro | GO | — | — | 28/09 22:30 |
-| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 28/09 22:30 |
-| vps | ork-maestroworks | #Auto | GOAL | — | — | 28/09 22:30 |
-| vps | ork-semorkmindwe | #Fast | GO | RM-049 | — | 28/09 22:30 |
+| vps | ork-atualizarro2 | #Auto | GOAL | — | — | 28/09 22:37 |
+| vps | ork-cincosessoes | #Fast | GO | RM-047 | — | 28/09 22:37 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 28/09 22:37 |
+| vps | ork-i31kg1contra | #Maestro | GO | — | — | 28/09 22:37 |
+| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 28/09 22:37 |
+| vps | ork-maestroworks | #Auto | GOAL | — | — | 28/09 22:37 |
+| vps | ork-semorkmindwe | #Fast | GO | RM-049 | — | 28/09 22:37 |
 
 Horários de Brasília.

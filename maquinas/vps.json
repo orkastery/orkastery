@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:30:03.600Z",
+  "publicadoEm": "2026-09-29T01:37:12.889Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -15,6 +15,20 @@
       "roadmap": null,
       "branch": "ork/ork-atualizarro2-full",
       "atualizadaEm": "2026-09-14T05:17:41.266Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-cincosessoes",
+      "nome": "Cinco sessoes em paralelo com teto de CPU no kernel",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-047",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:37:10.111Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
