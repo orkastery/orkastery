@@ -57,7 +57,6 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_claims_add` | Registra alegacao verificavel com o comando que a comprova |
 | `ork_verify` / `ork_verify_baseline` | Reexecuta no HEAD real; grava a baseline antes do GO |
 | `ork_worktree_ensure` / `ork_worktree_audit` | Worktree isolada, conferida no proprio git |
-| `ork_objective_status` / `ork_objective_message` | Aposentadas com o `ork objective` na I-43: devolvem a recusa tipada `objective.aposentado` |
 | `ork_portfolio_list` | Lista produtos, projetos e iniciativas canônicos |
 | `ork_gate_answer` | Resposta humana correlacionada a um gate |
 | `ork_session_answer` | Resposta humana correlacionada a uma sessão |
