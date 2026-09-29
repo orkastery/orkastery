@@ -49,3 +49,5 @@ A publicação sai do CI, nunca de uma máquina. O workflow [publicar.yml](../..
 ## Próximo passo
 
 [Contribuir com o ork](com-o-ork.md).
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

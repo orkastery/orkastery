@@ -26,8 +26,8 @@ ork ci prepare <thread>
 ```
 
 1. `thread new` abre a thread. Em `--modo classic`, você aprova objetivo, plano e evidências.
-2. `verify --baseline`, antes de mexer, grava o que já passava e o que já falhava.
-3. `claims add` registra cada afirmação com o comando que a julga. Use comando focado, como `npm --prefix core run test:ci` ou `node --test` no arquivo: a suíte inteira é recusada no bundle.
+2. `verify --baseline`, antes de mexer, grava o que já passava e o que já falhava. Ele roda a verificação do manifesto, com a suíte inteira, e leva o tempo dela.
+3. `claims add` registra cada afirmação com o comando que a julga. Prefira `node --test` no arquivo, ou a suíte hermética `npm --prefix core run test:ci`; `npm --prefix core test` é recusado no bundle, porque pede recurso local.
 4. `verify` reexecuta as claims no commit real e compara com a baseline.
 5. `ci prepare` grava `.ork-ci/bundle.json`. Faça dele o último commit do PR: o check `ork-verify` reexecuta as suas claims no runner do GitHub.
 

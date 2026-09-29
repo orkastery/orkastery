@@ -64,9 +64,10 @@ ork doctor
 | --- | --- |
 | [core/src](../../../core/src) | O núcleo em TypeScript: CLI, gates, verify, ship |
 | [core/test](../../../core/test) | A suíte, em `node --test` |
-| [skills](../../../skills) | As skills finas, uma pasta por skill |
+| [skills](../../../skills) | As skills finas, em `skills/<família>/<nome>/SKILL.md`, com o corpus em `eval/casos/<nome>.json` |
 | [eval](../../../eval) | Os canários e o corpus das skills |
 | [adapters](../../../adapters) | Os adaptadores de host |
+| [auditors](../../../auditors) | Os packs de auditoria periódica, que propõem e não corrigem |
 | [prompts](../../../prompts) | Os modelos de prompt das fases |
 | [docs](../../README.md) | A documentação |
 
@@ -75,3 +76,5 @@ A [arquitetura](../../conceitos/arquitetura.md) mostra o mapa dos módulos.
 ## Próximo passo
 
 [Testes e verificação](testes-e-verificacao.md): o que rodar antes do PR.
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

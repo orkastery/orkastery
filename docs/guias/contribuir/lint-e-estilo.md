@@ -26,7 +26,7 @@ Não há formatador automático: siga o estilo do arquivo que você edita.
 - Siga o arquivo vizinho: nomes em português, comentário curto que explica o porquê.
 - Mensagens do CLI, rótulos e documentação em pt-BR.
 - Sem travessão longo (U+2014) em código, comentário, mensagem ou doc. O teste `catalogo.test.ts` reprova no catálogo e nos adaptadores.
-- Sem número inventado: onde a medida não existe, escreva `unavailable`, nunca zero ou estimativa não declarada. O canário `fx-schema-drift` confere.
+- Sem número inventado: onde a medida não existe, escreva `unavailable`, nunca zero ou estimativa não declarada.
 
 ## Dependências
 
@@ -47,4 +47,6 @@ node -p "Object.keys(require('./core/package.json').dependencies).join(', ')"
 
 ## Próximo passo
 
-[Triagem](triagem.md), se você vai abrir ou cuidar de issue.
+[Pull request](pull-request.md).
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

@@ -9,7 +9,7 @@
 | `bug` | O `ork` não faz o que a doc diz. Entra pelo modelo de bug |
 | `documentation` | Página errada, desatualizada, confusa ou que falta. Entra pelo modelo de documentação |
 | `enhancement` | Ideia ou pedido de funcionalidade. Entra pelo modelo de ideia |
-| `needs triage` | Issue nova, ainda sem a primeira resposta. Entra pelos modelos e sai na triagem |
+| `needs triage` | Issue nova, ainda sem a primeira resposta. Os modelos pedem; sai na triagem |
 | `question` | Dúvida de uso. O lugar melhor é o Discussions, categoria Q&A |
 | `good first issue` | Pequena, com o caminho descrito, boa para a primeira contribuição |
 | `help wanted` | O mantenedor aceita PR de fora e não vai fazer tão cedo |
@@ -50,3 +50,5 @@ A lista está em [good first issue](https://github.com/orkastery/orkastery/label
 ## Próximo passo
 
 [Versões e publicação](versoes-e-publicacao.md), para quem mantém o projeto.
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

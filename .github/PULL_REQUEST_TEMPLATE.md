@@ -16,10 +16,17 @@ https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/pull-requ
 <!--
 Cole a SAÍDA REAL, não a descrição dela. Nada entra sem evidência executável.
 
-Os comandos estão no guia de testes:
+Os comandos, da raiz do checkout (o guia de testes explica cada um):
+  `npm --prefix core run test:ci`
+  `node core/dist/index.js eval`
+  `node core/dist/index.js prompt lint`
+  `node core/dist/index.js audit lint`
 https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/testes-e-verificacao.md
 
-Mexeu em texto? Também os do guia de documentação:
+Mexeu em texto? Também:
+  `core/node_modules/.bin/markdownlint-cli2`
+  `node core/dist/index.js docs verificar`
+  `node core/scripts/checar-links.cjs`
 https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/documentacao.md
 
 Usou o ork? Cole a saída de `ork verify <thread>` e deixe o `.ork-ci/bundle.json` no último commit.

@@ -31,7 +31,14 @@
 ## Paridade
 
 - **Com o código:** página de produto e item de roadmap têm frontmatter. O `ork docs verificar` reprova fonte que não existe, comando que o CLI não declara, commit de merge fora da `main` e seção esquecida.
-- **Com o git:** as tabelas entre os marcadores `ork-docs:` saem do frontmatter. Edite o frontmatter; o mantenedor roda `ork docs sincronizar` na máquina do projeto.
+- **Com o git:** as tabelas entre os marcadores `ork-docs:` saem do frontmatter, e o `ork docs verificar` reprova quando elas divergem. Mudou o frontmatter de um item? Regere as tabelas, confira o diff e commite só o item que você mudou (numa máquina com threads, o comando também traz fatos delas):
+
+<!-- checagem: citado -->
+
+```bash
+node core/dist/index.js docs sincronizar --escrever
+```
+
 - **De idioma:** `README.md` e `README.pt-BR.md` mudam juntos, no mesmo PR. O resto de `docs/` é pt-BR.
 
 ## Como o site usa este texto
@@ -42,8 +49,10 @@
 
 ## Comandos nos guias
 
-- Todo bloco `bash` destes guias roda na checagem dos comandos, da raiz, e precisa sair 0.
-- Comando que usa rede, tem efeito fora da máquina ou pede uma thread real vai num bloco precedido da linha `<!-- checagem: citado -->`. Ele não roda, mas o subcomando do `ork` e o script npm são conferidos.
+- Todo bloco `bash` destes guias roda, da raiz, na checagem completa, e precisa sair 0. Cada linha roda num `bash -c` próprio: `cd`, `export` e `alias` não passam para a linha seguinte.
+- Comando que usa rede, tem efeito fora da máquina ou pede uma thread real vai num bloco precedido da linha `<!-- checagem: citado -->`. Ele não roda.
+- Em todo PR, a suíte do CI confere que o que os guias citam existe: subcomando do `ork`, script npm, rótulo e link dos modelos. Rodar os blocos é a checagem completa, que você roda ao mudar os guias.
+- A checagem roda os blocos com o seu ambiente: rode só sobre guias que você leu.
 
 ## Conferir antes do PR
 
@@ -63,4 +72,6 @@ node core/scripts/checar-comandos-dos-guias.cjs
 
 ## Próximo passo
 
-[Pull request](pull-request.md).
+[Lint e estilo](lint-e-estilo.md).
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

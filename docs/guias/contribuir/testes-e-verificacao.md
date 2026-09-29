@@ -49,11 +49,12 @@ npm --prefix core test
 
 Uma falha só é sua se ela não acontecia antes da sua mudança. Para separar:
 
-1. Rode o mesmo comando na `main`, numa pasta à parte:
+1. Rode o mesmo comando na `main` atual, numa pasta à parte. Num fork, o remoto do Orkastery costuma se chamar `upstream`: troque `origin` por ele.
 
    <!-- checagem: citado -->
 
    ```bash
+   git fetch origin
    git worktree add ../orkastery-main origin/main
    npm --prefix ../orkastery-main/core ci
    npm --prefix ../orkastery-main/core run test:ci
@@ -67,4 +68,6 @@ Com o `ork`, essa separação é um comando: `ork verify <thread> --baseline` gr
 
 ## Próximo passo
 
-[Documentação](documentacao.md), se você mexeu em texto; senão, [pull request](pull-request.md).
+[Documentação](documentacao.md), se você mexeu em texto; senão, [lint e estilo](lint-e-estilo.md).
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

@@ -17,8 +17,8 @@ below are in Brazilian Portuguese too.
 | [Desenvolvimento local](docs/guias/contribuir/desenvolvimento-local.md) | Você vai clonar, compilar e rodar o `ork` do checkout |
 | [Testes e verificação](docs/guias/contribuir/testes-e-verificacao.md) | Você quer saber o que rodar, e se uma falha é sua ou já existia |
 | [Documentação](docs/guias/contribuir/documentacao.md) | Você vai mexer em texto |
-| [Pull request](docs/guias/contribuir/pull-request.md) | Você vai abrir o PR: título, descrição, prova, checks e commits |
 | [Lint e estilo](docs/guias/contribuir/lint-e-estilo.md) | Você quer o estilo de código e de texto |
+| [Pull request](docs/guias/contribuir/pull-request.md) | Você vai abrir o PR: título, descrição, prova, checks e commits |
 | [Triagem](docs/guias/contribuir/triagem.md) | Você quer entender rótulos, primeira issue e prazo de resposta |
 | [Versões e publicação](docs/guias/contribuir/versoes-e-publicacao.md) | Você quer saber como sai uma versão; publicar é ato do mantenedor |
 | [Com o próprio ork](docs/guias/contribuir/com-o-ork.md) | Você quer provar a mudança com thread, claims e verify (recomendado, opcional) |

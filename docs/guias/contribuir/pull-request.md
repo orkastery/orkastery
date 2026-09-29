@@ -1,10 +1,10 @@
 # Pull request
 
-> **Em uma frase:** título que diz o resultado, descrição com o problema, a mudança, a prova e o risco, os quatro checks verdes e commits com a sua identidade.
+> **Em uma frase:** título que diz o resultado, descrição com o problema, a mudança, a prova e o risco, os checks obrigatórios verdes e commits com a sua identidade.
 
 ## Título
 
-- Curto, em pt-BR, dizendo o resultado: "Três testes instáveis do CI (RM-037)".
+- Curto, em pt-BR, dizendo o resultado para quem usa: "O CI para de cair em teste com relógio (RM-037)".
 - Cite o item do roadmap entre parênteses, quando houver.
 
 ## Descrição
@@ -30,7 +30,7 @@ Um PR que descreve o problema em uma linha e cola a saída de um teste novo vale
 
 ## Checks obrigatórios
 
-A `main` é protegida: o merge só sai com os quatro verdes no último commit do PR.
+A `main` é protegida: o merge só sai com os checks obrigatórios verdes no último commit do PR.
 
 | Check | O que roda |
 | --- | --- |
@@ -41,7 +41,7 @@ A `main` é protegida: o merge só sai com os quatro verdes no último commit do
 - Se o `ork-verify` reprovar por uma claim que não é da sua mudança, diga no PR. Quem decide é o mantenedor.
 - No primeiro PR vindo de fork, o GitHub pode esperar o mantenedor liberar os checks.
 
-## Identidade dos commits
+## Identidade
 
 - Commite com a sua identidade do GitHub. Para não expor seu e-mail, use o endereço `noreply` que o GitHub mostra em Settings, Emails:
 
@@ -53,6 +53,9 @@ A `main` é protegida: o merge só sai com os quatro verdes no último commit do
 
 - Um agente escreveu parte do diff? Diga na seção "Uso de agente" do PR e ponha o trailer `Co-Authored-By:` com o agente no commit.
 - Você responde pelo diff inteiro: revise antes de enviar.
+
+## Commits
+
 - Mensagem em pt-BR, no formato `<área>: <o que muda>`, como `docs: guia de testes sem contagem fixa`.
 - Um commit por mudança lógica. Depois que a revisão começar, prefira commit novo a reescrever o histórico.
 
@@ -63,4 +66,6 @@ A `main` é protegida: o merge só sai com os quatro verdes no último commit do
 
 ## Próximo passo
 
-[Lint e estilo](lint-e-estilo.md).
+[Triagem](triagem.md), para saber o que acontece com o PR e com as issues.
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).

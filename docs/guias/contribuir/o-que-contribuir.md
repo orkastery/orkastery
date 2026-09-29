@@ -35,3 +35,5 @@
 ## Próximo passo
 
 [Desenvolvimento local](desenvolvimento-local.md): do clone ao `ork` rodando do checkout.
+
+Índice dos guias: [CONTRIBUTING](../../../CONTRIBUTING.md).
