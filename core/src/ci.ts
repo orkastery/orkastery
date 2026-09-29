@@ -107,6 +107,14 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
   const remote = exec('git', ['remote', 'get-url', remoto], carregado.raiz);
   const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
   if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: `remoto ${remoto} não é um repositório GitHub reconhecível` };
+  return consultarCiDoRepositorio(repository, sha, context, executor);
+}
+
+/**
+ * O check `context` no `sha` de um repositorio GitHub ja resolvido: o do remoto do projeto ou, desde a
+ * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`.
+ */
+export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao): ResultadoCi {
   const result = executor({ repository, sha, context });
   if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || 'consulta ao GitHub falhou').trim().slice(0, 400) };
   let payload: { check_runs?: Array<{ name?: string; status?: string; conclusion?: string | null; html_url?: string }> };
