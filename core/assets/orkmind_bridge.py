@@ -336,6 +336,24 @@ async def embed(request):
             'vetores': [[round(x, 7) for x in v] for v in vetores]}
 
 
+def health_contract(request):
+    if not isinstance(request, dict) or set(request) != {'op'}:
+        raise QueryError('memory.health.invalid')
+
+
+async def health(store):
+    """Sonda barata (I-38 T4): contagens, versao da biblioteca e dependencias do fallback, sem rede nem torch."""
+    import importlib.metadata
+    import importlib.util
+    try:
+        versao = importlib.metadata.version('orkmind')
+    except importlib.metadata.PackageNotFoundError:
+        versao = None
+    dependencias = all(importlib.util.find_spec(m) is not None for m in ('torch', 'transformers', 'huggingface_hub'))
+    return {'contagens': {c: await store.count(c) for c in await store.list_collections()},
+            'orkmind': versao, 'fallback': {'dependencias': dependencias}}
+
+
 async def execute(request, store):
     from orkmind.core.models import MemoryEntry
     from orkmind.core.semantic_layer import SemanticLayer
@@ -344,6 +362,9 @@ async def execute(request, store):
     op = request['op']
     if op == 'stats':
         return {c: await store.count(c) for c in await store.list_collections()}
+    if op == 'health':
+        health_contract(request)
+        return await health(store)
     if op == 'query':
         tags, collection, limit = query_contract(request)
         # GovernedStore conserva validade, anti-injection e visibilidade existentes.
@@ -475,6 +496,8 @@ async def main(request):
         return await embed(request)
     if isinstance(request, dict) and request.get('op') == 'query':
         query_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'health':
+        health_contract(request)
     native_schema_fields()
     from orkmind.core.config import OrkMindConfig
     from orkmind.store.factory import create_store

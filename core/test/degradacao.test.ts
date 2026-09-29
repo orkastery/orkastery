@@ -226,3 +226,48 @@ test('ork memory status explica a degradacao com correcao acionavel', () => {
     projeto.limpar();
   }
 });
+
+test('embeddings indisponiveis nunca derrubam o regime; health que falha degrada como antes (I-38)', () => {
+  const projeto = projetoTemporario('degradacao-embeddings');
+  try {
+    const caminho = path.join(projeto.dir, 'orkastery.yaml');
+    const semBloco = fs.readFileSync(caminho, 'utf8')
+      .replace(/^  mode: files$/m, '  mode: orkmind')
+      .replace(/^  database_url_env: ""$/m, '  database_url_env: "ORKASTERY_TESTE_DSN"');
+    fs.writeFileSync(caminho, semBloco);
+    const antes = exigirManifesto(projeto.dir);
+    fs.writeFileSync(caminho, semBloco.replace(/^  timeout_ms: 15000$/m, `  timeout_ms: 15000
+  embedding:
+    provider: openrouter
+    model: "qwen/qwen3-embedding-8b"
+    dim: 1024
+    api_key_env: "ORKASTERY_TESTE_CHAVE_QUE_NAO_EXISTE"`));
+    delete process.env.ORKASTERY_TESTE_CHAVE_QUE_NAO_EXISTE;
+    const carregado = exigirManifesto(projeto.dir);
+    const driver = new DriverEmMemoria();
+    driver.semear({ id: 'd1', collection: 'decision', content: 'decisao do tenant', tags: { project: ['orkastery'] },
+      priority: 'high', mandatory: false, scope: 'project', source: 'agent', metadata: {}, criadaEm: '2026-09-29' });
+
+    const ligada = abrirMemoria(carregado, { driver });
+    assert.equal(ligada.regime, 'orkmind', 'sem chave de embedding o regime continua orkmind');
+    assert.equal(ligada.estado.motivo, null);
+    assert.equal(ligada.estado.embeddings?.motivo, 'embeddings.chave-ausente');
+    assert.deepEqual(ligada.buscar({ tags: { project: ['orkastery'] } }),
+      abrirMemoria(antes, { driver }).buscar({ tags: { project: ['orkastery'] } }), 'o recall por tag nao muda');
+
+    const { thread } = novaThread(carregado, { nome: 'paridade-embeddings', modo: 'classic' });
+    const atual = lerThread(projeto.dir, thread.id);
+    const comBloco = montarPromptComMemoria(carregado, atual, 'GO', 'implementar', ligada);
+    const semEmbedding = montarPromptComMemoria(antes, atual, 'GO', 'implementar', abrirMemoria(antes, { driver }));
+    assert.equal(comBloco.injecao.decisoes, semEmbedding.injecao.decisoes);
+    assert.equal(comBloco.injecao.itens.length, semEmbedding.injecao.itens.length, 'nada semantico entra no prompt sozinho');
+
+    driver.ligado = false;
+    const caida = abrirMemoria(carregado, { driver });
+    assert.equal(caida.regime, 'files');
+    assert.equal(caida.estado.motivo, 'orkmind.indisponivel', 'health que falha degrada exatamente como antes');
+    assert.equal(caida.estado.embeddings?.sondado, false);
+  } finally {
+    projeto.limpar();
+  }
+});

@@ -26,7 +26,6 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { Manifesto } from './types';
-import { configDeEmbedding } from './manifest';
 import {
   ColecaoDoOrk,
   ConsultaPorTag,
@@ -155,10 +154,19 @@ export function casaTags(entrada: EntradaDeMemoria, consulta: Record<string, str
  * A interface existe para que o nucleo nao saiba se a memoria e um subprocess Python, uma
  * API HTTP ou um dublê de teste. Ela e o unico ponto que conhece o OrkMind de verdade.
  */
+/** I-38 (T4): o que a operacao `health` da ponte observou. */
+export interface SaudeDaPonte {
+  contagens: Record<string, number>;
+  /** Versao instalada da biblioteca OrkMind, quando o pacote a declara. */
+  orkmind: string | null;
+  /** O fallback local tem torch, transformers e huggingface_hub no interpretador da ponte? */
+  fallback: { dependencias: boolean };
+}
+
 export interface DriverDeMemoria {
   nome: string;
   /** Health check barato. `ok: false` degrada o regime para `files`, com detalhe. */
-  disponivel(): { ok: boolean; detalhe: string };
+  disponivel(): { ok: boolean; detalhe: string; saude?: SaudeDaPonte };
   adicionar(entrada: EntradaNova): ResultadoDeGravacao;
   /** Todas as entradas de uma colecao. O filtro por tag e feito pelo `ork`, exato. */
   exportar(colecao: string): EntradaDeMemoria[];
@@ -344,7 +352,7 @@ export interface ConfigDoDriver {
 export class DriverCliOrkMind implements DriverDeMemoria {
   readonly nome: string;
   private readonly config: ConfigDoDriver;
-  private saude: { ok: boolean; detalhe: string } | null = null;
+  private saude: { ok: boolean; detalhe: string; saude?: SaudeDaPonte } | null = null;
 
   constructor(config: ConfigDoDriver) {
     this.config = config;
@@ -412,7 +420,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     if (r.status !== 0) {
       let code = '';
       try { code = JSON.parse(r.stdout)?.error; } catch { /* nenhum detalhe do filho */ }
-      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation', ...CODIGOS_DE_EMBEDDING].includes(code) ? code : 'memory.transport.failed');
+      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation', 'memory.health.invalid', ...CODIGOS_DE_EMBEDDING].includes(code) ? code : 'memory.transport.failed');
     }
     let json: unknown;
     try { json = JSON.parse(r.stdout); } catch { throw new Error('memory.transport.json'); }
@@ -420,13 +428,29 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     return json;
   }
 
-  disponivel(): { ok: boolean; detalhe: string } {
+  /** O detalhe sai do que a operacao `health` observou, nunca de frase fixa (I-38 T4). */
+  disponivel(): { ok: boolean; detalhe: string; saude?: SaudeDaPonte } {
     if (this.saude) return this.saude;
     try {
-      this.contagens();
-      this.saude = { ok: true, detalhe: 'ponte OrkMind respondeu; embeddings desativados' };
+      const saude = this.sondarSaude();
+      const total = Object.values(saude.contagens).reduce((a, b) => a + b, 0);
+      this.saude = { ok: true, saude, detalhe: `ponte OrkMind respondeu a sonda health (orkmind ${saude.orkmind ?? 'sem versao declarada'}, ` +
+        `${total} entrada(s) em ${Object.keys(saude.contagens).length} colecao(oes))` };
     } catch (e) { this.saude = { ok: false, detalhe: (e as Error).message }; }
     return this.saude;
+  }
+
+  sondarSaude(): SaudeDaPonte {
+    const r = this.rodar({ op: 'health' }) as Record<string, unknown>;
+    const contagens = r?.contagens as Record<string, unknown>;
+    const fallback = r?.fallback as Record<string, unknown>;
+    if (!objetoDeConsulta(r) || !objetoDeConsulta(contagens) || !objetoDeConsulta(fallback) ||
+        !Object.values(contagens).every(v => Number.isInteger(v) && Number(v) >= 0) ||
+        typeof fallback.dependencias !== 'boolean' || !(r.orkmind === null || typeof r.orkmind === 'string')) {
+      throw new Error('memory.transport.health');
+    }
+    return { contagens: contagens as Record<string, number>, orkmind: r.orkmind as string | null,
+      fallback: { dependencias: fallback.dependencias } };
   }
 
   contagens(): Record<string, number> {
@@ -607,9 +631,10 @@ export class DriverEmMemoria implements DriverDeMemoria {
     this.contador = this.entradas.length;
   }
 
-  disponivel(): { ok: boolean; detalhe: string } {
+  disponivel(): { ok: boolean; detalhe: string; saude?: SaudeDaPonte } {
     return this.ligado
-      ? { ok: true, detalhe: `driver em memoria com ${this.entradas.length} entrada(s)` }
+      ? { ok: true, detalhe: `driver em memoria com ${this.entradas.length} entrada(s)`,
+        saude: { contagens: this.contagens(), orkmind: null, fallback: { dependencias: this.embedding.fallback } } }
       : { ok: false, detalhe: 'driver em memoria desligado' };
   }
 
@@ -749,7 +774,8 @@ export function configDoManifesto(manifesto: Manifesto): ConfigDoDriver & { modo
     dsn: variavel ? (process.env[variavel] ?? '') : '',
     timeoutMs: manifesto.memory.timeout_ms || 15000,
     tenant: manifesto.memory.tenant || manifesto.project.name,
-    variavelDaChaveDeEmbedding: configDeEmbedding(manifesto).api_key_env,
+    // Lido direto do bloco: este modulo carrega sem o parser do manifesto (memory-native-schema).
+    variavelDaChaveDeEmbedding: manifesto.memory.embedding?.provider === 'openrouter' ? manifesto.memory.embedding.api_key_env : '',
   };
 }
 

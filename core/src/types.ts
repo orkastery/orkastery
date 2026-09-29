@@ -1275,6 +1275,41 @@ export type MotivoDeEmbeddings =
   | 'embeddings.orcamento-excedido'
   | 'embeddings.conteudo-recusado';
 
+/** I-38 (D6): um indice vetorial local, por modelo e dimensao. */
+export interface IndiceDeEmbeddings {
+  modelo: string;
+  dim: number;
+  vetores: number;
+  /** Vetores com sha256 igual ao conteudo atual; null fora do `memory status`. */
+  coerentes: number | null;
+  /** Vetores de conteudo que mudou ou saiu do tenant; null fora do `memory status`. */
+  desatualizados: number | null;
+}
+
+/** I-38 (D6): estado sondado dos embeddings. Nome e presenca da chave, nunca o valor. */
+export interface EstadoDeEmbeddings {
+  configurado: boolean;
+  provider: ProviderDeEmbedding;
+  modelo: string | null;
+  dim: number | null;
+  variavelDaChave: string;
+  chavePresente: boolean;
+  fallback: { modelo: string | null; presente: boolean; dependencias: boolean; dim: number | null };
+  indices: IndiceDeEmbeddings[];
+  /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
+  entradas: number | null;
+  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  cobertura: number | null;
+  ativo: 'primario' | 'fallback' | 'nenhum';
+  /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
+  sondado: boolean;
+  motivo: MotivoDeEmbeddings | null;
+  detalhe: string;
+  correcao: string;
+  /** `memory status --sondar`: uma chamada real, com a latencia medida. */
+  sonda?: { ok: boolean; alvo: 'primario' | 'fallback' | null; latenciaMs: number | null; motivo: MotivoDeEmbeddings | null };
+}
+
 /** Prioridade de uma entrada de memoria. STRING, nunca numero (contrato do OrkMind). */
 export type PrioridadeDeMemoria = 'critical' | 'high' | 'medium' | 'low';
 
@@ -1366,6 +1401,8 @@ export interface EstadoDaMemoria {
   dsnPresente: boolean;
   cli: string;
   tenant: string;
+  /** I-38 (D6): aditivo e opcional; consumidores antigos leem o estado sem ele. */
+  embeddings?: EstadoDeEmbeddings;
 }
 
 /** Resultado de uma gravacao na memoria semantica. */

@@ -116,7 +116,7 @@ test('chave de embedding somente na operacao embed', () => {
       if (q.op==='embed') assert.equal(process.env.ORKMIND_DATABASE_URL, undefined);
       else assert.equal(process.env.ORKMIND_DATABASE_URL, ${JSON.stringify(sentinel)});
     }
-    const saidas={stats:{decision:1},health:{contagens:{decision:1}},export:[],query:[],fts:{ids:[]},
+    const saidas={stats:{decision:1},health:{contagens:{decision:1},orkmind:null,fallback:{dependencias:false}},export:[],query:[],fts:{ids:[]},
       add:{ok:true,id:'x',duplicada:false,collection:'decision',detalhe:'created'},
       handoff:{ok:true,id:'h',duplicada:false,collection:'handoff',package_id:'p',package_entry_id:'pe',session_entry_id:'s',readback:true}};
     if (q.op==='embed') console.log(JSON.stringify({alvo:q.alvo,modelo:q.modelo,dim:q.dim,vetores:q.textos.map(()=>Array(q.dim).fill(0.5))}));
@@ -127,6 +127,7 @@ test('chave de embedding somente na operacao embed', () => {
     assert.equal(driver.embeddar({ ...pedido, alvo: 'primario' }).vetores[0].length, 32);
     assert.equal(driver.embeddar({ ...pedido, alvo: 'fallback' }).vetores.length, 1);
     assert.deepEqual(driver.contagens(), { decision: 1 });
+    assert.equal(driver.disponivel().ok, true);
     assert.deepEqual(driver.exportar('decision'), []);
     assert.deepEqual(driver.consultar(consultaRestrita), []);
     assert.equal(driver.adicionar(entry).ok, true);
@@ -234,4 +235,48 @@ print('ponte query: chamadas, fronteiras, saturacao e validacao comprovadas; sto
     env:{PATH:process.env.PATH,HOME:process.env.HOME,PYTHONDONTWRITEBYTECODE:'1'}});
   assert.equal(r.status,0,r.stdout+r.stderr);
   assert.match(r.stdout,/ponte query:/);
+});
+
+test('saude vem da operacao health da ponte, nunca de frase fixa', () => {
+  const f = fixture(`const q=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    if (q.op!=='health' || Object.keys(q).length!==1) process.exit(9);
+    console.log(JSON.stringify({contagens:{decision:3,rule:2},orkmind:'0.3.0',fallback:{dependencias:true}}));`);
+  try {
+    const saude = f.driver.disponivel();
+    assert.equal(saude.ok, true);
+    assert.match(saude.detalhe, /sonda health \(orkmind 0\.3\.0, 5 entrada\(s\) em 2 colecao\(oes\)\)/);
+    assert.doesNotMatch(saude.detalhe, /embeddings desativados/);
+    assert.deepEqual(saude.saude, { contagens: { decision: 3, rule: 2 }, orkmind: '0.3.0', fallback: { dependencias: true } });
+  } finally { f.limpar(); }
+  const malformada = fixture(`console.log(JSON.stringify({contagens:{decision:-1},orkmind:null,fallback:{dependencias:true}}))`);
+  try {
+    assert.equal(malformada.driver.disponivel().ok, false);
+    assert.match(malformada.driver.disponivel().detalhe, /memory.transport.health/);
+  } finally { malformada.limpar(); }
+});
+
+test('ponte Python responde health com contagens, versao e dependencias, sem torch nem rede', () => {
+  const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
+  const py = String.raw`
+import asyncio, importlib.util, sys
+spec=importlib.util.spec_from_file_location('bridge',sys.argv[1]); b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+class Store:
+    async def count(self, c=None): return {'decision': 4, 'rule': 1}[c]
+    async def list_collections(self): return ['decision', 'rule']
+async def run():
+    out = await b.execute({'op': 'health'}, Store())
+    assert out['contagens'] == {'decision': 4, 'rule': 1}, out
+    assert out['orkmind'] is None or isinstance(out['orkmind'], str)
+    assert isinstance(out['fallback']['dependencias'], bool)
+    assert 'torch' not in sys.modules, 'health importou torch'
+    try:
+        await b.execute({'op': 'health', 'fallback_model': 'x/y'}, Store()); raise AssertionError('pedido extra aceito')
+    except b.QueryError as e: assert e.code == 'memory.health.invalid'
+asyncio.run(run())
+print('ponte health: contagens, versao e dependencias sem importar torch')
+`;
+  const r = spawnSync(pythonFixture(), ['-c', py, source], { encoding: 'utf8', timeout: 20000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /ponte health:/);
 });

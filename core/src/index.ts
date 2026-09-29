@@ -133,6 +133,7 @@ import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './o
 import { PROXIMO_PASSO_INIT } from './init';
 import {
   abrirMemoria,
+  sondarEmbeddings,
   publicar,
   publicarPropostas,
   ResultadoDoSync,
@@ -419,7 +420,8 @@ Uso: ork <comando> [argumentos]
         [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
 
   brain status|inventory|get|query|receipts|context|sync|reconcile|apply|rollback|bind
-  memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
+  memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
+                                            (--sondar: uma chamada real de embedding, com a latencia)
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
   memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
@@ -3227,7 +3229,13 @@ function comandoMemory(args: Args): number {
   }
   if (sub === 'sync' && args.posicionais[2]) validarDiretorioDeThread(carregado.raiz, args.posicionais[2]);
   if (sub === 'status') {
-    const memoria = abrirMemoria(candidate);
+    const memoria = abrirMemoria(candidate, { embeddings: 'detalhado' });
+    // I-38 (D7): --sondar faz UMA chamada real pelo caminho ativo e mede a latencia.
+    if (args.opcoes.sondar === true && memoria.ativo && memoria.estado.embeddings) {
+      const driver = new DriverCliOrkMind(configDoManifesto(carregado.manifesto));
+      memoria.estado.embeddings.sonda = sondarEmbeddings(carregado.manifesto, memoria.estado.embeddings,
+        (p, o) => driver.embeddar(p, o), configDoManifesto(carregado.manifesto).timeoutMs);
+    }
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ ...memoria.estado, configSource: memoria.configSource, configDivergent: memoria.configDivergent }, null, 2));
       return 0;
