@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as adapter from './adapters/claude-bg';
 import * as codexAdapter from './adapters/codex';
-import { carregarManifesto, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
+import { carregarManifesto, configDeEmbedding, DIR_ESTADO, LIMITE_MANIFESTO_BYTES, NOME_MANIFESTO } from './manifest';
 import { MODOS } from './modos';
 import { resolverRegime } from './orkmind';
 import { ETAPAS_ONBOARDING, lerOnboarding } from './onboarding';
@@ -23,7 +23,7 @@ import { exec, noPath, simbolo } from './util';
 import { inventariarSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
-import { nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
@@ -81,6 +81,31 @@ function versaoNode(): number {
 }
 
 /** Checks locais; ler a entrevista não abre driver, banco, runtime ou rede. */
+/**
+ * I-38 (T7): a chave de embedding aparece pelo NOME, nunca pelo valor. Ausente e aviso (a busca
+ * cai para o fallback local ou para FTS e o regime segue); nome de provider pago e falha, porque a
+ * entrada do `ork` apagaria a variavel sob `subscription-only` e o preflight reprovaria o codex.
+ */
+export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJS.ProcessEnv = process.env): Check {
+  const nome = 'chave de embedding';
+  const config = configDeEmbedding(carregado.manifesto);
+  if (config.provider === 'none') return { nome, nivel: 'ok', detalhe: 'memory.embedding com provider none: busca por significado desligada' };
+  const variavel = config.api_key_env;
+  if ((ENVS_DE_PROVIDER_PAGO as readonly string[]).includes(variavel)) {
+    return { nome, nivel: 'fail', detalhe: `memory.embedding.api_key_env declara ${variavel}, nome da lista de provider pago`,
+      correcao: 'use uma chave dedicada ao Orkastery com nome proprio, por exemplo ORKASTERY_EMBEDDING_API_KEY' };
+  }
+  if (!variavel) {
+    return { nome, nivel: 'fail', detalhe: `memory.embedding com provider ${config.provider} sem api_key_env`,
+      correcao: 'declare em memory.embedding.api_key_env o NOME da variavel com a chave dedicada' };
+  }
+  if ((env[variavel] ?? '').trim() !== '') {
+    return { nome, nivel: 'ok', detalhe: `${variavel} presente no ambiente (valor nunca impresso); ${config.provider} ${config.model}` };
+  }
+  return { nome, nivel: 'warn', detalhe: `${variavel} ausente do ambiente: a busca por significado usa o fallback local ou cai para FTS; o regime nao muda`,
+    correcao: `exporte ${variavel} com a chave dedicada ao Orkastery (com limite de credito no painel do provider)` };
+}
+
 export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   const estado = lerOnboarding(carregado.raiz);
   const pendentes = ETAPAS_ONBOARDING.filter(e => estado.etapas[e] === null);
@@ -296,6 +321,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             : 'files (fallback honesto: handoff por arquivos, ponteiro path#ancora)',
       correcao: estado.pedido === 'orkmind' && estado.efetivo === 'files' ? estado.correcao : undefined,
     });
+
+    checks.push(checarChaveDeEmbedding(context.loaded));
 
     // Bloco B3: a fila de rate limit e estado do mundo, nao detalhe interno. Uma fase
     // esperando janela e uma fase que NAO esta rodando, e quem olha o doctor precisa

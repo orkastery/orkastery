@@ -70,6 +70,8 @@ const ENVS_QUE_REDIRECIONAM = [
  */
 const PADROES_DE_SEGREDO: { nome: string; regex: RegExp }[] = [
   { nome: 'chave da Anthropic', regex: /sk-ant-[A-Za-z0-9_-]{16,}/ },
+  // I-38 (T7): chave do OpenRouter; o hifen depois de `sk-or-v1` escapa do padrao da OpenAI.
+  { nome: 'chave do OpenRouter', regex: /sk-or-v1-[A-Za-z0-9]{32,}/ },
   { nome: 'chave da OpenAI', regex: /\bsk-[A-Za-z0-9]{32,}\b/ },
   { nome: 'chave de acesso AWS', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { nome: 'token do GitHub', regex: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/ },
