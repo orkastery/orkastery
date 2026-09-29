@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:41:18.348Z",
+  "publicadoEm": "2026-09-29T01:45:02.630Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -86,20 +86,6 @@
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-semorkmindwe",
-      "nome": "Sem OrkMind Web, sem Orkastery Web e sem a pronuncia do nome",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-semorkmindwe-go",
-      "atualizadaEm": "2026-09-29T01:29:54.436Z",
-      "entregue": "7eb942d",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
