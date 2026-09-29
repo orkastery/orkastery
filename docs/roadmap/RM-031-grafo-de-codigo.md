@@ -55,7 +55,7 @@ sdlc:
 
 ## Plano e decisões
 
-- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D14 da thread `ork-rm031kg2extr`, tomadas em #Auto e registradas no ledger.
+- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D15 da thread `ork-rm031kg2extr`, tomadas em #Auto e registradas no ledger.
 - **Próximo passo:** merge do KG2 com o CI verde; depois, KG3 (índice persistente e CLI de consulta, que substitui o comando provisório do KG2).
 
 ## Estado com evidências
@@ -93,4 +93,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | premissas e decisões D1 a D11 aprovadas | gate `premissas` pelo canal do dono | Julio |
 | 2026-09-28 | KG1 implementado na branch da thread | contratos do grafo e do benchmark, validação e corpus sintético; benchmark não executado | Julio |
 | 2026-09-29 | KG1 mesclado na `main` | PR #20, commit `8589330` | Julio |
-| 2026-09-29 | KG2 implementado na thread `ork-rm031kg2extr` | extrator TypeScript e Markdown, comando provisório e amostra auditada; decisões D1 a D14 no ledger | agente em #Auto; revisão: Julio |
+| 2026-09-29 | KG2 implementado na thread `ork-rm031kg2extr` | extrator TypeScript e Markdown, comando provisório e amostra auditada; decisões D1 a D15 no ledger | agente em #Auto; revisão: Julio |
