@@ -18,6 +18,8 @@ import { expiracaoDoPedido, prazoDoPedido } from './hitl-contract';
 import { adquirirLockMonitor, comLockDaConversa } from './monitor-lock';
 import { lerFabrica, publicarMaquina, registrarPublicacao, resumoDasOutrasMaquinas } from './fabrica-estado';
 import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
+import { publicarRedeNaBatida } from './rede';
+import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
@@ -247,6 +249,10 @@ if(require.main===module) {
       try { registrarPublicacao(carregado.raiz,{...publicarMaquina(carregado),origem:'pulse'}); }
       catch(e) { registrarPublicacao(carregado.raiz,{acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
     }
+    // RM-053 (D9): a mesma batida publica o retrato desta maquina na rede da pessoa: so membro, no
+    // maximo uma tentativa a cada 15 min por maquina, e retrato igual so volta ao remoto de hora em hora.
+    try { const r=publicarRedeNaBatida({diretorio:carregado.raiz}); if(r) registrarNaRede({...r,origem:'pulse'}); }
+    catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
     const outrasMaquinas=compartilhada
       ? ()=>resumoDasOutrasMaquinas(lerFabrica(carregado.raiz,{remoto,semRemoto:true}),nomeDaMaquina()) : undefined;
     const r=varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas});

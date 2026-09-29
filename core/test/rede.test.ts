@@ -662,3 +662,21 @@ test('RM-053 honestidade: ork network status fora de clone e sem forja responde 
     assert.deepEqual([json.casa, json.membros, json.lacunas.map((l: { tipo: string }) => l.tipo)], [null, [], ['forja.ausente']]);
   } finally { f.limpar(); for (const d of [u, fora]) fs.rmSync(d, { recursive: true, force: true }); }
 });
+
+test('RM-053 migracao: a batida real do pulse publica o retrato de quem so fez ork fabrica entrar', () => {
+  const f = forjaFalsa('migracao-pulse');
+  const [ua, uv] = [dirTemporario('rede-pulse-a'), dirTemporario('rede-pulse-vps')];
+  const p = projetoTemporario('rede-pulse', true);
+  try {
+    naMaquina(ua, () => entrarNaRede({ amb: ligado(f), maquina: 'pc-a' }));
+    naMaquina(uv, () => gravarConfigDaMaquina({ nome: 'vps', fabricaCompartilhada: true }));
+    const pulse = path.resolve(__dirname, '../../dist/pulse-delivery.js');
+    const r = spawnSync(process.execPath, [pulse, p.dir], { cwd: p.dir, encoding: 'utf8', timeout: 60000,
+      env: { ...ligado(f).env, ORK_USUARIO_DIR: uv, ORK_MAQUINA: '' } });
+    assert.equal(r.error, undefined);
+    const log = fs.readFileSync(path.join(uv, 'rede', 'rede.log'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    assert.deepEqual(log.map((l) => [l.origem, l.acao, l.maquina]), [['pulse', 'publicou', 'vps']], r.stderr);
+    const vps = JSON.parse(exec('git', ['show', 'main:maquinas/vps.json'], casaFalsa(f)).stdout);
+    assert.deepEqual([vps.maquina, vps.adesao, vps.projetos.map((x: { nome: string }) => x.nome)], ['vps', 'fabrica', ['orkastery']]);
+  } finally { f.limpar(); p.limpar(); for (const d of [ua, uv]) fs.rmSync(d, { recursive: true, force: true }); }
+});
