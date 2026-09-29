@@ -35,6 +35,7 @@
       "ork_ship",
       "ork_master",
       "ork_board",
+      "ork_roadmap_status",
       "ork_master_batch"
     ]
   }

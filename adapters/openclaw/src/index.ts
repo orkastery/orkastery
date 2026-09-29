@@ -401,6 +401,13 @@ const FERRAMENTAS: FerramentaOrk[] = [
     argv: () => ['board', 'plan'],
   },
   {
+    name: 'ork_roadmap_status',
+    description:
+      'Status report unico do roadmap no formato aprovado pelo dono (grupos com icones, #HITL e o fecho). Somente leitura: transporte o texto como vem, sem reescrever.',
+    parameters: schema({}),
+    argv: () => ['roadmap', 'status'],
+  },
+  {
     name: 'ork_master_batch',
     description:
       'Todas as entregas em JSON, com o indice derivado do ledger, as ja pontuadas e as aceitas por omissao. Roda ork master --todas; o nome e da antiga fila de score (ork master --batch), aposentada na I-43.',

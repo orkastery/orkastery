@@ -4,6 +4,7 @@ import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
+import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -475,6 +476,8 @@ Uso: ork <comando> [argumentos]
         [--pedido "<texto>"] [--template ID]
   prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
 
+  roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
+                                            voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
@@ -2485,9 +2488,15 @@ function comandoRoadmap(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
     return 0;
   }
+  if (sub === 'status') {
+    // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
+    return 0;
+  }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
     return 2;
   }
   const opcoes = {
