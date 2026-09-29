@@ -19,7 +19,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 
 - **Objetivo:** contexto certo na hora certa, sem janela inteira; documentação que não mente sobre o código.
 - **Limites:** a memória degrada para arquivos com aviso tipado, nunca cai em silêncio para outra base.
-- **Código:** `core/src/handoff.ts`, `core/src/recall.ts`, `core/src/memoria.ts`, `core/src/orkmind.ts`, `core/src/ledger-stats.ts`, `core/src/docs.ts`, `core/src/company-brain-cli.ts`.
+- **Código:** `core/src/handoff.ts`, `core/src/recall.ts`, `core/src/memoria.ts`, `core/src/orkmind.ts`, `core/src/ledger-stats.ts`, `core/src/docs.ts`, `core/src/company-brain-cli.ts`, `core/src/company-brain-dossie.ts`.
 
 ## Features
 
@@ -28,6 +28,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 - [FEAT-018](FEAT-018-documentacao-como-codigo.md) Documentação como código
 - [FEAT-019](FEAT-019-telemetria-do-ledger.md) Telemetria econômica do ledger
 - [FEAT-024](FEAT-024-company-brain-no-cli.md) Company Brain no CLI
+- [FEAT-030](FEAT-030-dossie-de-decisao.md) Dossiê de decisão
 
 ## Histórico
 
