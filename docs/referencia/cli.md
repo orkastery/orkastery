@@ -114,6 +114,8 @@ Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**;
 | `ork projetos registrar [caminho]` | Registra a cópia que já existia antes do registro. `ork init`, `ork thread new` e `ork fabrica entrar` já registram sozinhos |
 | `ork projetos esquecer <nome\|caminho>` | Tira do registro a cópia que sumiu ou sobrou; nada no disco é apagado |
 
+Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
+
 ## Threads e fases
 
 | Comando | O que faz |
