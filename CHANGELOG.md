@@ -18,8 +18,8 @@ Sete defeitos de condução achados em 28/09/2026, que travavam a própria fábr
 
 - **Sessão claude-bg à espera humana depois do Stop.** A sessão que encerrava o turno e ficava em
   `blocked` com o processo vivo nunca concluía a fase, e a pausa humana não abria: uma ficou 41
-  minutos travada até o processo morrer. Agora, na segunda leitura, com a prova da fase, abre
-  `human.pending`; sem a prova, vale o motivo da prova.
+  minutos travada até o processo morrer. Agora, na segunda leitura, abre `human.pending`, com a
+  prova da fase ou com o que faltou dela no diagnóstico.
 - **`ork sessions stop|logs|attach` com perfil de conta.** A sessão de um perfil que não é a
   conta do processo respondia "não encontrada no runtime". Agora ela é procurada em cada perfil
   claude-bg do projeto e o comando roda com o `CLAUDE_CONFIG_DIR` dela.
@@ -34,7 +34,9 @@ Sete defeitos de condução achados em 28/09/2026, que travavam a própria fábr
   `claude`, e o CLI de dentro de uma sessão Claude só aceita a que o ledger liga à sessão dela.
 - **`ork worktree sync` sobre base reescrita.** Numa branch sem commit próprio, cuja base ganhou
   raiz nova, o sync faria rebase de histórias sem relação. Agora a branch é recriada no SHA da
-  base; com commit próprio, o sync recusa com o `git rebase --onto` exato.
+  base; com commit próprio, o sync recusa com o `git rebase --onto` exato. Na thread
+  `merge-branch`, a ponta da branch existente nunca conta como base, para os commits dela não
+  sumirem no sync.
 - **Modelo inacessível na conta.** O despacho com um modelo que a conta não tem virava
   `runtime.unavailable` e repetia o mesmo modelo na mesma conta. O motivo novo
   `runtime.model-unavailable` mantém o perfil no rodízio, e o retry tenta outro perfil com o

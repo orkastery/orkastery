@@ -173,14 +173,15 @@ export function classificarSessaoClaude(e: EntradaClassificacao): ClassificacaoC
     return { ...c, dependeDoStop: true };
   };
   // RM-037 (defeitosdeco D-1): turno encerrado pelo Stop e sessão viva em `blocked` é o Claude Code
-  // dizendo que o texto final pediu resposta. Nunca conclui direto: com a prova do `ork`, a pausa
-  // humana abre (`human.pending`); sem ela, vale o motivo da prova, como nos outros terminais.
+  // dizendo que o texto final pediu resposta. Nunca conclui direto, e a pausa humana abre sempre
+  // (`human.pending`): GO-FIX (R6 do CHECK), sem a prova o motivo também é o humano, porque um
+  // `artifact.missing` automático abriria correção sobre uma sessão viva que espera resposta.
   const esperaHumana = (): ClassificacaoClaude => {
     const sinal = 'Stop correlacionado e sessão viva à espera humana (blocked)';
     const prova = e.prova();
     const c: TerminalClaude = !prova.ok
-      ? { ...bloqueio(`${sinal}; sem prova do ork: ${prova.fonte}`, prova.motivo ?? 'human.pending'),
-          diagnostico: `sem prova do ork: ${prova.fonte}` }
+      ? { ...bloqueio(`${sinal}; sem prova do ork: ${prova.fonte}; o humano decide`, 'human.pending'),
+          diagnostico: `a sessão espera resposta humana (blocked) e a fase ainda não tem a prova do ork: ${prova.fonte}` }
       : { ...bloqueio(`${sinal}; ${prova.fonte}; o humano decide`, 'human.pending'),
           diagnostico: 'a fase tem a prova do ork e a sessão espera resposta humana (blocked): o humano decide' };
     return { ...c, dependeDoStop: true };

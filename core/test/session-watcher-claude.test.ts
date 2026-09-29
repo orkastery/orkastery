@@ -731,15 +731,17 @@ test('defeitosdeco D-1: blocked vivo depois do Stop, com a prova do ork, abre hu
   } finally { p.limpar(); }
 });
 
-test('defeitosdeco D-1: sem a prova, blocked depois do Stop segue o motivo da prova (artifact.missing no PLAN)', () => {
+test('defeitosdeco D-1 (R6): sem a prova, blocked depois do Stop tambem abre human.pending, nunca artifact.missing automatico', () => {
   const plano = fixture({ fase: 'PLAN' });
   try {
     plano.evento('stop', 20);
     plano.observar(30, [{ state: 'blocked', status: 'idle', pid: process.pid }]);
     assert.equal(plano.observar(36, [{ state: 'blocked', status: 'idle', pid: process.pid }]).classificacao, 'gate_blocked');
     const [pr] = plano.resultados();
-    assert.equal(pr.motivo, 'artifact.missing');
+    assert.equal(pr.motivo, 'human.pending', 'a sessao espera resposta: quem responde e o humano');
     assert.match(String(pr.fonte), /à espera humana \(blocked\); sem prova do ork: docs\/plan\.md não foi gravado/);
+    assert.match(String(pr.diagnostico), /a sessão espera resposta humana \(blocked\) e a fase ainda não tem a prova do ork/);
+    assert.equal(plano.eventos().some(e => e.motivo === 'artifact.missing'), false);
   } finally { plano.limpar(); }
   const goal = fixture();
   try {
