@@ -8,7 +8,7 @@
  * O KG1 nao traz medicao real: registro sintetico nunca e publicavel como economia medida.
  */
 import { z } from 'zod';
-import { GRAFO_SCHEMA, canonico } from './intelligence-graph-contract';
+import { GRAFO_SCHEMA, canonico, compararUtf8, sha256DoCanonico } from './intelligence-graph-contract';
 
 export const BENCHMARK_SCHEMA = 'ork.graph-benchmark/v1' as const;
 export const PROTOCOLO_KG1 = 'kg1-ab/1' as const;
@@ -32,9 +32,9 @@ export const MOTIVOS_DE_FALHA = [
 ] as const;
 /** D8: motivos de `inconclusive` (dado, controle ou auditoria insuficiente). */
 export const MOTIVOS_DE_LACUNA = [
-  'amostra-incompleta', 'controles-divergentes', 'pergunta-divergente', 'ordem-divergente', 'falha-de-instrumentacao',
+  'amostra-incompleta', 'aquecimento-divergente', 'controles-divergentes', 'pergunta-divergente', 'ordem-divergente', 'falha-de-instrumentacao',
   'tarefa-cancelada', 'metrica-primaria-ausente', 'metrica-primaria-sem-consumo-medido', 'origens-nao-equivalentes',
-  'metrica-requerida-ausente', 'auditoria-incompleta',
+  'metrica-requerida-ausente', 'metrica-requerida-estimada', 'auditoria-incompleta',
 ] as const;
 export type MotivoDeFalha = typeof MOTIVOS_DE_FALHA[number];
 export type MotivoDeLacuna = typeof MOTIVOS_DE_LACUNA[number];
@@ -123,7 +123,11 @@ export const protocoloSchema = z.object({
   pairs: z.array(parSchema).min(1).max(100_000),
   order_seed: texto,
   controls: controlesSchema,
-  treatment: z.object({ graph_schema: z.literal(GRAFO_SCHEMA), graph_digest: sha256, snapshot_id: idDeSnapshot, edge_count: inteiro }).strict(),
+  treatment: z.object({
+    graph_schema: z.literal(GRAFO_SCHEMA), graph_digest: sha256, snapshot_id: idDeSnapshot, edge_count: inteiro,
+    /** D8: digest do conjunto de `edge_id` do grafo, que ancora o universo da auditoria. */
+    edge_set_digest: sha256,
+  }).strict(),
   environment_hash: sha256,
   cache_policy: z.enum(['cold', 'warm']),
   warmup_runs_per_arm: z.number().int().min(0).max(100),
@@ -183,6 +187,9 @@ export type Protocolo = z.infer<typeof protocoloSchema>;
 type Medida = z.infer<typeof medidaDeTokensSchema> | z.infer<typeof medidaDeChamadasSchema> | z.infer<typeof medidaDeLatenciaSchema>
   | z.infer<typeof medidaDeContextoSchema> | z.infer<typeof medidaDeCustoSchema>;
 
+/** D8: digest do conjunto de arestas, na ordem dos bytes UTF-8, para ancorar a auditoria ao grafo. */
+export const digestDoConjuntoDeArestas = (ids: readonly string[]): string => sha256DoCanonico([...ids].sort(compararUtf8));
+
 function falha(codigo: string, onde?: string): never {
   throw new Error(onde ? `${codigo} em ${onde}` : codigo);
 }
@@ -221,6 +228,15 @@ function conferirSeed(c: Execucao['controls'], onde: string): void {
 }
 
 const TOKENS = ['input_total_tokens', 'output_total_tokens', 'cached_input_tokens', 'reasoning_tokens'] as const;
+type Requisicao = z.infer<typeof requisicaoSchema>;
+/** O que cada medida de tokens soma nas requisicoes; o total logico e entrada mais saida. */
+const PARCELAS: Record<'logical_total_tokens' | typeof TOKENS[number], (q: Requisicao) => number> = {
+  logical_total_tokens: (q) => q.input_total_tokens + q.output_total_tokens,
+  input_total_tokens: (q) => q.input_total_tokens,
+  output_total_tokens: (q) => q.output_total_tokens,
+  cached_input_tokens: (q) => q.cached_input_tokens,
+  reasoning_tokens: (q) => q.reasoning_tokens,
+};
 
 /** D7: subconjuntos reportados, nunca somados duas vezes; requisicao contada uma vez so. */
 function conferirTokens(r: Execucao, requisicoes: Set<string>, onde: string): void {
@@ -238,11 +254,12 @@ function conferirTokens(r: Execucao, requisicoes: Set<string>, onde: string): vo
       falha('benchmark.metrica.subconjunto-inconsistente', `${onde}.requests.${i}`);
     }
   });
-  for (const k of TOKENS) {
+  // A metrica primaria tambem se concilia: total declarado sem as requisicoes que o somam nao vale.
+  for (const k of ['logical_total_tokens', ...TOKENS] as const) {
     const medida = m[k];
     if (medida.value === null) continue;
     if ((ORIGENS_DE_CONSUMO_MEDIDO as readonly string[]).includes(medida.source) && r.requests.length === 0) falha('benchmark.metrica.sem-requisicoes', onde);
-    if (r.requests.length && medida.value !== r.requests.reduce((s, q) => s + q[k], 0)) falha('benchmark.metrica.requisicoes-divergentes', onde);
+    if (r.requests.length && medida.value !== r.requests.reduce((s, q) => s + PARCELAS[k](q), 0)) falha('benchmark.metrica.requisicoes-divergentes', onde);
   }
 }
 
@@ -413,6 +430,10 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
   if (b.status === 'not-run') return vazio;
   const falhas = new Set<MotivoDeFalha>(), lacunas = new Set<MotivoDeLacuna>();
   const tarefas = new Map(p.tasks.map((t) => [t.task_id, t])), controles = canonico(p.controls);
+  // D8: so resultado completo e comparado; D6: aquecimento igual nos dois bracos, pela regra fixada.
+  if (b.status !== 'complete') lacunas.add('amostra-incompleta');
+  const aquecimentos = (arm: 'A' | 'B') => b.runs.filter((r) => r.warmup && r.arm === arm).length;
+  if (aquecimentos('A') !== p.warmup_runs_per_arm || aquecimentos('B') !== p.warmup_runs_per_arm) lacunas.add('aquecimento-divergente');
   const grupos = new Map<string, Execucao[]>();
   for (const r of b.runs) {
     if (r.warmup || r.pair_id === null) continue;
@@ -443,7 +464,8 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
           lacunas.add('metrica-primaria-ausente');
           soma = null;
         } else {
-          origens.add(primaria.source);
+          // D7: origem equivalente e a mesma fonte, metodo e versao nos dois bracos.
+          origens.add(canonico([primaria.source, primaria.method, primaria.method_version]));
           if (!ORIGENS_DE_CONSUMO_MEDIDO.includes(primaria.source)) lacunas.add('metrica-primaria-sem-consumo-medido');
           if (soma !== null) soma += primaria.value;
         }
@@ -451,6 +473,11 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
         const requeridas: [MetricaRequerivel, Medida][] = [['residual_context_tokens', m.residual_context_tokens], ['tool_calls', m.tool_calls],
           ['latency_ms', m.latency_ms], ['cost', m.cost]];
         if (requeridas.some(([nome, medida]) => exigidas.has(nome) && medida.value === null)) lacunas.add('metrica-requerida-ausente');
+        if (requeridas.some(([nome, medida]) => exigidas.has(nome) && medida.value !== null && !ORIGENS_DE_CONSUMO_MEDIDO.includes(medida.source))) {
+          lacunas.add('metrica-requerida-estimada');
+        }
+        // D8: aresta falsa e fato do grafo auditado, venha da tentativa que vier.
+        if (r.edge_audit?.examined.some((e) => e.result === 'false')) falhas.add('aresta-falsa');
       }
       total[arm] = soma;
       const final = lista[lista.length - 1];
@@ -464,11 +491,9 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
       if (arm === 'B') {
         const a = final.edge_audit;
         if (a === null) lacunas.add('auditoria-incompleta');
-        else {
-          if (a.examined.some((e) => e.result === 'false')) falhas.add('aresta-falsa');
-          if (a.examined.some((e) => e.result === 'unverified') || a.examined.length !== a.universe_edge_ids.length ||
-              a.universe_edge_ids.length !== p.treatment.edge_count) lacunas.add('auditoria-incompleta');
-        }
+        else if (a.examined.some((e) => e.result === 'unverified') || a.examined.length !== a.universe_edge_ids.length ||
+            a.universe_edge_ids.length !== p.treatment.edge_count ||
+            digestDoConjuntoDeArestas(a.universe_edge_ids) !== p.treatment.edge_set_digest) lacunas.add('auditoria-incompleta');
       }
     }
     if (inicio.A !== undefined && inicio.B !== undefined && (par.order === 'AB' ? inicio.A > inicio.B : inicio.B > inicio.A)) {
@@ -478,8 +503,12 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
   }
   if (origens.size > 1) lacunas.add('origens-nao-equivalentes');
   const preparo = b.index_preparation;
-  if ((exigidas.has('index_preparation') && (preparo.logical_total_tokens.value === null || preparo.latency_ms.value === null)) ||
-      (exigidas.has('cost') && preparo.cost.value === null)) lacunas.add('metrica-requerida-ausente');
+  const doPreparo: Medida[] = [
+    ...(exigidas.has('index_preparation') ? [preparo.logical_total_tokens, preparo.latency_ms] : []),
+    ...(exigidas.has('cost') ? [preparo.cost] : []),
+  ];
+  if (doPreparo.some((m) => m.value === null)) lacunas.add('metrica-requerida-ausente');
+  if (doPreparo.some((m) => m.value !== null && !ORIGENS_DE_CONSUMO_MEDIDO.includes(m.source))) lacunas.add('metrica-requerida-estimada');
 
   const completos = p.pairs.filter((q) => totais.get(q.pair_id)?.A != null && totais.get(q.pair_id)?.B != null);
   const medianas = (pares: typeof completos) => {
@@ -494,6 +523,6 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
   if (falhas.size) return { ...base, resultado: 'fail', motivos, publicavel: false };
   if (lacunas.size) return { ...base, resultado: 'inconclusive', motivos, publicavel: false };
   if ((geral.medianaB as number) >= (geral.medianaA as number)) return { ...base, resultado: 'fail', motivos: ['mediana-nao-menor'], publicavel: false };
-  const publicavel = b.data_class === 'measured' && b.receipts_review.state === 'reviewed';
+  const publicavel = b.status === 'complete' && b.data_class === 'measured' && b.receipts_review.state === 'reviewed';
   return { ...base, resultado: 'pass', motivos: [], publicavel };
 }

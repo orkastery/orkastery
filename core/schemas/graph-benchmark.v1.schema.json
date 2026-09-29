@@ -351,13 +351,18 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991
+                },
+                "edge_set_digest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
                 }
               },
               "required": [
                 "graph_schema",
                 "graph_digest",
                 "snapshot_id",
-                "edge_count"
+                "edge_count",
+                "edge_set_digest"
               ],
               "additionalProperties": false
             },

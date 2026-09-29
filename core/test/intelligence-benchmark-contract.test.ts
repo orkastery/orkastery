@@ -12,7 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
-  BENCHMARK_SCHEMA, ORIGENS_DE_CONSUMO_MEDIDO, avaliarBenchmark, benchmarkSchema, mediana, validarBenchmark,
+  BENCHMARK_SCHEMA, ORIGENS_DE_CONSUMO_MEDIDO, avaliarBenchmark, benchmarkSchema, digestDoConjuntoDeArestas, mediana, validarBenchmark,
   type RegistroDeBenchmark,
 } from '../src/intelligence-benchmark-contract';
 
@@ -107,6 +107,15 @@ test('KG1 measurement: consumo medido vem de requisicoes em delta, somadas uma v
   assert.deepEqual([...ORIGENS_DE_CONSUMO_MEDIDO], ['runtime_reported', 'tokenizer_exact']);
 });
 
+test('KG1 measurement: o tratamento ancora a auditoria no conjunto de arestas do grafo sintetico', () => {
+  const grafo = JSON.parse(fs.readFileSync(path.join(RAIZ, 'core/test/fixtures/code-artifact-graph-v1.json'), 'utf8'));
+  const ids: string[] = grafo.graph.edges.map((a: { edge_id: string }) => a.edge_id);
+  const t = REGISTRO.protocol.treatment;
+  assert.deepEqual([t.graph_digest, t.edge_count, t.edge_set_digest], [grafo.digest, ids.length, digestDoConjuntoDeArestas(ids)]);
+  assert.equal(digestDoConjuntoDeArestas([...ids].reverse()), t.edge_set_digest, 'conjunto, nao lista');
+  assert.notEqual(digestDoConjuntoDeArestas(ids.slice(1)), t.edge_set_digest);
+});
+
 test('KG1 measurement: numero nao finito e recusado mesmo fora do JSON', () => {
   for (const valor of [Number.NaN, Number.POSITIVE_INFINITY]) {
     const r = structuredClone(REGISTRO);
@@ -167,6 +176,8 @@ test('KG1 verdict: dado sintetico nunca e publicavel como economia medida', () =
   assert.equal(avaliarBenchmark({ ...REGISTRO, data_class: 'measured' }).publicavel, false, 'sem revisao dos recibos');
   const medido = avaliarBenchmark({ ...REGISTRO, data_class: 'measured', receipts_review: revisado });
   assert.deepEqual([medido.resultado, medido.publicavel], ['pass', true]);
+  const parcial = avaliarBenchmark({ ...REGISTRO, data_class: 'measured', receipts_review: revisado, status: 'partial' });
+  assert.deepEqual([parcial.resultado, parcial.publicavel], ['inconclusive', false], 'parcial nunca e completo');
   assert.ok(naoAquecimento(REGISTRO).every((r) => r.metrics.logical_total_tokens.source === 'runtime_reported'));
 });
 

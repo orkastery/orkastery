@@ -26,7 +26,8 @@ O tratamento é só o mecanismo de obter contexto. Todo o resto do par fica fixo
 - `controls`: modelo e revisão, provider, runtime e versão, esforço, amostragem (seed ou o
   motivo de não haver seed), hash do prompt base, das ferramentas e das regras de parada,
   orçamento de tokens, contexto e tempo, snapshot, tenant e hash da política de acesso;
-- `treatment`: schema, digest, snapshot e número de arestas do grafo usado pelo braço B;
+- `treatment`: schema, digest, snapshot, número de arestas e digest do conjunto de
+  `edge_id` do grafo usado pelo braço B (`digestDoConjuntoDeArestas`);
 - `pairs`: `pair_id`, tarefa, repetição e ordem `AB` ou `BA`, balanceada por tarefa segundo
   a `order_seed`;
 - corpus e versão, hash do ambiente, política de cache, aquecimentos por braço, limite de
@@ -57,7 +58,9 @@ Métrica primária: `logical_total_tokens` = `input_total_tokens` + `output_tota
 de todas as requisições da tarefa, com retries. `cached_input_tokens` está dentro da
 entrada e `reasoning_tokens` dentro da saída: são subconjuntos reportados, nunca somados de
 novo. Consumo medido exige a lista de `requests` em delta, com `request_id` único no
-registro inteiro; a soma das requisições tem de bater com as medidas.
+registro inteiro; a soma das requisições tem de bater com cada medida de tokens, inclusive
+com `logical_total_tokens`. Origem equivalente entre braços é a mesma `source`, o mesmo
+`method` e a mesma `method_version`.
 
 Métricas auxiliares: `residual_context_tokens` (com janela e ponto de leitura),
 `tool_calls` (convenção fixada no protocolo), `latency_ms` (relógio monotônico, de ponta a
@@ -73,22 +76,23 @@ calculado). Custo de assinatura não atribuível é `null` com motivo.
 | --- | --- |
 | `not-run` | protocolo fixado, nenhuma execução |
 | `fail` | fato perdido, claim ou verify não preservado, verify falho, aresta falsa, tarefa não concluída; ou dados completos com mediana de B maior ou igual à de A |
-| `inconclusive` | par ausente, controle ou pergunta divergente, ordem trocada, falha de instrumentação, cancelamento, métrica primária ausente ou estimada, origens misturadas, métrica requerida ausente, auditoria incompleta |
+| `inconclusive` | registro não `complete`, par ausente, aquecimento diferente do protocolo, controle ou pergunta divergente, ordem trocada, falha de instrumentação, cancelamento, métrica primária ausente ou estimada, origens misturadas, métrica requerida ausente ou estimada, auditoria incompleta |
 | `pass` | dados completos e comparáveis, rigor preservado nos dois braços, auditoria integral sem aresta falsa e mediana de B menor que a de A |
 
-Violação de rigor observada prevalece sobre falta de telemetria. Linha de base A que falha
+Violação de rigor observada prevalece sobre falta de telemetria. Aresta falsa em qualquer
+tentativa do braço B reprova, porque é fato do grafo auditado, não da tentativa. Linha de base A que falha
 em rigor também impede `pass`. Mediana por ordenação numérica; amostra par usa a média dos
 dois centrais. O veredito traz a mediana geral, o delta (B menos A) e as medianas por
 tarefa, sempre sobre a população de pares prevista.
 
 A auditoria de arestas do braço B lista o universo de arestas do grafo usado, as examinadas
 e o resultado de cada uma (`supported`, `false` ou `unverified`) com as fontes. Examinar
-menos que o universo, deixar aresta não verificada ou auditar um universo diferente do
-grafo não é zero arestas falsas. O contrato confere cobertura e consistência, mas não
+menos que o universo, deixar aresta não verificada ou auditar um universo cujo digest não
+bate com o `edge_set_digest` do tratamento não é zero arestas falsas. O contrato confere cobertura e consistência, mas não
 autentica o auditor: a origem dos recibos é conferida por quem executa e revisa. Um corpus
 de referência independente do extrator reduz a circularidade.
 
-`publicavel` só é verdadeiro com `pass`, `data_class: measured` e recibos revisados
+`publicavel` só é verdadeiro com `pass`, `status: complete`, `data_class: measured` e recibos revisados
 (`receipts_review.state: reviewed`). Registro `synthetic` nunca é publicável como economia
 medida, mesmo com `pass`.
 
@@ -99,6 +103,7 @@ medida, mesmo com `pass`.
 | `validarBenchmark(entrada)` | estrutura, protocolo, medidas, pares e tentativas; lança `benchmark.*` |
 | `avaliarBenchmark(entrada)` | veredito, motivos, medianas e `publicavel` |
 | `mediana(valores)` | mediana numérica, `null` para lista vazia |
+| `digestDoConjuntoDeArestas(ids)` | digest canônico do conjunto de `edge_id`, sem depender da ordem |
 
 Famílias de erro: `benchmark.versao`, `benchmark.estrutura`, `benchmark.protocolo`,
 `benchmark.controle`, `benchmark.metrica`, `benchmark.run`, `benchmark.warmup`,

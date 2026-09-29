@@ -103,7 +103,8 @@
         "graph_schema": "ork.code-artifact-graph/v1",
         "graph_digest": "87a651059d1c139cd9c2fa18abe6ff5123052973c3386af5bb671354c9a6c8c8",
         "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
-        "edge_count": 10
+        "edge_count": 10,
+        "edge_set_digest": "120fdbf692c58600290eb17e9b43eda6bc7bc81608a017a289e26f12234691fa"
       },
       "environment_hash": "a12bdd400d6cbaa60544e474d382964f9a34674a53c64613bce4feb1ccf56fd9",
       "cache_policy": "cold",
@@ -2795,7 +2796,8 @@
         "graph_schema": "ork.code-artifact-graph/v1",
         "graph_digest": "87a651059d1c139cd9c2fa18abe6ff5123052973c3386af5bb671354c9a6c8c8",
         "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
-        "edge_count": 10
+        "edge_count": 10,
+        "edge_set_digest": "120fdbf692c58600290eb17e9b43eda6bc7bc81608a017a289e26f12234691fa"
       },
       "environment_hash": "a12bdd400d6cbaa60544e474d382964f9a34674a53c64613bce4feb1ccf56fd9",
       "cache_policy": "cold",
@@ -3050,6 +3052,134 @@
           "op": "replace",
           "path": "/runs/2/requests/0/input_total_tokens",
           "value": 610
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "total-primario-sem-conciliacao",
+      "code": "benchmark.metrica.requisicoes-divergentes",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/input_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/output_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/cached_input_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/reasoning_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/logical_total_tokens/value",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "group": "measurement",
+      "name": "total-primario-medido-sem-requisicoes",
+      "code": "benchmark.metrica.sem-requisicoes",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/input_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/output_total_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/cached_input_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/reasoning_tokens",
+          "value": {
+            "value": null,
+            "unit": "tokens",
+            "source": "unavailable",
+            "method": "nenhum",
+            "method_version": "1",
+            "evidence_ref": null,
+            "unavailable_reason": "sem-detalhe"
+          }
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/requests",
+          "value": []
         }
       ]
     },
@@ -6891,6 +7021,1048 @@
           "op": "replace",
           "path": "/runs/2/ended_at",
           "value": "2026-09-28T12:04:20.000Z"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "status-parcial-com-todos-os-pares",
+      "resultado": "inconclusive",
+      "motivos": [
+        "amostra-incompleta"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/status",
+          "value": "partial"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "status-parcial-com-aquecimento-desigual",
+      "resultado": "inconclusive",
+      "motivos": [
+        "amostra-incompleta",
+        "aquecimento-divergente"
+      ],
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/runs/1"
+        },
+        {
+          "op": "replace",
+          "path": "/status",
+          "value": "partial"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "aresta-falsa-em-tentativa-anterior",
+      "resultado": "fail",
+      "motivos": [
+        "aresta-falsa"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/4/attempt",
+          "value": 2
+        },
+        {
+          "op": "add",
+          "path": "/runs/4",
+          "value": {
+            "run_id": "r-impacto-2-b0",
+            "session_id": "sessao-r-impacto-2-b0",
+            "pair_id": "p-impacto-2",
+            "arm": "B",
+            "task_id": "t-impacto",
+            "repetition": 2,
+            "attempt": 1,
+            "warmup": false,
+            "started_at": "2026-09-28T12:04:20.000Z",
+            "ended_at": "2026-09-28T12:05:20.000Z",
+            "outcome": "timeout",
+            "controls": {
+              "model": "modelo-sintetico",
+              "model_revision": "rev-0",
+              "provider": "provedor-sintetico",
+              "runtime": "runtime-sintetico",
+              "runtime_version": "0.0.0",
+              "effort": "high",
+              "sampling": {
+                "temperature": null,
+                "top_p": null,
+                "seed": null,
+                "seed_unavailable_reason": "runtime-sem-seed"
+              },
+              "base_prompt_hash": "91cada8079eec710c757d8dfda00b9c42dd2e00d39a1230bdf7318627098c15f",
+              "tools_hash": "0a5c51f2a3c946b7b3431662bf3f1d9d33fc72fa15884a21042d2f86ded5b92a",
+              "stop_rules_hash": "029fca16b7c78120362b0032f748c18a50c69a009c037d2be6453a0b30eeae3a",
+              "budget": {
+                "max_total_tokens": 200000,
+                "max_context_tokens": 200000,
+                "max_wall_ms": 600000
+              },
+              "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+              "tenant_id": "synthetic",
+              "acl_policy_hash": "ea8a61f40faddab73042adb4fe091ec7d3b5934f69a7a1309a1d8c8c97c06e91"
+            },
+            "question_hash": "e78968528ccb467baa2a8dd5617a6f03458f52e420e80a967aac771c89e27c55",
+            "metrics": {
+              "logical_total_tokens": {
+                "value": 830,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/usage.json",
+                  "sha256": "9be33b3f8ec32c8258ef1d563bfbc86105365844c8d23db40f61aa327a1e1142"
+                },
+                "unavailable_reason": null
+              },
+              "input_total_tokens": {
+                "value": 600,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/usage.json",
+                  "sha256": "9be33b3f8ec32c8258ef1d563bfbc86105365844c8d23db40f61aa327a1e1142"
+                },
+                "unavailable_reason": null
+              },
+              "output_total_tokens": {
+                "value": 230,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/usage.json",
+                  "sha256": "9be33b3f8ec32c8258ef1d563bfbc86105365844c8d23db40f61aa327a1e1142"
+                },
+                "unavailable_reason": null
+              },
+              "cached_input_tokens": {
+                "value": 0,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/usage.json",
+                  "sha256": "9be33b3f8ec32c8258ef1d563bfbc86105365844c8d23db40f61aa327a1e1142"
+                },
+                "unavailable_reason": null
+              },
+              "reasoning_tokens": {
+                "value": 50,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/usage.json",
+                  "sha256": "9be33b3f8ec32c8258ef1d563bfbc86105365844c8d23db40f61aa327a1e1142"
+                },
+                "unavailable_reason": null
+              },
+              "residual_context_tokens": {
+                "value": 3600,
+                "unit": "tokens",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/context.json",
+                  "sha256": "eb68a0d0ba7f0574f3ab1b2f8c978cb94f91de970ceb94c5a695d091215fa8bc"
+                },
+                "unavailable_reason": null,
+                "window_tokens": 200000,
+                "read_point": "task-end"
+              },
+              "tool_calls": {
+                "value": 4,
+                "unit": "calls",
+                "source": "runtime_reported",
+                "method": "provider-usage",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/tools.json",
+                  "sha256": "092d3ed42fbe7f03a8daaff75e189d4bf99a37ba938eb7e89e6a21dd5590a17a"
+                },
+                "unavailable_reason": null
+              },
+              "latency_ms": {
+                "value": 41000,
+                "unit": "ms",
+                "source": "runtime_reported",
+                "method": "monotonic-clock",
+                "method_version": "1",
+                "evidence_ref": {
+                  "ref": "synthetic://kg1/r-impacto-2-b/latency.json",
+                  "sha256": "cfb1ed7e0d826f37771860cedb8c8a11a53ff6584b8191eba6145f2c878824f7"
+                },
+                "unavailable_reason": null
+              },
+              "cost": {
+                "value": null,
+                "unit": "USD",
+                "source": "unavailable",
+                "method": "nenhum",
+                "method_version": "1",
+                "evidence_ref": null,
+                "unavailable_reason": "assinatura-nao-atribuivel",
+                "cost_kind": null,
+                "rate_card": null
+              }
+            },
+            "requests": [
+              {
+                "request_id": "r-impacto-2-b-q1-0",
+                "input_total_tokens": 380,
+                "output_total_tokens": 160,
+                "cached_input_tokens": 0,
+                "reasoning_tokens": 30
+              },
+              {
+                "request_id": "r-impacto-2-b-q2-0",
+                "input_total_tokens": 220,
+                "output_total_tokens": 70,
+                "cached_input_tokens": 0,
+                "reasoning_tokens": 20
+              }
+            ],
+            "mandatory_fact_results": [
+              {
+                "fact_id": "f-util-declara-soma",
+                "result": "present"
+              },
+              {
+                "fact_id": "f-app-chama-soma",
+                "result": "present"
+              }
+            ],
+            "claim_results": [
+              {
+                "claim_id": "c-impacto",
+                "result": "verified"
+              }
+            ],
+            "verify_results": [
+              {
+                "verify_id": "v-impacto",
+                "command_hash": "e536a38b7c54ccaa8665bce09aaf5aca401c4220ec116490ad2e352bb7d3fbb9",
+                "exit_code": 0,
+                "result": "pass"
+              }
+            ],
+            "edge_audit": {
+              "graph_digest": "87a651059d1c139cd9c2fa18abe6ff5123052973c3386af5bb671354c9a6c8c8",
+              "universe_edge_ids": [
+                "edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+                "edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+                "edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+                "edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+                "edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+                "edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+                "edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+                "edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+                "edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+                "edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303"
+              ],
+              "examined": [
+                {
+                  "edge_id": "edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+                  "result": "false",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+                      "sha256": "b03611d04bd0023c6869479076e4c145c0fc8df108690279ac5355f4c90c9832"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+                      "sha256": "2758cd8204aa4a21b60d89f64d4eddf23464c5008372721a2dd3e2798aae333c"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+                      "sha256": "c31425750d1270a8bbe41a0ec129366cd61a41da16de8c46be2352a29f7783a0"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+                      "sha256": "d57dc1481f6b570c8835f5b9ab28f3fc18834035767c4d69ddef3cbb6f7d7d15"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+                      "sha256": "f8f22c46114b8be9a2b347012b0ab9f6225aa7108085f1d971e0f4bf582f1e13"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+                      "sha256": "4f10331e02e1a843bded753480114bc103d8cc750c0bb6789e73a8a4c8b8360d"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+                      "sha256": "5abf548430f48b6fbed726e0128f3c893c34f4652e309e6ea2822c95183d58ab"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+                      "sha256": "642b658224308be8444ba8e810b184cacc3df23f1b688e2de30b0460b004771e"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+                      "sha256": "070c3549a27bcd6deb47830c0b70ff3c0e04010e211e8067c1561adae39e7c24"
+                    }
+                  ]
+                },
+                {
+                  "edge_id": "edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303",
+                  "result": "supported",
+                  "source_refs": [
+                    {
+                      "ref": "synthetic://kg1/auditoria/edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303",
+                      "sha256": "48ebfc57f76ed084a7c2d93db1a4b3a9985e0fbc1d0774b4d8b4a36c9c7edc3b"
+                    }
+                  ]
+                }
+              ],
+              "method": "auditoria-manual-sintetica",
+              "method_version": "1"
+            },
+            "artifacts": [
+              {
+                "ref": "synthetic://kg1/r-impacto-2-b/transcript.json",
+                "sha256": "ebf9179a3c8568b5654023c31c3d7b8e3a7b1c69c32b6d0c0d86f35f6e7698e4"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "tokenizadores-diferentes-entre-bracos",
+      "resultado": "inconclusive",
+      "motivos": [
+        "origens-nao-equivalentes"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/logical_total_tokens/method",
+          "value": "cl100k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/2/metrics/logical_total_tokens/method_version",
+          "value": "1"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/logical_total_tokens/method",
+          "value": "o200k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/metrics/logical_total_tokens/method_version",
+          "value": "7"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/4/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/4/metrics/logical_total_tokens/method",
+          "value": "o200k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/4/metrics/logical_total_tokens/method_version",
+          "value": "7"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/logical_total_tokens/method",
+          "value": "cl100k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/5/metrics/logical_total_tokens/method_version",
+          "value": "1"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/6/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/6/metrics/logical_total_tokens/method",
+          "value": "cl100k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/6/metrics/logical_total_tokens/method_version",
+          "value": "1"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/logical_total_tokens/method",
+          "value": "o200k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/logical_total_tokens/method_version",
+          "value": "7"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/8/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/8/metrics/logical_total_tokens/method",
+          "value": "cl100k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/8/metrics/logical_total_tokens/method_version",
+          "value": "1"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/9/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/9/metrics/logical_total_tokens/method",
+          "value": "cl100k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/9/metrics/logical_total_tokens/method_version",
+          "value": "1"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/10/metrics/logical_total_tokens/source",
+          "value": "tokenizer_exact"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/10/metrics/logical_total_tokens/method",
+          "value": "o200k"
+        },
+        {
+          "op": "replace",
+          "path": "/runs/10/metrics/logical_total_tokens/method_version",
+          "value": "7"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "universo-de-arestas-inventado",
+      "resultado": "inconclusive",
+      "motivos": [
+        "auditoria-incompleta"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/3/edge_audit/universe_edge_ids",
+          "value": [
+            "edge-0000000000000000000000000000000000000000000000000000000000000000",
+            "edge-1111111111111111111111111111111111111111111111111111111111111111",
+            "edge-2222222222222222222222222222222222222222222222222222222222222222",
+            "edge-3333333333333333333333333333333333333333333333333333333333333333",
+            "edge-4444444444444444444444444444444444444444444444444444444444444444",
+            "edge-5555555555555555555555555555555555555555555555555555555555555555",
+            "edge-6666666666666666666666666666666666666666666666666666666666666666",
+            "edge-7777777777777777777777777777777777777777777777777777777777777777",
+            "edge-8888888888888888888888888888888888888888888888888888888888888888",
+            "edge-9999999999999999999999999999999999999999999999999999999999999999"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/3/edge_audit/examined",
+          "value": [
+            {
+              "edge_id": "edge-0000000000000000000000000000000000000000000000000000000000000000",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-1111111111111111111111111111111111111111111111111111111111111111",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-2222222222222222222222222222222222222222222222222222222222222222",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-3333333333333333333333333333333333333333333333333333333333333333",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-4444444444444444444444444444444444444444444444444444444444444444",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-5555555555555555555555555555555555555555555555555555555555555555",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-6666666666666666666666666666666666666666666666666666666666666666",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-7777777777777777777777777777777777777777777777777777777777777777",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-8888888888888888888888888888888888888888888888888888888888888888",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-9999999999999999999999999999999999999999999999999999999999999999",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/4/edge_audit/universe_edge_ids",
+          "value": [
+            "edge-0000000000000000000000000000000000000000000000000000000000000000",
+            "edge-1111111111111111111111111111111111111111111111111111111111111111",
+            "edge-2222222222222222222222222222222222222222222222222222222222222222",
+            "edge-3333333333333333333333333333333333333333333333333333333333333333",
+            "edge-4444444444444444444444444444444444444444444444444444444444444444",
+            "edge-5555555555555555555555555555555555555555555555555555555555555555",
+            "edge-6666666666666666666666666666666666666666666666666666666666666666",
+            "edge-7777777777777777777777777777777777777777777777777777777777777777",
+            "edge-8888888888888888888888888888888888888888888888888888888888888888",
+            "edge-9999999999999999999999999999999999999999999999999999999999999999"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/4/edge_audit/examined",
+          "value": [
+            {
+              "edge_id": "edge-0000000000000000000000000000000000000000000000000000000000000000",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-1111111111111111111111111111111111111111111111111111111111111111",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-2222222222222222222222222222222222222222222222222222222222222222",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-3333333333333333333333333333333333333333333333333333333333333333",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-4444444444444444444444444444444444444444444444444444444444444444",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-5555555555555555555555555555555555555555555555555555555555555555",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-6666666666666666666666666666666666666666666666666666666666666666",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-7777777777777777777777777777777777777777777777777777777777777777",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-8888888888888888888888888888888888888888888888888888888888888888",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-9999999999999999999999999999999999999999999999999999999999999999",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/edge_audit/universe_edge_ids",
+          "value": [
+            "edge-0000000000000000000000000000000000000000000000000000000000000000",
+            "edge-1111111111111111111111111111111111111111111111111111111111111111",
+            "edge-2222222222222222222222222222222222222222222222222222222222222222",
+            "edge-3333333333333333333333333333333333333333333333333333333333333333",
+            "edge-4444444444444444444444444444444444444444444444444444444444444444",
+            "edge-5555555555555555555555555555555555555555555555555555555555555555",
+            "edge-6666666666666666666666666666666666666666666666666666666666666666",
+            "edge-7777777777777777777777777777777777777777777777777777777777777777",
+            "edge-8888888888888888888888888888888888888888888888888888888888888888",
+            "edge-9999999999999999999999999999999999999999999999999999999999999999"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/7/edge_audit/examined",
+          "value": [
+            {
+              "edge_id": "edge-0000000000000000000000000000000000000000000000000000000000000000",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-1111111111111111111111111111111111111111111111111111111111111111",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-2222222222222222222222222222222222222222222222222222222222222222",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-3333333333333333333333333333333333333333333333333333333333333333",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-4444444444444444444444444444444444444444444444444444444444444444",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-5555555555555555555555555555555555555555555555555555555555555555",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-6666666666666666666666666666666666666666666666666666666666666666",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-7777777777777777777777777777777777777777777777777777777777777777",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-8888888888888888888888888888888888888888888888888888888888888888",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-9999999999999999999999999999999999999999999999999999999999999999",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/10/edge_audit/universe_edge_ids",
+          "value": [
+            "edge-0000000000000000000000000000000000000000000000000000000000000000",
+            "edge-1111111111111111111111111111111111111111111111111111111111111111",
+            "edge-2222222222222222222222222222222222222222222222222222222222222222",
+            "edge-3333333333333333333333333333333333333333333333333333333333333333",
+            "edge-4444444444444444444444444444444444444444444444444444444444444444",
+            "edge-5555555555555555555555555555555555555555555555555555555555555555",
+            "edge-6666666666666666666666666666666666666666666666666666666666666666",
+            "edge-7777777777777777777777777777777777777777777777777777777777777777",
+            "edge-8888888888888888888888888888888888888888888888888888888888888888",
+            "edge-9999999999999999999999999999999999999999999999999999999999999999"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/runs/10/edge_audit/examined",
+          "value": [
+            {
+              "edge_id": "edge-0000000000000000000000000000000000000000000000000000000000000000",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-1111111111111111111111111111111111111111111111111111111111111111",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-2222222222222222222222222222222222222222222222222222222222222222",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-3333333333333333333333333333333333333333333333333333333333333333",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-4444444444444444444444444444444444444444444444444444444444444444",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-5555555555555555555555555555555555555555555555555555555555555555",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-6666666666666666666666666666666666666666666666666666666666666666",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-7777777777777777777777777777777777777777777777777777777777777777",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-8888888888888888888888888888888888888888888888888888888888888888",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            },
+            {
+              "edge_id": "edge-9999999999999999999999999999999999999999999999999999999999999999",
+              "result": "supported",
+              "source_refs": [
+                {
+                  "ref": "synthetic://kg1/inventada",
+                  "sha256": "a91de55f93bdca98cdd89b4a671f997c52f3b4c9297860ab1e7ad5218bb96c62"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "metrica-requerida-estimada",
+      "resultado": "inconclusive",
+      "motivos": [
+        "metrica-requerida-estimada"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/7/metrics/latency_ms/source",
+          "value": "estimated"
+        }
+      ]
+    },
+    {
+      "group": "verdict",
+      "name": "preparo-do-indice-estimado",
+      "resultado": "inconclusive",
+      "motivos": [
+        "metrica-requerida-estimada"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/index_preparation/logical_total_tokens/source",
+          "value": "estimated"
         }
       ]
     }
