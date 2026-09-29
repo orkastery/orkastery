@@ -8,7 +8,8 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
-import { CONTRATO_HITL_V2, DecisaoInformada, TETOS_HITL_V2, validarPedidoHitlV2 } from '../src/hitl-contract';
+import { CAMPOS_DA_DECISAO_NO_CLI, CAMPOS_DA_DECISAO_NO_MCP, CONTRATO_HITL_V2, DecisaoInformada, recusaNaSuperficie, TETOS_HITL_V2,
+  validarPedidoHitlV2 } from '../src/hitl-contract';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 
@@ -62,8 +63,20 @@ test('defeito 4: o CLI mostra o campo e o tamanho reais e nao grava nada', () =>
       codigo = erro.status ?? -1; saida = `${erro.stdout ?? ''}${erro.stderr ?? ''}`;
     }
     assert.notEqual(codigo, 0);
-    assert.match(saida, /decidido tem 230 caracteres; o teto é 200/);
+    assert.match(saida, /--decidido tem 230 caracteres; o teto é 200/, 'a flag que foi digitada');
     assert.doesNotMatch(saida, /exige o que foi decidido/);
     assert.equal(lerLedger(dirThread(p.dir, t.id)).length, antes, 'recusa nao grava no ledger');
   } finally { p.limpar(); }
+});
+
+test('defeito 4 (S4): cada superficie le o nome que usou', () => {
+  const recusa = (extra: Partial<DecisaoInformada>) => { try { validarPedidoHitlV2(decidido(extra)); return ''; } catch (e) { return (e as Error).message; } };
+  const longo = recusa({ comoMudar: 'c'.repeat(201) });
+  assert.match(recusaNaSuperficie(longo, CAMPOS_DA_DECISAO_NO_CLI), /: --como-mudar tem 201 caracteres; o teto é 200/);
+  assert.match(recusaNaSuperficie(longo, CAMPOS_DA_DECISAO_NO_MCP), /: comoMudar tem 201 caracteres/);
+  const custo = recusa({ custoDeReverter: { agora: 'x'.repeat(141), depois: 'y' } });
+  assert.match(recusaNaSuperficie(custo, CAMPOS_DA_DECISAO_NO_CLI), /--custo-agora tem 141 caracteres; o teto é 140/);
+  assert.match(recusaNaSuperficie(custo, CAMPOS_DA_DECISAO_NO_MCP), /custoAgora tem 141 caracteres/);
+  const falta = recusa({ porque: ' ' });
+  assert.match(recusaNaSuperficie(falta, CAMPOS_DA_DECISAO_NO_CLI), /o porquê e como mudar \(falta --porque\)/, 'o texto fixo "o porquê" nao muda');
 });

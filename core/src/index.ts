@@ -79,7 +79,7 @@ import { montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
-import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
+import { PedidoHitlQualquer, TipoDeCriterio, CAMPOS_DA_DECISAO_NO_CLI, recusaNaSuperficie } from './hitl-contract';
 import { montarMonitor, textoDoMonitor } from './orquestracao';
 import {
   carimbarAchado,
@@ -1294,12 +1294,17 @@ function comandoDecisao(args: Args): number {
     if (separador < 1 || !['manifesto', 'ledger', 'medicao'].includes(tipo) || !referencia.trim()) {
       throw new Error('decisao registrar: --criterio manifesto:CHAVE, ledger:REF ou medicao:COMANDO');
     }
-    const { pedido, evento } = registrarDecisao(carregado.raiz, id, {
+    const entrada = {
       decidido: campo('decidido'), porque: campo('porque'), comoMudar: campo('como-mudar'),
       custoDeReverter: { agora: campo('custo-agora'), depois: campo('custo-depois') },
       criterio: { tipo, referencia }, quemDecidiu: campo('quem'), evidencia: campo('evidencia'),
       razao: texto(args.opcoes.razao), reverte: texto(args.opcoes.reverte),
-    });
+    };
+    let registro: ReturnType<typeof registrarDecisao>;
+    // RM-037 (defeito 4): a recusa cita a flag que o dono digitou, com o tamanho e o teto reais.
+    try { registro = registrarDecisao(carregado.raiz, id, entrada); }
+    catch (e) { throw new Error(recusaNaSuperficie((e as Error).message, CAMPOS_DA_DECISAO_NO_CLI)); }
+    const { pedido, evento } = registro;
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id))).find(f => f.fase === pedido.fase);
     console.log(JSON.stringify({ ok: true, pedidoId: pedido.id, eventId: evento.eventId, fase: pedido.fase, placar }));
     return 0;

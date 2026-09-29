@@ -17,7 +17,7 @@ import { lerLedger } from './ledger';
 import { rodarFase } from './phase';
 import { leasesColidentes } from './leases';
 import { contextoHitl, abrirPedidoGate } from './hitl-gates';
-import { estadoDoPedido, respostaAceitaDoPedido } from './hitl-contract';
+import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { controleNativo } from './hitl-sessions';
@@ -333,9 +333,13 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       // A sessao decide por ela: o rastro nao pode nascer assinado em nome do dono.
       if(/^\s*(?:o\s+|a\s+)?(?:dono|owner|builder|maestro)\b/i.test(e.quemDecidiu))
         throw Error('mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono');
-      const {pedido,evento}=registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
-        custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
-        evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host});
+      let registro:ReturnType<typeof registrarDecisao>;
+      try {
+        registro=registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
+          custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
+          evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host});
+      } catch(erro) {throw Error(recusaNaSuperficie((erro as Error).message,CAMPOS_DA_DECISAO_NO_MCP));}
+      const {pedido,evento}=registro;
       return resposta({ok:true,pedidoId:pedido.id,eventId:evento.eventId,fase:pedido.fase,reciboOficial:false});
     });
   registrarTool('ork_claims_list',{description:'Lista alegacoes e seu estado de verificacao registrado pelo nucleo.',

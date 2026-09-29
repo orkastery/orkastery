@@ -325,6 +325,25 @@ function problemaDaLinha(campo: string, v: unknown, teto: number): { ausente: bo
   return null;
 }
 
+/**
+ * Os campos da decisao informada como cada superficie os mostra (achado S4 do CHECK): a recusa do contrato
+ * usa o nome interno, e quem digitou `--como-mudar` ou mandou `custoAgora` precisa ler o nome que usou.
+ */
+export const CAMPOS_DA_DECISAO_NO_CLI: Readonly<Record<string, string>> = Object.freeze({
+  decidido: '--decidido', porque: '--porque', comoMudar: '--como-mudar', 'custoDeReverter.agora': '--custo-agora',
+  'custoDeReverter.depois': '--custo-depois', 'criterio.referencia': '--criterio',
+});
+export const CAMPOS_DA_DECISAO_NO_MCP: Readonly<Record<string, string>> = Object.freeze({
+  decidido: 'decidido', porque: 'porque', comoMudar: 'comoMudar', 'custoDeReverter.agora': 'custoAgora',
+  'custoDeReverter.depois': 'custoDepois', 'criterio.referencia': 'criterio.referencia',
+});
+
+/** Troca o nome interno do campo, onde a recusa o cita, pelo nome da superficie. */
+export function recusaNaSuperficie(mensagem: string, nomes: Readonly<Record<string, string>>): string {
+  return mensagem.replace(/(falta |: )(decidido|porque|comoMudar|custoDeReverter\.agora|custoDeReverter\.depois|criterio\.referencia)(?=\)| tem )/g,
+    (_, antes: string, campo: string) => `${antes}${nomes[campo] ?? campo}`);
+}
+
 function validarDecidido(v: Record<string, unknown>): void {
   for (const campo of CAMPOS_DE_GATE) {
     if (v[campo] !== undefined) throw new Error(`pedido HITL v2: decisão informada não pode trazer ${campo}`);
