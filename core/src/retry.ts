@@ -1513,7 +1513,9 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
       return { ...vazio, redespacho: ultimo, detalhe: ultimo.detalhe };
     if (alvo.perfil) tentados.push(alvo.perfil.id); else implicitos.push(alvo.runtime);
     atual = { runtime: alvo.runtime, perfil: alvo.perfil };
-    falhaAtual = ultimo.falhaDeConta ?? falhaAtual;
+    // GO-FIX (R4b): destino que recusou o MODELO sai da rotacao, mas a falha que manda (e o motivo da
+    // fila) continua sendo a da conta; o modelo inacessivel tem troca propria (trocarDestinoDoModelo).
+    if (ultimo.falhaDeConta?.motivo !== 'runtime.model-unavailable') falhaAtual = ultimo.falhaDeConta ?? falhaAtual;
     if (tentativas >= plano.limite) {
       return escalar('limite de tentativas na rotacao', `${tentativas} tentativa(s) de rotacao por ${motivo} em ${fase}, no limite de ` +
         `${plano.limite} do manifesto: escalacao tipada pausa qualquer modo`);
@@ -1558,15 +1560,25 @@ function chaveDoModelo(runtime: string, perfil: string | null, model: string | n
  */
 function destinosQueRecusaramOModelo(eventos: readonly EventoLedger[], fase: Fase): string[] {
   const chaves: string[] = [];
+  const chaveDo = (origem: EventoLedger): string | null => {
+    if (typeof origem.runtime !== 'string') return null;
+    let perfil: PerfilDeDespacho | null = null;
+    try { perfil = perfilDoEvento(origem); } catch { /* perfil ilegivel nao exclui ninguem */ }
+    return chaveDoModelo(origem.runtime, perfil?.id ?? null, typeof origem.model === 'string' ? origem.model : null);
+  };
   eventos.forEach((e, i) => {
+    // GO-FIX (R4a): a recusa sincrona do redespacho (nada rodou) so grava `phase_dispatch_failed`.
+    if (e.tipo === TIPOS_DE_EVENTO.despachoFalhou && e.fase === fase && String(e.erro ?? '').startsWith('runtime.model-unavailable')) {
+      const chave = chaveDo(e);
+      if (chave) chaves.push(chave);
+      return;
+    }
     if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || e.fase !== fase || e.motivo !== 'runtime.model-unavailable') return;
     const origem = typeof e.sessionId === 'string'
       ? eventos.filter(d => d.tipo === TIPOS_DE_EVENTO.faseDespachada && d.sessionId === e.sessionId).at(-1)
       : eventos.slice(0, i).filter(d => d.tipo === TIPOS_DE_EVENTO.despachoFalhou && d.fase === fase).at(-1);
-    if (!origem || typeof origem.runtime !== 'string') return;
-    let perfil: PerfilDeDespacho | null = null;
-    try { perfil = perfilDoEvento(origem); } catch { /* perfil ilegivel nao exclui ninguem */ }
-    chaves.push(chaveDoModelo(origem.runtime, perfil?.id ?? null, typeof origem.model === 'string' ? origem.model : null));
+    const chave = origem ? chaveDo(origem) : null;
+    if (chave) chaves.push(chave);
   });
   return chaves;
 }

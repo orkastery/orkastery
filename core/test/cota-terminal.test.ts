@@ -427,7 +427,7 @@ for (const perfis of [true, false]) {
 }
 
 // ---------------------------------------------------------------------------
-// RM-037 (defeitosdeco D-6): o PLAN da ork-i36buscasema foi despachado com `fable-5-1` na conta `bia`,
+// RM-037 (defeitosdeco D-6): o PLAN da ork-i36buscasema foi despachado com `fable-5-1` num perfil de conta
 // que nao tem esse modelo. A sessao af32834f ficou `failed` 6 s depois e virou `runtime.unavailable`,
 // cuja politica repete o MESMO modelo na MESMA conta. O motivo passa a ser tipado, o perfil fica no
 // rodizio e o retry troca o destino, ou diz a correcao exata.
@@ -510,5 +510,70 @@ test('defeitosdeco D-6: sem outro perfil com o modelo, o retry vai ao fallback d
     assert.match((ensaio.redespacho?.comando ?? []).join(' '), /^codex /);
     assert.match(ensaio.detalhe, /^ensaio: o mesmo prompt iria a codex com o modelo modelo-SIMULADO;/);
     assert.equal(lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length, 1, 'o ensaio nao despacha');
+  } finally { p.limpar(); claude.restaurar(); }
+});
+
+// GO-FIX (R3, R4 do CHECK): o texto do agente nao aciona a troca; a recusa sincrona do redespacho conta
+// como destino que recusou; e, na rotacao por cota, a recusa do modelo nao troca o motivo da fila.
+import { aguardando as pedidosAguardando, PedidoComPerfil } from '../src/ratelimit';
+
+test('defeitosdeco D-6 (R3): texto do agente codex declarando modelo inacessivel nao vira o motivo tipado', () => {
+  const agente = new ParserCodex();
+  agente.push(inicioDoTurno(TURNO_REAL), AGORA);
+  const [dito] = agente.push(fimDoTurno({ last_agent_message: 'Parei aqui.\n\nmotivo: runtime.model-unavailable' }), AGORA);
+  assert.deepEqual([dito.classificacao, dito.motivo, dito.falhaDeConta], ['gate_blocked', 'runtime.unavailable', undefined]);
+});
+
+test('defeitosdeco D-6 (R4a): destino que recusou o modelo no redespacho nao e tentado de novo no retry seguinte', () => {
+  const p = projetoTemporario('modelo-recusa-sincrona');
+  const claude = runtimePorConta('modelo-recusa-sincrona');
+  try {
+    const contaA = claude.conta(p.dir, 'a');
+    claude.conta(p.dir, 'b', { falha: `model_not_found: ${MODELO_INACESSIVEL('fable-5-1')}` });
+    const contaC = claude.conta(p.dir, 'c');
+    ignorarStubs(p.dir);
+    const t = novaThread(p.carregado, { nome: 'recusa sincrona', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', model: 'fable-5-1' });
+    assert.equal(r.verificada, true, r.erro);
+    erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, r.sessionId as string);
+    // b recusa o modelo no proprio despacho; a troca segue para c na mesma chamada.
+    const troca = executarRetry(p.carregado, t.id);
+    assert.equal(troca.executada, true, troca.detalhe);
+    const recusasDeB = () => lerLedger(dir).filter(e => e.tipo === 'phase_dispatch_failed' && (e.perfil as { id?: string } | undefined)?.id === 'b').length;
+    assert.equal(recusasDeB(), 1);
+    assert.equal((lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').at(-1)?.perfil as { id: string }).id, 'c');
+    // c tambem nao tem o modelo: o retry seguinte nao volta a b.
+    erroNaTranscricao(contaC, p.dir, troca.redespacho!.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, troca.redespacho!.sessionId as string);
+    const fim = executarRetry(p.carregado, t.id);
+    assert.equal(fim.executada, false);
+    assert.equal(recusasDeB(), 1, 'b nao foi tentado de novo');
+    assert.match(fim.detalhe, /nao esta acessivel em claude-bg\/a:fable-5-1, claude-bg\/b:fable-5-1, claude-bg\/c:fable-5-1 e o bloco nao tem outro destino/);
+  } finally { p.limpar(); claude.restaurar(); }
+});
+
+test('defeitosdeco D-6 (R4b): na rotacao por cota, destino que recusa o modelo sai da rotacao e a fila guarda o motivo da cota', () => {
+  const p = projetoTemporario('cota-e-modelo');
+  const claude = runtimePorConta('cota-e-modelo');
+  try {
+    const contaA = claude.conta(p.dir, 'a');
+    claude.conta(p.dir, 'b', { falha: `model_not_found: ${MODELO_INACESSIVEL('fable-5-1')}` });
+    ignorarStubs(p.dir);
+    const t = novaThread(p.carregado, { nome: 'cota e modelo', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', model: 'fable-5-1' });
+    assert.equal(r.verificada, true, r.erro);
+    erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'rate_limit', "You've hit your limit · resets in 3 hours");
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, r.sessionId as string);
+    assert.equal(lerLedger(dir).find(e => e.tipo === 'phase_result')?.motivo, 'runtime.quota-exhausted');
+    const retry = executarRetry(p.carregado, t.id);
+    assert.equal(retry.fila.length, 1, retry.detalhe);
+    assert.equal((pedidosAguardando(p.dir)[0] as PedidoComPerfil).motivo, 'runtime.quota-exhausted', 'a fila guarda o motivo da conta, nao o do modelo');
+    assert.equal(lerPerfis(p.dir).perfis.find(x => x.id === 'b')?.estado, 'ativo', 'b nao saiu do rodizio pela recusa do modelo');
   } finally { p.limpar(); claude.restaurar(); }
 });
