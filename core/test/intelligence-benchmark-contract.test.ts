@@ -116,6 +116,20 @@ test('KG1 measurement: o tratamento ancora a auditoria no conjunto de arestas do
   assert.notEqual(digestDoConjuntoDeArestas(ids.slice(1)), t.edge_set_digest);
 });
 
+test('KG1 measurement: tentativa que caiu antes da primeira requisicao mede zero sem requisicoes', () => {
+  const r = structuredClone(REGISTRO);
+  const t = r.runs.find((x) => x.run_id === 'r-impacto-2-a1') as RegistroDeBenchmark['runs'][number];
+  t.outcome = 'error';
+  t.requests = [];
+  for (const k of ['logical_total_tokens', 'input_total_tokens', 'output_total_tokens', 'cached_input_tokens', 'reasoning_tokens'] as const) {
+    t.metrics[k] = { ...t.metrics[k], value: 0 };
+  }
+  assert.deepEqual(validarBenchmark(r), r);
+  assert.equal(avaliarBenchmark(r).porTarefa[0].medianaA, (1450 + 1350) / 2);
+  t.metrics.logical_total_tokens.value = 1;
+  assert.throws(() => validarBenchmark(r), comCodigo('benchmark.metrica.total-inconsistente'));
+});
+
 test('KG1 measurement: numero nao finito e recusado mesmo fora do JSON', () => {
   for (const valor of [Number.NaN, Number.POSITIVE_INFINITY]) {
     const r = structuredClone(REGISTRO);

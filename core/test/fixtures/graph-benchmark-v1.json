@@ -8038,6 +8038,139 @@
     },
     {
       "group": "verdict",
+      "name": "aresta-falsa-no-aquecimento",
+      "resultado": "fail",
+      "motivos": [
+        "aresta-falsa"
+      ],
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/runs/1/edge_audit",
+          "value": {
+            "graph_digest": "87a651059d1c139cd9c2fa18abe6ff5123052973c3386af5bb671354c9a6c8c8",
+            "universe_edge_ids": [
+              "edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+              "edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+              "edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+              "edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+              "edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+              "edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+              "edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+              "edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+              "edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+              "edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303"
+            ],
+            "examined": [
+              {
+                "edge_id": "edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+                "result": "false",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-066fac823416e3af207e62ad6633a21b9b2a198ac9fa32f4189aae4f606f025b",
+                    "sha256": "b03611d04bd0023c6869479076e4c145c0fc8df108690279ac5355f4c90c9832"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-16656ff86d2a9e2354d43a95d084685265d53df87ce18808a8795fbb42921eef",
+                    "sha256": "2758cd8204aa4a21b60d89f64d4eddf23464c5008372721a2dd3e2798aae333c"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-20411f7630c76565b9c41563e82b4d6e44c42dbf2e9d8a990d3a6e227195d889",
+                    "sha256": "c31425750d1270a8bbe41a0ec129366cd61a41da16de8c46be2352a29f7783a0"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-39159f6e14120f74d7537ddcb3f26ad6e6ecee9879661d5cd7f5e8640e137e9d",
+                    "sha256": "d57dc1481f6b570c8835f5b9ab28f3fc18834035767c4d69ddef3cbb6f7d7d15"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-604184f2fa675a47f00b693bf12f40eed4cf659112feb944ae4c7e435a14d28e",
+                    "sha256": "f8f22c46114b8be9a2b347012b0ab9f6225aa7108085f1d971e0f4bf582f1e13"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-6c2f23ce497a92b297825113407ebd369dc3cf1c46ad86f3ceb0ceca6fcf62cd",
+                    "sha256": "4f10331e02e1a843bded753480114bc103d8cc750c0bb6789e73a8a4c8b8360d"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-8c6602f3ccb2ee34c9e32b26a976c6d8af83199614ecf30bf226a2f4d9176b07",
+                    "sha256": "5abf548430f48b6fbed726e0128f3c893c34f4652e309e6ea2822c95183d58ab"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-b4ce25d77bfc7b935fe4eb8263753327d672000c3b36defc29e80e60d4e8a4ca",
+                    "sha256": "642b658224308be8444ba8e810b184cacc3df23f1b688e2de30b0460b004771e"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-ea590474630208556ee4d516f67889f516da26b2e852fc7e17b4fa4c511472ed",
+                    "sha256": "070c3549a27bcd6deb47830c0b70ff3c0e04010e211e8067c1561adae39e7c24"
+                  }
+                ]
+              },
+              {
+                "edge_id": "edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303",
+                "result": "supported",
+                "source_refs": [
+                  {
+                    "ref": "synthetic://kg1/auditoria/edge-eaea57bf869ad0e9adb2e31d233bef21215454a56e19b8a77cac678805a59303",
+                    "sha256": "48ebfc57f76ed084a7c2d93db1a4b3a9985e0fbc1d0774b4d8b4a36c9c7edc3b"
+                  }
+                ]
+              }
+            ],
+            "method": "auditoria-manual-sintetica",
+            "method_version": "1"
+          }
+        }
+      ]
+    },
+    {
+      "group": "verdict",
       "name": "metrica-requerida-estimada",
       "resultado": "inconclusive",
       "motivos": [

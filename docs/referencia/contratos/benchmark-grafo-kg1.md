@@ -65,7 +65,11 @@ com `logical_total_tokens`. Origem equivalente entre braços é a mesma `source`
 Métricas auxiliares: `residual_context_tokens` (com janela e ponto de leitura),
 `tool_calls` (convenção fixada no protocolo), `latency_ms` (relógio monotônico, de ponta a
 ponta) e `cost` (moeda, natureza paga, marginal ou atribuída, e tabela de preço quando
-calculado). Custo de assinatura não atribuível é `null` com motivo.
+calculado). Custo de assinatura não atribuível é `null` com motivo. Latência medida pelo
+executor com relógio monotônico usa `runtime_reported`. Custo calculado por tabela sobre
+tokens medidos usa a origem dos tokens (`runtime_reported` ou `tokenizer_exact`) e exige
+`rate_card`; custo aproximado é `estimated` e não conta como métrica requerida. Tentativa que
+caiu antes da primeira requisição registra consumo medido zero, sem requisições.
 
 ## Veredito
 
@@ -80,7 +84,8 @@ calculado). Custo de assinatura não atribuível é `null` com motivo.
 | `pass` | dados completos e comparáveis, rigor preservado nos dois braços, auditoria integral sem aresta falsa e mediana de B menor que a de A |
 
 Violação de rigor observada prevalece sobre falta de telemetria. Aresta falsa em qualquer
-tentativa do braço B reprova, porque é fato do grafo auditado, não da tentativa. Linha de base A que falha
+auditoria do registro, de tentativa ou de aquecimento, reprova, porque é fato do grafo
+auditado, não da execução. Linha de base A que falha
 em rigor também impede `pass`. Mediana por ordenação numérica; amostra par usa a média dos
 dois centrais. O veredito traz a mediana geral, o delta (B menos A) e as medianas por
 tarefa, sempre sobre a população de pares prevista.

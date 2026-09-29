@@ -258,7 +258,10 @@ function conferirTokens(r: Execucao, requisicoes: Set<string>, onde: string): vo
   for (const k of ['logical_total_tokens', ...TOKENS] as const) {
     const medida = m[k];
     if (medida.value === null) continue;
-    if ((ORIGENS_DE_CONSUMO_MEDIDO as readonly string[]).includes(medida.source) && r.requests.length === 0) falha('benchmark.metrica.sem-requisicoes', onde);
+    // Consumo medido acima de zero exige as requisicoes; tentativa que caiu antes da primeira mede zero.
+    if ((ORIGENS_DE_CONSUMO_MEDIDO as readonly string[]).includes(medida.source) && medida.value > 0 && r.requests.length === 0) {
+      falha('benchmark.metrica.sem-requisicoes', onde);
+    }
     if (r.requests.length && medida.value !== r.requests.reduce((s, q) => s + PARCELAS[k](q), 0)) falha('benchmark.metrica.requisicoes-divergentes', onde);
   }
 }
@@ -434,6 +437,8 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
   if (b.status !== 'complete') lacunas.add('amostra-incompleta');
   const aquecimentos = (arm: 'A' | 'B') => b.runs.filter((r) => r.warmup && r.arm === arm).length;
   if (aquecimentos('A') !== p.warmup_runs_per_arm || aquecimentos('B') !== p.warmup_runs_per_arm) lacunas.add('aquecimento-divergente');
+  // D8: aresta falsa e fato do grafo auditado, venha da tentativa ou do aquecimento que vier.
+  if (b.runs.some((r) => r.edge_audit?.examined.some((e) => e.result === 'false'))) falhas.add('aresta-falsa');
   const grupos = new Map<string, Execucao[]>();
   for (const r of b.runs) {
     if (r.warmup || r.pair_id === null) continue;
@@ -476,8 +481,6 @@ export function avaliarBenchmark(entrada: unknown): VereditoDoBenchmark {
         if (requeridas.some(([nome, medida]) => exigidas.has(nome) && medida.value !== null && !ORIGENS_DE_CONSUMO_MEDIDO.includes(medida.source))) {
           lacunas.add('metrica-requerida-estimada');
         }
-        // D8: aresta falsa e fato do grafo auditado, venha da tentativa que vier.
-        if (r.edge_audit?.examined.some((e) => e.result === 'false')) falhas.add('aresta-falsa');
       }
       total[arm] = soma;
       const final = lista[lista.length - 1];
