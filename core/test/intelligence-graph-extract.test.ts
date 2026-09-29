@@ -662,6 +662,65 @@ test('KG2 extract: destino de link com escape e entidade e lido como o CommonMar
   assert.deepEqual(arestas(grafo, 'references'), ['references section:a.md#a -> file:b.md', 'references section:a.md#a -> file:b_c.md']);
 });
 
+test('KG2 limits: reexport divergente a um ou mais saltos, por nome ou por namespace, nao liga simbolo', () => {
+  const impl = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const { grafo } = extrair({
+    'c.ts': 'export function f() { return 2; }\n', 'c.js': impl,
+    'a2.cjs': "module.exports = require('./c');\n", 'a.cjs': "module.exports = require('./a2.cjs');\n",
+    'b.cjs': "const { f } = require('./a.cjs');\nfunction g() { return f(); }\nmodule.exports = { g };\n",
+    'k.d.ts': 'export declare class K { m(): void }\nexport declare function h(): void;\n', 'k.js': 'exports.K = class { m() {} };\nexports.h = () => 1;\n',
+    'r2.ts': "export * from './k';\n", 'r1.ts': "export * from './r2';\n",
+    'u.ts': "import { K, h } from './r1';\nimport * as ns from './r1';\nexport class D extends ns.K { n() { this.m(); h(); ns.h(); } }\nexport const x = new K();\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), []);
+  assert.ok(!arestas(grafo, 'imports').some((a) => a.includes('-> symbol:')));
+});
+
+test('KG2 limits: main com ponto, . e .. seguem a resolucao do Node; import() em CJS e .js sob type module sao ESM', () => {
+  const f = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const { grafo } = extrair({
+    'lib.js': f, 'lib/package.json': '{"main": "."}\n', 'lib/index.js': f,
+    'a.cjs': "const { f } = require('./lib/');\nfunction g() { return f(); }\nmodule.exports = { g };\n",
+    'o/package.json': '{"main": ".oculto.js"}\n', 'o/.oculto.js': f, 'o/index.js': f,
+    'b.cjs': "const { f } = require('./o');\nfunction h() { return f(); }\nmodule.exports = { h };\n",
+    'p/index.js': f, 'p/c.cjs': "const { f } = require('.');\nfunction k() { return f(); }\nmodule.exports = { k };\n",
+    'p/t/d.cjs': "const { f } = require('..');\nfunction q() { return f(); }\nmodule.exports = { q };\n",
+    'e.cjs': "async function w() { return import('./lib'); }\nmodule.exports = { w };\n",
+    'm/package.json': '{"type": "module"}\n', 'm/x.js': 'export function f() { return 1; }\n',
+    'm/y.js': "import { f } from './x';\nexport function z() { return f(); }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), [
+    'calls symbol:a.cjs#g -> symbol:lib.js#f', 'calls symbol:b.cjs#h -> symbol:o/.oculto.js#f',
+    'calls symbol:p/c.cjs#k -> symbol:p/index.js#f', 'calls symbol:p/t/d.cjs#q -> symbol:p/index.js#f',
+  ]);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => [d.path, d.reference]), [['e.cjs', './lib'], ['m/y.js', './x']]);
+});
+
+test('KG2 limits: package.json invalido no escopo de quem importa faz a resolucao do Node falhar', () => {
+  const f = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const { grafo } = extrair({
+    'q/package.json': '{ invalido\n', 'q/a.cjs': "const { f } = require('./b.cjs');\nfunction g() { return f(); }\nmodule.exports = { g };\n", 'q/b.cjs': f,
+    'ok/a.cjs': "const { f } = require('../q/b.cjs');\nfunction h() { return f(); }\nmodule.exports = { h };\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), ['calls symbol:ok/a.cjs#h -> symbol:q/b.cjs#f']);
+  assert.ok(grafo.diagnostics.some((d) => d.kind === 'unresolved-import' && d.path === 'q/a.cjs'));
+});
+
+test('KG2 extract: import cujos nomes so trazem tipo segue o compilador, e o slug sai do texto renderizado', () => {
+  const { grafo } = extrair({
+    'types.d.ts': 'export interface X { a: number }\n', 'types.js': 'module.exports = {};\n',
+    'b.ts': "import { type X } from './types';\nexport type Y = X;\n",
+    'c.ts': "import { X } from './types';\nexport type Z = X;\n",
+    'a.md': '# `Map<K, V>`\n\n## O elemento `<div>`\n\n# a\\&amp;b\n\n## _enfase_ e **forte**\n\n#\n\nSob o vazio [b](b.md).\n',
+    'b.md': '# B\n',
+  });
+  assert.ok(temAresta(grafo, 'imports file:b.ts -> symbol:types.d.ts#X'));
+  assert.ok(temAresta(grafo, 'imports file:c.ts -> symbol:types.d.ts#X'));
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'section' && n.locator.path === 'a.md').map((n) => n.locator.fragment).sort(),
+    ['aampb', 'enfase-e-forte', 'mapk-v', 'o-elemento-div']);
+  assert.ok(temAresta(grafo, 'references file:a.md -> file:b.md'), 'o trecho sob o titulo vazio fica no arquivo');
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');

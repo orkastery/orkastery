@@ -194,23 +194,39 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   const viaImportLocal = (s: TS.Symbol | undefined, sf: TS.SourceFile): boolean =>
     !!s && (s.flags & S.Alias) !== 0 && (s.declarations ?? []).some((d) => ehImportLocal(d, sf));
 
+  /** O nome importado so traz tipo: o alvo existe e nao tem valor (interface, tipo). */
+  const semValor = (nome: TS.Node): boolean => {
+    const s0 = checker.getSymbolAtLocation(nome), alvo = s0 && s0.flags & S.Alias ? checker.getAliasedSymbol(s0) : s0;
+    return !!alvo && (alvo.declarations?.length ?? 0) > 0 && (alvo.flags & S.Value) === 0;
+  };
   /**
-   * Chave do especificador de um no de import: o texto e se o import so traz tipo (`import type`,
-   * `export type ... from`, `import('x').T`), que some na compilacao e segue o compilador.
+   * Chave do especificador de um no de import. `t`: so traz tipo (`import type`, nomes que so sao tipo,
+   * `import('x').T`) e some na compilacao, entao segue o compilador. `d`: `import()`, que o Node resolve
+   * como ESM. `v`: o resto.
    */
   function chaveDoImport(n: TS.Node): string | null {
-    let esp: string | null = null, soTipo = false;
-    if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) {
+    let esp: string | null = null, tipo = 'v';
+    if (ts.isImportDeclaration(n)) {
       esp = literal(n.moduleSpecifier);
-      soTipo = ts.isImportDeclaration(n) ? !!n.importClause?.isTypeOnly : n.isTypeOnly;
+      const ic = n.importClause, nomes = ic?.namedBindings && ts.isNamedImports(ic.namedBindings) ? ic.namedBindings.elements : [];
+      const soTipo = !!ic && (ic.isTypeOnly || (!(ic.namedBindings && ts.isNamespaceImport(ic.namedBindings))
+        && (!ic.name || semValor(ic.name)) && (!!ic.name || nomes.length > 0) && nomes.every((el) => el.isTypeOnly || semValor(el.name))));
+      if (soTipo) tipo = 't';
+    } else if (ts.isExportDeclaration(n) && n.moduleSpecifier) {
+      esp = literal(n.moduleSpecifier);
+      const nomes = n.exportClause && ts.isNamedExports(n.exportClause) ? n.exportClause.elements : null;
+      if (n.isTypeOnly || (nomes && nomes.length > 0 && nomes.every((el) => el.isTypeOnly || semValor(el.name)))) tipo = 't';
     } else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) {
       esp = literal(n.moduleReference.expression);
-      soTipo = n.isTypeOnly;
+      if (n.isTypeOnly) tipo = 't';
     } else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) {
       esp = literal(n.argument.literal);
-      soTipo = true;
-    } else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
-    return esp === null ? null : `${soTipo ? 't' : 'v'}\u0000${esp}`;
+      tipo = 't';
+    } else if (ehImportDinamico(n)) {
+      esp = literal(n.arguments[0]);
+      tipo = 'd';
+    } else if (ehRequire(n)) esp = literal(n.arguments[0]);
+    return esp === null ? null : `${tipo}\u0000${esp}`;
   }
   const especificadorDaChave = (chave: string): string => chave.slice(2);
   /** Chaves de todos os imports dentro de um no. */
@@ -239,7 +255,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
    * final, `.` e `..` so valem como pasta. package.json invalido faz o Node falhar.
    */
   function resolverNode(de: string, especificador: string, esm: boolean): string | null {
-    const base = caminhoLiteral(de, especificador);
+    const base = caminhoLiteral(de, especificador === '.' || especificador === '..' ? `./${especificador}` : especificador);
     if (base === null) return null;
     if (esm) return existe(base);
     const comoArquivo = (p: string): string | null => (p ? existe(p) ?? existe(`${p}.js`) ?? existe(`${p}.json`) ?? existe(`${p}.node`) : null);
@@ -253,7 +269,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         } catch {
           return null;
         }
-        const m = typeof main === 'string' && main ? caminhoLiteral(arquivoDoPacote, main.startsWith('.') ? main : `./${main}`) : null;
+        // `main` e relativo a pasta, mesmo quando comeca com ponto (`.`, `..`, `.oculto.js`).
+        const m = typeof main === 'string' && main ? caminhoLiteral(arquivoDoPacote, `./${main}`) : null;
         const r = m === null ? null : comoArquivo(m) ?? comoIndice(m);
         if (r !== null) return r;
       }
@@ -261,6 +278,35 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     };
     const soPasta = especificador.endsWith('/') || /(^|\/)\.\.?$/.test(especificador);
     return soPasta ? comoPasta(base) : comoArquivo(base) ?? comoPasta(base);
+  }
+
+  /** package.json mais proximo acima do arquivo: `type` e se o Node o consegue ler. */
+  const escopos = new Map<string, { invalido: boolean; tipo: unknown }>();
+  function escopoDe(arquivo: string): { invalido: boolean; tipo: unknown } {
+    const caminho: string[] = [];
+    let dir = arquivo.includes('/') ? arquivo.slice(0, arquivo.lastIndexOf('/')) : '';
+    let r: { invalido: boolean; tipo: unknown } | undefined;
+    for (;;) {
+      r = escopos.get(dir);
+      if (r) break;
+      caminho.push(dir);
+      const pacote = junta(dir, 'package.json');
+      if (arquivos.has(pacote)) {
+        try {
+          r = { invalido: false, tipo: (JSON.parse(e.texto(pacote) ?? '') as { type?: unknown }).type };
+        } catch {
+          r = { invalido: true, tipo: undefined };
+        }
+        break;
+      }
+      if (dir === '') {
+        r = { invalido: false, tipo: undefined };
+        break;
+      }
+      dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : '';
+    }
+    for (const d of caminho) escopos.set(d, r);
+    return r;
   }
 
   // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
@@ -275,16 +321,20 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
       let alvo = doCompilador, divergente = false;
-      // Import so de tipo nao roda: vale o que o compilador liga.
-      if (chave[0] === 'v' && EXTENSOES_JS.includes(ext) && (esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../'))) {
-        // Onde o Node falha, nao ha aresta: o import fica sem resolver.
-        const runtime = resolverNode(fonte.path, esp, ext === '.mjs');
+      // Import so de tipo nao roda: vale o que o compilador liga. Fonte JavaScript roda no Node.
+      if (chave[0] !== 't' && EXTENSOES_JS.includes(ext)) {
+        const escopo = escopoDe(fonte.path);
+        const relativoAoArquivo = esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../');
+        const esm = chave[0] === 'd' || ext === '.mjs' || (ext === '.js' && escopo.tipo === 'module');
+        // Onde a resolucao do Node falha, nao ha aresta: especificador nao relativo (vai a node_modules) e
+        // arquivo num escopo de package.json invalido (o Node le o escopo de quem importa e lanca erro).
+        const runtime = !relativoAoArquivo || escopo.invalido ? null : resolverNode(fonte.path, esp, esm);
         if (runtime !== doCompilador) {
           divergente = true;
           alvo = runtime;
         }
       }
-      const impl = chave[0] === 'v' && !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
+      const impl = chave[0] !== 't' && !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
       if (impl !== null) {
         divergente = true;
         alvo = impl;
@@ -295,7 +345,29 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     resolucoes.set(fonte.path, mapa);
   }
 
-  const comDivergencia = new Set([...divergentesGlobais].map((k) => k.slice(0, k.indexOf('\u0000'))));
+  // B-N2: modulo que importa, direto ou por outro modulo, um arquivo com import divergente pode reexportar
+  // o que o compilador liga e o runtime nao (`export *`, `module.exports = require(...)`). O fecho segue
+  // o grafo de import inteiro, e so vale para simbolo que nao e declarado no proprio salto.
+  const dependentes = new Map<string, Set<string>>();
+  for (const [p, mapa] of resolucoes) {
+    for (const r of mapa.values()) {
+      for (const alvo of [r.doCompilador, r.alvo]) {
+        if (alvo === null) continue;
+        let d = dependentes.get(alvo);
+        if (!d) dependentes.set(alvo, (d = new Set()));
+        d.add(p);
+      }
+    }
+  }
+  const contaminados = new Set([...divergentesGlobais].map((k) => k.slice(0, k.indexOf('\u0000'))));
+  for (const fila = [...contaminados]; fila.length;) {
+    for (const d of dependentes.get(fila.pop() as string) ?? []) {
+      if (!contaminados.has(d)) {
+        contaminados.add(d);
+        fila.push(d);
+      }
+    }
+  }
 
   /**
    * A cadeia de alias passa por um import divergente: num salto dela, ou num modulo intermediario que
@@ -316,7 +388,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         for (const esp of esps) {
           if (divergentesGlobais.has(`${p}\u0000${esp}`)) return true;
           const salto = resolucoes.get(p)?.get(esp)?.doCompilador ?? null;
-          if (salto !== null && salto !== destino && comDivergencia.has(salto)) return true;
+          if (salto !== null && salto !== destino && contaminados.has(salto)) return true;
         }
       }
     }
@@ -356,8 +428,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       // Modulo importado inteiro (`* as ns`, `import = require`, `require` atribuido): as classes que ele exporta.
       else if (alvo.flags & S.ValueModule) {
         for (const x of checker.getExportsOfModule(alvo)) {
-          const c = semAlias(x);
-          if (c && c.flags & S.Class) classesImportadas.add(c);
+          const c = semAlias(x), arquivoDaClasse = c?.declarations?.[0] ? relativo(c.declarations[0].getSourceFile().fileName) : null;
+          // B-N1: a classe pode chegar por reexport divergente; confere a cadeia ate o arquivo dela.
+          if (c && c.flags & S.Class && !cadeiaDivergente(s0, arquivoDaClasse)) classesImportadas.add(c);
         }
       }
     };

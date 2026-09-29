@@ -49,8 +49,12 @@ export const TOKENS_SEM_MENCAO = Object.freeze([
 const TETO_DO_TITULO = 2048;
 /** Linha de frontmatter maior que isso nao vai ao leitor de YAML, que e quadratico em linha longa. */
 const TETO_DA_LINHA_DE_FRONTMATTER = 4096;
-/** A tabela GFM do micromark e quadratica nas linhas: acima disso de linhas com `|`, o corpo nao e analisado. */
+/**
+ * A tabela GFM do micromark e quadratica nas linhas: acima disso, somando as linhas dos blocos que tem
+ * uma linha delimitadora de tabela (`| --- |`, `--- | ---`), o corpo nao e analisado.
+ */
 export const TETO_DE_LINHAS_DE_TABELA = 2000;
+const DELIMITADOR_DE_TABELA = /^[\s>]*[|:\- \t]+$/;
 type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
 interface Linha { inicio: number; texto: string }
@@ -111,15 +115,17 @@ function decodificarEntidades(t: string): string {
 /** Destino como o CommonMark o le: escape de pontuacao e entidade decodificados (entidade desconhecida fica crua). */
 const destinoDoLink = (bruto: string): string => decodificarEntidades(bruto.replace(/\\([!-/:-@[-`{-~])/g, '$1'));
 
-/** D5: ancora como o GitHub gera: entidades decodificadas, minusculas, sem pontuacao, espaco vira hifen. */
+/** D5: ancora como o GitHub gera do texto renderizado: minusculas, sem pontuacao, espaco vira hifen. */
+export function slugDeTexto(texto: string): string {
+  return texto.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+}
+
+/** Slug a partir do titulo cru, aproximando o texto renderizado (link, HTML e entidade). */
 export function slugDoGithub(titulo: string): string {
-  return titulo
+  return slugDeTexto(titulo
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<[^>]+>/g, '')
-    .replace(/&[#a-zA-Z0-9]+;/g, (m) => decodificarEntidades(m))
-    .toLowerCase()
-    .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '')
-    .replace(/ /g, '-');
+    .replace(/&[#a-zA-Z0-9]+;/g, (m) => decodificarEntidades(m)));
 }
 
 /** Slugs repetidos no mesmo arquivo ganham `-1`, `-2`, como no GitHub. */
@@ -220,14 +226,26 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
   // contam a partir do fim do BOM, e `desde` os devolve ao texto inteiro.
   const corpo = apagarTrechos(fonte.texto.slice(desde), [[0, fimDoFrontmatter - desde]]);
   const no = (i: number): number => i + desde;
-  let linhasDeTabela = 0;
-  for (const l of linhasDe(corpo)) if (l.texto.includes('|')) linhasDeTabela++;
+  // A linha do corpo de uma tabela nao precisa de `|`: conta o bloco inteiro que tem delimitador.
+  let linhasDeTabela = 0, bloco = 0, comDelimitador = false;
+  for (const l of [...linhasDe(corpo), { inicio: -1, texto: '' }]) {
+    if (!l.texto.trim()) {
+      if (comDelimitador) linhasDeTabela += bloco;
+      bloco = 0;
+      comDelimitador = false;
+      continue;
+    }
+    bloco++;
+    if (l.texto.includes('|') && l.texto.includes('-') && DELIMITADOR_DE_TABELA.test(l.texto)) comDelimitador = true;
+  }
   if (linhasDeTabela > TETO_DE_LINHAS_DE_TABELA) {
     return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
   const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
   const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: [number, number] | null; descartado: boolean }[] = [];
-  let titulo: { inicio: number; fim: number; texto: string | null } | null = null;
+  // A-N4: o slug sai do texto que o GitHub renderiza no titulo (dado, codigo, escape e entidade),
+  // sem marcador de enfase, HTML, destino de link nem texto alternativo de imagem.
+  let titulo: { inicio: number; fim: number; partes: string[]; noTexto: number; foraDoTexto: number } | null = null;
   // Tabela GFM: celula alem das colunas do cabecalho e descartada pelo GitHub, e o link nela tambem.
   let colunas = 0, noCabecalho = false, celula = 0, emExcesso = false;
   for (const e of analisar(corpo)) {
@@ -240,22 +258,34 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
         emExcesso = true;
         semMencao.push([e.inicio, e.fim]);
       }
-      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), texto: null };
-      else if ((e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') && titulo) titulo.texto = corpo.slice(e.inicio, e.fim).replace(/\r?\n/g, ' ');
-      else if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: no(e.inicio), fim: no(e.fim), destino: null, descartado: emExcesso });
+      // Titulo, lido em paralelo: o texto dele junta dado, codigo, escape e entidade.
+      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), partes: [], noTexto: 0, foraDoTexto: 0 };
+      else if (titulo) {
+        if (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') titulo.noTexto++;
+        else if (e.tipo === 'resource' || e.tipo === 'image') titulo.foraDoTexto++;
+        else if (titulo.noTexto > 0 && titulo.foraDoTexto === 0) {
+          if (e.tipo === 'data' || e.tipo === 'codeTextData' || e.tipo === 'characterEscapeValue') titulo.partes.push(corpo.slice(e.inicio, e.fim));
+          else if (e.tipo === 'characterReference') titulo.partes.push(decodificarEntidades(corpo.slice(e.inicio, e.fim)));
+          else if (e.tipo === 'lineEnding' || e.tipo === 'codeTextLineEnding') titulo.partes.push(' ');
+        }
+      }
+      // Link e imagem, tambem dentro de titulo.
+      if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: no(e.inicio), fim: no(e.fim), destino: null, descartado: emExcesso });
       else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) abertos[abertos.length - 1].destino = [e.inicio, e.fim];
       if ((TOKENS_SEM_MENCAO as readonly string[]).includes(e.tipo)) semMencao.push([e.inicio, e.fim]);
       continue;
     }
     if (e.tipo === 'tableHead') noCabecalho = false;
     else if (e.tipo === 'tableData') emExcesso = false;
+    else if (titulo && (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText')) titulo.noTexto--;
+    else if (titulo && (e.tipo === 'resource' || e.tipo === 'image')) titulo.foraDoTexto--;
     if ((e.tipo === 'atxHeading' || e.tipo === 'setextHeading') && titulo) {
-      const texto = (titulo.texto ?? '').trim();
-      if (texto) {
-        const base = texto.length <= TETO_DO_TITULO ? slugDoGithub(texto) : '';
-        const s = base ? slug(base) : null;
-        secoes.push({ slug: s !== null && aceitaFragmento(s) ? s : null, inicio: titulo.inicio, fim: titulo.fim });
-      }
+      // Todo titulo abre uma secao: sem texto ou com slug recusado, o trecho sob ele fica no arquivo,
+      // nunca na secao anterior.
+      const texto = titulo.partes.join('').trim();
+      const base = texto && texto.length <= TETO_DO_TITULO ? slugDeTexto(texto) : '';
+      const s = base ? slug(base) : null;
+      secoes.push({ slug: s !== null && aceitaFragmento(s) ? s : null, inicio: titulo.inicio, fim: titulo.fim });
       titulo = null;
     } else if (e.tipo === 'link' || e.tipo === 'image') {
       const l = abertos.pop();
