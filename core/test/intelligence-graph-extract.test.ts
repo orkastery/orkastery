@@ -418,6 +418,59 @@ test('KG2 limits: this, super e global UMD so ligam a outro arquivo que este imp
   assert.deepEqual(arestas(grafo, 'calls'), ['calls symbol:c.ts#Filha.n -> symbol:b.ts#Base.m']);
 });
 
+test('KG2 limits: link em codigo dentro de citacao, lista, bloco indentado, span de varias linhas ou bloco HTML nao vira aresta', () => {
+  const alvos = Object.fromEntries(['b', 'c', 'd', 'e', 'f', 'g'].map((x) => [`${x}.md`, `# ${x}\n`]));
+  const { grafo } = extrair({
+    ...alvos,
+    'a.md': [
+      '# A', '', '> ```md', '> [x](b.md)', '> ```', '',
+      '1. passo', '', '    ```md', '    [x](c.md)', '    ```', '',
+      'Exemplo:', '', '    [x](d.md)', '',
+      'Use `foo', '[x](e.md) bar` aqui.', '',
+      '<div>', '[x](f.md)', '</div>', '',
+      'Fora de tudo, [ok](g.md).', '',
+    ].join('\n'),
+  });
+  assert.deepEqual(arestas(grafo, 'references'), ['references section:a.md#a -> file:g.md']);
+});
+
+test('KG2 limits: titulo e ID acima do teto do contrato nao viram no, e o trecho sob o titulo fica no arquivo', () => {
+  const { grafo, relatorio } = extrair({
+    'alvo.md': '# Alvo\n',
+    'a.md': `# Curto\n\n# ${'palavra '.repeat(80)}\n\nVeja [alvo](alvo.md).\n`,
+    'b.md': `---\nid: RM-${'1'.repeat(600)}\ntipo: roadmap\n---\n# B\n`,
+  });
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'section' && n.locator.path === 'a.md').map((n) => n.locator.fragment), ['curto']);
+  assert.ok(temAresta(grafo, 'references file:a.md -> file:alvo.md'), 'o link sob o titulo recusado sai do arquivo');
+  assert.ok(!temAresta(grafo, 'references section:a.md#curto -> file:alvo.md'), 'nunca da secao anterior');
+  assert.equal(grafo.nodes.filter((n) => n.kind === 'artifact').length, 0);
+  assert.equal(relatorio.lacunas_por_categoria['secao-recusada'], 1);
+  assert.equal(relatorio.lacunas_por_categoria['artefato-recusado'], 1);
+});
+
+test('KG2 extract: simbolo de caminho com # no frontmatter, BOM e entidade no titulo', () => {
+  const bom = String.fromCharCode(0xfeff);
+  const { grafo } = extrair({
+    'x#y.ts': 'export function f() { return 1; }\n',
+    'a.md': `${bom}---\nid: RM-001\ntipo: roadmap\nfontes:\n  simbolos: [x#y.ts#f]\n---\n# A &amp; B\n`,
+  });
+  assert.ok(temAresta(grafo, 'references artifact:a.md#RM-001 -> symbol:x#y.ts#f'));
+  assert.ok(temAresta(grafo, 'contains file:a.md -> section:a.md#a--b'));
+});
+
+test('KG2 limits: linha patologica longa nao derruba nem trava a extracao', () => {
+  const n = 50_000;
+  const { grafo, relatorio } = extrair({
+    'a.md': ['# a' + ' '.repeat(n) + 'b', '['.repeat(n), '`'.repeat(n) + ' x ' + '``'.repeat(n / 2), '(('.repeat(n) + '[x](' + 'y'.repeat(n) + ')'].join('\n'),
+    'b.md': `---\nid: RM-1\ntipo: t\npai: a${' '.repeat(n)}b\n---\n# B\n`,
+  });
+  // Titulo acima do teto vira lacuna; destino acima do teto de caminho nem e lido; frontmatter longo e invalido.
+  assert.equal(relatorio.lacunas_por_categoria['secao-recusada'], 1);
+  assert.equal(relatorio.lacunas_por_categoria['frontmatter-invalido'], 1);
+  assert.deepEqual(arestas(grafo, 'references'), []);
+  assert.ok(temAresta(grafo, 'contains file:b.md -> section:b.md#b'));
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');

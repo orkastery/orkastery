@@ -250,8 +250,15 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   const raiz = `/ork-${sha256DoCanonico([...manifesto.values()].map((m) => [m.path, m.source_hash])).slice(0, 32)}`;
   const aceitaFragmento = (f: string): boolean => f.length >= 1 && f.length <= GRAFO_LIMITES.fragmento && textoAceito(f);
   juntar(extrairTypeScript({ fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, extrator: EXTRATOR_TS }, ts));
-  const simbolos = new Set(achados.nos.filter((r) => r.kind === 'symbol').map((r) => `${r.path}#${r.fragment}`));
-  juntar(extrairMarkdown({ fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID }));
+  // B4: chave `caminho#fragmento` como o frontmatter a escreve; duas refs na mesma chave ficam ambiguas.
+  const simbolos = new Map<string, RefDeNo | null>();
+  for (const r of achados.nos.filter((x) => x.kind === 'symbol')) {
+    const chave = `${r.path}#${r.fragment}`, antes = simbolos.get(chave);
+    simbolos.set(chave, antes === undefined || (antes && antes.path === r.path && antes.fragment === r.fragment) ? r : null);
+  }
+  juntar(extrairMarkdown({
+    fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
+  }));
 
   const extratores: Extrator[] = [
     { extractor_id: EXTRATOR_ARQUIVOS, extractor_version: VERSAO_KG2 },

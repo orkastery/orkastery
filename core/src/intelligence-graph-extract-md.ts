@@ -3,9 +3,11 @@
  *
  * Markdown: secao por titulo ATX, com a ancora no slug do GitHub; link inline e imagem viram
  * `references` da secao onde estao; frontmatter com `id` e `tipo` vira artefato, com `derived_from`
- * para as fontes declaradas e `references` para pai, roadmap, features e simbolos. Codigo cercado,
- * span de codigo e comentario HTML nao geram link. ID citado em texto so vira aresta quando existe
- * um artefato com aquele ID. O que nao resolve fica no relatorio, nunca vira no fabricado.
+ * para as fontes declaradas e `references` para pai, roadmap, features e simbolos. Codigo cercado
+ * (tambem dentro de citacao e de lista), codigo indentado, bloco HTML, span de codigo (tambem em
+ * varias linhas) e comentario HTML nao geram link. A leitura e conservadora: na duvida entre
+ * codigo e texto, o trecho e tratado como codigo e nao gera aresta. ID citado em texto so vira
+ * aresta quando existe um artefato com aquele ID. O que nao resolve fica no relatorio.
  */
 import type { AchadoDeAresta, Achados, FonteDeTexto, RefDeNo, Trecho } from './intelligence-graph-extract';
 import { lerYaml, type ValorYaml } from './yaml';
@@ -17,8 +19,10 @@ export interface EntradaMd {
   codigo: readonly FonteDeTexto[];
   /** Todos os caminhos do manifesto. */
   arquivos: readonly string[];
-  /** Simbolos provados pelo extrator de codigo, como `caminho#fragmento`. */
-  simbolos: ReadonlySet<string>;
+  /** Simbolos provados pelo extrator de codigo, por `caminho#fragmento`; `null` quando a chave e ambigua. */
+  simbolos: ReadonlyMap<string, RefDeNo | null>;
+  /** Regra de texto do contrato para `fragment`: secao ou artefato recusado nao vira no. */
+  aceitaFragmento: (fragmento: string) => boolean;
   extratorMd: string;
   extratorId: string;
 }
@@ -32,25 +36,33 @@ export const CHAVES_DO_FRONTMATTER = Object.freeze({
   'fontes.codigo': 'derived_from:file', 'fontes.testes': 'derived_from:file', 'fontes.docs': 'derived_from:file',
   'fontes.simbolos': 'references:symbol',
 } as const);
+/** Destino de link maior que o teto de caminho do contrato nunca resolve: nem e lido. */
+const TETO_DO_DESTINO = 1024;
+/** Titulo maior que isso daria slug acima do teto de fragmento. */
+const TETO_DO_TITULO = 2048;
+/** Linha de frontmatter maior que isso nao vai ao leitor de YAML, que e quadratico em linha longa. */
+const TETO_DA_LINHA_DE_FRONTMATTER = 4096;
 type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
 interface Linha { inicio: number; texto: string }
-interface Secao { slug: string; inicio: number; fim: number }
+interface Secao { slug: string | null; inicio: number; fim: number }
 interface Link { destino: string; inicio: number; fim: number }
 interface ValorPosicionado { chave: Chave; valor: string; inicio: number; fim: number }
 interface Estrutura {
   fonte: FonteDeTexto;
+  /** Titulos em ordem; `slug` nulo quando o contrato o recusaria (o trecho fica no arquivo). */
   secoes: Secao[];
   links: Link[];
-  /** Linhas do corpo fora de codigo cercado, com comentario HTML e destino de link apagados. */
+  /** Linhas de texto fora de codigo, com comentario HTML e destino de link apagados. */
   textoDeMencao: Linha[];
   frontmatter: { dados: Record<string, ValorYaml>; valores: ValorPosicionado[] } | null;
   frontmatterInvalido: boolean;
 }
 
-function linhasDe(texto: string): Linha[] {
+/** Linhas do texto a partir de `desde` (o BOM fica fora), com os offsets no texto inteiro. */
+function linhasDe(texto: string, desde = 0): Linha[] {
   const r: Linha[] = [];
-  let inicio = 0;
+  let inicio = desde;
   for (;;) {
     const fim = texto.indexOf('\n', inicio);
     const bruto = texto.slice(inicio, fim < 0 ? texto.length : fim);
@@ -60,11 +72,22 @@ function linhasDe(texto: string): Linha[] {
   }
 }
 
-const apagar = (s: string, de: number, ate: number): string => s.slice(0, de) + ' '.repeat(Math.max(0, ate - de)) + s.slice(ate);
+/** Troca o trecho por espacos, mantendo as quebras de linha (o span de codigo atravessa linha). */
+const apagar = (s: string, de: number, ate: number): string => s.slice(0, de) + s.slice(de, ate).replace(/[^\n]/g, ' ') + s.slice(ate);
 const escapado = (s: string, i: number): boolean => {
   let n = 0;
   for (let j = i - 1; j >= 0 && s[j] === '\\'; j--) n++;
   return n % 2 === 1;
+};
+/** Colunas de recuo no inicio da linha; tab avanca ate o proximo multiplo de 4. */
+const indentacao = (s: string): number => {
+  let colunas = 0;
+  for (const c of s) {
+    if (c === ' ') colunas++;
+    else if (c === '\t') colunas += 4 - (colunas % 4);
+    else break;
+  }
+  return colunas;
 };
 
 /** Apaga comentario HTML (que pode atravessar linhas), mantendo os offsets. */
@@ -87,34 +110,42 @@ function semComentario(texto: string, estado: { aberto: boolean }): string {
   return s;
 }
 
-/** Apaga span de codigo: sequencia de crases fechada por outra do mesmo tamanho na linha. */
+/**
+ * Apaga span de codigo: sequencia de crases fechada pela proxima de mesmo tamanho, no paragrafo
+ * inteiro (o span atravessa linha). Cada tamanho guarda um ponteiro, entao a varredura e linear.
+ */
 function semCodigo(s: string): string {
-  let r = s, i = 0;
-  while (i < r.length) {
-    if (r[i] !== '`' || escapado(r, i)) {
+  const corridas: { pos: number; n: number }[] = [];
+  for (let i = 0; i < s.length;) {
+    if (s[i] !== '`' || escapado(s, i)) {
       i++;
       continue;
     }
     let n = 0;
-    while (r[i + n] === '`') n++;
-    let j = i + n, fecha = -1;
-    while (j < r.length) {
-      if (r[j] === '`') {
-        let m = 0;
-        while (r[j + m] === '`') m++;
-        if (m === n) {
-          fecha = j;
-          break;
-        }
-        j += m;
-      } else j++;
-    }
-    if (fecha < 0) {
-      i += n;
+    while (s[i + n] === '`') n++;
+    corridas.push({ pos: i, n });
+    i += n;
+  }
+  const porTamanho = new Map<number, number[]>();
+  corridas.forEach((c, k) => {
+    const lista = porTamanho.get(c.n);
+    if (lista) lista.push(k);
+    else porTamanho.set(c.n, [k]);
+  });
+  const ponteiro = new Map<number, number>();
+  let r = s;
+  for (let k = 0; k < corridas.length;) {
+    const c = corridas[k], lista = porTamanho.get(c.n) as number[];
+    let p = ponteiro.get(c.n) ?? 0;
+    while (p < lista.length && lista[p] <= k) p++;
+    ponteiro.set(c.n, p);
+    if (p >= lista.length) {
+      k++;
       continue;
     }
-    r = apagar(r, i, fecha + n);
-    i = fecha + n;
+    const fecha = corridas[lista[p]];
+    r = apagar(r, c.pos, fecha.pos + fecha.n);
+    k = lista[p] + 1;
   }
   return r;
 }
@@ -122,35 +153,32 @@ function semCodigo(s: string): string {
 /** Link achado numa linha: offsets na linha do link inteiro (`i`, `f`) e do destino (`di`, `df`). */
 interface LinkDaLinha { destino: string; i: number; f: number; di: number; df: number }
 
-/** Links inline e imagens de uma linha ja sem codigo e sem comentario. */
+/** Links inline e imagens de uma linha ja sem codigo e sem comentario; colchetes pareados por pilha. */
 function linksDa(mascara: string, original: string): LinkDaLinha[] {
-  const r: LinkDaLinha[] = [];
+  const par = new Map<number, number>(), pilha: number[] = [];
   for (let i = 0; i < mascara.length; i++) {
-    if (mascara[i] !== '[' || escapado(mascara, i)) continue;
-    let prof = 0, j = i;
-    for (; j < mascara.length; j++) {
-      const c = mascara[j];
-      if (c === '\\') {
-        j++;
-        continue;
-      }
-      if (c === '[') prof++;
-      else if (c === ']' && --prof === 0) break;
-    }
-    if (j >= mascara.length || mascara[j + 1] !== '(') continue;
+    const c = mascara[i];
+    if ((c !== '[' && c !== ']') || escapado(mascara, i)) continue;
+    if (c === '[') pilha.push(i);
+    else if (pilha.length) par.set(pilha.pop() as number, i);
+  }
+  const r: LinkDaLinha[] = [];
+  for (const [i, j] of [...par.entries()].sort((a, b) => a[0] - b[0])) {
+    if (mascara[j + 1] !== '(') continue;
     let k = j + 2;
     while (mascara[k] === ' ' || mascara[k] === '\t') k++;
     let di: number, df: number;
     if (mascara[k] === '<') {
       const fim = mascara.indexOf('>', k);
-      if (fim < 0) continue;
+      if (fim < 0 || fim - k > TETO_DO_DESTINO) continue;
       di = k + 1;
       df = fim;
       k = fim + 1;
     } else {
       di = k;
       let p = 0;
-      for (; k < mascara.length; k++) {
+      const limite = Math.min(mascara.length, k + TETO_DO_DESTINO + 1);
+      for (; k < limite; k++) {
         const c = mascara[k];
         if (c === '\\') {
           k++;
@@ -162,6 +190,7 @@ function linksDa(mascara: string, original: string): LinkDaLinha[] {
           p--;
         } else if (c === ' ' || c === '\t') break;
       }
+      if (k >= limite && limite < mascara.length) continue;
       df = k;
     }
     while (mascara[k] === ' ' || mascara[k] === '\t') k++;
@@ -179,11 +208,18 @@ function linksDa(mascara: string, original: string): LinkDaLinha[] {
   return r;
 }
 
-/** D5: ancora como o GitHub gera: minusculas, sem pontuacao, espaco vira hifen. */
+const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
+
+/** D5: ancora como o GitHub gera: entidades decodificadas, minusculas, sem pontuacao, espaco vira hifen. */
 export function slugDoGithub(titulo: string): string {
   return titulo
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<[^>]+>/g, '')
+    .replace(/&(#[0-9]{1,7}|#x[0-9a-fA-F]{1,6}|[a-z]+);/g, (m, e: string) => {
+      if (e[0] !== '#') return ENTIDADES[e] ?? m;
+      const c = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return c > 0 && c <= 0x10ffff ? String.fromCodePoint(c) : m;
+    })
     .toLowerCase()
     .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '')
     .replace(/ /g, '-');
@@ -206,6 +242,25 @@ function contadorDeSlugs(): (base: string) => string {
   };
 }
 
+/** Titulo ATX sem regex de retrocesso: ate 3 espacos, 1 a 6 `#`, espaco ou fim, sequencia de fecho opcional. */
+function tituloAtx(linha: string): { inicio: number; texto: string } | null {
+  let i = 0;
+  while (i < 3 && linha[i] === ' ') i++;
+  const inicio = i;
+  let n = 0;
+  while (linha[i + n] === '#') n++;
+  if (n < 1 || n > 6) return null;
+  const depois = linha[i + n];
+  if (depois !== undefined && depois !== ' ' && depois !== '\t') return null;
+  let fim = linha.length;
+  while (fim > i + n && (linha[fim - 1] === ' ' || linha[fim - 1] === '\t')) fim--;
+  let corpo = linha.slice(i + n, fim);
+  let f = corpo.length;
+  while (f > 0 && corpo[f - 1] === '#') f--;
+  if (f === 0 || corpo[f - 1] === ' ' || corpo[f - 1] === '\t') corpo = corpo.slice(0, f);
+  return { inicio, texto: corpo.trim() };
+}
+
 /** Posicao de cada valor das chaves do D6, lida linha a linha e conferida contra o leitor de YAML. */
 function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>): ValorPosicionado[] {
   const r: ValorPosicionado[] = [], pilha: { indent: number; chave: string }[] = [];
@@ -221,7 +276,9 @@ function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>):
   };
   const escalar = (caminho: string, bruto: string, desde: number): void => {
     if (!(caminho in CHAVES_DO_FRONTMATTER)) return;
-    let t = bruto.replace(/\s+#.*$/, ''), ini = desde + (bruto.length - bruto.trimStart().length);
+    // Comentario YAML comeca em `#` depois de espaco; busca linear, sem retrocesso em espaco longo.
+    const comentario = bruto.search(/\s#/);
+    let t = comentario < 0 ? bruto : bruto.slice(0, comentario), ini = desde + (bruto.length - bruto.trimStart().length);
     t = t.trim();
     if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
       t = t.slice(1, -1);
@@ -255,8 +312,21 @@ function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>):
   return r;
 }
 
-function estruturar(fonte: FonteDeTexto): Estrutura {
-  const todas = linhasDe(fonte.texto);
+/** Marcadores de citacao (`>`) no inicio da linha: o conteudo comeca depois deles. */
+function semCitacao(linha: string): number {
+  let i = 0;
+  for (;;) {
+    let j = i;
+    while (j < i + 3 && linha[j] === ' ') j++;
+    if (linha[j] !== '>') return i;
+    i = j + 1;
+    if (linha[i] === ' ') i++;
+  }
+}
+
+function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean): Estrutura {
+  // O BOM nao e conteudo: sem ele, o primeiro titulo e o frontmatter sao lidos.
+  const todas = linhasDe(fonte.texto, fonte.texto.charCodeAt(0) === 0xfeff ? 1 : 0);
   let corpo = todas, frontmatter: Estrutura['frontmatter'] = null, frontmatterInvalido = false;
   if (todas[0]?.texto === '---') {
     const fim = todas.findIndex((l, i) => i > 0 && (l.texto === '---' || l.texto === '...'));
@@ -264,6 +334,7 @@ function estruturar(fonte: FonteDeTexto): Estrutura {
       corpo = todas.slice(fim + 1);
       const bruto = todas.slice(1, fim);
       try {
+        if (bruto.some((l) => l.texto.length > TETO_DA_LINHA_DE_FRONTMATTER)) throw new Error('frontmatter.linha-longa');
         const dados = lerYaml(bruto.map((l) => l.texto).join('\n'));
         if (dados && typeof dados === 'object' && !Array.isArray(dados)) frontmatter = { dados, valores: valoresPosicionados(bruto, dados) };
       } catch {
@@ -273,32 +344,79 @@ function estruturar(fonte: FonteDeTexto): Estrutura {
   }
   const secoes: Secao[] = [], links: Link[] = [], textoDeMencao: Linha[] = [];
   const slug = contadorDeSlugs(), comentario = { aberto: false };
-  let cerca: { c: string; n: number } | null = null;
+  let cerca: { c: string; n: number; indent: number } | null = null;
+  // Codigo indentado so abre onde um paragrafo nao continua: inicio, linha em branco, titulo, cerca.
+  let emHtml = false, emCodigoIndentado = false, podeCodigoIndentado = true;
+  let paragrafo: Linha[] = [];
+
+  // Paragrafo inteiro: o span de codigo atravessa linha; link e mencao sao lidos por linha.
+  const fecharParagrafo = (): void => {
+    if (!paragrafo.length) return;
+    const juntas = semCodigo(paragrafo.map((l) => l.texto).join('\n')).split('\n');
+    paragrafo.forEach((l, k) => {
+      let mencao = l.texto;
+      for (const x of linksDa(juntas[k], l.texto)) {
+        links.push({ destino: x.destino, inicio: l.inicio + x.i, fim: l.inicio + x.f });
+        mencao = apagar(mencao, x.di, x.df);
+      }
+      textoDeMencao.push({ inicio: l.inicio, texto: mencao });
+    });
+    paragrafo = [];
+  };
+
   for (const l of corpo) {
+    const q = semCitacao(l.texto), conteudo = l.texto.slice(q);
     if (cerca) {
-      const f = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(l.texto);
-      if (f && f[1][0] === cerca.c && f[1].length >= cerca.n) cerca = null;
+      const f = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/.exec(conteudo);
+      if (f && f[2][0] === cerca.c && f[2].length >= cerca.n && indentacao(f[1]) <= cerca.indent + 3) {
+        cerca = null;
+        podeCodigoIndentado = true;
+      }
       continue;
     }
-    const abre = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(l.texto);
-    if (abre && !(abre[1][0] === '`' && abre[2].includes('`'))) {
-      cerca = { c: abre[1][0], n: abre[1].length };
+    if (!conteudo.trim()) {
+      fecharParagrafo();
+      emHtml = false;
+      podeCodigoIndentado = true;
       continue;
     }
+    // Cerca em qualquer indentacao e dentro de citacao: dentro de lista ela ainda e codigo.
+    const abre = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(conteudo);
+    if (abre && !(abre[2][0] === '`' && abre[3].includes('`'))) {
+      fecharParagrafo();
+      cerca = { c: abre[2][0], n: abre[2].length, indent: indentacao(abre[1]) };
+      continue;
+    }
+    // Codigo indentado: 4 espacos depois de linha em branco. Continuacao de lista cai aqui tambem.
+    if (indentacao(conteudo) >= 4 && (podeCodigoIndentado || emCodigoIndentado) && !paragrafo.length) {
+      emCodigoIndentado = true;
+      continue;
+    }
+    emCodigoIndentado = false;
+    podeCodigoIndentado = false;
     const semHtml = semComentario(l.texto, comentario);
-    const titulo = /^( {0,3})(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/.exec(semHtml);
+    // Bloco HTML ate a proxima linha em branco: o Markdown dentro dele nao e lido.
+    if (emHtml || /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?=[\s>/]|$)/.test(semHtml.slice(q))) {
+      fecharParagrafo();
+      emHtml = true;
+      continue;
+    }
+    const titulo = tituloAtx(semHtml.slice(q));
     if (titulo) {
-      const textoDoTitulo = (titulo[3] ?? '').replace(/(^|[ \t]+)#+$/, '').trim();
-      const base = slugDoGithub(textoDoTitulo);
-      if (base) secoes.push({ slug: slug(base), inicio: l.inicio + titulo[1].length, fim: l.inicio + semHtml.trimEnd().length });
+      fecharParagrafo();
+      const base = titulo.texto.length <= TETO_DO_TITULO ? slugDoGithub(titulo.texto) : '';
+      if (base) {
+        const s = slug(base);
+        secoes.push({ slug: aceitaFragmento(s) ? s : null, inicio: l.inicio + q + titulo.inicio, fim: l.inicio + semHtml.trimEnd().length });
+      } else if (titulo.texto) secoes.push({ slug: null, inicio: l.inicio + q + titulo.inicio, fim: l.inicio + semHtml.trimEnd().length });
+      paragrafo = [{ inicio: l.inicio, texto: apagar(semHtml, 0, q) }];
+      fecharParagrafo();
+      podeCodigoIndentado = true;
+      continue;
     }
-    let mencao = semHtml;
-    for (const k of linksDa(semCodigo(semHtml), l.texto)) {
-      links.push({ destino: k.destino, inicio: l.inicio + k.i, fim: l.inicio + k.f });
-      mencao = apagar(mencao, k.di, k.df);
-    }
-    textoDeMencao.push({ inicio: l.inicio, texto: mencao });
+    paragrafo.push({ inicio: l.inicio, texto: apagar(semHtml, 0, q) });
   }
+  fecharParagrafo();
   return { fonte, secoes, links, textoDeMencao, frontmatter, frontmatterInvalido };
 }
 
@@ -331,8 +449,8 @@ export function extrairMarkdown(e: EntradaMd): Achados {
     const partes = p.split('/');
     for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
   }
-  const estruturas = e.fontes.map(estruturar);
-  const slugs = new Map(estruturas.map((s) => [s.fonte.path, new Set(s.secoes.map((x) => x.slug))]));
+  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento));
+  const slugs = new Map(estruturas.map((s) => [s.fonte.path, new Set(s.secoes.map((x) => x.slug).filter((x): x is string => x !== null))]));
   const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, extrator: string, metodo: AchadoDeAresta['metodo'], t: Trecho): void => {
     saida.arestas.push({ kind, from, to, extrator, metodo, trecho: t });
   };
@@ -346,6 +464,10 @@ export function extrairMarkdown(e: EntradaMd): Achados {
     if (s.frontmatterInvalido) lacuna('frontmatter-invalido', s.fonte.path, 0, null);
     const nome = s.fonte.path.slice(s.fonte.path.lastIndexOf('/') + 1), d = s.frontmatter?.dados;
     if (!d || nome.startsWith('_') || typeof d.id !== 'string' || !PADRAO_DE_ID.test(d.id) || typeof d.tipo !== 'string' || !d.tipo) continue;
+    if (!e.aceitaFragmento(d.id)) {
+      lacuna('artefato-recusado', s.fonte.path, 0, null);
+      continue;
+    }
     donos.set(d.id, [...(donos.get(d.id) ?? []), s.fonte.path]);
   }
   const artefatos = new Map<string, RefDeNo>();
@@ -355,13 +477,14 @@ export function extrairMarkdown(e: EntradaMd): Achados {
   }
   for (const r of artefatos.values()) saida.nos.push(r);
 
+  // Trecho sob titulo recusado fica no arquivo: atribuir a secao anterior seria outra secao.
   const secaoEm = (s: Estrutura, arquivo: RefDeNo, o: number): RefDeNo => {
     let atual: Secao | null = null;
     for (const x of s.secoes) {
       if (x.inicio > o) break;
       atual = x;
     }
-    return atual ? { kind: 'section', path: arquivo.path, fragment: atual.slug } : arquivo;
+    return atual && atual.slug !== null ? { kind: 'section', path: arquivo.path, fragment: atual.slug } : arquivo;
   };
   const mencoes = (fonte: FonteDeTexto, linhas: readonly Linha[], origem: (o: number) => RefDeNo): void => {
     for (const l of linhas) {
@@ -379,6 +502,10 @@ export function extrairMarkdown(e: EntradaMd): Achados {
   for (const s of estruturas) {
     const path = s.fonte.path, arquivo: RefDeNo = { kind: 'file', path, fragment: null };
     for (const x of s.secoes) {
+      if (x.slug === null) {
+        lacuna('secao-recusada', path, x.inicio, null);
+        continue;
+      }
       const r: RefDeNo = { kind: 'section', path, fragment: x.slug };
       saida.nos.push(r);
       aresta('contains', arquivo, r, e.extratorMd, 'structured', { path, inicio: x.inicio, fim: x.fim });
@@ -424,15 +551,12 @@ export function extrairMarkdown(e: EntradaMd): Achados {
       for (const v of s.frontmatter.valores) {
         const [kind, destino] = CHAVES_DO_FRONTMATTER[v.chave].split(':') as [AchadoDeAresta['kind'], string];
         const t: Trecho = { path, inicio: v.inicio, fim: v.fim };
-        let alvo: RefDeNo | undefined;
-        if (destino === 'artifact') alvo = artefatos.get(v.valor);
-        else if (destino === 'file') alvo = arquivos.has(v.valor) ? { kind: 'file', path: v.valor, fragment: null } : undefined;
-        else if (e.simbolos.has(v.valor)) {
-          const i = v.valor.indexOf('#');
-          alvo = { kind: 'symbol', path: v.valor.slice(0, i), fragment: v.valor.slice(i + 1) };
-        }
+        // B4: o simbolo e procurado pela chave inteira; caminho com `#` nao e cortado no meio.
+        const alvo = destino === 'artifact' ? artefatos.get(v.valor)
+          : destino === 'file' ? (arquivos.has(v.valor) ? { kind: 'file' as const, path: v.valor, fragment: null } : undefined)
+            : e.simbolos.get(v.valor) ?? undefined;
         if (alvo) aresta(kind, artefato, alvo, e.extratorMd, 'structured', t);
-        else lacuna(`frontmatter-sem-alvo`, path, v.inicio, `${v.chave}: ${v.valor}`);
+        else lacuna('frontmatter-sem-alvo', path, v.inicio, `${v.chave}: ${v.valor}`);
       }
     }
     mencoes(s.fonte, s.textoDeMencao, (o) => secaoEm(s, arquivo, o));
