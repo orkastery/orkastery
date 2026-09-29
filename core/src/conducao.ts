@@ -309,6 +309,13 @@ export interface ConducaoTomada {
   /** A conducao passa a ser da sessao despachada (T7): o lease sobrevive ao processo. */
   converterEmSessao(dados: { sessionId: string; runtime: string; perfil: string | null; prazoMs: number }): void;
   liberar(): void;
+  /**
+   * RM-037 (rm037defeito, A-1 do CHECK 3): o pedido recusado antes de virar sessao (sem vaga, sem baseline)
+   * devolve o lease que a tomada consumiu: a reserva do mesmo canal ou a sessao `blocked` sucedida. Sem
+   * isso a reserva do dono sumia, e a sessao bloqueada, se respondida, voltava a rodar sem lease. Sem lease
+   * consumido, e o mesmo que `liberar`.
+   */
+  devolver(): void;
 }
 
 export interface ConducaoOcupada {
@@ -320,7 +327,7 @@ export interface ConducaoOcupada {
 
 export type TomadaDeConducao = ConducaoTomada | ConducaoOcupada;
 
-interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean }
+interface EmCurso { identidade: string; profundidade: number; lease: Lease; fd: number; convertida: boolean; substituido?: Lease }
 /** Conducoes que ESTE processo segura, pela chave canonica: a reentrada no mesmo processo. */
 const emCurso = new Map<string, EmCurso>();
 
@@ -408,7 +415,7 @@ function liberarComProva(raiz: string, threadId: string, lease: Lease, tipo: str
  * o mesmo canal vira a conducao dele.
  */
 function avaliarComTrava(raiz: string, threadId: string, pedido: PedidoDeConducao,
-  opcoes: { usarReserva: boolean } = { usarReserva: true }): ConducaoOcupada | null {
+  opcoes: { usarReserva: boolean } = { usarReserva: true }, saida: { substituido?: Lease } = {}): ConducaoOcupada | null {
   const lease = lerLease(raiz, nomeDaConducao(threadId));
   if (!lease) return null;
   const atual = conducaoDoLease(lease);
@@ -436,6 +443,7 @@ function avaliarComTrava(raiz: string, threadId: string, pedido: PedidoDeConduca
       return null;
     }
     if (opcoes.usarReserva && atual.canal === pedido.canal) {
+      saida.substituido = lease;
       liberarComProva(raiz, threadId, lease, TIPOS_DE_EVENTO.conducaoLiberada,
         { motivo: 'reserva-usada', prova: `pedido do mesmo canal ${pedido.canal} de quem assumiu` });
       return null;
@@ -454,6 +462,7 @@ function avaliarComTrava(raiz: string, threadId: string, pedido: PedidoDeConduca
   // A sucessora (fluxo de superacao das sessoes HITL): a sessao `blocked` espera alguem e nao executa;
   // o despacho seguinte da MESMA fase a sucede, e a superacao a encerra pelo controle do runtime.
   if (despacho && mesmaFase && !mesmoPedido && estadoNoRuntime === 'blocked') {
+    saida.substituido = lease;
     liberarComProva(raiz, threadId, lease, TIPOS_DE_EVENTO.conducaoLiberada, {
       motivo: 'sessao-bloqueada-sucedida',
       prova: `runtime ${atual.dono.tipo === 'sessao' ? atual.dono.runtime : '?'}: estado blocked; o despacho seguinte da fase ${atual.fase} a sucede`,
@@ -497,7 +506,8 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
     return { ok: false, idempotente: false, atual };
   }
   try {
-    const ocupada = avaliarComTrava(raiz, threadId, pedido);
+    const saida: { substituido?: Lease } = {};
+    const ocupada = avaliarComTrava(raiz, threadId, pedido, undefined, saida);
     if (ocupada) { fs.closeSync(fd); return ocupada; }
     const identidade = pedido.identidade ?? randomUUID();
     const lease: Lease = {
@@ -510,7 +520,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       conducao: dadosDoPedido(pedido, identidade, donoProcesso()),
     };
     regravarLease(raiz, lease);
-    const estado: EmCurso = { identidade, profundidade: 0, lease, fd, convertida: false };
+    const estado: EmCurso = { identidade, profundidade: 0, lease, fd, convertida: false, ...(saida.substituido ? { substituido: saida.substituido } : {}) };
     emCurso.set(k, estado);
     return {
       ok: true,
@@ -519,6 +529,7 @@ export function tomarConducao(raiz: string, threadId: string, pedido: PedidoDeCo
       renovar: (prazoDoProximoMs, agoraMs = Date.now()) => renovar(raiz, threadId, estado, prazoDoProximoMs, agoraMs),
       converterEmSessao: (dados) => converter(raiz, k, estado, dados),
       liberar: () => liberarPropria(raiz, k, estado),
+      devolver: () => devolverPropria(raiz, threadId, k, estado),
     };
   } catch (e) {
     try { fs.closeSync(fd); } catch { /* ja fechado */ }
@@ -533,6 +544,7 @@ function reentrada(identidade: string, sair: () => void): ConducaoTomada {
     renovar: () => undefined,
     converterEmSessao: () => undefined,
     liberar: () => { if (!saiu) { saiu = true; sair(); } },
+    devolver: () => { if (!saiu) { saiu = true; sair(); } },
   };
 }
 
@@ -563,6 +575,25 @@ function converter(raiz: string, k: string, estado: EmCurso,
   };
   regravarLease(raiz, estado.lease);
   estado.convertida = true;
+  emCurso.delete(k);
+  try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
+}
+
+function devolverPropria(raiz: string, threadId: string, k: string, estado: EmCurso): void {
+  const anterior = estado.substituido;
+  if (estado.convertida || estado.profundidade > 0 || !anterior) { liberarPropria(raiz, k, estado); return; }
+  const atual = lerLease(raiz, estado.lease.nome);
+  // So devolve por cima do proprio lease: outro dono que tenha chegado depois nunca e sobrescrito.
+  if (atual?.conducao?.identidade === estado.identidade && atual.conducao.dono.tipo === 'processo') {
+    regravarLease(raiz, anterior);
+    const devolvida = conducaoDoLease(anterior);
+    registrar(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.conducaoDevolvida, {
+      lease: anterior.nome,
+      devolvida: devolvida ? { canal: devolvida.canal, sessao: devolvida.sessao, fase: devolvida.fase, desde: devolvida.desde,
+        operacao: devolvida.operacao, dono: devolvida.dono } : null,
+      razao: 'o pedido foi recusado antes de virar sessao: o lease que a tomada consumiu volta a quem o tinha',
+    });
+  }
   emCurso.delete(k);
   try { fs.closeSync(estado.fd); } catch { /* ja fechado */ }
 }

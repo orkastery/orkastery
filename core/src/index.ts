@@ -1066,6 +1066,12 @@ function comandoPhase(args: Args): number {
       console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
       return 3;
     }
+    // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
+    if (r.motivo === 'baseline.pendente') {
+      console.error(`Despacho recusado: ${r.erro}`);
+      console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
+      return 1;
+    }
     if (r.dryRun && !r.bloqueado) {
       console.log('Simulacao (--dry-run), nada foi despachado.');
       console.log(`  slug da sessao : ${r.slug}`);

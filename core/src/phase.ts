@@ -53,7 +53,7 @@ import {
 import { nomeDaMaquina } from './maquina';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
-  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, ErroDeConducao, esperarConducaoLivre,
+  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, dormir, ErroDeConducao, esperarConducaoLivre,
   MARGEM_DO_PRAZO_MS, PedidoDeConducao, PRAZO_DE_SESSAO_PADRAO_MS, recusaDeConducao, RecusaDeConducao, registrarConducaoDaSessao,
   registrarRecusa, tomarConducao,
 } from './conducao';
@@ -692,8 +692,8 @@ export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, thread
 
 /** Despacha a fase pelo runtime adapter e registra tudo no ledger da thread. */
 export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): ResultadoRun {
-  const rodar = (): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
-    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes));
+  const rodar = (segunda = false): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
+    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes, segunda));
   // I-36 (D2): `--esperar` espera a vez FORA do lock HITL (que serializa respostas do dono) e so
   // depois repete o pedido. Sem ele, a recusa sai na hora.
   // RM-037 (defeito 3): a vaga do projeto espera do mesmo jeito, fora do lock, antes de repetir.
@@ -710,17 +710,21 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
     // uma vez. No MCP, que nao roda a suite, a pendencia volta como esta.
     if (r.motivo === 'baseline.pendente' && opcoes.baselinePeloDespacho !== false) {
       garantirBaselineDoDespacho(carregado, threadId, opcoes);
-      r = rodar();
+      r = rodar(true);
     }
     const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
     if (!esperavel || !prazo || Date.now() >= prazo) return r;
+    // S-5 do CHECK 3: a vaga pode ter sido tomada entre a espera e a tomada; espera um pouco antes de repetir.
+    if (r.motivo === 'concurrency.limite') dormir(Math.min(2000, Math.max(0, prazo - Date.now())));
   }
 }
 
 function rodarFaseSobLock(
   carregado: ManifestoCarregado,
   threadId: string,
-  opcoes: OpcoesRun
+  opcoes: OpcoesRun,
+  /** S-1 do CHECK 3: a repeticao depois da baseline nao grava de novo os avisos da primeira passada. */
+  segundaPassada = false
 ): ResultadoRun {
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
@@ -759,7 +763,7 @@ function rodarFaseSobLock(
   });
   const bloqueiam = bloqueantes(violacoes);
   // Warn registra e segue: o aviso vai ao ledger (fora do ensaio) e o despacho continua.
-  if (!opcoes.dryRun) {
+  if (!opcoes.dryRun && !segundaPassada) {
     for (const v of avisos(violacoes)) {
       registrar(dir, thread.id, TIPOS_DE_EVENTO.politicaAviso, { gate: 'phase.dispatch', fase, slug,
         policy: v.policy, detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
@@ -870,11 +874,14 @@ function rodarFaseSobLock(
       // A vaga e a baseline sao conferidas COM a conducao tomada (N2, N3 do CHECK 2): a tomada consulta o
       // runtime, libera a orfa e faz a sucessao, e nenhum desses caminhos pode furar o limite nem soltar o
       // codex sem baseline. O `finally` devolve a conducao nas duas recusas.
-      const semVaga = vagaDoDespacho(carregado, thread.id);
-      if (semVaga) return recusaPorVaga(semVaga);
+      // A-1 do CHECK 3: nas duas recusas a tomada DEVOLVE o que consumiu (reserva do canal, sessao blocked).
+      const semVaga = vagaDoDespacho(carregado, thread.id, undefined, conducaoDaThread(raiz, thread.id)?.desde);
+      if (semVaga) { conducao.devolver(); conducao = null; return recusaPorVaga(semVaga); }
       if (baselineDoDespachoNecessaria(carregado, thread.id, opcoes)) {
+        conducao.devolver(); conducao = null;
         const erro = `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes do despacho` +
-          (opcoes.baselinePeloDespacho === false ? `, e o MCP nao roda a suite; rode ork verify ${thread.id} --baseline pelo CLI e repita o despacho` : '');
+          (opcoes.baselinePeloDespacho === false ? ', e o MCP nao roda a suite' : ', e ela nao foi gravada') +
+          `; rode ork verify ${thread.id} --baseline pelo CLI e repita o despacho`;
         return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
           verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: false,
           runtime, model, effort, bloqueado: true, motivo: 'baseline.pendente', violacoes, erro };

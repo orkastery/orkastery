@@ -656,6 +656,8 @@ function redespacharSobLock(
     );
     const rt = resolverRuntime(runtime);
     if (!opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, { fase, prompt: '', runtime, model, effort })) {
+      // A-1 do CHECK 3: a retomada recusada antes da sessao devolve o que a tomada consumiu.
+      conducao?.devolver(); conducao = null;
       return { ...vazio, ok: false, motivo: 'runtime.unavailable', baselinePendente: true, dryRun: false,
         detalhe: `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes da retomada` };
     }

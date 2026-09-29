@@ -121,6 +121,8 @@ export const TIPOS_DE_EVENTO = {
   conducaoLiberada: 'conducao_liberada',
   conducaoOrfaLiberada: 'conducao_orfa_liberada',
   conducaoAssumida: 'conducao_assumida',
+  // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
+  conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
 } as const;
 
