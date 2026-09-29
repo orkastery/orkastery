@@ -10,7 +10,7 @@ import { Claim } from './types';
 import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
-import { dirThread } from './thread';
+import { dirThread, lerThread } from './thread';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -157,6 +157,17 @@ export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avi
   return { recusas, avisos };
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 6): onde o bundle nasce. Ele e artefato da branch da thread (o commit
+ * `ci(<thread>)` vai no PR dela), entao o destino e a worktree da thread, rodando o `ork` da raiz ou da
+ * worktree. Gravado na raiz, ele sujava o checkout compartilhado com o bundle de outra thread, e o
+ * `git ls-files` da raiz adiava claim de arquivo que so existe na branch da thread.
+ */
+export function destinoDoBundle(carregado: ManifestoCarregado, threadId: string): string {
+  const worktree = lerThread(carregado.raiz, threadId).worktree;
+  return worktree && fs.existsSync(worktree) ? worktree : carregado.raiz;
+}
+
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
   opcoes: { aoAvisar?: (linha: string) => void } = {}): string {
   const commands = carregado.manifesto.ci.command
@@ -175,9 +186,10 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
     throw new Error(`claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ` +
       lint.recusas.join('\n  '));
   }
+  const destino = destinoDoBundle(carregado, threadId);
   const classified = activeClaims.map((claim) => ({
     claim,
-    reason: motivoDiferimentoCi(claim, carregado.raiz),
+    reason: motivoDiferimentoCi(claim, destino),
   }));
   const bundle: BundleCi = {
     schema: 'ork.ci-bundle/v1',
@@ -189,7 +201,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
   };
-  const dir = path.join(carregado.raiz, '.ork-ci');
+  const dir = path.join(destino, '.ork-ci');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'bundle.json');
   fs.writeFileSync(file, JSON.stringify(bundle, null, 2) + '\n', 'utf8');
