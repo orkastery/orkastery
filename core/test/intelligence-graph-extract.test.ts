@@ -348,6 +348,76 @@ test('KG2 extract: slug de ancora como o do GitHub', () => {
   for (const [titulo, slug] of casos) assert.equal(slugDoGithub(titulo), slug, titulo);
 });
 
+test('KG2 limits: import que sobe acima da raiz, absoluto ou por main de pacote nunca cai dentro do repositorio', () => {
+  const { grafo } = extrair({
+    'shared/util.ts': 'export function util() { return 1; }\n',
+    'fora.js': 'module.exports = 1;\n',
+    'src/a.ts': "import { util } from '../../shared/util';\nimport { util as u2 } from '/shared/util';\nexport function f() { return util() + u2(); }\n",
+    'pkg/package.json': '{"main": "../../../../fora.js"}\n',
+    'b.ts': "import x from './pkg';\nexport const y = x;\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), []);
+  assert.deepEqual(arestas(grafo, 'calls'), []);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => [d.path, d.reference]), [
+    ['b.ts', './pkg'], ['src/a.ts', '../../shared/util'], ['src/a.ts', '/shared/util'],
+  ]);
+});
+
+test('KG2 limits: nome que o contrato recusaria nao vira simbolo nem derruba a extracao', () => {
+  const tab = 'a' + String.fromCharCode(9) + 'b';
+  const { grafo, relatorio } = extrair({
+    'a.ts': `export const ${'x'.repeat(600)} = 1;\nexport class A { ${JSON.stringify(tab)}() {} ok() {} }\nexport function f() { return 1; }\n`,
+    'b.ts': 'enum { A }\nlet { = 1;\n',
+  });
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'symbol').map((n) => n.locator.fragment).sort(), ['A', 'A.ok', 'f']);
+  assert.ok((relatorio.lacunas_por_categoria['simbolo-recusado'] ?? 0) >= 2);
+});
+
+test('KG2 limits: node_modules versionado fica fora da resolucao, mesmo com pacote duplicado', () => {
+  const pkg = JSON.stringify({ name: 'x', version: '1.0.0', types: 'index.d.ts' });
+  const { grafo } = extrair({
+    'node_modules/a/package.json': JSON.stringify({ name: 'a', version: '1.0.0', types: 'index.d.ts' }),
+    'node_modules/a/index.d.ts': "export { foo } from 'x';\n",
+    'node_modules/a/node_modules/x/package.json': pkg,
+    'node_modules/a/node_modules/x/index.d.ts': 'export declare function foo(): void;\n',
+    'node_modules/b/package.json': JSON.stringify({ name: 'b', version: '1.0.0', types: 'index.d.ts' }),
+    'node_modules/b/index.d.ts': "export { foo } from 'x';\n",
+    'node_modules/b/node_modules/x/package.json': pkg,
+    'node_modules/b/node_modules/x/index.d.ts': 'export declare function foo(): void;\n',
+    'main.ts': "import { foo } from 'a';\nimport { foo as bar } from 'b';\nexport function k() { foo(); bar(); }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), []);
+  assert.deepEqual(arestas(grafo, 'imports'), []);
+  assert.ok(grafo.diagnostics.some((d) => d.kind === 'unresolved-import' && d.path === 'main.ts' && d.reference === 'a'));
+});
+
+test('KG2 limits: JS que carrega outro arquivo do que o compilador liga fica sem aresta de simbolo', () => {
+  const { grafo, relatorio } = extrair({
+    'lib/foo.js': 'function f() { return 1; }\nmodule.exports = { f };\n',
+    'lib/foo.d.ts': 'export declare function f(): number;\n',
+    'app.js': "const foo = require('./lib/foo.js');\nfunction g() { return foo.f(); }\nmodule.exports = { g };\n",
+    'a.js': 'function f() { return 1; }\nmodule.exports = { f };\n',
+    'a.ts': 'export function f() { return 2; }\n',
+    'b.cjs': "const { f } = require('./a.js');\nfunction g() { return f(); }\nmodule.exports = { g };\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), ['imports file:app.js -> file:lib/foo.js', 'imports file:b.cjs -> file:a.js']);
+  assert.deepEqual(arestas(grafo, 'calls'), []);
+  assert.equal(relatorio.lacunas_por_categoria['import-divergente'], 2);
+  assert.equal(relatorio.lacunas_por_categoria['chamada-por-import-divergente'], 2);
+});
+
+test('KG2 limits: this, super e global UMD so ligam a outro arquivo que este importa', () => {
+  const { grafo } = extrair({
+    's1.ts': 'class B { m() {} }\n',
+    's2.ts': 'class A extends B { n() { this.m(); super.m(); } }\n',
+    'lib.d.ts': 'export declare function f(): void;\nexport as namespace Lib;\n',
+    'u.ts': 'export function k() { Lib.f(); }\n',
+    'b.ts': 'export class Base { m() {} }\n',
+    'c.ts': "import { Base } from './b';\nexport class Filha extends Base { n() { this.m(); super.m(); } }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'calls'), ['calls symbol:c.ts#Filha.n -> symbol:b.ts#Base.m']);
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');

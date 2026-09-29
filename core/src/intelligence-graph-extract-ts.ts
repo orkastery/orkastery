@@ -2,10 +2,13 @@
  * RM-031 KG2 (D2 a D4): extrator `ork.ts-ast` de TypeScript e JavaScript.
  *
  * O compilador chega por parametro e roda num host em memoria que so enxerga o manifesto: sem
- * biblioteca padrao, sem `node_modules`, sem disco (D2). Import e chamada so viram aresta quando o
- * binder liga o nome a uma declaracao do repositorio por escopo lexico ou por import; despacho por
- * tipo inferido, global compartilhado entre scripts e alvo ambiguo ficam fora e sao contados (D3).
- * Simbolo e declaracao de topo ou membro de classe de topo, pelo nome declarado (D4).
+ * biblioteca padrao, sem disco e sem resolver para dentro de `node_modules` (D2). A raiz virtual
+ * deriva do conteudo do manifesto, entao especificador que sobe acima da raiz ou e absoluto nunca
+ * cai de volta num arquivo do repositorio. Import e chamada so viram aresta quando o binder liga o
+ * nome a uma declaracao do repositorio por escopo lexico ou por um import deste arquivo; despacho
+ * por tipo inferido, global compartilhado entre scripts, alvo ambiguo e import em que o compilador
+ * e o runtime divergem ficam fora e sao contados (D3). Simbolo e declaracao de topo ou membro de
+ * classe de topo, pelo nome declarado (D4); nome que o contrato recusaria nao vira no.
  */
 import type * as TS from 'typescript';
 import type { AchadoDeAresta, Achados, FonteDeTexto, RefDeNo, Trecho } from './intelligence-graph-extract';
@@ -17,14 +20,20 @@ export interface EntradaTs {
   arquivos: readonly string[];
   /** Texto de qualquer fonte do manifesto (JSON importado, `package.json` de diretorio). */
   texto: (caminho: string) => string | undefined;
+  /** Raiz virtual absoluta, sem barra no fim, que nenhum caminho do repositorio consegue nomear. */
+  raiz: string;
+  /** Regra de texto do contrato para `fragment`: nome recusado nao vira simbolo. */
+  aceitaFragmento: (fragmento: string) => boolean;
   extrator: string;
 }
 
 /** D2: opcoes fixas do compilador, descritas por nome para entrar no `config_hash`. */
 export const OPCOES_TS_DESCRITAS = Object.freeze({
   allowJs: true, checkJs: false, esModuleInterop: true, jsx: 'preserve', module: 'commonjs', moduleResolution: 'node10',
-  noLib: true, resolveJsonModule: true, target: 'es2022', types: [] as string[],
+  noLib: true, resolveJsonModule: true, target: 'es2022', types: [] as string[], node_modules: 'fora-da-resolucao',
 });
+
+const EXTENSOES_JS = ['.cjs', '.js', '.jsx', '.mjs'];
 
 function opcoes(ts: typeof TS): TS.CompilerOptions {
   return {
@@ -34,35 +43,59 @@ function opcoes(ts: typeof TS): TS.CompilerOptions {
   };
 }
 
-const RAIZ = '/';
-const absoluto = (p: string): string => `${RAIZ}${p}`;
-const relativo = (p: string): string => p.slice(RAIZ.length);
+const extensao = (p: string): string => {
+  const nome = p.slice(p.lastIndexOf('/') + 1), i = nome.lastIndexOf('.');
+  return i <= 0 ? '' : nome.slice(i).toLowerCase();
+};
+const emNodeModules = (p: string): boolean => p.split('/').includes('node_modules');
+
+/** Caminho relativo a raiz de um especificador relativo; `null` se sair do repositorio. */
+function caminhoLiteral(de: string, especificador: string): string | null {
+  if (!especificador.startsWith('./') && !especificador.startsWith('../')) return null;
+  const partes = [...de.split('/').slice(0, -1), ...especificador.split('/')], r: string[] = [];
+  for (const p of partes) {
+    if (p === '' || p === '.') continue;
+    if (p === '..') {
+      if (!r.length) return null;
+      r.pop();
+    } else r.push(p);
+  }
+  return r.join('/');
+}
 
 function criarHost(ts: typeof TS, e: EntradaTs): TS.CompilerHost {
-  const arquivos = new Set(e.arquivos), dirs = new Set<string>([RAIZ]);
+  const arquivos = new Set(e.arquivos), dirs = new Set<string>([e.raiz]);
   for (const p of e.arquivos) {
     const partes = p.split('/');
-    for (let i = 1; i < partes.length; i++) dirs.add(absoluto(partes.slice(0, i).join('/')));
+    for (let i = 1; i < partes.length; i++) dirs.add(`${e.raiz}/${partes.slice(0, i).join('/')}`);
   }
-  const dentro = (p: string): string | null => (p.startsWith(RAIZ) ? relativo(p) : null);
+  const dentro = (nome: string): string | null => (nome.startsWith(`${e.raiz}/`) ? nome.slice(e.raiz.length + 1) : null);
+  // A resolucao de modulo nunca entra em node_modules, mesmo versionado: pacote de terceiro e externo.
+  const resolvivel = (nome: string): string | null => {
+    const p = dentro(nome);
+    return p !== null && !emNodeModules(p) ? p : null;
+  };
   return {
     getSourceFile: (nome, alvo) => {
       const p = dentro(nome), t = p === null ? undefined : e.texto(p);
       return t === undefined ? undefined : ts.createSourceFile(nome, t, alvo, true);
     },
-    getDefaultLibFileName: () => absoluto('__sem-biblioteca__.d.ts'),
+    getDefaultLibFileName: () => `${e.raiz}/__sem-biblioteca__.d.ts`,
     writeFile: () => undefined,
-    getCurrentDirectory: () => RAIZ,
+    getCurrentDirectory: () => e.raiz,
     getDirectories: () => [],
     fileExists: (nome) => {
-      const p = dentro(nome);
+      const p = resolvivel(nome);
       return p !== null && arquivos.has(p);
     },
     readFile: (nome) => {
-      const p = dentro(nome);
+      const p = resolvivel(nome);
       return p === null || !arquivos.has(p) ? undefined : e.texto(p);
     },
-    directoryExists: (nome) => dirs.has(nome.length > 1 && nome.endsWith('/') ? nome.slice(0, -1) : nome),
+    directoryExists: (nome) => {
+      const n = nome.length > 1 && nome.endsWith('/') ? nome.slice(0, -1) : nome, p = n === e.raiz ? '' : resolvivel(n);
+      return p !== null && dirs.has(n);
+    },
     realpath: (p) => p,
     getCanonicalFileName: (p) => p,
     useCaseSensitiveFileNames: () => true,
@@ -73,10 +106,12 @@ function criarHost(ts: typeof TS, e: EntradaTs): TS.CompilerHost {
 export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   const saida: Achados = { nos: [], arestas: [], diagnosticos: [], lacunas: [] };
   if (e.fontes.length === 0) return saida;
+  const absoluto = (p: string): string => `${e.raiz}/${p}`;
+  const relativo = (p: string): string | null => (p.startsWith(`${e.raiz}/`) ? p.slice(e.raiz.length + 1) : null);
   const host = criarHost(ts, e), opts = opcoes(ts);
   const programa = ts.createProgram(e.fontes.map((f) => absoluto(f.path)), opts, host);
   const checker = programa.getTypeChecker();
-  const cache = ts.createModuleResolutionCache(RAIZ, (p) => p, opts);
+  const cache = ts.createModuleResolutionCache(e.raiz, (p) => p, opts);
   const arquivos = new Set(e.arquivos);
   const S = ts.SymbolFlags, K = ts.SyntaxKind;
 
@@ -91,8 +126,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     n && (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n) || ts.isNumericLiteral(n)) ? n.text : null;
   const nomeDaClasse = (c: TS.ClassDeclaration): string | null => (c.name ? c.name.text : exportaDefault(c) ? 'default' : null);
 
-  /** D4: fragmento do no de uma declaracao, ou `null` quando ela nao e simbolo do grafo. */
-  function fragmentoDe(d: TS.Node): string | null {
+  /** D4: nome do simbolo de uma declaracao, antes da regra de texto do contrato. */
+  function nomeDoSimbolo(d: TS.Node): string | null {
     if (ts.isBindingElement(d)) {
       let p: TS.Node = d;
       while (ts.isBindingElement(p) || ts.isObjectBindingPattern(p) || ts.isArrayBindingPattern(p)) p = p.parent;
@@ -114,9 +149,10 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     return null;
   }
 
+  /** Ref do simbolo; nome que o contrato recusaria (vazio, longo, com controle) nao vira no. */
   const refDe = (d: TS.Node): RefDeNo | null => {
-    const fragment = fragmentoDe(d);
-    return fragment === null ? null : { kind: 'symbol', path: relativo(d.getSourceFile().fileName), fragment };
+    const fragment = nomeDoSimbolo(d), path = relativo(d.getSourceFile().fileName);
+    return fragment === null || path === null || !e.aceitaFragmento(fragment) ? null : { kind: 'symbol', path, fragment };
   };
   const semAlias = (s: TS.Symbol | undefined): TS.Symbol | undefined => (s && s.flags & S.Alias ? checker.getAliasedSymbol(s) : s);
 
@@ -128,25 +164,45 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     for (const d of decls) {
       const r = refDe(d);
       if (!r) return { ref: null, categoria: 'chamada-alvo-fora-do-grafo' };
-      refs.set(`${r.path}#${r.fragment}`, r);
+      refs.set(`${r.path}\u0000${r.fragment}`, r);
     }
     return refs.size === 1 ? { ref: [...refs.values()][0], categoria: '' } : { ref: null, categoria: 'chamada-alvo-ambiguo' };
   }
 
+  /** Resolucao do compilador, restrita ao manifesto e fora de node_modules. */
   function resolver(especificador: string, de: string): string | null {
     const r = ts.resolveModuleName(especificador, absoluto(de), opts, host, cache).resolvedModule;
-    if (!r || r.isExternalLibraryImport) return null;
-    const p = relativo(r.resolvedFileName);
-    return arquivos.has(p) ? p : null;
+    const p = r && !r.isExternalLibraryImport ? relativo(r.resolvedFileName) : null;
+    return p !== null && arquivos.has(p) && !emNodeModules(p) ? p : null;
   }
+
+  const literal = (n: TS.Node | undefined): string | null =>
+    n && (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) ? n.text : null;
+  const ehRequire = (n: TS.Node): n is TS.CallExpression => ts.isCallExpression(n) && ts.isIdentifier(n.expression)
+    && n.expression.text === 'require' && n.arguments.length === 1 && !(checker.getSymbolAtLocation(n.expression)?.declarations ?? []).length;
+  const ehImportDinamico = (n: TS.Node): n is TS.CallExpression => ts.isCallExpression(n) && n.expression.kind === K.ImportKeyword;
+
+  /** Declaracao local que liga um nome a um modulo: import, `import = require` ou `require` atribuido. */
+  function ehImportLocal(d: TS.Declaration, sf: TS.SourceFile): boolean {
+    if (d.getSourceFile() !== sf) return false;
+    if (ts.isImportSpecifier(d) || ts.isImportClause(d) || ts.isNamespaceImport(d)) return true;
+    if (ts.isImportEqualsDeclaration(d)) return ts.isExternalModuleReference(d.moduleReference);
+    let v: TS.Node = d;
+    while (ts.isBindingElement(v) || ts.isObjectBindingPattern(v) || ts.isArrayBindingPattern(v)) v = v.parent;
+    return ts.isVariableDeclaration(v) && !!v.initializer && ehRequire(v.initializer);
+  }
+  const viaImportLocal = (s: TS.Symbol | undefined, sf: TS.SourceFile): boolean =>
+    !!s && (s.flags & S.Alias) !== 0 && (s.declarations ?? []).some((d) => ehImportLocal(d, sf));
 
   for (const fonte of e.fontes) {
     const sf = programa.getSourceFile(absoluto(fonte.path));
-    if (!sf) {
-      saida.lacunas.push({ categoria: 'fonte-nao-lida', path: fonte.path, inicio: null, detalhe: null });
+    // Fonte que o compilador trocou por outra (pacote duplicado) nao e lida: o no seria do outro arquivo.
+    if (!sf || sf.fileName !== absoluto(fonte.path)) {
+      saida.lacunas.push({ categoria: sf ? 'fonte-redirecionada' : 'fonte-nao-lida', path: fonte.path, inicio: null, detalhe: null });
       continue;
     }
     const arquivo: RefDeNo = { kind: 'file', path: fonte.path, fragment: null };
+    const fonteJs = EXTENSOES_JS.includes(extensao(fonte.path));
     const trecho = (n: TS.Node, fim = n.getEnd()): Trecho => ({ path: fonte.path, inicio: n.getStart(sf), fim });
     const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, t: Trecho): void => {
       saida.arestas.push({ kind, from, to, extrator: e.extrator, metodo: 'ast', trecho: t });
@@ -158,14 +214,43 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       saida.diagnosticos.push({ kind, path: fonte.path, reference: reference.replace(/\s+/g, ' '), extrator: e.extrator });
     };
 
+    // Especificadores do arquivo, antes de tudo: o alvo do compilador e o que o runtime carrega.
+    const alvos = new Map<string, { alvo: string | null; divergente: boolean }>();
+    const importados = new Set<string>(), divergentes = new Set<string>();
+    const especificadores: string[] = [];
+    const coletar = (n: TS.Node): void => {
+      let esp: string | null = null;
+      if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) esp = literal(n.moduleSpecifier);
+      else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) esp = literal(n.moduleReference.expression);
+      else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) esp = literal(n.argument.literal);
+      else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
+      if (esp !== null) especificadores.push(esp);
+      ts.forEachChild(n, coletar);
+    };
+    coletar(sf);
+    for (const esp of especificadores) {
+      if (alvos.has(esp)) continue;
+      const doCompilador = resolver(esp, fonte.path), exato = caminhoLiteral(fonte.path, esp);
+      // D3: JS que pede `./a.js` com `a.ts` ao lado, ou `.d.ts` no lugar da implementacao, roda outro
+      // arquivo do que o compilador liga: a aresta vai ao arquivo que roda, sem aresta de simbolo.
+      const divergente = doCompilador !== null && exato !== null && exato !== doCompilador && arquivos.has(exato)
+        && !emNodeModules(exato) && (fonteJs || doCompilador.endsWith('.d.ts'));
+      const alvo = divergente ? exato : doCompilador;
+      alvos.set(esp, { alvo, divergente });
+      if (alvo !== null) importados.add(alvo);
+      if (divergente) divergentes.add(doCompilador as string);
+    }
+
     // Declaracoes de topo e membros de classe de topo (D4).
     const declarar = (d: TS.Node): RefDeNo | null => {
       const r = refDe(d);
-      if (r) {
+      if (r && r.path === fonte.path) {
         saida.nos.push(r);
         aresta('declares', arquivo, r, trecho(d));
+        return r;
       }
-      return r;
+      if (nomeDoSimbolo(d) !== null) lacuna('simbolo-recusado', d);
+      return null;
     };
     const elementos = (padrao: TS.BindingPattern, visitar: (d: TS.BindingElement) => void): void => {
       for (const el of padrao.elements) {
@@ -188,7 +273,10 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         if (r && ts.isClassDeclaration(st)) {
           for (const m of st.members) {
             const rm = refDe(m);
-            if (!rm) continue;
+            if (!rm) {
+              if (nomeDoSimbolo(m) !== null) lacuna('simbolo-recusado', m);
+              continue;
+            }
             saida.nos.push(rm);
             aresta('contains', r, rm, trecho(m));
             simbolosDoTopo.set(m, rm);
@@ -197,38 +285,43 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       }
     }
 
-    const importar = (especificador: string, t: Trecho): string | null => {
-      const alvo = resolver(especificador, fonte.path);
-      if (alvo === null) diagnostico('unresolved-import', especificador);
-      else aresta('imports', arquivo, { kind: 'file', path: alvo, fragment: null }, t);
-      return alvo;
+    const importar = (especificador: string, t: Trecho): { alvo: string | null; divergente: boolean } => {
+      const r = alvos.get(especificador) ?? { alvo: null, divergente: false };
+      if (r.alvo === null) diagnostico('unresolved-import', especificador);
+      else aresta('imports', arquivo, { kind: 'file', path: r.alvo, fragment: null }, t);
+      if (r.divergente) saida.lacunas.push({ categoria: 'import-divergente', path: fonte.path, inicio: t.inicio, detalhe: especificador });
+      return r;
     };
     const simboloImportado = (nome: TS.Node, t: Trecho): void => {
       const { ref } = alvoDo(semAlias(checker.getSymbolAtLocation(nome)));
-      if (ref) aresta('imports', arquivo, ref, t);
+      if (ref && !divergentes.has(ref.path)) aresta('imports', arquivo, ref, t);
       else lacuna('import-sem-simbolo', nome);
     };
-    const literal = (n: TS.Node | undefined): string | null =>
-      n && (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) ? n.text : null;
 
     /** D3: alvo de chamada pela ligacao lexica do callee, nunca pelo tipo inferido do objeto. */
     function alvoDaChamada(callee: TS.Expression): { ref: RefDeNo | null; categoria: string } {
+      let r: { ref: RefDeNo | null; categoria: string }, ligado: boolean;
       if (ts.isIdentifier(callee)) {
-        const s0 = checker.getSymbolAtLocation(callee), viaImport = !!s0 && (s0.flags & S.Alias) !== 0;
-        const r = alvoDo(semAlias(s0));
-        if (r.ref && r.ref.path !== fonte.path && !viaImport) return { ref: null, categoria: 'chamada-global-entre-arquivos' };
-        return r;
-      }
-      if (!ts.isPropertyAccessExpression(callee)) return { ref: null, categoria: 'chamada-nao-resolvida' };
-      const objeto = callee.expression;
-      if (objeto.kind === K.ThisKeyword || objeto.kind === K.SuperKeyword) return alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
-      if (!ts.isIdentifier(objeto)) return { ref: null, categoria: 'chamada-por-tipo' };
-      const s0 = checker.getSymbolAtLocation(objeto), dono = semAlias(s0);
-      if (!dono || (dono.flags & (S.Class | S.Enum | S.ValueModule | S.NamespaceModule)) === 0) return { ref: null, categoria: 'chamada-por-tipo' };
-      // Modulo externo (SourceFile) so e alcancado por import ou require; namespace de outro script, nao.
-      const porModulo = (s0 !== undefined && (s0.flags & S.Alias) !== 0) || (dono.declarations ?? []).some((d) => ts.isSourceFile(d));
-      const r = alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
-      if (r.ref && r.ref.path !== fonte.path && !porModulo) return { ref: null, categoria: 'chamada-global-entre-arquivos' };
+        const s0 = checker.getSymbolAtLocation(callee);
+        r = alvoDo(semAlias(s0));
+        ligado = viaImportLocal(s0, sf as TS.SourceFile);
+      } else if (ts.isPropertyAccessExpression(callee)) {
+        const objeto = callee.expression;
+        if (objeto.kind === K.ThisKeyword || objeto.kind === K.SuperKeyword) {
+          // Membro herdado so liga se a classe dele vier de um arquivo que este importa.
+          r = alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
+          ligado = !!r.ref && importados.has(r.ref.path);
+        } else if (ts.isIdentifier(objeto)) {
+          const s0 = checker.getSymbolAtLocation(objeto), dono = semAlias(s0);
+          if (!dono || (dono.flags & (S.Class | S.Enum | S.ValueModule | S.NamespaceModule)) === 0) return { ref: null, categoria: 'chamada-por-tipo' };
+          r = alvoDo(semAlias(checker.getSymbolAtLocation(callee.name)));
+          ligado = viaImportLocal(s0, sf as TS.SourceFile);
+        } else return { ref: null, categoria: 'chamada-por-tipo' };
+      } else return { ref: null, categoria: 'chamada-nao-resolvida' };
+      if (!r.ref) return r;
+      // Alvo em outro arquivo so com ligacao deste arquivo: import local, nunca global de script.
+      if (r.ref.path !== fonte.path && !ligado) return { ref: null, categoria: 'chamada-global-entre-arquivos' };
+      if (divergentes.has(r.ref.path)) return { ref: null, categoria: 'chamada-por-import-divergente' };
       return r;
     }
 
@@ -239,7 +332,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       }
       const { ref, categoria } = alvoDaChamada(n.expression);
       if (!ref) {
-        lacuna(categoria, n, categoria === 'chamada-alvo-ambiguo' || categoria === 'chamada-global-entre-arquivos' ? n.expression.getText(sf) : null);
+        const listada = categoria === 'chamada-alvo-ambiguo' || categoria === 'chamada-global-entre-arquivos' || categoria === 'chamada-por-import-divergente';
+        lacuna(categoria, n, listada ? n.expression.getText(sf) : null);
         return;
       }
       // O trecho vai do inicio da chamada ao parentese de abertura: `soma(`, `new Classe(`.
@@ -251,7 +345,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       const proximo = simbolosDoTopo.has(n) ? (simbolosDoTopo.get(n) ?? null) : atual;
       if (ts.isImportDeclaration(n)) {
         const esp = literal(n.moduleSpecifier);
-        if (esp !== null && importar(esp, trecho(n)) !== null && n.importClause) {
+        const r = esp === null ? null : importar(esp, trecho(n));
+        if (r && r.alvo !== null && !r.divergente && n.importClause) {
           const ic = n.importClause;
           if (ic.name) simboloImportado(ic.name, trecho(ic.name));
           if (ic.namedBindings && ts.isNamedImports(ic.namedBindings)) for (const el of ic.namedBindings.elements) simboloImportado(el.name, trecho(el));
@@ -260,7 +355,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       }
       if (ts.isExportDeclaration(n) && n.moduleSpecifier) {
         const esp = literal(n.moduleSpecifier);
-        if (esp !== null && importar(esp, trecho(n)) !== null && n.exportClause && ts.isNamedExports(n.exportClause)) {
+        const r = esp === null ? null : importar(esp, trecho(n));
+        if (r && r.alvo !== null && !r.divergente && n.exportClause && ts.isNamedExports(n.exportClause)) {
           for (const el of n.exportClause.elements) simboloImportado(el.name, trecho(el));
         }
         return;
@@ -274,17 +370,11 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         const esp = literal(n.argument.literal);
         if (esp !== null) importar(esp, trecho(n));
       }
-      if (ts.isCallExpression(n)) {
-        const callee = n.expression;
-        const ehImportDinamico = callee.kind === K.ImportKeyword;
-        const ehRequire = ts.isIdentifier(callee) && callee.text === 'require' && n.arguments.length === 1
-          && !(checker.getSymbolAtLocation(callee)?.declarations ?? []).length;
-        if (ehImportDinamico || ehRequire) {
-          const esp = literal(n.arguments[0]);
-          if (esp !== null) importar(esp, trecho(n));
-          else diagnostico('dynamic-resolution', n.arguments[0] ? n.arguments[0].getText(sf) : '');
-        } else chamada(n, proximo);
-      } else if (ts.isNewExpression(n)) chamada(n, proximo);
+      if (ehRequire(n) || ehImportDinamico(n)) {
+        const esp = literal(n.arguments[0]);
+        if (esp !== null) importar(esp, trecho(n));
+        else diagnostico('dynamic-resolution', n.arguments[0] ? n.arguments[0].getText(sf) : '');
+      } else if (ts.isCallExpression(n) || ts.isNewExpression(n)) chamada(n, proximo);
       ts.forEachChild(n, (filho) => visitar(filho, proximo));
     };
     for (const st of sf.statements) visitar(st, null);

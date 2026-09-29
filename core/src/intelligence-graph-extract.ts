@@ -246,7 +246,10 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
     else (ehTs ? fontesTs : fontesMd).push({ path: p, texto: t });
   }
   const versaoTs = `${VERSAO_KG2}+typescript.${ts.version}`;
-  juntar(extrairTypeScript({ fontes: fontesTs, arquivos: caminhos, texto, extrator: EXTRATOR_TS }, ts));
+  // B1: a raiz virtual do compilador deriva do manifesto; um caminho do repositorio nao a nomeia.
+  const raiz = `/ork-${sha256DoCanonico([...manifesto.values()].map((m) => [m.path, m.source_hash])).slice(0, 32)}`;
+  const aceitaFragmento = (f: string): boolean => f.length >= 1 && f.length <= GRAFO_LIMITES.fragmento && textoAceito(f);
+  juntar(extrairTypeScript({ fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, extrator: EXTRATOR_TS }, ts));
   const simbolos = new Set(achados.nos.filter((r) => r.kind === 'symbol').map((r) => `${r.path}#${r.fragment}`));
   juntar(extrairMarkdown({ fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID }));
 
