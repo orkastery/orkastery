@@ -9,7 +9,7 @@ export const maestroInputSchema=z.object({threadId:z.string().regex(/^[a-zA-Z0-9
 type Register=<S extends z.AnyZodObject>(name:string,config:{description:string;inputSchema:S;annotations:Tool['annotations']},
   handler:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>)=>void;
 export function registerMaestro(register:Register,options:{root:string;threadId?:string;load:()=>unknown;checkThread:(id:string)=>unknown;tools:()=>string[]}):void {
-  register('ork_maestro',{description:'Panorama Maestro somente leitura, fixado ao projeto e ao escopo da sessão; cobertura, lacunas e próximas ações pelos endpoints existentes.',
+  register('ork_maestro',{description:'Panorama Maestro somente leitura, fixado ao projeto e ao escopo da sessão; cobertura, lacunas e próximas ações pelos endpoints existentes. Não lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_roadmap_status.',
     inputSchema:maestroInputSchema,annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async args=>{
     options.load();
     if((args.section===undefined)!==(args.offset===undefined))throw Error('maestro.page.invalid');
