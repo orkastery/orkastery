@@ -31,6 +31,8 @@ e `ork_request_decision(threadId, pedidoId)`. Use o namespace efetivamente expos
 - Pedido novo: resolva o modo pelo `ork`, confira preflight e abra/despache a thread.
 - Retomada: leia `ork thread status <thread>` e o ultimo resultado em `ork phase list <thread>`;
   continue o trabalho autorizado sem repetir onboarding, aprovacao ou implementacao.
+- Status do roadmap: use `ork_roadmap_status` (ou `ork roadmap status`) e mostre o texto como vem;
+  nao escreva relatorio proprio de roadmap.
 - Status: apresente a evidencia da thread; `ork pulse --json` mostra quem precisa agir.
   As pausas dos blocos do modo sao previstas: so diga "aguardando voce" com pendencia
   humana atual comprovada no estado/ultimo resultado, identificando gate, pedido ou evento.

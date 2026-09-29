@@ -4,7 +4,7 @@ tipo: feature
 titulo: Monitor, board e pulse de atenção
 estado: vigente
 pai: MOD-04
-roadmap: [RM-001, RM-045]
+roadmap: [RM-001, RM-045, RM-048]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-24T21:30:00-03:00
@@ -14,22 +14,27 @@ fontes:
     - core/src/orquestracao.ts
     - core/src/board.ts
     - core/src/pulse.ts
+    - core/src/roadmap-status.ts
   testes:
     - core/test/orquestracao.test.ts
     - core/test/board.test.ts
     - core/test/pulse.test.ts
     - core/test/pulse-enxuto.test.ts
+    - core/test/roadmap-status.test.ts
   simbolos:
     - core/src/orquestracao.ts#montarMonitor
     - core/src/board.ts#planejar
     - core/src/pulse.ts#montarPulse
+    - core/src/roadmap-status.ts#montarStatusDoRoadmap
   contratos:
     - ork.pulse/v1
+    - ork.roadmap-status/v1
   comandos:
     - ork orquestracao status
     - ork board
     - ork board plan
     - ork pulse
+    - ork roadmap status
 ---
 
 # FEAT-014 — Monitor, board e pulse de atenção
@@ -38,12 +43,13 @@ fontes:
 
 - **Estado:** vigente · **Verificado em:** 2026-09-24 · **Versão:** main@f9d9bc1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-04](MOD-04-atencao-humana.md)
-- **Roadmap:** [RM-001](../roadmap/RM-001-radar-ork-pulse.md), [RM-045](../roadmap/RM-045-pulse-enxuto.md)
+- **Roadmap:** [RM-001](../roadmap/RM-001-radar-ork-pulse.md), [RM-045](../roadmap/RM-045-pulse-enxuto.md), [RM-048](../roadmap/RM-048-hitl-humano-no-centro.md)
 - **Dono da página / aprovador:** Julio / Julio
 
 ## Comportamento
 
-- **Casos de uso e operações:** ver pausas e impedimentos, planejar quem avança, montar a fila de atenção.
+- **Casos de uso e operações:** ver pausas e impedimentos, planejar quem avança, montar a fila de atenção, gerar o status report do roadmap.
+- **Status report do roadmap (RM-048):** `ork roadmap status` monta o relatório no formato aprovado pelo dono: "Roadmap do Projeto (DD/MM, HH:MM)" no fuso dele, os grupos ✅ Concluídos, 🟢 Disponíveis com algo em aberto, 🚀 Entregue hoje, 🧪 Piloto, 🔨 Em desenvolvimento, 🔍 Refinamento, 🆕 Proposto e ⛔ Descontinuado, um item por linha, `#HITL` no que espera o dono e o fecho "O que precisa de você" e "O que eu faço em seguida". É leitura pura. Os canais chamam o comando (`ork_roadmap_status` no MCP e no OpenClaw, `ork-roadmap-status.sh` no Hermes) e transportam o texto.
 - **Pré-condições e gatilho:** projeto com threads.
 - **Fluxo principal:**
 

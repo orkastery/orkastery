@@ -282,7 +282,13 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
   const ato = atoDaPausa(motivo, bloco.pausaSobre);
   // O codigo curto e unico contra os que ja estao no ledger desta thread. T11 acrescenta o
   // comando que o resolve; a unicidade precisa nascer com o primeiro pedido que o carrega.
-  const codigo = gerarCodigo(eventos.flatMap(e => {
+  // RM-048 (D4): o gate reaberto no MESMO contexto e pelo mesmo motivo reaproveita o codigo do
+  // pedido anterior. Era a troca de codigo a cada hora que fazia a linha recebida virar po.
+  // A2 do CHECK: gate ja respondido de forma definitiva (aprovado ou recusado) neste contexto nao
+  // empresta o codigo: o que renasce depois dele e outra pergunta, com outro codigo.
+  const definitivo = gateRespondidoDeVez(eventos, contexto, motivo);
+  const anterior = definitivo ? undefined : (pedidoAtual as { codigo?: unknown } | undefined)?.codigo;
+  const codigo = typeof anterior === 'string' ? anterior : gerarCodigo(eventos.flatMap(e => {
     const c = (e.pedido as { codigo?: unknown } | undefined)?.codigo;
     return typeof c === 'string' ? [c] : [];
   }));
@@ -305,7 +311,64 @@ export function prepararPedidoGate(raiz: string, id: string, motivo = 'human.pen
     tipoDeResposta: 'objetiva', irreversivel: ato !== undefined, ...(ato ? { ato } : {}), codigo,
     prazo: new Date(Date.parse(quando) + 60 * 60 * 1000).toISOString(), acaoPadraoAoExpirar: 'esperar',
     respostaAceita: { tipo: 'opcao', maxCaracteres: 100 } };
+  // RM-048 (D4): um codigo quer dizer UMA pergunta. Se o que sairia agora nao e o que o dono leu
+  // com este codigo (a recomendada mudou, o diagnostico mudou), o codigo e outro: "DE6H a" nunca
+  // se aplica a uma pergunta que o dono nao viu.
+  if (typeof anterior === 'string' && pedidoAtual && essenciaDoPedido(pedido) !== essenciaDoPedido(pedidoAtual)) {
+    pedido.codigo = gerarCodigo(eventos.flatMap(e => {
+      const c = (e.pedido as { codigo?: unknown } | undefined)?.codigo;
+      return typeof c === 'string' ? [c] : [];
+    }));
+  }
   return { novo: pedido };
+}
+
+/** Algum pedido deste gate (contexto e motivo) ja recebeu veredito definitivo (nao `aguardando`). */
+function gateRespondidoDeVez(eventos: readonly EventoLedger[], contexto: string, motivo: string): boolean {
+  const ids = new Set(eventos.filter(e => e.tipo === 'hitl_requested' && e.contexto === contexto &&
+    alvoDoPedido(e.pedido as PedidoHitlQualquer)?.tipo === 'gate' && motivoDoPedido(e.pedido as PedidoHitlQualquer) === motivo)
+    .map(e => (e.pedido as { id: string }).id));
+  return eventos.some(e => e.tipo === 'human_gate' && ids.has(String(e.pedidoId)) && e.estado !== 'aguardando');
+}
+
+/**
+ * RM-048 (D4): o que faz dois pedidos de gate serem a MESMA pergunta para o dono. O identificador,
+ * o instante e o prazo mudam a cada renovacao; o que o dono leu e respondeu nao pode mudar.
+ */
+export function essenciaDoPedido(p: PedidoHitlQualquer): string {
+  if (!ehV2(p) || p.classe !== 'pergunta') return JSON.stringify(['v1', p.id]);
+  return JSON.stringify([p.thread, p.fase, p.modo, p.alvo, p.motivo, p.pergunta, p.alternativas, p.corpo,
+    p.tipoDeResposta, p.irreversivel, p.ato ?? null, p.codigo]);
+}
+
+/**
+ * RM-048 (D4): a resposta a um pedido de gate vencido vai para o pedido RENOVADO, e so quando a
+ * pergunta e a mesma.
+ *
+ * O prazo de uma hora existe para que uma aprovacao velha nao se aplique a um mundo novo. Aqui o
+ * mundo e conferido de novo, e nao presumido: o contexto da thread (modo, fase, status, base,
+ * despacho) tem de ser o do pedido original, o gate tem de continuar esperando o dono agora
+ * (`prepararPedidoGate`, com as mesmas recusas de sempre), e a essencia do pedido que sairia
+ * agora tem de ser identica a do que o dono leu. Qualquer diferenca e recusa com "pedido antigo":
+ * a letra que o dono digitou nunca e aplicada a uma pergunta que ele nao viu.
+ *
+ * Nao escolhe resposta, nao aprova nada e nao toca a prova: quem registra e `responderGate`, com
+ * o envelope assinado pelo ingresso, contra o pedido que esta funcao devolve.
+ */
+export function renovarPedidoDoGate(raiz: string, original: PedidoHitlQualquer, quando: string): PedidoHitlQualquer {
+  validarPedidoHitl(original);
+  if (alvoDoPedido(original)?.tipo !== 'gate') throw new Error('pedido antigo: só pedido de gate é renovado');
+  const t = lerThread(raiz, original.thread), eventos = lerLedger(dirThread(raiz, original.thread));
+  const evento = eventos.find(e => e.tipo === 'hitl_requested' && (e.pedido as { id?: string } | undefined)?.id === original.id);
+  if (!evento || evento.contexto !== contextoHitlDosEventos(t, eventos)) throw new Error('pedido antigo: fase, modo ou sessão mudou');
+  // A2 do CHECK: a linha velha nao desfaz um veredito definitivo dado por outra linha.
+  if (gateRespondidoDeVez(eventos, evento.contexto as string, motivoDoPedido(original))) {
+    throw new Error('pedido antigo: o gate já foi respondido');
+  }
+  const preparado = prepararPedidoGate(raiz, original.thread, motivoDoPedido(original), quando);
+  const candidato = 'aberto' in preparado ? preparado.aberto : preparado.novo;
+  if (essenciaDoPedido(candidato) !== essenciaDoPedido(original)) throw new Error('pedido antigo: a pergunta mudou desde que saiu');
+  return 'aberto' in preparado ? preparado.aberto : registrarPedidoHitl(raiz, preparado.novo);
 }
 
 const LETRAS_DO_GATE = ['a', 'b', 'c'] as const satisfies readonly LetraDeAlternativa[];

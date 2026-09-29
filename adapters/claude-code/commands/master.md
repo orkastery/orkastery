@@ -1,6 +1,6 @@
 ---
 description: Fecha a thread com POSTMORTEM tipado e o score humano de 0 a 5.
-argument-hint: "<thread-id> --score 0-5"
+argument-hint: "<thread-id>"
 allowed-tools: Bash(ork:*), Read, Glob, Grep
 ---
 
@@ -16,21 +16,24 @@ Fase MASTER (F6): POSTMORTEM tipado, MASTER log no contrato congelado e o score 
 ork master classes
 ```
 
-2. Pede ao builder o score e a justificativa. **O score e do humano, em todos os modos.** Este
-   comando nunca inventa nota.
-
-3. Fecha a thread:
+2. Pede a nota ao dono pelo canal com prova (RM-048). **O score e do humano, em todos os modos.**
+   Este comando nunca inventa nota e nunca escreve `--por` em nome de ninguem:
 
 ```bash
-ork master <thread> --score <0-5> --justificativa "<texto>" --classe <classe> --por "<quem>"
+ork master pedir <thread> --formato terminal
 ```
 
-4. Nos modos sem pausa de MASTER, a entrega e aceita a menos que o builder diga o contrario. Mostra
-   as entregas com o indice derivado do ledger, inclusive as ja pontuadas:
+   Mostre a linha como vem. O dono responde no Telegram (`<codigo> <0 a 5> <porque>`) e o nucleo
+   grava a nota com o recibo do ingresso. `ork master <thread> --score ... --por` chamado daqui e
+   recusado com `master.prova-de-canal`; do terminal dele, fora do host, o dono pode usa-lo.
+3. Confira que a nota entrou no ledger:
 
 ```bash
 ork master --todas
 ```
+
+4. Nos modos sem pausa de MASTER, a entrega e aceita a menos que o builder diga o contrario; o
+   `ork master --todas` mostra as entregas com o indice derivado do ledger, inclusive as ja pontuadas.
 
 ## Regras do adaptador
 

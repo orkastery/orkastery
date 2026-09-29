@@ -1,52 +1,111 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-versao043ope",
+  "thread": "ork-hitlhumanono",
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-versao043ope",
-      "fase": "GO",
-      "arquivo": "core/package.json",
-      "alegacao": "O CLI se declara 0.4.3, o CHANGELOG fecha a 0.4.3 e o adaptador OpenClaw acompanha",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.4.3 && grep -q '^## 0.4.3 — ' CHANGELOG.md && ! grep -q '^## Não publicado' CHANGELOG.md && grep -q '\"version\": \"0.4.3\"' adapters/openclaw/package.json adapters/openclaw/openclaw.plugin.json"
-      ],
-      "criadoEm": "2026-09-29T11:14:45.721Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-versao043ope",
-      "fase": "GO",
-      "arquivo": "docs",
-      "alegacao": "A documentação passa na paridade, no lint e nos links",
-      "negativa": false,
-      "verificar": [
-        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
-      ],
-      "criadoEm": "2026-09-29T11:14:45.930Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
-      "thread": "ork-versao043ope",
-      "fase": "GO",
-      "arquivo": "eval",
-      "alegacao": "Os canários de comportamento passam",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "C3 (RM-048 item 3): o gate reaberto no mesmo contexto mantem o codigo curto; \"1a\" e \"<codigo> a\" enviados depois do prazo de uma hora registram no pedido renovado quando a pergunta e identica e recusam quando ela mudou; o \"sim\" ao resumo mais recente continua valendo depois do prazo.",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js eval --so-canarios"
+        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-codigo-estavel.test.js"
       ],
-      "criadoEm": "2026-09-29T11:14:46.145Z",
+      "criadoEm": "2026-09-29T02:07:00.611Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-classificacao.ts",
+      "alegacao": "C4 (RM-048 item 6): motivo tecnico (runtime, verify, claims, artefato, formato, vaga) nao vira pergunta ao dono e aparece no resumo como \"Conosco\"; decisao do dono (pausa, policy, custo, credencial, limite de retry) continua pergunta.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-dono-orquestrador.test.js"
+      ],
+      "criadoEm": "2026-09-29T02:07:03.136Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "C6 (RM-048 item 8): ork master com --por chamado de processo de host (canal diferente de cli) e recusado com motivo tipado master.prova-de-canal; nota e ratificacao que chegam pelo ingresso autenticado gravam master_done com canal, recibo e evidencia; a ork_master do OpenClaw nao aceita nome de pessoa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/master-prova-canal.test.js"
+      ],
+      "criadoEm": "2026-09-29T02:07:07.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-resposta.ts",
+      "alegacao": "C7 (paridade de rota): as formas novas da gramatica do ingresso sao as mesmas no nucleo, no Hermes e no OpenClaw (fonte e dist), e os testes de ingresso dos dois adaptadores passam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/pulse-gramatica-ingresso.test.js",
+        "cd adapters/hermes && python3 -m unittest discover -s test -p 'hitl_ingress_test.py'",
+        "env -u FORCE_COLOR node --test adapters/openclaw/test/hitl-ingress.test.mjs adapters/openclaw/test/hitl-answer.test.mjs"
+      ],
+      "criadoEm": "2026-09-29T02:07:10.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "docs",
+      "alegacao": "C9 (docs): as paginas de produto, o guia de sincronismo HITL, a referencia do CLI e o RM-048 descrevem o contrato curto, as formas aceitas, a linha estavel, o status report e a nota com prova, e passam na paridade, no markdownlint e nos links.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T02:07:16.434Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-hitlhumanono",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "C10 (negativa, prova intacta): o corpo de assinaturaDaResposta e autenticarResposta e byte a byte o da base (merge-base com origin/main), e hitl-native.ts, hitl-ingress-receipt.ts, hitl-local-atestado.ts e hitl-local-receipt.ts nao mudam contra essa base.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const c=require('child_process'),f=require('fs');const base=c.execSync('git merge-base origin/main HEAD').toString().trim();const corpo=(t,n)=>{const i=t.indexOf('export function '+n+'(');return i<0?'':t.slice(i,t.indexOf('\\n}\\n',i))};const a=c.execSync('git show '+base+':core/src/hitl-gates.ts').toString(),b=f.readFileSync('core/src/hitl-gates.ts','utf8');for(const n of ['assinaturaDaResposta','autenticarResposta'])if(!corpo(a,n)||corpo(a,n)!==corpo(b,n)){console.error('divergiu: '+n);process.exit(1)}\"",
+        "git diff --quiet \"$(git merge-base origin/main HEAD)\" -- core/src/hitl-native.ts core/src/hitl-ingress-receipt.ts core/src/hitl-local-atestado.ts core/src/hitl-local-receipt.ts"
+      ],
+      "criadoEm": "2026-09-29T02:07:57.034Z",
       "estado": "verificado",
       "lint": []
     }
   ],
-  "deferredClaims": [],
+  "deferredClaims": [
+    {
+      "id": "C1",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C2",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C5",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
   "commands": [
     {
       "name": "ci",

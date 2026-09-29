@@ -559,6 +559,47 @@ sessão do outro canal.
   faixa automática, como `lease.busy`. E a varredura libera, com prova, a condução órfã das
   threads do escopo de escrita.
 
+## L. HITL humano no centro (RM-048, 28/09/2026)
+
+Em 27/09/2026 o dono respondeu "1. I-31. Aprovar, 2. D2 ..." e nada foi ao ledger: o ingresso só
+conhecia `P4EJ a` e `1a 2c`, e a prosa caiu no assistente. No mesmo dia o pedido `5fdcb00b`
+(código `DE6H`) virou `3b2c4b61` (código `SNS5`) em menos de quatro horas: o prazo de uma hora
+vencia e o gate renascia com identificador e código novos. A prova do ingresso não mudou em nada;
+mudou o que o núcleo traduz depois dela.
+
+- **Pedido curto (`ork.hitl-curto/v1`):** o mesmo contrato no lote do Telegram, no diálogo do host
+  e no item do pulse. Pergunta em uma frase, o que trava e desde quando, até quatro alternativas
+  de uma linha com a consequência, uma recomendada com o porquê e a última linha dizendo o que
+  digitar. No máximo 15 linhas, por construção. `ork gate request <thread> --formato telegram`
+  devolve o gate pronto; `<código> detalhes` devolve artefato, claims, riscos e diff.
+- **Texto livre inequívoco:** vocabulário fechado (`aprovo`, `sim`, `pode seguir`, `ok`, `revisar`,
+  `esperar`, `detalhes` e parentes), letra `a` a `d` e dígito `1` a `4`. A palavra casa a ação da
+  alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de
+  um pedido aberto na mesma thread, palavra não registra. A palavra solta, sem número nem código,
+  só vale nos 60 minutos depois de a pergunta sair pelo núcleo, quando ela é o único pedido aberto
+  para o dono em todas as threads (gate mostrado por `gate request`, sessão ou lote), e nunca para
+  ato sem volta. Ela só é interceptada no Telegram enquanto `.orkastery/monitor/pulse-escuta.json`
+  (`ork.pulse-escuta/v1`) disser que a janela está aberta; fora dela, vai ao assistente.
+- **Linha estável:** o gate reaberto no mesmo contexto mantém o código, e o código só muda quando
+  a pergunta muda. Resposta a pedido vencido vai ao pedido renovado quando a essência (pergunta,
+  alternativas, recomendada, corpo, ato, código) e o contexto da thread são idênticos, com
+  `renovadoDe` no rastro; qualquer diferença recusa. O número do lote vale por 24 horas, e o sim ao
+  resumo mais recente vale depois do prazo, porque o lote reconfere cada gate na hora.
+- **Dono x orquestrador:** `runtime.*`, `verify.*`, `claims.*`, `artifact.missing`, `hitl.formato`,
+  `ci.failed`, `vaga.stale`, `lease.busy` e parentes são do orquestrador. Não viram pergunta e o
+  resumo os mostra numa linha "Conosco, impedimento técnico". O resto continua com o dono.
+- **Nota do MASTER com prova:** `ork master pedir <thread>` devolve `<código> <0 a 5> <porquê>`; a
+  resposta do dono passa pela mesma `autenticarResposta` no endereço do pulse, e o `master_done`
+  guarda o remetente autenticado, o canal, a mensagem, o sha da prova e a evidência com o envelope.
+  `ork master` com `--por` vindo de processo de host recebe `master.prova-de-canal`, e `ORK_CANAL=cli`
+  não absolve sessão despachada (`ORK_DISPATCH_ID`), Claude Code (`CLAUDECODE`) nem Codex
+  (`CODEX_SANDBOX`).
+- **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
+  quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo que não exporta
+  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal e a aceita por omissão não tomam o lock
+  da thread; só a nota pelo canal toma. O diálogo MCP de nota para Claude Code e Codex fica para
+  depois.
+
 ## D. Rollback
 
 Desative apenas a entrada identificada da varredura de pulse no crontab, preservando as

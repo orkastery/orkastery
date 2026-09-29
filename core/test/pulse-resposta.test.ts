@@ -97,7 +97,7 @@ test('ponta a ponta: UM resumo, o sim pelo Telegram, o lote a-d, "1a 2c", e o le
     assert.equal(sim.resposta, 'sim');
     assert.match(sim.mensagem, /^📋 Orkastery, 3 perguntas/);
     for (const n of [1, 2, 3]) assert.match(sim.mensagem, new RegExp(`^${n}\\. ork-`, 'm'));
-    assert.match(sim.mensagem, /a\) Aprovar com as evidências apresentadas {2}✅ recomendada/);
+    assert.match(sim.mensagem, /a\) Aprovar com as evidências apresentadas ✅ recomendada: a fase segue e o bloco avança/);
     assert.match(sim.mensagem, /c\) Continuar esperando/);
     assert.equal(/[0-9a-f]{8}-[0-9a-f]{4}-/.test(sim.mensagem), false, 'identificador longo vazou para o dono');
     // O pedido de cada gate nasceu AGORA, em v2, com o prazo contado a partir do sim.
@@ -241,9 +241,11 @@ test('gate que o dono já recebeu não toca resumo sozinho, e volta entre as per
     assert.deepEqual(r.registradas.map(x => [x.numero, x.estado]), [[2, 'aguardando']]);
     // A pergunta 1 vence sem resposta. Nenhum dos dois toca resumo sozinho: o dono já os viu.
     assert.equal(c.varrer(depois(70)).enviadas, 0, 'gate já oferecido voltou a tocar sozinho');
-    // O código usado não reenvia pergunta morta: diz que ela venceu, em vez de pedir resposta recusável.
+    // RM-048 (D4): o código usado reenvia a pergunta ainda sem resposta, mesmo depois do prazo de
+    // uma hora: o número dela continua valendo, e a resposta vai ao pedido renovado.
     const velho = c.responder(`${codigo} a`, 'telegram:-7:802', depois(71));
-    assert.match(velho.mensagem, new RegExp(`As perguntas do código ${codigo} já foram respondidas ou venceram\\.`));
+    assert.match(velho.mensagem, /^1\. ork-/m);
+    assert.equal(/^2\. ork-/m.test(velho.mensagem), false, 'a respondida não volta');
     // Novidade de verdade (um item novo) traz o resumo, e os dois gates voltam entre as perguntas.
     const { thread: nova } = novaThread(c.p.carregado, { nome: 'india classic', modo: 'classic' });
     registrar(dirThread(c.p.dir, nova.id), nova.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
@@ -361,8 +363,17 @@ test('a forma da resposta: o que é resposta ao resumo, o que é resposta ao lot
     assert.equal(interpretarRespostaDoPulse(resumo).forma, 'consentimento', resumo);
   }
   // Conversa comum continua sendo conversa: palavra de quatro letras não tem dígito.
-  for (const conversa of ['HMMM ok', 'oi tudo bem', 'BORA ver isso', '1ab', 'bora 2', '', 'P4EJ', '1a\n2b', 'x'.repeat(201), '7XYZ b']) {
+  for (const conversa of ['HMMM ok', 'oi tudo bem', 'BORA ver isso', '1ab', 'bora 2', '', 'P4EJ', 'x'.repeat(201), '7XYZ b',
+    '1. I-31. Aprovar', '1. faça o deploy', 'sim, pode mandar o relatório']) {
     assert.equal(interpretarRespostaDoPulse(conversa).forma, 'desconhecida', conversa);
+  }
+  // RM-048 (D2): a resposta numerada em linhas, ou com ponto e palavra, é a forma `lista`.
+  for (const lista of ['1a\n2b', '1. B, 2. A', '1 aprovo', '1) pode seguir; 2 - não', '3 detalhes', '1 s', '2 n']) {
+    assert.equal(interpretarRespostaDoPulse(lista).forma, 'lista', lista);
+  }
+  // E a palavra solta é a forma `livre`: quem decide se ela registra é o núcleo, pela regra fechada.
+  for (const livre of ['aprovo', 'Sim!', 'pode seguir.', 'a', '1', 'ok', 'Não', 'detalhes']) {
+    assert.equal(interpretarRespostaDoPulse(livre).forma, 'livre', livre);
   }
 });
 
