@@ -171,6 +171,15 @@ test('host sem cwd: um candidato vale, mais de um e escolha, nenhum e recusa; o 
       // O cwd do gateway registrado nao aparece duas vezes.
       registrarProjeto(gateway.dir, 'init');
       assert.equal(recusa(() => resolverProjetoAlvo({ ambiente: host, cwd: gateway.dir }), 'projeto.escolha').candidatos.length, 2);
+      // F1 do CHECK (D4): no host, --projeto so por nome; caminho recusa, com os registrados como candidatos.
+      for (const caminho of [a.dir, './x', '~/orkastery', '../orkastery']) {
+        const e = recusa(() => resolverProjetoAlvo({ opcao: caminho, ambiente: host, cwd: gateway.dir }), 'projeto.desconhecido');
+        assert.match(e.detalhe, /^no host o projeto vem pelo nome registrado; o caminho /);
+        assert.deepEqual(e.candidatos.map((c) => c.nome), ['orkastery', 'workspace']);
+      }
+      assert.equal(resolverProjetoAlvo({ opcao: 'orkastery', ambiente: host, cwd: gateway.dir })?.raiz, fs.realpathSync(a.dir));
+      // ORK_PROJETO e configuracao de quem opera o host, nao argumento de modelo: caminho segue valendo.
+      assert.equal(resolverProjetoAlvo({ ambiente: { ...host, [ENV_PROJETO]: a.dir }, cwd: gateway.dir })?.raiz, fs.realpathSync(a.dir));
     } finally { a.limpar(); gateway.limpar(); fs.rmSync(vazio, { recursive: true, force: true }); }
   });
 });

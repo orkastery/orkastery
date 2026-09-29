@@ -94,6 +94,10 @@ test('nome desconhecido e host sem cwd com dois projetos recusam na saida 4, com
     assert.ok(!/Roadmap do Workspace/.test(texto.stdout), 'o host nunca relata o projeto do cwd como o pedido');
 
     assert.equal(projetoDoStatus(ork(usuario, gateway.dir, ['roadmap', 'status', '--json', '--projeto', 'orkastery'], host)), 'orkastery');
+    // F1 do CHECK (D4): no host, caminho nao entra por --projeto, venha da tool que vier.
+    const porCaminho = ork(usuario, gateway.dir, ['roadmap', 'status', '--projeto', a.dir], host);
+    assert.equal(porCaminho.status, 4);
+    assert.match(porCaminho.stdout, /^projeto\.desconhecido: no host o projeto vem pelo nome registrado/);
     assert.equal(projetoDoStatus(ork(usuario, vazio, ['roadmap', 'status', '--json'], host)), 'orkastery', 'um so candidato vale');
     const nenhum = ork(dirTemporario('projeto-alvo-cli-sem-registro'), vazio, ['board'], host);
     assert.equal(nenhum.status, 4);

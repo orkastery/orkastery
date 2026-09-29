@@ -391,17 +391,24 @@ export interface EntradaDaResolucao {
  */
 export function resolverProjetoAlvo(entrada: EntradaDaResolucao = {}): ProjetoAlvo | null {
   const ambiente = entrada.ambiente ?? process.env, cwd = entrada.cwd ?? process.cwd();
+  const host = (ambiente[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
   if (entrada.opcao !== undefined && entrada.opcao !== null) {
     const valor = entrada.opcao.trim();
     if (!valor) {
       throw new ErroDeProjeto('projeto.desconhecido', '--projeto sem valor', lerRegistroDeProjetos().projetos.map(candidatoDoRegistro),
         'Uso: --projeto <nome|caminho>; os nomes registrados estão em `ork projetos`.');
     }
+    // D4 (F1 do CHECK): no host, quem pede escolhe entre os projetos da maquina pelo NOME. Caminho nao
+    // entra por nenhuma tool, nem pela que repassa os argumentos como dados (os scripts do Hermes).
+    if (host && ehCaminho(valor)) {
+      throw new ErroDeProjeto('projeto.desconhecido', `no host o projeto vem pelo nome registrado; o caminho "${valor}" não é aceito`,
+        lerRegistroDeProjetos().projetos.map(candidatoDoRegistro), 'Use o nome de um projeto de `ork projetos` (ex.: --projeto orkastery).');
+    }
     return { raiz: resolverValor(valor, cwd), origem: 'opcao', pedido: valor };
   }
   const doAmbiente = (ambiente[ENV_PROJETO] ?? '').trim();
   if (doAmbiente) return { raiz: resolverValor(doAmbiente, cwd), origem: 'ambiente', pedido: doAmbiente };
-  if ((ambiente[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1') {
+  if (host) {
     const candidatos = candidatosDoHost(cwd);
     if (candidatos.length === 1) return { raiz: candidatos[0].raiz, origem: 'unico-conhecido', pedido: null };
     if (candidatos.length > 1) {
