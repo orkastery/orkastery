@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-28T23:50:00-03:00
+atualizado_em: 2026-09-28T23:16:09-03:00
 estado:
   ciclo: Discovery
   documentacao: Rascunho
