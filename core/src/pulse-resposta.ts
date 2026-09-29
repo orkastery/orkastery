@@ -33,7 +33,7 @@ import { LETRAS, montarLote, perguntaDoPedido, PerguntaDoLote, TETO_DA_MENSAGEM,
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, lerTrecho, resolverTrecho, TrechoLivre } from './hitl-texto-livre';
 import { apresentarHitl } from './hitl-presentation';
-import { ItemClassificavel } from './hitl-classificacao';
+import { ItemClassificavel, quemDecide } from './hitl-classificacao';
 import { CADENCIAS, extrairTagDoPulse, gravarCadencia, lerCadencia, TagDoPulse, textoDaCadencia } from './pulse-cadencia';
 import { lerLedger } from './ledger';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -259,7 +259,9 @@ export function avaliarFila(raiz: string, itens: readonly ItemClassificavel[], q
   const candidatos: CandidatoDoLote[] = [], atos = new Map<string, AtoIrreversivel>();
   let consertos = 0;
   for (const [thread, doThread] of porThread) {
-    const escalacoes = doThread.map(i => i.motivo).filter(m => (MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(m));
+    // RM-048 (D6): escalacao tecnica nao vira pergunta ao dono; o resumo a mostra como "Conosco".
+    const escalacoes = doThread.map(i => i.motivo).filter(m => (MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(m) &&
+      quemDecide(m) === 'dono');
     let achado: { motivo: string; pedido: PedidoHitlQualquer; aberto: boolean } | undefined;
     for (const motivo of [...new Set([...escalacoes, 'human.pending'])]) {
       try {
@@ -279,7 +281,7 @@ export function avaliarFila(raiz: string, itens: readonly ItemClassificavel[], q
     // Sem gate que espere, um pedido aberto ainda e pergunta se for respondivel agora; senao, e
     // conserto quando o formato e o problema, e historia quando o prazo ja passou.
     const pedido = doThread.map(i => i.pedido).find((p): p is PedidoHitlQualquer => !!p);
-    if (!pedido) continue;
+    if (!pedido || quemDecide(motivoDoPedido(pedido)) !== 'dono') continue;
     let aberto = false;
     try { aberto = estadoDoPedido(pedido, quando) === 'aberto'; } catch { aberto = false; }
     if (!aberto) continue;
