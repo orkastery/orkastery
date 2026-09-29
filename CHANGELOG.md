@@ -17,8 +17,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork memory search --texto "<frase>"`: vetor e FTS por RRF dentro do tenant, com a origem
     declarada e `deterministico: false`; a busca por tag, o recall e o prompt não mudam;
   - `ork memory status` passa a sondar a ponte (`health`) e mostra o estado dos embeddings, a
-    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa
-    "embeddings desativados" deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
+    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa de
+    saúde, que nada sondava, deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
   - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
     de embedding pelo nome.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):

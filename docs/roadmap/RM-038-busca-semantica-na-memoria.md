@@ -43,7 +43,7 @@ sdlc:
 
 ## Problema e resultado
 
-- **Problema:** a busca por tag só acha o que foi etiquetado, e o FTS da biblioteca só acha a palavra exata: uma paráfrase como "trocar de conta quando acaba a cota" não alcança a memória da rotação de conta. O health check afirmava "embeddings desativados" sem sondar.
+- **Problema:** a busca por tag só acha o que foi etiquetado, e o FTS da biblioteca só acha a palavra exata: uma paráfrase como "trocar de conta quando acaba a cota" não alcança a memória da rotação de conta. O health check afirmava o estado dos embeddings com uma frase fixa, sem sondar.
 - **Métrica:** a prova reexecutável `bash core/scripts/prova-busca-semantica.sh` mostra ao menos um alvo alcançado só pela semântica; `ork memory status` informa o estado sondado e a cobertura do tenant.
 
 ## Escopo e validação
