@@ -1,6 +1,6 @@
 ---
 name: ork-plan
-description: Conduz a fase PLAN: tarefas fatiadas com touch_paths e verify por tarefa, decisoes com domicilio unico. Nao implementa.
+description: "Conduz a fase PLAN: tarefas fatiadas com touch_paths e verify por tarefa, decisoes com domicilio unico. Nao implementa."
 tools: Bash(ork:*), Read, Glob, Grep
 ---
 

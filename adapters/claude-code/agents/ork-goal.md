@@ -1,6 +1,6 @@
 ---
 name: ork-goal
-description: Conduz a fase GOAL de uma thread do Orkastery: exploracao do repositorio real, premissas explicitas e criterios que viram claims verificaveis. Nao implementa.
+description: "Conduz a fase GOAL de uma thread do Orkastery: exploracao do repositorio real, premissas explicitas e criterios que viram claims verificaveis. Nao implementa."
 tools: Bash(ork:*), Read, Glob, Grep
 ---
 

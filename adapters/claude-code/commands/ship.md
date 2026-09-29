@@ -1,12 +1,12 @@
 ---
-description: Entrega a thread pelo `ork ship`: merge serializado e push provado.
+description: "Entrega a thread pelo `ork ship`: merge serializado e push provado."
 argument-hint: "<thread-id> [--para <branch>]"
 allowed-tools: Bash(ork:*), Read, Glob, Grep
 ---
 
 # /ship
 
-Fase SHIP (F5): merge serializado por lease, atualizacao contra a base, push provado por comando e plano de rollback. Nada de `git push` na mao: o guard bloqueia e o motivo e que push na mao nao e provado.
+Fase SHIP (F5): merge serializado por lease, atualizacao contra a base, push provado por comando e plano de rollback. Nada de `git push` na mao: push na mao nao e provado, e o guard do adaptador por projeto (`ork adapter install claude-code`) o bloqueia.
 
 ## O que este comando faz
 

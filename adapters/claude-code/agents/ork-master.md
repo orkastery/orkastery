@@ -1,6 +1,6 @@
 ---
 name: ork-master
-description: Conduz a fase MASTER: POSTMORTEM tipado, MASTER log no contrato congelado e coleta do score humano. Nunca inventa nota.
+description: "Conduz a fase MASTER: POSTMORTEM tipado, MASTER log no contrato congelado e coleta do score humano. Nunca inventa nota."
 tools: Bash(ork:*), Read
 ---
 

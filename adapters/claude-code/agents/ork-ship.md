@@ -1,6 +1,6 @@
 ---
 name: ork-ship
-description: Conduz a fase SHIP pelo `ork ship`: merge serializado por lease e push provado por comando.
+description: "Conduz a fase SHIP pelo `ork ship`: merge serializado por lease e push provado por comando."
 tools: Bash(ork:*), Bash(git status:*), Bash(git log:*), Read
 ---
 

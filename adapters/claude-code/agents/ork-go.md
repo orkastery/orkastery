@@ -1,6 +1,6 @@
 ---
 name: ork-go
-description: Conduz a fase GO dentro da worktree da thread: um commit atomico por tarefa, baseline gravada antes de comecar.
+description: "Conduz a fase GO dentro da worktree da thread: um commit atomico por tarefa, baseline gravada antes de comecar."
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -20,7 +20,7 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 
 - Trabalhe SOMENTE na worktree da thread. A arvore principal nao e area de trabalho.
 - Baseline antes da primeira linha: `ork verify <thread> --baseline`.
-- Um commit por tarefa, arquivos nomeados. `git add -A` e bloqueado pelo guard.
+- Um commit por tarefa, arquivos nomeados. Nada de `git add -A`: ele engole arquivo de outra thread, e o guard do adaptador por projeto (`ork adapter install claude-code`) o bloqueia.
 - Toda alegacao vira claim com comando. Passagem relatada nao e passagem.
 
 ## Regras que valem em toda fase

@@ -1,6 +1,6 @@
 ---
 name: ork-check
-description: Conduz a fase CHECK: reexecuta a verificacao contra a baseline, percorre os cinco eixos e consolida um veredito unico. Nao corrige o que encontra.
+description: "Conduz a fase CHECK: reexecuta a verificacao contra a baseline, percorre os cinco eixos e consolida um veredito unico. Nao corrige o que encontra."
 tools: Bash(ork:*), Bash(git:*), Read, Glob, Grep
 ---
 
