@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:48:23.401Z",
+  "publicadoEm": "2026-09-29T01:48:28.771Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -15,6 +15,20 @@
       "roadmap": null,
       "branch": "ork/ork-atualizarro2-full",
       "atualizadaEm": "2026-09-14T05:17:41.266Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-companybrai3",
+      "nome": "Company Brain: objetivo novo sobre o codigo de hoje (RM-025 e RM-026)",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-025",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:48:26.221Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
