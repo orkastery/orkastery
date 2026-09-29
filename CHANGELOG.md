@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
+  em repositório declarado em `ci.external_repositories`, com o merge dentro da ponta da base
+  conferido pela API do GitHub e o check declarado verde no head do PR.
+- **Decisão autônoma pelo MCP** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
+  ferramenta `ork_decision_record` grava pelo mesmo contrato do `ork decisao registrar`, para a
+  sessão cujo sandbox não grava o ledger.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última
@@ -29,6 +36,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
   tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
   leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
+
+### Corrigido
+
+- **Defeitos de condução de 29/09/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, pela mesma
+    execução do `ork verify --baseline`;
+  - o modo plano do PLAN e o review nativo do CHECK valem só para o bloco que termina na fase de
+    entrada: no #Auto, a sessão codex segue do PLAN ao GO e do CHECK ao SHIP como no claude-bg;
+  - `ork phase run` recusa com `concurrency.limite` quando o projeto já tem
+    `max_parallel_threads` sessões vivas em outras threads, e `--esperar` espera a vaga;
+  - `ork decisao registrar` diz o campo e o tamanho quando o texto passa do teto;
+  - `ork ci prepare` grava o bundle na worktree da thread, não na raiz do projeto;
+  - o teste D-6 de modelo inacessível deixa de depender da corrida com o observador destacado.
 
 ## 0.4.3 — 29/09/2026
 

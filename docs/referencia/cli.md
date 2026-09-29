@@ -117,7 +117,7 @@ concatenado, guardado numa variável local que vai para o texto ou passado diret
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
 | `ork thread status <thread-id> [--json]` | O estado da thread, cruzado com o runtime; `--json` devolve o thread.json |
-| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent |
+| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa e grava `slot_refused`; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho (RM-037) |
 | ↳ opções | `[--model M] [--effort E] [--dry-run]` |
 | `ork phase list <thread>` | O histórico do ledger, **com o modelo e o esforço reais de cada fase** |
 
@@ -197,7 +197,7 @@ há, `1` quando o runtime não respondeu).
 | `ork gate answer <thread> <pedido> --resposta-stdin --origem telegram --por ID --mensagem REF` | Recebe o envelope assinado do gateway e publica a decisão humana quando aprovada |
 | `ork pulse responder --resposta-stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | Recebe o que o dono digitou no canal do resumo (`P4EJ a` ao resumo, `1a 2c` ao lote, `#OrkPulseOn-15m` à cadência) e devolve o texto que o canal repassa a ele |
 | `ork pulse cadencia [<tag>] [--por P] [--json]` | Mostra a cadência do resumo em vigor, ou troca pela tag (`OrkPulseOn`, `OrkPulseOn-15m`, `-30m`, `-60m`, `OrkPulseOff`); pergunta nova ao dono sai na hora, qualquer que seja a tag |
-| `ork decisao registrar <thread> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B --criterio TIPO:REF --quem Q --evidencia E [--razao R] [--reverte ID]` | Registra a decisão tomada sem perguntar ao dono: chega a ele no próximo resumo |
+| `ork decisao registrar <thread> --decidido D --porque P --como-mudar C --custo-agora A --custo-depois B --criterio TIPO:REF --quem Q --evidencia E [--razao R] [--reverte ID]` | Registra a decisão tomada sem perguntar ao dono: chega a ele no próximo resumo. Cada campo é uma linha; `--decidido`, `--porque` e `--como-mudar` vão até 200 caracteres, os custos até 140, e a recusa diz o campo e o tamanho. Na sessão sem acesso ao ledger (codex), a ferramenta MCP `ork_decision_record` grava pelo mesmo contrato |
 | `ork decisao placar <thread> [--json]` | Decididas contra perguntas por fase, reversões, decisões sem rastro e o limiar de revisão (13 por fase) |
 
 `--baseline` grava o estado do mundo **antes do GO**. E o que permite separar `verify.regression`
@@ -316,7 +316,8 @@ worktree da thread e mora no estado canônico do projeto, e não no checkout de 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (sem ele, o que o host declara),
 `--correlacao <id>` (conversa ou mensagem de origem) e `--esperar [min]` (espera a vez, até 30
-minutos sem valor, em vez de recusar na hora).
+minutos sem valor, em vez de recusar na hora). No `ork phase run`, `--esperar` também espera a vaga
+do projeto quando o limite de sessões está cheio.
 
 ---
 
@@ -326,6 +327,7 @@ minutos sem valor, em vez de recusar na hora).
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
 | `ork ship registrar-pr <thread>\|--todas` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57) |
+| `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado e o merge dentro da ponta da base conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
@@ -334,7 +336,7 @@ minutos sem valor, em vez de recusar na hora).
 | `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
-| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/bundle.json`, que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
+| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/bundle.json` da worktree da thread (da raiz ou da worktree, o arquivo vai para a branch dela), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
 | `ork ci run [<thread>] [--bundle ARQ]` | Executa o CHECK no runner independente |
 | `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub para o SHA |
 
