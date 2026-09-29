@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T11:19:12.034Z",
+  "versaoOrk": "0.4.3",
+  "publicadoEm": "2026-09-29T11:29:49.633Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -38,12 +38,12 @@
       "id": "ork-hitlhumanono",
       "nome": "HITL humano no centro: pedido curto, texto livre claro e status report unico",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-048",
       "branch": "ork/ork-hitlhumanono-full",
-      "atualizadaEm": "2026-09-29T02:11:30.255Z",
-      "entregue": null,
+      "atualizadaEm": "2026-09-29T11:29:49.389Z",
+      "entregue": "8d47740",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
@@ -86,20 +86,6 @@
       "branch": "ork/ork-rm050guiadec-full",
       "atualizadaEm": "2026-09-29T02:42:11.409Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-versao043ope",
-      "nome": "versão 0.4.3: OpenClaw sem tools de objective e defeitos da RM-037",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-versao043ope-go",
-      "atualizadaEm": "2026-09-29T11:14:46.146Z",
-      "entregue": "1808e22",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
