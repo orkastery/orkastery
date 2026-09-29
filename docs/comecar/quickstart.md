@@ -52,7 +52,7 @@ git clone https://github.com/orkastery/orkastery.git
 cd orkastery/core
 npm install
 npm run build      # gera dist/index.js, o bin `ork`
-npm test           # 366 testes passando, node --test, fixtures isoladas
+npm test           # executa a suíte atual, com fixtures isoladas
 npm link           # poe o `ork` desta árvore no PATH
 ```
 
@@ -384,3 +384,7 @@ redespachar. Mesma-harness não permite autorrevisão. Sem controle web.
 Esses exemplos têm testes fixture no core; ativação nos quatro hosts e publicação
 só serão declaradas após recibos live vinculados ao SHIP.
 <!-- maestro-i32:end -->
+
+## Preferências da conversa
+
+⌨️ No terminal, dentro do projeto inicializado, rode `ork onboarding` e `ork experiencia show --json`. A etapa maestro oferece ativar, configurar idioma/fuso/profundidade ou desativar. Depois use `ork adapter install <host> --dry-run` e `ork adapter install <host>`. Veja o [guia em português](../guias/orchestration-experience.pt-BR.md) ou [English](../guias/orchestration-experience.md) para descoberta, opt-out e restauração.

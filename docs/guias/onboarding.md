@@ -18,6 +18,10 @@ As nove etapas são maestro, credenciais, bancos, memoria, produtos, topologia, 
 skills e auditores. Consulte a pauta do CLI para as perguntas atuais. Respostas não são
 preenchidas pelo init ou inferidas pelo modo de autonomia.
 
+## Preferências de experiência
+
+A pauta `maestro` também oferece ativação recomendada, configuração e opt-out. Consulte `ork experiencia show --json`. Uma resposta `{"owner":{"language":"pt-BR","timezone":"UTC","depth":"curta","experience":true}}` persiste essas chaves no manifesto, preservando outras seções e as demais respostas. O campo legado `fuso` conserva seu comportamento de orientação. Consulta não preenche autoria. Veja [instalação e remoção do pacote](orchestration-experience.pt-BR.md).
+
 ## Contrato e retomada
 
 `.orkastery/onboarding.json` tem contrato `ork.onboarding/v1`, `atualizadoEm` e `etapas`.
@@ -28,7 +32,7 @@ O estado da entrevista fica separado de `orkastery.yaml`.
 
 `set` altera somente a etapa indicada. JSON equivalente, inclusive com outra ordem de chaves,
 preserva bytes do arquivo, timestamps, autoria e eventos. Ordem de arrays é significativa.
-`--por` omitido usa `owner`; isso não atribui resposta a Julio ou a outro humano.
+`--por` omitido usa `owner`; isso não comprova resposta de uma pessoa.
 
 Set e reset serializam leitura, alteração e evento sob a mesma trava e relêem o documento
 depois de adquiri-la. Escritores concorrentes preservam as demais respostas e a idempotência.
