@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T12:58:41.953Z",
+  "publicadoEm": "2026-09-29T13:04:45.913Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -40,9 +40,9 @@
       "modo": "#Auto",
       "fase": "GO",
       "status": "aberta",
-      "roadmap": null,
+      "roadmap": "RM-051",
       "branch": "ork/ork-rm051pacote-full",
-      "atualizadaEm": "2026-09-29T12:58:41.672Z",
+      "atualizadaEm": "2026-09-29T13:02:39.712Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -77,6 +77,20 @@
       "paradaDesde": null
     },
     {
+      "id": "ork-rm037defeito",
+      "nome": "RM-037: defeitos de condução achados em 29/09",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "HEAD",
+      "atualizadaEm": "2026-09-29T13:04:42.274Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
       "id": "ork-rm049marketp",
       "nome": "RM-049: marketplaces e textos do lançamento",
       "modo": "#Auto",
@@ -86,9 +100,9 @@
       "branch": "ork/ork-rm049marketp-full",
       "atualizadaEm": "2026-09-29T12:25:39.815Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
+      "esperaVoce": true,
+      "pergunta": "autorizacao da retomada",
+      "paradaDesde": "2026-09-29T13:01:20.258Z"
     },
     {
       "id": "ork-rm050guiade2",
