@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T02:26:23.873Z",
+  "publicadoEm": "2026-09-29T02:26:33.648Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -97,8 +97,8 @@
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-050",
-      "branch": "HEAD",
-      "atualizadaEm": "2026-09-29T02:26:20.980Z",
+      "branch": "ork/ork-rm050guiadec-full",
+      "atualizadaEm": "2026-09-29T02:26:33.338Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
