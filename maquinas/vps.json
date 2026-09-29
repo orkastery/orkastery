@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:52:30.605Z",
+  "publicadoEm": "2026-09-29T11:53:27.741Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -41,8 +41,8 @@
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-025",
-      "branch": "HEAD",
-      "atualizadaEm": "2026-09-29T11:52:27.726Z",
+      "branch": "ork/ork-rm025modocon-full",
+      "atualizadaEm": "2026-09-29T11:53:27.479Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
