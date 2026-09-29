@@ -1,4 +1,5 @@
 import { comLockHitl } from './hitl-gates';
+import { esperarVaga, vagaDoDespacho } from './board';
 import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidadeDeDespacho } from './runtime-context';
 /**
  * `ork phase run|list`: despacho de fase pelo runtime adapter e leitura do ledger.
@@ -630,7 +631,8 @@ export interface ResultadoRun {
   effort: string;
   /** Gate tipado reprovou antes do despacho (bloco B1). */
   bloqueado: boolean;
-  motivo: MotivoGate | null;
+  /** RM-037 (defeito 3): `concurrency.limite` e a recusa do portao de vaga do projeto. */
+  motivo: MotivoGate | 'concurrency.limite' | null;
   violacoes: ViolacaoDePolicy[];
   /** Bloco B3: pedido criado na fila duravel quando o despacho morreu por rate limit. */
   naFila?: PedidoDeRetomada | null;
@@ -649,11 +651,16 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
     comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes));
   // I-36 (D2): `--esperar` espera a vez FORA do lock HITL (que serializa respostas do dono) e so
   // depois repete o pedido. Sem ele, a recusa sai na hora.
+  // RM-037 (defeito 3): a vaga do projeto espera do mesmo jeito, fora do lock, antes de repetir.
   const prazo = opcoes.esperarMs && opcoes.esperarMs > 0 && !opcoes.dryRun ? Date.now() + opcoes.esperarMs : null;
   for (;;) {
-    if (prazo) esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
+    if (prazo) {
+      esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
+      esperarVaga(carregado, threadId, Math.max(0, prazo - Date.now()));
+    }
     const r = rodar();
-    if (r.motivo !== 'conducao.em-andamento' || !prazo || Date.now() >= prazo) return r;
+    const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
+    if (!esperavel || !prazo || Date.now() >= prazo) return r;
   }
 }
 
@@ -756,6 +763,19 @@ function rodarFaseSobLock(
     return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
       verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
       runtime, model, effort, bloqueado: true, motivo: 'tree.blocked', violacoes, erro: erroDeEstado };
+  }
+  // RM-037 (defeito 3): o limite de sessoes do projeto vale no despacho, nao so no board. A recusa nao
+  // abre sessao nem toca a worktree; o `slot_refused` e a prova, fora da conta de atividade da thread.
+  const semVaga = vagaDoDespacho(carregado, thread.id);
+  if (semVaga) {
+    if (!opcoes.dryRun) {
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.vagaRecusada, { gate: 'phase.dispatch', motivo: 'concurrency.limite', fase, slug,
+        limite: semVaga.limite, ocupam: semVaga.ocupam, detalhe: semVaga.detalhe, correcao: semVaga.correcao,
+        evidencia: 'conducao exec:<thread> com dono sessao nas outras threads do projeto' });
+    }
+    return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+      verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
+      runtime, model, effort, bloqueado: true, motivo: 'concurrency.limite', violacoes, erro: `${semVaga.detalhe}; ${semVaga.correcao}` };
   }
   // I-36 (T7, T14): validado o pedido, a conducao da thread, antes de tocar a worktree. A mesma fase com o
   // mesmo prompt de quem conduz devolve a sessao em andamento sem chamar o adapter; outro pedido recebe a recusa.

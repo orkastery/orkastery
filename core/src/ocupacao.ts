@@ -108,11 +108,13 @@ function ultimaSessao(thread: Thread, eventos: EventoLedger[]): string | null {
 /**
  * Carimbo do ultimo sinal de vida: o evento mais novo do ledger que seja TRABALHO da
  * thread. `slot_released` fica de fora: e contabilidade do escalonador, e se contasse
- * como atividade a thread stale rejuvenesceria no exato momento em que e expulsa.
+ * como atividade a thread stale rejuvenesceria no exato momento em que e expulsa. O
+ * `slot_refused` (RM-037) tambem: despacho recusado por vaga nao e trabalho.
  */
 function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
   for (let i = eventos.length - 1; i >= 0; i--) {
-    if (eventos[i].tipo !== TIPOS_DE_EVENTO.vagaLiberada) return eventos[i].ts;
+    const t = eventos[i].tipo;
+    if (t !== TIPOS_DE_EVENTO.vagaLiberada && t !== TIPOS_DE_EVENTO.vagaRecusada) return eventos[i].ts;
   }
   return null;
 }
