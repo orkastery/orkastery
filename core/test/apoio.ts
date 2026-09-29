@@ -183,12 +183,14 @@ nome=""
 anterior=""
 for a in "$@"; do
   if [ "$anterior" = "--name" ]; then nome="$a"; fi
+  if [ "$anterior" = "--settings" ]; then printf '%s' "$a" > "$DIR/settings"; fi
   anterior="$a"
 done
 printf '%s' "$nome" > "$DIR/nome"
 pwd > "$DIR/cwd"
 echo "$nome" >> "$DIR/chamadas"
 printf '%s' "$ORK_DISPATCH_ID" > "$DIR/dispatch-id"
+printf '%s' "$ORK_DISPATCH_THREAD" > "$DIR/dispatch-thread"
 printf '%s' "$ORK_CANAL" > "$DIR/canal"
 if [ -f "$DIR/rate-limit" ]; then
   rm -f "$DIR/rate-limit"

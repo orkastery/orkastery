@@ -1241,17 +1241,17 @@ function comandoSessions(args: Args): number {
   }
   if (sub === 'logs') {
     const n = Number(texto(args.opcoes.linhas) ?? '60');
-    const r = logsDaSessao(chave, Number.isFinite(n) ? n : 60);
+    const r = logsDaSessao(chave, Number.isFinite(n) ? n : 60, carregado ? raiz : null);
     console.log(r.texto);
     return r.codigo;
   }
   if (sub === 'stop') {
-    const r = pararSessao(chave);
+    const r = pararSessao(chave, carregado ? raiz : null);
     console.log(r.texto);
     return r.codigo;
   }
   if (sub === 'attach') {
-    const r = comandoDeAttach(chave);
+    const r = comandoDeAttach(chave, carregado ? raiz : null);
     console.log(r.texto);
     return r.codigo;
   }

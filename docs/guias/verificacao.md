@@ -154,9 +154,9 @@ anterior dela não muda. Sem `verify.preparo`, nada disso muda o comportamento d
 
 ---
 
-## 3. Os 21 motivos tipados de gate
+## 3. Os 22 motivos tipados de gate
 
-Nenhum bloqueio é uma string de prosa. Todo bloqueio é um destes vinte e um, e o motivo
+Nenhum bloqueio é uma string de prosa. Todo bloqueio é um destes vinte e dois, e o motivo
 determina a ação. Isso é o que torna retry, metrica e auditoria automatizaveis: `ork retry
 policy` imprime a tabela a partir do código, que é um mapa total sobre o catálogo (motivo novo
 não compila sem política).
@@ -180,6 +180,7 @@ não compila sem política).
 | `runtime.rate-limited` | esperar-janela | sim | Rate limit comum, com hora de volta: a fase entra na fila durável e volta na janela seguinte, sem trocar de perfil (D16) |
 | `runtime.quota-exhausted` | reexecutar com rotação | sim | A cota, os créditos ou o limite do plano da **conta** acabaram: o perfil sai do rodízio e o mesmo prompt segue no próximo perfil, no runtime de fallback ou na fila (I-33) |
 | `runtime.auth-missing` | reexecutar com rotação | sim | A conta perdeu o login: o perfil nunca mais recebe despacho até o login ser refeito pelo próprio CLI (I-33) |
+| `runtime.model-unavailable` | reexecutar com troca de destino | sim | O modelo pedido não existe ou a conta não tem acesso a ele (`model_not_found`): o perfil segue no rodízio, e o mesmo prompt vai a outro perfil com o mesmo modelo ou ao fallback do bloco; sem destino, o humano recebe a correção exata (RM-037) |
 | `ci.failed` | escalar-humano | **não** | O recibo pertence ao provedor e ao SHA candidato: repetir a fase não cria esse resultado |
 | `policy.violation` | escalar-humano | **não** | Policy `block` em qualquer modo: reexecutar sozinho seria a máquina revogando a policy |
 | `human.pending` | escalar-humano | **não** | Não é reprovacao, e espera de autorização. Automatizar seria a máquina se autorizando |
@@ -369,6 +370,19 @@ voltou, porque o prazo que liberou a fila pode ter sido o do fallback. Sem nenhu
 à fila com o próximo prazo posterior ao instante da retomada (ou a janela padrão declarada), e a
 tentativa conta no limite: nada vence de novo na mesma chamada.
 
+### Modelo inacessível na conta (RM-037)
+
+Quando a transcrição da sessão traz `model_not_found` ("There's an issue with the selected model"),
+o motivo é `runtime.model-unavailable`, não `runtime.unavailable`, que repetiria o mesmo modelo na
+mesma conta. A conta funciona para os outros modelos, então o perfil não sai do rodízio. O
+`ork retry run` manda o mesmo prompt ao próximo perfil do mesmo runtime com o mesmo modelo e
+depois ao fallback do bloco, com o modelo de cada runtime, e nunca de novo a um destino que já
+recusou o modelo na fase. A troca vai ao `runtime_profile_rotated` com o modelo de origem e o de
+destino, e `--dry-run` mostra para onde e com que modelo o prompt iria. Sem destino, a fase
+escala ao humano com a correção:
+`ork setup <modo> --bloco N --model <modelo acessível>`, ou `--fallback runtime:modelo` no mesmo
+bloco.
+
 ### A conta é do usuário, não do projeto (I-49)
 
 Quando um projeto marca uma conta como esgotada, sem login ou com credencial paga, o estado vai
@@ -383,11 +397,15 @@ o despacho seguindo como antes. `ork accounts list` mostra o que o despacho enxe
 ### Lacuna conhecida: inventário e governança pela conta do processo
 
 `ork sessions --global`, o check "governanca de sessoes" do `ork doctor`, o `ork pulse`, o
-panorama do Maestro, o controle de sessão nativa do HITL e `ork sessions logs|stop` ainda
-consultam a conta do processo `ork`. Com N perfis, o inventário é incompleto por construção:
-uma sessão da conta B não aparece para quem roda na conta A. O despacho, a observação e a
-rotação não dependem disso, porque resolvem pela conta do registro da sessão. Publicado como
-lacuna, sem mudança de código nesta iniciativa.
+panorama do Maestro e o controle de sessão nativa do HITL ainda consultam a conta do processo
+`ork`. Com N perfis, o inventário é incompleto por construção: uma sessão da conta B não aparece
+para quem roda na conta A. O despacho, a observação e a rotação não dependem disso, porque
+resolvem pela conta do registro da sessão. Publicado como lacuna.
+
+`ork sessions stop|logs|attach` saíram da lacuna (RM-037): a sessão é procurada na conta do
+processo e em cada perfil claude-bg do projeto, inclusive desativado, e o comando roda com o
+`CLAUDE_CONFIG_DIR` da conta onde ela está; o `attach` imprime o comando com esse prefixo. Achada
+em mais de uma conta, a chave é recusada e o id completo resolve.
 
 ---
 
@@ -521,6 +539,7 @@ não conta o artefato gravado pela sessão que veio depois.
 | `stopped` depois de Stop correlacionado | a regra da prova: com ela, `fase_concluida` (sem `conclusaoNativa`, porque não houve `done`); sem ela, `gate_blocked` `human.pending` com diagnóstico (no PLAN, `artifact.missing`) |
 | `failed` depois de Stop correlacionado | `gate_blocked` `human.pending` com diagnóstico: a sessão falhou depois de encerrar o turno e o humano decide; nunca conclusão nem reexecução automática |
 | `failed` ou `stopped` sem Stop correlacionado | `gate_blocked` `runtime.unavailable` |
+| `blocked` com processo vivo e Stop correlacionado, sem `sessao_bloqueada` depois dele e sem `status` ocupado, em duas leituras separadas por pelo menos um intervalo do observador (5 s) | a pausa humana, sempre `gate_blocked` `human.pending`: com a prova da fase, a fase tem a prova e o humano decide; sem ela, o que faltou vai na `fonte` e no diagnóstico, e nunca `artifact.missing` automático sobre uma sessão viva que espera resposta. Nunca `fase_concluida` direto: `blocked` é o Claude Code dizendo que o texto final pediu resposta (RM-037) |
 | `working` ou `blocked` sem processo vivo em duas leituras seguidas, depois de Stop correlacionado | a regra da prova: com ela, `fase_concluida` (sem `conclusaoNativa`, porque não houve `done`); sem ela, `gate_blocked` `human.pending` (no PLAN, `artifact.missing`) |
 | `working` ou `blocked` sem processo vivo em duas leituras seguidas, sem Stop correlacionado | `gate_blocked` `runtime.unavailable` |
 | sessão ausente da consulta por mais de 10 minutos | `gate_blocked` `runtime.unavailable` |
@@ -588,7 +607,12 @@ duas, não uma alegação falsa. Desde a I-36, nada executa na worktree de uma t
   prompt) e as três ações: esperar a vez, acompanhar e assumir. O CLI sai com código `3`;
 - `--esperar [min]` é a opção de quem prefere esperar a vez a receber a recusa;
 - a sessão que já conduz a fase **reentra** pela identidade do despacho, que o `ork` entrega a
-  ela no ambiente (`ORK_DISPATCH_ID`) e no servidor MCP (`--dispatch`). Nunca por PID ou cwd.
+  ela por sessão (`ORK_DISPATCH_ID` e `ORK_DISPATCH_THREAD`) e no servidor MCP (`--dispatch`).
+  Nunca por PID ou cwd. No claude-bg, a identidade vai em `--settings {"env":...}` e fica fora do
+  ambiente do processo `claude`: o daemon de cada conta guarda o ambiente de quem o iniciou e o
+  passava a todas as sessões reserva, e uma sessão chegou a nascer com a identidade de outra
+  thread (RM-037). Dentro de uma sessão Claude, o CLI só aceita a identidade que o ledger da
+  thread liga ao `CLAUDE_CODE_SESSION_ID` dela; par herdado de outra sessão é recusado.
 
 O prazo do lease vem do teto real da operação e é renovado enquanto ela roda, mas não é prova:
 dono processo prova vida pela trava do kernel (`flock`), e sessão, pelo resultado da fase no

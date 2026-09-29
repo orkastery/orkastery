@@ -112,10 +112,11 @@ test('--esperar espera a vez e segue sozinho quando a conducao termina (a opcao 
 test('a sessao que conduz reentra pela identidade do despacho; outra identidade e recusada (D4, R3)', (t) => {
   const p = projetoTemporario('conducao-reentrada');
   const runtime = runtimeFalso('conducao-reentrada');
-  const ambiente = { id: process.env.ORK_DISPATCH_ID, thread: process.env.ORK_DISPATCH_THREAD };
+  const ambiente = { id: process.env.ORK_DISPATCH_ID, thread: process.env.ORK_DISPATCH_THREAD, sessao: process.env.CLAUDE_CODE_SESSION_ID };
   t.after(() => {
     if (ambiente.id === undefined) delete process.env.ORK_DISPATCH_ID; else process.env.ORK_DISPATCH_ID = ambiente.id;
     if (ambiente.thread === undefined) delete process.env.ORK_DISPATCH_THREAD; else process.env.ORK_DISPATCH_THREAD = ambiente.thread;
+    if (ambiente.sessao === undefined) delete process.env.CLAUDE_CODE_SESSION_ID; else process.env.CLAUDE_CODE_SESSION_ID = ambiente.sessao;
     runtime.restaurar(); p.limpar();
   });
   const { thread } = novaThread(p.carregado, { nome: 'reentrada', modo: 'auto' });
@@ -124,16 +125,20 @@ test('a sessao que conduz reentra pela identidade do despacho; outra identidade 
   const lease = lerLease(p.dir, nomeDaConducao(thread.id))!;
   const identidade = lease.conducao!.identidade;
   assert.equal(lease.conducao!.dono.tipo, 'sessao');
-  // A sessao filha recebeu a identidade, a thread e o canal no ambiente.
-  assert.equal(fs.readFileSync(path.join(runtime.dir, 'dispatch-id'), 'utf8'), identidade);
-  assert.equal(fs.readFileSync(path.join(runtime.dir, 'canal'), 'utf8'), 'hermes');
+  // RM-037 (defeitosdeco D-4): a sessao filha recebe a identidade, a thread e o canal POR SESSAO, em
+  // `--settings`; o ambiente do processo `claude` (o que o daemon da conta guardaria) vem sem eles.
+  const settings = JSON.parse(fs.readFileSync(path.join(runtime.dir, 'settings'), 'utf8')) as { env: Record<string, string> };
+  assert.deepEqual(settings.env, { ORK_DISPATCH_ID: identidade, ORK_DISPATCH_THREAD: thread.id, ORK_CANAL: 'hermes' });
+  assert.equal(fs.readFileSync(path.join(runtime.dir, 'dispatch-id'), 'utf8'), '');
+  assert.equal(fs.readFileSync(path.join(runtime.dir, 'canal'), 'utf8'), '');
 
   const passos = contador();
   const proprio = verificar(p.carregado, thread.id, { soClaims: true, executor: passos.executor, conducao: { identidade } });
   assert.equal(proprio.ok, true);
-  // Pelo ambiente, como o CLI de dentro da sessao filha.
+  // Pelo ambiente, como o CLI de dentro da sessao filha: o Claude Code poe o UUID da sessao em cada uma.
   process.env.ORK_DISPATCH_ID = identidade;
   process.env.ORK_DISPATCH_THREAD = thread.id;
+  process.env.CLAUDE_CODE_SESSION_ID = runtime.sessionId;
   verificar(p.carregado, thread.id, { soClaims: true, executor: passos.executor });
   const rodadas = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'verify_run');
   assert.deepEqual(rodadas.map((e) => (e.conducao as { reentrada: boolean }).reentrada), [true, true]);
@@ -182,4 +187,108 @@ test('CLI: a recusa sai com codigo 3, o texto para o humano, e --json com a mesm
   const canal = spawnSync(process.execPath, [CLI, 'verify', thread.id, '--canal', 'telegram'], { cwd: p.dir, env, encoding: 'utf8', timeout: 60_000 });
   assert.equal(canal.status, 1);
   assert.match(canal.stderr, /conducao\.canal-desconhecido/);
+});
+
+// ---------------------------------------------------------------------------
+// RM-037 (defeitosdeco D-4): a sessao do PLAN da ork-i36buscasema nasceu com ORK_DISPATCH_THREAD de
+// outra thread. O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon
+// guarda o ambiente do primeiro despacho. O contexto passa a chegar por sessao, e o CLI de dentro de
+// uma sessao Claude se reconhece pelo ledger, nunca pelo par herdado.
+// ---------------------------------------------------------------------------
+import { identidadeDoAmbiente } from '../src/conducao';
+import { despachar } from '../src/adapters/claude-bg';
+
+const SESSAO_A = 'aaaaaaaa-1111-4111-8111-111111111111', SESSAO_B = 'bbbbbbbb-2222-4222-8222-222222222222';
+const ID_A = 'a0a0a0a0-1111-4111-8111-aaaaaaaaaaaa', ID_B = 'b0b0b0b0-2222-4222-8222-bbbbbbbbbbbb';
+
+function duasThreads(p: ReturnType<typeof projetoTemporario>) {
+  const a = novaThread(p.carregado, { nome: 'thread a', modo: 'auto' }).thread;
+  const b = novaThread(p.carregado, { nome: 'thread b', modo: 'auto' }).thread;
+  registrar(dirThread(p.dir, a.id), a.id, 'phase_dispatch', { fase: 'GO', runtime: 'claude-bg', sessionId: SESSAO_A,
+    identidade: { schema: 'ork.dispatch-identity/v1', dispatchId: ID_A, threadId: a.id, role: 'executor' } });
+  registrar(dirThread(p.dir, b.id), b.id, 'phase_dispatch', { fase: 'GO', runtime: 'claude-bg', sessionId: SESSAO_B,
+    identidade: { schema: 'ork.dispatch-identity/v1', dispatchId: ID_B, threadId: b.id, role: 'executor' } });
+  return { a, b };
+}
+
+test('defeitosdeco D-4: par de despacho vazado de outra thread nao vale; a sessao se reconhece pelo ledger', () => {
+  const p = projetoTemporario('contexto-vazado');
+  try {
+    const { a, b } = duasThreads(p);
+    // A sessao B herdou do daemon o par do despacho A, como a f15c7158 herdou o da ork-i31kg1contra.
+    const vazado = { ORK_DISPATCH_ID: ID_A, ORK_DISPATCH_THREAD: a.id, CLAUDE_CODE_SESSION_ID: SESSAO_B };
+    assert.equal(identidadeDoAmbiente(a.id, vazado, p.dir), null, 'nunca a identidade de outra sessao');
+    assert.equal(identidadeDoAmbiente(b.id, vazado, p.dir), ID_B, 'a propria, pelo phase_dispatch da sessao');
+    // A sessao A, com o par certo, reentra como antes.
+    assert.equal(identidadeDoAmbiente(a.id, { ORK_DISPATCH_ID: ID_A, ORK_DISPATCH_THREAD: a.id, CLAUDE_CODE_SESSION_ID: SESSAO_A }, p.dir), ID_A);
+    // Fora de sessao Claude, o ambiente vale como antes.
+    assert.equal(identidadeDoAmbiente(a.id, { ORK_DISPATCH_ID: ID_A, ORK_DISPATCH_THREAD: a.id }, p.dir), ID_A);
+    // Despacho codex dentro de uma conducao Claude: o CLAUDE_CODE_SESSION_ID herdado e o da condutora.
+    const c = novaThread(p.carregado, { nome: 'thread codex', modo: 'auto' }).thread;
+    const idC = 'c0c0c0c0-3333-4333-8333-cccccccccccc';
+    registrar(dirThread(p.dir, c.id), c.id, 'phase_dispatch', { fase: 'GO', runtime: 'codex', sessionId: '019a0000-0000-7000-8000-000000000001',
+      identidade: { schema: 'ork.dispatch-identity/v1', dispatchId: idC, threadId: c.id, role: 'executor' } });
+    assert.equal(identidadeDoAmbiente(c.id, { ORK_DISPATCH_ID: idC, ORK_DISPATCH_THREAD: c.id, CLAUDE_CODE_SESSION_ID: SESSAO_B }, p.dir), idC);
+  } finally { p.limpar(); }
+});
+
+test('defeitosdeco D-4 (R2): codex despachado de dentro de uma sessao claude-bg da mesma thread fica com a identidade dele', () => {
+  const p = projetoTemporario('contexto-codex-filho');
+  try {
+    const { a } = duasThreads(p);
+    // A sessao claude-bg A (despacho ID_A) despacha um CHECK codex da propria thread.
+    const idCodex = 'c1c1c1c1-4444-4444-8444-cccccccccccc';
+    registrar(dirThread(p.dir, a.id), a.id, 'phase_dispatch', { fase: 'CHECK', runtime: 'codex', sessionId: '019a0000-0000-7000-8000-000000000002',
+      identidade: { schema: 'ork.dispatch-identity/v1', dispatchId: idCodex, threadId: a.id, role: 'executor' } });
+    // O codex herda o CLAUDE_CODE_SESSION_ID da sessao A, mas o par e o do despacho dele.
+    const doCodex = { ORK_DISPATCH_ID: idCodex, ORK_DISPATCH_THREAD: a.id, CLAUDE_CODE_SESSION_ID: SESSAO_A };
+    assert.equal(identidadeDoAmbiente(a.id, doCodex, p.dir), idCodex);
+    // A propria sessao A, sem par no ambiente, continua se reconhecendo pelo ledger.
+    assert.equal(identidadeDoAmbiente(a.id, { CLAUDE_CODE_SESSION_ID: SESSAO_A }, p.dir), ID_A);
+  } finally { p.limpar(); }
+});
+
+test('defeitosdeco D-4: com o par vazado, o verify do CLI nao reentra a conducao da outra thread', (t) => {
+  const p = projetoTemporario('contexto-vazado-verify');
+  const runtime = runtimeFalso('contexto-vazado-verify');
+  const antes = { id: process.env.ORK_DISPATCH_ID, thread: process.env.ORK_DISPATCH_THREAD, sessao: process.env.CLAUDE_CODE_SESSION_ID };
+  t.after(() => {
+    for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.thread], ['CLAUDE_CODE_SESSION_ID', antes.sessao]] as const)
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    runtime.restaurar(); p.limpar();
+  });
+  const { thread } = novaThread(p.carregado, { nome: 'conduzida', modo: 'auto' });
+  rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: 'implemente', canal: 'cli' });
+  const identidade = lerLease(p.dir, nomeDaConducao(thread.id))!.conducao!.identidade;
+  // Outra sessao Claude, com o par desta thread herdado do daemon.
+  process.env.ORK_DISPATCH_ID = identidade;
+  process.env.ORK_DISPATCH_THREAD = thread.id;
+  process.env.CLAUDE_CODE_SESSION_ID = SESSAO_B;
+  const passos = contador();
+  assert.throws(() => verificar(p.carregado, thread.id, { soClaims: true, executor: passos.executor }), ErroDeConducao);
+  assert.equal(passos.vezes(), 0, 'nada executou sob a conducao alheia');
+  // A sessao que de fato conduz reentra.
+  process.env.CLAUDE_CODE_SESSION_ID = runtime.sessionId;
+  assert.equal(verificar(p.carregado, thread.id, { soClaims: true, executor: passos.executor }).ok, true);
+});
+
+test('defeitosdeco D-4: o processo claude --bg nasce sem identidade de despacho; o contexto vai em --settings', (t) => {
+  const runtime = runtimeFalso('contexto-settings');
+  const antes = { id: process.env.ORK_DISPATCH_ID, thread: process.env.ORK_DISPATCH_THREAD, canal: process.env.ORK_CANAL };
+  t.after(() => {
+    for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.thread], ['ORK_CANAL', antes.canal]] as const)
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    runtime.restaurar();
+  });
+  // Quem despacha tambem pode estar com o par vazado; ele nao passa adiante.
+  process.env.ORK_DISPATCH_ID = ID_A; process.env.ORK_DISPATCH_THREAD = 'ork-outra'; process.env.ORK_CANAL = 'cli';
+  const r = despachar({ prompt: 'fase', nome: 'ork-x-go', cwd: runtime.dir,
+    ambienteExtra: { ORK_DISPATCH_ID: ID_B, ORK_DISPATCH_THREAD: 'ork-desta', ORK_CANAL: 'hermes' } });
+  assert.equal(r.ok, true, r.erro);
+  const i = r.comando.indexOf('--settings');
+  assert.ok(i > 0, 'o comando leva --settings');
+  assert.deepEqual(JSON.parse(r.comando[i + 1]), { env: { ORK_DISPATCH_ID: ID_B, ORK_DISPATCH_THREAD: 'ork-desta', ORK_CANAL: 'hermes' } });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(runtime.dir, 'settings'), 'utf8')).env.ORK_DISPATCH_THREAD, 'ork-desta');
+  for (const arquivo of ['dispatch-id', 'dispatch-thread', 'canal'])
+    assert.equal(fs.readFileSync(path.join(runtime.dir, arquivo), 'utf8'), '', `${arquivo} fora do ambiente do processo claude`);
 });

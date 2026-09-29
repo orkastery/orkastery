@@ -130,7 +130,7 @@ export function enfileirar(
  * ela, a janela padrao do manifesto (estimativa declarada, nunca chute). Auth ausente: sem prazo.
  */
 export function prazoDaConta(manifesto: Manifesto, falha: SinalDeFalhaDeConta, agoraMs = Date.now()): string | null {
-  if (falha.motivo === 'runtime.auth-missing') return null;
+  if (falha.motivo !== 'runtime.quota-exhausted') return null;
   // A10: horario dito que ja passou nao devolve o perfil ao rodizio na hora: vale a janela padrao.
   if (falha.resetEm !== null && Date.parse(falha.resetEm) > agoraMs) return falha.resetEm;
   return new Date(agoraMs + janelaPadraoMs(manifesto)).toISOString();
@@ -139,7 +139,8 @@ export function prazoDaConta(manifesto: Manifesto, falha: SinalDeFalhaDeConta, a
 /** Marca no store o perfil que falhou pela conta. Sem perfil (ambiente do processo), nada a marcar. */
 export function marcarContaDaFalha(carregado: ManifestoCarregado, perfil: PerfilDeDespacho | null | undefined,
   falha: SinalDeFalhaDeConta, agoraMs = Date.now()): PerfilDeRuntime | null {
-  if (!perfil) return null;
+  // RM-037 (defeitosdeco D-6): modelo inacessivel nao e falha da conta inteira; o perfil fica no rodizio.
+  if (!perfil || falha.motivo === 'runtime.model-unavailable') return null;
   const esgotado = falha.motivo === 'runtime.quota-exhausted';
   return marcarFalhaDePerfil(carregado.raiz, perfil.id, { estado: esgotado ? 'esgotado' : 'sem-auth',
     esgotadoAte: prazoDaConta(carregado.manifesto, falha, agoraMs), motivo: falha.motivo, detalhe: falha.trecho,
