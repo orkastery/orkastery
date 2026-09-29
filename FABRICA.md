@@ -5,12 +5,11 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| vps | ork-companybrai3 | #Auto | GOAL | RM-025 | — | 29/09 07:45 |
-| vps | ork-defeitosdeco | #Auto | GOAL | RM-037 | — | 29/09 07:45 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 29/09 07:45 |
-| vps | ork-hitlhumanono | #Auto | GOAL | RM-048 | — | 29/09 07:45 |
-| vps | ork-i31kg1contra | #Maestro | GO | — | sim: autorizacao da retomada | 29/09 07:45 |
-| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 29/09 07:45 |
-| vps | ork-rm050guiadec | #Auto | GOAL | RM-050 | — | 29/09 07:45 |
+| vps | ork-companybrai3 | #Auto | GOAL | RM-025 | — | 29/09 08:14 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 29/09 08:14 |
+| vps | ork-hitlhumanono | #Auto | GOAL | RM-048 | — | 29/09 08:14 |
+| vps | ork-i31kg1contra | #Maestro | GO | — | sim: autorizacao da retomada | 29/09 08:14 |
+| vps | ork-i36buscasema | #Classic | PLAN | — | sim: plano | 29/09 08:14 |
+| vps | ork-rm050guiadec | #Auto | GOAL | RM-050 | — | 29/09 08:14 |
 
 Horários de Brasília.
