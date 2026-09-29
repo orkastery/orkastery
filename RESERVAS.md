@@ -19,5 +19,6 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-050 | Julio Pessoa | vps | ork-rm050guiade2 | 29/09 02:26 | — |
 | RM-051 | Julio Pessoa | vps | ork-pacotedeexpe | 29/09 13:01 | — |
 | RM-052 | Julio Pessoa | srvjcp86 | ork-rm052projeto | 29/09 16:32 | — |
+| RM-053 | Julio Pessoa | srvjcp86 | — | 29/09 16:32 | — |
 
 Horários em UTC.
