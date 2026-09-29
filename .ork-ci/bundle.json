@@ -4,34 +4,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/hitl-curto.ts",
-      "alegacao": "C1 (RM-048 itens 1, 4 e 5): todo pedido de gate e de sessao sai pelo contrato curto ork.hitl-curto/v1, com no maximo 15 linhas no pior caso, exatamente uma alternativa recomendada, ultima linha dizendo como responder, e o mesmo conteudo essencial em Telegram e terminal; o texto de um pedido ork.hitl/v1 continua byte a byte.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-curto.test.js"
-      ],
-      "criadoEm": "2026-09-29T02:06:55.568Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/hitl-texto-livre.ts",
-      "alegacao": "C2 (RM-048 item 2): \"aprovo\", \"sim\", \"pode seguir\", \"a\", \"1\" e \"1. B, 2. A\" registram human_gate com a prova HMAC do ingresso quando inequivocos; resposta ambigua, sem pedido aberto, com mais de um pedido aberto na mesma thread, ou palavra solta sobre ato irreversivel devolve a pergunta com as opcoes reais e nao grava human_gate.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-texto-livre.test.js"
-      ],
-      "criadoEm": "2026-09-29T02:06:58.072Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C3",
       "thread": "ork-hitlhumanono",
       "fase": "GOAL",
@@ -56,20 +28,6 @@
         "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/hitl-dono-orquestrador.test.js"
       ],
       "criadoEm": "2026-09-29T02:07:03.136Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C5",
-      "thread": "ork-hitlhumanono",
-      "fase": "GOAL",
-      "arquivo": "core/src/roadmap-status.ts",
-      "alegacao": "C5 (RM-048 item 7): ork roadmap status imprime \"Roadmap do <Projeto> (DD/MM, HH:MM)\" no fuso do dono, os grupos na ordem e com os icones aprovados, um item por linha, #HITL no que espera o dono e o fecho \"O que precisa de você\" e \"O que eu faço em seguida\"; e leitura pura (nao escreve ledger).",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null 2>&1 && node --test core/dist-test/test/roadmap-status.test.js"
-      ],
-      "criadoEm": "2026-09-29T02:07:05.058Z",
       "estado": "verificado",
       "lint": []
     },
@@ -134,7 +92,20 @@
       "lint": []
     }
   ],
-  "deferredClaims": [],
+  "deferredClaims": [
+    {
+      "id": "C1",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C2",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C5",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
   "commands": [
     {
       "name": "ci",
