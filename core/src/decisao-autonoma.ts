@@ -33,9 +33,15 @@ import { exigirRastroDeDecisaoAutonoma, lerLedger, registrar, TIPOS_DE_EVENTO } 
 import { dirThread, listarIds, lerThread } from './thread';
 import { EventoLedger } from './types';
 import { exigirModoVivo } from './modos';
-import { canalDoProcesso, identidadeDoAmbiente } from './conducao';
+import { canalDoProcesso, ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, identidadeDoAmbiente } from './conducao';
 
 export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
+
+/** A sessao de OUTRA thread que registra aqui tambem deixa rastro (S-3 do CHECK 3). */
+function despachoDeOutraThread(threadId: string): Record<string, unknown> {
+  const thread = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim(), id = (process.env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim();
+  return thread && thread !== threadId && /^[a-f0-9-]{36}$/.test(id) ? { despachoNoAmbiente: { thread, dispatchId: id } } : {};
+}
 
 /** O canal do processo; canal fora do registro nao impede a decisao, e fica dito como tal. */
 function canalSeguro(): string {
@@ -96,6 +102,8 @@ export interface EntradaDaDecisao {
    */
   origem?: 'cli' | 'mcp';
   host?: string;
+  /** S-3 do CHECK 3: a identidade de despacho que a superficie ja conhece (o MCP filho); sem ela, o ambiente. */
+  despacho?: string | null;
 }
 
 /**
@@ -140,7 +148,8 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
       // RM-037 (S5 do CHECK): a porta e quem chamou, pelo processo e nao pelo texto de `quemDecidiu`. A sessao
       // despachada carrega a identidade do despacho no ambiente; o dono no terminal, nao.
       canal: entrada.origem === 'mcp' && entrada.host ? entrada.host : canalSeguro(),
-      despacho: identidadeDoAmbiente(t.id, process.env, raiz),
+      despacho: entrada.despacho !== undefined ? entrada.despacho : identidadeDoAmbiente(t.id, process.env, raiz),
+      ...despachoDeOutraThread(t.id),
     });
     return { pedido, evento };
   });

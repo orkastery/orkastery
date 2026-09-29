@@ -337,7 +337,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       try {
         registro=registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
           custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
-          evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host});
+          evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host,
+          despacho:opcoes.dispatchId??null});
       } catch(erro) {throw Error(recusaNaSuperficie((erro as Error).message,CAMPOS_DA_DECISAO_NO_MCP));}
       const {pedido,evento}=registro;
       return resposta({ok:true,pedidoId:pedido.id,eventId:evento.eventId,fase:pedido.fase,reciboOficial:false});

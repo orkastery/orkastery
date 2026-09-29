@@ -173,3 +173,38 @@ test('defeito 1 (N3): conducao orfa da propria thread nao solta o codex sem base
     assert.ok(iBaseline >= 0 && iBaseline < iDespacho, `baseline antes da sessao: ${eventos.map(e => e.tipo).join(', ')}`);
   } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
 });
+
+// CHECK 3 (S-2: G1 e G2 com teste).
+
+test('defeito 1 (G1): policy que bloqueia e prompt de retomada ausente recusam sem rodar a baseline', () => {
+  const { p, f } = projetoCodex('rm037-baseline-g1');
+  try {
+    p.carregado.manifesto.policies = { segredo_em_prompt: 'block' };
+    const t = novaThread(p.carregado, { nome: 'g1', modo: 'auto' }).thread;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', runtime: 'codex', model: 'modelo-SIMULADO',
+      prompt: 'use a chave sk-' + 'ant-api03-EXEMPLOFALSO1234567890abcdefghij para chamar a API' });
+    assert.equal(r.motivo, 'policy.violation');
+    const retomada = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', '.orkastery/threads/nao/existe.md', 'a'.repeat(64),
+      { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(retomada.ok, false);
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'baseline_recorded'), false, 'nenhuma suite rodou a toa');
+  } finally { f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (G2): no MCP, thread que ja conduz recebe a resposta da conducao, nao a pendencia da baseline', async () => {
+  const { p, f } = projetoCodex('rm037-baseline-g2');
+  const claude = runtimePorConta('rm037-baseline-g2');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+  const client = new Client({ name: 'condutor-SIMULADO', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    claude.conta(p.dir, 'a');
+    const t = novaThread(p.carregado, { nome: 'g2', modo: 'auto' }).thread;
+    assert.equal(rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA viva', runtime: 'claude-bg' }).verificada, true);
+    await server.connect(st); await client.connect(ct);
+    const r = await client.callTool({ name: 'ork_phase_run', arguments: { threadId: t.id, fase: 'GOAL', prompt: 'outro pedido', runtime: 'codex', model: 'modelo-SIMULADO' } });
+    const texto = (r.content as { type: string; text: string }[]).map(x => x.text).join('');
+    assert.match(texto, /conducao\.em-andamento/);
+    assert.doesNotMatch(texto, /baseline\.pendente/);
+  } finally { await client.close(); await server.close(); f.restaurar(); p.limpar(); claude.restaurar(); }
+});

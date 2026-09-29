@@ -104,3 +104,28 @@ test('defeito 1 (S5): o rastro grava a porta e o despacho do processo, nao so o 
     p.limpar();
   }
 });
+
+test('defeito 1 (S-3): o MCP filho grava o despacho que conhece; sessao de outra thread no ambiente fica registrada', async () => {
+  const p = projetoTemporario('rm037-decisao-mcp-despacho');
+  const propria = novaThread(p.carregado, { nome: 'propria', modo: 'auto' }).thread;
+  const server = criarServidorMcp({ projeto: p.dir, host: 'codex', threadId: propria.id, dispatchId: '22222222-3333-4444-8555-666666666666' });
+  const client = new Client({ name: 'codex-SIMULADO', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  const antes = { id: process.env.ORK_DISPATCH_ID, th: process.env.ORK_DISPATCH_THREAD };
+  try {
+    await server.connect(st); await client.connect(ct);
+    const r = await chamar(client, decisao(propria.id));
+    assert.equal(r.error, false, r.text);
+    const e = lerLedger(dirThread(p.dir, propria.id)).find(x => x.eventId === r.data().eventId)!;
+    assert.deepEqual([e.origem, e.canal, e.despacho], ['mcp', 'codex', '22222222-3333-4444-8555-666666666666']);
+    process.env.ORK_DISPATCH_ID = '77777777-8888-4999-8aaa-bbbbbbbbbbbb'; process.env.ORK_DISPATCH_THREAD = 'ork-outra-thread';
+    const doCli = registrarDecisao(p.dir, propria.id, { decidido: 'x', porque: 'y', comoMudar: 'z', custoDeReverter: { agora: 'a', depois: 'b' },
+      criterio: { tipo: 'medicao', referencia: 'true' }, quemDecidiu: 'sessao', evidencia: 'e' }).evento;
+    assert.deepEqual(doCli.despachoNoAmbiente, { thread: 'ork-outra-thread', dispatchId: '77777777-8888-4999-8aaa-bbbbbbbbbbbb' });
+  } finally {
+    for (const [k, v] of [['ORK_DISPATCH_ID', antes.id], ['ORK_DISPATCH_THREAD', antes.th]] as const) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    await client.close(); await server.close(); p.limpar();
+  }
+});
