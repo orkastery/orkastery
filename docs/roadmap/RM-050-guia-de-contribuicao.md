@@ -6,12 +6,12 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-28T23:16:09-03:00
+atualizado_em: 2026-09-28T23:56:19-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: PR aberto
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,8 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm050guiadec
+  modo: "#Auto"
 ---
 
 # RM-050 — Guia de contribuição nos repositórios e nos sites
@@ -32,7 +32,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | PR aberto | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -74,9 +74,17 @@ sdlc:
 - **Horizonte / alvo / previsão / confiança / marcos:** outubro de 2026 / confiança média / guia no Orkastery → guia no OrkMind → página nos dois sites.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** catálogo de docs dos sites mesclado (thread `ork-docsdossites`); [RM-044](RM-044-documentacao-como-codigo.md) para a paridade; [RM-049](RM-049-lancamento.md) se beneficia deste item.
 - **Premissas / riscos / mitigação:** o guia envelhece rápido → cada página cita comandos em vez de números, e o build dos sites reprova quando a fonte muda sem revisão.
-- **Decisões, alternativas e ADRs (ID, decisor, data, link):** nenhuma ainda.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** decisões autônomas da thread `ork-rm050guiadec` em 28/09/2026, no ledger da thread, a ratificar pelo dono:
+  - guias em `docs/guias/contribuir/`, com o `CONTRIBUTING.md` como índice;
+  - guias em pt-BR, como todo `docs/`; o índice mantém a nota em inglês;
+  - rótulos com os nomes padrão do GitHub, e `needs triage` como o único novo;
+  - primeira resposta em até 7 dias, a mesma meta do `SECURITY.md`;
+  - a checagem dos comandos dos guias entra como claim da thread e teste da suíte, sem passo novo no CI.
 
 ## Estado com evidências
+
+- Parte do repositório do Orkastery (itens 1, 2, 4 e 5) por PR, na thread `ork-rm050guiadec`: índice no `CONTRIBUTING.md`, nove guias em `docs/guias/contribuir/`, modelos de issue e de PR e a checagem `core/scripts/checar-comandos-dos-guias.cjs`.
+- Fica para outra thread: a página "Contribuir" nos dois sites (item 3) e o guia do OrkMind.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -84,10 +92,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-09-28 | Julio |
-| Documentação | Rascunho | — | 2026-09-28 | Julio |
-| Código | Não iniciado | — | 2026-09-28 | Julio |
-| Testes | Não iniciados | — | 2026-09-28 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-28 | Julio |
+| Documentação | Em revisão | — | 2026-09-28 | Julio |
+| Código | PR aberto | — | 2026-09-28 | Julio |
+| Testes | Em execução | — | 2026-09-28 | Julio |
 | Deploy | Não implantado | — | 2026-09-28 | Julio |
 | Exposição | Flag desligada | — | 2026-09-28 | Julio |
 | Habilitação | Pendente | — | 2026-09-28 | Julio |
@@ -97,9 +105,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** executor da thread / Julio / colaboradores convidados / comunidade.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** a definir quando a thread abrir.
-- **Próxima ação, responsável e prazo:** abrir a thread quando houver vaga na fila; condução.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** executor da thread `ork-rm050guiadec` em #Auto; o merge, a criação dos rótulos e a decisão final ficam com Julio.
+- **Próxima ação, responsável e prazo:** merge do PR com o CI verde e criação do rótulo `needs triage`; condução. Depois, a thread dos sites e a do OrkMind.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-28 | Item criado | Pedido do dono em 28/09/2026 | Julio |
+| 2026-09-28 | Parte do repositório do Orkastery em PR | Thread `ork-rm050guiadec` (#Auto), itens 1, 2, 4 e 5; sites e OrkMind em outra thread | Julio |
