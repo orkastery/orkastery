@@ -35,6 +35,9 @@ import * as path from 'node:path';
 import { cliDoCatalogo, exigirCatalogo, referenciasDoCatalogo, skillsDoCatalogo } from './catalogo';
 import { noPath } from './util';
 import { VERSAO_DO_ORK } from './versao';
+import { carregarManifesto } from './manifest';
+import { resolverExperiencia } from './experiencia';
+import { aplicarExperiencia, planejarExperiencia, HostComBloco } from './experiencia-instalacao';
 
 export type Host = 'claude-code' | 'codex' | 'hermes' | 'openclaw';
 
@@ -107,7 +110,7 @@ export const HOSTS: Readonly<Record<Host, DefinicaoDeHost>> = {
       },
       {
         titulo: 'skill confundida com autorizacao de runtime',
-        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox nem altera AGENTS.md; gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
+        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox; em projeto configurado, AGENTS.md recebe apenas o bloco reversível da experiência. Gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
         prova: 'ork doctor',
       },
     ],
@@ -297,6 +300,7 @@ export interface ResultadoInstalacao {
   ok: boolean;
   orkBin: string;
   pitfalls: Pitfall[];
+  experiencia?: { ativa: boolean; arquivos: string[]; skill: string };
 }
 
 export interface OpcoesInstalacao {
@@ -385,6 +389,29 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     }
     for (const ref of referenciasDoCatalogo(catalogo)) {
       fontes.push({ origem: ref, relativo: path.posix.join('references', path.basename(ref)) });
+    }
+  }
+  if (host === 'hermes') {
+    for (const skill of skillsDoCatalogo(catalogo).filter(s => ['orchestration-experience', 'orchestration-experience-pt-br'].includes(s.nome))) {
+      fontes.push({ origem: skill.caminho, relativo: path.posix.join('skills', skill.nome, 'SKILL.md') });
+    }
+  }
+
+  const carregado = carregarManifesto(projeto);
+  if (carregado?.raiz === projeto && carregado.erros.length) throw Error('experiencia.config.invalid: confira o manifesto');
+  const preferencias = carregado?.raiz === projeto ? resolverExperiencia(carregado.manifesto.owner) : null;
+  const planoExperiencia = preferencias && (host === 'codex' || host === 'claude-code')
+    ? planejarExperiencia(projeto, host, preferencias.experience ? path.join(destino, 'skills', 'core') : null) : null;
+
+  // O preflight cobre todos os destinos antes de copiar o primeiro arquivo.
+  for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
+    let atual = alvo;
+    while (atual !== path.dirname(atual)) {
+      const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
+      if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
+        throw Error('experiencia.path.unsafe: destino do adaptador');
+      }
+      atual = path.dirname(atual);
     }
   }
 
@@ -477,6 +504,8 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ok: !barrado,
     orkBin,
     pitfalls: def.pitfalls,
+    ...(preferencias ? { experiencia: { ativa: host !== 'openclaw' && preferencias.experience,
+      arquivos: planoExperiencia?.mudancas.map(m => path.relative(projeto, m.arquivo)) ?? [], skill: preferencias.skill } } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;
 
@@ -520,7 +549,15 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     'utf8'
   );
 
+  if (planoExperiencia) aplicarExperiencia(planoExperiencia);
   return resultado;
+}
+
+/** Remove somente o bloco do pacote; o adaptador e as demais instruções permanecem. */
+export function desinstalarExperiencia(projeto: string, host: HostComBloco, dryRun = false) {
+  const plano = planejarExperiencia(projeto, host, null);
+  if (!dryRun) aplicarExperiencia(plano);
+  return { host, dryRun, arquivos: plano.mudancas.map(m => path.relative(plano.projeto, m.arquivo)) };
 }
 
 /** Texto de `ork adapter list`. */
@@ -554,6 +591,7 @@ export function textoDosPitfalls(host: Host): string {
 /** Texto de `ork adapter install`. */
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
   const linhas: string[] = [];
+  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada' : 'desativada ou sem integração de skills'} (${r.experiencia.skill}).`);
   linhas.push(
     r.dryRun
       ? `Simulacao (--dry-run) da instalacao do adaptador ${r.host}: nada foi escrito.`
