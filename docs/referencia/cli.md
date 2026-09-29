@@ -129,9 +129,9 @@ concatenado, guardado numa variável local que vai para o texto ou passado diret
 | Comando | O que faz |
 | --- | --- |
 | `ork sessions [--all]` | As sessões vivas do runtime, cruzadas com as threads |
-| `ork sessions logs <sessao> [--linhas N]` | Os logs de uma sessão |
-| `ork sessions stop <sessao>` | Para uma sessão |
-| `ork sessions attach <sessao>` | Imprime o comando de attach (precisa de TTY) |
+| `ork sessions logs <sessao> [--linhas N]` | Os logs de uma sessão, lidos na conta onde ela está (processo ou perfil claude-bg) |
+| `ork sessions stop <sessao>` | Para uma sessão com o `CLAUDE_CONFIG_DIR` da conta onde ela está: a do processo ou a de um perfil claude-bg do projeto, inclusive desativado; achada em mais de uma conta, pede o id completo |
+| `ork sessions attach <sessao>` | Imprime o comando de attach (precisa de TTY), com o prefixo `CLAUDE_CONFIG_DIR=<dir>` quando a sessão é de um perfil |
 | `ork sessions hitl [--json]` | Radar das sessões que exigem ação humana AGORA |
 
 O `ork sessions hitl` é o lado das SESSÕES da conduta proativa; o `ork monitor` é o lado
@@ -226,7 +226,7 @@ a decisão antes de ela existir.
 | --- | --- |
 | `ork retry policy [--motivo M] [--json]` | A política de retry por motivo tipado, com o porque de cada ação |
 | `ork retry plan <thread> [--motivo M] [--fase F]` | O que o `ork` faria pelo último gate reprovado. **Calcula, não executa, não gasta tentativa** |
-| `ork retry run <thread> [--reverify] [--por Q] [--dry-run]` | Executa a ação tipada. `--por` autoriza quando o bloco do modo pausa. Em `runtime.quota-exhausted` e `runtime.auth-missing`, segue com o mesmo prompt: outro perfil do mesmo runtime só com a troca ligada no manifesto (`runtime_profiles.rotate_same_runtime_on_quota`, padrão `true` desde a D16; `runtime_profiles.rotate_same_runtime_on_auth`, padrão `true`), depois o fallback do bloco e a fila (I-33); rate limit comum espera a janela, sem troca |
+| `ork retry run <thread> [--reverify] [--por Q] [--dry-run]` | Executa a ação tipada. `--por` autoriza quando o bloco do modo pausa. Em `runtime.quota-exhausted` e `runtime.auth-missing`, segue com o mesmo prompt: outro perfil do mesmo runtime só com a troca ligada no manifesto (`runtime_profiles.rotate_same_runtime_on_quota`, padrão `true` desde a D16; `runtime_profiles.rotate_same_runtime_on_auth`, padrão `true`), depois o fallback do bloco e a fila (I-33); rate limit comum espera a janela, sem troca. Em `runtime.model-unavailable`, o mesmo prompt vai a outro perfil do mesmo runtime com o mesmo modelo e depois ao fallback do bloco, sem tirar o perfil do rodízio; sem destino, escala com a correção `ork setup <modo> --bloco N --model` (RM-037) |
 | `ork retry list [--json]` | A fila **durável** de rate limit do projeto |
 | `ork retry resume [--id R1] [--agora ISO] [--ocupacao 0..1]` | Retoma a fase morta por rate limit na janela seguinte |
 | ↳ opções | `[--forcar] [--dry-run]` (playbooks: mesma-sessão, nova-sessão, escalada) |
@@ -298,7 +298,7 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md).
 | Comando | O que faz |
 | --- | --- |
 | `ork worktree ensure <thread>` | Garante a worktree da thread, com a base resolvida pelo `ork` |
-| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou |
+| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e sem ancestral comum com a base (base reescrita), recusa com o `git rebase --onto` exato |
 | `ork worktree audit <thread>` | Confere a worktree **no próprio git**. Sai diferente de zero se divergir |
 | `ork worktree release <thread> [--forcar]` | Remove a worktree e limpa o registro |
 | `ork lease list` | Os leases, as famílias e as filas (merge e colisão de região) |

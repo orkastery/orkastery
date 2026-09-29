@@ -11,6 +11,37 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Tools aposentadas no OpenClaw:** `ork_objective_status` e `ork_objective_message` saem do plugin.
   Desde a I-43 elas só devolviam a recusa `objective.aposentado`. O plugin fica com 23 tools.
 
+### Corrigido
+
+Sete defeitos de condução achados em 28/09/2026, que travavam a própria fábrica
+([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+
+- **Sessão claude-bg à espera humana depois do Stop.** A sessão que encerrava o turno e ficava em
+  `blocked` com o processo vivo nunca concluía a fase, e a pausa humana não abria: uma ficou 41
+  minutos travada até o processo morrer. Agora, na segunda leitura, com a prova da fase, abre
+  `human.pending`; sem a prova, vale o motivo da prova.
+- **`ork sessions stop|logs|attach` com perfil de conta.** A sessão de um perfil que não é a
+  conta do processo respondia "não encontrada no runtime". Agora ela é procurada em cada perfil
+  claude-bg do projeto e o comando roda com o `CLAUDE_CONFIG_DIR` dela.
+- **`ork_git_status` e `ork_git_commit` com hook próprio.** O `pre-push` da trava do corte fazia
+  as duas ferramentas recusarem o repositório, embora o commit nunca o execute. Hook e seção
+  `orkastery.*` do config que o commit nunca executa passam a ser aceitos; hook que ele
+  executaria continua recusado, com o nome e a saída. O `ork_ship` do MCP segue estrito. Nenhum
+  hook é desativado.
+- **Contexto de despacho vazado.** O daemon do `claude --bg` guardava o ambiente do primeiro
+  despacho da conta e o passava a todas as sessões reserva, que nasciam com a identidade de outra
+  thread. A identidade agora vai por sessão em `--settings`, fica fora do ambiente do processo
+  `claude`, e o CLI de dentro de uma sessão Claude só aceita a que o ledger liga à sessão dela.
+- **`ork worktree sync` sobre base reescrita.** Numa branch sem commit próprio, cuja base ganhou
+  raiz nova, o sync faria rebase de histórias sem relação. Agora a branch é recriada no SHA da
+  base; com commit próprio, o sync recusa com o `git rebase --onto` exato.
+- **Modelo inacessível na conta.** O despacho com um modelo que a conta não tem virava
+  `runtime.unavailable` e repetia o mesmo modelo na mesma conta. O motivo novo
+  `runtime.model-unavailable` mantém o perfil no rodízio, e o retry tenta outro perfil com o
+  mesmo modelo, depois o fallback do bloco; sem destino, diz a correção exata do setup.
+- **Teste instável no CI.** "N1 claude-bg com perfis a,b" esperava o resultado que só o
+  observador destacado grava; agora conduz a observação no próprio processo, como a versão codex.
+
 ## 0.4.2 — 28/09/2026
 
 ### Mudado
