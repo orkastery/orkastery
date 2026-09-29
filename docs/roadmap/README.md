@@ -26,6 +26,7 @@ Proposta de 26/09/2026, a confirmar pelo dono. Ordem por impacto em quem constr�
 | 10 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
 | 11 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
 | 12 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
+| 13 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
 
 ## Itens
 
@@ -71,6 +72,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-27 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-28 |
+| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-28 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

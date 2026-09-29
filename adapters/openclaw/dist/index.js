@@ -255,25 +255,6 @@ const FERRAMENTAS = [
         argv: (p) => ['phase', 'list', texto(p, 'thread')],
     },
     {
-        name: 'ork_objective_status',
-        description: 'Aposentado na I-43 junto com ork objective: devolve a recusa tipada objective.aposentado, com saida != 0. Estado de uma entrega: ork_thread_status. Ciclos ligados a um produto, projeto ou iniciativa: ork portfolio inspect <id> --json.',
-        parameters: schema({ objective: { type: 'string', description: 'ID obj-* do ticket' } }),
-        argv: (p) => ['objective', 'status', texto(p, 'objective'), '--json'],
-    },
-    {
-        name: 'ork_objective_message',
-        description: 'Aposentado na I-43 junto com ork objective: devolve a recusa tipada objective.aposentado, com saida != 0, e nao grava nada. Resposta do dono a uma pausa vai por ork_gate_answer ou ork_session_answer.',
-        parameters: schema({
-            objective: { type: 'string', description: 'ID obj-* do ticket' },
-            author: { type: 'string', description: 'Identidade fornecida pelo gateway autenticado' },
-            message: { type: 'string', description: 'Texto integral recebido do dono' },
-        }),
-        argv: (p) => [
-            'objective', 'message', texto(p, 'objective'),
-            '--text', texto(p, 'message'), '--por', texto(p, 'author'), '--role', 'human',
-        ],
-    },
-    {
         name: 'ork_portfolio_list',
         description: 'Lista produtos, projetos e iniciativas do catálogo canônico usado pelo Kanban.',
         parameters: schema({}),

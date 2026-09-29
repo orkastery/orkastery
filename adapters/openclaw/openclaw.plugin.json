@@ -21,8 +21,6 @@
       "ork_thread_status",
       "ork_phase_run",
       "ork_phase_list",
-      "ork_objective_status",
-      "ork_objective_message",
       "ork_portfolio_list",
       "ork_brain_status",
       "ork_brain_query",

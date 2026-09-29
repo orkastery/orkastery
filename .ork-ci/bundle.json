@@ -1,19 +1,19 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-cincosessoes",
+  "thread": "ork-roadmaprm050",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-cincosessoes",
+      "thread": "ork-roadmaprm050",
       "fase": "GO",
-      "arquivo": "orkastery.yaml",
-      "alegacao": "O manifesto permite 5 threads em paralelo",
+      "arquivo": "docs",
+      "alegacao": "O roadmap com o RM-050 passa na paridade, no lint e nos links",
       "negativa": false,
       "verificar": [
-        "node -e \"const m=require(\\\"fs\\\").readFileSync(\\\"orkastery.yaml\\\",\\\"utf8\\\");process.exit(/max_parallel_threads: 5\\\\b/.test(m)?0:1)\""
+        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-29T01:37:25.683Z",
+      "criadoEm": "2026-09-29T02:16:09.542Z",
       "estado": "verificado",
       "lint": []
     }
