@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:28:49.829Z",
+  "publicadoEm": "2026-09-29T01:30:03.600Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -83,8 +83,8 @@
       "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-049",
-      "branch": "main",
-      "atualizadaEm": "2026-09-29T01:28:47.046Z",
+      "branch": "ork/ork-semorkmindwe-go",
+      "atualizadaEm": "2026-09-29T01:29:54.436Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
