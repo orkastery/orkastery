@@ -49,7 +49,7 @@ export const TOKENS_SEM_MENCAO = Object.freeze([
 const TETO_DO_TITULO = 2048;
 /** Linha de frontmatter maior que isso nao vai ao leitor de YAML, que e quadratico em linha longa. */
 const TETO_DA_LINHA_DE_FRONTMATTER = 4096;
-/** A tabela GFM do micromark e quadratica nas linhas: acima disso o corpo do arquivo nao e analisado. */
+/** A tabela GFM do micromark e quadratica nas linhas: acima disso de linhas com `|`, o corpo nao e analisado. */
 export const TETO_DE_LINHAS_DE_TABELA = 2000;
 type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
@@ -100,16 +100,23 @@ function apagarTrechos(texto: string, trechos: readonly [number, number][]): str
 
 const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
 
+function decodificarEntidades(t: string): string {
+  return t.replace(/&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-z]+);/g, (m, e: string) => {
+    if (e[0] !== '#') return ENTIDADES[e] ?? m;
+    const c = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return c > 0 && c <= 0x10ffff ? String.fromCodePoint(c) : m;
+  });
+}
+
+/** Destino como o CommonMark o le: escape de pontuacao e entidade decodificados (entidade desconhecida fica crua). */
+const destinoDoLink = (bruto: string): string => decodificarEntidades(bruto.replace(/\\([!-/:-@[-`{-~])/g, '$1'));
+
 /** D5: ancora como o GitHub gera: entidades decodificadas, minusculas, sem pontuacao, espaco vira hifen. */
 export function slugDoGithub(titulo: string): string {
   return titulo
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<[^>]+>/g, '')
-    .replace(/&(#[0-9]{1,7}|#x[0-9a-fA-F]{1,6}|[a-z]+);/g, (m, e: string) => {
-      if (e[0] !== '#') return ENTIDADES[e] ?? m;
-      const c = e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-      return c > 0 && c <= 0x10ffff ? String.fromCodePoint(c) : m;
-    })
+    .replace(/&[#a-zA-Z0-9]+;/g, (m) => decodificarEntidades(m))
     .toLowerCase()
     .replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '')
     .replace(/ /g, '-');
@@ -141,9 +148,16 @@ function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>):
     for (const k of caminho.split('.')) v = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, ValorYaml>)[k] : undefined;
     return v;
   };
+  // Um conjunto por chave: conferir cada item da lista fica linear no tamanho do frontmatter.
+  const conjuntos = new Map<string, Set<string>>();
   const aceita = (caminho: string, valor: string): boolean => {
-    const v = valorDe(caminho);
-    return Array.isArray(v) ? v.map(String).includes(valor) : v !== null && v !== undefined && String(v) === valor;
+    let c = conjuntos.get(caminho);
+    if (!c) {
+      const v = valorDe(caminho);
+      c = new Set(Array.isArray(v) ? v.map(String) : v !== null && v !== undefined ? [String(v)] : []);
+      conjuntos.set(caminho, c);
+    }
+    return c.has(valor);
   };
   const escalar = (caminho: string, bruto: string, desde: number): void => {
     if (!(caminho in CHAVES_DO_FRONTMATTER)) return;
@@ -202,10 +216,12 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       }
     }
   }
-  // O analisador ve o corpo: BOM e frontmatter viram espacos, com os mesmos offsets.
-  const corpo = apagarTrechos(fonte.texto, [[0, fimDoFrontmatter]]);
+  // O analisador ve o corpo sem o BOM (como o GitHub) e com o frontmatter em espacos; os offsets dele
+  // contam a partir do fim do BOM, e `desde` os devolve ao texto inteiro.
+  const corpo = apagarTrechos(fonte.texto.slice(desde), [[0, fimDoFrontmatter - desde]]);
+  const no = (i: number): number => i + desde;
   let linhasDeTabela = 0;
-  for (const l of linhasDe(corpo)) if (/^\s*\|/.test(l.texto)) linhasDeTabela++;
+  for (const l of linhasDe(corpo)) if (l.texto.includes('|')) linhasDeTabela++;
   if (linhasDeTabela > TETO_DE_LINHAS_DE_TABELA) {
     return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
@@ -224,9 +240,9 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
         emExcesso = true;
         semMencao.push([e.inicio, e.fim]);
       }
-      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: e.inicio, fim: e.fim, texto: null };
-      else if ((e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') && titulo) titulo.texto = fonte.texto.slice(e.inicio, e.fim).replace(/\r?\n/g, ' ');
-      else if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: e.inicio, fim: e.fim, destino: null, descartado: emExcesso });
+      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), texto: null };
+      else if ((e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') && titulo) titulo.texto = corpo.slice(e.inicio, e.fim).replace(/\r?\n/g, ' ');
+      else if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: no(e.inicio), fim: no(e.fim), destino: null, descartado: emExcesso });
       else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) abertos[abertos.length - 1].destino = [e.inicio, e.fim];
       if ((TOKENS_SEM_MENCAO as readonly string[]).includes(e.tipo)) semMencao.push([e.inicio, e.fim]);
       continue;
@@ -243,10 +259,10 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       titulo = null;
     } else if (e.tipo === 'link' || e.tipo === 'image') {
       const l = abertos.pop();
-      if (l?.destino && !l.descartado) links.push({ destino: fonte.texto.slice(l.destino[0], l.destino[1]), inicio: l.inicio, fim: l.fim });
+      if (l?.destino && !l.descartado) links.push({ destino: destinoDoLink(corpo.slice(l.destino[0], l.destino[1])), inicio: l.inicio, fim: l.fim });
     }
   }
-  const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao), desde);
+  const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao)).map((l) => ({ inicio: no(l.inicio), texto: l.texto }));
   return { fonte, secoes: secoes.sort((a, b) => a.inicio - b.inicio), links, textoDeMencao, frontmatter, frontmatterInvalido, tabelaGrande: false };
 }
 
@@ -310,11 +326,14 @@ export function extrairMarkdown(e: EntradaMd): Achados {
 
   // Trecho sob titulo recusado fica no arquivo: atribuir a secao anterior seria outra secao.
   const secaoEm = (s: Estrutura, arquivo: RefDeNo, o: number): RefDeNo => {
-    let atual: Secao | null = null;
-    for (const x of s.secoes) {
-      if (x.inicio > o) break;
-      atual = x;
+    // Ultima secao que comeca ate `o`, por busca binaria (as secoes estao em ordem de inicio).
+    let baixo = 0, alto = s.secoes.length;
+    while (baixo < alto) {
+      const meio = (baixo + alto) >> 1;
+      if (s.secoes[meio].inicio <= o) baixo = meio + 1;
+      else alto = meio;
     }
+    const atual = baixo > 0 ? s.secoes[baixo - 1] : null;
     return atual && atual.slug !== null ? { kind: 'section', path: arquivo.path, fragment: atual.slug } : arquivo;
   };
   const mencoes = (fonte: FonteDeTexto, linhas: readonly Linha[], origem: (o: number) => RefDeNo): void => {

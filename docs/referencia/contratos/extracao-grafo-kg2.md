@@ -65,7 +65,7 @@ estrutura e o slug dependem delas.
 | --- | --- |
 | `file` | todo arquivo do manifesto |
 | `symbol` | declaração de topo (função, classe, interface, tipo, enum, namespace, variável) pelo nome declarado; membro de classe de topo como `Classe.membro`; `default` no export default anônimo |
-| `section` | título ATX de Markdown, com a âncora no slug do GitHub (repetida ganha `-1`, `-2`) |
+| `section` | título ATX ou setext de Markdown, com a âncora no slug do GitHub (repetida ganha `-1`, `-2`) |
 | `artifact` | Markdown com `id` e `tipo` no frontmatter (`RM-031`, `FEAT-018`), fora de arquivo cujo nome começa com `_` (modelos); ID repetido em dois arquivos não vira artefato em nenhum |
 
 Sobrecarga, declarações que se fundem e membro estático e de instância com o mesmo nome viram um
@@ -90,14 +90,18 @@ repositório: identificador, membro de namespace importado, membro estático de 
 `this` e `super` com o tipo declarado (a classe, ou a anotação `this:`), e `new Classe()`.
 Alvo em outro arquivo exige um import deste arquivo: o alias precisa ser um `import`, um
 `import = require` ou um `require` atribuído aqui, e o membro herdado por `this` ou `super`
-precisa ser de uma classe importada por nome aqui. Global de script, global UMD e import só de
-efeito não ligam arquivos. Import e reexport resolvem até a declaração original.
+precisa ser de uma classe importada aqui, por nome ou pelo módulo inteiro (`* as ns`). Global de
+script, global UMD e import só de efeito não ligam arquivos. Import e reexport resolvem até a
+declaração original.
 
 O compilador e o runtime podem ligar arquivos diferentes: fonte JavaScript resolve pelo Node
-(em CommonJS, extensão, `main` e `index`; em ESM, o caminho exato), e `.d.ts`, `.d.cts` ou
-`.d.mts` com a implementação ao lado dá lugar a ela, para qualquer fonte. Onde divergem, a aresta
-de import vai ao arquivo que roda e nenhuma aresta de símbolo passa por esse import, nem por um
-módulo intermediário que reexporta um `require` divergente.
+(em CommonJS, primeiro como arquivo, depois como pasta pelo `main` e pelo `index`, e barra final,
+`.` e `..` só como pasta; em ESM, o caminho exato), e `.d.ts`, `.d.cts` ou `.d.mts` com a
+implementação ao lado dá lugar a ela, para qualquer fonte. Onde divergem, a aresta de import vai
+ao arquivo que roda e nenhuma aresta de símbolo passa por esse import, nem por um módulo
+intermediário que reexporta um `require` divergente. Onde o Node não resolve (ESM sem extensão,
+`package.json` inválido), o import fica `unresolved-import`. Import só de tipo (`import type`,
+`import('x').T`) some na compilação e segue o compilador.
 
 Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro título); âncora de outro
 arquivo que não bate com um título ainda prova a referência ao arquivo.
@@ -121,7 +125,7 @@ Até 64 evidências por aresta, as primeiras por posição; o excedente é conta
 | Código cercado ou indentado, bloco e trecho HTML, autolink, definição de link e célula excedente de tabela | não geram link nem menção, como no CommonMark e no GitHub |
 | Span de código | não gera link; ID citado nele conta como menção |
 | Link por referência, `href` em HTML e ênfase com `_` no slug | fora da v1 do `ork.md-structure` |
-| Arquivo com mais de 2000 linhas de tabela (a tabela do micromark é quadrática) | lacuna listada: `markdown-tabela-grande`; o frontmatter segue lido |
+| Arquivo com mais de 2000 linhas com `\|` (a tabela do micromark é quadrática nas linhas) | lacuna listada: `markdown-tabela-grande`; o frontmatter segue lido |
 
 Título acima de 2048 caracteres e linha de frontmatter acima de 4096 também não são lidos: o
 leitor de YAML do core é quadrático em linha longa.

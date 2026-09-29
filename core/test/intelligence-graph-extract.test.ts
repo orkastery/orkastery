@@ -520,7 +520,8 @@ test('KG2 extract: titulo setext vira secao, e mencao em codigo cercado de lista
 });
 
 test('KG2 limits: arquivo com tabela acima do teto nao tem o corpo analisado, e o frontmatter segue', () => {
-  const linhas = Array.from({ length: 2001 }, (_, i) => `| x${i} | [l](b.md) |`).join('\n');
+  // Linha de tabela GFM nao precisa de `|` no inicio: o teto conta qualquer linha com `|`.
+  const linhas = Array.from({ length: 2001 }, (_, i) => `x${i} | [l](b.md)`).join('\n');
   const { grafo, relatorio } = extrair({
     'b.md': '# B\n', 'a.md': `---\nid: RM-9\ntipo: roadmap\n---\n# A\n\n| a | b |\n| --- | --- |\n${linhas}\n`,
   });
@@ -605,6 +606,60 @@ test('KG2 limits: this e super so ligam a membro de classe importada por nome, n
     'e.ts': "import { f } from './d';\nexport function g() { return f(); }\n",
   });
   assert.deepEqual(arestas(grafo, 'calls'), ['calls symbol:c.ts#Filha.n -> symbol:b.ts#Base.m', 'calls symbol:e.ts#g -> symbol:d.ts#f']);
+});
+
+test('KG2 limits: BOM sem frontmatter nao desloca a indentacao da primeira linha', () => {
+  const bom = String.fromCharCode(0xfeff);
+  const base = { 'b.md': '# B\n', 'art.md': '---\nid: RM-777\ntipo: roadmap\n---\n# Art\n' };
+  const { grafo } = extrair({
+    ...base,
+    'a.md': `${bom}   <!--\n[falso](b.md) RM-777\n-->\n# T\n`,
+    'c.md': `${bom}   \`\`\`\n[falso](b.md)\n   \`\`\`\n`,
+    'd.md': `${bom}   # Titulo\n\nVeja [b](b.md).\n`,
+  });
+  assert.deepEqual(arestas(grafo, 'references'), ['references section:d.md#titulo -> file:b.md']);
+  assert.ok(temAresta(grafo, 'contains file:a.md -> section:a.md#t'));
+});
+
+test('KG2 limits: o modelo do Node testa arquivo antes de pasta, respeita barra final e falha onde o Node falha', () => {
+  const f = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const { grafo, relatorio } = extrair({
+    'lib.js': f, 'lib/package.json': '{"main": "entrada"}\n', 'lib/entrada.js': f,
+    'a.cjs': "const { f } = require('./lib');\nfunction g() { return f(); }\nmodule.exports = { g };\n",
+    'dir.js': f, 'dir/index.js': f,
+    'b.cjs': "const { f } = require('./dir/');\nfunction h() { return f(); }\nmodule.exports = { h };\n",
+    'index.js': f,
+    'test/c.cjs': "const { f } = require('../');\nfunction k() { return f(); }\nmodule.exports = { k };\n",
+    'ruim/package.json': '{ invalido\n', 'ruim/index.js': f,
+    'd.cjs': "const { f } = require('./ruim');\nfunction q() { return f(); }\nmodule.exports = { q };\n",
+    'e.ts': 'export function f() { return 2; }\n',
+    'm.mjs': "import { f } from './e';\nexport function w() { return f(); }\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports').filter((a) => !a.includes('-> symbol:')), [
+    'imports file:a.cjs -> file:lib.js', 'imports file:b.cjs -> file:dir/index.js', 'imports file:test/c.cjs -> file:index.js',
+  ]);
+  assert.deepEqual(arestas(grafo, 'calls'), [
+    'calls symbol:a.cjs#g -> symbol:lib.js#f', 'calls symbol:b.cjs#h -> symbol:dir/index.js#f', 'calls symbol:test/c.cjs#k -> symbol:index.js#f',
+  ]);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => [d.path, d.reference]), [['d.cjs', './ruim'], ['m.mjs', './e']]);
+  assert.equal(relatorio.lacunas_por_categoria['import-divergente'], 2);
+});
+
+test('KG2 extract: import so de tipo segue o compilador, e this e super ligam a classe de namespace importado', () => {
+  const { grafo } = extrair({
+    'types.d.ts': 'export interface X { a: number }\n', 'types.js': 'module.exports = {};\n',
+    'b.ts': "import type { X } from './types';\nexport type Y = X;\nexport type Z = import('./types').X;\n",
+    'base.ts': 'export class B { m() {} }\n',
+    'c.ts': "import * as ns from './base';\nexport class A extends ns.B { n() { this.m(); super.m(); } }\n",
+  });
+  assert.ok(temAresta(grafo, 'imports file:b.ts -> file:types.d.ts'));
+  assert.ok(temAresta(grafo, 'imports file:b.ts -> symbol:types.d.ts#X'));
+  assert.ok(temAresta(grafo, 'calls symbol:c.ts#A.n -> symbol:base.ts#B.m'));
+});
+
+test('KG2 extract: destino de link com escape e entidade e lido como o CommonMark le', () => {
+  const { grafo } = extrair({ 'b_c.md': '# BC\n', 'b.md': '# B\n', 'a.md': '# A\n\n[x](b\\_c.md) e [y](b&#46;md).\n' });
+  assert.deepEqual(arestas(grafo, 'references'), ['references section:a.md#a -> file:b.md', 'references section:a.md#a -> file:b_c.md']);
 });
 
 /** Repositorio Git temporario com identidade local e sem assinatura. */

@@ -194,16 +194,31 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   const viaImportLocal = (s: TS.Symbol | undefined, sf: TS.SourceFile): boolean =>
     !!s && (s.flags & S.Alias) !== 0 && (s.declarations ?? []).some((d) => ehImportLocal(d, sf));
 
-  /** Especificadores literais de import, reexport, `import =`, tipo importado, `require` e `import()`. */
+  /**
+   * Chave do especificador de um no de import: o texto e se o import so traz tipo (`import type`,
+   * `export type ... from`, `import('x').T`), que some na compilacao e segue o compilador.
+   */
+  function chaveDoImport(n: TS.Node): string | null {
+    let esp: string | null = null, soTipo = false;
+    if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) {
+      esp = literal(n.moduleSpecifier);
+      soTipo = ts.isImportDeclaration(n) ? !!n.importClause?.isTypeOnly : n.isTypeOnly;
+    } else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) {
+      esp = literal(n.moduleReference.expression);
+      soTipo = n.isTypeOnly;
+    } else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) {
+      esp = literal(n.argument.literal);
+      soTipo = true;
+    } else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
+    return esp === null ? null : `${soTipo ? 't' : 'v'}\u0000${esp}`;
+  }
+  const especificadorDaChave = (chave: string): string => chave.slice(2);
+  /** Chaves de todos os imports dentro de um no. */
   function especificadoresEm(raiz: TS.Node): string[] {
     const r: string[] = [];
     const coletar = (n: TS.Node): void => {
-      let esp: string | null = null;
-      if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier) esp = literal(n.moduleSpecifier);
-      else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) esp = literal(n.moduleReference.expression);
-      else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) esp = literal(n.argument.literal);
-      else if (ehRequire(n) || ehImportDinamico(n)) esp = literal(n.arguments[0]);
-      if (esp !== null) r.push(esp);
+      const chave = chaveDoImport(n);
+      if (chave !== null) r.push(chave);
       ts.forEachChild(n, coletar);
     };
     coletar(raiz);
@@ -217,24 +232,35 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     for (const [ext, impl] of DECLARACOES) if (declaracao.endsWith(ext)) return existe(declaracao.slice(0, -ext.length) + impl);
     return null;
   }
-  /** Resolucao do Node para especificador relativo: exato em ESM; em CommonJS, extensao, `main` e `index`. */
+  const junta = (pasta: string, nome: string): string => (pasta ? `${pasta}/${nome}` : nome);
+  /**
+   * Resolucao do Node para especificador relativo: exato em ESM; em CommonJS, primeiro como arquivo
+   * (exato, `.js`, `.json`, `.node`) e depois como pasta (`main` do package.json, `index`). Barra
+   * final, `.` e `..` so valem como pasta. package.json invalido faz o Node falhar.
+   */
   function resolverNode(de: string, especificador: string, esm: boolean): string | null {
     const base = caminhoLiteral(de, especificador);
     if (base === null) return null;
     if (esm) return existe(base);
-    const comoArquivo = (p: string): string | null => existe(p) ?? existe(`${p}.js`) ?? existe(`${p}.json`) ?? existe(`${p}.node`);
-    const pacote = existe(`${base}/package.json`) ? e.texto(`${base}/package.json`) : undefined;
-    if (pacote !== undefined) {
-      try {
-        const main: unknown = JSON.parse(pacote).main;
-        const m = typeof main === 'string' && main ? caminhoLiteral(`${base}/package.json`, main.startsWith('.') ? main : `./${main}`) : null;
-        const r = m === null ? null : comoArquivo(m) ?? existe(`${m}/index.js`) ?? existe(`${m}/index.json`);
+    const comoArquivo = (p: string): string | null => (p ? existe(p) ?? existe(`${p}.js`) ?? existe(`${p}.json`) ?? existe(`${p}.node`) : null);
+    const comoIndice = (p: string): string | null => existe(junta(p, 'index.js')) ?? existe(junta(p, 'index.json')) ?? existe(junta(p, 'index.node'));
+    const comoPasta = (p: string): string | null => {
+      const arquivoDoPacote = junta(p, 'package.json');
+      if (existe(arquivoDoPacote)) {
+        let main: unknown;
+        try {
+          main = (JSON.parse(e.texto(arquivoDoPacote) ?? '') as { main?: unknown }).main;
+        } catch {
+          return null;
+        }
+        const m = typeof main === 'string' && main ? caminhoLiteral(arquivoDoPacote, main.startsWith('.') ? main : `./${main}`) : null;
+        const r = m === null ? null : comoArquivo(m) ?? comoIndice(m);
         if (r !== null) return r;
-      } catch {
-        // package.json invalido: o Node cai no index, como abaixo.
       }
-    }
-    return comoArquivo(base) ?? existe(`${base}/index.js`) ?? existe(`${base}/index.json`) ?? existe(`${base}/index.node`);
+      return comoIndice(p);
+    };
+    const soPasta = especificador.endsWith('/') || /(^|\/)\.\.?$/.test(especificador);
+    return soPasta ? comoPasta(base) : comoArquivo(base) ?? comoPasta(base);
   }
 
   // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
@@ -245,24 +271,26 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     const sf = programa.getSourceFile(absoluto(fonte.path));
     if (!sf || sf.fileName !== absoluto(fonte.path)) continue;
     const ext = extensao(fonte.path), mapa = new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
-    for (const esp of especificadoresEm(sf)) {
-      if (mapa.has(esp)) continue;
-      const doCompilador = resolver(esp, fonte.path);
+    for (const chave of especificadoresEm(sf)) {
+      if (mapa.has(chave)) continue;
+      const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
       let alvo = doCompilador, divergente = false;
-      if (EXTENSOES_JS.includes(ext) && (esp.startsWith('./') || esp.startsWith('../'))) {
+      // Import so de tipo nao roda: vale o que o compilador liga.
+      if (chave[0] === 'v' && EXTENSOES_JS.includes(ext) && (esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../'))) {
+        // Onde o Node falha, nao ha aresta: o import fica sem resolver.
         const runtime = resolverNode(fonte.path, esp, ext === '.mjs');
         if (runtime !== doCompilador) {
           divergente = true;
-          alvo = runtime ?? doCompilador;
+          alvo = runtime;
         }
       }
-      const impl = !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
+      const impl = chave[0] === 'v' && !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
       if (impl !== null) {
         divergente = true;
         alvo = impl;
       }
-      mapa.set(esp, { alvo, divergente, doCompilador });
-      if (divergente) divergentesGlobais.add(`${fonte.path}\u0000${esp}`);
+      mapa.set(chave, { alvo, divergente, doCompilador });
+      if (divergente) divergentesGlobais.add(`${fonte.path}\u0000${chave}`);
     }
     resolucoes.set(fonte.path, mapa);
   }
@@ -325,6 +353,13 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       const alvo = checker.getAliasedSymbol(s0), arquivoDoAlvo = alvo.declarations?.[0] ? relativo(alvo.declarations[0].getSourceFile().fileName) : null;
       if (cadeiaDivergente(s0, arquivoDoAlvo)) return;
       if (alvo.flags & S.Class) classesImportadas.add(alvo);
+      // Modulo importado inteiro (`* as ns`, `import = require`, `require` atribuido): as classes que ele exporta.
+      else if (alvo.flags & S.ValueModule) {
+        for (const x of checker.getExportsOfModule(alvo)) {
+          const c = semAlias(x);
+          if (c && c.flags & S.Class) classesImportadas.add(c);
+        }
+      }
     };
     const nomesDoPadrao = (n: TS.BindingName): void => {
       if (ts.isIdentifier(n)) importada(n);
@@ -332,7 +367,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     };
     const juntarImportadas = (n: TS.Node): void => {
       if (ts.isImportClause(n)) importada(n.name);
-      else if (ts.isImportSpecifier(n)) importada(n.name);
+      else if (ts.isImportSpecifier(n) || ts.isNamespaceImport(n)) importada(n.name);
       else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) importada(n.name);
       else if (ts.isVariableDeclaration(n) && n.initializer && ehRequire(n.initializer)) nomesDoPadrao(n.name);
       ts.forEachChild(n, juntarImportadas);
@@ -383,8 +418,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       }
     }
 
-    const importar = (especificador: string, t: Trecho): { alvo: string | null; divergente: boolean } => {
-      const r = alvos.get(especificador) ?? { alvo: null, divergente: false };
+    const importar = (chave: string, t: Trecho): { alvo: string | null; divergente: boolean } => {
+      const r = alvos.get(chave) ?? { alvo: null, divergente: false }, especificador = especificadorDaChave(chave);
       if (r.alvo === null) diagnostico('unresolved-import', especificador);
       else aresta('imports', arquivo, { kind: 'file', path: r.alvo, fragment: null }, t);
       if (r.divergente) saida.lacunas.push({ categoria: 'import-divergente', path: fonte.path, inicio: t.inicio, detalhe: especificador });
@@ -445,9 +480,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
 
     const visitar = (n: TS.Node, atual: RefDeNo | null): void => {
       const proximo = simbolosDoTopo.has(n) ? (simbolosDoTopo.get(n) ?? null) : atual;
+      const chave = chaveDoImport(n);
       if (ts.isImportDeclaration(n)) {
-        const esp = literal(n.moduleSpecifier);
-        const r = esp === null ? null : importar(esp, trecho(n));
+        const r = chave === null ? null : importar(chave, trecho(n));
         if (r && r.alvo !== null && !r.divergente && n.importClause) {
           const ic = n.importClause;
           if (ic.name) simboloImportado(ic.name, trecho(ic.name));
@@ -456,25 +491,19 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         return;
       }
       if (ts.isExportDeclaration(n) && n.moduleSpecifier) {
-        const esp = literal(n.moduleSpecifier);
-        const r = esp === null ? null : importar(esp, trecho(n));
+        const r = chave === null ? null : importar(chave, trecho(n));
         if (r && r.alvo !== null && !r.divergente && n.exportClause && ts.isNamedExports(n.exportClause)) {
           for (const el of n.exportClause.elements) simboloImportado(el.name, trecho(el));
         }
         return;
       }
       if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) {
-        const esp = literal(n.moduleReference.expression);
-        if (esp !== null) importar(esp, trecho(n));
+        if (chave !== null) importar(chave, trecho(n));
         return;
       }
-      if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) {
-        const esp = literal(n.argument.literal);
-        if (esp !== null) importar(esp, trecho(n));
-      }
+      if (ts.isImportTypeNode(n) && chave !== null) importar(chave, trecho(n));
       if (ehRequire(n) || ehImportDinamico(n)) {
-        const esp = literal(n.arguments[0]);
-        if (esp !== null) importar(esp, trecho(n));
+        if (chave !== null) importar(chave, trecho(n));
         else diagnostico('dynamic-resolution', n.arguments[0] ? n.arguments[0].getText(sf) : '');
       } else if (ts.isCallExpression(n) || ts.isNewExpression(n)) chamada(n, proximo);
       ts.forEachChild(n, (filho) => visitar(filho, proximo));
