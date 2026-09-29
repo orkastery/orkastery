@@ -1,16 +1,19 @@
 /**
- * RM-031 KG2 (D5, D6): extratores `ork.md-structure` e `ork.id-mention`.
+ * RM-031 KG2 (D5, D6, D15): extratores `ork.md-structure` e `ork.id-mention`.
  *
- * Markdown: secao por titulo ATX, com a ancora no slug do GitHub; link inline e imagem viram
- * `references` da secao onde estao; frontmatter com `id` e `tipo` vira artefato, com `derived_from`
- * para as fontes declaradas e `references` para pai, roadmap, features e simbolos. Codigo cercado
- * (tambem dentro de citacao e de lista), codigo indentado, bloco HTML, span de codigo (tambem em
- * varias linhas) e comentario HTML nao geram link. A leitura e conservadora: na duvida entre
- * codigo e texto, o trecho e tratado como codigo e nao gera aresta. ID citado em texto so vira
- * aresta quando existe um artefato com aquele ID. O que nao resolve fica no relatorio.
+ * A estrutura do Markdown vem de um analisador CommonMark recebido por parametro (o micromark com
+ * a tabela GFM, D15), nunca de varredura propria: codigo cercado ou indentado, bloco e trecho HTML,
+ * citacao, lista e tabela seguem a especificacao. Secao por titulo ATX ou setext, com a ancora no
+ * slug do GitHub; link inline e imagem viram `references` da secao onde estao; frontmatter com `id`
+ * e `tipo` vira artefato, com `derived_from` para as fontes declaradas e `references` para pai,
+ * roadmap, features e simbolos. ID citado em texto so vira aresta quando existe um artefato com
+ * aquele ID; em codigo e HTML nao conta, em span de codigo conta. O que nao resolve fica no relatorio.
  */
 import type { AchadoDeAresta, Achados, FonteDeTexto, RefDeNo, Trecho } from './intelligence-graph-extract';
 import { lerYaml, type ValorYaml } from './yaml';
+
+/** Evento do analisador: entrada ou saida de um token, com o offset no texto (unidades UTF-16). */
+export interface EventoMd { entrada: boolean; tipo: string; inicio: number; fim: number }
 
 export interface EntradaMd {
   /** Fontes Markdown ja decodificadas, em ordem de caminho. */
@@ -23,6 +26,8 @@ export interface EntradaMd {
   simbolos: ReadonlyMap<string, RefDeNo | null>;
   /** Regra de texto do contrato para `fragment`: secao ou artefato recusado nao vira no. */
   aceitaFragmento: (fragmento: string) => boolean;
+  /** D15: analisador CommonMark (micromark com tabela GFM). */
+  analisar: (texto: string) => readonly EventoMd[];
   extratorMd: string;
   extratorId: string;
 }
@@ -36,12 +41,16 @@ export const CHAVES_DO_FRONTMATTER = Object.freeze({
   'fontes.codigo': 'derived_from:file', 'fontes.testes': 'derived_from:file', 'fontes.docs': 'derived_from:file',
   'fontes.simbolos': 'references:symbol',
 } as const);
-/** Destino de link maior que o teto de caminho do contrato nunca resolve: nem e lido. */
-const TETO_DO_DESTINO = 1024;
+/** Tokens cujo texto nao e prosa: nao geram mencao de ID (o span de codigo, `codeText`, gera). */
+export const TOKENS_SEM_MENCAO = Object.freeze([
+  'autolink', 'codeFenced', 'codeIndented', 'definition', 'htmlFlow', 'htmlText', 'resourceDestinationString', 'resourceTitleString',
+]);
 /** Titulo maior que isso daria slug acima do teto de fragmento. */
 const TETO_DO_TITULO = 2048;
 /** Linha de frontmatter maior que isso nao vai ao leitor de YAML, que e quadratico em linha longa. */
 const TETO_DA_LINHA_DE_FRONTMATTER = 4096;
+/** A tabela GFM do micromark e quadratica nas linhas: acima disso o corpo do arquivo nao e analisado. */
+export const TETO_DE_LINHAS_DE_TABELA = 2000;
 type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
 interface Linha { inicio: number; texto: string }
@@ -53,13 +62,15 @@ interface Estrutura {
   /** Titulos em ordem; `slug` nulo quando o contrato o recusaria (o trecho fica no arquivo). */
   secoes: Secao[];
   links: Link[];
-  /** Linhas de texto fora de codigo, com comentario HTML e destino de link apagados. */
+  /** Linhas de prosa, com codigo, HTML, frontmatter e destino de link apagados. */
   textoDeMencao: Linha[];
   frontmatter: { dados: Record<string, ValorYaml>; valores: ValorPosicionado[] } | null;
   frontmatterInvalido: boolean;
+  /** Corpo nao analisado por passar do teto de linhas de tabela. */
+  tabelaGrande: boolean;
 }
 
-/** Linhas do texto a partir de `desde` (o BOM fica fora), com os offsets no texto inteiro. */
+/** Linhas do texto a partir de `desde`, com os offsets no texto inteiro. */
 function linhasDe(texto: string, desde = 0): Linha[] {
   const r: Linha[] = [];
   let inicio = desde;
@@ -72,140 +83,19 @@ function linhasDe(texto: string, desde = 0): Linha[] {
   }
 }
 
-/** Troca o trecho por espacos, mantendo as quebras de linha (o span de codigo atravessa linha). */
-const apagar = (s: string, de: number, ate: number): string => s.slice(0, de) + s.slice(de, ate).replace(/[^\n]/g, ' ') + s.slice(ate);
-const escapado = (s: string, i: number): boolean => {
-  let n = 0;
-  for (let j = i - 1; j >= 0 && s[j] === '\\'; j--) n++;
-  return n % 2 === 1;
-};
-/** Colunas de recuo no inicio da linha; tab avanca ate o proximo multiplo de 4. */
-const indentacao = (s: string): number => {
-  let colunas = 0;
-  for (const c of s) {
-    if (c === ' ') colunas++;
-    else if (c === '\t') colunas += 4 - (colunas % 4);
-    else break;
+/** Troca os trechos por espacos, mantendo as quebras de linha e os offsets, numa passada so. */
+function apagarTrechos(texto: string, trechos: readonly [number, number][]): string {
+  if (!trechos.length) return texto;
+  const ordenados = [...trechos].sort((a, b) => a[0] - b[0]), partes: string[] = [];
+  let pos = 0;
+  for (const [de, ate] of ordenados) {
+    const i = Math.max(de, pos);
+    if (ate <= i) continue;
+    partes.push(texto.slice(pos, i), texto.slice(i, ate).replace(/[^\r\n]/g, ' '));
+    pos = ate;
   }
-  return colunas;
-};
-
-/** Apaga comentario HTML (que pode atravessar linhas), mantendo os offsets. */
-function semComentario(texto: string, estado: { aberto: boolean }): string {
-  let s = texto, i = 0;
-  while (i < s.length) {
-    if (estado.aberto) {
-      const f = s.indexOf('-->', i);
-      if (f < 0) return apagar(s, i, s.length);
-      s = apagar(s, i, f + 3);
-      i = f + 3;
-      estado.aberto = false;
-    } else {
-      const a = s.indexOf('<!--', i);
-      if (a < 0) return s;
-      estado.aberto = true;
-      i = a;
-    }
-  }
-  return s;
-}
-
-/**
- * Apaga span de codigo: sequencia de crases fechada pela proxima de mesmo tamanho, no paragrafo
- * inteiro (o span atravessa linha). Cada tamanho guarda um ponteiro, entao a varredura e linear.
- */
-function semCodigo(s: string): string {
-  const corridas: { pos: number; n: number }[] = [];
-  for (let i = 0; i < s.length;) {
-    if (s[i] !== '`' || escapado(s, i)) {
-      i++;
-      continue;
-    }
-    let n = 0;
-    while (s[i + n] === '`') n++;
-    corridas.push({ pos: i, n });
-    i += n;
-  }
-  const porTamanho = new Map<number, number[]>();
-  corridas.forEach((c, k) => {
-    const lista = porTamanho.get(c.n);
-    if (lista) lista.push(k);
-    else porTamanho.set(c.n, [k]);
-  });
-  const ponteiro = new Map<number, number>();
-  let r = s;
-  for (let k = 0; k < corridas.length;) {
-    const c = corridas[k], lista = porTamanho.get(c.n) as number[];
-    let p = ponteiro.get(c.n) ?? 0;
-    while (p < lista.length && lista[p] <= k) p++;
-    ponteiro.set(c.n, p);
-    if (p >= lista.length) {
-      k++;
-      continue;
-    }
-    const fecha = corridas[lista[p]];
-    r = apagar(r, c.pos, fecha.pos + fecha.n);
-    k = lista[p] + 1;
-  }
-  return r;
-}
-
-/** Link achado numa linha: offsets na linha do link inteiro (`i`, `f`) e do destino (`di`, `df`). */
-interface LinkDaLinha { destino: string; i: number; f: number; di: number; df: number }
-
-/** Links inline e imagens de uma linha ja sem codigo e sem comentario; colchetes pareados por pilha. */
-function linksDa(mascara: string, original: string): LinkDaLinha[] {
-  const par = new Map<number, number>(), pilha: number[] = [];
-  for (let i = 0; i < mascara.length; i++) {
-    const c = mascara[i];
-    if ((c !== '[' && c !== ']') || escapado(mascara, i)) continue;
-    if (c === '[') pilha.push(i);
-    else if (pilha.length) par.set(pilha.pop() as number, i);
-  }
-  const r: LinkDaLinha[] = [];
-  for (const [i, j] of [...par.entries()].sort((a, b) => a[0] - b[0])) {
-    if (mascara[j + 1] !== '(') continue;
-    let k = j + 2;
-    while (mascara[k] === ' ' || mascara[k] === '\t') k++;
-    let di: number, df: number;
-    if (mascara[k] === '<') {
-      const fim = mascara.indexOf('>', k);
-      if (fim < 0 || fim - k > TETO_DO_DESTINO) continue;
-      di = k + 1;
-      df = fim;
-      k = fim + 1;
-    } else {
-      di = k;
-      let p = 0;
-      const limite = Math.min(mascara.length, k + TETO_DO_DESTINO + 1);
-      for (; k < limite; k++) {
-        const c = mascara[k];
-        if (c === '\\') {
-          k++;
-          continue;
-        }
-        if (c === '(') p++;
-        else if (c === ')') {
-          if (p === 0) break;
-          p--;
-        } else if (c === ' ' || c === '\t') break;
-      }
-      if (k >= limite && limite < mascara.length) continue;
-      df = k;
-    }
-    while (mascara[k] === ' ' || mascara[k] === '\t') k++;
-    const aspa = mascara[k];
-    if (aspa === '"' || aspa === "'" || aspa === '(') {
-      const fecha = mascara.indexOf(aspa === '(' ? ')' : aspa, k + 1);
-      if (fecha < 0) continue;
-      k = fecha + 1;
-      while (mascara[k] === ' ' || mascara[k] === '\t') k++;
-    }
-    if (mascara[k] !== ')' || di >= df) continue;
-    const inicio = i > 0 && mascara[i - 1] === '!' && !escapado(mascara, i - 1) ? i - 1 : i;
-    r.push({ destino: original.slice(di, df), i: inicio, f: k + 1, di, df });
-  }
-  return r;
+  partes.push(texto.slice(pos));
+  return partes.join('');
 }
 
 const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
@@ -240,25 +130,6 @@ function contadorDeSlugs(): (base: string) => string {
     vistos.set(s, 0);
     return s;
   };
-}
-
-/** Titulo ATX sem regex de retrocesso: ate 3 espacos, 1 a 6 `#`, espaco ou fim, sequencia de fecho opcional. */
-function tituloAtx(linha: string): { inicio: number; texto: string } | null {
-  let i = 0;
-  while (i < 3 && linha[i] === ' ') i++;
-  const inicio = i;
-  let n = 0;
-  while (linha[i + n] === '#') n++;
-  if (n < 1 || n > 6) return null;
-  const depois = linha[i + n];
-  if (depois !== undefined && depois !== ' ' && depois !== '\t') return null;
-  let fim = linha.length;
-  while (fim > i + n && (linha[fim - 1] === ' ' || linha[fim - 1] === '\t')) fim--;
-  let corpo = linha.slice(i + n, fim);
-  let f = corpo.length;
-  while (f > 0 && corpo[f - 1] === '#') f--;
-  if (f === 0 || corpo[f - 1] === ' ' || corpo[f - 1] === '\t') corpo = corpo.slice(0, f);
-  return { inicio, texto: corpo.trim() };
 }
 
 /** Posicao de cada valor das chaves do D6, lida linha a linha e conferida contra o leitor de YAML. */
@@ -312,26 +183,15 @@ function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>):
   return r;
 }
 
-/** Marcadores de citacao (`>`) no inicio da linha: o conteudo comeca depois deles. */
-function semCitacao(linha: string): number {
-  let i = 0;
-  for (;;) {
-    let j = i;
-    while (j < i + 3 && linha[j] === ' ') j++;
-    if (linha[j] !== '>') return i;
-    i = j + 1;
-    if (linha[i] === ' ') i++;
-  }
-}
-
-function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean): Estrutura {
+function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean, analisar: EntradaMd['analisar']): Estrutura {
   // O BOM nao e conteudo: sem ele, o primeiro titulo e o frontmatter sao lidos.
-  const todas = linhasDe(fonte.texto, fonte.texto.charCodeAt(0) === 0xfeff ? 1 : 0);
-  let corpo = todas, frontmatter: Estrutura['frontmatter'] = null, frontmatterInvalido = false;
+  const desde = fonte.texto.charCodeAt(0) === 0xfeff ? 1 : 0;
+  const todas = linhasDe(fonte.texto, desde);
+  let fimDoFrontmatter = desde, frontmatter: Estrutura['frontmatter'] = null, frontmatterInvalido = false;
   if (todas[0]?.texto === '---') {
     const fim = todas.findIndex((l, i) => i > 0 && (l.texto === '---' || l.texto === '...'));
     if (fim > 0) {
-      corpo = todas.slice(fim + 1);
+      fimDoFrontmatter = todas[fim].inicio + todas[fim].texto.length;
       const bruto = todas.slice(1, fim);
       try {
         if (bruto.some((l) => l.texto.length > TETO_DA_LINHA_DE_FRONTMATTER)) throw new Error('frontmatter.linha-longa');
@@ -342,82 +202,52 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       }
     }
   }
-  const secoes: Secao[] = [], links: Link[] = [], textoDeMencao: Linha[] = [];
-  const slug = contadorDeSlugs(), comentario = { aberto: false };
-  let cerca: { c: string; n: number; indent: number } | null = null;
-  // Codigo indentado so abre onde um paragrafo nao continua: inicio, linha em branco, titulo, cerca.
-  let emHtml = false, emCodigoIndentado = false, podeCodigoIndentado = true;
-  let paragrafo: Linha[] = [];
-
-  // Paragrafo inteiro: o span de codigo atravessa linha; link e mencao sao lidos por linha.
-  const fecharParagrafo = (): void => {
-    if (!paragrafo.length) return;
-    const juntas = semCodigo(paragrafo.map((l) => l.texto).join('\n')).split('\n');
-    paragrafo.forEach((l, k) => {
-      let mencao = l.texto;
-      for (const x of linksDa(juntas[k], l.texto)) {
-        links.push({ destino: x.destino, inicio: l.inicio + x.i, fim: l.inicio + x.f });
-        mencao = apagar(mencao, x.di, x.df);
-      }
-      textoDeMencao.push({ inicio: l.inicio, texto: mencao });
-    });
-    paragrafo = [];
-  };
-
-  for (const l of corpo) {
-    const q = semCitacao(l.texto), conteudo = l.texto.slice(q);
-    if (cerca) {
-      const f = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/.exec(conteudo);
-      if (f && f[2][0] === cerca.c && f[2].length >= cerca.n && indentacao(f[1]) <= cerca.indent + 3) {
-        cerca = null;
-        podeCodigoIndentado = true;
-      }
-      continue;
-    }
-    if (!conteudo.trim()) {
-      fecharParagrafo();
-      emHtml = false;
-      podeCodigoIndentado = true;
-      continue;
-    }
-    // Cerca em qualquer indentacao e dentro de citacao: dentro de lista ela ainda e codigo.
-    const abre = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(conteudo);
-    if (abre && !(abre[2][0] === '`' && abre[3].includes('`'))) {
-      fecharParagrafo();
-      cerca = { c: abre[2][0], n: abre[2].length, indent: indentacao(abre[1]) };
-      continue;
-    }
-    // Codigo indentado: 4 espacos depois de linha em branco. Continuacao de lista cai aqui tambem.
-    if (indentacao(conteudo) >= 4 && (podeCodigoIndentado || emCodigoIndentado) && !paragrafo.length) {
-      emCodigoIndentado = true;
-      continue;
-    }
-    emCodigoIndentado = false;
-    podeCodigoIndentado = false;
-    const semHtml = semComentario(l.texto, comentario);
-    // Bloco HTML ate a proxima linha em branco: o Markdown dentro dele nao e lido.
-    if (emHtml || /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?=[\s>/]|$)/.test(semHtml.slice(q))) {
-      fecharParagrafo();
-      emHtml = true;
-      continue;
-    }
-    const titulo = tituloAtx(semHtml.slice(q));
-    if (titulo) {
-      fecharParagrafo();
-      const base = titulo.texto.length <= TETO_DO_TITULO ? slugDoGithub(titulo.texto) : '';
-      if (base) {
-        const s = slug(base);
-        secoes.push({ slug: aceitaFragmento(s) ? s : null, inicio: l.inicio + q + titulo.inicio, fim: l.inicio + semHtml.trimEnd().length });
-      } else if (titulo.texto) secoes.push({ slug: null, inicio: l.inicio + q + titulo.inicio, fim: l.inicio + semHtml.trimEnd().length });
-      paragrafo = [{ inicio: l.inicio, texto: apagar(semHtml, 0, q) }];
-      fecharParagrafo();
-      podeCodigoIndentado = true;
-      continue;
-    }
-    paragrafo.push({ inicio: l.inicio, texto: apagar(semHtml, 0, q) });
+  // O analisador ve o corpo: BOM e frontmatter viram espacos, com os mesmos offsets.
+  const corpo = apagarTrechos(fonte.texto, [[0, fimDoFrontmatter]]);
+  let linhasDeTabela = 0;
+  for (const l of linhasDe(corpo)) if (/^\s*\|/.test(l.texto)) linhasDeTabela++;
+  if (linhasDeTabela > TETO_DE_LINHAS_DE_TABELA) {
+    return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
-  fecharParagrafo();
-  return { fonte, secoes, links, textoDeMencao, frontmatter, frontmatterInvalido };
+  const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
+  const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: [number, number] | null; descartado: boolean }[] = [];
+  let titulo: { inicio: number; fim: number; texto: string | null } | null = null;
+  // Tabela GFM: celula alem das colunas do cabecalho e descartada pelo GitHub, e o link nela tambem.
+  let colunas = 0, noCabecalho = false, celula = 0, emExcesso = false;
+  for (const e of analisar(corpo)) {
+    if (e.entrada) {
+      if (e.tipo === 'table') colunas = 0;
+      else if (e.tipo === 'tableHead') noCabecalho = true;
+      else if (e.tipo === 'tableRow') celula = 0;
+      else if (e.tipo === 'tableHeader' && noCabecalho) colunas++;
+      else if (e.tipo === 'tableData' && ++celula > colunas) {
+        emExcesso = true;
+        semMencao.push([e.inicio, e.fim]);
+      }
+      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: e.inicio, fim: e.fim, texto: null };
+      else if ((e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') && titulo) titulo.texto = fonte.texto.slice(e.inicio, e.fim).replace(/\r?\n/g, ' ');
+      else if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: e.inicio, fim: e.fim, destino: null, descartado: emExcesso });
+      else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) abertos[abertos.length - 1].destino = [e.inicio, e.fim];
+      if ((TOKENS_SEM_MENCAO as readonly string[]).includes(e.tipo)) semMencao.push([e.inicio, e.fim]);
+      continue;
+    }
+    if (e.tipo === 'tableHead') noCabecalho = false;
+    else if (e.tipo === 'tableData') emExcesso = false;
+    if ((e.tipo === 'atxHeading' || e.tipo === 'setextHeading') && titulo) {
+      const texto = (titulo.texto ?? '').trim();
+      if (texto) {
+        const base = texto.length <= TETO_DO_TITULO ? slugDoGithub(texto) : '';
+        const s = base ? slug(base) : null;
+        secoes.push({ slug: s !== null && aceitaFragmento(s) ? s : null, inicio: titulo.inicio, fim: titulo.fim });
+      }
+      titulo = null;
+    } else if (e.tipo === 'link' || e.tipo === 'image') {
+      const l = abertos.pop();
+      if (l?.destino && !l.descartado) links.push({ destino: fonte.texto.slice(l.destino[0], l.destino[1]), inicio: l.inicio, fim: l.fim });
+    }
+  }
+  const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao), desde);
+  return { fonte, secoes: secoes.sort((a, b) => a.inicio - b.inicio), links, textoDeMencao, frontmatter, frontmatterInvalido, tabelaGrande: false };
 }
 
 /** Caminho relativo a raiz a partir do arquivo do link; `null` se sair do repositorio. */
@@ -449,7 +279,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
     const partes = p.split('/');
     for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
   }
-  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento));
+  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento, e.analisar));
   const slugs = new Map(estruturas.map((s) => [s.fonte.path, new Set(s.secoes.map((x) => x.slug).filter((x): x is string => x !== null))]));
   const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, extrator: string, metodo: AchadoDeAresta['metodo'], t: Trecho): void => {
     saida.arestas.push({ kind, from, to, extrator, metodo, trecho: t });
@@ -462,6 +292,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
   const donos = new Map<string, string[]>();
   for (const s of estruturas) {
     if (s.frontmatterInvalido) lacuna('frontmatter-invalido', s.fonte.path, 0, null);
+    if (s.tabelaGrande) lacuna('markdown-tabela-grande', s.fonte.path, null, null);
     const nome = s.fonte.path.slice(s.fonte.path.lastIndexOf('/') + 1), d = s.frontmatter?.dados;
     if (!d || nome.startsWith('_') || typeof d.id !== 'string' || !PADRAO_DE_ID.test(d.id) || typeof d.tipo !== 'string' || !d.tipo) continue;
     if (!e.aceitaFragmento(d.id)) {

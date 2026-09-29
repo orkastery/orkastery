@@ -24,6 +24,7 @@ const ts = require('typescript');
 const { extrairGrafo } = require('../dist/intelligence-graph-extract.js');
 const { lerRepositorio } = require('../dist/intelligence-graph-repo.js');
 const { canonico, conferirFontes, sha256DoCanonico } = require('../dist/intelligence-graph-contract.js');
+const { carregarMarkdown } = require('./micromark-adaptador.cjs');
 
 const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0';
 
@@ -72,9 +73,11 @@ function embaralhar(itens, semente) {
   return r;
 }
 
+let parser = null;
+
 function extrair(entrada) {
   const inicio = process.hrtime.bigint();
-  const r = extrairGrafo(entrada, { ts, unicode: process.versions.unicode });
+  const r = extrairGrafo(entrada, parser);
   return { ...r, ms: Number((process.hrtime.bigint() - inicio) / 1000000n) };
 }
 
@@ -192,8 +195,9 @@ function conferirAmostra(entrada, r, arquivo) {
   return falhas;
 }
 
-function principal() {
+async function principal() {
   const a = argumentos(process.argv.slice(2));
+  parser = { ts, unicode: process.versions.unicode, markdown: await carregarMarkdown() };
   const opcoes = {};
   if (a.repositorio) opcoes.repository_id = a.repositorio;
   if (a.tenant) opcoes.tenant_id = a.tenant;
@@ -213,9 +217,9 @@ function principal() {
   return falhas.length ? 1 : 0;
 }
 
-try {
-  process.exitCode = principal();
-} catch (e) {
+principal().then((codigo) => {
+  process.exitCode = codigo;
+}, (e) => {
   process.stderr.write(`extrair-grafo: ${e instanceof Error ? e.message : String(e)}\n`);
   process.exitCode = 2;
-}
+});

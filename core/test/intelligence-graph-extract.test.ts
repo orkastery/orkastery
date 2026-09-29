@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { test } from 'node:test';
+import { before, test } from 'node:test';
 import * as ts from 'typescript';
 import {
   conferirFontes, digestDoGrafo, validarGrafo, type FonteFornecida, type GrafoCodigo,
@@ -19,10 +19,17 @@ import { slugDoGithub } from '../src/intelligence-graph-extract-md';
 import { lerRepositorio } from '../src/intelligence-graph-repo';
 import { dirTemporario } from './apoio';
 import {
-  extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type ResultadoDaExtracao,
+  extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type Parser, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
 
-const PARSER = { ts, unicode: String(process.versions.unicode) };
+/** D15: o analisador Markdown e o adaptador do micromark que o comando provisorio usa. */
+const { carregarMarkdown } = require(path.resolve(__dirname, '../../scripts/micromark-adaptador.cjs')) as {
+  carregarMarkdown: () => Promise<Parser['markdown']>;
+};
+let PARSER: Parser;
+before(async () => {
+  PARSER = { ts, unicode: String(process.versions.unicode), markdown: await carregarMarkdown() };
+});
 const fontesDe = (arquivos: Record<string, string | Uint8Array>): FonteDoRepositorio[] =>
   Object.entries(arquivos).map(([p, c]) => ({ path: p, bytes: typeof c === 'string' ? Buffer.from(c, 'utf8') : c }));
 
@@ -190,7 +197,7 @@ test('KG2 provenance: o grafo sai na forma canonica do contrato, com digest igua
   assert.equal(r.relatorio.graph_digest, r.digest);
   assert.equal(r.relatorio.snapshot_id, r.grafo.snapshot.snapshot_id);
   assert.deepEqual(r.grafo.snapshot.extractors, [
-    { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: `1.0.0+unicode.${process.versions.unicode}` },
+    { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: `1.0.0+${PARSER.markdown.versao}+unicode.${process.versions.unicode}` },
     { extractor_id: 'ork.repo-files', extractor_version: '1.0.0' }, { extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}` },
   ]);
 });
@@ -470,6 +477,100 @@ test('KG2 limits: linha patologica longa nao derruba nem trava a extracao', () =
   assert.equal(relatorio.lacunas_por_categoria['frontmatter-invalido'], 1);
   assert.deepEqual(arestas(grafo, 'references'), []);
   assert.ok(temAresta(grafo, 'contains file:b.md -> section:b.md#b'));
+});
+
+/** Casos da CHECK rodada 2: o que o CommonMark e o GitHub dizem que e link, e so isso. */
+const CASOS_COMMONMARK: Record<string, [string, string[]]> = {
+  'cerca em citacao dupla fechada pelo fim da citacao': ['# A\n\n> > ```\n> > x\n```\n[falso](b.md)\n```\n', []],
+  'cerca com cerca citada dentro': ['# A\n\n```md\n> ```sh\n> npm i\n> ```\n```\n\n[real](c.md)\n\n```\n[falso](b.md)\n```\n', ['c.md']],
+  'cerca na linha do marcador de lista': ['# A\n\n- ```sh\n  [falso](b.md)\n  # comentario\n  ```\n', []],
+  'codigo indentado com uma linha de crases': ['# A\n\n    ```\n\nTexto [real](c.md).\n\n```\n[falso](b.md)\n```\n', ['c.md']],
+  'codigo indentado depois de quebra tematica': ['# A\n\n***\n    [falso](b.md)\n', []],
+  'codigo indentado depois de titulo setext': ['# A\n\nTitulo\n======\n    [falso](b.md)\n', []],
+  'bloco pre com linha em branco': ['# A\n\n<pre>\nx\n\n[falso](b.md)\n</pre>\n', []],
+  'bloco script com linha em branco': ['# A\n\n<script>\n\n[falso](b.md)\n</script>\n', []],
+  'bloco textarea com titulo dentro': ['# A\n\n<textarea>\n\n# falso\n[falso](b.md)\n</textarea>\n', []],
+  'instrucao de processamento': ['# A\n\n<?php\n\n[falso](b.md)\n?>\n', []],
+  'comentario HTML no inicio da linha': ['# A\n\n<!-- nota --> Ver [falso](b.md).\n', []],
+  'comentario HTML de varias linhas': ['# A\n\n<!--\nx\n--> [falso](b.md)\n\n[real](c.md)\n', ['c.md']],
+  'link dentro de link': ['# A\n\n[a [b](c.md)](b.md)\n', ['c.md']],
+  'celula excedente de tabela': ['# A\n\n| a | b |\n| --- | --- |\n| `x|y` | [falso](b.md) |\n', []],
+  'cerca de lista fechada por novo item': ['# A\n\n- passo\n  ```sh\n  npm i\n- outro [real](c.md)\n\n```\n[falso](b.md)\n```\n', ['c.md']],
+  'linha preguicosa na citacao': ['# A\n\n> ```\ntexto\n> ```\n> [falso](b.md)\n', []],
+};
+
+test('KG2 limits: link so onde o CommonMark e o GitHub veem link (contenedores, HTML, tabela, link aninhado)', () => {
+  for (const [nome, [texto, esperado]] of Object.entries(CASOS_COMMONMARK)) {
+    const { grafo } = extrair({ 'b.md': '# B\n', 'c.md': '# C\n', 'a.md': texto });
+    const r = rotulo(grafo);
+    const alvos = grafo.edges.filter((a) => a.kind === 'references' && r(a.from).includes(':a.md')).map((a) => r(a.to).replace(/^file:/, '')).sort();
+    assert.deepEqual(alvos, esperado, nome);
+    assert.ok(!grafo.nodes.some((n) => n.locator.fragment === 'falso'), `${nome}: secao falsa`);
+  }
+});
+
+test('KG2 extract: titulo setext vira secao, e mencao em codigo cercado de lista nao conta', () => {
+  const { grafo } = extrair({
+    'art.md': '---\nid: RM-777\ntipo: roadmap\n---\n# Art\n',
+    'a.md': 'Titulo Setext\n=============\n\nVeja RM-777.\n\n1. ```sh\n   echo RM-777\n   ```\n',
+  });
+  assert.ok(temAresta(grafo, 'contains file:a.md -> section:a.md#titulo-setext'));
+  assert.equal(trechos(grafo, { 'a.md': 'Titulo Setext\n=============\n\nVeja RM-777.\n\n1. ```sh\n   echo RM-777\n   ```\n' },
+    'references section:a.md#titulo-setext -> artifact:art.md#RM-777').length, 1);
+});
+
+test('KG2 limits: arquivo com tabela acima do teto nao tem o corpo analisado, e o frontmatter segue', () => {
+  const linhas = Array.from({ length: 2001 }, (_, i) => `| x${i} | [l](b.md) |`).join('\n');
+  const { grafo, relatorio } = extrair({
+    'b.md': '# B\n', 'a.md': `---\nid: RM-9\ntipo: roadmap\n---\n# A\n\n| a | b |\n| --- | --- |\n${linhas}\n`,
+  });
+  assert.deepEqual(arestas(grafo).filter((a) => a.includes('a.md')), []);
+  assert.ok(grafo.nodes.some((n) => n.kind === 'artifact' && n.locator.fragment === 'RM-9'));
+  assert.deepEqual(relatorio.lacunas.filter((l) => l.categoria === 'markdown-tabela-grande').map((l) => l.path), ['a.md']);
+});
+
+test('KG2 provenance: todo link extraido existe no markdown-it, e todo link do markdown-it para arquivo do repositorio vira aresta', () => {
+  const MarkdownIt = require(path.resolve(__dirname, '../../node_modules/markdown-it')) as new (o: object) => {
+    parse: (t: string, env: object) => { type: string; map: [number, number] | null; children: { type: string; attrGet: (n: string) => string | null }[] | null }[];
+  };
+  const md = new MarkdownIt({ html: true });
+  const corpus: Record<string, string> = { 'b.md': '# B\n', 'c.md': '# C\n', 'd/e.md': '# E\n\n## Sub\n' };
+  Object.entries(CASOS_COMMONMARK).forEach(([, [texto]], i) => { corpus[`caso${i}.md`] = texto; });
+  corpus['misto.md'] = [
+    '# Misto', '', '> Citacao com [b](b.md) e `[x](c.md)`.', '', '- item [e](d/e.md#sub)', '  - aninhado ![img](c.md "t")', '',
+    '| a | b |', '| - | - |', '| [c](c.md) | `d` |', '', 'Paragrafo', 'com [quebra](b.md)', '', '<details>', '', '[dentro](c.md)', '', '</details>', '',
+  ].join('\n');
+  const { grafo } = extrair(corpus);
+  const r = rotulo(grafo);
+  const nossos = new Set<string>();
+  for (const a of grafo.edges.filter((x) => x.kind === 'references')) {
+    for (const e of a.evidence) {
+      if (e.extraction_method !== 'explicit-link' || e.span.type !== 'text') continue;
+      const destino = Buffer.from(corpus[e.path], 'utf8').subarray(e.span.byte_start, e.span.byte_end).toString('utf8').match(/\]\((?:<)?([^)\s>]+)/)?.[1];
+      nossos.add(`${e.path}:${(e.span.line_start ?? 0) - 1}:${destino}`);
+      assert.ok(r(a.to), 'destino existe');
+    }
+  }
+  const deles = new Set<string>();
+  for (const [p, texto] of Object.entries(corpus)) {
+    for (const bloco of md.parse(texto, {})) {
+      for (const f of bloco.children ?? []) {
+        const href = f.type === 'link_open' ? f.attrGet('href') : f.type === 'image' ? f.attrGet('src') : null;
+        if (href && !/^[a-z]+:/i.test(href)) {
+          const alvo = path.posix.normalize(path.posix.join(path.posix.dirname(p), href.split('#')[0]));
+          if (corpus[alvo] === undefined || alvo === p) continue;
+          // Celula de tabela vem sem `map` no markdown-it: a linha fica em aberto.
+          if (!bloco.map) deles.add(`${p}:*:${href}`);
+          else for (let l = bloco.map[0]; l < bloco.map[1]; l++) deles.add(`${p}:${l}:${href}`);
+        }
+      }
+    }
+  }
+  for (const n of nossos) assert.ok(deles.has(n) || deles.has(n.replace(/:\d+:/, ':*:')), `link extraido sem link no markdown-it: ${n}`);
+  const semLinha = (n: string): string => n.replace(/:(\d+|\*):/, ':');
+  const linhasNossas = new Set([...nossos].map(semLinha));
+  for (const d of new Set([...deles].map(semLinha))) assert.ok(linhasNossas.has(d), `link do markdown-it sem aresta: ${d}`);
+  assert.ok(nossos.size >= 8, `corpus exercita links: ${nossos.size}`);
 });
 
 /** Repositorio Git temporario com identidade local e sem assinatura. */

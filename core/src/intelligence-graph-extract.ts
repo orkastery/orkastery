@@ -14,7 +14,7 @@ import {
   type Acesso, type Aresta, type Diagnostico, type EntradaDoManifesto, type Evidencia, type Extrator, type GrafoCodigo, type No,
   type TipoDeAresta, type TipoDeNo,
 } from './intelligence-graph-contract';
-import { CHAVES_DO_FRONTMATTER, PADRAO_DE_ID, extrairMarkdown } from './intelligence-graph-extract-md';
+import { CHAVES_DO_FRONTMATTER, PADRAO_DE_ID, TOKENS_SEM_MENCAO, extrairMarkdown, type EventoMd } from './intelligence-graph-extract-md';
 import { OPCOES_TS_DESCRITAS, extrairTypeScript } from './intelligence-graph-extract-ts';
 
 export const EXTRATOR_TS = 'ork.ts-ast';
@@ -54,11 +54,16 @@ export interface EntradaDeExtracao {
 }
 
 /**
- * D1: o compilador chega por parametro; este modulo so conhece o seu tipo. `unicode` e a versao do
- * Unicode do motor JavaScript (`process.versions.unicode`): o slug depende dela e entra na versao do
- * extrator Markdown.
+ * D1 e D15: os analisadores chegam por parametro; este modulo so conhece os seus tipos. `markdown`
+ * e o analisador CommonMark (micromark com tabela GFM) e a versao dele. `unicode` e a versao do
+ * Unicode do motor JavaScript (`process.versions.unicode`). As duas entram na versao do extrator
+ * Markdown, porque o slug e a estrutura dependem delas.
  */
-export interface Parser { ts: typeof TS; unicode: string }
+export interface Parser {
+  ts: typeof TS;
+  unicode: string;
+  markdown: { analisar: (texto: string) => readonly EventoMd[]; versao: string };
+}
 
 /** Extremidade de aresta antes do ID: tipo e localizador. */
 export interface RefDeNo { kind: TipoDeNo; path: string; fragment: string | null }
@@ -188,8 +193,9 @@ function contagemVazia<T extends string>(chaves: readonly T[]): Record<T, number
  * contrato estourado (D10), e `grafo.*` se o resultado violar o contrato (defeito do extrator).
  */
 export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): ResultadoDaExtracao {
-  const { ts, unicode } = parser;
+  const { ts, unicode, markdown } = parser;
   if (!/^[0-9]+(\.[0-9]+)*$/.test(unicode)) falha('extracao.entrada.unicode-invalido');
+  if (!/^[0-9A-Za-z][0-9A-Za-z.-]{0,40}$/.test(markdown.versao)) falha('extracao.entrada.markdown-invalido');
   const acl = [...new Set(entrada.acl_refs)].sort(compararUtf8);
   const access: Acesso = { tenant_id: entrada.tenant_id, acl_refs: acl };
   const authority = `git:${entrada.repository_id}`;
@@ -262,13 +268,14 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
     simbolos.set(chave, antes === undefined || (antes && antes.path === r.path && antes.fragment === r.fragment) ? r : null);
   }
   juntar(extrairMarkdown({
-    fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
+    fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, analisar: markdown.analisar,
+    extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
   }));
 
   const extratores: Extrator[] = [
     { extractor_id: EXTRATOR_ARQUIVOS, extractor_version: VERSAO_KG2 },
     { extractor_id: EXTRATOR_ID, extractor_version: VERSAO_KG2 },
-    { extractor_id: EXTRATOR_MD, extractor_version: `${VERSAO_KG2}+unicode.${unicode}` },
+    { extractor_id: EXTRATOR_MD, extractor_version: `${VERSAO_KG2}+${markdown.versao}+unicode.${unicode}` },
     { extractor_id: EXTRATOR_TS, extractor_version: versaoTs },
   ];
   const versoes = new Map(extratores.map((e) => [e.extractor_id, e.extractor_version]));
@@ -342,7 +349,9 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   const config = {
     schema: CONFIG_SCHEMA, authority, acl_refs: acl, evidencias_por_aresta: GRAFO_LIMITES.evidenciasPorAresta,
     typescript: { extensoes: EXTENSOES_TS, opcoes: OPCOES_TS_DESCRITAS },
-    markdown: { extensoes: EXTENSOES_MD, ancora: 'github-slug', artefato: PADRAO_DE_ID.source, frontmatter: CHAVES_DO_FRONTMATTER },
+    markdown: {
+      extensoes: EXTENSOES_MD, ancora: 'github-slug', artefato: PADRAO_DE_ID.source, frontmatter: CHAVES_DO_FRONTMATTER, sem_mencao: TOKENS_SEM_MENCAO,
+    },
   };
   const rascunho: GrafoCodigo = {
     schema: GRAFO_SCHEMA, tenant_id: entrada.tenant_id, repository_id: entrada.repository_id,
