@@ -13,7 +13,7 @@ import { exec as executar, noPath } from '../util';
 import { ambienteDeAssinatura } from '../runtime-ambiente';
 import * as path from 'node:path';
 import { ContextoRuntime, validarContextoRuntime } from '../runtime-context';
-import { ambienteComPerfil, PerfilDeDespacho } from '../runtime-profiles';
+import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -31,6 +31,14 @@ export function ambienteDoPerfil(perfil?: PerfilDeDespacho | null): NodeJS.Proce
 }
 
 export const NOME_ADAPTER = 'claude-bg';
+
+/** RM-037 (defeitosdeco D-4): o ambiente do `claude --bg` sem canal nem chave do contexto do despacho. */
+export function semContextoDeDespacho(base: NodeJS.ProcessEnv, contexto?: Record<string, string>): NodeJS.ProcessEnv {
+  const env = { ...base };
+  delete env.ORK_CANAL;
+  for (const chave of Object.keys(contexto ?? {})) delete env[chave];
+  return env;
+}
 
 /** Consultas do perfil interactive; gates e respostas humanas nunca recebem grant. */
 const CONSULTAS_MCP = [
@@ -115,6 +123,12 @@ export function montarComando(pedido: DespachoPedido): string[] {
   const plano = pedido.colaboracao === 'plan';
   if (pedido.model) args.push('--model', pedido.model);
   if (pedido.effort) args.push('--effort', pedido.effort);
+  // RM-037 (defeitosdeco D-4): o contexto do despacho (identidade, thread, canal) chega POR SESSAO.
+  // O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon guarda o
+  // ambiente de quem o iniciou: pelo ambiente, a sessao nascia com a identidade de outro despacho.
+  // Medido em 28/09/2026 (2.1.284): o `env` de `--settings` chega ao Bash da sessao e vence o herdado.
+  const doDespacho = pedido.ambienteExtra ?? {};
+  if (Object.keys(doDespacho).length) args.push('--settings', JSON.stringify({ env: doDespacho }));
   if (pedido.contextoRuntime) {
     if (pedido.contextoRuntime.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
     const contexto = validarContextoRuntime(pedido.contextoRuntime, pedido.cwd);
@@ -239,7 +253,9 @@ export function acharSessao(chave: string, sessoes?: SessaoRuntime[]): SessaoRun
 export function despachar(pedido: DespachoPedido): DespachoResultado {
   const comando = montarComando(pedido);
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = { ...ambienteDoPerfil(pedido.perfil), ...(pedido.ambienteExtra ?? {}) }; }
+  // D-4: nada do contexto do despacho vai ao ambiente do processo `claude`, para um daemon novo nunca
+  // nascer com ele; a identidade herdada ja sai em `ambienteDeAssinatura`, e o canal sai aqui.
+  try { ambiente = semContextoDeDespacho(ambienteDoPerfil(pedido.perfil), pedido.ambienteExtra); }
   catch (e) { return { ok: false, comando, sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   if (pedido.dryRun) {
     return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
@@ -472,6 +488,14 @@ const FRASES_DE_AUTH_AUSENTE: readonly RegExp[] = [
 const FRASES_AMPLAS_DE_AUTH: readonly RegExp[] = [/\bcodex login\b/i];
 
 /**
+ * RM-037 (defeitosdeco D-6): modelo inexistente ou sem acesso na conta. Medido na transcricao da
+ * sessao af32834f (28/09/2026, `fable-5-1` num perfil de conta sem esse modelo): `error: "model_not_found"` e o texto
+ * "There's an issue with the selected model (fable-5-1). It may not exist or you may not have access
+ * to it". Frase de sobrecarga ("model is overloaded") nao entra: e falha transitoria da infra.
+ */
+const FRASES_DE_MODELO_INACESSIVEL: readonly RegExp[] = [/\bmodel_not_found\b/i, /issue with the selected model/i];
+
+/**
  * I-33 (D16): CRITERIO UNICO entre ESGOTAMENTO da conta e RATE LIMIT comum. Decisao do dono em
  * 19/09/2026 (opcao a do A3 do CHECK aa279e17): esgotamento de cota, credito ou limite do plano
  * tira o perfil do rodizio e o MESMO prompt pode seguir no proximo perfil ativo do mesmo runtime;
@@ -581,6 +605,8 @@ export function naturezaDoLimite(saida: string, agoraMs = Date.now()): LimiteCla
 
 export function parseFalhaDeConta(saida: string, agoraMs = Date.now()): SinalDeFalhaDeConta | null {
   const texto = saida ?? '';
+  const modelo = FRASES_DE_MODELO_INACESSIVEL.find((r) => r.test(texto));
+  if (modelo) return { motivo: 'runtime.model-unavailable', resetEm: null, fonte: 'sem-horario', trecho: trechoDa(texto, modelo) };
   const auth = FRASES_DE_AUTH_AUSENTE.find((r) => r.test(texto));
   if (auth) return { motivo: 'runtime.auth-missing', resetEm: null, fonte: 'sem-horario', trecho: trechoDa(texto, auth) };
   const limite = naturezaDoLimite(texto, agoraMs);
@@ -634,9 +660,14 @@ export function conferirAuth(perfil?: PerfilDeDespacho | null): StatusDeAuth {
   return { ok: true, detalhe: `claude auth status: loggedIn (${metodo})` };
 }
 
-/** Comando de anexar a sessao (precisa de TTY, entao o CLI imprime em vez de executar). */
-export function comandoAttach(sessionId: string): string {
-  return `claude attach ${sessionId}`;
+/**
+ * Comando de anexar a sessao (precisa de TTY, entao o CLI imprime em vez de executar). RM-037
+ * (defeitosdeco D-2): sessao de um perfil so e anexada com o `CLAUDE_CONFIG_DIR` daquela conta.
+ */
+export function comandoAttach(sessionId: string, configDir?: string | null): string {
+  if (!configDir) return `claude attach ${sessionId}`;
+  const dir = /^[A-Za-z0-9_./-]+$/.test(configDir) ? configDir : `'${configDir.replace(/'/g, `'\\''`)}'`;
+  return `CLAUDE_CONFIG_DIR=${dir} claude attach ${sessionId}`;
 }
 
 /**
@@ -732,9 +763,43 @@ export function logsDaSessao(id: string, linhas = 60, ambiente: NodeJS.ProcessEn
 /** Para uma sessao em background (o `claude stop` tambem trabalha com o id curto). */
 export function parar(chave: string, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): { ok: boolean; texto: string } {
   const sessao = acharSessao(chave, listarSessoes(undefined, true, ambiente));
-  const id = sessao?.id ?? (sessao?.sessionId ?? chave).slice(0, 8);
-  const r = exec('claude', ['stop', id], undefined, 60000, ambiente);
+  return pararAchada(sessao ?? { sessionId: chave }, ambiente);
+}
+
+/** Para a sessao ja achada numa conta, com o ambiente dessa conta, sem listar de novo. */
+export function pararAchada(sessao: Pick<SessaoRuntime, 'sessionId' | 'id'>, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()):
+    { ok: boolean; texto: string } {
+  const r = exec('claude', ['stop', sessao.id ?? sessao.sessionId.slice(0, 8)], undefined, 60000, ambiente);
   return { ok: r.ok, texto: limparAnsi(r.stdout + r.stderr).trim() };
+}
+
+/** RM-037 (defeitosdeco D-2): a sessao achada, a conta onde ela esta e o ambiente dessa conta. */
+export interface SessaoNaConta { sessao: SessaoRuntime; perfil: PerfilDeDespacho | null; configDir: string; ambiente: NodeJS.ProcessEnv }
+
+/**
+ * RM-037 (defeitosdeco D-2): o `claude agents` so lista a sessao para a conta que a despachou, entao
+ * uma chave e procurada no ambiente do processo e em cada perfil claude-bg informado, sem repetir
+ * diretorio efetivo. Consulta que falha nao vira "nao encontrada": vai para `falhas`.
+ */
+export function acharSessaoNasContas(chave: string, perfis: readonly PerfilDeDespacho[]): { achadas: SessaoNaConta[]; falhas: string[] } {
+  const achadas: SessaoNaConta[] = [], falhas: string[] = [], vistos = new Set<string>();
+  // GO-FIX (R5a): cada consulta pode custar dezenas de segundos sob carga. UUID completo e unico em
+  // qualquer conta, entao a busca para na primeira que acha; prefixo ou nome consulta todas, para
+  // recusar a chave ambigua.
+  const unica = UUID_CLAUDE.test(chave);
+  for (const perfil of [null, ...perfis.filter(p => p.runtime === 'claude-bg')]) {
+    let ambiente: NodeJS.ProcessEnv, configDir: string;
+    try { ambiente = ambienteDoPerfil(perfil); configDir = path.resolve(diretorioEfetivo('claude-bg', perfil, ambiente)); }
+    catch (e) { falhas.push(`${perfil?.id ?? 'processo'}: ${(e as Error).message}`); continue; }
+    if (vistos.has(configDir)) continue;
+    vistos.add(configDir);
+    const consulta = consultarSessoes(undefined, true, ambiente);
+    if (!consulta.ok) { falhas.push(`${perfil?.id ?? 'processo'}: ${consulta.detalhe}`); continue; }
+    const sessao = acharSessao(chave, consulta.sessoes);
+    if (sessao) achadas.push({ sessao, perfil, configDir, ambiente });
+    if (sessao && unica) break;
+  }
+  return { achadas, falhas };
 }
 
 /**

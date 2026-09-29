@@ -208,7 +208,7 @@ function pedidoDoVerify(carregado: ManifestoCarregado, threadId: string, operaca
     canal: conducao.canal ?? canalDoProcesso(),
     correlacao: conducao.correlacao ?? null,
     operacao,
-    identidade: conducao.identidade ?? identidadeDoAmbiente(threadId),
+    identidade: conducao.identidade ?? identidadeDoAmbiente(threadId, process.env, carregado.raiz),
     prazoMs: prazoDaVerificacao(carregado.manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS, comandos),
     esperarMs: conducao.esperarMs,
   };

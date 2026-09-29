@@ -17,6 +17,14 @@ export function nomesDeProviderAtivos(base: NodeJS.ProcessEnv = process.env): st
   return ENVS_DE_PROVIDER_PAGO.filter(nome => (base[nome] ?? '').trim() !== '');
 }
 
+/**
+ * Identidade do despacho no ambiente da sessao filha (I-36, D4). RM-037 (defeitosdeco D-4): o domicilio
+ * dos nomes e aqui porque nenhum filho de runtime herda a identidade de quem despachou; o despacho
+ * acrescenta a sua explicitamente, e o `claude --bg` a leva por sessao em `--settings`.
+ */
+export const ENV_IDENTIDADE_DE_DESPACHO = 'ORK_DISPATCH_ID';
+export const ENV_THREAD_DO_DESPACHO = 'ORK_DISPATCH_THREAD';
+
 /** Copia, sem alterar o ambiente em que as policies ainda precisam ser avaliadas. */
 export function ambienteDeAssinatura(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env = { ...base };
@@ -25,6 +33,9 @@ export function ambienteDeAssinatura(base: NodeJS.ProcessEnv = process.env): Nod
   // A autoridade de ingresso pertence ao processo do host/núcleo. Um executor
   // de código não recebe chaves, bindings ou allowlists de respostas humanas.
   for (const nome of Object.keys(env)) if (nome.startsWith('ORK_HITL_')) delete env[nome];
+  // RM-037 (defeitosdeco D-4): a identidade herdada e de OUTRO despacho (o daemon do `claude --bg`
+  // guardava a do primeiro despacho e a passava a todas as sessoes reserva da conta).
+  delete env[ENV_IDENTIDADE_DE_DESPACHO]; delete env[ENV_THREAD_DO_DESPACHO];
   delete env[ENV_HITL_VERIFIERS];
   if (publicVerifiers) env[ENV_HITL_VERIFIERS] = publicVerifiers;
   return env;

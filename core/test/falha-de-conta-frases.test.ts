@@ -41,12 +41,19 @@ test('A6: authentication_failed com OAuth session expired e auth ausente; erros 
     assert.equal(falha?.motivo, 'runtime.auth-missing');
     assert.equal(falha?.resetEm, null);
     for (const [error, texto] of [
-      ['model_not_found', "There's an issue with the selected model (fable-5.1). It may not exist or you may not have access to it."],
       ['oauth_org_not_allowed', 'Your organization has disabled Claude subscription access for Claude Code'],
     ]) {
       transcricao(conta, raiz, SESSAO, [linhaDeErro(error, texto)]);
       assert.equal(falhaDeContaDaTranscricao(perfil, raiz, SESSAO), null, error);
     }
+    // RM-037 (defeitosdeco D-6): `model_not_found` continua sem ser falha da CONTA (nem cota nem login,
+    // o perfil nao sai do rodizio), mas deixa de cair em `runtime.unavailable`, que repetia o mesmo
+    // modelo na mesma conta: vira o motivo tipado do modelo.
+    transcricao(conta, raiz, SESSAO, [linhaDeErro('model_not_found',
+      "There's an issue with the selected model (fable-5.1). It may not exist or you may not have access to it.")]);
+    const modelo = falhaDeContaDaTranscricao(perfil, raiz, SESSAO);
+    assert.equal(modelo?.motivo, 'runtime.model-unavailable');
+    assert.equal(modelo?.resetEm, null);
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
 });
 
