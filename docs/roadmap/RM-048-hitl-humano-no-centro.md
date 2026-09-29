@@ -6,18 +6,18 @@ categoria: melhoria
 pai: null
 features: [FEAT-011, FEAT-014, FEAT-015, FEAT-021]
 owner: Julio
-atualizado_em: 2026-09-28T23:59:00-03:00
+atualizado_em: 2026-09-29T23:48:35+00:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 8d47740
     pr: null
 sdlc:
   thread: ork-hitlhumanono
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Branch criada | Aprovados | Não implantado | Flag desligada |
+| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -80,13 +80,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-09-28 | Julio |
-| Documentação | Em revisão | — | 2026-09-28 | Julio |
-| Código | Branch criada | — | 2026-09-28 | Julio |
-| Testes | Aprovados | — | 2026-09-28 | Julio |
-| Deploy | Não implantado | — | 2026-09-28 | Julio |
-| Exposição | Flag desligada | — | 2026-09-28 | Julio |
-| Habilitação | Pendente | — | 2026-09-28 | Julio |
+| Ciclo do item | Em validação | — | 2026-09-29 | Julio |
+| Documentação | Em revisão | — | 2026-09-29 | Julio |
+| Código | Mesclado | commit `8d47740` | 2026-09-29 | Julio |
+| Testes | Aprovados | — | 2026-09-29 | Julio |
+| Deploy | Não implantado | — | 2026-09-29 | Julio |
+| Exposição | Flag desligada | — | 2026-09-29 | Julio |
+| Habilitação | Pendente | — | 2026-09-29 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

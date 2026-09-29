@@ -5,7 +5,7 @@
 Use este guia quando você trabalha no mesmo repositório de mais de um lugar (uma VPS, o
 computador de casa, o notebook) ou com mais de um builder.
 
-## As quatro peças
+## As cinco peças
 
 | Peça | O que resolve | Comando |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ computador de casa, o notebook) ou com mais de um builder.
 | Reserva do item do roadmap | duas máquinas não pegam o mesmo item | `ork roadmap pegar RM-NNN` ou `ork thread new ... --roadmap RM-NNN` |
 | Visão compartilhada | o board e o resumo mostram as outras máquinas | `ork board`, `ork fabrica` e o resumo do pulse |
 | Setup versionado | todas despacham cada bloco com o mesmo runtime, modelo e esforço | `ork setup versionar`, e o PR |
+| A rede da pessoa | todas as máquinas da pessoa, de qualquer diretório e de todos os projetos | `ork network entrar` e `ork network status` |
 
 A reserva e a visão vivem em branches próprias do remoto, fora da `main` e sem PR:
 `ork/roadmap-reservas` e `ork/fabrica-estado`. Cada gravação é um commit em cima da ponta lida,
@@ -83,6 +84,34 @@ Pergunta que espera você em outra máquina chega na hora, como a desta, qualque
 cadência do pulse. Ela se responde **lá**: a thread vive naquela máquina, e é o ingresso daquela
 máquina (terminal, Telegram dela ou MCP) que prova que foi você.
 
+## A rede da pessoa: Orkastery Network
+
+A fábrica compartilhada vive no remoto de **um** projeto. A rede junta as máquinas da pessoa, de
+todos os projetos, num repositório privado dela na forja, `<usuario>/orkastery-network`
+([ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md)).
+
+```bash
+ork network entrar --maquina pc-casa   # cria a casa privada, se falta, e publica o retrato
+ork network status                     # de qualquer diretório: as máquinas, a fonte e as lacunas
+ork network sair                       # tira o retrato desta máquina da casa
+```
+
+- A identidade vem do `gh` ou do `glab` já autenticados; o `ork` nunca lê token.
+- Quem já fez `ork fabrica entrar` é membro da rede sem refazer nada: a batida do pulse publica o retrato quando a casa existe.
+- A `ork/fabrica-estado` continua lida: máquina que só publicou lá aparece como membro pela fábrica.
+- Depois de entrar, a máquina publica sozinha na batida do pulse e nos eventos de thread; `ork network publicar` publica na hora.
+
+| Vai para a casa | Nunca vai |
+| --- | --- |
+| nome, hostname, forja e login | token, senha, chave ou e-mail da conta |
+| runtimes e hosts com a versão | plano ou conta paga, perfil de conta e o diretório dele |
+| projetos conhecidos, com remoto sem credencial e caminho | caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`) |
+| versão do `ork` e a última batida | prompt, transcript ou log |
+
+Leia o `status` pelo que ele diz que leu: "Não consultado: roadmap, reservas, threads" quer dizer
+que isso não foi olhado, não que está vazio. Os campos estão em
+[Contratos da rede](../referencia/contratos/rede-rm053.md).
+
 ## Sair
 
 `ork fabrica sair` para de publicar desta máquina e tira o retrato dela da branch. O nome fica
@@ -96,6 +125,8 @@ gravado, para quando ela voltar.
 | A mesma máquina aparece com dois nomes | `ORK_MAQUINA` num shell diferente do nome do arquivo; `ork fabrica entrar` avisa |
 | Sem rede | `ork board --sem-remoto` e `ork fabrica --sem-remoto` mostram a última cópia, com aviso |
 | A thread entregue ainda aparece ativa | o merge não tem o assunto `ship(<thread>): ...` |
+| `ork network status` mostra `rede.sem-repositorio` | ninguém rodou `ork network entrar` ainda: a primeira máquina cria a casa |
+| A rede não publica em segundo plano | `~/.orkastery/rede/rede.log`: cada tentativa deixa uma linha, inclusive a que falhou |
 
 ## O setup por bloco, igual em todas
 

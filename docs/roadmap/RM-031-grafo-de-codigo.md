@@ -6,18 +6,18 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-28T22:14:30-03:00
+atualizado_em: 2026-09-29T23:48:35+00:00
 estado:
   ciclo: Refinamento
   documentacao: Rascunho
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: "8589330"
     pr: null
 sdlc:
   thread: ork-i31kg1contra
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Refinamento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Refinamento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -71,13 +71,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Refinamento | — | 2026-09-28 | Julio |
-| Documentação | Rascunho | — | 2026-09-28 | Julio |
-| Código | Branch criada | — | 2026-09-28 | Julio |
-| Testes | Em execução | — | 2026-09-28 | Julio |
-| Deploy | Não implantado | — | 2026-09-28 | Julio |
-| Exposição | Flag desligada | — | 2026-09-28 | Julio |
-| Habilitação | Pendente | — | 2026-09-28 | Julio |
+| Ciclo do item | Refinamento | — | 2026-09-29 | Julio |
+| Documentação | Rascunho | — | 2026-09-29 | Julio |
+| Código | Mesclado | commit `8589330` | 2026-09-29 | Julio |
+| Testes | Em execução | — | 2026-09-29 | Julio |
+| Deploy | Não implantado | — | 2026-09-29 | Julio |
+| Exposição | Flag desligada | — | 2026-09-29 | Julio |
+| Habilitação | Pendente | — | 2026-09-29 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

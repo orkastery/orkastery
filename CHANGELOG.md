@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Orkastery Network** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)): as máquinas de uma pessoa em
+  rede, num repositório privado dela na forja (`<usuario>/orkastery-network`):
+  - `ork network entrar`, `status`, `publicar` e `sair`, de qualquer diretório; GitHub pelo `gh` e GitLab
+    pelo `glab`, com a identidade da CLI já autenticada;
+  - o retrato leva nome, hostname, forja e login, runtimes e hosts com versão, projetos conhecidos, versão do
+    `ork` e a batida; nunca token, conta paga ou caminho de credencial, e a varredura de segredo recusa a
+    publicação;
+  - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
+  - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última
