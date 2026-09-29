@@ -159,26 +159,45 @@ test('KG1 graph: mesmo arquivo em outro repositorio ou tenant tem identidade dis
 
 test('KG1 graph: calls, references e imports podem formar ciclo; contains nao', () => {
   const g = structuredClone(GRAFO);
-  const calls = g.edges[indiceDaAresta(g, 'calls', 'src/app.ts')];
-  const somaParaPrincipal = structuredClone(calls);
-  [somaParaPrincipal.from, somaParaPrincipal.to] = [calls.to, calls.from];
   const util = g.snapshot.source_manifest.find((m) => m.path === 'src/util.ts') as GrafoCodigo['snapshot']['source_manifest'][number];
-  Object.assign(somaParaPrincipal.evidence[0], { path: 'src/util.ts', source_hash: util.source_hash, source_version: util.source_version,
-    span: { type: 'text', byte_start: 55, byte_end: 61, line_start: 2, line_end: 2 } });
-  g.edges.push(somaParaPrincipal);
+  const noDe = (kind: string, p: string, fragment: string | null) =>
+    (g.nodes.find((n) => n.kind === kind && n.locator.path === p && n.locator.fragment === fragment) as GrafoCodigo['nodes'][number]).node_id;
+  /** Aresta de volta, com evidencia em src/util.ts, que e a fonte de onde ela parte. */
+  const deVolta = (kind: GrafoCodigo['edges'][number]['kind'], from: string, to: string, metodo: 'ast' | 'text-location') => {
+    const base = structuredClone(g.edges[indiceDaAresta(g, 'calls', 'src/app.ts')]);
+    Object.assign(base.evidence[0], { path: 'src/util.ts', source_hash: util.source_hash, source_version: util.source_version,
+      extraction_method: metodo, span: { type: 'text', byte_start: 55, byte_end: 61, line_start: 2, line_end: 2 } });
+    return { ...base, kind, from, to };
+  };
+  const [app, fUtil, principal, soma, secao] = [noDe('file', 'src/app.ts', null), noDe('file', 'src/util.ts', null),
+    noDe('symbol', 'src/app.ts', 'principal'), noDe('symbol', 'src/util.ts', 'soma'), noDe('section', 'docs/guia.md', 'configuração')];
+  g.edges.push(deVolta('calls', soma, principal, 'ast'), deVolta('imports', fUtil, app, 'ast'), deVolta('references', fUtil, secao, 'text-location'));
   const ciclico = validarGrafo(derivarIds(g));
-  assert.equal(ciclico.edges.filter((a) => a.kind === 'calls').length, 2);
-  const contains = structuredClone(somaParaPrincipal);
-  contains.kind = 'contains';
-  const reverso = structuredClone(contains);
-  [reverso.from, reverso.to] = [contains.to, contains.from];
-  reverso.evidence[0] = structuredClone(calls.evidence[0]);
-  g.edges.push(contains, reverso);
+  for (const [kind, de, para] of [['calls', principal, soma], ['imports', app, fUtil], ['references', secao, fUtil]] as const) {
+    const ida = ciclico.edges.find((a) => a.kind === kind && a.from === de && a.to === para);
+    const volta = ciclico.edges.find((a) => a.kind === kind && a.from === para && a.to === de);
+    assert.ok(ida && volta, `${kind} em ciclo`);
+  }
+  const auxiliar = { ...structuredClone(g.nodes.find((n) => n.node_id === principal) as GrafoCodigo['nodes'][number]), node_id: 'provisorio-auxiliar',
+    locator: { path: 'src/app.ts', fragment: 'auxiliar' } };
+  const contem = (from: string, to: string) => ({ ...structuredClone(g.edges[indiceDaAresta(g, 'calls', 'src/app.ts')]), kind: 'contains' as const, from, to });
+  g.nodes.push(auxiliar);
+  g.edges.push(contem(principal, auxiliar.node_id), contem(auxiliar.node_id, principal));
   assert.throws(() => validarGrafo(derivarIds(g)), comCodigo('grafo.aresta.ciclo-contains'));
+});
+
+test('KG1 graph: id provisorio repetido no rascunho e recusado, sem redirecionar arestas', () => {
+  const g = structuredClone(GRAFO);
+  const soma = g.nodes.find((n) => n.locator.fragment === 'soma') as GrafoCodigo['nodes'][number];
+  g.nodes.push({ ...structuredClone(soma), locator: { path: 'src/util.ts', fragment: 'subtrai' } });
+  assert.throws(() => derivarIds(g), comCodigo('grafo.id.provisorio-duplicado'));
 });
 
 test('KG1 graph: canonico ordena chaves por bytes UTF-8 e recusa numero nao finito', () => {
   assert.equal(canonico({ b: 1, a: [2, { d: null, c: 'x' }] }), '{"a":[2,{"c":"x","d":null}],"b":1}');
+  // Escape do JSON.stringify do ECMAScript: aspas, barra invertida e controle; o resto vai cru em UTF-8.
+  assert.equal(canonico('ç"\\\u0001\n'), '"ç\\"\\\\\\u0001\\n"');
+  assert.deepEqual([...Buffer.from(canonico('ç'), 'utf8')], [0x22, 0xc3, 0xa7, 0x22]);
   assert.ok(compararUtf8('￿', '\u{1f600}') < 0, 'code point FFFF antes de 1F600, como nos bytes UTF-8');
   assert.ok('￿' > '\u{1f600}', 'a ordem UTF-16 do JavaScript diverge; o contrato nao depende dela');
   for (const v of [Number.NaN, Number.POSITIVE_INFINITY, { x: Number.NEGATIVE_INFINITY }]) {
@@ -253,6 +272,19 @@ test('KG1 provenance: span fora da fronteira UTF-8 ou com linhas falsas e recusa
   const h = structuredClone(GRAFO);
   Object.assign(h.edges[indiceDaAresta(h, 'calls', 'src/app.ts')].evidence[0].span, { line_start: 1, line_end: 1 });
   assert.throws(() => conferirFontes(derivarIds(h), fontesDoCorpus()), comCodigo('grafo.span.linhas-divergentes'));
+});
+
+test('KG1 provenance: fonte binaria confere hash e tamanho, e nao aceita span', () => {
+  const logo = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0x00]);
+  const g = structuredClone(GRAFO), app = g.snapshot.source_manifest.find((m) => m.path === 'src/app.ts') as GrafoCodigo['snapshot']['source_manifest'][number];
+  g.snapshot.source_manifest.push({ ...structuredClone(app), path: 'assets/logo.png', source_hash: sha256(logo), source_version: 'v1', size_bytes: logo.length });
+  const arquivo = structuredClone(g.nodes.find((n) => n.kind === 'file' && n.locator.path === 'src/app.ts') as GrafoCodigo['nodes'][number]);
+  g.nodes.push({ ...arquivo, node_id: 'provisorio-logo', locator: { path: 'assets/logo.png', fragment: null }, source_hash: sha256(logo) });
+  const comLogo = derivarIds(g), fontes = trocar(fontesDoCorpus(), 'assets/logo.png', { tipo: 'binario', bytes: logo });
+  assert.equal(conferirFontes(comLogo, fontes).estado, 'verificada');
+  assert.throws(() => conferirFontes(comLogo, trocar(fontes, 'assets/logo.png', { tipo: 'texto', bytes: logo })), comCodigo('grafo.fonte.utf8-invalido'));
+  assert.throws(() => conferirFontes(GRAFO, trocar(fontesDoCorpus(), 'src/app.ts', { tipo: 'binario', bytes: bytesDe(fontesDoCorpus(), 'src/app.ts') })),
+    comCodigo('grafo.span.tipo-incompativel'));
 });
 
 test('KG1 provenance: offset de PDF e do texto da pagina, nunca do binario', () => {

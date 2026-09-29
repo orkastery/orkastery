@@ -41,8 +41,10 @@ O `snapshot` fixa a entrada:
 ## Identidade e forma canônica
 
 JSON canônico: chaves na ordem dos bytes UTF-8 (a ordem de code points), sem espaço, só
-número finito, inteiro seguro em posição e contagem. Hash é SHA-256 sobre os bytes UTF-8
-desse texto. Conjuntos (manifesto, extratores, nós, arestas, evidências, diagnósticos) são
+número finito, inteiro seguro em posição e contagem. String sai como no `JSON.stringify` do
+ECMAScript: escapa só aspas, barra invertida e controle abaixo de U+0020 (`\b`, `\f`, `\n`,
+`\r`, `\t`, os demais como `\u00xx` minúsculo); todo o resto vai cru em UTF-8, sem `\u` para
+não-ASCII. Hash é SHA-256 sobre os bytes UTF-8 desse texto. Conjuntos (manifesto, extratores, nós, arestas, evidências, diagnósticos) são
 ordenados na forma canônica; `acl_refs` já chega ordenado e sem repetição.
 
 | ID | Deriva de |
@@ -73,7 +75,10 @@ sem fonte no manifesto não vira nó externo fabricado.
 | `derived_from` | `artifact` | `file`, `section` ou `artifact` |
 
 Arestas repetidas (mesmo tipo e extremidades), extremidade ausente e combinação fora da
-matriz são recusadas. `calls`, `imports` e `references` podem formar ciclo; `contains` não.
+matriz são recusadas. `contains` e `declares` ficam dentro de um arquivo: as duas
+extremidades têm o mesmo `path`, e a relação entre arquivos é `imports` ou `references`. Cada
+nó tem no máximo um pai em `contains`. `calls`, `imports` e `references` podem formar ciclo;
+`contains` não.
 Import externo não resolvido, resolução dinâmica e linguagem sem suporte vão para
 `diagnostics` (`unresolved-import`, `dynamic-resolution`, `unsupported-language`), nunca
 para uma aresta.
@@ -101,8 +106,12 @@ Toda aresta tem de 1 a 64 evidências. Cada uma traz `snapshot_id`, `path`, `sou
 | `text` | `byte_start` inclusivo, `byte_end` exclusivo, em bytes UTF-8 da fonte | dentro de `size_bytes`, em fronteira UTF-8; `line_start`/`line_end` (1-based) só se conferem |
 | `pdf-text` | `page` (1-based) e offsets no texto UTF-8 extraído da página | `extracted_text_hash` bate com o texto da página; offset nunca é do binário |
 
+Duas evidências da mesma página da mesma fonte têm o mesmo `extracted_text_hash`: a página tem
+um texto extraído só.
+
 Sem bytes, a validação é só estrutural. `conferirFontes` recebe bytes que o chamador já
-leu (`texto`, ou `pdf` com as páginas extraídas) e devolve `verificada` ou `parcial`. Fonte
+leu e devolve `verificada` ou `parcial`: `texto` exige UTF-8 válido, `pdf` traz as páginas
+extraídas e `binario` confere só hash e tamanho, sem aceitar span. Fonte
 ausente conta como indisponível, nunca como verificada. Span certo não prova que o parser
 entendeu a relação; essa prova é a auditoria de arestas do benchmark.
 
@@ -138,14 +147,19 @@ de vazamento de um serviço de consulta que ainda não existe.
 | `conferirFontes(entrada, fontes)` | hash, tamanho, UTF-8 e spans contra bytes fornecidos |
 
 O erro traz o código e a posição estrutural (`edges.3.evidence.0`), nunca conteúdo nem
-caminho da fonte. Famílias: `grafo.versao`, `grafo.estrutura`, `grafo.caminho`,
-`grafo.snapshot`, `grafo.id`, `grafo.no`, `grafo.aresta`, `grafo.proveniencia`,
-`grafo.span`, `grafo.acesso`, `grafo.fonte` e `grafo.diagnostico`.
+caminho da fonte. Em `validarGrafo` a posição é a da entrada; em `conferirFontes`, a da forma
+canônica que `validarGrafo` devolve. Famílias: `grafo.versao`, `grafo.estrutura`,
+`grafo.caminho`, `grafo.texto`, `grafo.canonico`, `grafo.manifesto`, `grafo.extrator`,
+`grafo.snapshot`, `grafo.id`, `grafo.no`, `grafo.aresta`, `grafo.proveniencia`, `grafo.span`,
+`grafo.acesso`, `grafo.fonte` e `grafo.diagnostico`.
 
 Caminho é relativo à raiz declarada, com `/` e caixa preservada. São recusados: absoluto,
-drive, esquema de URL, `\`, `.`, `..`, segmento vazio, caractere de controle e escape
-percentual que decodifica para `.`, `..` ou separador. O contrato não normaliza: forma não
-canônica é recusada, para dois caminhos distintos nunca se fundirem em silêncio.
+`\`, `:` no primeiro segmento (drive ou esquema de URL), `.`, `..`, segmento vazio,
+qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1 e marcas invisíveis ou
+bidirecionais. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
+caminhos do manifesto que coincidem na forma NFC são recusados
+(`grafo.manifesto.caminho-ambiguo`), porque um sistema de arquivos que normaliza os
+fundiria. Fragmentos de localizador seguem a mesma regra de controle e marcas.
 
 Limites: 100 mil entradas de manifesto, 100 mil nós, 500 mil arestas, 64 evidências por
 aresta, 32 referências de ACL, 32 extratores, caminho de até 1024 caracteres. Acima deles o

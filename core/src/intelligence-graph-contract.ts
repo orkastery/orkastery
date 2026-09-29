@@ -215,6 +215,8 @@ export function derivarIds(rascunho: GrafoCodigo): GrafoCodigo {
   s.snapshot_id = idDoSnapshot(g);
   const novos = new Map<string, string>();
   for (const n of g.nodes) {
+    // Id provisorio repetido tornaria ambigua a extremidade: recusa em vez de escolher um.
+    if (novos.has(n.node_id)) falha('grafo.id.provisorio-duplicado');
     n.snapshot_id = s.snapshot_id;
     const id = idDoNo(g.tenant_id, g.repository_id, s.snapshot_id, n.kind, n.locator);
     novos.set(n.node_id, id);
@@ -230,23 +232,23 @@ export function derivarIds(rascunho: GrafoCodigo): GrafoCodigo {
   return canonizar(g);
 }
 
-const CONTROLE = /[\u0000-\u001f\u007f]/;
+/** Controle C0 e C1, e marcas invisiveis ou bidirecionais que fazem um nome parecer outro. */
+const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
 const SURROGATE_ISOLADO = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const textoValido = (t: string): boolean => !CONTROLE.test(t) && !SURROGATE_ISOLADO.test(t);
 
 /**
- * D2: caminho relativo a raiz declarada, com "/" e caixa preservada. O contrato nao normaliza:
- * forma nao canonica e recusada, para dois caminhos distintos nunca se fundirem em silencio.
- * Primeiro segmento com ":" parece esquema de URL ou drive e tambem e recusado.
+ * D2: caminho relativo a raiz declarada, com "/" e caixa preservada. O contrato compara caminhos
+ * como texto e nao normaliza: forma ambigua e recusada, para dois caminhos distintos nunca se
+ * fundirem em silencio. Escape percentual (`%2e`, `%252e`) e recusado inteiro, porque um
+ * consumidor que decodifica uma ou duas vezes chegaria a outro caminho. Primeiro segmento com
+ * ":" parece esquema de URL ou drive e tambem e recusado.
  */
 export function caminhoValido(p: string): boolean {
-  if (!p || !textoValido(p) || p.includes('\\') || p.startsWith('/') || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(p)) return false;
-  return p.split('/').every((segmento) => {
-    if (segmento === '' || segmento === '.' || segmento === '..') return false;
-    let decodificado = segmento;
-    try { decodificado = decodeURIComponent(segmento); } catch { /* escape malformado fica literal */ }
-    return decodificado !== '.' && decodificado !== '..' && !/[/\\]/.test(decodificado) && !CONTROLE.test(decodificado);
-  });
+  if (!p || !textoValido(p) || p.includes('\\') || p.startsWith('/') || /%[0-9A-Fa-f]{2}/.test(p)) return false;
+  const segmentos = p.split('/');
+  if (segmentos[0].includes(':')) return false;
+  return segmentos.every((segmento) => segmento !== '' && segmento !== '.' && segmento !== '..');
 }
 
 const autoridadeDoIndice = (a: string): boolean =>
@@ -326,10 +328,15 @@ function semantica(g: GrafoCodigo): void {
   const s = g.snapshot;
   if ((s.revision === null) === (s.revision_unavailable_reason === null)) falha('grafo.snapshot.revisao-inconsistente', 'snapshot');
   const c: Contexto = { snapshotId: s.snapshot_id, tenantId: g.tenant_id, manifesto: new Map(), extratores: new Set() };
+  const normalizados = new Set<string>();
   s.source_manifest.forEach((m, i) => {
     const onde = `snapshot.source_manifest.${i}`;
     if (!caminhoValido(m.path)) falha('grafo.caminho.invalido', onde);
     if (c.manifesto.has(m.path)) falha('grafo.manifesto.duplicado', onde);
+    // NFC e NFD sao caminhos distintos aqui, mas um sistema de arquivos que normaliza os fundiria.
+    const normalizado = m.path.normalize('NFC');
+    if (normalizados.has(normalizado)) falha('grafo.manifesto.caminho-ambiguo', onde);
+    normalizados.add(normalizado);
     if (autoridadeDoIndice(m.authority)) falha('grafo.proveniencia.autoridade-indice', onde);
     conferirAcesso(m.access, g.tenant_id, onde);
     c.manifesto.set(m.path, m);
@@ -359,18 +366,31 @@ function semantica(g: GrafoCodigo): void {
     localizadores.add(localizador);
   });
 
-  const arestas = new Set<string>(), triplas = new Set<string>(), contidos = new Map<string, string[]>();
+  const arestas = new Set<string>(), triplas = new Set<string>(), contidos = new Map<string, string[]>(), pais = new Set<string>();
+  const textosDePagina = new Map<string, string>();
   g.edges.forEach((a, i) => {
     const onde = `edges.${i}`;
     if (a.snapshot_id !== s.snapshot_id) falha('grafo.snapshot.divergente', onde);
     const de = nos.get(a.from), para = nos.get(a.to);
     if (!de || !para) falha('grafo.aresta.endpoint-ausente', onde);
     if (!MATRIZ_DE_ARESTAS[a.kind][de.kind].includes(para.kind)) falha('grafo.aresta.kind-incompativel', onde);
+    // Hierarquia e declaracao moram dentro de um arquivo; a relacao entre arquivos e imports ou references.
+    if ((a.kind === 'contains' || a.kind === 'declares') && de.locator.path !== para.locator.path) falha('grafo.aresta.fora-do-arquivo', onde);
+    if (a.kind === 'contains') {
+      if (pais.has(a.to)) falha('grafo.aresta.contains-com-dois-pais', onde);
+      pais.add(a.to);
+    }
     // D5: conjuncao das restricoes das extremidades e das evidencias, nunca uniao de permissoes.
     const exigidas = new Set([...de.access.acl_refs, ...para.access.acl_refs]), vistas = new Set<string>();
     a.evidence.forEach((e, j) => {
       const ondeDaEvidencia = `${onde}.evidence.${j}`;
       conferirEvidencia(e, c, ondeDaEvidencia);
+      if (e.span.type === 'pdf-text') {
+        // A mesma pagina da mesma fonte tem um texto extraido so; dois hashes nao podem valer juntos.
+        const pagina = canonico([e.path, e.span.page]), anterior = textosDePagina.get(pagina);
+        if (anterior !== undefined && anterior !== e.span.extracted_text_hash) falha('grafo.span.texto-da-pagina-divergente', ondeDaEvidencia);
+        textosDePagina.set(pagina, e.span.extracted_text_hash);
+      }
       const chave = canonico(e);
       if (vistas.has(chave)) falha('grafo.proveniencia.evidencia-duplicada', ondeDaEvidencia);
       vistas.add(chave);
@@ -433,9 +453,13 @@ export function validarGrafo(entrada: unknown): GrafoCodigo {
 /** D2: digest canonico do grafo valido; permutar nos, arestas ou evidencias nao o muda. */
 export const digestDoGrafo = (entrada: unknown): string => sha256DoCanonico(validarGrafo(entrada));
 
-/** Bytes que o chamador ja leu. O contrato nunca abre caminho nem extrai PDF. */
+/**
+ * Bytes que o chamador ja leu. O contrato nunca abre caminho nem extrai PDF. `binario` confere
+ * so hash e tamanho e nao aceita span; `texto` exige UTF-8 valido; `pdf` traz as paginas extraidas.
+ */
 export type FonteFornecida =
   | { tipo: 'texto'; bytes: Uint8Array }
+  | { tipo: 'binario'; bytes: Uint8Array }
   | { tipo: 'pdf'; bytes: Uint8Array; paginas: readonly Uint8Array[] };
 
 export interface ConferenciaDeFontes {
@@ -492,7 +516,8 @@ export function conferirFontes(entrada: unknown, fontes: ReadonlyMap<string, Fon
     }
     if (f.bytes.length !== m.size_bytes) falha('grafo.fonte.tamanho-divergente', onde);
     if (sha256DosBytes(f.bytes) !== m.source_hash) falha('grafo.fonte.hash-divergente', onde);
-    if (!(f.tipo === 'texto' ? [f.bytes] : f.paginas).every(utf8Valido)) falha('grafo.fonte.utf8-invalido', onde);
+    const textos = f.tipo === 'texto' ? [f.bytes] : f.tipo === 'pdf' ? f.paginas : [];
+    if (!textos.every(utf8Valido)) falha('grafo.fonte.utf8-invalido', onde);
     fontesVerificadas.push(m.path);
   });
   const quebras = new Map<string, number[]>();

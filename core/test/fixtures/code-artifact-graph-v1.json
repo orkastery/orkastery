@@ -980,13 +980,33 @@
       "patch": [
         {
           "op": "add",
+          "path": "/nodes/-",
+          "value": {
+            "node_id": "node-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "kind": "symbol",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "locator": {
+              "path": "src/app.ts",
+              "fragment": "auxiliar"
+            },
+            "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        },
+        {
+          "op": "add",
           "path": "/edges/-",
           "value": {
             "edge_id": "edge-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
             "kind": "contains",
             "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
             "from": "node-95b70956eb0c012f41bca6b8028d31c860a4bff0359d7312c5d4651deb6c3bf8",
-            "to": "node-df052dad084c73ec6ac38a4e3d8ae9dac9664f495f9bc0c082f9645fdee4b604",
+            "to": "node-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "evidence": [
               {
                 "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
@@ -1028,14 +1048,14 @@
             "edge_id": "edge-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "kind": "contains",
             "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
-            "from": "node-df052dad084c73ec6ac38a4e3d8ae9dac9664f495f9bc0c082f9645fdee4b604",
+            "from": "node-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "to": "node-95b70956eb0c012f41bca6b8028d31c860a4bff0359d7312c5d4651deb6c3bf8",
             "evidence": [
               {
                 "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
-                "path": "src/util.ts",
-                "source_hash": "31b0a87f33ed9953a511dd7315530a56ada3657305dd4978e21472aaec40af60",
-                "source_version": "9eaba74908233cba47e3eb6c32ebe4054d4e7ed2",
+                "path": "src/app.ts",
+                "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+                "source_version": "85f9d90fcf4ed50b96ad4614e72176f44cd9ffed",
                 "authority": "git:repo-sintetico",
                 "extractor_id": "ork.ts-ast",
                 "extractor_version": "0.0.0-sintetico",
@@ -1043,10 +1063,10 @@
                 "confidence_class": "EXTRACTED",
                 "span": {
                   "type": "text",
-                  "byte_start": 16,
-                  "byte_end": 20,
-                  "line_start": 1,
-                  "line_end": 1
+                  "byte_start": 119,
+                  "byte_end": 129,
+                  "line_start": 5,
+                  "line_end": 5
                 },
                 "access": {
                   "tenant_id": "synthetic",
@@ -1063,6 +1083,163 @@
               ]
             }
           }
+        }
+      ]
+    },
+    {
+      "group": "graph",
+      "name": "contains-com-dois-pais",
+      "code": "grafo.aresta.contains-com-dois-pais",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/nodes/-",
+          "value": {
+            "node_id": "node-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "kind": "symbol",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "locator": {
+              "path": "src/app.ts",
+              "fragment": "auxiliar1"
+            },
+            "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/nodes/-",
+          "value": {
+            "node_id": "node-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "kind": "symbol",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "locator": {
+              "path": "src/app.ts",
+              "fragment": "auxiliar2"
+            },
+            "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/edges/-",
+          "value": {
+            "edge_id": "edge-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "kind": "contains",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "from": "node-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "to": "node-95b70956eb0c012f41bca6b8028d31c860a4bff0359d7312c5d4651deb6c3bf8",
+            "evidence": [
+              {
+                "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+                "path": "src/app.ts",
+                "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+                "source_version": "85f9d90fcf4ed50b96ad4614e72176f44cd9ffed",
+                "authority": "git:repo-sintetico",
+                "extractor_id": "ork.ts-ast",
+                "extractor_version": "0.0.0-sintetico",
+                "extraction_method": "ast",
+                "confidence_class": "EXTRACTED",
+                "span": {
+                  "type": "text",
+                  "byte_start": 88,
+                  "byte_end": 97,
+                  "line_start": 4,
+                  "line_end": 4
+                },
+                "access": {
+                  "tenant_id": "synthetic",
+                  "acl_refs": [
+                    "acl:repo-sintetico:leitura"
+                  ]
+                }
+              }
+            ],
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/edges/-",
+          "value": {
+            "edge_id": "edge-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "kind": "contains",
+            "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+            "from": "node-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "to": "node-95b70956eb0c012f41bca6b8028d31c860a4bff0359d7312c5d4651deb6c3bf8",
+            "evidence": [
+              {
+                "snapshot_id": "snap-e982a451de42c90ab4d96c3ed4a5f22b28ecc54d4423200c36cf11993d17175c",
+                "path": "src/app.ts",
+                "source_hash": "e4e59b2c5def3e31fbecec5d5eba285d2b18239a0aaa0f8717f544bcc8711840",
+                "source_version": "85f9d90fcf4ed50b96ad4614e72176f44cd9ffed",
+                "authority": "git:repo-sintetico",
+                "extractor_id": "ork.ts-ast",
+                "extractor_version": "0.0.0-sintetico",
+                "extraction_method": "ast",
+                "confidence_class": "EXTRACTED",
+                "span": {
+                  "type": "text",
+                  "byte_start": 119,
+                  "byte_end": 129,
+                  "line_start": 5,
+                  "line_end": 5
+                },
+                "access": {
+                  "tenant_id": "synthetic",
+                  "acl_refs": [
+                    "acl:repo-sintetico:leitura"
+                  ]
+                }
+              }
+            ],
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "group": "graph",
+      "name": "contains-fora-do-arquivo",
+      "code": "grafo.aresta.fora-do-arquivo",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/edges/2/to",
+          "value": "node-ff47505bcb29119faad7c87ba1c73889ff16a60959fbef7ee0242945b523df88"
+        }
+      ]
+    },
+    {
+      "group": "graph",
+      "name": "declares-fora-do-arquivo",
+      "code": "grafo.aresta.fora-do-arquivo",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/edges/8/to",
+          "value": "node-df052dad084c73ec6ac38a4e3d8ae9dac9664f495f9bc0c082f9645fdee4b604"
         }
       ]
     },
@@ -1356,6 +1533,18 @@
     },
     {
       "group": "provenance",
+      "name": "texto-da-pagina-inconsistente-entre-evidencias",
+      "code": "grafo.span.texto-da-pagina-divergente",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/edges/9/evidence/0/span/extracted_text_hash",
+          "value": "5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ]
+    },
+    {
+      "group": "provenance",
       "name": "evidencia-duplicada",
       "code": "grafo.proveniencia.evidencia-duplicada",
       "patch": [
@@ -1597,6 +1786,59 @@
     },
     {
       "group": "security",
+      "name": "fragmento-com-marca-bidi",
+      "code": "grafo.texto.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/nodes/7/locator/fragment",
+          "value": "so‮ma"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminhos-que-colidem-na-normalizacao",
+      "code": "grafo.manifesto.caminho-ambiguo",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/snapshot/source_manifest/-",
+          "value": {
+            "path": "docs/configuração.md",
+            "authority": "git:repo-sintetico",
+            "source_hash": "dd7cbf7027d7e64dcfc87eb6d1cbf66698ea4f7d197a8e635fa5b14899fbce8d",
+            "source_version": "b14f1b9fe2ea281b68b1d7e82e341eb6778d83a9",
+            "size_bytes": 61,
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/snapshot/source_manifest/-",
+          "value": {
+            "path": "docs/configuração.md",
+            "authority": "git:repo-sintetico",
+            "source_hash": "dd7cbf7027d7e64dcfc87eb6d1cbf66698ea4f7d197a8e635fa5b14899fbce8d",
+            "source_version": "b14f1b9fe2ea281b68b1d7e82e341eb6778d83a9",
+            "size_bytes": 61,
+            "access": {
+              "tenant_id": "synthetic",
+              "acl_refs": [
+                "acl:repo-sintetico:leitura"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "group": "security",
       "name": "confianca-numerica",
       "code": "grafo.estrutura.invalida",
       "patch": [
@@ -1724,6 +1966,66 @@
           "op": "replace",
           "path": "/snapshot/source_manifest/3/path",
           "value": "src/"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminho-escape-percentual",
+      "code": "grafo.caminho.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/snapshot/source_manifest/3/path",
+          "value": "src/%61pp.ts"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminho-escape-duplo",
+      "code": "grafo.caminho.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/snapshot/source_manifest/3/path",
+          "value": "src/%252e%252e/segredo.ts"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminho-controle-c1",
+      "code": "grafo.caminho.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/snapshot/source_manifest/3/path",
+          "value": "src/ab.ts"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminho-marca-bidi",
+      "code": "grafo.caminho.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/snapshot/source_manifest/3/path",
+          "value": "src/‮sts.ppa"
+        }
+      ]
+    },
+    {
+      "group": "security",
+      "name": "caminho-dois-pontos-no-primeiro-segmento",
+      "code": "grafo.caminho.invalido",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/snapshot/source_manifest/3/path",
+          "value": "meu_dir:x/app.ts"
         }
       ]
     }
