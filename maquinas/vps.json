@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:49:21.200Z",
+  "publicadoEm": "2026-09-29T11:49:30.501Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -49,20 +49,6 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-rm050guiadec",
-      "nome": "RM-050: guia de contribuição no repositório do Orkastery",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-050",
-      "branch": "ork/ork-rm050guiadec-full",
-      "atualizadaEm": "2026-09-29T11:49:20.979Z",
-      "entregue": "3c7e8a7",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-siteshomesco",
       "nome": "Sites: homes completas nas 3 línguas, página Contribuir e docs em dia com a 0.5.0",
       "modo": "#Auto",
@@ -70,7 +56,7 @@
       "status": "aberta",
       "roadmap": "RM-049",
       "branch": "ork/ork-siteshomesco-full",
-      "atualizadaEm": "2026-09-29T11:43:35.606Z",
+      "atualizadaEm": "2026-09-29T11:49:30.284Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
