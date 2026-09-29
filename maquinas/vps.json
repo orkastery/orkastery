@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T14:15:03.978Z",
+  "publicadoEm": "2026-09-29T14:30:01.908Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -30,9 +30,9 @@
       "branch": "ork/ork-i36buscasema-goal",
       "atualizadaEm": "2026-09-29T13:20:36.368Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
+      "esperaVoce": true,
+      "pergunta": "evidencias, com autorizacao antecipada de push",
+      "paradaDesde": "2026-09-29T14:27:09.817Z"
     },
     {
       "id": "ork-pacotedeexpe",
@@ -72,9 +72,9 @@
       "branch": "ork/ork-rm026k3dossi-full",
       "atualizadaEm": "2026-09-29T13:41:43.119Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
+      "esperaVoce": true,
+      "pergunta": "autorizacao da retomada",
+      "paradaDesde": "2026-09-29T14:28:39.075Z"
     },
     {
       "id": "ork-rm031kg2extr",
