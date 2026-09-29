@@ -33,7 +33,9 @@ import { VERSAO_DO_ORK } from './versao';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
-const DIR = 'maquinas';
+/** O diretorio dos retratos na branch; a leitura sem clone (RM-054) le o mesmo. */
+export const DIR_DA_FABRICA = 'maquinas';
+const DIR = DIR_DA_FABRICA;
 const PAINEL = 'FABRICA.md';
 const PREFIXO = 'fabrica';
 const TENTATIVAS = 5;
@@ -151,7 +153,8 @@ export function assinaturaDoRetrato(e: EstadoDaMaquina): string {
   return createHash('sha256').update(JSON.stringify(resto)).digest('hex');
 }
 
-function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
+/** O retrato so vale inteiro: e o filtro da leitura pelo clone e pela forja (RM-054). */
+export function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
   const e = bruto as EstadoDaMaquina;
   return !!e && e.contrato === CONTRATO_MAQUINA && typeof e.maquina === 'string' && !!e.maquina.trim() &&
     typeof e.publicadoEm === 'string' && Array.isArray(e.threads) &&

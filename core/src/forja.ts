@@ -24,7 +24,7 @@ export type TipoDeForja = 'github' | 'gitlab';
 /** O repositorio na forja: `repo` e `dono/nome` no GitHub e o caminho completo no GitLab. */
 export interface IdentidadeDaForja { tipo: TipoDeForja; host: string; repo: string }
 
-export type CodigoDeErroDaForja = 'forja.sem-cli' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
+export type CodigoDeErroDaForja = 'forja.ausente' | 'forja.sem-login' | 'forja.nao-encontrado' | 'forja.tempo-esgotado'
   | 'forja.inacessivel' | 'forja.resposta-invalida';
 
 export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string }
@@ -158,7 +158,7 @@ function erro(codigo: CodigoDeErroDaForja, detalhe: string): { ok: false; erro: 
 
 /** O motivo tipado de uma chamada que falhou. */
 export function classificarFalha(cmd: 'gh' | 'glab', s: SaidaDoExecutor): ErroDaForja {
-  if (s.erro === 'ENOENT') return { codigo: 'forja.sem-cli', detalhe: `${cmd} não está instalado nesta máquina` };
+  if (s.erro === 'ENOENT') return { codigo: 'forja.ausente', detalhe: `${cmd} não está instalado nesta máquina` };
   if (s.erro === 'ETIMEDOUT' || s.sinal === 'SIGTERM') return { codigo: 'forja.tempo-esgotado', detalhe: `${cmd} não respondeu em ${PRAZO_MS / 1000} s` };
   const texto = `${s.stderr}\n${s.stdout}`;
   const detalhe = detalheSeguro(s.stderr || s.stdout || s.erro || `${cmd} saiu com ${s.status}`);

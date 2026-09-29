@@ -171,7 +171,7 @@ test('forja: erro tipado e sem segredo na saida', () => {
     assert.equal(r.ok, false);
     return (r as { erro: { codigo: string; detalhe: string } }).erro;
   };
-  assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ENOENT' }).codigo, 'forja.sem-cli');
+  assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ENOENT' }).codigo, 'forja.ausente');
   assert.equal(ler({ status: null, stdout: '', stderr: '', erro: 'ETIMEDOUT', sinal: 'SIGTERM' }).codigo, 'forja.tempo-esgotado');
   assert.equal(ler({ status: 4, stdout: '', stderr: 'To get started with GitHub CLI, please run:  gh auth login\n' +
     'Alternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.' }).codigo, 'forja.sem-login');

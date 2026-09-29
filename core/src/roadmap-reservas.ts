@@ -26,7 +26,9 @@ import { agora as agoraIso } from './util';
 export const CONTRATO_RESERVA = 'ork.roadmap-reserva/v1' as const;
 export const BRANCH_DE_RESERVAS = 'ork/roadmap-reservas';
 export const REMOTO_PADRAO = 'origin';
-const DIR = 'reservas';
+/** O diretorio das reservas na branch; a leitura sem clone (RM-054) le o mesmo. */
+export const DIR_DE_RESERVAS = 'reservas';
+const DIR = DIR_DE_RESERVAS;
 const PAINEL = 'RESERVAS.md';
 const TENTATIVAS = 5;
 const ITEM = /^RM-\d{3}$/;
@@ -103,6 +105,13 @@ function lerDaPonta(raiz: string, ponta: string | null): ReservaDeItem[] {
   return (jsonsDaPonta(raiz, ponta, DIR, PREFIXO) as ReservaDeItem[])
     .filter((r) => r.contrato === CONTRATO_RESERVA)
     .sort((a, b) => a.item.localeCompare(b.item));
+}
+
+/** RM-054: a reserva lida de fora do `ork` desta maquina (forja, outra copia) so vale inteira. */
+export function reservaValida(bruto: unknown): bruto is ReservaDeItem {
+  const r = bruto as ReservaDeItem;
+  return !!r && typeof r === 'object' && r.contrato === CONTRATO_RESERVA && typeof r.item === 'string' && ITEM.test(r.item) &&
+    typeof r.por === 'string' && typeof r.maquina === 'string' && typeof r.desdeEm === 'string';
 }
 
 /** As reservas da ultima copia lida nesta maquina, sem rede (I-51: o retrato da fabrica usa). */
