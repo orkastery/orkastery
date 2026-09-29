@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:30:03.677Z",
+  "publicadoEm": "2026-09-29T11:38:40.574Z",
   "threads": [
     {
       "id": "ork-companybrai3",
@@ -38,15 +38,15 @@
       "id": "ork-i31kg1contra",
       "nome": "I-31 KG1 contrato deterministico do grafo Company Brain",
       "modo": "#Maestro",
-      "fase": "GO",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-i31kg1contra-f12",
-      "atualizadaEm": "2026-09-29T01:15:52.904Z",
-      "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-29T03:44:29.750Z"
+      "atualizadaEm": "2026-09-29T11:38:40.364Z",
+      "entregue": "8589330",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-i36buscasema",
