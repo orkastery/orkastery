@@ -32,6 +32,14 @@ export function ambienteDoPerfil(perfil?: PerfilDeDespacho | null): NodeJS.Proce
 
 export const NOME_ADAPTER = 'claude-bg';
 
+/** RM-037 (defeitosdeco D-4): o ambiente do `claude --bg` sem canal nem chave do contexto do despacho. */
+export function semContextoDeDespacho(base: NodeJS.ProcessEnv, contexto?: Record<string, string>): NodeJS.ProcessEnv {
+  const env = { ...base };
+  delete env.ORK_CANAL;
+  for (const chave of Object.keys(contexto ?? {})) delete env[chave];
+  return env;
+}
+
 /** Consultas do perfil interactive; gates e respostas humanas nunca recebem grant. */
 const CONSULTAS_MCP = [
   'mcp__orkastery__ork_thread_status',
@@ -115,6 +123,12 @@ export function montarComando(pedido: DespachoPedido): string[] {
   const plano = pedido.colaboracao === 'plan';
   if (pedido.model) args.push('--model', pedido.model);
   if (pedido.effort) args.push('--effort', pedido.effort);
+  // RM-037 (defeitosdeco D-4): o contexto do despacho (identidade, thread, canal) chega POR SESSAO.
+  // O `claude --bg` entrega a sessao a um processo reserva do daemon da conta, e o daemon guarda o
+  // ambiente de quem o iniciou: pelo ambiente, a sessao nascia com a identidade de outro despacho.
+  // Medido em 28/09/2026 (2.1.284): o `env` de `--settings` chega ao Bash da sessao e vence o herdado.
+  const doDespacho = pedido.ambienteExtra ?? {};
+  if (Object.keys(doDespacho).length) args.push('--settings', JSON.stringify({ env: doDespacho }));
   if (pedido.contextoRuntime) {
     if (pedido.contextoRuntime.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
     const contexto = validarContextoRuntime(pedido.contextoRuntime, pedido.cwd);
@@ -239,7 +253,9 @@ export function acharSessao(chave: string, sessoes?: SessaoRuntime[]): SessaoRun
 export function despachar(pedido: DespachoPedido): DespachoResultado {
   const comando = montarComando(pedido);
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = { ...ambienteDoPerfil(pedido.perfil), ...(pedido.ambienteExtra ?? {}) }; }
+  // D-4: nada do contexto do despacho vai ao ambiente do processo `claude`, para um daemon novo nunca
+  // nascer com ele; a identidade herdada ja sai em `ambienteDeAssinatura`, e o canal sai aqui.
+  try { ambiente = semContextoDeDespacho(ambienteDoPerfil(pedido.perfil), pedido.ambienteExtra); }
   catch (e) { return { ok: false, comando, sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   if (pedido.dryRun) {
     return { ok: true, comando, sessionId: null, verificada: false, stdout: '', stderr: '' };
