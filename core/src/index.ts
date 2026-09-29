@@ -89,7 +89,7 @@ import { parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
 import { exigirCatalogo } from './catalogo';
 import { doctor } from './doctor';
-import { preflight, textoPreflight } from './preflight';
+import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
 import { aprovarGateHumano } from './gates';
 import { abrirPedidoGate, contextoDoPedidoNativo, lerRespostaStdin, responderGate } from './hitl-gates';
@@ -218,6 +218,9 @@ import { executarDemo } from './demo';
 import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
+// Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
+endurecerUmask();
+
 const VERSAO = VERSAO_DO_ORK;
 
 interface Args {

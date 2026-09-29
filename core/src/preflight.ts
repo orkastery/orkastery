@@ -31,6 +31,19 @@ const sensoresPadrao:SensoresPreflight={
   auth:authPadrao,
 };
 
+/**
+ * O sensor recusa fonte com escrita de grupo ou de outros (bits 0o022). O ork acrescenta esses bits
+ * ao umask do proprio processo, sem nunca afrouxar um umask mais restrito (077 continua 077): tudo o
+ * que ele cria, e tudo o que ele despacha (claude, codex), nasce sem escrita alheia, qualquer que
+ * seja o umask do shell de quem roda. Devolve o umask anterior e o que ficou valendo.
+ */
+export function endurecerUmask():{anterior:number;atual:number} {
+  const anterior=process.umask(0o077);
+  const atual=anterior|0o022;
+  process.umask(atual);
+  return {anterior,atual};
+}
+
 /** umask efetivo do processo, lido de /proc (Linux) para nao usar o getter deprecado. */
 export function umaskDoProcesso():number|null {
   try {

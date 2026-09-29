@@ -28,6 +28,7 @@ ork docs init     # product docs and roadmap in the standard, with lint
 - Three agents in the same repository edit the same files, skip the same steps and hand over a report saying it worked. The report is the part that is worth nothing.
 - Someone is missing between you and them: someone who holds the roadmap, isolates the loops, serializes the merge, re-runs the claim and only interrupts you when it matters.
 - **`ork` takes that seat.** It is a deterministic TypeScript CLI, with no server and no embedded LLM.
+- **Decisions sized for a full day.** Whoever conducts agents is also running dozens of other things. Every question `ork` brings you is short and organized, with alternatives and one recommendation, so you decide in seconds without rereading a wall of text. That lightness is a design goal, meant also for people with ADHD: it keeps you conducting instead of drowning.
 
 ## What changes for builders
 

@@ -28,6 +28,7 @@ ork docs init     # documentação de produto e roadmap no padrão, com lint
 - Três agentes no mesmo repositório editam os mesmos arquivos, pulam os mesmos passos e entregam um relatório dizendo que deu certo. O relatório é a parte que não vale nada.
 - Falta alguém entre você e eles: que segure o roadmap, isole os loops, serialize o merge, reexecute a alegação e só interrompa você quando importa.
 - **O `ork` ocupa esse lugar.** É um CLI determinístico, em TypeScript, sem servidor e sem LLM embutido.
+- **Decisões do tamanho de um dia cheio.** Quem conduz agentes conduz também dezenas de outras frentes. Toda pergunta que o `ork` te traz é curta e organizada, com alternativas e uma recomendação, e se decide em segundos, sem reler um paredão de texto. Essa leveza é objetivo de projeto, pensado também para quem tem TDAH: é o que mantém você regendo, e não se afogando.
 
 ## O que muda para quem constrói
 
