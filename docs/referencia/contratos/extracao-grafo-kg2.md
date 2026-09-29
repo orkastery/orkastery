@@ -3,7 +3,7 @@
 O extrator lê um repositório Git local e produz um grafo válido no contrato
 [`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md), sem mudar o contrato. Mora em
 `core/src/intelligence-graph-extract*.ts` e `core/src/intelligence-graph-repo.ts`. É o segundo
-pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D14 da
+pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D15 da
 thread `ork-rm031kg2extr`.
 
 O KG2 entrega a extração e um comando provisório para prová-la. Não entrega índice
@@ -43,7 +43,7 @@ que coincidem na forma NFC. O Git roda com argumentos fixos e com o `core.fsmoni
 | Extrator | Versão | Lê | Produz |
 | --- | --- | --- | --- |
 | `ork.ts-ast` | `1.0.0+typescript.<versão>` | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | símbolos, `declares`, `contains`, `imports`, `calls` (`ast`) |
-| `ork.md-structure` | `1.0.0+unicode.<versão>` | `.md`, `.markdown` | seções, artefatos, `contains` e frontmatter (`structured`), links (`explicit-link`) |
+| `ork.md-structure` | `1.0.0+micromark.<versão>.gfm-table.<versão>+unicode.<versão>` | `.md`, `.markdown` | seções, artefatos, `contains` e frontmatter (`structured`), links (`explicit-link`) |
 | `ork.id-mention` | `1.0.0` | Markdown e código TS/JS | `references` a artefato citado pelo ID (`text-location`) |
 | `ork.repo-files` | `1.0.0` | o resto do manifesto | `unsupported-language`, com a extensão como referência |
 
@@ -51,8 +51,13 @@ O compilador TypeScript entra por parâmetro: o módulo só conhece o tipo dele,
 carrega o `typescript` instalado no core. Ele roda num host em memória que só enxerga o
 manifesto: sem biblioteca padrão e sem disco. A resolução de módulo nunca entra em
 `node_modules`, mesmo versionado, e a raiz virtual deriva do conteúdo do manifesto: especificador
-que sobe acima da raiz ou é absoluto fica `unresolved-import`. O slug depende da versão do
-Unicode do motor JavaScript, que entra na versão do `ork.md-structure`.
+que sobe acima da raiz ou é absoluto fica `unresolved-import`.
+
+A estrutura do Markdown vem do micromark com a tabela GFM, o parser CommonMark que o
+markdownlint do core já instala (fixado no `package-lock.json`), carregado pelo adaptador
+`core/scripts/micromark-adaptador.cjs` e recebido por parâmetro como o compilador. As versões do
+micromark e do Unicode do motor JavaScript entram na versão do `ork.md-structure`, porque a
+estrutura e o slug dependem delas.
 
 ## Nós
 
@@ -85,12 +90,17 @@ repositório: identificador, membro de namespace importado, membro estático de 
 `this` e `super` com o tipo declarado (a classe, ou a anotação `this:`), e `new Classe()`.
 Alvo em outro arquivo exige um import deste arquivo: o alias precisa ser um `import`, um
 `import = require` ou um `require` atribuído aqui, e o membro herdado por `this` ou `super`
-precisa estar num arquivo que este importa. Global de script e global UMD não ligam arquivos.
-Import e reexport resolvem até a declaração original. Quando o JavaScript pede `./a.js` com
-`a.ts` ao lado, ou o compilador liga um `.d.ts` no lugar da implementação, a aresta de import vai
-ao arquivo que roda e nenhuma aresta de símbolo passa por esse import. Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro
-título); âncora de outro arquivo que não bate com um título ainda prova a referência ao
-arquivo.
+precisa ser de uma classe importada por nome aqui. Global de script, global UMD e import só de
+efeito não ligam arquivos. Import e reexport resolvem até a declaração original.
+
+O compilador e o runtime podem ligar arquivos diferentes: fonte JavaScript resolve pelo Node
+(em CommonJS, extensão, `main` e `index`; em ESM, o caminho exato), e `.d.ts`, `.d.cts` ou
+`.d.mts` com a implementação ao lado dá lugar a ela, para qualquer fonte. Onde divergem, a aresta
+de import vai ao arquivo que roda e nenhuma aresta de símbolo passa por esse import, nem por um
+módulo intermediário que reexporta um `require` divergente.
+
+Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro título); âncora de outro
+arquivo que não bate com um título ainda prova a referência ao arquivo.
 
 Até 64 evidências por aresta, as primeiras por posição; o excedente é contado no relatório.
 
@@ -108,14 +118,13 @@ Até 64 evidências por aresta, as primeiras por posição; o excedente é conta
 | Link externo; ID que não é de artefato | lacuna contada: `link-externo`, `id-sem-artefato` |
 | Link sem alvo, para pasta, fora do repositório; âncora que não bate | lacuna listada: `link-sem-alvo`, `link-para-diretorio`, `link-fora-do-repositorio`, `ancora-nao-resolvida` |
 | Valor do frontmatter sem arquivo, símbolo ou artefato | lacuna listada: `frontmatter-sem-alvo` |
-| Código cercado (também em citação e lista), código indentado, bloco HTML e comentário HTML | não geram link nem menção |
-| Span de código, também em várias linhas | não gera link; ID citado nele conta como menção |
-| Título setext, link por referência, `href` em HTML e ênfase com `_` no slug | fora da v1 do `ork.md-structure` |
+| Código cercado ou indentado, bloco e trecho HTML, autolink, definição de link e célula excedente de tabela | não geram link nem menção, como no CommonMark e no GitHub |
+| Span de código | não gera link; ID citado nele conta como menção |
+| Link por referência, `href` em HTML e ênfase com `_` no slug | fora da v1 do `ork.md-structure` |
+| Arquivo com mais de 2000 linhas de tabela (a tabela do micromark é quadrática) | lacuna listada: `markdown-tabela-grande`; o frontmatter segue lido |
 
-A leitura do Markdown é conservadora: na dúvida entre código e texto (por exemplo, continuação de
-lista recuada em 4 espaços), o trecho é tratado como código e não gera aresta. Destino de link
-acima de 1024 caracteres, título acima de 2048 e linha de frontmatter acima de 4096 não são
-lidos: a varredura fica linear no tamanho da linha.
+Título acima de 2048 caracteres e linha de frontmatter acima de 4096 também não são lidos: o
+leitor de YAML do core é quadrático em linha longa.
 
 ## Relatório de extração (provisório)
 
