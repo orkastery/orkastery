@@ -177,6 +177,13 @@ export interface DriverDeMemoria {
   contagens?(): Record<string, number>;
   /** I-38 (T2): vetores pela operacao `embed` da ponte. Unico caminho que leva a chave. */
   embeddar?(pedido: PedidoDeEmbedding, opcoes?: { timeoutMs?: number }): RespostaDeEmbedding;
+  /** I-38 (T5): FTS da biblioteca com tenant obrigatorio; so ids, na ordem do ranking. */
+  buscarTexto?(tenant: string, texto: string): string[];
+}
+
+/** Texto de busca: nao vazio, sem caractere de controle, ate 2.000 caracteres. */
+export function textoDeBuscaValido(texto: unknown): texto is string {
+  return typeof texto === 'string' && texto.trim() !== '' && texto.length <= 2000 && !/[\x00-\x1f\x7f]/.test(texto);
 }
 
 /** I-38 (D1, D4): pedido de embedding. `documento` indexa; `consulta` busca. */
@@ -420,7 +427,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     if (r.status !== 0) {
       let code = '';
       try { code = JSON.parse(r.stdout)?.error; } catch { /* nenhum detalhe do filho */ }
-      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation', 'memory.health.invalid', ...CODIGOS_DE_EMBEDDING].includes(code) ? code : 'memory.transport.failed');
+      throw new Error(['memory.schema.absent', 'memory.legacy.provenance-collision', 'memory.prospective.marker-invalid', 'memory.native.schema-mismatch', 'memory.query.invalid', 'memory.query.window-saturated', 'memory.query.scope-violation', 'memory.health.invalid', 'memory.fts.invalid', ...CODIGOS_DE_EMBEDDING].includes(code) ? code : 'memory.transport.failed');
     }
     let json: unknown;
     try { json = JSON.parse(r.stdout); } catch { throw new Error('memory.transport.json'); }
@@ -513,6 +520,15 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     const p = validarPedidoDeEmbedding(pedido);
     if (p.alvo === 'primario' && !this.chaveDeEmbedding()) throw new Error('embeddings.chave-ausente');
     return conferirRespostaDeEmbedding(this.rodar({ op: 'embed', ...p }, opcoes.timeoutMs), p);
+  }
+
+  buscarTexto(tenant: string, texto: string): string[] {
+    if (!textoDeConsulta(tenant, 128) || !textoDeBuscaValido(texto)) throw new Error('memory.fts.invalid');
+    const r = this.rodar({ op: 'fts', tenant, texto }) as Record<string, unknown>;
+    if (!objetoDeConsulta(r) || !Array.isArray(r.ids) || !r.ids.every(id => typeof id === 'string' && id)) {
+      throw new Error('memory.transport.fts');
+    }
+    return r.ids as string[];
   }
 
   submeterHandoff(pedido: PedidoDeHandoff): ResultadoDeHandoff {
@@ -750,6 +766,21 @@ export class DriverEmMemoria implements DriverDeMemoria {
     if (!this.embedding[p.alvo]) throw new Error(p.alvo === 'primario' ? 'embeddings.chave-ausente' : 'embeddings.local-ausente');
     this.pedidosDeEmbedding.push(p);
     return { alvo: p.alvo, modelo: p.modelo, dim: p.dim, vetores: p.textos.map(t => vetorDeDuble(t, p.dim)) };
+  }
+
+  /** Dublê de FTS: todas as palavras da consulta no conteudo, sem stemming, com tenant obrigatorio. */
+  buscarTexto(tenant: string, texto: string): string[] {
+    if (!textoDeConsulta(tenant, 128) || !textoDeBuscaValido(texto)) throw new Error('memory.fts.invalid');
+    if (!this.ligado) throw new Error('memory.transport.unavailable');
+    const palavras = (t: string): string[] => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().match(/[a-z0-9]+/g) ?? [];
+    const consulta = palavras(texto);
+    return this.entradas
+      .filter(e => COLECOES_DO_ORK.includes(e.collection as ColecaoDoOrk) && (e.tags.project ?? []).includes(tenant))
+      .map(e => ({ id: e.id, conteudo: palavras(e.content) }))
+      .filter(e => consulta.every(p => e.conteudo.includes(p)))
+      .map(e => ({ id: e.id, peso: e.conteudo.filter(p => consulta.includes(p)).length }))
+      .sort((a, b) => b.peso - a.peso || a.id.localeCompare(b.id))
+      .map(e => e.id);
   }
 
   /** So para os testes: injeta uma entrada que o `ork` nunca gravaria (humano, mandatory). */

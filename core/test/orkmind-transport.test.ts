@@ -128,6 +128,7 @@ test('chave de embedding somente na operacao embed', () => {
     assert.equal(driver.embeddar({ ...pedido, alvo: 'fallback' }).vetores.length, 1);
     assert.deepEqual(driver.contagens(), { decision: 1 });
     assert.equal(driver.disponivel().ok, true);
+    assert.deepEqual(driver.buscarTexto('fabrica', 'rotacao de conta'), []);
     assert.deepEqual(driver.exportar('decision'), []);
     assert.deepEqual(driver.consultar(consultaRestrita), []);
     assert.equal(driver.adicionar(entry).ok, true);
@@ -279,4 +280,38 @@ print('ponte health: contagens, versao e dependencias sem importar torch')
     env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /ponte health:/);
+});
+
+test('ponte Python responde fts so com ids do tenant, na ordem do ranking, e prova ausencia sem corte', () => {
+  const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
+  const py = String.raw`
+import asyncio, importlib.util, sys
+spec=importlib.util.spec_from_file_location('bridge',sys.argv[1]); b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+from orkmind.core.models import MemoryEntry
+def e(i, c, p): return MemoryEntry(id=i, collection=c, content='texto ' + i, tags={'project': [p]})
+class Store:
+    def __init__(self, entries, total): self.entries=entries; self.total=total; self.calls=[]
+    async def count(self, c=None): assert c is None; return self.total
+    async def search_by_text(self, texto, collection=None, limit=10, requester_id=None):
+        self.calls.append((texto, collection, limit)); return self.entries[:limit]
+async def run():
+    store = Store([e('a', 'decision', 'fabrica'), e('x', 'decision', 'alheio'), e('s', 'session', 'fabrica'), e('b', 'rule', 'fabrica')], 10)
+    out = await b.execute({'op': 'fts', 'tenant': 'fabrica', 'texto': 'rotacao de conta'}, store)
+    assert out == {'ids': ['a', 'b']}, out
+    assert store.calls == [('rotacao de conta', None, 11)], store.calls
+    try: await b.execute({'op': 'fts', 'tenant': 'fabrica', 'texto': 'x'}, Store([e('a', 'decision', 'fabrica')] * 3, 2)); raise AssertionError('corte aceito')
+    except b.QueryError as err: assert err.code == 'memory.query.window-saturated'
+    for bad in [{'op': 'fts', 'texto': 'x'}, {'op': 'fts', 'tenant': '', 'texto': 'x'}, {'op': 'fts', 'tenant': 'fabrica', 'texto': 'a\x00b'},
+                {'op': 'fts', 'tenant': 'fabrica', 'texto': 'x' * 2001}, {'op': 'fts', 'tenant': 'fabrica', 'texto': 'x', 'collection': 'rule'}]:
+        vazio = Store([], 1)
+        try: await b.execute(bad, vazio); raise AssertionError('pedido invalido aceito')
+        except b.QueryError as err: assert err.code == 'memory.fts.invalid'
+        assert not vazio.calls
+asyncio.run(run())
+print('ponte fts: tenant obrigatorio, colecoes do ork, ordem e corte comprovados; store sintetico')
+`;
+  const r = spawnSync(pythonFixture(), ['-c', py, source], { encoding: 'utf8', timeout: 20000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /ponte fts:/);
 });

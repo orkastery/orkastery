@@ -126,7 +126,7 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, configDeEmbedding, exigirManifesto } from './manifest';
+import { carregarManifesto, configDeEmbedding, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
@@ -142,8 +142,9 @@ import {
   textoDoEstado,
   textoDoSync,
 } from './memoria';
-import { configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
 import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -427,6 +428,9 @@ Uso: ork <comando> [argumentos]
   memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
   memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
         [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
+  memory search --texto "<frase>"          Busca por significado (I-38): vetor + FTS por RRF no tenant,
+        [--modo hibrido|vetor|fts]               NAO deterministica; nao combina com --tags nem --thread
+        [--colecao C] [--limite N] [--json]
   memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
         [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
 
@@ -3277,6 +3281,8 @@ function comandoMemory(args: Args): number {
     return r.estado.pedido === 'orkmind' && r.falhas > 0 ? 1 : 0;
   }
 
+  if (sub === 'search' && args.opcoes.texto !== undefined) return buscaPorTexto(args, carregado);
+
   if (sub === 'search') {
     const threadId = texto(args.opcoes.thread);
     if ((args.opcoes.restrito !== undefined || args.opcoes.thread !== undefined ||
@@ -3363,6 +3369,61 @@ function comandoMemory(args: Args): number {
 
   console.error(`subcomando desconhecido: memory ${sub}`);
   return 2;
+}
+
+/**
+ * `ork memory search --texto` (I-38 D7): busca por significado, separada da busca por tag.
+ * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
+ */
+function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
+  const frase = texto(args.opcoes.texto);
+  if (args.opcoes.tags !== undefined || args.opcoes.thread !== undefined || args.opcoes.restrito !== undefined ||
+      args.opcoes.janela !== undefined) {
+    console.error('memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela');
+    return 2;
+  }
+  const modo = (texto(args.opcoes.modo) ?? 'hibrido') as ModoDeBusca;
+  const colecao = texto(args.opcoes.colecao) ?? texto(args.opcoes.collection);
+  const limiteBruto = texto(args.opcoes.limite);
+  const limite = limiteBruto === undefined ? LIMITE_PADRAO_DA_BUSCA : Number(limiteBruto);
+  if (!textoDeBuscaValido(frase) || !MODOS_DE_BUSCA.includes(modo) ||
+      (colecao !== undefined && !COLECOES_DO_ORK.includes(colecao as ColecaoDoOrk)) ||
+      !Number.isInteger(limite) || limite < 1 || limite > LIMITE_MAXIMO_DA_BUSCA) {
+    console.error(`uso: ork memory search --texto "<frase>" [--modo ${MODOS_DE_BUSCA.join('|')}] [--colecao ${COLECOES_DO_ORK.join('|')}] [--limite 1..${LIMITE_MAXIMO_DA_BUSCA}] [--json]`);
+    return 2;
+  }
+  const memoria = abrirMemoria(carregado);
+  const config = configDeEmbedding(carregado.manifesto);
+  let r: ResultadoDaBuscaSemantica;
+  if (!memoria.ativo) {
+    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
+      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+  } else {
+    const driver = configDoManifesto(carregado.manifesto);
+    const transporte = new DriverCliOrkMind(driver);
+    const fallback = memoria.estado.embeddings?.fallback;
+    r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
+      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
+      chavePresente: memoria.estado.embeddings?.chavePresente === true,
+      fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
+      embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
+  }
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
+  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
+  console.log('');
+  r.resultados.forEach((e, i) => {
+    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
+    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
+    console.log(`      ${e.resumo}`);
+  });
+  console.log('');
+  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  return 0;
 }
 
 /** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */

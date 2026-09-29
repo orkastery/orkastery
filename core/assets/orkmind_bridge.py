@@ -354,6 +354,28 @@ async def health(store):
             'orkmind': versao, 'fallback': {'dependencias': dependencias}}
 
 
+ORK_COLLECTIONS = ('decision', 'handoff', 'rule', 'learning', 'roadmap')
+
+
+def fts_contract(request):
+    valid = isinstance(request, dict) and set(request) == {'op', 'tenant', 'texto'}
+    def text(value, maximum):
+        return isinstance(value, str) and 0 < len(value.strip()) and len(value) <= maximum and re.search(r'[\x00-\x1f\x7f]', value) is None
+    if not valid or not text(request['tenant'], 128) or not text(request['texto'], 2000):
+        raise QueryError('memory.fts.invalid')
+
+
+async def fts(request, store):
+    """FTS da biblioteca (I-38 D9) com fronteira de tenant obrigatoria: devolve so ids, na ordem do ranking."""
+    # A janela cobre a base inteira: ausencia so conta quando nada ficou de fora do corte.
+    limit = await store.count() + 1
+    entries = await store.search_by_text(request['texto'], limit=limit)
+    if len(entries) >= limit:
+        raise QueryError('memory.query.window-saturated')
+    return {'ids': [e.id for e in entries if e.collection in ORK_COLLECTIONS
+                    and request['tenant'] in (e.tags or {}).get('project', [])]}
+
+
 async def execute(request, store):
     from orkmind.core.models import MemoryEntry
     from orkmind.core.semantic_layer import SemanticLayer
@@ -365,6 +387,9 @@ async def execute(request, store):
     if op == 'health':
         health_contract(request)
         return await health(store)
+    if op == 'fts':
+        fts_contract(request)
+        return await fts(request, store)
     if op == 'query':
         tags, collection, limit = query_contract(request)
         # GovernedStore conserva validade, anti-injection e visibilidade existentes.
@@ -498,6 +523,8 @@ async def main(request):
         query_contract(request)
     if isinstance(request, dict) and request.get('op') == 'health':
         health_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'fts':
+        fts_contract(request)
     native_schema_fields()
     from orkmind.core.config import OrkMindConfig
     from orkmind.store.factory import create_store
