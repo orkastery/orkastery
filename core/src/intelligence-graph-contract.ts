@@ -237,7 +237,7 @@ export function derivarIds(rascunho: GrafoCodigo): GrafoCodigo {
  * espaco de largura zero, juntores de palavra, BOM), que fazem um nome parecer outro. ZWJ e ZWNJ
  * ficam: emoji e escritas como a persa e as indicas dependem deles.
  */
-const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b\u200e\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
+const CONTROLE = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b\u200e\u200f\u2028\u2029\u202a-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb]/;
 const SURROGATE_ISOLADO = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const textoValido = (t: string): boolean => !CONTROLE.test(t) && !SURROGATE_ISOLADO.test(t);
 
@@ -513,6 +513,9 @@ export function conferirFontes(entrada: unknown, fontes: ReadonlyMap<string, Fon
     if (!manifesto.has(p)) falha('grafo.fonte.fora-do-manifesto');
     const tipo = f !== null && typeof f === 'object' ? (f as { tipo: unknown }).tipo : undefined;
     if (!['texto', 'binario', 'pdf'].includes(tipo as string)) falha('grafo.fonte.tipo-desconhecido');
+    if (!(f.bytes instanceof Uint8Array) || (f.tipo === 'pdf' && !(Array.isArray(f.paginas) && f.paginas.every((x) => x instanceof Uint8Array)))) {
+      falha('grafo.fonte.incompleta');
+    }
   }
   const fontesVerificadas: string[] = [], fontesIndisponiveis: string[] = [];
   g.snapshot.source_manifest.forEach((m, i) => {

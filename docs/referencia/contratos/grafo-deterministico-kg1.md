@@ -149,7 +149,9 @@ de vazamento de um serviço de consulta que ainda não existe.
 O erro traz o código e a posição estrutural (`edges.3.evidence.0`), nunca conteúdo nem
 caminho da fonte. Erro de validação sai na posição da entrada, também quando vem de dentro de
 `conferirFontes`; erro de conferência de bytes sai na posição da forma canônica que
-`validarGrafo` devolve. Tipo de fonte fora de `texto`, `binario` e `pdf` é recusado. Famílias: `grafo.versao`, `grafo.estrutura`,
+`validarGrafo` devolve. Tipo de fonte fora de `texto`, `binario` e `pdf` é recusado
+(`grafo.fonte.tipo-desconhecido`), e fonte sem `bytes`, ou `pdf` sem as páginas, também
+(`grafo.fonte.incompleta`). Famílias: `grafo.versao`, `grafo.estrutura`,
 `grafo.caminho`, `grafo.texto`, `grafo.canonico`, `grafo.manifesto`, `grafo.extrator`,
 `grafo.snapshot`, `grafo.id`, `grafo.no`, `grafo.aresta`, `grafo.proveniencia`, `grafo.span`,
 `grafo.acesso`, `grafo.fonte` e `grafo.diagnostico`.
@@ -157,8 +159,11 @@ caminho da fonte. Erro de validação sai na posição da entrada, também quand
 Caminho é relativo à raiz declarada, com `/` e caixa preservada. São recusados: absoluto,
 `\`, `:` no primeiro segmento (drive ou esquema de URL), `.`, `..`, segmento vazio,
 qualquer escape percentual (`%2e`, `%252e`), controle C0 e C1, controles bidirecionais e
-marcas invisíveis sem uso em nome (hífen suave, espaço de largura zero, juntores de palavra e
-BOM). ZWJ e ZWNJ são aceitos, porque emoji e escritas como a persa dependem deles. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
+marcas invisíveis sem uso em nome (hífen suave, espaço de largura zero, juntores e controles
+de formatação de U+2060 a U+206F, separadores de linha e parágrafo, BOM e anotação
+interlinear). ZWJ e ZWNJ são aceitos, porque emoji e escritas como a persa dependem deles. O
+produtor que tira um fragmento de um título com essas marcas (o tailandês usa espaço de
+largura zero) as remove antes de montar o localizador. O contrato compara caminhos como texto e não normaliza Unicode nem caixa; dois
 caminhos do manifesto que coincidem na forma NFC são recusados
 (`grafo.manifesto.caminho-ambiguo`), porque um sistema de arquivos que normaliza os
 fundiria. Fragmentos de localizador seguem a mesma regra de controle. Arquivo cujo caminho o
