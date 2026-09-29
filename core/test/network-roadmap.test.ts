@@ -16,6 +16,7 @@ import { definirFusoDoDono } from '../src/horario';
 import { registrar } from '../src/ledger';
 import { exigirManifesto } from '../src/manifest';
 import { init } from '../src/init';
+import { main } from '../src/index';
 import { CONTRATO_PANORAMA_DA_REDE, ErroDoPedidoDeProjeto, LacunaDaRede, montarPanoramaDaRede, PanoramaDaRede,
   textoDoPanoramaDaRede } from '../src/network-roadmap';
 import { pegarItem } from '../src/roadmap-reservas';
@@ -362,4 +363,49 @@ test('rede: incidente, cwd de outro projeto nao responde pelo projeto pedido', (
     assert.throws(() => montarPanoramaDaRede({ cwd: workspace, pedido: path.dirname(r.b), quando: QUANDO, maquina: 'pc-a', registro: r.registro }),
       (e: unknown) => e instanceof ErroDoPedidoDeProjeto && e.codigo === 'projeto.sem-manifesto');
   } finally { r.limpar(); fs.rmSync(workspace, { recursive: true, force: true }); }
+});
+
+test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato', () => {
+  const r = rede('rede-cli');
+  const workspace = dirTemporario('rede-cli-workspace');
+  exec('git', ['init', '-q', '-b', 'main'], workspace);
+  init(workspace, { nome: 'workspace', abbrev: 'wsp' });
+  const cwd = process.cwd(), log = console.log, erro = console.error, maquina = process.env.ORK_MAQUINA;
+  let saida = '';
+  const rodar = (dir: string, args: string[]): number => {
+    saida = '';
+    process.chdir(dir);
+    return main(args);
+  };
+  try {
+    process.env.ORK_MAQUINA = 'pc-a';
+    console.log = (s: unknown) => { saida += String(s) + '\n'; };
+    console.error = (s: unknown) => { saida += String(s) + '\n'; };
+    // Do clone: o panorama do projeto do cwd, com as duas maquinas.
+    assert.equal(rodar(r.a, ['network', 'roadmap']), 0, saida);
+    assert.match(saida, /^Panorama da rede lido de pc-a \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
+    assert.match(saida, /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
+    assert.match(saida, /^• pc-b: 1 ativa\(s\), retrato de /m);
+    assert.match(saida, /^Fontes$/m);
+    assert.equal(rodar(r.a, ['network', 'roadmap', '--json']), 0);
+    const json = JSON.parse(saida) as PanoramaDaRede;
+    assert.equal(json.contrato, CONTRATO_PANORAMA_DA_REDE);
+    assert.deepEqual(json.projetos.map((x) => x.projeto.nome), ['orkastery']);
+    // De outro projeto: o --projeto manda; o nome desconhecido recusa com o codigo da RM-052.
+    assert.equal(rodar(workspace, ['network', 'roadmap', '--projeto', r.a]), 0, saida);
+    assert.match(saida, new RegExp(`^Consultado: orkastery \\(clone em ${r.a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)$`, 'm'));
+    assert.match(saida, /^• projeto workspace: fora do pedido \(--projeto\)$/m);
+    assert.equal(rodar(workspace, ['network', 'roadmap', '--projeto', 'orkastery']), 4);
+    assert.match(saida, /^projeto\.desconhecido: "orkastery" não é um projeto conhecido nesta máquina$/m);
+    assert.equal(rodar(workspace, ['network', 'roadmap', '--projeto', 'orkastery', '--json']), 4);
+    assert.equal(JSON.parse(saida).erro, 'projeto.desconhecido');
+    // Uso errado sai 2, com a linha de uso.
+    assert.equal(rodar(r.a, ['network']), 2);
+    assert.match(saida, /^uso: ork network roadmap/m);
+    assert.equal(rodar(r.a, ['network', 'roadmap', '--projeto']), 2);
+  } finally {
+    console.log = log; console.error = erro; process.chdir(cwd);
+    if (maquina === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = maquina;
+    r.limpar(); fs.rmSync(workspace, { recursive: true, force: true });
+  }
 });
