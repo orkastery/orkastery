@@ -40,15 +40,17 @@ import { aguardando, enfileirar, exigirPedido, gravarPedido, janelaPadraoMs, ler
 import { eventosDoIntervalo, fonteRegistrada, headDaWorktree, saidaDoArtefato } from './session-watcher-claude';
 import {
   lerPerfis, lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDoRegistro, perfisDoRuntime, PoliticaDeRotacao, politicaDeRotacao,
-  prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
+  perfilDisponivel, PerfilDeRuntime, prazoDaFila, prazoDoRuntime, proximoPerfilDisponivel,
   validarPerfilDeDespacho,
 } from './runtime-profiles';
+import { MODOS } from './modos';
 import { blocoDaThread, dirThread, lerThread } from './thread';
 import { gateDeTokens } from './tokens';
 import {
   AcaoDeRetry,
   BloqueioDeRetry,
   Fase,
+  ModoLegado,
   MotivoGate,
   PedidoDeRetomada,
   PlanoDeRetry,
@@ -227,6 +229,16 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     porque:
       'a conta do runtime perdeu a autenticacao: o perfil nunca mais recebe despacho ate o login ser refeito pelo proprio CLI, e o MESMO prompt segue no proximo perfil ou no runtime de fallback',
     correcao: 'ork accounts check confere o login de cada perfil; ork retry run <thread> rotaciona o prompt ja gravado',
+  },
+  // RM-037 (defeitosdeco D-6): o modelo e que falta, nao a conta. Repetir o mesmo modelo na mesma conta
+  // so repete a recusa; o perfil continua no rodizio para os outros modelos.
+  'runtime.model-unavailable': {
+    motivo: 'runtime.model-unavailable',
+    acao: 'reexecutar',
+    automatica: true,
+    porque:
+      'o modelo pedido nao existe ou a conta nao tem acesso a ele: o MESMO prompt, com o mesmo sha256, segue no proximo perfil do mesmo runtime com o mesmo modelo e depois no fallback do bloco, nunca de novo no par que ja recusou',
+    correcao: 'ork retry run <thread> troca o destino; sem destino, ork setup <modo> --bloco N --model <modelo acessivel> ou --fallback runtime:modelo',
   },
   'tree.blocked': {
     motivo: 'tree.blocked',
@@ -1377,6 +1389,9 @@ export function executarRetry(
   if (plano.motivo === 'runtime.quota-exhausted' || plano.motivo === 'runtime.auth-missing') {
     return rotacionarConta(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
+  if (plano.motivo === 'runtime.model-unavailable') {
+    return trocarDestinoDoModelo(carregado, thread, plano, opcoes, vazio, registrarTentativa);
+  }
 
   // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime.
   const falho = ultimoDespachoFalho(raiz, threadId, plano.fase as Fase, plano.motivo === 'runtime.silencio');
@@ -1529,6 +1544,147 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
     correcao: `ork retry resume (ou aguarde ate ${pedido.liberaEm})` });
   registrarTentativa(true, `fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}`);
   return { ...vazio, executada: true, fila: [pedido], redespacho: ultimo, detalhe: `pedido ${pedido.id} na fila ate ${pedido.liberaEm}` };
+}
+
+/** RM-037 (defeitosdeco D-6): chave de um destino (runtime, perfil, modelo) que recusou o modelo. */
+function chaveDoModelo(runtime: string, perfil: string | null, model: string | null): string {
+  return `${runtime}|${perfil ?? ''}|${model ?? ''}`;
+}
+
+/**
+ * D-6: todo destino que ja recusou o modelo nesta fase, lido do ledger. O gate do observador traz o
+ * `sessionId` (o modelo vem do `phase_dispatch` dele); o do despacho sincrono, o ultimo
+ * `phase_dispatch_failed` da fase antes dele.
+ */
+function destinosQueRecusaramOModelo(eventos: readonly EventoLedger[], fase: Fase): string[] {
+  const chaves: string[] = [];
+  eventos.forEach((e, i) => {
+    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || e.fase !== fase || e.motivo !== 'runtime.model-unavailable') return;
+    const origem = typeof e.sessionId === 'string'
+      ? eventos.filter(d => d.tipo === TIPOS_DE_EVENTO.faseDespachada && d.sessionId === e.sessionId).at(-1)
+      : eventos.slice(0, i).filter(d => d.tipo === TIPOS_DE_EVENTO.despachoFalhou && d.fase === fase).at(-1);
+    if (!origem || typeof origem.runtime !== 'string') return;
+    let perfil: PerfilDeDespacho | null = null;
+    try { perfil = perfilDoEvento(origem); } catch { /* perfil ilegivel nao exclui ninguem */ }
+    chaves.push(chaveDoModelo(origem.runtime, perfil?.id ?? null, typeof origem.model === 'string' ? origem.model : null));
+  });
+  return chaves;
+}
+
+/**
+ * D-6: o proximo destino do MESMO prompt depois de `runtime.model-unavailable`. Primeiro outro perfil do
+ * mesmo runtime com o MESMO modelo (outra conta pode ter acesso), depois cada runtime da ordem de
+ * fallback do bloco com o modelo dele. Perfil fora do rodizio (esgotado, sem login, desativado, pago)
+ * nao entra, e nenhum destino que ja recusou volta. Sem destino, `null`.
+ */
+function proximoDestinoDoModelo(raiz: string, runtime: string, model: string | null, fallback: readonly AlvoDeFallback[],
+    recusados: ReadonlySet<string>): AlvoDaRotacao | null {
+  const store = lerPerfisComContas(raiz);
+  const utilizavel = (p: PerfilDeRuntime) => !['desativado', 'provider-pago', 'sem-auth'].includes(p.estado) && perfilDisponivel(p);
+  const mesmo = perfisDoRuntime(store, runtime).find(p => utilizavel(p) && !recusados.has(chaveDoModelo(runtime, p.id, model)));
+  if (mesmo) return { runtime, perfil: perfilDeDespacho(mesmo), model, effort: null };
+  for (const f of fallback) {
+    const perfis = perfisDoRuntime(store, f.runtime);
+    if (perfis.length) {
+      const p = perfis.find(x => utilizavel(x) && !recusados.has(chaveDoModelo(f.runtime, x.id, f.model)));
+      if (p) return { runtime: f.runtime, perfil: perfilDeDespacho(p), model: f.model, effort: f.effort ?? null };
+      continue;
+    }
+    if (!recusados.has(chaveDoModelo(f.runtime, null, f.model))) return { runtime: f.runtime, perfil: null, model: f.model, effort: f.effort ?? null };
+  }
+  return null;
+}
+
+/** D-6: a correcao exata quando nenhum destino tem o modelo: o bloco do setup que conduz a fase. */
+function correcaoDoModelo(thread: Thread, fase: Fase): string {
+  const indice = MODOS[thread.modo as ModoLegado]?.blocos.findIndex(b => (b.fases as readonly string[]).includes(fase)) ?? -1;
+  const bloco = indice >= 0 ? String(indice + 1) : 'N';
+  return `ork setup ${thread.modo} --bloco ${bloco} --model <modelo acessivel>, ou declare no mesmo bloco --fallback runtime:modelo`;
+}
+
+/**
+ * RM-037 (defeitosdeco D-6): troca de destino depois de `runtime.model-unavailable`. O modelo pedido nao
+ * existe ou a conta nao tem acesso a ele (`model_not_found` na transcricao); o perfil continua no
+ * rodizio e o MESMO prompt segue no proximo destino (`proximoDestinoDoModelo`). Producao no intervalo
+ * escala ao humano, como na rotacao por conta. Recusa do modelo no redespacho (nada rodou) continua a
+ * troca na mesma chamada, dentro do limite de tentativas. Sem destino, o humano recebe a correcao exata.
+ */
+function trocarDestinoDoModelo(carregado: ManifestoCarregado, thread: Thread, plano: PlanoDeRetry, opcoes: OpcoesDeExecucao,
+  vazio: ResultadoDeRetry, registrarTentativa: (ok: boolean, detalhe: string) => void): ResultadoDeRetry {
+  const { raiz, manifesto } = carregado;
+  const dir = dirThread(raiz, thread.id);
+  const fase = plano.fase as Fase;
+  const motivo: MotivoGate = 'runtime.model-unavailable';
+  const eventos = lerLedger(dir);
+  const gate = ultimaReprovacao(raiz, thread.id);
+  const despacho = despachoDaFalha(eventos, gate, fase);
+  const escalar = (razao: string, diagnostico: string): ResultadoDeRetry => {
+    if (!opcoes.dryRun) {
+      registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'human.pending', modo: thread.modo, detalhe: diagnostico,
+        diagnostico, correcao: `ork gate request ${thread.id}`, fase, origem: 'retry.modelo', pausaQualquerModo: true });
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.retryEscalado, { fase, motivo, origem: 'retry.modelo', acao: plano.acao,
+        tentativas: plano.tentativas, limite: plano.limite, modo: thread.modo, razao });
+    }
+    return { ...vazio, detalhe: diagnostico };
+  };
+  if (!despacho || typeof despacho.promptPath !== 'string' || typeof despacho.promptSha256 !== 'string') {
+    const detalhe = `nao ha despacho com prompt gravado para ${motivo} em ${fase}: rode a fase de novo com ork phase run`;
+    registrarTentativa(false, detalhe);
+    return { ...vazio, detalhe };
+  }
+  const runtime = typeof despacho.runtime === 'string' ? despacho.runtime : manifesto.runtime.adapter;
+  const model = typeof despacho.model === 'string' ? despacho.model : null;
+  const rotulo = model ?? '(padrao do runtime)';
+  let perfil: PerfilDeDespacho | null;
+  try {
+    perfil = typeof gate?.sessionId === 'string'
+      ? perfilDoRegistro(eventos, { sessionId: gate.sessionId, despachadaEm: typeof gate.despachoEm === 'string' ? gate.despachoEm : undefined })
+      : perfilDoEvento(despacho);
+  } catch (e) { return escalar('perfil registrado invalido', `troca de destino recusada: ${(e as Error).message}`); }
+  if (typeof gate?.sessionId === 'string' && typeof gate.despachoEm === 'string') {
+    const producao = producaoNoIntervalo(raiz, thread, { sessionId: gate.sessionId, fase, despachadaEm: gate.despachoEm }, eventos);
+    if (producao.produziu) {
+      return escalar('producao parcial com modelo inacessivel', `producao parcial com o modelo ${rotulo} inacessivel: ${producao.evidencia}; ` +
+        'a sessao nao e redespachada sobre a worktree alterada e a fase nao conclui sem o humano');
+    }
+  }
+  const recusados = new Set([...destinosQueRecusaramOModelo(eventos, fase), chaveDoModelo(runtime, perfil?.id ?? null, model)]);
+  const doBloco = configDoBloco(lerSetup(raiz), thread.modo, fase);
+  const fallback = alvosDeFallback(doBloco, doBloco?.runtime ?? manifesto.runtime.adapter);
+  let atual = { runtime, perfil, model };
+  let tentativas = plano.tentativas;
+  for (;;) {
+    const alvo = proximoDestinoDoModelo(raiz, runtime, model, fallback, recusados);
+    if (!alvo) break;
+    if (!opcoes.dryRun) registrar(dir, thread.id, TIPOS_DE_EVENTO.perfilRotacionado, { fase, motivo, origem: 'retry.modelo',
+      de: { runtime: atual.runtime, perfil: atual.perfil?.id ?? null, model: atual.model },
+      para: { runtime: alvo.runtime, perfil: alvo.perfil?.id ?? null, model: alvo.model },
+      razao: alvo.runtime === runtime ? 'outro perfil do mesmo runtime com o mesmo modelo' : 'fallback de runtime pela ordem do bloco',
+      promptSha256: despacho.promptSha256, modo: thread.modo,
+      autorizadoPor: `politica de retry da RM-037 (D-6), bloco sem pausa ou delegado no modo ${thread.modo}` });
+    const mudouRuntime = alvo.runtime !== runtime;
+    const r = redespachar(carregado, thread, fase, despacho.promptPath, despacho.promptSha256, {
+      runtime: alvo.runtime, perfil: alvo.perfil?.id ?? null, model: alvo.model,
+      effort: mudouRuntime ? alvo.effort ?? (typeof despacho.effort === 'string' ? despacho.effort : null) : plano.effort,
+      origem: 'retry.modelo', dryRun: opcoes.dryRun,
+    });
+    if (opcoes.dryRun) return { ...vazio, redespacho: r, detalhe: `ensaio: o mesmo prompt iria a ${alvo.runtime}` +
+      `${alvo.perfil ? ` (perfil ${alvo.perfil.id})` : ''} com o modelo ${alvo.model ?? '(padrao do runtime)'}; ${r.detalhe}` };
+    registrarTentativa(r.ok, r.detalhe);
+    tentativas += 1;
+    if (r.ok) return { ...vazio, executada: true, redespacho: r, detalhe: r.detalhe };
+    // So a recusa do MODELO no redespacho (nada rodou) continua a troca; outra falha para aqui.
+    if (r.falhaDeConta?.motivo !== 'runtime.model-unavailable') return { ...vazio, redespacho: r, detalhe: r.detalhe };
+    recusados.add(chaveDoModelo(alvo.runtime, alvo.perfil?.id ?? null, alvo.model));
+    atual = { runtime: alvo.runtime, perfil: alvo.perfil, model: alvo.model };
+    if (tentativas >= plano.limite) {
+      return escalar('limite de tentativas na troca de modelo', `${tentativas} tentativa(s) de troca por ${motivo} em ${fase}, no limite de ` +
+        `${plano.limite} do manifesto: escalacao tipada pausa qualquer modo`);
+    }
+  }
+  const tentados = [...recusados].map(k => { const [rt, p, m] = k.split('|'); return `${rt}${p ? `/${p}` : ''}:${m || '(padrao)'}`; });
+  return escalar('modelo inacessivel sem outro destino', `o modelo ${rotulo} nao esta acessivel em ${tentados.join(', ')} e o bloco ` +
+    `nao tem outro destino: ${correcaoDoModelo(thread, fase)}`);
 }
 
 /** Texto de `ork retry plan`. */

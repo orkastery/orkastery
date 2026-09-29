@@ -79,7 +79,7 @@ function encerrarControllers(dir: string): void {
  * da prontidao de um processo destacado sob carga. A falha mostra os eventos do ledger.
  */
 function esperarResultado(carregado: ManifestoCarregado, dir: string, sessionId: string, ms = 30000): void {
-  const pronto = () => lerLedger(dir).some(e => e.tipo === 'phase_result');
+  const pronto = () => lerLedger(dir).some(e => e.tipo === 'phase_result' && e.sessionId === sessionId);
   try {
     esperarCondicao(() => {
       if (!pronto()) { try { observarSessao(carregado, sessionId); } catch { /* ocupado ou fonte ainda sem terminal */ } }
@@ -425,3 +425,90 @@ for (const perfis of [true, false]) {
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// RM-037 (defeitosdeco D-6): o PLAN da ork-i36buscasema foi despachado com `fable-5-1` na conta `bia`,
+// que nao tem esse modelo. A sessao af32834f ficou `failed` 6 s depois e virou `runtime.unavailable`,
+// cuja politica repete o MESMO modelo na MESMA conta. O motivo passa a ser tipado, o perfil fica no
+// rodizio e o retry troca o destino, ou diz a correcao exata.
+// ---------------------------------------------------------------------------
+import { parseFalhaDeConta } from '../src/adapters/claude-bg';
+import { editarBloco } from '../src/setup';
+import { politicaDoMotivo } from '../src/retry';
+
+/** O texto real da transcricao da af32834f (28/09/2026), com o modelo trocado pelo da fixture. */
+const MODELO_INACESSIVEL = (modelo: string) =>
+  `There's an issue with the selected model (${modelo}). It may not exist or you may not have access to it. Run /model to pick a different model.`;
+
+test('defeitosdeco D-6: model_not_found da transcricao vira runtime.model-unavailable; sobrecarga nao', () => {
+  const s = parseFalhaDeConta(`model_not_found: ${MODELO_INACESSIVEL('fable-5-1')}`)!;
+  assert.deepEqual([s.motivo, s.resetEm, s.fonte], ['runtime.model-unavailable', null, 'sem-horario']);
+  assert.match(s.trecho, /issue with the selected model \(fable-5-1\)/);
+  assert.equal(parseFalhaDeConta(MODELO_INACESSIVEL('x'))?.motivo, 'runtime.model-unavailable', 'so o texto, sem o codigo');
+  assert.equal(parseFalhaDeConta('overloaded_error: the model is overloaded, try again'), null);
+  assert.deepEqual([politicaDoMotivo('runtime.model-unavailable')?.acao, politicaDoMotivo('runtime.model-unavailable')?.automatica],
+    ['reexecutar', true]);
+});
+
+test('defeitosdeco D-6: modelo inacessivel na conta a segue no perfil b com o mesmo modelo; sem destino, a correcao exata', () => {
+  const p = projetoTemporario('modelo-inacessivel');
+  const claude = runtimePorConta('modelo-inacessivel');
+  try {
+    const contaA = claude.conta(p.dir, 'a');
+    const contaB = claude.conta(p.dir, 'b');
+    ignorarStubs(p.dir);
+    const t = novaThread(p.carregado, { nome: 'modelo', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', model: 'fable-5-1' });
+    assert.equal(r.verificada, true, r.erro);
+    erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, r.sessionId as string);
+    const [pr] = lerLedger(dir).filter(e => e.tipo === 'phase_result');
+    assert.equal(pr.motivo, 'runtime.model-unavailable');
+    assert.equal(lerPerfis(p.dir).perfis.find(x => x.id === 'a')?.estado, 'ativo', 'a conta a continua no rodizio');
+
+    // Primeira troca: o mesmo modelo no perfil b, nunca de novo no par (a, fable-5-1).
+    const troca = executarRetry(p.carregado, t.id);
+    assert.equal(troca.executada, true, troca.detalhe);
+    const despachos = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch');
+    assert.equal(despachos.length, 2);
+    assert.deepEqual([(despachos[1].perfil as { id: string }).id, despachos[1].model], ['b', 'fable-5-1']);
+    assert.deepEqual(lerLedger(dir).filter(e => e.tipo === 'runtime_profile_rotated').map(e => [e.de, e.para]),
+      [[{ runtime: 'claude-bg', perfil: 'a', model: 'fable-5-1' }, { runtime: 'claude-bg', perfil: 'b', model: 'fable-5-1' }]]);
+
+    // A conta b tambem nao tem o modelo, e o bloco nao tem fallback: o humano recebe a correcao exata.
+    erroNaTranscricao(contaB, p.dir, troca.redespacho!.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, troca.redespacho!.sessionId as string);
+    const fim = executarRetry(p.carregado, t.id);
+    assert.equal(fim.executada, false);
+    assert.match(fim.detalhe, /o modelo fable-5-1 nao esta acessivel em claude-bg\/a:fable-5-1, claude-bg\/b:fable-5-1 e o bloco nao tem outro destino: ork setup auto --bloco 1 --model <modelo acessivel>, ou declare no mesmo bloco --fallback runtime:modelo/);
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length, 2, 'nada foi redespachado de novo');
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'gate_blocked').at(-1)?.motivo, 'human.pending');
+    assert.equal(lerPerfis(p.dir).perfis.every(x => x.estado === 'ativo'), true, 'nenhum perfil saiu do rodizio');
+  } finally { p.limpar(); claude.restaurar(); }
+});
+
+test('defeitosdeco D-6: sem outro perfil com o modelo, o retry vai ao fallback do bloco com o modelo dele', () => {
+  const p = projetoTemporario('modelo-fallback');
+  const claude = runtimePorConta('modelo-fallback');
+  try {
+    const contaA = claude.conta(p.dir, 'a');
+    ignorarStubs(p.dir);
+    const t = novaThread(p.carregado, { nome: 'modelo fallback', modo: 'auto' }).thread;
+    const bloco = editarBloco(p.dir, 'auto', 1, { fallback: ['codex:modelo-SIMULADO:high'] }, 'fixture');
+    assert.equal(bloco.ok, true, bloco.erro);
+    const dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', model: 'fable-5-1' });
+    assert.equal(r.verificada, true, r.erro);
+    erroNaTranscricao(contaA, p.dir, r.sessionId as string, 'model_not_found', MODELO_INACESSIVEL('fable-5-1'));
+    claude.estadoDaSessao('failed');
+    esperarResultado(p.carregado, dir, r.sessionId as string);
+    const ensaio = executarRetry(p.carregado, t.id, { dryRun: true });
+    assert.equal(ensaio.redespacho?.ok, true, ensaio.detalhe);
+    assert.match((ensaio.redespacho?.comando ?? []).join(' '), /^codex /);
+    assert.match(ensaio.detalhe, /^ensaio: o mesmo prompt iria a codex com o modelo modelo-SIMULADO;/);
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').length, 1, 'o ensaio nao despacha');
+  } finally { p.limpar(); claude.restaurar(); }
+});

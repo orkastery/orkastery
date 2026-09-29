@@ -488,6 +488,14 @@ const FRASES_DE_AUTH_AUSENTE: readonly RegExp[] = [
 const FRASES_AMPLAS_DE_AUTH: readonly RegExp[] = [/\bcodex login\b/i];
 
 /**
+ * RM-037 (defeitosdeco D-6): modelo inexistente ou sem acesso na conta. Medido na transcricao da
+ * sessao af32834f (28/09/2026, `fable-5-1` na conta `bia`): `error: "model_not_found"` e o texto
+ * "There's an issue with the selected model (fable-5-1). It may not exist or you may not have access
+ * to it". Frase de sobrecarga ("model is overloaded") nao entra: e falha transitoria da infra.
+ */
+const FRASES_DE_MODELO_INACESSIVEL: readonly RegExp[] = [/\bmodel_not_found\b/i, /issue with the selected model/i];
+
+/**
  * I-33 (D16): CRITERIO UNICO entre ESGOTAMENTO da conta e RATE LIMIT comum. Decisao do dono em
  * 19/09/2026 (opcao a do A3 do CHECK aa279e17): esgotamento de cota, credito ou limite do plano
  * tira o perfil do rodizio e o MESMO prompt pode seguir no proximo perfil ativo do mesmo runtime;
@@ -597,6 +605,8 @@ export function naturezaDoLimite(saida: string, agoraMs = Date.now()): LimiteCla
 
 export function parseFalhaDeConta(saida: string, agoraMs = Date.now()): SinalDeFalhaDeConta | null {
   const texto = saida ?? '';
+  const modelo = FRASES_DE_MODELO_INACESSIVEL.find((r) => r.test(texto));
+  if (modelo) return { motivo: 'runtime.model-unavailable', resetEm: null, fonte: 'sem-horario', trecho: trechoDa(texto, modelo) };
   const auth = FRASES_DE_AUTH_AUSENTE.find((r) => r.test(texto));
   if (auth) return { motivo: 'runtime.auth-missing', resetEm: null, fonte: 'sem-horario', trecho: trechoDa(texto, auth) };
   const limite = naturezaDoLimite(texto, agoraMs);
