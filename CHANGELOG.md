@@ -4,6 +4,32 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
+## Não publicado
+
+### Adicionado
+
+- **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
+  - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
+    desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última
+    linha dizendo o que digitar, em no máximo 15 linhas, no Telegram, no terminal e no OpenClaw;
+  - a resposta em texto livre registra quando é inequívoca (`aprovo`, `sim`, `pode seguir`, `a`,
+    `1`, `1. B, 2. A`); ambígua, volta como pergunta com as opções reais. Com mais de um pedido
+    aberto na mesma thread, texto livre não registra. A prova HMAC do ingresso não muda;
+  - a linha que o dono recebe não vence em uma hora: o código do gate é estável, `<código> a`
+    responde ao gate, e a resposta a pedido vencido vai ao pedido renovado quando a pergunta é a
+    mesma;
+  - impedimento técnico deixa de virar pergunta ao dono e aparece no resumo como "Conosco";
+  - `ork roadmap status`: o status report único do roadmap, que os canais chamam em vez de
+    escrever o próprio;
+  - `ork master pedir`: a nota do MASTER com prova de canal. `ork master` com `--por` vindo de
+    processo de host é recusado com `master.prova-de-canal`, e a `ork_master` do OpenClaw deixa de
+    receber nome de pessoa.
+- **Pacote de contexto citável do Company Brain** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  `ork brain context --thread <id> --ids <ids>` devolve o pacote `ork.brain-context/v1`, com cada
+  entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
+  tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
+  leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
+
 ## 0.4.3 — 29/09/2026
 
 ### Removido

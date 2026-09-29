@@ -104,6 +104,31 @@ export function atoIrreversivelDoItem(item: ItemClassificavel): AtoIrreversivel 
   return ATO_IRREVERSIVEL_DO_MOTIVO[item.motivo as MotivoGate];
 }
 
+/**
+ * RM-048 (item 6, D6): quem decide cada motivo. O dono decide o que e decisao (pausa do modo,
+ * policy, custo, credencial, limite de tentativas); o orquestrador resolve o que e impedimento
+ * tecnico, e o dono nao e chamado a decidi-lo. A lista e FECHADA e o padrao e o dono: motivo
+ * novo, sem classificacao, continua chegando a ele, porque esconder uma decisao dele e pior do
+ * que mostrar um impedimento a mais.
+ *
+ * Por que `runtime.unavailable` esta aqui, embora seja escalacao tipada: reconhecer esse gate
+ * grava `aguardando` e nao libera nada (`vereditoDoGate` so aprova `human.pending`). Pedir ao
+ * dono um veredito que nao muda nada e o que o item 6 pede para acabar. A pausa continua; quem a
+ * destrava e o fallback de runtime do bloco, e o resumo mostra a thread em "Conosco".
+ */
+export type QuemDecide = 'dono' | 'orquestrador';
+
+export const MOTIVOS_DO_ORQUESTRADOR: readonly string[] = Object.freeze([
+  'runtime.unavailable', 'runtime.silencio', 'runtime.rate-limited', 'artifact.missing',
+  'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito',
+  'claims.failed', 'claims.unverifiable', 'ci.failed', 'hitl.formato',
+  'lease.busy', 'vaga.stale', 'conducao.em-andamento', 'concurrency.limite',
+]);
+
+export function quemDecide(motivo: string | null | undefined): QuemDecide {
+  return MOTIVOS_DO_ORQUESTRADOR.includes(String(motivo ?? '')) ? 'orquestrador' : 'dono';
+}
+
 /** Nome curto da sessao, do jeito que o dono ja ve em `ork board` e nos comandos de log. */
 const sessaoCurta = (id: string): string => id.slice(0, 8);
 

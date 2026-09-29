@@ -19,6 +19,7 @@ import { leasesColidentes } from './leases';
 import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { estadoDoPedido, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
+import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
@@ -335,6 +336,11 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   registrarTool('ork_hitl_pending',{description:'Pedidos HITL atuais da thread, incluindo prazo; nao aprova nem abre pedido.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => resposta({threadId,pendencias:pendencias(threadId)}));
+  registrarTool('ork_roadmap_status',{description:'Status report unico do roadmap no formato aprovado pelo dono: grupos com icones, #HITL no que espera o dono e o fecho. Somente leitura; transporte o texto como vem.',
+    inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async () => {
+      const c=carregar(); const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name});
+      return resposta({texto:textoDoStatusDoRoadmap(status),status});
+    });
   registrarTool('ork_observe',{description:'Observa uma vez o progresso canonico e pedidos da thread. Nao cria monitor ou despacho.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {
       return resposta(observar(threadId));

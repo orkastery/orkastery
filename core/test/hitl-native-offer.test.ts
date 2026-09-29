@@ -43,7 +43,7 @@ for (const host of ['hermes', 'openclaw'] as const) test(`GO-FIX4: oferta de ped
     };
     const status = (value: unknown) => cli(value).canais.find((c: any) => c.canal === host && c.transporte === 'native');
     const view = cli(offer);
-    assert.equal(view.pedido.id, q.id); assert.match(view.apresentacao.mensagem, /Decisão:/);
+    assert.equal(view.pedido.id, q.id); assert.match(view.apresentacao.mensagem, /Pergunta:/);
     assert.equal(status(offer).estado, 'disponivel');
     assert.ok(view.canais.filter((c: any) => c.transporte === 'telegram').every((c: any) => c.estado === 'indisponivel'));
     assert.equal(view.canais.find((c: any) => c.canal === other && c.transporte === 'native').estado, 'indisponivel');

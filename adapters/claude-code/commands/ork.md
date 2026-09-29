@@ -46,6 +46,7 @@ UUID interno e cancelamento preservado. A condutora usa
 | Demanda nova | Resolva o modo pelo nucleo, confira o preflight e abra/despache a thread correspondente. |
 | "Continue" ou thread/roadmap existente | Leia o estado e o ultimo resultado; retome o proximo passo autorizado, sem duplicar despacho. |
 | "Como esta?" ou status | Consulte a thread conhecida; apresente progresso comprovado, impedimento e proximo passo. |
+| Status do roadmap | Rode `ork roadmap status` e mostre o texto como vem; nao escreva relatorio proprio de roadmap. |
 | Decisao ou resposta | Correlacione com o pedido/gate apresentado, transporte pelo caminho suportado e confira o resultado. |
 | Onboarding | Use a pauta de `ork onboarding` e retome as etapas existentes. |
 | board, plan, doctor ou modos | Execute a consulta correspondente e interprete o resultado para a intencao do dono. |

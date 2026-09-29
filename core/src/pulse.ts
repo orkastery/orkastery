@@ -14,8 +14,9 @@ import { FASES, MonitorDeOrquestracao, RadarDeSessoes, Thread, EventoLedger } fr
 import { agora } from './util';
 import { formatarDataHoraRotulada, localizarTexto } from './horario';
 import { apresentarHitl, ApresentacaoHitl, ofertaDoPedido, pedidoHitlAberto } from './hitl-presentation';
-import { alvoDoPedido, chaveDaEscolha, escolhasDoPedido, PedidoHitlQualquer,
+import { alvoDoPedido, chaveDaEscolha, ehV2, escolhasDoPedido, PedidoHitlQualquer,
   recomendacaoDoPedido, textoDoPedido } from './hitl-contract';
+import { entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { CanalOferecido } from './hitl-canais';
 import { DecisaoParaODono, decisoesParaODono, FaseAcimaDoLimiar } from './decisao-autonoma';
 import { mergeDaThread, resolverBase } from './docs';
@@ -32,6 +33,8 @@ export interface ItemPulse {
   pedido?: PedidoHitlQualquer; apresentacao?: ApresentacaoHitl;
   /** FX6: por quais canais homologados da para responder este pedido agora, e por que nao. */
   canais?: readonly CanalOferecido[];
+  /** RM-048 (D1): o pedido no contrato curto, pronto para o canal. So pergunta v2 de gate com codigo. */
+  apresentacaoCurta?: { telegram: string; terminal: string };
 }
 export interface Pulse {
   contrato: typeof CONTRATO_PULSE; consultadoEm: string;
@@ -57,6 +60,20 @@ const ordenar = (a: ItemPulse,b: ItemPulse): number =>
   (b.paradaHaMin ?? -1)-(a.paradaHaMin ?? -1) || b.impacto-a.impacto || a.id.localeCompare(b.id);
 const minutos = (desde: string | null, quando: string): number | null =>
   desde && Number.isFinite(Date.parse(desde)) ? Math.max(0,Math.floor((Date.parse(quando)-Date.parse(desde))/60000)) : null;
+
+/**
+ * RM-048 (D1 e D4): o texto curto de uma pergunta v2 de gate e a linha com o codigo estavel.
+ * Pedido sem codigo (v1, sessao) continua com o comando de antes: nada e inventado para ele.
+ */
+export function apresentacaoCurtaDoItem(pedido: PedidoHitlQualquer, desde: string | null, quando: string):
+  { textos: { telegram: string; terminal: string }; comando: string } | undefined {
+  if (!ehV2(pedido) || pedido.classe !== 'pergunta' || pedido.alvo.tipo !== 'gate') return undefined;
+  const curto = montarPedidoCurto(entradaDoPedido(pedido, desde ?? pedido.criadoEm),
+    { quando, responder: { tipo: 'codigo', codigo: pedido.codigo } });
+  const recomendada = pedido.alternativas.find(a => a.recomendada)?.letra ?? 'a';
+  return { textos: { telegram: textoDoPedidoCurto(curto, 'telegram'), terminal: textoDoPedidoCurto(curto, 'terminal') },
+    comando: `${pedido.codigo} ${recomendada}` };
+}
 
 export function comporPulse(carregado: ManifestoCarregado, entrada: {
   radar: RadarDeSessoes; monitor: MonitorDeOrquestracao; batch: PendenteDeScore[]; orfas: FaseOrfa[];
@@ -185,6 +202,10 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
         item.opcoes = escolhasDoPedido(pedido).map(o => `${chaveDaEscolha(pedido, o.numero)}. ${o.texto}`);
         item.recomendacao = recomendacaoDoPedido(pedido);
         item.comandoResposta = `/ork ${alvoDoPedido(pedido)?.tipo === 'session' ? 'session' : 'gate'} ${pedido.thread} ${pedido.id} <resposta>`;
+        // RM-048 (D1 e D4): a pergunta v2 de gate sai pelo contrato curto, e a linha que o dono
+        // recebe e o codigo estavel ("DE6H a"), nao o identificador que muda a cada renovacao.
+        const curta = apresentacaoCurtaDoItem(pedido, item.desdeEm, quando);
+        if (curta) { item.apresentacaoCurta = curta.textos; item.comandoResposta = curta.comando; }
         // O Pulse nao e uma conexao MCP: nenhum canal mcp-local sai `disponivel` daqui.
         item.canais = ofertaDoPedido(pedido);
       }

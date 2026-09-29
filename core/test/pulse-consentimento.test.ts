@@ -176,15 +176,16 @@ test('o pedido vigente do mesmo resumo não é substituído: o código não muda
 });
 
 test('a leitura da resposta aceita letra, palavra e código na frente, e recusa o resto', () => {
-  for (const sim of ['a', 'A', 'sim', 'SIM', ' Sim. ', 's', 'pode', 'manda', 'K3F9 a', 'k3f9 sim']) {
+  // RM-048 (D2): o vocabulário fechado do texto livre vale aqui também, e "1" é a primeira alternativa.
+  for (const sim of ['a', 'A', 'sim', 'SIM', ' Sim. ', 's', 'pode', 'manda', 'K3F9 a', 'k3f9 sim', 'pode seguir', 'aprovo', '1', 'K3F9 ok']) {
     assert.equal(interpretarResposta(sim, 'K3F9'), 'sim', sim);
   }
-  for (const nao of ['b', 'B', 'nao', 'não', 'n', 'agora não', 'K3F9 b']) {
+  for (const nao of ['b', 'B', 'nao', 'não', 'n', 'agora não', 'K3F9 b', '2', 'depois']) {
     assert.equal(interpretarResposta(nao, 'K3F9'), 'nao', nao);
   }
   // Só o código, sem escolha, não é resposta: ninguém consente por engano ao colar o código.
   assert.equal(interpretarResposta('K3F9', 'K3F9'), undefined);
-  for (const lixo of ['', 'c', '1', 'talvez', 'x'.repeat(65), 42, null]) {
+  for (const lixo of ['', 'c', '3', 'talvez', 'revisar', 'x'.repeat(65), 42, null]) {
     assert.equal(interpretarResposta(lixo, 'K3F9'), undefined, String(lixo));
   }
 });
