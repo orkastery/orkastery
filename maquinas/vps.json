@@ -4,22 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.2",
-  "publicadoEm": "2026-09-29T01:48:34.268Z",
+  "publicadoEm": "2026-09-29T01:49:18.510Z",
   "threads": [
-    {
-      "id": "ork-atualizarro2",
-      "nome": "Fechamento editorial Company Brain",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-atualizarro2-full",
-      "atualizadaEm": "2026-09-14T05:17:41.266Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
     {
       "id": "ork-companybrai3",
       "nome": "Company Brain: objetivo novo sobre o codigo de hoje (RM-025 e RM-026)",
@@ -69,8 +55,8 @@
       "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-048",
-      "branch": "main",
-      "atualizadaEm": "2026-09-29T01:48:20.785Z",
+      "branch": "ork/ork-hitlhumanono-full",
+      "atualizadaEm": "2026-09-29T01:49:18.277Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -103,20 +89,6 @@
       "esperaVoce": true,
       "pergunta": "plano",
       "paradaDesde": "2026-09-29T00:35:39.661Z"
-    },
-    {
-      "id": "ork-maestroworks",
-      "nome": "maestro-workspace",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-maestroworks-full",
-      "atualizadaEm": "2026-09-13T17:07:27.866Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
     }
   ]
 }
