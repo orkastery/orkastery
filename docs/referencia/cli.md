@@ -117,7 +117,7 @@ concatenado, guardado numa variável local que vai para o texto ou passado diret
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
 | `ork thread status <thread-id> [--json]` | O estado da thread, cruzado com o runtime; `--json` devolve o thread.json |
-| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa e grava `slot_refused`; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho (RM-037) |
+| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão em pausa humana, impedida ou parada não ocupa, como no escalonador; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037) |
 | ↳ opções | `[--model M] [--effort E] [--dry-run]` |
 | `ork phase list <thread>` | O histórico do ledger, **com o modelo e o esforço reais de cada fase** |
 
@@ -327,7 +327,7 @@ do projeto quando o limite de sessões está cheio.
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
 | `ork ship registrar-pr <thread>\|--todas` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57) |
-| `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado e o merge dentro da ponta da base conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
+| `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |

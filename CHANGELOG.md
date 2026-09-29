@@ -10,8 +10,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
-  em repositório declarado em `ci.external_repositories`, com o merge dentro da ponta da base
-  conferido pela API do GitHub e o check declarado verde no head do PR.
+  em repositório declarado em `ci.external_repositories`: o PR cita a thread e entrou na branch
+  padrão, o merge está dentro da ponta da base pela API do GitHub e o check declarado está verde no
+  head do PR.
 - **Decisão autônoma pelo MCP** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
   ferramenta `ork_decision_record` grava pelo mesmo contrato do `ork decisao registrar`, para a
   sessão cujo sandbox não grava o ledger.
