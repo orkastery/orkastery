@@ -1,5 +1,7 @@
 import { comLockHitl } from './hitl-gates';
 import { esperarVaga, vagaDoDespacho } from './board';
+import { gravarBaseline } from './verify';
+import { ErroDeConducao } from './conducao';
 import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidadeDeDespacho } from './runtime-context';
 /**
  * `ork phase run|list`: despacho de fase pelo runtime adapter e leitura do ledger.
@@ -645,6 +647,28 @@ export interface ResultadoRun {
   recusa?: RecusaDeConducao;
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 1): o despacho precisa gravar a baseline antes de soltar o bloco? O codex
+ * roda em sandbox que so grava a worktree; o estado canonico fica fora dela, e `ork verify --baseline`
+ * de dentro da sessao morre em EROFS (rollouts 01a0ecff e 01a0ed16, 29/09/2026). A sessao parava antes
+ * do GO, porque a skill exige a baseline antes da primeira linha. Vale para o despacho real do codex
+ * com sandbox que nao grava o estado, num bloco que tem GO a partir da entrada, sem baseline gravada.
+ */
+export function baselineDoDespachoNecessaria(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): boolean {
+  if (opcoes.dryRun) return false;
+  const { raiz, manifesto } = carregado;
+  const thread = lerThread(raiz, threadId);
+  if (thread.status === 'fechada') return false;
+  // Pedido que nem resolve o trio (runtime trocado sem modelo) recebe a recusa do proprio despacho.
+  let runtime: string;
+  try { runtime = resolverDespacho(manifesto, opcoes, configDoBloco(lerSetup(raiz), thread.modo, opcoes.fase)).runtime; }
+  catch { return false; }
+  if (runtime !== 'codex' || manifesto.runtime.sandbox === 'danger-full-access') return false;
+  const bloco = blocoDaThread(thread, opcoes.fase);
+  if (!bloco.fases.slice(bloco.fases.indexOf(opcoes.fase)).includes('GO')) return false;
+  return !lerLedger(dirThread(raiz, thread.id)).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada);
+}
+
 /** Despacha a fase pelo runtime adapter e registra tudo no ledger da thread. */
 export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): ResultadoRun {
   const rodar = (): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
@@ -657,6 +681,14 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
     if (prazo) {
       esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
       esperarVaga(carregado, threadId, Math.max(0, prazo - Date.now()));
+    }
+    // RM-037 (defeito 1): a mesma `gravarBaseline` do CLI, fora do lock HITL e so com vaga: sem vaga, o
+    // despacho seria recusado e a suite teria rodado a toa. Outra conducao na thread fica com a recusa dela.
+    if (baselineDoDespachoNecessaria(carregado, threadId, opcoes) && !vagaDoDespacho(carregado, threadId)) {
+      try {
+        gravarBaseline(carregado, threadId, undefined,
+          { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null }, 'phase.run');
+      } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
     }
     const r = rodar();
     const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
