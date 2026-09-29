@@ -71,7 +71,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-27 |
-| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Discovery | Não iniciado | Não iniciados | Não implantado | 2026-09-28 |
+| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | PR aberto | Em execução | Não implantado | 2026-09-29 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | PR aberto | Em execução | Não implantado | 2026-09-28 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
