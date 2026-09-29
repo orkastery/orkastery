@@ -268,3 +268,15 @@ test('defeito 3 (S-5): dois despachos na ultima vaga, fica quem tomou antes', ()
     } finally { if (tomada.ok) tomada.liberar(); }
   } finally { p.limpar(); }
 });
+
+test('defeito 3 (A-3): o bloqueio de OUTRA sessao da thread nao libera a vaga da sessao que trabalha', () => {
+  const p = projetoTemporario('rm037-limite-outra-sessao');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const nova = novaThread(p.carregado, { nome: 'quem pede', modo: 'auto' }).thread;
+    const viva = threadComSessaoViva(p, 'sucessora', 'codex', 101);
+    // A sessao sucedida (S1) continua blocked no runtime e o pulse carimba o bloqueio dela depois.
+    registrar(dirThread(p.dir, viva.id), viva.id, 'sessao_bloqueada', { fase: 'GO', sessionId: '00000000-0000-4000-8000-000000000100' });
+    assert.deepEqual(vagaDoDespacho(p.carregado, nova.id)?.ocupam.map(o => o.thread), [viva.id]);
+  } finally { p.limpar(); }
+});

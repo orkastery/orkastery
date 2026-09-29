@@ -156,7 +156,7 @@ export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, 
     // Dois despachos disputando a ultima vaga nao se recusam um ao outro: quem tomou antes fica com ela.
     if (despachando && desdeProprio && (atual.desde > desdeProprio || (atual.desde === desdeProprio && id > threadId))) continue;
     if (atual.dono.tipo === 'sessao') {
-      try { if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin)) continue; }
+      try { if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin, atual.dono.sessionId)) continue; }
       catch { /* ledger ilegivel: a conducao viva continua contando */ }
     }
     ocupam.push({ thread: id, fase: atual.fase, desde: atual.desde,
