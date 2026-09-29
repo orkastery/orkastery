@@ -21,6 +21,8 @@ if (!process.env.ORK_CONTAS_DIR) {
 // I-51: nenhum teste publica o estado da fabrica em segundo plano; quem testa a publicacao chama
 // `publicarMaquina` direto, contra um remoto bare temporario.
 if (process.env.ORK_FABRICA_PUBLICAR === undefined) process.env.ORK_FABRICA_PUBLICAR = '0';
+// RM-053: nem a rede da pessoa; quem testa a publicacao chama `publicarRede` com a forja simulada.
+if (process.env.ORK_REDE_PUBLICAR === undefined) process.env.ORK_REDE_PUBLICAR = '0';
 // I-51: a configuracao da maquina (`~/.orkastery/maquina.json`) dos testes tambem e propria.
 if (!process.env.ORK_USUARIO_DIR) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-usuario-'));

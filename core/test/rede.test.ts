@@ -11,7 +11,17 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { acharBinario, forjaPorNome, forjasDaMaquina, pastasDeBinarios, versaoDoBinario } from '../src/rede-forja';
+import { buscarBranch, gravarNaBranch } from '../src/branch-de-estado';
+import { publicarMaquina } from '../src/fabrica-estado';
+import { exigirManifesto } from '../src/manifest';
+import { gravarConfigDaMaquina } from '../src/maquina';
+import { procurarSegredos } from '../src/policies';
+import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, publicarRede, publicarRedeNaBatida,
+  retratoDaMaquina, sairDaRede } from '../src/rede';
+import { adesaoDaRede, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS } from '../src/rede-adesao';
 import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
+import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
+import { adicionarPerfil } from '../src/runtime-profiles';
 import { exec } from '../src/util';
 import { dirTemporario, projetoTemporario } from './apoio';
 
@@ -273,4 +283,300 @@ test('RM-053 projetos: limparRemoto tira usuario e senha e recusa o que nao e re
   assert.equal(limparRemoto('/srv/git/repo.git'), '/srv/git/repo.git');
   assert.equal(limparRemoto('texto qualquer'), null);
   assert.equal(limparRemoto(42), null);
+});
+
+// ---------------------------------------------------------------------------
+// A rede de ponta a ponta, em processo: cada "maquina" e uma pasta de usuario propria.
+// ---------------------------------------------------------------------------
+
+const TOKEN_GH = 'ghp_FAKEtoken0123456789abcdefghijABCDEFGH';
+
+/** Troca a maquina do processo: a pasta do usuario (rede.json, maquina.json e o cache) e o nome. */
+function naMaquina<T>(usuario: string, f: () => T): T {
+  const antes = { usuario: process.env.ORK_USUARIO_DIR, maquina: process.env.ORK_MAQUINA };
+  process.env.ORK_USUARIO_DIR = usuario;
+  delete process.env.ORK_MAQUINA;
+  try { return f(); } finally {
+    if (antes.usuario === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = antes.usuario;
+    if (antes.maquina === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes.maquina;
+  }
+}
+
+/** O ambiente da forja falsa com a publicacao automatica LIGADA (o apoio desliga para a suite toda). */
+function ligado(f: ForjaFalsa, extra: NodeJS.ProcessEnv = {}) {
+  const env: NodeJS.ProcessEnv = { ...f.env };
+  delete env.ORK_REDE_PUBLICAR;
+  delete env.ORK_FABRICA_PUBLICAR;
+  return { env: { ...env, ...extra }, home: f.home };
+}
+
+/** O remoto bare que a forja falsa criou para a casa. */
+const casaFalsa = (f: ForjaFalsa, dono = 'pessoa-teste') => path.join(f.estado, 'repos', dono, 'orkastery-network.git');
+
+/** Todos os blobs do repositorio, de todas as versoes, inclusive os inalcancaveis. */
+function todosOsBlobs(repo: string): string[] {
+  return exec('git', ['cat-file', '--batch-all-objects', '--batch-check=%(objectname) %(objecttype)'], repo).stdout
+    .split('\n').filter((l) => l.endsWith(' blob')).map((l) => exec('git', ['cat-file', '-p', l.split(' ')[0]], repo).stdout);
+}
+
+test('RM-053 segredo: nada de token, credencial, caminho de credencial ou conta paga em nenhum blob da casa', () => {
+  const f = forjaFalsa('segredo');
+  const usuario = dirTemporario('rede-segredo-usuario');
+  const p = projetoTemporario('rede-segredo', true);
+  try {
+    naMaquina(usuario, () => {
+      // Tudo o que nao pode sair, plantado onde uma maquina de verdade tem.
+      const amb = ligado(f, { GH_TOKEN: TOKEN_GH, GITHUB_TOKEN: TOKEN_GH, GITLAB_TOKEN: 'glpat-FAKE0123456789abcdefgh',
+        ANTHROPIC_API_KEY: 'sk-ant-api03-FAKE0123456789abcdefghij', OPENAI_API_KEY: 'sk-FAKEopenai0123456789abcdefghijklmnop' });
+      fs.mkdirSync(path.join(f.home, '.config', 'gh'), { recursive: true });
+      fs.writeFileSync(path.join(f.home, '.config', 'gh', 'hosts.yml'), `github.com:\n  oauth_token: ${TOKEN_GH}\n`);
+      fs.mkdirSync(path.join(f.home, '.claude'), { recursive: true });
+      fs.writeFileSync(path.join(f.home, '.claude', '.credentials.json'),
+        JSON.stringify({ claudeAiOauth: { accessToken: 'sk-ant-oat01-FAKE0123456789abcdef', subscriptionType: 'max' } }));
+      const conta = path.join(f.home, '.claude-conta-max');
+      fs.mkdirSync(conta, { recursive: true });
+      adicionarPerfil(p.dir, { id: 'conta-max', runtime: 'claude-bg', dir: conta });
+      const recibo = path.join(f.home, '.openclaw', 'extensions', 'orkastery');
+      fs.mkdirSync(recibo, { recursive: true });
+      fs.writeFileSync(path.join(recibo, 'INSTALADO.json'), JSON.stringify({ contrato: 'ork.adapter-install/v1', host: 'openclaw',
+        versao: '0.4.3', catalogo: path.join(f.home, 'catalogo-local'), orkBin: path.join(f.home, 'bin-local', 'ork'), arquivos: [] }));
+      exec('git', ['remote', 'set-url', 'origin', `https://x-access-token:${TOKEN_GH}@github.com/pessoa/produto.git`], p.dir);
+
+      const r = entrarNaRede({ amb, maquina: 'pc-segredo', diretorio: p.dir });
+      assert.deepEqual([r.criado, r.publicacao.acao, r.casa.dono, r.casa.repositorio], [true, 'publicou', 'pessoa-teste', 'orkastery-network']);
+
+      const blobs = todosOsBlobs(casaFalsa(f));
+      assert.equal(blobs.length, 2, 'o retrato e o REDE.md');
+      const proibidos = [TOKEN_GH, 'ghp_', 'glpat-', 'sk-ant-', 'sk-FAKE', 'dono-secreto@exemplo.com', 'lab-secreto', 'dono-pago@exemplo.com',
+        'Claude Max', 'subscriptionType', '"plan"', 'private_repos', 'oauth_token', 'x-access-token', 'hosts.yml', '.credentials.json',
+        'conta-max', conta, 'catalogo-local', 'bin-local', 'auth.json', 'pago'];
+      for (const b of blobs) {
+        for (const x of proibidos) assert.ok(!b.includes(x), `"${x}" vazou para a casa da rede`);
+        assert.deepEqual(procurarSegredos(b), [], 'a varredura do nucleo nao acha nada');
+      }
+      // E o que devia ir foi: runtimes e hosts com versao, o adaptador, o projeto sem credencial.
+      const retrato = JSON.parse(blobs.find((b) => b.includes('"ork.rede-maquina/v1"'))!);
+      assert.deepEqual(Object.keys(retrato).sort(), ['adesao', 'contrato', 'forjas', 'hostname', 'hosts', 'maquina', 'projetos', 'publicadoEm',
+        'runtimes', 'versaoOrk']);
+      assert.deepEqual(retrato.forjas, [{ forja: 'github', host: 'github.com', cli: 'gh', versao: '2.99.0', usuario: 'pessoa-teste' },
+        { forja: 'gitlab', host: 'gitlab.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' }]);
+      assert.deepEqual(retrato.runtimes, [{ runtime: 'claude-bg', binario: 'claude', versao: '9.9.9' }, { runtime: 'codex', binario: 'codex', versao: '0.99.0' }]);
+      assert.deepEqual(retrato.hosts, [{ host: 'claude-code', versao: '9.9.9', adaptador: null }, { host: 'codex', versao: '0.99.0', adaptador: null },
+        { host: 'openclaw', versao: '2026.9.9', adaptador: '0.4.3' }]);
+      assert.deepEqual(retrato.projetos, [{ nome: 'orkastery', remoto: 'https://github.com/pessoa/produto.git', caminho: p.dir }]);
+      assert.equal(retrato.adesao, 'rede');
+    });
+  } finally { f.limpar(); p.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
+});
+
+test('RM-053 segredo: retrato com valor de cara de segredo e recusado antes do push, e o erro nao mostra o valor', () => {
+  const f = forjaFalsa('segredo-recusa');
+  const usuario = dirTemporario('rede-segredo-recusa-usuario');
+  const p = projetoTemporario('rede-segredo-recusa', true);
+  try {
+    naMaquina(usuario, () => {
+      const amb = ligado(f);
+      const base = retratoDaMaquina({ amb, maquina: 'pc-x' });
+      exigirRetratoSeguro(base);
+      const casos: Array<[Record<string, unknown>, RegExp]> = [
+        [{ ...base, projetos: [{ nome: TOKEN_GH, remoto: null, caminho: '/x' }] }, /padrao "token do GitHub" em projetos\[0\]\.nome/],
+        [{ ...base, projetos: [{ nome: 'p', remoto: 'https://u:segredo@h/x.git', caminho: '/x' }] }, /padrao "credencial em URL" em projetos\[0\]\.remoto/],
+        [{ ...base, projetos: [{ nome: 'p', remoto: null, caminho: '/home/x/.config/gh' }] }, /padrao "arquivo de credencial" em projetos\[0\]\.caminho/],
+        [{ ...base, hostname: 'dono@exemplo.com' }, /padrao "e-mail de conta" em hostname/],
+        [{ ...base, email: 'dono@exemplo.com' }, /campo "retrato\.email" fora da lista de permissao/],
+        [{ ...base, forjas: [{ ...base.forjas[0], token: 'x' }] }, /campo "forjas\[0\]\.token" fora da lista de permissao/],
+      ];
+      for (const [retrato, erro] of casos) {
+        assert.throws(() => exigirRetratoSeguro(retrato as never), (e: Error) => erro.test(e.message) && e.message.startsWith('rede.segredo: ') &&
+          !/segredo@|ghp_|dono@/.test(e.message.replace(/^rede\.segredo: /, '').replace(/rede\.segredo/g, '')), String(erro));
+      }
+      // De ponta a ponta: o registro de projetos (RM-052) traz um nome com cara de token; nada vai ao remoto.
+      const registro = path.join(usuario, 'projetos-ruim.json');
+      fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: TOKEN_GH, raiz: p.dir, remoto: null }] }));
+      assert.throws(() => entrarNaRede({ amb, maquina: 'pc-x', arquivoDeProjetos: registro }), /^Error: rede\.segredo: padrao "token do GitHub" em projetos\[0\]\.nome; nada foi publicado/);
+      assert.equal(exec('git', ['ls-remote', casaFalsa(f)], f.raiz).stdout.trim(), '', 'a casa foi criada, mas nenhum commit chegou nela');
+    });
+  } finally { f.limpar(); p.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: cada maquina so escreve o proprio retrato; retrato com nome trocado vira lacuna', () => {
+  const f = forjaFalsa('autoria');
+  const [ua, ub] = [dirTemporario('rede-autoria-a'), dirTemporario('rede-autoria-b')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b' }));
+    const casa = casaFalsa(f);
+    const ponta = exec('git', ['rev-parse', 'main'], casa).stdout.trim();
+    assert.deepEqual(exec('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', ponta], casa).stdout.trim().split('\n'),
+      ['REDE.md', 'maquinas/pc-b.json'], 'o commit de B so toca o retrato de B e o indice');
+    assert.equal(exec('git', ['rev-parse', `${ponta}:maquinas/pc-a.json`], casa).stdout, exec('git', ['rev-parse', `${ponta}~1:maquinas/pc-a.json`], casa).stdout,
+      'o retrato de A continua o blob que A gravou');
+    assert.match(exec('git', ['log', '-1', '--format=%s', ponta], casa).stdout, /^rede: pc-b publicou o retrato/);
+    assert.throws(() => exigirSoOProprioRetrato('pc-b', [{ caminho: 'maquinas/pc-a.json', conteudo: '{}\n' }]),
+      /^Error: rede\.retrato-alheio: pc-b tentou gravar maquinas\/pc-a\.json; cada maquina so escreve maquinas\/pc-b\.json$/);
+    assert.throws(() => exigirSoOProprioRetrato('pc-b', [{ caminho: 'outra/coisa.md', conteudo: null }]), /rede\.retrato-alheio/);
+
+    // Um cliente com defeito grava um retrato que diz ser de A no arquivo de outra maquina, e um JSON quebrado.
+    naMaquina(ua, () => {
+      const cache = dirDoCache({ forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network' });
+      const { ponta: atual } = buscarBranch(cache, 'origin', 'main', 'teste');
+      const deA = exec('git', ['show', `${atual}:maquinas/pc-a.json`], cache).stdout;
+      assert.ok(gravarNaBranch(cache, 'origin', 'main', atual, [{ caminho: 'maquinas/pc-c.json', conteudo: deA },
+        { caminho: 'maquinas/lixo.json', conteudo: '{ nao e json' }], 'teste: retrato forjado', 'teste'));
+      const status = lerRede({ amb, maquina: 'pc-a' });
+      assert.deepEqual(status.membros.map((m) => m.maquina), ['pc-a', 'pc-b']);
+      assert.deepEqual(status.lacunas.filter((l) => l.tipo === 'retrato.invalido').map((l) => l.detalhe).sort(), [
+        'maquinas/lixo.json: JSON ilegivel',
+        'maquinas/pc-c.json: diz ser a maquina "pc-a", que nao e a dona deste arquivo',
+      ]);
+    });
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: quem fez ork fabrica entrar e membro sem refazer; a batida publica, respeita o teto e o sair vence', () => {
+  const f = forjaFalsa('migracao');
+  const [ua, uv] = [dirTemporario('rede-migracao-a'), dirTemporario('rede-migracao-vps')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    naMaquina(uv, () => {
+      // A vps so fez `ork fabrica entrar` (RM-047): nenhum rede.json.
+      gravarConfigDaMaquina({ nome: 'vps', fabricaCompartilhada: true });
+      assert.equal(lerConfigDaRede(), null);
+      assert.deepEqual(adesaoDaRede(), { membro: true, adesao: 'fabrica', config: null });
+      const t0 = Date.parse('2026-09-29T20:00:00.000Z');
+      assert.equal(publicarRedeNaBatida({ amb: ligado(f, { ORK_REDE_PUBLICAR: '0' }), agoraMs: t0 }), null, 'publicacao desligada pelo ambiente');
+      const primeira = publicarRedeNaBatida({ amb, agoraMs: t0, agora: new Date(t0).toISOString() });
+      assert.equal(primeira?.acao, 'publicou');
+      assert.equal(publicarRedeNaBatida({ amb, agoraMs: t0 + 5 * 60 * 1000 }), null, 'dentro do teto de 15 min nem tenta');
+      const t1 = t0 + TETO_DE_TENTATIVA_MS + 60 * 1000;
+      assert.equal(publicarRedeNaBatida({ amb, agoraMs: t1, agora: new Date(t1).toISOString() })?.acao, 'sem-mudanca', 'retrato igual, dentro da hora');
+      const t2 = t0 + 61 * 60 * 1000;
+      assert.equal(publicarRedeNaBatida({ amb, agoraMs: t2, agora: new Date(t2).toISOString() })?.acao, 'publicou', 'a batida de hora em hora');
+    });
+    const status = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a' }));
+    const vps = status.membros.find((m) => m.maquina === 'vps');
+    assert.deepEqual([vps?.origem, vps?.adesao], ['rede', 'fabrica']);
+    assert.match(textoDaRede(status), /vps · rede, adesão herdada da fábrica · batida/);
+
+    naMaquina(uv, () => {
+      const saiu = sairDaRede({ amb, maquina: 'vps' });
+      assert.match(String(saiu.commit), /^[a-f0-9]{40}$/);
+      assert.deepEqual([lerConfigDaRede()?.membro, adesaoDaRede().membro], [false, false], 'sair vence a heranca da fabrica');
+      assert.throws(() => publicarRede({ amb, maquina: 'vps' }), /^Error: rede\.fora: /);
+    });
+    assert.deepEqual(naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a' })).membros.map((m) => m.maquina), ['pc-a']);
+  } finally { f.limpar(); for (const d of [ua, uv]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: maquina que so publicou em ork/fabrica-estado aparece como membro pela fabrica', () => {
+  const f = forjaFalsa('migracao-legada');
+  const ua = dirTemporario('rede-migracao-legada-a');
+  const p = projetoTemporario('rede-migracao-legada', true);
+  try {
+    // A vps-velha roda um ork antigo: so conhece a fabrica do projeto.
+    assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'vps-velha', por: 'Julio' }).acao, 'publicou');
+    const amb = ligado(f);
+    const status = naMaquina(ua, () => {
+      entrarNaRede({ amb, maquina: 'pc-a', diretorio: p.dir });
+      return lerRede({ amb, maquina: 'pc-a', diretorio: p.dir });
+    });
+    assert.deepEqual(status.membros.map((m) => [m.maquina, m.origem]), [['pc-a', 'rede'], ['vps-velha', 'fabrica-estado']]);
+    const velha = status.membros[1];
+    assert.deepEqual([velha.pessoa, velha.adesao, velha.projetos], ['Julio', 'fabrica', [{ nome: 'orkastery', remoto: null, caminho: null }]]);
+    assert.deepEqual(status.fontes.map((x) => [x.fonte, x.projeto ?? null, x.atualizado]), [['rede', null, true], ['fabrica-estado', 'orkastery', true]]);
+    assert.match(textoDaRede(status), /vps-velha · fábrica, ainda não publicou na rede/);
+    // De qualquer outro diretorio, o projeto vem do ultimo retrato desta maquina: a vps-velha continua visivel.
+    const deLonge = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a', diretorio: f.home }));
+    assert.deepEqual(deLonge.membros.map((m) => m.maquina), ['pc-a', 'vps-velha']);
+  } finally { f.limpar(); p.limpar(); fs.rmSync(ua, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: evento de thread dispara a publicacao em segundo plano so para membro, fora do teto', async () => {
+  const f = forjaFalsa('migracao-evento');
+  const ua = dirTemporario('rede-migracao-evento');
+  try {
+    const cli = path.join(f.raiz, 'cli-falso.js');
+    const saida = path.join(f.raiz, 'chamado.json');
+    fs.writeFileSync(cli, `require('fs').writeFileSync(${JSON.stringify(saida)}, JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }));\n`);
+    const { env } = ligado(f);
+    await naMaquina(ua, async () => {
+      assert.equal(publicarRedeEmSegundoPlano({ cli, env, diretorio: f.home }), false, 'fora da rede nao dispara');
+      gravarConfigDaMaquina({ nome: 'pc-evento', fabricaCompartilhada: true });
+      assert.equal(publicarRedeEmSegundoPlano({ cli, env: { ...env, ORK_REDE_PUBLICAR: '0' }, diretorio: f.home }), false);
+      assert.equal(publicarRedeEmSegundoPlano({ cli, env, diretorio: f.home }), true);
+      for (let i = 0; i < 100 && !fs.existsSync(saida); i++) await new Promise((r) => setTimeout(r, 50));
+      assert.deepEqual(JSON.parse(fs.readFileSync(saida, 'utf8')), { argv: ['network', 'publicar', '--silencioso'], cwd: f.home });
+      assert.equal(publicarRedeEmSegundoPlano({ cli, env, diretorio: f.home }), false, 'segunda dentro do teto');
+    });
+  } finally { f.limpar(); fs.rmSync(ua, { recursive: true, force: true }); }
+});
+
+test('RM-053 honestidade: cada falta de leitura vira lacuna tipada, nunca lista vazia calada', () => {
+  const f = forjaFalsa('honestidade');
+  const [ua, ub] = [dirTemporario('rede-honestidade-a'), dirTemporario('rede-honestidade-b')];
+  try {
+    const amb = ligado(f);
+    const tipos = (s: ReturnType<typeof lerRede>) => s.lacunas.map((l) => l.tipo);
+    naMaquina(ua, () => {
+      // Sem repositorio ainda: a casa e conhecida pelo login, e ninguem entrou.
+      const semCasa = lerRede({ amb, maquina: 'pc-a' });
+      assert.deepEqual([semCasa.casa?.dono, tipos(semCasa)], ['pessoa-teste', ['rede.sem-repositorio']]);
+      assert.deepEqual(semCasa.naoConsultado, ['roadmap', 'reservas', 'threads']);
+      const texto = textoDaRede(semCasa);
+      assert.match(texto, /Nenhuma máquina lida\. Isso não quer dizer que não há máquinas: veja as lacunas\./);
+      assert.match(texto, /Não consultado: roadmap, reservas, threads\./);
+      assert.match(texto, /rede\.sem-repositorio: github\.com\/pessoa-teste\/orkastery-network ainda nao existe/);
+      // Sem login e sem CLI de forja.
+      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { FORJA_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
+      entrarNaRede({ amb, maquina: 'pc-a' });
+    });
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b', agora: '2026-09-29T10:00:00.000Z' }));
+    naMaquina(ua, () => {
+      // B publicou as 10h; lida as 14h01, esta sem batida ha 4 h.
+      const tarde = lerRede({ amb, maquina: 'pc-a', agora: '2026-09-29T14:01:00.000Z' });
+      const semBatida = tarde.lacunas.filter((l) => l.tipo === 'maquina.sem-batida');
+      assert.deepEqual(semBatida.map((l) => [l.maquina, l.detalhe]), [['pc-b', 'pc-b: sem batida ha 4 h']]);
+      assert.ok(SEM_BATIDA_MS === 3 * 60 * 60 * 1000);
+      // O remoto sumiu: mostra a ultima copia e diz que e a ultima copia.
+      fs.renameSync(casaFalsa(f), `${casaFalsa(f)}.fora`);
+      const semRede = lerRede({ amb, maquina: 'pc-a' });
+      assert.deepEqual(semRede.membros.map((m) => m.maquina), ['pc-a', 'pc-b']);
+      assert.deepEqual(semRede.fontes.find((x) => x.fonte === 'rede')?.atualizado, false);
+      assert.ok(semRede.lacunas.some((l) => l.tipo === 'rede.sem-leitura' && /mostrando a ultima copia local/.test(l.detalhe)));
+      assert.match(textoDaRede(semRede), /· última cópia local/);
+      fs.renameSync(`${casaFalsa(f)}.fora`, casaFalsa(f));
+      // Sem rede nenhuma (--sem-remoto): a casa vem do rede.json, e a leitura se declara copia.
+      const offline = lerRede({ amb, maquina: 'pc-a', semRemoto: true });
+      assert.deepEqual([offline.casa?.origem, offline.fontes[0]?.atualizado, offline.membros.length], ['rede.json', false, 2]);
+      // O repositorio ficou publico: a leitura avisa.
+      f.visibilidade('pessoa-teste/orkastery-network', false);
+      assert.ok(tipos(lerRede({ amb, maquina: 'pc-a' })).includes('rede.repositorio-publico'));
+    });
+    f.tirar('gh');
+    f.tirar('glab');
+    const semForja = naMaquina(dirTemporario('rede-honestidade-c'), () => lerRede({ amb, maquina: 'pc-c', diretorio: null }));
+    assert.deepEqual([semForja.casa, tipos(semForja), semForja.membros], [null, ['forja.ausente'], []]);
+    assert.match(textoDaRede(semForja), /sem casa: nenhuma forja com login nesta máquina/);
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 forja: repositorio publico recusa entrar e publicar; nada vai ao remoto', () => {
+  const f = forjaFalsa('forja-publica');
+  const ua = dirTemporario('rede-forja-publica');
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const antes = exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout.trim();
+      f.visibilidade('pessoa-teste/orkastery-network', false);
+      assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }),
+        /^Error: rede\.repositorio-publico: github\.com\/pessoa-teste\/orkastery-network nao e privado; nada foi publicado$/);
+      assert.throws(() => entrarNaRede({ amb, maquina: 'pc-a' }), /rede\.repositorio-publico/);
+      assert.equal(exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout.trim(), antes, 'nenhum commit novo');
+      // Repositorio de outra pessoa que nao existe nao e criado.
+      assert.throws(() => entrarNaRede({ amb, maquina: 'pc-a', repositorio: 'outra-pessoa/rede' }), /^Error: rede\.repositorio-alheio: /);
+    });
+  } finally { f.limpar(); fs.rmSync(ua, { recursive: true, force: true }); }
 });
