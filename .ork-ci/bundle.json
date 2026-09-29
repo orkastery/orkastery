@@ -1,34 +1,19 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-semorkmindwe",
+  "thread": "ork-cincosessoes",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-semorkmindwe",
+      "thread": "ork-cincosessoes",
       "fase": "GO",
-      "arquivo": "README.md",
-      "alegacao": "Nenhuma referencia a OrkMind Web, Orkastery Web, Orkastery Board ou a pronuncia do nome, e o teste do portfolio passa",
-      "negativa": true,
-      "verificar": [
-        "! git grep -n -iE 'orkmind[- _]?web|orkastery[- _]?web|orkastery[- _]?board|or-KAS' -- . ':!**/package-lock.json' ':!.ork-ci' && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/portfolio.test.js"
-      ],
-      "criadoEm": "2026-09-29T01:29:54.211Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-semorkmindwe",
-      "fase": "GO",
-      "arquivo": "docs",
-      "alegacao": "A documentacao passa na paridade, no lint e nos links",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto permite 5 threads em paralelo",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar",
-        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+        "node -e \"const m=require(\\\"fs\\\").readFileSync(\\\"orkastery.yaml\\\",\\\"utf8\\\");process.exit(/max_parallel_threads: 5\\\\b/.test(m)?0:1)\""
       ],
-      "criadoEm": "2026-09-29T01:29:54.436Z",
+      "criadoEm": "2026-09-29T01:37:25.683Z",
       "estado": "verificado",
       "lint": []
     }
