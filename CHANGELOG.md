@@ -4,7 +4,7 @@ As mudanças do pacote [`@orkastery/cli`](https://www.npmjs.com/package/@orkaste
 nova para a mais antiga. O detalhe de cada item, com a evidência de merge, está no
 [roadmap](docs/roadmap/README.md).
 
-## Não publicado
+## 0.4.3 — 29/09/2026
 
 ### Removido
 

@@ -1,6 +1,6 @@
 {
   "name": "@orkastery/cli",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "A software factory of AI agents that proves its work: parallel threads, verified results, and short decisions only when they matter.",
   "license": "MIT",
   "homepage": "https://github.com/orkastery/orkastery#readme",
