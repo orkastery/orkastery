@@ -28,6 +28,7 @@ import { nomeDaMaquina } from './maquina';
 import { dirThread, lerThread } from './thread';
 import { formatarDataHoraRotulada } from './horario';
 import { exec, agora } from './util';
+import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
 import {
   CanalDeConducao, ConducaoAtual, DadosDaConducao, DonoDaConducao, EventoLedger, Fase, Lease, OperacaoDeConducao,
 } from './types';
@@ -99,19 +100,45 @@ export function canalDoProcesso(explicito?: string | null, ambiente: NodeJS.Proc
 // ---------------------------------------------------------------------------
 
 /** Identidade do despacho no ambiente da sessao filha, para as chamadas do CLI de dentro dela. */
-export const ENV_IDENTIDADE_DE_DESPACHO = 'ORK_DISPATCH_ID';
-export const ENV_THREAD_DO_DESPACHO = 'ORK_DISPATCH_THREAD';
+export { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO };
 
 /** O que o despacho poe no ambiente da sessao filha: identidade, thread e canal de origem. */
 export function ambienteDaConducao(identidade: string, threadId: string, canal: CanalDeConducao): Record<string, string> {
   return { [ENV_IDENTIDADE_DE_DESPACHO]: identidade, [ENV_THREAD_DO_DESPACHO]: threadId, [ENV_CANAL]: canal };
 }
 
-/** A identidade de despacho que este processo herdou, quando ela e desta thread. */
-export function identidadeDoAmbiente(threadId: string, ambiente: NodeJS.ProcessEnv = process.env): string | null {
+/** Variavel que o Claude Code poe em cada sessao, com o UUID dela; nao vem do daemon. */
+export const ENV_SESSAO_CLAUDE = 'CLAUDE_CODE_SESSION_ID';
+
+/**
+ * A identidade de despacho deste processo, quando ela e desta thread.
+ *
+ * RM-037 (defeitosdeco D-4): dentro de uma sessao Claude Code, o ambiente pode trazer o par de OUTRO
+ * despacho (o daemon do `claude --bg` guardava o do primeiro despacho da conta e o passava as sessoes
+ * reserva). Com `raiz`, a sessao se reconhece pelo ledger: vale o ultimo `phase_dispatch` desta thread
+ * com o `sessionId` dela. O par do ambiente so vale se bater com esse despacho; par que aponta para um
+ * despacho claude-bg de outra sessao e recusado, para nunca reentrar a conducao de quem nao e. Fora de
+ * sessao Claude, ou com despacho codex (processo proprio por despacho), vale o ambiente, como antes.
+ */
+export function identidadeDoAmbiente(threadId: string, ambiente: NodeJS.ProcessEnv = process.env, raiz?: string): string | null {
   const id = (ambiente[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim();
   const thread = (ambiente[ENV_THREAD_DO_DESPACHO] ?? '').trim();
-  return /^[a-f0-9-]{36}$/.test(id) && thread === threadId ? id : null;
+  const doAmbiente = /^[a-f0-9-]{36}$/.test(id) && thread === threadId ? id : null;
+  const sessao = (ambiente[ENV_SESSAO_CLAUDE] ?? '').trim();
+  if (!raiz || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(sessao)) return doAmbiente;
+  let eventos: ReturnType<typeof lerLedger>;
+  try { eventos = lerLedger(dirThread(raiz, threadId)); } catch { return doAmbiente; }
+  const despachoId = (e: Record<string, unknown>) => (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId;
+  const despachos = eventos.filter(e => e.tipo === TIPOS_DE_EVENTO.faseDespachada);
+  const doPar = doAmbiente ? despachos.filter(e => despachoId(e) === doAmbiente).at(-1) : undefined;
+  // GO-FIX (R2 do CHECK): o codex despachado de dentro de uma sessao Claude herda o
+  // CLAUDE_CODE_SESSION_ID dela, mas o par do ambiente e do proprio processo codex, por despacho.
+  if (doPar?.runtime === 'codex') return doAmbiente;
+  const daSessao = despachos.filter(e => e.sessionId === sessao && typeof despachoId(e) === 'string').at(-1);
+  if (daSessao) return String(despachoId(daSessao));
+  if (!doAmbiente) return null;
+  if (doPar && (doPar.runtime ?? 'claude-bg') === 'claude-bg' && typeof doPar.sessionId === 'string' && doPar.sessionId !== sessao) return null;
+  return doAmbiente;
 }
 
 // ---------------------------------------------------------------------------

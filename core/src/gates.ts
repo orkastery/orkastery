@@ -42,6 +42,8 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
     'a cota ou os creditos da conta do runtime acabaram (I-33: o perfil sai do rodizio e a fase segue em outro perfil, outro runtime ou na fila)',
   'runtime.auth-missing':
     'a conta do runtime nao esta autenticada (I-33: o perfil nunca recebe despacho ate o login ser refeito pelo proprio CLI)',
+  'runtime.model-unavailable':
+    'o modelo pedido nao existe ou a conta nao tem acesso a ele (RM-037: o perfil segue no rodizio e a fase vai a outro perfil com o mesmo modelo ou ao fallback do bloco)',
   'cost.violation':
     'o despacho seria redirecionado para provider pago (violacao de custo: e o unico motivo que NUNCA recebe retry automatico)',
   'tree.blocked':
