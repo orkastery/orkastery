@@ -6,18 +6,18 @@ categoria: melhoria
 pai: null
 features: [FEAT-030]
 owner: Equipe Orkastery
-atualizado_em: 2026-09-29T09:53:00-03:00
+atualizado_em: 2026-09-29T10:29:00-03:00
 estado:
-  ciclo: Pronto para desenvolvimento
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Falhando
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 22083057682a652e6ffaa3f6da326549876221d6
     pr: null
 sdlc:
   thread: ork-pacotedeexpe
@@ -32,13 +32,13 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Pronto para desenvolvimento | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Falhando | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 ## Problema e resultado
 
-Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. A proposta está especificada em [FEAT-030](../produto/FEAT-030-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
+Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. O comportamento em desenvolvimento está especificado em [FEAT-030](../produto/FEAT-030-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
 
 O resultado esperado é configuração explícita, instalação repetível e remoção segura. Não há métrica de adoção medida; a prova técnica será feita por testes e ensaio isolado de distribuição.
 
@@ -60,16 +60,16 @@ Riscos: caminhos inseguros, conflito de bloco e indisponibilidade remota. A miti
 
 ## Estado com evidências
 
-Cadastro planejado: esta página não comprova implementação, aprovação, instalação ou publicação.
+Implementação local em andamento; esta página não é recibo oficial de aceite, instalação ou publicação.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Pronto para desenvolvimento | — | 2026-09-29 | Equipe Orkastery |
-| Documentação | Rascunho | — | 2026-09-29 | Equipe Orkastery |
-| Código | Não iniciado | — | 2026-09-29 | Equipe Orkastery |
-| Testes | Não iniciados | — | 2026-09-29 | Equipe Orkastery |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Equipe Orkastery |
+| Documentação | Em revisão | — | 2026-09-29 | Equipe Orkastery |
+| Código | Branch criada | commit `22083057682a652e6ffaa3f6da326549876221d6` | 2026-09-29 | Equipe Orkastery |
+| Testes | Falhando | — | 2026-09-29 | Equipe Orkastery |
 | Deploy | Não implantado | — | 2026-09-29 | Equipe Orkastery |
 | Exposição | Flag desligada | — | 2026-09-29 | Equipe Orkastery |
 | Habilitação | Pendente | — | 2026-09-29 | Equipe Orkastery |
@@ -78,8 +78,16 @@ Cadastro planejado: esta página não comprova implementação, aprovação, ins
 
 ## Responsabilidades e histórico
 
-A equipe Orkastery conduz implementação e revisão. Próxima ação: implementar as tarefas e anexar evidências antes de promover o estado.
+A equipe Orkastery conduz implementação e revisão. Próxima ação: concluir coordenação dos arquivos adiados, verificar pelo núcleo e obter revisão independente antes de promover o estado.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-29 | Cadastro planejado | Especificação FEAT-030 | Equipe Orkastery |
+
+## Evidência da implementação local
+
+Código preparado em branch com testes focados de preferências, blocos, adaptadores, entradas, MCP, aviso de associação e lógica do ensaio. Os arquivos e comandos estão em [FEAT-030](../produto/FEAT-030-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
+
+Os testes locais de CLI/MCP que dependem de subprocessos encontram restrições do ambiente. O eval completo também apresentou falhas nos canários. Por isso o estado de testes é **Falhando**, sem atribuir automaticamente tudo à baseline. Faltam verificação oficial, revisão independente e ensaio real de instalação do tarball. Versão mantida; mudança em “Não publicado”, sem PR, release ou deploy comprovado.
+
+Alguns caminhos compartilhados aguardam coordenação por lease. O estado público não declara conclusão enquanto houver arquivos adiados ou provas pendentes. OpenClaw permanece sem distribuição de skills do pacote.
