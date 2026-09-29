@@ -31,7 +31,7 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
-  estadoParaDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
+  estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
 import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
@@ -539,7 +539,12 @@ export interface OpcoesDeRedespacho {
 export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase: Fase,
   promptRelativo: string, sha: string, opcoes: OpcoesDeRedespacho = {}): ResultadoDoRedespacho {
   const run = () => redespacharSobLock(carregado, lerThread(carregado.raiz, thread.id), fase, promptRelativo, sha, opcoes);
-  return opcoes.dryRun ? run() : comLockHitl(carregado.raiz, thread.id, run);
+  if (opcoes.dryRun) return run();
+  // RM-037 (defeito 1, achado A2 do CHECK): o fallback do bloco leva a retomada ao codex; sem a baseline
+  // do despacho, a sessao pararia antes do GO pelo mesmo EROFS. Fora do lock HITL, como no phase run.
+  garantirBaselineDoDespacho(carregado, thread.id, { fase, prompt: '', runtime: opcoes.runtime ?? undefined,
+    model: opcoes.model ?? undefined, effort: opcoes.effort ?? undefined, ...(opcoes.canal ? { canal: opcoes.canal } : {}) });
+  return comLockHitl(carregado.raiz, thread.id, run);
 }
 
 function redespacharSobLock(

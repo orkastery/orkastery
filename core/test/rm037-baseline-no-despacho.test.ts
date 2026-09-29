@@ -12,7 +12,12 @@ import { projetoTemporario, runtimePorConta } from './apoio';
 import { controllerSimulado } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
-import { baselineDoDespachoNecessaria, rodarFase } from '../src/phase';
+import { baselineDoDespachoNecessaria, garantirBaselineDoDespacho, hashDoPrompt, rodarFase } from '../src/phase';
+import { redespachar } from '../src/retry';
+import { registrarConducaoDaSessao } from '../src/conducao';
+import { criarServidorMcp } from '../src/mcp-server';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
 
@@ -88,4 +93,58 @@ test('defeito 1: ensaio, claude-bg, sandbox que grava o estado e bloco sem GO na
     assert.equal(r.verificada, true, r.erro);
     assert.equal(lerLedger(dirThread(p.dir, auto.id)).some(e => e.tipo === 'baseline_recorded'), false);
   } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+// GO-FIX do CHECK 1 (A2, A3, S2).
+
+test('defeito 1 (A3): no MCP o despacho nao roda a suite; a baseline que falta volta como baseline.pendente', async () => {
+  const { p, f } = projetoCodex('rm037-baseline-mcp');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+  const client = new Client({ name: 'condutor-SIMULADO', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    const t = novaThread(p.carregado, { nome: 'mcp', modo: 'auto' }).thread;
+    const direto = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', baselinePeloDespacho: false });
+    assert.equal(direto.motivo, 'baseline.pendente');
+    assert.match(direto.erro ?? '', new RegExp(`ork verify ${t.id} --baseline`));
+    await server.connect(st); await client.connect(ct);
+    const r = await client.callTool({ name: 'ork_phase_run', arguments: { threadId: t.id, fase: 'GOAL', prompt: 'bloco SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' } });
+    const texto = (r.content as { type: string; text: string }[]).map(x => x.text).join('');
+    assert.match(texto, /baseline\.pendente/);
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), false, 'o MCP nao executou a suite');
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch'), false, 'nem abriu a sessao sem a baseline');
+  } finally { await client.close(); await server.close(); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (A2): o redespacho do retry para o codex tambem grava a baseline antes da sessao', () => {
+  const { p, f } = projetoCodex('rm037-baseline-retry');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'retry codex', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const prompt = 'retomada SIMULADA FINALIZAR-SIMULADO';
+    const relativo = path.join('.orkastery', 'threads', t.id, 'prompts', 'retomada.md');
+    fs.mkdirSync(path.dirname(path.join(p.dir, relativo)), { recursive: true });
+    fs.writeFileSync(path.join(p.dir, relativo), prompt);
+    const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', relativo, hashDoPrompt(prompt), { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.ok, true, r.detalhe);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespacho = eventos.findIndex(e => e.tipo === 'phase_dispatch');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespacho, 'a baseline vem antes da sessao retomada');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (S2): thread que ja conduz nao ganha baseline nem conducao_recusada espuria', () => {
+  const { p, f } = projetoCodex('rm037-baseline-conduz');
+  try {
+    const t = novaThread(p.carregado, { nome: 'conduz', modo: 'auto' }).thread;
+    assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000041', runtime: 'codex', perfil: null }), true);
+    garantirBaselineDoDespacho(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO' });
+    const tipos = lerLedger(dirThread(p.dir, t.id)).map(e => e.tipo);
+    assert.equal(tipos.includes('baseline_recorded'), false);
+    assert.equal(tipos.includes('conducao_recusada'), false);
+  } finally { f.restaurar(); p.limpar(); }
 });

@@ -380,7 +380,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:fase,annotations:{readOnlyHint:false,destructiveHint:false}},async (args) => {
       const t=thread(args.threadId); livre(t.id);
       const {threadId,fase:f,...op}=args;
-      return resposta(rodarFase(carregar(),threadId,{...op,fase:exigirFase(t,f),canal:conducao.canal}));
+      // RM-037 (A3): o MCP nao roda a suite para a baseline do despacho; a falta dela volta como pendencia.
+      return resposta(rodarFase(carregar(),threadId,{...op,fase:exigirFase(t,f),canal:conducao.canal,baselinePeloDespacho:false}));
     });
   registrarTool('ork_gate_request',{description:'Abre pedido de gate somente quando pausa ou escalacao tipada esta comprovada no nucleo; nao aprova.',
     inputSchema:daThread.extend({motivo:z.enum(['human.pending','policy.violation','cost.violation',

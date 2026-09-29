@@ -1,7 +1,4 @@
 import { comLockHitl } from './hitl-gates';
-import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
-import { gravarBaseline } from './verify';
-import { ErroDeConducao } from './conducao';
 import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidadeDeDespacho } from './runtime-context';
 /**
  * `ork phase run|list`: despacho de fase pelo runtime adapter e leitura do ledger.
@@ -15,6 +12,8 @@ import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidad
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
+import { gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado } from './manifest';
@@ -54,7 +53,7 @@ import {
 import { nomeDaMaquina } from './maquina';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
-  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, esperarConducaoLivre,
+  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, ErroDeConducao, esperarConducaoLivre,
   MARGEM_DO_PRAZO_MS, PedidoDeConducao, PRAZO_DE_SESSAO_PADRAO_MS, recusaDeConducao, RecusaDeConducao, registrarConducaoDaSessao,
   registrarRecusa, tomarConducao,
 } from './conducao';
@@ -614,6 +613,11 @@ export interface OpcoesRun {
   correlacao?: string;
   /** I-36 (D2): espera a vez ate este prazo em vez de recusar na hora. */
   esperarMs?: number;
+  /**
+   * RM-037 (defeito 1, achado A3 do CHECK): `false` no MCP, que executa confinado e com prazo. O despacho
+   * que precisaria da baseline recusa com `baseline.pendente` e o comando do CLI, em vez de rodar a suite.
+   */
+  baselinePeloDespacho?: boolean;
 }
 
 export interface ResultadoRun {
@@ -634,7 +638,7 @@ export interface ResultadoRun {
   /** Gate tipado reprovou antes do despacho (bloco B1). */
   bloqueado: boolean;
   /** RM-037 (defeito 3): `concurrency.limite` e a recusa do portao de vaga do projeto. */
-  motivo: MotivoGate | 'concurrency.limite' | null;
+  motivo: MotivoGate | 'concurrency.limite' | 'baseline.pendente' | null;
   violacoes: ViolacaoDePolicy[];
   /** Bloco B3: pedido criado na fila duravel quando o despacho morreu por rate limit. */
   naFila?: PedidoDeRetomada | null;
@@ -671,6 +675,19 @@ export function baselineDoDespachoNecessaria(carregado: ManifestoCarregado, thre
   return !lerLedger(dirThread(raiz, thread.id)).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada);
 }
 
+/**
+ * Grava a baseline do despacho quando ela e necessaria, pela mesma `gravarBaseline` do CLI e fora do lock
+ * HITL. `ork phase run` e o redespacho do `ork retry` (fallback para o codex) passam por aqui. Thread que
+ * ja tem conducao fica com a resposta da conducao, sem `conducao_recusada` de uma baseline que ninguem pediu.
+ */
+export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): void {
+  if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes) || conducaoDaThread(carregado.raiz, threadId)) return;
+  try {
+    gravarBaseline(carregado, threadId, undefined,
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null }, 'phase.run');
+  } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
+}
+
 /** Despacha a fase pelo runtime adapter e registra tudo no ledger da thread. */
 export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): ResultadoRun {
   const rodar = (): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
@@ -684,14 +701,9 @@ export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoe
       esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
       esperarVaga(carregado, threadId, Math.max(0, prazo - Date.now()));
     }
-    // RM-037 (defeito 1): a mesma `gravarBaseline` do CLI, fora do lock HITL e so com vaga: sem vaga, o
-    // despacho seria recusado e a suite teria rodado a toa. Outra conducao na thread fica com a recusa dela.
-    if (baselineDoDespachoNecessaria(carregado, threadId, opcoes) && !vagaDoDespacho(carregado, threadId)) {
-      try {
-        gravarBaseline(carregado, threadId, undefined,
-          { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null }, 'phase.run');
-      } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
-    }
+    // RM-037 (defeito 1): a baseline sai antes do despacho, so com vaga: sem vaga, o despacho seria
+    // recusado e a suite teria rodado a toa.
+    if (opcoes.baselinePeloDespacho !== false && !vagaDoDespacho(carregado, threadId)) garantirBaselineDoDespacho(carregado, threadId, opcoes);
     const r = rodar();
     const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
     if (!esperavel || !prazo || Date.now() >= prazo) return r;
@@ -812,6 +824,14 @@ function rodarFaseSobLock(
       verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
       runtime, model, effort, bloqueado: true, motivo: 'concurrency.limite', violacoes, erro: `${semVaga.detalhe}; ${semVaga.correcao}`,
       vaga: semVaga };
+  }
+  // RM-037 (A3): no MCP, a baseline que o despacho gravaria vira pendencia tipada com o comando do CLI.
+  if (opcoes.baselinePeloDespacho === false && !opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, opcoes)) {
+    const erro = `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes do despacho, e o MCP nao roda ` +
+      `a suite; rode ork verify ${thread.id} --baseline pelo CLI e repita o despacho`;
+    return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+      verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: false,
+      runtime, model, effort, bloqueado: true, motivo: 'baseline.pendente', violacoes, erro };
   }
   // I-36 (T7, T14): validado o pedido, a conducao da thread, antes de tocar a worktree. A mesma fase com o
   // mesmo prompt de quem conduz devolve a sessao em andamento sem chamar o adapter; outro pedido recebe a recusa.
