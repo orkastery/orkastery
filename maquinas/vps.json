@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.1",
-  "publicadoEm": "2026-09-29T01:08:32.347Z",
+  "publicadoEm": "2026-09-29T01:09:18.397Z",
   "threads": [
     {
       "id": "ork-atualizarro2",
@@ -42,7 +42,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-i31kg1contra-f12",
-      "atualizadaEm": "2026-09-29T00:55:19.875Z",
+      "atualizadaEm": "2026-09-29T01:09:14.610Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -71,6 +71,20 @@
       "roadmap": null,
       "branch": "ork/ork-maestroworks-full",
       "atualizadaEm": "2026-09-13T17:07:27.866Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-orkdespachac",
+      "nome": "ork despacha com umask sem escrita de grupo",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "main",
+      "atualizadaEm": "2026-09-29T01:09:15.796Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
