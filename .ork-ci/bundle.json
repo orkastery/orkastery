@@ -1,19 +1,103 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-roadmaprm050",
+  "thread": "ork-rm050guiadec",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-roadmaprm050",
-      "fase": "GO",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
       "arquivo": "docs",
-      "alegacao": "O roadmap com o RM-050 passa na paridade, no lint e nos links",
+      "alegacao": "A documentação com os guias de contribuição passa na paridade do ork docs verificar",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+        "node core/dist/index.js docs verificar"
       ],
-      "criadoEm": "2026-09-29T02:16:09.542Z",
+      "criadoEm": "2026-09-29T02:35:22.158Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir",
+      "alegacao": "O índice e os guias de contribuição passam no markdownlint do repositório",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-09-29T02:35:23.413Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir",
+      "alegacao": "Nenhum link relativo quebrado no índice, nos guias e no resto do Markdown versionado",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T02:35:24.665Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/checar-comandos-dos-guias.cjs",
+      "alegacao": "Cada bloco bash dos guias de contribuição roda nesta árvore sem rede; todo ork citado existe na ajuda do CLI, todo script npm citado existe, e os rótulos e links dos modelos do .github estão alinhados ao guia de triagem",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-comandos-dos-guias.cjs"
+      ],
+      "criadoEm": "2026-09-29T02:35:27.209Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "CONTRIBUTING.md",
+      "alegacao": "O CONTRIBUTING.md é um índice curto, com a nota de boas-vindas em inglês, e aponta para os nove guias em docs/guias/contribuir",
+      "negativa": false,
+      "verificar": [
+        "test \"$(wc -l < CONTRIBUTING.md)\" -le 60 && grep -q 'Contributions in English are welcome' CONTRIBUTING.md && for g in o-que-contribuir desenvolvimento-local testes-e-verificacao documentacao pull-request lint-e-estilo triagem versoes-e-publicacao com-o-ork; do test -f docs/guias/contribuir/$g.md && grep -q \"docs/guias/contribuir/$g.md\" CONTRIBUTING.md || exit 1; done"
+      ],
+      "criadoEm": "2026-09-29T02:35:29.731Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir",
+      "alegacao": "O guia e os modelos não trazem dado que envelhece (contagem de testes, canários, skills ou dependências; versão fixa), travessão longo U+2014 nem caminho pessoal",
+      "negativa": false,
+      "verificar": [
+        "! grep -rnE '[0-9]+ (testes|canários|canarios|skills|casos|asserções|assercoes|dependências)' CONTRIBUTING.md docs/guias/contribuir .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE && ! grep -rnE '[0-9]+\\.[0-9]+\\.[0-9]+' CONTRIBUTING.md docs/guias/contribuir .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE && ! grep -rn $'\\xe2\\x80\\x94' CONTRIBUTING.md docs/guias/contribuir .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE && ! grep -rn '/home/' CONTRIBUTING.md docs/guias/contribuir .github/PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE"
+      ],
+      "criadoEm": "2026-09-29T02:35:33.857Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm050guiadec",
+      "fase": "GOAL",
+      "arquivo": "core/test/checar-comandos-dos-guias.test.ts",
+      "alegacao": "O checador dos guias reprova bloco bash que falha, ork não declarado, script npm inexistente e rótulo fora da lista, e ignora bloco marcado como citado",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/checar-comandos-dos-guias.test.js"
+      ],
+      "criadoEm": "2026-09-29T02:35:35.545Z",
       "estado": "verificado",
       "lint": []
     }
