@@ -1,57 +1,170 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-rm050guiadec",
+  "thread": "ork-i36buscasema",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-rm050guiadec",
+      "thread": "ork-i36buscasema",
       "fase": "GOAL",
-      "arquivo": "docs",
-      "alegacao": "A documentação com os guias de contribuição passa na paridade do ork docs verificar",
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "a frase constante de saude sumiu do repositorio: nenhum arquivo do nucleo ou da ponte afirma embeddings desativados sem sondar",
+      "negativa": true,
+      "verificar": [
+        "! grep -rqF 'embeddings desativados' core/src core/assets docs"
+      ],
+      "criadoEm": "2026-09-19T22:42:28.138Z",
+      "estado": "verificado"
+    },
+    {
+      "id": "C11",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T1: o manifesto aceita o bloco memory.embedding (provider, model, dim, api_key_env com o NOME da variavel, fallback_model, max_tokens_por_execucao); recusa valor de chave ou DSN no lugar do nome e recusa nome da lista de provider pago; sem o bloco vale provider none; este projeto declara openrouter com qwen/qwen3-embedding-8b e continua subscription-only",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/memoria-embedding-config.test.js",
+        "grep -qF 'api_key_env: \"ORKASTERY_EMBEDDING_API_KEY\"' orkastery.yaml && grep -qF 'model: \"qwen/qwen3-embedding-8b\"' orkastery.yaml && grep -qF 'provider_policy: subscription-only' orkastery.yaml"
       ],
-      "criadoEm": "2026-09-29T02:35:22.158Z",
+      "criadoEm": "2026-09-29T00:55:11.515Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C5",
-      "thread": "ork-rm050guiadec",
-      "fase": "GOAL",
-      "arquivo": "CONTRIBUTING.md",
-      "alegacao": "O CONTRIBUTING.md é um índice curto, com a nota de boas-vindas em inglês, e aponta para os nove guias em docs/guias/contribuir",
+      "id": "C12",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T1 (negativa): nenhuma chave de provider fica em arquivo versionado: nenhum valor sk-or-v1 no repositorio e nenhum api_key literal no manifesto ou no gerador do manifesto",
+      "negativa": true,
+      "verificar": [
+        "! git grep -qE 'sk-or-v1-[A-Za-z0-9]{20,}'",
+        "! git grep -qE '^[[:space:]]*api_key[[:space:]]*[:=]' -- orkastery.yaml core/src/init.ts"
+      ],
+      "criadoEm": "2026-09-29T00:55:12.178Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "T3: o indice vetorial e local e derivado, no estado canonico do projeto (.orkastery/memoria/vetores, fora do git, arquivo 0600), um por tenant e modelo com modelo e dimensao declarados; reindexar e idempotente (a segunda execucao nao embeda nem reescreve vetor coerente) e o teto de tokens recusa a execucao antes de chamar o provider",
       "negativa": false,
       "verificar": [
-        "test \"$(wc -l < CONTRIBUTING.md)\" -le 60 && grep -q 'Contributions in English are welcome' CONTRIBUTING.md && for g in o-que-contribuir desenvolvimento-local testes-e-verificacao documentacao pull-request lint-e-estilo triagem versoes-e-publicacao com-o-ork; do test -f docs/guias/contribuir/$g.md && grep -q \"docs/guias/contribuir/$g.md\" CONTRIBUTING.md || exit 1; done"
+        "npm --prefix core run build && npm --prefix core run build:test && OUT=$(node --test core/dist-test/test/indice-vetorial.test.js 2>&1) && printf '%s' \"$OUT\" | grep -qiE 'idempot.*vetor' && printf '%s' \"$OUT\" | grep -qiE 'orcamento'",
+        "git check-ignore -q .orkastery/memoria/vetores/qualquer.json"
       ],
-      "criadoEm": "2026-09-29T02:35:29.731Z",
+      "criadoEm": "2026-09-29T00:55:13.857Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/busca-semantica.ts",
+      "alegacao": "T5: memory search --texto ranqueia vetor e FTS por RRF somente dentro do universo governado do tenant, nunca compara vetores de modelos diferentes, cai para FTS com motivo tipado quando nao ha embedding e marca o resultado como nao deterministico",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && OUT=$(node --test core/dist-test/test/busca-semantica.test.js 2>&1) && printf '%s' \"$OUT\" | grep -qiE 'espaco vetorial' && printf '%s' \"$OUT\" | grep -qiE 'outro tenant' && printf '%s' \"$OUT\" | grep -qiE 'cai para fts'",
+        "node core/dist/index.js --help | grep -qF 'memory search --texto'"
+      ],
+      "criadoEm": "2026-09-29T00:55:17.345Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "T7: a policy segredo_em_prompt reconhece chave do OpenRouter e o doctor declara a chave de embedding pelo NOME, recusando nome da lista de provider pago, sem imprimir valor",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/segredo-openrouter.test.js",
+        "grep -qF 'sk-or-v1-' core/src/policies.ts"
+      ],
+      "criadoEm": "2026-09-29T00:55:18.487Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "docs/guias/memoria-e-handoff.md",
+      "alegacao": "T8: a documentacao descreve o estado configuravel de embeddings, o custo por uso, a saida de conteudo ao provider e como conferir o estado; deixa de afirmar a ausencia de embedder como propriedade fixa; FEAT-017 declara os comandos novos e a paridade docs-codigo passa",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/guias/memoria-e-handoff.md && ! grep -qF 'embedder e sem embeddings pagos' docs/guias/memoria-e-handoff.md && grep -qF 'memory index' docs/guias/memoria-e-handoff.md",
+        "test -f docs/referencia/cli.md && ! grep -qF 'sem embedder ou provider pago' docs/referencia/cli.md && grep -qF 'memory search --texto' docs/referencia/cli.md && grep -qF 'memory index' docs/referencia/cli.md",
+        "grep -qF 'ork memory index' docs/produto/FEAT-017-memoria-orkmind.md",
+        "npm --prefix core run build && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-29T00:55:19.564Z",
       "estado": "verificado",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C2",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C3",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
       "id": "C4",
-      "reason": "artifact-not-in-checkout"
+      "reason": "local-integration-required"
     },
     {
-      "id": "C6",
-      "reason": "artifact-not-in-checkout"
+      "id": "C8",
+      "reason": "local-integration-required"
     },
     {
-      "id": "C7",
-      "reason": "artifact-not-in-checkout"
+      "id": "C13",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C14",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C16",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C17",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C18",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C19",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C20",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C22",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C24",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C26",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C27",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C28",
+      "reason": "local-integration-required"
     }
   ],
   "commands": [
