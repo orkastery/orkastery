@@ -52,7 +52,7 @@ sdlc:
 - **Entregue até aqui:**
   - K1, cartões, estados e criação: identidade, estado e criação recuperável no núcleo (merge `580abb9`).
   - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`).
-- **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026.
+- **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - K3, dossiê de decisão ligado a objetivo e projeto, com os mesmos IDs no Brain.
   - K4, Maestro com contexto citado nos quatro hosts.
@@ -67,7 +67,7 @@ sdlc:
 
 ## Estado com evidências
 
-- Código na `main`: K1, presente desde `10ca416` (Orkastery 0.3.0).
+- Código na `main`: K1, presente desde `10ca416` (Orkastery 0.3.0). O merge `580abb9` é do histórico anterior à 0.3.0.
 - Contexto citável: branch `ork/ork-companybrai3-full`, entregue por PR.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -94,5 +94,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-14 | K1 e K2 mesclados | merge `580abb9` | Julio |
-| 2026-09-28 | workspace sem interface web; o K2 saiu com a interface | decisão do dono em 28/09/2026 | Julio |
+| 2026-09-28 | workspace sem interface web; o K2 saiu com a interface | decisão do dono em 28/09/2026, commit `7eb942d` | Julio |
 | 2026-09-28 | contexto citável nos quatro hosts | thread `ork-companybrai3`, por PR | thread `ork-companybrai3` (#Auto) |

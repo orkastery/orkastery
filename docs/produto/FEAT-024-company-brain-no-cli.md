@@ -79,7 +79,7 @@ fontes:
 - **Pacote de contexto:** `ork.brain-context/v1` com `pedido`, `itens`, `lacunas` e `digest` (sha256 do JSON canônico, sem o horário da consulta).
 - **Frescor:** `confere`, `divergente`, `ausente-no-brain`, `ausente-na-fonte` e `retido`.
 - **Lacunas:** `dono.sem-principal`, `observado.desconhecido`, `registrado.desconhecido`, `brain.ausente`, `fonte.ausente`, `fonte.divergente`, `brain.retido`, `citacao.incompleta` e `entidade.desconhecida`.
-- **APIs:** OrkMind, pelo subprocesso `orkmind brain request` (sem HTTP).
+- **APIs:** OrkMind, sem HTTP: o subprocesso `orkmind brain request` na leitura e na captura, e o `orkmind brain migration` em `reconcile`, `apply` e `rollback`.
 - **Eventos:** recibos de operação.
 
 ## Operação e controle

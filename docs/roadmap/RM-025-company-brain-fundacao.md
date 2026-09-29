@@ -55,10 +55,10 @@ sdlc:
   - B2, captura da fábrica: portfólio e ledger por thread, com recibos (merge `3962717`). A escrita no Brain depende da ativação, hoje desligada.
   - B4.1, pacote de contexto citável: `ork brain context`, a ferramenta `ork_brain_context` no MCP e no OpenClaw e o repasse do Hermes (thread `ork-companybrai3`).
 - **Não entregue:**
-  - B3, organização, geografias, sistemas e estratégia: o merge `9b7fef1` só mudou canais de HITL, e o contrato continua com `prod`, `proj` e `init`.
+  - B3, organização, geografias, sistemas e estratégia: o merge `9b7fef1` trouxe canais de HITL e documentação, sem tipos novos no contrato, que continua com `prod`, `proj` e `init`.
   - O resto da B4: consulta federada e afirmações no contexto, que pedem o modo `context` no OrkMind.
   - B5 a B7.
-- **Validação da B4.1:** testes `company-brain-context`, `company-brain-mcp` e `company-brain-hosts`, e a medição no Brain de produção registrada no CHECK da thread.
+- **Validação da B4.1:** testes `company-brain-context`, `company-brain-mcp` e `company-brain-hosts`. No Brain de produção, em 28/09/2026, `ork brain context` com as 14 entidades do portfólio devolveu 14 itens com a citação inteira: 13 `confere` e 1 `ausente-no-brain`, em 1,8 s.
 
 ## Plano e decisões
 
@@ -69,7 +69,7 @@ sdlc:
 
 ## Estado com evidências
 
-- Código na `main`: B1 e B2, presentes desde `10ca416` (Orkastery 0.3.0).
+- Código na `main`: B1 e B2, presentes desde `10ca416` (Orkastery 0.3.0). Os merges `3962717` e `9b7fef1` são do histórico anterior à 0.3.0.
 - B4.1: branch `ork/ork-companybrai3-full`, entregue por PR.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -97,6 +97,6 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-09-14 | B1 e B2 mesclados | merge `3962717` | Julio |
 | 2026-09-16 | C2/B3 mesclado | merge `9b7fef1` | Julio |
-| 2026-09-28 | objetivo novo sobre o código de hoje; threads de 13 e 14/09 superadas | decisão do dono (P5 a) | Julio |
-| 2026-09-28 | B3 deixa de constar como entregue | o merge `9b7fef1` só tocou HITL; o contrato tem só `prod`, `proj` e `init` | thread `ork-companybrai3` (#Auto) |
+| 2026-09-28 | objetivo novo sobre o código de hoje; threads de 13 e 14/09 superadas | decisão do dono em 28/09/2026 | Julio |
+| 2026-09-28 | B3 deixa de constar como entregue | o merge `9b7fef1` não trouxe tipos novos; o contrato tem só `prod`, `proj` e `init` | thread `ork-companybrai3` (#Auto) |
 | 2026-09-28 | B4.1, pacote de contexto citável | thread `ork-companybrai3`, por PR | thread `ork-companybrai3` (#Auto) |
