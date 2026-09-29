@@ -4,18 +4,18 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:38:40.574Z",
+  "publicadoEm": "2026-09-29T11:42:16.339Z",
   "threads": [
     {
       "id": "ork-companybrai3",
       "nome": "Company Brain: objetivo novo sobre o codigo de hoje (RM-025 e RM-026)",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-025",
       "branch": "ork/ork-companybrai3-full",
-      "atualizadaEm": "2026-09-29T02:09:23.260Z",
-      "entregue": null,
+      "atualizadaEm": "2026-09-29T11:42:16.074Z",
+      "entregue": "a17ff88",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
@@ -30,20 +30,6 @@
       "branch": "ork/ork-docsdossites-full",
       "atualizadaEm": "2026-09-29T01:53:41.024Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-i31kg1contra",
-      "nome": "I-31 KG1 contrato deterministico do grafo Company Brain",
-      "modo": "#Maestro",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-i31kg1contra-f12",
-      "atualizadaEm": "2026-09-29T11:38:40.364Z",
-      "entregue": "8589330",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
