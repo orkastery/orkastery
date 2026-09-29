@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-29T11:53:27.741Z",
+  "publicadoEm": "2026-09-29T11:59:34.820Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -30,9 +30,9 @@
       "branch": "ork/ork-i36buscasema-goal",
       "atualizadaEm": "2026-09-29T00:55:19.564Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "plano",
-      "paradaDesde": "2026-09-29T00:35:39.661Z"
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-rm025modocon",
@@ -70,7 +70,7 @@
       "status": "aberta",
       "roadmap": "RM-049",
       "branch": "ork/ork-rm049marketp-full",
-      "atualizadaEm": "2026-09-29T11:45:09.752Z",
+      "atualizadaEm": "2026-09-29T11:59:12.570Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -94,11 +94,11 @@
       "id": "ork-siteshomesco",
       "nome": "Sites: homes completas nas 3 línguas, página Contribuir e docs em dia com a 0.5.0",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-049",
       "branch": "ork/ork-siteshomesco-full",
-      "atualizadaEm": "2026-09-29T11:49:30.284Z",
+      "atualizadaEm": "2026-09-29T11:59:34.609Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
