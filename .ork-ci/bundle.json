@@ -98,7 +98,7 @@
         "test -f .github/workflows/ci.yml && job=\"$(awk '/^  documentacao:$/{f=1;next} /^  [a-z_-]+:$/{f=0} f' .github/workflows/ci.yml)\" && printf \"%s\\n\" \"$job\" | grep -qE \"^        run: node core/scripts/gerar-marketplaces[.]cjs --verificar$\" && ! grep -q \"checar-lancamento\" .github/workflows/ci.yml && test \"$(grep -cE '^    name: ' .github/workflows/ci.yml)\" = 3"
       ],
       "criadoEm": "2026-09-29T21:18:03.918Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -112,7 +112,7 @@
         "test -f marketplaces/README.md && test -f core/test/marketplaces.test.ts && test -f core/package.json && test ! -e lancamento && test ! -e core/scripts/checar-lancamento.cjs && test -z \"$(git ls-files -- lancamento core/scripts/checar-lancamento.cjs)\" && { git grep -qIi -e checar-lancamento -e perguntas-do-dono -e \"perguntas do dono\" -e \"perguntas ao dono\" -- . \":(exclude).ork-ci/bundle.json\"; test $? -eq 1; }"
       ],
       "criadoEm": "2026-09-29T21:18:04.298Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -126,7 +126,7 @@
         "base=\"$(git merge-base origin/main HEAD)\" && test -n \"$base\" && test -z \"$(git diff --name-only --diff-filter=A \"$base\" HEAD -- docs)\" && git diff --quiet \"$base\" HEAD -- README.md README.pt-BR.md && arquivos=\"$(git diff --name-only --diff-filter=AMR \"$base\" HEAD)\" && printf \"%s\\n\" \"$arquivos\" | grep -qx \".ork-ci/bundle.json\" && { git grep -qIE \"/hom[e]/|/User[s]/|~/[.]claude-|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}\" -- $arquivos; test $? -eq 1; }"
       ],
       "criadoEm": "2026-09-29T21:18:04.570Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -140,7 +140,7 @@
         "node -e \"const t=require(\\\"fs\\\").readFileSync(\\\".markdownlint-cli2.jsonc\\\",\\\"utf8\\\").replace(/^\\s*\\/\\/.*$/gm,\\\"\\\");const g=JSON.parse(t).globs;if(!g.includes(\\\"marketplaces/*.md\\\")||!g.includes(\\\"marketplaces/fontes/**/*.md\\\")||g.some(x=>x.includes(\\\"lancamento\\\")))process.exit(1)\" && test -f marketplaces/fontes/claude-code/README.md && test -f marketplaces/fontes/codex/README.pt-BR.md && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-09-29T21:18:04.819Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -154,7 +154,7 @@
         "test -f docs/roadmap/RM-049-lancamento.md && grep -q \"Respostas do dono (29/09/2026)\" docs/roadmap/RM-049-lancamento.md && grep -q \"Rascunhos do anúncio fora do PR\" docs/roadmap/RM-049-lancamento.md && ! grep -qiE \"lancamento/|H[1-5]\\b|países|[0-9]{2}/1[0-2]/2026\" docs/roadmap/RM-049-lancamento.md && node core/dist/index.js docs verificar"
       ],
       "criadoEm": "2026-09-29T21:20:15.946Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
