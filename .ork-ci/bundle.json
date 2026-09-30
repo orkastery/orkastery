@@ -698,7 +698,49 @@
         "node -e \"const b=require('./.ork-ci/bundle.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-rm052projeto' || b.claims.length<40 || b.commands[0].command!=='npm --prefix core run test:ci') process.exit(1)\""
       ],
       "criadoEm": "2026-09-30T00:06:30.177Z",
-      "estado": "pendente",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm052projeto",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "F4 (CI do PR 24): o main registra a fonte do fuso do dono logo no inicio, antes do preambulo do projeto-alvo, como o contrato das entradas de processo exige",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/horario-entradas.test.js core/dist-test/test/horario-cli.test.js"
+      ],
+      "criadoEm": "2026-09-30T00:14:25.711Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm052projeto",
+      "fase": "GOAL",
+      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "F5 (CI do PR 24): o bootstrap comum segue casca fina, dentro do teto de 120 linhas de roteador, com a regra do projeto explicito",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/catalogo.test.js core/dist-test/test/projeto-alvo-hosts.test.js"
+      ],
+      "criadoEm": "2026-09-30T00:14:26.384Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm052projeto",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "CHECK: a suite hermetica inteira (test:ci, a mesma do runner) passa no HEAD; a suite inteira local so falha nas integracoes que ja falhavam na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run test:ci"
+      ],
+      "criadoEm": "2026-09-30T00:14:27.138Z",
+      "estado": "verificado",
       "lint": []
     }
   ],
