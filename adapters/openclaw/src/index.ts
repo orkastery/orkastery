@@ -71,6 +71,9 @@ async function rodarOrk(args: string[], signal?: AbortSignal, entrada?: string):
   if (verifiers) env.ORK_RECEIPT_VERIFIERS = verifiers;
   // I-36 (D6): o adaptador declara o proprio canal de conducao. Descreve a porta, nao concede autoridade.
   env.ORK_CANAL = 'openclaw';
+  // RM-052 (D3): o cwd do gateway nao e projeto de ninguem. Sem `projeto` pedido, o nucleo usa o unico
+  // projeto conhecido da maquina ou devolve a escolha; nunca o manifesto que estiver no cwd do gateway.
+  env.ORK_PROJETO_EXPLICITO = '1';
   return new Promise((resolve) => {
     const filho = execFile(bin, args, { maxBuffer: MAX_BUFFER, signal, env }, (erro, stdout, stderr) => {
       const partes = [stdout, stderr].map((t) => (t ?? '').trim()).filter((t) => t !== '');
@@ -154,6 +157,17 @@ function argvDaResposta(p: Record<string, unknown>, alvo: 'gate' | 'sessions'): 
     '--mensagem', `telegram:${chat}:${referencia}`, '--origem', 'telegram'];
 }
 
+/**
+ * RM-052 (D4): o projeto pedido chega como NOME de projeto registrado (`ork projetos`), nunca como
+ * caminho. O modelo escolhe entre os projetos da maquina; nao aponta o nucleo para um diretorio.
+ */
+const PADRAO_DO_PROJETO = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
+const PARAMETRO_PROJETO = {
+  type: 'string',
+  pattern: PADRAO_DO_PROJETO.source,
+  description: 'Nome do projeto que o dono pediu (ex.: orkastery), como em `ork projetos`. Sem ele e com mais de um projeto na máquina, a resposta é a escolha; nunca use o diretório do gateway.',
+};
+
 /** Catálogo em paridade nome a nome com o manifesto; aprovação genérica legada aposentada. */
 interface FerramentaOrk {
   name: string;
@@ -166,7 +180,7 @@ interface FerramentaOrk {
 const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_maestro',
-    description: 'Ao receber a frase exata orkastery maestro, consulte o panorama somente leitura. Não cria thread. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. Ação posterior exige operação autorizada e readback.',
+    description: 'Ao receber a frase exata orkastery maestro, consulte o panorama somente leitura. Não cria thread. Passe projeto quando o dono nomear um. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. O panorama NÃO lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_roadmap_status. Ação posterior exige operação autorizada e readback.',
     parameters: { type: 'object', additionalProperties: false, properties: {
       thread: { type: 'string' }, section: { type: 'string', enum: ['portfolio','demands','threads','sessions','blockers','leases','retries','hitl','ship','master','nextActions'] },
       offset: { type: 'integer', minimum: 0, maximum: 100000 },
@@ -394,14 +408,14 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_board',
     description:
-      'Todas as threads em uma visao, e o escalonador dizendo quem avanca agora e quem espera.',
+      'As threads DESTE projeto nesta maquina e o escalonador dizendo quem avanca agora e quem espera. NAO le o roadmap: nunca conclua sobre o roadmap a partir do board (zero threads nao e roadmap vazio); para o roadmap use ork_roadmap_status. O cabecalho diz o projeto consultado e o que nao foi lido.',
     parameters: schema({}),
     argv: () => ['board', 'plan'],
   },
   {
     name: 'ork_roadmap_status',
     description:
-      'Status report unico do roadmap no formato aprovado pelo dono (grupos com icones, #HITL e o fecho). Somente leitura: transporte o texto como vem, sem reescrever.',
+      'Status report unico do roadmap no formato aprovado pelo dono (grupos com icones, #HITL e o fecho). Somente leitura: transporte o texto como vem, sem reescrever. Passe projeto com o nome que o dono pediu (ex.: orkastery); sem ele e com mais de um projeto na maquina, a resposta e a escolha. E a unica fonte do roadmap: nunca o deduza de ork_board ou ork_maestro.',
     parameters: schema({}),
     argv: () => ['roadmap', 'status'],
   },
@@ -414,20 +428,42 @@ const FERRAMENTAS: FerramentaOrk[] = [
   },
 ];
 
+/** RM-052: toda tool aceita `projeto` opcional, sem mudar o que ela ja exigia. */
+function comProjeto(parametros: Record<string, unknown>): Record<string, unknown> {
+  const propriedades = (parametros.properties ?? {}) as Record<string, unknown>;
+  return { ...parametros, properties: { ...propriedades, projeto: PARAMETRO_PROJETO } };
+}
+
+/** `--projeto <nome>` vai no inicio do argv; o resto dos parametros segue para a tool como antes. */
+function argvComProjeto(f: FerramentaOrk, params: Record<string, unknown>): { argv: string[]; resto: Record<string, unknown> } {
+  const { projeto, ...resto } = params;
+  if (projeto !== undefined && (typeof projeto !== 'string' || !PADRAO_DO_PROJETO.test(projeto))) {
+    throw new Error('projeto.invalido');
+  }
+  return { argv: [...(projeto === undefined ? [] : ['--projeto', projeto]), ...f.argv(resto)], resto };
+}
+
 const plugin = defineToolPlugin({
   id: 'orkastery',
   name: 'Orkastery',
   description:
-    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.',
+    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto.',
   tools: (tool) =>
     FERRAMENTAS.map((f) =>
       tool({
         name: f.name,
         description: f.description,
-        parameters: f.parameters,
+        parameters: comProjeto(f.parameters),
         execute: (params, _config, contexto) => {
-          try { return rodarOrk(f.argv(params), contexto.signal, f.entrada?.(params)); }
-          catch { return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido'; }
+          let chamada: ReturnType<typeof argvComProjeto>;
+          try { chamada = argvComProjeto(f, params); }
+          catch (e) {
+            if ((e as Error).message === 'projeto.invalido') {
+              return '[ork recusou] projeto.invalido: informe o NOME de um projeto de `ork projetos` (ex.: orkastery), nunca um caminho';
+            }
+            return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido';
+          }
+          return rodarOrk(chamada.argv, contexto.signal, f.entrada?.(chamada.resto));
         },
       })
     ),
