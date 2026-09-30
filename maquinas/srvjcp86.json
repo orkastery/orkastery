@@ -4,18 +4,18 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:11:01.411Z",
+  "publicadoEm": "2026-09-30T02:16:58.315Z",
   "threads": [
     {
       "id": "ork-rm052projeto",
       "nome": "RM-052 projeto-alvo explicito e resposta honesta nos hosts",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-052",
       "branch": "ork/ork-rm052projeto-full",
-      "atualizadaEm": "2026-09-30T00:14:27.139Z",
-      "entregue": null,
+      "atualizadaEm": "2026-09-30T02:16:58.202Z",
+      "entregue": "a24a187",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
