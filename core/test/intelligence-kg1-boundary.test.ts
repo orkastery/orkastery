@@ -26,7 +26,9 @@ const MODULO_KG2_LEITURA = 'intelligence-graph-repo.ts';
 const MODULO_KG3_ANALISADORES = 'intelligence-graph-parsers.ts';
 /** RM-031 KG3 (D2 a D4): o indice persistente, borda de E/S no estado do projeto. */
 const MODULO_KG3_INDICE = 'intelligence-graph-index.ts';
-const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE];
+/** RM-031 KG3 (D5 a D7): a consulta, pura; recebe o grafo e a concessao por parametro. */
+const MODULO_KG3_CONSULTA = 'intelligence-graph-query.ts';
+const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -196,6 +198,18 @@ test('KG3 boundary: o indice so usa arquivo, caminho e hash do Node e so alcanca
   for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require']) assert.ok(!identificadores.has(proibido), proibido);
   // Nenhum modulo abaixo do indice o importa: a dependencia so desce.
   for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_INDICE)) assert.ok(!importacoes(f).includes('./intelligence-graph-index'), f);
+});
+
+test('KG3 boundary: a consulta e pura, so alcanca o contrato e nao toca processo, arquivo, relogio, acaso nem busca semantica', () => {
+  const { locais, externos } = fechamento(MODULO_KG3_CONSULTA);
+  assert.deepEqual([...locais].sort(), ['intelligence-graph-contract.ts', MODULO_KG3_CONSULTA].sort());
+  assert.ok([...externos].every((e) => EXTERNOS_PERMITIDOS.has(e)), `${[...externos]}`);
+  const { identificadores, literais, relogio, deCrypto } = simbolos(MODULO_KG3_CONSULTA);
+  assert.ok(identificadores.size > 50, 'parser leu o arquivo');
+  for (const g of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(g), `consulta usa ${g}`);
+  assert.equal(relogio, 0);
+  assert.deepEqual(deCrypto, []);
+  assert.deepEqual([...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t)), []);
 });
 
 test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os contratos', () => {
