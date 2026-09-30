@@ -104,6 +104,25 @@ function prazosDoVerify(verify: Record<string, ValorYaml>, erros: string[]): Pic
   return saida;
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 5): `ci.external_repositories`, mapa `dono/nome` para o check exigido no
+ * head do PR (texto vazio ou nulo: repositorio sem CI). Forma invalida e erro do manifesto, nunca adivinhada.
+ */
+function repositoriosExternos(v: ValorYaml, erros: string[]): Record<string, string> {
+  if (v === undefined || v === null) return {};
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    erros.push('ci.external_repositories deve ser um mapa "dono/nome": "check exigido" (vazio para repositorio sem CI)');
+    return {};
+  }
+  const r: Record<string, string> = {};
+  for (const [repo, check] of Object.entries(v)) {
+    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) { erros.push(`ci.external_repositories: "${repo}" nao e dono/nome do GitHub`); continue; }
+    if (check !== null && typeof check !== 'string') { erros.push(`ci.external_repositories.${repo}: o check exigido e texto (vazio para sem CI)`); continue; }
+    r[repo] = (check ?? '').trim();
+  }
+  return r;
+}
+
 function booleano(v: ValorYaml, padrao: boolean): boolean {
   return typeof v === 'boolean' ? v : padrao;
 }
@@ -423,6 +442,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       required_for_ship: booleano(ci.required_for_ship, false),
       context: texto(ci.context, 'ork-verify'),
       command: ci.command === null || ci.command === undefined ? undefined : texto(ci.command, ''),
+      external_repositories: repositoriosExternos(ci.external_repositories, erros),
     },
     concurrency: {
       max_parallel_threads: numero(concurrency.max_parallel_threads, 3),

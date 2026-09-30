@@ -440,6 +440,19 @@ import { politicaDoMotivo } from '../src/retry';
 const MODELO_INACESSIVEL = (modelo: string) =>
   `There's an issue with the selected model (${modelo}). It may not exist or you may not have access to it. Run /model to pick a different model.`;
 
+/**
+ * RM-037 (rm037defeito, defeito 7): o stub de `claude agents` tem UM estado para todas as sessoes. O teste
+ * deixava `failed` gravado e redespachava, entao a sessao nova nascia terminal e o observador destacado
+ * podia classifica-la antes de a transcricao da conta seguinte existir (caiu no CI no run 36561216752 e
+ * passou no reteste). A sessao redespachada nasce `working`; esta e a intercalacao de pior caso, a do CI:
+ * observar a sessao nova logo depois do redespacho nao pode concluir nada.
+ */
+function semResultadoAntesDaTranscricao(carregado: ManifestoCarregado, dir: string, sessionId: string): void {
+  try { observarSessao(carregado, sessionId); } catch { /* ocupado: o watcher destacado observa agora */ }
+  assert.equal(lerLedger(dir).some(e => e.tipo === 'phase_result' && e.sessionId === sessionId), false,
+    'a sessao redespachada so termina depois da transcricao');
+}
+
 test('defeitosdeco D-6: model_not_found da transcricao vira runtime.model-unavailable; sobrecarga nao', () => {
   const s = parseFalhaDeConta(`model_not_found: ${MODELO_INACESSIVEL('fable-5-1')}`)!;
   assert.deepEqual([s.motivo, s.resetEm, s.fonte], ['runtime.model-unavailable', null, 'sem-horario']);
@@ -469,8 +482,10 @@ test('defeitosdeco D-6: modelo inacessivel na conta a segue no perfil b com o me
     assert.equal(lerPerfis(p.dir).perfis.find(x => x.id === 'a')?.estado, 'ativo', 'a conta a continua no rodizio');
 
     // Primeira troca: o mesmo modelo no perfil b, nunca de novo no par (a, fable-5-1).
+    claude.estadoDaSessao('working');
     const troca = executarRetry(p.carregado, t.id);
     assert.equal(troca.executada, true, troca.detalhe);
+    semResultadoAntesDaTranscricao(p.carregado, dir, troca.redespacho!.sessionId as string);
     const despachos = lerLedger(dir).filter(e => e.tipo === 'phase_dispatch');
     assert.equal(despachos.length, 2);
     assert.deepEqual([(despachos[1].perfil as { id: string }).id, despachos[1].model], ['b', 'fable-5-1']);
@@ -540,8 +555,10 @@ test('defeitosdeco D-6 (R4a): destino que recusou o modelo no redespacho nao e t
     claude.estadoDaSessao('failed');
     esperarResultado(p.carregado, dir, r.sessionId as string);
     // b recusa o modelo no proprio despacho; a troca segue para c na mesma chamada.
+    claude.estadoDaSessao('working');
     const troca = executarRetry(p.carregado, t.id);
     assert.equal(troca.executada, true, troca.detalhe);
+    semResultadoAntesDaTranscricao(p.carregado, dir, troca.redespacho!.sessionId as string);
     const recusasDeB = () => lerLedger(dir).filter(e => e.tipo === 'phase_dispatch_failed' && (e.perfil as { id?: string } | undefined)?.id === 'b').length;
     assert.equal(recusasDeB(), 1);
     assert.equal((lerLedger(dir).filter(e => e.tipo === 'phase_dispatch').at(-1)?.perfil as { id: string }).id, 'c');

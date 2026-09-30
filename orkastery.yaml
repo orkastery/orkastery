@@ -52,6 +52,12 @@ ci:
   # O runner hospedado não oferece OrkMind/PostgreSQL local nem user namespaces. A suíte
   # hermética mantém essas integrações na verificação integral da estação de desenvolvimento.
   command: "npm --prefix core run test:ci"
+  # RM-037 (defeito 5): repositorios externos cujo PR mesclado vale como entrega da thread
+  # (ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>). O valor e o check exigido no head
+  # do PR; vazio declara repositorio sem CI. Os sites nao tem check run (medido em 29/09/2026).
+  external_repositories:
+    "orkastery/orkastery.com": ""
+    "orkastery/orkmind.com": ""
 
 concurrency:
   # 5 sessoes ao mesmo tempo (decisao do dono em 28/09/2026). A CPU fica protegida no kernel da

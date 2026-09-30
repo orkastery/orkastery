@@ -34,13 +34,14 @@ import {
   ehAprovacaoHumana,
   EVENTOS_QUE_DESTRAVAM,
   OcupacaoDaThread,
+  sessaoLivreDaVaga,
 } from './ocupacao';
 import { dirThread, lerThread, listarIds, pausasDaThread } from './thread';
 import { PedidoNaFila, PlanoDoEscalonador, ThreadNoBoard, VagaDaThread } from './types';
 import { agora, tabela } from './util';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { formatarDesde, legendaDoFuso, localizarTexto } from './horario';
-import { conducaoDaThread } from './conducao';
+import { conducaoDaThread, dormir } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 
 /** Um perfil de board: um diretorio de threads com um nome. */
@@ -118,6 +119,71 @@ export function estadosDeSessao(): Map<string, string> | null {
       .filter((s) => !!s.sessionId)
       .map((s) => [s.sessionId, estadoBruto(s)] as const)
   );
+}
+
+/** Uma sessao viva de outra thread, que ocupa vaga do projeto. */
+export interface SessaoQueOcupa { thread: string; fase: string | null; sessao: string | null; runtime: string | null; desde: string }
+
+/** A recusa do portao de vaga do despacho, com quem ocupa e a correcao. */
+export interface VagaRecusada { limite: number; ocupam: SessaoQueOcupa[]; detalhe: string; correcao: string }
+
+/**
+ * RM-037 (rm037defeito, defeito 3): o portao de vaga do `ork phase run`. Com `max_parallel_threads: 5`,
+ * um sexto despacho saiu as 09h03 de 29/09/2026 com cinco sessoes vivas: o `phase run` nao consultava
+ * vaga nenhuma, e o escalonador so via as sessoes `claude agents` de uma conta.
+ *
+ * Ocupa vaga a outra thread cuja conducao `exec:<thread>` e de uma sessao viva (a prova que vale para
+ * claude-bg de qualquer conta e para codex, liberada por `phase_result`, `sessao_morta` ou
+ * `session_superseded`), salvo a sessao parada ou escalada para o humano (`sessaoLivreDaVaga`; achados A1 e
+ * N1 do CHECK: a pausa prevista e o verify reprovado nao param a sessao, e ela segue contando). Ocupa tambem o
+ * despacho em curso de outra thread (conducao de processo do `phase.run` ou do `retry.run`), senao dois
+ * pedidos simultaneos passariam juntos. A conducao da propria thread tem portao proprio. Somente leitura.
+ */
+export function vagaDoDespacho(carregado: ManifestoCarregado, threadId: string, quando: string = agora(),
+  /** S-5 do CHECK 3: o `desde` da tomada deste despacho; despacho em curso de outra thread so conta se veio antes. */
+  desdeProprio?: string): VagaRecusada | null {
+  const { raiz, manifesto } = carregado;
+  const limite = Math.max(1, manifesto.concurrency.max_parallel_threads);
+  const staleMin = manifesto.concurrency.stale_after_min;
+  const ocupam: SessaoQueOcupa[] = [];
+  for (const id of listarIds(raiz)) {
+    if (id === threadId) continue;
+    let atual: ReturnType<typeof conducaoDaThread> = null;
+    try { atual = conducaoDaThread(raiz, id); } catch { continue; }
+    if (!atual) continue;
+    const despachando = atual.dono.tipo === 'processo' && (atual.operacao === 'phase.run' || atual.operacao === 'retry.run');
+    if (atual.dono.tipo !== 'sessao' && !despachando) continue;
+    // Dois despachos disputando a ultima vaga nao se recusam um ao outro: quem tomou antes fica com ela.
+    if (despachando && desdeProprio && (atual.desde > desdeProprio || (atual.desde === desdeProprio && id > threadId))) continue;
+    if (atual.dono.tipo === 'sessao') {
+      try { if (sessaoLivreDaVaga(lerLedger(dirThread(raiz, id)), atual.desde, quando, staleMin, atual.dono.sessionId)) continue; }
+      catch { /* ledger ilegivel: a conducao viva continua contando */ }
+    }
+    ocupam.push({ thread: id, fase: atual.fase, desde: atual.desde,
+      sessao: atual.dono.tipo === 'sessao' ? atual.dono.sessionId : null,
+      runtime: atual.dono.tipo === 'sessao' ? atual.dono.runtime : null });
+  }
+  if (ocupam.length < limite) return null;
+  ocupam.sort((a, b) => a.desde.localeCompare(b.desde));
+  return {
+    limite,
+    ocupam,
+    detalhe: `concurrency.limite: o projeto ja tem ${ocupam.length} sessao(oes) viva(s) em outras threads e o limite e ${limite} ` +
+      `(concurrency.max_parallel_threads): ${ocupam.map((o) => `${o.thread} ${o.fase ?? '-'} ` +
+        (o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso')).join('; ')}`,
+    correcao: 'espere uma sessao terminar e repita com --esperar <min>; sessao que morreu sem evento sai com ' +
+      'ork conducao status <thread>; ou suba concurrency.max_parallel_threads no orkastery.yaml',
+  };
+}
+
+/** `--esperar`: espera a vaga do projeto ate o prazo. Devolve true quando ha vaga. */
+export function esperarVaga(carregado: ManifestoCarregado, threadId: string, esperarMs: number): boolean {
+  const prazo = Date.now() + esperarMs;
+  for (;;) {
+    if (!vagaDoDespacho(carregado, threadId)) return true;
+    if (Date.now() >= prazo) return false;
+    dormir(Math.min(2000, prazo - Date.now()));
+  }
 }
 
 /**
