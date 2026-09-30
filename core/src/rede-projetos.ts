@@ -18,6 +18,7 @@ import { git } from './branch-de-estado';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { pastaDoUsuario } from './maquina';
+import { comGitIsolado } from './rede-forja';
 
 export const CONTRATO_DO_REGISTRO = 'ork.projetos/v1';
 const NOME = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
@@ -115,7 +116,7 @@ export function projetoDoDiretorio(dir: string): ProjetoConhecido | null {
   if (!carregado || carregado.erros.length > 0) return null;
   let raiz: string;
   try { raiz = raizDoEstado(carregado.raiz); } catch { raiz = carregado.raiz; }
-  const remoto = git(carregado.raiz, ['remote', 'get-url', carregado.manifesto.fabrica.remoto]);
+  const remoto = comGitIsolado(() => git(carregado.raiz, ['remote', 'get-url', carregado.manifesto.fabrica.remoto]));
   return { nome: carregado.manifesto.project.name, remoto: remoto.ok ? limparRemoto(remoto.stdout.trim()) : null,
     caminho: raiz, fonte: 'cwd', presente: true };
 }

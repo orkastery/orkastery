@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { acharBinario, forjaPorNome, forjasDaMaquina, pastasDeBinarios, versaoDoBinario } from '../src/rede-forja';
+import { acharBinario, comGitIsolado, forjaPorNome, forjasDaMaquina, pastasDeBinarios, versaoDoBinario } from '../src/rede-forja';
 import { buscarBranch, gravarNaBranch } from '../src/branch-de-estado';
 import { publicarMaquina } from '../src/fabrica-estado';
 import { exigirManifesto } from '../src/manifest';
@@ -695,4 +695,66 @@ test('RM-053 migracao: o teto de tentativa fica um minuto abaixo do cron de 15 m
       assert.equal(marca.em, new Date(t0 + (14 * 60 + 50) * 1000).toISOString());
     });
   } finally { fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 1 (CHECK 1): o git da rede isolado do ambiente de quem chamou.
+// ---------------------------------------------------------------------------
+
+/** Liga variaveis no processo durante `f` e devolve o ambiente como estava. */
+function comAmbiente<T>(vars: Record<string, string>, f: () => T): T {
+  const antes = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, vars);
+  try { return f(); } finally {
+    for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+}
+
+test('RM-053 isolamento: GIT_DIR, GIT_WORK_TREE e GIT_INDEX_FILE herdados (hook do git) nao fazem o git da rede tocar o projeto', () => {
+  const f = forjaFalsa('isolamento-git-dir');
+  const u = dirTemporario('rede-isolamento-usuario');
+  const p = projetoTemporario('rede-isolamento', true);
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      const configDoProjeto = () => exec('git', ['config', '--local', '--list'], p.dir).stdout;
+      const antes = configDoProjeto();
+      const deHook = { GIT_DIR: path.join(p.dir, '.git'), GIT_WORK_TREE: p.dir, GIT_INDEX_FILE: path.join(p.dir, '.git', 'index') };
+      const r = comAmbiente(deHook, () => entrarNaRede({ amb, maquina: 'pc-hook' }));
+      assert.equal(r.publicacao.acao, 'publicou');
+      comAmbiente(deHook, () => {
+        lerRede({ amb, maquina: 'pc-hook' });
+        publicarRede({ amb, maquina: 'pc-hook', forcar: true });
+        sairDaRede({ amb, maquina: 'pc-hook' });
+      });
+      assert.equal(configDoProjeto(), antes, 'remote.origin.url, core.hooksPath, user.* e o helper do projeto intactos');
+      assert.equal(exec('git', ['rev-parse', 'HEAD'], p.dir).stdout, exec('git', ['rev-parse', 'origin/main'], p.dir).stdout);
+      assert.match(exec('git', ['log', '--format=%s', 'main'], casaFalsa(f)).stdout, /rede: pc-hook saiu\nrede: pc-hook publicou o retrato\nrede: pc-hook publicou o retrato/);
+    });
+  } finally { f.limpar(); p.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 isolamento: o e-mail do ambiente nunca vai aos commits da casa; autor e committer sao a maquina', () => {
+  const f = forjaFalsa('isolamento-autor');
+  const u = dirTemporario('rede-isolamento-autor');
+  try {
+    naMaquina(u, () => comAmbiente({ GIT_AUTHOR_NAME: 'Dono Real', GIT_AUTHOR_EMAIL: 'dono-real@exemplo.com',
+      GIT_COMMITTER_NAME: 'Dono Real', GIT_COMMITTER_EMAIL: 'dono-real@exemplo.com', EMAIL: 'dono-real@exemplo.com' },
+    () => entrarNaRede({ amb: ligado(f), maquina: 'pc-autor' })));
+    const autores = exec('git', ['log', '--format=%an <%ae> | %cn <%ce>', 'main'], casaFalsa(f)).stdout.trim().split('\n');
+    assert.deepEqual([...new Set(autores)], ['pc-autor <pc-autor@rede.orkastery.invalid> | pc-autor <pc-autor@rede.orkastery.invalid>']);
+    assert.doesNotMatch(exec('git', ['log', '--format=%B%an%ae%cn%ce', 'main'], casaFalsa(f)).stdout, /dono-real|Dono Real/);
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 isolamento: dentro do git da rede nao ha redirecionamento, prompt nem traducao; na saida o ambiente volta', () => {
+  comAmbiente({ GIT_DIR: '/tmp/outro/.git', GIT_TERMINAL_PROMPT: '1', LC_ALL: 'pt_BR.UTF-8', LANGUAGE: 'pt_BR' }, () => {
+    const dentro = comGitIsolado(() => comGitIsolado(() => ({ dir: process.env.GIT_DIR, prompt: process.env.GIT_TERMINAL_PROMPT,
+      lc: process.env.LC_ALL, lingua: process.env.LANGUAGE, ssh: process.env.GIT_SSH_COMMAND, email: process.env.GIT_AUTHOR_EMAIL })),
+    { nome: 'pc-x', email: 'pc-x@rede.orkastery.invalid' });
+    assert.deepEqual(dentro, { dir: undefined, prompt: '0', lc: 'C', lingua: 'C', ssh: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
+      email: 'pc-x@rede.orkastery.invalid' });
+    assert.deepEqual([process.env.GIT_DIR, process.env.GIT_TERMINAL_PROMPT, process.env.LC_ALL, process.env.LANGUAGE],
+      ['/tmp/outro/.git', '1', 'pt_BR.UTF-8', 'pt_BR'], 'o ambiente de quem chamou volta como estava');
+  });
 });

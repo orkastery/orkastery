@@ -106,6 +106,44 @@ function json(texto: string): Record<string, unknown> | null {
   } catch { return null; }
 }
 
+/** Variaveis que redirecionam o git para outro repositorio (um hook do git exporta GIT_DIR). */
+const GIT_REDIRECIONA = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_NAMESPACE', 'GIT_QUARANTINE_PATH', 'GIT_PREFIX'];
+
+export interface IdentidadeDoGit { nome: string; email: string }
+
+/**
+ * Roda `f` com o git da rede isolado do ambiente de quem chamou (GO-FIX 1 do CHECK 1):
+ *   - sem as variaveis que redirecionam o repositorio: chamado de um hook, o git do cache miraria o
+ *     projeto e regravaria a config dele (A2);
+ *   - sem prompt de senha no terminal e com SSH em lote, porque a batida roda sem ninguem olhando (M5);
+ *   - em ingles, porque o nucleo interpreta o stderr do git (B5);
+ *   - com autor e committer fixos na maquina, quando ha identidade: `GIT_AUTHOR_EMAIL` e cia. do
+ *     ambiente poriam o e-mail real da pessoa nos commits da casa (B8).
+ * O ambiente volta como estava na saida, inclusive em chamada aninhada.
+ */
+export function comGitIsolado<T>(f: () => T, identidade?: IdentidadeDoGit): T {
+  const antes = new Map<string, string | undefined>();
+  const trocar = (k: string, v: string | undefined) => {
+    if (!antes.has(k)) antes.set(k, process.env[k]);
+    if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  };
+  for (const k of GIT_REDIRECIONA) trocar(k, undefined);
+  trocar('GIT_TERMINAL_PROMPT', '0');
+  if (!process.env.GIT_SSH_COMMAND) trocar('GIT_SSH_COMMAND', 'ssh -o BatchMode=yes');
+  trocar('LC_ALL', 'C');
+  trocar('LANGUAGE', 'C');
+  if (identidade) {
+    for (const papel of ['AUTHOR', 'COMMITTER']) {
+      trocar(`GIT_${papel}_NAME`, identidade.nome);
+      trocar(`GIT_${papel}_EMAIL`, identidade.email);
+    }
+  }
+  try { return f(); } finally {
+    for (const [k, v] of antes) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+}
+
 const naoEncontrado = (s: Saida) => /HTTP 404|404 Not Found|"status"\s*:\s*"?404/i.test(`${s.stdout}\n${s.stderr}`);
 
 function falhou(cli: string, rota: string, s: Saida): Error {

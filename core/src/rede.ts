@@ -28,7 +28,7 @@ import { adquirirLockMonitor } from './monitor-lock';
 import { procurarSegredos } from './policies';
 import { Adesao, adesaoDaRede, ConfigDaRede, gravarConfigDaRede, lerConfigDaRede, pastaDaRede, publicacaoDesligada,
   REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
-import { AmbienteDaMaquina, acharBinario, Forja, forjasDaMaquina, IdentidadeNaForja, NomeDaForja,
+import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
   versaoDoBinario } from './rede-forja';
 import { projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
@@ -294,6 +294,10 @@ function retratoValido(v: unknown): v is RetratoDaMaquina {
  * maquina que o retrato diz ser. Arquivo ruim vira `invalidos`, nunca derruba a leitura.
  */
 export function retratosDaPonta(cache: string, ponta: string | null): { retratos: RetratoDaMaquina[]; invalidos: RetratoInvalido[] } {
+  return comGitIsolado(() => lerRetratos(cache, ponta));
+}
+
+function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDaMaquina[]; invalidos: RetratoInvalido[] } {
   if (!ponta) return { retratos: [], invalidos: [] };
   const arquivos = exigirGit(cache, ['ls-tree', '-r', '--name-only', ponta, '--', `${DIR_DOS_RETRATOS}/`], PREFIXO)
     .split('\n').filter((n) => n.endsWith('.json'));
@@ -331,6 +335,10 @@ export const cachePronto = (dir: string): boolean => fs.existsSync(path.join(dir
  * propria forja so aqui dentro (D4): o primeiro valor vazio zera os helpers da configuracao global.
  */
 export function prepararCache(casa: CasaDaRede, url: string, helper: string | null, maquina: string): string {
+  return comGitIsolado(() => configurarCache(casa, url, helper, maquina));
+}
+
+function configurarCache(casa: CasaDaRede, url: string, helper: string | null, maquina: string): string {
   const dir = dirDoCache(casa);
   if (!cachePronto(dir)) {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -353,12 +361,9 @@ export function prepararCache(casa: CasaDaRede, url: string, helper: string | nu
   return dir;
 }
 
-/** O git da rede roda sem pedir senha no terminal: em segundo plano, prompt e travamento. */
-export function semPrompt<T>(f: () => T): T {
-  const antes = process.env.GIT_TERMINAL_PROMPT;
-  process.env.GIT_TERMINAL_PROMPT = '0';
-  try { return f(); }
-  finally { if (antes === undefined) delete process.env.GIT_TERMINAL_PROMPT; else process.env.GIT_TERMINAL_PROMPT = antes; }
+/** O autor dos commits da casa: a maquina, com e-mail que nao existe (B8). */
+export function identidadeDoGit(maquina: string): IdentidadeDoGit {
+  return { nome: nomeSeguro(maquina), email: `${nomeSeguro(maquina)}@rede.orkastery.invalid` };
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +449,7 @@ export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = 
   if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, criado };
   try {
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-      const { ponta, atualizado } = semPrompt(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
+      const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
       if (!atualizado) throw new Error(`rede.sem-leitura: nao consegui ler ${refDaCasa(casa)}; publicar exige rede`);
       const outros = retratosDaPonta(cache, ponta).retratos.filter((r) => r.maquina !== maquina);
       const mudancas: MudancaNaBranch[] = [
@@ -452,8 +457,8 @@ export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = 
         { caminho: PAINEL_DA_REDE, conteudo: painelDaRede([...outros, retrato]) },
       ];
       exigirSoOProprioRetrato(maquina, mudancas);
-      const commit = semPrompt(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas,
-        `rede: ${maquina} publicou o retrato`, PREFIXO));
+      const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas,
+        `rede: ${maquina} publicou o retrato`, PREFIXO), identidadeDoGit(maquina));
       if (commit) {
         gravarMarca({ assinatura, em: retrato.publicadoEm, commit, casa: refDaCasa(casa), forja: casa.forja, maquina, projetos: retrato.projetos });
         return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, criado };
@@ -507,17 +512,18 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): { maquina: string; 
   const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
   const proprio = arquivoDoRetrato(maquina);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-    const { ponta, atualizado } = semPrompt(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
+    const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
     if (!atualizado) throw new Error(`rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${refDaCasa(r.casa)} para tirar o retrato; rode ork network sair de novo com rede`);
     const { retratos } = retratosDaPonta(cache, ponta);
-    const temArquivo = !!ponta && git(cache, ['cat-file', '-e', `${ponta}:${proprio}`]).ok;
+    const temArquivo = !!ponta && comGitIsolado(() => git(cache, ['cat-file', '-e', `${ponta}:${proprio}`]).ok);
     if (!temArquivo) return { maquina, casa: refDaCasa(r.casa), commit: null };
     const mudancas: MudancaNaBranch[] = [
       { caminho: proprio, conteudo: null },
       { caminho: PAINEL_DA_REDE, conteudo: painelDaRede(retratos.filter((x) => x.maquina !== maquina)) },
     ];
     exigirSoOProprioRetrato(maquina, mudancas);
-    const commit = semPrompt(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas, `rede: ${maquina} saiu`, PREFIXO));
+    const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas, `rede: ${maquina} saiu`, PREFIXO),
+      identidadeDoGit(maquina));
     if (commit) return { maquina, casa: refDaCasa(r.casa), commit };
   }
   throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);

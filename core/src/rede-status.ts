@@ -16,9 +16,9 @@ import { formatarDataHora, legendaDoFuso } from './horario';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, lerMarcaDaRede, prepararCache, refDaCasa,
-  resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato, semPrompt } from './rede';
+  resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato } from './rede';
 import { Adesao, adesaoDaRede } from './rede-adesao';
-import { AmbienteDaMaquina, ehNomeDeForja } from './rede-forja';
+import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
 import { projetosConhecidos } from './rede-projetos';
 
 export const CONTRATO_DO_STATUS = 'ork.rede-status/v1' as const;
@@ -141,10 +141,10 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   let retratos: RetratoDaMaquina[] = [];
   if (casa && ler) {
     const cache = dirDoCache(casa);
-    if (cachePronto(cache) && git(cache, ['config', 'remote.origin.url']).ok) {
-      const { ponta, atualizado } = o.semRemoto
+    if (cachePronto(cache) && comGitIsolado(() => git(cache, ['config', 'remote.origin.url']).ok)) {
+      const { ponta, atualizado } = comGitIsolado(() => o.semRemoto
         ? { ponta: pontaLocal(cache, 'origin', BRANCH_DA_REDE), atualizado: false }
-        : semPrompt(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, 'rede', o.timeoutMs ?? 30000));
+        : buscarBranch(cache, 'origin', BRANCH_DA_REDE, 'rede', o.timeoutMs ?? 30000));
       fontes.push({ fonte: 'rede', ref: `${refDaCasa(casa)}#${BRANCH_DA_REDE}`, ponta, atualizado });
       if (!atualizado && !o.semRemoto) {
         lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(casa)} sem leitura nova: ${ponta ? 'mostrando a ultima copia local' : 'nenhuma copia local'}` });
@@ -169,12 +169,13 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
     }
     let remoto = 'origin';
     try { remoto = carregarManifesto(p.caminho)?.manifesto.fabrica.remoto ?? 'origin'; } catch { /* manifesto ruim: origin */ }
-    if (!git(p.caminho, ['remote', 'get-url', remoto]).ok) {
+    if (!comGitIsolado(() => git(p.caminho, ['remote', 'get-url', remoto]).ok)) {
       lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: sem o remoto ${remoto}, nao ha fabrica compartilhada para ler` });
       continue;
     }
     try {
-      const painel = lerFabrica(p.caminho, { remoto, semRemoto: o.semRemoto, timeoutMs: o.timeoutMs ?? 15000 });
+      // M5: sem prompt de senha e com SSH em lote; um remoto que pediria senha vira lacuna, nao trava o status.
+      const painel = comGitIsolado(() => lerFabrica(p.caminho, { remoto, semRemoto: o.semRemoto, timeoutMs: o.timeoutMs ?? 10000 }));
       fontes.push({ fonte: 'fabrica-estado', projeto: p.nome, ref: BRANCH_DA_FABRICA, ponta: painel.ponta, atualizado: painel.atualizado });
       if (!painel.atualizado && !o.semRemoto) {
         lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: ${BRANCH_DA_FABRICA} sem leitura nova; usei a ultima copia local` });
