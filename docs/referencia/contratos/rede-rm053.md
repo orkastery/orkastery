@@ -57,7 +57,7 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 | `forjas[]` | cada CLI de forja achada na máquina | `usuario` é só o login; `null` quando a CLI não tem login |
 | `runtimes[]` | `claude-bg` (binário `claude`) e `codex`, quando instalados | `versao` casa `\d+.\d+[.\d+]`; texto fora disso vira `null` |
 | `hosts[]` | `claude-code`, `codex`, `hermes`, `openclaw`, quando instalados | `adaptador` é a versão do recibo `INSTALADO.json` no destino padrão do host, sob o home |
-| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` com algo visível (letra, dígito, pontuação ou símbolo), sem espaço nas pontas, sem `://`, sem caractere invisível e até 80 unidades UTF-16 (o leitor aceita qualquer texto sem invisível até 80) e `caminho` até 1024, sem caractere invisível, senão o projeto sai com aviso; `remoto` até 500, senão `null` |
+| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` com algo visível (letra, dígito, pontuação ou símbolo), sem espaço nas pontas, sem `://`, sem caractere invisível e até 80 unidades UTF-16 (o leitor aceita qualquer texto sem invisível até 80) e `caminho` até 1024, sem caractere invisível; senão o escritor tira do retrato, com aviso, o projeto do diretório atual, e o registro e o último retrato o descartam na leitura, sem aviso; `remoto` até 500, senão `null` |
 | `publicadoEm` | a última batida que chegou ao remoto | retrato igual só volta ao remoto de hora em hora |
 
 **Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
@@ -70,7 +70,7 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 - O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, a forma usual das forjas.
 - O escritor confere o retrato com as mesmas regras do leitor antes do push: o que ele publica, toda máquina lê.
 - O leitor recusa (`retrato.invalido`) o retrato com caractere de controle ou invisível (ESC, BEL, bidi, largura zero, preenchimento Hangul) em qualquer texto, ou com valor de cara de segredo num campo do núcleo. Projeto com cara de segredo sai sozinho da leitura, e a lacuna diz quantos. O `remoto` de outra máquina é remontado, e o que não sai igual vira `null`. O `REDE.md` só leva o que o leitor aceitou, com o Markdown escapado, inclusive o `.` e o `:` (sem autolink no GFM, nem `http://x` sem ponto no domínio).
-- Caractere invisível, aqui, pelas classes do Unicode: controle (`Cc`), formato (`Cf`: bidi, largura zero, tags), separador de linha e todo `Default_Ignorable_Code_Point` (preenchimentos Hangul, seletores de variação), mais o braile vazio. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam.
+- Caractere invisível, aqui, pelas classes do Unicode: controle (`Cc`), formato (`Cf`: bidi, largura zero, tags), separador de linha e todo `Default_Ignorable_Code_Point` (preenchimentos Hangul, seletores de variação), mais o braile vazio. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam. Marcas visíveis da categoria `Cf` (sinais numéricos árabes, U+070F) também contam como invisíveis: o projeto com elas sai com aviso (limitação aceita, Y4 do CHECK 7).
 - O id derivado vale por máquina: numa pasta dividida por hosts ou contêineres sem hard link, o último a gravar vence, e o boot (`boot_id`, `machine-id`) só entra no Linux (limitação aceita, X6 do CHECK 6).
 - Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
 
@@ -115,7 +115,7 @@ Lacuna é o que faltou ler. Ela nunca vira lista vazia.
 | `rede.repositorio-publico` | a casa existe e não é privada: nada é publicado |
 | `rede.sem-leitura` | a casa não pôde ser lida agora, ou a forja devolveu a URL dela sem https; o status usa a última cópia, quando há |
 | `retrato.invalido` | `maquinas/<x>.json` ilegível, de outro contrato, com o nome de outra máquina, com caractere invisível, ou com cara de segredo num campo do núcleo; ou com projeto fora da leitura (a máquina continua) |
-| `maquina.sem-batida` | a última batida de uma máquina passou de 3 h |
+| `maquina.sem-batida` | a última batida de uma máquina passou de 3 h, ou é ilegível (no JSON, o `idadeMs` dela vem `null`) |
 | `maquina.nome-em-uso` | o retrato com o nome desta máquina é de outra instalação (outro `id`): esta não publica até trocar de nome ou retomá-lo com `ork network entrar --forcar` |
 | `fabrica.sem-leitura` | a branch `ork/fabrica-estado` de um projeto não pôde ser lida agora |
 | `projeto.sem-clone` | projeto conhecido cujo caminho não existe mais nesta máquina |

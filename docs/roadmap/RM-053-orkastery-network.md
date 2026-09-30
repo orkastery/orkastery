@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-031]
 owner: Julio
-atualizado_em: 2026-09-30T01:59:12-03:00
+atualizado_em: 2026-09-30T02:30:27-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -89,7 +89,8 @@ sdlc:
   - check da rede no `ork doctor`: adesão, casa, última batida e última falha do `rede.log`;
   - retrato parado há muitos dias sai do índice `REDE.md` (hoje só vira a lacuna `maquina.sem-batida`);
   - remoção de trava órfã serializada (W9 do CHECK 5, limitação aceita): com três processos e uma órfã, a trava viva devolvida pode encalhar em `publicar.lock.orfa-*`, e o `liberar()` do dono dá erro depois de um push que já deu certo;
-  - id derivado numa pasta dividida (X6 do CHECK 6, limitação aceita): sem hard link, entre hosts ou contêineres, o último a gravar vence; o boot só entra no Linux.
+  - id derivado numa pasta dividida (X6 do CHECK 6, limitação aceita): sem hard link, entre hosts ou contêineres, o último a gravar vence; o boot só entra no Linux;
+  - marcas visíveis da categoria `Cf` (Y4 do CHECK 7, limitação aceita): sinais numéricos árabes e U+070F contam como invisíveis, e o projeto com eles sai do retrato com aviso.
 - **Achado extra, fora do escopo:** despacho que falha por impedimento que só o dono resolve (por exemplo, "Workspace not trusted" do Claude Code) hoje vira só `phase_dispatch_failed`, sem HITL e sem "espera você" no board e na fábrica. Evidência: o `phase_dispatch_failed` de 29/09 16:32 UTC no ledger desta thread. Proposta: classificar o motivo e abrir pedido tipado ao dono; candidato a item próprio.
 - **Outro achado, fora do escopo:** o `ork fabrica` (RM-047) imprime o `por` e o `projeto` da fábrica legada crus; lá, a quebra de linha e o controle de terminal que a rede passou a limpar ainda chegam à tela. Candidato: um saneador de saída comum ao núcleo.
 
@@ -126,8 +127,10 @@ sdlc:
 - CHECK 5 (30/09): suíte e verify verdes; a quinta revisão achou uma regressão do GO-FIX 4 (a regra de nome aceitava o que o leitor recusava, e a publicação inteira caía), padrões de segredo casando com nomes comuns, a quebra de linha de um valor abrindo linha no texto do status, e o `id` de outra versão deixando de prender o nome; todos reproduzidos.
 - GO-FIX 5 (30/09): o escritor filtra projetos com o mesmo predicado do leitor; padrões com limite e a cauda de um token de verdade; o `id` com cabeçalho do contrato prende o nome; projeto suspeito sai sozinho da leitura; cada valor do texto numa linha; `REDE.md` sem autolink de `www.`; id sem hard link e link pendurado sem arquivo vazio.
 - CHECK 6 (30/09): suíte e verify verdes; a sexta revisão achou um link de terceiro voltando ao `REDE.md` (o GitHub liga `http://x` sem ponto no domínio), uma corrida no `readlink` do id, nomes invisíveis passando, tokens colados que os limites novos perdiam e a batida ilegível aparecendo como fresca; todos reproduzidos.
-- GO-FIX 6 (30/09): o `:` escapado no `REDE.md` e nome sem `://`; o `readlink` tolera a troca no meio; invisível pelas classes do Unicode e nome com algo visível; padrões sem limite à esquerda, com a cauda de um token de verdade; o texto do status preserva números, e a batida ilegível vira lacuna; 69 testes verdes em `core/test/rede.test.ts` contra forja simulada.
-- Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, o helper só para https, o filtro de caminho do escritor, o id sem hard link, o boot no id derivado, o `~` da célula, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. A guarda "conteúdo já válido" do id derivado só aparece em estresse de milhares de processos e não tem teste na suíte. O SSH em lote (M5) é provado só pelo formato do ambiente.
+- GO-FIX 6 (30/09): o `:` escapado no `REDE.md` e nome sem `://`; o `readlink` tolera a troca no meio; invisível pelas classes do Unicode e nome com algo visível; padrões sem limite à esquerda, com a cauda de um token de verdade; o texto do status preserva números, e a batida ilegível vira lacuna.
+- CHECK 7 (30/09): suíte e verify verdes; a sétima revisão liberou o PR em rascunho, sem achado alto ou médio, com cinco baixos.
+- GO-FIX 7 (30/09): a batida legível de outra fábrica vence a ilegível; o AWS com borda dos dois lados e a OpenAI com 60 na cauda, sem os falsos positivos novos; testes dos lookaheads de caixa e do `boot_id` sozinho; 70 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, o helper só para https, o filtro de caminho do escritor, o id sem hard link, o `boot_id` no id derivado, os lookaheads de caixa dos padrões, o `~` da célula, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. A guarda "conteúdo já válido" do id derivado só aparece em estresse de milhares de processos e não tem teste na suíte. O SSH em lote (M5) é provado só pelo formato do ambiente.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -163,3 +166,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | CHECK 4 reprovado (quarta revisão) e GO-FIX 4: SSH sem `?` nem `#`, regra única de nome, texto sem invisíveis, casa só por HTTPS | parecer do CHECK 4 e commit `fix(ork-rm053network): GO-FIX 4` | agente |
 | 2026-09-30 | CHECK 5 reprovado (quinta revisão) e GO-FIX 5: predicado de projeto único, padrões sem falso positivo, `id` com cabeçalho, texto em uma linha por valor; W9 aceita e registrada | parecer do CHECK 5 e commit `fix(ork-rm053network): GO-FIX 5` | agente |
 | 2026-09-30 | CHECK 6 reprovado (sexta revisão) e GO-FIX 6: `:` escapado, `readlink` tolerante, invisível pelo Unicode, padrões sem limite à esquerda, batida ilegível como lacuna; X6 aceita e registrada | parecer do CHECK 6 e commit `fix(ork-rm053network): GO-FIX 6` | agente |
+| 2026-09-30 | CHECK 7 liberou o PR em rascunho; GO-FIX 7 fecha as cinco baixas (Y4 aceita e registrada) | parecer do CHECK 7 e commit `fix(ork-rm053network): GO-FIX 7` | agente |

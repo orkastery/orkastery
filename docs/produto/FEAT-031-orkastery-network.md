@@ -7,8 +7,8 @@ pai: MOD-01
 roadmap: [RM-053]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-30T02:05:51-03:00
-versao: ork/ork-rm053network-full@18f91d8
+verificado_em: 2026-09-30T02:31:23-03:00
+versao: ork/ork-rm053network-full@2fbf982
 fontes:
   codigo:
     - core/src/rede.ts
@@ -50,7 +50,7 @@ fontes:
 
 > **Em uma frase:** cada máquina publica um retrato sem segredo num repositório privado da pessoa na forja, e `ork network status` mostra todas, de qualquer diretório, com a fonte e as lacunas.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@18f91d8`
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@2fbf982`
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-053](../roadmap/RM-053-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -78,7 +78,7 @@ fontes:
 - **Regras de negócio:**
   - BR-031-01: a adesão é da máquina, explícita em `rede.json` ou herdada de `ork fabrica entrar`; `ork network sair` vence a herança; o manifesto do projeto não inscreve ninguém.
   - BR-031-02: publicar exige a casa privada (visibilidade `private`), conferida na forja antes de cada publicação; publicação em segundo plano nunca cria repositório.
-  - BR-031-03: o retrato é uma lista de permissão. Campo que o núcleo monta com cara de segredo recusa a publicação inteira; projeto (que vem do registro, do cwd ou do último retrato) com cara de segredo, ou com texto que o leitor recusa (caractere invisível, nome acima de 80), fica fora sozinho, com aviso: o escritor usa o mesmo predicado de projeto do leitor. O remoto de projeto é montado de partes validadas, nunca copiado. O erro e o aviso dizem o padrão e o campo, nunca o valor.
+  - BR-031-03: o retrato é uma lista de permissão. Campo que o núcleo monta com cara de segredo recusa a publicação inteira; projeto (que vem do registro, do cwd ou do último retrato) com cara de segredo, ou com texto que o leitor recusa (caractere invisível, nome acima de 80), fica fora sozinho (com aviso quando vem do diretório atual; o registro e o último retrato o descartam na leitura): o escritor usa o mesmo predicado de projeto do leitor. O remoto de projeto é montado de partes validadas, nunca copiado. O erro e o aviso dizem o padrão e o campo, nunca o valor.
   - BR-031-04: cada máquina só escreve o próprio retrato, identificado pelo nome saneado e pelo `id` aleatório da instalação (`~/.orkastery/maquina-id`); retrato com o nome de outra máquina, malformado ou com nome de arquivo fora do padrão é ignorado na leitura e vira lacuna; o nome tomado por outra instalação vira a lacuna `maquina.nome-em-uso`, e o retrato de outra instalação que esta versão não lê continua prendendo o nome quando tem o cabeçalho do contrato.
   - BR-031-05: lacuna nunca vira lista vazia; a leitura declara a fonte, o horário e o que não consultou (roadmap, reservas, threads); máquina vista só na fábrica não é dada como membro.
   - BR-031-06: todo git da rede roda isolado do ambiente de quem chamou: sem as variáveis que redirecionam o repositório, sem prompt, em inglês e com autor e committer fixos na máquina.
@@ -116,3 +116,4 @@ fontes:
 | 2026-09-30 | revista com o GO-FIX 4: SSH sem `?` nem `#`, regra única de nome, texto sem invisíveis, casa só por HTTPS (BR-031-08) | Claude (agente) / Julio, revisão pendente | parecer do CHECK 4 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 5: o escritor usa o predicado de projeto do leitor, o `id` com cabeçalho prende o nome, cada valor do texto numa linha | Claude (agente) / Julio, revisão pendente | parecer do CHECK 5 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 6: invisível pelas classes do Unicode, nome sem `://`, o id derivado descrito | Claude (agente) / Julio, revisão pendente | parecer do CHECK 6 da thread `ork-rm053network` |
+| 2026-09-30 | revista com o GO-FIX 7: o aviso só do diretório atual, a batida ilegível | Claude (agente) / Julio, revisão pendente | parecer do CHECK 7 da thread `ork-rm053network` |
