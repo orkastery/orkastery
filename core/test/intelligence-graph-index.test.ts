@@ -203,6 +203,27 @@ test('KG3 parsers: com o ork instalado dentro de um projeto, o typescript do pro
   }
 });
 
+test('KG3 parsers: instalacao com o node_modules ligado por link simbolico vale inteira, com o mesmo fecho', () => {
+  const dir = dirTemporario('kg3-node-modules-link');
+  try {
+    // O layout do clone descartavel: o pacote copiado e o node_modules real da instalacao por link.
+    const copia = instalarCopia(path.join(dir, 'clone'));
+    fs.symlinkSync(path.resolve(__dirname, '../../node_modules'), path.join(dir, 'clone', 'node_modules'));
+    const r = noFilho(dir, `
+      const m = require(${JSON.stringify(copia)});
+      process.stdout.write(JSON.stringify({ versoes: m.versoesDosAnalisadores(), pacotes: m.pacotesDosAnalisadores(), ts: m.carregarAnalisadores().ts.version }));
+    `);
+    assert.equal(r.status, 0, r.erro);
+    const saida = r.saida as { versoes: object; pacotes: string[]; ts: string };
+    assert.deepEqual(saida.versoes, versoesDosAnalisadores());
+    assert.deepEqual(saida.pacotes, pacotesDosAnalisadores());
+    assert.ok(!saida.pacotes.some((x) => x.endsWith('@ausente')), saida.pacotes.join(' '));
+    assert.equal(saida.ts, ts.version);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('KG3 parsers: o fecho de pacotes dos analisadores lista cada dependencia instalada com a versao', () => {
   const pacotes = pacotesDosAnalisadores();
   assert.ok(pacotes.includes(`typescript@${ts.version}`), pacotes.join(' '));
@@ -376,8 +397,11 @@ test('KG3 index: outra revisao, ACL, tenant, repositorio, analisador ou codigo d
     ];
     assert.equal(new Set([base, ...variantes]).size, variantes.length + 1);
     assert.deepEqual(perfilDoIndice(dir, undefined, { acl_refs: ['b:x', 'a:y', 'b:x'] }).acl_refs, ['a:y', 'b:x']);
-    // A impressao e a dos modulos compilados da extracao: um byte a mais em um deles muda a chave.
+    // A impressao e a dos modulos compilados da extracao e do indice: um byte a mais em um deles muda a chave.
     assert.equal(perfil.codigo, impressaoDoExtrator());
+    for (const m of ['intelligence-graph-extract', 'intelligence-graph-extract-ts', 'intelligence-graph-extract-md', 'intelligence-graph-parsers', 'intelligence-graph-index']) {
+      assert.ok((MODULOS_DO_EXTRATOR as readonly string[]).includes(m), m);
+    }
     const compilado = path.dirname(require.resolve('../src/intelligence-graph-index'));
     const copia = dirTemporario('kg3-impressao');
     try {
@@ -526,6 +550,19 @@ test('KG3 index: rastreado fora da leitura (skip-worktree, sparse checkout) recu
     assert.deepEqual(revisaoDaArvore(dir).motivo, null, 'o status fica limpo');
     assert.throws(() => construirIndice(ctx, { parser }), /^Error: grafo\.indice\.arvore-nao-limpa: rastreado fora da leitura \(ausente-na-arvore: lib\/b\.ts\)$/);
     assert.deepEqual(estadoDosIndices(ctx).indices, [], 'nada foi publicado');
+    // Arquivo trocado por pasta e pasta-mae trocada por link para fora: os outros dois motivos da arvore.
+    fs.mkdirSync(path.join(dir, 'lib', 'b.ts'), { recursive: true });
+    assert.throws(() => construirIndice(ctx, { parser }), /rastreado fora da leitura \(nao-e-arquivo: lib\/b\.ts\)/);
+    fs.rmSync(path.join(dir, 'lib'), { recursive: true });
+    const fora = dirTemporario('kg3-fora-da-arvore');
+    try {
+      fs.writeFileSync(path.join(fora, 'b.ts'), 'export function b() { return 2; }\n');
+      fs.symlinkSync(fora, path.join(dir, 'lib'));
+      assert.throws(() => construirIndice(ctx, { parser }), /rastreado fora da leitura \(fora-do-repositorio: lib\/b\.ts\)/);
+      fs.rmSync(path.join(dir, 'lib'));
+    } finally {
+      fs.rmSync(fora, { recursive: true, force: true });
+    }
     // Com o arquivo de volta, a mesma revisao indexa com todas as fontes.
     git('update-index', '--no-skip-worktree', '--', 'lib/b.ts');
     git('checkout', '--', 'lib/b.ts');

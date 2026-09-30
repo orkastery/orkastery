@@ -56,9 +56,11 @@ fato nem concede acesso.
 O compilador TypeScript, o micromark com a tabela GFM e o juiz de sintaxe do V8, que o KG2
 recebia de adaptadores em `core/scripts/`, moram em `core/src/intelligence-graph-parsers.ts`.
 `typescript` e os pacotes do micromark só valem dentro do `node_modules` do pacote `@orkastery/cli`
-que contém esse módulo, isto é, da instalação do `ork` que roda. Pacote achado fora dela (no
-diretório atual, no `NODE_PATH`, numa pasta global ou no `node_modules` do projeto que instalou o
-`ork` como dependência) é recusado antes de ser lido ou carregado. O juiz roda o ESM num processo
+que contém esse módulo, isto é, da instalação do `ork` que roda, comparado pelo caminho real (o
+`node_modules` pode ser link simbólico). Pacote achado fora dela (no diretório atual, no
+`NODE_PATH`, numa pasta global ou no `node_modules` do projeto que instalou o `ork` como
+dependência) é recusado antes de carregar: a resolução do Node só lê o `package.json` dele, e o
+código dele não roda. O juiz roda o ESM num processo
 filho sem ambiente, então um `NODE_OPTIONS` de quem chama não carrega código nele.
 
 Eles não são dependências de runtime do pacote publicado: dependência nova é decisão de produto.

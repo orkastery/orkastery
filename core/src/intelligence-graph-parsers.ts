@@ -61,7 +61,21 @@ function raizDaInstalacao(): string {
   }
 }
 
-const dentro = (raiz: string, alvo: string): boolean => alvo.startsWith(path.join(raiz, 'node_modules') + path.sep);
+/**
+ * O `node_modules` da instalacao pelo caminho real: o `require.resolve` devolve o caminho real do
+ * pacote, e o `node_modules` pode ser link simbolico (clone com as dependencias ligadas, pnpm).
+ * CHECK rodada 2 (R2-B1): comparar o caminho sem resolver recusava a instalacao inteira.
+ */
+function modulosDaInstalacao(raiz: string): string | null {
+  try {
+    return fs.realpathSync(path.join(raiz, 'node_modules'));
+  } catch {
+    return null;
+  }
+}
+
+/** Sem `node_modules` na instalacao, nada esta dentro dela. */
+const dentro = (modulos: string | null, alvo: string): boolean => modulos !== null && alvo.startsWith(modulos + path.sep);
 
 /**
  * Resolve a entrada do pacote a partir da instalacao e sobe ate o `package.json` com o nome dele,
@@ -77,7 +91,7 @@ function pacoteDe(nome: Pacote): { entrada: string; dir: string; versao: string 
   } catch {
     throw new Error(`grafo.parser.indisponivel: ${nome}`);
   }
-  if (!dentro(raiz, entrada)) throw new Error(`grafo.parser.indisponivel: ${nome} fora da instalacao do ork`);
+  if (!dentro(modulosDaInstalacao(raiz), entrada)) throw new Error(`grafo.parser.indisponivel: ${nome} fora da instalacao do ork`);
   for (let dir = path.dirname(entrada); path.basename(dir) !== 'node_modules' && path.dirname(dir) !== dir; dir = path.dirname(dir)) {
     const dados = lerJson(path.join(dir, 'package.json'));
     if (dados && dados.name === nome && typeof dados.version === 'string') return { entrada, dir, versao: dados.version };
@@ -85,15 +99,25 @@ function pacoteDe(nome: Pacote): { entrada: string; dir: string; versao: string 
   throw new Error(`grafo.parser.indisponivel: ${nome} sem package.json`);
 }
 
-/** O `package.json` da dependencia `dep` vista de `de`, pela busca do Node, sem sair da instalacao. */
-function pacoteInstalado(raiz: string, dep: string, de: string): string | null {
-  for (let dir = de; ; dir = path.dirname(dir)) {
+/**
+ * O `package.json` da dependencia `dep` vista de `de`, pela busca do Node, sem sair da instalacao.
+ * Tudo em caminho real: `de` vem do `require.resolve`, e o topo e a pasta real que contem o
+ * `node_modules` da instalacao.
+ */
+function pacoteInstalado(modulos: string | null, dep: string, de: string): string | null {
+  if (modulos === null) return null;
+  const topo = path.dirname(modulos);
+  for (let dir = de; dir === topo || dir.startsWith(topo + path.sep); dir = path.dirname(dir)) {
     if (path.basename(dir) !== 'node_modules') {
       const arquivo = path.join(dir, 'node_modules', dep, 'package.json');
-      if (fs.existsSync(arquivo)) return arquivo;
+      if (fs.existsSync(arquivo)) {
+        const real = fs.realpathSync(arquivo);
+        return dentro(modulos, real) ? real : null;
+      }
     }
-    if (dir === raiz || path.dirname(dir) === dir || !dir.startsWith(raiz)) return null;
+    if (dir === topo) break;
   }
+  return null;
 }
 
 /**
@@ -102,7 +126,7 @@ function pacoteInstalado(raiz: string, dep: string, de: string): string | null {
  * micromark: a chave do indice precisa deles.
  */
 export function pacotesDosAnalisadores(): string[] {
-  const raiz = raizDaInstalacao(), vistos = new Map<string, string>();
+  const modulos = modulosDaInstalacao(raizDaInstalacao()), vistos = new Map<string, string>();
   const fila = PACOTES_DOS_ANALISADORES.map((p) => path.join(pacoteDe(p).dir, 'package.json'));
   while (fila.length) {
     const arquivo = fila.shift() as string;
@@ -113,7 +137,7 @@ export function pacotesDosAnalisadores(): string[] {
     vistos.set(arquivo, chave);
     const deps = { ...(dados.optionalDependencies as object ?? {}), ...(dados.dependencies as object ?? {}) };
     for (const dep of Object.keys(deps).sort()) {
-      const achado = pacoteInstalado(raiz, dep, path.dirname(arquivo));
+      const achado = pacoteInstalado(modulos, dep, path.dirname(arquivo));
       if (achado && !vistos.has(achado)) fila.push(achado);
       else if (!achado) vistos.set(`${arquivo}\u0000${dep}`, `${dep}@ausente`);
     }
