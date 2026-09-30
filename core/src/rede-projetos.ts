@@ -23,13 +23,13 @@ import { comGitIsolado } from './rede-forja';
 export const CONTRATO_DO_REGISTRO = 'ork.projetos/v1';
 
 /**
- * V2 da revisao 4 e W11 da revisao 5: caractere que o terminal executa ou que ninguem ve. Controles
- * C0 e C1 (ESC, BEL, CSI, quebra de linha), os de direcao do texto (bidi), os de largura zero, os
- * separadores de linha Unicode, os preenchimentos que desenham em branco (Hangul, braile vazio) e as
- * tags e seletores de variacao, que escondem texto de quem le (humano ou agente). Ficam de fora o
- * ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns, como os de nome de pasta.
+ * V2 da revisao 4, W11 da revisao 5 e X3 da revisao 6: caractere que o terminal executa ou que
+ * ninguem ve, pelas classes do Unicode: controles (`Cc`: ESC, BEL, CSI, quebra de linha), formato
+ * (`Cf`: bidi, largura zero, tags), separadores de linha e todo `Default_Ignorable_Code_Point`
+ * (preenchimentos Hangul, seletores de variacao, os de musica e de estenografia), mais o braile
+ * vazio. Ficam de fora o ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns.
  */
-export const INVISIVEL = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f-\u1160\u17b4-\u17b5\u180b-\u180f\u200b-\u200c\u200e-\u200f\u2028-\u202e\u2060-\u206f\u2800\u3164\ufe00-\ufe0d\ufeff\uffa0\ufff9-\ufffb\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/u;
+export const INVISIVEL = /(?![\u200d\ufe0e\ufe0f])[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}\u2800]/u;
 const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
 
 /**
@@ -40,14 +40,18 @@ export const emUmaLinha = (texto: string): string =>
   texto.replace(INVISIVEIS, (c) => (/[\t\n\v\f\r\u0085\u2028\u2029]/.test(c) ? ' ' : ''));
 
 /**
- * V3 da revisao 4 e W1 da revisao 5: a regra UNICA de nome de projeto, a mesma do leitor
- * (`normalizarRetrato`): texto visivel, sem espaco nas pontas, ate 80 (contados como o leitor conta,
- * em unidades UTF-16). O registro e o ultimo retrato a aplicam na leitura; o escritor tira do
- * retrato, com aviso, o projeto do diretorio atual que a descumpre. Nome de pasta comum (`c++-tools`,
- * `app (1)`, `r&d`, `Orçamento`) passa: o que o Markdown executaria, a celula do `REDE.md` escapa.
+ * V3 da revisao 4 e W1 da revisao 5: a regra UNICA de nome de projeto. Cabe no leitor
+ * (`normalizarRetrato`: sem caractere invisivel, ate 80 unidades UTF-16) e pede mais: sem espaco
+ * nas pontas, com algo visivel e sem `://`. O registro e o ultimo retrato a aplicam na leitura; o
+ * escritor tira do retrato, com aviso, o projeto do diretorio atual que a descumpre. Nome de pasta
+ * comum (`c++-tools`, `app (1)`, `r&d`, `Orçamento`) passa: o que o Markdown executaria, a celula
+ * do `REDE.md` escapa.
  */
 export const ehNomeDeProjeto = (nome: unknown): nome is string =>
-  typeof nome === 'string' && nome.length > 0 && nome.length <= 80 && nome === nome.trim() && !INVISIVEL.test(nome);
+  typeof nome === 'string' && nome.length > 0 && nome.length <= 80 && nome === nome.trim() && !INVISIVEL.test(nome)
+  // X3 da revisao 6: ao menos uma letra, digito, pontuacao ou simbolo (um nome so de ZWJ nao se ve).
+  // X1: nada de `://`, que o GitHub e o GitLab transformam em link no `REDE.md`.
+  && /[\p{L}\p{N}\p{P}\p{S}]/u.test(nome) && !nome.includes('://');
 
 export type FonteDoProjeto = 'registro' | 'cwd' | 'retrato';
 

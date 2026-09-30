@@ -1512,7 +1512,7 @@ test('RM-053 segredo: ESC, BEL, bidi e link de terceiro nao chegam a casa, ao RE
   const f = forjaFalsa('segredo-controle');
   const [ua, ub] = [dirTemporario('rede-controle-a'), dirTemporario('rede-controle-b')];
   const p = projetoTemporario('rede-controle', true);
-  const ESC = '\u001b', BEL = '\u0007', RLO = '‮', CSI = '\u009b';
+  const ESC = '\u001b', BEL = '\u0007', RLO = '\u202e', CSI = '\u009b';
   const sujo = (t: string) => [ESC, BEL, RLO, CSI].some((c) => t.includes(c));
   try {
     const amb = ligado(f);
@@ -1703,7 +1703,7 @@ test('RM-053 segredo: token colado a letra ou _, hf_, npm_, AIza e sk-proj- no r
   const tokens: Array<[string, string]> = [
     [`xghp_${'G'.repeat(36)}`, 'token do GitHub'], [`r_ghp_${'H'.repeat(36)}`, 'token do GitHub'], [`xglpat-${'J'.repeat(20)}`, 'token do GitLab'],
     [`hf_${'Fq'.repeat(17)}`, 'token do Hugging Face'], [`npm_${'N'.repeat(36)}`, 'token do npm'], [`AIza${'K'.repeat(35)}`, 'chave de API do Google'],
-    [`sk-proj-${'P9'.repeat(24)}`, 'chave da OpenAI'], [`x_AKIA${'E'.repeat(16)}`, 'chave de acesso AWS'],
+    [`sk-proj-${'P9'.repeat(24)}`, 'chave da OpenAI'], [`zAKIA${'E'.repeat(16)}`, 'chave de acesso AWS'],
   ];
   for (const [t, padrao] of tokens) assert.equal(achadoDeSegredo(`https://github.com/${t}/r.git`), padrao, t);
   const f = forjaFalsa('segredo-colados');
@@ -1787,7 +1787,7 @@ test('RM-053 autoria: nome de projeto que o leitor aceita publica; o que ele rec
       entrarNaRede({ amb, maquina: 'pc-a' });
       // Do cwd: o que o leitor aceita vai; o que ele recusa sai com aviso, e a publicacao segue.
       const casos: Array<[string, boolean]> = [
-        ['Sprint 1️⃣', true], ['葛\u{e0100}飾', false], ['\u{1d400}'.repeat(41), false], ['ㅤ', false], ['a​b', false],
+        ['Sprint 1\ufe0f\u20e3', true], ['葛\u{e0100}飾', false], ['\u{1d400}'.repeat(41), false], ['\u3164', false], ['a\u200bb', false],
       ];
       for (const [i, [nome, vai]] of casos.entries()) {
         const r = publicarRede({ amb, maquina: 'pc-a', diretorio: projetoNoCwd(path.join(u, 'cwd', String(i)), nome), forcar: true });
@@ -1795,7 +1795,7 @@ test('RM-053 autoria: nome de projeto que o leitor aceita publica; o que ele rec
         assert.deepEqual(r.descartados.length, vai ? 0 : 1, JSON.stringify(nome));
       }
       // Do registro: nomes de pasta comuns passam; o de link vira texto escapado no REDE.md.
-      const nomes = ['c++-tools', 'app (1)', 'r&d', '@acme/app', '❤️ projeto', 'www.evil-phish.example'];
+      const nomes = ['c++-tools', 'app (1)', 'r&d', '@acme/app', '❤\ufe0f projeto', 'www.evil-phish.example', 'a~~b~~c'];
       const registro = path.join(u, 'projetos.json');
       fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1',
         projetos: nomes.map((nome, i) => ({ nome, raiz: comManifesto(path.join(u, 'reg', String(i))) })) }));
@@ -1804,12 +1804,12 @@ test('RM-053 autoria: nome de projeto que o leitor aceita publica; o que ele rec
     });
     const publicado = JSON.parse(exec('git', ['show', 'main:maquinas/pc-a.json'], casaFalsa(f)).stdout);
     assert.ok(normalizarRetrato(publicado));
-    for (const nome of ['c++-tools', 'app (1)', 'r&d', '@acme/app', '❤️ projeto', 'www.evil-phish.example']) {
+    for (const nome of ['c++-tools', 'app (1)', 'r&d', '@acme/app', '❤\ufe0f projeto', 'www.evil-phish.example']) {
       assert.ok(publicado.projetos.some((x: { nome: string }) => x.nome === nome), nome);
     }
     const painel = exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout;
     assert.ok(painel.includes('www\\.evil-phish\\.example') && !painel.includes('www.evil-phish.example'), 'sem autolink no GFM');
-    assert.ok(painel.includes('r\\&d') && painel.includes('app (1)'));
+    assert.ok(painel.includes('r\\&d') && painel.includes('app (1)') && painel.includes('a\\~\\~b\\~\\~c'));
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
 
@@ -1857,7 +1857,7 @@ test('RM-053 autoria: o retrato de outra instalacao que esta versao nao le conti
     const deC = JSON.parse(exec('git', ['show', 'main:maquinas/pc-c.json'], casaFalsa(f)).stdout);
     // B, numa versao cujo retrato esta recusa (campo do nucleo), com o proprio id; C com um projeto suspeito.
     gravar(ub, [
-      { caminho: 'maquinas/ubuntu.json', conteudo: JSON.stringify({ ...deB, hostname: 'ubuntu​' }) },
+      { caminho: 'maquinas/ubuntu.json', conteudo: JSON.stringify({ ...deB, hostname: 'ubuntu\u200b' }) },
       { caminho: 'maquinas/pc-c.json', conteudo: JSON.stringify({ ...deC, projetos: [
         { nome: 'bom', remoto: null, caminho: '/srv/bom' }, { nome: 'suspeito', remoto: null, caminho: `/srv/${TOKEN_GH}` }] }) },
     ]);
@@ -1921,6 +1921,8 @@ test('RM-053 autoria: o id da instalacao sem hard link nunca passa por arquivo v
     assert.match(a, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.notEqual(a, b);
     assert.equal(idDerivado(['x', 1n], ['h', 'boot-a', 'm']), a);
+    // X7 da revisao 6: pelo caminho real, o boot entra (no Linux) e muda o id.
+    if (fs.existsSync('/proc/sys/kernel/random/boot_id')) assert.notEqual(idDerivado(['x']), idDerivado(['x'], [require('node:os').hostname(), '', '']));
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });
 
@@ -1957,8 +1959,102 @@ test('RM-053 autoria: projeto do cwd com caminho invisivel sai sozinho, com avis
     naMaquina(u, () => {
       const amb = ligado(f);
       entrarNaRede({ amb, maquina: 'pc-a' });
-      const r = publicarRede({ amb, maquina: 'pc-a', diretorio: projetoNoCwd(path.join(u, 'proj​escondido'), 'visivel'), forcar: true });
+      const r = publicarRede({ amb, maquina: 'pc-a', diretorio: projetoNoCwd(path.join(u, 'proj\u200bescondido'), 'visivel'), forcar: true });
       assert.deepEqual([r.acao, r.descartados], ['publicou', [{ campo: 'projetos[0]', padrao: 'fora do contrato ork.rede-maquina/v1' }]]);
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 segredo: nome com :// nao vai ao retrato, e o REDE.md nao gera link com : de outra maquina (X1)', () => {
+  const f = forjaFalsa('segredo-link');
+  const [ua, ub] = [dirTemporario('rede-link-a'), dirTemporario('rede-link-b')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b' }));
+    naMaquina(ua, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const r = publicarRede({ amb, maquina: 'pc-a', diretorio: projetoNoCwd(path.join(ua, 'cwd'), 'http://2130706433/login'), forcar: true });
+      assert.deepEqual([r.acao, r.descartados], ['publicou', [{ campo: 'projetos[0]', padrao: 'fora do contrato ork.rede-maquina/v1' }]]);
+    });
+    // Outra maquina (um ork antigo) publica um nome com `:`; o REDE.md regenerado por pc-a nao o liga.
+    naMaquina(ub, () => {
+      const cache = dirDoCache({ forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network' });
+      const { ponta } = buscarBranch(cache, 'origin', 'main', 'teste');
+      const deB = JSON.parse(exec('git', ['show', `${ponta}:maquinas/pc-b.json`], cache).stdout);
+      assert.ok(gravarNaBranch(cache, 'origin', 'main', ponta, [{ caminho: 'maquinas/pc-b.json', conteudo: JSON.stringify({ ...deB,
+        projetos: [{ nome: 'http://localhost:8080/admin', remoto: null, caminho: '/srv/x' }] }) }], 'teste: nome com link', 'teste'));
+    });
+    naMaquina(ua, () => publicarRede({ amb, maquina: 'pc-a', forcar: true }));
+    const painel = exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout;
+    assert.ok(painel.includes('http\\://localhost\\:8080/admin') && !painel.includes('http://localhost'), painel);
+    assert.ok(!ehNomeDeProjeto('http://2130706433/x') && ehNomeDeProjeto('@acme/app'));
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: link pendurado trocado ou tirado por outro processo no meio nao derruba o id da instalacao (X2)', () => {
+  const realFs = require('node:fs') as { lstatSync: typeof fs.lstatSync } & typeof fs;
+  const d = dirTemporario('rede-link-corrida');
+  const lstatReal = realFs.lstatSync;
+  try {
+    for (const modo of ['trocado-por-arquivo', 'tirado']) {
+      const u = realFs.mkdtempSync(path.join(d, `${modo}-`));
+      const alvo = path.join(u, 'maquina-id');
+      realFs.symlinkSync(path.join(d, 'nao-existe'), alvo);
+      let feito = false;
+      // O outro processo termina a troca dele logo depois do nosso `lstat`.
+      realFs.lstatSync = ((p: fs.PathLike, o?: fs.StatSyncOptions) => {
+        const st = lstatReal.call(realFs, p, o as fs.StatSyncOptions);
+        if (!feito && String(p) === alvo && st && (st as fs.Stats).isSymbolicLink()) {
+          feito = true;
+          if (modo === 'tirado') realFs.rmSync(alvo);
+          else { const tmp = path.join(u, '.outro.tmp'); realFs.writeFileSync(tmp, '0f0f0f0f-0000-4000-8000-000000000000'); realFs.renameSync(tmp, alvo); }
+        }
+        return st;
+      }) as typeof fs.lstatSync;
+      try {
+        const id = naMaquina(u, () => idDaMaquina());
+        assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/, modo);
+        if (modo === 'trocado-por-arquivo') assert.equal(id, '0f0f0f0f-0000-4000-8000-000000000000', 'fica o id que o outro gravou');
+      } finally { realFs.lstatSync = lstatReal; }
+    }
+  } finally { realFs.lstatSync = lstatReal; fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 honestidade: batida ilegivel da fabrica legada vira lacuna, nunca "ha menos de 1 min" (X5)', () => {
+  const f = forjaFalsa('honestidade-batida');
+  const u = dirTemporario('rede-batida');
+  const p = projetoTemporario('rede-batida', true);
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'vps', por: 'Julio' }).acao, 'publicou');
+    const { ponta } = buscarBranch(p.dir, 'origin', 'ork/fabrica-estado', 'teste');
+    const atual = JSON.parse(exec('git', ['show', `${ponta}:maquinas/vps.json`], p.dir).stdout);
+    assert.ok(gravarNaBranch(p.dir, 'origin', 'ork/fabrica-estado', ponta,
+      [{ caminho: 'maquinas/vps.json', conteudo: JSON.stringify({ ...atual, publicadoEm: 'nunca' }) }], 'teste: batida ilegivel', 'teste'));
+    const status = naMaquina(u, () => lerRede({ amb, maquina: 'pc-a', diretorio: p.dir }));
+    assert.ok(status.lacunas.some((l) => l.tipo === 'maquina.sem-batida' && l.detalhe === 'vps: batida ilegivel'), JSON.stringify(status.lacunas));
+    const linha = textoDaRede(status).split('\n').find((l) => l.startsWith('vps'));
+    assert.match(String(linha), /\(há tempo desconhecido\)/);
+  } finally { f.limpar(); p.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 segredo: cada restricao dos padroes e da regra de nome tem prova (X3, X4, X7)', () => {
+  // X4: colado a letra, `_` ou `-` continua pego; `sk-None-` tambem.
+  for (const [t, padrao] of [[`xhf_${'aB'.repeat(17)}`, 'token do Hugging Face'], [`backup_sk-proj-${'Ab3_'.repeat(12)}`, 'chave da OpenAI'],
+    [`x-sk-svcacct-${'Ab3'.repeat(14)}`, 'chave da OpenAI'], [`sk-None-${'Ab3'.repeat(14)}`, 'chave da OpenAI'],
+    [`xASIA${'Q'.repeat(16)}/`, 'chave de acesso AWS'], [`AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI`, 'chave de acesso AWS']] as const) {
+    assert.equal(achadoDeSegredo(t), padrao, t);
+  }
+  // X7: a cauda de um token de verdade e o que separa token de palavra.
+  for (const t of [`hf_${'a'.repeat(34)}`, `hf_${'aB'.repeat(16)}`, `sk-proj-${'a'.repeat(40)}`, `sk-proj-${'A'.repeat(40)}`, `sk-proj-A1${'a'.repeat(30)}`,
+    `glpat-${'a'.repeat(19)}`, `AKIA${'Q'.repeat(15)}0Q`, `ASIA${'Q'.repeat(17)}`, `xghp_${'a'.repeat(35)}`]) {
+    assert.equal(achadoDeSegredo(t), null, t);
+  }
+  // X3 e X7: a regra de nome.
+  assert.ok(ehNomeDeProjeto('👨\u200d👩\u200d👧 família') && ehNomeDeProjeto('❤\ufe0f'), 'emoji com ZWJ e FE0F passam');
+  for (const n of ['', '\u200d', '\u200d\u200d', '\u{1d173}', 'a\u{1d173}b', 'a\u{1bca0}b', 'a\u{13430}b', 'a￰b', 'a\u034fb', 'a\u17b4b',
+    'a\u180bb', '\u2800', 'a\uffa0b', 'a\u115fb', 'a\u{e0080}b', 'a\ufe00b']) {
+    assert.equal(ehNomeDeProjeto(n), false, JSON.stringify(n));
+  }
 });

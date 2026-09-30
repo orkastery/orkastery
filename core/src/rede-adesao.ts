@@ -177,8 +177,12 @@ function criarId(arquivo: string): void {
 function trocarIdInvalido(arquivo: string, st: fs.BigIntStats): void {
   let conteudo: Buffer;
   if (st.isSymbolicLink()) {
-    // W8 da revisao 5: o link pendurado (ou para arquivo ruim) sai; o alvo fica como esta.
-    conteudo = Buffer.from(`link:${fs.readlinkSync(arquivo)}`);
+    // W8 da revisao 5: o link pendurado (ou para arquivo ruim) sai; o alvo fica como esta. X2 da revisao
+    // 6: se outro processo ja o trocou (ou tirou) depois do `lstat`, quem chamou rele.
+    let alvo: string;
+    try { alvo = fs.readlinkSync(arquivo); }
+    catch (e) { if (['ENOENT', 'EINVAL'].includes((e as NodeJS.ErrnoException).code ?? '')) return; throw e; }
+    conteudo = Buffer.from(`link:${alvo}`);
   } else if (st.isFile()) {
     let fd: number;
     try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }

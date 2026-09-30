@@ -230,7 +230,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   // 4. O frescor de cada maquina (D15).
   const lista = [...membros.values()].sort((a, b) => a.maquina.localeCompare(b.maquina));
   for (const m of lista) {
-    if (m.idadeMs > SEM_BATIDA_MS) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: `${m.maquina}: sem batida ha ${duracao(m.idadeMs)}` });
+    // X5 da revisao 6: batida ilegivel (a fabrica legada aceita qualquer texto) nao passa por fresca.
+    if (!Number.isFinite(m.idadeMs)) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: `${m.maquina}: batida ilegivel` });
+    else if (m.idadeMs > SEM_BATIDA_MS) lacunas.push({ tipo: 'maquina.sem-batida', maquina: m.maquina, detalhe: `${m.maquina}: sem batida ha ${duracao(m.idadeMs)}` });
   }
   return {
     contrato: CONTRATO_DO_STATUS, consultadoEm, casa: casa ? { ...casa } : null,
@@ -240,6 +242,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
 }
 
 export function duracao(ms: number): string {
+  if (!Number.isFinite(ms)) return 'tempo desconhecido';
   const min = Math.round(ms / 60000);
   if (min < 1) return 'menos de 1 min';
   if (min < 120) return `${min} min`;
@@ -252,7 +255,11 @@ export function textoDaRede(status: StatusDaRede): string {
   // V2 da revisao 4 e W4 da revisao 5: a fabrica legada vem do remoto de um projeto, onde outras pessoas
   // escrevem. Cada VALOR vai numa linha so e sem nada que o terminal execute ou que ninguem ve, antes de
   // entrar no texto: um `\n` num valor nao abre uma linha que parece do `ork`.
-  const s = JSON.parse(JSON.stringify(status), (_k, v: unknown) => (typeof v === 'string' ? emUmaLinha(v) : v)) as StatusDaRede;
+  // X5 da revisao 6: um mapa que so troca texto (a ida e volta em JSON trocava `NaN` por `null`).
+  const limpar = (v: unknown): unknown => typeof v === 'string' ? emUmaLinha(v)
+    : Array.isArray(v) ? v.map(limpar)
+      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, limpar(x)])) : v;
+  const s = limpar(status) as StatusDaRede;
   const linhas: string[] = [];
   const rede = s.fontes.find((f) => f.fonte === 'rede');
   const estadoDaCasa = rede ? (rede.atualizado ? 'lida agora' : 'última cópia local') : 'não lida';

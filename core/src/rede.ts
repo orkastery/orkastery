@@ -273,16 +273,16 @@ export function assinaturaDoRetrato(r: RetratoDaMaquina): string {
 
 /** Alem do catalogo do nucleo (`procurarSegredos`): o que a rede nunca deixa sair. */
 const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
-  // V8 da revisao 4: token colado a letra ou `_` (`xghp_...`) tambem vaza, entao os prefixos longos vao
-  // sem `\b`, com o tamanho do formato. W2 da revisao 5: os que casam com palavra comum (`task-proj-`,
-  // `flask-admin-`, `ASIAPACIFIC...`, `llama2_hf_...`) pedem limite a esquerda e a cauda de um token
-  // de verdade (alfabeto, tamanho, caixa mista, digito).
+  // V8 da revisao 4: token colado a letra ou `_` (`xghp_...`, `backup_sk-proj-...`) tambem vaza, entao
+  // nenhum prefixo pede limite a esquerda (X4 da revisao 6). W2 da revisao 5: o que separa o token de
+  // uma palavra comum (`task-proj-`, `flask-admin-`, `ASIAPACIFIC...`, `llama2_hf_...`) e a CAUDA de um
+  // token de verdade: alfabeto, tamanho, caixa mista e digito.
   { nome: 'token do GitHub', regex: /(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})/ },
   { nome: 'token do GitLab', regex: /gl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{20,}/ },
   { nome: 'token do Slack', regex: /xox[abprs]-[A-Za-z0-9-]{10,}/ },
-  { nome: 'chave de acesso AWS', regex: /(?<![A-Za-z0-9])(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Za-z0-9])/ },
-  { nome: 'token do Hugging Face', regex: /(?<![A-Za-z0-9])hf_(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*[a-z])[A-Za-z0-9]{34,}/ },
-  { nome: 'chave da OpenAI', regex: /(?<![A-Za-z0-9_-])sk-(?:proj|svcacct|admin)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{40,}/ },
+  { nome: 'chave de acesso AWS', regex: /(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Z2-7])/ },
+  { nome: 'token do Hugging Face', regex: /hf_(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*[a-z])[A-Za-z0-9]{34,}/ },
+  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin|None)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{40,}/ },
   { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36,}/ },
   { nome: 'chave de API do Google', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },
@@ -881,9 +881,10 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
 // ---------------------------------------------------------------------------
 
 // V2 da revisao 4: a celula nao abre link, imagem, HTML nem codigo, e nao quebra a tabela. W5 da
-// revisao 5: o `.` escapado desfaz o autolink do GFM (`www.x.y`, `http://x.y`, e-mail), e `&` e `~`
-// nao viram entidade nem riscado; o valor fica numa linha so.
-const celula = (s: string) => emUmaLinha(s).replace(/[\\`*_[\]<>|!.~&]/g, (c) => `\\${c}`);
+// revisao 5 e X1 da revisao 6: o `.` e o `:` escapados desfazem o autolink do GFM (`www.x.y`,
+// `http://x`, mesmo sem ponto no dominio, e-mail), e `&` e `~` nao viram entidade nem riscado; o
+// valor fica numa linha so.
+const celula = (s: string) => emUmaLinha(s).replace(/[\\`*_[\]<>|!.:~&]/g, (c) => `\\${c}`);
 
 /** O `REDE.md`: a mesma rede, para quem abre a forja. Sem caminho local: esses ficam no JSON. */
 export function painelDaRede(retratos: readonly RetratoDaMaquina[]): string {
