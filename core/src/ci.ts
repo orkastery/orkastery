@@ -1,6 +1,7 @@
 /** GitHub CI como CHECK independente (I-12). */
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
+import { branchDaWorktree } from './worktree';
 import { verificar, ResultadoVerify } from './verify';
 import { comandosDoManifesto, commitReal, executar, prazoDoComando, verificarClaim } from './verify';
 import { lerClaims } from './claims';
@@ -11,7 +12,6 @@ import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
-import { branchDaWorktree } from './worktree';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -144,23 +144,6 @@ export function executarCi(carregado: ManifestoCarregado, threadId: string): { s
 }
 
 /**
- * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (com o campo `lint`) que
- * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
- * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
- */
-export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avisos: string[] } {
-  const recusas: string[] = [], avisos: string[] = [];
-  for (const claim of claims) {
-    for (const achado of analisarComandos(claim.verificar)) {
-      const linha = linhaDoLintDeClaim(claim.id, achado);
-      if (achado.regra === 'suite-inteira' && claim.lint !== undefined) recusas.push(linha);
-      else avisos.push(achado.regra === 'suite-inteira' ? `${linha} (claim anterior ao lint: so aviso)` : linha);
-    }
-  }
-  return { recusas, avisos };
-}
-
-/**
  * RM-037 (rm037noite, defeito 1): um bundle por thread. O `.ork-ci/bundle.json` era o mesmo caminho em
  * toda thread, entao toda PR conflitava com todas as outras e cada merge pedia merge da main, `ork ci
  * prepare` e CI de novo na proxima. Cada thread grava agora o proprio `.ork-ci/<thread>.json`, e o CI
@@ -182,6 +165,23 @@ function comandosDoBundle(carregado: ManifestoCarregado): { name: string; comman
   return carregado.manifesto.ci.command
     ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
     : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+}
+
+/**
+ * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (com o campo `lint`) que
+ * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
+ * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
+ */
+export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avisos: string[] } {
+  const recusas: string[] = [], avisos: string[] = [];
+  for (const claim of claims) {
+    for (const achado of analisarComandos(claim.verificar)) {
+      const linha = linhaDoLintDeClaim(claim.id, achado);
+      if (achado.regra === 'suite-inteira' && claim.lint !== undefined) recusas.push(linha);
+      else avisos.push(achado.regra === 'suite-inteira' ? `${linha} (claim anterior ao lint: so aviso)` : linha);
+    }
+  }
+  return { recusas, avisos };
 }
 
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
