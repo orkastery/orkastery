@@ -498,3 +498,71 @@ test('rede: lacuna, retrato malformado nao derruba nem vira NaN', () => {
     assert.doesNotMatch(texto, /NaN/);
   } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
 });
+
+test('rede: incidente, pasta com o nome do projeto no cwd nao toma o pedido', () => {
+  const r = rede('rede-pasta-homonima', { semEstado: true });
+  const workspace = dirTemporario('rede-workspace-pasta');
+  exec('git', ['init', '-q', '-b', 'main'], workspace);
+  init(workspace, { nome: 'workspace', abbrev: 'wsp' });
+  fs.mkdirSync(path.join(workspace, 'orkastery'));
+  try {
+    // Sem registro, o nome nao vira a pasta nem o projeto do cwd: recusa, dizendo como pedir um caminho.
+    assert.throws(() => montarPanoramaDaRede({ cwd: workspace, pedido: 'orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro }),
+      (e: unknown) => e instanceof ErroDoPedidoDeProjeto && e.codigo === 'projeto.desconhecido' && /\.\/pasta ou absoluto/.test(e.correcao));
+    // Com o registro, o nome e o do registro: o clone certo.
+    fs.writeFileSync(r.registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: 'orkastery', raiz: r.a, remoto: null }] }));
+    const p = montarPanoramaDaRede({ cwd: workspace, pedido: 'orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.deepEqual(p.projetos.map((x) => [x.projeto.nome, x.projeto.clone]), [['orkastery', r.a]]);
+    // Escrito como caminho, e caminho: a pasta pertence ao workspace, e o cabecalho diz isso.
+    const comoCaminho = montarPanoramaDaRede({ cwd: workspace, pedido: './orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.equal(comoCaminho.projetos[0].projeto.nome, 'workspace');
+    assert.match(textoDoPanoramaDaRede(comoCaminho), /^Consultado: workspace /m);
+  } finally { r.limpar(); fs.rmSync(workspace, { recursive: true, force: true }); }
+});
+
+test('rede: fuso do projeto consultado vale no panorama', () => {
+  const r = rede('rede-fuso', { semEstado: true });
+  try {
+    definirFusoDoDono('UTC');
+    const noite = '2026-09-30T02:00:00.000Z'; // 29/09 23:00 em Brasilia, ja 30/09 em UTC
+    const grupoDo = (p: PanoramaDaRede, id: string) => p.projetos[0].roadmap!.grupos.find((g) => g.itens.some((i) => i.id === id))!.id;
+    // Sem fuso no manifesto, vale o do processo: o merge de 29/09 nao e de "hoje" (30/09 em UTC).
+    const emUtc = montarPanoramaDaRede({ cwd: r.a, quando: noite, maquina: 'pc-a', registro: r.registro });
+    assert.deepEqual([emUtc.fuso, grupoDo(emUtc, 'RM-003')], ['UTC', 'desenvolvimento']);
+    assert.equal(textoDoPanoramaDaRede(emUtc).split('\n').at(-1), 'Horários em UTC.');
+    // O manifesto do projeto diz Brasilia: o dia, os horarios e a legenda seguem o projeto.
+    const manifesto = path.join(r.a, 'orkastery.yaml');
+    fs.writeFileSync(manifesto, fs.readFileSync(manifesto, 'utf8').replace('# timezone: "America/Sao_Paulo"', 'timezone: "America/Sao_Paulo"'));
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: noite, maquina: 'pc-a', registro: r.registro });
+    assert.deepEqual([p.fuso, p.projetos[0].projeto.fuso, grupoDo(p, 'RM-003')], ['America/Sao_Paulo', 'America/Sao_Paulo', 'hoje']);
+    const linhas = textoDoPanoramaDaRede(p).split('\n');
+    assert.equal(linhas[0], 'Panorama da rede lido de pc-a (29/09, 23:00)');
+    assert.ok(linhas.includes('Roadmap do Orkastery (29/09, 23:00)'));
+    assert.equal(linhas.at(-1), 'Horários de Brasília.');
+  } finally { r.limpar(); }
+});
+
+test('rede: sem clone segue a base do manifesto lido', () => {
+  definirFusoDoDono('America/Sao_Paulo');
+  const vazio = dirTemporario('rede-base-manifesto');
+  try {
+    const comBase = 'project:\n  name: "app"\nworktree:\n  base_branch: "desenvolvimento"\n';
+    const padrao = respostaDaForja();
+    padrao.data.repository.base.target.manifesto.object.text = comBase;
+    const naBase = respostaDaForja();
+    naBase.data.repository.base.name = 'desenvolvimento';
+    naBase.data.repository.base.target.oid = SHA('e');
+    naBase.data.repository.base.target.manifesto.object.text = comBase;
+    naBase.data.repository.base.target.roadmap.object.entries.push(blob('RM-006-so-na-base.md', textoDoItem('RM-006', 'So na base', 'Backlog')));
+    const { executor, chamadas } = forjaGravada([ok(padrao), ok(naBase)]);
+    const p = montarPanoramaDaRede({ cwd: vazio, pedido: 'github:dono/app', quando: QUANDO, maquina: 'pc-c', executor,
+      registro: path.join(vazio, 'x.json') });
+    assert.equal(chamadas.length, 2, 'a base do manifesto difere da branch padrao: uma leitura a mais');
+    const segunda = JSON.parse(chamadas[1].entrada) as { query: string; variables: Record<string, string> };
+    assert.match(segunda.query, /base: ref\(qualifiedName: \$base\)/);
+    assert.equal(segunda.variables.base, 'refs/heads/desenvolvimento');
+    const x = p.projetos[0];
+    assert.deepEqual([x.fontes[0].onde, x.fontes[0].commit], ['github.com/dono/app@desenvolvimento', SHA('e')]);
+    assert.ok(x.roadmap!.grupos.some((g) => g.itens.some((i) => i.id === 'RM-006')));
+  } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
+});

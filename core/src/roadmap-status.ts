@@ -159,16 +159,19 @@ export function esperaDoDono(raiz: string, t: Thread, quando: string): EsperaDoD
   return undefined;
 }
 
-/** Os fatos das threads deste disco: `ship_done` do dia e espera do dono lidos do ledger local. */
-export function fatosLocais(raiz: string, quando: string): FatoDeThread[] {
-  const hoje = dataLocal(quando);
+/**
+ * Os fatos das threads deste disco: `ship_done` do dia e espera do dono lidos do ledger local.
+ * `fuso`: o do projeto consultado, na visao da rede; sem ele, o do dono deste processo.
+ */
+export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDeThread[] {
+  const hoje = dataLocal(quando, fuso);
   const fatos: FatoDeThread[] = [];
   for (const id of listarIds(raiz)) {
     let t: Thread;
     try { t = lerThread(raiz, id); } catch { continue; /* thread ilegivel fica de fora */ }
     fatos.push({
       id: t.id, roadmap: t.roadmap ?? null, aberta: t.status !== 'fechada', fase: t.faseAtual,
-      entregueHoje: () => lerLedger(dirThread(raiz, t.id)).some(e => e.tipo === 'ship_done' && dataLocal(e.ts) === hoje),
+      entregueHoje: () => lerLedger(dirThread(raiz, t.id)).some(e => e.tipo === 'ship_done' && dataLocal(e.ts, fuso) === hoje),
       espera: () => esperaDoDono(raiz, t, quando),
     });
   }
@@ -229,10 +232,13 @@ const capitalizar = (s: string): string => s ? s[0].toUpperCase() + s.slice(1) :
 /** A maquina entre parenteses, so quando o fato a traz (visao da rede, D7 da RM-054). */
 const naMaquina = (maquina?: string): string => maquina ? ` (${maquina})` : '';
 
-/** O texto do relatorio, igual em todo canal: os icones sao parte do formato aprovado. */
-export function textoDoStatusDoRoadmap(s: StatusDoRoadmap): string {
+/**
+ * O texto do relatorio, igual em todo canal: os icones sao parte do formato aprovado. `fuso`: o do
+ * projeto consultado, na visao da rede; sem ele, o do dono deste processo.
+ */
+export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string): string {
   if (s.contrato !== CONTRATO_STATUS_DO_ROADMAP) throw new Error('status do roadmap: contrato inválido');
-  const p = partesLocais(s.consultadoEm);
+  const p = partesLocais(s.consultadoEm, fuso);
   const linhaDoItem = (i: ItemDoStatus): string => {
     const detalhe = i.emAberto.length ? `: ${i.emAberto.join(', ')}` : i.conduzindo && i.grupo !== 'concluidos' && i.grupo !== 'hoje'
       ? ` (${i.conduzindo.fase}${i.conduzindo.maquina ? `, ${i.conduzindo.maquina}` : ''})` : '';
