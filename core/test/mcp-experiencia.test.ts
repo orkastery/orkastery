@@ -1,4 +1,6 @@
 import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { test, mock } from 'node:test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -6,7 +8,7 @@ import * as experiencia from '../src/mcp-experiencia';
 import * as reservas from '../src/roadmap-reservas';
 import * as fabrica from '../src/fabrica-estado';
 import { criarServidorMcp } from '../src/mcp-server';
-import { projetoTemporario } from './apoio';
+import { dirTemporario, projetoTemporario } from './apoio';
 
 test('consulta distingue lista atual vazia, cópia desatualizada e indisponibilidade', () => {
   const vazio = experiencia.apresentarConsulta({ reservas: [], atualizado: true, ponta: null });
@@ -69,7 +71,33 @@ test('transporte não autorizado ou indisponível não retorna sucesso vazio', a
   } finally { p.limpar(); }
 });
 
-test('worker fixado responde pelo caminho real sem travar o event loop; cancelamento e prazo encerram', async () => {
+/**
+ * A fixação lê a configuração efetiva do Git, e a do HOME do teste é a da máquina. Aqui o HOME e o
+ * XDG são um diretório novo com o `.gitconfig` dado; o servidor e o worker herdam os dois.
+ */
+async function comConfigGlobal(gitconfig: string, corpo: () => Promise<void>): Promise<void> {
+  const home = dirTemporario('mcp-experiencia-home'), anterior = process.env.HOME, xdg = process.env.XDG_CONFIG_HOME;
+  fs.writeFileSync(path.join(home, '.gitconfig'), gitconfig);
+  process.env.HOME = home; process.env.XDG_CONFIG_HOME = path.join(home, 'xdg');
+  try { await corpo(); } finally {
+    if (anterior === undefined) delete process.env.HOME; else process.env.HOME = anterior;
+    if (xdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = xdg;
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+// O que a imagem ubuntu-24.04 do runner hospedado grava em /etc/gitconfig (install-git.sh).
+const CONFIG_DO_RUNNER = '[safe]\n\tdirectory = *\n';
+
+test('chave que executa na configuração global mantém a consulta indisponível', () => comConfigGlobal(
+  CONFIG_DO_RUNNER + '[core]\n\tsshCommand = ssh -o ProxyCommand=true\n', async () => {
+    const p = projetoTemporario('mcp-experiencia-config-ativa', true);
+    try {
+      const ler = experiencia.criarLeitorExperiencia(p.dir, 'bare-local');
+      for (const tipo of ['reservas', 'fabrica'] as const) assert.equal((await ler(tipo)).estado, 'indisponivel', tipo);
+    } finally { p.limpar(); }
+  }));
+
+test('worker fixado responde pelo caminho real sem travar o event loop; cancelamento e prazo encerram', () => comConfigGlobal(CONFIG_DO_RUNNER, async () => {
   const p = projetoTemporario('mcp-experiencia-worker', true);
   try {
     const ler = experiencia.criarLeitorExperiencia(p.dir, 'bare-local');
@@ -82,4 +110,4 @@ test('worker fixado responde pelo caminho real sem travar o event loop; cancelam
     cancelar.abort(); assert.equal((await pendente).estado, 'indisponivel');
     assert.equal((await experiencia.criarLeitorExperiencia(p.dir, 'bare-local', 1)('reservas')).estado, 'indisponivel');
   } finally { p.limpar(); }
-});
+}));
