@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-29T09:42:00-03:00
+atualizado_em: 2026-09-30T00:27:37-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,6 +22,8 @@ evidencias:
 sdlc:
   thread: ork-rm031kg2extr
   modo: "#Auto"
+  fase: CHECK
+  status: aberta
 ---
 
 # RM-031 — Grafo determinístico de código e artefatos
@@ -55,7 +57,7 @@ sdlc:
 
 ## Plano e decisões
 
-- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D15 da thread `ork-rm031kg2extr`, tomadas em #Auto e registradas no ledger.
+- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, tomadas em #Auto e registradas no ledger.
 - **Próximo passo:** merge do KG2 com o CI verde; depois, KG3 (índice persistente e CLI de consulta, que substitui o comando provisório do KG2).
 
 ## Estado com evidências
@@ -72,13 +74,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | PR aberto | — | 2026-09-29 | Julio |
-| Testes | Em execução | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-30 | Julio |
+| Documentação | Em revisão | — | 2026-09-30 | Julio |
+| Código | PR aberto | commit `8589330` | 2026-09-30 | Julio |
+| Testes | Em execução | — | 2026-09-30 | Julio |
+| Deploy | Não implantado | — | 2026-09-30 | Julio |
+| Exposição | Flag desligada | — | 2026-09-30 | Julio |
+| Habilitação | Pendente | — | 2026-09-30 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -93,4 +95,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | premissas e decisões D1 a D11 aprovadas | gate `premissas` pelo canal do dono | Julio |
 | 2026-09-28 | KG1 implementado na branch da thread | contratos do grafo e do benchmark, validação e corpus sintético; benchmark não executado | Julio |
 | 2026-09-29 | KG1 mesclado na `main` | PR #20, commit `8589330` | Julio |
-| 2026-09-29 | KG2 implementado na thread `ork-rm031kg2extr` | extrator TypeScript e Markdown, comando provisório e amostra auditada; decisões D1 a D15 no ledger | agente em #Auto; revisão: Julio |
+| 2026-09-29 | KG2 implementado na thread `ork-rm031kg2extr` | extrator TypeScript e Markdown, comando provisório e amostra auditada; decisões D1 a D16 no ledger | agente em #Auto; revisão: Julio |
