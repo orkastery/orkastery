@@ -20,7 +20,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina } from './maquina';
+import { dirThread, lerThread, listarIds } from './thread';
+import { Thread } from './types';
 import { agora as agoraIso } from './util';
 
 export const CONTRATO_RESERVA = 'ork.roadmap-reserva/v1' as const;
@@ -230,8 +233,106 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
   throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
 }
 
+// ---------------------------------------------------------------------------
+// RM-037 (rm037noite, defeito 3): reserva presa em thread fechada.
+// ---------------------------------------------------------------------------
+
+/** Reserva desta maquina cuja thread, aqui, ja fechou; `sucessora` e outra thread aberta do mesmo item. */
+export interface ReservaOrfa {
+  reserva: ReservaDeItem;
+  sucessora: string | null;
+}
+
+export interface ResultadoDaSoltura {
+  item: string;
+  thread: string;
+  acao: 'solta' | 'reapontada' | 'pendente';
+  /** A thread que ficou com o item, quando a reserva foi reapontada. */
+  para: string | null;
+  commit: string | null;
+  detalhe: string;
+}
+
+function threadsLocais(raiz: string): Thread[] {
+  const threads: Thread[] = [];
+  for (const id of listarIds(raiz)) {
+    try { threads.push(lerThread(raiz, id)); } catch { /* thread ilegivel nao decide reserva */ }
+  }
+  return threads;
+}
+
+/** A outra thread aberta do item nesta maquina, a mais recente, que herda a reserva. */
+function sucessoraDoItem(threads: readonly Thread[], item: string, fora: string): string | null {
+  const abertas = threads.filter((t) => t.id !== fora && t.status !== 'fechada' && t.roadmap === item)
+    .sort((a, b) => String(b.atualizadaEm ?? '').localeCompare(String(a.atualizadaEm ?? '')));
+  return abertas[0]?.id ?? null;
+}
+
+/**
+ * As reservas orfas: desta maquina, apontando para thread que existe aqui e esta fechada. Thread que
+ * nao existe aqui nao prova nada (pode ser de outra copia), e reserva de outra maquina so sai com
+ * `--forcar`, pelo contrato da I-47.
+ */
+export function reservasOrfas(raiz: string, reservas: readonly ReservaDeItem[], opcoes: OpcoesDeReserva = {}): ReservaOrfa[] {
+  const eu = quemSouEu(raiz, opcoes);
+  const threads = threadsLocais(raiz);
+  const status = new Map(threads.map((t) => [t.id, t.status]));
+  return reservas.filter((r) => r.thread && ehMinha(r, eu) && status.get(r.thread) === 'fechada')
+    .map((reserva) => ({ reserva, sucessora: sucessoraDoItem(threads, reserva.item, reserva.thread as string) }));
+}
+
+/** Solta a reserva orfa, ou a reaponta para a sucessora, e registra no ledger da thread fechada. */
+function soltarOrfa(raiz: string, orfa: ReservaOrfa, origem: 'fechamento' | 'orfas', opcoes: OpcoesDeReserva): ResultadoDaSoltura {
+  const thread = orfa.reserva.thread as string, item = orfa.reserva.item;
+  const r = orfa.sucessora
+    ? pegarItem(raiz, item, { ...opcoes, thread: orfa.sucessora })
+    : soltarItem(raiz, item, opcoes);
+  const acao = orfa.sucessora ? 'reapontada' : 'solta';
+  const detalhe = orfa.sucessora ? `${item} passou para a thread ${orfa.sucessora}, aberta no mesmo item` : `${item} devolvido`;
+  registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaLiberada,
+    { item, acao, para: orfa.sucessora, commit: r.commit, origem, detalhe });
+  return { item, thread, acao, para: orfa.sucessora, commit: r.commit, detalhe };
+}
+
+/**
+ * `ork thread close` e `ork master`: a thread que fecha solta a reserva do item dela, ou a passa para
+ * outra thread aberta do mesmo item nesta maquina. De melhor esforco: sem rede ou com a reserva em
+ * outra maquina, o fechamento segue e o ledger guarda a pendencia com a correcao. So vai a rede
+ * quando ha o que soltar: a thread tem item ou a ultima copia lida das reservas aponta para ela.
+ */
+export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura | null {
+  let item: string | null = null;
+  try { item = lerThread(raiz, threadId).roadmap ?? null; } catch { return null; }
+  const remoto = opcoes.remoto ?? REMOTO_PADRAO;
+  const naCopia = reservasLocais(raiz, remoto).find((r) => r.thread === threadId);
+  if (!item && !naCopia) return null;
+  const pendente = (detalhe: string): ResultadoDaSoltura => {
+    registrarSeExiste(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.reservaPendente,
+      { item: item ?? naCopia?.item ?? null, detalhe, correcao: 'ork roadmap reservas --soltar-orfas' });
+    return { item: item ?? naCopia?.item ?? '', thread: threadId, acao: 'pendente', para: null, commit: null, detalhe };
+  };
+  try {
+    const painel = listarReservas(raiz, { remoto });
+    if (!painel.atualizado) return pendente(`sem leitura de ${BRANCH_DE_RESERVAS} em ${remoto}; a reserva fica para depois`);
+    const dela = painel.reservas.filter((r) => r.thread === threadId);
+    if (dela.length === 0) return null;
+    const orfas = reservasOrfas(raiz, dela, opcoes);
+    if (orfas.length === 0) return pendente(`${descrever(dela[0])}; so quem pegou solta, ou --forcar --motivo`);
+    return soltarOrfa(raiz, orfas[0], 'fechamento', opcoes);
+  } catch (e) {
+    return pendente((e as Error).message.split('\n')[0].slice(0, 300));
+  }
+}
+
+/** `ork roadmap reservas --soltar-orfas`: a mesma regra do fechamento, para toda reserva orfa desta maquina. */
+export function soltarReservasOrfas(raiz: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura[] {
+  const painel = listarReservas(raiz, { remoto: opcoes.remoto });
+  if (!painel.atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS}; soltar exige rede`);
+  return reservasOrfas(raiz, painel.reservas, opcoes).map((orfa) => soltarOrfa(raiz, orfa, 'orfas', opcoes));
+}
+
 /** O texto de `ork roadmap reservas` para o terminal, no fuso do dono. */
-export function textoDasReservas(p: PainelDeReservas): string {
+export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = []): string {
   const linhas: string[] = [];
   if (!p.atualizado) linhas.push('AVISO: sem acesso ao remoto; esta e a ultima copia lida nesta maquina.', '');
   if (p.reservas.length === 0) {
@@ -239,10 +340,14 @@ export function textoDasReservas(p: PainelDeReservas): string {
     return linhas.join('\n');
   }
   linhas.push('ITEM     COM QUEM            MAQUINA         THREAD             DESDE');
+  const orfaDoItem = new Map(orfas.map((o) => [o.reserva.item, o]));
   for (const r of p.reservas) {
+    const orfa = orfaDoItem.get(r.item);
+    const marca = orfa ? `  ÓRFÃ: thread fechada${orfa.sucessora ? `, passa para ${orfa.sucessora}` : ''}` : '';
     linhas.push(`${r.item.padEnd(8)} ${r.por.slice(0, 19).padEnd(19)} ${r.maquina.slice(0, 15).padEnd(15)} ` +
-      `${(r.thread ?? '-').slice(0, 18).padEnd(18)} ${formatarDataHora(r.desdeEm)}` + (r.nota ? `  ${r.nota}` : ''));
+      `${(r.thread ?? '-').slice(0, 18).padEnd(18)} ${formatarDataHora(r.desdeEm)}` + (r.nota ? `  ${r.nota}` : '') + marca);
   }
+  if (orfas.length > 0) linhas.push('', `${orfas.length} reserva(s) órfã(s) desta máquina. Para soltar: ork roadmap reservas --soltar-orfas`);
   linhas.push('', legendaDoFuso());
   return linhas.join('\n');
 }

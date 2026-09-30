@@ -126,7 +126,7 @@ Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` 
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--ciclo C] [--dry-run]` |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
 | `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Leitura pura; os canais transportam o texto (RM-048) |
-| `ork roadmap reservas [--json]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto |
+| `ork roadmap reservas [--json] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N]` | Reserva o item por push atômico: o primeiro vence. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
 | `ork roadmap soltar RM-NNN` | Devolve o item quando o trabalho termina |
 | `ork fabrica entrar [--maquina NOME]` | Esta máquina entra na fábrica compartilhada, com esse nome (`~/.orkastery/maquina.json`), e publica o primeiro retrato |

@@ -6,14 +6,18 @@
  * (defeito 3). Tudo aqui e de melhor esforco: o fechamento ja aconteceu, e nada daqui o desfaz.
  */
 import { soltarThreadFechada } from './leases';
+import { ResultadoDaSoltura, soltarReservaDaThread } from './roadmap-reservas';
 
 export interface SolturaAoFechar {
   /** Leases de escrita soltos (o `exec:` fica com a conducao). */
   leases: string[];
   /** Entradas da fila que sairam. */
   fila: string[];
+  /** A reserva do roadmap solta, reapontada ou pendente; `null` quando a thread nao tinha reserva. */
+  reserva: ResultadoDaSoltura | null;
 }
 
 export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar {
-  return soltarThreadFechada(raiz, threadId, 'fechamento');
+  const solto = soltarThreadFechada(raiz, threadId, 'fechamento');
+  return { ...solto, reserva: soltarReservaDaThread(raiz, threadId) };
 }

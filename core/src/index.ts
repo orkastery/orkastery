@@ -200,7 +200,7 @@ import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, preparar
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
 import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
+import { listarReservas, pegarItem, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -497,6 +497,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
                                             voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
+        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
+                                             ou passa para outra thread aberta do mesmo item, com registro
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
@@ -2628,8 +2630,17 @@ function comandoRoadmap(args: Args): number {
   const sub = args.posicionais[1] ?? 'reservas';
   const remoto = texto(args.opcoes.remoto);
   if (sub === 'reservas') {
+    // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
+    if (args.opcoes['soltar-orfas'] === true) {
+      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
+      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
+        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      return 0;
+    }
     const painel = listarReservas(carregado.raiz, { remoto });
-    console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
+    const orfas = reservasOrfas(carregado.raiz, painel.reservas);
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
     return 0;
   }
   if (sub === 'status') {
