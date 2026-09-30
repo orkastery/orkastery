@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:16:58.315Z",
+  "publicadoEm": "2026-09-30T02:27:50.760Z",
   "threads": [
     {
       "id": "ork-rm052projeto",
@@ -38,12 +38,12 @@
       "id": "ork-rm054roadmap",
       "nome": "RM-054 roadmaps e threads da rede visiveis aos agentes",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-054",
       "branch": "ork/ork-rm054roadmap-full",
-      "atualizadaEm": "2026-09-30T00:31:27.339Z",
-      "entregue": null,
+      "atualizadaEm": "2026-09-30T02:27:50.644Z",
+      "entregue": "b64d2f2",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
