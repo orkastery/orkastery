@@ -302,6 +302,16 @@ test('RM-053 projetos: limparRemoto tira usuario e senha e recusa o que nao e re
   assert.equal(limparRemoto(42), null);
 });
 
+test('RM-053 projetos: remoto com senha na forma scp, query ou unidade do Windows nunca passa (S1, S12 da revisao 2)', () => {
+  assert.equal(limparRemoto('julio:MinhaSenha123@github.com:julio/repo.git'), null, 'usuario com senha na forma scp');
+  assert.equal(limparRemoto('x@y:z@w'), null, '@ depois do host e ambiguo');
+  assert.equal(limparRemoto('https://host/r.git?access_token=abcdef0123456789abcdef#frag'), 'https://host/r.git');
+  assert.equal(limparRemoto('C:\\repos\\x'), null);
+  assert.equal(limparRemoto('C:/repos/x'), null);
+  assert.equal(limparRemoto('git@srv:/abs/x.git'), 'ssh://srv/abs/x.git');
+  assert.equal(limparRemoto('ssh://git@host.com/a/b.git'), 'ssh://host.com/a/b.git');
+});
+
 // ---------------------------------------------------------------------------
 // A rede de ponta a ponta, em processo: cada "maquina" e uma pasta de usuario propria.
 // ---------------------------------------------------------------------------
@@ -412,20 +422,25 @@ test('RM-053 segredo: retrato com valor de cara de segredo e recusado antes do p
       // com valor de cara de segredo sai SO ele, com aviso; o scp num host de dois pontos nao e e-mail.
       const drive = comManifesto(path.join(usuario, 'CloudStorage', 'GoogleDrive-dono@exemplo.com', 'produto'));
       const empresa = comManifesto(path.join(usuario, 'empresa'));
+      const comSenha = comManifesto(path.join(usuario, 'com-senha'));
       const registro = path.join(usuario, 'projetos-ruim.json');
       fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
         { nome: TOKEN_GH, raiz: p.dir, remoto: null },
         { nome: 'no-drive', raiz: drive, remoto: null },
         { nome: 'empresa', raiz: empresa, remoto: 'git@gitlab.empresa.com:time/produto.git' },
+        { nome: 'com-senha', raiz: comSenha, remoto: 'julio:MinhaSenha123@github.com:julio/repo.git' },
       ] }));
       const r = entrarNaRede({ amb, maquina: 'pc-x', arquivoDeProjetos: registro });
       assert.equal(r.publicacao.acao, 'publicou');
       assert.deepEqual(r.publicacao.descartados.map((d) => [d.padrao, d.campo]).sort(),
-        [['e-mail de conta', 'projetos[2].caminho'], ['token do GitHub', 'projetos[1].nome']], 'indice na lista ordenada por nome');
+        [['e-mail de conta', 'projetos[3].caminho'], ['token do GitHub', 'projetos[2].nome']], 'indice na lista ordenada por nome');
       const blobs = todosOsBlobs(casaFalsa(f));
-      for (const b of blobs) for (const x of [TOKEN_GH, 'dono@exemplo.com', 'GoogleDrive']) assert.ok(!b.includes(x), `"${x}" vazou`);
+      for (const b of blobs) for (const x of [TOKEN_GH, 'dono@exemplo.com', 'GoogleDrive', 'MinhaSenha123']) assert.ok(!b.includes(x), `"${x}" vazou`);
       const publicado = JSON.parse(blobs.find((b) => b.includes('"ork.rede-maquina/v1"'))!);
-      assert.deepEqual(publicado.projetos, [{ nome: 'empresa', remoto: 'ssh://gitlab.empresa.com/time/produto.git', caminho: empresa }]);
+      assert.deepEqual(publicado.projetos, [
+        { nome: 'com-senha', remoto: null, caminho: comSenha },
+        { nome: 'empresa', remoto: 'ssh://gitlab.empresa.com/time/produto.git', caminho: empresa },
+      ], 'o remoto com senha sai null; o projeto fica');
     });
   } finally { f.limpar(); p.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });

@@ -43,7 +43,11 @@ export interface LeituraDoRegistro {
   projetos: ProjetoConhecido[];
 }
 
-/** Tira usuario e senha de uma URL de remoto; texto que nao e URL de remoto vira `null`. */
+/**
+ * O remoto como pode ir ao retrato: sem usuario, senha, query nem fragmento; texto que nao e remoto
+ * que se reconheca vira `null` (o projeto continua, sem remoto). Na duvida, `null`: remoto e so
+ * informativo, e credencial nao pode passar (S1 da revisao 2).
+ */
 export function limparRemoto(bruto: unknown): string | null {
   if (typeof bruto !== 'string') return null;
   const url = bruto.trim();
@@ -53,14 +57,23 @@ export function limparRemoto(bruto: unknown): string | null {
       const u = new URL(url);
       u.username = '';
       u.password = '';
+      // `?access_token=...` e `#...` tambem carregam segredo: saem inteiros.
+      u.search = '';
+      u.hash = '';
       return u.toString();
     } catch { return null; }
   }
-  // Forma scp do git (`git@host:dono/repo.git`): vira `ssh://host/dono/repo.git`, sem o usuario de transporte.
-  // Com o `@`, um host de dois pontos (`git@gitlab.empresa.com:...`) tinha cara de e-mail e travava a
-  // publicacao inteira (A1 do CHECK 1).
-  const scp = /^(?:[A-Za-z0-9._-]+@)?([A-Za-z0-9.-]+):(?!\/\/)([^\s]+)$/.exec(url);
-  if (scp) return `ssh://${scp[1]}/${scp[2].replace(/^\/+/, '')}`;
+  // Letra de unidade do Windows (`C:\...`, `C:/...`) nao e host de scp.
+  if (/^[A-Za-z]:[\\/]/.test(url)) return null;
+  // Forma scp do git (`git@host:dono/repo.git`): vira `ssh://host/...`, sem o usuario de transporte.
+  // Usuario com `:` e senha; `@` depois do host e ambiguo: os dois viram `null`, nunca texto cru.
+  const scp = /^(?:([^@\s:/]+)@)?([A-Za-z0-9.-]{2,}):(?!\/\/)([^\s@]+)$/.exec(url);
+  if (scp) {
+    // Forma usual das forjas (`ssh://github.com/dono/repo.git`): o remoto e so informativo, e o `~/` do
+    // caminho relativo do scp deixaria o repositorio irreconhecivel para quem le.
+    return `ssh://${scp[2]}/${scp[3].replace(/^\/+/, '')}`;
+  }
+  if (url.includes('@')) return null;
   if (path.isAbsolute(url)) return url;
   return null;
 }
