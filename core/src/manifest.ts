@@ -14,6 +14,7 @@ import { validarAbbrev } from './slug';
 import { exec, subirAte } from './util';
 import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
+import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { MODELO_DE_EMBEDDING } from './orkmind';
 
@@ -252,6 +253,16 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   // no fuso do sistema, porque um horario com rotulo certo vale mais que um comando parado.
   const fusoDoDono = lerFusoDoDono(mapa(dados.owner).timezone);
   if (fusoDoDono.aviso) avisos.push(fusoDoDono.aviso);
+  // Preferência inválida segue o fuso: avisa e cai no padrão, sem parar os comandos (e o próprio
+  // onboarding set, que é o caminho para corrigir).
+  const preferencias: NonNullable<Manifesto['owner']> = {};
+  for (const chave of ['language', 'depth', 'experience'] as const) {
+    const valor = mapa(dados.owner)[chave];
+    if (valor === undefined) continue;
+    try { Object.assign(preferencias, validarPreferencias({ [chave]: valor })); }
+    catch (e) { avisos.push(`${(e as Error).message}; vale o padrão até corrigir`); }
+  }
+  if (fusoDoDono.origem === 'manifesto') preferencias.timezone = fusoDoDono.fuso;
   const board = mapa(dados.board);
   const runtime = mapa(dados.runtime);
   const conduction = mapa(dados.conduction);
@@ -404,7 +415,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       stage: (texto(project.stage, 'nascente') as Manifesto['project']['stage']) ?? 'nascente',
       repo_root: texto(project.repo_root, raiz),
     },
-    ...(fusoDoDono.origem === 'manifesto' ? { owner: { timezone: fusoDoDono.fuso } } : {}),
+    ...(Object.keys(preferencias).length ? { owner: preferencias } : {}),
     board: {
       adapter: texto(board.adapter, 'hermes-kanban'),
       default: texto(board.default, 'default'),

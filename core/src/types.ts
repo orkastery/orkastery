@@ -151,7 +151,7 @@ export interface Manifesto {
     repo_root?: string;
   };
   /** I-35: fuso do dono (IANA, forma canonica do Intl). Ausente quando nao configurado ou invalido. */
-  owner?: { timezone: string };
+  owner?: { timezone?: string; language?: string; depth?: 'curta' | 'detalhada'; experience?: boolean };
   board: {
     adapter: string;
     default: string;

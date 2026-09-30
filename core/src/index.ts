@@ -132,6 +132,8 @@ import { carregarManifesto, configDeEmbedding, diretorioDoProjeto, exigirManifes
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { resolverExperiencia } from './experiencia';
+import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
 import {
   abrirMemoria,
@@ -309,6 +311,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
                                             por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
+  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  experiencia uninstall <host> [--dry-run] [--json]
+                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
   setup <modo>                              Config atual de cada bloco do modo
   setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
         [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
@@ -711,6 +716,8 @@ function comandoThread(args: Args): number {
       console.error('uso: ork thread new <nome> --modo <MODO>');
       return 2;
     }
+    const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
+    if (avisoRoadmap) console.error(avisoRoadmap);
     const brutoModo = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
     let modo: Modo;
     try {
@@ -885,7 +892,7 @@ function comandoOnboarding(args: Args): number {
     estado = gravarEtapa(raiz, etapa!, conteudo, por);
   } else if (sub === 'reset') estado = resetarOnboarding(raiz, etapa, por);
   else estado = lerOnboarding(raiz);
-  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado));
+  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado, exigirManifesto(raiz).manifesto.owner));
   return 0;
 }
 
@@ -3623,6 +3630,13 @@ function comandoMemory(args: Args): number {
   return 2;
 }
 
+/** Aviso informativo: não consulta rede, não reserva e não bloqueia criação. */
+export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): string | null {
+  const item = /\bRM-\d{3}\b/i.exec(nome)?.[0].toUpperCase();
+  if (!item || roadmap) return null;
+  return `Aviso: ${item} no nome não associa a thread ao roadmap. No terminal, consulte ork roadmap reservas e ork fabrica; para associar e reservar, use --roadmap ${item} em ork thread new. Nenhuma reserva foi criada por este aviso.`;
+}
+
 /**
  * `ork memory search --texto` (I-38 D7): busca por significado, separada da busca por tag.
  * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
@@ -3912,6 +3926,29 @@ export function main(argvBruto: string[]): number {
       return comandoAccounts(args);
     case 'onboarding':
       return comandoOnboarding(args);
+    case 'experiencia': {
+      if (args.posicionais[1] === 'uninstall') {
+        const host = parseHost(args.posicionais[2]);
+        if (!host || !['claude-code', 'codex'].includes(host) || args.posicionais.length !== 3 ||
+            Object.keys(args.opcoes).some(k => !['dry-run', 'json'].includes(k)) ||
+            Object.values(args.opcoes).some(v => v !== true)) throw Error('uso: ork experiencia uninstall claude-code|codex [--dry-run] [--json]');
+        const r = desinstalarExperiencia(exigirManifesto().raiz, host as 'claude-code' | 'codex', args.opcoes['dry-run'] === true);
+        console.log(args.opcoes.json ? JSON.stringify(r, null, 2) :
+          `${r.dryRun ? 'Simulação de remoção' : 'Remoção concluída'}: ${r.arquivos.length} arquivo(s). O adaptador permanece instalado. Para manter o pacote desativado, configure owner.experience:false no onboarding.`);
+        return 0;
+      }
+      if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
+          Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
+        throw Error('uso: ork experiencia show [--json]');
+      }
+      const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
+      // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
+      const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
+      return 0;
+    }
     case 'thread':
       return comandoThread(args);
     case 'objective':

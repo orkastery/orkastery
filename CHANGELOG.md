@@ -20,6 +20,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - o `ork grafo` precisa do `typescript` e do micromark instalados no próprio pacote do `ork`
     (`ork grafo indexar` e as consultas), que não são dependências do pacote: sem eles, a recusa é
     `grafo.parser.indisponivel`.
+- **Pacote de experiência de orquestração** ([RM-051](docs/roadmap/RM-051-pacote-de-experiencia.md)): preferências de idioma, fuso, profundidade e opt-out pelo onboarding; skills em inglês e pt-BR; blocos reversíveis em Claude Code/Codex e entrada Hermes; consultas MCP de reservas/fábrica e aviso de item sem associação. O bloco aponta o catálogo por caminho relativo ao projeto e é adotado num clone sem recibo; versão mantida.
 - **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
     fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou

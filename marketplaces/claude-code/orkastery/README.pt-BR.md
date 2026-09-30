@@ -12,7 +12,7 @@ Este plugin leva ao Claude Code o ciclo de condução do Orkastery. Cada tarefa 
 
 | Componente | O que é |
 | --- | --- |
-| 18 skills | Roteadores finos para o CLI `ork`: as skills de fase, as de governança (triagem de decisão, guardião da narrativa, guardião do roadmap, checagem de escopo), estado e rastro da thread e quatro revisores do CHECK |
+| 20 skills | Roteadores finos para o CLI `ork`: as skills de fase, as de governança (triagem de decisão, guardião da narrativa, guardião do roadmap, checagem de escopo), estado e rastro da thread, quatro revisores do CHECK e o pacote de experiência de orquestração em inglês e pt-BR |
 | 8 comandos | `/orkastery:ork`, `/orkastery:goal`, `/orkastery:plan`, `/orkastery:go`, `/orkastery:check`, `/orkastery:ship`, `/orkastery:master`, `/orkastery:onboarding` |
 | 6 subagentes | `ork-goal`, `ork-plan`, `ork-go`, `ork-check`, `ork-ship`, `ork-master`, um por fase, para cada fase rodar com contexto próprio |
 | 5 checklists | As referências que os revisores aplicam: eixos de code review, segurança, padrões de teste, performance e definição de pronto |

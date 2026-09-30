@@ -13,7 +13,7 @@ This plugin brings the Orkastery conduction cycle to Codex as skills. Each task 
 | Component | What it is |
 | --- | --- |
 | The `ork` entry skill | Recognizes `orkastery maestro`, reads the state of your project through the CLI and presents progress, decisions and delivery in the conversation |
-| 18 catalog skills | Thin routers to the `ork` CLI: the phase skills, the governance skills (decision triage, narrative guardian, roadmap keeper, scope check), thread state and tracing, and four reviewers for CHECK |
+| 20 catalog skills | Thin routers to the `ork` CLI: the phase skills, the governance skills (decision triage, narrative guardian, roadmap keeper, scope check), thread state and tracing, four reviewers for CHECK, and the orchestration experience pack in English and pt-BR |
 | 5 checklists | The references the reviewer skills apply: code review axes, security, testing patterns, performance, definition of done |
 
 The methodology lives in the CLI, not in the plugin. When a skill and the CLI disagree, the CLI wins.

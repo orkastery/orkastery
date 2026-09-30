@@ -119,7 +119,7 @@ Recomendação: todos os países disponíveis. O plugin é MIT, não coleta dado
 ### Release notes
 
 ```text
-Initial release. Orkastery as a skills-only plugin for Codex: the `ork` entry skill (say "orkastery maestro") and 18 skills that route Codex to the local ork CLI for six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER), claims re-run on the real HEAD, and short human decisions with one recommended option. Requires the ork CLI from npm (@orkastery/cli) and `ork mcp install --project . --host codex` in the repository. No hooks, no MCP server of its own, no network requests from the plugin.
+Initial release. Orkastery as a skills-only plugin for Codex: the `ork` entry skill (say "orkastery maestro") and 20 skills that route Codex to the local ork CLI for six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER), claims re-run on the real HEAD, and short human decisions with one recommended option. Requires the ork CLI from npm (@orkastery/cli) and `ork mcp install --project . --host codex` in the repository. No hooks, no MCP server of its own, no network requests from the plugin.
 
 Reviewer setup: npm install -g @orkastery/cli; in an empty git repository run ork init --name demo --abbrev dem, then ork mcp install --project . --host codex, then start Codex there and say "orkastery maestro".
 ```

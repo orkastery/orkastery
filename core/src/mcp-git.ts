@@ -79,6 +79,9 @@ function configPassiva(chave: string, valor: string, credenciaisInertes = false)
   // Definição não executa nada: a ausência de uso efetivo é provada abaixo.
   if (/^filter\.[a-zA-Z0-9._-]+\.(clean|smudge|process|required)$/.test(chave)) return valor.length<=8192 && !valor.includes('\0');
   if (['user.name','user.email'].includes(chave)) return !!valor.trim() && valor.length<=512 && !/[\x00-\x1f]/.test(valor);
+  // RM-051: só afrouxa a checagem de dono, e o Git só a lê no sistema ou no global; o repositório
+  // continua conferido chave a chave aqui. A imagem do runner hospedado do GitHub grava `safe.directory=*`.
+  if (chave==='safe.directory') return valor.length<=4096 && !/[\x00-\x1f\x7f]/.test(valor);
   // RM-037 (defeitosdeco D-3): a seção do próprio produto (por exemplo `orkastery.cortefeito`, lida
   // pela trava do corte no pre-push). O Git nunca lê essa seção, então ela não executa nada.
   if (/^orkastery\.[a-z0-9-]+$/.test(chave)) return valor.length<=512 && !/[\x00-\x1f\x7f]/.test(valor);
