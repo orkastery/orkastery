@@ -1,228 +1,894 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-rm037defeito",
+  "thread": "ork-pacotedeexpe",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/test/cota-terminal.test.ts",
-      "alegacao": "Defeito 7: os testes defeitosdeco D-6 que redespacham põem o stub em working antes do redespacho e só marcam failed depois de escrever a transcrição; a intercalação de pior caso (observar a sessão redespachada logo após o retry) não grava phase_result, então o resultado não depende de quem vence a corrida.",
+      "arquivo": "docs/roadmap/RM-051-pacote-de-experiencia.md",
+      "alegacao": "C1 prospectiva RM-051: cadastro publico de roadmap, indice e feature coerentes; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test --test-name-pattern \"defeitosdeco D-6\" core/dist-test/test/cota-terminal.test.js"
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-29T13:22:36.870Z",
+      "criadoEm": "2026-09-29T12:21:25.864Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C2",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/src/hitl-contract.ts",
-      "alegacao": "Defeito 4: a decisão informada acima do teto diz o campo e o tamanho (por exemplo \"decidido tem 201 caracteres; o teto é 200\"), quebra de linha e campo ausente têm mensagem própria, e o mesmo vale para o custo de reverter (140) e a referência do critério (300).",
+      "arquivo": "skills/core/orchestration-experience/SKILL.md",
+      "alegacao": "C2 prospectiva RM-051: pacote bilingue preserva 12 regras, roteia ao nucleo e cada skill tem evals de caminho feliz, racionalizacao e borda; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-teto-da-decisao.test.js core/dist-test/test/hitl-v2-contrato.test.js core/dist-test/test/decisao-autonoma.test.js"
+        "node core/dist/index.js eval",
+        "node core/dist/index.js prompt lint"
       ],
-      "criadoEm": "2026-09-29T13:22:39.414Z",
+      "criadoEm": "2026-09-29T12:21:25.939Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C3",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/src/ci.ts",
-      "alegacao": "Defeito 6: ork ci prepare grava .ork-ci/bundle.json na worktree da thread, e o diferimento de claim consulta o git ls-files da worktree, com o manifesto carregado da raiz ou da worktree.",
+      "arquivo": "core/src/experiencia.ts",
+      "alegacao": "C3 prospectiva RM-051: idioma, fuso, profundidade e opt-out configuraveis pelo nucleo, com defaults do sistema e preservacao de valores explicitos; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-ci-prepare-worktree.test.js core/dist-test/test/ci.test.js"
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-config.test.js core/dist-test/test/onboarding-experiencia.test.js"
       ],
-      "criadoEm": "2026-09-29T13:22:41.314Z",
+      "criadoEm": "2026-09-29T12:21:26.021Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C4",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/src/phase.ts",
-      "alegacao": "Defeito 2: o modo de sessão sai do bloco, não da fase de entrada. PLAN de entrada num bloco que segue para GO sai sem modo plano no codex e no claude-bg; CHECK de entrada no codex num bloco que segue para SHIP abre turno comum, sem review/start; bloco de uma fase só mantém o modo da fase; ork retry segue a mesma regra.",
+      "arquivo": "core/scripts/testar-experiencia-e2e.cjs",
+      "alegacao": "C4 prospectiva RM-051: tarball instalado em HOME/projeto temporarios ativa pacote nos hosts, reinstala sem duplicacao e desinstala restaurando bytes; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-modo-do-bloco.test.js"
+        "node core/scripts/testar-experiencia-e2e.cjs"
       ],
-      "criadoEm": "2026-09-29T13:22:43.826Z",
+      "criadoEm": "2026-09-29T12:21:26.089Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C5",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/src/board.ts",
-      "alegacao": "Defeito 3: com concurrency.max_parallel_threads N e N sessões vivas de outras threads do projeto (condução exec com dono sessao, de qualquer runtime e conta), ork phase run recusa com motivo concurrency.limite, lista quem ocupa e grava slot_refused sem abrir sessão; com --esperar, espera a vaga e despacha quando ela libera; o ensaio diz a mesma coisa sem gravar.",
+      "arquivo": "core/src/mcp-experiencia.ts",
+      "alegacao": "C5 prospectiva RM-051: consultas MCP de reservas/fabrica somente leitura, projeto fixado e indisponibilidade explicita; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-limite-de-sessoes.test.js core/dist-test/test/board.test.js"
+        "npm --prefix core run build:test && node --test core/dist-test/test/mcp-experiencia.test.js"
       ],
-      "criadoEm": "2026-09-29T13:22:46.402Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C6",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "core/src/verify.ts",
-      "alegacao": "Defeito 1 (baseline): o despacho codex de um bloco que contém GO, sem baseline na thread e com sandbox que não grava o estado, grava baseline_recorded pela mesma gravarBaseline do CLI (execução real no HEAD, origem phase.run) antes do phase_dispatch; o ensaio, o claude-bg e a thread que já tem baseline não gravam de novo.",
-      "negativa": false,
-      "verificar": [
-        "node --test core/dist-test/test/rm037-baseline-no-despacho.test.js"
-      ],
-      "criadoEm": "2026-09-29T13:22:48.298Z",
+      "criadoEm": "2026-09-29T12:21:26.160Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C7",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GOAL",
-      "arquivo": "core/src/mcp-server.ts",
-      "alegacao": "Defeito 1 (decisão): a ferramenta MCP ork_decision_record grava autonomous_decision pela mesma registrarDecisao do CLI (contrato ork.decisao-autonoma/v1, classe decidido, critério que resolve, rastro quemDecidiu/evidencia/razao) com origem mcp e o host; recusa thread de outro escopo, critério que não resolve e campo acima do teto sem gravar nada.",
+      "arquivo": "core/scripts/checar-experiencia-publica.cjs",
+      "alegacao": "C7 prospectiva RM-051: grep dos arquivos novos sem ocorrencias dos padroes pessoais documentados; nao garante ausencia de todo nome possivel; nao verificada.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-decisao-mcp.test.js"
+        "node core/scripts/checar-experiencia-publica.cjs"
       ],
-      "criadoEm": "2026-09-29T13:22:50.794Z",
+      "criadoEm": "2026-09-29T12:21:26.346Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-051-pacote-de-experiencia.md",
+      "alegacao": "T1: cadastro planejado de RM-051/FEAT-030 e índices coerentes; sem alegação de implementação, aprovação ou publicação. Validação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T12:53:42.446Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C9",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "core/src/entrega-pr.ts",
-      "alegacao": "Defeito 5: ork ship registrar-pr com --repo e --pr registra ship_done de PR mesclado em repositório declarado em ci.external_repositories, com o merge dentro da ponta da base pela API do GitHub e o check declarado verde no head do PR; recusa repositório não declarado, PR aberto, merge fora da base e CI vermelho, e não registra a mesma entrega duas vezes.",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T1: cadastro planejado de RM-051/FEAT-030 e índices coerentes; sem alegação de implementação, aprovação ou publicação. Validação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/rm037-entrega-externa.test.js core/dist-test/test/entrega-pr.test.js"
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-29T13:22:54.902Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C10",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "core/src/mcp-install.ts",
-      "alegacao": "Defeito 1 (grant): ork_decision_record tem o grant de mutação do filho nos dois runtimes (TOOLS_FILHO_CODEX com approval_mode approve no codex; allowedTools do perfil worktree no claude-bg), sem nenhuma ferramenta de gate ou de decisão do dono.",
-      "negativa": true,
-      "verificar": [
-        "node --test core/dist-test/test/rm037-decisao-mcp.test.js core/dist-test/test/claude-worktree-permissions.test.js core/dist-test/test/maestro-isolation.test.js"
-      ],
-      "criadoEm": "2026-09-29T14:04:07.960Z",
+      "criadoEm": "2026-09-29T12:53:42.498Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C11",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "prompts/fase-padrao.md",
-      "alegacao": "O prompt canônico de fase (template embutido e cópia versionada, idênticos) cita ork_decision_record ao lado de ork decisao registrar, e a skill de bootstrap tem a linha da decisão autônoma.",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "T1: cadastro planejado de RM-051/FEAT-030 e índices coerentes; sem alegação de implementação, aprovação ou publicação. Validação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/prompts.test.js",
-        "grep -q 'ork_decision_record' prompts/fase-padrao.md",
-        "grep -q 'ork_decision_record' skills/core/orkastery-bootstrap/SKILL.md"
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
       ],
-      "criadoEm": "2026-09-29T14:04:09.491Z",
+      "criadoEm": "2026-09-29T12:53:42.640Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C12",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "A referência do CLI documenta o limite de sessões e a baseline do codex no phase run, os tetos e a ferramenta MCP da decisão, o registrar-pr com --repo e --pr e o bundle do ci prepare na worktree; o RM-037 e o CHANGELOG registram os sete defeitos; o Markdown passa no lint e nos links.",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/experiencia.ts",
+      "alegacao": "T2: preferências públicas validadas com defaults do ambiente, opt-out explícito e compatibilidade do fuso. Verificação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs",
-        "grep -q -- '--repo <dono/nome> --pr <n>' docs/referencia/cli.md",
-        "grep -q 'ork-rm037defeito' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
-        "grep -q 'Defeitos de condução de 29/09/2026' CHANGELOG.md"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/experiencia-config.test.js"
       ],
-      "criadoEm": "2026-09-29T14:04:12.522Z",
+      "criadoEm": "2026-09-29T13:02:39.530Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C13",
-      "thread": "ork-rm037defeito",
-      "fase": "GOAL",
-      "arquivo": "orkastery.yaml",
-      "alegacao": "O manifesto do projeto declara orkastery/orkastery.com e orkastery/orkmind.com em ci.external_repositories sem check exigido, e continua válido (sem erro nem aviso).",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T2: preferências públicas validadas com defaults do ambiente, opt-out explícito e compatibilidade do fuso. Verificação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node -e \"const m=require('./core/dist/manifest').carregarManifesto(process.cwd());const e=m.manifesto.ci.external_repositories;if(m.erros.length||e['orkastery/orkastery.com']!==''||e['orkastery/orkmind.com']!=='')process.exit(1)\""
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/experiencia-config.test.js"
       ],
-      "criadoEm": "2026-09-29T14:04:14.085Z",
+      "criadoEm": "2026-09-29T13:02:39.599Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C14",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GO",
-      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
-      "alegacao": "Regressão do verify de 29/09 11:09 (HEAD fd3d4afc): a skill de bootstrap, que já estava no teto de 120 linhas na base, ganhou a linha da decisão autônoma (f44a1286) e foi a 121; a correção 9f362d9a a devolve a 120 com ork_decision_record na mesma tabela. O teste de catálogo \"cada skill e casca fina\" reprova o arquivo de fd3d4afc (121 linhas, 3 de 3 rodadas) e passa no HEAD (3 de 3), sem dependência de relógio ou carga.",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "T2: preferências públicas validadas com defaults do ambiente, opt-out explícito e compatibilidade do fuso. Verificação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node --test --test-name-pattern \"casca fina\" core/dist-test/test/catalogo.test.js",
-        "grep -q 'ork_decision_record' skills/core/orkastery-bootstrap/SKILL.md"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/experiencia-config.test.js"
       ],
-      "criadoEm": "2026-09-30T02:07:24.204Z",
+      "criadoEm": "2026-09-29T13:02:39.650Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C15",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GO",
-      "arquivo": "core/test/rm037-limite-de-sessoes.test.ts",
-      "alegacao": "S1 do CHECK final (defeito 3): a sessão viva de thread fechada não ocupa vaga, mesmo com o lease da condução ainda gravado, pelos dois caminhos de fechamento: o administrativo (evento thread_closed_admin e status) e o status sem evento (como a migração do MASTER). O teste reprova com o mutante que tira de conducaoDaThread a regra do status fechada.",
+      "arquivo": "core/test/experiencia-config.test.ts",
+      "alegacao": "T2: preferências públicas validadas com defaults do ambiente, opt-out explícito e compatibilidade do fuso. Verificação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node --test --test-name-pattern \"thread fechada\" core/dist-test/test/rm037-limite-de-sessoes.test.js"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/experiencia-config.test.js"
       ],
-      "criadoEm": "2026-09-30T02:19:55.597Z",
+      "criadoEm": "2026-09-29T13:02:39.712Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C16",
-      "thread": "ork-rm037defeito",
+      "thread": "ork-pacotedeexpe",
       "fase": "GO",
-      "arquivo": "core/test/rm037-baseline-no-despacho.test.ts",
-      "alegacao": "S2 do CHECK final (defeito 1): com a policy verify_regression ligada, o ensaio (--dry-run) do codex num bloco com GO sem baseline conta a baseline que o despacho real do CLI vai gravar e não avisa \"vai sair sem baseline\"; no MCP (baselinePeloDespacho false) o aviso continua; o ensaio não executa a suíte. O despacho real também não avisa, e o teste dele reprova com o mutante que tira essa conta de temBaseline.",
+      "arquivo": "core/src/onboarding.ts",
+      "alegacao": "T3: configuração pública em maestro.owner e consulta efetiva; preservação de respostas e validação antes de escrita. Testes CLI pendentes da condutora por spawnSync EPERM; verificação oficial pendente.",
       "negativa": false,
       "verificar": [
-        "node --test --test-name-pattern \"S2 do CHECK final|grava a baseline antes do phase_dispatch, uma vez\" core/dist-test/test/rm037-baseline-no-despacho.test.js"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
       ],
-      "criadoEm": "2026-09-30T02:22:06.997Z",
+      "criadoEm": "2026-09-29T13:07:04.267Z",
       "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/init.ts",
+      "alegacao": "T3: configuração pública em maestro.owner e consulta efetiva; preservação de respostas e validação antes de escrita. Testes CLI pendentes da condutora por spawnSync EPERM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:07:04.548Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T3: configuração pública em maestro.owner e consulta efetiva; preservação de respostas e validação antes de escrita. Testes CLI pendentes da condutora por spawnSync EPERM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:07:04.631Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/onboarding-experiencia.test.ts",
+      "alegacao": "T3: configuração pública em maestro.owner e consulta efetiva; preservação de respostas e validação antes de escrita. Testes CLI pendentes da condutora por spawnSync EPERM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:07:04.726Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/core/onboarding/SKILL.md",
+      "alegacao": "T3: configuração pública em maestro.owner e consulta efetiva; preservação de respostas e validação antes de escrita. Testes CLI pendentes da condutora por spawnSync EPERM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:07:04.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/experiencia-instalacao.ts",
+      "alegacao": "T4: bloco gerenciado idempotente, remoção com restauração de bytes e recusa conservadora de conflitos e links. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-instalacao.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:09:33.093Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/experiencia-instalacao.test.ts",
+      "alegacao": "T4: bloco gerenciado idempotente, remoção com restauração de bytes e recusa conservadora de conflitos e links. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-instalacao.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:09:33.227Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "T5: integração do bloco com adapter install, opt-out, reinstalação e remoção explícita; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:13:50.613Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T5: integração do bloco com adapter install, opt-out, reinstalação e remoção explícita; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:13:50.676Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/adapter-experiencia.test.ts",
+      "alegacao": "T5: integração do bloco com adapter install, opt-out, reinstalação e remoção explícita; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:13:50.793Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/core/orchestration-experience/SKILL.md",
+      "alegacao": "T6: duas variantes do pacote com 12 regras e três casos estáticos por skill. Eval estrutural não comprova comportamento de LLM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-skills",
+        "node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-09-29T13:14:47.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/core/orchestration-experience-pt-br/SKILL.md",
+      "alegacao": "T6: duas variantes do pacote com 12 regras e três casos estáticos por skill. Eval estrutural não comprova comportamento de LLM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-skills",
+        "node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-09-29T13:14:47.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "eval/casos/orchestration-experience.json",
+      "alegacao": "T6: duas variantes do pacote com 12 regras e três casos estáticos por skill. Eval estrutural não comprova comportamento de LLM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-skills",
+        "node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-09-29T13:14:47.287Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "eval/casos/orchestration-experience-pt-br.json",
+      "alegacao": "T6: duas variantes do pacote com 12 regras e três casos estáticos por skill. Eval estrutural não comprova comportamento de LLM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-skills",
+        "node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-09-29T13:14:47.391Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/README.md",
+      "alegacao": "T6: duas variantes do pacote com 12 regras e três casos estáticos por skill. Eval estrutural não comprova comportamento de LLM; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-skills",
+        "node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-09-29T13:14:47.485Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/.claude-plugin/plugin.json",
+      "alegacao": "T7: entradas distribuídas em Claude Code, Codex e Hermes referenciam variantes reais; OpenClaw mantém lacuna de skills. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-hosts.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:15:41.583Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "adapters/codex/skills/ork/SKILL.md",
+      "alegacao": "T7: entradas distribuídas em Claude Code, Codex e Hermes referenciam variantes reais; OpenClaw mantém lacuna de skills. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-hosts.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:15:41.660Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "adapters/hermes/skills/orkastery-devmaster/SKILL.md",
+      "alegacao": "T7: entradas distribuídas em Claude Code, Codex e Hermes referenciam variantes reais; OpenClaw mantém lacuna de skills. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-hosts.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:15:41.739Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/experiencia-hosts.test.ts",
+      "alegacao": "T7: entradas distribuídas em Claude Code, Codex e Hermes referenciam variantes reais; OpenClaw mantém lacuna de skills. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-hosts.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:15:41.816Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T9: avisar item sem associacao de roadmap; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:24:44.072Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/thread-roadmap-aviso.test.ts",
+      "alegacao": "T9: avisar item sem associacao de roadmap; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/thread-roadmap-aviso.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:24:44.127Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/scripts/testar-experiencia-e2e.cjs",
+      "alegacao": "T10: preparar ensaio isolado de distribuicao; verificação oficial pendente; instalação real reservada à condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-distribuicao.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:24:45.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/experiencia-distribuicao.test.ts",
+      "alegacao": "T10: preparar ensaio isolado de distribuicao; verificação oficial pendente; instalação real reservada à condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-distribuicao.test.js"
+      ],
+      "criadoEm": "2026-09-29T13:24:45.341Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/guias/orchestration-experience.md",
+      "alegacao": "T11: guias bilíngues de configuração, descoberta, opt-out, remoção, coordenação e lacunas; links e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:11.246Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/guias/orchestration-experience.pt-BR.md",
+      "alegacao": "T11: guias bilíngues de configuração, descoberta, opt-out, remoção, coordenação e lacunas; links e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:11.330Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "T11: guias bilíngues de configuração, descoberta, opt-out, remoção, coordenação e lacunas; links e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:11.435Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/guias/onboarding.md",
+      "alegacao": "T11: guias bilíngues de configuração, descoberta, opt-out, remoção, coordenação e lacunas; links e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:11.521Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/README.md",
+      "alegacao": "T11: guias bilíngues de configuração, descoberta, opt-out, remoção, coordenação e lacunas; links e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:11.596Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/scripts/checar-experiencia-publica.cjs",
+      "alegacao": "T12: varredura pública delimitada com termos externos e recusa de arquivos ausentes/erro de execução; scan real e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-publica.test.js",
+        "node core/scripts/checar-experiencia-publica.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:32.594Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/experiencia-publica.test.ts",
+      "alegacao": "T12: varredura pública delimitada com termos externos e recusa de arquivos ausentes/erro de execução; scan real e verificação oficial pendentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/experiencia-publica.test.js",
+        "node core/scripts/checar-experiencia-publica.cjs"
+      ],
+      "criadoEm": "2026-09-29T13:27:32.667Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T13: comportamento em Não publicado com versão preservada e estado em desenvolvimento; testes locais com falhas e aceite oficial pendente, sem declaração de release.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-09-29T13:31:32.893Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-051-pacote-de-experiencia.md",
+      "alegacao": "T13: comportamento em Não publicado com versão preservada e estado em desenvolvimento; testes locais com falhas e aceite oficial pendente, sem declaração de release.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-09-29T13:31:33.104Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/core/orchestration-experience/SKILL.md",
+      "alegacao": "GO-FIX 1: variante inglesa inclui tabela de racionalizações e âncoras exigidas pelo catálogo, mantendo limite de roteador; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/catalogo.test.js",
+        "node core/dist/index.js eval --so-skills"
+      ],
+      "criadoEm": "2026-09-29T14:04:51.759Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "skills/core/orchestration-experience-pt-br/SKILL.md",
+      "alegacao": "GO-FIX 1: variante pt-BR inclui tabela de racionalizações e âncoras exigidas pelo catálogo; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist-test/test/catalogo.test.js",
+        "node core/dist/index.js eval --so-skills"
+      ],
+      "criadoEm": "2026-09-29T14:04:51.828Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "GO-FIX 1: catálogo sem a skill selecionada ou caminho incompatível com o bloco pula apenas a ativação opcional, com aviso, e preserva a instalação do adaptador; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='catálogo antigo|caminho incompatível' core/dist-test/test/adapter-experiencia.test.js",
+        "node core/dist-test/test/claude-worktree-permissions.test.js"
+      ],
+      "criadoEm": "2026-09-29T14:04:51.901Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/adapter-experiencia.test.ts",
+      "alegacao": "GO-FIX 1: cenários de catálogo antigo/parcial e caminho incompatível conferem aviso, cópia do adaptador, preservação das instruções e recusa mantida no planejador; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='catálogo antigo|caminho incompatível' core/dist-test/test/adapter-experiencia.test.js",
+        "node core/dist-test/test/claude-worktree-permissions.test.js"
+      ],
+      "criadoEm": "2026-09-29T14:04:51.949Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-pacotedeexpe",
+      "fase": "GO",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "GO-FIX 1: inventário declara mcp-experiencia como worker JSON sem apresentação humana de horário; verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test-name-pattern='entradas de processo registram' core/dist-test/test/horario-entradas.test.js"
+      ],
+      "criadoEm": "2026-09-29T14:04:52.005Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/src/experiencia-instalacao.ts",
+      "alegacao": "GO-FIX 2: bloco com caminho relativo ao projeto; bloco íntegro sem recibo (clone novo) é adotado, inclusive o da versão com caminho absoluto; editado recusa; remoção após edição externa não funde linhas nem perde a quebra final; recibo órfão não trava; arquivo novo segue o umask. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/experiencia-instalacao.test.js core/dist-test/test/adapter-experiencia.test.js"
+      ],
+      "criadoEm": "2026-09-30T02:59:36.796Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "GO-FIX 2: adapter install grava o diretório das skills relativo ao projeto; manifesto com erro, bloco editado, link no arquivo de instruções e adaptador fora do projeto pulam só a ativação, com aviso; o pré-voo de links fica dentro do destino do adaptador. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/experiencia-hosts.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js"
+      ],
+      "criadoEm": "2026-09-30T02:59:38.949Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/src/onboarding.ts",
+      "alegacao": "GO-FIX 3: onboarding set repetido aplica o pedido ao manifesto editado à mão sem mudar a autoria; seção owner nova preserva a quebra final; comentário na linha fica; preferência inválida no manifesto avisa e vale o padrão (como o fuso); C, POSIX e und não viram idioma; manifesto com erro pula só o pacote no adapter install. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/experiencia-config.test.js core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:07:06.070Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/scripts/checar-experiencia-publica.cjs",
+      "alegacao": "GO-FIX 5: a varredura pública cobre os arquivos novos e os alterados pela RM-051 (exceto quickstart, com exemplo genérico anterior) e informa termosExternos; sem lista externa a saída diz 0 e nomes pessoais não foram procurados. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/experiencia-publica.test.js",
+        "node core/scripts/checar-experiencia-publica.cjs"
+      ],
+      "criadoEm": "2026-09-30T03:11:35.333Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "docs/produto/FEAT-031-pacote-de-experiencia.md",
+      "alegacao": "GO-FIX 6: a feature do pacote passa de FEAT-030 a FEAT-031 porque a main já usa FEAT-030 (RM-052); RM-051, MOD-06, índice de produto, guias e CHANGELOG descrevem o comportamento verificado no CHECK, sem declarar merge, release ou deploy. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2"
+      ],
+      "criadoEm": "2026-09-30T03:13:45.332Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/test/adapter-experiencia.test.ts",
+      "alegacao": "GO-FIX 7: opt-out inválido no manifesto não ativa o pacote em silêncio e experiencia show avisa; o pré-voo confere o próprio destino do adaptador; projeto aberto por link com --dir absoluto real continua dentro do projeto; arquivo vazio de antes continua existindo; # entre aspas é valor no manifesto; kill único no MCP. Verificação oficial pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test",
+        "node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/experiencia-instalacao.test.js core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/mcp-experiencia.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:28:12.983Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "core/package.json",
+      "alegacao": "C6 (registrada de novo no CHECK, lint suite-inteira): build, suíte hermética do CI, eval, lint de prompts e Markdown, verificação documental e links verdes no HEAD da branch sincronizada com a main.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build",
+        "npm --prefix core run test:ci",
+        "node core/dist/index.js eval",
+        "node core/dist/index.js prompt lint",
+        "core/node_modules/.bin/markdownlint-cli2",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-30T03:31:22.640Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": ".ork-ci/bundle.json",
+      "alegacao": "Bundle do ork ci prepare da ork-pacotedeexpe sobre a main de 30/09, gerado na worktree: é da thread, tem claims e não leva caminho pessoal nem e-mail.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/bundle.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-pacotedeexpe' || !b.claims.length) process.exit(1)\"",
+        "! grep -IEl \"/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}\" .ork-ci/bundle.json"
+      ],
+      "criadoEm": "2026-09-30T03:31:51.676Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C8",
+      "id": "C35",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C36",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C37",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C38",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C58",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C59",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C63",
       "reason": "local-integration-required"
     }
   ],
