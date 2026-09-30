@@ -20,6 +20,7 @@ import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { estadoDoPedido, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { montarPanoramaDaRede, textoDoPanoramaDaRede } from './network-roadmap';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
@@ -234,7 +235,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     }
   };
   const server = new Server({ name:'orkastery', version:VERSAO_DO_ORK },
-    { capabilities:{tools:{}}, instructions:'Opere somente este projeto pelas ferramentas do nucleo. O parametro opcional projeto so confere o projeto servido; nunca troca a raiz. Decisoes humanas usam ork_request_decision e o dialogo do host; argumentos de ferramenta nunca sao respostas.' });
+    { capabilities:{tools:{}}, instructions:'Opere somente este projeto pelas ferramentas do nucleo. O parametro opcional projeto so confere o projeto servido; nunca troca a raiz. O status do roadmap vem de ork_network_roadmap, transportado como vem. Decisoes humanas usam ork_request_decision e o dialogo do host; argumentos de ferramenta nunca sao respostas.' });
   /**
    * RM-052 (D5): toda tool aceita `projeto`, e ele so CONFERE o projeto fixado no startup. Pedido de
    * outro projeto recusa tipado, com o projeto servido como unico candidato; a raiz nunca muda aqui.
@@ -359,7 +360,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   registrarTool('ork_hitl_pending',{description:'Pedidos HITL atuais da thread, incluindo prazo; nao aprova nem abre pedido.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => resposta({threadId,pendencias:pendencias(threadId)}));
-  registrarTool('ork_roadmap_status',{description:'Status report unico do roadmap no formato aprovado pelo dono: grupos com icones, #HITL no que espera o dono e o fecho. Somente leitura; transporte o texto como vem. O cabecalho diz o projeto consultado e o que nao foi lido (reservas, outras maquinas). E a unica fonte do roadmap: nunca conclua sobre ele a partir de ork_maestro ou de threads.',
+  registrarTool('ork_roadmap_status',{description:'Status report do roadmap SO desta maquina (o checkout local), no formato aprovado pelo dono: grupos com icones, #HITL no que espera o dono e o fecho. Somente leitura; transporte o texto como vem. O cabecalho diz o projeto consultado e o que nao foi lido (reservas, outras maquinas). Para o status do roadmap com as threads de todas as maquinas, as reservas, as fontes e as lacunas, use ork_network_roadmap; nunca conclua sobre ele a partir de ork_maestro ou de threads.',
     inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async () => {
       const c=carregar();
       // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
@@ -367,6 +368,16 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
         lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork fabrica)']});
       const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
+    });
+  /**
+   * RM-054 (fatia 2, D-G5): o roadmap da rede do projeto servido, em todas as maquinas dele. O servidor
+   * fixado nao le o registro nem revela os outros projetos (D5 da RM-052); o texto e o do CLI.
+   */
+  registrarTool('ork_network_roadmap',{description:'Roadmap da rede do projeto servido, somente leitura: o status report do roadmap (RM-048) com as threads de TODAS as maquinas, as reservas, as threads por maquina com a idade da batida, a fonte e a hora de cada parte e as lacunas tipadas. E a fonte do status do roadmap: transporte o texto como vem, sem reescrever nem resumir. Lacuna e "Nao consultado" sao o que nao foi lido: nunca conclua "roadmap vazio" nem "nenhuma maquina publicou" a partir deles. Este servidor le so o projeto fixado; os outros projetos vem do CLI ork network roadmap.',
+    inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:true}},async () => {
+      carregar();
+      const panorama=montarPanoramaDaRede({fixado:raiz});
+      return resposta({texto:textoDoPanoramaDaRede(panorama),panorama});
     });
   registrarTool('ork_observe',{description:'Observa uma vez o progresso canonico e pedidos da thread. Nao cria monitor ou despacho.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {
