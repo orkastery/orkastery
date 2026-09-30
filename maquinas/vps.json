@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:36:17.236Z",
+  "publicadoEm": "2026-09-30T02:45:01.828Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -70,7 +70,7 @@
       "status": "aberta",
       "roadmap": "RM-026",
       "branch": "ork/ork-rm026k3dossi-full",
-      "atualizadaEm": "2026-09-30T02:35:52.682Z",
+      "atualizadaEm": "2026-09-30T02:43:58.040Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -100,20 +100,6 @@
       "branch": "ork/ork-rm037defeito-full",
       "atualizadaEm": "2026-09-30T02:22:06.998Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-rm049marketp",
-      "nome": "RM-049: marketplaces e textos do lançamento",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-rm049marketp-full",
-      "atualizadaEm": "2026-09-30T02:35:02.599Z",
-      "entregue": "f0b79255",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
