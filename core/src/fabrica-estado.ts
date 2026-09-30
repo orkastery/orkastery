@@ -108,8 +108,9 @@ export function arquivoDaMaquina(maquina: string): string {
 export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): Map<string, string> {
   // A base vem do manifesto: a ref vai sempre qualificada (`refs/...`), e um valor como
   // `--output=<arquivo>` nunca vira opcao do `git log`, em qualquer versao do git (RM-054, CHECK).
-  const remota = `refs/remotes/${remoto}/${base}`;
-  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', remota]).ok ? remota : `refs/heads/${base}`;
+  // Na ordem: a copia remota da base, a branch local, e a base escrita como remota (`origin/main`).
+  const candidatas = [`refs/remotes/${remoto}/${base}`, `refs/heads/${base}`, `refs/remotes/${base}`];
+  const ref = candidatas.find((c) => git(raiz, ['rev-parse', '--verify', '--quiet', c]).ok) ?? candidatas[1];
   // Regex basica do git: o `(` e literal.
   const r = git(raiz, ['log', ref, '--format=%h%x09%s', '--grep=^ship(']);
   const entregas = new Map<string, string>();

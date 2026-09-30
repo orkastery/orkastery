@@ -584,6 +584,7 @@ test('rede: base invalida no manifesto nao chega ao git', () => {
     assert.deepEqual([...entregasNaBase(r.a, `--output=${marca}`).keys()], []);
     assert.equal(fs.existsSync(marca), false);
     assert.ok(entregasNaBase(r.a, 'main').has('ork-entregue'));
+    assert.ok(entregasNaBase(r.a, 'origin/main').has('ork-entregue'), 'a base escrita como remota continua achando');
     const manifesto = path.join(r.a, 'orkastery.yaml');
     const antesDoAtaque = fs.readFileSync(manifesto, 'utf8');
     assert.match(antesDoAtaque, /base_branch: "main"/);
