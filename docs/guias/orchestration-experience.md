@@ -24,7 +24,7 @@ The agenda offers activation with detected values, configuration or opt-out. UTC
 | `owner.depth` | `curta` (short) or `detalhada` (detailed) | `curta` |
 | `owner.experience` | `true` or `false` | `true` |
 
-`show --json` reports effective values, their origins and the selected skill. Portuguese locales select the pt-BR variant; other locales select English while retaining the configured response language. Invalid answers are rejected before persistence. Explicit configuration wins over detection.
+`show --json` reports effective values, their origins and the selected skill. Portuguese locales select the pt-BR variant; other locales select English while retaining the configured response language. Invalid answers are rejected before persistence. An invalid value edited by hand in the manifest raises a warning and falls back to the default until the same `onboarding set` fixes it. Explicit configuration wins over detection; repeating the same answer applies it to the manifest again.
 
 ## Install and check discovery
 
@@ -35,11 +35,11 @@ ork adapter install codex --dry-run
 ork adapter install codex
 ```
 
-Replace `codex` with `claude-code` or `hermes` as needed. Claude Code receives the catalog and a dedicated block in `CLAUDE.md`; Codex receives the catalog and a block in `AGENTS.md`. The `ork init` block and outside content remain intact. `--dir` changes the catalog destination; the instruction block stays in the project root. Without a manifest in that root, installation only copies the adapter.
+Replace `codex` with `claude-code` or `hermes` as needed. Claude Code receives the catalog and a dedicated block in `CLAUDE.md`; Codex receives the catalog and a block in `AGENTS.md`. The `ork init` block and outside content remain intact. `--dir` changes the catalog destination; the instruction block stays in the project root and points to the catalog by a path relative to the project, so it works in another clone. A catalog outside the project skips the block with a warning. Without a manifest in that root, installation only copies the adapter.
 
 💬 In the host chat opened in that project, use its Orkastery entry and inspect effective preferences. Claude Code also needs the plugin activation steps reported by the installer. File copies do not prove native discovery or model behavior. Another worktree needs its own installation.
 
-Hermes receives both variants next to `orkastery-devmaster`, which reads configuration before activation. OpenClaw does not distribute these skills yet; this gap remains tracked in [RM-051 — orchestration experience](../roadmap/RM-051-pacote-de-experiencia.md).
+Hermes receives both variants next to `orkastery-devmaster`, which reads configuration with `--projeto <name>` before activation. OpenClaw does not distribute these skills yet; this gap remains tracked in [RM-051: orchestration experience](../roadmap/RM-051-pacote-de-experiencia.md).
 
 ## Opt out or remove
 
@@ -59,7 +59,9 @@ ork experiencia uninstall codex --dry-run
 ork experiencia uninstall codex
 ```
 
-Removal accepts `codex` and `claude-code`, preserves the adapter and does not change the global preference. Reinstallation can reactivate it if `experience` stays true. Receipts live in `.orkastery/experiencia/<host>.json`. Without external changes, removal restores previous bytes, including CRLF and an originally missing file. Outside edits remain. Modified/duplicate blocks, incompatible receipts or linked paths cause conservative refusal. Do not delete a receipt to force installation.
+Removal accepts `codex` and `claude-code`, preserves the adapter and does not change the global preference. Reinstallation can reactivate it if `experience` stays true. Receipts live in `.orkastery/experiencia/<host>.json`. Without external changes, removal restores previous bytes, including CRLF and an originally missing file. Outside edits remain, and a line appended after the block does not merge into the file's last line.
+
+In a fresh clone, `CLAUDE.md` or `AGENTS.md` arrives with the block and without the receipt. A block identical to the generated one is adopted, without duplication. Without the receipt, removal takes out the block and the blank line before it; it only cannot know whether the original file lacked a final newline. Modified or duplicate blocks, incompatible receipts or a linked instruction file (such as `CLAUDE.md` pointing to `AGENTS.md`): `adapter install` skips only the pack, with a warning, and installs the adapter; `experiencia uninstall` refuses without writing. Fix the file by hand; do not delete a receipt to force installation.
 
 ## Coordinate work
 
@@ -73,10 +75,10 @@ ork thread new "RM-012 example improvement" --modo auto --roadmap RM-012 --dry-r
 
 Actual creation requires an existing item. Dry-run does not reserve it; without dry-run, `--roadmap` uses core reservation. An `RM-NNN` in the name alone produces a warning without automatic association.
 
-MCP tools `ork_roadmap_reservas` and `ork_fabrica` accept `{}` and use the server's pinned project and `origin`. Results distinguish `atualizado` (current), `desatualizado` (stale) and `indisponivel` (unavailable). Unavailable data is null, not a misleading empty list. Queries can refresh local state-branch copies, but cannot reserve, publish, push or sign gates. Transport uses the installation's authorized GitHub SSH or local bare profile; profile failure stays unavailable.
+MCP tools `ork_roadmap_reservas` and `ork_fabrica` accept `{}` (or only `projeto` with the served project's name) and use the server's pinned project and `origin`. The query runs outside the server loop, which keeps serving other tools; host cancellation or the 90 s deadline end the query process. Results distinguish `atualizado` (current), `desatualizado` (stale) and `indisponivel` (unavailable). Unavailable data is null, not a misleading empty list. Queries can refresh local state-branch copies, but cannot reserve, publish, push or sign gates. Transport uses the installation's authorized GitHub SSH or local bare profile; profile failure stays unavailable.
 
 ## Evidence and limits
 
-Focused tests cover preferences, blocks, conflicts, adapters and MCP contracts. Skill evals are static, not proof of real LLM behavior. From the product repository, `node core/scripts/testar-experiencia-e2e.cjs` installs a local tarball into temporary prefix/HOME, uses the installed binary and checks removal/restoration. Offline installation requires dependencies available in the npm cache.
+Focused tests cover preferences, blocks, fresh clones without receipt, conflicts, adapters and MCP contracts. Skill evals are static, not proof of real LLM behavior. From the product repository, `node core/scripts/testar-experiencia-e2e.cjs` installs a local tarball into temporary prefix/HOME, uses the installed binary and checks dry-run, reinstallation, fresh clone, opt-out, removal and restoration. Offline installation requires dependencies available in the npm cache.
 
-This change remains unreleased. Real installation rehearsal, official verification and independent review still need evidence for RM-051 acceptance. A local commit or local test result is not SHIP.
+This change remains unreleased. A local commit or local test result is not SHIP.
