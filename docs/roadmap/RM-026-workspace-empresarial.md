@@ -4,9 +4,9 @@ tipo: roadmap
 titulo: Workspace empresarial e Maestro
 categoria: iniciativa
 pai: null
-features: [FEAT-024, FEAT-030]
+features: [FEAT-024, FEAT-033]
 owner: Julio
-atualizado_em: 2026-09-29T10:53:17-03:00
+atualizado_em: 2026-09-29T23:37:51-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,12 +17,12 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 10ca416
+    commit: a17ff88
     pr: null
 sdlc:
   thread: ork-rm026k3dossi
   modo: "#Auto"
-  fase: GOAL
+  fase: SHIP
   status: aberta
 ---
 
@@ -38,7 +38,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-- **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-030](../produto/FEAT-030-dossie-de-decisao.md)
+- **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)
 - **Thread:** `ork-rm026k3dossi` (K3.1); antes, `ork-companybrai3`
 
 ## Problema e resultado
@@ -53,7 +53,7 @@ sdlc:
 - **Entregue até aqui:**
   - K1, cartões, estados e criação: identidade, estado e criação recuperável no núcleo (merge `580abb9`).
   - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`).
-  - K3.1, dossiê de decisão somente leitura ([FEAT-030](../produto/FEAT-030-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`).
+  - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
@@ -81,7 +81,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
 | Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-29 | Julio |
+| Código | Mesclado | commit `a17ff88` | 2026-09-29 | Julio |
 | Testes | Aprovados | — | 2026-09-29 | Julio |
 | Deploy | Produção | — | 2026-09-29 | Julio |
 | Exposição | Parcial | — | 2026-09-29 | Julio |

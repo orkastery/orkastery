@@ -1,5 +1,5 @@
 ---
-id: FEAT-030
+id: FEAT-033
 tipo: feature
 titulo: Dossiê de decisão
 estado: vigente
@@ -30,7 +30,7 @@ fontes:
     - ork brain dossie
 ---
 
-# FEAT-030: Dossiê de decisão
+# FEAT-033: Dossiê de decisão
 
 > **Em uma frase:** O `ork brain dossie` reúne as decisões de uma thread com o objetivo e o projeto, o contexto citável, as alternativas, quem decidiu e a evidência, nos mesmos ids do Company Brain. Só leitura.
 

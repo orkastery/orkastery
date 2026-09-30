@@ -4,7 +4,7 @@ tipo: feature
 titulo: Servidor MCP e instalação de adaptadores
 estado: vigente
 pai: MOD-06
-roadmap: [RM-016, RM-032]
+roadmap: [RM-016, RM-032, RM-052]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-24T21:30:00-03:00
@@ -38,7 +38,7 @@ fontes:
 
 - **Estado:** vigente · **Verificado em:** 2026-09-24 · **Versão:** main@f9d9bc1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-02](SYS-02-hosts-e-canais.md) > [MOD-06](MOD-06-integracao-com-hosts.md)
-- **Roadmap:** [RM-016](../roadmap/RM-016-experiencia-do-builder.md), [RM-032](../roadmap/RM-032-bootstrap-maestro.md)
+- **Roadmap:** [RM-016](../roadmap/RM-016-experiencia-do-builder.md), [RM-032](../roadmap/RM-032-bootstrap-maestro.md), [RM-052](../roadmap/RM-052-projeto-alvo-explicito.md)
 - **Dono da página / aprovador:** Julio / Julio
 
 ## Comportamento

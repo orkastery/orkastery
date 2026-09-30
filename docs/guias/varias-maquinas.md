@@ -83,6 +83,24 @@ Pergunta que espera você em outra máquina chega na hora, como a desta, qualque
 cadência do pulse. Ela se responde **lá**: a thread vive naquela máquina, e é o ingresso daquela
 máquina (terminal, Telegram dela ou MCP) que prova que foi você.
 
+## O roadmap da rede, de qualquer diretório
+
+`ork network roadmap` junta o status report do roadmap, as reservas e as threads de cada máquina,
+com a fonte e a hora de cada parte ([RM-054](../roadmap/RM-054-roadmaps-e-threads-da-rede.md)).
+Roda de qualquer diretório, inclusive fora de um clone:
+
+```bash
+ork network roadmap                                     # o projeto do diretório atual
+ork network roadmap --projeto github:orkastery/orkastery  # sem clone: lê a forja, só consulta
+ork network roadmap --projeto orkastery --json           # nome do registro ~/.orkastery/projetos.json
+```
+
+- O roadmap vem da base remota (`origin/main`), igual para toda máquina; esta máquina entra pelo
+  estado local, e as outras pelo retrato publicado.
+- Sem clone, a leitura usa a CLI da forja já autenticada (`gh`, `glab`); nenhum token sai dela.
+- O que não foi lido sai como lacuna, com o tipo e o que fazer: máquina sem batida há mais de 3 h,
+  forja sem login, sem rede. A resposta nunca diz "vazio" por não ter lido.
+
 ## Sair
 
 `ork fabrica sair` para de publicar desta máquina e tira o retrato dela da branch. O nome fica

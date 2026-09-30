@@ -54,7 +54,7 @@ export interface VinculoDoDossie {
   projeto: { productId: string | null; projectId: string; initiativeIds: string[]; origem: 'escopo-vinculado' | 'objetivo' } | null;
   /**
    * O vínculo com os nomes do `cycle` dos eventos do Brain. A captura de hoje só preenche `project_id` e
-   * `initiative_ids`, pelo escopo vinculado, e grava `objective_id` nulo (FEAT-030, fora deste corte).
+   * `initiative_ids`, pelo escopo vinculado, e grava `objective_id` nulo (FEAT-033, fora deste corte).
    */
   brain: { thread_id: string; objective_id: string | null; project_id: string | null; initiative_ids: string[] };
 }

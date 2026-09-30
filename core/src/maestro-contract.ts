@@ -31,10 +31,14 @@ export const maestroSectionSchema = z.object({
 export type MaestroSection = z.infer<typeof maestroSectionSchema>;
 export const maestroSnapshotSchema = z.object({
   schema: z.literal(MAESTRO_SCHEMA), observedAt: z.string().datetime(), fingerprint,
-  project: z.object({ id: identity, name: text, origin: z.enum(['installation', 'cwd', 'worktree', 'selection']), fingerprint }).strict(),
+  // RM-052: a raiz exibida (com ~) e o remoto sem credencial dizem QUAL copia foi lida.
+  project: z.object({ id: identity, name: text, origin: z.enum(['installation', 'cwd', 'worktree', 'selection']), fingerprint,
+    root: text.optional(), remote: text.nullable().optional() }).strict(),
   limits: z.object({ items: z.literal(50), bytes: z.literal(65536), sourceMs: z.literal(2000), totalMs: z.literal(10000) }).strict(),
   sections: z.object(Object.fromEntries(SECTION_NAMES.map(name => [name, maestroSectionSchema])) as Record<SectionName, typeof maestroSectionSchema>).strict(),
   gaps: z.array(text).max(100), conflicts: z.array(text).max(100),
+  // RM-052: o que o panorama NAO le (roadmap, reservas, outras maquinas): lacuna declarada nunca vira "vazio".
+  notConsulted: z.array(text).max(20).optional(),
 }).strict();
 export type MaestroSnapshot = z.infer<typeof maestroSnapshotSchema>;
 export function validateMaestroSnapshot(input: unknown): MaestroSnapshot {

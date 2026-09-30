@@ -62,9 +62,18 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_session_answer` | Resposta humana correlacionada a uma sessão |
 | `ork_ship` | Merge serializado por lease e push provado contra o remoto |
 | `ork_master` | POSTMORTEM tipado e o score HUMANO de 0 a 5 |
-| `ork_board` | Escalonador: quem avanca agora e quem espera |
-| `ork_roadmap_status` | Status report unico do roadmap (`ork roadmap status`), transportado como vem |
+| `ork_board` | As threads DESTE projeto e o escalonador; nao le o roadmap (zero threads nao e roadmap vazio) |
+| `ork_roadmap_status` | Status report unico do roadmap (`ork roadmap status`), transportado como vem; a unica fonte do roadmap |
 | `ork_master_batch` | Todas as entregas, com o indice do ledger (`ork master --todas`; a fila de score saiu na I-43) |
+
+### O projeto de cada chamada (RM-052)
+
+Toda tool aceita `projeto`, o **nome** de um projeto registrado nesta maquina (`ork projetos`),
+nunca um caminho. Ele vai ao `ork` como `--projeto <nome>`. O adaptador declara
+`ORK_PROJETO_EXPLICITO=1`: o diretorio do gateway nao escolhe projeto. Sem `projeto` e com mais de
+um projeto conhecido, a resposta e a escolha tipada `projeto.escolha`, com os candidatos; com um
+so, vale ele. Toda resposta de `ork_maestro`, `ork_board` e `ork_roadmap_status` comeca dizendo o
+projeto consultado e o que nao foi lido.
 
 ## A #TAG de conducao
 

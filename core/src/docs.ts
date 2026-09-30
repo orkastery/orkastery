@@ -123,38 +123,49 @@ export function separarFrontmatter(texto: string): { bruto: string | null; corpo
   return { bruto: t.slice(4, fim + 1), corpo: t.slice(fim + 5) };
 }
 
+/** `_modelo-*.md` e `README.md` sao modelo e indice, nao paginas de entidade. */
+export function ehPaginaDeDocs(nome: string): boolean {
+  return nome.endsWith('.md') && !nome.startsWith('_') && nome !== 'README.md';
+}
+
 function paginas(raiz: string, dir: string): string[] {
   const abs = path.join(raiz, dir);
   if (!fs.existsSync(abs)) return [];
-  // `_modelo-*.md` e `README.md` sao modelo e indice, nao paginas de entidade.
   return fs.readdirSync(abs)
-    .filter((n) => n.endsWith('.md') && !n.startsWith('_') && n !== 'README.md')
+    .filter(ehPaginaDeDocs)
     .sort()
     .map((n) => `${dir}/${n}`);
+}
+
+/**
+ * RM-054: uma pagina a partir do texto, venha ele do disco, de um blob do git ou da forja. O
+ * achado e o mesmo que a leitura do disco daria.
+ */
+export function documentoDeTexto(arquivo: string, texto: string): { doc: Documento } | { achado: Achado } {
+  const { bruto, corpo } = separarFrontmatter(texto);
+  if (bruto === null) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.ausente', 'página sem frontmatter YAML',
+      'comece o arquivo com as chaves do modelo entre duas linhas ---') };
+  }
+  let dados: ValorYaml;
+  try {
+    dados = lerYaml(bruto);
+  } catch (e) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', `frontmatter inválido: ${(e as Error).message}`) };
+  }
+  if (!ehMapa(dados)) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', 'o frontmatter precisa ser um mapa de chaves') };
+  }
+  return { doc: { arquivo, tipo: dados.tipo as TipoDoc, id: String(dados.id ?? ''), dados, corpo } };
 }
 
 export function carregarDocs(raiz: string): { docs: Documento[]; achados: Achado[] } {
   const docs: Documento[] = [];
   const achados: Achado[] = [];
   for (const arquivo of [...paginas(raiz, DIR_PRODUTO), ...paginas(raiz, DIR_ROADMAP)]) {
-    const { bruto, corpo } = separarFrontmatter(fs.readFileSync(path.join(raiz, arquivo), 'utf8'));
-    if (bruto === null) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.ausente', 'página sem frontmatter YAML',
-        'comece o arquivo com as chaves do modelo entre duas linhas ---'));
-      continue;
-    }
-    let dados: ValorYaml;
-    try {
-      dados = lerYaml(bruto);
-    } catch (e) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.invalido', `frontmatter inválido: ${(e as Error).message}`));
-      continue;
-    }
-    if (!ehMapa(dados)) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.invalido', 'o frontmatter precisa ser um mapa de chaves'));
-      continue;
-    }
-    docs.push({ arquivo, tipo: dados.tipo as TipoDoc, id: String(dados.id ?? ''), dados, corpo });
+    const lido = documentoDeTexto(arquivo, fs.readFileSync(path.join(raiz, arquivo), 'utf8'));
+    if ('doc' in lido) docs.push(lido.doc);
+    else achados.push(lido.achado);
   }
   return { docs, achados };
 }
