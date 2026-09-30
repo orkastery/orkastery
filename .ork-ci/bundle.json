@@ -158,16 +158,30 @@
       "lint": []
     },
     {
-      "id": "C12",
+      "id": "C13",
       "thread": "ork-rm026k3dossi",
       "fase": "GOAL",
-      "arquivo": "docs/produto/FEAT-030-dossie-de-decisao.md",
-      "alegacao": "S12: a FEAT-030 descreve o dossie e o comando ork brain dossie; a RM-026 registra o K3.1 e liga a FEAT-030; ork docs verificar passa",
+      "arquivo": "docs/produto/FEAT-033-dossie-de-decisao.md",
+      "alegacao": "S12: a FEAT-033 descreve o dossie e o comando ork brain dossie; a RM-026 registra o K3.1 e liga a FEAT-033; ork docs verificar passa",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar && grep -q 'ork brain dossie' docs/produto/FEAT-030-dossie-de-decisao.md && grep -q 'K3.1' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'FEAT-030' docs/roadmap/RM-026-workspace-empresarial.md"
+        "node core/dist/index.js docs verificar && grep -q 'ork brain dossie' docs/produto/FEAT-033-dossie-de-decisao.md && grep -q 'K3.1' docs/roadmap/RM-026-workspace-empresarial.md && grep -q 'FEAT-033' docs/roadmap/RM-026-workspace-empresarial.md"
       ],
-      "criadoEm": "2026-09-29T13:33:10.108Z",
+      "criadoEm": "2026-09-30T02:43:45.356Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm026k3dossi",
+      "fase": "SHIP",
+      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
+      "alegacao": "Merge com a RM-052: o catalogo do MCP e o do OpenClaw tem 26 tools com o ork_brain_dossie, e toda tool, inclusive ela, aceita projeto opcional so por nome",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && grep -q 'tools.length, 26' core/test/projeto-alvo-mcp.test.ts && grep -q 'tools.length, 26' adapters/openclaw/test/projeto-alvo.test.mjs && env -u FORCE_COLOR node --test core/dist-test/test/projeto-alvo-mcp.test.js && env -u FORCE_COLOR node --test adapters/openclaw/test/projeto-alvo.test.mjs"
+      ],
+      "criadoEm": "2026-09-30T02:43:58.039Z",
       "estado": "verificado",
       "lint": []
     }
