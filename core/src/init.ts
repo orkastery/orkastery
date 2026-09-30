@@ -125,6 +125,10 @@ owner:
   # fuso do dono (nome IANA): todo horario mostrado a pessoas usa este fuso.
   # Ausente: fuso do sistema. Exemplo:
   # timezone: "${FUSO_DE_BRASILIA}"
+  # Preferências: ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  # language: pt-BR  # ausente: locale do sistema
+  # depth: curta    # curta | detalhada
+  # experience: true  # false desativa o pacote na próxima instalação do adaptador
 
 board:
   adapter: hermes-kanban
