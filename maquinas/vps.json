@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T03:00:03.231Z",
+  "publicadoEm": "2026-09-30T03:04:00.444Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -70,11 +70,11 @@
       "status": "aberta",
       "roadmap": "RM-026",
       "branch": "ork/ork-rm026k3dossi-full",
-      "atualizadaEm": "2026-09-30T02:43:58.040Z",
-      "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-30T02:57:01.642Z"
+      "atualizadaEm": "2026-09-30T03:04:00.109Z",
+      "entregue": "46220bcc",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-rm031kg2extr",
