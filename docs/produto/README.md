@@ -39,7 +39,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-014](FEAT-014-monitor-board-e-pulse.md) | Monitor, board e pulse de atenção | feature | vigente | MOD-04 | 2026-09-24 |
 | [FEAT-015](FEAT-015-entrega-e-indice-master.md) | Entrega e índice de condução (MASTER) | feature | vigente | MOD-04 | 2026-09-24 |
 | [FEAT-016](FEAT-016-handoff-e-recall.md) | Handoff triado e recall tardio | feature | vigente | MOD-05 | 2026-09-24 |
-| [FEAT-017](FEAT-017-memoria-orkmind.md) | Memória no OrkMind com degradação honesta | feature | vigente | MOD-05 | 2026-09-24 |
+| [FEAT-017](FEAT-017-memoria-orkmind.md) | Memória no OrkMind com degradação honesta | feature | vigente | MOD-05 | 2026-09-29 |
 | [FEAT-018](FEAT-018-documentacao-como-codigo.md) | Documentação como código | feature | vigente | MOD-05 | 2026-09-24 |
 | [FEAT-019](FEAT-019-telemetria-do-ledger.md) | Telemetria econômica do ledger | feature | vigente | MOD-05 | 2026-09-24 |
 | [FEAT-020](FEAT-020-mcp-e-adaptadores.md) | Servidor MCP e instalação de adaptadores | feature | vigente | MOD-06 | 2026-09-24 |

@@ -9,13 +9,13 @@ import { spawnSync } from 'node:child_process';
 import { pythonFixture } from './native-fixture';
 
 const sentinel = 'transport-test-secret';
-function fixture(body: string, timeoutMs = 3000) {
+function fixture(body: string, timeoutMs = 3000, variavelDaChaveDeEmbedding?: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-transport-'));
   const runner = path.join(dir, 'python');
   fs.writeFileSync(runner, `#!${process.execPath}\n${body}`, { mode: 0o755 });
   const cli = path.join(dir, 'orkmind');
   fs.writeFileSync(cli, `#!${runner}\n`, { mode: 0o755 });
-  return { driver: new DriverCliOrkMind({ cli, dsn: sentinel, variavel: 'TEST_TENANT', timeoutMs }),
+  return { driver: new DriverCliOrkMind({ cli, dsn: sentinel, variavel: 'TEST_TENANT', timeoutMs, variavelDaChaveDeEmbedding }),
     limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 const entry: EntradaNova = { collection: 'decision', content: 'Decisao do evento humano original',
@@ -81,13 +81,76 @@ test('governanca exige human_gate confirmado e recusa elevacao', () => {
   ]) assert.ok(violacoesDeGovernanca(invalid).length);
 });
 
-test('ponte distribuida no pacote nao instancia embedder ou provider', () => {
+test('ponte distribuida no pacote so instancia provider de embedding na operacao embed', () => {
   const root = path.resolve(__dirname, '../..');
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.ok(manifest.files.includes('assets/'));
   const source = fs.readFileSync(path.join(root, 'assets/orkmind_bridge.py'), 'utf8');
   assert.match(source, /submeter_handoff/); assert.match(source, /refacao=0/);
-  assert.match(source, /embedder=None/); assert.doesNotMatch(source, /create_embedder\(|MAX_REFACOES/);
+  assert.doesNotMatch(source, /create_embedder\(|MAX_REFACOES|OPENROUTER_API_KEY/);
+  // I-38 (T2): escrita e leitura seguem sem embedder; o provider nasce so no caminho de embed.
+  const execute = source.slice(source.indexOf('async def execute('), source.indexOf('async def main('));
+  assert.match(execute, /SemanticLayer\(store, embedder=None, semantic_enabled=False\)/);
+  assert.doesNotMatch(execute, /EmbeddingProvider|embed_primary|LocalEmbeddingProvider\(/);
+  assert.equal(source.split('OpenRouterEmbeddingProvider(').length - 1, 1);
+  const primario = source.slice(source.indexOf('async def embed_primary('), source.indexOf('def local_model_dir('));
+  assert.match(primario, /OpenRouterEmbeddingProvider\(api_key_env=EMBED_KEY_ENV/);
+  assert.match(primario, /request_dimensions=True/);
+  const principal = source.slice(source.indexOf('async def main('));
+  assert.ok(principal.indexOf("'embed'") < principal.indexOf('ORKMIND_DATABASE_URL'),
+    'embed responde antes de ler a DSN: a operacao nao toca a base');
+});
+
+test('chave de embedding somente na operacao embed', () => {
+  const chave = ['chave', 'embedding', 'dedicada', 'de', 'teste', '0123456789'].join('-');
+  process.env.TEST_EMBEDDING_KEY = chave;
+  const f = fixture(`const fs=require('fs'),assert=require('assert/strict');
+    const q=JSON.parse(fs.readFileSync(0,'utf8'));
+    const bruto=JSON.stringify(q)+process.argv.join(' ');
+    assert.ok(!bruto.includes(${JSON.stringify(chave)}), 'chave em argv ou stdin');
+    if (q.op==='embed' && q.alvo==='primario') {
+      assert.equal(process.env.ORKMIND_EMBEDDING_API_KEY, ${JSON.stringify(chave)});
+      assert.equal(process.env.ORKMIND_DATABASE_URL, undefined, 'embed nao recebe a DSN');
+    } else {
+      assert.equal(process.env.ORKMIND_EMBEDDING_API_KEY, undefined, 'chave fora do embed primario: '+q.op);
+      if (q.op==='embed') assert.equal(process.env.ORKMIND_DATABASE_URL, undefined);
+      else assert.equal(process.env.ORKMIND_DATABASE_URL, ${JSON.stringify(sentinel)});
+    }
+    const saidas={stats:{decision:1},health:{contagens:{decision:1},orkmind:null,fallback:{dependencias:false}},export:[],query:[],fts:{ids:[]},
+      add:{ok:true,id:'x',duplicada:false,collection:'decision',detalhe:'created'},
+      handoff:{ok:true,id:'h',duplicada:false,collection:'handoff',package_id:'p',package_entry_id:'pe',session_entry_id:'s',readback:true}};
+    if (q.op==='embed') console.log(JSON.stringify({alvo:q.alvo,modelo:q.modelo,dim:q.dim,vetores:q.textos.map(()=>Array(q.dim).fill(0.5))}));
+    else console.log(JSON.stringify(saidas[q.op]));`, 3000, 'TEST_EMBEDDING_KEY');
+  const driver = f.driver;
+  try {
+    const pedido = { papel: 'consulta' as const, modelo: 'org/modelo', dim: 32, textos: ['frase de busca'] };
+    assert.equal(driver.embeddar({ ...pedido, alvo: 'primario' }).vetores[0].length, 32);
+    assert.equal(driver.embeddar({ ...pedido, alvo: 'fallback' }).vetores.length, 1);
+    assert.deepEqual(driver.contagens(), { decision: 1 });
+    assert.equal(driver.disponivel().ok, true);
+    assert.deepEqual(driver.buscarTexto('fabrica', 'rotacao de conta'), []);
+    assert.deepEqual(driver.exportar('decision'), []);
+    assert.deepEqual(driver.consultar(consultaRestrita), []);
+    assert.equal(driver.adicionar(entry).ok, true);
+    // A chave no texto do pedido e recusada antes do filho, sem repetir o valor no erro.
+    assert.throws(() => driver.embeddar({ ...pedido, alvo: 'primario', textos: ['vaza ' + chave] }),
+      e => e instanceof Error && /memory.transport.secret/.test(e.message) && !e.message.includes(chave));
+    delete process.env.TEST_EMBEDDING_KEY;
+    assert.throws(() => driver.embeddar({ ...pedido, alvo: 'primario' }), /embeddings.chave-ausente/);
+  } finally { delete process.env.TEST_EMBEDDING_KEY; f.limpar(); }
+});
+
+test('filho que ecoa a chave de embedding vira erro tipado sem o valor', () => {
+  const chave = ['outra', 'chave', 'de', 'embedding', '9876543210'].join('-');
+  process.env.TEST_EMBEDDING_KEY_ECO = chave;
+  const eco = fixture(`console.log(JSON.stringify({alvo:'primario',modelo:'org/m',dim:32,eco:process.env.ORKMIND_EMBEDDING_API_KEY,vetores:[Array(32).fill(1)]}));`, 3000, 'TEST_EMBEDDING_KEY_ECO');
+  const erro = fixture(`console.log(JSON.stringify({error:'embeddings.provider-indisponivel',detalhe:process.env.ORKMIND_EMBEDDING_API_KEY}));process.exit(1);`, 3000, 'TEST_EMBEDDING_KEY_ECO');
+  const driverDe = (f: ReturnType<typeof fixture>) => f.driver;
+  const pedido = { papel: 'documento' as const, alvo: 'primario' as const, modelo: 'org/m', dim: 32, textos: ['texto'] };
+  try {
+    assert.throws(() => driverDe(eco).embeddar(pedido), e => e instanceof Error && /memory.transport.secret/.test(e.message) && !e.message.includes(chave));
+    assert.throws(() => driverDe(erro).embeddar(pedido), e => e instanceof Error && e.message === 'embeddings.provider-indisponivel');
+  } finally { delete process.env.TEST_EMBEDDING_KEY_ECO; eco.limpar(); erro.limpar(); }
 });
 
 
@@ -173,4 +236,93 @@ print('ponte query: chamadas, fronteiras, saturacao e validacao comprovadas; sto
     env:{PATH:process.env.PATH,HOME:process.env.HOME,PYTHONDONTWRITEBYTECODE:'1'}});
   assert.equal(r.status,0,r.stdout+r.stderr);
   assert.match(r.stdout,/ponte query:/);
+});
+
+test('saude vem da operacao health da ponte, nunca de frase fixa', () => {
+  const f = fixture(`const q=JSON.parse(require('fs').readFileSync(0,'utf8'));
+    if (q.op!=='health' || Object.keys(q).length!==1) process.exit(9);
+    console.log(JSON.stringify({contagens:{decision:3,rule:2},orkmind:'0.3.0',fallback:{dependencias:true}}));`);
+  try {
+    const saude = f.driver.disponivel();
+    assert.equal(saude.ok, true);
+    assert.match(saude.detalhe, /sonda health \(orkmind 0\.3\.0, 5 entrada\(s\) em 2 colecao\(oes\)\)/);
+    assert.doesNotMatch(saude.detalhe, /embeddings desativados/);
+    assert.deepEqual(saude.saude, { contagens: { decision: 3, rule: 2 }, orkmind: '0.3.0', fallback: { dependencias: true } });
+  } finally { f.limpar(); }
+  const malformada = fixture(`console.log(JSON.stringify({contagens:{decision:-1},orkmind:null,fallback:{dependencias:true}}))`);
+  try {
+    assert.equal(malformada.driver.disponivel().ok, false);
+    assert.match(malformada.driver.disponivel().detalhe, /memory.transport.health/);
+  } finally { malformada.limpar(); }
+});
+
+test('ponte Python responde health com contagens, versao e dependencias, sem torch nem rede', () => {
+  const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
+  const py = String.raw`
+import asyncio, importlib.util, sys
+spec=importlib.util.spec_from_file_location('bridge',sys.argv[1]); b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+class Store:
+    async def count(self, c=None): return {'decision': 4, 'rule': 1}[c]
+    async def list_collections(self): return ['decision', 'rule']
+async def run():
+    out = await b.execute({'op': 'health'}, Store())
+    assert out['contagens'] == {'decision': 4, 'rule': 1}, out
+    assert out['orkmind'] is None or isinstance(out['orkmind'], str)
+    assert isinstance(out['fallback']['dependencias'], bool)
+    assert 'torch' not in sys.modules, 'health importou torch'
+    try:
+        await b.execute({'op': 'health', 'fallback_model': 'x/y'}, Store()); raise AssertionError('pedido extra aceito')
+    except b.QueryError as e: assert e.code == 'memory.health.invalid'
+asyncio.run(run())
+print('ponte health: contagens, versao e dependencias sem importar torch')
+`;
+  const r = spawnSync(pythonFixture(), ['-c', py, source], { encoding: 'utf8', timeout: 20000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /ponte health:/);
+});
+
+test('ponte Python responde fts so com ids do tenant, na ordem do ranking, e prova ausencia sem corte', () => {
+  const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
+  const py = String.raw`
+import asyncio, importlib.util, sys
+spec=importlib.util.spec_from_file_location('bridge',sys.argv[1]); b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
+from orkmind.core.models import MemoryEntry
+def e(i, c, p): return MemoryEntry(id=i, collection=c, content='texto ' + i, tags={'project': [p]})
+class Store:
+    def __init__(self, entries, total): self.entries=entries; self.total=total; self.calls=[]
+    async def count(self, c=None): assert c is None; return self.total
+    async def search_by_text(self, texto, collection=None, limit=10, requester_id=None):
+        self.calls.append((texto, collection, limit)); return self.entries[:limit]
+async def run():
+    store = Store([e('a', 'decision', 'fabrica'), e('x', 'decision', 'alheio'), e('s', 'session', 'fabrica'), e('b', 'rule', 'fabrica')], 10)
+    out = await b.execute({'op': 'fts', 'tenant': 'fabrica', 'texto': 'rotacao de conta'}, store)
+    assert out == {'ids': ['a', 'b']}, out
+    assert store.calls == [('rotacao de conta', None, 11)], store.calls
+    try: await b.execute({'op': 'fts', 'tenant': 'fabrica', 'texto': 'x'}, Store([e('a', 'decision', 'fabrica')] * 3, 2)); raise AssertionError('corte aceito')
+    except b.QueryError as err: assert err.code == 'memory.query.window-saturated'
+    for bad in [{'op': 'fts', 'texto': 'x'}, {'op': 'fts', 'tenant': '', 'texto': 'x'}, {'op': 'fts', 'tenant': 'fabrica', 'texto': 'a\x00b'},
+                {'op': 'fts', 'tenant': 'fabrica', 'texto': 'x' * 2001}, {'op': 'fts', 'tenant': 'fabrica', 'texto': 'x', 'collection': 'rule'}]:
+        vazio = Store([], 1)
+        try: await b.execute(bad, vazio); raise AssertionError('pedido invalido aceito')
+        except b.QueryError as err: assert err.code == 'memory.fts.invalid'
+        assert not vazio.calls
+asyncio.run(run())
+print('ponte fts: tenant obrigatorio, colecoes do ork, ordem e corte comprovados; store sintetico')
+`;
+  const r = spawnSync(pythonFixture(), ['-c', py, source], { encoding: 'utf8', timeout: 20000,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /ponte fts:/);
+});
+
+test('valor recusado na variavel da chave (URL ou a propria DSN) nunca vai ao filho', () => {
+  const f = fixture(`console.log(JSON.stringify({alvo:'primario',modelo:'org/m',dim:32,vetores:[Array(32).fill(1)]}))`, 3000, 'TEST_EMBEDDING_KEY_RECUSADA');
+  const pedido = { papel: 'consulta' as const, alvo: 'primario' as const, modelo: 'org/m', dim: 32, textos: ['texto'] };
+  try {
+    for (const valor of ['https://outra.local/segredo-de-teste', sentinel, 'duas partes']) {
+      process.env.TEST_EMBEDDING_KEY_RECUSADA = valor;
+      assert.throws(() => f.driver.embeddar(pedido), e => e instanceof Error && e.message === 'embeddings.chave-ausente');
+    }
+  } finally { delete process.env.TEST_EMBEDDING_KEY_RECUSADA; f.limpar(); }
 });

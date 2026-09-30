@@ -54,6 +54,18 @@ const CASOS_DE_VERIFICADOR_LOCAIS = [
 ];
 const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
   /verify-check-c2-b3\.cjs\s+channel-offer(?:\s|$)/,
+  // I-38: a prova da busca por significado le a memoria do tenant pela DSN do manifesto.
+  /prova-busca-semantica\.sh(?:\s|$)/,
+];
+/**
+ * I-38: o runner hospedado nao oferece OrkMind nem a base do tenant. Claim que chama a memoria
+ * pelo CLI (a DSN vem do manifesto), que exige o OrkMind instalado ou que roda a suite inteira
+ * (ela inclui `TESTES_DE_INTEGRACAO_LOCAL`; o runner roda `test:ci`) fica para a estacao.
+ */
+const USA_A_ESTACAO = [
+  /(?:^|\s)memory\s+(?:status|index|search|sync|migrate|inventory)(?=\s|$)/,
+  /command -v orkmind(?=[\s)"']|$)/,
+  /npm\s+--prefix\s+core\s+test(?![:\w-])/,
 ];
 function exigeIntegracaoLocal(command:string):boolean {
   return [...command.matchAll(/(?:^|[\s/])([a-z0-9-]+\.test\.js)(?=$|[\s;&|])/g)]
@@ -82,7 +94,8 @@ export function motivoDiferimentoCi(
     return 'host-runtime-required';
   }
   if (claim.verificar.some((command) => exigeIntegracaoLocal(command)
-    || CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL.some((caso) => caso.test(command)))) {
+    || CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL.some((caso) => caso.test(command))
+    || USA_A_ESTACAO.some((caso) => caso.test(command)))) {
     return 'local-integration-required';
   }
   return null;

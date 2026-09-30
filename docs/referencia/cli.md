@@ -271,11 +271,13 @@ tipo B não é CHECK.
 | `ork handoff recall <thread> <ponteiro>` | Resolve um ponteiro `path#ancora` de volta ao conteúdo |
 | `ork recall <thread> --fase FASE` | Recuperação tardia de ponteiros e descoberta de handoffs por tenant, thread e fase |
 | ↳ opções | `[--id ptr-N] [--todos] [--forcar] [--sem-conteudo] [--json]` |
-| `ork memory status [--json]` | O regime efetivo (`files` ou `orkmind`), o tenant e a degradação |
+| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings; `--sondar` faz uma chamada real e mede a latência |
 | `ork memory sync [<thread>] [--json]` | Publica decisões, policies, handoff, lição, roadmap e human gates elegíveis somente da thread informada; sem id, apenas policies |
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no tenant (vetor e FTS por RRF), **não determinística**; não combina com `--tags` nem `--thread` |
+| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do tenant, idempotente, com tokens e custo estimados; `--dry-run` não chama o provider |
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
@@ -283,6 +285,8 @@ Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **s
 ```bash
 ork memory search --colecao handoff --tags '{"project":["orkastery"],"skill":["GOAL"]}' --json
 ork recall <thread> --fase GOAL --json
+ork memory index --dry-run --json
+ork memory search --texto "trocar de conta quando acaba a cota" --json
 ```
 
 Tags usam arrays: `project=<tenant>`, `skill=<FASE>`, `situation=<classe>` e
@@ -307,11 +311,14 @@ para o Hermes, `ORK_HITL_INGRESS_KEY_OPENCLAW` para o OpenClaw, e `ORK_HITL_INGR
 somente para o envelope `v1` legado, que não declara canal. Uma chave não cobre o outro
 canal, e não há fallback para a global num envelope `v2`.
 
-Somente o tenant `orkastery` está ativo na fábrica, usando o nome de variável
-`ORKASTERY_ORKMIND_DATABASE_URL`. O schema OrkMind deve estar inicializado; o health check
-não provisiona tabelas (`memory.schema.absent`). A ponte Python vai no pacote npm,
-usa JSON por stdin e credencial no ambiente do filho, sem embedder ou provider pago.
-Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md).
+Somente o tenant `orkastery` está ativo na fábrica, usando o nome de variável que o manifesto
+declara, `ORKASTERY_BRAIN_READ_DATABASE_URL`. O schema OrkMind deve estar inicializado; o
+health check (operação `health` da ponte) não provisiona tabelas (`memory.schema.absent`). A
+ponte Python vai no pacote npm, usa JSON por stdin e credencial no ambiente do filho. O embedder
+existe só na operação `embed`, com a chave declarada em `memory.embedding.api_key_env` e sem a
+DSN; embedding ausente é motivo `embeddings.*`, nunca queda do regime.
+Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e a
+[busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
 
 ---
 

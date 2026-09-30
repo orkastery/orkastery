@@ -10,6 +10,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Pacote de experiência de orquestração** ([RM-051](docs/roadmap/RM-051-pacote-de-experiencia.md)): preferências de idioma, fuso, profundidade e opt-out pelo onboarding; skills em inglês e pt-BR; blocos reversíveis em Claude Code/Codex e entrada Hermes; consultas MCP de reservas/fábrica e aviso de item sem associação. O bloco aponta o catálogo por caminho relativo ao projeto e é adotado num clone sem recibo; versão mantida.
 
+- **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
+    fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou
+    DSN, nome da lista de provider pago e a variável da DSN;
+  - `ork memory index [--modelo primario|fallback|todos] [--dry-run]`: índice vetorial local e
+    derivado do tenant, fora do git, idempotente, com tokens e custo estimados antes da rede;
+  - `ork memory search --texto "<frase>"`: vetor e FTS por RRF dentro do tenant, com a origem
+    declarada e `deterministico: false`; a busca por tag, o recall e o prompt não mudam;
+  - `ork memory status` passa a sondar a ponte (`health`) e mostra o estado dos embeddings, a
+    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa de
+    saúde, que nada sondava, deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
+  - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
+    de embedding pelo nome.
 - **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
   em repositório declarado em `ci.external_repositories`: o PR cita a thread e entrou na branch
