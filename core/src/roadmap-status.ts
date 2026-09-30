@@ -22,6 +22,7 @@ import { alvoDoPedido, ehV2, estadoDoPedido, PedidoHitlQualquer, textoDoPedido }
 import { contextoHitlDosEventos, MOTIVOS_DE_ESCALACAO_HUMANA, prepararPedidoGate } from './hitl-gates';
 import { quemDecide } from './hitl-classificacao';
 import { dataLocal, partesLocais } from './horario';
+import { ConsultaDoProjeto, linhasDaConsulta } from './projeto-alvo';
 import { Thread } from './types';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
@@ -85,6 +86,11 @@ export interface StatusDoRoadmap {
   grupos: { id: GrupoDoRoadmap; icone: string; titulo: string; itens: ItemDoStatus[] }[];
   precisaDeVoce: { item: string; espera: EsperaDoDono }[];
   emSeguida: { item: string; thread: string; fase: string }[];
+  /**
+   * RM-052: qual projeto foi lido (nome, raiz, remoto, origem) e o que nao foi. O CLI e o MCP sempre
+   * preenchem; sem ele o titulo sozinho deixava um canal relatar o projeto errado como o pedido.
+   */
+  consulta?: ConsultaDoProjeto;
 }
 
 type Mapa = { [k: string]: ValorYaml };
@@ -132,7 +138,8 @@ export function esperaDoDono(raiz: string, t: Thread, quando: string): EsperaDoD
 }
 
 /** Monta o relatorio. Leitura pura: nada e escrito, nenhum pedido e aberto. */
-export function montarStatusDoRoadmap(raiz: string, opcoes: { quando?: string; projeto?: string } = {}): StatusDoRoadmap {
+export function montarStatusDoRoadmap(raiz: string,
+    opcoes: { quando?: string; projeto?: string; consulta?: ConsultaDoProjeto } = {}): StatusDoRoadmap {
   const quando = opcoes.quando ?? new Date().toISOString();
   const hoje = dataLocal(quando);
   const threads = new Map<string, Thread>();
@@ -169,6 +176,7 @@ export function montarStatusDoRoadmap(raiz: string, opcoes: { quando?: string; p
     projeto: opcoes.projeto ?? 'projeto', grupos,
     precisaDeVoce: itens.filter(i => i.hitl).map(i => ({ item: i.id, espera: i.hitl! })),
     emSeguida: itens.filter(i => i.conduzindo && !i.hitl).map(i => ({ item: i.id, thread: i.conduzindo!.thread, fase: i.conduzindo!.fase })),
+    ...(opcoes.consulta ? { consulta: opcoes.consulta } : {}),
   };
 }
 
@@ -188,6 +196,8 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap): string {
     [...lista.slice(0, TETO_DO_FECHO).map(f), ...(lista.length > TETO_DO_FECHO ? [`• e mais ${lista.length - TETO_DO_FECHO}`] : [])];
   return [
     `Roadmap do ${capitalizar(s.projeto)} (${p.dia}/${p.mes}, ${p.hora}:${p.minuto})`,
+    // RM-052: logo abaixo do titulo aprovado, qual projeto foi lido e o que nao foi.
+    ...(s.consulta ? linhasDaConsulta(s.consulta) : []),
     ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${g.titulo}`, ...g.itens.map(linhaDoItem)]),
     '', 'O que precisa de você',
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}: ${x.espera.pergunta}` +

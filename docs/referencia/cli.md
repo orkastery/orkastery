@@ -97,6 +97,25 @@ concatenado, guardado numa variável local que vai para o texto ou passado diret
 
 ---
 
+## Projeto-alvo (RM-052)
+
+Todo comando lê **um** projeto. Qual, em ordem de precedência:
+
+1. `--projeto <nome|caminho>`, opção global, em qualquer posição do comando;
+2. a variável `ORK_PROJETO`, com o mesmo formato;
+3. no host sem diretório de projeto (`ORK_PROJETO_EXPLICITO=1`, que OpenClaw e Hermes declaram): o único projeto conhecido, ou a recusa `projeto.escolha` com os candidatos;
+4. o diretório atual, como sempre, no terminal.
+
+Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**; o `ork` nunca escolhe no lugar de quem pediu.
+
+| Comando | O que faz |
+| --- | --- |
+| `ork projetos [--json]` | Os projetos conhecidos desta máquina, do registro `~/.orkastery/projetos.json` (`ork.projetos/v1`): nome, abbrev, raiz, remoto sem credencial, se ainda está no disco. Sem segredo |
+| `ork projetos registrar [caminho]` | Registra a cópia que já existia antes do registro. `ork init`, `ork thread new` e `ork fabrica entrar` já registram sozinhos |
+| `ork projetos esquecer <nome\|caminho>` | Tira do registro a cópia que sumiu ou sobrou; nada no disco é apagado |
+
+Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
+
 ## Threads e fases
 
 | Comando | O que faz |
@@ -432,6 +451,7 @@ Estas listas não são extensiveis pelo executor. Uma delas mudar é uma mudanç
 | --- | --- |
 | `0` | Passou |
 | `3` | Pedido recusado porque outra condução executa na thread (`conducao.em-andamento`), com quem conduz e as três ações |
+| `4` | Projeto-alvo não resolvido (`projeto.escolha`, `projeto.ambiguo`, `projeto.desconhecido`, `projeto.sem-manifesto`, `projeto.nenhum`), com os candidatos; `--json` devolve o mesmo em objeto (RM-052) |
 | diferente de `0` | Reprovou, com o motivo tipado impresso |
 
 Comandos que servem bem como gate de CI: `ork doctor`, `ork verify`, `ork eval`,
