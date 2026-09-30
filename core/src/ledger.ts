@@ -60,6 +60,14 @@ export const TIPOS_DE_EVENTO = {
   worktreeAuditada: 'worktree_audited',
   worktreeLiberada: 'worktree_released',
   leaseEnfileirado: 'lease_queued',
+  // RM-037 (rm037noite, defeito 2): a entrada da fila que saiu porque a thread fechou.
+  leaseDesenfileirado: 'lease_dequeued',
+  // RM-037 (rm037noite, defeito 3): a reserva do roadmap que a thread fechada soltou (ou reapontou),
+  // e a que ficou para depois porque nao deu para soltar agora.
+  reservaLiberada: 'roadmap_reserva_liberada',
+  reservaPendente: 'roadmap_reserva_pendente',
+  // A parte do fechamento que falhou (E/S), com o erro; o fechamento segue valendo.
+  solturaFalhou: 'soltura_ao_fechar_falhou',
   postmortemGravado: 'postmortem_recorded',
   masterConcluido: 'master_done',
   // RM-048 (item 8): o pedido de nota ao dono, com codigo curto; a nota volta pelo ingresso.

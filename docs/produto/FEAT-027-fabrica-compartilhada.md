@@ -17,12 +17,14 @@ fontes:
     - core/src/maquina.ts
   testes:
     - core/test/fabrica-estado.test.ts
+    - core/test/rm037-noite-runtime-na-fabrica.test.ts
   docs:
     - docs/guias/varias-maquinas.md
   simbolos:
     - core/src/fabrica-estado.ts#publicarMaquina
     - core/src/fabrica-estado.ts#lerFabrica
     - core/src/fabrica-estado.ts#retratoDaMaquina
+    - core/src/fabrica-estado.ts#despachoDaThread
     - core/src/maquina.ts#nomeDaMaquina
   contratos:
     - ork.fabrica-maquina/v1
@@ -65,12 +67,13 @@ fontes:
   - BR-027-02: nada de credencial, prompt, log ou caminho local sai da máquina.
   - BR-027-03: thread com `ship(<thread>)` na base aparece como entregue, mesmo sem MASTER.
   - BR-027-04: pergunta que espera o dono em outra máquina chega na hora pelo resumo, e se responde na máquina da thread.
+  - BR-027-05: o runtime, o modelo e o esforço de cada thread vêm do último `phase_dispatch` do ledger; thread sem despacho aparece sem runtime, nunca com um inventado (RM-037).
 - **Critérios de aceite e testes:** Dadas duas máquinas no mesmo remoto, quando cada uma publica, então o board de uma mostra as threads da outra e o resumo do pulse avisa na hora de quem espera o dono na outra (`core/test/fabrica-estado.test.ts`).
 - **Interface e acessibilidade:** Horários no fuso do dono; `ork fabrica --json` com o contrato `ork.fabrica-maquina/v1` para agentes.
 
 ## Dados e contratos
 
-- **Entidades:** `maquinas/<nome>.json` na branch `ork/fabrica-estado` (`ork.fabrica-maquina/v1`), com máquina, pessoa, projeto, versão do `ork`, hora da publicação e as threads; `~/.orkastery/maquina.json` (`ork.maquina/v1`), com o nome e a adesão.
+- **Entidades:** `maquinas/<nome>.json` na branch `ork/fabrica-estado` (`ork.fabrica-maquina/v1`), com máquina, pessoa, projeto, versão do `ork`, hora da publicação e as threads, cada uma com modo, fase, item e, desde a RM-037, `runtime`, `modelo` e `esforco` (opcionais: o retrato de antes segue válido); `~/.orkastery/maquina.json` (`ork.maquina/v1`), com o nome e a adesão.
 - **APIs:** Não aplicável.
 - **Eventos:** `thread_created` e `phase_dispatch` levam a `maquina`; os eventos de HITL não mudam.
 
@@ -85,3 +88,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-27 | página criada com a segunda fatia da RM-047 | Claude (agente) / Julio, revisão pendente | RM-047 |
+| 2026-09-30 | runtime, modelo e esforço de cada thread no retrato, no `ork fabrica`, no `FABRICA.md` e no panorama da rede | Claude (agente) / Julio, revisão pendente | RM-037, thread ork-rm037noite |

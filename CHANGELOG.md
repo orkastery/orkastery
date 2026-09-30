@@ -80,6 +80,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Mudado
 
+- **Defeitos da noite de 29/09/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - `ork ci prepare` grava `.ork-ci/<thread>.json`, com a branch da thread, e o CI roda
+    `ork ci run --branch <branch>`: duas PRs não mudam mais o mesmo bundle. O `.ork-ci/bundle.json`
+    de antes só vale quando a thread dele bate com a branch, e a `main` roda só os comandos do
+    manifesto;
+  - fechar a thread (`ork master`, `ork thread close`) solta os leases de escrita e as esperas dela
+    na fila, com `lease_released` e `lease_dequeued` no ledger; espera de thread já fechada não barra
+    mais quem pede a região;
+  - o fechamento solta a reserva do item do roadmap, ou a passa para outra thread aberta do mesmo
+    item; `ork roadmap reservas` marca a reserva órfã e `--soltar-orfas` a solta com registro;
+  - o retrato da fábrica leva runtime, modelo e esforço de cada thread, do último `phase_dispatch`,
+    e o `ork fabrica`, o `FABRICA.md` e o panorama da rede mostram;
+  - `ork docs sincronizar` ganha `--so RM-NNN` e `--todos`; na worktree de uma thread com item, o
+    padrão é o item dela;
+  - `ork roadmap feat` reserva o próximo número de FEAT na branch `ork/roadmap-reservas`: duas
+    máquinas não levam mais o mesmo número.
 - **`ork board --json` vira objeto** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
   `{contrato: 'ork.board/v1', consulta, threads}`, com a lista de antes em `threads`. `board plan`,
   `fabrica` e `roadmap status` ganham o campo `consulta`; o snapshot do maestro ganha

@@ -1,6 +1,7 @@
 /** GitHub CI como CHECK independente (I-12). */
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
+import { branchDaWorktree } from './worktree';
 import { verificar, ResultadoVerify } from './verify';
 import { comandosDoManifesto, commitReal, executar, prazoDoComando, verificarClaim } from './verify';
 import { lerClaims } from './claims';
@@ -33,6 +34,8 @@ export type ExecutorCi = (input: { repository: string; sha: string; context: str
 export interface BundleCi {
   schema: 'ork.ci-bundle/v1';
   thread: string;
+  /** RM-037 (rm037noite, defeito 1): a branch da thread; e por ela que o CI acha o bundle. */
+  branch?: string;
   base: string;
   claims: Claim[];
   /** Claims that require the installation host and remain mandatory in local SHIP verify. */
@@ -165,6 +168,30 @@ export function executarCi(carregado: ManifestoCarregado, threadId: string): { s
 }
 
 /**
+ * RM-037 (rm037noite, defeito 1): um bundle por thread. O `.ork-ci/bundle.json` era o mesmo caminho em
+ * toda thread, entao toda PR conflitava com todas as outras e cada merge pedia merge da main, `ork ci
+ * prepare` e CI de novo na proxima. Cada thread grava agora o proprio `.ork-ci/<thread>.json`, e o CI
+ * acha o da thread pelo nome da branch (`ork ci run --branch`). O bundle nao nasce no CI porque as
+ * claims ficam no `.orkastery/` da maquina que conduz, fora do git.
+ */
+export const DIR_DO_BUNDLE = '.ork-ci';
+/** O caminho unico de antes: so vale quando o `thread` dele bate com a branch (PR aberta antes da mudanca). */
+export const BUNDLE_LEGADO = 'bundle.json';
+const THREAD_DO_BUNDLE = /^ork-[a-z0-9-]+$/;
+
+/** O nome do arquivo do bundle da thread, dentro de `.ork-ci/`. */
+export function arquivoDoBundle(threadId: string): string {
+  if (!THREAD_DO_BUNDLE.test(threadId)) throw new Error(`ci.bundle: "${threadId}" nao e id de thread`);
+  return `${threadId}.json`;
+}
+
+function comandosDoBundle(carregado: ManifestoCarregado): { name: string; command: string }[] {
+  return carregado.manifesto.ci.command
+    ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
+    : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+}
+
+/**
  * I-53 (RM-037, P6): o lint no `ci prepare`. Claim nascida sob a regra (com o campo `lint`) que
  * roda a suite inteira e recusada: o bundle vai para o runner hospedado e reprovaria la, depois de
  * gastar o tempo todo. O resto so avisa, e o aviso fica no ledger da thread.
@@ -194,9 +221,9 @@ export function destinoDoBundle(carregado: ManifestoCarregado, threadId: string)
 
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
   opcoes: { aoAvisar?: (linha: string) => void } = {}): string {
-  const commands = carregado.manifesto.ci.command
-    ? [{ name: 'ci', command: carregado.manifesto.ci.command }]
-    : comandosDoManifesto(carregado.manifesto).map(({ nome, comando }) => ({ name: nome, command: comando }));
+  const commands = comandosDoBundle(carregado);
+  const nomeDoArquivo = arquivoDoBundle(threadId);
+  const branch = branchDaWorktree(lerThread(carregado.raiz, threadId));
   const activeClaims = lerClaims(carregado.raiz, threadId).filter(
     (claim) => claim.estado !== 'retirada'
   );
@@ -223,6 +250,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   const bundle: BundleCi = {
     schema: 'ork.ci-bundle/v1',
     thread: threadId,
+    branch,
     base: carregado.manifesto.worktree.base_branch,
     claims: classified.filter((item) => item.reason === null).map((item) => item.claim),
     deferredClaims: classified
@@ -232,17 +260,77 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
   };
   const dir = path.join(destino, '.ork-ci');
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, 'bundle.json');
+  const file = path.join(dir, nomeDoArquivo);
   fs.writeFileSync(file, JSON.stringify(bundle, null, 2) + '\n', 'utf8');
   return file;
 }
 
-export function executarBundleCi(carregado: ManifestoCarregado, file = '.ork-ci/bundle.json') {
-  const absolute = path.resolve(carregado.raiz, file);
+function lerBundle(raiz: string, file: string): BundleCi {
+  const absolute = path.resolve(raiz, file);
   const stat = fs.statSync(absolute);
   if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error('bundle de CI ausente ou acima de 1 MiB');
   const bundle = JSON.parse(fs.readFileSync(absolute, 'utf8')) as BundleCi;
-  if (bundle.schema !== 'ork.ci-bundle/v1' || !/^ork-[a-z0-9-]+$/.test(bundle.thread) || !Array.isArray(bundle.claims) || !Array.isArray(bundle.commands)) throw new Error('bundle de CI inválido');
+  if (bundle.schema !== 'ork.ci-bundle/v1' || !THREAD_DO_BUNDLE.test(bundle.thread) || !Array.isArray(bundle.claims) || !Array.isArray(bundle.commands)) throw new Error('bundle de CI inválido');
+  return bundle;
+}
+
+const casaComBranch = (thread: string, branch: string): boolean =>
+  branch === `ork/${thread}` || branch.startsWith(`ork/${thread}-`);
+
+/**
+ * O bundle da branch, entre os `.ork-ci/*.json` do checkout. Vale o de `branch` igual. O bundle sem
+ * `branch` (o `bundle.json` legado, de antes da RM-037) vale pela thread, quando a branch e
+ * `ork/<thread>` ou `ork/<thread>-*` (a mais longa ganha: `ork-a` nao leva a branch da `ork-ab`).
+ * Bundle novo de outra branch nunca vale, nem da mesma thread (achado A4 do CHECK 1), e o arquivo da
+ * thread da branch que nao abre reprova em vez de ceder a vez a outro. `null` quando nenhum bate.
+ */
+export function bundleDaBranch(raiz: string, branch: string): { arquivo: string; bundle: BundleCi } | null {
+  const dir = path.join(raiz, DIR_DO_BUNDLE);
+  if (!fs.existsSync(dir)) return null;
+  let melhor: { arquivo: string; bundle: BundleCi; peso: number } | null = null;
+  let quebrado: Error | null = null;
+  for (const nome of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
+    const arquivo = path.posix.join(DIR_DO_BUNDLE, nome);
+    let bundle: BundleCi;
+    try { bundle = lerBundle(raiz, arquivo); } catch (e) {
+      if (!quebrado && nome !== BUNDLE_LEGADO && casaComBranch(nome.slice(0, -'.json'.length), branch)) {
+        quebrado = new Error(`ci.bundle.invalido: ${arquivo} e o bundle da branch ${branch} e nao abre ` +
+          `(${(e as Error).message}); rode ork ci prepare <thread> de novo e versione o arquivo`);
+      }
+      continue;
+    }
+    if (nome !== BUNDLE_LEGADO && nome !== `${bundle.thread}.json`) continue;
+    const peso = bundle.branch === branch ? Number.MAX_SAFE_INTEGER
+      : !bundle.branch && casaComBranch(bundle.thread, branch) ? bundle.thread.length : 0;
+    if (peso > 0 && (!melhor || peso > melhor.peso)) melhor = { arquivo, bundle, peso };
+  }
+  // Sugestao 4 do CHECK 2: o arquivo quebrado so reprova se nenhum bundle valido for da branch exata.
+  if (quebrado && melhor?.peso !== Number.MAX_SAFE_INTEGER) throw quebrado;
+  return melhor ? { arquivo: melhor.arquivo, bundle: melhor.bundle } : null;
+}
+
+/**
+ * `ork ci run --branch <branch>`: o CHECK do CI pela branch. Branch de thread (`ork/*`) roda o bundle
+ * dela e reprova sem ele; outra branch (a `main`, por exemplo) nao tem thread e roda so os comandos
+ * do manifesto.
+ */
+export function executarCiDaBranch(carregado: ManifestoCarregado, branch: string) {
+  const achado = bundleDaBranch(carregado.raiz, branch);
+  if (achado) return { ...rodarBundle(carregado, achado.bundle), branch, bundle: achado.arquivo };
+  if (branch.startsWith('ork/')) {
+    throw new Error(`ci.bundle.ausente: a branch ${branch} e de thread e nao tem bundle em ${DIR_DO_BUNDLE}/; ` +
+      'rode ork ci prepare <thread> na worktree e versione o arquivo');
+  }
+  const semThread: BundleCi = { schema: 'ork.ci-bundle/v1', thread: '', base: carregado.manifesto.worktree.base_branch,
+    claims: [], commands: comandosDoBundle(carregado) };
+  return { ...rodarBundle(carregado, semThread), thread: null, branch, bundle: null };
+}
+
+export function executarBundleCi(carregado: ManifestoCarregado, file = path.posix.join(DIR_DO_BUNDLE, BUNDLE_LEGADO)) {
+  return rodarBundle(carregado, lerBundle(carregado.raiz, file));
+}
+
+function rodarBundle(carregado: ManifestoCarregado, bundle: BundleCi) {
   // O CI roda o mesmo preparo do `ork verify` local (I-54), uma vez e antes das claims: a claim
   // que passa na maquina de quem entrega passa aqui pelo mesmo caminho. Como no verify, o
   // preparo nao e condicao de claim; ele so deixa a compilacao pronta e sai no resultado.
