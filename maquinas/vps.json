@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T13:27:13.696Z",
+  "publicadoEm": "2026-09-30T13:28:46.756Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -49,15 +49,15 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-rm031kg2extr",
-      "nome": "RM-031 KG2: extração determinística do grafo de código",
+      "id": "ork-rm031kg3",
+      "nome": "rm031-kg3-indice-e-consulta",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-031",
-      "branch": "ork/ork-rm031kg2extr-full",
-      "atualizadaEm": "2026-09-30T13:27:13.456Z",
-      "entregue": "d2b180ea",
+      "branch": "ork/ork-rm031kg3-full",
+      "atualizadaEm": "2026-09-30T13:28:43.609Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
