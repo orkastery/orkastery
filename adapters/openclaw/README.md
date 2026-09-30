@@ -87,6 +87,14 @@ consultado". O `projeto` dela aceita o nome registrado ou a forja (`github:dono/
 `projeto`, vem o panorama de todos os projetos do registro, e e o que a frase `orkastery maestro`
 sem projeto oferece. O projeto do diretorio do gateway so entra se estiver no registro.
 
+Ela e a unica tool do catalogo declarada nos perfis `coding` e `messaging` do OpenClaw
+(`toolMetadata.ork_network_roadmap.profiles` no manifesto): com o perfil `coding`, o padrao do
+onboarding, as tools de plugin so chegam ao modelo quando o manifesto as declara no perfil ou o
+operador as libera. Sem isso o modelo nao ve tool `ork_*` nenhuma e vai ao `ork` pelo shell, como
+no incidente de 29/09. As outras tools continuam sob escolha do operador:
+`tools.alsoAllow: ["orkastery"]` no `openclaw.json` libera todas; allowlist e deny do operador
+sempre valem.
+
 ## A #TAG de conducao
 
 O manifesto novo do OpenClaw nao tem campo proprio para isso, entao a regra vive aqui e

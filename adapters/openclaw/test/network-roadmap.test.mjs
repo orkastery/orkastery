@@ -92,6 +92,9 @@ test('catalogo: ork_network_roadmap no manifesto, em paridade com o entry, e as 
     const manifesto = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
     assert.ok(manifesto.contracts.tools.includes('ork_network_roadmap'));
     assert.deepEqual(tools.map(t => t.name).sort(), [...manifesto.contracts.tools].sort());
+    // RM-054 (fatia 2): com o perfil coding (padrao do OpenClaw), tool de plugin so chega ao modelo
+    // declarada no perfil; so a leitura da rede e declarada, e as outras seguem sob o operador.
+    assert.deepEqual(manifesto.toolMetadata, { ork_network_roadmap: { profiles: ['coding', 'messaging'] } });
     const pacote = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     assert.match(pacote.description, new RegExp(`: ${tools.length} tools ork_\\*`), 'a contagem do pacote e a do entry');
     for (const t of tools.filter(x => x.name !== 'ork_network_roadmap')) {

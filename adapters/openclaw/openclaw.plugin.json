@@ -40,5 +40,10 @@
       "ork_network_roadmap",
       "ork_master_batch"
     ]
+  },
+  "toolMetadata": {
+    "ork_network_roadmap": {
+      "profiles": ["coding", "messaging"]
+    }
   }
 }
