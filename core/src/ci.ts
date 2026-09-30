@@ -56,6 +56,9 @@ const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
   /verify-check-c2-b3\.cjs\s+channel-offer(?:\s|$)/,
   // I-38: a prova da busca por significado le a memoria do tenant pela DSN do manifesto.
   /prova-busca-semantica\.sh(?:\s|$)/,
+  // RM-051: o ensaio instala o tarball com npm --offline e resolve as dependencias pelo cache do npm
+  // da estacao; o runner hospedado so tem os tarballs do npm ci, sem os metadados do registro.
+  /testar-experiencia-e2e\.cjs(?:\s|$)/,
 ];
 /**
  * I-38: o runner hospedado nao oferece OrkMind nem a base do tenant. Claim que chama a memoria
