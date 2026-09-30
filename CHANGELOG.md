@@ -8,6 +8,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Grafo de código: índice e consulta** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG3):
+  - `ork grafo indexar [--verificar] [--forcar]`: índice local e persistente do grafo do HEAD
+    limpo, no estado do projeto e fora do git (pastas 0700, arquivos 0600), chaveado pela revisão,
+    pela identidade e pelo extrator, e idempotente; `--verificar` confere contrato, bytes e
+    determinismo;
+  - `ork grafo vizinhos|chamadores|importadores|caminho`: consulta pelas arestas, em texto e
+    `--json`, determinística e com o extrator e a evidência de cada aresta; a resposta diz que é
+    parcial (só o que o extrator prova);
+  - `ork grafo status`, `ork grafo amostra` e `ork grafo limpar`; o comando provisório do KG2 sai;
+  - o `ork grafo` precisa do `typescript` e do micromark instalados no próprio pacote do `ork`
+    (`ork grafo indexar` e as consultas), que não são dependências do pacote: sem eles, a recusa é
+    `grafo.parser.indisponivel`.
 - **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
     fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou

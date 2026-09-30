@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
+import { raizDoEstado } from './estado-thread';
+import { executarGrafo } from './intelligence-graph-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
@@ -448,6 +450,18 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--colecao C] [--limite N] [--json]
   memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
         [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
+
+  grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
+        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; --verificar
+                                                 confere contrato, bytes e determinismo; precisa de typescript e micromark
+  grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
+        [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
+  grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
+  grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
+  grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
+  grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
+  grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
@@ -3960,6 +3974,12 @@ export function main(argvBruto: string[]): number {
     }
     case 'memory':
       return comandoMemory(args);
+    case 'grafo': {
+      // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
+      const carregado = exigirManifesto();
+      return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+    }
     case 'ship':
       return comandoShip(args);
     case 'activation':
