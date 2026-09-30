@@ -1,7 +1,8 @@
 /**
  * RM-031 KG2 (D8): leitura do repositorio Git local para o extrator. E a unica borda de E/S do
  * KG2: lista os arquivos rastreados, le os bytes da arvore de trabalho e fixa a revisao. Nao
- * executa shell nem texto vindo do repositorio; o Git roda com argumentos fixos.
+ * executa shell nem texto vindo do repositorio; o Git roda com argumentos fixos. O KG3 usa daqui a
+ * identidade da leitura e a revisao da arvore limpa, sem ler os arquivos.
  *
  * Fica fora e declarado: link simbolico, submodulo, arquivo em conflito, arquivo rastreado que
  * sumiu da arvore, arquivo cujo caminho real sai da raiz e caminho que nao e UTF-8. A revisao so e
@@ -61,11 +62,37 @@ function nomeDoProjeto(raiz: string): string | null {
   }
 }
 
+/** Repositorio, tenant e ACL da leitura: os informados, ou os padroes (D8). */
+export function identidadeDaLeitura(raiz: string, opcoes: OpcoesDeLeitura = {}): { repository_id: string; tenant_id: string; acl_refs: string[] } {
+  const repositorio = opcoes.repository_id ?? nomeDoProjeto(raiz);
+  if (!repositorio || !ID_DE_REPOSITORIO.test(repositorio)) throw new Error('extracao.repositorio.sem-id');
+  return { repository_id: repositorio, tenant_id: opcoes.tenant_id ?? TENANT_PADRAO, acl_refs: [...(opcoes.acl_refs ?? [`repo:${repositorio}:leitura`])] };
+}
+
+export interface RevisaoDaArvore {
+  raiz: string;
+  /** O HEAD, tambem com a arvore modificada; `null` sem commit. */
+  head: string | null;
+  /** `null` com a arvore limpa nos rastreados; senao o motivo de nao haver revisao. */
+  motivo: 'sem-commit' | 'working-tree-modified' | null;
+}
+
+/**
+ * RM-031 KG3 (D3): o HEAD e se a arvore esta limpa nos rastreados, sem ler arquivo nenhum. O filtro
+ * do Git (eol, LFS) so aparece lendo os bytes: quem indexa confere a revisao do `lerRepositorio`.
+ */
+export function revisaoDaArvore(diretorio: string): RevisaoDaArvore {
+  const raiz = obrigatorio(diretorio, ['rev-parse', '--show-toplevel']).toString('utf8').trim();
+  const head = git(raiz, ['rev-parse', '--verify', '-q', 'HEAD']);
+  if (!head.ok) return { raiz, head: null, motivo: 'sem-commit' };
+  const sujo = obrigatorio(raiz, ['status', '--porcelain=v1', '-z', '--untracked-files=no']).length > 0;
+  return { raiz, head: head.saida.toString('utf8').trim(), motivo: sujo ? 'working-tree-modified' : null };
+}
+
 /** Le o repositorio que contem `diretorio` e devolve a entrada do extrator. */
 export function lerRepositorio(diretorio: string, opcoes: OpcoesDeLeitura = {}): EntradaDeExtracao {
   const raiz = obrigatorio(diretorio, ['rev-parse', '--show-toplevel']).toString('utf8').trim();
-  const repositorio = opcoes.repository_id ?? nomeDoProjeto(raiz);
-  if (!repositorio || !ID_DE_REPOSITORIO.test(repositorio)) throw new Error('extracao.repositorio.sem-id');
+  const { repository_id: repositorio, tenant_id, acl_refs } = identidadeDaLeitura(raiz, opcoes);
 
   // `-s` traz modo e estagio: 120000 e link simbolico, 160000 e submodulo, estagio > 0 e conflito.
   const registros = obrigatorio(raiz, ['ls-files', '-z', '-s', '--full-name']);
@@ -114,11 +141,11 @@ export function lerRepositorio(diretorio: string, opcoes: OpcoesDeLeitura = {}):
   // A5: filtro do Git (eol, LFS) deixa o status limpo com bytes que nao sao o blob da revisao.
   const motivo = !revisao ? 'sem-commit' : sujo ? 'working-tree-modified' : filtrado ? 'filtro-do-git' : null;
   return {
-    tenant_id: opcoes.tenant_id ?? TENANT_PADRAO,
+    tenant_id,
     repository_id: repositorio,
     revision: motivo === null ? revisao : null,
     revision_unavailable_reason: motivo,
-    acl_refs: opcoes.acl_refs ?? [`repo:${repositorio}:leitura`],
+    acl_refs,
     fontes,
     excluidas,
   };

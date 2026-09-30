@@ -24,7 +24,9 @@ const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-
 const MODULO_KG2_LEITURA = 'intelligence-graph-repo.ts';
 /** RM-031 KG3 (D1): a unica carga de analisador, da instalacao do `ork` que roda. */
 const MODULO_KG3_ANALISADORES = 'intelligence-graph-parsers.ts';
-const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES];
+/** RM-031 KG3 (D2 a D4): o indice persistente, borda de E/S no estado do projeto. */
+const MODULO_KG3_INDICE = 'intelligence-graph-index.ts';
+const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -162,7 +164,8 @@ test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa 
   for (const i of imports.filter((x) => x.modulo.startsWith('./intelligence-'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
   const { identificadores } = simbolos(MODULO_KG2_LEITURA);
   for (const proibido of ['exec', 'execSync', 'shell', 'fetch', 'eval', 'Function']) assert.ok(!identificadores.has(proibido), proibido);
-  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG2_LEITURA)) {
+  // Os contratos, os extratores puros e os analisadores nao leem o repositorio; so o indice (KG3), que e borda, a usa.
+  for (const f of [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG3_ANALISADORES]) {
     assert.ok(!importacoes(f).includes('./intelligence-graph-repo'), `${f} importa a borda de E/S`);
   }
 });
@@ -182,6 +185,17 @@ test('KG3 boundary: os analisadores so trazem tipos da familia, so usam o Node e
   for (const f of [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA]) {
     assert.ok(!importacoes(f).includes('./intelligence-graph-parsers'), `${f} importa os analisadores`);
   }
+});
+
+test('KG3 boundary: o indice so usa arquivo, caminho e hash do Node e so alcanca a familia do grafo', () => {
+  const imports = importsComTipo(MODULO_KG3_INDICE);
+  assert.deepEqual(imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort(), ['node:crypto', 'node:fs', 'node:path']);
+  const locais = imports.filter((i) => i.modulo.startsWith('./')).map((i) => `${i.modulo.slice(2)}.ts`);
+  assert.ok(locais.every((l) => FAMILIA_DO_GRAFO.includes(l)), `${locais}`);
+  const { identificadores } = simbolos(MODULO_KG3_INDICE);
+  for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require']) assert.ok(!identificadores.has(proibido), proibido);
+  // Nenhum modulo abaixo do indice o importa: a dependencia so desce.
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_INDICE)) assert.ok(!importacoes(f).includes('./intelligence-graph-index'), f);
 });
 
 test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os contratos', () => {
