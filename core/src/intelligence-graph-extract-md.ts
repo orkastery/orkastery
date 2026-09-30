@@ -235,17 +235,17 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
   const decodificada = (i: number, f: number): string => referencia(corpo.slice(i + 1, f - 1)) ?? corpo.slice(i, f);
   // Destino do link como o CommonMark o le: dado, escape e referencia, montados dos eventos.
   let destinoAberto: ParteDoDestino[] | null = null;
-  // Rodada 7, B1: so o espaco ASCII cru das pontas sai, antes de decodificar (`<a.md >` vira `a.md`);
-  // referencia que decodifica em espaco (`&Tab;`, `&nbsp;`) fica no destino, como no GitHub.
+  // Rodadas 7 e 8, B1: so o espaco e o tab crus das pontas saem, antes de decodificar (`<a.md >` vira
+  // `a.md`); VT, FF e a referencia que decodifica em espaco (`&Tab;`, `&nbsp;`) ficam, como no GitHub.
   const destinoAparado = (partes: ParteDoDestino[]): string => {
     const r = partes.map(([t, cru]) => [t, cru] as ParteDoDestino);
     while (r.length && r[0][1]) {
-      r[0][0] = r[0][0].replace(/^[ \t\n\v\f\r]+/, '');
+      r[0][0] = r[0][0].replace(/^[ \t]+/, '');
       if (r[0][0]) break;
       r.shift();
     }
     while (r.length && r[r.length - 1][1]) {
-      r[r.length - 1][0] = r[r.length - 1][0].replace(/[ \t\n\v\f\r]+$/, '');
+      r[r.length - 1][0] = r[r.length - 1][0].replace(/[ \t]+$/, '');
       if (r[r.length - 1][0]) break;
       r.pop();
     }

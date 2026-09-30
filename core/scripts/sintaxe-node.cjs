@@ -19,21 +19,26 @@ const { createHash } = require('node:crypto');
 const VARIAVEIS_DO_CJS = ['exports', 'require', 'module', '__filename', '__dirname'];
 /** O V8 encerra a linha, e a linha `#!`, em LF, CR, U+2028 e U+2029. */
 const FIM_DE_LINHA = new Set([0x0a, 0x0d, 0x2028, 0x2029]);
-/** Processo filho: le os textos por stdin e devolve 1 (aceito), 0 (SyntaxError) ou 2 (outro erro). */
+/** Processo filho: le os textos por stdin e devolve 1 (aceito), 0 (SyntaxError), 3 (pilha estourada) ou 2 (outro erro). */
 const FILHO = `
 const vm = require('node:vm');
 const partes = [];
 process.stdin.on('data', (c) => partes.push(c));
 process.stdin.on('end', () => {
   const textos = JSON.parse(Buffer.concat(partes).toString('utf8'));
-  const r = textos.map((t) => { try { new vm.SourceTextModule(t); return 1; } catch (e) { return e instanceof SyntaxError ? 0 : 2; } });
+  const r = textos.map((t) => {
+    try { new vm.SourceTextModule(t); return 1; } catch (e) { return e instanceof SyntaxError ? 0 : e instanceof RangeError ? 3 : 2; }
+  });
   process.stdout.write(JSON.stringify(r));
 });
 `;
 
-/** Como o carregador do Node le a fonte: sem o BOM e com a linha `#!` do inicio em branco. */
-function comoOCarregadorLe(texto) {
-  const t = texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto;
+/**
+ * Como o carregador do Node le a fonte: a linha `#!` do inicio em branco e, so no ESM, sem o BOM (o
+ * carregador CommonJS recusa BOM antes do `#!`).
+ */
+function comoOCarregadorLe(texto, formato) {
+  const t = formato === 'esm' && texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto;
   if (!t.startsWith('#!')) return t;
   let fim = 2;
   while (fim < t.length && !FIM_DE_LINHA.has(t.charCodeAt(fim))) fim++;
@@ -55,17 +60,21 @@ function criarJuizDeSintaxe() {
     const r = spawnSync(process.execPath, ['--experimental-vm-modules', '--no-warnings', '-e', FILHO], {
       input: JSON.stringify(textos), encoding: 'utf8', env: {}, maxBuffer: 64 * 1024 * 1024, timeout: 600000,
     });
-    let vereditos = null;
-    if (!r.error && r.status === 0) {
-      try {
-        vereditos = JSON.parse(r.stdout);
-      } catch {
-        vereditos = null;
-      }
-    }
-    if (!Array.isArray(vereditos) || vereditos.length !== textos.length || vereditos.some((v) => v !== 0 && v !== 1)) {
+    if (r.error || r.signal || r.status !== 0) {
       throw new Error(`sintaxe.esm.indisponivel: ${r.error ? r.error.code ?? 'erro' : r.signal ?? `status ${r.status}`}`);
     }
+    let vereditos = null;
+    try {
+      vereditos = JSON.parse(r.stdout);
+    } catch {
+      vereditos = null;
+    }
+    if (!Array.isArray(vereditos) || vereditos.length !== textos.length || vereditos.some((v) => ![0, 1, 2, 3].includes(v))) {
+      throw new Error('sintaxe.esm.indisponivel: resposta invalida do filho');
+    }
+    // Pilha estourada no V8 do filho: o extrator a trata como a propria (`extracao.limite.pilha`).
+    if (vereditos.includes(3)) throw new RangeError('Maximum call stack size exceeded no juiz de sintaxe ESM');
+    if (vereditos.includes(2)) throw new Error('sintaxe.esm.indisponivel: erro que nao e de sintaxe no filho');
     return vereditos.map((v) => v === 1);
   };
   const sintaxe = (pedidos) => {
@@ -73,7 +82,7 @@ function criarJuizDeSintaxe() {
     const esm = new Map();
     pedidos.forEach((p, i) => {
       if (vistos.has(chaves[i]) || esm.has(chaves[i])) return;
-      const t = comoOCarregadorLe(p.texto);
+      const t = comoOCarregadorLe(p.texto, p.formato);
       if (p.formato === 'cjs') vistos.set(chaves[i], cjs(t));
       else esm.set(chaves[i], t);
     });

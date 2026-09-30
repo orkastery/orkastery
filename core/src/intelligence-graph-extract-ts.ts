@@ -422,10 +422,13 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         continue;
       }
       const escopo = ext === '.mjs' || ext === '.cjs' ? null : escopoDe(f.path);
+      const regra = (r: 'esm' | 'cjs' | 'ambiguo', esmPossivel: boolean): void => {
+        regras.push({ caminho: f.path, regra: r, esmPossivel });
+      };
       if (escopo?.invalido) formatos.set(f.path, 'falha');
-      else if (ext === '.mjs' || (ext === '.js' && escopo?.tipo === 'module')) regras.push({ caminho: f.path, regra: 'esm', esmPossivel: true });
-      else if (ext === '.cjs' || ext === '.jsx' || escopo?.tipo === 'commonjs') regras.push({ caminho: f.path, regra: 'cjs', esmPossivel: false });
-      else regras.push({ caminho: f.path, regra: 'ambiguo', esmPossivel: sintaxeEsm(sf) });
+      else if (ext === '.mjs' || (ext === '.js' && escopo?.tipo === 'module')) regra('esm', true);
+      else if (ext === '.cjs' || ext === '.jsx' || escopo?.tipo === 'commonjs') regra('cjs', false);
+      else regra('ambiguo', sintaxeEsm(sf));
     }
     const pedidos: { texto: string; formato: 'cjs' | 'esm' }[] = [];
     const indices = regras.map((r) => {
@@ -435,9 +438,11 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       return i;
     });
     const aceitos = pedidos.length ? e.sintaxe(pedidos) : [];
+    const aceito = (i: number): boolean => i >= 0 && aceitos[i] === true;
     regras.forEach((r, k) => {
-      const cjs = indices[k].cjs >= 0 && aceitos[indices[k].cjs] === true, esm = indices[k].esm >= 0 && aceitos[indices[k].esm] === true;
-      formatos.set(r.caminho, r.regra === 'esm' ? (esm ? 'esm' : 'falha') : cjs ? 'cjs' : r.regra === 'ambiguo' && esm ? 'esm' : 'falha');
+      const cjs = aceito(indices[k].cjs), esm = aceito(indices[k].esm);
+      if (r.regra === 'esm') formatos.set(r.caminho, esm ? 'esm' : 'falha');
+      else formatos.set(r.caminho, cjs ? 'cjs' : r.regra === 'ambiguo' && esm ? 'esm' : 'falha');
     });
   }
   const formatoDe = (caminho: string): 'esm' | 'cjs' | 'falha' => formatos.get(caminho) ?? 'falha';

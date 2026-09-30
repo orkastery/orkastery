@@ -856,10 +856,11 @@ test('KG2 limits: aninhamento que estoura a pilha falha a extracao inteira com e
   assert.throws(() => extrair({ 'a.ts': `${'{'.repeat(fundo)}${'}'.repeat(fundo)}\n`, 'b.md': '# B\n' }), /extracao\.limite\.pilha/);
 });
 
-test('KG2 limits: no destino do link so o espaco ASCII cru das pontas sai; referencia que vira espaco fica', () => {
+test('KG2 limits: no destino do link so o espaco e o tab crus das pontas saem; VT, FF e referencia que vira espaco ficam', () => {
   const { grafo } = extrair({
     'a.md': '# A\n',
-    'b.md': '# B\n\n[1](a.md&Tab;) [2](a.md&#9;) [3](a.md&nbsp;) [4](&emsp;a.md) [5](a.md&NewLine;)\n\n## C\n\n[6](<a.md >)\n',
+    'b.md': '# B\n\n[1](a.md&Tab;) [2](a.md&#9;) [3](a.md&nbsp;) [4](&emsp;a.md) [5](a.md&NewLine;) [7](<a.md\v>) [8](<\fa.md>)\n\n'
+      + '## C\n\n[6](<a.md >) [9](<\ta.md>)\n',
   });
   assert.deepEqual(arestas(grafo, 'references'), ['references section:b.md#c -> file:a.md']);
 });
@@ -874,6 +875,17 @@ test('KG2 limits: o juiz le a fonte como o carregador; hashbang ate U+2028 e ESM
   });
   assert.deepEqual(arestas(grafo, 'imports'), ['imports file:hb.mjs -> file:u.mjs']);
   assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => d.path).sort(), ['grande.mjs', 'hb.cjs']);
+});
+
+test('KG2 limits: o juiz de sintaxe responde em lote e na ordem, e pilha estourada no filho vira RangeError', () => {
+  const juiz = criarJuizDeSintaxe(), bom = String.fromCharCode(0xfeff);
+  assert.deepEqual(juiz.sintaxe([
+    { texto: 'export const a = 1;', formato: 'esm' }, { texto: 'let q = 1; let q = 2;', formato: 'esm' },
+    { texto: 'exports.a = 1;', formato: 'cjs' }, { texto: 'export const a = 1;', formato: 'cjs' },
+    { texto: `${bom}#!/x\nexport const a = 1;`, formato: 'esm' }, { texto: `${bom}#!/x\nexports.a = 1;`, formato: 'cjs' },
+    { texto: 'export const a = 1;', formato: 'esm' },
+  ]), [true, false, true, false, true, false, true]);
+  assert.throws(() => juiz.sintaxe([{ texto: `export default ${'x => '.repeat(20000)}1;\n`, formato: 'esm' }]), RangeError);
 });
 
 /** Repositorio Git temporario com identidade local e sem assinatura. */

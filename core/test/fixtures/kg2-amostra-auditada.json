@@ -5,7 +5,7 @@
     "em": "2026-09-29T11:40:00-03:00",
     "metodo": "leitura do trecho e das linhas em volta no codigo; declaracao do alvo, import e secao conferidos por grep na revisao auditada",
     "limite": "amostra por estrato, nao o universo: nao prova zero aresta falsa; a auditoria integral e do benchmark",
-    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas"
+    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas; as linhas e notas das outras 43 arestas sao as da revisao auditada, e a conferencia casa pelo trecho, nao pela linha"
   },
   "graph_schema": "ork.code-artifact-graph/v1",
   "repository_id": "orkastery",
