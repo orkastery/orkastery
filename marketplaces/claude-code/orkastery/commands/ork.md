@@ -32,6 +32,9 @@ Os comandos de fase continuam disponiveis como atalhos; o dono nao precisa conhe
 A frase literal `orkastery maestro`, em sessão limpa, pede leitura do panorama.
 Descubra a ferramenta com `ToolSearch` em `select:mcp__orkastery__ork_maestro`,
 então consulte o projeto fixado. Não abre thread nem despacho por consulta.
+O MCP atende só o projeto fixado; `projeto` em qualquer ferramenta apenas confere esse
+projeto (`projeto.fora-do-servidor` quando é outro). Pedido de outro projeto vai ao CLI com
+`--projeto <nome>` (RM-052). Leia "Projeto consultado" e "Não lido" antes de responder.
 Projeto ausente/ambíguo exige resolver o contexto permitido pelo núcleo.
 Se já recebeu fase/thread/worktree, execute o bloco recebido, sem recursão.
 MCP ausente ou autenticação negada permanece impedimento; não troque runtime,
@@ -46,7 +49,7 @@ UUID interno e cancelamento preservado. A condutora usa
 | Demanda nova | Resolva o modo pelo nucleo, confira o preflight e abra/despache a thread correspondente. |
 | "Continue" ou thread/roadmap existente | Leia o estado e o ultimo resultado; retome o proximo passo autorizado, sem duplicar despacho. |
 | "Como esta?" ou status | Consulte a thread conhecida; apresente progresso comprovado, impedimento e proximo passo. |
-| Status do roadmap | Rode `ork roadmap status` e mostre o texto como vem; nao escreva relatorio proprio de roadmap. |
+| Status do roadmap | Rode `ork roadmap status` (com `--projeto <nome>` quando o dono nomear o projeto) e mostre o texto como vem; nao escreva relatorio proprio de roadmap nem o deduza do board ou do panorama: zero threads nao e roadmap vazio. |
 | Decisao ou resposta | Correlacione com o pedido/gate apresentado, transporte pelo caminho suportado e confira o resultado. |
 | Onboarding | Use a pauta de `ork onboarding` e retome as etapas existentes. |
 | board, plan, doctor ou modos | Execute a consulta correspondente e interprete o resultado para a intencao do dono. |

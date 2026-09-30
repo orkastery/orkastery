@@ -4,7 +4,7 @@ tipo: feature
 titulo: Fábrica compartilhada entre máquinas
 estado: vigente
 pai: MOD-01
-roadmap: [RM-047]
+roadmap: [RM-047, RM-052]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-27T09:00:00-03:00
@@ -41,7 +41,7 @@ fontes:
 
 - **Estado:** vigente · **Verificado em:** 2026-09-27 · **Versão:** main@8480ba1
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
-- **Roadmap:** [RM-047](../roadmap/RM-047-fabrica-em-varias-maquinas.md)
+- **Roadmap:** [RM-047](../roadmap/RM-047-fabrica-em-varias-maquinas.md), [RM-052](../roadmap/RM-052-projeto-alvo-explicito.md)
 - **Dono da página / aprovador:** Julio / Julio
 
 ## Comportamento

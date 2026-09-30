@@ -37,6 +37,8 @@ import { classificarSessaoClaude, comFalhaDeConta, falhaDeContaDaTranscricao, fo
   stopCorrelacionado } from './session-watcher-claude';
 import { PerfilDeDespacho, perfilDoRegistro } from './runtime-profiles';
 import { registerMaestro } from './mcp-maestro';
+import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_PROJETO, raizParaExibir, registrarProjetoEmSilencio,
+  remotoDoProjeto } from './projeto-alvo';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -232,23 +234,44 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     }
   };
   const server = new Server({ name:'orkastery', version:VERSAO_DO_ORK },
-    { capabilities:{tools:{}}, instructions:'Opere somente este projeto pelas ferramentas do nucleo. Decisoes humanas usam ork_request_decision e o dialogo do host; argumentos de ferramenta nunca sao respostas.' });
+    { capabilities:{tools:{}}, instructions:'Opere somente este projeto pelas ferramentas do nucleo. O parametro opcional projeto so confere o projeto servido; nunca troca a raiz. Decisoes humanas usam ork_request_decision e o dialogo do host; argumentos de ferramenta nunca sao respostas.' });
+  /**
+   * RM-052 (D5): toda tool aceita `projeto`, e ele so CONFERE o projeto fixado no startup. Pedido de
+   * outro projeto recusa tipado, com o projeto servido como unico candidato; a raiz nunca muda aqui.
+   */
+  const conferirProjeto=(pedido:string)=>{
+    const c=carregar(),nome=c.manifesto.project.name,abbrev=c.manifesto.project.abbrev,v=pedido.toLowerCase();
+    if(nome.toLowerCase()===v || (!!abbrev && abbrev.toLowerCase()===v)) return;
+    throw new ErroDeProjeto('projeto.fora-do-servidor',`este servidor MCP atende somente o projeto ${nome}; "${pedido}" nao e ele`,
+      [{nome,abbrev,raiz:raizParaExibir(raiz),remoto:remotoDoProjeto(raiz,c.manifesto.fabrica?.remoto??'origin'),presente:true}],
+      'Use o servidor MCP instalado no outro projeto (ork mcp install --project <raiz>), ou o CLI com --projeto <nome>.');
+  };
+  const campoProjeto=z.string().regex(PADRAO_DO_NOME_DE_PROJETO)
+    .describe('Nome ou abbrev do projeto pedido; este servidor atende somente o projeto fixado na instalacao');
   const ferramentas=new Map<string,{tool:Tool; executar:(raw:unknown,extra:{signal:AbortSignal})=>Promise<CallToolResult>}>();
   function registrarTool<S extends z.AnyZodObject>(nome:string,
     config:{description:string;inputSchema:S;annotations:Tool['annotations']},
     executar:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>) {
     if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_preflight'].includes(nome)) return;
-    const schema=converterSchema(config.inputSchema,{$refStrategy:'none'});
+    const entrada=config.inputSchema.extend({projeto:campoProjeto.optional()});
+    const schema=converterSchema(entrada,{$refStrategy:'none'});
     ferramentas.set(nome,{tool:{name:nome,description:config.description,annotations:config.annotations,
       inputSchema:schema as Tool['inputSchema']},
-      executar:async(raw,extra)=>executar(config.inputSchema.parse(raw),extra)});
+      executar:async(raw,extra)=>{
+        const {projeto,...args}=entrada.parse(raw) as z.infer<S>&{projeto?:string};
+        if(projeto!==undefined) conferirProjeto(projeto);
+        return executar(args as z.infer<S>,extra);
+      }});
   }
   server.setRequestHandler(ListToolsRequestSchema,async()=>({tools:[...ferramentas.values()].map(f=>f.tool)}));
   server.setRequestHandler(CallToolRequestSchema,async(request,extra)=>{
     try {
       const f=ferramentas.get(request.params.name);if(!f) throw Error('mcp.tool.unknown');
       return await f.executar(request.params.arguments??{},extra);
-    } catch(e) {return {...resposta({erro:(e as Error).message}),isError:true};}
+    } catch(e) {
+      if(e instanceof ErroDeProjeto) return {...resposta(e.recusa),isError:true};
+      return {...resposta({erro:(e as Error).message}),isError:true};
+    }
   });
   const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:randomUUID()},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
@@ -336,9 +359,13 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     });
   registrarTool('ork_hitl_pending',{description:'Pedidos HITL atuais da thread, incluindo prazo; nao aprova nem abre pedido.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => resposta({threadId,pendencias:pendencias(threadId)}));
-  registrarTool('ork_roadmap_status',{description:'Status report unico do roadmap no formato aprovado pelo dono: grupos com icones, #HITL no que espera o dono e o fecho. Somente leitura; transporte o texto como vem.',
+  registrarTool('ork_roadmap_status',{description:'Status report unico do roadmap no formato aprovado pelo dono: grupos com icones, #HITL no que espera o dono e o fecho. Somente leitura; transporte o texto como vem. O cabecalho diz o projeto consultado e o que nao foi lido (reservas, outras maquinas). E a unica fonte do roadmap: nunca conclua sobre ele a partir de ork_maestro ou de threads.',
     inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async () => {
-      const c=carregar(); const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name});
+      const c=carregar();
+      // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
+      const consulta=consultaDoProjeto(c,{origem:'instalacao',outrosProjetos:false,
+        lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork fabrica)']});
+      const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
     });
   registrarTool('ork_observe',{description:'Observa uma vez o progresso canonico e pedidos da thread. Nao cria monitor ou despacho.',
@@ -353,7 +380,10 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       // Validar ancestrais existentes antes de o nucleo criar o diretorio.
       let existente=destino; while (!fs.existsSync(existente)) existente=path.dirname(existente);
       confinado(existente);
-      return resposta(novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true}));
+      const criada=novaThread(c,{nome,modo:modo??c.manifesto.conduction.default_mode,criarWorktree:true});
+      // RM-052 (D7): thread nova, projeto conhecido pelo nome nesta maquina; o registro nunca derruba a criacao.
+      if(criada.gravada) registrarProjetoEmSilencio(raiz,'mcp thread new');
+      return resposta(criada);
     });
   registrarTool('ork_phase_run',{description:'Despacha fase autorizada pelo nucleo, preservando policies, estado e runtime/modelo. dryRun nao inicia modelo, mas pode registrar prompt/eventos.',
     inputSchema:fase,annotations:{readOnlyHint:false,destructiveHint:false}},async (args) => {

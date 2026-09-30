@@ -126,7 +126,7 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, exigirManifesto } from './manifest';
+import { carregarManifesto, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
@@ -202,6 +202,7 @@ import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread,
 import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { lerLedger } from './ledger';
@@ -219,6 +220,11 @@ import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
 import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import {
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo, FORA_DA_CONSULTA,
+  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
+  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+} from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -280,7 +286,13 @@ function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>;
 
 const AJUDA = `ork ${VERSAO}, nucleo de orquestracao do Orkastery
 
-Uso: ork <comando> [argumentos]
+Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
+
+  --projeto <nome|caminho>                  Projeto-alvo de qualquer comando (RM-052): vence ORK_PROJETO, que vence o
+                                            diretorio atual; nome ambiguo ou desconhecido recusa com os candidatos (saida 4)
+  projetos [--json]                         Projetos conhecidos desta maquina (~/.orkastery/projetos.json)
+  projetos registrar [caminho]              Registra a copia (init, thread new e fabrica entrar ja registram)
+  projetos esquecer <nome|caminho>          Tira do registro a copia que sumiu ou sobrou (nada no disco e apagado)
 
   doctor                                    O que vale nesta maquina agora (sai != 0 se bloqueado)
   init [--force] [--name N] [--abbrev A]    Gera o orkastery.yaml do repositorio
@@ -495,6 +507,9 @@ Uso: ork <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
+  network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
+        [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
+                                                 github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
   docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
@@ -611,6 +626,9 @@ function comandoThread(args: Args): number {
         return 1;
       }
       const gravadaDoAchado = args.opcoes['dry-run'] !== true;
+      // RM-052 (D7): thread nova, projeto conhecido; o aviso nunca derruba a criacao.
+      const avisoDoRegistroDoAchado = gravadaDoAchado && r.thread ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+      if (avisoDoRegistroDoAchado) console.error(avisoDoRegistroDoAchado);
       console.log(
         gravadaDoAchado
           ? `Thread criada a partir do achado ${r.achado.id}.`
@@ -731,6 +749,9 @@ function comandoThread(args: Args): number {
     const reservaDoItem = itemDoRoadmap && gravada ? pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id }) : null;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
     if (gravada) publicarEmSegundoPlano(carregado.raiz);
+    // RM-052 (D7): quem abre thread aqui conhece este projeto; o aviso nunca derruba a criacao.
+    const avisoDoRegistro = gravada ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+    if (avisoDoRegistro) console.error(avisoDoRegistro);
     console.log(gravada ? 'Thread criada.' : 'Simulacao (--dry-run), nada foi gravado.');
     if (reservaDoItem) console.log(`  roadmap: ${reservaDoItem.item} reservado para esta maquina (${reservaDoItem.reserva?.maquina})`);
     console.log(resumoDaThread(thread));
@@ -1170,7 +1191,7 @@ function comandoSessionsHitl(args: Args, raiz: string): number {
 function comandoSessions(args: Args): number {
   const sub = args.posicionais[1];
   const carregado = carregarManifesto();
-  const raiz = carregado?.raiz ?? process.cwd();
+  const raiz = carregado?.raiz ?? diretorioDoProjeto();
   if (sub === 'watch') {
     const id = texto(args.opcoes.thread);
     if (!carregado || !id) { console.error('uso: ork sessions watch --thread T [--sessao ID] [--once]'); return 2; }
@@ -2122,12 +2143,33 @@ function comandoLease(args: Args): number {
   return 2;
 }
 
+/**
+ * RM-052: o cabecalho do board. O board le as threads DESTE projeto nesta maquina; o roadmap nunca
+ * e lido aqui, e "0 threads" nunca quer dizer "roadmap vazio". As outras maquinas so entram com a
+ * fabrica compartilhada e um remoto de verdade.
+ */
+function consultaDoBoard(carregado: ManifestoCarregado, opcoes: { plano: boolean; todos: boolean }) {
+  const remoto = carregado.manifesto.fabrica.remoto;
+  const comFabrica = !opcoes.plano && fabricaCompartilhada(carregado.manifesto);
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  return consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: [`${FORA_DA_CONSULTA.threadsDaMaquina}${opcoes.todos ? ' (todos os perfis)' : ''}`,
+      ...(comFabrica && url !== null ? [`outras máquinas (ork/fabrica-estado em ${remoto})`] : [])],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas,
+      ...(url === null ? [semRemoto(remoto)] : comFabrica ? [] : [FORA_DA_CONSULTA.outrasMaquinas])],
+  });
+}
+
 function comandoBoard(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const todos = args.opcoes.all === true || args.opcoes.todos === true;
   if (sub === 'plan' || sub === 'plano') {
     const plano = planejar(carregado);
-    console.log(args.opcoes.json === true ? JSON.stringify(plano, null, 2) : textoDoPlano(plano));
+    const consulta = consultaDoBoard(carregado, { plano: true, todos: false });
+    if (args.opcoes.json === true) console.log(JSON.stringify({ ...plano, consulta }, null, 2));
+    else console.log([...linhasDaConsulta(consulta), '', textoDoPlano(plano)].join('\n'));
     return 0;
   }
   if (sub === 'reap') {
@@ -2141,21 +2183,31 @@ function comandoBoard(args: Args): number {
     console.error('uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]');
     return 2;
   }
-  const todos = args.opcoes.all === true || args.opcoes.todos === true;
+  const consulta = consultaDoBoard(carregado, { plano: false, todos });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify(threadsDeTodosOsPerfis(carregado, todos), null, 2));
+    // RM-052 (D6): objeto com o cabecalho; a lista de threads continua inteira em `threads`.
+    console.log(JSON.stringify({ contrato: CONTRATO_DO_BOARD, consulta, threads: threadsDeTodosOsPerfis(carregado, todos) }, null, 2));
     return 0;
   }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(textoDoBoard(carregado, todos));
   // I-51 (RM-047): com a fabrica compartilhada, o board mostra tambem as outras maquinas.
   if (fabricaCompartilhada(carregado.manifesto)) {
-    const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
-      semRemoto: args.opcoes['sem-remoto'] === true });
     console.log('');
-    console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    // RM-052: sem o remoto, nada foi lido; dizer "nenhuma publicou" seria a frase do incidente de 29/09.
+    if (consulta.projeto.remoto === null) {
+      console.log(`Outras maquinas: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${carregado.manifesto.fabrica.remoto}; nada foi lido de ork/fabrica-estado.`);
+    } else {
+      const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
+        semRemoto: args.opcoes['sem-remoto'] === true });
+      console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    }
   }
   return 0;
 }
+
+/** RM-052 (D6): `ork board --json` deixou de ser lista para carregar o cabecalho da consulta. */
+const CONTRATO_DO_BOARD = 'ork.board/v1';
 
 /**
  * I-51 (RM-047): `ork fabrica` mostra o que cada maquina conduz; `ork fabrica publicar` grava o
@@ -2191,6 +2243,9 @@ function comandoFabrica(args: Args): number {
     const config = gravarConfigDaMaquina({ nome: texto(args.opcoes.maquina) ?? lerConfigDaMaquina()?.nome ?? nomeDaMaquina(),
       fabricaCompartilhada: true });
     const r = publicarMaquina(carregado, { remoto, forcar: true });
+    // RM-052 (D7): a maquina que entra na fabrica deste projeto passa a conhece-lo pelo nome.
+    const avisoDoRegistro = registrarProjetoEmSilencio(carregado.raiz, 'fabrica entrar');
+    if (avisoDoRegistro) console.error(avisoDoRegistro);
     console.log(`Fabrica: esta maquina entrou como ${config.nome}; publica ao criar thread, despachar fase, entregar e fechar,`);
     console.log(`  e a cada batida do pulse. Primeiro retrato: ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}).`);
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== config.nome) {
@@ -2212,9 +2267,72 @@ function comandoFabrica(args: Args): number {
     console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair');
     return 2;
   }
-  const painel = lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
-  console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  const painel = url === null ? { maquinas: [], atualizado: false, ponta: null }
+    : lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
+  const consulta = consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: url === null ? [] : [`ork/fabrica-estado em ${remoto} (${painel.atualizado ? 'lido agora' : 'última cópia local'})`],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
+  });
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    return 0;
+  }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
+  console.log(url === null
+    ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
+    : textoDaFabrica(painel, nomeDaMaquina()));
   return 0;
+}
+
+/**
+ * RM-052: `ork projetos` lista o registro desta maquina (`~/.orkastery/projetos.json`); `registrar`
+ * poe uma copia que ja existia antes do registro (init, thread new e fabrica entrar ja registram) e
+ * `esquecer` tira a copia que sumiu ou sobrou. Sem segredo: so nome, abbrev, raiz e remoto redigido.
+ */
+function comandoProjetos(args: Args, projeto: string | undefined): number {
+  const sub = args.posicionais[1] ?? 'list';
+  if (sub === 'list' || sub === 'listar') {
+    const projetos = listarProjetos();
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify({ contrato: CONTRATO_PROJETOS, arquivo: caminhoDoRegistro(), projetos }, null, 2));
+      return 0;
+    }
+    console.log(`Projetos conhecidos desta maquina (${raizParaExibir(caminhoDoRegistro())})`);
+    console.log('');
+    if (projetos.length === 0) {
+      console.log('  Nenhum ainda. ork init, ork thread new e ork fabrica entrar registram; ou: ork projetos registrar <caminho>');
+      return 0;
+    }
+    console.log(tabela(['NOME', 'ABBREV', 'RAIZ', 'REMOTO', 'NO DISCO', 'ATUALIZADO'], projetos.map((p) => [
+      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? 'sem remoto', p.presente ? 'sim' : 'ausente',
+      formatarDataHora(p.atualizadoEm)])));
+    console.log('');
+    console.log('Use --projeto <nome> em qualquer comando (ORK_PROJETO vale para o shell inteiro). ' + legendaDoFuso());
+    return 0;
+  }
+  if (sub === 'registrar') {
+    const caminho = args.posicionais[2];
+    if (caminho !== undefined && projeto !== undefined) throw new Error('uso: ork projetos registrar [caminho] (um caminho ou --projeto, não os dois)');
+    const alvo = caminho === undefined ? resolverProjetoAlvo({ opcao: projeto ?? null }) : null;
+    const p = registrarProjeto(caminho ?? alvo?.raiz ?? process.cwd(), 'projetos registrar');
+    if (args.opcoes.json === true) { console.log(JSON.stringify(p, null, 2)); return 0; }
+    console.log(`Projeto ${p.nome} (${p.abbrev || '-'}) registrado: ${raizParaExibir(p.raiz)} · ${p.remoto ?? 'sem remoto'}`);
+    return 0;
+  }
+  if (sub === 'esquecer') {
+    const alvo = args.posicionais[2] ?? projeto;
+    if (!alvo) throw new Error('uso: ork projetos esquecer <nome|caminho>');
+    const sairam = esquecerProjeto(alvo);
+    if (args.opcoes.json === true) { console.log(JSON.stringify(sairam, null, 2)); return 0; }
+    for (const p of sairam) console.log(`Projeto ${p.nome} esquecido: ${raizParaExibir(p.raiz)} (nada no disco foi apagado)`);
+    return 0;
+  }
+  console.error(`subcomando desconhecido: projetos ${sub}`);
+  console.error('uso: ork projetos [--json] | projetos registrar [caminho] | projetos esquecer <nome|caminho>');
+  return 2;
 }
 
 /**
@@ -2508,7 +2626,10 @@ function comandoRoadmap(args: Args): number {
   }
   if (sub === 'status') {
     // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
+    const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
+      naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork fabrica)'] });
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
@@ -2539,10 +2660,31 @@ function comandoRoadmap(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
+ * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
+ */
+function comandoNetwork(args: Args): number {
+  const pedido = texto(args.opcoes.projeto);
+  if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
+    console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
+    return 2;
+  }
+  try {
+    const p = montarPanoramaDaRede({ pedido, semRemoto: args.opcoes['sem-remoto'] === true });
+    console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPanoramaDaRede(p));
+    return p.projetos.length ? 0 : 2;
+  } catch (e) {
+    if (!(e instanceof ErroDoPedidoDeProjeto)) throw e;
+    console.log(args.opcoes.json === true ? JSON.stringify(e.recusa, null, 2) : e.texto);
+    return SAIDA_DO_PEDIDO;
+  }
+}
+
 function comandoDocs(args: Args): number {
   const sub = args.posicionais[1] ?? 'verificar';
   const carregado = carregarManifesto();
-  const raiz = carregado?.raiz ?? process.cwd();
+  const raiz = carregado?.raiz ?? diretorioDoProjeto();
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
   if (sub === 'verificar') {
@@ -2681,7 +2823,7 @@ function comandoAdapter(args: Args): number {
     }
     const carregado = carregarManifesto();
     const r = instalarAdaptador(host, {
-      projeto: carregado?.raiz ?? process.cwd(),
+      projeto: carregado?.raiz ?? diretorioDoProjeto(),
       dir: texto(args.opcoes.dir),
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
@@ -2707,7 +2849,7 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? process.cwd());
+  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;
@@ -3324,12 +3466,56 @@ function comandoMemory(args: Args): number {
   return 2;
 }
 
-export function main(argv: string[]): number {
-  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso).
+/**
+ * RM-052: `--projeto <nome|caminho>` e opcao GLOBAL. Sai do argv em qualquer posicao, antes de
+ * qualquer despacho (inclusive do `maestro`, que tem parse proprio), e so aparece uma vez.
+ */
+export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]; projeto: string | undefined } {
+  const resto: string[] = [];
+  let projeto: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a !== '--projeto' && !a.startsWith('--projeto=')) { resto.push(a); continue; }
+    if (projeto !== undefined) throw new Error('uso: --projeto <nome|caminho> aparece uma vez só');
+    if (a !== '--projeto') { projeto = a.slice('--projeto='.length); continue; }
+    const valor = argv[i + 1];
+    projeto = valor !== undefined && !valor.startsWith('--') ? valor : '';
+    if (projeto) i++;
+  }
+  return { argv: resto, projeto };
+}
+
+/** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
+const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
+
+/**
+ * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
+ * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
+ * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
+ */
+export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
+
+/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
+function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+  const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
+  fixarProjetoAlvo(alvo);
+  return alvo;
+}
+
+export function main(argvBruto: string[]): number {
+  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
+  // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
+  // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
+  fixarProjetoAlvo(null);
+  const extraida = extrairOpcaoDeProjeto(argvBruto);
+  const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
+  const argv = proprio && extraida.projeto !== undefined
+    ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
+  const projeto = proprio ? undefined : extraida.projeto;
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
-    if (argv.length !== 2 || argv[1] !== '--json') throw Error('uso: ork receipt-verifiers --json');
+    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) throw Error('uso: ork receipt-verifiers --json');
     const root = process.env.ORK_HITL_ROOT;
     const privateKey = Object.keys(process.env).some(name => /^ORK_HITL_(?:INGRESS_KEY|NATIVE_KEY)/.test(name));
     if (root !== undefined || privateKey) {
@@ -3341,7 +3527,13 @@ export function main(argv: string[]): number {
     console.log(publicHitlVerifiers() ?? 'null');
     return 0;
   }
-  if (argv[0] === 'maestro') return runMaestroCli(argv.slice(1));
+  if (argv[0] === 'maestro') {
+    if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
+    const alvo = fixarAlvoDoProcesso(projeto);
+    return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
+      : runMaestroCli(argv.slice(1));
+  }
   const args = parseArgs(argv);
   const comando = args.posicionais[0];
 
@@ -3353,6 +3545,13 @@ export function main(argv: string[]): number {
   if (!comando || args.opcoes.help === true || comando === 'help') {
     console.log(AJUDA);
     return 0;
+  }
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
+  else if (projeto !== undefined && comando !== 'projetos') {
+    throw new Error(comando === 'init'
+      ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
+      : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
+        : `uso: ork ${comando} não lê projeto; tire --projeto`);
   }
 
   const nomesHerdados = nomesDeProviderAtivos();
@@ -3404,9 +3603,9 @@ export function main(argv: string[]): number {
         if(args.posicionais.length!==1 || !bruto ||
             Object.keys(args.opcoes).some(k=>k!=='modo') || argv.filter(a=>a==='--modo' || a.startsWith('--modo=')).length!==1)
           throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
-        const r=preflight(process.cwd(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
+        const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
-      const r = doctor(process.cwd(), nomesHerdados);
+      const r = doctor(diretorioDoProjeto(), nomesHerdados);
       console.log(r.texto);
       return r.codigo;
     }
@@ -3418,6 +3617,9 @@ export function main(argv: string[]): number {
       });
       const carregado = exigirManifesto(r.deteccao.raiz);
       const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto);
+      // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
+      const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
+      if (avisoDoRegistro) console.error(avisoDoRegistro);
       if (!r.criado) {
         console.log(`Manifesto ja existe: ${r.caminho}`);
         console.log('Nada foi sobrescrito. Use --force para regerar.');
@@ -3581,6 +3783,10 @@ export function main(argv: string[]): number {
     }
     case 'fabrica':
       return comandoFabrica(args);
+    case 'projetos':
+      return comandoProjetos(args, projeto);
+    case 'network':
+      return comandoNetwork(args);
     case 'licoes':
       return comandoLicoes(args);
     case 'ciclos':
@@ -3601,6 +3807,10 @@ if (require.main === module) {
     if (e instanceof ErroDeConducao) {
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
       process.exitCode = 3;
+    } else if (e instanceof ErroDeProjeto) {
+      // RM-052 (D3): a recusa de projeto-alvo e a resposta (a escolha, os candidatos), nao um stack trace.
+      console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.texto);
+      process.exitCode = SAIDA_DE_PROJETO;
     } else {
       console.error(`erro: ${(e as Error).message}`);
       process.exitCode = 1;

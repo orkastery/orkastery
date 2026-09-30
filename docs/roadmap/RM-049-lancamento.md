@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-29T17:24:37-03:00
+atualizado_em: 2026-09-29T23:29:40-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm049marketp
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
