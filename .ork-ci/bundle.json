@@ -175,6 +175,49 @@
       "criadoEm": "2026-09-29T14:04:14.085Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm037defeito",
+      "fase": "GO",
+      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "Regressão do verify de 29/09 11:09 (HEAD fd3d4afc): a skill de bootstrap, que já estava no teto de 120 linhas na base, ganhou a linha da decisão autônoma (f44a1286) e foi a 121; a correção 9f362d9a a devolve a 120 com ork_decision_record na mesma tabela. O teste de catálogo \"cada skill e casca fina\" reprova o arquivo de fd3d4afc (121 linhas, 3 de 3 rodadas) e passa no HEAD (3 de 3), sem dependência de relógio ou carga.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern \"casca fina\" core/dist-test/test/catalogo.test.js",
+        "grep -q 'ork_decision_record' skills/core/orkastery-bootstrap/SKILL.md"
+      ],
+      "criadoEm": "2026-09-30T02:07:24.204Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037defeito",
+      "fase": "GO",
+      "arquivo": "core/test/rm037-limite-de-sessoes.test.ts",
+      "alegacao": "S1 do CHECK final (defeito 3): a sessão viva de thread fechada não ocupa vaga, mesmo com o lease da condução ainda gravado, pelos dois caminhos de fechamento: o administrativo (evento thread_closed_admin e status) e o status sem evento (como a migração do MASTER). O teste reprova com o mutante que tira de conducaoDaThread a regra do status fechada.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern \"thread fechada\" core/dist-test/test/rm037-limite-de-sessoes.test.js"
+      ],
+      "criadoEm": "2026-09-30T02:19:55.597Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037defeito",
+      "fase": "GO",
+      "arquivo": "core/test/rm037-baseline-no-despacho.test.ts",
+      "alegacao": "S2 do CHECK final (defeito 1): com a policy verify_regression ligada, o ensaio (--dry-run) do codex num bloco com GO sem baseline conta a baseline que o despacho real do CLI vai gravar e não avisa \"vai sair sem baseline\"; no MCP (baselinePeloDespacho false) o aviso continua; o ensaio não executa a suíte. O despacho real também não avisa, e o teste dele reprova com o mutante que tira essa conta de temBaseline.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern \"S2 do CHECK final|grava a baseline antes do phase_dispatch, uma vez\" core/dist-test/test/rm037-baseline-no-despacho.test.js"
+      ],
+      "criadoEm": "2026-09-30T02:22:06.997Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
