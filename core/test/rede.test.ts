@@ -47,6 +47,7 @@ const login = cli === 'gh' ? (process.env.FORJA_FAKE_LOGIN || 'pessoa-teste') : 
 if (args[0] === '--version') sair(0, cli === 'gh' ? 'gh version 2.99.0 (2026-01-01)\\nhttps://github.com/cli/cli/releases/tag/v2.99.0\\n' : 'glab 1.50.0 (2026-01-01)\\n');
 if (args[0] === 'config' && args[1] === 'get' && args[2] === 'git_protocol') sair(0, (process.env.FORJA_FAKE_PROTOCOLO || 'https') + '\\n');
 if (args[0] === 'auth') {
+  if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
   if (args[1] === 'token') sair(0, TOKEN + '\\n');
   if (args[1] === 'git-credential') sair(0);
   sair(0, 'Logged in as ' + login + '\\nToken: ' + TOKEN + '\\n');
@@ -1006,4 +1007,55 @@ test('RM-053 migracao: quem saiu da rede mas segue na fabrica aparece como vista
     assert.deepEqual([a?.origem, a?.adesao], ['fabrica-estado', null]);
     assert.match(textoDaRede(status), /^pc-a · vista só na fábrica de orkastery; não publica na rede · batida /m);
   } finally { f.limpar(); p.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 1 (CHECK 1): lacunas de teste apontadas na revisao.
+// ---------------------------------------------------------------------------
+
+test('RM-053 forja: com URL HTTPS, o git do cache pergunta so ao helper da propria forja; o helper global e zerado (D4)', () => {
+  const raiz = dirTemporario('rede-helper');
+  const log = path.join(raiz, 'chamadas.jsonl');
+  const f = forjaFalsa('forja-helper', { FORJA_FAKE_LOG: log });
+  const u = dirTemporario('rede-helper-usuario');
+  try {
+    // A pessoa tem um helper global (store, keychain...): ele nunca pode receber a credencial da casa.
+    const global = path.join(raiz, 'gitconfig-global');
+    const marca = path.join(raiz, 'helper-global-chamado');
+    fs.writeFileSync(global, `[credential]\n\thelper = "!f() { echo chamado > ${marca}; }; f"\n`);
+    naMaquina(u, () => {
+      const gh = forjaPorNome('github', f.amb)!;
+      const casa = { forja: 'github' as const, host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network', origem: 'rede.json' as const };
+      const cache = prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
+      assert.equal(exec('git', ['config', '--local', '--get-all', 'credential.https://github.com.helper'], cache).stdout, `\n${gh.helperDeCredencial()}\n`);
+      // Idempotente mesmo com um helper na config global da pessoa: a segunda chamada nao regrava nada.
+      const config = path.join(cache, '.git', 'config');
+      const antes = [fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs];
+      prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
+      assert.deepEqual([fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs], antes);
+      spawnSync('git', ['credential', 'fill'], { cwd: cache, encoding: 'utf8', timeout: 20000,
+        input: 'protocol=https\nhost=github.com\npath=pessoa-teste/orkastery-network.git\n\n',
+        env: { ...f.env, GIT_CONFIG_GLOBAL: global, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', HOME: f.home } });
+      assert.equal(fs.existsSync(marca), false, 'o helper global nao foi chamado');
+      const chamadas = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { cli: string; args: string[] }) : [];
+      assert.ok(chamadas.some((c) => c.cli === 'gh' && c.args.join(' ') === 'auth git-credential get'), JSON.stringify(chamadas));
+    });
+  } finally { f.limpar(); fs.rmSync(raiz, { recursive: true, force: true }); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 forja: GitLab de ponta a ponta, so com o glab: entrar, status e sair', () => {
+  const f = forjaFalsa('forja-gitlab-e2e');
+  const [ua, ub] = [dirTemporario('rede-lab-a'), dirTemporario('rede-lab-b')];
+  try {
+    f.tirar('gh');
+    const amb = ligado(f);
+    const a = naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-lab-a' }));
+    assert.deepEqual([a.casa.forja, a.casa.host, a.casa.dono, a.criado], ['gitlab', 'gitlab.com', 'pessoa-lab', true]);
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-lab-b' }));
+    const status = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-lab-a' }));
+    assert.deepEqual([status.casa?.forja, status.membros.map((m) => m.maquina), status.lacunas], ['gitlab', ['pc-lab-a', 'pc-lab-b'], []]);
+    assert.deepEqual(status.membros[0].forjas, [{ forja: 'gitlab', host: 'gitlab.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' }]);
+    assert.match(String(naMaquina(ub, () => sairDaRede({ amb, maquina: 'pc-lab-b' })).commit), /^[a-f0-9]{40}$/);
+    assert.deepEqual(naMaquina(ua, () => lerRede({ amb, maquina: 'pc-lab-a' })).membros.map((m) => m.maquina), ['pc-lab-a']);
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
 });

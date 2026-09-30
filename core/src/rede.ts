@@ -428,8 +428,9 @@ function configurarCache(casa: CasaDaRede, url: string, helper: string | null, m
   const semHooks = path.join(dir, '.git', 'sem-hooks');
   fs.mkdirSync(semHooks, { recursive: true });
   // B6: so grava o que mudou; leitura e publicacao simultaneas nao disputam a config a cada chamada.
+  // So a config LOCAL do cache conta: a global da pessoa (o `gh auth setup-git`, por exemplo) fica como esta.
   const config = (chave: string, valor: string) => {
-    if (git(dir, ['config', '--get', chave]).stdout.replace(/\n$/, '') !== valor) exigirGit(dir, ['config', chave, valor], PREFIXO);
+    if (git(dir, ['config', '--local', '--get', chave]).stdout.replace(/\n$/, '') !== valor) exigirGit(dir, ['config', '--local', chave, valor], PREFIXO);
   };
   config('remote.origin.url', url);
   config('core.hooksPath', semHooks);
@@ -438,10 +439,10 @@ function configurarCache(casa: CasaDaRede, url: string, helper: string | null, m
   config('user.email', identidadeDoGit(maquina).email);
   if (helper && /^https?:\/\//i.test(url)) {
     const chave = `credential.${new URL(url).origin}.helper`;
-    if (git(dir, ['config', '--get-all', chave]).stdout !== `\n${helper}\n`) {
-      git(dir, ['config', '--unset-all', chave]);
-      exigirGit(dir, ['config', '--add', chave, ''], PREFIXO);
-      exigirGit(dir, ['config', '--add', chave, helper], PREFIXO);
+    if (git(dir, ['config', '--local', '--get-all', chave]).stdout !== `\n${helper}\n`) {
+      git(dir, ['config', '--local', '--unset-all', chave]);
+      exigirGit(dir, ['config', '--local', '--add', chave, ''], PREFIXO);
+      exigirGit(dir, ['config', '--local', '--add', chave, helper], PREFIXO);
     }
   }
   return dir;
