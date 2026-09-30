@@ -8,11 +8,11 @@ license: MIT
 
 # Orkastery no Hermes
 
-Consulte `ork experiencia show --json` no projeto. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
+Consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
 
-Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`)
-para consultar panorama do projeto atual. Não abra thread por essa consulta. Apresente
-fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido.
+Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052).
+Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
+Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
 Em sessão de fase já despachada, siga o bloco recebido sem abrir outra orquestração.
 Ações usam os comandos tipados do núcleo com precondições e readback.
 
@@ -23,7 +23,7 @@ Sem ingresso no canal escolhido, conserve o pedido pendente e explique o motivo.
 Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
-Status do roadmap: `ork_roadmap_status` (`ork roadmap status`), texto como vem; nunca relatório próprio.
+Status do roadmap: `ork_roadmap_status` (`ork roadmap status --projeto <nome>`), texto como vem; nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio.
 
 ## O que esta skill e
 

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "orkastery",
+  "description": "The Orkastery plugin, built from the catalog in the orkastery/orkastery repository.",
+  "owner": {
+    "name": "Julio Pessoa and Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "plugins": [
+    {
+      "name": "orkastery",
+      "source": "./marketplaces/claude-code/orkastery",
+      "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    }
+  ]
+}

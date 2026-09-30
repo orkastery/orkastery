@@ -1,5 +1,5 @@
 ---
-id: FEAT-030
+id: FEAT-031
 tipo: feature
 titulo: Pacote de experiência de orquestração
 estado: em desenvolvimento
@@ -17,7 +17,7 @@ fontes:
   comandos: [ork experiencia show, ork experiencia uninstall, ork onboarding, ork adapter install]
 ---
 
-# FEAT-030 — Pacote de experiência de orquestração
+# FEAT-031 — Pacote de experiência de orquestração
 
 > **Em uma frase:** preferências de idioma, fuso e profundidade orientam a conversa de orquestração nos hosts, com opt-out e restauração dos arquivos de instrução.
 

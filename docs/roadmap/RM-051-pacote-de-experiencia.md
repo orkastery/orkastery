@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Pacote de experiência de orquestração
 categoria: melhoria
 pai: null
-features: [FEAT-030]
+features: [FEAT-031]
 owner: Equipe Orkastery
 atualizado_em: 2026-09-29T10:29:00-03:00
 estado:
@@ -38,7 +38,7 @@ sdlc:
 
 ## Problema e resultado
 
-Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. O comportamento em desenvolvimento está especificado em [FEAT-030](../produto/FEAT-030-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
+Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. O comportamento em desenvolvimento está especificado em [FEAT-031](../produto/FEAT-031-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
 
 O resultado esperado é configuração explícita, instalação repetível e remoção segura. Não há métrica de adoção medida; a prova técnica será feita por testes e ensaio isolado de distribuição.
 
@@ -82,11 +82,11 @@ A equipe Orkastery conduz implementação e revisão. Próxima ação: concluir 
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| 2026-09-29 | Cadastro planejado | Especificação FEAT-030 | Equipe Orkastery |
+| 2026-09-29 | Cadastro planejado | Especificação FEAT-031 | Equipe Orkastery |
 
 ## Evidência da implementação local
 
-Código preparado em branch com testes focados de preferências, blocos, adaptadores, entradas, MCP, aviso de associação e lógica do ensaio. Os arquivos e comandos estão em [FEAT-030](../produto/FEAT-030-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
+Código preparado em branch com testes focados de preferências, blocos, adaptadores, entradas, MCP, aviso de associação e lógica do ensaio. Os arquivos e comandos estão em [FEAT-031](../produto/FEAT-031-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
 
 Os testes locais de CLI/MCP que dependem de subprocessos encontram restrições do ambiente. O eval completo também apresentou falhas nos canários. Por isso o estado de testes é **Falhando**, sem atribuir automaticamente tudo à baseline. Faltam verificação oficial, revisão independente e ensaio real de instalação do tarball. Versão mantida; mudança em “Não publicado”, sem PR, release ou deploy comprovado.
 
