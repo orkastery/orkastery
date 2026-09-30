@@ -186,13 +186,19 @@ function featsDaPonta(raiz: string, ponta: string | null): ReservaDeFeat[] {
 
 const numeroDaFeat = (feat: string): number => Number(NUMERO_DE_FEAT.exec(feat)?.[1] ?? 0);
 
-/** O maior numero de FEAT que o projeto ja conhece: a arvore de trabalho, a `main` e a `origin/main`. */
-export function maiorFeatConhecida(raiz: string): number {
+/**
+ * O maior numero de FEAT que o projeto ja conhece: a arvore de trabalho e a ponta de toda branch local
+ * e de toda branch do remoto ja buscada (achado A6 do CHECK 1: a FEAT criada a mao numa PR aberta, ou
+ * por um `ork` antigo, tambem conta). Branch que esta maquina nunca buscou continua invisivel.
+ */
+export function maiorFeatConhecida(raiz: string, remoto: string = REMOTO_PADRAO): number {
   const nomes: string[] = [];
   const dir = path.join(raiz, 'docs', 'produto');
   if (fs.existsSync(dir)) nomes.push(...fs.readdirSync(dir));
-  for (const ref of ['main', 'origin/main']) {
-    const r = git(raiz, ['ls-tree', '--name-only', ref, '--', 'docs/produto/']);
+  const refs = git(raiz, ['for-each-ref', '--format=%(objectname)', 'refs/heads', `refs/remotes/${remoto}`]);
+  const pontas = new Set(refs.ok ? refs.stdout.split('\n').map((l) => l.trim()).filter(Boolean) : []);
+  for (const ponta of pontas) {
+    const r = git(raiz, ['ls-tree', '--name-only', ponta, '--', 'docs/produto/']);
     if (r.ok) nomes.push(...r.stdout.split('\n').map((n) => path.posix.basename(n)));
   }
   return nomes.reduce((maior, nome) => Math.max(maior, Number(ARQUIVO_DE_FEAT.exec(nome)?.[1] ?? 0)), 0);
@@ -206,7 +212,7 @@ export function reservarFeat(raiz: string, opcoes: OpcoesDeReserva = {}): Result
     const { ponta, atualizado } = buscar(raiz, remoto);
     if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; reservar exige rede`);
     const feats = featsDaPonta(raiz, ponta);
-    const proximo = Math.max(maiorFeatConhecida(raiz), ...feats.map((r) => numeroDaFeat(r.feat))) + 1;
+    const proximo = Math.max(maiorFeatConhecida(raiz, remoto), ...feats.map((r) => numeroDaFeat(r.feat))) + 1;
     if (proximo > 999) throw new Error('roadmap.feat: os numeros de FEAT de tres digitos acabaram');
     const feat = `FEAT-${String(proximo).padStart(3, '0')}`;
     const reserva: ReservaDeFeat = { contrato: CONTRATO_FEAT, feat, por: eu.por, maquina: eu.maquina,
@@ -232,7 +238,7 @@ export function painelEmMarkdown(reservas: readonly ReservaDeItem[], feats: read
   const numeros = feats.length === 0 ? [] : ['', '## Números de FEAT reservados', '',
     'O número da FEAT nova sai de `ork roadmap feat`; número reservado não volta.', '',
     '| FEAT | Com quem | Máquina | Thread | Em |', '| --- | --- | --- | --- | --- |',
-    ...feats.map((f) => `| ${f.feat} | ${f.por} | ${f.maquina} | ${f.thread ?? '—'} | ${formatarDataHora(f.em)} |`)];
+    ...feats.map((f) => `| ${f.feat} | ${f.por} | ${f.maquina} | ${f.thread ?? 'sem thread'} | ${formatarDataHora(f.em)} |`)];
   if (reservas.length === 0) return [...linhas, 'Nenhum item reservado.', ...numeros, ''].join('\n');
   linhas.push('| Item | Com quem | Máquina | Thread | Desde | Nota |', '| --- | --- | --- | --- | --- | --- |');
   for (const r of reservas) {

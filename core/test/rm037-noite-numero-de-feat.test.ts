@@ -84,6 +84,23 @@ test('defeito 6: corrida, o push que chega depois e recusado, relido, e leva o n
   } finally { m.limpar(); }
 });
 
+test('defeito 6 (A6 do CHECK 1): FEAT de branch local ou de PR aberta ja buscada tambem conta', () => {
+  const m = duasMaquinas('rm037noite-feat-branches');
+  try {
+    // Na maquina A, outra thread criou a FEAT-020 a mao, numa branch local ainda sem merge.
+    exec('git', ['checkout', '-q', '-b', 'ork/ork-local-full'], m.a);
+    commitar(m.a, 'docs/produto/FEAT-020-local.md', '# FEAT-020\n', 'produto: FEAT-020 sem reserva');
+    exec('git', ['checkout', '-q', 'main'], m.a);
+    assert.equal(maiorFeatConhecida(m.a), 20);
+    // Na maquina B, uma PR aberta criou a FEAT-030 pelo metodo antigo; A ja buscou a branch dela.
+    exec('git', ['checkout', '-q', '-b', 'ork/ork-pr-aberta-full'], m.b);
+    commitar(m.b, 'docs/produto/FEAT-030-da-pr.md', '# FEAT-030\n', 'produto: FEAT-030 sem reserva');
+    exec('git', ['push', '-q', 'origin', 'ork/ork-pr-aberta-full'], m.b);
+    exec('git', ['fetch', '-q', 'origin'], m.a);
+    assert.equal(reservarFeat(m.a, A).feat, 'FEAT-031');
+  } finally { m.limpar(); }
+});
+
 test('defeito 6: FEAT so na arvore de trabalho tambem conta; sem remoto recusa com motivo tipado', () => {
   const m = duasMaquinas('rm037noite-feat-arvore');
   try {

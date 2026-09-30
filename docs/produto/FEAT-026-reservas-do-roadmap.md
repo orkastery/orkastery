@@ -55,7 +55,7 @@ fontes:
   3. Se outra máquina gravou antes, o push é recusado; o `ork` relê e aplica a regra de novo sobre o estado novo.
   4. `ork roadmap soltar RM-NNN` apaga o arquivo do item quando o trabalho termina.
   5. `ork master` e `ork thread close` soltam sozinhos a reserva da thread que fecha; se outra thread aberta desta máquina está no mesmo item, a reserva passa para ela (RM-037).
-  6. `ork roadmap feat --thread <thread>` reserva o próximo número de FEAT (o maior entre a árvore, a `main`, a `origin/main` e os números já reservados, mais um) em `feats/FEAT-NNN.json`, pelo mesmo push atômico (RM-037).
+  6. `ork roadmap feat --thread <thread>` reserva o próximo número de FEAT (o maior entre a árvore, as branches locais, as do remoto já buscadas e os números já reservados, mais um) em `feats/FEAT-NNN.json`, pelo mesmo push atômico (RM-037).
 
 - **Alternativas, erros e recuperação:**
   - item de outra máquina: `roadmap.reservado`, com quem, onde e desde quando;
@@ -70,7 +70,7 @@ fontes:
   - BR-026-02: renovar a própria reserva é idempotente e mantém o "desde".
   - BR-026-03: a reserva nunca toca a árvore de trabalho, o índice nem a `main`.
   - BR-026-04: thread fechada não segura item; a thread que não existe nesta máquina não prova que acabou, e a reserva dela fica.
-  - BR-026-05: número de FEAT reservado não volta, mesmo que a feature não saia; duas máquinas nunca recebem o mesmo número.
+  - BR-026-05: número de FEAT reservado não volta, mesmo que a feature não saia; duas máquinas que usam `ork roadmap feat` nunca recebem o mesmo número, e a FEAT criada à mão numa branch local ou já buscada do remoto também conta. Branch que a máquina nunca buscou fica invisível.
 - **Critérios de aceite e testes:** Dadas duas máquinas no mesmo remoto, quando a segunda pega o item no meio do push da primeira, então o push dela é recusado e ela recebe `roadmap.reservado` (`core/test/roadmap-reservas.test.ts`).
 - **Interface e acessibilidade:** Horários no fuso do dono; `--json` com o contrato `ork.roadmap-reserva/v1` para agentes.
 
