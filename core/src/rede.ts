@@ -315,11 +315,46 @@ export function exigirSoOProprioRetrato(maquina: string, mudancas: readonly Muda
 
 export interface RetratoInvalido { arquivo: string; motivo: string }
 
-function retratoValido(v: unknown): v is RetratoDaMaquina {
-  const r = v as RetratoDaMaquina;
-  return !!r && r.contrato === CONTRATO_DO_RETRATO && typeof r.maquina === 'string' && !!r.maquina.trim() &&
-    typeof r.publicadoEm === 'string' && Number.isFinite(Date.parse(r.publicadoEm)) &&
-    (['forjas', 'runtimes', 'hosts', 'projetos'] as const).every((k) => Array.isArray(r[k]));
+const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const ehTexto = (v: unknown, teto = 1024): v is string => typeof v === 'string' && v.length <= teto;
+const ehTextoOuNulo = (v: unknown, teto = 1024): v is string | null => v === null || ehTexto(v, teto);
+
+/** Cada item de uma lista do retrato, campo a campo; so os campos do contrato saem. */
+function itens<T>(v: unknown, item: (x: Record<string, unknown>) => T | null): T[] | null {
+  if (!Array.isArray(v) || v.length > 200) return null;
+  const saida: T[] = [];
+  for (const x of v) {
+    const ok = ehObjeto(x) ? item(x) : null;
+    if (ok === null) return null;
+    saida.push(ok);
+  }
+  return saida;
+}
+
+/**
+ * O retrato lido da casa, conferido por inteiro (M1 do CHECK 1): cada campo do contrato com o tipo
+ * certo, cada item de cada lista idem. Campo desconhecido e ignorado (versao nova e compativel);
+ * campo do contrato ausente ou com outro tipo invalida o arquivo, que vira lacuna. Antes, um
+ * `projetos: [null]` derrubava o status, o publicar e o sair de todas as maquinas.
+ */
+export function normalizarRetrato(bruto: unknown): RetratoDaMaquina | null {
+  if (!ehObjeto(bruto) || bruto.contrato !== CONTRATO_DO_RETRATO) return null;
+  const r = bruto;
+  if (!ehTexto(r.maquina, 64) || !r.maquina.trim() || !ehTexto(r.hostname, 253) || !ehTexto(r.versaoOrk, 40)) return null;
+  if (!ehTexto(r.publicadoEm, 40) || !Number.isFinite(Date.parse(r.publicadoEm))) return null;
+  if (r.adesao !== 'rede' && r.adesao !== 'fabrica') return null;
+  const forjas = itens(r.forjas, (x) => (x.forja === 'github' || x.forja === 'gitlab') && ehTexto(x.host, 255) && ehTexto(x.cli, 16) &&
+    ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.usuario, 255)
+    ? { forja: x.forja as NomeDaForja, host: x.host as string, cli: x.cli as string, versao: x.versao as string | null, usuario: x.usuario as string | null } : null);
+  const runtimes = itens(r.runtimes, (x) => ehTexto(x.runtime, 40) && ehTexto(x.binario, 40) && ehTextoOuNulo(x.versao, 40)
+    ? { runtime: x.runtime as string, binario: x.binario as string, versao: x.versao as string | null } : null);
+  const hosts = itens(r.hosts, (x) => (ORDEM_DOS_HOSTS as readonly unknown[]).includes(x.host) && ehTextoOuNulo(x.versao, 40) &&
+    ehTextoOuNulo(x.adaptador, 40) ? { host: x.host as Host, versao: x.versao as string | null, adaptador: x.adaptador as string | null } : null);
+  const projetos = itens(r.projetos, (x) => ehTexto(x.nome, 80) && ehTextoOuNulo(x.remoto, 500) && ehTexto(x.caminho, 1024)
+    ? { nome: x.nome as string, remoto: x.remoto as string | null, caminho: x.caminho as string } : null);
+  if (!forjas || !runtimes || !hosts || !projetos) return null;
+  return { contrato: CONTRATO_DO_RETRATO, maquina: r.maquina, hostname: r.hostname, adesao: r.adesao, forjas, runtimes, hosts, projetos,
+    versaoOrk: r.versaoOrk, publicadoEm: r.publicadoEm };
 }
 
 /**
@@ -332,18 +367,25 @@ export function retratosDaPonta(cache: string, ponta: string | null): { retratos
 
 function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDaMaquina[]; invalidos: RetratoInvalido[] } {
   if (!ponta) return { retratos: [], invalidos: [] };
-  const arquivos = exigirGit(cache, ['ls-tree', '-r', '--name-only', ponta, '--', `${DIR_DOS_RETRATOS}/`], PREFIXO)
-    .split('\n').filter((n) => n.endsWith('.json'));
+  // B12: `-z`, porque sem ele o git poe aspas em nome nao ASCII e o arquivo sumia calado.
+  const arquivos = exigirGit(cache, ['ls-tree', '-r', '-z', '--name-only', ponta, '--', `${DIR_DOS_RETRATOS}/`], PREFIXO)
+    .split('\0').filter(Boolean);
   const retratos: RetratoDaMaquina[] = [], invalidos: RetratoInvalido[] = [];
   for (const arquivo of arquivos) {
+    const visivel = JSON.stringify(arquivo).slice(1, -1).slice(0, 120);
+    if (!/^maquinas\/[A-Za-z0-9._-]{1,64}\.json$/.test(arquivo)) {
+      invalidos.push({ arquivo: visivel, motivo: 'nome de arquivo fora do padrao maquinas/<maquina>.json' });
+      continue;
+    }
     let bruto: unknown;
     try { bruto = JSON.parse(exigirGit(cache, ['show', `${ponta}:${arquivo}`], PREFIXO)); }
     catch { invalidos.push({ arquivo, motivo: 'JSON ilegivel' }); continue; }
-    if (!retratoValido(bruto)) { invalidos.push({ arquivo, motivo: `fora do contrato ${CONTRATO_DO_RETRATO}` }); continue; }
+    const retrato = normalizarRetrato(bruto);
+    if (!retrato) { invalidos.push({ arquivo, motivo: `fora do contrato ${CONTRATO_DO_RETRATO}` }); continue; }
     let esperado: string | null = null;
-    try { esperado = arquivoDoRetrato(bruto.maquina); } catch { /* nome impossivel */ }
-    if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: `diz ser a maquina "${bruto.maquina}", que nao e a dona deste arquivo` }); continue; }
-    retratos.push(bruto);
+    try { esperado = arquivoDoRetrato(retrato.maquina); } catch { /* nome impossivel */ }
+    if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: `diz ser a maquina "${retrato.maquina}", que nao e a dona deste arquivo` }); continue; }
+    retratos.push(retrato);
   }
   retratos.sort((a, b) => a.maquina.localeCompare(b.maquina));
   return { retratos, invalidos };

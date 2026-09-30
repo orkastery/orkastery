@@ -854,3 +854,38 @@ test('RM-053 forja: o helper cita o caminho do binario com espaco, aspa e cifrao
     assert.match(r.stdout, /^gh version 2\.99\.0/, r.stderr);
   } finally { f.limpar(); }
 });
+
+test('RM-053 autoria: retrato raso, com item nulo ou com nome fora do padrao vira lacuna; status, publicar e sair seguem (M1, B12)', () => {
+  const f = forjaFalsa('autoria-rasa');
+  const [ua, ub] = [dirTemporario('rede-rasa-a'), dirTemporario('rede-rasa-b')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    naMaquina(ub, () => {
+      entrarNaRede({ amb, maquina: 'pc-b' });
+      const cache = dirDoCache({ forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network' });
+      const { ponta } = buscarBranch(cache, 'origin', 'main', 'teste');
+      const agora = new Date().toISOString();
+      const raso = { contrato: 'ork.rede-maquina/v1', maquina: 'pc-velho', publicadoEm: agora, forjas: [], runtimes: [], hosts: [], projetos: [] };
+      const nulo = { contrato: 'ork.rede-maquina/v1', maquina: 'pc-nulo', hostname: 'x', adesao: 'rede', versaoOrk: '0.4.3', publicadoEm: agora,
+        forjas: [null], runtimes: [], hosts: [], projetos: [null] };
+      assert.ok(gravarNaBranch(cache, 'origin', 'main', ponta, [
+        { caminho: 'maquinas/pc-velho.json', conteudo: JSON.stringify(raso) },
+        { caminho: 'maquinas/pc-nulo.json', conteudo: JSON.stringify(nulo) },
+        { caminho: 'maquinas/máquina.json', conteudo: JSON.stringify({ ...raso, maquina: 'máquina' }) },
+      ], 'teste: retratos ruins', 'teste'));
+      const status = lerRede({ amb, maquina: 'pc-b' });
+      assert.deepEqual(status.membros.map((m) => m.maquina), ['pc-a', 'pc-b']);
+      assert.deepEqual(status.lacunas.filter((l) => l.tipo === 'retrato.invalido').map((l) => l.detalhe).sort(), [
+        'maquinas/máquina.json: nome de arquivo fora do padrao maquinas/<maquina>.json',
+        'maquinas/pc-nulo.json: fora do contrato ork.rede-maquina/v1',
+        'maquinas/pc-velho.json: fora do contrato ork.rede-maquina/v1',
+      ]);
+      assert.equal(publicarRede({ amb, maquina: 'pc-b', forcar: true }).acao, 'publicou');
+      const painel = exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout;
+      assert.match(painel, /^\| pc-a \| /m);
+      assert.doesNotMatch(painel, /pc-velho|pc-nulo/);
+      assert.match(String(sairDaRede({ amb, maquina: 'pc-b' }).commit), /^[a-f0-9]{40}$/);
+    });
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
