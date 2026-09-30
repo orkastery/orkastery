@@ -28,6 +28,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork maestro`, `ork board`, `ork board plan`, `ork fabrica` e `ork roadmap status` dizem no
     alto qual projeto leram (nome, raiz, remoto, origem) e o que não leram; sem remoto, board e
     fábrica dizem que nada foi lido, nunca "nenhuma publicou ainda".
+- **Roadmap da rede, de qualquer diretório** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md), fatia 1):
+  `ork network roadmap [--projeto P] [--json]` junta, para cada projeto, o status report do
+  roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte
+  e a hora de cada parte (contrato `ork.network-roadmap/v1`). Sem clone, lê a forja só com
+  consulta (`gh api graphql` numa chamada; GitLab pela mesma interface). O que não foi lido sai
+  como lacuna tipada, nunca como "vazio". As tools dos hosts ficam para a fatia 2.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última

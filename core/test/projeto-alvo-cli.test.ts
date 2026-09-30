@@ -108,8 +108,9 @@ test('nome desconhecido e host sem cwd com dois projetos recusam na saida 4, com
     // RM-054: o `--projeto` do `network` e dele (github:dono/repo); a opcao chega intacta e nada e resolvido aqui.
     for (const args of [['network', 'roadmap', '--projeto', 'github:orkastery/orkastery'], ['--projeto=github:o/r', 'network', 'roadmap']]) {
       const proprio = ork(usuario, gateway.dir, args, host);
-      assert.equal(proprio.status, 2, `${args.join(' ')}: ${proprio.stdout.slice(0, 200)}`);
-      assert.match(proprio.stderr, /^comando desconhecido: network/);
+      assert.notEqual(proprio.status, 4, `${args.join(' ')}: a resolucao do projeto nao pode recusar ${proprio.stderr.slice(0, 200)}`);
+      assert.doesNotMatch(proprio.stderr, /projeto\.(escolha|nenhum|desconhecido)/);
+      assert.doesNotMatch(proprio.stderr, /^comando desconhecido: network/);
     }
   } finally { a.limpar(); gateway.limpar(); fs.rmSync(vazio, { recursive: true, force: true }); fs.rmSync(usuario, { recursive: true, force: true }); }
 });

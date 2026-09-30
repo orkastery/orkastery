@@ -1,0 +1,50 @@
+{
+  "autor": {
+    "name": "Julio Pessoa and Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "homepage": "https://orkastery.com/",
+  "repository": "https://github.com/orkastery/orkastery",
+  "keywords": [
+    "orchestration",
+    "coding-agents",
+    "verification",
+    "human-in-the-loop",
+    "git-worktrees",
+    "methodology"
+  ],
+  "marketplace": {
+    "name": "orkastery",
+    "displayName": "Orkastery",
+    "description": "The Orkastery plugin, built from the catalog in the orkastery/orkastery repository."
+  },
+  "claude": {
+    "displayName": "Orkastery",
+    "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
+    "category": "development"
+  },
+  "codex": {
+    "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
+    "interface": {
+      "displayName": "Orkastery",
+      "shortDescription": "Conduct coding agents with verified claims",
+      "longDescription": "Skills that route Codex to the local ork CLI: open a thread per task, run GOAL, PLAN, GO, CHECK, SHIP and MASTER in an isolated git worktree, re-run every claim on the real HEAD, and bring you short decisions with one recommended option. Requires the ork CLI from npm (@orkastery/cli).",
+      "developerName": "Orkastery",
+      "category": "Developer Tools",
+      "capabilities": ["Interactive", "Read", "Write"],
+      "websiteURL": "https://orkastery.com/",
+      "privacyPolicyURL": "https://github.com/orkastery/orkastery/blob/main/marketplaces/PRIVACY.md",
+      "termsOfServiceURL": "https://github.com/orkastery/orkastery/blob/main/LICENSE",
+      "defaultPrompt": [
+        "orkastery maestro",
+        "Open an #Auto thread for this task",
+        "Which of my threads need a decision from me?"
+      ],
+      "brandColor": "#e0b264"
+    },
+    "policy": {
+      "installation": "AVAILABLE",
+      "authentication": "ON_INSTALL"
+    }
+  }
+}

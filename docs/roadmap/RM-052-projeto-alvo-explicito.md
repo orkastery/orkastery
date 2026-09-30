@@ -6,23 +6,23 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-09-30T00:15:00+00:00
+atualizado_em: 2026-09-30T02:21:50+00:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
-  codigo: PR aberto
+  codigo: Mesclado
   testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: a24a187
     pr: 24
 sdlc:
   thread: ork-rm052projeto
   modo: "#Auto"
-  fase: GOAL
+  fase: SHIP
   status: aberta
 ---
 
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | PR aberto | Aprovados | Não implantado | Flag desligada |
+| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -94,7 +94,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em validação | — | 2026-09-30 | Julio |
 | Documentação | Em revisão | — | 2026-09-30 | Julio |
-| Código | PR aberto | PR #24 | 2026-09-30 | Julio |
+| Código | Mesclado | commit `a24a187` · PR #24 | 2026-09-30 | Julio |
 | Testes | Aprovados | — | 2026-09-30 | Julio |
 | Deploy | Não implantado | — | 2026-09-30 | Julio |
 | Exposição | Flag desligada | — | 2026-09-30 | Julio |
