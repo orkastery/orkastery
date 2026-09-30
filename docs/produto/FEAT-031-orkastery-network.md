@@ -7,8 +7,8 @@ pai: MOD-01
 roadmap: [RM-053]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-30T02:31:23-03:00
-versao: ork/ork-rm053network-full@2fbf982
+verificado_em: 2026-09-30T02:33:06-03:00
+versao: ork/ork-rm053network-full@1295214
 fontes:
   codigo:
     - core/src/rede.ts
@@ -50,7 +50,7 @@ fontes:
 
 > **Em uma frase:** cada máquina publica um retrato sem segredo num repositório privado da pessoa na forja, e `ork network status` mostra todas, de qualquer diretório, com a fonte e as lacunas.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@2fbf982`
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@1295214`
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-053](../roadmap/RM-053-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
 - **Dono da página / aprovador:** Julio / Julio

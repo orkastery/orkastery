@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-031]
 owner: Julio
-atualizado_em: 2026-09-30T02:30:27-03:00
+atualizado_em: 2026-09-30T02:33:06-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -129,7 +129,7 @@ sdlc:
 - CHECK 6 (30/09): suíte e verify verdes; a sexta revisão achou um link de terceiro voltando ao `REDE.md` (o GitHub liga `http://x` sem ponto no domínio), uma corrida no `readlink` do id, nomes invisíveis passando, tokens colados que os limites novos perdiam e a batida ilegível aparecendo como fresca; todos reproduzidos.
 - GO-FIX 6 (30/09): o `:` escapado no `REDE.md` e nome sem `://`; o `readlink` tolera a troca no meio; invisível pelas classes do Unicode e nome com algo visível; padrões sem limite à esquerda, com a cauda de um token de verdade; o texto do status preserva números, e a batida ilegível vira lacuna.
 - CHECK 7 (30/09): suíte e verify verdes; a sétima revisão liberou o PR em rascunho, sem achado alto ou médio, com cinco baixos.
-- GO-FIX 7 (30/09): a batida legível de outra fábrica vence a ilegível; o AWS com borda dos dois lados e a OpenAI com 60 na cauda, sem os falsos positivos novos; testes dos lookaheads de caixa e do `boot_id` sozinho; 70 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- GO-FIX 7 (30/09): a batida legível de outra fábrica vence a ilegível; o AWS com borda dos dois lados e a OpenAI com `T3BlbkFJ` no corpo ou 60 na cauda, sem os falsos positivos novos; testes dos lookaheads de caixa e do `boot_id` sozinho; 70 testes verdes em `core/test/rede.test.ts` contra forja simulada.
 - Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, o helper só para https, o filtro de caminho do escritor, o id sem hard link, o `boot_id` no id derivado, os lookaheads de caixa dos padrões, o `~` da célula, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. A guarda "conteúdo já válido" do id derivado só aparece em estresse de milhares de processos e não tem teste na suíte. O SSH em lote (M5) é provado só pelo formato do ambiente.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
 
