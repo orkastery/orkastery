@@ -758,6 +758,21 @@
       "criadoEm": "2026-09-30T04:20:47.787Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm037noite",
+      "fase": "SHIP",
+      "arquivo": "core/test/rm037-ci-prepare-worktree.test.ts",
+      "alegacao": "Merge com a main de 30/09 (1041f1b6): o teste da PR #28 (rm037defeito, defeito 6) segue provando que o bundle nasce na worktree da thread, na raiz sem worktree e na raiz com aviso quando a worktree sumiu, agora com o nome por thread desta branch (.ork-ci/<thread>.json).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'.ork-ci', \\`\\${thread.id}.json\\`)\" core/test/rm037-ci-prepare-worktree.test.ts && ! grep -qF \"'bundle.json')\" core/test/rm037-ci-prepare-worktree.test.ts",
+        "node --test core/dist-test/test/rm037-ci-prepare-worktree.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:32:40.546Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [],
