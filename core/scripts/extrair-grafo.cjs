@@ -12,7 +12,8 @@
  * por estrato (tipo e metodo), por passo fixo sobre os `edge_id` ordenados, para auditoria manual.
  * `--conferir-amostra` confere uma amostra auditada contra a extracao atual.
  *
- * Requer `npm --prefix core run build` (usa core/dist) e o `typescript` instalado no core.
+ * Requer `npm --prefix core run build` (usa core/dist) e o `typescript` instalado no core. Os
+ * analisadores vem do modulo do nucleo (KG3 D1), ate o `ork grafo` substituir este script.
  */
 'use strict';
 
@@ -20,12 +21,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 
-const ts = require('typescript');
 const { extrairGrafo } = require('../dist/intelligence-graph-extract.js');
+const { carregarAnalisadores } = require('../dist/intelligence-graph-parsers.js');
 const { lerRepositorio } = require('../dist/intelligence-graph-repo.js');
 const { canonico, conferirFontes, sha256DoCanonico } = require('../dist/intelligence-graph-contract.js');
-const { carregarMarkdown } = require('./micromark-adaptador.cjs');
-const { criarJuizDeSintaxe } = require('./sintaxe-node.cjs');
 
 const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0';
 
@@ -198,7 +197,7 @@ function conferirAmostra(entrada, r, arquivo) {
 
 async function principal() {
   const a = argumentos(process.argv.slice(2));
-  parser = { ts, unicode: process.versions.unicode, markdown: await carregarMarkdown(), javascript: criarJuizDeSintaxe() };
+  parser = carregarAnalisadores();
   const opcoes = {};
   if (a.repositorio) opcoes.repository_id = a.repositorio;
   if (a.tenant) opcoes.tenant_id = a.tenant;

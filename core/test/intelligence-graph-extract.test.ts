@@ -4,7 +4,7 @@
  * Grupos: "KG2 extract" (o que sai e de onde), "KG2 provenance" (evidencia contra os bytes),
  * "KG2 determinism" (mesma entrada, mesmo grafo) e "KG2 limits" (o que nao se prova fica fora e
  * declarado). Os repositorios sao sinteticos: em memoria, ou Git temporario para a leitura e o
- * comando provisorio.
+ * `ork grafo` (KG3), que substituiu o comando provisorio.
  */
 import { strict as assert } from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -15,22 +15,17 @@ import * as ts from 'typescript';
 import {
   conferirFontes, digestDoGrafo, validarGrafo, type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
+import { carregarAnalisadores, criarJuizDeSintaxe } from '../src/intelligence-graph-parsers';
 import { lerRepositorio } from '../src/intelligence-graph-repo';
 import { dirTemporario } from './apoio';
 import {
   extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type Parser, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
 
-/** D15 e D16: o adaptador do micromark e o juiz de sintaxe do V8 que o comando provisorio usa. */
-const { carregarMarkdown } = require(path.resolve(__dirname, '../../scripts/micromark-adaptador.cjs')) as {
-  carregarMarkdown: () => Promise<Parser['markdown']>;
-};
-const { criarJuizDeSintaxe } = require(path.resolve(__dirname, '../../scripts/sintaxe-node.cjs')) as {
-  criarJuizDeSintaxe: () => Parser['javascript'];
-};
+/** D15 e D16, levados ao nucleo pelo KG3 (D1): o compilador, o micromark e o juiz de sintaxe do V8. */
 let PARSER: Parser;
-before(async () => {
-  PARSER = { ts, unicode: String(process.versions.unicode), markdown: await carregarMarkdown(), javascript: criarJuizDeSintaxe() };
+before(() => {
+  PARSER = carregarAnalisadores();
 });
 const fontesDe = (arquivos: Record<string, string | Uint8Array>): FonteDoRepositorio[] =>
   Object.entries(arquivos).map(([p, c]) => ({ path: p, bytes: typeof c === 'string' ? Buffer.from(c, 'utf8') : c }));
