@@ -14,6 +14,7 @@ import { validarAbbrev } from './slug';
 import { exec, subirAte } from './util';
 import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
+import { validarPreferencias } from './experiencia';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -143,6 +144,11 @@ export function carregarManifesto(dirInicial: string = process.cwd()): Manifesto
   // no fuso do sistema, porque um horario com rotulo certo vale mais que um comando parado.
   const fusoDoDono = lerFusoDoDono(mapa(dados.owner).timezone);
   if (fusoDoDono.aviso) avisos.push(fusoDoDono.aviso);
+  let preferencias: NonNullable<Manifesto['owner']> = {};
+  try {
+    preferencias = validarPreferencias({ ...mapa(dados.owner), timezone: undefined });
+  } catch (e) { erros.push((e as Error).message); }
+  if (fusoDoDono.origem === 'manifesto') preferencias.timezone = fusoDoDono.fuso;
   const board = mapa(dados.board);
   const runtime = mapa(dados.runtime);
   const conduction = mapa(dados.conduction);
@@ -294,7 +300,7 @@ export function carregarManifesto(dirInicial: string = process.cwd()): Manifesto
       stage: (texto(project.stage, 'nascente') as Manifesto['project']['stage']) ?? 'nascente',
       repo_root: texto(project.repo_root, raiz),
     },
-    ...(fusoDoDono.origem === 'manifesto' ? { owner: { timezone: fusoDoDono.fuso } } : {}),
+    ...(Object.keys(preferencias).length ? { owner: preferencias } : {}),
     board: {
       adapter: texto(board.adapter, 'hermes-kanban'),
       default: texto(board.default, 'default'),
