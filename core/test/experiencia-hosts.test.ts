@@ -21,7 +21,9 @@ test('Claude declara todas as skills distribuídas; Codex e Hermes referenciam a
         const plugin = JSON.parse(fs.readFileSync(path.join(r.destino, '.claude-plugin/plugin.json'), 'utf8'));
         assert.equal(plugin.skills.length, skillsDoCatalogo(catalogo).length);
         for (const rel of plugin.skills) assert.ok(fs.existsSync(path.join(r.destino, rel, 'SKILL.md')));
-        assert.equal(plugin.author.name, 'Equipe Orkastery');
+        // Atribuição é a da fonte do catálogo: a RM-051 só acrescenta as duas skills ao manifesto.
+        const fonte = JSON.parse(fs.readFileSync(path.join(catalogo, 'adapters/claude-code/.claude-plugin/plugin.json'), 'utf8'));
+        assert.deepEqual(plugin.author, fonte.author);
       } else {
         const entrada = fs.readFileSync(path.join(r.destino, host === 'codex' ? 'skills/ork/SKILL.md' : 'skills/orkastery-devmaster/SKILL.md'), 'utf8');
         assert.ok(entrada.includes('ork experiencia show --json'));

@@ -24,6 +24,8 @@ test('arquivo ausente e falha de execução não podem produzir varredura verde'
     }
     const ok = scan.varrer({ raiz, arquivos: ['publico'], executar: () => ({ status: 1, stdout: '' }) });
     assert.equal(ok.ok, true); assert.equal(ok.examinados, 1);
+    assert.equal(ok.termosExternos, 0, 'sem lista externa, a saída diz que nomes pessoais não foram procurados');
+    assert.equal(scan.varrer({ raiz, arquivos: ['publico'], termos: ['A', 'B'], executar: () => ({ status: 1, stdout: '' }) }).termosExternos, 2);
     const achado = scan.varrer({ raiz, arquivos: ['publico'], executar: () => ({ status: 0, stdout: 'publico\n' }) });
     assert.equal(achado.ok, false); assert.deepEqual(achado.arquivos, ['publico']);
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
@@ -40,4 +42,12 @@ test('lista complementar permanece fora do repositório e conteúdo não aparece
     const resultado = scan.varrer({ raiz, arquivos: ['termos'], termos: ['FIXTURE_PRIVADA'], executar: () => ({ status: 0, stdout: 'termos\n' }) });
     assert.ok(!JSON.stringify(resultado).includes('FIXTURE_PRIVADA'));
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); fs.rmSync(externo, { recursive: true, force: true }); }
+});
+
+test('a lista cobre os arquivos novos e os alterados pela RM-051', () => {
+  for (const arquivo of ['core/src/hosts.ts', 'core/src/onboarding.ts', 'CHANGELOG.md', 'adapters/claude-code/.claude-plugin/plugin.json',
+    'skills/core/orchestration-experience/SKILL.md', 'docs/produto/FEAT-031-pacote-de-experiencia.md']) {
+    assert.ok(scan.ARQUIVOS.includes(arquivo), arquivo);
+  }
+  assert.equal(new Set(scan.ARQUIVOS).size, scan.ARQUIVOS.length);
 });

@@ -4,7 +4,7 @@
   "description": "Conducao de looping threads em 6 fases com gates humanos, estado em disco e MASTER log com score de 0 a 5. As skills sao roteadores finos: quem executa e o nucleo `ork`.",
   "version": "{{versao}}",
   "author": {
-    "name": "Equipe Orkastery"
+    "name": "Julio Pessoa e contribuidores do Orkastery"
   },
   "license": "MIT",
   "skills": [

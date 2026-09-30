@@ -305,9 +305,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
-  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
-  experiencia uninstall <host> [--dry-run]  Remove bloco de Claude Code/Codex; sem dry-run aplica a remoção
                                             por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
+  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  experiencia uninstall <host> [--dry-run] [--json]
+                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
   setup <modo>                              Config atual de cada bloco do modo
   setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
         [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto

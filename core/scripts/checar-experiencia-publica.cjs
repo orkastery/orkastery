@@ -16,6 +16,14 @@ const ARQUIVOS = [
   'core/test/thread-roadmap-aviso.test.ts', 'core/test/experiencia-distribuicao.test.ts',
   'core/test/experiencia-publica.test.ts',
   'core/scripts/testar-experiencia-e2e.cjs', 'core/scripts/checar-experiencia-publica.cjs',
+  // Arquivos que a RM-051 alterou. docs/comecar/quickstart.md fica fora: desde antes da RM-051 ele
+  // traz um diretório pessoal genérico de exemplo, e o padrão de caminho pessoal casaria com ele.
+  'CHANGELOG.md', 'adapters/claude-code/.claude-plugin/plugin.json', 'adapters/codex/skills/ork/SKILL.md',
+  'adapters/hermes/skills/orkastery-devmaster/SKILL.md', 'core/src/hosts.ts', 'core/src/index.ts', 'core/src/init.ts',
+  'core/src/manifest.ts', 'core/src/mcp-server.ts', 'core/src/onboarding.ts', 'core/src/types.ts',
+  'core/test/horario-entradas.test.ts', 'core/test/mcp-server.test.ts', 'core/test/projeto-alvo-mcp.test.ts',
+  'docs/README.md', 'docs/guias/onboarding.md', 'docs/produto/MOD-06-integracao-com-hosts.md', 'docs/produto/README.md',
+  'skills/README.md', 'skills/core/onboarding/SKILL.md',
 ];
 const PADROES = [
   '[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}',
@@ -45,7 +53,8 @@ function varrer({ raiz = path.resolve(__dirname, '../..'), arquivos = ARQUIVOS, 
   if (r.error || r.signal || ![0, 1].includes(r.status)) throw Error('scan.exec.failed: varredura não comprovada');
   const encontrados = (r.stdout || '').trim().split(/\r?\n/).filter(Boolean);
   if (encontrados.some(f => !arquivos.includes(f)) || (r.status === 0 && !encontrados.length) || (r.status === 1 && encontrados.length)) throw Error('scan.saida.invalid');
-  return { ok: r.status === 1, examinados: arquivos.length, arquivos: encontrados,
+  // termosExternos: 0 diz que só os padrões genéricos rodaram; nomes pessoais exigem a lista externa.
+  return { ok: r.status === 1, examinados: arquivos.length, termosExternos: termos.length, arquivos: encontrados,
     limite: 'Somente padrões documentados e termos externos fornecidos; não detecta todo nome possível.' };
 }
 module.exports = { ARQUIVOS, PADROES, termosExternos, varrer };
