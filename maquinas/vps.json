@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T04:10:09.129Z",
+  "publicadoEm": "2026-09-30T04:10:43.245Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -21,32 +21,18 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-i36buscasema",
-      "nome": "I-38 busca semantica e embeddings na memoria",
-      "modo": "#Classic",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-i36buscasema-goal",
-      "atualizadaEm": "2026-09-30T04:10:08.910Z",
-      "entregue": "1041f1b6",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-pacotedeexpe",
       "nome": "RM-051 pacote de experiencia de orquestracao",
       "modo": "#Auto",
-      "fase": "CHECK",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-051",
       "branch": "ork/ork-rm051pacote-full",
-      "atualizadaEm": "2026-09-30T03:54:40.481Z",
+      "atualizadaEm": "2026-09-30T04:10:42.998Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-30T04:08:27.657Z"
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-rm025modocon",
