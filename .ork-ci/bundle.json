@@ -874,7 +874,7 @@
         "! grep -rIl 'FEAT-031-pacote' docs core/scripts core/test"
       ],
       "criadoEm": "2026-09-30T04:15:11.860Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -890,7 +890,7 @@
         "node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-09-30T04:15:18.825Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
