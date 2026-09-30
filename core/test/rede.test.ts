@@ -52,12 +52,14 @@ if (args[0] === 'auth') {
   sair(0, 'Logged in as ' + login + '\\nToken: ' + TOKEN + '\\n');
 }
 if (args[0] !== 'api') sair(2, '', 'fake: nao simulado\\n');
+if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
 if (process.env.FORJA_FAKE_SEM_LOGIN === '1') sair(1, '', cli === 'gh' ? 'gh: To get started with GitHub CLI, please run:  gh auth login\\n' : 'glab: not authenticated\\n');
 if (process.env.FORJA_FAKE_ERRO === '1') sair(1, '', cli + ': Server Error (HTTP 500)\\n');
 let metodo = 'GET', rota = null;
 const campos = {};
 for (let i = 1; i < args.length; i++) {
   if (args[i] === '-X' || args[i] === '--method') { metodo = args[++i]; continue; }
+  if (args[i] === '--hostname') { i++; continue; }
   if (['-f', '-F', '--field', '--raw-field'].includes(args[i])) { const [k, ...v] = args[++i].split('='); campos[k] = v.join('='); continue; }
   if (rota === null) rota = args[i];
 }
@@ -67,9 +69,11 @@ if (rota === 'user') sair(0, JSON.stringify(cli === 'gh'
 const estado = ler();
 const resposta = (chave) => {
   const r = estado[chave];
+  const visibilidade = r.visibilidade || (r.privado ? 'private' : 'public');
+  // A URL SSH e inutilizavel de proposito: quem publicar por ela falha.
   return cli === 'gh'
-    ? { full_name: chave, private: r.privado, visibility: r.privado ? 'private' : 'public', clone_url: r.url, ssh_url: r.url }
-    : { path_with_namespace: chave, visibility: r.privado ? 'private' : 'public', http_url_to_repo: r.url, ssh_url_to_repo: r.url };
+    ? { full_name: chave, private: visibilidade !== 'public', visibility: visibilidade, clone_url: r.url, ssh_url: 'git@fake.invalid:' + chave + '.git' }
+    : { path_with_namespace: chave, visibility: visibilidade, http_url_to_repo: r.url, ssh_url_to_repo: 'git@fake.invalid:' + chave + '.git' };
 };
 if (metodo === 'POST' && (rota === 'user/repos' || rota === 'projects')) {
   const chave = login + '/' + campos.name;
@@ -111,6 +115,7 @@ interface ForjaFalsa {
   amb: { env: NodeJS.ProcessEnv; home: string };
   tirar(cli: string): void;
   visibilidade(chave: string, privado: boolean): void;
+  interna(chave: string): void;
   limpar(): void;
 }
 
@@ -129,6 +134,12 @@ function forjaFalsa(nome: string, extra: NodeJS.ProcessEnv = {}): ForjaFalsa {
       const arquivo = path.join(estado, 'repos.json');
       const atual = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, { privado: boolean }>;
       atual[chave].privado = privado;
+      fs.writeFileSync(arquivo, JSON.stringify(atual, null, 2));
+    },
+    interna(chave) {
+      const arquivo = path.join(estado, 'repos.json');
+      const atual = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, { privado: boolean; visibilidade?: string }>;
+      atual[chave].visibilidade = 'internal';
       fs.writeFileSync(arquivo, JSON.stringify(atual, null, 2));
     },
     limpar: () => fs.rmSync(raiz, { recursive: true, force: true }),
@@ -757,4 +768,72 @@ test('RM-053 isolamento: dentro do git da rede nao ha redirecionamento, prompt n
     assert.deepEqual([process.env.GIT_DIR, process.env.GIT_TERMINAL_PROMPT, process.env.LC_ALL, process.env.LANGUAGE],
       ['/tmp/outro/.git', '1', 'pt_BR.UTF-8', 'pt_BR'], 'o ambiente de quem chamou volta como estava');
   });
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 1 (CHECK 1): a forja.
+// ---------------------------------------------------------------------------
+
+test('RM-053 forja: internal do GitHub nao conta como privado; entrar recusa e nada vai ao remoto (B1)', () => {
+  const f = forjaFalsa('forja-interna');
+  const u = dirTemporario('rede-forja-interna');
+  try {
+    const gh = forjaPorNome('github', f.amb)!;
+    gh.criarPrivado('orkastery-network', 'x');
+    f.interna('pessoa-teste/orkastery-network');
+    assert.equal(gh.repositorio('pessoa-teste', 'orkastery-network').privado, false, 'a empresa inteira le um repositorio internal');
+    naMaquina(u, () => assert.throws(() => entrarNaRede({ amb: ligado(f), maquina: 'pc-a' }), /^Error: rede\.repositorio-publico: /));
+    assert.equal(exec('git', ['ls-remote', casaFalsa(f)], f.raiz).stdout.trim(), '');
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 forja: a casa vai sempre por HTTPS com o helper, mesmo com git_protocol=ssh na CLI (B2)', () => {
+  const f = forjaFalsa('forja-https', { FORJA_FAKE_PROTOCOLO: 'ssh' });
+  const u = dirTemporario('rede-forja-https');
+  try {
+    const r = naMaquina(u, () => entrarNaRede({ amb: ligado(f), maquina: 'pc-a' }));
+    assert.equal(r.publicacao.acao, 'publicou', 'a URL SSH da forja falsa e inutilizavel: publicar por ela falharia');
+    const cache = path.join(u, 'rede', 'github-github.com-pessoa-teste-orkastery-network');
+    assert.equal(exec('git', ['config', 'remote.origin.url'], cache).stdout.trim(), casaFalsa(f));
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 forja: o host da casa vai em toda chamada da API e --repositorio sozinho mantem a forja gravada (B9, B3)', () => {
+  const log = path.join(dirTemporario('rede-forja-host-log'), 'chamadas.jsonl');
+  const f = forjaFalsa('forja-host', { FORJA_FAKE_LOG: log });
+  const u = dirTemporario('rede-forja-host');
+  try {
+    naMaquina(u, () => {
+      // Entra pelo GitLab proprio com GITLAB_HOST no terminal; a batida roda sem ele.
+      const r = entrarNaRede({ amb: ligado(f, { GITLAB_HOST: 'https://git.exemplo.com' }), maquina: 'pc-lab', forja: 'gitlab' });
+      assert.deepEqual([r.casa.forja, r.casa.host, r.casa.dono], ['gitlab', 'git.exemplo.com', 'pessoa-lab']);
+      assert.equal(lerConfigDaRede()?.host, 'git.exemplo.com');
+      fs.writeFileSync(log, '');
+      assert.equal(publicarRede({ amb: ligado(f), maquina: 'pc-lab', forcar: true }).acao, 'publicou');
+      const chamadas = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { cli: string; args: string[] });
+      const doGlab = chamadas.filter((c) => c.cli === 'glab' && !c.args.includes('user'));
+      assert.ok(doGlab.length > 0);
+      for (const c of doGlab) assert.deepEqual(c.args.slice(0, 3), ['api', '--hostname', 'git.exemplo.com'], JSON.stringify(c));
+      // B3: com rede.json no GitLab proprio, --repositorio sozinho continua no GitLab e no host gravado.
+      const outra = entrarNaRede({ amb: ligado(f), maquina: 'pc-lab', repositorio: 'outra-rede' });
+      assert.deepEqual([outra.casa.forja, outra.casa.host, outra.casa.dono, outra.casa.repositorio],
+        ['gitlab', 'git.exemplo.com', 'pessoa-lab', 'outra-rede']);
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
+});
+
+test('RM-053 forja: o helper cita o caminho do binario com espaco, aspa e cifrao (B10)', () => {
+  const f = forjaFalsa('forja-aspas');
+  try {
+    const estranho = path.join(f.raiz, "b'in $x");
+    fs.mkdirSync(estranho);
+    fs.writeFileSync(path.join(estranho, 'gh'), SCRIPT_FALSO, { mode: 0o755 });
+    const gh = forjaPorNome('github', { env: { ...f.env, PATH: estranho }, home: f.home })!;
+    const helper = gh.helperDeCredencial();
+    assert.equal(helper, `!'${estranho.replace(/'/g, "'\\''")}/gh' auth git-credential`);
+    // O git roda o helper pelo shell: o comando citado precisa achar o binario de verdade.
+    const r = spawnSync('/bin/sh', ['-c', `${helper.slice(1).replace(' auth git-credential', '')} --version`],
+      { encoding: 'utf8', env: { ...f.env, x: 'NAO-EXPANDIR' } });
+    assert.match(r.stdout, /^gh version 2\.99\.0/, r.stderr);
+  } finally { f.limpar(); }
 });

@@ -28,7 +28,7 @@ import { adquirirLockMonitor } from './monitor-lock';
 import { procurarSegredos } from './policies';
 import { Adesao, adesaoDaRede, ConfigDaRede, gravarConfigDaRede, lerConfigDaRede, pastaDaRede, publicacaoDesligada,
   REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
-import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
+import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
   versaoDoBinario } from './rede-forja';
 import { projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
@@ -123,19 +123,24 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
   const identidades = opcoes.identidades ?? forjas.map((f) => f.identidade());
   const config = lerConfigDaRede();
   const [donoPedido, nomePedido] = opcoes.repositorio?.includes('/') ? opcoes.repositorio.split('/', 2) : [null, opcoes.repositorio ?? null];
-  const nomeDaForja: NomeDaForja | null = opcoes.forja ?? (config?.forja && !opcoes.repositorio ? config.forja : null);
+  // B3: `--repositorio` sozinho troca so o repositorio; a forja gravada continua valendo.
+  const nomeDaForja: NomeDaForja | null = opcoes.forja ?? config?.forja ?? null;
   if (!opcoes.forja && !opcoes.repositorio && config?.forja && config.dono && config.repositorio && config.host) {
-    const forja = forjas.find((f) => f.nome === config.forja) ?? null;
+    // B9: a forja da casa e a do host gravado (GitLab proprio), nao a do ambiente de quem chamou.
+    const forja = forjaPorNome(config.forja, amb, config.host);
     return { casa: { forja: config.forja, host: config.host, dono: config.dono, repositorio: config.repositorio, origem: 'rede.json' },
       forja, identidades, motivo: forja ? null : { tipo: 'forja.ausente', detalhe: `a CLI da forja ${config.forja} nao esta nesta maquina` } };
   }
-  const candidatas = nomeDaForja ? forjas.filter((f) => f.nome === nomeDaForja) : forjas;
+  // A forja gravada vale com o host gravado (GitLab proprio), mesmo quando so o repositorio muda.
+  const daCasaGravada = nomeDaForja && config?.forja === nomeDaForja && config.host ? forjaPorNome(nomeDaForja, amb, config.host) : null;
+  const candidatas = daCasaGravada ? [daCasaGravada] : nomeDaForja ? forjas.filter((f) => f.nome === nomeDaForja) : forjas;
   if (candidatas.length === 0) {
     return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.ausente',
       detalhe: nomeDaForja ? `a CLI da forja ${nomeDaForja} nao esta nesta maquina` : 'nenhuma CLI de forja (gh ou glab) nesta maquina' } };
   }
   for (const forja of candidatas) {
-    const usuario = identidades.find((i) => i.forja === forja.nome)?.usuario ?? null;
+    const lida = identidades.find((i) => i.forja === forja.nome && i.host === forja.host);
+    const usuario = (lida ?? forja.identidade()).usuario;
     if (!usuario) continue;
     const origem = opcoes.forja || opcoes.repositorio ? 'opcao' : 'forja';
     return { casa: { forja: forja.nome, host: forja.host, dono: donoPedido ?? usuario, repositorio: nomePedido ?? REPOSITORIO_PADRAO, origem },

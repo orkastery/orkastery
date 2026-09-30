@@ -38,7 +38,7 @@ export interface IdentidadeNaForja {
 export interface RepositorioNaForja {
   existe: boolean;
   privado: boolean | null;
-  /** A URL que o git usa, no protocolo que a pessoa configurou na CLI da forja. */
+  /** A URL HTTPS que o git usa, autenticada pelo helper da propria CLI (B2). */
   url: string | null;
 }
 
@@ -55,6 +55,7 @@ export interface Forja {
 }
 
 const LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,254})$/;
+const HOST = /^[A-Za-z0-9.-]+(?::\d+)?$/;
 const VERSAO = /\b(\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.]{1,20})?)\b/;
 
 const ambienteDe = (amb: AmbienteDaMaquina): NodeJS.ProcessEnv => amb.env ?? process.env;
@@ -151,27 +152,38 @@ function falhou(cli: string, rota: string, s: Saida): Error {
   return new Error(`rede.forja: ${cli} api ${rota} falhou${linha ? `: ${linha}` : ''}`);
 }
 
-const helper = (binario: string) => `!${/\s/.test(binario) ? `'${binario}'` : binario} auth git-credential`;
+/** Caminho seguro para o shell que o git usa no helper: aspas simples, com `'` escapada (B10). */
+const citar = (caminho: string) => /^[A-Za-z0-9_./+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
+const helper = (binario: string) => `!${citar(binario)} auth git-credential`;
 
-function github(binario: string, amb: AmbienteDaMaquina): Forja {
-  const host = 'github.com';
-  const protocolo = () => rodar(binario, ['config', 'get', 'git_protocol', '-h', host], amb, 10000).stdout.trim();
+/**
+ * Privado de verdade (B1): no GitHub, `internal` vem com `private: true`, e a empresa inteira le.
+ * Quando a forja diz a visibilidade, so `private` conta; sem ela, o booleano.
+ */
+function privadoDe(v: Record<string, unknown>): boolean | null {
+  if (typeof v.visibility === 'string') return v.visibility === 'private';
+  return typeof v.private === 'boolean' ? v.private : null;
+}
+
+function github(binario: string, amb: AmbienteDaMaquina, host = 'github.com'): Forja {
+  // B2: a casa vai sempre por HTTPS, com o helper da propria CLI; SSH pediria agente, que o cron nao tem.
   const repositorioDe = (v: Record<string, unknown> | null): RepositorioNaForja => {
     if (!v) throw new Error('rede.forja: gh devolveu um repositorio ilegivel');
-    const url = protocolo() === 'ssh' ? v.ssh_url : v.clone_url;
-    return { existe: true, privado: typeof v.private === 'boolean' ? v.private : null, url: typeof url === 'string' ? url : null };
+    return { existe: true, privado: privadoDe(v), url: typeof v.clone_url === 'string' ? v.clone_url : null };
   };
+  // B9: o host da casa vai em toda chamada; o cron nao tem o ambiente do terminal.
+  const api = (args: string[], timeoutMs: number) => rodar(binario, ['api', '--hostname', host, ...args], amb, timeoutMs);
   return {
     nome: 'github', host, cli: 'gh', binario,
     identidade() {
-      const r = rodar(binario, ['api', 'user'], amb, 15000);
+      const r = api(['user'], 15000);
       const login = r.ok ? json(r.stdout)?.login : null;
       return { forja: 'github', host, cli: 'gh', versao: versaoDoBinario(binario, amb),
         usuario: typeof login === 'string' && LOGIN.test(login) ? login : null };
     },
     repositorio(dono, nome) {
       const rota = `repos/${dono}/${nome}`;
-      const r = rodar(binario, ['api', rota], amb, 15000);
+      const r = api([rota], 15000);
       if (!r.ok) {
         if (naoEncontrado(r)) return { existe: false, privado: null, url: null };
         throw falhou('gh', rota, r);
@@ -179,8 +191,8 @@ function github(binario: string, amb: AmbienteDaMaquina): Forja {
       return repositorioDe(json(r.stdout));
     },
     criarPrivado(nome, descricao) {
-      const r = rodar(binario, ['api', '-X', 'POST', 'user/repos', '-f', `name=${nome}`, '-F', 'private=true',
-        '-f', `description=${descricao}`, '-F', 'has_issues=false', '-F', 'has_wiki=false'], amb, 30000);
+      const r = api(['-X', 'POST', 'user/repos', '-f', `name=${nome}`, '-F', 'private=true',
+        '-f', `description=${descricao}`, '-F', 'has_issues=false', '-F', 'has_wiki=false'], 30000);
       if (!r.ok) throw falhou('gh', 'user/repos', r);
       return repositorioDe(json(r.stdout));
     },
@@ -188,27 +200,29 @@ function github(binario: string, amb: AmbienteDaMaquina): Forja {
   };
 }
 
-function gitlab(binario: string, amb: AmbienteDaMaquina): Forja {
+function hostDoGitlab(amb: AmbienteDaMaquina): string {
   const bruto = (ambienteDe(amb).GITLAB_HOST ?? '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  const host = /^[A-Za-z0-9.-]+(?::\d+)?$/.test(bruto) ? bruto : 'gitlab.com';
-  const protocolo = () => rodar(binario, ['config', 'get', 'git_protocol'], amb, 10000).stdout.trim();
+  return HOST.test(bruto) ? bruto : 'gitlab.com';
+}
+
+function gitlab(binario: string, amb: AmbienteDaMaquina, hostPedido?: string): Forja {
+  const host = hostPedido ?? hostDoGitlab(amb);
   const repositorioDe = (v: Record<string, unknown> | null): RepositorioNaForja => {
     if (!v) throw new Error('rede.forja: glab devolveu um projeto ilegivel');
-    const url = protocolo() === 'ssh' ? v.ssh_url_to_repo : v.http_url_to_repo;
-    const visibilidade = typeof v.visibility === 'string' ? v.visibility : null;
-    return { existe: true, privado: visibilidade === null ? null : visibilidade === 'private', url: typeof url === 'string' ? url : null };
+    return { existe: true, privado: privadoDe(v), url: typeof v.http_url_to_repo === 'string' ? v.http_url_to_repo : null };
   };
+  const api = (args: string[], timeoutMs: number) => rodar(binario, ['api', '--hostname', host, ...args], amb, timeoutMs);
   return {
     nome: 'gitlab', host, cli: 'glab', binario,
     identidade() {
-      const r = rodar(binario, ['api', 'user'], amb, 15000);
+      const r = api(['user'], 15000);
       const login = r.ok ? json(r.stdout)?.username : null;
       return { forja: 'gitlab', host, cli: 'glab', versao: versaoDoBinario(binario, amb),
         usuario: typeof login === 'string' && LOGIN.test(login) ? login : null };
     },
     repositorio(dono, nome) {
       const rota = `projects/${encodeURIComponent(`${dono}/${nome}`)}`;
-      const r = rodar(binario, ['api', rota], amb, 15000);
+      const r = api([rota], 15000);
       if (!r.ok) {
         if (naoEncontrado(r)) return { existe: false, privado: null, url: null };
         throw falhou('glab', rota, r);
@@ -216,8 +230,8 @@ function gitlab(binario: string, amb: AmbienteDaMaquina): Forja {
       return repositorioDe(json(r.stdout));
     },
     criarPrivado(nome, descricao) {
-      const r = rodar(binario, ['api', '-X', 'POST', 'projects', '-f', `name=${nome}`, '-f', 'visibility=private',
-        '-f', `description=${descricao}`], amb, 30000);
+      const r = api(['-X', 'POST', 'projects', '-f', `name=${nome}`, '-f', 'visibility=private',
+        '-f', `description=${descricao}`], 30000);
       if (!r.ok) throw falhou('glab', 'projects', r);
       return repositorioDe(json(r.stdout));
     },
@@ -227,11 +241,12 @@ function gitlab(binario: string, amb: AmbienteDaMaquina): Forja {
 
 const CLI_DA_FORJA: Record<NomeDaForja, string> = { github: 'gh', gitlab: 'glab' };
 
-/** A forja pelo nome, quando a CLI dela existe nesta maquina. */
-export function forjaPorNome(nome: NomeDaForja, amb: AmbienteDaMaquina = {}): Forja | null {
+/** A forja pelo nome, quando a CLI dela existe nesta maquina; `host` e o da casa gravada, quando ha. */
+export function forjaPorNome(nome: NomeDaForja, amb: AmbienteDaMaquina = {}, host?: string | null): Forja | null {
   const binario = acharBinario(CLI_DA_FORJA[nome], amb);
   if (!binario) return null;
-  return nome === 'github' ? github(binario, amb) : gitlab(binario, amb);
+  const h = host && HOST.test(host) ? host : undefined;
+  return nome === 'github' ? github(binario, amb, h) : gitlab(binario, amb, h);
 }
 
 /** As forjas cuja CLI existe nesta maquina, GitHub primeiro. */
