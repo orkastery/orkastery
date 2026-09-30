@@ -221,7 +221,8 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo, FORA_DA_CONSULTA,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
+  FORA_DA_CONSULTA,
   linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
   resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
@@ -2671,7 +2672,10 @@ function comandoNetwork(args: Args): number {
     return 2;
   }
   try {
-    const p = montarPanoramaDaRede({ pedido, semRemoto: args.opcoes['sem-remoto'] === true });
+    // RM-054 (fatia 2, D-G4 e D-G6): o host que declara nao ter cwd de projeto (RM-052, D3) pede por
+    // nome ou pela forja, e o projeto do diretorio dele so entra pelo registro.
+    const host = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+    const p = montarPanoramaDaRede({ pedido, semRemoto: args.opcoes['sem-remoto'] === true, host });
     console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPanoramaDaRede(p));
     return p.projetos.length ? 0 : 2;
   } catch (e) {
