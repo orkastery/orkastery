@@ -200,7 +200,8 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         const idadeMs = Math.max(0, agoraMs - Date.parse(m.publicadoEm));
         if (atual) {
           if (!atual.projetos.some((x) => x.nome === m.projeto)) atual.projetos.push({ nome: m.projeto, remoto: null, caminho: null });
-          if (idadeMs < atual.idadeMs) Object.assign(atual, { publicadoEm: m.publicadoEm, idadeMs, versaoOrk: m.versaoOrk ?? null });
+          // Y1 da revisao 7: a batida ilegivel (NaN) guardada antes perde para qualquer batida legivel.
+          if (Number.isFinite(idadeMs) && !(atual.idadeMs <= idadeMs)) Object.assign(atual, { publicadoEm: m.publicadoEm, idadeMs, versaoOrk: m.versaoOrk ?? null });
           continue;
         }
         // B11 do CHECK 1: quem so aparece na fabrica nao e dado como membro. Pode ser um `ork` antigo, uma

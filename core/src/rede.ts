@@ -276,13 +276,14 @@ const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
   // V8 da revisao 4: token colado a letra ou `_` (`xghp_...`, `backup_sk-proj-...`) tambem vaza, entao
   // nenhum prefixo pede limite a esquerda (X4 da revisao 6). W2 da revisao 5: o que separa o token de
   // uma palavra comum (`task-proj-`, `flask-admin-`, `ASIAPACIFIC...`, `llama2_hf_...`) e a CAUDA de um
-  // token de verdade: alfabeto, tamanho, caixa mista e digito.
+  // token de verdade: alfabeto, tamanho, caixa mista e digito. Y2 da revisao 7: o AWS pede borda de
+  // maiuscula e digito dos dois lados (colado a minuscula ou `_` continua pego), e a OpenAI, 60 na cauda.
   { nome: 'token do GitHub', regex: /(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})/ },
   { nome: 'token do GitLab', regex: /gl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{20,}/ },
   { nome: 'token do Slack', regex: /xox[abprs]-[A-Za-z0-9-]{10,}/ },
-  { nome: 'chave de acesso AWS', regex: /(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Z2-7])/ },
+  { nome: 'chave de acesso AWS', regex: /(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Z0-9])/ },
   { nome: 'token do Hugging Face', regex: /hf_(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*[a-z])[A-Za-z0-9]{34,}/ },
-  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin|None)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{40,}/ },
+  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin|None)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{60,}/ },
   { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36,}/ },
   { nome: 'chave de API do Google', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },

@@ -1703,7 +1703,7 @@ test('RM-053 segredo: token colado a letra ou _, hf_, npm_, AIza e sk-proj- no r
   const tokens: Array<[string, string]> = [
     [`xghp_${'G'.repeat(36)}`, 'token do GitHub'], [`r_ghp_${'H'.repeat(36)}`, 'token do GitHub'], [`xglpat-${'J'.repeat(20)}`, 'token do GitLab'],
     [`hf_${'Fq'.repeat(17)}`, 'token do Hugging Face'], [`npm_${'N'.repeat(36)}`, 'token do npm'], [`AIza${'K'.repeat(35)}`, 'chave de API do Google'],
-    [`sk-proj-${'P9'.repeat(24)}`, 'chave da OpenAI'], [`zAKIA${'E'.repeat(16)}`, 'chave de acesso AWS'],
+    [`sk-proj-${'P9'.repeat(32)}`, 'chave da OpenAI'], [`zAKIA${'E'.repeat(16)}`, 'chave de acesso AWS'],
   ];
   for (const [t, padrao] of tokens) assert.equal(achadoDeSegredo(`https://github.com/${t}/r.git`), padrao, t);
   const f = forjaFalsa('segredo-colados');
@@ -1817,11 +1817,12 @@ test('RM-053 segredo: nome comum nao passa por segredo, e o token de verdade con
   const comuns = ['/home/ana/src/flask-admin-dashboard-starter-kit', 'https://github.com/acme/flask-admin-dashboard-starter-kit.git',
     '/srv/task-proj-management-frontend-app', '/home/u/risk-proj-assessment-tool-backend', 'desk-admin-workstation-floor-02',
     '/data/ASIAPACIFICQUARTERLYREPORTS', 'ASIAPACIFICLAPTOP001', '/home/u/src/laughs_AndMoreStuffHere', 'hughs_developmentaccount',
-    '/home/u/highs_andlowsoftheyear2024', '/home/u/models/llama2_hf_7bchatfinetunedonmydataset2024'];
+    '/home/u/highs_andlowsoftheyear2024', '/home/u/models/llama2_hf_7bchatfinetunedonmydataset2024',
+    '/srv/flask-admin-Multi_Tenant_SaaS_Starter_Template_2024_v2', '/data/ASIAREGIONALREPORTS2019', '/data/EASTASIAPACIFICREGIONALS'];
   for (const t of comuns) assert.equal(achadoDeSegredo(t), null, t);
   const tokens: Array<[string, string]> = [
     [`ghp_${'aB3'.repeat(12)}`, 'token do GitHub'], ['/x/AKIAIOSFODNN7EXAMPLE/y', 'chave de acesso AWS'],
-    [`hf_${'aBcD'.repeat(9)}`, 'token do Hugging Face'], [`sk-proj-${'Ab3_'.repeat(12)}`, 'chave da OpenAI'],
+    [`hf_${'aBcD'.repeat(9)}`, 'token do Hugging Face'], [`sk-proj-${'Ab3_'.repeat(16)}`, 'chave da OpenAI'],
   ];
   for (const [t, padrao] of tokens) assert.equal(achadoDeSegredo(t), padrao, t);
   // Ponta a ponta: o projeto de nome comum vai ao retrato.
@@ -1922,7 +1923,10 @@ test('RM-053 autoria: o id da instalacao sem hard link nunca passa por arquivo v
     assert.notEqual(a, b);
     assert.equal(idDerivado(['x', 1n], ['h', 'boot-a', 'm']), a);
     // X7 da revisao 6: pelo caminho real, o boot entra (no Linux) e muda o id.
-    if (fs.existsSync('/proc/sys/kernel/random/boot_id')) assert.notEqual(idDerivado(['x']), idDerivado(['x'], [require('node:os').hostname(), '', '']));
+    if (fs.existsSync('/proc/sys/kernel/random/boot_id')) {
+      const machineId = fs.existsSync('/etc/machine-id') ? fs.readFileSync('/etc/machine-id', 'utf8').trim() : '';
+      assert.notEqual(idDerivado(['x']), idDerivado(['x'], [require('node:os').hostname(), '', machineId]), 'o boot_id sozinho separa os clones');
+    }
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });
 
@@ -2041,13 +2045,14 @@ test('RM-053 honestidade: batida ilegivel da fabrica legada vira lacuna, nunca "
 
 test('RM-053 segredo: cada restricao dos padroes e da regra de nome tem prova (X3, X4, X7)', () => {
   // X4: colado a letra, `_` ou `-` continua pego; `sk-None-` tambem.
-  for (const [t, padrao] of [[`xhf_${'aB'.repeat(17)}`, 'token do Hugging Face'], [`backup_sk-proj-${'Ab3_'.repeat(12)}`, 'chave da OpenAI'],
-    [`x-sk-svcacct-${'Ab3'.repeat(14)}`, 'chave da OpenAI'], [`sk-None-${'Ab3'.repeat(14)}`, 'chave da OpenAI'],
+  for (const [t, padrao] of [[`xhf_${'aB'.repeat(17)}`, 'token do Hugging Face'], [`backup_sk-proj-${'Ab3_'.repeat(16)}`, 'chave da OpenAI'],
+    [`x-sk-svcacct-${'Ab3'.repeat(21)}`, 'chave da OpenAI'], [`sk-None-${'Ab3'.repeat(21)}`, 'chave da OpenAI'],
     [`xASIA${'Q'.repeat(16)}/`, 'chave de acesso AWS'], [`AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI`, 'chave de acesso AWS']] as const) {
     assert.equal(achadoDeSegredo(t), padrao, t);
   }
   // X7: a cauda de um token de verdade e o que separa token de palavra.
-  for (const t of [`hf_${'a'.repeat(34)}`, `hf_${'aB'.repeat(16)}`, `sk-proj-${'a'.repeat(40)}`, `sk-proj-${'A'.repeat(40)}`, `sk-proj-A1${'a'.repeat(30)}`,
+  for (const t of [`hf_${'a'.repeat(34)}`, `hf_${'A'.repeat(34)}`, `hf_${'aB'.repeat(16)}`, `sk-proj-${'a'.repeat(60)}`, `sk-proj-${'A'.repeat(60)}`,
+    `sk-proj-${'a1'.repeat(30)}`, `sk-proj-${'A_'.repeat(30)}`, `sk-proj-A1${'a'.repeat(40)}`,
     `glpat-${'a'.repeat(19)}`, `AKIA${'Q'.repeat(15)}0Q`, `ASIA${'Q'.repeat(17)}`, `xghp_${'a'.repeat(35)}`]) {
     assert.equal(achadoDeSegredo(t), null, t);
   }
@@ -2057,4 +2062,26 @@ test('RM-053 segredo: cada restricao dos padroes e da regra de nome tem prova (X
     'a\u180bb', '\u2800', 'a\uffa0b', 'a\u115fb', 'a\u{e0080}b', 'a\ufe00b']) {
     assert.equal(ehNomeDeProjeto(n), false, JSON.stringify(n));
   }
+});
+
+test('RM-053 honestidade: a batida ilegivel de uma fabrica nao esconde a batida legivel da mesma maquina em outra (Y1)', () => {
+  const f = forjaFalsa('honestidade-duas-fabricas');
+  const u = dirTemporario('rede-duas-fabricas');
+  const [p1, p2] = [projetoTemporario('rede-fabrica-a', true), projetoTemporario('rede-fabrica-b', true)];
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    for (const p of [p1, p2]) assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'vps', por: 'Julio' }).acao, 'publicou');
+    // A fabrica lida primeiro (a-proj) tem a batida ilegivel; a outra, a batida de agora.
+    const { ponta } = buscarBranch(p1.dir, 'origin', 'ork/fabrica-estado', 'teste');
+    const atual = JSON.parse(exec('git', ['show', `${ponta}:maquinas/vps.json`], p1.dir).stdout);
+    assert.ok(gravarNaBranch(p1.dir, 'origin', 'ork/fabrica-estado', ponta,
+      [{ caminho: 'maquinas/vps.json', conteudo: JSON.stringify({ ...atual, publicadoEm: 'nunca' }) }], 'teste: batida ilegivel', 'teste'));
+    const registro = path.join(u, 'projetos.json');
+    fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: 'a-proj', raiz: p1.dir }, { nome: 'b-proj', raiz: p2.dir }] }));
+    const status = naMaquina(u, () => lerRede({ amb, maquina: 'pc-a', arquivoDeProjetos: registro }));
+    const vps = status.membros.find((m) => m.maquina === 'vps');
+    assert.ok(vps && Number.isFinite(vps.idadeMs) && vps.idadeMs < SEM_BATIDA_MS, JSON.stringify(vps));
+    assert.ok(!status.lacunas.some((l) => l.detalhe === 'vps: batida ilegivel'), JSON.stringify(status.lacunas));
+  } finally { f.limpar(); p1.limpar(); p2.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
