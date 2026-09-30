@@ -354,10 +354,11 @@ export function painelDaFabricaEmMarkdown(maquinas: readonly EstadoDaMaquina[]):
     '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const vivas = maquinas.flatMap((m) => ativas(m).map((t) => ({ m, t })));
-  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — | — | — | — | — |');
+  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — |  | — | — | — |');
   for (const { m, t } of vivas) {
     const pergunta = t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 60).replace(/\|/g, '/')}` : '—';
-    const runtime = runtimeDaThread(t).replace(/^-$/, '—').replace(/\|/g, '/');
+    // RM-037 (sugestao 6 do CHECK 1): a celula sem despacho diz isso, sem travessao novo.
+    const runtime = t.runtime || t.modelo ? runtimeDaThread(t).replace(/\|/g, '/') : 'sem despacho';
     linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${runtime} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
   }
   return [...linhas, '', legendaDoFuso(), ''].join('\n');

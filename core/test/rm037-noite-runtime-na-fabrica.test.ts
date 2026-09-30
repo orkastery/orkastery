@@ -40,7 +40,8 @@ test('defeito 4: o retrato leva runtime, modelo e esforco do ultimo despacho de 
     const md = painelDaFabricaEmMarkdown([retrato]);
     assert.match(md, /\| Máquina \| Thread \| Modo \| Fase \| Runtime \| Item \|/);
     assert.match(md, new RegExp(`\\| vps \\| ${despachada.id} \\| #Auto \\| GOAL \\| claude-bg opus/xhigh \\|`));
-    assert.match(md, new RegExp(`\\| vps \\| ${nova.id} \\| #Auto \\| GOAL \\| — \\|`));
+    assert.match(md, new RegExp(`\\| vps \\| ${nova.id} \\| #Auto \\| GOAL \\| sem despacho \\|`));
+    assert.match(painelDaFabricaEmMarkdown([{ ...retrato, threads: [] }]), /\| . \| nenhuma thread ativa \| . \| . \|  \| . \| . \| . \|/);
   } finally { p.limpar(); }
 });
 

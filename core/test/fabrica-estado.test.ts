@@ -105,8 +105,8 @@ test('duas maquinas: cada uma publica o seu retrato e ve o da outra, com a verda
 
     // O painel legivel esta na branch; nada foi criado na arvore nem nas branches locais.
     const painelMd = exec('git', ['show', `origin/${BRANCH_DA_FABRICA}:FABRICA.md`], m.b).stdout;
-    // RM-037 (rm037noite, defeito 4): a coluna Runtime entra antes do item; sem despacho, travessao.
-    assert.match(painelMd, /\| pc-a \| .* \| #Classic \| GOAL \| — \| RM-001 \| sim: /);
+    // RM-037 (rm037noite, defeito 4): a coluna Runtime entra antes do item; a thread sem despacho diz isso.
+    assert.match(painelMd, /\| pc-a \| .* \| #Classic \| GOAL \| sem despacho \| RM-001 \| sim: /);
     assert.equal(exec('git', ['branch', '--list', BRANCH_DA_FABRICA], m.a).stdout.trim(), '');
     assert.doesNotMatch(exec('git', ['status', '--porcelain', '--', 'maquinas', 'FABRICA.md'], m.a).stdout, /\S/);
   } finally { m.limpar(); }
