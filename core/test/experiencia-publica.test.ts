@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 const scan = require('../../scripts/checar-experiencia-publica.cjs');
 
 test('padrões públicos detectam fixtures sintéticas e não confundem referências de pacote', () => {
@@ -29,6 +30,25 @@ test('arquivo ausente e falha de execução não podem produzir varredura verde'
     const achado = scan.varrer({ raiz, arquivos: ['publico'], executar: () => ({ status: 0, stdout: 'publico\n' }) });
     assert.equal(achado.ok, false); assert.deepEqual(achado.arquivos, ['publico']);
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('sem binário no PATH, como no runner hospedado, a varredura acha o padrão e aprova o limpo', () => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'scan-sem-path-'));
+  const vazio = fs.mkdtempSync(path.join(os.tmpdir(), 'scan-path-vazio-')), anterior = process.env.PATH;
+  process.env.PATH = vazio;
+  try {
+    fs.writeFileSync(path.join(raiz, 'limpo'), 'produto genérico FIXTUREXPRIVADA\n');
+    fs.writeFileSync(path.join(raiz, 'sujo'), 'contato ' + ['fixture', 'example.invalid'].join('@') + '\n');
+    const achado = scan.varrer({ raiz, arquivos: ['limpo', 'sujo'] });
+    assert.equal(achado.ok, false); assert.deepEqual(achado.arquivos, ['sujo']);
+    assert.equal(scan.varrer({ raiz, arquivos: ['limpo'], termos: ['FIXTURE.PRIVADA'] }).ok, true, 'termo externo é literal');
+    const cli = spawnSync(process.execPath, [path.resolve(__dirname, '../../scripts/checar-experiencia-publica.cjs')],
+      { env: { PATH: vazio }, encoding: 'utf8' });
+    assert.equal(cli.status, 0, cli.stderr);
+  } finally {
+    if (anterior === undefined) delete process.env.PATH; else process.env.PATH = anterior;
+    fs.rmSync(raiz, { recursive: true, force: true }); fs.rmSync(vazio, { recursive: true, force: true });
+  }
 });
 
 test('lista complementar permanece fora do repositório e conteúdo não aparece no resultado', () => {

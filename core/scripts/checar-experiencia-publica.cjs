@@ -3,7 +3,6 @@
 /** Varredura delimitada: prova ausência dos padrões examinados, não de todo nome possível. */
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
 const ARQUIVOS = [
   'docs/roadmap/RM-051-pacote-de-experiencia.md', 'docs/produto/FEAT-034-pacote-de-experiencia.md',
   'docs/guias/orchestration-experience.md', 'docs/guias/orchestration-experience.pt-BR.md',
@@ -40,16 +39,25 @@ function termosExternos(arquivo, raiz) {
   return fs.readFileSync(real, 'utf8').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 }
 const escapar = texto => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function varrer({ raiz = path.resolve(__dirname, '../..'), arquivos = ARQUIVOS, termos = [], executar = spawnSync } = {}) {
+/**
+ * Motor em Node com o contrato do grep (0 casou, 1 não casou): o runner hospedado do GitHub não traz
+ * o rg, e a varredura não pode depender de binário da máquina.
+ */
+function buscar(raiz, arquivos, expressoes) {
+  try {
+    const padrao = new RegExp(expressoes.join('|'), 'i');
+    const casados = arquivos.filter(f => padrao.test(fs.readFileSync(path.join(raiz, f), 'utf8')));
+    return { status: casados.length ? 0 : 1, stdout: casados.map(f => f + '\n').join('') };
+  } catch (error) { return { status: 2, error }; }
+}
+function varrer({ raiz = path.resolve(__dirname, '../..'), arquivos = ARQUIVOS, termos = [], executar = buscar } = {}) {
   if (!arquivos.length) throw Error('scan.lista.vazia');
   for (const relativo of arquivos) {
     if (path.isAbsolute(relativo) || relativo.split(/[\\/]/).includes('..')) throw Error('scan.path.invalid');
     const alvo = path.join(raiz, relativo), stat = fs.lstatSync(alvo);
     if (!stat.isFile() || stat.isSymbolicLink()) throw Error('scan.arquivo.invalid');
   }
-  const args = ['--files-with-matches', '--no-messages', '--color', 'never', '--ignore-case',
-    ...[...PADROES, ...termos.map(escapar)].flatMap(p => ['--regexp', p]), '--', ...arquivos];
-  const r = executar('rg', args, { cwd: raiz, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 });
+  const r = executar(raiz, arquivos, [...PADROES, ...termos.map(escapar)]);
   if (r.error || r.signal || ![0, 1].includes(r.status)) throw Error('scan.exec.failed: varredura não comprovada');
   const encontrados = (r.stdout || '').trim().split(/\r?\n/).filter(Boolean);
   if (encontrados.some(f => !arquivos.includes(f)) || (r.status === 0 && !encontrados.length) || (r.status === 1 && encontrados.length)) throw Error('scan.saida.invalid');
