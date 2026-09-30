@@ -17,6 +17,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     retrato, e o projeto suspeito fica fora sozinho, com aviso;
   - cada instalação tem uma identidade aleatória no retrato: duas máquinas com o mesmo nome não se
     sobrescrevem;
+  - a casa só fala por HTTPS, e nada que o terminal execute (ESC, bidi) chega à saída do
+    `ork network status` nem ao `REDE.md`;
   - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
   - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):

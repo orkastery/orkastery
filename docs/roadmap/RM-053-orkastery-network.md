@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-031]
 owner: Julio
-atualizado_em: 2026-09-29T22:53:33-03:00
+atualizado_em: 2026-09-30T00:01:00-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -117,8 +117,10 @@ sdlc:
 - CHECK 2 (29/09): o reverify do núcleo com o verify completo verde; uma segunda revisão independente achou uma regressão na fronteira de credencial (senha na forma scp) e duas funcionais, todas reproduzidas.
 - GO-FIX 2 (29/09): corrigidas.
 - CHECK 3 (29/09): o verify do núcleo verde; a terceira revisão achou mais uma variante de senha no remoto (barra invertida num usuário de domínio) e uma regressão no `sair`, reproduzidas.
-- GO-FIX 3 (29/09): o remoto passa a ser montado de partes validadas; 50 testes verdes em `core/test/rede.test.ts` contra forja simulada.
-- Evidência dos testes: cada correção tem teste; os que cobrem correção nova reprovam no código anterior; os que cobrem comportamento já existente (tetos do escritor, `core.sshCommand` na leitura legada) foram provados por mutação; o SSH em lote (M5) é provado só pelo formato do ambiente.
+- GO-FIX 3 (29/09): o remoto passa a ser montado de partes validadas.
+- CHECK 4 (29/09): o verify do núcleo verde; a quarta revisão confirmou a montagem do remoto contra o parse do próprio git em HTTP(S) e scp, e achou o login no lugar do host nos transportes SSH, nome de projeto de terceiro com controle de terminal chegando ao status e ao `REDE.md`, e dois consertos da rodada 3 sem teste; todos reproduzidos.
+- GO-FIX 4 (30/09): SSH e `git://` com `?` ou `#` viram `null`; uma regra só de nome de projeto; o leitor recusa texto com caractere invisível ou com cara de segredo e remonta o remoto alheio; a saída do status não executa nada; a casa só por HTTPS; 58 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. O SSH em lote (M5) é provado só pelo formato do ambiente.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -127,13 +129,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Branch criada | — | 2026-09-29 | Julio |
-| Testes | Em execução | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-30 | Julio |
+| Documentação | Em revisão | — | 2026-09-30 | Julio |
+| Código | Branch criada | — | 2026-09-30 | Julio |
+| Testes | Em execução | — | 2026-09-30 | Julio |
+| Deploy | Não implantado | — | 2026-09-30 | Julio |
+| Exposição | Flag desligada | — | 2026-09-30 | Julio |
+| Habilitação | Pendente | — | 2026-09-30 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -151,3 +153,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | CHECK 1 reprovado e GO-FIX 1; a feature vira FEAT-031 (a RM-052 usa o 030) | parecer do CHECK 1 e commits `fix(ork-rm053network)` | agente |
 | 2026-09-29 | CHECK 2 reprovado (segunda revisão) e GO-FIX 2 | parecer do CHECK 2 e commits `fix(ork-rm053network): GO-FIX 2` | agente |
 | 2026-09-29 | CHECK 3 reprovado (terceira revisão) e GO-FIX 3: remoto montado de partes validadas | parecer do CHECK 3 e commit `fix(ork-rm053network): GO-FIX 3` | agente |
+| 2026-09-30 | CHECK 4 reprovado (quarta revisão) e GO-FIX 4: SSH sem `?` nem `#`, regra única de nome, texto sem invisíveis, casa só por HTTPS | parecer do CHECK 4 e commit `fix(ork-rm053network): GO-FIX 4` | agente |

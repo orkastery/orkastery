@@ -52,6 +52,6 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-027](FEAT-027-fabrica-compartilhada.md) | Fábrica compartilhada entre máquinas | feature | vigente | MOD-01 | 2026-09-27 |
 | [FEAT-028](FEAT-028-loop-de-aprendizado.md) | Loop de aprendizado | feature | vigente | MOD-05 | 2026-09-27 |
 | [FEAT-029](FEAT-029-conducao-multicanal.md) | Condução multicanal da thread | feature | vigente | MOD-01 | 2026-09-27 |
-| [FEAT-031](FEAT-031-orkastery-network.md) | Orkastery Network, a rede das máquinas de uma pessoa | feature | em desenvolvimento | MOD-01 | 2026-09-29 |
+| [FEAT-031](FEAT-031-orkastery-network.md) | Orkastery Network, a rede das máquinas de uma pessoa | feature | em desenvolvimento | MOD-01 | 2026-09-30 |
 
 <!-- ork-docs:indice:fim -->
