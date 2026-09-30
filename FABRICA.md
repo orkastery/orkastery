@@ -10,6 +10,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm054fatia2 | #Auto | GOAL | RM-054 | — | 30/09 02:44 |
 | srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 30/09 02:44 |
 | srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 30/09 02:44 |
-| vps | ork-pacotedeexpe | #Auto | GO | RM-051 | sim: autorizacao da retomada | 30/09 17:32 |
+| vps | ork-pacotedeexpe | #Auto | GO | RM-051 | sim: autorizacao da retomada | 30/09 17:45 |
 
 Horários de Brasília.
