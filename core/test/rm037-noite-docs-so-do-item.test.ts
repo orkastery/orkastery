@@ -48,7 +48,7 @@ sdlc:
   status: aberta
 ---
 
-# ${id} — Item ${id}
+# ${id}: item ${id}
 
 > **Em uma frase:** fixture do teste.
 `;
@@ -117,6 +117,9 @@ test('defeito 5: na worktree de uma thread com item, o padrao do CLI e o item de
     assert.equal(pedido.status, 0, pedido.stderr);
     assert.deepEqual(JSON.parse(pedido.stdout).escopo, ['RM-001']);
     assert.equal(ork(['--so', 'FEAT-001']).status, 2, 'so item do roadmap');
+    const semItem = ork(['--so', '--escrever']);
+    assert.equal(semItem.status, 2, 'sem item depois de --so e erro de uso');
+    assert.match(semItem.stderr, /faltou o item depois de --so/);
 
     const todos = ork(['--todos']);
     assert.match(todos.stdout, /^Escopo: todo item do roadmap\./);
