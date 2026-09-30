@@ -65,7 +65,8 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 - O retrato é montado por lista de permissão, e uma varredura de segredo roda antes do push.
 - Campo que o núcleo monta (máquina, hostname, forjas, runtimes, hosts) com cara de segredo recusa a publicação inteira.
 - Projeto vem de fora do núcleo: o que tem valor com cara de segredo fica fora do retrato sozinho, com aviso no CLI e no `rede.log` (campo e padrão, nunca o valor).
-- O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, sem o usuário de transporte; usuário com senha na forma scp, ou `@` ambíguo, vira `null`; a URL perde usuário, senha, query e fragmento.
+- O remoto é MONTADO a partir de partes validadas, nunca copiado: esquema conhecido (`https`, `http`, `ssh`, `git`, `git+ssh`), host em conjunto fechado (nome, IPv4 ou IPv6 entre colchetes), porta numérica e caminho sem `@`, `:` nem `\`. Usuário, senha, query e fragmento nunca vão; o que não se encaixa (inclusive `file://` e barra invertida) vira `null`, e o projeto continua.
+- O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, a forma usual das forjas.
 - O escritor confere o retrato com as mesmas regras do leitor antes do push: o que ele publica, toda máquina lê.
 - Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
 
