@@ -5,7 +5,7 @@
     "em": "2026-09-29T11:40:00-03:00",
     "metodo": "leitura do trecho e das linhas em volta no codigo; declaracao do alvo, import e secao conferidos por grep na revisao auditada",
     "limite": "amostra por estrato, nao o universo: nao prova zero aresta falsa; a auditoria integral e do benchmark",
-    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado"
+    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 a aresta de BRAIN_READ foi reauditada depois do sync com a main baf065e, que mudou o trecho dela"
   },
   "graph_schema": "ork.code-artifact-graph/v1",
   "repository_id": "orkastery",
@@ -443,13 +443,13 @@
         "path": "core/src/company-brain-cli.ts",
         "extractor_id": "ork.ts-ast",
         "extraction_method": "ast",
-        "line_start": 16,
-        "line_end": 16,
-        "trecho_sha256": "c92fcd3472c8af4bf04bcbfa7b2e7cbfd40097d96ae0c7ed179d222f84019cbb",
-        "trecho_inicio": "BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context'] as const"
+        "line_start": 17,
+        "line_end": 17,
+        "trecho_sha256": "60e72e862b76fa588cbc60eade50503bfc8abdca5bef903c46f3b768e203f0ee",
+        "trecho_inicio": "BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context','dossie'] as const"
       },
       "veredito": "supported",
-      "nota": "const exportada de topo BRAIN_READ na l. 16"
+      "nota": "const exportada de topo BRAIN_READ na l. 17; reauditada em 30/09 na revisao 1b0ef5b, depois do sync com a main baf065e, que acrescentou 'dossie' ao trecho"
     },
     {
       "estrato": "declares/ast",
