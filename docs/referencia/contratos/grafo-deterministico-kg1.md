@@ -10,7 +10,8 @@ O grafo é uma projeção local e descartável de código e documentos. A mesma 
 configuração e versão de extrator determinam as mesmas identidades e o mesmo conteúdo
 canônico, em qualquer ordem de inserção. O KG1 entrega o contrato, a validação pura e o
 corpus de conformidade. Não entrega parser, AST, extração de PDF, índice, busca, watcher
-nem consumo pelas fases: isso é KG2 a KG7.
+nem consumo pelas fases: isso é KG2 a KG7. A extração de código e de Markdown que produz
+esse grafo a partir de um repositório local é o [KG2](extracao-grafo-kg2.md).
 
 ## O que o contrato garante e o que não garante
 
@@ -168,7 +169,8 @@ caminhos do manifesto que coincidem na forma NFC são recusados
 (`grafo.manifesto.caminho-ambiguo`), porque um sistema de arquivos que normaliza os
 fundiria. Fragmentos de localizador seguem a mesma regra de controle. Arquivo cujo caminho o
 contrato recusa fica fora do grafo, e a v1 não tem onde registrar essa exclusão: o produtor
-(KG2) tem de reportá-la fora do contrato até uma versão futura.
+(KG2) tem de reportá-la fora do contrato até uma versão futura, e o faz no
+[relatório de extração](extracao-grafo-kg2.md#relatório-de-extração-provisório).
 
 Limites: 100 mil entradas de manifesto, 100 mil nós, 500 mil arestas, 64 evidências por
 aresta, 32 referências de ACL, 32 extratores, caminho de até 1024 caracteres. Acima deles o

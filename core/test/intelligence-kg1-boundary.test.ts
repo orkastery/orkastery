@@ -1,10 +1,11 @@
 /**
- * I-31 KG1 (T3, D9, D10): fronteiras dos contratos KG1.
+ * I-31 KG1 (T3, D9, D10) e RM-031 KG2 (D1, D11): fronteiras da familia do grafo.
  *
- * O Company Brain v1 fica byte a byte, os modulos novos sao puros e fechados por allowlist no
- * fechamento transitivo dos imports, e nenhum outro modulo do nucleo os consome ainda: extracao,
- * indice, consumo e federacao sao KG2 a KG7. A analise usa o parser do TypeScript, nao busca
- * de palavra em prosa: comentario que cita "embedding" nao conta, identificador e import contam.
+ * O Company Brain v1 fica byte a byte, os contratos KG1 e os extratores puros do KG2 sao fechados
+ * por allowlist no fechamento transitivo dos imports, e fora da familia do grafo nenhum modulo do
+ * nucleo os consome: indice, consumo e federacao sao KG3 a KG7. O compilador TypeScript entra nos
+ * extratores so como tipo (D1). A analise usa o parser do TypeScript, nao busca de palavra em
+ * prosa: comentario que cita "embedding" nao conta, identificador e import contam.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -17,6 +18,15 @@ import { ehContratoPublico } from '../src/contrato-publico';
 const RAIZ = path.resolve(__dirname, '../../..');
 const SRC = path.join(RAIZ, 'core/src');
 const MODULOS_KG1 = ['intelligence-graph-contract.ts', 'intelligence-benchmark-contract.ts'];
+/** RM-031 KG2: extratores puros; recebem bytes e o compilador por parametro. */
+const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-extract-ts.ts', 'intelligence-graph-extract-md.ts'];
+/** RM-031 KG2 (D8): a unica borda de E/S da familia, que le o repositorio Git local. */
+const MODULO_KG2_LEITURA = 'intelligence-graph-repo.ts';
+const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA];
+/** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
+const APOIO_PURO_KG2 = ['yaml.ts'];
+/** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
+const EXTERNOS_KG2 = new Set(['zod', 'node:crypto', 'typescript']);
 /** Allowlist explicita do fechamento transitivo dos modulos KG1. */
 const EXTERNOS_PERMITIDOS = new Set(['zod', 'node:crypto']);
 /** Globais que dariam processo, rede, arquivo, relogio, acaso ou avaliacao dinamica a um modulo puro. */
@@ -34,6 +44,19 @@ const CONGELADOS: [string, string][] = [
 
 const ler = (rel: string): string => fs.readFileSync(path.join(SRC, rel), 'utf8');
 const importacoes = (rel: string): string[] => ts.preProcessFile(ler(rel), true, true).importedFiles.map((f) => f.fileName);
+
+/** Imports e reexports com modulo, marcando os que so trazem tipo (apagados na compilacao). */
+function importsComTipo(rel: string): { modulo: string; soTipo: boolean }[] {
+  const fonte = ts.createSourceFile(rel, ler(rel), ts.ScriptTarget.ES2022, true), r: { modulo: string; soTipo: boolean }[] = [];
+  for (const st of fonte.statements) {
+    if (ts.isImportDeclaration(st) && ts.isStringLiteral(st.moduleSpecifier)) {
+      r.push({ modulo: st.moduleSpecifier.text, soTipo: !!st.importClause?.isTypeOnly });
+    } else if (ts.isExportDeclaration(st) && st.moduleSpecifier && ts.isStringLiteral(st.moduleSpecifier)) {
+      r.push({ modulo: st.moduleSpecifier.text, soTipo: st.isTypeOnly });
+    }
+  }
+  return r;
+}
 
 function fechamento(inicio: string): { locais: Set<string>; externos: Set<string> } {
   const locais = new Set<string>(), externos = new Set<string>(), fila = [inicio];
@@ -107,8 +130,43 @@ test('KG1 boundary: modulos KG1 nao tocam processo, rede, arquivo, relogio, acas
   }
 });
 
-test('KG1 boundary: nenhum outro modulo do nucleo consome os contratos KG1 ainda', () => {
-  const outros = fs.readdirSync(SRC).filter((f) => f.endsWith('.ts') && !MODULOS_KG1.includes(f));
+test('KG2 boundary: extratores puros so alcancam a familia do grafo, zod e node:crypto; typescript so como tipo', () => {
+  for (const modulo of MODULOS_KG2_PUROS) {
+    const { locais, externos } = fechamento(modulo);
+    assert.ok([...locais].every((l) => FAMILIA_DO_GRAFO.includes(l) || APOIO_PURO_KG2.includes(l)), `${modulo}: ${[...locais]}`);
+    assert.ok([...externos].every((e) => EXTERNOS_KG2.has(e)), `${modulo}: ${[...externos]}`);
+    for (const i of importsComTipo(modulo).filter((x) => x.modulo === 'typescript')) assert.ok(i.soTipo, `${modulo} importa typescript em tempo de execucao`);
+  }
+  assert.ok(importsComTipo('intelligence-graph-extract.ts').some((i) => i.modulo === './intelligence-graph-contract' && !i.soTipo));
+  for (const apoio of APOIO_PURO_KG2) assert.deepEqual(importsComTipo(apoio), [], `${apoio} continua sem import`);
+});
+
+test('KG2 boundary: extratores puros nao tocam processo, rede, arquivo, relogio, acaso nem busca semantica', () => {
+  for (const modulo of [...MODULOS_KG2_PUROS, ...APOIO_PURO_KG2]) {
+    const { identificadores, literais, relogio, deCrypto } = simbolos(modulo);
+    assert.ok(identificadores.size > (APOIO_PURO_KG2.includes(modulo) ? 10 : 50), `${modulo}: parser leu o arquivo`);
+    for (const g of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(g), `${modulo} usa ${g}`);
+    assert.equal(relogio, 0, `${modulo} le o relogio com new Date()`);
+    assert.ok(deCrypto.every((d) => DE_CRYPTO_PERMITIDOS.has(d)), `${modulo} importa de node:crypto: ${deCrypto}`);
+    const semanticos = [...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t));
+    assert.deepEqual(semanticos, [], modulo);
+  }
+});
+
+test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa arquivo, caminho, processo e hash do Node', () => {
+  const imports = importsComTipo(MODULO_KG2_LEITURA);
+  const externos = imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort();
+  assert.deepEqual(externos, ['node:child_process', 'node:crypto', 'node:fs', 'node:path']);
+  for (const i of imports.filter((x) => x.modulo.startsWith('./intelligence-'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
+  const { identificadores } = simbolos(MODULO_KG2_LEITURA);
+  for (const proibido of ['exec', 'execSync', 'shell', 'fetch', 'eval', 'Function']) assert.ok(!identificadores.has(proibido), proibido);
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG2_LEITURA)) {
+    assert.ok(!importacoes(f).includes('./intelligence-graph-repo'), `${f} importa a borda de E/S`);
+  }
+});
+
+test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os contratos', () => {
+  const outros = fs.readdirSync(SRC).filter((f) => f.endsWith('.ts') && !FAMILIA_DO_GRAFO.includes(f));
   for (const vizinho of ['orkmind.ts', 'recall.ts', 'memoria.ts', 'company-brain-contract.ts', 'company-brain-client.ts', 'mcp-server.ts', 'index.ts', 'phase.ts']) {
     assert.ok(outros.includes(vizinho), `${vizinho} existe: a fronteira nao e vazia`);
   }
