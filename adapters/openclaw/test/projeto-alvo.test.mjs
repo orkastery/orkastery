@@ -35,9 +35,9 @@ async function comPlugin(corpo) {
   }
 }
 
-test('toda tool aceita projeto opcional, so nome; o catalogo segue com 25 tools e os requisitos de antes', async () => {
+test('toda tool aceita projeto opcional, so nome; o catalogo segue com 26 tools e os requisitos de antes', async () => {
   await comPlugin(async (tools) => {
-    assert.equal(tools.length, 25);
+    assert.equal(tools.length, 26);
     for (const t of tools) {
       const p = t.parameters.properties.projeto;
       assert.ok(p, `${t.name} aceita projeto`);

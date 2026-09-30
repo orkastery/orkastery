@@ -304,6 +304,18 @@ const FERRAMENTAS = [
         argv: (p) => ['brain', 'context', '--thread', texto(p, 'thread'), '--ids', texto(p, 'ids')],
     },
     {
+        name: 'ork_brain_dossie',
+        description: 'Dossiê de decisão da thread: vínculo com objetivo e projeto, contexto citável, alternativas, decisão, quem decidiu e evidência, com os ids do Company Brain e as lacunas. Resposta do dono só com recibo conferido. Só leitura.',
+        parameters: {
+            type: 'object', additionalProperties: false, required: ['thread'],
+            properties: {
+                thread: { type: 'string' },
+                decisao: { type: 'string', description: 'id do pedido ou fact- da decisão; omita para a thread inteira' },
+            },
+        },
+        argv: (p) => ['brain', 'dossie', '--thread', texto(p, 'thread'), ...(p.decisao === undefined ? [] : ['--decisao', texto(p, 'decisao')])],
+    },
+    {
         name: 'ork_claims_add',
         description: 'Registra uma alegacao verificavel com o comando que a comprova. Toda citacao de arquivo ou teste vira claim.',
         parameters: schema({

@@ -46,3 +46,20 @@ test('B4.1: context chega aos hosts de CLI pelo repasse do Hermes e pela tool do
     assert.match(entry,/name: 'ork_brain_context'[\s\S]*?\['brain', 'context', '--thread', texto\(p, 'thread'\), '--ids', texto\(p, 'ids'\)\]/);
   }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('S11 o dossiê chega ao Hermes pelo repasse ork_brain e ao OpenClaw pela tool ork_brain_dossie',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'brain-hosts-dossie-')),root=path.resolve(__dirname,'../../..');
+  try{
+    const executable=path.join(dir,'ork-simulated'),fato='fact-'+'a'.repeat(64);
+    fs.writeFileSync(executable,`#!/bin/sh\nprintf '%s\\n' "$@"\n`,{mode:0o755});
+    const hermes=instalarAdaptador('hermes',{projeto:dir,catalogo:root,orkBin:executable});assert.equal(hermes.ok,true);
+    const run=spawnSync('/bin/sh',[path.join(hermes.destino,'bin/ork-brain.sh'),'dossie','--thread','thread-one','--decisao',fato],{encoding:'utf8',timeout:5000});
+    assert.equal(run.status,0,run.stderr);
+    assert.deepEqual(run.stdout.trim().split('\n'),['brain','dossie','--thread','thread-one','--decisao',fato]);
+    const openclaw=instalarAdaptador('openclaw',{projeto:dir,catalogo:root,orkBin:executable});assert.equal(openclaw.ok,true);
+    const plugin=path.join(dir,'.openclaw','extensions','orkastery');
+    const manifesto=JSON.parse(fs.readFileSync(path.join(plugin,'openclaw.plugin.json'),'utf8'));
+    assert.ok(manifesto.contracts.tools.includes('ork_brain_dossie'));
+    const entry=fs.readFileSync(path.join(plugin,'dist','index.js'),'utf8');
+    assert.match(entry,/name: 'ork_brain_dossie'[\s\S]*?\['brain', 'dossie', '--thread', texto\(p, 'thread'\), \.\.\.\(p\.decisao === undefined \? \[\] : \['--decisao', texto\(p, 'decisao'\)\]\)\]/);
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
