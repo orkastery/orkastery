@@ -5,17 +5,18 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 29/09 23:33 |
-| srvjcp86 | ork-rm054fatia2 | #Auto | GOAL | RM-054 | — | 29/09 23:33 |
-| srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 29/09 23:33 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 29/09 23:36 |
-| vps | ork-i36buscasema | #Classic | SHIP | — | — | 29/09 23:36 |
-| vps | ork-pacotedeexpe | #Auto | CHECK | RM-051 | — | 29/09 23:36 |
-| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 29/09 23:36 |
-| vps | ork-rm026k3dossi | #Auto | SHIP | RM-026 | — | 29/09 23:36 |
-| vps | ork-rm031kg2extr | #Auto | CHECK | RM-031 | — | 29/09 23:36 |
-| vps | ork-rm037defeito | #Auto | GO | RM-037 | — | 29/09 23:36 |
-| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 29/09 23:36 |
-| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 29/09 23:36 |
+| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 30/09 02:39 |
+| srvjcp86 | ork-rm054fatia2 | #Auto | GOAL | RM-054 | — | 30/09 02:39 |
+| srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 30/09 02:39 |
+| srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 30/09 02:39 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 30/09 02:36 |
+| vps | ork-i36buscasema | #Classic | SHIP | — | — | 30/09 02:36 |
+| vps | ork-pacotedeexpe | #Auto | CHECK | RM-051 | — | 30/09 02:36 |
+| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 30/09 02:36 |
+| vps | ork-rm026k3dossi | #Auto | SHIP | RM-026 | — | 30/09 02:36 |
+| vps | ork-rm031kg2extr | #Auto | CHECK | RM-031 | — | 30/09 02:36 |
+| vps | ork-rm037defeito | #Auto | GO | RM-037 | — | 30/09 02:36 |
+| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 30/09 02:36 |
+| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 30/09 02:36 |
 
-Horários de Brasília.
+Horários em UTC.

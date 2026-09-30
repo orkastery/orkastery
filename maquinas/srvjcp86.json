@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:33:30.292Z",
+  "publicadoEm": "2026-09-30T02:39:08.815Z",
   "threads": [
     {
       "id": "ork-rm053network",
@@ -29,6 +29,20 @@
       "roadmap": "RM-054",
       "branch": "ork/ork-rm054fatia2-full",
       "atualizadaEm": "2026-09-30T02:33:30.167Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-rm055impedim",
+      "nome": "RM-055 impedimento que so o dono resolve vira HITL",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-055",
+      "branch": "ork/ork-rm055impedim-full",
+      "atualizadaEm": "2026-09-30T02:39:06.285Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
