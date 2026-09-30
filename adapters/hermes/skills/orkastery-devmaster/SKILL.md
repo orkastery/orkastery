@@ -8,8 +8,7 @@ license: MIT
 
 # Orkastery no Hermes
 
-Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052).
-Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
+Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052). Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
 Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
 Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
 Em sessão de fase já despachada, siga o bloco recebido sem abrir outra orquestração.
