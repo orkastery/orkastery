@@ -200,7 +200,7 @@ import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, preparar
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
+import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -503,6 +503,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
+  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
+                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
   fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
   fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
                                             este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
@@ -2654,9 +2656,22 @@ function comandoRoadmap(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
+  // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
+  if (sub === 'feat') {
+    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else {
+      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
+      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
+      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+    }
+    return 0;
+  }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
+      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
     return 2;
   }
   const opcoes = {

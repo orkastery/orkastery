@@ -4,7 +4,7 @@
 
 - **Padrão:** [documentação de produto](../padroes/documentacao-de-produto.md) · **Complemento:** [roadmap](../roadmap/README.md)
 - **Hierarquia:** plataforma (`PLAT`) → sistema (`SYS`) → módulo (`MOD`) → feature (`FEAT`)
-- **Nova página:** copie [o modelo](_modelo-feature.md) e rode `ork docs verificar`
+- **Nova página:** reserve o número da feature com `ork roadmap feat`, copie [o modelo](_modelo-feature.md) e rode `ork docs verificar`
 
 ## Índice
 

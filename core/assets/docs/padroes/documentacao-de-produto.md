@@ -16,7 +16,7 @@ O **roadmap** registra problemas, hipóteses, escolhas, prioridades e andamento 
 
 | Regra | Aplicação |
 | --- | --- |
-| Identidade | Atribua IDs estáveis, por exemplo `PLAT-01`, `SYS-01`, `MOD-01`, `FEAT-042`, `UC-042-01`, `BR-042-01`, `API-01`, `EVT-01`, `JOB-01` e `RM-042`. Renomear não muda o ID. |
+| Identidade | Atribua IDs estáveis, por exemplo `PLAT-01`, `SYS-01`, `MOD-01`, `FEAT-042`, `UC-042-01`, `BR-042-01`, `API-01`, `EVT-01`, `JOB-01` e `RM-042`. Renomear não muda o ID. No Orkastery, o número da FEAT nova sai de `ork roadmap feat`, reservado entre máquinas; nunca do maior número da sua branch. |
 | Escopo e estado | Informe se a página descreve `vigente`, `em desenvolvimento`, `proposto` ou `descontinuado`, com ambiente, versão e data de verificação. |
 | Rastreabilidade | Ligue feature ↔ item de roadmap ↔ casos de uso/regras ↔ contratos/esquemas ↔ código/PR ↔ testes/evidências ↔ release. Use `Não aplicável — motivo` quando uma seção não fizer sentido. |
 | Fonte | Diferencie `confirmado` (código, contrato, teste ou decisão aprovada), `planejado` (item de roadmap) e `a validar`. Nunca complete uma lacuna por inferência silenciosa. |
@@ -75,7 +75,7 @@ Registre risco, perfis e matriz de permissões (RBAC/ABAC), autenticação/sess�
 
 ## 4. Modelo de página de feature
 
-Copie [o modelo](../produto/_modelo-feature.md) para cada feature; substitua colchetes por valores ou por `Não aplicável — motivo`. O frontmatter é a camada que agentes e o verificador leem; o corpo é a camada que pessoas leem. Acrescente tabelas de campos e contratos quando houver vários elementos.
+Reserve o número com `ork roadmap feat --thread <thread>` e copie [o modelo](../produto/_modelo-feature.md) para cada feature; substitua colchetes por valores ou por `Não aplicável — motivo`. O frontmatter é a camada que agentes e o verificador leem; o corpo é a camada que pessoas leem. Acrescente tabelas de campos e contratos quando houver vários elementos.
 
 Chaves do frontmatter de uma feature:
 

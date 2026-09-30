@@ -71,6 +71,8 @@ export interface ResultadoDeReserva {
 
 export interface PainelDeReservas {
   reservas: ReservaDeItem[];
+  /** RM-037 (rm037noite, defeito 6): os numeros de FEAT ja reservados, do mais velho ao mais novo. */
+  feats?: ReservaDeFeat[];
   /** A leitura veio do remoto agora (true) ou da ultima copia local (false, sem rede). */
   atualizado: boolean;
   ponta: string | null;
@@ -125,11 +127,85 @@ export function reservasLocais(raiz: string, remoto: string = REMOTO_PADRAO): Re
 /** `ork roadmap reservas`: quem esta com cada item, lido do remoto (ou da ultima copia, sem rede). */
 export function listarReservas(raiz: string, opcoes: Pick<OpcoesDeReserva, 'remoto'> = {}): PainelDeReservas {
   const { ponta, atualizado } = buscar(raiz, opcoes.remoto ?? REMOTO_PADRAO);
-  return { reservas: lerDaPonta(raiz, ponta), atualizado, ponta };
+  return { reservas: lerDaPonta(raiz, ponta), feats: featsDaPonta(raiz, ponta), atualizado, ponta };
+}
+
+// ---------------------------------------------------------------------------
+// RM-037 (rm037noite, defeito 6): o numero da FEAT nova tambem e reservado.
+// ---------------------------------------------------------------------------
+
+/**
+ * A RM-052, a RM-026 e a RM-051 criaram a FEAT-030 cada uma, em maquinas e threads diferentes: o numero
+ * saia do `ls docs/produto` de cada branch. Agora ele sai de `ork roadmap feat`, na mesma branch de
+ * reservas e pela mesma atomicidade do item (o primeiro push vence; o segundo rele e leva o seguinte).
+ * A reserva de numero e para sempre: numero queimado nao volta, e por isso nunca colide.
+ */
+export const CONTRATO_FEAT = 'ork.feat-reserva/v1' as const;
+export const DIR_DE_FEATS = 'feats';
+const NUMERO_DE_FEAT = /^FEAT-(\d{3})$/;
+const ARQUIVO_DE_FEAT = /^FEAT-(\d{3})-/;
+
+export interface ReservaDeFeat {
+  contrato: typeof CONTRATO_FEAT;
+  feat: string;
+  por: string;
+  maquina: string;
+  thread: string | null;
+  nota: string | null;
+  em: string;
+}
+
+export interface ResultadoDaFeat {
+  feat: string;
+  reserva: ReservaDeFeat;
+  commit: string;
+  tentativas: number;
+}
+
+function featsDaPonta(raiz: string, ponta: string | null): ReservaDeFeat[] {
+  return (jsonsDaPonta(raiz, ponta, DIR_DE_FEATS, PREFIXO) as ReservaDeFeat[])
+    .filter((r) => r && r.contrato === CONTRATO_FEAT && typeof r.feat === 'string' && NUMERO_DE_FEAT.test(r.feat))
+    .sort((a, b) => a.feat.localeCompare(b.feat));
+}
+
+const numeroDaFeat = (feat: string): number => Number(NUMERO_DE_FEAT.exec(feat)?.[1] ?? 0);
+
+/** O maior numero de FEAT que o projeto ja conhece: a arvore de trabalho, a `main` e a `origin/main`. */
+export function maiorFeatConhecida(raiz: string): number {
+  const nomes: string[] = [];
+  const dir = path.join(raiz, 'docs', 'produto');
+  if (fs.existsSync(dir)) nomes.push(...fs.readdirSync(dir));
+  for (const ref of ['main', 'origin/main']) {
+    const r = git(raiz, ['ls-tree', '--name-only', ref, '--', 'docs/produto/']);
+    if (r.ok) nomes.push(...r.stdout.split('\n').map((n) => path.posix.basename(n)));
+  }
+  return nomes.reduce((maior, nome) => Math.max(maior, Number(ARQUIVO_DE_FEAT.exec(nome)?.[1] ?? 0)), 0);
+}
+
+/** `ork roadmap feat`: reserva o proximo numero de FEAT para esta maquina, por push atomico. */
+export function reservarFeat(raiz: string, opcoes: OpcoesDeReserva = {}): ResultadoDaFeat {
+  const remoto = opcoes.remoto ?? REMOTO_PADRAO;
+  const eu = quemSouEu(raiz, opcoes);
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    const { ponta, atualizado } = buscar(raiz, remoto);
+    if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; reservar exige rede`);
+    const feats = featsDaPonta(raiz, ponta);
+    const proximo = Math.max(maiorFeatConhecida(raiz), ...feats.map((r) => numeroDaFeat(r.feat))) + 1;
+    if (proximo > 999) throw new Error('roadmap.feat: os numeros de FEAT de tres digitos acabaram');
+    const feat = `FEAT-${String(proximo).padStart(3, '0')}`;
+    const reserva: ReservaDeFeat = { contrato: CONTRATO_FEAT, feat, por: eu.por, maquina: eu.maquina,
+      thread: opcoes.thread ?? null, nota: opcoes.nota ?? null, em: opcoes.agora ?? agoraIso() };
+    const commit = gravarNaBranch(raiz, remoto, BRANCH_DE_RESERVAS, ponta, [
+      { caminho: `${DIR_DE_FEATS}/${feat}.json`, conteudo: JSON.stringify(reserva, null, 2) + '\n' },
+      { caminho: PAINEL, conteudo: painelEmMarkdown(lerDaPonta(raiz, ponta), [...feats, reserva]) },
+    ], `reserva: ${feat} para ${eu.por} em ${eu.maquina}${reserva.thread ? ` (thread ${reserva.thread})` : ''}`, PREFIXO);
+    if (commit) return { feat, reserva, commit, tentativas: tentativa };
+  }
+  throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
 }
 
 /** O `RESERVAS.md` da branch: a mesma lista, para quem abre o GitHub. */
-export function painelEmMarkdown(reservas: readonly ReservaDeItem[]): string {
+export function painelEmMarkdown(reservas: readonly ReservaDeItem[], feats: readonly ReservaDeFeat[] = []): string {
   const linhas = [
     '# Reservas do roadmap',
     '',
@@ -137,12 +213,16 @@ export function painelEmMarkdown(reservas: readonly ReservaDeItem[]): string {
     'não edite à mão. Antes de começar um item: `ork roadmap reservas`.',
     '',
   ];
-  if (reservas.length === 0) return [...linhas, 'Nenhum item reservado.', ''].join('\n');
+  const numeros = feats.length === 0 ? [] : ['', '## Números de FEAT reservados', '',
+    'O número da FEAT nova sai de `ork roadmap feat`; número reservado não volta.', '',
+    '| FEAT | Com quem | Máquina | Thread | Em |', '| --- | --- | --- | --- | --- |',
+    ...feats.map((f) => `| ${f.feat} | ${f.por} | ${f.maquina} | ${f.thread ?? '—'} | ${formatarDataHora(f.em)} |`)];
+  if (reservas.length === 0) return [...linhas, 'Nenhum item reservado.', ...numeros, ''].join('\n');
   linhas.push('| Item | Com quem | Máquina | Thread | Desde | Nota |', '| --- | --- | --- | --- | --- | --- |');
   for (const r of reservas) {
     linhas.push(`| ${r.item} | ${r.por} | ${r.maquina} | ${r.thread ?? '—'} | ${formatarDataHora(r.desdeEm)} | ${r.nota ?? '—'} |`);
   }
-  return [...linhas, '', legendaDoFuso(), ''].join('\n');
+  return [...linhas, ...numeros, '', legendaDoFuso(), ''].join('\n');
 }
 
 /** Grava a reserva (ou a remocao dela) e o painel numa versao nova da branch. Recusa volta `false`. */
@@ -150,7 +230,7 @@ function gravar(raiz: string, remoto: string, ponta: string | null, mudanca: { i
   todas: ReservaDeItem[], mensagem: string): string | false {
   return gravarNaBranch(raiz, remoto, BRANCH_DE_RESERVAS, ponta, [
     { caminho: `${DIR}/${mudanca.item}.json`, conteudo: mudanca.reserva ? JSON.stringify(mudanca.reserva, null, 2) + '\n' : null },
-    { caminho: PAINEL, conteudo: painelEmMarkdown(todas) },
+    { caminho: PAINEL, conteudo: painelEmMarkdown(todas, featsDaPonta(raiz, ponta)) },
   ], mensagem, PREFIXO);
 }
 
@@ -335,8 +415,11 @@ export function soltarReservasOrfas(raiz: string, opcoes: OpcoesDeReserva = {}):
 export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = []): string {
   const linhas: string[] = [];
   if (!p.atualizado) linhas.push('AVISO: sem acesso ao remoto; esta e a ultima copia lida nesta maquina.', '');
+  const feats = p.feats ?? [];
+  const numeros = feats.length === 0 ? [] : ['', `Números de FEAT reservados (${feats.length}), os últimos: ` +
+    feats.slice(-5).map((f) => `${f.feat} (${f.thread ?? f.maquina})`).join(', ') + '. O próximo sai de: ork roadmap feat'];
   if (p.reservas.length === 0) {
-    linhas.push('Nenhum item do roadmap reservado.');
+    linhas.push('Nenhum item do roadmap reservado.', ...numeros);
     return linhas.join('\n');
   }
   linhas.push('ITEM     COM QUEM            MAQUINA         THREAD             DESDE');
@@ -348,6 +431,6 @@ export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrf
       `${(r.thread ?? '-').slice(0, 18).padEnd(18)} ${formatarDataHora(r.desdeEm)}` + (r.nota ? `  ${r.nota}` : '') + marca);
   }
   if (orfas.length > 0) linhas.push('', `${orfas.length} reserva(s) órfã(s) desta máquina. Para soltar: ork roadmap reservas --soltar-orfas`);
-  linhas.push('', legendaDoFuso());
+  linhas.push(...numeros, '', legendaDoFuso());
   return linhas.join('\n');
 }
