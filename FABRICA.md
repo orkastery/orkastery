@@ -10,11 +10,11 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm054fatia2 | #Auto | GOAL | RM-054 | — | 30/09 02:44 |
 | srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 30/09 02:44 |
 | srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 30/09 02:44 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 30/09 14:15 |
-| vps | ork-pacotedeexpe | #Auto | GO | RM-051 | sim: autorizacao da retomada | 30/09 14:15 |
-| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 30/09 14:15 |
-| vps | ork-rm031kg3 | #Auto | GOAL | RM-031 | sim: autorizacao da retomada | 30/09 14:15 |
-| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 30/09 14:15 |
-| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 30/09 14:15 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 30/09 15:15 |
+| vps | ork-pacotedeexpe | #Auto | GO | RM-051 | sim: autorizacao da retomada | 30/09 15:15 |
+| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 30/09 15:15 |
+| vps | ork-rm031kg3 | #Auto | GOAL | RM-031 | sim: autorizacao da retomada | 30/09 15:15 |
+| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 30/09 15:15 |
+| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 30/09 15:15 |
 
 Horários de Brasília.
