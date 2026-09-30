@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { publicarMaquina } from '../src/fabrica-estado';
@@ -30,6 +31,7 @@ import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 const QUANDO = '2026-09-30T02:40:00.000Z';
 /** O `ork` real, compilado: os hosts de CLI chamam este binario. */
 const ORK = path.resolve(__dirname, '../../dist/index.js');
+const DIST_OPENCLAW = path.resolve(__dirname, '../../../adapters/openclaw/dist');
 
 /** O `workspace` do gateway: um manifesto de outro projeto, com git e sem thread nenhuma. */
 function workspace(nome: string): string {
@@ -390,4 +392,82 @@ test('rede nos hosts: Claude Code e Codex mandam o status do roadmap a rede e of
       '- Status do roadmap: use `ork_network_roadmap` (ou `ork network roadmap --projeto <nome>`)',
       '`ork_roadmap_status` e\n  so desta maquina', 'lacuna nunca e roadmap vazio']) assert.ok(entrada.includes(trecho), trecho);
   } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// T7: o aceite do incidente de 29/09, sem LLM.
+// ---------------------------------------------------------------------------
+
+type Tool = { name: string; execute: (p: Record<string, unknown>, c: unknown, x: unknown) => Promise<string> };
+
+/**
+ * A extensao do OpenClaw (o `dist/` commitado, SDK simulado) com o `ork` real de `core/dist`, e o
+ * processo parado no cwd do gateway, como o RM-052 faz no teste do incidente dele.
+ */
+async function gatewayEm(cwd: string, env: Record<string, string>, corpo: (tools: Map<string, Tool>) => Promise<void>): Promise<void> {
+  const dir = dirTemporario('rede-openclaw');
+  const nomes = ['ORK_BIN', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO', 'ORK_CANAL', ...Object.keys(env)];
+  const antes = { cwd: process.cwd(), env: Object.fromEntries(nomes.map((k) => [k, process.env[k]])) };
+  const hitl = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('ORK_HITL_')));
+  try {
+    const sdk = path.join(dir, 'node_modules/openclaw');
+    fs.mkdirSync(sdk, { recursive: true });
+    fs.writeFileSync(path.join(sdk, 'package.json'), JSON.stringify({ type: 'module', exports: { './plugin-sdk/tool-plugin': './sdk.js' } }));
+    fs.writeFileSync(path.join(sdk, 'sdk.js'), 'export const defineToolPlugin = d => d;');
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"type":"module"}');
+    for (const f of ['index.js', 'hitl-ingress.js']) fs.copyFileSync(path.join(DIST_OPENCLAW, f), path.join(dir, f));
+    for (const k of ['ORK_PROJETO', 'ORK_PROJETO_EXPLICITO', 'ORK_CANAL', ...Object.keys(hitl)]) delete process.env[k];
+    Object.assign(process.env, { ORK_BIN: ORK, ...env });
+    process.chdir(cwd);
+    const importar = new Function('u', 'return import(u)') as (u: string) => Promise<{ default: { tools: (f: (d: Tool) => Tool) => Tool[] } }>;
+    const plugin = (await importar(pathToFileURL(path.join(dir, 'index.js')).href)).default;
+    await corpo(new Map(plugin.tools((d) => d).map((t) => [t.name, t])));
+  } finally {
+    process.chdir(antes.cwd);
+    for (const [k, v] of Object.entries(antes.env)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    Object.assign(process.env, hitl);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const escapar = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('rede nos hosts: incidente de 29/09, o status do roadmap do orkastery pedido do gateway volta com as duas maquinas e a hora de cada fonte', async () => {
+  const r = duasMaquinas('rede-incidente');
+  const gateway = workspace('rede-incidente-workspace'), usuario = dirTemporario('rede-incidente-usuario');
+  const anterior = process.env.ORK_USUARIO_DIR;
+  process.env.ORK_USUARIO_DIR = usuario;
+  registrarProjeto(r.a.dir, 'fabrica entrar');
+  try {
+    await gatewayEm(gateway, { ORK_USUARIO_DIR: usuario, ORK_MAQUINA: 'pc-a' }, async (tools) => {
+      const t = await tools.get('ork_network_roadmap')!.execute({ projeto: 'orkastery' }, {}, {});
+      assert.doesNotMatch(t, /^\[ork saiu com/, t);
+      const linhas = t.split('\n');
+      assert.match(linhas[0], /^Panorama da rede lido de pc-a \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
+      assert.equal(linhas[1], `Consultado: orkastery (clone em ${r.a.dir})`);
+      assert.match(t, /^• rede por pessoa \(RM-053, ork\.rede-status\/v1\): não lida nesta versão/m);
+      assert.match(t, new RegExp(`^• diretório do host \\(${escapar(gateway)}\\): o projeto workspace está fora do registro desta máquina`, 'm'));
+      assert.match(t, /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
+      for (const id of ['RM-001', 'RM-002', 'RM-003']) assert.match(t, new RegExp(`• ${id} `), id);
+      assert.match(t, new RegExp(`^• pc-a \\(esta máquina\\): 1 ativa\\(s\\), estado local lido agora\\n  ${r.aqui.id} · #Auto · GOAL · RM-001$`, 'm'));
+      assert.match(t, new RegExp(`^• pc-b: 1 ativa\\(s\\), retrato de \\d{2}/\\d{2} \\d{2}:\\d{2}.* \\(há 1\\dmin\\)\\n  ${r.la.id} · #Auto · GOAL · RM-002$`, 'm'));
+      assert.match(t, new RegExp(`^  RM-002 · pc-b · ${r.la.id} · desde \\d{2}/\\d{2} \\d{2}:\\d{2}`, 'm'));
+      assert.match(t, /^• esta máquina: estado local em .*\.orkastery, lido agora$/m);
+      semVazio(t);
+      assert.doesNotMatch(t, /Roadmap do Workspace|nenhuma publicou/i);
+
+      // Sem projeto: o panorama do registro, sem o workspace do cwd; e o maestro sem projeto oferece a rede.
+      const todos = await tools.get('ork_network_roadmap')!.execute({}, {}, {});
+      assert.equal(todos.split('\n')[1], `Consultado: orkastery (clone em ${r.a.dir})`);
+      assert.doesNotMatch(todos, /Roadmap do Workspace/);
+      const maestro = await tools.get('ork_maestro')!.execute({}, {}, {});
+      assert.match(maestro, /^\[ork saiu com 4\]\n\{/, 'o maestro pede --json, e a recusa vem em JSON');
+      const escolha = JSON.parse(maestro.slice(maestro.indexOf('\n') + 1));
+      assert.equal(escolha.erro, 'projeto.escolha');
+      assert.ok(escolha.correcao.endsWith(OFERTA_DA_REDE), escolha.correcao);
+    });
+  } finally {
+    if (anterior === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = anterior;
+    r.limpar(); fs.rmSync(gateway, { recursive: true, force: true }); fs.rmSync(usuario, { recursive: true, force: true });
+  }
 });
