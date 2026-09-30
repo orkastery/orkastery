@@ -13,7 +13,8 @@ import { vagaDoDespacho } from '../src/board';
 import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
 import { lerLedger, registrar } from '../src/ledger';
 import { rodarFase } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { fecharAdministrativamente } from '../src/thread-close';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -68,8 +69,19 @@ test('defeito 3: a propria thread e thread fechada nao contam; abaixo do limite 
     p.carregado.manifesto.concurrency.max_parallel_threads = 1;
     const propria = threadComSessaoViva(p, 'propria', 'codex', 7);
     assert.equal(vagaDoDespacho(p.carregado, propria.id), null, 'a conducao da propria thread tem portao proprio');
+    // S1 do CHECK final: a sessao de thread fechada sai da conta, mesmo com o lease da conducao ainda gravado.
+    // Dois caminhos: o fechamento administrativo (evento e status) e o status sem evento, como a migracao do MASTER.
+    const peloAdmin = threadComSessaoViva(p, 'fechada pelo admin', 'claude-bg', 8);
+    const peloStatus = threadComSessaoViva(p, 'fechada pelo status', 'codex', 9);
+    assert.deepEqual(vagaDoDespacho(p.carregado, propria.id)?.ocupam.map(o => o.thread).sort(),
+      [peloAdmin.id, peloStatus.id].sort(), 'abertas, elas ocupam');
+    fecharAdministrativamente(p.dir, peloAdmin.id, { motivo: 'superada', por: 'teste', justificativa: 'thread SIMULADA superada' });
+    const t = lerThread(p.dir, peloStatus.id);
+    t.status = 'fechada';
+    gravarThread(p.dir, t);
+    assert.equal(vagaDoDespacho(p.carregado, propria.id), null, 'fechadas, as sessoes delas nao contam');
     const outra = novaThread(p.carregado, { nome: 'outra', modo: 'auto' }).thread;
-    assert.equal(vagaDoDespacho(p.carregado, outra.id)?.ocupam.length, 1);
+    assert.deepEqual(vagaDoDespacho(p.carregado, outra.id)?.ocupam.map(o => o.thread), [propria.id]);
     p.carregado.manifesto.concurrency.max_parallel_threads = 2;
     assert.equal(vagaDoDespacho(p.carregado, outra.id), null);
   } finally { p.limpar(); }
