@@ -339,10 +339,10 @@ O índice persistente e a consulta do [grafo determinístico](contratos/indice-g
 | `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json]` | O menor caminho pelas arestas, no sentido delas por padrão |
 | `ork grafo amostra [--por-estrato N]` | Amostra estratificada de arestas para auditoria manual |
 | `ork grafo amostra --conferir ARQ [--json]` | Confere a amostra auditada contra o índice do HEAD e os bytes da árvore |
-| `ork grafo limpar [--tudo] [--json]` | Apaga os índices que não são do HEAD (ou todos) e as sobras de construção com mais de uma hora |
+| `ork grafo limpar [--tudo] [--json]` | Apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (ou todos) e as sobras de construção com mais de uma hora |
 
 O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome solto, que precisa
-ser único: nome ambíguo sai com os candidatos. A resposta é parcial por construção (só o que o
+ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
 extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
 resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
 
@@ -353,8 +353,9 @@ ork grafo importadores core/src/intelligence-graph-contract.ts --json
 ork grafo caminho core/src/index.ts#main dirEstado
 ```
 
-`indexar` precisa do `typescript` e do micromark instalados com o `ork` (o checkout de
-desenvolvimento e o CI os têm); sem eles, a recusa é `grafo.parser.indisponivel`.
+Todo o `ork grafo` precisa do `typescript` e do micromark instalados com o `ork`, no
+`node_modules` do próprio pacote (o checkout de desenvolvimento e o CI os têm): as versões deles
+entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 
 ---
 

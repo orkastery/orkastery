@@ -10,10 +10,11 @@
  *
  * Para cada pergunta fixa, mede os dois bracos na revisao do HEAD:
  * - grafo: `ork grafo <consulta> --json` num processo novo, com o indice do HEAD ja construido;
- *   bytes da saida em JSON e em texto, respostas (arestas), evidencias e latencia ponta a ponta;
+ *   bytes que chegam ao agente (a saida JSON; o texto a parte), respostas (arestas), evidencias,
+ *   arquivos que o agente abre (nenhum), bytes que o processo le (o indice) e latencia ponta a ponta;
  * - leitura crua: `git grep -n -I -F` do nome nos arquivos rastreados e a leitura inteira de cada
  *   arquivo com ocorrencia, que e o que chega ao agente para confirmar a relacao; bytes, ocorrencias,
- *   arquivos abertos e latencia.
+ *   arquivos abertos, bytes que o grep varre (os rastreados) e latencia.
  * O preparo do indice fica a parte (`ork grafo indexar --forcar --json`). Tokens ficam `unavailable`:
  * sem tokenizador exato nem contagem do runtime, bytes divididos por 4 seriam estimativa.
  *
@@ -35,7 +36,7 @@ const ORK = path.join(RAIZ, 'core', 'dist', 'index.js');
 const CONCLUSAO = 'nenhuma: o registro mede os dois lados; economia so o benchmark do protocolo decide';
 const TOKENS = { value: null, source: 'unavailable', unavailable_reason: 'sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa' };
 const METODO = {
-  grafo: 'consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD ja construido; bytes da saida JSON e texto',
+  grafo: 'consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD ja construido; ao agente chega a saida JSON, e ele nao abre arquivo; o processo le o indice',
   cru: 'leitura-crua/v0: git grep -n -I -F do nome nos arquivos rastreados, mais a leitura inteira de cada arquivo com ocorrencia',
   latencia: 'relogio monotonico do processo que mede, de ponta a ponta por repeticao, com a mediana',
 };
@@ -106,7 +107,7 @@ function ork(args) {
   return { saida: r.stdout, ms: t };
 }
 
-function bracoGrafo(p, repeticoes) {
+function bracoGrafo(p, repeticoes, bytesDoIndice) {
   const latencias = [];
   let json = null, bytesJson = 0;
   for (let i = 0; i < repeticoes; i++) {
@@ -120,13 +121,13 @@ function bracoGrafo(p, repeticoes) {
   return {
     resposta: json,
     medida: {
-      bytes_json: bytesJson, bytes_texto: texto.length, respostas: json.total_arestas, arestas_devolvidas: json.arestas.length,
-      evidencias, latencia_ms: latencias, latencia_mediana_ms: arredondar(mediana(latencias)),
+      bytes_ao_agente: bytesJson, bytes_json: bytesJson, bytes_texto: texto.length, respostas: json.total_arestas, arestas_devolvidas: json.arestas.length,
+      evidencias, arquivos_abertos: 0, bytes_lidos_pelo_processo: bytesDoIndice, latencia_ms: latencias, latencia_mediana_ms: arredondar(mediana(latencias)),
     },
   };
 }
 
-function bracoCru(p, repeticoes) {
+function bracoCru(p, repeticoes, bytesRastreados) {
   if (p.cru.indisponivel) return { indisponivel: p.cru.indisponivel };
   const args = ['grep', '-n', '-I', '-F', ...(p.cru.palavra ? ['-w'] : []), '-e', p.cru.padrao];
   const latencias = [];
@@ -143,7 +144,7 @@ function bracoCru(p, repeticoes) {
     medida = {
       comando: `git ${args.map((x) => (/^[A-Za-z0-9._\/-]+$/.test(x) ? x : JSON.stringify(x))).join(' ')}`,
       bytes_grep: r.stdout.length, bytes_arquivos: bytesArquivos, bytes_ao_agente: r.stdout.length + bytesArquivos,
-      ocorrencias: linhas.length, arquivos_abertos: arquivos.length,
+      ocorrencias: linhas.length, arquivos_abertos: arquivos.length, bytes_lidos_pelo_processo: bytesRastreados,
     };
   }
   return { ...medida, latencia_ms: latencias, latencia_mediana_ms: arredondar(mediana(latencias)) };
@@ -182,11 +183,18 @@ function medir(repeticoes) {
   if (status) throw new Error('a medida precisa da arvore limpa: o indice e a leitura crua descrevem o mesmo HEAD');
   const revisao = git(['rev-parse', 'HEAD']).toString('utf8').trim();
   const preparo = JSON.parse(ork(['indexar', '--forcar', '--json']).saida.toString('utf8'));
+  const bytesDoIndice = preparo.manifesto.graph_bytes + preparo.manifesto.report_bytes;
+  // O que o `git grep` varre: os bytes de todo arquivo rastreado da arvore.
+  const rastreados = git(['ls-files', '-z']).toString('utf8').split('\0').filter(Boolean);
+  const bytesRastreados = rastreados.reduce((n, a) => {
+    const st = fs.lstatSync(path.join(RAIZ, a), { throwIfNoEntry: false });
+    return n + (st && st.isFile() ? st.size : 0);
+  }, 0);
   const perguntas = [], respostas = [];
   for (const p of PERGUNTAS) {
-    const g = bracoGrafo(p, repeticoes);
+    const g = bracoGrafo(p, repeticoes, bytesDoIndice);
     respostas.push(g.resposta);
-    perguntas.push({ id: p.id, pergunta: p.pergunta, consulta: p.consulta, grafo: g.medida, cru: bracoCru(p, repeticoes), tokens: { grafo: TOKENS, cru: TOKENS } });
+    perguntas.push({ id: p.id, pergunta: p.pergunta, consulta: p.consulta, grafo: g.medida, cru: bracoCru(p, repeticoes, bytesRastreados), tokens: { grafo: TOKENS, cru: TOKENS } });
   }
   const registro = {
     schema: SCHEMA, medido_em: new Date().toISOString(), revisao, chave_do_indice: preparo.chave, graph_digest: preparo.manifesto.graph_digest,
@@ -218,13 +226,17 @@ function validar(registro) {
   if (JSON.stringify(ids) !== JSON.stringify(PERGUNTAS.map((p) => p.id))) f.push(`perguntas ${ids}`);
   for (const p of registro.perguntas ?? []) {
     const g = p.grafo ?? {};
-    for (const k of ['bytes_json', 'bytes_texto', 'respostas', 'evidencias', 'latencia_mediana_ms']) if (!numero(g[k])) f.push(`${p.id} grafo.${k}`);
+    for (const k of ['bytes_ao_agente', 'bytes_json', 'bytes_texto', 'respostas', 'evidencias', 'arquivos_abertos', 'bytes_lidos_pelo_processo', 'latencia_mediana_ms']) {
+      if (!numero(g[k])) f.push(`${p.id} grafo.${k}`);
+    }
     if (!Array.isArray(g.latencia_ms) || g.latencia_ms.length < 1) f.push(`${p.id} grafo.latencia_ms`);
     const esperado = PERGUNTAS.find((x) => x.id === p.id);
     if (esperado && esperado.cru.indisponivel) {
       if (typeof (p.cru ?? {}).indisponivel !== 'string') f.push(`${p.id} cru.indisponivel`);
     } else {
-      for (const k of ['bytes_grep', 'bytes_arquivos', 'bytes_ao_agente', 'ocorrencias', 'arquivos_abertos', 'latencia_mediana_ms']) if (!numero((p.cru ?? {})[k])) f.push(`${p.id} cru.${k}`);
+      for (const k of ['bytes_grep', 'bytes_arquivos', 'bytes_ao_agente', 'ocorrencias', 'arquivos_abertos', 'bytes_lidos_pelo_processo', 'latencia_mediana_ms']) {
+        if (!numero((p.cru ?? {})[k])) f.push(`${p.id} cru.${k}`);
+      }
     }
     if (!tokensOk(p.tokens && p.tokens.grafo) || !tokensOk(p.tokens && p.tokens.cru)) f.push(`${p.id} tokens`);
   }
@@ -240,7 +252,7 @@ function tabela(registro) {
     const g = p.grafo, c = p.cru;
     const cru = c.indisponivel ? `cru indisponivel (${c.indisponivel})`
       : `cru ${c.bytes_ao_agente} bytes (${c.ocorrencias} ocorrencias, ${c.arquivos_abertos} arquivos), ${c.latencia_mediana_ms} ms`;
-    escrever(`  ${p.id} ${p.pergunta}: grafo ${g.bytes_json} bytes JSON, ${g.bytes_texto} texto (${g.respostas} arestas), ${g.latencia_mediana_ms} ms; ${cru}`);
+    escrever(`  ${p.id} ${p.pergunta}: grafo ${g.bytes_ao_agente} bytes ao agente (${g.bytes_texto} em texto, ${g.respostas} arestas, ${g.arquivos_abertos} arquivos), ${g.latencia_mediana_ms} ms; ${cru}`);
   }
   escrever(`  tokens: unavailable nos dois bracos; conclusao: ${registro.conclusao}`);
 }

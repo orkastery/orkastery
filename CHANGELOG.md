@@ -17,8 +17,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `--json`, determinística e com o extrator e a evidência de cada aresta; a resposta diz que é
     parcial (só o que o extrator prova);
   - `ork grafo status`, `ork grafo amostra` e `ork grafo limpar`; o comando provisório do KG2 sai;
-  - `indexar` precisa do `typescript` e do micromark instalados com o `ork`, que não são
-    dependências do pacote: sem eles, a recusa é `grafo.parser.indisponivel`.
+  - o `ork grafo` precisa do `typescript` e do micromark instalados no próprio pacote do `ork`
+    (`ork grafo indexar` e as consultas), que não são dependências do pacote: sem eles, a recusa é
+    `grafo.parser.indisponivel`.
 - **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
     fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou

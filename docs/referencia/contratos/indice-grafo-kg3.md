@@ -37,14 +37,15 @@ compartilham o índice.
 | Regra | Como |
 | --- | --- |
 | Permissões | a pasta `grafo/` e cada pasta de índice 0700, cada arquivo 0600, tudo do dono do processo; link simbólico, dono diferente, modo diferente e segundo link físico são recusados (`grafo.indice.permissao-invalida`) |
-| Chave | `idx-` e o SHA-256 canônico de: schema do índice, revisão, repositório, tenant, ACL ordenada, versões dos analisadores (TypeScript, Node, micromark e tabela GFM, Unicode) e a impressão do código compilado dos módulos da extração |
-| Árvore limpa | `indexar` só roda com a revisão do KG2 não nula: HEAD, nada rastreado mudado e bytes iguais aos blobs; senão recusa com `grafo.indice.arvore-nao-limpa` e o motivo (`working-tree-modified`, `filtro-do-git`, `sem-commit`) antes de ler qualquer arquivo |
+| Chave | `idx-` e o SHA-256 canônico de: schema do índice, revisão, repositório, tenant, ACL ordenada, versões dos analisadores (TypeScript, Node, micromark e tabela GFM, Unicode), o fecho de pacotes deles com a versão de cada um (`micromark-core-commonmark` e os utilitários incluídos) e a impressão do código compilado dos módulos da extração e do índice |
+| Árvore limpa | `indexar` só roda com a revisão do KG2 não nula: HEAD, nada rastreado mudado e bytes iguais aos blobs. Árvore modificada ou sem commit recusa antes de ler qualquer arquivo; filtro do Git (`filtro-do-git`) só aparece lendo os bytes e recusa depois da leitura. A recusa é `grafo.indice.arvore-nao-limpa` com o motivo |
+| Revisão inteira | arquivo rastreado que a leitura não alcança com o status limpo (sparse checkout, `skip-worktree`: `ausente-na-arvore`, `nao-e-arquivo`, `fora-do-repositorio`) recusa com `rastreado fora da leitura`: o grafo de uma chave é sempre o da revisão inteira, igual em qualquer árvore que a compartilhe |
 | Construção | lê o repositório, extrai, valida, confere fontes e evidências (`conferirFontes` verificada, nenhuma indisponível), grava numa pasta `.tmp-<uuid>` com `fsync` e publica por `rename` |
 | Idempotência | a mesma chave já guardada não é reescrita; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
 | Verificação | `--verificar` sempre extrai de novo, repete a extração com a ordem de leitura invertida e embaralhada e reprova se o digest ou o relatório divergem, ou se o índice guardado íntegro difere da extração nova (`grafo.indice.nao-deterministico`) |
 | Leitura | pelo descritor aberto sem seguir link; confere o manifesto, o tamanho e o digest do grafo e do relatório; não roda `validarGrafo` a cada consulta (2157 ms no grafo deste repositório em d2b180ea, contra 19 ms do SHA-256 dos bytes, medidos no GOAL da thread) |
 | Corrida | duas construções da mesma chave: a primeira publica, a outra confere a publicada e descarta a sua; a consulta nunca vê índice pela metade |
-| Limpeza | `ork grafo limpar` apaga os índices que não são do HEAD (ou todos, com `--tudo`) e as sobras `.tmp-` e `.lixo-` com mais de uma hora; nome que não é do índice nunca é apagado |
+| Limpeza | `ork grafo limpar` apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (a principal e as worktrees, pelo `git worktree list`), ou todos com `--tudo`, e as sobras `.tmp-` e `.lixo-` com mais de uma hora; nome que não é do índice nunca é apagado |
 
 Índice que não passa na leitura (truncado, digest divergente, permissão) é trocado pela próxima
 construção, com o motivo na saída. O índice é projeção descartável: nada nele é autoridade de
@@ -54,14 +55,17 @@ fato nem concede acesso.
 
 O compilador TypeScript, o micromark com a tabela GFM e o juiz de sintaxe do V8, que o KG2
 recebia de adaptadores em `core/scripts/`, moram em `core/src/intelligence-graph-parsers.ts`.
-`typescript` e os pacotes do micromark são resolvidos a partir desse módulo, isto é, da instalação
-do `ork` que roda, nunca do diretório atual nem da raiz do projeto analisado. O juiz roda o ESM num
-processo filho sem ambiente, então um `NODE_OPTIONS` de quem chama não carrega código nele.
+`typescript` e os pacotes do micromark só valem dentro do `node_modules` do pacote `@orkastery/cli`
+que contém esse módulo, isto é, da instalação do `ork` que roda. Pacote achado fora dela (no
+diretório atual, no `NODE_PATH`, numa pasta global ou no `node_modules` do projeto que instalou o
+`ork` como dependência) é recusado antes de ser lido ou carregado. O juiz roda o ESM num processo
+filho sem ambiente, então um `NODE_OPTIONS` de quem chama não carrega código nele.
 
 Eles não são dependências de runtime do pacote publicado: dependência nova é decisão de produto.
-No checkout de desenvolvimento e no CI existem; numa instalação sem eles, `ork grafo indexar`
-recusa com `grafo.parser.indisponivel: <pacote>`. As versões entram nas dos extratores do KG2 e na
-chave do índice, e a consulta calcula a chave lendo só os `package.json`, sem carregar o compilador.
+No checkout de desenvolvimento e no CI existem; numa instalação sem eles, todo o `ork grafo` recusa
+com `grafo.parser.indisponivel: <pacote>`, e o `status` mostra o índice do HEAD como indisponível:
+as versões entram na chave, e a consulta calcula a chave lendo só os `package.json`, sem carregar o
+compilador.
 No mesmo HEAD, o comando provisório do KG2 e o `ork grafo indexar` deram o mesmo snapshot e o mesmo
 digest.
 
@@ -69,19 +73,24 @@ digest.
 
 | Consulta | O que percorre |
 | --- | --- |
-| `vizinhos <nó>` | os nós a até N saltos (`--profundidade`, 1 a 5) e todas as arestas dos nós a menos de N saltos, no `--sentido` (`entrada`, `saida`, `ambos`) e nos `--tipo` pedidos |
+| `vizinhos <nó>` | os nós a até N saltos (`--profundidade`, 1 a 5) e todas as arestas dos nós a menos de N saltos, no `--sentido` (`entrada`, `saida`, `ambos`) e nos `--tipo` pedidos; cada aresta traz a distância do nó que a explorou |
 | `chamadores <símbolo>` | as arestas `calls` que chegam ao símbolo, com o mesmo raio |
 | `importadores <arquivo\|símbolo>` | as arestas `imports` que chegam ao arquivo ou ao símbolo |
 | `caminho <de> <para>` | o menor caminho, no sentido das arestas por padrão; com `--sentido ambos`, também contra elas |
 
-O nó é `caminho` (o arquivo), `caminho#fragmento` (no último `#`), `tipo:caminho#fragmento` ou
-um nome solto, que casa o fragmento exato de um símbolo, seção ou artefato. Nome solto ambíguo
+O nó é `caminho` (o arquivo), `caminho#fragmento` (em qualquer `#` que separe um caminho que
+existe: o fragmento pode ter `#`, como o membro privado `Classe.#segredo`, e o caminho também),
+`tipo:caminho#fragmento` ou um nome solto, que casa o fragmento exato de um símbolo, seção ou
+artefato. O rótulo que a resposta imprime, sem o tipo, volta como entrada. Nome solto ambíguo
 não escolhe: sai `grafo.consulta.ambiguo` com os candidatos. Resposta vazia é resposta, com
 saída 0; nó desconhecido, alvo inválido e índice ausente saem 1, com o código tipado.
 
-A ordem é fixa: arestas por tipo, origem e destino, nós por distância e rótulo, a comparação por
-code point, e a busca do caminho expande os vizinhos nessa ordem, então entre caminhos do mesmo
-tamanho sai sempre o mesmo. `--limite` corta a lista já ordenada e declara `truncado`. A saída em
+A ordem é fixa: arestas por distância, tipo, origem e destino, nós por distância e rótulo, a
+comparação por code point, e a busca do caminho expande os vizinhos nessa ordem, então entre
+caminhos do mesmo tamanho sai sempre o mesmo. `--limite` (padrão 500) corta a lista já ordenada,
+mantendo as arestas mais perto do alvo, e declara `truncado`; a lista de nós traz só o alvo e as
+pontas das arestas devolvidas, com `total_nos` contando o raio inteiro. Opção inválida recusa antes
+de ler o índice. A saída em
 JSON (`ork.code-graph-query/v0`, provisório e fora do contrato) traz a consulta, o cabeçalho do
 índice (revisão, chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com
 todas as evidências, o total e o aviso de parcialidade. Não há horário nem tempo na resposta.
@@ -98,7 +107,7 @@ CLI e lê a raiz do repositório recebe `repo:<repositório>:leitura` no tenant 
 
 | Obrigação | Como o KG3 cumpre |
 | --- | --- |
-| Filtrar antes de resolver, contar ou montar contexto | a concessão filtra nós, arestas (também a mais restrita que as pontas), evidências e diagnósticos na preparação, antes de qualquer mapa |
+| Filtrar antes de resolver, contar ou montar contexto | `filtrarGrafo` tira nós, arestas (também a mais restrita que as pontas), evidências e diagnósticos fora da concessão antes de qualquer mapa, na consulta e na amostra |
 | Não mostrar dado negado | nó negado responde igual a nó inexistente e não entra em candidato, contagem nem caminho |
 | Particionar cache por escopo, política e revisão | a chave do índice inclui tenant, ACL e revisão |
 | Sem avaliação autorizada, recusar | sem leitura da raiz, a recusa é `grafo.acesso.negado`, sem cair para outro escopo |
@@ -112,11 +121,11 @@ CLI e lê a raiz do repositório recebe `repo:<repositório>:leitura` no tenant 
 | `--saida ARQ`, `--relatorio ARQ` | o grafo e o relatório ficam no índice; `indexar` mostra a pasta |
 | `--amostra [N]` | `ork grafo amostra [--por-estrato N]` |
 | `--conferir-amostra ARQ` | `ork grafo amostra --conferir ARQ` |
-| `--raiz`, `--repositorio`, `--tenant`, `--acl` | o projeto do `ork` (ou `--projeto`) e a identidade padrão do KG2; outra identidade entra com a federação (KG6) |
+| `--raiz`, `--repositorio`, `--tenant`, `--acl` | o projeto do `ork` (ou `--projeto`), com o repositório do `project.name` do manifesto que o `ork` carregou (também com o projeto numa subpasta do Git), e o tenant e a ACL padrão do KG2; outra identidade entra com a federação (KG6) |
 
-A amostra lê o trecho auditado da árvore e confere cada arquivo lido contra o SHA-256 do
-manifesto do índice do HEAD: outro arquivo modificado não impede, e arquivo que mudou recusa
-(`grafo.amostra.fonte-mudou`). Na
+A amostra lê o trecho auditado da árvore, sem seguir link e só de arquivo regular, e confere cada
+arquivo lido contra o SHA-256 do manifesto do índice do HEAD: outro arquivo modificado não impede,
+e arquivo que mudou recusa (`grafo.amostra.fonte-mudou`). Amostra vazia reprova. Na
 [amostra auditada](../../../core/test/fixtures/kg2-amostra-auditada.json), a aresta que morava
 no script removido deu lugar à primeira do passo fixo do mesmo estrato, conferida à mão; as outras
 44 ficaram.
