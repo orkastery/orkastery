@@ -77,3 +77,51 @@ test('consulta CLI e pauta mostram dados efetivos sem criar resposta', () => {
     assert.match(textoDaPauta(), /recomendada.*configurar ou desativar/);
   } finally { p.limpar(); }
 });
+
+test('resposta repetida aplica o pedido ao manifesto editado à mão, sem mudar a autoria da entrevista', () => {
+  const p = projetoTemporario('onboarding-experiencia-repetida');
+  try {
+    const r = gravarEtapa(p.dir, 'maestro', { owner: { experience: false, language: 'pt-BR' } }, 'configurador');
+    const editado = fs.readFileSync(p.carregado.caminho, 'utf8').replace('experience: false', 'experience: true')
+      .replace('language: "pt-BR"', 'language: "en-US"');
+    fs.writeFileSync(p.carregado.caminho, editado);
+    const repetido = gravarEtapa(p.dir, 'maestro', { owner: { experience: false } }, 'outro');
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.experience, false, 'opt-out repetido vale');
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.language, 'en-US', 'só a chave pedida muda');
+    assert.deepEqual(repetido.etapas.maestro, r.etapas.maestro, 'autoria e horário da resposta original');
+    assert.deepEqual(lerOnboarding(p.dir).etapas.maestro, r.etapas.maestro);
+  } finally { p.limpar(); }
+});
+
+test('seção owner nova preserva a quebra final e comentário na linha substituída fica', () => {
+  const p = projetoTemporario('onboarding-experiencia-yaml-borda');
+  try {
+    const semOwner = fs.readFileSync(p.carregado.caminho, 'utf8').replace(/^owner:\n(?:  #.*\n)*\n?/m, '');
+    assert.ok(!/^owner:/m.test(semOwner) && semOwner.endsWith('\n'));
+    fs.writeFileSync(p.carregado.caminho, semOwner);
+    gravarEtapa(p.dir, 'maestro', { owner: { depth: 'curta' } });
+    const com = fs.readFileSync(p.carregado.caminho, 'utf8');
+    assert.ok(com.endsWith('owner:\n  depth: "curta"\n'), JSON.stringify(com.slice(-40)));
+    assert.equal(com, semOwner + 'owner:\n  depth: "curta"\n');
+    fs.writeFileSync(p.carregado.caminho, com.replace('  depth: "curta"\n', '  depth: "curta"  # nota do dono\n'));
+    gravarEtapa(p.dir, 'maestro', { owner: { depth: 'detalhada' } });
+    assert.ok(fs.readFileSync(p.carregado.caminho, 'utf8').includes('  depth: "detalhada"  # nota do dono\n'));
+    assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.depth, 'detalhada');
+  } finally { p.limpar(); }
+});
+
+test('preferência inválida no manifesto avisa e vale o padrão; onboarding set corrige', () => {
+  const p = projetoTemporario('onboarding-experiencia-manifesto-invalido');
+  try {
+    const original = fs.readFileSync(p.carregado.caminho, 'utf8');
+    fs.writeFileSync(p.carregado.caminho, original.replace(/^owner:\n/m, 'owner:\n  language: pt_BR\n  depth: short\n  experience: False\n'));
+    const c = carregarManifesto(p.dir)!;
+    assert.deepEqual(c.erros, []);
+    assert.equal(c.avisos.filter(a => /experiencia.config.invalid/.test(a)).length, 3);
+    assert.equal(c.manifesto.owner, undefined);
+    gravarEtapa(p.dir, 'maestro', { owner: { language: 'pt-BR', depth: 'curta', experience: false } });
+    const corrigido = carregarManifesto(p.dir)!;
+    assert.deepEqual(corrigido.manifesto.owner, { language: 'pt-BR', depth: 'curta', experience: false });
+    assert.equal(corrigido.avisos.filter(a => /experiencia.config.invalid/.test(a)).length, 0);
+  } finally { p.limpar(); }
+});

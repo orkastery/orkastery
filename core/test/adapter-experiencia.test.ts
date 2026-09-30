@@ -70,6 +70,18 @@ test('caminho incompatível com o bloco pula apenas o pacote, com aviso, sem afr
   }
 });
 
+test('manifesto com erro pula só o pacote, com aviso, e o adaptador instala como antes', () => {
+  const f = fixtureCompatibilidade('codex', 'projeto', 'en-US', ['orchestration-experience']);
+  try {
+    fs.writeFileSync(path.join(f.opts.projeto, 'orkastery.yaml'), 'project: [\n');
+    fs.writeFileSync(path.join(f.opts.projeto, 'AGENTS.md'), '# Preservado\n');
+    const r = instalarAdaptador('codex', f.opts);
+    assert.equal(r.ok, true); assert.match(textoDaInstalacao(r), /o manifesto tem erros/);
+    assert.equal(fs.readFileSync(path.join(f.opts.projeto, 'AGENTS.md'), 'utf8'), '# Preservado\n');
+    assert.ok(fs.existsSync(path.join(r.destino, 'INSTALADO.json')));
+  } finally { f.limpar(); }
+});
+
 test('adaptador fora do projeto pula o bloco, que só aponta caminhos relativos ao projeto', () => {
   const f = fixtureCompatibilidade('codex', 'projeto', 'en-US', ['orchestration-experience']);
   try {

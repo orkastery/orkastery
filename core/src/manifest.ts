@@ -159,10 +159,15 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   // no fuso do sistema, porque um horario com rotulo certo vale mais que um comando parado.
   const fusoDoDono = lerFusoDoDono(mapa(dados.owner).timezone);
   if (fusoDoDono.aviso) avisos.push(fusoDoDono.aviso);
-  let preferencias: NonNullable<Manifesto['owner']> = {};
-  try {
-    preferencias = validarPreferencias({ ...mapa(dados.owner), timezone: undefined });
-  } catch (e) { erros.push((e as Error).message); }
+  // Preferência inválida segue o fuso: avisa e cai no padrão, sem parar os comandos (e o próprio
+  // onboarding set, que é o caminho para corrigir).
+  const preferencias: NonNullable<Manifesto['owner']> = {};
+  for (const chave of ['language', 'depth', 'experience'] as const) {
+    const valor = mapa(dados.owner)[chave];
+    if (valor === undefined) continue;
+    try { Object.assign(preferencias, validarPreferencias({ [chave]: valor })); }
+    catch (e) { avisos.push(`${(e as Error).message}; vale o padrão até corrigir`); }
+  }
   if (fusoDoDono.origem === 'manifesto') preferencias.timezone = fusoDoDono.fuso;
   const board = mapa(dados.board);
   const runtime = mapa(dados.runtime);

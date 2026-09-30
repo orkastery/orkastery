@@ -13,7 +13,7 @@ import { lerYaml } from './yaml';
 
 export const CONTRATO_ONBOARDING = 'ork.onboarding/v1';
 export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> = [
-  { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo.` },
+  { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo. Preferências em {"owner":{...}} gravam owner no manifesto.` },
   { etapa: 'credenciais', pergunta: 'Quais provedores públicos e nomes de variáveis em env serão usados? Segredos somente em ~/.hermes/.env; nunca informe valores.' },
   { etapa: 'bancos', pergunta: 'Quais bancos públicos e nomes de variáveis em env configuram as conexões? Nunca informe DSN ou senha; valores somente em ~/.hermes/.env.' },
   { etapa: 'memoria', pergunta: 'Deseja OrkMind? Informe {"modo":"orkmind"} ou {"modo":"files"}; a escolha orienta memory.mode no manifesto, sem editá-lo.' },
@@ -202,7 +202,8 @@ function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
   const linhas = anterior.split(eol), ocorrencias = linhas.map((l, i) => /^(?:owner|"owner"|'owner')\s*:/.test(l) ? i : -1).filter(i => i >= 0);
   if (ocorrencias.length > 1) throw Error('experiencia.manifesto.conflict: owner duplicado');
   let inicio = ocorrencias[0];
-  if (inicio === undefined) { inicio = linhas.length; linhas.push('owner:'); }
+  // Seção nova antes da quebra final, sem linha em branco sobrando nem perda do newline.
+  if (inicio === undefined) { inicio = linhas.at(-1) === '' ? linhas.length - 1 : linhas.length; linhas.splice(inicio, 0, 'owner:'); }
   if (!/^(?:owner|"owner"|'owner')\s*:\s*(?:\{\}\s*)?(?:#.*)?$/.test(linhas[inicio])) throw Error('experiencia.manifesto.conflict: owner não é mapa em bloco');
   linhas[inicio] = linhas[inicio].replace('{}', '');
   let fim = inicio + 1;
@@ -212,7 +213,8 @@ function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
     const indices = linhas.slice(inicio + 1, fim).map((l, i) => re.test(l) ? i + inicio + 1 : -1).filter(i => i >= 0);
     if (indices.length > 1) throw Error('experiencia.manifesto.conflict: preferência duplicada');
     const linha = `  ${k}: ${JSON.stringify(v)}`;
-    if (indices.length) linhas[indices[0]] = linha;
+    // Comentário na mesma linha fica; a conferência semântica abaixo pega leitura errada.
+    if (indices.length) linhas[indices[0]] = linha + (/^[^#]*?(\s+#.*)$/.exec(linhas[indices[0]])?.[1] ?? '');
     else { linhas.splice(inicio + 1, 0, linha); fim++; }
   }
   const proximo = linhas.join(eol);
@@ -240,22 +242,29 @@ export function gravarEtapa(raiz: string, nome: string, conteudo: unknown, por =
       validarConteudo(etapa, conteudo);
     }
     validarConteudo(etapa, conteudo);
-    if (anterior && jsonCanonico(anterior.conteudo) === jsonCanonico(conteudo)) return estado;
     // Persistir só chaves deste pedido: uma resposta antiga não vence edição explícita do manifesto.
     validarConteudo(etapa, solicitadas);
     const preferencias = etapa === 'maestro' ? prepararPreferencias(raiz, solicitadas) : null;
-    const timestamp = new Date().toISOString();
-    estado.etapas[etapa] = { respondidaEm: timestamp, por, conteudo };
-    estado.atualizadoEm = dataMaisRecente([estado.atualizadoEm, timestamp]);
-    if (preferencias && preferencias.proximo !== preferencias.anterior) {
+    const manifestoMuda = !!preferencias && preferencias.proximo !== preferencias.anterior;
+    const mesmaResposta = !!anterior && jsonCanonico(anterior.conteudo) === jsonCanonico(conteudo);
+    // Resposta igual com o manifesto editado à mão depois: o pedido explícito vale, e a entrevista
+    // guarda autoria e horário da resposta original.
+    if (mesmaResposta && !manifestoMuda) return estado;
+    if (!mesmaResposta) {
+      const timestamp = new Date().toISOString();
+      estado.etapas[etapa] = { respondidaEm: timestamp, por, conteudo };
+      estado.atualizadoEm = dataMaisRecente([estado.atualizadoEm, timestamp]);
+    }
+    const salvarEstado = () => { if (!mesmaResposta) persistir(raiz, estado); };
+    if (preferencias && manifestoMuda) {
       const temporario = preferencias.arquivo + '.' + randomUUID() + '.tmp';
       try {
         fs.writeFileSync(temporario, preferencias.proximo, { flag: 'wx', mode: preferencias.modo });
         fs.renameSync(temporario, preferencias.arquivo);
-        try { persistir(raiz, estado); }
+        try { salvarEstado(); }
         catch (e) { fs.writeFileSync(preferencias.arquivo, preferencias.anterior); throw e; }
       } finally { if (fs.existsSync(temporario)) fs.unlinkSync(temporario); }
-    } else persistir(raiz, estado);
+    } else salvarEstado();
     registrar(dirEstado(projectState(raiz).root), 'projeto', TIPOS_DE_EVENTO.onboardingRegistrado,
       { acao: 'set', etapa, por, sha256: sha(conteudo) });
     return estado;

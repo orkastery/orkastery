@@ -34,10 +34,17 @@ export function validarPreferencias(valor: unknown): PreferenciasExperiencia {
   return resultado;
 }
 
-export function idiomaDoSistema(env: NodeJS.ProcessEnv = process.env): string {
+/** C, POSIX e und (raiz do ICU) dizem que o sistema não escolheu idioma: vale o padrão. */
+const SEM_IDIOMA = new Set(['c', 'posix', 'und']);
+function idiomaEscolhido(valor: string | undefined): string | undefined {
+  const idioma = normalizarIdioma(valor);
+  return idioma && !SEM_IDIOMA.has(idioma.toLowerCase().split('-')[0]) ? idioma : undefined;
+}
+
+export function idiomaDoSistema(env: NodeJS.ProcessEnv = process.env,
+  doIntl: () => string = () => Intl.DateTimeFormat().resolvedOptions().locale): string {
   const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG;
-  const normalizado = normalizarIdioma(locale?.split(/[.@]/)[0].replace(/_/g, '-'));
-  return normalizado ?? normalizarIdioma(Intl.DateTimeFormat().resolvedOptions().locale) ?? 'en-US';
+  return idiomaEscolhido(locale?.split(/[.@]/)[0].replace(/_/g, '-')) ?? idiomaEscolhido(doIntl()) ?? 'en-US';
 }
 
 export function resolverExperiencia(owner: PreferenciasExperiencia = {},

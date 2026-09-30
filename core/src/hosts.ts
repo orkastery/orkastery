@@ -531,8 +531,8 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ok: !barrado,
     orkBin,
     pitfalls: def.pitfalls,
-    ...(preferencias ? { experiencia: { ativa: host !== 'openclaw' && preferencias.experience && !avisoExperiencia,
-      arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias.skill,
+    ...(preferencias || avisoExperiencia ? { experiencia: { ativa: host !== 'openclaw' && !!preferencias?.experience && !avisoExperiencia,
+      arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias?.skill ?? '',
       ...(avisoExperiencia ? { aviso: avisoExperiencia } : {}) } } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;
@@ -619,7 +619,7 @@ export function textoDosPitfalls(host: Host): string {
 /** Texto de `ork adapter install`. */
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
   const linhas: string[] = [];
-  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada' : 'desativada ou sem integração de skills'} (${r.experiencia.skill}).`);
+  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada' : 'desativada ou sem integração de skills'}${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
   if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
   linhas.push(
     r.dryRun

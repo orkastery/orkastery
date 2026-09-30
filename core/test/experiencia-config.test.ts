@@ -12,6 +12,11 @@ test('preferências ausentes usam sistema e consulta não altera dados', () => {
   assert.equal(r.origem.language, 'sistema'); assert.deepEqual(owner, {});
   assert.equal(idiomaDoSistema({ LANG: 'pt_BR.UTF-8' }), 'pt-BR');
   assert.equal(idiomaDoSistema({ LC_ALL: 'en_GB.UTF-8', LANG: 'pt_BR.UTF-8' }), 'en-GB');
+  // Locale de CI e contêiner não escolhe idioma: vale o do Intl e, sem ele, o padrão.
+  for (const LANG of ['C.UTF-8', 'C', 'POSIX']) {
+    assert.equal(idiomaDoSistema({ LANG }, () => 'und'), 'en-US', LANG);
+    assert.equal(idiomaDoSistema({ LANG }, () => 'pt-BR'), 'pt-BR', LANG);
+  }
 });
 
 test('configuração explícita prevalece e opt-out permanece booleano', () => {
@@ -36,6 +41,9 @@ test('manifesto preserva preferências e mantém fallback legado de fuso inváli
     assert.equal(r.erros.length, 0); assert.equal(r.manifesto.owner?.experience, false);
     assert.equal(r.manifesto.owner?.timezone, undefined); assert.ok(r.avisos.some(a => a.includes('owner.timezone')));
     fs.writeFileSync(p.carregado.caminho, original + '\nowner:\n  experience: "false"\n');
-    assert.ok(carregarManifesto(p.dir)!.erros.some(e => e.includes('owner.experience')));
+    // Como o fuso (I-35): valor inválido avisa e vale o padrão, sem parar os comandos.
+    const invalido = carregarManifesto(p.dir)!;
+    assert.deepEqual(invalido.erros, []); assert.equal(invalido.manifesto.owner, undefined);
+    assert.ok(invalido.avisos.some(a => a.includes('owner.experience')));
   } finally { p.limpar(); }
 });
