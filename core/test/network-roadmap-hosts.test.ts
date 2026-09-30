@@ -14,7 +14,7 @@ import * as path from 'node:path';
 import { init } from '../src/init';
 import { main } from '../src/index';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede } from '../src/network-roadmap';
-import { registrarProjeto } from '../src/projeto-alvo';
+import { ErroDeProjeto, OFERTA_DA_REDE, registrarProjeto, resolverProjetoAlvo } from '../src/projeto-alvo';
 import { exec } from '../src/util';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 
@@ -155,4 +155,44 @@ test('rede nos hosts: host no CLI, ORK_PROJETO_EXPLICITO=1 recusa caminho com sa
     assert.equal(cli(c.gateway, ['network', 'roadmap', '--projeto', c.orkastery.dir, '--sem-remoto'],
       { ...host, ORK_PROJETO_EXPLICITO: undefined }).codigo, 0);
   } finally { c.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// T2: sem projeto nomeado, a recusa do projeto-alvo oferece a rede.
+// ---------------------------------------------------------------------------
+
+function recusaDoAlvo(f: () => unknown, codigo: string): ErroDeProjeto {
+  try { f(); } catch (e) {
+    assert.ok(e instanceof ErroDeProjeto, String(e));
+    assert.equal(e.codigo, codigo);
+    return e;
+  }
+  assert.fail(`esperava a recusa ${codigo}`);
+}
+
+test('rede nos hosts: escolha sem projeto oferece o panorama da rede, com os mesmos candidatos', () => {
+  const c = cenaDoHost('rede-escolha');
+  try {
+    const host = { ORK_PROJETO_EXPLICITO: '1' } as NodeJS.ProcessEnv;
+    const e = recusaDoAlvo(() => resolverProjetoAlvo({ ambiente: host, cwd: c.gateway }), 'projeto.escolha');
+    assert.deepEqual(e.candidatos.map((x) => x.nome).sort(), ['orkastery', 'workspace'], 'a escolha da RM-052 nao muda');
+    assert.ok(e.correcao.startsWith('Repita com o projeto pedido: parâmetro `projeto` da tool, ou `--projeto <nome>`.'), e.correcao);
+    assert.ok(e.correcao.endsWith(OFERTA_DA_REDE));
+    assert.match(OFERTA_DA_REDE, /`ork network roadmap` \(tool ork_network_roadmap\)/);
+    assert.equal(e.texto.split('\n').at(-1), e.correcao, 'a oferta fecha o texto que o host transporta');
+    assert.equal(e.recusa.correcao, e.correcao, 'e o JSON leva a mesma oferta');
+  } finally { c.limpar(); }
+});
+
+test('rede nos hosts: escolha sem nenhum projeto aponta a forja pelo panorama da rede', () => {
+  const usuario = dirTemporario('rede-escolha-nenhum-usuario'), vazio = dirTemporario('rede-escolha-nenhum-cwd');
+  const anterior = process.env.ORK_USUARIO_DIR;
+  try {
+    process.env.ORK_USUARIO_DIR = usuario;
+    const e = recusaDoAlvo(() => resolverProjetoAlvo({ ambiente: { ORK_PROJETO_EXPLICITO: '1' }, cwd: vazio }), 'projeto.nenhum');
+    assert.match(e.correcao, /`ork network roadmap --projeto github:dono\/repo` \(tool ork_network_roadmap\)/);
+  } finally {
+    if (anterior === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = anterior;
+    fs.rmSync(usuario, { recursive: true, force: true }); fs.rmSync(vazio, { recursive: true, force: true });
+  }
 });

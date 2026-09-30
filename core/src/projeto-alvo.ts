@@ -397,6 +397,14 @@ export interface EntradaDaResolucao {
 }
 
 /**
+ * RM-054 (fatia 2, D-G3): sem projeto pedido, a recusa oferece o panorama da rede, que le todos os
+ * projetos conhecidos sem escolher nenhum. A oferta sai do nucleo para valer em todo host, mesmo
+ * quando o modelo pula a instrucao da entrada dele.
+ */
+export const OFERTA_DA_REDE = 'Para ver todos os projetos e as threads de todas as máquinas sem escolher, com a fonte e a hora de cada parte: ' +
+  '`ork network roadmap` (tool ork_network_roadmap).';
+
+/**
  * O projeto-alvo do processo, ou `null` quando vale o cwd de sempre. Precedencia (D2):
  * `--projeto` > `ORK_PROJETO` > host sem cwd (`ORK_PROJETO_EXPLICITO=1`, D3) > cwd.
  */
@@ -425,10 +433,11 @@ export function resolverProjetoAlvo(entrada: EntradaDaResolucao = {}): ProjetoAl
     if (candidatos.length > 1) {
       throw new ErroDeProjeto('projeto.escolha',
         `${candidatos.length} projetos conhecidos nesta máquina e nenhum foi pedido; o ork não escolhe pelo diretório do gateway`,
-        candidatos.map((c) => c.candidato), 'Repita com o projeto pedido: parâmetro `projeto` da tool, ou `--projeto <nome>`.');
+        candidatos.map((c) => c.candidato), `Repita com o projeto pedido: parâmetro \`projeto\` da tool, ou \`--projeto <nome>\`. ${OFERTA_DA_REDE}`);
     }
     throw new ErroDeProjeto('projeto.nenhum', 'nenhum projeto conhecido nesta máquina e nenhum foi pedido', [],
-      'Registre o projeto com `ork projetos registrar <caminho>` (ou `ork init` na raiz dele) e repita com o nome.');
+      'Registre o projeto com `ork projetos registrar <caminho>` (ou `ork init` na raiz dele) e repita com o nome. ' +
+      'Sem clone nesta máquina, o roadmap de um projeto vem da forja: `ork network roadmap --projeto github:dono/repo` (tool ork_network_roadmap).');
   }
   return null;
 }
