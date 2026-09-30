@@ -146,15 +146,16 @@ test('rede nos hosts: host aceita nome e forja no --projeto; caminho e URL recus
   try {
     const base = { cwd: c.gateway, registro: c.registro, quando: QUANDO, maquina: 'pc-a', semRemoto: true, host: true };
     const url = 'https://usuario:segredo-de-teste@github.com/dono/repo';
-    // O texto da recusa antes da lista de candidatos (a lista mostra o clone registrado, com o caminho dele).
-    const semCandidatos = (e: ErroDoPedidoDeProjeto): string => e.texto.split('\nCandidatos:')[0];
+    // O texto da recusa sem as linhas de candidato (elas mostram o clone registrado, com o caminho dele):
+    // o detalhe e a correcao, que nunca podem trazer o pedido de volta.
+    const semCandidatos = (e: ErroDoPedidoDeProjeto): string => e.texto.split('\n').filter((l) => !l.startsWith('  • ')).join('\n');
     for (const pedido of ['./orkastery', '../orkastery', c.orkastery.dir, '~/orkastery', url, 'git@github.com:dono/repo.git', 'dono/repo',
       'github:../x', 'a b']) {
       const e = recusa(() => montarPanoramaDaRede({ ...base, pedido }), 'projeto.desconhecido');
       assert.match(e.detalhe, /^no host, --projeto é o nome de um projeto registrado ou a forja/);
       assert.ok(!e.texto.includes('segredo-de-teste'), `a URL com credencial nao volta na recusa: ${pedido}`);
-      // `dono/repo` e `a b` aparecem de proposito no exemplo da correcao; os outros nao podem voltar.
-      if (!['dono/repo', 'a b'].includes(pedido)) assert.ok(!semCandidatos(e).includes(pedido), `o pedido nao volta na recusa: ${pedido}`);
+      // `dono/repo` aparece de proposito no exemplo da correcao; os outros nao podem voltar.
+      if (pedido !== 'dono/repo') assert.ok(!semCandidatos(e).includes(pedido), `o pedido nao volta na recusa: ${pedido}`);
       assert.deepEqual(e.candidatos.map((x) => x.split(' · ')[0]), ['orkastery'], 'so o registro; o workspace do gateway nao e candidato');
     }
     // GO-FIX 1: forja so em host conhecido; host livre (outro servidor, IP, grupo com ponto) recusa.
