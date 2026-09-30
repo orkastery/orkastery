@@ -746,7 +746,7 @@
         "node --test core/dist-test/test/experiencia-instalacao.test.js core/dist-test/test/adapter-experiencia.test.js"
       ],
       "criadoEm": "2026-09-30T02:59:36.796Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -761,7 +761,7 @@
         "node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/experiencia-hosts.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js"
       ],
       "criadoEm": "2026-09-30T02:59:38.949Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -776,7 +776,7 @@
         "node --test core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/experiencia-config.test.js core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/onboarding.test.js core/dist-test/test/onboarding-cli.test.js"
       ],
       "criadoEm": "2026-09-30T03:07:06.070Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -792,7 +792,7 @@
         "node core/scripts/checar-experiencia-publica.cjs"
       ],
       "criadoEm": "2026-09-30T03:11:35.333Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -808,7 +808,7 @@
         "core/node_modules/.bin/markdownlint-cli2"
       ],
       "criadoEm": "2026-09-30T03:13:45.332Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -823,7 +823,7 @@
         "node --test core/dist-test/test/adapter-experiencia.test.js core/dist-test/test/experiencia-instalacao.test.js core/dist-test/test/onboarding-experiencia.test.js core/dist-test/test/mcp-experiencia.test.js"
       ],
       "criadoEm": "2026-09-30T03:28:12.983Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -843,7 +843,7 @@
         "node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-09-30T03:31:22.640Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -858,6 +858,21 @@
         "! grep -IEl \"/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}\" .ork-ci/bundle.json"
       ],
       "criadoEm": "2026-09-30T03:31:51.676Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-pacotedeexpe",
+      "fase": "CHECK",
+      "arquivo": "marketplaces/README.md",
+      "alegacao": "GO-FIX 8 (conflito semântico com a RM-049): as pastas do plugin nos marketplaces são regeradas do catálogo com as duas skills do pacote e as entradas alteradas; textos e teste passam de 18 a 20 skills; o gerador confere deriva zero.",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar",
+        "npm --prefix core run build:test && node --test core/dist-test/test/marketplaces.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:54:40.481Z",
       "estado": "pendente",
       "lint": []
     }
