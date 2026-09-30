@@ -359,3 +359,35 @@ test('rede nos hosts: Hermes, ork-network-roadmap.sh declara o host, repassa --p
       'lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou"']) assert.ok(skill.includes(trecho), trecho);
   } finally { c.limpar(); }
 });
+
+// ---------------------------------------------------------------------------
+// T6: as entradas do Claude Code e do Codex.
+// ---------------------------------------------------------------------------
+
+test('rede nos hosts: Claude Code e Codex mandam o status do roadmap a rede e oferecem o panorama na frase sem projeto', () => {
+  const p = projetoTemporario('rede-claude-codex');
+  try {
+    const claude = instalarAdaptador('claude-code', { projeto: p.dir });
+    const ork = fs.readFileSync(path.join(claude.destino, 'commands/ork.md'), 'utf8');
+    for (const trecho of ['Sem projeto nomeado, ofereça também o panorama da rede (RM-054): `ork network roadmap`',
+      '`mcp__orkastery__ork_network_roadmap` (o projeto fixado, em todas as máquinas)',
+      '| Status do roadmap | Rode `ork network roadmap` (com `--projeto <nome>` quando o dono nomear o projeto) e mostre o texto como vem',
+      '`ork roadmap status` le so esta maquina', 'lacuna ou "Nao consultado" nunca e roadmap vazio',
+      'ork network roadmap [--projeto <nome>]']) assert.ok(ork.includes(trecho), trecho);
+    // Os grants do /orkastery:ork nao mudam: o CLI ja esta em Bash(ork:*), e a tool MCP nao ganha grant novo.
+    const grants = ork.match(/^allowed-tools: (.+)$/m)![1].split(',').map((g) => g.trim());
+    assert.ok(grants.includes('Bash(ork:*)'));
+    assert.ok(!grants.some((g) => g.includes('network')), 'nenhum grant novo');
+
+    const bootstrap = fs.readFileSync(path.join(claude.destino, 'skills/core/orkastery-bootstrap/SKILL.md'), 'utf8');
+    for (const trecho of ['Sem projeto nomeado, ofereça o panorama da rede (RM-054): `ork_network_roadmap` no host',
+      '`ork network roadmap` no CLI (todos os projetos conhecidos)',
+      'lacuna e "Não consultado" nunca viram roadmap vazio nem "nenhuma máquina publicou"']) assert.ok(bootstrap.includes(trecho), trecho);
+
+    const codex = instalarAdaptador('codex', { projeto: p.dir });
+    const entrada = fs.readFileSync(path.join(codex.destino, 'skills/ork/SKILL.md'), 'utf8');
+    for (const trecho of ['Sem projeto nomeado, ofereça também o panorama da rede\n(`ork_network_roadmap`, ou `ork network roadmap` no CLI)',
+      '- Status do roadmap: use `ork_network_roadmap` (ou `ork network roadmap --projeto <nome>`)',
+      '`ork_roadmap_status` e\n  so desta maquina', 'lacuna nunca e roadmap vazio']) assert.ok(entrada.includes(trecho), trecho);
+  } finally { p.limpar(); }
+});

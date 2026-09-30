@@ -32,6 +32,9 @@ Os comandos de fase continuam disponiveis como atalhos; o dono nao precisa conhe
 A frase literal `orkastery maestro`, em sessão limpa, pede leitura do panorama.
 Descubra a ferramenta com `ToolSearch` em `select:mcp__orkastery__ork_maestro`,
 então consulte o projeto fixado. Não abre thread nem despacho por consulta.
+Sem projeto nomeado, ofereça também o panorama da rede (RM-054): `ork network roadmap`
+(todos os projetos conhecidos, as threads de todas as máquinas, fontes, frescor e lacunas)
+ou `mcp__orkastery__ork_network_roadmap` (o projeto fixado, em todas as máquinas), mostrado como vem.
 O MCP atende só o projeto fixado; `projeto` em qualquer ferramenta apenas confere esse
 projeto (`projeto.fora-do-servidor` quando é outro). Pedido de outro projeto vai ao CLI com
 `--projeto <nome>` (RM-052). Leia "Projeto consultado" e "Não lido" antes de responder.
@@ -49,7 +52,7 @@ UUID interno e cancelamento preservado. A condutora usa
 | Demanda nova | Resolva o modo pelo nucleo, confira o preflight e abra/despache a thread correspondente. |
 | "Continue" ou thread/roadmap existente | Leia o estado e o ultimo resultado; retome o proximo passo autorizado, sem duplicar despacho. |
 | "Como esta?" ou status | Consulte a thread conhecida; apresente progresso comprovado, impedimento e proximo passo. |
-| Status do roadmap | Rode `ork roadmap status` (com `--projeto <nome>` quando o dono nomear o projeto) e mostre o texto como vem; nao escreva relatorio proprio de roadmap nem o deduza do board ou do panorama: zero threads nao e roadmap vazio. |
+| Status do roadmap | Rode `ork network roadmap` (com `--projeto <nome>` quando o dono nomear o projeto) e mostre o texto como vem: traz as threads de todas as maquinas, as reservas e a fonte e a hora de cada parte; `ork roadmap status` le so esta maquina. Nao escreva relatorio proprio de roadmap nem o deduza do board ou do panorama: zero threads nao e roadmap vazio, e lacuna ou "Nao consultado" nunca e roadmap vazio. |
 | Decisao ou resposta | Correlacione com o pedido/gate apresentado, transporte pelo caminho suportado e confira o resultado. |
 | Onboarding | Use a pauta de `ork onboarding` e retome as etapas existentes. |
 | board, plan, doctor ou modos | Execute a consulta correspondente e interprete o resultado para a intencao do dono. |
@@ -73,6 +76,7 @@ As consultas CLI abaixo continuam uteis quando a ferramenta correspondente nao e
 ```bash
 ork thread status <thread>
 ork phase list <thread>
+ork network roadmap [--projeto <nome>]
 ork pulse --json
 ork board plan
 ork doctor
