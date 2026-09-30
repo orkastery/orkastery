@@ -46,7 +46,7 @@ test('lista complementar permanece fora do repositório e conteúdo não aparece
 
 test('a lista cobre os arquivos novos e os alterados pela RM-051', () => {
   for (const arquivo of ['core/src/hosts.ts', 'core/src/onboarding.ts', 'CHANGELOG.md', 'adapters/claude-code/.claude-plugin/plugin.json',
-    'skills/core/orchestration-experience/SKILL.md', 'docs/produto/FEAT-031-pacote-de-experiencia.md']) {
+    'skills/core/orchestration-experience/SKILL.md', 'docs/produto/FEAT-034-pacote-de-experiencia.md']) {
     assert.ok(scan.ARQUIVOS.includes(arquivo), arquivo);
   }
   assert.equal(new Set(scan.ARQUIVOS).size, scan.ARQUIVOS.length);

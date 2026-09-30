@@ -1,5 +1,5 @@
 ---
-id: FEAT-031
+id: FEAT-034
 tipo: feature
 titulo: Pacote de experiência de orquestração
 estado: em desenvolvimento
@@ -17,7 +17,7 @@ fontes:
   comandos: [ork experiencia show, ork experiencia uninstall, ork onboarding, ork adapter install]
 ---
 
-# FEAT-031: Pacote de experiência de orquestração
+# FEAT-034: Pacote de experiência de orquestração
 
 > **Em uma frase:** preferências de idioma, fuso e profundidade orientam a conversa de orquestração nos hosts, com opt-out e restauração dos arquivos de instrução.
 
@@ -48,3 +48,4 @@ O ensaio `node core/scripts/testar-experiencia-e2e.cjs` instala o tarball local 
 | 2026-09-29 | Especificação proposta | Equipe Orkastery | RM-051 |
 | 2026-09-29 | Implementação local e testes focados; aceite pendente | Equipe Orkastery | branch@2208305, RM-051 |
 | 2026-09-30 | CHECK independente e GO-FIX 2 a 5; ID passa de FEAT-030 a FEAT-031, que a main já usava | Equipe Orkastery | branch@868e974, RM-051 |
+| 2026-09-30 | ID passa de FEAT-031 a FEAT-034: a FEAT-031 ficou combinada para a RM-053 em outra máquina da rede, e nesta a FEAT-033 é da RM-026 | Equipe Orkastery | RM-051 |

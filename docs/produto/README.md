@@ -53,8 +53,8 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-028](FEAT-028-loop-de-aprendizado.md) | Loop de aprendizado | feature | vigente | MOD-05 | 2026-09-27 |
 | [FEAT-029](FEAT-029-conducao-multicanal.md) | Condução multicanal da thread | feature | vigente | MOD-01 | 2026-09-27 |
 | [FEAT-030](FEAT-030-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | feature | proposto | MOD-06 | 2026-09-29 |
-| [FEAT-031](FEAT-031-pacote-de-experiencia.md) | Pacote de experiência de orquestração | feature | em desenvolvimento | MOD-06 | 2026-09-30 |
 | [FEAT-032](FEAT-032-roadmap-da-rede.md) | Roadmap da rede, de qualquer diretório | feature | em desenvolvimento | MOD-01 | 2026-09-29 |
 | [FEAT-033](FEAT-033-dossie-de-decisao.md) | Dossiê de decisão | feature | vigente | MOD-05 | 2026-09-29 |
+| [FEAT-034](FEAT-034-pacote-de-experiencia.md) | Pacote de experiência de orquestração | feature | em desenvolvimento | MOD-06 | 2026-09-30 |
 
 <!-- ork-docs:indice:fim -->

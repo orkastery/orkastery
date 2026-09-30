@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const ARQUIVOS = [
-  'docs/roadmap/RM-051-pacote-de-experiencia.md', 'docs/produto/FEAT-031-pacote-de-experiencia.md',
+  'docs/roadmap/RM-051-pacote-de-experiencia.md', 'docs/produto/FEAT-034-pacote-de-experiencia.md',
   'docs/guias/orchestration-experience.md', 'docs/guias/orchestration-experience.pt-BR.md',
   'skills/core/orchestration-experience/SKILL.md', 'skills/core/orchestration-experience-pt-br/SKILL.md',
   'eval/casos/orchestration-experience.json', 'eval/casos/orchestration-experience-pt-br.json',

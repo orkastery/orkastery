@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Pacote de experiência de orquestração
 categoria: melhoria
 pai: null
-features: [FEAT-031]
+features: [FEAT-034]
 owner: Equipe Orkastery
 atualizado_em: 2026-09-30T00:13:18-03:00
 estado:
@@ -40,7 +40,7 @@ sdlc:
 
 ## Problema e resultado
 
-Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. O comportamento está especificado em [FEAT-031](../produto/FEAT-031-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
+Pessoas que conduzem projetos precisam de mensagens úteis e preferências aplicadas sem editar instruções manualmente. O comportamento está especificado em [FEAT-034](../produto/FEAT-034-pacote-de-experiencia.md), apoiada nos contratos de [horário](RM-035-horario-do-dono.md) e [HITL](RM-048-hitl-humano-no-centro.md).
 
 O resultado esperado é configuração explícita, instalação repetível e remoção segura. Não há métrica de adoção medida; a prova técnica é feita por testes e pelo ensaio isolado de distribuição.
 
@@ -84,12 +84,13 @@ A equipe Orkastery conduz implementação e revisão. Próxima ação: abrir o P
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| 2026-09-29 | Cadastro planejado | Especificação FEAT-031 | Equipe Orkastery |
+| 2026-09-29 | Cadastro planejado | Especificação FEAT-034 | Equipe Orkastery |
 | 2026-09-30 | Em validação, testes aprovados | CHECK independente com GO-FIX 2 a 5; a feature passa a FEAT-031 porque a main já usa FEAT-030 | Equipe Orkastery |
+| 2026-09-30 | Feature renumerada de FEAT-031 para FEAT-034 | A FEAT-031 ficou combinada para a RM-053 em outra máquina da rede; nesta, a FEAT-033 é da RM-026 e a FEAT-034, da RM-051 | Equipe Orkastery |
 
 ## Evidência da implementação
 
-Código na branch com testes de preferências, blocos, clone sem recibo, adaptadores, entradas, MCP, aviso de associação e varredura pública; os arquivos e comandos estão em [FEAT-031](../produto/FEAT-031-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
+Código na branch com testes de preferências, blocos, clone sem recibo, adaptadores, entradas, MCP, aviso de associação e varredura pública; os arquivos e comandos estão em [FEAT-034](../produto/FEAT-034-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
 
 O CHECK independente rodou o eval completo, o lint de prompts e de Markdown, a verificação documental, os links, a varredura pública e o ensaio real de instalação do tarball, todos verdes. A revisão de código e a auditoria de privacidade acharam dois bloqueadores e seis avisos, corrigidos com teste nos GO-FIX 2 a 5. Versão mantida; mudança em “Não publicado”, sem PR, release ou deploy comprovado.
 
