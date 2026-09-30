@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T04:00:01.952Z",
+  "publicadoEm": "2026-09-30T04:10:09.129Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -28,11 +28,11 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-i36buscasema-goal",
-      "atualizadaEm": "2026-09-30T02:36:17.000Z",
-      "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-30T03:58:48.639Z"
+      "atualizadaEm": "2026-09-30T04:10:08.910Z",
+      "entregue": "1041f1b6",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-pacotedeexpe",
@@ -44,9 +44,9 @@
       "branch": "ork/ork-rm051pacote-full",
       "atualizadaEm": "2026-09-30T03:54:40.481Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
+      "esperaVoce": true,
+      "pergunta": "autorizacao da retomada",
+      "paradaDesde": "2026-09-30T04:08:27.657Z"
     },
     {
       "id": "ork-rm025modocon",
@@ -84,7 +84,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037noite-full",
-      "atualizadaEm": "2026-09-30T04:00:01.671Z",
+      "atualizadaEm": "2026-09-30T04:01:29.950Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
