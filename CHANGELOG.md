@@ -60,6 +60,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
   tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
   leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
+- **Dossiê de decisão** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md), K3.1):
+  `ork brain dossie --thread <id> [--decisao <id>]` devolve o dossiê `ork.dossie-de-decisao/v1`: o
+  vínculo da thread com o objetivo (o ticket do K1) e o projeto do portfólio, o pacote de contexto
+  citável e cada decisão do ledger com as alternativas, quem decidiu, a evidência, a citação da
+  linha e os ids que o Brain dá ao fato (`fact-…`). A resposta do dono só aparece com o recibo do
+  ingresso conferido; sem ele, vira lacuna. Somente leitura; também como `ork_brain_dossie` no MCP
+  e no OpenClaw, que passa a ter 26 tools.
 
 ### Mudado
 
