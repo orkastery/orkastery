@@ -222,7 +222,7 @@ test('rede: sem clone le roadmap, reservas e fabrica da forja, so consulta', () 
       registro: path.join(vazio, 'projetos.json') });
     // Uma chamada, so consulta, pela CLI da forja com o login que ela ja tem.
     assert.equal(chamadas.length, 1);
-    assert.deepEqual(chamadas[0].args, ['api', 'graphql', '--method', 'POST', '--input', '-']);
+    assert.deepEqual(chamadas[0].args, ['api', 'graphql', '--method', 'POST', '--input', '-', '--hostname', 'github.com']);
     assert.doesNotMatch(JSON.parse(chamadas[0].entrada).query, /mutation/i);
 
     const x = p.projetos[0];

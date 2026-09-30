@@ -32,8 +32,11 @@ export interface ErroDaForja { codigo: CodigoDeErroDaForja; detalhe: string }
 /** `texto` e null quando o blob e binario ou veio truncado: a pagina existe e nao foi lida. */
 export interface ArquivoDaForja { caminho: string; texto: string | null }
 
-/** A ponta de uma branch; `arquivos` e null quando o diretorio pedido nao existe nela. */
-export interface PontaDaForja { ref: string; commit: string; dataDoCommit: string | null; arquivos: ArquivoDaForja[] | null }
+/**
+ * A ponta de uma branch; `arquivos` e null quando o diretorio pedido nao existe nela. `parcial`: a
+ * forja cortou a listagem (conexao paginada do GitLab), e o que faltou nao pode virar ausencia.
+ */
+export interface PontaDaForja { ref: string; commit: string; dataDoCommit: string | null; arquivos: ArquivoDaForja[] | null; parcial: boolean }
 
 export interface CommitDaBase { commit: string; assunto: string; data: string }
 
@@ -199,7 +202,11 @@ function chamarJson(executor: ExecutorDaForja, cmd: 'gh' | 'glab', args: string[
   return { ok: true, json };
 }
 
-const hostnameDe = (f: IdentidadeDaForja, padrao: string): string[] => (f.host === padrao ? [] : ['--hostname', f.host]);
+/**
+ * O host vai sempre explicito: sem ele, o `gh` usa `GH_HOST` ou o unico host com login, e o `glab`,
+ * o host do remoto do cwd; a consulta iria para outra forja.
+ */
+const hostnameDe = (f: IdentidadeDaForja): string[] => ['--hostname', f.host];
 
 function arquivosDoGithub(entrada: unknown, dir: string): ArquivoDaForja[] | null {
   if (entrada === null) return null;
@@ -250,7 +257,7 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     refReservas: `refs/heads/${pedido.reservas.branch}`, dirReservas: pedido.reservas.dir,
     refFabrica: `refs/heads/${pedido.fabrica.branch}`, dirFabrica: pedido.fabrica.dir,
   } });
-  const r = chamarJson(executor, 'gh', ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja, 'github.com')], corpo);
+  const r = chamarJson(executor, 'gh', ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)], corpo);
   if (!r.ok) return r;
   const dados = obj(r.json) ? (r.json as Json).data : undefined;
   exigir(obj(dados) && obj((dados as Json).repository), 'repositorio');
@@ -264,7 +271,7 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     exigir(Array.isArray(historico), 'base: commits');
     const pagina = obj(base.alvo.history) ? (base.alvo.history as Json).pageInfo : undefined;
     leituraDaBase = { ref: base.nome, commit: base.commit, dataDoCommit: base.dataDoCommit,
-      arquivos: arquivosDoGithub(base.alvo.roadmap ?? null, pedido.dirRoadmap), manifesto,
+      arquivos: arquivosDoGithub(base.alvo.roadmap ?? null, pedido.dirRoadmap), parcial: false, manifesto,
       commits: (historico as unknown[]).filter(obj).map((n) => {
         exigir(typeof n.oid === 'string' && typeof n.messageHeadline === 'string' && typeof n.committedDate === 'string', 'base: commit');
         return { commit: n.oid as string, assunto: n.messageHeadline as string, data: n.committedDate as string };
@@ -272,7 +279,8 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   }
   const estado = (bruto: unknown, b: BranchDeEstado): PontaDaForja | null => {
     const p = pontaDoGithub(bruto ?? null, b.branch);
-    return p ? { ref: b.branch, commit: p.commit, dataDoCommit: p.dataDoCommit, arquivos: arquivosDoGithub(p.alvo.arquivos ?? null, b.dir) } : null;
+    return p ? { ref: b.branch, commit: p.commit, dataDoCommit: p.dataDoCommit, arquivos: arquivosDoGithub(p.alvo.arquivos ?? null, b.dir),
+      parcial: false } : null;
   };
   return { ok: true, leitura: { forja, lidoEm, chamadas: 1, base: leituraDaBase,
     reservas: estado(repo.reservas, pedido.reservas), fabrica: estado(repo.fabrica, pedido.fabrica) } };
@@ -284,11 +292,11 @@ const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: 
   $refFabrica: String!, $dirFabrica: String!) {
   project(fullPath: $path) { repository {
     baseTopo: tree(ref: $base) { lastCommit { sha committedDate } }
-    baseDir: tree(ref: $base, path: $dirRoadmap) { blobs { nodes { name path } } }
+    baseDir: tree(ref: $base, path: $dirRoadmap) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
     reservasTopo: tree(ref: $refReservas) { lastCommit { sha committedDate } }
-    reservasDir: tree(ref: $refReservas, path: $dirReservas) { blobs { nodes { name path } } }
+    reservasDir: tree(ref: $refReservas, path: $dirReservas) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
     fabricaTopo: tree(ref: $refFabrica) { lastCommit { sha committedDate } }
-    fabricaDir: tree(ref: $refFabrica, path: $dirFabrica) { blobs { nodes { name path } } }
+    fabricaDir: tree(ref: $refFabrica, path: $dirFabrica) { blobs(first: 100) { pageInfo { hasNextPage } nodes { name path } } }
   } }
 }`;
 
@@ -296,12 +304,13 @@ const CONSULTA_ARVORES_GITLAB = `query($path: ID!, $base: String!, $dirRoadmap: 
 function consultaDeBlobsDoGitlab(partes: readonly ('base' | 'reservas' | 'fabrica')[]): string {
   const sufixo = { base: 'Base', reservas: 'Reservas', fabrica: 'Fabrica' };
   const declaracoes = ['$path: ID!', ...partes.flatMap((p) => [`$ref${sufixo[p]}: String!`, `$paths${sufixo[p]}: [String!]!`])];
-  const campos = partes.map((p) => `${p}: blobs(ref: $ref${sufixo[p]}, paths: $paths${sufixo[p]}) { nodes { path rawTextBlob } }`);
+  const campos = partes.map((p) => `${p}: blobs(ref: $ref${sufixo[p]}, paths: $paths${sufixo[p]}, first: 100) ` +
+    '{ pageInfo { hasNextPage } nodes { path rawTextBlob } }');
   return `query(${declaracoes.join(', ')}) { project(fullPath: $path) { repository { ${campos.join(' ')} } } }`;
 }
 
 function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: ExecutorDaForja, lidoEm: string): ResultadoDaForja {
-  const args = ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja, 'gitlab.com')];
+  const args = ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)];
   let chamadas = 0;
   const graphql = (query: string, variables: Json) => { chamadas++; return chamarJson(executor, 'glab', args, JSON.stringify({ query, variables })); };
   const repositorio = (json: unknown): Json => {
@@ -328,10 +337,15 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     exigir(obj(c) && typeof c.sha === 'string' && SHA.test(c.sha), `${chave}: commit`);
     return { commit: c.sha as string, dataDoCommit: typeof c.committedDate === 'string' ? c.committedDate : null };
   };
+  const cortadas = new Set<string>();
+  const cortou = (conexao: Json, chave: string): void => {
+    if (obj(conexao.pageInfo) && (conexao.pageInfo as Json).hasNextPage === true) cortadas.add(chave);
+  };
   const caminhos = (chave: string): string[] | null => {
     const arvore = repo[chave];
     if (!obj(arvore)) return null;
     exigir(obj(arvore.blobs) && Array.isArray((arvore.blobs as Json).nodes), `${chave}: blobs`);
+    cortou(arvore.blobs as Json, chave);
     return ((arvore.blobs as Json).nodes as unknown[]).map((n) => {
       exigir(obj(n) && typeof n.path === 'string', `${chave}: caminho`);
       return (n as Json).path as string;
@@ -358,6 +372,7 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     const c = conteudo[chave];
     if (c === null || c === undefined) return new Map();
     exigir(obj(c) && Array.isArray((c as Json).nodes), `${chave}: conteudo`);
+    cortou(c as Json, chave);
     return new Map(((c as Json).nodes as unknown[]).map((n) => {
       exigir(obj(n) && typeof n.path === 'string', `${chave}: blob`);
       return [(n as Json).path as string, typeof (n as Json).rawTextBlob === 'string' ? (n as Json).rawTextBlob as string : null];
@@ -370,7 +385,7 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   if (pontaBase) {
     chamadas++;
     const rest = executor('glab', ['api', `projects/${encodeURIComponent(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(pontaBase.commit)}` +
-      `&since=${encodeURIComponent(pedido.desde)}&per_page=100`, ...hostnameDe(forja, 'gitlab.com')], '', PRAZO_MS);
+      `&since=${encodeURIComponent(pedido.desde)}&per_page=100`, ...hostnameDe(forja)], '', PRAZO_MS);
     if (rest.erro || rest.status !== 0) return { ok: false, erro: classificarFalha('glab', rest) };
     let lista: unknown;
     try { lista = JSON.parse(rest.stdout); } catch { lista = undefined; }
@@ -381,12 +396,15 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
     });
     commitsParciais = commits.length >= 100;
   }
-  const mapaBase = textos('base');
+  const [mapaBase, mapaReservas, mapaFabrica] = [textos('base'), textos('reservas'), textos('fabrica')];
+  const parcial = (dir: string, conteudo: string): boolean => cortadas.has(dir) || cortadas.has(conteudo);
   return { ok: true, leitura: { forja, lidoEm, chamadas,
-    base: pontaBase ? { ref: base ?? 'HEAD', ...pontaBase, arquivos: arquivos(dirBase, mapaBase), manifesto: mapaBase.get(pedido.manifesto) ?? null, commits,
-      commitsParciais } : null,
-    reservas: pontaReservas ? { ref: pedido.reservas.branch, ...pontaReservas, arquivos: arquivos(dirReservas, textos('reservas')) } : null,
-    fabrica: pontaFabrica ? { ref: pedido.fabrica.branch, ...pontaFabrica, arquivos: arquivos(dirFabrica, textos('fabrica')) } : null } };
+    base: pontaBase ? { ref: base ?? 'HEAD', ...pontaBase, arquivos: arquivos(dirBase, mapaBase), parcial: parcial('baseDir', 'base'),
+      manifesto: mapaBase.get(pedido.manifesto) ?? null, commits, commitsParciais } : null,
+    reservas: pontaReservas ? { ref: pedido.reservas.branch, ...pontaReservas, arquivos: arquivos(dirReservas, mapaReservas),
+      parcial: parcial('reservasDir', 'reservas') } : null,
+    fabrica: pontaFabrica ? { ref: pedido.fabrica.branch, ...pontaFabrica, arquivos: arquivos(dirFabrica, mapaFabrica),
+      parcial: parcial('fabricaDir', 'fabrica') } : null } };
 }
 
 /**

@@ -88,7 +88,7 @@ test('forja: leitura GitHub em uma consulta GraphQL, sem mutation', () => {
   assert.ok(r.ok, JSON.stringify(r));
   assert.equal(chamadas.length, 1, 'uma chamada so');
   assert.equal(chamadas[0].cmd, 'gh');
-  assert.deepEqual(chamadas[0].args, ['api', 'graphql', '--method', 'POST', '--input', '-']);
+  assert.deepEqual(chamadas[0].args, ['api', 'graphql', '--method', 'POST', '--input', '-', '--hostname', 'github.com']);
   const corpo = JSON.parse(chamadas[0].entrada) as { query: string; variables: Record<string, string> };
   assert.doesNotMatch(corpo.query, /mutation/i);
   assert.match(corpo.query, /base: defaultBranchRef/, 'sem base conhecida vale a branch padrao');
@@ -141,13 +141,14 @@ test('forja: GitLab pela mesma interface, so com consulta', () => {
   assert.equal(chamadas.length, 4);
   assert.ok(chamadas.every((c) => c.cmd === 'glab'));
   for (const c of chamadas.slice(0, 3)) {
-    assert.deepEqual(c.args, ['api', 'graphql', '--method', 'POST', '--input', '-']);
+    assert.deepEqual(c.args, ['api', 'graphql', '--method', 'POST', '--input', '-', '--hostname', 'gitlab.com']);
     assert.doesNotMatch(JSON.parse(c.entrada).query, /mutation/i);
   }
   // O REST de commits e GET (sem --method) e so le.
   assert.deepEqual(chamadas[3].args.slice(0, 1), ['api']);
   assert.match(chamadas[3].args[1], /^projects\/grupo%2Fsub%2Fapp\/repository\/commits\?ref_name=a{40}&since=/);
   assert.ok(!chamadas[3].args.includes('--method'));
+  assert.deepEqual(chamadas[3].args.slice(2), ['--hostname', 'gitlab.com']);
   // A branch que nao existe nao entra na consulta dos blobs.
   assert.doesNotMatch(JSON.parse(chamadas[2].entrada).query, /reservas:/);
   const l = r.leitura;
@@ -198,4 +199,31 @@ test('forja: erro tipado e sem segredo na saida', () => {
   const semLogin = classificarFalha('glab', { status: 1, stdout: '', stderr: 'glab: 401 Unauthorized glpat-ABCDEFGHIJKLMNOPQRST' });
   assert.equal(semLogin.codigo, 'forja.sem-login');
   assert.doesNotMatch(semLogin.detalhe, /glpat-/);
+});
+
+test('forja: host explicito e listagem cortada declarada', () => {
+  // GitHub: o host vai sempre, mesmo o github.com; a arvore do GitHub nao pagina.
+  const gh = gravado([ok(respostaDoGithub())]);
+  const r = lerDaForja(forjaDoArgumento('github:orkastery/orkastery')!, PEDIDO, gh.executor);
+  assert.ok(r.ok);
+  assert.deepEqual(gh.chamadas[0].args.slice(-2), ['--hostname', 'github.com']);
+  assert.deepEqual([r.leitura.base!.parcial, r.leitura.reservas!.parcial, r.leitura.fabrica!.parcial], [false, false, false]);
+  // GitLab: conexao com mais pagina e dita parcial, nunca lida como se estivesse inteira.
+  const gl = gravado([
+    ok({ data: { project: { repository: {
+      baseTopo: { lastCommit: { sha: SHA_BASE, committedDate: '2026-09-29T11:49:15Z' } },
+      baseDir: { blobs: { pageInfo: { hasNextPage: true }, nodes: [{ name: 'RM-001-um.md', path: 'docs/roadmap/RM-001-um.md' }] } },
+      reservasTopo: { lastCommit: null }, reservasDir: { blobs: { pageInfo: { hasNextPage: false }, nodes: [] } },
+      fabricaTopo: { lastCommit: null }, fabricaDir: { blobs: { pageInfo: { hasNextPage: false }, nodes: [] } },
+    } } } }),
+    ok({ data: { project: { repository: {
+      base: { pageInfo: { hasNextPage: false }, nodes: [{ path: 'docs/roadmap/RM-001-um.md', rawTextBlob: '---\nid: RM-001\n---\n' }] },
+    } } } }),
+    ok([]),
+  ]);
+  const l = lerDaForja({ tipo: 'gitlab', host: 'gitlab.exemplo.org', repo: 'grupo/app' }, { ...PEDIDO, base: 'main' }, gl.executor);
+  assert.ok(l.ok, JSON.stringify(l));
+  assert.equal(l.leitura.base!.parcial, true);
+  assert.ok(gl.chamadas.every((c) => c.args.join(' ').endsWith('--hostname gitlab.exemplo.org')));
+  assert.match(JSON.parse(gl.chamadas[0].entrada).query, /blobs\(first: 100\) \{ pageInfo \{ hasNextPage \}/);
 });
