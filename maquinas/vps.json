@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T03:04:00.444Z",
+  "publicadoEm": "2026-09-30T03:15:02.494Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -42,7 +42,7 @@
       "status": "aberta",
       "roadmap": "RM-051",
       "branch": "ork/ork-rm051pacote-full",
-      "atualizadaEm": "2026-09-30T02:59:38.952Z",
+      "atualizadaEm": "2026-09-30T03:13:45.332Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -63,20 +63,6 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-rm026k3dossi",
-      "nome": "RM-026 K3: dossiê de decisão ligado a objetivo e projeto",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-026",
-      "branch": "ork/ork-rm026k3dossi-full",
-      "atualizadaEm": "2026-09-30T03:04:00.109Z",
-      "entregue": "46220bcc",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-rm031kg2extr",
       "nome": "RM-031 KG2: extração determinística do grafo de código",
       "modo": "#Auto",
@@ -91,20 +77,6 @@
       "paradaDesde": null
     },
     {
-      "id": "ork-rm037defeito",
-      "nome": "RM-037: defeitos de condução achados em 29/09",
-      "modo": "#Auto",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-rm037defeito-full",
-      "atualizadaEm": "2026-09-30T02:22:06.998Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
       "id": "ork-rm037noite",
       "nome": "rm037-defeitos-da-noite",
       "modo": "#Auto",
@@ -112,7 +84,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037noite-full",
-      "atualizadaEm": "2026-09-30T02:59:10.240Z",
+      "atualizadaEm": "2026-09-30T03:14:14.290Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
