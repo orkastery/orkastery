@@ -8,6 +8,7 @@ import { raizDoEstado } from './estado-thread';
 import { MotivoFechamentoAdmin, ProvaDeEntrega, Thread } from './types';
 import { agora } from './util';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { liberarAoFechar } from './fechamento';
 
 export function validarArtefato(raiz: string, arquivo: string, sha256: string): ProvaDeEntrega {
   if (!/^[a-f0-9]{64}$/.test(sha256)) throw new Error('sha256 inválido');
@@ -64,5 +65,7 @@ export function fecharAdministrativamente(raiz: string, id: string, opcoes: { mo
   t.status = 'fechada';
   gravarThread(raiz, t);
   publicarEmSegundoPlano(raiz);
+  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
+  liberarAoFechar(raiz, id);
   return t;
 }

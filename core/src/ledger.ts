@@ -60,6 +60,8 @@ export const TIPOS_DE_EVENTO = {
   worktreeAuditada: 'worktree_audited',
   worktreeLiberada: 'worktree_released',
   leaseEnfileirado: 'lease_queued',
+  // RM-037 (rm037noite, defeito 2): a entrada da fila que saiu porque a thread fechou.
+  leaseDesenfileirado: 'lease_dequeued',
   postmortemGravado: 'postmortem_recorded',
   masterConcluido: 'master_done',
   // RM-048 (item 8): o pedido de nota ao dono, com codigo curto; a nota volta pelo ingresso.
