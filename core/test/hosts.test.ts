@@ -136,7 +136,7 @@ test('hermes e openclaw instalam o roteador e as tools, sem placeholder sobrando
     assert.ok(!bruto.includes('{{'), 'sobrou placeholder no manifesto do OpenClaw');
     const manifesto = JSON.parse(bruto) as { id: string; contracts: { tools: string[] } };
     assert.equal(manifesto.id, 'orkastery');
-    assert.equal(manifesto.contracts.tools.length, 25, 'catálogo onboarding, portfólio, tickets, HITL, Company Brain e Maestro instalado');
+    assert.equal(manifesto.contracts.tools.length, 26, 'catálogo onboarding, portfólio, tickets, HITL, Company Brain e Maestro instalado');
     assert.ok(manifesto.contracts.tools.includes('ork_maestro'));
     assert.ok(manifesto.contracts.tools.includes('ork_onboarding'));
     assert.ok(manifesto.contracts.tools.includes('ork_gate_answer'));
@@ -145,6 +145,7 @@ test('hermes e openclaw instalam o roteador e as tools, sem placeholder sobrando
     assert.ok(!manifesto.contracts.tools.includes('ork_objective_message'), 'tool aposentada fora do catalogo');
     assert.ok(manifesto.contracts.tools.includes('ork_portfolio_list'));
     assert.ok(manifesto.contracts.tools.includes('ork_brain_context'));
+    assert.ok(manifesto.contracts.tools.includes('ork_brain_dossie'));
     assert.ok(!manifesto.contracts.tools.includes('ork_gate_approve'));
     assert.equal(new Set(manifesto.contracts.tools).size, manifesto.contracts.tools.length);
     for (const nome of manifesto.contracts.tools) {
