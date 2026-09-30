@@ -247,12 +247,13 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
   const dir = path.join(raiz, DIR_DO_BUNDLE);
   if (!fs.existsSync(dir)) return null;
   let melhor: { arquivo: string; bundle: BundleCi; peso: number } | null = null;
+  let quebrado: Error | null = null;
   for (const nome of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
     const arquivo = path.posix.join(DIR_DO_BUNDLE, nome);
     let bundle: BundleCi;
     try { bundle = lerBundle(raiz, arquivo); } catch (e) {
-      if (nome !== BUNDLE_LEGADO && casaComBranch(nome.slice(0, -'.json'.length), branch)) {
-        throw new Error(`ci.bundle.invalido: ${arquivo} e o bundle da branch ${branch} e nao abre ` +
+      if (!quebrado && nome !== BUNDLE_LEGADO && casaComBranch(nome.slice(0, -'.json'.length), branch)) {
+        quebrado = new Error(`ci.bundle.invalido: ${arquivo} e o bundle da branch ${branch} e nao abre ` +
           `(${(e as Error).message}); rode ork ci prepare <thread> de novo e versione o arquivo`);
       }
       continue;
@@ -262,6 +263,8 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
       : !bundle.branch && casaComBranch(bundle.thread, branch) ? bundle.thread.length : 0;
     if (peso > 0 && (!melhor || peso > melhor.peso)) melhor = { arquivo, bundle, peso };
   }
+  // Sugestao 4 do CHECK 2: o arquivo quebrado so reprova se nenhum bundle valido for da branch exata.
+  if (quebrado && melhor?.peso !== Number.MAX_SAFE_INTEGER) throw quebrado;
   return melhor ? { arquivo: melhor.arquivo, bundle: melhor.bundle } : null;
 }
 

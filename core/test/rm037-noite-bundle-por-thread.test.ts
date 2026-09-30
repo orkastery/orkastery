@@ -77,6 +77,10 @@ test('defeito 1 (A4 do CHECK 1): bundle novo de outra branch nao vale, e o da br
     assert.throws(() => bundleDaBranch(p.dir, 'ork/ork-quebrada-full'),
       /^Error: ci\.bundle\.invalido: \.ork-ci\/ork-quebrada\.json e o bundle da branch ork\/ork-quebrada-full e nao abre/);
     assert.equal(bundleDaBranch(p.dir, 'ork/ork-outra-full'), null, 'o arquivo quebrado de outra thread nao atrapalha');
+    // Id com hifen interno: o `ork-a.json` quebrado casa por prefixo, mas o `ork-a-b.json` valido e o exato.
+    bundleNoDisco(p.dir, 'ork-a-b.json', 'ork-a-b', 'ork/ork-a-b-full');
+    fs.writeFileSync(path.join(p.dir, '.ork-ci', 'ork-a.json'), '{ quebrado');
+    assert.equal(bundleDaBranch(p.dir, 'ork/ork-a-b-full')?.arquivo, '.ork-ci/ork-a-b.json');
   } finally { p.limpar(); }
 });
 
