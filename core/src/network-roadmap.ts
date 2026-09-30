@@ -20,14 +20,15 @@
  * gravado no estado do `ork` nem na forja; o unico efeito e o `git fetch` de sempre nas refs
  * remotas do clone, e `semRemoto` o desliga.
  */
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal } from './branch-de-estado';
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
 import { estadoValido, BRANCH_DA_FABRICA, DIR_DA_FABRICA, EstadoDaMaquina, retratoDaMaquina, ThreadNaFabrica } from './fabrica-estado';
-import { ArquivoDaForja, CommitDaBase, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja, identidadeDaForja,
-  lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
+  identidadeDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
 import { dataLocal, duracaoCurta, formatarDataHora, legendaDoFuso, partesLocais } from './horario';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifest';
@@ -44,14 +45,14 @@ export const LIMIAR_SEM_BATIDA_MS = 3 * 60 * 60 * 1000;
 /** A recusa de projeto sai com o mesmo codigo da RM-052. */
 export const SAIDA_DO_PEDIDO = 4;
 
-export type ParteDaRede = 'projeto' | 'roadmap' | 'reservas' | 'fabrica' | 'forja' | 'registro' | 'rede';
+export type ParteDaRede = 'projeto' | 'roadmap' | 'reservas' | 'fabrica' | 'estado-local' | 'forja' | 'registro' | 'rede';
 
 export type TipoDeLacunaDaRede =
-  | 'projeto.sem-clone' | 'projeto.sem-fonte'
+  | 'projeto.sem-clone' | 'projeto.sem-fonte' | 'projeto.sem-leitura' | 'projeto.remoto-invalido' | 'estado-local.sem-leitura'
   | 'roadmap.sem-base' | 'roadmap.sem-itens' | 'roadmap.pagina-invalida' | 'roadmap.entregas-parciais' | 'roadmap.sem-leitura'
   | 'reservas.sem-branch' | 'reservas.sem-leitura' | 'reserva.invalida'
   | 'fabrica.sem-branch' | 'fabrica.sem-leitura' | 'retrato.invalido' | 'maquina.sem-batida'
-  | ErroDaForja['codigo'] | 'forja.nao-consultada'
+  | ErroDaForja['codigo'] | 'forja.nao-consultada' | 'forja.leitura-parcial'
   | 'registro.invalido' | 'rede.sem-projeto';
 
 /** O que ficou sem ler, com o tipo e o que fazer. Lacuna nunca vira lista vazia. */
@@ -167,10 +168,17 @@ const lacuna = (tipo: TipoDeLacunaDaRede, parte: ParteDaRede, alvo: string | und
 // Os projetos: o do cwd, o do registro da RM-052 e o do pedido.
 // ---------------------------------------------------------------------------
 
+/**
+ * Nome de remoto do git, como `origin`. O valor vem do manifesto versionado (`fabrica.remoto`), e um
+ * valor que comece com `-` viraria opcao do `git fetch` (`--upload-pack=...`): so este formato chega
+ * ao git (achado 4 do CHECK).
+ */
+const REMOTO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
 function projetoDoClone(c: ManifestoCarregado, origem: OrigemNoPanorama): ProjetoDaRede {
   const remoto = c.manifesto.fabrica.remoto;
-  const url = git(c.raiz, ['remote', 'get-url', remoto]);
-  return { nome: c.manifesto.project.name, forja: url.ok ? identidadeDaForja(url.stdout.trim()) : null, raiz: c.raiz,
+  const url = REMOTO.test(remoto) ? git(c.raiz, ['remote', 'get-url', remoto]) : null;
+  return { nome: c.manifesto.project.name, forja: url?.ok ? identidadeDaForja(url.stdout.trim()) : null, raiz: c.raiz,
     base: c.manifesto.worktree.base_branch, remoto, origem };
 }
 
@@ -207,7 +215,8 @@ function projetosDoRegistro(arquivo: string): { projetos: ProjetoDaRede[]; lacun
     const nome = obj(e) && typeof e.nome === 'string' ? e.nome.trim() : '';
     const raiz = obj(e) ? [e.raiz, e.caminho].find((v): v is string => typeof v === 'string' && path.isAbsolute(v)) : undefined;
     const remoto = obj(e) && typeof e.remoto === 'string' ? e.remoto : null;
-    const c = raiz && fs.existsSync(raiz) ? carregarManifesto(raiz) : null;
+    let c: ManifestoCarregado | null = null;
+    try { c = raiz && fs.existsSync(raiz) ? carregarManifesto(raiz) : null; } catch { c = null; }
     const forja = remoto ? identidadeDaForja(remoto) : null;
     if (c) projetos.push(projetoDoClone(c, 'registro'));
     else if (nome && forja) projetos.push({ nome, forja, raiz: null, base: null, remoto: 'origin', origem: 'registro' });
@@ -333,7 +342,7 @@ const reservasDosArquivos = (arquivos: readonly ArquivoDaForja[], lacunas: Lacun
     .sort((a, b) => a.item.localeCompare(b.item));
 
 const retratosDosArquivos = (arquivos: readonly ArquivoDaForja[], lacunas: LacunaDaRede[]): EstadoDaMaquina[] =>
-  jsonsDosArquivos(arquivos, estadoValido, (c) => lacuna('retrato.invalido', 'fabrica', c,
+  jsonsDosArquivos(arquivos, retratoLegivel, (c) => lacuna('retrato.invalido', 'fabrica', c,
     'retrato ilegível ou de outro contrato: a máquina ficou de fora', 'a máquina republica com `ork fabrica publicar --forcar`'), lacunas)
     .sort((a, b) => a.maquina.localeCompare(b.maquina));
 
@@ -347,7 +356,23 @@ function nomeDoManifesto(texto: string | null | undefined): string | null {
   } catch { return null; }
 }
 
-const pontuar = (texto: string): string => /[.?!]$/.test(texto.trim()) ? texto.trim() : `${texto.trim()}.`;
+const pontuar = (texto: string): string => {
+  const limpo = String(texto).trim();
+  return /[.?!]$/.test(limpo) ? limpo : `${limpo}.`;
+};
+
+/**
+ * O retrato lido de fora so vale inteiro: alem do contrato, os tipos que o panorama usa e uma batida
+ * legivel. Pergunta que nao e texto derrubava o comando, e `publicadoEm` ilegivel nunca virava
+ * "sem batida" (achado 6 do CHECK).
+ */
+function retratoLegivel(v: unknown): v is EstadoDaMaquina {
+  if (!estadoValido(v)) return false;
+  const textoOuNulo = (x: unknown): boolean => x === null || x === undefined || typeof x === 'string';
+  return typeof v.por === 'string' && Number.isFinite(Date.parse(v.publicadoEm)) && v.threads.every((t) =>
+    typeof t.status === 'string' && typeof t.modo === 'string' && typeof t.esperaVoce === 'boolean' &&
+    textoOuNulo(t.roadmap) && textoOuNulo(t.pergunta) && textoOuNulo(t.entregue) && textoOuNulo(t.paradaDesde));
+}
 
 function fatosDoRetrato(m: EstadoDaMaquina, entregues: Set<string>, itemDaReserva: Map<string, string>): FatoDeThread[] {
   return m.threads.map((t) => ({
@@ -424,14 +449,34 @@ function montarProjeto(p: ProjetoDaRede, d: DadosDoProjeto, ctx: Contexto, fonte
 // Leitura pelo clone.
 // ---------------------------------------------------------------------------
 
+/**
+ * Os blobs de um diretorio da ponta, lidos de uma vez: `ls-tree -z` (o caminho vem cru, e nome
+ * nao-ASCII nao ganha aspas, achado 3 do CHECK) e um `cat-file --batch` para todos (achado 9).
+ * null: o diretorio nao existe na ponta.
+ */
 function arquivosDaPonta(raiz: string, ponta: string, dir: string): ArquivoDaForja[] | null {
-  const ls = git(raiz, ['ls-tree', ponta, '--', `${dir}/`]);
-  if (!ls.ok || !ls.stdout.trim()) return null;
-  const blobs = ls.stdout.split('\n').map((l) => /^\d+ blob [0-9a-f]+\t(.+)$/.exec(l)?.[1]).filter((c): c is string => !!c);
-  return blobs.map((caminho) => {
-    const r = git(raiz, ['show', `${ponta}:${caminho}`]);
-    return { caminho, texto: r.ok ? r.stdout : null };
-  });
+  const ls = spawnSync('git', ['ls-tree', '-z', ponta, '--', `${dir}/`], { cwd: raiz, encoding: 'utf8', timeout: 60000,
+    maxBuffer: 16 * 1024 * 1024 });
+  if (ls.status !== 0 || !ls.stdout) return null;
+  const blobs = ls.stdout.split('\0').map((l) => /^\d+ blob ([0-9a-f]+)\t([\s\S]+)$/.exec(l))
+    .filter((m): m is RegExpExecArray => !!m).map((m) => ({ sha: m[1], caminho: m[2] }));
+  if (!blobs.length) return [];
+  const cat = spawnSync('git', ['cat-file', '--batch'], { cwd: raiz, input: blobs.map((b) => b.sha).join('\n') + '\n', timeout: 60000,
+    maxBuffer: 64 * 1024 * 1024 });
+  const textos = new Map<string, string>();
+  if (cat.status === 0 && Buffer.isBuffer(cat.stdout)) {
+    const saida = cat.stdout;
+    for (let pos = 0; pos < saida.length;) {
+      const fim = saida.indexOf(0x0a, pos);
+      if (fim < 0) break;
+      const cabeca = /^([0-9a-f]+) blob (\d+)$/.exec(saida.subarray(pos, fim).toString('utf8'));
+      if (!cabeca) { pos = fim + 1; continue; }
+      const tamanho = Number(cabeca[2]);
+      textos.set(cabeca[1], saida.subarray(fim + 1, fim + 1 + tamanho).toString('utf8'));
+      pos = fim + 1 + tamanho + 1;
+    }
+  }
+  return blobs.map((b) => ({ caminho: b.caminho, texto: textos.get(b.sha) ?? null }));
 }
 
 function commitsDoClone(raiz: string, ponta: string, desde: string): CommitDaBase[] {
@@ -446,8 +491,23 @@ function commitsDoClone(raiz: string, ponta: string, desde: string): CommitDaBas
 function lerProjetoDoClone(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
   const raiz = p.raiz as string, remoto = p.remoto, base = p.base ?? 'main';
   const fontes: FonteLida[] = [], lacunas: LacunaDaRede[] = [];
-  const ler = (branch: string, prefixo: string, prazo: number) => ctx.semRemoto
-    ? { ponta: pontaLocal(raiz, remoto, branch), atualizado: false } : buscarBranch(raiz, remoto, branch, prefixo, prazo);
+  if (!REMOTO.test(remoto)) {
+    lacunas.push(lacuna('projeto.remoto-invalido', 'projeto', raizParaExibir(raiz),
+      `fabrica.remoto do manifesto (${JSON.stringify(remoto).slice(0, 60)}) não é nome de remoto do git: nada foi lido pelo git`,
+      'corrija fabrica.remoto no orkastery.yaml (padrão: origin)'));
+    return montarProjeto(p, { nome: p.nome, docs: null, reservas: null, retratos: null, local: null, commits: [] }, ctx, fontes, lacunas);
+  }
+  // Uma tentativa de rede por projeto: remoto que nao respondeu nao segura as outras partes (achado 9 do CHECK).
+  let semRede: 'opcao' | 'falhou' | null = ctx.semRemoto ? 'opcao' : null;
+  const ler = (nome: string, prefixo: string, prazo: number): { ponta: string | null; atualizado: boolean; tentou: boolean } => {
+    if (semRede) return { ponta: pontaLocal(raiz, remoto, nome), atualizado: false, tentou: false };
+    const r = buscarBranch(raiz, remoto, nome, prefixo, prazo);
+    if (!r.atualizado) semRede = 'falhou';
+    return { ...r, tentou: true };
+  };
+  const porque = (tentou: boolean): string => semRede === 'opcao' ? ' (--sem-remoto)'
+    : tentou ? ': o remoto não respondeu' : ': o remoto não respondeu antes, e não houve nova tentativa';
+  const correcao = (): string => semRede === 'opcao' ? 'rode sem --sem-remoto para ler o remoto' : `confira a rede e o acesso a ${remoto} (git fetch)`;
   const dataDe = (sha: string): string | null => git(raiz, ['show', '-s', '--format=%cI', sha]).stdout.trim() || null;
   /** Uma branch lida do clone: a fonte citada, e a lacuna quando a leitura nao e nova ou nao houve. */
   const branch = (parte: 'roadmap' | 'reservas' | 'fabrica', nome: string, prefixo: string, prazo: number): string | null => {
@@ -456,9 +516,8 @@ function lerProjetoDoClone(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
       const dataDoCommit = dataDe(r.ponta);
       fontes.push({ parte, origem: 'clone', onde, ref: nome, commit: r.ponta, dataDoCommit, lidoEm: ctx.quando, atualizado: r.atualizado, existe: true });
       if (!r.atualizado) {
-        lacunas.push(lacuna(`${parte}.sem-leitura`, parte, onde, `sem leitura nova de ${onde}${ctx.semRemoto ? ' (--sem-remoto)' : ''}: ` +
-          `vale a última cópia desta máquina, commit ${r.ponta.slice(0, 7)} de ${formatarDataHora(dataDoCommit)}`,
-        ctx.semRemoto ? 'rode sem --sem-remoto para ler o remoto' : `confira a rede e o acesso a ${remoto} (git fetch)`));
+        lacunas.push(lacuna(`${parte}.sem-leitura`, parte, onde, `sem leitura nova de ${onde}${porque(r.tentou)}; ` +
+          `vale a última cópia desta máquina, commit ${r.ponta.slice(0, 7)} de ${formatarDataHora(dataDoCommit)}`, correcao()));
       }
       return r.ponta;
     }
@@ -476,8 +535,8 @@ function lerProjetoDoClone(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
       }
       return null;
     }
-    lacunas.push(lacuna(`${parte}.sem-leitura`, parte, onde, `sem leitura de ${onde}${ctx.semRemoto ? ' (--sem-remoto)' : ''} e sem cópia desta máquina`,
-      ctx.semRemoto ? 'rode sem --sem-remoto para ler o remoto' : `confira a rede e o acesso a ${remoto} (git fetch)`));
+    lacunas.push(lacuna(`${parte}.sem-leitura`, parte, onde, `sem leitura de ${onde}${porque(r.tentou)}; esta máquina não tem cópia dela`,
+      correcao()));
     return null;
   };
 
@@ -498,12 +557,20 @@ function lerProjetoDoClone(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
   const retratos = pontaFabrica ? retratosDosArquivos(arquivosDaPonta(raiz, pontaFabrica, DIR_DA_FABRICA) ?? [], lacunas)
     : fontes.some((f) => f.parte === 'fabrica' && !f.existe) ? [] : null;
 
-  // D6: esta maquina pelo estado local, lido agora.
+  // D6: esta maquina pelo estado local, lido agora. Estado que nao se le (thread.json corrompido) vira
+  // lacuna, e vale o retrato publicado dela, quando ha (achado 1 do CHECK).
   const carregado = carregarManifesto(raiz);
-  const local = carregado ? { raiz, retrato: retratoDaMaquina(carregado, { agora: ctx.quando, maquina: ctx.maquina, remoto }) } : null;
-  if (local) {
-    fontes.push({ parte: 'estado-local', origem: 'estado-local', onde: path.join(raizParaExibir(raiz), '.orkastery'), ref: null, commit: null,
-      dataDoCommit: null, lidoEm: ctx.quando, atualizado: true, existe: true });
+  let local: DadosDoProjeto['local'] = null;
+  if (carregado) {
+    try {
+      local = { raiz, retrato: retratoDaMaquina(carregado, { agora: ctx.quando, maquina: ctx.maquina, remoto }) };
+      fontes.push({ parte: 'estado-local', origem: 'estado-local', onde: path.join(raizParaExibir(raiz), '.orkastery'), ref: null, commit: null,
+        dataDoCommit: null, lidoEm: ctx.quando, atualizado: true, existe: true });
+    } catch (e) {
+      lacunas.push(lacuna('estado-local.sem-leitura', 'estado-local', path.join(raizParaExibir(raiz), '.orkastery'),
+        `o estado local de ${ctx.maquina} não se leu (${detalheSeguro((e as Error)?.message ?? String(e))}): vale o retrato publicado dela, quando há`,
+        'confira as threads desta máquina com `ork thread list` e o thread.json que não abre'));
+    }
   }
   return montarProjeto(p, { nome: p.nome, docs, reservas, retratos, local, commits }, ctx, fontes, lacunas);
 }
@@ -542,6 +609,12 @@ function lerProjetoDaForja(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
   }
   const l = r.leitura;
   const nome = nomeDoManifesto(l.base?.manifesto) ?? p.nome;
+  for (const [parte, ponta] of [['roadmap', l.base], ['reservas', l.reservas], ['fabrica', l.fabrica]] as const) {
+    if (ponta?.parcial) {
+      lacunas.push(lacuna('forja.leitura-parcial', parte, `${rotulo}@${ponta.ref}`, 'a forja cortou a listagem em 100 arquivos: o resto não foi lido',
+        'leia pelo clone do projeto, que não tem esse corte'));
+    }
+  }
   const fonte = (parte: FonteLida['parte'], ponta: { ref: string; commit: string; dataDoCommit: string | null } | null, ref: string): void => {
     fontes.push({ parte, origem: 'forja', onde: `${rotulo}@${ponta?.ref ?? ref}`, ref: ponta?.ref ?? ref, commit: ponta?.commit ?? null,
       dataDoCommit: ponta?.dataDoCommit ?? null, lidoEm: l.lidoEm, atualizado: true, existe: !!ponta });
@@ -583,6 +656,27 @@ function lerProjetoDaForja(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
 // ---------------------------------------------------------------------------
 
 /**
+ * Um projeto, isolado dos outros: o que o derruba vira lacuna dele, e os outros seguem (achado 1 do
+ * CHECK). O detalhe passa pela mesma redacao do erro da forja.
+ */
+function lerProjeto(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
+  const vazio = (l: LacunaDaRede): ProjetoNoPanorama => ({
+    projeto: { nome: p.nome, forja: p.forja ? rotuloDaForja(p.forja) : null, clone: p.raiz ? raizParaExibir(p.raiz) : null, base: p.base,
+      origem: p.origem },
+    roadmap: null, reservas: null, maquinas: null, fontes: [], lacunas: [l] });
+  try {
+    if (p.raiz) return lerProjetoDoClone(p, ctx);
+    if (p.forja) return lerProjetoDaForja(p, ctx);
+    return vazio(lacuna('projeto.sem-fonte', 'projeto', p.nome, 'sem clone nesta máquina e sem remoto de forja reconhecido',
+      'peça por github:dono/repo'));
+  } catch (e) {
+    return vazio(lacuna('projeto.sem-leitura', 'projeto', p.raiz ? raizParaExibir(p.raiz) : p.nome,
+      `a leitura de ${p.nome} parou: ${detalheSeguro((e as Error)?.message ?? String(e))}`,
+      'confira o clone e o estado dele no próprio projeto; os outros projetos seguiram'));
+  }
+}
+
+/**
  * `ork network roadmap`: os projetos pedidos (ou todos os conhecidos), cada um com roadmap, reservas,
  * threads por maquina, fontes e lacunas. Recusa o `--projeto` ambiguo ou desconhecido.
  */
@@ -608,10 +702,7 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
     lacunas.push(lacuna('rede.sem-projeto', 'rede', undefined, 'nenhum projeto conhecido nesta máquina: sem manifesto no diretório atual e sem registro',
       'peça o projeto: --projeto <caminho do clone> ou --projeto github:dono/repo'));
   }
-  const projetos = alvos.map((p) => p.raiz ? lerProjetoDoClone(p, ctx) : p.forja ? lerProjetoDaForja(p, ctx) : {
-    projeto: { nome: p.nome, forja: null, clone: null, base: p.base, origem: p.origem }, roadmap: null, reservas: null, maquinas: null, fontes: [],
-    lacunas: [lacuna('projeto.sem-fonte', 'projeto', p.nome, 'sem clone nesta máquina e sem remoto de forja reconhecido', 'peça por github:dono/repo')],
-  });
+  const projetos = alvos.map((p) => lerProjeto(p, ctx));
   return { contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm: quando, maquina: ctx.maquina, pedido: opcoes.pedido ?? null,
     limiarSemBatidaMin: LIMIAR_SEM_BATIDA_MS / 60000, projetos, naoConsultado, lacunas };
 }

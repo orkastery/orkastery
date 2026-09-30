@@ -302,7 +302,7 @@ test('rede: lacuna tipada nunca vira vazio', () => {
     const semCopia = montarPanoramaDaRede({ cwd: nova.a, quando: QUANDO, maquina: 'pc-a', registro: nova.registro, semRemoto: true });
     const lacunasSemCopia = semCopia.projetos[0].lacunas;
     assert.ok(['reservas.sem-leitura', 'fabrica.sem-leitura'].every((t) => lacunasSemCopia.some((l) => l.tipo === t &&
-      /\(--sem-remoto\) e sem cópia desta máquina/.test(l.detalhe))), JSON.stringify(lacunasSemCopia));
+      /\(--sem-remoto\); esta máquina não tem cópia dela/.test(l.detalhe))), JSON.stringify(lacunasSemCopia));
     semVazio(semCopia);
   } finally { nova.limpar(); }
 
@@ -317,6 +317,10 @@ test('rede: lacuna tipada nunca vira vazio', () => {
       const x = p.projetos[0];
       assert.deepEqual(tipos(x.lacunas), ['fabrica.sem-leitura', 'reservas.sem-leitura', 'roadmap.sem-leitura']);
       assert.ok(x.lacunas.every((l) => /vale a última cópia desta máquina, commit [0-9a-f]{7} de /.test(l.detalhe)), JSON.stringify(x.lacunas));
+      // Uma tentativa de rede por projeto: a base falhou, e as outras partes nao esperam de novo.
+      const detalhe = (tipo: string) => x.lacunas.find((l) => l.tipo === tipo)!.detalhe;
+      assert.match(detalhe('roadmap.sem-leitura'), /^sem leitura nova de origin\/main: o remoto não respondeu; /);
+      for (const t of ['reservas.sem-leitura', 'fabrica.sem-leitura']) assert.match(detalhe(t), /o remoto não respondeu antes, e não houve nova tentativa; /);
       assert.ok(x.fontes.filter((f) => f.parte !== 'estado-local').every((f) => f.atualizado === false));
       assert.ok(x.roadmap, 'a ultima copia ainda responde, com a lacuna');
       assert.match(semVazio(p), /última cópia desta máquina, sem leitura nova/);
@@ -408,4 +412,89 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
     if (maquina === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = maquina;
     r.limpar(); fs.rmSync(workspace, { recursive: true, force: true });
   }
+});
+
+test('rede: isolamento, projeto ou estado ilegivel vira lacuna e o resto responde', () => {
+  const r = rede('rede-isolamento');
+  try {
+    // O retrato publicado de A existe; depois o estado local dela quebra (thread.json corrompido).
+    assert.equal(publicarMaquina(exigirManifesto(r.a), { maquina: 'pc-a', agora: antes(30) }).acao, 'publicou');
+    fs.writeFileSync(path.join(dirThread(r.a, r.espera!), 'thread.json'), '{ corrompido');
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    const x = p.projetos[0];
+    assert.deepEqual(tipos(x.lacunas), ['estado-local.sem-leitura']);
+    assert.ok(x.roadmap, 'o roadmap continua respondendo');
+    assert.deepEqual(x.maquinas!.map((m) => [m.maquina, m.origem]), [['pc-a', 'retrato'], ['pc-b', 'retrato']],
+      'esta maquina entra pelo retrato publicado dela');
+    semVazio(p);
+
+    // Um projeto que derruba a leitura vira lacuna dele; o outro projeto do registro segue.
+    fs.writeFileSync(r.registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
+      { nome: 'orkastery', raiz: r.b, remoto: null },
+      { nome: 'app', raiz: '/nao/existe/app', remoto: 'https://github.com/dono/app.git' },
+    ] }));
+    const vazio = dirTemporario('rede-isolamento-cwd');
+    try {
+      const quebra: ExecutorDaForja = () => { throw new Error('processo caiu com token ghp_abcdefghijklmnopqrstuvwxyz0123'); };
+      const q = montarPanoramaDaRede({ cwd: vazio, quando: QUANDO, maquina: 'pc-b', registro: r.registro, executor: quebra });
+      assert.deepEqual(q.projetos.map((y) => y.projeto.nome), ['orkastery', 'app']);
+      assert.ok(q.projetos[0].roadmap, 'o projeto sao responde');
+      const caiu = q.projetos[1].lacunas;
+      assert.deepEqual(tipos(caiu), ['projeto.sem-leitura']);
+      assert.match(caiu[0].detalhe, /^a leitura de app parou: /);
+      assert.doesNotMatch(caiu[0].detalhe, /ghp_/, 'o detalhe passa pela redacao');
+      semVazio(q);
+    } finally { fs.rmSync(vazio, { recursive: true, force: true }); }
+  } finally { r.limpar(); }
+});
+
+test('rede: clone le pagina com nome nao-ASCII, sem as aspas do git', () => {
+  const r = rede('rede-nao-ascii', { semEstado: true });
+  try {
+    escrever(r.a, 'docs/roadmap/RM-005-integração-pública.md', textoDoItem('RM-005', 'Integração pública', 'Backlog'));
+    exec('git', ['add', '-A'], r.a);
+    exec('git', ['commit', '-q', '-m', 'roadmap: RM-005'], r.a);
+    exec('git', ['push', '-q', 'origin', 'main'], r.a);
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    const x = p.projetos[0];
+    const ids = x.roadmap!.grupos.flatMap((g) => g.itens.map((i) => i.id));
+    assert.ok(ids.includes('RM-005'), JSON.stringify(ids));
+    assert.ok(!x.lacunas.some((l) => l.tipo === 'roadmap.pagina-invalida'), JSON.stringify(x.lacunas));
+    assert.match(textoDoPanoramaDaRede(p), /^• RM-005 Integração pública$/m);
+  } finally { r.limpar(); }
+});
+
+test('rede: remoto invalido no manifesto nao chega ao git', () => {
+  const r = rede('rede-remoto', { semEstado: true });
+  const marca = path.join(path.dirname(r.registro), 'executou');
+  try {
+    fs.appendFileSync(path.join(r.a, 'orkastery.yaml'), `\nfabrica:\n  remoto: "--upload-pack=touch ${marca};"\n`);
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.equal(fs.existsSync(marca), false, 'o valor do manifesto nunca vira opcao do git');
+    const x = p.projetos[0];
+    assert.deepEqual(tipos(x.lacunas), ['projeto.remoto-invalido']);
+    assert.deepEqual([x.roadmap, x.reservas, x.maquinas, x.fontes], [null, null, null, []]);
+    assert.match(semVazio(p), /projeto\.remoto-invalido .*não é nome de remoto do git: nada foi lido pelo git/);
+  } finally { r.limpar(); }
+});
+
+test('rede: lacuna, retrato malformado nao derruba nem vira NaN', () => {
+  definirFusoDoDono('America/Sao_Paulo');
+  const vazio = dirTemporario('rede-retrato-malformado');
+  try {
+    const resposta = respostaDaForja();
+    const entradas = (resposta.data.repository.fabrica.target.arquivos.object as { entries: unknown[] }).entries;
+    const perguntaNumero = { ...retratoDaOutra(antes(10)), maquina: 'pc-d' };
+    perguntaNumero.threads = [{ ...perguntaNumero.threads[0], pergunta: 42 as unknown as string }];
+    entradas.push(blob('pc-d.json', JSON.stringify(perguntaNumero)));
+    entradas.push(blob('pc-e.json', JSON.stringify({ ...retratoDaOutra('ontem'), maquina: 'pc-e' })));
+    const p = montarPanoramaDaRede({ cwd: vazio, pedido: 'github:dono/app', quando: QUANDO, maquina: 'pc-c',
+      executor: forjaGravada([ok(resposta)]).executor, registro: path.join(vazio, 'x.json') });
+    const x = p.projetos[0];
+    assert.deepEqual(x.maquinas!.map((m) => m.maquina), ['pc-b'], 'os retratos malformados ficam de fora');
+    assert.deepEqual(x.lacunas.filter((l) => l.tipo === 'retrato.invalido').map((l) => l.alvo).sort(),
+      ['maquinas/pc-d.json', 'maquinas/pc-e.json', 'maquinas/quebrado.json']);
+    const texto = semVazio(p);
+    assert.doesNotMatch(texto, /NaN/);
+  } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
 });
