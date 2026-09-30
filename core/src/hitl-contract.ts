@@ -312,23 +312,61 @@ function validarComumV2(v: Record<string, unknown>): void {
   }
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 4): o que esta errado num campo de linha unica, ou null. A recusa diz
+ * o campo e o motivo real: texto presente e acima do teto respondia "exige o que foi decidido", e quem
+ * mandou os tres campos nao tinha como saber que o problema era o tamanho.
+ */
+function problemaDaLinha(campo: string, v: unknown, teto: number): { ausente: boolean; texto: string } | null {
+  if (typeof v !== 'string' || !v.trim()) return { ausente: true, texto: `falta ${campo}` };
+  if (/[\r\n]/.test(v)) return { ausente: false, texto: `${campo} tem quebra de linha; cada campo é uma linha só` };
+  if (/[\x00-\x08\x0b-\x1f\x7f]/.test(v)) return { ausente: false, texto: `${campo} tem caractere de controle` };
+  if (v.length > teto) return { ausente: false, texto: `${campo} tem ${v.length} caracteres; o teto é ${teto}` };
+  return null;
+}
+
+/**
+ * Os campos da decisao informada como cada superficie os mostra (achado S4 do CHECK): a recusa do contrato
+ * usa o nome interno, e quem digitou `--como-mudar` ou mandou `custoAgora` precisa ler o nome que usou.
+ */
+export const CAMPOS_DA_DECISAO_NO_CLI: Readonly<Record<string, string>> = Object.freeze({
+  decidido: '--decidido', porque: '--porque', comoMudar: '--como-mudar', 'custoDeReverter.agora': '--custo-agora',
+  'custoDeReverter.depois': '--custo-depois', 'criterio.referencia': '--criterio',
+});
+export const CAMPOS_DA_DECISAO_NO_MCP: Readonly<Record<string, string>> = Object.freeze({
+  decidido: 'decidido', porque: 'porque', comoMudar: 'comoMudar', 'custoDeReverter.agora': 'custoAgora',
+  'custoDeReverter.depois': 'custoDepois', 'criterio.referencia': 'criterio.referencia',
+});
+
+/** Troca o nome interno do campo, onde a recusa o cita, pelo nome da superficie. */
+export function recusaNaSuperficie(mensagem: string, nomes: Readonly<Record<string, string>>): string {
+  return mensagem.replace(/(falta |: )(decidido|porque|comoMudar|custoDeReverter\.agora|custoDeReverter\.depois|criterio\.referencia)(?=\)| tem )/g,
+    (_, antes: string, campo: string) => `${antes}${nomes[campo] ?? campo}`);
+}
+
 function validarDecidido(v: Record<string, unknown>): void {
   for (const campo of CAMPOS_DE_GATE) {
     if (v[campo] !== undefined) throw new Error(`pedido HITL v2: decisão informada não pode trazer ${campo}`);
   }
-  if (!linhaUnica(v.decidido, TETOS_HITL_V2.campoDaDecisao) || !linhaUnica(v.porque, TETOS_HITL_V2.campoDaDecisao) ||
-      !linhaUnica(v.comoMudar, TETOS_HITL_V2.campoDaDecisao)) {
-    throw new Error('pedido HITL v2: decisão informada exige o que foi decidido, o porquê e como mudar');
+  for (const campo of ['decidido', 'porque', 'comoMudar'] as const) {
+    const problema = problemaDaLinha(campo, v[campo], TETOS_HITL_V2.campoDaDecisao);
+    if (problema?.ausente) throw new Error(`pedido HITL v2: decisão informada exige o que foi decidido, o porquê e como mudar (${problema.texto})`);
+    if (problema) throw new Error(`pedido HITL v2: decisão informada: ${problema.texto}`);
   }
   const custo = v.custoDeReverter;
-  if (!objeto(custo) || !linhaUnica(custo.agora, TETOS_HITL_V2.custo) || !linhaUnica(custo.depois, TETOS_HITL_V2.custo)) {
+  const problemasDoCusto = (['agora', 'depois'] as const)
+    .map(lado => problemaDaLinha(`custoDeReverter.${lado}`, objeto(custo) ? custo[lado] : undefined, TETOS_HITL_V2.custo));
+  if (problemasDoCusto.some(p => p?.ausente)) {
     throw new Error('pedido HITL v2: custo de reverter exige agora e depois, os dois presentes');
   }
+  const doCusto = problemasDoCusto.find(p => p !== null);
+  if (doCusto) throw new Error(`pedido HITL v2: custo de reverter: ${doCusto.texto}`);
   const criterio = v.criterio;
-  if (!objeto(criterio) || !['manifesto', 'ledger', 'medicao'].includes(criterio.tipo as string) ||
-      !linhaUnica(criterio.referencia, 300)) {
+  const daReferencia = objeto(criterio) ? problemaDaLinha('criterio.referencia', criterio.referencia, 300) : null;
+  if (!objeto(criterio) || !['manifesto', 'ledger', 'medicao'].includes(criterio.tipo as string) || daReferencia?.ausente) {
     throw new Error('pedido HITL v2: decisão informada exige critério citado e resolvível');
   }
+  if (daReferencia) throw new Error(`pedido HITL v2: critério: ${daReferencia.texto}`);
   // R1, porta fechada: ato irreversivel nunca se qualifica como decisao informada.
   if (v.irreversivel === true) throw new Error('pedido HITL v2: ato irreversível nunca é decisão informada');
 }

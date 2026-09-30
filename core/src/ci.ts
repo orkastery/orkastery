@@ -57,6 +57,18 @@ const CASOS_DE_VERIFICADOR_LOCAIS = [
 ];
 const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
   /verify-check-c2-b3\.cjs\s+channel-offer(?:\s|$)/,
+  // I-38: a prova da busca por significado le a memoria do tenant pela DSN do manifesto.
+  /prova-busca-semantica\.sh(?:\s|$)/,
+];
+/**
+ * I-38: o runner hospedado nao oferece OrkMind nem a base do tenant. Claim que chama a memoria
+ * pelo CLI (a DSN vem do manifesto), que exige o OrkMind instalado ou que roda a suite inteira
+ * (ela inclui `TESTES_DE_INTEGRACAO_LOCAL`; o runner roda `test:ci`) fica para a estacao.
+ */
+const USA_A_ESTACAO = [
+  /(?:^|\s)memory\s+(?:status|index|search|sync|migrate|inventory)(?=\s|$)/,
+  /command -v orkmind(?=[\s)"']|$)/,
+  /npm\s+--prefix\s+core\s+test(?![:\w-])/,
 ];
 function exigeIntegracaoLocal(command:string):boolean {
   return [...command.matchAll(/(?:^|[\s/])([a-z0-9-]+\.test\.js)(?=$|[\s;&|])/g)]
@@ -85,7 +97,8 @@ export function motivoDiferimentoCi(
     return 'host-runtime-required';
   }
   if (claim.verificar.some((command) => exigeIntegracaoLocal(command)
-    || CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL.some((caso) => caso.test(command)))) {
+    || CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL.some((caso) => caso.test(command))
+    || USA_A_ESTACAO.some((caso) => caso.test(command)))) {
     return 'local-integration-required';
   }
   return null;
@@ -110,6 +123,14 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
   const remote = exec('git', ['remote', 'get-url', remoto], carregado.raiz);
   const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
   if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: `remoto ${remoto} não é um repositório GitHub reconhecível` };
+  return consultarCiDoRepositorio(repository, sha, context, executor);
+}
+
+/**
+ * O check `context` no `sha` de um repositorio GitHub ja resolvido: o do remoto do projeto ou, desde a
+ * RM-037 (rm037defeito, defeito 5), um repositorio externo declarado em `ci.external_repositories`.
+ */
+export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao): ResultadoCi {
   const result = executor({ repository, sha, context });
   if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || 'consulta ao GitHub falhou').trim().slice(0, 400) };
   let payload: { check_runs?: Array<{ name?: string; status?: string; conclusion?: string | null; html_url?: string }> };
@@ -184,6 +205,17 @@ export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avi
   return { recusas, avisos };
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 6): onde o bundle nasce. Ele e artefato da branch da thread (o commit
+ * `ci(<thread>)` vai no PR dela), entao o destino e a worktree da thread, rodando o `ork` da raiz ou da
+ * worktree. Gravado na raiz, ele sujava o checkout compartilhado com o bundle de outra thread, e o
+ * `git ls-files` da raiz adiava claim de arquivo que so existe na branch da thread.
+ */
+export function destinoDoBundle(carregado: ManifestoCarregado, threadId: string): string {
+  const worktree = lerThread(carregado.raiz, threadId).worktree;
+  return worktree && fs.existsSync(worktree) ? worktree : carregado.raiz;
+}
+
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,
   opcoes: { aoAvisar?: (linha: string) => void } = {}): string {
   const commands = comandosDoBundle(carregado);
@@ -202,9 +234,15 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
     throw new Error(`claims.lint: o bundle nao foi gerado; retire a claim e registre de novo com o comando focado:\n  ` +
       lint.recusas.join('\n  '));
   }
+  const destino = destinoDoBundle(carregado, threadId);
+  // Achado S8 do CHECK: a worktree registrada que sumiu nao e silencio; o bundle na raiz vem com aviso.
+  const registrada = lerThread(carregado.raiz, threadId).worktree;
+  if (registrada && destino !== registrada) {
+    opcoes.aoAvisar?.(`a worktree ${registrada} da thread nao existe mais; o bundle vai para a raiz do projeto`);
+  }
   const classified = activeClaims.map((claim) => ({
     claim,
-    reason: motivoDiferimentoCi(claim, carregado.raiz),
+    reason: motivoDiferimentoCi(claim, destino),
   }));
   const bundle: BundleCi = {
     schema: 'ork.ci-bundle/v1',
@@ -217,7 +255,7 @@ export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string
       .map((item) => ({ id: item.claim.id, reason: item.reason! })),
     commands,
   };
-  const dir = path.join(carregado.raiz, '.ork-ci');
+  const dir = path.join(destino, '.ork-ci');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, nomeDoArquivo);
   fs.writeFileSync(file, JSON.stringify(bundle, null, 2) + '\n', 'utf8');

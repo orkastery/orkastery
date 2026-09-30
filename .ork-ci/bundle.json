@@ -1,164 +1,172 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-rm049marketp",
+  "thread": "ork-i36buscasema",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-rm049marketp",
+      "thread": "ork-i36buscasema",
       "fase": "GOAL",
-      "arquivo": "core/scripts/gerar-marketplaces.cjs",
-      "alegacao": "S1: gerar-marketplaces.cjs --verificar sai 0 no HEAD (pastas e marketplaces iguais ao que o catalogo gera) e o teste S1 prova que uma skill alterada sem regenerar faz a conferencia falhar citando o arquivo e o comando que corrige; CONTRIBUTING cita o comando",
-      "negativa": false,
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "a frase constante de saude sumiu do repositorio: nenhum arquivo do nucleo ou da ponte afirma embeddings desativados sem sondar",
+      "negativa": true,
       "verificar": [
-        "node core/scripts/gerar-marketplaces.cjs --verificar && grep -q \"gerar-marketplaces.cjs\" CONTRIBUTING.md && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/marketplaces.test.js && grep -q \"test('S1 \" core/test/marketplaces.test.ts"
+        "! grep -rqF 'embeddings desativados' core/src core/assets docs"
       ],
-      "criadoEm": "2026-09-29T11:58:40.956Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C2",
-      "thread": "ork-rm049marketp",
-      "fase": "GOAL",
-      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
-      "alegacao": "S2: a pasta do plugin Claude tem plugin.json com name orkastery, version igual a core/package.json, licenca MIT e as 18 skills do catalogo, sem hooks nem .mcp.json, e o teste S2 prova as regras bloqueantes do checklist da Anthropic (README com 40 palavras, LICENSE, tipos de arquivo, 256 KiB, 512 arquivos, frontmatter)",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const fs=require('fs'),d='marketplaces/claude-code/orkastery/',p=require('./'+d+'.claude-plugin/plugin.json'),v=require('./core/package.json').version;if(p.name!=='orkastery'||p.version!==v||p.license!=='MIT'||p.skills.length!==18||!fs.existsSync(d+'LICENSE')||fs.existsSync(d+'hooks')||fs.existsSync(d+'.mcp.json')||fs.existsSync(d+'bin'))process.exit(1)\" && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/marketplaces.test.js && grep -q \"test('S2 \" core/test/marketplaces.test.ts"
-      ],
-      "criadoEm": "2026-09-29T11:58:45.373Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C4",
-      "thread": "ork-rm049marketp",
-      "fase": "GOAL",
-      "arquivo": ".claude-plugin/marketplace.json",
-      "alegacao": "S4: os marketplaces proprios da raiz (.claude-plugin/marketplace.json e .agents/plugins/marketplace.json) apontam para as pastas geradas, com o nome do plugin igual ao do manifesto, sem .., e a entrada Codex traz policy.installation, policy.authentication e category",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const c=require('./.claude-plugin/marketplace.json'),x=require('./.agents/plugins/marketplace.json'),a=c.plugins[0],b=x.plugins[0];if(c.name!=='orkastery'||!c.owner||a.name!=='orkastery'||a.source!=='./marketplaces/claude-code/orkastery'||x.name!=='orkastery'||b.name!=='orkastery'||b.source.source!=='local'||b.source.path!=='./marketplaces/codex/orkastery'||!b.policy.installation||!b.policy.authentication||!b.category)process.exit(1)\" && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/marketplaces.test.js && grep -q \"test('S4 \" core/test/marketplaces.test.ts"
-      ],
-      "criadoEm": "2026-09-29T11:58:54.073Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C5",
-      "thread": "ork-rm049marketp",
-      "fase": "GOAL",
-      "arquivo": "core/test/marketplaces.test.ts",
-      "alegacao": "S5: o teste S5 prova com fixture que a conferencia recusa arquivo .ico, README com menos de 40 palavras, pasta hooks presente e defaultPrompt acima de 128 caracteres",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/marketplaces.test.js && grep -q \"test('S5 \" core/test/marketplaces.test.ts"
-      ],
-      "criadoEm": "2026-09-29T11:58:56.038Z",
-      "estado": "verificado",
-      "lint": []
+      "criadoEm": "2026-09-19T22:42:28.138Z",
+      "estado": "verificado"
     },
     {
       "id": "C11",
-      "thread": "ork-rm049marketp",
-      "fase": "GOAL",
-      "arquivo": "marketplaces/formularios.md",
-      "alegacao": "S11: o guia de submissao cobre os dois portais (claude.ai/directory/manage e platform.openai.com/plugins) e os dois marketplaces proprios, e o kit de formularios traz os 5 casos positivos e os 3 negativos que o portal da OpenAI exige",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "T1: o manifesto aceita o bloco memory.embedding (provider, model, dim, api_key_env com o NOME da variavel, fallback_model, max_tokens_por_execucao); recusa valor de chave ou DSN no lugar do nome e recusa nome da lista de provider pago; sem o bloco vale provider none; este projeto declara openrouter com qwen/qwen3-embedding-8b e continua subscription-only",
       "negativa": false,
       "verificar": [
-        "grep -q 'claude.ai/directory/manage' marketplaces/README.md && grep -q 'platform.openai.com/plugins' marketplaces/README.md && grep -q 'claude plugin marketplace add orkastery/orkastery' marketplaces/README.md && grep -q 'codex plugin marketplace add orkastery/orkastery' marketplaces/README.md && test \"$(grep -c '^### Caso positivo' marketplaces/formularios.md)\" = 5 && test \"$(grep -c '^### Caso negativo' marketplaces/formularios.md)\" = 3"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/memoria-embedding-config.test.js",
+        "grep -qF 'api_key_env: \"ORKASTERY_EMBEDDING_API_KEY\"' orkastery.yaml && grep -qF 'model: \"qwen/qwen3-embedding-8b\"' orkastery.yaml && grep -qF 'provider_policy: subscription-only' orkastery.yaml"
       ],
-      "criadoEm": "2026-09-29T11:59:12.570Z",
+      "criadoEm": "2026-09-29T00:55:11.515Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C13",
-      "thread": "ork-rm049marketp",
-      "fase": "GOAL",
-      "arquivo": "marketplaces/codex/orkastery/.codex-plugin/plugin.json",
-      "alegacao": "S3: a pasta do plugin Codex tem .codex-plugin/plugin.json com name igual a pasta, version igual a core/package.json, skills ./skills/, interface com ate 3 defaultPrompt de ate 128 caracteres e logo e composerIcon existentes; 19 SKILL.md (18 do catalogo mais ork) e nenhum placeholder {{ }} em arquivo de texto",
+      "id": "C12",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "T1 (negativa): nenhuma chave de provider fica em arquivo versionado: nenhum valor sk-or-v1 no repositorio e nenhum api_key literal no manifesto ou no gerador do manifesto",
       "negativa": true,
       "verificar": [
-        "node -e \"const fs=require('fs'),d='marketplaces/codex/orkastery/',p=require('./'+d+'.codex-plugin/plugin.json'),v=require('./core/package.json').version,i=p.interface||{},dp=i.defaultPrompt||[];if(p.name!=='orkastery'||p.version!==v||p.skills!=='./skills/'||!dp.length||dp.length>3||dp.some(s=>s.length>128)||!/^#[0-9a-fA-F]{6}$/.test(i.brandColor||'')||!fs.existsSync(d+i.logo)||!fs.existsSync(d+i.composerIcon))process.exit(1)\" && test \"$(find marketplaces/codex/orkastery/skills -name SKILL.md | wc -l)\" = 19 && ! grep -rIqF '{{' marketplaces/codex/orkastery && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/marketplaces.test.js && grep -q \"test('S3 \" core/test/marketplaces.test.ts"
+        "! git grep -qE 'sk-or-v1-[A-Za-z0-9]{20,}'",
+        "! git grep -qE '^[[:space:]]*api_key[[:space:]]*[:=]' -- orkastery.yaml core/src/init.ts"
       ],
-      "criadoEm": "2026-09-29T12:25:39.815Z",
+      "criadoEm": "2026-09-29T00:55:12.178Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C19",
-      "thread": "ork-rm049marketp",
-      "fase": "GO",
-      "arquivo": ".github/workflows/ci.yml",
-      "alegacao": "S6: o job documentacao do CI roda, sem comentario, a conferencia de deriva dos marketplaces; nenhum passo chama checador do lancamento, e o workflow continua com os mesmos 3 jobs",
-      "negativa": true,
+      "id": "C15",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "T3: o indice vetorial e local e derivado, no estado canonico do projeto (.orkastery/memoria/vetores, fora do git, arquivo 0600), um por tenant e modelo com modelo e dimensao declarados; reindexar e idempotente (a segunda execucao nao embeda nem reescreve vetor coerente) e o teto de tokens recusa a execucao antes de chamar o provider",
+      "negativa": false,
       "verificar": [
-        "test -f .github/workflows/ci.yml && job=\"$(awk '/^  documentacao:$/{f=1;next} /^  [a-z_-]+:$/{f=0} f' .github/workflows/ci.yml)\" && printf \"%s\\n\" \"$job\" | grep -qE \"^        run: node core/scripts/gerar-marketplaces[.]cjs --verificar$\" && ! grep -q \"checar-lancamento\" .github/workflows/ci.yml && test \"$(grep -cE '^    name: ' .github/workflows/ci.yml)\" = 3"
+        "npm --prefix core run build && npm --prefix core run build:test && OUT=$(node --test core/dist-test/test/indice-vetorial.test.js 2>&1) && printf '%s' \"$OUT\" | grep -qiE 'idempot.*vetor' && printf '%s' \"$OUT\" | grep -qiE 'orcamento'",
+        "git check-ignore -q .orkastery/memoria/vetores/qualquer.json"
       ],
-      "criadoEm": "2026-09-29T21:18:03.918Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C20",
-      "thread": "ork-rm049marketp",
-      "fase": "GO",
-      "arquivo": "marketplaces/README.md",
-      "alegacao": "Regra do dono de 28/09: o repositorio publico nao leva rascunho nem plano de lancamento; lancamento/ e o checador dele fora da arvore e do indice, e nenhum arquivo versionado (fora o bundle) cita o checador ou as perguntas do dono",
-      "negativa": true,
-      "verificar": [
-        "test -f marketplaces/README.md && test -f core/test/marketplaces.test.ts && test -f core/package.json && test ! -e lancamento && test ! -e core/scripts/checar-lancamento.cjs && test -z \"$(git ls-files -- lancamento core/scripts/checar-lancamento.cjs)\" && { git grep -qIi -e checar-lancamento -e perguntas-do-dono -e \"perguntas do dono\" -e \"perguntas ao dono\" -- . \":(exclude).ork-ci/bundle.json\"; test $? -eq 1; }"
-      ],
-      "criadoEm": "2026-09-29T21:18:04.298Z",
+      "criadoEm": "2026-09-29T00:55:13.857Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C21",
-      "thread": "ork-rm049marketp",
-      "fase": "GO",
-      "arquivo": ".ork-ci/bundle.json",
-      "alegacao": "S9: a thread nao adiciona arquivo em docs/ nem muda README.md e README.pt-BR.md da raiz, e nenhum arquivo que a thread adiciona ou muda, bundle do CI incluido, tem caminho de maquina, pasta de conta com til ou e-mail",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/busca-semantica.ts",
+      "alegacao": "T5: memory search --texto ranqueia vetor e FTS por RRF somente dentro do universo governado do tenant, nunca compara vetores de modelos diferentes, cai para FTS com motivo tipado quando nao ha embedding e marca o resultado como nao deterministico",
       "negativa": true,
       "verificar": [
-        "base=\"$(git merge-base origin/main HEAD)\" && test -n \"$base\" && test -z \"$(git diff --name-only --diff-filter=A \"$base\" HEAD -- docs)\" && git diff --quiet \"$base\" HEAD -- README.md README.pt-BR.md && arquivos=\"$(git diff --name-only --diff-filter=AMR \"$base\" HEAD)\" && printf \"%s\\n\" \"$arquivos\" | grep -qx \".ork-ci/bundle.json\" && { git grep -qIE \"/hom[e]/|/User[s]/|~/[.]claude-|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}\" -- $arquivos; test $? -eq 1; }"
+        "npm --prefix core run build && npm --prefix core run build:test && OUT=$(node --test core/dist-test/test/busca-semantica.test.js 2>&1) && printf '%s' \"$OUT\" | grep -qiE 'espaco vetorial' && printf '%s' \"$OUT\" | grep -qiE 'outro tenant' && printf '%s' \"$OUT\" | grep -qiE 'cai para fts'",
+        "node core/dist/index.js --help | grep -qF 'memory search --texto'"
       ],
-      "criadoEm": "2026-09-29T21:18:04.570Z",
+      "criadoEm": "2026-09-29T00:55:17.345Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C22",
-      "thread": "ork-rm049marketp",
-      "fase": "GO",
-      "arquivo": ".markdownlint-cli2.jsonc",
-      "alegacao": "S10: os globs ativos do markdownlint (sem comentario) incluem marketplaces/*.md e marketplaces/fontes/**/*.md e nenhum do lancamento, os globs casam arquivos reais, e markdownlint-cli2, checar-links e docs verificar passam",
-      "negativa": true,
-      "verificar": [
-        "node -e \"const t=require(\\\"fs\\\").readFileSync(\\\".markdownlint-cli2.jsonc\\\",\\\"utf8\\\").replace(/^\\s*\\/\\/.*$/gm,\\\"\\\");const g=JSON.parse(t).globs;if(!g.includes(\\\"marketplaces/*.md\\\")||!g.includes(\\\"marketplaces/fontes/**/*.md\\\")||g.some(x=>x.includes(\\\"lancamento\\\")))process.exit(1)\" && test -f marketplaces/fontes/claude-code/README.md && test -f marketplaces/fontes/codex/README.pt-BR.md && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T21:18:04.819Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C24",
-      "thread": "ork-rm049marketp",
-      "fase": "GO",
-      "arquivo": "docs/roadmap/RM-049-lancamento.md",
-      "alegacao": "A RM-049 registra as respostas do dono de 29/09 e a regra de 28/09, sem apontar para lancamento/, sem citar H1 a H5 nem paises e sem data de outubro a dezembro de 2026; o docs verificar passa",
+      "id": "C23",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "core/src/policies.ts",
+      "alegacao": "T7: a policy segredo_em_prompt reconhece chave do OpenRouter e o doctor declara a chave de embedding pelo NOME, recusando nome da lista de provider pago, sem imprimir valor",
       "negativa": false,
       "verificar": [
-        "test -f docs/roadmap/RM-049-lancamento.md && grep -q \"Respostas do dono (29/09/2026)\" docs/roadmap/RM-049-lancamento.md && grep -q \"Rascunhos do anúncio fora do PR\" docs/roadmap/RM-049-lancamento.md && ! grep -qiE \"lancamento/|H[1-5]\\b|países|[0-9]{2}/1[0-2]/2026\" docs/roadmap/RM-049-lancamento.md && node core/dist/index.js docs verificar"
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/segredo-openrouter.test.js",
+        "grep -qF 'sk-or-v1-' core/src/policies.ts"
       ],
-      "criadoEm": "2026-09-29T21:20:15.946Z",
+      "criadoEm": "2026-09-29T00:55:18.487Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-i36buscasema",
+      "fase": "PLAN",
+      "arquivo": "docs/guias/memoria-e-handoff.md",
+      "alegacao": "T8: a documentacao descreve o estado configuravel de embeddings, o custo por uso, a saida de conteudo ao provider e como conferir o estado; deixa de afirmar a ausencia de embedder como propriedade fixa; FEAT-017 declara os comandos novos e a paridade docs-codigo passa",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/guias/memoria-e-handoff.md && ! grep -qF 'embedder e sem embeddings pagos' docs/guias/memoria-e-handoff.md && grep -qF 'memory index' docs/guias/memoria-e-handoff.md",
+        "test -f docs/referencia/cli.md && ! grep -qF 'sem embedder ou provider pago' docs/referencia/cli.md && grep -qF 'memory search --texto' docs/referencia/cli.md && grep -qF 'memory index' docs/referencia/cli.md",
+        "grep -qF 'ork memory index' docs/produto/FEAT-017-memoria-orkmind.md",
+        "npm --prefix core run build && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-29T00:55:19.564Z",
       "estado": "verificado",
       "lint": []
     }
   ],
-  "deferredClaims": [],
+  "deferredClaims": [
+    {
+      "id": "C4",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C8",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C13",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C14",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C16",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C17",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C18",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C19",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C20",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C22",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C24",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C26",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C27",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C28",
+      "reason": "local-integration-required"
+    }
+  ],
   "commands": [
     {
       "name": "ci",

@@ -14,7 +14,9 @@ for (const fase of ['GO', 'CHECK'] as const) {
     const f = controllerSimulado(p.dir);
     let controlador: string | undefined;
     try {
-      const t = novaThread(p.carregado, { nome: `i09 ${fase}`, modo: 'auto' }).thread;
+      // RM-037 (defeito 2): o review nativo vale para o bloco que termina no CHECK (GO-CHECK do #Classic);
+      // no #Auto o bloco segue para o SHIP e o CHECK abre turno comum (rm037-modo-do-bloco).
+      const t = novaThread(p.carregado, { nome: `i09 ${fase}`, modo: fase === 'CHECK' ? 'classic' : 'auto' }).thread;
       if (fase === 'CHECK') {
         // Reproduz a identidade real de uma thread com worktree: base.branch e
         // a branch fonte, enquanto o manifesto conserva a base de integração.

@@ -31,6 +31,8 @@ ork verify <thread>                           # reexecuta no HEAD real
    nenhuma, e a base carimbada no `thread.json` e o que diz de onde a thread partiu.
 3. **Baseline gravada antes da primeira linha.** Sem baseline, uma falha depois nao distingue
    regressao de divida pre-existente, e a thread ou leva culpa alheia ou esconde o que quebrou.
+   No codex, cujo sandbox nao grava o estado da thread, o `ork phase run` grava a baseline antes de
+   soltar o bloco com GO: confira o campo `baseline` em `ork_thread_status` e siga, em vez de parar.
 4. **Uma claim por alegacao.** Todo arquivo citado, todo teste citado, toda funcao dita pronta vira
    claim com comando. Passagem relatada por agente nao e passagem.
 5. **Nada fora das tarefas do PLAN.** Melhoria oportunista sem tarefa e scope creep: ela vira

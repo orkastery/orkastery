@@ -52,6 +52,12 @@ ci:
   # O runner hospedado não oferece OrkMind/PostgreSQL local nem user namespaces. A suíte
   # hermética mantém essas integrações na verificação integral da estação de desenvolvimento.
   command: "npm --prefix core run test:ci"
+  # RM-037 (defeito 5): repositorios externos cujo PR mesclado vale como entrega da thread
+  # (ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>). O valor e o check exigido no head
+  # do PR; vazio declara repositorio sem CI. Os sites nao tem check run (medido em 29/09/2026).
+  external_repositories:
+    "orkastery/orkastery.com": ""
+    "orkastery/orkmind.com": ""
 
 concurrency:
   # 5 sessoes ao mesmo tempo (decisao do dono em 28/09/2026). A CPU fica protegida no kernel da
@@ -81,6 +87,16 @@ memory:
   database_url_env: "ORKASTERY_BRAIN_READ_DATABASE_URL"
   cli: orkmind
   timeout_ms: 15000
+  # I-38: embeddings da busca por significado (ork memory search --texto). provider none desliga.
+  # api_key_env e o NOME da variavel com a chave dedicada, nunca o valor. O conteudo indexado do
+  # tenant sai para o OpenRouter; subscription-only continua valendo para os runtimes.
+  embedding:
+    provider: "openrouter"
+    model: "qwen/qwen3-embedding-8b"
+    dim: 1024
+    api_key_env: "ORKASTERY_EMBEDDING_API_KEY"
+    fallback_model: "intfloat/multilingual-e5-small"
+    max_tokens_por_execucao: 1000000
 
 audit:
   # governanca de custo dos auditores periodicos (bloco B5, visao secao 5.3)

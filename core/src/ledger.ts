@@ -109,6 +109,8 @@ export const TIPOS_DE_EVENTO = {
   onboardingRegistrado: 'onboarding_recorded',
   // Correcao do escalonador: vaga devolvida por thread sem procura ativa (`ork board reap`)
   vagaLiberada: 'slot_released',
+  // RM-037 (rm037defeito, defeito 3): o `phase run` recusou o despacho por falta de vaga no projeto.
+  vagaRecusada: 'slot_refused',
   // I-07: estimativa humana no PLAN para comparacao economica posterior.
   estimativaPlano: 'plan_estimate',
   // I-42 (D5): ciclo sem CHECK que nao achou teste nem comando honesto declara a ausencia de
@@ -127,6 +129,8 @@ export const TIPOS_DE_EVENTO = {
   conducaoLiberada: 'conducao_liberada',
   conducaoOrfaLiberada: 'conducao_orfa_liberada',
   conducaoAssumida: 'conducao_assumida',
+  // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
+  conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
 } as const;
 

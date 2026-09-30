@@ -8,6 +8,27 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
+    fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou
+    DSN, nome da lista de provider pago e a variável da DSN;
+  - `ork memory index [--modelo primario|fallback|todos] [--dry-run]`: índice vetorial local e
+    derivado do tenant, fora do git, idempotente, com tokens e custo estimados antes da rede;
+  - `ork memory search --texto "<frase>"`: vetor e FTS por RRF dentro do tenant, com a origem
+    declarada e `deterministico: false`; a busca por tag, o recall e o prompt não mudam;
+  - `ork memory status` passa a sondar a ponte (`health`) e mostra o estado dos embeddings, a
+    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa de
+    saúde, que nada sondava, deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
+  - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
+    de embedding pelo nome.
+- **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
+  em repositório declarado em `ci.external_repositories`: o PR cita a thread e entrou na branch
+  padrão, o merge está dentro da ponta da base pela API do GitHub e o check declarado está verde no
+  head do PR.
+- **Decisão autônoma pelo MCP** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
+  ferramenta `ork_decision_record` grava pelo mesmo contrato do `ork decisao registrar`, para a
+  sessão cujo sandbox não grava o ledger.
 - **Projeto-alvo explícito** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
   - `--projeto <nome|caminho>`, opção global em qualquer comando, e `ORK_PROJETO`, com precedência
     sobre o diretório atual; nome ambíguo ou desconhecido recusa com os candidatos, na saída 4;
@@ -47,6 +68,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
   tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
   leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
+- **Dossiê de decisão** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md), K3.1):
+  `ork brain dossie --thread <id> [--decisao <id>]` devolve o dossiê `ork.dossie-de-decisao/v1`: o
+  vínculo da thread com o objetivo (o ticket do K1) e o projeto do portfólio, o pacote de contexto
+  citável e cada decisão do ledger com as alternativas, quem decidiu, a evidência, a citação da
+  linha e os ids que o Brain dá ao fato (`fact-…`). A resposta do dono só aparece com o recibo do
+  ingresso conferido; sem ele, vira lacuna. Somente leitura; também como `ork_brain_dossie` no MCP
+  e no OpenClaw, que passa a ter 26 tools.
 
 ### Mudado
 
@@ -70,6 +98,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `{contrato: 'ork.board/v1', consulta, threads}`, com a lista de antes em `threads`. `board plan`,
   `fabrica` e `roadmap status` ganham o campo `consulta`; o snapshot do maestro ganha
   `project.root`, `project.remote` e `notConsulted`, opcionais no contrato `v1`.
+
+### Corrigido
+
+- **Defeitos de condução de 29/09/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, pela mesma
+    execução do `ork verify --baseline`;
+  - o modo plano do PLAN e o review nativo do CHECK valem só para o bloco que termina na fase de
+    entrada: no #Auto, a sessão codex segue do PLAN ao GO e do CHECK ao SHIP como no claude-bg;
+  - `ork phase run` recusa com `concurrency.limite` quando o projeto já tem
+    `max_parallel_threads` sessões vivas em outras threads, e `--esperar` espera a vaga;
+  - `ork decisao registrar` diz o campo e o tamanho quando o texto passa do teto;
+  - `ork ci prepare` grava o bundle na worktree da thread, não na raiz do projeto;
+  - o teste D-6 de modelo inacessível deixa de depender da corrida com o observador destacado.
 
 ## 0.4.3 — 29/09/2026
 

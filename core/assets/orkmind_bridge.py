@@ -1,4 +1,4 @@
-"""Transporte de fabrica: OrkMind instalado, stdin JSON, sem provider ou embedder."""
+"""Transporte de fabrica: OrkMind instalado, stdin JSON; embedder so na operacao embed (I-38)."""
 from __future__ import annotations
 import asyncio
 import contextlib
@@ -6,7 +6,9 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
+import re
 import sys
 
 
@@ -188,6 +190,205 @@ def query_contract(request):
     return {k: list(v) for k, v in tags.items()}, request['collection'], limit
 
 
+# I-38 (D1, D4, D8): a chave de embedding chega so ao ambiente desta operacao, com este nome.
+EMBED_KEY_ENV = 'ORKMIND_EMBEDDING_API_KEY'
+EMBED_TIMEOUT_S = 10.0
+EMBED_MAX_TEXTS = 32
+EMBED_MAX_CHARS = 24000
+LOCAL_MAX_TOKENS = 8192
+MODEL_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*')
+# Mesmos padroes da policy segredo_em_prompt, mais URL com credencial: recusados antes da rede.
+SECRET_PATTERNS = [re.compile(p) for p in (
+    r'sk-ant-[A-Za-z0-9_-]{16,}', r'sk-or-v1-[A-Za-z0-9]{32,}', r'\bsk-[A-Za-z0-9]{32,}\b',
+    r'\bAKIA[0-9A-Z]{16}\b', r'\bgh[pousr]_[A-Za-z0-9]{20,}\b', r'-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----',
+    r'(?i)\b(?:api[_-]?key|secret|token|senha|password)\s*[:=]\s*[\'"][^\'"\s]{16,}[\'"]',
+    r'\b[a-z][a-z0-9+.-]*://[^\s/:@]+:[^\s/@]+@')]
+
+
+def embed_contract(request):
+    valid = isinstance(request, dict) and set(request) == {'op', 'papel', 'alvo', 'modelo', 'dim', 'textos'}
+    textos = request.get('textos') if valid else None
+    dim = request.get('dim') if valid else None
+    if (not valid or request['papel'] not in ('consulta', 'documento')
+            or request['alvo'] not in ('primario', 'fallback')
+            or not isinstance(request['modelo'], str) or MODEL_NAME.fullmatch(request['modelo']) is None
+            or type(dim) is not int or not 32 <= dim <= 4096
+            or not isinstance(textos, list) or not 1 <= len(textos) <= EMBED_MAX_TEXTS
+            or any(not isinstance(t, str) or not t.strip() or len(t) > EMBED_MAX_CHARS for t in textos)):
+        raise QueryError('memory.embed.invalid')
+
+
+def model_prefix(modelo, papel):
+    """Instrucao de uso do proprio modelo; o conteudo da entrada vai inteiro depois dela."""
+    nome = modelo.lower().split('/')[-1]
+    if nome.startswith('qwen3-embedding'):
+        return ('Instruct: Given a search query, retrieve relevant memory entries that answer the query\nQuery:'
+                if papel == 'consulta' else '')
+    if re.search(r'(^|[-_])e5([-_]|$)', nome):
+        return 'query: ' if papel == 'consulta' else 'passage: '
+    return ''
+
+
+async def embed_primary(modelo, dim, textos):
+    if not os.environ.get(EMBED_KEY_ENV, '').strip():
+        raise QueryError('embeddings.chave-ausente')
+    import httpx
+    from orkmind.embeddings.provider import OpenRouterEmbeddingProvider
+    provider = OpenRouterEmbeddingProvider(api_key_env=EMBED_KEY_ENV, model=modelo, embedding_dim=dim,
+                                           timeout_s=EMBED_TIMEOUT_S, request_dimensions=True)
+    try:
+        return await provider.embed_batch(textos)
+    except Exception as error:
+        # Nunca repassar texto do provider: ele pode ecoar a entrada ou o cabecalho.
+        cause = error.__cause__ or error
+        raise QueryError('embeddings.timeout' if isinstance(cause, httpx.TimeoutException)
+                         else 'embeddings.provider-indisponivel') from None
+
+
+def local_model_dir(modelo):
+    """Pasta do modelo no cache local, sem rede. None quando nao foi baixado."""
+    os.environ['HF_HUB_OFFLINE'] = '1'
+    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        raise QueryError('embeddings.dependencia-ausente') from None
+    try:
+        return snapshot_download(modelo, local_files_only=True)
+    except Exception:
+        return None
+
+
+def local_pooling(pasta):
+    from pathlib import Path
+    modules = Path(pasta, 'modules.json')
+    if modules.exists() and any('Dense' in m.get('type', '') for m in json.loads(modules.read_text())):
+        raise QueryError('embeddings.dimensao-divergente')
+    config = Path(pasta, '1_Pooling', 'config.json')
+    modos = json.loads(config.read_text()) if config.exists() else {}
+    return ('lasttoken' if modos.get('pooling_mode_lasttoken') else
+            'cls' if modos.get('pooling_mode_cls_token') else 'mean')
+
+
+class LocalEmbeddingProvider:
+    """Fallback local (D4): mesma interface do EmbeddingProvider da biblioteca, offline, em CPU."""
+
+    def __init__(self, modelo):
+        pasta = local_model_dir(modelo)
+        if pasta is None:
+            raise QueryError('embeddings.local-ausente')
+        try:
+            import torch
+            from transformers import AutoModel, AutoTokenizer
+        except ImportError:
+            raise QueryError('embeddings.dependencia-ausente') from None
+        torch.set_num_threads(min(4, os.cpu_count() or 1))
+        self._torch = torch
+        self._pooling = local_pooling(pasta)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            pasta, local_files_only=True, padding_side='left' if self._pooling == 'lasttoken' else 'right')
+        self._model = AutoModel.from_pretrained(pasta, local_files_only=True)
+        self._model.eval()
+        self._dim = int(self._model.config.hidden_size)
+        self._max = min(int(getattr(self._tokenizer, 'model_max_length', LOCAL_MAX_TOKENS) or LOCAL_MAX_TOKENS),
+                        LOCAL_MAX_TOKENS)
+        # Texto acima do contexto do modelo local e embedado pelo comeco e DECLARADO (nunca em silencio).
+        self.truncados = []
+
+    @property
+    def dim(self):
+        return self._dim
+
+    async def embed(self, text):
+        return (await self.embed_batch([text]))[0]
+
+    async def embed_batch(self, texts):
+        torch = self._torch
+        self.truncados = [i for i, ids in enumerate(self._tokenizer(texts, truncation=False)['input_ids'])
+                          if len(ids) > self._max]
+        lote = self._tokenizer(texts, padding=True, truncation=True, max_length=self._max, return_tensors='pt')
+        with torch.inference_mode():
+            saida = self._model(**lote).last_hidden_state
+        if self._pooling == 'lasttoken':
+            vetores = saida[:, -1]
+        elif self._pooling == 'cls':
+            vetores = saida[:, 0]
+        else:
+            mascara = lote['attention_mask'].unsqueeze(-1).to(saida.dtype)
+            vetores = (saida * mascara).sum(1) / mascara.sum(1).clamp(min=1e-9)
+        return torch.nn.functional.normalize(vetores, p=2, dim=1).tolist()
+
+
+async def embed(request):
+    """Operacao embed: unica que instancia embedder; nao toca a base nem recebe a DSN."""
+    embed_contract(request)
+    textos = request['textos']
+    if any(p.search(t) for p in SECRET_PATTERNS for t in textos):
+        raise QueryError('embeddings.conteudo-recusado')
+    prefixo = model_prefix(request['modelo'], request['papel'])
+    entrada = [prefixo + t for t in textos]
+    truncados = []
+    if request['alvo'] == 'primario':
+        vetores = await embed_primary(request['modelo'], request['dim'], entrada)
+    else:
+        local = LocalEmbeddingProvider(request['modelo'])
+        vetores = await local.embed_batch(entrada)
+        truncados = list(local.truncados)
+    # A biblioteca nao confere a dimensao devolvida (D8): a ponte confere vetor a vetor.
+    if (not isinstance(vetores, list) or len(vetores) != len(textos)
+            or any(not isinstance(v, list) or len(v) != request['dim']
+                   or not all(isinstance(x, float) and math.isfinite(x) for x in v) for v in vetores)):
+        raise QueryError('embeddings.dimensao-divergente')
+    return {'alvo': request['alvo'], 'modelo': request['modelo'], 'dim': request['dim'], 'truncados': truncados,
+            'vetores': [[round(x, 7) for x in v] for v in vetores]}
+
+
+def health_contract(request):
+    if not isinstance(request, dict) or set(request) != {'op'}:
+        raise QueryError('memory.health.invalid')
+
+
+async def health(store):
+    """Sonda barata (I-38 T4): contagens, versao da biblioteca e dependencias do fallback, sem rede nem torch."""
+    import importlib.metadata
+    import importlib.util
+    # Versao e dependencias sao informacao, nao saude: falha nelas nunca derruba o regime.
+    try:
+        versao = importlib.metadata.version('orkmind')
+    except Exception:
+        versao = None
+    def presente(modulo):
+        try:
+            return importlib.util.find_spec(modulo) is not None
+        except Exception:
+            return False
+    dependencias = all(presente(m) for m in ('torch', 'transformers', 'huggingface_hub'))
+    return {'contagens': {c: await store.count(c) for c in await store.list_collections()},
+            'orkmind': versao, 'fallback': {'dependencias': dependencias}}
+
+
+ORK_COLLECTIONS = ('decision', 'handoff', 'rule', 'learning', 'roadmap')
+
+
+def fts_contract(request):
+    valid = isinstance(request, dict) and set(request) == {'op', 'tenant', 'texto'}
+    def text(value, maximum):
+        return isinstance(value, str) and 0 < len(value.strip()) and len(value) <= maximum and re.search(r'[\x00-\x1f\x7f]', value) is None
+    if not valid or not text(request['tenant'], 128) or not text(request['texto'], 2000):
+        raise QueryError('memory.fts.invalid')
+
+
+async def fts(request, store):
+    """FTS da biblioteca (I-38 D9) com fronteira de tenant obrigatoria: devolve so ids, na ordem do ranking."""
+    # A janela cobre a base inteira: ausencia so conta quando nada ficou de fora do corte.
+    limit = await store.count() + 1
+    entries = await store.search_by_text(request['texto'], limit=limit)
+    if len(entries) >= limit:
+        raise QueryError('memory.query.window-saturated')
+    return {'ids': [e.id for e in entries if e.collection in ORK_COLLECTIONS
+                    and request['tenant'] in (e.tags or {}).get('project', [])]}
+
+
 async def execute(request, store):
     from orkmind.core.models import MemoryEntry
     from orkmind.core.semantic_layer import SemanticLayer
@@ -196,6 +397,12 @@ async def execute(request, store):
     op = request['op']
     if op == 'stats':
         return {c: await store.count(c) for c in await store.list_collections()}
+    if op == 'health':
+        health_contract(request)
+        return await health(store)
+    if op == 'fts':
+        fts_contract(request)
+        return await fts(request, store)
     if op == 'query':
         tags, collection, limit = query_contract(request)
         # GovernedStore conserva validade, anti-injection e visibilidade existentes.
@@ -323,8 +530,14 @@ async def main(request):
             return {'schema':'orkmind.company-brain-api/v1','state':'conflict','error':'brain.api.invalid'}
         from orkmind.cli.company_brain import service_request
         return service_request(request['request'])
+    if isinstance(request, dict) and request.get('op') == 'embed':
+        return await embed(request)
     if isinstance(request, dict) and request.get('op') == 'query':
         query_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'health':
+        health_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'fts':
+        fts_contract(request)
     native_schema_fields()
     from orkmind.core.config import OrkMindConfig
     from orkmind.store.factory import create_store

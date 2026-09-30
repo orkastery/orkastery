@@ -131,6 +131,21 @@ test('bundle separa claims do host sem fingir que o runner hospedado as executou
     null
   );
   assert.equal(motivoDiferimentoCi({ ...base, verificar: ['test -f README.md'] }, p.dir), null);
+  // I-38: memoria do tenant, OrkMind instalado e suite inteira ficam para a estacao.
+  for (const comando of [
+    'node core/dist/index.js memory status --json | node -e "x"',
+    'env -u CHAVE node "$CLI" memory index --dry-run --json',
+    'node core/dist/index.js memory search --tags \'{"project":["x"]}\' --json',
+    'PY=$(sed -n 1p "$(command -v orkmind)") && "$PY" -c "import orkmind"',
+    'npm --prefix core run build && npm --prefix core test',
+    'bash core/scripts/prova-busca-semantica.sh | grep -qF x',
+  ]) assert.equal(motivoDiferimentoCi({ ...base, verificar: [comando] }, p.dir), 'local-integration-required', comando);
+  for (const comando of [
+    'npm --prefix core run test:ci',
+    "node core/dist/index.js --help | grep -qF 'memory search --texto'",
+    "grep -qF 'ork memory index' docs/produto/FEAT-017-memoria-orkmind.md",
+    'node --test core/dist-test/test/busca-semantica.test.js',
+  ]) assert.equal(motivoDiferimentoCi({ ...base, verificar: [comando] }, p.dir), null, comando);
   p.limpar();
 });
 
