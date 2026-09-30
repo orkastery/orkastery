@@ -6,19 +6,19 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-09-29T23:50:30+00:00
+atualizado_em: 2026-09-30T00:15:00+00:00
 estado:
-  ciclo: Em desenvolvimento
-  documentacao: Rascunho
-  codigo: Branch criada
-  testes: Em execução
+  ciclo: Em validação
+  documentacao: Em revisão
+  codigo: PR aberto
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: null
-    pr: null
+    pr: 24
 sdlc:
   thread: ork-rm052projeto
   modo: "#Auto"
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em validação | PR aberto | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -92,13 +92,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Rascunho | — | 2026-09-29 | Julio |
-| Código | Branch criada | — | 2026-09-29 | Julio |
-| Testes | Em execução | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em validação | — | 2026-09-30 | Julio |
+| Documentação | Em revisão | — | 2026-09-30 | Julio |
+| Código | PR aberto | PR #24 | 2026-09-30 | Julio |
+| Testes | Aprovados | — | 2026-09-30 | Julio |
+| Deploy | Não implantado | — | 2026-09-30 | Julio |
+| Exposição | Flag desligada | — | 2026-09-30 | Julio |
+| Habilitação | Pendente | — | 2026-09-30 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -112,3 +112,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-09-29 | item criado, com a thread `ork-rm052projeto` reservando o RM-052 | incidente do Telegram de 29/09 e pedido do dono para as três threads | Julio |
 | 2026-09-29 | oito tarefas entregues na branch da thread: registro, `--projeto`, cabeçalho honesto, MCP, OpenClaw, Hermes e Claude Code, regressão, docs | thread `ork-rm052projeto`, decisões D1 a D10 no ledger | agente condutor; decisão final de Julio |
+| 2026-09-29 | CHECK: GO-FIX de F1 (host só nome), F2 (cópia do cwd) e F3 (suíte isolada); `ork verify` com 47/47 claims e 0 regressões; PR #24 aberto como rascunho | `docs/check.md` da thread e o PR #24 | agente condutor; merge pelo mantenedor |
