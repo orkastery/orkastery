@@ -2,7 +2,7 @@
 
 O OpenClaw recebe o Orkastery como uma **extensao** no formato 2026.7.1: um pacote com
 `package.json` (`openclaw.extensions: ["./dist/index.js"]`), um entry JS que registra as
-**26 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
+**27 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
 `openclaw.plugin.json` gerado (`id`, `activation`, `contracts.tools`). Cada tool e uma
 chamada de CLI do `ork`, sem regra de negocio no host.
 
@@ -58,6 +58,7 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_verify` / `ork_verify_baseline` | Reexecuta no HEAD real; grava a baseline antes do GO |
 | `ork_worktree_ensure` / `ork_worktree_audit` | Worktree isolada, conferida no proprio git |
 | `ork_portfolio_list` | Lista produtos, projetos e iniciativas canônicos |
+| `ork_brain_dossie` | Dossiê de decisão da thread no Company Brain, com vínculo, alternativas, quem decidiu e evidência (RM-026) |
 | `ork_gate_answer` | Resposta humana correlacionada a um gate |
 | `ork_session_answer` | Resposta humana correlacionada a uma sessão |
 | `ork_ship` | Merge serializado por lease e push provado contra o remoto |

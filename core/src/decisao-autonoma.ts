@@ -33,8 +33,35 @@ import { exigirRastroDeDecisaoAutonoma, lerLedger, registrar, TIPOS_DE_EVENTO } 
 import { dirThread, listarIds, lerThread } from './thread';
 import { EventoLedger } from './types';
 import { exigirModoVivo } from './modos';
+import { canalDoProcesso, ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO, identidadeDoAmbiente } from './conducao';
 
 export const CONTRATO_DECISAO_AUTONOMA = 'ork.decisao-autonoma/v1' as const;
+
+/**
+ * A sessao de OUTRA thread que registra aqui tambem deixa rastro (S-3 do CHECK 3). So o par que o ledger
+ * daquela thread confirma (S-b do CHECK 4): o par vazado do daemon do `claude --bg` nao vira rastro falso.
+ */
+function despachoDeOutraThread(raiz: string, threadId: string): Record<string, unknown> {
+  const thread = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim(), id = (process.env[ENV_IDENTIDADE_DE_DESPACHO] ?? '').trim();
+  if (!thread || thread === threadId || !/^[a-z0-9]{1,3}-[a-z0-9]{1,12}$/.test(thread) || !/^[a-f0-9-]{36}$/.test(id)) return {};
+  // R5-A2 do CHECK 5: a mesma conferencia D-4 da reentrada. O par que o daemon do `claude --bg` vazou e um
+  // despacho real, que o ledger confirma; so a sessao que o recebeu de fato o valida.
+  let confirmado = false;
+  try { confirmado = identidadeDoAmbiente(thread, process.env, raiz) === id; }
+  catch { /* thread de outro projeto ou ilegivel: sem prova, sem rastro */ }
+  if (confirmado) {
+    try {
+      confirmado = lerLedger(dirThread(raiz, thread)).some((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada &&
+        (e.identidade as { dispatchId?: unknown } | undefined)?.dispatchId === id);
+    } catch { confirmado = false; }
+  }
+  return confirmado ? { despachoNoAmbiente: { thread, dispatchId: id } } : {};
+}
+
+/** O canal do processo; canal fora do registro nao impede a decisao, e fica dito como tal. */
+function canalSeguro(): string {
+  try { return canalDoProcesso(); } catch { return 'desconhecido'; }
+}
 
 /** D3/M7: o p90 das 155 fases ja medidas. Acima disso a fase esta no decil mais alto do projeto. */
 export const LIMIAR_DE_DECISOES_POR_FASE = 13;
@@ -83,6 +110,15 @@ export interface EntradaDaDecisao {
   /** O pedido de uma decisao anterior desta thread que esta desfaz. E o que conta a reversao. */
   reverte?: string;
   quando?: string;
+  /**
+   * RM-037 (rm037defeito, defeito 1): por onde a decisao chegou. O CLI (`ork decisao registrar`) e o
+   * padrao; a sessao codex, cujo sandbox nao grava o ledger, registra pelo MCP (`ork_decision_record`).
+   * A validacao e o evento sao os mesmos; so o registro diz a porta e o host.
+   */
+  origem?: 'cli' | 'mcp';
+  host?: string;
+  /** S-3 do CHECK 3: a identidade de despacho que a superficie ja conhece (o MCP filho); sem ela, o ambiente. */
+  despacho?: string | null;
 }
 
 /**
@@ -123,6 +159,12 @@ export function registrarDecisao(raiz: string, threadId: string, entrada: Entrad
     const evento = registrar(dir, t.id, TIPOS_DE_EVENTO.decisaoAutonoma, {
       contratoDecisao: CONTRATO_DECISAO_AUTONOMA, fase: pedido.fase, decisao: pedido.decidido, ...rastro,
       pedido, ...(entrada.reverte ? { reverte: entrada.reverte } : {}),
+      origem: entrada.origem ?? 'cli', ...(entrada.host ? { host: entrada.host } : {}),
+      // RM-037 (S5 do CHECK): a porta e quem chamou, pelo processo e nao pelo texto de `quemDecidiu`. A sessao
+      // despachada carrega a identidade do despacho no ambiente; o dono no terminal, nao.
+      canal: entrada.origem === 'mcp' && entrada.host ? entrada.host : canalSeguro(),
+      despacho: entrada.despacho !== undefined ? entrada.despacho : identidadeDoAmbiente(t.id, process.env, raiz),
+      ...despachoDeOutraThread(raiz, t.id),
     });
     return { pedido, evento };
   });

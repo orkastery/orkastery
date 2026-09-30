@@ -79,7 +79,7 @@ import { montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
-import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
+import { PedidoHitlQualquer, TipoDeCriterio, CAMPOS_DA_DECISAO_NO_CLI, recusaNaSuperficie } from './hitl-contract';
 import { montarMonitor, textoDoMonitor } from './orquestracao';
 import {
   carimbarAchado,
@@ -219,7 +219,7 @@ import {
 import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
-import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
   caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
   FORA_DA_CONSULTA,
@@ -430,7 +430,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
         [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
 
-  brain status|inventory|get|query|receipts|context|sync|reconcile|apply|rollback|bind
+  brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
+  brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
+                                            quem decidiu e evidencia, com os ids do Brain (so leitura)
   memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
@@ -441,6 +443,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
@@ -1074,6 +1077,26 @@ function comandoPhase(args: Args): number {
       console.log(args.opcoes.json === true && r.recusa ? JSON.stringify(r.recusa, null, 2) : r.recusa?.texto ?? r.erro);
       return 3;
     }
+    // RM-037 (defeito 3): a recusa por vaga e espera, como a da conducao (codigo 3), e diz quem ocupa.
+    if (r.motivo === 'concurrency.limite' && r.vaga) {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, ...r.vaga }, null, 2)); return 3; }
+      console.log(`Despacho recusado: concurrency.limite. O projeto ja tem ${r.vaga.ocupam.length} sessao(oes) viva(s) ` +
+        `em outras threads e o limite e ${r.vaga.limite} (concurrency.max_parallel_threads).`);
+      for (const o of r.vaga.ocupam) {
+        console.log(`  ${o.thread.padEnd(20)} ${(o.fase ?? '-').padEnd(6)} ` +
+          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso'}, desde ${localizarTextoRotulado(o.desde)}`);
+      }
+      console.log(`  correcao: ${r.vaga.correcao}`);
+      console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
+      return 3;
+    }
+    // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
+    if (r.motivo === 'baseline.pendente') {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, detalhe: r.erro }, null, 2)); return 1; }
+      console.error(`Despacho recusado: ${r.erro}`);
+      console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
+      return 1;
+    }
     if (r.dryRun && !r.bloqueado) {
       console.log('Simulacao (--dry-run), nada foi despachado.');
       console.log(`  slug da sessao : ${r.slug}`);
@@ -1302,12 +1325,17 @@ function comandoDecisao(args: Args): number {
     if (separador < 1 || !['manifesto', 'ledger', 'medicao'].includes(tipo) || !referencia.trim()) {
       throw new Error('decisao registrar: --criterio manifesto:CHAVE, ledger:REF ou medicao:COMANDO');
     }
-    const { pedido, evento } = registrarDecisao(carregado.raiz, id, {
+    const entrada = {
       decidido: campo('decidido'), porque: campo('porque'), comoMudar: campo('como-mudar'),
       custoDeReverter: { agora: campo('custo-agora'), depois: campo('custo-depois') },
       criterio: { tipo, referencia }, quemDecidiu: campo('quem'), evidencia: campo('evidencia'),
       razao: texto(args.opcoes.razao), reverte: texto(args.opcoes.reverte),
-    });
+    };
+    let registro: ReturnType<typeof registrarDecisao>;
+    // RM-037 (defeito 4): a recusa cita a flag que o dono digitou, com o tamanho e o teto reais.
+    try { registro = registrarDecisao(carregado.raiz, id, entrada); }
+    catch (e) { throw new Error(recusaNaSuperficie((e as Error).message, CAMPOS_DA_DECISAO_NO_CLI)); }
+    const { pedido, evento } = registro;
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id))).find(f => f.fase === pedido.fase);
     console.log(JSON.stringify({ ok: true, pedidoId: pedido.id, eventId: evento.eventId, fase: pedido.fase, placar }));
     return 0;
@@ -1903,11 +1931,14 @@ function comandoShip(args: Args): number {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
     const remoto = texto(args.opcoes.remoto);
-    if (!alvo && args.opcoes.todas !== true) {
-      console.error('uso: ork ship registrar-pr <thread-id> | --todas [--remoto R] [--json]');
+    // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
+    const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
+    if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
+      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json]');
       return 2;
     }
-    const r = alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
+    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr) })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);

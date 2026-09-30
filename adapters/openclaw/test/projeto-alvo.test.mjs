@@ -35,9 +35,9 @@ async function comPlugin(corpo) {
   }
 }
 
-test('toda tool aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 26 tools e os requisitos de antes', async () => {
+test('toda tool aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 27 tools e os requisitos de antes', async () => {
   await comPlugin(async (tools) => {
-    assert.equal(tools.length, 26, 'as 25 da RM-052 e ork_network_roadmap (RM-054, fatia 2)');
+    assert.equal(tools.length, 27, 'as 25 da RM-052, ork_brain_dossie (RM-026) e ork_network_roadmap (RM-054, fatia 2)');
     for (const t of tools) {
       const p = t.parameters.properties.projeto;
       assert.ok(p, `${t.name} aceita projeto`);

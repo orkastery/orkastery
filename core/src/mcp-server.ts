@@ -17,7 +17,7 @@ import { lerLedger } from './ledger';
 import { rodarFase } from './phase';
 import { leasesColidentes } from './leases';
 import { contextoHitl, abrirPedidoGate } from './hitl-gates';
-import { estadoDoPedido, respostaAceitaDoPedido } from './hitl-contract';
+import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from './network-roadmap';
@@ -30,6 +30,7 @@ import {exigirModoVivo,ORDEM_DOS_MODOS} from './modos';
 import {VERSAO_DO_ORK} from './versao';
 import {verificarMcp} from './mcp-verify';
 import { conducaoDaThread, ErroDeConducao } from './conducao';
+import { registrarDecisao } from './decisao-autonoma';
 import { linhaDeConducao } from './conducao-texto';
 import {criarPerfilShipMcp,PerfilShipMcp,shipMcp} from './mcp-ship';
 import { registerBrainTools } from './company-brain-mcp';
@@ -341,6 +342,31 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,tipo,conteudo,expectedSha256})=>{
       thread(threadId);livre(threadId);return resposta(escreverArtefatoMcp(raiz,threadId,tipo,conteudo,expectedSha256));
     });
+  // RM-037 (rm037defeito, defeito 1): a decisao que a sessao toma sem perguntar ao dono. O sandbox do
+  // codex nao grava o ledger e o `ork decisao registrar` morria em EROFS. Mesma `registrarDecisao` do CLI:
+  // contrato v2, criterio que resolve e rastro no mesmo evento. Nao pergunta ao dono e nao toca gate.
+  const campoDaDecisao=z.string().min(1).max(4096);
+  registrarTool('ork_decision_record',{description:'Registra decisao ja tomada pela sessao sem perguntar ao dono (classe decidido), com criterio que resolve e rastro. Nao pergunta, nao responde nem aprova gate.',
+    inputSchema:daThread.extend({decidido:campoDaDecisao,porque:campoDaDecisao,comoMudar:campoDaDecisao,
+      custoAgora:campoDaDecisao,custoDepois:campoDaDecisao,
+      criterio:z.object({tipo:z.enum(['manifesto','ledger','medicao']),referencia:campoDaDecisao}).strict(),
+      quemDecidiu:z.string().min(1).max(200),evidencia:campoDaDecisao,razao:campoDaDecisao.optional(),
+      reverte:z.string().min(1).max(80).optional()}).strict(),
+    annotations:{readOnlyHint:false,destructiveHint:false}},async({threadId,...e})=>{
+      thread(threadId);livre(threadId);
+      // A sessao decide por ela: o rastro nao pode nascer assinado em nome do dono.
+      if(/^\s*(?:o\s+|a\s+)?(?:dono|owner|builder|maestro)\b/i.test(e.quemDecidiu))
+        throw Error('mcp.decision.author: quemDecidiu e a sessao que decidiu, nunca o dono');
+      let registro:ReturnType<typeof registrarDecisao>;
+      try {
+        registro=registrarDecisao(raiz,threadId,{decidido:e.decidido,porque:e.porque,comoMudar:e.comoMudar,
+          custoDeReverter:{agora:e.custoAgora,depois:e.custoDepois},criterio:e.criterio,quemDecidiu:e.quemDecidiu,
+          evidencia:e.evidencia,...(e.razao?{razao:e.razao}:{}),...(e.reverte?{reverte:e.reverte}:{}),origem:'mcp',host:opcoes.host,
+          despacho:opcoes.dispatchId??null});
+      } catch(erro) {throw Error(recusaNaSuperficie((erro as Error).message,CAMPOS_DA_DECISAO_NO_MCP));}
+      const {pedido,evento}=registro;
+      return resposta({ok:true,pedidoId:pedido.id,eventId:evento.eventId,fase:pedido.fase,reciboOficial:false});
+    });
   registrarTool('ork_claims_list',{description:'Lista alegacoes e seu estado de verificacao registrado pelo nucleo.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async({threadId})=>{
       thread(threadId);return resposta(listarClaimsMcp(raiz,threadId));
@@ -400,7 +426,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:fase,annotations:{readOnlyHint:false,destructiveHint:false}},async (args) => {
       const t=thread(args.threadId); livre(t.id);
       const {threadId,fase:f,...op}=args;
-      return resposta(rodarFase(carregar(),threadId,{...op,fase:exigirFase(t,f),canal:conducao.canal}));
+      // RM-037 (A3): o MCP nao roda a suite para a baseline do despacho; a falta dela volta como pendencia.
+      return resposta(rodarFase(carregar(),threadId,{...op,fase:exigirFase(t,f),canal:conducao.canal,baselinePeloDespacho:false}));
     });
   registrarTool('ork_gate_request',{description:'Abre pedido de gate somente quando pausa ou escalacao tipada esta comprovada no nucleo; nao aprova.',
     inputSchema:daThread.extend({motivo:z.enum(['human.pending','policy.violation','cost.violation',
