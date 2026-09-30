@@ -249,14 +249,15 @@ if(require.main===module) {
       try { registrarPublicacao(carregado.raiz,{...publicarMaquina(carregado),origem:'pulse'}); }
       catch(e) { registrarPublicacao(carregado.raiz,{acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
     }
-    // RM-053 (D9): a mesma batida publica o retrato desta maquina na rede da pessoa: so membro, no
-    // maximo uma tentativa a cada 15 min por maquina, e retrato igual so volta ao remoto de hora em hora.
-    try { const r=publicarRedeNaBatida({diretorio:carregado.raiz}); if(r) registrarNaRede({...r,origem:'pulse'}); }
-    catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
     const outrasMaquinas=compartilhada
       ? ()=>resumoDasOutrasMaquinas(lerFabrica(carregado.raiz,{remoto,semRemoto:true}),nomeDaMaquina()) : undefined;
     const r=varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas});
     console.log(JSON.stringify(r));process.exitCode=r.code;
+    // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
+    // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora). M4 do CHECK 1:
+    // antes da entrega, uma forja lenta atrasava o HITL em minutos.
+    try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }
+    catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
   } catch(e) { console.error((e as Error).message);process.exitCode=1; }
 }
 

@@ -23,11 +23,11 @@ import * as path from 'node:path';
 import { buscarBranch, exigirGit, git, gravarNaBranch, MudancaNaBranch } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { Host, HOSTS, lerRecibo, ORDEM_DOS_HOSTS } from './hosts';
-import { gravarConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { adquirirLockMonitor } from './monitor-lock';
 import { procurarSegredos } from './policies';
-import { Adesao, adesaoDaRede, ConfigDaRede, gravarConfigDaRede, lerConfigDaRede, pastaDaRede, publicacaoDesligada,
-  REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
+import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, idDaMaquina, lerConfigDaRede, pastaDaRede,
+  publicacaoDesligada, REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
 import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
   versaoDoBinario } from './rede-forja';
 import { projetosConhecidos } from './rede-projetos';
@@ -51,6 +51,8 @@ export interface ProjetoNoRetrato { nome: string; remoto: string | null; caminho
 export interface RetratoDaMaquina {
   contrato: typeof CONTRATO_DO_RETRATO;
   maquina: string;
+  /** B7: identificador aleatorio da instalacao; opcional no v1 (retratos antigos nao tem). */
+  id?: string;
   hostname: string;
   adesao: Adesao;
   forjas: ForjaNoRetrato[];
@@ -166,6 +168,8 @@ export interface OpcoesDoRetrato {
   /** O registro da RM-052; sem nada, `~/.orkastery/projetos.json`. */
   arquivoDeProjetos?: string;
   adesao?: Adesao;
+  /** A identidade desta instalacao (B7). */
+  id?: string;
 }
 
 function versaoDoAdaptador(host: Host, home: string): string | null {
@@ -225,6 +229,7 @@ export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: Re
   const retrato: RetratoDaMaquina = {
     contrato: CONTRATO_DO_RETRATO,
     maquina: nomeDaMaquina(opcoes.maquina),
+    ...(opcoes.id ? { id: opcoes.id } : {}),
     hostname: hostnameSeguro(),
     adesao: opcoes.adesao ?? adesaoDaRede().adesao ?? 'rede',
     forjas: identidades.map((i) => ({ forja: i.forja, host: i.host, cli: i.cli, versao: i.versao, usuario: i.usuario })),
@@ -264,7 +269,7 @@ export function achadoDeSegredo(texto: string): string | null {
 }
 
 const CAMPOS: Record<string, readonly string[]> = {
-  retrato: ['contrato', 'maquina', 'hostname', 'adesao', 'forjas', 'runtimes', 'hosts', 'projetos', 'versaoOrk', 'publicadoEm'],
+  retrato: ['contrato', 'maquina', 'id', 'hostname', 'adesao', 'forjas', 'runtimes', 'hosts', 'projetos', 'versaoOrk', 'publicadoEm'],
   forjas: ['forja', 'host', 'cli', 'versao', 'usuario'],
   runtimes: ['runtime', 'binario', 'versao'],
   hosts: ['host', 'versao', 'adaptador'],
@@ -353,8 +358,9 @@ export function normalizarRetrato(bruto: unknown): RetratoDaMaquina | null {
   const projetos = itens(r.projetos, (x) => ehTexto(x.nome, 80) && ehTextoOuNulo(x.remoto, 500) && ehTexto(x.caminho, 1024)
     ? { nome: x.nome as string, remoto: x.remoto as string | null, caminho: x.caminho as string } : null);
   if (!forjas || !runtimes || !hosts || !projetos) return null;
-  return { contrato: CONTRATO_DO_RETRATO, maquina: r.maquina, hostname: r.hostname, adesao: r.adesao, forjas, runtimes, hosts, projetos,
-    versaoOrk: r.versaoOrk, publicadoEm: r.publicadoEm };
+  if (r.id !== undefined && !ehIdDeMaquina(r.id)) return null;
+  return { contrato: CONTRATO_DO_RETRATO, maquina: r.maquina, ...(r.id !== undefined ? { id: r.id } : {}), hostname: r.hostname,
+    adesao: r.adesao, forjas, runtimes, hosts, projetos, versaoOrk: r.versaoOrk, publicadoEm: r.publicadoEm };
 }
 
 /**
@@ -421,17 +427,22 @@ function configurarCache(casa: CasaDaRede, url: string, helper: string | null, m
   }
   const semHooks = path.join(dir, '.git', 'sem-hooks');
   fs.mkdirSync(semHooks, { recursive: true });
-  const config = (chave: string, valor: string) => exigirGit(dir, ['config', chave, valor], PREFIXO);
+  // B6: so grava o que mudou; leitura e publicacao simultaneas nao disputam a config a cada chamada.
+  const config = (chave: string, valor: string) => {
+    if (git(dir, ['config', '--get', chave]).stdout.replace(/\n$/, '') !== valor) exigirGit(dir, ['config', chave, valor], PREFIXO);
+  };
   config('remote.origin.url', url);
   config('core.hooksPath', semHooks);
   config('commit.gpgsign', 'false');
-  config('user.name', maquina);
-  config('user.email', `${nomeSeguro(maquina)}@rede.orkastery.invalid`);
+  config('user.name', identidadeDoGit(maquina).nome);
+  config('user.email', identidadeDoGit(maquina).email);
   if (helper && /^https?:\/\//i.test(url)) {
     const chave = `credential.${new URL(url).origin}.helper`;
-    git(dir, ['config', '--unset-all', chave]);
-    exigirGit(dir, ['config', '--add', chave, ''], PREFIXO);
-    exigirGit(dir, ['config', '--add', chave, helper], PREFIXO);
+    if (git(dir, ['config', '--get-all', chave]).stdout !== `\n${helper}\n`) {
+      git(dir, ['config', '--unset-all', chave]);
+      exigirGit(dir, ['config', '--add', chave, ''], PREFIXO);
+      exigirGit(dir, ['config', '--add', chave, helper], PREFIXO);
+    }
   }
   return dir;
 }
@@ -445,8 +456,14 @@ export function identidadeDoGit(maquina: string): IdentidadeDoGit {
 // Publicar, entrar e sair.
 // ---------------------------------------------------------------------------
 
-/** A ultima publicacao desta maquina: assinatura, casa (ref e forja) e os projetos, que viram a reserva da D7. */
-export interface MarcaDaRede { assinatura: string; em: string; commit: string; casa: string; forja: NomeDaForja; maquina: string; projetos: ProjetoNoRetrato[] }
+/**
+ * A ultima publicacao desta maquina: assinatura, casa (ref e forja), os projetos (a reserva da D7) e
+ * as forjas lidas, que deixam o atalho "sem mudanca" decidir sem chamar a forja (M4 do CHECK 1).
+ */
+export interface MarcaDaRede {
+  assinatura: string; em: string; commit: string; casa: string; forja: NomeDaForja; maquina: string;
+  projetos: ProjetoNoRetrato[]; forjas?: ForjaNoRetrato[];
+}
 const arquivoDaMarca = () => path.join(pastaDaRede(), 'publicada.json');
 
 export function lerMarcaDaRede(): MarcaDaRede | null {
@@ -464,6 +481,8 @@ export interface OpcoesDaPublicacao extends OpcoesDaCasa {
   agora?: string;
   forcar?: boolean;
   arquivoDeProjetos?: string;
+  /** `ork network entrar --forcar`: toma o nome que outra instalacao usa (B7), com registro no commit. */
+  tomarNome?: boolean;
 }
 
 export interface ResultadoDaRede {
@@ -477,15 +496,17 @@ export interface ResultadoDaRede {
   descartados: Descarte[];
 }
 
+interface CasaConferida { casa: CasaDaRede; forja: Forja; url: string; criado: boolean; identidades: IdentidadeNaForja[] }
+
 /** A casa com o repositorio conferido: existe e e privado (D3). `criar` so no `ork network entrar`. */
-function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): { casa: CasaDaRede; forja: Forja; url: string; criado: boolean; identidades: IdentidadeNaForja[] } {
+function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferida {
   const r = resolverCasa(opcoes);
   if (!r.casa || !r.forja) throw new Error(`rede.sem-forja: ${r.motivo?.detalhe ?? 'nenhuma forja utilizavel'}`);
   let repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   let criado = false;
   if (!repo.existe) {
     if (!opcoes.criar) throw new Error(`rede.sem-repositorio: ${refDaCasa(r.casa)} ainda nao existe; ork network entrar o cria, privado`);
-    const login = r.identidades.find((i) => i.forja === r.forja!.nome)?.usuario;
+    const login = (r.identidades.find((i) => i.forja === r.forja!.nome && i.host === r.forja!.host) ?? r.forja.identidade()).usuario;
     if (r.casa.dono !== login) {
       throw new Error(`rede.repositorio-alheio: ${refDaCasa(r.casa)} nao existe e nao e do login ${login}; crie o repositorio privado na forja e rode de novo`);
     }
@@ -497,48 +518,57 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): { casa: Casa
   return { casa: r.casa, forja: r.forja, url: repo.url, criado, identidades: r.identidades };
 }
 
-/**
- * `ork network publicar`: grava o retrato desta maquina na casa. So membro publica. Retrato igual ao
- * ultimo, dentro da batida, nem chama a forja; `forcar` publica mesmo assim.
- */
-export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = {}): ResultadoDaRede & { criado: boolean } {
-  const adesao = adesaoDaRede();
-  if (!adesao.membro) throw new Error('rede.fora: esta maquina nao esta na rede; ork network entrar');
-  const amb = opcoes.amb ?? {};
-  const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
-  const casaPrevia = resolverCasa({ ...opcoes, identidades });
-  if (!casaPrevia.casa) throw new Error(`rede.sem-forja: ${casaPrevia.motivo?.detalhe ?? 'nenhuma forja utilizavel'}`);
-  const maquina = nomeDaMaquina(opcoes.maquina);
-  const marca = lerMarcaDaRede();
-  const mesmaCasa = marca?.casa === refDaCasa(casaPrevia.casa) && marca?.maquina === maquina;
-  const { retrato, descartados } = retratoComDescartes({ amb, maquina, diretorio: opcoes.diretorio, agora: opcoes.agora, identidades,
-    anteriores: mesmaCasa ? marca?.projetos : undefined, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: adesao.adesao ?? 'rede' });
-  exigirRetratoSeguro(retrato);
-  const assinatura = assinaturaDoRetrato(retrato);
-  if (!opcoes.forcar && mesmaCasa && marca?.assinatura === assinatura &&
-      Date.parse(retrato.publicadoEm) - Date.parse(marca.em) < PULSACAO_DA_REDE_MS) {
-    return { acao: 'sem-mudanca', maquina, casa: marca.casa, commit: marca.commit, tentativas: 0, criado: false, descartados };
-  }
-  const { casa, forja, url, criado } = casaConferida({ ...opcoes, identidades });
-  const cache = prepararCache(casa, url, forja.helperDeCredencial(), maquina);
+const TRAVA = () => path.join(pastaDaRede(), 'publicar.lock');
+
+/** A trava de escrita na casa desta maquina, esperando ate `esperaMs` quando outra escrita esta em curso. */
+function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok: false } {
   fs.mkdirSync(pastaDaRede(), { recursive: true });
-  const trava = adquirirLockMonitor(path.join(pastaDaRede(), 'publicar.lock'));
-  if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, criado, descartados };
+  const limite = Date.now() + esperaMs;
+  for (;;) {
+    const trava = adquirirLockMonitor(TRAVA());
+    if (trava.ok) return trava;
+    if (Date.now() >= limite) return { ok: false };
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  }
+}
+
+/**
+ * Grava o retrato na casa, sob a trava desta maquina. B6: a adesao e reconferida DENTRO da trava
+ * (um `sair` no meio nao ve o retrato reaparecer). B7: o arquivo com este nome que for de outra
+ * instalacao (outro `id`) nao e regravado, salvo `tomarNome`.
+ */
+function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, descartados: Descarte[],
+  opcoes: { exigirAdesao: boolean; tomarNome?: boolean }): ResultadoDaRede {
+  const { casa, forja, url } = conferida;
+  const maquina = retrato.maquina;
+  const trava = travarCasa(0);
+  if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, descartados };
   try {
+    if (opcoes.exigirAdesao && !adesaoDaRede().membro) throw new Error('rede.fora: esta maquina saiu da rede; nada foi publicado');
+    const cache = prepararCache(casa, url, forja.helperDeCredencial(), maquina);
+    const assinatura = assinaturaDoRetrato(retrato);
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
       if (!atualizado) throw new Error(`rede.sem-leitura: nao consegui ler ${refDaCasa(casa)}; publicar exige rede`);
-      const outros = retratosDaPonta(cache, ponta).retratos.filter((r) => r.maquina !== maquina);
+      const { retratos } = retratosDaPonta(cache, ponta);
+      const atual = retratos.find((r) => r.maquina === maquina);
+      const alheio = !!atual?.id && atual.id !== retrato.id;
+      if (alheio && !opcoes.tomarNome) {
+        throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}" (hostname ${atual!.hostname}, batida ` +
+          `${formatarDataHora(atual!.publicadoEm)}); escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar`);
+      }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
-        { caminho: PAINEL_DA_REDE, conteudo: painelDaRede([...outros, retrato]) },
+        { caminho: PAINEL_DA_REDE, conteudo: painelDaRede([...retratos.filter((r) => r.maquina !== maquina), retrato]) },
       ];
       exigirSoOProprioRetrato(maquina, mudancas);
-      const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas,
-        `rede: ${maquina} publicou o retrato`, PREFIXO), identidadeDoGit(maquina));
+      const mensagem = alheio ? `rede: ${maquina} publicou o retrato, tomando o nome de outra instalacao` : `rede: ${maquina} publicou o retrato`;
+      const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas, mensagem, PREFIXO),
+        identidadeDoGit(maquina));
       if (commit) {
-        gravarMarca({ assinatura, em: retrato.publicadoEm, commit, casa: refDaCasa(casa), forja: casa.forja, maquina, projetos: retrato.projetos });
-        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, criado, descartados };
+        gravarMarca({ assinatura, em: retrato.publicadoEm, commit, casa: refDaCasa(casa), forja: casa.forja, maquina,
+          projetos: retrato.projetos, forjas: retrato.forjas });
+        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, descartados };
       }
     }
     throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
@@ -546,14 +576,45 @@ export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = 
 }
 
 /**
+ * `ork network publicar`: grava o retrato desta maquina na casa. So membro publica. M4 do CHECK 1:
+ * retrato igual ao ultimo, dentro da batida, nao chama a forja nenhuma vez (as forjas vem da marca);
+ * `forcar` publica mesmo assim.
+ */
+export function publicarRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaRede {
+  const adesao = adesaoDaRede();
+  if (!adesao.membro) throw new Error('rede.fora: esta maquina nao esta na rede; ork network entrar');
+  const amb = opcoes.amb ?? {};
+  const maquina = nomeDaMaquina(opcoes.maquina);
+  const id = idDaMaquina();
+  const agora = opcoes.agora ?? new Date().toISOString();
+  const marca = lerMarcaDaRede();
+  const base = { amb, maquina, id, diretorio: opcoes.diretorio, agora, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: adesao.adesao ?? 'rede' } as const;
+  const dentroDaBatida = !!marca && marca.maquina === maquina && Date.parse(agora) - Date.parse(marca.em) < PULSACAO_DA_REDE_MS;
+  if (!opcoes.forcar && dentroDaBatida && marca!.forjas && !opcoes.forja && !opcoes.repositorio) {
+    const barato = retratoComDescartes({ ...base, identidades: marca!.forjas, anteriores: marca!.projetos });
+    if (assinaturaDoRetrato(barato.retrato) === marca!.assinatura) {
+      return { acao: 'sem-mudanca', maquina, casa: marca!.casa, commit: marca!.commit, tentativas: 0, descartados: barato.descartados };
+    }
+  }
+  const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
+  const conferida = casaConferida({ ...opcoes, identidades });
+  const mesmaCasa = marca?.casa === refDaCasa(conferida.casa) && marca?.maquina === maquina;
+  const { retrato, descartados } = retratoComDescartes({ ...base, identidades, anteriores: mesmaCasa ? marca?.projetos : undefined });
+  exigirRetratoSeguro(retrato);
+  if (!opcoes.forcar && mesmaCasa && dentroDaBatida && marca?.assinatura === assinaturaDoRetrato(retrato)) {
+    return { acao: 'sem-mudanca', maquina, casa: marca.casa, commit: marca.commit, tentativas: 0, descartados };
+  }
+  return gravarNaCasa(conferida, retrato, descartados, { exigirAdesao: true, tomarNome: false });
+}
+
+/**
  * D9: a batida do pulse (e o `ork network publicar --silencioso` dos eventos). So membro, so com a
- * publicacao ligada, no maximo uma tentativa a cada 15 minutos. `null` quando nao era a vez.
+ * publicacao ligada, no maximo uma tentativa a cada 14 minutos. `null` quando nao era a vez.
  */
 export function publicarRedeNaBatida(opcoes: OpcoesDaPublicacao & { agoraMs?: number } = {}): ResultadoDaRede | null {
   if (publicacaoDesligada(opcoes.amb?.env ?? process.env) || !adesaoDaRede().membro) return null;
   if (!tomarVezDePublicar(opcoes.agoraMs)) return null;
-  const { criado: _criado, ...r } = publicarRede({ ...opcoes, criar: false });
-  return r;
+  return publicarRede(opcoes);
 }
 
 export interface ResultadoDaEntrada {
@@ -563,47 +624,79 @@ export interface ResultadoDaEntrada {
   publicacao: ResultadoDaRede;
 }
 
+const NOME_DE_MAQUINA = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
 /**
- * `ork network entrar`: nome da maquina (opcional), casa conferida (criada privada quando falta e
- * e do proprio login), adesao gravada e o primeiro retrato publicado.
+ * `ork network entrar`. M2 do CHECK 1: atomico do ponto de vista da maquina. Confere (e cria,
+ * privada) a casa, publica o primeiro retrato e SO ENTAO grava o nome e a adesao; se a publicacao
+ * falha, nada muda aqui. M3: o nome que vale e gravado, como no `ork fabrica entrar`: `--maquina`,
+ * senao o ja gravado, senao `ORK_MAQUINA` ou o hostname; assim o cron publica com o mesmo nome.
  */
 export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrada {
-  if (opcoes.maquina) gravarConfigDaMaquina({ nome: opcoes.maquina });
+  const maquina = (opcoes.maquina ?? '').trim() || lerConfigDaMaquina()?.nome || nomeDaMaquina();
+  if (!NOME_DE_MAQUINA.test(maquina)) {
+    throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`);
+  }
   const amb = opcoes.amb ?? {};
   const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
-  const { casa, criado } = casaConferida({ ...opcoes, identidades, criar: true });
+  const conferida = casaConferida({ ...opcoes, identidades, criar: true });
+  const { retrato, descartados } = retratoComDescartes({ amb, maquina, id: idDaMaquina(), diretorio: opcoes.diretorio,
+    agora: opcoes.agora, identidades, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: 'rede' });
+  exigirRetratoSeguro(retrato);
+  const publicacao = gravarNaCasa(conferida, retrato, descartados, { exigirAdesao: false, tomarNome: opcoes.tomarNome });
+  if (publicacao.acao === 'ocupado') {
+    throw new Error('rede.ocupado: outra publicacao desta maquina esta em andamento; rode ork network entrar de novo em instantes');
+  }
+  gravarConfigDaMaquina({ nome: maquina });
+  const { casa } = conferida;
   const config = gravarConfigDaRede({ membro: true, forja: casa.forja, host: casa.host, dono: casa.dono, repositorio: casa.repositorio });
-  const { criado: _criado, ...publicacao } = publicarRede({ ...opcoes, identidades, forja: undefined, repositorio: undefined, forcar: true });
-  return { config, casa: { ...casa, origem: 'rede.json' }, criado, publicacao };
+  return { config, casa: { ...casa, origem: 'rede.json' }, criado: conferida.criado, publicacao };
 }
 
-/** `ork network sair`: a adesao vira `membro: false` e o retrato desta maquina sai da casa. */
-export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): { maquina: string; casa: string | null; commit: string | null } {
+export interface ResultadoDaSaida {
+  maquina: string;
+  casa: string | null;
+  commit: string | null;
+  /** B7: o arquivo com este nome e de outra instalacao; nada foi removido. */
+  alheio: boolean;
+}
+
+/**
+ * `ork network sair`: a adesao vira `membro: false` e o retrato desta maquina sai da casa. B6: sob a
+ * trava desta maquina (espera a publicacao em curso). B7: nunca remove o retrato de outra instalacao.
+ */
+export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   const maquina = nomeDaMaquina(opcoes.maquina);
   const r = resolverCasa(opcoes);
   gravarConfigDaRede({ membro: false, ...(r.casa ? { forja: r.casa.forja, host: r.casa.host, dono: r.casa.dono, repositorio: r.casa.repositorio } : {}) });
   try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
-  if (!r.casa || !r.forja) return { maquina, casa: null, commit: null };
+  if (!r.casa || !r.forja) return { maquina, casa: null, commit: null, alheio: false };
   const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
-  if (!repo.existe || !repo.url) return { maquina, casa: refDaCasa(r.casa), commit: null };
-  const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
-  const proprio = arquivoDoRetrato(maquina);
-  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-    const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
-    if (!atualizado) throw new Error(`rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${refDaCasa(r.casa)} para tirar o retrato; rode ork network sair de novo com rede`);
-    const { retratos } = retratosDaPonta(cache, ponta);
-    const temArquivo = !!ponta && comGitIsolado(() => git(cache, ['cat-file', '-e', `${ponta}:${proprio}`]).ok);
-    if (!temArquivo) return { maquina, casa: refDaCasa(r.casa), commit: null };
-    const mudancas: MudancaNaBranch[] = [
-      { caminho: proprio, conteudo: null },
-      { caminho: PAINEL_DA_REDE, conteudo: painelDaRede(retratos.filter((x) => x.maquina !== maquina)) },
-    ];
-    exigirSoOProprioRetrato(maquina, mudancas);
-    const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas, `rede: ${maquina} saiu`, PREFIXO),
-      identidadeDoGit(maquina));
-    if (commit) return { maquina, casa: refDaCasa(r.casa), commit };
-  }
-  throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+  if (!repo.existe || !repo.url) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
+  const trava = travarCasa(30000);
+  if (!trava.ok) throw new Error('rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa; rode ork network sair de novo');
+  try {
+    const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
+    const proprio = arquivoDoRetrato(maquina);
+    const id = idDaMaquina();
+    for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+      const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
+      if (!atualizado) throw new Error(`rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${refDaCasa(r.casa)} para tirar o retrato; rode ork network sair de novo com rede`);
+      const { retratos } = retratosDaPonta(cache, ponta);
+      const atual = retratos.find((x) => x.maquina === maquina);
+      if (!atual) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
+      if (atual.id && atual.id !== id) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true };
+      const mudancas: MudancaNaBranch[] = [
+        { caminho: proprio, conteudo: null },
+        { caminho: PAINEL_DA_REDE, conteudo: painelDaRede(retratos.filter((x) => x.maquina !== maquina)) },
+      ];
+      exigirSoOProprioRetrato(maquina, mudancas);
+      const commit = comGitIsolado(() => gravarNaBranch(cache, 'origin', BRANCH_DA_REDE, ponta, mudancas, `rede: ${maquina} saiu`, PREFIXO),
+        identidadeDoGit(maquina));
+      if (commit) return { maquina, casa: refDaCasa(r.casa), commit, alheio: false };
+    }
+    throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
+  } finally { trava.liberar(); }
 }
 
 // ---------------------------------------------------------------------------

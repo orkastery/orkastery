@@ -10,6 +10,7 @@
  * rede sem refazer nada. `ork network sair` grava `membro: false`, que vence a heranca. O manifesto
  * do projeto nao conta: um time nao inscreve a maquina de ninguem na rede pessoal.
  */
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -97,6 +98,27 @@ export function adesaoDaRede(): EstadoDaAdesao {
   const herdada = lerConfigDaMaquina()?.fabricaCompartilhada === true;
   return { membro: herdada, adesao: herdada ? 'fabrica' : null, config: null };
 }
+
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * B7 do CHECK 1: um identificador aleatorio desta instalacao, em `~/.orkastery/rede/maquina-id`,
+ * criado na primeira publicacao. Vai no retrato para duas maquinas com o mesmo nome (hostname
+ * `ubuntu`, o corte em 64 caracteres) nao regravarem o arquivo uma da outra. Nao identifica pessoa.
+ */
+export function idDaMaquina(): string {
+  const arquivo = path.join(pastaDaRede(), 'maquina-id');
+  const ler = () => { try { const id = fs.readFileSync(arquivo, 'utf8').trim(); return ID.test(id) ? id : null; } catch { return null; } };
+  const lido = ler();
+  if (lido) return lido;
+  fs.mkdirSync(pastaDaRede(), { recursive: true });
+  const novo = randomUUID();
+  // `wx`: duas publicacoes simultaneas na primeira vez; uma cria, a outra le a que ficou.
+  try { fs.writeFileSync(arquivo, novo, { mode: 0o600, flag: 'wx' }); return novo; }
+  catch { const outro = ler(); if (outro) return outro; throw new Error('rede.id: nao consegui gravar nem ler ~/.orkastery/rede/maquina-id'); }
+}
+
+export const ehIdDeMaquina = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
 
 /** Publicacao automatica desligada pelo ambiente (testes, `ork eval`, demo). */
 export function publicacaoDesligada(env: NodeJS.ProcessEnv = process.env): boolean {

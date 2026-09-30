@@ -502,7 +502,8 @@ Uso: ork <comando> [argumentos]
   network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
                                             com a fonte, as lacunas e o que nao foi lido (RM-053)
   network entrar [--maquina NOME]           Esta maquina entra na rede: repositorio privado <usuario>/orkastery-network
-        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato
+        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato;
+        [--forcar]                               --forcar toma um nome que outra instalacao usa (fica no commit)
   network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
                                             entrar, sai sozinho na batida do pulse e nos eventos de thread
   network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
@@ -2237,7 +2238,7 @@ function comandoNetwork(args: Args): number {
   const sub = args.posicionais[1];
   const diretorio = process.cwd();
   const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
-    '[--repositorio [DONO/]NOME] | network publicar [--forcar] [--json] | network sair';
+    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair';
   const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
   if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
       (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
@@ -2245,7 +2246,8 @@ function comandoNetwork(args: Args): number {
     return 2;
   }
   if (sub === 'entrar') {
-    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio });
+    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio,
+      tomarNome: args.opcoes.forcar === true });
     console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
       `privado${r.criado ? ', criado agora' : ''}).`);
     console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
@@ -2262,7 +2264,9 @@ function comandoNetwork(args: Args): number {
     const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
     console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
       ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
-      : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
+      : r.alheio
+        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.`
+        : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
     if (lerConfigDaMaquina()?.fabricaCompartilhada) {
       console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
     }
