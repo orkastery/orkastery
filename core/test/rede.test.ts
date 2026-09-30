@@ -24,6 +24,7 @@ import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
 import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { exec } from '../src/util';
+import { varrerEDepoisPublicarNaRede } from '../src/pulse-delivery';
 import { dirTemporario, projetoTemporario } from './apoio';
 
 /** A forja e os runtimes falsos: um script so, que decide pelo nome com que foi chamado. */
@@ -532,7 +533,7 @@ test('RM-053 migracao: maquina que so publicou em ork/fabrica-estado aparece com
     const velha = status.membros[1];
     assert.deepEqual([velha.pessoa, velha.adesao, velha.projetos], ['Julio', null, [{ nome: 'orkastery', remoto: null, caminho: null }]]);
     assert.deepEqual(status.fontes.map((x) => [x.fonte, x.projeto ?? null, x.atualizado]), [['rede', null, true], ['fabrica-estado', 'orkastery', true]]);
-    assert.match(textoDaRede(status), /vps-velha · vista só na fábrica de orkastery; não publica na rede/);
+    assert.match(textoDaRede(status), /vps-velha · vista só na fábrica de orkastery; sem retrato na rede/);
     // De qualquer outro diretorio, o projeto vem do ultimo retrato desta maquina: a vps-velha continua visivel.
     const deLonge = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a', diretorio: f.home }));
     assert.deepEqual(deLonge.membros.map((m) => m.maquina), ['pc-a', 'vps-velha']);
@@ -1030,7 +1031,7 @@ test('RM-053 migracao: quem saiu da rede mas segue na fabrica aparece como vista
     const status = naMaquina(ub, () => { entrarNaRede({ amb, maquina: 'pc-b', diretorio: p.dir }); return lerRede({ amb, maquina: 'pc-b', diretorio: p.dir }); });
     const a = status.membros.find((m) => m.maquina === 'pc-a');
     assert.deepEqual([a?.origem, a?.adesao], ['fabrica-estado', null]);
-    assert.match(textoDaRede(status), /^pc-a · vista só na fábrica de orkastery; não publica na rede · batida /m);
+    assert.match(textoDaRede(status), /^pc-a · vista só na fábrica de orkastery; sem retrato na rede · batida /m);
   } finally { f.limpar(); p.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
 });
 
@@ -1053,11 +1054,17 @@ test('RM-053 forja: com URL HTTPS, o git do cache pergunta so ao helper da propr
       const casa = { forja: 'github' as const, host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network', origem: 'rede.json' as const };
       const cache = prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
       assert.equal(exec('git', ['config', '--local', '--get-all', 'credential.https://github.com.helper'], cache).stdout, `\n${gh.helperDeCredencial()}\n`);
-      // Idempotente mesmo com um helper na config global da pessoa: a segunda chamada nao regrava nada.
-      const config = path.join(cache, '.git', 'config');
-      const antes = [fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs];
-      prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
-      assert.deepEqual([fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs], antes);
+      // T1 da revisao 2: idempotente mesmo com a secao que o `gh auth setup-git` grava na config global da
+      // pessoa, simulada aqui (o teste nao depende do ~/.gitconfig de quem roda).
+      const setupGit = path.join(raiz, 'gitconfig-setup-git');
+      fs.writeFileSync(setupGit, `[credential "https://github.com"]\n\thelper =\n\thelper = !/usr/local/bin/gh auth git-credential\n`);
+      comAmbiente({ GIT_CONFIG_GLOBAL: setupGit, GIT_CONFIG_NOSYSTEM: '1' }, () => {
+        prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
+        const config = path.join(cache, '.git', 'config');
+        const antes = [fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs];
+        prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
+        assert.deepEqual([fs.readFileSync(config, 'utf8'), fs.statSync(config).mtimeMs], antes, 'a segunda chamada nao regrava nada');
+      });
       spawnSync('git', ['credential', 'fill'], { cwd: cache, encoding: 'utf8', timeout: 20000,
         input: 'protocol=https\nhost=github.com\npath=pessoa-teste/orkastery-network.git\n\n',
         env: { ...f.env, GIT_CONFIG_GLOBAL: global, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', HOME: f.home } });
@@ -1250,4 +1257,35 @@ test('RM-053 isolamento: sem askpass nem config injetada por hook; o ssh de quem
       });
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: trava orfa sem pid sai sozinha; a com pid vivo nunca (S11)', () => {
+  const f = forjaFalsa('migracao-trava-orfa');
+  const u = dirTemporario('rede-trava-orfa');
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const trava = path.join(u, 'rede', 'publicar.lock');
+      fs.mkdirSync(trava, { recursive: true });
+      const velho = (Date.now() - 10 * 60 * 1000) / 1000;
+      fs.utimesSync(trava, velho, velho);
+      assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'publicou', 'a orfa de 10 min saiu');
+      fs.mkdirSync(trava, { recursive: true });
+      assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'ocupado', 'orfa recente ainda e respeitada');
+      fs.writeFileSync(path.join(trava, 'pid'), String(process.pid));
+      fs.utimesSync(trava, velho, velho);
+      assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'ocupado', 'com pid vivo, nunca');
+      assert.throws(() => entrarNaRede({ amb, maquina: 'pc-a' }), new RegExp(`rede\\.ocupado: .*\\(${trava.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\)`));
+      fs.rmSync(trava, { recursive: true, force: true });
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: no pulse, a rede vem depois da varredura, mesmo quando a varredura falha (S13)', () => {
+  const ordem: string[] = [];
+  assert.equal(varrerEDepoisPublicarNaRede(() => { ordem.push('varrer'); return 7; }, () => { ordem.push('rede'); }), 7);
+  assert.throws(() => varrerEDepoisPublicarNaRede(() => { ordem.push('varrer'); throw new Error('varredura caiu'); },
+    () => { ordem.push('rede'); throw new Error('forja fora'); }), /varredura caiu/);
+  assert.deepEqual(ordem, ['varrer', 'rede', 'varrer', 'rede']);
 });

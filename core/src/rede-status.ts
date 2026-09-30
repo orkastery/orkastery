@@ -253,7 +253,7 @@ export function textoDaRede(s: StatusDaRede): string {
     const esta = m.maquina !== s.estaMaquina.maquina ? ''
       : m.origem === 'rede' && s.estaMaquina.nomeEmUso ? ' (outra instalação com o nome desta máquina)' : ' (esta máquina)';
     const origem = m.origem === 'rede' ? `rede${m.adesao === 'fabrica' ? ', adesão herdada da fábrica' : ''}`
-      : `vista só na fábrica de ${m.projetos.map((p) => p.nome).join(', ')}; não publica na rede`;
+      : `vista só na fábrica de ${m.projetos.map((p) => p.nome).join(', ')}; sem retrato na rede`;
     linhas.push(`${m.maquina}${esta} · ${origem} · batida ${formatarDataHora(m.publicadoEm)} (há ${duracao(m.idadeMs)})`);
     const ficha = [m.hostname ? `hostname ${m.hostname}` : null, m.versaoOrk ? `ork ${m.versaoOrk}` : null,
       ...m.forjas.map((f) => `${f.forja}: ${f.usuario ?? 'sem login'}`), m.pessoa ? `pessoa ${m.pessoa}` : null].filter(Boolean);

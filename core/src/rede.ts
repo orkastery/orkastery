@@ -560,13 +560,26 @@ function identidadesComACasa(identidades: IdentidadeNaForja[], forja: Forja): Id
 
 const TRAVA = () => path.join(pastaDaRede(), 'publicar.lock');
 
-/** A trava de escrita na casa desta maquina, esperando ate `esperaMs` quando outra escrita esta em curso. */
+/** Uma trava sem `pid` ha mais que isto e orfa: quem a criou caiu entre o `mkdir` e a gravacao do pid. */
+const TRAVA_ORFA_MS = 5 * 60 * 1000;
+
+/**
+ * A trava de escrita na casa desta maquina, esperando ate `esperaMs` quando outra escrita esta em
+ * curso. S11 da revisao 2: a trava orfa (sem `pid`, velha) sai uma vez, em vez de devolver "ocupado"
+ * para sempre; a com `pid` vivo nunca e tirada.
+ */
 function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok: false } {
   fs.mkdirSync(pastaDaRede(), { recursive: true });
   const limite = Date.now() + esperaMs;
+  let tirouOrfa = false;
   for (;;) {
     const trava = adquirirLockMonitor(TRAVA());
     if (trava.ok) return trava;
+    if (!trava.ativo && !tirouOrfa) {
+      let orfa = false;
+      try { orfa = !fs.existsSync(path.join(TRAVA(), 'pid')) && Date.now() - fs.statSync(TRAVA()).mtimeMs > TRAVA_ORFA_MS; } catch { /* sumiu */ }
+      if (orfa) { tirouOrfa = true; fs.rmSync(TRAVA(), { recursive: true, force: true }); continue; }
+    }
     if (Date.now() >= limite) return { ok: false };
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
   }
@@ -699,7 +712,7 @@ export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrad
   exigirRetratoSeguro(retrato);
   const publicacao = gravarNaCasa(conferida, retrato, descartados, { exigirAdesao: false, tomarNome: opcoes.tomarNome });
   if (publicacao.acao === 'ocupado') {
-    throw new Error('rede.ocupado: outra publicacao desta maquina esta em andamento; rode ork network entrar de novo em instantes');
+    throw new Error(`rede.ocupado: outra publicacao desta maquina esta em andamento (${TRAVA()}); rode ork network entrar de novo em instantes`);
   }
   gravarConfigDaMaquina({ nome: maquina });
   const { casa } = conferida;
@@ -730,7 +743,7 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   if (!repo.existe || !repo.url) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
   const trava = travarCasa(30000);
-  if (!trava.ok) throw new Error('rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa; rode ork network sair de novo');
+  if (!trava.ok) throw new Error(`rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${TRAVA()}); rode ork network sair de novo`);
   try {
     const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
     const proprio = arquivoDoRetrato(maquina);

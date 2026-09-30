@@ -228,6 +228,16 @@ export function varrerPulse(opcoes: {
   finally { trava.liberar(); }
 }
 
+/**
+ * RM-053: a entrega ao dono vem primeiro, e a rede depois, mesmo quando a varredura falha. M4 do
+ * CHECK 1: antes da entrega, uma forja lenta atrasava o HITL em minutos. S13 da revisao 2: sem o
+ * `finally`, uma excecao na varredura suprimia tambem a batida da rede.
+ */
+export function varrerEDepoisPublicarNaRede<T>(varrer: () => T, publicar: () => void): T {
+  try { return varrer(); }
+  finally { try { publicar(); } catch { /* a rede registra a propria falha no rede.log */ } }
+}
+
 if(require.main===module) {
   try {
     const raiz=process.argv[2]??process.cwd();
@@ -251,13 +261,13 @@ if(require.main===module) {
     }
     const outrasMaquinas=compartilhada
       ? ()=>resumoDasOutrasMaquinas(lerFabrica(carregado.raiz,{remoto,semRemoto:true}),nomeDaMaquina()) : undefined;
-    const r=varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas});
-    console.log(JSON.stringify(r));process.exitCode=r.code;
     // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
-    // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora). M4 do CHECK 1:
-    // antes da entrega, uma forja lenta atrasava o HITL em minutos.
-    try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }
-    catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
+    // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora).
+    const r=varrerEDepoisPublicarNaRede(()=>varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas}),()=>{
+      try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }
+      catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
+    });
+    console.log(JSON.stringify(r));process.exitCode=r.code;
   } catch(e) { console.error((e as Error).message);process.exitCode=1; }
 }
 
