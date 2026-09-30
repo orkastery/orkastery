@@ -56,8 +56,12 @@ export function limparRemoto(bruto: unknown): string | null {
       return u.toString();
     } catch { return null; }
   }
-  // Forma scp do git (`git@host:dono/repo.git`): o usuario e o de transporte, nunca segredo; senha nao cabe aqui.
-  if (/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/.test(url) || path.isAbsolute(url)) return url;
+  // Forma scp do git (`git@host:dono/repo.git`): vira `ssh://host/dono/repo.git`, sem o usuario de transporte.
+  // Com o `@`, um host de dois pontos (`git@gitlab.empresa.com:...`) tinha cara de e-mail e travava a
+  // publicacao inteira (A1 do CHECK 1).
+  const scp = /^(?:[A-Za-z0-9._-]+@)?([A-Za-z0-9.-]+):(?!\/\/)([^\s]+)$/.exec(url);
+  if (scp) return `ssh://${scp[1]}/${scp[2].replace(/^\/+/, '')}`;
+  if (path.isAbsolute(url)) return url;
   return null;
 }
 

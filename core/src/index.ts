@@ -2250,6 +2250,9 @@ function comandoNetwork(args: Args): number {
       `privado${r.criado ? ', criado agora' : ''}).`);
     console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
     console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
+    for (const d of r.publicacao.descartados) {
+      console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
       console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
     }
@@ -2278,6 +2281,9 @@ function comandoNetwork(args: Args): number {
       : r.acao === 'ocupado'
         ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
         : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    if (args.opcoes.json !== true) {
+      for (const d of r.descartados) console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
     return 0;
   }
   if (sub !== undefined && sub !== 'status') {

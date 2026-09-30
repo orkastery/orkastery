@@ -178,8 +178,21 @@ function hostnameSeguro(): string {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(bruto) ? bruto : bruto.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 253) || 'desconhecido';
 }
 
+/** Um projeto que ficou fora do retrato: o campo e o padrao, nunca o valor. */
+export interface Descarte { campo: string; padrao: string }
+
 /** O retrato desta maquina, montado so com os campos da lista de permissao (D5). */
 export function retratoDaMaquina(opcoes: OpcoesDoRetrato = {}): RetratoDaMaquina {
+  return retratoComDescartes(opcoes).retrato;
+}
+
+/**
+ * O retrato e os projetos que ficaram fora dele. Projeto vem de fora do nucleo (o registro da
+ * RM-052, o cwd, o ultimo retrato): um valor dele com cara de segredo tira SO aquele projeto, com
+ * aviso, em vez de travar a publicacao da maquina para sempre (A1 do CHECK 1). O que o nucleo monta
+ * (maquina, hostname, forjas, runtimes, hosts) continua falhando fechado em `exigirRetratoSeguro`.
+ */
+export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: RetratoDaMaquina; descartados: Descarte[] } {
   const amb = opcoes.amb ?? {};
   const home = amb.home ?? os.homedir();
   const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
@@ -200,7 +213,16 @@ export function retratoDaMaquina(opcoes: OpcoesDoRetrato = {}): RetratoDaMaquina
     return b ? [{ host, versao: b.versao, adaptador: versaoDoAdaptador(host, home) }] : [];
   });
   const { projetos } = projetosConhecidos({ arquivo: opcoes.arquivoDeProjetos, diretorio: opcoes.diretorio, anteriores: opcoes.anteriores });
-  return {
+  const descartados: Descarte[] = [];
+  const presentes = projetos.filter((p) => p.presente).map((p) => ({ nome: p.nome, remoto: p.remoto, caminho: p.caminho }));
+  const limpos = presentes.filter((p, i) => {
+    for (const campo of ['nome', 'remoto', 'caminho'] as const) {
+      const padrao = typeof p[campo] === 'string' ? achadoDeSegredo(p[campo] as string) : null;
+      if (padrao) { descartados.push({ campo: `projetos[${i}].${campo}`, padrao }); return false; }
+    }
+    return true;
+  });
+  const retrato: RetratoDaMaquina = {
     contrato: CONTRATO_DO_RETRATO,
     maquina: nomeDaMaquina(opcoes.maquina),
     hostname: hostnameSeguro(),
@@ -208,10 +230,11 @@ export function retratoDaMaquina(opcoes: OpcoesDoRetrato = {}): RetratoDaMaquina
     forjas: identidades.map((i) => ({ forja: i.forja, host: i.host, cli: i.cli, versao: i.versao, usuario: i.usuario })),
     runtimes,
     hosts,
-    projetos: projetos.filter((p) => p.presente).map((p) => ({ nome: p.nome, remoto: p.remoto, caminho: p.caminho })),
+    projetos: limpos,
     versaoOrk: VERSAO_DO_ORK,
     publicadoEm: opcoes.agora ?? new Date().toISOString(),
   };
+  return { retrato, descartados };
 }
 
 /** O que muda o retrato (sem o carimbo de hora): retrato igual nao precisa de push. */
@@ -234,6 +257,11 @@ const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
   { nome: 'arquivo de credencial', regex: /(?:\.credentials\.json|auth\.json|hosts\.ya?ml|\.git-credentials|\.netrc|\.npmrc|\.pypirc|id_(?:rsa|ed25519|ecdsa)\b|[/\\]\.ssh[/\\]|\.config[/\\](?:gh|glab-cli)\b)/i },
   { nome: 'e-mail de conta', regex: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b(?!:)/ },
 ];
+
+/** O nome do padrao de segredo que casa no texto, ou `null`: o catalogo do nucleo e o da rede. */
+export function achadoDeSegredo(texto: string): string | null {
+  return procurarSegredos(texto)[0]?.nome ?? PADROES_DA_REDE.find((p) => p.regex.test(texto))?.nome ?? null;
+}
 
 const CAMPOS: Record<string, readonly string[]> = {
   retrato: ['contrato', 'maquina', 'hostname', 'adesao', 'forjas', 'runtimes', 'hosts', 'projetos', 'versaoOrk', 'publicadoEm'],
@@ -263,7 +291,7 @@ export function exigirRetratoSeguro(r: RetratoDaMaquina): void {
   }
   const visitar = (v: unknown, onde: string): void => {
     if (typeof v === 'string') {
-      const achado = procurarSegredos(v)[0]?.nome ?? PADROES_DA_REDE.find((p) => p.regex.test(v))?.nome;
+      const achado = achadoDeSegredo(v);
       if (achado) throw new Error(`rede.segredo: padrao "${achado}" em ${onde}; nada foi publicado (valor omitido de proposito)`);
     } else if (Array.isArray(v)) v.forEach((x, i) => visitar(x, `${onde}[${i}]`));
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visitar(x, onde ? `${onde}.${k}` : k);
@@ -403,6 +431,8 @@ export interface ResultadoDaRede {
   casa: string;
   commit: string | null;
   tentativas: number;
+  /** Projetos que ficaram fora do retrato por ter valor com cara de segredo (campo e padrao, sem o valor). */
+  descartados: Descarte[];
 }
 
 /** A casa com o repositorio conferido: existe e e privado (D3). `criar` so no `ork network entrar`. */
@@ -439,19 +469,19 @@ export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = 
   const maquina = nomeDaMaquina(opcoes.maquina);
   const marca = lerMarcaDaRede();
   const mesmaCasa = marca?.casa === refDaCasa(casaPrevia.casa) && marca?.maquina === maquina;
-  const retrato = retratoDaMaquina({ amb, maquina, diretorio: opcoes.diretorio, agora: opcoes.agora, identidades,
+  const { retrato, descartados } = retratoComDescartes({ amb, maquina, diretorio: opcoes.diretorio, agora: opcoes.agora, identidades,
     anteriores: mesmaCasa ? marca?.projetos : undefined, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: adesao.adesao ?? 'rede' });
   exigirRetratoSeguro(retrato);
   const assinatura = assinaturaDoRetrato(retrato);
   if (!opcoes.forcar && mesmaCasa && marca?.assinatura === assinatura &&
       Date.parse(retrato.publicadoEm) - Date.parse(marca.em) < PULSACAO_DA_REDE_MS) {
-    return { acao: 'sem-mudanca', maquina, casa: marca.casa, commit: marca.commit, tentativas: 0, criado: false };
+    return { acao: 'sem-mudanca', maquina, casa: marca.casa, commit: marca.commit, tentativas: 0, criado: false, descartados };
   }
   const { casa, forja, url, criado } = casaConferida({ ...opcoes, identidades });
   const cache = prepararCache(casa, url, forja.helperDeCredencial(), maquina);
   fs.mkdirSync(pastaDaRede(), { recursive: true });
   const trava = adquirirLockMonitor(path.join(pastaDaRede(), 'publicar.lock'));
-  if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, criado };
+  if (!trava.ok) return { acao: 'ocupado', maquina, casa: refDaCasa(casa), commit: null, tentativas: 0, criado, descartados };
   try {
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
@@ -466,7 +496,7 @@ export function publicarRede(opcoes: OpcoesDaPublicacao & { criar?: boolean } = 
         `rede: ${maquina} publicou o retrato`, PREFIXO), identidadeDoGit(maquina));
       if (commit) {
         gravarMarca({ assinatura, em: retrato.publicadoEm, commit, casa: refDaCasa(casa), forja: casa.forja, maquina, projetos: retrato.projetos });
-        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, criado };
+        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, criado, descartados };
       }
     }
     throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);

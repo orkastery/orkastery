@@ -260,7 +260,7 @@ test('RM-053 projetos: formas toleradas (mapa por nome, caminho, remotos) e regi
       beta: { raiz: beta, remotos: [{ nome: 'up', url: 'https://u:p@h/up.git' }, { nome: 'origin', url: 'https://u:p@h/beta.git' }] },
     } }));
     assert.deepEqual(projetosConhecidos({ arquivo }).projetos.map((p) => [p.nome, p.remoto]),
-      [['alfa', 'git@github.com:pessoa/alfa.git'], ['beta', 'https://h/beta.git']]);
+      [['alfa', 'ssh://github.com/pessoa/alfa.git'], ['beta', 'https://h/beta.git']]);
     fs.writeFileSync(arquivo, JSON.stringify({ contrato: 'ork.projetos/v2', projetos: [{ nome: 'alfa', raiz: alfa }] }));
     assert.deepEqual(projetosConhecidos({ arquivo }), { registro: { arquivo, estado: 'invalido', projetos: [] }, projetos: [] });
     fs.writeFileSync(arquivo, '{ nao e json');
@@ -291,7 +291,11 @@ test('RM-053 projetos: limparRemoto tira usuario e senha e recusa o que nao e re
   assert.equal(limparRemoto('https://user:pass@host.com/a/b.git'), 'https://host.com/a/b.git');
   assert.equal(limparRemoto('https://ghp_FAKEtoken0123456789abcdefghij@github.com/x/y'), 'https://github.com/x/y');
   assert.equal(limparRemoto('ssh://git@host.com/a/b.git'), 'ssh://host.com/a/b.git');
-  assert.equal(limparRemoto('git@github.com:dono/repo.git'), 'git@github.com:dono/repo.git');
+  // A1 (CHECK 1): a forma scp vira ssh://, sem o usuario de transporte e sem o `@` que parecia e-mail.
+  assert.equal(limparRemoto('git@github.com:dono/repo.git'), 'ssh://github.com/dono/repo.git');
+  assert.equal(limparRemoto('git@gitlab.empresa.com:time/produto.git'), 'ssh://gitlab.empresa.com/time/produto.git');
+  assert.equal(limparRemoto('git.sr.ht:~pessoa/x'), 'ssh://git.sr.ht/~pessoa/x');
+  assert.equal(limparRemoto('git@ssh.dev.azure.com:v3/org/proj/repo'), 'ssh://ssh.dev.azure.com/v3/org/proj/repo');
   assert.equal(limparRemoto('/srv/git/repo.git'), '/srv/git/repo.git');
   assert.equal(limparRemoto('texto qualquer'), null);
   assert.equal(limparRemoto(42), null);
@@ -402,11 +406,24 @@ test('RM-053 segredo: retrato com valor de cara de segredo e recusado antes do p
         assert.throws(() => exigirRetratoSeguro(retrato as never), (e: Error) => erro.test(e.message) && e.message.startsWith('rede.segredo: ') &&
           !/segredo@|ghp_|dono@/.test(e.message.replace(/^rede\.segredo: /, '').replace(/rede\.segredo/g, '')), String(erro));
       }
-      // De ponta a ponta: o registro de projetos (RM-052) traz um nome com cara de token; nada vai ao remoto.
+      // De ponta a ponta (A1 do CHECK 1): o registro de projetos (RM-052) vem de fora do nucleo. O projeto
+      // com valor de cara de segredo sai SO ele, com aviso; o scp num host de dois pontos nao e e-mail.
+      const drive = comManifesto(path.join(usuario, 'CloudStorage', 'GoogleDrive-dono@exemplo.com', 'produto'));
+      const empresa = comManifesto(path.join(usuario, 'empresa'));
       const registro = path.join(usuario, 'projetos-ruim.json');
-      fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: TOKEN_GH, raiz: p.dir, remoto: null }] }));
-      assert.throws(() => entrarNaRede({ amb, maquina: 'pc-x', arquivoDeProjetos: registro }), /^Error: rede\.segredo: padrao "token do GitHub" em projetos\[0\]\.nome; nada foi publicado/);
-      assert.equal(exec('git', ['ls-remote', casaFalsa(f)], f.raiz).stdout.trim(), '', 'a casa foi criada, mas nenhum commit chegou nela');
+      fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
+        { nome: TOKEN_GH, raiz: p.dir, remoto: null },
+        { nome: 'no-drive', raiz: drive, remoto: null },
+        { nome: 'empresa', raiz: empresa, remoto: 'git@gitlab.empresa.com:time/produto.git' },
+      ] }));
+      const r = entrarNaRede({ amb, maquina: 'pc-x', arquivoDeProjetos: registro });
+      assert.equal(r.publicacao.acao, 'publicou');
+      assert.deepEqual(r.publicacao.descartados.map((d) => [d.padrao, d.campo]).sort(),
+        [['e-mail de conta', 'projetos[2].caminho'], ['token do GitHub', 'projetos[1].nome']], 'indice na lista ordenada por nome');
+      const blobs = todosOsBlobs(casaFalsa(f));
+      for (const b of blobs) for (const x of [TOKEN_GH, 'dono@exemplo.com', 'GoogleDrive']) assert.ok(!b.includes(x), `"${x}" vazou`);
+      const publicado = JSON.parse(blobs.find((b) => b.includes('"ork.rede-maquina/v1"'))!);
+      assert.deepEqual(publicado.projetos, [{ nome: 'empresa', remoto: 'ssh://gitlab.empresa.com/time/produto.git', caminho: empresa }]);
     });
   } finally { f.limpar(); p.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });
