@@ -2,7 +2,7 @@
 
 > **Em uma frase:** os três contratos da rede de uma pessoa — a adesão da máquina, o retrato publicado e a leitura de `ork network status --json` — e as fronteiras com a RM-052 e a RM-054.
 
-- **Casa da rede:** repositório privado `<usuario>/orkastery-network` na forja, branch `main`, sempre por HTTPS com o helper da própria CLI (decisão no [ADR-001](../../conceitos/decisoes/ADR-001-estado-da-rede.md)). URL da casa sem https recusa com `rede.sem-https`, e o helper nunca é configurado para `http://`.
+- **Casa da rede:** repositório privado `<usuario>/orkastery-network` na forja, branch `main`, sempre por HTTPS com o helper da própria CLI (decisão no [ADR-001](../../conceitos/decisoes/ADR-001-estado-da-rede.md)). URL da casa sem https recusa com `rede.sem-https`, e o helper nunca é configurado para `http://`. A exceção é o caminho local absoluto (um espelho, ou o remoto bare dos testes), que não leva credencial.
 - **Quem lê este documento:** quem escreve um leitor da rede (a RM-054, os hosts) e quem alimenta os projetos conhecidos (a RM-052).
 - **Versões:** todos em `v1`. Campo novo e opcional não muda a versão; campo removido ou com sentido novo muda.
 
@@ -52,12 +52,12 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 | Campo | O que é | Regra |
 | --- | --- | --- |
 | `maquina` | o nome da máquina, saneado: letras, números, `.`, `_` e `-`, até 64 | é o mesmo nome do arquivo, da trava e dos commits |
-| `id` | identificador aleatório desta instalação (`~/.orkastery/maquina-id`, fora da pasta de cache) | opcional no v1; arquivo com o mesmo nome e outro `id` não é regravado (`rede.nome-em-uso`) nem removido |
+| `id` | identificador aleatório desta instalação (`~/.orkastery/maquina-id`, fora da pasta de cache) | opcional no v1; o arquivo com o nome desta máquina, com o cabeçalho do contrato (`contrato` `ork.rede-maquina/vN` e `maquina` dona do arquivo) e outro `id`, não é regravado (`rede.nome-em-uso`) nem removido, mesmo quando esta versão não lê o resto; lixo sem esse cabeçalho não prende o nome |
 | `adesao` | `rede` (entrou) ou `fabrica` (herdada) | — |
 | `forjas[]` | cada CLI de forja achada na máquina | `usuario` é só o login; `null` quando a CLI não tem login |
 | `runtimes[]` | `claude-bg` (binário `claude`) e `codex`, quando instalados | `versao` casa `\d+.\d+[.\d+]`; texto fora disso vira `null` |
 | `hosts[]` | `claude-code`, `codex`, `hermes`, `openclaw`, quando instalados | `adaptador` é a versão do recibo `INSTALADO.json` no destino padrão do host, sob o home |
-| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` na regra única (letras e dígitos de qualquer língua, espaço no meio, `.`, `_` e `-`, até 80) e `caminho` até 1024, sem caractere invisível, senão o projeto sai com aviso; `remoto` até 500, senão `null` |
+| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` na regra do leitor (texto visível, sem espaço nas pontas, até 80 unidades UTF-16) e `caminho` até 1024, sem caractere invisível, senão o projeto sai com aviso; `remoto` até 500, senão `null` |
 | `publicadoEm` | a última batida que chegou ao remoto | retrato igual só volta ao remoto de hora em hora |
 
 **Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
@@ -65,11 +65,12 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 - O retrato é montado por lista de permissão, e uma varredura de segredo roda antes do push.
 - Campo que o núcleo monta (máquina, hostname, forjas, runtimes, hosts) com cara de segredo recusa a publicação inteira.
 - Projeto vem de fora do núcleo: o que tem valor com cara de segredo fica fora do retrato sozinho, com aviso no CLI e no `rede.log` (campo e padrão, nunca o valor).
-- O remoto é MONTADO a partir de partes validadas, nunca copiado: esquema conhecido (`https`, `http`, `ssh`, `git`, `git+ssh`), host em conjunto fechado (nome, IPv4 ou IPv6 entre colchetes), porta numérica e caminho sem `@`, `:` nem `\`. Usuário, senha, query e fragmento nunca vão; o que não se encaixa (inclusive `file://` e barra invertida) vira `null`, e o projeto continua.
+- O remoto é MONTADO a partir de partes validadas, nunca copiado: esquema conhecido (`https`, `http`, `ssh`, `git`, `git+ssh`, `ssh+git`), host em conjunto fechado (nome, IPv4 ou IPv6 entre colchetes), porta numérica e caminho sem `@`, `:` nem `\`. Usuário, senha, query e fragmento nunca vão; o que não se encaixa (inclusive `file://` e barra invertida) vira `null`, e o projeto continua.
 - Nos transportes `ssh`, `git+ssh`, `ssh+git` e `git`, o git não para a autoridade em `?` nem em `#`: remoto com eles vira `null`. No `http(s)`, query ou fragmento com `@` também. O host fica com a caixa de origem, para a varredura ver o que é sensível a caixa (como o `AKIA`).
 - O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, a forma usual das forjas.
 - O escritor confere o retrato com as mesmas regras do leitor antes do push: o que ele publica, toda máquina lê.
-- O leitor recusa (`retrato.invalido`) o retrato com caractere de controle ou invisível (ESC, BEL, bidi, largura zero) em qualquer texto, ou com valor de cara de segredo; o `remoto` de outra máquina é remontado, e o que não sai igual vira `null`. O `REDE.md` só leva o que o leitor aceitou, com o Markdown escapado.
+- O leitor recusa (`retrato.invalido`) o retrato com caractere de controle ou invisível (ESC, BEL, bidi, largura zero, preenchimento Hangul) em qualquer texto, ou com valor de cara de segredo num campo do núcleo. Projeto com cara de segredo sai sozinho da leitura, e a lacuna diz quantos. O `remoto` de outra máquina é remontado, e o que não sai igual vira `null`. O `REDE.md` só leva o que o leitor aceitou, com o Markdown escapado, inclusive o `.` que viraria link.
+- Caractere invisível, aqui: controles C0 e C1, bidi, largura zero, separadores de linha, preenchimentos que desenham em branco, tags e seletores de variação. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam.
 - Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
 
 ## `ork.rede-status/v1` — a leitura
@@ -99,7 +100,7 @@ Saída de `ork network status --json` e de `lerRede()` em `core/src/rede-status.
 - `origem` de cada membro: `rede` (retrato da casa) ou `fabrica-estado` (visto só na branch legada de um projeto, com `adesao: null`: pode ser um `ork` antigo, uma máquina que saiu da rede ou uma sem forja). O retrato da rede vence quando a máquina está nas duas.
 - `atualizado: false` numa fonte quer dizer "última cópia local, sem leitura nova".
 - `naoConsultado` diz o que esta leitura **não** olhou. Quem responde "o roadmap está vazio" a partir daqui erra: roadmap não foi lido.
-- O texto do `ork network status` sai sem caractere de controle ou invisível; o JSON os escreve como `\uXXXX` (o valor é o mesmo). A fábrica legada vem do remoto de um projeto, onde outras pessoas escrevem.
+- O texto do `ork network status` põe cada valor numa linha só, sem caractere de controle ou invisível: uma quebra de linha num valor vira espaço e nunca abre uma linha que parece do `ork`. O JSON escreve os invisíveis como `\uXXXX` (o valor é o mesmo). A fábrica legada vem do remoto de um projeto, onde outras pessoas escrevem.
 
 ### Lacunas
 
@@ -111,8 +112,8 @@ Lacuna é o que faltou ler. Ela nunca vira lista vazia.
 | `forja.sem-login` | a CLI existe e não tem login |
 | `rede.sem-repositorio` | a casa da rede ainda não existe: ninguém rodou `ork network entrar` |
 | `rede.repositorio-publico` | a casa existe e não é privada: nada é publicado |
-| `rede.sem-leitura` | a casa não pôde ser lida agora; o status usa a última cópia, quando há |
-| `retrato.invalido` | `maquinas/<x>.json` ilegível, de outro contrato, ou com o nome de outra máquina |
+| `rede.sem-leitura` | a casa não pôde ser lida agora, ou a forja devolveu a URL dela sem https; o status usa a última cópia, quando há |
+| `retrato.invalido` | `maquinas/<x>.json` ilegível, de outro contrato, com o nome de outra máquina, com caractere invisível, ou com cara de segredo num campo do núcleo; ou com projeto fora da leitura (a máquina continua) |
 | `maquina.sem-batida` | a última batida de uma máquina passou de 3 h |
 | `maquina.nome-em-uso` | o retrato com o nome desta máquina é de outra instalação (outro `id`): esta não publica até trocar de nome ou retomá-lo com `ork network entrar --forcar` |
 | `fabrica.sem-leitura` | a branch `ork/fabrica-estado` de um projeto não pôde ser lida agora |

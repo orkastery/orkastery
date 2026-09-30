@@ -129,7 +129,7 @@ gravado, para quando ela voltar.
 | A rede não publica em segundo plano | `~/.orkastery/rede/rede.log`: cada tentativa deixa uma linha, inclusive a que falhou |
 | `ork network entrar` recusa com `rede.nome-em-uso` | outra instalação já usa esse nome: escolha outro com `--maquina`, ou tome-o com `--forcar` (fica no commit). Se a mensagem diz que o retrato tem o hostname desta máquina, pode ser ela mesma com um `~/.orkastery/maquina-id` novo (retome com `--forcar`) ou outra com o mesmo hostname (escolha outro nome) |
 | `ork network status` mostra `maquina.nome-em-uso` | outra instalação tomou o nome desta: troque de nome com `ork network entrar --maquina NOME` ou retome-o com `--forcar` |
-| Um projeto sumiu do retrato, com um aviso | um valor dele tem cara de segredo (token no nome, e-mail no caminho) ou o nome foge da regra de nome de projeto (controle de terminal, colchete, parêntese): o aviso diz o campo e o padrão |
+| Um projeto sumiu do retrato, com um aviso | um valor dele tem cara de segredo (token no nome, e-mail no caminho), o nome foge da regra de nome de projeto (caractere invisível ou de controle, mais de 80) ou o caminho tem caractere invisível: o aviso diz o campo e o padrão |
 | `ork network entrar` ou `publicar` recusa com `rede.sem-https` | a forja devolveu a URL da casa sem https (um GitLab próprio servido por http): a rede não manda o token sem TLS; ligue o https na forja |
 
 ## O setup por bloco, igual em todas
