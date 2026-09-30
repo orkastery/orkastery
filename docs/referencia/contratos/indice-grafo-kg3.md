@@ -135,42 +135,42 @@ no script removido deu lugar à primeira do passo fixo do mesmo estrato, conferi
 Registro em
 [`core/test/fixtures/kg3-medida-consulta.json`](../../../core/test/fixtures/kg3-medida-consulta.json)
 (`ork.graph-query-cost/v0`), gerado por `core/scripts/medir-consulta-grafo.cjs` na revisão
-`a97a1de9` da branch da thread, antes do sync com a main `36def09`, com a árvore limpa, carga 2,8
-em 8 núcleos, Node v22.23.2 e 3 repetições por braço.
-**Não é a linha de base do protocolo nem o benchmark `ork.graph-benchmark/v1`,** e não conclui
-economia.
+`d87554b3` da branch da thread, com a árvore limpa, carga 1,7 em 8 núcleos, Node
+v22.23.2 e 3 repetições por braço. **Não é a linha de base do protocolo nem o benchmark
+`ork.graph-benchmark/v1`,** e não conclui economia.
 
-- **Braço grafo:** `ork grafo <consulta> --json` num processo novo, com o índice do HEAD pronto;
-  bytes da saída em JSON e em texto, arestas devolvidas e latência de ponta a ponta, que inclui a
-  partida do Node e a carga do índice.
-- **Braço cru:** `git grep -n -I -F` do nome nos arquivos rastreados e a leitura inteira de cada
-  arquivo com ocorrência, que é o que chegaria a um agente para confirmar a relação.
-- **Preparo do índice**, à parte: `ork grafo indexar --forcar` levou 15.320 ms, para um índice de
-  30.996.179 bytes com 943 fontes e 24.621 arestas.
+- **Braço grafo:** `ork grafo <consulta> --json` num processo novo, com o índice do HEAD pronto.
+  Ao agente chega a saída JSON (o texto humano vai à parte), e ele não abre arquivo nenhum; o
+  processo lê o índice (31.603.066 bytes). A latência é de ponta a ponta e inclui a partida do
+  Node e a carga do índice.
+- **Braço cru:** `git grep -n -I -F` do nome nos arquivos rastreados (o grep varre 9.506.195
+  bytes) e a leitura inteira de cada arquivo com ocorrência, que é o que chegaria a um agente para
+  confirmar a relação.
+- **Preparo do índice**, à parte: `ork grafo indexar --forcar` levou 14.478 ms, para um índice de
+  31.603.066 bytes com 953 fontes e 25.076 arestas.
 - **Tokens:** `unavailable` nos dois braços; sem tokenizador exato nem contagem do runtime, bytes
   divididos por 4 seriam estimativa.
 
-| Pergunta | Grafo: arestas | Grafo: bytes do texto | Grafo: bytes do JSON | Grafo: latência (mediana) | Cru: ocorrências | Cru: arquivos abertos | Cru: bytes ao agente | Cru: latência (mediana) |
+| Pergunta | Grafo: arestas | Grafo: bytes ao agente (JSON) | Grafo: bytes do texto | Grafo: latência (mediana) | Cru: ocorrências | Cru: arquivos abertos | Cru: bytes ao agente | Cru: latência (mediana) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 quem chama `lerRepositorio` | 1 | 731 | 3.108 | 1078,8 ms | 13 | 5 | 172.792 | 47,2 ms |
-| P2 quem chama `dirEstado` | 18 | 3.315 | 19.011 | 943,5 ms | 46 | 20 | 535.219 | 20,7 ms |
-| P3 quem importa o contrato do grafo | 8 | 1.996 | 9.865 | 931,8 ms | 20 | 14 | 358.627 | 28,5 ms |
-| P4 quem importa o leitor de YAML | 8 | 1.558 | 9.131 | 882,1 ms | 9 | 9 | 208.952 | 22,4 ms |
-| P5 vizinhança de `raizDoEstado` | 96 | 16.989 | 96.325 | 965,4 ms | 110 | 41 | 945.950 | 44,2 ms |
-| P6 caminho de `main` a `dirEstado` | 2 | 866 | 5.770 | 1030,6 ms | indisponível | indisponível | indisponível | indisponível |
+| P1 quem chama `lerRepositorio` | 1 | 3.148 | 731 | 810,8 ms | 18 | 7 | 201.943 | 16,6 ms |
+| P2 quem chama `dirEstado` | 18 | 19.426 | 3.315 | 815,9 ms | 53 | 22 | 565.831 | 21,8 ms |
+| P3 quem importa o contrato do grafo | 8 | 10.059 | 1.996 | 755,4 ms | 22 | 15 | 381.405 | 18,5 ms |
+| P4 quem importa o leitor de YAML | 9 | 10.326 | 1.729 | 792,5 ms | 11 | 11 | 227.286 | 33,0 ms |
+| P5 vizinhança de `raizDoEstado` | 98 | 100.373 | 17.307 | 932,1 ms | 118 | 44 | 998.305 | 27,3 ms |
+| P6 caminho de `main` a `dirEstado` | 2 | 5.880 | 866 | 875,7 ms | indisponível | indisponível | indisponível | indisponível |
 
 Como ler, sem concluir além do que foi medido:
 
 - As respostas dos dois lados não são as mesmas. O grafo devolve só o que o extrator prova: em P1,
   1 aresta, porque as chamadas de `lerRepositorio` nos testes estão dentro de `test(...)` (chamada
-  fora de símbolo, lacuna do KG2). A leitura crua acha texto, com comentário, documentação e nome
-  igual em outro escopo.
+  fora de símbolo, lacuna do KG2); a leitura crua acha 18 ocorrências em 7 arquivos, com
+  comentário, documentação e nome igual em outro escopo.
 - A leitura crua modela um agente que abre todo arquivo com ocorrência; um agente real pode ler
   mais ou menos.
 - P6 não tem braço cru: não há procedimento fixo que ache um caminho de chamadas sem inferir o
   símbolo que contém cada ocorrência.
-- A primeira repetição de P1 levou 7193,2 ms, fora da faixa das outras; a causa não foi medida, e
-  a mediana e todas as repetições estão no registro.
+- As 3 repetições de cada braço estão no registro; a tabela traz a mediana.
 
 ```sh
 node core/scripts/medir-consulta-grafo.cjs --conferir

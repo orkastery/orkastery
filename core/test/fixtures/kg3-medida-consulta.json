@@ -1,17 +1,17 @@
 {
   "schema": "ork.graph-query-cost/v0",
-  "medido_em": "2026-09-30T14:40:29.590Z",
-  "revisao": "a97a1de9bf554dd4588c85a4e7954bdd4779d3cc",
-  "chave_do_indice": "idx-26f5cd2ea724126c697781d4853835fb3d36c4cab2bb2eb2d2a5c2dcb3d21867",
-  "graph_digest": "effa276cacd6443bf221b4202cf507cdf942597a4df40bf9bca254101c2f6ef5",
+  "medido_em": "2026-09-30T15:47:07.891Z",
+  "revisao": "d87554b3a8049e687219d099c4231f22ddc9a5d3",
+  "chave_do_indice": "idx-bef338e15e2663831f97f42c67d8a82b508f96704751dd0d3c82ff29c5987cf6",
+  "graph_digest": "d0f01d2d4bedcab62265389e126856561cff03af8c8802e20acfe1d3c2609024",
   "maquina": {
     "node": "v22.23.2",
     "plataforma": "linux 7.0.0-31-generic",
     "cpus": 8,
-    "carga_1min": 2.8
+    "carga_1min": 1.7
   },
   "metodo": {
-    "grafo": "consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD ja construido; bytes da saida JSON e texto",
+    "grafo": "consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD ja construido; ao agente chega a saida JSON, e ele nao abre arquivo; o processo le o indice",
     "cru": "leitura-crua/v0: git grep -n -I -F do nome nos arquivos rastreados, mais a leitura inteira de cada arquivo com ocorrencia",
     "latencia": "relogio monotonico do processo que mede, de ponta a ponta por repeticao, com a mediana",
     "repeticoes": 3
@@ -19,10 +19,10 @@
   "preparo_do_indice": {
     "comando": "ork grafo indexar --forcar --json",
     "estado": "reconstruido-identico",
-    "ms": 15320,
-    "bytes_do_indice": 30996179,
-    "fontes": 943,
-    "arestas": 24621
+    "ms": 14478,
+    "bytes_do_indice": 31603066,
+    "fontes": 953,
+    "arestas": 25076
   },
   "perguntas": [
     {
@@ -33,31 +33,35 @@
         "core/src/intelligence-graph-repo.ts#lerRepositorio"
       ],
       "grafo": {
-        "bytes_json": 3108,
+        "bytes_ao_agente": 3148,
+        "bytes_json": 3148,
         "bytes_texto": 731,
         "respostas": 1,
         "arestas_devolvidas": 1,
         "evidencias": 1,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          7193.2,
-          1077.7,
-          1078.8
+          810.8,
+          784,
+          903.7
         ],
-        "latencia_mediana_ms": 1078.8
+        "latencia_mediana_ms": 810.8
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e lerRepositorio",
-        "bytes_grep": 1664,
-        "bytes_arquivos": 171128,
-        "bytes_ao_agente": 172792,
-        "ocorrencias": 13,
-        "arquivos_abertos": 5,
+        "bytes_grep": 2262,
+        "bytes_arquivos": 199681,
+        "bytes_ao_agente": 201943,
+        "ocorrencias": 18,
+        "arquivos_abertos": 7,
+        "bytes_lidos_pelo_processo": 9506195,
         "latencia_ms": [
-          47.2,
-          47.4,
-          29.2
+          16.6,
+          22.2,
+          16
         ],
-        "latencia_mediana_ms": 47.2
+        "latencia_mediana_ms": 16.6
       },
       "tokens": {
         "grafo": {
@@ -80,31 +84,35 @@
         "core/src/manifest.ts#dirEstado"
       ],
       "grafo": {
-        "bytes_json": 19011,
+        "bytes_ao_agente": 19426,
+        "bytes_json": 19426,
         "bytes_texto": 3315,
         "respostas": 18,
         "arestas_devolvidas": 18,
         "evidencias": 18,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          955.7,
-          943.5,
-          881.5
+          844.6,
+          776.2,
+          815.9
         ],
-        "latencia_mediana_ms": 943.5
+        "latencia_mediana_ms": 815.9
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e dirEstado",
-        "bytes_grep": 4750,
-        "bytes_arquivos": 530469,
-        "bytes_ao_agente": 535219,
-        "ocorrencias": 46,
-        "arquivos_abertos": 20,
+        "bytes_grep": 5542,
+        "bytes_arquivos": 560289,
+        "bytes_ao_agente": 565831,
+        "ocorrencias": 53,
+        "arquivos_abertos": 22,
+        "bytes_lidos_pelo_processo": 9506195,
         "latencia_ms": [
-          47.3,
-          19.6,
-          20.7
+          22.7,
+          21.4,
+          21.8
         ],
-        "latencia_mediana_ms": 20.7
+        "latencia_mediana_ms": 21.8
       },
       "tokens": {
         "grafo": {
@@ -127,31 +135,35 @@
         "core/src/intelligence-graph-contract.ts"
       ],
       "grafo": {
-        "bytes_json": 9865,
+        "bytes_ao_agente": 10059,
+        "bytes_json": 10059,
         "bytes_texto": 1996,
         "respostas": 8,
         "arestas_devolvidas": 8,
         "evidencias": 8,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          935,
-          926.6,
-          931.8
+          775.3,
+          755.4,
+          725.5
         ],
-        "latencia_mediana_ms": 931.8
+        "latencia_mediana_ms": 755.4
       },
       "cru": {
         "comando": "git grep -n -I -F -e intelligence-graph-contract",
-        "bytes_grep": 2971,
-        "bytes_arquivos": 355656,
-        "bytes_ao_agente": 358627,
-        "ocorrencias": 20,
-        "arquivos_abertos": 14,
+        "bytes_grep": 3188,
+        "bytes_arquivos": 378217,
+        "bytes_ao_agente": 381405,
+        "ocorrencias": 22,
+        "arquivos_abertos": 15,
+        "bytes_lidos_pelo_processo": 9506195,
         "latencia_ms": [
-          28,
-          28.5,
-          32.6
+          19.7,
+          17.5,
+          18.5
         ],
-        "latencia_mediana_ms": 28.5
+        "latencia_mediana_ms": 18.5
       },
       "tokens": {
         "grafo": {
@@ -174,31 +186,35 @@
         "core/src/yaml.ts"
       ],
       "grafo": {
-        "bytes_json": 9131,
-        "bytes_texto": 1558,
-        "respostas": 8,
-        "arestas_devolvidas": 8,
-        "evidencias": 8,
+        "bytes_ao_agente": 10326,
+        "bytes_json": 10326,
+        "bytes_texto": 1729,
+        "respostas": 9,
+        "arestas_devolvidas": 9,
+        "evidencias": 9,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          1167.8,
-          872.8,
-          882.1
+          732.3,
+          792.5,
+          858.8
         ],
-        "latencia_mediana_ms": 882.1
+        "latencia_mediana_ms": 792.5
       },
       "cru": {
         "comando": "git grep -n -I -F -e \"/yaml'\"",
-        "bytes_grep": 764,
-        "bytes_arquivos": 208188,
-        "bytes_ao_agente": 208952,
-        "ocorrencias": 9,
-        "arquivos_abertos": 9,
+        "bytes_grep": 954,
+        "bytes_arquivos": 226332,
+        "bytes_ao_agente": 227286,
+        "ocorrencias": 11,
+        "arquivos_abertos": 11,
+        "bytes_lidos_pelo_processo": 9506195,
         "latencia_ms": [
-          28.2,
-          21.8,
-          22.4
+          33,
+          27.8,
+          40.9
         ],
-        "latencia_mediana_ms": 22.4
+        "latencia_mediana_ms": 33
       },
       "tokens": {
         "grafo": {
@@ -221,31 +237,35 @@
         "core/src/estado-thread.ts#raizDoEstado"
       ],
       "grafo": {
-        "bytes_json": 96325,
-        "bytes_texto": 16989,
-        "respostas": 96,
-        "arestas_devolvidas": 96,
-        "evidencias": 103,
+        "bytes_ao_agente": 100373,
+        "bytes_json": 100373,
+        "bytes_texto": 17307,
+        "respostas": 98,
+        "arestas_devolvidas": 98,
+        "evidencias": 105,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          999.5,
-          965.4,
-          857.3
+          932.1,
+          1361.9,
+          891.7
         ],
-        "latencia_mediana_ms": 965.4
+        "latencia_mediana_ms": 932.1
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e raizDoEstado",
-        "bytes_grep": 11632,
-        "bytes_arquivos": 934318,
-        "bytes_ao_agente": 945950,
-        "ocorrencias": 110,
-        "arquivos_abertos": 41,
+        "bytes_grep": 12613,
+        "bytes_arquivos": 985692,
+        "bytes_ao_agente": 998305,
+        "ocorrencias": 118,
+        "arquivos_abertos": 44,
+        "bytes_lidos_pelo_processo": 9506195,
         "latencia_ms": [
-          49.6,
-          44.2,
-          25
+          34,
+          19,
+          27.3
         ],
-        "latencia_mediana_ms": 44.2
+        "latencia_mediana_ms": 27.3
       },
       "tokens": {
         "grafo": {
@@ -269,17 +289,20 @@
         "core/src/manifest.ts#dirEstado"
       ],
       "grafo": {
-        "bytes_json": 5770,
+        "bytes_ao_agente": 5880,
+        "bytes_json": 5880,
         "bytes_texto": 866,
         "respostas": 2,
         "arestas_devolvidas": 2,
         "evidencias": 2,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
         "latencia_ms": [
-          1030.6,
-          1034.7,
-          948.8
+          875.7,
+          826.2,
+          906.7
         ],
-        "latencia_mediana_ms": 1030.6
+        "latencia_mediana_ms": 875.7
       },
       "cru": {
         "indisponivel": "a leitura crua nao tem procedimento fixo que ache um caminho de chamadas sem inferir o simbolo que contem cada ocorrencia"
