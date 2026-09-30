@@ -4,8 +4,22 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:39:08.815Z",
+  "publicadoEm": "2026-09-30T02:39:13.840Z",
   "threads": [
+    {
+      "id": "ork-rm032ativaca",
+      "nome": "RM-032 prova de ativacao por host, parte automatizavel",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-032",
+      "branch": "ork/ork-rm032ativaca-full",
+      "atualizadaEm": "2026-09-30T02:39:11.400Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
     {
       "id": "ork-rm053network",
       "nome": "RM-053 Orkastery Network: maquinas de uma pessoa em rede",
