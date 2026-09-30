@@ -105,7 +105,8 @@ test('duas maquinas: cada uma publica o seu retrato e ve o da outra, com a verda
 
     // O painel legivel esta na branch; nada foi criado na arvore nem nas branches locais.
     const painelMd = exec('git', ['show', `origin/${BRANCH_DA_FABRICA}:FABRICA.md`], m.b).stdout;
-    assert.match(painelMd, /\| pc-a \| .* \| #Classic \| GOAL \| RM-001 \| sim: /);
+    // RM-037 (rm037noite, defeito 4): a coluna Runtime entra antes do item; sem despacho, travessao.
+    assert.match(painelMd, /\| pc-a \| .* \| #Classic \| GOAL \| — \| RM-001 \| sim: /);
     assert.equal(exec('git', ['branch', '--list', BRANCH_DA_FABRICA], m.a).stdout.trim(), '');
     assert.doesNotMatch(exec('git', ['status', '--porcelain', '--', 'maquinas', 'FABRICA.md'], m.a).stdout, /\S/);
   } finally { m.limpar(); }
@@ -228,7 +229,7 @@ test('CLI: thread new --roadmap grava o item, fabrica publicar e board mostram a
     const board = ork(m.a, ['board'], { ORK_MAQUINA: 'pc-a' });
     assert.equal(board.status, 0, board.stderr);
     assert.match(board.stdout, /Outras maquinas \(ork\/fabrica-estado, lido agora\):/);
-    assert.match(board.stdout, new RegExp(`${id}\\s+#Auto\\s+GOAL\\s+RM-001`));
+    assert.match(board.stdout, new RegExp(`${id}\\s+#Auto\\s+GOAL\\s+-\\s+RM-001`));
     const offline = ork(m.a, ['board', '--sem-remoto'], { ORK_MAQUINA: 'pc-a' });
     assert.match(offline.stdout, /ultima copia local/);
 

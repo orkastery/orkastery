@@ -23,10 +23,12 @@ import { threadsDeTodosOsPerfis } from './board';
 import { raizDoEstado } from './estado-thread';
 import { ResumoDeMaquina } from './hitl-resumo';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { montarMonitor } from './orquestracao';
 import { quemSouEu, reservasLocais } from './roadmap-reservas';
+import { dirThread } from './thread';
 import { Thread } from './types';
 import { agora as agoraIso } from './util';
 import { VERSAO_DO_ORK } from './versao';
@@ -61,6 +63,28 @@ export interface ThreadNaFabrica {
   /** O assunto da pausa, curto. */
   pergunta: string | null;
   paradaDesde: string | null;
+  /**
+   * RM-037 (rm037noite, defeito 4): o runtime, o modelo e o esforco do ultimo despacho da thread, o
+   * trio efetivo que o `phase_dispatch` grava. Opcionais no contrato: retrato de antes nao os tem, e
+   * `null` diz que a thread ainda nao despachou fase nenhuma.
+   */
+  runtime?: string | null;
+  modelo?: string | null;
+  esforco?: string | null;
+}
+
+/** O trio do ultimo `phase_dispatch` do ledger da thread; tudo `null` quando nao ha despacho legivel. */
+export function despachoDaThread(dir: string): { runtime: string | null; modelo: string | null; esforco: string | null } {
+  let ultimo: Record<string, unknown> | undefined;
+  try { ultimo = [...lerLedger(dir)].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada); } catch { ultimo = undefined; }
+  const campo = (v: unknown) => (typeof v === 'string' && v.trim() ? curto(v, 40) : null);
+  return { runtime: campo(ultimo?.runtime), modelo: campo(ultimo?.model), esforco: campo(ultimo?.effort) };
+}
+
+/** `claude-bg opus/xhigh`: o runtime com o modelo e o esforco, para as colunas do texto. */
+export function runtimeDaThread(t: Pick<ThreadNaFabrica, 'runtime' | 'modelo' | 'esforco'>): string {
+  if (!t.runtime && !t.modelo) return '-';
+  return [t.runtime ?? '?', [t.modelo, t.esforco].filter(Boolean).join('/')].filter(Boolean).join(' ');
 }
 
 export interface EstadoDaMaquina {
@@ -134,7 +158,7 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
   const linhas = new Map(monitor.linhas.map((l) => [l.thread, l]));
   const entregas = entregasNaBase(raiz, carregado.manifesto.worktree.base_branch, remoto);
   const itemDaThread = new Map(reservasLocais(raiz, remoto).filter((r) => r.thread).map((r) => [r.thread as string, r.item]));
-  const threads = itens.map(({ thread: t }): ThreadNaFabrica => {
+  const threads = itens.map(({ thread: t, raiz: raizDoPerfil }): ThreadNaFabrica => {
     const pausa = linhas.get(t.id)?.pausas[0];
     const entregue = entregas.get(t.id) ?? null;
     const esperaVoce = !entregue && linhas.get(t.id)?.precisaDeHumano === true;
@@ -144,6 +168,7 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
       atualizadaEm: t.atualizadaEm ?? null, entregue,
       esperaVoce, pergunta: esperaVoce && pausa ? curto(pausa.pausaSobre || pausa.detalhe) : null,
       paradaDesde: esperaVoce && pausa ? pausa.desdeEm : null,
+      ...despachoDaThread(dirThread(raizDoPerfil, t.id)),
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
   const eu = quemSouEu(raiz, { por: opcoes.por, maquina: opcoes.maquina });
@@ -289,8 +314,8 @@ function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
   const cabeca = `${m.maquina}${m.maquina === eu ? ' (esta maquina)' : ''}, ${m.por}, publicado ${formatarDataHora(m.publicadoEm)}: ` +
     `${vivas.length} thread(s) ativa(s)` + (entregues ? `, ${entregues} entregue(s) sem MASTER` : '');
   if (vivas.length === 0) return [cabeca];
-  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'ITEM', 'ESPERA VOCE'], vivas.map((t) => [
-    t.id, t.modo, t.fase, t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
+  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE'], vivas.map((t) => [
+    t.id, t.modo, t.fase, runtimeDaThread(t), t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
   ]))];
 }
 
@@ -325,14 +350,15 @@ export function painelDaFabricaEmMarkdown(maquinas: readonly EstadoDaMaquina[]):
     'O que cada máquina está conduzindo agora. Gerado pelo `ork fabrica publicar`; não edite à mão.',
     'Antes de pegar um item do roadmap: `ork roadmap reservas`.',
     '',
-    '| Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const vivas = maquinas.flatMap((m) => ativas(m).map((t) => ({ m, t })));
-  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — | — | — | — |');
+  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — | — | — | — | — |');
   for (const { m, t } of vivas) {
     const pergunta = t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 60).replace(/\|/g, '/')}` : '—';
-    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
+    const runtime = runtimeDaThread(t).replace(/^-$/, '—').replace(/\|/g, '/');
+    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${runtime} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
   }
   return [...linhas, '', legendaDoFuso(), ''].join('\n');
 }
