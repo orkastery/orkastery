@@ -11,7 +11,8 @@ configuração e versão de extrator determinam as mesmas identidades e o mesmo 
 canônico, em qualquer ordem de inserção. O KG1 entrega o contrato, a validação pura e o
 corpus de conformidade. Não entrega parser, AST, extração de PDF, índice, busca, watcher
 nem consumo pelas fases: isso é KG2 a KG7. A extração de código e de Markdown que produz
-esse grafo a partir de um repositório local é o [KG2](extracao-grafo-kg2.md).
+esse grafo a partir de um repositório local é o [KG2](extracao-grafo-kg2.md), e o índice
+persistente com a consulta pelo `ork grafo` é o [KG3](indice-grafo-kg3.md).
 
 ## O que o contrato garante e o que não garante
 
@@ -136,7 +137,9 @@ quem consumir o grafo (KG3 em diante):
    para outro tenant.
 
 O KG1 recusa contrato que perdeu restrição. Não implementa motor de ACL nem prova ausência
-de vazamento de um serviço de consulta que ainda não existe.
+de vazamento de um serviço de consulta. O primeiro consumidor, o
+[KG3](indice-grafo-kg3.md#tenant-acl-e-não-vazamento), cumpre as quatro obrigações com uma
+avaliação local.
 
 ## Validação e erros
 

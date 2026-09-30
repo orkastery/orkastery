@@ -5,7 +5,7 @@
     "em": "2026-09-29T11:40:00-03:00",
     "metodo": "leitura do trecho e das linhas em volta no codigo; declaracao do alvo, import e secao conferidos por grep na revisao auditada",
     "limite": "amostra por estrato, nao o universo: nao prova zero aresta falsa; a auditoria integral e do benchmark",
-    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas; as linhas e notas das outras 43 arestas sao as da revisao auditada, e a conferencia casa pelo trecho, nao pela linha"
+    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas; as linhas e notas das outras 43 arestas sao as da revisao auditada, e a conferencia casa pelo trecho, nao pela linha; em 30/09 (thread ork-rm031kg3, KG3 D8) a aresta declares da const sha256 do script do comando provisorio saiu com ele e entrou a primeira do passo fixo do estrato declares/ast na revisao 94245c23 da branch, de antes do rebase sobre a main 36def09 e fora do historico entregue (portfolio.ts#createOperationEntity), auditada a mao; ela confere no HEAD pelo trecho; as outras 44 seguem as da revisao auditada"
   },
   "graph_schema": "ork.code-artifact-graph/v1",
   "repository_id": "orkastery",
@@ -481,25 +481,25 @@
       "kind": "declares",
       "from": {
         "kind": "file",
-        "path": "core/scripts/extrair-grafo.cjs",
+        "path": "core/src/portfolio.ts",
         "fragment": null
       },
       "to": {
         "kind": "symbol",
-        "path": "core/scripts/extrair-grafo.cjs",
-        "fragment": "sha256"
+        "path": "core/src/portfolio.ts",
+        "fragment": "createOperationEntity"
       },
       "evidencia": {
-        "path": "core/scripts/extrair-grafo.cjs",
+        "path": "core/src/portfolio.ts",
         "extractor_id": "ork.ts-ast",
         "extraction_method": "ast",
-        "line_start": 53,
-        "line_end": 53,
-        "trecho_sha256": "c29df6223d0821a7db9fa04d6c4532153967ba0dfc30062fa3bc91d4721a4f0c",
-        "trecho_inicio": "sha256 = (b) => createHash('sha256').update(b).digest('hex')"
+        "line_start": 89,
+        "line_end": 105,
+        "trecho_sha256": "5e5a56b60c29c20b7ded8766db8adb5c3fad1b65b06b4883daca22de566f0901",
+        "trecho_inicio": "export function createOperationEntity(root: string, operationId: string, principal: string): PortfolioEntity {"
       },
       "veredito": "supported",
-      "nota": "const de topo sha256 na l. 53 do script CommonJS"
+      "nota": "funcao exportada de topo createOperationEntity nas l. 89 a 105, declarada uma vez no arquivo; substitui a aresta do comando provisorio removido no KG3"
     },
     {
       "estrato": "declares/ast",

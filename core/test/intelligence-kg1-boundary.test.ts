@@ -1,10 +1,10 @@
 /**
- * I-31 KG1 (T3, D9, D10) e RM-031 KG2 (D1, D11): fronteiras da familia do grafo.
+ * I-31 KG1 (T3, D9, D10), RM-031 KG2 (D1, D11) e KG3 (D1): fronteiras da familia do grafo.
  *
  * O Company Brain v1 fica byte a byte, os contratos KG1 e os extratores puros do KG2 sao fechados
  * por allowlist no fechamento transitivo dos imports, e fora da familia do grafo nenhum modulo do
- * nucleo os consome: indice, consumo e federacao sao KG3 a KG7. O compilador TypeScript entra nos
- * extratores so como tipo (D1). A analise usa o parser do TypeScript, nao busca de palavra em
+ * nucleo os consome: consumo e federacao sao KG5 a KG7. O compilador TypeScript entra nos
+ * extratores so como tipo (KG2 D1); em tempo de execucao, so o modulo de analisadores do KG3 o carrega. A analise usa o parser do TypeScript, nao busca de palavra em
  * prosa: comentario que cita "embedding" nao conta, identificador e import contam.
  */
 import { strict as assert } from 'node:assert';
@@ -22,7 +22,17 @@ const MODULOS_KG1 = ['intelligence-graph-contract.ts', 'intelligence-benchmark-c
 const MODULOS_KG2_PUROS = ['intelligence-graph-extract.ts', 'intelligence-graph-extract-ts.ts', 'intelligence-graph-extract-md.ts'];
 /** RM-031 KG2 (D8): a unica borda de E/S da familia, que le o repositorio Git local. */
 const MODULO_KG2_LEITURA = 'intelligence-graph-repo.ts';
-const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA];
+/** RM-031 KG3 (D1): a unica carga de analisador, da instalacao do `ork` que roda. */
+const MODULO_KG3_ANALISADORES = 'intelligence-graph-parsers.ts';
+/** RM-031 KG3 (D2 a D4): o indice persistente, borda de E/S no estado do projeto. */
+const MODULO_KG3_INDICE = 'intelligence-graph-index.ts';
+/** RM-031 KG3 (D5 a D7): a consulta, pura; recebe o grafo e a concessao por parametro. */
+const MODULO_KG3_CONSULTA = 'intelligence-graph-query.ts';
+/** RM-031 KG3 (D7): `ork grafo`, a unica porta da familia para o resto do nucleo. */
+const MODULO_KG3_CLI = 'intelligence-graph-cli.ts';
+const FAMILIA_DO_GRAFO = [
+  ...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA, MODULO_KG3_CLI,
+];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -160,18 +170,102 @@ test('KG2 boundary: a leitura do repositorio so traz tipos do extrator e so usa 
   for (const i of imports.filter((x) => x.modulo.startsWith('./intelligence-'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
   const { identificadores } = simbolos(MODULO_KG2_LEITURA);
   for (const proibido of ['exec', 'execSync', 'shell', 'fetch', 'eval', 'Function']) assert.ok(!identificadores.has(proibido), proibido);
-  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG2_LEITURA)) {
+  // Os contratos, os extratores puros e os analisadores nao leem o repositorio; so o indice (KG3), que e borda, a usa.
+  for (const f of [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG3_ANALISADORES]) {
     assert.ok(!importacoes(f).includes('./intelligence-graph-repo'), `${f} importa a borda de E/S`);
   }
 });
 
+test('KG3 boundary: os analisadores so trazem tipos da familia, so usam o Node e carregam so os pacotes fixos', () => {
+  const imports = importsComTipo(MODULO_KG3_ANALISADORES);
+  const externos = imports.filter((i) => !i.modulo.startsWith('./'));
+  assert.deepEqual(externos.filter((i) => !i.soTipo).map((i) => i.modulo).sort(), ['node:child_process', 'node:crypto', 'node:fs', 'node:path', 'node:vm']);
+  assert.deepEqual(externos.filter((i) => i.soTipo).map((i) => i.modulo), ['typescript']);
+  for (const i of imports.filter((x) => x.modulo.startsWith('./'))) assert.ok(i.soTipo, `${i.modulo} entra so como tipo`);
+  const { identificadores, literais } = simbolos(MODULO_KG3_ANALISADORES);
+  for (const proibido of ['exec', 'execSync', 'execFile', 'shell', 'fetch', 'eval', 'Function', 'cwd', 'chdir']) assert.ok(!identificadores.has(proibido), proibido);
+  const pacotes = ['typescript', 'micromark', 'micromark-extension-gfm-table', 'decode-named-character-reference',
+    'micromark-util-decode-numeric-character-reference'];
+  for (const p of pacotes) assert.ok(literais.includes(p), `${p} na lista fixa`);
+  // Os contratos, os extratores puros e a leitura do repositorio nao importam os analisadores: recebem por parametro.
+  for (const f of [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA]) {
+    assert.ok(!importacoes(f).includes('./intelligence-graph-parsers'), `${f} importa os analisadores`);
+  }
+});
+
+test('KG3 boundary: o indice so usa arquivo, caminho e hash do Node e so alcanca a familia do grafo', () => {
+  const imports = importsComTipo(MODULO_KG3_INDICE);
+  assert.deepEqual(imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort(), ['node:crypto', 'node:fs', 'node:path']);
+  const locais = imports.filter((i) => i.modulo.startsWith('./')).map((i) => `${i.modulo.slice(2)}.ts`);
+  assert.ok(locais.every((l) => FAMILIA_DO_GRAFO.includes(l)), `${locais}`);
+  const { identificadores } = simbolos(MODULO_KG3_INDICE);
+  for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require']) assert.ok(!identificadores.has(proibido), proibido);
+  // So o CLI, acima dele, importa o indice: a dependencia so desce.
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_INDICE && x !== MODULO_KG3_CLI)) assert.ok(!importacoes(f).includes('./intelligence-graph-index'), f);
+});
+
+test('KG3 boundary: a consulta e pura, so alcanca o contrato e nao toca processo, arquivo, relogio, acaso nem busca semantica', () => {
+  const { locais, externos } = fechamento(MODULO_KG3_CONSULTA);
+  assert.deepEqual([...locais].sort(), ['intelligence-graph-contract.ts', MODULO_KG3_CONSULTA].sort());
+  assert.ok([...externos].every((e) => EXTERNOS_PERMITIDOS.has(e)), `${[...externos]}`);
+  const { identificadores, literais, relogio, deCrypto } = simbolos(MODULO_KG3_CONSULTA);
+  assert.ok(identificadores.size > 50, 'parser leu o arquivo');
+  for (const g of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(g), `consulta usa ${g}`);
+  assert.equal(relogio, 0);
+  assert.deepEqual(deCrypto, []);
+  assert.deepEqual([...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t)), []);
+});
+
+test('KG3 boundary: o CLI do grafo so usa arquivo, caminho e hash do Node e so alcanca a familia', () => {
+  const imports = importsComTipo(MODULO_KG3_CLI);
+  assert.deepEqual(imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort(), ['node:crypto', 'node:fs', 'node:path']);
+  const locais = imports.filter((i) => i.modulo.startsWith('./')).map((i) => `${i.modulo.slice(2)}.ts`);
+  assert.ok(locais.every((l) => FAMILIA_DO_GRAFO.includes(l)), `${locais}`);
+  const { identificadores } = simbolos(MODULO_KG3_CLI);
+  for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require', 'extrairGrafo']) {
+    assert.ok(!identificadores.has(proibido), proibido);
+  }
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_CLI)) assert.ok(!importacoes(f).includes('./intelligence-graph-cli'), f);
+});
+
+/**
+ * Todo modulo que o arquivo importa, pela AST completa: `import`, `export ... from`, `import =`,
+ * `require` e `import()` com literal. O `preProcessFile` e um scanner leve e perde import depois de
+ * template literal com expressao (CHECK rodada 1, A13).
+ */
+function modulosImportados(rel: string): string[] {
+  const fonte = ts.createSourceFile(rel, ler(rel), ts.ScriptTarget.ES2022, true), r: string[] = [];
+  const visitar = (n: ts.Node): void => {
+    if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier && ts.isStringLiteral(n.moduleSpecifier)) r.push(n.moduleSpecifier.text);
+    else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference) && ts.isStringLiteral(n.moduleReference.expression)) {
+      r.push(n.moduleReference.expression.text);
+    } else if (ts.isCallExpression(n) && n.arguments.length && ts.isStringLiteralLike(n.arguments[0])
+      && (n.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(n.expression) && n.expression.text === 'require'))) {
+      r.push(n.arguments[0].text);
+    }
+    ts.forEachChild(n, visitar);
+  };
+  visitar(fonte);
+  return r;
+}
+
+/** Todo `.ts` de `core/src`, tambem em subpasta (adaptadores), relativo a `core/src`. */
+function modulosDoNucleo(dir = SRC, prefixo = ''): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory()
+    ? modulosDoNucleo(path.join(dir, e.name), `${prefixo}${e.name}/`)
+    : e.name.endsWith('.ts') ? [`${prefixo}${e.name}`] : []));
+}
+
 test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os contratos', () => {
-  const outros = fs.readdirSync(SRC).filter((f) => f.endsWith('.ts') && !FAMILIA_DO_GRAFO.includes(f));
-  for (const vizinho of ['orkmind.ts', 'recall.ts', 'memoria.ts', 'company-brain-contract.ts', 'company-brain-client.ts', 'mcp-server.ts', 'index.ts', 'phase.ts']) {
+  const outros = modulosDoNucleo().filter((f) => !FAMILIA_DO_GRAFO.includes(f));
+  for (const vizinho of ['orkmind.ts', 'recall.ts', 'memoria.ts', 'company-brain-contract.ts', 'company-brain-client.ts', 'mcp-server.ts', 'index.ts', 'phase.ts',
+    'adapters/claude-bg.ts']) {
     assert.ok(outros.includes(vizinho), `${vizinho} existe: a fronteira nao e vazia`);
   }
   for (const f of outros) {
-    assert.ok(!importacoes(f).some((i) => i.includes('intelligence-')), `${f} importa contrato KG1`);
+    // KG3: so o `index.ts` abre a familia, e so pelo CLI do grafo; MCP, fases, recall, memoria e adaptadores ficam fora (KG5).
+    const doGrafo = [...new Set([...importacoes(f), ...modulosImportados(f)])].filter((i) => i.includes('intelligence-'));
+    assert.deepEqual(doGrafo, f === 'index.ts' ? ['./intelligence-graph-cli'] : [], `${f} importa a familia do grafo`);
     const texto = ler(f);
     assert.ok(!texto.includes('ork.code-artifact-graph') && !texto.includes('ork.graph-benchmark'), `${f} cita contrato KG1`);
   }

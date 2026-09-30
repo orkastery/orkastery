@@ -6,9 +6,10 @@ O extrator lê um repositório Git local e produz um grafo válido no contrato
 pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D15 da
 thread `ork-rm031kg2extr`, mais a D16 (o V8 como juiz de sintaxe do JavaScript).
 
-O KG2 entrega a extração e um comando provisório para prová-la. Não entrega índice
-persistente nem CLI de consulta (KG3), extração incremental (KG4), consumo pelas fases (KG5),
-federação (KG6) nem paridade entre hosts (KG7).
+O KG2 entregou a extração e um comando provisório para prová-la, que o
+[KG3](indice-grafo-kg3.md) substituiu pelo `ork grafo`: o índice persistente, a consulta, a prova
+da extração e a amostra auditada. Extração incremental (KG4), consumo pelas fases (KG5),
+federação (KG6) e paridade entre hosts (KG7) seguem fora.
 
 ## O que o KG2 garante e o que não garante
 
@@ -47,22 +48,23 @@ que coincidem na forma NFC. O Git roda com argumentos fixos e com o `core.fsmoni
 | `ork.id-mention` | `1.0.0` | Markdown e código TS/JS | `references` a artefato citado pelo ID (`text-location`) |
 | `ork.repo-files` | `1.0.0` | o resto do manifesto | `unsupported-language`, com a extensão como referência |
 
-O compilador TypeScript entra por parâmetro: o módulo só conhece o tipo dele, e quem chama
-carrega o `typescript` instalado no core. Ele roda num host em memória que só enxerga o
+O compilador TypeScript entra por parâmetro: o módulo só conhece o tipo dele, e o módulo de
+analisadores do núcleo (`core/src/intelligence-graph-parsers.ts`, desde o KG3) carrega o
+`typescript` da instalação do `ork`. Ele roda num host em memória que só enxerga o
 manifesto: sem biblioteca padrão e sem disco. A resolução de módulo nunca entra em
 `node_modules`, mesmo versionado, e a raiz virtual deriva do conteúdo do manifesto: especificador
 que sobe acima da raiz ou é absoluto fica `unresolved-import`.
 
 A estrutura do Markdown vem do micromark com a tabela GFM, o parser CommonMark que o
-markdownlint do core já instala (fixado no `package-lock.json`), carregado pelo adaptador
-`core/scripts/micromark-adaptador.cjs` e recebido por parâmetro como o compilador. As versões do
+markdownlint do core já instala (fixado no `package-lock.json`), carregado pelo mesmo módulo de
+analisadores e recebido por parâmetro como o compilador. As versões do
 micromark e do Unicode do motor JavaScript entram na versão do `ork.md-structure`, porque a
-estrutura e o slug dependem delas. O adaptador também entrega o decodificador de referência de
+estrutura e o slug dependem delas. O módulo também entrega o decodificador de referência de
 caractere que o próprio micromark usa (as entidades do HTML5, e o número com a troca do código
 inválido por U+FFFD).
 
-O juiz de sintaxe do JavaScript é o V8 do Node que roda a extração (D16), injetado pelo
-`core/scripts/sintaxe-node.cjs`. Ele lê a fonte como o carregador lê: a linha `#!` do início fica
+O juiz de sintaxe do JavaScript é o V8 do Node que roda a extração (D16), injetado pelo módulo
+de analisadores. Ele lê a fonte como o carregador lê: a linha `#!` do início fica
 em branco até o fim de linha do V8 (LF, CR, U+2028 ou U+2029), e o BOM sai só no ESM, como no Node.
 CommonJS compila em função, como o carregador faz (`vm.compileFunction`). ESM compila em lote, num
 único processo filho por extração, com `vm.SourceTextModule`, que só analisa o módulo, sem ligar
@@ -182,32 +184,27 @@ do contrato.
 ## Relatório de extração (provisório)
 
 O relatório `ork.graph-extraction-report/v0` fica fora do contrato e não é publicado como
-schema: o KG3 decide se vira contrato. Traz o `snapshot_id`, o digest do grafo, as contagens
+schema: o KG3 o guarda no índice (`relatorio.json`) e o mantém provisório. Traz o `snapshot_id`, o digest do grafo, as contagens
 por tipo, as evidências excedentes, as fontes excluídas com o motivo, as lacunas por
 categoria e a lista das lacunas de categoria não volumosa, com arquivo e linha. Não tem
 horário: o mesmo grafo dá o mesmo relatório.
 
-## Comando provisório
+## Prova da extração pelo `ork grafo`
 
-`core/scripts/extrair-grafo.cjs` prova a extração até o KG3. Fica fora do pacote publicado e
-fora do CLI `ork`. Precisa do core compilado e do `typescript` instalado no core, e roda o
-juiz de sintaxe num processo filho do próprio Node para o ESM. Lê o
-repositório inteiro em memória a cada execução; repositório grande é assunto do KG4
-(incremental).
+O comando provisório do KG2 prova a extração até o KG3, que o substituiu pelo `ork grafo`
+([referência](indice-grafo-kg3.md#o-que-o-comando-provisório-fazia-e-onde-ficou)). Precisa do
+core compilado e do `typescript` e do micromark instalados com o `ork`, e roda o juiz de sintaxe
+num processo filho do próprio Node para o ESM. Lê o repositório inteiro em memória a cada
+construção; repositório grande é assunto do KG4 (incremental).
 
 ```sh
 npm --prefix core run build
-node core/scripts/extrair-grafo.cjs --verificar
+node core/dist/index.js grafo indexar --verificar
 ```
 
-| Opção | Faz |
-| --- | --- |
-| sem opção | resumo: revisão, snapshot, digest, contagens, lacunas e tempo |
-| `--verificar` | `validarGrafo`, `conferirFontes` com todos os bytes e a extração de novo com a ordem invertida e embaralhada; sai 1 se algo diverge |
-| `--saida ARQ`, `--relatorio ARQ` | grava o grafo canônico e o relatório |
-| `--amostra [N]` | N arestas por estrato (tipo e método), por passo fixo sobre os `edge_id` ordenados, com o hash e a primeira linha do trecho |
-| `--conferir-amostra ARQ` | confere a amostra auditada contra a extração atual: cada aresta existe, com o mesmo trecho, e o veredito é `supported` com nota |
-| `--raiz`, `--repositorio`, `--tenant`, `--acl` | repositório, identidade e ACL da extração |
+`ork grafo indexar --verificar` roda `validarGrafo`, `conferirFontes` com todos os bytes e a extração de
+novo com a ordem invertida e embaralhada, e sai 1 se algo diverge. O grafo canônico e o relatório
+ficam no índice, na pasta que o `indexar` mostra.
 
 ## Amostra auditada
 
@@ -215,11 +212,15 @@ node core/scripts/extrair-grafo.cjs --verificar
 deste repositório, conferida à mão contra o código, com a revisão auditada, o universo por
 estrato, o trecho de cada evidência (hash e primeira linha) e o veredito com nota. A
 conferência casa a aresta pelo tipo e pelas extremidades e o trecho pelo hash, então edição
-fora daquele trecho não a invalida. Amostra não prova zero aresta falsa no universo.
+fora daquele trecho não a invalida. Amostra não prova zero aresta falsa no universo. No KG3, a
+aresta que ficava no comando provisório removido deu lugar a outra do mesmo estrato, auditada.
 
 ```sh
-node core/scripts/extrair-grafo.cjs --conferir-amostra core/test/fixtures/kg2-amostra-auditada.json
+node core/dist/index.js grafo amostra --conferir core/test/fixtures/kg2-amostra-auditada.json
 ```
+
+`ork grafo amostra --por-estrato N` escolhe N arestas por estrato (tipo e método), por passo fixo
+sobre os `edge_id` ordenados, com o hash e a primeira linha do trecho, para uma auditoria nova.
 
 ## Conformidade
 

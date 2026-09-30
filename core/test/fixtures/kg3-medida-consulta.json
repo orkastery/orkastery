@@ -1,0 +1,331 @@
+{
+  "schema": "ork.graph-query-cost/v0",
+  "medido_em": "2026-09-30T15:47:07.891Z",
+  "revisao": "d87554b3a8049e687219d099c4231f22ddc9a5d3",
+  "chave_do_indice": "idx-bef338e15e2663831f97f42c67d8a82b508f96704751dd0d3c82ff29c5987cf6",
+  "graph_digest": "d0f01d2d4bedcab62265389e126856561cff03af8c8802e20acfe1d3c2609024",
+  "maquina": {
+    "node": "v22.23.2",
+    "plataforma": "linux 7.0.0-31-generic",
+    "cpus": 8,
+    "carga_1min": 1.7
+  },
+  "metodo": {
+    "grafo": "consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD ja construido; ao agente chega a saida JSON, e ele nao abre arquivo; o processo le o indice",
+    "cru": "leitura-crua/v0: git grep -n -I -F do nome nos arquivos rastreados, mais a leitura inteira de cada arquivo com ocorrencia",
+    "latencia": "relogio monotonico do processo que mede, de ponta a ponta por repeticao, com a mediana",
+    "repeticoes": 3
+  },
+  "preparo_do_indice": {
+    "comando": "ork grafo indexar --forcar --json",
+    "estado": "reconstruido-identico",
+    "ms": 14478,
+    "bytes_do_indice": 31603066,
+    "fontes": 953,
+    "arestas": 25076
+  },
+  "perguntas": [
+    {
+      "id": "P1",
+      "pergunta": "quem chama lerRepositorio",
+      "consulta": [
+        "chamadores",
+        "core/src/intelligence-graph-repo.ts#lerRepositorio"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 3148,
+        "bytes_json": 3148,
+        "bytes_texto": 731,
+        "respostas": 1,
+        "arestas_devolvidas": 1,
+        "evidencias": 1,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          810.8,
+          784,
+          903.7
+        ],
+        "latencia_mediana_ms": 810.8
+      },
+      "cru": {
+        "comando": "git grep -n -I -F -w -e lerRepositorio",
+        "bytes_grep": 2262,
+        "bytes_arquivos": 199681,
+        "bytes_ao_agente": 201943,
+        "ocorrencias": 18,
+        "arquivos_abertos": 7,
+        "bytes_lidos_pelo_processo": 9506195,
+        "latencia_ms": [
+          16.6,
+          22.2,
+          16
+        ],
+        "latencia_mediana_ms": 16.6
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    },
+    {
+      "id": "P2",
+      "pergunta": "quem chama dirEstado",
+      "consulta": [
+        "chamadores",
+        "core/src/manifest.ts#dirEstado"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 19426,
+        "bytes_json": 19426,
+        "bytes_texto": 3315,
+        "respostas": 18,
+        "arestas_devolvidas": 18,
+        "evidencias": 18,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          844.6,
+          776.2,
+          815.9
+        ],
+        "latencia_mediana_ms": 815.9
+      },
+      "cru": {
+        "comando": "git grep -n -I -F -w -e dirEstado",
+        "bytes_grep": 5542,
+        "bytes_arquivos": 560289,
+        "bytes_ao_agente": 565831,
+        "ocorrencias": 53,
+        "arquivos_abertos": 22,
+        "bytes_lidos_pelo_processo": 9506195,
+        "latencia_ms": [
+          22.7,
+          21.4,
+          21.8
+        ],
+        "latencia_mediana_ms": 21.8
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    },
+    {
+      "id": "P3",
+      "pergunta": "quem importa o contrato do grafo",
+      "consulta": [
+        "importadores",
+        "core/src/intelligence-graph-contract.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 10059,
+        "bytes_json": 10059,
+        "bytes_texto": 1996,
+        "respostas": 8,
+        "arestas_devolvidas": 8,
+        "evidencias": 8,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          775.3,
+          755.4,
+          725.5
+        ],
+        "latencia_mediana_ms": 755.4
+      },
+      "cru": {
+        "comando": "git grep -n -I -F -e intelligence-graph-contract",
+        "bytes_grep": 3188,
+        "bytes_arquivos": 378217,
+        "bytes_ao_agente": 381405,
+        "ocorrencias": 22,
+        "arquivos_abertos": 15,
+        "bytes_lidos_pelo_processo": 9506195,
+        "latencia_ms": [
+          19.7,
+          17.5,
+          18.5
+        ],
+        "latencia_mediana_ms": 18.5
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    },
+    {
+      "id": "P4",
+      "pergunta": "quem importa o leitor de YAML",
+      "consulta": [
+        "importadores",
+        "core/src/yaml.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 10326,
+        "bytes_json": 10326,
+        "bytes_texto": 1729,
+        "respostas": 9,
+        "arestas_devolvidas": 9,
+        "evidencias": 9,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          732.3,
+          792.5,
+          858.8
+        ],
+        "latencia_mediana_ms": 792.5
+      },
+      "cru": {
+        "comando": "git grep -n -I -F -e \"/yaml'\"",
+        "bytes_grep": 954,
+        "bytes_arquivos": 226332,
+        "bytes_ao_agente": 227286,
+        "ocorrencias": 11,
+        "arquivos_abertos": 11,
+        "bytes_lidos_pelo_processo": 9506195,
+        "latencia_ms": [
+          33,
+          27.8,
+          40.9
+        ],
+        "latencia_mediana_ms": 33
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    },
+    {
+      "id": "P5",
+      "pergunta": "vizinhanca de raizDoEstado",
+      "consulta": [
+        "vizinhos",
+        "core/src/estado-thread.ts#raizDoEstado"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 100373,
+        "bytes_json": 100373,
+        "bytes_texto": 17307,
+        "respostas": 98,
+        "arestas_devolvidas": 98,
+        "evidencias": 105,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          932.1,
+          1361.9,
+          891.7
+        ],
+        "latencia_mediana_ms": 932.1
+      },
+      "cru": {
+        "comando": "git grep -n -I -F -w -e raizDoEstado",
+        "bytes_grep": 12613,
+        "bytes_arquivos": 985692,
+        "bytes_ao_agente": 998305,
+        "ocorrencias": 118,
+        "arquivos_abertos": 44,
+        "bytes_lidos_pelo_processo": 9506195,
+        "latencia_ms": [
+          34,
+          19,
+          27.3
+        ],
+        "latencia_mediana_ms": 27.3
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    },
+    {
+      "id": "P6",
+      "pergunta": "caminho de main a dirEstado",
+      "consulta": [
+        "caminho",
+        "core/src/index.ts#main",
+        "core/src/manifest.ts#dirEstado"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 5880,
+        "bytes_json": 5880,
+        "bytes_texto": 866,
+        "respostas": 2,
+        "arestas_devolvidas": 2,
+        "evidencias": 2,
+        "arquivos_abertos": 0,
+        "bytes_lidos_pelo_processo": 31603066,
+        "latencia_ms": [
+          875.7,
+          826.2,
+          906.7
+        ],
+        "latencia_mediana_ms": 875.7
+      },
+      "cru": {
+        "indisponivel": "a leitura crua nao tem procedimento fixo que ache um caminho de chamadas sem inferir o simbolo que contem cada ocorrencia"
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "sem tokenizador exato nem contagem do runtime nesta medida; bytes/4 seria estimativa"
+        }
+      }
+    }
+  ],
+  "conclusao": "nenhuma: o registro mede os dois lados; economia so o benchmark do protocolo decide",
+  "limites": [
+    "o grafo so responde o que o extrator prova (sem chamada por despacho de tipo, sem chamada fora de simbolo); a leitura crua acha texto, inclusive comentario, doc e nome igual em outro escopo",
+    "as respostas dos dois lados nao sao as mesmas: o numero de cada lado fica registrado, e bytes sozinhos nao comparam qualidade",
+    "a leitura crua modela um agente que abre todo arquivo com ocorrencia; um agente real pode ler menos ou mais",
+    "latencia sob a carga registrada da maquina; o processo do grafo inclui a partida do Node e a carga do indice"
+  ]
+}
