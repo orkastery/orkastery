@@ -135,11 +135,13 @@ export function pacotesDosAnalisadores(): string[] {
     const chave = `${dados.name}@${dados.version}`;
     if (vistos.has(arquivo)) continue;
     vistos.set(arquivo, chave);
-    const deps = { ...(dados.optionalDependencies as object ?? {}), ...(dados.dependencies as object ?? {}) };
-    for (const dep of Object.keys(deps).sort()) {
+    const obrigatorias = new Set(Object.keys(dados.dependencies as object ?? {}));
+    const deps = [...new Set([...obrigatorias, ...Object.keys(dados.optionalDependencies as object ?? {})])].sort();
+    for (const dep of deps) {
       const achado = pacoteInstalado(modulos, dep, path.dirname(arquivo));
       if (achado && !vistos.has(achado)) fila.push(achado);
-      else if (!achado) vistos.set(`${arquivo}\u0000${dep}`, `${dep}@ausente`);
+      // Opcional que nao veio e normal; obrigatoria que falta dentro da instalacao fica marcada, e a carga recusa.
+      else if (!achado && obrigatorias.has(dep)) vistos.set(`${arquivo}\u0000${dep}`, `${dep}@ausente`);
     }
   }
   return [...new Set(vistos.values())].sort();
@@ -280,6 +282,10 @@ export function criarJuizDeSintaxe(): Parser['javascript'] {
  */
 export function carregarAnalisadores(): Parser {
   const versoes = versoesDosAnalisadores();
+  // CHECK rodada 3: dependencia transitiva que falta dentro da instalacao seria achada pelo Node fora
+  // dela (no node_modules de uma pasta acima) e carregada. Recusa antes de carregar qualquer pacote.
+  const ausentes = pacotesDosAnalisadores().filter((p) => p.endsWith('@ausente'));
+  if (ausentes.length) throw new Error(`grafo.parser.indisponivel: dependencia fora da instalacao do ork (${ausentes.join(', ')})`);
   const ts = carregar('typescript') as typeof TS;
   if (!ts || typeof ts.createProgram !== 'function' || ts.version !== versoes.typescript) {
     throw new Error(`grafo.parser.indisponivel: typescript ${ts.version} carregado, ${versoes.typescript} no package.json`);

@@ -60,7 +60,8 @@ que contém esse módulo, isto é, da instalação do `ork` que roda, comparado 
 `node_modules` pode ser link simbólico). Pacote achado fora dela (no diretório atual, no
 `NODE_PATH`, numa pasta global ou no `node_modules` do projeto que instalou o `ork` como
 dependência) é recusado antes de carregar: a resolução do Node só lê o `package.json` dele, e o
-código dele não roda. O juiz roda o ESM num processo
+código dele não roda. O mesmo vale para o fecho de dependências: dependência obrigatória de um
+analisador que falta dentro da instalação recusa a carga inteira, em vez de o Node achá-la fora. O juiz roda o ESM num processo
 filho sem ambiente, então um `NODE_OPTIONS` de quem chama não carrega código nele.
 
 Eles não são dependências de runtime do pacote publicado: dependência nova é decisão de produto.

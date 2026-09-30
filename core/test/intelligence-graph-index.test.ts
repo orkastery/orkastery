@@ -224,6 +224,34 @@ test('KG3 parsers: instalacao com o node_modules ligado por link simbolico vale 
   }
 });
 
+test('KG3 parsers: dependencia transitiva ausente na instalacao recusa a carga, sem rodar a copia de fora', () => {
+  const dir = dirTemporario('kg3-transitiva-fora');
+  try {
+    const canario = path.join(dir, 'canario');
+    const projeto = path.join(dir, 'projeto', 'node_modules'), instalacao = path.join(projeto, '@orkastery', 'cli');
+    const copia = instalarCopia(instalacao);
+    const dentroDela = path.join(instalacao, 'node_modules');
+    for (const nome of PACOTES_DOS_ANALISADORES) pacoteFalso(dentroDela, nome, '1.0.0-dentro', canario);
+    // O micromark de dentro depende de um pacote que so existe no node_modules do projeto, acima da instalacao.
+    const micromark = path.join(dentroDela, 'micromark', 'package.json');
+    fs.writeFileSync(micromark, JSON.stringify({ name: 'micromark', version: '1.0.0-dentro', main: 'index.js', dependencies: { 'micromark-core-commonmark': '^2.0.0' } }));
+    pacoteFalso(projeto, 'micromark-core-commonmark', '9.9.9-do-projeto', canario);
+    const r = noFilho(path.join(dir, 'projeto'), `
+      const m = require(${JSON.stringify(copia)});
+      ${erroDoFilho}
+      process.stdout.write(JSON.stringify({ pacotes: m.pacotesDosAnalisadores(), carga: erro(() => m.carregarAnalisadores()) }));
+    `);
+    assert.equal(r.status, 0, r.erro);
+    const saida = r.saida as { pacotes: string[]; carga: string };
+    assert.ok(saida.pacotes.includes('micromark-core-commonmark@ausente'), saida.pacotes.join(' '));
+    assert.ok(!saida.pacotes.some((x) => x.includes('9.9.9-do-projeto')), 'a versao de fora nao entra no fecho');
+    assert.equal(saida.carga, 'grafo.parser.indisponivel: dependencia fora da instalacao do ork (micromark-core-commonmark@ausente)');
+    assert.ok(!fs.existsSync(canario), 'carregou pacote');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('KG3 parsers: o fecho de pacotes dos analisadores lista cada dependencia instalada com a versao', () => {
   const pacotes = pacotesDosAnalisadores();
   assert.ok(pacotes.includes(`typescript@${ts.version}`), pacotes.join(' '));
