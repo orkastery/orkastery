@@ -83,7 +83,8 @@ projeto consultado e o que nao foi lido.
 reservas, a fonte e a hora de cada parte e as lacunas. A descricao manda transportar o texto como
 vem e nunca concluir "roadmap vazio" nem "nenhuma maquina publicou" a partir de lacuna ou de "Nao
 consultado". O `projeto` dela aceita o nome registrado ou a forja (`github:dono/repo`,
-`gitlab:grupo/repo`), para a maquina sem clone; caminho e URL recusam no host e no nucleo. Sem
+`gitlab:grupo/repo`), para a maquina sem clone; caminho e URL recusam no host e no nucleo, e o
+nucleo so aceita a forja em `github.com`, `gitlab.com` ou no host de um projeto registrado. Sem
 `projeto`, vem o panorama de todos os projetos do registro, e e o que a frase `orkastery maestro`
 sem projeto oferece. O projeto do diretorio do gateway so entra se estiver no registro.
 

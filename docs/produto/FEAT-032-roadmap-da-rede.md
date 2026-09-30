@@ -81,7 +81,7 @@ fontes:
   - BR-032-03: máquina sem retrato novo há mais de 3 h está sem batida, e a lacuna diz a idade.
   - BR-032-04: "Entregue hoje" sai do merge `ship(<thread>)` do dia na base, no fuso do dono do projeto consultado (`owner.timezone`), senão no do processo.
   - BR-032-05: só consulta na forja; nenhum token é lido, copiado ou passado em argumento.
-  - BR-032-06: no host (`ORK_PROJETO_EXPLICITO=1`), o `--projeto` é o nome registrado ou a forja (`github:`/`gitlab:`), e o projeto do cwd do gateway só entra pelo registro.
+  - BR-032-06: no host (`ORK_PROJETO_EXPLICITO=1`), o `--projeto` é o nome registrado ou a forja (`github:`/`gitlab:`) em `github.com`, `gitlab.com` ou no host de um projeto registrado, e o projeto do cwd do gateway só entra pelo registro; forja de host livre recusa sem chamar `gh` nem `glab`.
   - BR-032-07: no MCP, só o projeto servido, em todas as máquinas dele; o registro não é lido e os outros projetos não aparecem.
   - BR-032-08: nos hosts, o status do roadmap vem desta leitura, transportada como vem; lacuna e "Não consultado" nunca viram "roadmap vazio" nem "nenhuma máquina publicou".
   - BR-032-09: no OpenClaw, `ork_network_roadmap` é declarada nos perfis `coding` e `messaging` do manifesto, e chega ao modelo sem liberação do operador; as outras tools `ork_*` seguem sob `tools.alsoAllow`.

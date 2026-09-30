@@ -114,7 +114,7 @@ sdlc:
   - sem `ork_network_status` enquanto o núcleo não tiver `ork network status` (RM-053);
   - o status do roadmap nos hosts vem de `ork_network_roadmap`; `ork_roadmap_status` é só desta máquina;
   - a frase sem projeto leva ao panorama da rede, e a oferta também sai do núcleo, na recusa `projeto.escolha` e `projeto.nenhum`;
-  - no host, `projeto` é o nome registrado ou `github:`/`gitlab:`; caminho e URL recusam no host e no núcleo;
+  - no host, `projeto` é o nome registrado ou `github:`/`gitlab:`; caminho e URL recusam no host e no núcleo, e a forja só vale em `github.com`, `gitlab.com` ou no host de um projeto registrado (GO-FIX 1 do CHECK);
   - o "Não lido" do núcleo aponta `ork network roadmap`, e o manifesto do OpenClaw declara só `ork_network_roadmap` nos perfis `coding` e `messaging` (`toolMetadata`), as duas achadas na prova ao vivo;
   - no MCP, só o projeto servido, sem ler o registro nem revelar os outros projetos;
   - em modo host, o projeto do cwd do gateway só entra pelo registro;
@@ -131,7 +131,7 @@ sdlc:
 - 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto). A revisão independente do CHECK achou quatro defeitos maiores e cinco menores (thread corrompida derrubava o comando, pasta de mesmo nome tomava o `--projeto`, página não-ASCII sumia, `fabrica.remoto` virava opção do git); os três GO-FIX os corrigem, cada um com teste que falhava antes.
 - A rodada 2 da revisão resolveu seis achados e achou a mesma injeção pela `worktree.base_branch`, que o GO-FIX 4 fecha junto com os três achados parciais; a rodada 3 confirmou tudo e achou dois menores (a ref do `git log` e a espera do dono igual nas duas seções), fechados no GO-FIX 5.
 - Testes focados verdes: `network-roadmap.test.js` 17 de 17, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
-- 30/09/2026: fatia 1 mesclada pelo PR 25 (`b64d2f2`); fatia 2 na thread `ork-rm054fatia2` (#Auto), com `network-roadmap-hosts.test.js` 10 de 10 e os testes do OpenClaw 20 de 20.
+- 30/09/2026: fatia 1 mesclada pelo PR 25 (`b64d2f2`); fatia 2 na thread `ork-rm054fatia2` (#Auto). A prova ao vivo achou duas causas a mais (o perfil `coding` escondia as tools, e o "Não lido" apontava as fontes separadas), fechadas na T4b e na T2b. A revisão independente do CHECK achou um defeito maior (no host, a forja aceitava qualquer host, e o `gh`/`glab` falaria com o servidor pedido pelo texto do modelo) e um menor (um assert sempre verdadeiro), fechados no GO-FIX 1 com testes que reprovam o código de antes.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 

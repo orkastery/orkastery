@@ -38,8 +38,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     (`toolMetadata`): no perfil `coding`, o padrão do OpenClaw, nenhuma tool `ork_*` chegava ao
     modelo; as outras continuam sob `tools.alsoAllow` do operador;
   - com `ORK_PROJETO_EXPLICITO=1`, `ork network roadmap --projeto` aceita só o nome registrado ou a
-    forja (`github:dono/repo`), e o projeto do diretório do gateway só entra pelo registro; no
-    MCP, a tool lê só o projeto servido;
+    forja (`github:dono/repo`) em `github.com`, `gitlab.com` ou no host de um projeto registrado, e
+    o projeto do diretório do gateway só entra pelo registro; no MCP, a tool lê só o projeto
+    servido;
   - fica para a fatia 3, com a RM-053 na `main`: `ork_network_status` e a rede por pessoa como
     fonte de projetos e máquinas.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
