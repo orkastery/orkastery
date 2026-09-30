@@ -452,7 +452,7 @@ Estas listas não são extensiveis pelo executor. Uma delas mudar é uma mudanç
 | Código | Significa |
 | --- | --- |
 | `0` | Passou |
-| `3` | Pedido recusado porque outra condução executa na thread (`conducao.em-andamento`), com quem conduz e as três ações |
+| `3` | Pedido recusado porque outra condução executa na thread (`conducao.em-andamento`), com quem conduz e as três ações; ou `ork phase run` recusado por vaga (`concurrency.limite`), com as sessões que ocupam (RM-037) |
 | `4` | Projeto-alvo não resolvido (`projeto.escolha`, `projeto.ambiguo`, `projeto.desconhecido`, `projeto.sem-manifesto`, `projeto.nenhum`), com os candidatos; `--json` devolve o mesmo em objeto (RM-052) |
 | diferente de `0` | Reprovou, com o motivo tipado impresso |
 
