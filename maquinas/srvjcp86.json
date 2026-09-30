@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:30:03.884Z",
+  "publicadoEm": "2026-09-30T02:32:39.297Z",
   "threads": [
     {
       "id": "ork-rm053network",
@@ -15,6 +15,20 @@
       "roadmap": "RM-053",
       "branch": "ork/ork-rm053network-full",
       "atualizadaEm": "2026-09-30T00:41:21.212Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
+    },
+    {
+      "id": "ork-rm054fatia2",
+      "nome": "RM-054 fatia 2: tools dos hosts e aceite pelo OpenClaw",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-054",
+      "branch": "ork/ork-rm054fatia2-full",
+      "atualizadaEm": "2026-09-30T02:32:36.908Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
