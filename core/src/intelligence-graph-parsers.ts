@@ -3,10 +3,13 @@
  * roda. Sucede o adaptador do micromark e o juiz de sintaxe que o comando provisorio do KG2 levava
  * em `core/scripts/` (KG2 D15 e D16), com o mesmo comportamento e as mesmas versoes.
  *
- * `typescript` e os pacotes do micromark sao resolvidos a partir deste modulo, nunca do diretorio
- * atual nem da raiz do projeto analisado: o repositorio lido e dado, e codigo dele nunca e
- * carregado. Eles nao sao dependencias de runtime do pacote publicado (D1: dependencia nova e
- * decisao de produto); onde faltam, a recusa e `grafo.parser.indisponivel: <pacote>`.
+ * `typescript` e os pacotes do micromark so valem dentro da instalacao do `ork` que roda (o
+ * `node_modules` do pacote `@orkastery/cli` que contem este modulo), nunca do diretorio atual, do
+ * `NODE_PATH` nem de uma pasta acima, como a do projeto que instalou o `ork` como dependencia: o
+ * repositorio lido e dado, e codigo dele nunca e carregado. Eles nao sao dependencias de runtime do
+ * pacote publicado (D1: dependencia nova e decisao de produto); onde faltam ou estao fora da
+ * instalacao, a recusa e `grafo.parser.indisponivel: <pacote>`. `pacotesDosAnalisadores` lista o
+ * fecho de dependencias deles, com versao, para a chave do indice (CHECK rodada 1, A10).
  *
  * O juiz de sintaxe e o V8 do Node que roda a extracao, o mesmo que carregaria o arquivo. CommonJS
  * compila aqui, em funcao com as variaveis do modulo, como o carregador faz. ESM compila num unico
@@ -40,30 +43,82 @@ export interface VersoesDosAnalisadores {
   unicode: string;
 }
 
+const NOME_DA_INSTALACAO = '@orkastery/cli';
+
+function lerJson(arquivo: string): { name?: unknown; version?: unknown; dependencies?: unknown; optionalDependencies?: unknown } | null {
+  try {
+    return JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** A raiz do pacote `@orkastery/cli` que contem este modulo: `dist/` ou `dist-test/src/` ficam abaixo dela. */
+function raizDaInstalacao(): string {
+  for (let dir = __dirname; ; dir = path.dirname(dir)) {
+    if (lerJson(path.join(dir, 'package.json'))?.name === NOME_DA_INSTALACAO) return dir;
+    if (path.dirname(dir) === dir) throw new Error('grafo.parser.indisponivel: instalacao do ork nao encontrada');
+  }
+}
+
+const dentro = (raiz: string, alvo: string): boolean => alvo.startsWith(path.join(raiz, 'node_modules') + path.sep);
+
 /**
- * Resolve a entrada do pacote a partir deste modulo e sobe ate o `package.json` com o nome dele,
+ * Resolve a entrada do pacote a partir da instalacao e sobe ate o `package.json` com o nome dele,
  * sem sair do pacote. O `exports` do micromark nao expoe o `package.json`, e um `package.json` de
- * subpasta (`{ "type": "module" }`) nao tem nome.
+ * subpasta (`{ "type": "module" }`) nao tem nome. Entrada fora do `node_modules` da instalacao
+ * (pasta acima, `NODE_PATH`, pasta global) e recusada antes de qualquer leitura dela.
  */
-function pacoteDe(nome: Pacote): { entrada: string; versao: string } {
+function pacoteDe(nome: Pacote): { entrada: string; dir: string; versao: string } {
+  const raiz = raizDaInstalacao();
   let entrada: string;
   try {
-    entrada = require.resolve(nome);
+    entrada = require.resolve(nome, { paths: [raiz] });
   } catch {
     throw new Error(`grafo.parser.indisponivel: ${nome}`);
   }
+  if (!dentro(raiz, entrada)) throw new Error(`grafo.parser.indisponivel: ${nome} fora da instalacao do ork`);
   for (let dir = path.dirname(entrada); path.basename(dir) !== 'node_modules' && path.dirname(dir) !== dir; dir = path.dirname(dir)) {
-    const arquivo = path.join(dir, 'package.json');
-    if (!fs.existsSync(arquivo)) continue;
-    let dados: { name?: unknown; version?: unknown } | null = null;
-    try {
-      dados = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
-    } catch {
-      dados = null;
-    }
-    if (dados && dados.name === nome && typeof dados.version === 'string') return { entrada, versao: dados.version };
+    const dados = lerJson(path.join(dir, 'package.json'));
+    if (dados && dados.name === nome && typeof dados.version === 'string') return { entrada, dir, versao: dados.version };
   }
   throw new Error(`grafo.parser.indisponivel: ${nome} sem package.json`);
+}
+
+/** O `package.json` da dependencia `dep` vista de `de`, pela busca do Node, sem sair da instalacao. */
+function pacoteInstalado(raiz: string, dep: string, de: string): string | null {
+  for (let dir = de; ; dir = path.dirname(dir)) {
+    if (path.basename(dir) !== 'node_modules') {
+      const arquivo = path.join(dir, 'node_modules', dep, 'package.json');
+      if (fs.existsSync(arquivo)) return arquivo;
+    }
+    if (dir === raiz || path.dirname(dir) === dir || !dir.startsWith(raiz)) return null;
+  }
+}
+
+/**
+ * CHECK rodada 1 (A10): o fecho de dependencias dos analisadores, `nome@versao` ordenado. O parser
+ * de CommonMark (`micromark-core-commonmark`) e os utilitarios mudam o grafo sem mudar a versao do
+ * micromark: a chave do indice precisa deles.
+ */
+export function pacotesDosAnalisadores(): string[] {
+  const raiz = raizDaInstalacao(), vistos = new Map<string, string>();
+  const fila = PACOTES_DOS_ANALISADORES.map((p) => path.join(pacoteDe(p).dir, 'package.json'));
+  while (fila.length) {
+    const arquivo = fila.shift() as string;
+    const dados = lerJson(arquivo);
+    if (!dados || typeof dados.name !== 'string' || typeof dados.version !== 'string') throw new Error(`grafo.parser.indisponivel: ${arquivo} ilegivel`);
+    const chave = `${dados.name}@${dados.version}`;
+    if (vistos.has(arquivo)) continue;
+    vistos.set(arquivo, chave);
+    const deps = { ...(dados.optionalDependencies as object ?? {}), ...(dados.dependencies as object ?? {}) };
+    for (const dep of Object.keys(deps).sort()) {
+      const achado = pacoteInstalado(raiz, dep, path.dirname(arquivo));
+      if (achado && !vistos.has(achado)) fila.push(achado);
+      else if (!achado) vistos.set(`${arquivo}\u0000${dep}`, `${dep}@ausente`);
+    }
+  }
+  return [...new Set(vistos.values())].sort();
 }
 
 export function versoesDosAnalisadores(): VersoesDosAnalisadores {
@@ -98,6 +153,10 @@ function carregarMarkdown(versao: string): Parser['markdown'] {
   const { gfmTable } = carregar('micromark-extension-gfm-table');
   const { decodeNamedCharacterReference } = carregar('decode-named-character-reference');
   const { decodeNumericCharacterReference } = carregar('micromark-util-decode-numeric-character-reference');
+  if (typeof parse !== 'function' || typeof postprocess !== 'function' || typeof preprocess !== 'function' || typeof gfmTable !== 'function'
+    || typeof decodeNamedCharacterReference !== 'function' || typeof decodeNumericCharacterReference !== 'function') {
+    throw new Error('grafo.parser.indisponivel: micromark sem a API esperada');
+  }
   const extensions = [gfmTable()];
   const referencia = (valor: string): string | null => {
     if (valor[0] !== '#') return decodeNamedCharacterReference(valor) || null;
@@ -198,7 +257,7 @@ export function criarJuizDeSintaxe(): Parser['javascript'] {
 export function carregarAnalisadores(): Parser {
   const versoes = versoesDosAnalisadores();
   const ts = carregar('typescript') as typeof TS;
-  if (ts.version !== versoes.typescript) {
+  if (!ts || typeof ts.createProgram !== 'function' || ts.version !== versoes.typescript) {
     throw new Error(`grafo.parser.indisponivel: typescript ${ts.version} carregado, ${versoes.typescript} no package.json`);
   }
   return { ts, unicode: versoes.unicode, markdown: carregarMarkdown(versoes.markdown), javascript: criarJuizDeSintaxe() };

@@ -18,10 +18,10 @@ import {
   type ContextoDoIndice, type ResultadoDaConstrucao,
 } from './intelligence-graph-index';
 import {
-  CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
+  CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
   type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido,
 } from './intelligence-graph-query';
-import { revisaoDaArvore } from './intelligence-graph-repo';
+import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
 
 export const STATUS_SCHEMA = 'ork.code-graph-index-status/v0' as const;
 /** O mesmo schema da amostra do KG2: as amostras auditadas continuam validas. */
@@ -144,7 +144,7 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const arvore = revisaoDaArvore(ctx.raiz);
   let chave: string | null = null, analisadores: unknown = null, erro: string | null = null;
   try {
-    const perfil = perfilDoIndice(arvore.raiz);
+    const perfil = perfilDoIndice(arvore.raiz, undefined, ctx.repositorio ? { repository_id: ctx.repositorio } : {});
     analisadores = perfil.analisadores;
     if (arvore.head) chave = chaveDoIndice(arvore.head, perfil);
   } catch (e) {
@@ -152,9 +152,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   }
   const estado = estadoDosIndices(ctx);
   const doHead = chave ? estado.indices.find((i) => i.chave === chave) ?? null : null;
+  // Sem analisadores nao ha chave: o indice do HEAD fica indisponivel, nunca "ausente" (indexar tambem nao roda).
+  const indiceDoHeadEstado = erro ? 'indisponivel' : doHead ? (doHead.problema ? 'com-problema' : 'presente') : 'ausente';
   const r = {
     schema: STATUS_SCHEMA, head: arvore.head, arvore: arvore.motivo === null ? 'limpa' : arvore.motivo, chave_do_head: chave,
-    indice_do_head: doHead ? (doHead.problema ? 'com-problema' : 'presente') : 'ausente', analisadores, erro,
+    indice_do_head: indiceDoHeadEstado, analisadores, erro,
     dir: estado.dir, bytes: estado.bytes, indices: estado.indices, sobras: estado.sobras,
   };
   if (p.bandeiras.has('json')) {
@@ -163,7 +165,8 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   }
   const linhas = [
     `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
-    `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)' : `(${r.indice_do_head})`}`,
+    `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
+      : r.indice_do_head === 'indisponivel' ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : `(${r.indice_do_head})`}`,
     `  analisadores    ${erro ?? Object.entries(analisadores as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(', ')}`,
     `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
   ];
@@ -175,11 +178,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   return 0;
 }
 
-/** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho. */
+/** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela. */
 function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string } {
   const { arvore, perfil, chave, indice } = indiceDoHead(ctx);
   const concessao = concessaoLocal(arvore.raiz, perfil);
-  const grafo = indice.grafo as GrafoCodigo, m = indice.manifesto;
+  const grafo = filtrarGrafo(indice.grafo as GrafoCodigo, concessao), m = indice.manifesto;
   const cabecalho: CabecalhoDoIndice = {
     repository_id: m.repository_id, revision: m.revision, chave, snapshot_id: m.snapshot_id, graph_digest: m.graph_digest,
     arvore: arvore.motivo === null ? 'limpa' : 'modificada',
@@ -194,13 +197,14 @@ function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number
 }
 
 function consultar(ctx: ContextoDoCli, p: Pedido): number {
-  const { g, cabecalho } = consultavel(ctx);
+  // As opcoes sao conferidas antes de carregar o indice: erro de uso nao custa a leitura do grafo.
   const [a, b] = p.posicionais;
-  const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite');
-  if (p.sub === 'vizinhos') return responder(ctx, p, vizinhos(g, cabecalho, a, { profundidade, limite, sentido: sentido(p), tipos: tipos(p) }));
+  const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p);
+  const { g, cabecalho } = consultavel(ctx);
+  if (p.sub === 'vizinhos') return responder(ctx, p, vizinhos(g, cabecalho, a, { profundidade, limite, sentido: s, tipos: t }));
   if (p.sub === 'chamadores') return responder(ctx, p, chamadores(g, cabecalho, a, { profundidade, limite }));
   if (p.sub === 'importadores') return responder(ctx, p, importadores(g, cabecalho, a, { profundidade, limite }));
-  return responder(ctx, p, caminho(g, cabecalho, a, b, { sentido: sentido(p), tipos: tipos(p) }));
+  return responder(ctx, p, caminho(g, cabecalho, a, b, { sentido: s, tipos: t }));
 }
 
 const sha256 = (b: Uint8Array): string => createHash('sha256').update(b).digest('hex');
@@ -218,7 +222,20 @@ function leitorDaArvore(raiz: string, grafo: GrafoCodigo): (p: string) => Buffer
     if (guardado) return guardado;
     const esperado = hashes.get(p);
     if (!esperado) throw new Error(`grafo.amostra.fonte-desconhecida: ${p}`);
-    const bytes = fs.readFileSync(path.join(raiz, p));
+    // Sem seguir link e so arquivo regular: FIFO ou dispositivo no lugar da fonte nao trava a leitura.
+    let fd: number;
+    try {
+      fd = fs.openSync(path.join(raiz, p), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    } catch {
+      throw new Error(`grafo.amostra.fonte-mudou: ${p}`);
+    }
+    let bytes: Buffer;
+    try {
+      if (!fs.fstatSync(fd).isFile()) throw new Error(`grafo.amostra.fonte-mudou: ${p}`);
+      bytes = fs.readFileSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
     if (sha256(bytes) !== esperado) throw new Error(`grafo.amostra.fonte-mudou: ${p}`);
     lidos.set(p, bytes);
     return bytes;
@@ -277,6 +294,7 @@ interface ItemDaAmostra {
 function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo: string): { linhas: string[]; falhas: string[] } {
   const amostra = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { schema: string; revision: string | null; revision_unavailable_reason: string | null; arestas: ItemDaAmostra[] };
   if (amostra.schema !== AMOSTRA_SCHEMA || !Array.isArray(amostra.arestas)) return { linhas: [], falhas: [`schema da amostra: ${amostra.schema}`] };
+  if (!amostra.arestas.length) return { linhas: [], falhas: ['amostra vazia: nada para conferir'] };
   const nos = localizadorDe(grafo);
   const indice = new Map(grafo.edges.map((a) => [chaveDaAresta(a.kind, nos.get(a.from) as Localizador, nos.get(a.to) as Localizador), a]));
   const falhas: string[] = [], estratos = new Set<string>(), vereditos: Record<string, number> = {};
@@ -326,21 +344,38 @@ function amostra(ctx: ContextoDoCli, p: Pedido): number {
   return falhas.length ? 1 : 0;
 }
 
+/** Sem `--tudo`, fica o indice de todo HEAD das arvores do repositorio: o estado e compartilhado entre elas. */
 function limpar(ctx: ContextoDoCli, p: Pedido): number {
-  let manter: string[] = [];
+  let manter: string[] = [], manterRevisoes: string[] = [];
   if (!p.bandeiras.has('tudo')) {
     const arvore = revisaoDaArvore(ctx.raiz);
-    if (arvore.head) manter = [chaveDoIndice(arvore.head, perfilDoIndice(arvore.raiz))];
+    manterRevisoes = headsDasArvores(arvore.raiz);
+    if (arvore.head) manter = [chaveDoIndice(arvore.head, perfilDoIndice(arvore.raiz, undefined, ctx.repositorio ? { repository_id: ctx.repositorio } : {}))];
   }
-  const r = limparIndices(ctx, { manter, tudo: p.bandeiras.has('tudo') });
-  if (p.bandeiras.has('json')) ctx.escrever(JSON.stringify({ schema: STATUS_SCHEMA, manter, ...r }, null, 2));
+  const r = limparIndices(ctx, { manter, manterRevisoes, tudo: p.bandeiras.has('tudo') });
+  if (p.bandeiras.has('json')) ctx.escrever(JSON.stringify({ schema: STATUS_SCHEMA, manter, manter_revisoes: manterRevisoes, ...r }, null, 2));
   else ctx.escrever([`grafo limpar: ${r.removidos.length} removido(s), ${mb(r.bytes)}`, ...r.removidos.map((x) => `  ${x.nome} ${mb(x.bytes)}`)].join('\n'));
   return 0;
 }
 
-/** `ork grafo <subcomando> ...`: devolve o codigo de saida; erro de uso ou tipado sem `--json` e lancado. */
+const erroEmJson = (ctx: ContextoDoCli, e: unknown): number => {
+  const [codigo, ...detalhe] = String((e as Error).message).split('\n')[0].split(': ');
+  ctx.escrever(JSON.stringify({
+    schema: CONSULTA_SCHEMA, erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [] },
+  }, null, 2));
+  return 1;
+};
+
+/** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
-  const p = lerPedido(argv);
+  let p: Pedido;
+  try {
+    p = lerPedido(argv);
+  } catch (e) {
+    // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
+    if (argv.includes('--json')) return erroEmJson(ctx, e);
+    throw e;
+  }
   try {
     if (p.sub === 'indexar') return indexar(ctx, p);
     if (p.sub === 'status') return status(ctx, p);
@@ -348,12 +383,8 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'limpar') return limpar(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
-    if (!p.bandeiras.has('json') || String((e as Error).message).startsWith('grafo.uso')) throw e;
-    const [codigo, ...detalhe] = String((e as Error).message).split(': ');
-    ctx.escrever(JSON.stringify({
-      schema: CONSULTA_SCHEMA, erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [] },
-    }, null, 2));
-    return 1;
+    if (!p.bandeiras.has('json')) throw e;
+    return erroEmJson(ctx, e);
   }
 }
 

@@ -14,7 +14,7 @@ import { derivarIds, validarGrafo, type GrafoCodigo } from '../src/intelligence-
 import { extrairGrafo, type EntradaDeExtracao, type Parser } from '../src/intelligence-graph-extract';
 import { carregarAnalisadores } from '../src/intelligence-graph-parsers';
 import {
-  AVISO_DE_PARCIALIDADE, CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, importadores, jsonDaResposta, prepararConsulta,
+  AVISO_DE_PARCIALIDADE, CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta,
   resolverNo, rotuloDoNo, textoDaResposta, vizinhos, type CabecalhoDoIndice, type Concessao, type GrafoConsultavel, type RespostaDeConsulta,
 } from '../src/intelligence-graph-query';
 
@@ -48,6 +48,13 @@ before(() => {
   GRAFO = extrair(Object.keys(REPO));
   G = prepararConsulta(GRAFO, CONCESSAO);
 });
+
+function extrairDe(arquivos: Record<string, string>): GrafoCodigo {
+  return extrairGrafo({
+    tenant_id: 'local', repository_id: 'demo', revision: null, revision_unavailable_reason: 'repositorio-sintetico',
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(arquivos).map(([p, c]) => ({ path: p, bytes: Buffer.from(c, 'utf8') })),
+  }, PARSER).grafo;
+}
 
 function extrair(ordem: string[]): GrafoCodigo {
   const entrada: EntradaDeExtracao = {
@@ -92,6 +99,21 @@ test('KG3 query: resolverNo por caminho, caminho#fragmento, tipo e nome solto; a
   assert.equal(erroDe(() => resolverNo(G, '')).codigo, 'grafo.consulta.uso');
 });
 
+test('KG3 query: fragmento com # (membro privado) resolve por caminho#fragmento, por tipo e pelo nome solto', () => {
+  const g = prepararConsulta(extrairDe({ 'src/c.ts': 'export class Cofre {\n  #segredo = 1;\n  abrir(): number { return this.#segredo; }\n}\n' }), CONCESSAO);
+  const esperado = 'symbol src/c.ts#Cofre.#segredo';
+  assert.ok([...g.rotulos.values()].includes(esperado), [...g.rotulos.values()].join(', '));
+  for (const t of ['src/c.ts#Cofre.#segredo', 'symbol:src/c.ts#Cofre.#segredo', 'Cofre.#segredo', esperado.slice('symbol '.length)]) {
+    assert.equal(rotuloDoNo(resolverNo(g, t)), esperado, t);
+  }
+  assert.equal(rotuloDoNo(resolverNo(g, 'Cofre.abrir')), 'symbol src/c.ts#Cofre.abrir');
+  assert.equal(erroDe(() => resolverNo(g, 'src/c.ts#Cofre.')).codigo, 'grafo.consulta.no-desconhecido');
+  // Caminho com # tambem: o separador e o # depois de um caminho que existe, nao so o primeiro.
+  const h = prepararConsulta(extrairDe({ 'docs/a#b.md': '# Titulo\n\ntexto\n' }), CONCESSAO);
+  assert.equal(rotuloDoNo(resolverNo(h, 'docs/a#b.md#titulo')), 'section docs/a#b.md#titulo');
+  assert.equal(rotuloDoNo(resolverNo(h, 'docs/a#b.md')), 'file docs/a#b.md');
+});
+
 test('KG3 query: vizinhos com profundidade, sentido, tipos e limite', () => {
   const c = cabecalho(GRAFO);
   const base = vizinhos(G, c, 'src/util.ts#dobro');
@@ -111,15 +133,27 @@ test('KG3 query: vizinhos com profundidade, sentido, tipos e limite', () => {
   assert.deepEqual(pares(vizinhos(G, c, 'dobro', { sentido: 'saida' })), ['calls symbol src/util.ts#dobro -> symbol src/util.ts#soma']);
   assert.equal(vizinhos(G, c, 'dobro', { tipos: ['calls'] }).total_arestas, 3);
   const fundo = vizinhos(G, c, 'dobro', { profundidade: 2, sentido: 'entrada', tipos: ['calls'] });
+  // Primeiro as arestas mais perto do alvo: a do segundo salto vem por ultimo.
   assert.deepEqual(pares(fundo), [
-    'calls symbol src/app.ts#outra -> symbol src/app.ts#principal',
     'calls symbol src/app.ts#principal -> symbol src/util.ts#dobro',
     'calls symbol src/util.ts#Calc.total -> symbol src/util.ts#dobro',
+    'calls symbol src/app.ts#outra -> symbol src/app.ts#principal',
   ]);
+  assert.deepEqual(fundo.arestas.map((a) => a.distancia), [0, 0, 1]);
   assert.equal(fundo.nos.find((n) => n.rotulo === 'symbol src/app.ts#outra')?.distancia, 2);
   const curto = vizinhos(G, c, 'dobro', { limite: 2 });
   assert.deepEqual([curto.arestas.length, curto.total_arestas, curto.truncado], [2, 5, true]);
   assert.deepEqual(pares(curto), pares(base).slice(0, 2));
+  // O limite corta os nos junto: so o alvo e as pontas das arestas devolvidas, com o total a parte.
+  assert.deepEqual(curto.nos.map((n) => n.rotulo), ['symbol src/util.ts#dobro', 'symbol src/app.ts#principal', 'symbol src/util.ts#Calc.total']);
+  assert.deepEqual([curto.total_nos, base.total_nos], [6, 6]);
+  // Com raio 2 e limite do tamanho do primeiro salto, fica o primeiro salto inteiro.
+  const perto = vizinhos(G, c, 'dobro', { profundidade: 2, limite: 5 });
+  assert.ok(perto.total_arestas > 5 && perto.truncado);
+  assert.deepEqual(pares(perto), pares(base));
+  assert.ok(perto.total_nos > perto.nos.length);
+  // Limite igual ao total nao e truncado.
+  assert.equal(vizinhos(G, c, 'dobro', { limite: 5 }).truncado, false);
   for (const errado of [{ profundidade: 0 }, { profundidade: 6 }, { limite: 0 }, { limite: 1.5 }, { sentido: 'lado' as never }, { tipos: ['usa' as never] }, { tipos: [] }]) {
     assert.equal(erroDe(() => vizinhos(G, c, 'dobro', errado)).codigo, 'grafo.consulta.uso', JSON.stringify(errado));
   }
@@ -131,13 +165,13 @@ test('KG3 query: chamadores de simbolo e importadores de arquivo e de simbolo', 
   assert.deepEqual(pares(ch), ['calls symbol src/app.ts#principal -> symbol src/util.ts#soma', 'calls symbol src/util.ts#dobro -> symbol src/util.ts#soma']);
   assert.equal(ch.arestas[0].evidencias.length, 2, 'soma(1, 2) e u.soma(3, 4) na mesma aresta');
   assert.deepEqual([ch.consulta.tipo, ch.consulta.sentido, ch.consulta.tipos], ['chamadores', 'entrada', ['calls']]);
-  // Raio 2: entram as arestas que chegam aos nos a 1 salto, tambem a que liga dois deles.
+  // Raio 2: entram as arestas que chegam aos nos a 1 salto, tambem a que liga dois deles, depois das do primeiro.
   assert.deepEqual(pares(chamadores(G, c, 'src/util.ts#soma', { profundidade: 2 })), [
+    'calls symbol src/app.ts#principal -> symbol src/util.ts#soma',
+    'calls symbol src/util.ts#dobro -> symbol src/util.ts#soma',
     'calls symbol src/app.ts#outra -> symbol src/app.ts#principal',
     'calls symbol src/app.ts#principal -> symbol src/util.ts#dobro',
-    'calls symbol src/app.ts#principal -> symbol src/util.ts#soma',
     'calls symbol src/util.ts#Calc.total -> symbol src/util.ts#dobro',
-    'calls symbol src/util.ts#dobro -> symbol src/util.ts#soma',
   ]);
   assert.equal(chamadores(G, c, 'isolado').total_arestas, 0, 'sem chamador e resposta, nao erro');
   assert.deepEqual(pares(chamadores(G, c, 'Calc')), ['calls symbol src/util.ts#Calc.criar -> symbol src/util.ts#Calc']);
@@ -233,7 +267,7 @@ test('KG3 query: no de outra ACL e invisivel em resposta, contagem, candidato, c
   const json = jsonDaResposta(vizinhos(g, c, 'src/util.ts', { profundidade: 5 }));
   assert.ok(!json.includes('#dobro'), 'nada de dobro na vizinhanca');
   assert.deepEqual(pares(chamadores(g, c, 'src/util.ts#soma', { profundidade: 3 })), [
-    'calls symbol src/app.ts#outra -> symbol src/app.ts#principal', 'calls symbol src/app.ts#principal -> symbol src/util.ts#soma',
+    'calls symbol src/app.ts#principal -> symbol src/util.ts#soma', 'calls symbol src/app.ts#outra -> symbol src/app.ts#principal',
   ]);
   assert.equal(caminho(g, c, 'Calc.total', 'src/util.ts#soma').caminho, null, 'o caminho por dobro sumiu');
   assert.equal(caminho(G, cabecalho(GRAFO), 'Calc.total', 'src/util.ts#soma').caminho?.length, 2);
@@ -252,6 +286,12 @@ test('KG3 query: no de outra ACL e invisivel em resposta, contagem, candidato, c
   const g3c = prepararConsulta(validarGrafo(derivarIds(g3)), CONCESSAO);
   assert.deepEqual(pares(chamadores(g3c, cabecalho(GRAFO), 'dobro')), ['calls symbol src/util.ts#Calc.total -> symbol src/util.ts#dobro']);
   assert.equal(rotuloDoNo(resolverNo(g3c, 'principal')), 'symbol src/app.ts#principal');
+  // Diagnostico fora da concessao sai do grafo filtrado, como no e aresta.
+  const comDiag = structuredClone(GRAFO);
+  comDiag.diagnostics = [...comDiag.diagnostics, { kind: 'unsupported-language', path: 'src/solto.ts', reference: '.x', extractor_id: 'ork.repo-files',
+    extractor_version: '1.0.0', access: { tenant_id: 'local', acl_refs: ['repo:demo:leitura', 'repo:secreto:leitura'] } }];
+  assert.equal(filtrarGrafo(comDiag, CONCESSAO).diagnostics.length, GRAFO.diagnostics.length);
+  assert.equal(filtrarGrafo(comDiag, { tenant_id: 'local', acl_refs: ['repo:demo:leitura', 'repo:secreto:leitura'] }).diagnostics.length, GRAFO.diagnostics.length + 1);
   // Candidatos do nome ambiguo tambem so trazem visiveis.
   const soma = GRAFO.nodes.find((n) => n.locator.path === 'src/solto.ts' && n.locator.fragment === 'soma');
   const g2 = structuredClone(GRAFO);
@@ -270,7 +310,7 @@ test('KG3 query: o texto traz cabecalho, aviso de arvore modificada, contagem e 
   assert.match(t, /^vizinhos de symbol src\/util\.ts#dobro \(profundidade 1, sentido ambos, tipos todos\): 5 aresta\(s\), 5 no\(s\)$/m);
   assert.ok(t.endsWith(AVISO_DE_PARCIALIDADE));
   assert.ok(!textoDaResposta(vizinhos(G, cabecalho(GRAFO), 'dobro')).includes('aviso:'));
-  assert.match(textoDaResposta(vizinhos(G, cabecalho(GRAFO), 'dobro', { limite: 1 })), /^truncado: 1 de 5 arestas; use --limite$/m);
+  assert.match(textoDaResposta(vizinhos(G, cabecalho(GRAFO), 'dobro', { limite: 1 })), /^truncado: 1 de 5 arestas, as mais perto do alvo; use --limite$/m);
 });
 
 /** Embaralhamento reproduzivel (LCG), para a permutacao nao depender de acaso. */
@@ -333,9 +373,9 @@ function registroValido(): Record<string, unknown> {
     preparo_do_indice: { comando: 'ork grafo indexar --forcar --json', estado: 'criado', ms: 10, bytes_do_indice: 100, fontes: 3, arestas: 4 },
     perguntas: MEDIDA.PERGUNTAS.map((p) => ({
       id: p.id, pergunta: p.id, consulta: [],
-      grafo: { bytes_json: 10, bytes_texto: 5, respostas: 1, arestas_devolvidas: 1, evidencias: 1, ...numeros },
+      grafo: { bytes_ao_agente: 10, bytes_json: 10, bytes_texto: 5, respostas: 1, arestas_devolvidas: 1, evidencias: 1, arquivos_abertos: 0, bytes_lidos_pelo_processo: 100, ...numeros },
       cru: p.cru.indisponivel ? { indisponivel: p.cru.indisponivel }
-        : { comando: 'git grep', bytes_grep: 1, bytes_arquivos: 2, bytes_ao_agente: 3, ocorrencias: 1, arquivos_abertos: 1, ...numeros },
+        : { comando: 'git grep', bytes_grep: 1, bytes_arquivos: 2, bytes_ao_agente: 3, ocorrencias: 1, arquivos_abertos: 1, bytes_lidos_pelo_processo: 50, ...numeros },
       tokens: { grafo: MEDIDA.TOKENS, cru: MEDIDA.TOKENS },
     })),
     conclusao: MEDIDA.CONCLUSAO, limites: ['x'],
@@ -352,6 +392,8 @@ test('KG3 medida: o registro valido passa, e token medido, braco faltando, concl
   };
   reprova((r) => { r.perguntas[0].tokens.grafo = { value: 1234, source: 'estimated', unavailable_reason: null }; }, /^P1 tokens$/);
   reprova((r) => { delete r.perguntas[1].cru.bytes_ao_agente; }, /^P2 cru\.bytes_ao_agente$/);
+  reprova((r) => { delete r.perguntas[0].grafo.arquivos_abertos; }, /^P1 grafo\.arquivos_abertos$/);
+  reprova((r) => { delete r.perguntas[0].grafo.bytes_ao_agente; }, /^P1 grafo\.bytes_ao_agente$/);
   reprova((r) => { r.perguntas[5].cru = { bytes_ao_agente: 1 }; }, /^P6 cru\.indisponivel$/);
   reprova((r) => { r.perguntas[2].grafo.respostas = -1; }, /^P3 grafo\.respostas$/);
   reprova((r) => { r.conclusao = 'o grafo reduz o contexto'; }, /^conclusao$/);

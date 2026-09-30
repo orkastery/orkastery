@@ -5,8 +5,9 @@
  * So percorre arestas do grafo: nada de busca textual, inferencia ou similaridade. O que o extrator
  * do KG2 nao prova nao esta no grafo, e toda resposta diz que e parcial.
  *
- * D6: a concessao filtra na preparacao, antes de qualquer mapa: no, aresta, evidencia e diagnostico
- * fora dela nao existem para a consulta, nem em resposta, contagem, candidato ou erro.
+ * D6: a concessao filtra antes de qualquer mapa (`filtrarGrafo`): no, aresta, evidencia e
+ * diagnostico fora dela nao existem para a consulta nem para a amostra, nem em resposta, contagem,
+ * candidato ou erro.
  *
  * D7: a resposta e a mesma para o mesmo grafo e a mesma pergunta, byte a byte, em texto e em JSON
  * (`ork.code-graph-query/v0`, provisorio e fora do contrato): ordem por code point, sem horario.
@@ -56,12 +57,28 @@ function visivel(a: Acesso, c: Concessao): boolean {
   return a.tenant_id === c.tenant_id && a.acl_refs.every((r) => c.acl_refs.includes(r));
 }
 
+/**
+ * D6: o grafo so com o que a concessao ve. Aresta precisa estar visivel, com as duas pontas visiveis
+ * e ao menos uma evidencia visivel; evidencia e diagnostico fora da concessao saem.
+ */
+export function filtrarGrafo(grafo: GrafoCodigo, concessao: Concessao): GrafoCodigo {
+  const nodes = grafo.nodes.filter((n) => visivel(n.access, concessao));
+  const ids = new Set(nodes.map((n) => n.node_id));
+  const edges: Aresta[] = [];
+  for (const a of grafo.edges) {
+    if (!visivel(a.access, concessao) || !ids.has(a.from) || !ids.has(a.to)) continue;
+    const evidence = a.evidence.filter((e) => visivel(e.access, concessao));
+    if (evidence.length) edges.push(evidence.length === a.evidence.length ? a : { ...a, evidence });
+  }
+  return { ...grafo, nodes, edges, diagnostics: grafo.diagnostics.filter((d) => visivel(d.access, concessao)) };
+}
+
 /** D6: filtra pela concessao e monta os mapas. Nada fora dela entra em mapa nenhum. */
-export function prepararConsulta(grafo: GrafoCodigo, concessao: Concessao): GrafoConsultavel {
+export function prepararConsulta(grafoInteiro: GrafoCodigo, concessao: Concessao): GrafoConsultavel {
+  const grafo = filtrarGrafo(grafoInteiro, concessao);
   const nos = new Map<string, No>(), rotulos = new Map<string, string>(), porLocalizador = new Map<string, No>();
   const arquivos = new Map<string, No>(), porFragmento = new Map<string, No[]>();
   for (const n of grafo.nodes) {
-    if (!visivel(n.access, concessao)) continue;
     nos.set(n.node_id, n);
     rotulos.set(n.node_id, rotuloDoNo(n));
     porLocalizador.set(chaveDoLocalizador(n.kind, n.locator.path, n.locator.fragment), n);
@@ -73,12 +90,8 @@ export function prepararConsulta(grafo: GrafoCodigo, concessao: Concessao): Graf
     }
   }
   const saida = new Map<string, Aresta[]>(), entrada = new Map<string, Aresta[]>();
-  for (const a of grafo.edges) {
-    if (!visivel(a.access, concessao) || !nos.has(a.from) || !nos.has(a.to)) continue;
-    const evidence = a.evidence.filter((e) => visivel(e.access, concessao));
-    if (!evidence.length) continue;
-    const aresta = evidence.length === a.evidence.length ? a : { ...a, evidence };
-    for (const [mapa, id] of [[saida, a.from], [entrada, a.to]] as const) {
+  for (const aresta of grafo.edges) {
+    for (const [mapa, id] of [[saida, aresta.from], [entrada, aresta.to]] as const) {
       const lista = mapa.get(id) ?? [];
       lista.push(aresta);
       mapa.set(id, lista);
@@ -98,10 +111,23 @@ function ambiguo(texto: string, candidatos: No[]): never {
   throw new ErroDeConsulta('grafo.consulta.ambiguo', `${texto} tem ${rotulos.length} candidatos: ${listados.join('; ')}${rotulos.length > listados.length ? '; ...' : ''}`, listados);
 }
 
+/** Os nos com o localizador `caminho#fragmento` em cada `#` do texto: o fragmento tambem pode ter `#` (`Classe.#privado`). */
+function porLocalizadores(g: GrafoConsultavel, texto: string, tipos: readonly TipoDeNo[]): No[] {
+  const achados = new Map<string, No>();
+  for (let i = texto.indexOf('#'); i > 0; i = texto.indexOf('#', i + 1)) {
+    for (const k of tipos) {
+      const n = g.porLocalizador.get(chaveDoLocalizador(k, texto.slice(0, i), texto.slice(i + 1)));
+      if (n) achados.set(n.node_id, n);
+    }
+  }
+  return [...achados.values()];
+}
+
 /**
  * D5: o no pelo texto. `tipo:caminho#fragmento` fixa o tipo; `caminho` exato e o arquivo;
- * `caminho#fragmento` (no ultimo `#`) e o no com esse localizador; o resto e nome solto, que casa o
- * fragmento exato de um simbolo, secao ou artefato. Ambiguo lista os candidatos, nunca escolhe.
+ * `caminho#fragmento` e o no com esse localizador, em qualquer `#` que separe um caminho que existe;
+ * o resto e nome solto, que casa o fragmento exato de um simbolo, secao ou artefato. Ambiguo lista os
+ * candidatos, nunca escolhe. O rotulo que a resposta imprime (sem o tipo) volta como entrada.
  */
 export function resolverNo(g: GrafoConsultavel, texto: string): No {
   if (!texto) throw new ErroDeConsulta('grafo.consulta.uso', 'no vazio');
@@ -112,21 +138,16 @@ export function resolverNo(g: GrafoConsultavel, texto: string): No {
   if (tipado) {
     const kind = tipado[1] as TipoDeNo, resto = tipado[2];
     if (kind === 'file') return g.arquivos.get(resto) ?? desconhecido();
-    const i = resto.lastIndexOf('#');
-    if (i <= 0) desconhecido();
-    return g.porLocalizador.get(chaveDoLocalizador(kind, resto.slice(0, i), resto.slice(i + 1))) ?? desconhecido();
+    const candidatos = porLocalizadores(g, resto, [kind]);
+    if (candidatos.length === 1) return candidatos[0];
+    if (candidatos.length > 1) ambiguo(texto, candidatos);
+    return desconhecido();
   }
   const arquivo = g.arquivos.get(texto);
   if (arquivo) return arquivo;
-  const i = texto.lastIndexOf('#');
-  if (i > 0) {
-    const candidatos = TIPOS_DE_NO_COM_FRAGMENTO
-      .map((k) => g.porLocalizador.get(chaveDoLocalizador(k, texto.slice(0, i), texto.slice(i + 1))))
-      .filter((n): n is No => !!n);
-    if (candidatos.length === 1) return candidatos[0];
-    if (candidatos.length > 1) ambiguo(texto, candidatos);
-    desconhecido();
-  }
+  const candidatos = porLocalizadores(g, texto, TIPOS_DE_NO_COM_FRAGMENTO);
+  if (candidatos.length === 1) return candidatos[0];
+  if (candidatos.length > 1) ambiguo(texto, candidatos);
   const soltos = g.porFragmento.get(texto) ?? [];
   if (soltos.length === 1) return soltos[0];
   if (soltos.length > 1) ambiguo(texto, soltos);
@@ -137,7 +158,8 @@ export interface NoDaResposta { rotulo: string; kind: TipoDeNo; path: string; fr
 export interface EvidenciaDaResposta {
   extractor_id: string; extractor_version: string; extraction_method: Evidencia['extraction_method']; path: string; span: Evidencia['span'];
 }
-export interface ArestaDaResposta { kind: TipoDeAresta; from: string; to: string; edge_id: string; evidencias: EvidenciaDaResposta[] }
+/** `distancia`: na vizinhanca, os saltos do alvo ate o no que a explorou; no caminho, o numero do passo. */
+export interface ArestaDaResposta { kind: TipoDeAresta; from: string; to: string; edge_id: string; distancia: number; evidencias: EvidenciaDaResposta[] }
 export interface PassoDoCaminho { sentido: 'saida' | 'entrada'; aresta: ArestaDaResposta }
 
 /** O que o chamador sabe do indice: vai no cabecalho da resposta. */
@@ -160,7 +182,9 @@ export interface RespostaDeConsulta {
   indice: CabecalhoDoIndice;
   alvo: NoDaResposta;
   para: NoDaResposta | null;
+  /** Os nos das arestas devolvidas, mais o alvo; `total_nos` conta todos os do raio. */
   nos: NoDaResposta[];
+  total_nos: number;
   arestas: ArestaDaResposta[];
   total_arestas: number;
   truncado: boolean;
@@ -173,16 +197,17 @@ function noDaResposta(g: GrafoConsultavel, n: No, distancia: number | null): NoD
   return { rotulo: g.rotulos.get(n.node_id) as string, kind: n.kind, path: n.locator.path, fragment: n.locator.fragment, node_id: n.node_id, distancia };
 }
 
-function arestaDaResposta(g: GrafoConsultavel, a: Aresta): ArestaDaResposta {
+function arestaDaResposta(g: GrafoConsultavel, a: Aresta, distancia: number): ArestaDaResposta {
   const evidencias = a.evidence.map((e): EvidenciaDaResposta => ({
     extractor_id: e.extractor_id, extractor_version: e.extractor_version, extraction_method: e.extraction_method, path: e.path, span: e.span,
   })).sort((x, y) => compararUtf8(x.path, y.path) || (x.span.byte_start - y.span.byte_start) || (x.span.byte_end - y.span.byte_end)
     || compararUtf8(x.extractor_id, y.extractor_id) || compararUtf8(x.extraction_method, y.extraction_method));
-  return { kind: a.kind, from: g.rotulos.get(a.from) as string, to: g.rotulos.get(a.to) as string, edge_id: a.edge_id, evidencias };
+  return { kind: a.kind, from: g.rotulos.get(a.from) as string, to: g.rotulos.get(a.to) as string, edge_id: a.edge_id, distancia, evidencias };
 }
 
-const ordemDasArestas = (x: ArestaDaResposta, y: ArestaDaResposta): number =>
-  compararUtf8(x.kind, y.kind) || compararUtf8(x.from, y.from) || compararUtf8(x.to, y.to) || compararUtf8(x.edge_id, y.edge_id);
+/** CHECK rodada 1 (A2): primeiro as arestas mais perto do alvo, e o limite corta as mais longe. */
+const ordemDasArestas = (x: ArestaDaResposta, y: ArestaDaResposta): number => (x.distancia - y.distancia)
+  || compararUtf8(x.kind, y.kind) || compararUtf8(x.from, y.from) || compararUtf8(x.to, y.to) || compararUtf8(x.edge_id, y.edge_id);
 
 function incidentes(g: GrafoConsultavel, id: string, sentido: Sentido, tipos: ReadonlySet<TipoDeAresta>): { aresta: Aresta; outra: string; sentido: 'saida' | 'entrada' }[] {
   const r: { aresta: Aresta; outra: string; sentido: 'saida' | 'entrada' }[] = [];
@@ -207,7 +232,9 @@ function tiposValidos(tipos: readonly TipoDeAresta[] | undefined): TipoDeAresta[
 
 /**
  * D5: o raio `profundidade` em volta do alvo, pelo sentido e pelos tipos pedidos. Entram os nos a
- * ate `profundidade` saltos e todas as arestas que saem dos nos a menos de `profundidade` saltos.
+ * ate `profundidade` saltos e todas as arestas que saem dos nos a menos de `profundidade` saltos,
+ * cada uma com a distancia do no que a explorou. `limite` corta pela distancia e pela ordem fixa, e
+ * a lista de nos so traz o alvo e as pontas das arestas devolvidas.
  */
 function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: TipoDeConsulta, texto: string, opcoes: OpcoesDeVizinhanca): RespostaDeConsulta {
   const profundidade = inteiroEntre('profundidade', opcoes.profundidade ?? 1, 1, PROFUNDIDADE_MAXIMA);
@@ -216,13 +243,13 @@ function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: Tip
   if (!['entrada', 'saida', 'ambos'].includes(sentido)) throw new ErroDeConsulta('grafo.consulta.uso', `sentido desconhecido: ${sentido}`);
   const tipos = tiposValidos(opcoes.tipos), permitidos = new Set(tipos);
   const alvo = resolverNo(g, texto);
-  const distancia = new Map<string, number>([[alvo.node_id, 0]]), vistas = new Map<string, Aresta>();
+  const distancia = new Map<string, number>([[alvo.node_id, 0]]), vistas = new Map<string, { aresta: Aresta; d: number }>();
   let camada = [alvo.node_id];
   for (let d = 0; d < profundidade && camada.length; d++) {
     const proxima: string[] = [];
     for (const id of camada.sort((x, y) => compararUtf8(g.rotulos.get(x) as string, g.rotulos.get(y) as string))) {
       for (const { aresta, outra } of incidentes(g, id, sentido, permitidos)) {
-        vistas.set(aresta.edge_id, aresta);
+        if (!vistas.has(aresta.edge_id)) vistas.set(aresta.edge_id, { aresta, d });
         if (!distancia.has(outra)) {
           distancia.set(outra, d + 1);
           proxima.push(outra);
@@ -231,14 +258,17 @@ function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: Tip
     }
     camada = proxima;
   }
-  const todas = [...vistas.values()].map((a) => arestaDaResposta(g, a)).sort(ordemDasArestas);
-  const nos = [...distancia.entries()].map(([id, d]) => noDaResposta(g, g.nos.get(id) as No, d))
+  const todas = [...vistas.values()].map(({ aresta, d }) => arestaDaResposta(g, aresta, d)).sort(ordemDasArestas);
+  const devolvidas = todas.slice(0, limite);
+  const idPorRotulo = new Map([...distancia.keys()].map((id) => [g.rotulos.get(id) as string, id]));
+  const pontas = new Set([alvo.node_id, ...devolvidas.flatMap((a) => [idPorRotulo.get(a.from), idPorRotulo.get(a.to)] as string[])]);
+  const nos = [...pontas].map((id) => noDaResposta(g, g.nos.get(id) as No, distancia.get(id) as number))
     .sort((x, y) => ((x.distancia as number) - (y.distancia as number)) || compararUtf8(x.rotulo, y.rotulo));
   return {
     schema: CONSULTA_SCHEMA,
     consulta: { tipo, alvo: texto, para: null, profundidade, sentido, tipos, limite },
-    indice: cabecalho, alvo: noDaResposta(g, alvo, 0), para: null, nos,
-    arestas: todas.slice(0, limite), total_arestas: todas.length, truncado: todas.length > limite,
+    indice: cabecalho, alvo: noDaResposta(g, alvo, 0), para: null, nos, total_nos: distancia.size,
+    arestas: devolvidas, total_arestas: todas.length, truncado: todas.length > limite,
     caminho: null, nos_explorados: null, parcial: AVISO_DE_PARCIALIDADE,
   };
 }
@@ -285,9 +315,10 @@ export function caminho(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, de: s
   if (anterior.has(destino.node_id)) {
     const cadeia: { id: string; passo: PassoDoCaminho }[] = [];
     for (let id = destino.node_id, atual = anterior.get(id); atual; id = atual.de, atual = anterior.get(id)) {
-      cadeia.push({ id, passo: { sentido: atual.sentido, aresta: arestaDaResposta(g, atual.aresta) } });
+      cadeia.push({ id, passo: { sentido: atual.sentido, aresta: arestaDaResposta(g, atual.aresta, 0) } });
     }
     cadeia.reverse();
+    cadeia.forEach((c, n) => { c.passo.aresta.distancia = n; });
     passos = cadeia.map((c) => c.passo);
     nos = [origem.node_id, ...cadeia.map((c) => c.id)].map((id, d) => noDaResposta(g, g.nos.get(id) as No, d));
   }
@@ -295,7 +326,7 @@ export function caminho(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, de: s
     schema: CONSULTA_SCHEMA,
     consulta: { tipo: 'caminho', alvo: de, para, profundidade: null, sentido, tipos, limite: null },
     indice: cabecalho, alvo: noDaResposta(g, origem, 0), para: noDaResposta(g, destino, passos ? passos.length : null),
-    nos,
+    nos, total_nos: nos.length,
     arestas: passos ? passos.map((p) => p.aresta) : [], total_arestas: passos ? passos.length : 0, truncado: false,
     caminho: passos, nos_explorados: anterior.size, parcial: AVISO_DE_PARCIALIDADE,
   };
@@ -334,9 +365,9 @@ export function textoDaResposta(r: RespostaDeConsulta): string {
     }
   } else {
     const filtro = c.tipo === 'vizinhos' ? `, sentido ${c.sentido}, tipos ${c.tipos.length === TIPOS_DE_ARESTA.length ? 'todos' : c.tipos.join(',')}` : '';
-    linhas.push(`${c.tipo} de ${r.alvo.rotulo} (profundidade ${c.profundidade}${filtro}): ${r.total_arestas} aresta(s), ${r.nos.length - 1} no(s)`);
+    linhas.push(`${c.tipo} de ${r.alvo.rotulo} (profundidade ${c.profundidade}${filtro}): ${r.total_arestas} aresta(s), ${r.total_nos - 1} no(s)`);
     for (const a of r.arestas) linhas.push(...linhasDaAresta(a));
-    if (r.truncado) linhas.push(`truncado: ${r.arestas.length} de ${r.total_arestas} arestas; use --limite`);
+    if (r.truncado) linhas.push(`truncado: ${r.arestas.length} de ${r.total_arestas} arestas, as mais perto do alvo; use --limite`);
   }
   linhas.push(r.parcial);
   return linhas.join('\n');

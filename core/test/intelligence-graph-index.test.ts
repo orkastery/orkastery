@@ -20,7 +20,7 @@ import {
   indiceDoHead, lerIndice, limparIndices, perfilDoIndice, type ContextoDoIndice,
 } from '../src/intelligence-graph-index';
 import { executarGrafo, lerPedido } from '../src/intelligence-graph-cli';
-import { carregarAnalisadores, criarJuizDeSintaxe, PACOTES_DOS_ANALISADORES, versoesDosAnalisadores } from '../src/intelligence-graph-parsers';
+import { carregarAnalisadores, criarJuizDeSintaxe, PACOTES_DOS_ANALISADORES, pacotesDosAnalisadores, versoesDosAnalisadores } from '../src/intelligence-graph-parsers';
 import { revisaoDaArvore } from '../src/intelligence-graph-repo';
 import { dirTemporario } from './apoio';
 
@@ -134,26 +134,86 @@ test('KG3 parsers: typescript falso no repositorio analisado e no diretorio atua
   }
 });
 
+/** Instala a copia do modulo compilado numa arvore que imita o pacote `@orkastery/cli`. */
+function instalarCopia(raiz: string): string {
+  fs.mkdirSync(path.join(raiz, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(raiz, 'package.json'), JSON.stringify({ name: '@orkastery/cli', version: '0.0.0-teste' }));
+  const copia = path.join(raiz, 'dist', 'intelligence-graph-parsers.js');
+  fs.copyFileSync(MODULO_DOS_ANALISADORES, copia);
+  return copia;
+}
+
+function pacoteFalso(dir: string, nome: string, versao: string, canario: string): void {
+  fs.mkdirSync(path.join(dir, nome), { recursive: true });
+  fs.writeFileSync(path.join(dir, nome, 'package.json'), JSON.stringify({ name: nome, version: versao, main: 'index.js' }));
+  fs.writeFileSync(path.join(dir, nome, 'index.js'), `require('node:fs').writeFileSync(${JSON.stringify(canario)}, ${JSON.stringify(nome)});\n`);
+}
+
+const erroDoFilho = `const erro = (f) => { try { f(); return null; } catch (e) { return e.message; } };`;
+
 test('KG3 parsers: sem o pacote na instalacao, a recusa e grafo.parser.indisponivel com o nome dele', () => {
   const dir = dirTemporario('kg3-sem-parser');
   try {
-    // O modulo compilado so importa o Node em tempo de execucao: sozinho, fora do core, nao acha os pacotes.
-    const copia = path.join(dir, 'isolado', 'intelligence-graph-parsers.js');
-    fs.mkdirSync(path.dirname(copia), { recursive: true });
-    fs.copyFileSync(MODULO_DOS_ANALISADORES, copia);
+    // O modulo compilado so importa o Node em tempo de execucao: numa instalacao sem node_modules, nao acha os pacotes.
+    const copia = instalarCopia(path.join(dir, 'instalacao'));
     const r = noFilho(dir, `
       const m = require(${JSON.stringify(copia)});
-      const erro = (f) => { try { f(); return null; } catch (e) { return e.message; } };
-      process.stdout.write(JSON.stringify({ versoes: erro(() => m.versoesDosAnalisadores()), carga: erro(() => m.carregarAnalisadores()), pacotes: m.PACOTES_DOS_ANALISADORES }));
+      ${erroDoFilho}
+      process.stdout.write(JSON.stringify({ versoes: erro(() => m.versoesDosAnalisadores()), carga: erro(() => m.carregarAnalisadores()),
+        pacotes: erro(() => m.pacotesDosAnalisadores()), lista: m.PACOTES_DOS_ANALISADORES }));
     `);
     assert.equal(r.status, 0, r.erro);
-    const saida = r.saida as { versoes: string; carga: string; pacotes: string[] };
-    assert.equal(saida.versoes, 'grafo.parser.indisponivel: typescript');
-    assert.equal(saida.carga, 'grafo.parser.indisponivel: typescript');
-    assert.deepEqual(saida.pacotes, [...PACOTES_DOS_ANALISADORES]);
+    const saida = r.saida as { versoes: string; carga: string; pacotes: string; lista: string[] };
+    assert.deepEqual([saida.versoes, saida.carga, saida.pacotes], Array(3).fill('grafo.parser.indisponivel: typescript'));
+    assert.deepEqual(saida.lista, [...PACOTES_DOS_ANALISADORES]);
+    // Sem o package.json do pacote do ork acima do modulo, nem ha instalacao para procurar.
+    const solta = path.join(dir, 'solta', 'intelligence-graph-parsers.js');
+    fs.mkdirSync(path.dirname(solta), { recursive: true });
+    fs.copyFileSync(MODULO_DOS_ANALISADORES, solta);
+    const s2 = noFilho(dir, `const m = require(${JSON.stringify(solta)}); ${erroDoFilho} process.stdout.write(JSON.stringify(erro(() => m.versoesDosAnalisadores())));`);
+    assert.equal(s2.saida, 'grafo.parser.indisponivel: instalacao do ork nao encontrada');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('KG3 parsers: com o ork instalado dentro de um projeto, o typescript do projeto nao e usado nem executado', () => {
+  const dir = dirTemporario('kg3-ork-no-projeto');
+  try {
+    const canario = path.join(dir, 'canario');
+    const modulos = path.join(dir, 'projeto', 'node_modules');
+    const copia = instalarCopia(path.join(modulos, '@orkastery', 'cli'));
+    for (const nome of ['typescript', 'micromark']) pacoteFalso(modulos, nome, '9.9.9-do-projeto', canario);
+    const corpo = `
+      const m = require(${JSON.stringify(copia)});
+      ${erroDoFilho}
+      process.stdout.write(JSON.stringify({ versoes: erro(() => m.versoesDosAnalisadores()), carga: erro(() => m.carregarAnalisadores()) }));
+    `;
+    let r = noFilho(path.join(dir, 'projeto'), corpo, { NODE_PATH: modulos });
+    assert.equal(r.status, 0, r.erro);
+    assert.deepEqual(r.saida, { versoes: 'grafo.parser.indisponivel: typescript fora da instalacao do ork', carga: 'grafo.parser.indisponivel: typescript fora da instalacao do ork' });
+    assert.ok(!fs.existsSync(canario), 'executou pacote do projeto');
+    // Dentro do node_modules do proprio pacote do ork, o pacote vale (so a versao e lida aqui, nada roda).
+    pacoteFalso(path.join(modulos, '@orkastery', 'cli', 'node_modules'), 'typescript', '5.0.0-da-instalacao', canario);
+    r = noFilho(path.join(dir, 'projeto'), `const m = require(${JSON.stringify(copia)}); ${erroDoFilho} process.stdout.write(JSON.stringify(erro(() => m.versoesDosAnalisadores())));`);
+    assert.equal(r.saida, 'grafo.parser.indisponivel: micromark fora da instalacao do ork', 'o typescript de dentro passa; o micromark de fora nao');
+    assert.ok(!fs.existsSync(canario));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('KG3 parsers: o fecho de pacotes dos analisadores lista cada dependencia instalada com a versao', () => {
+  const pacotes = pacotesDosAnalisadores();
+  assert.ok(pacotes.includes(`typescript@${ts.version}`), pacotes.join(' '));
+  const versao = (nome: string) => JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../node_modules', nome, 'package.json'), 'utf8')).version;
+  for (const nome of ['micromark', 'micromark-core-commonmark', 'micromark-extension-gfm-table', 'decode-named-character-reference',
+    'micromark-util-decode-numeric-character-reference', 'micromark-util-character']) {
+    assert.ok(pacotes.includes(`${nome}@${versao(nome)}`), nome);
+  }
+  assert.deepEqual(pacotes, [...pacotes].sort(), 'ordenado');
+  assert.equal(new Set(pacotes).size, pacotes.length);
+  assert.deepEqual(pacotesDosAnalisadores(), pacotes, 'estavel');
 });
 
 /** Repositorio Git temporario com identidade local, sem assinatura e com o estado do ork ignorado. */
@@ -312,6 +372,7 @@ test('KG3 index: outra revisao, ACL, tenant, repositorio, analisador ou codigo d
       chaveDoIndice(head, { ...perfil, analisadores: { ...perfil.analisadores, typescript: '0.0.0' } }),
       chaveDoIndice(head, { ...perfil, analisadores: { ...perfil.analisadores, javascript: 'node.0.0.0' } }),
       chaveDoIndice(head, { ...perfil, codigo: '0'.repeat(64) }),
+      chaveDoIndice(head, { ...perfil, pacotes: perfil.pacotes.map((x) => (x.startsWith('micromark-core-commonmark@') ? 'micromark-core-commonmark@0.0.0' : x)) }),
     ];
     assert.equal(new Set([base, ...variantes]).size, variantes.length + 1);
     assert.deepEqual(perfilDoIndice(dir, undefined, { acl_refs: ['b:x', 'a:y', 'b:x'] }).acl_refs, ['a:y', 'b:x']);
@@ -338,6 +399,12 @@ test('KG3 index: outra revisao, ACL, tenant, repositorio, analisador ou codigo d
     assert.equal(b.estado, 'criado');
     assert.notEqual(b.chave, a.chave);
     assert.equal(estadoDosIndices(ctx).indices.length, 3);
+    // O grafo integro de outra revisao, com o manifesto ajustado ao digest dele, nao passa pelo envelope.
+    const doOutro = fs.readFileSync(path.join(b.dir, 'grafo.json'));
+    const manifesto = JSON.parse(fs.readFileSync(path.join(a.dir, 'indice.json'), 'utf8'));
+    fs.writeFileSync(path.join(a.dir, 'grafo.json'), doOutro);
+    fs.writeFileSync(path.join(a.dir, 'indice.json'), JSON.stringify({ ...manifesto, graph_bytes: doOutro.length, graph_digest: createHash('sha256').update(doOutro).digest('hex') }));
+    assert.throws(() => lerIndice(ctx, a.chave), /grafo\.indice\.corrompido: grafo\.json fora do manifesto/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -405,6 +472,29 @@ test('KG3 index: link simbolico, modo errado, dono, segundo link, truncado e dig
       fs.writeFileSync(arquivo('grafo.json'), b);
     }, () => fs.writeFileSync(arquivo('grafo.json'), original));
     recusa(/grafo\.indice\.corrompido: indice\.json/, () => fs.writeFileSync(arquivo('indice.json'), '{'), () => fs.writeFileSync(arquivo('indice.json'), JSON.stringify(r.manifesto)));
+    // Dono diferente da pasta e do arquivo: o uid do processo muda, e a leitura recusa os dois.
+    const getuid = process.getuid;
+    const outro = (getuid?.call(process) ?? 1000) + 1;
+    try {
+      process.getuid = () => outro;
+      assert.throws(() => lerIndice(ctx, r.chave), /grafo\.indice\.permissao-invalida: grafo de outro dono/);
+    } finally {
+      process.getuid = getuid;
+    }
+    // So o arquivo com outro dono: as duas pastas conferem com o uid real, e o primeiro arquivo com o trocado.
+    let chamadas = 0;
+    try {
+      process.getuid = () => (++chamadas > 2 ? outro : (getuid as () => number).call(process));
+      assert.throws(() => lerIndice(ctx, r.chave), /grafo\.indice\.permissao-invalida: indice\.json/);
+    } finally {
+      process.getuid = getuid;
+    }
+    // Manifesto de outra chave na pasta desta: o nome da pasta e a chave do manifesto precisam bater.
+    const gemea = path.join(path.dirname(r.dir), `idx-${'f'.repeat(64)}`);
+    fs.cpSync(r.dir, gemea, { recursive: true });
+    fs.chmodSync(gemea, 0o700);
+    assert.throws(() => lerIndice(ctx, `idx-${'f'.repeat(64)}`), /grafo\.indice\.corrompido: indice\.json/);
+    fs.rmSync(gemea, { recursive: true, force: true });
     // Pasta do grafo trocada por link simbolico para fora: nem le, nem escreve.
     const grafoDir = path.dirname(r.dir);
     fs.renameSync(grafoDir, path.join(fora, 'grafo'));
@@ -423,6 +513,42 @@ test('KG3 index: link simbolico, modo errado, dono, segundo link, truncado e dig
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
     fs.rmSync(fora, { recursive: true, force: true });
+  }
+});
+
+test('KG3 index: rastreado fora da leitura (skip-worktree, sparse checkout) recusa, e o grafo de outra arvore nao muda de chave', () => {
+  const { dir, git } = repositorioGit({ ...REPO, 'lib/b.ts': 'export function b() { return 2; }\n' });
+  const parser = carregarAnalisadores();
+  try {
+    const ctx = contexto(dir);
+    git('update-index', '--skip-worktree', '--', 'lib/b.ts');
+    fs.rmSync(path.join(dir, 'lib'), { recursive: true });
+    assert.deepEqual(revisaoDaArvore(dir).motivo, null, 'o status fica limpo');
+    assert.throws(() => construirIndice(ctx, { parser }), /^Error: grafo\.indice\.arvore-nao-limpa: rastreado fora da leitura \(ausente-na-arvore: lib\/b\.ts\)$/);
+    assert.deepEqual(estadoDosIndices(ctx).indices, [], 'nada foi publicado');
+    // Com o arquivo de volta, a mesma revisao indexa com todas as fontes.
+    git('update-index', '--no-skip-worktree', '--', 'lib/b.ts');
+    git('checkout', '--', 'lib/b.ts');
+    const r = construirIndice(ctx, { parser });
+    assert.equal(r.manifesto.conferencia.fontes, Object.keys(REPO).length + 1);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('KG3 index: projeto numa subpasta do repositorio usa o repositorio do manifesto que o CLI carregou', () => {
+  const arquivos: Record<string, string> = { 'app/orkastery.yaml': 'project:\n  name: "demo"\n  abbrev: "dem"\n', 'app/src/a.ts': 'export const a = 1;\n' };
+  const { dir } = repositorioGit(arquivos);
+  const parser = carregarAnalisadores();
+  try {
+    const app = path.join(dir, 'app');
+    assert.throws(() => construirIndice({ raiz: app, estado: raizDoEstado(app) }, { parser }), /extracao\.repositorio\.sem-id/);
+    const ctx = { raiz: app, estado: raizDoEstado(app), repositorio: 'demo' };
+    const r = construirIndice(ctx, { parser });
+    assert.equal(r.manifesto.repository_id, 'demo');
+    assert.equal(indiceDoHead(ctx).chave, r.chave);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
@@ -463,15 +589,21 @@ test('KG3 index: limpar so apaga indice fora do manter e sobra velha, nunca outr
     fs.utimesSync(tmpVelho, velhoMs, velhoMs);
     fs.mkdirSync(tmpNovo);
     fs.writeFileSync(path.join(grafoDir, 'nao-e-do-indice'), 'fica');
+    // Nome alheio antigo tambem fica: quem protege e o filtro de nome, nao o prazo.
+    fs.utimesSync(path.join(grafoDir, 'nao-e-do-indice'), velhoMs, velhoMs);
+    fs.mkdirSync(path.join(grafoDir, '.tmp-nao-e-uuid'));
+    fs.utimesSync(path.join(grafoDir, '.tmp-nao-e-uuid'), velhoMs, velhoMs);
     fs.writeFileSync(path.join(fora, 'alvo'), 'fica');
     fs.symlinkSync(fora, path.join(grafoDir, `idx-${'a'.repeat(64)}`));
     const r = limparIndices(ctx, { manter: [atual.chave], agora });
     assert.deepEqual(r.removidos.map((x) => x.nome).sort(), [`idx-${'a'.repeat(64)}`, path.basename(tmpVelho), velho.chave].sort());
     assert.ok(r.bytes > 0);
-    assert.deepEqual(fs.readdirSync(grafoDir).sort(), [path.basename(tmpNovo), atual.chave, 'nao-e-do-indice'].sort());
+    assert.deepEqual(fs.readdirSync(grafoDir).sort(), ['.tmp-nao-e-uuid', path.basename(tmpNovo), atual.chave, 'nao-e-do-indice'].sort());
     assert.equal(fs.readFileSync(path.join(fora, 'alvo'), 'utf8'), 'fica', 'o link foi removido sem seguir');
     assert.ok(lerIndice(ctx, atual.chave).grafo);
-    assert.deepEqual(limparIndices(ctx, { tudo: true, agora }).removidos.map((x) => x.nome), [atual.chave]);
+    // A revisao de outra arvore fica, mesmo sem a chave no manter.
+    assert.deepEqual(limparIndices(ctx, { manterRevisoes: [atual.manifesto.revision], agora }).removidos, []);
+    assert.deepEqual(limparIndices(ctx, { tudo: true, manterRevisoes: [atual.manifesto.revision], agora }).removidos.map((x) => x.nome), [atual.chave]);
     assert.deepEqual(estadoDosIndices(ctx).indices, []);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -598,6 +730,44 @@ test('KG3 cli: indexar, status, consultas e limpar de ponta a ponta num Git temp
   }
 });
 
+test('KG3 cli: limpar numa worktree mantem o indice do HEAD das outras arvores do repositorio', () => {
+  const { dir, git } = repositorioGit(REPO);
+  const wt = path.join(dir, '.claude', 'worktrees', 'kg3-limpar');
+  try {
+    git('worktree', 'add', '-q', '-b', 'ork/kg3-limpar', wt);
+    fs.writeFileSync(path.join(wt, 'src/c.ts'), 'export const c = 3;\n');
+    execFileSync('git', ['add', '--', 'src/c.ts'], { cwd: wt });
+    execFileSync('git', ['commit', '-q', '-m', 'na worktree'], { cwd: wt });
+    assert.equal(grafo(dir, 'indexar').codigo, 0);
+    assert.equal(grafo(wt, 'indexar').codigo, 0);
+    assert.equal(JSON.parse(grafo(wt, 'status', '--json').saida).indices.length, 2);
+    const l = JSON.parse(grafo(wt, 'limpar', '--json').saida);
+    assert.deepEqual(l.removidos, [], 'o indice da arvore principal fica');
+    assert.equal(l.manter_revisoes.length, 2);
+    assert.equal(JSON.parse(grafo(dir, 'status', '--json').saida).indice_do_head, 'presente');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('KG3 cli: erro de uso com --json sai como objeto, e opcao invalida recusa antes de ler o indice', () => {
+  const { dir } = repositorioGit(REPO);
+  try {
+    // Sem indice: se a opcao fosse conferida depois da carga, o erro seria de indice ausente.
+    let r = grafo(dir, 'vizinhos', 'b', '--profundidade', 'abc', '--json');
+    assert.equal(r.codigo, 1);
+    assert.equal(JSON.parse(r.saida).erro.codigo, 'grafo.uso');
+    r = grafo(dir, 'vizinhos', 'b', '--profundidade', 'abc');
+    assert.match(r.erro ?? '', /^grafo\.uso: --profundidade precisa ser inteiro/);
+    assert.equal(JSON.parse(grafo(dir, 'apagar', '--json').saida).erro.codigo, 'grafo.uso');
+    assert.equal(grafo(dir, 'indexar').codigo, 0);
+    assert.match(grafo(dir, 'amostra', '--por-estrato', 'abc').erro ?? '', /^grafo\.uso: --por-estrato precisa ser inteiro/);
+    assert.match(grafo(dir, 'amostra', '--por-estrato', '0').erro ?? '', /^grafo\.uso: --por-estrato precisa ser ao menos 1/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('KG3 cli: nome ambiguo e no desconhecido saem tipados, com candidatos no JSON', () => {
   const { dir } = repositorioGit({ ...REPO, 'src/d.ts': 'export function b() { return 2; }\n' });
   try {
@@ -638,6 +808,11 @@ test('KG3 cli: amostra gera, reprova sem veredito e com trecho mudado, e confere
     assert.equal(r.codigo, 1);
     assert.match(JSON.parse(r.saida).falhas[0], /nenhuma evidencia com o trecho auditado/);
     assert.match(grafo(dir, 'amostra', '--conferir', arquivo, '--por-estrato', '1').erro ?? '', /nao combinam/);
+    // Amostra vazia nao aprova: nao ha o que conferir.
+    fs.writeFileSync(arquivo, JSON.stringify({ ...amostra, arestas: [] }));
+    r = grafo(dir, 'amostra', '--conferir', arquivo);
+    assert.equal(r.codigo, 1);
+    assert.match(r.saida, /FALHA amostra vazia/);
     // Outro arquivo rastreado modificado nao impede: so os lidos precisam bater com o manifesto.
     fs.writeFileSync(path.join(dir, 'orkastery.yaml'), `${REPO['orkastery.yaml']}# comentario\n`);
     assert.equal(revisaoDaArvore(dir).motivo, 'working-tree-modified');

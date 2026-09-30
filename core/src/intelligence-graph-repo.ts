@@ -89,6 +89,15 @@ export function revisaoDaArvore(diretorio: string): RevisaoDaArvore {
   return { raiz, head: head.saida.toString('utf8').trim(), motivo: sujo ? 'working-tree-modified' : null };
 }
 
+/**
+ * RM-031 KG3 (CHECK rodada 1, A6): o HEAD de cada arvore do repositorio (a principal e as worktrees),
+ * pelo `git worktree list --porcelain`. O estado do indice e compartilhado entre elas.
+ */
+export function headsDasArvores(diretorio: string): string[] {
+  const saida = obrigatorio(diretorio, ['worktree', 'list', '--porcelain']).toString('utf8');
+  return [...new Set(saida.split('\n').filter((l) => /^HEAD [0-9a-f]{40,64}$/.test(l)).map((l) => l.slice(5)))].sort();
+}
+
 /** Le o repositorio que contem `diretorio` e devolve a entrada do extrator. */
 export function lerRepositorio(diretorio: string, opcoes: OpcoesDeLeitura = {}): EntradaDeExtracao {
   const raiz = obrigatorio(diretorio, ['rev-parse', '--show-toplevel']).toString('utf8').trim();

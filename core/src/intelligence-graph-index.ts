@@ -7,8 +7,10 @@
  *   <raiz canonica>/.orkastery/grafo/idx-<sha256>/{indice.json, grafo.json, relatorio.json}
  *
  * Pastas 0700 e arquivos 0600, do dono do processo, sem link simbolico nem segundo link fisico. A
- * chave deriva da revisao, do repositorio, do tenant, da ACL, das versoes dos analisadores e da
- * impressao do codigo compilado do extrator: mesma chave, mesmo conteudo, byte a byte, sem horario.
+ * chave deriva da revisao, do repositorio, do tenant, da ACL, das versoes dos analisadores, do fecho
+ * de pacotes deles e da impressao do codigo compilado do extrator e do indice: mesma chave, mesmo
+ * conteudo, byte a byte, sem horario. Arquivo rastreado que a leitura nao alcanca (sparse checkout,
+ * `skip-worktree`) recusa a construcao: o grafo precisa ser o da revisao inteira.
  * A construcao valida o grafo, confere cada fonte e cada evidencia contra os bytes lidos e so entao
  * publica, por pasta temporaria e `rename`; a leitura confere tamanho e digest dos bytes.
  *
@@ -21,7 +23,7 @@ import {
   GRAFO_SCHEMA, canonico, compararUtf8, conferirFontes, sha256DoCanonico, type FonteFornecida, type GrafoCodigo,
 } from './intelligence-graph-contract';
 import { decodificarUtf8, extrairGrafo, type EntradaDeExtracao, type Parser, type RelatorioDeExtracao } from './intelligence-graph-extract';
-import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
+import { carregarAnalisadores, pacotesDosAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
 import {
   TENANT_PADRAO, identidadeDaLeitura, lerRepositorio, revisaoDaArvore, type OpcoesDeLeitura, type RevisaoDaArvore,
 } from './intelligence-graph-repo';
@@ -31,17 +33,24 @@ export const NOME_DE_INDICE = /^idx-[a-f0-9]{64}$/;
 const ARQUIVOS = { manifesto: 'indice.json', grafo: 'grafo.json', relatorio: 'relatorio.json' } as const;
 /** Temporario e lixo de construcao interrompida so saem no `limpar` depois deste prazo. */
 export const PRAZO_DE_SOBRA_MS = 60 * 60 * 1000;
-/** D3: os modulos compilados da extracao. Codigo corrigido sem troca de versao muda a chave. */
+/** D3: os modulos compilados da extracao e do indice. Codigo corrigido sem troca de versao muda a chave. */
 export const MODULOS_DO_EXTRATOR = [
   'intelligence-graph-contract', 'intelligence-graph-extract', 'intelligence-graph-extract-ts', 'intelligence-graph-extract-md',
-  'intelligence-graph-repo', 'intelligence-graph-parsers', 'yaml',
+  'intelligence-graph-repo', 'intelligence-graph-parsers', 'intelligence-graph-index', 'yaml',
 ] as const;
+/**
+ * CHECK rodada 1 (B1): exclusoes do KG2 que dependem da arvore, nao da revisao. Com o status limpo,
+ * elas vem de sparse checkout ou `skip-worktree`, e o grafo seria outro na mesma revisao.
+ */
+export const EXCLUSOES_DA_ARVORE: ReadonlySet<string> = new Set(['ausente-na-arvore', 'nao-e-arquivo', 'fora-do-repositorio']);
 
 export interface ContextoDoIndice {
   /** Diretorio dentro do repositorio (worktree ou arvore principal). */
   raiz: string;
   /** Raiz canonica do estado (`raizDoEstado`): a da arvore principal, tambem a partir de worktree. */
   estado: string;
+  /** O `project.name` do manifesto que o CLI carregou; sem ele, o `orkastery.yaml` da raiz do Git. */
+  repositorio?: string;
 }
 
 export interface PerfilDoIndice {
@@ -49,6 +58,8 @@ export interface PerfilDoIndice {
   tenant_id: string;
   acl_refs: string[];
   analisadores: VersoesDosAnalisadores;
+  /** O fecho de pacotes dos analisadores, `nome@versao` ordenado. */
+  pacotes: string[];
   codigo: string;
 }
 
@@ -110,8 +121,14 @@ export function impressaoDoExtrator(dir: string = __dirname): string {
 
 export function perfilDoIndice(raiz: string, analisadores: VersoesDosAnalisadores = versoesDosAnalisadores(), leitura: OpcoesDeLeitura = {}): PerfilDoIndice {
   const id = identidadeDaLeitura(raiz, leitura);
-  return { ...id, acl_refs: [...new Set(id.acl_refs)].sort(compararUtf8), analisadores, codigo: impressaoDoExtrator() };
+  return {
+    ...id, acl_refs: [...new Set(id.acl_refs)].sort(compararUtf8), analisadores, pacotes: pacotesDosAnalisadores(), codigo: impressaoDoExtrator(),
+  };
 }
+
+/** A leitura do contexto: o repositorio do manifesto do CLI, se veio, sob as opcoes pedidas. */
+const leituraDo = (ctx: ContextoDoIndice, leitura: OpcoesDeLeitura = {}): OpcoesDeLeitura =>
+  (ctx.repositorio && leitura.repository_id === undefined ? { ...leitura, repository_id: ctx.repositorio } : leitura);
 
 /** D3: a chave particiona por revisao, repositorio, tenant, ACL, analisadores e codigo do extrator. */
 export function chaveDoIndice(revision: string, perfil: PerfilDoIndice): string {
@@ -214,7 +231,7 @@ function manifestoValido(m: unknown, chave: string): ManifestoDoIndice {
     || typeof o.revision !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(o.revision)
     || !HEX64.test(o.graph_digest) || !HEX64.test(o.report_digest) || !inteiro(o.graph_bytes) || !inteiro(o.report_bytes)
     || typeof o.snapshot_id !== 'string' || typeof o.repository_id !== 'string' || typeof o.tenant_id !== 'string'
-    || !Array.isArray(o.acl_refs) || !o.analisadores || typeof o.codigo !== 'string') {
+    || !Array.isArray(o.acl_refs) || !o.analisadores || !Array.isArray(o.pacotes) || typeof o.codigo !== 'string') {
     falha('grafo.indice.corrompido', 'indice.json');
   }
   return o;
@@ -312,7 +329,8 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
   const arvore = revisaoDaArvore(ctx.raiz);
   if (arvore.motivo !== null || arvore.head === null) falha('grafo.indice.arvore-nao-limpa', arvore.motivo ?? 'sem-commit');
   const parser = opcoes.parser ?? carregarAnalisadores();
-  const perfil = perfilDoIndice(arvore.raiz, versoesDoParser(parser), opcoes.leitura);
+  const leitura = leituraDo(ctx, opcoes.leitura);
+  const perfil = perfilDoIndice(arvore.raiz, versoesDoParser(parser), leitura);
   const chave = chaveDoIndice(arvore.head, perfil);
   const grafoDir = pastaDoGrafo(ctx, true);
   const final = path.join(grafoDir, chave);
@@ -329,8 +347,12 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
     }
   }
 
-  const entrada: EntradaDeExtracao = lerRepositorio(arvore.raiz, opcoes.leitura);
+  const entrada: EntradaDeExtracao = lerRepositorio(arvore.raiz, leitura);
   if (entrada.revision !== arvore.head) falha('grafo.indice.arvore-nao-limpa', entrada.revision_unavailable_reason ?? 'revisao-mudou');
+  const fora = (entrada.excluidas ?? []).filter((e) => EXCLUSOES_DA_ARVORE.has(e.motivo)).sort((a, b) => compararUtf8(a.path, b.path));
+  if (fora.length) {
+    falha('grafo.indice.arvore-nao-limpa', `rastreado fora da leitura (${fora[0].motivo}: ${fora[0].path}${fora.length > 1 ? ` e mais ${fora.length - 1}` : ''})`);
+  }
   const r = extrairGrafo(entrada, parser);
   const bytesDe = new Map(entrada.fontes.map((f) => [f.path, f.bytes]));
   const fornecidas = new Map<string, FonteFornecida>(r.grafo.snapshot.source_manifest.map((m) => {
@@ -408,7 +430,7 @@ export function indiceDoHead(ctx: ContextoDoIndice, opcoes: { grafo?: boolean; r
   { arvore: RevisaoDaArvore; perfil: PerfilDoIndice; chave: string; indice: IndiceCarregado } {
   const arvore = revisaoDaArvore(ctx.raiz);
   if (arvore.head === null) falha('grafo.indice.arvore-nao-limpa', 'sem-commit');
-  const perfil = perfilDoIndice(arvore.raiz);
+  const perfil = perfilDoIndice(arvore.raiz, undefined, leituraDo(ctx));
   const chave = chaveDoIndice(arvore.head, perfil);
   try {
     return { arvore, perfil, chave, indice: lerIndice(ctx, chave, opcoes) };
@@ -456,8 +478,16 @@ export function estadoDosIndices(ctx: ContextoDoIndice): EstadoDosIndices {
   const indices: ResumoDoIndice[] = [], sobras: string[] = [];
   let bytes = 0;
   for (const nome of fs.readdirSync(dir).sort(compararUtf8)) {
-    const p = path.join(dir, nome), st = fs.lstatSync(p);
-    const tamanho = st.isDirectory() && !st.isSymbolicLink() ? bytesDaPasta(p) : st.size;
+    // Uma construcao concorrente pode renomear o `.tmp-` entre a listagem e o `lstat`: some da lista.
+    const p = path.join(dir, nome), st = fs.lstatSync(p, { throwIfNoEntry: false });
+    if (!st) continue;
+    let tamanho: number;
+    try {
+      tamanho = st.isDirectory() && !st.isSymbolicLink() ? bytesDaPasta(p) : st.size;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue;
+      throw e;
+    }
     bytes += tamanho;
     if (!NOME_DE_INDICE.test(nome)) {
       sobras.push(nome);
@@ -474,17 +504,20 @@ export function estadoDosIndices(ctx: ContextoDoIndice): EstadoDosIndices {
 }
 
 /**
- * Apaga os indices fora de `manter` (ou todos, com `tudo`) e as sobras `.tmp-` e `.lixo-` com mais
- * de uma hora. Nome que nao e do indice nunca e apagado.
+ * Apaga os indices fora de `manter` e cuja revisao nao esta em `manterRevisoes` (ou todos, com
+ * `tudo`), e as sobras `.tmp-` e `.lixo-` com mais de uma hora. Nome que nao e do indice nunca e
+ * apagado.
  */
-export function limparIndices(ctx: ContextoDoIndice, opcoes: { manter?: readonly string[]; tudo?: boolean; agora?: number } = {}):
+export function limparIndices(ctx: ContextoDoIndice,
+  opcoes: { manter?: readonly string[]; manterRevisoes?: readonly string[]; tudo?: boolean; agora?: number } = {}):
   { removidos: { nome: string; bytes: number }[]; bytes: number } {
   const estado = estadoDosIndices(ctx);
   if (!estado.dir) return { removidos: [], bytes: 0 };
   const dir = estado.dir, agora = opcoes.agora ?? Date.now(), manter = new Set(opcoes.manter ?? []);
+  const revisoes = new Set(opcoes.manterRevisoes ?? []);
   const removidos: { nome: string; bytes: number }[] = [];
   for (const i of estado.indices) {
-    if (!opcoes.tudo && manter.has(i.chave)) continue;
+    if (!opcoes.tudo && (manter.has(i.chave) || (i.revision !== null && revisoes.has(i.revision)))) continue;
     removerPasta(dir, i.chave);
     removidos.push({ nome: i.chave, bytes: i.bytes });
   }

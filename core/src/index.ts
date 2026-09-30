@@ -3978,7 +3978,7 @@ export function main(argvBruto: string[]): number {
       // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
     }
     case 'ship':
       return comandoShip(args);
