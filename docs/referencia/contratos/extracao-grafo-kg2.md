@@ -4,7 +4,7 @@ O extrator lê um repositório Git local e produz um grafo válido no contrato
 [`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md), sem mudar o contrato. Mora em
 `core/src/intelligence-graph-extract*.ts` e `core/src/intelligence-graph-repo.ts`. É o segundo
 pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D15 da
-thread `ork-rm031kg2extr`.
+thread `ork-rm031kg2extr`, mais a D16 (o V8 como juiz de sintaxe do JavaScript).
 
 O KG2 entrega a extração e um comando provisório para prová-la. Não entrega índice
 persistente nem CLI de consulta (KG3), extração incremental (KG4), consumo pelas fases (KG5),
@@ -42,7 +42,7 @@ que coincidem na forma NFC. O Git roda com argumentos fixos e com o `core.fsmoni
 
 | Extrator | Versão | Lê | Produz |
 | --- | --- | --- | --- |
-| `ork.ts-ast` | `1.0.0+typescript.<versão>` | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | símbolos, `declares`, `contains`, `imports`, `calls` (`ast`) |
+| `ork.ts-ast` | `1.0.0+typescript.<versão>+node.<versão>` | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | símbolos, `declares`, `contains`, `imports`, `calls` (`ast`) |
 | `ork.md-structure` | `1.0.0+micromark.<versão>.gfm-table.<versão>+unicode.<versão>` | `.md`, `.markdown` | seções, artefatos, `contains` e frontmatter (`structured`), links (`explicit-link`) |
 | `ork.id-mention` | `1.0.0` | Markdown e código TS/JS | `references` a artefato citado pelo ID (`text-location`) |
 | `ork.repo-files` | `1.0.0` | o resto do manifesto | `unsupported-language`, com a extensão como referência |
@@ -57,7 +57,14 @@ A estrutura do Markdown vem do micromark com a tabela GFM, o parser CommonMark q
 markdownlint do core já instala (fixado no `package-lock.json`), carregado pelo adaptador
 `core/scripts/micromark-adaptador.cjs` e recebido por parâmetro como o compilador. As versões do
 micromark e do Unicode do motor JavaScript entram na versão do `ork.md-structure`, porque a
-estrutura e o slug dependem delas.
+estrutura e o slug dependem delas. O adaptador também entrega o decodificador de referência de
+caractere que o próprio micromark usa (as entidades do HTML5, e o número com a troca do código
+inválido por U+FFFD).
+
+O juiz de sintaxe do JavaScript é o V8 do Node que roda a extração (D16), injetado pelo
+`core/scripts/sintaxe-node.cjs`: CommonJS pela compilação em função que o carregador usa
+(`vm.compileFunction`) e ESM por `node --check --input-type=module`. Nada é executado. A versão do
+Node entra na versão do `ork.ts-ast`, porque o formato e a resolução do runtime dependem dela.
 
 ## Nós
 
@@ -73,10 +80,10 @@ nó só, com uma evidência por declaração. Nome que o contrato recusaria como
 acima de 512 caracteres, com controle ou marca invisível) não vira nó: vai ao relatório como
 `simbolo-recusado`, `secao-recusada` ou `artefato-recusado`, e o trecho sob um título recusado
 ou sem texto fica no arquivo, nunca na seção anterior. O texto do título é o que o GitHub renderiza:
-dado, código, entidade e o endereço de autolink, sem marcador de ênfase, HTML, destino de link,
-rótulo de link por referência nem texto alternativo de imagem. Nada é aparado: o título `T` seguido
-de espaço e de uma imagem vira `t-`, como no GitHub. A quebra de linha de um título setext some (`Foo`, `bar` vira `foobar`),
-e a de um span de código vira espaço.
+dado, código, referência de caractere decodificada e o endereço de autolink, sem marcador de
+ênfase, HTML, destino de link, rótulo de link por referência nem texto alternativo de imagem. Nada
+é aparado: o título `T` seguido de espaço e de uma imagem vira `t-`, como no GitHub. A quebra de
+linha de um título setext some (`Foo`, `bar` vira `foobar`), e a de um span de código vira espaço.
 
 ## Arestas
 
@@ -100,34 +107,40 @@ script, global UMD e import só de efeito não ligam arquivos. Import e reexport
 declaração original.
 
 O compilador e o runtime podem ligar arquivos diferentes: fonte JavaScript resolve como o Node 22
-a carrega. O formato vem da extensão e do `package.json` mais próximo: `.mjs` é ESM, `.cjs` é
-CommonJS e `.js` segue o `type`; sem ele, o `.js` vira ESM quando tem sintaxe que só o ESM aceita
-(import ou export estático, `import.meta`, `await` no topo, `let`, `const` ou `class` no topo com o
-nome de uma variável do CommonJS). Em CommonJS, o `require` resolve primeiro como arquivo e depois
-como pasta, pelo `main` e pelo `index`, com barra final, `.` e `..` só como pasta. O import estático
-do ESM e o `import()` usam o caminho exato. `.d.ts`, `.d.cts` ou `.d.mts` com a implementação ao
+a carrega. O formato vem da extensão, do `package.json` mais próximo e do V8: `.mjs` é ESM e `.cjs`
+é CommonJS, cada um só se o V8 o compila assim; `.js` segue o `type`. Sem `type`, o `.js` é
+CommonJS se compila como tal, e senão ESM se tem sintaxe que só o ESM aceita (import ou export
+estático, `import.meta`, `await` no topo, `let`, `const` ou `class` no topo que declara uma variável
+do CommonJS, também por desestruturação) e compila como ESM. `.jsx` só carrega por `require`, como
+CommonJS. Em CommonJS, o `require` resolve primeiro como arquivo e depois como pasta, pelo `main` e
+pelo `index`, com barra final, `.` e `..` só como pasta. O import estático do ESM e o `import()` usam
+o caminho exato, e o especificador é URL: só liga quando a URL lê o mesmo caminho, sem `?`, `#`,
+`%`, barra invertida, espaço nem controle, e com um nome no último segmento. `.d.ts`, `.d.cts` ou `.d.mts` com a implementação ao
 lado dá lugar a ela, para qualquer fonte. Onde divergem, a aresta de import vai ao arquivo que roda
 e nenhuma aresta de símbolo passa por esse import, nem por um módulo que, a qualquer número de
 saltos de import, chega a um import divergente (`export *`, `module.exports = require(...)`).
 
 Onde o Node falha, o import fica `unresolved-import`:
 
-- especificador não relativo, ESM sem extensão e `require` em ESM;
-- sintaxe ESM em `.cjs` ou sob `"type": "commonjs"`, e erro de sintaxe;
+- especificador não relativo, ESM sem extensão ou que a URL lê diferente, e `require` em ESM;
+- arquivo que o V8 não compila no formato dele (sintaxe ESM em CommonJS, JSX, decorador, `let`
+  repetido, `with` em modo estrito, `return` no topo do ESM), como quem importa ou como alvo;
 - `package.json` que o Node recusa (JSON inválido, raiz que não é objeto, `name` ou `type` que não
-  é texto) no escopo de quem usa `require` ou no de um alvo `.js`;
-- `main` absoluto ou que sai do repositório.
+  é texto ou tem surrogate solto) no escopo de quem usa `require` ou no de um alvo `.js`;
+- `main` absoluto ou que sai do repositório, e `.json` por `require` que não é JSON.
 
 Também fica fora o alvo que o Node não carrega sem ressalva. Por import, valem só `.js`, `.mjs` e
 `.cjs`, porque JSON pede atributo. Por `require`, só `.js` e `.cjs` em CommonJS e `.json`. TypeScript
 pela remoção de tipos, `.node`, arquivo sem extensão e ESM por `require` ficam sem aresta, por não
-serem provados. Erro que só aparece ao avaliar o alvo (nome que ele não exporta, exceção no código)
-não é modelado: a aresta de arquivo segue a resolução, e a de símbolo segue as regras acima. Import
+serem provados. Erro que só aparece ao ligar ou avaliar o módulo (nome que o alvo não exporta,
+import irmão que falha, exceção no código) não é modelado: a aresta de arquivo segue a resolução, e
+a de símbolo segue as regras acima. Import
 só de tipo (`import type`, nomes que só são tipo, `import('x').T`) some na compilação e segue o
 compilador, e isso só vale em fonte TypeScript: em JavaScript o import roda.
 
 Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro título); âncora de outro
-arquivo que não bate com um título ainda prova a referência ao arquivo.
+arquivo que não bate com um título ainda prova a referência ao arquivo. O destino é lido como o
+CommonMark o lê, dos eventos do micromark: escape e referência de caractere decodificados.
 
 Até 64 evidências por aresta, as primeiras por posição; o excedente é contado no relatório.
 
@@ -153,6 +166,9 @@ Até 64 evidências por aresta, as primeiras por posição; o excedente é conta
 No teto de tabela, linha e linha em branco contam como no CommonMark: fim de linha LF, CRLF ou CR,
 e em branco só a linha com espaço e tab. Título acima de 2048 caracteres e linha de frontmatter
 acima de 4096 também não são lidos: o leitor de YAML do core é quadrático em linha longa.
+Aninhamento que estoura a pilha do compilador ou do analisador (milhares de blocos um dentro do
+outro) faz a extração inteira falhar com `extracao.limite.pilha`, sem grafo parcial, como os tetos
+do contrato.
 
 ## Relatório de extração (provisório)
 
@@ -165,7 +181,8 @@ horário: o mesmo grafo dá o mesmo relatório.
 ## Comando provisório
 
 `core/scripts/extrair-grafo.cjs` prova a extração até o KG3. Fica fora do pacote publicado e
-fora do CLI `ork`. Precisa do core compilado e do `typescript` instalado no core. Lê o
+fora do CLI `ork`. Precisa do core compilado e do `typescript` instalado no core, e roda o
+`node --check` do próprio Node para o ESM. Lê o
 repositório inteiro em memória a cada execução; repositório grande é assunto do KG4
 (incremental).
 

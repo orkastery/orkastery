@@ -15,20 +15,22 @@ import * as ts from 'typescript';
 import {
   conferirFontes, digestDoGrafo, validarGrafo, type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
-import { slugDoGithub } from '../src/intelligence-graph-extract-md';
 import { lerRepositorio } from '../src/intelligence-graph-repo';
 import { dirTemporario } from './apoio';
 import {
   extrairGrafo, idDeBlob, textoAceito, type EntradaDeExtracao, type FonteDoRepositorio, type Parser, type ResultadoDaExtracao,
 } from '../src/intelligence-graph-extract';
 
-/** D15: o analisador Markdown e o adaptador do micromark que o comando provisorio usa. */
+/** D15 e D16: o adaptador do micromark e o juiz de sintaxe do V8 que o comando provisorio usa. */
 const { carregarMarkdown } = require(path.resolve(__dirname, '../../scripts/micromark-adaptador.cjs')) as {
   carregarMarkdown: () => Promise<Parser['markdown']>;
 };
+const { criarJuizDeSintaxe } = require(path.resolve(__dirname, '../../scripts/sintaxe-node.cjs')) as {
+  criarJuizDeSintaxe: () => Parser['javascript'];
+};
 let PARSER: Parser;
 before(async () => {
-  PARSER = { ts, unicode: String(process.versions.unicode), markdown: await carregarMarkdown() };
+  PARSER = { ts, unicode: String(process.versions.unicode), markdown: await carregarMarkdown(), javascript: criarJuizDeSintaxe() };
 });
 const fontesDe = (arquivos: Record<string, string | Uint8Array>): FonteDoRepositorio[] =>
   Object.entries(arquivos).map(([p, c]) => ({ path: p, bytes: typeof c === 'string' ? Buffer.from(c, 'utf8') : c }));
@@ -176,7 +178,7 @@ test('KG2 provenance: toda evidencia bate com os bytes, em bytes UTF-8 e linhas,
   for (const a of grafo.edges) {
     for (const e of a.evidence) {
       assert.equal(e.extractor_id, 'ork.ts-ast');
-      assert.equal(e.extractor_version, `1.0.0+typescript.${ts.version}`);
+      assert.equal(e.extractor_version, `1.0.0+typescript.${ts.version}+node.${process.versions.node}`);
       assert.equal(e.extraction_method, 'ast');
       assert.equal(e.confidence_class, 'EXTRACTED');
       assert.equal(e.authority, 'git:repo-teste');
@@ -198,7 +200,7 @@ test('KG2 provenance: o grafo sai na forma canonica do contrato, com digest igua
   assert.equal(r.relatorio.snapshot_id, r.grafo.snapshot.snapshot_id);
   assert.deepEqual(r.grafo.snapshot.extractors, [
     { extractor_id: 'ork.id-mention', extractor_version: '1.0.0' }, { extractor_id: 'ork.md-structure', extractor_version: `1.0.0+${PARSER.markdown.versao}+unicode.${process.versions.unicode}` },
-    { extractor_id: 'ork.repo-files', extractor_version: '1.0.0' }, { extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}` },
+    { extractor_id: 'ork.repo-files', extractor_version: '1.0.0' }, { extractor_id: 'ork.ts-ast', extractor_version: `1.0.0+typescript.${ts.version}+node.${process.versions.node}` },
   ]);
 });
 
@@ -352,8 +354,10 @@ test('KG2 extract: slug de ancora como o do GitHub', () => {
     ['RM-031 : Grafo', 'rm-031--grafo'],
     ['Veja [o guia](x.md) já', 'veja-o-guia-já'],
     ['snake_case e CAIXA', 'snake_case-e-caixa'],
+    ['caf&eacute; &amp; ch&aacute;', 'café--chá'],
   ];
-  for (const [titulo, slug] of casos) assert.equal(slugDoGithub(titulo), slug, titulo);
+  const { grafo } = extrair({ 'a.md': casos.map(([titulo]) => `## ${titulo}\n`).join('\n') });
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'section').map((n) => n.locator.fragment).sort(), casos.map(([, slug]) => slug).sort());
 });
 
 test('KG2 limits: import que sobe acima da raiz, absoluto ou por main de pacote nunca cai dentro do repositorio', () => {
@@ -758,11 +762,12 @@ test('KG2 limits: formato do Node 22: sintaxe ESM decide o .js sem type, e requi
   const { grafo } = extrair({
     'lib.js': 'export function f() { return 1; }\n', 'pasta/index.js': 'exports.p = 1;\n', 'dados.json': '{}\n',
     'c.cjs': 'exports.c = 1;\n', 'r.cjs': 'exports.r = 1;\n',
-    'a.js': "import { f } from './lib.js';\nimport './pasta';\nexport function g() { return f(); }\n",
-    'b.js': "await 0;\nrequire('./r.cjs');\nasync function z() { return import('./c.cjs'); }\n",
+    'a.js': "import { f } from './lib.js';\nexport function g() { return f(); }\n", 'a2.js': "import './pasta';\n",
+    'b.js': "await 0;\nexport async function z() { return import('./c.cjs'); }\n", 'b2.js': "await 0;\nrequire('./r.cjs');\n",
     'x/package.json': '{"type": "commonjs"}\n', 'x/d.js': "import '../c.cjs';\n",
     'e.cjs': "export const e = 1;\nrequire('./c.cjs');\n",
-    'm.mjs': "require('./r.cjs');\nimport d from './dados.json';\nimport './c.cjs';\nexport const m = d;\n",
+    'm.mjs': "import './c.cjs';\nexport const m = 1;\n", 'm2.mjs': "require('./r.cjs');\n",
+    'm3.mjs': "import d from './dados.json';\nexport const n = d;\n",
     'n.cjs': "require('./dados.json');\n",
   });
   assert.deepEqual(arestas(grafo, 'imports').filter((a) => !a.includes('-> symbol:')), [
@@ -770,7 +775,7 @@ test('KG2 limits: formato do Node 22: sintaxe ESM decide o .js sem type, e requi
   ]);
   assert.ok(temAresta(grafo, 'calls symbol:a.js#g -> symbol:lib.js#f'));
   assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => `${d.path} ${d.reference}`).sort(), [
-    'a.js ./pasta', 'b.js ./r.cjs', 'e.cjs ./c.cjs', 'm.mjs ./dados.json', 'm.mjs ./r.cjs', 'x/d.js ../c.cjs',
+    'a2.js ./pasta', 'b2.js ./r.cjs', 'e.cjs ./c.cjs', 'm2.mjs ./r.cjs', 'm3.mjs ./dados.json', 'x/d.js ../c.cjs',
   ]);
 });
 
@@ -795,6 +800,60 @@ test('KG2 limits: o teto de tabela ve linha so com NBSP ou BOM e fim de linha so
     'cr.md': `${cabecalho('\r')}${linhas.join('\r')}\r`,
   });
   assert.deepEqual(relatorio.lacunas.filter((l) => l.categoria === 'markdown-tabela-grande').map((l) => l.path).sort(), ['bom.md', 'cr.md', 'nbsp.md']);
+});
+
+test('KG2 limits: o V8 e o juiz de sintaxe; arquivo que o Node nao compila nao importa nem e importado', () => {
+  const { grafo } = extrair({
+    't.cjs': 'exports.t = 1;\n', 'u.mjs': 'export const u = 1;\n',
+    'jsx.js': "import './u.mjs';\nexport const a = <div/>;\n",
+    'dup.mjs': "import './u.mjs';\nlet q = 1;\nlet q = 2;\n",
+    'estrito.cjs': "'use strict';\nwith (Math) {}\nrequire('./t.cjs');\n",
+    'des.cjs': "let { exports } = {};\nrequire('./t.cjs');\n",
+    'des.js': "let { module } = {};\nrequire('./t.cjs');\n",
+    'alvo.cjs': "require('./jsxalvo.js');\n", 'jsxalvo.js': 'module.exports = <b/>;\n',
+    'json.cjs': "require('./ruim.json');\n", 'ruim.json': '{ ruim\n',
+    'k.jsx': "import './u.mjs';\n",
+    'ok.cjs': "require('./t.cjs');\nif (module) return;\n", 'ok.mjs': "import './u.mjs';\nexport const v = 1;\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), ['imports file:ok.cjs -> file:t.cjs', 'imports file:ok.mjs -> file:u.mjs']);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => d.path).sort(),
+    ['alvo.cjs', 'des.cjs', 'des.js', 'dup.mjs', 'estrito.cjs', 'json.cjs', 'jsx.js', 'k.jsx']);
+});
+
+test('KG2 limits: especificador ESM e URL; busca, fragmento, escape e pasta nao ligam ao nome literal', () => {
+  const { grafo } = extrair({
+    'b.js': 'export const b = 1;\n', 'b#c.js': 'export const c = 1;\n', 'b%41.js': 'export const d = 1;\n',
+    'a.mjs': "import './b.js/';\nimport './b#c.js';\nimport './b%41.js';\nimport './b.js/.';\n",
+    'c.cjs': "async function z() { return import('./b.js/'); }\nmodule.exports = { z };\n",
+    'ok.mjs': "import './b.js';\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), ['imports file:ok.mjs -> file:b.js']);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => `${d.path} ${d.reference}`).sort(),
+    ['a.mjs ./b#c.js', 'a.mjs ./b%41.js', 'a.mjs ./b.js/', 'a.mjs ./b.js/.', 'c.cjs ./b.js/']);
+});
+
+test('KG2 limits: package.json com surrogate solto em name ou type e invalido, como no Node; em outro campo, nao', () => {
+  const barra = String.fromCharCode(92), f = 'exports.f = 1;\n';
+  const { grafo } = extrair({
+    's/package.json': `{"name": "${barra}ud800", "main": "m.js"}\n`, 's/m.js': f, 'a.cjs': "require('./s');\n",
+    't/package.json': `{"type": "${barra}udc00", "main": "m.js"}\n`, 't/m.js': f, 'b.cjs': "require('./t');\n",
+    'e/package.json': `{"main": "m.js", "exports": {"./x": "${barra}udc00"}, "description": "${barra}ud800"}\n`, 'e/m.js': f,
+    'c.cjs': "require('./e');\n",
+    'ok/package.json': `{"name": "${barra}ud83d${barra}ude00", "main": "m.js"}\n`, 'ok/m.js': f, 'd.cjs': "require('./ok');\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), ['imports file:c.cjs -> file:e/m.js', 'imports file:d.cjs -> file:ok/m.js']);
+});
+
+test('KG2 extract: referencia de caractere pelo micromark, no destino do link e no titulo', () => {
+  const { grafo } = extrair({
+    'café.md': '# C\n', 'a.md': '# caf&eacute;\n\n## L\n\n[x](caf&eacute;.md) [y](#caf&eacute;) [z](caf&#xE9;.md)\n',
+  });
+  assert.deepEqual(arestas(grafo, 'references'), ['references section:a.md#l -> file:café.md', 'references section:a.md#l -> section:a.md#café']);
+});
+
+test('KG2 limits: aninhamento que estoura a pilha falha a extracao inteira com erro tipado', () => {
+  const fundo = 20000;
+  assert.throws(() => extrair({ 'a.ts': `${'{'.repeat(fundo)}${'}'.repeat(fundo)}\n`, 'b.md': '# B\n' }), /extracao\.limite\.pilha/);
 });
 
 /** Repositorio Git temporario com identidade local e sem assinatura. */

@@ -28,6 +28,8 @@ export interface EntradaMd {
   aceitaFragmento: (fragmento: string) => boolean;
   /** D15: analisador CommonMark (micromark com tabela GFM). */
   analisar: (texto: string) => readonly EventoMd[];
+  /** Decodificador de referencia de caractere do micromark (`eacute`, `#233`, `#xE9`); `null` se nao e entidade. */
+  referencia: (valor: string) => string | null;
   extratorMd: string;
   extratorId: string;
 }
@@ -106,30 +108,9 @@ function apagarTrechos(texto: string, trechos: readonly [number, number][]): str
   return partes.join('');
 }
 
-const ENTIDADES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: String.fromCharCode(0xa0) };
-
-function decodificarEntidades(t: string): string {
-  return t.replace(/&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-z]+);/g, (m, e: string) => {
-    if (e[0] !== '#') return ENTIDADES[e] ?? m;
-    const c = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
-    return c > 0 && c <= 0x10ffff ? String.fromCodePoint(c) : m;
-  });
-}
-
-/** Destino como o CommonMark o le: escape de pontuacao e entidade decodificados (entidade desconhecida fica crua). */
-const destinoDoLink = (bruto: string): string => decodificarEntidades(bruto.replace(/\\([!-/:-@[-`{-~])/g, '$1'));
-
 /** D5: ancora como o GitHub gera do texto renderizado: minusculas, sem pontuacao, espaco vira hifen. */
 export function slugDeTexto(texto: string): string {
   return texto.toLowerCase().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
-}
-
-/** Slug a partir do titulo cru, aproximando o texto renderizado (link, HTML e entidade). */
-export function slugDoGithub(titulo: string): string {
-  return slugDeTexto(titulo
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&[#a-zA-Z0-9]+;/g, (m) => decodificarEntidades(m)));
 }
 
 /** Slugs repetidos no mesmo arquivo ganham `-1`, `-2`, como no GitHub. */
@@ -207,7 +188,7 @@ function valoresPosicionados(linhas: Linha[], dados: Record<string, ValorYaml>):
   return r;
 }
 
-function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean, analisar: EntradaMd['analisar']): Estrutura {
+function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean, analisar: EntradaMd['analisar'], referencia: EntradaMd['referencia']): Estrutura {
   // O BOM nao e conteudo: sem ele, o primeiro titulo e o frontmatter sao lidos.
   const desde = fonte.texto.charCodeAt(0) === 0xfeff ? 1 : 0;
   const todas = linhasDe(fonte.texto, desde);
@@ -247,7 +228,11 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
   const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
-  const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: [number, number] | null; descartado: boolean }[] = [];
+  const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: string[] | null; descartado: boolean }[] = [];
+  // B5: referencia de caractere pelo decodificador do micromark (as entidades do HTML5); a crua fica.
+  const decodificada = (i: number, f: number): string => referencia(corpo.slice(i + 1, f - 1)) ?? corpo.slice(i, f);
+  // Destino do link como o CommonMark o le: dado, escape e referencia, montados dos eventos.
+  let destinoAberto: string[] | null = null;
   // A-N4: o slug sai do texto que o GitHub renderiza no titulo (dado, codigo, escape, entidade e endereco
   // de autolink), sem marcador de enfase, HTML, destino de link, rotulo de referencia nem texto
   // alternativo de imagem. Nada e aparado: o espaco antes de uma imagem no fim vira hifen, como no
@@ -273,14 +258,19 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
         else if (e.tipo === 'codeText') titulo.noCodigo++;
         else if (titulo.noTexto > 0 && titulo.foraDoTexto === 0) {
           if (TEXTO_DO_TITULO.has(e.tipo)) titulo.partes.push(corpo.slice(e.inicio, e.fim));
-          else if (e.tipo === 'characterReference') titulo.partes.push(decodificarEntidades(corpo.slice(e.inicio, e.fim)));
+          else if (e.tipo === 'characterReference') titulo.partes.push(decodificada(e.inicio, e.fim));
           // Em span de codigo a quebra de linha vira espaco (CommonMark); fora dele, o GitHub a descarta.
           else if (e.tipo === 'codeTextLineEnding' || (e.tipo === 'lineEnding' && titulo.noCodigo > 0)) titulo.partes.push(' ');
         }
       }
       // Link e imagem, tambem dentro de titulo.
       if (e.tipo === 'link' || e.tipo === 'image') abertos.push({ inicio: no(e.inicio), fim: no(e.fim), destino: null, descartado: emExcesso });
-      else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) abertos[abertos.length - 1].destino = [e.inicio, e.fim];
+      else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) {
+        destinoAberto = abertos[abertos.length - 1].destino = [];
+      } else if (destinoAberto) {
+        if (e.tipo === 'data' || e.tipo === 'characterEscapeValue') destinoAberto.push(corpo.slice(e.inicio, e.fim));
+        else if (e.tipo === 'characterReference') destinoAberto.push(decodificada(e.inicio, e.fim));
+      }
       if ((TOKENS_SEM_MENCAO as readonly string[]).includes(e.tipo)) semMencao.push([e.inicio, e.fim]);
       continue;
     }
@@ -289,6 +279,7 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     else if (titulo && (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText')) titulo.noTexto--;
     else if (titulo && FORA_DO_TEXTO_DO_TITULO.has(e.tipo)) titulo.foraDoTexto--;
     else if (titulo && e.tipo === 'codeText') titulo.noCodigo--;
+    else if (e.tipo === 'resourceDestinationString') destinoAberto = null;
     if ((e.tipo === 'atxHeading' || e.tipo === 'setextHeading') && titulo) {
       // Todo titulo abre uma secao: sem texto ou com slug recusado, o trecho sob ele fica no arquivo,
       // nunca na secao anterior.
@@ -299,7 +290,7 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       titulo = null;
     } else if (e.tipo === 'link' || e.tipo === 'image') {
       const l = abertos.pop();
-      if (l?.destino && !l.descartado) links.push({ destino: destinoDoLink(corpo.slice(l.destino[0], l.destino[1])), inicio: l.inicio, fim: l.fim });
+      if (l?.destino && !l.descartado) links.push({ destino: l.destino.join(''), inicio: l.inicio, fim: l.fim });
     }
   }
   const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao)).map((l) => ({ inicio: no(l.inicio), texto: l.texto }));
@@ -335,7 +326,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
     const partes = p.split('/');
     for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
   }
-  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento, e.analisar));
+  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento, e.analisar, e.referencia));
   const slugs = new Map(estruturas.map((s) => [s.fonte.path, new Set(s.secoes.map((x) => x.slug).filter((x): x is string => x !== null))]));
   const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, extrator: string, metodo: AchadoDeAresta['metodo'], t: Trecho): void => {
     saida.arestas.push({ kind, from, to, extrator, metodo, trecho: t });

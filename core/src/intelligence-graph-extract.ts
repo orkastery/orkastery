@@ -55,14 +55,19 @@ export interface EntradaDeExtracao {
 
 /**
  * D1 e D15: os analisadores chegam por parametro; este modulo so conhece os seus tipos. `markdown`
- * e o analisador CommonMark (micromark com tabela GFM) e a versao dele. `unicode` e a versao do
- * Unicode do motor JavaScript (`process.versions.unicode`). As duas entram na versao do extrator
- * Markdown, porque o slug e a estrutura dependem delas.
+ * e o analisador CommonMark (micromark com tabela GFM), a versao dele e o decodificador de referencia
+ * de caractere do proprio micromark (`referencia('eacute')`, `referencia('#233')`; `null` se o nome nao
+ * e entidade do HTML5). `unicode` e a versao do Unicode do motor JavaScript (`process.versions.unicode`).
+ * As duas versoes entram na do extrator Markdown, porque o slug e a estrutura dependem delas; a tabela
+ * de entidades do HTML5 e fixa. D16: `javascript` e o juiz de sintaxe do V8 do Node (`sintaxe(texto,
+ * 'cjs' | 'esm')`) e a versao do Node, que entra na do `ork.ts-ast`, porque o formato e a resolucao do
+ * runtime dependem dela.
  */
 export interface Parser {
   ts: typeof TS;
   unicode: string;
-  markdown: { analisar: (texto: string) => readonly EventoMd[]; versao: string };
+  markdown: { analisar: (texto: string) => readonly EventoMd[]; referencia: (valor: string) => string | null; versao: string };
+  javascript: { sintaxe: (texto: string, formato: 'cjs' | 'esm') => boolean; versao: string };
 }
 
 /** Extremidade de aresta antes do ID: tipo e localizador. */
@@ -100,6 +105,19 @@ export interface ResultadoDaExtracao { grafo: GrafoCodigo; digest: string; relat
 
 function falha(codigo: string, onde?: string): never {
   throw new Error(onde ? `${codigo} em ${onde}` : codigo);
+}
+
+/**
+ * Aninhamento extremo estoura a pilha do compilador ou do analisador (o binder do TypeScript e
+ * recursivo): a extracao falha inteira com erro tipado, nunca com grafo parcial (D10).
+ */
+function semEstouro<T>(extrator: string, f: () => T): T {
+  try {
+    return f();
+  } catch (e) {
+    if (e instanceof RangeError && /call stack/i.test(e.message)) falha('extracao.limite.pilha', extrator);
+    throw e;
+  }
 }
 
 /**
@@ -193,9 +211,13 @@ function contagemVazia<T extends string>(chaves: readonly T[]): Record<T, number
  * contrato estourado (D10), e `grafo.*` se o resultado violar o contrato (defeito do extrator).
  */
 export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): ResultadoDaExtracao {
-  const { ts, unicode, markdown } = parser;
+  const { ts, unicode, markdown, javascript } = parser;
   if (!/^[0-9]+(\.[0-9]+)*$/.test(unicode)) falha('extracao.entrada.unicode-invalido');
-  if (!/^[0-9A-Za-z][0-9A-Za-z.-]{0,40}$/.test(markdown.versao)) falha('extracao.entrada.markdown-invalido');
+  if (!/^[0-9A-Za-z][0-9A-Za-z.-]{0,40}$/.test(markdown.versao) || typeof markdown.analisar !== 'function'
+    || typeof markdown.referencia !== 'function') falha('extracao.entrada.markdown-invalido');
+  if (!javascript || !/^node\.[0-9]+(\.[0-9]+)*$/.test(javascript.versao) || typeof javascript.sintaxe !== 'function') {
+    falha('extracao.entrada.javascript-invalido');
+  }
   const acl = [...new Set(entrada.acl_refs)].sort(compararUtf8);
   const access: Acesso = { tenant_id: entrada.tenant_id, acl_refs: acl };
   const authority = `git:${entrada.repository_id}`;
@@ -237,11 +259,12 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   };
 
   const achados: Achados = { nos: [], arestas: [], diagnosticos: [], lacunas: [] };
+  // Laco, nao `push(...lista)`: lista grande estouraria a pilha antes do teto tipado do contrato.
   const juntar = (a: Achados): void => {
-    achados.nos.push(...a.nos);
-    achados.arestas.push(...a.arestas);
-    achados.diagnosticos.push(...a.diagnosticos);
-    achados.lacunas.push(...a.lacunas);
+    for (const x of a.nos) achados.nos.push(x);
+    for (const x of a.arestas) achados.arestas.push(x);
+    for (const x of a.diagnosticos) achados.diagnosticos.push(x);
+    for (const x of a.lacunas) achados.lacunas.push(x);
   };
   const caminhos = aceitas.map((f) => f.path);
   const fontesTs: FonteDeTexto[] = [], fontesMd: FonteDeTexto[] = [];
@@ -256,21 +279,23 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
     if (t === undefined) achados.lacunas.push({ categoria: 'utf8-invalido', path: p, inicio: null, detalhe: null });
     else (ehTs ? fontesTs : fontesMd).push({ path: p, texto: t });
   }
-  const versaoTs = `${VERSAO_KG2}+typescript.${ts.version}`;
+  const versaoTs = `${VERSAO_KG2}+typescript.${ts.version}+${javascript.versao}`;
   // B1: a raiz virtual do compilador deriva do manifesto; um caminho do repositorio nao a nomeia.
   const raiz = `/ork-${sha256DoCanonico([...manifesto.values()].map((m) => [m.path, m.source_hash])).slice(0, 32)}`;
   const aceitaFragmento = (f: string): boolean => f.length >= 1 && f.length <= GRAFO_LIMITES.fragmento && textoAceito(f);
-  juntar(extrairTypeScript({ fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, extrator: EXTRATOR_TS }, ts));
+  juntar(semEstouro(EXTRATOR_TS, () => extrairTypeScript({
+    fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, sintaxe: javascript.sintaxe, extrator: EXTRATOR_TS,
+  }, ts)));
   // B4: chave `caminho#fragmento` como o frontmatter a escreve; duas refs na mesma chave ficam ambiguas.
   const simbolos = new Map<string, RefDeNo | null>();
   for (const r of achados.nos.filter((x) => x.kind === 'symbol')) {
     const chave = `${r.path}#${r.fragment}`, antes = simbolos.get(chave);
     simbolos.set(chave, antes === undefined || (antes && antes.path === r.path && antes.fragment === r.fragment) ? r : null);
   }
-  juntar(extrairMarkdown({
+  juntar(semEstouro(EXTRATOR_MD, () => extrairMarkdown({
     fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, analisar: markdown.analisar,
-    extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
-  }));
+    referencia: markdown.referencia, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
+  })));
 
   const extratores: Extrator[] = [
     { extractor_id: EXTRATOR_ARQUIVOS, extractor_version: VERSAO_KG2 },
