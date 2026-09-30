@@ -7,8 +7,8 @@ pai: MOD-01
 roadmap: [RM-053]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-29T21:39:45-03:00
-versao: ork/ork-rm053network-full@600dcd8
+verificado_em: 2026-09-29T22:21:22-03:00
+versao: ork/ork-rm053network-full@5d0b4bb
 fontes:
   codigo:
     - core/src/rede.ts
@@ -50,7 +50,7 @@ fontes:
 
 > **Em uma frase:** cada máquina publica um retrato sem segredo num repositório privado da pessoa na forja, e `ork network status` mostra todas, de qualquer diretório, com a fonte e as lacunas.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-29 · **Versão:** `ork/ork-rm053network-full@600dcd8`
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-29 · **Versão:** `ork/ork-rm053network-full@5d0b4bb`
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-053](../roadmap/RM-053-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -78,7 +78,8 @@ fontes:
   - BR-031-01: a adesão é da máquina, explícita em `rede.json` ou herdada de `ork fabrica entrar`; `ork network sair` vence a herança; o manifesto do projeto não inscreve ninguém.
   - BR-031-02: publicar exige a casa privada (visibilidade `private`), conferida na forja antes de cada publicação; publicação em segundo plano nunca cria repositório.
   - BR-031-03: o retrato é uma lista de permissão. Campo que o núcleo monta com cara de segredo recusa a publicação inteira; projeto (que vem do registro, do cwd ou do último retrato) com cara de segredo fica fora sozinho, com aviso. O erro e o aviso dizem o padrão e o campo, nunca o valor.
-  - BR-031-04: cada máquina só escreve o próprio retrato, identificado pelo nome e pelo `id` aleatório da instalação; retrato com o nome de outra máquina, malformado ou com nome de arquivo fora do padrão é ignorado na leitura e vira lacuna.
+  - BR-031-04: cada máquina só escreve o próprio retrato, identificado pelo nome saneado e pelo `id` aleatório da instalação (`~/.orkastery/maquina-id`); retrato com o nome de outra máquina, malformado ou com nome de arquivo fora do padrão é ignorado na leitura e vira lacuna; o nome tomado por outra instalação vira a lacuna `maquina.nome-em-uso`.
+  - BR-031-07: o escritor publica o que o leitor aceita (mesmas regras antes do push), e o leitor ignora item de host ou forja que não conhece: versão nova não some para quem não atualizou.
   - BR-031-05: lacuna nunca vira lista vazia; a leitura declara a fonte, o horário e o que não consultou (roadmap, reservas, threads); máquina vista só na fábrica não é dada como membro.
   - BR-031-06: todo git da rede roda isolado do ambiente de quem chamou: sem as variáveis que redirecionam o repositório, sem prompt, em inglês e com autor e committer fixos na máquina.
 - **Critérios de aceite e testes:** Dadas duas máquinas com a forja simulada, quando cada uma entra e publica, então o `status` de uma, de fora de qualquer clone, mostra as duas, e nenhum blob nem commit da casa tem token, credencial, caminho de credencial, e-mail ou dado de conta paga (`core/test/rede.test.ts`).
@@ -108,3 +109,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-29 | página criada com a fatia 1 da RM-053 | Claude (agente) / Julio, revisão pendente | RM-053, ADR-001 |
 | 2026-09-29 | renumerada de FEAT-030 para FEAT-031 (a RM-052 usa o 030) e revista com o GO-FIX 1 do CHECK 1 | Claude (agente) / Julio, revisão pendente | parecer do CHECK 1 da thread `ork-rm053network` |
+| 2026-09-29 | revista com o GO-FIX 2: contrato igual no escritor e no leitor, `id` fora do cache, nome tomado visível | Claude (agente) / Julio, revisão pendente | parecer do CHECK 2 da thread `ork-rm053network` |

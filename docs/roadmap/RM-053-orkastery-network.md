@@ -113,7 +113,10 @@ sdlc:
 
 - Fatia 1 na branch `ork/ork-rm053network-full` (29/09/2026): ADR, forja, fronteira com a RM-052, núcleo da rede, CLI e batida.
 - CHECK 1 (29/09): reprovado, com uma regressão do lint de horário e dezenove achados de uma revisão independente, dois altos (falso positivo de e-mail em remoto scp e `GIT_DIR` herdado regravando a config do projeto).
-- GO-FIX 1 (29/09): todos corrigidos, cada um com teste que reprova o código anterior; 35 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- GO-FIX 1 (29/09): todos corrigidos com teste.
+- CHECK 2 (29/09): o reverify do núcleo com o verify completo verde; uma segunda revisão independente achou uma regressão na fronteira de credencial (senha na forma scp) e duas funcionais, todas reproduzidas.
+- GO-FIX 2 (29/09): corrigidas; 44 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- Os testes novos das duas rodadas reprovam no código anterior, com duas ressalvas: o SSH em lote (M5) é provado pelo formato do ambiente, e o teste da idempotência do cache (D4) só ficou hermético no GO-FIX 2.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -144,3 +147,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | casa da rede: repositório privado por pessoa | ADR-001; ledger da thread | agente, a ratificar por Julio |
 | 2026-09-29 | fatia 1 em desenvolvimento na branch da thread | commits T1 a T7 de `ork-rm053network` | agente |
 | 2026-09-29 | CHECK 1 reprovado e GO-FIX 1; a feature vira FEAT-031 (a RM-052 usa o 030) | parecer do CHECK 1 e commits `fix(ork-rm053network)` | agente |
+| 2026-09-29 | CHECK 2 reprovado (segunda revisão) e GO-FIX 2 | parecer do CHECK 2 e commits `fix(ork-rm053network): GO-FIX 2` | agente |
