@@ -91,15 +91,18 @@ sdlc:
   - "Entregue hoje" na rede sai do merge `ship(<thread>)` do dia na base, ligado ao item por `sdlc.thread`, pelo item da thread ou pela reserva;
   - máquina sem batida é a que passa de 3 h sem retrato, o limiar da RM-053;
   - sem clone, o GitHub responde numa consulta GraphQL; o GitLab usa a mesma interface, provado só com resposta simulada;
-  - `--projeto` aceita caminho, `github:dono/repo`, `gitlab:grupo/repo`, URL ou nome conhecido; ambíguo ou desconhecido recusa com os candidatos e a saída 4 da RM-052;
+  - `--projeto` aceita `github:dono/repo`, `gitlab:grupo/repo`, URL, nome conhecido ou caminho escrito como caminho; nome sozinho é sempre nome, e ambíguo ou desconhecido recusa com os candidatos e a saída 4 da RM-052;
+  - o fuso do dono do projeto consultado (`owner.timezone`) vale para o "hoje" e os horários do panorama;
   - a prova ao vivo contra a forja fica fora do bundle do CI, porque depende de rede e de login.
+- **Achado de segurança pré-existente, para uma próxima thread:** `ork fabrica` e `ork roadmap reservas` passam o `fabrica.remoto` do manifesto ao `git fetch` sem validar; um valor que comece com `-` vira opção do git. O `ork network roadmap` já valida o nome; o helper `branch-de-estado.ts` ainda não.
 - **Riscos e mitigação:**
   - o esquema do GitLab sem prova real: parse estrito, e a divergência vira `forja.resposta-invalida`;
   - colisão com o `--projeto` global da RM-052 e com a família `network` da RM-053 no CLI: fiação mínima, e quem entra depois resolve o conflito.
 
 ## Estado com evidências
 
-- 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto), com os testes focados verdes (`network-roadmap.test.js` 5 de 5, `forja.test.js` 4 de 4) e o RM-048 sem regressão.
+- 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto). A revisão independente do CHECK achou quatro defeitos maiores e cinco menores (thread corrompida derrubava o comando, pasta de mesmo nome tomava o `--projeto`, página não-ASCII sumia, `fabrica.remoto` virava opção do git); os três GO-FIX os corrigem, cada um com teste que falhava antes.
+- Testes focados verdes: `network-roadmap.test.js` 12 de 12, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
