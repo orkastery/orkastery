@@ -231,6 +231,36 @@ function pontaDoGithub(ref: unknown, onde: string): { commit: string; dataDoComm
     nome: typeof (ref as Json).name === 'string' ? (ref as Json).name as string : onde, alvo };
 }
 
+/** Os commits de um `history` do GitHub, e se a forja cortou a pagina (mais de 100 na janela). */
+function commitsDoHistorico(historico: unknown, onde: string): { commits: CommitDaBase[]; parciais: boolean } {
+  const h = obj(historico) ? historico : {};
+  const nos = h.nodes ?? [];
+  exigir(Array.isArray(nos), `${onde}: commits`);
+  return {
+    commits: (nos as unknown[]).filter(obj).map((n) => {
+      exigir(typeof n.oid === 'string' && typeof n.messageHeadline === 'string' && typeof n.committedDate === 'string', `${onde}: commit`);
+      return { commit: n.oid as string, assunto: n.messageHeadline as string, data: n.committedDate as string };
+    }),
+    parciais: obj(h.pageInfo) && (h.pageInfo as Json).hasNextPage === true,
+  };
+}
+
+/** Os commits da base desde `desde`, pelo REST do GitLab (GET), e se vieram 100 (pagina cheia). */
+function commitsDoGitlab(forja: IdentidadeDaForja, commit: string, desde: string, executor: ExecutorDaForja):
+  { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
+  const rest = executor('glab', ['api', `projects/${encodeURIComponent(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(commit)}` +
+    `&since=${encodeURIComponent(desde)}&per_page=100`, ...hostnameDe(forja)], '', PRAZO_MS);
+  if (rest.erro || rest.status !== 0) return { ok: false, erro: classificarFalha('glab', rest) };
+  let lista: unknown;
+  try { lista = JSON.parse(rest.stdout); } catch { lista = undefined; }
+  exigir(Array.isArray(lista), 'commits');
+  const commits = (lista as unknown[]).map((c) => {
+    exigir(obj(c) && typeof c.id === 'string' && typeof c.title === 'string' && typeof c.committed_date === 'string', 'commit');
+    return { commit: (c as Json).id as string, assunto: (c as Json).title as string, data: (c as Json).committed_date as string };
+  });
+  return { ok: true, commits, parciais: commits.length >= 100 };
+}
+
 function consultaDoGithub(comBase: boolean): string {
   return `query($owner: String!, $name: String!${comBase ? ', $base: String!' : ''}, $desde: GitTimestamp!, $dirRoadmap: String!,
   $manifesto: String!, $refReservas: String!, $dirReservas: String!, $refFabrica: String!, $dirFabrica: String!) {
@@ -267,15 +297,10 @@ function lerDoGithub(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   if (base) {
     const manifesto = obj(base.alvo.manifesto) && obj((base.alvo.manifesto as Json).object) &&
       typeof ((base.alvo.manifesto as Json).object as Json).text === 'string' ? ((base.alvo.manifesto as Json).object as Json).text as string : null;
-    const historico = obj(base.alvo.history) ? (base.alvo.history as Json).nodes : [];
-    exigir(Array.isArray(historico), 'base: commits');
-    const pagina = obj(base.alvo.history) ? (base.alvo.history as Json).pageInfo : undefined;
+    const historico = commitsDoHistorico(base.alvo.history, 'base');
     leituraDaBase = { ref: base.nome, commit: base.commit, dataDoCommit: base.dataDoCommit,
       arquivos: arquivosDoGithub(base.alvo.roadmap ?? null, pedido.dirRoadmap), parcial: false, manifesto,
-      commits: (historico as unknown[]).filter(obj).map((n) => {
-        exigir(typeof n.oid === 'string' && typeof n.messageHeadline === 'string' && typeof n.committedDate === 'string', 'base: commit');
-        return { commit: n.oid as string, assunto: n.messageHeadline as string, data: n.committedDate as string };
-      }), commitsParciais: obj(pagina) && pagina.hasNextPage === true };
+      commits: historico.commits, commitsParciais: historico.parciais };
   }
   const estado = (bruto: unknown, b: BranchDeEstado): PontaDaForja | null => {
     const p = pontaDoGithub(bruto ?? null, b.branch);
@@ -384,17 +409,10 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
   let commitsParciais = false;
   if (pontaBase) {
     chamadas++;
-    const rest = executor('glab', ['api', `projects/${encodeURIComponent(forja.repo)}/repository/commits?ref_name=${encodeURIComponent(pontaBase.commit)}` +
-      `&since=${encodeURIComponent(pedido.desde)}&per_page=100`, ...hostnameDe(forja)], '', PRAZO_MS);
-    if (rest.erro || rest.status !== 0) return { ok: false, erro: classificarFalha('glab', rest) };
-    let lista: unknown;
-    try { lista = JSON.parse(rest.stdout); } catch { lista = undefined; }
-    exigir(Array.isArray(lista), 'commits');
-    commits = (lista as unknown[]).map((c) => {
-      exigir(obj(c) && typeof c.id === 'string' && typeof c.title === 'string' && typeof c.committed_date === 'string', 'commit');
-      return { commit: (c as Json).id as string, assunto: (c as Json).title as string, data: (c as Json).committed_date as string };
-    });
-    commitsParciais = commits.length >= 100;
+    const r = commitsDoGitlab(forja, pontaBase.commit, pedido.desde, executor);
+    if (!r.ok) return r;
+    commits = r.commits;
+    commitsParciais = r.parciais;
   }
   const [mapaBase, mapaReservas, mapaFabrica] = [textos('base'), textos('reservas'), textos('fabrica')];
   const parcial = (dir: string, conteudo: string): boolean => cortadas.has(dir) || cortadas.has(conteudo);
@@ -405,6 +423,35 @@ function lerDoGitlab(forja: IdentidadeDaForja, pedido: PedidoDaForja, executor: 
       parcial: parcial('reservasDir', 'reservas') } : null,
     fabrica: pontaFabrica ? { ref: pedido.fabrica.branch, ...pontaFabrica, arquivos: arquivos(dirFabrica, mapaFabrica),
       parcial: parcial('fabricaDir', 'fabrica') } : null } };
+}
+
+const CONSULTA_DE_COMMITS_GITHUB = `query($owner: String!, $name: String!, $oid: GitObjectID!, $desde: GitTimestamp!) {
+  repository(owner: $owner, name: $name) { object(oid: $oid) { ... on Commit {
+    history(since: $desde, first: 100) { pageInfo { hasNextPage } nodes { oid messageHeadline committedDate } } } } }
+}`;
+
+/**
+ * So os commits de um commit da base desde `desde`, quando a janela da primeira leitura ficou curta:
+ * o fuso do projeto so se conhece depois de ler o manifesto dele (achado 5 da rodada 2). So consulta.
+ */
+export function lerCommitsDaForja(forja: IdentidadeDaForja, pedido: { commit: string; desde: string },
+  executor: ExecutorDaForja = executorPadrao): { ok: true; commits: CommitDaBase[]; parciais: boolean } | { ok: false; erro: ErroDaForja } {
+  if (!SHA.test(pedido.commit)) return erro('forja.resposta-invalida', 'commit da base fora do formato');
+  try {
+    if (forja.tipo === 'gitlab') return commitsDoGitlab(forja, pedido.commit, pedido.desde, executor);
+    const [owner, name] = forja.repo.split('/');
+    const r = chamarJson(executor, 'gh', ['api', 'graphql', '--method', 'POST', '--input', '-', ...hostnameDe(forja)],
+      JSON.stringify({ query: CONSULTA_DE_COMMITS_GITHUB, variables: { owner, name, oid: pedido.commit, desde: pedido.desde } }));
+    if (!r.ok) return r;
+    const dados = obj(r.json) ? (r.json as Json).data : undefined;
+    exigir(obj(dados) && obj((dados as Json).repository), 'repositorio');
+    const objeto = ((dados as Json).repository as Json).object;
+    exigir(obj(objeto), 'commit');
+    return { ok: true, ...commitsDoHistorico((objeto as Json).history, 'commits') };
+  } catch (e) {
+    if (e instanceof RespostaInvalida) return erro('forja.resposta-invalida', `resposta fora do formato esperado em ${e.message}`);
+    throw e;
+  }
 }
 
 /**

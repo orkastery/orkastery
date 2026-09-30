@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { publicarMaquina } from '../src/fabrica-estado';
+import { entregasNaBase, publicarMaquina } from '../src/fabrica-estado';
 import { ExecutorDaForja, SaidaDoExecutor } from '../src/forja';
 import { definirFusoDoDono } from '../src/horario';
 import { registrar } from '../src/ledger';
@@ -319,8 +319,10 @@ test('rede: lacuna tipada nunca vira vazio', () => {
       assert.ok(x.lacunas.every((l) => /vale a última cópia desta máquina, commit [0-9a-f]{7} de /.test(l.detalhe)), JSON.stringify(x.lacunas));
       // Uma tentativa de rede por projeto: a base falhou, e as outras partes nao esperam de novo.
       const detalhe = (tipo: string) => x.lacunas.find((l) => l.tipo === tipo)!.detalhe;
-      assert.match(detalhe('roadmap.sem-leitura'), /^sem leitura nova de origin\/main: o remoto não respondeu; /);
-      for (const t of ['reservas.sem-leitura', 'fabrica.sem-leitura']) assert.match(detalhe(t), /o remoto não respondeu antes, e não houve nova tentativa; /);
+      assert.match(detalhe('roadmap.sem-leitura'), /^sem leitura nova de origin\/main: a leitura de origin falhou; /);
+      for (const t of ['reservas.sem-leitura', 'fabrica.sem-leitura']) {
+        assert.match(detalhe(t), /a leitura de origin falhou antes, e não houve nova tentativa; /);
+      }
       assert.ok(x.fontes.filter((f) => f.parte !== 'estado-local').every((f) => f.atualizado === false));
       assert.ok(x.roadmap, 'a ultima copia ainda responde, com a lacuna');
       assert.match(semVazio(p), /última cópia desta máquina, sem leitura nova/);
@@ -417,15 +419,20 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
 test('rede: isolamento, projeto ou estado ilegivel vira lacuna e o resto responde', () => {
   const r = rede('rede-isolamento');
   try {
-    // O retrato publicado de A existe; depois o estado local dela quebra (thread.json corrompido).
-    assert.equal(publicarMaquina(exigirManifesto(r.a), { maquina: 'pc-a', agora: antes(30) }).acao, 'publicou');
-    fs.writeFileSync(path.join(dirThread(r.a, r.espera!), 'thread.json'), '{ corrompido');
+    // Uma thread boa, a que espera o dono e uma com o thread.json corrompido: o retrato completo nao se
+    // monta, e esta maquina entra com as legiveis, sem perder quem conduz nem quem espera o dono.
+    const { thread: boa } = novaThread(exigirManifesto(r.a), { nome: 'boa', modo: 'auto', roadmap: 'RM-004' });
+    const { thread: quebrada } = novaThread(exigirManifesto(r.a), { nome: 'quebrada', modo: 'auto' });
+    fs.writeFileSync(path.join(dirThread(r.a, quebrada.id), 'thread.json'), '{ corrompido');
     const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
     const x = p.projetos[0];
     assert.deepEqual(tipos(x.lacunas), ['estado-local.sem-leitura']);
-    assert.ok(x.roadmap, 'o roadmap continua respondendo');
-    assert.deepEqual(x.maquinas!.map((m) => [m.maquina, m.origem]), [['pc-a', 'retrato'], ['pc-b', 'retrato']],
-      'esta maquina entra pelo retrato publicado dela');
+    assert.match(x.lacunas[0].detalhe, /pc-a entra com as threads legíveis, e 1 ilegível\(is\) ficou\(aram\) de fora/);
+    const pcA = x.maquinas!.find((m) => m.maquina === 'pc-a')!;
+    assert.deepEqual([pcA.origem, pcA.ativas.map((t) => t.id).sort()], ['estado-local', [boa.id, r.espera].sort()]);
+    const itens = new Map(x.roadmap!.grupos.flatMap((g) => g.itens.map((i) => [i.id, i])));
+    assert.equal(itens.get('RM-001')!.hitl?.maquina, 'pc-a', 'quem espera o dono continua visivel');
+    assert.deepEqual(itens.get('RM-004')!.conduzindo, { thread: boa.id, fase: 'GOAL', maquina: 'pc-a' });
     semVazio(p);
 
     // Um projeto que derruba a leitura vira lacuna dele; o outro projeto do registro segue.
@@ -513,10 +520,11 @@ test('rede: incidente, pasta com o nome do projeto no cwd nao toma o pedido', ()
     fs.writeFileSync(r.registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: 'orkastery', raiz: r.a, remoto: null }] }));
     const p = montarPanoramaDaRede({ cwd: workspace, pedido: 'orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro });
     assert.deepEqual(p.projetos.map((x) => [x.projeto.nome, x.projeto.clone]), [['orkastery', r.a]]);
-    // Escrito como caminho, e caminho: a pasta pertence ao workspace, e o cabecalho diz isso.
-    const comoCaminho = montarPanoramaDaRede({ cwd: workspace, pedido: './orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro });
-    assert.equal(comoCaminho.projetos[0].projeto.nome, 'workspace');
-    assert.match(textoDoPanoramaDaRede(comoCaminho), /^Consultado: workspace /m);
+    // Escrito como caminho, o caminho tem de ser a raiz do projeto: uma pasta dentro do workspace nao
+    // responde pelo workspace, e a recusa diz onde esta o manifesto mais proximo.
+    assert.throws(() => montarPanoramaDaRede({ cwd: workspace, pedido: './orkastery', quando: QUANDO, maquina: 'pc-a', registro: r.registro }),
+      (e: unknown) => e instanceof ErroDoPedidoDeProjeto && e.codigo === 'projeto.sem-manifesto' &&
+        e.detalhe.includes('não é a raiz de um projeto') && e.correcao === `se é esse o projeto, peça --projeto ${workspace}`);
   } finally { r.limpar(); fs.rmSync(workspace, { recursive: true, force: true }); }
 });
 
@@ -564,5 +572,92 @@ test('rede: sem clone segue a base do manifesto lido', () => {
     const x = p.projetos[0];
     assert.deepEqual([x.fontes[0].onde, x.fontes[0].commit], ['github.com/dono/app@desenvolvimento', SHA('e')]);
     assert.ok(x.roadmap!.grupos.some((g) => g.itens.some((i) => i.id === 'RM-006')));
+  } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
+});
+
+test('rede: base invalida no manifesto nao chega ao git', () => {
+  const r = rede('rede-base-invalida', { semEstado: true });
+  const marca = path.join(path.dirname(r.registro), 'gravado-pelo-git-log');
+  try {
+    // O helper da fabrica tambem nao aceita a base como opcao do git log.
+    assert.deepEqual([...entregasNaBase(r.a, `--output=${marca}`).keys()], []);
+    assert.equal(fs.existsSync(marca), false);
+    const manifesto = path.join(r.a, 'orkastery.yaml');
+    const antesDoAtaque = fs.readFileSync(manifesto, 'utf8');
+    assert.match(antesDoAtaque, /base_branch: "main"/);
+    fs.writeFileSync(manifesto, antesDoAtaque.replace('base_branch: "main"', `base_branch: "--output=${marca}"`));
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.equal(fs.existsSync(marca), false, 'a leitura da rede nunca grava arquivo');
+    assert.deepEqual(tipos(p.projetos[0].lacunas), ['projeto.base-invalida']);
+    assert.match(semVazio(p), /projeto\.base-invalida .*não é nome de branch: nada foi lido pelo git/);
+  } finally { r.limpar(); }
+});
+
+test('rede: sem clone rele os commits do dia no fuso do projeto', () => {
+  definirFusoDoDono('UTC');
+  const vazio = dirTemporario('rede-commits-fuso');
+  try {
+    // O gateway em UTC le as 22:00 de Brasilia (01:00 UTC do dia seguinte): a janela UTC comeca as 23:00
+    // UTC da vespera, e a entrega das 12:00 de Brasilia ficaria de fora sem a releitura.
+    const noite = '2026-09-30T01:00:00.000Z';
+    const resposta = respostaDaForja();
+    resposta.data.repository.base.target.manifesto.object.text = 'project:\n  name: "app"\nowner:\n  timezone: "America/Sao_Paulo"\n';
+    resposta.data.repository.base.target.history.nodes = [];
+    const historico = { data: { repository: { object: { history: { pageInfo: { hasNextPage: false }, nodes: [
+      { oid: SHA('a'), messageHeadline: 'ship(ork-entregue): merge de ork/ork-entregue-full em main', committedDate: '2026-09-29T15:00:00Z' }] } } } } };
+    const { executor, chamadas } = forjaGravada([ok(resposta), ok(historico)]);
+    const p = montarPanoramaDaRede({ cwd: vazio, pedido: 'github:dono/app', quando: noite, maquina: 'pc-c', executor,
+      registro: path.join(vazio, 'x.json') });
+    assert.equal(chamadas.length, 2);
+    const primeira = JSON.parse(chamadas[0].entrada) as { variables: Record<string, string> };
+    const segunda = JSON.parse(chamadas[1].entrada) as { query: string; variables: Record<string, string> };
+    assert.equal(primeira.variables.desde, '2026-09-29T23:00:00.000Z');
+    assert.match(segunda.query, /object\(oid: \$oid\)/);
+    assert.doesNotMatch(segunda.query, /mutation/i);
+    assert.deepEqual([segunda.variables.oid, segunda.variables.desde], [SHA('a'), '2026-09-29T02:00:00.000Z']);
+    const x = p.projetos[0];
+    assert.equal(x.projeto.fuso, 'America/Sao_Paulo');
+    assert.equal(x.roadmap!.grupos.find((g) => g.id === 'hoje')!.itens.map((i) => i.id).join(), 'RM-003');
+    assert.ok(!x.lacunas.some((l) => l.tipo === 'roadmap.entregas-parciais'), JSON.stringify(x.lacunas));
+  } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
+});
+
+test('rede: sem clone com a base do manifesto inexistente diz a base certa', () => {
+  definirFusoDoDono('America/Sao_Paulo');
+  const vazio = dirTemporario('rede-base-ausente');
+  try {
+    const padrao = respostaDaForja();
+    padrao.data.repository.base.target.manifesto.object.text = 'project:\n  name: "app"\nworktree:\n  base_branch: "develop"\n';
+    const semBase = respostaDaForja();
+    (semBase.data.repository as { base: unknown }).base = null;
+    const p = montarPanoramaDaRede({ cwd: vazio, pedido: 'github:dono/app', quando: QUANDO, maquina: 'pc-c',
+      executor: forjaGravada([ok(padrao), ok(semBase)]).executor, registro: path.join(vazio, 'x.json') });
+    const x = p.projetos[0];
+    assert.equal(x.projeto.base, 'develop');
+    assert.deepEqual([x.fontes[0].onde, x.fontes[0].existe], ['github.com/dono/app@develop', false]);
+    assert.equal(x.lacunas.find((l) => l.tipo === 'roadmap.sem-base')!.detalhe, 'github.com/dono/app não tem a branch develop');
+    semVazio(p);
+  } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
+});
+
+test('rede: cada projeto no fuso do dono dele', () => {
+  definirFusoDoDono('America/Sao_Paulo');
+  const vazio = dirTemporario('rede-dois-fusos');
+  try {
+    const registro = path.join(vazio, 'projetos.json');
+    fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
+      { nome: 'app', raiz: '/nao/existe/app', remoto: 'https://github.com/dono/app.git' },
+      { nome: 'tokyo', raiz: '/nao/existe/tokyo', remoto: 'https://github.com/dono/tokyo.git' },
+    ] }));
+    const emTokyo = respostaDaForja();
+    emTokyo.data.repository.base.target.manifesto.object.text = 'project:\n  name: "tokyo"\nowner:\n  timezone: "Asia/Tokyo"\n';
+    const p = montarPanoramaDaRede({ cwd: vazio, quando: QUANDO, maquina: 'pc-c', registro,
+      executor: forjaGravada([ok(respostaDaForja()), ok(emTokyo)]).executor });
+    assert.deepEqual(p.projetos.map((x) => [x.projeto.nome, x.projeto.fuso]), [['app', 'America/Sao_Paulo'], ['tokyo', 'Asia/Tokyo']]);
+    const linhas = textoDoPanoramaDaRede(p).split('\n');
+    assert.ok(linhas.includes('Roadmap do App (29/09, 20:10)'), 'o primeiro no fuso dele');
+    assert.ok(linhas.includes('Roadmap do Tokyo (30/09, 08:10)'), 'o segundo no fuso dele, nao no do primeiro');
+    assert.ok(linhas.some((l) => l.startsWith('Neste projeto: Horários em Asia/Tokyo')), 'a legenda do bloco diz o fuso diferente');
+    assert.equal(linhas.at(-1), 'Horários de Brasília.');
   } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
 });

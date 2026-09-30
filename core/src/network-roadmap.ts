@@ -26,15 +26,20 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal } from './branch-de-estado';
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
-import { estadoValido, BRANCH_DA_FABRICA, DIR_DA_FABRICA, EstadoDaMaquina, retratoDaMaquina, ThreadNaFabrica } from './fabrica-estado';
+import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, entregasNaBase, EstadoDaMaquina, estadoValido, retratoDaMaquina,
+  ThreadNaFabrica } from './fabrica-estado';
 import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
-  identidadeDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
+  identidadeDaForja, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifest';
 import { nomeDaMaquina, pastaDoUsuario } from './maquina';
-import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, ReservaDeItem, reservaValida } from './roadmap-reservas';
-import { FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { tagDoModo } from './modos';
+import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, quemSouEu, ReservaDeItem, reservaValida } from './roadmap-reservas';
+import { EsperaDoDono, esperaDoDono, FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
+import { lerThread, listarIds } from './thread';
+import { Thread } from './types';
+import { VERSAO_DO_ORK } from './versao';
 import { lerYaml, ValorYaml } from './yaml';
 
 export const CONTRATO_PANORAMA_DA_REDE = 'ork.network-roadmap/v1' as const;
@@ -48,7 +53,8 @@ export const SAIDA_DO_PEDIDO = 4;
 export type ParteDaRede = 'projeto' | 'roadmap' | 'reservas' | 'fabrica' | 'estado-local' | 'forja' | 'registro' | 'rede';
 
 export type TipoDeLacunaDaRede =
-  | 'projeto.sem-clone' | 'projeto.sem-fonte' | 'projeto.sem-leitura' | 'projeto.remoto-invalido' | 'estado-local.sem-leitura'
+  | 'projeto.sem-clone' | 'projeto.sem-fonte' | 'projeto.sem-leitura' | 'projeto.remoto-invalido' | 'projeto.base-invalida'
+  | 'estado-local.sem-leitura'
   | 'roadmap.sem-base' | 'roadmap.sem-itens' | 'roadmap.pagina-invalida' | 'roadmap.entregas-parciais' | 'roadmap.sem-leitura'
   | 'reservas.sem-branch' | 'reservas.sem-leitura' | 'reserva.invalida'
   | 'fabrica.sem-branch' | 'fabrica.sem-leitura' | 'retrato.invalido' | 'maquina.sem-batida'
@@ -179,6 +185,13 @@ const lacuna = (tipo: TipoDeLacunaDaRede, parte: ParteDaRede, alvo: string | und
  */
 const REMOTO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
+/**
+ * Nome de branch base, como `main`. Tambem vem do manifesto (`worktree.base_branch`), e o `git log`
+ * da base o recebia cru: `--output=<arquivo>` gravava um arquivo (rodada 2 do CHECK).
+ */
+const baseValida = (base: string | null | undefined): base is string =>
+  typeof base === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/.test(base) && !base.includes('..');
+
 function projetoDoClone(c: ManifestoCarregado, origem: OrigemNoPanorama): ProjetoDaRede {
   const remoto = c.manifesto.fabrica.remoto;
   const url = REMOTO.test(remoto) ? git(c.raiz, ['remote', 'get-url', remoto]) : null;
@@ -284,6 +297,12 @@ export function resolverProjeto(pedido: string, conhecidos: readonly ProjetoDaRe
       throw new ErroDoPedidoDeProjeto('projeto.sem-manifesto', `${caminho} não tem ${NOME_MANIFESTO}`, candidatos,
         'rode `ork init` nesse clone, ou peça pela forja: --projeto github:dono/repo');
     }
+    // O caminho pedido e a raiz do projeto, nunca uma pasta dentro de outro (rodada 2 do CHECK).
+    const real = (x: string): string => { try { return fs.realpathSync(x); } catch { return path.resolve(x); } };
+    if (real(c.raiz) !== real(caminho)) {
+      throw new ErroDoPedidoDeProjeto('projeto.sem-manifesto', `${caminho} não é a raiz de um projeto: o manifesto mais próximo está em ${c.raiz}`,
+        candidatos, `se é esse o projeto, peça --projeto ${c.raiz}`);
+    }
     return projetoDoClone(c, 'argumento');
   }
   const alvo = texto.toLowerCase();
@@ -376,7 +395,7 @@ const nomeDoManifesto = (texto: string | null | undefined): string | null => cam
 /** A branch base do manifesto lido (achado 7 do CHECK), so com formato de nome de branch. */
 function baseDoManifesto(texto: string | null | undefined): string | null {
   const base = campoDoManifesto(texto, 'worktree', 'base_branch');
-  return base && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/.test(base) && !base.includes('..') ? base : null;
+  return baseValida(base) ? base : null;
 }
 
 const pontuar = (texto: string): string => {
@@ -511,6 +530,33 @@ function commitsDoClone(raiz: string, ponta: string, desde: string): CommitDaBas
   });
 }
 
+/**
+ * O retrato desta maquina quando o completo nao se monta: um thread.json que nao abre derrubava o
+ * `retratoDaMaquina` inteiro, e todas as threads dela sumiam da rede. Aqui entram as legiveis, com a
+ * espera do dono do RM-048, e a conta das que ficaram de fora (achado 1 da rodada 2 do CHECK).
+ */
+function retratoTolerante(c: ManifestoCarregado, ctx: Contexto, remoto: string): { retrato: EstadoDaMaquina; ilegiveis: number } {
+  const raiz = c.raiz;
+  const entregas = entregasNaBase(raiz, c.manifesto.worktree.base_branch, remoto);
+  const threads: ThreadNaFabrica[] = [];
+  let ilegiveis = 0;
+  for (const id of listarIds(raiz)) {
+    try {
+      const t: Thread = lerThread(raiz, id);
+      if (t.status === 'fechada') continue;
+      const entregue = entregas.get(t.id) ?? null;
+      let espera: EsperaDoDono | undefined;
+      try { espera = entregue ? undefined : esperaDoDono(raiz, t, ctx.quando); } catch { espera = undefined; }
+      threads.push({ id: t.id, nome: t.nome, modo: tagDoModo(t.modo), fase: t.faseAtual, status: t.status, roadmap: t.roadmap ?? null,
+        branch: t.base?.branch ?? null, atualizadaEm: t.atualizadaEm ?? null, entregue, esperaVoce: !!espera,
+        pergunta: espera?.pergunta ?? null, paradaDesde: null });
+    } catch { ilegiveis++; }
+  }
+  const eu = quemSouEu(raiz, { maquina: ctx.maquina });
+  return { ilegiveis, retrato: { contrato: CONTRATO_MAQUINA, maquina: eu.maquina, por: eu.por, projeto: c.manifesto.project.name,
+    versaoOrk: VERSAO_DO_ORK, publicadoEm: ctx.quando, threads: threads.sort((a, b) => a.id.localeCompare(b.id)) } };
+}
+
 function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama {
   const raiz = p.raiz as string, remoto = p.remoto, base = p.base ?? 'main';
   const fontes: FonteLida[] = [], lacunas: LacunaDaRede[] = [];
@@ -523,6 +569,12 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
       'corrija fabrica.remoto no orkastery.yaml (padrão: origin)'));
     return montarProjeto(p, { nome: p.nome, docs: null, reservas: null, retratos: null, local: null, commits: [] }, ctx, fontes, lacunas);
   }
+  if (!baseValida(p.base ?? 'main') || (carregado && !baseValida(carregado.manifesto.worktree.base_branch))) {
+    lacunas.push(lacuna('projeto.base-invalida', 'projeto', raizParaExibir(raiz),
+      `worktree.base_branch do manifesto (${JSON.stringify(carregado?.manifesto.worktree.base_branch ?? p.base).slice(0, 60)}) ` +
+      'não é nome de branch: nada foi lido pelo git', 'corrija worktree.base_branch no orkastery.yaml (padrão: main)'));
+    return montarProjeto(p, { nome: p.nome, docs: null, reservas: null, retratos: null, local: null, commits: [] }, ctx, fontes, lacunas);
+  }
   // Uma tentativa de rede por projeto: remoto que nao respondeu nao segura as outras partes (achado 9 do CHECK).
   let semRede: 'opcao' | 'falhou' | null = ctx.semRemoto ? 'opcao' : null;
   const ler = (nome: string, prefixo: string, prazo: number): { ponta: string | null; atualizado: boolean; tentou: boolean } => {
@@ -532,7 +584,7 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
     return { ...r, tentou: true };
   };
   const porque = (tentou: boolean): string => semRede === 'opcao' ? ' (--sem-remoto)'
-    : tentou ? ': o remoto não respondeu' : ': o remoto não respondeu antes, e não houve nova tentativa';
+    : tentou ? `: a leitura de ${remoto} falhou` : `: a leitura de ${remoto} falhou antes, e não houve nova tentativa`;
   const correcao = (): string => semRede === 'opcao' ? 'rode sem --sem-remoto para ler o remoto' : `confira a rede e o acesso a ${remoto} (git fetch)`;
   const dataDe = (sha: string): string | null => git(raiz, ['show', '-s', '--format=%cI', sha]).stdout.trim() || null;
   /** Uma branch lida do clone: a fonte citada, e a lacuna quando a leitura nao e nova ou nao houve. */
@@ -592,9 +644,19 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
       fontes.push({ parte: 'estado-local', origem: 'estado-local', onde: path.join(raizParaExibir(raiz), '.orkastery'), ref: null, commit: null,
         dataDoCommit: null, lidoEm: ctx.quando, atualizado: true, existe: true });
     } catch (e) {
-      lacunas.push(lacuna('estado-local.sem-leitura', 'estado-local', path.join(raizParaExibir(raiz), '.orkastery'),
-        `o estado local de ${ctx.maquina} não se leu (${detalheSeguro((e as Error)?.message ?? String(e))}): vale o retrato publicado dela, quando há`,
-        'confira as threads desta máquina com `ork thread list` e o thread.json que não abre'));
+      const motivo = detalheSeguro((e as Error)?.message ?? String(e)), onde = path.join(raizParaExibir(raiz), '.orkastery');
+      const correcao = 'confira as threads desta máquina com `ork thread list` e o thread.json que não abre';
+      try {
+        const t = retratoTolerante(carregado, ctx, remoto);
+        local = { raiz, retrato: t.retrato };
+        fontes.push({ parte: 'estado-local', origem: 'estado-local', onde, ref: null, commit: null, dataDoCommit: null, lidoEm: ctx.quando,
+          atualizado: true, existe: true });
+        lacunas.push(lacuna('estado-local.sem-leitura', 'estado-local', onde, `o retrato local completo não se montou (${motivo}): ` +
+          `${ctx.maquina} entra com as threads legíveis, e ${t.ilegiveis} ilegível(is) ficou(aram) de fora`, correcao));
+      } catch {
+        lacunas.push(lacuna('estado-local.sem-leitura', 'estado-local', onde,
+          `o estado local de ${ctx.maquina} não se leu (${motivo}): vale o retrato publicado dela, quando há`, correcao));
+      }
     }
   }
   return montarProjeto(p, { nome: p.nome, docs, reservas, retratos, local, commits }, ctx, fontes, lacunas);
@@ -629,21 +691,36 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
   const ler = (base: string | null) => lerDaForja(forja, { base, desde, dirRoadmap: DIR_ROADMAP, manifesto: NOME_MANIFESTO,
     reservas: { branch: BRANCH_DE_RESERVAS, dir: DIR_DE_RESERVAS }, fabrica: { branch: BRANCH_DA_FABRICA, dir: DIR_DA_FABRICA },
     lidoEm: geral.quando }, geral.executor);
+  let baseUsada = p.base;
   let r = ler(p.base);
   // Sem clone, a base e a do manifesto lido: se ele aponta outra branch, a leitura e refeita por ela.
   const baseDoProjeto = r.ok && !p.base ? baseDoManifesto(r.leitura.base?.manifesto) : null;
-  if (r.ok && baseDoProjeto && r.leitura.base && baseDoProjeto !== r.leitura.base.ref) r = ler(baseDoProjeto);
+  if (r.ok && baseDoProjeto && r.leitura.base && baseDoProjeto !== r.leitura.base.ref) {
+    baseUsada = baseDoProjeto;
+    r = ler(baseDoProjeto);
+  }
   if (!r.ok) {
     lacunas.push(lacuna(r.erro.codigo, 'forja', rotulo, r.erro.detalhe, CORRECAO_DA_FORJA[r.erro.codigo](cli)));
     return semLeitura();
   }
   const l = r.leitura;
   const nome = nomeDoManifesto(l.base?.manifesto) ?? p.nome;
-  // O fuso do dono deste projeto vale para o dia e os horarios dele (achado 5 do CHECK).
+  // A base que valeu vai para o projeto e para o texto, inclusive quando ela nao existe na forja.
+  const projeto: ProjetoDaRede = { ...p, base: baseUsada ?? l.base?.ref ?? null };
+  // O fuso do dono deste projeto vale para o dia e os horarios dele (achado 5 do CHECK). Ele so se
+  // conhece depois de ler o manifesto: se o dia dele comecou antes da janela pedida, os commits sao
+  // relidos desde o comeco do dia dele (achado 5 da rodada 2).
   const ctx: Contexto = { ...geral, fuso: normalizarFuso(campoDoManifesto(l.base?.manifesto, 'owner', 'timezone')) ?? geral.fuso };
-  if (Date.parse(inicioDoDia(ctx.quando, ctx.fuso)) < Date.parse(desde)) {
-    lacunas.push(lacuna('roadmap.entregas-parciais', 'roadmap', rotulo, `os commits do dia foram pedidos desde ${formatarDataHora(desde, { fuso: ctx.fuso })}, ` +
-      `depois do começo do dia no fuso do projeto (${ctx.fuso}): "Entregue hoje" pode ter ficado incompleto`, 'confira as entregas do dia no clone'));
+  let commits = l.base?.commits ?? [], commitsParciais = l.base?.commitsParciais ?? false;
+  const inicioNoProjeto = inicioDoDia(ctx.quando, ctx.fuso);
+  if (l.base && Date.parse(inicioNoProjeto) < Date.parse(desde)) {
+    const h = lerCommitsDaForja(forja, { commit: l.base.commit, desde: inicioNoProjeto }, geral.executor);
+    if (h.ok) { commits = h.commits; commitsParciais = h.parciais; }
+    else {
+      lacunas.push(lacuna('roadmap.entregas-parciais', 'roadmap', `${rotulo}@${l.base.ref}`,
+        `os commits desde o começo do dia no fuso do projeto (${ctx.fuso}) não vieram (${r.leitura.forja.host}: ${h.erro.codigo}): ` +
+        '"Entregue hoje" pode ter ficado incompleto', 'confira as entregas do dia no clone'));
+    }
   }
   for (const [parte, ponta] of [['roadmap', l.base], ['reservas', l.reservas], ['fabrica', l.fabrica]] as const) {
     if (ponta?.parcial) {
@@ -656,19 +733,19 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
       dataDoCommit: ponta?.dataDoCommit ?? null, lidoEm: l.lidoEm, atualizado: true, existe: !!ponta });
   };
   let docs: Documento[] | null = null;
-  fonte('roadmap', l.base, p.base ?? 'branch padrão');
+  fonte('roadmap', l.base, baseUsada ?? 'branch padrão');
   if (l.base) {
     docs = docsDosArquivos(l.base.arquivos ?? [], lacunas);
     if (!docs.some((d) => d.tipo === 'roadmap')) {
       lacunas.push(lacuna('roadmap.sem-itens', 'roadmap', `${rotulo}@${l.base.ref}`, `nenhuma página de item em ${DIR_ROADMAP} na base ${l.base.ref}`,
         'o projeto ainda não tem roadmap como código: `ork docs init` e o modelo docs/roadmap/_modelo-item.md'));
     }
-    if (l.base.commitsParciais) {
+    if (commitsParciais) {
       lacunas.push(lacuna('roadmap.entregas-parciais', 'roadmap', `${rotulo}@${l.base.ref}`,
         'a base teve mais de 100 commits hoje: "Entregue hoje" pode ter ficado incompleto', 'confira as entregas do dia no clone'));
     }
   } else {
-    lacunas.push(lacuna('roadmap.sem-base', 'roadmap', rotulo, `${rotulo} não tem a branch ${p.base ?? 'padrão'}`,
+    lacunas.push(lacuna('roadmap.sem-base', 'roadmap', rotulo, `${rotulo} não tem a branch ${baseUsada ?? 'padrão'}`,
       'confira worktree.base_branch no orkastery.yaml do projeto'));
   }
   fonte('reservas', l.reservas, BRANCH_DE_RESERVAS);
@@ -681,10 +758,10 @@ function lerProjetoDaForja(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
     lacunas.push(lacuna('fabrica.sem-branch', 'fabrica', `${rotulo}@${BRANCH_DA_FABRICA}`,
       `nenhuma máquina publicou ainda: a branch ${BRANCH_DA_FABRICA} não existe em ${rotulo}`, 'cada máquina entra com `ork fabrica entrar`'));
   }
-  return montarProjeto(p, { nome, docs,
+  return montarProjeto(projeto, { nome, docs,
     reservas: l.reservas ? reservasDosArquivos(l.reservas.arquivos ?? [], lacunas) : [],
     retratos: l.fabrica ? retratosDosArquivos(l.fabrica.arquivos ?? [], lacunas) : [],
-    local: null, commits: l.base?.commits ?? [] }, ctx, fontes, lacunas);
+    local: null, commits }, ctx, fontes, lacunas);
 }
 
 // ---------------------------------------------------------------------------
@@ -794,13 +871,16 @@ export function textoDoPanoramaDaRede(p: PanoramaDaRede): string {
   ];
   if (p.lacunas.length) linhas.push('', 'Lacunas da consulta', ...p.lacunas.map(linhaDaLacuna));
   for (const x of p.projetos) {
+    // Cada projeto no fuso do dono dele (achado 5 da rodada 2): a legenda do bloco diz quando difere.
+    const fuso = x.projeto.fuso;
     linhas.push('', '────────', '');
-    linhas.push(x.roadmap ? textoDoStatusDoRoadmap(x.roadmap, p.fuso)
+    linhas.push(x.roadmap ? textoDoStatusDoRoadmap(x.roadmap, fuso)
       : `Roadmap do ${x.projeto.nome}: não lido (${x.lacunas.map((l) => l.tipo).filter((t) => t !== 'projeto.sem-clone').join(', ') || 'sem fonte'}).`);
-    linhas.push('', 'Threads por máquina', ...linhasDasMaquinas(x, p.fuso));
-    linhas.push('', 'Reservas', ...linhasDasReservas(x, p.fuso));
-    linhas.push('', 'Fontes', ...(x.fontes.length ? x.fontes.map((f) => linhaDaFonte(f, p.consultadoEm, p.fuso)) : ['• nenhuma fonte lida']));
+    linhas.push('', 'Threads por máquina', ...linhasDasMaquinas(x, fuso));
+    linhas.push('', 'Reservas', ...linhasDasReservas(x, fuso));
+    linhas.push('', 'Fontes', ...(x.fontes.length ? x.fontes.map((f) => linhaDaFonte(f, p.consultadoEm, fuso)) : ['• nenhuma fonte lida']));
     linhas.push('', 'Lacunas', ...(x.lacunas.length ? x.lacunas.map(linhaDaLacuna) : ['• nenhuma: todas as fontes foram lidas agora']));
+    if (fuso !== p.fuso) linhas.push('', `Neste projeto: ${legendaDoFuso(fuso)}`);
   }
   linhas.push('', legendaDoFuso(p.fuso));
   return linhas.join('\n');
