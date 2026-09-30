@@ -283,7 +283,8 @@ const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
   { nome: 'token do Slack', regex: /xox[abprs]-[A-Za-z0-9-]{10,}/ },
   { nome: 'chave de acesso AWS', regex: /(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Z0-9])/ },
   { nome: 'token do Hugging Face', regex: /hf_(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*[a-z])[A-Za-z0-9]{34,}/ },
-  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin|None)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{60,}/ },
+  // A chave de verdade traz `T3BlbkFJ` ("OpenAI" em base64) no corpo; sem ele, so cauda longa de token.
+  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin|None)-(?:(?=[A-Za-z0-9_-]*T3BlbkFJ)[A-Za-z0-9_-]{20,}|(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{60,})/ },
   { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36,}/ },
   { nome: 'chave de API do Google', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },

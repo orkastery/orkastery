@@ -2047,6 +2047,7 @@ test('RM-053 segredo: cada restricao dos padroes e da regra de nome tem prova (X
   // X4: colado a letra, `_` ou `-` continua pego; `sk-None-` tambem.
   for (const [t, padrao] of [[`xhf_${'aB'.repeat(17)}`, 'token do Hugging Face'], [`backup_sk-proj-${'Ab3_'.repeat(16)}`, 'chave da OpenAI'],
     [`x-sk-svcacct-${'Ab3'.repeat(21)}`, 'chave da OpenAI'], [`sk-None-${'Ab3'.repeat(21)}`, 'chave da OpenAI'],
+    [`sk-None-${'Xy9'.repeat(5)}T3BlbkFJ${'Qw2'.repeat(8)}`, 'chave da OpenAI'], [`sk-proj-ab12${'T3Blbk'}FJcd34ef56gh78`, 'chave da OpenAI'],
     [`xASIA${'Q'.repeat(16)}/`, 'chave de acesso AWS'], [`AKIAIOSFODNN7EXAMPLEwJalrXUtnFEMI`, 'chave de acesso AWS']] as const) {
     assert.equal(achadoDeSegredo(t), padrao, t);
   }
