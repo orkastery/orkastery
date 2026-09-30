@@ -35,13 +35,14 @@ async function comPlugin(corpo) {
   }
 }
 
-test('toda tool aceita projeto opcional, so nome; o catalogo segue com 25 tools e os requisitos de antes', async () => {
+test('toda tool aceita projeto opcional, so nome (a rede da RM-054 tambem aceita a forja); o catalogo com 26 tools e os requisitos de antes', async () => {
   await comPlugin(async (tools) => {
-    assert.equal(tools.length, 25);
+    assert.equal(tools.length, 26, 'as 25 da RM-052 e ork_network_roadmap (RM-054, fatia 2)');
     for (const t of tools) {
       const p = t.parameters.properties.projeto;
       assert.ok(p, `${t.name} aceita projeto`);
-      assert.equal(p.pattern, '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$');
+      if (t.name === 'ork_network_roadmap') assert.match(p.pattern, /\(\?:github\|gitlab\):/, 'a rede aceita a forja');
+      else assert.equal(p.pattern, '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$');
       assert.ok(!(t.parameters.required ?? []).includes('projeto'), `${t.name}: projeto e opcional`);
     }
     const manifesto = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
@@ -75,13 +76,13 @@ test('caminho, traversal ou tipo errado em projeto recusa no host, sem chamar o 
   });
 });
 
-test('descricoes: board e maestro nao leem o roadmap; o roadmap vem so de ork_roadmap_status, com o projeto pedido', async () => {
+test('descricoes: board e maestro nao leem o roadmap; o roadmap vem da rede (RM-054), com o projeto pedido', async () => {
   await comPlugin(async (tools) => {
     const d = Object.fromEntries(tools.map(t => [t.name, t.description]));
     assert.match(d.ork_board, /NAO le o roadmap: nunca conclua sobre o roadmap a partir do board/);
     assert.match(d.ork_board, /zero threads nao e roadmap vazio/);
-    assert.match(d.ork_maestro, /zero threads nunca é roadmap vazio; para o roadmap use ork_roadmap_status/);
+    assert.match(d.ork_maestro, /zero threads nunca é roadmap vazio; para o roadmap use ork_network_roadmap/);
     assert.match(d.ork_roadmap_status, /Passe projeto com o nome que o dono pediu/);
-    assert.match(d.ork_roadmap_status, /E a unica fonte do roadmap: nunca o deduza de ork_board ou ork_maestro/);
+    assert.match(d.ork_roadmap_status, /Nunca deduza o roadmap de ork_board ou ork_maestro/);
   });
 });

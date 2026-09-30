@@ -168,6 +168,27 @@ const PARAMETRO_PROJETO = {
   description: 'Nome do projeto que o dono pediu (ex.: orkastery), como em `ork projetos`. Sem ele e com mais de um projeto na máquina, a resposta é a escolha; nunca use o diretório do gateway.',
 };
 
+/** O `projeto` de uma tool: o padrao que o host confere, a descricao para o modelo e a recusa. */
+interface ProjetoDaTool { padrao: RegExp; descricao: string; recusa: string }
+
+const PROJETO_DA_RM052: ProjetoDaTool = {
+  padrao: PADRAO_DO_PROJETO,
+  descricao: PARAMETRO_PROJETO.description,
+  recusa: 'informe o NOME de um projeto de `ork projetos` (ex.: orkastery), nunca um caminho',
+};
+
+/**
+ * RM-054 (fatia 2, D-G4): no roadmap da rede, `projeto` tambem aceita a forja (`github:dono/repo`,
+ * `gitlab:grupo/repo`): numa maquina sem clone, e o unico caminho ate o projeto enquanto a rede por
+ * pessoa (RM-053) nao chega. Caminho e URL continuam fora (a URL pode levar credencial), e o nucleo
+ * confere de novo, porque o adaptador declara ORK_PROJETO_EXPLICITO=1.
+ */
+const PROJETO_DA_REDE: ProjetoDaTool = {
+  padrao: /^(?:[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}|(?:github|gitlab):[A-Za-z0-9][A-Za-z0-9._-]{0,99}(?:\/[A-Za-z0-9][A-Za-z0-9._-]{0,99}){1,8})$/,
+  descricao: 'Projeto que o dono pediu: o nome, como em `ork projetos` (ex.: orkastery), ou a forja (github:dono/repo, gitlab:grupo/repo) quando não há clone nesta máquina. Sem ele, vêm todos os projetos conhecidos. Nunca caminho nem URL.',
+  recusa: 'informe o NOME de um projeto de `ork projetos` (ex.: orkastery) ou github:dono/repo, nunca caminho nem URL',
+};
+
 /** Catálogo em paridade nome a nome com o manifesto; aprovação genérica legada aposentada. */
 interface FerramentaOrk {
   name: string;
@@ -175,12 +196,14 @@ interface FerramentaOrk {
   parameters: Record<string, unknown>;
   argv: (params: Record<string, unknown>) => string[];
   entrada?: (params: Record<string, unknown>) => string;
+  /** O `projeto` desta tool, quando nao e o da RM-052 (so nome). */
+  projeto?: ProjetoDaTool;
 }
 
 const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_maestro',
-    description: 'Ao receber a frase exata orkastery maestro, consulte o panorama somente leitura. Não cria thread. Passe projeto quando o dono nomear um. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. O panorama NÃO lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_roadmap_status. Ação posterior exige operação autorizada e readback.',
+    description: 'Ao receber a frase exata orkastery maestro: sem projeto nomeado, chame ork_network_roadmap sem projeto (o panorama da rede, com fontes, frescor e lacunas) e apresente-o como vem; com projeto nomeado, consulte este panorama somente leitura com projeto. Não cria thread. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. O panorama NÃO lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_network_roadmap. Ação posterior exige operação autorizada e readback.',
     parameters: { type: 'object', additionalProperties: false, properties: {
       thread: { type: 'string' }, section: { type: 'string', enum: ['portfolio','demands','threads','sessions','blockers','leases','retries','hitl','ship','master','nextActions'] },
       offset: { type: 'integer', minimum: 0, maximum: 100000 },
@@ -408,16 +431,25 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_board',
     description:
-      'As threads DESTE projeto nesta maquina e o escalonador dizendo quem avanca agora e quem espera. NAO le o roadmap: nunca conclua sobre o roadmap a partir do board (zero threads nao e roadmap vazio); para o roadmap use ork_roadmap_status. O cabecalho diz o projeto consultado e o que nao foi lido.',
+      'As threads DESTE projeto nesta maquina e o escalonador dizendo quem avanca agora e quem espera. NAO le o roadmap: nunca conclua sobre o roadmap a partir do board (zero threads nao e roadmap vazio); para o roadmap use ork_network_roadmap. O cabecalho diz o projeto consultado e o que nao foi lido.',
     parameters: schema({}),
     argv: () => ['board', 'plan'],
   },
   {
     name: 'ork_roadmap_status',
     description:
-      'Status report unico do roadmap no formato aprovado pelo dono (grupos com icones, #HITL e o fecho). Somente leitura: transporte o texto como vem, sem reescrever. Passe projeto com o nome que o dono pediu (ex.: orkastery); sem ele e com mais de um projeto na maquina, a resposta e a escolha. E a unica fonte do roadmap: nunca o deduza de ork_board ou ork_maestro.',
+      'Status report do roadmap SO desta maquina (o checkout local), no formato aprovado pelo dono (grupos com icones, #HITL e o fecho): nao le as reservas nem as outras maquinas, e o cabecalho diz isso. Para o status do roadmap com as threads de todas as maquinas, as reservas, as fontes e as lacunas, use ork_network_roadmap. Somente leitura: transporte o texto como vem, sem reescrever. Passe projeto com o nome que o dono pediu (ex.: orkastery); sem ele e com mais de um projeto na maquina, a resposta e a escolha. Nunca deduza o roadmap de ork_board ou ork_maestro.',
     parameters: schema({}),
     argv: () => ['roadmap', 'status'],
+  },
+  {
+    name: 'ork_network_roadmap',
+    description:
+      'Roadmap da rede, somente leitura: para cada projeto, o status report do roadmap (RM-048) com as threads de TODAS as máquinas, as reservas, as threads por máquina com a idade da batida, a fonte e a hora de cada parte e as lacunas. É a fonte para qualquer pergunta sobre o roadmap ou o status report: transporte o texto como vem, sem reescrever nem resumir. Passe projeto com o nome que o dono pediu (ex.: orkastery) ou github:dono/repo; sem projeto, vêm todos os projetos conhecidos, e esse é o panorama da frase orkastery maestro sem projeto. Lacuna, "não lido" e "Não consultado" são fontes que ficaram sem leitura: nunca conclua "roadmap vazio" nem "nenhuma máquina publicou" a partir delas.',
+    parameters: schema({}),
+    projeto: PROJETO_DA_REDE,
+    // RM-054 (fatia 2): uma chamada de CLI; o `--projeto` vai no inicio e o nucleo o devolve ao `network`.
+    argv: () => ['network', 'roadmap'],
   },
   {
     name: 'ork_master_batch',
@@ -429,15 +461,17 @@ const FERRAMENTAS: FerramentaOrk[] = [
 ];
 
 /** RM-052: toda tool aceita `projeto` opcional, sem mudar o que ela ja exigia. */
-function comProjeto(parametros: Record<string, unknown>): Record<string, unknown> {
-  const propriedades = (parametros.properties ?? {}) as Record<string, unknown>;
-  return { ...parametros, properties: { ...propriedades, projeto: PARAMETRO_PROJETO } };
+function comProjeto(f: FerramentaOrk): Record<string, unknown> {
+  const propriedades = (f.parameters.properties ?? {}) as Record<string, unknown>;
+  const p = f.projeto;
+  const projeto = p ? { type: 'string', pattern: p.padrao.source, description: p.descricao } : PARAMETRO_PROJETO;
+  return { ...f.parameters, properties: { ...propriedades, projeto } };
 }
 
 /** `--projeto <nome>` vai no inicio do argv; o resto dos parametros segue para a tool como antes. */
 function argvComProjeto(f: FerramentaOrk, params: Record<string, unknown>): { argv: string[]; resto: Record<string, unknown> } {
   const { projeto, ...resto } = params;
-  if (projeto !== undefined && (typeof projeto !== 'string' || !PADRAO_DO_PROJETO.test(projeto))) {
+  if (projeto !== undefined && (typeof projeto !== 'string' || !(f.projeto ?? PROJETO_DA_RM052).padrao.test(projeto))) {
     throw new Error('projeto.invalido');
   }
   return { argv: [...(projeto === undefined ? [] : ['--projeto', projeto]), ...f.argv(resto)], resto };
@@ -447,19 +481,19 @@ const plugin = defineToolPlugin({
   id: 'orkastery',
   name: 'Orkastery',
   description:
-    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto.',
+    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap.',
   tools: (tool) =>
     FERRAMENTAS.map((f) =>
       tool({
         name: f.name,
         description: f.description,
-        parameters: comProjeto(f.parameters),
+        parameters: comProjeto(f),
         execute: (params, _config, contexto) => {
           let chamada: ReturnType<typeof argvComProjeto>;
           try { chamada = argvComProjeto(f, params); }
           catch (e) {
             if ((e as Error).message === 'projeto.invalido') {
-              return '[ork recusou] projeto.invalido: informe o NOME de um projeto de `ork projetos` (ex.: orkastery), nunca um caminho';
+              return `[ork recusou] projeto.invalido: ${(f.projeto ?? PROJETO_DA_RM052).recusa}`;
             }
             return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido';
           }
