@@ -127,7 +127,7 @@ gravado, para quando ela voltar.
 | A thread entregue ainda aparece ativa | o merge não tem o assunto `ship(<thread>): ...` |
 | `ork network status` mostra `rede.sem-repositorio` | ninguém rodou `ork network entrar` ainda: a primeira máquina cria a casa |
 | A rede não publica em segundo plano | `~/.orkastery/rede/rede.log`: cada tentativa deixa uma linha, inclusive a que falhou |
-| `ork network entrar` recusa com `rede.nome-em-uso` | outra instalação já usa esse nome: escolha outro com `--maquina`, ou tome-o com `--forcar` (fica no commit). Se a mensagem diz que o retrato tem o hostname desta máquina, é ela mesma com um `~/.orkastery/maquina-id` novo: retome com `--forcar` |
+| `ork network entrar` recusa com `rede.nome-em-uso` | outra instalação já usa esse nome: escolha outro com `--maquina`, ou tome-o com `--forcar` (fica no commit). Se a mensagem diz que o retrato tem o hostname desta máquina, pode ser ela mesma com um `~/.orkastery/maquina-id` novo (retome com `--forcar`) ou outra com o mesmo hostname (escolha outro nome) |
 | `ork network status` mostra `maquina.nome-em-uso` | outra instalação tomou o nome desta: troque de nome com `ork network entrar --maquina NOME` ou retome-o com `--forcar` |
 | Um projeto sumiu do retrato, com um aviso | um valor dele tem cara de segredo (token no nome, e-mail no caminho): o aviso diz o campo e o padrão |
 

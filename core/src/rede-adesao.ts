@@ -129,9 +129,15 @@ export function idDaMaquina(): string {
   const temporario = path.join(pastaDoUsuario(), `.maquina-id.${process.pid}.${randomUUID()}.tmp`);
   fs.writeFileSync(temporario, randomUUID(), { mode: 0o600 });
   try {
-    if (fs.existsSync(arquivo)) fs.renameSync(temporario, arquivo);
-    else {
-      try { fs.linkSync(temporario, arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+    // U6 da revisao 3: `link` primeiro (cria so se nao existe); se ja existe, relê e so troca o invalido.
+    try { fs.linkSync(temporario, arquivo); }
+    catch (e) {
+      const codigo = (e as NodeJS.ErrnoException).code;
+      if (codigo === 'EEXIST') { if (!lerId(arquivo)) fs.renameSync(temporario, arquivo); }
+      else if (codigo === 'EPERM' || codigo === 'ENOTSUP' || codigo === 'EOPNOTSUPP' || codigo === 'ENOSYS') {
+        // Sistema de arquivos sem hard link (vboxsf, alguns FUSE e SMB): troca direta.
+        if (!lerId(arquivo)) fs.renameSync(temporario, arquivo);
+      } else throw e;
     }
   } finally { fs.rmSync(temporario, { force: true }); }
   const persistido = lerId(arquivo);

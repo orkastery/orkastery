@@ -88,8 +88,9 @@ export const refDaCasa = (c: Pick<CasaDaRede, 'host' | 'dono' | 'repositorio'>):
  */
 export function nomeSeguro(maquina: string): string {
   const nome = maquina.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '').slice(0, 64);
-  if (!nome) throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME`);
-  return nome;
+  // U3 da revisao 3: nome so com caracteres fora do ASCII (`日本`) ou so com pontos nao lanca mais; vira
+  // um nome estavel derivado dele, para o status e o sair continuarem funcionando.
+  return nome || `maquina-${createHash('sha256').update(maquina.trim()).digest('hex').slice(0, 8)}`;
 }
 
 /** O arquivo do retrato da maquina na casa. */
@@ -273,7 +274,7 @@ const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
   { nome: 'token do GitLab', regex: /\bgl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{16,}/ },
   { nome: 'token do Slack', regex: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },
-  { nome: 'credencial em URL', regex: /[a-z][a-z0-9+.-]*:\/\/[^/\s:@"]+:[^/\s@"]+@/i },
+  { nome: 'credencial em URL', regex: /[a-z][a-z0-9+.-]*:\/\/[^\s"]*?[^/\s:@"\\]+:[^/\s@"]*@/i },
   { nome: 'arquivo de credencial', regex: /(?:\.credentials\.json|auth\.json|hosts\.ya?ml|\.git-credentials|\.netrc|\.npmrc|\.pypirc|id_(?:rsa|ed25519|ecdsa)\b|[/\\]\.ssh[/\\]|\.config[/\\](?:gh|glab-cli)\b)/i },
   { nome: 'e-mail de conta', regex: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\b(?!:)/ },
 ];
@@ -560,8 +561,17 @@ function identidadesComACasa(identidades: IdentidadeNaForja[], forja: Forja): Id
 
 const TRAVA = () => path.join(pastaDaRede(), 'publicar.lock');
 
-/** Uma trava sem `pid` ha mais que isto e orfa: quem a criou caiu entre o `mkdir` e a gravacao do pid. */
+/** Uma trava sem `pid` valido ha mais que isto e orfa: quem a criou caiu entre o `mkdir` e a gravacao do pid. */
 const TRAVA_ORFA_MS = 5 * 60 * 1000;
+
+/** U5 da revisao 3: sem `pid`, com `pid` vazio ou com lixo, e velha. A de `pid` valido fica com o monitor-lock (vivo ou morto). */
+function travaOrfa(): boolean {
+  try {
+    if (Date.now() - fs.statSync(TRAVA()).mtimeMs <= TRAVA_ORFA_MS) return false;
+    const pid = fs.existsSync(path.join(TRAVA(), 'pid')) ? Number(fs.readFileSync(path.join(TRAVA(), 'pid'), 'utf8')) : NaN;
+    return !(Number.isInteger(pid) && pid > 0);
+  } catch { return false; }
+}
 
 /**
  * A trava de escrita na casa desta maquina, esperando ate `esperaMs` quando outra escrita esta em
@@ -575,14 +585,28 @@ function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok:
   for (;;) {
     const trava = adquirirLockMonitor(TRAVA());
     if (trava.ok) return trava;
-    if (!trava.ativo && !tirouOrfa) {
-      let orfa = false;
-      try { orfa = !fs.existsSync(path.join(TRAVA(), 'pid')) && Date.now() - fs.statSync(TRAVA()).mtimeMs > TRAVA_ORFA_MS; } catch { /* sumiu */ }
-      if (orfa) { tirouOrfa = true; fs.rmSync(TRAVA(), { recursive: true, force: true }); continue; }
+    if (!trava.ativo && !tirouOrfa && travaOrfa()) {
+      tirouOrfa = true;
+      // Renomeia antes de apagar: so um processo consegue mover a mesma orfa, e o que perdeu a corrida
+      // nao apaga a trava que o outro acabou de tomar.
+      const lixo = `${TRAVA()}.orfa-${process.pid}-${Date.now()}`;
+      try { fs.renameSync(TRAVA(), lixo); fs.rmSync(lixo, { recursive: true, force: true }); } catch { /* outro processo levou */ }
+      continue;
     }
     if (Date.now() >= limite) return { ok: false };
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
   }
+}
+
+/**
+ * U2 da revisao 3: o `id` gravado no arquivo com o nome desta maquina, mesmo quando esta versao nao le
+ * o retrato (contrato mais novo, campo que ela nao conhece). `null` quando nao ha arquivo ou `id`.
+ */
+function idNoArquivo(cache: string, ponta: string | null, arquivo: string): string | null {
+  if (!ponta) return null;
+  const r = comGitIsolado(() => git(cache, ['show', `${ponta}:${arquivo}`]));
+  if (!r.ok) return null;
+  try { const id = (JSON.parse(r.stdout) as { id?: unknown }).id; return ehIdDeMaquina(id) ? id : null; } catch { return null; }
 }
 
 /**
@@ -605,15 +629,17 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       if (!atualizado) throw new Error(`rede.sem-leitura: nao consegui ler ${refDaCasa(casa)}; publicar exige rede`);
       const { retratos } = retratosDaPonta(cache, ponta);
       const atual = retratos.find((r) => r.maquina === maquina);
-      const alheio = !!atual?.id && atual.id !== retrato.id;
+      // U2: o arquivo que esta versao nao le ainda pode ser de outra instalacao (contrato mais novo).
+      const idDoOutro = atual ? atual.id ?? null : idNoArquivo(cache, ponta, arquivoDoRetrato(maquina));
+      const alheio = !!idDoOutro && idDoOutro !== retrato.id;
       if (alheio && !opcoes.tomarNome) {
-        // S3 da revisao 2: com o hostname desta maquina, o mais provavel e ela mesma com um id novo.
-        const dica = atual!.hostname === hostnameSeguro()
-          ? '; o retrato tem o hostname desta maquina: se ~/.orkastery foi apagada ou copiada, retome o nome com ork network entrar --forcar; ' +
-            'se e outra instalacao neste computador, escolha outro nome com ork network entrar --maquina NOME'
+        // U7 da revisao 3: o hostname igual sugere a propria maquina, mas duas VMs podem se chamar `ubuntu`.
+        const dica = atual?.hostname === hostnameSeguro()
+          ? '; o retrato tem o hostname desta maquina: se for ela mesma, com ~/.orkastery apagada ou copiada, retome o nome com ' +
+            'ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome com --maquina NOME'
           : '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar';
-        throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}" (hostname ${atual!.hostname}, batida ` +
-          `${formatarDataHora(atual!.publicadoEm)})${dica}`);
+        const quem = atual ? ` (hostname ${atual.hostname}, batida ${formatarDataHora(atual.publicadoEm)})` : ' (num contrato que esta versao nao le)';
+        throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}"${quem}${dica}`);
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
@@ -735,9 +761,11 @@ export interface ResultadoDaSaida {
  * trava desta maquina (espera a publicacao em curso). B7: nunca remove o retrato de outra instalacao.
  */
 export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
+  // U3 da revisao 3: a saida local vem primeiro; nada depois dela pode deixar a maquina membro.
+  gravarConfigDaRede({ membro: false });
   const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
   const r = resolverCasa(opcoes);
-  gravarConfigDaRede({ membro: false, ...(r.casa ? { forja: r.casa.forja, host: r.casa.host, dono: r.casa.dono, repositorio: r.casa.repositorio } : {}) });
+  if (r.casa) gravarConfigDaRede({ forja: r.casa.forja, host: r.casa.host, dono: r.casa.dono, repositorio: r.casa.repositorio });
   try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
   if (!r.casa || !r.forja) return { maquina, casa: null, commit: null, alheio: false };
   const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
@@ -757,6 +785,9 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
       // outra instalacao (retrato valido com outro `id`) fica.
       const invalido = invalidos.some((x) => x.arquivo === proprio);
       if (!atual && !invalido) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
+      // U2: invalido para esta versao, mas com o `id` de outra instalacao (contrato mais novo): nao e nosso.
+      const idDoOutro = atual ? atual.id ?? null : idNoArquivo(cache, ponta, proprio);
+      if (!atual && idDoOutro && idDoOutro !== id) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true };
       if (atual?.id && atual.id !== id) {
         return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true, ...(atual.hostname === hostnameSeguro() ? { mesmoHostname: true as const } : {}) };
       }

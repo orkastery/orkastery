@@ -183,7 +183,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
       if (!painel.atualizado && !o.semRemoto) {
         lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: ${BRANCH_DA_FABRICA} sem leitura nova; usei a ultima copia local` });
       }
-      for (const m of painel.maquinas) {
+      for (const bruto of painel.maquinas) {
+        // U4 da revisao 3: a fabrica guarda o nome cru, a rede o saneado; casam pelo saneado.
+        const m = { ...bruto, maquina: nomeSeguro(bruto.maquina) };
         const atual = membros.get(m.maquina);
         if (atual?.origem === 'rede') continue;
         const idadeMs = Math.max(0, agoraMs - Date.parse(m.publicadoEm));

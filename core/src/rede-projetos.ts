@@ -43,39 +43,41 @@ export interface LeituraDoRegistro {
   projetos: ProjetoConhecido[];
 }
 
+/** Esquemas de remoto que o retrato mostra; outro esquema vira `null`. */
+const ESQUEMAS = new Set(['https', 'http', 'ssh', 'git', 'git+ssh', 'ssh+git']);
+/** Host: nome DNS ou IPv4 em conjunto fechado, ou IPv6 entre colchetes. */
+const HOST_DO_REMOTO = /^(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|\[[0-9A-Fa-f:.]{2,45}\])$/;
+/** Caminho: sem `@`, `:`, `\`, `?` ou `#`; `%` so fora de `%40` (@) e `%3A` (:). */
+const CAMINHO_DO_REMOTO = /^\/(?:[A-Za-z0-9._~/+-]|%(?!40|3[Aa])[0-9A-Fa-f]{2})*$/;
+
 /**
- * O remoto como pode ir ao retrato: sem usuario, senha, query nem fragmento; texto que nao e remoto
- * que se reconheca vira `null` (o projeto continua, sem remoto). Na duvida, `null`: remoto e so
- * informativo, e credencial nao pode passar (S1 da revisao 2).
+ * O remoto como pode ir ao retrato, MONTADO a partir de partes validadas (GO-FIX 3, U1 da revisao 3).
+ *
+ * Tres rodadas de revisao acharam variantes de senha passando pela limpeza do texto de entrada
+ * (usuario:senha na forma scp; `\` num usuario de dominio, que o `URL` do WHATWG le como `/` e o
+ * git nao; a propria saida vazada de uma versao anterior). Aqui a saida so tem esquema conhecido,
+ * host em conjunto fechado, porta numerica e caminho sem `@`, `:` nem `\`: usuario, senha, query e
+ * fragmento nunca sao copiados. Na duvida, `null` (o projeto continua, sem remoto).
  */
 export function limparRemoto(bruto: unknown): string | null {
   if (typeof bruto !== 'string') return null;
-  const url = bruto.trim();
-  if (!url || url.length > 500 || /[\s\x00-\x1f\x7f]/.test(url)) return null;
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
-    try {
-      const u = new URL(url);
-      u.username = '';
-      u.password = '';
-      // `?access_token=...` e `#...` tambem carregam segredo: saem inteiros.
-      u.search = '';
-      u.hash = '';
-      return u.toString();
-    } catch { return null; }
+  const texto = bruto.trim();
+  // `\`: o WHATWG e o git discordam sobre onde ela termina o usuario; nao ha remoto legitimo com ela.
+  if (!texto || texto.length > 500 || /[\s\x00-\x1f\x7f\\]/.test(texto)) return null;
+  let esquema: string, host: string, porta = '', caminho: string;
+  const url = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(?:[^/?#]*@)?([^/?#:@[\]]+|\[[^\]/?#@]*\])(?::(\d{1,5}))?(\/[^?#]*)?(?:[?#].*)?$/.exec(texto);
+  if (url) {
+    [esquema, host, porta, caminho] = [url[1].toLowerCase(), url[2], url[3] ?? '', url[4] ?? '/'];
+  } else {
+    if (/^[A-Za-z]:[/]/.test(texto)) return null;
+    // Forma scp (`git@host:dono/repo.git`): vira `ssh://host/dono/repo.git`, a forma usual das forjas.
+    const scp = /^(?:[^@\s:/]+@)?([A-Za-z0-9.-]{2,}):(?!\/\/)([^\s@]+)$/.exec(texto);
+    if (!scp) return path.isAbsolute(texto) && CAMINHO_DO_REMOTO.test(texto) ? texto : null;
+    [esquema, host, caminho] = ['ssh', scp[1], `/${scp[2].replace(/^\/+/, '')}`];
   }
-  // Letra de unidade do Windows (`C:\...`, `C:/...`) nao e host de scp.
-  if (/^[A-Za-z]:[\\/]/.test(url)) return null;
-  // Forma scp do git (`git@host:dono/repo.git`): vira `ssh://host/...`, sem o usuario de transporte.
-  // Usuario com `:` e senha; `@` depois do host e ambiguo: os dois viram `null`, nunca texto cru.
-  const scp = /^(?:([^@\s:/]+)@)?([A-Za-z0-9.-]{2,}):(?!\/\/)([^\s@]+)$/.exec(url);
-  if (scp) {
-    // Forma usual das forjas (`ssh://github.com/dono/repo.git`): o remoto e so informativo, e o `~/` do
-    // caminho relativo do scp deixaria o repositorio irreconhecivel para quem le.
-    return `ssh://${scp[2]}/${scp[3].replace(/^\/+/, '')}`;
-  }
-  if (url.includes('@')) return null;
-  if (path.isAbsolute(url)) return url;
-  return null;
+  if (!ESQUEMAS.has(esquema) || !HOST_DO_REMOTO.test(host) || !CAMINHO_DO_REMOTO.test(caminho)) return null;
+  if (porta && (Number(porta) < 1 || Number(porta) > 65535)) return null;
+  return `${esquema}://${host.toLowerCase()}${porta ? `:${porta}` : ''}${caminho}`;
 }
 
 function temManifesto(dir: string): boolean {

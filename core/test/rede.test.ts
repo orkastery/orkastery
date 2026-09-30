@@ -21,6 +21,7 @@ import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato,
   publicarRedeNaBatida, retratoDaMaquina, sairDaRede } from '../src/rede';
 import { adesaoDaRede, idDaMaquina, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
 import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
+import { nomeSeguro } from '../src/rede';
 import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { exec } from '../src/util';
@@ -937,7 +938,7 @@ test('RM-053 autoria: duas instalacoes com o mesmo nome nao regravam o retrato u
     const deA = exec('git', ['show', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout;
     naMaquina(ub, () => {
       assert.throws(() => entrarNaRede({ amb, maquina: 'ubuntu' }),
-        /^Error: rede\.nome-em-uso: outra instalacao ja publica como "ubuntu" \(hostname .+, batida .+\);.* escolha outro nome com ork network entrar --maquina NOME/);
+        /^Error: rede\.nome-em-uso: outra instalacao ja publica como "ubuntu" \(hostname .+, batida .+\);.* escolha outro nome com (ork network entrar )?--maquina NOME/);
       // M2: a entrada que falhou nao deixou adesao nem nome gravados aqui.
       assert.deepEqual([lerConfigDaRede(), fs.existsSync(path.join(ub, 'maquina.json'))], [null, false]);
       assert.equal(exec('git', ['show', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout, deA, 'o retrato de A continua o de A');
@@ -1114,8 +1115,13 @@ test('RM-053 autoria: todo retrato publicado passa no leitor, mesmo com nome de 
       .replace(/name: .*/, `name: ${'n'.repeat(90)}`));
     const longo = comManifesto(path.join(ub, 'longo'));
     const registro = path.join(ub, 'projetos.json');
+    // U8 da revisao 3: 500 caracteres na entrada (passa no teto do limparRemoto) viram 502 no ssh://;
+    // e o teto do ESCRITOR que o tira.
+    const quinhentos = `git@github.com:${'r'.repeat(481)}.git`;
+    assert.equal(quinhentos.length, 500);
+    assert.equal(limparRemoto(quinhentos)?.length, 502);
     fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
-      { nome: 'remoto-longo', raiz: longo, remoto: `git@github.com:${'r'.repeat(490)}.git` },
+      { nome: 'remoto-longo', raiz: longo, remoto: quinhentos },
     ] }));
     naMaquina(ub, () => {
       // Membro herdado da fabrica, com o nome vindo de ORK_MAQUINA (espaco e acento, sem validar).
@@ -1182,7 +1188,7 @@ test('RM-053 autoria: o id da instalacao mora fora do cache; apagar o cache nao 
       // Sem o id (a pasta do usuario apagada), a mensagem aponta a propria maquina e o caminho de volta.
       fs.rmSync(path.join(u, 'maquina-id'));
       assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }),
-        /^Error: rede\.nome-em-uso: .*; o retrato tem o hostname desta maquina: se ~\/\.orkastery foi apagada ou copiada, retome o nome com ork network entrar --forcar; se e outra instalacao neste computador, escolha outro nome/);
+        /^Error: rede\.nome-em-uso: .*; o retrato tem o hostname desta maquina: se for ela mesma, com ~\/\.orkastery apagada ou copiada, retome o nome com ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome/);
       assert.equal(entrarNaRede({ amb, maquina: 'pc-a', tomarNome: true }).publicacao.tomouNome, true);
       // S10: arquivo vazio (queda no meio da gravacao) e trocado por um id valido, sem travar.
       fs.writeFileSync(path.join(u, 'maquina-id'), '');
@@ -1309,4 +1315,158 @@ test('RM-053 migracao: um sair no meio da publicacao vence; a adesao e reconferi
       assert.equal(exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout, antes, 'nenhum commit depois do sair');
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 3 (revisao 3): a fronteira de credencial por construcao, e o resto.
+// ---------------------------------------------------------------------------
+
+test('RM-053 projetos: o remoto e montado de partes validadas; nenhuma variante de senha passa (U1)', () => {
+  const casos: Array<[string, string | null]> = [
+    ['https://CORP\\jsmith:Hunter2!@tfs.corp.com/tfs/DefaultCollection/_git/repo', null],
+    ['https://CORP\\jsmith:S3cretPw@10.1.2.3/x', null],
+    ['ssh://julio/MinhaSenha123@github.com:julio/repo.git', null],
+    ['julio:MinhaSenha123@github.com:julio/repo.git', null],
+    ['HTTPS://User:Pw@GitHub.com/Dono/Repo.git', 'https://github.com/Dono/Repo.git'],
+    ['git+ssh://u:p@host.com:2222/x.git', 'git+ssh://host.com:2222/x.git'],
+    ['ssh://git@[::1]:22/x.git', 'ssh://[::1]:22/x.git'],
+    ['https://user%3Apass@host/x', 'https://host/x'],
+    ['https://user:pa@ss@host/x', 'https://host/x'],
+    ['https://h/a%40b', null],
+    ['https://host/r.git?access_token=abcdef0123456789abcdef#frag', 'https://host/r.git'],
+    ['https://dev.azure.com/org/My%20Project/_git/repo', 'https://dev.azure.com/org/My%20Project/_git/repo'],
+    ['file:///srv/git/r.git', null],
+    ['https://host:99999/x', null],
+    ['/home/u/a@b', null],
+  ];
+  for (const [entrada, saida] of casos) assert.equal(limparRemoto(entrada), saida, entrada);
+  for (const [entrada] of casos) {
+    const r = limparRemoto(entrada);
+    for (const segredo of ['Hunter2', 'S3cretPw', 'MinhaSenha123', 'Pw@', 'pass', 'abcdef0123456789']) assert.ok(!r?.includes(segredo), `${segredo} em ${r}`);
+  }
+  // A saida vazada de uma versao anterior, guardada na reserva D7, nao volta mais.
+  const d = dirTemporario('rede-reserva-vazada');
+  try {
+    const proj = comManifesto(path.join(d, 'proj'));
+    const r = projetosConhecidos({ arquivo: path.join(d, 'nada.json'),
+      anteriores: [{ nome: 'proj', remoto: 'ssh://julio/MinhaSenha123@github.com:julio/repo.git', caminho: proj }] });
+    assert.deepEqual(r.projetos.map((p) => [p.nome, p.remoto]), [['proj', null]]);
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: arquivo com o nome desta maquina num contrato mais novo e de outra instalacao nao e regravado nem removido (U2)', () => {
+  const f = forjaFalsa('autoria-contrato-novo');
+  const [ua, ub] = [dirTemporario('rede-contrato-novo-a'), dirTemporario('rede-contrato-novo-b')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'ubuntu' }));
+    // B atualiza o ork e passa a publicar num contrato que A ainda nao le.
+    naMaquina(ub, () => {
+      const cache = dirDoCache({ forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network' });
+      const { ponta } = buscarBranch(cache, 'origin', 'main', 'teste');
+      const deB = JSON.parse(exec('git', ['show', `${ponta}:maquinas/ubuntu.json`], cache).stdout);
+      assert.ok(gravarNaBranch(cache, 'origin', 'main', ponta, [{ caminho: 'maquinas/ubuntu.json',
+        conteudo: JSON.stringify({ ...deB, contrato: 'ork.rede-maquina/v2' }) }], 'teste: contrato novo', 'teste'));
+    });
+    const antes = exec('git', ['rev-parse', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout;
+    naMaquina(ua, () => {
+      assert.throws(() => entrarNaRede({ amb, maquina: 'ubuntu' }), /^Error: rede\.nome-em-uso: outra instalacao ja publica como "ubuntu" \(num contrato que esta versao nao le\)/);
+      gravarConfigDaMaquina({ nome: 'ubuntu', fabricaCompartilhada: true });
+      const saida = sairDaRede({ amb, maquina: 'ubuntu' });
+      assert.deepEqual([saida.commit, saida.alheio], [null, true]);
+    });
+    assert.equal(exec('git', ['rev-parse', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout, antes, 'o arquivo de B ficou como B gravou');
+    // O proprio arquivo num contrato que esta versao nao le, com o PROPRIO id, sai com o sair.
+    const saidaDeB = naMaquina(ub, () => sairDaRede({ amb, maquina: 'ubuntu' }));
+    assert.match(String(saidaDeB.commit), /^[a-f0-9]{40}$/);
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: nome so com caracteres fora do ASCII nao quebra status nem sair, e a fabrica casa pelo nome saneado (U3, U4)', () => {
+  const f = forjaFalsa('migracao-nome-estranho');
+  const u = dirTemporario('rede-nome-estranho');
+  const p = projetoTemporario('rede-nome-estranho', true);
+  try {
+    assert.match(nomeSeguro('日本'), /^maquina-[0-9a-f]{8}$/);
+    assert.equal(nomeSeguro('日本'), nomeSeguro('日本'), 'estavel');
+    assert.equal(nomeSeguro('notebook-joão'), 'notebook-jo-o');
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      const antes = process.env.ORK_MAQUINA;
+      process.env.ORK_MAQUINA = 'notebook-joão';
+      try {
+        entrarNaRede({ amb, diretorio: p.dir });
+        // A mesma maquina publica a fabrica do projeto com o nome cru.
+        assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'notebook-joão', por: 'Julio' }).acao, 'publicou');
+        const status = lerRede({ amb, diretorio: p.dir });
+        assert.deepEqual(status.membros.map((m) => [m.maquina, m.origem]), [['notebook-jo-o', 'rede']], 'uma maquina, uma entrada');
+        process.env.ORK_MAQUINA = '日本';
+        assert.doesNotThrow(() => lerRede({ amb, diretorio: p.dir }));
+        sairDaRede({ amb });
+        assert.equal(lerConfigDaRede()?.membro, false);
+      } finally { if (antes === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes; }
+    });
+  } finally { f.limpar(); p.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: trava com pid vazio ou lixo e velha tambem e orfa (U5)', () => {
+  const f = forjaFalsa('migracao-trava-pid');
+  const u = dirTemporario('rede-trava-pid');
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const trava = path.join(u, 'rede', 'publicar.lock');
+      const velho = (Date.now() - 10 * 60 * 1000) / 1000;
+      for (const conteudo of ['', 'lixo']) {
+        fs.mkdirSync(trava, { recursive: true });
+        fs.writeFileSync(path.join(trava, 'pid'), conteudo);
+        fs.utimesSync(trava, velho, velho);
+        assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'publicou', JSON.stringify(conteudo));
+      }
+      assert.deepEqual(fs.readdirSync(path.join(u, 'rede')).filter((n) => n.includes('.orfa-')), [], 'a orfa renomeada foi apagada');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: o escritor para em 200 projetos, com aviso (U8)', () => {
+  const f = forjaFalsa('autoria-duzentos');
+  const u = dirTemporario('rede-duzentos');
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      const registro = path.join(u, 'projetos.json');
+      const projetos = Array.from({ length: 201 }, (_, i) => ({ nome: `p${String(i).padStart(3, '0')}`, raiz: comManifesto(path.join(u, 'p', String(i))), remoto: null }));
+      fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos }));
+      const r = entrarNaRede({ amb, maquina: 'pc-a', arquivoDeProjetos: registro });
+      assert.deepEqual(r.publicacao.descartados, [{ campo: 'projetos[200..]', padrao: 'limite de 200 projetos' }]);
+      const publicado = JSON.parse(exec('git', ['show', 'main:maquinas/pc-a.json'], casaFalsa(f)).stdout);
+      assert.equal(publicado.projetos.length, 200);
+      assert.ok(normalizarRetrato(publicado));
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 isolamento: a leitura da fabrica legada respeita o core.sshCommand do projeto (S4 no lerRede, U8)', () => {
+  const f = forjaFalsa('isolamento-ssh-projeto');
+  const u = dirTemporario('rede-ssh-projeto');
+  const p = projetoTemporario('rede-ssh-projeto', true);
+  try {
+    const marca = path.join(u, 'ssh-do-projeto-chamado');
+    const ssh = path.join(u, 'ssh-do-projeto.sh');
+    fs.writeFileSync(ssh, `#!/bin/sh\necho chamado > ${marca}\nexit 1\n`, { mode: 0o755 });
+    exec('git', ['remote', 'set-url', 'origin', 'ssh://git@servidor.invalid/projeto.git'], p.dir);
+    exec('git', ['config', 'core.sshCommand', ssh], p.dir);
+    const salvo = { cmd: process.env.GIT_SSH_COMMAND, ssh: process.env.GIT_SSH };
+    delete process.env.GIT_SSH_COMMAND;
+    delete process.env.GIT_SSH;
+    try {
+      const status = naMaquina(u, () => lerRede({ amb: ligado(f), maquina: 'pc-a', diretorio: p.dir, timeoutMs: 5000 }));
+      assert.ok(status.lacunas.some((l) => l.tipo === 'fabrica.sem-leitura'), 'o ssh falso falha e vira lacuna');
+      assert.equal(fs.existsSync(marca), true, 'o core.sshCommand do projeto foi o ssh usado, nao o lote da rede');
+    } finally {
+      if (salvo.cmd !== undefined) process.env.GIT_SSH_COMMAND = salvo.cmd;
+      if (salvo.ssh !== undefined) process.env.GIT_SSH = salvo.ssh;
+    }
+  } finally { f.limpar(); p.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
