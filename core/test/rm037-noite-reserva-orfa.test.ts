@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { commitar, projetoTemporario } from './apoio';
-import { listarReservas, pegarItem, REDE_DO_FECHAMENTO, reservasOrfas, soltarItem, soltarReservaDaThread, soltarReservasOrfas } from '../src/roadmap-reservas';
+import { listarReservas, pegarItem, PRAZO_DO_FECHAMENTO_MS, redeDoFechamento, reservasOrfas, soltarItem, soltarReservaDaThread, soltarReservasOrfas } from '../src/roadmap-reservas';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { fecharAdministrativamente } from '../src/thread-close';
@@ -127,10 +127,18 @@ test('defeito 3 (A5 do CHECK 1): a soltura compara a thread; reserva que mudou d
 });
 
 test('defeito 3 (A3 do CHECK 1): o fechamento nao fica parado na rede: prazo curto e git sem pergunta', () => {
-  assert.equal(REDE_DO_FECHAMENTO.timeoutMs, 15000);
-  assert.equal(REDE_DO_FECHAMENTO.env?.GIT_TERMINAL_PROMPT, '0');
+  assert.equal(PRAZO_DO_FECHAMENTO_MS, 15000);
   const p = projetoComRoadmap('rm037noite-reserva-rede-lenta');
   try {
+    const rede = redeDoFechamento(p.dir);
+    assert.equal(rede.timeoutMs, 15000);
+    assert.equal(rede.env?.GIT_TERMINAL_PROMPT, '0');
+    if (!process.env.GIT_SSH_COMMAND && !process.env.GIT_SSH) assert.equal(rede.env?.GIT_SSH_COMMAND, 'ssh -o BatchMode=yes');
+    // Aviso N1 do CHECK 2: quem configurou o proprio ssh (varias contas, chave por repositorio) fica com ele.
+    exec('git', ['config', 'core.sshCommand', 'ssh -i ~/.ssh/outra-conta'], p.dir);
+    assert.equal(redeDoFechamento(p.dir).env?.GIT_SSH_COMMAND, undefined);
+    assert.equal(redeDoFechamento(p.dir).env?.GIT_TERMINAL_PROMPT, '0');
+    exec('git', ['config', '--unset', 'core.sshCommand'], p.dir);
     const t = threadNoItem(p, 'rede lenta', 'RM-001');
     const tt = lerThread(p.dir, t.id); tt.status = 'fechada'; gravarThread(p.dir, tt);
     // Um remoto ssh que nunca responde: o transporte e um `sleep` mais longo que o prazo.

@@ -59,7 +59,7 @@ export interface OpcoesDeReserva {
   forcar?: boolean;
   motivo?: string;
   agora?: string;
-  /** Prazo e ambiente do fetch e do push (o fechamento usa `REDE_DO_FECHAMENTO`). */
+  /** Prazo e ambiente do fetch e do push (o fechamento parte de `redeDoFechamento`). */
   rede?: OpcoesDeGit;
   /**
    * RM-037 (achado A5 do CHECK 1): so mexe se a reserva lida agora ainda aponta para esta thread.
@@ -70,12 +70,17 @@ export interface OpcoesDeReserva {
 
 /**
  * O fechamento nao pode ficar parado na rede (achado A3 do CHECK 1): prazo curto por chamada e git
- * sem pergunta no terminal. O `GIT_SSH_COMMAND` de quem ja o definiu vale; senao, ssh em modo lote.
+ * sem pergunta no terminal. O ssh de quem ja o configurou vale (aviso N1 do CHECK 2): com
+ * `GIT_SSH_COMMAND`, `GIT_SSH` ou `core.sshCommand`, nada muda nele e o prazo segura a espera; sem
+ * nenhum, o ssh roda em modo lote, que usa o agente e as chaves mas nunca pergunta a senha.
  */
-export const REDE_DO_FECHAMENTO: OpcoesDeGit = {
-  timeoutMs: 15000,
-  env: { GIT_TERMINAL_PROMPT: '0', ...(process.env.GIT_SSH_COMMAND ? {} : { GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' }) },
-};
+export const PRAZO_DO_FECHAMENTO_MS = 15000;
+export function redeDoFechamento(raiz: string): OpcoesDeGit {
+  const sshProprio = !!process.env.GIT_SSH_COMMAND || !!process.env.GIT_SSH ||
+    git(raiz, ['config', '--get', 'core.sshCommand']).ok;
+  return { timeoutMs: PRAZO_DO_FECHAMENTO_MS,
+    env: { GIT_TERMINAL_PROMPT: '0', ...(sshProprio ? {} : { GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' }) } };
+}
 
 export interface ResultadoDeReserva {
   acao: 'pegou' | 'renovou' | 'tomou' | 'soltou' | 'nada';
@@ -404,8 +409,11 @@ function soltarOrfa(raiz: string, orfa: ReservaOrfa, origem: 'fechamento' | 'orf
   }
   const acao = orfa.sucessora ? 'reapontada' : 'solta';
   const detalhe = orfa.sucessora ? `${item} passou para a thread ${orfa.sucessora}, aberta no mesmo item` : `${item} devolvido`;
-  registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaLiberada,
-    { item, acao, para: orfa.sucessora, commit: r.commit, origem, detalhe });
+  // Sugestao 3 do CHECK 2: a soltura ja foi ao remoto; erro so no registro nao a transforma em pendencia.
+  try {
+    registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaLiberada,
+      { item, acao, para: orfa.sucessora, commit: r.commit, origem, detalhe });
+  } catch { /* a reserva saiu; o resultado diz o que aconteceu */ }
   return { item, thread, acao, para: orfa.sucessora, commit: r.commit, detalhe };
 }
 
@@ -432,7 +440,9 @@ export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: Op
   const remoto = opcoes.remoto ?? REMOTO_PADRAO;
   const naCopia = reservasLocais(raiz, remoto).find((r) => r.thread === threadId);
   if (!item && !naCopia) return [];
-  const rede = { ...REDE_DO_FECHAMENTO, ...opcoes.rede };
+  // Sugestao 1 do CHECK 2: quem passa `rede` troca o que passou, sem perder o resto do fechamento.
+  const base = redeDoFechamento(raiz);
+  const rede: OpcoesDeGit = { timeoutMs: opcoes.rede?.timeoutMs ?? base.timeoutMs, env: { ...base.env, ...opcoes.rede?.env } };
   const comRede = { ...opcoes, rede };
   const oItem = item ?? naCopia?.item ?? null;
   let painel: PainelDeReservas;
@@ -442,7 +452,10 @@ export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: Op
     return [pendenteDaThread(raiz, threadId, oItem, `sem leitura de ${BRANCH_DE_RESERVAS} em ${remoto}; a reserva fica para depois`)];
   }
   const dela = painel.reservas.filter((r) => r.thread === threadId);
-  const orfas = reservasOrfas(raiz, dela, opcoes);
+  let orfas: ReservaOrfa[];
+  // Sugestao 2 do CHECK 2: quem sou eu e as threads locais tambem podem falhar; vira pendencia, nao silencio.
+  try { orfas = reservasOrfas(raiz, dela, opcoes); }
+  catch (e) { return dela.map((r) => pendenteDaThread(raiz, threadId, r.item, primeiraLinha(e))); }
   const saida: ResultadoDaSoltura[] = [];
   // Sugestao 1 do CHECK 1: toda reserva da thread, nao so a primeira; a de outra maquina fica pendente.
   for (const r of dela.filter((x) => !orfas.some((o) => o.reserva.item === x.item))) {
