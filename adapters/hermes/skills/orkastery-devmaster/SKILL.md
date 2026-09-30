@@ -9,6 +9,7 @@ license: MIT
 # Orkastery no Hermes
 
 Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052).
+Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
 Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
 Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
 Em sessão de fase já despachada, siga o bloco recebido sem abrir outra orquestração.
@@ -21,7 +22,7 @@ Sem ingresso no canal escolhido, conserve o pedido pendente e explique o motivo.
 Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
-Status do roadmap: `ork_roadmap_status` (`ork roadmap status --projeto <nome>`), texto como vem; nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio.
+Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`, ou `--projeto github:dono/repo` sem clone), com as threads de todas as máquinas, reservas, fonte e hora de cada parte e lacunas, texto como vem; `ork_roadmap_status` (`ork roadmap status --projeto <nome>`) é só desta máquina. Nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio, e lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou".
 
 ## O que esta skill e
 

@@ -11,11 +11,13 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { publicarMaquina } from '../src/fabrica-estado';
 import { init } from '../src/init';
 import { main } from '../src/index';
+import { instalarAdaptador } from '../src/hosts';
 import { exigirManifesto } from '../src/manifest';
 import { criarServidorMcp } from '../src/mcp-server';
 import { pegarItem } from '../src/roadmap-reservas';
@@ -26,6 +28,8 @@ import { exec } from '../src/util';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 const QUANDO = '2026-09-30T02:40:00.000Z';
+/** O `ork` real, compilado: os hosts de CLI chamam este binario. */
+const ORK = path.resolve(__dirname, '../../dist/index.js');
 
 /** O `workspace` do gateway: um manifesto de outro projeto, com git e sem thread nenhuma. */
 function workspace(nome: string): string {
@@ -301,4 +305,57 @@ test('rede nos hosts: MCP le o projeto servido em todas as maquinas, sem revelar
     for (const [k, v] of Object.entries(antes)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     r.limpar(); fs.rmSync(outro, { recursive: true, force: true }); fs.rmSync(usuario, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// T5: o Hermes.
+// ---------------------------------------------------------------------------
+
+/** Roda um wrapper do Hermes como o gateway roda: `/bin/sh`, no cwd dado, sem projeto herdado. */
+function sh(script: string, args: string[], cwd: string, env: Record<string, string>) {
+  const base = { ...process.env };
+  delete base.ORK_PROJETO; delete base.ORK_PROJETO_EXPLICITO; delete base.ORK_CANAL;
+  return spawnSync('/bin/sh', [script, ...args], { cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ...env } });
+}
+
+test('rede nos hosts: Hermes, ork-network-roadmap.sh declara o host, repassa --projeto como dado e esta no manifesto e na skill', () => {
+  const c = cenaDoHost('rede-hermes');
+  try {
+    const install = instalarAdaptador('hermes', { projeto: c.orkastery.dir });
+    const bin = path.join(install.destino, 'bin', 'ork-network-roadmap.sh');
+    const texto = fs.readFileSync(bin, 'utf8');
+    assert.match(texto, /export ORK_PROJETO_EXPLICITO="\$\{ORK_PROJETO_EXPLICITO:-1\}"/);
+    assert.match(texto, /export ORK_CANAL="\$\{ORK_CANAL:-hermes\}"/);
+    assert.match(texto, / network roadmap "\$@"$/m);
+    assert.ok(!texto.includes('{{'), 'o placeholder foi renderizado');
+    const manifesto = JSON.parse(fs.readFileSync(path.join(install.destino, 'hermes.plugin.json'), 'utf8'));
+    assert.equal(manifesto.bin.ork_network_roadmap, './bin/ork-network-roadmap.sh');
+
+    // Com um ork falso: argv e ambiente exatos, e metacaracteres continuam dados.
+    const chamadas = path.join(c.usuario, 'chamadas'), falso = path.join(c.usuario, 'ork falso');
+    fs.writeFileSync(falso, `#!/bin/sh\nprintf "%s|" "$ORK_PROJETO_EXPLICITO" "$ORK_CANAL" "$@" >> "${chamadas}"; printf "\\n" >> "${chamadas}"\n`, { mode: 0o755 });
+    assert.equal(sh(bin, ['--projeto', 'orkastery'], c.gateway, { ORK_BIN: falso }).status, 0);
+    assert.equal(sh(bin, ['--projeto', 'a b; $(id)'], c.gateway, { ORK_BIN: falso }).status, 0);
+    assert.equal(sh(bin, [], c.gateway, { ORK_BIN: falso, ORK_PROJETO_EXPLICITO: '0' }).status, 0);
+    assert.deepEqual(fs.readFileSync(chamadas, 'utf8').trim().split('\n'), [
+      '1|hermes|network|roadmap|--projeto|orkastery|',
+      '1|hermes|network|roadmap|--projeto|a b; $(id)|',
+      '0|hermes|network|roadmap|',
+    ]);
+
+    // Com o ork real, do cwd do gateway: o nome responde; o caminho recusa com a saida 4.
+    const real = { ORK_BIN: ORK, ORK_USUARIO_DIR: c.usuario, ORK_MAQUINA: 'pc-a' };
+    const nome = sh(bin, ['--projeto', 'orkastery', '--sem-remoto'], c.gateway, real);
+    assert.equal(nome.status, 0, nome.stdout + nome.stderr);
+    assert.match(nome.stdout, /^Consultado: orkastery \(clone em /m);
+    assert.doesNotMatch(nome.stdout, /Roadmap do Workspace/);
+    const caminho = sh(bin, ['--projeto', c.orkastery.dir], c.gateway, real);
+    assert.equal(caminho.status, 4, caminho.stdout + caminho.stderr);
+    assert.match(caminho.stdout, /^projeto\.desconhecido: no host, --projeto é o nome de um projeto registrado ou a forja/);
+
+    const skill = fs.readFileSync(path.join(install.destino, 'skills/orkastery-devmaster/SKILL.md'), 'utf8');
+    for (const trecho of ['Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`)',
+      'Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`', 'é só desta máquina',
+      'lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou"']) assert.ok(skill.includes(trecho), trecho);
+  } finally { c.limpar(); }
 });
