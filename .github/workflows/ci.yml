@@ -47,6 +47,9 @@ jobs:
         run: node core/dist/index.js docs verificar
       - name: links relativos
         run: node core/scripts/checar-links.cjs
+      # RM-049: o plugin dos marketplaces e copia gerada do catalogo; copia divergente reprova.
+      - name: plugin dos marketplaces igual ao catalogo
+        run: node core/scripts/gerar-marketplaces.cjs --verificar
 
   nucleo:
     name: nucleo ork (build, testes, canarios)

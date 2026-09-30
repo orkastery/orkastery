@@ -18,7 +18,9 @@
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
     "ATTRIBUTION.md",
-    "adapters/README.md"
+    "adapters/README.md",
+    "marketplaces/*.md",
+    "marketplaces/fontes/**/*.md"
   ],
   "config": {
     "default": true,

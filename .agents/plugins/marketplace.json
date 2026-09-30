@@ -1,0 +1,20 @@
+{
+  "name": "orkastery",
+  "interface": {
+    "displayName": "Orkastery"
+  },
+  "plugins": [
+    {
+      "name": "orkastery",
+      "source": {
+        "source": "local",
+        "path": "./marketplaces/codex/orkastery"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
