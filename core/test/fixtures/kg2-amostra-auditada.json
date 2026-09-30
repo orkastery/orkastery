@@ -5,7 +5,7 @@
     "em": "2026-09-29T11:40:00-03:00",
     "metodo": "leitura do trecho e das linhas em volta no codigo; declaracao do alvo, import e secao conferidos por grep na revisao auditada",
     "limite": "amostra por estrato, nao o universo: nao prova zero aresta falsa; a auditoria integral e do benchmark",
-    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 a aresta de BRAIN_READ foi reauditada depois do sync com a main baf065e, que mudou o trecho dela"
+    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas"
   },
   "graph_schema": "ork.code-artifact-graph/v1",
   "repository_id": "orkastery",
@@ -218,13 +218,13 @@
         "path": "core/src/orkmind.ts",
         "extractor_id": "ork.ts-ast",
         "extraction_method": "ast",
-        "line_start": 320,
-        "line_end": 350,
-        "trecho_sha256": "59d200651519bcdb407e1c4aed65b0310950126feba8a1294e24f24d6cd629e7",
-        "trecho_inicio": "private rodar(pedido: Record<string, unknown>): unknown {"
+        "line_start": 424,
+        "line_end": 459,
+        "trecho_sha256": "a2b18e99236f892714612f888413647d441697c465441df892ee3cda7d89e45e",
+        "trecho_inicio": "private rodar(pedido: Record<string, unknown>, timeoutMs: number = this.config.timeoutMs): unknown {"
       },
       "veredito": "supported",
-      "nota": "metodo privado rodar na l. 320, dentro da classe de topo DriverCliOrkMind (l. 286)"
+      "nota": "metodo privado rodar na l. 424, dentro da classe de topo DriverCliOrkMind (l. 380); reauditada em 30/09 depois do sync com a main 1041f1b, que acrescentou o parametro timeoutMs"
     },
     {
       "estrato": "contains/ast",
