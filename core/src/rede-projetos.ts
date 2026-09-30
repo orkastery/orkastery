@@ -23,24 +23,31 @@ import { comGitIsolado } from './rede-forja';
 export const CONTRATO_DO_REGISTRO = 'ork.projetos/v1';
 
 /**
- * V2 da revisao 4: caractere que o terminal executa ou que ninguem ve. Controles C0 e C1 (ESC, BEL,
- * CSI), os de direcao do texto (bidi), os de largura zero, os separadores de linha Unicode e as tags
- * e seletores de variacao, que escondem texto de quem le (humano ou agente).
+ * V2 da revisao 4 e W11 da revisao 5: caractere que o terminal executa ou que ninguem ve. Controles
+ * C0 e C1 (ESC, BEL, CSI, quebra de linha), os de direcao do texto (bidi), os de largura zero, os
+ * separadores de linha Unicode, os preenchimentos que desenham em branco (Hangul, braile vazio) e as
+ * tags e seletores de variacao, que escondem texto de quem le (humano ou agente). Ficam de fora o
+ * ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns, como os de nome de pasta.
  */
-export const INVISIVEL = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufe00-\ufe0f\ufeff\ufff9-\ufffb\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/u;
+export const INVISIVEL = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f-\u1160\u17b4-\u17b5\u180b-\u180f\u200b-\u200c\u200e-\u200f\u2028-\u202e\u2060-\u206f\u2800\u3164\ufe00-\ufe0d\ufeff\uffa0\ufff9-\ufffb\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/u;
 const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
 
-/** O texto sem os caracteres invisiveis; a quebra de linha fica. */
-export const semInvisiveis = (texto: string): string => texto.replace(INVISIVEIS, (c) => (c === '\n' ? c : ''));
+/**
+ * W4 da revisao 5: o valor numa linha so, sem nada invisivel. A quebra de linha (e a tabulacao) vira
+ * espaco: um valor que vem de fora nunca abre uma linha propria na saida, como se fosse do `ork`.
+ */
+export const emUmaLinha = (texto: string): string =>
+  texto.replace(INVISIVEIS, (c) => (/[\t\n\v\f\r\u0085\u2028\u2029]/.test(c) ? ' ' : ''));
 
 /**
- * V2 e V3 da revisao 4: a regra UNICA de nome de projeto. O registro e o ultimo retrato a aplicam na
- * leitura; o escritor tira do retrato, com aviso, o projeto do diretorio atual que a descumpre.
- * Letras e digitos de qualquer lingua, espaco no meio, `.`, `_` e `-`, ate 80. Com uma regra so, o
- * mesmo projeto nao entra por uma fonte e sai por outra (a D9 nao oscila).
+ * V3 da revisao 4 e W1 da revisao 5: a regra UNICA de nome de projeto, a mesma do leitor
+ * (`normalizarRetrato`): texto visivel, sem espaco nas pontas, ate 80 (contados como o leitor conta,
+ * em unidades UTF-16). O registro e o ultimo retrato a aplicam na leitura; o escritor tira do
+ * retrato, com aviso, o projeto do diretorio atual que a descumpre. Nome de pasta comum (`c++-tools`,
+ * `app (1)`, `r&d`, `Orçamento`) passa: o que o Markdown executaria, a celula do `REDE.md` escapa.
  */
 export const ehNomeDeProjeto = (nome: unknown): nome is string =>
-  typeof nome === 'string' && /^[\p{L}\p{N}](?:[\p{L}\p{N}\p{M} ._-]{0,78}[\p{L}\p{N}\p{M}._-])?$/u.test(nome);
+  typeof nome === 'string' && nome.length > 0 && nome.length <= 80 && nome === nome.trim() && !INVISIVEL.test(nome);
 
 export type FonteDoProjeto = 'registro' | 'cwd' | 'retrato';
 

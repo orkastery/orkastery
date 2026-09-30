@@ -30,7 +30,7 @@ import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, 
   publicacaoDesligada, REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
 import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
   versaoDoBinario } from './rede-forja';
-import { ehNomeDeProjeto, INVISIVEL, limparRemoto, projetosConhecidos, semInvisiveis } from './rede-projetos';
+import { ehNomeDeProjeto, emUmaLinha, INVISIVEL, limparRemoto, projetosConhecidos } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
 
 export const CONTRATO_DO_RETRATO = 'ork.rede-maquina/v1' as const;
@@ -227,17 +227,19 @@ export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: Re
   // nome ou caminho fora do contrato tiram o projeto, com aviso; no maximo 200 projetos.
   const presentes = projetos.filter((p) => p.presente)
     .map((p) => ({ nome: p.nome, remoto: p.remoto !== null && p.remoto.length <= 500 ? p.remoto : null, caminho: p.caminho }));
-  const limpos = presentes.filter((p, i) => {
-    // V2 e V3 da revisao 4: a regra unica de nome (o do diretorio atual vem de manifesto de terceiro).
-    if (!ehNomeDeProjeto(p.nome) || p.caminho.length > 1024 || INVISIVEL.test(p.caminho)) {
+  const limpos = presentes.flatMap((p, i) => {
+    // V3 da revisao 4 e W1 da revisao 5: a regra unica de nome e o MESMO item de projeto do leitor
+    // (`projetoNoContrato`); vai ao retrato o que o leitor devolve, e o que ele recusa sai sozinho.
+    const lido = ehNomeDeProjeto(p.nome) ? projetoNoContrato(p as unknown as Record<string, unknown>) : null;
+    if (!lido) {
       descartados.push({ campo: `projetos[${i}]`, padrao: 'fora do contrato ork.rede-maquina/v1' });
-      return false;
+      return [];
     }
     for (const campo of ['nome', 'remoto', 'caminho'] as const) {
-      const padrao = typeof p[campo] === 'string' ? achadoDeSegredo(p[campo] as string) : null;
-      if (padrao) { descartados.push({ campo: `projetos[${i}].${campo}`, padrao }); return false; }
+      const padrao = typeof lido[campo] === 'string' ? achadoDeSegredo(lido[campo] as string) : null;
+      if (padrao) { descartados.push({ campo: `projetos[${i}].${campo}`, padrao }); return []; }
     }
-    return true;
+    return [lido];
   });
   if (limpos.length > MAXIMO_DE_ITENS) {
     descartados.push({ campo: `projetos[${MAXIMO_DE_ITENS}..]`, padrao: `limite de ${MAXIMO_DE_ITENS} projetos` });
@@ -271,14 +273,17 @@ export function assinaturaDoRetrato(r: RetratoDaMaquina): string {
 
 /** Alem do catalogo do nucleo (`procurarSegredos`): o que a rede nunca deixa sair. */
 const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
-  // V8 da revisao 4: sem `\b` na frente, porque token colado a letra ou `_` (`xghp_...`) tambem vaza.
-  { nome: 'token do GitHub', regex: /(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,})/ },
-  { nome: 'token do GitLab', regex: /gl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{16,}/ },
+  // V8 da revisao 4: token colado a letra ou `_` (`xghp_...`) tambem vaza, entao os prefixos longos vao
+  // sem `\b`, com o tamanho do formato. W2 da revisao 5: os que casam com palavra comum (`task-proj-`,
+  // `flask-admin-`, `ASIAPACIFIC...`, `llama2_hf_...`) pedem limite a esquerda e a cauda de um token
+  // de verdade (alfabeto, tamanho, caixa mista, digito).
+  { nome: 'token do GitHub', regex: /(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})/ },
+  { nome: 'token do GitLab', regex: /gl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{20,}/ },
   { nome: 'token do Slack', regex: /xox[abprs]-[A-Za-z0-9-]{10,}/ },
-  { nome: 'chave de acesso AWS', regex: /(?:AKIA|ASIA)[0-9A-Z]{16}/ },
-  { nome: 'token do Hugging Face', regex: /hf_[A-Za-z0-9]{30,}/ },
-  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{20,}/ },
-  { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36}/ },
+  { nome: 'chave de acesso AWS', regex: /(?<![A-Za-z0-9])(?:AKIA|ASIA)[A-Z2-7]{16}(?![A-Za-z0-9])/ },
+  { nome: 'token do Hugging Face', regex: /(?<![A-Za-z0-9])hf_(?=[A-Za-z0-9]*[A-Z])(?=[A-Za-z0-9]*[a-z])[A-Za-z0-9]{34,}/ },
+  { nome: 'chave da OpenAI', regex: /(?<![A-Za-z0-9_-])sk-(?:proj|svcacct|admin)-(?=[A-Za-z0-9_-]*[0-9])(?=[A-Za-z0-9_-]*[A-Z])[A-Za-z0-9_-]{40,}/ },
+  { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36,}/ },
   { nome: 'chave de API do Google', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },
   { nome: 'credencial em URL', regex: /[a-z][a-z0-9+.-]*:\/\/[^\s"]*?[^/\s:@"\\]+:[^/\s@"]*@/i },
@@ -398,14 +403,21 @@ export function normalizarRetrato(bruto: unknown): RetratoDaMaquina | null {
   const hosts = itens(r.hosts, (x) => !(ehTexto(x.host, 40) && ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.adaptador, 40)) ? null
     : !(ORDEM_DOS_HOSTS as readonly unknown[]).includes(x.host) ? PULAR
       : { host: x.host as Host, versao: x.versao as string | null, adaptador: x.adaptador as string | null });
-  // V9 da revisao 4: o remoto de outra maquina e remontado aqui; o que nao sai igual nao e reexibido.
-  const projetos = itens(r.projetos, (x) => ehTexto(x.nome, 80) && ehTextoOuNulo(x.remoto, 500) && ehTexto(x.caminho, 1024)
-    ? { nome: x.nome as string, remoto: x.remoto !== null && limparRemoto(x.remoto) === x.remoto ? x.remoto as string : null, caminho: x.caminho as string }
-    : null);
+  const projetos = itens(r.projetos, projetoNoContrato);
   if (!forjas || !runtimes || !hosts || !projetos) return null;
   if (r.id !== undefined && !ehIdDeMaquina(r.id)) return null;
   return { contrato: CONTRATO_DO_RETRATO, maquina: r.maquina, ...(r.id !== undefined ? { id: r.id } : {}), hostname: r.hostname,
     adesao: r.adesao, forjas, runtimes, hosts, projetos, versaoOrk: r.versaoOrk, publicadoEm: r.publicadoEm };
+}
+
+/**
+ * W1 da revisao 5: o item de projeto do contrato, o MESMO predicado no leitor e no filtro do escritor
+ * (antes, a regra de nome do escritor aceitava o que este recusava, e a publicacao inteira caia).
+ * V9 da revisao 4: o remoto e remontado; o que nao sai igual (de outra versao ou de outra mao) vira `null`.
+ */
+export function projetoNoContrato(x: Record<string, unknown>): ProjetoNoRetrato | null {
+  if (!ehTexto(x.nome, 80) || !ehTextoOuNulo(x.remoto, 500) || !ehTexto(x.caminho, 1024)) return null;
+  return { nome: x.nome, remoto: x.remoto !== null && limparRemoto(x.remoto) === x.remoto ? x.remoto : null, caminho: x.caminho };
 }
 
 /**
@@ -433,13 +445,22 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
     catch { invalidos.push({ arquivo, motivo: 'JSON ilegivel' }); continue; }
     const retrato = normalizarRetrato(bruto);
     if (!retrato) { invalidos.push({ arquivo, motivo: `fora do contrato ${CONTRATO_DO_RETRATO}` }); continue; }
-    // V9 da revisao 4: a mesma varredura do escritor; o que ela pega nao vai ao status nem ao REDE.md.
-    const segredo = segredoNoRetrato(retrato);
-    if (segredo) { invalidos.push({ arquivo, motivo: `padrao "${segredo.padrao}" em ${segredo.onde} (valor omitido de proposito)` }); continue; }
     let esperado: string | null = null;
     try { esperado = arquivoDoRetrato(retrato.maquina); } catch { /* nome impossivel */ }
     if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: `diz ser a maquina "${retrato.maquina}", que nao e a dona deste arquivo` }); continue; }
-    retratos.push(retrato);
+    // V9 da revisao 4: a mesma varredura do escritor; o que ela pega nao vai ao status nem ao REDE.md.
+    // W3 da revisao 5: o projeto com cara de segredo sai sozinho (o escritor faz o mesmo); so campo do
+    // nucleo com cara de segredo tira a maquina inteira.
+    const achados = retrato.projetos.map((x) => segredoNoRetrato(x));
+    const projetos = retrato.projetos.filter((_x, i) => !achados[i]);
+    const primeiro = achados.find((x) => x !== null);
+    if (primeiro) {
+      invalidos.push({ arquivo, motivo: `${retrato.projetos.length - projetos.length} projeto(s) fora da leitura: padrao "${primeiro.padrao}" (valor omitido de proposito)` });
+    }
+    const lido = { ...retrato, projetos };
+    const segredo = segredoNoRetrato(lido);
+    if (segredo) { invalidos.push({ arquivo, motivo: `padrao "${segredo.padrao}" em ${segredo.onde} (valor omitido de proposito)` }); continue; }
+    retratos.push(lido);
   }
   retratos.sort((a, b) => a.maquina.localeCompare(b.maquina));
   return { retratos, invalidos };
@@ -641,18 +662,19 @@ function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok:
 
 /**
  * U2 da revisao 3: o `id` gravado no arquivo com o nome desta maquina, quando esta versao nao le o
- * retrato porque ele esta num contrato MAIS NOVO (`ork.rede-maquina/v2` em diante). V7 da revisao 4:
- * so nesse caso; lixo com um `id` ou um v1 quebrado nao prendem o nome, e o publicar e o sair desta
- * maquina os regravam ou tiram. `null` quando nao ha arquivo, contrato mais novo ou `id`.
+ * retrato (contrato mais novo, campo que ela recusa). W3 da revisao 5: vale o CABECALHO bem formado,
+ * em qualquer versao: `contrato` `ork.rede-maquina/vN`, `maquina` dona deste arquivo e `id` valido.
+ * Assim o retrato legitimo de outra instalacao continua prendendo o nome, e lixo com um `id` (V7 da
+ * revisao 4) ou a copia de outra maquina com o nome errado nao prendem. `null` sem cabecalho ou `id`.
  */
 export function idNoArquivo(cache: string, ponta: string | null, arquivo: string): string | null {
   if (!ponta) return null;
   const r = comGitIsolado(() => git(cache, ['show', `${ponta}:${arquivo}`]));
   if (!r.ok) return null;
   try {
-    const { contrato, id } = JSON.parse(r.stdout) as { contrato?: unknown; id?: unknown };
-    const versao = typeof contrato === 'string' ? /^ork\.rede-maquina\/v([0-9]{1,6})$/.exec(contrato)?.[1] : undefined;
-    return versao !== undefined && Number(versao) > 1 && ehIdDeMaquina(id) ? id : null;
+    const { contrato, maquina, id } = JSON.parse(r.stdout) as { contrato?: unknown; maquina?: unknown; id?: unknown };
+    if (typeof contrato !== 'string' || !/^ork\.rede-maquina\/v[1-9][0-9]{0,5}$/.test(contrato) || typeof maquina !== 'string') return null;
+    return arquivoDoRetrato(maquina) === arquivo && ehIdDeMaquina(id) ? id : null;
   } catch { return null; }
 }
 
@@ -685,7 +707,7 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
           ? '; o retrato tem o hostname desta maquina: se for ela mesma, com ~/.orkastery apagada ou copiada, retome o nome com ' +
             'ork network entrar --forcar; se for outra maquina ou instalacao com o mesmo hostname, escolha outro nome com --maquina NOME'
           : '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar';
-        const quem = atual ? ` (hostname ${atual.hostname}, batida ${formatarDataHora(atual.publicadoEm)})` : ' (num contrato que esta versao nao le)';
+        const quem = atual ? ` (hostname ${atual.hostname}, batida ${formatarDataHora(atual.publicadoEm)})` : ' (num retrato que esta versao nao le)';
         throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}"${quem}${dica}`);
       }
       const mudancas: MudancaNaBranch[] = [
@@ -858,8 +880,10 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
 // O REDE.md da casa.
 // ---------------------------------------------------------------------------
 
-// V2 da revisao 4: a celula nao abre link, imagem, HTML nem codigo, e nao quebra a tabela.
-const celula = (s: string) => semInvisiveis(s).replace(/[\\`*_[\]<>|!]/g, (c) => `\\${c}`);
+// V2 da revisao 4: a celula nao abre link, imagem, HTML nem codigo, e nao quebra a tabela. W5 da
+// revisao 5: o `.` escapado desfaz o autolink do GFM (`www.x.y`, `http://x.y`, e-mail), e `&` e `~`
+// nao viram entidade nem riscado; o valor fica numa linha so.
+const celula = (s: string) => emUmaLinha(s).replace(/[\\`*_[\]<>|!.~&]/g, (c) => `\\${c}`);
 
 /** O `REDE.md`: a mesma rede, para quem abre a forja. Sem caminho local: esses ficam no JSON. */
 export function painelDaRede(retratos: readonly RetratoDaMaquina[]): string {

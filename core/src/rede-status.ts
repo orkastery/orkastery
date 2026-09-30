@@ -19,7 +19,7 @@ import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, 
   prepararCache, refDaCasa, resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato, urlDaCasaAceita } from './rede';
 import { Adesao, adesaoDaRede, lerIdDaMaquina } from './rede-adesao';
 import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
-import { INVISIVEL, projetosConhecidos, semInvisiveis } from './rede-projetos';
+import { emUmaLinha, INVISIVEL, projetosConhecidos } from './rede-projetos';
 
 export const CONTRATO_DO_STATUS = 'ork.rede-status/v1' as const;
 /** D15: tres batidas perdidas. */
@@ -114,6 +114,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   // 1. A casa: resolvida pela forja (com rede) ou pela adesao e pela marca (sem rede).
   let casa: StatusDaRede['casa'] = null;
   let ler = true;
+  let semHttps = false;
   if (o.semRemoto) {
     casa = casaSemRede();
     if (!casa) lacunas.push({ tipo: 'rede.sem-leitura', detalhe: 'sem rede e sem casa conhecida nesta maquina: rode sem --sem-remoto' });
@@ -130,7 +131,11 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         } else {
           if (repo.privado !== true) lacunas.push({ tipo: 'rede.repositorio-publico', detalhe: `${refDaCasa(r.casa)} nao e privado: nenhuma maquina publica nele` });
           if (repo.url && urlDaCasaAceita(repo.url)) prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), eu);
-          else if (repo.url) lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: a forja devolveu uma URL sem https; a rede so fala por https` });
+          else if (repo.url) {
+            // W10 da revisao 5: sem https nao ha leitura nova; o cache fica com a URL antiga e so a copia local vale.
+            semHttps = true;
+            lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: a forja devolveu uma URL sem https; a rede so fala por https (vale a ultima copia local, quando ha)` });
+          }
         }
       } catch (e) {
         lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: ${mensagem(e)}` });
@@ -144,11 +149,12 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   if (casa && ler) {
     const cache = dirDoCache(casa);
     if (cachePronto(cache) && comGitIsolado(() => git(cache, ['config', 'remote.origin.url']).ok)) {
-      const { ponta, atualizado } = comGitIsolado(() => o.semRemoto
+      const soLocal = o.semRemoto || semHttps;
+      const { ponta, atualizado } = comGitIsolado(() => soLocal
         ? { ponta: pontaLocal(cache, 'origin', BRANCH_DA_REDE), atualizado: false }
         : buscarBranch(cache, 'origin', BRANCH_DA_REDE, 'rede', o.timeoutMs ?? 30000));
       fontes.push({ fonte: 'rede', ref: `${refDaCasa(casa)}#${BRANCH_DA_REDE}`, ponta, atualizado });
-      if (!atualizado && !o.semRemoto) {
+      if (!atualizado && !soLocal) {
         lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(casa)} sem leitura nova: ${ponta ? 'mostrando a ultima copia local' : 'nenhuma copia local'}` });
       }
       const lidos = retratosDaPonta(cache, ponta);
@@ -242,7 +248,11 @@ export function duracao(ms: number): string {
 }
 
 /** O texto de `ork network status`: fonte e o que nao foi lido primeiro, lacunas sempre no fim. */
-export function textoDaRede(s: StatusDaRede): string {
+export function textoDaRede(status: StatusDaRede): string {
+  // V2 da revisao 4 e W4 da revisao 5: a fabrica legada vem do remoto de um projeto, onde outras pessoas
+  // escrevem. Cada VALOR vai numa linha so e sem nada que o terminal execute ou que ninguem ve, antes de
+  // entrar no texto: um `\n` num valor nao abre uma linha que parece do `ork`.
+  const s = JSON.parse(JSON.stringify(status), (_k, v: unknown) => (typeof v === 'string' ? emUmaLinha(v) : v)) as StatusDaRede;
   const linhas: string[] = [];
   const rede = s.fontes.find((f) => f.fonte === 'rede');
   const estadoDaCasa = rede ? (rede.atualizado ? 'lida agora' : 'última cópia local') : 'não lida';
@@ -286,9 +296,7 @@ export function textoDaRede(s: StatusDaRede): string {
     for (const l of s.lacunas) linhas.push(`  • ${l.tipo}: ${l.detalhe}`);
   }
   linhas.push(legendaDoFuso());
-  // V2 da revisao 4: a fabrica legada vem do remoto de um projeto, onde outras pessoas escrevem; nada
-  // que o terminal executa (ESC, BEL, CSI) ou que ninguem ve (bidi, largura zero) chega a tela.
-  return semInvisiveis(linhas.join('\n'));
+  return linhas.join('\n');
 }
 
 /**

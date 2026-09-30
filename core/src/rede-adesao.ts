@@ -120,17 +120,22 @@ export function lerIdDaMaquina(): string | null {
  * S3 da revisao 2: mora em `~/.orkastery/maquina-id`, ao lado do `maquina.json`, e NAO na pasta de
  * cache `~/.orkastery/rede/`: apagar o cache nao pode fazer a maquina virar outra de si mesma.
  * U6 da revisao 3: sem arquivo, `link` de um temporario cria so se nao existe (atomico).
- * V5 da revisao 4: arquivo vazio ou corrompido e trocado por um id DERIVADO dele (conteudo, inode e
- * hora da escrita): quem ve o mesmo arquivo ruim grava o mesmo id, e nenhum processo devolve um id
- * que outro sobrescreveu. Todo caminho devolve o que ficou gravado, nunca o que tentou gravar.
+ * V5 da revisao 4: arquivo ruim e trocado por um id DERIVADO dele, o mesmo para todo processo que o
+ * viu. W7 e W8 da revisao 5: nenhum caminho expoe arquivo vazio, e link pendurado tambem e trocado.
+ * Todo caminho devolve o que ficou gravado, nunca o que tentou gravar.
  */
 export function idDaMaquina(): string {
   const arquivo = arquivoDoId();
-  const lido = lerId(arquivo);
-  if (lido) return lido;
-  fs.mkdirSync(pastaDoUsuario(), { recursive: true });
-  if (!fs.existsSync(arquivo)) criarId(arquivo);
-  if (!lerId(arquivo)) trocarIdInvalido(arquivo);
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    const lido = lerId(arquivo);
+    if (lido) return lido;
+    fs.mkdirSync(pastaDoUsuario(), { recursive: true });
+    let st: fs.BigIntStats | null = null;
+    try { st = fs.lstatSync(arquivo, { bigint: true }); }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    if (st) trocarIdInvalido(arquivo, st);
+    else criarId(arquivo);
+  }
   const persistido = lerId(arquivo);
   if (!persistido) throw new Error(`rede.id: nao consegui gravar nem ler ${arquivo}`);
   return persistido;
@@ -142,46 +147,69 @@ function gravarTemporario(conteudo: string): string {
   return temporario;
 }
 
+/** Troca o que estiver no caminho (arquivo ou link) por um arquivo inteiro com o id: `rename` e atomico. */
+function trocarPor(arquivo: string, id: string): void {
+  const temporario = gravarTemporario(id);
+  try { fs.renameSync(temporario, arquivo); } finally { fs.rmSync(temporario, { force: true }); }
+}
+
+const SEM_HARD_LINK = new Set(['EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS']);
+
 /** Cria o id so se o arquivo nao existe; perdeu a corrida, fica o do outro. */
 function criarId(arquivo: string): void {
   const temporario = gravarTemporario(randomUUID());
-  try { fs.linkSync(temporario, arquivo); }
-  catch (e) {
-    const codigo = (e as NodeJS.ErrnoException).code;
+  try {
+    fs.linkSync(temporario, arquivo);
+    return;
+  } catch (e) {
+    const codigo = (e as NodeJS.ErrnoException).code ?? '';
     if (codigo === 'EEXIST') return;
-    if (codigo !== 'EPERM' && codigo !== 'ENOTSUP' && codigo !== 'EOPNOTSUPP' && codigo !== 'ENOSYS') throw e;
-    // Sistema de arquivos sem hard link (vboxsf, alguns FUSE e SMB): criacao exclusiva. O arquivo
-    // fica vazio por um instante; `trocarIdInvalido` espera esse instante antes de julgar.
-    try { fs.writeFileSync(arquivo, randomUUID(), { flag: 'wx', mode: 0o600 }); }
-    catch (e2) { if ((e2 as NodeJS.ErrnoException).code !== 'EEXIST') throw e2; }
+    if (!SEM_HARD_LINK.has(codigo)) throw e;
   } finally { fs.rmSync(temporario, { force: true }); }
+  // W7 da revisao 5: sistema de arquivos sem hard link (vboxsf, alguns FUSE e SMB). Nada de arquivo
+  // vazio nem de espera por relogio: o id DERIVADO da pasta e do boot, o mesmo para todo processo
+  // desta maquina agora, gravado inteiro por `rename`.
+  const pasta = fs.statSync(pastaDoUsuario(), { bigint: true });
+  trocarPor(arquivo, idDerivado(['novo', pasta.dev, pasta.ino]));
 }
 
-/** O id que qualquer processo desta maquina deriva do mesmo arquivo ruim (formato de UUID v4). */
-function idDerivado(conteudo: Buffer, st: fs.BigIntStats): string {
-  const h = createHash('sha256').update(conteudo).update(`\0${st.dev}\0${st.ino}\0${st.mtimeNs}\0${os.hostname()}`).digest('hex');
+/** O arquivo ruim (vazio, corrompido, link pendurado) vira o id derivado dele; o que mudou no meio, quem chamou rele. */
+function trocarIdInvalido(arquivo: string, st: fs.BigIntStats): void {
+  let conteudo: Buffer;
+  if (st.isSymbolicLink()) {
+    // W8 da revisao 5: o link pendurado (ou para arquivo ruim) sai; o alvo fica como esta.
+    conteudo = Buffer.from(`link:${fs.readlinkSync(arquivo)}`);
+  } else if (st.isFile()) {
+    let fd: number;
+    try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
+    catch (e) { if (['ENOENT', 'ELOOP'].includes((e as NodeJS.ErrnoException).code ?? '')) return; throw e; }
+    try {
+      // Conteudo e metadados do MESMO inode: o `fstat` do descritor aberto, nao do caminho.
+      st = fs.fstatSync(fd, { bigint: true });
+      const buffer = Buffer.alloc(4096);
+      conteudo = buffer.subarray(0, fs.readSync(fd, buffer, 0, buffer.length, 0));
+    } finally { fs.closeSync(fd); }
+    if (ID.test(conteudo.toString('utf8').trim())) return;
+  } else {
+    throw new Error(`rede.id: ${arquivo} nao e um arquivo; apague-o e rode de novo`);
+  }
+  trocarPor(arquivo, idDerivado([createHash('sha256').update(conteudo).digest('hex'), st.dev, st.ino, st.mtimeNs, st.size]));
+}
+
+/**
+ * O id que todo processo desta maquina deriva do mesmo estado, agora. W6 da revisao 5: alem das
+ * partes (o arquivo ruim, ou a pasta), o hostname e o boot (`boot_id` e `machine-id`): VMs clonadas
+ * da mesma imagem, com o mesmo arquivo, inode e hostname, tem boot proprio e ganham ids diferentes.
+ * Formato de UUID v4.
+ */
+export function idDerivado(partes: ReadonlyArray<string | bigint>, fontes: readonly string[] = fontesDaMaquina()): string {
+  const h = createHash('sha256').update([...partes.map(String), ...fontes].join('\0')).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-function trocarIdInvalido(arquivo: string): void {
-  const limite = Date.now() + 1000;
-  for (;;) {
-    let fd: number;
-    try { fd = fs.openSync(arquivo, 'r'); }
-    catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') { criarId(arquivo); return; } throw e; }
-    let conteudo: Buffer, st: fs.BigIntStats;
-    // Conteudo e metadados do MESMO inode: o `fstat` do descritor aberto, nao do caminho.
-    try { st = fs.fstatSync(fd, { bigint: true }); conteudo = fs.readFileSync(fd); } finally { fs.closeSync(fd); }
-    if (ID.test(conteudo.toString('utf8').trim())) return;
-    // Vazio e de agora: uma criacao exclusiva (sem hard link) esta no meio; espera ela terminar.
-    if (conteudo.length === 0 && Date.now() - Number(st.mtimeMs) < 2000 && Date.now() < limite) {
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
-      continue;
-    }
-    const temporario = gravarTemporario(idDerivado(conteudo, st));
-    try { fs.renameSync(temporario, arquivo); } finally { fs.rmSync(temporario, { force: true }); }
-    return;
-  }
+function fontesDaMaquina(): string[] {
+  const ler = (arquivo: string) => { try { return fs.readFileSync(arquivo, 'utf8').trim(); } catch { return ''; } };
+  return [os.hostname(), ler('/proc/sys/kernel/random/boot_id'), ler('/etc/machine-id')];
 }
 
 export const ehIdDeMaquina = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
