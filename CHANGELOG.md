@@ -25,7 +25,23 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte
   e a hora de cada parte (contrato `ork.network-roadmap/v1`). Sem clone, lê a forja só com
   consulta (`gh api graphql` numa chamada; GitLab pela mesma interface). O que não foi lido sai
-  como lacuna tipada, nunca como "vazio". As tools dos hosts ficam para a fatia 2.
+  como lacuna tipada, nunca como "vazio".
+- **Roadmap da rede nos hosts** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md), fatia 2):
+  - `ork_network_roadmap` no OpenClaw, no Hermes (`bin/ork-network-roadmap.sh`) e no MCP, e a rota
+    nas entradas do Claude Code e do Codex: o status do roadmap nos hosts passa a vir do panorama
+    da rede, com as threads de todas as máquinas e a fonte e a hora de cada parte, transportado
+    como vem; `ork_roadmap_status` fica como o relatório só desta máquina;
+  - a frase `orkastery maestro` sem projeto oferece o panorama da rede, e a recusa
+    `projeto.escolha` do projeto-alvo passa a oferecê-lo também; o "Não lido" de maestro, board,
+    fábrica e roadmap status aponta `ork network roadmap`;
+  - o manifesto do OpenClaw declara `ork_network_roadmap` nos perfis `coding` e `messaging`
+    (`toolMetadata`): no perfil `coding`, o padrão do OpenClaw, nenhuma tool `ork_*` chegava ao
+    modelo; as outras continuam sob `tools.alsoAllow` do operador;
+  - com `ORK_PROJETO_EXPLICITO=1`, `ork network roadmap --projeto` aceita só o nome registrado ou a
+    forja (`github:dono/repo`), e o projeto do diretório do gateway só entra pelo registro; no
+    MCP, a tool lê só o projeto servido;
+  - fica para a fatia 3, com a RM-053 na `main`: `ork_network_status` e a rede por pessoa como
+    fonte de projetos e máquinas.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última

@@ -116,6 +116,8 @@ Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**;
 
 Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
 
+Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool `ork_network_roadmap` do OpenClaw e do Hermes chama `ork network roadmap`, e a do MCP lê o projeto servido em todas as máquinas dele. Sem projeto e com mais de um conhecido, a recusa `projeto.escolha` termina oferecendo o mesmo panorama.
+
 ## Threads e fases
 
 | Comando | O que faz |
@@ -133,7 +135,7 @@ Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` 
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
 | `ork fabrica sair` | Para de publicar daqui e tira o retrato desta máquina da branch |
-| `ork network roadmap [--projeto P] [--json] [--sem-remoto]` | O roadmap da rede, de qualquer diretório: para cada projeto, o status report do roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte e a hora de cada parte e lacuna tipada no que não leu. `P` é `github:dono/repo`, `gitlab:grupo/repo`, um nome do registro ou a raiz do clone escrita como caminho (`./` ou absoluto); sem clone, lê a forja só com consulta. Pedido ambíguo ou desconhecido sai 4, com os candidatos (RM-054) |
+| `ork network roadmap [--projeto P] [--json] [--sem-remoto]` | O roadmap da rede, de qualquer diretório: para cada projeto, o status report do roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte e a hora de cada parte e lacuna tipada no que não leu. `P` é `github:dono/repo`, `gitlab:grupo/repo`, um nome do registro ou a raiz do clone escrita como caminho (`./` ou absoluto); sem clone, lê a forja só com consulta. Pedido ambíguo ou desconhecido sai 4, com os candidatos (RM-054). Com `ORK_PROJETO_EXPLICITO=1` (os hosts), `P` é só o nome do registro ou a forja, e o projeto do diretório atual só entra pelo registro |
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
 | `ork thread status <thread-id> [--json]` | O estado da thread, cruzado com o runtime; `--json` devolve o thread.json |
