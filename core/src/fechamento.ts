@@ -40,9 +40,6 @@ export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar
       saida.fila.push(...solto.fila);
     } catch (e) { falhou(`leases em ${checkout}`, e); }
   }
-  try {
-    const reserva = soltarReservaDaThread(raiz, threadId);
-    saida.reservas = reserva ? [reserva] : [];
-  } catch (e) { falhou('reserva', e); }
+  try { saida.reservas = soltarReservaDaThread(raiz, threadId); } catch (e) { falhou('reserva', e); }
   return saida;
 }

@@ -18,7 +18,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
+import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, OpcoesDeGit, pontaLocal } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina } from './maquina';
@@ -59,7 +59,23 @@ export interface OpcoesDeReserva {
   forcar?: boolean;
   motivo?: string;
   agora?: string;
+  /** Prazo e ambiente do fetch e do push (o fechamento usa `REDE_DO_FECHAMENTO`). */
+  rede?: OpcoesDeGit;
+  /**
+   * RM-037 (achado A5 do CHECK 1): so mexe se a reserva lida agora ainda aponta para esta thread.
+   * Entre a leitura e a gravacao alguem pode ter reapontado o item; a mudanca entao nao acontece.
+   */
+  threadEsperada?: string | null;
 }
+
+/**
+ * O fechamento nao pode ficar parado na rede (achado A3 do CHECK 1): prazo curto por chamada e git
+ * sem pergunta no terminal. O `GIT_SSH_COMMAND` de quem ja o definiu vale; senao, ssh em modo lote.
+ */
+export const REDE_DO_FECHAMENTO: OpcoesDeGit = {
+  timeoutMs: 15000,
+  env: { GIT_TERMINAL_PROMPT: '0', ...(process.env.GIT_SSH_COMMAND ? {} : { GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' }) },
+};
 
 export interface ResultadoDeReserva {
   acao: 'pegou' | 'renovou' | 'tomou' | 'soltou' | 'nada';
@@ -102,8 +118,8 @@ export function quemSouEu(raiz: string, opcoes: OpcoesDeReserva = {}): { por: st
 }
 
 /** Traz a ponta da branch de reservas. `null` quando ela ainda nao existe no remoto. */
-function buscar(raiz: string, remoto: string): { ponta: string | null; atualizado: boolean } {
-  return buscarBranch(raiz, remoto, BRANCH_DE_RESERVAS, PREFIXO);
+function buscar(raiz: string, remoto: string, rede: OpcoesDeGit = {}): { ponta: string | null; atualizado: boolean } {
+  return buscarBranch(raiz, remoto, BRANCH_DE_RESERVAS, PREFIXO, rede.timeoutMs, rede.env);
 }
 
 function lerDaPonta(raiz: string, ponta: string | null): ReservaDeItem[] {
@@ -125,8 +141,8 @@ export function reservasLocais(raiz: string, remoto: string = REMOTO_PADRAO): Re
 }
 
 /** `ork roadmap reservas`: quem esta com cada item, lido do remoto (ou da ultima copia, sem rede). */
-export function listarReservas(raiz: string, opcoes: Pick<OpcoesDeReserva, 'remoto'> = {}): PainelDeReservas {
-  const { ponta, atualizado } = buscar(raiz, opcoes.remoto ?? REMOTO_PADRAO);
+export function listarReservas(raiz: string, opcoes: Pick<OpcoesDeReserva, 'remoto' | 'rede'> = {}): PainelDeReservas {
+  const { ponta, atualizado } = buscar(raiz, opcoes.remoto ?? REMOTO_PADRAO, opcoes.rede);
   return { reservas: lerDaPonta(raiz, ponta), feats: featsDaPonta(raiz, ponta), atualizado, ponta };
 }
 
@@ -227,11 +243,11 @@ export function painelEmMarkdown(reservas: readonly ReservaDeItem[], feats: read
 
 /** Grava a reserva (ou a remocao dela) e o painel numa versao nova da branch. Recusa volta `false`. */
 function gravar(raiz: string, remoto: string, ponta: string | null, mudanca: { item: string; reserva: ReservaDeItem | null },
-  todas: ReservaDeItem[], mensagem: string): string | false {
+  todas: ReservaDeItem[], mensagem: string, rede: OpcoesDeGit = {}): string | false {
   return gravarNaBranch(raiz, remoto, BRANCH_DE_RESERVAS, ponta, [
     { caminho: `${DIR}/${mudanca.item}.json`, conteudo: mudanca.reserva ? JSON.stringify(mudanca.reserva, null, 2) + '\n' : null },
     { caminho: PAINEL, conteudo: painelEmMarkdown(todas, featsDaPonta(raiz, ponta)) },
-  ], mensagem, PREFIXO);
+  ], mensagem, PREFIXO, rede);
 }
 
 function ehMinha(r: ReservaDeItem, eu: { por: string; maquina: string }): boolean {
@@ -258,10 +274,13 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
   const remoto = opcoes.remoto ?? REMOTO_PADRAO;
   const eu = quemSouEu(raiz, opcoes);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-    const { ponta, atualizado } = buscar(raiz, remoto);
+    const { ponta, atualizado } = buscar(raiz, remoto, opcoes.rede);
     if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; reservar exige rede`);
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id) ?? null;
+    if (opcoes.threadEsperada !== undefined && (atual?.thread ?? null) !== opcoes.threadEsperada) {
+      return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
+    }
     const quando = opcoes.agora ?? agoraIso();
     let acao: ResultadoDeReserva['acao'] = 'pegou';
     let tomadaDe: ReservaDeItem['tomadaDe'];
@@ -283,7 +302,7 @@ export function pegarItem(raiz: string, item: string, opcoes: OpcoesDeReserva = 
     const mensagem = acao === 'tomou'
       ? `reserva: ${id} tomada por ${eu.por} em ${eu.maquina} (de ${tomadaDe!.por} em ${tomadaDe!.maquina}): ${tomadaDe!.motivo}`
       : `reserva: ${id} ${acao === 'renovou' ? 'renovada' : 'pega'} por ${eu.por} em ${eu.maquina}`;
-    const commit = gravar(raiz, remoto, ponta, { item: id, reserva }, novas, mensagem);
+    const commit = gravar(raiz, remoto, ponta, { item: id, reserva }, novas, mensagem, opcoes.rede);
     if (commit) return { acao, item: id, reserva, commit, tentativas: tentativa };
   }
   throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
@@ -295,11 +314,14 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
   const remoto = opcoes.remoto ?? REMOTO_PADRAO;
   const eu = quemSouEu(raiz, opcoes);
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-    const { ponta, atualizado } = buscar(raiz, remoto);
+    const { ponta, atualizado } = buscar(raiz, remoto, opcoes.rede);
     if (!atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS} em ${remoto}; soltar exige rede`);
     const todas = lerDaPonta(raiz, ponta);
     const atual = todas.find((r) => r.item === id);
     if (!atual) return { acao: 'nada', item: id, reserva: null, commit: null, tentativas: tentativa };
+    if (opcoes.threadEsperada !== undefined && (atual.thread ?? null) !== opcoes.threadEsperada) {
+      return { acao: 'nada', item: id, reserva: atual, commit: null, tentativas: tentativa };
+    }
     let motivo = '';
     if (!ehMinha(atual, eu)) {
       if (!opcoes.forcar) throw new Error(`roadmap.reservado: ${descrever(atual)}; so quem pegou solta, ou --forcar --motivo`);
@@ -307,7 +329,7 @@ export function soltarItem(raiz: string, item: string, opcoes: OpcoesDeReserva =
     }
     const restantes = todas.filter((r) => r.item !== id);
     const mensagem = `reserva: ${id} solta por ${eu.por} em ${eu.maquina}${motivo}`;
-    const commit = gravar(raiz, remoto, ponta, { item: id, reserva: null }, restantes, mensagem);
+    const commit = gravar(raiz, remoto, ponta, { item: id, reserva: null }, restantes, mensagem, opcoes.rede);
     if (commit) return { acao: 'soltou', item: id, reserva: atual, commit, tentativas: tentativa };
   }
   throw new Error(`roadmap.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
@@ -326,7 +348,8 @@ export interface ReservaOrfa {
 export interface ResultadoDaSoltura {
   item: string;
   thread: string;
-  acao: 'solta' | 'reapontada' | 'pendente';
+  /** `intocada`: entre a leitura e a gravacao a reserva mudou de dono, e ficou como estava. */
+  acao: 'solta' | 'reapontada' | 'pendente' | 'intocada';
   /** A thread que ficou com o item, quando a reserva foi reapontada. */
   para: string | null;
   commit: string | null;
@@ -364,9 +387,15 @@ export function reservasOrfas(raiz: string, reservas: readonly ReservaDeItem[], 
 /** Solta a reserva orfa, ou a reaponta para a sucessora, e registra no ledger da thread fechada. */
 function soltarOrfa(raiz: string, orfa: ReservaOrfa, origem: 'fechamento' | 'orfas', opcoes: OpcoesDeReserva): ResultadoDaSoltura {
   const thread = orfa.reserva.thread as string, item = orfa.reserva.item;
+  const comparando = { ...opcoes, threadEsperada: thread };
   const r = orfa.sucessora
-    ? pegarItem(raiz, item, { ...opcoes, thread: orfa.sucessora })
-    : soltarItem(raiz, item, opcoes);
+    ? pegarItem(raiz, item, { ...comparando, thread: orfa.sucessora })
+    : soltarItem(raiz, item, comparando);
+  // A reserva mudou de dono no meio (ou ja tinha saido): nada foi gravado e nada vai ao ledger como soltura.
+  if (r.acao === 'nada') {
+    return { item, thread, acao: 'intocada', para: null, commit: null,
+      detalhe: `${item} mudou de dono entre a leitura e a gravacao; ficou como estava` };
+  }
   const acao = orfa.sucessora ? 'reapontada' : 'solta';
   const detalhe = orfa.sucessora ? `${item} passou para a thread ${orfa.sucessora}, aberta no mesmo item` : `${item} devolvido`;
   registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaLiberada,
@@ -374,41 +403,63 @@ function soltarOrfa(raiz: string, orfa: ReservaOrfa, origem: 'fechamento' | 'orf
   return { item, thread, acao, para: orfa.sucessora, commit: r.commit, detalhe };
 }
 
+/** A pendencia vai ao ledger da thread fechada, com a correcao; o registro tambem e de melhor esforco. */
+function pendenteDaThread(raiz: string, thread: string, item: string | null, detalhe: string): ResultadoDaSoltura {
+  try {
+    registrarSeExiste(dirThread(raiz, thread), thread, TIPOS_DE_EVENTO.reservaPendente,
+      { item, detalhe, correcao: 'ork roadmap reservas --soltar-orfas' });
+  } catch { /* sem ledger gravavel, o resultado ainda diz a pendencia */ }
+  return { item: item ?? '', thread, acao: 'pendente', para: null, commit: null, detalhe };
+}
+
+const primeiraLinha = (e: unknown): string => String((e as Error)?.message ?? e).split('\n')[0].slice(0, 300);
+
 /**
  * `ork thread close` e `ork master`: a thread que fecha solta a reserva do item dela, ou a passa para
  * outra thread aberta do mesmo item nesta maquina. De melhor esforco: sem rede ou com a reserva em
  * outra maquina, o fechamento segue e o ledger guarda a pendencia com a correcao. So vai a rede
  * quando ha o que soltar: a thread tem item ou a ultima copia lida das reservas aponta para ela.
  */
-export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura | null {
+export function soltarReservaDaThread(raiz: string, threadId: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura[] {
   let item: string | null = null;
-  try { item = lerThread(raiz, threadId).roadmap ?? null; } catch { return null; }
+  try { item = lerThread(raiz, threadId).roadmap ?? null; } catch { return []; }
   const remoto = opcoes.remoto ?? REMOTO_PADRAO;
   const naCopia = reservasLocais(raiz, remoto).find((r) => r.thread === threadId);
-  if (!item && !naCopia) return null;
-  const pendente = (detalhe: string): ResultadoDaSoltura => {
-    registrarSeExiste(dirThread(raiz, threadId), threadId, TIPOS_DE_EVENTO.reservaPendente,
-      { item: item ?? naCopia?.item ?? null, detalhe, correcao: 'ork roadmap reservas --soltar-orfas' });
-    return { item: item ?? naCopia?.item ?? '', thread: threadId, acao: 'pendente', para: null, commit: null, detalhe };
-  };
-  try {
-    const painel = listarReservas(raiz, { remoto });
-    if (!painel.atualizado) return pendente(`sem leitura de ${BRANCH_DE_RESERVAS} em ${remoto}; a reserva fica para depois`);
-    const dela = painel.reservas.filter((r) => r.thread === threadId);
-    if (dela.length === 0) return null;
-    const orfas = reservasOrfas(raiz, dela, opcoes);
-    if (orfas.length === 0) return pendente(`${descrever(dela[0])}; so quem pegou solta, ou --forcar --motivo`);
-    return soltarOrfa(raiz, orfas[0], 'fechamento', opcoes);
-  } catch (e) {
-    return pendente((e as Error).message.split('\n')[0].slice(0, 300));
+  if (!item && !naCopia) return [];
+  const rede = { ...REDE_DO_FECHAMENTO, ...opcoes.rede };
+  const comRede = { ...opcoes, rede };
+  const oItem = item ?? naCopia?.item ?? null;
+  let painel: PainelDeReservas;
+  try { painel = listarReservas(raiz, { remoto, rede }); }
+  catch (e) { return [pendenteDaThread(raiz, threadId, oItem, primeiraLinha(e))]; }
+  if (!painel.atualizado) {
+    return [pendenteDaThread(raiz, threadId, oItem, `sem leitura de ${BRANCH_DE_RESERVAS} em ${remoto}; a reserva fica para depois`)];
   }
+  const dela = painel.reservas.filter((r) => r.thread === threadId);
+  const orfas = reservasOrfas(raiz, dela, opcoes);
+  const saida: ResultadoDaSoltura[] = [];
+  // Sugestao 1 do CHECK 1: toda reserva da thread, nao so a primeira; a de outra maquina fica pendente.
+  for (const r of dela.filter((x) => !orfas.some((o) => o.reserva.item === x.item))) {
+    saida.push(pendenteDaThread(raiz, threadId, r.item, `${descrever(r)}; so quem pegou solta, ou --forcar --motivo`));
+  }
+  for (const orfa of orfas) {
+    try { saida.push(soltarOrfa(raiz, orfa, 'fechamento', comRede)); }
+    catch (e) { saida.push(pendenteDaThread(raiz, threadId, orfa.reserva.item, primeiraLinha(e))); }
+  }
+  return saida;
 }
 
-/** `ork roadmap reservas --soltar-orfas`: a mesma regra do fechamento, para toda reserva orfa desta maquina. */
+/**
+ * `ork roadmap reservas --soltar-orfas`: a mesma regra do fechamento, para toda reserva orfa desta
+ * maquina. Uma orfa que falha vira pendencia no ledger dela e nao para as outras (sugestao 2 do CHECK 1).
+ */
 export function soltarReservasOrfas(raiz: string, opcoes: OpcoesDeReserva = {}): ResultadoDaSoltura[] {
-  const painel = listarReservas(raiz, { remoto: opcoes.remoto });
+  const painel = listarReservas(raiz, { remoto: opcoes.remoto, rede: opcoes.rede });
   if (!painel.atualizado) throw new Error(`roadmap.sem-remoto: nao consegui ler ${BRANCH_DE_RESERVAS}; soltar exige rede`);
-  return reservasOrfas(raiz, painel.reservas, opcoes).map((orfa) => soltarOrfa(raiz, orfa, 'orfas', opcoes));
+  return reservasOrfas(raiz, painel.reservas, opcoes).map((orfa) => {
+    try { return soltarOrfa(raiz, orfa, 'orfas', opcoes); }
+    catch (e) { return pendenteDaThread(raiz, orfa.reserva.thread as string, orfa.reserva.item, primeiraLinha(e)); }
+  });
 }
 
 /** O texto de `ork roadmap reservas` para o terminal, no fuso do dono. */

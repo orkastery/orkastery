@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { commitar, projetoTemporario } from './apoio';
-import { listarReservas, pegarItem, reservasOrfas, soltarReservasOrfas } from '../src/roadmap-reservas';
+import { listarReservas, pegarItem, REDE_DO_FECHAMENTO, reservasOrfas, soltarItem, soltarReservaDaThread, soltarReservasOrfas } from '../src/roadmap-reservas';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
 import { fecharAdministrativamente } from '../src/thread-close';
@@ -110,5 +110,60 @@ test('defeito 3: a orfa de antes (thread ja fechada, reserva viva) aparece e sai
     assert.equal(cli.status, 0, cli.stderr);
     assert.deepEqual(JSON.parse(cli.stdout).map((s: { item: string; acao: string }) => [s.item, s.acao]), [['RM-001', 'solta']]);
     assert.deepEqual(itens(p.dir), [['RM-002', alheia.id]]);
+  } finally { p.limpar(); }
+});
+
+test('defeito 3 (A5 do CHECK 1): a soltura compara a thread; reserva que mudou de dono fica como esta', () => {
+  const p = projetoComRoadmap('rm037noite-reserva-compara');
+  try {
+    const t = threadNoItem(p, 'dona', 'RM-001');
+    const r = soltarItem(p.dir, 'RM-001', { threadEsperada: 'ork-outra' });
+    assert.equal(r.acao, 'nada');
+    assert.deepEqual(itens(p.dir), [['RM-001', t.id]]);
+    assert.equal(pegarItem(p.dir, 'RM-001', { thread: 'ork-outra', threadEsperada: 'ork-terceira' }).acao, 'nada');
+    assert.deepEqual(itens(p.dir), [['RM-001', t.id]]);
+    assert.equal(soltarItem(p.dir, 'RM-001', { threadEsperada: t.id }).acao, 'soltou');
+  } finally { p.limpar(); }
+});
+
+test('defeito 3 (A3 do CHECK 1): o fechamento nao fica parado na rede: prazo curto e git sem pergunta', () => {
+  assert.equal(REDE_DO_FECHAMENTO.timeoutMs, 15000);
+  assert.equal(REDE_DO_FECHAMENTO.env?.GIT_TERMINAL_PROMPT, '0');
+  const p = projetoComRoadmap('rm037noite-reserva-rede-lenta');
+  try {
+    const t = threadNoItem(p, 'rede lenta', 'RM-001');
+    const tt = lerThread(p.dir, t.id); tt.status = 'fechada'; gravarThread(p.dir, tt);
+    // Um remoto ssh que nunca responde: o transporte e um `sleep` mais longo que o prazo.
+    exec('git', ['remote', 'set-url', 'origin', 'ssh://git@exemplo.invalid/projeto.git'], p.dir);
+    const inicio = Date.now();
+    const r = soltarReservaDaThread(p.dir, t.id, { rede: { timeoutMs: 1500, env: { GIT_SSH_COMMAND: 'sleep 20' } } });
+    assert.ok(Date.now() - inicio < 10000, `levou ${Date.now() - inicio} ms`);
+    assert.deepEqual(r.map((x) => [x.item, x.acao]), [['RM-001', 'pendente']]);
+  } finally { p.limpar(); }
+});
+
+test('defeito 3 (sugestoes 1 e 2 do CHECK 1): toda reserva da thread sai, e uma orfa que falha nao para as outras', () => {
+  const p = projetoComRoadmap('rm037noite-reserva-varias');
+  try {
+    commitar(p.dir, 'docs/roadmap/RM-003-terceiro.md', '# RM-003\n', 'roadmap: RM-003');
+    exec('git', ['push', '-q', 'origin', 'main'], p.dir);
+    const t = novaThread(p.carregado, { nome: 'dois itens', modo: 'auto', roadmap: 'RM-001' }).thread;
+    pegarItem(p.dir, 'RM-001', { thread: t.id });
+    pegarItem(p.dir, 'RM-002', { thread: t.id });
+    fecharAdministrativamente(p.dir, t.id, FECHAR);
+    assert.deepEqual(itens(p.dir), [], 'as duas reservas da thread sairam');
+
+    const velha = novaThread(p.carregado, { nome: 'fechada antes', modo: 'auto', roadmap: 'RM-002' }).thread;
+    const sumiu = novaThread(p.carregado, { nome: 'item que saiu', modo: 'auto', roadmap: 'RM-003' }).thread;
+    pegarItem(p.dir, 'RM-002', { thread: velha.id });
+    pegarItem(p.dir, 'RM-003', { thread: sumiu.id });
+    for (const id of [velha.id, sumiu.id]) { const x = lerThread(p.dir, id); x.status = 'fechada'; gravarThread(p.dir, x); }
+    // O RM-003 sai do roadmap (arvore, main e origin/main): soltar recusa com roadmap.item.
+    exec('git', ['rm', '-q', 'docs/roadmap/RM-003-terceiro.md'], p.dir);
+    exec('git', ['commit', '-q', '-m', 'roadmap: RM-003 sai'], p.dir);
+    exec('git', ['push', '-q', 'origin', 'main'], p.dir);
+    const soltas = soltarReservasOrfas(p.dir);
+    assert.deepEqual(soltas.map((x) => [x.item, x.acao]).sort(), [['RM-002', 'solta'], ['RM-003', 'pendente']]);
+    assert.equal(lerLedger(dirThread(p.dir, sumiu.id)).find((e) => e.tipo === 'roadmap_reserva_pendente')?.item, 'RM-003');
   } finally { p.limpar(); }
 });
