@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:35:02.931Z",
+  "publicadoEm": "2026-09-30T02:35:52.964Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -66,15 +66,15 @@
       "id": "ork-rm026k3dossi",
       "nome": "RM-026 K3: dossiê de decisão ligado a objetivo e projeto",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-026",
       "branch": "ork/ork-rm026k3dossi-full",
-      "atualizadaEm": "2026-09-29T13:41:43.119Z",
+      "atualizadaEm": "2026-09-30T02:35:52.682Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-29T14:28:39.075Z"
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-rm031kg2extr",

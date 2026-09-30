@@ -12,7 +12,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-i36buscasema | #Classic | GO | — | sim: evidencias, com autorizacao antecipada de push | 29/09 23:35 |
 | vps | ork-pacotedeexpe | #Auto | CHECK | RM-051 | — | 29/09 23:35 |
 | vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 29/09 23:35 |
-| vps | ork-rm026k3dossi | #Auto | GOAL | RM-026 | sim: autorizacao da retomada | 29/09 23:35 |
+| vps | ork-rm026k3dossi | #Auto | SHIP | RM-026 | — | 29/09 23:35 |
 | vps | ork-rm031kg2extr | #Auto | CHECK | RM-031 | — | 29/09 23:35 |
 | vps | ork-rm037defeito | #Auto | GO | RM-037 | — | 29/09 23:35 |
 | vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 29/09 23:35 |
