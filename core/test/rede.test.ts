@@ -90,6 +90,12 @@ if (metodo === 'POST' && (rota === 'user/repos' || rota === 'projects')) {
 let chave = null;
 const m = cli === 'gh' ? /^repos\\/([^/]+)\\/([^/]+)$/.exec(rota || '') : /^projects\\/(.+)$/.exec(rota || '');
 if (m) chave = cli === 'gh' ? m[1] + '/' + m[2] : decodeURIComponent(m[1]);
+// Simula um ork network sair de outro processo no meio da publicacao (entre a checagem e a trava).
+if (metodo === 'GET' && chave && process.env.FORJA_FAKE_SAIR_DURANTE) {
+  const cfg = JSON.parse(fs.readFileSync(process.env.FORJA_FAKE_SAIR_DURANTE, 'utf8'));
+  cfg.membro = false;
+  fs.writeFileSync(process.env.FORJA_FAKE_SAIR_DURANTE, JSON.stringify(cfg));
+}
 if (metodo === 'GET' && chave) {
   if (!estado[chave]) sair(1, cli === 'gh' ? '{"message":"Not Found","status":"404"}' : '', cli === 'gh' ? 'gh: Not Found (HTTP 404)\\n' : 'glab: 404 Not Found (HTTP 404)\\n');
   sair(0, JSON.stringify(resposta(chave)));
@@ -1288,4 +1294,19 @@ test('RM-053 migracao: no pulse, a rede vem depois da varredura, mesmo quando a 
   assert.throws(() => varrerEDepoisPublicarNaRede(() => { ordem.push('varrer'); throw new Error('varredura caiu'); },
     () => { ordem.push('rede'); throw new Error('forja fora'); }), /varredura caiu/);
   assert.deepEqual(ordem, ['varrer', 'rede', 'varrer', 'rede']);
+});
+
+test('RM-053 migracao: um sair no meio da publicacao vence; a adesao e reconferida dentro da trava (B6)', () => {
+  const f = forjaFalsa('migracao-sair-no-meio');
+  const u = dirTemporario('rede-sair-no-meio');
+  try {
+    naMaquina(u, () => {
+      entrarNaRede({ amb: ligado(f), maquina: 'pc-a' });
+      const antes = exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout;
+      // A forja, ao responder pelo repositorio (depois da checagem de fora, antes da trava), ve a maquina sair.
+      const amb = ligado(f, { FORJA_FAKE_SAIR_DURANTE: path.join(u, 'rede.json') });
+      assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }), /^Error: rede\.fora: esta maquina saiu da rede; nada foi publicado$/);
+      assert.equal(exec('git', ['rev-parse', 'main'], casaFalsa(f)).stdout, antes, 'nenhum commit depois do sair');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
