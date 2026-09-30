@@ -62,9 +62,12 @@ caractere que o próprio micromark usa (as entidades do HTML5, e o número com a
 inválido por U+FFFD).
 
 O juiz de sintaxe do JavaScript é o V8 do Node que roda a extração (D16), injetado pelo
-`core/scripts/sintaxe-node.cjs`: CommonJS pela compilação em função que o carregador usa
-(`vm.compileFunction`) e ESM por `node --check --input-type=module`. Nada é executado. A versão do
-Node entra na versão do `ork.ts-ast`, porque o formato e a resolução do runtime dependem dela.
+`core/scripts/sintaxe-node.cjs`. Ele lê a fonte como o carregador lê, sem o BOM e com a linha `#!`
+do início em branco até o fim de linha do V8 (LF, CR, U+2028 ou U+2029). CommonJS compila em
+função, como o carregador faz (`vm.compileFunction`). ESM compila em lote, num único processo filho
+por extração, com `vm.SourceTextModule`, que só analisa o módulo, sem ligar nem avaliar. O veredito
+volta estruturado pela saída padrão, e a de erro nunca é lida. Nada é executado. A versão do Node
+entra na versão do `ork.ts-ast`, porque o formato e a resolução do runtime dependem dela.
 
 ## Nós
 
@@ -127,7 +130,8 @@ Onde o Node falha, o import fica `unresolved-import`:
   repetido, `with` em modo estrito, `return` no topo do ESM), como quem importa ou como alvo;
 - `package.json` que o Node recusa (JSON inválido, raiz que não é objeto, `name` ou `type` que não
   é texto ou tem surrogate solto) no escopo de quem usa `require` ou no de um alvo `.js`;
-- `main` absoluto ou que sai do repositório, e `.json` por `require` que não é JSON.
+- `main` absoluto ou que sai do repositório, e `.json` por `require` que não é JSON;
+- arquivo que o parser do TypeScript recusa, como BOM antes do `#!`, que o Node aceita (perda).
 
 Também fica fora o alvo que o Node não carrega sem ressalva. Por import, valem só `.js`, `.mjs` e
 `.cjs`, porque JSON pede atributo. Por `require`, só `.js` e `.cjs` em CommonJS e `.json`. TypeScript
@@ -140,7 +144,9 @@ compilador, e isso só vale em fonte TypeScript: em JavaScript o import roda.
 
 Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro título); âncora de outro
 arquivo que não bate com um título ainda prova a referência ao arquivo. O destino é lido como o
-CommonMark o lê, dos eventos do micromark: escape e referência de caractere decodificados.
+CommonMark o lê, dos eventos do micromark: escape e referência de caractere decodificados. Das
+pontas, só sai o espaço ASCII cru (`<a.md >` vira `a.md`, como no GitHub); a referência que
+decodifica em espaço (`&Tab;`, `&nbsp;`) fica, e o link não acha o arquivo.
 
 Até 64 evidências por aresta, as primeiras por posição; o excedente é contado no relatório.
 

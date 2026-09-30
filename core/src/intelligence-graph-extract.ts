@@ -59,15 +59,15 @@ export interface EntradaDeExtracao {
  * de caractere do proprio micromark (`referencia('eacute')`, `referencia('#233')`; `null` se o nome nao
  * e entidade do HTML5). `unicode` e a versao do Unicode do motor JavaScript (`process.versions.unicode`).
  * As duas versoes entram na do extrator Markdown, porque o slug e a estrutura dependem delas; a tabela
- * de entidades do HTML5 e fixa. D16: `javascript` e o juiz de sintaxe do V8 do Node (`sintaxe(texto,
- * 'cjs' | 'esm')`) e a versao do Node, que entra na do `ork.ts-ast`, porque o formato e a resolucao do
- * runtime dependem dela.
+ * de entidades do HTML5 e fixa. D16: `javascript` e o juiz de sintaxe do V8 do Node (`sintaxe` diz, em
+ * lote, se cada texto compila como CommonJS ou como ESM) e a versao do Node, que entra na do
+ * `ork.ts-ast`, porque o formato e a resolucao do runtime dependem dela.
  */
 export interface Parser {
   ts: typeof TS;
   unicode: string;
   markdown: { analisar: (texto: string) => readonly EventoMd[]; referencia: (valor: string) => string | null; versao: string };
-  javascript: { sintaxe: (texto: string, formato: 'cjs' | 'esm') => boolean; versao: string };
+  javascript: { sintaxe: (pedidos: readonly { texto: string; formato: 'cjs' | 'esm' }[]) => readonly boolean[]; versao: string };
 }
 
 /** Extremidade de aresta antes do ID: tipo e localizador. */

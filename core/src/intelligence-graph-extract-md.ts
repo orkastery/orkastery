@@ -228,11 +228,29 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
   const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
-  const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: string[] | null; descartado: boolean }[] = [];
+  // Parte do destino: o texto e se ele e cru (dado) ou decodificado (escape, referencia).
+  type ParteDoDestino = [texto: string, cru: boolean];
+  const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: ParteDoDestino[] | null; descartado: boolean }[] = [];
   // B5: referencia de caractere pelo decodificador do micromark (as entidades do HTML5); a crua fica.
   const decodificada = (i: number, f: number): string => referencia(corpo.slice(i + 1, f - 1)) ?? corpo.slice(i, f);
   // Destino do link como o CommonMark o le: dado, escape e referencia, montados dos eventos.
-  let destinoAberto: string[] | null = null;
+  let destinoAberto: ParteDoDestino[] | null = null;
+  // Rodada 7, B1: so o espaco ASCII cru das pontas sai, antes de decodificar (`<a.md >` vira `a.md`);
+  // referencia que decodifica em espaco (`&Tab;`, `&nbsp;`) fica no destino, como no GitHub.
+  const destinoAparado = (partes: ParteDoDestino[]): string => {
+    const r = partes.map(([t, cru]) => [t, cru] as ParteDoDestino);
+    while (r.length && r[0][1]) {
+      r[0][0] = r[0][0].replace(/^[ \t\n\v\f\r]+/, '');
+      if (r[0][0]) break;
+      r.shift();
+    }
+    while (r.length && r[r.length - 1][1]) {
+      r[r.length - 1][0] = r[r.length - 1][0].replace(/[ \t\n\v\f\r]+$/, '');
+      if (r[r.length - 1][0]) break;
+      r.pop();
+    }
+    return r.map(([t]) => t).join('');
+  };
   // A-N4: o slug sai do texto que o GitHub renderiza no titulo (dado, codigo, escape, entidade e endereco
   // de autolink), sem marcador de enfase, HTML, destino de link, rotulo de referencia nem texto
   // alternativo de imagem. Nada e aparado: o espaco antes de uma imagem no fim vira hifen, como no
@@ -268,8 +286,9 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       else if (e.tipo === 'resourceDestinationString' && abertos.length && !abertos[abertos.length - 1].destino) {
         destinoAberto = abertos[abertos.length - 1].destino = [];
       } else if (destinoAberto) {
-        if (e.tipo === 'data' || e.tipo === 'characterEscapeValue') destinoAberto.push(corpo.slice(e.inicio, e.fim));
-        else if (e.tipo === 'characterReference') destinoAberto.push(decodificada(e.inicio, e.fim));
+        if (e.tipo === 'data') destinoAberto.push([corpo.slice(e.inicio, e.fim), true]);
+        else if (e.tipo === 'characterEscapeValue') destinoAberto.push([corpo.slice(e.inicio, e.fim), false]);
+        else if (e.tipo === 'characterReference') destinoAberto.push([decodificada(e.inicio, e.fim), false]);
       }
       if ((TOKENS_SEM_MENCAO as readonly string[]).includes(e.tipo)) semMencao.push([e.inicio, e.fim]);
       continue;
@@ -290,7 +309,7 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
       titulo = null;
     } else if (e.tipo === 'link' || e.tipo === 'image') {
       const l = abertos.pop();
-      if (l?.destino && !l.descartado) links.push({ destino: l.destino.join(''), inicio: l.inicio, fim: l.fim });
+      if (l?.destino && !l.descartado) links.push({ destino: destinoAparado(l.destino), inicio: l.inicio, fim: l.fim });
     }
   }
   const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao)).map((l) => ({ inicio: no(l.inicio), texto: l.texto }));
@@ -394,7 +413,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
 
     for (const k of s.links) {
       const origem = secaoEm(s, arquivo, k.inicio), t: Trecho = { path, inicio: k.inicio, fim: k.fim };
-      const destino = k.destino.trim();
+      const destino = k.destino;
       if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(destino)) {
         lacuna('link-externo', path, k.inicio, null);
         continue;

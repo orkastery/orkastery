@@ -24,8 +24,8 @@ export interface EntradaTs {
   raiz: string;
   /** Regra de texto do contrato para `fragment`: nome recusado nao vira simbolo. */
   aceitaFragmento: (fragmento: string) => boolean;
-  /** D16: o V8 do Node aceita o texto como CommonJS (`cjs`) ou como ESM (`esm`). */
-  sintaxe: (texto: string, formato: 'cjs' | 'esm') => boolean;
+  /** D16: se o V8 do Node aceita cada texto como CommonJS (`cjs`) ou como ESM (`esm`), na mesma ordem, em lote. */
+  sintaxe: (pedidos: readonly { texto: string; formato: 'cjs' | 'esm' }[]) => readonly boolean[];
   extrator: string;
 }
 
@@ -411,26 +411,36 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
    * Escopo invalido tambem e `falha`.
    */
   const formatos = new Map<string, 'esm' | 'cjs' | 'falha'>();
-  function formatoDe(caminho: string): 'esm' | 'cjs' | 'falha' {
-    const lido = formatos.get(caminho);
-    if (lido !== undefined) return lido;
-    const ext = extensao(caminho), sf = programa.getSourceFile(absoluto(caminho));
-    let r: 'esm' | 'cjs' | 'falha';
-    const aceita = (formato: 'cjs' | 'esm'): boolean => e.sintaxe(e.texto(caminho) ?? '', formato);
-    if (!EXTENSOES_JS.includes(ext) || !sf || sf.fileName !== absoluto(caminho) || programa.getSyntacticDiagnostics(sf).length > 0) r = 'falha';
-    else if (ext === '.mjs') r = aceita('esm') ? 'esm' : 'falha';
-    else if (ext === '.cjs') r = aceita('cjs') ? 'cjs' : 'falha';
-    else if (ext === '.jsx') r = !escopoDe(caminho).invalido && aceita('cjs') ? 'cjs' : 'falha';
-    else {
-      const escopo = escopoDe(caminho);
-      if (escopo.invalido) r = 'falha';
-      else if (escopo.tipo === 'module') r = aceita('esm') ? 'esm' : 'falha';
-      else if (escopo.tipo === 'commonjs') r = aceita('cjs') ? 'cjs' : 'falha';
-      else r = aceita('cjs') ? 'cjs' : sintaxeEsm(sf) && aceita('esm') ? 'esm' : 'falha';
+  {
+    // Decidido de uma vez para toda fonte JavaScript: uma chamada ao juiz, que compila o ESM em lote.
+    const regras: { caminho: string; regra: 'esm' | 'cjs' | 'ambiguo'; esmPossivel: boolean }[] = [];
+    for (const f of e.fontes) {
+      const ext = extensao(f.path), sf = programa.getSourceFile(absoluto(f.path));
+      if (!EXTENSOES_JS.includes(ext)) continue;
+      if (!sf || sf.fileName !== absoluto(f.path) || programa.getSyntacticDiagnostics(sf).length > 0) {
+        formatos.set(f.path, 'falha');
+        continue;
+      }
+      const escopo = ext === '.mjs' || ext === '.cjs' ? null : escopoDe(f.path);
+      if (escopo?.invalido) formatos.set(f.path, 'falha');
+      else if (ext === '.mjs' || (ext === '.js' && escopo?.tipo === 'module')) regras.push({ caminho: f.path, regra: 'esm', esmPossivel: true });
+      else if (ext === '.cjs' || ext === '.jsx' || escopo?.tipo === 'commonjs') regras.push({ caminho: f.path, regra: 'cjs', esmPossivel: false });
+      else regras.push({ caminho: f.path, regra: 'ambiguo', esmPossivel: sintaxeEsm(sf) });
     }
-    formatos.set(caminho, r);
-    return r;
+    const pedidos: { texto: string; formato: 'cjs' | 'esm' }[] = [];
+    const indices = regras.map((r) => {
+      const texto = e.texto(r.caminho) ?? '', i: { cjs: number; esm: number } = { cjs: -1, esm: -1 };
+      if (r.regra !== 'esm') i.cjs = pedidos.push({ texto, formato: 'cjs' }) - 1;
+      if (r.esmPossivel) i.esm = pedidos.push({ texto, formato: 'esm' }) - 1;
+      return i;
+    });
+    const aceitos = pedidos.length ? e.sintaxe(pedidos) : [];
+    regras.forEach((r, k) => {
+      const cjs = indices[k].cjs >= 0 && aceitos[indices[k].cjs] === true, esm = indices[k].esm >= 0 && aceitos[indices[k].esm] === true;
+      formatos.set(r.caminho, r.regra === 'esm' ? (esm ? 'esm' : 'falha') : cjs ? 'cjs' : r.regra === 'ambiguo' && esm ? 'esm' : 'falha');
+    });
   }
+  const formatoDe = (caminho: string): 'esm' | 'cjs' | 'falha' => formatos.get(caminho) ?? 'falha';
 
   /**
    * Alvo que o Node carrega de verdade. Por `import`: `.js`, `.mjs` e `.cjs` (JSON pede atributo e

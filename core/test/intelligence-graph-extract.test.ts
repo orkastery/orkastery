@@ -856,6 +856,26 @@ test('KG2 limits: aninhamento que estoura a pilha falha a extracao inteira com e
   assert.throws(() => extrair({ 'a.ts': `${'{'.repeat(fundo)}${'}'.repeat(fundo)}\n`, 'b.md': '# B\n' }), /extracao\.limite\.pilha/);
 });
 
+test('KG2 limits: no destino do link so o espaco ASCII cru das pontas sai; referencia que vira espaco fica', () => {
+  const { grafo } = extrair({
+    'a.md': '# A\n',
+    'b.md': '# B\n\n[1](a.md&Tab;) [2](a.md&#9;) [3](a.md&nbsp;) [4](&emsp;a.md) [5](a.md&NewLine;)\n\n## C\n\n[6](<a.md >)\n',
+  });
+  assert.deepEqual(arestas(grafo, 'references'), ['references section:b.md#c -> file:a.md']);
+});
+
+test('KG2 limits: o juiz le a fonte como o carregador; hashbang ate U+2028 e ESM grande numa linha so', () => {
+  const separador = String.fromCharCode(0x2028);
+  const { grafo } = extrair({
+    't.cjs': 'exports.t = 1;\n', 'u.mjs': 'export const u = 1;\n',
+    'hb.cjs': `#!/usr/bin/env node${separador}let q = 1; let q = 2;\nrequire('./t.cjs');\n`,
+    'hb.mjs': "#!/usr/bin/env node\nimport './u.mjs';\n",
+    'grande.mjs': `import './u.mjs';\nexport const x = [${'<b/>,'.repeat(40000)}];\n`,
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), ['imports file:hb.mjs -> file:u.mjs']);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => d.path).sort(), ['grande.mjs', 'hb.cjs']);
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');
