@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T20:29:58.262Z",
+  "publicadoEm": "2026-09-30T20:30:01.790Z",
   "threads": [
     {
       "id": "ork-pacotedeexpe",
@@ -19,20 +19,6 @@
       "esperaVoce": true,
       "pergunta": "autorizacao da retomada",
       "paradaDesde": "2026-09-30T14:24:22.691Z"
-    },
-    {
-      "id": "ork-rm025modocon",
-      "nome": "RM-025: modo context e histórico do Company Brain no OrkMind",
-      "modo": "#Auto",
-      "fase": "GOAL",
-      "status": "aberta",
-      "roadmap": "RM-025",
-      "branch": "ork/ork-rm025modocon-full",
-      "atualizadaEm": "2026-09-29T12:36:20.744Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
     },
     {
       "id": "ork-rm031kg3",
@@ -57,20 +43,6 @@
       "roadmap": "RM-050",
       "branch": "ork/ork-rm050guiade2-full",
       "atualizadaEm": "2026-09-29T12:41:53.825Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-siteshomesco",
-      "nome": "Sites: homes completas nas 3 línguas, página Contribuir e docs em dia com a 0.5.0",
-      "modo": "#Auto",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-siteshomesco-full",
-      "atualizadaEm": "2026-09-29T12:24:34.505Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
