@@ -62,14 +62,14 @@ caractere que o próprio micromark usa (as entidades do HTML5, e o número com a
 inválido por U+FFFD).
 
 O juiz de sintaxe do JavaScript é o V8 do Node que roda a extração (D16), injetado pelo
-`core/scripts/sintaxe-node.cjs`. Ele lê a fonte como o carregador lê: a linha `#!` do início
-fica em branco até o fim de linha do V8 (LF, CR, U+2028 ou U+2029), e o BOM sai só no ESM, como no
-Node. CommonJS compila em
-função, como o carregador faz (`vm.compileFunction`). ESM compila em lote, num único processo filho
-por extração, com `vm.SourceTextModule`, que só analisa o módulo, sem ligar nem avaliar. O veredito
-volta estruturado pela saída padrão, e a de erro nunca é lida. Módulo tão aninhado que estoura a
-pilha do V8 no filho faz a extração falhar com `extracao.limite.pilha`. Nada é executado. A versão do Node
-entra na versão do `ork.ts-ast`, porque o formato e a resolução do runtime dependem dela.
+`core/scripts/sintaxe-node.cjs`. Ele lê a fonte como o carregador lê: a linha `#!` do início fica
+em branco até o fim de linha do V8 (LF, CR, U+2028 ou U+2029), e o BOM sai só no ESM, como no Node.
+CommonJS compila em função, como o carregador faz (`vm.compileFunction`). ESM compila em lote, num
+único processo filho por extração, com `vm.SourceTextModule`, que só analisa o módulo, sem ligar
+nem avaliar. O veredito volta estruturado pela saída padrão, e a de erro nunca é lida. Módulo tão
+aninhado que estoura a pilha do V8 no filho faz a extração falhar com `extracao.limite.pilha`. Nada
+é executado. A versão do Node entra na versão do `ork.ts-ast`, porque o formato e a resolução do
+runtime dependem dela.
 
 ## Nós
 
