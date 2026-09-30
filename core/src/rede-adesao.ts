@@ -100,22 +100,43 @@ export function adesaoDaRede(): EstadoDaAdesao {
 }
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const arquivoDoId = (): string => path.join(pastaDoUsuario(), 'maquina-id');
+
+function lerId(arquivo: string): string | null {
+  try { const id = fs.readFileSync(arquivo, 'utf8').trim(); return ID.test(id) ? id : null; } catch { return null; }
+}
+
+/** O id desta instalacao, sem criar: `null` quando ela nunca publicou (a leitura nao cria estado). */
+export function lerIdDaMaquina(): string | null {
+  return lerId(arquivoDoId());
+}
 
 /**
- * B7 do CHECK 1: um identificador aleatorio desta instalacao, em `~/.orkastery/rede/maquina-id`,
- * criado na primeira publicacao. Vai no retrato para duas maquinas com o mesmo nome (hostname
- * `ubuntu`, o corte em 64 caracteres) nao regravarem o arquivo uma da outra. Nao identifica pessoa.
+ * B7 do CHECK 1: um identificador aleatorio desta instalacao, criado na primeira publicacao. Vai no
+ * retrato para duas maquinas com o mesmo nome (hostname `ubuntu`, o corte em 64 caracteres) nao
+ * regravarem o arquivo uma da outra. Nao identifica pessoa.
+ *
+ * S3 da revisao 2: mora em `~/.orkastery/maquina-id`, ao lado do `maquina.json`, e NAO na pasta de
+ * cache `~/.orkastery/rede/`: apagar o cache nao pode fazer a maquina virar outra de si mesma.
+ * S10: a criacao e atomica (`link` de um temporario), e conteudo vazio ou corrompido e trocado
+ * (`rename`), em vez de travar publicar, entrar e sair para sempre.
  */
 export function idDaMaquina(): string {
-  const arquivo = path.join(pastaDaRede(), 'maquina-id');
-  const ler = () => { try { const id = fs.readFileSync(arquivo, 'utf8').trim(); return ID.test(id) ? id : null; } catch { return null; } };
-  const lido = ler();
+  const arquivo = arquivoDoId();
+  const lido = lerId(arquivo);
   if (lido) return lido;
-  fs.mkdirSync(pastaDaRede(), { recursive: true });
-  const novo = randomUUID();
-  // `wx`: duas publicacoes simultaneas na primeira vez; uma cria, a outra le a que ficou.
-  try { fs.writeFileSync(arquivo, novo, { mode: 0o600, flag: 'wx' }); return novo; }
-  catch { const outro = ler(); if (outro) return outro; throw new Error('rede.id: nao consegui gravar nem ler ~/.orkastery/rede/maquina-id'); }
+  fs.mkdirSync(pastaDoUsuario(), { recursive: true });
+  const temporario = path.join(pastaDoUsuario(), `.maquina-id.${process.pid}.${randomUUID()}.tmp`);
+  fs.writeFileSync(temporario, randomUUID(), { mode: 0o600 });
+  try {
+    if (fs.existsSync(arquivo)) fs.renameSync(temporario, arquivo);
+    else {
+      try { fs.linkSync(temporario, arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+    }
+  } finally { fs.rmSync(temporario, { force: true }); }
+  const persistido = lerId(arquivo);
+  if (!persistido) throw new Error(`rede.id: nao consegui gravar nem ler ${arquivo}`);
+  return persistido;
 }
 
 export const ehIdDeMaquina = (v: unknown): v is string => typeof v === 'string' && ID.test(v);

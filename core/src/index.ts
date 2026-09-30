@@ -2251,6 +2251,7 @@ function comandoNetwork(args: Args): number {
     console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
       `privado${r.criado ? ', criado agora' : ''}).`);
     console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
+    if (r.publicacao.tomouNome) console.log(`  Tomou o nome "${r.publicacao.maquina}" de outra instalacao; o commit registra.`);
     console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
     for (const d of r.publicacao.descartados) {
       console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
@@ -2265,7 +2266,8 @@ function comandoNetwork(args: Args): number {
     console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
       ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
       : r.alheio
-        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.`
+        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
+          (r.mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : '')
         : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
     if (lerConfigDaMaquina()?.fabricaCompartilhada) {
       console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');

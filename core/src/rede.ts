@@ -181,7 +181,7 @@ function versaoDoAdaptador(host: Host, home: string): string | null {
   return typeof recibo?.versao === 'string' && VERSAO_ESTRITA.test(recibo.versao) ? recibo.versao : null;
 }
 
-function hostnameSeguro(): string {
+export function hostnameSeguro(): string {
   const bruto = os.hostname().trim();
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$/.test(bruto) ? bruto : bruto.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 253) || 'desconhecido';
 }
@@ -522,6 +522,8 @@ export interface ResultadoDaRede {
   tentativas: number;
   /** Projetos que ficaram fora do retrato por ter valor com cara de segredo (campo e padrao, sem o valor). */
   descartados: Descarte[];
+  /** S7 da revisao 2: esta publicacao tomou o nome de outra instalacao (`entrar --forcar`). */
+  tomouNome?: true;
 }
 
 interface CasaConferida { casa: CasaDaRede; forja: Forja; url: string; criado: boolean; identidades: IdentidadeNaForja[] }
@@ -582,8 +584,13 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       const atual = retratos.find((r) => r.maquina === maquina);
       const alheio = !!atual?.id && atual.id !== retrato.id;
       if (alheio && !opcoes.tomarNome) {
+        // S3 da revisao 2: com o hostname desta maquina, o mais provavel e ela mesma com um id novo.
+        const dica = atual!.hostname === hostnameSeguro()
+          ? '; o retrato tem o hostname desta maquina: se ~/.orkastery foi apagada ou copiada, retome o nome com ork network entrar --forcar; ' +
+            'se e outra instalacao neste computador, escolha outro nome com ork network entrar --maquina NOME'
+          : '; escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar';
         throw new Error(`rede.nome-em-uso: outra instalacao ja publica como "${maquina}" (hostname ${atual!.hostname}, batida ` +
-          `${formatarDataHora(atual!.publicadoEm)}); escolha outro nome com ork network entrar --maquina NOME, ou tome este com --forcar`);
+          `${formatarDataHora(atual!.publicadoEm)})${dica}`);
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
@@ -596,7 +603,7 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       if (commit) {
         gravarMarca({ assinatura, em: retrato.publicadoEm, commit, casa: refDaCasa(casa), forja: casa.forja, maquina,
           projetos: retrato.projetos, forjas: retrato.forjas });
-        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, descartados };
+        return { acao: 'publicou', maquina, casa: refDaCasa(casa), commit, tentativas: tentativa, descartados, ...(alheio ? { tomouNome: true as const } : {}) };
       }
     }
     throw new Error(`rede.concorrencia: ${TENTATIVAS} pushes recusados seguidos; tente de novo em instantes`);
@@ -689,6 +696,8 @@ export interface ResultadoDaSaida {
   commit: string | null;
   /** B7: o arquivo com este nome e de outra instalacao; nada foi removido. */
   alheio: boolean;
+  /** S3 da revisao 2: a outra instalacao tem o hostname desta (provavelmente ela mesma, com id novo). */
+  mesmoHostname?: true;
 }
 
 /**
@@ -718,7 +727,9 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
       // outra instalacao (retrato valido com outro `id`) fica.
       const invalido = invalidos.some((x) => x.arquivo === proprio);
       if (!atual && !invalido) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
-      if (atual?.id && atual.id !== id) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true };
+      if (atual?.id && atual.id !== id) {
+        return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true, ...(atual.hostname === hostnameSeguro() ? { mesmoHostname: true as const } : {}) };
+      }
       const mudancas: MudancaNaBranch[] = [
         { caminho: proprio, conteudo: null },
         { caminho: PAINEL_DA_REDE, conteudo: painelDaRede(retratos.filter((x) => x.maquina !== maquina)) },

@@ -17,7 +17,7 @@ import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, lerMarcaDaRede, nomeSeguro, prepararCache, refDaCasa,
   resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato } from './rede';
-import { Adesao, adesaoDaRede } from './rede-adesao';
+import { Adesao, adesaoDaRede, lerIdDaMaquina } from './rede-adesao';
 import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
 import { projetosConhecidos } from './rede-projetos';
 
@@ -28,7 +28,7 @@ export const SEM_BATIDA_MS = 3 * 60 * 60 * 1000;
 export const NAO_CONSULTADO: readonly string[] = ['roadmap', 'reservas', 'threads'];
 
 export type TipoDeLacuna = 'forja.ausente' | 'forja.sem-login' | 'rede.sem-repositorio' | 'rede.repositorio-publico' |
-  'rede.sem-leitura' | 'retrato.invalido' | 'maquina.sem-batida' | 'fabrica.sem-leitura' | 'projeto.sem-clone';
+  'rede.sem-leitura' | 'retrato.invalido' | 'maquina.sem-batida' | 'maquina.nome-em-uso' | 'fabrica.sem-leitura' | 'projeto.sem-clone';
 
 export interface Lacuna { tipo: TipoDeLacuna; detalhe: string; maquina?: string; projeto?: string }
 
@@ -61,7 +61,7 @@ export interface StatusDaRede {
   contrato: typeof CONTRATO_DO_STATUS;
   consultadoEm: string;
   casa: (Omit<CasaDaRede, 'origem'> & { origem: CasaDaRede['origem'] | 'marca' }) | null;
-  estaMaquina: { maquina: string; membro: boolean; adesao: Adesao | null; publicada: boolean };
+  estaMaquina: { maquina: string; membro: boolean; adesao: Adesao | null; publicada: boolean; nomeEmUso: boolean };
   fontes: FonteDaRede[];
   membros: MembroDaRede[];
   lacunas: Lacuna[];
@@ -200,6 +200,15 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
     }
   }
 
+  // S7 da revisao 2: o retrato com o nome desta maquina pode ser de outra instalacao (tomou o nome).
+  const meuId = lerIdDaMaquina();
+  const comMeuNome = retratos.find((r) => r.maquina === eu);
+  const nomeEmUso = !!comMeuNome?.id && !!meuId && comMeuNome.id !== meuId;
+  if (nomeEmUso) {
+    lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: `o retrato "${eu}" na casa e de outra instalacao: esta maquina nao ` +
+      'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)' });
+  }
+
   // 4. O frescor de cada maquina (D15).
   const lista = [...membros.values()].sort((a, b) => a.maquina.localeCompare(b.maquina));
   for (const m of lista) {
@@ -207,7 +216,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   }
   return {
     contrato: CONTRATO_DO_STATUS, consultadoEm, casa: casa ? { ...casa } : null,
-    estaMaquina: { maquina: eu, membro: adesao.membro, adesao: adesao.adesao, publicada: retratos.some((r) => r.maquina === eu) },
+    estaMaquina: { maquina: eu, membro: adesao.membro, adesao: adesao.adesao, publicada: !!comMeuNome && !nomeEmUso, nomeEmUso },
     fontes, membros: lista, lacunas, naoConsultado: [...NAO_CONSULTADO],
   };
 }
@@ -238,7 +247,8 @@ export function textoDaRede(s: StatusDaRede): string {
   linhas.push('');
   if (s.membros.length === 0) linhas.push('Nenhuma máquina lida. Isso não quer dizer que não há máquinas: veja as lacunas.');
   for (const m of s.membros) {
-    const esta = m.maquina === s.estaMaquina.maquina ? ' (esta máquina)' : '';
+    const esta = m.maquina !== s.estaMaquina.maquina ? ''
+      : m.origem === 'rede' && s.estaMaquina.nomeEmUso ? ' (outra instalação com o nome desta máquina)' : ' (esta máquina)';
     const origem = m.origem === 'rede' ? `rede${m.adesao === 'fabrica' ? ', adesão herdada da fábrica' : ''}`
       : `vista só na fábrica de ${m.projetos.map((p) => p.nome).join(', ')}; não publica na rede`;
     linhas.push(`${m.maquina}${esta} · ${origem} · batida ${formatarDataHora(m.publicadoEm)} (há ${duracao(m.idadeMs)})`);

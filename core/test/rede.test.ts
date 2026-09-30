@@ -19,7 +19,7 @@ import { gravarConfigDaMaquina } from '../src/maquina';
 import { procurarSegredos } from '../src/policies';
 import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, normalizarRetrato, prepararCache, publicarRede,
   publicarRedeNaBatida, retratoDaMaquina, sairDaRede } from '../src/rede';
-import { adesaoDaRede, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
+import { adesaoDaRede, idDaMaquina, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
 import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
 import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
 import { adicionarPerfil } from '../src/runtime-profiles';
@@ -385,7 +385,7 @@ test('RM-053 segredo: nada de token, credencial, caminho de credencial ou conta 
       const retrato = JSON.parse(blobs.find((b) => b.includes('"ork.rede-maquina/v1"'))!);
       assert.deepEqual(Object.keys(retrato).sort(), ['adesao', 'contrato', 'forjas', 'hostname', 'hosts', 'id', 'maquina', 'projetos',
         'publicadoEm', 'runtimes', 'versaoOrk']);
-      assert.equal(retrato.id, fs.readFileSync(path.join(usuario, 'rede', 'maquina-id'), 'utf8'), 'o id aleatorio desta instalacao, nada da pessoa');
+      assert.equal(retrato.id, fs.readFileSync(path.join(usuario, 'maquina-id'), 'utf8'), 'o id aleatorio desta instalacao, nada da pessoa');
       assert.deepEqual(retrato.forjas, [{ forja: 'github', host: 'github.com', cli: 'gh', versao: '2.99.0', usuario: 'pessoa-teste' },
         { forja: 'gitlab', host: 'gitlab.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' }]);
       assert.deepEqual(retrato.runtimes, [{ runtime: 'claude-bg', binario: 'claude', versao: '9.9.9' }, { runtime: 'codex', binario: 'codex', versao: '0.99.0' }]);
@@ -655,7 +655,7 @@ test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas 
     const json = JSON.parse(st.stdout);
     assert.equal(json.contrato, 'ork.rede-status/v1');
     assert.deepEqual(json.membros.map((m: { maquina: string; origem: string }) => [m.maquina, m.origem]), [['pc-a', 'rede'], ['pc-b', 'rede']]);
-    assert.deepEqual(json.estaMaquina, { maquina: 'pc-a', membro: true, adesao: 'rede', publicada: true });
+    assert.deepEqual(json.estaMaquina, { maquina: 'pc-a', membro: true, adesao: 'rede', publicada: true, nomeEmUso: false });
     assert.deepEqual([json.lacunas, json.naoConsultado], [[], ['roadmap', 'reservas', 'threads']]);
     assert.deepEqual(json.casa, { forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network', origem: 'rede.json' });
 
@@ -679,7 +679,7 @@ test('RM-053 ciclo: entrar, status, publicar e sair pelo CLI, com duas maquinas 
     const depois = JSON.parse(ork(fora, ['network', 'status', '--json'], envDe(ua)).stdout);
     assert.deepEqual(depois.membros.map((m: { maquina: string }) => m.maquina), ['pc-a']);
     const deB = JSON.parse(ork(fora, ['network', 'status', '--json'], envDe(ub)).stdout);
-    assert.deepEqual(deB.estaMaquina, { maquina: 'pc-b', membro: false, adesao: null, publicada: false });
+    assert.deepEqual(deB.estaMaquina, { maquina: 'pc-b', membro: false, adesao: null, publicada: false, nomeEmUso: false });
 
     assert.equal(ork(fora, ['network', 'entrar', '--forja', 'bitbucket'], envDe(ua)).status, 2);
     assert.equal(ork(fora, ['network', 'voar'], envDe(ua)).status, 2);
@@ -925,14 +925,19 @@ test('RM-053 autoria: duas instalacoes com o mesmo nome nao regravam o retrato u
     const deA = exec('git', ['show', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout;
     naMaquina(ub, () => {
       assert.throws(() => entrarNaRede({ amb, maquina: 'ubuntu' }),
-        /^Error: rede\.nome-em-uso: outra instalacao ja publica como "ubuntu" \(hostname .+, batida .+\); escolha outro nome/);
+        /^Error: rede\.nome-em-uso: outra instalacao ja publica como "ubuntu" \(hostname .+, batida .+\);.* escolha outro nome com ork network entrar --maquina NOME/);
       // M2: a entrada que falhou nao deixou adesao nem nome gravados aqui.
       assert.deepEqual([lerConfigDaRede(), fs.existsSync(path.join(ub, 'maquina.json'))], [null, false]);
       assert.equal(exec('git', ['show', 'main:maquinas/ubuntu.json'], casaFalsa(f)).stdout, deA, 'o retrato de A continua o de A');
       const tomou = entrarNaRede({ amb, maquina: 'ubuntu', tomarNome: true });
-      assert.equal(tomou.publicacao.acao, 'publicou');
+      assert.deepEqual([tomou.publicacao.acao, tomou.publicacao.tomouNome], ['publicou', true]);
       assert.match(exec('git', ['log', '-1', '--format=%s', 'main'], casaFalsa(f)).stdout, /^rede: ubuntu publicou o retrato, tomando o nome de outra instalacao/);
     });
+    // S7 da revisao 2: A, que perdeu o nome, ve isso no status, e nao se ve como membro publicado.
+    const statusDeA = naMaquina(ua, () => lerRede({ amb, maquina: 'ubuntu' }));
+    assert.deepEqual([statusDeA.estaMaquina.publicada, statusDeA.estaMaquina.nomeEmUso], [false, true]);
+    assert.deepEqual(statusDeA.lacunas.map((l) => l.tipo), ['maquina.nome-em-uso']);
+    assert.match(textoDaRede(statusDeA), /^ubuntu \(outra instalação com o nome desta máquina\) · rede · batida /m);
     // A, que perdeu o nome, sai sem apagar o retrato de quem o tomou.
     const saida = naMaquina(ua, () => sairDaRede({ amb, maquina: 'ubuntu' }));
     assert.deepEqual([saida.commit, saida.alheio], [null, true]);
@@ -1142,4 +1147,31 @@ test('RM-053 autoria: o sair tira o proprio arquivo mesmo invalido, e host ou fo
       assert.equal(exec('git', ['cat-file', '-e', 'main:maquinas/pc-a.json'], casaFalsa(f)).ok, false);
     });
   } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: o id da instalacao mora fora do cache; apagar o cache nao muda a maquina, e id corrompido e trocado (S3, S10)', () => {
+  const f = forjaFalsa('autoria-id');
+  const u = dirTemporario('rede-id');
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const id = fs.readFileSync(path.join(u, 'maquina-id'), 'utf8');
+      // Apagar o cache (um gesto natural diante de cache quebrado) nao faz a maquina virar outra.
+      fs.rmSync(path.join(u, 'rede'), { recursive: true, force: true });
+      assert.equal(publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao, 'publicou');
+      assert.equal(fs.readFileSync(path.join(u, 'maquina-id'), 'utf8'), id);
+      // Sem o id (a pasta do usuario apagada), a mensagem aponta a propria maquina e o caminho de volta.
+      fs.rmSync(path.join(u, 'maquina-id'));
+      assert.throws(() => publicarRede({ amb, maquina: 'pc-a', forcar: true }),
+        /^Error: rede\.nome-em-uso: .*; o retrato tem o hostname desta maquina: se ~\/\.orkastery foi apagada ou copiada, retome o nome com ork network entrar --forcar; se e outra instalacao neste computador, escolha outro nome/);
+      assert.equal(entrarNaRede({ amb, maquina: 'pc-a', tomarNome: true }).publicacao.tomouNome, true);
+      // S10: arquivo vazio (queda no meio da gravacao) e trocado por um id valido, sem travar.
+      fs.writeFileSync(path.join(u, 'maquina-id'), '');
+      const novo = idDaMaquina();
+      assert.match(novo, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      assert.equal(fs.readFileSync(path.join(u, 'maquina-id'), 'utf8'), novo);
+      assert.equal(idDaMaquina(), novo, 'estavel depois de criado');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
