@@ -3478,6 +3478,9 @@ function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
 }
 
 export function main(argvBruto: string[]): number {
+  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
+  // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
+  registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
   const extraida = extrairOpcaoDeProjeto(argvBruto);
@@ -3485,8 +3488,6 @@ export function main(argvBruto: string[]): number {
   const argv = proprio && extraida.projeto !== undefined
     ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
   const projeto = proprio ? undefined : extraida.projeto;
-  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso).
-  registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
     if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) throw Error('uso: ork receipt-verifiers --json');
