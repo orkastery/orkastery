@@ -199,7 +199,7 @@ import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
-import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
+import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
@@ -517,6 +517,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
+        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
+                                             o padrao e o item dela; --todos volta a todo item (RM-037)
   docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
 
   mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
@@ -2718,8 +2720,29 @@ function comandoDocs(args: Args): number {
   }
   if (sub === 'sincronizar') {
     const escrever = args.opcoes.escrever === true;
-    const r = sincronizarDocs(raiz, { baseBranch, escrever });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaSincronizacao(r, escrever));
+    // RM-037 (rm037noite, defeito 5): o escopo. `--so` diz os itens; sem ele, na worktree de uma thread
+    // com item, so o item dela; `--todos` (ou fora de worktree de thread) volta a todo item.
+    const so = texto(args.opcoes.so);
+    let itens: string[] | undefined;
+    let escopo = 'todo item do roadmap';
+    if (so) {
+      itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
+      const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
+      if (fora.length || itens.length === 0) {
+        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        return 2;
+      }
+      escopo = `so ${itens.join(', ')} (--so)`;
+    } else if (args.opcoes.todos !== true) {
+      const padrao = escopoPadraoDoSync(raiz);
+      if (padrao.itens) {
+        itens = padrao.itens;
+        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+      }
+    }
+    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
+      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -2730,7 +2753,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] | init`);
+  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 

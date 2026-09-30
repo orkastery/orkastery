@@ -20,7 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { lerYaml, ValorYaml } from './yaml';
-import { dirThread } from './thread';
+import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
@@ -665,6 +665,11 @@ export interface MudancaDeSync {
 export interface OpcoesDeSync {
   baseBranch?: string;
   escrever?: boolean;
+  /**
+   * RM-037 (rm037noite, defeito 5): so estes itens (`RM-NNN`) mudam; os indices seguem regerados.
+   * Sem a lista, todo item de roadmap entra, como antes.
+   */
+  itens?: readonly string[];
   /** Relogio injetavel para teste; so marca `atualizado_em` quando algo mudou. */
   agora?: () => string;
 }
@@ -706,13 +711,31 @@ function temBranch(raiz: string, thread: string): boolean {
 
 const ORDEM_DO_CODIGO = DIMENSOES.codigo;
 
+/**
+ * RM-037 (rm037noite, defeito 5): o escopo padrao do `ork docs sincronizar`. Na worktree de uma thread
+ * com item do roadmap, so o item dela: da worktree da ork-rm037noite, o sincronizar gravava RM-025,
+ * 026, 031, 038, 048, 049, 050 e 054, e cada PR conflitava com as outras. Fora de worktree de thread
+ * (a raiz, onde o condutor sincroniza depois do merge), todo item, como antes.
+ */
+export function escopoPadraoDoSync(raiz: string): { itens: string[] | null; thread: string | null } {
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const aqui = real(raiz);
+  for (const id of listarIds(raiz)) {
+    let t;
+    try { t = lerThread(raiz, id); } catch { continue; }
+    if (t.worktree && real(t.worktree) === aqui) return { itens: t.roadmap ? [t.roadmap] : null, thread: t.id };
+  }
+  return { itens: null, thread: null };
+}
+
 export function sincronizarDocs(raiz: string, opcoes: OpcoesDeSync = {}): { mudancas: MudancaDeSync[]; indices: string[] } {
   const base = resolverBase(raiz, opcoes.baseBranch) ?? (opcoes.baseBranch ?? 'main');
   const agora = opcoes.agora ?? (() => isoComFusoLocal(new Date()));
   const { docs } = carregarDocs(raiz);
   const mudancas: MudancaDeSync[] = [];
+  const noEscopo = (d: Documento) => !opcoes.itens || opcoes.itens.includes(d.id);
 
-  for (const d of docs.filter((x) => x.tipo === 'roadmap')) {
+  for (const d of docs.filter((x) => x.tipo === 'roadmap' && noEscopo(x))) {
     const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
     const thread = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread : null;
     if (!thread) continue;
@@ -754,7 +777,7 @@ export function sincronizarDocs(raiz: string, opcoes: OpcoesDeSync = {}): { muda
 
   // As tabelas de estado do corpo sao vistas do frontmatter: regeradas em todo item de roadmap,
   // inclusive quando a pessoa mudou o frontmatter a mao (ciclo, deploy, exposicao...).
-  for (const d of docs.filter((x) => x.tipo === 'roadmap')) {
+  for (const d of docs.filter((x) => x.tipo === 'roadmap' && noEscopo(x))) {
     const novo = substituirBloco(substituirBloco(d.corpo, RELANCE_INI, RELANCE_FIM, renderizarRelance(d)),
       ESTADO_INI, ESTADO_FIM, renderizarEstado(d));
     if (novo !== d.corpo) {

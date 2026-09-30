@@ -31,12 +31,12 @@
 ## Paridade
 
 - **Com o código:** página de produto e item de roadmap têm frontmatter. O `ork docs verificar` reprova fonte que não existe, comando que o CLI não declara, commit de merge fora da `main` e seção esquecida.
-- **Com o git:** as tabelas entre os marcadores `ork-docs:` saem do frontmatter, e o `ork docs verificar` reprova quando elas divergem. Mudou o frontmatter de um item? Regere as tabelas, confira o diff e commite só o item que você mudou (numa máquina com threads, o comando também traz fatos delas):
+- **Com o git:** as tabelas entre os marcadores `ork-docs:` saem do frontmatter, e o `ork docs verificar` reprova quando elas divergem. Mudou o frontmatter de um item? Regere as tabelas do item com `--so`, confira o diff e commite só o item que você mudou (na worktree de uma thread, o padrão já é o item dela):
 
 <!-- checagem: citado -->
 
 ```bash
-node core/dist/index.js docs sincronizar --escrever
+node core/dist/index.js docs sincronizar --escrever --so RM-NNN
 ```
 
 - **De idioma:** `README.md` e `README.pt-BR.md` mudam juntos, no mesmo PR. O resto de `docs/` é pt-BR.
