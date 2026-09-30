@@ -14,7 +14,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-pacotedeexpe | #Auto | GO | RM-051 | — | 30/09 11:00 |
 | vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 30/09 11:00 |
 | vps | ork-rm031kg3 | #Auto | GOAL | RM-031 | — | 30/09 11:00 |
-| vps | ork-rm037noite | #Auto | SHIP | RM-037 | sim: autorizacao da retomada | 30/09 11:00 |
 | vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 30/09 11:00 |
 | vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 30/09 11:00 |
 
