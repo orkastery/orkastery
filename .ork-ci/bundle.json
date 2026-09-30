@@ -1,56 +1,884 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-rm050guiadec",
+  "thread": "ork-rm053network",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-rm050guiadec",
+      "thread": "ork-rm053network",
       "fase": "GOAL",
-      "arquivo": "docs",
-      "alegacao": "A documentação com os guias de contribuição passa na paridade do ork docs verificar",
+      "arquivo": "docs/conceitos/decisoes/ADR-001-estado-da-rede.md",
+      "alegacao": "S1: o ADR-001 compara repositório privado por pessoa na forja, branch por repositório agregada (modelo da RM-047) e gist/snippet nos seis critérios do pedido (só gh/glab autenticados, push atômico sem força, sem servidor próprio, sem segredo, auditável por git, sobrevive à máquina offline) e registra a decisão",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar"
+        "core/node_modules/.bin/markdownlint-cli2 docs/conceitos/decisoes/ADR-001-estado-da-rede.md",
+        "f=docs/conceitos/decisoes/ADR-001-estado-da-rede.md && grep -q 'orkastery-network' $f && grep -q 'ork/fabrica-estado' $f && grep -qi 'gist' $f && grep -q '^## Decisão' $f && grep -qi 'push atômico' $f && grep -qi 'offline' $f"
       ],
-      "criadoEm": "2026-09-29T02:35:22.158Z",
+      "criadoEm": "2026-09-29T23:16:54.131Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C5",
-      "thread": "ork-rm050guiadec",
+      "id": "C2",
+      "thread": "ork-rm053network",
       "fase": "GOAL",
-      "arquivo": "CONTRIBUTING.md",
-      "alegacao": "O CONTRIBUTING.md é um índice curto, com a nota de boas-vindas em inglês, e aponta para os nove guias em docs/guias/contribuir",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "S2: o item RM-053 nasce do modelo, com problema, evidência, hipótese, métrica, escopo, critérios de aceite, prioridade, a próxima fatia e o achado do HITL de despacho registrados; a documentação da rede passa na paridade do ork docs verificar",
       "negativa": false,
       "verificar": [
-        "test \"$(wc -l < CONTRIBUTING.md)\" -le 60 && grep -q 'Contributions in English are welcome' CONTRIBUTING.md && for g in o-que-contribuir desenvolvimento-local testes-e-verificacao documentacao pull-request lint-e-estilo triagem versoes-e-publicacao com-o-ork; do test -f docs/guias/contribuir/$g.md && grep -q \"docs/guias/contribuir/$g.md\" CONTRIBUTING.md || exit 1; done"
+        "npm --prefix core run build && npm --prefix core run build:test && node core/dist/index.js docs verificar",
+        "f=docs/roadmap/RM-053-orkastery-network.md && grep -q '^id: RM-053$' $f && grep -q 'Hipótese' $f && grep -qi 'critério' $f && grep -q 'phase_dispatch_failed' $f && grep -q 'RM-054' $f && grep -q 'RM-052' $f"
       ],
-      "criadoEm": "2026-09-29T02:35:29.731Z",
+      "criadoEm": "2026-09-29T23:16:54.544Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/fabrica-publicar.ts",
+      "alegacao": "S10: sem regressão nos módulos tocados: a fábrica compartilhada (RM-047), o teto do pulse e a verificação de docs seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/fabrica-estado.test.js core/dist-test/test/pulse-teto.test.js core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-09-29T23:16:57.848Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/rede-rm053.md",
+      "alegacao": "T1: a referência de contratos da rede documenta ork.rede/v1, ork.rede-maquina/v1 e ork.rede-status/v1, as lacunas tipadas e as fronteiras com a RM-052 (~/.orkastery/projetos.json) e a RM-054",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/rede-rm053.md",
+        "f=docs/referencia/contratos/rede-rm053.md && for c in ork.rede/v1 ork.rede-maquina/v1 ork.rede-status/v1 projetos.json RM-052 RM-054 maquina.sem-batida rede.sem-repositorio; do grep -q \"$c\" $f || exit 1; done"
+      ],
+      "criadoEm": "2026-09-29T23:19:32.643Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "T7: o índice do roadmap, gerado pelo ork docs sincronizar, lista a RM-053",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "grep -q 'RM-053' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-09-29T23:19:35.488Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/varias-maquinas.md",
+      "alegacao": "T7: o guia Várias máquinas explica a rede da pessoa: entrar, status, sair, o que vai e o que nunca vai, e a migração da fábrica",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/varias-maquinas.md && grep -q 'ork network entrar' docs/guias/varias-maquinas.md && grep -q 'orkastery-network' docs/guias/varias-maquinas.md"
+      ],
+      "criadoEm": "2026-09-29T23:19:35.894Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "T7: a referência do CLI tem os quatro comandos de ork network",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "for s in 'ork network entrar' 'ork network status' 'ork network sair' 'ork network publicar'; do grep -q \"$s\" docs/referencia/cli.md || exit 1; done"
+      ],
+      "criadoEm": "2026-09-29T23:19:36.294Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/README.md",
+      "alegacao": "T7: o índice da documentação aponta para o ADR-001 da rede",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "grep -q 'ADR-001' docs/README.md"
+      ],
+      "criadoEm": "2026-09-29T23:19:36.694Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "T7: o CHANGELOG registra a rede em Não publicado, com link para a RM-053",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md",
+        "grep -q 'RM-053' CHANGELOG.md && grep -q 'ork network' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-09-29T23:19:37.091Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "S3: ork network entrar, status e sair funcionam de ponta a ponta com duas máquinas e forja simulada: entrar cria o repositório privado quando falta, cada máquina publica o próprio retrato, status lista as duas e sair tira só o retrato de quem saiu",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 ciclo' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 ciclo' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:00.402Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "S4: ork network status funciona fora de qualquer clone e declara a fonte, o horário, o que não consultou e as lacunas tipadas (sem forja, sem login, sem repositório, sem leitura, máquina sem batida); lacuna nunca vira lista vazia",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 honestidade' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 honestidade' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:00.847Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "S5: máquina que já fez ork fabrica entrar (sem rede.json) é membro da rede sem refazer e publica na batida do pulse; máquina que só publicou em ork/fabrica-estado aparece no status como membro pela fábrica",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 migracao' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 migracao' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:01.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "S6: a varredura de todos os blobs do repositório da rede não acha token, credencial, caminho de credencial nem dado de conta paga plantados no ambiente, na forja e nos runtimes; retrato com valor de cara de segredo é recusado antes do push",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 segredo' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 segredo' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:01.733Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "S7: cada publicação só muda maquinas/<própria>.json e REDE.md; a guarda recusa caminho de outra máquina; retrato com nome trocado é ignorado na leitura e vira lacuna",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 autoria' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 autoria' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:02.168Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-forja.ts",
+      "alegacao": "S8: repositório da rede público é recusado (nada é publicado); GitLab passa pela mesma interface de forja que o GitHub",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 forja' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 forja' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:02.626Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-projetos.ts",
+      "alegacao": "S9: os projetos conhecidos vêm do registro da RM-052 (~/.orkastery/projetos.json) por adaptador tolerante, com o projeto do cwd e o último retrato como reserva; remoto sai sem credencial",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 projetos' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 projetos' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:03.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/test/rede.test.ts",
+      "alegacao": "T2-T6: a suíte da rede (forja simulada, nenhum acesso à forja real) passa inteira",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 ' && echo \"$out\" | grep -Eq '^# fail 0$' && test \"$(echo \"$out\" | grep -Ec '^ok [0-9]+ - RM-053 ')\" -ge 12"
+      ],
+      "criadoEm": "2026-09-29T23:26:03.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/test/apoio.ts",
+      "alegacao": "T4: o apoio dos testes desliga a publicação da rede em segundo plano (ORK_REDE_PUBLICAR=0), e as suítes que usam o apoio seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"ORK_REDE_PUBLICAR\" core/test/apoio.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap core/dist-test/test/rede.test.js core/dist-test/test/fabrica-estado.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 ' && echo \"$out\" | grep -Eq '^# fail 0$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - duas maquinas'"
+      ],
+      "criadoEm": "2026-09-29T23:26:03.959Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "T5: o CLI tem ork network entrar, status, sair e publicar, na ajuda e de ponta a ponta com forja simulada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && h=$(node core/dist/index.js --help) && for s in 'network entrar' 'network status' 'network sair' 'network publicar'; do echo \"$h\" | grep -q \"$s\" || exit 1; done",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 ciclo' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 ciclo' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:26:04.438Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "T4/T6: a adesão da máquina à rede (ork.rede/v1) é explícita em rede.json ou herdada de ork fabrica entrar, sair vence a herança, e o disparo em segundo plano respeita ORK_REDE_PUBLICAR=0, a adesão e o teto de 15 min",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 migracao' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 migracao' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:31:19.642Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "T4: a leitura da rede (ork.rede-status/v1) junta os retratos da casa e as máquinas só da fábrica legada, com fontes, lacunas tipadas e naoConsultado, inclusive fora de qualquer clone",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 honestidade' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 honestidade' && echo \"$out\" | grep -Eq '^# fail 0$'",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 migracao' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 migracao' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:31:19.966Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/test/thread.test.ts",
+      "alegacao": "T6: a suíte de thread (que despacha fase) roda isolada pelo apoio: nenhum teste publica fábrica ou rede a partir da pasta de usuário de quem roda",
+      "negativa": true,
+      "verificar": [
+        "grep -q \"^import './apoio';\" core/test/thread.test.ts",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap core/dist-test/test/thread.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - ' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-29T23:45:07.819Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
+      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit a17ff88); a paridade confere que o commit está na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "grep -q '^    commit: a17ff88$' docs/roadmap/RM-025-company-brain-fundacao.md"
+      ],
+      "criadoEm": "2026-09-29T23:49:06.555Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit a17ff88); a paridade confere que o commit está na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "grep -q '^    commit: a17ff88$' docs/roadmap/RM-026-workspace-empresarial.md"
+      ],
+      "criadoEm": "2026-09-29T23:49:06.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
+      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit 8d47740, codigo Mesclado); a paridade confere que o commit está na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "grep -q '^    commit: 8d47740$' docs/roadmap/RM-048-hitl-humano-no-centro.md && grep -q '^  codigo: Mesclado$' docs/roadmap/RM-048-hitl-humano-no-centro.md"
+      ],
+      "criadoEm": "2026-09-29T23:49:07.539Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-050-guia-de-contribuicao.md",
+      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit 3c7e8a7, codigo Mesclado); a paridade confere que o commit está na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "grep -q '^    commit: 3c7e8a7$' docs/roadmap/RM-050-guia-de-contribuicao.md && grep -q '^  codigo: Mesclado$' docs/roadmap/RM-050-guia-de-contribuicao.md"
+      ],
+      "criadoEm": "2026-09-29T23:49:07.857Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-delivery.ts",
+      "alegacao": "T6 (recadastro da C33): a batida do pulse publica o retrato da máquina membro da rede, depois da entrega do pulse, e a suíte do teto do pulse segue verde",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 migracao' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 migracao' && echo \"$out\" | grep -Eq '^# fail 0$'",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap core/dist-test/test/pulse-teto.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - ' && echo \"$out\" | grep -Eq '^# fail 0$' && test \"$(echo \"$out\" | grep -Ec '^ok [0-9]+ - ')\" -ge 3"
+      ],
+      "criadoEm": "2026-09-30T00:21:41.606Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "T7 (recadastro da C39): ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit 8589330, codigo Mesclado); a paridade confere que o commit está na base",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "grep -Eq '^    commit: \"?8589330\"?$' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q '^  codigo: Mesclado$' docs/roadmap/RM-031-grafo-de-codigo.md"
+      ],
+      "criadoEm": "2026-09-30T00:21:49.990Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "GO-FIX 1 R1: a adesão da rede grava a marca e o log sem ISO cru em texto, e o lint de horário (RM-035) volta a passar; B4: o teto de tentativa é 14 min, abaixo do cron de 15",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='lint: campo ISO' core/dist-test/test/horario-lint.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - lint: campo ISO' && echo \"$out\" | grep -Eq '^# fail 0$'",
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 migracao: o teto' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 migracao: o teto' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T00:22:48.258Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-forja.ts",
+      "alegacao": "GO-FIX 1 A2, B5, B8 e M5: todo git da rede roda isolado do ambiente de quem chamou: GIT_DIR e cia. herdados de um hook não tocam o projeto, não há prompt nem SSH interativo, o stderr vem em inglês e autor e committer da casa são a máquina, nunca o e-mail do ambiente",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='RM-053 isolamento' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - RM-053 isolamento' && test \"$(echo \"$out\" | grep -Ec '^ok [0-9]+ - RM-053 isolamento')\" -ge 3 && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T00:24:53.405Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-031-orkastery-network.md",
+      "alegacao": "D1/T7: a FEAT da rede, renumerada para FEAT-031, descreve comportamento, regras (inclusive as do GO-FIX 1), contratos e operação, com fontes (código, testes, símbolos, comandos) conferidas pelo ork docs verificar",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-031-orkastery-network.md && grep -q '^id: FEAT-031$' docs/produto/FEAT-031-orkastery-network.md && grep -q 'ork network entrar' docs/produto/FEAT-031-orkastery-network.md && grep -q 'rede.nome-em-uso' docs/produto/FEAT-031-orkastery-network.md"
+      ],
+      "criadoEm": "2026-09-30T00:41:18.427Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "T7 (recadastro da C17): o índice do produto, gerado pelo ork docs sincronizar, lista a feature da rede como FEAT-031",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs",
+        "grep -q 'FEAT-031-orkastery-network' docs/produto/README.md && ! grep -q 'FEAT-030-orkastery-network' docs/produto/README.md"
+      ],
+      "criadoEm": "2026-09-30T00:41:21.211Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-projetos.ts",
+      "alegacao": "GO-FIX 4, V1 e V3 da revisão 4: nos transportes ssh e git://, remoto com ? ou # vira null (login e senha nunca vão no lugar do host) e o host guarda a caixa de origem; o nome de projeto segue uma regra só no registro, no cwd e na reserva, e trocar de diretório não gera commit",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(V1\\)|\\(V3\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V1\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V3\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T03:02:52.096Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "GO-FIX 4, V2, V6, V7, V8 e V9 da revisão 4: o leitor recusa retrato com caractere invisível ou com cara de segredo e remonta o remoto alheio; o REDE.md escapa o Markdown; a trava órfã só sai se, já movida, continua órfã; lixo com id não prende o nome; token colado a letra ou _, hf_, npm_, AIza e sk-proj- tiram o projeto; a casa só por https",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(V2\\)|\\(V4, V6\\)|\\(V7\\)|\\(V8\\)|\\(V9\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V2\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V4, V6\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V7\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V8\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V9\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T03:02:52.528Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "GO-FIX 4, V4 e V5 da revisão 4: processos concorrentes recebem o mesmo id da instalação, com o arquivo ausente, vazio, corrompido e sem hard link; o processo lento que viu o mesmo arquivo ruim grava o mesmo id que o rápido devolveu",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(V4, V5\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V4, V5\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T03:02:52.941Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "GO-FIX 4, V2, V7 e V9 na leitura: o texto do ork network status sai sem controle nem bidi, e o JSON os escreve como \\uXXXX sem perda; o nome desta máquina num contrato mais novo de outra instalação vira maquina.nome-em-uso; URL da casa sem https vira lacuna",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(V2\\)|\\(V7\\)|\\(V9\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V2\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V7\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V9\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T03:02:53.385Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "GO-FIX 4, V2: ork network status e ork network status --json, pelo CLI, saem sem caractere de controle nem bidi; o JSON os escreve como \\uXXXX",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(V2\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V2\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T03:02:53.814Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-031-orkastery-network.md",
+      "alegacao": "V10 e BR-031-08 do GO-FIX 4: a FEAT-031 aponta ~/.orkastery/maquina-id (fora do cache), registra o rede.sem-https e a regra de nada invisível passar pela rede",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && node core/scripts/checar-links.cjs && core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-031-orkastery-network.md",
+        "f=docs/produto/FEAT-031-orkastery-network.md && ! grep -q 'rede/maquina-id' $f && grep -q '~/.orkastery/maquina-id' $f && grep -q 'BR-031-08' $f && grep -q 'rede.sem-https' $f"
+      ],
+      "criadoEm": "2026-09-30T03:02:54.239Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/rede-rm053.md",
+      "alegacao": "V10, V1, V2 e V9 no contrato: lerRede mora em core/src/rede-status.ts; ssh e git:// com ? ou # viram null; o leitor recusa texto invisível e cara de segredo e remonta o remoto alheio; o JSON escreve os invisíveis como \\uXXXX; a casa só por https",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/rede-rm053.md",
+        "f=docs/referencia/contratos/rede-rm053.md && grep -q 'lerRede()` em `core/src/rede-status.ts`' $f && grep -q 'não para a autoridade em' $f && grep -q 'O leitor recusa' $f && grep -q 'rede.sem-https' $f"
+      ],
+      "criadoEm": "2026-09-30T03:02:54.669Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "CHECK 4 e GO-FIX 4 registrados no item, com a evidência dos testes por versão: os processos concorrentes reprovam b3f5dbe e o processo lento reprova f4da67c; a paridade do ork docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "f=docs/roadmap/RM-053-orkastery-network.md && grep -q 'CHECK 4 (29/09)' $f && grep -q 'GO-FIX 4 (30/09)' $f && grep -q 'reprova `f4da67c`' $f"
+      ],
+      "criadoEm": "2026-09-30T03:02:55.104Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/varias-maquinas.md",
+      "alegacao": "O guia diz o que fazer quando a rede recusa com rede.sem-https e quando um projeto sai do retrato por nome fora da regra",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/varias-maquinas.md && grep -q 'rede.sem-https' docs/guias/varias-maquinas.md && grep -q 'regra de nome de projeto' docs/guias/varias-maquinas.md"
+      ],
+      "criadoEm": "2026-09-30T03:02:55.531Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG registra que a casa da rede só fala por HTTPS e que nada que o terminal execute chega à saída do ork network status nem ao REDE.md",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md && grep -q 'a casa só fala por HTTPS' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-09-30T03:02:55.954Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-projetos.ts",
+      "alegacao": "GO-FIX 5, W1, W4 e W11 da revisão 5: a regra de nome de projeto é a do leitor (texto visível, sem espaço nas pontas, até 80 unidades UTF-16): nomes de pasta comuns passam, invisíveis e preenchimentos Hangul não; o valor que vem de fora vai numa linha só",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(W1, W5, W11\\)|\\(W4\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W1, W5, W11\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W4\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T04:00:59.218Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "GO-FIX 5, W1, W2, W3, W5 e W12 da revisão 5: o escritor filtra projetos com o predicado do leitor e a máquina publica sempre; nome comum não passa por segredo; o id com cabeçalho do contrato prende o nome e o projeto suspeito sai sozinho da leitura; REDE.md sem autolink; helper só para https",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(W1, W5, W11\\)|\\(W2\\)|\\(W3\\)|\\(W10, W12\\)|caminho invisivel' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W1, W5, W11\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W2\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W3\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W10, W12\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W12\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T04:00:59.654Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "GO-FIX 5, W6, W7 e W8 da revisão 5: sem hard link, o id é derivado da pasta e do boot e nunca passa por arquivo vazio; link pendurado no lugar do id é trocado; o id derivado muda com o boot (VMs clonadas); a corrida entre processos continua sem divergência",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(W6, W7, W8\\)|\\(V4, V5\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W6, W7, W8\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V4, V5\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T04:01:00.083Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "GO-FIX 5, W4 e W10 da revisão 5: cada valor do texto do ork network status vai numa linha só (uma quebra de linha de fora não abre linha que parece do ork); com a casa sem https, o status lê só a cópia local e não diz lida agora",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(W4\\)|\\(W10, W12\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W4\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W10, W12\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T04:01:00.495Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-031-orkastery-network.md",
+      "alegacao": "W13 do GO-FIX 5: a FEAT-031 diz que o escritor usa o predicado de projeto do leitor, que o retrato com cabeçalho de outra instalação prende o nome e que a casa sem https vira rede.sem-leitura com a última cópia local",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-031-orkastery-network.md",
+        "f=docs/produto/FEAT-031-orkastery-network.md && grep -q 'mesmo predicado de projeto do leitor' $f && grep -q 'quando tem o cabeçalho do contrato' $f && grep -q 'lacuna `rede.sem-leitura` e só a última cópia local' $f"
+      ],
+      "criadoEm": "2026-09-30T04:01:01.360Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "CHECK 5 e GO-FIX 5 registrados no RM-053, com a W9 como limitação aceita na próxima fatia, o achado do ork fabrica fora do escopo e a SHIP por PR em rascunho; a paridade do ork docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "f=docs/roadmap/RM-053-orkastery-network.md && grep -q 'CHECK 5 (30/09)' $f && grep -q 'GO-FIX 5 (30/09)' $f && grep -q 'W9 do CHECK 5, limitação aceita' $f && grep -q 'o `ork fabrica` (RM-047) imprime' $f && grep -q 'SHIP por PR em rascunho' $f"
+      ],
+      "criadoEm": "2026-09-30T04:01:01.778Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-projetos.ts",
+      "alegacao": "GO-FIX 6, X1 e X3 da revisão 6: nome de projeto sem :// e com algo visível; caractere invisível pelas classes do Unicode (controle, formato, separadores e Default_Ignorable), fora o ZWJ e os seletores que montam emoji",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(X1\\)|\\(X3, X4, X7\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X1\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X3, X4, X7\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:05:39.647Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "GO-FIX 6, X1 e X4 da revisão 6: o REDE.md escapa o : (sem autolink de http://x no GFM); os padrões de segredo voltam a pegar token colado a letra, _ ou -, com a cauda de um token de verdade separando token de palavra, e pegam sk-None-",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(X1\\)|\\(X3, X4, X7\\)|\\(V8\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X1\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X3, X4, X7\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V8\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:05:40.087Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-adesao.ts",
+      "alegacao": "GO-FIX 6, X2 da revisão 6: o link pendurado no lugar do id, trocado ou tirado por outro processo entre o lstat e o readlink, não derruba o id da instalação; o boot entra no id derivado pelo caminho real",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(X2\\)|\\(W6, W7, W8\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X2\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W6, W7, W8\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:05:40.504Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "GO-FIX 6, X5 da revisão 6: o texto do status preserva números (a ida e volta em JSON trocava NaN por null); batida ilegível da fábrica legada vira a lacuna maquina.sem-batida, nunca há menos de 1 min",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(X5\\)|\\(W4\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X5\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W4\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:05:40.923Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/rede-rm053.md",
+      "alegacao": "X8 do GO-FIX 6 (recadastro da C63): o contrato descreve a regra de nome do escritor e a do leitor, o id que prende o nome pelo cabeçalho, o ssh+git, o caminho local, o valor numa linha, o projeto fora da leitura, a casa sem https, o . e o : escapados, o invisível pelas classes do Unicode e a limitação do id derivado",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/rede-rm053.md",
+        "f=docs/referencia/contratos/rede-rm053.md && grep -q 'com o cabeçalho do contrato' $f && grep -q 'com algo visível' $f && grep -q '`git+ssh`, `ssh+git`)' $f && grep -q 'caminho local absoluto' $f && grep -q 'cada valor numa linha só' $f && grep -q 'projeto fora da leitura' $f && grep -q 'URL dela sem https' $f && grep -q 'inclusive o `.` e o `:`' $f && grep -q 'Default_Ignorable_Code_Point' $f && grep -q 'X6 do CHECK 6' $f && ! grep -q 'na regra do leitor' $f"
+      ],
+      "criadoEm": "2026-09-30T05:05:41.339Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-031-orkastery-network.md",
+      "alegacao": "X8 do GO-FIX 6: a FEAT-031 descreve o id como aleatório na criação e derivado na troca, e a BR-031-08 declara a exceção do ZWJ e dos seletores de emoji",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-031-orkastery-network.md",
+        "f=docs/produto/FEAT-031-orkastery-network.md && grep -q 'aleatório quando criado; derivado do arquivo ruim' $f && grep -q 'fora o ZWJ e os seletores que montam emoji' $f && ! grep -q 'identificador aleatório desta instalação' $f"
+      ],
+      "criadoEm": "2026-09-30T05:05:41.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "CHECK 6 e GO-FIX 6 registrados no RM-053, com a X6 como limitação aceita e a guarda do id derivado declarada sem teste na suíte; a paridade do ork docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "f=docs/roadmap/RM-053-orkastery-network.md && grep -q 'CHECK 6 (30/09)' $f && grep -q 'GO-FIX 6 (30/09)' $f && grep -q 'X6 do CHECK 6, limitação aceita' $f && grep -q 'não tem teste na suíte' $f"
+      ],
+      "criadoEm": "2026-09-30T05:05:42.182Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-status.ts",
+      "alegacao": "GO-FIX 7, Y1 da revisão 7: na fusão das fábricas legadas, a batida legível de outra fábrica vence a ilegível guardada antes; a máquina não aparece com batida ilegível quando outra fábrica tem a de agora",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(Y1\\)|\\(X5\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(Y1\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X5\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:31:11.246Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "GO-FIX 7, Y2 e Y3 da revisão 7: o padrão AWS pede borda de maiúscula e dígito dos dois lados e a OpenAI 60 na cauda; os falsos positivos da revisão 7 ficam limpos, o token colado a minúscula ou _ continua pego, e cada lookahead de caixa tem prova",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && out=$(node --test --test-reporter=tap --test-name-pattern='\\(W2\\)|\\(X3, X4, X7\\)|\\(V8\\)' core/dist-test/test/rede.test.js) && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(W2\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(X3, X4, X7\\)$' && echo \"$out\" | grep -Eq '^ok [0-9]+ - .*\\(V8\\)$' && echo \"$out\" | grep -Eq '^# fail 0$'"
+      ],
+      "criadoEm": "2026-09-30T05:31:11.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/rede-rm053.md",
+      "alegacao": "Y4 e Y5 do GO-FIX 7: o contrato diz que só o projeto do diretório atual sai com aviso (o registro e o último retrato descartam na leitura), registra a limitação das marcas Cf e a batida ilegível na lacuna maquina.sem-batida",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/rede-rm053.md",
+        "f=docs/referencia/contratos/rede-rm053.md && grep -q 'o registro e o último retrato o descartam na leitura, sem aviso' $f && grep -q 'Y4 do CHECK 7' $f && grep -q 'ou é ilegível' $f"
+      ],
+      "criadoEm": "2026-09-30T05:31:12.115Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C76",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-031-orkastery-network.md",
+      "alegacao": "Y5 do GO-FIX 7: a BR-031-03 diz que o aviso vem para o projeto do diretório atual, e que o registro e o último retrato descartam na leitura",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 docs/produto/FEAT-031-orkastery-network.md",
+        "f=docs/produto/FEAT-031-orkastery-network.md && grep -q 'com aviso quando vem do diretório atual' $f && grep -q 'mesmo predicado de projeto do leitor' $f"
+      ],
+      "criadoEm": "2026-09-30T05:31:12.538Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C77",
+      "thread": "ork-rm053network",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "CHECK 7 e GO-FIX 7 registrados no RM-053, com a Y4 como limitação aceita; a paridade do ork docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar",
+        "f=docs/roadmap/RM-053-orkastery-network.md && grep -q 'CHECK 7 (30/09)' $f && grep -q 'GO-FIX 7 (30/09)' $f && grep -q 'Y4 do CHECK 7, limitação aceita' $f"
+      ],
+      "criadoEm": "2026-09-30T05:31:12.957Z",
       "estado": "verificado",
       "lint": []
     }
   ],
   "deferredClaims": [
     {
-      "id": "C2",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C3",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C4",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C6",
-      "reason": "artifact-not-in-checkout"
-    },
-    {
-      "id": "C7",
+      "id": "C47",
       "reason": "artifact-not-in-checkout"
     }
   ],
