@@ -87,6 +87,16 @@ memory:
   database_url_env: "ORKASTERY_BRAIN_READ_DATABASE_URL"
   cli: orkmind
   timeout_ms: 15000
+  # I-38: embeddings da busca por significado (ork memory search --texto). provider none desliga.
+  # api_key_env e o NOME da variavel com a chave dedicada, nunca o valor. O conteudo indexado do
+  # tenant sai para o OpenRouter; subscription-only continua valendo para os runtimes.
+  embedding:
+    provider: "openrouter"
+    model: "qwen/qwen3-embedding-8b"
+    dim: 1024
+    api_key_env: "ORKASTERY_EMBEDDING_API_KEY"
+    fallback_model: "intfloat/multilingual-e5-small"
+    max_tokens_por_execucao: 1000000
 
 audit:
   # governanca de custo dos auditores periodicos (bloco B5, visao secao 5.3)
