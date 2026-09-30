@@ -37,6 +37,7 @@ A [verificação](../verificacao.md) explica claim, baseline e o lint do comando
 
 - Na seção "A prova", a saída de `ork verify <thread>`.
 - No último commit, o `.ork-ci/<thread>.json`.
+- Claim que afirma ausência com `git grep` no repositório inteiro exclui `':(exclude).ork-ci/'`: os bundles das threads já entregues ficam versionados e citam os comandos delas.
 - Nada de `.orkastery/` no commit.
 
 ## O que o mantenedor faz

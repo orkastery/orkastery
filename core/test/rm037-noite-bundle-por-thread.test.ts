@@ -64,6 +64,22 @@ test('defeito 1: o CI acha o bundle pela branch; o legado so vale quando a threa
   } finally { p.limpar(); }
 });
 
+test('defeito 1 (A4 do CHECK 1): bundle novo de outra branch nao vale, e o da branch que nao abre reprova', () => {
+  const p = projetoTemporario('rm037noite-bundle-outra-entrega');
+  try {
+    // A fatia 1 da ork-fase entrou com o bundle dela; a fatia 2, noutra branch, esqueceu o ci prepare.
+    bundleNoDisco(p.dir, 'ork-fase.json', 'ork-fase', 'ork/ork-fase-goal');
+    assert.equal(bundleDaBranch(p.dir, 'ork/ork-fase-goal')?.arquivo, '.ork-ci/ork-fase.json');
+    assert.equal(bundleDaBranch(p.dir, 'ork/ork-fase-go'), null, 'as claims da fatia 1 nao provam a fatia 2');
+    // O bundle da propria branch com marcador de conflito: reprova, nao cede a vez ao legado.
+    bundleNoDisco(p.dir, 'bundle.json', 'ork-quebrada');
+    fs.writeFileSync(path.join(p.dir, '.ork-ci', 'ork-quebrada.json'), '<<<<<<< HEAD\n{}\n=======\n');
+    assert.throws(() => bundleDaBranch(p.dir, 'ork/ork-quebrada-full'),
+      /^Error: ci\.bundle\.invalido: \.ork-ci\/ork-quebrada\.json e o bundle da branch ork\/ork-quebrada-full e nao abre/);
+    assert.equal(bundleDaBranch(p.dir, 'ork/ork-outra-full'), null, 'o arquivo quebrado de outra thread nao atrapalha');
+  } finally { p.limpar(); }
+});
+
 test('defeito 1: branch de thread sem bundle reprova; a main roda so os comandos do manifesto', () => {
   const p = projetoTemporario('rm037noite-bundle-run');
   try {

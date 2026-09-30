@@ -233,10 +233,15 @@ function lerBundle(raiz: string, file: string): BundleCi {
   return bundle;
 }
 
+const casaComBranch = (thread: string, branch: string): boolean =>
+  branch === `ork/${thread}` || branch.startsWith(`ork/${thread}-`);
+
 /**
- * O bundle da branch, entre os `.ork-ci/*.json` do checkout. Vale o de `branch` igual; sem ele, o da
- * thread cuja branch e `ork/<thread>` ou `ork/<thread>-*` (a mais longa ganha: `ork-a` nao leva a
- * branch da `ork-ab`). O `bundle.json` legado entra pela mesma regra. `null` quando nenhum bate.
+ * O bundle da branch, entre os `.ork-ci/*.json` do checkout. Vale o de `branch` igual. O bundle sem
+ * `branch` (o `bundle.json` legado, de antes da RM-037) vale pela thread, quando a branch e
+ * `ork/<thread>` ou `ork/<thread>-*` (a mais longa ganha: `ork-a` nao leva a branch da `ork-ab`).
+ * Bundle novo de outra branch nunca vale, nem da mesma thread (achado A4 do CHECK 1), e o arquivo da
+ * thread da branch que nao abre reprova em vez de ceder a vez a outro. `null` quando nenhum bate.
  */
 export function bundleDaBranch(raiz: string, branch: string): { arquivo: string; bundle: BundleCi } | null {
   const dir = path.join(raiz, DIR_DO_BUNDLE);
@@ -245,10 +250,16 @@ export function bundleDaBranch(raiz: string, branch: string): { arquivo: string;
   for (const nome of fs.readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
     const arquivo = path.posix.join(DIR_DO_BUNDLE, nome);
     let bundle: BundleCi;
-    try { bundle = lerBundle(raiz, arquivo); } catch { continue; }
+    try { bundle = lerBundle(raiz, arquivo); } catch (e) {
+      if (nome !== BUNDLE_LEGADO && casaComBranch(nome.slice(0, -'.json'.length), branch)) {
+        throw new Error(`ci.bundle.invalido: ${arquivo} e o bundle da branch ${branch} e nao abre ` +
+          `(${(e as Error).message}); rode ork ci prepare <thread> de novo e versione o arquivo`);
+      }
+      continue;
+    }
     if (nome !== BUNDLE_LEGADO && nome !== `${bundle.thread}.json`) continue;
-    const daThread = branch === `ork/${bundle.thread}` || branch.startsWith(`ork/${bundle.thread}-`);
-    const peso = bundle.branch === branch ? Number.MAX_SAFE_INTEGER : daThread ? bundle.thread.length : 0;
+    const peso = bundle.branch === branch ? Number.MAX_SAFE_INTEGER
+      : !bundle.branch && casaComBranch(bundle.thread, branch) ? bundle.thread.length : 0;
     if (peso > 0 && (!melhor || peso > melhor.peso)) melhor = { arquivo, bundle, peso };
   }
   return melhor ? { arquivo: melhor.arquivo, bundle: melhor.bundle } : null;
