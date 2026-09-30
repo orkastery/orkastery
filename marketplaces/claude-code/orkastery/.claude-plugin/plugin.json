@@ -1,0 +1,41 @@
+{
+  "name": "orkastery",
+  "displayName": "Orkastery",
+  "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
+  "version": "0.4.3",
+  "author": {
+    "name": "Julio Pessoa and Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "homepage": "https://orkastery.com/",
+  "repository": "https://github.com/orkastery/orkastery",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "coding-agents",
+    "verification",
+    "human-in-the-loop",
+    "git-worktrees",
+    "methodology"
+  ],
+  "skills": [
+    "./skills/core/onboarding",
+    "./skills/core/orkastery-bootstrap",
+    "./skills/core/thread-state",
+    "./skills/phases/check-quality",
+    "./skills/phases/go-implementation",
+    "./skills/phases/goal-definition",
+    "./skills/phases/master-metrics",
+    "./skills/phases/plan-specification",
+    "./skills/phases/ship-release",
+    "./skills/reviewers/code-reviewer",
+    "./skills/reviewers/security-auditor",
+    "./skills/reviewers/test-engineer",
+    "./skills/reviewers/web-performance-auditor",
+    "./skills/governance/decision-triage",
+    "./skills/governance/narrative-guardian",
+    "./skills/governance/roadmap-keeper",
+    "./skills/governance/scope-check-capability-map",
+    "./skills/observability/thread-tracing"
+  ]
+}

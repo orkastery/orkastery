@@ -34,3 +34,4 @@ below are in Brazilian Portuguese too.
 - Vulnerabilidade: nunca em issue pública. Ver [SECURITY.md](SECURITY.md).
 - Convivência: [código de conduta](CODE_OF_CONDUCT.md).
 - Toda a documentação: [docs/README.md](docs/README.md).
+- Plugin dos marketplaces: `marketplaces/claude-code/orkastery/` e `marketplaces/codex/orkastery/` são cópia gerada do catálogo. Mexeu em `skills/`, `references/`, `adapters/claude-code/`, `adapters/codex/` ou na versão do `core/package.json`? Rode `node core/scripts/gerar-marketplaces.cjs` e comite o resultado; o CI roda o mesmo script com `--verificar`. Guia em [marketplaces/README.md](marketplaces/README.md).
