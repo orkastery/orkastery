@@ -4,21 +4,21 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T20:45:01.652Z",
+  "publicadoEm": "2026-09-30T20:53:23.664Z",
   "threads": [
     {
       "id": "ork-pacotedeexpe",
       "nome": "RM-051 pacote de experiencia de orquestracao",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-051",
       "branch": "ork/ork-rm051pacote-full",
-      "atualizadaEm": "2026-09-30T20:41:44.996Z",
-      "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-30T14:24:22.691Z"
+      "atualizadaEm": "2026-09-30T20:53:23.462Z",
+      "entregue": "732ce8d3",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     }
   ]
 }
