@@ -45,7 +45,7 @@ test('toda tool do MCP aceita projeto (so nome, schema fechado); o projeto servi
   comServidor(async (p, c) => {
     const t = novaThread(p.carregado, { nome: 'Fixture', modo: 'auto' }).thread;
     const tools = (await c.listTools()).tools;
-    assert.equal(tools.length, 25, 'nenhuma tool nova no catalogo');
+    assert.equal(tools.length, 27, 'as 25 da RM-052 mais ork_roadmap_reservas e ork_fabrica da RM-051');
     for (const tool of tools) {
       const props = tool.inputSchema.properties as Record<string, { pattern?: string }>;
       assert.ok(props.projeto, `${tool.name} aceita projeto`);
