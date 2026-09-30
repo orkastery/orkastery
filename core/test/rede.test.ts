@@ -17,8 +17,8 @@ import { publicarMaquina } from '../src/fabrica-estado';
 import { exigirManifesto } from '../src/manifest';
 import { gravarConfigDaMaquina } from '../src/maquina';
 import { procurarSegredos } from '../src/policies';
-import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, prepararCache, publicarRede, publicarRedeNaBatida,
-  retratoDaMaquina, sairDaRede } from '../src/rede';
+import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, normalizarRetrato, prepararCache, publicarRede,
+  publicarRedeNaBatida, retratoDaMaquina, sairDaRede } from '../src/rede';
 import { adesaoDaRede, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
 import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
 import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
@@ -1072,5 +1072,74 @@ test('RM-053 forja: GitLab de ponta a ponta, so com o glab: entrar, status e sai
     assert.deepEqual(status.membros[0].forjas, [{ forja: 'gitlab', host: 'gitlab.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' }]);
     assert.match(String(naMaquina(ub, () => sairDaRede({ amb, maquina: 'pc-lab-b' })).commit), /^[a-f0-9]{40}$/);
     assert.deepEqual(naMaquina(ua, () => lerRede({ amb, maquina: 'pc-lab-a' })).membros.map((m) => m.maquina), ['pc-lab-a']);
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// GO-FIX 2 (revisao 2): o escritor publica o que o leitor aceita.
+// ---------------------------------------------------------------------------
+
+test('RM-053 autoria: todo retrato publicado passa no leitor, mesmo com nome de maquina e de projeto nos limites (S2)', () => {
+  const f = forjaFalsa('autoria-limites');
+  const [ua, ub] = [dirTemporario('rede-limites-a'), dirTemporario('rede-limites-b')];
+  const p = projetoTemporario('rede-limites', true);
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    // Projeto do cwd com nome de manifesto de 90 caracteres, e um do registro com remoto que passa de 500 no scp.
+    fs.writeFileSync(path.join(p.dir, 'orkastery.yaml'), fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8')
+      .replace(/name: .*/, `name: ${'n'.repeat(90)}`));
+    const longo = comManifesto(path.join(ub, 'longo'));
+    const registro = path.join(ub, 'projetos.json');
+    fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [
+      { nome: 'remoto-longo', raiz: longo, remoto: `git@github.com:${'r'.repeat(490)}.git` },
+    ] }));
+    naMaquina(ub, () => {
+      // Membro herdado da fabrica, com o nome vindo de ORK_MAQUINA (espaco e acento, sem validar).
+      gravarConfigDaMaquina({ nome: null, fabricaCompartilhada: true });
+      const antes = process.env.ORK_MAQUINA;
+      process.env.ORK_MAQUINA = 'Meu PC do Escritório';
+      try {
+        const r = publicarRede({ amb, diretorio: p.dir, arquivoDeProjetos: registro, forcar: true });
+        assert.equal(r.acao, 'publicou');
+        assert.equal(r.maquina, 'Meu-PC-do-Escrit-rio');
+        assert.deepEqual(r.descartados.map((d) => d.padrao), ['fora do contrato ork.rede-maquina/v1'], 'o projeto de nome longo sai, com aviso');
+      } finally { if (antes === undefined) delete process.env.ORK_MAQUINA; else process.env.ORK_MAQUINA = antes; }
+    });
+    const bruto = JSON.parse(exec('git', ['show', 'main:maquinas/Meu-PC-do-Escrit-rio.json'], casaFalsa(f)).stdout);
+    assert.ok(normalizarRetrato(bruto), 'o leitor aceita o que o escritor publicou');
+    assert.deepEqual(bruto.projetos, [{ nome: 'remoto-longo', remoto: null, caminho: longo }], 'remoto longo demais vira null');
+    const status = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a' }));
+    assert.deepEqual(status.membros.map((m) => m.maquina), ['Meu-PC-do-Escrit-rio', 'pc-a']);
+    assert.deepEqual(status.lacunas, []);
+  } finally { f.limpar(); p.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 autoria: o sair tira o proprio arquivo mesmo invalido, e host ou forja novos nao invalidam a maquina (S9, S2)', () => {
+  const f = forjaFalsa('autoria-sair-invalido');
+  const [ua, ub] = [dirTemporario('rede-sair-invalido-a'), dirTemporario('rede-sair-invalido-b')];
+  try {
+    const amb = ligado(f);
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b' }));
+    naMaquina(ua, () => {
+      entrarNaRede({ amb, maquina: 'pc-a' });
+      const cache = dirDoCache({ forja: 'github', host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network' });
+      const { ponta } = buscarBranch(cache, 'origin', 'main', 'teste');
+      // Uma versao nova do ork publicou pc-b com um host e uma forja que esta versao nao conhece.
+      const deB = JSON.parse(exec('git', ['show', `${ponta}:maquinas/pc-b.json`], cache).stdout);
+      const novo = { ...deB, hosts: [...deB.hosts, { host: 'host-do-futuro', versao: '1.0.0', adaptador: null }],
+        forjas: [...deB.forjas, { forja: 'bitbucket', host: 'bitbucket.org', cli: 'bb', versao: null, usuario: 'x' }], campoNovo: 1 };
+      assert.ok(gravarNaBranch(cache, 'origin', 'main', ponta, [
+        { caminho: 'maquinas/pc-a.json', conteudo: '{ quebrado' },
+        { caminho: 'maquinas/pc-b.json', conteudo: JSON.stringify(novo) },
+      ], 'teste: arquivo invalido e retrato de versao nova', 'teste'));
+      const status = lerRede({ amb, maquina: 'pc-a' });
+      const b = status.membros.find((m) => m.maquina === 'pc-b');
+      assert.ok(b, 'a maquina da versao nova continua visivel');
+      assert.deepEqual([b.hosts.map((h) => h.host).includes('host-do-futuro' as never), b.forjas.map((x) => x.forja)], [false, ['github', 'gitlab']]);
+      const saida = sairDaRede({ amb, maquina: 'pc-a' });
+      assert.match(String(saida.commit), /^[a-f0-9]{40}$/, 'o proprio arquivo invalido saiu');
+      assert.equal(exec('git', ['cat-file', '-e', 'main:maquinas/pc-a.json'], casaFalsa(f)).ok, false);
+    });
   } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
 });

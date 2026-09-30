@@ -15,7 +15,7 @@ import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
-import { BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, lerMarcaDaRede, prepararCache, refDaCasa,
+import { BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, lerMarcaDaRede, nomeSeguro, prepararCache, refDaCasa,
   resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato } from './rede';
 import { Adesao, adesaoDaRede } from './rede-adesao';
 import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
@@ -106,7 +106,7 @@ function membroDoRetrato(r: RetratoDaMaquina, agoraMs: number): MembroDaRede {
 export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   const consultadoEm = o.agora ?? new Date().toISOString();
   const agoraMs = Date.parse(consultadoEm);
-  const eu = nomeDaMaquina(o.maquina);
+  const eu = nomeSeguro(nomeDaMaquina(o.maquina));
   const adesao = adesaoDaRede();
   const lacunas: Lacuna[] = [], fontes: FonteDaRede[] = [];
   const membros = new Map<string, MembroDaRede>();

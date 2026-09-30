@@ -81,8 +81,12 @@ const VERSAO_ESTRITA = /^\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.]{1,20})?$/;
 
 export const refDaCasa = (c: Pick<CasaDaRede, 'host' | 'dono' | 'repositorio'>): string => `${c.host}/${c.dono}/${c.repositorio}`;
 
-/** O nome da maquina no que vai a forja: so o que o git e a forja aceitam sem surpresa. */
-function nomeSeguro(maquina: string): string {
+/**
+ * O nome da maquina no que vai a forja: so o que o git e a forja aceitam sem surpresa. E o mesmo no
+ * arquivo, no campo `maquina` do retrato, na trava e nos commits (S2 da revisao 2: o leitor recusava o
+ * retrato de nome longo ou com espaco que o escritor publicava).
+ */
+export function nomeSeguro(maquina: string): string {
   const nome = maquina.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '').slice(0, 64);
   if (!nome) throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME`);
   return nome;
@@ -218,17 +222,28 @@ export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: Re
   });
   const { projetos } = projetosConhecidos({ arquivo: opcoes.arquivoDeProjetos, diretorio: opcoes.diretorio, anteriores: opcoes.anteriores });
   const descartados: Descarte[] = [];
-  const presentes = projetos.filter((p) => p.presente).map((p) => ({ nome: p.nome, remoto: p.remoto, caminho: p.caminho }));
+  // S2 da revisao 2: so vai o que o leitor aceita. Remoto longo demais vira `null` (e informativo);
+  // nome ou caminho fora do contrato tiram o projeto, com aviso; no maximo 200 projetos.
+  const presentes = projetos.filter((p) => p.presente)
+    .map((p) => ({ nome: p.nome, remoto: p.remoto !== null && p.remoto.length <= 500 ? p.remoto : null, caminho: p.caminho }));
   const limpos = presentes.filter((p, i) => {
+    if (!p.nome.trim() || p.nome.length > 80 || p.caminho.length > 1024) {
+      descartados.push({ campo: `projetos[${i}]`, padrao: 'fora do contrato ork.rede-maquina/v1' });
+      return false;
+    }
     for (const campo of ['nome', 'remoto', 'caminho'] as const) {
       const padrao = typeof p[campo] === 'string' ? achadoDeSegredo(p[campo] as string) : null;
       if (padrao) { descartados.push({ campo: `projetos[${i}].${campo}`, padrao }); return false; }
     }
     return true;
   });
+  if (limpos.length > MAXIMO_DE_ITENS) {
+    descartados.push({ campo: `projetos[${MAXIMO_DE_ITENS}..]`, padrao: `limite de ${MAXIMO_DE_ITENS} projetos` });
+    limpos.length = MAXIMO_DE_ITENS;
+  }
   const retrato: RetratoDaMaquina = {
     contrato: CONTRATO_DO_RETRATO,
-    maquina: nomeDaMaquina(opcoes.maquina),
+    maquina: nomeSeguro(nomeDaMaquina(opcoes.maquina)),
     ...(opcoes.id ? { id: opcoes.id } : {}),
     hostname: hostnameSeguro(),
     adesao: opcoes.adesao ?? adesaoDaRede().adesao ?? 'rede',
@@ -294,6 +309,8 @@ export function exigirRetratoSeguro(r: RetratoDaMaquina): void {
     if (!Array.isArray(r[lista])) throw new Error(`rede.segredo: ${lista} fora do contrato; nada foi publicado`);
     r[lista].forEach((item, i) => exigirSoCampos(`${lista}[${i}]`, item, CAMPOS[lista]));
   }
+  // S2 da revisao 2: o que o escritor publica, o leitor aceita; senao, ninguem ve esta maquina.
+  if (!normalizarRetrato(r)) throw new Error('rede.contrato: o retrato desta maquina nao passa no contrato ork.rede-maquina/v1; nada foi publicado');
   const visitar = (v: unknown, onde: string): void => {
     if (typeof v === 'string') {
       const achado = achadoDeSegredo(v);
@@ -324,14 +341,22 @@ const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 const ehTexto = (v: unknown, teto = 1024): v is string => typeof v === 'string' && v.length <= teto;
 const ehTextoOuNulo = (v: unknown, teto = 1024): v is string | null => v === null || ehTexto(v, teto);
 
-/** Cada item de uma lista do retrato, campo a campo; so os campos do contrato saem. */
-function itens<T>(v: unknown, item: (x: Record<string, unknown>) => T | null): T[] | null {
-  if (!Array.isArray(v) || v.length > 200) return null;
+/** O teto de itens de cada lista do retrato, igual no escritor e no leitor. */
+export const MAXIMO_DE_ITENS = 200;
+const PULAR = Symbol('pular');
+
+/**
+ * Cada item de uma lista do retrato, campo a campo; so os campos do contrato saem. Item com valor de
+ * enum que esta versao nao conhece (um host novo, outra forja) e PULADO: versao nova e compativel,
+ * e a maquina que atualizou primeiro nao some para quem nao atualizou (S2 da revisao 2).
+ */
+function itens<T>(v: unknown, item: (x: Record<string, unknown>) => T | null | typeof PULAR): T[] | null {
+  if (!Array.isArray(v) || v.length > MAXIMO_DE_ITENS) return null;
   const saida: T[] = [];
   for (const x of v) {
     const ok = ehObjeto(x) ? item(x) : null;
     if (ok === null) return null;
-    saida.push(ok);
+    if (ok !== PULAR) saida.push(ok);
   }
   return saida;
 }
@@ -348,13 +373,15 @@ export function normalizarRetrato(bruto: unknown): RetratoDaMaquina | null {
   if (!ehTexto(r.maquina, 64) || !r.maquina.trim() || !ehTexto(r.hostname, 253) || !ehTexto(r.versaoOrk, 40)) return null;
   if (!ehTexto(r.publicadoEm, 40) || !Number.isFinite(Date.parse(r.publicadoEm))) return null;
   if (r.adesao !== 'rede' && r.adesao !== 'fabrica') return null;
-  const forjas = itens(r.forjas, (x) => (x.forja === 'github' || x.forja === 'gitlab') && ehTexto(x.host, 255) && ehTexto(x.cli, 16) &&
-    ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.usuario, 255)
-    ? { forja: x.forja as NomeDaForja, host: x.host as string, cli: x.cli as string, versao: x.versao as string | null, usuario: x.usuario as string | null } : null);
+  const forjas = itens(r.forjas, (x) => !(ehTexto(x.forja, 40) && ehTexto(x.host, 255) && ehTexto(x.cli, 16) &&
+    ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.usuario, 255)) ? null
+    : x.forja !== 'github' && x.forja !== 'gitlab' ? PULAR
+      : { forja: x.forja as NomeDaForja, host: x.host as string, cli: x.cli as string, versao: x.versao as string | null, usuario: x.usuario as string | null });
   const runtimes = itens(r.runtimes, (x) => ehTexto(x.runtime, 40) && ehTexto(x.binario, 40) && ehTextoOuNulo(x.versao, 40)
     ? { runtime: x.runtime as string, binario: x.binario as string, versao: x.versao as string | null } : null);
-  const hosts = itens(r.hosts, (x) => (ORDEM_DOS_HOSTS as readonly unknown[]).includes(x.host) && ehTextoOuNulo(x.versao, 40) &&
-    ehTextoOuNulo(x.adaptador, 40) ? { host: x.host as Host, versao: x.versao as string | null, adaptador: x.adaptador as string | null } : null);
+  const hosts = itens(r.hosts, (x) => !(ehTexto(x.host, 40) && ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.adaptador, 40)) ? null
+    : !(ORDEM_DOS_HOSTS as readonly unknown[]).includes(x.host) ? PULAR
+      : { host: x.host as Host, versao: x.versao as string | null, adaptador: x.adaptador as string | null });
   const projetos = itens(r.projetos, (x) => ehTexto(x.nome, 80) && ehTextoOuNulo(x.remoto, 500) && ehTexto(x.caminho, 1024)
     ? { nome: x.nome as string, remoto: x.remoto as string | null, caminho: x.caminho as string } : null);
   if (!forjas || !runtimes || !hosts || !projetos) return null;
@@ -585,7 +612,7 @@ export function publicarRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaRede {
   const adesao = adesaoDaRede();
   if (!adesao.membro) throw new Error('rede.fora: esta maquina nao esta na rede; ork network entrar');
   const amb = opcoes.amb ?? {};
-  const maquina = nomeDaMaquina(opcoes.maquina);
+  const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
   const id = idDaMaquina();
   const agora = opcoes.agora ?? new Date().toISOString();
   const marca = lerMarcaDaRede();
@@ -634,7 +661,9 @@ const NOME_DE_MAQUINA = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
  * senao o ja gravado, senao `ORK_MAQUINA` ou o hostname; assim o cron publica com o mesmo nome.
  */
 export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrada {
-  const maquina = (opcoes.maquina ?? '').trim() || lerConfigDaMaquina()?.nome || nomeDaMaquina();
+  // O nome explicito tem de ser valido; o que vem do arquivo, de ORK_MAQUINA ou do hostname e saneado.
+  const explicito = (opcoes.maquina ?? '').trim();
+  const maquina = explicito || nomeSeguro(lerConfigDaMaquina()?.nome || nomeDaMaquina());
   if (!NOME_DE_MAQUINA.test(maquina)) {
     throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`);
   }
@@ -667,7 +696,7 @@ export interface ResultadoDaSaida {
  * trava desta maquina (espera a publicacao em curso). B7: nunca remove o retrato de outra instalacao.
  */
 export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
-  const maquina = nomeDaMaquina(opcoes.maquina);
+  const maquina = nomeSeguro(nomeDaMaquina(opcoes.maquina));
   const r = resolverCasa(opcoes);
   gravarConfigDaRede({ membro: false, ...(r.casa ? { forja: r.casa.forja, host: r.casa.host, dono: r.casa.dono, repositorio: r.casa.repositorio } : {}) });
   try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
@@ -683,10 +712,13 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
     for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
       const { ponta, atualizado } = comGitIsolado(() => buscarBranch(cache, 'origin', BRANCH_DA_REDE, PREFIXO, 30000));
       if (!atualizado) throw new Error(`rede.sem-leitura: saiu da rede aqui, mas nao consegui ler ${refDaCasa(r.casa)} para tirar o retrato; rode ork network sair de novo com rede`);
-      const { retratos } = retratosDaPonta(cache, ponta);
+      const { retratos, invalidos } = retratosDaPonta(cache, ponta);
       const atual = retratos.find((x) => x.maquina === maquina);
-      if (!atual) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
-      if (atual.id && atual.id !== id) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true };
+      // S9 da revisao 2: o arquivo com o nome desta maquina sai tambem quando esta invalido; so o de
+      // outra instalacao (retrato valido com outro `id`) fica.
+      const invalido = invalidos.some((x) => x.arquivo === proprio);
+      if (!atual && !invalido) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
+      if (atual?.id && atual.id !== id) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: true };
       const mudancas: MudancaNaBranch[] = [
         { caminho: proprio, conteudo: null },
         { caminho: PAINEL_DA_REDE, conteudo: painelDaRede(retratos.filter((x) => x.maquina !== maquina)) },
