@@ -4,22 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:27:50.760Z",
+  "publicadoEm": "2026-09-30T02:30:03.884Z",
   "threads": [
-    {
-      "id": "ork-rm052projeto",
-      "nome": "RM-052 projeto-alvo explicito e resposta honesta nos hosts",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-052",
-      "branch": "ork/ork-rm052projeto-full",
-      "atualizadaEm": "2026-09-30T02:16:58.202Z",
-      "entregue": "a24a187",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
     {
       "id": "ork-rm053network",
       "nome": "RM-053 Orkastery Network: maquinas de uma pessoa em rede",
@@ -30,20 +16,6 @@
       "branch": "ork/ork-rm053network-full",
       "atualizadaEm": "2026-09-30T00:41:21.212Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-rm054roadmap",
-      "nome": "RM-054 roadmaps e threads da rede visiveis aos agentes",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-054",
-      "branch": "ork/ork-rm054roadmap-full",
-      "atualizadaEm": "2026-09-30T02:27:50.644Z",
-      "entregue": "b64d2f2",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null

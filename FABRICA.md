@@ -5,8 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 30/09 02:27 |
-| srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 30/09 02:27 |
+| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 30/09 02:30 |
+| srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 30/09 02:30 |
 | vps | ork-docsdossites | #Auto | GO | RM-049 | — | 30/09 02:15 |
 | vps | ork-i36buscasema | #Classic | GO | — | sim: evidencias, com autorizacao antecipada de push | 30/09 02:15 |
 | vps | ork-pacotedeexpe | #Auto | GO | RM-051 | — | 30/09 02:15 |
