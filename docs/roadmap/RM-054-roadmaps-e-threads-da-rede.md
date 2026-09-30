@@ -94,7 +94,7 @@ sdlc:
   - `--projeto` aceita `github:dono/repo`, `gitlab:grupo/repo`, URL, nome conhecido ou a raiz do clone escrita como caminho; nome sozinho é sempre nome, e ambíguo ou desconhecido recusa com os candidatos e a saída 4 da RM-052;
   - o fuso do dono do projeto consultado (`owner.timezone`) vale para o "hoje" e os horários do panorama;
   - a prova ao vivo contra a forja fica fora do bundle do CI, porque depende de rede e de login.
-- **Achado de segurança pré-existente, para uma próxima thread:** `ork fabrica` e `ork roadmap reservas` passam o `fabrica.remoto` do manifesto ao `git fetch` sem validar; um valor que comece com `-` vira opção do git. O `ork network roadmap` valida o remoto e a `worktree.base_branch`, e o `git log` de `entregasNaBase` passou a receber a base depois de `--end-of-options`; o helper `branch-de-estado.ts` ainda não valida o remoto.
+- **Achado de segurança pré-existente, para uma próxima thread:** `ork fabrica` e `ork roadmap reservas` passam o `fabrica.remoto` do manifesto ao `git fetch` sem validar; um valor que comece com `-` vira opção do git. O `ork network roadmap` valida o remoto e a `worktree.base_branch`, e o `git log` de `entregasNaBase` passou a receber a ref qualificada (`refs/...`), que nunca vira opção; o helper `branch-de-estado.ts` ainda não valida o remoto.
 - **Riscos e mitigação:**
   - o esquema do GitLab sem prova real: parse estrito, e a divergência vira `forja.resposta-invalida`;
   - colisão com o `--projeto` global da RM-052 e com a família `network` da RM-053 no CLI: fiação mínima, e quem entra depois resolve o conflito.
@@ -102,8 +102,8 @@ sdlc:
 ## Estado com evidências
 
 - 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto). A revisão independente do CHECK achou quatro defeitos maiores e cinco menores (thread corrompida derrubava o comando, pasta de mesmo nome tomava o `--projeto`, página não-ASCII sumia, `fabrica.remoto` virava opção do git); os três GO-FIX os corrigem, cada um com teste que falhava antes.
-- A rodada 2 da revisão resolveu seis achados e achou a mesma injeção pela `worktree.base_branch`, que o GO-FIX 4 fecha junto com os três achados parciais.
-- Testes focados verdes: `network-roadmap.test.js` 16 de 16, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
+- A rodada 2 da revisão resolveu seis achados e achou a mesma injeção pela `worktree.base_branch`, que o GO-FIX 4 fecha junto com os três achados parciais; a rodada 3 confirmou tudo e achou dois menores (a ref do `git log` e a espera do dono igual nas duas seções), fechados no GO-FIX 5.
+- Testes focados verdes: `network-roadmap.test.js` 17 de 17, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 

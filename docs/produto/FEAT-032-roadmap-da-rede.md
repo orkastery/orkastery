@@ -8,7 +8,7 @@ roadmap: [RM-054]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-29T23:30:00-03:00
-versao: ork/ork-rm054roadmap-full@d03293f
+versao: ork/ork-rm054roadmap-full@c1dcbfe
 fontes:
   codigo:
     - core/src/network-roadmap.ts
@@ -38,7 +38,7 @@ fontes:
 
 > **Em uma frase:** `ork network roadmap` junta, para cada projeto da pessoa, o status report do roadmap, as reservas e as threads de cada máquina, lendo a forja quando não há clone, e diz a fonte e a hora de cada parte e o que ficou sem ler.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-29 · **Versão:** `ork/ork-rm054roadmap-full@d03293f`
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-29 · **Versão:** `ork/ork-rm054roadmap-full@c1dcbfe`
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-054](../roadmap/RM-054-roadmaps-e-threads-da-rede.md)
 - **Dono da página / aprovador:** Julio / Julio
