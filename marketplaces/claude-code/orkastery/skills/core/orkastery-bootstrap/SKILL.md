@@ -30,8 +30,7 @@ de leitura no terminal é `ork maestro --json`; a frase conversacional não é u
 A consulta não cria demanda, thread, sessão ou aprovação. Projeto ausente retorna
 `maestro.project.missing`; ambíguo retorna `maestro.project.ambiguous`: apresente os
 candidatos permitidos e obtenha a seleção, sem varrer home nem escolher o primeiro.
-Se já recebeu fase/thread/WT, continue esse bloco; a frase não abre outra orquestração. O projeto de cada consulta é explícito (RM-052): se o dono nomeou um, passe-o (`projeto` na ferramenta, `--projeto <nome>` no CLI) e leia "Projeto consultado" e "Não lido" antes de responder: board e panorama não leem o roadmap, e zero threads nunca é roadmap vazio.
-Sem projeto nomeado, ofereça o panorama da rede (RM-054): `ork_network_roadmap` no host (no MCP, o projeto fixado em todas as máquinas) ou `ork network roadmap` no CLI (todos os projetos conhecidos), com fontes, frescor e lacunas, transportado como vem. O status do roadmap sai dessa mesma fonte: lacuna e "Não consultado" nunca viram roadmap vazio nem "nenhuma máquina publicou".
+Se já recebeu fase/thread/WT, continue esse bloco; a frase não abre outra orquestração. O projeto de cada consulta é explícito (RM-052): se o dono nomeou um, passe-o (`projeto` na ferramenta, `--projeto <nome>` no CLI) e leia "Projeto consultado" e "Não lido" antes de responder: board e panorama não leem o roadmap, e zero threads nunca é roadmap vazio. Sem projeto nomeado, ofereça o panorama da rede (RM-054): `ork_network_roadmap` no host (no MCP, o projeto fixado em todas as máquinas) ou `ork network roadmap` no CLI (todos os projetos conhecidos), com fontes, frescor e lacunas, transportado como vem. O status do roadmap sai dessa mesma fonte: lacuna e "Não consultado" nunca viram roadmap vazio nem "nenhuma máquina publicou".
 
 Apresente o panorama com fontes, lacunas e próximas ações: demandas, threads, sessões,
 impedimentos, leases, retries, HITL, SHIP e MASTER. Vazio difere de indisponível;
