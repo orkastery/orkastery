@@ -10,15 +10,15 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm054fatia2 | #Auto | GOAL | RM-054 | — | 29/09 23:56 |
 | srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 29/09 23:56 |
 | srvjcp86 | ork-versao050hit | #Fast | GO | — | — | 29/09 23:56 |
-| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 29/09 23:59 |
-| vps | ork-i36buscasema | #Classic | SHIP | — | — | 29/09 23:59 |
-| vps | ork-pacotedeexpe | #Auto | CHECK | RM-051 | — | 29/09 23:59 |
-| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 29/09 23:59 |
-| vps | ork-rm026k3dossi | #Auto | SHIP | RM-026 | sim: autorizacao da retomada | 29/09 23:59 |
-| vps | ork-rm031kg2extr | #Auto | CHECK | RM-031 | — | 29/09 23:59 |
-| vps | ork-rm037defeito | #Auto | GO | RM-037 | — | 29/09 23:59 |
-| vps | ork-rm037noite | #Auto | GOAL | RM-037 | — | 29/09 23:59 |
-| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 29/09 23:59 |
-| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 29/09 23:59 |
+| vps | ork-docsdossites | #Auto | GO | RM-049 | — | 30/09 00:00 |
+| vps | ork-i36buscasema | #Classic | SHIP | — | — | 30/09 00:00 |
+| vps | ork-pacotedeexpe | #Auto | CHECK | RM-051 | — | 30/09 00:00 |
+| vps | ork-rm025modocon | #Auto | GOAL | RM-025 | — | 30/09 00:00 |
+| vps | ork-rm026k3dossi | #Auto | SHIP | RM-026 | sim: autorizacao da retomada | 30/09 00:00 |
+| vps | ork-rm031kg2extr | #Auto | CHECK | RM-031 | — | 30/09 00:00 |
+| vps | ork-rm037defeito | #Auto | GO | RM-037 | — | 30/09 00:00 |
+| vps | ork-rm037noite | #Auto | GOAL | RM-037 | — | 30/09 00:00 |
+| vps | ork-rm050guiade2 | #Auto | GOAL | RM-050 | — | 30/09 00:00 |
+| vps | ork-siteshomesco | #Auto | GO | RM-049 | — | 30/09 00:00 |
 
 Horários de Brasília.
