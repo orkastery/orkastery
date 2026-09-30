@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T14:00:33.648Z",
+  "publicadoEm": "2026-09-30T14:15:02.329Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -58,20 +58,6 @@
       "branch": "ork/ork-rm031kg3-full",
       "atualizadaEm": "2026-09-30T13:57:12.615Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
-    {
-      "id": "ork-rm037noite",
-      "nome": "rm037-defeitos-da-noite",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-rm037noite-full",
-      "atualizadaEm": "2026-09-30T14:00:32.795Z",
-      "entregue": "36def098",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null
