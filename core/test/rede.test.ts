@@ -802,7 +802,8 @@ test('RM-053 isolamento: dentro do git da rede nao ha redirecionamento, prompt n
     const dentro = comGitIsolado(() => comGitIsolado(() => ({ dir: process.env.GIT_DIR, prompt: process.env.GIT_TERMINAL_PROMPT,
       lc: process.env.LC_ALL, lingua: process.env.LANGUAGE, ssh: process.env.GIT_SSH_COMMAND, email: process.env.GIT_AUTHOR_EMAIL })),
     { nome: 'pc-x', email: 'pc-x@rede.orkastery.invalid' });
-    assert.deepEqual(dentro, { dir: undefined, prompt: '0', lc: 'C', lingua: 'C', ssh: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes',
+    const sshEsperado = process.env.GIT_SSH_COMMAND ?? (process.env.GIT_SSH ? undefined : 'ssh -o BatchMode=yes');
+    assert.deepEqual(dentro, { dir: undefined, prompt: '0', lc: 'C', lingua: 'C', ssh: sshEsperado,
       email: 'pc-x@rede.orkastery.invalid' });
     assert.deepEqual([process.env.GIT_DIR, process.env.GIT_TERMINAL_PROMPT, process.env.LC_ALL, process.env.LANGUAGE],
       ['/tmp/outro/.git', '1', 'pt_BR.UTF-8', 'pt_BR'], 'o ambiente de quem chamou volta como estava');
@@ -1198,6 +1199,55 @@ test('RM-053 migracao: entrar de novo mantem a reserva de projetos, e relogio qu
       // Relogio duas horas atras da ultima batida: publica, em vez de achar que ainda e a mesma batida.
       const antes = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       assert.equal(publicarRede({ amb, maquina: 'pc-a', arquivoDeProjetos: path.join(u, 'nenhum.json'), agora: antes }).acao, 'publicou');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 isolamento: sem askpass nem config injetada por hook; o ssh de quem o configurou continua valendo (S4, S5)', () => {
+  const f = forjaFalsa('isolamento-askpass');
+  const u = dirTemporario('rede-isolamento-askpass');
+  try {
+    // S5: dentro do isolamento, askpass desligado e a config de `git -c` de um hook fora.
+    comAmbiente({ GIT_ASKPASS: '/bin/false', GIT_CONFIG_PARAMETERS: "'credential.helper='", GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'core.hooksPath', GIT_CONFIG_VALUE_0: '/tmp/outro' }, () => {
+      const dentro = comGitIsolado(() => ({ askpass: process.env.GIT_ASKPASS, exige: process.env.SSH_ASKPASS_REQUIRE,
+        parametros: process.env.GIT_CONFIG_PARAMETERS, contagem: process.env.GIT_CONFIG_COUNT, chave: process.env.GIT_CONFIG_KEY_0 }));
+      assert.deepEqual(dentro, { askpass: '', exige: 'never', parametros: undefined, contagem: undefined, chave: undefined });
+      assert.equal(process.env.GIT_CONFIG_PARAMETERS, "'credential.helper='", 'e volta na saida');
+    });
+    // S4: GIT_SSH (ou GIT_SSH_COMMAND) de quem chamou vence o lote; `herdado` deixa o core.sshCommand do projeto valer.
+    comAmbiente({ GIT_SSH: '/usr/bin/ssh' }, () => {
+      const antes = process.env.GIT_SSH_COMMAND;
+      delete process.env.GIT_SSH_COMMAND;
+      try { assert.equal(comGitIsolado(() => process.env.GIT_SSH_COMMAND), undefined); }
+      finally { if (antes !== undefined) process.env.GIT_SSH_COMMAND = antes; }
+    });
+    const salvo = { cmd: process.env.GIT_SSH_COMMAND, ssh: process.env.GIT_SSH };
+    delete process.env.GIT_SSH_COMMAND;
+    delete process.env.GIT_SSH;
+    try {
+      assert.equal(comGitIsolado(() => process.env.GIT_SSH_COMMAND), 'ssh -o BatchMode=yes');
+      assert.equal(comGitIsolado(() => process.env.GIT_SSH_COMMAND, undefined, { ssh: 'herdado' }), undefined);
+    } finally {
+      if (salvo.cmd !== undefined) process.env.GIT_SSH_COMMAND = salvo.cmd;
+      if (salvo.ssh !== undefined) process.env.GIT_SSH = salvo.ssh;
+    }
+    // De ponta a ponta: sem credencial do helper, o git pediria ao askpass; dentro do isolamento, nunca.
+    const marca = path.join(u, 'askpass-chamado');
+    const askpass = path.join(u, 'askpass.sh');
+    fs.writeFileSync(askpass, `#!/bin/sh\necho chamado > ${marca}\necho x\n`, { mode: 0o755 });
+    naMaquina(u, () => {
+      const gh = forjaPorNome('github', f.amb)!;
+      const casa = { forja: 'github' as const, host: 'github.com', dono: 'pessoa-teste', repositorio: 'orkastery-network', origem: 'rede.json' as const };
+      const cache = prepararCache(casa, 'https://github.com/pessoa-teste/orkastery-network.git', gh.helperDeCredencial(), 'pc-a');
+      const pedir = () => spawnSync('git', ['credential', 'fill'], { cwd: cache, encoding: 'utf8', timeout: 20000,
+        input: 'protocol=https\nhost=github.com\n\n', env: { ...process.env, PATH: f.env.PATH, HOME: f.home, GIT_CONFIG_NOSYSTEM: '1' } });
+      comAmbiente({ GIT_ASKPASS: askpass, GIT_TERMINAL_PROMPT: '0' }, () => {
+        comGitIsolado(() => pedir());
+        assert.equal(fs.existsSync(marca), false, 'dentro do isolamento o askpass nao e chamado');
+        pedir();
+        assert.equal(fs.existsSync(marca), true, 'controle: fora do isolamento, o mesmo pedido chama o askpass');
+      });
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });

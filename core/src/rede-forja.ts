@@ -113,31 +113,49 @@ const GIT_REDIRECIONA = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMM
 
 export interface IdentidadeDoGit { nome: string; email: string }
 
+export interface OpcoesDoGitIsolado {
+  /** Autor e committer dos commits feitos aqui dentro. */
+  identidade?: IdentidadeDoGit;
+  /**
+   * `lote` (padrao): SSH sem pergunta, salvo quando `GIT_SSH_COMMAND` ou `GIT_SSH` ja dizem como rodar.
+   * `herdado`: o projeto tem `core.sshCommand` proprio, e ele vale (S4 da revisao 2).
+   */
+  ssh?: 'lote' | 'herdado';
+}
+
 /**
- * Roda `f` com o git da rede isolado do ambiente de quem chamou (GO-FIX 1 do CHECK 1):
+ * Roda `f` com o git da rede isolado do ambiente de quem chamou (GO-FIX 1 do CHECK 1 e GO-FIX 2):
  *   - sem as variaveis que redirecionam o repositorio: chamado de um hook, o git do cache miraria o
  *     projeto e regravaria a config dele (A2);
- *   - sem prompt de senha no terminal e com SSH em lote, porque a batida roda sem ninguem olhando (M5);
+ *   - sem a config que um hook injeta (`GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT/KEY_n/VALUE_n`):
+ *     um `-c credential.helper=` zeraria o helper da forja no cache (S5);
+ *   - sem prompt: nem terminal, nem askpass (`GIT_ASKPASS` vazio desliga tambem `core.askPass` e
+ *     `SSH_ASKPASS`), nem SSH interativo, porque a batida roda sem ninguem olhando (M5, S5);
  *   - em ingles, porque o nucleo interpreta o stderr do git (B5);
  *   - com autor e committer fixos na maquina, quando ha identidade: `GIT_AUTHOR_EMAIL` e cia. do
  *     ambiente poriam o e-mail real da pessoa nos commits da casa (B8).
  * O ambiente volta como estava na saida, inclusive em chamada aninhada.
  */
-export function comGitIsolado<T>(f: () => T, identidade?: IdentidadeDoGit): T {
+export function comGitIsolado<T>(f: () => T, identidade?: IdentidadeDoGit, opcoes: OpcoesDoGitIsolado = {}): T {
   const antes = new Map<string, string | undefined>();
   const trocar = (k: string, v: string | undefined) => {
     if (!antes.has(k)) antes.set(k, process.env[k]);
     if (v === undefined) delete process.env[k]; else process.env[k] = v;
   };
   for (const k of GIT_REDIRECIONA) trocar(k, undefined);
+  for (const k of Object.keys(process.env)) if (/^GIT_CONFIG_(?:PARAMETERS|COUNT|KEY_\d+|VALUE_\d+)$/.test(k)) trocar(k, undefined);
   trocar('GIT_TERMINAL_PROMPT', '0');
-  if (!process.env.GIT_SSH_COMMAND) trocar('GIT_SSH_COMMAND', 'ssh -o BatchMode=yes');
+  trocar('GIT_ASKPASS', '');
+  trocar('SSH_ASKPASS_REQUIRE', 'never');
+  // S4: `GIT_SSH_COMMAND` vence `core.sshCommand`; so entra quando ninguem disse como rodar o ssh.
+  if ((opcoes.ssh ?? 'lote') === 'lote' && !process.env.GIT_SSH_COMMAND && !process.env.GIT_SSH) trocar('GIT_SSH_COMMAND', 'ssh -o BatchMode=yes');
   trocar('LC_ALL', 'C');
   trocar('LANGUAGE', 'C');
-  if (identidade) {
+  const quem = identidade ?? opcoes.identidade;
+  if (quem) {
     for (const papel of ['AUTHOR', 'COMMITTER']) {
-      trocar(`GIT_${papel}_NAME`, identidade.nome);
-      trocar(`GIT_${papel}_EMAIL`, identidade.email);
+      trocar(`GIT_${papel}_NAME`, quem.nome);
+      trocar(`GIT_${papel}_EMAIL`, quem.email);
     }
   }
   try { return f(); } finally {

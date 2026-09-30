@@ -174,8 +174,11 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
       continue;
     }
     try {
-      // M5: sem prompt de senha e com SSH em lote; um remoto que pediria senha vira lacuna, nao trava o status.
-      const painel = comGitIsolado(() => lerFabrica(p.caminho, { remoto, semRemoto: o.semRemoto, timeoutMs: o.timeoutMs ?? 10000 }));
+      // M5: sem prompt de senha; um remoto que pediria senha vira lacuna, nao trava o status. S4: o
+      // `core.sshCommand` do projeto (chave propria, proxy) continua valendo.
+      const sshProprio = comGitIsolado(() => git(p.caminho, ['config', '--get', 'core.sshCommand']).stdout.trim() !== '');
+      const painel = comGitIsolado(() => lerFabrica(p.caminho, { remoto, semRemoto: o.semRemoto, timeoutMs: o.timeoutMs ?? 10000 }),
+        undefined, { ssh: sshProprio ? 'herdado' : 'lote' });
       fontes.push({ fonte: 'fabrica-estado', projeto: p.nome, ref: BRANCH_DA_FABRICA, ponta: painel.ponta, atualizado: painel.atualizado });
       if (!painel.atualizado && !o.semRemoto) {
         lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: ${BRANCH_DA_FABRICA} sem leitura nova; usei a ultima copia local` });
