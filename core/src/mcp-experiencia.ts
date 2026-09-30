@@ -1,7 +1,7 @@
 /** Consultas do projeto fixado. Nunca reserva item, publica máquina ou executa push. */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
@@ -44,20 +44,45 @@ function assinatura(raiz: string, transporte: Transporte): string {
     gitPassivoMcp(raiz, ['config', '--null', '--list'])])).digest('hex');
 }
 
-/** O worker herda somente ambiente permitido; nunca modifica env do servidor. */
-export function criarLeitorExperiencia(raiz: string, transporte: Transporte) {
+type Resultado = ReturnType<typeof apresentarConsulta> | ReturnType<typeof indisponivel>;
+const PRAZO_DA_CONSULTA_MS = 90000;
+
+/**
+ * O worker herda somente ambiente permitido; nunca modifica env do servidor. Roda assíncrono para
+ * o servidor MCP seguir atendendo as outras tools durante a consulta remota, e em grupo próprio:
+ * prazo ou cancelamento da chamada matam o worker e o git que ele abriu.
+ */
+export function criarLeitorExperiencia(raiz: string, transporte: Transporte, prazoMs = PRAZO_DA_CONSULTA_MS) {
   let fixacao: string | null = null;
   try { fixacao = assinatura(raiz, transporte); } catch { /* ferramenta continua descoberta, com lacuna explícita */ }
-  return (tipo: Consulta) => {
-    if (!fixacao) return indisponivel();
-    const r = spawnSync(process.execPath, [__filename, '--consulta-experiencia'], {
+  return (tipo: Consulta, signal?: AbortSignal): Promise<Resultado> => new Promise(resolve => {
+    if (!fixacao || signal?.aborted) { resolve(indisponivel()); return; }
+    const grupo = process.platform !== 'win32';
+    const filho = spawn(process.execPath, [__filename, '--consulta-experiencia'], {
       cwd: raiz, env: { ...ambienteGitMcp(), SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK },
-      input: JSON.stringify({ raiz, transporte, fixacao, tipo }), encoding: 'utf8',
-      timeout: 90000, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'ignore'], detached: grupo,
     });
-    if (r.error || r.signal || r.status !== 0) return indisponivel();
-    try { return JSON.parse(r.stdout) as ReturnType<typeof apresentarConsulta>; } catch { return indisponivel(); }
-  };
+    let saida = '', terminado = false;
+    const concluir = (r: Resultado) => {
+      if (terminado) return;
+      terminado = true; clearTimeout(prazo); signal?.removeEventListener('abort', abortar); resolve(r);
+    };
+    const abortar = () => {
+      try { if (filho.pid) process.kill(grupo ? -filho.pid : filho.pid, 'SIGKILL'); } catch { /* já terminou */ }
+      concluir(indisponivel());
+    };
+    const prazo = setTimeout(abortar, prazoMs);
+    signal?.addEventListener('abort', abortar, { once: true });
+    filho.stdout!.setEncoding('utf8');
+    filho.stdout!.on('data', (parte: string) => { saida += parte; if (saida.length > 1024 * 1024) abortar(); });
+    filho.stdin!.on('error', () => undefined);
+    filho.on('error', () => concluir(indisponivel()));
+    filho.on('close', (codigo, sinal) => {
+      if (codigo !== 0 || sinal) { concluir(indisponivel()); return; }
+      try { concluir(JSON.parse(saida) as Resultado); } catch { concluir(indisponivel()); }
+    });
+    filho.stdin!.end(JSON.stringify({ raiz, transporte, fixacao, tipo }));
+  });
 }
 
 export function registrarConsultasExperiencia(registrar: Registrar, opcoes: {
@@ -66,9 +91,9 @@ export function registrarConsultasExperiencia(registrar: Registrar, opcoes: {
   const ler = criarLeitorExperiencia(opcoes.raiz, opcoes.transporte);
   for (const [nome, tipo] of [['ork_roadmap_reservas', 'reservas'], ['ork_fabrica', 'fabrica']] as const) {
     registrar(nome, { description: 'Consulta de ' + tipo + ' do projeto e origin fixados; distingue remoto atualizado, cópia desatualizada e indisponibilidade. Não reserva nem publica.',
-      inputSchema: consultaExperienciaSchema, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true } }, async () => {
+      inputSchema: consultaExperienciaSchema, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true } }, async (_args, extra) => {
       opcoes.carregar();
-      return { content: [{ type: 'text', text: JSON.stringify(ler(tipo)) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(await ler(tipo, extra.signal)) }] };
     });
   }
 }

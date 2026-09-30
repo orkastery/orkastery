@@ -60,11 +60,26 @@ test('leitores nativos recebem origin fixo, propagam falha e nunca chamam escrit
   } finally { r.mock.restore(); f.mock.restore(); pegar.mock.restore(); publicar.mock.restore(); }
 });
 
-test('transporte não autorizado ou indisponível não retorna sucesso vazio', () => {
+test('transporte não autorizado ou indisponível não retorna sucesso vazio', async () => {
   const p = projetoTemporario('mcp-experiencia-sem-remoto');
   try {
     const ler = experiencia.criarLeitorExperiencia(p.dir, 'github-ssh');
-    assert.equal(ler('reservas').estado, 'indisponivel');
-    assert.equal(ler('fabrica').dados, null);
+    assert.equal((await ler('reservas')).estado, 'indisponivel');
+    assert.equal((await ler('fabrica')).dados, null);
+  } finally { p.limpar(); }
+});
+
+test('worker fixado responde pelo caminho real sem travar o event loop; cancelamento e prazo encerram', async () => {
+  const p = projetoTemporario('mcp-experiencia-worker', true);
+  try {
+    const ler = experiencia.criarLeitorExperiencia(p.dir, 'bare-local');
+    let ticks = 0; const relogio = setInterval(() => ticks++, 5);
+    try {
+      for (const tipo of ['reservas', 'fabrica'] as const) assert.equal((await ler(tipo)).estado, 'atualizado', tipo);
+    } finally { clearInterval(relogio); }
+    assert.ok(ticks > 0, 'o servidor segue atendendo durante a consulta');
+    const cancelar = new AbortController(), pendente = ler('fabrica', cancelar.signal);
+    cancelar.abort(); assert.equal((await pendente).estado, 'indisponivel');
+    assert.equal((await experiencia.criarLeitorExperiencia(p.dir, 'bare-local', 1)('reservas')).estado, 'indisponivel');
   } finally { p.limpar(); }
 });
