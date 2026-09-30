@@ -106,10 +106,12 @@ export function arquivoDaMaquina(maquina: string): string {
  * entrega usa, o mesmo fato que o `ork docs sincronizar` le. Um `git log` so, para todas.
  */
 export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): Map<string, string> {
-  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', `refs/remotes/${remoto}/${base}`]).ok ? `${remoto}/${base}` : base;
-  // Regex basica do git: o `(` e literal. A base vem do manifesto: `--end-of-options` impede que um
-  // valor como `--output=<arquivo>` vire opcao do `git log` (RM-054, rodada 2 do CHECK).
-  const r = git(raiz, ['log', '--format=%h%x09%s', '--grep=^ship(', '--end-of-options', ref]);
+  // A base vem do manifesto: a ref vai sempre qualificada (`refs/...`), e um valor como
+  // `--output=<arquivo>` nunca vira opcao do `git log`, em qualquer versao do git (RM-054, CHECK).
+  const remota = `refs/remotes/${remoto}/${base}`;
+  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', remota]).ok ? remota : `refs/heads/${base}`;
+  // Regex basica do git: o `(` e literal.
+  const r = git(raiz, ['log', ref, '--format=%h%x09%s', '--grep=^ship(']);
   const entregas = new Map<string, string>();
   if (!r.ok) return entregas;
   for (const linha of r.stdout.split('\n')) {

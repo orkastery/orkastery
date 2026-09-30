@@ -579,9 +579,11 @@ test('rede: base invalida no manifesto nao chega ao git', () => {
   const r = rede('rede-base-invalida', { semEstado: true });
   const marca = path.join(path.dirname(r.registro), 'gravado-pelo-git-log');
   try {
-    // O helper da fabrica tambem nao aceita a base como opcao do git log.
+    // O helper da fabrica tambem nao aceita a base como opcao do git log, e a ref qualificada ainda acha
+    // as entregas da base.
     assert.deepEqual([...entregasNaBase(r.a, `--output=${marca}`).keys()], []);
     assert.equal(fs.existsSync(marca), false);
+    assert.ok(entregasNaBase(r.a, 'main').has('ork-entregue'));
     const manifesto = path.join(r.a, 'orkastery.yaml');
     const antesDoAtaque = fs.readFileSync(manifesto, 'utf8');
     assert.match(antesDoAtaque, /base_branch: "main"/);
@@ -660,4 +662,22 @@ test('rede: cada projeto no fuso do dono dele', () => {
     assert.ok(linhas.some((l) => l.startsWith('Neste projeto: Horários em Asia/Tokyo')), 'a legenda do bloco diz o fuso diferente');
     assert.equal(linhas.at(-1), 'Horários de Brasília.');
   } finally { fs.rmSync(vazio, { recursive: true, force: true }); definirFusoDoDono(undefined); }
+});
+
+test('rede: espera voce igual no roadmap e nas maquinas', () => {
+  const r = rede('rede-espera-igual');
+  try {
+    const esperaNaMaquina = (p: PanoramaDaRede) => p.projetos[0].maquinas!.find((m) => m.maquina === 'pc-a')!
+      .ativas.find((t) => t.id === r.espera)!;
+    // Caminho normal: a thread #Classic com o GOAL entregue espera o veredito do dono, e as duas secoes dizem isso.
+    const p = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.ok(p.projetos[0].roadmap!.precisaDeVoce.some((x) => x.item === 'RM-001'));
+    assert.deepEqual([esperaNaMaquina(p).esperaVoce, esperaNaMaquina(p).pergunta], [true, 'Qual é o veredito sobre objetivo?']);
+    assert.match(textoDoPanoramaDaRede(p), new RegExp(`^  ${r.espera} · #Classic · GOAL · RM-001 · espera você: Qual é o veredito sobre objetivo\\?$`, 'm'));
+    // Um thread.json corrompido de outra thread leva ao retrato tolerante: a resposta nao muda.
+    const { thread: quebrada } = novaThread(exigirManifesto(r.a), { nome: 'quebrada', modo: 'auto' });
+    fs.writeFileSync(path.join(dirThread(r.a, quebrada.id), 'thread.json'), '{ corrompido');
+    const q = montarPanoramaDaRede({ cwd: r.a, quando: QUANDO, maquina: 'pc-a', registro: r.registro });
+    assert.deepEqual([esperaNaMaquina(q).esperaVoce, esperaNaMaquina(q).pergunta], [true, 'Qual é o veredito sobre objetivo?']);
+  } finally { r.limpar(); }
 });

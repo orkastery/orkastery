@@ -557,6 +557,21 @@ function retratoTolerante(c: ManifestoCarregado, ctx: Contexto, remoto: string):
     versaoOrk: VERSAO_DO_ORK, publicadoEm: ctx.quando, threads: threads.sort((a, b) => a.id.localeCompare(b.id)) } };
 }
 
+/**
+ * A espera do dono das threads desta maquina pela mesma definicao do roadmap (RM-048), no retrato
+ * completo e no tolerante: o monitor do retrato publicado usa outra regra, e a secao de maquinas
+ * contradizia o "O que precisa de voce" do mesmo panorama (rodada 3 do CHECK).
+ */
+function comEsperaDoRoadmap(r: EstadoDaMaquina, raiz: string, ctx: Contexto): EstadoDaMaquina {
+  const fatos = new Map(fatosLocais(raiz, ctx.quando, ctx.fuso).map((f) => [f.id, f]));
+  return { ...r, threads: r.threads.map((t) => {
+    if (t.entregue) return t;
+    let e: EsperaDoDono | undefined;
+    try { e = fatos.get(t.id)?.espera(); } catch { return t; }
+    return { ...t, esperaVoce: !!e, pergunta: e ? e.pergunta : null, paradaDesde: e ? t.paradaDesde : null };
+  }) };
+}
+
 function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama {
   const raiz = p.raiz as string, remoto = p.remoto, base = p.base ?? 'main';
   const fontes: FonteLida[] = [], lacunas: LacunaDaRede[] = [];
@@ -659,6 +674,7 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
       }
     }
   }
+  if (local) local = { raiz, retrato: comEsperaDoRoadmap(local.retrato, raiz, ctx) };
   return montarProjeto(p, { nome: p.nome, docs, reservas, retratos, local, commits }, ctx, fontes, lacunas);
 }
 
