@@ -577,7 +577,8 @@ test('KG3 cli: indexar, status, consultas e limpar de ponta a ponta num Git temp
     assert.match(grafo(dir, 'chamadores', 'b').saida, /^aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore$/m);
     assert.equal(JSON.parse(grafo(dir, 'chamadores', 'b', '--json').saida).indice.arvore, 'modificada');
     assert.match(grafo(dir, 'indexar').erro ?? '', /^grafo\.indice\.arvore-nao-limpa: working-tree-modified$/);
-    assert.match(grafo(dir, 'amostra').erro ?? '', /^grafo\.amostra\.arvore-nao-limpa/);
+    // A amostra le o trecho da arvore e confere cada arquivo lido contra o manifesto do HEAD.
+    assert.match(grafo(dir, 'amostra', '--por-estrato', '9').erro ?? '', /^grafo\.amostra\.fonte-mudou: src\/b\.ts$/);
     git('checkout', '--', 'src/b.ts');
     // Outro commit: o indice antigo fica ate o limpar; o do HEAD e mantido.
     const antes = JSON.parse(grafo(dir, 'status', '--json').saida).chave_do_head;
@@ -626,7 +627,8 @@ test('KG3 cli: amostra gera, reprova sem veredito e com trecho mudado, e confere
     let r = grafo(dir, 'amostra', '--conferir', arquivo);
     assert.equal(r.codigo, 1, 'sem veredito a conferencia reprova');
     for (const item of amostra.arestas) Object.assign(item, { veredito: 'supported', nota: 'conferida no teste' });
-    fs.writeFileSync(arquivo, JSON.stringify(amostra));
+    const correta = JSON.stringify(amostra);
+    fs.writeFileSync(arquivo, correta);
     r = grafo(dir, 'amostra', '--conferir', arquivo);
     assert.equal(r.codigo, 0, r.saida);
     assert.match(r.saida, /conferidas contra o indice do HEAD: (\d+) de \1\naprovado$/);
@@ -636,6 +638,12 @@ test('KG3 cli: amostra gera, reprova sem veredito e com trecho mudado, e confere
     assert.equal(r.codigo, 1);
     assert.match(JSON.parse(r.saida).falhas[0], /nenhuma evidencia com o trecho auditado/);
     assert.match(grafo(dir, 'amostra', '--conferir', arquivo, '--por-estrato', '1').erro ?? '', /nao combinam/);
+    // Outro arquivo rastreado modificado nao impede: so os lidos precisam bater com o manifesto.
+    fs.writeFileSync(path.join(dir, 'orkastery.yaml'), `${REPO['orkastery.yaml']}# comentario\n`);
+    assert.equal(revisaoDaArvore(dir).motivo, 'working-tree-modified');
+    fs.writeFileSync(arquivo, correta);
+    assert.equal(grafo(dir, 'amostra', '--conferir', arquivo).codigo, 0);
+    git('checkout', '--', 'orkastery.yaml');
     // Bytes que o Git nao ve mudar (assume-unchanged) nao passam: o trecho e conferido contra o manifesto.
     git('update-index', '--assume-unchanged', '--', 'src/a.ts');
     fs.appendFileSync(path.join(dir, 'src/a.ts'), '// fora do indice\n');

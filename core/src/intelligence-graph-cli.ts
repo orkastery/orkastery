@@ -176,7 +176,7 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 /** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho. */
-function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string; arvoreLimpa: boolean } {
+function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string } {
   const { arvore, perfil, chave, indice } = indiceDoHead(ctx);
   const concessao = concessaoLocal(arvore.raiz, perfil);
   const grafo = indice.grafo as GrafoCodigo, m = indice.manifesto;
@@ -185,7 +185,7 @@ function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsult
     arvore: arvore.motivo === null ? 'limpa' : 'modificada',
     extratores: grafo.snapshot.extractors.map((e) => ({ extractor_id: e.extractor_id, extractor_version: e.extractor_version })),
   };
-  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz, arvoreLimpa: arvore.motivo === null };
+  return { g: prepararConsulta(grafo, concessao), cabecalho, grafo, raiz: arvore.raiz };
 }
 
 function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number {
@@ -206,8 +206,9 @@ function consultar(ctx: ContextoDoCli, p: Pedido): number {
 const sha256 = (b: Uint8Array): string => createHash('sha256').update(b).digest('hex');
 
 /**
- * Bytes da arvore limpa, conferidos contra o manifesto do indice: o trecho da amostra e o do HEAD.
- * So le os arquivos pedidos, e so caminhos do manifesto.
+ * Bytes da arvore, conferidos arquivo a arquivo contra o manifesto do indice: o trecho da amostra e
+ * sempre o do HEAD, mesmo com outro arquivo modificado. So le os arquivos pedidos, e so caminhos do
+ * manifesto; arquivo que mudou recusa a amostra.
  */
 function leitorDaArvore(raiz: string, grafo: GrafoCodigo): (p: string) => Buffer {
   const hashes = new Map(grafo.snapshot.source_manifest.map((m) => [m.path, m.source_hash]));
@@ -307,8 +308,7 @@ function conferirAmostra(grafo: GrafoCodigo, ler: (p: string) => Buffer, arquivo
 
 function amostra(ctx: ContextoDoCli, p: Pedido): number {
   if (p.valores.has('conferir') && p.valores.has('por-estrato')) uso('--conferir e --por-estrato nao combinam');
-  const { grafo, raiz, arvoreLimpa, cabecalho } = consultavel(ctx);
-  if (!arvoreLimpa) throw new Error('grafo.amostra.arvore-nao-limpa: o trecho auditado e lido da arvore, que precisa ser a do HEAD');
+  const { grafo, raiz, cabecalho } = consultavel(ctx);
   const ler = leitorDaArvore(raiz, grafo);
   const arquivo = p.valores.get('conferir');
   if (arquivo === undefined) {
