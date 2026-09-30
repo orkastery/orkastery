@@ -433,7 +433,9 @@ export function adquirirRegiao(
 ): ResultadoDeRegiao {
   const tipo = tipoDoLease(nome);
   const base = { nome, tipo, lease: null, ocupadoPor: null, tomadoDeVencido: false };
-  podarThreadsFechadas(raiz, nome, opcoes.thread);
+  // A poda e limpeza de estado alheio: erro de E/S nela nunca impede a thread viva de pedir a regiao
+  // (achado A1 do CHECK 1); o que nao saiu agora sai no proximo pedido.
+  try { podarThreadsFechadas(raiz, nome, opcoes.thread); } catch { /* a regra de colisao abaixo decide */ }
 
   const colidentes = leasesColidentes(raiz, nome, opcoes.thread);
   if (colidentes.length > 0) {
@@ -581,6 +583,11 @@ export function soltarDaThread(raiz: string, thread: string): { leases: string[]
   const leases: string[] = [];
   for (const lease of listarLeases(raiz)) {
     if (lease.thread !== thread || tipoDoLease(lease.nome) === 'exec') continue;
+    // Achado A2 do CHECK 1: rele logo antes de apagar. Outra poda pode ter soltado este lease e uma
+    // thread viva pode ter adquirido o mesmo nome no meio; apagar pelo caminho da listagem levaria o
+    // lease dela. So sai o arquivo que ainda e o da thread fechada, com o mesmo carimbo.
+    const atual = lerLease(raiz, lease.nome);
+    if (!atual || atual.thread !== thread || atual.adquiridoEm !== lease.adquiridoEm) continue;
     try {
       fs.unlinkSync(caminhoLease(raiz, lease.nome));
       leases.push(lease.nome);

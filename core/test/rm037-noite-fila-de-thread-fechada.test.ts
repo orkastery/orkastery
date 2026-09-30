@@ -14,6 +14,8 @@ import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { fecharAdministrativamente } from '../src/thread-close';
 import { registrarMaster } from '../src/master';
+import { liberarAoFechar } from '../src/fechamento';
+import { garantirWorktree } from '../src/worktree';
 
 const REGIAO = 'path:docs/roadmap/README.md';
 
@@ -115,5 +117,40 @@ test('defeito 2: o MASTER tambem solta o que a thread segurava', () => {
     assert.equal(lerLease(p.dir, 'path:docs/**'), null);
     assert.deepEqual(lerLedger(dirThread(p.dir, t.id)).filter((e) => e.tipo === 'lease_released').map((e) => e.lease),
       ['path:docs/**']);
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (A1 do CHECK 1): erro de E/S na poda nao derruba o pedido da thread viva nem o fechamento', () => {
+  const p = projetoTemporario('rm037noite-poda-sem-escrita');
+  try {
+    const fechada = novaThread(p.carregado, { nome: 'ledger travado', modo: 'auto' }).thread;
+    const viva = novaThread(p.carregado, { nome: 'quer a regiao', modo: 'auto' }).thread;
+    fs.mkdirSync(path.dirname(caminhoFila(p.dir)), { recursive: true });
+    fs.writeFileSync(caminhoFila(p.dir), JSON.stringify([
+      { nome: REGIAO, tipo: 'path', thread: fechada.id, motivo: 'm', desdeEm: '2026-09-29T02:00:00.000Z', colidiuCom: REGIAO, bloqueadaPor: 'x' },
+    ]));
+    fechar(p.dir, fechada.id);
+    // O ledger da thread fechada nao aceita escrita: o registro da poda falha com EACCES.
+    const ledger = path.join(dirThread(p.dir, fechada.id), 'ledger.jsonl');
+    fs.chmodSync(ledger, 0o444);
+    try {
+      const r = adquirirRegiao(p.dir, REGIAO, { thread: viva.id, motivo: 'commit' });
+      assert.equal(r.ok, true, r.detalhe);
+      const solto = liberarAoFechar(p.dir, fechada.id);
+      assert.deepEqual(solto.falhas, [], 'nada mais a soltar: a fila ja saiu na poda');
+    } finally { fs.chmodSync(ledger, 0o644); }
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (sugestao 9 do CHECK 1): o fechamento solta tambem os leases pegos da worktree da thread', () => {
+  const p = projetoTemporario('rm037noite-lease-na-worktree');
+  try {
+    const t = novaThread(p.carregado, { nome: 'pega da worktree', modo: 'auto' }).thread;
+    garantirWorktree(p.carregado, t.id);
+    const wt = lerThread(p.dir, t.id).worktree as string;
+    assert.equal(adquirir(wt, 'path:core/**', { thread: t.id, motivo: 'GO na worktree' }).ok, true);
+    const solto = liberarAoFechar(p.dir, t.id);
+    assert.deepEqual(solto.leases, ['path:core/**']);
+    assert.equal(lerLease(wt, 'path:core/**'), null);
   } finally { p.limpar(); }
 });
