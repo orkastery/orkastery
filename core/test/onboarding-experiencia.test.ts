@@ -107,6 +107,16 @@ test('seção owner nova preserva a quebra final e comentário na linha substitu
     gravarEtapa(p.dir, 'maestro', { owner: { depth: 'detalhada' } });
     assert.ok(fs.readFileSync(p.carregado.caminho, 'utf8').includes('  depth: "detalhada"  # nota do dono\n'));
     assert.equal(carregarManifesto(p.dir)!.manifesto.owner?.depth, 'detalhada');
+    // `#` dentro das aspas é valor, não comentário.
+    for (const [linha, pedido, esperado] of [
+      ['  depth: "x #y" # nota', { depth: 'curta' }, '  depth: "curta" # nota'],
+      ['  language: "en#US" # nota real', { language: 'pt-BR' }, '  language: "pt-BR" # nota real'],
+    ] as const) {
+      const atual = fs.readFileSync(p.carregado.caminho, 'utf8').replace(/^  (depth|language): .*$/gm, '');
+      fs.writeFileSync(p.carregado.caminho, atual.replace('owner:\n', 'owner:\n' + linha + '\n'));
+      gravarEtapa(p.dir, 'maestro', { owner: pedido });
+      assert.ok(fs.readFileSync(p.carregado.caminho, 'utf8').includes(esperado + '\n'), esperado);
+    }
   } finally { p.limpar(); }
 });
 

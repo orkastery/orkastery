@@ -113,6 +113,16 @@ test('arquivo criado só com o bloco volta a não existir, mesmo sem recibo', ()
   }
 });
 
+test('arquivo vazio de antes continua existindo quando o editor tira a quebra final do bloco', () => {
+  const dir = fixture(), alvo = path.join(dir, 'AGENTS.md');
+  try {
+    fs.writeFileSync(alvo, ''); aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core'));
+    fs.writeFileSync(alvo, fs.readFileSync(alvo, 'utf8').replace(/\n$/, ''));
+    aplicarExperiencia(planejarExperiencia(dir, 'codex', null));
+    assert.equal(fs.readFileSync(alvo, 'utf8'), '');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('recibo órfão de arquivo apagado ou bloco tirado à mão não trava instalação nem remoção', () => {
   const dir = fixture(), alvo = path.join(dir, 'CLAUDE.md'), recibo = path.join(dir, '.orkastery', 'experiencia', 'claude-code.json');
   try {

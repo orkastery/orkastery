@@ -3714,9 +3714,12 @@ export function main(argvBruto: string[]): number {
           Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
         throw Error('uso: ork experiencia show [--json]');
       }
-      const p = resolverExperiencia(exigirManifesto().manifesto.owner);
-      console.log(args.opcoes.json ? JSON.stringify(p, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}`);
+      const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
+      // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
+      const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
       return 0;
     }
     case 'thread':

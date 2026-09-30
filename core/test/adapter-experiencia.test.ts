@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { instalarAdaptador, desinstalarExperiencia, textoDaInstalacao, Host } from '../src/hosts';
 import { gravarEtapa } from '../src/onboarding';
 import { INICIO_EXPERIENCIA, planejarExperiencia } from '../src/experiencia-instalacao';
@@ -82,6 +83,33 @@ test('manifesto com erro pula só o pacote, com aviso, e o adaptador instala com
   } finally { f.limpar(); }
 });
 
+test('opt-out inválido no manifesto não ativa o pacote em silêncio; show avisa', () => {
+  const f = fixtureCompatibilidade('codex', 'projeto', 'en-US', ['orchestration-experience']);
+  try {
+    const manifesto = path.join(f.opts.projeto, 'orkastery.yaml');
+    fs.writeFileSync(manifesto, fs.readFileSync(manifesto, 'utf8').replace('experience: true', 'experience: "false"'));
+    const r = instalarAdaptador('codex', f.opts);
+    assert.equal(r.ok, true); assert.equal(r.experiencia?.ativa, false);
+    assert.match(textoDaInstalacao(r), /Pacote de experiência pulado: experiencia.config.invalid: owner.experience/);
+    assert.equal(fs.existsSync(path.join(f.opts.projeto, 'AGENTS.md')), false);
+    const show = spawnSync(process.execPath, [path.resolve(__dirname, '../../dist/index.js'), 'experiencia', 'show', '--json'],
+      { cwd: f.opts.projeto, encoding: 'utf8' });
+    assert.equal(show.status, 0, show.stderr);
+    assert.match(JSON.parse(show.stdout).avisos.join(' '), /owner.experience/);
+  } finally { f.limpar(); }
+});
+
+test('projeto aberto por link com --dir absoluto pelo caminho real continua dentro do projeto', () => {
+  const f = fixtureCompatibilidade('codex', 'projeto', 'en-US', ['orchestration-experience']);
+  const link = f.opts.projeto + '-link';
+  try {
+    fs.symlinkSync(f.opts.projeto, link);
+    const r = instalarAdaptador('codex', { ...f.opts, projeto: link, dir: path.join(f.opts.projeto, 'integracao') });
+    assert.equal(r.experiencia?.ativa, true, r.experiencia?.aviso);
+    assert.ok(fs.readFileSync(path.join(f.opts.projeto, 'AGENTS.md'), 'utf8').includes('"integracao/skills/orkastery/skills/core"'));
+  } finally { fs.rmSync(link, { force: true }); f.limpar(); }
+});
+
 test('adaptador fora do projeto pula o bloco, que só aponta caminhos relativos ao projeto', () => {
   const f = fixtureCompatibilidade('codex', 'projeto', 'en-US', ['orchestration-experience']);
   try {
@@ -129,7 +157,7 @@ test('bloco adulterado ou link no arquivo de instruções pulam só o pacote e p
     const opts = { projeto: p.dir, catalogo, orkBin: 'ork' };
     const r = instalarAdaptador('codex', opts);
     assert.equal(r.ok, true); assert.equal(r.experiencia?.ativa, false);
-    assert.match(textoDaInstalacao(r), /bloco de instruções foi editado ou está duplicado; nada foi escrito nele/);
+    assert.match(textoDaInstalacao(r), /bloco de instruções ou o recibo .orkastery\/experiencia\/codex.json foi editado ou está duplicado; nada foi escrito/);
     assert.equal(fs.readFileSync(alvo, 'utf8'), INICIO_EXPERIENCIA);
     assert.ok(fs.existsSync(path.join(r.destino, 'INSTALADO.json')), 'o adaptador segue instalado');
     assert.equal(fs.existsSync(path.join(p.dir, '.orkastery', 'experiencia')), false);
@@ -168,6 +196,12 @@ test('link acima do destino do adaptador é escolha de quem instala; link dentro
     fs.symlinkSync(path.join(p.dir, 'compartilhado'), path.join(p.dir, '.agents'));
     assert.equal(instalarAdaptador('codex', { ...opts, dryRun: true }).ok, true, '.agents compartilhado por link segue aceito');
     fs.unlinkSync(path.join(p.dir, '.agents'));
+    // O próprio destino por link levaria INSTALADO.json, skills e references para fora do projeto.
+    fs.mkdirSync(path.join(p.dir, '.agents', 'skills'), { recursive: true });
+    fs.symlinkSync(path.join(p.dir, 'compartilhado'), path.join(p.dir, '.agents', 'skills', 'orkastery'));
+    assert.throws(() => instalarAdaptador('codex', opts), /unsafe/);
+    assert.deepEqual(fs.readdirSync(path.join(p.dir, 'compartilhado')), []);
+    fs.rmSync(path.join(p.dir, '.agents'), { recursive: true });
     const destino = path.join(p.dir, '.agents', 'skills', 'orkastery'), externo = path.join(p.dir, 'externo.json');
     fs.mkdirSync(destino, { recursive: true }); fs.writeFileSync(externo, 'preservado');
     fs.symlinkSync(externo, path.join(destino, 'INSTALADO.json'));

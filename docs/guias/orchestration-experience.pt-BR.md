@@ -24,7 +24,7 @@ A pauta oferece ativar com os valores detectados, configurar ou desativar. O exe
 | `owner.depth` | `curta` ou `detalhada` | `curta` |
 | `owner.experience` | `true` ou `false` | `true` |
 
-`show --json` informa valores efetivos, origem e skill selecionada. Locales portugueses usam a variante pt-BR; demais locales usam a inglesa, mantendo o idioma de resposta configurado. Entrada inválida é recusada antes de gravar a entrevista. Valor inválido editado à mão no manifesto gera aviso e vale o padrão até ser corrigido pelo mesmo `onboarding set`. Configuração explícita prevalece sobre a detecção; repetir a mesma resposta volta a aplicá-la ao manifesto.
+`show --json` informa valores efetivos, origem e skill selecionada. Locales portugueses usam a variante pt-BR; demais locales usam a inglesa, mantendo o idioma de resposta configurado. Entrada inválida é recusada antes de gravar a entrevista. Valor inválido editado à mão no manifesto gera aviso e vale o padrão até ser corrigido pelo mesmo `onboarding set`; enquanto isso, `adapter install` pula o pacote (um `experience: "false"` não ativa nada) e `experiencia show` mostra o aviso. Configuração explícita prevalece sobre a detecção; repetir a mesma resposta volta a aplicá-la ao manifesto.
 
 ## Instalar e conferir descoberta
 

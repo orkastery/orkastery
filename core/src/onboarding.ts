@@ -192,6 +192,9 @@ function comTrava<T>(raiz: string, alterar: () => T): T {
   finally { fs.closeSync(fd); fs.unlinkSync(trava); }
 }
 
+/** Comentário depois de valor simples ou entre aspas completas; `#` dentro das aspas é valor. */
+const COMENTARIO_NA_LINHA = /^\s*[^:#]+:\s*(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^"'#\s][^#]*?)?(\s+#.*)$/;
+
 /** Altera somente as chaves públicas solicitadas, preservando comentários e outras seções. */
 function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
   if (!objeto(conteudo) || !objeto(conteudo.owner) || !Object.keys(conteudo.owner).length) return null;
@@ -214,7 +217,7 @@ function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
     if (indices.length > 1) throw Error('experiencia.manifesto.conflict: preferência duplicada');
     const linha = `  ${k}: ${JSON.stringify(v)}`;
     // Comentário na mesma linha fica; a conferência semântica abaixo pega leitura errada.
-    if (indices.length) linhas[indices[0]] = linha + (/^[^#]*?(\s+#.*)$/.exec(linhas[indices[0]])?.[1] ?? '');
+    if (indices.length) linhas[indices[0]] = linha + (COMENTARIO_NA_LINHA.exec(linhas[indices[0]])?.[1] ?? '');
     else { linhas.splice(inicio + 1, 0, linha); fim++; }
   }
   const proximo = linhas.join(eol);

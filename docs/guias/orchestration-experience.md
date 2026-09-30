@@ -24,7 +24,7 @@ The agenda offers activation with detected values, configuration or opt-out. UTC
 | `owner.depth` | `curta` (short) or `detalhada` (detailed) | `curta` |
 | `owner.experience` | `true` or `false` | `true` |
 
-`show --json` reports effective values, their origins and the selected skill. Portuguese locales select the pt-BR variant; other locales select English while retaining the configured response language. Invalid answers are rejected before persistence. An invalid value edited by hand in the manifest raises a warning and falls back to the default until the same `onboarding set` fixes it. Explicit configuration wins over detection; repeating the same answer applies it to the manifest again.
+`show --json` reports effective values, their origins and the selected skill. Portuguese locales select the pt-BR variant; other locales select English while retaining the configured response language. Invalid answers are rejected before persistence. An invalid value edited by hand in the manifest raises a warning and falls back to the default until the same `onboarding set` fixes it; meanwhile `adapter install` skips the pack (an `experience: "false"` activates nothing) and `experiencia show` reports the warning. Explicit configuration wins over detection; repeating the same answer applies it to the manifest again.
 
 ## Install and check discovery
 

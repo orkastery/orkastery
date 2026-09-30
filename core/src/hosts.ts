@@ -405,10 +405,15 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
   if (carregado?.raiz === projeto && carregado.erros.length) {
     avisoExperiencia = `Pacote de experiência pulado: o manifesto tem erros (${carregado.erros[0]}). ${segue}`;
   }
+  // Preferência inválida (ex.: experience: "false") não ativa nem remove nada: quem escreveu pode ter
+  // tentado desligar o pacote. Corrigir com ork onboarding set maestro volta a instalar.
+  const invalida = carregado?.raiz === projeto ? carregado.avisos.find(a => a.startsWith('experiencia.config.invalid')) : undefined;
+  if (!avisoExperiencia && invalida) avisoExperiencia = `Pacote de experiência pulado: ${invalida}. ${segue}`;
   const preferencias = carregado?.raiz === projeto && !avisoExperiencia ? resolverExperiencia(carregado.manifesto.owner) : null;
   const hostComBloco = host === 'codex' || host === 'claude-code';
   // O bloco aponta o diretório relativo ao projeto: CLAUDE.md e AGENTS.md costumam ir ao repositório.
-  const diretorioExperiencia = path.relative(projeto, path.join(destino, 'skills', 'core')).split(path.sep).join('/');
+  const diretorioExperiencia = path.relative(caminhoReal(projeto), caminhoReal(path.join(destino, 'skills', 'core')))
+    .split(path.sep).join('/');
   if (preferencias?.experience && host !== 'openclaw') {
     const skillRelativa = host === 'hermes' ? `skills/${preferencias.skill}/SKILL.md`
       : `skills/core/${preferencias.skill}/SKILL.md`;
@@ -427,14 +432,14 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     } catch (e) {
       const motivo = (e as Error).message;
       if (!/^experiencia\.(bloco\.conflict|path\.unsafe)/.test(motivo)) throw e;
-      avisoExperiencia = `Pacote de experiência pulado: ${motivo.startsWith('experiencia.path') ? 'o arquivo de instruções é link ou não é arquivo comum' : 'o bloco de instruções foi editado ou está duplicado'}; nada foi escrito nele. Revise o arquivo e rode ork experiencia uninstall ${host}. ${segue}`;
+      avisoExperiencia = `Pacote de experiência pulado: ${motivo.startsWith('experiencia.path') ? 'o arquivo de instruções é link ou não é arquivo comum' : `o bloco de instruções ou o recibo .orkastery/experiencia/${host}.json foi editado ou está duplicado`}; nada foi escrito. Revise os dois à mão. ${segue}`;
     }
   }
 
-  // O preflight cobre os arquivos do próprio adaptador antes de copiar o primeiro. Links acima do
-  // destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
+  // O preflight cobre o destino e os arquivos do próprio adaptador antes de copiar o primeiro. Links
+  // acima do destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
   for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
-    for (let atual = alvo; atual !== destino && atual !== path.dirname(atual); atual = path.dirname(atual)) {
+    for (let atual = alvo; atual !== path.dirname(destino) && atual !== path.dirname(atual); atual = path.dirname(atual)) {
       const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
       if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
         throw Error('experiencia.path.unsafe: destino do adaptador');
@@ -579,6 +584,13 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
 
   if (planoExperiencia) aplicarExperiencia(planoExperiencia);
   return resultado;
+}
+
+/** Caminho real do maior ancestral existente, com o resto como está: o destino pode não existir ainda. */
+function caminhoReal(alvo: string): string {
+  let existente = path.resolve(alvo);
+  while (!fs.existsSync(existente) && existente !== path.dirname(existente)) existente = path.dirname(existente);
+  return path.join(fs.realpathSync(existente), path.relative(existente, path.resolve(alvo)));
 }
 
 /** Remove somente o bloco do pacote; o adaptador e as demais instruções permanecem. */

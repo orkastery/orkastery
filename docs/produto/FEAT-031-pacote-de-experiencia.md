@@ -21,7 +21,7 @@ fontes:
 
 > **Em uma frase:** preferências de idioma, fuso e profundidade orientam a conversa de orquestração nos hosts, com opt-out e restauração dos arquivos de instrução.
 
-- **Estado:** em desenvolvimento até o merge; testes, ensaio real de tarball e revisão independente aprovados na branch.
+- **Estado:** em desenvolvimento até o merge; na branch, testes e ensaio real de tarball verdes, e revisão independente final sem bloqueador.
 - **Onde fica:** [integração com hosts](MOD-06-integracao-com-hosts.md).
 - **Roadmap:** [RM-051](../roadmap/RM-051-pacote-de-experiencia.md).
 
@@ -33,7 +33,7 @@ O bloco nos arquivos de instrução aponta o catálogo por caminho relativo ao p
 
 ## Dados e contratos
 
-Preferências: `owner.language`, `owner.timezone`, `owner.depth` e `owner.experience`. Valor inválido no manifesto avisa e vale o padrão, como o fuso. Consultas MCP expõem reservas e fábrica no projeto fixado pelo servidor, sem reservar nem publicar, fora do laço do servidor e canceláveis.
+Preferências: `owner.language`, `owner.timezone`, `owner.depth` e `owner.experience`. Valor inválido no manifesto avisa e vale o padrão, como o fuso; enquanto isso, o adapter install pula o pacote. Consultas MCP expõem reservas e fábrica no projeto fixado pelo servidor, sem reservar nem publicar, fora do laço do servidor e canceláveis.
 
 ## Operação e controle
 

@@ -68,6 +68,8 @@ export function criarLeitorExperiencia(raiz: string, transporte: Transporte, pra
       terminado = true; clearTimeout(prazo); signal?.removeEventListener('abort', abortar); resolve(r);
     };
     const abortar = () => {
+      if (terminado) return;
+      filho.stdout?.destroy();
       try { if (filho.pid) process.kill(grupo ? -filho.pid : filho.pid, 'SIGKILL'); } catch { /* já terminou */ }
       concluir(indisponivel());
     };

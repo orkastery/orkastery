@@ -149,7 +149,8 @@ export function planejarExperiencia(projeto: string, host: HostComBloco, skill: 
     } satisfies Recibo, null, 2) + '\n');
   } else if (antes && bloco) {
     depois = removerBloco(antes, bloco);
-    if (depois.length === 0 && (!bloco.doRecibo || recibo!.anterior === null)) depois = null;
+    // Vazio só some quando o arquivo não existia (recibo) ou quando, sem recibo, só havia o bloco.
+    if (depois.length === 0 && (recibo ? recibo.anterior === null : true)) depois = null;
   }
   const mudancas = [{ arquivo, antes, depois }, { arquivo: reciboPath, antes: bytesRecibo, depois: proximoRecibo }]
     .filter(m => !iguais(m.antes, m.depois));
