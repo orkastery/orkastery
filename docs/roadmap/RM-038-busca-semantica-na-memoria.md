@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-09-29T10:30:00-03:00
+atualizado_em: 2026-09-29T23:37:53-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-i36buscasema
   modo: "#Classic"
-  fase: GO
+  fase: SHIP
   status: aberta
 ---
 

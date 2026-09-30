@@ -33,8 +33,23 @@ export interface ManifestoCarregado {
   avisos: string[];
 }
 
+let diretorioFixado: string | null = null;
+
+/**
+ * RM-052: o projeto-alvo fixado pelo CLI (`--projeto`, `ORK_PROJETO`, host sem cwd) vira o ponto
+ * de partida padrao das raizes. Sem ele, vale o cwd, como sempre. Quem fixa e `fixarProjetoAlvo`.
+ */
+export function fixarDiretorioDoProjeto(dir: string | null): void {
+  diretorioFixado = dir;
+}
+
+/** De onde as raizes padrao partem: o projeto-alvo fixado ou, sem ele, o cwd do processo. */
+export function diretorioDoProjeto(): string {
+  return diretorioFixado ?? process.cwd();
+}
+
 /** Raiz do projeto: o diretorio que contem o manifesto; senao, a raiz do repositorio git. */
-export function acharRaiz(dirInicial: string = process.cwd()): string {
+export function acharRaiz(dirInicial: string = diretorioDoProjeto()): string {
   const porManifesto = subirAte(dirInicial, NOME_MANIFESTO);
   if (porManifesto) return porManifesto;
   const porLegado = subirAte(dirInicial, NOME_MANIFESTO_LEGADO);
@@ -194,7 +209,7 @@ function booleanoReconhecivel(v: unknown): boolean | null {
 }
 
 /** Le e valida o manifesto. Nunca lanca: erros e avisos voltam na estrutura. */
-export function carregarManifesto(dirInicial: string = process.cwd()): ManifestoCarregado | null {
+export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): ManifestoCarregado | null {
   const raiz = acharRaiz(dirInicial);
   const candidatos = [
     { caminho: path.join(raiz, NOME_MANIFESTO), legado: false },
@@ -465,7 +480,7 @@ export function carregarManifesto(dirInicial: string = process.cwd()): Manifesto
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
-export function exigirManifesto(dirInicial: string = process.cwd()): ManifestoCarregado {
+export function exigirManifesto(dirInicial: string = diretorioDoProjeto()): ManifestoCarregado {
   const carregado = carregarManifesto(dirInicial);
   if (!carregado) {
     throw new Error(

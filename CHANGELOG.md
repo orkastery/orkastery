@@ -21,6 +21,24 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     saúde, que nada sondava, deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
   - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
     de embedding pelo nome.
+- **Projeto-alvo explícito** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
+  - `--projeto <nome|caminho>`, opção global em qualquer comando, e `ORK_PROJETO`, com precedência
+    sobre o diretório atual; nome ambíguo ou desconhecido recusa com os candidatos, na saída 4;
+  - registro dos projetos desta máquina em `~/.orkastery/projetos.json` (`ork.projetos/v1`, sem
+    segredo), alimentado por `ork init`, `ork thread new` e `ork fabrica entrar`; `ork projetos`
+    lista, `registrar` e `esquecer` cuidam das cópias antigas;
+  - toda tool do OpenClaw e do MCP aceita `projeto`; OpenClaw e Hermes declaram
+    `ORK_PROJETO_EXPLICITO=1` e, sem projeto e com mais de um conhecido, devolvem a escolha em vez
+    de ler o diretório do gateway; o MCP continua fixado e recusa outro projeto;
+  - `ork maestro`, `ork board`, `ork board plan`, `ork fabrica` e `ork roadmap status` dizem no
+    alto qual projeto leram (nome, raiz, remoto, origem) e o que não leram; sem remoto, board e
+    fábrica dizem que nada foi lido, nunca "nenhuma publicou ainda".
+- **Roadmap da rede, de qualquer diretório** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md), fatia 1):
+  `ork network roadmap [--projeto P] [--json]` junta, para cada projeto, o status report do
+  roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte
+  e a hora de cada parte (contrato `ork.network-roadmap/v1`). Sem clone, lê a forja só com
+  consulta (`gh api graphql` numa chamada; GitLab pela mesma interface). O que não foi lido sai
+  como lacuna tipada, nunca como "vazio". As tools dos hosts ficam para a fatia 2.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última
@@ -42,6 +60,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   entidade do portfólio, a citação da fonte, o frescor contra o portfólio canônico e as lacunas
   tipadas, e um digest reproduzível. Item sem citação vira lacuna, nunca conteúdo. Somente
   leitura; também como `ork_brain_context` no MCP e no OpenClaw, que passa a ter 25 tools.
+
+### Mudado
+
+- **`ork board --json` vira objeto** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
+  `{contrato: 'ork.board/v1', consulta, threads}`, com a lista de antes em `threads`. `board plan`,
+  `fabrica` e `roadmap status` ganham o campo `consulta`; o snapshot do maestro ganha
+  `project.root`, `project.remote` e `notConsulted`, opcionais no contrato `v1`.
 
 ## 0.4.3 — 29/09/2026
 

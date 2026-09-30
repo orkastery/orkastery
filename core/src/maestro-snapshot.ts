@@ -45,9 +45,13 @@ export function maestroSnapshot(context: MaestroContext, options: SnapshotOption
       coverage:{total:unavailable?null:all.length,offset,returned:items.length,omitted:unavailable?null:omitted,
         nextOffset:omitted?offset+items.length:null,limit:50},items,gaps:publicMessages(src?.gaps??['maestro.source.unavailable'],4)};
   }
+  // RM-052: raiz e remoto passam pela mesma redacao dos demais campos publicos.
+  const {root,remote}=context.project;
   const result:MaestroSnapshot={schema:MAESTRO_SCHEMA,observedAt,fingerprint:digest([context.fingerprint,sources.fingerprint]),
-    project:{...context.project,name:safeText(context.project.name)},limits:MAESTRO_LIMITS,sections,gaps:publicMessages(sources.gaps,12),
-    conflicts:publicMessages([...sources.conflicts,...(!stable?['maestro.snapshot.stale']:[])],12)};
+    project:{...context.project,name:safeText(context.project.name),...(root===undefined?{}:{root:safeText(root)}),
+      ...(remote===undefined?{}:{remote:remote===null?null:safeText(remote)})},limits:MAESTRO_LIMITS,sections,gaps:publicMessages(sources.gaps,12),
+    conflicts:publicMessages([...sources.conflicts,...(!stable?['maestro.snapshot.stale']:[])],12),
+    ...(context.notConsulted?{notConsulted:publicMessages(context.notConsulted,19)}:{})};
   // Orçamento incremental; mantém um item por seção para nextOffset avançar.
   const sizes=new Map(Object.values(sections).map(s=>[s,Buffer.byteLength(JSON.stringify(s))]));
   let bytes=Buffer.byteLength(JSON.stringify(result));
