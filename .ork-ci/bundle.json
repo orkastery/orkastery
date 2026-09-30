@@ -1,745 +1,313 @@
 {
   "schema": "ork.ci-bundle/v1",
-  "thread": "ork-rm052projeto",
+  "thread": "ork-rm054roadmap",
   "base": "main",
   "claims": [
     {
       "id": "C1",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-cli.test.ts",
-      "alegacao": "CS1/CS3/CS4: no CLI, --projeto vence ORK_PROJETO, que vence o cwd; sem eles o terminal segue o cwd; ork init, thread new e fabrica entrar registram o projeto; ork projetos [--json] lista; em host sem cwd (ORK_PROJETO_EXPLICITO=1) com mais de um projeto conhecido a resposta e a escolha tipada projeto.escolha com os candidatos, saida 4",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "ork network roadmap agrega, por projeto, o status do roadmap (RM-048), as reservas e as threads das maquinas publicadas em ork/fabrica-estado, com fonte e horario de cada parte",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-cli.test.js"
+        "node --test --test-name-pattern=\"^rede: agrega\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:44.491Z",
+      "criadoEm": "2026-09-29T23:11:27.054Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C2",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo.test.ts",
-      "alegacao": "CS2/CS3: o registro ~/.orkastery/projetos.json (contrato ork.projetos/v1) guarda nome, abbrev, raiz canonica, remoto sem credencial e datas, recusa segredo, e a resolucao por nome recusa desconhecido (projeto.desconhecido) e ambiguo (projeto.ambiguo) com a lista de candidatos, sem chutar",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Projeto sem clone nesta maquina e lido da forja (roadmap, reservas e fabrica) em uma consulta somente leitura",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo.test.js"
+        "node --test --test-name-pattern=\"^rede: sem clone\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:44.800Z",
+      "criadoEm": "2026-09-29T23:11:27.175Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C3",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-consulta.test.ts",
-      "alegacao": "CS5: ork maestro, board, board plan, fabrica e roadmap status, em texto e em JSON, declaram o projeto consultado (nome, raiz, remoto, origem) e o que nao foi consultado, com roadmap nao lido no board e no maestro",
-      "negativa": false,
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Maquina sem batida, projeto sem clone, forja inacessivel e copia local viram lacuna tipada com correcao; nenhuma lacuna vira vazio",
+      "negativa": true,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-consulta.test.js"
+        "node --test --test-name-pattern=\"^rede: lacuna\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:45.122Z",
+      "criadoEm": "2026-09-29T23:11:27.299Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C4",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "adapters/openclaw/test/projeto-alvo.test.mjs",
-      "alegacao": "CS6: no OpenClaw toda tool ork_* aceita projeto opcional (so nome, nunca caminho), repassa --projeto ao ork, declara ORK_PROJETO_EXPLICITO=1 e as descricoes de ork_board e ork_maestro proibem concluir sobre o roadmap a partir do board",
-      "negativa": true,
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Regressao do incidente: de um cwd com manifesto de outro projeto, a resposta e do projeto pedido, nomeia o projeto consultado e diz o que nao foi consultado",
+      "negativa": false,
       "verificar": [
-        "node --test adapters/openclaw/test/projeto-alvo.test.mjs"
+        "node --test --test-name-pattern=\"^rede: incidente\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:45.430Z",
+      "criadoEm": "2026-09-29T23:11:27.422Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C5",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-mcp.test.ts",
-      "alegacao": "CS7: no MCP toda tool ork_* aceita projeto opcional; o projeto servido passa, outro nome recusa com projeto.fora-do-servidor e a raiz nunca muda por argumento de tool; ork_roadmap_status declara o projeto consultado",
-      "negativa": true,
+      "arquivo": "core/src/index.ts",
+      "alegacao": "ork network roadmap imprime o panorama e --json devolve o contrato ork.network-roadmap/v1",
+      "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-mcp.test.js"
+        "node --test --test-name-pattern=\"^rede: CLI\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:45.739Z",
+      "criadoEm": "2026-09-29T23:11:27.551Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C6",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-hosts.test.ts",
-      "alegacao": "CS8: os scripts do Hermes declaram ORK_PROJETO_EXPLICITO e repassam --projeto; a skill do Hermes, o comando /ork do Claude Code e o bootstrap comum mandam passar o projeto e nunca concluir sobre o roadmap a partir do board",
-      "negativa": true,
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "A identidade da forja sai do remoto (https, ssh, scp) e o leitor GitHub e GitLab usa a mesma interface, so com consulta (sem mutation)",
+      "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js"
+        "node --test core/dist-test/test/forja.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:46.050Z",
+      "criadoEm": "2026-09-29T23:11:27.665Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C7",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/test/projeto-alvo-incidente.test.ts",
-      "alegacao": "CS9: regressao do incidente de 29/09: a tool chamada de um cwd com o manifesto de outro projeto (workspace) nunca relata aquele projeto como se fosse o pedido; com projeto orkastery devolve o roadmap do orkastery e sem projeto devolve a escolha",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "Nenhum segredo sai: o leitor nao chama gh auth token, nao passa token em argv e o erro da forja sai redigido",
       "negativa": true,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-incidente.test.js"
+        "node --test --test-name-pattern=\"^forja: erro\" core/dist-test/test/forja.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:46.360Z",
+      "criadoEm": "2026-09-29T23:11:27.787Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C8",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-052-projeto-alvo-explicito.md",
-      "alegacao": "CS10: o item RM-052 existe, criado do modelo, com problema, evidencia, hipotese, metrica, escopo, criterios de aceite, prioridade e o achado extra, e a documentacao passa na paridade do ork docs verificar",
+      "arquivo": "core/src/roadmap-status.ts",
+      "alegacao": "O ork roadmap status (RM-048) e a leitura de docs continuam iguais depois da refatoracao",
       "negativa": false,
       "verificar": [
-        "node core/dist/index.js docs verificar",
-        "grep -q \"^id: RM-052\" docs/roadmap/RM-052-projeto-alvo-explicito.md && grep -q \"Workspace not trusted\" docs/roadmap/RM-052-projeto-alvo-explicito.md"
+        "node --test core/dist-test/test/roadmap-status.test.js core/dist-test/test/docs.test.js"
       ],
-      "criadoEm": "2026-09-29T23:15:46.675Z",
+      "criadoEm": "2026-09-29T23:11:27.912Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C9",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/src/projeto-alvo.ts",
-      "alegacao": "T1: core/src/projeto-alvo.ts implementa o registro ork.projetos/v1 com trava e varredura de segredo, a resolucao tipada do projeto-alvo (--projeto, ORK_PROJETO, host sem cwd) e o cabecalho ork.consulta/v1",
+      "arquivo": "docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+      "alegacao": "O item RM-054 existe, criado do modelo, e a documentacao passa na paridade do ork docs verificar",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo.test.js"
+        "node core/dist/index.js docs verificar"
       ],
-      "criadoEm": "2026-09-29T23:23:36.983Z",
+      "criadoEm": "2026-09-29T23:11:28.026Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C10",
-      "thread": "ork-rm052projeto",
+      "thread": "ork-rm054roadmap",
       "fase": "GOAL",
-      "arquivo": "core/src/manifest.ts",
-      "alegacao": "T1: acharRaiz, carregarManifesto e exigirManifesto partem de diretorioDoProjeto(), que e o projeto-alvo fixado ou, sem ele, o cwd de sempre; os testes de init e thread seguem passando",
-      "negativa": true,
+      "arquivo": "core/src/index.ts",
+      "alegacao": "O nucleo compila com a fatia",
+      "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo.test.js core/dist-test/test/init.test.js core/dist-test/test/thread.test.js",
-        "grep -q \"dirInicial: string = diretorioDoProjeto()\" core/src/manifest.ts"
+        "npm --prefix core run build"
       ],
-      "criadoEm": "2026-09-29T23:23:37.293Z",
+      "criadoEm": "2026-09-29T23:11:28.144Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C11",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/index.ts",
-      "alegacao": "T2: main() extrai --projeto em qualquer posicao e resolve o alvo antes de qualquer despacho, maestro incluso; ork projetos lista, registra e esquece; init, thread new e fabrica entrar registram o projeto; a recusa ErroDeProjeto sai na 4 com candidatos em texto e JSON; as suites de CLI vizinhas seguem passando",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: um projeto ou o estado local ilegivel vira lacuna daquele projeto (projeto.sem-leitura, estado-local.sem-leitura) e os outros seguem",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-cli.test.js core/dist-test/test/onboarding-cli.test.js core/dist-test/test/cli-b6.test.js core/dist-test/test/maestro-cli.test.js"
+        "node --test --test-name-pattern=\"^rede: isolamento\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:28:48.865Z",
+      "criadoEm": "2026-09-30T00:13:31.225Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C12",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/cli.md",
-      "alegacao": "T2: a referencia do CLI documenta a precedencia --projeto, ORK_PROJETO, host sem cwd e cwd, os comandos ork projetos e a saida 4 da recusa de projeto-alvo",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: --projeto com nome sozinho e nome; uma pasta de mesmo nome no cwd nao toma o pedido, e caminho so escrito como caminho",
       "negativa": false,
       "verificar": [
-        "grep -q \"## Projeto-alvo (RM-052)\" docs/referencia/cli.md && grep -q \"ork projetos registrar\" docs/referencia/cli.md && grep -q \"projeto.escolha\" docs/referencia/cli.md",
-        "node core/dist/index.js docs verificar"
+        "node --test --test-name-pattern=\"^rede: incidente, pasta\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:28:49.180Z",
+      "criadoEm": "2026-09-30T00:13:31.557Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C13",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/roadmap-status.ts",
-      "alegacao": "T3: o status do roadmap carrega a consulta (ork.consulta/v1) e o texto poe, logo abaixo do titulo aprovado, o projeto consultado e o que nao foi lido; os testes do formato aprovado seguem passando",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: pagina do roadmap com nome nao-ASCII entra no roadmap da rede pelo clone",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-consulta.test.js core/dist-test/test/roadmap-status.test.js"
+        "node --test --test-name-pattern=\"^rede: clone le pagina\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:46.312Z",
+      "criadoEm": "2026-09-30T00:13:31.871Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C14",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/maestro-contract.ts",
-      "alegacao": "T3: ork.maestro-snapshot/v1 ganha project.root, project.remote e notConsulted opcionais, e o schema publicado segue igual ao validador",
-      "negativa": false,
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: fabrica.remoto que parece opcao do git nunca chega ao git e vira projeto.remoto-invalido",
+      "negativa": true,
       "verificar": [
-        "node --test core/dist-test/test/maestro-contract.test.js core/dist-test/test/projeto-alvo-consulta.test.js"
+        "node --test --test-name-pattern=\"^rede: remoto invalido\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:46.623Z",
+      "criadoEm": "2026-09-30T00:13:32.122Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C15",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/schemas/maestro-snapshot.schema.json",
-      "alegacao": "T3: o JSON Schema publicado do snapshot Maestro e o gerado do validador zod, com os campos root, remote e notConsulted",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: o owner.timezone do projeto consultado vale para o hoje, os horarios e a legenda do panorama",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/maestro-contract.test.js"
+        "node --test --test-name-pattern=\"^rede: fuso do projeto\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:46.940Z",
+      "criadoEm": "2026-09-30T00:13:32.367Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C16",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/maestro-discovery.ts",
-      "alegacao": "T3: a descoberta do Maestro preenche raiz exibida, remoto sem credencial e o que o panorama nao le; countOtherProjects false (MCP) nao revela os outros projetos da maquina",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: retrato malformado de outra maquina vira retrato.invalido, sem derrubar o comando nem mostrar NaN",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-consulta.test.js core/dist-test/test/maestro-discovery.test.js core/dist-test/test/maestro-isolation.test.js"
+        "node --test --test-name-pattern=\"^rede: lacuna, retrato\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:47.253Z",
+      "criadoEm": "2026-09-30T00:13:32.579Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C17",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/maestro-snapshot.ts",
-      "alegacao": "T3: o snapshot publica root, remote e notConsulted pela mesma redacao dos campos publicos e segue dentro dos limites do contrato",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: sem clone, a base e a worktree.base_branch do manifesto lido pela forja",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/maestro-snapshot.test.js core/dist-test/test/maestro-security.test.js core/dist-test/test/maestro-performance.test.js core/dist-test/test/projeto-alvo-consulta.test.js"
+        "node --test --test-name-pattern=\"^rede: sem clone segue\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:47.566Z",
+      "criadoEm": "2026-09-30T00:13:32.778Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C18",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/maestro-cli.ts",
-      "alegacao": "T3: o texto do Maestro mantem a Consulta na linha 1 e declara em seguida o projeto consultado, com a origem, e o que nao foi lido",
-      "negativa": false,
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "GO-FIX: o --hostname vai sempre explicito e a listagem cortada pela forja sai como parcial",
+      "negativa": true,
       "verificar": [
-        "node --test core/dist-test/test/horario-maestro.test.js core/dist-test/test/maestro-cli.test.js core/dist-test/test/projeto-alvo-consulta.test.js"
+        "node --test --test-name-pattern=\"^forja: host explicito\" core/dist-test/test/forja.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:47.880Z",
+      "criadoEm": "2026-09-30T00:13:32.982Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C19",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/mcp-maestro.ts",
-      "alegacao": "T3: o ork_maestro do MCP descobre o projeto fixado com countOtherProjects false",
-      "negativa": false,
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: worktree.base_branch que parece opcao do git nunca chega ao git (projeto.base-invalida), e entregasNaBase passa a base depois de --end-of-options",
+      "negativa": true,
       "verificar": [
-        "grep -q \"countOtherProjects:false\" core/src/mcp-maestro.ts",
-        "node --test core/dist-test/test/mcp-maestro.test.js"
+        "node --test --test-name-pattern=\"^rede: base invalida\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:48.187Z",
+      "criadoEm": "2026-09-30T00:25:14.321Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C20",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/test/onboarding-json.test.ts",
-      "alegacao": "T3 (D6): o teste de contrato JSON cobre o board como objeto ork.board/v1 com consulta e threads e o board plan com consulta, sem remover campo",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "GO-FIX: sem clone, os commits do dia sao relidos desde o comeco do dia no fuso do projeto, so com consulta",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/onboarding-json.test.js"
+        "node --test --test-name-pattern=\"^rede: sem clone rele\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:48.497Z",
+      "criadoEm": "2026-09-30T00:25:14.442Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C21",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/contratos/maestro-i32.md",
-      "alegacao": "T3: o contrato do snapshot Maestro documenta root, remote e notConsulted e a origem selection do --projeto",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: cada projeto do panorama aparece no fuso do dono dele, com a legenda do bloco quando difere",
       "negativa": false,
       "verificar": [
-        "grep -q \"notConsulted\" docs/referencia/contratos/maestro-i32.md && grep -q \"RM-052\" docs/referencia/contratos/maestro-i32.md"
+        "node --test --test-name-pattern=\"^rede: cada projeto\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:34:48.811Z",
+      "criadoEm": "2026-09-30T00:25:14.570Z",
       "estado": "verificado",
       "lint": []
     },
     {
       "id": "C22",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/mcp-server.ts",
-      "alegacao": "T4: registrarTool estende todo schema com projeto opcional (so nome), confere contra o projeto fixado e recusa projeto.fora-do-servidor sem trocar a raiz; ork_roadmap_status devolve a consulta com origem instalacao; ork_thread_new registra o projeto; o catalogo segue com 25 tools e as falhas do mcp-server sao as mesmas da base",
+      "thread": "ork-rm054roadmap",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "GO-FIX: a espera do dono das threads desta maquina e a mesma no roadmap e na secao de maquinas, com ou sem retrato tolerante",
       "negativa": false,
       "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-mcp.test.js core/dist-test/test/mcp-maestro.test.js core/dist-test/test/company-brain-mcp.test.js"
+        "node --test --test-name-pattern=\"^rede: espera voce\" core/dist-test/test/network-roadmap.test.js"
       ],
-      "criadoEm": "2026-09-29T23:38:22.969Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C23",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/openclaw/src/index.ts",
-      "alegacao": "T5: toda tool do OpenClaw aceita projeto (so nome, padrao sem barra), repassa --projeto no inicio do argv, recusa caminho sem chamar o ork, declara ORK_PROJETO_EXPLICITO=1 e as descricoes de board, maestro e roadmap status mandam o roadmap vir so de ork_roadmap_status",
-      "negativa": false,
-      "verificar": [
-        "node --test adapters/openclaw/test/projeto-alvo.test.mjs"
-      ],
-      "criadoEm": "2026-09-29T23:40:19.334Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C24",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/openclaw/dist/index.js",
-      "alegacao": "T5: o dist commitado do OpenClaw e exatamente o compilado do src pelo tsc do core, e carrega o parametro projeto e o modo sem cwd",
-      "negativa": false,
-      "verificar": [
-        "T=$(mktemp -d) && core/node_modules/.bin/tsc -p adapters/openclaw/tsconfig.json --outDir \"$T\" && diff -r \"$T\" adapters/openclaw/dist && rm -rf \"$T\"",
-        "grep -q \"ORK_PROJETO_EXPLICITO\" adapters/openclaw/dist/index.js"
-      ],
-      "criadoEm": "2026-09-29T23:40:19.646Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C25",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/openclaw/README.md",
-      "alegacao": "T5: o README do OpenClaw explica o parametro projeto (nome, nunca caminho), o ORK_PROJETO_EXPLICITO e o cabecalho do projeto consultado",
-      "negativa": true,
-      "verificar": [
-        "grep -q \"O projeto de cada chamada (RM-052)\" adapters/openclaw/README.md && grep -q \"ORK_PROJETO_EXPLICITO=1\" adapters/openclaw/README.md"
-      ],
-      "criadoEm": "2026-09-29T23:40:19.955Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C29",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/hermes/bin/ork-abrir-thread.sh",
-      "alegacao": "T6: o ork-abrir-thread.sh do Hermes exporta ORK_PROJETO_EXPLICITO=1 e le o modo padrao no projeto do --projeto dos argumentos extras antes de criar a thread nele",
-      "negativa": false,
-      "verificar": [
-        "sh -n adapters/hermes/bin/ork-abrir-thread.sh",
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:25.825Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C30",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/hermes/skills/orkastery-devmaster/SKILL.md",
-      "alegacao": "T6: a skill do Hermes manda passar --projeto <nome>, apresentar projeto.escolha sem escolher pelo cwd, ler o cabecalho e nunca deduzir o roadmap do board, dentro do teto de 170 linhas",
-      "negativa": true,
-      "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js core/dist-test/test/hosts.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:26.171Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C31",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/claude-code/commands/ork.md",
-      "alegacao": "T6: o /ork do Claude Code explica que o MCP so confere o projeto fixado (projeto.fora-do-servidor), manda o outro projeto ao CLI com --projeto e proibe deduzir o roadmap do board",
-      "negativa": false,
-      "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js core/dist-test/test/maestro-claude.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:26.517Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C32",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
-      "alegacao": "T6: o bootstrap comum declara o projeto explicito de cada consulta, a leitura do cabecalho e que zero threads nunca e roadmap vazio, e o corpus das skills segue verde",
-      "negativa": true,
-      "verificar": [
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js core/dist-test/test/maestro-bootstrap.test.js",
-        "node core/dist/index.js eval --so-skills"
-      ],
-      "criadoEm": "2026-09-29T23:43:26.863Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C33",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/hermes/bin/ork-maestro.sh",
-      "alegacao": "T6: o script ork-maestro.sh do Hermes exporta ORK_PROJETO_EXPLICITO=1 por padrao (0 desliga) e repassa --projeto como dado",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'export ORK_PROJETO_EXPLICITO=\"${ORK_PROJETO_EXPLICITO:-1}\"' adapters/hermes/bin/ork-maestro.sh",
-        "sh -n adapters/hermes/bin/ork-maestro.sh",
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:53.256Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C34",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/hermes/bin/ork-roadmap-status.sh",
-      "alegacao": "T6: o script ork-roadmap-status.sh do Hermes exporta ORK_PROJETO_EXPLICITO=1 por padrao (0 desliga) e repassa --projeto como dado",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'export ORK_PROJETO_EXPLICITO=\"${ORK_PROJETO_EXPLICITO:-1}\"' adapters/hermes/bin/ork-roadmap-status.sh",
-        "sh -n adapters/hermes/bin/ork-roadmap-status.sh",
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:54.051Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C35",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "adapters/hermes/bin/ork-brain.sh",
-      "alegacao": "T6: o script ork-brain.sh do Hermes exporta ORK_PROJETO_EXPLICITO=1 por padrao (0 desliga) e repassa --projeto como dado",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'export ORK_PROJETO_EXPLICITO=\"${ORK_PROJETO_EXPLICITO:-1}\"' adapters/hermes/bin/ork-brain.sh",
-        "sh -n adapters/hermes/bin/ork-brain.sh",
-        "node --test core/dist-test/test/projeto-alvo-hosts.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:43:54.869Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C36",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "CHANGELOG.md",
-      "alegacao": "T8: o CHANGELOG registra no Nao publicado o projeto-alvo explicito (RM-052) e a mudanca do ork board --json para objeto",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'Projeto-alvo explícito' CHANGELOG.md && grep -q 'ork board --json. vira objeto' CHANGELOG.md",
-        "core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
-      ],
-      "criadoEm": "2026-09-29T23:51:12.007Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C37",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/FEAT-030-projeto-alvo-explicito.md",
-      "alegacao": "T8: a FEAT-030 especifica o projeto-alvo, com fontes, simbolos, contratos e comandos conferidos pela paridade",
-      "negativa": false,
-      "verificar": [
-        "node core/dist/index.js docs verificar",
-        "grep -q '^id: FEAT-030' docs/produto/FEAT-030-projeto-alvo-explicito.md"
-      ],
-      "criadoEm": "2026-09-29T23:51:12.337Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C38",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/referencia/contratos/projetos-rm052.md",
-      "alegacao": "T8: o contrato ork.projetos/v1 e ork.consulta/v1 para RM-053 e RM-054 documenta registro, precedencia, recusas e o network com --projeto proprio",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'ork.projetos/v1' docs/referencia/contratos/projetos-rm052.md && grep -q 'projeto.fora-do-servidor' docs/referencia/contratos/projetos-rm052.md && grep -q 'network' docs/referencia/contratos/projetos-rm052.md",
-        "node core/scripts/checar-links.cjs"
-      ],
-      "criadoEm": "2026-09-29T23:51:12.684Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C39",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/MOD-06-integracao-com-hosts.md",
-      "alegacao": "T8: o MOD-06 lista a FEAT-030 entre as features de integracao com hosts",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'FEAT-030-projeto-alvo-explicito.md' docs/produto/MOD-06-integracao-com-hosts.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:13.020Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C40",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
-      "alegacao": "T8: a FEAT-020 cita a RM-052 de volta no roadmap",
-      "negativa": false,
-      "verificar": [
-        "grep -q '^roadmap: .*RM-052' docs/produto/FEAT-020-mcp-e-adaptadores.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:13.353Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C41",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/FEAT-014-monitor-board-e-pulse.md",
-      "alegacao": "T8: a FEAT-014 cita a RM-052 de volta no roadmap",
-      "negativa": false,
-      "verificar": [
-        "grep -q '^roadmap: .*RM-052' docs/produto/FEAT-014-monitor-board-e-pulse.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:13.687Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C42",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/FEAT-027-fabrica-compartilhada.md",
-      "alegacao": "T8: a FEAT-027 cita a RM-052 de volta no roadmap",
-      "negativa": false,
-      "verificar": [
-        "grep -q '^roadmap: .*RM-052' docs/produto/FEAT-027-fabrica-compartilhada.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:14.097Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C43",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/produto/README.md",
-      "alegacao": "T8: o indice de produto, gerado pelo ork docs sincronizar, lista a FEAT-030",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'FEAT-030-projeto-alvo-explicito.md' docs/produto/README.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:14.709Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C44",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/README.md",
-      "alegacao": "T8: o indice do roadmap, gerado pelo ork docs sincronizar, lista a RM-052",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'RM-052-projeto-alvo-explicito.md' docs/roadmap/README.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:15.377Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C45",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
-      "alegacao": "T8: o sincronizador levou ao item o commit de merge da main (a17ff88)",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'commit: a17ff88' docs/roadmap/RM-025-company-brain-fundacao.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:15.999Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C46",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
-      "alegacao": "T8: o sincronizador levou ao item o commit de merge da main (a17ff88)",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'commit: a17ff88' docs/roadmap/RM-026-workspace-empresarial.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:16.589Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C48",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
-      "alegacao": "T8: o sincronizador marcou o codigo como Mesclado com o commit de merge da main (8d47740)",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'commit: 8d47740' docs/roadmap/RM-048-hitl-humano-no-centro.md && grep -q 'codigo: Mesclado' docs/roadmap/RM-048-hitl-humano-no-centro.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:17.804Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C49",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-050-guia-de-contribuicao.md",
-      "alegacao": "T8: o sincronizador marcou o codigo como Mesclado com o commit de merge da main (3c7e8a7)",
-      "negativa": false,
-      "verificar": [
-        "grep -q 'commit: 3c7e8a7' docs/roadmap/RM-050-guia-de-contribuicao.md && grep -q 'codigo: Mesclado' docs/roadmap/RM-050-guia-de-contribuicao.md",
-        "node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:51:18.364Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C50",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
-      "alegacao": "T8 (FX1): o sincronizador marcou o codigo como Mesclado com o commit de merge da main 8589330, gravado entre aspas pelo YAML",
-      "negativa": false,
-      "verificar": [
-        "grep -qE '^    commit: \"?8589330\"?$' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'codigo: Mesclado' docs/roadmap/RM-031-grafo-de-codigo.md && node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-09-29T23:56:29.050Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C51",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/test/apoio.ts",
-      "alegacao": "F3 do CHECK: o apoio dos testes limpa ORK_PROJETO e ORK_PROJETO_EXPLICITO do shell de quem roda a suite, e as suites que chamam o CLI passam com as duas exportadas",
-      "negativa": false,
-      "verificar": [
-        "ORK_PROJETO=inexistente ORK_PROJETO_EXPLICITO=1 node --test core/dist-test/test/onboarding-json.test.js core/dist-test/test/cli-b6.test.js core/dist-test/test/fabrica-estado.test.js"
-      ],
-      "criadoEm": "2026-09-29T23:58:41.577Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C52",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": ".ork-ci/bundle.json",
-      "alegacao": "SHIP: o bundle do CI leva as claims ativas da thread ork-rm052projeto e o comando test:ci do manifesto para o check ork-verify",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const b=require('./.ork-ci/bundle.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-rm052projeto' || b.claims.length<40 || b.commands[0].command!=='npm --prefix core run test:ci') process.exit(1)\""
-      ],
-      "criadoEm": "2026-09-30T00:06:30.177Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C53",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/src/index.ts",
-      "alegacao": "F4 (CI do PR 24): o main registra a fonte do fuso do dono logo no inicio, antes do preambulo do projeto-alvo, como o contrato das entradas de processo exige",
-      "negativa": false,
-      "verificar": [
-        "node --test core/dist-test/test/horario-entradas.test.js core/dist-test/test/horario-cli.test.js"
-      ],
-      "criadoEm": "2026-09-30T00:14:25.711Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C54",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
-      "alegacao": "F5 (CI do PR 24): o bootstrap comum segue casca fina, dentro do teto de 120 linhas de roteador, com a regra do projeto explicito",
-      "negativa": false,
-      "verificar": [
-        "node --test core/dist-test/test/catalogo.test.js core/dist-test/test/projeto-alvo-hosts.test.js"
-      ],
-      "criadoEm": "2026-09-30T00:14:26.384Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C55",
-      "thread": "ork-rm052projeto",
-      "fase": "GOAL",
-      "arquivo": "core/package.json",
-      "alegacao": "CHECK: a suite hermetica inteira (test:ci, a mesma do runner) passa no HEAD; a suite inteira local so falha nas integracoes que ja falhavam na base",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run test:ci"
-      ],
-      "criadoEm": "2026-09-30T00:14:27.138Z",
+      "criadoEm": "2026-09-30T00:31:27.338Z",
       "estado": "verificado",
       "lint": []
     }
