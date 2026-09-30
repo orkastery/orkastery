@@ -19,6 +19,7 @@ test('ambiente filho isolado não altera HOME do condutor nem transporta credenc
   const env = ensaio.ambienteIsolado('/tmp/ensaio', anterior);
   assert.equal(env.HOME, '/tmp/ensaio/home'); assert.equal(anterior.HOME, '/tmp/condutor');
   assert.equal(env.SECRET_SYNTHETIC, undefined); assert.equal(env.ORK_FABRICA_PUBLICAR, '0');
+  assert.equal(env.PATH.split(path.delimiter)[0], '/tmp/ensaio/prefixo/node_modules/.bin', 'ork do tarball antes do global');
 });
 
 test('prova do ensaio falha para bytes divergentes, arquivo inesperado ou bloco duplicado', () => {

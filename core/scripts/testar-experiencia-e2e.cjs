@@ -9,7 +9,9 @@ const { spawnSync } = require('node:child_process');
 
 function ambienteIsolado(base, anterior = process.env) {
   return {
-    PATH: anterior.PATH, LANG: 'C.UTF-8', TZ: 'UTC',
+    // O ork do tarball vem antes no PATH: o adaptador grava o binário que o ensaio instalou.
+    PATH: [path.join(base, 'prefixo', 'node_modules', '.bin'), anterior.PATH].filter(Boolean).join(path.delimiter),
+    LANG: 'C.UTF-8', TZ: 'UTC',
     HOME: path.join(base, 'home'), XDG_CONFIG_HOME: path.join(base, 'home', 'config'),
     npm_config_cache: anterior.npm_config_cache || path.join(os.homedir(), '.npm'),
     ORK_USUARIO_DIR: path.join(base, 'usuario'), ORK_CONTAS_DIR: path.join(base, 'contas'),
@@ -33,10 +35,11 @@ function conferirBytes(arquivo, esperado) {
   if (esperado === null) assert.equal(fs.existsSync(arquivo), false, 'arquivo originalmente ausente deve continuar ausente');
   else assert.deepEqual(fs.readFileSync(arquivo), esperado, 'restauração deve preservar bytes');
 }
-function conferirBloco(arquivo) {
+function conferirBloco(arquivo, proibido) {
   const texto = fs.readFileSync(arquivo, 'utf8');
   assert.equal(texto.split('<!-- orkastery:experiencia:begin -->').length - 1, 1, 'um único bloco ativo');
   assert.equal(texto.split('<!-- orkastery:experiencia:end -->').length - 1, 1);
+  if (proibido) assert.ok(!texto.includes(proibido), 'bloco sem caminho absoluto da máquina');
   return texto;
 }
 function executarEnsaio(raiz = path.resolve(__dirname, '../..')) {
@@ -60,8 +63,13 @@ function executarEnsaio(raiz = path.resolve(__dirname, '../..')) {
         if (original === null) fs.rmSync(arquivo, { force: true }); else fs.writeFileSync(arquivo, original);
         configurar({ experience: true, language: 'pt-BR', timezone: 'UTC', depth: 'curta' });
         cli('adapter', 'install', host, '--dry-run'); conferirBytes(arquivo, original);
-        cli('adapter', 'install', host); const ativo = conferirBloco(arquivo);
+        cli('adapter', 'install', host); const ativo = conferirBloco(arquivo, base);
         cli('adapter', 'install', host); assert.equal(conferirBloco(arquivo), ativo);
+        // Clone novo: o arquivo de instruções versionado chega sem o recibo de .orkastery/. Sem ele
+        // a quebra final original é desconhecida; o recibo volta para a prova byte a byte seguir.
+        const recibo = path.join(projeto, '.orkastery', 'experiencia', host + '.json'), guardado = fs.readFileSync(recibo);
+        fs.rmSync(recibo); cli('adapter', 'install', host); assert.equal(conferirBloco(arquivo), ativo);
+        fs.writeFileSync(recibo, guardado);
         // Cada CLI é processo novo: preferências e descoberta não dependem de memória da sessão.
         const p = JSON.parse(cli('experiencia', 'show', '--json'));
         assert.equal(p.skill, 'orchestration-experience-pt-br'); assert.equal(p.timezone, 'UTC');
@@ -78,7 +86,9 @@ function executarEnsaio(raiz = path.resolve(__dirname, '../..')) {
       configurar({ experience: true, language: 'en-US', depth: 'detalhada' });
       const antes = fs.readFileSync(arquivo); cli('adapter', 'install', host);
       fs.appendFileSync(arquivo, 'mudança externa\n'); cli('experiencia', 'uninstall', host);
-      conferirBytes(arquivo, Buffer.concat([antes, Buffer.from('mudança externa\n')]));
+      // A linha externa não se funde à última linha original, que não tinha quebra.
+      const juncao = antes.length && antes.at(-1) !== 10 ? '\n' : '';
+      conferirBytes(arquivo, Buffer.concat([antes, Buffer.from(juncao + 'mudança externa\n')]));
     }
     cli('adapter', 'install', 'hermes');
     for (const skill of ['orchestration-experience', 'orchestration-experience-pt-br']) {

@@ -397,33 +397,48 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     }
   }
 
+  // A experiência é opcional: manifesto com erro, bloco alheio ou caminho inadequado pulam só a
+  // ativação, com aviso, e o adaptador segue instalado como antes da RM-051.
+  const segue = 'O restante da instalação do adaptador segue normalmente.';
   const carregado = carregarManifesto(projeto);
-  if (carregado?.raiz === projeto && carregado.erros.length) throw Error('experiencia.config.invalid: confira o manifesto');
-  const preferencias = carregado?.raiz === projeto ? resolverExperiencia(carregado.manifesto.owner) : null;
-  const hostComBloco = host === 'codex' || host === 'claude-code';
-  const diretorioExperiencia = path.join(destino, 'skills', 'core');
   let avisoExperiencia: string | undefined;
+  if (carregado?.raiz === projeto && carregado.erros.length) {
+    avisoExperiencia = `Pacote de experiência pulado: o manifesto tem erros (${carregado.erros[0]}). ${segue}`;
+  }
+  const preferencias = carregado?.raiz === projeto && !avisoExperiencia ? resolverExperiencia(carregado.manifesto.owner) : null;
+  const hostComBloco = host === 'codex' || host === 'claude-code';
+  // O bloco aponta o diretório relativo ao projeto: CLAUDE.md e AGENTS.md costumam ir ao repositório.
+  const diretorioExperiencia = path.relative(projeto, path.join(destino, 'skills', 'core')).split(path.sep).join('/');
   if (preferencias?.experience && host !== 'openclaw') {
     const skillRelativa = host === 'hermes' ? `skills/${preferencias.skill}/SKILL.md`
       : `skills/core/${preferencias.skill}/SKILL.md`;
     if (!fontes.some(f => f.relativo === skillRelativa)) {
-      avisoExperiencia = `Pacote de experiência pulado: a skill ${preferencias.skill} não está no catálogo. O restante da instalação do adaptador segue normalmente.`;
+      avisoExperiencia = `Pacote de experiência pulado: a skill ${preferencias.skill} não está no catálogo. ${segue}`;
+    } else if (hostComBloco && (diretorioExperiencia.startsWith('../') || path.isAbsolute(diretorioExperiencia))) {
+      avisoExperiencia = `Pacote de experiência pulado: o adaptador fica fora do projeto e o bloco de instruções só aponta caminhos do projeto. ${segue}`;
     } else if (hostComBloco && /[\r\n`]/.test(diretorioExperiencia)) {
-      avisoExperiencia = 'Pacote de experiência pulado: o caminho das skills contém quebra de linha ou crase, incompatível com o bloco de instruções. O restante da instalação do adaptador segue normalmente.';
+      avisoExperiencia = `Pacote de experiência pulado: o caminho das skills contém quebra de linha ou crase, incompatível com o bloco de instruções. ${segue}`;
     }
   }
-  const planoExperiencia = preferencias && hostComBloco && !avisoExperiencia
-    ? planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null) : null;
+  let planoExperiencia: ReturnType<typeof planejarExperiencia> | null = null;
+  if (preferencias && hostComBloco && !avisoExperiencia) {
+    try {
+      planoExperiencia = planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null);
+    } catch (e) {
+      const motivo = (e as Error).message;
+      if (!/^experiencia\.(bloco\.conflict|path\.unsafe)/.test(motivo)) throw e;
+      avisoExperiencia = `Pacote de experiência pulado: ${motivo.startsWith('experiencia.path') ? 'o arquivo de instruções é link ou não é arquivo comum' : 'o bloco de instruções foi editado ou está duplicado'}; nada foi escrito nele. Revise o arquivo e rode ork experiencia uninstall ${host}. ${segue}`;
+    }
+  }
 
-  // O preflight cobre todos os destinos antes de copiar o primeiro arquivo.
+  // O preflight cobre os arquivos do próprio adaptador antes de copiar o primeiro. Links acima do
+  // destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
   for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
-    let atual = alvo;
-    while (atual !== path.dirname(atual)) {
+    for (let atual = alvo; atual !== destino && atual !== path.dirname(atual); atual = path.dirname(atual)) {
       const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
       if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
         throw Error('experiencia.path.unsafe: destino do adaptador');
       }
-      atual = path.dirname(atual);
     }
   }
 
@@ -517,7 +532,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     orkBin,
     pitfalls: def.pitfalls,
     ...(preferencias ? { experiencia: { ativa: host !== 'openclaw' && preferencias.experience && !avisoExperiencia,
-      arquivos: planoExperiencia?.mudancas.map(m => path.relative(projeto, m.arquivo)) ?? [], skill: preferencias.skill,
+      arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias.skill,
       ...(avisoExperiencia ? { aviso: avisoExperiencia } : {}) } } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;

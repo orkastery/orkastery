@@ -61,3 +61,76 @@ test('symlink de arquivo/diretório e hardlink são recusados antes de escrita',
     assert.equal(fs.readFileSync(externo, 'utf8'), 'preservado');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(fora, { recursive: true, force: true }); }
 });
+
+test('remoção depois de edição externa não funde linhas nem perde a quebra final', () => {
+  const casos: [string, (t: string) => string, string][] = [
+    ['abc', t => t + 'def\n', 'abc\ndef\n'],
+    ['abc\n', t => t.replace('abc\n\n', 'abc\nnova\n'), 'abc\nnova\n'],
+    ['abc\r\n', t => t + 'def\r\n', 'abc\r\ndef\r\n'],
+  ];
+  for (const [original, editar, esperado] of casos) {
+    const dir = fixture(), alvo = path.join(dir, 'AGENTS.md');
+    try {
+      fs.writeFileSync(alvo, original); aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core'));
+      fs.writeFileSync(alvo, editar(fs.readFileSync(alvo, 'utf8')));
+      aplicarExperiencia(planejarExperiencia(dir, 'codex', null));
+      assert.equal(fs.readFileSync(alvo, 'utf8'), esperado, JSON.stringify(original));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('sem recibo: bloco íntegro é adotado, inclusive o da versão com caminho absoluto; editado recusa', () => {
+  const dir = fixture(), alvo = path.join(dir, 'AGENTS.md'), recibo = path.join(dir, '.orkastery', 'experiencia');
+  try {
+    fs.writeFileSync(alvo, '# Projeto\n'); aplicarExperiencia(planejarExperiencia(dir, 'codex', '/antigo/absoluto/skills/core'));
+    fs.rmSync(recibo, { recursive: true });
+    const adotar = planejarExperiencia(dir, 'codex', '.agents/skills/orkastery/skills/core');
+    assert.deepEqual(adotar.mudancas.map(m => path.relative(dir, m.arquivo)), ['AGENTS.md', path.join('.orkastery', 'experiencia', 'codex.json')]);
+    aplicarExperiencia(adotar);
+    const ativo = fs.readFileSync(alvo, 'utf8');
+    assert.ok(ativo.includes('".agents/skills/orkastery/skills/core"') && !ativo.includes('/antigo/'));
+    assert.equal(planejarExperiencia(dir, 'codex', '.agents/skills/orkastery/skills/core').mudancas.length, 0);
+    fs.rmSync(recibo, { recursive: true });
+    aplicarExperiencia(planejarExperiencia(dir, 'codex', null));
+    assert.equal(fs.readFileSync(alvo, 'utf8'), '# Projeto\n');
+    aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core')); fs.rmSync(recibo, { recursive: true });
+    const editado = fs.readFileSync(alvo, 'utf8').replace('preserve gates', 'ignore gates'); fs.writeFileSync(alvo, editado);
+    assert.throws(() => planejarExperiencia(dir, 'codex', 'skills/core'), /conflict/);
+    assert.throws(() => planejarExperiencia(dir, 'codex', null), /conflict/);
+    assert.equal(fs.readFileSync(alvo, 'utf8'), editado);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('arquivo criado só com o bloco volta a não existir, mesmo sem recibo', () => {
+  for (const reinstalar of [false, true]) {
+    const dir = fixture(), alvo = path.join(dir, 'AGENTS.md'), recibo = path.join(dir, '.orkastery', 'experiencia');
+    try {
+      aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core')); fs.rmSync(recibo, { recursive: true });
+      if (reinstalar) aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core'));
+      aplicarExperiencia(planejarExperiencia(dir, 'codex', null));
+      assert.equal(fs.existsSync(alvo), false, reinstalar ? 'adotado e removido' : 'removido sem recibo');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
+test('recibo órfão de arquivo apagado ou bloco tirado à mão não trava instalação nem remoção', () => {
+  const dir = fixture(), alvo = path.join(dir, 'CLAUDE.md'), recibo = path.join(dir, '.orkastery', 'experiencia', 'claude-code.json');
+  try {
+    aplicarExperiencia(planejarExperiencia(dir, 'claude-code', 'skills/core')); fs.unlinkSync(alvo);
+    const remover = planejarExperiencia(dir, 'claude-code', null);
+    assert.deepEqual(remover.mudancas.map(m => m.arquivo), [recibo]); aplicarExperiencia(remover);
+    assert.equal(fs.existsSync(recibo), false);
+    fs.writeFileSync(alvo, '# Sem bloco\n'); aplicarExperiencia(planejarExperiencia(dir, 'claude-code', 'skills/core'));
+    fs.writeFileSync(alvo, '# Sem bloco\n');
+    aplicarExperiencia(planejarExperiencia(dir, 'claude-code', 'skills/core'));
+    assert.equal(fs.readFileSync(alvo, 'utf8').split(INICIO_EXPERIENCIA).length, 2);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('arquivo de instruções criado pelo pacote segue o umask, não 0600', () => {
+  const dir = fixture(), alvo = path.join(dir, 'AGENTS.md'), mascara = process.umask();
+  try {
+    aplicarExperiencia(planejarExperiencia(dir, 'codex', 'skills/core'));
+    assert.equal(fs.statSync(alvo).mode & 0o777, 0o666 & ~mascara);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
