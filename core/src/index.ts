@@ -202,6 +202,7 @@ import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread,
 import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { lerLedger } from './ledger';
@@ -506,6 +507,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
+  network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
+        [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
+                                                 github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
   docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
@@ -2656,6 +2660,27 @@ function comandoRoadmap(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
+ * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
+ */
+function comandoNetwork(args: Args): number {
+  const pedido = texto(args.opcoes.projeto);
+  if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
+    console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
+    return 2;
+  }
+  try {
+    const p = montarPanoramaDaRede({ pedido, semRemoto: args.opcoes['sem-remoto'] === true });
+    console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPanoramaDaRede(p));
+    return p.projetos.length ? 0 : 2;
+  } catch (e) {
+    if (!(e instanceof ErroDoPedidoDeProjeto)) throw e;
+    console.log(args.opcoes.json === true ? JSON.stringify(e.recusa, null, 2) : e.texto);
+    return SAIDA_DO_PEDIDO;
+  }
+}
+
 function comandoDocs(args: Args): number {
   const sub = args.posicionais[1] ?? 'verificar';
   const carregado = carregarManifesto();
@@ -3760,6 +3785,8 @@ export function main(argvBruto: string[]): number {
       return comandoFabrica(args);
     case 'projetos':
       return comandoProjetos(args, projeto);
+    case 'network':
+      return comandoNetwork(args);
     case 'licoes':
       return comandoLicoes(args);
     case 'ciclos':

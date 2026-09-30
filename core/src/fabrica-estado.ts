@@ -33,7 +33,9 @@ import { VERSAO_DO_ORK } from './versao';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
-const DIR = 'maquinas';
+/** O diretorio dos retratos na branch; a leitura sem clone (RM-054) le o mesmo. */
+export const DIR_DA_FABRICA = 'maquinas';
+const DIR = DIR_DA_FABRICA;
 const PAINEL = 'FABRICA.md';
 const PREFIXO = 'fabrica';
 const TENTATIVAS = 5;
@@ -104,7 +106,11 @@ export function arquivoDaMaquina(maquina: string): string {
  * entrega usa, o mesmo fato que o `ork docs sincronizar` le. Um `git log` so, para todas.
  */
 export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): Map<string, string> {
-  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', `refs/remotes/${remoto}/${base}`]).ok ? `${remoto}/${base}` : base;
+  // A base vem do manifesto: a ref vai sempre qualificada (`refs/...`), e um valor como
+  // `--output=<arquivo>` nunca vira opcao do `git log`, em qualquer versao do git (RM-054, CHECK).
+  // Na ordem: a copia remota da base, a branch local, e a base escrita como remota (`origin/main`).
+  const candidatas = [`refs/remotes/${remoto}/${base}`, `refs/heads/${base}`, `refs/remotes/${base}`];
+  const ref = candidatas.find((c) => git(raiz, ['rev-parse', '--verify', '--quiet', c]).ok) ?? candidatas[1];
   // Regex basica do git: o `(` e literal.
   const r = git(raiz, ['log', ref, '--format=%h%x09%s', '--grep=^ship(']);
   const entregas = new Map<string, string>();
@@ -151,7 +157,8 @@ export function assinaturaDoRetrato(e: EstadoDaMaquina): string {
   return createHash('sha256').update(JSON.stringify(resto)).digest('hex');
 }
 
-function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
+/** O retrato so vale inteiro: e o filtro da leitura pelo clone e pela forja (RM-054). */
+export function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
   const e = bruto as EstadoDaMaquina;
   return !!e && e.contrato === CONTRATO_MAQUINA && typeof e.maquina === 'string' && !!e.maquina.trim() &&
     typeof e.publicadoEm === 'string' && Array.isArray(e.threads) &&
