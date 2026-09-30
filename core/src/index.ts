@@ -207,7 +207,7 @@ import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDa
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { ehNomeDeForja } from './rede-forja';
-import { lerRede, textoDaRede } from './rede-status';
+import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
@@ -2298,7 +2298,7 @@ function comandoNetwork(args: Args): number {
     return 2;
   }
   const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio });
-  console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDaRede(status));
+  console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }
 

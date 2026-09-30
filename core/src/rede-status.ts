@@ -15,11 +15,11 @@ import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
-import { BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, lerMarcaDaRede, nomeSeguro, prepararCache, refDaCasa,
-  resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato } from './rede';
+import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, idNoArquivo, lerMarcaDaRede, nomeSeguro,
+  prepararCache, refDaCasa, resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato, urlDaCasaAceita } from './rede';
 import { Adesao, adesaoDaRede, lerIdDaMaquina } from './rede-adesao';
 import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
-import { projetosConhecidos } from './rede-projetos';
+import { INVISIVEL, projetosConhecidos, semInvisiveis } from './rede-projetos';
 
 export const CONTRATO_DO_STATUS = 'ork.rede-status/v1' as const;
 /** D15: tres batidas perdidas. */
@@ -129,7 +129,8 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
           lacunas.push({ tipo: 'rede.sem-repositorio', detalhe: `${refDaCasa(r.casa)} ainda nao existe: nenhuma maquina rodou ork network entrar` });
         } else {
           if (repo.privado !== true) lacunas.push({ tipo: 'rede.repositorio-publico', detalhe: `${refDaCasa(r.casa)} nao e privado: nenhuma maquina publica nele` });
-          if (repo.url) prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), eu);
+          if (repo.url && urlDaCasaAceita(repo.url)) prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), eu);
+          else if (repo.url) lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: a forja devolveu uma URL sem https; a rede so fala por https` });
         }
       } catch (e) {
         lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(r.casa)}: ${mensagem(e)}` });
@@ -139,6 +140,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
 
   // 2. Os retratos da casa.
   let retratos: RetratoDaMaquina[] = [];
+  let lida: { cache: string; ponta: string | null } | null = null;
   if (casa && ler) {
     const cache = dirDoCache(casa);
     if (cachePronto(cache) && comGitIsolado(() => git(cache, ['config', 'remote.origin.url']).ok)) {
@@ -150,6 +152,7 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
         lacunas.push({ tipo: 'rede.sem-leitura', detalhe: `${refDaCasa(casa)} sem leitura nova: ${ponta ? 'mostrando a ultima copia local' : 'nenhuma copia local'}` });
       }
       const lidos = retratosDaPonta(cache, ponta);
+      lida = { cache, ponta };
       retratos = lidos.retratos;
       for (const inv of lidos.invalidos) lacunas.push({ tipo: 'retrato.invalido', detalhe: `${inv.arquivo}: ${inv.motivo}` });
     } else if (!lacunas.some((l) => l.tipo === 'rede.sem-leitura')) {
@@ -208,7 +211,11 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   // S7 da revisao 2: o retrato com o nome desta maquina pode ser de outra instalacao (tomou o nome).
   const meuId = lerIdDaMaquina();
   const comMeuNome = retratos.find((r) => r.maquina === eu);
-  const nomeEmUso = !!comMeuNome?.id && !!meuId && comMeuNome.id !== meuId;
+  // V7 da revisao 4: o arquivo com este nome num contrato mais novo, com outro `id`, tambem e de outra instalacao.
+  let idDeOutraVersao: string | null = null;
+  if (!comMeuNome && lida) { try { idDeOutraVersao = idNoArquivo(lida.cache, lida.ponta, arquivoDoRetrato(eu)); } catch { /* nome impossivel */ } }
+  const idNaCasa = comMeuNome?.id ?? idDeOutraVersao;
+  const nomeEmUso = !!idNaCasa && !!meuId && idNaCasa !== meuId;
   if (nomeEmUso) {
     lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: `o retrato "${eu}" na casa e de outra instalacao: esta maquina nao ` +
       'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)' });
@@ -279,5 +286,16 @@ export function textoDaRede(s: StatusDaRede): string {
     for (const l of s.lacunas) linhas.push(`  • ${l.tipo}: ${l.detalhe}`);
   }
   linhas.push(legendaDoFuso());
-  return linhas.join('\n');
+  // V2 da revisao 4: a fabrica legada vem do remoto de um projeto, onde outras pessoas escrevem; nada
+  // que o terminal executa (ESC, BEL, CSI) ou que ninguem ve (bidi, largura zero) chega a tela.
+  return semInvisiveis(linhas.join('\n'));
+}
+
+/**
+ * `ork network status --json`: o mesmo JSON, com os caracteres invisiveis escritos como `\uXXXX`
+ * (o valor lido e o mesmo; so o terminal deixa de executa-los). A quebra de linha da indentacao fica.
+ */
+export function jsonDaRede(s: StatusDaRede): string {
+  return JSON.stringify(s, null, 2).replace(new RegExp(INVISIVEL.source, 'gu'), (c) => c === '\n' ? c
+    : Array.from({ length: c.length }, (_, i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join(''));
 }

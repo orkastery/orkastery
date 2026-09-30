@@ -4,8 +4,8 @@
  * D1 (ADR-001): a rede mora num repositorio PRIVADO da pessoa na forja, `<usuario>/orkastery-network`,
  * branch `main`, um `maquinas/<maquina>.json` por maquina (`ork.rede-maquina/v1`) e o `REDE.md`.
  * A gravacao e a da RM-047 (`branch-de-estado`): indice temporario, commit sobre a ponta lida, push
- * sem forca e releitura quando recusado, num cache bare em `~/.orkastery/rede/`, fora de qualquer
- * clone de projeto.
+ * sem forca e releitura quando recusado, num cache em `~/.orkastery/rede/` (arvore de trabalho vazia),
+ * fora de qualquer clone de projeto.
  *
  * D3: publicar exige o repositorio privado, conferido na forja antes de cada publicacao.
  * D5: o retrato e uma LISTA DE PERMISSAO (maquina, hostname, forjas, runtimes, hosts, projetos,
@@ -30,7 +30,7 @@ import { Adesao, adesaoDaRede, ConfigDaRede, ehIdDeMaquina, gravarConfigDaRede, 
   publicacaoDesligada, REPOSITORIO_PADRAO, tomarVezDePublicar } from './rede-adesao';
 import { AmbienteDaMaquina, acharBinario, comGitIsolado, Forja, forjaPorNome, forjasDaMaquina, IdentidadeDoGit, IdentidadeNaForja, NomeDaForja,
   versaoDoBinario } from './rede-forja';
-import { projetosConhecidos } from './rede-projetos';
+import { ehNomeDeProjeto, INVISIVEL, limparRemoto, projetosConhecidos, semInvisiveis } from './rede-projetos';
 import { VERSAO_DO_ORK } from './versao';
 
 export const CONTRATO_DO_RETRATO = 'ork.rede-maquina/v1' as const;
@@ -228,7 +228,8 @@ export function retratoComDescartes(opcoes: OpcoesDoRetrato = {}): { retrato: Re
   const presentes = projetos.filter((p) => p.presente)
     .map((p) => ({ nome: p.nome, remoto: p.remoto !== null && p.remoto.length <= 500 ? p.remoto : null, caminho: p.caminho }));
   const limpos = presentes.filter((p, i) => {
-    if (!p.nome.trim() || p.nome.length > 80 || p.caminho.length > 1024) {
+    // V2 e V3 da revisao 4: a regra unica de nome (o do diretorio atual vem de manifesto de terceiro).
+    if (!ehNomeDeProjeto(p.nome) || p.caminho.length > 1024 || INVISIVEL.test(p.caminho)) {
       descartados.push({ campo: `projetos[${i}]`, padrao: 'fora do contrato ork.rede-maquina/v1' });
       return false;
     }
@@ -270,9 +271,15 @@ export function assinaturaDoRetrato(r: RetratoDaMaquina): string {
 
 /** Alem do catalogo do nucleo (`procurarSegredos`): o que a rede nunca deixa sair. */
 const PADROES_DA_REDE: ReadonlyArray<{ nome: string; regex: RegExp }> = [
-  { nome: 'token do GitHub', regex: /\b(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,})/ },
-  { nome: 'token do GitLab', regex: /\bgl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{16,}/ },
-  { nome: 'token do Slack', regex: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
+  // V8 da revisao 4: sem `\b` na frente, porque token colado a letra ou `_` (`xghp_...`) tambem vaza.
+  { nome: 'token do GitHub', regex: /(?:gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,})/ },
+  { nome: 'token do GitLab', regex: /gl(?:pat|dt|oas|rt|cbt|ptt|ft|imt|agent|soat)-[A-Za-z0-9_-]{16,}/ },
+  { nome: 'token do Slack', regex: /xox[abprs]-[A-Za-z0-9-]{10,}/ },
+  { nome: 'chave de acesso AWS', regex: /(?:AKIA|ASIA)[0-9A-Z]{16}/ },
+  { nome: 'token do Hugging Face', regex: /hf_[A-Za-z0-9]{30,}/ },
+  { nome: 'chave da OpenAI', regex: /sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{20,}/ },
+  { nome: 'token do npm', regex: /npm_[A-Za-z0-9]{36}/ },
+  { nome: 'chave de API do Google', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { nome: 'token JWT', regex: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\./ },
   { nome: 'credencial em URL', regex: /[a-z][a-z0-9+.-]*:\/\/[^\s"]*?[^/\s:@"\\]+:[^/\s@"]*@/i },
   { nome: 'arquivo de credencial', regex: /(?:\.credentials\.json|auth\.json|hosts\.ya?ml|\.git-credentials|\.netrc|\.npmrc|\.pypirc|id_(?:rsa|ed25519|ecdsa)\b|[/\\]\.ssh[/\\]|\.config[/\\](?:gh|glab-cli)\b)/i },
@@ -312,14 +319,21 @@ export function exigirRetratoSeguro(r: RetratoDaMaquina): void {
   }
   // S2 da revisao 2: o que o escritor publica, o leitor aceita; senao, ninguem ve esta maquina.
   if (!normalizarRetrato(r)) throw new Error('rede.contrato: o retrato desta maquina nao passa no contrato ork.rede-maquina/v1; nada foi publicado');
-  const visitar = (v: unknown, onde: string): void => {
-    if (typeof v === 'string') {
-      const achado = achadoDeSegredo(v);
-      if (achado) throw new Error(`rede.segredo: padrao "${achado}" em ${onde}; nada foi publicado (valor omitido de proposito)`);
-    } else if (Array.isArray(v)) v.forEach((x, i) => visitar(x, `${onde}[${i}]`));
-    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) visitar(x, onde ? `${onde}.${k}` : k);
+  const achado = segredoNoRetrato(r);
+  if (achado) throw new Error(`rede.segredo: padrao "${achado.padrao}" em ${achado.onde}; nada foi publicado (valor omitido de proposito)`);
+}
+
+/** O primeiro valor do retrato com cara de segredo: o padrao e o campo, nunca o valor. */
+export function segredoNoRetrato(r: unknown): { padrao: string; onde: string } | null {
+  const visitar = (v: unknown, onde: string): { padrao: string; onde: string } | null => {
+    if (typeof v === 'string') { const padrao = achadoDeSegredo(v); return padrao ? { padrao, onde } : null; }
+    if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) { const a = visitar(v[i], `${onde}[${i}]`); if (a) return a; } return null; }
+    if (v && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) { const a = visitar(x, onde ? `${onde}.${k}` : k); if (a) return a; }
+    }
+    return null;
   };
-  visitar(r, '');
+  return visitar(r, '');
 }
 
 /** D6: uma publicacao desta maquina so toca o proprio retrato e o indice. */
@@ -339,7 +353,8 @@ export function exigirSoOProprioRetrato(maquina: string, mudancas: readonly Muda
 export interface RetratoInvalido { arquivo: string; motivo: string }
 
 const ehObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const ehTexto = (v: unknown, teto = 1024): v is string => typeof v === 'string' && v.length <= teto;
+// V2 da revisao 4: texto com caractere que o terminal executa ou que ninguem ve fica fora do contrato.
+const ehTexto = (v: unknown, teto = 1024): v is string => typeof v === 'string' && v.length <= teto && !INVISIVEL.test(v);
 const ehTextoOuNulo = (v: unknown, teto = 1024): v is string | null => v === null || ehTexto(v, teto);
 
 /** O teto de itens de cada lista do retrato, igual no escritor e no leitor. */
@@ -383,8 +398,10 @@ export function normalizarRetrato(bruto: unknown): RetratoDaMaquina | null {
   const hosts = itens(r.hosts, (x) => !(ehTexto(x.host, 40) && ehTextoOuNulo(x.versao, 40) && ehTextoOuNulo(x.adaptador, 40)) ? null
     : !(ORDEM_DOS_HOSTS as readonly unknown[]).includes(x.host) ? PULAR
       : { host: x.host as Host, versao: x.versao as string | null, adaptador: x.adaptador as string | null });
+  // V9 da revisao 4: o remoto de outra maquina e remontado aqui; o que nao sai igual nao e reexibido.
   const projetos = itens(r.projetos, (x) => ehTexto(x.nome, 80) && ehTextoOuNulo(x.remoto, 500) && ehTexto(x.caminho, 1024)
-    ? { nome: x.nome as string, remoto: x.remoto as string | null, caminho: x.caminho as string } : null);
+    ? { nome: x.nome as string, remoto: x.remoto !== null && limparRemoto(x.remoto) === x.remoto ? x.remoto as string : null, caminho: x.caminho as string }
+    : null);
   if (!forjas || !runtimes || !hosts || !projetos) return null;
   if (r.id !== undefined && !ehIdDeMaquina(r.id)) return null;
   return { contrato: CONTRATO_DO_RETRATO, maquina: r.maquina, ...(r.id !== undefined ? { id: r.id } : {}), hostname: r.hostname,
@@ -416,6 +433,9 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
     catch { invalidos.push({ arquivo, motivo: 'JSON ilegivel' }); continue; }
     const retrato = normalizarRetrato(bruto);
     if (!retrato) { invalidos.push({ arquivo, motivo: `fora do contrato ${CONTRATO_DO_RETRATO}` }); continue; }
+    // V9 da revisao 4: a mesma varredura do escritor; o que ela pega nao vai ao status nem ao REDE.md.
+    const segredo = segredoNoRetrato(retrato);
+    if (segredo) { invalidos.push({ arquivo, motivo: `padrao "${segredo.padrao}" em ${segredo.onde} (valor omitido de proposito)` }); continue; }
     let esperado: string | null = null;
     try { esperado = arquivoDoRetrato(retrato.maquina); } catch { /* nome impossivel */ }
     if (esperado !== arquivo) { invalidos.push({ arquivo, motivo: `diz ser a maquina "${retrato.maquina}", que nao e a dona deste arquivo` }); continue; }
@@ -426,7 +446,7 @@ function lerRetratos(cache: string, ponta: string | null): { retratos: RetratoDa
 }
 
 // ---------------------------------------------------------------------------
-// O cache bare e o git sem prompt.
+// O cache da casa e o git sem prompt.
 // ---------------------------------------------------------------------------
 
 export function dirDoCache(casa: Pick<CasaDaRede, 'forja' | 'host' | 'dono' | 'repositorio'>): string {
@@ -465,7 +485,7 @@ function configurarCache(casa: CasaDaRede, url: string, helper: string | null, m
   config('commit.gpgsign', 'false');
   config('user.name', identidadeDoGit(maquina).nome);
   config('user.email', identidadeDoGit(maquina).email);
-  if (helper && /^https?:\/\//i.test(url)) {
+  if (helper && /^https:\/\//i.test(url)) {
     const chave = `credential.${new URL(url).origin}.helper`;
     if (git(dir, ['config', '--local', '--get-all', chave]).stdout !== `\n${helper}\n`) {
       git(dir, ['config', '--local', '--unset-all', chave]);
@@ -474,6 +494,14 @@ function configurarCache(casa: CasaDaRede, url: string, helper: string | null, m
     }
   }
   return dir;
+}
+
+/**
+ * V9 da revisao 4: a URL da casa e https, com o helper da forja; `http://` mandaria o token sem TLS. O
+ * caminho local (sem esquema) e o remoto bare de um espelho ou dos testes: nao ha credencial nele.
+ */
+export function urlDaCasaAceita(url: string): boolean {
+  return /^https:\/\/[^\s@/]+\//i.test(url) || (path.isAbsolute(url) && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(url));
 }
 
 /** O autor dos commits da casa: a maquina, com e-mail que nao existe (B8). */
@@ -546,6 +574,9 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferid
   }
   if (repo.privado !== true) throw new Error(`rede.repositorio-publico: ${refDaCasa(r.casa)} nao e privado; nada foi publicado`);
   if (!repo.url) throw new Error(`rede.forja: ${r.forja.cli} nao devolveu a URL de ${refDaCasa(r.casa)}`);
+  if (!urlDaCasaAceita(repo.url)) {
+    throw new Error(`rede.sem-https: ${r.forja.cli} devolveu para ${refDaCasa(r.casa)} uma URL sem https; a rede so fala com a forja por https, e nada foi publicado`);
+  }
   return { casa: r.casa, forja: r.forja, url: repo.url, criado, identidades: r.identidades };
 }
 
@@ -565,12 +596,25 @@ const TRAVA = () => path.join(pastaDaRede(), 'publicar.lock');
 const TRAVA_ORFA_MS = 5 * 60 * 1000;
 
 /** U5 da revisao 3: sem `pid`, com `pid` vazio ou com lixo, e velha. A de `pid` valido fica com o monitor-lock (vivo ou morto). */
-function travaOrfa(): boolean {
+function travaOrfa(dir: string = TRAVA()): boolean {
   try {
-    if (Date.now() - fs.statSync(TRAVA()).mtimeMs <= TRAVA_ORFA_MS) return false;
-    const pid = fs.existsSync(path.join(TRAVA(), 'pid')) ? Number(fs.readFileSync(path.join(TRAVA(), 'pid'), 'utf8')) : NaN;
+    if (Date.now() - fs.statSync(dir).mtimeMs <= TRAVA_ORFA_MS) return false;
+    const pid = fs.existsSync(path.join(dir, 'pid')) ? Number(fs.readFileSync(path.join(dir, 'pid'), 'utf8')) : NaN;
     return !(Number.isInteger(pid) && pid > 0);
   } catch { return false; }
+}
+
+/**
+ * Tira a trava orfa. Renomeia antes de apagar e so apaga o que, JA MOVIDO, continua orfao (V6 da
+ * revisao 4): entre julgar e mover, outro processo pode ter tirado a orfa e tomado a trava; a trava
+ * nova volta para o lugar, intacta. `removida` quando apagou; `viva` quando devolveu.
+ */
+export function tirarTravaOrfa(trava: string = TRAVA()): 'removida' | 'viva' | 'sumiu' {
+  const lixo = `${trava}.orfa-${process.pid}-${Date.now()}`;
+  try { fs.renameSync(trava, lixo); } catch { return 'sumiu'; }
+  if (travaOrfa(lixo)) { fs.rmSync(lixo, { recursive: true, force: true }); return 'removida'; }
+  try { fs.renameSync(lixo, trava); } catch { /* uma terceira trava ja ocupa o lugar: esta fica para o dono */ }
+  return 'viva';
 }
 
 /**
@@ -587,10 +631,7 @@ function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok:
     if (trava.ok) return trava;
     if (!trava.ativo && !tirouOrfa && travaOrfa()) {
       tirouOrfa = true;
-      // Renomeia antes de apagar: so um processo consegue mover a mesma orfa, e o que perdeu a corrida
-      // nao apaga a trava que o outro acabou de tomar.
-      const lixo = `${TRAVA()}.orfa-${process.pid}-${Date.now()}`;
-      try { fs.renameSync(TRAVA(), lixo); fs.rmSync(lixo, { recursive: true, force: true }); } catch { /* outro processo levou */ }
+      tirarTravaOrfa();
       continue;
     }
     if (Date.now() >= limite) return { ok: false };
@@ -599,14 +640,20 @@ function travarCasa(esperaMs: number): { ok: true; liberar: () => void } | { ok:
 }
 
 /**
- * U2 da revisao 3: o `id` gravado no arquivo com o nome desta maquina, mesmo quando esta versao nao le
- * o retrato (contrato mais novo, campo que ela nao conhece). `null` quando nao ha arquivo ou `id`.
+ * U2 da revisao 3: o `id` gravado no arquivo com o nome desta maquina, quando esta versao nao le o
+ * retrato porque ele esta num contrato MAIS NOVO (`ork.rede-maquina/v2` em diante). V7 da revisao 4:
+ * so nesse caso; lixo com um `id` ou um v1 quebrado nao prendem o nome, e o publicar e o sair desta
+ * maquina os regravam ou tiram. `null` quando nao ha arquivo, contrato mais novo ou `id`.
  */
-function idNoArquivo(cache: string, ponta: string | null, arquivo: string): string | null {
+export function idNoArquivo(cache: string, ponta: string | null, arquivo: string): string | null {
   if (!ponta) return null;
   const r = comGitIsolado(() => git(cache, ['show', `${ponta}:${arquivo}`]));
   if (!r.ok) return null;
-  try { const id = (JSON.parse(r.stdout) as { id?: unknown }).id; return ehIdDeMaquina(id) ? id : null; } catch { return null; }
+  try {
+    const { contrato, id } = JSON.parse(r.stdout) as { contrato?: unknown; id?: unknown };
+    const versao = typeof contrato === 'string' ? /^ork\.rede-maquina\/v([0-9]{1,6})$/.exec(contrato)?.[1] : undefined;
+    return versao !== undefined && Number(versao) > 1 && ehIdDeMaquina(id) ? id : null;
+  } catch { return null; }
 }
 
 /**
@@ -770,6 +817,9 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   if (!r.casa || !r.forja) return { maquina, casa: null, commit: null, alheio: false };
   const repo = r.forja.repositorio(r.casa.dono, r.casa.repositorio);
   if (!repo.existe || !repo.url) return { maquina, casa: refDaCasa(r.casa), commit: null, alheio: false };
+  if (!urlDaCasaAceita(repo.url)) {
+    throw new Error(`rede.sem-https: saiu da rede aqui, mas ${r.forja.cli} devolveu para ${refDaCasa(r.casa)} uma URL sem https; o retrato fica na casa`);
+  }
   const trava = travarCasa(30000);
   if (!trava.ok) throw new Error(`rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${TRAVA()}); rode ork network sair de novo`);
   try {
@@ -808,7 +858,8 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
 // O REDE.md da casa.
 // ---------------------------------------------------------------------------
 
-const celula = (s: string) => s.replace(/\|/g, '/');
+// V2 da revisao 4: a celula nao abre link, imagem, HTML nem codigo, e nao quebra a tabela.
+const celula = (s: string) => semInvisiveis(s).replace(/[\\`*_[\]<>|!]/g, (c) => `\\${c}`);
 
 /** O `REDE.md`: a mesma rede, para quem abre a forja. Sem caminho local: esses ficam no JSON. */
 export function painelDaRede(retratos: readonly RetratoDaMaquina[]): string {

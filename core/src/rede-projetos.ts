@@ -21,7 +21,26 @@ import { pastaDoUsuario } from './maquina';
 import { comGitIsolado } from './rede-forja';
 
 export const CONTRATO_DO_REGISTRO = 'ork.projetos/v1';
-const NOME = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/;
+
+/**
+ * V2 da revisao 4: caractere que o terminal executa ou que ninguem ve. Controles C0 e C1 (ESC, BEL,
+ * CSI), os de direcao do texto (bidi), os de largura zero, os separadores de linha Unicode e as tags
+ * e seletores de variacao, que escondem texto de quem le (humano ou agente).
+ */
+export const INVISIVEL = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufe00-\ufe0f\ufeff\ufff9-\ufffb\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}]/u;
+const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
+
+/** O texto sem os caracteres invisiveis; a quebra de linha fica. */
+export const semInvisiveis = (texto: string): string => texto.replace(INVISIVEIS, (c) => (c === '\n' ? c : ''));
+
+/**
+ * V2 e V3 da revisao 4: a regra UNICA de nome de projeto. O registro e o ultimo retrato a aplicam na
+ * leitura; o escritor tira do retrato, com aviso, o projeto do diretorio atual que a descumpre.
+ * Letras e digitos de qualquer lingua, espaco no meio, `.`, `_` e `-`, ate 80. Com uma regra so, o
+ * mesmo projeto nao entra por uma fonte e sai por outra (a D9 nao oscila).
+ */
+export const ehNomeDeProjeto = (nome: unknown): nome is string =>
+  typeof nome === 'string' && /^[\p{L}\p{N}](?:[\p{L}\p{N}\p{M} ._-]{0,78}[\p{L}\p{N}\p{M}._-])?$/u.test(nome);
 
 export type FonteDoProjeto = 'registro' | 'cwd' | 'retrato';
 
@@ -65,9 +84,14 @@ export function limparRemoto(bruto: unknown): string | null {
   // `\`: o WHATWG e o git discordam sobre onde ela termina o usuario; nao ha remoto legitimo com ela.
   if (!texto || texto.length > 500 || /[\s\x00-\x1f\x7f\\]/.test(texto)) return null;
   let esquema: string, host: string, porta = '', caminho: string;
-  const url = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(?:[^/?#]*@)?([^/?#:@[\]]+|\[[^\]/?#@]*\])(?::(\d{1,5}))?(\/[^?#]*)?(?:[?#].*)?$/.exec(texto);
+  const url = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(?:[^/?#]*@)?([^/?#:@[\]]+|\[[^\]/?#@]*\])(?::(\d{1,5}))?(\/[^?#]*)?([?#].*)?$/.exec(texto);
   if (url) {
     [esquema, host, porta, caminho] = [url[1].toLowerCase(), url[2], url[3] ?? '', url[4] ?? '/'];
+    // V1 da revisao 4: no ssh e no git://, o git nao corta a autoridade em `?` nem `#` (o host vai ate
+    // a primeira `/`, depois de decodificar a URL): la, `?` e `#` ainda sao usuario e senha.
+    if (!/^https?$/.test(esquema) && /[?#]/.test(texto)) return null;
+    // No http(s), query e fragmento saem; com `@` neles, nao ha remoto legitimo (defesa em profundidade).
+    if (url[5]?.includes('@')) return null;
   } else {
     if (/^[A-Za-z]:[/]/.test(texto)) return null;
     // Forma scp (`git@host:dono/repo.git`): vira `ssh://host/dono/repo.git`, a forma usual das forjas.
@@ -77,7 +101,8 @@ export function limparRemoto(bruto: unknown): string | null {
   }
   if (!ESQUEMAS.has(esquema) || !HOST_DO_REMOTO.test(host) || !CAMINHO_DO_REMOTO.test(caminho)) return null;
   if (porta && (Number(porta) < 1 || Number(porta) > 65535)) return null;
-  return `${esquema}://${host.toLowerCase()}${porta ? `:${porta}` : ''}${caminho}`;
+  // O host fica como veio: em minusculas, a varredura de segredo (sensivel a caixa, como o `AKIA`) nao o veria.
+  return `${esquema}://${host}${porta ? `:${porta}` : ''}${caminho}`;
 }
 
 function temManifesto(dir: string): boolean {
@@ -104,7 +129,7 @@ function projetoDoRegistro(bruto: unknown, nomeDaChave?: string): ProjetoConheci
   const v = bruto as Record<string, unknown>;
   const nome = typeof v.nome === 'string' ? v.nome : nomeDaChave;
   const caminho = typeof v.raiz === 'string' ? v.raiz : typeof v.caminho === 'string' ? v.caminho : null;
-  if (!nome || !NOME.test(nome) || !caminho || !path.isAbsolute(caminho) || caminho.length > 1024 || /[\x00-\x1f\x7f]/.test(caminho)) return null;
+  if (!ehNomeDeProjeto(nome) || !caminho || !path.isAbsolute(caminho) || caminho.length > 1024 || INVISIVEL.test(caminho)) return null;
   const normal = path.normalize(caminho);
   return { nome, remoto: remotoDe(v), caminho: normal, fonte: 'registro', presente: temManifesto(normal) };
 }
@@ -167,7 +192,7 @@ export function projetosConhecidos(opcoes: OpcoesDosProjetos = {}): { registro: 
   registro.projetos.forEach(somar);
   if (opcoes.diretorio) somar(projetoDoDiretorio(opcoes.diretorio));
   for (const a of opcoes.anteriores ?? []) {
-    if (!a || typeof a.nome !== 'string' || !NOME.test(a.nome) || typeof a.caminho !== 'string' || !path.isAbsolute(a.caminho)) continue;
+    if (!a || !ehNomeDeProjeto(a.nome) || typeof a.caminho !== 'string' || !path.isAbsolute(a.caminho) || INVISIVEL.test(a.caminho)) continue;
     if (!temManifesto(a.caminho)) continue;
     somar({ nome: a.nome, remoto: limparRemoto(a.remoto), caminho: path.normalize(a.caminho), fonte: 'retrato', presente: true });
   }
