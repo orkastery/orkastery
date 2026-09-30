@@ -48,6 +48,8 @@ test('defeito 1: o despacho codex do bloco com GO grava a baseline antes do phas
   const { p, f } = projetoCodex('rm037-baseline-codex');
   let dir = '';
   try {
+    // S2 do CHECK final: com a policy ligada, o "nao dispara" abaixo mede o aviso (sem ela, passava vazio).
+    p.carregado.manifesto.policies = { ...p.carregado.manifesto.policies, verify_regression: 'warn' };
     const t = novaThread(p.carregado, { nome: 'baseline codex', modo: 'auto' }).thread;
     dir = dirThread(p.dir, t.id);
     const head = exec('git', ['rev-parse', 'HEAD'], p.dir).stdout.trim();
@@ -93,6 +95,23 @@ test('defeito 1: ensaio, claude-bg, sandbox que grava o estado e bloco sem GO na
     assert.equal(r.verificada, true, r.erro);
     assert.equal(lerLedger(dirThread(p.dir, auto.id)).some(e => e.tipo === 'baseline_recorded'), false);
   } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (S2 do CHECK final): o ensaio do codex conta a baseline que o despacho real vai gravar', () => {
+  const { p, f } = projetoCodex('rm037-baseline-ensaio');
+  try {
+    p.carregado.manifesto.policies = { ...p.carregado.manifesto.policies, verify_regression: 'warn' };
+    const t = novaThread(p.carregado, { nome: 'ensaio', modo: 'auto' }).thread;
+    const avisaSemBaseline = (baselinePeloDespacho?: boolean) => {
+      const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO', runtime: 'codex',
+        model: 'modelo-SIMULADO', dryRun: true, ...(baselinePeloDespacho === undefined ? {} : { baselinePeloDespacho }) });
+      assert.equal(r.dryRun, true, r.erro);
+      return r.violacoes.some(v => v.detalhe.includes('vai sair sem baseline'));
+    };
+    assert.equal(avisaSemBaseline(), false, 'o CLI grava a baseline no despacho: o ensaio nao manda rodar ork verify --baseline');
+    assert.equal(avisaSemBaseline(false), true, 'no MCP a baseline nao vem pelo despacho: o aviso fica');
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'baseline_recorded'), false, 'o ensaio nao executa a suite');
+  } finally { f.restaurar(); p.limpar(); }
 });
 
 // GO-FIX do CHECK 1 (A2, A3, S2).

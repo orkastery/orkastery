@@ -771,9 +771,10 @@ function rodarFaseSobLock(
     gate: 'phase.dispatch', prompt, threadId: thread.id, modo: thread.modo, fase,
     bloco: thread.blocos.indexOf(blocoDespachado) + 1,
     blocoComGo: blocoDespachado.fases.includes('GO'),
-    // RM-037 (defeito 1): a baseline que o proprio despacho vai gravar conta como existente.
+    // RM-037 (defeito 1): a baseline que o proprio despacho vai gravar conta como existente. O ensaio conta a
+    // que o despacho real gravaria (S2 do CHECK final), para nao mandar rodar a baseline que o CLI ja grava.
     temBaseline: lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada) ||
-      (opcoes.baselinePeloDespacho !== false && baselineDoDespachoNecessaria(carregado, thread.id, opcoes)),
+      (opcoes.baselinePeloDespacho !== false && baselineDoDespachoNecessaria(carregado, thread.id, { ...opcoes, dryRun: false })),
     fallbackDoBloco: fallbackDoBloco(setup, thread.modo, fase),
   });
   const bloqueiam = bloqueantes(violacoes);
