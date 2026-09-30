@@ -201,31 +201,36 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   };
   /**
    * Chave do especificador de um no de import. `t`: so traz tipo (`import type`, nomes que so sao tipo,
-   * `import('x').T`) e some na compilacao, entao segue o compilador. `d`: `import()`, que o Node resolve
-   * como ESM. `v`: o resto.
+   * `import('x').T`) e some na compilacao, entao segue o compilador; so vale em fonte TypeScript, porque
+   * JavaScript nao e compilado e o import roda (B-R1). `d`: `import()`, que o Node resolve como ESM.
+   * `r`: `require` literal. `v`: o resto.
    */
   function chaveDoImport(n: TS.Node): string | null {
     let esp: string | null = null, tipo = 'v';
+    const compilado = !EXTENSOES_JS.includes(extensao(n.getSourceFile().fileName));
     if (ts.isImportDeclaration(n)) {
       esp = literal(n.moduleSpecifier);
       const ic = n.importClause, nomes = ic?.namedBindings && ts.isNamedImports(ic.namedBindings) ? ic.namedBindings.elements : [];
-      const soTipo = !!ic && (ic.isTypeOnly || (!(ic.namedBindings && ts.isNamespaceImport(ic.namedBindings))
+      const soTipo = compilado && !!ic && (ic.isTypeOnly || (!(ic.namedBindings && ts.isNamespaceImport(ic.namedBindings))
         && (!ic.name || semValor(ic.name)) && (!!ic.name || nomes.length > 0) && nomes.every((el) => el.isTypeOnly || semValor(el.name))));
       if (soTipo) tipo = 't';
     } else if (ts.isExportDeclaration(n) && n.moduleSpecifier) {
       esp = literal(n.moduleSpecifier);
       const nomes = n.exportClause && ts.isNamedExports(n.exportClause) ? n.exportClause.elements : null;
-      if (n.isTypeOnly || (nomes && nomes.length > 0 && nomes.every((el) => el.isTypeOnly || semValor(el.name)))) tipo = 't';
+      if (compilado && (n.isTypeOnly || (nomes && nomes.length > 0 && nomes.every((el) => el.isTypeOnly || semValor(el.name))))) tipo = 't';
     } else if (ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference)) {
       esp = literal(n.moduleReference.expression);
-      if (n.isTypeOnly) tipo = 't';
+      if (compilado && n.isTypeOnly) tipo = 't';
     } else if (ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument)) {
       esp = literal(n.argument.literal);
       tipo = 't';
     } else if (ehImportDinamico(n)) {
       esp = literal(n.arguments[0]);
       tipo = 'd';
-    } else if (ehRequire(n)) esp = literal(n.arguments[0]);
+    } else if (ehRequire(n)) {
+      esp = literal(n.arguments[0]);
+      tipo = 'r';
+    }
     return esp === null ? null : `${tipo}\u0000${esp}`;
   }
   const especificadorDaChave = (chave: string): string => chave.slice(2);
@@ -249,10 +254,34 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     return null;
   }
   const junta = (pasta: string, nome: string): string => (pasta ? `${pasta}/${nome}` : nome);
+
+  /**
+   * package.json como o Node 22 o le: BOM ignorado, raiz objeto, `name` e `type` texto quando presentes.
+   * Fora disso o Node lanca `ERR_INVALID_PACKAGE_CONFIG` e o resultado e `null`.
+   */
+  const pacotes = new Map<string, Record<string, unknown> | null>();
+  function lerPacote(caminho: string): Record<string, unknown> | null {
+    const lido = pacotes.get(caminho);
+    if (lido !== undefined) return lido;
+    let r: Record<string, unknown> | null = null;
+    try {
+      const bruto = e.texto(caminho) ?? '', v: unknown = JSON.parse(bruto.charCodeAt(0) === 0xfeff ? bruto.slice(1) : bruto);
+      if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+        const o = v as Record<string, unknown>;
+        if ((!('name' in o) || typeof o.name === 'string') && (!('type' in o) || typeof o.type === 'string')) r = o;
+      }
+    } catch {
+      r = null;
+    }
+    pacotes.set(caminho, r);
+    return r;
+  }
+
   /**
    * Resolucao do Node para especificador relativo: exato em ESM; em CommonJS, primeiro como arquivo
    * (exato, `.js`, `.json`, `.node`) e depois como pasta (`main` do package.json, `index`). Barra
-   * final, `.` e `..` so valem como pasta. package.json invalido faz o Node falhar.
+   * final, `.` e `..` so valem como pasta. package.json invalido faz o Node falhar; `main` absoluto ou
+   * que sai do repositorio aponta para fora do que o manifesto ve, e nao liga.
    */
   function resolverNode(de: string, especificador: string, esm: boolean): string | null {
     const base = caminhoLiteral(de, especificador === '.' || especificador === '..' ? `./${especificador}` : especificador);
@@ -263,16 +292,16 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     const comoPasta = (p: string): string | null => {
       const arquivoDoPacote = junta(p, 'package.json');
       if (existe(arquivoDoPacote)) {
-        let main: unknown;
-        try {
-          main = (JSON.parse(e.texto(arquivoDoPacote) ?? '') as { main?: unknown }).main;
-        } catch {
-          return null;
+        const pacote = lerPacote(arquivoDoPacote);
+        if (pacote === null) return null;
+        const main = pacote.main;
+        if (typeof main === 'string' && main) {
+          // `main` e relativo a pasta, mesmo quando comeca com ponto (`.`, `..`, `.oculto.js`).
+          const m = main.startsWith('/') ? null : caminhoLiteral(arquivoDoPacote, `./${main}`);
+          if (m === null) return null;
+          const r = comoArquivo(m) ?? comoIndice(m);
+          if (r !== null) return r;
         }
-        // `main` e relativo a pasta, mesmo quando comeca com ponto (`.`, `..`, `.oculto.js`).
-        const m = typeof main === 'string' && main ? caminhoLiteral(arquivoDoPacote, `./${main}`) : null;
-        const r = m === null ? null : comoArquivo(m) ?? comoIndice(m);
-        if (r !== null) return r;
       }
       return comoIndice(p);
     };
@@ -292,11 +321,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       caminho.push(dir);
       const pacote = junta(dir, 'package.json');
       if (arquivos.has(pacote)) {
-        try {
-          r = { invalido: false, tipo: (JSON.parse(e.texto(pacote) ?? '') as { type?: unknown }).type };
-        } catch {
-          r = { invalido: true, tipo: undefined };
-        }
+        const lido = lerPacote(pacote);
+        r = lido === null ? { invalido: true, tipo: undefined } : { invalido: false, tipo: lido.type };
         break;
       }
       if (dir === '') {
@@ -307,6 +333,89 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     }
     for (const d of caminho) escopos.set(d, r);
     return r;
+  }
+
+  const VARIAVEIS_DO_CJS = new Set(['require', 'module', 'exports', '__filename', '__dirname']);
+  /**
+   * Sintaxe que o Node 22 so aceita em ESM: import e export estaticos, `import.meta`, `await` no topo e
+   * `let`/`const`/`class` no topo com nome de variavel do CommonJS. Em `.js` sem `type`, ela faz o Node
+   * carregar o arquivo como ESM; em `.cjs` e sob `type: commonjs`, o arquivo nao carrega.
+   */
+  function sintaxeEsm(sf: TS.SourceFile): boolean {
+    for (const st of sf.statements) {
+      if (ts.isImportDeclaration(st) || ts.isExportDeclaration(st) || ts.isExportAssignment(st)) return true;
+      if (ts.canHaveModifiers(st) && ts.getModifiers(st)?.some((m) => m.kind === K.ExportKeyword)) return true;
+      if (ts.isVariableStatement(st) && (st.declarationList.flags & ts.NodeFlags.BlockScoped) !== 0
+        && st.declarationList.declarations.some((d) => ts.isIdentifier(d.name) && VARIAVEIS_DO_CJS.has(d.name.text))) return true;
+      if (ts.isClassDeclaration(st) && st.name && VARIAVEIS_DO_CJS.has(st.name.text)) return true;
+    }
+    let achou = false;
+    const visitar = (n: TS.Node, topo: boolean): void => {
+      if (achou) return;
+      if ((ts.isMetaProperty(n) && n.keywordToken === K.ImportKeyword)
+        || (topo && (ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier)))) {
+        achou = true;
+        return;
+      }
+      const dentro = topo && !ts.isFunctionLike(n) && !ts.isClassStaticBlockDeclaration(n);
+      ts.forEachChild(n, (f) => visitar(f, dentro));
+    };
+    visitar(sf, true);
+    return achou;
+  }
+
+  /**
+   * Como o Node 22 carrega a fonte JavaScript: `esm`, `cjs` ou `falha` (erro de sintaxe, escopo invalido,
+   * sintaxe ESM onde o formato e CommonJS).
+   */
+  const formatos = new Map<string, 'esm' | 'cjs' | 'falha'>();
+  function formatoDe(caminho: string): 'esm' | 'cjs' | 'falha' {
+    const lido = formatos.get(caminho);
+    if (lido !== undefined) return lido;
+    const ext = extensao(caminho), sf = programa.getSourceFile(absoluto(caminho));
+    let r: 'esm' | 'cjs' | 'falha';
+    if (!EXTENSOES_JS.includes(ext) || !sf || sf.fileName !== absoluto(caminho) || programa.getSyntacticDiagnostics(sf).length > 0) r = 'falha';
+    else if (ext === '.mjs') r = 'esm';
+    else if (ext === '.cjs') r = sintaxeEsm(sf) ? 'falha' : 'cjs';
+    else {
+      const escopo = escopoDe(caminho);
+      if (escopo.invalido) r = 'falha';
+      else if (escopo.tipo === 'module') r = 'esm';
+      else if (escopo.tipo === 'commonjs') r = sintaxeEsm(sf) ? 'falha' : 'cjs';
+      else r = sintaxeEsm(sf) ? 'esm' : 'cjs';
+    }
+    formatos.set(caminho, r);
+    return r;
+  }
+
+  /**
+   * Alvo que o Node carrega de verdade. Por `import`: `.js`, `.mjs` e `.cjs` (JSON pede atributo e
+   * extensao desconhecida falha). Por `require`: `.js` e `.cjs` em CommonJS, e `.json`. O `.js` so
+   * carrega com o proprio escopo valido; o resto (TypeScript por remocao de tipos, `.node`, sem
+   * extensao, ESM por `require`) fica fora por nao ser provado.
+   */
+  function carregavel(alvo: string, porImport: boolean): boolean {
+    const ext = extensao(alvo);
+    if (ext === '.json') return !porImport;
+    if (ext !== '.js' && ext !== '.cjs' && ext !== '.mjs') return false;
+    const formato = formatoDe(alvo);
+    return porImport ? formato !== 'falha' : formato === 'cjs';
+  }
+
+  /**
+   * Alvo do especificador para o Node: `import()` resolve como ESM em qualquer formato; import estatico,
+   * so em ESM; `require`, so em CommonJS e com o escopo de quem importa valido (o Node le esse escopo e
+   * lanca erro). Especificador nao relativo vai a node_modules e fica sem alvo.
+   */
+  function alvoNoNode(de: string, chave: string): string | null {
+    const esp = especificadorDaChave(chave), formato = formatoDe(de);
+    const relativoAoArquivo = esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../');
+    if (!relativoAoArquivo || formato === 'falha') return null;
+    let alvo: string | null;
+    if (chave[0] === 'd' || (chave[0] === 'v' && formato === 'esm')) alvo = resolverNode(de, esp, true);
+    else if (chave[0] === 'r' && formato === 'cjs' && !escopoDe(de).invalido) alvo = resolverNode(de, esp, false);
+    else return null;
+    return alvo !== null && carregavel(alvo, chave[0] !== 'r') ? alvo : null;
   }
 
   // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
@@ -321,14 +430,10 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
       let alvo = doCompilador, divergente = false;
-      // Import so de tipo nao roda: vale o que o compilador liga. Fonte JavaScript roda no Node.
+      // Import so de tipo nao roda: vale o que o compilador liga. Fonte JavaScript roda no Node, e onde
+      // o Node falha (formato, escopo, alvo que nao carrega) nao ha aresta.
       if (chave[0] !== 't' && EXTENSOES_JS.includes(ext)) {
-        const escopo = escopoDe(fonte.path);
-        const relativoAoArquivo = esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../');
-        const esm = chave[0] === 'd' || ext === '.mjs' || (ext === '.js' && escopo.tipo === 'module');
-        // Onde a resolucao do Node falha, nao ha aresta: especificador nao relativo (vai a node_modules) e
-        // arquivo num escopo de package.json invalido (o Node le o escopo de quem importa e lanca erro).
-        const runtime = !relativoAoArquivo || escopo.invalido ? null : resolverNode(fonte.path, esp, esm);
+        const runtime = alvoNoNode(fonte.path, chave);
         if (runtime !== doCompilador) {
           divergente = true;
           alvo = runtime;

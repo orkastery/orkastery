@@ -55,6 +55,10 @@ const TETO_DA_LINHA_DE_FRONTMATTER = 4096;
  */
 export const TETO_DE_LINHAS_DE_TABELA = 2000;
 const DELIMITADOR_DE_TABELA = /^[\s>]*[|:\- \t]+$/;
+/** Tokens do titulo cujo texto entra no slug, como o GitHub o renderiza. */
+const TEXTO_DO_TITULO = new Set(['data', 'codeTextData', 'characterEscapeValue', 'autolinkProtocol', 'autolinkEmail']);
+/** Tokens do titulo que nao aparecem no texto renderizado: destino, rotulo de referencia e imagem. */
+const FORA_DO_TEXTO_DO_TITULO = new Set(['resource', 'reference', 'image']);
 type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
 interface Linha { inicio: number; texto: string }
@@ -226,26 +230,29 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
   // contam a partir do fim do BOM, e `desde` os devolve ao texto inteiro.
   const corpo = apagarTrechos(fonte.texto.slice(desde), [[0, fimDoFrontmatter - desde]]);
   const no = (i: number): number => i + desde;
-  // A linha do corpo de uma tabela nao precisa de `|`: conta o bloco inteiro que tem delimitador.
+  // A linha do corpo de uma tabela nao precisa de `|`: conta o bloco inteiro que tem delimitador. Linha e
+  // linha em branco como o CommonMark as ve: fim de linha LF, CRLF ou CR, e branca so com espaco e tab.
   let linhasDeTabela = 0, bloco = 0, comDelimitador = false;
-  for (const l of [...linhasDe(corpo), { inicio: -1, texto: '' }]) {
-    if (!l.texto.trim()) {
+  for (const l of [...corpo.split(/\r\n|\r|\n/), '']) {
+    if (/^[ \t]*$/.test(l)) {
       if (comDelimitador) linhasDeTabela += bloco;
       bloco = 0;
       comDelimitador = false;
       continue;
     }
     bloco++;
-    if (l.texto.includes('|') && l.texto.includes('-') && DELIMITADOR_DE_TABELA.test(l.texto)) comDelimitador = true;
+    if (l.includes('|') && l.includes('-') && DELIMITADOR_DE_TABELA.test(l)) comDelimitador = true;
   }
   if (linhasDeTabela > TETO_DE_LINHAS_DE_TABELA) {
     return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
   const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
   const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: [number, number] | null; descartado: boolean }[] = [];
-  // A-N4: o slug sai do texto que o GitHub renderiza no titulo (dado, codigo, escape e entidade),
-  // sem marcador de enfase, HTML, destino de link nem texto alternativo de imagem.
-  let titulo: { inicio: number; fim: number; partes: string[]; noTexto: number; foraDoTexto: number } | null = null;
+  // A-N4: o slug sai do texto que o GitHub renderiza no titulo (dado, codigo, escape, entidade e endereco
+  // de autolink), sem marcador de enfase, HTML, destino de link, rotulo de referencia nem texto
+  // alternativo de imagem. Nada e aparado: o espaco antes de uma imagem no fim vira hifen, como no
+  // GitHub (B-R2), e a quebra de linha fora de codigo nao vira espaco (B-P2).
+  let titulo: { inicio: number; fim: number; partes: string[]; noTexto: number; foraDoTexto: number; noCodigo: number } | null = null;
   // Tabela GFM: celula alem das colunas do cabecalho e descartada pelo GitHub, e o link nela tambem.
   let colunas = 0, noCabecalho = false, celula = 0, emExcesso = false;
   for (const e of analisar(corpo)) {
@@ -259,14 +266,16 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
         semMencao.push([e.inicio, e.fim]);
       }
       // Titulo, lido em paralelo: o texto dele junta dado, codigo, escape e entidade.
-      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), partes: [], noTexto: 0, foraDoTexto: 0 };
+      if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), partes: [], noTexto: 0, foraDoTexto: 0, noCodigo: 0 };
       else if (titulo) {
         if (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') titulo.noTexto++;
-        else if (e.tipo === 'resource' || e.tipo === 'image') titulo.foraDoTexto++;
+        else if (FORA_DO_TEXTO_DO_TITULO.has(e.tipo)) titulo.foraDoTexto++;
+        else if (e.tipo === 'codeText') titulo.noCodigo++;
         else if (titulo.noTexto > 0 && titulo.foraDoTexto === 0) {
-          if (e.tipo === 'data' || e.tipo === 'codeTextData' || e.tipo === 'characterEscapeValue') titulo.partes.push(corpo.slice(e.inicio, e.fim));
+          if (TEXTO_DO_TITULO.has(e.tipo)) titulo.partes.push(corpo.slice(e.inicio, e.fim));
           else if (e.tipo === 'characterReference') titulo.partes.push(decodificarEntidades(corpo.slice(e.inicio, e.fim)));
-          else if (e.tipo === 'lineEnding' || e.tipo === 'codeTextLineEnding') titulo.partes.push(' ');
+          // Em span de codigo a quebra de linha vira espaco (CommonMark); fora dele, o GitHub a descarta.
+          else if (e.tipo === 'codeTextLineEnding' || (e.tipo === 'lineEnding' && titulo.noCodigo > 0)) titulo.partes.push(' ');
         }
       }
       // Link e imagem, tambem dentro de titulo.
@@ -278,11 +287,12 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     if (e.tipo === 'tableHead') noCabecalho = false;
     else if (e.tipo === 'tableData') emExcesso = false;
     else if (titulo && (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText')) titulo.noTexto--;
-    else if (titulo && (e.tipo === 'resource' || e.tipo === 'image')) titulo.foraDoTexto--;
+    else if (titulo && FORA_DO_TEXTO_DO_TITULO.has(e.tipo)) titulo.foraDoTexto--;
+    else if (titulo && e.tipo === 'codeText') titulo.noCodigo--;
     if ((e.tipo === 'atxHeading' || e.tipo === 'setextHeading') && titulo) {
       // Todo titulo abre uma secao: sem texto ou com slug recusado, o trecho sob ele fica no arquivo,
       // nunca na secao anterior.
-      const texto = titulo.partes.join('').trim();
+      const texto = titulo.partes.join('');
       const base = texto && texto.length <= TETO_DO_TITULO ? slugDeTexto(texto) : '';
       const s = base ? slug(base) : null;
       secoes.push({ slug: s !== null && aceitaFragmento(s) ? s : null, inicio: titulo.inicio, fim: titulo.fim });

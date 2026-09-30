@@ -721,6 +721,82 @@ test('KG2 extract: import cujos nomes so trazem tipo segue o compilador, e o slu
   assert.ok(temAresta(grafo, 'references file:a.md -> file:b.md'), 'o trecho sob o titulo vazio fica no arquivo');
 });
 
+test('KG2 limits: JavaScript nao apaga import so de tipo, e o import vai ao .js que o Node carrega', () => {
+  const { grafo } = extrair({
+    'types.ts': 'export interface X { a: number }\n', 'types.js': 'export const X = 1;\n',
+    'b.mjs': "import { X } from './types.js';\nexport function g() { return X; }\n",
+    'c.mjs': "export { X } from './types.js';\n",
+    'd.d.ts': 'export default interface D { a: number }\n', 'd.js': 'export default 4;\n',
+    'e.mjs': "import D from './d.js';\nexport const h = D;\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports'), [
+    'imports file:b.mjs -> file:types.js', 'imports file:c.mjs -> file:types.js', 'imports file:e.mjs -> file:d.js',
+  ]);
+});
+
+test('KG2 limits: package.json e main como o Node 22 os le; alvo fora do repositorio ou que nao carrega nao liga', () => {
+  const f = 'function f() { return 1; }\nmodule.exports = { f };\n';
+  const req = (esp: string, nome: string): string => `const { f } = require('${esp}');\nfunction ${nome}() { return f(); }\nmodule.exports = { ${nome} };\n`;
+  const { grafo } = extrair({
+    'abs/package.json': '{"main": "/m.js"}\n', 'abs/m.js': f, 'abs/index.js': f, 'a.cjs': req('./abs', 'a'),
+    'sai/package.json': '{"main": "../../m.js"}\n', 'sai/index.js': f, 'b.cjs': req('./sai', 'b'),
+    'lista/package.json': '[]\n', 'lista/index.js': f, 'c.cjs': req('./lista', 'c'),
+    'nome/package.json': '{"name": 1, "main": "m.js"}\n', 'nome/m.js': f, 'd.cjs': req('./nome', 'd'),
+    'bom/package.json': `${String.fromCharCode(0xfeff)}{"main": "m.js"}\n`, 'bom/m.js': f, 'bom/index.js': f, 'e.cjs': req('./bom', 'e'),
+    'ruim/package.json': '{"type": 1}\n', 'ruim/x.js': f, 'ruim/y.cjs': f,
+    'g.cjs': req('./ruim/x.js', 'g'), 'h.cjs': req('./ruim/y.cjs', 'h'), 'ruim/k.cjs': req('./y.cjs', 'k'),
+    'ruim/w.cjs': "async function w() { return import('./y.cjs'); }\nmodule.exports = { w };\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports').filter((a) => !a.includes('-> symbol:')), [
+    'imports file:e.cjs -> file:bom/m.js', 'imports file:h.cjs -> file:ruim/y.cjs', 'imports file:ruim/w.cjs -> file:ruim/y.cjs',
+  ]);
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => d.path).sort(),
+    ['a.cjs', 'b.cjs', 'c.cjs', 'd.cjs', 'g.cjs', 'ruim/k.cjs']);
+});
+
+test('KG2 limits: formato do Node 22: sintaxe ESM decide o .js sem type, e require em ESM ou JSON por import nao ligam', () => {
+  const { grafo } = extrair({
+    'lib.js': 'export function f() { return 1; }\n', 'pasta/index.js': 'exports.p = 1;\n', 'dados.json': '{}\n',
+    'c.cjs': 'exports.c = 1;\n', 'r.cjs': 'exports.r = 1;\n',
+    'a.js': "import { f } from './lib.js';\nimport './pasta';\nexport function g() { return f(); }\n",
+    'b.js': "await 0;\nrequire('./r.cjs');\nasync function z() { return import('./c.cjs'); }\n",
+    'x/package.json': '{"type": "commonjs"}\n', 'x/d.js': "import '../c.cjs';\n",
+    'e.cjs': "export const e = 1;\nrequire('./c.cjs');\n",
+    'm.mjs': "require('./r.cjs');\nimport d from './dados.json';\nimport './c.cjs';\nexport const m = d;\n",
+    'n.cjs': "require('./dados.json');\n",
+  });
+  assert.deepEqual(arestas(grafo, 'imports').filter((a) => !a.includes('-> symbol:')), [
+    'imports file:a.js -> file:lib.js', 'imports file:b.js -> file:c.cjs', 'imports file:m.mjs -> file:c.cjs', 'imports file:n.cjs -> file:dados.json',
+  ]);
+  assert.ok(temAresta(grafo, 'calls symbol:a.js#g -> symbol:lib.js#f'));
+  assert.deepEqual(grafo.diagnostics.filter((d) => d.kind === 'unresolved-import').map((d) => `${d.path} ${d.reference}`).sort(), [
+    'a.js ./pasta', 'b.js ./r.cjs', 'e.cjs ./c.cjs', 'm.mjs ./dados.json', 'm.mjs ./r.cjs', 'x/d.js ../c.cjs',
+  ]);
+});
+
+test('KG2 extract: slug do texto renderizado sem aparar, sem rotulo de referencia, com autolink e sem quebra de linha', () => {
+  const { grafo } = extrair({
+    'a.md': '# T ![i](i.png)\n\n# T\n\n# [R][r]\n\nFoo\nbar\n===\n\n## Veja <https://x.io>\n\nx `a\nb` y\n---\n\n## Links\n\n'
+      + '[1](#t) [2](#t-) [3](#r) [4](#foobar) [5](#veja-httpsxio) [6](#x-a-b-y)\n\n[r]: https://x.io\n',
+  });
+  assert.deepEqual(grafo.nodes.filter((n) => n.kind === 'section').map((n) => n.locator.fragment).sort(),
+    ['foobar', 'links', 'r', 't', 't-', 'veja-httpsxio', 'x-a-b-y']);
+  assert.deepEqual(arestas(grafo, 'references'), ['#foobar', '#r', '#t', '#t-', '#veja-httpsxio', '#x-a-b-y']
+    .map((s) => `references section:a.md#links -> section:a.md${s}`));
+});
+
+test('KG2 limits: o teto de tabela ve linha so com NBSP ou BOM e fim de linha so com CR', () => {
+  const linhas = Array.from({ length: 2001 }, (_, i) => `| c${i} [l](b.md) | d |`);
+  const cabecalho = (fim: string): string => `# A${fim}${fim}| a | b |${fim}| --- | --- |${fim}`;
+  const { relatorio } = extrair({
+    'b.md': '# B\n',
+    'nbsp.md': `${cabecalho('\n')}${linhas.join(`\n${String.fromCharCode(0xa0)}\n`)}\n`,
+    'bom.md': `${cabecalho('\n')}${linhas.join(`\n${String.fromCharCode(0xfeff)}\n`)}\n`,
+    'cr.md': `${cabecalho('\r')}${linhas.join('\r')}\r`,
+  });
+  assert.deepEqual(relatorio.lacunas.filter((l) => l.categoria === 'markdown-tabela-grande').map((l) => l.path).sort(), ['bom.md', 'cr.md', 'nbsp.md']);
+});
+
 /** Repositorio Git temporario com identidade local e sem assinatura. */
 function repositorioGit(arquivos: Record<string, string>): string {
   const dir = dirTemporario('kg2-repo');

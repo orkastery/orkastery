@@ -73,8 +73,10 @@ nó só, com uma evidência por declaração. Nome que o contrato recusaria como
 acima de 512 caracteres, com controle ou marca invisível) não vira nó: vai ao relatório como
 `simbolo-recusado`, `secao-recusada` ou `artefato-recusado`, e o trecho sob um título recusado
 ou sem texto fica no arquivo, nunca na seção anterior. O texto do título é o que o GitHub renderiza:
-dado, código e entidade, sem marcador de ênfase, HTML, destino de link nem texto alternativo de
-imagem.
+dado, código, entidade e o endereço de autolink, sem marcador de ênfase, HTML, destino de link,
+rótulo de link por referência nem texto alternativo de imagem. Nada é aparado: o título `T` seguido
+de espaço e de uma imagem vira `t-`, como no GitHub. A quebra de linha de um título setext some (`Foo`, `bar` vira `foobar`),
+e a de um span de código vira espaço.
 
 ## Arestas
 
@@ -97,16 +99,32 @@ divergente no caminho. Global de
 script, global UMD e import só de efeito não ligam arquivos. Import e reexport resolvem até a
 declaração original.
 
-O compilador e o runtime podem ligar arquivos diferentes: fonte JavaScript resolve pelo Node
-(em CommonJS, primeiro como arquivo, depois como pasta pelo `main` e pelo `index`, e barra final,
-`.` e `..` só como pasta; em ESM, que vale para `.mjs`, para `.js` sob `"type": "module"` e para
-`import()`, o caminho exato), e `.d.ts`, `.d.cts` ou `.d.mts` com a implementação ao lado dá lugar
-a ela, para qualquer fonte. Onde divergem, a aresta de import vai ao arquivo que roda e nenhuma
-aresta de símbolo passa por esse import, nem por um módulo que, a qualquer número de saltos de
-import, chega a um import divergente (`export *`, `module.exports = require(...)`). Onde o Node não
-resolve (especificador não relativo, ESM sem extensão, `package.json` inválido no escopo de quem
-importa), o import fica `unresolved-import`. Import só de tipo (`import type`, nomes que só são
-tipo, `import('x').T`) some na compilação e segue o compilador.
+O compilador e o runtime podem ligar arquivos diferentes: fonte JavaScript resolve como o Node 22
+a carrega. O formato vem da extensão e do `package.json` mais próximo: `.mjs` é ESM, `.cjs` é
+CommonJS e `.js` segue o `type`; sem ele, o `.js` vira ESM quando tem sintaxe que só o ESM aceita
+(import ou export estático, `import.meta`, `await` no topo, `let`, `const` ou `class` no topo com o
+nome de uma variável do CommonJS). Em CommonJS, o `require` resolve primeiro como arquivo e depois
+como pasta, pelo `main` e pelo `index`, com barra final, `.` e `..` só como pasta. O import estático
+do ESM e o `import()` usam o caminho exato. `.d.ts`, `.d.cts` ou `.d.mts` com a implementação ao
+lado dá lugar a ela, para qualquer fonte. Onde divergem, a aresta de import vai ao arquivo que roda
+e nenhuma aresta de símbolo passa por esse import, nem por um módulo que, a qualquer número de
+saltos de import, chega a um import divergente (`export *`, `module.exports = require(...)`).
+
+Onde o Node falha, o import fica `unresolved-import`:
+
+- especificador não relativo, ESM sem extensão e `require` em ESM;
+- sintaxe ESM em `.cjs` ou sob `"type": "commonjs"`, e erro de sintaxe;
+- `package.json` que o Node recusa (JSON inválido, raiz que não é objeto, `name` ou `type` que não
+  é texto) no escopo de quem usa `require` ou no de um alvo `.js`;
+- `main` absoluto ou que sai do repositório.
+
+Também fica fora o alvo que o Node não carrega sem ressalva. Por import, valem só `.js`, `.mjs` e
+`.cjs`, porque JSON pede atributo. Por `require`, só `.js` e `.cjs` em CommonJS e `.json`. TypeScript
+pela remoção de tipos, `.node`, arquivo sem extensão e ESM por `require` ficam sem aresta, por não
+serem provados. Erro que só aparece ao avaliar o alvo (nome que ele não exporta, exceção no código)
+não é modelado: a aresta de arquivo segue a resolução, e a de símbolo segue as regras acima. Import
+só de tipo (`import type`, nomes que só são tipo, `import('x').T`) some na compilação e segue o
+compilador, e isso só vale em fonte TypeScript: em JavaScript o import roda.
 
 Link Markdown sai da seção onde está (ou do arquivo, antes do primeiro título); âncora de outro
 arquivo que não bate com um título ainda prova a referência ao arquivo.
@@ -129,11 +147,12 @@ Até 64 evidências por aresta, as primeiras por posição; o excedente é conta
 | Valor do frontmatter sem arquivo, símbolo ou artefato | lacuna listada: `frontmatter-sem-alvo` |
 | Código cercado ou indentado, bloco e trecho HTML, autolink, definição de link e célula excedente de tabela | não geram link nem menção, como no CommonMark e no GitHub |
 | Span de código | não gera link; ID citado nele conta como menção |
-| Link por referência, `href` em HTML e ênfase com `_` no slug | fora da v1 do `ork.md-structure` |
-| Arquivo com mais de 2000 linhas com `\|` (a tabela do micromark é quadrática nas linhas) | lacuna listada: `markdown-tabela-grande`; o frontmatter segue lido |
+| Link por referência e `href` em HTML | fora da v1 do `ork.md-structure` |
+| Arquivo com mais de 2000 linhas em blocos de tabela, isto é, blocos com uma linha delimitadora (`\| --- \|`), até a linha em branco (a tabela do micromark é quadrática nas linhas) | lacuna listada: `markdown-tabela-grande`; o frontmatter segue lido |
 
-Título acima de 2048 caracteres e linha de frontmatter acima de 4096 também não são lidos: o
-leitor de YAML do core é quadrático em linha longa.
+No teto de tabela, linha e linha em branco contam como no CommonMark: fim de linha LF, CRLF ou CR,
+e em branco só a linha com espaço e tab. Título acima de 2048 caracteres e linha de frontmatter
+acima de 4096 também não são lidos: o leitor de YAML do core é quadrático em linha longa.
 
 ## Relatório de extração (provisório)
 
