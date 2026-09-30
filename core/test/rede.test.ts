@@ -514,9 +514,9 @@ test('RM-053 migracao: maquina que so publicou em ork/fabrica-estado aparece com
     });
     assert.deepEqual(status.membros.map((m) => [m.maquina, m.origem]), [['pc-a', 'rede'], ['vps-velha', 'fabrica-estado']]);
     const velha = status.membros[1];
-    assert.deepEqual([velha.pessoa, velha.adesao, velha.projetos], ['Julio', 'fabrica', [{ nome: 'orkastery', remoto: null, caminho: null }]]);
+    assert.deepEqual([velha.pessoa, velha.adesao, velha.projetos], ['Julio', null, [{ nome: 'orkastery', remoto: null, caminho: null }]]);
     assert.deepEqual(status.fontes.map((x) => [x.fonte, x.projeto ?? null, x.atualizado]), [['rede', null, true], ['fabrica-estado', 'orkastery', true]]);
-    assert.match(textoDaRede(status), /vps-velha · fábrica, ainda não publicou na rede/);
+    assert.match(textoDaRede(status), /vps-velha · vista só na fábrica de orkastery; não publica na rede/);
     // De qualquer outro diretorio, o projeto vem do ultimo retrato desta maquina: a vps-velha continua visivel.
     const deLonge = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a', diretorio: f.home }));
     assert.deepEqual(deLonge.membros.map((m) => m.maquina), ['pc-a', 'vps-velha']);
@@ -990,4 +990,20 @@ test('RM-053 migracao: retrato igual dentro da batida nao chama a forja nenhuma 
       assert.notEqual(fs.readFileSync(log, 'utf8'), '');
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); fs.rmSync(path.dirname(log), { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: quem saiu da rede mas segue na fabrica aparece como vista na fabrica, nunca como membro (B11)', () => {
+  const f = forjaFalsa('migracao-saiu');
+  const [ua, ub] = [dirTemporario('rede-saiu-a'), dirTemporario('rede-saiu-b')];
+  const p = projetoTemporario('rede-saiu', true);
+  try {
+    const amb = ligado(f);
+    naMaquina(ua, () => { entrarNaRede({ amb, maquina: 'pc-a', diretorio: p.dir }); sairDaRede({ amb, maquina: 'pc-a' }); });
+    // pc-a continua publicando a fabrica do projeto.
+    assert.equal(publicarMaquina(exigirManifesto(p.dir), { maquina: 'pc-a', por: 'Julio' }).acao, 'publicou');
+    const status = naMaquina(ub, () => { entrarNaRede({ amb, maquina: 'pc-b', diretorio: p.dir }); return lerRede({ amb, maquina: 'pc-b', diretorio: p.dir }); });
+    const a = status.membros.find((m) => m.maquina === 'pc-a');
+    assert.deepEqual([a?.origem, a?.adesao], ['fabrica-estado', null]);
+    assert.match(textoDaRede(status), /^pc-a · vista só na fábrica de orkastery; não publica na rede · batida /m);
+  } finally { f.limpar(); p.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
 });

@@ -6,8 +6,8 @@
  * vazia: no incidente de 29/09 o agente disse "nenhuma maquina publicou" quando so nao tinha olhado.
  *
  * D10: a branch `ork/fabrica-estado` dos projetos conhecidos continua lida. Maquina que so aparece
- * la entra como membro pela fabrica (`origem: fabrica-estado`), ate publicar na rede; quando esta
- * nos dois, o retrato da rede vence.
+ * la entra com `origem: fabrica-estado` e `adesao: null` (vista, sem supor adesao), ate publicar na
+ * rede; quando esta nos dois, o retrato da rede vence.
  * D15: maquina sem batida ha mais de 3 h vira a lacuna `maquina.sem-batida`.
  */
 import { buscarBranch, git, pontaLocal } from './branch-de-estado';
@@ -189,8 +189,10 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
           if (idadeMs < atual.idadeMs) Object.assign(atual, { publicadoEm: m.publicadoEm, idadeMs, versaoOrk: m.versaoOrk ?? null });
           continue;
         }
+        // B11 do CHECK 1: quem so aparece na fabrica nao e dado como membro. Pode ser um `ork` antigo, uma
+        // maquina que saiu da rede ou uma sem forja: a leitura diz o que viu, nao o que supoe.
         membros.set(m.maquina, { maquina: m.maquina, origem: 'fabrica-estado', publicadoEm: m.publicadoEm, idadeMs, hostname: null,
-          adesao: 'fabrica', pessoa: m.por ?? null, forjas: [], runtimes: [], hosts: [],
+          adesao: null, pessoa: m.por ?? null, forjas: [], runtimes: [], hosts: [],
           projetos: [{ nome: m.projeto, remoto: null, caminho: null }], versaoOrk: m.versaoOrk ?? null });
       }
     } catch (e) {
@@ -237,7 +239,8 @@ export function textoDaRede(s: StatusDaRede): string {
   if (s.membros.length === 0) linhas.push('Nenhuma máquina lida. Isso não quer dizer que não há máquinas: veja as lacunas.');
   for (const m of s.membros) {
     const esta = m.maquina === s.estaMaquina.maquina ? ' (esta máquina)' : '';
-    const origem = m.origem === 'rede' ? `rede${m.adesao === 'fabrica' ? ', adesão herdada da fábrica' : ''}` : 'fábrica, ainda não publicou na rede';
+    const origem = m.origem === 'rede' ? `rede${m.adesao === 'fabrica' ? ', adesão herdada da fábrica' : ''}`
+      : `vista só na fábrica de ${m.projetos.map((p) => p.nome).join(', ')}; não publica na rede`;
     linhas.push(`${m.maquina}${esta} · ${origem} · batida ${formatarDataHora(m.publicadoEm)} (há ${duracao(m.idadeMs)})`);
     const ficha = [m.hostname ? `hostname ${m.hostname}` : null, m.versaoOrk ? `ork ${m.versaoOrk}` : null,
       ...m.forjas.map((f) => `${f.forja}: ${f.usuario ?? 'sem login'}`), m.pessoa ? `pessoa ${m.pessoa}` : null].filter(Boolean);
