@@ -849,6 +849,10 @@ test('RM-053 forja: o host da casa vai em toda chamada da API e --repositorio so
       assert.equal(lerConfigDaRede()?.host, 'git.exemplo.com');
       fs.writeFileSync(log, '');
       assert.equal(publicarRede({ amb: ligado(f), maquina: 'pc-lab', forcar: true }).acao, 'publicou');
+      // S8 da revisao 2: o retrato leva a identidade do host da casa, nao a do gitlab.com do ambiente.
+      const retratoDaCasa = JSON.parse(exec('git', ['show', 'main:maquinas/pc-lab.json'], path.join(f.estado, 'repos', 'pessoa-lab', 'orkastery-network.git')).stdout);
+      assert.deepEqual(retratoDaCasa.forjas.find((x: { forja: string }) => x.forja === 'gitlab'),
+        { forja: 'gitlab', host: 'git.exemplo.com', cli: 'glab', versao: '1.50.0', usuario: 'pessoa-lab' });
       const chamadas = fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { cli: string; args: string[] });
       const doGlab = chamadas.filter((c) => c.cli === 'glab' && !c.args.includes('user'));
       assert.ok(doGlab.length > 0);
@@ -1172,6 +1176,28 @@ test('RM-053 autoria: o id da instalacao mora fora do cache; apagar o cache nao 
       assert.match(novo, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
       assert.equal(fs.readFileSync(path.join(u, 'maquina-id'), 'utf8'), novo);
       assert.equal(idDaMaquina(), novo, 'estavel depois de criado');
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: entrar de novo mantem a reserva de projetos, e relogio que voltou nao prende o sem-mudanca (S6, S15)', () => {
+  const f = forjaFalsa('migracao-reserva');
+  const u = dirTemporario('rede-reserva');
+  try {
+    const amb = ligado(f);
+    naMaquina(u, () => {
+      const proj = comManifesto(path.join(u, 'proj-um'));
+      const registro = path.join(u, 'projetos.json');
+      fs.writeFileSync(registro, JSON.stringify({ contrato: 'ork.projetos/v1', projetos: [{ nome: 'proj-um', raiz: proj, remoto: null }] }));
+      entrarNaRede({ amb, maquina: 'pc-a', arquivoDeProjetos: registro });
+      const nomes = () => JSON.parse(exec('git', ['show', 'main:maquinas/pc-a.json'], casaFalsa(f)).stdout).projetos.map((p: { nome: string }) => p.nome);
+      assert.deepEqual(nomes(), ['proj-um']);
+      // De fora de qualquer projeto e sem o registro, entrar de novo nao apaga o que a maquina ja tinha.
+      entrarNaRede({ amb, maquina: 'pc-a', arquivoDeProjetos: path.join(u, 'nenhum.json') });
+      assert.deepEqual(nomes(), ['proj-um']);
+      // Relogio duas horas atras da ultima batida: publica, em vez de achar que ainda e a mesma batida.
+      const antes = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      assert.equal(publicarRede({ amb, maquina: 'pc-a', arquivoDeProjetos: path.join(u, 'nenhum.json'), agora: antes }).acao, 'publicou');
     });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });

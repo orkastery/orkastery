@@ -548,6 +548,16 @@ function casaConferida(opcoes: OpcoesDaCasa & { criar?: boolean }): CasaConferid
   return { casa: r.casa, forja: r.forja, url: repo.url, criado, identidades: r.identidades };
 }
 
+/**
+ * S8 da revisao 2: no GitLab proprio, a forja do ambiente (sem `GITLAB_HOST` no cron) aponta para
+ * gitlab.com; o retrato leva a identidade do HOST DA CASA, lida pela forja da casa.
+ */
+function identidadesComACasa(identidades: IdentidadeNaForja[], forja: Forja): IdentidadeNaForja[] {
+  if (identidades.some((i) => i.forja === forja.nome && i.host === forja.host)) return identidades;
+  const ordem = (i: IdentidadeNaForja) => (i.forja === 'github' ? 0 : 1);
+  return [...identidades.filter((i) => i.forja !== forja.nome), forja.identidade()].sort((a, b) => ordem(a) - ordem(b));
+}
+
 const TRAVA = () => path.join(pastaDaRede(), 'publicar.lock');
 
 /** A trava de escrita na casa desta maquina, esperando ate `esperaMs` quando outra escrita esta em curso. */
@@ -624,15 +634,18 @@ export function publicarRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaRede {
   const agora = opcoes.agora ?? new Date().toISOString();
   const marca = lerMarcaDaRede();
   const base = { amb, maquina, id, diretorio: opcoes.diretorio, agora, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: adesao.adesao ?? 'rede' } as const;
-  const dentroDaBatida = !!marca && marca.maquina === maquina && Date.parse(agora) - Date.parse(marca.em) < PULSACAO_DA_REDE_MS;
+  // S15 da revisao 2: relogio que voltou (agora antes da marca) nao conta como dentro da batida.
+  const desde = marca ? Date.parse(agora) - Date.parse(marca.em) : NaN;
+  const dentroDaBatida = !!marca && marca.maquina === maquina && desde >= 0 && desde < PULSACAO_DA_REDE_MS;
   if (!opcoes.forcar && dentroDaBatida && marca!.forjas && !opcoes.forja && !opcoes.repositorio) {
     const barato = retratoComDescartes({ ...base, identidades: marca!.forjas, anteriores: marca!.projetos });
     if (assinaturaDoRetrato(barato.retrato) === marca!.assinatura) {
       return { acao: 'sem-mudanca', maquina, casa: marca!.casa, commit: marca!.commit, tentativas: 0, descartados: barato.descartados };
     }
   }
-  const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
-  const conferida = casaConferida({ ...opcoes, identidades });
+  const lidas = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
+  const conferida = casaConferida({ ...opcoes, identidades: lidas });
+  const identidades = identidadesComACasa(lidas, conferida.forja);
   const mesmaCasa = marca?.casa === refDaCasa(conferida.casa) && marca?.maquina === maquina;
   const { retrato, descartados } = retratoComDescartes({ ...base, identidades, anteriores: mesmaCasa ? marca?.projetos : undefined });
   exigirRetratoSeguro(retrato);
@@ -675,10 +688,14 @@ export function entrarNaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaEntrad
     throw new Error(`rede.maquina: nome de maquina invalido ("${maquina}"); use ork network entrar --maquina NOME (letras, numeros, ponto, _ ou -)`);
   }
   const amb = opcoes.amb ?? {};
-  const identidades = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
-  const conferida = casaConferida({ ...opcoes, identidades, criar: true });
+  const lidas = opcoes.identidades ?? forjasDaMaquina(amb).map((f) => f.identidade());
+  const conferida = casaConferida({ ...opcoes, identidades: lidas, criar: true });
+  // S6 da revisao 2: entrar de novo, na mesma casa e com o mesmo nome, mantem a reserva D7 da marca.
+  const marca = lerMarcaDaRede();
+  const anteriores = marca?.casa === refDaCasa(conferida.casa) && marca.maquina === maquina ? marca.projetos : undefined;
   const { retrato, descartados } = retratoComDescartes({ amb, maquina, id: idDaMaquina(), diretorio: opcoes.diretorio,
-    agora: opcoes.agora, identidades, arquivoDeProjetos: opcoes.arquivoDeProjetos, adesao: 'rede' });
+    agora: opcoes.agora, identidades: identidadesComACasa(lidas, conferida.forja), anteriores, arquivoDeProjetos: opcoes.arquivoDeProjetos,
+    adesao: 'rede' });
   exigirRetratoSeguro(retrato);
   const publicacao = gravarNaCasa(conferida, retrato, descartados, { exigirAdesao: false, tomarNome: opcoes.tomarNome });
   if (publicacao.acao === 'ocupado') {
