@@ -66,6 +66,8 @@ export const TIPOS_DE_EVENTO = {
   // e a que ficou para depois porque nao deu para soltar agora.
   reservaLiberada: 'roadmap_reserva_liberada',
   reservaPendente: 'roadmap_reserva_pendente',
+  // A parte do fechamento que falhou (E/S), com o erro; o fechamento segue valendo.
+  solturaFalhou: 'soltura_ao_fechar_falhou',
   postmortemGravado: 'postmortem_recorded',
   masterConcluido: 'master_done',
   // RM-048 (item 8): o pedido de nota ao dono, com codigo curto; a nota volta pelo ingresso.

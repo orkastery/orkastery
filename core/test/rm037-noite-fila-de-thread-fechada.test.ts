@@ -136,6 +136,10 @@ test('defeito 2 (A1 do CHECK 1): erro de E/S na poda nao derruba o pedido da thr
     try {
       const r = adquirirRegiao(p.dir, REGIAO, { thread: viva.id, motivo: 'commit' });
       assert.equal(r.ok, true, r.detalhe);
+      // Sugestao 7 do CHECK 2: prova que o caminho de erro rodou (como root, o 0444 nao barra nada).
+      if (process.getuid?.() !== 0) {
+        assert.equal(lerLedger(dirThread(p.dir, fechada.id)).some((e) => e.tipo === 'lease_dequeued'), false);
+      }
       const solto = liberarAoFechar(p.dir, fechada.id);
       assert.deepEqual(solto.falhas, [], 'nada mais a soltar: a fila ja saiu na poda');
     } finally { fs.chmodSync(ledger, 0o644); }
@@ -152,5 +156,37 @@ test('defeito 2 (sugestao 9 do CHECK 1): o fechamento solta tambem os leases peg
     const solto = liberarAoFechar(p.dir, t.id);
     assert.deepEqual(solto.leases, ['path:core/**']);
     assert.equal(lerLease(wt, 'path:core/**'), null);
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (sugestao 7 do CHECK 2): a parte do fechamento que falha vai para falhas, e o lease sai mesmo assim', {
+  skip: process.getuid?.() === 0 ? 'como root o 0444 nao barra a escrita' : false,
+}, () => {
+  const p = projetoTemporario('rm037noite-fechamento-falha');
+  try {
+    const t = novaThread(p.carregado, { nome: 'ledger travado no fechamento', modo: 'auto' }).thread;
+    assert.equal(adquirir(p.dir, 'path:docs/**', { thread: t.id, motivo: 'GO' }).ok, true);
+    fechar(p.dir, t.id);
+    const ledger = path.join(dirThread(p.dir, t.id), 'ledger.jsonl');
+    fs.chmodSync(ledger, 0o444);
+    try {
+      const solto = liberarAoFechar(p.dir, t.id);
+      assert.equal(solto.falhas.length, 1);
+      assert.match(solto.falhas[0], /^leases em .*: EACCES/);
+      assert.equal(lerLease(p.dir, 'path:docs/**'), null, 'o lease saiu; so o registro falhou');
+    } finally { fs.chmodSync(ledger, 0o644); }
+  } finally { p.limpar(); }
+});
+
+test('defeito 2 (sugestao 6 do CHECK 2): fechar a partir da worktree solta tambem os leases da raiz', () => {
+  const p = projetoTemporario('rm037noite-fecha-da-worktree');
+  try {
+    const t = novaThread(p.carregado, { nome: 'fecha da worktree', modo: 'auto' }).thread;
+    garantirWorktree(p.carregado, t.id);
+    const wt = lerThread(p.dir, t.id).worktree as string;
+    assert.equal(adquirir(p.dir, 'path:docs/**', { thread: t.id, motivo: 'commit pela raiz' }).ok, true);
+    fechar(p.dir, t.id);
+    assert.deepEqual(liberarAoFechar(wt, t.id).leases, ['path:docs/**']);
+    assert.equal(lerLease(p.dir, 'path:docs/**'), null);
   } finally { p.limpar(); }
 });
