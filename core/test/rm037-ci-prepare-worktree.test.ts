@@ -25,7 +25,7 @@ test('defeito 6: o bundle nasce na worktree da thread e a claim da branch nao e 
     adicionarClaim(p.dir, thread.id, { arquivo: 'core/so-na-branch.txt', alegacao: 'a fatia existe', verificar: ['test -f core/so-na-branch.txt'] });
 
     const arquivo = prepararBundleCi(p.carregado, thread.id);
-    assert.equal(arquivo, path.join(worktree, '.ork-ci', 'bundle.json'));
+    assert.equal(arquivo, path.join(worktree, '.ork-ci', `${thread.id}.json`));
     assert.equal(fs.existsSync(path.join(p.dir, '.ork-ci')), false, 'a raiz fica limpa');
     const bundle = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
     assert.deepEqual(bundle.claims.map((c: { id: string }) => c.id), ['C1']);
@@ -38,7 +38,7 @@ test('defeito 6: thread sem worktree continua gravando na raiz', () => {
   try {
     const { thread } = novaThread(p.carregado, { nome: 'sem worktree', modo: 'auto' });
     assert.equal(lerThread(p.dir, thread.id).worktree ?? null, null);
-    assert.equal(prepararBundleCi(p.carregado, thread.id), path.join(p.dir, '.ork-ci', 'bundle.json'));
+    assert.equal(prepararBundleCi(p.carregado, thread.id), path.join(p.dir, '.ork-ci', `${thread.id}.json`));
   } finally { p.limpar(); }
 });
 
@@ -51,7 +51,7 @@ test('defeito 6 (S8): worktree registrada que sumiu leva o bundle para a raiz co
     fs.rmSync(worktree, { recursive: true, force: true });
     const avisos: string[] = [];
     const arquivo = prepararBundleCi(p.carregado, thread.id, { aoAvisar: (l) => avisos.push(l) });
-    assert.equal(arquivo, path.join(p.dir, '.ork-ci', 'bundle.json'));
+    assert.equal(arquivo, path.join(p.dir, '.ork-ci', `${thread.id}.json`));
     assert.deepEqual(avisos, [`a worktree ${worktree} da thread nao existe mais; o bundle vai para a raiz do projeto`]);
   } finally { p.limpar(); }
 });
