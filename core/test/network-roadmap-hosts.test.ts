@@ -146,22 +146,56 @@ test('rede nos hosts: host aceita nome e forja no --projeto; caminho e URL recus
   try {
     const base = { cwd: c.gateway, registro: c.registro, quando: QUANDO, maquina: 'pc-a', semRemoto: true, host: true };
     const url = 'https://usuario:segredo-de-teste@github.com/dono/repo';
+    // O texto da recusa antes da lista de candidatos (a lista mostra o clone registrado, com o caminho dele).
+    const semCandidatos = (e: ErroDoPedidoDeProjeto): string => e.texto.split('\nCandidatos:')[0];
     for (const pedido of ['./orkastery', '../orkastery', c.orkastery.dir, '~/orkastery', url, 'git@github.com:dono/repo.git', 'dono/repo',
       'github:../x', 'a b']) {
       const e = recusa(() => montarPanoramaDaRede({ ...base, pedido }), 'projeto.desconhecido');
       assert.match(e.detalhe, /^no host, --projeto é o nome de um projeto registrado ou a forja/);
       assert.ok(!e.texto.includes('segredo-de-teste'), `a URL com credencial nao volta na recusa: ${pedido}`);
-      if (/^[./~]/.test(pedido)) assert.ok(!e.detalhe.includes(pedido), `o caminho pedido nao volta no detalhe: ${pedido}`);
+      // `dono/repo` e `a b` aparecem de proposito no exemplo da correcao; os outros nao podem voltar.
+      if (!['dono/repo', 'a b'].includes(pedido)) assert.ok(!semCandidatos(e).includes(pedido), `o pedido nao volta na recusa: ${pedido}`);
       assert.deepEqual(e.candidatos.map((x) => x.split(' · ')[0]), ['orkastery'], 'so o registro; o workspace do gateway nao e candidato');
+    }
+    // GO-FIX 1: forja so em host conhecido; host livre (outro servidor, IP, grupo com ponto) recusa.
+    for (const pedido of ['github:evil.tld/a/b', 'gitlab:169.254.169.254/a/b', 'gitlab:my.group/sub/repo', 'github:gitlab.com/a/b',
+      'gitlab:github.com/a/b', 'github:10.0.0.5.nip.io/a/b']) {
+      const e = recusa(() => montarPanoramaDaRede({ ...base, pedido }), 'projeto.desconhecido');
+      assert.match(e.detalhe, /^no host, a forja pedida precisa ser github\.com, gitlab\.com ou a de um projeto registrado nesta máquina$/);
+      assert.ok(!semCandidatos(e).includes(pedido), `o pedido nao volta na recusa: ${pedido}`);
+      assert.match(e.correcao, /gitlab:gitlab\.com\/grupo\/repo/);
     }
     const porNome = montarPanoramaDaRede({ ...base, pedido: 'orkastery' });
     assert.deepEqual(porNome.projetos.map((x) => [x.projeto.nome, x.projeto.origem]), [['orkastery', 'argumento']]);
-    const porForja = montarPanoramaDaRede({ ...base, pedido: 'github:dono/repo' });
-    assert.equal(porForja.projetos[0].projeto.forja, 'github.com/dono/repo');
-    assert.ok(porForja.projetos[0].lacunas.some((l) => l.tipo === 'forja.nao-consultada'), '--sem-remoto: a forja nao foi consultada');
+    for (const [pedido, rotulo] of [['github:dono/repo', 'github.com/dono/repo'], ['gitlab:grupo/sub/repo', 'gitlab.com/grupo/sub/repo'],
+      ['gitlab:gitlab.com/grupo.com.ponto/repo', 'gitlab.com/grupo.com.ponto/repo']]) {
+      const porForja = montarPanoramaDaRede({ ...base, pedido });
+      assert.equal(porForja.projetos[0].projeto.forja, rotulo);
+      assert.ok(porForja.projetos[0].lacunas.some((l) => l.tipo === 'forja.nao-consultada'), '--sem-remoto: a forja nao foi consultada');
+    }
     // Fora do host vale a fatia 1: o caminho do clone continua um pedido valido.
     assert.equal(montarPanoramaDaRede({ ...base, host: false, pedido: c.orkastery.dir }).projetos[0].projeto.nome, 'orkastery');
   } finally { c.limpar(); }
+});
+
+test('rede nos hosts: host aceita forja de host proprio so quando ela e a de um projeto registrado', () => {
+  const c = cenaDoHost('rede-host-proprio');
+  const proprio: ProjetoDeTeste = projetoTemporario('rede-host-proprio-clone');
+  try {
+    init(proprio.dir, { nome: 'proprio', abbrev: 'pro', force: true });
+    exec('git', ['remote', 'add', 'origin', 'https://gitlab.exemplo.com.br/grupo/proprio.git'], proprio.dir);
+    const base = { cwd: c.gateway, registro: c.registro, quando: QUANDO, maquina: 'pc-a', semRemoto: true, host: true };
+    // Antes do registro, o host proprio e um servidor qualquer: recusa.
+    recusa(() => montarPanoramaDaRede({ ...base, pedido: 'gitlab:gitlab.exemplo.com.br/grupo/proprio' }), 'projeto.desconhecido');
+    registrarProjeto(proprio.dir, 'init');
+    const p = montarPanoramaDaRede({ ...base, pedido: 'gitlab:gitlab.exemplo.com.br/grupo/proprio' });
+    assert.deepEqual(p.projetos.map((x) => [x.projeto.nome, x.projeto.forja, x.projeto.origem]),
+      [['proprio', 'gitlab.exemplo.com.br/grupo/proprio', 'argumento']]);
+    // O host registrado vale para o tipo dele, e outro repositorio do mesmo host tambem.
+    assert.equal(montarPanoramaDaRede({ ...base, pedido: 'gitlab:gitlab.exemplo.com.br/grupo/outro' }).projetos[0].projeto.forja,
+      'gitlab.exemplo.com.br/grupo/outro');
+    recusa(() => montarPanoramaDaRede({ ...base, pedido: 'github:gitlab.exemplo.com.br/grupo/proprio' }), 'projeto.desconhecido');
+  } finally { proprio.limpar(); c.limpar(); }
 });
 
 test('rede nos hosts: host nao le o projeto do cwd fora do registro, e diz por que no nao consultado', () => {
@@ -206,6 +240,22 @@ test('rede nos hosts: host no CLI, ORK_PROJETO_EXPLICITO=1 recusa caminho com sa
     assert.equal(json.codigo, 4);
     assert.equal(JSON.parse(json.saida).erro, 'projeto.desconhecido');
     assert.ok(!json.saida.includes('segredo-de-teste'));
+    // GO-FIX 1: com gh e glab falsos no PATH, a forja de host livre recusa sem chamar nenhum dos dois;
+    // a publica chama, com o host explicito (o controle positivo de que o falso registra a chamada).
+    const falsos = path.join(c.usuario, 'bin'), chamadas = path.join(c.usuario, 'forja-chamada');
+    fs.mkdirSync(falsos, { recursive: true });
+    for (const cmd of ['gh', 'glab']) {
+      fs.writeFileSync(path.join(falsos, cmd), `#!/bin/sh\nprintf "${cmd} %s\\n" "$*" >> "${chamadas}"\nexit 1\n`, { mode: 0o755 });
+    }
+    const comFalsos = { ...host, PATH: `${falsos}:${process.env.PATH ?? ''}` };
+    for (const pedido of ['gitlab:evil.tld/a/b', 'github:169.254.169.254/a/b']) {
+      const r = cli(c.gateway, ['network', 'roadmap', '--projeto', pedido], comFalsos);
+      assert.equal(r.codigo, 4, r.saida);
+      assert.match(r.saida, /^projeto\.desconhecido: no host, a forja pedida precisa ser github\.com, gitlab\.com/m);
+    }
+    assert.equal(fs.existsSync(chamadas), false, 'nem gh nem glab foram chamados para a forja de host livre');
+    assert.equal(cli(c.gateway, ['network', 'roadmap', '--projeto', 'github:dono/repo'], comFalsos).codigo, 0);
+    assert.match(fs.readFileSync(chamadas, 'utf8'), /^gh api graphql .*--hostname github\.com/m);
     const nome = cli(c.gateway, ['network', 'roadmap', '--projeto', 'orkastery', '--sem-remoto'], host);
     assert.equal(nome.codigo, 0, nome.saida);
     assert.match(nome.saida, /^Consultado: orkastery \(clone em /m);

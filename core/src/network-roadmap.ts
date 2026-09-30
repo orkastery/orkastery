@@ -299,17 +299,32 @@ function raizParaExibir(raiz: string): string {
 /** Caminho explicito: absoluto, `./`, `../` ou `~/`. Nome sozinho e sempre nome (achado 2 do CHECK). */
 const ehCaminho = (t: string): boolean => path.isAbsolute(t) || /^(?:\.{1,2}|~)(?:\/|$)/.test(t);
 
+/** As forjas publicas que o host pode pedir sem registro, cada uma com o tipo dela. */
+const FORJAS_PUBLICAS: Readonly<Record<string, IdentidadeDaForja['tipo']>> = Object.freeze({ 'github.com': 'github', 'gitlab.com': 'gitlab' });
+
 /**
  * D-G4 (fatia 2): no host, o `--projeto` do `network` e o nome de um projeto (RM-052) ou a forja
  * (`github:dono/repo`, `gitlab:grupo/repo`). Caminho apontaria o nucleo para qualquer pasta (D4 da
  * RM-052) e URL pode levar credencial: nenhum dos dois entra, e o texto pedido nao volta na recusa.
+ * A forja tambem so vale num host conhecido (GO-FIX 1 do CHECK): `github.com`, `gitlab.com` ou o
+ * host de um projeto do registro. Com host livre, o texto do modelo levaria o `gh`/`glab` a qualquer
+ * servidor (`gitlab:169.254.169.254/a/b`), e um `GITLAB_TOKEN` do ambiente iria junto.
  */
 function exigirPedidoDoHost(pedido: string, conhecidos: readonly ProjetoDaRede[]): void {
   const t = pedido.trim();
-  if (PADRAO_DO_NOME_DE_PROJETO.test(t) || (/^(?:github|gitlab):/i.test(t) && forjaDoArgumento(t))) return;
+  if (PADRAO_DO_NOME_DE_PROJETO.test(t)) return;
+  const candidatos = conhecidos.map(rotuloDoProjeto);
+  const forja = /^(?:github|gitlab):/i.test(t) ? forjaDoArgumento(t) : null;
+  if (!forja) {
+    throw new ErroDoPedidoDeProjeto('projeto.desconhecido',
+      'no host, --projeto é o nome de um projeto registrado ou a forja (github:dono/repo, gitlab:grupo/repo); caminho e URL não são aceitos',
+      candidatos, 'peça pelo nome de `ork projetos` (ex.: orkastery) ou por github:dono/repo');
+  }
+  const publica = FORJAS_PUBLICAS[forja.host] === forja.tipo;
+  if (publica || conhecidos.some((p) => p.forja && p.forja.host === forja.host && p.forja.tipo === forja.tipo)) return;
   throw new ErroDoPedidoDeProjeto('projeto.desconhecido',
-    'no host, --projeto é o nome de um projeto registrado ou a forja (github:dono/repo, gitlab:grupo/repo); caminho e URL não são aceitos',
-    conhecidos.map(rotuloDoProjeto), 'peça pelo nome de `ork projetos` (ex.: orkastery) ou por github:dono/repo');
+    'no host, a forja pedida precisa ser github.com, gitlab.com ou a de um projeto registrado nesta máquina',
+    candidatos, 'peça por github:dono/repo ou gitlab:grupo/repo; grupo com ponto no GitLab vai com o host: gitlab:gitlab.com/grupo/repo');
 }
 
 /**
