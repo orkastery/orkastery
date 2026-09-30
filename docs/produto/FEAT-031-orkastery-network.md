@@ -7,8 +7,8 @@ pai: MOD-01
 roadmap: [RM-053]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-30T01:01:19-03:00
-versao: ork/ork-rm053network-full@1fc9894
+verificado_em: 2026-09-30T02:05:51-03:00
+versao: ork/ork-rm053network-full@18f91d8
 fontes:
   codigo:
     - core/src/rede.ts
@@ -50,7 +50,7 @@ fontes:
 
 > **Em uma frase:** cada máquina publica um retrato sem segredo num repositório privado da pessoa na forja, e `ork network status` mostra todas, de qualquer diretório, com a fonte e as lacunas.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@1fc9894`
+- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm053network-full@18f91d8`
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-053](../roadmap/RM-053-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -83,7 +83,7 @@ fontes:
   - BR-031-05: lacuna nunca vira lista vazia; a leitura declara a fonte, o horário e o que não consultou (roadmap, reservas, threads); máquina vista só na fábrica não é dada como membro.
   - BR-031-06: todo git da rede roda isolado do ambiente de quem chamou: sem as variáveis que redirecionam o repositório, sem prompt, em inglês e com autor e committer fixos na máquina.
   - BR-031-07: o escritor publica o que o leitor aceita (mesmas regras antes do push), e o leitor ignora item de host ou forja que não conhece: versão nova não some para quem não atualizou.
-  - BR-031-08: nada que o terminal executa ou que ninguém vê (ESC, BEL, bidi, largura zero) passa pela rede: o leitor recusa o retrato que o tem, o texto do status põe cada valor numa linha só e sem eles, o JSON os escreve como `\uXXXX` e o `REDE.md` escapa o Markdown. A casa só fala por HTTPS.
+  - BR-031-08: nada que o terminal executa ou que ninguém vê (ESC, BEL, bidi, largura zero; fora o ZWJ e os seletores que montam emoji) passa pela rede: o leitor recusa o retrato que o tem, o texto do status põe cada valor numa linha só e sem eles, o JSON os escreve como `\uXXXX` e o `REDE.md` escapa o Markdown. A casa só fala por HTTPS.
 - **Critérios de aceite e testes:** Dadas duas máquinas com a forja simulada, quando cada uma entra e publica, então o `status` de uma, de fora de qualquer clone, mostra as duas, e nenhum blob nem commit da casa tem token, credencial, caminho de credencial, e-mail ou dado de conta paga (`core/test/rede.test.ts`).
 - **Interface e acessibilidade:** texto em linhas curtas, com a fonte e o que não foi lido no topo e as lacunas no fim; `ork network status --json` com o contrato `ork.rede-status/v1` para agentes.
 
@@ -91,7 +91,7 @@ fontes:
 
 - **Entidades e campos:**
   - `~/.orkastery/rede.json` (`ork.rede/v1`): adesão e casa;
-  - `~/.orkastery/maquina-id`: o identificador aleatório desta instalação, fora da pasta de cache;
+  - `~/.orkastery/maquina-id`: o identificador desta instalação, fora da pasta de cache (aleatório quando criado; derivado do arquivo ruim, da pasta e do boot quando precisa ser trocado);
   - `maquinas/<maquina>.json` (`ork.rede-maquina/v1`): máquina, `id`, hostname, forjas com o login, runtimes e hosts com versão, projetos com remoto sem credencial e caminho, versão do `ork` e batida;
   - `ork network status --json` (`ork.rede-status/v1`): casa, esta máquina, fontes, membros, lacunas e o que não foi consultado.
 - **APIs e endpoints:** a API da forja pela CLI dela, sempre com o host da casa: `gh api --hostname` e `glab api --hostname`; o git por HTTPS, autenticado pelo helper da própria CLI.
@@ -115,3 +115,4 @@ fontes:
 | 2026-09-29 | revista com o GO-FIX 3: remoto montado de partes validadas | Claude (agente) / Julio, revisão pendente | parecer do CHECK 3 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 4: SSH sem `?` nem `#`, regra única de nome, texto sem invisíveis, casa só por HTTPS (BR-031-08) | Claude (agente) / Julio, revisão pendente | parecer do CHECK 4 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 5: o escritor usa o predicado de projeto do leitor, o `id` com cabeçalho prende o nome, cada valor do texto numa linha | Claude (agente) / Julio, revisão pendente | parecer do CHECK 5 da thread `ork-rm053network` |
+| 2026-09-30 | revista com o GO-FIX 6: invisível pelas classes do Unicode, nome sem `://`, o id derivado descrito | Claude (agente) / Julio, revisão pendente | parecer do CHECK 6 da thread `ork-rm053network` |

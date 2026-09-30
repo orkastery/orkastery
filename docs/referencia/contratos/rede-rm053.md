@@ -52,12 +52,12 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 | Campo | O que é | Regra |
 | --- | --- | --- |
 | `maquina` | o nome da máquina, saneado: letras, números, `.`, `_` e `-`, até 64 | é o mesmo nome do arquivo, da trava e dos commits |
-| `id` | identificador aleatório desta instalação (`~/.orkastery/maquina-id`, fora da pasta de cache) | opcional no v1; o arquivo com o nome desta máquina, com o cabeçalho do contrato (`contrato` `ork.rede-maquina/vN` e `maquina` dona do arquivo) e outro `id`, não é regravado (`rede.nome-em-uso`) nem removido, mesmo quando esta versão não lê o resto; lixo sem esse cabeçalho não prende o nome |
+| `id` | identificador desta instalação (`~/.orkastery/maquina-id`, fora da pasta de cache): aleatório quando criado; derivado do arquivo ruim, da pasta e do boot quando precisa ser trocado, ou sem hard link | opcional no v1; o arquivo com o nome desta máquina, com o cabeçalho do contrato (`contrato` `ork.rede-maquina/vN` e `maquina` dona do arquivo) e outro `id`, não é regravado (`rede.nome-em-uso`) nem removido, mesmo quando esta versão não lê o resto; lixo sem esse cabeçalho não prende o nome |
 | `adesao` | `rede` (entrou) ou `fabrica` (herdada) | — |
 | `forjas[]` | cada CLI de forja achada na máquina | `usuario` é só o login; `null` quando a CLI não tem login |
 | `runtimes[]` | `claude-bg` (binário `claude`) e `codex`, quando instalados | `versao` casa `\d+.\d+[.\d+]`; texto fora disso vira `null` |
 | `hosts[]` | `claude-code`, `codex`, `hermes`, `openclaw`, quando instalados | `adaptador` é a versão do recibo `INSTALADO.json` no destino padrão do host, sob o home |
-| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` na regra do leitor (texto visível, sem espaço nas pontas, até 80 unidades UTF-16) e `caminho` até 1024, sem caractere invisível, senão o projeto sai com aviso; `remoto` até 500, senão `null` |
+| `projetos[]` | projetos conhecidos desta máquina, até 200 | `nome` com algo visível (letra, dígito, pontuação ou símbolo), sem espaço nas pontas, sem `://`, sem caractere invisível e até 80 unidades UTF-16 (o leitor aceita qualquer texto sem invisível até 80) e `caminho` até 1024, sem caractere invisível, senão o projeto sai com aviso; `remoto` até 500, senão `null` |
 | `publicadoEm` | a última batida que chegou ao remoto | retrato igual só volta ao remoto de hora em hora |
 
 **Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
@@ -69,8 +69,9 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 - Nos transportes `ssh`, `git+ssh`, `ssh+git` e `git`, o git não para a autoridade em `?` nem em `#`: remoto com eles vira `null`. No `http(s)`, query ou fragmento com `@` também. O host fica com a caixa de origem, para a varredura ver o que é sensível a caixa (como o `AKIA`).
 - O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, a forma usual das forjas.
 - O escritor confere o retrato com as mesmas regras do leitor antes do push: o que ele publica, toda máquina lê.
-- O leitor recusa (`retrato.invalido`) o retrato com caractere de controle ou invisível (ESC, BEL, bidi, largura zero, preenchimento Hangul) em qualquer texto, ou com valor de cara de segredo num campo do núcleo. Projeto com cara de segredo sai sozinho da leitura, e a lacuna diz quantos. O `remoto` de outra máquina é remontado, e o que não sai igual vira `null`. O `REDE.md` só leva o que o leitor aceitou, com o Markdown escapado, inclusive o `.` que viraria link.
-- Caractere invisível, aqui: controles C0 e C1, bidi, largura zero, separadores de linha, preenchimentos que desenham em branco, tags e seletores de variação. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam.
+- O leitor recusa (`retrato.invalido`) o retrato com caractere de controle ou invisível (ESC, BEL, bidi, largura zero, preenchimento Hangul) em qualquer texto, ou com valor de cara de segredo num campo do núcleo. Projeto com cara de segredo sai sozinho da leitura, e a lacuna diz quantos. O `remoto` de outra máquina é remontado, e o que não sai igual vira `null`. O `REDE.md` só leva o que o leitor aceitou, com o Markdown escapado, inclusive o `.` e o `:` (sem autolink no GFM, nem `http://x` sem ponto no domínio).
+- Caractere invisível, aqui, pelas classes do Unicode: controle (`Cc`), formato (`Cf`: bidi, largura zero, tags), separador de linha e todo `Default_Ignorable_Code_Point` (preenchimentos Hangul, seletores de variação), mais o braile vazio. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam.
+- O id derivado vale por máquina: numa pasta dividida por hosts ou contêineres sem hard link, o último a gravar vence, e o boot (`boot_id`, `machine-id`) só entra no Linux (limitação aceita, X6 do CHECK 6).
 - Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
 
 ## `ork.rede-status/v1` — a leitura
