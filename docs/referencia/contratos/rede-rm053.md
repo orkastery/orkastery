@@ -2,7 +2,7 @@
 
 > **Em uma frase:** os três contratos da rede de uma pessoa — a adesão da máquina, o retrato publicado e a leitura de `ork network status --json` — e as fronteiras com a RM-052 e a RM-054.
 
-- **Casa da rede:** repositório privado `<usuario>/orkastery-network` na forja, branch `main` (decisão no [ADR-001](../../conceitos/decisoes/ADR-001-estado-da-rede.md)).
+- **Casa da rede:** repositório privado `<usuario>/orkastery-network` na forja, branch `main`, sempre por HTTPS com o helper da própria CLI (decisão no [ADR-001](../../conceitos/decisoes/ADR-001-estado-da-rede.md)).
 - **Quem lê este documento:** quem escreve um leitor da rede (a RM-054, os hosts) e quem alimenta os projetos conhecidos (a RM-052).
 - **Versões:** todos em `v1`. Campo novo e opcional não muda a versão; campo removido ou com sentido novo muda.
 
@@ -34,6 +34,7 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 {
   "contrato": "ork.rede-maquina/v1",
   "maquina": "srvjcp86",
+  "id": "2f0b6c1e-8a57-4c1b-9f0e-3d2a6b7c8d90",
   "hostname": "srvjcp86",
   "adesao": "rede",
   "forjas": [{ "forja": "github", "host": "github.com", "cli": "gh", "versao": "2.101.0", "usuario": "juliopessoa" }],
@@ -50,6 +51,7 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 
 | Campo | O que é | Regra |
 | --- | --- | --- |
+| `id` | identificador aleatório desta instalação (`~/.orkastery/rede/maquina-id`) | opcional no v1; arquivo com o mesmo nome e outro `id` não é regravado (`rede.nome-em-uso`) nem removido |
 | `adesao` | `rede` (entrou) ou `fabrica` (herdada) | — |
 | `forjas[]` | cada CLI de forja achada na máquina | `usuario` é só o login; `null` quando a CLI não tem login |
 | `runtimes[]` | `claude-bg` (binário `claude`) e `codex`, quando instalados | `versao` casa `\d+.\d+[.\d+]`; texto fora disso vira `null` |
@@ -57,7 +59,13 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 | `projetos[]` | projetos conhecidos desta máquina | `remoto` sem credencial; `caminho` absoluto local |
 | `publicadoEm` | a última batida que chegou ao remoto | retrato igual só volta ao remoto de hora em hora |
 
-**Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log. O retrato é montado por lista de permissão, e uma varredura de segredo recusa a publicação inteira antes do push.
+**Nunca vai:** token, senha, chave, cabeçalho de autorização, e-mail ou plano da conta (da forja ou do runtime), perfil de conta e o diretório dele, caminho de arquivo de credencial (`hosts.yml`, `.credentials.json`, `auth.json`, `.git-credentials`, `.netrc`, `.ssh/`), prompt, transcript, log.
+
+- O retrato é montado por lista de permissão, e uma varredura de segredo roda antes do push.
+- Campo que o núcleo monta (máquina, hostname, forjas, runtimes, hosts) com cara de segredo recusa a publicação inteira.
+- Projeto vem de fora do núcleo: o que tem valor com cara de segredo fica fora do retrato sozinho, com aviso no CLI e no `rede.log` (campo e padrão, nunca o valor).
+- O remoto scp (`git@host:dono/repo.git`) sai como `ssh://host/dono/repo.git`, sem o usuário de transporte.
+- Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
 
 ## `ork.rede-status/v1` — a leitura
 
@@ -82,7 +90,7 @@ Saída de `ork network status --json` e de `lerRede()` em `core/src/rede.ts`.
 }
 ```
 
-- `origem` de cada membro: `rede` (retrato da casa) ou `fabrica-estado` (visto só na branch legada de um projeto). O retrato da rede vence quando a máquina está nas duas.
+- `origem` de cada membro: `rede` (retrato da casa) ou `fabrica-estado` (visto só na branch legada de um projeto, com `adesao: null`: pode ser um `ork` antigo, uma máquina que saiu da rede ou uma sem forja). O retrato da rede vence quando a máquina está nas duas.
 - `atualizado: false` numa fonte quer dizer "última cópia local, sem leitura nova".
 - `naoConsultado` diz o que esta leitura **não** olhou. Quem responde "o roadmap está vazio" a partir daqui erra: roadmap não foi lido.
 
@@ -123,4 +131,4 @@ A rede **lê** o registro de projetos da RM-052 por um adaptador único, `core/s
 | --- | --- | --- |
 | Batida (retrato igual volta ao remoto) | 1 h | `PULSACAO_DA_REDE_MS` |
 | Máquina sem batida | 3 h | `SEM_BATIDA_MS` |
-| Intervalo mínimo entre tentativas em segundo plano | 15 min | `TETO_DE_TENTATIVA_MS` |
+| Intervalo mínimo entre tentativas em segundo plano | 14 min, um abaixo do cron de 15 | `TETO_DE_TENTATIVA_MS` |

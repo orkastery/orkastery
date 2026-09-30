@@ -115,7 +115,7 @@ concatenado, guardado numa variável local que vai para o texto ou passado diret
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
 | `ork fabrica sair` | Para de publicar daqui e tira o retrato desta máquina da branch |
 | `ork network status [--json] [--sem-remoto]` | A Orkastery Network da pessoa: as máquinas, de qualquer diretório, com a fonte, as lacunas tipadas e o que não foi lido (`ork.rede-status/v1`, RM-053) |
-| `ork network entrar [--maquina NOME] [--forja github\|gitlab] [--repositorio [DONO/]NOME]` | Esta máquina entra na rede: confere a casa privada `<usuario>/orkastery-network` na forja, cria quando falta e publica o primeiro retrato. A identidade vem do `gh` ou do `glab` autenticados |
+| `ork network entrar [--maquina NOME] [--forja github\|gitlab] [--repositorio [DONO/]NOME] [--forcar]` | Esta máquina entra na rede: confere a casa privada `<usuario>/orkastery-network` na forja, cria quando falta, publica o primeiro retrato e só então grava o nome e a adesão. A identidade vem do `gh` ou do `glab` autenticados. `--forcar` toma um nome que outra instalação usa, registrado no commit |
 | `ork network publicar [--forcar] [--json]` | Grava o retrato desta máquina na casa, com push sem força; depois de entrar, sai sozinho na batida do pulse e nos eventos de thread |
 | `ork network sair` | Para de publicar daqui e tira o retrato desta máquina da casa; vence a adesão herdada do `ork fabrica entrar` |
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto |

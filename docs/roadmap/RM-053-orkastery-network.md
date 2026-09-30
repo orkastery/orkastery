@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Orkastery Network, as máquinas de uma pessoa em rede
 categoria: iniciativa
 pai: null
-features: [FEAT-030]
+features: [FEAT-031]
 owner: Julio
 atualizado_em: 2026-09-29T23:48:35+00:00
 estado:
@@ -38,7 +38,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-- **Feature:** [FEAT-030](../produto/FEAT-030-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
+- **Feature:** [FEAT-031](../produto/FEAT-031-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
 - **Thread:** `ork-rm053network` (fatia 1) · **Irmãs:** RM-052 (projeto-alvo) e RM-054 (roadmap da rede), em paralelo
 
 ## Problema e resultado
@@ -60,7 +60,7 @@ sdlc:
   - `ork network entrar`, `ork network status`, `ork network publicar` e `ork network sair`, de qualquer diretório;
   - GitHub pelo `gh` e GitLab pelo `glab`, atrás da mesma interface, com a identidade da CLI já autenticada;
   - migração: quem fez `ork fabrica entrar` é membro sem refazer, e `ork/fabrica-estado` continua lida;
-  - segurança: lista de permissão, varredura de segredo antes do push, repositório privado exigido e cada máquina só no próprio retrato;
+  - segurança: lista de permissão, varredura de segredo antes do push, repositório privado exigido, cada máquina só no próprio retrato (nome e identidade da instalação) e o git da rede isolado do ambiente;
   - a batida do pulse e os eventos de thread publicam o retrato.
 - **Fora de escopo:**
   - registro de projetos e `--projeto` (RM-052): aqui só um adaptador de leitura de `~/.orkastery/projetos.json`;
@@ -111,7 +111,9 @@ sdlc:
 
 ## Estado com evidências
 
-- Fatia 1 na branch `ork/ork-rm053network-full` (29/09/2026): ADR, forja, fronteira com a RM-052, núcleo da rede, CLI e batida, com 19 testes verdes em `core/test/rede.test.ts` contra forja simulada.
+- Fatia 1 na branch `ork/ork-rm053network-full` (29/09/2026): ADR, forja, fronteira com a RM-052, núcleo da rede, CLI e batida.
+- CHECK 1 (29/09): reprovado, com uma regressão do lint de horário e dezenove achados de uma revisão independente, dois altos (falso positivo de e-mail em remoto scp e `GIT_DIR` herdado regravando a config do projeto).
+- GO-FIX 1 (29/09): todos corrigidos, cada um com teste que reprova o código anterior; 35 testes verdes em `core/test/rede.test.ts` contra forja simulada.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -141,3 +143,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | proposto e criado | incidente do Telegram de 29/09; pedido do dono para RM-052, RM-053 e RM-054 | Julio |
 | 2026-09-29 | casa da rede: repositório privado por pessoa | ADR-001; ledger da thread | agente, a ratificar por Julio |
 | 2026-09-29 | fatia 1 em desenvolvimento na branch da thread | commits T1 a T7 de `ork-rm053network` | agente |
+| 2026-09-29 | CHECK 1 reprovado e GO-FIX 1; a feature vira FEAT-031 (a RM-052 usa o 030) | parecer do CHECK 1 e commits `fix(ork-rm053network)` | agente |

@@ -13,8 +13,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork network entrar`, `status`, `publicar` e `sair`, de qualquer diretório; GitHub pelo `gh` e GitLab
     pelo `glab`, com a identidade da CLI já autenticada;
   - o retrato leva nome, hostname, forja e login, runtimes e hosts com versão, projetos conhecidos, versão do
-    `ork` e a batida; nunca token, conta paga ou caminho de credencial, e a varredura de segredo recusa a
-    publicação;
+    `ork` e a batida; nunca token, conta paga ou caminho de credencial: a varredura de segredo recusa o
+    retrato, e o projeto suspeito fica fora sozinho, com aviso;
+  - cada instalação tem uma identidade aleatória no retrato: duas máquinas com o mesmo nome não se
+    sobrescrevem;
   - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
   - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):

@@ -98,7 +98,7 @@ ork network sair                       # tira o retrato desta máquina da casa
 
 - A identidade vem do `gh` ou do `glab` já autenticados; o `ork` nunca lê token.
 - Quem já fez `ork fabrica entrar` é membro da rede sem refazer nada: a batida do pulse publica o retrato quando a casa existe.
-- A `ork/fabrica-estado` continua lida: máquina que só publicou lá aparece como membro pela fábrica.
+- A `ork/fabrica-estado` continua lida: máquina que só publicou lá aparece como vista na fábrica, sem supor adesão.
 - Depois de entrar, a máquina publica sozinha na batida do pulse e nos eventos de thread; `ork network publicar` publica na hora.
 
 | Vai para a casa | Nunca vai |
@@ -127,6 +127,8 @@ gravado, para quando ela voltar.
 | A thread entregue ainda aparece ativa | o merge não tem o assunto `ship(<thread>): ...` |
 | `ork network status` mostra `rede.sem-repositorio` | ninguém rodou `ork network entrar` ainda: a primeira máquina cria a casa |
 | A rede não publica em segundo plano | `~/.orkastery/rede/rede.log`: cada tentativa deixa uma linha, inclusive a que falhou |
+| `ork network entrar` recusa com `rede.nome-em-uso` | outra instalação já usa esse nome: escolha outro com `--maquina`, ou tome-o com `--forcar` (fica no commit) |
+| Um projeto sumiu do retrato, com um aviso | um valor dele tem cara de segredo (token no nome, e-mail no caminho): o aviso diz o campo e o padrão |
 
 ## O setup por bloco, igual em todas
 

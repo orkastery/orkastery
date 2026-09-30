@@ -55,24 +55,24 @@ Opção **A**, com estas regras:
 
 - **Casa:** `<usuario>/orkastery-network` na forja em que a pessoa entrou; `--forja` e `--repositorio` trocam a casa.
 - **Layout:** branch `main`, `maquinas/<maquina>.json` (contrato `ork.rede-maquina/v1`) e `REDE.md`, o índice legível que quem publica regenera.
-- **Gravação:** índice temporário, `commit-tree` sobre a ponta lida e push sem força, num cache bare em `~/.orkastery/rede/`, fora de qualquer clone de projeto. Push recusado relê a ponta.
-- **Identidade:** só o login, lido de `gh api user` ou `glab api user`. O git autentica pelo helper de credencial da própria forja, configurado só no cache da rede; o `ork` nunca lê token.
+- **Gravação:** índice temporário, `commit-tree` sobre a ponta lida e push sem força, num cache em `~/.orkastery/rede/` (repositório com árvore de trabalho vazia), fora de qualquer clone de projeto. Push recusado relê a ponta. Todo git da rede roda isolado do ambiente de quem chamou (sem `GIT_DIR` herdado, sem prompt).
+- **Identidade:** só o login, lido de `gh api user` ou `glab api user`, com o host da casa. O git vai sempre por HTTPS e autentica pelo helper de credencial da própria forja, configurado só no cache da rede; o `ork` nunca lê token.
 - **Privacidade:** publicar exige o repositório privado, conferido na forja antes de cada publicação. Repositório público recusa com `rede.repositorio-publico`.
 - **Criação:** a primeira máquina que roda `ork network entrar` cria o repositório privado. Publicação em segundo plano nunca cria nada.
-- **Conteúdo:** lista de permissão (nome, hostname, forjas, runtimes, hosts, projetos, versão do `ork` e batida) e varredura de segredo antes do push, que recusa a publicação inteira.
+- **Conteúdo:** lista de permissão (nome, identidade aleatória da instalação, hostname, forjas, runtimes, hosts, projetos, versão do `ork` e batida) e varredura de segredo antes do push: campo do núcleo recusa a publicação inteira; projeto suspeito fica fora sozinho, com aviso.
 
 ## Consequências
 
 - **Boas:** qualquer máquina da pessoa lê a rede de qualquer diretório; a privacidade é verificável; a história de cada retrato está no git; nada de servidor novo.
 - **Custos:** um repositório a mais na conta da pessoa; a primeira entrada exige o escopo de criar repositório (`repo` no GitHub, `api` no GitLab); cada publicação faz uma chamada à API da forja para conferir a visibilidade.
-- **Limite honesto:** todas as máquinas usam a mesma identidade na forja, que não distingue máquinas. A regra "cada máquina só escreve o próprio retrato" é garantida pelo cliente (guarda no código e leitura que ignora retrato trocado) e auditada pelo git. Não é ACL da forja.
+- **Limite honesto:** todas as máquinas usam a mesma identidade na forja, que não distingue máquinas. A regra "cada máquina só escreve o próprio retrato" é garantida pelo cliente (guarda no código, identidade aleatória da instalação contra nomes repetidos e leitura que ignora retrato trocado) e auditada pelo git. Não é ACL da forja.
 - **GitLab:** a interface é a mesma do GitHub e está provada com `glab` simulado; o piloto com GitLab real fica declarado no item.
 
 ## Migração da fábrica
 
 - A fábrica da RM-047 não muda: `ork/fabrica-estado` continua gravada e lida.
 - Máquina que já fez `ork fabrica entrar` é membro da rede sem refazer nada: a adesão é herdada enquanto não houver `~/.orkastery/rede.json`.
-- `ork network status` também lê `ork/fabrica-estado` dos projetos conhecidos; máquina que só aparece lá entra como membro pela fábrica, até publicar na rede.
+- `ork network status` também lê `ork/fabrica-estado` dos projetos conhecidos; máquina que só aparece lá é mostrada como vista na fábrica, sem supor adesão, até publicar na rede.
 - A regra BR-027-02 continua: nada de caminho local na branch da fábrica. Caminho local só vai ao repositório privado da rede.
 
 ## Fora desta decisão
