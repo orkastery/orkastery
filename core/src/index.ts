@@ -2629,7 +2629,7 @@ function comandoRoadmap(args: Args): number {
     // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
     // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
     const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
-      naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork fabrica)'] });
+      naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
     const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;

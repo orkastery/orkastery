@@ -84,7 +84,7 @@ Comandos com `--projeto` próprio recebem a opção intacta e não resolvem o al
   "projeto": { "nome": "orkastery", "abbrev": "ork", "raiz": "~/orkastery",
     "remoto": "https://github.com/orkastery/orkastery.git", "origem": "opcao" },
   "lido": ["roadmap (docs/roadmap)", "threads deste projeto nesta máquina"],
-  "naoLido": ["reservas do roadmap (ork roadmap reservas)", "threads de outras máquinas (ork fabrica)",
+  "naoLido": ["reservas do roadmap (ork network roadmap)", "threads de outras máquinas (ork network roadmap)",
     "outros projetos desta máquina: 1 (ork projetos)"]
 }
 ```

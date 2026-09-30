@@ -34,7 +34,7 @@ test('board list/plan JSON serializam contratos existentes em fixtures vazias e 
     const { consulta, ...r } = json(p.dir, 'board', 'plan'), esperado = planejar(p.carregado, { estados: null, agora: r.decididoEm });
     // Compara a decisão no mesmo instante, sem remover campos do contrato; a consulta e o acrescimo da RM-052.
     assert.deepEqual(r, esperado);
-    assert.ok(consulta.naoLido.includes('roadmap (ork roadmap status)'));
+    assert.ok(consulta.naoLido.includes('roadmap (ork network roadmap)'));
     const texto = cli(p.dir, 'board', 'list');
     assert.equal(texto.status, 0, texto.stderr); assert.match(texto.stdout, /PERFIL/);
     assert.match(cli(p.dir, 'board', 'plan').stdout, /Escalonador/);

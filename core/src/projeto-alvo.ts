@@ -485,11 +485,15 @@ export function outrosProjetosConhecidos(raiz: string): number {
   return listarProjetos().filter((p) => p.presente && p.raiz !== canonica).length;
 }
 
-/** As fontes que uma leitura pode deixar de fora, na mesma frase em todo comando e canal. */
+/**
+ * As fontes que uma leitura pode deixar de fora, na mesma frase em todo comando e canal. A ponteira
+ * entre parenteses e o panorama da rede (RM-054, fatia 2), que le as tres com a fonte e a hora: o
+ * agente que chega pelo shell, e nao pela tool do host, le esta linha antes de responder.
+ */
 export const FORA_DA_CONSULTA = Object.freeze({
-  roadmap: 'roadmap (ork roadmap status)',
-  reservas: 'reservas do roadmap (ork roadmap reservas)',
-  outrasMaquinas: 'outras máquinas (ork fabrica)',
+  roadmap: 'roadmap (ork network roadmap)',
+  reservas: 'reservas do roadmap (ork network roadmap)',
+  outrasMaquinas: 'outras máquinas (ork network roadmap)',
   threadsDaMaquina: 'threads deste projeto nesta máquina',
 });
 

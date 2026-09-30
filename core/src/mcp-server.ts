@@ -365,7 +365,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       const c=carregar();
       // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
       const consulta=consultaDoProjeto(c,{origem:'instalacao',outrosProjetos:false,
-        lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork fabrica)']});
+        lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork network roadmap)']});
       const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
     });
