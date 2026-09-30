@@ -80,7 +80,7 @@ Copie [o modelo](../roadmap/_modelo-item.md) para cada item. O frontmatter guard
 
 Revisite itens ativos na cadência do time e sempre após decisão, PR relevante, teste, deploy, alteração de flag ou medição de resultado. A cada revisão, compare roadmap, documentação da feature, código, contratos e evidências de produção; anote divergências com owner e prazo. Agentes podem sugerir atualização de status a partir de eventos do repositório, mas um PR mesclado atualiza somente a dimensão **código** até que deploy e exposição sejam comprovados. Registre a data de atualização e mantenha histórico das decisões e mudanças de escopo.
 
-No Orkastery, `ork docs sincronizar` é esse agente: ele atualiza `estado.codigo` e `evidencias.codigo.commit` a partir do ledger (`ship_done`) e do git, e a seção `sdlc` a partir da thread. **Ele nunca mexe em ciclo, documentação, deploy, exposição ou habilitação** — essas dimensões são decisão de pessoa, e o verificador só cobra que estejam coerentes com o código.
+No Orkastery, `ork docs sincronizar` é esse agente: ele atualiza `estado.codigo` e `evidencias.codigo.commit` a partir do ledger (`ship_done`) e do git, e a seção `sdlc` a partir da thread. **Ele nunca mexe em ciclo, documentação, deploy, exposição ou habilitação** — essas dimensões são decisão de pessoa, e o verificador só cobra que estejam coerentes com o código. Na worktree de uma thread, ele só toca o item dela e os índices, para que o PR de uma thread não mude o item de outra; `--so RM-NNN` escolhe os itens, e `--todos` (o padrão na raiz do projeto, onde o condutor sincroniza depois do merge) volta a todos.
 
 ## 6. Três leitores e fatos de SDLC (adaptação Orkastery)
 
@@ -106,6 +106,8 @@ Quando mais de uma máquina ou pessoa trabalha no mesmo repositório, cada item 
 | Antes de escolher | `ork roadmap reservas` | ver com quem cada item está, e desde quando |
 | Ao começar | `ork thread new ... --roadmap RM-NNN` ou `ork roadmap pegar RM-NNN` | push atômico: o primeiro vence, o segundo é recusado com `roadmap.reservado` |
 | Ao terminar ou desistir | `ork roadmap soltar RM-NNN` | o item volta a ficar livre |
+| Ao fechar a thread | `ork master` ou `ork thread close` | a reserva da thread sai sozinha, ou passa para outra thread aberta do mesmo item |
+| Reserva órfã | `ork roadmap reservas --soltar-orfas` | a reserva de thread que já fechou sai, com registro no ledger dela |
 | Máquina parada | `ork roadmap pegar RM-NNN --forcar --motivo "..."` | a tomada fica registrada com de quem e por quê |
 
 A reserva não substitui o estado do item: o frontmatter continua sendo a fonte das sete dimensões, e a reserva só diz **quem** está com ele agora. O `RESERVAS.md` da branch mostra a mesma lista para quem abre o GitHub.

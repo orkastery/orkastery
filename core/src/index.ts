@@ -199,11 +199,11 @@ import {
 import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { consultarCi, executarBundleCi, executarCi, prepararBundleCi } from './ci';
+import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
-import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
+import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
+import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -394,8 +394,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
         [--so-claims]                       --baseline grava o estado do mundo antes do GO
         [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata
+  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
   ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
+        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
 
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
@@ -508,10 +509,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
                                             voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
+        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
+                                             ou passa para outra thread aberta do mesmo item, com registro
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
+  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
+                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
   fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
   fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
                                             este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
@@ -526,6 +531,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
+        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
+                                             o padrao e o item dela; --todos volta a todo item (RM-037)
   docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
 
   mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
@@ -2111,9 +2118,16 @@ function comandoCi(args: Args): number {
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
     }
+    // RM-037 (rm037noite, defeito 1): o CI passa a branch e acha o `.ork-ci/<thread>.json` dela.
+    const branch = texto(args.opcoes.branch);
+    if (branch) {
+      const result = executarCiDaBranch(carregado, branch);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo>');
+      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
       return 2;
     }
     const result = executarCi(carregado, thread);
@@ -2660,8 +2674,17 @@ function comandoRoadmap(args: Args): number {
   const sub = args.posicionais[1] ?? 'reservas';
   const remoto = texto(args.opcoes.remoto);
   if (sub === 'reservas') {
+    // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
+    if (args.opcoes['soltar-orfas'] === true) {
+      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
+      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
+        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      return 0;
+    }
     const painel = listarReservas(carregado.raiz, { remoto });
-    console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
+    const orfas = reservasOrfas(carregado.raiz, painel.reservas);
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
     return 0;
   }
   if (sub === 'status') {
@@ -2673,9 +2696,22 @@ function comandoRoadmap(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
+  // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
+  if (sub === 'feat') {
+    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else {
+      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
+      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
+      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+    }
+    return 0;
+  }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
+      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
     return 2;
   }
   const opcoes = {
@@ -2739,8 +2775,35 @@ function comandoDocs(args: Args): number {
   }
   if (sub === 'sincronizar') {
     const escrever = args.opcoes.escrever === true;
-    const r = sincronizarDocs(raiz, { baseBranch, escrever });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaSincronizacao(r, escrever));
+    // RM-037 (rm037noite, defeito 5): o escopo. `--so` diz os itens; sem ele, na worktree de uma thread
+    // com item, so o item dela; `--todos` (ou fora de worktree de thread) volta a todo item.
+    // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
+    // padrao em silencio.
+    if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
+      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      return 2;
+    }
+    const so = texto(args.opcoes.so);
+    let itens: string[] | undefined;
+    let escopo = 'todo item do roadmap';
+    if (so) {
+      itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
+      const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
+      if (fora.length || itens.length === 0) {
+        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        return 2;
+      }
+      escopo = `so ${itens.join(', ')} (--so)`;
+    } else if (args.opcoes.todos !== true) {
+      const padrao = escopoPadraoDoSync(raiz);
+      if (padrao.itens) {
+        itens = padrao.itens;
+        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+      }
+    }
+    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
+      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -2751,7 +2814,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] | init`);
+  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 

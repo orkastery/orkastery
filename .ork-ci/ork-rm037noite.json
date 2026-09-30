@@ -1,0 +1,785 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037noite",
+  "branch": "ork/ork-rm037noite-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "Defeito 1: ork ci prepare grava .ork-ci/<thread>.json com a branch da thread; bundleDaBranch acha o bundle pelo nome da branch (exato, senão a thread mais longa; o bundle.json legado só quando a thread dele bate); executarCiDaBranch reprova branch ork/* sem bundle e, na main, roda só os comandos do manifesto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-bundle-por-thread.test.js core/dist-test/test/ci.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:13:59.010Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-bundle-por-thread.test.ts",
+      "alegacao": "O teste do defeito 1 cobre o bundle por thread (dois arquivos, nenhum bundle.json), a resolução pela branch com legado e fronteira ork-a/ork-ab, a recusa de branch ork/* sem bundle, a main só com comandos, o CLI ci run --branch e o workflow; reprova o código da base.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-bundle-por-thread.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:14:01.315Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 1: ork ci run --branch B chama executarCiDaBranch, imprime o resultado em JSON e sai 1 quando o bundle da thread reprova; a ajuda declara --branch.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-bundle-por-thread.test.js",
+        "node core/dist/index.js --help | grep -qF -- '[--branch B]'"
+      ],
+      "criadoEm": "2026-09-30T03:14:03.154Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Defeito 1: o job ork-verify do CI roda ci run --branch com a branch da PR (GITHUB_HEAD_REF) ou do push (GITHUB_REF_NAME), e não mais o caminho único .ork-ci/bundle.json.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ci run --branch \"${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}\"' .github/workflows/ci.yml",
+        "! grep -qF -- '--bundle .ork-ci/bundle.json' .github/workflows/ci.yml"
+      ],
+      "criadoEm": "2026-09-30T03:14:05.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/claim-lint.test.ts",
+      "alegacao": "O teste do lint do ci prepare segue provando a recusa sem depender do nome do arquivo: na recusa, nem o diretório .ork-ci nasce.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/claim-lint.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:14:07.316Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta o bundle por thread (.ork-ci/<thread>.json) e ci run --branch.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '.ork-ci/<thread>.json' docs/referencia/cli.md",
+        "grep -qF -- '[--branch B]' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-09-30T03:14:09.094Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-005-ci-check-independente.md",
+      "alegacao": "A FEAT-005 descreve o bundle por thread, a resolução pela branch e a regra BR-005-03, e segue com paridade de símbolos e testes (ork docs verificar sem erro).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'BR-005-03' docs/produto/FEAT-005-ci-check-independente.md",
+        "grep -qF 'core/src/ci.ts#bundleDaBranch' docs/produto/FEAT-005-ci-check-independente.md",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T03:14:11.006Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir/pull-request.md",
+      "alegacao": "O guia de PR diz que o check ork-verify roda o bundle da thread da branch (.ork-ci/<thread>.json).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '.ork-ci/<thread>.json' docs/guias/contribuir/pull-request.md"
+      ],
+      "criadoEm": "2026-09-30T03:14:12.742Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir/com-o-ork.md",
+      "alegacao": "O guia de contribuição com o ork manda versionar .ork-ci/<thread>.json no último commit, sem citar o bundle.json único.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '.ork-ci/<thread>.json' docs/guias/contribuir/com-o-ork.md",
+        "! grep -qF '.ork-ci/bundle.json' docs/guias/contribuir/com-o-ork.md"
+      ],
+      "criadoEm": "2026-09-30T03:14:14.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "Defeito 2: adquirirRegiao tira da frente a espera e o lease colidente de thread com status fechada, com lease_dequeued e lease_released no ledger dela (origem poda); thread que não existe nesta máquina segue na fila; soltarDaThread solta os leases de escrita e a fila da thread, sem tocar o exec:.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-fila-de-thread-fechada.test.js core/dist-test/test/leases-b2.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:26.267Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/fechamento.ts",
+      "alegacao": "liberarAoFechar é o domicílio único do que sai quando a thread fecha: solta leases de escrita e fila com registro de origem fechamento.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-fila-de-thread-fechada.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:28.049Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "Defeito 2: registrarMaster, depois de fechar a thread, chama liberarAoFechar; o lease path:docs/** da thread entregue sai com lease_released.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-fila-de-thread-fechada.test.js core/dist-test/test/master.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:29.848Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread-close.ts",
+      "alegacao": "Defeito 2: ork thread close (fecharAdministrativamente) chama liberarAoFechar: leases path e worktree-write da thread saem, a espera dela sai da fila, o exec: e o lease de outra thread ficam.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-fila-de-thread-fechada.test.js core/dist-test/test/thread-close.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:31.650Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O catálogo de eventos ganha lease_dequeued, a entrada da fila que saiu porque a thread fechou.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"leaseDesenfileirado: 'lease_dequeued'\" core/src/ledger.ts",
+        "node --test core/dist-test/test/indice.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:33.473Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-fila-de-thread-fechada.test.ts",
+      "alegacao": "O teste do defeito 2 reproduz a fila de 29/09 (ork-companybrai3 fechada na frente da regiao do README do roadmap) e cobre poda de fila e de lease, thread desconhecida, thread close e MASTER; reprova o código da base.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-fila-de-thread-fechada.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:17:34.981Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/roadmap-reservas.ts",
+      "alegacao": "Defeito 3: soltarReservaDaThread solta a reserva da thread que fecha, ou a reaponta para outra thread aberta do mesmo item nesta máquina, com roadmap_reserva_liberada; sem rede registra roadmap_reserva_pendente e não derruba o fechamento; reservasOrfas marca a reserva desta máquina de thread local fechada, e soltarReservasOrfas a solta com registro; reserva de outra máquina fica.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-reserva-orfa.test.js core/dist-test/test/roadmap-reservas.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:20:49.049Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-reserva-orfa.test.ts",
+      "alegacao": "O teste do defeito 3 cobre, contra um remoto bare, a soltura no thread close, o repasse para a thread aberta do mesmo item, a pendência sem rede resolvida pelo --soltar-orfas, a marca ÓRFÃ no CLI e a reserva de outra máquina intocada; reprova o código da base.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-reserva-orfa.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:20:50.837Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-026-reservas-do-roadmap.md",
+      "alegacao": "A FEAT-026 descreve a soltura da reserva no fechamento, a pendência sem rede, a órfã e o --soltar-orfas (BR-026-04), com paridade de símbolos (ork docs verificar sem erro).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'BR-026-04' docs/produto/FEAT-026-reservas-do-roadmap.md",
+        "grep -qF -- '--soltar-orfas' docs/produto/FEAT-026-reservas-do-roadmap.md",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T03:20:53.266Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/padroes/roadmap-de-produto.md",
+      "alegacao": "O padrão do roadmap diz que fechar a thread solta a reserva e que a órfã sai por ork roadmap reservas --soltar-orfas.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork roadmap reservas --soltar-orfas' docs/padroes/roadmap-de-produto.md",
+        "grep -qF 'Ao fechar a thread' docs/padroes/roadmap-de-produto.md"
+      ],
+      "criadoEm": "2026-09-30T03:20:54.835Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/fechamento.ts",
+      "alegacao": "Defeito 3: liberarAoFechar também solta (ou reaponta) a reserva do roadmap da thread, de melhor esforço, e devolve o resultado em reserva.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-reserva-orfa.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:21:02.125Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 3: ork roadmap reservas marca a órfã (texto ÓRFÃ e orfas no --json) e, com --soltar-orfas, solta as órfãs desta máquina e imprime o que fez.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-reserva-orfa.test.js",
+        "node core/dist/index.js --help | grep -qF -- '[--soltar-orfas]'"
+      ],
+      "criadoEm": "2026-09-30T03:21:03.920Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta ork roadmap reservas --soltar-orfas.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '[--soltar-orfas]' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-09-30T03:21:05.197Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "O catálogo de eventos ganha roadmap_reserva_liberada e roadmap_reserva_pendente.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"reservaLiberada: 'roadmap_reserva_liberada'\" core/src/ledger.ts",
+        "grep -qF \"reservaPendente: 'roadmap_reserva_pendente'\" core/src/ledger.ts"
+      ],
+      "criadoEm": "2026-09-30T03:21:06.716Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/fabrica-estado.ts",
+      "alegacao": "Defeito 4: o retrato da máquina leva runtime, modelo e esforço do último phase_dispatch de cada thread (null sem despacho), e o ork fabrica e o FABRICA.md mostram a coluna Runtime; retrato antigo sem os campos segue válido.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-runtime-na-fabrica.test.js core/dist-test/test/fabrica-estado.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:25:15.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/fabrica-estado.test.ts",
+      "alegacao": "Os testes da fábrica seguem verdes com a coluna Runtime: o FABRICA.md e o board das outras máquinas mostram travessão ou hífen onde a thread não despachou.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/fabrica-estado.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:25:18.814Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-runtime-na-fabrica.test.ts",
+      "alegacao": "O teste do defeito 4 cobre o trio do último despacho no retrato, a thread sem despacho, o texto e o FABRICA.md, o retrato antigo válido, o ledger ilegível e a linha do panorama da rede; reprova o código da base.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-runtime-na-fabrica.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:25:21.345Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-027-fabrica-compartilhada.md",
+      "alegacao": "A FEAT-027 descreve runtime, modelo e esforço no retrato (BR-027-05) com paridade de símbolos (ork docs verificar sem erro).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'BR-027-05' docs/produto/FEAT-027-fabrica-compartilhada.md",
+        "grep -qF 'core/src/fabrica-estado.ts#despachoDaThread' docs/produto/FEAT-027-fabrica-compartilhada.md",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T03:25:22.771Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "Defeito 4: o panorama da rede leva o modelo da thread nas ativas da máquina e mostra runtime, modelo e esforço na linha de cada thread (claude-bg opus/xhigh).",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-runtime-na-fabrica.test.js core/dist-test/test/network-roadmap.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:25:35.009Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/docs.ts",
+      "alegacao": "Defeito 5: sincronizarDocs com itens só muda os itens pedidos (frontmatter e tabelas) e segue regerando os índices; sem itens, todo item como antes; escopoPadraoDoSync devolve o item da thread cuja worktree é a raiz, e nada na raiz do projeto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-docs-so-do-item.test.js core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:28:41.440Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-docs-so-do-item.test.ts",
+      "alegacao": "O teste do defeito 5 prova --so (item de outra thread intacto, índice regerado), o padrão na worktree da thread pelo CLI (só o item dela e o índice no git diff), --so com --json, a recusa de id fora do roadmap e o --todos; reprova o código da base.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-docs-so-do-item.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:28:43.245Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 5: ork docs sincronizar aceita --so RM-NNN[,RM-MMM] e --todos, recusa id fora do roadmap com saída 2, diz o escopo na primeira linha e, na worktree de uma thread com item, usa o item dela como padrão.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-docs-so-do-item.test.js",
+        "node core/dist/index.js --help | grep -qF -- '[--so RM-NNN[,RM-MMM]] [--todos]'"
+      ],
+      "criadoEm": "2026-09-30T03:28:45.682Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir/documentacao.md",
+      "alegacao": "O guia de documentação manda regerar só o item mudado com docs sincronizar --escrever --so RM-NNN.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'docs sincronizar --escrever --so RM-NNN' docs/guias/contribuir/documentacao.md"
+      ],
+      "criadoEm": "2026-09-30T03:28:47.531Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/padroes/roadmap-de-produto.md",
+      "alegacao": "O padrão do roadmap diz que, na worktree de uma thread, o docs sincronizar só toca o item dela e os índices, com --so e --todos.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'só toca o item dela e os índices' docs/padroes/roadmap-de-produto.md"
+      ],
+      "criadoEm": "2026-09-30T03:28:48.757Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta ork docs sincronizar com --so e --todos e o padrão na worktree da thread.",
+      "negativa": true,
+      "verificar": [
+        "grep -qF 'ork docs sincronizar [--escrever] [--so RM-NNN[,RM-MMM]] [--todos]' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-09-30T03:28:50.192Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/roadmap-reservas.ts",
+      "alegacao": "Defeito 6: reservarFeat reserva o próximo número de FEAT (o maior entre a árvore, a main, a origin/main e feats/*.json da branch, mais um) em feats/FEAT-NNN.json na branch ork/roadmap-reservas por push atômico; na corrida, o segundo push é recusado, relido e leva o número seguinte; o RESERVAS.md lista os números; sem remoto recusa com roadmap.sem-remoto.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-numero-de-feat.test.js core/dist-test/test/roadmap-reservas.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:32:45.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-noite-numero-de-feat.test.ts",
+      "alegacao": "O teste do defeito 6 prova, contra um remoto bare, que duas máquinas recebem FEAT-004 e FEAT-005 depois do maior da main, que a corrida no meio do push leva FEAT-006 na segunda tentativa, que FEAT só na árvore conta, o CLI roadmap feat --json e a recusa sem remoto; reprova o código da base.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-numero-de-feat.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:32:47.531Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "Defeito 6: ork roadmap feat [--thread T] [--nota N] [--json] reserva o próximo número de FEAT e diz o arquivo a criar; a ajuda declara roadmap feat.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-numero-de-feat.test.js",
+        "node core/dist/index.js --help | grep -qE '^  roadmap feat '"
+      ],
+      "criadoEm": "2026-09-30T03:32:49.441Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-026-reservas-do-roadmap.md",
+      "alegacao": "A FEAT-026 descreve a reserva do número de FEAT (ork roadmap feat, feats/FEAT-NNN.json, ork.feat-reserva/v1, BR-026-05) com paridade de símbolos, contratos e comandos.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'BR-026-05' docs/produto/FEAT-026-reservas-do-roadmap.md",
+        "grep -qF 'ork.feat-reserva/v1' docs/produto/FEAT-026-reservas-do-roadmap.md",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T03:32:51.843Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/padroes/documentacao-de-produto.md",
+      "alegacao": "O padrão de documentação manda tirar o número da FEAT nova de ork roadmap feat, e a cópia do padrão em core/assets/docs (a do ork docs init) é idêntica.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork roadmap feat' docs/padroes/documentacao-de-produto.md",
+        "cmp docs/padroes/documentacao-de-produto.md core/assets/docs/padroes/documentacao-de-produto.md"
+      ],
+      "criadoEm": "2026-09-30T03:32:53.660Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs/padroes/documentacao-de-produto.md",
+      "alegacao": "A cópia do padrão de documentação que o ork docs init instala segue idêntica à da repo, com a reserva do número de FEAT.",
+      "negativa": false,
+      "verificar": [
+        "cmp docs/padroes/documentacao-de-produto.md core/assets/docs/padroes/documentacao-de-produto.md",
+        "node --test core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:32:55.459Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/_modelo-feature.md",
+      "alegacao": "O modelo de feature avisa que o número sai de ork roadmap feat, e a cópia em core/assets/docs é idêntica.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork roadmap feat --thread' docs/produto/_modelo-feature.md",
+        "cmp docs/produto/_modelo-feature.md core/assets/docs/produto/_modelo-feature.md"
+      ],
+      "criadoEm": "2026-09-30T03:32:57.290Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs/produto/_modelo-feature.md",
+      "alegacao": "A cópia do modelo de feature do ork docs init segue idêntica à da repo, e a página copiada dela passa no teste de docs.",
+      "negativa": false,
+      "verificar": [
+        "cmp docs/produto/_modelo-feature.md core/assets/docs/produto/_modelo-feature.md",
+        "node --test core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:32:59.170Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "O índice de produto manda reservar o número da feature com ork roadmap feat antes de copiar o modelo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'reserve o número da feature com `ork roadmap feat`' docs/produto/README.md"
+      ],
+      "criadoEm": "2026-09-30T03:33:01.001Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta ork roadmap feat.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork roadmap feat [--thread T] [--nota N]' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-09-30T03:33:01.915Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG (Não publicado, Mudado) traz os seis defeitos da noite de 29/09 num bloco só, e a documentação passa no markdownlint, nos links e no ork docs verificar.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'Defeitos da noite de 29/09/2026' CHANGELOG.md",
+        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T03:36:16.403Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/assets/docs/padroes/roadmap-de-produto.md",
+      "alegacao": "A cópia do padrão do roadmap que o ork docs init instala diz, como a da repo, que o docs sincronizar só toca o item da thread na worktree dela.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'só toca o item dela e os índices' core/assets/docs/padroes/roadmap-de-produto.md",
+        "node --test core/dist-test/test/docs.test.js"
+      ],
+      "criadoEm": "2026-09-30T03:36:20.187Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "O item RM-037 registra a fatia da thread ork-rm037noite no escopo e no histórico, e o docs sincronizar do item não tem mudança a fazer nele (tabelas batem com o frontmatter).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'thread `ork-rm037noite`' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "! node core/dist/index.js docs sincronizar --so RM-037 | grep -qE '^  RM-037 '"
+      ],
+      "criadoEm": "2026-09-30T03:36:35.871Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "buscarBranch aceita o ambiente do fetch e gravarNaBranch aceita prazo e ambiente do push, sem mudar quem não passa nada: o fechamento usa prazo curto e git sem pergunta, e reservas e fábrica seguem verdes.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-reserva-orfa.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/fabrica-estado.test.js"
+      ],
+      "criadoEm": "2026-09-30T04:00:01.670Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": ".github/PULL_REQUEST_TEMPLATE.md",
+      "alegacao": "O modelo de PR manda deixar o .ork-ci/<thread>.json no último commit, não mais o bundle.json único.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '.ork-ci/<thread>.json' .github/PULL_REQUEST_TEMPLATE.md",
+        "! grep -qF '.ork-ci/bundle.json' .github/PULL_REQUEST_TEMPLATE.md"
+      ],
+      "criadoEm": "2026-09-30T04:01:26.602Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "Achado A4 do CHECK 1: bundleDaBranch só aceita bundle novo da mesma branch (as claims da fatia 1 não provam a fatia 2), vale pela thread só o bundle sem branch (o legado) e reprova com ci.bundle.invalido quando o arquivo da thread da branch não abre.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-noite-bundle-por-thread.test.js"
+      ],
+      "criadoEm": "2026-09-30T04:01:28.389Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/contribuir/com-o-ork.md",
+      "alegacao": "O guia de contribuição avisa que claim de ausência com git grep no repositório inteiro exclui .ork-ci/, porque os bundles das threads entregues ficam versionados.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"':(exclude).ork-ci/'\" docs/guias/contribuir/com-o-ork.md"
+      ],
+      "criadoEm": "2026-09-30T04:01:29.950Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm037noite",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm037noite.json",
+      "alegacao": "O bundle da thread está em .ork-ci/ork-rm037noite.json, no formato novo (thread e branch da thread), e é o que ork ci run --branch ork/ork-rm037noite-full acha.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-rm037noite.json'); if (b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm037noite'||b.branch!=='ork/ork-rm037noite-full') process.exit(1)\"",
+        "node -e \"const c=require('./core/dist/ci.js'); const r=c.bundleDaBranch(process.cwd(),'ork/ork-rm037noite-full'); if (!r||r.arquivo!=='.ork-ci/ork-rm037noite.json') process.exit(1)\""
+      ],
+      "criadoEm": "2026-09-30T04:20:47.787Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm037noite",
+      "fase": "SHIP",
+      "arquivo": "core/test/rm037-ci-prepare-worktree.test.ts",
+      "alegacao": "Merge com a main de 30/09 (1041f1b6): o teste da PR #28 (rm037defeito, defeito 6) segue provando que o bundle nasce na worktree da thread, na raiz sem worktree e na raiz com aviso quando a worktree sumiu, agora com o nome por thread desta branch (.ork-ci/<thread>.json).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'.ork-ci', \\`\\${thread.id}.json\\`)\" core/test/rm037-ci-prepare-worktree.test.ts && ! grep -qF \"'bundle.json')\" core/test/rm037-ci-prepare-worktree.test.ts",
+        "node --test core/dist-test/test/rm037-ci-prepare-worktree.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:32:40.546Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

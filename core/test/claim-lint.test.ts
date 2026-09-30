@@ -59,7 +59,7 @@ test('ci prepare recusa a suite inteira em claim nascida sob a regra; claim anti
     const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'tudo verde', verificar: ['npm --prefix core test'] });
     assert.throws(() => prepararBundleCi(p.carregado, thread.id),
       (e: Error) => e.message.startsWith('claims.lint: o bundle nao foi gerado') && e.message.includes(`${nova.id} roda a suite inteira`));
-    assert.equal(fs.existsSync(path.join(p.dir, '.ork-ci', 'bundle.json')), false);
+    assert.equal(fs.existsSync(path.join(p.dir, '.ork-ci')), false, 'nenhum bundle, nem o da thread');
     const evento = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'claim_lint').at(-1)!;
     assert.equal((evento.recusas as string[]).length, 1);
 

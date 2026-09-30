@@ -126,9 +126,11 @@ Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` 
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--ciclo C] [--dry-run]` |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
 | `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Leitura pura; os canais transportam o texto (RM-048) |
-| `ork roadmap reservas [--json]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto |
+| `ork roadmap reservas [--json] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N]` | Reserva o item por push atômico: o primeiro vence. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
 | `ork roadmap soltar RM-NNN` | Devolve o item quando o trabalho termina |
+| `ork roadmap feat [--thread T] [--nota N]` | Reserva o próximo número de FEAT na branch `ork/roadmap-reservas`, por push atômico: duas máquinas nunca levam o mesmo número, e o número reservado não volta (RM-037) |
+| `ork docs sincronizar [--escrever] [--so RM-NNN[,RM-MMM]] [--todos]` | Fatos do ledger e do git (merge, fase, status) para os itens do roadmap e os índices. `--so` limita aos itens pedidos; na worktree de uma thread com item, o padrão é o item dela, dito na saída; `--todos` volta a todo item, o padrão na raiz do projeto (RM-037) |
 | `ork fabrica entrar [--maquina NOME]` | Esta máquina entra na fábrica compartilhada, com esse nome (`~/.orkastery/maquina.json`), e publica o primeiro retrato |
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
@@ -363,8 +365,8 @@ do projeto quando o limite de sessões está cheio.
 | `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
-| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/bundle.json` da worktree da thread (da raiz ou da worktree, o arquivo vai para a branch dela), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
-| `ork ci run [<thread>] [--bundle ARQ]` | Executa o CHECK no runner independente |
+| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
+| `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Executa o CHECK no runner independente; com `--branch`, acha o bundle da thread pelo nome da branch, reprova branch `ork/*` sem bundle e, fora de thread, roda só os comandos do manifesto (RM-037) |
 | `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub para o SHA |
 
 ---

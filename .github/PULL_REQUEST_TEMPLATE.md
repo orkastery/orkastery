@@ -29,7 +29,7 @@ Mexeu em texto? Também:
   `node core/scripts/checar-links.cjs`
 https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/documentacao.md
 
-Usou o ork? Cole a saída de `ork verify <thread>` e deixe o `.ork-ci/bundle.json` no último commit.
+Usou o ork? Cole a saída de `ork verify <thread>` e deixe o `.ork-ci/<thread>.json` no último commit.
 -->
 
 ```text
