@@ -10,7 +10,7 @@
  * remota (ancestralidade conferida contra a ponta que o `ls-remote` devolve) e o check do CI no
  * head do PR. Sem CI verde, nao registra: merge sem prova independente nao e entrega.
  */
-import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
+import { consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -38,6 +38,18 @@ export function mergeDaEntrega(raiz: string, thread: string, remoto: string, bas
     return { mergeSha: sha, headSha: segundo };
   }
   return null;
+}
+
+/**
+ * A thread chega ao SHIP quando o ciclo dela tem SHIP, e so AVANCA: o segundo PR da mesma entrega (os
+ * dois sites da ork-siteshomesco, por exemplo) com a thread ja no MASTER nao a devolve ao SHIP (achado S9).
+ */
+function avancarParaShip(raiz: string, threadId: string): void {
+  const atualizada = lerThread(raiz, threadId);
+  const fases = atualizada.fases ?? [];
+  if (!fases.includes('SHIP') || fases.indexOf(atualizada.faseAtual) >= fases.indexOf('SHIP')) return;
+  atualizada.faseAtual = 'SHIP';
+  gravarThread(raiz, atualizada);
 }
 
 function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, extra: Partial<EntregaPorPr> = {}): EntregaPorPr {
@@ -91,13 +103,117 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
     evidencia: { viaPr: true, ci: { state: ci.state, context: ci.context, url: ci.url, sha: ci.sha } },
   });
   // Como no `ork ship`: a thread chega ao SHIP quando o ciclo dela tem SHIP.
-  const atualizada = lerThread(raiz, threadId);
-  if (atualizada.fases?.includes('SHIP')) {
-    atualizada.faseAtual = 'SHIP';
-    gravarThread(raiz, atualizada);
-  }
+  avancarParaShip(raiz, threadId);
   if (opcoes.publicar !== false) publicarEmSegundoPlano(raiz);
   return resultado(threadId, 'registrou', `ship_done pelo merge ${merge.mergeSha.slice(0, 7)} do PR`, { ...merge, ci });
+}
+
+// ---------------------------------------------------------------------------
+// RM-037 (rm037defeito, defeito 5): PR mesclado em repositorio EXTERNO declarado.
+// ---------------------------------------------------------------------------
+
+/** O `gh api <caminho>` da entrega externa; os testes injetam as respostas. */
+export type ExecutorGitHub = (caminho: string) => { ok: boolean; stdout: string; stderr: string; code: number };
+const ghApi: ExecutorGitHub = (caminho) => exec('gh', ['api', caminho, '-H', 'Accept: application/vnd.github+json'], process.cwd(), 120000);
+
+function lerJson<T>(r: ReturnType<ExecutorGitHub>): T | null {
+  if (!r.ok) return null;
+  try { return JSON.parse(r.stdout) as T; } catch { return null; }
+}
+
+export interface OpcoesDaEntregaExterna {
+  /** `dono/nome` declarado em `ci.external_repositories`. */
+  repositorio: string;
+  pr: number;
+  executorGitHub?: ExecutorGitHub;
+  executorCi?: ExecutorCi;
+  publicar?: boolean;
+}
+
+/**
+ * `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>`: a thread que entrega por PR em outro
+ * repositorio (os sites, por exemplo) nao tinha como virar `ship_done`, e a entrega virava decisao. A
+ * exigencia e a mesma do caminho local: o merge dentro da ponta da base (pela API do GitHub, porque o
+ * repositorio nao e remoto deste checkout) e o check declarado verde no head do PR. O repositorio precisa
+ * estar declarado no manifesto; e o dono que diz onde, e com que check, a entrega vale. Idempotente.
+ */
+export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesDaEntregaExterna): EntregaPorPr {
+  const raiz = carregado.raiz, repo = opcoes.repositorio, n = opcoes.pr;
+  const gh = opcoes.executorGitHub ?? ghApi;
+  const declarados = carregado.manifesto.ci.external_repositories;
+  if (!Object.hasOwn(declarados, repo)) {
+    return resultado(threadId, 'recusada', `o repositorio ${repo} nao esta declarado em ci.external_repositories do orkastery.yaml`);
+  }
+  if (!Number.isSafeInteger(n) || n < 1) return resultado(threadId, 'recusada', `--pr precisa ser o numero do PR, recebido ${String(n)}`);
+  const thread = lerThread(raiz, threadId);
+  if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', 'thread ja fechada');
+  const dir = dirThread(raiz, threadId);
+  if (lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.repositorio === repo && e.pr === n)) {
+    return resultado(threadId, 'ja-registrada', `o PR #${n} de ${repo} ja tem ship_done`);
+  }
+
+  const pr = lerJson<{ merged?: boolean; merge_commit_sha?: string | null; html_url?: string; title?: string | null; body?: string | null;
+    base?: { ref?: string }; head?: { sha?: string; ref?: string } }>(gh(`repos/${repo}/pulls/${n}`));
+  if (!pr) return resultado(threadId, 'recusada', `a consulta do PR #${n} de ${repo} ao GitHub falhou`);
+  const mergeSha = typeof pr.merge_commit_sha === 'string' && /^[0-9a-f]{40}$/.test(pr.merge_commit_sha) ? pr.merge_commit_sha : null;
+  const headSha = typeof pr.head?.sha === 'string' && /^[0-9a-f]{40}$/.test(pr.head.sha) ? pr.head.sha : null;
+  const base = typeof pr.base?.ref === 'string' && /^[A-Za-z0-9._/-]{1,200}$/.test(pr.base.ref) ? pr.base.ref : null;
+  if (pr.merged !== true || !mergeSha || !headSha || !base) {
+    return resultado(threadId, 'sem-merge', `o PR #${n} de ${repo} nao esta mesclado`);
+  }
+  // Achado A4 do CHECK: o PR precisa ser DESTA thread e ter entrado na branch padrao do repositorio. Sem o
+  // vinculo, qualquer PR mesclado do repositorio viraria entrega de qualquer thread; sem a base, um PR
+  // empilhado numa branch de feature contaria como entrega.
+  const vinculo = [pr.title, pr.body, pr.head?.ref].filter((x): x is string => typeof x === 'string')
+    // N4 do CHECK 2: a branch do proprio ork e `ork/<thread>-<variante>`, entao o hifen depois do id vale;
+    // letra ou digito colado nao (outro id). Sem diferenciar maiusculas.
+    .some((x) => new RegExp(`(^|[^a-z0-9-])${threadId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9])`, 'i').test(x));
+  if (!vinculo) {
+    return resultado(threadId, 'recusada', `o PR #${n} de ${repo} nao cita a thread ${threadId} no titulo, no corpo nem na branch`, { mergeSha, headSha });
+  }
+  const repositorio = lerJson<{ default_branch?: string }>(gh(`repos/${repo}`));
+  if (!repositorio) return resultado(threadId, 'recusada', `a consulta de ${repo} ao GitHub falhou`, { mergeSha, headSha });
+  if (repositorio.default_branch !== base) {
+    return resultado(threadId, 'recusada', `o PR #${n} entrou em ${base}, e a branch padrao de ${repo} e ${repositorio.default_branch ?? 'desconhecida'}`,
+      { mergeSha, headSha });
+  }
+
+  // A ponta da base AGORA, e o merge dentro dela: o push provado, pela mesma pergunta do ls-remote.
+  const ramo = lerJson<{ commit?: { sha?: string } }>(gh(`repos/${repo}/branches/${encodeURIComponent(base)}`));
+  const ponta = typeof ramo?.commit?.sha === 'string' && /^[0-9a-f]{40}$/.test(ramo.commit.sha) ? ramo.commit.sha : '';
+  const comparacao = ponta ? lerJson<{ status?: string }>(gh(`repos/${repo}/compare/${mergeSha}...${ponta}`)) : null;
+  if (!ponta || !comparacao || !['ahead', 'identical'].includes(String(comparacao.status))) {
+    return resultado(threadId, 'recusada', `o merge ${mergeSha.slice(0, 7)} nao esta na ponta de ${repo}:${base}`, { mergeSha, headSha });
+  }
+
+  const check = declarados[repo];
+  const ci = check ? consultarCiDoRepositorio(repo, headSha, check, opcoes.executorCi) : null;
+  if (ci && !ci.ok) {
+    return resultado(threadId, 'recusada', `sem CI verde no head do PR: ${ci.detail}`, { mergeSha, headSha, ci });
+  }
+
+  registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
+    de: thread.base?.branch ?? null,
+    para: `${repo}:${base}`,
+    repositorio: repo,
+    pr: n,
+    url: pr.html_url ?? `https://github.com/${repo}/pull/${n}`,
+    shaDe: headSha,
+    mergeSha,
+    jaIncorporado: true,
+    remoto: `github:${repo}`,
+    shaRemoto: ponta,
+    pushVerificado: true,
+    fonteDaProva: `gh api repos/${repo}/compare/${mergeSha}...${ponta} (status ${String(comparacao.status)}; ponta de ${base} por gh api repos/${repo}/branches/${base})`,
+    autorizadoPor: ci ? 'merge de PR com o CI independente verde no SHA exato' : 'merge de PR em repositorio externo declarado sem CI no manifesto',
+    tipoDeAutorizacao: 'pr-externo',
+    modo: thread.modo,
+    tag: tagDoModo(thread.modo),
+    evidencia: { viaPr: true, externo: true, ciExigido: !!ci, ci: ci ? { state: ci.state, context: ci.context, url: ci.url, sha: ci.sha } : null },
+  });
+  avancarParaShip(raiz, threadId);
+  if (opcoes.publicar !== false) publicarEmSegundoPlano(raiz);
+  return resultado(threadId, 'registrou', `ship_done pelo merge ${mergeSha.slice(0, 7)} do PR #${n} de ${repo}`, { mergeSha, headSha, ci });
 }
 
 /** `ork ship registrar-pr --todas`: toda thread aberta que ja tem merge `ship(<thread>)` na base. */

@@ -8,6 +8,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
+  em repositório declarado em `ci.external_repositories`: o PR cita a thread e entrou na branch
+  padrão, o merge está dentro da ponta da base pela API do GitHub e o check declarado está verde no
+  head do PR.
+- **Decisão autônoma pelo MCP** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): a
+  ferramenta `ork_decision_record` grava pelo mesmo contrato do `ork decisao registrar`, para a
+  sessão cujo sandbox não grava o ledger.
 - **Projeto-alvo explícito** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
   - `--projeto <nome|caminho>`, opção global em qualquer comando, e `ORK_PROJETO`, com precedência
     sobre o diretório atual; nome ambíguo ou desconhecido recusa com os candidatos, na saída 4;
@@ -61,6 +69,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `{contrato: 'ork.board/v1', consulta, threads}`, com a lista de antes em `threads`. `board plan`,
   `fabrica` e `roadmap status` ganham o campo `consulta`; o snapshot do maestro ganha
   `project.root`, `project.remote` e `notConsulted`, opcionais no contrato `v1`.
+
+### Corrigido
+
+- **Defeitos de condução de 29/09/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, pela mesma
+    execução do `ork verify --baseline`;
+  - o modo plano do PLAN e o review nativo do CHECK valem só para o bloco que termina na fase de
+    entrada: no #Auto, a sessão codex segue do PLAN ao GO e do CHECK ao SHIP como no claude-bg;
+  - `ork phase run` recusa com `concurrency.limite` quando o projeto já tem
+    `max_parallel_threads` sessões vivas em outras threads, e `--esperar` espera a vaga;
+  - `ork decisao registrar` diz o campo e o tamanho quando o texto passa do teto;
+  - `ork ci prepare` grava o bundle na worktree da thread, não na raiz do projeto;
+  - o teste D-6 de modelo inacessível deixa de depender da corrida com o observador destacado.
 
 ## 0.4.3 — 29/09/2026
 
