@@ -2,10 +2,13 @@
  * RM-031 KG3: consulta sobre o grafo do indice (D5 a D7).
  *
  * Grupos: "KG3 query" (resolucao de no, vizinhanca, chamadores, importadores, caminho, proveniencia
- * e ACL) e "KG3 determinism" (mesma pergunta, mesma saida byte a byte). O grafo vem do extrator do
- * KG2 sobre um repositorio em memoria com estrutura conhecida.
+ * e ACL), "KG3 determinism" (mesma pergunta, mesma saida byte a byte) e "KG3 medida" (D9: a forma do
+ * registro da medida e a conferencia da proveniencia reprovam o que devem). O grafo vem do extrator
+ * do KG2 sobre um repositorio em memoria com estrutura conhecida.
  */
 import { strict as assert } from 'node:assert';
+import { execFileSync } from 'node:child_process';
+import * as path from 'node:path';
 import { before, test } from 'node:test';
 import { derivarIds, validarGrafo, type GrafoCodigo } from '../src/intelligence-graph-contract';
 import { extrairGrafo, type EntradaDeExtracao, type Parser } from '../src/intelligence-graph-extract';
@@ -312,4 +315,65 @@ test('KG3 determinism: a saida nao tem horario nem tempo', () => {
     assert.ok(!/\d{4}-\d{2}-\d{2}T\d{2}:/.test(s), 'sem data e hora');
     assert.ok(!/"(ms|duracao|tempo|em|ts)":/.test(s), 'sem campo de tempo');
   }
+});
+
+/** D9: o comando da medida, carregado como modulo; so roda a medida inteira quando e o processo principal. */
+const MEDIDA = require(path.resolve(__dirname, '../../scripts/medir-consulta-grafo.cjs')) as {
+  CONCLUSAO: string; SCHEMA: string; TOKENS: object; PERGUNTAS: { id: string; cru: { indisponivel?: string } }[];
+  validar: (r: unknown) => string[]; nomeDoAlvo: (rotulo: string) => string;
+  conferirProveniencia: (respostas: { arestas: { kind: string; from: string; to: string; evidencias: { path: string; span: { byte_start: number; byte_end: number; line_start: number } }[] }[] }[]) =>
+    { conferidas: number; falhas: string[] };
+};
+
+function registroValido(): Record<string, unknown> {
+  const numeros = { latencia_ms: [1.5], latencia_mediana_ms: 1.5 };
+  return {
+    schema: MEDIDA.SCHEMA, medido_em: '2026-09-30T12:00:00.000Z', revisao: 'a'.repeat(40), chave_do_indice: `idx-${'b'.repeat(64)}`, graph_digest: 'c'.repeat(64),
+    maquina: { node: 'v22', plataforma: 'linux', cpus: 8, carga_1min: 2.5 }, metodo: {},
+    preparo_do_indice: { comando: 'ork grafo indexar --forcar --json', estado: 'criado', ms: 10, bytes_do_indice: 100, fontes: 3, arestas: 4 },
+    perguntas: MEDIDA.PERGUNTAS.map((p) => ({
+      id: p.id, pergunta: p.id, consulta: [],
+      grafo: { bytes_json: 10, bytes_texto: 5, respostas: 1, arestas_devolvidas: 1, evidencias: 1, ...numeros },
+      cru: p.cru.indisponivel ? { indisponivel: p.cru.indisponivel }
+        : { comando: 'git grep', bytes_grep: 1, bytes_arquivos: 2, bytes_ao_agente: 3, ocorrencias: 1, arquivos_abertos: 1, ...numeros },
+      tokens: { grafo: MEDIDA.TOKENS, cru: MEDIDA.TOKENS },
+    })),
+    conclusao: MEDIDA.CONCLUSAO, limites: ['x'],
+  };
+}
+
+test('KG3 medida: o registro valido passa, e token medido, braco faltando, conclusao de economia e pergunta trocada reprovam', () => {
+  assert.deepEqual(MEDIDA.validar(registroValido()), []);
+  const reprova = (mudar: (r: any) => void, esperado: RegExp) => {
+    const r = registroValido() as any;
+    mudar(r);
+    const f = MEDIDA.validar(r);
+    assert.ok(f.some((x) => esperado.test(x)), `${esperado}: ${f}`);
+  };
+  reprova((r) => { r.perguntas[0].tokens.grafo = { value: 1234, source: 'estimated', unavailable_reason: null }; }, /^P1 tokens$/);
+  reprova((r) => { delete r.perguntas[1].cru.bytes_ao_agente; }, /^P2 cru\.bytes_ao_agente$/);
+  reprova((r) => { r.perguntas[5].cru = { bytes_ao_agente: 1 }; }, /^P6 cru\.indisponivel$/);
+  reprova((r) => { r.perguntas[2].grafo.respostas = -1; }, /^P3 grafo\.respostas$/);
+  reprova((r) => { r.conclusao = 'o grafo reduz o contexto'; }, /^conclusao$/);
+  reprova((r) => { r.limites = ['economia comprovada de 90%']; }, /promessa de economia/);
+  reprova((r) => { r.limites = ['o grafo reduz o contexto']; }, /promessa de economia/);
+  reprova((r) => { r.perguntas.pop(); }, /^perguntas /);
+  reprova((r) => { delete r.preparo_do_indice; }, /^preparo_do_indice$/);
+  reprova((r) => { r.revisao = 'HEAD'; }, /^revisao$/);
+});
+
+test('KG3 medida: a proveniencia confere o trecho no blob do HEAD e reprova o que nao cita o alvo', () => {
+  const raiz = path.resolve(__dirname, '../../..');
+  const blob = execFileSync('git', ['cat-file', 'blob', 'HEAD:core/src/yaml.ts'], { cwd: raiz });
+  const inicio = blob.indexOf('export function lerYaml');
+  assert.ok(inicio > 0, 'lerYaml esta no HEAD');
+  const evidencia = (a: number, b: number) => ({ path: 'core/src/yaml.ts', span: { byte_start: a, byte_end: b, line_start: 1 } });
+  const resposta = (a: number, b: number) => [{ arestas: [{ kind: 'declares', from: 'file core/src/yaml.ts', to: 'symbol core/src/yaml.ts#lerYaml', evidencias: [evidencia(a, b)] }] }];
+  assert.deepEqual(MEDIDA.conferirProveniencia(resposta(inicio, inicio + 30)), { conferidas: 1, falhas: [] });
+  const errada = MEDIDA.conferirProveniencia(resposta(0, 10));
+  assert.equal(errada.falhas.length, 1);
+  assert.match(errada.falhas[0], /nao cita lerYaml/);
+  assert.equal(MEDIDA.nomeDoAlvo('symbol core/src/util.ts#Calc.total'), 'total');
+  assert.equal(MEDIDA.nomeDoAlvo('file core/src/intelligence-graph-contract.ts'), 'intelligence-graph-contract');
+  assert.equal(MEDIDA.nomeDoAlvo('artifact docs/roadmap/RM-031-grafo-de-codigo.md#RM-031'), 'RM-031');
 });
