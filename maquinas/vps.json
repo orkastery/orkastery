@@ -4,22 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T19:30:02.926Z",
+  "publicadoEm": "2026-09-30T20:29:58.262Z",
   "threads": [
-    {
-      "id": "ork-docsdossites",
-      "nome": "Docs dos sites de altissima qualidade: linguagem, diagramas, i18n PT EN ES, cobertura e tipografia",
-      "modo": "#Auto",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-docsdossites-full",
-      "atualizadaEm": "2026-09-29T01:53:41.024Z",
-      "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null
-    },
     {
       "id": "ork-pacotedeexpe",
       "nome": "RM-051 pacote de experiencia de orquestracao",
