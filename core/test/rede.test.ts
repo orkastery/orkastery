@@ -19,7 +19,7 @@ import { gravarConfigDaMaquina } from '../src/maquina';
 import { procurarSegredos } from '../src/policies';
 import { dirDoCache, entrarNaRede, exigirRetratoSeguro, exigirSoOProprioRetrato, publicarRede, publicarRedeNaBatida,
   retratoDaMaquina, sairDaRede } from '../src/rede';
-import { adesaoDaRede, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS } from '../src/rede-adesao';
+import { adesaoDaRede, lerConfigDaRede, publicarRedeEmSegundoPlano, TETO_DE_TENTATIVA_MS, tomarVezDePublicar } from '../src/rede-adesao';
 import { limparRemoto, projetosConhecidos } from '../src/rede-projetos';
 import { lerRede, SEM_BATIDA_MS, textoDaRede } from '../src/rede-status';
 import { adicionarPerfil } from '../src/runtime-profiles';
@@ -679,4 +679,20 @@ test('RM-053 migracao: a batida real do pulse publica o retrato de quem so fez o
     const vps = JSON.parse(exec('git', ['show', 'main:maquinas/vps.json'], casaFalsa(f)).stdout);
     assert.deepEqual([vps.maquina, vps.adesao, vps.projetos.map((x: { nome: string }) => x.nome)], ['vps', 'fabrica', ['orkastery']]);
   } finally { f.limpar(); p.limpar(); for (const d of [ua, uv]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('RM-053 migracao: o teto de tentativa fica um minuto abaixo do cron de 15 min (B4 do CHECK 1)', () => {
+  const u = dirTemporario('rede-teto');
+  try {
+    naMaquina(u, () => {
+      assert.equal(TETO_DE_TENTATIVA_MS, 14 * 60 * 1000);
+      const t0 = Date.parse('2026-09-30T12:00:00.000Z');
+      assert.equal(tomarVezDePublicar(t0), true);
+      assert.equal(tomarVezDePublicar(t0 + 13 * 60 * 1000), false, 'antes do teto');
+      // A batida seguinte do cron chega 14m50s depois (oscilacao do horario): ainda e a vez dela.
+      assert.equal(tomarVezDePublicar(t0 + (14 * 60 + 50) * 1000), true, 'a batida seguinte do cron nao e pulada');
+      const marca = JSON.parse(fs.readFileSync(path.join(u, 'rede', 'tentativa.json'), 'utf8'));
+      assert.equal(marca.em, new Date(t0 + (14 * 60 + 50) * 1000).toISOString());
+    });
+  } finally { fs.rmSync(u, { recursive: true, force: true }); }
 });

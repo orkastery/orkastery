@@ -14,11 +14,16 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerConfigDaMaquina, pastaDoUsuario } from './maquina';
+import { agora as agoraIso } from './util';
 
 export const CONTRATO_DA_ADESAO = 'ork.rede/v1' as const;
 export const REPOSITORIO_PADRAO = 'orkastery-network';
-/** D9: no maximo uma tentativa de publicacao em segundo plano (evento ou batida) a cada 15 minutos. */
-export const TETO_DE_TENTATIVA_MS = 15 * 60 * 1000;
+/**
+ * D9: no maximo uma tentativa de publicacao em segundo plano (evento ou batida) a cada 14 minutos.
+ * Um minuto de folga sob o cron de 15: com o teto igual ao periodo, a oscilacao do horario de cada
+ * batida pulava metade delas (B4 do CHECK 1).
+ */
+export const TETO_DE_TENTATIVA_MS = 14 * 60 * 1000;
 
 export type Adesao = 'rede' | 'fabrica';
 
@@ -99,7 +104,7 @@ export function publicacaoDesligada(env: NodeJS.ProcessEnv = process.env): boole
 }
 
 /**
- * D9: toma a vez de tentar publicar, no maximo uma a cada 15 minutos por maquina. Devolve `false`
+ * D9: toma a vez de tentar publicar, no maximo uma a cada 14 minutos por maquina. Devolve `false`
  * quando a ultima tentativa (evento ou batida) foi ha menos que isso; a marca e gravada antes da
  * tentativa, para duas batidas simultaneas nao dispararem juntas.
  */
@@ -110,7 +115,8 @@ export function tomarVezDePublicar(agora: number = Date.now()): boolean {
   } catch { /* primeira vez, ou marca ilegivel: tenta */ }
   try {
     fs.mkdirSync(pastaDaRede(), { recursive: true });
-    fs.writeFileSync(arquivoDaTentativa(), JSON.stringify({ em: new Date(agora).toISOString() }) + '\n', { mode: 0o600 });
+    // Dado de maquina: o JSON vai inteiro, sem concatenar o ISO em texto (lint de horario, RM-035).
+    fs.writeFileSync(arquivoDaTentativa(), JSON.stringify({ em: new Date(agora).toISOString() }), { mode: 0o600 });
   } catch { return false; }
   return true;
 }
@@ -137,6 +143,6 @@ export function publicarRedeEmSegundoPlano(opcoes: { diretorio?: string; cli?: s
 export function registrarNaRede(registro: Record<string, unknown>): void {
   try {
     fs.mkdirSync(pastaDaRede(), { recursive: true });
-    fs.appendFileSync(path.join(pastaDaRede(), 'rede.log'), JSON.stringify({ ts: new Date().toISOString(), ...registro }) + '\n', { mode: 0o600 });
+    fs.appendFileSync(path.join(pastaDaRede(), 'rede.log'), JSON.stringify({ ts: agoraIso(), ...registro }) + '\n', { mode: 0o600 });
   } catch { /* o log e informativo */ }
 }
