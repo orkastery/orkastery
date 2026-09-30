@@ -302,7 +302,9 @@ export interface OpcoesDaConstrucao {
 
 /**
  * Constroi o indice do HEAD limpo, ou confirma o que ja existe. `--forcar` extrai de novo e so
- * troca os arquivos se o conteudo mudou; indice que nao passa na leitura e substituido.
+ * troca os arquivos se o conteudo mudou; `--verificar` extrai de novo, prova o determinismo com a
+ * ordem de leitura trocada e reprova se o guardado integro difere; indice que nao passa na leitura
+ * e substituido.
  */
 export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstrucao = {}): ResultadoDaConstrucao {
   const inicio = process.hrtime.bigint();
@@ -320,7 +322,8 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
   if (existia) {
     try {
       const atual = lerIndice(ctx, chave, { grafo: false });
-      if (!opcoes.forcar) return { estado: 'existente', motivo: null, chave, dir: final, manifesto: atual.manifesto, determinismo: null, ms: ms() };
+      // `--verificar` nunca confia no guardado: extrai de novo e compara, como o `--forcar`.
+      if (!opcoes.forcar && !opcoes.verificar) return { estado: 'existente', motivo: null, chave, dir: final, manifesto: atual.manifesto, determinismo: null, ms: ms() };
     } catch (e) {
       motivo = (e as Error).message;
     }
@@ -377,6 +380,8 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
     }
     if (existia && fs.lstatSync(final, { throwIfNoEntry: false })) {
       if (motivo === null && mesmoConteudo(final, conteudos)) return resultado('reconstruido-identico');
+      // Mesma chave e conteudo integro diferente: a extracao nao se repetiu. A verificacao reprova; o forcar troca.
+      if (motivo === null && opcoes.verificar) falha('grafo.indice.nao-deterministico', 'o indice guardado difere da extracao nova');
       if (motivo === null) motivo = 'conteudo diferente na mesma chave';
       removerPasta(grafoDir, chave);
       fs.renameSync(tmp, final);

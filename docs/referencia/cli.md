@@ -324,6 +324,40 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 
 ---
 
+## Grafo de código (RM-031, KG3)
+
+O índice persistente e a consulta do [grafo determinístico](../roadmap/RM-031-grafo-de-codigo.md). O
+índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD.
+
+| Comando | O que faz |
+| --- | --- |
+| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever); `--verificar` extrai de novo e confere contrato, bytes e determinismo; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
+| `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
+| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
+| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json]` | Quem chama: as arestas `calls` que chegam ao símbolo |
+| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json]` | Quem importa: as arestas `imports` que chegam |
+| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json]` | O menor caminho pelas arestas, no sentido delas por padrão |
+| `ork grafo amostra [--por-estrato N]` | Amostra estratificada de arestas para auditoria manual |
+| `ork grafo amostra --conferir ARQ [--json]` | Confere a amostra auditada contra o índice do HEAD e os bytes da árvore |
+| `ork grafo limpar [--tudo] [--json]` | Apaga os índices que não são do HEAD (ou todos) e as sobras de construção com mais de uma hora |
+
+O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome solto, que precisa
+ser único: nome ambíguo sai com os candidatos. A resposta é parcial por construção (só o que o
+extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
+resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+
+```bash
+ork grafo indexar --verificar
+ork grafo chamadores core/src/intelligence-graph-repo.ts#lerRepositorio
+ork grafo importadores core/src/intelligence-graph-contract.ts --json
+ork grafo caminho core/src/index.ts#main dirEstado
+```
+
+`indexar` precisa do `typescript` e do micromark instalados com o `ork` (o checkout de
+desenvolvimento e o CI os têm); sem eles, a recusa é `grafo.parser.indisponivel`.
+
+---
+
 ## Isolamento: worktree e leases
 
 | Comando | O que faz |

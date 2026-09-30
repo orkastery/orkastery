@@ -966,30 +966,31 @@ test('KG2 limits: arvore modificada tira a revisao; link simbolico e arquivo sum
   }
 });
 
-test('KG2 determinism: o comando provisorio verifica, amostra e confere a amostra auditada', () => {
+test('KG2 determinism: o ork grafo (KG3) verifica a extracao, amostra e confere a amostra auditada', () => {
   const dir = repositorioGit(REPO_GIT);
-  const script = path.resolve(__dirname, '../../scripts/extrair-grafo.cjs');
-  const rodar = (...args: string[]) => spawnSync(process.execPath, [script, '--raiz', dir, ...args], { encoding: 'utf8', timeout: 120_000 });
+  // O comando provisorio do KG2 foi substituido pelo `ork grafo`, compilado junto do teste.
+  const cli = path.resolve(__dirname, '../src/index.js');
+  const rodar = (...args: string[]) => spawnSync(process.execPath, [cli, 'grafo', ...args], { cwd: dir, encoding: 'utf8', timeout: 120_000 });
   try {
-    const v = rodar('--verificar');
+    const v = rodar('indexar', '--verificar');
     assert.equal(v.status, 0, v.stdout + v.stderr);
     assert.match(v.stdout, /conferirFontes verificada/);
     assert.match(v.stdout, /ordem invertida: .* igual/);
     assert.match(v.stdout, /ordem embaralhada: .* igual/);
-    const amostra = JSON.parse(rodar('--amostra', '2').stdout);
+    const amostra = JSON.parse(rodar('amostra', '--por-estrato', '2').stdout);
     assert.ok(amostra.arestas.length > 0);
     const arquivo = path.join(dir, 'amostra.json');
     // Sem veredito, a conferencia reprova: a amostra so vale depois da auditoria manual.
     fs.writeFileSync(arquivo, JSON.stringify(amostra));
-    assert.equal(rodar('--conferir-amostra', arquivo).status, 1);
+    assert.equal(rodar('amostra', '--conferir', arquivo).status, 1);
     for (const item of amostra.arestas) Object.assign(item, { veredito: 'supported', nota: 'conferida no teste' });
     fs.writeFileSync(arquivo, JSON.stringify(amostra));
-    const c = rodar('--conferir-amostra', arquivo);
+    const c = rodar('amostra', '--conferir', arquivo);
     assert.equal(c.status, 0, c.stdout + c.stderr);
     // Trecho auditado que nao bate mais com a fonte reprova.
     amostra.arestas[0].evidencia.trecho_sha256 = '0'.repeat(64);
     fs.writeFileSync(arquivo, JSON.stringify(amostra));
-    const d = rodar('--conferir-amostra', arquivo);
+    const d = rodar('amostra', '--conferir', arquivo);
     assert.equal(d.status, 1);
     assert.match(d.stdout, /nenhuma evidencia com o trecho auditado/);
   } finally {

@@ -28,7 +28,11 @@ const MODULO_KG3_ANALISADORES = 'intelligence-graph-parsers.ts';
 const MODULO_KG3_INDICE = 'intelligence-graph-index.ts';
 /** RM-031 KG3 (D5 a D7): a consulta, pura; recebe o grafo e a concessao por parametro. */
 const MODULO_KG3_CONSULTA = 'intelligence-graph-query.ts';
-const FAMILIA_DO_GRAFO = [...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA];
+/** RM-031 KG3 (D7): `ork grafo`, a unica porta da familia para o resto do nucleo. */
+const MODULO_KG3_CLI = 'intelligence-graph-cli.ts';
+const FAMILIA_DO_GRAFO = [
+  ...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA, MODULO_KG3_CLI,
+];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -196,8 +200,8 @@ test('KG3 boundary: o indice so usa arquivo, caminho e hash do Node e so alcanca
   assert.ok(locais.every((l) => FAMILIA_DO_GRAFO.includes(l)), `${locais}`);
   const { identificadores } = simbolos(MODULO_KG3_INDICE);
   for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require']) assert.ok(!identificadores.has(proibido), proibido);
-  // Nenhum modulo abaixo do indice o importa: a dependencia so desce.
-  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_INDICE)) assert.ok(!importacoes(f).includes('./intelligence-graph-index'), f);
+  // So o CLI, acima dele, importa o indice: a dependencia so desce.
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_INDICE && x !== MODULO_KG3_CLI)) assert.ok(!importacoes(f).includes('./intelligence-graph-index'), f);
 });
 
 test('KG3 boundary: a consulta e pura, so alcanca o contrato e nao toca processo, arquivo, relogio, acaso nem busca semantica', () => {
@@ -212,13 +216,27 @@ test('KG3 boundary: a consulta e pura, so alcanca o contrato e nao toca processo
   assert.deepEqual([...identificadores, ...literais].filter((t) => TERMO_SEMANTICO.test(t)), []);
 });
 
+test('KG3 boundary: o CLI do grafo so usa arquivo, caminho e hash do Node e so alcanca a familia', () => {
+  const imports = importsComTipo(MODULO_KG3_CLI);
+  assert.deepEqual(imports.filter((i) => !i.modulo.startsWith('./')).map((i) => i.modulo).sort(), ['node:crypto', 'node:fs', 'node:path']);
+  const locais = imports.filter((i) => i.modulo.startsWith('./')).map((i) => `${i.modulo.slice(2)}.ts`);
+  assert.ok(locais.every((l) => FAMILIA_DO_GRAFO.includes(l)), `${locais}`);
+  const { identificadores } = simbolos(MODULO_KG3_CLI);
+  for (const proibido of ['exec', 'execSync', 'spawn', 'spawnSync', 'shell', 'fetch', 'eval', 'Function', 'require', 'extrairGrafo']) {
+    assert.ok(!identificadores.has(proibido), proibido);
+  }
+  for (const f of FAMILIA_DO_GRAFO.filter((x) => x !== MODULO_KG3_CLI)) assert.ok(!importacoes(f).includes('./intelligence-graph-cli'), f);
+});
+
 test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os contratos', () => {
   const outros = fs.readdirSync(SRC).filter((f) => f.endsWith('.ts') && !FAMILIA_DO_GRAFO.includes(f));
   for (const vizinho of ['orkmind.ts', 'recall.ts', 'memoria.ts', 'company-brain-contract.ts', 'company-brain-client.ts', 'mcp-server.ts', 'index.ts', 'phase.ts']) {
     assert.ok(outros.includes(vizinho), `${vizinho} existe: a fronteira nao e vazia`);
   }
   for (const f of outros) {
-    assert.ok(!importacoes(f).some((i) => i.includes('intelligence-')), `${f} importa contrato KG1`);
+    // KG3: so o `index.ts` abre a familia, e so pelo CLI do grafo; MCP, fases, recall e memoria ficam fora (KG5).
+    const doGrafo = importacoes(f).filter((i) => i.includes('intelligence-'));
+    assert.deepEqual(doGrafo, f === 'index.ts' ? ['./intelligence-graph-cli'] : [], `${f} importa a familia do grafo`);
     const texto = ler(f);
     assert.ok(!texto.includes('ork.code-artifact-graph') && !texto.includes('ork.graph-benchmark'), `${f} cita contrato KG1`);
   }
