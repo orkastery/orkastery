@@ -49,8 +49,9 @@ const CONSULTAS_MCP = [
   'mcp__orkastery__ork_artifact_read',
   'mcp__orkastery__ork_claims_list',
 ] as const;
+// RM-037 (defeito 1): a decisao autonoma pelo MCP tem o mesmo grant nos dois runtimes.
 const MUTACOES_WORKTREE = [
-  'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_claim_add',
+  'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_claim_add', 'mcp__orkastery__ork_decision_record',
   'mcp__orkastery__ork_git_commit', 'mcp__orkastery__ork_verify', 'mcp__orkastery__ork_ship',
 ] as const;
 
@@ -135,8 +136,10 @@ export function montarComando(pedido: DespachoPedido): string[] {
     // Somente o servidor gerado: nao mesclar MCP de outros escopos nesta sessao filha.
     const permissoes = contexto.permissoesFilho === 'worktree'
       ? permissoesDaWorktree(pedido.cwd, contexto.permiteEditarProduto && !plano) : null;
-    // PLAN não implementa: nem commit, nem claim, nem verify, nem ship, em nenhum perfil.
-    const allow = plano ? [...CONSULTAS_MCP, 'mcp__orkastery__ork_artifact_write'] : permissoes?.allow ?? [...CONSULTAS_MCP];
+    // PLAN não implementa: nem commit, nem claim, nem verify, nem ship, em nenhum perfil. Decidir não é
+    // implementar, e o PLAN é onde as decisões nascem (RM-037, achado S7 do CHECK): a decisão autônoma fica.
+    const allow = plano ? [...CONSULTAS_MCP, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
+      : permissoes?.allow ?? [...CONSULTAS_MCP];
     const deny = [...(plano ? ESCRITA_DE_ARQUIVO : []), ...(permissoes?.deny ?? [])];
     args.push('--plugin-dir', contexto.instalacao, '--strict-mcp-config',
       '--mcp-config', JSON.stringify({ mcpServers: { orkastery: contexto.servidor } }),

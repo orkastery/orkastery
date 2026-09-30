@@ -55,5 +55,6 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-030](FEAT-030-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | feature | proposto | MOD-06 | 2026-09-29 |
 | [FEAT-031](FEAT-031-pacote-de-experiencia.md) | Pacote de experiência de orquestração | feature | em desenvolvimento | MOD-06 | 2026-09-30 |
 | [FEAT-032](FEAT-032-roadmap-da-rede.md) | Roadmap da rede, de qualquer diretório | feature | em desenvolvimento | MOD-01 | 2026-09-29 |
+| [FEAT-033](FEAT-033-dossie-de-decisao.md) | Dossiê de decisão | feature | vigente | MOD-05 | 2026-09-29 |
 
 <!-- ork-docs:indice:fim -->

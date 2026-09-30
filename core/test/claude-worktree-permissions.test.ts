@@ -16,7 +16,7 @@ import { exec } from '../src/util';
 
 const leituras = ['thread_status', 'phase_list', 'hitl_pending', 'observe', 'artifact_read', 'claims_list']
   .map(nome => `mcp__orkastery__ork_${nome}`);
-const mutacoes = ['artifact_write', 'claim_add', 'git_commit', 'verify', 'ship']
+const mutacoes = ['artifact_write', 'claim_add', 'decision_record', 'git_commit', 'verify', 'ship']
   .map(nome => `mcp__orkastery__ork_${nome}`);
 function preparar(nome: string, perfil: 'interactive' | 'worktree', modo: 'auto' | 'maestro' = 'auto') {
   const container = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-c35-container-'));
@@ -97,8 +97,9 @@ test('I-34: PLAN claude-bg libera ork_artifact_write e nega escrita de arquivo n
         assert.equal(args.includes(flag), false, `${perfil} ${flag}`);
       for (const proibida of ['thread_new','phase_run','request_decision','gate_request'])
         assert.equal(allow.includes(`mcp__orkastery__ork_${proibida}`), false);
-      // GO-FIX 1: PLAN não implementa, então nenhum mutador além do artefato, em nenhum perfil.
-      assert.deepEqual(allow, [...leituras, 'mcp__orkastery__ork_artifact_write']);
+      // GO-FIX 1: PLAN não implementa, então nenhum mutador além do artefato, em nenhum perfil. RM-037 (S7):
+      // a decisão autônoma fica, porque decidir não é implementar.
+      assert.deepEqual(allow, [...leituras, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']);
       if (perfil === 'interactive') {
         assert.equal(deny.length, 3);
       } else {
@@ -159,7 +160,9 @@ test('GO-FIX 2 (D14): retry run claude-bg sai com as mesmas flags de permissão 
     plugin: args.includes('--plugin-dir'), estrito: args.includes('--strict-mcp-config'),
     modo: args.includes('--permission-mode'), agente: args.includes('--agent') });
   for (const perfil of ['interactive', 'worktree'] as const) {
-    const f = preparar('claude-retry-' + perfil, perfil);
+    // RM-037 (defeito 2): o modo plano vale para o bloco que termina no PLAN. No #Maestro o PLAN fecha o
+    // bloco GOAL-PLAN; no #Auto o bloco segue para o GO e a sessao sai sem modo plano (rm037-modo-do-bloco).
+    const f = preparar('claude-retry-' + perfil, perfil, 'maestro');
     try {
       for (const fase of ['PLAN', 'GO'] as const) {
         const run = rodarFase(f.p.carregado, f.t.id, { fase, runtime: 'claude-bg', prompt: 'retomada ' + fase, dryRun: true });

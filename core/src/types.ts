@@ -200,6 +200,12 @@ export interface Manifesto {
     context: string;
     /** Comando hermético do runner; ausente reutiliza os comandos integrais de verify. */
     command?: string;
+    /**
+     * RM-037 (rm037defeito, defeito 5): repositorios externos cujo PR mesclado vale como entrega da
+     * thread (`ork ship registrar-pr --repo`). A chave e `dono/nome`; o valor e o check exigido no head
+     * do PR, e texto vazio declara que o repositorio nao tem CI (so o merge provado vale).
+     */
+    external_repositories: Record<string, string>;
   };
   concurrency: {
     max_parallel_threads: number;
