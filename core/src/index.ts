@@ -2737,8 +2737,9 @@ function comandoDocs(args: Args): number {
     const escrever = args.opcoes.escrever === true;
     // RM-037 (rm037noite, defeito 5): o escopo. `--so` diz os itens; sem ele, na worktree de uma thread
     // com item, so o item dela; `--todos` (ou fora de worktree de thread) volta a todo item.
-    // Sugestao 4 do CHECK 1: `--so` sem item e erro de uso, nunca o escopo padrao em silencio.
-    if (args.opcoes.so === true) {
+    // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
+    // padrao em silencio.
+    if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
       console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
       return 2;
     }

@@ -120,6 +120,7 @@ test('defeito 5: na worktree de uma thread com item, o padrao do CLI e o item de
     const semItem = ork(['--so', '--escrever']);
     assert.equal(semItem.status, 2, 'sem item depois de --so e erro de uso');
     assert.match(semItem.stderr, /faltou o item depois de --so/);
+    assert.equal(ork(['--so=', '--escrever']).status, 2, '--so= vazio tambem');
 
     const todos = ork(['--todos']);
     assert.match(todos.stdout, /^Escopo: todo item do roadmap\./);
