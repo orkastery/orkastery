@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T02:03:24.635Z",
+  "publicadoEm": "2026-09-30T02:03:43.888Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -94,11 +94,11 @@
       "id": "ork-rm037defeito",
       "nome": "RM-037: defeitos de condução achados em 29/09",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037defeito-full",
-      "atualizadaEm": "2026-09-29T14:04:14.085Z",
+      "atualizadaEm": "2026-09-30T02:03:43.221Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
