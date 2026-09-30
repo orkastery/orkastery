@@ -126,7 +126,8 @@ no script removido deu lugar à primeira do passo fixo do mesmo estrato, conferi
 Registro em
 [`core/test/fixtures/kg3-medida-consulta.json`](../../../core/test/fixtures/kg3-medida-consulta.json)
 (`ork.graph-query-cost/v0`), gerado por `core/scripts/medir-consulta-grafo.cjs` na revisão
-`a97a1de9`, com a árvore limpa, carga 2,8 em 8 núcleos, Node v22.23.2 e 3 repetições por braço.
+`a97a1de9` da branch da thread, antes do sync com a main `36def09`, com a árvore limpa, carga 2,8
+em 8 núcleos, Node v22.23.2 e 3 repetições por braço.
 **Não é a linha de base do protocolo nem o benchmark `ork.graph-benchmark/v1`,** e não conclui
 economia.
 

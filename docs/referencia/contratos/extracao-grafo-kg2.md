@@ -202,7 +202,7 @@ npm --prefix core run build
 node core/dist/index.js grafo indexar --verificar
 ```
 
-`indexar --verificar` roda `validarGrafo`, `conferirFontes` com todos os bytes e a extração de
+`ork grafo indexar --verificar` roda `validarGrafo`, `conferirFontes` com todos os bytes e a extração de
 novo com a ordem invertida e embaralhada, e sai 1 se algo diverge. O grafo canônico e o relatório
 ficam no índice, na pasta que o `indexar` mostra.
 
