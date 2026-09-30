@@ -326,7 +326,7 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 
 ## Grafo de código (RM-031, KG3)
 
-O índice persistente e a consulta do [grafo determinístico](../roadmap/RM-031-grafo-de-codigo.md). O
+O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O
 índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD.
 
 | Comando | O que faz |
