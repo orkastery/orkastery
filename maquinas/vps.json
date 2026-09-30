@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-09-30T13:29:08.884Z",
+  "publicadoEm": "2026-09-30T13:37:05.052Z",
   "threads": [
     {
       "id": "ork-docsdossites",
@@ -24,15 +24,15 @@
       "id": "ork-pacotedeexpe",
       "nome": "RM-051 pacote de experiencia de orquestracao",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-051",
       "branch": "ork/ork-rm051pacote-full",
-      "atualizadaEm": "2026-09-30T04:15:18.826Z",
+      "atualizadaEm": "2026-09-30T13:37:04.676Z",
       "entregue": null,
-      "esperaVoce": true,
-      "pergunta": "autorizacao da retomada",
-      "paradaDesde": "2026-09-30T05:36:12.678Z"
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null
     },
     {
       "id": "ork-rm025modocon",
@@ -70,7 +70,7 @@
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037noite-full",
-      "atualizadaEm": "2026-09-30T13:22:40.312Z",
+      "atualizadaEm": "2026-09-30T13:32:40.547Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
