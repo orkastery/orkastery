@@ -354,8 +354,8 @@ minutos sem valor, em vez de recusar na hora).
 | `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
-| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/bundle.json`, que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
-| `ork ci run [<thread>] [--bundle ARQ]` | Executa o CHECK no runner independente |
+| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json`, com a branch da thread, que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
+| `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Executa o CHECK no runner independente; com `--branch`, acha o bundle da thread pelo nome da branch, reprova branch `ork/*` sem bundle e, fora de thread, roda só os comandos do manifesto (RM-037) |
 | `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub para o SHA |
 
 ---

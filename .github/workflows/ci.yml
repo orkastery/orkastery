@@ -22,8 +22,10 @@ jobs:
       - name: instalar e compilar
         run: npm ci && npm run build
         working-directory: core
+      # RM-037 (rm037noite, defeito 1): cada thread tem o proprio .ork-ci/<thread>.json, achado pela
+      # branch da PR (GITHUB_HEAD_REF) ou pela do push (GITHUB_REF_NAME, a main: so os comandos).
       - name: CHECK independente
-        run: node core/dist/index.js ci run --bundle .ork-ci/bundle.json
+        run: node core/dist/index.js ci run --branch "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
 
   # I-44: documentacao de produto e roadmap como codigo. O markdownlint cobre a FORMA do
   # Markdown; o `ork docs verificar` cobre frontmatter, leitura, referencias e paridade com o

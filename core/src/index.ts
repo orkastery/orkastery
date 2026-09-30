@@ -196,7 +196,7 @@ import {
 import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { consultarCi, executarBundleCi, executarCi, prepararBundleCi } from './ci';
+import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
 import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
@@ -391,8 +391,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
         [--so-claims]                       --baseline grava o estado do mundo antes do GO
         [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata
+  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
   ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
+        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
 
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
@@ -2071,9 +2072,16 @@ function comandoCi(args: Args): number {
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
     }
+    // RM-037 (rm037noite, defeito 1): o CI passa a branch e acha o `.ork-ci/<thread>.json` dela.
+    const branch = texto(args.opcoes.branch);
+    if (branch) {
+      const result = executarCiDaBranch(carregado, branch);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo>');
+      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
       return 2;
     }
     const result = executarCi(carregado, thread);
