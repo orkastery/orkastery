@@ -796,22 +796,6 @@
       "lint": []
     },
     {
-      "id": "C65",
-      "thread": "ork-pacotedeexpe",
-      "fase": "CHECK",
-      "arquivo": "docs/produto/FEAT-031-pacote-de-experiencia.md",
-      "alegacao": "GO-FIX 6: a feature do pacote passa de FEAT-030 a FEAT-031 porque a main já usa FEAT-030 (RM-052); RM-051, MOD-06, índice de produto, guias e CHANGELOG descrevem o comportamento verificado no CHECK, sem declarar merge, release ou deploy. Verificação oficial pendente.",
-      "negativa": false,
-      "verificar": [
-        "node core/dist/index.js docs verificar",
-        "node core/scripts/checar-links.cjs",
-        "core/node_modules/.bin/markdownlint-cli2"
-      ],
-      "criadoEm": "2026-09-30T03:13:45.332Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C66",
       "thread": "ork-pacotedeexpe",
       "fase": "CHECK",
@@ -843,7 +827,7 @@
         "node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-09-30T03:31:22.640Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -873,6 +857,39 @@
         "npm --prefix core run build:test && node --test core/dist-test/test/marketplaces.test.js"
       ],
       "criadoEm": "2026-09-30T03:54:40.481Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-pacotedeexpe",
+      "fase": "SHIP",
+      "arquivo": "docs/produto/FEAT-034-pacote-de-experiencia.md",
+      "alegacao": "GO-FIX 9 (SHIP, C65 registrada de novo): a feature do pacote passa de FEAT-031 a FEAT-034, combinada para a RM-051 nesta máquina; RM-051, MOD-06, índice de produto, varredura pública e seu teste usam o caminho novo, sem link ao antigo; sem declarar merge, release ou deploy.",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2",
+        "! grep -rIl 'FEAT-031-pacote' docs core/scripts core/test"
+      ],
+      "criadoEm": "2026-09-30T04:15:11.860Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-pacotedeexpe",
+      "fase": "SHIP",
+      "arquivo": "docs/produto/MOD-06-integracao-com-hosts.md",
+      "alegacao": "GO-FIX 9 (SHIP): o MOD-06 lista o pacote de experiência como FEAT-034, com link para a página renomeada; paridade documental e links verdes.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '[FEAT-034](FEAT-034-pacote-de-experiencia.md)' docs/produto/MOD-06-integracao-com-hosts.md",
+        "node core/dist/index.js docs verificar",
+        "node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-30T04:15:18.825Z",
       "estado": "pendente",
       "lint": []
     }
