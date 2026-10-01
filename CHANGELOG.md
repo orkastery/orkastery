@@ -6,6 +6,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Perfil por despacho, rodízio por carga e sessões de cada conta** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md), [FEAT-037](docs/produto/FEAT-037-perfil-carga-e-sessoes-das-contas.md)):
+  - `ork phase run ... --perfil <id>`, e `perfil` em `ork_phase_run` (MCP e OpenClaw): o despacho sai pela conta pedida;
+    perfil inexistente ou de outro runtime recusa com o motivo novo `runtime.profile-invalid` (sem retry automático),
+    esgotado com `runtime.quota-exhausted` e sem login com `runtime.auth-missing`, sem abrir sessão nem trocar de perfil;
+  - `runtime_profiles.distribuir: carga` no manifesto (opt-in; o padrão `ordem` segue igual): o perfil disponível com
+    menos sessões vivas nesta máquina recebe o despacho, com desempate pelo uso mais antigo;
+  - `ork sessions`, `ork board plan`, o escalonador e o monitor (e o retrato da fábrica) consultam a conta do processo e
+    cada perfil do store; cada sessão sai com o id do perfil (coluna `PERFIL`), nunca com o diretório da conta;
+  - sessão claude-bg sem `pid` vivo em estado não terminal é fantasma: não ocupa vaga nem vira pausa humana;
+    `ork sessions limpar-fantasmas [--dry-run]` grava `sessao_morta` na thread vinculada e nunca toca no runtime.
+
 ## [0.5.0] - 2026-09-30
 
 ### Adicionado

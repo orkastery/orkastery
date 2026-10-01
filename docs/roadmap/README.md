@@ -53,7 +53,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-09-29 |
 | [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-09-29 |
-| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Refinamento | Mesclado | Em execução | Não implantado | 2026-09-29 |
+| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-09-30 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-033](RM-033-rotacao-de-contas.md) | Rotação de contas e perfis dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
@@ -73,8 +73,10 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Não implantado | 2026-09-29 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-09-30 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-09-29 |
+| [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Em validação | Branch criada | Aprovados | Não implantado | 2026-09-30 |
 | [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Não implantado | 2026-09-30 |
 | [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Branch criada | Aprovados | Não implantado | 2026-09-30 |
+| [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-01 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

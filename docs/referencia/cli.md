@@ -45,6 +45,15 @@ perdido troca para o próximo perfil com login). Rate limit comum de curta janel
 perfil: espera a janela na fila (critério único em [verificacao.md](../guias/verificacao.md)). A troca
 manual pelos comandos acima não depende dessas chaves.
 
+`runtime_profiles.distribuir` (RM-056) diz como o despacho escolhe entre os perfis disponíveis
+do runtime: `ordem` (padrão) é o primeiro do store, trocando só por cota ou login; `carga` é o
+de menos sessões vivas da conta nesta máquina (claude-bg com processo; codex com rollout aberto
+e escrito dentro de `concurrency.stale_after_min`), com desempate pelo uso mais antigo e depois
+pela ordem do store. Valor desconhecido vale `ordem`, com aviso. A retenção das chaves acima
+continua valendo, e `ork phase run --perfil <id>` passa por cima das duas: o perfil pedido
+despacha ou recusa com motivo tipado (`runtime.profile-invalid`, `runtime.quota-exhausted`,
+`runtime.auth-missing`), nunca troca sozinho.
+
 ### Horários para pessoas: o fuso do dono (I-35)
 
 Origem: ordem do dono em 19/09/2026, "nunca mais use horários UTC para se comunicar comigo".
@@ -141,7 +150,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
 | `ork thread status <thread-id> [--json]` | O estado da thread, cruzado com o runtime; `--json` devolve o thread.json |
-| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão parada (sem trabalho há `concurrency.stale_after_min`), escalada ao dono, bloqueada no runtime ou em silêncio pelo pulse não ocupa, e a que segue rodando depois de uma pausa prevista ou de um verify reprovado ocupa; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037) |
+| `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão parada (sem trabalho há `concurrency.stale_after_min`), escalada ao dono, bloqueada no runtime ou em silêncio pelo pulse não ocupa, e a que segue rodando depois de uma pausa prevista ou de um verify reprovado ocupa; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037). Com `--perfil <id>` (e `perfil` no `ork_phase_run`), o despacho sai pela conta pedida, ou recusa com motivo tipado sem trocar de perfil (RM-056) |
 | ↳ opções | `[--model M] [--effort E] [--dry-run]` |
 | `ork phase list <thread>` | O histórico do ledger, **com o modelo e o esforço reais de cada fase** |
 
@@ -153,7 +162,8 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 
 | Comando | O que faz |
 | --- | --- |
-| `ork sessions [--all]` | As sessões vivas do runtime, cruzadas com as threads |
+| `ork sessions [--all]` | As sessões vivas do runtime, cruzadas com as threads, de todas as contas: a do processo e cada perfil do store, com a coluna `PERFIL` (o id, nunca o diretório); sessão claude-bg sem `pid` vivo em estado não terminal sai como fantasma (RM-056) |
+| `ork sessions limpar-fantasmas [--dry-run] [--json]` | Solta do `ork` cada sessão fantasma: grava `sessao_morta` (origem `sessions.limpar-fantasmas`) no ledger da thread vinculada, o que libera a condução e a vaga; nunca chama `stop` nem `rm` no runtime (RM-056) |
 | `ork sessions logs <sessao> [--linhas N]` | Os logs de uma sessão, lidos na conta onde ela está (processo ou perfil claude-bg) |
 | `ork sessions stop <sessao>` | Para uma sessão com o `CLAUDE_CONFIG_DIR` da conta onde ela está: a do processo ou a de um perfil claude-bg do projeto, inclusive desativado; achada em mais de uma conta, pede o id completo |
 | `ork sessions attach <sessao>` | Imprime o comando de attach (precisa de TTY), com o prefixo `CLAUDE_CONFIG_DIR=<dir>` quando a sessão é de um perfil |

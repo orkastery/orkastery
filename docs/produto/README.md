@@ -56,5 +56,6 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-032](FEAT-032-roadmap-da-rede.md) | Roadmap da rede, de qualquer diretório | feature | em desenvolvimento | MOD-01 | 2026-09-30 |
 | [FEAT-033](FEAT-033-dossie-de-decisao.md) | Dossiê de decisão | feature | vigente | MOD-05 | 2026-09-29 |
 | [FEAT-034](FEAT-034-pacote-de-experiencia.md) | Pacote de experiência de orquestração | feature | em desenvolvimento | MOD-06 | 2026-09-30 |
+| [FEAT-037](FEAT-037-perfil-carga-e-sessoes-das-contas.md) | Perfil por despacho, rodízio por carga e sessões de cada conta | feature | em desenvolvimento | MOD-03 | 2026-10-01 |
 
 <!-- ork-docs:indice:fim -->
