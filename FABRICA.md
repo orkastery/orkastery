@@ -5,11 +5,11 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-rm032ativaca | #Auto | GOAL | claude-bg opus/high | RM-032 | — | 01/10 05:08 |
-| srvjcp86 | ork-rm040piloto | #Auto | GOAL | codex gpt-5.6-sol/high | RM-040 | — | 01/10 05:08 |
-| srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 01/10 05:08 |
-| srvjcp86 | ork-rm055impedim | #Auto | GOAL | codex gpt-5.6-sol/high | RM-055 | — | 01/10 05:08 |
-| srvjcp86 | ork-rm056perfil | #Auto | GOAL | claude-bg opus/high | RM-056 | — | 01/10 05:08 |
+| srvjcp86 | ork-rm032ativaca | #Auto | GOAL | claude-bg opus/high | RM-032 | — | 01/10 05:14 |
+| srvjcp86 | ork-rm040piloto | #Auto | GOAL | codex gpt-5.6-sol/high | RM-040 | — | 01/10 05:14 |
+| srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 01/10 05:14 |
+| srvjcp86 | ork-rm055impedim | #Auto | GOAL | codex gpt-5.6-sol/high | RM-055 | — | 01/10 05:14 |
+| srvjcp86 | ork-rm056perfil | #Auto | GOAL | claude-bg opus/high | RM-056 | — | 01/10 05:14 |
 | vps | ork-ensaioprimei | #Auto | GOAL | sem despacho | RM-049 | — | 01/10 05:06 |
 | vps | ork-estadodoroad | #Fast | GO | claude-bg opus/xhigh | — | — | 01/10 05:06 |
 | vps | ork-rm031kg4incr | #Auto | GOAL | claude-bg opus/max | RM-031 | — | 01/10 05:06 |
