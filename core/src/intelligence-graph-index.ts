@@ -20,7 +20,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  GRAFO_SCHEMA, canonico, compararUtf8, conferirFontes, sha256DoCanonico, type FonteFornecida, type GrafoCodigo,
+  GRAFO_SCHEMA, canonico, compararUtf8, conferirFontesDoGrafoValidado, sha256DoCanonico, type FonteFornecida, type GrafoCodigo,
 } from './intelligence-graph-contract';
 import { decodificarUtf8, extrairGrafo, type EntradaDeExtracao, type Parser, type RelatorioDeExtracao } from './intelligence-graph-extract';
 import { carregarAnalisadores, pacotesDosAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
@@ -359,7 +359,8 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
     const b = bytesDe.get(m.path) as Uint8Array;
     return [m.path, { tipo: decodificarUtf8(b) === null ? 'binario' : 'texto', bytes: b }];
   }));
-  const conferencia = conferirFontes(r.grafo, fornecidas);
+  // KG4 (D6): `r.grafo` e o retorno de `validarGrafo` dentro da extracao; validar de novo so repetiria.
+  const conferencia = conferirFontesDoGrafoValidado(r.grafo, fornecidas);
   if (conferencia.estado !== 'verificada' || conferencia.evidenciasIndisponiveis > 0) falha('grafo.indice.fontes-nao-conferidas');
 
   let determinismo: ResultadoDaConstrucao['determinismo'] = null;
