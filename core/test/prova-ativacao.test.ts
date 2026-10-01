@@ -5,7 +5,7 @@ import { projetoTemporario } from './apoio';
 import { runMaestroCli } from '../src/maestro-cli';
 import { discoverMaestro } from '../src/maestro-discovery';
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
-import { conferirProva, EsperadoDaProva, extrairSnapshot, redigir, transcriptDoClaude, transcriptDoOpenclaw } from '../src/prova-ativacao';
+import { conferirProva, EsperadoDaProva, extrairSnapshot, redigir, redigirObjeto, transcriptDoClaude, transcriptDoOpenclaw } from '../src/prova-ativacao';
 
 function snapshotDe(dir: string): string {
   let saida = '';
@@ -57,6 +57,27 @@ test('Claude: `ork maestro` pelo Bash é desvio do contrato, não sucesso', () =
   } finally { p.limpar(); }
 });
 
+test('CHECK F4: desvio ao lado da chamada contratada reprova; nova tentativa depois de erro vale', () => {
+  const p = projetoTemporario('prova-claude-f4');
+  try {
+    const snap = snapshotDe(p.dir);
+    const linhas = streamClaude({ resultado: snap }).trim().split('\n');
+    const shell = [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'toolu_9', name: 'Bash', input: { command: '/usr/local/bin/ork maestro --json' } }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'toolu_9', content: snap }] } },
+    ].map(e => JSON.stringify(e));
+    const ambos = conferirProva('claude-code', transcriptDoClaude([...shell, ...linhas].join('\n')), esperadoDe(p.dir));
+    assert.match(ok(ambos, 'entrada.chamada')!.detalhe, /mas também desvio: Bash/);
+    assert.equal(ok(ambos, 'entrada.chamada')!.ok, false);
+    const primeira = [
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'toolu_8', name: 'mcp__orkastery__ork_maestro', input: {} }] } },
+      { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'toolu_8', is_error: true, content: 'maestro.source.unavailable' }] } },
+    ].map(e => JSON.stringify(e));
+    const retentativa = conferirProva('claude-code', transcriptDoClaude([linhas[0], ...primeira, ...linhas.slice(1)].join('\n')), esperadoDe(p.dir));
+    assert.equal(retentativa.ok, true, JSON.stringify(retentativa.conferencias));
+  } finally { p.limpar(); }
+});
+
 test('Claude: resultado com erro e snapshot fora do contrato reprovam', () => {
   const p = projetoTemporario('prova-claude-erro');
   try {
@@ -96,6 +117,19 @@ test('resposta que conclui "roadmap vazio", sem o projeto ou sem notConsulted re
     const negada = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir),
       resposta: 'Projeto orkastery. Esta consulta não os lê. Zero threads não quer dizer roadmap vazio.\nThe roadmap is not empty by default.' })), esperado);
     assert.equal(ok(negada, 'resposta.sem-roadmap-vazio')!.ok, true, ok(negada, 'resposta.sem-roadmap-vazio')!.detalhe);
+    // CHECK F1: a negação só conta quando governa a conclusão.
+    for (const frase of ['O roadmap está vazio e não há threads abertas.', 'Roadmap vazio: nao ha nada a fazer.',
+      'Não há itens: o roadmap está vazio.', 'O roadmap do projeto está vazio.', 'Your roadmap is currently empty.']) {
+      const r = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: `orkastery. ${frase}` })), esperado);
+      assert.equal(ok(r, 'resposta.sem-roadmap-vazio')!.ok, false, frase);
+    }
+    for (const frase of ['Zero threads nunca é roadmap vazio.', 'The roadmap is not empty.', 'Isso não quer dizer roadmap vazio.']) {
+      const r = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: `orkastery. ${frase}` })), esperado);
+      assert.equal(ok(r, 'resposta.sem-roadmap-vazio')!.ok, true, frase);
+    }
+    // CHECK F8: a abreviação vale como palavra inteira.
+    const pedaco = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: 'Sobre o orkasterysmo do pavimento.' })), esperado);
+    assert.equal(ok(pedaco, 'resposta.cita-projeto')!.ok, false);
     const anonimo = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: 'Nada em andamento.' })), esperado);
     assert.equal(ok(anonimo, 'resposta.cita-projeto')!.ok, false);
     const snap = JSON.parse(snapshotDe(p.dir)); delete snap.notConsulted;
@@ -173,4 +207,9 @@ test('redigir tira tokens e valores de chaves com nome de segredo antes de grava
   for (const segredo of ['abc123', 'zzz', 'eyJhbGciOi', 'sk-ant-oat01', 'sk-or-v1', 'ghp_0123']) assert.ok(!r.includes(segredo), segredo);
   assert.ok(r.includes('"inputTokens":37'), 'número não é segredo');
   assert.ok(r.includes('"nome":"orkastery"'));
+  // CHECK F2: JSON dentro de stdout sobrevive à serialização; a redação vem antes dela.
+  const recibo = JSON.stringify(redigirObjeto({ stdout: '{"apiKey":"abc123SECRET"} Authorization: Basic dXNlcjpwYXNz OPENROUTER_API_KEY=xyz AIzaSyA1234567890abcdefghij',
+    provedor: { password: 'p' }, usage: { inputTokens: 3 } }));
+  for (const segredo of ['abc123SECRET', 'dXNlcjpwYXNz', '=xyz', 'AIzaSyA', '"p"']) assert.ok(!recibo.includes(segredo), segredo);
+  assert.ok(recibo.includes('"inputTokens":3'));
 });

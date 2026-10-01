@@ -7,6 +7,7 @@
  * ela devolveu (contra o contrato da entrada) e o projeto lido. Da resposta final em texto
  * livre, exige apenas que cite o projeto e não repita o incidente de 29/09 ("roadmap vazio").
  */
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MaestroSnapshot, validateMaestroSnapshot } from './maestro-contract';
 
@@ -64,7 +65,7 @@ export interface ResultadoDaConferencia {
   rede: { cabecalho: string; consultado: string; naoConsultado: string[] } | null;
 }
 
-const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(])ork(\s+--projeto\s+\S+)?\s+maestro\b/;
+const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(/])ork(\s+--(projeto|project)(\s+|=)\S+)?\s+maestro\b/;
 
 function linhasJson(texto: string): Record<string, unknown>[] {
   const eventos: Record<string, unknown>[] = [];
@@ -179,12 +180,25 @@ function expandirHome(raiz: string, home: string): string {
   return raiz === '~' ? home : raiz.startsWith('~/') ? path.join(home, raiz.slice(2)) : raiz;
 }
 
-const ROADMAP_VAZIO = /roadmap\s+(est[aá]\s+|is\s+)?(vazio|empty)/i;
-const NEGACAO = /\b(n[ãa]o|nunca|not|never|isn't|doesn't)\b/i;
-/** A frase que conclui "roadmap vazio"; a que nega ("zero threads não quer dizer roadmap vazio") é a resposta certa. */
+const ROADMAP_VAZIO = /\broadmap\b((?:\s+[^\s.!?:;,]+){0,4}?)\s+(vazio|empty)\b/giu;
+const NEGACAO = /(^|[^\p{L}])(n[ãa]o|nunca|jamais|not|never|isn't|doesn't|nem)([^\p{L}]|$)/iu;
+/**
+ * A frase que conclui "roadmap vazio". A negação só conta quando governa a conclusão: dentro do
+ * trecho ("the roadmap is not empty") ou nas até quatro palavras antes dele, sem atravessar
+ * pontuação ("zero threads não quer dizer roadmap vazio"). "O roadmap está vazio e não há
+ * threads" e "Não há itens: o roadmap está vazio" concluem.
+ */
 function concluiRoadmapVazio(texto: string): string | null {
-  return texto.split(/(?<=[.!?\n])\s+/).find(frase => ROADMAP_VAZIO.test(frase) && !NEGACAO.test(frase))?.trim() ?? null;
+  for (const m of texto.matchAll(ROADMAP_VAZIO)) {
+    const antes = texto.slice(0, m.index).split(/[.!?:;,\n]/).pop()!.trim().split(/\s+/).slice(-4).join(' ');
+    if (!NEGACAO.test(antes) && !NEGACAO.test(m[1])) return `${antes} ${m[0]}`.trim();
+  }
+  return null;
 }
+const canonica = (p: string): string => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+/** Nome inteiro, não pedaço de palavra: a abreviação `pav` não casa com "pavimento". */
+const nomeia = (texto: string, nome: string): boolean =>
+  new RegExp(`(^|[^\\p{L}\\p{N}_-])${nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}_-]|$)`, 'iu').test(texto);
 
 /**
  * O texto de `ork network roadmap` (`textoDoPanoramaDaRede`): a primeira linha diz de onde foi
@@ -209,12 +223,17 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
     t.ferramentasExpostas === null ? 'o transcript não lista as ferramentas expostas'
       : expostas.length ? `${expostas.join(', ')} exposta(s) ao modelo`
         : `${nomes.join(' e ')} ausente(s) entre ${t.ferramentasExpostas.length} ferramentas expostas`);
-  const contratada = t.chamadas.find(c => c.via === 'entrada');
+  // A última chamada contratada com resultado é a que vale (uma nova tentativa depois de erro não
+  // reprova); qualquer `ork maestro` pelo shell reprova, mesmo ao lado da chamada contratada.
+  const contratadas = t.chamadas.filter(c => c.via === 'entrada');
+  const contratada = [...contratadas].reverse().find(c => c.resultado !== null && !c.erro) ?? contratadas.at(-1);
   const desvio = t.chamadas.find(c => c.via === 'shell');
-  conferir('entrada.chamada', !!contratada,
-    contratada ? `${contratada.ferramenta} chamada`
-      : desvio ? `desvio: ${desvio.ferramenta} ${JSON.stringify((desvio.argumentos as { command?: unknown })?.command)} em vez de ${nomes.join(' ou ')}`
-        : `${nomes.join(' ou ')} não foi chamada`);
+  const comando = desvio && JSON.stringify((desvio.argumentos as { command?: unknown })?.command);
+  conferir('entrada.chamada', !!contratada && !desvio,
+    contratada && desvio ? `${contratada.ferramenta} chamada, mas também desvio: ${desvio.ferramenta} ${comando}`
+      : contratada ? `${contratada.ferramenta} chamada`
+        : desvio ? `desvio: ${desvio.ferramenta} ${comando} em vez de ${nomes.join(' ou ')}`
+          : `${nomes.join(' ou ')} não foi chamada`);
   let snapshot: MaestroSnapshot | null = null;
   let rede: ResultadoDaConferencia['rede'] = null;
   if (contratada && conferir('resultado.sem-erro', contratada.resultado !== null && !contratada.erro,
@@ -234,8 +253,8 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
   }
   if (snapshot) {
     const p = snapshot.project;
-    const exibida = p.root === undefined || p.root.includes('[caminho privado]') ? null : path.resolve(expandirHome(p.root, esperado.home));
-    const mesmaCopia = p.fingerprint === esperado.projeto.fingerprint && (exibida === null || exibida === path.resolve(esperado.projeto.raiz));
+    const exibida = p.root === undefined || p.root.includes('[caminho privado]') ? null : canonica(expandirHome(p.root, esperado.home));
+    const mesmaCopia = p.fingerprint === esperado.projeto.fingerprint && (exibida === null || exibida === canonica(esperado.projeto.raiz));
     conferir('resultado.projeto', p.name === esperado.projeto.nome && mesmaCopia,
       `leu ${p.name} (${p.origin}) em ${p.root ?? 'raiz não exibida'}, impressão ${p.fingerprint.slice(0, 12)}; ` +
       `esperado ${esperado.projeto.nome}, impressão ${esperado.projeto.fingerprint.slice(0, 12)}`);
@@ -244,14 +263,16 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
       lacunas.length ? `declara o que não leu: ${lacunas.length} item(ns)` : 'notConsulted ausente: zero threads pode virar "roadmap vazio"');
   }
   if (rede) {
-    const raizes = [esperado.projeto.raiz, esperado.projeto.raiz.startsWith(esperado.home + path.sep) ? '~' + esperado.projeto.raiz.slice(esperado.home.length) : null];
-    const leu = raizes.some(r => r && rede!.consultado.includes(`${esperado.projeto.nome} (clone em ${r})`));
+    // "Consultado: a (clone em X); b (clone em Y)": vale o projeto esperado na raiz esperada.
+    const lidos = [...rede.consultado.replace(/^Consultado: /, '').matchAll(/(?:^|; )(.+?) \(clone em ([^)]+)\)/g)];
+    const leu = lidos.some(([, nome, raiz]) => nome === esperado.projeto.nome &&
+      canonica(expandirHome(raiz, esperado.home)) === canonica(esperado.projeto.raiz));
     conferir('resultado.projeto', leu, `${rede.consultado.slice(0, 300)}; esperado ${esperado.projeto.nome} (clone em ${esperado.projeto.raiz})`);
     conferir('resultado.nao-consultado', rede.naoConsultado.length > 0,
       rede.naoConsultado.length ? `declara o que não leu: ${rede.naoConsultado.length} item(ns)` : 'sem o bloco do que não foi consultado');
   }
   const resposta = t.respostaFinal ?? '';
-  const citaProjeto = [esperado.projeto.nome, esperado.projeto.id].some(n => resposta.toLowerCase().includes(n.toLowerCase()));
+  const citaProjeto = [esperado.projeto.nome, esperado.projeto.id].some(n => nomeia(resposta, n));
   conferir('resposta.cita-projeto', citaProjeto,
     t.respostaFinal === null ? 'sem resposta final' : citaProjeto ? 'a resposta nomeia o projeto lido' : 'a resposta não nomeia o projeto lido');
   const vazio = concluiRoadmapVazio(resposta);
@@ -271,12 +292,25 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
 
 /**
  * Redação antes de qualquer gravação: o recibo vai ao repositório. Cobre tokens com prefixo
- * conhecido, `Bearer`, e valores de chaves JSON com nome de segredo.
+ * conhecido, `Bearer`/`Basic`, variáveis de ambiente com nome de segredo e valores de chaves JSON
+ * com nome de segredo. Para objetos, use `redigirObjeto`, que aplica a regra a cada texto antes
+ * da serialização (JSON dentro de stdout escaparia depois dela).
  */
+const CHAVE_DE_SEGREDO = /token|secret|password|passwd|api[_-]?key|apikey|credential|authorization|cookie/i;
 export function redigir(texto: string): string {
   return texto
-    .replace(/\b(sk-ant-[A-Za-z0-9_-]+|sk-or-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{16,})/g, '[REDIGIDO]')
+    .replace(/\b(sk-ant-[A-Za-z0-9_-]+|sk-or-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{16,}|[sr]k_live_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_-]{20,})/g, '[REDIGIDO]')
     .replace(/\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{16,}|xox[abprs]-[A-Za-z0-9-]{10,})/g, '[REDIGIDO]')
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1[REDIGIDO]')
-    .replace(/("[^"]*(?:token|secret|password|passwd|api[_-]?key|apikey|credential)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"');
+    .replace(/\b(Bearer|Basic)(\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1$2[REDIGIDO]')
+    .replace(/\b([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*\s*=\s*)("[^"]*"|'[^']*'|\S+)/g, '$1[REDIGIDO]')
+    .replace(/("[^"]*(?:token|secret|password|passwd|api[_-]?key|apikey|credential|authorization|cookie)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"');
+}
+export function redigirObjeto<T>(valor: T): T {
+  if (typeof valor === 'string') return redigir(valor) as T;
+  if (Array.isArray(valor)) return valor.map(v => redigirObjeto(v)) as T;
+  if (valor && typeof valor === 'object') {
+    return Object.fromEntries(Object.entries(valor).map(([k, v]) =>
+      [k, typeof v === 'string' && CHAVE_DE_SEGREDO.test(k) ? '[REDIGIDO]' : redigirObjeto(v)])) as T;
+  }
+  return valor;
 }
