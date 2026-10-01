@@ -1,0 +1,415 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg4incr",
+  "branch": "ork/ork-rm031kg4incr-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-incremental.test.ts",
+      "alegacao": "KG4 equivalencia: em repositórios Git sintéticos, o índice incremental construído a partir do índice da revisão anterior é idêntico byte a byte (indice.json, grafo.json, relatorio.json e unidades.json) ao da extração completa da mesma revisão, com renome, remoção e arquivo novo de TypeScript e de Markdown, mudança no alvo importado, export * que fica ambíguo, import divergente que contamina a cadeia, .d.ts que ganha implementação, import de tipo do JSDoc, link e âncora Markdown e artefato citado; e só os arquivos afetados são reextraídos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 equivalencia' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:30:46.424Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-incremental.test.ts",
+      "alegacao": "KG4 queda: sem índice de revisão ancestral, com o extrator mudado, com o histórico reescrito (índice antigo fora da linha do HEAD) e com a base ilegível, ork grafo indexar faz a extração completa e diz o motivo; package.json ou arquivo que declara global na mudança reextrai o TypeScript inteiro com o motivo e o Markdown segue incremental; em todos os casos o resultado é igual ao da extração completa",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 queda' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:30:48.922Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-index.ts",
+      "alegacao": "KG4 cli: ork grafo indexar sem índice do HEAD usa o índice da revisão ancestral e diz o modo (incremental ou completo), a base, o motivo e o que reextraiu, em texto e em --json; --forcar extrai completo; --verificar, havendo base, também roda o incremental e reprova se os bytes divergem da completa; o índice tem quatro arquivos 0600 e a leitura confere tamanho e digest das unidades",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 cli' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:30:51.320Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-incremental-grafo.cjs",
+      "alegacao": "Pares de revisões reais deste repositório: a extração completa da base 2418a4e7 com o código do KG4 dá o digest 9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c, o mesmo do código do KG3; em cada par do registro, o índice incremental é idêntico byte a byte ao completo nos quatro arquivos; o registro guarda os tempos completo e incremental e a carga, e o validador recusa registro sem par conferido ou que conclua além do medido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/medir-incremental-grafo.cjs --conferir",
+        "node core/scripts/medir-incremental-grafo.cjs --validar core/test/fixtures/kg4-medida-incremental.json"
+      ],
+      "criadoEm": "2026-10-01T05:30:54.418Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "KG4 piso: canonico produz a mesma saída da implementação genérica de referência no corpus do KG1, em objetos com chaves fora de ordem, chave com caractere nulo, array esparso, número negativo e não finito, e no grafo de um repositório sintético; conferir as fontes de um grafo já validado dá o mesmo resultado de conferirFontes; o contrato v1 não muda e o corpus do KG1 segue verde",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:30:56.920Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-kg1-boundary.test.ts",
+      "alegacao": "KG1 a KG3 e a fronteira da família do grafo seguem verdes com o KG4: contrato, benchmark, extração, índice, consulta e fronteira (os extratores seguem puros, o índice segue sem processo e o Git só entra pela borda de leitura)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-contract.test.js core/dist-test/test/intelligence-benchmark-contract.test.js core/dist-test/test/intelligence-graph-extract.test.js core/dist-test/test/intelligence-graph-index.test.js core/dist-test/test/intelligence-graph-query.test.js core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:30:59.620Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/linha-de-base-grafo.cjs",
+      "alegacao": "Linha de base determinística do protocolo: para cada tarefa, os dois braços medidos (bytes de contexto, arquivos lidos, latência e se os fatos obrigatórios aparecem no contexto) e o preparo do índice, frio e incremental, com tokens unavailable; o validador recusa token medido sem medida, braço faltando e conclusão de economia",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/linha-de-base-grafo.cjs --validar core/test/fixtures/kg4-linha-de-base.json"
+      ],
+      "criadoEm": "2026-10-01T05:31:01.790Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg4-protocolo-ab.json",
+      "alegacao": "Registro ork.graph-benchmark/v1 com o protocolo fixado (tarefas da linha de base, controles da rodada paga, tratamento com o digest e o conjunto de arestas do grafo medido, pares AB e BA balanceados pela seed) e status not-run: validarBenchmark aceita, avaliarBenchmark dá not-run e o registro nunca é publicável",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/linha-de-base-grafo.cjs --validar-protocolo core/test/fixtures/kg4-protocolo-ab.json"
+      ],
+      "criadoEm": "2026-10-01T05:31:04.073Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-incremental.test.ts",
+      "alegacao": "KG4 harness: com um agente simulado no lugar do runtime, o harness da rodada paga roda os pares na ordem do protocolo, colhe requisições e tokens da telemetria do agente, confere os fatos obrigatórios e grava o registro ork.graph-benchmark/v1 que validarBenchmark aceita e avaliarBenchmark julga; sem a bandeira explícita de execução paga, recusa abrir sessão",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 harness' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:31:06.276Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-contract.test.ts",
+      "alegacao": "Grupo KG4 piso: compara o canonico rápido com a forma original do KG1 (map e join, chaves ordenadas a cada objeto) no corpus, em formas difíceis, em mais formas que o teto do cache e no primeiro erro; e a conferência sobre o grafo já validado com conferirFontes, inclusive no erro",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 piso' core/dist-test/test/intelligence-graph-contract.test.js"
+      ],
+      "criadoEm": "2026-10-01T05:41:00.750Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract.ts",
+      "alegacao": "extrairGrafo devolve as unidades por arquivo (ork.graph-extraction-units/v0) e, com as unidades de uma base, planeja a mudança por conteúdo e reextrai só o que ela alcança, devolvendo o mesmo grafo, o mesmo relatório e as mesmas unidades da extração sem base; a extração sem base segue o KG2 (testes de extração verdes)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-extract.test.js && node --test --test-name-pattern='KG4 equivalencia' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:01:34.518Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract-ts.ts",
+      "alegacao": "extrairTypeScript devolve, por arquivo extraído, os achados, as dependências de resolução (compilador, runtime e implementação, inclusive o tipo importado no JSDoc) e as sondas das resoluções relativas, mais os arquivos globais do programa; com emitir, extrai só os pedidos num programa parcial e pede os alvos que faltam; sem emitir, os achados são os do KG2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-extract.test.js && node --test --test-name-pattern='KG4 (equivalencia|queda)' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:01:37.269Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "estruturarMarkdown guarda a estrutura pura dos bytes de cada Markdown (seções, links, menções com offset e o frontmatter reduzido) e ligarMarkdown, com as estruturas, dá os mesmos achados que extrairMarkdown dava; uma estrutura reaproveitada da base liga igual à extraída de novo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-extract.test.js && node --test --test-name-pattern='KG4 equivalencia' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:01:40.188Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-repo.ts",
+      "alegacao": "revisoesAncestrais devolve o HEAD e as revisões ancestrais pelo git rev-list, da mais recente para a mais antiga, até o limite; é por ela que a escolha da base reconhece índice ancestral, de outro extrator e fora da linha do HEAD",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 queda' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:02:41.593Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "ork grafo indexar diz em texto o modo da extração: incremental a partir do índice de qual revisão, com alterados, novos e removidos, o TypeScript parcial, inteiro ou todo da base e o Markdown reextraído; ou completa com o motivo; e, no --verificar, se o incremental deu os mesmos bytes da completa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG4 cli' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:02:43.886Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A ajuda do ork descreve o grafo indexar com o incremental do KG4 a partir do índice ancestral, o --forcar completo e o --verificar que confere o incremental contra a completa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js --help | grep -q 'incremental (KG4)'"
+      ],
+      "criadoEm": "2026-10-01T06:02:45.591Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-index.test.ts",
+      "alegacao": "Os testes do índice do KG3 seguem verdes com o formato v1: a pasta do índice tem os quatro arquivos (grafo, índice, relatório e unidades), e o resto das garantias do KG3 não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:02:47.496Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg4-medida-incremental.json",
+      "alegacao": "Registro ork.graph-incremental-cost/v0 dos seis pares reais (mudança típica de TS, só docs, só dados, arquivo central, renome, remoção com arquivo novo): em todos, igual byte a byte à completa, com os tempos incremental, completo do KG4 e completo do KG3 e a carga; a âncora 2418a4e7 dá o digest do KG3; o validador recusa par sem prova, âncora trocada, completo antes sem origem e conclusão além do medido",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/medir-incremental-grafo.cjs --validar core/test/fixtures/kg4-medida-incremental.json",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='KG4 medida' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:14:11.884Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg4-linha-de-base.json",
+      "alegacao": "Linha de base ork.graph-baseline/v0 medida na revisão 7a1de0c3: preparo do índice completo e incremental a partir do pai; para as seis tarefas, o braço B (ork grafo --json) e o braço A (git grep e leitura dos arquivos com ocorrência) com bytes ao agente, arquivos lidos, latência mediana e os fatos obrigatórios presentes; tokens unavailable e a rodada paga pendente",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/linha-de-base-grafo.cjs --validar core/test/fixtures/kg4-linha-de-base.json",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='KG4 medida' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:14:15.153Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg4-agente-simulado.cjs",
+      "alegacao": "Agente simulado do harness: lê o prompt e escreve telemetria stream-json (init, mensagens com uso, uma repetida, chamada de ferramenta e resultado), gastando menos no braço B, sem abrir sessão paga; o harness com ele grava o registro v1 completo e sintético, com veredito inconclusive por falta de auditoria",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='KG4 harness' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-01T06:14:17.732Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/incremental-grafo-kg4.md",
+      "alegacao": "O contrato do KG4 descreve a base, as quedas com o motivo, as unidades por arquivo, o que se reextrai no Markdown e no TypeScript, as bandeiras, a prova da equivalência, a medida dos seis pares com as medianas e a linha de base do protocolo, sem link quebrado",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-links.cjs && grep -q 'reconstruido-identico' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q '6.512,5 ms' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q 'ork.graph-extraction-units/v0' docs/referencia/contratos/incremental-grafo-kg4.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:12.180Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/grafo-deterministico-kg1.md",
+      "alegacao": "O contrato do KG1 não promete mais identidade estável entre snapshots no KG4: diz que o ID deriva do snapshot e que o KG4 reaproveita a extração sem estabilizá-lo, com link para o KG4",
+      "negativa": false,
+      "verificar": [
+        "! grep -q '(é KG4)' docs/referencia/contratos/grafo-deterministico-kg1.md && grep -q 'incremental-grafo-kg4.md' docs/referencia/contratos/grafo-deterministico-kg1.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:14.328Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/extracao-grafo-kg2.md",
+      "alegacao": "O contrato do KG2 aponta a extração incremental para o KG4 e corrige a estabilidade de identidade entre revisões: os IDs derivam do snapshot, também no KG4",
+      "negativa": false,
+      "verificar": [
+        "! grep -q 'Estabilidade de identidade entre revisões (KG4)' docs/referencia/contratos/extracao-grafo-kg2.md && grep -q 'incremental-grafo-kg4.md' docs/referencia/contratos/extracao-grafo-kg2.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:16.538Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/indice-grafo-kg3.md",
+      "alegacao": "O contrato do KG3 descreve o índice como ele é depois do KG4: schema ork.code-graph-index/v1, o quarto arquivo unidades.json, a construção a partir da base e o --verificar que compara o incremental com a completa",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'unidades.json' docs/referencia/contratos/indice-grafo-kg3.md && grep -q 'ork.code-graph-index/v1' docs/referencia/contratos/indice-grafo-kg3.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:18.729Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/benchmark-grafo-kg1.md",
+      "alegacao": "O contrato do benchmark diz que a parte determinística medida, o protocolo fixado (not-run) e o harness da rodada paga vieram no KG4, e que a rodada paga segue pendente",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'incremental-grafo-kg4.md#linha-de-base-do-protocolo' docs/referencia/contratos/benchmark-grafo-kg1.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:20.575Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI descreve o ork grafo indexar com o incremental a partir do índice ancestral, o motivo da completa, o --verificar contra a completa e o --forcar completo",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'incremental a partir do índice da revisão ancestral' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:22.176Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "O RM-031 traz a thread do KG4, o KG3 mesclado (c507a3a), o KG4 e a linha de base com as evidências (pares reais, medianas, protocolo not-run) e o próximo passo; docs verificar e markdownlint passam",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar && grep -q 'ork-rm031kg4incr' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'incremental-grafo-kg4.md' docs/roadmap/RM-031-grafo-de-codigo.md && core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-031-grafo-de-codigo.md"
+      ],
+      "criadoEm": "2026-10-01T06:20:24.881Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG traz, em Não publicado, o índice incremental do KG4 (base ancestral, mesmos bytes, motivo da completa, --verificar e --forcar, índice v1 com unidades) e a linha de base do protocolo com a rodada paga pendente",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{f=1;next} /^## \\[/{f=0} f' CHANGELOG.md | grep -q 'KG4'"
+      ],
+      "criadoEm": "2026-10-01T06:20:26.827Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C29",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
