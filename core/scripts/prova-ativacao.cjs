@@ -30,8 +30,11 @@ function argumentos(argv) {
   const op = { host, saida: null, modelo: HOSTS[host].modelo, manter: false };
   for (let i = 0; i < resto.length; i++) {
     const a = resto[i];
-    if (a === '--saida') op.saida = path.resolve(resto[++i] ?? '');
-    else if (a === '--modelo') op.modelo = resto[++i] ?? '';
+    if ((a === '--saida' || a === '--modelo') && (!resto[i + 1] || resto[i + 1].startsWith('--'))) {
+      process.stderr.write(`${a} exige um valor\n${USO}\n`); process.exit(2);
+    }
+    if (a === '--saida') op.saida = path.resolve(resto[++i]);
+    else if (a === '--modelo') op.modelo = resto[++i];
     else if (a === '--manter') op.manter = true;
     else { process.stderr.write(`argumento desconhecido: ${a}\n${USO}\n`); process.exit(2); }
   }
@@ -181,6 +184,7 @@ function provaClaude(env) {
   recibo.conferencias.push(...r.conferencias);
   recibo.snapshot = r.snapshot;
   conferirEstado(fixture, antes);
+  conferirEstadoDoClaude(fixture);
   recibo.pendenciasHumanas.push(
     { passo: 'confiança na pasta e consentimento do servidor MCP `orkastery` do projeto', bloqueiaProva: false,
       comando: 'cd <projeto> && claude   # aceite "trust this folder" e aprove o servidor orkastery do .mcp.json (ou /mcp)',
@@ -189,6 +193,19 @@ function provaClaude(env) {
       comando: 'na sessão: orkastery maestro   # aprove mcp__orkastery__ork_maestro quando o Claude pedir',
       porque: 'a prova concede só essa tool por --allowedTools, na própria sessão de prova' });
   return 'conferida';
+}
+/**
+ * `.claude.json` guarda os aceites por projeto e é reescrito por qualquer sessão viva da conta, então
+ * hash não prova nada. Lê só a entrada da raiz temporária: ela não pode trazer aceite gravado.
+ */
+function conferirEstadoDoClaude(fixture) {
+  const arquivo = process.env.CLAUDE_CONFIG_DIR ? path.join(configClaude, '.claude.json') : path.join(home, '.claude.json');
+  let entrada = null;
+  try { entrada = JSON.parse(fs.readFileSync(arquivo, 'utf8')).projects?.[fixture] ?? null; } catch { /* sem arquivo: sem entrada */ }
+  const aceite = entrada && (entrada.hasTrustDialogAccepted === true || (entrada.enabledMcpjsonServers ?? []).length > 0 || (entrada.allowedTools ?? []).length > 0);
+  recibo.conferencias.push({ id: 'estado-do-cli.sem-aceite', ok: !aceite,
+    detalhe: entrada === null ? `nenhuma entrada da raiz temporária em ${path.basename(arquivo)}`
+      : aceite ? `${path.basename(arquivo)} gravou aceite para a raiz temporária` : `${path.basename(arquivo)} tem a entrada da raiz temporária, sem aceite` });
 }
 function resumoClaude(stdout, t) {
   const eventos = stdout.split('\n').filter(l => l.startsWith('{')).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
@@ -215,8 +232,10 @@ function provaOpenclaw(env) {
   const config = provedor && global.models?.providers?.[provedor];
   if (!config) throw new Error(`openclaw.modelo: modelo ${modelo ?? '(nenhum)'} sem provedor em models.providers`);
   // D3: só referências de segredo (SecretRef) atravessam para a cópia; valor literal recusa.
-  const literal = segredoLiteral(config);
-  if (literal) throw new Error(`openclaw.segredo-literal: models.providers.${provedor}.${literal} tem valor literal; use SecretRef`);
+  for (const [nome, bloco] of [[`models.providers.${provedor}`, config], ['secrets', global.secrets], ['auth', global.auth]]) {
+    const literal = segredoLiteral(bloco);
+    if (literal) throw new Error(`openclaw.segredo-literal: ${nome}.${literal} parece segredo literal; use SecretRef`);
+  }
   const { dir: fixture, esperado } = prepararFixture(env);
   const estado = path.join(raiz, 'openclaw/state'), workspace = path.join(raiz, 'openclaw/workspace');
   fs.mkdirSync(estado, { recursive: true }); fs.mkdirSync(workspace, { recursive: true });
@@ -226,6 +245,8 @@ function provaOpenclaw(env) {
     models: { providers: { [provedor]: config } },
     ...(global.secrets ? { secrets: global.secrets } : {}), ...(global.auth ? { auth: global.auth } : {}),
     tools: global.tools ?? { profile: 'coding' },
+    // O log padrão do OpenClaw é compartilhado (/tmp/openclaw); o da cópia fica na raiz da prova.
+    logging: { file: path.join(raiz, 'openclaw/openclaw.log') },
     plugins: { entries: { orkastery: { enabled: true } } },
   }, null, 2), { mode: 0o600 });
   const envOc = { ...env, OPENCLAW_STATE_DIR: estado, OPENCLAW_CONFIG_PATH: arquivoConfig, NO_COLOR: '1' };
@@ -259,6 +280,12 @@ function provaOpenclaw(env) {
   recibo.conferencias.push(...r.conferencias);
   recibo.snapshot = r.snapshot;
   conferirEstado(fixture, antes);
+  const logs = '/tmp/openclaw';   // o padrão do OpenClaw, fixo, independe de TMPDIR
+  const tocados = fs.existsSync(logs) ? fs.readdirSync(logs).filter(f => {
+    try { return fs.readFileSync(path.join(logs, f), 'utf8').includes(raiz); } catch { return false; }
+  }) : [];
+  recibo.conferencias.push({ id: 'log-compartilhado.intocado', ok: tocados.length === 0,
+    detalhe: tocados.length ? `a cópia escreveu em /tmp/openclaw/${tocados.join(', ')}` : 'nenhuma linha da cópia em /tmp/openclaw; o log ficou na raiz da prova' });
   recibo.pendenciasHumanas.push(
     { passo: 'levar a extensão desta versão ao gateway da máquina e reiniciá-lo', bloqueiaProva: false,
       comando: 'ork --version   # precisa ser a versão com ork_network_roadmap (0.5.0+)\nork adapter install openclaw --dir ~/.openclaw && systemctl --user restart openclaw-gateway',
@@ -272,9 +299,11 @@ function provaOpenclaw(env) {
   return 'conferida';
 }
 function segredoLiteral(obj, prefixo = '') {
+  const { redigir } = require(path.join(repo, 'core/dist/prova-ativacao'));
   for (const [k, v] of Object.entries(obj ?? {})) {
     const caminho = prefixo ? `${prefixo}.${k}` : k;
-    if (typeof v === 'string' && /key|token|secret|password/i.test(k)) return caminho;
+    if (typeof v === 'string' && (/key|token|secret|password|authorization|cookie|header/i.test(k) || redigir(v) !== v ||
+      /:\/\/[^/\s:@]+:[^/\s@]+@/.test(v))) return caminho;
     if (v && typeof v === 'object' && !(typeof v.source === 'string' && typeof v.id === 'string')) {
       const achado = segredoLiteral(v, caminho);
       if (achado) return achado;
@@ -312,14 +341,22 @@ function principal() {
 
 try { principal(); } catch (e) { recibo.estado = 'falha'; recibo.erro = e.message; }
 finally {
+  // Cada passo do fecho no seu próprio try: uma falha aqui não pode levar o recibo junto.
   if (op.manter) recibo.limpeza = { raiz, removido: false, porque: '--manter' };
-  else { fs.rmSync(raiz, { recursive: true, force: true }); recibo.limpeza = { raiz, removido: !fs.existsSync(raiz) }; }
+  else {
+    try { fs.rmSync(raiz, { recursive: true, force: true }); } catch (e) { recibo.limpeza = { erro: e.message }; }
+    recibo.limpeza = { ...recibo.limpeza, raiz, removido: !fs.existsSync(raiz) };
+  }
   recibo.fim = agora();
-  let redigir;
-  try { ({ redigir } = require(path.join(repo, 'core/dist/prova-ativacao'))); }
-  catch { redigir = s => s.replace(/("[^"]*(?:token|secret|password|key)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"'); }
-  const texto = redigir(JSON.stringify(recibo, null, 2)).split(home).join('~') + '\n';
-  if (op.saida) { fs.mkdirSync(path.dirname(op.saida), { recursive: true }); fs.writeFileSync(op.saida, texto); }
+  let redigirObjeto, redigir;
+  try { ({ redigirObjeto, redigir } = require(path.join(repo, 'core/dist/prova-ativacao'))); }
+  catch { redigir = s => s.replace(/("[^"]*(?:token|secret|password|key)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"'); redigirObjeto = o => o; }
+  // Redige cada texto antes de serializar (JSON dentro de stdout escaparia depois) e de novo o todo.
+  const texto = redigir(JSON.stringify(redigirObjeto(recibo), null, 2)).split(home).join('~') + '\n';
+  if (op.saida) {
+    try { fs.mkdirSync(path.dirname(op.saida), { recursive: true }); fs.writeFileSync(op.saida, texto); }
+    catch (e) { process.stderr.write(`recibo não gravado em ${op.saida}: ${e.message}\n`); }
+  }
   process.stdout.write(texto);
   process.stderr.write(`prova ${op.host}: ${recibo.estado}${recibo.erro ? ` (${recibo.erro})` : ''}\n`);
   process.exitCode = SAIDA[recibo.estado] ?? 1;
