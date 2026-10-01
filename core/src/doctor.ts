@@ -127,9 +127,14 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
     checks.push({ nome: 'onboarding memoria', nivel: 'warn', detalhe: `entrevista escolheu ${modo}; manifesto declara ${carregado.manifesto.memory.mode}`,
       correcao: `revise memory.mode: ${modo} em orkastery.yaml; a entrevista não altera o manifesto` });
   }
-  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto.
+  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto. Com
+  // `owner.timezone` na mesma resposta (gravado no manifesto pelo `onboarding set`), vale ele: no
+  // ensaio da 0.5.0, o `fuso` legado da resposta anterior mandava desfazer a escolha explicita.
   const maestro = estado.etapas.maestro?.conteudo;
-  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? normalizarFuso(maestro.fuso) : undefined;
+  const owner = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? maestro.owner : undefined;
+  const fusoDoOwner = owner && typeof owner === 'object' && !Array.isArray(owner) ? (owner as Record<string, unknown>).timezone : undefined;
+  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro)
+    ? normalizarFuso(fusoDoOwner ?? maestro.fuso) : undefined;
   if (fusoDaEntrevista && fusoDaEntrevista !== carregado.manifesto.owner?.timezone) {
     checks.push({ nome: 'onboarding fuso', nivel: 'warn',
       detalhe: `entrevista informou ${fusoDaEntrevista}; manifesto declara ${carregado.manifesto.owner?.timezone ?? `${CHAVE_DO_FUSO} ausente`}`,

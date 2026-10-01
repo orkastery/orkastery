@@ -17,7 +17,8 @@ import { carregarManifesto } from '../src/manifest';
 import { checar } from '../src/doctor';
 import { exec, shaCurto } from '../src/util';
 import { avaliarPolicies } from '../src/policies';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { gravarEtapa } from '../src/onboarding';
+import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
@@ -154,5 +155,30 @@ test('ensaio 050: push direto na base aponta ork worktree ensure, e nao o propri
     }
     assert.equal(avaliarPolicies(p.carregado.manifesto, { gate: 'ship', baseBranch: 'main', threadId: 'ork-exemplo',
       de: 'ork/ork-exemplo-full', para: 'main' }).some(x => x.policy === 'push_direto_na_base'), false);
+  } finally { p.limpar(); }
+});
+
+test('ensaio 050: fuso do owner vence o fuso legado no aviso do doctor', () => {
+  const p = projetoTemporario('ensaio-fuso');
+  try {
+    // O guia de onboarding responde com o fuso legado; o de experiencia, com owner na mesma etapa.
+    gravarEtapa(p.dir, 'maestro', { nome: 'Equipe', objetivo: 'Conduzir o produto', fuso: 'America/Sao_Paulo' }, 'equipe');
+    gravarEtapa(p.dir, 'maestro', { owner: { language: 'pt-BR', timezone: 'UTC', depth: 'curta', experience: true } }, 'equipe');
+    assert.equal(checar(p.dir).some(c => c.nome === 'onboarding fuso'), false, 'owner.timezone foi gravado no manifesto');
+
+    // Manifesto editado a mao: o aviso cita o owner.timezone da resposta, nao o fuso legado.
+    ajustarManifesto(p, /timezone: "UTC"/, 'timezone: "Europe/Lisbon"');
+    const aviso = checar(p.dir).find(c => c.nome === 'onboarding fuso');
+    assert.equal(aviso?.nivel, 'warn');
+    assert.match(aviso?.detalhe ?? '', /entrevista informou UTC; manifesto declara Europe\/Lisbon/);
+  } finally { p.limpar(); }
+});
+
+test('ensaio 050: fuso do owner ausente deixa o fuso legado valer como antes', () => {
+  const p = projetoTemporario('ensaio-fuso-legado');
+  try {
+    gravarEtapa(p.dir, 'maestro', { nome: 'Equipe', fuso: 'America/Sao_Paulo' }, 'equipe');
+    assert.match(checar(p.dir).find(c => c.nome === 'onboarding fuso')?.detalhe ?? '',
+      /entrevista informou America\/Sao_Paulo; manifesto declara owner\.timezone ausente/);
   } finally { p.limpar(); }
 });
