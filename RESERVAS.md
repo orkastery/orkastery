@@ -11,6 +11,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-031 | Julio Pessoa | vps | ork-rm031kg3 | 29/09 11:51 | — |
 | RM-032 | Julio Pessoa | srvjcp86 | ork-rm032ativaca | 30/09 02:39 | — |
 | RM-037 | Julio Pessoa | vps | ork-rm037noite | 28/09 13:10 | — |
+| RM-040 | Julio Pessoa | srvjcp86 | — | 01/10 04:51 | — |
 | RM-043 | Julio Pessoa | vps | ork-openclawsema | 29/09 01:51 | — |
 | RM-044 | Julio Pessoa | vps | ork-roadmapestad | 28/09 18:23 | — |
 | RM-046 | Julio Pessoa | vps | ork-rm046conclui | 28/09 04:09 | — |
