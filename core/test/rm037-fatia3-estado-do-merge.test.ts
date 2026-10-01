@@ -116,7 +116,8 @@ test('defeito 1: merge ship(<thread>) na base com o item em Branch criada reprov
     const [a] = achados;
     assert.deepEqual([a.regra, a.id, a.arquivo], ['docs.paridade.merge', 'RM-001', ITEM]);
     assert.match(a.mensagem, new RegExp(`a thread ork-entrega1 entrou na main pelo merge ${merge.slice(0, 7)} \\(ship\\(ork-entrega1\\)\\), e o estado\\.codigo diz "Branch criada"`));
-    assert.equal(a.correcao, 'na raiz, depois do merge: ork docs sincronizar --escrever --so RM-001, e commite o item e os índices');
+    assert.equal(a.correcao, 'abra um PR de docs sobre a main atualizada com ork docs sincronizar --escrever --so RM-001 ' +
+      '(o item e os índices); se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela');
 
     // A correcao dita corrige: o sincronizar grava Mesclado com o merge, e o verificador volta a passar.
     const r = sincronizarDocs(p.dir, { escrever: true, itens: ['RM-001'] });
@@ -163,6 +164,64 @@ test('defeito 1: o indice gerado que diverge do frontmatter reprova com docs.par
     sincronizarDocs(p.dir, { escrever: true });
     assert.deepEqual(verificarDocs(p.dir, { semGit: true }).achados.filter((a) => a.regra === 'docs.paridade.indice'), []);
   } finally { p.limpar(); }
+});
+
+test('defeito 1 (GO-FIX 2): no PR as duas regras so avisam, e o push da main reprova', () => {
+  const p = projetoComItem('rm037-f3-modo-pr', 'ork-entrega5');
+  try {
+    mesclarThread(p.dir, 'ork-entrega5');
+    const indice = path.join(p.dir, 'docs/roadmap/README.md');
+    fs.writeFileSync(indice, fs.readFileSync(indice, 'utf8').replace(/^\| \[RM-001\].*\n/m, ''));
+    // Na main (sem --pr): os dois erros.
+    assert.deepEqual(erros(verificarDocs(p.dir).achados).map((a) => a.regra).sort(), ['docs.paridade.indice', 'docs.paridade.merge']);
+    // No PR: os mesmos achados como aviso, com o lembrete de que o push da main reprova.
+    const noPr = verificarDocs(p.dir, { pr: true }).achados;
+    assert.deepEqual(erros(noPr), []);
+    const avisos = noPr.filter((a) => a.gravidade === 'aviso' && a.regra.startsWith('docs.paridade.'));
+    assert.deepEqual(avisos.map((a) => a.regra).sort(), ['docs.paridade.indice', 'docs.paridade.merge']);
+    for (const a of avisos) assert.match(a.mensagem, /\(no PR, aviso: o push da main reprova\)$/);
+    const cli = spawnSync(process.execPath, [ORK, 'docs', 'verificar', '--pr'], { cwd: p.dir, encoding: 'utf8' });
+    assert.equal(cli.status, 0, cli.stdout + cli.stderr);
+    // A correcao manda abrir um PR de docs (a main e protegida) e lembra a fatia em curso.
+    const merge = noPr.find((a) => a.regra === 'docs.paridade.merge')!;
+    assert.equal(merge.correcao, 'abra um PR de docs sobre a main atualizada com ork docs sincronizar --escrever --so RM-001 ' +
+      '(o item e os índices); se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela');
+  } finally { p.limpar(); }
+});
+
+test('defeito 1 (GO-FIX 2): so conta o merge da linha de primeiro pai com o assunto ship(<thread>)', () => {
+  const p = projetoComItem('rm037-f3-assunto', 'ork-entrega6');
+  try {
+    // Um commit que so cita o merge no corpo, mesclado pela entrega de outra thread, nao e o merge desta.
+    git(p.dir, 'checkout', '-q', '-b', 'ork/ork-outra-full');
+    fs.writeFileSync(path.join(p.dir, 'nota.txt'), 'nota\n');
+    git(p.dir, 'add', '--', 'nota.txt');
+    git(p.dir, 'commit', '-q', '-m', 'docs: a nota', '-m', 'Depois do ship(ork-entrega6), revisar a nota.');
+    git(p.dir, 'checkout', '-q', 'main');
+    git(p.dir, 'merge', '-q', '--no-ff', 'ork/ork-outra-full', '-m', 'ship(ork-outra): a nota');
+    assert.deepEqual(erros(verificarDocs(p.dir).achados), [], 'o corpo que cita o merge nao conta');
+    // O Revert do merge tambem nao conta como merge.
+    git(p.dir, 'commit', '-q', '--allow-empty', '-m', 'Revert "ship(ork-entrega6): a entrega"');
+    assert.deepEqual(erros(verificarDocs(p.dir).achados), [], 'o Revert nao conta');
+    // O merge de verdade conta.
+    mesclarThread(p.dir, 'ork-entrega6');
+    assert.deepEqual(erros(verificarDocs(p.dir).achados).map((a) => a.regra), ['docs.paridade.merge']);
+  } finally { p.limpar(); }
+});
+
+test('defeito 1 (GO-FIX 2): indice com CRLF nao e divergencia', () => {
+  const p = projetoComItem('rm037-f3-crlf', 'ork-entrega7');
+  try {
+    const indice = path.join(p.dir, 'docs/roadmap/README.md');
+    fs.writeFileSync(indice, fs.readFileSync(indice, 'utf8').replace(/\n/g, '\r\n'));
+    assert.deepEqual(verificarDocs(p.dir, { semGit: true }).achados.filter((a) => a.regra === 'docs.paridade.indice'), []);
+  } finally { p.limpar(); }
+});
+
+test('defeito 1 (GO-FIX 2): o job documentacao do CI usa --pr no pull_request e o verificador cheio no push', () => {
+  const ci = fs.readFileSync(path.resolve(__dirname, '../../../.github/workflows/ci.yml'), 'utf8');
+  const job = ci.slice(ci.indexOf('\n  documentacao:'), ci.indexOf('\n  nucleo:'));
+  assert.match(job, /if \[ "\$GITHUB_EVENT_NAME" = pull_request \]; then\n\s+node core\/dist\/index\.js docs verificar --pr\n\s+else\n\s+node core\/dist\/index\.js docs verificar\n/);
 });
 
 test('defeito 1: o CLI sai 2 e devolve a regra tipada com a correcao pronta', () => {

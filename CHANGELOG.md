@@ -12,7 +12,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork docs verificar` reprova o item cuja thread (`sdlc.thread`) já entrou na base pelo merge
     `ship(<thread>)` e segue fora de `Mesclado` (`docs.paridade.merge`), e o índice gerado que
     diverge do frontmatter (`docs.paridade.indice`); `ork docs sincronizar --escrever --so RM-NNN`
-    corrige os dois;
+    corrige os dois. No PR (`ork docs verificar --pr`, o que o CI usa), as duas regras só avisam, e o
+    push da `main` reprova: a página de outra thread não trava o PR de ninguém;
   - o check `documentacao` do CI exige linha nova em "Não publicado" quando o PR muda `core/`,
     `adapters/` ou `marketplaces/` (`core/scripts/checar-changelog.cjs`, `changelog.linha-ausente`);
     PR só de testes ou só de CI fica de fora, e o PR de versão passa pela seção nova;

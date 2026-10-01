@@ -103,6 +103,25 @@ test('defeito 2: com a linha nova em "Não publicado", ou com a seção de uma v
   } finally { versao.limpar(); }
 });
 
+test('defeito 2 (GO-FIX 2): o PR de versão passa nos dois formatos, também quando "Não publicado" vira a versão', () => {
+  // Como manda o guia: a seção "Não publicado" vira a da versão, sem colchetes, como as versões até a 0.4.3.
+  const renomeia = repositorio('rm037-f3-changelog-renomeia');
+  try {
+    renomeia.mudar('core/package.json', '{"version":"0.6.0"}\n');
+    renomeia.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado', '## 0.6.0 - 01/10/2026'));
+    const v = checar(renomeia.dir);
+    assert.equal(v.ok, true, v.detalhe);
+    assert.match(v.detalhe, /versão nova no CHANGELOG\.md: 0\.6\.0/);
+  } finally { renomeia.limpar(); }
+  // Com colchetes e sem a seção "Não publicado" no head.
+  const colchetes = repositorio('rm037-f3-changelog-colchetes');
+  try {
+    colchetes.mudar('core/package.json', '{"version":"0.6.0"}\n');
+    colchetes.mudar('CHANGELOG.md', CHANGELOG_DA_BASE.replace('## Não publicado', '## [0.6.0] - 2026-10-01'));
+    assert.equal(checar(colchetes.dir).ok, true);
+  } finally { colchetes.limpar(); }
+});
+
 test('defeito 2: a exceção documentada, PR só de testes ou só de CI, não pede linha', () => {
   const r = repositorio('rm037-f3-changelog-excecao');
   try {

@@ -7,7 +7,7 @@
 - Não mude `version` em `core/package.json` no seu PR.
 - Mudou comportamento? Acrescente uma linha na seção "Não publicado" do [CHANGELOG](../../../CHANGELOG.md), no grupo certo: Adicionado, Mudado, Corrigido ou Removido.
 - A linha diz o efeito para quem usa, com o item do roadmap quando houver.
-- O CI confere: PR que muda `core/`, `adapters/` ou `marketplaces/` sem linha nova em "Não publicado" reprova no check `documentacao` com `changelog.linha-ausente`. Fica de fora o PR só de testes (pasta `test`, `tests` ou `__tests__`, ou arquivo `*.test.*` e `*.spec.*`) e o PR só de CI (`.github/`, `.ork-ci/`, `core/scripts/test-ci.js` e os checadores `core/scripts/checar-*.cjs`, que não entram no pacote). O PR de versão passa porque abre a seção da versão nova.
+- O CI confere: PR que muda `core/`, `adapters/` ou `marketplaces/` sem linha nova em "Não publicado" reprova no check `documentacao` com `changelog.linha-ausente`. Fica de fora o PR só de testes (pasta `test`, `tests` ou `__tests__`, ou arquivo `*.test.*` e `*.spec.*`) e o PR só de CI (`.github/`, `.ork-ci/`, `core/scripts/test-ci.js` e os checadores `core/scripts/checar-*.cjs`, que não entram no pacote). O PR de versão passa porque abre a seção da versão nova, com ou sem colchetes no número, inclusive quando a seção "Não publicado" vira a da versão.
 - Para conferir antes do PR, da raiz do checkout: `node core/scripts/checar-changelog.cjs --base origin/main`.
 
 ## Versão atual

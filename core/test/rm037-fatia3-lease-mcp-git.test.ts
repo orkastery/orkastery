@@ -15,6 +15,9 @@ import { commitMcp } from '../src/mcp-git';
 import { verificarMcp } from '../src/mcp-verify';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
+import { criarServidorMcp } from '../src/mcp-server';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
 const ARQUIVO = 'docs/compartilhado.md';
 
@@ -93,4 +96,41 @@ test('defeito 4: o verify pelo MCP nao trava no main-tree ativo de thread fechad
     assert.equal(r.ok, true, JSON.stringify(r));
     assert.equal(lerLease(p.dir, 'main-tree'), null);
   } finally { p.limpar(); }
+}));
+
+test('defeito 4 (GO-FIX 2): pelas tools do servidor MCP, o main-tree ativo de thread fechada nao trava artefato nem verify', () => comHomeIsolado(async () => {
+  const p = projetoTemporario('rm037-f3-lease-mcp-servidor');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'codex' });
+  const client = new Client({ name: 'fixture-MCP-SIMULADA', version: '1' }, { capabilities: {} });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st); await client.connect(ct);
+    const chamar = async (name: string, args: Record<string, unknown>) => {
+      const r = await client.callTool({ name, arguments: args });
+      const texto = (r.content as Array<{ type: string; text?: string }>).filter((x) => x.type === 'text').map((x) => x.text).join('');
+      return { erro: r.isError === true, texto };
+    };
+    const fechada = novaThread(p.carregado, { nome: 'ship que caiu', modo: 'auto' }).thread.id;
+    adquirir(p.dir, 'main-tree', { thread: fechada, motivo: 'SHIP que caiu antes do fechamento', ttlMs: 60_000 });
+    fechar(p.dir, fechada);
+    const { viva } = threadViva(p);
+
+    // A primeira conferencia de toda tool de escrita (`livre`) podava nada e saia lease.busy.
+    const artefato = await chamar('ork_artifact_write', { threadId: viva.id, tipo: 'goal', conteudo: '# Objetivo\n', expectedSha256: null });
+    assert.equal(artefato.erro, false, artefato.texto);
+    assert.equal(lerLease(p.dir, 'main-tree'), null, 'o main-tree da thread fechada saiu');
+    assert.ok(lerLedger(dirThread(p.dir, fechada)).some((e) => e.tipo === 'lease_released' && e.lease === 'main-tree' && e.origem === 'poda'));
+
+    adquirir(p.dir, 'main-tree', { thread: fechada, motivo: 'de novo', ttlMs: 60_000 });
+    const verify = await chamar('ork_verify', { threadId: viva.id });
+    assert.equal(verify.erro, false, verify.texto);
+    assert.equal(lerLease(p.dir, 'main-tree'), null);
+
+    // O main-tree de thread aberta segue barrando, como antes.
+    const aberta = novaThread(p.carregado, { nome: 'ship em curso', modo: 'auto' }).thread.id;
+    adquirir(p.dir, 'main-tree', { thread: aberta, motivo: 'SHIP em curso', ttlMs: 60_000 });
+    const barrado = await chamar('ork_artifact_write', { threadId: viva.id, tipo: 'goal', conteudo: '# De novo\n', expectedSha256: null });
+    assert.equal(barrado.erro, true);
+    assert.match(barrado.texto, /lease\.busy: main-tree/);
+  } finally { await client.close(); await server.close(); p.limpar(); }
 }));

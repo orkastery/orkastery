@@ -548,7 +548,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
-  docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
+  docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
+                                            o merge de outra thread e o indice que divergem da main so avisam
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
@@ -2798,7 +2799,8 @@ function comandoDocs(args: Args): number {
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
   if (sub === 'verificar') {
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA });
+    // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
+    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -2848,7 +2850,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
+  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 

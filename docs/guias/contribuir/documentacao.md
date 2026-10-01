@@ -31,7 +31,7 @@
 ## Paridade
 
 - **Com o código:** página de produto e item de roadmap têm frontmatter. O `ork docs verificar` reprova fonte que não existe, comando que o CLI não declara, commit de merge fora da `main` e seção esquecida.
-- **Com o merge:** depois que o PR da thread entra na `main` (o merge `ship(<thread>)`), o item dela tem de dizer `codigo: Mesclado`, e o índice gerado tem de bater com o frontmatter. O `ork docs verificar` reprova os dois (`docs.paridade.merge`, `docs.paridade.indice`) até o `ork docs sincronizar --escrever --so RM-NNN` rodar na raiz e o item e os índices serem commitados.
+- **Com o merge:** depois que o PR da thread entra na `main` (o merge `ship(<thread>)`), o item dela tem de dizer `codigo: Mesclado`, e o índice gerado tem de bater com o frontmatter. O push da `main` reprova os dois (`docs.paridade.merge`, `docs.paridade.indice`); no PR, o CI roda `ork docs verificar --pr`, e eles só avisam, porque a divergência é da `main`. Quem mesclou abre o PR de docs: numa branch nova sobre a `origin/main` atualizada, `ork docs sincronizar --escrever --so RM-NNN`, com o item e os índices.
 - **Com o git:** as tabelas entre os marcadores `ork-docs:` saem do frontmatter, e o `ork docs verificar` reprova quando elas divergem. Mudou o frontmatter de um item? Regere as tabelas do item com `--so`, confira o diff e commite só o item que você mudou (na worktree de uma thread, o padrão já é o item dela):
 
 <!-- checagem: citado -->

@@ -61,9 +61,12 @@ function linhasDaSecao(texto) {
   return corpo;
 }
 
-/** As versoes do CHANGELOG (`## [0.5.0] - ...`). */
+/**
+ * As versoes do CHANGELOG, nos dois formatos que ele ja teve: `## [0.5.0] - 2026-09-30` e
+ * `## 0.4.3` seguido da data, sem colchetes (GO-FIX 2, achado 2 do CHECK: o segundo nao era reconhecido).
+ */
 function versoes(texto) {
-  return new Set([...texto.matchAll(/^## \[([^\]]+)\]/gm)].map((m) => m[1]));
+  return new Set([...texto.replace(/\r\n/g, '\n').matchAll(/^## \[?(\d+\.\d+\.\d+[0-9A-Za-z.+-]*)\]?(?=\s|$)/gm)].map((m) => m[1]));
 }
 
 /** O CHANGELOG numa revisao; `''` quando ele nao existe nela. */
@@ -99,16 +102,18 @@ function checarChangelog(raiz, opcoes = {}) {
   }
 
   const antes = changelogEm(raiz, mb.saida), depois = changelogEm(raiz, head);
+  // A versao nova vem antes da secao: o PR de versao pode renomear "Nao publicado" para a versao, e
+  // entao a secao some (achado 2 do CHECK, o PR da 0.4.3).
+  const versaoNova = [...versoes(depois)].filter((v) => !versoes(antes).has(v));
+  if (versaoNova.length > 0) {
+    return { ok: true, motivo: null, arquivos: pedem, linhas: [],
+      detalhe: `versão nova no ${CHANGELOG}: ${versaoNova.join(', ')} (o PR de versão leva as linhas para ela)` };
+  }
   const secao = linhasDaSecao(depois);
   if (secao === null) {
     return { ok: false, motivo: 'changelog.secao-ausente', arquivos: pedem, linhas: [],
       detalhe: `o ${CHANGELOG} de ${head} não tem a seção "${SECAO}"`,
       correcao: `abra a seção "${SECAO}" no alto do ${CHANGELOG} e acrescente a linha da mudança` };
-  }
-  const versaoNova = [...versoes(depois)].filter((v) => !versoes(antes).has(v));
-  if (versaoNova.length > 0) {
-    return { ok: true, motivo: null, arquivos: pedem, linhas: [],
-      detalhe: `versão nova no ${CHANGELOG}: ${versaoNova.join(', ')} (o PR de versão leva as linhas para ela)` };
   }
   // Multiconjunto: uma linha repetida que ja existia na base nao conta como nova.
   const naBase = new Map();

@@ -45,8 +45,15 @@ jobs:
         working-directory: core
       - name: forma do Markdown
         run: core/node_modules/.bin/markdownlint-cli2
+      # RM-037 (fatia 3): no PR, o merge de outra thread com o item fora de Mesclado e o indice que
+      # divergem da main so avisam; no push da main eles reprovam, e o PR de docs os corrige.
       - name: paridade com o codigo e o git
-        run: node core/dist/index.js docs verificar
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            node core/dist/index.js docs verificar --pr
+          else
+            node core/dist/index.js docs verificar
+          fi
       - name: links relativos
         run: node core/scripts/checar-links.cjs
       # RM-037 (fatia 3, defeito 2): PR que muda core/, adapters/ ou marketplaces/ leva linha em
