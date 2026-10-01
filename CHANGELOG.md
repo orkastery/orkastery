@@ -6,9 +6,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.0] - 2026-09-30
+
 ### Adicionado
 
-- **Grafo de código: índice e consulta** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG3):
+- **Grafo de código: extração, índice e consulta** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG2 e KG3):
+  - extração determinística de um repositório local no contrato `ork.code-artifact-graph/v1`
+    (KG2): TypeScript e JavaScript pelo compilador, Markdown (seções, links, frontmatter e IDs
+    citados) e a proveniência de cada aresta; o que não se prova fica fora e declarado, e a mesma
+    entrada dá o mesmo grafo e o mesmo digest em qualquer ordem de leitura;
   - `ork grafo indexar [--verificar] [--forcar]`: índice local e persistente do grafo do HEAD
     limpo, no estado do projeto e fora do git (pastas 0700, arquivos 0600), chaveado pela revisão,
     pela identidade e pelo extrator, e idempotente; `--verificar` confere contrato, bytes e
@@ -77,6 +83,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     servido;
   - fica para a fatia 3, com a RM-053 na `main`: `ork_network_status` e a rede por pessoa como
     fonte de projetos e máquinas.
+- **Plugin nos marketplaces** ([RM-049](docs/roadmap/RM-049-lancamento.md)): o plugin do Claude
+  Code (20 skills, 8 comandos, 6 subagentes e as checklists) e o plugin de skills do Codex (a
+  entrada `ork` e as 20 skills), em `marketplaces/`, gerados do catálogo por
+  `core/scripts/gerar-marketplaces.cjs` na versão do `@orkastery/cli` e conferidos no CI com
+  `--verificar`. Sem hooks nem MCP: instalado pelo diretório, o plugin vale para a conta toda, e o
+  guard e os sensores seguem no `ork adapter install claude-code`, por projeto. Os marketplaces
+  próprios na raiz do repositório instalam sem esperar a revisão dos diretórios
+  (`claude plugin marketplace add orkastery/orkastery`, `codex plugin marketplace add orkastery/orkastery`).
 - **HITL humano no centro** ([RM-048](docs/roadmap/RM-048-hitl-humano-no-centro.md)):
   - todo pedido sai num contrato curto, `ork.hitl-curto/v1`: pergunta em uma frase, o que trava e
     desde quando, até quatro alternativas de uma linha, uma recomendada com o porquê e a última
