@@ -366,7 +366,7 @@ entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 | Comando | O que faz |
 | --- | --- |
 | `ork worktree ensure <thread>` | Garante a worktree da thread, com a base resolvida pelo `ork` |
-| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e sem ancestral comum com a base (base reescrita), recusa com o `git rebase --onto` exato |
+| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e base reescrita (sem ancestral comum, ou com o ponto em que a thread saiu da base fora dela, como depois de um force-push), recusa com `tree.blocked`, causa `base-reescrita`, a contagem por `git rev-list --count` e o `git rebase --onto` que reaplica só os commits da thread (RM-037) |
 | `ork worktree audit <thread>` | Confere a worktree **no próprio git**. Sai diferente de zero se divergir |
 | `ork worktree release <thread> [--forcar]` | Remove a worktree e limpa o registro |
 | `ork lease list` | Os leases, as famílias e as filas (merge e colisão de região) |
