@@ -136,6 +136,15 @@ export const POLICIES_CONHECIDAS: Readonly<Record<string, { quando: PontoDeGate[
   },
 };
 
+/**
+ * Ensaio da 0.5.0: a thread criada sem `--worktree auto` entrega a base para a base, e a correcao
+ * repetia o proprio `ork ship`. A thread ja criada ganha a branch dela com `ork worktree ensure`.
+ */
+function correcaoSemBranchDaThread(threadId?: string): string {
+  return `entregue a branch da thread (ork/<slug>): sem worktree, crie-a com ork worktree ensure ${threadId || '<thread>'}; ` +
+    'thread nova: ork thread new ... --worktree auto';
+}
+
 function severidade(bruta: string | undefined): Severidade {
   if (bruta === 'block' || bruta === 'warn' || bruta === 'off') return bruta;
   return 'warn';
@@ -200,7 +209,7 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           severidade: sev,
           motivo: 'policy.violation',
           detalhe: `origem e destino sao a mesma branch ("${de}"): isso e push direto na base, nao merge de thread`,
-          correcao: 'entregue a partir da branch da thread: ork ship <thread> --para ' + (base || 'main'),
+          correcao: correcaoSemBranchDaThread(ctx.threadId),
         });
       } else if (de && base && de === base) {
         violacoes.push({
@@ -208,7 +217,7 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           severidade: sev,
           motivo: 'policy.violation',
           detalhe: `a origem "${de}" e a propria branch base do projeto: nenhuma branch de thread foi usada`,
-          correcao: 'crie a thread com --worktree auto e entregue a branch ork/<slug>',
+          correcao: correcaoSemBranchDaThread(ctx.threadId),
         });
       }
       continue;

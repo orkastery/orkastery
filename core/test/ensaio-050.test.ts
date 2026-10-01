@@ -16,7 +16,8 @@ import { init } from '../src/init';
 import { carregarManifesto } from '../src/manifest';
 import { checar } from '../src/doctor';
 import { exec, shaCurto } from '../src/util';
-import { dirTemporario } from './apoio';
+import { avaliarPolicies } from '../src/policies';
+import { dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
@@ -136,4 +137,22 @@ test('ensaio 050: baseline sem commit mostra o marcador inteiro no verify', () =
     assert.match(v.stdout, /  baseline    desconhecido de /);
     assert.doesNotMatch(v.stdout, /desconhe de /);
   } finally { limpar(dir, casa); }
+});
+
+test('ensaio 050: push direto na base aponta ork worktree ensure, e nao o proprio ship', () => {
+  const p = projetoTemporario('ensaio-push');
+  try {
+    // Origem igual ao destino (a thread sem worktree entrega main para main) e origem igual a base.
+    for (const rota of [{ de: 'main', para: 'main' }, { de: 'main', para: 'release' }]) {
+      const v = avaliarPolicies(p.carregado.manifesto, { gate: 'ship', baseBranch: 'main', threadId: 'ork-exemplo', ...rota })
+        .find(x => x.policy === 'push_direto_na_base');
+      assert.ok(v, JSON.stringify(rota));
+      assert.equal(v.severidade, 'block');
+      assert.match(v.correcao, /sem worktree, crie-a com ork worktree ensure ork-exemplo/);
+      assert.match(v.correcao, /--worktree auto/);
+      assert.doesNotMatch(v.correcao, /ork ship/);
+    }
+    assert.equal(avaliarPolicies(p.carregado.manifesto, { gate: 'ship', baseBranch: 'main', threadId: 'ork-exemplo',
+      de: 'ork/ork-exemplo-full', para: 'main' }).some(x => x.policy === 'push_direto_na_base'), false);
+  } finally { p.limpar(); }
 });
