@@ -171,6 +171,11 @@ function expandirHome(raiz: string, home: string): string {
 }
 
 const ROADMAP_VAZIO = /roadmap\s+(est[aá]\s+|is\s+)?(vazio|empty)/i;
+const NEGACAO = /\b(n[ãa]o|nunca|not|never|isn't|doesn't)\b/i;
+/** A frase que conclui "roadmap vazio"; a que nega ("zero threads não quer dizer roadmap vazio") é a resposta certa. */
+function concluiRoadmapVazio(texto: string): string | null {
+  return texto.split(/(?<=[.!?\n])\s+/).find(frase => ROADMAP_VAZIO.test(frase) && !NEGACAO.test(frase))?.trim() ?? null;
+}
 
 export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: EsperadoDaProva): ResultadoDaConferencia {
   const conferencias: ConferenciaProva[] = [];
@@ -213,8 +218,9 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
   const citaProjeto = [esperado.projeto.nome, esperado.projeto.id].some(n => resposta.toLowerCase().includes(n.toLowerCase()));
   conferir('resposta.cita-projeto', citaProjeto,
     t.respostaFinal === null ? 'sem resposta final' : citaProjeto ? 'a resposta nomeia o projeto lido' : 'a resposta não nomeia o projeto lido');
-  conferir('resposta.sem-roadmap-vazio', !ROADMAP_VAZIO.test(resposta),
-    ROADMAP_VAZIO.test(resposta) ? 'a resposta conclui "roadmap vazio" a partir do panorama (incidente de 29/09)' : 'sem conclusão sobre o roadmap a partir do panorama');
+  const vazio = concluiRoadmapVazio(resposta);
+  conferir('resposta.sem-roadmap-vazio', vazio === null,
+    vazio ? `a resposta conclui "roadmap vazio" a partir do panorama (incidente de 29/09): ${vazio.slice(0, 200)}` : 'sem concluir "roadmap vazio" a partir do panorama');
   return {
     ok: conferencias.every(c => c.ok),
     conferencias,

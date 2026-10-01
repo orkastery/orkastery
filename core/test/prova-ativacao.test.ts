@@ -90,6 +90,10 @@ test('resposta que conclui "roadmap vazio", sem o projeto ou sem notConsulted re
     const vazio = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir),
       resposta: 'Projeto orkastery: 0 threads, o roadmap está vazio.' })), esperado);
     assert.equal(ok(vazio, 'resposta.sem-roadmap-vazio')!.ok, false);
+    // A resposta certa nega a conclusão (texto real da prova de 01/10 com Sonnet).
+    const negada = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir),
+      resposta: 'Projeto orkastery. Esta consulta não os lê. Zero threads não quer dizer roadmap vazio.\nThe roadmap is not empty by default.' })), esperado);
+    assert.equal(ok(negada, 'resposta.sem-roadmap-vazio')!.ok, true, ok(negada, 'resposta.sem-roadmap-vazio')!.detalhe);
     const anonimo = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: 'Nada em andamento.' })), esperado);
     assert.equal(ok(anonimo, 'resposta.cita-projeto')!.ok, false);
     const snap = JSON.parse(snapshotDe(p.dir)); delete snap.notConsulted;
