@@ -14,7 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { init } from '../src/init';
 import { carregarManifesto } from '../src/manifest';
-import { checar } from '../src/doctor';
+import { checar, checarOnboarding } from '../src/doctor';
 import { exec, shaCurto } from '../src/util';
 import { avaliarPolicies } from '../src/policies';
 import { gravarEtapa } from '../src/onboarding';
@@ -86,7 +86,7 @@ test('ensaio 050: init sem commit grava a branch do HEAD, nao main', () => {
   } finally { limpar(dir, casa); }
 });
 
-test('ensaio 050: init sem commit com HEAD destacado fica em main, e com main existente segue main', () => {
+test('ensaio 050: init sem commit, outros casos: HEAD destacado fica em main e main existente segue main', () => {
   const destacado = repoSemCommit('ensaio-init-destacado', 'trunk');
   const comMain = repoSemCommit('ensaio-init-main', 'main');
   try {
@@ -119,6 +119,19 @@ test('ensaio 050: sha curto corta sha e deixa o marcador inteiro', () => {
   assert.equal(shaCurto('abc1234'), 'abc1234');
   assert.equal(shaCurto('desconhecido'), 'desconhecido');
   assert.equal(shaCurto('main'), 'main');
+  assert.equal(shaCurto('a'.repeat(64)), 'aaaaaaaa', 'sha de repositorio SHA-256');
+});
+
+test('ensaio 050: sha curto nas saidas: nenhum commit cortado com slice fora do shaCurto', () => {
+  const src = path.join(RAIZ, 'core/src');
+  const achados: string[] = [];
+  for (const nome of fs.readdirSync(src).filter(n => n.endsWith('.ts'))) {
+    fs.readFileSync(path.join(src, nome), 'utf8').split('\n').forEach((linha, i) => {
+      if (/commit\??\.slice\(0, ?8\)/.test(linha)) achados.push(`${nome}:${i + 1}`);
+    });
+  }
+  // fix.ts, ship.ts e auditrun.ts cortavam o commit do verify, que e o marcador sem commit.
+  assert.deepEqual(achados, []);
 });
 
 test('ensaio 050: thread sem commit avisa no stderr e mostra o marcador inteiro', () => {
@@ -138,11 +151,13 @@ test('ensaio 050: thread sem commit avisa no stderr e mostra o marcador inteiro'
     assert.ok(id, criada.stdout);
     assert.ok(criada.stderr.includes(`a thread ${id} nasceu sem base: o ship não tem de onde partir`), criada.stderr);
     assert.ok(criada.stderr.includes(`ork thread close ${id} --motivo engano`), criada.stderr);
+    assert.doesNotMatch(criada.stdout, /Proximo passo/, 'thread sem base nao tem fase para rodar');
 
     primeiroCommit(dir);
     const depois = ork(dir, casa, 'thread', 'new', 'segunda tarefa', '--modo', 'auto');
     assert.equal(depois.status, 0, depois.stderr);
     assert.match(depois.stdout, /  base      master @ [0-9a-f]{8}\n/);
+    assert.match(depois.stdout, /Proximo passo: ork phase run /);
     assert.doesNotMatch(depois.stderr, /sem base/);
   } finally { limpar(dir, casa); }
 });
@@ -171,8 +186,10 @@ test('ensaio 050: push direto na base aponta ork worktree ensure, e nao o propri
         .find(x => x.policy === 'push_direto_na_base');
       assert.ok(v, JSON.stringify(rota));
       assert.equal(v.severidade, 'block');
-      assert.match(v.correcao, /sem worktree, crie-a com ork worktree ensure ork-exemplo/);
+      assert.match(v.correcao, /com --para main; sem worktree e antes do GO, crie-a com ork worktree ensure ork-exemplo/);
       assert.match(v.correcao, /--worktree auto/);
+      // CHECK, rodada 1: depois do GO, a branch nova nasceria com os commits e o ship empurraria a base.
+      assert.match(v.correcao, /depois do GO, os commits ja estao na base e o ship nao os separa/);
       assert.doesNotMatch(v.correcao, /ork ship/);
     }
     assert.equal(avaliarPolicies(p.carregado.manifesto, { gate: 'ship', baseBranch: 'main', threadId: 'ork-exemplo',
@@ -180,17 +197,22 @@ test('ensaio 050: push direto na base aponta ork worktree ensure, e nao o propri
   } finally { p.limpar(); }
 });
 
+/** So a conferencia da entrevista: o `checar()` inteiro le sessoes e runtimes do HOME de quem roda. */
+function avisoDeFuso(dir: string) {
+  return checarOnboarding(carregarManifesto(dir)!).find(c => c.nome === 'onboarding fuso');
+}
+
 test('ensaio 050: fuso do owner vence o fuso legado no aviso do doctor', () => {
   const p = projetoTemporario('ensaio-fuso');
   try {
     // O guia de onboarding responde com o fuso legado; o de experiencia, com owner na mesma etapa.
     gravarEtapa(p.dir, 'maestro', { nome: 'Equipe', objetivo: 'Conduzir o produto', fuso: 'America/Sao_Paulo' }, 'equipe');
     gravarEtapa(p.dir, 'maestro', { owner: { language: 'pt-BR', timezone: 'UTC', depth: 'curta', experience: true } }, 'equipe');
-    assert.equal(checar(p.dir).some(c => c.nome === 'onboarding fuso'), false, 'owner.timezone foi gravado no manifesto');
+    assert.equal(avisoDeFuso(p.dir), undefined, 'owner.timezone foi gravado no manifesto');
 
     // Manifesto editado a mao: o aviso cita o owner.timezone da resposta, nao o fuso legado.
     ajustarManifesto(p, /timezone: "UTC"/, 'timezone: "Europe/Lisbon"');
-    const aviso = checar(p.dir).find(c => c.nome === 'onboarding fuso');
+    const aviso = avisoDeFuso(p.dir);
     assert.equal(aviso?.nivel, 'warn');
     assert.match(aviso?.detalhe ?? '', /entrevista informou UTC; manifesto declara Europe\/Lisbon/);
   } finally { p.limpar(); }
@@ -200,7 +222,7 @@ test('ensaio 050: fuso do owner ausente deixa o fuso legado valer como antes', (
   const p = projetoTemporario('ensaio-fuso-legado');
   try {
     gravarEtapa(p.dir, 'maestro', { nome: 'Equipe', fuso: 'America/Sao_Paulo' }, 'equipe');
-    assert.match(checar(p.dir).find(c => c.nome === 'onboarding fuso')?.detalhe ?? '',
+    assert.match(avisoDeFuso(p.dir)?.detalhe ?? '',
       /entrevista informou America\/Sao_Paulo; manifesto declara owner\.timezone ausente/);
   } finally { p.limpar(); }
 });
@@ -219,7 +241,7 @@ test('ensaio 050: textos do adaptador sem contagem fixa e com o pacote pulado di
     // Catalogo fora do projeto: o pacote de experiencia (ativo por padrao) e pulado com aviso.
     const r = ork(p.dir, casa, 'adapter', 'install', 'claude-code', '--dir', fora, '--dry-run');
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /^Experiência: pacote pulado nesta instalação \(motivo no aviso abaixo\)/m);
+    assert.match(r.stdout, /^Experiência: pacote pulado nesta instalação, veja o aviso abaixo \(orchestration-experience[a-z-]*\)\.$/m);
     assert.match(r.stdout, /^Aviso: Pacote de experiência pulado: o adaptador fica fora do projeto/m);
     assert.doesNotMatch(r.stdout, /desativada ou sem integração/);
   } finally { p.limpar(); limpar(casa, fora); }
@@ -246,10 +268,10 @@ test('ensaio 050: quickstart traz modos vivos, commit, gitignore, worktree, clai
   assert.ok(modos.length >= 1, 'trecho do manifesto com allowed_modes');
   for (const m of modos) assert.equal(m, ORDEM_DOS_MODOS.join(', '), 'o que o ork init grava, sem look nem ork');
   assert.match(doc, /Um repositório git com pelo menos um commit/);
-  assert.ok(doc.includes(String.raw`printf '.orkastery/\n.claude/worktrees/\n' >> .gitignore`), 'estado fora do git');
+  assert.ok(doc.includes(String.raw`printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore`), 'estado fora do git');
   assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto\n/);
   assert.doesNotMatch(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
-  assert.match(doc, /ork worktree ensure <thread>/);
+  assert.match(doc, /ainda não passou do GO,\n`ork worktree ensure <thread>`/);
 
   const claim = /ork claims add prd-corrigirofil[\s\S]*?--verificar "([^"]+)"/.exec(doc)?.[1];
   assert.ok(claim, 'claim de exemplo do passo 6');
@@ -304,4 +326,16 @@ test('ensaio 050: mcp install com caminho relativo diz como acertar', () => {
     assert.doesNotMatch(texto, /ork mcp install --project \. /, arquivo);
     assert.ok(texto.includes('ork mcp install --project "$PWD" --host'), arquivo);
   }
+});
+
+test('ensaio 050: contagens da doc batem com o catalogo e o pacote', () => {
+  const plugin = JSON.parse(fs.readFileSync(path.join(RAIZ, 'adapters/claude-code/.claude-plugin/plugin.json'), 'utf8'));
+  const skills = plugin.skills.length;
+  const comandos = fs.readdirSync(path.join(RAIZ, 'adapters/claude-code/commands')).filter(f => f.endsWith('.md')).length;
+  const readme = fs.readFileSync(path.join(RAIZ, 'adapters/claude-code/README.md'), 'utf8');
+  assert.ok(readme.includes(`${skills + comandos} entradas: ${skills} skills e ${comandos} comandos`), 'README do adaptador');
+
+  const extenso = ['zero', 'uma', 'duas', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez'];
+  const deps = Object.keys(JSON.parse(fs.readFileSync(path.join(RAIZ, 'core/package.json'), 'utf8')).dependencies ?? {}).length;
+  assert.ok(QUICKSTART().includes(`com ${extenso[deps]} dependências de runtime`), `quickstart: ${deps} dependências`);
 });

@@ -798,15 +798,18 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
       relatarPublicacao(publicar(carregado, thread.id));
-      console.log('');
-      console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
+      if (!avisoSemBase) {
+        console.log('');
+        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      }
     }
-    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }

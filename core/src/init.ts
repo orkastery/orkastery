@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
 import { normalizarAbbrev } from './slug';
-import { exec, gravar } from './util';
+import { branchDoHead, exec, gravar } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
@@ -56,12 +56,6 @@ export function baseBranchDetectada(raiz: string): string {
     }
   }
   return branchDoHead(raiz) ?? 'main';
-}
-
-/** A branch para onde o HEAD aponta, com ou sem commit; `null` com o HEAD destacado. */
-export function branchDoHead(dir: string): string | null {
-  const r = exec('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], dir);
-  return r.ok && r.stdout.trim() ? r.stdout.trim() : null;
 }
 
 function gerenciadorDetectado(dir: string): string {

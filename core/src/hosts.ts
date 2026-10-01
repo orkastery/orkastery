@@ -634,7 +634,7 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
   // Ensaio da 0.5.0: com o pacote ativo e pulado por aviso (catalogo fora do projeto), a linha dizia
   // "desativada"; o aviso logo abaixo diz o motivo.
   if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada'
-    : r.experiencia.aviso ? 'pacote pulado nesta instalação (motivo no aviso abaixo)' : 'desativada ou sem integração de skills'}` +
+    : r.experiencia.aviso ? 'pacote pulado nesta instalação, veja o aviso abaixo' : 'desativada ou sem integração de skills'}` +
     `${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
   if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
   linhas.push(

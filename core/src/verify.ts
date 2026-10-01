@@ -31,7 +31,7 @@ import {
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { agora, exec, shaCurto } from './util';
+import { agora, COMMIT_DESCONHECIDO, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
 import { redigirSaida, testesQueCairam } from './redacao-saida';
 import { redigirCredenciaisUrl } from './redacao-url';
@@ -186,7 +186,7 @@ export function cwdDaThread(raiz: string, thread: Thread): string {
 /** HEAD real do diretorio de trabalho, carimbado em toda verificacao. */
 export function commitReal(cwd: string): string {
   const r = exec('git', ['rev-parse', 'HEAD'], cwd);
-  return r.ok ? r.stdout.trim() : 'desconhecido';
+  return r.ok ? r.stdout.trim() : COMMIT_DESCONHECIDO;
 }
 
 /**

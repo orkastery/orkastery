@@ -14,7 +14,7 @@ import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
 import {
   BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Modo, SessaoDaThread, Thread, VarianteDeCiclo,
 } from './types';
-import { agora, exec, lerJson, shaCurto, tabela } from './util';
+import { agora, COMMIT_DESCONHECIDO, exec, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { estadoCanonico, raizDoEstado, vincularEstado } from './estado-thread';
 import { readCreationOperation, withCreationLock, writeCreationJson } from './creation-operation-store';
@@ -62,9 +62,6 @@ export function gravarThread(raiz: string, thread: Thread): void {
   thread.atualizadaEm = agora();
   writeCreationJson(caminhoThread(raiz, thread.id), thread);
 }
-
-/** O commit da base quando o repositorio ainda nao tem commit. */
-export const COMMIT_DESCONHECIDO = 'desconhecido';
 
 /** Carimba a base da thread: branch e commit reais no momento da criacao. */
 function carimbarBase(raiz: string): { branch: string; commit: string } {

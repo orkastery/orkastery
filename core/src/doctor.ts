@@ -19,8 +19,7 @@ import { validarAbbrev } from './slug';
 import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTexto, normalizarFuso,
   rotuloDoFuso } from './horario';
 import { Check } from './types';
-import { exec, noPath, simbolo } from './util';
-import { branchDoHead } from './init';
+import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
@@ -133,8 +132,9 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   const maestro = estado.etapas.maestro?.conteudo;
   const owner = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? maestro.owner : undefined;
   const fusoDoOwner = owner && typeof owner === 'object' && !Array.isArray(owner) ? (owner as Record<string, unknown>).timezone : undefined;
+  // Owner invalido (so por edicao a mao: o `onboarding set` recusa) nao cala o fuso legado.
   const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro)
-    ? normalizarFuso(fusoDoOwner ?? maestro.fuso) : undefined;
+    ? normalizarFuso(fusoDoOwner) ?? normalizarFuso(maestro.fuso) : undefined;
   if (fusoDaEntrevista && fusoDaEntrevista !== carregado.manifesto.owner?.timezone) {
     checks.push({ nome: 'onboarding fuso', nivel: 'warn',
       detalhe: `entrevista informou ${fusoDaEntrevista}; manifesto declara ${carregado.manifesto.owner?.timezone ?? `${CHAVE_DO_FUSO} ausente`}`,
