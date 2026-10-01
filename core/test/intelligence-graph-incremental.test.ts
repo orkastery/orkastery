@@ -5,8 +5,9 @@
  * grava os mesmos bytes da extracao completa, com renome, remocao, arquivo novo e as mudancas que
  * atravessam arquivos, e reextrai so o que a mudanca alcanca), "KG4 queda" (D5: sem base que prove,
  * extracao completa com o motivo; TypeScript inteiro quando a mudanca toca `package.json` ou arquivo
- * global) e "KG4 cli" (D7: a saida, o `--verificar` contra a completa e a integridade das unidades).
- * A prova de cada caso: depois do incremental, `--forcar` extrai completo e so da
+ * global), "KG4 cli" (D7: a saida, o `--verificar` contra a completa e a integridade das unidades),
+ * "KG4 medida" (D8, D9: os validadores dos registros de medida e da linha de base) e "KG4 harness"
+ * (D10: a rodada paga com um agente simulado, e a recusa sem `--pago`). A prova de cada caso: depois do incremental, `--forcar` extrai completo e so da
  * `reconstruido-identico` se os quatro arquivos do indice sao iguais byte a byte. Repositorios Git
  * temporarios.
  */
@@ -24,6 +25,7 @@ import {
   type ContextoDoIndice, type ResultadoDaConstrucao,
 } from '../src/intelligence-graph-index';
 import { carregarAnalisadores } from '../src/intelligence-graph-parsers';
+import { avaliarBenchmark, validarBenchmark, type RegistroDeBenchmark } from '../src/intelligence-benchmark-contract';
 import { dirTemporario } from './apoio';
 
 const PARSER = carregarAnalisadores();
@@ -360,5 +362,123 @@ test('KG4 cli: indice do KG3 (v0) aparece como formato anterior e nao serve de b
     assert.deepEqual(escolherBase(ctx, perfil, head, repo.dir), { base: null, motivo: 'so ha indice de formato anterior (ork.code-graph-index/v0)' });
   } finally {
     fs.rmSync(repo.dir, { recursive: true, force: true });
+  }
+});
+
+const SCRIPTS = path.resolve(__dirname, '../../scripts'), FIXTURES = path.resolve(__dirname, '../../test/fixtures');
+const MEDIDA = require(path.join(SCRIPTS, 'medir-incremental-grafo.cjs')) as { validar: (r: unknown) => string[] };
+const LINHA = require(path.join(SCRIPTS, 'linha-de-base-grafo.cjs')) as {
+  validar: (r: unknown) => string[];
+  montarProtocolo: (base: unknown, opcoes?: { repeticoesPorTarefa?: number; tarefas?: string[] }) => RegistroDeBenchmark;
+  lerTelemetria: (t: string) => { sessao: string | null; resultado: string | null; requisicoes: { id: string; entrada: number; saida: number; cache: number }[]; ferramentas: number };
+  executar: (o: object) => { registro: RegistroDeBenchmark; veredito: ReturnType<typeof avaliarBenchmark> };
+  FATOS: Record<string, string[]>;
+};
+const lerFixture = (nome: string): Record<string, unknown> => JSON.parse(fs.readFileSync(path.join(FIXTURES, nome), 'utf8'));
+const copia = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+
+test('KG4 medida: o registro dos pares reais e valido; par sem prova, ancora trocada e conclusao alem do medido reprovam', () => {
+  const r = lerFixture('kg4-medida-incremental.json') as { pares: { igual: boolean; ms: { completo_antes: number | null } }[]; ancora: { digest: string }; conclusao: string; ambiente: object };
+  assert.deepEqual(MEDIDA.validar(r), []);
+  const semProva = copia(r);
+  semProva.pares[0].igual = false;
+  assert.ok(MEDIDA.validar(semProva).some((e) => e.includes('sem a prova de bytes iguais')));
+  const ancora = copia(r);
+  ancora.ancora.digest = '0'.repeat(64);
+  assert.ok(MEDIDA.validar(ancora).includes('ancora diferente do digest do KG3'));
+  const promessa = copia(r);
+  promessa.conclusao = 'o incremental sempre economiza';
+  assert.ok(MEDIDA.validar(promessa).includes('conclusao alem do medido'));
+  const semOrigem = copia(r);
+  semOrigem.pares[1].ms.completo_antes = null;
+  assert.ok(MEDIDA.validar(semOrigem).some((e) => e.includes('completo antes sem medida ou sem origem')));
+});
+
+test('KG4 medida: a linha de base e valida; token medido, braco faltando e promessa de economia reprovam; o protocolo da not-run', () => {
+  const base = lerFixture('kg4-linha-de-base.json') as { tarefas: { id: string; tokens: { grafo: { value: number | null; source: string } }; cru: Record<string, unknown> }[]; conclusao: string };
+  assert.deepEqual(LINHA.validar(base), []);
+  const medido = copia(base);
+  medido.tarefas[0].tokens.grafo = { value: 1200, source: 'runtime_reported' };
+  assert.ok(LINHA.validar(medido).includes('P1 tokens'));
+  const semBraco = copia(base);
+  semBraco.tarefas[1].cru = {};
+  assert.ok(LINHA.validar(semBraco).some((e) => e.startsWith('P2 cru.')));
+  const promessa = copia(base);
+  promessa.conclusao = 'o grafo reduz o contexto';
+  assert.ok(LINHA.validar(promessa).includes('promessa de economia'));
+  const protocolo = lerFixture('kg4-protocolo-ab.json');
+  const v = avaliarBenchmark(validarBenchmark(protocolo));
+  assert.deepEqual([v.resultado, v.publicavel, v.paresPlanejados], ['not-run', false, 60]);
+  // O protocolo fixado e o que o script gera da linha de base gravada, sem diferenca.
+  const gerado = LINHA.montarProtocolo(base) as unknown as { evidence_refs: unknown; index_preparation: { latency_ms: { evidence_ref: unknown } } };
+  const gravado = copia(protocolo) as unknown as typeof gerado;
+  gerado.evidence_refs = gravado.evidence_refs;
+  gerado.index_preparation.latency_ms.evidence_ref = gravado.index_preparation.latency_ms.evidence_ref;
+  assert.deepEqual(gerado, gravado);
+});
+
+test('KG4 harness: a telemetria stream-json conta cada requisicao uma vez, com a sessao e o texto final', () => {
+  const linhas = [
+    { type: 'system', subtype: 'init', session_id: 's-1' },
+    { type: 'assistant', message: { id: 'msg_1', usage: { input_tokens: 5, cache_creation_input_tokens: 2, cache_read_input_tokens: 3, output_tokens: 7 }, content: [{ type: 'tool_use', id: 't1' }] } },
+    { type: 'assistant', message: { id: 'msg_1', usage: { input_tokens: 5, cache_creation_input_tokens: 2, cache_read_input_tokens: 3, output_tokens: 7 }, content: [{ type: 'text', text: 'x' }] } },
+    { type: 'assistant', message: { id: 'msg_2', usage: { input_tokens: 1, output_tokens: 2 }, content: [{ type: 'tool_use', id: 't2' }, { type: 'tool_use', id: 't3' }] } },
+    { type: 'result', is_error: false, result: 'fim' },
+  ].map((l) => JSON.stringify(l)).join('\n');
+  assert.deepEqual(LINHA.lerTelemetria(`${linhas}\nlixo que nao e JSON\n`), {
+    sessao: 's-1', resultado: 'fim', erro: false, ferramentas: 3,
+    requisicoes: [{ id: 'msg_1', entrada: 10, saida: 7, cache: 3 }, { id: 'msg_2', entrada: 1, saida: 2, cache: 0 }],
+  });
+});
+
+test('KG4 harness: sem --pago recusa abrir sessao; com o agente simulado roda os pares e grava o registro v1 avaliado', () => {
+  const dir = dirTemporario('kg4-harness'), marca = path.join(dir, 'sessoes');
+  const agente = [process.execPath, path.join(FIXTURES, 'kg4-agente-simulado.cjs')];
+  const antes = { marca: process.env.ORK_KG4_MARCA, resposta: process.env.ORK_KG4_RESPOSTA };
+  try {
+    process.env.ORK_KG4_MARCA = marca;
+    process.env.ORK_KG4_RESPOSTA = Object.values(LINHA.FATOS).flat().join('\n');
+    const protocolo = LINHA.montarProtocolo(lerFixture('kg4-linha-de-base.json'), { repeticoesPorTarefa: 2, tarefas: ['P1', 'P2'] });
+    const opcoes = { registro: protocolo, repositorio: dir, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true };
+    assert.throws(() => LINHA.executar({ ...opcoes, pago: false }), /harness\.pago/);
+    const cli = execFileSync(process.execPath, [path.join(SCRIPTS, 'linha-de-base-grafo.cjs'), '--executar', '--protocolo', path.join(FIXTURES, 'kg4-protocolo-ab.json'),
+      '--repositorio', dir, '--agente', JSON.stringify(agente), '--saida', path.join(dir, 'nao.json')], { stdio: 'pipe' as const, encoding: 'utf8' as const }).toString();
+    assert.equal(cli, '');
+  } catch (e) {
+    // O CLI sem --pago sai 2 com a recusa; nenhuma sessao foi aberta.
+    const erro = e as { status?: number; stderr?: string };
+    if (erro.status === undefined) throw e;
+    assert.equal(erro.status, 2);
+    assert.match(String(erro.stderr), /harness\.pago/);
+  }
+  try {
+    assert.ok(!fs.existsSync(marca), 'sem --pago, nenhuma sessao do agente');
+    const protocolo = LINHA.montarProtocolo(lerFixture('kg4-linha-de-base.json'), { repeticoesPorTarefa: 2, tarefas: ['P1', 'P2'] });
+    const { registro, veredito } = LINHA.executar({
+      registro: protocolo, repositorio: dir, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true, pago: true,
+    });
+    assert.equal(fs.readFileSync(marca, 'utf8').split('\n').filter(Boolean).length, 8, 'uma sessao por braco de cada par');
+    validarBenchmark(registro);
+    assert.deepEqual([registro.status, registro.data_class, registro.runs.length], ['complete', 'synthetic', 8]);
+    assert.deepEqual(registro.runs.map((r) => `${r.pair_id}:${r.arm}`), protocolo.protocol.pairs.flatMap((p) => p.order.split('').map((b) => `${p.pair_id}:${b}`)));
+    const ids = registro.runs.flatMap((r) => r.requests.map((q) => q.request_id));
+    assert.equal(new Set(ids).size, ids.length, 'cada requisicao contada uma vez');
+    for (const r of registro.runs) {
+      assert.equal(r.outcome, 'completed');
+      assert.equal(r.metrics.logical_total_tokens.value, r.arm === 'A' ? 375 : 235);
+      assert.equal(r.metrics.tool_calls.value, 1);
+      assert.ok(r.mandatory_fact_results.every((f) => f.result === 'present'));
+      const t = r.artifacts[0];
+      assert.equal(createHash('sha256').update(fs.readFileSync(path.isAbsolute(t.ref) ? t.ref : path.resolve(SCRIPTS, '../..', t.ref))).digest('hex'), t.sha256);
+    }
+    // Sem auditoria de arestas, o veredito para em inconclusive, nunca publicavel; registro sintetico tambem nao.
+    assert.deepEqual([veredito.resultado, veredito.publicavel, veredito.medianaA, veredito.medianaB], ['inconclusive', false, 375, 235]);
+    assert.ok(veredito.motivos.includes('auditoria-incompleta'), veredito.motivos.join(','));
+  } finally {
+    if (antes.marca === undefined) delete process.env.ORK_KG4_MARCA;
+    else process.env.ORK_KG4_MARCA = antes.marca;
+    if (antes.resposta === undefined) delete process.env.ORK_KG4_RESPOSTA;
+    else process.env.ORK_KG4_RESPOSTA = antes.resposta;
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });

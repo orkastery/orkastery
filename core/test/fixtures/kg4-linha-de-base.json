@@ -1,0 +1,454 @@
+{
+  "schema": "ork.graph-baseline/v0",
+  "protocolo": "kg1-ab/1",
+  "medido_em": "2026-10-01T06:11:18.800Z",
+  "revisao": "7a1de0c3845218c485e6473968f0d0e8e7c0a1b6",
+  "grafo": {
+    "graph_digest": "d10dd72ed9d65d7ad4f2f8e6a1917a56066a4d3137e515db3061ec27aaff13ed",
+    "snapshot_id": "snap-5636f942b27160c1e179e4b4864731a7452069047d0e7d2874685ccaee08a2cc",
+    "arestas": 25765,
+    "edge_set_digest": "da9a9bad24f09eb494691c056c1f190fa29cef1c9ea9e0316d17364a3164e6cc",
+    "corpus_hash": "d0078f2e7971e24abe856486a2f49dc1df9f0abbe8c42e4929afe036e8771e75",
+    "bytes_do_indice": 48148870
+  },
+  "ambiente": {
+    "node": "v22.23.2",
+    "plataforma": "linux-x64",
+    "nucleos": 8,
+    "carga_1min": 2.3
+  },
+  "metodo": {
+    "grafo": "consulta-grafo/v0: ork grafo <consulta> --json num processo novo, indice do HEAD pronto; ao agente chega a saida JSON e ele nao abre arquivo",
+    "cru": "leitura-crua/v0: git grep -n -I -F do nome nos rastreados, mais a leitura inteira de cada arquivo com ocorrencia",
+    "fatos": "fato presente quando o texto do fato aparece no que chega ao agente",
+    "preparo": "construirIndice no mesmo processo: completo do HEAD e incremental a partir do indice do pai",
+    "repeticoes": 3
+  },
+  "preparo": {
+    "completo": {
+      "ms": 10202
+    },
+    "incremental": {
+      "base": "17d4282d7615e75f19c612f6443d3b4e184901c5",
+      "ms": 7919,
+      "ts": "parcial",
+      "ts_reextraidos": 16,
+      "md_reextraidos": 0
+    }
+  },
+  "tarefas": [
+    {
+      "id": "P1",
+      "pergunta": "quem chama lerRepositorio",
+      "consulta": [
+        "chamadores",
+        "core/src/intelligence-graph-repo.ts#lerRepositorio"
+      ],
+      "fatos": [
+        "core/src/intelligence-graph-index.ts",
+        "construirIndice"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 3148,
+        "arquivos_lidos": 0,
+        "respostas": 1,
+        "latencia_ms": [
+          793.3,
+          766.1,
+          779.9
+        ],
+        "latencia_mediana_ms": 779.9,
+        "fatos": [
+          {
+            "fato": "P1-F1",
+            "presente": true
+          },
+          {
+            "fato": "P1-F2",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "bytes_ao_agente": 232052,
+        "ocorrencias": 19,
+        "arquivos_lidos": 8,
+        "fatos": [
+          {
+            "fato": "P1-F1",
+            "presente": true
+          },
+          {
+            "fato": "P1-F2",
+            "presente": true
+          }
+        ],
+        "latencia_ms": [
+          28.4,
+          31.5,
+          31.4
+        ],
+        "latencia_mediana_ms": 31.4
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    },
+    {
+      "id": "P2",
+      "pergunta": "quem chama dirEstado",
+      "consulta": [
+        "chamadores",
+        "core/src/manifest.ts#dirEstado"
+      ],
+      "fatos": [
+        "core/src/leases.ts",
+        "core/src/thread.ts",
+        "core/src/ship.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 19426,
+        "arquivos_lidos": 0,
+        "respostas": 18,
+        "latencia_ms": [
+          781.2,
+          839.9,
+          840.6
+        ],
+        "latencia_mediana_ms": 839.9,
+        "fatos": [
+          {
+            "fato": "P2-F1",
+            "presente": true
+          },
+          {
+            "fato": "P2-F2",
+            "presente": true
+          },
+          {
+            "fato": "P2-F3",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "bytes_ao_agente": 574129,
+        "ocorrencias": 53,
+        "arquivos_lidos": 22,
+        "fatos": [
+          {
+            "fato": "P2-F1",
+            "presente": true
+          },
+          {
+            "fato": "P2-F2",
+            "presente": true
+          },
+          {
+            "fato": "P2-F3",
+            "presente": true
+          }
+        ],
+        "latencia_ms": [
+          32,
+          36.4,
+          35.4
+        ],
+        "latencia_mediana_ms": 35.4
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    },
+    {
+      "id": "P3",
+      "pergunta": "quem importa o contrato do grafo",
+      "consulta": [
+        "importadores",
+        "core/src/intelligence-graph-contract.ts"
+      ],
+      "fatos": [
+        "core/src/intelligence-graph-extract.ts",
+        "core/src/intelligence-graph-query.ts",
+        "core/src/intelligence-benchmark-contract.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 10059,
+        "arquivos_lidos": 0,
+        "respostas": 8,
+        "latencia_ms": [
+          854.4,
+          961.5,
+          839.7
+        ],
+        "latencia_mediana_ms": 854.4,
+        "fatos": [
+          {
+            "fato": "P3-F1",
+            "presente": true
+          },
+          {
+            "fato": "P3-F2",
+            "presente": true
+          },
+          {
+            "fato": "P3-F3",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "bytes_ao_agente": 426227,
+        "ocorrencias": 24,
+        "arquivos_lidos": 16,
+        "fatos": [
+          {
+            "fato": "P3-F1",
+            "presente": true
+          },
+          {
+            "fato": "P3-F2",
+            "presente": true
+          },
+          {
+            "fato": "P3-F3",
+            "presente": true
+          }
+        ],
+        "latencia_ms": [
+          48.6,
+          44.7,
+          42.3
+        ],
+        "latencia_mediana_ms": 44.7
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    },
+    {
+      "id": "P4",
+      "pergunta": "quem importa o leitor de YAML",
+      "consulta": [
+        "importadores",
+        "core/src/yaml.ts"
+      ],
+      "fatos": [
+        "core/src/manifest.ts",
+        "core/src/intelligence-graph-repo.ts",
+        "core/src/docs.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 11235,
+        "arquivos_lidos": 0,
+        "respostas": 10,
+        "latencia_ms": [
+          891,
+          828.5,
+          799.8
+        ],
+        "latencia_mediana_ms": 828.5,
+        "fatos": [
+          {
+            "fato": "P4-F1",
+            "presente": true
+          },
+          {
+            "fato": "P4-F2",
+            "presente": true
+          },
+          {
+            "fato": "P4-F3",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "bytes_ao_agente": 253526,
+        "ocorrencias": 12,
+        "arquivos_lidos": 12,
+        "fatos": [
+          {
+            "fato": "P4-F1",
+            "presente": true
+          },
+          {
+            "fato": "P4-F2",
+            "presente": true
+          },
+          {
+            "fato": "P4-F3",
+            "presente": true
+          }
+        ],
+        "latencia_ms": [
+          29.5,
+          44.1,
+          29.5
+        ],
+        "latencia_mediana_ms": 29.5
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    },
+    {
+      "id": "P5",
+      "pergunta": "vizinhanca de raizDoEstado",
+      "consulta": [
+        "vizinhos",
+        "core/src/estado-thread.ts#raizDoEstado"
+      ],
+      "fatos": [
+        "core/src/estado-thread.ts",
+        "core/src/leases.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 102479,
+        "arquivos_lidos": 0,
+        "respostas": 100,
+        "latencia_ms": [
+          844.7,
+          866.8,
+          849.9
+        ],
+        "latencia_mediana_ms": 849.9,
+        "fatos": [
+          {
+            "fato": "P5-F1",
+            "presente": true
+          },
+          {
+            "fato": "P5-F2",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "bytes_ao_agente": 1046262,
+        "ocorrencias": 120,
+        "arquivos_lidos": 45,
+        "fatos": [
+          {
+            "fato": "P5-F1",
+            "presente": true
+          },
+          {
+            "fato": "P5-F2",
+            "presente": true
+          }
+        ],
+        "latencia_ms": [
+          42.5,
+          33.8,
+          36.8
+        ],
+        "latencia_mediana_ms": 36.8
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    },
+    {
+      "id": "P6",
+      "pergunta": "caminho de main a dirEstado",
+      "consulta": [
+        "caminho",
+        "core/src/index.ts#main",
+        "core/src/manifest.ts#dirEstado"
+      ],
+      "fatos": [
+        "core/src/index.ts",
+        "core/src/manifest.ts"
+      ],
+      "grafo": {
+        "bytes_ao_agente": 5880,
+        "arquivos_lidos": 0,
+        "respostas": 2,
+        "latencia_ms": [
+          832.2,
+          834.1,
+          800.7
+        ],
+        "latencia_mediana_ms": 832.2,
+        "fatos": [
+          {
+            "fato": "P6-F1",
+            "presente": true
+          },
+          {
+            "fato": "P6-F2",
+            "presente": true
+          }
+        ]
+      },
+      "cru": {
+        "indisponivel": "a leitura crua nao tem procedimento fixo que ache um caminho de chamadas sem inferir o simbolo que contem cada ocorrencia"
+      },
+      "tokens": {
+        "grafo": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        },
+        "cru": {
+          "value": null,
+          "source": "unavailable",
+          "unavailable_reason": "so a sessao de agente mede tokens; esta parte e deterministica e nao chama modelo"
+        }
+      }
+    }
+  ],
+  "conclusao": "linha de base deterministica registrada; a comparacao de tokens entre os bracos fica para a rodada paga do protocolo",
+  "limites": [
+    "bytes e arquivos nao sao tokens; a metrica primaria do protocolo (logical_total_tokens) so sai da rodada paga",
+    "a leitura crua modela um agente que abre todo arquivo com ocorrencia; um agente real pode ler menos ou mais",
+    "fato presente no contexto nao e fato na resposta; isso a rodada paga confere"
+  ],
+  "pendente": "rodada paga do ork.graph-benchmark/v1: sessoes de agente nos dois bracos, tokens runtime_reported e auditoria integral de arestas"
+}

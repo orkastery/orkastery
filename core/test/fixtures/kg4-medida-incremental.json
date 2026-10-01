@@ -1,0 +1,207 @@
+{
+  "schema": "ork.graph-incremental-cost/v0",
+  "metodo": "construirIndice de ponta a ponta no mesmo processo, relogio monotonico; o completo e o --forcar do alvo, que extrai tudo e compara os quatro arquivos com o incremental gravado",
+  "limites": [
+    "tempos de uma maquina, sob a carga registrada; a mesma rodada noutra maquina da outros numeros",
+    "o piso do incremental e montar, derivar e validar os IDs do snapshot inteiro, que o contrato v1 deriva da revisao",
+    "o ganho depende do que a mudanca alcanca: arquivo importado por quase todo o nucleo reextrai quase todo o TypeScript"
+  ],
+  "conclusao": "nos pares medidos, o incremental gravou os mesmos bytes da extracao completa; o tempo de cada lado esta no registro, sem generalizar alem deles",
+  "ambiente": {
+    "node": "v22.23.2",
+    "plataforma": "linux-x64",
+    "nucleos": 8,
+    "carga_inicio": [
+      5.45,
+      4.76,
+      3.91
+    ],
+    "carga_fim": [
+      1.9,
+      3.26,
+      3.5
+    ],
+    "completo_antes": "dist do KG3 (2418a4e7) compilado a parte, no mesmo processo"
+  },
+  "ancora": {
+    "revisao": "2418a4e798a6d8b3d80ef8afdc115d0cf131d480",
+    "digest": "9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c",
+    "igual": true
+  },
+  "pares": [
+    {
+      "id": "ts-tipica",
+      "caso": "tres arquivos TypeScript do nucleo e um Markdown mudados",
+      "base": "c68df3cd1c3409b74918534130155a10bf1efad7",
+      "alvo": "d49106252e1025f477d0defe2d3ef18a41974a51",
+      "igual": true,
+      "graph_digest": "1b708b87dc46864265921c0ef5332ad18e35f748cfe2e0b741c7015ddb7f714d",
+      "mudanca": {
+        "alterados": 3,
+        "novos": 0,
+        "removidos": 0
+      },
+      "ts": {
+        "modo": "parcial",
+        "motivo": null,
+        "reextraidos": 14,
+        "programa": 194,
+        "reaproveitados": 517
+      },
+      "md": {
+        "reextraidos": 1,
+        "reaproveitados": 258
+      },
+      "ms": {
+        "incremental": 6397,
+        "completo": 9263,
+        "completo_antes": 13625
+      }
+    },
+    {
+      "id": "so-docs",
+      "caso": "so o CHANGELOG",
+      "base": "a300d6d9697e152be8a3cd294280508c2aff8dbc",
+      "alvo": "66faa145d4e88a1b065fb525d368ac5092b37573",
+      "igual": true,
+      "graph_digest": "dcca7b04ce742e86477584abcc7d84d94bdd452749e37aae3b30e21a80c094c9",
+      "mudanca": {
+        "alterados": 1,
+        "novos": 0,
+        "removidos": 0
+      },
+      "ts": {
+        "modo": "reaproveitado",
+        "motivo": null,
+        "reextraidos": 0,
+        "programa": 0,
+        "reaproveitados": 545
+      },
+      "md": {
+        "reextraidos": 1,
+        "reaproveitados": 268
+      },
+      "ms": {
+        "incremental": 5712,
+        "completo": 9804,
+        "completo_antes": 13247
+      }
+    },
+    {
+      "id": "so-dados",
+      "caso": "so um bundle JSON do CI",
+      "base": "61631dd70bc84fb1a4f314bbad376fceb4f68b5f",
+      "alvo": "a1044c9b3b32c66263bd6696afc277b04228c55f",
+      "igual": true,
+      "graph_digest": "331261c7ad1d9b0961891cb19bbe6fc783b0c6b973d24b3d7e984612f0612d27",
+      "mudanca": {
+        "alterados": 1,
+        "novos": 0,
+        "removidos": 0
+      },
+      "ts": {
+        "modo": "reaproveitado",
+        "motivo": null,
+        "reextraidos": 0,
+        "programa": 0,
+        "reaproveitados": 545
+      },
+      "md": {
+        "reextraidos": 0,
+        "reaproveitados": 269
+      },
+      "ms": {
+        "incremental": 6628,
+        "completo": 10397,
+        "completo_antes": 12750
+      }
+    },
+    {
+      "id": "arquivo-central",
+      "caso": "modulo importado por quase todo o nucleo e o teste dele",
+      "base": "5c3e788345840f3ade4f557365e0b3a87e2814c9",
+      "alvo": "a8feb636600e3de3594ccdb83afb93bd07c482b8",
+      "igual": true,
+      "graph_digest": "b160476d8e7c0b4a8af9f2563a3e0b988232779c29c09fb30e3f6feb5f5a9791",
+      "mudanca": {
+        "alterados": 2,
+        "novos": 0,
+        "removidos": 0
+      },
+      "ts": {
+        "modo": "parcial",
+        "motivo": null,
+        "reextraidos": 413,
+        "programa": 464,
+        "reaproveitados": 121
+      },
+      "md": {
+        "reextraidos": 0,
+        "reaproveitados": 268
+      },
+      "ms": {
+        "incremental": 8220,
+        "completo": 9276,
+        "completo_antes": 13129
+      }
+    },
+    {
+      "id": "renome",
+      "caso": "Markdown renomeado e as paginas que o citam",
+      "base": "985d6179ec2f8120ed18679123352b57121c1e09",
+      "alvo": "35eea27f4ee8c5c6adf8a0fe5f7b67decb498eab",
+      "igual": true,
+      "graph_digest": "d5e04a99cdc251a14fc88ee7fb6cdd7a1779405c301455ef0ec6d9cdd2ff69ad",
+      "mudanca": {
+        "alterados": 5,
+        "novos": 1,
+        "removidos": 1
+      },
+      "ts": {
+        "modo": "parcial",
+        "motivo": null,
+        "reextraidos": 2,
+        "programa": 4,
+        "reaproveitados": 516
+      },
+      "md": {
+        "reextraidos": 4,
+        "reaproveitados": 263
+      },
+      "ms": {
+        "incremental": 5066,
+        "completo": 9265,
+        "completo_antes": 11998
+      }
+    },
+    {
+      "id": "remocao-e-novo",
+      "caso": "script removido, modulo TypeScript novo e seis mudados",
+      "base": "5675a832841ad2bd2bd81d5d2e124b1e7737d88a",
+      "alvo": "772762d609f22023eaf5080911b10930c779069e",
+      "igual": true,
+      "graph_digest": "8ee9f3c86ed2573311db26c51f2a51d79251367c728b36e12e895243ae3e7468",
+      "mudanca": {
+        "alterados": 6,
+        "novos": 1,
+        "removidos": 1
+      },
+      "ts": {
+        "modo": "parcial",
+        "motivo": null,
+        "reextraidos": 13,
+        "programa": 194,
+        "reaproveitados": 517
+      },
+      "md": {
+        "reextraidos": 1,
+        "reaproveitados": 257
+      },
+      "ms": {
+        "incremental": 8183,
+        "completo": 9846,
+        "completo_antes": 14443
+      }
+    }
+  ]
+}
