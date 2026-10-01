@@ -32,6 +32,20 @@ Esses limites são contrato; tempo real medido exige evidência própria.
 Próximas ações declaram operação, precondições, disponibilidade, causa e
 readback. A execução revalida a fonte e usa a autoridade existente do núcleo.
 
+## Prova de ativação por host (RM-032)
+
+`node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` abre uma sessão nova e não
+interativa no host instalado numa cópia descartável e diz `orkastery maestro`. A conferência
+(`core/src/prova-ativacao.ts`) só julga o determinístico: a entrada contratada foi exposta e
+chamada (`mcp__orkastery__ork_maestro` no Claude Code, `ork_maestro` no OpenClaw; `ork maestro`
+pelo shell do host é desvio, porque o CLI resolve o projeto pelo diretório), o resultado valida
+neste contrato, o `project.fingerprint` é o da cópia esperada (a raiz exibida pode vir mascarada),
+`notConsulted` existe, a resposta nomeia o projeto e não conclui "roadmap vazio". O roteiro
+acrescenta que a consulta não escreveu em `.orkastery` e que os arquivos globais do host têm o
+mesmo sha256 antes e depois. O recibo `ork.prova-ativacao/v1` passa por redação antes de ser
+gravado. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
+humana. A prova não aceita procedência, não consente MCP e não reinicia gateway por ninguém.
+
 ## Ingresso nativo aditivo (T23)
 
 `ork.hitl-native/v1` vincula instalação/conexão/sessão/conta/canal/conversa/pessoa,

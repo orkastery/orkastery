@@ -97,6 +97,16 @@ no incidente de 29/09. As outras tools continuam sob escolha do operador:
 `tools.alsoAllow: ["orkastery"]` no `openclaw.json` libera todas; allowlist e deny do operador
 sempre valem.
 
+## Prova de ativação do Maestro (RM-032)
+
+`node core/scripts/prova-ativacao.cjs openclaw` instala esta extensão num estado descartável
+(`OPENCLAW_STATE_DIR` e `OPENCLAW_CONFIG_PATH` temporários, segredo do provedor só por SecretRef,
+nada em `~/.openclaw`) e roda `openclaw agent --local` com `orkastery maestro`, num workspace sem
+manifesto (o cenário do incidente de 29/09). O OpenClaw recusa extensão de caminho local sem
+revisão; esse aceite é do dono: sem `--aceitar-procedencia` o recibo sai `pendente-humano`
+(saída 3) e mostra que as tools `ork_*` não chegam ao modelo. Com a flag, a cópia temporária
+instala com `--force` e a conferência exige `ork_maestro` chamada e o snapshot do projeto certo.
+
 ## A #TAG de conducao
 
 O manifesto novo do OpenClaw nao tem campo proprio para isso, entao a regra vive aqui e
