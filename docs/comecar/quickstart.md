@@ -107,7 +107,7 @@ O estado do `ork` (`.orkastery/`) e as worktrees das threads (`.claude/worktrees
 não do repositório: deixe os dois fora do git e faça o commit do manifesto antes da primeira thread.
 
 ```bash
-printf '.orkastery/\n.claude/worktrees/\n' >> .gitignore
+printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore
 git add .gitignore orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
@@ -151,7 +151,7 @@ policies:
 ```
 
 Rode `ork doctor` de novo. Ele agora lê o manifesto e valida o que você escreveu. Na mesma
-máquina, logo depois do `ork init`:
+máquina, ainda sem sessões do Claude Code, logo depois do `ork init`:
 
 ```text
 ork doctor: o que vale nesta maquina agora
@@ -217,8 +217,9 @@ Proximo passo: ork phase run prd-corrigirofil GOAL --prompt "<pedido>"
 
 O `--worktree auto` dá à thread a worktree e a branch dela (`ork/prd-corrigirofil-goal`). Sem ele,
 a thread roda na raiz do projeto, na própria branch base, e o `ork ship` do passo 8 sai barrado por
-`push_direto_na_base`. Para uma thread que já nasceu assim, `ork worktree ensure <thread>` cria a
-worktree e a branch.
+`push_direto_na_base`. Para uma thread que já nasceu assim e ainda não passou do GO,
+`ork worktree ensure <thread>` cria a worktree e a branch. Depois do GO, os commits já estão na base,
+e o ship não os separa.
 
 Sem `--modo`, o `ork` usa o `conduction.default_mode` do manifesto. Se o pedido do builder
 trouxer uma #TAG, o adaptador de host a extrai chamando o próprio núcleo:

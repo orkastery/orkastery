@@ -57,7 +57,7 @@ Which of my threads need a decision from me?
 
 ### Testing
 
-Dados de teste comuns aos oito casos: um repositório git com `npm install -g @orkastery/cli`, `ork init --name demo --abbrev dem`, `ork mcp install --project "$PWD" --host codex` e uma thread criada por `ork thread new "Add a CONTRIBUTING file" --modo classic`. Nos prompts, `<thread-id>` é o id que esse comando imprime.
+Dados de teste comuns aos oito casos: um repositório git com pelo menos um commit, `npm install -g @orkastery/cli`, `ork init --name demo --abbrev dem`, `ork mcp install --project "$PWD" --host codex` e uma thread criada por `ork thread new "Add a CONTRIBUTING file" --modo classic --worktree auto`. Nos prompts, `<thread-id>` é o id que esse comando imprime.
 
 ### Caso positivo 1: panorama pelo Maestro
 
@@ -121,5 +121,5 @@ Recomendação: todos os países disponíveis. O plugin é MIT, não coleta dado
 ```text
 Initial release. Orkastery as a skills-only plugin for Codex: the `ork` entry skill (say "orkastery maestro") and 20 skills that route Codex to the local ork CLI for six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER), claims re-run on the real HEAD, and short human decisions with one recommended option. Requires the ork CLI from npm (@orkastery/cli) and `ork mcp install --project "$PWD" --host codex` in the repository. No hooks, no MCP server of its own, no network requests from the plugin.
 
-Reviewer setup: npm install -g @orkastery/cli; in an empty git repository run ork init --name demo --abbrev dem, then ork mcp install --project "$PWD" --host codex, then start Codex there and say "orkastery maestro".
+Reviewer setup: npm install -g @orkastery/cli; in a git repository with at least one commit run ork init --name demo --abbrev dem, then ork mcp install --project "$PWD" --host codex, then start Codex there and say "orkastery maestro".
 ```

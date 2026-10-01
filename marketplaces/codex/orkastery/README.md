@@ -22,7 +22,7 @@ The methodology lives in the CLI, not in the plugin. When a skill and the CLI di
 
 1. Node 20 or newer and `git`.
 2. The CLI, from npm: `npm install -g @orkastery/cli`, then `ork doctor`.
-3. In your repository: `ork init`, then `ork mcp install --project "$PWD" --host codex`. That second command writes the `orkastery` MCP server to `.codex/config.toml` in your project; the entry skill calls its tools.
+3. In your repository, with at least one commit: `ork init`, then `ork mcp install --project "$PWD" --host codex`. That second command writes the `orkastery` MCP server to `.codex/config.toml` in your project; the entry skill calls its tools.
 
 Without the CLI the skills have nothing to route to.
 
