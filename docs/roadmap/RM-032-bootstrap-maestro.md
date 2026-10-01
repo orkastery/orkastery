@@ -63,6 +63,7 @@ sdlc:
 - **Achados da prova:**
   - com `--modelo haiku`, o Claude carregou a skill `orkastery-bootstrap` e respondeu por `Bash ork maestro --json` (o `ork` do PATH, que resolve pelo diretório) em vez da tool MCP; o `ork-guard` do plugin libera comandos `ork` sem pedir permissão. A conferência reprova esse desvio. Com `sonnet`, a tool MCP foi chamada;
   - com a extensão 0.4.3 e o perfil `coding` (o da instalação desta máquina), o OpenClaw expôs 37 tools e nenhuma `ork_*`: a frase não foi reconhecida. Com a 0.5.0, que declara `ork_network_roadmap` no perfil `coding`, a frase chega ao panorama da rede;
+  - em 6 execuções de `openclaw agent --local` em 01/10/2026, uma não saiu depois do turno (resposta em menos de 1 s, processo vivo até o timeout de 5 min): o roteiro marcou `falha` com o sinal, sem aprovar ([recibo](evidencias/RM-032/openclaw-2026-10-01-travou.json)); a repetição seguinte aprovou;
   - o OpenClaw carrega a extensão da raiz global com o aviso "can't verify where this plugin came from" (`Trust: record-missing`); `openclaw plugins install <caminho>` recusa sem revisão ("rerun with --force after reviewing the source"). A prova usa a via documentada do `ork` e não contorna nenhum dos dois.
 
 ### Para o dono (ação humana, não contornada)
@@ -81,7 +82,7 @@ sdlc:
 ## Estado com evidências
 
 - Merge `20e3835` (PR #13, 19/09/2026); score humano 3/5 ratificado em 19/09/2026.
-- Prova de ativação, 01/10/2026, srvjcp86, candidato `af74418` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 11 de 11 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
+- Prova de ativação, 01/10/2026, srvjcp86, candidato `c6a7636` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 11 de 11 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
