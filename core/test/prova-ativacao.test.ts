@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as os from 'node:os';
-import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
 import { runMaestroCli } from '../src/maestro-cli';
 import { discoverMaestro } from '../src/maestro-discovery';
+import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
 import { conferirProva, EsperadoDaProva, extrairSnapshot, redigir, transcriptDoClaude, transcriptDoOpenclaw } from '../src/prova-ativacao';
 
 function snapshotDe(dir: string): string {
@@ -12,6 +12,8 @@ function snapshotDe(dir: string): string {
   assert.equal(runMaestroCli(['--json'], dir, {}, { out: s => { saida += s; }, err: s => assert.fail(s) }), 0);
   return saida;
 }
+/** O texto que `ork_network_roadmap` devolve, fixado no projeto e sem rede. */
+const redeDe = (dir: string) => textoDoPanoramaDaRede(montarPanoramaDaRede({ fixado: dir, semRemoto: true }));
 function esperadoDe(dir: string): EsperadoDaProva {
   const ctx = discoverMaestro({ cwd: dir, pinned: dir, countOtherProjects: false });
   return { projeto: { nome: ctx.project.name, id: ctx.project.id, raiz: ctx.root, fingerprint: ctx.fingerprint }, home: os.homedir() };
@@ -123,13 +125,33 @@ test('OpenClaw: ork_maestro da extensão, com aviso do host antes do JSON, passa
   } finally { p.limpar(); }
 });
 
-test('OpenClaw: extensão sem procedência aceita não expõe ork_maestro e a frase não chega ao Maestro', () => {
+test('OpenClaw 0.5.0: a frase sem projeto vai a ork_network_roadmap e o panorama da rede passa pelo contrato', () => {
+  const p = projetoTemporario('prova-openclaw-rede');
+  const outro = projetoTemporario('prova-openclaw-rede-outro');
+  try {
+    const texto = redeDe(p.dir);
+    const t = transcriptDoOpenclaw(trajetoria('ork_network_roadmap', {}, texto), agente(texto, ['exec', 'ork_network_roadmap']));
+    assert.equal(t.chamadas[0].contrato, 'rede');
+    const r = conferirProva('openclaw', t, esperadoDe(p.dir));
+    assert.equal(r.ok, true, JSON.stringify(r.conferencias));
+    assert.match(r.rede!.consultado, /^Consultado: orkastery \(clone em /);
+    assert.ok(r.rede!.naoConsultado.length > 0);
+    const errado = conferirProva('openclaw', transcriptDoOpenclaw(trajetoria('ork_network_roadmap', {}, redeDe(outro.dir)),
+      agente('orkastery', ['ork_network_roadmap'])), esperadoDe(p.dir));
+    assert.equal(ok(errado, 'resultado.projeto')!.ok, false, 'o panorama de outra cópia não serve');
+    const truncado = conferirProva('openclaw', transcriptDoOpenclaw(trajetoria('ork_network_roadmap', {}, 'Roadmap: nada.'),
+      agente('orkastery', ['ork_network_roadmap'])), esperadoDe(p.dir));
+    assert.equal(ok(truncado, 'resultado.contrato')!.ok, false);
+  } finally { p.limpar(); outro.limpar(); }
+});
+
+test('OpenClaw: sem tool ork_* exposta (perfil coding na 0.4.3) a frase não chega ao Maestro', () => {
   const p = projetoTemporario('prova-openclaw-sem');
   try {
     const t = transcriptDoOpenclaw('', agente('Não sei o que "orkastery maestro" significa.', ['exec', 'read', 'web_search']));
     const r = conferirProva('openclaw', t, esperadoDe(p.dir));
     assert.equal(r.ok, false);
-    assert.match(ok(r, 'entrada.exposta')!.detalhe, /ork_maestro ausente entre 3 ferramentas/);
+    assert.match(ok(r, 'entrada.exposta')!.detalhe, /ork_network_roadmap e ork_maestro ausente\(s\) entre 3 ferramentas/);
     assert.equal(ok(r, 'entrada.chamada')!.ok, false);
     const desvio = conferirProva('openclaw', transcriptDoOpenclaw(trajetoria('exec', { command: 'ork maestro --json' }, snapshotDe(p.dir)),
       agente('orkastery', ['exec', 'ork_maestro'])), esperadoDe(p.dir));

@@ -4,7 +4,7 @@
  * O roteiro `core/scripts/prova-ativacao.cjs` abre uma sessão nova e não interativa no host
  * (Claude Code ou OpenClaw), diz `orkastery maestro` e entrega aqui o transcript. Esta
  * conferência olha só o que é determinístico: qual ferramenta o modelo chamou, o resultado que
- * ela devolveu (contra `ork.maestro-snapshot/v1`) e o projeto lido. Da resposta final em texto
+ * ela devolveu (contra o contrato da entrada) e o projeto lido. Da resposta final em texto
  * livre, exige apenas que cite o projeto e não repita o incidente de 29/09 ("roadmap vazio").
  */
 import * as path from 'node:path';
@@ -13,15 +13,19 @@ import { MaestroSnapshot, validateMaestroSnapshot } from './maestro-contract';
 export type HostProva = 'claude-code' | 'openclaw';
 export const HOSTS_DA_PROVA: readonly HostProva[] = ['claude-code', 'openclaw'];
 
+/** `maestro`: JSON `ork.maestro-snapshot/v1`; `rede`: texto de `ork network roadmap` (`ork.network-roadmap/v1`). */
+export type ContratoDaEntrada = 'maestro' | 'rede';
+export interface EntradaDoHost { ferramenta: string; contrato: ContratoDaEntrada }
 /**
- * A entrada contratada de cada host (MAESTRO_HOST_SURFACES em hosts.ts): no Claude, a tool MCP
- * do servidor `orkastery` fixado no projeto; no OpenClaw, a tool `ork_maestro` da extensão.
- * `ork maestro` pelo shell do host é desvio: o CLI resolve o projeto pelo diretório atual, a
- * classe de erro do incidente.
+ * As entradas da frase em cada host. No Claude, a tool MCP do servidor `orkastery` fixado no
+ * projeto (MAESTRO_HOST_SURFACES em hosts.ts). No OpenClaw 0.5.0 (RM-054, fatia 2), a frase sem
+ * projeto vai a `ork_network_roadmap`, a única tool da extensão no perfil `coding`; com projeto
+ * nomeado, a `ork_maestro`. `ork maestro` pelo shell do host é desvio: o CLI resolve o projeto
+ * pelo diretório atual, a classe de erro do incidente.
  */
-export const ENTRADA_CONTRATADA: Readonly<Record<HostProva, string>> = {
-  'claude-code': 'mcp__orkastery__ork_maestro',
-  openclaw: 'ork_maestro',
+export const ENTRADAS: Readonly<Record<HostProva, readonly EntradaDoHost[]>> = {
+  'claude-code': [{ ferramenta: 'mcp__orkastery__ork_maestro', contrato: 'maestro' }],
+  openclaw: [{ ferramenta: 'ork_network_roadmap', contrato: 'rede' }, { ferramenta: 'ork_maestro', contrato: 'maestro' }],
 };
 const SHELL_DO_HOST: Readonly<Record<HostProva, string>> = { 'claude-code': 'Bash', openclaw: 'exec' };
 
@@ -29,6 +33,8 @@ export interface ChamadaMaestro {
   ferramenta: string;
   /** `entrada`: a ferramenta contratada; `shell`: `ork maestro` pelo shell do host. */
   via: 'entrada' | 'shell';
+  /** O contrato do resultado, quando a chamada é por uma entrada do host. */
+  contrato: ContratoDaEntrada | null;
   argumentos: unknown;
   resultado: string | null;
   erro: boolean;
@@ -54,6 +60,8 @@ export interface ResultadoDaConferencia {
   conferencias: ConferenciaProva[];
   /** Resumo do snapshot lido, para o recibo; null quando não houve snapshot válido. */
   snapshot: { schema: string; projeto: MaestroSnapshot['project']; secoes: Record<string, string>; notConsulted: string[] } | null;
+  /** Resumo do panorama da rede lido (entrada `rede`); null nas outras. */
+  rede: { cabecalho: string; consultado: string; naoConsultado: string[] } | null;
 }
 
 const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(])ork(\s+--projeto\s+\S+)?\s+maestro\b/;
@@ -76,10 +84,11 @@ function textoDoConteudo(conteudo: unknown): string | null {
   return partes.length ? partes.map(p => p.text).join('\n') : null;
 }
 
-function classificar(host: HostProva, ferramenta: string, argumentos: unknown): ChamadaMaestro['via'] | null {
-  if (ferramenta === ENTRADA_CONTRATADA[host]) return 'entrada';
+function classificar(host: HostProva, ferramenta: string, argumentos: unknown): Pick<ChamadaMaestro, 'via' | 'contrato'> | null {
+  const entrada = ENTRADAS[host].find(e => e.ferramenta === ferramenta);
+  if (entrada) return { via: 'entrada', contrato: entrada.contrato };
   const comando = (argumentos as { command?: unknown } | null)?.command;
-  if (ferramenta === SHELL_DO_HOST[host] && typeof comando === 'string' && ORK_MAESTRO_NO_SHELL.test(comando)) return 'shell';
+  if (ferramenta === SHELL_DO_HOST[host] && typeof comando === 'string' && ORK_MAESTRO_NO_SHELL.test(comando)) return { via: 'shell', contrato: null };
   return null;
 }
 
@@ -97,9 +106,9 @@ export function transcriptDoClaude(streamJson: string): TranscriptExtraido {
     if (e.type === 'assistant') {
       for (const b of blocos) {
         if (b?.type !== 'tool_use' || typeof b.name !== 'string' || typeof b.id !== 'string') continue;
-        const via = classificar('claude-code', b.name, b.input);
-        if (!via) continue;
-        const chamada: ChamadaMaestro = { ferramenta: b.name, via, argumentos: b.input ?? null, resultado: null, erro: false };
+        const tipo = classificar('claude-code', b.name, b.input);
+        if (!tipo) continue;
+        const chamada: ChamadaMaestro = { ferramenta: b.name, ...tipo, argumentos: b.input ?? null, resultado: null, erro: false };
         pedidas.set(b.id, chamada); chamadas.push(chamada);
       }
     } else if (e.type === 'user') {
@@ -128,9 +137,9 @@ export function transcriptDoOpenclaw(eventsJsonl: string, agenteJson: unknown): 
     const d = (e.data ?? {}) as Record<string, unknown>;
     if (typeof d.toolCallId !== 'string' || typeof d.name !== 'string') continue;
     if (e.type === 'tool.call') {
-      const via = classificar('openclaw', d.name, d.args);
-      if (!via) continue;
-      const chamada: ChamadaMaestro = { ferramenta: d.name, via, argumentos: d.args ?? null, resultado: null, erro: false };
+      const tipo = classificar('openclaw', d.name, d.args);
+      if (!tipo) continue;
+      const chamada: ChamadaMaestro = { ferramenta: d.name, ...tipo, argumentos: d.args ?? null, resultado: null, erro: false };
       pedidas.set(d.toolCallId, chamada); chamadas.push(chamada);
     } else if (e.type === 'tool.result') {
       const chamada = pedidas.get(d.toolCallId);
@@ -177,30 +186,50 @@ function concluiRoadmapVazio(texto: string): string | null {
   return texto.split(/(?<=[.!?\n])\s+/).find(frase => ROADMAP_VAZIO.test(frase) && !NEGACAO.test(frase))?.trim() ?? null;
 }
 
+/**
+ * O texto de `ork network roadmap` (`textoDoPanoramaDaRede`): a primeira linha diz de onde foi
+ * lido, a segunda quais projetos foram consultados (`<nome> (clone em <raiz>)`) e o bloco
+ * "Não consultado:" o que ficou de fora.
+ */
+function lerPanoramaDaRede(texto: string): ResultadoDaConferencia['rede'] {
+  const linhas = texto.split('\n');
+  const i = linhas.findIndex(l => /^Panorama da rede lido de /.test(l));
+  if (i < 0 || !/^Consultado: /.test(linhas[i + 1] ?? '') || linhas[i + 2] !== 'Não consultado:') return null;
+  const naoConsultado: string[] = [];
+  for (const l of linhas.slice(i + 3)) { if (!l.startsWith('• ')) break; naoConsultado.push(l.slice(2)); }
+  return { cabecalho: linhas[i], consultado: linhas[i + 1], naoConsultado };
+}
+
 export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: EsperadoDaProva): ResultadoDaConferencia {
   const conferencias: ConferenciaProva[] = [];
   const conferir = (id: string, ok: boolean, detalhe: string) => { conferencias.push({ id, ok, detalhe }); return ok; };
-  const entrada = ENTRADA_CONTRATADA[host];
-  conferir('entrada.exposta', t.ferramentasExpostas?.includes(entrada) ?? false,
+  const nomes = ENTRADAS[host].map(e => e.ferramenta);
+  const expostas = nomes.filter(n => t.ferramentasExpostas?.includes(n));
+  conferir('entrada.exposta', expostas.length > 0,
     t.ferramentasExpostas === null ? 'o transcript não lista as ferramentas expostas'
-      : t.ferramentasExpostas.includes(entrada) ? `${entrada} exposta ao modelo`
-        : `${entrada} ausente entre ${t.ferramentasExpostas.length} ferramentas expostas`);
+      : expostas.length ? `${expostas.join(', ')} exposta(s) ao modelo`
+        : `${nomes.join(' e ')} ausente(s) entre ${t.ferramentasExpostas.length} ferramentas expostas`);
   const contratada = t.chamadas.find(c => c.via === 'entrada');
   const desvio = t.chamadas.find(c => c.via === 'shell');
   conferir('entrada.chamada', !!contratada,
-    contratada ? `${entrada} chamada`
-      : desvio ? `desvio: ${desvio.ferramenta} ${JSON.stringify((desvio.argumentos as { command?: unknown })?.command)} em vez de ${entrada}`
-        : `${entrada} não foi chamada`);
+    contratada ? `${contratada.ferramenta} chamada`
+      : desvio ? `desvio: ${desvio.ferramenta} ${JSON.stringify((desvio.argumentos as { command?: unknown })?.command)} em vez de ${nomes.join(' ou ')}`
+        : `${nomes.join(' ou ')} não foi chamada`);
   let snapshot: MaestroSnapshot | null = null;
-  if (contratada) {
-    if (conferir('resultado.sem-erro', contratada.resultado !== null && !contratada.erro,
-      contratada.resultado === null ? 'a chamada não teve resultado' : contratada.erro ? `erro: ${contratada.resultado.slice(0, 300)}` : 'resultado sem erro')) {
+  let rede: ResultadoDaConferencia['rede'] = null;
+  if (contratada && conferir('resultado.sem-erro', contratada.resultado !== null && !contratada.erro,
+    contratada.resultado === null ? 'a chamada não teve resultado' : contratada.erro ? `erro: ${contratada.resultado.slice(0, 300)}` : 'resultado sem erro')) {
+    if (contratada.contrato === 'maestro') {
       try {
         snapshot = validateMaestroSnapshot(extrairSnapshot(contratada.resultado!));
         conferir('resultado.contrato', true, `${snapshot.schema} validado`);
       } catch (e) {
         conferir('resultado.contrato', false, `fora do contrato: ${(e as Error).message.slice(0, 300)}`);
       }
+    } else {
+      rede = lerPanoramaDaRede(contratada.resultado!);
+      conferir('resultado.contrato', rede !== null, rede ? 'texto do ork.network-roadmap/v1: cabeçalho, Consultado e Não consultado'
+        : 'fora do contrato: sem o cabeçalho "Panorama da rede lido de", "Consultado:" e "Não consultado:"');
     }
   }
   if (snapshot) {
@@ -213,6 +242,13 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
     const lacunas = snapshot.notConsulted ?? [];
     conferir('resultado.nao-consultado', lacunas.length > 0,
       lacunas.length ? `declara o que não leu: ${lacunas.length} item(ns)` : 'notConsulted ausente: zero threads pode virar "roadmap vazio"');
+  }
+  if (rede) {
+    const raizes = [esperado.projeto.raiz, esperado.projeto.raiz.startsWith(esperado.home + path.sep) ? '~' + esperado.projeto.raiz.slice(esperado.home.length) : null];
+    const leu = raizes.some(r => r && rede!.consultado.includes(`${esperado.projeto.nome} (clone em ${r})`));
+    conferir('resultado.projeto', leu, `${rede.consultado.slice(0, 300)}; esperado ${esperado.projeto.nome} (clone em ${esperado.projeto.raiz})`);
+    conferir('resultado.nao-consultado', rede.naoConsultado.length > 0,
+      rede.naoConsultado.length ? `declara o que não leu: ${rede.naoConsultado.length} item(ns)` : 'sem o bloco do que não foi consultado');
   }
   const resposta = t.respostaFinal ?? '';
   const citaProjeto = [esperado.projeto.nome, esperado.projeto.id].some(n => resposta.toLowerCase().includes(n.toLowerCase()));
@@ -229,6 +265,7 @@ export function conferirProva(host: HostProva, t: TranscriptExtraido, esperado: 
       secoes: Object.fromEntries(Object.entries(snapshot.sections).map(([nome, s]) => [nome, s.state])),
       notConsulted: snapshot.notConsulted ?? [],
     },
+    rede,
   };
 }
 
