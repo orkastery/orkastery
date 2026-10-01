@@ -121,7 +121,8 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
 /**
  * D7: o mapa sessionId -> estado que o escalonador e o monitor usam, agora de todas as contas.
  * Fantasma vira `fantasma` (nem `working` nem `blocked`: nao ocupa vaga nem pede o dono); codex
- * vivo vira `working`. `null` so quando nenhuma fonte respondeu: "runtime nao consultado".
+ * vivo vira `working`. `null` ("runtime nao consultado") quando nenhuma conta claude-bg respondeu e
+ * nenhuma sessao codex apareceu: um mapa vazio ali diria "nada rodando" sem ter olhado.
  */
 export function estadosNasContas(raiz: string | null, opcoes: { staleMin?: number; agoraMs?: number } = {}): Map<string, string> | null {
   const r = consultarContas(raiz, opcoes);
