@@ -19,6 +19,9 @@
  * com o tipo e o que fazer. `naoConsultado` diz o que esta leitura nao olhou. Leitura pura: nada e
  * gravado no estado do `ork` nem na forja; o unico efeito e o `git fetch` de sempre nas refs
  * remotas do clone, e `semRemoto` o desliga.
+ *
+ * Na fatia 2, os hosts chegam aqui por dois modos: `host` (gateway sem cwd de projeto, a regra da
+ * RM-052 no `--projeto` proprio do `network`) e `fixado` (o servidor MCP, que le so o projeto dele).
  */
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -35,6 +38,7 @@ import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifest';
 import { nomeDaMaquina, pastaDoUsuario } from './maquina';
 import { tagDoModo } from './modos';
+import { PADRAO_DO_NOME_DE_PROJETO } from './projeto-alvo';
 import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, quemSouEu, ReservaDeItem, reservaValida } from './roadmap-reservas';
 import { EsperaDoDono, esperaDoDono, FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -94,7 +98,8 @@ export interface MaquinaNoPanorama {
   entreguesSemMaster: number;
 }
 
-export type OrigemNoPanorama = 'cwd' | 'registro' | 'argumento';
+/** `instalacao`: o projeto fixado no servidor MCP (RM-054, fatia 2), como a origem de mesmo nome da RM-052. */
+export type OrigemNoPanorama = 'cwd' | 'registro' | 'argumento' | 'instalacao';
 
 export interface ProjetoNoPanorama {
   /** `fuso`: o `owner.timezone` do projeto (clone ou forja), senao o do dono deste processo. */
@@ -166,6 +171,17 @@ export interface OpcoesDoPanorama {
   maquina?: string;
   /** O arquivo do registro da RM-052; padrao: `~/.orkastery/projetos.json`. */
   registro?: string;
+  /**
+   * RM-054 (fatia 2): o pedido vem de um host sem cwd de projeto (`ORK_PROJETO_EXPLICITO=1`, D3 da
+   * RM-052). O `--projeto` so aceita o nome registrado ou a forja, e o projeto do cwd so entra se
+   * estiver no registro.
+   */
+  host?: boolean;
+  /**
+   * RM-054 (fatia 2): a raiz do projeto servido pelo MCP. So ele e lido, em todas as maquinas, sem o
+   * registro: o servidor fixado nao revela os outros projetos desta maquina (D5 da RM-052).
+   */
+  fixado?: string;
 }
 
 /** `fuso`: o do projeto em leitura; no panorama, o do dono deste processo ate um projeto dizer o seu. */
@@ -242,15 +258,27 @@ function projetosDoRegistro(arquivo: string): { projetos: ProjetoDaRede[]; lacun
   return { projetos, lacunas, lido: true };
 }
 
-/** Os projetos que esta maquina conhece, sem repetir: o do cwd primeiro, depois o registro. */
-export function projetosConhecidos(opcoes: Pick<OpcoesDoPanorama, 'cwd' | 'registro'> = {}):
+/**
+ * Os projetos que esta maquina conhece, sem repetir: o do cwd primeiro, depois o registro. Com
+ * `host` (D-G6 da fatia 2), o cwd do gateway nao e projeto de ninguem: o projeto dele so entra pelo
+ * registro, e fora dele vai ao "nao consultado" dizendo por que. Foi ele que respondeu em 29/09.
+ */
+export function projetosConhecidos(opcoes: Pick<OpcoesDoPanorama, 'cwd' | 'registro' | 'host'> = {}):
   { projetos: ProjetoDaRede[]; lacunas: LacunaDaRede[]; naoConsultado: string[] } {
   const cwd = opcoes.cwd ?? process.cwd();
   const candidatos: ProjetoDaRede[] = [];
   const doCwd = carregarManifesto(cwd);
-  if (doCwd) candidatos.push(projetoDoClone(doCwd, 'cwd'));
   const arquivo = opcoes.registro ?? path.join(pastaDoUsuario(), 'projetos.json');
   const registro = projetosDoRegistro(arquivo);
+  const naoConsultado = registro.lido ? [] : [`registro de projetos desta máquina (RM-052): ${arquivo} ausente`];
+  if (doCwd && !opcoes.host) candidatos.push(projetoDoClone(doCwd, 'cwd'));
+  else if (doCwd) {
+    const doGateway = projetoDoClone(doCwd, 'cwd');
+    if (!registro.projetos.some((p) => mesmoProjeto(p, doGateway))) {
+      naoConsultado.push(`diretório do host (${raizParaExibir(doCwd.raiz)}): o projeto ${doGateway.nome} está fora do registro desta ` +
+        'máquina, e o ork não lê projeto pelo diretório do gateway (RM-052); para entrar, `ork projetos registrar <caminho>`');
+    }
+  }
   candidatos.push(...registro.projetos);
   const projetos: ProjetoDaRede[] = [];
   for (const p of candidatos) {
@@ -258,8 +286,7 @@ export function projetosConhecidos(opcoes: Pick<OpcoesDoPanorama, 'cwd' | 'regis
     if (i < 0) projetos.push(p);
     else if (!projetos[i].raiz && p.raiz) projetos[i] = p;
   }
-  return { projetos, lacunas: registro.lacunas,
-    naoConsultado: registro.lido ? [] : [`registro de projetos desta máquina (RM-052): ${arquivo} ausente`] };
+  return { projetos, lacunas: registro.lacunas, naoConsultado };
 }
 
 const rotuloDoProjeto = (p: ProjetoDaRede): string =>
@@ -271,6 +298,34 @@ function raizParaExibir(raiz: string): string {
 
 /** Caminho explicito: absoluto, `./`, `../` ou `~/`. Nome sozinho e sempre nome (achado 2 do CHECK). */
 const ehCaminho = (t: string): boolean => path.isAbsolute(t) || /^(?:\.{1,2}|~)(?:\/|$)/.test(t);
+
+/** As forjas publicas que o host pode pedir sem registro, cada uma com o tipo dela. */
+const FORJAS_PUBLICAS: Readonly<Record<string, IdentidadeDaForja['tipo']>> = Object.freeze({ 'github.com': 'github', 'gitlab.com': 'gitlab' });
+
+/**
+ * D-G4 (fatia 2): no host, o `--projeto` do `network` e o nome de um projeto (RM-052) ou a forja
+ * (`github:dono/repo`, `gitlab:grupo/repo`). Caminho apontaria o nucleo para qualquer pasta (D4 da
+ * RM-052) e URL pode levar credencial: nenhum dos dois entra, e o texto pedido nao volta na recusa.
+ * A forja tambem so vale num host conhecido (GO-FIX 1 do CHECK): `github.com`, `gitlab.com` ou o
+ * host de um projeto do registro. Com host livre, o texto do modelo levaria o `gh`/`glab` a qualquer
+ * servidor (`gitlab:169.254.169.254/a/b`), e um `GITLAB_TOKEN` do ambiente iria junto.
+ */
+function exigirPedidoDoHost(pedido: string, conhecidos: readonly ProjetoDaRede[]): void {
+  const t = pedido.trim();
+  if (PADRAO_DO_NOME_DE_PROJETO.test(t)) return;
+  const candidatos = conhecidos.map(rotuloDoProjeto);
+  const forja = /^(?:github|gitlab):/i.test(t) ? forjaDoArgumento(t) : null;
+  if (!forja) {
+    throw new ErroDoPedidoDeProjeto('projeto.desconhecido',
+      'no host, --projeto é o nome de um projeto registrado ou a forja (github:dono/repo, gitlab:grupo/repo); caminho e URL não são aceitos',
+      candidatos, 'peça pelo nome de `ork projetos` (ex.: orkastery) ou por github:dono/repo');
+  }
+  const publica = FORJAS_PUBLICAS[forja.host] === forja.tipo;
+  if (publica || conhecidos.some((p) => p.forja && p.forja.host === forja.host && p.forja.tipo === forja.tipo)) return;
+  throw new ErroDoPedidoDeProjeto('projeto.desconhecido',
+    'no host, a forja pedida precisa ser github.com, gitlab.com ou a de um projeto registrado nesta máquina',
+    candidatos, 'peça por github:dono/repo ou gitlab:grupo/repo; grupo com ponto no GitLab vai com o host: gitlab:gitlab.com/grupo/repo');
+}
 
 /**
  * D9: o `--projeto`. `github:`/`gitlab:`/URL, caminho explicito com manifesto, ou o nome (ou
@@ -815,23 +870,40 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
   const cwd = opcoes.cwd ?? process.cwd();
   const ctx: Contexto = { quando, maquina: nomeDaMaquina(opcoes.maquina), semRemoto: opcoes.semRemoto === true, executor: opcoes.executor,
     fuso: fusoDoDono().fuso };
-  const conhecidos = projetosConhecidos({ cwd, registro: opcoes.registro });
   const naoConsultado = [
     'rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto',
-    ...conhecidos.naoConsultado,
   ];
-  const lacunas = [...conhecidos.lacunas];
+  const lacunas: LacunaDaRede[] = [];
   let alvos: ProjetoDaRede[];
-  if (opcoes.pedido !== undefined) {
-    const alvo = resolverProjeto(opcoes.pedido, conhecidos.projetos, cwd);
-    alvos = [alvo];
-    for (const p of conhecidos.projetos) if (!mesmoProjeto(p, alvo)) naoConsultado.push(`projeto ${p.nome}: fora do pedido (--projeto)`);
+  if (opcoes.fixado !== undefined) {
+    // D-G5 (fatia 2): o servidor MCP le so o projeto dele, em todas as maquinas; o registro nao e lido.
+    const c = carregarManifesto(opcoes.fixado);
+    if (!c) {
+      throw new ErroDoPedidoDeProjeto('projeto.sem-manifesto', `a raiz fixada não tem ${NOME_MANIFESTO}`, [],
+        'confira a raiz fixada na instalação do servidor MCP (ork mcp install --project <raiz>)');
+    }
+    alvos = [projetoDoClone(c, 'instalacao')];
+    naoConsultado.push('outros projetos desta máquina: este servidor MCP lê só o projeto fixado na instalação; ' +
+      'os outros vêm do CLI `ork network roadmap`');
   } else {
-    alvos = conhecidos.projetos;
+    const conhecidos = projetosConhecidos({ cwd, registro: opcoes.registro, host: opcoes.host });
+    naoConsultado.push(...conhecidos.naoConsultado);
+    lacunas.push(...conhecidos.lacunas);
+    if (opcoes.pedido !== undefined) {
+      if (opcoes.host) exigirPedidoDoHost(opcoes.pedido, conhecidos.projetos);
+      const alvo = resolverProjeto(opcoes.pedido, conhecidos.projetos, cwd);
+      alvos = [alvo];
+      for (const p of conhecidos.projetos) if (!mesmoProjeto(p, alvo)) naoConsultado.push(`projeto ${p.nome}: fora do pedido (--projeto)`);
+    } else {
+      alvos = conhecidos.projetos;
+    }
   }
   if (alvos.length === 0) {
-    lacunas.push(lacuna('rede.sem-projeto', 'rede', undefined, 'nenhum projeto conhecido nesta máquina: sem manifesto no diretório atual e sem registro',
-      'peça o projeto: --projeto <caminho do clone> ou --projeto github:dono/repo'));
+    lacunas.push(lacuna('rede.sem-projeto', 'rede', undefined, opcoes.host
+      ? 'nenhum projeto conhecido nesta máquina: o registro está vazio, e o diretório do host não conta como projeto'
+      : 'nenhum projeto conhecido nesta máquina: sem manifesto no diretório atual e sem registro',
+    opcoes.host ? 'peça o projeto pela forja (--projeto github:dono/repo) ou registre o clone com `ork projetos registrar <caminho>`'
+      : 'peça o projeto: --projeto <caminho do clone> ou --projeto github:dono/repo'));
   }
   const projetos = alvos.map((p) => lerProjeto(p, ctx));
   return { contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm: quando, maquina: ctx.maquina, pedido: opcoes.pedido ?? null,

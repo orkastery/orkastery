@@ -93,7 +93,7 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
-  assert.equal(tools.length,29);assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  assert.equal(tools.length,30);assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -202,7 +202,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,29);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,30);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 

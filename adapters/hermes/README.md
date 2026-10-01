@@ -44,6 +44,9 @@ ork adapter install hermes --dry-run             # lista o que seria escrito
 | `hermes.plugin.json` | Declara a skill, o binario do `ork` e as tags de conducao |
 | `bin/ork-abrir-thread.sh` | Abre a thread com o modo lido do pedido, em um comando |
 | `bin/ork-brain.sh` | Consulta o Company Brain pelo contrato e identidade autenticada do OrkMind |
+| `bin/ork-maestro.sh` | `ork_maestro`: o panorama Maestro do projeto pedido (`ork maestro --json`) |
+| `bin/ork-roadmap-status.sh` | `ork_roadmap_status`: o status report do roadmap so desta maquina (`ork roadmap status`) |
+| `bin/ork-network-roadmap.sh` | `ork_network_roadmap`: o roadmap da rede (`ork network roadmap`), com as threads de todas as maquinas, fonte, hora e lacunas; a fonte do status do roadmap e o panorama da frase `orkastery maestro` sem projeto (RM-054) |
 
 ## Tickets `obj-*` aposentados
 

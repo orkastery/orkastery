@@ -2,7 +2,7 @@
 
 O OpenClaw recebe o Orkastery como uma **extensao** no formato 2026.7.1: um pacote com
 `package.json` (`openclaw.extensions: ["./dist/index.js"]`), um entry JS que registra as
-**21 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
+**27 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
 `openclaw.plugin.json` gerado (`id`, `activation`, `contracts.tools`). Cada tool e uma
 chamada de CLI do `ork`, sem regra de negocio no host.
 
@@ -58,12 +58,14 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_verify` / `ork_verify_baseline` | Reexecuta no HEAD real; grava a baseline antes do GO |
 | `ork_worktree_ensure` / `ork_worktree_audit` | Worktree isolada, conferida no proprio git |
 | `ork_portfolio_list` | Lista produtos, projetos e iniciativas canônicos |
+| `ork_brain_dossie` | Dossiê de decisão da thread no Company Brain, com vínculo, alternativas, quem decidiu e evidência (RM-026) |
 | `ork_gate_answer` | Resposta humana correlacionada a um gate |
 | `ork_session_answer` | Resposta humana correlacionada a uma sessão |
 | `ork_ship` | Merge serializado por lease e push provado contra o remoto |
 | `ork_master` | POSTMORTEM tipado e o score HUMANO de 0 a 5 |
 | `ork_board` | As threads DESTE projeto e o escalonador; nao le o roadmap (zero threads nao e roadmap vazio) |
-| `ork_roadmap_status` | Status report unico do roadmap (`ork roadmap status`), transportado como vem; a unica fonte do roadmap |
+| `ork_roadmap_status` | Status report do roadmap so desta maquina (`ork roadmap status`), transportado como vem |
+| `ork_network_roadmap` | Roadmap da rede (`ork network roadmap`): o status report com as threads de todas as maquinas, reservas, fonte e hora de cada parte e lacunas; a fonte do status do roadmap |
 | `ork_master_batch` | Todas as entregas, com o indice do ledger (`ork master --todas`; a fila de score saiu na I-43) |
 
 ### O projeto de cada chamada (RM-052)
@@ -74,6 +76,26 @@ nunca um caminho. Ele vai ao `ork` como `--projeto <nome>`. O adaptador declara
 um projeto conhecido, a resposta e a escolha tipada `projeto.escolha`, com os candidatos; com um
 so, vale ele. Toda resposta de `ork_maestro`, `ork_board` e `ork_roadmap_status` comeca dizendo o
 projeto consultado e o que nao foi lido.
+
+### O roadmap da rede (RM-054, fatia 2)
+
+`ork_network_roadmap` e a fonte de qualquer pergunta sobre o roadmap: uma chamada de
+`ork network roadmap`, com o status report do RM-048 e as threads de todas as maquinas, as
+reservas, a fonte e a hora de cada parte e as lacunas. A descricao manda transportar o texto como
+vem e nunca concluir "roadmap vazio" nem "nenhuma maquina publicou" a partir de lacuna ou de "Nao
+consultado". O `projeto` dela aceita o nome registrado ou a forja (`github:dono/repo`,
+`gitlab:grupo/repo`), para a maquina sem clone; caminho e URL recusam no host e no nucleo, e o
+nucleo so aceita a forja em `github.com`, `gitlab.com` ou no host de um projeto registrado. Sem
+`projeto`, vem o panorama de todos os projetos do registro, e e o que a frase `orkastery maestro`
+sem projeto oferece. O projeto do diretorio do gateway so entra se estiver no registro.
+
+Ela e a unica tool do catalogo declarada nos perfis `coding` e `messaging` do OpenClaw
+(`toolMetadata.ork_network_roadmap.profiles` no manifesto): com o perfil `coding`, o padrao do
+onboarding, as tools de plugin so chegam ao modelo quando o manifesto as declara no perfil ou o
+operador as libera. Sem isso o modelo nao ve tool `ork_*` nenhuma e vai ao `ork` pelo shell, como
+no incidente de 29/09. As outras tools continuam sob escolha do operador:
+`tools.alsoAllow: ["orkastery"]` no `openclaw.json` libera todas; allowlist e deny do operador
+sempre valem.
 
 ## A #TAG de conducao
 

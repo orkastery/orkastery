@@ -56,7 +56,7 @@ test('roadmap status: titulo aprovado na linha 1, depois o projeto consultado e 
     const linhas = ork(usuario, b.dir, ['--projeto', 'orkastery', 'roadmap', 'status']).split('\n');
     assert.match(linhas[0], /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
     assert.equal(linhas[1], `Projeto consultado: orkastery (ork) · ${raizParaExibir(a.dir)} · ${a.remoto} · pela opção --projeto`);
-    assert.equal(linhas[2], 'Não lido: reservas do roadmap (ork roadmap reservas) · threads de outras máquinas (ork fabrica) · ' +
+    assert.equal(linhas[2], 'Não lido: reservas do roadmap (ork network roadmap) · threads de outras máquinas (ork network roadmap) · ' +
       'outros projetos desta máquina: 1 (ork projetos)');
     const json = JSON.parse(ork(usuario, a.dir, ['roadmap', 'status', '--json']));
     assert.deepEqual(json.consulta.projeto, { nome: 'orkastery', abbrev: 'ork', raiz: raizParaExibir(a.dir), remoto: a.remoto, origem: 'cwd' });
@@ -72,16 +72,16 @@ test('board e board plan: cabecalho com o projeto e "roadmap nao lido"; JSON do 
     novaThread(a.carregado, { nome: 'Uma thread', modo: 'auto' });
     const texto = ork(usuario, a.dir, ['board']).split('\n');
     assert.match(texto[0], /^Projeto consultado: orkastery \(ork\) · .* · sem remoto · pelo diretório atual$/);
-    assert.match(texto[1], /^Não lido: roadmap \(ork roadmap status\) · reservas do roadmap \(ork roadmap reservas\) · /);
+    assert.match(texto[1], /^Não lido: roadmap \(ork network roadmap\) · reservas do roadmap \(ork network roadmap\) · /);
     assert.ok(texto.some((l) => /^Board do Orkastery, projeto orkastery \(1 thread/.test(l)));
     const json = JSON.parse(ork(usuario, a.dir, ['board', '--json']));
     assert.equal(json.contrato, 'ork.board/v1');
     assert.deepEqual(json.threads, threadsDeTodosOsPerfis(a.carregado, false));
-    assert.ok(json.consulta.naoLido.includes('roadmap (ork roadmap status)'));
+    assert.ok(json.consulta.naoLido.includes('roadmap (ork network roadmap)'));
 
     const plano = ork(usuario, a.dir, ['board', 'plan']).split('\n');
     assert.match(plano[0], /^Projeto consultado: orkastery \(ork\)/);
-    assert.match(plano[1], /^Não lido: roadmap \(ork roadmap status\)/);
+    assert.match(plano[1], /^Não lido: roadmap \(ork network roadmap\)/);
     assert.ok(plano.some((l) => /^Escalonador por maquina/.test(l)));
     const planoJson = JSON.parse(ork(usuario, a.dir, ['board', 'plan', '--json']));
     assert.equal(planoJson.consulta.projeto.nome, 'orkastery');
@@ -110,7 +110,7 @@ test('fabrica e outras maquinas: com remoto diz de onde leu; sem remoto diz que 
     assert.ok(!/nenhuma publicou ainda/.test(board), 'a frase do incidente nao sai de um projeto sem remoto');
     const boardComFabrica = ork(usuario, comOrigem.dir, ['board'], { ORK_FABRICA_COMPARTILHADA: '1' });
     assert.match(boardComFabrica, /Outras maquinas \(ork\/fabrica-estado, lido agora\): nenhuma publicou ainda\./);
-    assert.ok(!/Não lido: .*outras máquinas \(ork fabrica\)/.test(boardComFabrica), 'com a fabrica lida, ela nao aparece como nao lida');
+    assert.ok(!/Não lido: .*outras máquinas \(ork network roadmap\)/.test(boardComFabrica), 'com a fabrica lida, ela nao aparece como nao lida');
   } finally { comOrigem.limpar(); semOrigem.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });
 
@@ -126,20 +126,20 @@ test('maestro: snapshot com raiz, remoto e notConsulted validos no contrato; tex
     assert.equal(typeof snapshot.project.root, 'string');
     assert.ok(!snapshot.project.root.includes('/home/'), 'raiz sem a pasta da conta');
     assert.equal(snapshot.project.remote, '[caminho privado]', 'o remoto bare em /tmp passa pela mesma redacao');
-    assert.deepEqual(snapshot.notConsulted, ['roadmap (ork roadmap status)', 'reservas do roadmap (ork roadmap reservas)',
-      'outras máquinas (ork fabrica)', 'outros projetos desta máquina: 1 (ork projetos)']);
+    assert.deepEqual(snapshot.notConsulted, ['roadmap (ork network roadmap)', 'reservas do roadmap (ork network roadmap)',
+      'outras máquinas (ork network roadmap)', 'outros projetos desta máquina: 1 (ork projetos)']);
     const texto = ork(usuario, b.dir, ['maestro', '--projeto', 'orkastery']).split('\n');
     assert.equal(texto[0], 'orkastery · panorama Maestro');
     assert.match(texto[1], /^• Consulta: /);
     assert.match(texto[2], /^• Projeto consultado: orkastery · .* · pedido explicitamente \(--projeto ou ORK_PROJETO\)$/);
-    assert.match(texto[3], /^• Não lido: roadmap \(ork roadmap status\) · /);
+    assert.match(texto[3], /^• Não lido: roadmap \(ork network roadmap\) · /);
 
     process.env.ORK_USUARIO_DIR = usuario;
     const fixado = readMaestro(discoverMaestro({ cwd: a.dir, pinned: a.dir, countOtherProjects: false }),
       { host: { tools: [], child: false } });
     assert.equal(fixado.project.origin, 'installation');
-    assert.deepEqual(fixado.notConsulted, ['roadmap (ork roadmap status)', 'reservas do roadmap (ork roadmap reservas)',
-      'outras máquinas (ork fabrica)'], 'o servidor fixado nao revela os outros projetos da maquina');
+    assert.deepEqual(fixado.notConsulted, ['roadmap (ork network roadmap)', 'reservas do roadmap (ork network roadmap)',
+      'outras máquinas (ork network roadmap)'], 'o servidor fixado nao revela os outros projetos da maquina');
     assert.match(maestroText(fixado), /• Projeto consultado: orkastery · .* · fixado na instalação/);
   } finally { process.env.ORK_USUARIO_DIR = anterior; a.limpar(); b.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });

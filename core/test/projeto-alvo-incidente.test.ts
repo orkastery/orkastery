@@ -136,10 +136,10 @@ test('incidente 29/09: board e maestro do orkastery dizem que o roadmap nao foi 
     await gatewayNoWorkspace(c.workspace.dir, async (tools) => {
       const board = await tools.get('ork_board')!.execute({ projeto: 'orkastery' }, {}, {});
       assert.match(board, /^Projeto consultado: orkastery \(ork\) · /);
-      assert.match(board, /^Não lido: roadmap \(ork roadmap status\) · /m);
+      assert.match(board, /^Não lido: roadmap \(ork network roadmap\) · /m);
       const snapshot = JSON.parse(await tools.get('ork_maestro')!.execute({ projeto: 'orkastery' }, {}, {}));
       assert.equal(snapshot.project.name, 'orkastery');
-      assert.ok(snapshot.notConsulted.includes('roadmap (ork roadmap status)'));
+      assert.ok(snapshot.notConsulted.includes('roadmap (ork network roadmap)'));
       assert.equal(snapshot.sections.threads.coverage.total, 1, 'a thread do orkastery, nao as 0 do workspace');
 
       const doWorkspace = await tools.get('ork_board')!.execute({ projeto: 'workspace' }, {}, {});
