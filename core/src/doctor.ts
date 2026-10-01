@@ -20,6 +20,7 @@ import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso
   rotuloDoFuso } from './horario';
 import { Check } from './types';
 import { exec, noPath, simbolo } from './util';
+import { branchDoHead } from './init';
 import { inventariarSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
@@ -159,11 +160,14 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 
   const repo = exec('git', ['rev-parse', '--is-inside-work-tree'], dirInicial);
   const dentroDeRepo = repo.ok && repo.stdout.trim() === 'true';
-  const branch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial);
+  // Ensaio da 0.5.0: sem commit, o `rev-parse --abbrev-ref` respondia "HEAD"; a branch vem do
+  // `symbolic-ref`, e a falta de commit fica dita.
+  const semCommit = dentroDeRepo && !exec('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], dirInicial).ok;
+  const branch = dentroDeRepo ? branchDoHead(dirInicial) ?? exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial).stdout.trim() : '';
   checks.push({
     nome: 'repositorio',
     nivel: dentroDeRepo ? 'ok' : 'fail',
-    detalhe: dentroDeRepo ? `branch ${branch.stdout.trim()}` : 'fora de um repositorio git',
+    detalhe: dentroDeRepo ? `branch ${branch}${semCommit ? ' (sem commit)' : ''}` : 'fora de um repositorio git',
     correcao: dentroDeRepo ? undefined : 'rode o ork dentro de um repositorio git',
   });
 

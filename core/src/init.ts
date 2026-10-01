@@ -39,7 +39,12 @@ export function nomeDetectado(dirInicial: string): string {
   return base.replace(/-(novo|new|old|repo|main)$/i, '').toLowerCase();
 }
 
-/** Branch base do repositorio: origin/HEAD, senao main, senao master, senao a atual. */
+/**
+ * Branch base do repositorio: origin/HEAD, senao main, senao master, senao a do HEAD.
+ * A do HEAD vem de `symbolic-ref`, que responde tambem no repositorio ainda sem commit (ensaio
+ * da 0.5.0: o `git init` sem `init.defaultBranch` nasce em `master`, e o `rev-parse` falhava e
+ * caia em `main`). HEAD destacado nao e branch: vale `main`.
+ */
 export function baseBranchDetectada(raiz: string): string {
   const origem = exec('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], raiz);
   if (origem.ok && origem.stdout.trim()) {
@@ -50,8 +55,13 @@ export function baseBranchDetectada(raiz: string): string {
       return candidata;
     }
   }
-  const atual = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], raiz);
-  return atual.ok ? atual.stdout.trim() : 'main';
+  return branchDoHead(raiz) ?? 'main';
+}
+
+/** A branch para onde o HEAD aponta, com ou sem commit; `null` com o HEAD destacado. */
+export function branchDoHead(dir: string): string | null {
+  const r = exec('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], dir);
+  return r.ok && r.stdout.trim() ? r.stdout.trim() : null;
 }
 
 function gerenciadorDetectado(dir: string): string {
