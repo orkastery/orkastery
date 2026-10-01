@@ -183,6 +183,17 @@ test('KG4 equivalencia: o tipo importado no JSDoc liga o JavaScript ao modulo da
   });
 });
 
+test('KG4 equivalencia: main do package.json da pasta aponta para fora dela; o arquivo novo no alvo reextrai quem importa a pasta', () => {
+  provar('kg4-main', {
+    'src/lib/package.json': '{ "main": "../compartilhado/x.js" }\n',
+    'src/lib/index.js': 'function velho() { return 1; }\nmodule.exports = { velho };\n',
+    'src/a.js': "const lib = require('./lib');\nfunction a() { return lib.velho(); }\nmodule.exports = { a };\n",
+    'src/solto.js': 'function s() { return 2; }\nmodule.exports = { s };\n',
+  }, { 'src/compartilhado/x.js': 'function novo() { return 3; }\nmodule.exports = { novo };\n' }, ({ incremental }) => {
+    assert.deepEqual(reextraidos(incremental).ts, ['src/a.js', 'src/compartilhado/x.js']);
+  });
+});
+
 test('KG4 equivalencia: titulo renomeado deixa a ancora sem alvo; so o Markdown mudado e reestruturado e o TypeScript fica todo', () => {
   provar('kg4-markdown', {
     'docs/a.md': '# A\n\n## Secao\n\nVer [b](b.md#parte) e RM-002.\n',

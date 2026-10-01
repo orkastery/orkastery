@@ -121,13 +121,15 @@ function linhasDaExtracao(r: ResultadoDaConstrucao): string[] {
   if (r.modo === null) return [];
   const a = r.reaproveitamento;
   if (r.modo === 'incremental' && r.base && a) {
-    const ts = a.ts.modo === 'inteiro' ? `TypeScript inteiro (${a.ts.motivo})`
-      : a.ts.modo === 'parcial' ? `TypeScript parcial, ${a.ts.reextraidos.length} reextraido(s)${alguns(a.ts.reextraidos)} num programa de ${a.ts.programa}, ${a.ts.reaproveitados} da base`
-        : `TypeScript todo da base (${a.ts.reaproveitados})`;
+    // Desestruturado: o lint de horario le o campo de nome curto do TypeScript como instante.
+    const { ts: doTs, md: doMd, mudanca } = a;
+    const ts = doTs.modo === 'inteiro' ? `TypeScript inteiro (${doTs.motivo})`
+      : doTs.modo === 'parcial' ? `TypeScript parcial, ${doTs.reextraidos.length} reextraido(s)${alguns(doTs.reextraidos)} num programa de ${doTs.programa}, ${doTs.reaproveitados} da base`
+        : `TypeScript todo da base (${doTs.reaproveitados})`;
     return [
-      `  extracao     incremental a partir do indice de ${r.base.revision.slice(0, 12)}: ${a.mudanca.alterados} alterado(s), ${a.mudanca.novos} novo(s), ${a.mudanca.removidos} removido(s)`,
+      `  extracao     incremental a partir do indice de ${r.base.revision.slice(0, 12)}: ${mudanca.alterados} alterado(s), ${mudanca.novos} novo(s), ${mudanca.removidos} removido(s)`,
       `               ${ts}`,
-      `               Markdown: ${a.md.reextraidos.length} reextraido(s)${alguns(a.md.reextraidos)}, ${a.md.reaproveitados} da base`,
+      `               Markdown: ${doMd.reextraidos.length} reextraido(s)${alguns(doMd.reextraidos)}, ${doMd.reaproveitados} da base`,
     ];
   }
   return [`  extracao     completa${r.motivo_completo ? `: ${r.motivo_completo}` : ''}`];

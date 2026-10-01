@@ -563,6 +563,32 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
   const baseDaReferencia = (de: string, nome: string): string | null =>
     (nome.startsWith('/') || nome.startsWith('\\') ? null : normalizar([...de.split('/').slice(0, -1), ...nome.replace(/\\/g, '/').split('/')]));
 
+  /**
+   * KG4 (D3): a resolucao de uma pasta le o `package.json` dela, e `main`, `types` e `typings` podem
+   * apontar para fora da base: os alvos entram como sondas. `typesVersions` remapeia qualquer caminho,
+   * e entao a sonda casa tudo. Mudanca no proprio `package.json` extrai o TypeScript inteiro.
+   */
+  const sondasDoPacote = (base: string, sondas: Set<string>): void => {
+    for (const pasta of new Set([base, semExtensao(base)])) {
+      const arquivo = junta(pasta, 'package.json');
+      if (!arquivos.has(arquivo)) continue;
+      const v = lerJson(arquivo);
+      if (v === null || typeof v !== 'object' || Array.isArray(v)) continue;
+      const o = v as Record<string, unknown>;
+      if ('typesVersions' in o) sondas.add('');
+      for (const campo of ['main', 'types', 'typings']) {
+        const alvo = o[campo];
+        const t = typeof alvo === 'string' && alvo && !alvo.startsWith('/') ? caminhoLiteral(arquivo, `./${alvo}`) : null;
+        if (t !== null) sondas.add(t);
+      }
+    }
+  };
+  const sondar = (base: string | null, sondas: Set<string>): void => {
+    if (base === null) return;
+    sondas.add(base);
+    sondasDoPacote(base, sondas);
+  };
+
   // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
   // runtime. Onde divergem, a aresta de import vai ao que roda e nenhum simbolo passa por ali (D3).
   const resolucoes = new Map<string, Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>>();
@@ -577,8 +603,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     for (const chave of especificadoresEm(sf)) {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
-      const base = baseDaSonda(fonte.path, esp);
-      if (base !== null) sondas.add(base);
+      sondar(baseDaSonda(fonte.path, esp), sondas);
       let alvo = doCompilador, divergente = false;
       // Import so de tipo nao roda: vale o que o compilador liga. Fonte JavaScript roda no Node, e onde
       // o Node falha (formato, escopo, alvo que nao carrega) nao ha aresta.
@@ -601,8 +626,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     }
     // O que o TypeScript coleta e a varredura nao ve (tipo importado no JSDoc) tambem liga o checker a outro arquivo.
     for (const nome of nomesDeModulo(sf)) {
-      const base = baseDaSonda(fonte.path, nome);
-      if (base !== null) sondas.add(base);
+      sondar(baseDaSonda(fonte.path, nome), sondas);
       const alvo = resolver(nome, fonte.path);
       if (alvo !== null) dependencias.add(alvo);
     }
