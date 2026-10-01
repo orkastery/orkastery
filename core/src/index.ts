@@ -307,11 +307,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
 
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
+                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
         [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
   experiencia uninstall <host> [--dry-run] [--json]
                                             Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção

@@ -18,6 +18,7 @@ import { checar } from '../src/doctor';
 import { exec, shaCurto } from '../src/util';
 import { avaliarPolicies } from '../src/policies';
 import { gravarEtapa } from '../src/onboarding';
+import { textoDosPitfalls } from '../src/hosts';
 import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -181,4 +182,39 @@ test('ensaio 050: fuso do owner ausente deixa o fuso legado valer como antes', (
     assert.match(checar(p.dir).find(c => c.nome === 'onboarding fuso')?.detalhe ?? '',
       /entrevista informou America\/Sao_Paulo; manifesto declara owner\.timezone ausente/);
   } finally { p.limpar(); }
+});
+
+test('ensaio 050: textos do adaptador sem contagem fixa e com o pacote pulado dito como pulado', () => {
+  const pitfalls = textoDosPitfalls('claude-code');
+  // A 0.5.0 dizia "os 17 caminhos"; o plugin.json da 0.5.0 declara 20 skills.
+  assert.doesNotMatch(pitfalls, /\d+ caminhos/);
+  assert.match(pitfalls, /declara cada caminho de skill, um a um/);
+  assert.match(pitfalls, /Skills \(N\) soma as skills do plugin\.json e os comandos de commands\//);
+
+  const p = projetoTemporario('ensaio-adaptador');
+  const casa = dirTemporario('ensaio-adaptador-casa');
+  const fora = dirTemporario('ensaio-adaptador-fora');
+  try {
+    // Catalogo fora do projeto: o pacote de experiencia (ativo por padrao) e pulado com aviso.
+    const r = ork(p.dir, casa, 'adapter', 'install', 'claude-code', '--dir', fora, '--dry-run');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^Experiência: pacote pulado nesta instalação \(motivo no aviso abaixo\)/m);
+    assert.match(r.stdout, /^Aviso: Pacote de experiência pulado: o adaptador fica fora do projeto/m);
+    assert.doesNotMatch(r.stdout, /desativada ou sem integração/);
+  } finally { p.limpar(); limpar(casa, fora); }
+});
+
+test('ensaio 050: ajuda do setup traz a continuacao logo abaixo do setup', () => {
+  const casa = dirTemporario('ensaio-ajuda-casa');
+  try {
+    const r = ork(casa, casa, '--help');
+    assert.equal(r.status, 0, r.stderr);
+    const linhas = r.stdout.split('\n');
+    const i = linhas.findIndex(l => /^  setup\s+Pauta da entrevista #setup/.test(l));
+    assert.ok(i >= 0, 'linha do setup');
+    assert.match(linhas[i + 1], /^\s+por bloco de cada modo \(default claude-bg\/opus\/high; #Fast: sonnet\)$/);
+    const sync = linhas.findIndex(l => /^  onboarding sync \[--json\]/.test(l));
+    assert.ok(sync > i, 'onboarding sync depois do setup');
+    assert.doesNotMatch(linhas[sync + 1] ?? '', /por bloco de cada modo/);
+  } finally { limpar(casa); }
 });
