@@ -55,10 +55,10 @@ sdlc:
 - **Incluído (fatia de 01/10/2026):** conferência pura do transcript ([`core/src/prova-ativacao.ts`](../../core/src/prova-ativacao.ts)); roteiro [`core/scripts/prova-ativacao.cjs`](../../core/scripts/prova-ativacao.cjs) para Claude Code e OpenClaw; recibos reais da srvjcp86; documentação no [contrato do snapshot](../referencia/contratos/maestro-i32.md#prova-de-ativação-por-host-rm-032) e nos READMEs dos adaptadores.
 - **Fora de escopo:** Hermes e Codex (sem host na srvjcp86; o roteiro recusa com `host.nao-suportado`); publicação dos pacotes (ato do mantenedor); atualizar a extensão global do OpenClaw ou reiniciar o gateway.
 - **Entregáveis e critérios de aceite:**
-  - conferência → `npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/prova-ativacao.test.js` (10 testes: entrada exposta e chamada, desvio pelo shell, erro, snapshot fora do contrato, panorama da rede, projeto de outra cópia, "roadmap vazio" afirmado e negado, redação);
+  - conferência → `npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/prova-ativacao.test.js` (11 testes: entrada exposta e chamada, desvio pelo shell (inclusive ao lado da chamada contratada), erro e nova tentativa, snapshot fora do contrato, panorama da rede, projeto de outra cópia, "roadmap vazio" afirmado e negado, redação);
   - roteiro sem host → `node --test core/dist-test/test/prova-ativacao-roteiro.test.js` (`host.nao-suportado` e `host.ausente`, saída 2);
-  - Claude Code → `node core/scripts/prova-ativacao.cjs claude-code` sai 0: [recibo de 01/10/2026](evidencias/RM-032/claude-code-2026-10-01.json), 10 de 10 conferências, Claude Code 2.1.286, `sonnet`, `mcp__orkastery__ork_maestro` chamada;
-  - OpenClaw → `node core/scripts/prova-ativacao.cjs openclaw` sai 0: [recibo de 01/10/2026](evidencias/RM-032/openclaw-2026-10-01.json), 10 de 10 conferências, OpenClaw 2026.9.4, `deepseek-flash` (o modelo do incidente), `ork_network_roadmap` chamada num workspace sem manifesto e o panorama do projeto certo.
+  - Claude Code → `node core/scripts/prova-ativacao.cjs claude-code` sai 0: [recibo de 01/10/2026](evidencias/RM-032/claude-code-2026-10-01.json), 11 de 11 conferências, Claude Code 2.1.286, `sonnet`, `mcp__orkastery__ork_maestro` chamada;
+  - OpenClaw → `node core/scripts/prova-ativacao.cjs openclaw` sai 0: [recibo de 01/10/2026](evidencias/RM-032/openclaw-2026-10-01.json), 11 de 11 conferências, OpenClaw 2026.9.4, `deepseek-flash` (o modelo do incidente), `ork_network_roadmap` chamada num workspace sem manifesto e o panorama do projeto certo.
 - **Critérios I32 ainda abertos:** I32-C01, I32-C09, I32-C11 e I32-C12 continuam pendentes. O texto original desses critérios não está versionado (o GOAL da `ork-i32bootstrap` não está no repositório nem em `ork/fabrica-estado`); esta fatia não os declara atendidos. Ela entrega a parte automatizável da prova de ativação em sessão nova por host e a evidência de Claude Code e OpenClaw. Faltam Hermes, Codex e a publicação dos pacotes dos dois sites.
 - **Achados da prova:**
   - com `--modelo haiku`, o Claude carregou a skill `orkastery-bootstrap` e respondeu por `Bash ork maestro --json` (o `ork` do PATH, que resolve pelo diretório) em vez da tool MCP; o `ork-guard` do plugin libera comandos `ork` sem pedir permissão. A conferência reprova esse desvio. Com `sonnet`, a tool MCP foi chamada;
@@ -81,7 +81,7 @@ sdlc:
 ## Estado com evidências
 
 - Merge `20e3835` (PR #13, 19/09/2026); score humano 3/5 ratificado em 19/09/2026.
-- Prova de ativação, 01/10/2026, srvjcp86, candidato `c80af41` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 10 de 10 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
+- Prova de ativação, 01/10/2026, srvjcp86, candidato `af74418` sobre a 0.5.0: Claude Code e OpenClaw aprovados, 11 de 11 conferências cada. Recibos em [evidencias/RM-032](evidencias/RM-032/).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
