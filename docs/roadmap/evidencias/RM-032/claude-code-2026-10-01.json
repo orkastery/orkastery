@@ -1,0 +1,470 @@
+{
+  "contrato": "ork.prova-ativacao/v1",
+  "host": "claude-code",
+  "frase": "orkastery maestro",
+  "maquina": "srvjcp86",
+  "inicio": "2026-10-01T05:34:07.736Z",
+  "fim": "2026-10-01T05:34:23.450Z",
+  "estado": "aprovada",
+  "candidato": {
+    "head": "c6a7636bc51114f64bf04681630b67d9600b452a",
+    "sujo": false,
+    "cli": "core/dist/index.js",
+    "node": "v24.21.0"
+  },
+  "hostVersao": "2.1.286",
+  "modelo": "sonnet",
+  "raiz": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn",
+  "comandos": [
+    {
+      "argv": [
+        "claude",
+        "--version"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn",
+      "inicio": "2026-10-01T05:34:07.741Z",
+      "fim": "2026-10-01T05:34:07.748Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "2.1.286 (Claude Code)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "claude",
+        "auth",
+        "status",
+        "--json"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn",
+      "inicio": "2026-10-01T05:34:07.758Z",
+      "fim": "2026-10-01T05:34:07.874Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": {
+        "loggedIn": true,
+        "authMethod": "claude.ai",
+        "apiProvider": "firstParty"
+      },
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:07.874Z",
+      "fim": "2026-10-01T05:34:07.880Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.email",
+        "prova@orkastery.invalid"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:07.880Z",
+      "fim": "2026-10-01T05:34:07.882Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.name",
+        "prova de ativacao"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:07.882Z",
+      "fim": "2026-10-01T05:34:07.883Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "init",
+        "--name",
+        "provaativacao",
+        "--abbrev",
+        "pav"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:07.883Z",
+      "fim": "2026-10-01T05:34:08.023Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Manifesto criado: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/orkastery.yaml\n  projeto     provaativacao (abbrev \"pav\")\n  branch base main\n  gerenciador npm\n  verify      (nenhum script detectado)\n  AGENTS.md   criado: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/AGENTS.md\n\nProximo passo: ork doctor; depois ork onboarding para conduzir a entrevista do projeto.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "add",
+        "-A"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.023Z",
+      "fim": "2026-10-01T05:34:08.024Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "commit",
+        "-q",
+        "-m",
+        "fixture da prova de ativacao"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.024Z",
+      "fim": "2026-10-01T05:34:08.027Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "adapter",
+        "install",
+        "claude-code"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.075Z",
+      "fim": "2026-10-01T05:34:08.217Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Experiência: ativação preparada (orchestration-experience).\nArquivos do adaptador claude-code preparados.\nUso no Claude Code ainda nao verificado por esta copia.\nNo diretorio deste projeto, valide e ative o plugin:\n  claude plugin validate '~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery'\n  claude plugin marketplace add '~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery' --scope project\n  claude plugin install orkastery@orkastery --scope project\n  claude plugin list --json\nDepois, na sessao deste projeto: /orkastery:ork\nPrepare tambem as ferramentas do projeto: ork mcp install --project '~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto' --host claude-code\nA configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.\n  catalogo: ~/orkastery/.claude/worktrees/ork-rm032ativaca\n  destino:  ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery\n  ork:      ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/bin/ork\n\n  arquivos: 50 (50 novo(s), 0 ja identico(s), 0 divergente(s))\n    + .claude-plugin/marketplace.json\n    + .claude-plugin/plugin.json\n    + ACTIVATION.md\n    + agents/ork-check.md\n    + agents/ork-go.md\n    + agents/ork-goal.md\n    + agents/ork-master.md\n    + agents/ork-plan.md\n    + agents/ork-ship.md\n    + commands/check.md\n    + commands/go.md\n    + commands/goal.md\n    + commands/master.md\n    + commands/onboarding.md\n    + commands/ork.md\n    + commands/plan.md\n    + commands/ship.md\n    + hooks/hooks.json\n    + hooks/ork-guard.js\n    + hooks/ork-sensor.js\n    + README.md\n    + test/native-plugin.cjs\n    + test/native-session.py\n    + test/sensor-diagnostics.test.cjs\n    + skills/core/onboarding/SKILL.md\n    + skills/core/orchestration-experience/SKILL.md\n    + skills/core/orchestration-experience-pt-br/SKILL.md\n    + skills/core/orkastery-bootstrap/SKILL.md\n    + skills/core/thread-state/SKILL.md\n    + skills/phases/check-quality/SKILL.md\n    + skills/phases/go-implementation/SKILL.md\n    + skills/phases/goal-definition/SKILL.md\n    + skills/phases/master-metrics/SKILL.md\n    + skills/phases/plan-specification/SKILL.md\n    + skills/phases/ship-release/SKILL.md\n    + skills/reviewers/code-reviewer/SKILL.md\n    + skills/reviewers/security-auditor/SKILL.md\n    + skills/reviewers/test-engineer/SKILL.md\n    + skills/reviewers/web-performance-auditor/SKILL.md\n    + skills/governance/decision-triage/SKILL.md\n    + skills/governance/narrative-guardian/SKILL.md\n    + skills/governance/roadmap-keeper/SKILL.md\n    + skills/governance/scope-check-capability-map/SKILL.md\n    + skills/observability/thread-tracing/SKILL.md\n    + references/README.md\n    + references/code-review-axes.md\n    + references/definition-of-done.md\n    + references/performance-checklist.md\n    + references/security-checklist.md\n    + references/testing-patterns.md\n\nOs 3 pitfalls de instalacao do claude-code (confira, nao suponha):\n\n  1. manifesto sem os caminhos das skills instala limpo e nao expoe nada\n     o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara os 17 caminhos um a um\n     prova: claude plugin details orkastery   # a contagem precisa bater com os SKILL.md em disco\n\n  2. duas copias do catalogo divergem\n     a fonte unica e skills/ na raiz do produto; o INSTALADO.json guarda a origem e o sha256 de cada arquivo, e reinstalar CLASSIFICA cada divergencia por ele: o que so mudou no catalogo ressincroniza sozinho, o que voce editou barra e pede decisao por arquivo (--aceitar-catalogo ou --manter-copia). Editar a copia instalada e bandeira vermelha\n     prova: ork adapter install claude-code --dry-run   # mostra o que divergiu do catalogo\n\n  3. ho",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "claude",
+        "plugin",
+        "validate",
+        "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.217Z",
+      "fim": "2026-10-01T05:34:08.840Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Validating marketplace manifest: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery/.claude-plugin/marketplace.json\n\n✔ Validation passed\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "mcp",
+        "install",
+        "--project",
+        "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+        "--host",
+        "claude-code"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.840Z",
+      "fim": "2026-10-01T05:34:08.966Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Configuracao MCP preparada. ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.mcp.json (novo).\nAbra uma nova sessao neste projeto, conclua o consentimento nativo solicitado pelo cliente e confira a descoberta das ferramentas ork_*.\nAtivacao e uso ainda pendentes de verificacao no cliente. Respostas automaticas de elicitation nao devem estar habilitadas para decisoes do dono.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "claude",
+        "-p",
+        "orkastery maestro",
+        "--plugin-dir",
+        "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery",
+        "--mcp-config",
+        "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.mcp.json",
+        "--strict-mcp-config",
+        "--setting-sources",
+        "project",
+        "--no-session-persistence",
+        "--allowedTools",
+        "mcp__orkastery__ork_maestro",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--model",
+        "sonnet"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+      "inicio": "2026-10-01T05:34:08.966Z",
+      "fim": "2026-10-01T05:34:23.440Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": {
+        "bytes": 93638,
+        "sha256": "4487b9bd9439c06a472be27754c542c1ba110b4d0b8804080e97d3f0a2373a78"
+      },
+      "stderr": ""
+    }
+  ],
+  "conferencias": [
+    {
+      "id": "entrada.exposta",
+      "ok": true,
+      "detalhe": "mcp__orkastery__ork_maestro exposta(s) ao modelo"
+    },
+    {
+      "id": "entrada.chamada",
+      "ok": true,
+      "detalhe": "mcp__orkastery__ork_maestro chamada"
+    },
+    {
+      "id": "resultado.sem-erro",
+      "ok": true,
+      "detalhe": "resultado sem erro"
+    },
+    {
+      "id": "resultado.contrato",
+      "ok": true,
+      "detalhe": "ork.maestro-snapshot/v1 validado"
+    },
+    {
+      "id": "resultado.projeto",
+      "ok": true,
+      "detalhe": "leu provaativacao (installation) em ~/.claude-b/jobs/68bf6c72[caminho privado], impressão 391601ae4c0d; esperado provaativacao, impressão 391601ae4c0d"
+    },
+    {
+      "id": "resultado.nao-consultado",
+      "ok": true,
+      "detalhe": "declara o que não leu: 3 item(ns)"
+    },
+    {
+      "id": "resposta.cita-projeto",
+      "ok": true,
+      "detalhe": "a resposta nomeia o projeto lido"
+    },
+    {
+      "id": "resposta.sem-roadmap-vazio",
+      "ok": true,
+      "detalhe": "sem concluir \"roadmap vazio\" a partir do panorama"
+    },
+    {
+      "id": "estado.consulta-sem-escrita",
+      "ok": true,
+      "detalhe": "nenhuma thread, demanda ou arquivo novo em .orkastery"
+    },
+    {
+      "id": "estado-do-cli.sem-aceite",
+      "ok": true,
+      "detalhe": "nenhuma entrada da raiz temporária em .claude.json"
+    },
+    {
+      "id": "global.intocado",
+      "ok": true,
+      "detalhe": "5 alvos globais com o mesmo sha256 antes e depois"
+    }
+  ],
+  "snapshot": {
+    "schema": "ork.maestro-snapshot/v1",
+    "projeto": {
+      "id": "pav",
+      "name": "provaativacao",
+      "origin": "installation",
+      "fingerprint": "391601ae4c0d6a6aa4e77040c38ece32596bf3b591f1cfc593d01d22afaa6468",
+      "root": "~/.claude-b/jobs/68bf6c72[caminho privado]",
+      "remote": null
+    },
+    "secoes": {
+      "portfolio": "unavailable",
+      "demands": "empty",
+      "threads": "empty",
+      "sessions": "empty",
+      "blockers": "empty",
+      "leases": "empty",
+      "retries": "empty",
+      "hitl": "empty",
+      "ship": "empty",
+      "master": "empty",
+      "nextActions": "empty"
+    },
+    "notConsulted": [
+      "roadmap (ork network roadmap)",
+      "reservas do roadmap (ork network roadmap)",
+      "outras máquinas (ork network roadmap)"
+    ]
+  },
+  "pendenciasHumanas": [
+    {
+      "passo": "confiança na pasta e consentimento do servidor MCP `orkastery` do projeto",
+      "bloqueiaProva": false,
+      "comando": "cd <projeto> && claude   # aceite \"trust this folder\" e aprove o servidor orkastery do .mcp.json (ou /mcp)",
+      "porque": "sessão interativa pede o aceite uma vez; a prova não interativa recebe o MCP por --mcp-config e não grava aceite"
+    },
+    {
+      "passo": "aprovar a tool somente leitura na primeira chamada",
+      "bloqueiaProva": false,
+      "comando": "na sessão: orkastery maestro   # aprove mcp__orkastery__ork_maestro quando o Claude pedir",
+      "porque": "a prova concede só essa tool por --allowedTools, na própria sessão de prova"
+    }
+  ],
+  "global": {
+    "antes": {
+      "orkastery:projetos.json": "aa1d3e3ce049847e579cb2f0cc3e02804f20ad46cc91896565ebd19687b38e25",
+      "claude:settings.json": "5de76a0f404fde5bb03dedfab7534bb801282f68e31b842c1bf04b8db9d75d54",
+      "claude:plugins/installed_plugins.json": null,
+      "claude:plugins/known_marketplaces.json": "7d2c57a4f071df7dfbc37efa42b31c3ddfbf4000d91de9be801de6fbe81940ac",
+      "claude:~/.claude/settings.json": "2521f153fce874c85e1a57ef5fe6cc5640d6e64838dc7ad621e6c6072bb44e46"
+    },
+    "depois": {
+      "orkastery:projetos.json": "aa1d3e3ce049847e579cb2f0cc3e02804f20ad46cc91896565ebd19687b38e25",
+      "claude:settings.json": "5de76a0f404fde5bb03dedfab7534bb801282f68e31b842c1bf04b8db9d75d54",
+      "claude:plugins/installed_plugins.json": null,
+      "claude:plugins/known_marketplaces.json": "7d2c57a4f071df7dfbc37efa42b31c3ddfbf4000d91de9be801de6fbe81940ac",
+      "claude:~/.claude/settings.json": "2521f153fce874c85e1a57ef5fe6cc5640d6e64838dc7ad621e6c6072bb44e46"
+    },
+    "intocado": true
+  },
+  "limpeza": {
+    "raiz": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn",
+    "removido": true
+  },
+  "erro": null,
+  "limpezaDoHost": {
+    "removido": "projects/-home-julio--claude-b-jobs-68bf6c72-tmp-ork-prova-ativacao-claude-code-IbHXZn-projeto",
+    "porque": "pasta vazia que o CLI cria para o cwd da sessão"
+  },
+  "transcript": {
+    "sessionId": "cbb2d6e0-6cf0-4ca3-8acc-c7e0c35f05f3",
+    "modelo": "claude-sonnet-5-5",
+    "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto",
+    "plugins": [
+      "orkastery@orkastery@inline",
+      "cc-plugin-agents-md@cc-plugin-agents-md@builtin",
+      "cc-plugin-telemetry@cc-plugin-telemetry@builtin",
+      "cc-plugin-diff@cc-plugin-diff@builtin"
+    ],
+    "mcp": [
+      "orkastery:connected"
+    ],
+    "ferramentasExpostas": [
+      "Bash",
+      "Skill",
+      "ToolSearch",
+      "mcp__orkastery__ork_artifact_read",
+      "mcp__orkastery__ork_artifact_write",
+      "mcp__orkastery__ork_brain_context",
+      "mcp__orkastery__ork_brain_dossie",
+      "mcp__orkastery__ork_brain_get",
+      "mcp__orkastery__ork_brain_inventory",
+      "mcp__orkastery__ork_brain_query",
+      "mcp__orkastery__ork_brain_receipts",
+      "mcp__orkastery__ork_brain_status",
+      "mcp__orkastery__ork_claim_add",
+      "mcp__orkastery__ork_claims_list",
+      "mcp__orkastery__ork_decision_record",
+      "mcp__orkastery__ork_fabrica",
+      "mcp__orkastery__ork_gate_request",
+      "mcp__orkastery__ork_git_commit",
+      "mcp__orkastery__ork_git_status",
+      "mcp__orkastery__ork_hitl_pending",
+      "mcp__orkastery__ork_maestro",
+      "mcp__orkastery__ork_network_roadmap",
+      "mcp__orkastery__ork_observe",
+      "mcp__orkastery__ork_phase_list",
+      "mcp__orkastery__ork_phase_run",
+      "mcp__orkastery__ork_preflight",
+      "mcp__orkastery__ork_request_decision",
+      "mcp__orkastery__ork_roadmap_reservas",
+      "mcp__orkastery__ork_roadmap_status",
+      "mcp__orkastery__ork_ship",
+      "mcp__orkastery__ork_thread_new",
+      "mcp__orkastery__ork_thread_status",
+      "mcp__orkastery__ork_verify"
+    ],
+    "totalDeFerramentas": 56,
+    "chamadas": [
+      {
+        "nome": "Bash",
+        "entrada": {
+          "command": "ork experiencia show --json",
+          "description": "Show orchestration experience setting"
+        }
+      },
+      {
+        "nome": "Bash",
+        "entrada": {
+          "command": "ls -R .claude/plugins/orkastery/skills/core 2>&1 | head -50",
+          "description": "List core skills directory"
+        }
+      },
+      {
+        "nome": "Read",
+        "entrada": {
+          "file_path": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery/skills/core/orchestration-experience/SKILL.md"
+        }
+      },
+      {
+        "nome": "Read",
+        "entrada": {
+          "file_path": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-claude-code-IbHXZn/projeto/.claude/plugins/orkastery/skills/core/orkastery-bootstrap/SKILL.md"
+        }
+      },
+      {
+        "nome": "ToolSearch",
+        "entrada": {
+          "query": "select:mcp__orkastery__ork_maestro,mcp__orkastery__ork_network_roadmap",
+          "max_results": 2
+        }
+      },
+      {
+        "nome": "mcp__orkastery__ork_maestro",
+        "entrada": {}
+      },
+      {
+        "nome": "mcp__orkastery__ork_network_roadmap",
+        "entrada": {}
+      }
+    ],
+    "resultado": {
+      "subtype": "success",
+      "turnos": 8,
+      "duracaoMs": 13233,
+      "custoUsd": 0.11876239999999999,
+      "negacoes": [
+        {
+          "tool_name": "mcp__orkastery__ork_network_roadmap",
+          "tool_use_id": "toolu_01GBZayVfhnLPCchT7uu72BB",
+          "tool_input": {}
+        }
+      ]
+    },
+    "respostaFinal": "Project **provaativacao** (`pav`) has no work in progress. The roadmap wasn't read, because permission for that tool was denied.\n\n- **Empty:** demands, threads, sessions, blockers, leases, retries, HITL, SHIP and MASTER. Each of these was read and came back empty, so nothing is pending on you.\n- **Unavailable:** the portfolio (`maestro.source.unavailable`). That is a missing source, not an empty portfolio.\n- **Not read:** the roadmap, its reservations and the other machines. Zero threads doesn't mean the roadmap is empty.\n\n**What you need to do:** nothing, unless you want the roadmap. For that, 💬 allow `ork_network_roadmap` here and I'll fetch it.\n\n**Next step:** tell me what you want built and I'll open a thread for it."
+  }
+}
