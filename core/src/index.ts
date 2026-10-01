@@ -473,6 +473,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
+        [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
@@ -1971,18 +1972,26 @@ function comandoShip(args: Args): number {
     // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
     const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
     if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
-      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json]');
+      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
-    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr) })]
-      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
+    // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
+    const dryRun = args.opcoes['dry-run'] === true;
+    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
+    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
     const registradas = r.filter((x) => x.acao === 'registrou').length;
+    const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
       console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+    }
+    if (registrariam) {
+      console.log('');
+      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
