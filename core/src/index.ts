@@ -204,8 +204,8 @@ import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
-  threadsDaListagem } from './thread';
+import { avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread,
+  tabelaDeThreads, threadsDaListagem } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
@@ -806,6 +806,8 @@ function comandoThread(args: Args): number {
       console.log('');
       console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
     }
+    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
+    if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }
   if (sub === 'list' || sub === undefined) {

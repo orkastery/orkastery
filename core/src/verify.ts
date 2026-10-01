@@ -31,7 +31,7 @@ import {
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { agora, exec } from './util';
+import { agora, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
 import { redigirSaida, testesQueCairam } from './redacao-saida';
 import { redigirCredenciaisUrl } from './redacao-url';
@@ -538,7 +538,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
   linhas.push(`  HEAD real   ${r.commit}`);
   linhas.push(`  diretorio   ${r.cwd}`);
   linhas.push(
-    `  baseline    ${r.baseline ? `${r.baseline.commit.slice(0, 8)} de ${formatarDataHoraRotulada(r.baseline.gravadaEm)}` : '(nao gravada: falha nao pode ser chamada de regressao)'}`
+    `  baseline    ${r.baseline ? `${shaCurto(r.baseline.commit)} de ${formatarDataHoraRotulada(r.baseline.gravadaEm)}` : '(nao gravada: falha nao pode ser chamada de regressao)'}`
   );
   if (r.preparo) {
     const p = r.preparo;

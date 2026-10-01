@@ -34,6 +34,14 @@ export function exec(cmd: string, args: string[], cwd?: string, timeoutMs = 1200
   };
 }
 
+/**
+ * Sha para exibir: 8 caracteres quando o valor e um sha hexadecimal; qualquer outro valor, como o
+ * marcador "desconhecido" de repositorio sem commit, sai inteiro (o ensaio da 0.5.0 viu "desconhe").
+ */
+export function shaCurto(valor: string): string {
+  return /^[0-9a-f]{7,40}$/i.test(valor) ? valor.slice(0, 8) : valor;
+}
+
 /** O binario esta no PATH? */
 export function noPath(bin: string): string | null {
   const r = exec('which', [bin]);
