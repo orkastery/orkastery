@@ -431,7 +431,7 @@
         "node core/dist/index.js docs verificar --pr"
       ],
       "criadoEm": "2026-10-01T06:37:23.657Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -446,7 +446,7 @@
         "node --test core/dist-test/test/rm037-fatia3-estado-do-merge.test.js"
       ],
       "criadoEm": "2026-10-01T06:37:25.311Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -460,7 +460,7 @@
         "node -e 'const b=require(\"./.ork-ci/ork-rm037fatia3d.json\");if(b.schema!==\"ork.ci-bundle/v1\"||b.thread!==\"ork-rm037fatia3d\"||b.branch!==\"ork/ork-rm037fatia3d-full\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-01T06:38:37.987Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
