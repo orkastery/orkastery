@@ -355,7 +355,7 @@ test('KG3 index: cria, reconhece o existente sem reescrever e --forcar reconstro
     const a = construirIndice(ctx, { parser });
     assert.equal(a.estado, 'criado');
     assert.equal(a.dir, path.join(dir, '.orkastery', 'grafo', a.chave));
-    assert.deepEqual(fs.readdirSync(a.dir).sort(), ['grafo.json', 'indice.json', 'relatorio.json']);
+    assert.deepEqual(fs.readdirSync(a.dir).sort(), ['grafo.json', 'indice.json', 'relatorio.json', 'unidades.json']);
     assert.equal(a.manifesto.schema, INDICE_SCHEMA);
     assert.equal(a.manifesto.revision, git('rev-parse', 'HEAD').trim());
     assert.equal(a.manifesto.conferencia.fontes, Object.keys(REPO).length);

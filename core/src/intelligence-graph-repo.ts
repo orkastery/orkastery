@@ -98,6 +98,16 @@ export function headsDasArvores(diretorio: string): string[] {
   return [...new Set(saida.split('\n').filter((l) => /^HEAD [0-9a-f]{40,64}$/.test(l)).map((l) => l.slice(5)))].sort();
 }
 
+/**
+ * RM-031 KG4 (D1): o HEAD e as revisoes ancestrais dele (`git rev-list`), da mais recente para a mais
+ * antiga, ate o limite. Sem commit, ou com o Git falhando, nao ha ancestral.
+ */
+export function revisoesAncestrais(diretorio: string, limite: number): string[] {
+  const raiz = obrigatorio(diretorio, ['rev-parse', '--show-toplevel']).toString('utf8').trim();
+  const r = git(raiz, ['rev-list', `--max-count=${Math.max(1, Math.floor(limite))}`, 'HEAD']);
+  return r.ok ? r.saida.toString('utf8').split('\n').filter((l) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(l)) : [];
+}
+
 /** Le o repositorio que contem `diretorio` e devolve a entrada do extrator. */
 export function lerRepositorio(diretorio: string, opcoes: OpcoesDeLeitura = {}): EntradaDeExtracao {
   const raiz = obrigatorio(diretorio, ['rev-parse', '--show-toplevel']).toString('utf8').trim();

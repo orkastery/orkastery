@@ -458,8 +458,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
 
   grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
-        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; --verificar
-                                                 confere contrato, bytes e determinismo; precisa de typescript e micromark
+        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; incremental (KG4)
+                                                 a partir do indice ancestral, ou completo com o motivo; --forcar extrai
+                                                 completo; --verificar confere contrato, bytes, determinismo e o incremental
+                                                 contra a completa; precisa de typescript e micromark
   grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
   grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
         [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]

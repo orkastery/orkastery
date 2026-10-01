@@ -113,6 +113,25 @@ function sentido(p: Pedido): Sentido | undefined {
 
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const contagem = (o: Record<string, number>): string => Object.entries(o).map(([k, v]) => `${k}=${v}`).join(' ');
+/** Ate cinco caminhos e quantos ficaram de fora. */
+const alguns = (lista: readonly string[]): string => (lista.length ? ` (${lista.slice(0, 5).join(', ')}${lista.length > 5 ? ` e mais ${lista.length - 5}` : ''})` : '');
+
+/** KG4: como a extracao rodou, a base e o que veio dela, ou por que foi completa. */
+function linhasDaExtracao(r: ResultadoDaConstrucao): string[] {
+  if (r.modo === null) return [];
+  const a = r.reaproveitamento;
+  if (r.modo === 'incremental' && r.base && a) {
+    const ts = a.ts.modo === 'inteiro' ? `TypeScript inteiro (${a.ts.motivo})`
+      : a.ts.modo === 'parcial' ? `TypeScript parcial, ${a.ts.reextraidos.length} reextraido(s)${alguns(a.ts.reextraidos)} num programa de ${a.ts.programa}, ${a.ts.reaproveitados} da base`
+        : `TypeScript todo da base (${a.ts.reaproveitados})`;
+    return [
+      `  extracao     incremental a partir do indice de ${r.base.revision.slice(0, 12)}: ${a.mudanca.alterados} alterado(s), ${a.mudanca.novos} novo(s), ${a.mudanca.removidos} removido(s)`,
+      `               ${ts}`,
+      `               Markdown: ${a.md.reextraidos.length} reextraido(s)${alguns(a.md.reextraidos)}, ${a.md.reaproveitados} da base`,
+    ];
+  }
+  return [`  extracao     completa${r.motivo_completo ? `: ${r.motivo_completo}` : ''}`];
+}
 
 function indexar(ctx: ContextoDoCli, p: Pedido): number {
   const r: ResultadoDaConstrucao = construirIndice(ctx, { verificar: p.bandeiras.has('verificar'), forcar: p.bandeiras.has('forcar') });
@@ -130,10 +149,15 @@ function indexar(ctx: ContextoDoCli, p: Pedido): number {
     `  conferencia  conferirFontes verificada: ${m.conferencia.fontes} fontes e ${m.conferencia.evidencias} evidencias contra os bytes`,
     `  nos          ${contagem(m.contagens.nos)}`,
     `  arestas      ${contagem(m.contagens.arestas)}`,
-    `  lugar        ${r.dir} (${mb(m.graph_bytes + m.report_bytes)})`,
+    `  lugar        ${r.dir} (${mb(m.graph_bytes + m.report_bytes + m.units_bytes)})`,
+    ...linhasDaExtracao(r),
   ];
   if (r.motivo) linhas.push(`  motivo       ${r.motivo}`);
-  for (const d of r.determinismo ?? []) linhas.push(`  determinismo ${d.ordem}: digest ${d.digest.slice(0, 16)}, relatorio ${d.relatorio.slice(0, 16)}, ${d.igual ? 'igual' : 'DIFERENTE'}`);
+  for (const d of r.determinismo ?? []) {
+    linhas.push(`  determinismo ${d.ordem}: digest ${d.digest.slice(0, 16)}, relatorio ${d.relatorio.slice(0, 16)}, unidades ${d.unidades.slice(0, 16)}, ${d.igual ? 'igual' : 'DIFERENTE'}`);
+  }
+  if (r.incremental) linhas.push(`  incremental  a partir do indice de ${r.incremental.base.slice(0, 12)}: ${r.incremental.igual ? 'igual a completa nos quatro arquivos' : 'DIFERENTE'}`);
+  else if (r.determinismo) linhas.push(`  incremental  nao conferido: ${r.motivo_completo ?? 'sem base'}`);
   linhas.push(`  tempo        ${r.ms} ms`);
   if (r.determinismo) linhas.push('aprovado');
   ctx.escrever(linhas.join('\n'));
