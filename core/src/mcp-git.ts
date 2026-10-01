@@ -106,8 +106,12 @@ function configPassiva(chave: string, valor: string, credenciaisInertes = false)
  */
 function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boolean;relativoA?:string}={}):void {
   if(!fs.lstatSync(alvo,{throwIfNoEntry:false}))return;
-  // O caminho da recusa e relativo a raiz do repositorio, onde a receita roda.
-  const rotulo=(f:string)=>path.relative(opcoes.relativoA ?? path.dirname(root),f).replace(/[^A-Za-z0-9._/-]/g,'?').slice(0,200);
+  // O caminho da recusa e relativo a raiz do repositorio, onde a receita roda; com caractere fora do
+  // conjunto seguro (ref com `+` ou espaco, por exemplo), vai entre aspas simples para a receita copiar certo.
+  const rotulo=(f:string)=>{
+    const r=path.relative(opcoes.relativoA ?? path.dirname(root),f).replace(/[\x00-\x1f\x7f]/g,'?').slice(0,200);
+    return /^[A-Za-z0-9._/-]+$/.test(r) ? r : `'${r.replace(/'/g,"'\\''")}'`;
+  };
   let vistos=0;
   const visitar=(f:string,profundidade:number)=>{
     if(++vistos>8192) falha(`metadata.unsupported: mais de 8192 entradas em ${rotulo(alvo)}`+(opcoes.armazemDeObjetos
@@ -117,7 +121,7 @@ function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boole
     if(st.isSymbolicLink()) falha(`metadata.unsafe: link simbolico em ${rotulo(f)}`);
     if(!st.isDirectory() && !st.isFile()) falha(`metadata.unsafe: ${rotulo(f)} nao e arquivo regular nem pasta`);
     if(st.isFile() && st.nlink!==1 && !opcoes.armazemDeObjetos) falha(`metadata.unsafe: hard link em ${rotulo(f)} (${st.nlink} vinculos); `+
-      `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f)}.tmp && mv ${rotulo(f)}.tmp ${rotulo(f)}`);
+      `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f+'.tmp')} && mv ${rotulo(f+'.tmp')} ${rotulo(f)}`);
     if(f!==root && !dentro(root,f))falha(`metadata.unsafe: ${rotulo(f)} fora de ${path.basename(root)}`);
     if(st.isDirectory())for(const n of fs.readdirSync(f))visitar(path.join(f,n),profundidade+1);
   };

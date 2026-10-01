@@ -61,6 +61,18 @@ test('defeito 7: objeto e pasta de .git com outro dono reprovam com a contagem, 
   } finally { p.limpar(); }
 });
 
+test('defeito 7 (GO-FIX 1): repositorio em pasta com espaco recebe a correcao entre aspas, pronta para copiar', () => {
+  const p = projetoTemporario('rm037 f3 dono espaco');
+  try {
+    const git = fs.realpathSync(path.join(p.dir, '.git'));
+    assert.match(git, / /, 'a pasta do teste tem espaco');
+    const st = fs.statSync(git);
+    const c = checarDonoDoGit(p.dir, { lstat: lstatComOutroDono((f) => f === path.join(git, 'HEAD'), st.uid === 0 ? 1 : 0) })!;
+    assert.equal(c.nivel, 'fail');
+    assert.equal(c.correcao, `sudo chown -R ${st.uid}:${st.gid} '${git}' (o ork nao roda isso sozinho)`);
+  } finally { p.limpar(); }
+});
+
 test('defeito 7: worktree aponta para o .git comum, e acima do teto a conferencia e parcial', () => {
   const p = projetoTemporario('rm037-f3-dono-wt');
   try {

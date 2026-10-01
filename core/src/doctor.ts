@@ -131,6 +131,8 @@ export function checarDonoDoGit(dirInicial: string,
   try { raiz = lstat(dirComum); } catch { return null; }
   const teto = opcoes.teto ?? TETO_DO_DONO_DO_GIT;
   const relativo = (f: string) => path.relative(path.dirname(dirComum), f);
+  // A correcao sai pronta para copiar: caminho com caractere fora do conjunto seguro vai entre aspas simples.
+  const noShell = (s: string) => /^[A-Za-z0-9._/-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
   const estranhos: string[] = [], uids = new Set<number>();
   let total = 0, vistos = 0, parcial = false;
   const pilha = [dirComum];
@@ -157,11 +159,11 @@ export function checarDonoDoGit(dirInicial: string,
       detalhe: `${total} entrada(s) de ${relativo(dirComum)} com outro dono (uid ${[...uids].sort((a, b) => a - b).join(', ')}; o do ` +
         `repositorio e ${raiz.uid}): ${estranhos.join(', ')}${total > estranhos.length ? ', ...' : ''}; o git do dono nao grava nelas, ` +
         `e o fetch e o commit falham${parcial ? ` (conferencia parcial: mais de ${teto} entradas)` : ''}`,
-      correcao: `sudo chown -R ${raiz.uid}:${raiz.gid} ${dirComum} (o ork nao roda isso sozinho)` };
+      correcao: `sudo chown -R ${raiz.uid}:${raiz.gid} ${noShell(dirComum)} (o ork nao roda isso sozinho)` };
   }
   if (parcial) {
     return { nome, nivel: 'warn', detalhe: `mais de ${teto} entradas em ${relativo(dirComum)}: conferencia parcial, sem outro dono ate aqui`,
-      correcao: `confira o resto com: find ${dirComum} -not -uid ${raiz.uid}` };
+      correcao: `confira o resto com: find ${noShell(dirComum)} -not -uid ${raiz.uid}` };
   }
   return { nome, nivel: 'ok', detalhe: `${vistos} entradas de ${relativo(dirComum)} com o dono do repositorio (uid ${raiz.uid})` };
 }

@@ -88,8 +88,9 @@ function checarChangelog(raiz, opcoes = {}) {
   const mb = git(raiz, ['merge-base', base, head]);
   if (!mb.ok || !mb.saida) return indisponivel(`${base} e ${head} não têm ancestral comum`);
 
-  const mudados = git(raiz, ['diff', '--name-only', '--no-renames', mb.saida, head]);
-  const arquivos = (mudados.ok ? mudados.saida.split('\n') : []).filter(Boolean);
+  // `-z`: sem ele o git poe entre aspas e escapa o caminho com acento, e o prefixo `core/` nao casaria.
+  const mudados = git(raiz, ['diff', '--name-only', '--no-renames', '-z', mb.saida, head]);
+  const arquivos = (mudados.ok ? mudados.saida.split('\0') : []).filter(Boolean);
   const pedem = arquivos.filter(pedeLinha);
   if (pedem.length === 0) {
     return { ok: true, motivo: null, arquivos: [], linhas: [],

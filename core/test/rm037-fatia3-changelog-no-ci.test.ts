@@ -124,6 +124,16 @@ test('defeito 2: a exceção documentada, PR só de testes ou só de CI, não pe
   } finally { r.limpar(); }
 });
 
+test('defeito 2 (GO-FIX 1): arquivo com acento em core/ pede a linha como qualquer outro', () => {
+  const r = repositorio('rm037-f3-changelog-acento');
+  try {
+    r.mudar('core/src/configuração.ts', 'export const y = 1;\n');
+    const v = checar(r.dir);
+    assert.equal(v.motivo, 'changelog.linha-ausente', v.detalhe);
+    assert.deepEqual(v.arquivos, ['core/src/configuração.ts']);
+  } finally { r.limpar(); }
+});
+
 test('defeito 2: sem a seção, sem base ou sem nada mudado, o checador diz por quê', () => {
   const r = repositorio('rm037-f3-changelog-bordas');
   try {

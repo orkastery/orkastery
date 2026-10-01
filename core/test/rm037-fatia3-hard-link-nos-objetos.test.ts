@@ -65,6 +65,27 @@ test('defeito 5: hard link fora do armazem de objetos segue recusado, com o cami
   } finally { g.limpar(); }
 });
 
+test('defeito 5 (GO-FIX 1): ref com caractere fora do conjunto seguro sai entre aspas, e a receita copiada funciona', () => {
+  const g = gitFalso('rm037-f3-refs-aspas');
+  try {
+    const nome = path.join(g.git, 'refs/heads/feature/a+b');
+    fs.mkdirSync(path.dirname(nome), { recursive: true });
+    fs.writeFileSync(nome, '1'.repeat(40) + '\n');
+    fs.linkSync(nome, path.join(g.fora, 'a+b'));
+    let receita = '';
+    assert.throws(() => metadadosGitMcp(g.git, path.join(g.git, 'refs')), (e: Error) => {
+      assert.match(e.message, /hard link em '\.git\/refs\/heads\/feature\/a\+b' \(2 vinculos\)/);
+      receita = e.message.split('tire o vinculo sem perder conteudo: ')[1];
+      return true;
+    });
+    assert.equal(receita, "cp -p '.git/refs/heads/feature/a+b' '.git/refs/heads/feature/a+b.tmp' && " +
+      "mv '.git/refs/heads/feature/a+b.tmp' '.git/refs/heads/feature/a+b'");
+    execFileSync('sh', ['-c', receita], { cwd: g.raiz });
+    assert.equal(fs.statSync(nome).nlink, 1);
+    assert.doesNotThrow(() => metadadosGitMcp(g.git, path.join(g.git, 'refs')));
+  } finally { g.limpar(); }
+});
+
 test('defeito 5: armazem de objetos acima do teto diz onde e a receita de empacotar sem perda', () => {
   const g = gitFalso('rm037-f3-teto');
   try {
