@@ -10,7 +10,7 @@ import { lerClaims } from './claims';
 import { branchDaWorktree } from './worktree';
 import { validarArquivosEstadoMcp } from './mcp-artifacts';
 import { comEstadoParaGit, auditarEstado, raizDoEstado } from './estado-thread';
-import { adquirirRegiao, lerLease, liberar, leasesColidentes } from './leases';
+import { adquirirRegiao, lerLease, liberar, leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
 import { registrar } from './ledger';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
@@ -238,6 +238,8 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     conferir();
     if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
     const regioes=[`worktree-write:${t.id}`,...p.paths.map(f=>'path:'+f)];
+    // RM-037 (fatia 3, defeito 4): lease e fila de thread fechada sao orfaos e saem antes da conferencia.
+    podarRegioesDeThreadsFechadas(raiz,regioes,t.id);
     for(const nome of regioes) {
       if(lerLease(raiz,nome) || leasesColidentes(raiz,nome).length) falha('lease.busy');
       const r=adquirirRegiao(raiz,nome,{thread:t.id,motivo:'MCP git_commit delimitado',ttlMs:TTL,retomarVencido:false});
