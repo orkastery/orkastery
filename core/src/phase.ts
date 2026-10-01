@@ -48,8 +48,10 @@ import { vincularEstado } from './estado-thread';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import {
   lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
-  PoliticaDeRotacao, politicaDeRotacao, proximoPerfilDisponivel, registrarConferenciaInconclusiva, registrarUsoDePerfil,
+  PoliticaDeRotacao, politicaDeRotacao, proximoPerfilDisponivel, proximoPerfilPorCarga, registrarConferenciaInconclusiva,
+  registrarUsoDePerfil, runtimeComPerfil,
 } from './runtime-profiles';
+import { sessoesVivasPorPerfil } from './sessoes-contas';
 import { nomeDaMaquina } from './maquina';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
@@ -78,13 +80,18 @@ export interface EscolhaDePerfil {
  * recebe despacho.
  */
 export function escolherPerfil(raiz: string, runtime: string,
-  opcoes: { perfil?: string; excluir?: readonly string[]; agoraMs?: number; politica?: PoliticaDeRotacao } = {}): EscolhaDePerfil {
+  opcoes: { perfil?: string; excluir?: readonly string[]; agoraMs?: number; politica?: PoliticaDeRotacao;
+    /** RM-056 (D3): sessoes vivas por perfil, com `distribuir: carga`. */
+    carga?: ReadonlyMap<string, number> } = {}): EscolhaDePerfil {
   // I-49: o despacho enxerga o estado que as outras fabricas viram na mesma conta.
   const store = lerPerfisComContas(raiz, opcoes.agoraMs);
   const doRuntime = perfisDoRuntime(store, runtime);
   if (opcoes.perfil !== undefined) return perfilPedido(store, runtime, opcoes.perfil, opcoes.agoraMs);
   if (doRuntime.length === 0) return { perfil: null, configurados: 0 };
-  const proximo = proximoPerfilDisponivel(store, runtime, opcoes.politica ?? POLITICA_PADRAO, opcoes);
+  const politica = opcoes.politica ?? POLITICA_PADRAO;
+  const proximo = politica.distribuir === 'carga' && opcoes.carga
+    ? proximoPerfilPorCarga(store, runtime, politica, opcoes.carga, opcoes)
+    : proximoPerfilDisponivel(store, runtime, politica, opcoes);
   if (proximo) return { perfil: perfilDeDespacho(proximo), configurados: doRuntime.length };
   const agoraMs = opcoes.agoraMs ?? Date.now();
   // Motivo do bloqueio pelo estado dos perfis: com algum esgotado ha prazo (fila); so sem-auth, login;
@@ -118,6 +125,17 @@ export function perfilPedido(store: StoreDePerfis, runtime: string, id: string, 
 }
 
 /**
+ * RM-056 (D3): a carga dos perfis do runtime, so quando o manifesto pede `distribuir: carga` e o
+ * dono nao pediu um perfil. Consulta falha vale carga desconhecida (zero): decide o desempate.
+ */
+function cargaDoDespacho(carregado: ManifestoCarregado, runtime: string, politica: PoliticaDeRotacao,
+  pedido: string | undefined): ReadonlyMap<string, number> | undefined {
+  if (politica.distribuir !== 'carga' || pedido !== undefined || !runtimeComPerfil(runtime)) return undefined;
+  try { return sessoesVivasPorPerfil(carregado.raiz, runtime, carregado.manifesto.concurrency.stale_after_min); }
+  catch { return new Map(); }
+}
+
+/**
  * I-33 (D7, D13): preflight de auth antes do despacho. O perfil escolhido tem o login conferido
  * pelo proprio CLI com o env dele; reprovado, vira `sem-auth` no store (ou `provider-pago`, quando
  * o login e por API key, helper, Console ou nuvem), a troca vai ao ledger (`runtime_profile_rotated`)
@@ -129,8 +147,9 @@ export function perfilParaDespacho(carregado: ManifestoCarregado, thread: Thread
   const { raiz } = carregado;
   const excluir = [...(opcoes.excluir ?? [])];
   const politica = politicaDeRotacao(carregado.manifesto);
+  const carga = cargaDoDespacho(carregado, runtime, politica, opcoes.perfil);
   for (;;) {
-    const escolha = escolherPerfil(raiz, runtime, { perfil: opcoes.perfil, excluir, politica });
+    const escolha = escolherPerfil(raiz, runtime, { perfil: opcoes.perfil, excluir, politica, carga });
     if (escolha.erro || !escolha.perfil || opcoes.dryRun) return escolha;
     const auth = runtime === 'claude-bg' ? authClaude(escolha.perfil) : runtime === 'codex' ? authCodex(escolha.perfil)
       : { ok: false, detalhe: `runtime ${runtime} sem conferencia de login` };
@@ -153,7 +172,7 @@ export function perfilParaDespacho(carregado: ManifestoCarregado, thread: Thread
       razao = 'o preflight de auth reprovou o perfil antes do despacho (D7): perfil sem login nunca recebe despacho';
     }
     excluir.push(escolha.perfil.id);
-    const proximo = opcoes.perfil === undefined ? escolherPerfil(raiz, runtime, { excluir, politica }).perfil : null;
+    const proximo = opcoes.perfil === undefined ? escolherPerfil(raiz, runtime, { excluir, politica, carga }).perfil : null;
     registrar(dirThread(raiz, thread.id), thread.id, TIPOS_DE_EVENTO.perfilRotacionado, {
       fase, motivo, origem: `${opcoes.origem}.preflight`,
       de: { runtime, perfil: escolha.perfil.id }, para: proximo ? { runtime, perfil: proximo.id } : null,

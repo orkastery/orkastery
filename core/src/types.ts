@@ -228,6 +228,12 @@ export interface Manifesto {
   runtime_profiles: {
     rotate_same_runtime_on_quota: boolean;
     rotate_same_runtime_on_auth: boolean;
+    /**
+     * RM-056 (D2): como o despacho escolhe entre os perfis disponiveis do runtime. `ordem` (padrao):
+     * o primeiro do store, trocando so por cota ou login. `carga`: o de menos sessoes vivas nesta
+     * maquina, desempate pelo uso mais antigo.
+     */
+    distribuir: 'ordem' | 'carga';
   };
   /** Autonomia do bloco B3: retry tipado, fila de rate limit e limite de escalacao. */
   retry: {

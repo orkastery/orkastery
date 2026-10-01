@@ -130,3 +130,17 @@ export function estadosNasContas(raiz: string | null, opcoes: { staleMin?: numbe
   return new Map(r.sessoes.map(s => [s.sessionId,
     s.fantasma ? 'fantasma' : s.runtime === 'codex' ? (s.viva ? 'working' : estadoDe(s)) : estadoDe(s)] as const));
 }
+
+/**
+ * RM-056 (D3): sessoes vivas de cada perfil do runtime nesta maquina, a carga do rodizio por
+ * carga. So as contas dos perfis sao consultadas (a do processo nao recebe despacho com perfis).
+ */
+export function sessoesVivasPorPerfil(raiz: string, runtime: RuntimeComPerfil, staleMin?: number,
+  agoraMs?: number): Map<string, number> {
+  const contas = contasDeSessoes(raiz).contas.filter(c => c.runtime === runtime && c.perfil);
+  const carga = new Map<string, number>(contas.map(c => [c.perfil!.id, 0]));
+  for (const s of consultarContas(raiz, { contas, staleMin, agoraMs }).sessoes) {
+    if (s.viva && s.perfil) carga.set(s.perfil, (carga.get(s.perfil) ?? 0) + 1);
+  }
+  return carga;
+}

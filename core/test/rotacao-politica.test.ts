@@ -30,10 +30,10 @@ const rotacoesEntrePerfis = (dir: string, runtime: string) => lerLedger(dir).fil
 test('D16 manifesto: por cota e por login ligadas por padrao; valor invalido vira o padrao com aviso; o operador desliga', () => {
   const p = projetoTemporario('politica-manifesto');
   try {
-    assert.deepEqual(p.carregado.manifesto.runtime_profiles, { rotate_same_runtime_on_quota: true, rotate_same_runtime_on_auth: true });
+    assert.deepEqual(p.carregado.manifesto.runtime_profiles, { rotate_same_runtime_on_quota: true, rotate_same_runtime_on_auth: true, distribuir: 'ordem' });
     fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\nruntime_profiles:\n  rotate_same_runtime_on_quota: talvez\n  rotate_same_runtime_on_auth: false\n');
     const lido = exigirManifesto(p.dir);
-    assert.deepEqual(lido.manifesto.runtime_profiles, { rotate_same_runtime_on_quota: true, rotate_same_runtime_on_auth: false });
+    assert.deepEqual(lido.manifesto.runtime_profiles, { rotate_same_runtime_on_quota: true, rotate_same_runtime_on_auth: false, distribuir: 'ordem' });
     assert.ok(lido.avisos.some(a => a.includes('runtime_profiles.rotate_same_runtime_on_quota deve ser true ou false; vale o padrao true')),
       lido.avisos.join('; '));
     ajustarManifesto(p, 'rotate_same_runtime_on_quota: talvez', 'rotate_same_runtime_on_quota: false');
