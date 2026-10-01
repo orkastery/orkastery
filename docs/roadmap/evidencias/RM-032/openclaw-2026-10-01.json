@@ -1,0 +1,333 @@
+{
+  "contrato": "ork.prova-ativacao/v1",
+  "host": "openclaw",
+  "frase": "orkastery maestro",
+  "maquina": "srvjcp86",
+  "inicio": "2026-10-01T05:40:03.046Z",
+  "fim": "2026-10-01T05:40:14.173Z",
+  "estado": "aprovada",
+  "candidato": {
+    "head": "c6a7636bc51114f64bf04681630b67d9600b452a",
+    "sujo": false,
+    "cli": "core/dist/index.js",
+    "node": "v24.21.0"
+  },
+  "hostVersao": "OpenClaw 2026.9.4 (3a9d69d)",
+  "modelo": null,
+  "raiz": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85",
+  "comandos": [
+    {
+      "argv": [
+        "openclaw",
+        "--version"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85",
+      "inicio": "2026-10-01T05:40:03.051Z",
+      "fim": "2026-10-01T05:40:03.081Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "OpenClaw 2026.9.4 (3a9d69d)\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.099Z",
+      "fim": "2026-10-01T05:40:03.105Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.email",
+        "prova@orkastery.invalid"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.105Z",
+      "fim": "2026-10-01T05:40:03.107Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.name",
+        "prova de ativacao"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.107Z",
+      "fim": "2026-10-01T05:40:03.108Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "init",
+        "--name",
+        "provaativacao",
+        "--abbrev",
+        "pav"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.108Z",
+      "fim": "2026-10-01T05:40:03.251Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Manifesto criado: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto/orkastery.yaml\n  projeto     provaativacao (abbrev \"pav\")\n  branch base main\n  gerenciador npm\n  verify      (nenhum script detectado)\n  AGENTS.md   criado: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto/AGENTS.md\n\nProximo passo: ork doctor; depois ork onboarding para conduzir a entrevista do projeto.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "add",
+        "-A"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.251Z",
+      "fim": "2026-10-01T05:40:03.252Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "commit",
+        "-q",
+        "-m",
+        "fixture da prova de ativacao"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.252Z",
+      "fim": "2026-10-01T05:40:03.255Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "adapter",
+        "install",
+        "openclaw",
+        "--dir",
+        "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto",
+      "inicio": "2026-10-01T05:40:03.299Z",
+      "fim": "2026-10-01T05:40:03.433Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Experiência: desativada ou sem integração de skills (orchestration-experience).\nArquivos do adaptador openclaw preparados.\n  catalogo: ~/orkastery/.claude/worktrees/ork-rm032ativaca\n  destino:  ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state/extensions/orkastery\n  ork:      ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/bin/ork\n\n  arquivos: 19 (19 novo(s), 0 ja identico(s), 0 divergente(s))\n    + bin/ork-abrir-thread.sh\n    + bin/ork-brain.sh\n    + construir.sh\n    + dist/hitl-ingress.js\n    + dist/index.js\n    + openclaw.plugin.json\n    + package.json\n    + README.md\n    + src/hitl-ingress.ts\n    + src/index.ts\n    + src/tipos-openclaw.d.ts\n    + test/hitl-answer.test.mjs\n    + test/hitl-ingress.test.mjs\n    + test/hitl-native-channel.test.mjs\n    + test/hitl-prazo-local.test.mjs\n    + test/maestro.test.mjs\n    + test/network-roadmap.test.mjs\n    + test/projeto-alvo.test.mjs\n    + tsconfig.json\n\nOs 3 pitfalls de instalacao do openclaw (confira, nao suponha):\n\n  1. placeholder {{ork_bin}} que fica no arquivo\n     o entry executa o binario como ele esta: um placeholder nao renderizado cai no fallback (ORK_BIN ou o ork do PATH), e sem o fallback vira \"comando nao encontrado\" em toda tool, que a sessao so descobre depois de ja ter aberto thread na cabeca do agente\n     prova: grep -c \"{{\" <destino>/extensions/orkastery/dist/index.js   # precisa devolver 0\n\n  2. argumento com espaco quebrado em varios argumentos\n     cada tool monta o comando como VETOR de argv, nunca como string de shell, para o pedido do builder chegar inteiro em --prompt; string de shell aqui vira injecao de comando com o texto do builder dentro\n     prova: ork_phase_run com um prompt de varias linhas, conferido em ork phase list <thread>\n\n  3. tool que reimplementa regra do nucleo\n     toda tool deste plugin e uma chamada de CLI e nada mais; tool nova que precisa de logica e sinal de que a logica pertence ao ork, com teste\n     prova: ork eval   # o corpus reprova host com regra de negocio duplicada\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "openclaw",
+        "plugins",
+        "inspect",
+        "orkastery"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/workspace",
+      "inicio": "2026-10-01T05:40:03.433Z",
+      "fim": "2026-10-01T05:40:04.809Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Orkastery\nid: orkastery\nConducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.\n\nStatus: enabled\nFormat: openclaw\nSource: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state/extensions/orkastery/dist/index.js\nOrigin: global\nTrust: reason=record-missing; registryPath=\"~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state/state/openclaw.sqlite\"; origin=\"global\"; installSource=null; installSpec=null\nVersion: 0.5.0\nShape: non-capability\nCapability mode: none\n\nDiagnostics:\nWARN: OpenClaw can't verify where this plugin came from. Review it with 'openclaw plugins inspect orkastery'. Adding it to plugins.allow lets it load, but does not make it trusted. If it's an official plugin, reinstall it from its official npm package or its official ClawHub listing to enable trusted features.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "openclaw",
+        "agent",
+        "--local",
+        "--json",
+        "--session-id",
+        "prova-ativacao-56b607e5-48da-470c-984f-12576c96b7c3",
+        "-m",
+        "orkastery maestro",
+        "--timeout",
+        "240"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/workspace",
+      "inicio": "2026-10-01T05:40:04.809Z",
+      "fim": "2026-10-01T05:40:13.159Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": {
+        "bytes": 25907,
+        "sha256": "5094fe18ba8a40ff74a0b598abf8733f68e1ff7d3cf7e6fd4eda8260a94e38fe"
+      },
+      "stderr": "[plugins] orkastery: OpenClaw can't verify where this plugin came from. Review it with 'openclaw plugins inspect orkastery'. Adding it to plugins.allow lets it load, but does not make it trusted. If it's an official plugin, reinstall it from its official npm package or its official ClawHub listing to enable trusted features. (~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state/extensions/orkastery/dist/index.js)\n[secrets] agent: gateway secrets.resolve unavailable (gateway secrets.resolve requires credentials before opening a websocket\nFix: configure gateway.auth token/password, pair this device, or pass --token/--password.\nConfig: ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/openclaw.json); resolved command secrets locally.\n[provider-transport-fetch] [model-fetch] start provider=openrouter api=openai-completions model=~deepseek/deepseek-flash-latest method=POST url=https://openrouter.ai/api/v1/chat/completions timeoutMs=undefined proxy=none policy=custom\n[provider-transport-fetch] [model-fetch] response provider=openrouter api=openai-completions model=~deepseek/deepseek-flash-latest status=200 elapsedMs=881 dispatcher=new contentType=text/event-stream\n[provider-transport-fetch] [model-fetch] start provider=openrouter api=openai-completions model=~deepseek/deepseek-flash-latest method=POST url=https://openrouter.ai/api/v1/chat/completions timeoutMs=undefined proxy=none policy=custom\n[provider-transport-fetch] [model-fetch] response provider=openrouter api=openai-completions model=~deepseek/deepseek-flash-latest status=200 elapsedMs=1054 dispatcher=reused contentType=text/event-stream\n[agents/agent-command] [agent] run 8ab6804c-5227-4245-89d9-a1fd7ebca1c5 ended with stopReason=stop\n"
+    },
+    {
+      "argv": [
+        "openclaw",
+        "sessions",
+        "export-trajectory",
+        "--session-key",
+        "agent:main:explicit:prova-ativacao-56b607e5-48da-470c-984f-12576c96b7c3",
+        "--json",
+        "--output",
+        "prova"
+      ],
+      "cwd": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/workspace",
+      "inicio": "2026-10-01T05:40:13.160Z",
+      "fim": "2026-10-01T05:40:14.167Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "{\n  \"outputDir\": \"~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/workspace/.openclaw/trajectory-exports/prova\",\n  \"displayPath\": \".openclaw/trajectory-exports/prova\",\n  \"sessionId\": \"prova-ativacao-56b607e5-48da-470c-984f-12576c96b7c3\",\n  \"eventCount\": 18,\n  \"runtimeEventCount\": 9,\n  \"transcriptEventCount\": 9,\n  \"files\": [\n    \"manifest.json\",\n    \"events.jsonl\",\n    \"session-branch.json\",\n    \"system-prompt.txt\",\n    \"tools.json\",\n    \"metadata.json\",\n    \"artifacts.json\",\n    \"prompts.json\"\n  ]\n}\n",
+      "stderr": ""
+    }
+  ],
+  "conferencias": [
+    {
+      "id": "entrada.exposta",
+      "ok": true,
+      "detalhe": "ork_network_roadmap exposta(s) ao modelo"
+    },
+    {
+      "id": "entrada.chamada",
+      "ok": true,
+      "detalhe": "ork_network_roadmap chamada"
+    },
+    {
+      "id": "resultado.sem-erro",
+      "ok": true,
+      "detalhe": "resultado sem erro"
+    },
+    {
+      "id": "resultado.contrato",
+      "ok": true,
+      "detalhe": "texto do ork.network-roadmap/v1: cabeçalho, Consultado e Não consultado"
+    },
+    {
+      "id": "resultado.projeto",
+      "ok": true,
+      "detalhe": "Consultado: provaativacao (clone em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto); esperado provaativacao (clone em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto)"
+    },
+    {
+      "id": "resultado.nao-consultado",
+      "ok": true,
+      "detalhe": "declara o que não leu: 1 item(ns)"
+    },
+    {
+      "id": "resposta.cita-projeto",
+      "ok": true,
+      "detalhe": "a resposta nomeia o projeto lido"
+    },
+    {
+      "id": "resposta.sem-roadmap-vazio",
+      "ok": true,
+      "detalhe": "sem concluir \"roadmap vazio\" a partir do panorama"
+    },
+    {
+      "id": "estado.consulta-sem-escrita",
+      "ok": true,
+      "detalhe": "nenhuma thread, demanda ou arquivo novo em .orkastery"
+    },
+    {
+      "id": "log-compartilhado.intocado",
+      "ok": true,
+      "detalhe": "nenhuma linha da cópia em /tmp/openclaw; o log ficou na raiz da prova"
+    },
+    {
+      "id": "global.intocado",
+      "ok": true,
+      "detalhe": "3 alvos globais com o mesmo sha256 antes e depois"
+    }
+  ],
+  "snapshot": null,
+  "pendenciasHumanas": [
+    {
+      "passo": "levar a extensão desta versão ao gateway da máquina e reiniciá-lo",
+      "bloqueiaProva": false,
+      "comando": "ork --version   # precisa ser a versão com ork_network_roadmap (0.5.0+)\nork adapter install openclaw --dir ~/.openclaw && systemctl --user restart openclaw-gateway",
+      "porque": "a extensão global da máquina continua a que estava; atualizar e reiniciar o gateway é ato do dono (sequência não executada pela prova)"
+    },
+    {
+      "passo": "revisar a procedência da extensão",
+      "bloqueiaProva": false,
+      "comando": "openclaw plugins inspect orkastery   # \"can't verify where this plugin came from\" até haver pacote oficial (npm/ClawHub)",
+      "porque": "o OpenClaw carrega a extensão da raiz global com aviso; confiar nela é decisão do dono"
+    },
+    {
+      "passo": "decidir se as outras tools ork_* chegam ao modelo no perfil coding",
+      "bloqueiaProva": false,
+      "comando": "openclaw config set tools.alsoAllow '[\"orkastery\"]' --strict-json   # opcional; sem isso só ork_network_roadmap é exposta",
+      "porque": "a frase sem projeto só precisa de ork_network_roadmap; ork_maestro com projeto nomeado e as demais dependem dessa escolha"
+    }
+  ],
+  "global": {
+    "antes": {
+      "orkastery:projetos.json": "aa1d3e3ce049847e579cb2f0cc3e02804f20ad46cc91896565ebd19687b38e25",
+      "openclaw:openclaw.json": "40f389921e3f739655a3c51e89b4676e0cf33b74c74c87a98dd326df052ff49d",
+      "openclaw:extensions/orkastery": "f23ea79997355806af8c527b7be17bb996357f5416460f24dd9b639b40bbdc2d"
+    },
+    "depois": {
+      "orkastery:projetos.json": "aa1d3e3ce049847e579cb2f0cc3e02804f20ad46cc91896565ebd19687b38e25",
+      "openclaw:openclaw.json": "40f389921e3f739655a3c51e89b4676e0cf33b74c74c87a98dd326df052ff49d",
+      "openclaw:extensions/orkastery": "f23ea79997355806af8c527b7be17bb996357f5416460f24dd9b639b40bbdc2d"
+    },
+    "intocado": true
+  },
+  "limpeza": {
+    "raiz": "~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85",
+    "removido": true
+  },
+  "erro": null,
+  "procedencia": {
+    "via": "ork adapter install openclaw --dir <estado da cópia>",
+    "status": "enabled",
+    "origem": "global",
+    "trust": "reason=record-missing; registryPath=\"~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/openclaw/state/state/openclaw.sqlite\"; origin=\"global\"; installSource=null; installSpec=null",
+    "aviso": "OpenClaw can't verify where this plugin came from. Review it with 'openclaw plugins inspect orkastery'. Adding it to plugins.allow lets it load, but does not make it trusted. If it's an official plugin, reinstall it from its official npm package or its official ClawHub listing to enable trusted features."
+  },
+  "transcript": {
+    "sessionId": "prova-ativacao-56b607e5-48da-470c-984f-12576c96b7c3",
+    "provedor": "openrouter",
+    "modelo": "~deepseek/deepseek-flash-latest",
+    "ferramentasExpostasOrk": [
+      "ork_network_roadmap"
+    ],
+    "totalDeFerramentas": 38,
+    "chamadas": [
+      {
+        "nome": "ork_network_roadmap",
+        "via": "entrada",
+        "entrada": {}
+      }
+    ],
+    "custoUsd": 0.011601736,
+    "respostaFinal": "Panorama da rede lido de srvjcp86 (01/10, 05:40)\nConsultado: provaativacao (clone em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto)\nNão consultado:\n• rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto\n\n────────\n\nRoadmap do provaativacao: não lido (roadmap.sem-leitura, reservas.sem-leitura, fabrica.sem-leitura).\n\nThreads por máquina\n• srvjcp86 (esta máquina): 0 ativa(s), estado local lido agora\n\nReservas\n• não lidas: veja as lacunas\n\nFontes\n• esta máquina: estado local em ~/.claude-b/jobs/68bf6c72/tmp/ork-prova-ativacao-openclaw-HGmX85/projeto/.orkastery, lido agora\n\nLacunas\n• roadmap.sem-leitura (origin/main): sem leitura de origin/main: a leitura de origin falhou; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• reservas.sem-leitura (origin/ork/roadmap-reservas): sem leitura de origin/ork/roadmap-reservas: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• fabrica.sem-leitura (origin/ork/fabrica-estado): sem leitura de origin/ork/fabrica-estado: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n\nHorários em UTC."
+  }
+}
