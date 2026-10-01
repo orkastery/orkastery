@@ -10,9 +10,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 01/10 02:44 |
 | srvjcp86 | ork-rm055impedim | #Auto | GOAL | codex gpt-5.6-sol/high | RM-055 | — | 01/10 02:44 |
 | srvjcp86 | ork-rm056perfil | #Auto | GOAL | claude-bg opus/high | RM-056 | — | 01/10 02:44 |
-| vps | ork-ensaioprimei | #Auto | GOAL | sem despacho | RM-049 | — | 01/10 03:30 |
-| vps | ork-estadodoroad | #Fast | GO | claude-bg opus/xhigh | — | sim: autorizacao da retomada | 01/10 03:30 |
-| vps | ork-rm031kg4incr | #Auto | GOAL | claude-bg opus/max | RM-031 | — | 01/10 03:30 |
-| vps | ork-rm037fatia3d | #Auto | GOAL | claude-bg opus/max | RM-037 | — | 01/10 03:30 |
+| vps | ork-ensaioprimei | #Auto | GOAL | sem despacho | RM-049 | — | 01/10 03:45 |
+| vps | ork-estadodoroad | #Fast | GO | claude-bg opus/xhigh | — | sim: autorizacao da retomada | 01/10 03:45 |
+| vps | ork-rm031kg4incr | #Auto | GOAL | claude-bg opus/max | RM-031 | — | 01/10 03:45 |
+| vps | ork-rm037fatia3d | #Auto | GOAL | claude-bg opus/max | RM-037 | — | 01/10 03:45 |
 
 Horários de Brasília.
