@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-01T05:04:25.877Z",
+  "publicadoEm": "2026-10-01T05:04:31.959Z",
   "threads": [
     {
       "id": "ork-estadodoroad",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-estadodoroad-go",
       "atualizadaEm": "2026-10-01T05:04:02.815Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm031kg4incr",
+      "nome": "rm031 kg4 incremental",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-031",
+      "branch": "ork/ork-rm031kg4incr-full",
+      "atualizadaEm": "2026-10-01T05:04:29.278Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
