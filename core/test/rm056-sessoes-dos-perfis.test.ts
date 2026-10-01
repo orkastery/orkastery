@@ -9,15 +9,17 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 import { estadosDeSessao, planejar } from '../src/board';
-import { registrar } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
+import { fimDaSessao } from '../src/conducao';
 import { adicionarPerfil } from '../src/runtime-profiles';
 import { contasDeSessoes, ehFantasma } from '../src/sessoes-contas';
 import { inventariarSessoes } from '../src/sessoes-inventario';
-import { textoDoInventario } from '../src/sessoes';
-import { dirThread, novaThread } from '../src/thread';
+import { limparFantasmas, textoDaLimpeza, textoDoInventario } from '../src/sessoes';
+import { dirThread, gravarThread, novaThread } from '../src/thread';
 
 const UUID = (n: number) => `56565656-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const SCRIPT = `#!/bin/sh
+echo "$1" >> "$CLAUDE_CONFIG_DIR/chamadas"
 if [ "$1" = "agents" ]; then
   if [ -f "$CLAUDE_CONFIG_DIR/agents.json" ]; then cat "$CLAUDE_CONFIG_DIR/agents.json"; else echo '[]'; fi
   exit 0
@@ -134,4 +136,41 @@ test('D5: fantasma e so claude-bg nao terminal sem processo', () => {
   assert.equal(ehFantasma('claude-bg', { sessionId: UUID(8), state: 'working', pid: 1 }, vivo), false);
   assert.equal(ehFantasma('claude-bg', { sessionId: UUID(8), state: 'done' }, morto), false, 'terminal nao e fantasma');
   assert.equal(ehFantasma('codex', { sessionId: UUID(8), state: 'unknown' }, morto), false, 'codex nao expoe pid');
+});
+
+test('C6: limpar-fantasmas grava sessao_morta na thread vinculada, solta a conducao e nao chama o runtime', () => {
+  const c = cenario('rm056-limpar', {
+    b: [{ sessionId: UUID(9), cwd: '/srv/y', state: 'blocked' },
+      { sessionId: UUID(10), cwd: '/srv/y', state: 'blocked' }],
+  });
+  try {
+    const t = novaThread(c.p.carregado, { nome: 'presa', modo: 'auto' }).thread;
+    t.sessoes.push({ sessionId: UUID(9), runtime: 'claude-bg', slug: t.slug, fase: 'GO', bloco: 'ad-hoc', verificada: true,
+      origem: 'adocao', adotadaEm: t.criadaEm, cwdOrigem: c.p.dir });
+    gravarThread(c.p.dir, t);
+    const dir = dirThread(c.p.dir, t.id);
+    const chamadas = () => fs.existsSync(path.join(c.contas.b, 'chamadas')) ? fs.readFileSync(path.join(c.contas.b, 'chamadas'), 'utf8') : '';
+
+    const ensaio = limparFantasmas(c.p.dir, { dryRun: true });
+    assert.deepEqual(ensaio.itens.map(i => [i.sessionId, i.perfil, i.thread, i.acao]),
+      [[UUID(9), 'b', t.id, 'solto'], [UUID(10), 'b', null, 'sem-thread']]);
+    assert.equal(lerLedger(dir).some(e => e.tipo === 'sessao_morta'), false, 'ensaio nao grava');
+
+    const r = limparFantasmas(c.p.dir);
+    const morte = lerLedger(dir).filter(e => e.tipo === 'sessao_morta');
+    assert.equal(morte.length, 1);
+    assert.equal(morte[0].sessionId, UUID(9));
+    assert.equal(morte[0].origem, 'sessions.limpar-fantasmas');
+    assert.equal(morte[0].perfilId, 'b');
+    assert.equal(JSON.stringify(morte[0]).includes(c.contas.b), false, 'o ledger leva o id do perfil, nunca a pasta');
+    assert.match(textoDaLimpeza(r), /solto: sessao_morta no ledger/);
+    // `sessao_morta` e o evento que encerra a conducao da sessao (fimDaSessao).
+    const lease = { adquiridoEm: new Date(Date.parse(morte[0].ts) - 1000).toISOString(),
+      conducao: { dono: { tipo: 'sessao', sessionId: UUID(9) } } } as unknown as Parameters<typeof fimDaSessao>[1];
+    assert.equal(fimDaSessao(lerLedger(dir), lease)?.tipo, 'sessao_morta');
+    // Repetir e idempotente, e o runtime so foi consultado (agents), nunca parado ou removido.
+    assert.equal(limparFantasmas(c.p.dir).itens.find(i => i.sessionId === UUID(9))?.acao, 'ja-solto');
+    assert.equal(lerLedger(dir).filter(e => e.tipo === 'sessao_morta').length, 1);
+    assert.doesNotMatch(chamadas(), /stop|rm/);
+  } finally { c.restaurar(); }
 });

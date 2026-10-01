@@ -200,7 +200,7 @@ import {
   textoDoLint,
   threadDeExemplo,
 } from './prompts';
-import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
+import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
@@ -366,11 +366,13 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   ledger estimate <thread-id> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P
         [--incerteza I]                     Registra estimativas explicitas da fase PLAN
 
-  sessions [--all] [--global] [--json]      Inventário Claude e Codex da conta atual
+  sessions [--all] [--global] [--json]      Inventário Claude e Codex da conta do processo e de cada perfil
         [--exigir-limpo]                    Sai != 0 com fonte inválida ou sessão sem thread
   sessions adopt <id> [--json]             Adota identidade real sem executar prompt
   sessions event --tipo T --sessao ID       Ingere JSON limitado no stdin; observa sem aprovar gates
   sessions watch --thread T [--sessao ID]   Observa somente a sessão selecionada; --once faz uma varredura
+  sessions limpar-fantasmas [--dry-run]     Solta do ork (sessao_morta no ledger) a sessao sem pid e sem processo;
+        [--json]                             nunca toca no runtime (RM-056)
   sessions logs <sessao> [--linhas N]       Logs de uma sessao
   sessions supersede <thread> <UUID> --fase F --runtime R  Confirma encerramento de sessão superada
   sessions request <thread> <UUID> --fase F --runtime R --pergunta P  Abre pedido vinculado ao prompt nativo
@@ -1278,6 +1280,12 @@ function comandoSessions(args: Args): number {
     const r = inventariarSessoes(raiz, { todas: args.opcoes.all === true, global: args.opcoes.global === true });
     console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDoInventario(r));
     return !r.ok || (args.opcoes['exigir-limpo'] === true && r.semThread > 0) ? 1 : 0;
+  }
+  if (sub === 'limpar-fantasmas') {
+    if (!carregado) { console.error('ork sessions limpar-fantasmas precisa de um projeto (orkastery.yaml)'); return 2; }
+    const r = limparFantasmas(raiz, { dryRun: args.opcoes['dry-run'] === true });
+    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaLimpeza(r));
+    return r.ok ? 0 : 1;
   }
   if (sub === 'hitl') {
     return comandoSessionsHitl(args, carregado ? raiz : '');

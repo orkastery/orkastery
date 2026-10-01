@@ -9,6 +9,9 @@ import * as adapter from './adapters/claude-bg';
 import { inventariarSessoes, InventarioDeSessoes } from './sessoes-inventario';
 import { lerPerfis, PerfilDeDespacho, perfilDeDespacho } from './runtime-profiles';
 import { tabela } from './util';
+import { raizDoEstado } from './estado-thread';
+import { lerLedger, registrar } from './ledger';
+import { dirThread } from './thread';
 
 export function textoDoInventario(r: InventarioDeSessoes): string {
   const linhas = [
@@ -77,4 +80,64 @@ export function comandoDeAttach(chave: string, raiz?: string | null): { texto: s
   if (!('achada' in l)) return l;
   const { sessao, perfil, configDir } = l.achada;
   return { texto: adapter.comandoAttach(sessao.sessionId, perfil ? configDir : null), codigo: 0 };
+}
+
+/** RM-056 (D6): o que `ork sessions limpar-fantasmas` fez (ou faria, no ensaio) com cada fantasma. */
+export interface FantasmaTratado {
+  sessionId: string;
+  perfil: string | null;
+  thread: string | null;
+  fase: string | null;
+  /** `solto`: `sessao_morta` gravado; `ja-solto`: o ledger ja encerrava a sessao; `sem-thread`: nada a soltar no ork;
+   *  `outro-projeto`: o vinculo e de outro projeto, que solta pelo proprio `ork`. */
+  acao: 'solto' | 'ja-solto' | 'sem-thread' | 'outro-projeto';
+}
+
+const ENCERRAM_A_SESSAO = ['phase_result', 'sessao_morta', 'session_superseded'];
+
+/**
+ * RM-056 (D6): solta o vinculo do `ork` com cada sessao fantasma (sem pid e sem processo) deste
+ * projeto, gravando `sessao_morta` no ledger da thread: e o evento que libera a conducao
+ * (`fimDaSessao`) e a vaga. Nunca chama o runtime: o registro no `claude agents` fica onde esta.
+ */
+export function limparFantasmas(raiz: string, opcoes: { dryRun?: boolean; agora?: string } = {}):
+  { ok: boolean; dryRun: boolean; itens: FantasmaTratado[]; falhas: string[] } {
+  const canonica = raizDoEstado(raiz);
+  const inv = inventariarSessoes(canonica, { global: true });
+  const itens: FantasmaTratado[] = [];
+  for (const s of inv.sessoes.filter(x => x.fantasma)) {
+    if (s.vinculos.length === 0) { itens.push({ sessionId: s.sessionId, perfil: s.perfil, thread: null, fase: null, acao: 'sem-thread' }); continue; }
+    for (const v of s.vinculos) {
+      const base = { sessionId: s.sessionId, perfil: s.perfil, thread: v.thread, fase: v.fase };
+      if (v.raiz !== canonica) { itens.push({ ...base, acao: 'outro-projeto' }); continue; }
+      const dir = dirThread(canonica, v.thread);
+      if (lerLedger(dir).some(e => ENCERRAM_A_SESSAO.includes(e.tipo) && e.sessionId === s.sessionId)) {
+        itens.push({ ...base, acao: 'ja-solto' }); continue;
+      }
+      if (!opcoes.dryRun) registrar(dir, v.thread, 'sessao_morta', {
+        fase: v.fase, sessionId: s.sessionId, runtime: s.runtime, ...(s.perfil ? { perfilId: s.perfil } : {}),
+        origem: 'sessions.limpar-fantasmas', estadoNoRuntime: s.state ?? s.status ?? null,
+        evidencia: 'claude agents lista a sessao sem pid ou com pid sem processo (fantasma, RM-056 D5)',
+        razao: 'solta o vinculo do ork (conducao e vaga) sem tocar no runtime: claude stop e claude rm nao acham o job',
+      });
+      itens.push({ ...base, acao: 'solto' });
+    }
+  }
+  return { ok: inv.ok, dryRun: opcoes.dryRun === true, itens, falhas: inv.fontes.filter(f => !f.ok).map(f => `${f.origem}: ${f.detalhe}`) };
+}
+
+export function textoDaLimpeza(r: ReturnType<typeof limparFantasmas>): string {
+  if (r.itens.length === 0) return `Nenhuma sessão fantasma${r.ok ? '' : ' nas contas que responderam'}.` +
+    r.falhas.map(f => `\nFalha: ${f}`).join('');
+  const verbo: Record<FantasmaTratado['acao'], string> = {
+    solto: r.dryRun ? 'soltaria (sessao_morta no ledger)' : 'solto: sessao_morta no ledger',
+    'ja-solto': 'já encerrada no ledger', 'sem-thread': 'fora do ork: nada a soltar',
+    'outro-projeto': 'vínculo de outro projeto: rode lá',
+  };
+  return [
+    `Sessões fantasma (sem pid e sem processo)${r.dryRun ? ', ensaio: nada foi gravado' : ''}. O runtime não foi tocado.`,
+    tabela(['ID', 'PERFIL', 'THREAD/FASE', 'AÇÃO'], r.itens.map(i => [i.sessionId, i.perfil ?? 'processo',
+      i.thread ? `${i.thread}/${i.fase}` : '-', verbo[i.acao]])),
+    ...r.falhas.map(f => `Falha: ${f}`),
+  ].join('\n');
 }
