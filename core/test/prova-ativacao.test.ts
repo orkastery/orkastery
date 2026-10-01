@@ -119,11 +119,12 @@ test('resposta que conclui "roadmap vazio", sem o projeto ou sem notConsulted re
     assert.equal(ok(negada, 'resposta.sem-roadmap-vazio')!.ok, true, ok(negada, 'resposta.sem-roadmap-vazio')!.detalhe);
     // CHECK F1: a negação só conta quando governa a conclusão.
     for (const frase of ['O roadmap está vazio e não há threads abertas.', 'Roadmap vazio: nao ha nada a fazer.',
-      'Não há itens: o roadmap está vazio.', 'O roadmap do projeto está vazio.', 'Your roadmap is currently empty.']) {
+      'Não há itens: o roadmap está vazio.', 'O roadmap do projeto está vazio.', 'Your roadmap is currently empty.', 'Roadmap: vazio.']) {
       const r = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: `orkastery. ${frase}` })), esperado);
       assert.equal(ok(r, 'resposta.sem-roadmap-vazio')!.ok, false, frase);
     }
-    for (const frase of ['Zero threads nunca é roadmap vazio.', 'The roadmap is not empty.', 'Isso não quer dizer roadmap vazio.']) {
+    for (const frase of ['Zero threads nunca é roadmap vazio.', 'The roadmap is not empty.', 'Isso não quer dizer roadmap vazio.',
+      'Zero threads não quer dizer que o roadmap esteja vazio.']) {
       const r = conferirProva('claude-code', transcriptDoClaude(streamClaude({ resultado: snapshotDe(p.dir), resposta: `orkastery. ${frase}` })), esperado);
       assert.equal(ok(r, 'resposta.sem-roadmap-vazio')!.ok, true, frase);
     }
@@ -212,4 +213,10 @@ test('redigir tira tokens e valores de chaves com nome de segredo antes de grava
     provedor: { password: 'p' }, usage: { inputTokens: 3 } }));
   for (const segredo of ['abc123SECRET', 'dXNlcjpwYXNz', '=xyz', 'AIzaSyA', '"p"']) assert.ok(!recibo.includes(segredo), segredo);
   assert.ok(recibo.includes('"inputTokens":3'));
+  // CHECK-REVERIFY: a regra de variável de ambiente não quebra JSON nem apaga número ou prosa.
+  const serializado = JSON.stringify({ stderr: 'set OPENAI_API_KEY=sk-abc\nnext line', detalhe: 'MAX_TOKENS=4096', texto: 'Basic usage' });
+  const reparado = JSON.parse(redigir(serializado));
+  assert.match(reparado.stderr, /OPENAI_API_KEY=\[REDIGIDO\]\nnext line/);
+  assert.equal(reparado.detalhe, 'MAX_TOKENS=4096');
+  assert.equal(reparado.texto, 'Basic usage');
 });

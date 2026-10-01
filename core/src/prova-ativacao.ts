@@ -65,7 +65,7 @@ export interface ResultadoDaConferencia {
   rede: { cabecalho: string; consultado: string; naoConsultado: string[] } | null;
 }
 
-const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(/])ork(\s+--(projeto|project)(\s+|=)\S+)?\s+maestro\b/;
+const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(/])ork(\s+(--projeto|--project|-p)(\s+|=)\S+)?\s+maestro\b/;
 
 function linhasJson(texto: string): Record<string, unknown>[] {
   const eventos: Record<string, unknown>[] = [];
@@ -180,17 +180,17 @@ function expandirHome(raiz: string, home: string): string {
   return raiz === '~' ? home : raiz.startsWith('~/') ? path.join(home, raiz.slice(2)) : raiz;
 }
 
-const ROADMAP_VAZIO = /\broadmap\b((?:\s+[^\s.!?:;,]+){0,4}?)\s+(vazio|empty)\b/giu;
+const ROADMAP_VAZIO = /\broadmap\b:?((?:\s+[^\s.!?:;,]+){0,4}?)\s+(vazio|empty)\b/giu;
 const NEGACAO = /(^|[^\p{L}])(n[ãa]o|nunca|jamais|not|never|isn't|doesn't|nem)([^\p{L}]|$)/iu;
 /**
  * A frase que conclui "roadmap vazio". A negação só conta quando governa a conclusão: dentro do
- * trecho ("the roadmap is not empty") ou nas até quatro palavras antes dele, sem atravessar
+ * trecho ("the roadmap is not empty") ou nas até seis palavras antes dele, sem atravessar
  * pontuação ("zero threads não quer dizer roadmap vazio"). "O roadmap está vazio e não há
  * threads" e "Não há itens: o roadmap está vazio" concluem.
  */
 function concluiRoadmapVazio(texto: string): string | null {
   for (const m of texto.matchAll(ROADMAP_VAZIO)) {
-    const antes = texto.slice(0, m.index).split(/[.!?:;,\n]/).pop()!.trim().split(/\s+/).slice(-4).join(' ');
+    const antes = texto.slice(0, m.index).split(/[.!?:;,\n]/).pop()!.trim().split(/\s+/).slice(-6).join(' ');
     if (!NEGACAO.test(antes) && !NEGACAO.test(m[1])) return `${antes} ${m[0]}`.trim();
   }
   return null;
@@ -301,8 +301,9 @@ export function redigir(texto: string): string {
   return texto
     .replace(/\b(sk-ant-[A-Za-z0-9_-]+|sk-or-[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]{16,}|[sr]k_live_[A-Za-z0-9]{10,}|AIza[0-9A-Za-z_-]{20,})/g, '[REDIGIDO]')
     .replace(/\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{16,}|xox[abprs]-[A-Za-z0-9-]{10,})/g, '[REDIGIDO]')
-    .replace(/\b(Bearer|Basic)(\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1$2[REDIGIDO]')
-    .replace(/\b([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*\s*=\s*)("[^"]*"|'[^']*'|\S+)/g, '$1[REDIGIDO]')
+    .replace(/\b(Bearer|Basic)(\s+)[A-Za-z0-9._~+/-]{8,}=*/gi, '$1$2[REDIGIDO]')
+    // O valor para em aspas, barra invertida e espaço: aplicada a JSON, a regra não come o fecho.
+    .replace(/\b([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*\s*=\s*)(?!\d+\b)("[^"\\]*"|'[^'\\]*'|[^\s"'\\]+)/g, '$1[REDIGIDO]')
     .replace(/("[^"]*(?:token|secret|password|passwd|api[_-]?key|apikey|credential|authorization|cookie)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"');
 }
 export function redigirObjeto<T>(valor: T): T {
