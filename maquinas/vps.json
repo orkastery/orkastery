@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-01T23:00:03.271Z",
+  "publicadoEm": "2026-10-01T23:30:02.110Z",
   "threads": [
     {
       "id": "ork-ensaioprimei",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-049",
       "branch": "ork/ork-ensaioprimei-full",
-      "atualizadaEm": "2026-10-01T22:54:16.842Z",
+      "atualizadaEm": "2026-10-01T23:27:20.562Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
