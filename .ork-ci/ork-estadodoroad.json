@@ -381,14 +381,23 @@
       "criadoEm": "2026-10-01T05:30:01.558Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C23",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-estadodoroad.json",
+      "alegacao": "Bundle por thread da ork-estadodoroad: e da thread e da branch dela, leva as claims e nao leva caminho de maquina nem e-mail",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-estadodoroad.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-estadodoroad' || b.branch!=='ork/ork-estadodoroad-go' || b.claims.length<20) process.exit(1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-estadodoroad.json"
+      ],
+      "criadoEm": "2026-10-01T05:36:40.137Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
