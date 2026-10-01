@@ -410,7 +410,7 @@
         "node -e \"const r=require('./core/test/fixtures/kg4-medida-incremental.json'); const m=(k)=>{const v=r.pares.map((p)=>p.ms[k]).sort((a,b)=>a-b); return (v[2]+v[3])/2;}; const d=require('fs').readFileSync('docs/referencia/contratos/incremental-grafo-kg4.md','utf8'); for (const k of ['incremental','completo','completo_antes']) { const t=m(k).toLocaleString('pt-BR')+' ms'; if (!d.includes(t)) { console.error('mediana '+k+' fora da doc: '+t); process.exit(1); } }\" && node core/scripts/checar-links.cjs && grep -q 'reconstruido-identico' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q 'ork.graph-extraction-units/v0' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q \"dependencia de arquivo global na mudanca\" docs/referencia/contratos/incremental-grafo-kg4.md"
       ],
       "criadoEm": "2026-10-01T07:08:25.295Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
