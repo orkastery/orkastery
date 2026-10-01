@@ -28,7 +28,10 @@ utilizável como gate de pipeline.
 | `ork accounts check [<id>]` | Confere o login de cada perfil ativo (`claude auth status`, `codex login status`) e marca o store: `sem-auth` sai do rodízio; login por API key, `api_key_helper`, Console ou nuvem vira `provider-pago` e nunca despacha; login de assinatura refeito volta; conferência inconclusiva (timeout, binário ausente, resposta ilegível) mantém o estado e registra a falha. Sai diferente de zero com perfil sem login de assinatura conferido |
 
 O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o store) e a sonda de
-umask e das permissões de `.orkastery` e `.orkastery/private`. Sem perfil configurado, cada
+umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
+arquivo ou pasta do `.git` com dono diferente do dono do repositório (o que `git` rodado como root
+deixa, e que trava o fetch e o commit do dono), com a contagem, exemplos e o `sudo chown -R` exato
+na correção; o doctor não roda nada (RM-037). Sem perfil configurado, cada
 runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MCP de `accounts`
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
