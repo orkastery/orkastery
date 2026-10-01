@@ -4,7 +4,7 @@
 // abre uma sessão NOVA e não interativa no host instalado, diz `orkastery maestro` e confere a
 // resposta contra o contrato (core/src/prova-ativacao.ts). Nada global é alterado: o recibo
 // compara o sha256 dos arquivos globais do host antes e depois. Passo que exige pessoa
-// (aceite de procedência, consentimento de MCP, reinício de gateway) não é contornado: vira
+// (revisão de procedência, consentimento de MCP, reinício de gateway) não é contornado: vira
 // pendência com o comando exato.
 const fs = require('node:fs');
 const os = require('node:os');
@@ -16,7 +16,7 @@ const repo = path.resolve(__dirname, '../..');
 const CLI = path.join(repo, 'core/dist/index.js');
 const FRASE = 'orkastery maestro';
 const HOSTS = { 'claude-code': { bin: 'claude', modelo: 'sonnet' }, openclaw: { bin: 'openclaw', modelo: null } };
-const USO = 'uso: node core/scripts/prova-ativacao.cjs <claude-code|openclaw> [--saida ARQUIVO] [--modelo M] [--manter] [--aceitar-procedencia]';
+const USO = 'uso: node core/scripts/prova-ativacao.cjs <claude-code|openclaw> [--saida ARQUIVO] [--modelo M] [--manter]';
 // Saídas: 0 aprovada, 1 reprovada ou falha, 2 uso/host ausente, 3 pendente de ação humana.
 const SAIDA = { aprovada: 0, reprovada: 1, falha: 1, 'host-ausente': 2, 'pendente-humano': 3 };
 
@@ -27,16 +27,14 @@ function argumentos(argv) {
       '(Hermes e Codex ficam pendentes no RM-032).\n' + USO + '\n');
     process.exit(2);
   }
-  const op = { host, saida: null, modelo: HOSTS[host].modelo, manter: false, aceitarProcedencia: false };
+  const op = { host, saida: null, modelo: HOSTS[host].modelo, manter: false };
   for (let i = 0; i < resto.length; i++) {
     const a = resto[i];
     if (a === '--saida') op.saida = path.resolve(resto[++i] ?? '');
     else if (a === '--modelo') op.modelo = resto[++i] ?? '';
     else if (a === '--manter') op.manter = true;
-    else if (a === '--aceitar-procedencia') op.aceitarProcedencia = true;
     else { process.stderr.write(`argumento desconhecido: ${a}\n${USO}\n`); process.exit(2); }
   }
-  if (op.aceitarProcedencia && host !== 'openclaw') { process.stderr.write('--aceitar-procedencia vale só para openclaw\n'); process.exit(2); }
   return op;
 }
 
@@ -232,14 +230,14 @@ function provaOpenclaw(env) {
   }, null, 2), { mode: 0o600 });
   const envOc = { ...env, OPENCLAW_STATE_DIR: estado, OPENCLAW_CONFIG_PATH: arquivoConfig, NO_COLOR: '1' };
   delete envOc.FORCE_COLOR;
-  const palco = path.join(raiz, 'palco');
-  exigir(rodar('ork', ['adapter', 'install', 'openclaw', '--dir', palco], { cwd: fixture, env }), 'ork adapter install openclaw');
-  const extensao = path.join(palco, 'extensions/orkastery');
-  // D6: o aceite de procedência é do dono. Sem a flag, o OpenClaw recusa e a recusa vira evidência.
-  const instalar = rodar('openclaw', ['plugins', 'install', extensao, ...(op.aceitarProcedencia ? ['--force'] : [])],
-    { cwd: workspace, env: envOc, timeout: 120000 });
-  const aceita = instalar.status === 0 && !/Install cancelled/i.test(instalar.stdout + instalar.stderr);
-  recibo.procedencia = { aceitaPeloOperador: op.aceitarProcedencia, instalada: aceita };
+  // D7: a instalação documentada do adaptador (`ork adapter install openclaw --dir <estado>`) põe a
+  // extensão na raiz global DA CÓPIA, que o OpenClaw varre. A prova não roda `openclaw plugins
+  // install --force` nem mexe em `plugins.allow`: a revisão de procedência fica com o dono.
+  exigir(rodar('ork', ['adapter', 'install', 'openclaw', '--dir', estado], { cwd: fixture, env }), 'ork adapter install openclaw');
+  const inspecao = rodar('openclaw', ['plugins', 'inspect', 'orkastery'], { cwd: workspace, env: envOc, timeout: 120000 });
+  const linha = rotulo => (inspecao.stdout.split('\n').find(l => l.startsWith(rotulo + ':')) ?? '').slice(rotulo.length + 1).trim() || null;
+  recibo.procedencia = { via: 'ork adapter install openclaw --dir <estado da cópia>', status: linha('Status'), origem: linha('Origin'),
+    trust: linha('Trust'), aviso: (inspecao.stdout.match(/^WARN: (.*)$/m) ?? [])[1] ?? null };
   const antes = listar(path.join(fixture, '.orkastery'));
   const sessionId = `prova-ativacao-${randomUUID()}`;
   const agente = rodar('openclaw', ['agent', '--local', '--json', '--session-id', sessionId, '-m', FRASE, '--timeout', '240'],
@@ -261,15 +259,17 @@ function provaOpenclaw(env) {
   recibo.conferencias.push(...r.conferencias);
   recibo.snapshot = r.snapshot;
   conferirEstado(fixture, antes);
-  if (!aceita) {
-    recibo.pendenciasHumanas.push({ passo: 'aceite de procedência da extensão Orkastery na cópia da prova', bloqueiaProva: true,
-      comando: 'node core/scripts/prova-ativacao.cjs openclaw --aceitar-procedencia',
-      porque: 'o OpenClaw recusa extensão de caminho local sem revisão ("rerun with --force after reviewing the source"); sem ela, as tools ork_* não chegam ao modelo' });
-  }
-  recibo.pendenciasHumanas.push({ passo: 'depois da publicação, levar a extensão nova ao gateway da máquina e reiniciá-lo', bloqueiaProva: false,
-    comando: 'cd ~/.openclaw/workspace && ork adapter install openclaw && openclaw plugins install ~/.openclaw/workspace/.openclaw/extensions/orkastery --force && systemctl --user restart openclaw-gateway',
-    porque: 'a extensão global (0.4.3) não tem ork_roadmap_status; atualizar, aceitar a procedência e reiniciar o gateway é ato do dono, fora da cópia desta prova (sequência não executada aqui)' });
-  return aceita ? 'conferida' : 'pendente-humano';
+  recibo.pendenciasHumanas.push(
+    { passo: 'levar a extensão desta versão ao gateway da máquina e reiniciá-lo', bloqueiaProva: false,
+      comando: 'ork --version   # precisa ser a versão com ork_network_roadmap (0.5.0+)\nork adapter install openclaw --dir ~/.openclaw && systemctl --user restart openclaw-gateway',
+      porque: 'a extensão global da máquina continua a que estava; atualizar e reiniciar o gateway é ato do dono (sequência não executada pela prova)' },
+    { passo: 'revisar a procedência da extensão', bloqueiaProva: false,
+      comando: 'openclaw plugins inspect orkastery   # "can\'t verify where this plugin came from" até haver pacote oficial (npm/ClawHub)',
+      porque: 'o OpenClaw carrega a extensão da raiz global com aviso; confiar nela é decisão do dono' },
+    { passo: 'decidir se as outras tools ork_* chegam ao modelo no perfil coding', bloqueiaProva: false,
+      comando: 'openclaw config set tools.alsoAllow \'["orkastery"]\' --strict-json   # opcional; sem isso só ork_network_roadmap é exposta',
+      porque: 'a frase sem projeto só precisa de ork_network_roadmap; ork_maestro com projeto nomeado e as demais dependem dessa escolha' });
+  return 'conferida';
 }
 function segredoLiteral(obj, prefixo = '') {
   for (const [k, v] of Object.entries(obj ?? {})) {
