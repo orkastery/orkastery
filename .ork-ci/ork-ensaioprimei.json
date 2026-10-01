@@ -393,7 +393,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ensaio 050: sha curto' core/dist-test/test/ensaio-050.test.js && node --test core/dist-test/test/fix.test.js"
       ],
       "criadoEm": "2026-10-01T23:27:16.534Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -407,7 +407,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ensaio 050: sha curto' core/dist-test/test/ensaio-050.test.js && node --test core/dist-test/test/ship.test.js"
       ],
       "criadoEm": "2026-10-01T23:27:18.822Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -421,7 +421,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='ensaio 050: sha curto' core/dist-test/test/ensaio-050.test.js"
       ],
       "criadoEm": "2026-10-01T23:27:20.562Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
