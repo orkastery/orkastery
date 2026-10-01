@@ -29,14 +29,15 @@ ork ci prepare <thread>
 2. `verify --baseline`, antes de mexer, grava o que já passava e o que já falhava. Ele roda a verificação do manifesto, com a suíte inteira, e leva o tempo dela.
 3. `claims add` registra cada afirmação com o comando que a julga. Prefira `node --test` no arquivo, ou a suíte hermética `npm --prefix core run test:ci`; `npm --prefix core test` é recusado no bundle, porque pede recurso local.
 4. `verify` reexecuta as claims no commit real e compara com a baseline.
-5. `ci prepare` grava `.ork-ci/bundle.json`. Faça dele o último commit do PR: o check `ork-verify` reexecuta as suas claims no runner do GitHub.
+5. `ci prepare` grava `.ork-ci/<thread>.json`, só desta thread. Faça dele o último commit do PR: o check `ork-verify` acha o arquivo pelo nome da branch e reexecuta as suas claims no runner do GitHub.
 
 A [verificação](../verificacao.md) explica claim, baseline e o lint do comando em detalhe.
 
 ## No PR
 
 - Na seção "A prova", a saída de `ork verify <thread>`.
-- No último commit, o `.ork-ci/bundle.json`.
+- No último commit, o `.ork-ci/<thread>.json`.
+- Claim que afirma ausência com `git grep` no repositório inteiro exclui `':(exclude).ork-ci/'`: os bundles das threads já entregues ficam versionados e citam os comandos delas.
 - Nada de `.orkastery/` no commit.
 
 ## O que o mantenedor faz

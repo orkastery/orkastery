@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
+import { raizDoEstado } from './estado-thread';
+import { executarGrafo } from './intelligence-graph-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
@@ -126,13 +128,16 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
+import { carregarManifesto, configDeEmbedding, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { resolverExperiencia } from './experiencia';
+import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
 import {
   abrirMemoria,
+  sondarEmbeddings,
   publicar,
   publicarPropostas,
   ResultadoDoSync,
@@ -141,7 +146,9 @@ import {
   textoDoEstado,
   textoDoSync,
 } from './memoria';
-import { criarEscopoDeLeitura, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -196,11 +203,11 @@ import {
 import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { consultarCi, executarBundleCi, executarCi, prepararBundleCi } from './ci';
+import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
   threadsDaListagem } from './thread';
-import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
+import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
+import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
@@ -305,6 +312,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
                                             por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
+  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  experiencia uninstall <host> [--dry-run] [--json]
+                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
   setup <modo>                              Config atual de cada bloco do modo
   setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
         [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
@@ -392,8 +402,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
         [--so-claims]                       --baseline grava o estado do mundo antes do GO
         [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata
+  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
   ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
+        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
 
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
@@ -433,12 +444,30 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
   brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
                                             quem decidiu e evidencia, com os ids do Brain (so leitura)
-  memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
+  memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
+                                            (--sondar: uma chamada real de embedding, com a latencia)
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
   memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
   memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
         [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
+  memory search --texto "<frase>"          Busca por significado (I-38): vetor + FTS por RRF no tenant,
+        [--modo hibrido|vetor|fts]               NAO deterministica; nao combina com --tags nem --thread
+        [--colecao C] [--limite N] [--json]
+  memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
+        [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
+
+  grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
+        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; --verificar
+                                                 confere contrato, bytes e determinismo; precisa de typescript e micromark
+  grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
+        [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
+  grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
+  grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
+  grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
+  grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
+  grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
@@ -500,10 +529,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
                                             voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
+        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
+                                             ou passa para outra thread aberta do mesmo item, com registro
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
+  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
+                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
   fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
   fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
                                             este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
@@ -518,6 +551,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
+        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
+                                             o padrao e o item dela; --todos volta a todo item (RM-037)
   docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
 
   mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
@@ -682,6 +717,8 @@ function comandoThread(args: Args): number {
       console.error('uso: ork thread new <nome> --modo <MODO>');
       return 2;
     }
+    const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
+    if (avisoRoadmap) console.error(avisoRoadmap);
     const brutoModo = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
     let modo: Modo;
     try {
@@ -856,7 +893,7 @@ function comandoOnboarding(args: Args): number {
     estado = gravarEtapa(raiz, etapa!, conteudo, por);
   } else if (sub === 'reset') estado = resetarOnboarding(raiz, etapa, por);
   else estado = lerOnboarding(raiz);
-  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado));
+  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado, exigirManifesto(raiz).manifesto.owner));
   return 0;
 }
 
@@ -2103,9 +2140,16 @@ function comandoCi(args: Args): number {
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
     }
+    // RM-037 (rm037noite, defeito 1): o CI passa a branch e acha o `.ork-ci/<thread>.json` dela.
+    const branch = texto(args.opcoes.branch);
+    if (branch) {
+      const result = executarCiDaBranch(carregado, branch);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo>');
+      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
       return 2;
     }
     const result = executarCi(carregado, thread);
@@ -2652,8 +2696,17 @@ function comandoRoadmap(args: Args): number {
   const sub = args.posicionais[1] ?? 'reservas';
   const remoto = texto(args.opcoes.remoto);
   if (sub === 'reservas') {
+    // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
+    if (args.opcoes['soltar-orfas'] === true) {
+      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
+      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
+        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      return 0;
+    }
     const painel = listarReservas(carregado.raiz, { remoto });
-    console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
+    const orfas = reservasOrfas(carregado.raiz, painel.reservas);
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
     return 0;
   }
   if (sub === 'status') {
@@ -2665,9 +2718,22 @@ function comandoRoadmap(args: Args): number {
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
   }
+  // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
+  if (sub === 'feat') {
+    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else {
+      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
+      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
+      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+    }
+    return 0;
+  }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
+      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
     return 2;
   }
   const opcoes = {
@@ -2734,8 +2800,35 @@ function comandoDocs(args: Args): number {
   }
   if (sub === 'sincronizar') {
     const escrever = args.opcoes.escrever === true;
-    const r = sincronizarDocs(raiz, { baseBranch, escrever });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaSincronizacao(r, escrever));
+    // RM-037 (rm037noite, defeito 5): o escopo. `--so` diz os itens; sem ele, na worktree de uma thread
+    // com item, so o item dela; `--todos` (ou fora de worktree de thread) volta a todo item.
+    // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
+    // padrao em silencio.
+    if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
+      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      return 2;
+    }
+    const so = texto(args.opcoes.so);
+    let itens: string[] | undefined;
+    let escopo = 'todo item do roadmap';
+    if (so) {
+      itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
+      const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
+      if (fora.length || itens.length === 0) {
+        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        return 2;
+      }
+      escopo = `so ${itens.join(', ')} (--so)`;
+    } else if (args.opcoes.todos !== true) {
+      const padrao = escopoPadraoDoSync(raiz);
+      if (padrao.itens) {
+        itens = padrao.itens;
+        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+      }
+    }
+    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
+      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -2746,7 +2839,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] | init`);
+  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 
@@ -3401,7 +3494,13 @@ function comandoMemory(args: Args): number {
   }
   if (sub === 'sync' && args.posicionais[2]) validarDiretorioDeThread(carregado.raiz, args.posicionais[2]);
   if (sub === 'status') {
-    const memoria = abrirMemoria(candidate);
+    const memoria = abrirMemoria(candidate, { embeddings: 'detalhado' });
+    // I-38 (D7): --sondar faz UMA chamada real pelo caminho ativo e mede a latencia.
+    if (args.opcoes.sondar === true && memoria.ativo && memoria.estado.embeddings) {
+      const driver = new DriverCliOrkMind(configDoManifesto(carregado.manifesto));
+      memoria.estado.embeddings.sonda = sondarEmbeddings(carregado.manifesto, memoria.estado.embeddings,
+        (p, o) => driver.embeddar(p, o), configDoManifesto(carregado.manifesto).timeoutMs);
+    }
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ ...memoria.estado, configSource: memoria.configSource, configDivergent: memoria.configDivergent }, null, 2));
       return 0;
@@ -3442,6 +3541,8 @@ function comandoMemory(args: Args): number {
     }
     return r.estado.pedido === 'orkmind' && r.falhas > 0 ? 1 : 0;
   }
+
+  if (sub === 'search' && args.opcoes.texto !== undefined) return buscaPorTexto(args, carregado);
 
   if (sub === 'search') {
     const threadId = texto(args.opcoes.thread);
@@ -3497,8 +3598,117 @@ function comandoMemory(args: Args): number {
     return 0;
   }
 
+  if (sub === 'index') {
+    const modelo = texto(args.opcoes.modelo) ?? 'primario';
+    if (!['primario', 'fallback', 'todos'].includes(modelo)) {
+      console.error('uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]');
+      return 2;
+    }
+    const memoria = abrirMemoria(carregado);
+    if (!memoria.ativo) {
+      const falha = { motivo: memoria.estado.motivo, detalhe: memoria.estado.detalhe, correcao: memoria.estado.correcao };
+      if (args.opcoes.json === true) console.log(JSON.stringify(falha, null, 2));
+      else console.error(`memory.index: regime ${memoria.regime} (${memoria.estado.motivo}); ${memoria.estado.correcao}`);
+      return 1;
+    }
+    const config = configDeEmbedding(carregado.manifesto);
+    const driver = configDoManifesto(carregado.manifesto);
+    const embedder = new DriverCliOrkMind(driver);
+    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
+    const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
+      dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
+      chavePresente: !!config.api_key_env && chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
+      chaveRecusada: !!config.api_key_env && (process.env[config.api_key_env] ?? '').trim() !== '' &&
+        !chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
+      embeddar: (p, o) => embedder.embeddar(p, o) }));
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify(modelo === 'todos' ? { alvo: 'todos', resultados } : resultados[0], null, 2));
+    } else {
+      for (const r of resultados) console.log(textoDoIndice(r));
+    }
+    return resultados.some(r => !r.dryRun && r.motivo) ? 1 : 0;
+  }
+
   console.error(`subcomando desconhecido: memory ${sub}`);
   return 2;
+}
+
+/** Aviso informativo: não consulta rede, não reserva e não bloqueia criação. */
+export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): string | null {
+  const item = /\bRM-\d{3}\b/i.exec(nome)?.[0].toUpperCase();
+  if (!item || roadmap) return null;
+  return `Aviso: ${item} no nome não associa a thread ao roadmap. No terminal, consulte ork roadmap reservas e ork fabrica; para associar e reservar, use --roadmap ${item} em ork thread new. Nenhuma reserva foi criada por este aviso.`;
+}
+
+/**
+ * `ork memory search --texto` (I-38 D7): busca por significado, separada da busca por tag.
+ * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
+ */
+function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
+  const frase = texto(args.opcoes.texto);
+  if (args.opcoes.tags !== undefined || args.opcoes.thread !== undefined || args.opcoes.restrito !== undefined ||
+      args.opcoes.janela !== undefined) {
+    console.error('memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela');
+    return 2;
+  }
+  const modo = (texto(args.opcoes.modo) ?? 'hibrido') as ModoDeBusca;
+  const colecao = texto(args.opcoes.colecao) ?? texto(args.opcoes.collection);
+  const limiteBruto = texto(args.opcoes.limite);
+  const limite = limiteBruto === undefined ? LIMITE_PADRAO_DA_BUSCA : Number(limiteBruto);
+  if (!textoDeBuscaValido(frase) || !MODOS_DE_BUSCA.includes(modo) ||
+      (colecao !== undefined && !COLECOES_DO_ORK.includes(colecao as ColecaoDoOrk)) ||
+      !Number.isInteger(limite) || limite < 1 || limite > LIMITE_MAXIMO_DA_BUSCA) {
+    console.error(`uso: ork memory search --texto "<frase>" [--modo ${MODOS_DE_BUSCA.join('|')}] [--colecao ${COLECOES_DO_ORK.join('|')}] [--limite 1..${LIMITE_MAXIMO_DA_BUSCA}] [--json]`);
+    return 2;
+  }
+  const memoria = abrirMemoria(carregado);
+  const config = configDeEmbedding(carregado.manifesto);
+  let r: ResultadoDaBuscaSemantica;
+  if (!memoria.ativo) {
+    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
+      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+  } else {
+    const driver = configDoManifesto(carregado.manifesto);
+    const transporte = new DriverCliOrkMind(driver);
+    const fallback = memoria.estado.embeddings?.fallback;
+    r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
+      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
+      chavePresente: memoria.estado.embeddings?.chavePresente === true,
+      fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
+      embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
+  }
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
+  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
+  console.log('');
+  r.resultados.forEach((e, i) => {
+    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
+    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
+    console.log(`      ${e.resumo}`);
+  });
+  console.log('');
+  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  return 0;
+}
+
+/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
+function textoDoIndice(r: ResultadoDoIndice): string {
+  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
+  return [
+    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
+    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
+    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
+    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
+    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
+    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
+    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
+    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
+  ].join('\n');
 }
 
 /**
@@ -3720,6 +3930,29 @@ export function main(argvBruto: string[]): number {
       return comandoAccounts(args);
     case 'onboarding':
       return comandoOnboarding(args);
+    case 'experiencia': {
+      if (args.posicionais[1] === 'uninstall') {
+        const host = parseHost(args.posicionais[2]);
+        if (!host || !['claude-code', 'codex'].includes(host) || args.posicionais.length !== 3 ||
+            Object.keys(args.opcoes).some(k => !['dry-run', 'json'].includes(k)) ||
+            Object.values(args.opcoes).some(v => v !== true)) throw Error('uso: ork experiencia uninstall claude-code|codex [--dry-run] [--json]');
+        const r = desinstalarExperiencia(exigirManifesto().raiz, host as 'claude-code' | 'codex', args.opcoes['dry-run'] === true);
+        console.log(args.opcoes.json ? JSON.stringify(r, null, 2) :
+          `${r.dryRun ? 'Simulação de remoção' : 'Remoção concluída'}: ${r.arquivos.length} arquivo(s). O adaptador permanece instalado. Para manter o pacote desativado, configure owner.experience:false no onboarding.`);
+        return 0;
+      }
+      if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
+          Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
+        throw Error('uso: ork experiencia show [--json]');
+      }
+      const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
+      // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
+      const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
+      return 0;
+    }
     case 'thread':
       return comandoThread(args);
     case 'objective':
@@ -3782,6 +4015,12 @@ export function main(argvBruto: string[]): number {
     }
     case 'memory':
       return comandoMemory(args);
+    case 'grafo': {
+      // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
+      const carregado = exigirManifesto();
+      return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+    }
     case 'ship':
       return comandoShip(args);
     case 'activation':

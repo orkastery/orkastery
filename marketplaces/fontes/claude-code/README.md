@@ -12,7 +12,7 @@ This plugin brings the Orkastery conduction cycle to Claude Code. Each task beco
 
 | Component | What it is |
 | --- | --- |
-| 18 skills | Thin routers to the `ork` CLI: the phase skills, the governance skills (decision triage, narrative guardian, roadmap keeper, scope check), thread state and tracing, and four reviewers for CHECK |
+| 20 skills | Thin routers to the `ork` CLI: the phase skills, the governance skills (decision triage, narrative guardian, roadmap keeper, scope check), thread state and tracing, four reviewers for CHECK, and the orchestration experience pack in English and pt-BR |
 | 8 commands | `/orkastery:ork`, `/orkastery:goal`, `/orkastery:plan`, `/orkastery:go`, `/orkastery:check`, `/orkastery:ship`, `/orkastery:master`, `/orkastery:onboarding` |
 | 6 subagents | `ork-goal`, `ork-plan`, `ork-go`, `ork-check`, `ork-ship`, `ork-master`, one per phase, so each phase runs with its own context |
 | 5 checklists | The references the reviewer skills apply: code review axes, security, testing patterns, performance, definition of done |

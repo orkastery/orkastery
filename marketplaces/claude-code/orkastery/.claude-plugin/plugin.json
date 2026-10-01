@@ -20,6 +20,8 @@
   ],
   "skills": [
     "./skills/core/onboarding",
+    "./skills/core/orchestration-experience",
+    "./skills/core/orchestration-experience-pt-br",
     "./skills/core/orkastery-bootstrap",
     "./skills/core/thread-state",
     "./skills/phases/check-quality",

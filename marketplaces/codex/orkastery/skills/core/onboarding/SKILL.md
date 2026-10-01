@@ -17,6 +17,13 @@ com `ork onboarding set <etapa> --conteudo <JSON> --por <quem>`. Transporte o JS
 com escaping adequado ao shell. Não invente resposta nem autoria; `owner` é o default do CLI,
 não uma declaração de que o humano respondeu.
 
+Na etapa maestro, consulte `ork experiencia show --json` e apresente a opção recomendada
+detectada, configurar e desativar. Grave somente a escolha recebida em `owner`, com
+`language`, `timezone`, `depth` e `experience`. O núcleo persiste essas chaves no manifesto,
+preservando as demais respostas. Exemplo de opt-out:
+`ork onboarding set maestro --conteudo '{"owner":{"experience":false}}' --por equipe`.
+Sem resposta, mantenha a pergunta pendente: defaults efetivos não são autoria humana.
+
 Peça somente referências de variáveis nas etapas sensíveis. Valores secretos ficam em
 `~/.hermes/.env`; não leia esse arquivo nem leve credenciais para conversa, onboarding ou ledger.
 Se o builder fornecer um segredo, não o repita: oriente a configuração local e registre apenas

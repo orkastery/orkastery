@@ -22,7 +22,7 @@ import { memoryState } from './project-state';
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { dirEstado, ManifestoCarregado } from './manifest';
+import { configDeEmbedding, dirEstado, ManifestoCarregado } from './manifest';
 import { CONTRATO_ONBOARDING, ETAPAS_ONBOARDING, jsonCanonico, lerOnboarding } from './onboarding';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -41,7 +41,14 @@ import {
   LIMITE_CONSULTA_MAXIMO,
   resolverRegime,
   violacoesDeGovernanca,
+  configDoManifesto,
+  chaveDeEmbeddingAceita,
+  SaudeDaPonte,
 } from './orkmind';
+import {
+  arquivoDoIndice, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice, universoDoTenant,
+  vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
+} from './indice-vetorial';
 import { registrar, lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
 import { lerJson } from './util';
@@ -53,6 +60,8 @@ import {
   EscopoDeLeitura,
   EntradaNova,
   EstadoDaMemoria,
+  EstadoDeEmbeddings,
+  IndiceDeEmbeddings,
   Fase,
   Handoff,
   InjecaoDeMemoria,
@@ -100,6 +109,8 @@ export interface Memoria {
 export interface OpcoesDeMemoria {
   /** Janela finita da origem; tenant vem exclusivamente do manifesto. */
   leituraRestrita?: { thread: string; limite?: number };
+  /** I-38 (D6): `detalhado` le o universo do tenant para a cobertura; so o `memory status` pede. */
+  embeddings?: 'resumo' | 'detalhado';
   /** Driver injetado (testes, `--dry-run`). Sem ele, o regime resolve o driver real. */
   driver?: DriverDeMemoria | null;
 }
@@ -179,6 +190,10 @@ export function abrirMemoria(
   const leituraRestrita = resolverLeituraRestrita(carregado.manifesto, opcoes.leituraRestrita);
   const { estado, driver } = resolverRegime(carregado.manifesto, opcoes.driver ?? null);
   const ativo = estado.efetivo === 'orkmind' && driver !== null;
+  const config = configDoManifesto(carregado.manifesto);
+  const embeddings = (universo?: EntradaDeMemoria[]) => estadoDeEmbeddings(carregado.manifesto,
+    ativo ? driver?.disponivel().saude ?? null : null, carregado.raiz, estado.tenant, config.dsn, { universo });
+  if (estado.pedido === 'orkmind') estado.embeddings = embeddings();
   const consultarRestrito = (collection: unknown, tags: unknown): EntradaDeMemoria[] => {
     if (!leituraRestrita) throw Error('memory.query.invalid');
     const q = validarConsultaDelimitada({ collection, tags,
@@ -187,7 +202,7 @@ export function abrirMemoria(
     if (typeof driver.consultar !== 'function') throw Error('memory.query.unsupported');
     return concluirConsultaDelimitada(driver.consultar(q), q);
   };
-  return {
+  const memoria: Memoria = {
     configSource: context.source,
     configDivergent: context.divergent,
     get leituraRestrita() { return leituraRestrita; },
@@ -246,6 +261,112 @@ export function abrirMemoria(
       return driver.exportar(colecao).find((e) => e.id === id) ?? null;
     },
   };
+  // A cobertura precisa do universo do tenant (um export por colecao): so quando pedida.
+  if (opcoes.embeddings === 'detalhado' && ativo && !leituraRestrita) {
+    estado.embeddings = embeddings(universoDoTenant(memoria, estado.tenant));
+  }
+  return memoria;
+}
+
+// ---------------------------------------------------------------------------
+// I-38 (T4, D6): estado sondado dos embeddings. Nunca derruba o regime.
+// ---------------------------------------------------------------------------
+
+/** Os indices locais do tenant nesta base, por modelo e dimensao. */
+function indicesDoTenant(raiz: string, tenant: string, base: string, universo: EntradaDeMemoria[]): IndiceDeEmbeddings[] {
+  const dir = dirDosIndices(raiz, tenant);
+  if (!fs.existsSync(dir)) return [];
+  const indices: IndiceDeEmbeddings[] = [];
+  for (const nome of fs.readdirSync(dir).filter(n => n.endsWith('.json')).sort()) {
+    try {
+      const bruto = JSON.parse(fs.readFileSync(path.join(dir, nome), 'utf8'));
+      if (bruto.contrato !== CONTRATO_INDICE || bruto.tenant !== tenant || bruto.base !== base) continue;
+      const { indice } = lerIndice(path.join(dir, nome), { tenant, base, modelo: bruto.modelo, dim: bruto.dim });
+      const vetores = Object.keys(indice.entradas).length;
+      const coerentes = vetoresCoerentes(indice, universo).size;
+      indices.push({ modelo: indice.modelo, dim: indice.dim, vetores, coerentes, desatualizados: vetores - coerentes });
+    } catch { /* arquivo ilegivel nao e indice: `ork memory index` o reconstroi */ }
+  }
+  return indices;
+}
+
+/**
+ * Estado de embeddings: configuracao, presenca da chave (nome, nunca valor), a sonda `health`
+ * da ponte e os arquivos de indice. `saude` null quer dizer que a ponte nao foi sondada.
+ */
+export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | null, raiz: string, tenant: string,
+  dsn: string, opcoes: { universo?: EntradaDeMemoria[]; env?: NodeJS.ProcessEnv } = {}): EstadoDeEmbeddings {
+  const config = configDeEmbedding(manifesto);
+  const env = opcoes.env ?? process.env;
+  const configurado = config.provider !== 'none';
+  const variavel = config.api_key_env;
+  const bruto = variavel ? (env[variavel] ?? '').trim() : '';
+  const chavePresente = !!variavel && chaveDeEmbeddingAceita(bruto, dsn);
+  const recusada = bruto !== '' && !chavePresente;
+  const dimLocal = configurado && config.fallback_model ? dimDoModeloLocal(config.fallback_model, env) : null;
+  const dependencias = saude?.fallback.dependencias ?? false;
+  const fallback = { modelo: config.fallback_model || null, presente: dimLocal !== null, dependencias, dim: dimLocal };
+  const base = impressaoDaBase(dsn);
+  const existe = (modelo: string, dim: number | null) => dim !== null && fs.existsSync(arquivoDoIndice(raiz, tenant, modelo, dim));
+  const estado: EstadoDeEmbeddings = {
+    configurado, provider: config.provider, modelo: configurado ? config.model : null, dim: configurado ? config.dim : null,
+    variavelDaChave: variavel, chavePresente, fallback, indices: [], entradas: null, cobertura: null,
+    ativo: 'nenhum', sondado: saude !== null, motivo: null, detalhe: '', correcao: '',
+  };
+  if (!configurado) {
+    return { ...estado, motivo: 'embeddings.nao-configurado',
+      detalhe: 'memory.embedding ausente ou provider none: busca por significado desligada; o recall por tag segue identico',
+      correcao: 'declare memory.embedding no manifesto (provider openrouter e api_key_env com o NOME da variavel da chave)' };
+  }
+  const fallbackUsavel = saude !== null && fallback.presente && dependencias;
+  if (chavePresente) {
+    estado.ativo = 'primario';
+    if (!existe(config.model, config.dim)) {
+      estado.motivo = 'embeddings.indice-ausente';
+      estado.detalhe = `chave presente em ${variavel}; o indice local de ${config.model} ainda nao existe`;
+      estado.correcao = 'rode ork memory index (use --dry-run antes para ver tokens e custo)';
+    } else estado.detalhe = `primario ${config.model} (${config.dim} dim) pela chave em ${variavel}`;
+  } else {
+    estado.ativo = fallbackUsavel ? 'fallback' : 'nenhum';
+    estado.motivo = 'embeddings.chave-ausente';
+    const local = !fallback.modelo ? 'sem fallback local declarado: a busca por significado cai para FTS'
+      : !fallback.presente ? `fallback ${fallback.modelo} ausente do cache local: a busca cai para FTS`
+        : !saude ? 'ponte nao sondada: fallback local nao conferido'
+          : !dependencias ? `fallback ${fallback.modelo} sem torch/transformers no interpretador da ponte: a busca cai para FTS`
+            : `busca usa o fallback local ${fallback.modelo} (${fallback.dim} dim)` +
+              (existe(fallback.modelo, fallback.dim) ? '' : '; indice local ausente: rode ork memory index --modelo fallback');
+    estado.detalhe = `${variavel} ${recusada ? 'tem valor recusado (parece URL, DSN ou texto com espaco; nunca impresso)' : 'nao esta no ambiente (valor nunca impresso)'}; ${local}`;
+    estado.correcao = `exporte ${variavel} com a chave dedicada ao Orkastery; o valor nunca vai ao manifesto`;
+  }
+  if (opcoes.universo) {
+    const universo = opcoes.universo.filter(e => (e.tags.project ?? []).includes(tenant));
+    estado.indices = indicesDoTenant(raiz, tenant, base, universo);
+    estado.entradas = universo.length;
+    const referencia = estado.ativo === 'fallback' ? { modelo: fallback.modelo, dim: fallback.dim } : { modelo: config.model, dim: config.dim };
+    const indice = estado.indices.find(i => i.modelo === referencia.modelo && i.dim === referencia.dim);
+    estado.cobertura = universo.length === 0 ? 0 : Math.round(((indice?.coerentes ?? 0) / universo.length) * 10_000) / 10_000;
+  }
+  return estado;
+}
+
+/**
+ * `ork memory status --sondar`: UMA chamada real com texto fixo curto pelo caminho ativo, com
+ * a latencia medida (primario custa cerca de US$ 0,00000005; fallback local, so CPU).
+ */
+export function sondarEmbeddings(manifesto: Manifesto, estado: EstadoDeEmbeddings, embeddar: Embeddar,
+  timeoutMs: number): NonNullable<EstadoDeEmbeddings['sonda']> {
+  if (estado.ativo === 'nenhum') return { ok: false, alvo: null, latenciaMs: null, motivo: estado.motivo };
+  const config = configDeEmbedding(manifesto);
+  const primario = estado.ativo === 'primario';
+  const modelo = primario ? config.model : estado.fallback.modelo!;
+  const dim = primario ? config.dim : estado.fallback.dim!;
+  const inicio = Date.now();
+  try {
+    embeddar({ papel: 'consulta', alvo: estado.ativo as 'primario' | 'fallback', modelo, dim, textos: ['sonda de saude do ork'] }, { timeoutMs });
+    return { ok: true, alvo: estado.ativo as 'primario' | 'fallback', latenciaMs: Date.now() - inicio, motivo: null };
+  } catch (erro) {
+    return { ok: false, alvo: estado.ativo as 'primario' | 'fallback', latenciaMs: Date.now() - inicio, motivo: codigoDeEmbedding(erro) };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1110,7 +1231,35 @@ export function textoDoEstado(estado: EstadoDaMemoria): string {
     linhas.push(`  colecoes gravadas: ${COLECOES_DO_ORK.join(', ')}`);
     linhas.push('  governanca: source=agent; decision/human exige human_gate comprovado; mandatory=false e regra nunca critical.');
   }
+  if (estado.embeddings) linhas.push('', ...textoDosEmbeddings(estado.embeddings));
   return linhas.join('\n');
+}
+
+/** Secao de embeddings do `ork memory status` (I-38 D6): nome da variavel, nunca o valor. */
+export function textoDosEmbeddings(e: EstadoDeEmbeddings): string[] {
+  const linhas = ['Busca por significado (embeddings, nao deterministica; o recall por tag nao muda)', ''];
+  linhas.push(`  provider              ${e.configurado ? `${e.provider} ${e.modelo} (${e.dim} dim)` : 'none (desligada)'}`);
+  if (e.configurado) {
+    linhas.push(`  chave                 ${e.variavelDaChave} ${e.chavePresente ? 'presente' : 'ausente'} no ambiente (valor nunca impresso)`);
+    linhas.push(`  fallback local        ${e.fallback.modelo ? `${e.fallback.modelo}: ${e.fallback.presente ? `no cache (${e.fallback.dim} dim)` : 'ausente do cache'}, ` +
+      `dependencias ${e.fallback.dependencias ? 'ok' : e.sondado ? 'ausentes' : 'nao sondadas'}` : '(nao declarado)'}`);
+    linhas.push(`  caminho ativo         ${e.ativo}${e.sondado ? '' : ' (ponte nao sondada)'}`);
+  }
+  for (const i of e.indices) {
+    linhas.push(`  indice                ${i.modelo} / ${i.dim} dim: ${i.vetores} vetor(es), ${i.coerentes ?? '?'} coerente(s), ${i.desatualizados ?? '?'} desatualizado(s)`);
+  }
+  if (e.entradas !== null) {
+    linhas.push(`  cobertura             ${e.cobertura === null ? '-' : `${Math.round(e.cobertura * 1000) / 10}%`} de ${e.entradas} entrada(s) do tenant`);
+  }
+  if (e.sonda) {
+    linhas.push(`  sonda                 ${e.sonda.ok ? `${e.sonda.alvo} respondeu em ${e.sonda.latenciaMs} ms` : `sem resposta (${e.sonda.motivo ?? 'sem caminho ativo'})`}`);
+  }
+  if (e.motivo) {
+    linhas.push(`  motivo                ${e.motivo}`);
+    linhas.push(`    ${e.detalhe}`);
+    linhas.push(`    correcao: ${e.correcao}`);
+  } else linhas.push(`  ${e.detalhe}`);
+  return linhas;
 }
 
 /** Texto de `ork memory sync`. */

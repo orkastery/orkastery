@@ -8,8 +8,8 @@ Submeter e publicar são atos do dono. Nada aqui é enviado a portal nenhum por 
 
 | Caminho | O que é |
 | --- | --- |
-| [`claude-code/orkastery/`](claude-code/orkastery/README.md) | A pasta do plugin do Claude Code: 18 skills, 8 comandos, 6 subagentes e as checklists, sem hooks nem MCP |
-| [`codex/orkastery/`](codex/orkastery/README.md) | A pasta do plugin de skills do Codex: a entrada `ork` e as 18 skills do catálogo |
+| [`claude-code/orkastery/`](claude-code/orkastery/README.md) | A pasta do plugin do Claude Code: 20 skills, 8 comandos, 6 subagentes e as checklists, sem hooks nem MCP |
+| [`codex/orkastery/`](codex/orkastery/README.md) | A pasta do plugin de skills do Codex: a entrada `ork` e as 20 skills do catálogo |
 | [`fontes/`](fontes/listagem.json) | Os textos da listagem: `listagem.json` (descrições, prompts, URLs) e os READMEs de cada host |
 | [`PRIVACY.md`](PRIVACY.md) | A nota de privacidade que os dois portais pedem |
 | [`formularios.md`](formularios.md) | O valor de cada campo dos dois portais, os casos de teste e as respostas de tratamento de dados |
@@ -75,7 +75,7 @@ Versão nova: sobe junto com a versão do `@orkastery/cli`. Regenere, entre na `
 | Conferido no CI por `--verificar` | Só o portal confere |
 | --- | --- |
 | Deriva entre a cópia e o catálogo, versão igual à do CLI | Nome já tomado ou parecido com marca de terceiro |
-| Nome, campos e caminhos do manifesto, as 18 skills | Varredura de segurança e leitura por revisor |
+| Nome, campos e caminhos do manifesto, as 20 skills | Varredura de segurança e leitura por revisor |
 | README com 40 palavras ou mais, `LICENSE`, contagens do README | Regras de política dos diretórios |
 | Tipos de arquivo, tamanho, quantidade, symlink, arquivo de sistema | Tela de upload da OpenAI (formato do pacote) |
 | Frontmatter YAML que faz parse, sem hooks, MCP nem `bin/` | |

@@ -29,8 +29,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal } from './branch-de-estado';
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
-import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, entregasNaBase, EstadoDaMaquina, estadoValido, retratoDaMaquina,
-  ThreadNaFabrica } from './fabrica-estado';
+import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
+  retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
 import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
   identidadeDaForja, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
@@ -41,7 +41,7 @@ import { tagDoModo } from './modos';
 import { PADRAO_DO_NOME_DE_PROJETO } from './projeto-alvo';
 import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, quemSouEu, ReservaDeItem, reservaValida } from './roadmap-reservas';
 import { EsperaDoDono, esperaDoDono, FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { lerThread, listarIds } from './thread';
+import { dirThread, lerThread, listarIds } from './thread';
 import { Thread } from './types';
 import { VERSAO_DO_ORK } from './versao';
 import { lerYaml, ValorYaml } from './yaml';
@@ -468,7 +468,8 @@ function retratoLegivel(v: unknown): v is EstadoDaMaquina {
   const textoOuNulo = (x: unknown): boolean => x === null || x === undefined || typeof x === 'string';
   return typeof v.por === 'string' && Number.isFinite(Date.parse(v.publicadoEm)) && v.threads.every((t) =>
     typeof t.status === 'string' && typeof t.modo === 'string' && typeof t.esperaVoce === 'boolean' &&
-    textoOuNulo(t.roadmap) && textoOuNulo(t.pergunta) && textoOuNulo(t.entregue) && textoOuNulo(t.paradaDesde));
+    textoOuNulo(t.roadmap) && textoOuNulo(t.pergunta) && textoOuNulo(t.entregue) && textoOuNulo(t.paradaDesde) &&
+    textoOuNulo(t.runtime) && textoOuNulo(t.modelo) && textoOuNulo(t.esforco));
 }
 
 function fatosDoRetrato(m: EstadoDaMaquina, entregues: Set<string>, itemDaReserva: Map<string, string>): FatoDeThread[] {
@@ -604,7 +605,7 @@ function retratoTolerante(c: ManifestoCarregado, ctx: Contexto, remoto: string):
       try { espera = entregue ? undefined : esperaDoDono(raiz, t, ctx.quando); } catch { espera = undefined; }
       threads.push({ id: t.id, nome: t.nome, modo: tagDoModo(t.modo), fase: t.faseAtual, status: t.status, roadmap: t.roadmap ?? null,
         branch: t.base?.branch ?? null, atualizadaEm: t.atualizadaEm ?? null, entregue, esperaVoce: !!espera,
-        pergunta: espera?.pergunta ?? null, paradaDesde: null });
+        pergunta: espera?.pergunta ?? null, paradaDesde: null, ...despachoDaThread(dirThread(raiz, t.id)) });
     } catch { ilegiveis++; }
   }
   const eu = quemSouEu(raiz, { maquina: ctx.maquina });
@@ -935,7 +936,9 @@ function linhasDasMaquinas(x: ProjetoNoPanorama, fuso: string): string[] {
     const batida = m.origem === 'estado-local' ? 'estado local lido agora'
       : `retrato de ${formatarDataHora(m.publicadoEm, { fuso })} (há ${duracaoCurta(m.idadeMin)})${m.semBatida ? ', SEM BATIDA' : ''}`;
     const cabeca = `• ${quem}: ${m.ativas.length} ativa(s)${m.entreguesSemMaster ? `, ${m.entreguesSemMaster} entregue(s) sem MASTER` : ''}, ${batida}`;
+    // RM-037 (rm037noite, defeito 4): o runtime e o modelo de cada thread, quando o retrato os traz.
     return [cabeca, ...m.ativas.map((t) => `  ${t.id} · ${t.modo} · ${t.fase} · ${t.roadmap ?? 'sem item'}` +
+      (t.runtime || t.modelo ? ` · ${runtimeDaThread(t)}` : '') +
       (t.esperaVoce ? ` · espera você: ${t.pergunta ?? 'veredito'}` : ''))];
   });
 }

@@ -26,6 +26,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 - [FEAT-020](FEAT-020-mcp-e-adaptadores.md) Servidor MCP e instalação de adaptadores
 - [FEAT-021](FEAT-021-ingresso-hitl-telegram.md) Ingresso HITL pelo Telegram
 - [FEAT-030](FEAT-030-projeto-alvo-explicito.md) Projeto-alvo explícito e resposta honesta nos hosts
+- [FEAT-034](FEAT-034-pacote-de-experiencia.md) Pacote de experiência de orquestração
 
 ## Histórico
 

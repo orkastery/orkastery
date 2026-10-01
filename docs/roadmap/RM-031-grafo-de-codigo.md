@@ -6,23 +6,23 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-29T23:50:30+00:00
+atualizado_em: 2026-09-30T11:50:00-03:00
 estado:
-  ciclo: Refinamento
-  documentacao: Rascunho
-  codigo: Mesclado
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: "8589330"
+    commit: d2b180e
     pr: null
 sdlc:
-  thread: ork-i31kg1contra
-  modo: "#Maestro"
-  fase: GO
+  thread: ork-rm031kg3
+  modo: "#Auto"
+  fase: GOAL
   status: aberta
 ---
 
@@ -34,36 +34,42 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Refinamento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 - **Features:** Não aplicável — sem feature vigente
-- **Thread:** `ork-i31kg1contra`
+- **Thread:** `ork-rm031kg3` (KG3); o KG2 foi a `ork-rm031kg2extr` e o KG1, a `ork-i31kg1contra`
 
 ## Problema e resultado
 
 - **Problema:** não há AST nem grafo de código; cada fase relê arquivos inteiros.
 - **Resultado pretendido:** pacotes KG1 a KG7 (contrato, extração, índice, incremental, consumo, federação, paridade).
 - **Métrica:** mediana de `logical_total_tokens` por par, com B (grafo) menor que A (leitura atual), fatos, claims e verify preservados e zero aresta falsa (critério do [protocolo](../referencia/contratos/benchmark-grafo-kg1.md)).
-- **Linha de base:** A definir (Julio): sai da primeira execução medida do protocolo, depois do KG3.
+- **Linha de base:** A definir (Julio): sai da primeira execução medida do protocolo, depois do KG3. A [primeira medida do custo de consulta](../referencia/contratos/indice-grafo-kg3.md#primeira-medida-do-custo-de-consulta) do KG3 mede os dois lados e não é essa linha de base.
 
 ## Escopo e validação
 
-- **KG1, na branch da thread:** o [contrato do grafo](../referencia/contratos/grafo-deterministico-kg1.md) `ork.code-artifact-graph/v1` e o [protocolo do benchmark](../referencia/contratos/benchmark-grafo-kg1.md) `ork.graph-benchmark/v1`, com validação pura e corpus sintético.
+- **KG1, mesclado (PR #20):** o [contrato do grafo](../referencia/contratos/grafo-deterministico-kg1.md) `ork.code-artifact-graph/v1` e o [protocolo do benchmark](../referencia/contratos/benchmark-grafo-kg1.md) `ork.graph-benchmark/v1`, com validação pura e corpus sintético.
+- **KG2, mesclado (commit `d2b180e`):** a [extração determinística](../referencia/contratos/extracao-grafo-kg2.md) de um repositório local: TypeScript e JavaScript pelo compilador já instalado no core, Markdown (seções, links, frontmatter e IDs citados), proveniência por aresta e o que não se prova fora e declarado.
+- **KG3, na branch da thread `ork-rm031kg3`:** o [índice persistente e a consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (vizinhança, quem chama, quem importa e caminho), com a proveniência de cada aresta, no lugar do comando provisório do KG2.
 - **Benchmark:** formato e veredito prontos; o experimento não foi executado e não há número de economia.
-- **Fora do KG1:** extração (KG2), índice e CLI (KG3), incremental (KG4), consumo pelas fases (KG5), federação (KG6) e paridade entre hosts (KG7).
+- **Fora até aqui:** incremental (KG4), consumo pelas fases (KG5), federação (KG6) e paridade entre hosts (KG7).
 
 ## Plano e decisões
 
-- **Decisões:** D1 a D11 da thread; premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`).
-- **Próximo passo:** CHECK independente e SHIP do KG1; depois, KG2 (extração).
+- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, e KG3, D1 a D10 da thread `ork-rm031kg3`, tomadas em #Auto e registradas no ledger.
+- **Próximo passo:** merge do KG3 com o CI verde; depois, a linha de base do protocolo (benchmark A/B) e o KG4 (incremental).
 
 ## Estado com evidências
 
-- Contratos, validação e corpus do KG1 implementados na branch da thread, com os testes dos grupos KG1 verdes.
-- O Company Brain v1 e o adaptador semântico ficam intactos: os três hashes congelados passam no teste de fronteira.
-- Nenhum registro `measured` de benchmark existe; todo veredito do KG1 é sobre dado sintético.
+- KG1 na `main` pelo PR #20 (commit `8589330`), com os grupos KG1 verdes.
+- KG2 na `main` (commit `d2b180e`); no KG3, `ork grafo indexar --verificar` passa no repositório inteiro, com `conferirFontes` verificada e o mesmo digest com a ordem de leitura invertida e embaralhada.
+- KG3 na branch da thread: índice no estado do projeto, consulta determinística e grupos KG3 verdes; no mesmo HEAD, o comando provisório e o `ork grafo indexar` deram o mesmo digest antes de o comando sair.
+- Amostra estratificada de arestas conferida à mão em `core/test/fixtures/kg2-amostra-auditada.json`, agora pelo `ork grafo amostra --conferir`; amostra não prova zero aresta falsa no universo.
+- Primeira medida do custo de consulta contra a leitura crua em `core/test/fixtures/kg3-medida-consulta.json`: os dois lados medidos em bytes, respostas e latência, tokens indisponíveis e nenhuma conclusão de economia.
+- O contrato v1 do grafo, o Company Brain v1 e o adaptador semântico ficam intactos: os hashes congelados passam no teste de fronteira e em claim.
+- Nenhum registro `measured` de benchmark existe; todo veredito é sobre dado sintético.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -71,13 +77,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Refinamento | — | 2026-09-29 | Julio |
-| Documentação | Rascunho | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `8589330` | 2026-09-29 | Julio |
-| Testes | Em execução | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-09-30 | Julio |
+| Documentação | Em revisão | — | 2026-09-30 | Julio |
+| Código | Branch criada | commit `d2b180e` | 2026-09-30 | Julio |
+| Testes | Em execução | — | 2026-09-30 | Julio |
+| Deploy | Não implantado | — | 2026-09-30 | Julio |
+| Exposição | Flag desligada | — | 2026-09-30 | Julio |
+| Habilitação | Pendente | — | 2026-09-30 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -91,3 +97,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-17 | thread aberta | thread `ork-i31kg1contra` | Julio |
 | 2026-09-27 | premissas e decisões D1 a D11 aprovadas | gate `premissas` pelo canal do dono | Julio |
 | 2026-09-28 | KG1 implementado na branch da thread | contratos do grafo e do benchmark, validação e corpus sintético; benchmark não executado | Julio |
+| 2026-09-29 | KG1 mesclado na `main` | PR #20, commit `8589330` | Julio |
+| 2026-09-29 | KG2 implementado na thread `ork-rm031kg2extr` | extrator TypeScript e Markdown, comando provisório e amostra auditada; decisões D1 a D16 no ledger | agente em #Auto; revisão: Julio |
+| 2026-09-30 | KG2 mesclado na `main` | commit `d2b180e` | Julio |
+| 2026-09-30 | KG3 implementado na thread `ork-rm031kg3` | índice persistente, `ork grafo`, fim do comando provisório e primeira medida do custo de consulta; decisões D1 a D10 no ledger | agente em #Auto; revisão: Julio |

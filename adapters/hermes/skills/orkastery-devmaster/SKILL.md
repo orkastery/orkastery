@@ -8,6 +8,8 @@ license: MIT
 
 # Orkastery no Hermes
 
+Consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
+
 Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052). Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
 Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
 Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
@@ -29,10 +31,7 @@ O roteador do Orkastery dentro do Hermes, e **so isso**. Ela nao conduz fase por
 nao escreve codigo e nao guarda metodologia: ela traduz o pedido do builder em chamada de `ork`,
 mostra o que o `ork` respondeu e para nos gates.
 
-Antes desta skill, a skill devmaster do Hermes carregava a metodologia inteira em prosa e era ela
-quem "lembrava" das regras. Isso e exatamente a fragilidade que corroeu o Devmaster original:
-regra que existe so como texto e regra que ninguem verifica. **Agora a metodologia e executavel e
-mora no `ork`; aqui ficou o roteador.**
+A metodologia executável mora no núcleo `ork`; a entrada do host só roteia operações.
 
 ## Quando usar
 

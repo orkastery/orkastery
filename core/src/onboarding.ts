@@ -2,16 +2,18 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { dirEstado } from './manifest';
+import { dirEstado, exigirManifesto, LIMITE_MANIFESTO_BYTES } from './manifest';
 import { projectState, stateFile } from './project-state';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { procurarSegredos } from './policies';
 import { ConteudoOnboarding, EtapaOnboarding, Onboarding, RespostaOnboarding } from './types';
 import { CHAVE_DO_FUSO, FUSO_DE_BRASILIA, normalizarFuso } from './horario';
+import { resolverExperiencia, validarPreferencias } from './experiencia';
+import { lerYaml } from './yaml';
 
 export const CONTRATO_ONBOARDING = 'ork.onboarding/v1';
 export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> = [
-  { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo.` },
+  { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo. Preferências em {"owner":{...}} gravam owner no manifesto.` },
   { etapa: 'credenciais', pergunta: 'Quais provedores públicos e nomes de variáveis em env serão usados? Segredos somente em ~/.hermes/.env; nunca informe valores.' },
   { etapa: 'bancos', pergunta: 'Quais bancos públicos e nomes de variáveis em env configuram as conexões? Nunca informe DSN ou senha; valores somente em ~/.hermes/.env.' },
   { etapa: 'memoria', pergunta: 'Deseja OrkMind? Informe {"modo":"orkmind"} ou {"modo":"files"}; a escolha orienta memory.mode no manifesto, sem editá-lo.' },
@@ -63,6 +65,10 @@ export function validarConteudo(etapa: EtapaOnboarding, conteudo: unknown): asse
   if (Buffer.byteLength(JSON.stringify(conteudo)) > 16384) invalido();
   // I-35: o fuso do dono, quando informado, precisa ser um nome IANA que o Intl aceita.
   if (etapa === 'maestro' && objeto(conteudo) && Object.hasOwn(conteudo, 'fuso') && normalizarFuso(conteudo.fuso) === undefined) invalido();
+  if (etapa === 'maestro' && objeto(conteudo) && Object.hasOwn(conteudo, 'owner')) {
+    if (!objeto(conteudo.owner) || Object.keys(conteudo.owner).some(k => !['language', 'timezone', 'depth', 'experience'].includes(k))) invalido();
+    try { validarPreferencias(conteudo.owner); } catch { invalido(); }
+  }
   // Etapas sensíveis usam um formato fechado: não há espaço para texto de credenciais.
   if (etapa === 'credenciais' || etapa === 'bancos') {
     if (!objeto(conteudo)) invalido();
@@ -186,17 +192,82 @@ function comTrava<T>(raiz: string, alterar: () => T): T {
   finally { fs.closeSync(fd); fs.unlinkSync(trava); }
 }
 
+/** Comentário depois de valor simples ou entre aspas completas; `#` dentro das aspas é valor. */
+const COMENTARIO_NA_LINHA = /^\s*[^:#]+:\s*(?:"(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^"'#\s][^#]*?)?(\s+#.*)$/;
+
+/** Altera somente as chaves públicas solicitadas, preservando comentários e outras seções. */
+function prepararPreferencias(raiz: string, conteudo: ConteudoOnboarding) {
+  if (!objeto(conteudo) || !objeto(conteudo.owner) || !Object.keys(conteudo.owner).length) return null;
+  const c = exigirManifesto(projectState(raiz).root), arquivo = c.caminho;
+  const stat = fs.lstatSync(arquivo);
+  if (!stat.isFile() || stat.nlink !== 1) throw Error('experiencia.manifesto.unsafe');
+  const anterior = fs.readFileSync(arquivo, 'utf8'), eol = anterior.includes('\r\n') ? '\r\n' : '\n';
+  const linhas = anterior.split(eol), ocorrencias = linhas.map((l, i) => /^(?:owner|"owner"|'owner')\s*:/.test(l) ? i : -1).filter(i => i >= 0);
+  if (ocorrencias.length > 1) throw Error('experiencia.manifesto.conflict: owner duplicado');
+  let inicio = ocorrencias[0];
+  // Seção nova antes da quebra final, sem linha em branco sobrando nem perda do newline.
+  if (inicio === undefined) { inicio = linhas.at(-1) === '' ? linhas.length - 1 : linhas.length; linhas.splice(inicio, 0, 'owner:'); }
+  if (!/^(?:owner|"owner"|'owner')\s*:\s*(?:\{\}\s*)?(?:#.*)?$/.test(linhas[inicio])) throw Error('experiencia.manifesto.conflict: owner não é mapa em bloco');
+  linhas[inicio] = linhas[inicio].replace('{}', '');
+  let fim = inicio + 1;
+  while (fim < linhas.length && !/^[^\s#][^:]*:/.test(linhas[fim])) fim++;
+  for (const [k, v] of Object.entries(validarPreferencias(conteudo.owner))) {
+    const re = new RegExp('^  (?:' + k + '|"' + k + '"|\x27' + k + '\x27)\\s*:');
+    const indices = linhas.slice(inicio + 1, fim).map((l, i) => re.test(l) ? i + inicio + 1 : -1).filter(i => i >= 0);
+    if (indices.length > 1) throw Error('experiencia.manifesto.conflict: preferência duplicada');
+    const linha = `  ${k}: ${JSON.stringify(v)}`;
+    // Comentário na mesma linha fica; a conferência semântica abaixo pega leitura errada.
+    if (indices.length) linhas[indices[0]] = linha + (COMENTARIO_NA_LINHA.exec(linhas[indices[0]])?.[1] ?? '');
+    else { linhas.splice(inicio + 1, 0, linha); fim++; }
+  }
+  const proximo = linhas.join(eol);
+  if (Buffer.byteLength(proximo) > LIMITE_MANIFESTO_BYTES) throw Error('experiencia.manifesto.large');
+  // Sintaxes/indentações não representadas pelo editor não podem descartar dados do YAML.
+  const dados = lerYaml(anterior), novos = lerYaml(proximo);
+  if (!objeto(dados) || !objeto(novos)) throw Error('experiencia.manifesto.conflict');
+  const esperado = { ...dados, owner: { ...(objeto(dados.owner) ? dados.owner : {}), ...validarPreferencias(conteudo.owner) } };
+  if (jsonCanonico(novos as ConteudoOnboarding) !== jsonCanonico(esperado as ConteudoOnboarding)) throw Error('experiencia.manifesto.conflict: edição perderia dados');
+  return { arquivo, anterior, proximo, modo: stat.mode };
+}
+
 export function gravarEtapa(raiz: string, nome: string, conteudo: unknown, por = 'owner'): Onboarding {
   const etapa = exigirEtapa(nome);
   exigirAutor(por);
   validarConteudo(etapa, conteudo);
   return comTrava(raiz, () => {
+    const solicitadas = conteudo;
     const { estado } = lerParaMutacao(raiz), anterior = estado.etapas[etapa];
-    if (anterior && jsonCanonico(anterior.conteudo) === jsonCanonico(conteudo)) return estado;
-    const timestamp = new Date().toISOString();
-    estado.etapas[etapa] = { respondidaEm: timestamp, por, conteudo };
-    estado.atualizadoEm = dataMaisRecente([estado.atualizadoEm, timestamp]);
-    persistir(raiz, estado);
+    // Configurar preferências não apaga objetivos ou outras respostas da etapa maestro.
+    if (etapa === 'maestro' && objeto(conteudo) && objeto(conteudo.owner) && anterior && objeto(anterior.conteudo)) {
+      conteudo = { ...anterior.conteudo, ...conteudo, owner: {
+        ...(objeto(anterior.conteudo.owner) ? anterior.conteudo.owner : {}), ...conteudo.owner,
+      } };
+      validarConteudo(etapa, conteudo);
+    }
+    validarConteudo(etapa, conteudo);
+    // Persistir só chaves deste pedido: uma resposta antiga não vence edição explícita do manifesto.
+    validarConteudo(etapa, solicitadas);
+    const preferencias = etapa === 'maestro' ? prepararPreferencias(raiz, solicitadas) : null;
+    const manifestoMuda = !!preferencias && preferencias.proximo !== preferencias.anterior;
+    const mesmaResposta = !!anterior && jsonCanonico(anterior.conteudo) === jsonCanonico(conteudo);
+    // Resposta igual com o manifesto editado à mão depois: o pedido explícito vale, e a entrevista
+    // guarda autoria e horário da resposta original.
+    if (mesmaResposta && !manifestoMuda) return estado;
+    if (!mesmaResposta) {
+      const timestamp = new Date().toISOString();
+      estado.etapas[etapa] = { respondidaEm: timestamp, por, conteudo };
+      estado.atualizadoEm = dataMaisRecente([estado.atualizadoEm, timestamp]);
+    }
+    const salvarEstado = () => { if (!mesmaResposta) persistir(raiz, estado); };
+    if (preferencias && manifestoMuda) {
+      const temporario = preferencias.arquivo + '.' + randomUUID() + '.tmp';
+      try {
+        fs.writeFileSync(temporario, preferencias.proximo, { flag: 'wx', mode: preferencias.modo });
+        fs.renameSync(temporario, preferencias.arquivo);
+        try { salvarEstado(); }
+        catch (e) { fs.writeFileSync(preferencias.arquivo, preferencias.anterior); throw e; }
+      } finally { if (fs.existsSync(temporario)) fs.unlinkSync(temporario); }
+    } else salvarEstado();
     registrar(dirEstado(projectState(raiz).root), 'projeto', TIPOS_DE_EVENTO.onboardingRegistrado,
       { acao: 'set', etapa, por, sha256: sha(conteudo) });
     return estado;
@@ -219,8 +290,11 @@ export function resetarOnboarding(raiz: string, nome?: string, por = 'owner'): O
   });
 }
 
-export function textoDaPauta(estado: Onboarding = onboardingPadrao()): string {
+export function textoDaPauta(estado: Onboarding = onboardingPadrao(), owner = {}): string {
+  const p = resolverExperiencia(owner);
   return ['Onboarding do projeto (' + CONTRATO_ONBOARDING + ')',
+    `Experiência recomendada: ${p.language}, ${p.timezone}, resposta ${p.depth}. Ativar com esses valores, configurar ou desativar?`,
+    'Registre a escolha em maestro com {"owner":{"language":"' + p.language + '","timezone":"' + p.timezone + '","depth":"' + p.depth + '","experience":true}}; use experience:false para desativar. Consulta não registra resposta.',
     ...PAUTA_ONBOARDING.map(({ etapa, pergunta }) => `${estado.etapas[etapa] ? '[respondida]' : '[pendente]'} ${etapa}: ${pergunta}`),
     'Responda com ork onboarding set <etapa> --conteudo <JSON> --por <quem>.'].join('\n');
 }

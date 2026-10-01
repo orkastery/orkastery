@@ -41,6 +41,7 @@ import { PerfilDeDespacho, perfilDoRegistro } from './runtime-profiles';
 import { registerMaestro } from './mcp-maestro';
 import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_PROJETO, raizParaExibir, registrarProjetoEmSilencio,
   remotoDoProjeto } from './projeto-alvo';
+import { registrarConsultasExperiencia } from './mcp-experiencia';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -298,6 +299,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   });
   server.onclose = () => ingresso.fechar();
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
+  registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
   registerMaestro(registrarTool,{root:raiz,threadId:opcoes.threadId,load:carregar,checkThread:thread,tools:()=>[...ferramentas.keys()]});
   registrarTool('ork_preflight',{description:'Preflight contextual por modo e bloco, sem inventário global/modelos. Não autoriza despacho nem comprova entrega.',
     inputSchema:z.object({modo:modoDeConducao}).strict(),annotations:{readOnlyHint:true}},async({modo})=>{

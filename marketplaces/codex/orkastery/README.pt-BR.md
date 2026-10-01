@@ -13,7 +13,7 @@ Este plugin leva ao Codex, como skills, o ciclo de condução do Orkastery. Cada
 | Componente | O que é |
 | --- | --- |
 | A skill de entrada `ork` | Reconhece `orkastery maestro`, lê o estado do projeto pelo CLI e apresenta progresso, decisões e entrega na conversa |
-| 18 skills do catálogo | Roteadores finos para o CLI `ork`: as skills de fase, as de governança (triagem de decisão, guardião da narrativa, guardião do roadmap, checagem de escopo), estado e rastro da thread e quatro revisores do CHECK |
+| 20 skills do catálogo | Roteadores finos para o CLI `ork`: as skills de fase, as de governança (triagem de decisão, guardião da narrativa, guardião do roadmap, checagem de escopo), estado e rastro da thread, quatro revisores do CHECK e o pacote de experiência de orquestração em inglês e pt-BR |
 | 5 checklists | As referências que os revisores aplicam: eixos de code review, segurança, padrões de teste, performance e definição de pronto |
 
 A metodologia mora no CLI, não no plugin. Quando uma skill e o CLI divergem, vale o CLI.

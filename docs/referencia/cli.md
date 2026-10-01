@@ -128,9 +128,11 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--ciclo C] [--dry-run]` |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
 | `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Leitura pura; os canais transportam o texto (RM-048) |
-| `ork roadmap reservas [--json]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto |
+| `ork roadmap reservas [--json] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N]` | Reserva o item por push atômico: o primeiro vence. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
 | `ork roadmap soltar RM-NNN` | Devolve o item quando o trabalho termina |
+| `ork roadmap feat [--thread T] [--nota N]` | Reserva o próximo número de FEAT na branch `ork/roadmap-reservas`, por push atômico: duas máquinas nunca levam o mesmo número, e o número reservado não volta (RM-037) |
+| `ork docs sincronizar [--escrever] [--so RM-NNN[,RM-MMM]] [--todos]` | Fatos do ledger e do git (merge, fase, status) para os itens do roadmap e os índices. `--so` limita aos itens pedidos; na worktree de uma thread com item, o padrão é o item dela, dito na saída; `--todos` volta a todo item, o padrão na raiz do projeto (RM-037) |
 | `ork fabrica entrar [--maquina NOME]` | Esta máquina entra na fábrica compartilhada, com esse nome (`~/.orkastery/maquina.json`), e publica o primeiro retrato |
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
@@ -273,11 +275,13 @@ tipo B não é CHECK.
 | `ork handoff recall <thread> <ponteiro>` | Resolve um ponteiro `path#ancora` de volta ao conteúdo |
 | `ork recall <thread> --fase FASE` | Recuperação tardia de ponteiros e descoberta de handoffs por tenant, thread e fase |
 | ↳ opções | `[--id ptr-N] [--todos] [--forcar] [--sem-conteudo] [--json]` |
-| `ork memory status [--json]` | O regime efetivo (`files` ou `orkmind`), o tenant e a degradação |
+| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings; `--sondar` faz uma chamada real e mede a latência |
 | `ork memory sync [<thread>] [--json]` | Publica decisões, policies, handoff, lição, roadmap e human gates elegíveis somente da thread informada; sem id, apenas policies |
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no tenant (vetor e FTS por RRF), **não determinística**; não combina com `--tags` nem `--thread` |
+| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do tenant, idempotente, com tokens e custo estimados; `--dry-run` não chama o provider |
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
@@ -285,6 +289,8 @@ Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **s
 ```bash
 ork memory search --colecao handoff --tags '{"project":["orkastery"],"skill":["GOAL"]}' --json
 ork recall <thread> --fase GOAL --json
+ork memory index --dry-run --json
+ork memory search --texto "trocar de conta quando acaba a cota" --json
 ```
 
 Tags usam arrays: `project=<tenant>`, `skill=<FASE>`, `situation=<classe>` e
@@ -309,11 +315,49 @@ para o Hermes, `ORK_HITL_INGRESS_KEY_OPENCLAW` para o OpenClaw, e `ORK_HITL_INGR
 somente para o envelope `v1` legado, que não declara canal. Uma chave não cobre o outro
 canal, e não há fallback para a global num envelope `v2`.
 
-Somente o tenant `orkastery` está ativo na fábrica, usando o nome de variável
-`ORKASTERY_ORKMIND_DATABASE_URL`. O schema OrkMind deve estar inicializado; o health check
-não provisiona tabelas (`memory.schema.absent`). A ponte Python vai no pacote npm,
-usa JSON por stdin e credencial no ambiente do filho, sem embedder ou provider pago.
-Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md).
+Somente o tenant `orkastery` está ativo na fábrica, usando o nome de variável que o manifesto
+declara, `ORKASTERY_BRAIN_READ_DATABASE_URL`. O schema OrkMind deve estar inicializado; o
+health check (operação `health` da ponte) não provisiona tabelas (`memory.schema.absent`). A
+ponte Python vai no pacote npm, usa JSON por stdin e credencial no ambiente do filho. O embedder
+existe só na operação `embed`, com a chave declarada em `memory.embedding.api_key_env` e sem a
+DSN; embedding ausente é motivo `embeddings.*`, nunca queda do regime.
+Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e a
+[busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
+
+---
+
+## Grafo de código (RM-031, KG3)
+
+O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O
+índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD.
+
+| Comando | O que faz |
+| --- | --- |
+| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever); `--verificar` extrai de novo e confere contrato, bytes e determinismo; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
+| `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
+| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
+| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json]` | Quem chama: as arestas `calls` que chegam ao símbolo |
+| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json]` | Quem importa: as arestas `imports` que chegam |
+| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json]` | O menor caminho pelas arestas, no sentido delas por padrão |
+| `ork grafo amostra [--por-estrato N]` | Amostra estratificada de arestas para auditoria manual |
+| `ork grafo amostra --conferir ARQ [--json]` | Confere a amostra auditada contra o índice do HEAD e os bytes da árvore |
+| `ork grafo limpar [--tudo] [--json]` | Apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (ou todos) e as sobras de construção com mais de uma hora |
+
+O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome solto, que precisa
+ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
+extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
+resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+
+```bash
+ork grafo indexar --verificar
+ork grafo chamadores core/src/intelligence-graph-repo.ts#lerRepositorio
+ork grafo importadores core/src/intelligence-graph-contract.ts --json
+ork grafo caminho core/src/index.ts#main dirEstado
+```
+
+Todo o `ork grafo` precisa do `typescript` e do micromark instalados com o `ork`, no
+`node_modules` do próprio pacote (o checkout de desenvolvimento e o CI os têm): as versões deles
+entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 
 ---
 
@@ -358,8 +402,8 @@ do projeto quando o limite de sessões está cheio.
 | `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
-| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/bundle.json` da worktree da thread (da raiz ou da worktree, o arquivo vai para a branch dela), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
-| `ork ci run [<thread>] [--bundle ARQ]` | Executa o CHECK no runner independente |
+| `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
+| `ork ci run [<thread>] [--bundle ARQ] [--branch B]` | Executa o CHECK no runner independente; com `--branch`, acha o bundle da thread pelo nome da branch, reprova branch `ork/*` sem bundle e, fora de thread, roda só os comandos do manifesto (RM-037) |
 | `ork ci status [--sha SHA] [--remoto origin]` | Consulta o check exato publicado no GitHub para o SHA |
 
 ---

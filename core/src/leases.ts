@@ -22,6 +22,8 @@ import { Lease, PedidoNaFila, TipoDeLease } from './types';
 import { agora } from './util';
 import { formatarDataHora, formatarDesde, legendaDoFuso } from './horario';
 import { conducaoDoLease, linhaDeConducao } from './conducao-texto';
+import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
+import { dirThread, lerThread } from './thread';
 
 /** Nome do lease que serializa o merge na base (visao, paridade 5). */
 export const LEASE_MAIN_TREE = 'main-tree';
@@ -431,6 +433,9 @@ export function adquirirRegiao(
 ): ResultadoDeRegiao {
   const tipo = tipoDoLease(nome);
   const base = { nome, tipo, lease: null, ocupadoPor: null, tomadoDeVencido: false };
+  // A poda e limpeza de estado alheio: erro de E/S nela nunca impede a thread viva de pedir a regiao
+  // (achado A1 do CHECK 1); o que nao saiu agora sai no proximo pedido.
+  try { podarThreadsFechadas(raiz, nome, opcoes.thread); } catch { /* a regra de colisao abaixo decide */ }
 
   const colidentes = leasesColidentes(raiz, nome, opcoes.thread);
   if (colidentes.length > 0) {
@@ -556,4 +561,76 @@ export function tabelaDeLeases(raiz: string): string {
   });
   if (leases.length > 0 || fila.length > 0) linhas.push(legendaDoFuso());
   return linhas.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// RM-037 (rm037noite, defeito 2): thread fechada nao segura regiao nem fila.
+// ---------------------------------------------------------------------------
+
+/**
+ * Thread fechada nesta maquina? So `status: fechada` conta: thread que nao existe aqui (outro
+ * perfil, estado apagado) segue contando, porque ninguem prova que ela acabou.
+ */
+function threadFechada(raiz: string, thread: string): boolean {
+  try { return lerThread(raiz, thread).status === 'fechada'; } catch { return false; }
+}
+
+/**
+ * Tira da thread os leases de escrita e as entradas dela na fila. O `exec:` fica de fora: a
+ * conducao tem ciclo proprio e ja trata thread fechada como sem conducao.
+ */
+export function soltarDaThread(raiz: string, thread: string): { leases: string[]; fila: string[] } {
+  const leases: string[] = [];
+  for (const lease of listarLeases(raiz)) {
+    if (lease.thread !== thread || tipoDoLease(lease.nome) === 'exec') continue;
+    // Achado A2 do CHECK 1: rele logo antes de apagar. Outra poda pode ter soltado este lease e uma
+    // thread viva pode ter adquirido o mesmo nome no meio; apagar pelo caminho da listagem levaria o
+    // lease dela. So sai o arquivo que ainda e o da thread fechada, com o mesmo carimbo.
+    const atual = lerLease(raiz, lease.nome);
+    if (!atual || atual.thread !== thread || atual.adquiridoEm !== lease.adquiridoEm) continue;
+    try {
+      fs.unlinkSync(caminhoLease(raiz, lease.nome));
+      leases.push(lease.nome);
+    } catch { /* outra limpeza chegou antes */ }
+  }
+  const fila = lerFila(raiz);
+  const dela = fila.filter((p) => p.thread === thread);
+  if (dela.length > 0) gravarFila(raiz, fila.filter((p) => p.thread !== thread));
+  return { leases, fila: dela.map((p) => p.nome) };
+}
+
+/**
+ * Solta o que a thread fechada deixou e registra no ledger dela: `lease_released` por lease e
+ * `lease_dequeued` por entrada de fila, com a origem (o fechamento ou a poda de quem pediu a regiao).
+ */
+export function soltarThreadFechada(raiz: string, thread: string,
+  origem: 'fechamento' | 'poda', pedidaPor?: string): { leases: string[]; fila: string[] } {
+  const solto = soltarDaThread(raiz, thread);
+  const dir = dirThread(raiz, thread);
+  const quem = pedidaPor ? { pedidaPor } : {};
+  for (const lease of solto.leases) {
+    registrarSeExiste(dir, thread, TIPOS_DE_EVENTO.leaseLiberado,
+      { lease, ok: true, detalhe: 'thread fechada: lease solto', origem, ...quem });
+  }
+  for (const lease of solto.fila) {
+    registrarSeExiste(dir, thread, TIPOS_DE_EVENTO.leaseDesenfileirado,
+      { lease, detalhe: 'thread fechada: saiu da fila', origem, ...quem });
+  }
+  return solto;
+}
+
+/**
+ * Antes de decidir a vez, quem pede a regiao tira da frente o que e de thread ja fechada: o lease
+ * colidente e a espera na fila. E a cura do que ficou preso antes de o fechamento soltar sozinho
+ * (a ork-companybrai3, fechada, na frente da fila de `path:docs/roadmap/README.md`).
+ */
+function podarThreadsFechadas(raiz: string, nome: string, quem: string): void {
+  const suspeitas = new Set([
+    ...listarLeases(raiz).filter((l) => leasesColidem(nome, l.nome)).map((l) => l.thread),
+    ...esperandoPor(raiz, nome).map((p) => p.thread),
+  ]);
+  suspeitas.delete(quem);
+  for (const thread of suspeitas) {
+    if (threadFechada(raiz, thread)) soltarThreadFechada(raiz, thread, 'poda', quem);
+  }
 }

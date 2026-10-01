@@ -8,6 +8,32 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Grafo de código: índice e consulta** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG3):
+  - `ork grafo indexar [--verificar] [--forcar]`: índice local e persistente do grafo do HEAD
+    limpo, no estado do projeto e fora do git (pastas 0700, arquivos 0600), chaveado pela revisão,
+    pela identidade e pelo extrator, e idempotente; `--verificar` confere contrato, bytes e
+    determinismo;
+  - `ork grafo vizinhos|chamadores|importadores|caminho`: consulta pelas arestas, em texto e
+    `--json`, determinística e com o extrator e a evidência de cada aresta; a resposta diz que é
+    parcial (só o que o extrator prova);
+  - `ork grafo status`, `ork grafo amostra` e `ork grafo limpar`; o comando provisório do KG2 sai;
+  - o `ork grafo` precisa do `typescript` e do micromark instalados no próprio pacote do `ork`
+    (`ork grafo indexar` e as consultas), que não são dependências do pacote: sem eles, a recusa é
+    `grafo.parser.indisponivel`.
+- **Pacote de experiência de orquestração** ([RM-051](docs/roadmap/RM-051-pacote-de-experiencia.md)): preferências de idioma, fuso, profundidade e opt-out pelo onboarding; skills em inglês e pt-BR; blocos reversíveis em Claude Code/Codex e entrada Hermes; consultas MCP de reservas/fábrica e aviso de item sem associação. O bloco aponta o catálogo por caminho relativo ao projeto e é adotado num clone sem recibo; versão mantida.
+- **Busca por significado na memória** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - bloco `memory.embedding` no manifesto (provider, modelo, dimensão, o NOME da variável da chave,
+    fallback local e teto de tokens); sem o bloco, desligado. O manifesto recusa valor de chave ou
+    DSN, nome da lista de provider pago e a variável da DSN;
+  - `ork memory index [--modelo primario|fallback|todos] [--dry-run]`: índice vetorial local e
+    derivado do tenant, fora do git, idempotente, com tokens e custo estimados antes da rede;
+  - `ork memory search --texto "<frase>"`: vetor e FTS por RRF dentro do tenant, com a origem
+    declarada e `deterministico: false`; a busca por tag, o recall e o prompt não mudam;
+  - `ork memory status` passa a sondar a ponte (`health`) e mostra o estado dos embeddings, a
+    cobertura do tenant e, com `--sondar`, a latência de uma chamada real; a frase fixa de
+    saúde, que nada sondava, deixou de existir. Embedding ausente nunca derruba o regime `orkmind`;
+  - a policy `segredo_em_prompt` reconhece chave do OpenRouter, e o `ork doctor` confere a chave
+    de embedding pelo nome.
 - **Entrega em repositório externo** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` registra `ship_done` de PR mesclado
   em repositório declarado em `ci.external_repositories`: o PR cita a thread e entrou na branch
@@ -82,6 +108,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Mudado
 
+- **Defeitos da noite de 29/09/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  - `ork ci prepare` grava `.ork-ci/<thread>.json`, com a branch da thread, e o CI roda
+    `ork ci run --branch <branch>`: duas PRs não mudam mais o mesmo bundle. O `.ork-ci/bundle.json`
+    de antes só vale quando a thread dele bate com a branch, e a `main` roda só os comandos do
+    manifesto;
+  - fechar a thread (`ork master`, `ork thread close`) solta os leases de escrita e as esperas dela
+    na fila, com `lease_released` e `lease_dequeued` no ledger; espera de thread já fechada não barra
+    mais quem pede a região;
+  - o fechamento solta a reserva do item do roadmap, ou a passa para outra thread aberta do mesmo
+    item; `ork roadmap reservas` marca a reserva órfã e `--soltar-orfas` a solta com registro;
+  - o retrato da fábrica leva runtime, modelo e esforço de cada thread, do último `phase_dispatch`,
+    e o `ork fabrica`, o `FABRICA.md` e o panorama da rede mostram;
+  - `ork docs sincronizar` ganha `--so RM-NNN` e `--todos`; na worktree de uma thread com item, o
+    padrão é o item dela;
+  - `ork roadmap feat` reserva o próximo número de FEAT na branch `ork/roadmap-reservas`: duas
+    máquinas não levam mais o mesmo número.
 - **`ork board --json` vira objeto** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
   `{contrato: 'ork.board/v1', consulta, threads}`, com a lista de antes em `threads`. `board plan`,
   `fabrica` e `roadmap status` ganham o campo `consulta`; o snapshot do maestro ganha

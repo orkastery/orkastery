@@ -7,7 +7,7 @@
  * daqui, e o script le o mesmo modulo ja compilado em `dist/` (o `test:ci` compila antes).
  */
 export const TESTES_DE_INTEGRACAO_LOCAL: ReadonlySet<string> = new Set([
-  'codex-controller-sensor.test.js', 'consulta-restrita-nativa.test.js', 'decision-identity.test.js',
+  'codex-controller-sensor.test.js', 'consulta-restrita-nativa.test.js', 'decision-identity.test.js', 'embedding-ponte.test.js',
   'mcp-git.test.js', 'mcp-server.test.js', 'mcp-ship.test.js', 'mcp-verify.test.js',
   'memory-native-preparation.test.js', 'memory-native-schema.test.js', 'memory-prospective.test.js',
   'memory-publication-profile.test.js', 'native-fixture.test.js', 'orkmind-transport.test.js', 'verify-sandbox.test.js',
