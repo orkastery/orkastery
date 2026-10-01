@@ -51,16 +51,16 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-016](RM-016-experiencia-do-builder.md) | Experiência do builder em Claude Code e Codex | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-018](RM-018-ontologia-de-portfolio.md) | Ontologia de portfólio | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
-| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-09-29 |
-| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-09-29 |
-| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Refinamento | Mesclado | Em execução | Não implantado | 2026-09-29 |
+| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-033](RM-033-rotacao-de-contas.md) | Rotação de contas e perfis dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-034](RM-034-conclusao-claude-bg.md) | Conclusão nativa das sessões claude-bg | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-09-29 |
+| [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-041](RM-041-hitl-invertido.md) | HITL invertido: decisão tomada, lote e pergunta rara | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
@@ -70,11 +70,12 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Não implantado | 2026-09-29 |
-| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-09-30 |
-| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-09-29 |
-| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Não implantado | 2026-09-30 |
-| [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Branch criada | Aprovados | Não implantado | 2026-09-30 |
+| [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
