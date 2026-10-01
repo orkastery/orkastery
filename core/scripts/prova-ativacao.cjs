@@ -330,8 +330,10 @@ function principal() {
   try {
     resultado = op.host === 'claude-code' ? provaClaude(env) : provaOpenclaw(env);
   } finally {
-    const depois = fotografar(alvos);
-    recibo.global = { antes, depois, intocado: JSON.stringify(antes) === JSON.stringify(depois) };
+    try {
+      const depois = fotografar(alvos);
+      recibo.global = { antes, depois, intocado: JSON.stringify(antes) === JSON.stringify(depois) };
+    } catch (e) { recibo.global = { antes, depois: null, intocado: false, erro: e.message }; }
   }
   recibo.conferencias.push({ id: 'global.intocado', ok: recibo.global.intocado,
     detalhe: recibo.global.intocado ? `${Object.keys(alvos).length} alvos globais com o mesmo sha256 antes e depois` : 'arquivo global mudou durante a prova' });
@@ -348,11 +350,12 @@ finally {
     recibo.limpeza = { ...recibo.limpeza, raiz, removido: !fs.existsSync(raiz) };
   }
   recibo.fim = agora();
-  let redigirObjeto, redigir;
-  try { ({ redigirObjeto, redigir } = require(path.join(repo, 'core/dist/prova-ativacao'))); }
-  catch { redigir = s => s.replace(/("[^"]*(?:token|secret|password|key)[^"]*"\s*:\s*)"(?:[^"\\]|\\.)*"/gi, '$1"[REDIGIDO]"'); redigirObjeto = o => o; }
-  // Redige cada texto antes de serializar (JSON dentro de stdout escaparia depois) e de novo o todo.
-  const texto = redigir(JSON.stringify(redigirObjeto(recibo), null, 2)).split(home).join('~') + '\n';
+  let redigirObjeto;
+  try { ({ redigirObjeto } = require(path.join(repo, 'core/dist/prova-ativacao'))); }
+  catch { redigirObjeto = o => JSON.parse(JSON.stringify(o, (k, v) => typeof v === 'string' && /token|secret|password|key/i.test(k) ? '[REDIGIDO]' : v)); }
+  // Redige cada texto antes de serializar (JSON dentro de stdout escaparia depois); nunca o JSON
+  // serializado, que a regra de variável de ambiente poderia quebrar.
+  const texto = JSON.stringify(redigirObjeto(recibo), null, 2).split(home).join('~') + '\n';
   if (op.saida) {
     try { fs.mkdirSync(path.dirname(op.saida), { recursive: true }); fs.writeFileSync(op.saida, texto); }
     catch (e) { process.stderr.write(`recibo não gravado em ${op.saida}: ${e.message}\n`); }
