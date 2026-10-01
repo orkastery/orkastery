@@ -6,24 +6,28 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-30T03:09:41+00:00
+atualizado_em: 2026-10-01T02:24:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Em execução
-  deploy: Não implantado
+  testes: Aprovados
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: f0b7925
-    pr: null
+    pr: 26
+  testes:
+    ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346)
+  deploy:
+    release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório
 sdlc:
   thread: ork-rm049marketp
   modo: "#Auto"
-  fase: GO
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-049 — Lançamento do Orkastery, com documentação no site, marketplaces e anúncio
@@ -34,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -67,19 +71,23 @@ sdlc:
 
 ## Estado com evidências
 
+- Item 2, só o plugin nos marketplaces: na `main` pelo PR #26 (merge `f0b7925`), na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36). O marketplace próprio fica em `marketplaces/` no repositório, fora do pacote do npm.
+- CI: verde no PR #26 (run 36660154276) e no push da versão 0.5.0 (run 36815186450). No push do merge, a suíte passou (1995 aprovados, 1 pulado, 0 falhas) e o CHECK independente reprovou só a claim S9 da thread, que compara a branch com a `main` (run 36660497346).
+- Seguem em aberto: o item 1 (documentação do site gerada de `docs/`), a submissão aos diretórios oficiais e o item 3, todos com o dono.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-30 | Julio |
-| Documentação | Em revisão | — | 2026-09-30 | Julio |
-| Código | Mesclado | commit `f0b7925` | 2026-09-30 | Julio |
-| Testes | Em execução | — | 2026-09-30 | Julio |
-| Deploy | Não implantado | — | 2026-09-30 | Julio |
-| Exposição | Flag desligada | — | 2026-09-30 | Julio |
-| Habilitação | Pendente | — | 2026-09-30 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `f0b7925` · PR #26 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório | 2026-10-01 | Julio |
+| Exposição | Flag desligada | — | 2026-10-01 | Julio |
+| Habilitação | Pendente | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -94,3 +102,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | proposto | escopo restante da RM-046 (H6 do dono) | Julio |
 | 2026-09-29 | Itens 2 e 3 em PR | Thread `ork-rm049marketp` (#Auto): plugin e skills prontos para os diretórios, marketplace próprio, guia de submissão e rascunhos do anúncio; item 1 em outra thread | Julio |
 | 2026-09-29 | Rascunhos do anúncio fora do PR | Regra do dono (28/09/2026): o repositório público leva só o necessário; os textos vão ao dono pelo condutor | Julio |
+| 2026-09-29 | Plugin nos marketplaces mesclado na `main`; entra na versão 0.5.0 | PR #26, merge `f0b7925`; tag `v0.5.0` | Julio |
