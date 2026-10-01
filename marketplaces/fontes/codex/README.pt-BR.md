@@ -22,7 +22,7 @@ A metodologia mora no CLI, não no plugin. Quando uma skill e o CLI divergem, va
 
 1. Node 20 ou mais novo e `git`.
 2. O CLI, pelo npm: `npm install -g @orkastery/cli` e depois `ork doctor`.
-3. No seu repositório: `ork init` e depois `ork mcp install --project . --host codex`. Esse segundo comando grava o servidor MCP `orkastery` em `.codex/config.toml` no projeto; a skill de entrada chama as ferramentas dele.
+3. No seu repositório: `ork init` e depois `ork mcp install --project "$PWD" --host codex`. Esse segundo comando grava o servidor MCP `orkastery` em `.codex/config.toml` no projeto; a skill de entrada chama as ferramentas dele.
 
 Sem o CLI, as skills não têm para onde rotear.
 

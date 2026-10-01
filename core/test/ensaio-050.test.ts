@@ -19,9 +19,30 @@ import { exec, shaCurto } from '../src/util';
 import { avaliarPolicies } from '../src/policies';
 import { gravarEtapa } from '../src/onboarding';
 import { textoDosPitfalls } from '../src/hosts';
+import { analisarComando } from '../src/claim-lint';
+import { ORDEM_DOS_MODOS } from '../src/modos';
+import { instalarMcp } from '../src/mcp-install';
 import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
+const RAIZ = path.resolve(__dirname, '../../..');
+const QUICKSTART = (): string => fs.readFileSync(path.join(RAIZ, 'docs/comecar/quickstart.md'), 'utf8');
+
+/** O bloco ```text que vem logo depois do bloco ```bash que contem `comando`. */
+function amostraDepoisDe(doc: string, comando: string): string {
+  const i = doc.indexOf(comando);
+  assert.ok(i >= 0, `comando ausente do quickstart: ${comando}`);
+  const abre = doc.indexOf('```text\n', i);
+  assert.ok(abre > i, `amostra ausente depois de: ${comando}`);
+  const fecha = doc.indexOf('\n```', abre + 8);
+  return doc.slice(abre + 8, fecha);
+}
+
+/** Saida e amostra comparaveis: so o sha e o caminho do projeto variam entre maquinas. */
+function normalizar(texto: string, projeto?: string): string {
+  const semCaminho = projeto ? texto.split(projeto).join('/caminho/do/seu/projeto') : texto;
+  return semCaminho.replace(/@ [0-9a-f]{8}\b/g, '@ <sha>').replace(/[ \t]+$/gm, '').trim();
+}
 
 /** Repositorio recem-criado, sem commit, com o HEAD apontando para `branch`. */
 function repoSemCommit(nome: string, branch: string): string {
@@ -217,4 +238,70 @@ test('ensaio 050: ajuda do setup traz a continuacao logo abaixo do setup', () =>
     assert.ok(sync > i, 'onboarding sync depois do setup');
     assert.doesNotMatch(linhas[sync + 1] ?? '', /por bloco de cada modo/);
   } finally { limpar(casa); }
+});
+
+test('ensaio 050: quickstart traz modos vivos, commit, gitignore, worktree, claim focada e a ativacao do plugin', () => {
+  const doc = QUICKSTART();
+  const modos = [...doc.matchAll(/^\s*allowed_modes: \[([^\]]*)\]/gm)].map(m => m[1]);
+  assert.ok(modos.length >= 1, 'trecho do manifesto com allowed_modes');
+  for (const m of modos) assert.equal(m, ORDEM_DOS_MODOS.join(', '), 'o que o ork init grava, sem look nem ork');
+  assert.match(doc, /Um repositório git com pelo menos um commit/);
+  assert.ok(doc.includes(String.raw`printf '.orkastery/\n.claude/worktrees/\n' >> .gitignore`), 'estado fora do git');
+  assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto\n/);
+  assert.doesNotMatch(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
+  assert.match(doc, /ork worktree ensure <thread>/);
+
+  const claim = /ork claims add prd-corrigirofil[\s\S]*?--verificar "([^"]+)"/.exec(doc)?.[1];
+  assert.ok(claim, 'claim de exemplo do passo 6');
+  assert.deepEqual(analisarComando(claim), [], `a claim de exemplo nao pode cair no lint: ${claim}`);
+
+  assert.ok(doc.includes('claude plugin marketplace add "$PWD/.claude/plugins/orkastery" --scope project'));
+  assert.ok(doc.includes('claude plugin install orkastery@orkastery --scope project'));
+  assert.ok(doc.includes('ork mcp install --project "$PWD" --host claude-code'));
+  assert.doesNotMatch(doc, /--project \. /);
+  for (const fase of ['goal', 'plan', 'go', 'check', 'ship', 'master']) assert.ok(doc.includes(`/orkastery:${fase}`), fase);
+  assert.doesNotMatch(doc, /usa `\/goal`/);
+});
+
+test('ensaio 050: amostras do quickstart batem com a saida do ork do HEAD', () => {
+  const doc = QUICKSTART();
+  const dir = repoSemCommit('ensaio-amostras', 'main');
+  const casa = dirTemporario('ensaio-amostras-casa');
+  const semManifesto = repoSemCommit('ensaio-amostras-vazio', 'main');
+  try {
+    primeiroCommit(dir);
+    primeiroCommit(semManifesto);
+    assert.equal(ork(dir, casa, 'init', '--name', 'meu-produto', '--abbrev', 'prd').status, 0);
+
+    const comando = 'ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto';
+    const thread = ork(dir, casa, 'thread', 'new', 'corrigir o filtro de data do relatorio', '--modo', 'classic', '--worktree', 'auto');
+    assert.equal(thread.status, 0, thread.stderr);
+    assert.equal(normalizar(thread.stdout, dir), normalizar(amostraDepoisDe(doc, comando)));
+
+    const gate = ork(dir, casa, 'gate', 'next', 'prd-corrigirofil', '--proximo', 'GO');
+    assert.equal(gate.status, 0, gate.stderr);
+    assert.equal(normalizar(gate.stdout, dir), normalizar(amostraDepoisDe(doc, 'ork gate next prd-corrigirofil --proximo GO\n')));
+
+    // O doctor depende da maquina (versoes, caminhos, runtimes): conferem os rotulos e o veredito.
+    const nomes = new Set([...checar(semManifesto), ...checar(dir)].map(c => c.nome));
+    const amostras = [...doc.matchAll(/```text\n(ork doctor: o que vale nesta maquina agora\n[\s\S]*?)\n```/g)].map(m => m[1]);
+    assert.equal(amostras.length, 2, 'antes e depois do ork init');
+    for (const a of amostras) {
+      const rotulos = [...a.matchAll(/^  \[(?:ok|warn|FAIL)\]\s+(.+?)\s{2,}/gm)].map(m => m[1]);
+      assert.ok(rotulos.length >= 5, a);
+      for (const r of rotulos) assert.ok(nomes.has(r), `rotulo da amostra que o doctor nao emite: ${r}`);
+      assert.match(a, /\nVeredito: (?:PRONTO|BLOQUEADO) \(\d+ (?:fail, \d+ )?warn\)\. /);
+    }
+  } finally { limpar(dir, casa, semManifesto); }
+});
+
+test('ensaio 050: mcp install com caminho relativo diz como acertar', () => {
+  assert.throws(() => instalarMcp({ projeto: '.', host: 'claude-code' }),
+    /mcp\.install\.project\.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "\$PWD"/);
+  for (const arquivo of ['marketplaces/fontes/claude-code/README.md', 'marketplaces/fontes/claude-code/README.pt-BR.md',
+    'marketplaces/fontes/codex/README.md', 'marketplaces/fontes/codex/README.pt-BR.md', 'marketplaces/formularios.md']) {
+    const texto = fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+    assert.doesNotMatch(texto, /ork mcp install --project \. /, arquivo);
+    assert.ok(texto.includes('ork mcp install --project "$PWD" --host'), arquivo);
+  }
 });

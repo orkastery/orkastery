@@ -135,7 +135,8 @@ function migrarEnvVarsCodex(bruto:string,entrada:Record<string,unknown>):string 
   return bruto.slice(0,corpoFim)+(corpo.endsWith('\n')?'':'\n')+`env_vars = ${valor}\n`+bruto.slice(corpoFim);
 }
 export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp {
-  if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria');
+  // Ensaio da 0.5.0: os READMEs dos plugins mandavam `--project .`, recusado sem dizer como acertar.
+  if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "$PWD"');
   if(!['claude-code','codex'].includes(opcoes.host)) throw Error('mcp.install.host.invalid');
   if(opcoes.transporteShip!==undefined && !['github-ssh','bare-local'].includes(opcoes.transporteShip))throw Error('mcp.install.transport.invalid');
   if(opcoes.permissoesFilho!==undefined && !['interactive','worktree'].includes(opcoes.permissoesFilho))throw Error('mcp.install.child-permissions.invalid');
