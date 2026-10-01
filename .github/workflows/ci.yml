@@ -49,6 +49,11 @@ jobs:
         run: node core/dist/index.js docs verificar
       - name: links relativos
         run: node core/scripts/checar-links.cjs
+      # RM-037 (fatia 3, defeito 2): PR que muda core/, adapters/ ou marketplaces/ leva linha em
+      # "Nao publicado" do CHANGELOG; PR so de testes ou so de CI fica de fora. No push da main a
+      # base e o proprio HEAD, e nao ha o que conferir.
+      - name: linha no CHANGELOG
+        run: node core/scripts/checar-changelog.cjs --base "origin/${GITHUB_BASE_REF:-main}"
       # RM-049: o plugin dos marketplaces e copia gerada do catalogo; copia divergente reprova.
       - name: plugin dos marketplaces igual ao catalogo
         run: node core/scripts/gerar-marketplaces.cjs --verificar
