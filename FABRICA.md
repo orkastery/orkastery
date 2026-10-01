@@ -13,6 +13,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-ensaioprimei | #Auto | GOAL | sem despacho | RM-049 | — | 01/10 02:06 |
 | vps | ork-estadodoroad | #Fast | GO | claude-bg opus/xhigh | — | — | 01/10 02:06 |
 | vps | ork-rm031kg4incr | #Auto | GOAL | sem despacho | RM-031 | — | 01/10 02:06 |
-| vps | ork-rm037fatia3d | #Auto | GOAL | sem despacho | RM-037 | — | 01/10 02:06 |
+| vps | ork-rm037fatia3d | #Auto | GOAL | claude-bg opus/max | RM-037 | — | 01/10 02:06 |
 
 Horários de Brasília.
