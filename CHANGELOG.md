@@ -15,9 +15,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   (`core/src/prova-ativacao.ts`) exige a entrada do host chamada (`ork maestro` pelo shell é
   desvio), o resultado no contrato (`ork.maestro-snapshot/v1` ou `ork.network-roadmap/v1`), o
   projeto da cópia, o que não foi lido e uma resposta sem "roadmap vazio". O recibo
-  `ork.prova-ativacao/v1` traz comandos, horários, versão do host e o sha256 dos arquivos globais
-  antes e depois, passa por redação e lista o que só o dono pode fazer. O roteiro fica no
-  repositório, fora do pacote.
+  `ork.prova-ativacao/v1` traz comandos, horários, versão do host e o sha256 da configuração global
+  do host antes e depois, é redigido campo a campo antes de ser gravado e lista o que só o dono
+  pode fazer. O roteiro fica no repositório, fora do pacote.
 
 ## [0.5.0] - 2026-09-30
 

@@ -48,7 +48,7 @@ sdlc:
 - **Resultado:** pacote de código com 8 de 12 critérios do GOAL atendidos (19/09/2026) e, desde 01/10/2026, um roteiro que prova a ativação em sessão nova por host, com recibo citável.
 - **Hipótese (fatia de 01/10):** Se cada host novo passar por uma prova em sessão nova e não interativa que confere a ferramenta chamada e o projeto lido, então uma instalação que não expõe o Maestro, ou que lê o projeto do diretório, aparece antes de o dono perguntar, porque a conferência julga a chamada e o resultado, não o texto do modelo.
 - **Métrica principal / linha de base / meta / janela / fonte:** hosts com prova de ativação aprovada em sessão nova; linha de base 0 de 4 (até 30/09/2026); meta 4 de 4; janela até a publicação dos pacotes; fonte: recibos `ork.prova-ativacao/v1` em [evidencias/RM-032](evidencias/RM-032/). Em 01/10/2026: 2 de 4 aprovados (Claude Code e OpenClaw), 2 sem host na máquina de prova (Hermes, Codex).
-- **Métricas de proteção:** nenhum arquivo global do host muda durante a prova (sha256 antes e depois no recibo); nenhum segredo no recibo; a consulta não escreve em `.orkastery`.
+- **Métricas de proteção:** os arquivos de configuração global do host (settings e registro de plugins do Claude; `openclaw.json` e a extensão global do OpenClaw) têm o mesmo sha256 antes e depois; o estado do CLI do Claude (`.claude.json`) não ganha aceite para a raiz temporária; o log do OpenClaw da cópia fica na raiz da prova, fora de `/tmp/openclaw`; o recibo é redigido campo a campo antes de ser gravado; a consulta não escreve em `.orkastery`.
 
 ## Escopo e validação
 

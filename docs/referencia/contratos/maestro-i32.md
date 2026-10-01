@@ -43,9 +43,11 @@ CLI resolve o projeto pelo diretório) e o resultado cumpre o contrato da entrad
 com o `project.fingerprint` da cópia esperada (a raiz exibida pode vir mascarada) e `notConsulted`,
 ou o texto do `ork.network-roadmap/v1` com o projeto esperado em "Consultado" e o bloco "Não
 consultado". A resposta precisa nomear o projeto e não concluir "roadmap vazio". O roteiro
-acrescenta que a consulta não escreveu em `.orkastery` e que os arquivos globais do host têm o
-mesmo sha256 antes e depois. O recibo `ork.prova-ativacao/v1` passa por redação antes de ser
-gravado. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
+acrescenta que a consulta não escreveu em `.orkastery`, que os arquivos de configuração global do
+host têm o mesmo sha256 antes e depois, que o `.claude.json` não ganhou aceite para a raiz
+temporária e que o OpenClaw da cópia não escreveu no log compartilhado. O recibo
+`ork.prova-ativacao/v1` é redigido campo a campo antes de ser serializado. Limite conhecido: num
+timeout, só o processo filho direto recebe o sinal. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
 humana. A prova não revisa procedência, não consente MCP e não reinicia gateway por ninguém.
 
 ## Ingresso nativo aditivo (T23)
