@@ -312,6 +312,13 @@ function planejarReuso(base: UnidadesDaExtracao, manifesto: ReadonlyMap<string, 
     vistos.add(q);
     for (const x of dependentes.get(q) ?? []) if (!vistos.has(x)) fila.push(x);
   }
+  // CHECK (B1): quem usa um global nao importa o arquivo dele, e o global depende do que esse arquivo
+  // importa (heranca, tipo importado, `export *` atras de UMD, aumento que estende tipo de outro modulo).
+  const globalAlcancado = [...globais].sort(compararUtf8).find((g) => vistos.has(g));
+  if (globalAlcancado !== undefined) {
+    plano.ts.motivo = `dependencia de arquivo global na mudanca (${globalAlcancado})`;
+    return plano;
+  }
   for (const p of vistos) if (ts1.has(p)) plano.ts.afetados.add(p);
   return plano;
 }

@@ -233,8 +233,8 @@ test('KG4 queda: extrator mudado, historico reescrito e base ilegivel extraem co
     mudar(repo, { 'docs/x.md': '# X\n\nmais\n' });
     const r2 = construirIndice(ctx, { parser: PARSER });
     assert.equal(r2.modo, 'completo');
-    assert.equal(r2.motivo_completo, `nenhum indice de revisao ancestral nas ultimas 512; o de ${r1.manifesto.revision.slice(0, 12)} esta fora da linha do HEAD `
-      + `(historico reescrito ou outro ramo); o extrator mudou desde o indice de ${r0.manifesto.revision.slice(0, 12)} (analisadores)`);
+    assert.equal(r2.motivo_completo, `nenhum indice de revisao ancestral nas ultimas 512; o de ${r1.manifesto.revision.slice(0, 12)} nao esta entre elas `
+      + `(historico reescrito, outro ramo ou revisao mais antiga); o extrator mudou desde o indice de ${r0.manifesto.revision.slice(0, 12)} (analisadores)`);
     // Base ilegivel: as unidades da base nao batem com o digest.
     fs.appendFileSync(path.join(r2.dir, 'unidades.json'), ' ');
     mudar(repo, { 'docs/x.md': '# X\n\nde novo\n' });
@@ -275,6 +275,50 @@ test('KG4 queda: arquivo global na mudanca, e arquivo que passa a declarar globa
   }, { 'src/a.ts': 'export function a() { return 1; }\ndeclare global { function extra(): void }\n' }, ({ incremental }) => {
     assert.deepEqual([incremental.reaproveitamento?.ts.modo, incremental.reaproveitamento?.ts.motivo],
       ['inteiro', 'arquivo passa a declarar global no TypeScript (src/a.ts)']);
+  });
+});
+
+/** CHECK (B1): quem usa um global depende do que o arquivo do global importa; mudanca ali extrai o TypeScript inteiro. */
+const DEPENDENCIA_DE_GLOBAL: [string, Record<string, string>, Record<string, string>, string][] = [
+  ['kg4-global-classe', {
+    'src/m.ts': 'export class Base { m(): void {} }\n',
+    'src/g.ts': "import { Base } from './m';\ndeclare global { class GlobalBase extends Base {} }\nexport {};\n",
+    'src/a.ts': 'export class X extends GlobalBase { run(): void { this.m(); } }\n',
+  }, { 'src/m.ts': 'export class Base { n(): void {} }\n' }, 'src/g.ts'],
+  ['kg4-global-tipo-importado', {
+    'src/m.ts': 'export class Base { m(): void {} }\n',
+    'src/g.d.ts': "declare const GB: typeof import('./m').Base;\n",
+    'src/a.ts': 'export class X extends GB { run(): void { this.m(); } }\n',
+  }, { 'src/m.ts': 'export class Base { n(): void {} }\n' }, 'src/g.d.ts'],
+  ['kg4-global-aumento', {
+    'src/m.ts': 'export class MBase { mb(): void {} }\n',
+    'src/a.ts': 'export class Base { run(): void { this.mb(); } }\n',
+    'src/z.ts': "import { MBase } from './m';\ndeclare module './a' { interface Base extends MBase {} }\n",
+  }, { 'src/m.ts': 'export class MBase { mc(): void {} }\n' }, 'src/z.ts'],
+  ['kg4-global-umd', {
+    'src/m.ts': 'export function f(): void {}\n',
+    'src/g.d.ts': "export * from './m';\nexport as namespace Lib;\n",
+    'src/a.ts': 'export function x(): void { return Lib.f(); }\n',
+  }, { 'src/m.ts': 'export function g(): void {}\n' }, 'src/g.d.ts'],
+];
+
+test('KG4 queda: mudanca no que um arquivo global importa extrai o TypeScript inteiro (classe, tipo importado, aumento de modulo, UMD)', () => {
+  for (const [nome, arquivos, mudancas, global] of DEPENDENCIA_DE_GLOBAL) {
+    provar(nome, arquivos, mudancas, ({ incremental }) => {
+      assert.deepEqual([incremental.reaproveitamento?.ts.modo, incremental.reaproveitamento?.ts.motivo],
+        ['inteiro', `dependencia de arquivo global na mudanca (${global})`], nome);
+    });
+  }
+});
+
+test('KG4 equivalencia: package.json da pasta que o TypeScript le e o JSON estrito recusa (virgula final) casa toda mudanca de existencia', () => {
+  provar('kg4-pacote-leniente', {
+    'src/lib/package.json': '{ "types": "../tipos/x.d.ts", }\n',
+    'src/lib/index.ts': 'export const velho = 1;\n',
+    'src/a.ts': "import { velho } from './lib';\nexport const a = velho;\n",
+    'src/solto.ts': 'export const s = 2;\n',
+  }, { 'src/tipos/x.d.ts': 'export declare const novo: number;\n' }, ({ incremental }) => {
+    assert.ok(reextraidos(incremental).ts.includes('src/a.ts'), reextraidos(incremental).ts.join(','));
   });
 });
 
@@ -352,7 +396,7 @@ test('KG4 cli: --verificar reprova base adulterada com digest coerente, e o inde
     mudar(repo, { 'src/b.ts': 'export function b() { return 3; }\n', 'src/novo.ts': 'export const n = 1;\n' });
     const r = construirIndice(ctx, { parser: PARSER });
     assert.equal(r.modo, 'completo');
-    assert.match(r.motivo_completo ?? '', /^o incremental falhou e a extracao foi completa \(/);
+    assert.match(r.motivo_completo ?? '', /^o incremental a partir de [0-9a-f]{12} falhou e a extracao foi completa \(/);
     assert.equal(construirIndice(ctx, { parser: PARSER, forcar: true }).estado, 'reconstruido-identico');
   } finally {
     fs.rmSync(repo.dir, { recursive: true, force: true });
@@ -383,6 +427,7 @@ const LINHA = require(path.join(SCRIPTS, 'linha-de-base-grafo.cjs')) as {
   montarProtocolo: (base: unknown, opcoes?: { repeticoesPorTarefa?: number; tarefas?: string[] }) => RegistroDeBenchmark;
   lerTelemetria: (t: string) => { sessao: string | null; resultado: string | null; requisicoes: { id: string; entrada: number; saida: number; cache: number }[]; ferramentas: number };
   executar: (o: object) => { registro: RegistroDeBenchmark; veredito: ReturnType<typeof avaliarBenchmark> };
+  conferirRepositorio: (repositorio: string, protocolo: RegistroDeBenchmark['protocol']) => void;
   FATOS: Record<string, string[]>;
 };
 const lerFixture = (nome: string): Record<string, unknown> => JSON.parse(fs.readFileSync(path.join(FIXTURES, nome), 'utf8'));
@@ -403,6 +448,9 @@ test('KG4 medida: o registro dos pares reais e valido; par sem prova, ancora tro
   const semOrigem = copia(r);
   semOrigem.pares[1].ms.completo_antes = null;
   assert.ok(MEDIDA.validar(semOrigem).some((e) => e.includes('completo antes sem medida ou sem origem')));
+  const repetido = copia(r);
+  repetido.pares = repetido.pares.map(() => copia(r.pares[0]));
+  assert.ok(MEDIDA.validar(repetido).includes('pares repetidos ou fora da lista fixa'));
 });
 
 test('KG4 medida: a linha de base e valida; token medido, braco faltando e promessa de economia reprovam; o protocolo da not-run', () => {
@@ -437,23 +485,24 @@ test('KG4 harness: a telemetria stream-json conta cada requisicao uma vez, com a
     { type: 'result', is_error: false, result: 'fim' },
   ].map((l) => JSON.stringify(l)).join('\n');
   assert.deepEqual(LINHA.lerTelemetria(`${linhas}\nlixo que nao e JSON\n`), {
-    sessao: 's-1', resultado: 'fim', erro: false, ferramentas: 3,
+    sessao: 's-1', modelo: null, resultado: 'fim', erro: false, ferramentas: 3,
     requisicoes: [{ id: 'msg_1', entrada: 10, saida: 7, cache: 3 }, { id: 'msg_2', entrada: 1, saida: 2, cache: 0 }],
   });
 });
 
 test('KG4 harness: sem --pago recusa abrir sessao; com o agente simulado roda os pares e grava o registro v1 avaliado', () => {
-  const dir = dirTemporario('kg4-harness'), marca = path.join(dir, 'sessoes');
+  const dir = dirTemporario('kg4-harness'), marca = path.join(dir, 'sessoes'), repo = path.join(dir, 'repo');
+  fs.mkdirSync(repo);
   const agente = [process.execPath, path.join(FIXTURES, 'kg4-agente-simulado.cjs')];
   const antes = { marca: process.env.ORK_KG4_MARCA, resposta: process.env.ORK_KG4_RESPOSTA };
   try {
     process.env.ORK_KG4_MARCA = marca;
     process.env.ORK_KG4_RESPOSTA = Object.values(LINHA.FATOS).flat().join('\n');
     const protocolo = LINHA.montarProtocolo(lerFixture('kg4-linha-de-base.json'), { repeticoesPorTarefa: 2, tarefas: ['P1', 'P2'] });
-    const opcoes = { registro: protocolo, repositorio: dir, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true };
+    const opcoes = { registro: protocolo, repositorio: repo, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true };
     assert.throws(() => LINHA.executar({ ...opcoes, pago: false }), /harness\.pago/);
     const cli = execFileSync(process.execPath, [path.join(SCRIPTS, 'linha-de-base-grafo.cjs'), '--executar', '--protocolo', path.join(FIXTURES, 'kg4-protocolo-ab.json'),
-      '--repositorio', dir, '--agente', JSON.stringify(agente), '--saida', path.join(dir, 'nao.json')], { stdio: 'pipe' as const, encoding: 'utf8' as const }).toString();
+      '--repositorio', repo, '--agente', JSON.stringify(agente), '--saida', path.join(dir, 'nao.json')], { stdio: 'pipe' as const, encoding: 'utf8' as const }).toString();
     assert.equal(cli, '');
   } catch (e) {
     // O CLI sem --pago sai 2 com a recusa; nenhuma sessao foi aberta.
@@ -466,7 +515,7 @@ test('KG4 harness: sem --pago recusa abrir sessao; com o agente simulado roda os
     assert.ok(!fs.existsSync(marca), 'sem --pago, nenhuma sessao do agente');
     const protocolo = LINHA.montarProtocolo(lerFixture('kg4-linha-de-base.json'), { repeticoesPorTarefa: 2, tarefas: ['P1', 'P2'] });
     const { registro, veredito } = LINHA.executar({
-      registro: protocolo, repositorio: dir, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true, pago: true,
+      registro: protocolo, repositorio: repo, agente, transcricoes: path.join(dir, 'transcricoes'), simulado: true, pago: true,
     });
     assert.equal(fs.readFileSync(marca, 'utf8').split('\n').filter(Boolean).length, 8, 'uma sessao por braco de cada par');
     validarBenchmark(registro);
@@ -480,11 +529,26 @@ test('KG4 harness: sem --pago recusa abrir sessao; com o agente simulado roda os
       assert.equal(r.metrics.tool_calls.value, 1);
       assert.ok(r.mandatory_fact_results.every((f) => f.result === 'present'));
       const t = r.artifacts[0];
-      assert.equal(createHash('sha256').update(fs.readFileSync(path.isAbsolute(t.ref) ? t.ref : path.resolve(SCRIPTS, '../..', t.ref))).digest('hex'), t.sha256);
+      assert.ok(!path.isAbsolute(t.ref) && !t.ref.includes('..'), `referencia relativa: ${t.ref}`);
+      assert.equal(createHash('sha256').update(fs.readFileSync(path.join(dir, t.ref))).digest('hex'), t.sha256);
+      assert.equal(fs.statSync(path.join(dir, t.ref)).mode & 0o777, 0o600);
     }
     // Sem auditoria de arestas, o veredito para em inconclusive, nunca publicavel; registro sintetico tambem nao.
     assert.deepEqual([veredito.resultado, veredito.publicavel, veredito.medianaA, veredito.medianaB], ['inconclusive', false, 375, 235]);
     assert.ok(veredito.motivos.includes('auditoria-incompleta'), veredito.motivos.join(','));
+    // Transcricao dentro do repositorio das sessoes, modelo fora do protocolo e repositorio fora da revisao recusam.
+    assert.throws(() => LINHA.executar({ registro: protocolo, repositorio: repo, agente, transcricoes: path.join(repo, 'dentro'), simulado: true, pago: true }),
+      /harness\.transcricoes/);
+    const fora = dirTemporario('kg4-harness-fora');
+    try {
+      process.env.ORK_KG4_MODELO = 'outro-modelo';
+      assert.throws(() => LINHA.executar({ registro: protocolo, repositorio: fora, agente, transcricoes: path.join(dir, 't2'), simulado: true, pago: true }),
+        /harness\.controle: a sessao P1-r1-[AB]-1 rodou o modelo outro-modelo; o protocolo fixa claude-sonnet-5-5/);
+      assert.throws(() => LINHA.conferirRepositorio(fora, protocolo.protocol), /harness\.repositorio: --repositorio nao e um clone Git legivel/);
+    } finally {
+      delete process.env.ORK_KG4_MODELO;
+      fs.rmSync(fora, { recursive: true, force: true });
+    }
   } finally {
     if (antes.marca === undefined) delete process.env.ORK_KG4_MARCA;
     else process.env.ORK_KG4_MARCA = antes.marca;

@@ -565,21 +565,29 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
 
   /**
    * KG4 (D3): a resolucao de uma pasta le o `package.json` dela, e `main`, `types` e `typings` podem
-   * apontar para fora da base: os alvos entram como sondas. `typesVersions` remapeia qualquer caminho,
-   * e entao a sonda casa tudo. Mudanca no proprio `package.json` extrai o TypeScript inteiro.
+   * apontar para fora da base: os alvos entram como sondas, tambem com a barra invertida trocada, como o
+   * TypeScript le. `typesVersions` remapeia qualquer caminho, e entao a sonda casa tudo; o mesmo vale
+   * para `package.json` que nao e JSON estrito (CHECK, A1: o TypeScript aceita comentario e virgula
+   * final). Mudanca no proprio `package.json` extrai o TypeScript inteiro.
    */
   const sondasDoPacote = (base: string, sondas: Set<string>): void => {
     for (const pasta of new Set([base, semExtensao(base)])) {
       const arquivo = junta(pasta, 'package.json');
       if (!arquivos.has(arquivo)) continue;
       const v = lerJson(arquivo);
-      if (v === null || typeof v !== 'object' || Array.isArray(v)) continue;
+      if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+        sondas.add('');
+        continue;
+      }
       const o = v as Record<string, unknown>;
       if ('typesVersions' in o) sondas.add('');
       for (const campo of ['main', 'types', 'typings']) {
         const alvo = o[campo];
-        const t = typeof alvo === 'string' && alvo && !alvo.startsWith('/') ? caminhoLiteral(arquivo, `./${alvo}`) : null;
-        if (t !== null) sondas.add(t);
+        if (typeof alvo !== 'string' || !alvo) continue;
+        for (const forma of new Set([alvo, alvo.replace(/\\/g, '/')])) {
+          const t = forma.startsWith('/') ? null : caminhoLiteral(arquivo, `./${forma}`);
+          if (t !== null) sondas.add(t);
+        }
       }
     }
   };

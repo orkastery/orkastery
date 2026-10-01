@@ -144,6 +144,7 @@ function validar(r) {
   exigir(r.ambiente && typeof r.ambiente.node === 'string' && inteiro(r.ambiente.nucleos) && Array.isArray(r.ambiente.carga_inicio), 'ambiente incompleto');
   const pares = Array.isArray(r.pares) ? r.pares : [];
   exigir(pares.length === PARES.length, `${PARES.length} pares esperados`);
+  exigir(JSON.stringify(pares.map((p) => p && p.id).sort()) === JSON.stringify(PARES.map((p) => p.id).sort()), 'pares repetidos ou fora da lista fixa');
   pares.forEach((p, i) => {
     const fixo = PARES.find((x) => x.id === p.id);
     exigir(!!fixo && fixo.base === p.base && fixo.alvo === p.alvo && SHA.test(p.base) && SHA.test(p.alvo), `par ${i}: fora da lista fixa`);

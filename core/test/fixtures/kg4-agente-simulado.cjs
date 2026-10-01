@@ -6,7 +6,8 @@
  * mensagens do assistente com uso (a primeira repetida, como o runtime faz por bloco) e uma chamada de
  * ferramenta, e o resultado com o texto de `ORK_KG4_RESPOSTA` (sem ela, o proprio prompt). O braco B
  * (o prompt cita o grafo deterministico) gasta menos, para o veredito ter o que comparar. Com
- * `ORK_KG4_MARCA`, anota cada sessao aberta nesse arquivo.
+ * `ORK_KG4_MARCA`, anota cada sessao aberta nesse arquivo; com `ORK_KG4_MODELO`, informa esse modelo no
+ * `init`.
  */
 'use strict';
 
@@ -24,7 +25,7 @@ process.stdin.on('end', () => {
   const uso1 = { input_tokens: b ? 60 : 100, cache_creation_input_tokens: 20, cache_read_input_tokens: 30, output_tokens: 40 };
   const uso2 = { input_tokens: 10, cache_creation_input_tokens: 0, cache_read_input_tokens: b ? 50 : 150, output_tokens: 25 };
   const linhas = [
-    { type: 'system', subtype: 'init', session_id: `sim-${id}` },
+    { type: 'system', subtype: 'init', session_id: `sim-${id}`, ...(process.env.ORK_KG4_MODELO ? { model: process.env.ORK_KG4_MODELO } : {}) },
     { type: 'assistant', message: { id: `msg_${id}_1`, usage: uso1, content: [{ type: 'tool_use', id: `tu_${id}_1`, name: 'Bash', input: {} }] } },
     { type: 'assistant', message: { id: `msg_${id}_1`, usage: uso1, content: [{ type: 'text', text: 'lendo' }] } },
     { type: 'assistant', message: { id: `msg_${id}_2`, usage: uso2, content: [{ type: 'text', text: 'pronto' }] } },

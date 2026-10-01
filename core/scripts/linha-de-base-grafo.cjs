@@ -24,6 +24,10 @@
  * `["claude","-p","--output-format","stream-json","--verbose"]`), le a telemetria `stream-json` por
  * requisicao e grava o registro v1 avaliado. `--simulado` marca o registro como sintetico (agente de
  * teste). Sem auditoria de arestas o veredito para em `inconclusive`: a auditoria e da rodada paga.
+ * Antes da primeira sessao, o harness confere que o repositorio esta na revisao do protocolo com o
+ * indice do tratamento; em cada sessao, que o modelo informado no `init` e o dos controles. As
+ * transcricoes ficam fora do repositorio das sessoes (senao a seguinte leria a anterior), com modo
+ * 0600, e o registro as cita por caminho relativo a pasta dele.
  */
 'use strict';
 
@@ -120,7 +124,7 @@ function bracoCru(clone, p, repeticoes) {
   let medida = null;
   for (let i = 0; i < repeticoes; i++) {
     const inicio = agora();
-    const r = spawnSync('git', ['-c', 'core.fsmonitor=false', ...args], { cwd: clone, maxBuffer: 256 * 1024 * 1024 });
+    const r = spawnSync('git', ['-c', 'core.fsmonitor=false', '-c', 'core.quotePath=false', ...args], { cwd: clone, maxBuffer: 256 * 1024 * 1024 });
     if (r.status !== 0 && r.status !== 1) throw new Error('git grep falhou');
     const grep = r.stdout.toString('utf8'), linhas = grep.split('\n').filter(Boolean);
     const arquivos = [...new Set(linhas.map((l) => l.slice(0, l.indexOf(':'))))].sort();
@@ -249,7 +253,8 @@ function montarProtocolo(base, opcoes = {}, refDaLinhaDeBase = null) {
     const ordens = embaralhar(Array.from({ length: repeticoes }, (_, i) => (i % 2 === 0 ? 'AB' : 'BA')), `${SEMENTE_DA_ORDEM}:${t.task_id}`);
     ordens.forEach((order, i) => pairs.push({ pair_id: `${t.task_id}-r${i + 1}`, task_id: t.task_id, repetition: i + 1, order }));
   }
-  const evidencia = refDaLinhaDeBase ?? { ref: 'core/test/fixtures/kg4-linha-de-base.json', sha256: sha256(JSON.stringify(base)) };
+  // Sem a referencia do CLI, o hash e o do arquivo que o `--saida` grava (JSON indentado e quebra final).
+  const evidencia = refDaLinhaDeBase ?? { ref: 'core/test/fixtures/kg4-linha-de-base.json', sha256: sha256(`${JSON.stringify(base, null, 2)}\n`) };
   const indisponivel = (motivo, unit = 'tokens') => ({ value: null, unit, source: 'unavailable', method: 'nenhum', method_version: '0', evidence_ref: null, unavailable_reason: motivo });
   return {
     schema: 'ork.graph-benchmark/v1', experiment_id: EXPERIMENTO, data_class: 'measured', status: 'not-run',
@@ -287,7 +292,7 @@ function montarProtocolo(base, opcoes = {}, refDaLinhaDeBase = null) {
 /** A telemetria `stream-json`: uma requisicao por mensagem do assistente, a sessao e o texto final. */
 function lerTelemetria(texto) {
   const mensagens = new Map(), ferramentas = new Set();
-  let sessao = null, resultado = null, erro = false;
+  let sessao = null, resultado = null, erro = false, modelo = null;
   for (const linha of texto.split('\n')) {
     if (!linha.trim()) continue;
     let e;
@@ -296,7 +301,10 @@ function lerTelemetria(texto) {
     } catch {
       continue;
     }
-    if (e.type === 'system' && e.subtype === 'init' && typeof e.session_id === 'string') sessao = e.session_id;
+    if (e.type === 'system' && e.subtype === 'init') {
+      if (typeof e.session_id === 'string') sessao = e.session_id;
+      if (typeof e.model === 'string') modelo = e.model;
+    }
     if (e.type === 'assistant' && e.message && typeof e.message.id === 'string' && e.message.usage) {
       mensagens.set(e.message.id, e.message.usage);
       for (const c of e.message.content ?? []) if (c && c.type === 'tool_use' && c.id) ferramentas.add(c.id);
@@ -311,7 +319,39 @@ function lerTelemetria(texto) {
     const cache = inteiro(u.cache_read_input_tokens);
     return { id, entrada: inteiro(u.input_tokens) + inteiro(u.cache_creation_input_tokens) + cache, saida: inteiro(u.output_tokens), cache };
   });
-  return { sessao, resultado, erro, requisicoes, ferramentas: ferramentas.size };
+  return { sessao, modelo, resultado, erro, requisicoes, ferramentas: ferramentas.size };
+}
+
+/** O filho esta dentro do pai (ou e ele)? */
+const dentroDe = (pai, filho) => {
+  const r = path.relative(path.resolve(pai), path.resolve(filho));
+  return r === '' || (!r.startsWith('..') && !path.isAbsolute(r));
+};
+
+/**
+ * CHECK (A3): antes da primeira sessao paga, o repositorio das sessoes esta na revisao do protocolo e
+ * o indice do HEAD dele e o do tratamento (mesmo snapshot). Sem isso o par nao compara o que o
+ * protocolo fixou.
+ */
+function conferirRepositorio(repositorio, protocolo) {
+  let head;
+  try {
+    head = git(repositorio, 'rev-parse', 'HEAD').toString('utf8').trim();
+  } catch {
+    throw new Error('harness.repositorio: --repositorio nao e um clone Git legivel');
+  }
+  if (head !== protocolo.corpus.corpus_version) throw new Error(`harness.repositorio: HEAD ${head.slice(0, 12)}, o protocolo mede ${protocolo.corpus.corpus_version.slice(0, 12)}`);
+  const r = spawnSync(process.execPath, [ORK, 'grafo', 'status', '--json'], { cwd: repositorio, maxBuffer: 64 * 1024 * 1024, timeout: 120000 });
+  let status = null;
+  try {
+    status = JSON.parse(r.stdout.toString('utf8'));
+  } catch {
+    status = null;
+  }
+  const doHead = status && Array.isArray(status.indices) ? status.indices.find((i) => i.chave === status.chave_do_head) : null;
+  if (!doHead || doHead.problema || doHead.snapshot_id !== protocolo.treatment.snapshot_id) {
+    throw new Error('harness.repositorio: o indice do HEAD falta ou nao e o do tratamento; rode ork grafo indexar no clone');
+  }
 }
 
 /** Uma sessao isolada do agente, num braco de um par, com a telemetria e a transcricao. */
@@ -324,8 +364,12 @@ function rodarSessao(opcoes, protocolo, tarefa, par, braco, tentativa, tarefaDaB
   const latencia = arredondar(msDesde(t0)), fim = new Date();
   const texto = (r.stdout ?? Buffer.alloc(0)).toString('utf8'), tel = lerTelemetria(texto);
   const transcricao = path.join(opcoes.transcricoes, `${runId}.jsonl`);
-  fs.writeFileSync(transcricao, texto);
-  const ref = { ref: path.relative(RAIZ, transcricao).startsWith('..') ? transcricao : path.relative(RAIZ, transcricao), sha256: sha256(texto) };
+  fs.writeFileSync(transcricao, texto, { mode: 0o600 });
+  if (tel.modelo !== null && tel.modelo !== protocolo.controls.model) {
+    throw new Error(`harness.controle: a sessao ${runId} rodou o modelo ${tel.modelo}; o protocolo fixa ${protocolo.controls.model}`);
+  }
+  // CHECK (A2): a referencia e relativa a pasta do registro, sem caminho de maquina.
+  const ref = { ref: path.relative(opcoes.raizDasReferencias ?? path.dirname(opcoes.transcricoes), transcricao).split(path.sep).join('/'), sha256: sha256(texto) };
   const outcome = r.error && r.error.code === 'ETIMEDOUT' ? 'timeout' : r.status !== 0 || tel.erro || tel.resultado === null ? 'error' : 'completed';
   const requests = tel.requisicoes.filter((q) => q.entrada >= 1).map((q) => ({
     request_id: `${runId}:${q.id}`.slice(0, 128), input_total_tokens: q.entrada, output_total_tokens: q.saida, cached_input_tokens: q.cache, reasoning_tokens: 0,
@@ -363,9 +407,12 @@ function executar(opcoes, log = () => undefined) {
   const { validarBenchmark, avaliarBenchmark, DESFECHOS_COM_RETRY } = require(path.join(DIST, 'intelligence-benchmark-contract.js'));
   const registro = JSON.parse(JSON.stringify(opcoes.registro));
   if (registro.status !== 'not-run' || registro.runs.length) throw new Error('harness: o protocolo precisa estar fixado e sem execucao');
+  if (dentroDe(opcoes.repositorio, opcoes.transcricoes)) {
+    throw new Error('harness.transcricoes: a pasta das transcricoes fica dentro do repositorio das sessoes, e a sessao seguinte leria a anterior');
+  }
   const p = registro.protocol, tarefas = new Map(p.tasks.map((t) => [t.task_id, t]));
   const daBase = new Map(PERGUNTAS.map((q) => [q.id, q]));
-  fs.mkdirSync(opcoes.transcricoes, { recursive: true });
+  fs.mkdirSync(opcoes.transcricoes, { recursive: true, mode: 0o700 });
   for (const par of p.pairs) {
     const t = tarefas.get(par.task_id);
     for (const braco of par.order.split('')) {
@@ -403,9 +450,11 @@ function principal() {
     if (!a.protocolo || !a.repositorio || !a.agente || !a.saida) throw new Error('--executar pede --protocolo, --repositorio, --agente e --saida');
     const agente = JSON.parse(a.agente);
     if (!Array.isArray(agente) || !agente.length || agente.some((x) => typeof x !== 'string')) throw new Error('--agente e um array JSON de textos');
+    const protocolo = ler(a.protocolo);
+    conferirRepositorio(path.resolve(a.repositorio), protocolo.protocol);
     const { registro, veredito } = executar({
-      pago: true, simulado: !!a.simulado, registro: ler(a.protocolo), repositorio: path.resolve(a.repositorio), agente,
-      transcricoes: path.resolve(a.transcricoes ?? path.join(path.dirname(a.saida), 'transcricoes')),
+      pago: true, simulado: !!a.simulado, registro: protocolo, repositorio: path.resolve(a.repositorio), agente,
+      transcricoes: path.resolve(a.transcricoes ?? path.join(path.dirname(a.saida), 'transcricoes')), raizDasReferencias: path.dirname(path.resolve(a.saida)),
     }, console.log);
     fs.writeFileSync(a.saida, `${JSON.stringify(registro, null, 2)}\n`);
     console.log(`veredito ${veredito.resultado} (${veredito.motivos.join(', ')}); publicavel ${veredito.publicavel}; registro em ${a.saida}`);
@@ -443,5 +492,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  SCHEMA, FATOS, CONCLUSAO, LIMITES, PENDENTE, TOKENS, validar, montarProtocolo, lerTelemetria, executar, promptDe, textoDaPergunta,
+  SCHEMA, FATOS, CONCLUSAO, LIMITES, PENDENTE, TOKENS, validar, montarProtocolo, lerTelemetria, executar, conferirRepositorio, promptDe, textoDaPergunta,
 };

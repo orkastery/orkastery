@@ -35,10 +35,10 @@ Sem base, a extração é completa e a saída diz por quê:
 | --- | --- |
 | `nenhum indice guardado` ou `nenhum indice de revisao ancestral com este extrator` | não há índice compatível |
 | `o extrator mudou desde o indice de <revisão> (<campos>)` | há índice ancestral de outro perfil; os campos dizem o que mudou (analisadores, pacotes, código) |
-| `... o de <revisão> esta fora da linha do HEAD (historico reescrito ou outro ramo)` | há índice do mesmo perfil, mas a revisão dele não é ancestral do HEAD |
+| `... o de <revisão> nao esta entre elas (historico reescrito, outro ramo ou revisao mais antiga)` | há índice do mesmo perfil, mas a revisão dele não está entre as 512 ancestrais do HEAD |
 | `so ha indice de formato anterior (ork.code-graph-index/v0)` | só há índices do KG3, sem unidades |
 | `base ilegivel (<revisão>: <erro>)` | a base não passa na leitura; a próxima base é tentada antes |
-| `o incremental falhou e a extracao foi completa (<erro>)` | o incremental lançou erro: a completa decide, e o índice nunca deixa de sair por causa do incremental |
+| `o incremental a partir de <revisão> falhou e a extracao foi completa (<erro>)` | o incremental lançou erro: a completa decide, e o índice nunca deixa de sair por causa do incremental |
 | `pedido com --forcar` | `--forcar` extrai sempre completo |
 
 A mudança é o conjunto de caminhos cujo hash difere do manifesto da base, mais os novos e os
@@ -75,15 +75,22 @@ módulo dele alcançam e o escopo global (com os aumentos de módulo). O plano s
    caminho novo ou removido. A sonda é a base de cada resolução relativa (inclusive o tipo importado
    no JSDoc e o `/// <reference path>`): o caminho casa a base exata, a base seguida de `.` ou `/`,
    o mesmo sem a extensão (o TypeScript troca `.js` por `.ts`) e os alvos de `main`, `types` e
-   `typings` do `package.json` da pasta. Conteúdo mudado só importa pela dependência.
+   `typings` do `package.json` da pasta, também com a barra invertida trocada. `package.json` com
+   `typesVersions`, ou que não é JSON estrito (o TypeScript aceita comentário e vírgula final), faz a
+   sonda casar todo caminho novo ou removido. Conteúdo mudado só importa pela dependência.
 2. **Afetados:** as sementes e quem alcança, pelas dependências gravadas na base (os alvos de
    compilador, de runtime e de implementação de cada referência de módulo), uma semente ou um
    caminho mudado.
-3. **Programa parcial:** os afetados, o fecho direto deles e os arquivos globais. Alvo de semente que
-   ainda não está no programa entra, e a extração recomeça até fechar. Só os afetados têm os achados
-   extraídos; o resto vem da base.
-4. **TypeScript inteiro**, com o motivo: `package.json` na mudança, arquivo global na mudança, ou
-   afetado que passa a declarar global.
+3. **Programa parcial:** os afetados, o fecho direto (transitivo) deles e os arquivos globais. Alvo
+   de semente que ainda não está no programa entra, e a extração recomeça até fechar. Só os afetados
+   têm os achados extraídos; o resto vem da base.
+4. **TypeScript inteiro**, com o motivo na saída: `package.json na mudanca (<caminho>)`;
+   `arquivo global do TypeScript na mudanca (<caminho>)`; `dependencia de arquivo global na mudanca
+   (<caminho>)`, quando a mudança alcança um arquivo global pelas dependências dele (quem usa o
+   global não importa o arquivo dele, e o global depende do que esse arquivo importa: herança, tipo
+   importado, `export *` atrás de UMD, aumento que estende tipo de outro módulo);
+   `arquivo passa a declarar global no TypeScript (<caminho>)`; `global da base fora do escopo
+   global (<caminho>)`; e `base sem a unidade TypeScript de <caminho>`.
 
 Global é o arquivo com símbolo no escopo global, visto de um módulo vazio sintético fora da raiz
 virtual (sem local que esconda global de mesmo nome), ou com aumento de módulo. Neste repositório,
@@ -117,11 +124,16 @@ reextraídos e o tamanho do programa, e o Markdown reextraído) e, no `--verific
 - **Testes sintéticos** (`KG4 equivalencia`): renome de módulo e do alvo de link, remoção de módulo
   reexportado, arquivo novo que resolve import solto e dá destino a ID citado em Markdown que não
   mudou, mudança no alvo importado com símbolo de frontmatter, `export *` que fica ambíguo, `.d.ts`
-  que ganha implementação e contamina a cadeia, tipo importado no JSDoc e título renomeado. Em cada
-  um, depois do incremental, `--forcar` extrai completo e só dá `reconstruido-identico` com os
-  quatro arquivos iguais; e só os afetados são reextraídos.
+  que ganha implementação e contamina a cadeia, tipo importado no JSDoc, `main` do `package.json` da
+  pasta que aponta para fora dela, `package.json` com vírgula final e título renomeado. Em cada um,
+  depois do incremental, `--forcar` extrai completo e só dá `reconstruido-identico` com os quatro
+  arquivos iguais; e só os afetados são reextraídos.
 - **Quedas** (`KG4 queda`): sem base, extrator mudado, histórico reescrito, base ilegível,
-  `package.json` e global na mudança, arquivo que passa a declarar global.
+  `package.json` e global na mudança, mudança no que um arquivo global importa (classe em
+  `declare global`, tipo importado num script, aumento de módulo, UMD) e arquivo que passa a declarar
+  global.
+- **Mutação:** sem as sondas do `package.json` ou sem a queda pela dependência do global, os testes
+  desses casos caem com `substituido` (o incremental divergiria da completa).
 - **Pares reais** deste repositório, por `core/scripts/medir-incremental-grafo.cjs`, num clone no
   tmp: os seis pares abaixo deram os mesmos bytes, e a extração completa de 2418a4e7 com o código do
   KG4 dá o digest `9fe38ec2...` que o código do KG3 dava.
@@ -130,28 +142,31 @@ reextraídos e o tamanho do programa, e o Markdown reextraído) e, no `--verific
 ## Medida do ganho
 
 Registro em [`core/test/fixtures/kg4-medida-incremental.json`](../../../core/test/fixtures/kg4-medida-incremental.json)
-(`ork.graph-incremental-cost/v0`), Node v22.23.2, 8 núcleos, carga de 5,5 no início e 1,9 no fim. O
-tempo é o do `construirIndice` de ponta a ponta no mesmo processo; o "completo do KG3" é o `dist` de
-2418a4e7 compilado à parte, no mesmo par.
+(`ork.graph-incremental-cost/v0`), medido com o código final da thread, Node v22.23.2, 8 núcleos,
+carga de 0,8 no início e 2,0 no fim (a VPS tem CPU roubada pelo provedor: uma rodada anterior, com o
+código antes da revisão, deu medianas de 6.512,5, 9.540 e 13.188 ms). O tempo é o do
+`construirIndice` de ponta a ponta no mesmo processo; o "completo do KG3" é o `dist` de 2418a4e7
+compilado à parte, no mesmo par.
 
 | Par | Mudança (alterados/novos/removidos) | TypeScript | Incremental | Completo (KG4) | Completo (KG3) |
 | --- | --- | --- | --- | --- | --- |
-| mudança típica de TS (`c68df3cd..d4910625`) | 3/0/0 | parcial, 14 reextraídos num programa de 194 | 6.397 ms | 9.263 ms | 13.625 ms |
-| só docs (`a300d6d9..66faa145`) | 1/0/0 | todo da base | 5.712 ms | 9.804 ms | 13.247 ms |
-| só dados (`61631dd7..a1044c9b`) | 1/0/0 | todo da base | 6.628 ms | 10.397 ms | 12.750 ms |
-| arquivo central (`5c3e7883..a8feb636`) | 2/0/0 | parcial, 413 reextraídos num programa de 464 | 8.220 ms | 9.276 ms | 13.129 ms |
-| renome (`985d6179..35eea27f`) | 5/1/1 | parcial, 2 reextraídos num programa de 4 | 5.066 ms | 9.265 ms | 11.998 ms |
-| remoção e arquivo novo (`5675a832..772762d6`) | 6/1/1 | parcial, 13 reextraídos num programa de 194 | 8.183 ms | 9.846 ms | 14.443 ms |
+| mudança típica de TS (`c68df3cd..d4910625`) | 3/0/0 | parcial, 14 reextraídos num programa de 194 | 8.106 ms | 10.801 ms | 11.961 ms |
+| só docs (`a300d6d9..66faa145`) | 1/0/0 | todo da base | 5.176 ms | 11.173 ms | 12.181 ms |
+| só dados (`61631dd7..a1044c9b`) | 1/0/0 | todo da base | 5.256 ms | 9.724 ms | 11.626 ms |
+| arquivo central (`5c3e7883..a8feb636`) | 2/0/0 | parcial, 413 reextraídos num programa de 464 | 8.040 ms | 9.016 ms | 13.137 ms |
+| renome (`985d6179..35eea27f`) | 5/1/1 | parcial, 2 reextraídos num programa de 4 | 4.960 ms | 9.148 ms | 12.615 ms |
+| remoção e arquivo novo (`5675a832..772762d6`) | 6/1/1 | parcial, 13 reextraídos num programa de 194 | 7.150 ms | 9.216 ms | 12.773 ms |
 
-Medianas dos seis pares: incremental 6.512,5 ms, completo do KG4 9.540 ms, completo do KG3 13.188 ms.
+Medianas dos seis pares: incremental 6.203 ms, completo do KG4 9.470 ms, completo do KG3 12.398 ms.
 Como ler, sem concluir além do medido:
 
-- Parte do ganho sobre o KG3 vem do piso mais barato, que vale também para a completa: o `canonico`
-  guarda a ordem das chaves por forma de objeto e a construção não valida duas vezes o mesmo grafo
-  (D6), com o mesmo digest.
+- A completa do KG4 já é mais rápida que a do KG3 no mesmo par, com o mesmo digest: o que muda entre
+  as duas é o piso (D6: o `canonico` guarda a ordem das chaves por forma de objeto e a construção não
+  valida duas vezes o mesmo grafo) e a gravação das unidades. A ordem das três medidas é fixa
+  (incremental, completa do KG4, completa do KG3), uma vez por par.
 - O incremental tira a extração do que não mudou, mas não o piso: com o v1, cada revisão deriva e
   valida os IDs do grafo inteiro, confere todas as evidências contra os bytes e lê e grava os quatro
-  arquivos. O par só de docs, sem nada do TypeScript a reextrair, levou 5.712 ms.
+  arquivos. O par só de docs, sem nada do TypeScript a reextrair, levou 5.176 ms.
 - Mudança num arquivo importado por quase todo o núcleo reextrai quase todo o TypeScript, e o
   incremental fica perto da completa.
 
@@ -194,17 +209,21 @@ node core/scripts/linha-de-base-grafo.cjs --protocolo core/test/fixtures/kg4-pro
   --linha-de-base core/test/fixtures/kg4-linha-de-base.json --modelo <modelo> --esforco <esforco>
 ```
 
-**Harness da rodada paga.** Só roda com `--pago`. Abre uma sessão isolada por braço de cada par, na
-ordem do protocolo, num clone preparado na revisão medida (com o índice do HEAD), lê a telemetria
-`stream-json` por requisição (entrada, saída e cache; raciocínio `unavailable`, porque o runtime não
-o separa), conta as chamadas de ferramenta pedidas, mede a latência pelo relógio monotônico, confere
-os fatos no texto final e refaz a tentativa pela política do protocolo. Guarde as transcrições dentro
-do repositório, para as referências ficarem relativas:
+**Harness da rodada paga.** Só roda com `--pago`. Antes da primeira sessão, confere que o clone das
+sessões está na revisão do protocolo e que o índice do HEAD dele é o do tratamento (mesmo snapshot).
+Abre uma sessão isolada por braço de cada par, na ordem do protocolo, lê a telemetria `stream-json`
+por requisição (entrada, saída e cache; raciocínio `unavailable`, porque o runtime não o separa),
+recusa a sessão cujo `init` informa outro modelo que o dos controles, conta as chamadas de
+ferramenta pedidas, mede a latência pelo relógio monotônico, confere os fatos no texto final e refaz
+a tentativa pela política do protocolo. As transcrições ficam fora do clone das sessões (senão a
+sessão seguinte leria a anterior), com modo 0600, e o registro as cita por caminho relativo à pasta
+dele. O comando do agente fixa o modelo e as ferramentas do protocolo:
 
 ```sh
 node core/scripts/linha-de-base-grafo.cjs --executar --pago --protocolo core/test/fixtures/kg4-protocolo-ab.json \
-  --repositorio <clone preparado> --agente '["claude","-p","--output-format","stream-json","--verbose"]' \
-  --saida <registro.json> --transcricoes <pasta no repositorio>
+  --repositorio <clone na revisao medida, com ork grafo indexar> \
+  --agente '["claude","-p","--output-format","stream-json","--verbose","--model","<modelo>","--allowedTools","Bash,Read,Grep,Glob"]' \
+  --saida <pasta do registro>/registro.json
 ```
 
 Sem a auditoria integral de arestas do braço B, o veredito para em `inconclusive`: a auditoria e a

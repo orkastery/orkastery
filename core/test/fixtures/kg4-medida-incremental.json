@@ -12,14 +12,14 @@
     "plataforma": "linux-x64",
     "nucleos": 8,
     "carga_inicio": [
-      5.45,
-      4.76,
-      3.91
+      0.77,
+      0.93,
+      2.05
     ],
     "carga_fim": [
-      1.9,
-      3.26,
-      3.5
+      1.96,
+      1.45,
+      2
     ],
     "completo_antes": "dist do KG3 (2418a4e7) compilado a parte, no mesmo processo"
   },
@@ -53,9 +53,9 @@
         "reaproveitados": 258
       },
       "ms": {
-        "incremental": 6397,
-        "completo": 9263,
-        "completo_antes": 13625
+        "incremental": 8106,
+        "completo": 10801,
+        "completo_antes": 11961
       }
     },
     {
@@ -82,9 +82,9 @@
         "reaproveitados": 268
       },
       "ms": {
-        "incremental": 5712,
-        "completo": 9804,
-        "completo_antes": 13247
+        "incremental": 5176,
+        "completo": 11173,
+        "completo_antes": 12181
       }
     },
     {
@@ -111,9 +111,9 @@
         "reaproveitados": 269
       },
       "ms": {
-        "incremental": 6628,
-        "completo": 10397,
-        "completo_antes": 12750
+        "incremental": 5256,
+        "completo": 9724,
+        "completo_antes": 11626
       }
     },
     {
@@ -140,9 +140,9 @@
         "reaproveitados": 268
       },
       "ms": {
-        "incremental": 8220,
-        "completo": 9276,
-        "completo_antes": 13129
+        "incremental": 8040,
+        "completo": 9016,
+        "completo_antes": 13137
       }
     },
     {
@@ -169,9 +169,9 @@
         "reaproveitados": 263
       },
       "ms": {
-        "incremental": 5066,
-        "completo": 9265,
-        "completo_antes": 11998
+        "incremental": 4960,
+        "completo": 9148,
+        "completo_antes": 12615
       }
     },
     {
@@ -198,9 +198,9 @@
         "reaproveitados": 257
       },
       "ms": {
-        "incremental": 8183,
-        "completo": 9846,
-        "completo_antes": 14443
+        "incremental": 7150,
+        "completo": 9216,
+        "completo_antes": 12773
       }
     }
   ]

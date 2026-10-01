@@ -451,7 +451,7 @@ export function escolherBase(ctx: ContextoDoIndice, perfil: PerfilDoIndice, head
   if (erros.length) return { base: null, motivo: `base ilegivel (${erros.join('; ')})` };
   const motivos: string[] = [];
   if (foraDaLinha) {
-    motivos.push(`nenhum indice de revisao ancestral nas ultimas ${LIMITE_DE_ANCESTRAIS}; o de ${curta(foraDaLinha)} esta fora da linha do HEAD (historico reescrito ou outro ramo)`);
+    motivos.push(`nenhum indice de revisao ancestral nas ultimas ${LIMITE_DE_ANCESTRAIS}; o de ${curta(foraDaLinha)} nao esta entre elas (historico reescrito, outro ramo ou revisao mais antiga)`);
   }
   if (outroExtrator) motivos.push(`o extrator mudou desde o indice de ${curta(outroExtrator.revision)} (${outroExtrator.campos.join(', ')})`);
   if (!motivos.length && anterior) motivos.push(`so ha indice de formato anterior (${INDICE_SCHEMA_ANTERIOR})`);
@@ -515,7 +515,7 @@ export function construirIndice(ctx: ContextoDoIndice, opcoes: OpcoesDaConstruca
       modo = 'incremental';
     } catch (e) {
       // O incremental nunca impede o indice: a completa decide, e o motivo fica dito.
-      motivoCompleto = `o incremental falhou e a extracao foi completa (${(e as Error).message})`;
+      motivoCompleto = `o incremental a partir de ${curta(base.revision)} falhou e a extracao foi completa (${(e as Error).message})`;
       r = null;
     }
   }
