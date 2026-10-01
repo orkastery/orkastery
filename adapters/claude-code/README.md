@@ -50,6 +50,15 @@ exige Linux, Python 3/pexpect e OAuth de assinatura em `ANTHROPIC_TOKEN` no arqu
 permanece fora da fixture. As sessões e os ledgers temporários são descartados;
 guarde a saída JSON como recibo antes de declarar a prova concluída.
 
+**Prova de ativação do Maestro (RM-032).** `node core/scripts/prova-ativacao.cjs claude-code`
+instala o plugin e o `.mcp.json` desta cópia num projeto descartável e abre uma sessão nova
+`claude -p "orkastery maestro"` com `--plugin-dir`, `--mcp-config --strict-mcp-config`,
+`--setting-sources project` e `--no-session-persistence`. Usa o login nativo do CLI, sem copiar
+credencial e sem gravar no registro global de plugins. Aprova só quando o modelo chama
+`mcp__orkastery__ork_maestro` (o `ork maestro` pelo Bash é desvio) e o snapshot é do projeto
+descartável; o recibo traz o sha256 dos arquivos globais antes e depois. Modelo padrão: `sonnet`
+(`--modelo` troca). Detalhes no [contrato do snapshot](../../docs/referencia/contratos/maestro-i32.md).
+
 ## O que voce ganha
 
 | Voce digita | Voce recebe |

@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Prova de ativação do Maestro por host** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  `node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` instala o adaptador numa cópia
+  descartável, abre uma sessão nova e não interativa no host (`claude -p` com `--plugin-dir`;
+  `openclaw agent --local` com estado temporário) e diz `orkastery maestro`. A conferência
+  (`core/src/prova-ativacao.ts`) exige a entrada do host chamada (`ork maestro` pelo shell é
+  desvio), o resultado no contrato (`ork.maestro-snapshot/v1` ou `ork.network-roadmap/v1`), o
+  projeto da cópia, o que não foi lido e uma resposta sem "roadmap vazio". O recibo
+  `ork.prova-ativacao/v1` traz comandos, horários, versão do host e o sha256 da configuração global
+  do host antes e depois, é redigido campo a campo antes de ser gravado e lista o que só o dono
+  pode fazer. O roteiro fica no repositório, fora do pacote.
+
 - **Grafo de código: índice incremental e linha de base do protocolo** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG4):
   sem o índice do HEAD, `ork grafo indexar` parte do índice da revisão ancestral com o mesmo
   extrator e reextrai só o que a mudança alcança, gravando os mesmos bytes da extração completa;
