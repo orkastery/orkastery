@@ -379,7 +379,7 @@
         "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-ensaioprimei.json','utf8'));const ok=b.schema==='ork.ci-bundle/v1'&&b.thread==='ork-ensaioprimei'&&b.branch==='ork/ork-ensaioprimei-full'&&b.base==='main'&&b.claims.length>=26&&b.claims.every(c=>c.thread==='ork-ensaioprimei')&&b.commands.some(c=>c.command==='npm --prefix core run test:ci');if(!ok){console.error('bundle fora do contrato');process.exit(1)}\""
       ],
       "criadoEm": "2026-10-01T22:54:16.842Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
