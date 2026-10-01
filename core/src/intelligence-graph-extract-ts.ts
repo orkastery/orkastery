@@ -27,6 +27,53 @@ export interface EntradaTs {
   /** D16: se o V8 do Node aceita cada texto como CommonJS (`cjs`) ou como ESM (`esm`), na mesma ordem, em lote. */
   sintaxe: (pedidos: readonly { texto: string; formato: 'cjs' | 'esm' }[]) => readonly boolean[];
   extrator: string;
+  /**
+   * RM-031 KG4 (D3): so estes arquivos tem os achados extraidos; as outras fontes so dao contexto ao
+   * programa parcial (fecho direto e globais). Ausente, todas as fontes.
+   */
+  emitir?: ReadonlySet<string>;
+}
+
+/** RM-031 KG4 (D3): o que o incremental guarda de cada arquivo TS/JS extraido. */
+export interface UnidadeTs {
+  /** Caminhos do manifesto a que as referencias de modulo do arquivo resolvem: compilador, runtime e implementacao. */
+  dependencias: string[];
+  /** Bases das resolucoes relativas; caminho novo ou removido que casa uma delas (`casaSonda`) pode mudar a resolucao. */
+  sondas: string[];
+  achados: Achados;
+}
+
+export interface ResultadoTs {
+  /** Uma por arquivo extraido (todas as fontes, ou as de `emitir`), em ordem de caminho. */
+  unidades: Map<string, UnidadeTs>;
+  /** Arquivos do programa com declaracao no escopo global ou aumento de modulo, ordenados. */
+  globais: string[];
+  /** Alvos TS/JS das fontes que nao estao entre elas: o programa parcial precisa crescer antes de extrair. */
+  faltantes: string[];
+}
+
+/** Extensoes que o extrator TS le; as do `extensaoDe` do KG2. */
+const EXTENSOES_DO_PROGRAMA = ['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'];
+const DECLARACOES_TS = ['.d.ts', '.d.mts', '.d.cts'];
+
+/** A base sem a extensao (o TypeScript troca `.js` por `.ts`, e `.d.ts` conta inteira). */
+function semExtensao(base: string): string {
+  const nome = base.slice(base.lastIndexOf('/') + 1);
+  for (const d of DECLARACOES_TS) if (nome.endsWith(d) && nome.length > d.length) return base.slice(0, -d.length);
+  const i = nome.lastIndexOf('.');
+  return i <= 0 ? base : base.slice(0, base.length - (nome.length - i));
+}
+
+/**
+ * RM-031 KG4 (D3): o caminho `p`, novo ou removido, pode mudar uma resolucao de base `base`? O
+ * TypeScript e o Node so tentam a base exata, a base com extensao, a base como pasta (`index`,
+ * `package.json`) e o mesmo sem a extensao; base vazia (a raiz) casa tudo.
+ */
+export function casaSonda(base: string, p: string): boolean {
+  if (base === '') return true;
+  if (p === base || p.startsWith(`${base}.`) || p.startsWith(`${base}/`)) return true;
+  const sem = semExtensao(base);
+  return sem !== base && (p === sem || p.startsWith(`${sem}.`) || p.startsWith(`${sem}/`));
 }
 
 /** D2: opcoes fixas do compilador, descritas por nome para entrar no `config_hash`. */
@@ -92,7 +139,13 @@ function caminhoLiteral(de: string, especificador: string): string | null {
   return r.join('/');
 }
 
-function criarHost(ts: typeof TS, e: EntradaTs): TS.CompilerHost {
+/**
+ * RM-031 KG4 (D3): modulo vazio fora da raiz virtual (nenhum caminho do manifesto o nomeia, e nada o
+ * resolve), so para ler o escopo global do checker sem local que esconda global de mesmo nome.
+ */
+const TEXTO_DO_SINTETICO = 'export {};\n';
+
+function criarHost(ts: typeof TS, e: EntradaTs, sintetico: string): TS.CompilerHost {
   const arquivos = new Set(e.arquivos), dirs = new Set<string>([e.raiz]);
   for (const p of e.arquivos) {
     const partes = p.split('/');
@@ -106,6 +159,7 @@ function criarHost(ts: typeof TS, e: EntradaTs): TS.CompilerHost {
   };
   return {
     getSourceFile: (nome, alvo) => {
+      if (nome === sintetico) return ts.createSourceFile(nome, TEXTO_DO_SINTETICO, alvo, true);
       const p = dentro(nome), t = p === null ? undefined : e.texto(p);
       return t === undefined ? undefined : ts.createSourceFile(nome, t, alvo, true);
     },
@@ -132,13 +186,14 @@ function criarHost(ts: typeof TS, e: EntradaTs): TS.CompilerHost {
   };
 }
 
-export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
-  const saida: Achados = { nos: [], arestas: [], diagnosticos: [], lacunas: [] };
-  if (e.fontes.length === 0) return saida;
+export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
+  const resultado: ResultadoTs = { unidades: new Map(), globais: [], faltantes: [] };
+  if (e.fontes.length === 0) return resultado;
   const absoluto = (p: string): string => `${e.raiz}/${p}`;
   const relativo = (p: string): string | null => (p.startsWith(`${e.raiz}/`) ? p.slice(e.raiz.length + 1) : null);
-  const host = criarHost(ts, e), opts = opcoes(ts);
-  const programa = ts.createProgram(e.fontes.map((f) => absoluto(f.path)), opts, host);
+  const sintetico = `${e.raiz}-escopo-global.ts`;
+  const host = criarHost(ts, e, sintetico), opts = opcoes(ts);
+  const programa = ts.createProgram([...e.fontes.map((f) => absoluto(f.path)), sintetico], opts, host);
   const checker = programa.getTypeChecker();
   const cache = ts.createModuleResolutionCache(e.raiz, (p) => p, opts);
   const arquivos = new Set(e.arquivos);
@@ -467,36 +522,72 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
    * lanca erro). Especificador nao relativo vai a node_modules e fica sem alvo. Em ESM o especificador e
    * URL: so liga o que a URL le como o caminho literal (`urlComoCaminho`).
    */
-  function alvoNoNode(de: string, chave: string): string | null {
+  /** KG4 (D3): `bruto` e o caminho que a resolucao do Node achou, antes de conferir se ele carrega. */
+  function alvoNoNode(de: string, chave: string): { alvo: string | null; bruto: string | null } {
     const esp = especificadorDaChave(chave), formato = formatoDe(de);
     const relativoAoArquivo = esp === '.' || esp === '..' || esp.startsWith('./') || esp.startsWith('../');
-    if (!relativoAoArquivo || formato === 'falha') return null;
+    if (!relativoAoArquivo || formato === 'falha') return { alvo: null, bruto: null };
     let alvo: string | null;
     if (chave[0] === 'd' || (chave[0] === 'v' && formato === 'esm')) alvo = urlComoCaminho(esp) ? resolverNode(de, esp, true) : null;
     else if (chave[0] === 'r' && formato === 'cjs' && !escopoDe(de).invalido) alvo = resolverNode(de, esp, false);
-    else return null;
-    return alvo !== null && carregavel(alvo, chave[0] !== 'r') ? alvo : null;
+    else return { alvo: null, bruto: null };
+    return { alvo: alvo !== null && carregavel(alvo, chave[0] !== 'r') ? alvo : null, bruto: alvo };
   }
+
+  /**
+   * KG4 (D3): os nomes de modulo que o TypeScript coleta do arquivo para o programa (import, export,
+   * require, import(), tipo importado, inclusive no JSDoc de JavaScript). Sem a lista, nao ha como provar
+   * as dependencias e a extracao falha, em vez de reaproveitar sem prova.
+   */
+  const nomesDeModulo = (sf: TS.SourceFile): string[] => {
+    const imports = (sf as unknown as { imports?: readonly TS.StringLiteralLike[] }).imports;
+    if (!Array.isArray(imports)) throw new Error('extracao.interna.typescript-sem-imports');
+    return imports.map((n) => n.text);
+  };
+  /** Caminho relativo a raiz por segmentos; `null` se sobe acima da raiz. */
+  const normalizar = (partes: readonly string[]): string | null => {
+    const r: string[] = [];
+    for (const p of partes) {
+      if (p === '' || p === '.') continue;
+      if (p === '..') {
+        if (!r.length) return null;
+        r.pop();
+      } else r.push(p);
+    }
+    return r.join('/');
+  };
+  /** KG4 (D3): base de uma resolucao relativa como o TypeScript a ve (a barra invertida tambem separa); `null` se nao e relativa ou sai da raiz. */
+  const baseDaSonda = (de: string, nome: string): string | null =>
+    (/^\.\.?($|[\\/])/.test(nome) ? normalizar([...de.split('/').slice(0, -1), ...nome.replace(/\\/g, '/').split('/')]) : null);
+  /** `/// <reference path>`: relativo ao arquivo, com ou sem `./`. */
+  const baseDaReferencia = (de: string, nome: string): string | null =>
+    (nome.startsWith('/') || nome.startsWith('\\') ? null : normalizar([...de.split('/').slice(0, -1), ...nome.replace(/\\/g, '/').split('/')]));
 
   // Primeira passada, em todos os arquivos: o alvo de cada especificador para o compilador e para o
   // runtime. Onde divergem, a aresta de import vai ao que roda e nenhum simbolo passa por ali (D3).
   const resolucoes = new Map<string, Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>>();
   const divergentesGlobais = new Set<string>();
+  // KG4 (D3): por fonte, os caminhos a que as referencias de modulo resolvem e as bases das relativas.
+  const dependenciasDe = new Map<string, Set<string>>(), sondasDe = new Map<string, Set<string>>();
   for (const fonte of e.fontes) {
     const sf = programa.getSourceFile(absoluto(fonte.path));
     if (!sf || sf.fileName !== absoluto(fonte.path)) continue;
     const ext = extensao(fonte.path), mapa = new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
+    const dependencias = new Set<string>(), sondas = new Set<string>();
     for (const chave of especificadoresEm(sf)) {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
+      const base = baseDaSonda(fonte.path, esp);
+      if (base !== null) sondas.add(base);
       let alvo = doCompilador, divergente = false;
       // Import so de tipo nao roda: vale o que o compilador liga. Fonte JavaScript roda no Node, e onde
       // o Node falha (formato, escopo, alvo que nao carrega) nao ha aresta.
       if (chave[0] !== 't' && EXTENSOES_JS.includes(ext)) {
         const runtime = alvoNoNode(fonte.path, chave);
-        if (runtime !== doCompilador) {
+        if (runtime.bruto !== null) dependencias.add(runtime.bruto);
+        if (runtime.alvo !== doCompilador) {
           divergente = true;
-          alvo = runtime;
+          alvo = runtime.alvo;
         }
       }
       const impl = chave[0] !== 't' && !divergente && doCompilador !== null ? implementacaoDe(doCompilador) : null;
@@ -504,10 +595,38 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
         divergente = true;
         alvo = impl;
       }
+      for (const x of [doCompilador, alvo]) if (x !== null) dependencias.add(x);
       mapa.set(chave, { alvo, divergente, doCompilador });
       if (divergente) divergentesGlobais.add(`${fonte.path}\u0000${chave}`);
     }
+    // O que o TypeScript coleta e a varredura nao ve (tipo importado no JSDoc) tambem liga o checker a outro arquivo.
+    for (const nome of nomesDeModulo(sf)) {
+      const base = baseDaSonda(fonte.path, nome);
+      if (base !== null) sondas.add(base);
+      const alvo = resolver(nome, fonte.path);
+      if (alvo !== null) dependencias.add(alvo);
+    }
+    for (const r of sf.referencedFiles) {
+      const base = baseDaReferencia(fonte.path, r.fileName);
+      if (base === null) continue;
+      sondas.add(base);
+      for (const x of [base, `${base}.ts`, `${base}.tsx`, `${base}.d.ts`, `${base}.js`, `${base}.jsx`]) if (arquivos.has(x)) dependencias.add(x);
+    }
     resolucoes.set(fonte.path, mapa);
+    dependenciasDe.set(fonte.path, dependencias);
+    sondasDe.set(fonte.path, sondas);
+  }
+
+  // KG4 (D3): no programa parcial, todo alvo TS/JS das fontes precisa ser fonte, para ter formato e
+  // resolucoes; senao o caminho cresce e a extracao recomeca.
+  if (e.emitir) {
+    const noPrograma = new Set(e.fontes.map((f) => f.path)), faltantes = new Set<string>();
+    for (const dependencias of dependenciasDe.values()) {
+      for (const d of dependencias) {
+        if (!noPrograma.has(d) && EXTENSOES_DO_PROGRAMA.includes(extensao(d)) && e.texto(d) !== undefined) faltantes.add(d);
+      }
+    }
+    if (faltantes.size) return { ...resultado, faltantes: [...faltantes].sort() };
   }
 
   // B-N2: modulo que importa, direto ou por outro modulo, um arquivo com import divergente pode reexportar
@@ -561,6 +680,12 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
   }
 
   for (const fonte of e.fontes) {
+    if (e.emitir && !e.emitir.has(fonte.path)) continue;
+    // KG4 (D2): os achados ficam por arquivo, com as dependencias e as sondas, para as unidades do indice.
+    const saida: Achados = { nos: [], arestas: [], diagnosticos: [], lacunas: [] };
+    resultado.unidades.set(fonte.path, {
+      dependencias: [...(dependenciasDe.get(fonte.path) ?? [])].sort(), sondas: [...(sondasDe.get(fonte.path) ?? [])].sort(), achados: saida,
+    });
     const sf = programa.getSourceFile(absoluto(fonte.path));
     // Fonte que o compilador trocou por outra (pacote duplicado) nao e lida: o no seria do outro arquivo.
     if (!sf || sf.fileName !== absoluto(fonte.path)) {
@@ -749,5 +874,22 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): Achados {
     };
     for (const st of sf.statements) visitar(st, null);
   }
-  return saida;
+
+  // KG4 (D3): quem declara no escopo global (visto de um modulo vazio, sem local que o esconda) ou
+  // aumenta modulo alcanca arquivo que nao o importa; mudanca nele reextrai o TypeScript inteiro.
+  const doEscopoGlobal = programa.getSourceFile(sintetico);
+  if (!doEscopoGlobal) throw new Error('extracao.interna.escopo-global');
+  const globais = new Set<string>();
+  for (const simbolo of checker.getSymbolsInScope(doEscopoGlobal, -1 as TS.SymbolFlags)) {
+    for (const d of simbolo.declarations ?? []) {
+      const p = relativo(d.getSourceFile().fileName);
+      if (p !== null) globais.add(p);
+    }
+  }
+  for (const sf of programa.getSourceFiles()) {
+    const aumentos = (sf as unknown as { moduleAugmentations?: readonly unknown[] }).moduleAugmentations, p = relativo(sf.fileName);
+    if (p !== null && aumentos && aumentos.length) globais.add(p);
+  }
+  resultado.globais = [...globais].sort();
+  return resultado;
 }
