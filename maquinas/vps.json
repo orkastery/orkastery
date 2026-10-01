@@ -3,8 +3,8 @@
   "maquina": "vps",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-10-01T04:30:02.589Z",
+  "versaoOrk": "0.5.0",
+  "publicadoEm": "2026-10-01T05:00:02.819Z",
   "threads": [
     {
       "id": "ork-versao050vps",
@@ -18,7 +18,10 @@
       "entregue": "2418a4e7",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "xhigh"
     }
   ]
 }
