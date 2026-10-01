@@ -455,6 +455,10 @@ export interface SessaoRuntime {
   status?: string;
   state?: string;
   startedAt?: number;
+  /** RM-056 (D5): pid do processo da sessao, so enquanto ele vive (claude agents). */
+  pid?: number;
+  /** RM-056 (D3): ultima escrita no rollout do codex, em ms (a sessao codex nao expoe pid). */
+  atividadeEm?: number;
 }
 
 /** Resultado de um check do `ork doctor`. */

@@ -28,7 +28,7 @@
  */
 
 import * as adapter from './adapters/claude-bg';
-import { planejar, threadsDeTodosOsPerfis, perfisDetectados } from './board';
+import { estadosDeSessao, planejar, threadsDeTodosOsPerfis, perfisDetectados } from './board';
 import { DESCRICAO_DO_MOTIVO } from './gates';
 import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -41,7 +41,6 @@ import {
   PAUSA_PREVISTA,
 } from './ocupacao';
 import { faltaPara, lerFilaDeRetomada } from './ratelimit';
-import { estadoBruto } from './hitl';
 import { blocoDaThread, dirThread } from './thread';
 import {
   EventoLedger,
@@ -438,12 +437,8 @@ export function montarMonitor(
     runtimeDetalhe = estados === null ? 'consulta de runtime indisponível' : '';
   } else if (opcoes.semRuntime !== true) {
     if (adapter.disponivel()) {
-      estados = new Map(
-        adapter
-          .listarSessoes()
-          .filter((s) => !!s.sessionId)
-          .map((s) => [s.sessionId, estadoBruto(s)] as const)
-      );
+      // RM-056 (D7): todas as contas, a mesma consulta do escalonador.
+      estados = estadosDeSessao(carregado.raiz, carregado.manifesto.concurrency.stale_after_min);
       runtimeDetalhe = '';
     } else {
       runtimeDetalhe = 'runtime adapter indisponivel nesta maquina (`claude` fora do PATH)';

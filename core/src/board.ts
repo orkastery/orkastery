@@ -16,7 +16,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as adapter from './adapters/claude-bg';
-import { estadoBruto } from './hitl';
+import { estadosNasContas } from './sessoes-contas';
 import {
   esperandoPor,
   expirado,
@@ -110,15 +110,13 @@ export interface OpcoesDoPlano {
   estados?: Map<string, string> | null;
 }
 
-/** Estados de sessao do runtime, ou null quando ele nao pode ser consultado. */
-export function estadosDeSessao(): Map<string, string> | null {
+/**
+ * Estados de sessao do runtime, ou null quando ele nao pode ser consultado. RM-056 (D7): de todas
+ * as contas (a do processo e cada perfil do store), com o fantasma fora da vaga e o codex vivo.
+ */
+export function estadosDeSessao(raiz: string | null = null, staleMin?: number): Map<string, string> | null {
   if (!adapter.disponivel()) return null;
-  return new Map(
-    adapter
-      .listarSessoes()
-      .filter((s) => !!s.sessionId)
-      .map((s) => [s.sessionId, estadoBruto(s)] as const)
-  );
+  return estadosNasContas(raiz, { staleMin });
 }
 
 /** Uma sessao viva de outra thread, que ocupa vaga do projeto. */
@@ -202,7 +200,7 @@ export function planejar(
   const max = Math.max(1, manifesto.concurrency.max_parallel_threads);
   const staleMin = manifesto.concurrency.stale_after_min;
   const quando = opcoes.agora ?? agora();
-  const estados = opcoes.estados === undefined ? estadosDeSessao() : opcoes.estados;
+  const estados = opcoes.estados === undefined ? estadosDeSessao(raiz, staleMin) : opcoes.estados;
   const fila = lerFila(raiz);
   // I-36: a conducao (`exec:`) nao entra na conta de vagas: a ocupacao da sessao ja sai do ledger
   // e do runtime (`avaliarOcupacao`), e conta-la de novo mudaria o escalonador.
@@ -403,7 +401,7 @@ export function devolverVagas(
   const { raiz, manifesto } = carregado;
   const staleMin = manifesto.concurrency.stale_after_min;
   const quando = opcoes.agora ?? agora();
-  const estados = opcoes.estados === undefined ? estadosDeSessao() : opcoes.estados;
+  const estados = opcoes.estados === undefined ? estadosDeSessao(raiz, staleMin) : opcoes.estados;
   const quem = opcoes.por ?? 'escalonador (ork board reap)';
 
   const devolvidas: VagaDevolvida[] = [];

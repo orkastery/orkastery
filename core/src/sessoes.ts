@@ -14,11 +14,14 @@ export function textoDoInventario(r: InventarioDeSessoes): string {
   const linhas = [
     `Inventário ${r.escopo.global ? 'global' : 'do projeto'} da conta ${r.escopo.usuario}; histórico: ${r.escopo.historico ? 'incluído' : 'omitido'}.`,
     `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
-    `Total: ${r.total}; sem thread: ${r.semThread}; ambíguas: ${r.ambiguas}; consulta: ${r.ok ? 'válida' : 'INCOMPLETA'}.`,
+    `Total: ${r.total}; sem thread: ${r.semThread}; ambíguas: ${r.ambiguas}; fantasmas: ${r.fantasmas}; consulta: ${r.ok ? 'válida' : 'INCOMPLETA'}.`,
   ];
-  if (r.sessoes.length) linhas.push(tabela(['ID', 'RUNTIME', 'ESTADO', 'THREAD/FASE'],
-    r.sessoes.map(s => [s.sessionId, s.runtime, s.state ?? s.status ?? 'unknown',
+  // RM-056 (D4): a coluna PERFIL e o id do perfil (`processo` sem perfil), nunca o diretorio da conta.
+  if (r.sessoes.length) linhas.push(tabela(['ID', 'RUNTIME', 'PERFIL', 'ESTADO', 'THREAD/FASE'],
+    r.sessoes.map(s => [s.sessionId, s.runtime, s.perfil ?? 'processo',
+      `${s.state ?? s.status ?? 'unknown'}${s.fantasma ? ' (fantasma)' : ''}`,
       s.vinculos.map(v => `${v.thread}/${v.fase}`).join(', ') || '(fora do ork)'])));
+  if (r.fantasmas > 0) linhas.push('Fantasma: registro sem processo vivo, não ocupa vaga; `ork sessions limpar-fantasmas` solta o vínculo do ork sem tocar no runtime.');
   for (const f of r.fontes.filter(f => !f.ok)) linhas.push(`Falha: ${f.detalhe}`);
   return linhas.join('\n');
 }
