@@ -125,7 +125,9 @@ test('ensaio 050: sha curto corta sha e deixa o marcador inteiro', () => {
 test('ensaio 050: sha curto nas saidas: nenhum commit cortado com slice fora do shaCurto', () => {
   const src = path.join(RAIZ, 'core/src');
   const achados: string[] = [];
-  for (const nome of fs.readdirSync(src).filter(n => n.endsWith('.ts'))) {
+  const arquivos = (fs.readdirSync(src, { recursive: true }) as string[]).filter(n => n.endsWith('.ts'));
+  assert.ok(arquivos.some(n => n.startsWith('adapters')), 'a varredura desce em core/src/adapters');
+  for (const nome of arquivos) {
     fs.readFileSync(path.join(src, nome), 'utf8').split('\n').forEach((linha, i) => {
       if (/commit\??\.slice\(0, ?8\)/.test(linha)) achados.push(`${nome}:${i + 1}`);
     });
@@ -271,7 +273,7 @@ test('ensaio 050: quickstart traz modos vivos, commit, gitignore, worktree, clai
   assert.ok(doc.includes(String.raw`printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore`), 'estado fora do git');
   assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto\n/);
   assert.doesNotMatch(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
-  assert.match(doc, /ainda não passou do GO,\n`ork worktree ensure <thread>`/);
+  assert.match(doc, /ainda não passou do GO,\s+`ork worktree ensure <thread>`/);
 
   const claim = /ork claims add prd-corrigirofil[\s\S]*?--verificar "([^"]+)"/.exec(doc)?.[1];
   assert.ok(claim, 'claim de exemplo do passo 6');
