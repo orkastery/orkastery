@@ -37,14 +37,16 @@ readback. A execução revalida a fonte e usa a autoridade existente do núcleo.
 `node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` abre uma sessão nova e não
 interativa no host instalado numa cópia descartável e diz `orkastery maestro`. A conferência
 (`core/src/prova-ativacao.ts`) só julga o determinístico: a entrada contratada foi exposta e
-chamada (`mcp__orkastery__ork_maestro` no Claude Code, `ork_maestro` no OpenClaw; `ork maestro`
-pelo shell do host é desvio, porque o CLI resolve o projeto pelo diretório), o resultado valida
-neste contrato, o `project.fingerprint` é o da cópia esperada (a raiz exibida pode vir mascarada),
-`notConsulted` existe, a resposta nomeia o projeto e não conclui "roadmap vazio". O roteiro
+chamada (`mcp__orkastery__ork_maestro` no Claude Code; no OpenClaw, `ork_network_roadmap` para a
+frase sem projeto e `ork_maestro` com projeto; `ork maestro` pelo shell do host é desvio, porque o
+CLI resolve o projeto pelo diretório) e o resultado cumpre o contrato da entrada: este snapshot,
+com o `project.fingerprint` da cópia esperada (a raiz exibida pode vir mascarada) e `notConsulted`,
+ou o texto do `ork.network-roadmap/v1` com o projeto esperado em "Consultado" e o bloco "Não
+consultado". A resposta precisa nomear o projeto e não concluir "roadmap vazio". O roteiro
 acrescenta que a consulta não escreveu em `.orkastery` e que os arquivos globais do host têm o
 mesmo sha256 antes e depois. O recibo `ork.prova-ativacao/v1` passa por redação antes de ser
 gravado. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
-humana. A prova não aceita procedência, não consente MCP e não reinicia gateway por ninguém.
+humana. A prova não revisa procedência, não consente MCP e não reinicia gateway por ninguém.
 
 ## Ingresso nativo aditivo (T23)
 

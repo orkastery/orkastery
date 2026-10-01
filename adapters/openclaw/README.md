@@ -99,13 +99,14 @@ sempre valem.
 
 ## Prova de ativação do Maestro (RM-032)
 
-`node core/scripts/prova-ativacao.cjs openclaw` instala esta extensão num estado descartável
+`node core/scripts/prova-ativacao.cjs openclaw` instala esta extensão por
+`ork adapter install openclaw --dir <estado temporário>`, a raiz global de uma cópia descartável
 (`OPENCLAW_STATE_DIR` e `OPENCLAW_CONFIG_PATH` temporários, segredo do provedor só por SecretRef,
-nada em `~/.openclaw`) e roda `openclaw agent --local` com `orkastery maestro`, num workspace sem
-manifesto (o cenário do incidente de 29/09). O OpenClaw recusa extensão de caminho local sem
-revisão; esse aceite é do dono: sem `--aceitar-procedencia` o recibo sai `pendente-humano`
-(saída 3) e mostra que as tools `ork_*` não chegam ao modelo. Com a flag, a cópia temporária
-instala com `--force` e a conferência exige `ork_maestro` chamada e o snapshot do projeto certo.
+nada em `~/.openclaw`), e roda `openclaw agent --local` com `orkastery maestro` num workspace sem
+manifesto, o cenário do incidente de 29/09. Aprova quando o modelo chama `ork_network_roadmap`
+(ou `ork_maestro` com projeto) e o resultado é o do projeto descartável. A prova não roda
+`openclaw plugins install --force` nem mexe em `plugins.allow`: o aviso de procedência vai ao
+recibo, e a revisão fica com o dono.
 
 ## A #TAG de conducao
 
