@@ -47,7 +47,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { vincularEstado } from './estado-thread';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import {
-  lerPerfisComContas, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
+  lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
   PoliticaDeRotacao, politicaDeRotacao, proximoPerfilDisponivel, registrarConferenciaInconclusiva, registrarUsoDePerfil,
 } from './runtime-profiles';
 import { nomeDaMaquina } from './maquina';
@@ -82,13 +82,7 @@ export function escolherPerfil(raiz: string, runtime: string,
   // I-49: o despacho enxerga o estado que as outras fabricas viram na mesma conta.
   const store = lerPerfisComContas(raiz, opcoes.agoraMs);
   const doRuntime = perfisDoRuntime(store, runtime);
-  if (opcoes.perfil !== undefined) {
-    const pedido = doRuntime.find(p => p.id === opcoes.perfil);
-    if (!pedido) return { perfil: null, configurados: doRuntime.length, erro: `perfil "${opcoes.perfil}" nao existe para o runtime ${runtime}` };
-    if (!perfilDisponivel(pedido, opcoes.agoraMs)) return { perfil: null, configurados: doRuntime.length,
-      erro: `perfil "${pedido.id}" esta ${pedido.estado}${pedido.esgotadoAte ? ` ate ${pedido.esgotadoAte}` : ''}` };
-    return { perfil: perfilDeDespacho(pedido), configurados: doRuntime.length };
-  }
+  if (opcoes.perfil !== undefined) return perfilPedido(store, runtime, opcoes.perfil, opcoes.agoraMs);
   if (doRuntime.length === 0) return { perfil: null, configurados: 0 };
   const proximo = proximoPerfilDisponivel(store, runtime, opcoes.politica ?? POLITICA_PADRAO, opcoes);
   if (proximo) return { perfil: perfilDeDespacho(proximo), configurados: doRuntime.length };
@@ -100,6 +94,27 @@ export function escolherPerfil(raiz: string, runtime: string,
     : doRuntime.some(p => p.estado === 'provider-pago') ? 'cost.violation' : 'runtime.unavailable';
   return { perfil: null, configurados: doRuntime.length, motivo,
     erro: `nenhum perfil disponivel do runtime ${runtime} (${doRuntime.map(p => `${p.id}: ${p.estado}`).join(', ')})` };
+}
+
+/**
+ * RM-056 (D1): o perfil PEDIDO (`--perfil`), validado contra o store. Recusa com motivo tipado e nunca
+ * troca de perfil: inexistente ou de outro runtime e `runtime.profile-invalid`; esgotado, a cota; sem
+ * login (ou de provider pago), o motivo do estado. Funcao propria, para o despacho da RM-055 rebasar limpo.
+ */
+export function perfilPedido(store: StoreDePerfis, runtime: string, id: string, agoraMs = Date.now()): EscolhaDePerfil {
+  const doRuntime = perfisDoRuntime(store, runtime);
+  const pedido = doRuntime.find(p => p.id === id);
+  if (!pedido) {
+    const outro = store.perfis.find(p => p.id === id);
+    return { perfil: null, configurados: doRuntime.length, motivo: 'runtime.profile-invalid',
+      erro: outro ? `perfil "${id}" e do runtime ${outro.runtime}, nao do ${runtime}`
+        : `perfil "${id}" nao existe no store (${doRuntime.length ? `perfis do ${runtime}: ${doRuntime.map(p => p.id).join(', ')}` : `nenhum perfil do ${runtime}`})` };
+  }
+  if (perfilDisponivel(pedido, agoraMs)) return { perfil: perfilDeDespacho(pedido), configurados: doRuntime.length };
+  const motivo: MotivoGate = pedido.estado === 'esgotado' ? 'runtime.quota-exhausted' : pedido.estado === 'sem-auth'
+    ? 'runtime.auth-missing' : pedido.estado === 'provider-pago' ? 'cost.violation' : 'runtime.profile-invalid';
+  return { perfil: null, configurados: doRuntime.length, motivo,
+    erro: `perfil "${pedido.id}" esta ${pedido.estado}${pedido.esgotadoAte ? ` ate ${pedido.esgotadoAte}` : ''}` };
 }
 
 /**

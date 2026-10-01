@@ -86,3 +86,14 @@ test('descricoes: board e maestro nao leem o roadmap; o roadmap vem da rede (RM-
     assert.match(d.ork_roadmap_status, /Nunca deduza o roadmap de ork_board ou ork_maestro/);
   });
 });
+
+test('RM-056 (C2): ork_phase_run repassa o perfil opcional como --perfil, e sem ele o argv de antes', async () => {
+  await comPlugin(async (tools) => {
+    const fase = tools.find(t => t.name === 'ork_phase_run');
+    assert.deepEqual(fase.parameters.required, ['thread', 'fase', 'prompt']);
+    assert.equal(await fase.execute({ thread: 'ork-x', fase: 'GO', prompt: 'p', perfil: 'codex-b' }, {}, {}),
+      'explicito=1\nphase\nrun\nork-x\nGO\n--prompt\np\n--perfil\ncodex-b');
+    assert.equal(await fase.execute({ thread: 'ork-x', fase: 'GO', prompt: 'p' }, {}, {}),
+      'explicito=1\nphase\nrun\nork-x\nGO\n--prompt\np');
+  });
+});

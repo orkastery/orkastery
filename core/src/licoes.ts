@@ -63,6 +63,7 @@ const DICA_DO_MOTIVO: Record<string, string> = {
   'verify.timeout': 'divida o comando lento ou suba `verify.timeout_ms` no manifesto',
   'runtime.unavailable': 'declare a ordem de fallback do bloco (`ork setup <modo> --bloco N --fallback runtime:modelo`)',
   'runtime.quota-exhausted': 'tenha um segundo perfil da conta (`ork accounts add`) ou fallback no bloco',
+  'runtime.profile-invalid': 'confira os perfis do runtime em `ork accounts list` antes de pedir `--perfil`',
   'tree.blocked': 'sincronize a worktree com a base antes do SHIP (`ork worktree sync <thread>`)',
   'ci.failed': 'rode a suite hermetica (`npm --prefix core run test:ci`) antes do push',
   'artifact.missing': 'grave o artefato da fase exatamente no caminho que o prompt pede',

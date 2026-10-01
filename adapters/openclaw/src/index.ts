@@ -282,11 +282,16 @@ const FERRAMENTAS: FerramentaOrk[] = [
     name: 'ork_phase_run',
     description:
       'Despacha uma fase (GOAL PLAN GO CHECK SHIP MASTER) pelo runtime adapter, gravando o prompt exato com sha256 no ledger.',
-    parameters: schema({
-      thread: { type: 'string' },
-      fase: { type: 'string', enum: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'] },
-      prompt: { type: 'string', description: 'O pedido do builder para esta fase' },
-    }),
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['thread', 'fase', 'prompt'],
+      properties: {
+        thread: { type: 'string' },
+        fase: { type: 'string', enum: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'] },
+        prompt: { type: 'string', description: 'O pedido do builder para esta fase' },
+        // RM-056: a conta do despacho; o nucleo recusa perfil inexistente, de outro runtime, esgotado ou sem login.
+        perfil: { type: 'string', description: 'id do perfil de conta (ork accounts list); omita para o rodizio do nucleo' },
+      },
+    },
     argv: (p) => [
       'phase',
       'run',
@@ -294,6 +299,7 @@ const FERRAMENTAS: FerramentaOrk[] = [
       texto(p, 'fase'),
       '--prompt',
       texto(p, 'prompt'),
+      ...(p.perfil === undefined ? [] : ['--perfil', texto(p, 'perfil')]),
     ],
   },
   {

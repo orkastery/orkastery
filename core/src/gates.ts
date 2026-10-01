@@ -44,6 +44,8 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
     'a conta do runtime nao esta autenticada (I-33: o perfil nunca recebe despacho ate o login ser refeito pelo proprio CLI)',
   'runtime.model-unavailable':
     'o modelo pedido nao existe ou a conta nao tem acesso a ele (RM-037: o perfil segue no rodizio e a fase vai a outro perfil com o mesmo modelo ou ao fallback do bloco)',
+  'runtime.profile-invalid':
+    'o perfil pedido no despacho (--perfil) nao existe no store ou e de outro runtime (RM-056: o despacho nunca troca de perfil sozinho)',
   'cost.violation':
     'o despacho seria redirecionado para provider pago (violacao de custo: e o unico motivo que NUNCA recebe retry automatico)',
   'tree.blocked':

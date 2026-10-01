@@ -511,6 +511,9 @@ export type MotivoGate =
   // RM-037 (defeitosdeco D-6): o modelo pedido nao existe ou a CONTA nao tem acesso a ele. A conta
   // funciona para os outros modelos, entao o perfil nao sai do rodizio; o retry troca o destino.
   | 'runtime.model-unavailable'
+  // RM-056 (D1): o perfil PEDIDO pelo dono (`--perfil`) nao existe ou e de outro runtime. E erro do
+  // pedido, nao da conta: nenhum retry automatico o corrige, e o despacho nunca troca de perfil sozinho.
+  | 'runtime.profile-invalid'
   // Bloco B3: violacao de CUSTO (despacho redirecionado para provider pago). E o unico
   // motivo que NUNCA recebe retry automatico: reexecutar violacao de custo e gastar de novo.
   | 'cost.violation'

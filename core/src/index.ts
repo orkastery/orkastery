@@ -357,6 +357,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                              efetivo vai ao ledger como fato verificavel)
         [--canal C] [--correlacao ID]        Canal de origem (sem ele, o que o host declara)
         [--esperar [min]]                    Com a thread ja conduzida, espera a vez (sem: recusa na hora)
+        [--perfil ID]                        Conta do despacho (ork accounts list); inexistente, de outro
+                                             runtime, esgotado ou sem login recusa com motivo tipado
   phase list <thread-id>                    Historico do ledger da thread
                                             (mostra o modelo/esforco reais de cada fase)
   ledger stats --desde 7d [--ate ISO]       Telemetria economica do ledger (intervalo [desde,ate))
@@ -1100,6 +1102,7 @@ function comandoPhase(args: Args): number {
       runtime: texto(args.opcoes.runtime),
       model: texto(args.opcoes.model),
       effort: texto(args.opcoes.effort),
+      perfil: texto(args.opcoes.perfil),
       dryRun: args.opcoes['dry-run'] === true,
       canal: conducao.canal,
       ...(conducao.correlacao ? { correlacao: conducao.correlacao } : {}),
