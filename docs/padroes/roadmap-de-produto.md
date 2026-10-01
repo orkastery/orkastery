@@ -95,6 +95,8 @@ O que muda no roadmap é o bloco `sdlc`, que liga o item ao método Orkastery **
 | `sdlc.fase`, `sdlc.status` | fase atual e status da thread | `ork docs sincronizar` |
 | `sdlc.check` | último veredito do CHECK independente | pessoa, a partir do parecer |
 
+O estado do código acompanha o git nos dois sentidos: `codigo: Mesclado` exige o commit do merge na base, e o merge `ship(<thread>)` da thread em `sdlc.thread` exige `codigo: Mesclado`. O `ork docs verificar` reprova a divergência e o índice que não bate com o frontmatter; o `ork docs sincronizar --escrever` corrige os dois depois do merge.
+
 Micro-decisões de condução (claims recadastradas, GO-FIX de teste, sessão que caiu) **não entram no item**: vivem no ledger da thread, que é o registro de auditoria do método.
 
 ## 7. Reservas de item entre máquinas (adaptação Orkastery)
