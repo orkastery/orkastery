@@ -70,7 +70,9 @@ const nova = z.object({ nome: z.string().trim().min(1).max(200),
 const fase = daThread.extend({ fase: z.enum(['GOAL','PLAN','GO','CHECK','SHIP','MASTER']),
   prompt: z.string().min(1).max(65536), runtime: z.enum(['claude-bg','codex']).optional(),
   model: z.string().trim().min(1).max(200).optional(),
-  effort: z.enum(['low','medium','high','xhigh','max']).optional(), dryRun: z.boolean().optional() }).strict();
+  effort: z.enum(['low','medium','high','xhigh','max']).optional(),
+  // RM-056 (D1): o perfil pedido, validado contra o store pelo mesmo caminho do CLI.
+  perfil: z.string().trim().regex(/^[a-z0-9][a-z0-9._-]{0,62}$/i).optional(), dryRun: z.boolean().optional() }).strict();
 // Limite de tipos do conversor externo: validacao continua no schema Zod strict.
 const converterSchema=zodToJsonSchema as unknown as (schema:z.ZodTypeAny, opcoes:{$refStrategy:'none'})=>Record<string,unknown>;
 const resposta = (valor: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(valor) }] });

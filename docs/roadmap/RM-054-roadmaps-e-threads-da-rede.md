@@ -6,29 +6,24 @@ categoria: iniciativa
 pai: null
 features: [FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-01T02:50:00-03:00
+atualizado_em: 2026-10-02T14:33:46+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Produção
+  deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: 6ea7acb
-    pr: 29
-    anteriores: "b64d2f2 (PR #25, fatia 1)"
-  testes:
-    ci: verde no push dos merges (runs 36659953385 e 36814173494) e no da v0.5.0 (run 36815186450)
-  deploy:
-    release: v0.5.0, @orkastery/cli 0.5.0 no npm
+    pr: null
 sdlc:
   thread: ork-rm054fatia2
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-054 — Roadmaps e threads da rede visíveis a todo agente e runtime
@@ -39,12 +34,12 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Aprovados | Produção | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-032](../produto/FEAT-032-roadmap-da-rede.md)
-- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2, mesclada em `6ea7acb`)
+- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2)
 
 ## Problema e resultado
 
@@ -99,12 +94,12 @@ sdlc:
   - Claude Code e Codex, a rota e a frase sem projeto: `rede nos hosts: Claude Code`;
   - o incidente pela extensão do OpenClaw com o `ork` real, sem LLM, com as duas máquinas e a hora de cada fonte: `rede nos hosts: incidente`.
 - **Prova ao vivo da fatia 2 (30/09/2026, srvjcp86):** num turno isolado do OpenClaw 2026.9.4 (`openclaw agent exec` com config e state temporários, o modelo do gateway, `openrouter/~deepseek/deepseek-flash-latest`, e o perfil `coding` do `~/.openclaw/openclaw.json`), com a extensão desta worktree numa cópia temporária, "orkastery maestro - qual é o status report do roadmap do orkastery agora?" fez uma chamada, `ork_network_roadmap` com `projeto: orkastery`, e voltou o roadmap da `origin/main`, as threads da `srvjcp86` (5, estado local) e da `vps` (8, retrato de 30/09 03:15), as reservas e a fonte e a hora de cada parte, sem lacuna. Sem a declaração de perfil no manifesto, nenhuma tool `ork_*` chegava ao modelo, e ele respondeu pelo shell. A extensão global em `~/.openclaw/extensions` e o gateway não foram tocados.
-- **Para valer no Telegram (ato do dono; o merge da fatia 2 e a publicação na versão 0.5.0 já aconteceram):** `npm i -g @orkastery/cli@0.5.0 && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`. Volta: `npm i -g @orkastery/cli@0.4.3 && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`.
+- **Para valer no Telegram (ato do dono, depois do merge e da publicação da RM-049):** `npm i -g @orkastery/cli@<versão nova> && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`. Volta: `npm i -g @orkastery/cli@0.4.3 && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`.
 
 ## Plano e decisões
 
 - **Prioridade:** 3 de 3 no pedido de 29/09/2026 (RM-052, RM-053, RM-054); consome as outras duas.
-- **Horizonte:** fatia 1 mesclada em 30/09 (PR #25); fatia 2 mesclada pelo PR #29 e publicada na versão 0.5.0; fatia 3 (as lacunas acima) depois da RM-053 na `main`.
+- **Horizonte:** fatia 1 mesclada em 30/09; fatia 2 em PR; fatia 3 (as lacunas acima) depois da RM-053 na `main`.
 - **Dependências:** RM-048 (formato do status report), RM-052 (registro `ork.projetos/v1`, lido aqui), RM-053 (vocabulário das lacunas e `ork.rede-status/v1`), RM-025 (fonte, frescor e lacuna do pacote citável), RM-032 (ativação por host, na fatia 2) e RM-049 (a publicação no npm destrava o uso fora do checkout).
 - **Decisões da fatia 1** (ledger da `ork-rm054roadmap`, tomadas pelo agente no #Auto em 29/09/2026, revisão do dono pendente):
   - o roadmap da rede vem de `docs/roadmap` da base remota, e não da árvore de trabalho: toda máquina vê o mesmo roadmap;
@@ -136,8 +131,6 @@ sdlc:
 - 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto). A revisão independente do CHECK achou quatro defeitos maiores e cinco menores (thread corrompida derrubava o comando, pasta de mesmo nome tomava o `--projeto`, página não-ASCII sumia, `fabrica.remoto` virava opção do git); os três GO-FIX os corrigem, cada um com teste que falhava antes.
 - A rodada 2 da revisão resolveu seis achados e achou a mesma injeção pela `worktree.base_branch`, que o GO-FIX 4 fecha junto com os três achados parciais; a rodada 3 confirmou tudo e achou dois menores (a ref do `git log` e a espera do dono igual nas duas seções), fechados no GO-FIX 5.
 - Testes focados verdes: `network-roadmap.test.js` 17 de 17, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
-- Fatia 2 na `main` pelo PR #29 (merge `6ea7acb`); CI verde no push dos merges da fatia 1 (run 36659953385) e da fatia 2 (run 36814173494).
-- Fatias 1 e 2 em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450). Falta a fatia 3, com a RM-053 na `main`.
 - 30/09/2026: fatia 1 mesclada pelo PR 25 (`b64d2f2`); fatia 2 na thread `ork-rm054fatia2` (#Auto). A prova ao vivo achou duas causas a mais (o perfil `coding` escondia as tools, e o "Não lido" apontava as fontes separadas), fechadas na T4b e na T2b. A revisão independente do CHECK achou um defeito maior (no host, a forja aceitava qualquer host, e o `gh`/`glab` falaria com o servidor pedido pelo texto do modelo) e um menor (um assert sempre verdadeiro), fechados no GO-FIX 1 com testes que reprovam o código de antes.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -146,13 +139,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `6ea7acb` · PR #29 · anteriores: b64d2f2 (PR #25, fatia 1) | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36659953385 e 36814173494) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
+| Documentação | Em revisão | — | 2026-10-02 | Julio |
+| Código | Mesclado | commit `6ea7acb` | 2026-10-02 | Julio |
+| Testes | Aprovados | — | 2026-10-02 | Julio |
+| Deploy | Não implantado | — | 2026-10-02 | Julio |
+| Exposição | Flag desligada | — | 2026-10-02 | Julio |
+| Habilitação | Pendente | — | 2026-10-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -160,7 +153,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI:** R: agentes do Orkastery (Claude) · A: Julio · C: — · I: —
 - **Agentes e autonomia:** execução por agente no modo #Auto da thread; revisão e decisão final: Julio.
-- **Próxima ação:** reinstalar a extensão do gateway com a versão 0.5.0 e fazer o aceite pelo Telegram; depois, a fatia 3 com a RM-053 na `main`; responsável: Julio. O merge da fatia 2 (PR #29) e a publicação (versão 0.5.0) já aconteceram.
+- **Próxima ação:** revisar e mesclar o PR da fatia 2, publicar a extensão (RM-049) e reinstalar a do gateway; depois, a fatia 3 com a RM-053 na `main`; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -168,5 +161,3 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | limiar de batida de 2 h para 3 h | alinhar ao vocabulário publicado pela RM-053 | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-09-30 | fatia 1 mesclada; fatia 2 aberta com as tools dos hosts | PR 25; thread `ork-rm054fatia2` | Julio |
 | 2026-09-30 | `ork_network_status` e a rede por pessoa passam para a fatia 3 | a RM-053 não está na `main`; D-G1 no ledger da `ork-rm054fatia2` | Claude (agente, #Auto), revisão de Julio pendente |
-| 2026-10-01 | fatia 2 mesclada na `main` | PR #29, merge `6ea7acb` | Julio |
-| 2026-10-01 | fatias 1 e 2 em produção na versão 0.5.0; a fatia 3 segue em aberto | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |

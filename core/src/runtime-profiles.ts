@@ -667,15 +667,20 @@ export function perfilDisponivel(p: PerfilDeRuntime, agoraMs = Date.now()): bool
  * ordem de fallback do bloco nao depende dela. O que e esgotamento (troca) e o que e rate limit
  * comum (nunca troca, espera a janela) sai do criterio unico `naturezaDoLimite` (adapters/claude-bg).
  */
-export interface PoliticaDeRotacao { mesmoRuntimePorCota: boolean; mesmoRuntimePorAuth: boolean }
+export interface PoliticaDeRotacao {
+  mesmoRuntimePorCota: boolean; mesmoRuntimePorAuth: boolean;
+  /** RM-056 (D2): ausente vale `ordem`, o comportamento de antes. */
+  distribuir?: 'ordem' | 'carga';
+}
 /** Defaults da D16: por cota ligada (decisao do dono em 19/09/2026) e por login perdido ligada. */
 export const POLITICA_PADRAO: PoliticaDeRotacao = { mesmoRuntimePorCota: true, mesmoRuntimePorAuth: true };
 
 export function politicaDeRotacao(manifesto: { runtime_profiles?: { rotate_same_runtime_on_quota?: unknown;
-  rotate_same_runtime_on_auth?: unknown } }): PoliticaDeRotacao {
+  rotate_same_runtime_on_auth?: unknown; distribuir?: unknown } }): PoliticaDeRotacao {
   const r = manifesto.runtime_profiles;
   return { mesmoRuntimePorCota: r?.rotate_same_runtime_on_quota !== false,
-    mesmoRuntimePorAuth: r?.rotate_same_runtime_on_auth !== false };
+    mesmoRuntimePorAuth: r?.rotate_same_runtime_on_auth !== false,
+    ...(r?.distribuir === 'carga' ? { distribuir: 'carga' as const } : {}) };
 }
 
 /**
@@ -694,6 +699,26 @@ export function proximoPerfilDisponivel(store: StoreDePerfis, runtime: string, p
     if (!politica.mesmoRuntimePorCota) return null;
   }
   return null;
+}
+
+/**
+ * RM-056 (D3): a escolha por carga. Respeita a politica da D14 (sem perfil da vez pela ordem, sem
+ * perfil nenhum: a mesma retencao do runtime), e entre os perfis disponiveis vence o de menor
+ * carga (sessoes vivas da conta nesta maquina); empate pelo `ultimoUso` mais antigo (nunca usado
+ * primeiro), depois a ordem do store. O `ultimoUso` e gravado no despacho, entao dois despachos
+ * seguidos com carga igual vao a perfis diferentes mesmo antes de o runtime listar a sessao.
+ */
+export function proximoPerfilPorCarga(store: StoreDePerfis, runtime: string, politica: PoliticaDeRotacao,
+  carga: ReadonlyMap<string, number>, opcoes: { excluir?: readonly string[]; agoraMs?: number } = {}): PerfilDeRuntime | null {
+  const daVez = proximoPerfilDisponivel(store, runtime, politica, opcoes);
+  if (!daVez) return null;
+  const agoraMs = opcoes.agoraMs ?? Date.now();
+  const candidatos = perfisDoRuntime(store, runtime)
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => !(opcoes.excluir ?? []).includes(p.id) && perfilDisponivel(p, agoraMs));
+  const uso = (p: PerfilDeRuntime) => p.ultimoUso === null ? -Infinity : Date.parse(p.ultimoUso);
+  candidatos.sort((x, y) => (carga.get(x.p.id) ?? 0) - (carga.get(y.p.id) ?? 0) || uso(x.p) - uso(y.p) || x.i - y.i);
+  return candidatos[0]?.p ?? daVez;
 }
 
 /**

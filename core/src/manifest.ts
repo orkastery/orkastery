@@ -309,6 +309,14 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     avisos.push(`runtime_profiles.${nome} deve ser true ou false; vale o padrao ${padrao} (${JSON.stringify(v)} nao reconhecido)`);
     return padrao;
   };
+  // RM-056 (D2): opt-in. Valor desconhecido vale o padrao `ordem`, com aviso.
+  const distribuicaoDePerfis = (): 'ordem' | 'carga' => {
+    const v = perfisDeRuntime.distribuir;
+    if (v === undefined || v === null || v === 'ordem') return 'ordem';
+    if (v === 'carga') return 'carga';
+    avisos.push(`runtime_profiles.distribuir aceita ordem ou carga; vale o padrao ordem (${JSON.stringify(v)} nao reconhecido)`);
+    return 'ordem';
+  };
   const liveness = mapa(dados.liveness);
   const silencioMaxMin = numero(liveness.silencio_max_min, 10);
   if (!Number.isFinite(silencioMaxMin) || silencioMaxMin <= 0) erros.push('liveness.silencio_max_min deve ser positivo e finito');
@@ -487,6 +495,7 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     runtime_profiles: {
       rotate_same_runtime_on_quota: chaveDeRotacao('rotate_same_runtime_on_quota', true),
       rotate_same_runtime_on_auth: chaveDeRotacao('rotate_same_runtime_on_auth', true),
+      distribuir: distribuicaoDePerfis(),
     },
     // Bloco B3: o limite de escalacao tem padrao, e o padrao e conservador. Manifesto
     // sem bloco `retry:` continua andando com 3 tentativas e janela estimada de 60 min,

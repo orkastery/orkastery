@@ -144,6 +144,12 @@ test('MCP phase usa guard runtime/modelo do nucleo e dry-run nao cria sessao',()
   assert.equal(r.error,false,r.text);assert.equal(r.data().runtime,'codex');assert.equal(r.data().model,'modelo-SIMULADO');
   assert.equal(r.data().sessionId,null);
 }));
+test('RM-056 (C2): MCP phase aceita perfil e o nucleo recusa o inexistente com motivo tipado',()=>fixture(async(p,c)=>{
+  const t=novaThread(p.carregado,{nome:'perfil',modo:'auto'}).thread;
+  const r=await call(c,'ork_phase_run',{threadId:t.id,fase:'GOAL',prompt:'fixture',runtime:'codex',model:'modelo-SIMULADO',perfil:'nao-existe',dryRun:true});
+  assert.equal(r.data().motivo,'runtime.profile-invalid',r.text);assert.equal(r.data().sessionId,null);
+  assert.equal((await call(c,'ork_phase_run',{threadId:t.id,fase:'GOAL',prompt:'x',perfil:'../fora',dryRun:true})).error,true);
+}));
 test('MCP elicitation sintetica separa tool args da resposta protocolar e cancel preserva gate',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p);let forms=0;
   c.setRequestHandler(ElicitRequestSchema,async(req)=>{forms++;assert.equal(req.params.mode,'form');return {action:'cancel' as const};});

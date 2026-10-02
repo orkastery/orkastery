@@ -26,6 +26,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 - [FEAT-008](FEAT-008-rodizio-de-contas.md) Rodízio de contas dos runtimes
 - [FEAT-009](FEAT-009-retry-tipado.md) Retry tipado e fila de rate limit
 - [FEAT-010](FEAT-010-observacao-de-sessoes.md) Observação de sessões e sensores
+- [FEAT-037](FEAT-037-perfil-carga-e-sessoes-das-contas.md) Perfil por despacho, rodízio por carga e sessões de cada conta
 
 ## Histórico
 
