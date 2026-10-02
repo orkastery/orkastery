@@ -14,10 +14,16 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 | Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
-| Um runtime de agente | Hoje o adapter `claude-bg` (o binário `claude`, despachado com `--bg`) |
+| Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
 
 O runtime é opcional para os passos 1 a 4. Sem ele, você ainda cria threads, registra claims,
 roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue é **despachar fase**.
+
+Só com o Codex: o setup padrão despacha todo bloco pelo `claude-bg`, e o `ork doctor` reprova a
+falta do `claude` enquanto algum bloco de modo permitido despachar por ele. Depois do `ork init`,
+passe cada bloco para o Codex com `ork setup <modo> --bloco N --runtime codex --model <modelo>`
+(`ork setup <modo>` lista os blocos), ou tire o modo de `conduction.allowed_modes`; a partir daí, a
+falta do `claude` é só aviso.
 
 ---
 
