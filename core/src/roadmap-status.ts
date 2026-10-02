@@ -316,9 +316,9 @@ function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, f
   if (e?.parado) return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}.`;
   if (e?.estado) {
     const { prLidoEm: lido } = e;
-    const quando = lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : '';
-    return e.conduzida ? `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}; ${e.estado}${quando}.`
-      : `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${quando}.`;
+    const daLeitura = lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : '';
+    return e.conduzida ? `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}; ${e.estado}${daLeitura}.`
+      : `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${daLeitura}.`;
   }
   return `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}.`;
 }
