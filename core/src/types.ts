@@ -287,6 +287,14 @@ export interface Manifesto {
     compartilhada: boolean;
     remoto: string;
   };
+  /**
+   * RM-031 KG5 (D2): a consulta do grafo de codigo pelo MCP. Com `mcp`, o servidor do projeto expoe as
+   * tools `ork_grafo_*` e o despacho as libera para a sessao filha. Desligada por padrao: a exposicao e
+   * decisao do dono, e vale a do manifesto da raiz, nunca a da worktree de uma thread.
+   */
+  grafo: {
+    mcp: boolean;
+  };
   policies?: Record<string, string>;
 }
 

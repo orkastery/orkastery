@@ -29,7 +29,7 @@
       "assercoes": [
         {
           "tipo": "contem",
-          "valor": "Valores secretos ficam em",
+          "valor": "Valores secretos ficam no ambiente do",
           "porque": "Âncora operacional fora da tabela, removê-la precisa reprovar o corpus."
         },
         {

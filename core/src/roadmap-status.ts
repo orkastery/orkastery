@@ -25,7 +25,7 @@ import { dirThread, lerThread, listarIds } from './thread';
 import { alvoDoPedido, ehV2, estadoDoPedido, PedidoHitlQualquer, textoDoPedido } from './hitl-contract';
 import { contextoHitlDosEventos, MOTIVOS_DE_ESCALACAO_HUMANA, prepararPedidoGate } from './hitl-gates';
 import { quemDecide } from './hitl-classificacao';
-import { dataLocal, duracaoCurta, formatarDataHora, formatarHora, partesLocais } from './horario';
+import { dataLocal, duracaoCurta, formatarDataHora, formatarHora, legendaDoFuso, partesLocais } from './horario';
 import { ConsultaDoProjeto, linhasDaConsulta } from './projeto-alvo';
 import { Thread } from './types';
 import { BRANCH_DA_FABRICA, LIMIAR_SEM_BATIDA_MS, lerFabrica } from './fabrica-estado';
@@ -374,8 +374,12 @@ function linhaDaFabrica(f: BatidaDaFabrica | undefined, agora: string, fuso?: st
 /**
  * O texto do relatorio, igual em todo canal: os icones sao parte do formato aprovado. `fuso`: o do
  * projeto consultado, na visao da rede; sem ele, o do dono deste processo.
+ *
+ * Fatia 2 do ensaio da 0.5.0 (P7): a hora do titulo vem com o fuso dito logo abaixo dele, na linha
+ * 2, sem mudar o titulo aprovado. `legenda: false` e para quem ja diz o fuso na mesma mensagem (o
+ * panorama da rede diz no fim).
  */
-export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string): string {
+export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes: { legenda?: boolean } = {}): string {
   if (s.contrato !== CONTRATO_STATUS_DO_ROADMAP) throw new Error('status do roadmap: contrato inválido');
   const p = partesLocais(s.consultadoEm, fuso);
   const linhaDoItem = (i: ItemDoStatus): string => {
@@ -387,7 +391,8 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string): strin
     [...lista.slice(0, TETO_DO_FECHO).map(f), ...(lista.length > TETO_DO_FECHO ? [`• e mais ${lista.length - TETO_DO_FECHO}`] : [])];
   return [
     `Roadmap do ${capitalizar(s.projeto)} (${p.dia}/${p.mes}, ${p.hora}:${p.minuto})`,
-    // RM-052: logo abaixo do titulo aprovado, qual projeto foi lido e o que nao foi.
+    ...(opcoes.legenda === false ? [] : [legendaDoFuso(fuso, s.consultadoEm)]),
+    // RM-052: logo abaixo do titulo aprovado (e do fuso), qual projeto foi lido e o que nao foi.
     ...(s.consulta ? linhasDaConsulta(s.consulta) : []),
     ...linhaDaFabrica(s.fabrica, s.consultadoEm, fuso),
     ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${g.titulo}`, ...g.itens.map(linhaDoItem)]),

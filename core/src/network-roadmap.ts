@@ -965,7 +965,8 @@ export function textoDoPanoramaDaRede(p: PanoramaDaRede): string {
     // Cada projeto no fuso do dono dele (achado 5 da rodada 2): a legenda do bloco diz quando difere.
     const fuso = x.projeto.fuso;
     linhas.push('', '────────', '');
-    linhas.push(x.roadmap ? textoDoStatusDoRoadmap(x.roadmap, fuso)
+    // Fatia 2 do ensaio (P7): o fuso ja sai no fim do panorama (e no bloco, quando difere): sem a legenda do status.
+    linhas.push(x.roadmap ? textoDoStatusDoRoadmap(x.roadmap, fuso, { legenda: false })
       : `Roadmap do ${x.projeto.nome}: não lido (${x.lacunas.map((l) => l.tipo).filter((t) => t !== 'projeto.sem-clone').join(', ') || 'sem fonte'}).`);
     linhas.push('', 'Threads por máquina', ...linhasDasMaquinas(x, fuso));
     linhas.push('', 'Reservas', ...linhasDasReservas(x, fuso));

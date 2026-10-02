@@ -65,7 +65,8 @@ Reset emite um evento por etapa efetivamente limpa; repetir reset não acrescent
 
 ## Referências de credenciais
 
-Valores secretos ficam somente em `~/.hermes/.env`. O onboarding não lê esse arquivo.
+Valores secretos ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`).
+O onboarding guarda só o nome da variável e nunca lê o valor.
 Nas etapas credenciais/bancos, use um objeto com `env` (array de nomes de variáveis),
 `provedor` e/ou `banco` (identificadores públicos). Campos fora desse formato são recusados.
 Nos demais conteúdos, referências sensíveis usam nomes terminados em `_env`, com o nome da

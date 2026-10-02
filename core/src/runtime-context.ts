@@ -8,6 +8,7 @@ import { dirThread, lerThread, blocoDaThread } from './thread';
 import { HOSTS } from './hosts';
 import { branchDaWorktree,worktreesDoGit } from './worktree';
 import { configuracaoServidorMcp, TransporteShipMcp, PermissoesFilhoMcp, politicasFilhoCodex } from './mcp-install';
+import { grafoLigado } from './mcp-grafo';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from './hitl-public-receipt';
 
 export interface IdentidadeDeDespacho {
@@ -145,9 +146,12 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
     throw Error('runtime.context.installation: catalogo ou plugin incompleto');
   // Capacidade derivada do bloco atual, nunca aceita como entrada do modelo.
   const permiteEditarProduto = permissoesFilho === 'worktree' && blocoDaThread(thread,thread.faseAtual).fases.includes('GO');
+  // RM-031 KG5 (D2, D7): as tools do grafo seguem a flag do manifesto da raiz, que o servidor do filho tambem le;
+  // o manifesto da worktree da thread e o pedido do modelo nao ligam nada.
+  const grafoMcp = grafoLigado(exigirManifesto(raiz).manifesto);
   const publicVerifiers = publicHitlVerifiers();
   const servidor={...configuracaoServidorMcp(raiz, contexto.host, contexto.threadId,transporteShip,permissoesFilho,contexto.identidade?.dispatchId),
     ...(publicVerifiers ? { env: { [ENV_HITL_VERIFIERS]: publicVerifiers } } : {}),
     ...(contexto.host==='codex' && permissoesFilho==='worktree'?politicasFilhoCodex(perfil.politicasCodex??{}):{})};
-  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, servidor };
+  return { projeto: raiz, instalacao, bootstrap, permissoesFilho, permiteEditarProduto, grafoMcp, servidor };
 }

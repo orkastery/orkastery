@@ -270,7 +270,10 @@ test('ensaio 050: quickstart traz modos vivos, commit, gitignore, worktree, clai
   assert.ok(modos.length >= 1, 'trecho do manifesto com allowed_modes');
   for (const m of modos) assert.equal(m, ORDEM_DOS_MODOS.join(', '), 'o que o ork init grava, sem look nem ork');
   assert.match(doc, /Um repositório git com pelo menos um commit/);
-  assert.ok(doc.includes(String.raw`printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore`), 'estado fora do git');
+  // Fatia 2 (P3): o `ork init` e a primeira worktree deixam o estado fora do git; o printf no
+  // `.gitignore` do usuario saiu do quickstart.
+  assert.ok(doc.includes('`.orkastery/.gitignore`') && doc.includes('git add orkastery.yaml AGENTS.md'), 'estado fora do git');
+  assert.doesNotMatch(doc, />> \.gitignore/);
   assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto\n/);
   assert.doesNotMatch(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
   assert.match(doc, /ainda não passou do GO,\s+`ork worktree ensure <thread>`/);

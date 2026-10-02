@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
 import { normalizarAbbrev } from './slug';
-import { branchDoHead, exec, gravar } from './util';
+import { branchDoHead, exec, gravar, ignorarPastaNoGit } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
@@ -233,6 +233,8 @@ export interface ResultadoInit {
   caminho: string;
   criado: boolean;
   deteccao: Deteccao;
+  /** Fatia 2 do ensaio da 0.5.0 (P3): o `init` criou `.orkastery/.gitignore` agora. */
+  estadoIgnorado?: boolean;
 }
 
 /** Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. */
@@ -247,6 +249,8 @@ export function init(
     return { caminho, criado: false, deteccao };
   }
   gravar(caminho, manifestoYaml(deteccao));
-  fs.mkdirSync(path.join(deteccao.raiz, DIR_ESTADO, 'threads'), { recursive: true });
-  return { caminho, criado: true, deteccao };
+  const estado = path.join(deteccao.raiz, DIR_ESTADO);
+  fs.mkdirSync(path.join(estado, 'threads'), { recursive: true });
+  // Fatia 2 do ensaio da 0.5.0 (P3): o estado e da maquina; fica fora do git sem mexer no `.gitignore` do usuario.
+  return { caminho, criado: true, deteccao, estadoIgnorado: ignorarPastaNoGit(estado, deteccao.raiz) };
 }

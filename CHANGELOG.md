@@ -29,6 +29,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   paga segue pendente. A prova nos pares reais confere a âncora com os rótulos do Node e do Unicode
   fixados, porque a versão do Node entra no digest do grafo.
 
+- **Grafo de código pelas fases, pelo MCP** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG5):
+  com `grafo.mcp: true` no `orkastery.yaml` (desligada por padrão; ligar é decisão do dono), o MCP do
+  projeto expõe `ork_grafo_vizinhos`, `ork_grafo_chamadores`, `ork_grafo_importadores` e
+  `ork_grafo_caminho`, de leitura, que respondem pelo índice do HEAD da worktree da thread o mesmo JSON
+  do `ork grafo`, com a evidência de cada aresta e no máximo 32.768 bytes por padrão; o despacho
+  claude-bg as libera para a sessão filha só com a flag. As consultas do `ork grafo` ganham
+  `--teto-bytes N` (JSON compacto de até N bytes, sem as arestas mais longe do alvo quando não cabe) e,
+  sem o índice do HEAD, dizem se ele falta, se é de outra revisão ou de outro extrator, com a correção
+  `ork grafo indexar`. Sem a flag, as tools e o despacho ficam como estão. Como todo o `ork grafo`,
+  as tools precisam do `typescript` e do micromark na instalação do `ork`; sem eles, recusam com
+  `grafo.parser.indisponivel`.
+
 ### Corrigido
 
 - **Trabalho parado no condutor e status honesto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 4):
@@ -90,6 +102,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     manifesto, uma claim focada, o `.gitignore` do estado, a ativação do plugin e amostras da saída
     real conferidas por teste; os READMEs dos plugins e o roteiro do revisor pedem um repositório
     com commit e usam `ork mcp install --project "$PWD"`.
+- **Primeira experiência da 0.5.0, fatia 2 do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` só reprova o `claude-bg` quando algum bloco de modo permitido despacha por ele, e a
+    correção ensina o caminho só com o Codex (`ork setup <modo> --bloco N --runtime codex --model
+    <modelo>`); o check `despacho pelo codex` vale também por bloco; sem o binário `claude`, o
+    `ork sessions` dá a fonte como ausente, com a correção, e não sai mais 1;
+  - o `gate_blocked` do `ork ship --dry-run` leva `dryRun: true`, e board, escalonador, monitor
+    (pulse) e maestro ignoram o evento de ensaio: a thread não aparece pausada por um dry-run;
+  - `ork init` cria `.orkastery/.gitignore` com `*`, e o `ork`, ao criar a pasta de worktrees, o
+    mesmo nela; o `.gitignore` do usuário não muda;
+  - onboarding, ajuda e docs dizem que segredos ficam no ambiente do processo ou no cofre do host
+    (no Hermes, `~/.hermes/.env`);
+  - a correção do lint de claim de suíte inteira e a dica de `ci.failed` das lições não citam mais
+    o script do Orkastery;
+  - `ork roadmap status` diz o fuso logo abaixo do título;
+  - o `ork_git_commit` adiciona caminho rastreado com `git add -u` e, quando o git falha, diz o
+    subcomando e o código de saída, sem o stderr;
+  - o `ork ship` barra por `push_direto_na_base` a entrega sem delta com a base local à frente do
+    remoto; o merge do próprio ship que não chegou ao remoto (push recusado, `--sem-push`) segue
+    entregando no ship repetido;
+  - o `ork` acha binário no PATH sem o `which`; `ork experiencia show` diz as origens em texto;
+    `ork verify --baseline` sem comando não se contradiz; o guia de experiência diz onde o `--dir`
+    põe o catálogo.
 
 ## [0.5.0] - 2026-09-30
 

@@ -81,7 +81,9 @@ test('Hermes de ponta a ponta com o ork real: gateway no cwd de outro projeto de
     assert.equal(pedido.status, 0, pedido.stderr);
     const linhas = pedido.stdout.split('\n');
     assert.match(linhas[0], /^Roadmap do Orkastery /);
-    assert.match(linhas[1], /^Projeto consultado: orkastery \(ork\) · .* · pela opção --projeto$/);
+    // Fatia 2 do ensaio da 0.5.0 (P7): o fuso vem logo abaixo do titulo, e o projeto consultado em seguida.
+    assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
+    assert.match(linhas[2], /^Projeto consultado: orkastery \(ork\) · .* · pela opção --projeto$/);
   } finally { process.env.ORK_USUARIO_DIR = anterior; a.limpar(); gateway.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }
 });
 
