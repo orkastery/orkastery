@@ -31,6 +31,17 @@ ativação em sessão nova. `maestro-parity.test.ts` compara o contrato canônic
 instalações temporárias. Os testes específicos de cada adaptador exercitam o
 transporte fixture; os recibos live são uma etapa posterior e separada.
 
+## Paridade do roadmap da rede
+
+O status do roadmap vem de `ork_network_roadmap` nos quatro hosts (RM-054, fatia 2): tool argv no
+OpenClaw, wrapper no Hermes, tool do MCP no Claude Code e no Codex (o projeto servido, em todas as
+máquinas) e `ork network roadmap` nas entradas `/orkastery:ork` e `$ork`. A descrição manda
+transportar o texto como vem: lacuna e "Não consultado" nunca viram "roadmap vazio". A frase
+`orkastery maestro` sem projeto oferece o mesmo panorama. No OpenClaw, o manifesto declara a tool
+nos perfis `coding` e `messaging` (`toolMetadata`): sem isso, no perfil `coding`, nenhuma tool de
+plugin chega ao modelo. `ork_network_status` espera a RM-053 na `main`. `network-roadmap-hosts.test.ts` prova a rota de cada host e o aceite do incidente de 29/09
+pela extensão do OpenClaw com o `ork` real.
+
 Usabilidade HITL é prioridade máxima: recomendação, opções claras e canal disponível
 associado ao pedido. MCP local conserva elicitation; Telegram segue disponível
 quando configurado. Ingresso nativo Hermes/Discord e OpenClaw depende de callback

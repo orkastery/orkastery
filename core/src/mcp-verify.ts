@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { exigirManifesto } from './manifest';
 import { dirThread, lerThread } from './thread';
 import { lerClaims } from './claims';
-import { adquirirRegiao, caminhoFila, caminhoLease, dirLeases, lerLease, leasesColidentes, liberar } from './leases';
+import { adquirirRegiao, caminhoFila, caminhoLease, dirLeases, lerLease, leasesColidentes, liberar, podarRegioesDeThreadsFechadas } from './leases';
 import { validarArquivosEstadoMcp } from './mcp-artifacts';
 import { comandosDoManifesto, ConducaoDoVerify, ExecutorVerify, prazoDoComando, verificar } from './verify';
 import { criarExecutorSandbox } from './verify-sandbox';
@@ -56,7 +56,9 @@ export function verificarMcp(raizEntrada: string, threadId: string, conducao: Co
   if (stDir && (!stDir.isDirectory() || !dentro(raiz, diretorioFixo(leasesDir)))) throw Error('mcp.verify.scope');
   const stFila = fs.lstatSync(caminhoFila(raiz), { throwIfNoEntry: false });
   if (stFila && (!stFila.isFile() || stFila.nlink !== 1)) throw Error('mcp.verify.queue.unsafe');
-  // Não herda nem remove lease existente, inclusive própria, expirada ou corrompida.
+  // RM-037 (fatia 3, defeito 4): lease e fila de thread fechada são órfãos e saem antes da conferência.
+  podarRegioesDeThreadsFechadas(raiz, [...nomes, 'main-tree'], threadId);
+  // Não herda nem remove lease existente de thread aberta, inclusive própria, expirada ou corrompida.
   if (nomes.some(nome => fs.lstatSync(caminhoLease(raiz, nome), { throwIfNoEntry: false }) ||
       leasesColidentes(raiz, nome).length) || leasesColidentes(raiz, 'main-tree').length) {
     throw Error('lease.busy: verificação exige leases próprias livres');

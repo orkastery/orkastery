@@ -1,0 +1,1155 @@
+{
+  "schema": "ork.graph-edge-audit-sample/v0",
+  "auditoria": {
+    "por": "agente claude-bg (opus, xhigh) na thread ork-rm031kg2extr, modo #Auto",
+    "em": "2026-09-29T11:40:00-03:00",
+    "metodo": "leitura do trecho e das linhas em volta no codigo; declaracao do alvo, import e secao conferidos por grep na revisao auditada",
+    "limite": "amostra por estrato, nao o universo: nao prova zero aresta falsa; a auditoria integral e do benchmark",
+    "refeita": "a amostra de f1bf718 foi refeita depois dos GO-FIX 1 a 5, que mudaram o codigo auditado; em 30/09 as arestas de BRAIN_READ e de DriverCliOrkMind.rodar foram reauditadas depois dos syncs com a main (baf065e e 1041f1b), que mudaram o trecho delas; as linhas e notas das outras 43 arestas sao as da revisao auditada, e a conferencia casa pelo trecho, nao pela linha; em 30/09 (thread ork-rm031kg3, KG3 D8) a aresta declares da const sha256 do script do comando provisorio saiu com ele e entrou a primeira do passo fixo do estrato declares/ast na revisao 94245c23 da branch, de antes do rebase sobre a main 36def09 e fora do historico entregue (portfolio.ts#createOperationEntity), auditada a mao; ela confere no HEAD pelo trecho; as outras 44 seguem as da revisao auditada"
+  },
+  "graph_schema": "ork.code-artifact-graph/v1",
+  "repository_id": "orkastery",
+  "revision": "348025699e0c0a3d479275027129969daf939b09",
+  "revision_unavailable_reason": null,
+  "snapshot_id": "snap-c6f693e4d4095d794f709b45778aa93703cf88df31697e4d70c7ee89174cbb66",
+  "graph_digest": "2e897c21255a8568cbfca998d86c4e71fa4ba48d319d81b7a57180e46ec5f55e",
+  "por_estrato": 5,
+  "universo": {
+    "calls/ast": 5635,
+    "contains/ast": 54,
+    "contains/structured": 1225,
+    "declares/ast": 4179,
+    "derived_from/structured": 193,
+    "imports/ast": 8447,
+    "references/explicit-link": 705,
+    "references/structured": 241,
+    "references/text-location": 734
+  },
+  "arestas": [
+    {
+      "estrato": "calls/ast",
+      "kind": "calls",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/objective.ts",
+        "fragment": "createReservedObjective"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/thread.ts",
+        "fragment": "lerThread"
+      },
+      "evidencia": {
+        "path": "core/src/objective.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 272,
+        "line_end": 272,
+        "trecho_sha256": "0c0d258f5e48b4777ad0cb4d1f1a73fe2e85fae33d3a1c376ee9d42e74362f0b",
+        "trecho_inicio": "lerThread("
+      },
+      "veredito": "supported",
+      "nota": "objective.ts:272 dentro de createReservedObjective (l. 239); lerThread importado de ./thread (l. 35), declarado em thread.ts:52"
+    },
+    {
+      "estrato": "calls/ast",
+      "kind": "calls",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/thread.ts",
+        "fragment": "dirThreads"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/manifest.ts",
+        "fragment": "dirEstado"
+      },
+      "evidencia": {
+        "path": "core/src/thread.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 27,
+        "line_end": 27,
+        "trecho_sha256": "6e731276712912a76168a857c79f5c5fb0e0c82e65717cc7702e2a80d1a5d6f5",
+        "trecho_inicio": "dirEstado("
+      },
+      "veredito": "supported",
+      "nota": "thread.ts:27 no corpo de dirThreads (l. 26); dirEstado importado de ./manifest (l. 12), declarado em manifest.ts:46"
+    },
+    {
+      "estrato": "calls/ast",
+      "kind": "calls",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/index.ts",
+        "fragment": "comandoLease"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/index.ts",
+        "fragment": "texto"
+      },
+      "evidencia": {
+        "path": "core/src/index.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 2085,
+        "line_end": 2085,
+        "trecho_sha256": "4647ca1684eb961d8d776ad1c12bb708c1299651a0cd162e9bcdc9dbc08fb48f",
+        "trecho_inicio": "texto("
+      },
+      "veredito": "supported",
+      "nota": "index.ts:2085 dentro de comandoLease (l. 2076), sem texto local; texto e funcao de topo do mesmo arquivo (l. 260)"
+    },
+    {
+      "estrato": "calls/ast",
+      "kind": "calls",
+      "from": {
+        "kind": "symbol",
+        "path": "core/test/checar-comandos-dos-guias.test.ts",
+        "fragment": "checar"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/test/checar-comandos-dos-guias.test.ts",
+        "fragment": "checarGuias"
+      },
+      "evidencia": {
+        "path": "core/test/checar-comandos-dos-guias.test.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 39,
+        "line_end": 39,
+        "trecho_sha256": "e12532638e7d88d1285d3a5b3459b3ef9d947cbdcaf0ccce4dc7ff172f91f2c9",
+        "trecho_inicio": "checarGuias("
+      },
+      "veredito": "supported",
+      "nota": "const de topo checar (l. 39) chama checarGuias, binding de topo do mesmo arquivo (desestruturado do require na l. 9)"
+    },
+    {
+      "estrato": "calls/ast",
+      "kind": "calls",
+      "from": {
+        "kind": "symbol",
+        "path": "core/test/memoria.test.ts",
+        "fragment": "ligarOrkmind"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/manifest.ts",
+        "fragment": "exigirManifesto"
+      },
+      "evidencia": {
+        "path": "core/test/memoria.test.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 54,
+        "line_end": 54,
+        "trecho_sha256": "14c43aeaf1608629fd8c3cc38ec518bb45b29dba19c9dd68e54b273a3a5ff89d",
+        "trecho_inicio": "exigirManifesto("
+      },
+      "veredito": "supported",
+      "nota": "memoria.test.ts:54 dentro de ligarOrkmind (l. 44); exigirManifesto importado de ../src/manifest (l. 33), declarado em manifest.ts:391"
+    },
+    {
+      "estrato": "contains/ast",
+      "kind": "contains",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverEmMemoria"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverEmMemoria.ligado"
+      },
+      "evidencia": {
+        "path": "core/src/orkmind.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 513,
+        "line_end": 513,
+        "trecho_sha256": "e0582256750b94884a038561ccf3cb014d979c70c3dcd8ceccb434ad4a66f449",
+        "trecho_inicio": "ligado = true;"
+      },
+      "veredito": "supported",
+      "nota": "propriedade ligado na l. 513, dentro da classe de topo DriverEmMemoria (l. 508)"
+    },
+    {
+      "estrato": "contains/ast",
+      "kind": "contains",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverCliOrkMind"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverCliOrkMind.constructor"
+      },
+      "evidencia": {
+        "path": "core/src/orkmind.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 291,
+        "line_end": 294,
+        "trecho_sha256": "efe2f9e2fd331f7ee6013d284d4e140343dc9a81a412c95d2199cd6272e341a9",
+        "trecho_inicio": "constructor(config: ConfigDoDriver) {"
+      },
+      "veredito": "supported",
+      "nota": "constructor na l. 291, dentro da classe de topo DriverCliOrkMind (l. 286)"
+    },
+    {
+      "estrato": "contains/ast",
+      "kind": "contains",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverCliOrkMind"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/orkmind.ts",
+        "fragment": "DriverCliOrkMind.rodar"
+      },
+      "evidencia": {
+        "path": "core/src/orkmind.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 424,
+        "line_end": 459,
+        "trecho_sha256": "a2b18e99236f892714612f888413647d441697c465441df892ee3cda7d89e45e",
+        "trecho_inicio": "private rodar(pedido: Record<string, unknown>, timeoutMs: number = this.config.timeoutMs): unknown {"
+      },
+      "veredito": "supported",
+      "nota": "metodo privado rodar na l. 424, dentro da classe de topo DriverCliOrkMind (l. 380); reauditada em 30/09 depois do sync com a main 1041f1b, que acrescentou o parametro timeoutMs"
+    },
+    {
+      "estrato": "contains/ast",
+      "kind": "contains",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/maestro-sources.ts",
+        "fragment": "MaestroReader"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/maestro-sources.ts",
+        "fragment": "MaestroReader.inspect"
+      },
+      "evidencia": {
+        "path": "core/src/maestro-sources.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 30,
+        "line_end": 44,
+        "trecho_sha256": "038137c4b99302716bb58f64c86fc2c485ff31d79caf3e763210773eacc377ab",
+        "trecho_inicio": "private inspect(relative: string, file: boolean): string {"
+      },
+      "veredito": "supported",
+      "nota": "metodo privado inspect na l. 30, dentro da classe de topo MaestroReader (l. 25)"
+    },
+    {
+      "estrato": "contains/ast",
+      "kind": "contains",
+      "from": {
+        "kind": "symbol",
+        "path": "core/src/maestro-sources.ts",
+        "fragment": "MaestroReader"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/maestro-sources.ts",
+        "fragment": "MaestroReader.read"
+      },
+      "evidencia": {
+        "path": "core/src/maestro-sources.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 52,
+        "line_end": 63,
+        "trecho_sha256": "d30df785e69700cd57ea352390de34d1764859022abb0c49a975376b59a6d08c",
+        "trecho_inicio": "read(relative: string): string | null {"
+      },
+      "veredito": "supported",
+      "nota": "metodo read na l. 52, dentro da classe de topo MaestroReader (l. 25)"
+    },
+    {
+      "estrato": "contains/structured",
+      "kind": "contains",
+      "from": {
+        "kind": "file",
+        "path": "docs/guias/auditoria.md",
+        "fragment": null
+      },
+      "to": {
+        "kind": "section",
+        "path": "docs/guias/auditoria.md",
+        "fragment": "o-que-ela-reconhece"
+      },
+      "evidencia": {
+        "path": "docs/guias/auditoria.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 223,
+        "line_end": 223,
+        "trecho_sha256": "9ad0a4948e964cc4859653324ea6dbd417e9bc0666a006c258598c824fb4aa5a",
+        "trecho_inicio": "### O que ela reconhece"
+      },
+      "veredito": "supported",
+      "nota": "titulo '### O que ela reconhece' na l. 223"
+    },
+    {
+      "estrato": "contains/structured",
+      "kind": "contains",
+      "from": {
+        "kind": "file",
+        "path": "docs/produto/FEAT-005-ci-check-independente.md",
+        "fragment": null
+      },
+      "to": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-005-ci-check-independente.md",
+        "fragment": "dados-e-contratos"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-005-ci-check-independente.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 56,
+        "line_end": 56,
+        "trecho_sha256": "776fe7250a33b04cc794c979333e6c074cf0fb91dce627085f5cd9dfde25bfe8",
+        "trecho_inicio": "## Dados e contratos"
+      },
+      "veredito": "supported",
+      "nota": "titulo '## Dados e contratos' na l. 56"
+    },
+    {
+      "estrato": "contains/structured",
+      "kind": "contains",
+      "from": {
+        "kind": "file",
+        "path": "docs/roadmap/RM-006-orkmind-na-fabrica.md",
+        "fragment": null
+      },
+      "to": {
+        "kind": "section",
+        "path": "docs/roadmap/RM-006-orkmind-na-fabrica.md",
+        "fragment": "escopo-e-validação"
+      },
+      "evidencia": {
+        "path": "docs/roadmap/RM-006-orkmind-na-fabrica.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 50,
+        "line_end": 50,
+        "trecho_sha256": "da879b2693e362c6ddfcd287f782425b9db47f872624a94afd90287e66bef015",
+        "trecho_inicio": "## Escopo e validação"
+      },
+      "veredito": "supported",
+      "nota": "titulo '## Escopo e validacao' na l. 50; slug com acento preservado"
+    },
+    {
+      "estrato": "contains/structured",
+      "kind": "contains",
+      "from": {
+        "kind": "file",
+        "path": "docs/roadmap/RM-032-bootstrap-maestro.md",
+        "fragment": null
+      },
+      "to": {
+        "kind": "section",
+        "path": "docs/roadmap/RM-032-bootstrap-maestro.md",
+        "fragment": "plano-e-decisões"
+      },
+      "evidencia": {
+        "path": "docs/roadmap/RM-032-bootstrap-maestro.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 54,
+        "line_end": 54,
+        "trecho_sha256": "ccc37ba341038be4daaa3e06e3479db54abd6fe80c6e492a48c24c3b7f9ff6ad",
+        "trecho_inicio": "## Plano e decisões"
+      },
+      "veredito": "supported",
+      "nota": "titulo '## Plano e decisoes' na l. 54"
+    },
+    {
+      "estrato": "contains/structured",
+      "kind": "contains",
+      "from": {
+        "kind": "file",
+        "path": "docs/produto/FEAT-029-conducao-multicanal.md",
+        "fragment": null
+      },
+      "to": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-029-conducao-multicanal.md",
+        "fragment": "operação-e-controle"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-029-conducao-multicanal.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 89,
+        "line_end": 89,
+        "trecho_sha256": "9ccaad1e7c6f847f2c4b29fa58495b5a18aacc95f44c4637e4bf0f33871df7ff",
+        "trecho_inicio": "## Operação e controle"
+      },
+      "veredito": "supported",
+      "nota": "titulo '## Operacao e controle' na l. 89"
+    },
+    {
+      "estrato": "declares/ast",
+      "kind": "declares",
+      "from": {
+        "kind": "file",
+        "path": "core/src/roadmap-reservas.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/roadmap-reservas.ts",
+        "fragment": "TENTATIVAS"
+      },
+      "evidencia": {
+        "path": "core/src/roadmap-reservas.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 31,
+        "line_end": 31,
+        "trecho_sha256": "8a9ec20864ab26c79cb75b121358fe5761f84dc9ad166c4a6f8a1f34a7e008bc",
+        "trecho_inicio": "TENTATIVAS = 5"
+      },
+      "veredito": "supported",
+      "nota": "const de topo TENTATIVAS na l. 31"
+    },
+    {
+      "estrato": "declares/ast",
+      "kind": "declares",
+      "from": {
+        "kind": "file",
+        "path": "core/src/company-brain-cli.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/company-brain-cli.ts",
+        "fragment": "BRAIN_READ"
+      },
+      "evidencia": {
+        "path": "core/src/company-brain-cli.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 17,
+        "line_end": 17,
+        "trecho_sha256": "60e72e862b76fa588cbc60eade50503bfc8abdca5bef903c46f3b768e203f0ee",
+        "trecho_inicio": "BRAIN_READ=['status','inventory','get','query','receipts','reconcile','context','dossie'] as const"
+      },
+      "veredito": "supported",
+      "nota": "const exportada de topo BRAIN_READ na l. 17; reauditada em 30/09 na revisao 1b0ef5b, depois do sync com a main baf065e, que acrescentou 'dossie' ao trecho"
+    },
+    {
+      "estrato": "declares/ast",
+      "kind": "declares",
+      "from": {
+        "kind": "file",
+        "path": "core/src/mcp-ship.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/mcp-ship.ts",
+        "fragment": "criarPerfilShipMcp"
+      },
+      "evidencia": {
+        "path": "core/src/mcp-ship.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 112,
+        "line_end": 126,
+        "trecho_sha256": "8a02dd729d2db5af7fabd17cc25db88dcfd21869f85b8660903a5fc9196c7bda",
+        "trecho_inicio": "export function criarPerfilShipMcp(raiz:string,transporte:'github-ssh'|'bare-local'='github-ssh'):PerfilShipMcp {"
+      },
+      "veredito": "supported",
+      "nota": "funcao exportada de topo criarPerfilShipMcp nas l. 112 a 126"
+    },
+    {
+      "estrato": "declares/ast",
+      "kind": "declares",
+      "from": {
+        "kind": "file",
+        "path": "core/src/portfolio.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/portfolio.ts",
+        "fragment": "createOperationEntity"
+      },
+      "evidencia": {
+        "path": "core/src/portfolio.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 89,
+        "line_end": 105,
+        "trecho_sha256": "5e5a56b60c29c20b7ded8766db8adb5c3fad1b65b06b4883daca22de566f0901",
+        "trecho_inicio": "export function createOperationEntity(root: string, operationId: string, principal: string): PortfolioEntity {"
+      },
+      "veredito": "supported",
+      "nota": "funcao exportada de topo createOperationEntity nas l. 89 a 105, declarada uma vez no arquivo; substitui a aresta do comando provisorio removido no KG3"
+    },
+    {
+      "estrato": "declares/ast",
+      "kind": "declares",
+      "from": {
+        "kind": "file",
+        "path": "core/src/master-nota.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/master-nota.ts",
+        "fragment": "arquivoDasNotas"
+      },
+      "evidencia": {
+        "path": "core/src/master-nota.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 76,
+        "line_end": 78,
+        "trecho_sha256": "7db3a12eb46b088f03e29d2ab8877fa560afee89f5350fa9cc60e5dad73c6c18",
+        "trecho_inicio": "export function arquivoDasNotas(raiz: string, estadoDir?: string): string {"
+      },
+      "veredito": "supported",
+      "nota": "funcao exportada de topo arquivoDasNotas nas l. 76 a 78"
+    },
+    {
+      "estrato": "derived_from/structured",
+      "kind": "derived_from",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-001-thread-e-seis-fases.md",
+        "fragment": "FEAT-001"
+      },
+      "to": {
+        "kind": "file",
+        "path": "core/test/thread.test.ts",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-001-thread-e-seis-fases.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 18,
+        "line_end": 18,
+        "trecho_sha256": "a2fb6a5d1689236635a6a2ee98b6795e4df7de27622cd24591b361248c159b77",
+        "trecho_inicio": "core/test/thread.test.ts"
+      },
+      "veredito": "supported",
+      "nota": "frontmatter de FEAT-001: core/test/thread.test.ts em fontes.testes (l. 17 e 18)"
+    },
+    {
+      "estrato": "derived_from/structured",
+      "kind": "derived_from",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-022-auditoria-e-divida.md",
+        "fragment": "FEAT-022"
+      },
+      "to": {
+        "kind": "file",
+        "path": "core/src/auditrun.ts",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-022-auditoria-e-divida.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 15,
+        "line_end": 15,
+        "trecho_sha256": "25a94b8a401f8fbe09527faa4625bc3e8cb89c9edd15531c745d79e8a38f582b",
+        "trecho_inicio": "core/src/auditrun.ts"
+      },
+      "veredito": "supported",
+      "nota": "frontmatter de FEAT-022: core/src/auditrun.ts em fontes.codigo (l. 13 a 15)"
+    },
+    {
+      "estrato": "derived_from/structured",
+      "kind": "derived_from",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-029-conducao-multicanal.md",
+        "fragment": "FEAT-029"
+      },
+      "to": {
+        "kind": "file",
+        "path": "core/test/conducao-lease.test.ts",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-029-conducao-multicanal.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 21,
+        "line_end": 21,
+        "trecho_sha256": "000c37d507094664c3f2f3ecded1a00dd3a31042b16e78e732f0b31f55208337",
+        "trecho_inicio": "core/test/conducao-lease.test.ts"
+      },
+      "veredito": "supported",
+      "nota": "frontmatter de FEAT-029: core/test/conducao-lease.test.ts em fontes.testes (l. 20 e 21)"
+    },
+    {
+      "estrato": "derived_from/structured",
+      "kind": "derived_from",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
+        "fragment": "FEAT-020"
+      },
+      "to": {
+        "kind": "file",
+        "path": "core/test/mcp-server.test.ts",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 18,
+        "line_end": 18,
+        "trecho_sha256": "314de73864694bea4dc5aef9a7491614857a1e4eab2d20b3936a589eb71378c2",
+        "trecho_inicio": "core/test/mcp-server.test.ts"
+      },
+      "veredito": "supported",
+      "nota": "frontmatter de FEAT-020: core/test/mcp-server.test.ts em fontes.testes (l. 17 e 18)"
+    },
+    {
+      "estrato": "derived_from/structured",
+      "kind": "derived_from",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
+        "fragment": "FEAT-020"
+      },
+      "to": {
+        "kind": "file",
+        "path": "core/src/mcp-install.ts",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-020-mcp-e-adaptadores.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 15,
+        "line_end": 15,
+        "trecho_sha256": "1423a09c378d7a16e7a04fd81e169971a8a15324eb64a4021f5e880adef40cbd",
+        "trecho_inicio": "core/src/mcp-install.ts"
+      },
+      "veredito": "supported",
+      "nota": "frontmatter de FEAT-020: core/src/mcp-install.ts em fontes.codigo (l. 13 a 15)"
+    },
+    {
+      "estrato": "imports/ast",
+      "kind": "imports",
+      "from": {
+        "kind": "file",
+        "path": "core/test/horario-pulse.test.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/master-digest.ts",
+        "fragment": "enviarDigest"
+      },
+      "evidencia": {
+        "path": "core/test/horario-pulse.test.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 9,
+        "line_end": 9,
+        "trecho_sha256": "6773a8e420bfb2faef8e546030dd3191d3dfb7b07936223ed22fb4f3ad7484af",
+        "trecho_inicio": "enviarDigest"
+      },
+      "veredito": "supported",
+      "nota": "horario-pulse.test.ts:9 importa enviarDigest de ../src/master-digest, declarado em master-digest.ts:72"
+    },
+    {
+      "estrato": "imports/ast",
+      "kind": "imports",
+      "from": {
+        "kind": "file",
+        "path": "core/test/runtime-context.test.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/runtime-context.ts",
+        "fragment": "validarContextoRuntime"
+      },
+      "evidencia": {
+        "path": "core/test/runtime-context.test.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 9,
+        "line_end": 9,
+        "trecho_sha256": "ee78a81e6e312ddc5cafb1e6681e7892a02377769eb4b2404f7ec487d51d20a8",
+        "trecho_inicio": "validarContextoRuntime"
+      },
+      "veredito": "supported",
+      "nota": "runtime-context.test.ts:9 importa validarContextoRuntime de ../src/runtime-context, declarado em runtime-context.ts:98"
+    },
+    {
+      "estrato": "imports/ast",
+      "kind": "imports",
+      "from": {
+        "kind": "file",
+        "path": "core/src/index.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/escopo-escrita.ts",
+        "fragment": "validarDiretorioDeThread"
+      },
+      "evidencia": {
+        "path": "core/src/index.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 15,
+        "line_end": 15,
+        "trecho_sha256": "8095101e3dbe8053a700b926debebaf207e8c59c53f7ea443109e5bb8d6d4821",
+        "trecho_inicio": "validarDiretorioDeThread"
+      },
+      "veredito": "supported",
+      "nota": "index.ts:15 importa validarDiretorioDeThread de ./escopo-escrita, declarado em escopo-escrita.ts:24"
+    },
+    {
+      "estrato": "imports/ast",
+      "kind": "imports",
+      "from": {
+        "kind": "file",
+        "path": "core/src/adapters/claude-bg.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/runtime-profiles.ts",
+        "fragment": "ambienteComPerfil"
+      },
+      "evidencia": {
+        "path": "core/src/adapters/claude-bg.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 16,
+        "line_end": 16,
+        "trecho_sha256": "05b7aac90a3d516d713ebf215fcf021bbe2f1b7919d9c5b9d13f96d07d89b7a6",
+        "trecho_inicio": "ambienteComPerfil"
+      },
+      "veredito": "supported",
+      "nota": "adapters/claude-bg.ts:16 importa ambienteComPerfil de ../runtime-profiles, declarado em runtime-profiles.ts:135"
+    },
+    {
+      "estrato": "imports/ast",
+      "kind": "imports",
+      "from": {
+        "kind": "file",
+        "path": "core/src/company-brain-capture.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/company-brain-journal.ts",
+        "fragment": "atomicJson"
+      },
+      "evidencia": {
+        "path": "core/src/company-brain-capture.ts",
+        "extractor_id": "ork.ts-ast",
+        "extraction_method": "ast",
+        "line_start": 5,
+        "line_end": 5,
+        "trecho_sha256": "3ef5f8ca8b81e46bb553f5ac67f5b4208e8642684a1d0ab18890468eb69477ad",
+        "trecho_inicio": "atomicJson"
+      },
+      "veredito": "supported",
+      "nota": "company-brain-capture.ts:5 importa atomicJson de ./company-brain-journal, declarado em company-brain-journal.ts:60"
+    },
+    {
+      "estrato": "references/explicit-link",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-003-despacho-de-fase.md",
+        "fragment": "comportamento"
+      },
+      "to": {
+        "kind": "file",
+        "path": "docs/produto/FEAT-008-rodizio-de-contas.md",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-003-despacho-de-fase.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "explicit-link",
+        "line_start": 58,
+        "line_end": 58,
+        "trecho_sha256": "4131aeefc70848fc761e8b72e72abe31c8eb18914bc819395d3db13940bb2a9c",
+        "trecho_inicio": "[FEAT-008](FEAT-008-rodizio-de-contas.md)"
+      },
+      "veredito": "supported",
+      "nota": "link na l. 58 sob '## Comportamento' (l. 48); FEAT-008-rodizio-de-contas.md na mesma pasta"
+    },
+    {
+      "estrato": "references/explicit-link",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "fragment": "feat-011--hitl-em-camadas-resumo-consentimento-e-lote"
+      },
+      "to": {
+        "kind": "file",
+        "path": "docs/roadmap/RM-045-pulse-enxuto.md",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "explicit-link",
+        "line_start": 66,
+        "line_end": 66,
+        "trecho_sha256": "9eea2b096d2a868c13352bc8de6c905d2ed47a30e0c4dd16e1ce0b812743e207",
+        "trecho_inicio": "[RM-045](../roadmap/RM-045-pulse-enxuto.md)"
+      },
+      "veredito": "supported",
+      "nota": "link na l. 66 sob o titulo da pagina (l. 60); ../roadmap/RM-045-pulse-enxuto.md resolve a partir de docs/produto"
+    },
+    {
+      "estrato": "references/explicit-link",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-017-memoria-orkmind.md",
+        "fragment": "operação-e-controle"
+      },
+      "to": {
+        "kind": "file",
+        "path": "docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-017-memoria-orkmind.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "explicit-link",
+        "line_start": 62,
+        "line_end": 62,
+        "trecho_sha256": "8eb9363bebee38a0f4db4bc7c46852245aaa28473f1a206e2218eab32b8679fd",
+        "trecho_inicio": "[RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md)"
+      },
+      "veredito": "supported",
+      "nota": "link na l. 62 sob '## Operacao e controle' (l. 59); ../roadmap/RM-038-busca-semantica-na-memoria.md existe"
+    },
+    {
+      "estrato": "references/explicit-link",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/guias/contribuir/com-o-ork.md",
+        "fragment": "contribuir-com-o-próprio-ork"
+      },
+      "to": {
+        "kind": "file",
+        "path": "docs/guias/contribuir/pull-request.md",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/guias/contribuir/com-o-ork.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "explicit-link",
+        "line_start": 5,
+        "line_end": 5,
+        "trecho_sha256": "7c5269da70f65346683a6ce88e3ed077679f8983cfcd5ebe4104ffb19bed09fe",
+        "trecho_inicio": "[pull request](pull-request.md)"
+      },
+      "veredito": "supported",
+      "nota": "link na l. 5 sob o titulo '# Contribuir com o proprio ork' (l. 1); pull-request.md na mesma pasta"
+    },
+    {
+      "estrato": "references/explicit-link",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-018-documentacao-como-codigo.md",
+        "fragment": "feat-018--documentação-como-código"
+      },
+      "to": {
+        "kind": "file",
+        "path": "docs/produto/PLAT-01-orkastery.md",
+        "fragment": null
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-018-documentacao-como-codigo.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "explicit-link",
+        "line_start": 36,
+        "line_end": 36,
+        "trecho_sha256": "f3ab21e486a58ed74575321ffde849739e6aa1f50e075a556b669a4082158af3",
+        "trecho_inicio": "[PLAT-01](PLAT-01-orkastery.md)"
+      },
+      "veredito": "supported",
+      "nota": "link [PLAT-01](PLAT-01-orkastery.md) na l. 36, sob o titulo da pagina; arquivo na mesma pasta"
+    },
+    {
+      "estrato": "references/structured",
+      "kind": "references",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "fragment": "FEAT-011"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/produto/MOD-04-atencao-humana.md",
+        "fragment": "MOD-04"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 6,
+        "line_end": 6,
+        "trecho_sha256": "e69f65fcafe03934f0d715f066ed5703df8a221d3b7a94c2e3b00ad0f7d81fc9",
+        "trecho_inicio": "MOD-04"
+      },
+      "veredito": "supported",
+      "nota": "pai: MOD-04 na l. 6 do frontmatter de FEAT-011; MOD-04 e artefato"
+    },
+    {
+      "estrato": "references/structured",
+      "kind": "references",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-028-loop-de-aprendizado.md",
+        "fragment": "FEAT-028"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/produto/MOD-05-memoria-e-registro.md",
+        "fragment": "MOD-05"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-028-loop-de-aprendizado.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 6,
+        "line_end": 6,
+        "trecho_sha256": "d914d2eac4764919d30ba5c49c698338677b807f5c55b0de0674863ab1e819ca",
+        "trecho_inicio": "MOD-05"
+      },
+      "veredito": "supported",
+      "nota": "pai: MOD-05 na l. 6 do frontmatter de FEAT-028; MOD-05 e artefato"
+    },
+    {
+      "estrato": "references/structured",
+      "kind": "references",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "fragment": "FEAT-011"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md",
+        "fragment": "RM-039"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-011-hitl-em-camadas.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 7,
+        "line_end": 7,
+        "trecho_sha256": "e07d23eec731b362467c6d7e516694a2a470cbd73b2faa0a007bab0f26715b8a",
+        "trecho_inicio": "RM-039"
+      },
+      "veredito": "supported",
+      "nota": "roadmap: [RM-003, RM-039, ...] na l. 7 do frontmatter de FEAT-011; RM-039 e artefato"
+    },
+    {
+      "estrato": "references/structured",
+      "kind": "references",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-013-horario-do-dono.md",
+        "fragment": "FEAT-013"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/horario.ts",
+        "fragment": "lerFusoDoDono"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-013-horario-do-dono.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 21,
+        "line_end": 21,
+        "trecho_sha256": "79e2efe83862fa965ca41a852c3ced169ecc62437d7d358b5a32cfd0f2c9e934",
+        "trecho_inicio": "core/src/horario.ts#lerFusoDoDono"
+      },
+      "veredito": "supported",
+      "nota": "fontes.simbolos core/src/horario.ts#lerFusoDoDono (l. 21); funcao exportada em horario.ts:52"
+    },
+    {
+      "estrato": "references/structured",
+      "kind": "references",
+      "from": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-007-worktree-e-leases.md",
+        "fragment": "FEAT-007"
+      },
+      "to": {
+        "kind": "symbol",
+        "path": "core/src/worktree.ts",
+        "fragment": "garantirWorktree"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-007-worktree-e-leases.md",
+        "extractor_id": "ork.md-structure",
+        "extraction_method": "structured",
+        "line_start": 20,
+        "line_end": 20,
+        "trecho_sha256": "02630f83c82affb6566c63f19b4e5528e75210554d5eb5398346048c38747274",
+        "trecho_inicio": "core/src/worktree.ts#garantirWorktree"
+      },
+      "veredito": "supported",
+      "nota": "fontes.simbolos core/src/worktree.ts#garantirWorktree (l. 20); funcao exportada em worktree.ts:88"
+    },
+    {
+      "estrato": "references/text-location",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/roadmap/README.md",
+        "fragment": "itens"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/roadmap/RM-032-bootstrap-maestro.md",
+        "fragment": "RM-032"
+      },
+      "evidencia": {
+        "path": "docs/roadmap/README.md",
+        "extractor_id": "ork.id-mention",
+        "extraction_method": "text-location",
+        "line_start": 57,
+        "line_end": 57,
+        "trecho_sha256": "99c190250ec852a91ab2cfaff5088a4b0a9b128679d7356433b3469e10053e37",
+        "trecho_inicio": "RM-032"
+      },
+      "veredito": "supported",
+      "nota": "RM-032 no rotulo do link da linha de tabela 57, sob '## Itens' (l. 31); o destino do link nao conta"
+    },
+    {
+      "estrato": "references/text-location",
+      "kind": "references",
+      "from": {
+        "kind": "file",
+        "path": "core/test/hitl-v2-pergunta.test.ts",
+        "fragment": null
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
+        "fragment": "RM-048"
+      },
+      "evidencia": {
+        "path": "core/test/hitl-v2-pergunta.test.ts",
+        "extractor_id": "ork.id-mention",
+        "extraction_method": "text-location",
+        "line_start": 212,
+        "line_end": 212,
+        "trecho_sha256": "0395d7717323e44eb734048c39f6a4a26e726cf3e2f1c7c486a0db8226d4cd86",
+        "trecho_inicio": "RM-048"
+      },
+      "veredito": "supported",
+      "nota": "RM-048 no comentario da l. 212 de um teste; menção em codigo sai do arquivo"
+    },
+    {
+      "estrato": "references/text-location",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/guias/sincronismo-hitl.md",
+        "fragment": "k-condução-multicanal-i-36-rm-036-27092026"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/roadmap/RM-036-maestro-multicanal.md",
+        "fragment": "RM-036"
+      },
+      "evidencia": {
+        "path": "docs/guias/sincronismo-hitl.md",
+        "extractor_id": "ork.id-mention",
+        "extraction_method": "text-location",
+        "line_start": 538,
+        "line_end": 538,
+        "trecho_sha256": "ae45ef6154935bb21f21154ebc89e5f7dabb813c299c4a0c3c8f8296d9cf9a04",
+        "trecho_inicio": "RM-036"
+      },
+      "veredito": "supported",
+      "nota": "RM-036 no proprio titulo '## K. Conducao multicanal (I-36, RM-036, 27/09/2026)' (l. 538); I-36 nao e artefato"
+    },
+    {
+      "estrato": "references/text-location",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/MOD-04-atencao-humana.md",
+        "fragment": "features"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/produto/FEAT-012-decisao-tomada.md",
+        "fragment": "FEAT-012"
+      },
+      "evidencia": {
+        "path": "docs/produto/MOD-04-atencao-humana.md",
+        "extractor_id": "ork.id-mention",
+        "extraction_method": "text-location",
+        "line_start": 27,
+        "line_end": 27,
+        "trecho_sha256": "129fce25652180d748bcebec76c765fc93c28cbdaf4b76d4cca0445ab8d00ee1",
+        "trecho_inicio": "FEAT-012"
+      },
+      "veredito": "supported",
+      "nota": "FEAT-012 no rotulo do link da l. 27, sob '## Features' (l. 24)"
+    },
+    {
+      "estrato": "references/text-location",
+      "kind": "references",
+      "from": {
+        "kind": "section",
+        "path": "docs/produto/FEAT-001-thread-e-seis-fases.md",
+        "fragment": "feat-001--thread-e-ciclo-de-seis-fases"
+      },
+      "to": {
+        "kind": "artifact",
+        "path": "docs/roadmap/RM-100-fundacao-do-nucleo.md",
+        "fragment": "RM-100"
+      },
+      "evidencia": {
+        "path": "docs/produto/FEAT-001-thread-e-seis-fases.md",
+        "extractor_id": "ork.id-mention",
+        "extraction_method": "text-location",
+        "line_start": 38,
+        "line_end": 38,
+        "trecho_sha256": "601b22510280c085a0425c5ddac3f8835f31b0ea27cff9b23b8e09ecde7e2137",
+        "trecho_inicio": "RM-100"
+      },
+      "veredito": "supported",
+      "nota": "RM-100 no rotulo do link da l. 38, sob o titulo da pagina"
+    }
+  ]
+}

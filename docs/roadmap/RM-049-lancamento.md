@@ -6,22 +6,28 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-28T16:08:06-03:00
+atualizado_em: 2026-10-01T02:24:38-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
-  deploy: Não implantado
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Mesclado
+  testes: Aprovados
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: f0b7925
+    pr: 26
+  testes:
+    ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346)
+  deploy:
+    release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm049marketp
+  modo: "#Auto"
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-049 — Lançamento do Orkastery, com documentação no site, marketplaces e anúncio
@@ -32,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -50,20 +56,24 @@ sdlc:
 - **Incluído:**
   1. documentação do orkastery.com gerada no build a partir de `docs/`, em inglês e português;
   2. plugin do Claude Code e skills do Codex nos marketplaces oficiais;
-  3. textos do anúncio: ensaio em inglês para o Hacker News, thread no X e versão em português. Publicar é ato do dono.
+  3. textos do anúncio, entregues ao dono fora do repositório público. Publicar é ato do dono.
 - **Fora de escopo:** mudar o comportamento do produto.
 - **Entregáveis e critérios de aceite:** a documentação do site bate com `docs/` na checagem do CI; o plugin e as skills aparecem nos marketplaces; os textos são aprovados pelo dono.
-- **Piloto, medição e critérios de expansão/interrupção:** a definir no GOAL da thread.
+- **Piloto, medição e critérios de expansão/interrupção:** itens 2 e 3 na thread `ork-rm049marketp`; medição: as regras bloqueantes dos dois checklists que se conferem offline estão no gerador do plugin e rodam no CI, e cada campo dos dois portais tem valor pronto no kit; expansão: listagem aprovada nos dois diretórios; interrupção: achado do portal que exija mudar o comportamento do produto.
 
 ## Plano e decisões
 
 - **Prioridade / método / pontuação / justificativa / data:** continuação da RM-046, por decisão do dono em 28/09/2026.
-- **Horizonte / alvo / previsão / confiança / marcos:** a definir no GOAL.
+- **Horizonte / alvo / previsão / confiança / marcos:** plugin do Claude Code e plugin de skills do Codex prontos para os diretórios e marketplace próprio no repositório, em PR em 29/09/2026; submissão aos portais e publicação do anúncio com o dono, na data que ele escolher.
 - **Dependências e bloqueios (ID, owner, próxima revisão):** RM-046 (o domínio orkastery.com servindo o site).
-- **Premissas / riscos / mitigação:** a aprovação nos marketplaces depende de terceiros; o item não trava por ela.
-- **Decisões, alternativas e ADRs (ID, decisor, data, link):** escopo movido da RM-046 (Julio, 28/09/2026).
+- **Premissas / riscos / mitigação:** a aprovação nos marketplaces depende de terceiros; o item não trava por ela, porque o marketplace próprio instala sem revisão. O tempo até o primeiro ciclo em máquina limpa não foi medido, e nenhum texto do anúncio promete tempo.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** escopo movido da RM-046 (Julio, 28/09/2026). Na thread `ork-rm049marketp` (29/09/2026, decisões autônomas no ledger): o plugin dos marketplaces sai sem hooks nem MCP, porque instalado pelo diretório vale para a conta toda; as pastas do plugin são geradas do catálogo e conferidas no CI; a versão do plugin é a do `@orkastery/cli`. Respostas do dono (29/09/2026): o marketplace próprio entra com o merge; privacidade em `marketplaces/PRIVACY.md` e termos pela `LICENSE` (MIT); o dono publica o anúncio, e nenhum agente publica em canal nenhum. Regra do dono (28/09/2026): o repositório público leva só o necessário, e rascunhos e plano de lançamento ficam fora dele.
 
 ## Estado com evidências
+
+- Item 2, só o plugin nos marketplaces: na `main` pelo PR #26 (merge `f0b7925`), na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36). O marketplace próprio fica em `marketplaces/` no repositório, fora do pacote do npm.
+- CI: verde no PR #26 (run 36660154276) e no push da versão 0.5.0 (run 36815186450). No push do merge, a suíte passou (1995 aprovados, 1 pulado, 0 falhas) e o CHECK independente reprovou só a claim S9 da thread, que compara a branch com a `main` (run 36660497346).
+- Seguem em aberto: o item 1 (documentação do site gerada de `docs/`), a submissão aos diretórios oficiais e o item 3, todos com o dono.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -71,13 +81,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-09-28 | Julio |
-| Documentação | Rascunho | — | 2026-09-28 | Julio |
-| Código | Não iniciado | — | 2026-09-28 | Julio |
-| Testes | Não iniciados | — | 2026-09-28 | Julio |
-| Deploy | Não implantado | — | 2026-09-28 | Julio |
-| Exposição | Flag desligada | — | 2026-09-28 | Julio |
-| Habilitação | Pendente | — | 2026-09-28 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `f0b7925` · PR #26 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório | 2026-10-01 | Julio |
+| Exposição | Flag desligada | — | 2026-10-01 | Julio |
+| Habilitação | Pendente | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -85,8 +95,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** execução por agente dentro do modo da thread; publicar e anunciar são atos do dono.
-- **Próxima ação, responsável e prazo:** abrir a thread do item quando o dono priorizar.
+- **Próxima ação, responsável e prazo:** o dono submete nos dois portais pelo guia `marketplaces/README.md`, valida os textos do anúncio com o condutor e publica (Julio).
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-28 | proposto | escopo restante da RM-046 (H6 do dono) | Julio |
+| 2026-09-29 | Itens 2 e 3 em PR | Thread `ork-rm049marketp` (#Auto): plugin e skills prontos para os diretórios, marketplace próprio, guia de submissão e rascunhos do anúncio; item 1 em outra thread | Julio |
+| 2026-09-29 | Rascunhos do anúncio fora do PR | Regra do dono (28/09/2026): o repositório público leva só o necessário; os textos vão ao dono pelo condutor | Julio |
+| 2026-09-29 | Plugin nos marketplaces mesclado na `main`; entra na versão 0.5.0 | PR #26, merge `f0b7925`; tag `v0.5.0` | Julio |

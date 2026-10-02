@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { acharRollout, casaDoCodex } from './adapters/codex';
 import { diretorioEfetivo, perfilDoRegistro } from './runtime-profiles';
 import { dirThread, lerThread, listarIds } from './thread';
-import { lerLedger, registrar } from './ledger';
+import { ehEnsaio, lerLedger, registrar } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { EventoLedger, Fase, PlanoDeRetry, Thread } from './types';
 import { planejarRetry } from './retry';
@@ -84,7 +84,8 @@ export function detectarFasesOrfas(carregado: ManifestoCarregado, opcoes: {
     const escrever = opcoes.registrar === true && autorizadas.has(id);
     const t = lerThread(carregado.raiz,id), dir = dirThread(carregado.raiz,id);
     if (t.status !== 'aberta') continue;
-    const eventos = lerLedger(dir), di = eventos.map(e=>e.tipo).lastIndexOf('phase_dispatch');
+    // Fatia 2 do ensaio da 0.5.0 (P2; CHECK, rodada 1, A1): o gate do `ship --dry-run` nao e gate em aberto.
+    const eventos = lerLedger(dir).filter(e=>!ehEnsaio(e)), di = eventos.map(e=>e.tipo).lastIndexOf('phase_dispatch');
     if (di < 0) continue;
     const d = eventos[di], inicio = Date.parse(d.ts), fase = d.fase as Fase;
     if (opcoes.runtimes && !opcoes.runtimes.includes(String(d.runtime))) continue;

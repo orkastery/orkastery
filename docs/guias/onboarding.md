@@ -18,6 +18,10 @@ As nove etapas são maestro, credenciais, bancos, memoria, produtos, topologia, 
 skills e auditores. Consulte a pauta do CLI para as perguntas atuais. Respostas não são
 preenchidas pelo init ou inferidas pelo modo de autonomia.
 
+## Preferências de experiência
+
+A pauta `maestro` também oferece ativação recomendada, configuração e opt-out. Consulte `ork experiencia show --json`. Uma resposta `{"owner":{"language":"pt-BR","timezone":"UTC","depth":"curta","experience":true}}` persiste essas chaves no manifesto, preservando outras seções e as demais respostas. O campo legado `fuso` conserva seu comportamento de orientação. Consulta não preenche autoria. Veja [instalação e remoção do pacote](orchestration-experience.pt-BR.md).
+
 ## Contrato e retomada
 
 `.orkastery/onboarding.json` tem contrato `ork.onboarding/v1`, `atualizadoEm` e `etapas`.
@@ -28,7 +32,7 @@ O estado da entrevista fica separado de `orkastery.yaml`.
 
 `set` altera somente a etapa indicada. JSON equivalente, inclusive com outra ordem de chaves,
 preserva bytes do arquivo, timestamps, autoria e eventos. Ordem de arrays é significativa.
-`--por` omitido usa `owner`; isso não atribui resposta a Julio ou a outro humano.
+`--por` omitido usa `owner`; isso não comprova resposta de uma pessoa.
 
 Set e reset serializam leitura, alteração e evento sob a mesma trava e relêem o documento
 depois de adquiri-la. Escritores concorrentes preservam as demais respostas e a idempotência.
@@ -61,7 +65,8 @@ Reset emite um evento por etapa efetivamente limpa; repetir reset não acrescent
 
 ## Referências de credenciais
 
-Valores secretos ficam somente em `~/.hermes/.env`. O onboarding não lê esse arquivo.
+Valores secretos ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`).
+O onboarding guarda só o nome da variável e nunca lê o valor.
 Nas etapas credenciais/bancos, use um objeto com `env` (array de nomes de variáveis),
 `provedor` e/ou `banco` (identificadores públicos). Campos fora desse formato são recusados.
 Nos demais conteúdos, referências sensíveis usam nomes terminados em `_env`, com o nome da
@@ -107,7 +112,7 @@ Sem a chave vale o fuso do sistema (`TZ` ou a configuração do SO), com piso `U
 resolve. Valor inválido não reprova o manifesto: vira aviso em `ork doctor` (linha
 `fuso do dono`) e no stderr, uma vez por processo, e todo horário cai no default sem mudar o
 código de saída do comando. `ork doctor` também avisa (`onboarding fuso`) quando o fuso da
-entrevista diverge do manifesto. O `ork init` gera o bloco `owner` com a chave comentada.
+entrevista diverge do manifesto. Com `owner.timezone` na mesma resposta `maestro`, o aviso compara esse valor, que o `onboarding set` grava no manifesto; o `fuso` legado vale só sem ele. O `ork init` gera o bloco `owner` com a chave comentada.
 
 O fuso é resolvido uma vez por processo, no primeiro horário formatado. Cada execução do `ork`
 lê o valor novo: CLI, cron do pulse (`monitor/varredura-pulse.sh`), digest e as ofertas nativas

@@ -25,7 +25,9 @@
     "./skills/reviewers/security-auditor",
     "./skills/reviewers/test-engineer",
     "./skills/reviewers/web-performance-auditor",
-    "./skills/core/onboarding"
+    "./skills/core/onboarding",
+    "./skills/core/orchestration-experience",
+    "./skills/core/orchestration-experience-pt-br"
   ],
   "commands": "./commands",
   "keywords": [

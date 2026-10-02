@@ -20,7 +20,7 @@
  * `slot_released` no ledger da thread devolvida.
  */
 
-import { TIPOS_DE_EVENTO } from './ledger';
+import { ehEnsaio, TIPOS_DE_EVENTO } from './ledger';
 import { EventoLedger, Fase, MotivoGate, Thread } from './types';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 
@@ -108,12 +108,47 @@ function ultimaSessao(thread: Thread, eventos: EventoLedger[]): string | null {
 /**
  * Carimbo do ultimo sinal de vida: o evento mais novo do ledger que seja TRABALHO da
  * thread. `slot_released` fica de fora: e contabilidade do escalonador, e se contasse
- * como atividade a thread stale rejuvenesceria no exato momento em que e expulsa.
+ * como atividade a thread stale rejuvenesceria no exato momento em que e expulsa. O
+ * `slot_refused` (RM-037) tambem: despacho recusado por vaga nao e trabalho.
  */
 function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
   for (let i = eventos.length - 1; i >= 0; i--) {
-    if (eventos[i].tipo !== TIPOS_DE_EVENTO.vagaLiberada) return eventos[i].ts;
+    const t = eventos[i].tipo;
+    if (t !== TIPOS_DE_EVENTO.vagaLiberada && t !== TIPOS_DE_EVENTO.vagaRecusada) return eventos[i].ts;
   }
+  return null;
+}
+
+/**
+ * RM-037 (rm037defeito, defeito 3; achado N1 da rodada 2 do CHECK): a sessao com conducao VIVA que mesmo
+ * assim nao ocupa vaga do despacho. Sao tres: a parada (sem trabalho no ledger ha mais que `staleMin`,
+ * o mesmo teto do escalonador) e a que escalou para o humano depois de comecar (`gate_blocked`
+ * `human.pending` sem destravamento, ou sessao bloqueada no runtime), e a que o pulse declarou em silencio
+ * (`runtime.silencio`). A pausa PREVISTA ao fim do bloco nao entra: ela e gravada no proprio
+ * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
+ * verifica de novo. Somente leitura.
+ */
+export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora: string, staleMin: number,
+  /** A-3 do CHECK 4: o bloqueio no runtime e por sessao; o de outra sessao (a sucedida) nao libera esta. */
+  sessionId?: string):
+  'stale' | 'human.pending' | 'runtime.silencio' | null {
+  // Fatia 2 do ensaio da 0.5.0 (P2): evento de `--dry-run` nao e atividade nem parada.
+  const eventos = doLedger.filter((e) => !ehEnsaio(e));
+  const ultima = ultimaAtividadeEm(eventos);
+  if (ultima !== null && minutos(ultima, agora) >= staleMin) return 'stale';
+  const inicio = Date.parse(desde);
+  const depois = eventos.filter((e) => Date.parse(e.ts) >= inicio);
+  // A-2 e S-7 do CHECK 3: o silencio que o pulse declarou (`runtime.silencio`) e a sessao bloqueada no runtime
+  // esperando o dono tambem nao executam; os dois saem da conta ate o evento que os resolve.
+  for (let i = depois.length - 1; i >= 0; i--) {
+    const e = depois[i];
+    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || (e.motivo !== 'human.pending' && e.motivo !== 'runtime.silencio')) continue;
+    const resolvida = depois.slice(i + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
+    if (!resolvida) return e.motivo as 'human.pending' | 'runtime.silencio';
+  }
+  const bloqueio = depois.filter((e) => (e.tipo === 'sessao_bloqueada' || e.tipo === 'sessao_destravada') &&
+    (!sessionId || e.sessionId === sessionId)).at(-1);
+  if (bloqueio?.tipo === 'sessao_bloqueada') return 'human.pending';
   return null;
 }
 
@@ -201,9 +236,11 @@ function minutos(desdeEm: string, ateEm: string): number {
  */
 export function avaliarOcupacao(
   thread: Thread,
-  eventos: EventoLedger[],
+  doLedger: EventoLedger[],
   opcoes: OpcoesDeOcupacao
 ): OcupacaoDaThread {
+  // Fatia 2 do ensaio da 0.5.0 (P2): o ensaio do ship (`dryRun: true`) nao pausa a thread no board.
+  const eventos = doLedger.filter((e) => !ehEnsaio(e));
   const sessionId = ultimaSessao(thread, eventos);
   const sessaoEstado =
     opcoes.estados === null || sessionId === null

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
+import { raizDoEstado } from './estado-thread';
+import { executarGrafo } from './intelligence-graph-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
@@ -79,7 +81,7 @@ import { montarPulse, textoDoPulse } from './pulse';
 import { codigosEmUso, interpretarRespostaDoPulse, responderPeloPulse } from './pulse-resposta';
 import { CADENCIAS, gravarCadencia, inicioDaProximaJanela, lerCadencia, textoDaCadencia } from './pulse-cadencia';
 import { LIMIAR_DE_DECISOES_POR_FASE, placarDaThread, registrarDecisao, taxaDeReversao } from './decisao-autonoma';
-import { PedidoHitlQualquer, TipoDeCriterio } from './hitl-contract';
+import { PedidoHitlQualquer, TipoDeCriterio, CAMPOS_DA_DECISAO_NO_CLI, recusaNaSuperficie } from './hitl-contract';
 import { montarMonitor, textoDoMonitor } from './orquestracao';
 import {
   carimbarAchado,
@@ -126,13 +128,16 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, exigirManifesto } from './manifest';
+import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
+import { resolverExperiencia } from './experiencia';
+import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
 import {
   abrirMemoria,
+  sondarEmbeddings,
   publicar,
   publicarPropostas,
   ResultadoDoSync,
@@ -141,7 +146,9 @@ import {
   textoDoEstado,
   textoDoSync,
 } from './memoria';
-import { criarEscopoDeLeitura, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
+import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -196,12 +203,13 @@ import {
 import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
-import { consultarCi, executarBundleCi, executarCi, prepararBundleCi } from './ci';
-import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
-  threadsDaListagem } from './thread';
-import { iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, soltarItem, textoDasReservas } from './roadmap-reservas';
+import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
+import { avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread,
+  tabelaDeThreads, threadsDaListagem } from './thread';
+import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
+import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
@@ -222,7 +230,13 @@ import {
 import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
-import { registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
+import {
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
+  FORA_DA_CONSULTA,
+  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
+  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+} from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -284,18 +298,27 @@ function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>;
 
 const AJUDA = `ork ${VERSAO}, nucleo de orquestracao do Orkastery
 
-Uso: ork <comando> [argumentos]
+Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
+
+  --projeto <nome|caminho>                  Projeto-alvo de qualquer comando (RM-052): vence ORK_PROJETO, que vence o
+                                            diretorio atual; nome ambiguo ou desconhecido recusa com os candidatos (saida 4)
+  projetos [--json]                         Projetos conhecidos desta maquina (~/.orkastery/projetos.json)
+  projetos registrar [caminho]              Registra a copia (init, thread new e fabrica entrar ja registram)
+  projetos esquecer <nome|caminho>          Tira do registro a copia que sumiu ou sobrou (nada no disco e apagado)
 
   doctor                                    O que vale nesta maquina agora (sai != 0 se bloqueado)
   init [--force] [--name N] [--abbrev A]    Gera o orkastery.yaml do repositorio
   modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
 
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
+                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
+        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
+  experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  experiencia uninstall <host> [--dry-run] [--json]
+                                            Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
   setup <modo>                              Config atual de cada bloco do modo
   setup <modo> --bloco N [--runtime R]      Edita o bloco (runtimes: claude-bg, codex);
         [--model M] [--effort E] [--por Q]       evento setup_configured no ledger do projeto
@@ -383,8 +406,9 @@ Uso: ork <comando> [argumentos]
   verify <thread-id> [--baseline]           Reexecuta claims e verify do manifesto no HEAD real
         [--so-claims]                       --baseline grava o estado do mundo antes do GO
         [--canal C] [--esperar [min]]       So executa com a conducao da thread (sai 3 se outra conduz)
-  ci prepare <thread-id>                    Exporta claims/comandos para a candidata
+  ci prepare <thread-id>                    Exporta claims/comandos para a candidata (.ork-ci/<thread>.json)
   ci run [<thread-id>] [--bundle ARQ]       Executa o CHECK no runner independente
+        [--branch B]                         acha o bundle da thread pelo nome da branch (o CI usa)
   ci status [--sha SHA] [--remoto origin]   Consulta o check exato publicado no GitHub
 
   gate next <thread-id> [--proximo FASE]    Gate de tokens: mesma sessao ou nova sessao
@@ -421,17 +445,43 @@ Uso: ork <comando> [argumentos]
         [--id ptr-N] [--todos] [--forcar]        momento (retrieve_when), nunca a janela inteira
         [--sem-conteudo] [--json]                (orkmind por tag, files por path#ancora)
 
-  brain status|inventory|get|query|receipts|context|sync|reconcile|apply|rollback|bind
-  memory status [--json]                    Regime efetivo (files|orkmind), tenant e degradacao
+  brain status|inventory|get|query|receipts|context|dossie|sync|reconcile|apply|rollback|bind
+  brain dossie --thread T [--decisao ID]    Dossie de decisao: vinculo, contexto citavel, alternativas,
+                                            quem decidiu e evidencia, com os ids do Brain (so leitura)
+  memory status [--json] [--sondar]         Regime efetivo (files|orkmind), tenant, degradacao e embeddings
+                                            (--sondar: uma chamada real de embedding, com a latencia)
   memory sync [<thread-id>] [--json]        Publica decisoes, policies, handoff, licao e roadmap
   memory inventory --escopo <threads> [--json]                 Inventaria fontes canonicas e tenants excluidos, sem gravar
   memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]                   Migra handoffs por G3, com pacote integral e readback
   memory search --tags '<json>' [--colecao C]  Busca deterministica por tag (mandatory sempre volta)
         [--thread ID] [--restrito] [--janela N] [--limite N] [--json]
+  memory search --texto "<frase>"          Busca por significado (I-38): vetor + FTS por RRF no tenant,
+        [--modo hibrido|vetor|fts]               NAO deterministica; nao combina com --tags nem --thread
+        [--colecao C] [--limite N] [--json]
+  memory index [--modelo primario|fallback|todos] Indice vetorial local do tenant (I-38), idempotente,
+        [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
+
+  grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
+        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; incremental (KG4)
+                                                 a partir do indice ancestral, ou completo com o motivo; --forcar extrai
+                                                 completo; --verificar confere contrato, bytes, determinismo e o incremental
+                                                 contra a completa; precisa de typescript e micromark
+  grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
+        [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
+  grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
+  grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
+  grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
+        [--json --teto-bytes N]                  Nas quatro consultas (KG5): JSON compacto de no maximo N bytes; as arestas mais
+                                                 longe do alvo saem ate caber, e o caminho que nao cabe recusa
+  grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
+  grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
+        [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
@@ -488,10 +538,14 @@ Uso: ork <comando> [argumentos]
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
                                             voce e o fecho com o que precisa de voce e o que vem a seguir (RM-048)
   roadmap reservas [--json] [--remoto R]    Quem esta com cada item do roadmap, lido da branch ork/roadmap-reservas
+        [--soltar-orfas]                     marca a reserva de thread ja fechada (orfa) e, com a opcao, solta
+                                             ou passa para outra thread aberta do mesmo item, com registro
   roadmap pegar <RM-NNN> [--thread T]       Reserva o item para esta maquina (push atomico: o primeiro vence)
         [--nota N] [--por Q] [--maquina M]       maquina = --maquina, ORK_MAQUINA ou o hostname
         [--forcar --motivo M]                    tomar a reserva de outra maquina fica registrado
   roadmap soltar <RM-NNN> [--forcar --motivo M]  Devolve o item
+  roadmap feat [--thread T] [--nota N]      Reserva o proximo numero de FEAT na mesma branch (push atomico: duas
+                                            maquinas nunca levam o mesmo numero; numero reservado nao volta)
   fabrica [--json] [--sem-remoto]           O que cada maquina conduz, lido da branch ork/fabrica-estado (I-51)
   fabrica entrar [--maquina NOME]           Esta maquina entra na fabrica compartilhada deste usuario, com
                                             este nome (~/.orkastery/maquina.json), e publica o primeiro retrato
@@ -507,10 +561,16 @@ Uso: ork <comando> [argumentos]
   network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
                                             entrar, sai sozinho na batida do pulse e nos eventos de thread
   network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
-  docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
+  network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
+        [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
+                                                 github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
+  docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
+                                            o merge de outra thread e o indice que divergem da main so avisam
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
+        [--so RM-NNN[,RM-MMM]] [--todos]     so esses itens (e os indices); na worktree de uma thread com item,
+                                             o padrao e o item dela; --todos volta a todo item (RM-037)
   docs init                                 Cria padroes, modelos, indices e o lint de Markdown no projeto
 
   mcp serve --project RAIZ --host HOST       Servidor MCP stdio deste projeto (codex|claude-code)
@@ -623,6 +683,9 @@ function comandoThread(args: Args): number {
         return 1;
       }
       const gravadaDoAchado = args.opcoes['dry-run'] !== true;
+      // RM-052 (D7): thread nova, projeto conhecido; o aviso nunca derruba a criacao.
+      const avisoDoRegistroDoAchado = gravadaDoAchado && r.thread ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+      if (avisoDoRegistroDoAchado) console.error(avisoDoRegistroDoAchado);
       console.log(
         gravadaDoAchado
           ? `Thread criada a partir do achado ${r.achado.id}.`
@@ -672,6 +735,8 @@ function comandoThread(args: Args): number {
       console.error('uso: ork thread new <nome> --modo <MODO>');
       return 2;
     }
+    const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
+    if (avisoRoadmap) console.error(avisoRoadmap);
     const brutoModo = texto(args.opcoes.modo) ?? texto(args.opcoes.mode);
     let modo: Modo;
     try {
@@ -743,19 +808,27 @@ function comandoThread(args: Args): number {
     const reservaDoItem = itemDoRoadmap && gravada ? pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id }) : null;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
     if (gravada) publicarEmSegundoPlano(carregado.raiz);
+    // RM-052 (D7): quem abre thread aqui conhece este projeto; o aviso nunca derruba a criacao.
+    const avisoDoRegistro = gravada ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+    if (avisoDoRegistro) console.error(avisoDoRegistro);
     console.log(gravada ? 'Thread criada.' : 'Simulacao (--dry-run), nada foi gravado.');
     if (reservaDoItem) console.log(`  roadmap: ${reservaDoItem.item} reservado para esta maquina (${reservaDoItem.reserva?.maquina})`);
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
       relatarPublicacao(publicar(carregado, thread.id));
-      console.log('');
-      console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
+      if (!avisoSemBase) {
+        console.log('');
+        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      }
     }
+    if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }
   if (sub === 'list' || sub === undefined) {
@@ -843,7 +916,7 @@ function comandoOnboarding(args: Args): number {
     estado = gravarEtapa(raiz, etapa!, conteudo, por);
   } else if (sub === 'reset') estado = resetarOnboarding(raiz, etapa, por);
   else estado = lerOnboarding(raiz);
-  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado));
+  console.log(args.opcoes.json === true ? JSON.stringify(estado, null, 2) : textoDaPauta(estado, exigirManifesto(raiz).manifesto.owner));
   return 0;
 }
 
@@ -1064,6 +1137,26 @@ function comandoPhase(args: Args): number {
       console.log(args.opcoes.json === true && r.recusa ? JSON.stringify(r.recusa, null, 2) : r.recusa?.texto ?? r.erro);
       return 3;
     }
+    // RM-037 (defeito 3): a recusa por vaga e espera, como a da conducao (codigo 3), e diz quem ocupa.
+    if (r.motivo === 'concurrency.limite' && r.vaga) {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, ...r.vaga }, null, 2)); return 3; }
+      console.log(`Despacho recusado: concurrency.limite. O projeto ja tem ${r.vaga.ocupam.length} sessao(oes) viva(s) ` +
+        `em outras threads e o limite e ${r.vaga.limite} (concurrency.max_parallel_threads).`);
+      for (const o of r.vaga.ocupam) {
+        console.log(`  ${o.thread.padEnd(20)} ${(o.fase ?? '-').padEnd(6)} ` +
+          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso'}, desde ${localizarTextoRotulado(o.desde)}`);
+      }
+      console.log(`  correcao: ${r.vaga.correcao}`);
+      console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
+      return 3;
+    }
+    // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
+    if (r.motivo === 'baseline.pendente') {
+      if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, detalhe: r.erro }, null, 2)); return 1; }
+      console.error(`Despacho recusado: ${r.erro}`);
+      console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
+      return 1;
+    }
     if (r.dryRun && !r.bloqueado) {
       console.log('Simulacao (--dry-run), nada foi despachado.');
       console.log(`  slug da sessao : ${r.slug}`);
@@ -1182,7 +1275,7 @@ function comandoSessionsHitl(args: Args, raiz: string): number {
 function comandoSessions(args: Args): number {
   const sub = args.posicionais[1];
   const carregado = carregarManifesto();
-  const raiz = carregado?.raiz ?? process.cwd();
+  const raiz = carregado?.raiz ?? diretorioDoProjeto();
   if (sub === 'watch') {
     const id = texto(args.opcoes.thread);
     if (!carregado || !id) { console.error('uso: ork sessions watch --thread T [--sessao ID] [--once]'); return 2; }
@@ -1292,12 +1385,17 @@ function comandoDecisao(args: Args): number {
     if (separador < 1 || !['manifesto', 'ledger', 'medicao'].includes(tipo) || !referencia.trim()) {
       throw new Error('decisao registrar: --criterio manifesto:CHAVE, ledger:REF ou medicao:COMANDO');
     }
-    const { pedido, evento } = registrarDecisao(carregado.raiz, id, {
+    const entrada = {
       decidido: campo('decidido'), porque: campo('porque'), comoMudar: campo('como-mudar'),
       custoDeReverter: { agora: campo('custo-agora'), depois: campo('custo-depois') },
       criterio: { tipo, referencia }, quemDecidiu: campo('quem'), evidencia: campo('evidencia'),
       razao: texto(args.opcoes.razao), reverte: texto(args.opcoes.reverte),
-    });
+    };
+    let registro: ReturnType<typeof registrarDecisao>;
+    // RM-037 (defeito 4): a recusa cita a flag que o dono digitou, com o tamanho e o teto reais.
+    try { registro = registrarDecisao(carregado.raiz, id, entrada); }
+    catch (e) { throw new Error(recusaNaSuperficie((e as Error).message, CAMPOS_DA_DECISAO_NO_CLI)); }
+    const { pedido, evento } = registro;
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id))).find(f => f.fase === pedido.fase);
     console.log(JSON.stringify({ ok: true, pedidoId: pedido.id, eventId: evento.eventId, fase: pedido.fase, placar }));
     return 0;
@@ -1460,7 +1558,8 @@ function comandoVerify(args: Args): number {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
     if (b.comandos.length === 0) {
-      console.log('  (nenhum comando em verify: no manifesto; sem baseline nao ha como separar regressao)');
+      // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
+      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
     }
     return 0;
   }
@@ -1893,18 +1992,29 @@ function comandoShip(args: Args): number {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
     const remoto = texto(args.opcoes.remoto);
-    if (!alvo && args.opcoes.todas !== true) {
-      console.error('uso: ork ship registrar-pr <thread-id> | --todas [--remoto R] [--json]');
+    // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
+    const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
+    if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
+      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
-    const r = alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
+    // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
+    const dryRun = args.opcoes['dry-run'] === true;
+    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
+    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
     const registradas = r.filter((x) => x.acao === 'registrou').length;
+    const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
       console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+    }
+    if (registrariam) {
+      console.log('');
+      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
@@ -2062,9 +2172,16 @@ function comandoCi(args: Args): number {
       console.log(JSON.stringify(result, null, 2));
       return result.ok ? 0 : 1;
     }
+    // RM-037 (rm037noite, defeito 1): o CI passa a branch e acha o `.ork-ci/<thread>.json` dela.
+    const branch = texto(args.opcoes.branch);
+    if (branch) {
+      const result = executarCiDaBranch(carregado, branch);
+      console.log(JSON.stringify(result, null, 2));
+      return result.ok ? 0 : 1;
+    }
     const thread = args.posicionais[2];
     if (!thread) {
-      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo>');
+      console.error('uso: ork ci run <thread-id> [--json] | ork ci run --bundle <arquivo> | ork ci run --branch <branch>');
       return 2;
     }
     const result = executarCi(carregado, thread);
@@ -2134,12 +2251,33 @@ function comandoLease(args: Args): number {
   return 2;
 }
 
+/**
+ * RM-052: o cabecalho do board. O board le as threads DESTE projeto nesta maquina; o roadmap nunca
+ * e lido aqui, e "0 threads" nunca quer dizer "roadmap vazio". As outras maquinas so entram com a
+ * fabrica compartilhada e um remoto de verdade.
+ */
+function consultaDoBoard(carregado: ManifestoCarregado, opcoes: { plano: boolean; todos: boolean }) {
+  const remoto = carregado.manifesto.fabrica.remoto;
+  const comFabrica = !opcoes.plano && fabricaCompartilhada(carregado.manifesto);
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  return consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: [`${FORA_DA_CONSULTA.threadsDaMaquina}${opcoes.todos ? ' (todos os perfis)' : ''}`,
+      ...(comFabrica && url !== null ? [`outras máquinas (ork/fabrica-estado em ${remoto})`] : [])],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas,
+      ...(url === null ? [semRemoto(remoto)] : comFabrica ? [] : [FORA_DA_CONSULTA.outrasMaquinas])],
+  });
+}
+
 function comandoBoard(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  const todos = args.opcoes.all === true || args.opcoes.todos === true;
   if (sub === 'plan' || sub === 'plano') {
     const plano = planejar(carregado);
-    console.log(args.opcoes.json === true ? JSON.stringify(plano, null, 2) : textoDoPlano(plano));
+    const consulta = consultaDoBoard(carregado, { plano: true, todos: false });
+    if (args.opcoes.json === true) console.log(JSON.stringify({ ...plano, consulta }, null, 2));
+    else console.log([...linhasDaConsulta(consulta), '', textoDoPlano(plano)].join('\n'));
     return 0;
   }
   if (sub === 'reap') {
@@ -2153,21 +2291,31 @@ function comandoBoard(args: Args): number {
     console.error('uso: ork board [list|plan|reap] [--all] [--por <quem>] [--json]');
     return 2;
   }
-  const todos = args.opcoes.all === true || args.opcoes.todos === true;
+  const consulta = consultaDoBoard(carregado, { plano: false, todos });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify(threadsDeTodosOsPerfis(carregado, todos), null, 2));
+    // RM-052 (D6): objeto com o cabecalho; a lista de threads continua inteira em `threads`.
+    console.log(JSON.stringify({ contrato: CONTRATO_DO_BOARD, consulta, threads: threadsDeTodosOsPerfis(carregado, todos) }, null, 2));
     return 0;
   }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(textoDoBoard(carregado, todos));
   // I-51 (RM-047): com a fabrica compartilhada, o board mostra tambem as outras maquinas.
   if (fabricaCompartilhada(carregado.manifesto)) {
-    const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
-      semRemoto: args.opcoes['sem-remoto'] === true });
     console.log('');
-    console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    // RM-052: sem o remoto, nada foi lido; dizer "nenhuma publicou" seria a frase do incidente de 29/09.
+    if (consulta.projeto.remoto === null) {
+      console.log(`Outras maquinas: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${carregado.manifesto.fabrica.remoto}; nada foi lido de ork/fabrica-estado.`);
+    } else {
+      const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto,
+        semRemoto: args.opcoes['sem-remoto'] === true });
+      console.log(textoDasOutrasMaquinas(painel, nomeDaMaquina()));
+    }
   }
   return 0;
 }
+
+/** RM-052 (D6): `ork board --json` deixou de ser lista para carregar o cabecalho da consulta. */
+const CONTRATO_DO_BOARD = 'ork.board/v1';
 
 /**
  * I-51 (RM-047): `ork fabrica` mostra o que cada maquina conduz; `ork fabrica publicar` grava o
@@ -2203,6 +2351,9 @@ function comandoFabrica(args: Args): number {
     const config = gravarConfigDaMaquina({ nome: texto(args.opcoes.maquina) ?? lerConfigDaMaquina()?.nome ?? nomeDaMaquina(),
       fabricaCompartilhada: true });
     const r = publicarMaquina(carregado, { remoto, forcar: true });
+    // RM-052 (D7): a maquina que entra na fabrica deste projeto passa a conhece-lo pelo nome.
+    const avisoDoRegistro = registrarProjetoEmSilencio(carregado.raiz, 'fabrica entrar');
+    if (avisoDoRegistro) console.error(avisoDoRegistro);
     console.log(`Fabrica: esta maquina entrou como ${config.nome}; publica ao criar thread, despachar fase, entregar e fechar,`);
     console.log(`  e a cada batida do pulse. Primeiro retrato: ${r.threads} thread(s) em ork/fabrica-estado (${r.commit?.slice(0, 7)}).`);
     if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== config.nome) {
@@ -2224,8 +2375,23 @@ function comandoFabrica(args: Args): number {
     console.error('uso: ork fabrica [--json] [--sem-remoto] | fabrica publicar [--forcar] [--json] | fabrica entrar [--maquina NOME] | fabrica sair');
     return 2;
   }
-  const painel = lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
-  console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-052: a fabrica le a branch de UM projeto, no remoto dele; o cabecalho diz qual e o que ficou de fora.
+  const url = remotoDoProjeto(carregado.raiz, remoto);
+  const painel = url === null ? { maquinas: [], atualizado: false, ponta: null }
+    : lerFabrica(carregado.raiz, { remoto, semRemoto: args.opcoes['sem-remoto'] === true });
+  const consulta = consultaDoProjeto(carregado, {
+    remoto: url,
+    lido: url === null ? [] : [`ork/fabrica-estado em ${remoto} (${painel.atualizado ? 'lido agora' : 'última cópia local'})`],
+    naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
+  });
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    return 0;
+  }
+  console.log([...linhasDaConsulta(consulta), ''].join('\n'));
+  console.log(url === null
+    ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
+    : textoDaFabrica(painel, nomeDaMaquina()));
   return 0;
 }
 
@@ -2236,6 +2402,8 @@ function comandoFabrica(args: Args): number {
  */
 function comandoNetwork(args: Args): number {
   const sub = args.posicionais[1];
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso.
+  if (sub === 'roadmap') return comandoNetworkRoadmap(args);
   const diretorio = process.cwd();
   const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
     '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair';
@@ -2300,6 +2468,54 @@ function comandoNetwork(args: Args): number {
   const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio });
   console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
+}
+
+/**
+ * RM-052: `ork projetos` lista o registro desta maquina (`~/.orkastery/projetos.json`); `registrar`
+ * poe uma copia que ja existia antes do registro (init, thread new e fabrica entrar ja registram) e
+ * `esquecer` tira a copia que sumiu ou sobrou. Sem segredo: so nome, abbrev, raiz e remoto redigido.
+ */
+function comandoProjetos(args: Args, projeto: string | undefined): number {
+  const sub = args.posicionais[1] ?? 'list';
+  if (sub === 'list' || sub === 'listar') {
+    const projetos = listarProjetos();
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify({ contrato: CONTRATO_PROJETOS, arquivo: caminhoDoRegistro(), projetos }, null, 2));
+      return 0;
+    }
+    console.log(`Projetos conhecidos desta maquina (${raizParaExibir(caminhoDoRegistro())})`);
+    console.log('');
+    if (projetos.length === 0) {
+      console.log('  Nenhum ainda. ork init, ork thread new e ork fabrica entrar registram; ou: ork projetos registrar <caminho>');
+      return 0;
+    }
+    console.log(tabela(['NOME', 'ABBREV', 'RAIZ', 'REMOTO', 'NO DISCO', 'ATUALIZADO'], projetos.map((p) => [
+      p.nome, p.abbrev || '-', raizParaExibir(p.raiz), p.remoto ?? 'sem remoto', p.presente ? 'sim' : 'ausente',
+      formatarDataHora(p.atualizadoEm)])));
+    console.log('');
+    console.log('Use --projeto <nome> em qualquer comando (ORK_PROJETO vale para o shell inteiro). ' + legendaDoFuso());
+    return 0;
+  }
+  if (sub === 'registrar') {
+    const caminho = args.posicionais[2];
+    if (caminho !== undefined && projeto !== undefined) throw new Error('uso: ork projetos registrar [caminho] (um caminho ou --projeto, não os dois)');
+    const alvo = caminho === undefined ? resolverProjetoAlvo({ opcao: projeto ?? null }) : null;
+    const p = registrarProjeto(caminho ?? alvo?.raiz ?? process.cwd(), 'projetos registrar');
+    if (args.opcoes.json === true) { console.log(JSON.stringify(p, null, 2)); return 0; }
+    console.log(`Projeto ${p.nome} (${p.abbrev || '-'}) registrado: ${raizParaExibir(p.raiz)} · ${p.remoto ?? 'sem remoto'}`);
+    return 0;
+  }
+  if (sub === 'esquecer') {
+    const alvo = args.posicionais[2] ?? projeto;
+    if (!alvo) throw new Error('uso: ork projetos esquecer <nome|caminho>');
+    const sairam = esquecerProjeto(alvo);
+    if (args.opcoes.json === true) { console.log(JSON.stringify(sairam, null, 2)); return 0; }
+    for (const p of sairam) console.log(`Projeto ${p.nome} esquecido: ${raizParaExibir(p.raiz)} (nada no disco foi apagado)`);
+    return 0;
+  }
+  console.error(`subcomando desconhecido: projetos ${sub}`);
+  console.error('uso: ork projetos [--json] | projetos registrar [caminho] | projetos esquecer <nome|caminho>');
+  return 2;
 }
 
 /**
@@ -2587,19 +2803,44 @@ function comandoRoadmap(args: Args): number {
   const sub = args.posicionais[1] ?? 'reservas';
   const remoto = texto(args.opcoes.remoto);
   if (sub === 'reservas') {
+    // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
+    if (args.opcoes['soltar-orfas'] === true) {
+      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
+      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
+        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      return 0;
+    }
     const painel = listarReservas(carregado.raiz, { remoto });
-    console.log(args.opcoes.json === true ? JSON.stringify(painel, null, 2) : textoDasReservas(painel));
+    const orfas = reservasOrfas(carregado.raiz, painel.reservas);
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
     return 0;
   }
   if (sub === 'status') {
     // RM-048 (item 7): o status report unico do roadmap. Os canais chamam isto e transportam o texto.
-    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name });
+    // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
+    const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
+      naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
+    const status = montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta });
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
+    return 0;
+  }
+  // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
+  if (sub === 'feat') {
+    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else {
+      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
+      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
+      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+    }
     return 0;
   }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas | pegar <RM-NNN> [--thread T] [--nota N] | soltar <RM-NNN> [--forcar --motivo M]');
+    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
+      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
     return 2;
   }
   const opcoes = {
@@ -2624,14 +2865,39 @@ function comandoRoadmap(args: Args): number {
   return 0;
 }
 
+/**
+ * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
+ * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
+ */
+function comandoNetworkRoadmap(args: Args): number {
+  const pedido = texto(args.opcoes.projeto);
+  if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
+    console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
+    return 2;
+  }
+  try {
+    // RM-054 (fatia 2, D-G4 e D-G6): o host que declara nao ter cwd de projeto (RM-052, D3) pede por
+    // nome ou pela forja, e o projeto do diretorio dele so entra pelo registro.
+    const host = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+    const p = montarPanoramaDaRede({ pedido, semRemoto: args.opcoes['sem-remoto'] === true, host });
+    console.log(args.opcoes.json === true ? JSON.stringify(p, null, 2) : textoDoPanoramaDaRede(p));
+    return p.projetos.length ? 0 : 2;
+  } catch (e) {
+    if (!(e instanceof ErroDoPedidoDeProjeto)) throw e;
+    console.log(args.opcoes.json === true ? JSON.stringify(e.recusa, null, 2) : e.texto);
+    return SAIDA_DO_PEDIDO;
+  }
+}
+
 function comandoDocs(args: Args): number {
   const sub = args.posicionais[1] ?? 'verificar';
   const carregado = carregarManifesto();
-  const raiz = carregado?.raiz ?? process.cwd();
+  const raiz = carregado?.raiz ?? diretorioDoProjeto();
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
   if (sub === 'verificar') {
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA });
+    // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
+    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -2642,8 +2908,35 @@ function comandoDocs(args: Args): number {
   }
   if (sub === 'sincronizar') {
     const escrever = args.opcoes.escrever === true;
-    const r = sincronizarDocs(raiz, { baseBranch, escrever });
-    console.log(args.opcoes.json === true ? JSON.stringify(r, null, 2) : textoDaSincronizacao(r, escrever));
+    // RM-037 (rm037noite, defeito 5): o escopo. `--so` diz os itens; sem ele, na worktree de uma thread
+    // com item, so o item dela; `--todos` (ou fora de worktree de thread) volta a todo item.
+    // Sugestao 4 do CHECK 1 (e 8 do CHECK 2, `--so=`): `--so` sem item e erro de uso, nunca o escopo
+    // padrao em silencio.
+    if (args.opcoes.so === true || (typeof args.opcoes.so === 'string' && !args.opcoes.so.trim())) {
+      console.error('uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (faltou o item depois de --so)');
+      return 2;
+    }
+    const so = texto(args.opcoes.so);
+    let itens: string[] | undefined;
+    let escopo = 'todo item do roadmap';
+    if (so) {
+      itens = so.split(',').map((i) => i.trim().toUpperCase()).filter(Boolean);
+      const fora = itens.filter((i) => !/^RM-\d{3}$/.test(i));
+      if (fora.length || itens.length === 0) {
+        console.error(`uso: ork docs sincronizar --so RM-NNN[,RM-MMM] (recebido: ${so})`);
+        return 2;
+      }
+      escopo = `so ${itens.join(', ')} (--so)`;
+    } else if (args.opcoes.todos !== true) {
+      const padrao = escopoPadraoDoSync(raiz);
+      if (padrao.itens) {
+        itens = padrao.itens;
+        escopo = `so ${itens.join(', ')}, o item da thread ${padrao.thread} desta worktree (--todos para todo item)`;
+      }
+    }
+    const r = sincronizarDocs(raiz, { baseBranch, escrever, itens });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...r, escopo: itens ?? null }, null, 2)
+      : `Escopo: ${escopo}.\n${textoDaSincronizacao(r, escrever)}`);
     return 0;
   }
   if (sub === 'init') {
@@ -2654,7 +2947,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] | init`);
+  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 
@@ -2766,7 +3059,7 @@ function comandoAdapter(args: Args): number {
     }
     const carregado = carregarManifesto();
     const r = instalarAdaptador(host, {
-      projeto: carregado?.raiz ?? process.cwd(),
+      projeto: carregado?.raiz ?? diretorioDoProjeto(),
       dir: texto(args.opcoes.dir),
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
@@ -2792,7 +3085,7 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? process.cwd());
+  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;
@@ -3309,7 +3602,13 @@ function comandoMemory(args: Args): number {
   }
   if (sub === 'sync' && args.posicionais[2]) validarDiretorioDeThread(carregado.raiz, args.posicionais[2]);
   if (sub === 'status') {
-    const memoria = abrirMemoria(candidate);
+    const memoria = abrirMemoria(candidate, { embeddings: 'detalhado' });
+    // I-38 (D7): --sondar faz UMA chamada real pelo caminho ativo e mede a latencia.
+    if (args.opcoes.sondar === true && memoria.ativo && memoria.estado.embeddings) {
+      const driver = new DriverCliOrkMind(configDoManifesto(carregado.manifesto));
+      memoria.estado.embeddings.sonda = sondarEmbeddings(carregado.manifesto, memoria.estado.embeddings,
+        (p, o) => driver.embeddar(p, o), configDoManifesto(carregado.manifesto).timeoutMs);
+    }
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ ...memoria.estado, configSource: memoria.configSource, configDivergent: memoria.configDivergent }, null, 2));
       return 0;
@@ -3350,6 +3649,8 @@ function comandoMemory(args: Args): number {
     }
     return r.estado.pedido === 'orkmind' && r.falhas > 0 ? 1 : 0;
   }
+
+  if (sub === 'search' && args.opcoes.texto !== undefined) return buscaPorTexto(args, carregado);
 
   if (sub === 'search') {
     const threadId = texto(args.opcoes.thread);
@@ -3405,16 +3706,169 @@ function comandoMemory(args: Args): number {
     return 0;
   }
 
+  if (sub === 'index') {
+    const modelo = texto(args.opcoes.modelo) ?? 'primario';
+    if (!['primario', 'fallback', 'todos'].includes(modelo)) {
+      console.error('uso: ork memory index [--modelo primario|fallback|todos] [--dry-run] [--json]');
+      return 2;
+    }
+    const memoria = abrirMemoria(carregado);
+    if (!memoria.ativo) {
+      const falha = { motivo: memoria.estado.motivo, detalhe: memoria.estado.detalhe, correcao: memoria.estado.correcao };
+      if (args.opcoes.json === true) console.log(JSON.stringify(falha, null, 2));
+      else console.error(`memory.index: regime ${memoria.regime} (${memoria.estado.motivo}); ${memoria.estado.correcao}`);
+      return 1;
+    }
+    const config = configDeEmbedding(carregado.manifesto);
+    const driver = configDoManifesto(carregado.manifesto);
+    const embedder = new DriverCliOrkMind(driver);
+    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
+    const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
+      dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
+      chavePresente: !!config.api_key_env && chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
+      chaveRecusada: !!config.api_key_env && (process.env[config.api_key_env] ?? '').trim() !== '' &&
+        !chaveDeEmbeddingAceita((process.env[config.api_key_env] ?? '').trim(), driver.dsn),
+      embeddar: (p, o) => embedder.embeddar(p, o) }));
+    if (args.opcoes.json === true) {
+      console.log(JSON.stringify(modelo === 'todos' ? { alvo: 'todos', resultados } : resultados[0], null, 2));
+    } else {
+      for (const r of resultados) console.log(textoDoIndice(r));
+    }
+    return resultados.some(r => !r.dryRun && r.motivo) ? 1 : 0;
+  }
+
   console.error(`subcomando desconhecido: memory ${sub}`);
   return 2;
 }
 
-export function main(argv: string[]): number {
-  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso).
+/** Aviso informativo: não consulta rede, não reserva e não bloqueia criação. */
+export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): string | null {
+  const item = /\bRM-\d{3}\b/i.exec(nome)?.[0].toUpperCase();
+  if (!item || roadmap) return null;
+  return `Aviso: ${item} no nome não associa a thread ao roadmap. No terminal, consulte ork roadmap reservas e ork fabrica; para associar e reservar, use --roadmap ${item} em ork thread new. Nenhuma reserva foi criada por este aviso.`;
+}
+
+/**
+ * `ork memory search --texto` (I-38 D7): busca por significado, separada da busca por tag.
+ * Nao combina com --tags nem com a leitura restrita por thread nesta versao (erro tipado).
+ */
+function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
+  const frase = texto(args.opcoes.texto);
+  if (args.opcoes.tags !== undefined || args.opcoes.thread !== undefined || args.opcoes.restrito !== undefined ||
+      args.opcoes.janela !== undefined) {
+    console.error('memory.search.texto-exclusivo: --texto nao combina com --tags, --thread, --restrito nem --janela');
+    return 2;
+  }
+  const modo = (texto(args.opcoes.modo) ?? 'hibrido') as ModoDeBusca;
+  const colecao = texto(args.opcoes.colecao) ?? texto(args.opcoes.collection);
+  const limiteBruto = texto(args.opcoes.limite);
+  const limite = limiteBruto === undefined ? LIMITE_PADRAO_DA_BUSCA : Number(limiteBruto);
+  if (!textoDeBuscaValido(frase) || !MODOS_DE_BUSCA.includes(modo) ||
+      (colecao !== undefined && !COLECOES_DO_ORK.includes(colecao as ColecaoDoOrk)) ||
+      !Number.isInteger(limite) || limite < 1 || limite > LIMITE_MAXIMO_DA_BUSCA) {
+    console.error(`uso: ork memory search --texto "<frase>" [--modo ${MODOS_DE_BUSCA.join('|')}] [--colecao ${COLECOES_DO_ORK.join('|')}] [--limite 1..${LIMITE_MAXIMO_DA_BUSCA}] [--json]`);
+    return 2;
+  }
+  const memoria = abrirMemoria(carregado);
+  const config = configDeEmbedding(carregado.manifesto);
+  let r: ResultadoDaBuscaSemantica;
+  if (!memoria.ativo) {
+    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
+      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+  } else {
+    const driver = configDoManifesto(carregado.manifesto);
+    const transporte = new DriverCliOrkMind(driver);
+    const fallback = memoria.estado.embeddings?.fallback;
+    r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
+      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
+      chavePresente: memoria.estado.embeddings?.chavePresente === true,
+      fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
+      embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
+  }
+  if (args.opcoes.json === true) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
+  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
+  console.log('');
+  r.resultados.forEach((e, i) => {
+    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
+    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
+    console.log(`      ${e.resumo}`);
+  });
+  console.log('');
+  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  return 0;
+}
+
+/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
+function textoDoIndice(r: ResultadoDoIndice): string {
+  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
+  return [
+    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
+    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
+    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
+    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
+    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
+    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
+    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
+    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
+  ].join('\n');
+}
+
+/**
+ * RM-052: `--projeto <nome|caminho>` e opcao GLOBAL. Sai do argv em qualquer posicao, antes de
+ * qualquer despacho (inclusive do `maestro`, que tem parse proprio), e so aparece uma vez.
+ */
+export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]; projeto: string | undefined } {
+  const resto: string[] = [];
+  let projeto: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a !== '--projeto' && !a.startsWith('--projeto=')) { resto.push(a); continue; }
+    if (projeto !== undefined) throw new Error('uso: --projeto <nome|caminho> aparece uma vez só');
+    if (a !== '--projeto') { projeto = a.slice('--projeto='.length); continue; }
+    const valor = argv[i + 1];
+    projeto = valor !== undefined && !valor.startsWith('--') ? valor : '';
+    if (projeto) i++;
+  }
+  return { argv: resto, projeto };
+}
+
+/** Comandos que nao leem projeto: o alvo nao e resolvido (nem recusado) para eles. */
+const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
+
+/**
+ * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
+ * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
+ * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
+ */
+export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
+
+/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
+function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+  const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
+  fixarProjetoAlvo(alvo);
+  return alvo;
+}
+
+export function main(argvBruto: string[]): number {
+  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
+  // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
+  // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
+  fixarProjetoAlvo(null);
+  const extraida = extrairOpcaoDeProjeto(argvBruto);
+  const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
+  const argv = proprio && extraida.projeto !== undefined
+    ? [...extraida.argv, ...(extraida.projeto ? ['--projeto', extraida.projeto] : ['--projeto'])] : extraida.argv;
+  const projeto = proprio ? undefined : extraida.projeto;
   // Helper fixo do host confiável: o projeto vem da instalação, nunca de toolargs.
   if (argv[0] === 'receipt-verifiers') {
-    if (argv.length !== 2 || argv[1] !== '--json') throw Error('uso: ork receipt-verifiers --json');
+    if (argv.length !== 2 || argv[1] !== '--json' || projeto !== undefined) throw Error('uso: ork receipt-verifiers --json');
     const root = process.env.ORK_HITL_ROOT;
     const privateKey = Object.keys(process.env).some(name => /^ORK_HITL_(?:INGRESS_KEY|NATIVE_KEY)/.test(name));
     if (root !== undefined || privateKey) {
@@ -3426,7 +3880,13 @@ export function main(argv: string[]): number {
     console.log(publicHitlVerifiers() ?? 'null');
     return 0;
   }
-  if (argv[0] === 'maestro') return runMaestroCli(argv.slice(1));
+  if (argv[0] === 'maestro') {
+    if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
+    const alvo = fixarAlvoDoProcesso(projeto);
+    return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
+      : runMaestroCli(argv.slice(1));
+  }
   const args = parseArgs(argv);
   const comando = args.posicionais[0];
 
@@ -3438,6 +3898,13 @@ export function main(argv: string[]): number {
   if (!comando || args.opcoes.help === true || comando === 'help') {
     console.log(AJUDA);
     return 0;
+  }
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
+  else if (projeto !== undefined && comando !== 'projetos') {
+    throw new Error(comando === 'init'
+      ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
+      : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
+        : `uso: ork ${comando} não lê projeto; tire --projeto`);
   }
 
   const nomesHerdados = nomesDeProviderAtivos();
@@ -3489,9 +3956,9 @@ export function main(argv: string[]): number {
         if(args.posicionais.length!==1 || !bruto ||
             Object.keys(args.opcoes).some(k=>k!=='modo') || argv.filter(a=>a==='--modo' || a.startsWith('--modo=')).length!==1)
           throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
-        const r=preflight(process.cwd(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
+        const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
-      const r = doctor(process.cwd(), nomesHerdados);
+      const r = doctor(diretorioDoProjeto(), nomesHerdados);
       console.log(r.texto);
       return r.codigo;
     }
@@ -3503,6 +3970,9 @@ export function main(argv: string[]): number {
       });
       const carregado = exigirManifesto(r.deteccao.raiz);
       const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto);
+      // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
+      const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
+      if (avisoDoRegistro) console.error(avisoDoRegistro);
       if (!r.criado) {
         console.log(`Manifesto ja existe: ${r.caminho}`);
         console.log('Nada foi sobrescrito. Use --force para regerar.');
@@ -3515,6 +3985,8 @@ export function main(argv: string[]): number {
       console.log(`  gerenciador ${r.deteccao.gerenciador}`);
       console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
       console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
+      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
       console.log('');
       console.log(PROXIMO_PASSO_INIT);
       return 0;
@@ -3568,6 +4040,31 @@ export function main(argv: string[]): number {
       return comandoAccounts(args);
     case 'onboarding':
       return comandoOnboarding(args);
+    case 'experiencia': {
+      if (args.posicionais[1] === 'uninstall') {
+        const host = parseHost(args.posicionais[2]);
+        if (!host || !['claude-code', 'codex'].includes(host) || args.posicionais.length !== 3 ||
+            Object.keys(args.opcoes).some(k => !['dry-run', 'json'].includes(k)) ||
+            Object.values(args.opcoes).some(v => v !== true)) throw Error('uso: ork experiencia uninstall claude-code|codex [--dry-run] [--json]');
+        const r = desinstalarExperiencia(exigirManifesto().raiz, host as 'claude-code' | 'codex', args.opcoes['dry-run'] === true);
+        console.log(args.opcoes.json ? JSON.stringify(r, null, 2) :
+          `${r.dryRun ? 'Simulação de remoção' : 'Remoção concluída'}: ${r.arquivos.length} arquivo(s). O adaptador permanece instalado. Para manter o pacote desativado, configure owner.experience:false no onboarding.`);
+        return 0;
+      }
+      if ((args.posicionais[1] ?? 'show') !== 'show' || args.posicionais.length > 2 ||
+          Object.keys(args.opcoes).some(k => k !== 'json') || ('json' in args.opcoes && args.opcoes.json !== true)) {
+        throw Error('uso: ork experiencia show [--json]');
+      }
+      const manifesto = exigirManifesto(), p = resolverExperiencia(manifesto.manifesto.owner);
+      // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
+      const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
+      console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
+        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
+        avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
+      return 0;
+    }
     case 'thread':
       return comandoThread(args);
     case 'objective':
@@ -3630,6 +4127,12 @@ export function main(argv: string[]): number {
     }
     case 'memory':
       return comandoMemory(args);
+    case 'grafo': {
+      // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
+      const carregado = exigirManifesto();
+      return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+    }
     case 'ship':
       return comandoShip(args);
     case 'activation':
@@ -3666,6 +4169,8 @@ export function main(argv: string[]): number {
     }
     case 'fabrica':
       return comandoFabrica(args);
+    case 'projetos':
+      return comandoProjetos(args, projeto);
     case 'network':
       return comandoNetwork(args);
     case 'licoes':
@@ -3688,6 +4193,10 @@ if (require.main === module) {
     if (e instanceof ErroDeConducao) {
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
       process.exitCode = 3;
+    } else if (e instanceof ErroDeProjeto) {
+      // RM-052 (D3): a recusa de projeto-alvo e a resposta (a escolha, os candidatos), nao um stack trace.
+      console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.texto);
+      process.exitCode = SAIDA_DE_PROJETO;
     } else {
       console.error(`erro: ${(e as Error).message}`);
       process.exitCode = 1;

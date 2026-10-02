@@ -26,10 +26,19 @@ export function readMaestro(context: MaestroContext, options: Pick<SnapshotOptio
     sources.fingerprint=digest([sources.fingerprint,sources.sections]);return sources;
   }});
 }
+/** RM-052: de onde veio o projeto do panorama, na lingua do dono. */
+const ORIGEM_DO_PANORAMA: Readonly<Record<MaestroSnapshot['project']['origin'], string>> = Object.freeze({
+  installation: 'fixado na instalação', cwd: 'pelo diretório atual', worktree: 'pela worktree da thread',
+  selection: 'pedido explicitamente (--projeto ou ORK_PROJETO)',
+});
 export function maestroText(snapshot:MaestroSnapshot):string {
-  return [`${snapshot.project.name} · panorama Maestro`,
+  const p=snapshot.project;
+  return [`${p.name} · panorama Maestro`,
     // I-35: o snapshot guarda ISO; o texto ao dono diz quando consultou, no fuso dele.
     `• Consulta: ${formatarDataHoraRotulada(snapshot.observedAt, { agora: snapshot.observedAt })}`,
+    // RM-052: qual cópia foi lida e o que o panorama não lê, antes de qualquer seção.
+    `• Projeto consultado: ${p.name}${p.root?` · ${p.root}`:''}${p.remote===undefined?'':` · ${p.remote??'sem remoto'}`} · ${ORIGEM_DO_PANORAMA[p.origin]}`,
+    ...(snapshot.notConsulted?.length?[`• Não lido: ${snapshot.notConsulted.join(' · ')}`]:[]),
     ...SECTION_NAMES.map(name=>{
       const s=snapshot.sections[name];return `• ${name}: ${s.state} · ${s.coverage.returned}/${s.coverage.total??'?'}${s.coverage.omitted?' · mais itens disponíveis':''}`;
     }),

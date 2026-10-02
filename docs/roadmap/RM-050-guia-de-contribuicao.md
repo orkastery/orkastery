@@ -6,22 +6,29 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-09-29T23:48:35+00:00
+atualizado_em: 2026-10-01T02:24:38-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Em execução
-  deploy: Não implantado
+  testes: Aprovados
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: 3c7e8a7
-    pr: null
+    pr: 22
+    orkmind: "orkastery/orkmind PR #6, merge c78a7f3"
+  testes:
+    ci: "verde no push do merge (run 36564117438), no da v0.5.0 (run 36815186450) e no PR #6 do OrkMind (run 36583041988)"
+  deploy:
+    release: v0.5.0; guias na main dos dois repositórios
 sdlc:
   thread: ork-rm050guiadec
   modo: "#Auto"
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-050 — Guia de contribuição nos repositórios e nos sites
@@ -32,7 +39,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -83,8 +90,10 @@ sdlc:
 
 ## Estado com evidências
 
-- Parte do repositório do Orkastery (itens 1, 2, 4 e 5) por PR, na thread `ork-rm050guiadec`: índice no `CONTRIBUTING.md`, nove guias em `docs/guias/contribuir/`, modelos de issue e de PR e a checagem `core/scripts/checar-comandos-dos-guias.cjs`.
-- Fica para outra thread: a página "Contribuir" nos dois sites (item 3) e o guia do OrkMind.
+- Parte do repositório do Orkastery (itens 1, 2, 4 e 5), na thread `ork-rm050guiadec`: índice no `CONTRIBUTING.md`, nove guias em `docs/guias/contribuir/`, modelos de issue e de PR e a checagem `core/scripts/checar-comandos-dos-guias.cjs`. Na `main` pelo PR #22 (merge `3c7e8a7`), com o CI verde no push do merge (run 36564117438), e na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36).
+- Guia do OrkMind: entregue pela thread `ork-rm050guiade2` no `orkastery/orkmind`, pelo PR #6 ("Guia de contribuição por tarefa", merge `c78a7f3`, estado MERGED no GitHub), com o CI do OrkMind verde (run 36583041988).
+- Fica para outra thread: a página "Contribuir" nos dois sites (item 3).
+- O rótulo `needs triage` ainda não existe em nenhum dos dois repositórios (`gh label list`).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -92,13 +101,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `3c7e8a7` | 2026-09-29 | Julio |
-| Testes | Em execução | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `3c7e8a7` · PR #22 · orkmind: orkastery/orkmind PR #6, merge c78a7f3 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36564117438), no da v0.5.0 (run 36815186450) e no PR #6 do OrkMind (run 36583041988) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0; guias na main dos dois repositórios | 2026-10-01 | Julio |
+| Exposição | Flag desligada | — | 2026-10-01 | Julio |
+| Habilitação | Pendente | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -106,9 +115,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** executor da thread / Julio / colaboradores convidados / comunidade.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** executor da thread `ork-rm050guiadec` em #Auto; o merge, a criação dos rótulos e a decisão final ficam com Julio.
-- **Próxima ação, responsável e prazo:** merge do PR com o CI verde e criação do rótulo `needs triage`; condução. Depois, a thread dos sites e a do OrkMind.
+- **Próxima ação, responsável e prazo:** criação do rótulo `needs triage` nos dois repositórios e a thread da página "Contribuir" nos sites; condução. Os merges do PR #22 e do guia do OrkMind (`orkastery/orkmind` #6) já aconteceram.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-28 | Item criado | Pedido do dono em 28/09/2026 | Julio |
 | 2026-09-28 | Parte do repositório do Orkastery em PR | Thread `ork-rm050guiadec` (#Auto), itens 1, 2, 4 e 5; sites e OrkMind em outra thread | Julio |
+| 2026-09-29 | Parte do repositório do Orkastery mesclada na `main` | PR #22, merge `3c7e8a7` | Julio |
+| 2026-09-29 | Guia do OrkMind mesclado | `orkastery/orkmind` PR #6, merge `c78a7f3`; thread `ork-rm050guiade2` | Julio |
+| 2026-10-01 | Parte do Orkastery na versão 0.5.0 | tag `v0.5.0` (PR #36) | Julio |

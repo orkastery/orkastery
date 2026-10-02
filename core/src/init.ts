@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
 import { normalizarAbbrev } from './slug';
-import { exec, gravar } from './util';
+import { branchDoHead, exec, gravar, ignorarPastaNoGit } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
@@ -39,7 +39,12 @@ export function nomeDetectado(dirInicial: string): string {
   return base.replace(/-(novo|new|old|repo|main)$/i, '').toLowerCase();
 }
 
-/** Branch base do repositorio: origin/HEAD, senao main, senao master, senao a atual. */
+/**
+ * Branch base do repositorio: origin/HEAD, senao main, senao master, senao a do HEAD.
+ * A do HEAD vem de `symbolic-ref`, que responde tambem no repositorio ainda sem commit (ensaio
+ * da 0.5.0: o `git init` sem `init.defaultBranch` nasce em `master`, e o `rev-parse` falhava e
+ * caia em `main`). HEAD destacado nao e branch: vale `main`.
+ */
 export function baseBranchDetectada(raiz: string): string {
   const origem = exec('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], raiz);
   if (origem.ok && origem.stdout.trim()) {
@@ -50,8 +55,7 @@ export function baseBranchDetectada(raiz: string): string {
       return candidata;
     }
   }
-  const atual = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], raiz);
-  return atual.ok ? atual.stdout.trim() : 'main';
+  return branchDoHead(raiz) ?? 'main';
 }
 
 function gerenciadorDetectado(dir: string): string {
@@ -125,6 +129,10 @@ owner:
   # fuso do dono (nome IANA): todo horario mostrado a pessoas usa este fuso.
   # Ausente: fuso do sistema. Exemplo:
   # timezone: "${FUSO_DE_BRASILIA}"
+  # Preferências: ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'
+  # language: pt-BR  # ausente: locale do sistema
+  # depth: curta    # curta | detalhada
+  # experience: true  # false desativa o pacote na próxima instalação do adaptador
 
 board:
   adapter: hermes-kanban
@@ -196,6 +204,15 @@ memory:
   database_url_env: ""
   cli: orkmind
   timeout_ms: 15000
+  # busca por significado (ork memory search --texto): sem o bloco, provider none (desligada).
+  # api_key_env recebe o NOME da variavel com a chave dedicada, nunca o valor.
+  # embedding:
+  #   provider: "none"            # none | openrouter
+  #   model: "qwen/qwen3-embedding-8b"
+  #   dim: 1024
+  #   api_key_env: "ORKASTERY_EMBEDDING_API_KEY"
+  #   fallback_model: ""          # modelo local offline, ex.: intfloat/multilingual-e5-small
+  #   max_tokens_por_execucao: 1000000
 
 audit:
   # governanca de custo dos auditores periodicos (bloco B5)
@@ -216,6 +233,8 @@ export interface ResultadoInit {
   caminho: string;
   criado: boolean;
   deteccao: Deteccao;
+  /** Fatia 2 do ensaio da 0.5.0 (P3): o `init` criou `.orkastery/.gitignore` agora. */
+  estadoIgnorado?: boolean;
 }
 
 /** Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. */
@@ -230,6 +249,8 @@ export function init(
     return { caminho, criado: false, deteccao };
   }
   gravar(caminho, manifestoYaml(deteccao));
-  fs.mkdirSync(path.join(deteccao.raiz, DIR_ESTADO, 'threads'), { recursive: true });
-  return { caminho, criado: true, deteccao };
+  const estado = path.join(deteccao.raiz, DIR_ESTADO);
+  fs.mkdirSync(path.join(estado, 'threads'), { recursive: true });
+  // Fatia 2 do ensaio da 0.5.0 (P3): o estado e da maquina; fica fora do git sem mexer no `.gitignore` do usuario.
+  return { caminho, criado: true, deteccao, estadoIgnorado: ignorarPastaNoGit(estado, deteccao.raiz) };
 }

@@ -20,7 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { lerYaml, ValorYaml } from './yaml';
-import { dirThread } from './thread';
+import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
@@ -123,38 +123,49 @@ export function separarFrontmatter(texto: string): { bruto: string | null; corpo
   return { bruto: t.slice(4, fim + 1), corpo: t.slice(fim + 5) };
 }
 
+/** `_modelo-*.md` e `README.md` sao modelo e indice, nao paginas de entidade. */
+export function ehPaginaDeDocs(nome: string): boolean {
+  return nome.endsWith('.md') && !nome.startsWith('_') && nome !== 'README.md';
+}
+
 function paginas(raiz: string, dir: string): string[] {
   const abs = path.join(raiz, dir);
   if (!fs.existsSync(abs)) return [];
-  // `_modelo-*.md` e `README.md` sao modelo e indice, nao paginas de entidade.
   return fs.readdirSync(abs)
-    .filter((n) => n.endsWith('.md') && !n.startsWith('_') && n !== 'README.md')
+    .filter(ehPaginaDeDocs)
     .sort()
     .map((n) => `${dir}/${n}`);
+}
+
+/**
+ * RM-054: uma pagina a partir do texto, venha ele do disco, de um blob do git ou da forja. O
+ * achado e o mesmo que a leitura do disco daria.
+ */
+export function documentoDeTexto(arquivo: string, texto: string): { doc: Documento } | { achado: Achado } {
+  const { bruto, corpo } = separarFrontmatter(texto);
+  if (bruto === null) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.ausente', 'página sem frontmatter YAML',
+      'comece o arquivo com as chaves do modelo entre duas linhas ---') };
+  }
+  let dados: ValorYaml;
+  try {
+    dados = lerYaml(bruto);
+  } catch (e) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', `frontmatter inválido: ${(e as Error).message}`) };
+  }
+  if (!ehMapa(dados)) {
+    return { achado: erro(arquivo, undefined, 'docs.frontmatter.invalido', 'o frontmatter precisa ser um mapa de chaves') };
+  }
+  return { doc: { arquivo, tipo: dados.tipo as TipoDoc, id: String(dados.id ?? ''), dados, corpo } };
 }
 
 export function carregarDocs(raiz: string): { docs: Documento[]; achados: Achado[] } {
   const docs: Documento[] = [];
   const achados: Achado[] = [];
   for (const arquivo of [...paginas(raiz, DIR_PRODUTO), ...paginas(raiz, DIR_ROADMAP)]) {
-    const { bruto, corpo } = separarFrontmatter(fs.readFileSync(path.join(raiz, arquivo), 'utf8'));
-    if (bruto === null) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.ausente', 'página sem frontmatter YAML',
-        'comece o arquivo com as chaves do modelo entre duas linhas ---'));
-      continue;
-    }
-    let dados: ValorYaml;
-    try {
-      dados = lerYaml(bruto);
-    } catch (e) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.invalido', `frontmatter inválido: ${(e as Error).message}`));
-      continue;
-    }
-    if (!ehMapa(dados)) {
-      achados.push(erro(arquivo, undefined, 'docs.frontmatter.invalido', 'o frontmatter precisa ser um mapa de chaves'));
-      continue;
-    }
-    docs.push({ arquivo, tipo: dados.tipo as TipoDoc, id: String(dados.id ?? ''), dados, corpo });
+    const lido = documentoDeTexto(arquivo, fs.readFileSync(path.join(raiz, arquivo), 'utf8'));
+    if ('doc' in lido) docs.push(lido.doc);
+    else achados.push(lido.achado);
   }
   return { docs, achados };
 }
@@ -169,6 +180,13 @@ export interface OpcoesDeVerificacao {
   ajudaDoCli?: string;
   /** Desliga as checagens que chamam git (teste de unidade sem repositorio). */
   semGit?: boolean;
+  /**
+   * RM-037 (fatia 3, GO-FIX 2): o verificador roda num PR. O merge de outra thread com o item fora de
+   * `Mesclado` e o indice que diverge vivem na `main`, nao no PR: aqui viram aviso, e quem reprova e o
+   * push da `main`. Sem isso, a pagina de outra thread travava todo PR, inclusive o de fora, na janela
+   * entre o merge e o PR de docs que o sincroniza.
+   */
+  pr?: boolean;
 }
 
 function erro(arquivo: string, id: string | undefined, regra: string, mensagem: string, correcao?: string): Achado {
@@ -256,9 +274,11 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
     verificarFontes(raiz, d, comandos, achados);
     if (d.tipo === 'roadmap') {
       verificarEstadoDoRoadmap(raiz, d, base, achados);
+      if (base) verificarMergeDaThread(raiz, d, base, achados, opcoes.pr === true);
       verificarTabelasDeEstado(d, achados);
     }
   }
+  verificarIndices(raiz, docs, achados, opcoes.pr === true);
   return { docs, achados };
 }
 
@@ -571,6 +591,59 @@ function verificarEstadoDoRoadmap(raiz: string, d: Documento, base: string | nul
   }
 }
 
+/**
+ * RM-037 (fatia 3, defeito 1): o outro sentido da paridade com o git. Depois do merge do PR, o
+ * frontmatter da RM-049 (#26) e da RM-051 (#33) seguiu em "Branch criada", e o verificador dizia OK:
+ * ele so conferia que `Mesclado` tem o commit na base. O merge desta fabrica e pelo GitHub, sem o
+ * `ork ship` no caminho, entao a prova mora aqui, no job que o CI obrigatorio roda. A regra usa o
+ * mesmo `ship(<thread>)` do `sincronizarDocs`: tudo o que ela acusa o `sincronizar` corrige.
+ */
+function verificarMergeDaThread(raiz: string, d: Documento, base: string, achados: Achado[], pr = false): void {
+  const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
+  const thread = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread.trim() : '';
+  if (!thread) return;
+  const merges = mergesDaThreadNoGit(raiz, thread, base);
+  if (merges.length === 0) return;
+  const codigo = String((ehMapa(d.dados.estado) ? d.dados.estado.codigo : null) ?? '');
+  if (codigo === 'Mesclado') return;
+  achados.push((pr ? aviso : erro)(d.arquivo, d.id, 'docs.paridade.merge',
+    `a thread ${thread} entrou na ${base} pelo merge ${merges[0].slice(0, 7)} (ship(${thread})), e o estado.codigo diz "${codigo || 'vazio'}"` +
+      (pr ? ' (no PR, aviso: o push da main reprova)' : ''),
+    `abra um PR de docs sobre a ${base} atualizada com ork docs sincronizar --escrever --so ${d.id} (o item e os índices); ` +
+      `se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela`));
+}
+
+/** Os indices gerados (`docs/roadmap/README.md`, `docs/produto/README.md`) e o que o frontmatter diz. */
+const INDICES_GERADOS: ReadonlyArray<[string, (docs: Documento[]) => string]> = [
+  [`${DIR_ROADMAP}/README.md`, (docs) => tabelaDoRoadmap(docs)],
+  [`${DIR_PRODUTO}/README.md`, (docs) => tabelaDoProduto(docs)],
+];
+
+/**
+ * RM-037 (fatia 3, defeito 1): o indice e uma vista do frontmatter, como as tabelas do corpo, e mentia
+ * do mesmo jeito: sem a RM-051 e com a RM-031 de antes. Divergente reprova; vazio (o modelo recem-copiado
+ * pelo `ork docs init`) so avisa; sem os marcadores, nao ha indice gerado para conferir.
+ */
+function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr = false): void {
+  for (const [arquivo, gerar] of INDICES_GERADOS) {
+    const abs = path.join(raiz, arquivo);
+    if (!fs.existsSync(abs)) continue;
+    // Checkout com CRLF (Windows com core.autocrlf) nao e divergencia: as paginas tambem normalizam.
+    const atual = blocoEntre(fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n'), INICIO, FIM);
+    if (atual === null) continue;
+    if (atual === '') {
+      if (docs.length > 0) {
+        achados.push(aviso(arquivo, undefined, 'docs.paridade.indice', 'o índice ainda não foi gerado',
+          'rode ork docs sincronizar --escrever'));
+      }
+    } else if (atual !== gerar(docs)) {
+      achados.push((pr ? aviso : erro)(arquivo, undefined, 'docs.paridade.indice',
+        `o índice diverge do frontmatter das páginas${pr ? ' (no PR, aviso: o push da main reprova)' : ''}`,
+        'o índice é gerado do frontmatter: rode ork docs sincronizar --escrever e commite o índice'));
+    }
+  }
+}
+
 // --------------------------------------------------------------------------------------------
 // Saida para humano (TDAH) e para agente
 
@@ -654,6 +727,11 @@ export interface MudancaDeSync {
 export interface OpcoesDeSync {
   baseBranch?: string;
   escrever?: boolean;
+  /**
+   * RM-037 (rm037noite, defeito 5): so estes itens (`RM-NNN`) mudam; os indices seguem regerados.
+   * Sem a lista, todo item de roadmap entra, como antes.
+   */
+  itens?: readonly string[];
   /** Relogio injetavel para teste; so marca `atualizado_em` quando algo mudou. */
   agora?: () => string;
 }
@@ -681,11 +759,24 @@ export function mergeDaThread(raiz: string, thread: string, base: string): { sha
       .find((e) => git(raiz, ['merge-base', '--is-ancestor', String(e.mergeSha), base]).ok);
     if (ship) return { sha: String(ship.mergeSha).slice(0, 7), fonte: 'ledger ship_done' };
   } catch { /* thread sem estado nesta maquina: cai para o git */ }
-  // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
-  const log = git(raiz, ['log', base, '--reverse', '--format=%H', '--fixed-strings', `--grep=ship(${thread})`]);
-  const primeiro = log.ok ? log.saida.split('\n')[0] : '';
+  const primeiro = mergesDaThreadNoGit(raiz, thread, base)[0];
   if (primeiro) return { sha: primeiro.slice(0, 7), fonte: `git log ${base}` };
   return null;
+}
+
+/**
+ * Os commits `ship(<thread>)` da base, do mais velho ao mais novo, so pelo git (o CI nao tem ledger).
+ * RM-037 (fatia 3): um lugar so para o `sincronizarDocs` e o `verificarDocs` acharem o mesmo merge.
+ */
+export function mergesDaThreadNoGit(raiz: string, thread: string, base: string): string[] {
+  // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
+  // GO-FIX 2 (achado 4 do CHECK): so a linha de primeiro pai da base e o assunto que COMECA com
+  // `ship(<thread>)`, como no `mergeDaEntrega`. Commit que cita o merge no corpo, ou o Revert dele, nao e merge.
+  const log = git(raiz, ['log', base, '--first-parent', '--reverse', '--format=%H%x09%s', '--fixed-strings', `--grep=ship(${thread})`]);
+  if (!log.ok) return [];
+  return log.saida.split('\n').map((l) => l.split('\t'))
+    .filter(([sha, assunto]) => !!sha && typeof assunto === 'string' && assunto.startsWith(`ship(${thread})`))
+    .map(([sha]) => sha);
 }
 
 function temBranch(raiz: string, thread: string): boolean {
@@ -695,13 +786,31 @@ function temBranch(raiz: string, thread: string): boolean {
 
 const ORDEM_DO_CODIGO = DIMENSOES.codigo;
 
+/**
+ * RM-037 (rm037noite, defeito 5): o escopo padrao do `ork docs sincronizar`. Na worktree de uma thread
+ * com item do roadmap, so o item dela: da worktree da ork-rm037noite, o sincronizar gravava RM-025,
+ * 026, 031, 038, 048, 049, 050 e 054, e cada PR conflitava com as outras. Fora de worktree de thread
+ * (a raiz, onde o condutor sincroniza depois do merge), todo item, como antes.
+ */
+export function escopoPadraoDoSync(raiz: string): { itens: string[] | null; thread: string | null } {
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const aqui = real(raiz);
+  for (const id of listarIds(raiz)) {
+    let t;
+    try { t = lerThread(raiz, id); } catch { continue; }
+    if (t.worktree && real(t.worktree) === aqui) return { itens: t.roadmap ? [t.roadmap] : null, thread: t.id };
+  }
+  return { itens: null, thread: null };
+}
+
 export function sincronizarDocs(raiz: string, opcoes: OpcoesDeSync = {}): { mudancas: MudancaDeSync[]; indices: string[] } {
   const base = resolverBase(raiz, opcoes.baseBranch) ?? (opcoes.baseBranch ?? 'main');
   const agora = opcoes.agora ?? (() => isoComFusoLocal(new Date()));
   const { docs } = carregarDocs(raiz);
   const mudancas: MudancaDeSync[] = [];
+  const noEscopo = (d: Documento) => !opcoes.itens || opcoes.itens.includes(d.id);
 
-  for (const d of docs.filter((x) => x.tipo === 'roadmap')) {
+  for (const d of docs.filter((x) => x.tipo === 'roadmap' && noEscopo(x))) {
     const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
     const thread = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread : null;
     if (!thread) continue;
@@ -743,7 +852,7 @@ export function sincronizarDocs(raiz: string, opcoes: OpcoesDeSync = {}): { muda
 
   // As tabelas de estado do corpo sao vistas do frontmatter: regeradas em todo item de roadmap,
   // inclusive quando a pessoa mudou o frontmatter a mao (ciclo, deploy, exposicao...).
-  for (const d of docs.filter((x) => x.tipo === 'roadmap')) {
+  for (const d of docs.filter((x) => x.tipo === 'roadmap' && noEscopo(x))) {
     const novo = substituirBloco(substituirBloco(d.corpo, RELANCE_INI, RELANCE_FIM, renderizarRelance(d)),
       ESTADO_INI, ESTADO_FIM, renderizarEstado(d));
     if (novo !== d.corpo) {

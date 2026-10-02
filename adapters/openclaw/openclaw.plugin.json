@@ -2,7 +2,7 @@
   "id": "orkastery",
   "name": "Orkastery",
   "description": "Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI.",
-  "version": "0.4.3",
+  "version": "0.5.1",
   "configSchema": {
     "type": "object",
     "properties": {},
@@ -26,6 +26,7 @@
       "ork_brain_query",
       "ork_brain_get",
       "ork_brain_context",
+      "ork_brain_dossie",
       "ork_claims_add",
       "ork_verify",
       "ork_verify_baseline",
@@ -37,7 +38,13 @@
       "ork_master",
       "ork_board",
       "ork_roadmap_status",
+      "ork_network_roadmap",
       "ork_master_batch"
     ]
+  },
+  "toolMetadata": {
+    "ork_network_roadmap": {
+      "profiles": ["coding", "messaging"]
+    }
   }
 }

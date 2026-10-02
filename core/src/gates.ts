@@ -173,7 +173,15 @@ function formaDeAprovacao(e: EventoLedger): boolean {
  * trocados no disco ou com canal trocado no ledger.
  */
 export function aprovacaoHumanaProvada(raiz: string, threadId: string, e: EventoLedger): boolean {
-  if (!formaDeAprovacao(e)) return false;
+  return formaDeAprovacao(e) && reciboHumanoConfere(raiz, threadId, e);
+}
+
+/**
+ * K3.1: a mesma prova, para qualquer veredito do gate. O dossiê de decisão mostra a resposta do
+ * dono só quando o recibo do ingresso confere; aprovar ou recusar não muda o que se reconfere.
+ */
+export function reciboHumanoConfere(raiz: string, threadId: string, e: EventoLedger): boolean {
+  if (e.tipo !== TIPOS_DE_EVENTO.pausaHumana) return false;
   if (e.origem === 'telegram' || e.origem === 'native') return validarEvidenciaDoIngresso(raiz, threadId, e);
   return validarEvidenciaLocal(raiz, threadId, e);
 }

@@ -62,7 +62,7 @@ import {
   RodadaDeAuditoria,
   VereditoDeAuditoria,
 } from './types';
-import { agora, gravar, gravarJson, lerJson, tabela } from './util';
+import { agora, gravar, gravarJson, lerJson, shaCurto, tabela } from './util';
 import { commitReal, verificarClaim } from './verify';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso, localizarTexto } from './horario';
 
@@ -965,7 +965,7 @@ export function textoDaRodada(raiz: string, id: string): string {
   if (r.veredito) {
     L.push(
       `  Claims do auditor: ${r.veredito.ok ? 'SUSTENTADAS' : 'REPROVADAS'} ` +
-        `(motivos: ${r.veredito.motivos.join(', ') || 'nenhum'}) no HEAD ${r.veredito.commit.slice(0, 8)}`
+        `(motivos: ${r.veredito.motivos.join(', ') || 'nenhum'}) no HEAD ${shaCurto(r.veredito.commit)}`
     );
   } else {
     L.push(`  Claims do auditor: NAO verificadas. Rode: ork audit verify ${r.id}`);

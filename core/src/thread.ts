@@ -14,7 +14,7 @@ import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
 import {
   BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Modo, SessaoDaThread, Thread, VarianteDeCiclo,
 } from './types';
-import { agora, exec, lerJson, tabela } from './util';
+import { agora, COMMIT_DESCONHECIDO, exec, ignorarPastaNoGit, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { estadoCanonico, raizDoEstado, vincularEstado } from './estado-thread';
 import { readCreationOperation, withCreationLock, writeCreationJson } from './creation-operation-store';
@@ -69,8 +69,21 @@ function carimbarBase(raiz: string): { branch: string; commit: string } {
   const commit = exec('git', ['rev-parse', 'HEAD'], raiz);
   return {
     branch: branch.ok ? branch.stdout.trim() : 'desconhecida',
-    commit: commit.ok ? commit.stdout.trim() : 'desconhecido',
+    commit: commit.ok ? commit.stdout.trim() : COMMIT_DESCONHECIDO,
   };
+}
+
+/**
+ * Ensaio da 0.5.0: a thread aberta antes do primeiro commit nascia sem base, e nada avisava; o
+ * ship depois nao tem de onde partir. O aviso vai ao stderr e nao muda a saida do comando.
+ */
+export function avisoDeThreadSemBase(thread: Thread, gravada: boolean): string | null {
+  if (thread.base.commit !== COMMIT_DESCONHECIDO) return null;
+  return gravada
+    ? `Aviso: o repositório ainda não tem commit, e a thread ${thread.id} nasceu sem base: o ship não tem de onde partir. ` +
+      `Faça o primeiro commit, feche esta com ork thread close ${thread.id} --motivo engano --por <quem> ` +
+      '--justificativa "aberta antes do primeiro commit" e abra outra.'
+    : 'Aviso: o repositório ainda não tem commit, e a thread nasceria sem base: faça o primeiro commit antes de abrir a primeira thread.';
 }
 
 /** Resolve um id livre a partir do assunto normalizado (`<abbrev>-<assunto>`). */
@@ -122,6 +135,9 @@ export function criarWorktree(
   const base = opcoes.base ?? manifesto.worktree.base_branch;
   const commitBase = exec('git', ['rev-parse', '--verify', base], raiz);
   const ref = commitBase.ok ? commitBase.stdout.trim() : 'HEAD';
+  // Fatia 2 do ensaio da 0.5.0 (P3): a pasta das worktrees que o ork cria agora nasce fora do git.
+  const pastaDasWorktrees = path.dirname(dir);
+  const pastaNova = !fs.existsSync(pastaDasWorktrees);
 
   // Branch nova (`-b`) no caso comum; branch que ja existe no ciclo `merge-branch`.
   const argumentos = opcoes.branchExistente
@@ -131,6 +147,7 @@ export function criarWorktree(
   if (!r.ok) {
     throw new Error(`git worktree add falhou: ${(r.stderr || r.stdout).trim()}`);
   }
+  if (pastaNova) ignorarPastaNoGit(pastaDasWorktrees, raiz);
   const lista = exec('git', ['worktree', 'list', '--porcelain'], raiz);
   const criada = lista.ok && lista.stdout.split('\n').some((l) => l.trim() === `worktree ${dir}`);
   if (!criada) {
@@ -396,7 +413,7 @@ export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null):
   linhas.push(`  ciclo     ${thread.variante ?? 'padrao do modo'}`);
   linhas.push(`  fase      ${thread.faseAtual}`);
   linhas.push(`  status    ${thread.status}`);
-  linhas.push(`  base      ${thread.base.branch} @ ${thread.base.commit.slice(0, 8)}`);
+  linhas.push(`  base      ${thread.base.branch} @ ${shaCurto(thread.base.commit)}`);
   linhas.push(`  worktree  ${thread.worktree ?? '(raiz do projeto)'}`);
   // I-36 (T17): quem passa a leitura da conducao ve a linha unica; sem ela o resumo fica como era.
   if (conducao !== undefined) linhas.push(`  conducao  ${conducao ? linhaDeConducao(conducao) : 'ninguem conduz agora'}`);

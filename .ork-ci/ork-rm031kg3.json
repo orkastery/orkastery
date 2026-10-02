@@ -1,0 +1,340 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg3",
+  "branch": "ork/ork-rm031kg3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-index.ts",
+      "alegacao": "No HEAD limpo deste repositório, `ork grafo indexar --verificar` constrói ou confirma o índice persistente do grafo: validarGrafo, conferirFontes verificada com todas as fontes e evidências conferidas contra os bytes, e a extração com a ordem de leitura invertida e embaralhada dá o mesmo digest e o mesmo relatório; o índice fica no estado canônico do projeto, fora do git",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js grafo indexar --verificar"
+      ],
+      "criadoEm": "2026-09-30T13:51:24.937Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-index.test.ts",
+      "alegacao": "Índice do KG3: árvore suja recusada com o motivo; a mesma chave não reescreve nada e --forcar reconstrói byte a byte igual; outro commit, ACL, tenant ou extrator dão outra chave; pastas 0700 e arquivos 0600 no estado canônico, também a partir de worktree; link simbólico, dono errado, arquivo truncado e digest divergente recusados; publicação concorrente nunca deixa índice parcial",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 index' core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:27.545Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "Consulta do KG3 sobre grafo sintético: vizinhança com profundidade, sentido e tipos; chamadores; importadores de arquivo e de símbolo; caminho mais curto; cada aresta devolvida com extrator, método e evidência (arquivo, linhas, bytes) que batem com os bytes da fonte; nó desconhecido, nome ambíguo e ausência de caminho tipados; nó de outra ACL invisível em resposta, contagem, candidato e erro",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 query' core/dist-test/test/intelligence-graph-query.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:29.987Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-query.test.ts",
+      "alegacao": "Determinismo da consulta do KG3: a mesma consulta, repetida e sobre índice reconstruído de extração com a ordem de leitura trocada, dá a mesma saída byte a byte em texto e em --json, sem horário nem tempo na saída",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 determinism' core/dist-test/test/intelligence-graph-query.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:31.987Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "ork grafo de ponta a ponta num repositório Git temporário: indexar, status, vizinhos, chamadores, importadores, caminho, amostra e limpar; opção desconhecida ou repetida e --json com valor recusados; códigos de saída; índice ausente tipado; amostra gerada e conferida; limpar só apaga pasta de índice",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 cli' core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:34.592Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-parsers.ts",
+      "alegacao": "Os analisadores do extrator carregam da instalação do core (typescript e micromark resolvidos a partir do próprio pacote, nunca do repositório analisado nem do diretório atual), com as versões no formato do KG2; sem o pacote, a recusa é grafo.parser.indisponivel com o nome dele; o juiz de sintaxe do V8 roda no núcleo sem executar o código analisado",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 parsers' core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:37.458Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-extract.test.ts",
+      "alegacao": "Os grupos KG2 inteiros (extract, provenance, determinism, limits) passam com o carregador de analisadores do núcleo no lugar dos adaptadores de core/scripts, e o teste do comando provisório passa a provar o mesmo pelo ork grafo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-extract.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:39.432Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-kg1-boundary.test.ts",
+      "alegacao": "Fronteira da família do grafo depois do KG3: fora dela só index.ts importa a família, e só o módulo de CLI do grafo; o módulo de consulta é puro (sem arquivo, processo, rede, relógio nem acaso); typescript e micromark em tempo de execução só no módulo de analisadores; nenhum outro módulo do núcleo (MCP, fases, recall, memória) consome o grafo nem cita o contrato",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:51:42.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A ajuda do ork lista os subcomandos de ork grafo e a referência do CLI fica em paridade com ela (ork docs verificar sem achado)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js --help | grep -qF 'grafo indexar' && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T13:51:43.994Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg2-amostra-auditada.json",
+      "alegacao": "A amostra auditada do KG2 confere pelo ork grafo amostra --conferir contra o índice do HEAD: cada aresta existe com o mesmo trecho de evidência e veredito supported com nota; a aresta que ficava no comando provisório removido foi trocada por outra do mesmo estrato, auditada à mão",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js grafo indexar && node core/dist/index.js grafo amostra --conferir core/test/fixtures/kg2-amostra-auditada.json"
+      ],
+      "criadoEm": "2026-09-30T13:51:46.533Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-consulta-grafo.cjs",
+      "alegacao": "A medida do custo de consulta roda no HEAD: perguntas fixas, os dois braços (consulta ao grafo e leitura crua de arquivos) medidos por pergunta, e o trecho de cada evidência devolvida pelo grafo, lido dos bytes da árvore, contém o nome do alvo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js grafo indexar && node core/scripts/medir-consulta-grafo.cjs --conferir"
+      ],
+      "criadoEm": "2026-09-30T13:51:48.482Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg3-medida-consulta.json",
+      "alegacao": "A primeira medição do custo de consulta contra a leitura crua está registrada: revisão, máquina e carga, perguntas fixas, os dois braços por pergunta com bytes que chegam ao agente, número de respostas, arquivos abertos e latência, o preparo do índice à parte, tokens unavailable com motivo e nenhuma conclusão de economia",
+      "negativa": true,
+      "verificar": [
+        "node core/scripts/medir-consulta-grafo.cjs --validar core/test/fixtures/kg3-medida-consulta.json"
+      ],
+      "criadoEm": "2026-09-30T13:51:51.009Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/indice-grafo-kg3.md",
+      "alegacao": "A referência do KG3 (índice, chave, estado, consulta, proveniência, ACL, limites e medida), o RM-031, a referência do CLI e o changelog passam na paridade de docs, no markdownlint e nos links relativos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-30T13:51:53.019Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "O contrato ork.code-artifact-graph/v1 não muda no KG3: o módulo do contrato, o schema publicado e o corpus do KG1 ficam byte a byte com os hashes da base d2b180ea",
+      "negativa": false,
+      "verificar": [
+        "printf '%s  %s\\n' 52dbbd58e968faa34c69bdeadcb723dab269b0526e6bd7ab8727f5cb3de04534 core/src/intelligence-graph-contract.ts 98ca6d99dadf2bc9a4a094808965df9927c4cdbc319c0e9b414cfcd78302fd0d core/schemas/code-artifact-graph.v1.schema.json d2c6e3b35559e4257a3e298af11024b82700fac3c31de64659a423b1e1a18b08 core/test/fixtures/code-artifact-graph-v1.json | sha256sum -c --strict -"
+      ],
+      "criadoEm": "2026-09-30T13:51:57.500Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "Nenhuma dependência nova no core: os nomes de dependencies e devDependencies são os da base, e não há optionalDependencies nem peerDependencies",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const p=require('./core/package.json');const k=(o)=>JSON.stringify(Object.keys(o||{}).sort());const ok=k(p.dependencies)===JSON.stringify(['@modelcontextprotocol/sdk','smol-toml','zod','zod-to-json-schema'])&&k(p.devDependencies)===JSON.stringify(['@types/node','markdownlint-cli2','typescript'])&&!p.optionalDependencies&&!p.peerDependencies;process.exit(ok?0:1)\""
+      ],
+      "criadoEm": "2026-09-30T13:52:00.027Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/package.json",
+      "alegacao": "A suíte hermética do core (a do check obrigatório do CI) fica verde com o KG3; a suíte integral fica no passo test do verify",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run test:ci"
+      ],
+      "criadoEm": "2026-09-30T13:52:02.019Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-repo.ts",
+      "alegacao": "A leitura do repositório expõe a revisão da árvore limpa sem ler os arquivos (HEAD, ou o motivo sem-commit e working-tree-modified), com o Git por argumentos fixos; lerRepositorio segue igual",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG3 index: revisaoDaArvore' core/dist-test/test/intelligence-graph-index.test.js"
+      ],
+      "criadoEm": "2026-09-30T13:57:02.463Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referência do CLI documenta os oito subcomandos de ork grafo e fica em paridade com a ajuda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const t=require('fs').readFileSync('docs/referencia/cli.md','utf8');for(const s of ['indexar','status','vizinhos','chamadores','importadores','caminho','amostra','limpar'])if(!t.includes('ork grafo '+s))process.exit(1)\" && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T13:57:04.313Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "O RM-031 registra o KG2 mesclado na main (d2b180ea) e o KG3 na thread ork-rm031kg3, sem anunciar KG4 a KG7 nem economia, e passa na paridade de docs",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'thread: ork-rm031kg3' docs/roadmap/RM-031-grafo-de-codigo.md && npm --prefix core run build && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-09-30T13:57:06.209Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O changelog registra o ork grafo na seção Não publicado, com o limite de que indexar precisa dos analisadores instalados, e passa no markdownlint",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{f=1;next}/^## /{f=0}f' CHANGELOG.md | grep -q 'ork grafo indexar' && core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md"
+      ],
+      "criadoEm": "2026-09-30T13:57:08.862Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/extracao-grafo-kg2.md",
+      "alegacao": "A referência do KG2 aponta o ork grafo (indexar --verificar e amostra) e a referência do KG3 no lugar do comando provisório, com links relativos válidos",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'ork grafo indexar --verificar' docs/referencia/contratos/extracao-grafo-kg2.md && grep -q 'indice-grafo-kg3.md' docs/referencia/contratos/extracao-grafo-kg2.md && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-30T13:57:10.751Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031kg3",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/grafo-deterministico-kg1.md",
+      "alegacao": "A referência do KG1 aponta o KG3 como o primeiro consumidor do grafo e onde as obrigações de tenant e ACL são cumpridas, com links relativos válidos",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'indice-grafo-kg3.md' docs/referencia/contratos/grafo-deterministico-kg1.md && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-09-30T13:57:12.614Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C17",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C18",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C19",
+      "reason": "artifact-not-in-checkout"
+    },
+    {
+      "id": "C26",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

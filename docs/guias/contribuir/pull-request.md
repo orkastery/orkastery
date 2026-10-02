@@ -34,9 +34,9 @@ A `main` é protegida: o merge só sai com os checks obrigatórios verdes no úl
 
 | Check | O que roda |
 | --- | --- |
-| `documentacao (markdownlint e paridade)` | markdownlint, `ork docs verificar` e os links relativos |
+| `documentacao (markdownlint e paridade)` | markdownlint, `ork docs verificar`, os links relativos e a linha no CHANGELOG ([versões e publicação](versoes-e-publicacao.md#para-quem-contribui)) |
 | `nucleo ork (build, testes, canarios)`, um por versão do Node da matriz | Build, `test:ci`, `eval`, `prompt lint` e `audit lint` |
-| `ork-verify` | O bundle `.ork-ci/bundle.json`: as claims da última entrega e a suíte do CI |
+| `ork-verify` | O bundle da thread da branch, `.ork-ci/<thread>.json`: as claims dela e a suíte do CI; sem thread, só a suíte |
 
 - Se o `ork-verify` reprovar por uma claim que não é da sua mudança, diga no PR. Quem decide é o mantenedor.
 - No primeiro PR vindo de fork, o GitHub pode esperar o mantenedor liberar os checks.

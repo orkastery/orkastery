@@ -9,7 +9,9 @@ import { exigirManifesto } from './manifest';
 export type TransporteShipMcp = 'github-ssh' | 'bare-local';
 export type PermissoesDonoMcp = 'interactive' | 'orchestrate';
 export const TOOLS_DONO_CODEX = ['ork_thread_new','ork_phase_run','ork_request_decision'] as const;
-export const TOOLS_FILHO_CODEX = ['ork_artifact_write','ork_claim_add','ork_git_commit','ork_verify','ork_ship'] as const;
+// RM-037 (rm037defeito, defeito 1): a decisao autonoma da sessao entra com as outras mutacoes do filho;
+// sem o grant, o codex com approval_policy never recusaria a chamada.
+export const TOOLS_FILHO_CODEX = ['ork_artifact_write','ork_claim_add','ork_decision_record','ork_git_commit','ork_verify','ork_ship'] as const;
 // Brain mutation tools are deliberately excluded from the existing opt-in bundle.
 // A native integration must request exact startup grants plus scoped activation.
 export { BRAIN_READ_TOOLS, BRAIN_WRITE_TOOLS } from './company-brain-mcp';
@@ -133,7 +135,8 @@ function migrarEnvVarsCodex(bruto:string,entrada:Record<string,unknown>):string 
   return bruto.slice(0,corpoFim)+(corpo.endsWith('\n')?'':'\n')+`env_vars = ${valor}\n`+bruto.slice(corpoFim);
 }
 export function instalarMcp(opcoes: OpcoesInstalacaoMcp): ResultadoInstalacaoMcp {
-  if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria');
+  // Ensaio da 0.5.0: os READMEs dos plugins mandavam `--project .`, recusado sem dizer como acertar.
+  if(!path.isAbsolute(opcoes.projeto)) throw Error('mcp.install.project.invalid: raiz absoluta obrigatoria; na raiz do projeto, use --project "$PWD"');
   if(!['claude-code','codex'].includes(opcoes.host)) throw Error('mcp.install.host.invalid');
   if(opcoes.transporteShip!==undefined && !['github-ssh','bare-local'].includes(opcoes.transporteShip))throw Error('mcp.install.transport.invalid');
   if(opcoes.permissoesFilho!==undefined && !['interactive','worktree'].includes(opcoes.permissoesFilho))throw Error('mcp.install.child-permissions.invalid');

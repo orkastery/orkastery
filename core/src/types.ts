@@ -151,7 +151,7 @@ export interface Manifesto {
     repo_root?: string;
   };
   /** I-35: fuso do dono (IANA, forma canonica do Intl). Ausente quando nao configurado ou invalido. */
-  owner?: { timezone: string };
+  owner?: { timezone?: string; language?: string; depth?: 'curta' | 'detalhada'; experience?: boolean };
   board: {
     adapter: string;
     default: string;
@@ -200,6 +200,12 @@ export interface Manifesto {
     context: string;
     /** Comando hermético do runner; ausente reutiliza os comandos integrais de verify. */
     command?: string;
+    /**
+     * RM-037 (rm037defeito, defeito 5): repositorios externos cujo PR mesclado vale como entrega da
+     * thread (`ork ship registrar-pr --repo`). A chave e `dono/nome`; o valor e o check exigido no head
+     * do PR, e texto vazio declara que o repositorio nao tem CI (so o merge provado vale).
+     */
+    external_repositories: Record<string, string>;
   };
   concurrency: {
     max_parallel_threads: number;
@@ -258,6 +264,8 @@ export interface Manifesto {
     tenant: string;
     /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
     timeout_ms: number;
+    /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
+    embedding?: ConfigDeEmbedding;
   };
   /** Governanca de custo dos auditores periodicos (bloco B5, visao secao 5.3). */
   audit: {
@@ -278,6 +286,14 @@ export interface Manifesto {
   fabrica: {
     compartilhada: boolean;
     remoto: string;
+  };
+  /**
+   * RM-031 KG5 (D2): a consulta do grafo de codigo pelo MCP. Com `mcp`, o servidor do projeto expoe as
+   * tools `ork_grafo_*` e o despacho as libera para a sessao filha. Desligada por padrao: a exposicao e
+   * decisao do dono, e vale a do manifesto da raiz, nunca a da worktree de uma thread.
+   */
+  grafo: {
+    mcp: boolean;
   };
   policies?: Record<string, string>;
 }
@@ -1231,6 +1247,83 @@ export type MotivoDeDegradacao =
   | 'cli.ausente'
   | 'orkmind.indisponivel';
 
+/** I-38 (D5): `none` desliga os embeddings; `openrouter` e o unico primario homologado. */
+export type ProviderDeEmbedding = 'none' | 'openrouter';
+
+/**
+ * I-38 (D5): bloco `memory.embedding` do manifesto.
+ *
+ * A chave entra pelo NOME da variavel de ambiente (`api_key_env`), nunca pelo valor. Embedding
+ * pago e opt-in separado deste bloco: `runtime.provider_policy` continua governando o despacho.
+ */
+export interface ConfigDeEmbedding {
+  provider: ProviderDeEmbedding;
+  /** Modelo do provider primario, no formato `org/nome`. Vazio com `provider: none`. */
+  model: string;
+  /** Dimensao pedida ao primario (`request_dimensions`) e conferida vetor a vetor. */
+  dim: number;
+  /** NOME da variavel com a chave dedicada. Vazio com `provider: none`. */
+  api_key_env: string;
+  /** Modelo local offline (`org/nome` no cache do Hugging Face). Vazio = sem fallback local. */
+  fallback_model: string;
+  /** Teto de tokens estimados por execucao de `ork memory index`, conferido antes da rede. */
+  max_tokens_por_execucao: number;
+}
+
+/**
+ * I-38 (D6): por que a busca por significado nao esta usando o provider primario.
+ *
+ * Separado de `MotivoDeDegradacao` de proposito: embedding ausente nunca derruba o regime
+ * `orkmind` (P6 do GOAL). O recall por tag segue identico com qualquer um destes motivos.
+ */
+export type MotivoDeEmbeddings =
+  | 'embeddings.nao-configurado'
+  | 'embeddings.chave-ausente'
+  | 'embeddings.provider-indisponivel'
+  | 'embeddings.timeout'
+  | 'embeddings.local-ausente'
+  | 'embeddings.dependencia-ausente'
+  | 'embeddings.indice-ausente'
+  | 'embeddings.dimensao-divergente'
+  | 'embeddings.espaco-vetorial-divergente'
+  | 'embeddings.orcamento-excedido'
+  | 'embeddings.conteudo-recusado';
+
+/** I-38 (D6): um indice vetorial local, por modelo e dimensao. */
+export interface IndiceDeEmbeddings {
+  modelo: string;
+  dim: number;
+  vetores: number;
+  /** Vetores com sha256 igual ao conteudo atual; null fora do `memory status`. */
+  coerentes: number | null;
+  /** Vetores de conteudo que mudou ou saiu do tenant; null fora do `memory status`. */
+  desatualizados: number | null;
+}
+
+/** I-38 (D6): estado sondado dos embeddings. Nome e presenca da chave, nunca o valor. */
+export interface EstadoDeEmbeddings {
+  configurado: boolean;
+  provider: ProviderDeEmbedding;
+  modelo: string | null;
+  dim: number | null;
+  variavelDaChave: string;
+  chavePresente: boolean;
+  fallback: { modelo: string | null; presente: boolean; dependencias: boolean; dim: number | null };
+  indices: IndiceDeEmbeddings[];
+  /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
+  entradas: number | null;
+  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  cobertura: number | null;
+  ativo: 'primario' | 'fallback' | 'nenhum';
+  /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
+  sondado: boolean;
+  motivo: MotivoDeEmbeddings | null;
+  detalhe: string;
+  correcao: string;
+  /** `memory status --sondar`: uma chamada real, com a latencia medida. */
+  sonda?: { ok: boolean; alvo: 'primario' | 'fallback' | null; latenciaMs: number | null; motivo: MotivoDeEmbeddings | null };
+}
+
 /** Prioridade de uma entrada de memoria. STRING, nunca numero (contrato do OrkMind). */
 export type PrioridadeDeMemoria = 'critical' | 'high' | 'medium' | 'low';
 
@@ -1322,6 +1415,8 @@ export interface EstadoDaMemoria {
   dsnPresente: boolean;
   cli: string;
   tenant: string;
+  /** I-38 (D6): aditivo e opcional; consumidores antigos leem o estado sem ele. */
+  embeddings?: EstadoDeEmbeddings;
 }
 
 /** Resultado de uma gravacao na memoria semantica. */

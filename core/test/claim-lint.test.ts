@@ -27,7 +27,8 @@ test('(a) suite inteira do npm: casa so o npm test sem subcomando e sem arquivo 
     'npm run testar']) {
     assert.deepEqual(regras(c), [], c);
   }
-  assert.match(analisarComando('npm test')[0].correcao, /npm --prefix core run test:ci/);
+  // Fatia 2 do ensaio da 0.5.0 (P6): a correcao e generica, sem o script do Orkastery.
+  assert.match(analisarComando('npm test')[0].correcao, /^rode só o teste da claim .* ou um script hermético do projeto$/);
 });
 
 test('(b1) SHA intermediario so em comando git, e nunca como argumento de merge-base --is-ancestor', () => {
@@ -59,7 +60,7 @@ test('ci prepare recusa a suite inteira em claim nascida sob a regra; claim anti
     const nova = adicionarClaim(p.dir, thread.id, { arquivo: 'README.md', alegacao: 'tudo verde', verificar: ['npm --prefix core test'] });
     assert.throws(() => prepararBundleCi(p.carregado, thread.id),
       (e: Error) => e.message.startsWith('claims.lint: o bundle nao foi gerado') && e.message.includes(`${nova.id} roda a suite inteira`));
-    assert.equal(fs.existsSync(path.join(p.dir, '.ork-ci', 'bundle.json')), false);
+    assert.equal(fs.existsSync(path.join(p.dir, '.ork-ci')), false, 'nenhum bundle, nem o da thread');
     const evento = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'claim_lint').at(-1)!;
     assert.equal((evento.recusas as string[]).length, 1);
 
@@ -82,7 +83,7 @@ test('CLI: claims add avisa na hora e diz que o ci prepare recusa', () => {
     const r = spawnSync(process.execPath, [path.resolve(__dirname, '../../dist/index.js'), 'claims', 'add', thread.id, 'README.md',
       '--claim', 'tudo verde', '--verificar', 'npm test'], { cwd: p.dir, encoding: 'utf8', timeout: 60000 });
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /AVISO: C1 roda a suite inteira \(npm test\); use `npm --prefix core run test:ci`.*O `ci prepare` recusa esta claim\./);
+    assert.match(r.stdout, /AVISO: C1 roda a suite inteira \(npm test\); rode só o teste da claim .*script hermético do projeto\. O `ci prepare` recusa esta claim\./);
   } finally { p.limpar(); }
 });
 

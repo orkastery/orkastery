@@ -39,6 +39,7 @@ import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso } from './hor
 import { calcularIndice, Indice } from './indice';
 import { registrarReversaoDaEntrega } from './ship';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { liberarAoFechar } from './fechamento';
 
 /** Identificador do contrato congelado do MASTER log. */
 export const CONTRATO_MASTER_LOG = 'ork.master-log/v1';
@@ -406,6 +407,8 @@ export function registrarMaster(raiz: string, id: string, opcoes: OpcoesMaster):
     masterLogSha256: hashDocumento(r.caminhoMasterLog), postmortemSha256: hashDocumento(r.caminhoPostmortem),
     ...(opcoes.prova ? { prova: 'ingresso-autenticado', ...opcoes.prova } : {}),
   });
+  // RM-037 (rm037noite): a thread fechada solta o que segurava, com registro no ledger dela.
+  liberarAoFechar(raiz, id);
   return r;
 }
 

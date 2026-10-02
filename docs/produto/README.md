@@ -4,7 +4,7 @@
 
 - **Padrão:** [documentação de produto](../padroes/documentacao-de-produto.md) · **Complemento:** [roadmap](../roadmap/README.md)
 - **Hierarquia:** plataforma (`PLAT`) → sistema (`SYS`) → módulo (`MOD`) → feature (`FEAT`)
-- **Nova página:** copie [o modelo](_modelo-feature.md) e rode `ork docs verificar`
+- **Nova página:** reserve o número da feature com `ork roadmap feat`, copie [o modelo](_modelo-feature.md) e rode `ork docs verificar`
 
 ## Índice
 
@@ -39,7 +39,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-014](FEAT-014-monitor-board-e-pulse.md) | Monitor, board e pulse de atenção | feature | vigente | MOD-04 | 2026-09-24 |
 | [FEAT-015](FEAT-015-entrega-e-indice-master.md) | Entrega e índice de condução (MASTER) | feature | vigente | MOD-04 | 2026-09-24 |
 | [FEAT-016](FEAT-016-handoff-e-recall.md) | Handoff triado e recall tardio | feature | vigente | MOD-05 | 2026-09-24 |
-| [FEAT-017](FEAT-017-memoria-orkmind.md) | Memória no OrkMind com degradação honesta | feature | vigente | MOD-05 | 2026-09-24 |
+| [FEAT-017](FEAT-017-memoria-orkmind.md) | Memória no OrkMind com degradação honesta | feature | vigente | MOD-05 | 2026-10-01 |
 | [FEAT-018](FEAT-018-documentacao-como-codigo.md) | Documentação como código | feature | vigente | MOD-05 | 2026-09-24 |
 | [FEAT-019](FEAT-019-telemetria-do-ledger.md) | Telemetria econômica do ledger | feature | vigente | MOD-05 | 2026-09-24 |
 | [FEAT-020](FEAT-020-mcp-e-adaptadores.md) | Servidor MCP e instalação de adaptadores | feature | vigente | MOD-06 | 2026-09-24 |
@@ -52,6 +52,10 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada página.
 | [FEAT-027](FEAT-027-fabrica-compartilhada.md) | Fábrica compartilhada entre máquinas | feature | vigente | MOD-01 | 2026-09-27 |
 | [FEAT-028](FEAT-028-loop-de-aprendizado.md) | Loop de aprendizado | feature | vigente | MOD-05 | 2026-09-27 |
 | [FEAT-029](FEAT-029-conducao-multicanal.md) | Condução multicanal da thread | feature | vigente | MOD-01 | 2026-09-27 |
+| [FEAT-030](FEAT-030-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | feature | vigente | MOD-06 | 2026-10-01 |
 | [FEAT-031](FEAT-031-orkastery-network.md) | Orkastery Network, a rede das máquinas de uma pessoa | feature | em desenvolvimento | MOD-01 | 2026-09-30 |
+| [FEAT-032](FEAT-032-roadmap-da-rede.md) | Roadmap da rede, de qualquer diretório | feature | vigente | MOD-01 | 2026-10-01 |
+| [FEAT-033](FEAT-033-dossie-de-decisao.md) | Dossiê de decisão | feature | vigente | MOD-05 | 2026-10-01 |
+| [FEAT-034](FEAT-034-pacote-de-experiencia.md) | Pacote de experiência de orquestração | feature | vigente | MOD-06 | 2026-10-01 |
 
 <!-- ork-docs:indice:fim -->

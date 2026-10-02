@@ -17,6 +17,8 @@ fontes:
   comandos: []
 ---
 
+<!-- O número da feature sai de `ork roadmap feat --thread <thread>`, reservado entre máquinas; nunca do maior número da branch. -->
+
 # FEAT-000 — Nome da feature
 
 > **Em uma frase:** [o que esta feature faz, para quem, em até 240 caracteres]

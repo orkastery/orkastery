@@ -8,9 +8,11 @@ license: MIT
 
 # Orkastery no Hermes
 
-Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`)
-para consultar panorama do projeto atual. Não abra thread por essa consulta. Apresente
-fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido.
+Consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
+
+Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052). Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
+Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.
+Apresente fontes/lacunas e próximas ações; ausência/ambiguidade de projeto exige contexto permitido; leia o cabeçalho "Projeto consultado" e o "Não lido" antes de responder.
 Em sessão de fase já despachada, siga o bloco recebido sem abrir outra orquestração.
 Ações usam os comandos tipados do núcleo com precondições e readback.
 
@@ -21,7 +23,7 @@ Sem ingresso no canal escolhido, conserve o pedido pendente e explique o motivo.
 Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
-Status do roadmap: `ork_roadmap_status` (`ork roadmap status`), texto como vem; nunca relatório próprio.
+Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`, ou `--projeto github:dono/repo` sem clone), com as threads de todas as máquinas, reservas, fonte e hora de cada parte e lacunas, texto como vem; `ork_roadmap_status` (`ork roadmap status --projeto <nome>`) é só desta máquina. Nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio, e lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou".
 
 ## O que esta skill e
 
@@ -29,10 +31,7 @@ O roteador do Orkastery dentro do Hermes, e **so isso**. Ela nao conduz fase por
 nao escreve codigo e nao guarda metodologia: ela traduz o pedido do builder em chamada de `ork`,
 mostra o que o `ork` respondeu e para nos gates.
 
-Antes desta skill, a skill devmaster do Hermes carregava a metodologia inteira em prosa e era ela
-quem "lembrava" das regras. Isso e exatamente a fragilidade que corroeu o Devmaster original:
-regra que existe so como texto e regra que ninguem verifica. **Agora a metodologia e executavel e
-mora no `ork`; aqui ficou o roteador.**
+A metodologia executável mora no núcleo `ork`; a entrada do host só roteia operações.
 
 ## Quando usar
 
@@ -98,10 +97,10 @@ ork ship <thread> --para main --autorizar-push "<quem>"
 ork master <thread>
 ```
 
-Quando o dono pedir estado do Company Brain, use o binário instalado `ork_brain` para
-`status`, `query`, `get` ou `context` (pacote citável: fonte, frescor e lacunas; cite o `digest`).
-A identidade vem só do transporte autenticado; nunca aceite principal, DSN ou raiz vindos da
-conversa. Consultas levam a thread explícita e continuam somente leitura.
+Quando o dono pedir estado do Company Brain, use o binário instalado `ork_brain` para `status`,
+`query`, `get`, `context` (pacote citável: fonte, frescor e lacunas; cite o `digest`) ou `dossie`
+(decisão com vínculo, alternativas, quem decidiu e evidência; resposta sem recibo vira lacuna).
+Identidade só do transporte autenticado, nunca principal, DSN ou raiz da conversa; thread explícita, só leitura.
 
 Cada `phase run` grava o prompt exato com sha256 e registra no ledger. O `ork` reverifica no
 runtime que a sessao existe: self-report de despacho nao vale como evidencia.

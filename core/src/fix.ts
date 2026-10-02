@@ -35,7 +35,7 @@ import {
   Thread,
   TipoDeCorrecao,
 } from './types';
-import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
+import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, shaCurto, tabela } from './util';
 import { ConducaoDoVerify, cwdDaThread, executar, ResultadoVerify, verificar } from './verify';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 
@@ -172,7 +172,7 @@ export function derivarCorrecoes(
       'verify.regression',
       `comando ${cmd.nome}`,
       `REGRESSAO: "${cmd.comando}" passava na baseline gravada antes do GO (commit ` +
-        `${resultado.baseline?.commit.slice(0, 8) ?? 'desconhecido'}) e falha agora. Este defeito ` +
+        `${resultado.baseline ? shaCurto(resultado.baseline.commit) : 'desconhecido'}) e falha agora. Este defeito ` +
         'e desta thread, nao divida pre-existente. Corrija ate o comando voltar a passar.',
       [cmd.comando],
       `codigo ${cmd.code}:\n${cmd.resumo}`
@@ -432,7 +432,7 @@ function reverificarSobConducao(
     veredito = 'PASSOU';
     razao =
       `${vereditos.length} correcao(oes) aprovada(s) por comando reexecutado no HEAD real` +
-      (verify ? `, com o verify completo verde no commit ${verify.commit.slice(0, 8)}` : '');
+      (verify ? `, com o verify completo verde no commit ${shaCurto(verify.commit)}` : '');
   } else if (rodadas >= limite) {
     veredito = 'BLOQUEADO';
     escalado = true;
@@ -567,7 +567,7 @@ export function textoDoReverify(r: ResultadoDoReverify): string {
   if (r.verify) {
     linhas.push('');
     linhas.push(
-      `Verify completo no HEAD ${r.verify.commit.slice(0, 8)}: ${r.verify.ok ? 'verde' : `reprovado (${r.verify.motivos.join(', ')})`}`
+      `Verify completo no HEAD ${shaCurto(r.verify.commit)}: ${r.verify.ok ? 'verde' : `reprovado (${r.verify.motivos.join(', ')})`}`
     );
   }
   linhas.push('');

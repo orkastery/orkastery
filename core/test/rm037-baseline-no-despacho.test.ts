@@ -1,0 +1,357 @@
+/**
+ * RM-037 (rm037defeito, defeito 1): duas vezes em 29/09/2026 a sessao codex parou antes do GO porque o
+ * sandbox recusou gravar a baseline no ledger (EROFS) e o MCP nao oferece a operacao; o condutor gravou a
+ * baseline e redespachou. Agora o proprio despacho grava a baseline, pela mesma `gravarBaseline` do CLI,
+ * antes de soltar o bloco com GO.
+ */
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { projetoTemporario, runtimeFalso, runtimePorConta } from './apoio';
+import { controllerSimulado } from './controller-simulado';
+import { encerrarController } from '../src/adapters/codex-controller';
+import { lerLedger } from '../src/ledger';
+import { baselineDoDespachoNecessaria, hashDoPrompt, rodarFase } from '../src/phase';
+import { redespachar } from '../src/retry';
+import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao } from '../src/conducao';
+import { criarServidorMcp } from '../src/mcp-server';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { dirThread, lerThread, novaThread } from '../src/thread';
+import { exec } from '../src/util';
+
+function encerrar(dir: string): void {
+  for (const e of lerLedger(dir)) {
+    if (e.tipo !== 'phase_dispatch' || typeof e.controlador !== 'string') continue;
+    try {
+      const launch = JSON.parse(fs.readFileSync(path.join(e.controlador, 'launch.json'), 'utf8'));
+      encerrarController(e.controlador, launch.vinculo, launch.instancia, 8000);
+    } catch { /* controller ja terminal */ }
+  }
+}
+
+function projetoCodex(nome: string) {
+  const p = projetoTemporario(nome);
+  const f = controllerSimulado(p.dir);
+  fs.writeFileSync(path.join(p.dir, '.gitignore'), 'fake-bin/\nruntime/\n');
+  exec('git', ['add', '-A'], p.dir);
+  exec('git', ['commit', '-m', 'base do teste com os stubs ignorados'], p.dir);
+  // Comandos reais do manifesto: o build passa e o teste ja falhava (divida que a baseline separa).
+  p.carregado.manifesto.verify.build = 'node -e "process.exit(0)"';
+  p.carregado.manifesto.verify.test = 'node -e "process.exit(3)"';
+  p.carregado.manifesto.runtime.sandbox = 'workspace-write';
+  return { p, f };
+}
+
+test('defeito 1: o despacho codex do bloco com GO grava a baseline antes do phase_dispatch, uma vez so', () => {
+  const { p, f } = projetoCodex('rm037-baseline-codex');
+  let dir = '';
+  try {
+    // S2 do CHECK final: com a policy ligada, o "nao dispara" abaixo mede o aviso (sem ela, passava vazio).
+    p.carregado.manifesto.policies = { ...p.carregado.manifesto.policies, verify_regression: 'warn' };
+    const t = novaThread(p.carregado, { nome: 'baseline codex', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const head = exec('git', ['rev-parse', 'HEAD'], p.dir).stdout.trim();
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespacho = eventos.findIndex(e => e.tipo === 'phase_dispatch');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespacho, 'a baseline vem antes de a sessao existir');
+    const b = eventos[iBaseline];
+    assert.equal(b.origem, 'phase.run');
+    assert.equal(b.fonte, 'execucao real no HEAD, nao relatorio de fase', 'a mesma prova de origem do CLI');
+    assert.equal(b.commit, head);
+    assert.deepEqual((b.comandos as { nome: string; ok: boolean; code: number }[]).map(c => [c.nome, c.ok, c.code]),
+      [['build', true, 0], ['test', false, 3]]);
+    assert.equal(lerThread(p.dir, t.id).baseline?.commit, head);
+    assert.equal(eventos.some(e => e.tipo === 'policy_warn' && e.policy === 'verify_regression'), false,
+      'o aviso de bloco com GO sem baseline nao dispara: ela ja existe');
+    assert.equal(baselineDoDespachoNecessaria(p.carregado, t.id, { fase: 'GO', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO' }), false,
+      'thread com baseline nao grava de novo');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1: ensaio, claude-bg, sandbox que grava o estado e bloco sem GO nao gravam baseline pelo despacho', () => {
+  const { p, f } = projetoCodex('rm037-baseline-negativos');
+  const claude = runtimePorConta('rm037-baseline-negativos');
+  try {
+    claude.conta(p.dir, 'a');
+    const auto = novaThread(p.carregado, { nome: 'auto', modo: 'auto' }).thread;
+    const classic = novaThread(p.carregado, { nome: 'classic', modo: 'classic' }).thread;
+    const precisa = (id: string, fase: 'GOAL' | 'PLAN' | 'GO' | 'CHECK', runtime: string, dryRun = false) =>
+      baselineDoDespachoNecessaria(p.carregado, id, { fase, prompt: 'x', runtime, model: 'modelo-SIMULADO', dryRun });
+    assert.equal(precisa(auto.id, 'GOAL', 'codex'), true, 'positivo: codex, bloco com GO, sem baseline');
+    assert.equal(precisa(auto.id, 'GOAL', 'codex', true), false, 'o ensaio nao executa nada');
+    assert.equal(precisa(auto.id, 'GOAL', 'claude-bg'), false, 'no claude-bg a sessao grava a baseline ela mesma');
+    assert.equal(precisa(auto.id, 'CHECK', 'codex'), false, 'do CHECK em diante o bloco ja nao tem GO');
+    assert.equal(precisa(classic.id, 'GOAL', 'codex'), false, 'bloco so de GOAL nao tem GO');
+    p.carregado.manifesto.runtime.sandbox = 'danger-full-access';
+    assert.equal(precisa(auto.id, 'GOAL', 'codex'), false, 'sandbox que grava o estado deixa a sessao gravar');
+
+    // claude-bg de verdade: o despacho sai e nenhuma baseline aparece.
+    const r = rodarFase(p.carregado, auto.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO', runtime: 'claude-bg' });
+    assert.equal(r.verificada, true, r.erro);
+    assert.equal(lerLedger(dirThread(p.dir, auto.id)).some(e => e.tipo === 'baseline_recorded'), false);
+  } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (S2 do CHECK final): o ensaio do codex conta a baseline que o despacho real vai gravar', () => {
+  const { p, f } = projetoCodex('rm037-baseline-ensaio');
+  try {
+    p.carregado.manifesto.policies = { ...p.carregado.manifesto.policies, verify_regression: 'warn' };
+    const t = novaThread(p.carregado, { nome: 'ensaio', modo: 'auto' }).thread;
+    const avisaSemBaseline = (baselinePeloDespacho?: boolean) => {
+      const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO', runtime: 'codex',
+        model: 'modelo-SIMULADO', dryRun: true, ...(baselinePeloDespacho === undefined ? {} : { baselinePeloDespacho }) });
+      assert.equal(r.dryRun, true, r.erro);
+      return r.violacoes.some(v => v.detalhe.includes('vai sair sem baseline'));
+    };
+    assert.equal(avisaSemBaseline(), false, 'o CLI grava a baseline no despacho: o ensaio nao manda rodar ork verify --baseline');
+    assert.equal(avisaSemBaseline(false), true, 'no MCP a baseline nao vem pelo despacho: o aviso fica');
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'baseline_recorded'), false, 'o ensaio nao executa a suite');
+  } finally { f.restaurar(); p.limpar(); }
+});
+
+// GO-FIX do CHECK 1 (A2, A3, S2).
+
+test('defeito 1 (A3): no MCP o despacho nao roda a suite; a baseline que falta volta como baseline.pendente', async () => {
+  const { p, f } = projetoCodex('rm037-baseline-mcp');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+  const client = new Client({ name: 'condutor-SIMULADO', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    const t = novaThread(p.carregado, { nome: 'mcp', modo: 'auto' }).thread;
+    const direto = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', baselinePeloDespacho: false });
+    assert.equal(direto.motivo, 'baseline.pendente');
+    assert.match(direto.erro ?? '', new RegExp(`ork verify ${t.id} --baseline`));
+    await server.connect(st); await client.connect(ct);
+    const r = await client.callTool({ name: 'ork_phase_run', arguments: { threadId: t.id, fase: 'GOAL', prompt: 'bloco SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' } });
+    const texto = (r.content as { type: string; text: string }[]).map(x => x.text).join('');
+    assert.match(texto, /baseline\.pendente/);
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), false, 'o MCP nao executou a suite');
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch'), false, 'nem abriu a sessao sem a baseline');
+  } finally { await client.close(); await server.close(); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (A2): o redespacho do retry para o codex tambem grava a baseline antes da sessao', () => {
+  const { p, f } = projetoCodex('rm037-baseline-retry');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'retry codex', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const prompt = 'retomada SIMULADA FINALIZAR-SIMULADO';
+    const relativo = path.join('.orkastery', 'threads', t.id, 'prompts', 'retomada.md');
+    fs.mkdirSync(path.dirname(path.join(p.dir, relativo)), { recursive: true });
+    fs.writeFileSync(path.join(p.dir, relativo), prompt);
+    const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', relativo, hashDoPrompt(prompt), { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.ok, true, r.detalhe);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespacho = eventos.findIndex(e => e.tipo === 'phase_dispatch');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespacho, 'a baseline vem antes da sessao retomada');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (S2): thread com sessao viva recebe a recusa da conducao, sem baseline nem conducao_recusada de baseline', () => {
+  const { p, f } = projetoCodex('rm037-baseline-conduz');
+  const claude = runtimePorConta('rm037-baseline-conduz');
+  let dir = '';
+  try {
+    claude.conta(p.dir, 'a');
+    const t = novaThread(p.carregado, { nome: 'conduz', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const viva = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA viva', runtime: 'claude-bg' });
+    assert.equal(viva.verificada, true, viva.erro);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'outro pedido FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.erro);
+    const eventos = lerLedger(dir);
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), false);
+    assert.equal(eventos.some(e => e.tipo === 'conducao_recusada' && (e.pedido as { operacao?: string } | undefined)?.operacao === 'baseline'), false,
+      'nenhuma baseline foi pedida a toa');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (N3): conducao orfa da propria thread nao solta o codex sem baseline', () => {
+  const { p, f } = projetoCodex('rm037-baseline-orfa');
+  const claude = runtimePorConta('rm037-baseline-orfa');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'orfa', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    // Sessao claude-bg que o runtime ja nao lista: a tomada libera a orfa com prova.
+    assert.equal(registrarConducaoDaSessao(p.dir, t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
+      { sessionId: '00000000-0000-4000-8000-000000000051', runtime: 'claude-bg', perfil: null }), true);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'depois da orfa FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespacho = eventos.findIndex(e => e.tipo === 'phase_dispatch');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespacho, `baseline antes da sessao: ${eventos.map(e => e.tipo).join(', ')}`);
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+// CHECK 3 (S-2: G1 e G2 com teste).
+
+test('defeito 1 (G1): policy que bloqueia e prompt de retomada ausente recusam sem rodar a baseline', () => {
+  const { p, f } = projetoCodex('rm037-baseline-g1');
+  try {
+    p.carregado.manifesto.policies = { segredo_em_prompt: 'block' };
+    const t = novaThread(p.carregado, { nome: 'g1', modo: 'auto' }).thread;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', runtime: 'codex', model: 'modelo-SIMULADO',
+      prompt: 'use a chave sk-' + 'ant-api03-EXEMPLOFALSO1234567890abcdefghij para chamar a API' });
+    assert.equal(r.motivo, 'policy.violation');
+    const retomada = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', '.orkastery/threads/nao/existe.md', 'a'.repeat(64),
+      { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(retomada.ok, false);
+    assert.equal(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === 'baseline_recorded'), false, 'nenhuma suite rodou a toa');
+  } finally { f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (G2): no MCP, thread que ja conduz recebe a resposta da conducao, nao a pendencia da baseline', async () => {
+  const { p, f } = projetoCodex('rm037-baseline-g2');
+  const claude = runtimePorConta('rm037-baseline-g2');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+  const client = new Client({ name: 'condutor-SIMULADO', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    claude.conta(p.dir, 'a');
+    const t = novaThread(p.carregado, { nome: 'g2', modo: 'auto' }).thread;
+    assert.equal(rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA viva', runtime: 'claude-bg' }).verificada, true);
+    await server.connect(st); await client.connect(ct);
+    const r = await client.callTool({ name: 'ork_phase_run', arguments: { threadId: t.id, fase: 'GOAL', prompt: 'outro pedido', runtime: 'codex', model: 'modelo-SIMULADO' } });
+    const texto = (r.content as { type: string; text: string }[]).map(x => x.text).join('');
+    assert.match(texto, /conducao\.em-andamento/);
+    assert.doesNotMatch(texto, /baseline\.pendente/);
+  } finally { await client.close(); await server.close(); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+// CHECK 4 (B-1, A-1r, S-1).
+
+test('defeito 1 (B-1): a sucessora de uma sessao blocked, no codex sem baseline, grava a baseline e sai', () => {
+  const { p, f } = projetoCodex('rm037-baseline-sucessora');
+  const claude = runtimeFalso('rm037-baseline-sucessora');
+  let dir = '';
+  try {
+    const t = novaThread(p.carregado, { nome: 'sucessora', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const bloqueada = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(bloqueada.verificada, true, bloqueada.erro);
+    claude.estadoDaSessao('blocked');
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sucessora SIMULADA FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const eventos = lerLedger(dir);
+    const iBaseline = eventos.findIndex(e => e.tipo === 'baseline_recorded');
+    const iDespachoCodex = eventos.findIndex(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex');
+    assert.ok(iBaseline >= 0 && iBaseline < iDespachoCodex, `baseline antes da sucessora: ${eventos.map(e => e.tipo).join(', ')}`);
+    assert.equal(eventos.some(e => e.tipo === 'conducao_recusada'), false, 'a baseline rodou como reentrada da tomada');
+    const d = eventos.find(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex')!;
+    assert.equal(conducaoDaThread(p.dir, t.id)?.identidade, (d.identidade as { dispatchId: string }).dispatchId,
+      'a sessao herdou a identidade gravada no lease: ela reentra na propria conducao');
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (A-1r): a vaga tomada durante a suite recusa a repeticao e devolve a reserva do dono', () => {
+  const { p, f } = projetoCodex('rm037-baseline-reserva');
+  try {
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const t = novaThread(p.carregado, { nome: 'reserva', modo: 'auto' }).thread;
+    const outra = novaThread(p.carregado, { nome: 'chega no meio', modo: 'auto' }).thread;
+    assert.equal(assumirConducao(p.dir, t.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
+    // O teste do manifesto e a propria suite: enquanto ela roda, outra thread ganha uma sessao viva.
+    const conducao = path.resolve(__dirname, '../src/conducao');
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require(${JSON.stringify(conducao)}).registrarConducaoDaSessao(` +
+      `${JSON.stringify(p.dir)}, ${JSON.stringify(outra.id)}, { canal: 'cli', operacao: 'phase.run', fase: 'GO', prazoMs: 3600000 }, ` +
+      `{ sessionId: '00000000-0000-4000-8000-000000000091', runtime: 'codex', perfil: null })`)}`;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' });
+    assert.equal(r.motivo, 'concurrency.limite', r.erro);
+    const eventos = lerLedger(dirThread(p.dir, t.id));
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), true, 'a baseline foi gravada e continua valendo');
+    assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
+  } finally { f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (S-1): a repeticao depois da baseline nao duplica os avisos de policy', () => {
+  const { p, f } = projetoCodex('rm037-baseline-avisos');
+  let dir = '';
+  try {
+    p.carregado.manifesto.policies = { runtime_unavailable: 'warn' };
+    const t = novaThread(p.carregado, { nome: 'avisos', modo: 'auto' }).thread;
+    dir = dirThread(p.dir, t.id);
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'bloco SIMULADO FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.verificada, true, r.erro);
+    const avisos = lerLedger(dir).filter(e => e.tipo === 'policy_warn' && e.policy === 'runtime_unavailable');
+    assert.equal(avisos.length, 1);
+  } finally { encerrar(dir); f.restaurar(); p.limpar(); }
+});
+
+// CHECK 5 (R5-B1, R5-A1).
+
+test('defeito 1 (R5-B1): o dono responde a sessao blocked durante a baseline e a sucessora nao sai', () => {
+  const { p, f } = projetoCodex('rm037-baseline-respondida');
+  const claude = runtimeFalso('rm037-baseline-respondida');
+  try {
+    const t = novaThread(p.carregado, { nome: 'respondida', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const s1 = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(s1.verificada, true, s1.erro);
+    claude.estadoDaSessao('blocked');
+    // A suite roda com o lock HITL livre: no meio dela, o dono responde e a S1 volta a trabalhar.
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require('fs').writeFileSync(${JSON.stringify(path.join(claude.dir, 'state'))}, 'running')`)}`;
+    const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sucessora SIMULADA FINALIZAR-SIMULADO', runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.erro);
+    const eventos = lerLedger(dir);
+    assert.equal(eventos.some(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex'), false, 'nenhuma segunda sessao na worktree');
+    assert.equal(eventos.some(e => e.tipo === 'baseline_recorded'), true);
+    const depois = conducaoDaThread(p.dir, t.id);
+    assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', s1.sessionId], 'a S1 respondida segue com o lease');
+  } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});
+
+test('defeito 1 (R5-A1): lock HITL ocupado na repeticao nao perde a reserva do dono', () => {
+  const { p, f } = projetoCodex('rm037-baseline-lock');
+  const segura = path.join(p.dir, 'segura-o-lock'), pego = path.join(p.dir, 'lock-pego');
+  try {
+    const t = novaThread(p.carregado, { nome: 'lock', modo: 'auto' }).thread;
+    assert.equal(assumirConducao(p.dir, t.id, { por: 'dono no terminal', motivo: 'retomar a thread', canal: 'cli' }).ok, true);
+    // Durante a suite, outro processo toma o lock HITL (o pulse, uma resposta) e so o solta quando o teste
+    // manda (S3 do CHECK 6: sem relogio). `setsid`: o executor do verify encerra o grupo do comando ao fim.
+    const lock = path.join(dirThread(p.dir, t.id), '.hitl.lock');
+    const script = path.join(p.dir, 'segurar-lock.sh');
+    // AV2 do CHECK 7: os dois lacos tem teto (400 x 0,05 s), para o teste nunca prender a suite nem deixar
+    // processo vivo sem prazo; SG3: os caminhos vao ao filho pelo ambiente, sem depender de aspas.
+    fs.writeFileSync(script, `#!/bin/sh\nexport SEGURA=${JSON.stringify(segura)} PEGO=${JSON.stringify(pego)}\ntouch "$SEGURA"\n` +
+      `setsid flock -x ${JSON.stringify(lock)} sh -c 'touch "$PEGO"; i=0; while [ -e "$SEGURA" ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done' </dev/null >/dev/null 2>&1 &\n` +
+      `i=0; while [ ! -e "$PEGO" ] && [ $i -lt 400 ]; do sleep 0.05; i=$((i+1)); done\n`, { mode: 0o755 });
+    p.carregado.manifesto.verify.test = `sh ${JSON.stringify(script)}`;
+    assert.throws(() => rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'x', runtime: 'codex', model: 'modelo-SIMULADO', canal: 'cli' }),
+      /HITL ocupado/);
+    assert.equal(conducaoDaThread(p.dir, t.id)?.dono.tipo, 'reserva', 'a reserva do dono voltou');
+  } finally { fs.rmSync(segura, { force: true }); f.restaurar(); p.limpar(); }
+});
+
+test('defeito 1 (A2 do CHECK 6): no retry, a sucedida que o dono respondeu durante a baseline recebe o lease de volta', () => {
+  const { p, f } = projetoCodex('rm037-baseline-retry-respondida');
+  const claude = runtimeFalso('rm037-baseline-retry-respondida');
+  try {
+    const t = novaThread(p.carregado, { nome: 'retry respondida', modo: 'auto' }).thread;
+    const dir = dirThread(p.dir, t.id);
+    const s1 = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'sessao SIMULADA que bloqueia', runtime: 'claude-bg' });
+    assert.equal(s1.verificada, true, s1.erro);
+    claude.estadoDaSessao('blocked');
+    p.carregado.manifesto.verify.test = `node -e ${JSON.stringify(`require('fs').writeFileSync(${JSON.stringify(path.join(claude.dir, 'state'))}, 'running')`)}`;
+    const prompt = 'retomada SIMULADA FINALIZAR-SIMULADO';
+    const relativo = path.join('.orkastery', 'threads', t.id, 'prompts', 'retomada.md');
+    fs.writeFileSync(path.join(p.dir, relativo), prompt);
+    const r = redespachar(p.carregado, lerThread(p.dir, t.id), 'GOAL', relativo, hashDoPrompt(prompt), { runtime: 'codex', model: 'modelo-SIMULADO' });
+    assert.equal(r.motivo, 'conducao.em-andamento', r.detalhe);
+    assert.equal(lerLedger(dir).some(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex'), false, 'nenhuma segunda sessao');
+    // SG2 do CHECK 7: a recusa veio da segunda passada, depois da baseline, e nao de uma recusa na primeira.
+    const tipos = lerLedger(dir).map(e => e.tipo);
+    assert.ok(tipos.includes('baseline_recorded') && tipos.includes('conducao_devolvida'), tipos.join(', '));
+    const depois = conducaoDaThread(p.dir, t.id);
+    assert.deepEqual([depois?.dono.tipo, depois?.sessao], ['sessao', s1.sessionId]);
+  } finally { f.restaurar(); p.limpar(); claude.restaurar(); }
+});

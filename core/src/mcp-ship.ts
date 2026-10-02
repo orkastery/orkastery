@@ -10,7 +10,7 @@ import {lerThread,blocoDaThread} from './thread';
 import {branchDaWorktree} from './worktree';
 import {validarArquivosEstadoMcp} from './mcp-artifacts';
 import {perfilGitMcp,gitPassivoMcp as git,caminhoFisicoGitMcp as fisico,metadadosGitMcp as metadados,configuracaoPassivaGitMcp} from './mcp-git';
-import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila} from './leases';
+import {adquirirRegiao,lerLease,liberar,leasesColidentes,caminhoLease,caminhoFila,podarRegioesDeThreadsFechadas} from './leases';
 import {ship,ResultadoShip,arvoreComBranch} from './ship';
 import {comandosDoManifesto,ExecutorVerify} from './verify';
 import {lerClaims} from './claims';
@@ -198,6 +198,8 @@ function executar(f:Fixacao,p:PedidoShipMcp):ResultadoShip {
   const comandos=lerClaims(raiz,t.id).filter(x=>x.estado!=='retirada').flatMap(x=>x.verificar).concat(comandosDoManifesto(c.manifesto).map(x=>x.comando));
   if(comandos.length>512 || comandos.reduce((n,s)=>n+Buffer.byteLength(s),0)>LIMITE)erro('verify.limit');
   const nome=`worktree-write:${t.id}`,nomes=[nome,`path:.orkastery/threads/${t.id}`];
+  // RM-037 (fatia 3, defeito 4): lease e fila de thread fechada sao orfaos e saem antes da conferencia.
+  podarRegioesDeThreadsFechadas(raiz,[...nomes,'main-tree'],t.id);
   for(const n of [...nomes,'main-tree'])if(fs.lstatSync(caminhoLease(raiz,n),{throwIfNoEntry:false}) || leasesColidentes(raiz,n).length)erro('lease.busy');
   const proprias:NonNullable<ReturnType<typeof lerLease>>[]=[];
   const leasesIntactas=()=>proprias.every(l=>JSON.stringify(lerLease(raiz,l.nome))===JSON.stringify(l));

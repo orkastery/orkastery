@@ -1,0 +1,113 @@
+import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { test, mock } from 'node:test';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import * as experiencia from '../src/mcp-experiencia';
+import * as reservas from '../src/roadmap-reservas';
+import * as fabrica from '../src/fabrica-estado';
+import { criarServidorMcp } from '../src/mcp-server';
+import { dirTemporario, projetoTemporario } from './apoio';
+
+test('consulta distingue lista atual vazia, cópia desatualizada e indisponibilidade', () => {
+  const vazio = experiencia.apresentarConsulta({ reservas: [], atualizado: true, ponta: null });
+  assert.equal(vazio.estado, 'atualizado'); assert.ok(vazio.dados);
+  assert.equal(experiencia.apresentarConsulta({ maquinas: [], atualizado: false, ponta: 'a'.repeat(40) }).estado, 'desatualizado');
+  const offline = experiencia.apresentarConsulta({ reservas: [], atualizado: false, ponta: null });
+  assert.equal(offline.estado, 'indisponivel'); assert.equal(offline.dados, null);
+  assert.ok(offline.motivo);
+});
+
+test('schemas recusam escolha de projeto, remoto ou operação de escrita', () => {
+  for (const args of [{ projeto: '/tmp/outro' }, { remoto: 'outro' }, { threadId: 'outra' }, { publicar: true }, { reservar: true }]) {
+    assert.equal(experiencia.consultaExperienciaSchema.safeParse(args).success, false);
+  }
+});
+
+test('MCP expõe somente consultas de argumentos vazios, com raiz e transporte fixados no startup', async () => {
+  const p = projetoTemporario('mcp-experiencia');
+  const server = criarServidorMcp({ projeto: p.dir, host: 'codex' });
+  const client = new Client({ name: 'experiencia-fixture', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st); await client.connect(ct);
+    const tools = (await client.listTools()).tools;
+    for (const name of ['ork_roadmap_reservas', 'ork_fabrica']) {
+      const tool = tools.find(t => t.name === name)!;
+      assert.equal(tool.annotations?.readOnlyHint, true); assert.equal(tool.annotations?.destructiveHint, false);
+      assert.equal(tool.inputSchema.additionalProperties, false);
+      assert.equal((await client.callTool({ name, arguments: { remoto: 'outro' } })).isError, true);
+      const r = await client.callTool({ name, arguments: {} });
+      assert.ok(!r.isError);
+      assert.equal(JSON.parse((r.content as { text: string }[])[0].text).estado, 'indisponivel');
+    }
+    assert.ok(!tools.some(t => /ork_(roadmap_pegar|fabrica_publicar)/.test(t.name)));
+  } finally { await client.close(); await server.close(); p.limpar(); }
+});
+
+test('leitores nativos recebem origin fixo, propagam falha e nunca chamam escritores', () => {
+  const chamadas: unknown[] = [];
+  const r = mock.method(reservas, 'listarReservas', (raiz: string, opcoes: { remoto?: string }) => {
+    chamadas.push([raiz, opcoes]); return { atualizado: true, ponta: null, reservas: [] };
+  });
+  const f = mock.method(fabrica, 'lerFabrica', () => { throw Error('indisponibilidade simulada'); });
+  const pegar = mock.method(reservas, 'pegarItem', () => { throw Error('escrita proibida'); });
+  const publicar = mock.method(fabrica, 'publicarMaquina', () => { throw Error('escrita proibida'); });
+  try {
+    assert.equal(experiencia.consultarPainel('/tmp/projeto-fixado', 'reservas').estado, 'atualizado');
+    assert.deepEqual(chamadas, [['/tmp/projeto-fixado', { remoto: 'origin' }]]);
+    assert.equal(experiencia.consultarPainel('/tmp/projeto-fixado', 'fabrica').estado, 'indisponivel');
+    assert.equal(pegar.mock.callCount(), 0); assert.equal(publicar.mock.callCount(), 0);
+  } finally { r.mock.restore(); f.mock.restore(); pegar.mock.restore(); publicar.mock.restore(); }
+});
+
+test('transporte não autorizado ou indisponível não retorna sucesso vazio', async () => {
+  const p = projetoTemporario('mcp-experiencia-sem-remoto');
+  try {
+    const ler = experiencia.criarLeitorExperiencia(p.dir, 'github-ssh');
+    assert.equal((await ler('reservas')).estado, 'indisponivel');
+    assert.equal((await ler('fabrica')).dados, null);
+  } finally { p.limpar(); }
+});
+
+/**
+ * A fixação lê a configuração efetiva do Git, e a do HOME do teste é a da máquina. Aqui o HOME e o
+ * XDG são um diretório novo com o `.gitconfig` dado; o servidor e o worker herdam os dois.
+ */
+async function comConfigGlobal(gitconfig: string, corpo: () => Promise<void>): Promise<void> {
+  const home = dirTemporario('mcp-experiencia-home'), anterior = process.env.HOME, xdg = process.env.XDG_CONFIG_HOME;
+  fs.writeFileSync(path.join(home, '.gitconfig'), gitconfig);
+  process.env.HOME = home; process.env.XDG_CONFIG_HOME = path.join(home, 'xdg');
+  try { await corpo(); } finally {
+    if (anterior === undefined) delete process.env.HOME; else process.env.HOME = anterior;
+    if (xdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = xdg;
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+// O que a imagem ubuntu-24.04 do runner hospedado grava em /etc/gitconfig (install-git.sh).
+const CONFIG_DO_RUNNER = '[safe]\n\tdirectory = *\n';
+
+test('chave que executa na configuração global mantém a consulta indisponível', () => comConfigGlobal(
+  CONFIG_DO_RUNNER + '[core]\n\tsshCommand = ssh -o ProxyCommand=true\n', async () => {
+    const p = projetoTemporario('mcp-experiencia-config-ativa', true);
+    try {
+      const ler = experiencia.criarLeitorExperiencia(p.dir, 'bare-local');
+      for (const tipo of ['reservas', 'fabrica'] as const) assert.equal((await ler(tipo)).estado, 'indisponivel', tipo);
+    } finally { p.limpar(); }
+  }));
+
+test('worker fixado responde pelo caminho real sem travar o event loop; cancelamento e prazo encerram', () => comConfigGlobal(CONFIG_DO_RUNNER, async () => {
+  const p = projetoTemporario('mcp-experiencia-worker', true);
+  try {
+    const ler = experiencia.criarLeitorExperiencia(p.dir, 'bare-local');
+    let ticks = 0; const relogio = setInterval(() => ticks++, 5);
+    try {
+      for (const tipo of ['reservas', 'fabrica'] as const) assert.equal((await ler(tipo)).estado, 'atualizado', tipo);
+    } finally { clearInterval(relogio); }
+    assert.ok(ticks > 0, 'o servidor segue atendendo durante a consulta');
+    const cancelar = new AbortController(), pendente = ler('fabrica', cancelar.signal);
+    cancelar.abort(); assert.equal((await pendente).estado, 'indisponivel');
+    assert.equal((await experiencia.criarLeitorExperiencia(p.dir, 'bare-local', 1)('reservas')).estado, 'indisponivel');
+  } finally { p.limpar(); }
+}));

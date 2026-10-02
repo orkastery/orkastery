@@ -23,22 +23,33 @@ import { threadsDeTodosOsPerfis } from './board';
 import { raizDoEstado } from './estado-thread';
 import { ResumoDeMaquina } from './hitl-resumo';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { montarMonitor } from './orquestracao';
+import { esperaDoCondutor } from './parado-no-condutor';
 import { quemSouEu, reservasLocais } from './roadmap-reservas';
+import { dirThread } from './thread';
 import { Thread } from './types';
 import { agora as agoraIso } from './util';
 import { VERSAO_DO_ORK } from './versao';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
-const DIR = 'maquinas';
+/** O diretorio dos retratos na branch; a leitura sem clone (RM-054) le o mesmo. */
+export const DIR_DA_FABRICA = 'maquinas';
+const DIR = DIR_DA_FABRICA;
 const PAINEL = 'FABRICA.md';
 const PREFIXO = 'fabrica';
 const TENTATIVAS = 5;
 /** Retrato igual ao ultimo publicado so volta ao remoto depois disto: e o sinal de vida da maquina. */
 export const PULSACAO_MS = 60 * 60 * 1000;
+/**
+ * Maquina sem retrato novo ha mais disto esta sem batida: o mesmo limiar da rede (RM-053, `SEM_BATIDA_MS`).
+ * RM-037 (fatia 4): mora aqui, junto da pulsacao, porque o status do roadmap tambem o le; o panorama da
+ * rede o reexporta.
+ */
+export const LIMIAR_SEM_BATIDA_MS = 3 * 60 * 60 * 1000;
 const ARQUIVO_DA_MARCA = 'fabrica-publicada.json';
 const ARQUIVO_DO_LOG = 'fabrica.log';
 
@@ -59,6 +70,28 @@ export interface ThreadNaFabrica {
   /** O assunto da pausa, curto. */
   pergunta: string | null;
   paradaDesde: string | null;
+  /**
+   * RM-037 (rm037noite, defeito 4): o runtime, o modelo e o esforco do ultimo despacho da thread, o
+   * trio efetivo que o `phase_dispatch` grava. Opcionais no contrato: retrato de antes nao os tem, e
+   * `null` diz que a thread ainda nao despachou fase nenhuma.
+   */
+  runtime?: string | null;
+  modelo?: string | null;
+  esforco?: string | null;
+}
+
+/** O trio do ultimo `phase_dispatch` do ledger da thread; tudo `null` quando nao ha despacho legivel. */
+export function despachoDaThread(dir: string): { runtime: string | null; modelo: string | null; esforco: string | null } {
+  let ultimo: Record<string, unknown> | undefined;
+  try { ultimo = [...lerLedger(dir)].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada); } catch { ultimo = undefined; }
+  const campo = (v: unknown) => (typeof v === 'string' && v.trim() ? curto(v, 40) : null);
+  return { runtime: campo(ultimo?.runtime), modelo: campo(ultimo?.model), esforco: campo(ultimo?.effort) };
+}
+
+/** `claude-bg opus/xhigh`: o runtime com o modelo e o esforco, para as colunas do texto. */
+export function runtimeDaThread(t: Pick<ThreadNaFabrica, 'runtime' | 'modelo' | 'esforco'>): string {
+  if (!t.runtime && !t.modelo) return '-';
+  return [t.runtime ?? '?', [t.modelo, t.esforco].filter(Boolean).join('/')].filter(Boolean).join(' ');
 }
 
 export interface EstadoDaMaquina {
@@ -104,7 +137,11 @@ export function arquivoDaMaquina(maquina: string): string {
  * entrega usa, o mesmo fato que o `ork docs sincronizar` le. Um `git log` so, para todas.
  */
 export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): Map<string, string> {
-  const ref = git(raiz, ['rev-parse', '--verify', '--quiet', `refs/remotes/${remoto}/${base}`]).ok ? `${remoto}/${base}` : base;
+  // A base vem do manifesto: a ref vai sempre qualificada (`refs/...`), e um valor como
+  // `--output=<arquivo>` nunca vira opcao do `git log`, em qualquer versao do git (RM-054, CHECK).
+  // Na ordem: a copia remota da base, a branch local, e a base escrita como remota (`origin/main`).
+  const candidatas = [`refs/remotes/${remoto}/${base}`, `refs/heads/${base}`, `refs/remotes/${base}`];
+  const ref = candidatas.find((c) => git(raiz, ['rev-parse', '--verify', '--quiet', c]).ok) ?? candidatas[1];
   // Regex basica do git: o `(` e literal.
   const r = git(raiz, ['log', ref, '--format=%h%x09%s', '--grep=^ship(']);
   const entregas = new Map<string, string>();
@@ -128,16 +165,23 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
   const linhas = new Map(monitor.linhas.map((l) => [l.thread, l]));
   const entregas = entregasNaBase(raiz, carregado.manifesto.worktree.base_branch, remoto);
   const itemDaThread = new Map(reservasLocais(raiz, remoto).filter((r) => r.thread).map((r) => [r.thread as string, r.item]));
-  const threads = itens.map(({ thread: t }): ThreadNaFabrica => {
-    const pausa = linhas.get(t.id)?.pausas[0];
+  const threads = itens.map(({ thread: t, raiz: raizDoPerfil }): ThreadNaFabrica => {
     const entregue = entregas.get(t.id) ?? null;
-    const esperaVoce = !entregue && linhas.get(t.id)?.precisaDeHumano === true;
+    // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor, e as outras maquinas nao o leem como espera
+    // do dono. Sai so a pausa que o observador abriu nele; outra pausa da thread continua contando.
+    let espera: ReturnType<typeof esperaDoCondutor> = null;
+    try { espera = esperaDoCondutor(t, lerLedger(dirThread(raizDoPerfil, t.id)), quando); } catch { espera = null; }
+    const pausas = (linhas.get(t.id)?.pausas ?? []).filter((p) => !(espera && p.motivo === 'human.pending' && p.fonte === 'ledger' &&
+      p.fase === (espera.fase ?? t.faseAtual)));
+    const pausa = pausas[0];
+    const esperaVoce = !entregue && pausas.some((p) => p.sessaoViva !== true);
     return {
       id: t.id, nome: curto(t.nome, 100), modo: tagDoModo(t.modo), fase: t.faseAtual, status: t.status,
       roadmap: t.roadmap ?? itemDaThread.get(t.id) ?? null, branch: t.base?.branch ?? null,
       atualizadaEm: t.atualizadaEm ?? null, entregue,
       esperaVoce, pergunta: esperaVoce && pausa ? curto(pausa.pausaSobre || pausa.detalhe) : null,
       paradaDesde: esperaVoce && pausa ? pausa.desdeEm : null,
+      ...despachoDaThread(dirThread(raizDoPerfil, t.id)),
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
   const eu = quemSouEu(raiz, { por: opcoes.por, maquina: opcoes.maquina });
@@ -151,7 +195,8 @@ export function assinaturaDoRetrato(e: EstadoDaMaquina): string {
   return createHash('sha256').update(JSON.stringify(resto)).digest('hex');
 }
 
-function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
+/** O retrato so vale inteiro: e o filtro da leitura pelo clone e pela forja (RM-054). */
+export function estadoValido(bruto: unknown): bruto is EstadoDaMaquina {
   const e = bruto as EstadoDaMaquina;
   return !!e && e.contrato === CONTRATO_MAQUINA && typeof e.maquina === 'string' && !!e.maquina.trim() &&
     typeof e.publicadoEm === 'string' && Array.isArray(e.threads) &&
@@ -282,8 +327,8 @@ function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
   const cabeca = `${m.maquina}${m.maquina === eu ? ' (esta maquina)' : ''}, ${m.por}, publicado ${formatarDataHora(m.publicadoEm)}: ` +
     `${vivas.length} thread(s) ativa(s)` + (entregues ? `, ${entregues} entregue(s) sem MASTER` : '');
   if (vivas.length === 0) return [cabeca];
-  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'ITEM', 'ESPERA VOCE'], vivas.map((t) => [
-    t.id, t.modo, t.fase, t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
+  return [cabeca, ...tabela(['THREAD', 'MODO', 'FASE', 'RUNTIME', 'ITEM', 'ESPERA VOCE'], vivas.map((t) => [
+    t.id, t.modo, t.fase, runtimeDaThread(t), t.roadmap ?? '-', t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 40)}` : '-',
   ]))];
 }
 
@@ -318,14 +363,16 @@ export function painelDaFabricaEmMarkdown(maquinas: readonly EstadoDaMaquina[]):
     'O que cada máquina está conduzindo agora. Gerado pelo `ork fabrica publicar`; não edite à mão.',
     'Antes de pegar um item do roadmap: `ork roadmap reservas`.',
     '',
-    '| Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   const vivas = maquinas.flatMap((m) => ativas(m).map((t) => ({ m, t })));
-  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — | — | — | — |');
+  if (vivas.length === 0) linhas.push('| — | nenhuma thread ativa | — | — |  | — | — | — |');
   for (const { m, t } of vivas) {
     const pergunta = t.esperaVoce ? `sim: ${curto(t.pergunta ?? 'veredito', 60).replace(/\|/g, '/')}` : '—';
-    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
+    // RM-037 (sugestao 6 do CHECK 1): a celula sem despacho diz isso, sem travessao novo.
+    const runtime = t.runtime || t.modelo ? runtimeDaThread(t).replace(/\|/g, '/') : 'sem despacho';
+    linhas.push(`| ${m.maquina} | ${t.id} | ${t.modo} | ${t.fase} | ${runtime} | ${t.roadmap ?? '—'} | ${pergunta} | ${formatarDataHora(m.publicadoEm)} |`);
   }
   return [...linhas, '', legendaDoFuso(), ''].join('\n');
 }

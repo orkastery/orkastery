@@ -13,10 +13,16 @@ export interface SessaoInventariada extends SessaoRuntime {
   runtime: 'claude-bg' | 'codex';
   vinculos: VinculoDeSessao[];
 }
+/**
+ * Uma fonte consultada. `ausente`: o runtime nem existe nesta máquina (fatia 2 do ensaio da 0.5.0,
+ * P1); a fonte vale, sem sessões, e `correcao` diz o que fazer para tê-la.
+ */
+export interface FonteDoInventario { origem: string; ok: boolean; detalhe: string; ausente?: boolean; correcao?: string }
+
 export interface InventarioDeSessoes {
   ok: boolean;
   escopo: { usuario: string; global: boolean; historico: boolean; raiz: string };
-  fontes: { origem: string; ok: boolean; detalhe: string }[];
+  fontes: FonteDoInventario[];
   sessoes: SessaoInventariada[];
   total: number;
   semThread: number;
@@ -52,8 +58,14 @@ export function inventariarSessoes(raiz: string, opcoes: { global?: boolean; tod
   const canonica = raizDoEstado(raiz);
   const claude = consultarSessoes(undefined, opcoes.todas);
   const codex = consultarRollouts(opcoes.todas);
-  const fontes = [
-    { origem: `claude agents --json${opcoes.todas ? ' --all' : ''}`, ok: claude.ok, detalhe: claude.detalhe },
+  const origemClaude = `claude agents --json${opcoes.todas ? ' --all' : ''}`;
+  // Fatia 2 do ensaio da 0.5.0 (P1): como o diretório opcional do Codex, só o ENOENT antes da consulta
+  // prova a fonte ausente; qualquer outra falha do `claude` continua deixando o inventário incompleto.
+  const fontes: FonteDoInventario[] = [
+    claude.ausente
+      ? { origem: origemClaude, ok: true, ausente: true, detalhe: `${claude.detalhe}: nenhuma sessão claude-bg a listar`,
+        correcao: 'para despachar e listar pelo claude-bg, instale o Claude Code e garanta `claude` no PATH' }
+      : { origem: origemClaude, ok: claude.ok, detalhe: claude.detalhe },
     ...codex.resultadosFontes,
   ];
   const todas: SessaoInventariada[] = [

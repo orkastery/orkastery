@@ -26,6 +26,8 @@ import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from '
 export { adquirirLockMonitor } from './monitor-lock';
 
 export interface TransportePulse { executavel: string; argumentos: string[] }
+/** RM-037 (fatia 4): por quanto tempo a parada ja informada continua sabida depois de sumir de uma batida. */
+export const RETEM_PARADO_MS = 6 * 60 * 60 * 1000;
 export interface ResultadoVarredura { code: number; novas: number; enviadas: number; detalhe: string }
 
 /**
@@ -155,9 +157,21 @@ export function varrerPulse(opcoes: {
     try { outras=opcoes.outrasMaquinas?.()??[]; } catch { outras=[]; }
     const esperasFora=outras.flatMap(m=>m.esperando.map(e=>`maquina:${m.maquina}:${e.thread}:${e.fase}`));
     for(const k of esperasFora) presentes.add(k);
-    vistas=Object.fromEntries(Object.entries(vistas).filter(([id])=>presentes.has(id)));
+    // RM-037 (fatia 4, D7): o trabalho parado no condutor e noticia uma vez por thread e caso, como a
+    // decisao informada: sai na janela da cadencia do dono e nunca abre pedido.
+    const parados=pulse.paradoNoCondutor??[];
+    const chaveDoParado=(p:{thread:string;caso:string})=>`parado:${p.thread}:${p.caso}`;
+    for(const p of parados) presentes.add(chaveDoParado(p));
+    // A parada que some por uma batida (gh que falhou, um `ork verify` do condutor) e volta nao e noticia
+    // nova: a marca fica guardada por `RETEM_PARADO_MS` depois da ultima vez que a parada apareceu.
+    const guardada=(id:string,valor:string)=>id.startsWith('parado:')&&
+      Date.parse(quando)-Number(valor.split('|')[1])<RETEM_PARADO_MS;
+    vistas=Object.fromEntries(Object.entries(vistas).filter(([id,valor])=>presentes.has(id)||guardada(id,valor)));
     const esperaNovaFora=esperasFora.some(k=>vistas[k]===undefined);
     const decisoesNovas=decisoes.filter(d=>vistas[chaveDaDecisao(d.id)]===undefined);
+    const paradosNovos=parados.filter(p=>vistas[chaveDoParado(p)]===undefined);
+    // A marca guarda o instante em milissegundos: e dado de maquina, nao texto para o dono.
+    for(const p of parados) if(vistas[chaveDoParado(p)]!==undefined) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
     // I-41 (GO-FIX 1): a thread que ja recebeu a pergunta e ainda nao respondeu nao e noticia. A
     // mudanca no item dela (o pedido que o sim do dono abriu) e obra nossa, e avisar sobre ela seria
     // mandar ao dono um resumo sobre a pergunta que ele acabou de receber.
@@ -175,7 +189,8 @@ export function varrerPulse(opcoes: {
           !config.argumentos.every(a=>typeof a==='string')||!config.argumentos.some(a=>a.includes('{{mensagem}}'))) {
           throw new Error('transporte requer executavel e argumentos com {{mensagem}}');
         }
-        const r=spawnSync(config.executavel,config.argumentos.map(a=>a.replaceAll('{{mensagem}}',mensagem)),
+        // A mensagem entra como texto: `$&` e `$'` nela nao sao padrao de substituicao (CHECK da RM-037, fatia 4).
+        const r=spawnSync(config.executavel,config.argumentos.map(a=>a.replaceAll('{{mensagem}}',()=>mensagem)),
           {cwd:raiz,encoding:'utf8',input:mensagem,timeout:30000,maxBuffer:1024*1024});
         entregue=r.status===0;
       }
@@ -201,12 +216,13 @@ export function varrerPulse(opcoes: {
     // I-50: pergunta nova sai na hora; o resto (status, decisoes informadas) espera a janela da
     // cadencia do dono, e a novidade que esperou continua nao vista ate sair.
     const noPrazo=!opcoes.comCadencia||janelaAberta(cadencia,lerUltimoResumo(opcoes.raiz,dir),quando);
-    const adiada=!conjuntoNovo&&!esperaNovaFora&&(novas>0||decisoesNovas.length>0)&&!noPrazo;
-    if(conjuntoNovo||esperaNovaFora||(noPrazo&&(novas>0||decisoesNovas.length>0))) {
+    const informacaoNova=novas>0||decisoesNovas.length>0||paradosNovos.length>0;
+    const adiada=!conjuntoNovo&&!esperaNovaFora&&informacaoNova&&!noPrazo;
+    if(conjuntoNovo||esperaNovaFora||(noPrazo&&informacaoNova)) {
       const guardadas=anterior?fila.candidatos.filter(c=>anterior.candidatos.some(a=>a.thread===c.thread)).length:0;
       const resumo=resumirHitl(itens,{quando,janelaMin,prontas:fila.candidatos.length,acumuladas:guardadas,
         consertos:fila.consertos,atoDoItem:i=>fila.atos.get(`${i.thread}|${i.fase}`),
-        decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras});
+        decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras,paradosNoCondutor:parados});
       // Pedir licenca para mandar zero perguntas era o defeito: sem pergunta, nao ha codigo.
       // I-50: cadencia curta nao encurta o prazo do dono para responder ao resumo (minimo de 60 min).
       const consentimento=fila.candidatos.length?comLockDaConversa(dir,()=>abrirConsentimento(raiz,{quando,
@@ -218,6 +234,7 @@ export function varrerPulse(opcoes: {
       for(const item of itens) vistas[item.id]=assinaturaPulse(item);
       for(const d of decisoes) vistas[chaveDaDecisao(d.id)]='informada';
       for(const k of esperasFora) vistas[k]='informada';
+      for(const p of parados) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
       gravarUltimoResumo(opcoes.raiz,quando,dir);
     }
     gravarCache(cache,vistas);

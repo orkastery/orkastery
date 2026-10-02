@@ -45,8 +45,8 @@ export function pontaLocal(raiz: string, remoto: string, branch: string): string
  * copia local com `atualizado: false`.
  */
 export function buscarBranch(raiz: string, remoto: string, branch: string, prefixo: string,
-  timeoutMs?: number): { ponta: string | null; atualizado: boolean } {
-  const r = git(raiz, ['fetch', '--quiet', '--no-tags', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs });
+  timeoutMs?: number, env?: NodeJS.ProcessEnv): { ponta: string | null; atualizado: boolean } {
+  const r = git(raiz, ['fetch', '--quiet', '--no-tags', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs, env });
   if (r.ok) return { ponta: exigirGit(raiz, ['rev-parse', '--verify', refRemota(remoto, branch)], prefixo).trim(), atualizado: true };
   if (/couldn't find remote ref|could not find remote ref/i.test(r.stderr)) {
     // A branch ainda nao nasceu: a primeira gravacao a cria. Copia local antiga nao vale mais.
@@ -72,7 +72,7 @@ export interface MudancaNaBranch { caminho: string; conteudo: string | null }
  * indice temporario, blobs, `write-tree` e `commit-tree`. Push sem forca; recusa volta `false`.
  */
 export function gravarNaBranch(raiz: string, remoto: string, branch: string, ponta: string | null,
-  mudancas: readonly MudancaNaBranch[], mensagem: string, prefixo: string): string | false {
+  mudancas: readonly MudancaNaBranch[], mensagem: string, prefixo: string, rede: OpcoesDeGit = {}): string | false {
   const indice = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-branch-estado-')), 'index');
   const env = { GIT_INDEX_FILE: indice };
   try {
@@ -88,7 +88,8 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
     }
     const arvore = exigirGit(raiz, ['write-tree'], prefixo, { env }).trim();
     const commit = exigirGit(raiz, ['commit-tree', arvore, ...(ponta ? ['-p', ponta] : []), '-m', mensagem], prefixo).trim();
-    const push = git(raiz, ['push', '--quiet', remoto, `${commit}:refs/heads/${branch}`]);
+    // `rede`: prazo e ambiente so do que vai a rede (RM-037, achado A3: o fechamento nao espera 60 s).
+    const push = git(raiz, ['push', '--quiet', remoto, `${commit}:refs/heads/${branch}`], rede);
     if (push.ok) {
       git(raiz, ['update-ref', refRemota(remoto, branch), commit]);
       return commit;

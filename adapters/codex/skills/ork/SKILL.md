@@ -6,9 +6,17 @@ license: MIT
 
 # Orkastery no Codex
 
+Consulte `ork experiencia show --json` no projeto da sessão. Quando `experience` for true,
+leia `../core/<skill>/SKILL.md`, usando o nome devolvido em `skill` pelo núcleo:
+`orchestration-experience-pt-br` ou `orchestration-experience`. Idioma, fuso e profundidade
+vêm da mesma consulta. Se false, não ative o pacote. O bloco próprio de AGENTS.md também
+aponta para esse catálogo; instalação não altera permissões nativas.
+
 Ao receber literalmente `orkastery maestro`, descubra `ork_maestro` no namespace
 efetivamente exposto e consulte o projeto fixado pelo MCP. A frase pede panorama,
-sem abrir trabalho. Siga a seleção de contexto e os limites do bootstrap comum.
+sem abrir trabalho. Sem projeto nomeado, ofereça também o panorama da rede
+(`ork_network_roadmap`, ou `ork network roadmap` no CLI), com fontes, frescor e lacunas.
+Siga a seleção de contexto e os limites do bootstrap comum.
 Sem MCP, a consulta `ork maestro --json` continua somente leitura se o CLI estiver
 disponível; mutações sem transporte nativo permanecem pendentes. Nunca use Bash Git
 ou mudança de sandbox como substitutos. Sessão filha continua a fase recebida.
@@ -31,8 +39,9 @@ e `ork_request_decision(threadId, pedidoId)`. Use o namespace efetivamente expos
 - Pedido novo: resolva o modo pelo `ork`, confira preflight e abra/despache a thread.
 - Retomada: leia `ork thread status <thread>` e o ultimo resultado em `ork phase list <thread>`;
   continue o trabalho autorizado sem repetir onboarding, aprovacao ou implementacao.
-- Status do roadmap: use `ork_roadmap_status` (ou `ork roadmap status`) e mostre o texto como vem;
-  nao escreva relatorio proprio de roadmap.
+- Status do roadmap: use `ork_network_roadmap` (ou `ork network roadmap --projeto <nome>`) e mostre o
+  texto como vem, com as threads de todas as maquinas, as fontes e as lacunas; `ork_roadmap_status` e
+  so desta maquina. Nao escreva relatorio proprio de roadmap: lacuna nunca e roadmap vazio.
 - Status: apresente a evidencia da thread; `ork pulse --json` mostra quem precisa agir.
   As pausas dos blocos do modo sao previstas: so diga "aguardando voce" com pendencia
   humana atual comprovada no estado/ultimo resultado, identificando gate, pedido ou evento.

@@ -19,11 +19,36 @@ Descoberta ambígua retorna `maestro.project.ambiguous`, sem escolher o primeiro
 candidato. Ausência e escape de escopo retornam `maestro.project.missing` e
 `maestro.project.scope`. Nenhum desses erros cria projeto ou catálogo.
 
+RM-052 (aditivo, opcional no validador e sempre preenchido pelo produtor):
+`project.root` é a raiz exibida com `~`, `project.remote` é o remoto da fábrica
+sem credencial (`null` sem remoto) e `notConsulted` lista o que o panorama não
+lê: roadmap, reservas, outras máquinas e, fora do MCP, quantos outros projetos a
+máquina conhece. Zero threads no panorama nunca quer dizer roadmap vazio.
+`origin: selection` é o projeto pedido por `--projeto` ou `ORK_PROJETO`.
+
 Limites: 50 itens por seção/página, JSON de até 64 KiB, prazo de fonte remota
 de 2 s e total de 10 s. Cobertura registra omissões e o próximo offset.
 Esses limites são contrato; tempo real medido exige evidência própria.
 Próximas ações declaram operação, precondições, disponibilidade, causa e
 readback. A execução revalida a fonte e usa a autoridade existente do núcleo.
+
+## Prova de ativação por host (RM-032)
+
+`node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` abre uma sessão nova e não
+interativa no host instalado numa cópia descartável e diz `orkastery maestro`. A conferência
+(`core/src/prova-ativacao.ts`) só julga o determinístico: a entrada contratada foi exposta e
+chamada (`mcp__orkastery__ork_maestro` no Claude Code; no OpenClaw, `ork_network_roadmap` para a
+frase sem projeto e `ork_maestro` com projeto; `ork maestro` pelo shell do host é desvio, porque o
+CLI resolve o projeto pelo diretório) e o resultado cumpre o contrato da entrada: este snapshot,
+com o `project.fingerprint` da cópia esperada (a raiz exibida pode vir mascarada) e `notConsulted`,
+ou o texto do `ork.network-roadmap/v1` com o projeto esperado em "Consultado" e o bloco "Não
+consultado". A resposta precisa nomear o projeto e não concluir "roadmap vazio". O roteiro
+acrescenta que a consulta não escreveu em `.orkastery`, que os arquivos de configuração global do
+host têm o mesmo sha256 antes e depois, que o `.claude.json` não ganhou aceite para a raiz
+temporária e que o OpenClaw da cópia não escreveu no log compartilhado. O recibo
+`ork.prova-ativacao/v1` é redigido campo a campo antes de ser serializado. Limite conhecido: num
+timeout, só o processo filho direto recebe o sinal. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
+humana. A prova não revisa procedência, não consente MCP e não reinicia gateway por ninguém.
 
 ## Ingresso nativo aditivo (T23)
 

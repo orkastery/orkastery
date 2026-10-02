@@ -31,7 +31,7 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
-  estadoParaDespacho, prazoDaSessao } from './phase';
+  baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
 import { ContextoRuntime, contextoDoProjeto, novaIdentidadeDeDespacho } from './runtime-context';
 import { proximaRotacao } from './slug';
 import { avaliarPolicies, bloqueantes, motivoDominante } from './policies';
@@ -501,6 +501,12 @@ export interface ResultadoDoRedespacho {
   sessionId: string | null;
   verificada: boolean;
   motivo: MotivoGate | null;
+  /**
+   * RM-037 (defeito 1): o redespacho parou antes da sessao porque falta a baseline do bloco com GO no codex, e
+   * reteve a conducao tomada. Interno: `redespachar` grava a baseline com ela e repete; se ainda faltar, sai
+   * como `runtime.unavailable`.
+   */
+  retida?: ConducaoTomada;
   detalhe: string;
   /** Sinal de rate limit quando o redespacho morreu pelo mesmo motivo de novo. */
   sinal: SinalDeRateLimit | null;
@@ -538,8 +544,22 @@ export interface OpcoesDeRedespacho {
  */
 export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase: Fase,
   promptRelativo: string, sha: string, opcoes: OpcoesDeRedespacho = {}): ResultadoDoRedespacho {
-  const run = () => redespacharSobLock(carregado, lerThread(carregado.raiz, thread.id), fase, promptRelativo, sha, opcoes);
-  return opcoes.dryRun ? run() : comLockHitl(carregado.raiz, thread.id, run);
+  const run = (retida?: ConducaoTomada) =>
+    redespacharSobLock(carregado, lerThread(carregado.raiz, thread.id), fase, promptRelativo, sha, opcoes, retida);
+  if (opcoes.dryRun) return run();
+  // RM-037 (defeito 1; A2, G1 e N3 do CHECK 1 e 2, B-1 e A-1r do CHECK 4): o fallback do bloco leva a
+  // retomada ao codex. O redespacho pede a baseline depois das guardas baratas, RETENDO a conducao tomada; ela
+  // e gravada aqui, fora do lock HITL, como reentrada dessa tomada, e a retomada repete uma vez com ela.
+  const r = comLockHitl(carregado.raiz, thread.id, () => run());
+  const retida = r.retida;
+  if (!retida) return r;
+  delete r.retida;
+  try {
+    garantirBaselineDoDespacho(carregado, thread.id, { fase, prompt: '', runtime: opcoes.runtime ?? undefined,
+      model: opcoes.model ?? undefined, effort: opcoes.effort ?? undefined, ...(opcoes.canal ? { canal: opcoes.canal } : {}) },
+      retida.identidade);
+    return comLockHitl(carregado.raiz, thread.id, () => run(retida));
+  } finally { retida.devolver(); }
 }
 
 function redespacharSobLock(
@@ -548,7 +568,9 @@ function redespacharSobLock(
   fase: Fase,
   promptRelativo: string,
   sha: string,
-  opcoes: OpcoesDeRedespacho = {}
+  opcoes: OpcoesDeRedespacho = {},
+  /** A tomada que a primeira passada reteve para a baseline; com ela, esta e a repeticao. */
+  tomadaPrevia?: ConducaoTomada
 ): ResultadoDoRedespacho {
   const { raiz, manifesto } = carregado;
   const absoluto = path.isAbsolute(promptRelativo)
@@ -603,13 +625,23 @@ function redespacharSobLock(
   // I-36 (T6): validado o pedido, a retomada toma a conducao antes de redespachar, como o
   // `ork phase run`. A mesma fase com o mesmo prompt de quem ja conduz nao abre sessao nova;
   // outro pedido espera a vez.
-  const identidade = novaIdentidadeDeDespacho(thread.id, fase);
+  const identidade = tomadaPrevia ? { ...novaIdentidadeDeDespacho(thread.id, fase), dispatchId: tomadaPrevia.identidade }
+    : novaIdentidadeDeDespacho(thread.id, fase);
   const canal = opcoes.canal ?? canalDoProcesso();
   const doBlocoDaConducao = limitesDoBloco(manifesto, lerSetup(raiz), thread.modo, fase);
   const pedidoDeConducao = { canal, correlacao: null, operacao: 'retry.run' as const, fase, promptSha256: sha,
     identidade: identidade.dispatchId, prazoMs: prazoDaSessao(doBlocoDaConducao) };
   let conducao: ConducaoTomada | null = null;
-  if (!opcoes.dryRun) {
+  if (tomadaPrevia) {
+    // R5-B1 do CHECK 5: a sucedida que o dono respondeu durante a baseline recebe o lease de volta.
+    if (!tomadaPrevia.sucessaoAindaVale()) {
+      tomadaPrevia.devolver();
+      const recusa = recusaDeConducao(thread.id, conducaoDaThread(raiz, thread.id), pedidoDeConducao);
+      registrarRecusa(raiz, recusa);
+      return { ...vazio, ok: false, motivo: 'conducao.em-andamento', detalhe: recusa.texto, dryRun: false };
+    }
+    conducao = tomadaPrevia;
+  } else if (!opcoes.dryRun) {
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);
     if (!tomada.ok) {
       if (tomada.idempotente && tomada.atual) {
@@ -642,6 +674,14 @@ function redespacharSobLock(
       doBloco
     );
     const rt = resolverRuntime(runtime);
+    if (!opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, { fase, prompt: '', runtime, model, effort })) {
+      // Na primeira passada a tomada fica retida para a baseline (o `finally` nao a solta); na repeticao, o
+      // `finally` devolve o que a tomada consumiu (A-1 do CHECK 3).
+      const pendente: ResultadoDoRedespacho = { ...vazio, ok: false, motivo: 'runtime.unavailable', dryRun: false,
+        detalhe: `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes da retomada` };
+      if (!tomadaPrevia && conducao) { pendente.retida = conducao; conducao = null; }
+      return pendente;
+    }
     // D14 (GO-FIX 2): a retomada claude-bg abre com a mesma colaboração e o mesmo contexto de
     // runtime do `ork phase run`; sem eles, o PLAN retomado saía sem negar Edit, Write e
     // NotebookEdit e sem a allowlist do núcleo. O ramo Codex não muda.
@@ -679,7 +719,8 @@ function redespacharSobLock(
       logDir: path.join(dirThread(raiz, thread.id), 'sessoes'),
       vinculo: { thread: thread.id, fase, promptSha256: sha },
       ...(perfil ? { perfil } : {}),
-      ...(runtime === 'claude-bg' ? { contextoRuntime, ...(fase === 'PLAN' ? { colaboracao: 'plan' as const } : {}) } : {}),
+      // RM-037 (defeito 2): o modo plano segue a mesma regra do `ork phase run`, pelo bloco.
+      ...(runtime === 'claude-bg' ? { contextoRuntime, ...(modoDaSessaoDoBloco(thread, fase).plano ? { colaboracao: 'plan' as const } : {}) } : {}),
       // I-36 (D4): a sessao retomada herda a identidade do despacho e o canal, como no `ork phase run`.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
     });
@@ -759,8 +800,9 @@ function redespacharSobLock(
       dryRun: false,
     };
   } finally {
-    // Retomada que nao virou sessao devolve a conducao; a que virou ja a entregou a sessao.
-    conducao?.liberar();
+    // Retomada que nao virou sessao devolve a conducao, com o que a tomada consumiu; a que virou ja a
+    // entregou a sessao, e devolver entao nao faz nada.
+    conducao?.devolver();
   }
 }
 

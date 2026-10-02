@@ -35,6 +35,9 @@ import * as path from 'node:path';
 import { cliDoCatalogo, exigirCatalogo, referenciasDoCatalogo, skillsDoCatalogo } from './catalogo';
 import { noPath } from './util';
 import { VERSAO_DO_ORK } from './versao';
+import { carregarManifesto } from './manifest';
+import { resolverExperiencia } from './experiencia';
+import { aplicarExperiencia, planejarExperiencia, HostComBloco } from './experiencia-instalacao';
 
 export type Host = 'claude-code' | 'codex' | 'hermes' | 'openclaw';
 
@@ -70,8 +73,8 @@ export const HOSTS: Readonly<Record<Host, DefinicaoDeHost>> = {
       {
         titulo: 'manifesto sem os caminhos das skills instala limpo e nao expoe nada',
         detalhe:
-          'o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara os 17 caminhos um a um',
-        prova: 'claude plugin details orkastery   # a contagem precisa bater com os SKILL.md em disco',
+          'o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara cada caminho de skill, um a um',
+        prova: 'claude plugin details orkastery   # Skills (N) soma as skills do plugin.json e os comandos de commands/',
       },
       {
         titulo: 'duas copias do catalogo divergem',
@@ -107,7 +110,7 @@ export const HOSTS: Readonly<Record<Host, DefinicaoDeHost>> = {
       },
       {
         titulo: 'skill confundida com autorizacao de runtime',
-        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox nem altera AGENTS.md; gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
+        detalhe: 'instalar instrucoes nao habilita permissoes, hooks ou sandbox; em projeto configurado, AGENTS.md recebe apenas o bloco reversível da experiência. Gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional',
         prova: 'ork doctor',
       },
     ],
@@ -297,6 +300,7 @@ export interface ResultadoInstalacao {
   ok: boolean;
   orkBin: string;
   pitfalls: Pitfall[];
+  experiencia?: { ativa: boolean; arquivos: string[]; skill: string; aviso?: string };
 }
 
 export interface OpcoesInstalacao {
@@ -385,6 +389,61 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     }
     for (const ref of referenciasDoCatalogo(catalogo)) {
       fontes.push({ origem: ref, relativo: path.posix.join('references', path.basename(ref)) });
+    }
+  }
+  if (host === 'hermes') {
+    for (const skill of skillsDoCatalogo(catalogo).filter(s => ['orchestration-experience', 'orchestration-experience-pt-br'].includes(s.nome))) {
+      fontes.push({ origem: skill.caminho, relativo: path.posix.join('skills', skill.nome, 'SKILL.md') });
+    }
+  }
+
+  // A experiência é opcional: manifesto com erro, bloco alheio ou caminho inadequado pulam só a
+  // ativação, com aviso, e o adaptador segue instalado como antes da RM-051.
+  const segue = 'O restante da instalação do adaptador segue normalmente.';
+  const carregado = carregarManifesto(projeto);
+  let avisoExperiencia: string | undefined;
+  if (carregado?.raiz === projeto && carregado.erros.length) {
+    avisoExperiencia = `Pacote de experiência pulado: o manifesto tem erros (${carregado.erros[0]}). ${segue}`;
+  }
+  // Preferência inválida (ex.: experience: "false") não ativa nem remove nada: quem escreveu pode ter
+  // tentado desligar o pacote. Corrigir com ork onboarding set maestro volta a instalar.
+  const invalida = carregado?.raiz === projeto ? carregado.avisos.find(a => a.startsWith('experiencia.config.invalid')) : undefined;
+  if (!avisoExperiencia && invalida) avisoExperiencia = `Pacote de experiência pulado: ${invalida}. ${segue}`;
+  const preferencias = carregado?.raiz === projeto && !avisoExperiencia ? resolverExperiencia(carregado.manifesto.owner) : null;
+  const hostComBloco = host === 'codex' || host === 'claude-code';
+  // O bloco aponta o diretório relativo ao projeto: CLAUDE.md e AGENTS.md costumam ir ao repositório.
+  const diretorioExperiencia = path.relative(caminhoReal(projeto), caminhoReal(path.join(destino, 'skills', 'core')))
+    .split(path.sep).join('/');
+  if (preferencias?.experience && host !== 'openclaw') {
+    const skillRelativa = host === 'hermes' ? `skills/${preferencias.skill}/SKILL.md`
+      : `skills/core/${preferencias.skill}/SKILL.md`;
+    if (!fontes.some(f => f.relativo === skillRelativa)) {
+      avisoExperiencia = `Pacote de experiência pulado: a skill ${preferencias.skill} não está no catálogo. ${segue}`;
+    } else if (hostComBloco && (diretorioExperiencia.startsWith('../') || path.isAbsolute(diretorioExperiencia))) {
+      avisoExperiencia = `Pacote de experiência pulado: o adaptador fica fora do projeto e o bloco de instruções só aponta caminhos do projeto. ${segue}`;
+    } else if (hostComBloco && /[\r\n`]/.test(diretorioExperiencia)) {
+      avisoExperiencia = `Pacote de experiência pulado: o caminho das skills contém quebra de linha ou crase, incompatível com o bloco de instruções. ${segue}`;
+    }
+  }
+  let planoExperiencia: ReturnType<typeof planejarExperiencia> | null = null;
+  if (preferencias && hostComBloco && !avisoExperiencia) {
+    try {
+      planoExperiencia = planejarExperiencia(projeto, host, preferencias.experience ? diretorioExperiencia : null);
+    } catch (e) {
+      const motivo = (e as Error).message;
+      if (!/^experiencia\.(bloco\.conflict|path\.unsafe)/.test(motivo)) throw e;
+      avisoExperiencia = `Pacote de experiência pulado: ${motivo.startsWith('experiencia.path') ? 'o arquivo de instruções é link ou não é arquivo comum' : `o bloco de instruções ou o recibo .orkastery/experiencia/${host}.json foi editado ou está duplicado`}; nada foi escrito. Revise os dois à mão. ${segue}`;
+    }
+  }
+
+  // O preflight cobre o destino e os arquivos do próprio adaptador antes de copiar o primeiro. Links
+  // acima do destino (.agents/skills compartilhado, diretório do usuário) são escolha de quem instala.
+  for (const alvo of [...fontes.map(f => path.join(destino, f.relativo)), path.join(destino, 'INSTALADO.json')]) {
+    for (let atual = alvo; atual !== path.dirname(destino) && atual !== path.dirname(atual); atual = path.dirname(atual)) {
+      const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
+      if (stat && (stat.isSymbolicLink() || (atual === alvo ? !stat.isFile() || stat.nlink !== 1 : !stat.isDirectory()))) {
+        throw Error('experiencia.path.unsafe: destino do adaptador');
+      }
     }
   }
 
@@ -477,6 +536,9 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ok: !barrado,
     orkBin,
     pitfalls: def.pitfalls,
+    ...(preferencias || avisoExperiencia ? { experiencia: { ativa: host !== 'openclaw' && !!preferencias?.experience && !avisoExperiencia,
+      arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias?.skill ?? '',
+      ...(avisoExperiencia ? { aviso: avisoExperiencia } : {}) } } : {}),
   };
   if (opcoes.dryRun === true || barrado) return resultado;
 
@@ -520,7 +582,22 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     'utf8'
   );
 
+  if (planoExperiencia) aplicarExperiencia(planoExperiencia);
   return resultado;
+}
+
+/** Caminho real do maior ancestral existente, com o resto como está: o destino pode não existir ainda. */
+function caminhoReal(alvo: string): string {
+  let existente = path.resolve(alvo);
+  while (!fs.existsSync(existente) && existente !== path.dirname(existente)) existente = path.dirname(existente);
+  return path.join(fs.realpathSync(existente), path.relative(existente, path.resolve(alvo)));
+}
+
+/** Remove somente o bloco do pacote; o adaptador e as demais instruções permanecem. */
+export function desinstalarExperiencia(projeto: string, host: HostComBloco, dryRun = false) {
+  const plano = planejarExperiencia(projeto, host, null);
+  if (!dryRun) aplicarExperiencia(plano);
+  return { host, dryRun, arquivos: plano.mudancas.map(m => path.relative(plano.projeto, m.arquivo)) };
 }
 
 /** Texto de `ork adapter list`. */
@@ -554,6 +631,12 @@ export function textoDosPitfalls(host: Host): string {
 /** Texto de `ork adapter install`. */
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
   const linhas: string[] = [];
+  // Ensaio da 0.5.0: com o pacote ativo e pulado por aviso (catalogo fora do projeto), a linha dizia
+  // "desativada"; o aviso logo abaixo diz o motivo.
+  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada'
+    : r.experiencia.aviso ? 'pacote pulado nesta instalação, veja o aviso abaixo' : 'desativada ou sem integração de skills'}` +
+    `${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
+  if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
   linhas.push(
     r.dryRun
       ? `Simulacao (--dry-run) da instalacao do adaptador ${r.host}: nada foi escrito.`

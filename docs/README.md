@@ -33,6 +33,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Atenção humana (HITL)](guias/sincronismo-hitl.md) | Uma sessão parou esperando você, ou você quer o resumo por hora |
 | [Memória e handoff](guias/memoria-e-handoff.md) | A janela de contexto encheu, ou você quer ligar o OrkMind |
 | [Auditoria](guias/auditoria.md) | Você quer manter o produto saudável ao longo do tempo |
+| [Experiência de orquestração](guias/orchestration-experience.pt-BR.md) / [English](guias/orchestration-experience.md) | Preferências, instalação reversível e limites do pacote |
 | [Onboarding do projeto](guias/onboarding.md) | Você está trazendo um repositório novo para o `ork` |
 | [Várias máquinas](guias/varias-maquinas.md) | Você conduz o mesmo produto de mais de um computador, ou com mais de um builder |
 | [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |

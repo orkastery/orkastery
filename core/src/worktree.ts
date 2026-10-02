@@ -172,6 +172,8 @@ export interface ResultadoSync {
   rebaseFeito: boolean;
   /** RM-037 (defeitosdeco D-5): branch sem commit proprio recriada no SHA da base, sem rebase. */
   recriada?: boolean;
+  /** RM-037 (fatia 3, defeito 3): a recusa e de base reescrita, com ou sem ancestral comum. */
+  causa?: 'base-reescrita';
   dir: string;
   branch: string;
   base: string;
@@ -191,9 +193,15 @@ export interface ResultadoSync {
  * commit que o git nao tem mais nao entra. `proprios` conta o que o HEAD tem fora delas e da base
  * atual (`null` sem nenhuma base conhecida); `pontoDePartida` e a base conhecida mais nova que e
  * ancestral do HEAD; `semAncestral` diz que HEAD e base atual nao tem historia em comum.
+ *
+ * RM-037 (fatia 3, defeito 3): `baseReescrita` diz que o ponto de partida nao esta mais na base atual.
+ * A base so anda para a frente; quando o ponto em que a thread saiu dela deixa de ser ancestral, a base
+ * foi reescrita, mesmo com ancestral comum mais antigo (force-push que tirou commits). Nesse caso o
+ * `git rebase <base>` reaplicaria, junto com os commits da thread, os `sairamDaBase` que a reescrita tirou.
  */
 export function historiaPropria(raiz: string, thread: Thread, dir: string, shaBase: string):
-    { proprios: number | null; pontoDePartida: string | null; semAncestral: boolean } {
+    { proprios: number | null; pontoDePartida: string | null; semAncestral: boolean; baseReescrita: boolean;
+      sairamDaBase: number | null } {
   const git = (...args: string[]) => exec('git', args, dir);
   const sincronizadas = lerLedger(dirThread(raiz, thread.id))
     .filter(e => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada && typeof e.shaBase === 'string' && e.shaBase !== '')
@@ -208,10 +216,12 @@ export function historiaPropria(raiz: string, thread: Thread, dir: string, shaBa
   const conhecidas = [...new Set([pontoDaCriacao, ...sincronizadas])].filter(valido);
   const semAncestral = git('merge-base', 'HEAD', shaBase).code === 1;
   const pontoDePartida = [...conhecidas].reverse().find(sha => git('merge-base', '--is-ancestor', sha, 'HEAD').ok) ?? null;
-  if (!conhecidas.length) return { proprios: null, pontoDePartida, semAncestral };
-  const contagem = git('rev-list', '--count', 'HEAD', '--not', ...conhecidas, shaBase);
-  const proprios = contagem.ok && /^\d+$/.test(contagem.stdout.trim()) ? Number(contagem.stdout.trim()) : null;
-  return { proprios, pontoDePartida, semAncestral };
+  const baseReescrita = pontoDePartida !== null && !git('merge-base', '--is-ancestor', pontoDePartida, shaBase).ok;
+  const numero = (r: ReturnType<typeof git>) => r.ok && /^\d+$/.test(r.stdout.trim()) ? Number(r.stdout.trim()) : null;
+  const sairamDaBase = baseReescrita ? numero(git('rev-list', '--count', pontoDePartida!, '--not', shaBase)) : null;
+  if (!conhecidas.length) return { proprios: null, pontoDePartida, semAncestral, baseReescrita, sairamDaBase };
+  const proprios = numero(git('rev-list', '--count', 'HEAD', '--not', ...conhecidas, shaBase));
+  return { proprios, pontoDePartida, semAncestral, baseReescrita, sairamDaBase };
 }
 
 /**
@@ -361,9 +371,24 @@ export function sincronizarWorktree(
     const detalhe = `a base ${base} foi reescrita e nao tem historia em comum com a branch ${branch}, que tem ` +
       `${historia.proprios ?? 'um numero desconhecido de'} commit(s) proprio(s): o rebase reaplicaria a historia antiga inteira`;
     if (!opcoes.dryRun) registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes,
-      rebaseFeito: false, motivo: 'tree.blocked', semAncestral: true, detalhe });
+      rebaseFeito: false, motivo: 'tree.blocked', causa: 'base-reescrita', semAncestral: true, detalhe });
     return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
-      motivo: 'tree.blocked', detalhe, correcao: `reaplique so os commits da thread sobre a base nova: ${onto}` };
+      motivo: 'tree.blocked', causa: 'base-reescrita', detalhe, correcao: `reaplique so os commits da thread sobre a base nova: ${onto}` };
+  }
+  // RM-037 (fatia 3, defeito 3): com ancestral comum, o sync caia no `git rebase <base>` abaixo e
+  // reaplicava tambem o que a reescrita tirou da base. O ponto de partida fora da base atual e o sinal.
+  if (historia.baseReescrita) {
+    const ponto = historia.pontoDePartida as string;
+    passos.push(`git merge-base --is-ancestor ${ponto.slice(0, 8)} ${shaBase.slice(0, 8)}   (falso: a base foi reescrita)`);
+    const detalhe = `a base ${base} foi reescrita: o ponto de partida ${ponto.slice(0, 8)} da branch ${branch} nao esta mais nela, ` +
+      `e o rebase comum reaplicaria ${historia.sairamDaBase ?? 'um numero desconhecido de'} commit(s) que sairam da base junto com ` +
+      `o(s) ${historia.proprios ?? '?'} da thread (git rev-list --count HEAD --not ${ponto.slice(0, 8)} ${shaBase.slice(0, 8)})`;
+    if (!opcoes.dryRun) registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeSincronizada, { dir, branch, base, shaBase, shaAntes,
+      rebaseFeito: false, motivo: 'tree.blocked', causa: 'base-reescrita', baseReescrita: true, pontoDePartida: ponto,
+      sairamDaBase: historia.sairamDaBase, proprios: historia.proprios, detalhe });
+    return { ...vazio, shaBase, shaAntes, shaDepois: shaAntes, ok: false, jaAtualizada: false, rebaseFeito: false,
+      motivo: 'tree.blocked', causa: 'base-reescrita', detalhe,
+      correcao: `reaplique so os commits da thread sobre a base nova: git -C ${dir} rebase --onto ${shaBase} ${ponto}` };
   }
 
   if (opcoes.dryRun) {

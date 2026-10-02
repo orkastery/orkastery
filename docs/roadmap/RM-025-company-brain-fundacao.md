@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024]
 owner: Julio
-atualizado_em: 2026-09-29T23:48:35+00:00
+atualizado_em: 2026-10-01T02:20:06-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -18,12 +18,16 @@ estado:
 evidencias:
   codigo:
     commit: a17ff88
-    pr: null
+    pr: 21
+  testes:
+    ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
   thread: ork-companybrai3
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-025 — Company Brain: fundação
@@ -53,7 +57,7 @@ sdlc:
 - **Entregue até aqui:**
   - B1, contratos: `orkmind.company-brain/v1`, o mesmo schema no núcleo e no OrkMind (merge `3962717`).
   - B2, captura da fábrica: portfólio e ledger por thread, com recibos (merge `3962717`). A escrita no Brain depende da ativação, hoje desligada.
-  - B4.1, pacote de contexto citável: `ork brain context`, a ferramenta `ork_brain_context` no MCP e no OpenClaw e o repasse do Hermes (thread `ork-companybrai3`).
+  - B4.1, pacote de contexto citável: `ork brain context`, a ferramenta `ork_brain_context` no MCP e no OpenClaw e o repasse do Hermes (thread `ork-companybrai3`, PR #21, merge `a17ff88`, na versão 0.5.0).
 - **Não entregue:**
   - B3, organização, geografias, sistemas e estratégia: o merge `9b7fef1` trouxe canais de HITL e documentação, sem tipos novos no contrato, que continua com `prod`, `proj` e `init`.
   - O resto da B4: consulta federada e afirmações no contexto, que pedem o modo `context` no OrkMind.
@@ -70,7 +74,8 @@ sdlc:
 ## Estado com evidências
 
 - Código na `main`: B1 e B2, presentes desde `10ca416` (Orkastery 0.3.0). Os merges `3962717` e `9b7fef1` são do histórico anterior à 0.3.0.
-- B4.1: branch `ork/ork-companybrai3-full`, entregue por PR.
+- B4.1 na `main` pelo PR #21 (merge `a17ff88`), com o CI verde no push do merge (run 36563382672).
+- Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -78,13 +83,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `a17ff88` | 2026-09-29 | Julio |
-| Testes | Aprovados | — | 2026-09-29 | Julio |
-| Deploy | Produção | — | 2026-09-29 | Julio |
-| Exposição | Parcial | — | 2026-09-29 | Julio |
-| Habilitação | Em andamento | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `a17ff88` · PR #21 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
+| Exposição | Parcial | — | 2026-10-01 | Julio |
+| Habilitação | Em andamento | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -100,3 +105,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | objetivo novo sobre o código de hoje; threads de 13 e 14/09 superadas | decisão do dono em 28/09/2026 | Julio |
 | 2026-09-28 | B3 deixa de constar como entregue | o merge `9b7fef1` não trouxe tipos novos; o contrato tem só `prod`, `proj` e `init` | thread `ork-companybrai3` (#Auto) |
 | 2026-09-28 | B4.1, pacote de contexto citável | thread `ork-companybrai3`, por PR | thread `ork-companybrai3` (#Auto) |
+| 2026-09-29 | B4.1 mesclado na `main` | PR #21, merge `a17ff88` | Julio |
+| 2026-10-01 | B4.1 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |

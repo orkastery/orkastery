@@ -60,6 +60,14 @@ export const TIPOS_DE_EVENTO = {
   worktreeAuditada: 'worktree_audited',
   worktreeLiberada: 'worktree_released',
   leaseEnfileirado: 'lease_queued',
+  // RM-037 (rm037noite, defeito 2): a entrada da fila que saiu porque a thread fechou.
+  leaseDesenfileirado: 'lease_dequeued',
+  // RM-037 (rm037noite, defeito 3): a reserva do roadmap que a thread fechada soltou (ou reapontou),
+  // e a que ficou para depois porque nao deu para soltar agora.
+  reservaLiberada: 'roadmap_reserva_liberada',
+  reservaPendente: 'roadmap_reserva_pendente',
+  // A parte do fechamento que falhou (E/S), com o erro; o fechamento segue valendo.
+  solturaFalhou: 'soltura_ao_fechar_falhou',
   postmortemGravado: 'postmortem_recorded',
   masterConcluido: 'master_done',
   // RM-048 (item 8): o pedido de nota ao dono, com codigo curto; a nota volta pelo ingresso.
@@ -101,6 +109,8 @@ export const TIPOS_DE_EVENTO = {
   onboardingRegistrado: 'onboarding_recorded',
   // Correcao do escalonador: vaga devolvida por thread sem procura ativa (`ork board reap`)
   vagaLiberada: 'slot_released',
+  // RM-037 (rm037defeito, defeito 3): o `phase run` recusou o despacho por falta de vaga no projeto.
+  vagaRecusada: 'slot_refused',
   // I-07: estimativa humana no PLAN para comparacao economica posterior.
   estimativaPlano: 'plan_estimate',
   // I-42 (D5): ciclo sem CHECK que nao achou teste nem comando honesto declara a ausencia de
@@ -119,6 +129,8 @@ export const TIPOS_DE_EVENTO = {
   conducaoLiberada: 'conducao_liberada',
   conducaoOrfaLiberada: 'conducao_orfa_liberada',
   conducaoAssumida: 'conducao_assumida',
+  // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
+  conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
 } as const;
 
@@ -187,6 +199,15 @@ export function registrarSeExiste(
   const evento: EventoLedger = { ts: agora(), thread: threadId, tipo, ...dados, eventId: randomUUID() };
   try { fs.writeFileSync(fd, JSON.stringify(evento) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   return evento;
+}
+
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P2): o evento que um `--dry-run` grava (`dryRun: true`) e ensaio, nao
+ * estado. O ledger o guarda como rastro; board, escalonador, monitor (o pulse) e maestro o descartam.
+ * O ensaio do ship gravava `gate_blocked human.pending` e a thread aparecia pausada sem ninguem pedir.
+ */
+export function ehEnsaio(e: EventoLedger): boolean {
+  return e.dryRun === true;
 }
 
 /** Le o ledger inteiro. Linha corrompida vira evento `ledger_corrupted` em vez de quebrar a leitura. */

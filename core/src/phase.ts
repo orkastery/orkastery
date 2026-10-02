@@ -12,6 +12,8 @@ import { ContextoRuntime, contextoDoProjeto, IdentidadeDeDespacho, novaIdentidad
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
+import { gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado } from './manifest';
@@ -51,7 +53,7 @@ import {
 import { nomeDaMaquina } from './maquina';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
-  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, esperarConducaoLivre,
+  ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, dormir, ErroDeConducao, esperarConducaoLivre,
   MARGEM_DO_PRAZO_MS, PedidoDeConducao, PRAZO_DE_SESSAO_PADRAO_MS, recusaDeConducao, RecusaDeConducao, registrarConducaoDaSessao,
   registrarRecusa, tomarConducao,
 } from './conducao';
@@ -339,6 +341,21 @@ function schemaDeClaimsDoPacote(): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(arquivo, 'utf8')) as Record<string, unknown>;
 }
 
+/**
+ * RM-037 (rm037defeito, defeito 2): o modo da sessao sai do BLOCO, nao da fase de entrada. O modo plano
+ * (codex em `collaborationMode: plan`; claude-bg sem Edit/Write e com MCP so de consulta) e o review
+ * nativo do codex (`review/start`) valem para a sessao inteira. Aplicados pela fase de entrada, o PLAN
+ * redespachado de um bloco GOAL..MASTER abria a sessao em modo plano e ela nao podia seguir para o GO
+ * (rollout 01a0ed23, 29/09/2026), e o CHECK de entrada no codex so revisava, sem SHIP nem MASTER. Os
+ * dois modos ficam para o bloco que termina na propria fase de entrada. Domicilio unico: `ork phase run`
+ * e o redespacho do `ork retry` leem daqui.
+ */
+export function modoDaSessaoDoBloco(thread: Thread, fase: Fase): { plano: boolean; revisaoNativa: boolean } {
+  const bloco = blocoDaThread(thread, fase);
+  const terminaNaEntrada = bloco.fases[bloco.fases.length - 1] === fase;
+  return { plano: fase === 'PLAN' && terminaNaEntrada, revisaoNativa: fase === 'CHECK' && terminaNaEntrada };
+}
+
 /** Slug da sessao que conduz esta fase, rotacionando quando o slug ja foi usado na thread. */
 export function slugDaSessao(thread: Thread, fase: Fase): string {
   const bloco = blocoDaThread(thread, fase);
@@ -596,6 +613,11 @@ export interface OpcoesRun {
   correlacao?: string;
   /** I-36 (D2): espera a vez ate este prazo em vez de recusar na hora. */
   esperarMs?: number;
+  /**
+   * RM-037 (defeito 1, achado A3 do CHECK): `false` no MCP, que executa confinado e com prazo. O despacho
+   * que precisaria da baseline recusa com `baseline.pendente` e o comando do CLI, em vez de rodar a suite.
+   */
+  baselinePeloDespacho?: boolean;
 }
 
 export interface ResultadoRun {
@@ -615,7 +637,8 @@ export interface ResultadoRun {
   effort: string;
   /** Gate tipado reprovou antes do despacho (bloco B1). */
   bloqueado: boolean;
-  motivo: MotivoGate | null;
+  /** RM-037 (defeito 3): `concurrency.limite` e a recusa do portao de vaga do projeto. */
+  motivo: MotivoGate | 'concurrency.limite' | 'baseline.pendente' | null;
   violacoes: ViolacaoDePolicy[];
   /** Bloco B3: pedido criado na fila duravel quando o despacho morreu por rate limit. */
   naFila?: PedidoDeRetomada | null;
@@ -626,27 +649,98 @@ export interface ResultadoRun {
   conducao?: ConducaoAtual;
   /** I-36 (T12): a recusa tipada, com as tres acoes e o texto para o humano. */
   recusa?: RecusaDeConducao;
+  /** RM-037 (defeito 3): a recusa por vaga, com quem ocupa e a correcao. */
+  vaga?: VagaRecusada;
+}
+
+/**
+ * RM-037 (rm037defeito, defeito 1): o despacho precisa gravar a baseline antes de soltar o bloco? O codex
+ * roda em sandbox que so grava a worktree; o estado canonico fica fora dela, e `ork verify --baseline`
+ * de dentro da sessao morre em EROFS (rollouts 01a0ecff e 01a0ed16, 29/09/2026). A sessao parava antes
+ * do GO, porque a skill exige a baseline antes da primeira linha. Vale para o despacho real do codex
+ * com sandbox que nao grava o estado, num bloco que tem GO a partir da entrada, sem baseline gravada.
+ */
+export function baselineDoDespachoNecessaria(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): boolean {
+  if (opcoes.dryRun) return false;
+  const { raiz, manifesto } = carregado;
+  const thread = lerThread(raiz, threadId);
+  if (thread.status === 'fechada') return false;
+  // Pedido que nem resolve o trio (runtime trocado sem modelo) recebe a recusa do proprio despacho.
+  let runtime: string;
+  try { runtime = resolverDespacho(manifesto, opcoes, configDoBloco(lerSetup(raiz), thread.modo, opcoes.fase)).runtime; }
+  catch { return false; }
+  if (runtime !== 'codex' || manifesto.runtime.sandbox === 'danger-full-access') return false;
+  const bloco = blocoDaThread(thread, opcoes.fase);
+  if (!bloco.fases.slice(bloco.fases.indexOf(opcoes.fase)).includes('GO')) return false;
+  return !lerLedger(dirThread(raiz, thread.id)).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada);
+}
+
+/**
+ * Grava a baseline do despacho quando ela e necessaria, pela mesma `gravarBaseline` do CLI e fora do lock
+ * HITL. O despacho (`ork phase run`, e o redespacho do `ork retry` quando o fallback leva ao codex) chega
+ * aqui depois de passar por todos os portoes e RETENDO a conducao que tomou (B-1 e A-1r do CHECK 4): a
+ * baseline roda como reentrada dessa mesma conducao, sem `conducao_recusada` e sem soltar a reserva do dono
+ * ou a sessao bloqueada que a tomada sucedeu. A segunda passada do despacho usa a tomada retida.
+ */
+export function garantirBaselineDoDespacho(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun,
+  identidade?: string): void {
+  if (!baselineDoDespachoNecessaria(carregado, threadId, opcoes)) return;
+  try {
+    gravarBaseline(carregado, threadId, undefined,
+      { canal: opcoes.canal ?? canalDoProcesso(), correlacao: opcoes.correlacao ?? null, ...(identidade ? { identidade } : {}) }, 'phase.run');
+  } catch (e) { if (!(e instanceof ErroDeConducao)) throw e; }
 }
 
 /** Despacha a fase pelo runtime adapter e registra tudo no ledger da thread. */
 export function rodarFase(carregado: ManifestoCarregado, threadId: string, opcoes: OpcoesRun): ResultadoRun {
-  const rodar = (): ResultadoRun => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
-    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes));
+  const rodar = (retida?: ConducaoTomada): ResultadoRunRetido => opcoes.dryRun ? rodarFaseSobLock(carregado, threadId, opcoes) :
+    comLockHitl(carregado.raiz, threadId, () => rodarFaseSobLock(carregado, threadId, opcoes, retida));
   // I-36 (D2): `--esperar` espera a vez FORA do lock HITL (que serializa respostas do dono) e so
   // depois repete o pedido. Sem ele, a recusa sai na hora.
+  // RM-037 (defeito 3): a vaga do projeto espera do mesmo jeito, fora do lock, antes de repetir.
   const prazo = opcoes.esperarMs && opcoes.esperarMs > 0 && !opcoes.dryRun ? Date.now() + opcoes.esperarMs : null;
   for (;;) {
-    if (prazo) esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
-    const r = rodar();
-    if (r.motivo !== 'conducao.em-andamento' || !prazo || Date.now() >= prazo) return r;
+    if (prazo) {
+      esperarConducaoLivre(carregado.raiz, threadId, Math.max(0, prazo - Date.now()));
+      esperarVaga(carregado, threadId, Math.max(0, prazo - Date.now()));
+    }
+    let r: ResultadoRunRetido = rodar();
+    // RM-037 (defeito 1; N3 e G2 do CHECK 2, B-1 e A-1r do CHECK 4): o despacho so pede a baseline depois de
+    // passar por todos os portoes, retendo a conducao que tomou (orfa liberada, sucessao feita, reserva
+    // usada). Ela e gravada aqui, fora do lock HITL (que e nao bloqueante e recusaria respostas do dono por
+    // minutos), como reentrada da tomada retida, e o despacho repete uma vez com ela. No MCP, que nao roda a
+    // suite, a pendencia volta como esta e a tomada ja foi devolvida.
+    const retida = r.retida;
+    if (retida) {
+      delete r.retida;
+      // A segunda passada converte a tomada em sessao ou a devolve; devolver de novo e inocuo, e o `finally`
+      // cobre tambem a excecao (lock HITL ocupado, por exemplo: R5-A1 do CHECK 5).
+      try {
+        garantirBaselineDoDespacho(carregado, threadId, opcoes, retida.identidade);
+        r = rodar(retida);
+      } finally { retida.devolver(); }
+    }
+    const esperavel = r.motivo === 'conducao.em-andamento' || r.motivo === 'concurrency.limite';
+    if (!esperavel || !prazo || Date.now() >= prazo) return r;
+    // S-5 do CHECK 3: a vaga pode ter sido tomada entre a espera e a tomada; espera um pouco antes de repetir.
+    if (r.motivo === 'concurrency.limite') dormir(Math.min(2000, Math.max(0, prazo - Date.now())));
   }
 }
+
+/** A primeira passada que parou para a baseline devolve a tomada retida junto (interno ao `rodarFase`). */
+type ResultadoRunRetido = ResultadoRun & { retida?: ConducaoTomada };
 
 function rodarFaseSobLock(
   carregado: ManifestoCarregado,
   threadId: string,
-  opcoes: OpcoesRun
-): ResultadoRun {
+  opcoes: OpcoesRun,
+  /**
+   * A tomada que a primeira passada reteve para a baseline (CHECK 4). Com ela, esta e a repeticao: nao toma a
+   * conducao de novo e nao grava de novo os avisos da primeira passada (S-1 do CHECK 3).
+   */
+  tomadaPrevia?: ConducaoTomada
+): ResultadoRunRetido {
+  const segundaPassada = tomadaPrevia !== undefined;
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
   const fase = opcoes.fase;
@@ -677,12 +771,15 @@ function rodarFaseSobLock(
     gate: 'phase.dispatch', prompt, threadId: thread.id, modo: thread.modo, fase,
     bloco: thread.blocos.indexOf(blocoDespachado) + 1,
     blocoComGo: blocoDespachado.fases.includes('GO'),
-    temBaseline: lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada),
+    // RM-037 (defeito 1): a baseline que o proprio despacho vai gravar conta como existente. O ensaio conta a
+    // que o despacho real gravaria (S2 do CHECK final), para nao mandar rodar a baseline que o CLI ja grava.
+    temBaseline: lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.baselineGravada) ||
+      (opcoes.baselinePeloDespacho !== false && baselineDoDespachoNecessaria(carregado, thread.id, { ...opcoes, dryRun: false })),
     fallbackDoBloco: fallbackDoBloco(setup, thread.modo, fase),
   });
   const bloqueiam = bloqueantes(violacoes);
   // Warn registra e segue: o aviso vai ao ledger (fora do ensaio) e o despacho continua.
-  if (!opcoes.dryRun) {
+  if (!opcoes.dryRun && !segundaPassada) {
     for (const v of avisos(violacoes)) {
       registrar(dir, thread.id, TIPOS_DE_EVENTO.politicaAviso, { gate: 'phase.dispatch', fase, slug,
         policy: v.policy, detalhe: v.detalhe, correcao: v.correcao, modo: thread.modo });
@@ -744,7 +841,9 @@ function rodarFaseSobLock(
   }
   // I-36 (T7, T14): validado o pedido, a conducao da thread, antes de tocar a worktree. A mesma fase com o
   // mesmo prompt de quem conduz devolve a sessao em andamento sem chamar o adapter; outro pedido recebe a recusa.
-  const identidade = novaIdentidadeDeDespacho(thread.id, fase);
+  // Na repeticao, a identidade e a da tomada retida: a sessao reentra pela identidade gravada no lease (D4).
+  const identidade = tomadaPrevia ? { ...novaIdentidadeDeDespacho(thread.id, fase), dispatchId: tomadaPrevia.identidade }
+    : novaIdentidadeDeDespacho(thread.id, fase);
   const canal = opcoes.canal ?? canalDoProcesso();
   const pedidoDeConducao: PedidoDeConducao = { canal, correlacao: opcoes.correlacao ?? null, operacao: 'phase.run', fase,
     promptSha256: sha, identidade: identidade.dispatchId, prazoMs: prazoDaSessao(limites) };
@@ -763,17 +862,60 @@ function rodarFaseSobLock(
     return { ...base, sessionId: null, bloqueado: true, motivo: 'conducao.em-andamento', erro: recusa.texto, recusa,
       ...(atual ? { conducao: atual } : {}) };
   };
+  // RM-037 (defeito 3): o limite de sessoes do projeto vale no despacho, nao so no board. A recusa nao abre
+  // sessao nem toca a worktree; o `slot_refused` e a prova, fora da conta de atividade da thread.
+  const recusaPorVaga = (semVaga: VagaRecusada): ResultadoRun => {
+    if (!opcoes.dryRun) {
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.vagaRecusada, { gate: 'phase.dispatch', motivo: 'concurrency.limite', fase, slug,
+        limite: semVaga.limite, ocupam: semVaga.ocupam, detalhe: semVaga.detalhe, correcao: semVaga.correcao,
+        evidencia: 'conducao exec:<thread> de sessao viva nas outras threads do projeto' });
+    }
+    return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+      verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
+      runtime, model, effort, bloqueado: true, motivo: 'concurrency.limite', violacoes, erro: `${semVaga.detalhe}; ${semVaga.correcao}`,
+      vaga: semVaga };
+  };
   let conducao: ConducaoTomada | null = null;
   if (opcoes.dryRun) {
     // O ensaio nao toma nada, mas diz a verdade: com conducao em andamento, o despacho real seria recusado.
     const atual = conducaoDaThread(raiz, thread.id);
     if (atual) return ocupadaPor({ ok: false, idempotente: atual.fase === fase && atual.promptSha256 === sha, atual }, false);
+    const semVaga = vagaDoDespacho(carregado, thread.id);
+    if (semVaga) return recusaPorVaga(semVaga);
+  } else if (tomadaPrevia) {
+    // R5-B1 do CHECK 5: entre a sucessao da sessao blocked (1a passada) e aqui, a suite rodou com o lock HITL
+    // livre. Sob o lock de novo, o runtime confirma que a sucedida continua parada; se o dono a respondeu,
+    // ela recebe o lease de volta e este pedido espera a vez.
+    if (!tomadaPrevia.sucessaoAindaVale()) {
+      tomadaPrevia.devolver();
+      return ocupadaPor({ ok: false, idempotente: false, atual: conducaoDaThread(raiz, thread.id) }, true);
+    }
+    conducao = tomadaPrevia;
   } else {
     const tomada = tomarConducao(raiz, thread.id, pedidoDeConducao);
     if (!tomada.ok) return ocupadaPor(tomada, true);
     conducao = tomada;
   }
   try {
+    if (conducao) {
+      // A vaga e a baseline sao conferidas COM a conducao tomada (N2, N3 do CHECK 2): a tomada consulta o
+      // runtime, libera a orfa e faz a sucessao, e nenhum desses caminhos pode furar o limite nem soltar o
+      // codex sem baseline. Quem recusa antes da sessao DEVOLVE o que a tomada consumiu (A-1 do CHECK 3),
+      // pelo `finally`.
+      const semVaga = vagaDoDespacho(carregado, thread.id, undefined, conducaoDaThread(raiz, thread.id)?.desde);
+      if (semVaga) return recusaPorVaga(semVaga);
+      if (baselineDoDespachoNecessaria(carregado, thread.id, opcoes)) {
+        const erro = `baseline.pendente: o bloco com GO no ${runtime} precisa da baseline antes do despacho` +
+          (opcoes.baselinePeloDespacho === false ? ', e o MCP nao roda a suite' : ', e ela nao foi gravada') +
+          `; rode ork verify ${thread.id} --baseline pelo CLI e repita o despacho`;
+        const pendente: ResultadoRunRetido = { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+          verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: false,
+          runtime, model, effort, bloqueado: true, motivo: 'baseline.pendente', violacoes, erro };
+        // Na primeira passada do CLI e do retry, a tomada fica retida para a baseline (o `finally` nao a solta).
+        if (opcoes.baselinePeloDespacho !== false && !segundaPassada) { pendente.retida = conducao; conducao = null; }
+        return pendente;
+      }
+    }
     const cwd = thread.worktree ?? raiz;
     let contextoRuntime: ContextoRuntime | undefined;
     try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
@@ -839,6 +981,7 @@ function rodarFaseSobLock(
     }
 
     const pausaAoFim = pausaNaThread(thread, fase);
+    const modoDaSessao = modoDaSessaoDoBloco(thread, fase);
     const claimsSchema = fase === 'GO' && runtime === 'codex'
       ? schemaDeClaimsDoPacote()
       : undefined;
@@ -856,12 +999,12 @@ function rodarFaseSobLock(
       vinculo: { thread: thread.id, fase, promptSha256: sha },
       contextoRuntime,
       ...(perfil ? { perfil } : {}),
-      ...(fase === 'PLAN' ? { colaboracao: 'plan' as const } : {}),
+      ...(modoDaSessao.plano ? { colaboracao: 'plan' as const } : {}),
       ...(claimsSchema ? { outputSchema: claimsSchema } : {}),
       // `thread.base.branch` vira a branch fonte quando a thread ganha worktree
       // (`ork/<slug>`). O review nativo precisa comparar essa fonte com a base de
       // integração do projeto; usar a própria fonte produz um diff vazio.
-      ...(fase === 'CHECK' && runtime === 'codex' ? { reviewBaseBranch: manifesto.worktree.base_branch } : {}),
+      ...(modoDaSessao.revisaoNativa && runtime === 'codex' ? { reviewBaseBranch: manifesto.worktree.base_branch } : {}),
       ...(limites ? { duracaoMaximaMs: limites.duracaoMs } : {}),
       // I-36 (D4): a sessao filha herda a identidade do despacho e o canal; e assim que ela reentra.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
@@ -1035,8 +1178,9 @@ function rodarFaseSobLock(
       violacoes,
     };
   } finally {
-    // Despacho que nao virou sessao devolve a conducao; o que virou ja a entregou a sessao.
-    conducao?.liberar();
+    // Despacho que nao virou sessao devolve a conducao, com o que a tomada consumiu (reserva do canal, sessao
+    // blocked sucedida); o que virou ja a entregou a sessao, e devolver entao nao faz nada.
+    conducao?.devolver();
   }
 }
 
