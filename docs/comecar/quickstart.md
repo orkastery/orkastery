@@ -171,7 +171,7 @@ ork doctor: o que vale nesta maquina agora
   [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))
   [warn] runtime codex                binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
                                       correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
-  [ok]   manifesto                    /caminho/do/seu/projeto/orkastery.yaml (4114 B de 16384)
+  [ok]   manifesto                    /caminho/do/seu/projeto/orkastery.yaml (4260 B de 16384)
   [warn] onboarding                   9 etapa(s) pendente(s): maestro, credenciais, bancos, memoria, produtos, topologia, arquitetura, skills, auditores
                                       correcao: ork onboarding
   [ok]   abbrev do projeto            "prd" (parte 1 do slug de sessao)

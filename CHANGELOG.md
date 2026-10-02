@@ -45,9 +45,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `--worktree auto`, também com `--from-finding`, e a saída diz que a worktree veio da chave; com a chave `false` ou
     ausente, nada muda, e a chave ausente passa a ler `false`;
   - `--sem-worktree` cria a thread na raiz do projeto e avisa o que isso faz no `ork ship` (na branch base,
-    `push_direto_na_base` barra a entrega) e como corrigir antes do GO; junto com `--worktree`, ou num ciclo que exige
-    worktree, recusa;
-  - `--dry-run` mostra a worktree e a branch que seriam criadas;
+    `push_direto_na_base: block`, o padrão do `ork init`, barra a entrega) e como corrigir antes do GO; junto com
+    `--worktree`, ou num ciclo que exige worktree, recusa antes de reservar o item do roadmap;
+  - `--dry-run` mostra a worktree e a branch que seriam criadas, com o id livre que a criação usaria, ou avisa por que
+    a criação recusaria (pasta ou branch já existentes, repositório sem commit);
+  - a worktree nasce na pasta da árvore principal mesmo quando o `ork thread new` roda de dentro da worktree de outra
+    thread, em vez de aninhada nela;
   - num repositório sem commit, a worktree da chave espera o primeiro commit: a thread nasce na raiz, com aviso.
 
 ## [0.5.1] - 2026-10-02

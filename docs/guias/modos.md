@@ -346,8 +346,8 @@ entrega essa branch. Com a chave `false` ou ausente, nada muda: a worktree só n
 | A worktree que a chave já dá | nada a mais: `ork thread new "<nome>" --modo <MODO>` |
 | A worktree com a chave desligada | `--worktree auto` |
 | Um diretório que já existe | `--worktree <DIR>` |
-| Nenhuma worktree | `--sem-worktree`: a thread roda na raiz do projeto, e na branch base o `ork ship` sai barrado por `push_direto_na_base`; antes do GO, `ork worktree ensure <thread>` cria a worktree |
-| Ver antes de criar | `--dry-run` mostra a worktree e a branch que seriam criadas |
+| Nenhuma worktree | `--sem-worktree`: a thread roda na raiz do projeto, e na branch base o `ork ship` sai barrado por `push_direto_na_base: block`, o padrão do `ork init`; antes do GO, `ork worktree ensure <thread>` cria a worktree |
+| Ver antes de criar | `--dry-run` mostra a worktree e a branch que seriam criadas, ou por que a criação as recusaria |
 
 `greenfield`, `merge-branch` e `feature-xl-faseada` exigem a worktree e recusam `--sem-worktree`.
 Num repositório ainda sem commit, a worktree da chave não tem de onde partir: a thread nasce na raiz,
