@@ -106,6 +106,12 @@ audit:
   since_padrao: 7d
   graphify: auto
 
+grafo:
+  # RM-031 KG5: tools ork_grafo_* (vizinhos, chamadores, importadores e caminho) no MCP do projeto,
+  # com a evidencia de cada aresta. Desligada: ligar (true) e decisao do dono e vale para as sessoes
+  # abertas depois. Sem o indice do HEAD a tool recusa e manda rodar ork grafo indexar.
+  mcp: false
+
 policies:
   provider: block
   segredo_em_prompt: block
