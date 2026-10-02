@@ -113,6 +113,15 @@ export interface OpcoesDeWorktree {
   base?: string;
 }
 
+/**
+ * Pasta da worktree de uma thread: `worktree.dir` resolvido na arvore principal, nunca na worktree de onde o comando
+ * roda. P4 do ensaio da 0.5.0 (CHECK): com a chave valendo, o `ork thread new` rodado de dentro da worktree de outra
+ * thread aninhava a nova na pasta da mae, e o release da mae levava a da filha junto.
+ */
+export function pastaDaWorktree(carregado: ManifestoCarregado, id: string): string {
+  return path.resolve(raizDoEstado(carregado.raiz), carregado.manifesto.worktree.dir, id);
+}
+
 /** Pasta e branch da worktree de uma thread: o que `criarWorktree` cria e o `--dry-run` preve. */
 export function alvoDaWorktree(
   carregado: ManifestoCarregado,
@@ -120,31 +129,45 @@ export function alvoDaWorktree(
   slug: string,
   opcoes: OpcoesDeWorktree = {}
 ): WorktreeDaThread {
-  return {
-    dir: path.resolve(carregado.raiz, carregado.manifesto.worktree.dir, id),
-    branch: opcoes.branchExistente ?? `ork/${slug}`,
-  };
+  return { dir: pastaDaWorktree(carregado, id), branch: opcoes.branchExistente ?? `ork/${slug}` };
+}
+
+/** P4 do ensaio da 0.5.0: por que a criacao de verdade recusaria a worktree prevista. */
+export type FalhaDaWorktree = 'pasta-existe' | 'sem-commit' | 'branch-existe';
+
+export interface WorktreePrevista extends WorktreeDaThread {
+  /** Commit de onde a worktree partiria; `null` sem commit. */
+  commit: string | null;
+  /** O que faria a criacao recusar, na ordem em que `criarWorktree` e o git conferem; `null` quando ela nasce. */
+  falha: FalhaDaWorktree | null;
 }
 
 /**
  * P4 do ensaio da 0.5.0: a worktree que `criarWorktree` criaria para este id, sem criar nada. Mesma pasta, mesma
  * branch e o commit de onde ela partiria: a branch existente (ciclo `merge-branch`), senao a base do manifesto,
- * senao o HEAD. `null` quando nenhum resolve em commit (repositorio sem commit), onde o `git worktree add` falharia.
+ * senao o HEAD. Diz tambem o que faria a criacao recusar: a pasta que ja existe, o repositorio sem commit ou a
+ * branch nova que ja existe.
  */
 export function worktreePrevista(
   carregado: ManifestoCarregado,
   id: string,
   slug: string,
   opcoes: OpcoesDeWorktree = {}
-): (WorktreeDaThread & { commit: string }) | null {
+): WorktreePrevista {
+  const alvo = alvoDaWorktree(carregado, id, slug, opcoes);
   const refs = opcoes.branchExistente
     ? [opcoes.branchExistente]
     : [opcoes.base ?? carregado.manifesto.worktree.base_branch, 'HEAD'];
+  let commit: string | null = null;
   for (const ref of refs) {
     const r = exec('git', ['rev-parse', '--verify', ref], carregado.raiz);
-    if (r.ok) return { ...alvoDaWorktree(carregado, id, slug, opcoes), commit: r.stdout.trim() };
+    if (r.ok) { commit = r.stdout.trim(); break; }
   }
-  return null;
+  const branchJaExiste = !opcoes.branchExistente &&
+    exec('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${alvo.branch}`], carregado.raiz).ok;
+  const falha: FalhaDaWorktree | null = fs.existsSync(alvo.dir) ? 'pasta-existe'
+    : commit === null ? 'sem-commit' : branchJaExiste ? 'branch-existe' : null;
+  return { ...alvo, commit, falha };
 }
 
 /**
@@ -181,7 +204,7 @@ export function criarWorktree(
   if (!r.ok) {
     throw new Error(`git worktree add falhou: ${(r.stderr || r.stdout).trim()}`);
   }
-  if (pastaNova) ignorarPastaNoGit(pastaDasWorktrees, raiz);
+  if (pastaNova) ignorarPastaNoGit(pastaDasWorktrees, raizDoEstado(raiz));
   const lista = exec('git', ['worktree', 'list', '--porcelain'], raiz);
   const criada = lista.ok && lista.stdout.split('\n').some((l) => l.trim() === `worktree ${dir}`);
   if (!criada) {
@@ -218,6 +241,7 @@ export function pedidoDeWorktree(
   porThread: boolean
 ): PedidoDeWorktree {
   const worktree = flags.worktree === false ? undefined : flags.worktree;
+  if (typeof worktree === 'string' && !worktree.trim()) throw new Error('uso: --worktree pede auto ou um diretório que já existe');
   if (typeof flags.semWorktree === 'string') {
     throw new Error(`uso: --sem-worktree não leva valor (recebeu "${flags.semWorktree}")`);
   }
@@ -249,17 +273,24 @@ export function linhaDaWorktree(
 
 /**
  * P4 do ensaio da 0.5.0: o que acontece no SHIP com a thread criada por `--sem-worktree`. O `ork ship` entrega a
- * branch em que a raiz estava na criacao (`thread.base.branch`); na branch base, a policy `push_direto_na_base` do
- * manifesto decide: `block` barra, outro valor avisa e deixa passar, e sem ela (ou `off`) nada confere.
+ * branch em que a raiz estava na criacao (`thread.base.branch`), e a policy `push_direto_na_base` do manifesto barra
+ * (`block`), avisa (outro valor) ou deixa passar (sem ela, ou `off`) a entrega de uma branch para ela mesma ou da
+ * base. Raiz fora de branch (HEAD destacado ou repositorio sem commit) nao tem branch de origem.
  */
-export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto): string {
+export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto, gravada = true): string {
   const base = manifesto.worktree.base_branch;
-  const inicio = `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto`;
-  const correcao = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread; ` +
-    'depois do GO, os commits já estão na base e o ship não os separa.';
-  if (thread.base.branch !== base) {
-    return `${inicio}, na branch ${thread.base.branch}, e o ork ship entrega essa branch como estiver, ` +
-      `com o que mais entrar nela. ${correcao}`;
+  const branch = thread.base.branch;
+  const inicio = gravada
+    ? `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto`
+    : `Aviso: sem worktree (--sem-worktree), a thread ${thread.id} trabalharia na raiz do projeto`;
+  const ensure = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread`;
+  if (thread.base.commit === COMMIT_DESCONHECIDO || branch === 'HEAD') {
+    const onde = thread.base.commit === COMMIT_DESCONHECIDO ? 'num repositório ainda sem commit' : 'com o HEAD destacado';
+    return `${inicio}, ${onde}, fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}.`;
+  }
+  if (branch !== base) {
+    return `${inicio}, na branch ${branch}, e o ork ship entrega essa branch como estiver, com o que mais entrar nela; ` +
+      `com --para ${branch}, a entrega vira push direto, que a policy push_direto_na_base confere. ${ensure}.`;
   }
   const policy = manifesto.policies?.push_direto_na_base;
   const efeito = policy === 'block'
@@ -267,7 +298,23 @@ export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto): 
     : policy === undefined || policy === 'off'
       ? 'o ork ship empurra a base direto, sem branch de thread (push_direto_na_base desligada)'
       : `o ork ship avisa push_direto_na_base (${policy}) e empurra a base direto, sem branch de thread`;
-  return `${inicio}, na branch base ${base}, e ${efeito}. ${correcao}`;
+  return `${inicio}, na branch base ${base}, e ${efeito}. ${ensure}; depois do GO, os commits já estão na base e o ship não os separa.`;
+}
+
+/**
+ * P4 do ensaio da 0.5.0 (CHECK): no `--dry-run`, por que a criacao de verdade recusaria a worktree, em vez de preve-la.
+ * O ciclo que exige worktree nao aceita `--sem-worktree`, entao a saida so e sugerida para a chave e a flag.
+ */
+export function avisoDeWorktreeQueFalharia(f: { motivo: FalhaDaWorktree; dir: string; branch: string; por: OrigemDaWorktree }): string {
+  const semWorktree = f.por === 'ciclo' ? '' : ' ou crie com --sem-worktree';
+  if (f.motivo === 'pasta-existe') {
+    return `Aviso: a pasta ${f.dir} já existe, e a criação de verdade recusaria a worktree da thread: tire a pasta${semWorktree}.`;
+  }
+  if (f.motivo === 'branch-existe') {
+    return `Aviso: a branch ${f.branch} já existe, e a criação de verdade recusaria a worktree da thread: tire a branch${semWorktree}.`;
+  }
+  return 'Aviso: o repositório ainda não tem commit, e a criação de verdade recusaria a worktree da thread no git worktree add: ' +
+    'faça o primeiro commit antes.';
 }
 
 /** P4 do ensaio da 0.5.0: a worktree que a chave pede nao tem de onde partir num repositorio sem commit. */
@@ -282,7 +329,7 @@ export function avisoDaWorktree(
   resultado: { thread: Thread; gravada: boolean; worktreePor?: OrigemDaWorktree | null },
   manifesto: Manifesto
 ): string | null {
-  if (origem === 'sem-worktree') return avisoDeThreadSemWorktree(resultado.thread, manifesto);
+  if (origem === 'sem-worktree') return avisoDeThreadSemWorktree(resultado.thread, manifesto, resultado.gravada);
   if (origem === 'chave' && !resultado.worktreePor) return avisoDeChaveSemCommit(resultado.gravada);
   return null;
 }
@@ -328,6 +375,8 @@ export interface ResultadoNovaThread {
   gravada: boolean;
   /** P4 do ensaio da 0.5.0: por que a thread ganhou a worktree (ou ganharia, no `--dry-run`); `null` sem ela. */
   worktreePor?: OrigemDaWorktree | null;
+  /** P4 (CHECK): no `--dry-run`, a worktree pedida que a criacao de verdade recusaria, e por que. */
+  worktreeFalharia?: { motivo: FalhaDaWorktree; dir: string; branch: string; por: OrigemDaWorktree } | null;
 }
 
 /** Cria a thread: valida modo contra o manifesto, gera o slug e carimba a base. */
@@ -428,10 +477,10 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     && fs.readdirSync(dirThread(raiz, reservation.threadId)).some((name) => !/^\.thread\.json\..+\.tmp$/.test(name))) {
     throw new Error('creation.conflict: diretório reservado sem origem confirmada');
   }
+  // P4 do ensaio da 0.5.0 (CHECK): o ensaio usa o mesmo id livre da criacao (o `idDisponivel` so le o disco), para a
+  // worktree que ele mostra ser a que a criacao usaria.
   const { id, assunto } = reservation
     ? { id: reservation.threadId, assunto: reservation.threadId.slice(abbrev.length + 1) }
-    : opcoes.dryRun
-    ? { id: `${abbrev}-${assuntoBruto}`, assunto: assuntoBruto }
     : idDisponivel(raiz, abbrev, assuntoBruto);
 
   const slug = opcoes.slug ?? montarSlug(abbrev, assunto, blocos[0].slugFases);
@@ -470,21 +519,37 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   };
   if (variante === 'feature-xl-faseada') thread.fatias = opcoes.fatias ?? 3;
 
-  // P4 do ensaio da 0.5.0: por que a thread ganha a worktree. A pedida so pela chave espera o primeiro commit
-  // (D3): sem commit, a thread fica na raiz, como antes. A pedida por flag ou por ciclo segue como era.
+  // P4 do ensaio da 0.5.0: por que a thread ganha a worktree. O ensaio e a chave preveem a worktree antes; a pedida
+  // por flag ou por ciclo segue direto ao git, como era. A pedida so pela chave espera o primeiro commit (D3): sem
+  // commit, a thread fica na raiz, como antes.
   const pedeWorktree = opcoes.criarWorktree === true || exigeWorktree;
-  const prevista = pedeWorktree ? worktreePrevista(carregado, id, slug, { branchExistente: opcoes.branch }) : null;
   const pelaChave = opcoes.criarWorktree === true && opcoes.origemDaWorktree === 'chave';
-  const worktreePor: OrigemDaWorktree | null = !pedeWorktree || (pelaChave && !exigeWorktree && !prevista) ? null
-    : pelaChave ? 'chave' : opcoes.criarWorktree ? 'flag' : 'ciclo';
+  const prevista = pedeWorktree && (opcoes.dryRun || pelaChave)
+    ? worktreePrevista(carregado, id, slug, { branchExistente: opcoes.branch }) : null;
+  const worktreePor: OrigemDaWorktree | null =
+    !pedeWorktree || (pelaChave && !exigeWorktree && prevista?.falha === 'sem-commit') ? null
+      : pelaChave ? 'chave' : opcoes.criarWorktree ? 'flag' : 'ciclo';
 
   if (opcoes.dryRun) {
-    // P4 (D8): o ensaio mostra a worktree que a criacao usaria, com a mesma pasta, branch e base.
-    if (worktreePor && prevista) {
+    // P4 (D8): o ensaio mostra a worktree que a criacao usaria; quando ela recusaria, diz por que, em vez de preve-la.
+    if (worktreePor && prevista?.falha) {
+      return { thread, gravada: false, worktreePor: null,
+        worktreeFalharia: { motivo: prevista.falha, dir: prevista.dir, branch: prevista.branch, por: worktreePor } };
+    }
+    if (worktreePor && prevista?.commit) {
       thread.worktree = prevista.dir;
       thread.base = { branch: prevista.branch, commit: prevista.commit };
     }
-    return { thread, gravada: false, worktreePor: prevista ? worktreePor : null };
+    return { thread, gravada: false, worktreePor };
+  }
+
+  // P4 (CHECK): a worktree pedida so pela chave, com a pasta ou a branch ja ocupadas, recusa dizendo de onde veio o
+  // pedido e qual e a saida.
+  const ocupadaPelaChave = pelaChave && !exigeWorktree && prevista &&
+    (prevista.falha === 'pasta-existe' || prevista.falha === 'branch-existe') ? prevista : null;
+  if (ocupadaPelaChave) {
+    const qual = ocupadaPelaChave.falha === 'pasta-existe' ? `a pasta ${ocupadaPelaChave.dir}` : `a branch ${ocupadaPelaChave.branch}`;
+    throw new Error(`${qual} já existe, e a chave worktree.por_thread pede a worktree da thread: tire-a ou crie com --sem-worktree`);
   }
 
   let worktreeCriada: WorktreeDaThread | null = null;

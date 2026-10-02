@@ -52,7 +52,7 @@ import {
   ResultadoDaVarredura,
   varrerSuperficie,
 } from './superficie';
-import { dirThread, novaThread, OrigemDaWorktree, OrigemDoPedidoDeWorktree } from './thread';
+import { dirThread, novaThread, OrigemDaWorktree, OrigemDoPedidoDeWorktree, ResultadoNovaThread } from './thread';
 import {
   Achado,
   MotivoDeAuditoria,
@@ -1017,6 +1017,8 @@ export interface ResultadoDoFromFinding {
   pedido: string;
   /** P4 do ensaio da 0.5.0: por que a thread do achado ganhou a worktree (ou ganharia, no `--dry-run`). */
   worktreePor?: OrigemDaWorktree | null;
+  /** P4 (CHECK): no `--dry-run`, a worktree pedida que a criacao de verdade recusaria, e por que. */
+  worktreeFalharia?: ResultadoNovaThread['worktreeFalharia'];
   motivo: MotivoDeAuditoria | null;
   detalhe: string;
   correcao: string;
@@ -1089,7 +1091,7 @@ export function abrirThreadDoAchado(
   }
 
   const modo = opcoes.modo ?? manifesto.conduction.default_mode;
-  const { thread, gravada, worktreePor } = novaThread(carregado, {
+  const { thread, gravada, worktreePor, worktreeFalharia } = novaThread(carregado, {
     nome: opcoes.nome ?? achado.titulo,
     modo,
     slug: opcoes.slug,
@@ -1108,6 +1110,7 @@ export function abrirThreadDoAchado(
       thread,
       pedido,
       worktreePor,
+      worktreeFalharia,
       motivo: null,
       detalhe: 'simulacao (--dry-run): nenhuma thread e nenhum carimbo no board foram gravados',
       correcao: '',

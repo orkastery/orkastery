@@ -20,8 +20,8 @@ import { lerLedger } from '../src/ledger';
 import { exigirManifesto } from '../src/manifest';
 import { avaliarPolicies } from '../src/policies';
 import {
-  avisoDaWorktree, avisoDeChaveSemCommit, avisoDeThreadSemWorktree, dirThread, lerThread, linhaDaWorktree, listarIds, novaThread,
-  pedidoDeWorktree,
+  avisoDaWorktree, avisoDeChaveSemCommit, avisoDeThreadSemWorktree, avisoDeWorktreeQueFalharia, dirThread, lerThread, linhaDaWorktree,
+  listarIds, novaThread, pedidoDeWorktree,
 } from '../src/thread';
 import { COMMIT_DESCONHECIDO, exec } from '../src/util';
 import { ajustarManifesto, commitar, dirTemporario, ProjetoDeTeste, projetoTemporario, shaDaBranch } from './apoio';
@@ -92,6 +92,9 @@ test('p4 worktree: pedido resolve flags e chave', () => {
   assert.throws(() => pedidoDeWorktree({ worktree: 'auto', semWorktree: true }, true), /^Error: uso: --worktree e --sem-worktree se excluem/);
   assert.throws(() => pedidoDeWorktree({ worktree: 'outra/pasta', semWorktree: true }, false), /se excluem/);
   assert.throws(() => pedidoDeWorktree({ semWorktree: 'nome' }, true), /uso: --sem-worktree não leva valor \(recebeu "nome"\)/);
+  for (const vazio of ['', '  ']) {
+    assert.throws(() => pedidoDeWorktree({ worktree: vazio }, true), /^Error: uso: --worktree pede auto ou um diretório que já existe$/);
+  }
 });
 
 test('p4 worktree: previsao do dry-run e a criacao usam a mesma pasta e branch', () => {
@@ -157,7 +160,12 @@ test('p4 worktree: sem commit a chave deixa a thread na raiz', () => {
       'Aviso: worktree.por_thread pede a worktree da thread, mas o repositório ainda não tem commit: ' +
       'a thread nasceu na raiz do projeto, sem worktree.');
 
-    // A flag explicita segue com o erro do git de antes, sem gravar nada.
+    // A flag explicita segue com o erro do git de antes, sem gravar nada; o ensaio diz que a criacao recusaria.
+    const ensaioDaFlag = novaThread(carregado, { nome: 'com flag', modo: 'auto', criarWorktree: true, dryRun: true });
+    assert.equal(ensaioDaFlag.worktreePor, null);
+    assert.equal(ensaioDaFlag.thread.worktree, null);
+    assert.deepEqual(ensaioDaFlag.worktreeFalharia,
+      { motivo: 'sem-commit', dir: path.join(dir, '.claude/worktrees/ork-comflag'), branch: 'ork/ork-comflag-full', por: 'flag' });
     assert.throws(() => novaThread(carregado, { nome: 'com flag', modo: 'auto', criarWorktree: true }), /git worktree add falhou/);
     assert.deepEqual(listarIds(dir), [criada.thread.id]);
   } finally { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
@@ -211,11 +219,33 @@ test('p4 worktree: aviso do --sem-worktree diz o que acontece no ship', () => {
     const desligada = avisoDeThreadSemWorktree(thread, { ...m, policies: { ...m.policies, push_direto_na_base: 'off' } });
     assert.match(desligada, /, e o ork ship empurra a base direto, sem branch de thread \(push_direto_na_base desligada\)\. Antes do GO/);
     assert.equal(avisoDeThreadSemWorktree(thread, { ...m, policies: undefined }), desligada);
+    const ensure = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread.`;
     const outraBranch = avisoDeThreadSemWorktree({ ...thread, base: { ...thread.base, branch: 'tarefa' } }, m);
     assert.equal(outraBranch, `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto, na branch tarefa, ` +
-      `e o ork ship entrega essa branch como estiver, com o que mais entrar nela. ${correcao}`);
+      'e o ork ship entrega essa branch como estiver, com o que mais entrar nela; com --para tarefa, a entrega vira push direto, ' +
+      `que a policy push_direto_na_base confere. ${ensure}`);
+    assert.doesNotMatch(outraBranch, /depois do GO/, 'fora da base, os commits ficam na branch da raiz');
+    assert.equal(avisoDeThreadSemWorktree({ ...thread, base: { ...thread.base, branch: 'HEAD' } }, m),
+      `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto, com o HEAD destacado, fora de qualquer ` +
+      `branch, e o ork ship não tem branch de origem para entregar. ${ensure}`);
+    assert.equal(avisoDeThreadSemWorktree({ ...thread, base: { branch: 'desconhecida', commit: COMMIT_DESCONHECIDO } }, m),
+      `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto, num repositório ainda sem commit, ` +
+      `fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}`);
+    assert.equal(avisoDeThreadSemWorktree(thread, m, false), barra.replace(
+      `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha`,
+      `Aviso: sem worktree (--sem-worktree), a thread ${thread.id} trabalharia`), 'o ensaio fala da thread que nasceria');
 
     assert.equal(avisoDaWorktree('sem-worktree', { thread, gravada: true, worktreePor: null }, m), barra);
+    assert.equal(avisoDaWorktree('sem-worktree', { thread, gravada: false, worktreePor: null }, m), avisoDeThreadSemWorktree(thread, m, false));
+    const pasta = { dir: 'pasta/da/thread', branch: 'ork/thread-full' };
+    assert.equal(avisoDeWorktreeQueFalharia({ motivo: 'pasta-existe', ...pasta, por: 'chave' }),
+      'Aviso: a pasta pasta/da/thread já existe, e a criação de verdade recusaria a worktree da thread: tire a pasta ou crie com --sem-worktree.');
+    assert.equal(avisoDeWorktreeQueFalharia({ motivo: 'branch-existe', ...pasta, por: 'flag' }),
+      'Aviso: a branch ork/thread-full já existe, e a criação de verdade recusaria a worktree da thread: tire a branch ou crie com --sem-worktree.');
+    assert.equal(avisoDeWorktreeQueFalharia({ motivo: 'pasta-existe', ...pasta, por: 'ciclo' }),
+      'Aviso: a pasta pasta/da/thread já existe, e a criação de verdade recusaria a worktree da thread: tire a pasta.', 'o ciclo recusa --sem-worktree');
+    assert.equal(avisoDeWorktreeQueFalharia({ motivo: 'sem-commit', ...pasta, por: 'flag' }),
+      'Aviso: o repositório ainda não tem commit, e a criação de verdade recusaria a worktree da thread no git worktree add: faça o primeiro commit antes.');
     for (const origem of ['flag', 'chave', 'diretorio', 'nenhuma'] as const) {
       assert.equal(avisoDaWorktree(origem, { thread, gravada: true, worktreePor: origem === 'flag' || origem === 'chave' ? origem : null }, m), null, origem);
     }
@@ -305,7 +335,7 @@ test('p4 worktree: --sem-worktree cria sem worktree e avisa o ship', () => {
     const simulada = ork(p.dir, casa, 'thread', 'new', 'simulada sem', '--modo', 'auto', '--sem-worktree', '--dry-run');
     assert.equal(simulada.status, 0, simulada.stderr);
     assert.match(simulada.stdout, /  worktree  \(raiz do projeto\)\n/);
-    assert.match(simulada.stderr, /^Aviso: thread ork-simuladasem sem worktree \(--sem-worktree\)/m);
+    assert.match(simulada.stderr, /^Aviso: sem worktree \(--sem-worktree\), a thread ork-simuladasem trabalharia na raiz do projeto, na branch base main/m);
   } finally { p.limpar(); limpar(casa); }
 });
 
@@ -338,8 +368,19 @@ test('p4 worktree: flags explicitas continuam valendo', () => {
     assert.equal(comValor.status, 2);
     assert.match(comValor.stderr, /uso: --sem-worktree não leva valor \(recebeu "extra"\)/);
     const ciclo = ork(p.dir, casa, 'thread', 'new', 'ciclo sem', '--modo', 'classic', '--ciclo', 'greenfield', '--sem-worktree');
-    assert.notEqual(ciclo.status, 0);
-    assert.match(ciclo.stderr, /o ciclo greenfield exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo/);
+    assert.equal(ciclo.status, 2);
+    assert.match(ciclo.stderr, /^uso: o ciclo greenfield exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo$/m);
+    // A recusa do ciclo sai antes da reserva do roadmap: sem remoto, a reserva diria roadmap.sem-remoto.
+    const comRoadmap = ork(p.dir, casa, 'thread', 'new', 'ciclo com item', '--modo', 'classic', '--ciclo', 'greenfield',
+      '--sem-worktree', '--roadmap', 'RM-001');
+    assert.equal(comRoadmap.status, 2, comRoadmap.stderr);
+    assert.match(comRoadmap.stderr, /^uso: o ciclo greenfield exige worktree isolada/m);
+    assert.doesNotMatch(comRoadmap.stderr, /roadmap\./);
+    for (const vazio of ['--worktree=', '--worktree=  ']) {
+      const r = ork(p.dir, casa, 'thread', 'new', 'vazio', '--modo', 'auto', vazio);
+      assert.equal(r.status, 2, `${vazio}: ${r.stderr}`);
+      assert.match(r.stderr, /^uso: --worktree pede auto ou um diretório que já existe$/m);
+    }
     assert.deepEqual(listarIds(p.dir), ['ork-pelaflag', 'ork-reusadir'], 'as recusas nao gravam thread');
   } finally { p.limpar(); limpar(casa, existente); }
 });
@@ -384,6 +425,13 @@ test('p4 worktree: sem commit pelo CLI a thread nasce na raiz com os dois avisos
     assert.match(simulada.stdout, /  worktree  \(raiz do projeto\)\n/);
     assert.doesNotMatch(simulada.stdout, /  worktree: /);
     assert.ok(simulada.stderr.includes(`${avisoDeChaveSemCommit(false)}\n`), simulada.stderr);
+
+    const pelaFlag = ork(dir, casa, 'thread', 'new', 'pela flag', '--modo', 'auto', '--worktree', 'auto', '--dry-run');
+    assert.equal(pelaFlag.status, 0, pelaFlag.stderr);
+    assert.match(pelaFlag.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.doesNotMatch(pelaFlag.stdout, /  worktree: /);
+    assert.ok(pelaFlag.stderr.includes('Aviso: o repositório ainda não tem commit, e a criação de verdade recusaria a worktree da thread ' +
+      'no git worktree add: faça o primeiro commit antes.\n'), pelaFlag.stderr);
 
     const criada = ork(dir, casa, 'thread', 'new', 'primeira', '--modo', 'auto');
     assert.equal(criada.status, 0, criada.stderr);
@@ -459,12 +507,24 @@ test('p4 worktree: docs e ajuda dizem o comportamento novo', () => {
   const secao = modos.slice(modos.indexOf('\n## A worktree da thread\n'), modos.indexOf('\n## Uma thread começa a partir de um achado\n'));
   assert.ok(secao.length > 100, 'guia de modos: secao da worktree antes da thread que nasce de um achado');
   for (const trecho of ['`worktree.por_thread: true`', 'Com a chave `false` ou ausente, nada muda', '`--worktree auto`',
-    '`--worktree <DIR>`', '`--sem-worktree`', '`push_direto_na_base`', '`ork worktree ensure <thread>`', '`--dry-run`',
+    '`--worktree <DIR>`', '`--sem-worktree`', '`ork worktree ensure <thread>`', '`--dry-run`',
     '`greenfield`, `merge-branch` e `feature-xl-faseada` exigem a worktree e recusam `--sem-worktree`']) {
     assert.ok(secao.replace(/\s+/g, ' ').includes(trecho), `guia de modos: ${trecho}`);
   }
 
+  assert.ok(secao.includes('`push_direto_na_base: block`, o padrão do `ork init`'), 'guia de modos: o bloqueio depende da policy');
+
+  // A amostra do doctor diz o tamanho do manifesto que o `ork init` do passo 3 grava; o comentario da chave o mudou.
+  const novo = dirTemporario('p4-docs-manifesto');
+  try {
+    exec('git', ['init', '-q', '-b', 'main'], novo);
+    init(novo, { nome: 'meu-produto', abbrev: 'prd' });
+    const bytes = fs.statSync(path.join(novo, 'orkastery.yaml')).size;
+    assert.ok(quickstart.includes(`/caminho/do/seu/projeto/orkastery.yaml (${bytes} B de 16384)`), `quickstart: manifesto com ${bytes} B`);
+  } finally { limpar(novo); }
+
   const cli = ler('docs/referencia/cli.md');
+  assert.ok(cli.includes('A pasta é a da árvore principal, mesmo com o comando rodando de dentro de outra worktree'));
   assert.ok(cli.includes('`[--slug S] [--assunto A] [--worktree auto\\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]`'));
   assert.ok(cli.includes('| ↳ worktree | Com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree'));
   assert.ok(cli.includes('a worktree segue a mesma regra do `ork thread new`, com `--worktree auto` e `--sem-worktree` |'));
@@ -478,8 +538,80 @@ test('p4 worktree: docs e ajuda dizem o comportamento novo', () => {
     const ajuda = ork(casa, casa, '--help');
     assert.equal(ajuda.status, 0, ajuda.stderr);
     assert.ok(ajuda.stdout.includes(
-      '        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega);\n' +
-      '                                                 com worktree.por_thread: true, a worktree nasce sem flag\n'), ajuda.stdout);
+      '        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com\n' +
+      '                                                 push_direto_na_base: block, o padrão do ork init); com\n' +
+      '                                                 worktree.por_thread: true, a worktree nasce sem flag\n'), ajuda.stdout);
     assert.ok(ajuda.stdout.includes('        [--modo M] [--worktree auto] [--sem-worktree] [--dry-run]\n'), ajuda.stdout);
   } finally { limpar(casa); }
+});
+
+test('p4 worktree: thread nova de dentro de outra worktree nasce na arvore principal', () => {
+  const p = projetoTemporario('p4-cli-aninhada');
+  const casa = dirTemporario('p4-cli-aninhada-casa');
+  try {
+    // Manifesto commitado: a worktree da mae tem o proprio orkastery.yaml, e o ork rodado nela acha a raiz ali.
+    exec('git', ['add', '--', 'orkastery.yaml'], p.dir);
+    assert.ok(exec('git', ['commit', '-q', '-m', 'ork init'], p.dir).ok);
+    const mae = ork(p.dir, casa, 'thread', 'new', 'thread mae', '--modo', 'auto');
+    assert.equal(mae.status, 0, mae.stderr);
+    const dirMae = path.join(p.dir, '.claude/worktrees/ork-threadmae');
+    assert.ok(fs.existsSync(path.join(dirMae, 'orkastery.yaml')));
+
+    const dirFilha = path.join(p.dir, '.claude/worktrees/ork-threadfilha');
+    const simulada = ork(dirMae, casa, 'thread', 'new', 'thread filha', '--modo', 'auto', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.ok(simulada.stdout.includes(`  worktree  ${dirFilha}\n`), simulada.stdout);
+    const filha = ork(dirMae, casa, 'thread', 'new', 'thread filha', '--modo', 'auto');
+    assert.equal(filha.status, 0, filha.stderr);
+    assert.ok(filha.stdout.includes(`  worktree  ${dirFilha}\n`), filha.stdout);
+    assert.equal(lerThread(p.dir, 'ork-threadfilha').worktree, dirFilha);
+    assert.equal(fs.existsSync(path.join(dirMae, '.claude/worktrees')), false, 'nada aninhado na pasta da mae');
+
+    // O release da mae nao leva o trabalho da filha.
+    fs.writeFileSync(path.join(dirFilha, 'trabalho.txt'), 'da filha\n');
+    const release = ork(p.dir, casa, 'worktree', 'release', 'ork-threadmae');
+    assert.equal(release.status, 0, release.stdout + release.stderr);
+    assert.equal(fs.readFileSync(path.join(dirFilha, 'trabalho.txt'), 'utf8'), 'da filha\n');
+    assert.ok(exec('git', ['worktree', 'list', '--porcelain'], p.dir).stdout.includes(`worktree ${dirFilha}\n`));
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: --dry-run diz quando a criacao recusaria a worktree', () => {
+  const p = projetoTemporario('p4-cli-recusaria');
+  const casa = dirTemporario('p4-cli-recusaria-casa');
+  try {
+    // Id ocupado: o ensaio mostra o id livre que a criacao usaria, e a worktree dele.
+    assert.equal(ork(p.dir, casa, 'thread', 'new', 'prevista', '--modo', 'auto').status, 0);
+    const segunda = ork(p.dir, casa, 'thread', 'new', 'prevista', '--modo', 'auto', '--dry-run');
+    assert.equal(segunda.status, 0, segunda.stderr);
+    assert.match(segunda.stdout, /  id        ork-prevista2\n/);
+    assert.ok(segunda.stdout.includes(`  worktree  ${path.join(p.dir, '.claude/worktrees/ork-prevista2')}\n`), segunda.stdout);
+    assert.match(segunda.stdout, /  base      ork\/ork-prevista2-full @ /);
+
+    // Pasta da worktree ja existe: o ensaio avisa em vez de prever, e a criacao recusa dizendo que a chave pediu.
+    const orfa = path.join(p.dir, '.claude/worktrees/ork-orfa');
+    fs.mkdirSync(orfa, { recursive: true });
+    const ensaioOrfa = ork(p.dir, casa, 'thread', 'new', 'orfa', '--modo', 'auto', '--dry-run');
+    assert.equal(ensaioOrfa.status, 0, ensaioOrfa.stderr);
+    assert.match(ensaioOrfa.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.doesNotMatch(ensaioOrfa.stdout, /  worktree: /);
+    assert.ok(ensaioOrfa.stderr.includes(`Aviso: a pasta ${orfa} já existe, e a criação de verdade recusaria a worktree da thread: ` +
+      'tire a pasta ou crie com --sem-worktree.\n'), ensaioOrfa.stderr);
+    const criadaOrfa = ork(p.dir, casa, 'thread', 'new', 'orfa', '--modo', 'auto');
+    assert.equal(criadaOrfa.status, 1);
+    assert.ok(criadaOrfa.stderr.includes(`a pasta ${orfa} já existe, e a chave worktree.por_thread pede a worktree da thread: ` +
+      'tire-a ou crie com --sem-worktree'), criadaOrfa.stderr);
+    assert.equal(listarIds(p.dir).includes('ork-orfa'), false, 'a recusa nao grava a thread');
+    assert.equal(ork(p.dir, casa, 'thread', 'new', 'orfa', '--modo', 'auto', '--sem-worktree').status, 0, 'a saida explicita passa');
+
+    // Branch da worktree ja existe: o mesmo, pela branch.
+    exec('git', ['branch', 'ork/ork-ocupada-full'], p.dir);
+    const ensaioBranch = ork(p.dir, casa, 'thread', 'new', 'ocupada', '--modo', 'auto', '--dry-run');
+    assert.ok(ensaioBranch.stderr.includes('Aviso: a branch ork/ork-ocupada-full já existe, e a criação de verdade recusaria a worktree ' +
+      'da thread: tire a branch ou crie com --sem-worktree.\n'), ensaioBranch.stderr);
+    const criadaBranch = ork(p.dir, casa, 'thread', 'new', 'ocupada', '--modo', 'auto');
+    assert.equal(criadaBranch.status, 1);
+    assert.ok(criadaBranch.stderr.includes('a branch ork/ork-ocupada-full já existe, e a chave worktree.por_thread pede a worktree da ' +
+      'thread: tire-a ou crie com --sem-worktree'), criadaBranch.stderr);
+  } finally { p.limpar(); limpar(casa); }
 });

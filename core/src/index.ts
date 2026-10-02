@@ -90,7 +90,7 @@ import {
   tabelaDaDivida,
   textoDoAchado,
 } from './divida';
-import { parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
+import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
 import { exigirCatalogo } from './catalogo';
 import { doctor } from './doctor';
@@ -204,8 +204,9 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDaWorktree, avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, linhaDaWorktree, listarIds, novaThread,
-  pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem } from './thread';
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
+  linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+} from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
@@ -332,8 +333,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--exige-runtime-diferente]              o CHECK precisa de runtime que o GO nao usou
         [--done "<criterio> :: <comando>"]       criterio de pronto EXECUTAVEL (use ;; para varios)
         [--slug S] [--assunto A] [--worktree auto|DIR] [--dry-run]
-        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega);
-                                                 com worktree.por_thread: true, a worktree nasce sem flag
+        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
+                                                 push_direto_na_base: block, o padrão do ork init); com
+                                                 worktree.por_thread: true, a worktree nasce sem flag
         [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
   thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
@@ -700,8 +702,9 @@ function comandoThread(args: Args): number {
         console.log(`  slug em 3 partes: ${descreverSlug(r.thread.slug)}`);
         const linhaDaWorktreeDoAchado = linhaDaWorktree(r.worktreePor, gravadaDoAchado);
         if (linhaDaWorktreeDoAchado) console.log(linhaDaWorktreeDoAchado);
-        const avisoDaWorktreeDoAchado = avisoDaWorktree(pedidoAchado.origem,
-          { thread: r.thread, gravada: gravadaDoAchado, worktreePor: r.worktreePor }, carregado.manifesto);
+        const avisoDaWorktreeDoAchado = r.worktreeFalharia ? avisoDeWorktreeQueFalharia(r.worktreeFalharia)
+          : avisoDaWorktree(pedidoAchado.origem, { thread: r.thread, gravada: gravadaDoAchado, worktreePor: r.worktreePor },
+            carregado.manifesto);
         if (avisoDaWorktreeDoAchado) console.error(avisoDaWorktreeDoAchado);
       }
       if (r.motivo === 'claims.unverifiable') {
@@ -785,6 +788,12 @@ function comandoThread(args: Args): number {
       );
       return 2;
     }
+    // P4 do ensaio da 0.5.0 (D4, CHECK): a recusa do ciclo sai antes da reserva do roadmap, como os outros erros de
+    // uso; a do `novaThread` fica como defesa de quem o chama direto.
+    if (variante && definicaoDaVariante(variante).exigeWorktree && pedido.origem === 'sem-worktree') {
+      console.error(`uso: o ciclo ${variante} exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo`);
+      return 2;
+    }
     const brutoFatias = texto(args.opcoes.fatias);
     // I-47: `--roadmap RM-NNN` reserva o item ANTES de criar a thread. A reserva e o passo
     // atomico entre maquinas (o primeiro push vence); a thread e local. Se a criacao falhar,
@@ -829,7 +838,8 @@ function comandoThread(args: Args): number {
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
     const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
     if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
-    const avisoDaWorktreeNova = avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
+    const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
+      : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
