@@ -6,19 +6,23 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-09-30T03:09:41+00:00
+atualizado_em: 2026-10-01T02:45:00-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: a24a187
     pr: 24
+  testes:
+    ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
   thread: ork-rm052projeto
   modo: "#Auto"
@@ -34,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Em validação | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -82,9 +86,13 @@ sdlc:
   - risco: `ork board --json` deixou de ser lista; mitigação: nenhum consumidor no repositório além do teste de contrato, ajustado, e a mudança no CHANGELOG.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 a D10 no ledger da thread `ork-rm052projeto`, decididas pelo agente condutor sob o #Auto do dono em 29/09/2026: registro por máquina (D1), precedência (D2), host sem cwd e saída 4 (D3), só nome no host (D4), MCP fixado (D5), contrato JSON do board (D6), registro que nunca derruba o comando (D7), raiz com `~` (D8), transporte MCP desta sessão (D9) e entrega por PR (D10). Alternativa descartada: resolver pelo `HOME` ou pelo primeiro projeto registrado, que chutaria.
 - **Achado extra (registrado, não implementado aqui):** despacho que falha por impedimento que só o dono resolve vira apenas `phase_dispatch_failed`, sem HITL e sem "espera você" no board e na fábrica. Evidência: o primeiro despacho desta própria thread (evento `7123c016` do ledger de `ork-rm052projeto`, 29/09 16:32) falhou com "Workspace not trusted. Run `claude` in ... once and accept the trust prompt, then retry." e nada chegou ao dono. Proposta para um item próprio: motivo tipado do impedimento, com pedido HITL e a linha "espera você" até o dono destravar.
-- **Próxima fatia:** publicação e reinstalação da extensão OpenClaw pelo mantenedor; a skill do Codex com o mesmo texto do bootstrap; a medição do piloto.
+- **Próxima fatia:** reinstalação da extensão OpenClaw pelo mantenedor, agora que a versão 0.5.0 está publicada; a skill do Codex com o mesmo texto do bootstrap; a medição do piloto.
 
 ## Estado com evidências
+
+- Na `main` pelo PR #24 (merge `a24a187`), com o CI verde no push do merge (run 36659111443).
+- Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
+- Em validação: falta reinstalar a extensão do OpenClaw no gateway e medir o piloto no Telegram.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -92,13 +100,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-09-30 | Julio |
-| Documentação | Em revisão | — | 2026-09-30 | Julio |
-| Código | Mesclado | commit `a24a187` · PR #24 | 2026-09-30 | Julio |
-| Testes | Aprovados | — | 2026-09-30 | Julio |
-| Deploy | Não implantado | — | 2026-09-30 | Julio |
-| Exposição | Flag desligada | — | 2026-09-30 | Julio |
-| Habilitação | Pendente | — | 2026-09-30 | Julio |
+| Ciclo do item | Em validação | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `a24a187` · PR #24 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
+| Exposição | Flag desligada | — | 2026-10-01 | Julio |
+| Habilitação | Pendente | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -106,10 +114,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a thread `ork-rm052projeto` (#Auto, claude-code) conduziu GOAL a MASTER; o CHECK independente é o do CI (`ork-verify`), e a decisão final de merge é de Julio.
-- **Próxima ação, responsável e prazo:** revisão e merge do PR da thread pelo mantenedor, com o CI verde; depois, a publicação e o piloto no Telegram da srvjcp86.
+- **Próxima ação, responsável e prazo:** reinstalar a extensão do OpenClaw com a versão 0.5.0 e fazer o piloto no Telegram da máquina do incidente (mantenedor). O merge (PR #24) e a publicação (versão 0.5.0) já aconteceram.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-29 | item criado, com a thread `ork-rm052projeto` reservando o RM-052 | incidente do Telegram de 29/09 e pedido do dono para as três threads | Julio |
 | 2026-09-29 | oito tarefas entregues na branch da thread: registro, `--projeto`, cabeçalho honesto, MCP, OpenClaw, Hermes e Claude Code, regressão, docs | thread `ork-rm052projeto`, decisões D1 a D10 no ledger | agente condutor; decisão final de Julio |
 | 2026-09-29 | CHECK: GO-FIX de F1 (host só nome), F2 (cópia do cwd) e F3 (suíte isolada); `ork verify` com 47/47 claims e 0 regressões; PR #24 aberto como rascunho | `docs/check.md` da thread e o PR #24 | agente condutor; merge pelo mantenedor |
+| 2026-09-29 | mesclado na `main` | PR #24, merge `a24a187` | Julio |
+| 2026-10-01 | em produção na versão 0.5.0; o piloto segue em aberto | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |

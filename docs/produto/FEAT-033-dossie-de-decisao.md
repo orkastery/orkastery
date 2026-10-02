@@ -7,8 +7,8 @@ pai: MOD-05
 roadmap: [RM-026]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-29T11:24:00-03:00
-versao: ork/ork-rm026k3dossi-full@1656411
+verificado_em: 2026-10-01T02:20:00-03:00
+versao: main@46220bc
 fontes:
   codigo:
     - core/src/company-brain-dossie.ts
@@ -34,7 +34,7 @@ fontes:
 
 > **Em uma frase:** O `ork brain dossie` reúne as decisões de uma thread com o objetivo e o projeto, o contexto citável, as alternativas, quem decidiu e a evidência, nos mesmos ids do Company Brain. Só leitura.
 
-- **Estado:** vigente · **Verificado em:** 2026-09-29 · **Versão:** ork/ork-rm026k3dossi-full@1656411
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@46220bc (PR #27), publicada na 0.5.0
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-05](MOD-05-memoria-e-registro.md)
 - **Roadmap:** [RM-026](../roadmap/RM-026-workspace-empresarial.md), pacote K3
 - **Dono da página / aprovador:** Julio / Julio
@@ -95,3 +95,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-29 | página criada com o K3.1 | Claude (agente) / Julio, revisão pendente | RM-026, thread `ork-rm026k3dossi` |
+| 2026-10-01 | versão da `main`: K3.1 mesclado e publicado na 0.5.0 | Claude (agente) / Julio, revisão pendente | PR #27, merge `46220bc`; tag `v0.5.0` |
