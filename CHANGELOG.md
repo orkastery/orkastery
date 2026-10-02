@@ -38,6 +38,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork retry run <thread>` re-despacha a mesma fase com o mesmo prompt gravado (mesmo sha256), sem o dono reescrever o
     pedido; na confiança do diretório, só depois que o `.claude.json` da conta a registra, e sem a prova nada é despachado.
 
+### Mudado
+
+- **`worktree.por_thread` passa a valer no `ork thread new`** (P4 do ensaio da 0.5.0, [RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree e a branch dela sem
+    `--worktree auto`, também com `--from-finding`, e a saída diz que a worktree veio da chave; com a chave `false` ou
+    ausente, nada muda, e a chave ausente passa a ler `false`;
+  - `--sem-worktree` cria a thread na raiz do projeto e avisa o que isso faz no `ork ship` (na branch base,
+    `push_direto_na_base: block`, o padrão do `ork init`, barra a entrega) e como corrigir antes do GO; junto com
+    `--worktree`, ou num ciclo que exige worktree, recusa antes de reservar o item do roadmap;
+  - `--dry-run` mostra a worktree e a branch que seriam criadas, com o id livre que a criação usaria, ou avisa por que
+    a criação recusaria (pasta ou branch já existentes, repositório sem commit);
+  - a worktree nasce na pasta da árvore principal mesmo quando o `ork thread new` roda de dentro da worktree de outra
+    thread, em vez de aninhada nela;
+  - num repositório sem commit, a worktree da chave espera o primeiro commit: a thread nasce na raiz, com aviso.
+
 ### Corrigido
 
 - **Pendências da fatia 4 e rodízio no limite de gasto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 5):

@@ -17,14 +17,17 @@ import * as path from 'node:path';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { leasesDaThread, liberar, nomeDeLease } from './leases';
 import { ManifestoCarregado } from './manifest';
-import { criarWorktree, dirThread, gravarThread, lerThread } from './thread';
+import { criarWorktree, dirThread, gravarThread, lerThread, pastaDaWorktree } from './thread';
 import { Check, MotivoGate, Thread } from './types';
 import { exec, simbolo } from './util';
 import { auditarEstado, vincularEstado, comEstadoParaGit } from './estado-thread';
 
-/** Diretorio canonico da worktree de uma thread, resolvido pelo `ork`. */
+/**
+ * Diretorio canonico da worktree de uma thread, resolvido pelo `ork` na arvore principal: o mesmo que a criacao usa,
+ * tambem quando o comando roda de dentro de outra worktree (P4 do ensaio da 0.5.0).
+ */
 export function dirDaWorktree(carregado: ManifestoCarregado, id: string): string {
-  return path.resolve(carregado.raiz, carregado.manifesto.worktree.dir, id);
+  return pastaDaWorktree(carregado, id);
 }
 
 /** Branch canonica da worktree de uma thread. */

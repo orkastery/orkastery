@@ -137,7 +137,7 @@ conduction:
 worktree:
   base_branch: "main"
   dir: ".claude/worktrees"
-  por_thread: true       # a worktree da thread nasce com `ork thread new ... --worktree auto`
+  por_thread: true       # o ork thread new cria a worktree da thread sem flag; --sem-worktree cria sem
 
 verify:
   build: "npm run build" # detectado pelo init quando existe
@@ -171,7 +171,7 @@ ork doctor: o que vale nesta maquina agora
   [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))
   [warn] runtime codex                binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
                                       correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
-  [ok]   manifesto                    /caminho/do/seu/projeto/orkastery.yaml (4114 B de 16384)
+  [ok]   manifesto                    /caminho/do/seu/projeto/orkastery.yaml (4260 B de 16384)
   [warn] onboarding                   9 etapa(s) pendente(s): maestro, credenciais, bancos, memoria, produtos, topologia, arquitetura, skills, auditores
                                       correcao: ork onboarding
   [ok]   abbrev do projeto            "prd" (parte 1 do slug de sessao)
@@ -198,7 +198,7 @@ Veredito: PRONTO (2 warn). Despacho de fase liberado por `ork phase run`.
 ## 4. A primeira thread
 
 ```bash
-ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto
+ork thread new "corrigir o filtro de data do relatorio" --modo classic
 ```
 
 ```text
@@ -219,16 +219,19 @@ Thread criada.
     f56    SHIP-MASTER        sem pausa humana prevista
 
   slug em 3 partes: produto "prd", assunto "corrigirofil", fases "goal"
+  worktree: criada pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree
   estado: .orkastery/threads/prd-corrigirofil/thread.json
 
 Proximo passo: ork phase run prd-corrigirofil GOAL --prompt "<pedido>"
 ```
 
-O `--worktree auto` dá à thread a worktree e a branch dela (`ork/prd-corrigirofil-goal`). Sem ele,
-a thread roda na raiz do projeto, na própria branch base, e o `ork ship` do passo 8 sai barrado por
-`push_direto_na_base`. Para uma thread que já nasceu assim e ainda não passou do GO,
-`ork worktree ensure <thread>` cria a worktree e a branch. Depois do GO, os commits já estão na base,
-e o ship não os separa.
+A thread nasce com a worktree e a branch dela (`ork/prd-corrigirofil-goal`) porque o `ork init`
+grava `worktree.por_thread: true`; com a chave `false` ou ausente, a worktree só nasce com
+`--worktree auto`. O `--dry-run` mostra a worktree que seria criada, sem criar nada. Com
+`--sem-worktree`, a thread roda na raiz do projeto, na própria branch base, e o `ork ship` do passo 8
+sai barrado por `push_direto_na_base`, como o aviso do comando diz. Para uma thread que nasceu assim e
+ainda não passou do GO, `ork worktree ensure <thread>` cria a worktree e a branch. Depois do GO, os
+commits já estão na base, e o ship não os separa.
 
 Sem `--modo`, o `ork` usa o `conduction.default_mode` do manifesto. Se o pedido do builder
 trouxer uma #TAG, o adaptador de host a extrai chamando o próprio núcleo:

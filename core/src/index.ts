@@ -90,7 +90,7 @@ import {
   tabelaDaDivida,
   textoDoAchado,
 } from './divida';
-import { parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
+import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
 import { exigirCatalogo } from './catalogo';
 import { doctor } from './doctor';
@@ -204,8 +204,9 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread,
-  tabelaDeThreads, threadsDaListagem } from './thread';
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
+  linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+} from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
@@ -332,6 +333,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--exige-runtime-diferente]              o CHECK precisa de runtime que o GO nao usou
         [--done "<criterio> :: <comando>"]       criterio de pronto EXECUTAVEL (use ;; para varios)
         [--slug S] [--assunto A] [--worktree auto|DIR] [--dry-run]
+        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega com
+                                                 push_direto_na_base: block, o padrão do ork init); com
+                                                 worktree.por_thread: true, a worktree nasce sem flag
         [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
   thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
@@ -598,7 +602,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   audit finding estado <id> <estado>        Carimba o achado (aberto|adiado|resolvido|descartado)
 
   thread new <nome> --from-finding <ID>     Abre a thread a partir de um achado de auditoria
-        [--modo M] [--worktree auto] [--dry-run]   (evidencia, claim e proposta viajam junto)
+        [--modo M] [--worktree auto] [--sem-worktree] [--dry-run]
+                                                 (evidencia, claim e proposta viajam junto; a worktree segue
+                                                 worktree.por_thread como no thread new)
 
 Regimes de memoria: files (fallback honesto) e orkmind (bloco B6, base propria por tenant
 declarada em memory.database_url_env pelo NOME da variavel de ambiente, sem fallback).
@@ -655,15 +661,20 @@ function comandoThread(args: Args): number {
         try { modoAchado = exigirModoVivo(brutoModoAchado); }
         catch (e) { console.error((e as Error).message); return 2; }
       }
-      const brutoWorktreeAchado = args.opcoes.worktree;
-      const criarWorktreeAchado = brutoWorktreeAchado === true || brutoWorktreeAchado === 'auto';
+      // P4 do ensaio da 0.5.0 (D2): a thread do achado segue a mesma regra de worktree do `thread new`.
+      let pedidoAchado: PedidoDeWorktree;
+      try {
+        pedidoAchado = pedidoDeWorktree({ worktree: args.opcoes.worktree, semWorktree: args.opcoes['sem-worktree'] },
+          carregado.manifesto.worktree.por_thread);
+      } catch (e) { console.error((e as Error).message); return 2; }
       const r = abrirThreadDoAchado(carregado, doAchado, {
         nome: args.posicionais[2],
         modo: modoAchado ?? undefined,
         slug: texto(args.opcoes.slug),
         assunto: texto(args.opcoes.assunto),
-        criarWorktree: criarWorktreeAchado,
-        worktree: criarWorktreeAchado ? null : (texto(brutoWorktreeAchado) ?? null),
+        criarWorktree: pedidoAchado.criar,
+        worktree: pedidoAchado.dir,
+        origemDaWorktree: pedidoAchado.origem,
         dryRun: args.opcoes['dry-run'] === true,
       });
       if (!r.ok) {
@@ -689,6 +700,12 @@ function comandoThread(args: Args): number {
         console.log(resumoDaThread(r.thread));
         console.log('');
         console.log(`  slug em 3 partes: ${descreverSlug(r.thread.slug)}`);
+        const linhaDaWorktreeDoAchado = linhaDaWorktree(r.worktreePor, gravadaDoAchado);
+        if (linhaDaWorktreeDoAchado) console.log(linhaDaWorktreeDoAchado);
+        const avisoDaWorktreeDoAchado = r.worktreeFalharia ? avisoDeWorktreeQueFalharia(r.worktreeFalharia)
+          : avisoDaWorktree(pedidoAchado.origem, { thread: r.thread, gravada: gravadaDoAchado, worktreePor: r.worktreePor },
+            carregado.manifesto);
+        if (avisoDaWorktreeDoAchado) console.error(avisoDaWorktreeDoAchado);
       }
       if (r.motivo === 'claims.unverifiable') {
         console.log('');
@@ -755,16 +772,26 @@ function comandoThread(args: Args): number {
         return { criterio, comando };
       });
     const dryRun = args.opcoes['dry-run'] === true;
-    const brutoWorktree = args.opcoes.worktree;
-    // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread;
-    // um caminho reusa um diretorio que ja existe.
-    const criarWorktree = brutoWorktree === true || brutoWorktree === 'auto';
+    // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread; um caminho reusa um
+    // diretorio que ja existe. P4 do ensaio da 0.5.0: sem flag, `worktree.por_thread: true` cria como o
+    // `--worktree auto`, e `--sem-worktree` cria sem ela. Uso invalido sai antes da reserva do roadmap.
+    let pedido: PedidoDeWorktree;
+    try {
+      pedido = pedidoDeWorktree({ worktree: args.opcoes.worktree, semWorktree: args.opcoes['sem-worktree'] },
+        carregado.manifesto.worktree.por_thread);
+    } catch (e) { console.error((e as Error).message); return 2; }
     const brutoCiclo = texto(args.opcoes.ciclo) ?? texto(args.opcoes.variante);
     const variante = brutoCiclo ? parseVariante(brutoCiclo) : null;
     if (brutoCiclo && !variante) {
       console.error(
         `variante de ciclo invalida: "${brutoCiclo}". Use uma de: ${Object.keys(VARIANTES).join(', ')}`
       );
+      return 2;
+    }
+    // P4 do ensaio da 0.5.0 (D4, CHECK): a recusa do ciclo sai antes da reserva do roadmap, como os outros erros de
+    // uso; a do `novaThread` fica como defesa de quem o chama direto.
+    if (variante && definicaoDaVariante(variante).exigeWorktree && pedido.origem === 'sem-worktree') {
+      console.error(`uso: o ciclo ${variante} exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo`);
       return 2;
     }
     const brutoFatias = texto(args.opcoes.fatias);
@@ -780,8 +807,9 @@ function comandoThread(args: Args): number {
         modo,
         slug: texto(args.opcoes.slug),
         assunto: texto(args.opcoes.assunto),
-        worktree: criarWorktree ? null : (texto(brutoWorktree) ?? null),
-        criarWorktree,
+        worktree: pedido.dir,
+        criarWorktree: pedido.criar,
+        origemDaWorktree: pedido.origem,
         dryRun,
         variante,
         branch: texto(args.opcoes.branch),
@@ -808,6 +836,10 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
+    if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
+    const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
+      : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
@@ -820,6 +852,7 @@ function comandoThread(args: Args): number {
         console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
       }
     }
+    if (avisoDaWorktreeNova) console.error(avisoDaWorktreeNova);
     if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }
