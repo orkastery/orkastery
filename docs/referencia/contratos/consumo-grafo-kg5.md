@@ -16,8 +16,9 @@ que ela mexe, fica para a fatia seguinte do KG5.
 | Garante | Não garante |
 | --- | --- |
 | Sem a flag, nada muda: as mesmas 30 tools, com os mesmos schemas, e o mesmo comando de despacho | Que a resposta é completa: o grafo só tem o que o extrator prova |
-| A resposta da tool é, byte a byte, a do `ork grafo <consulta> ... --json --teto-bytes N` na worktree da thread | Que o host não corta a resposta por um limite próprio |
-| Toda aresta sai com toda a evidência: o teto tira arestas inteiras, as mais longe do alvo | Economia de contexto: isso é o benchmark do [protocolo](benchmark-grafo-kg1.md) |
+| A resposta da tool é, byte a byte, o JSON que o `ork grafo <consulta> ... --json --teto-bytes N` escreve na worktree da thread (a CLI só acrescenta a quebra de linha final) | Que o host não corta a resposta por um limite próprio |
+| Toda aresta sai com toda a evidência: o teto tira arestas inteiras, as mais longe do alvo | Que a recusa cabe no teto: ele vale para a resposta |
+| Sem os analisadores na instalação, a tool recusa com `grafo.parser.indisponivel`, nunca responde pela metade | Economia de contexto: isso é o benchmark do [protocolo](benchmark-grafo-kg1.md) |
 | Sem o índice do HEAD, a recusa diz o caso e a correção; a tool nunca responde por outro índice | Que o índice acompanha a árvore editada: a resposta é do HEAD, e diz quando a árvore mudou |
 | O servidor MCP não carrega o grafo: a consulta roda num processo filho, com prazo e cancelamento | Prova numa sessão live de Claude Code ou Codex: os testes usam o servidor com transporte em memória |
 
@@ -38,6 +39,18 @@ O servidor registra as tools no startup, e cada chamada confere a flag de novo: 
 sessão aberta, a tool recusa com `grafo.mcp.desligado` antes de consultar. Ligada depois do startup,
 vale para as sessões abertas depois.
 
+## Pré-requisito
+
+As tools rodam o `ork grafo` da instalação do `ork` que serve o MCP, e ele precisa do `typescript` e
+do micromark no `node_modules` dessa instalação ([analisadores do KG3](indice-grafo-kg3.md#analisadores)):
+o checkout de desenvolvimento e o CI os têm, e o pacote publicado `@orkastery/cli` 0.5.0 não. Sem eles,
+toda chamada recusa com `grafo.parser.indisponivel`, e o `ork grafo indexar` também. Ligar a flag só
+serve numa instalação com os analisadores.
+
+A versão do Node e os bytes do código do extrator entram na chave do índice. O índice que a tool lê é o
+que a mesma instalação do `ork`, com o mesmo Node, construiu: indexado por outra, a tool recusa com
+`grafo.indice.outro-extrator` e diz o que mudou.
+
 ## As tools
 
 | Tool | CLI | Parâmetros |
@@ -53,8 +66,8 @@ servidor. São de leitura (`readOnlyHint`), com schema fechado. A consulta roda 
 consulta a de outra (`mcp.thread.scope`). O nó tem a forma da [consulta do KG3](indice-grafo-kg3.md#consulta)
 e não começa com `--`, porque o parser do `ork grafo` o leria como opção.
 
-A tool monta o argv que a CLI receberia, com as opções na forma `--opcao=valor`, e devolve a saída sem
-transformar (D6):
+A tool monta o argv que a CLI receberia, com as opções na forma `--opcao=valor`, e devolve o que a CLI
+escreve, sem transformar e sem a quebra de linha final que o terminal recebe (D6):
 
 ```text
 ork_grafo_vizinhos {threadId, alvo: "src/a.ts#a", profundidade: 2, tipos: ["calls"]}
@@ -67,26 +80,30 @@ método, arquivo, linhas e bytes de cada evidência, o aviso de parcialidade e o
 
 ## Teto da resposta
 
-As tools respondem com no máximo `tetoBytes` bytes, 32.768 por padrão, de 4.096 a 65.536 (D4). O
+A resposta das tools tem no máximo `tetoBytes` bytes, 32.768 por padrão, de 4.096 a 65.536 (D4). O
 corte é da CLI, pela opção `--teto-bytes N`, que também vale fora do MCP:
 
-- só com `--json`, e o JSON sai compacto; sem a opção, a saída da CLI é a de antes;
+- só com `--json`, e o JSON sai compacto; sem a opção, a resposta da CLI é a de antes (as recusas de
+  índice ganharam o caso e a correção, abaixo);
 - se a resposta pedida cabe, ela sai inteira, com `teto: {bytes, limite_pedido, cortado: false}`;
 - se não cabe, vale o maior `limite` que cabe: as arestas mais longe do alvo saem primeiro, pela
   mesma ordem do `--limite`, `consulta.limite` passa a ser o efetivo, `truncado` fica `true` e
   `teto.cortado` também. O tamanho só cresce com o limite, então a busca binária acha sempre o mesmo;
 - o caminho não se corta: se não cabe, a recusa é `grafo.consulta.teto-excedido`, e o mesmo vale
-  quando nem a aresta mais perto do alvo cabe.
+  quando nem a aresta mais perto do alvo cabe;
+- a recusa sai compacta, mas não passa pelo teto: ela é curta, e o que pode crescer nela é o nó ecoado
+  (até 2.048 caracteres) e a lista de até 20 candidatos do nome ambíguo.
 
 ## Recusas
 
 | Código | Quando | No JSON |
 | --- | --- | --- |
 | `grafo.indice.ausente` | não há índice deste repositório (não indexado) | `estado_do_indice: "nao-indexado"`, `correcao: "ork grafo indexar"` |
-| `grafo.indice.outra-revisao` | há índice deste repositório, de outra revisão: o HEAD andou | `estado_do_indice: "outra-revisao"`, a correção |
-| `grafo.indice.outro-extrator` | há índice da revisão do HEAD com outra chave: a instalação do `ork`, os analisadores ou o código do extrator mudaram | `estado_do_indice: "outro-extrator"`, a correção |
+| `grafo.indice.outra-revisao` | há índice deste repositório, de outra revisão: o HEAD andou depois da indexação, ou o guardado é o de outra árvore (a principal ou outra worktree, que dividem o estado) | `estado_do_indice: "outra-revisao"`, a correção |
+| `grafo.indice.outro-extrator` | há índice da revisão do HEAD com outra chave: outra instalação do `ork`, outro Node, outros analisadores ou outro código do extrator; a recusa diz o que mudou | `estado_do_indice: "outro-extrator"`, a correção, com a mesma instalação de quem consulta |
 | `grafo.indice.corrompido` | o índice do HEAD não passa na leitura (tamanho, digest) | `estado_do_indice: "corrompido"`, a correção |
 | `grafo.consulta.teto-excedido` | a resposta não cabe no teto e não pode ser cortada | o tamanho e o teto no `detalhe` |
+| `grafo.parser.indisponivel` | a instalação do `ork` que consulta não tem o `typescript` ou o micromark ([pré-requisito](#pré-requisito)) | o pacote que falta; sem correção pelo `ork grafo indexar` |
 | `grafo.mcp.desligado` | a flag foi desligada com a sessão aberta | `{erro}`, como nas outras tools |
 | `grafo.mcp.indisponivel` | o worker não respondeu (prazo, cancelamento, saída inesperada) | `{erro}` com o motivo |
 
@@ -96,6 +113,11 @@ worker, schema) vêm como `{erro}`, como em todo o servidor. As do índice tamb�
 `--json`; em texto, a de índice ausente, de outra revisão ou de outro extrator manda rodar
 `ork grafo indexar`, que constrói o índice do HEAD incremental a partir do ancestral
 ([KG4](incremental-grafo-kg4.md)).
+
+No GO, cada commit move o HEAD: a consulta seguinte recusa com `grafo.indice.outra-revisao` até o
+`ork grafo indexar` (incremental, alguns segundos), que exige a árvore limpa. Com mudança ainda não
+commitada, a consulta responde pelo índice do HEAD e diz isso no campo `indice.arvore`
+(`modificada`).
 
 ## Execução
 
@@ -133,8 +155,8 @@ com os hashes congelados.
 
 Registro em
 [`core/test/fixtures/kg5-medida-mcp.json`](../../../core/test/fixtures/kg5-medida-mcp.json)
-(`ork.graph-mcp-cost/v0`), gerado por `core/scripts/medir-mcp-grafo.cjs` na revisão `c03241be` da
-branch da thread, com a árvore limpa, carga 4,3 em 8 núcleos, Node v22.23.2 e 3 repetições por braço,
+(`ork.graph-mcp-cost/v0`), gerado por `core/scripts/medir-mcp-grafo.cjs` na revisão `9000f52e` da
+branch da thread, com a árvore limpa, carga 7,4 em 8 núcleos, Node v22.23.2 e 3 repetições por braço,
 nas seis perguntas da [medida do KG3](indice-grafo-kg3.md#primeira-medida-do-custo-de-consulta) (D9).
 **Não é o benchmark `ork.graph-benchmark/v1`** e não conclui economia.
 
@@ -145,15 +167,15 @@ nas seis perguntas da [medida do KG3](indice-grafo-kg3.md#primeira-medida-do-cus
 
 | Pergunta | Tool: bytes | Tool: arestas | Tool: latência | CLI: bytes | CLI: arestas | Cru: bytes | Cru: arquivos |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 quem chama `lerRepositorio` | 2.525 | 1 de 1 | 735,1 ms | 3.148 | 1 | 263.823 | 10 |
-| P2 quem chama `dirEstado` | 14.009 | 18 de 18 | 679,8 ms | 19.426 | 18 | 609.038 | 24 |
-| P3 quem importa o contrato do grafo | 8.136 | 9 de 9 | 852,9 ms | 11.015 | 9 | 545.827 | 20 |
-| P4 quem importa o leitor de YAML | 8.074 | 10 de 10 | 706,8 ms | 11.235 | 10 | 259.175 | 12 |
-| P5 vizinhança de `raizDoEstado` | 32.087 | 41 de 104, cortada | 644,5 ms | 106.363 | 104 | 1.145.700 | 49 |
-| P6 caminho de `main` a `dirEstado` | 4.325 | 2 de 2 | 780,8 ms | 5.880 | 2 | indisponível | indisponível |
+| P1 quem chama `lerRepositorio` | 2.525 | 1 de 1 | 782,7 ms | 3.148 | 1 | 292.510 | 12 |
+| P2 quem chama `dirEstado` | 14.009 | 18 de 18 | 815,4 ms | 19.426 | 18 | 638.111 | 26 |
+| P3 quem importa o contrato do grafo | 8.136 | 9 de 9 | 781,6 ms | 11.015 | 9 | 569.720 | 21 |
+| P4 quem importa o leitor de YAML | 8.074 | 10 de 10 | 787,1 ms | 11.235 | 10 | 273.815 | 13 |
+| P5 vizinhança de `raizDoEstado` | 32.087 | 41 de 104, cortada | 758,9 ms | 106.363 | 104 | 1.179.908 | 51 |
+| P6 caminho de `main` a `dirEstado` | 4.325 | 2 de 2 | 783,2 ms | 5.880 | 2 | indisponível | indisponível |
 
-**Descoberta**, o custo fixo de ligar a flag: as quatro definições somam 5.895 bytes no `tools/list`,
-que vai de 23.289 para 29.188 bytes (de 30 para 34 tools), num projeto temporário com e sem a flag.
+**Descoberta**, o custo fixo de ligar a flag: as quatro definições somam 5.931 bytes no `tools/list`,
+que vai de 23.289 para 29.224 bytes (de 30 para 34 tools), num projeto temporário com e sem a flag.
 
 Como ler, sem concluir além do medido:
 
@@ -164,14 +186,19 @@ Como ler, sem concluir além do medido:
   crua acha texto, comentário e nome igual em outro escopo.
 - A descoberta é paga por sessão com a flag ligada, mesmo sem consulta; quanto dela chega ao modelo
   depende de como o host carrega as definições.
-- A latência da tool inclui a partida do Node e a leitura do índice a cada chamada.
+- A latência da tool inclui a partida do Node e a leitura do índice a cada chamada; cada worker lê o
+  índice inteiro (lendo o índice deste repositório no processo, o RSS chegou a 280 MB, medido no GOAL
+  da thread), e não há limite de workers simultâneos além das chamadas do host.
+- A leitura crua cresce com o próprio repositório: o nome de um símbolo citado em docs e testes novos
+  aumenta os arquivos com ocorrência.
 
 ```sh
 node core/scripts/medir-mcp-grafo.cjs --conferir
 node core/scripts/medir-mcp-grafo.cjs --validar core/test/fixtures/kg5-medida-mcp.json
 ```
 
-`--conferir` mede de novo no HEAD e confere que a resposta da tool é a do `ork grafo` com o mesmo argv,
+`--conferir` mede de novo no HEAD e confere que a resposta da tool é a do `ork grafo` com o mesmo argv
+(sem a quebra de linha final),
 que cabe no teto e que o trecho de cada evidência, no blob do HEAD, cita o alvo da aresta. `--validar`
 confere a forma do registro e recusa token medido sem medida e texto que prometa economia.
 

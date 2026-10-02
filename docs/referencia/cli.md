@@ -355,13 +355,14 @@ ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas m
 extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
 resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
 
-`--teto-bytes N` (KG5, só com `--json`) imprime JSON compacto de no máximo N bytes: se a resposta não
-cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o limite
-pedido e se cortou; o caminho não se corta e recusa com `grafo.consulta.teto-excedido`. Sem o índice do
-HEAD, a consulta diz o caso: `grafo.indice.ausente` (não indexado), `grafo.indice.outra-revisao` (o
-índice guardado é de outra revisão) ou `grafo.indice.outro-extrator` (o do HEAD é de outro extrator);
-com `--json`, essas recusas e a de índice corrompido trazem `estado_do_indice` e
-`correcao: "ork grafo indexar"`.
+`--teto-bytes N` (KG5, só com `--json`) escreve a resposta em JSON compacto de no máximo N bytes: se ela
+não cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o
+limite pedido e se cortou; o caminho não se corta e recusa com `grafo.consulta.teto-excedido`. A recusa
+também sai compacta, mas não passa pelo teto. Sem o índice do HEAD, a consulta diz o caso:
+`grafo.indice.ausente` (não indexado), `grafo.indice.outra-revisao` (o índice guardado é de outra
+revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de outra instalação, outro
+Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
+corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
 
 ```bash
 ork grafo indexar --verificar

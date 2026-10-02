@@ -37,7 +37,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   claude-bg as libera para a sessão filha só com a flag. As consultas do `ork grafo` ganham
   `--teto-bytes N` (JSON compacto de até N bytes, sem as arestas mais longe do alvo quando não cabe) e,
   sem o índice do HEAD, dizem se ele falta, se é de outra revisão ou de outro extrator, com a correção
-  `ork grafo indexar`. Sem a flag, as tools e o despacho ficam como estão.
+  `ork grafo indexar`. Sem a flag, as tools e o despacho ficam como estão. Como todo o `ork grafo`,
+  as tools precisam do `typescript` e do micromark na instalação do `ork`; sem eles, recusam com
+  `grafo.parser.indisponivel`.
 
 ### Corrigido
 

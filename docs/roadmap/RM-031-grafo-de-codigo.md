@@ -66,7 +66,7 @@ sdlc:
 ## Plano e decisões
 
 - **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, KG3, D1 a D10 da thread `ork-rm031kg3`, KG4, D1 a D11 da thread `ork-rm031kg4incr`, e KG5, D1 a D10 da thread `ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
-- **Próximo passo:** merge do KG5 com o CI verde; o dono decide ligar `grafo.mcp` (exposição e habilitação); depois, a fatia seguinte do KG5 (pacote de contexto da thread) e a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
+- **Próximo passo:** merge do KG5 com o CI verde; o dono decide ligar `grafo.mcp` (exposição e habilitação), numa instalação do `ork` com o `typescript` e o micromark, que o pacote publicado 0.5.0 não tem; depois, a fatia seguinte do KG5 (pacote de contexto da thread) e a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
 
 ## Estado com evidências
 
@@ -80,7 +80,8 @@ sdlc:
 - O contrato v1 do grafo, o Company Brain v1 e o adaptador semântico ficam intactos: os hashes congelados passam no teste de fronteira e em claim.
 - O único registro `measured` de benchmark é o protocolo fixado do KG4, com `status: not-run` (veredito `not-run`, nunca publicável); todo outro veredito é sobre dado sintético.
 - KG5 na branch da thread: com `grafo.mcp: true`, o servidor MCP lista as quatro tools depois das 30 de sempre, e cada uma responde, byte a byte, o que o `ork grafo ... --json --teto-bytes N` responde na worktree da thread; sem a flag, as mesmas 30 tools e o mesmo comando de despacho (`core/test/mcp-grafo.test.ts`, grupos `KG5`). A consulta roda num processo filho com o ambiente mínimo do MCP, prazo e cancelamento, e o servidor não alcança a família do grafo (teste de fronteira).
-- KG5, medida offline em `core/test/fixtures/kg5-medida-mcp.json`, na revisão `c03241be`: nas seis perguntas, a tool entrega de 2.525 a 32.087 bytes (a P5 cortada pelo teto, 41 de 104 arestas), a CLI sem teto de 3.148 a 106.363 e a leitura crua de 259.175 a 1.145.700; as quatro definições custam 5.895 bytes no `tools/list`. Tokens indisponíveis e nenhuma conclusão de economia.
+- KG5, medida offline em `core/test/fixtures/kg5-medida-mcp.json`, na revisão `9000f52e`: nas seis perguntas, a tool entrega de 2.525 a 32.087 bytes (a P5 cortada pelo teto, 41 de 104 arestas), a CLI sem teto de 3.148 a 106.363 e a leitura crua de 273.815 a 1.179.908; as quatro definições custam 5.931 bytes no `tools/list`. Tokens indisponíveis e nenhuma conclusão de economia.
+- KG5, revisão independente do CHECK (rodada 1): nenhum bloqueador; os quatro avisos (recusa de outro extrator sem dizer o que mudou, texto do teto e da saída da CLI, pré-requisito dos analisadores) e as sugestões de teste e de endurecimento foram corrigidos no GO-FIX 1.
 - CI verde no push de cada merge: KG1 (run 36563021189), KG2 (run 36721687751), KG3 (run 36773338449) e KG4 (run 36961667790).
 - KG1, KG2 e KG3 em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450). O `ork grafo` pede o `typescript` e o micromark no pacote do `ork`, que não são dependências dele; sem eles, a recusa é `grafo.parser.indisponivel` (CHANGELOG da 0.5.0).
 
