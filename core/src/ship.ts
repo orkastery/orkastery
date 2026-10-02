@@ -122,9 +122,11 @@ export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string):
   // Do mais velho para o mais novo: o primeiro de primeiro pai que descende do `shaDe`.
   const maisVelho = [...primeiroPai].reverse().find((c) => doShaDe.has(c));
   if (!maisVelho) return null;
-  // O primeiro pai dele e o proprio `shaDe`: a branch ja estava no primeiro pai da base (fast-forward).
+  // O primeiro pai dele e o proprio `shaDe`: a branch ja estava no primeiro pai da base (fast-forward). Sem a resposta
+  // do git, nada e gravado: devolver o mais velho poria no `mergeSha` o filho do `shaDe` (sugestao da rodada 2).
   const pai = exec('git', ['rev-parse', `${maisVelho}^1`], raiz);
-  return pai.ok && pai.stdout.trim() === shaDe ? shaDe : maisVelho;
+  if (!pai.ok) return null;
+  return pai.stdout.trim() === shaDe ? shaDe : maisVelho;
 }
 
 /** Os caminhos de contrato publico que a entrega traz sobre a base (diff desde o merge-base). */
@@ -712,7 +714,8 @@ export function ship(
     } else {
       // RM-037 (fatia 5, A1): o merge que trouxe a branch, e nao a ponta da base.
       const incorporadoEm = commitQueIncorporou(raiz, shaDe, shaPara);
-      passos.push(`git rev-list --first-parent e --ancestry-path ${shaDe.slice(0, 8)}..${shaPara.slice(0, 8)}`);
+      passos.push(`git rev-list --first-parent ${shaDe.slice(0, 8)}..${shaPara.slice(0, 8)}`,
+        `git rev-list --ancestry-path ${shaDe.slice(0, 8)}..${shaPara.slice(0, 8)}`);
       if (!incorporadoEm) {
         return bloquear(
           'artifact.missing',
@@ -721,7 +724,8 @@ export function ship(
         );
       }
       mergeSha = incorporadoEm;
-      passos.push(`(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
+      passos.push(`git rev-parse ${mergeSha.slice(0, 8)}^1`,
+        `(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
     }
     r.mergeSha = mergeSha;
     r.pontaDaBase = pontaDaBase;

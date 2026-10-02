@@ -421,7 +421,9 @@ export function estadoDoArtefato(raiz: string, threadId: string, arquivo: string
   const file = path.join(dirThread(raiz, threadId), arquivo);
   const vazio = { sha256: null, mtimeMs: null, texto: null };
   let fd: number;
-  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
+  // RM-037 (fatia 5, sugestao da rodada 2 do CHECK): O_NONBLOCK, como na transcricao, para um FIFO no lugar do
+  // artefato nao travar o observador no open; o `isFile` abaixo o recusa.
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (erro) { return (erro as NodeJS.ErrnoException).code === 'ENOENT' ? vazio : { ...vazio, invalido: true }; }
   try {
     const stat = fs.fstatSync(fd);

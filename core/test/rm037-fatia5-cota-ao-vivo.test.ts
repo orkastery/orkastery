@@ -210,7 +210,8 @@ function observarNoFilho(c: Cenario, agoraMs: number): { concluido?: boolean } {
   const modulo = (nome: string) => JSON.stringify(path.resolve(__dirname, '..', 'src', nome));
   const script = `const { observarSessao } = require(${modulo('session-watcher')}); const { exigirManifesto } = require(${modulo('manifest')});
     process.stdout.write(JSON.stringify(observarSessao(exigirManifesto(process.argv[1]), process.argv[2], { agoraMs: Number(process.argv[3]) })));`;
-  const r = spawnSync(process.execPath, ['-e', script, c.p.dir, SESSAO, String(agoraMs)], { encoding: 'utf8', timeout: 15000 });
+  // 60 s, como os outros testes que sobem processo: sob carga, um filho lento nao passa por FIFO travado.
+  const r = spawnSync(process.execPath, ['-e', script, c.p.dir, SESSAO, String(agoraMs)], { encoding: 'utf8', timeout: 60000 });
   assert.equal(r.signal, null, 'o observador travou no FIFO da transcricao');
   assert.equal(r.status, 0, r.stderr);
   return JSON.parse(r.stdout) as { concluido?: boolean };
@@ -222,6 +223,9 @@ test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva
     const { dir } = sessaoViva(c, 'blocked');
     fs.mkdirSync(path.dirname(arquivoDaTranscricao(c)), { recursive: true });
     execFileSync('mkfifo', [arquivoDaTranscricao(c)]);
+    // E no lugar do artefato da fase (o `docs/goal.md` que o observador confere a cada volta), sugestao da rodada 2.
+    fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+    execFileSync('mkfifo', [path.join(dir, 'docs', 'goal.md')]);
     assert.equal(observarNoFilho(c, VOLTA).concluido, false);
     c.claude.estadoDaSessao('failed');
     assert.equal(observarNoFilho(c, VOLTA + 10000).concluido, true);
