@@ -212,7 +212,7 @@
         "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-p4worktreepo.json','utf8'));const ids=new Set([...b.claims,...(b.deferredClaims||[])].map(c=>c.id));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-p4worktreepo'||b.branch!=='ork/ork-p4worktree-full'||ids.size<15){console.error('bundle da thread incompleto');process.exit(1)}\""
       ],
       "criadoEm": "2026-10-02T18:16:59.841Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
