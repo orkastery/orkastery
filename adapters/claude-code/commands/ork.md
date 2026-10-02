@@ -47,6 +47,13 @@ Usabilidade HITL é prioridade máxima: tópicos, recomendação e opções rotu
 UUID interno e cancelamento preservado. A condutora usa
 `mcp__orkastery__ork_request_decision`; o filho nunca responde em nome do dono.
 
+HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo
+"Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
+que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
+Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a
+fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: mostre o
+comando exato.
+
 | Pedido do dono | Acao do agente |
 |---|---|
 | Demanda nova | Resolva o modo pelo nucleo, confira o preflight e abra/despache a thread correspondente. |

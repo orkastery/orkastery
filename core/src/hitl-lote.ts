@@ -30,8 +30,11 @@ export const CONTRATO_LOTE = 'ork.hitl-lote/v1' as const;
 /** De cinco em cinco, como o dono pediu. As que sobram continuam guardadas, nao somem. */
 export const TETO_DE_PERGUNTAS_POR_LOTE = 5;
 
-/** De 2 a 4 alternativas, rotuladas em sequencia. Cinco nao cabem numa escolha rapida. */
-export const LETRAS = ['a', 'b', 'c', 'd'] as const;
+/**
+ * De 2 a 5 alternativas, rotuladas em sequencia. RM-057: o pedido de conducao do ork traz de 3 a 5;
+ * o lote ainda le as de 2 do historico e as perguntas nativas das sessoes.
+ */
+export const LETRAS = ['a', 'b', 'c', 'd', 'e'] as const;
 export type Letra = typeof LETRAS[number];
 
 /**

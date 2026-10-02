@@ -9,7 +9,7 @@
  *
  * "Inequivoca" nao e julgamento de ninguem. E esta regra, fechada e pura:
  *
- *   1. o texto tem a forma de uma resposta: letra a-d, digito 1-4, ou uma palavra do VOCABULARIO
+ *   1. o texto tem a forma de uma resposta: letra a-e, digito 1-5, ou uma palavra do VOCABULARIO
  *      (que e uma lista, e nao um classificador), sozinha ou numerada ("1. B, 2. aprovo");
  *   2. a palavra casa com UMA alternativa, pela acao dela ("aprovo" casa `aprovar`; "nao" num gate
  *      casa `recusar` e `esperar`, entao e ambigua e volta como pergunta);
@@ -61,7 +61,7 @@ const PALAVRAS_DA_FORMA = 'pode seguir|pode ir|pode|sim|s|ok|aprovo|aprovado|apr
   'volta|voltar|esperar|espera|aguardar|aguarda|aguarde|depois|mais tarde|detalhes?|evid[eê]ncias?';
 
 /** Uma resposta: letra, ou palavra do vocabulario. */
-const RESPOSTA_DA_FORMA = `(?:[a-d]|${PALAVRAS_DA_FORMA})`;
+const RESPOSTA_DA_FORMA = `(?:[a-e]|${PALAVRAS_DA_FORMA})`;
 
 /**
  * Um item numerado: "1a", "1 a", "1. B", "1) aprovo", "1 - nao", "1: detalhes".
@@ -80,7 +80,7 @@ export const FORMAS_DO_TEXTO_LIVRE = Object.freeze({
   /** Resposta numerada, uma ou varias, separadas por virgula, ponto e virgula, espaco ou linha. */
   lista: `^[ \\t]*${ITEM_DA_FORMA}(?:[ \\t\\r\\n,;]*${ITEM_DA_FORMA})*[ \\t]*(?:[.!][ \\t]*)?$`,
   /** Resposta solta: letra, digito ou palavra, sozinha na mensagem. */
-  livre: `^[ \\t]*(?:[1-4]|${RESPOSTA_DA_FORMA})[ \\t]*(?:[.!]+[ \\t]*)?$`,
+  livre: `^[ \\t]*(?:[1-5]|${RESPOSTA_DA_FORMA})[ \\t]*(?:[.!]+[ \\t]*)?$`,
 });
 
 /** Minusculas, sem acento, espaco unico, sem pontuacao final. */
@@ -96,8 +96,8 @@ export type TrechoLivre =
 /** O que um pedaco de resposta quer dizer, ou `null` quando ele nao e resposta. */
 export function lerTrecho(bruto: string): TrechoLivre | null {
   const t = normalizarLivre(bruto);
-  if (/^[a-d]$/.test(t)) return { tipo: 'letra', letra: t };
-  if (/^[1-4]$/.test(t)) return { tipo: 'digito', numero: Number(t) };
+  if (/^[a-e]$/.test(t)) return { tipo: 'letra', letra: t };
+  if (/^[1-5]$/.test(t)) return { tipo: 'digito', numero: Number(t) };
   for (const [intencao, palavras] of Object.entries(VOCABULARIO_LIVRE) as [IntencaoLivre, readonly string[]][]) {
     if (palavras.includes(t)) return { tipo: 'intencao', intencao, palavra: t };
   }
