@@ -3,8 +3,8 @@
   "maquina": "srvjcp86",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-02T17:26:29.166Z",
+  "versaoOrk": "0.4.3",
+  "publicadoEm": "2026-10-02T17:37:52.439Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -18,10 +18,7 @@
       "entregue": "ce29557",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm040piloto",
@@ -35,10 +32,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm053network",
@@ -52,10 +46,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm054fatia3s",
@@ -69,10 +60,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "paradaDesde": null
     },
     {
       "id": "ork-rm055impedim",
@@ -86,10 +74,7 @@
       "entregue": "7ab4932",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm056perfil",
@@ -103,27 +88,21 @@
       "entregue": "0a914b0",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm057alterna",
       "nome": "rm057alternativas",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-057",
       "branch": "ork/ork-rm057alterna-full",
-      "atualizadaEm": "2026-10-02T17:26:23.156Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-02T17:37:52.316Z",
+      "entregue": "7266df6",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "paradaDesde": null
     }
   ]
 }
