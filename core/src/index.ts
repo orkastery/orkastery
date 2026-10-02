@@ -204,8 +204,8 @@ import { comandoDeAttach, logsDaSessao, pararSessao } from './sessoes';
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
-  threadsDaListagem } from './thread';
+import { avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread,
+  tabelaDeThreads, threadsDaListagem } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
@@ -307,11 +307,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
 
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
+                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
         [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
   experiencia uninstall <host> [--dry-run] [--json]
                                             Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
@@ -800,14 +800,19 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
       relatarPublicacao(publicar(carregado, thread.id));
-      console.log('');
-      console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
+      if (!avisoSemBase) {
+        console.log('');
+        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      }
     }
+    if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }
   if (sub === 'list' || sub === undefined) {

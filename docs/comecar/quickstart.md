@@ -2,7 +2,7 @@
 
 Do clone à primeira thread conduzida com evidência verificada. O tempo em máquina limpa ainda não foi medido.
 
-Nada aqui pede chave de API. O `ork` **não tem LLM embutido**: quem executa e o runtime que
+Nada aqui pede chave de API. O `ork` **não tem LLM embutido**: quem executa é o runtime que
 você já usa, pela sua assinatura, pelo canal oficial dele.
 
 ---
@@ -11,13 +11,13 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node 20 ou mais novo | O núcleo e TypeScript compilado para CommonJS, sem dependência de runtime |
+| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
-| Um repositório git | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco |
+| Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
 | Um runtime de agente | Hoje o adapter `claude-bg` (o binário `claude`, despachado com `--bg`) |
 
 O runtime é opcional para os passos 1 a 4. Sem ele, você ainda cria threads, registra claims,
-roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue e **despachar fase**.
+roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue é **despachar fase**.
 
 ---
 
@@ -53,7 +53,7 @@ cd orkastery/core
 npm install
 npm run build      # gera dist/index.js, o bin `ork`
 npm test           # executa a suíte atual, com fixtures isoladas
-npm link           # poe o `ork` desta árvore no PATH
+npm link           # põe o `ork` desta árvore no PATH
 ```
 
 O restante deste guia escreve `ork`. Se você não instalou global nem fez `npm link`, troque por
@@ -63,33 +63,33 @@ O restante deste guia escreve `ork`. Se você não instalou global nem fez `npm 
 
 ## 2. `ork doctor`: o que vale nesta máquina agora
 
-Antes de qualquer coisa, pergunte a máquina em vez de supor.
+Antes de qualquer coisa, pergunte à máquina em vez de supor.
 
 ```bash
 cd /caminho/do/seu/projeto
 ork doctor
 ```
 
+Numa máquina com o Claude Code e sem o Codex, antes do `ork init`, a saída da 0.5.0 é esta:
+
 ```text
 ork doctor: o que vale nesta maquina agora
 
-  [ok]   node                      v22.23.2
-  [ok]   git                       /usr/bin/git
-  [ok]   repositorio               branch main
-  [ok]   runtime claude-bg         /home/voce/.local/bin/claude (2.1.260 (Claude Code))
-  [ok]   manifesto                 /caminho/do/seu/projeto/orkastery.yaml (2248 B de 16384)
-  [ok]   abbrev do projeto         "prj" (parte 1 do slug de sessao)
-  [ok]   modos de conducao         padrao #Classic; permitidos #Classic, #Maestro, #Auto, #Fast
-  [warn] custo e provider          politica subscription-only; ha credencial paga no ambiente
-  [ok]   regime de memoria         files (fallback honesto)
-  [ok]   fila de rate limit        vazia
-  [ok]   estado do projeto         /caminho/do/seu/projeto/.orkastery (0 thread(s))
+  [ok]   node               v22.23.2
+  [ok]   git                /usr/bin/git
+  [ok]   repositorio        branch main
+  [ok]   runtime claude-bg  /home/voce/.local/bin/claude (2.1.287 (Claude Code))
+  [warn] runtime codex      binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
+                            correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
+  [FAIL] manifesto          orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
+                            correcao: ork init
 
-Veredito: PRONTO (1 warn). Despacho de fase liberado por `ork phase run`.
+Veredito: BLOQUEADO (1 fail, 1 warn). Corrija os itens acima antes de despachar fase.
 ```
 
 O `doctor` sai com código diferente de zero quando está **bloqueado**, e nunca por um `warn`.
-Ele é a primeira linha de qualquer script de CI que use o `ork`.
+Cada `FAIL` traz a correção; a deste é o passo 3. Ele é a primeira linha de qualquer script de CI
+que use o `ork`.
 
 ---
 
@@ -100,7 +100,17 @@ ork init --name "meu-produto" --abbrev prd
 ```
 
 Isso gera o `orkastery.yaml`, a **fonte única** da configuração do projeto, com limite duro de
-16 KB. Prosa longa vai para a memória com tag, nunca para o manifesto.
+16 KB, e um bloco do Orkastery no `AGENTS.md`. Prosa longa vai para a memória com tag, nunca para o
+manifesto.
+
+O estado do `ork` (`.orkastery/`) e as worktrees das threads (`.claude/worktrees/`) são da máquina,
+não do repositório: deixe os dois fora do git e faça o commit do manifesto antes da primeira thread.
+
+```bash
+printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore
+git add .gitignore orkastery.yaml AGENTS.md
+git commit -m "ork init"
+```
 
 Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam em `~/.hermes/.env`, somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
 
@@ -113,12 +123,12 @@ project:
 
 conduction:
   default_mode: classic  # o modo usado quando o pedido nao traz #TAG
-  allowed_modes: [look, ork, classic, maestro, auto]
+  allowed_modes: [classic, maestro, auto, fast]
 
 worktree:
   base_branch: "main"
   dir: ".claude/worktrees"
-  por_thread: true       # uma worktree git por thread
+  por_thread: true       # a worktree da thread nasce com `ork thread new ... --worktree auto`
 
 verify:
   build: "npm run build" # detectado pelo init quando existe
@@ -140,33 +150,76 @@ policies:
   push_direto_na_base: block
 ```
 
-Rode `ork doctor` de novo. Ele agora lê o manifesto e válida o que você escreveu.
+Rode `ork doctor` de novo. Ele agora lê o manifesto e valida o que você escreveu. Na mesma
+máquina, ainda sem sessões do Claude Code, logo depois do `ork init`:
+
+```text
+ork doctor: o que vale nesta maquina agora
+
+  [ok]   node                         v22.23.2
+  [ok]   git                          /usr/bin/git
+  [ok]   repositorio                  branch main
+  [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))
+  [warn] runtime codex                binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
+                                      correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
+  [ok]   manifesto                    /caminho/do/seu/projeto/orkastery.yaml (4114 B de 16384)
+  [warn] onboarding                   9 etapa(s) pendente(s): maestro, credenciais, bancos, memoria, produtos, topologia, arquitetura, skills, auditores
+                                      correcao: ork onboarding
+  [ok]   abbrev do projeto            "prd" (parte 1 do slug de sessao)
+  [ok]   modos de conducao            padrao #Classic; permitidos #Classic, #Maestro, #Auto, #Fast
+  [ok]   fuso do dono                 America/Sao_Paulo (fuso do sistema; owner.timezone nao configurado)
+  [ok]   custo e provider herdado     politica subscription-only; nenhuma variavel de provider pago ativa
+  [ok]   provider efetivo da fabrica  nenhum nome da lista de provider ativo
+  [ok]   fonte da memoria             /caminho/do/seu/projeto/orkastery.yaml
+  [ok]   regime de memoria            files (fallback honesto: handoff por arquivos, ponteiro path#ancora)
+  [ok]   chave de embedding           memory.embedding com provider none: busca por significado desligada
+  [ok]   fila de rate limit           vazia: nenhuma fase morreu por limite de uso neste projeto
+  [ok]   estado do projeto            /caminho/do/seu/projeto/.orkastery (0 thread(s))
+  [ok]   contas por runtime           nenhum perfil configurado: cada runtime despacha pelo ambiente do processo
+  [ok]   umask                        umask 0022 nega escrita de grupo e outros
+  [ok]   permissoes do estado         /caminho/do/seu/projeto/.orkastery com modo 0755
+  [ok]   pasta privada                /caminho/do/seu/projeto/.orkastery/private ausente: criada sob demanda com 0700
+  [ok]   governanca de sessoes        voce, Claude e Codex, global com histórico: 0 sessões; 0 sem thread; 0 ambíguas; inventário válido
+
+Veredito: PRONTO (2 warn). Despacho de fase liberado por `ork phase run`.
+```
 
 ---
 
 ## 4. A primeira thread
 
 ```bash
-ork thread new "corrigir o filtro de data do relatorio" --modo classic
+ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto
 ```
 
 ```text
 Thread criada.
   id        prd-corrigirofil
   slug      prd-corrigirofil-goal
-  modo      #Classic (3 pausas humanas)
+  nome      corrigir o filtro de data do relatorio
+  modo      #Classic (3 pausas humanas previstas)
+  ciclo     padrao do modo
   fase      GOAL
   status    aberta
-  base      main @ e7150770
-  blocos
-    goal   GOAL               pausa: objetivo
-    plan   PLAN               pausa: plano
-    f34    GO-CHECK           pausa: evidencias, com autorizacao antecipada de push
-    f56    SHIP-MASTER        sem pausa (decisao autonoma no ledger)
+  base      ork/prd-corrigirofil-goal @ 75c5d7bd
+  worktree  /caminho/do/seu/projeto/.claude/worktrees/prd-corrigirofil
+  blocos previstos
+    goal   GOAL               pausa prevista: objetivo
+    plan   PLAN               pausa prevista: plano
+    f34    GO-CHECK           pausa prevista: evidencias, com autorizacao antecipada de push
+    f56    SHIP-MASTER        sem pausa humana prevista
 
   slug em 3 partes: produto "prd", assunto "corrigirofil", fases "goal"
   estado: .orkastery/threads/prd-corrigirofil/thread.json
+
+Proximo passo: ork phase run prd-corrigirofil GOAL --prompt "<pedido>"
 ```
+
+O `--worktree auto` dá à thread a worktree e a branch dela (`ork/prd-corrigirofil-goal`). Sem ele,
+a thread roda na raiz do projeto, na própria branch base, e o `ork ship` do passo 8 sai barrado por
+`push_direto_na_base`. Para uma thread que já nasceu assim e ainda não passou do GO,
+`ork worktree ensure <thread>` cria a worktree e a branch. Depois do GO, os commits já estão na base,
+e o ship não os separa.
 
 Sem `--modo`, o `ork` usa o `conduction.default_mode` do manifesto. Se o pedido do builder
 trouxer uma #TAG, o adaptador de host a extrai chamando o próprio núcleo:
@@ -176,9 +229,9 @@ ork modos --do-pedido "arrumar o botao #Maestro"
 # maestro
 ```
 
-O **slug de 3 partes** (`prd-corrigirofil-goal`) e o nome da sessão no runtime: produto,
+O **slug de 3 partes** (`prd-corrigirofil-goal`) é o nome da sessão no runtime: produto,
 assunto, bloco de fases. Você olha `claude agents` e sabe, sem abrir nada, de que produto e de
-que fase e cada sessão viva.
+que fase é cada sessão viva.
 
 ---
 
@@ -223,7 +276,7 @@ Este é o passo que separa o `ork` de um wrapper de prompt.
 # a fase afirma alguma coisa. a afirmacao vem com o comando que a comprova.
 ork claims add prd-corrigirofil src/relatorio.ts \
   --claim "o filtro respeita o fuso do usuario" \
-  --verificar "npm test -- relatorio"
+  --verificar "node --test test/relatorio.test.js"
 
 # antes do GO, grave o estado do mundo: o que ja estava quebrado nao e culpa desta thread
 ork verify prd-corrigirofil --baseline
@@ -234,9 +287,12 @@ ork verify prd-corrigirofil --baseline
 ork verify prd-corrigirofil
 ```
 
+Prefira o teste focado: uma claim com `npm test` sem arquivo de teste roda a suíte inteira, e o
+`ork claims add` avisa que o `ork ci prepare` vai recusá-la.
+
 Se a claim reprovar, o gate bloqueia com **motivo tipado** (`claims.failed`,
-`verify.regression`, `verify.failed`), com a saída real do comando anexada. E o `ork` sabe o
-que fazer com cada motivo:
+`verify.regression`, `verify.failed`), com a saída real do comando anexada no ledger. E o `ork`
+sabe o que fazer com cada motivo:
 
 ```bash
 ork retry plan prd-corrigirofil        # o que ele faria (calcula, nao executa)
@@ -255,14 +311,17 @@ ork gate next prd-corrigirofil --proximo GO
 ```
 
 ```text
+ork gate next: thread prd-corrigirofil
   ocupacao       nao medivel
   fonte          unavailable
-                 o adapter claude-bg nao expoe uso de contexto nesta versao do runtime
+                 o adapter claude-bg nao expoe uso de contexto nesta versao do runtime; nenhuma outra fonte foi informada (--ocupacao ou --transcript)
   limiares       rotate_above 0.7 | force_rotate_above 0.85
   proximo passo  GO (pesado)
 
 VEREDITO: same-session  (decidido por ausencia-de-medida)
-  razao: a rotacao NAO e decidida por dado inexistente.
+  razao: ocupacao da janela nao e medivel (fonte unavailable): a rotacao NAO e decidida por dado inexistente. Siga na mesma sessao e rotacione por decisao explicita se precisar.
+
+Registrado no ledger como token_gate: ork phase list prd-corrigirofil
 ```
 
 Repare no que ele **não** fez: não inventou um número. Se você tem a medida, informe, e a
@@ -291,7 +350,7 @@ ork ship prd-corrigirofil --para main --dry-run
 ork ship prd-corrigirofil --para main --autorizar-push "seu-nome"
 ```
 
-O `ship` executa sete passos, e a ordem e contrato: autorização pelo gate do modo, policies do
+O `ship` executa sete passos, e a ordem é contrato: autorização pelo gate do modo, policies do
 manifesto, `ork verify` independente, lease `main-tree` (que serializa: **uma thread mergeia
 por vez**), `git merge --no-ff` conferido por `merge-base --is-ancestor`, push **provado por
 `git ls-remote`**, e `ship_done` no ledger com os dois shas.
@@ -308,7 +367,7 @@ ork master prd-corrigirofil --score 4 \
   --classe erro-de-spec
 ```
 
-Isso grava o `POSTMORTEM.json` (com classe de falha das nove fixas) e o `master-log.json` (nó
+Isso grava o `POSTMORTEM.json` (com classe de falha das nove fixas) e o `master-log.json` (no
 contrato congelado `ork.master-log/v1`). Score sem justificativa é recusado, em qualquer modo.
 
 Nos modos que não pausam no MASTER, a entrega é aceita por omissão, com o índice derivado do
@@ -330,6 +389,8 @@ ork board plan             # quem pode avancar agora, quem espera, e por que
 ork lease list             # os leases, as familias e as filas
 ```
 
+Trecho ilustrativo do `ork board plan`, com duas threads e uma esperando lease:
+
 ```text
 Escalonador por maquina
   limite de paralelismo: 3 (concurrency.max_parallel_threads) | em andamento agora: 1
@@ -343,7 +404,7 @@ Escalonador por maquina
 
 ## Instale no seu host
 
-Até aqui você chamou o `ork` na mão. O uso normal e por um host da Camada 1:
+Até aqui você chamou o `ork` na mão. O uso normal é por um host da Camada 1:
 
 ```bash
 ork adapter list
@@ -352,8 +413,25 @@ ork adapter install claude-code --dry-run
 ork adapter install claude-code
 ```
 
-Depois disso, no Claude Code você escreve o pedido com a #TAG e usa `/goal`, `/plan`, `/go`,
-`/check`, `/ship`, `/master`. O host não tem regra de negócio nenhuma: ele só traduz.
+Copiar os arquivos não ativa o plugin. O instalador imprime a ativação no Claude Code; no
+diretório do projeto, ela é esta, e depois vem o servidor MCP do projeto:
+
+```bash
+claude plugin validate "$PWD/.claude/plugins/orkastery"
+claude plugin marketplace add "$PWD/.claude/plugins/orkastery" --scope project
+claude plugin install orkastery@orkastery --scope project
+ork mcp install --project "$PWD" --host claude-code
+```
+
+Numa sessão do Claude Code aberta no projeto, diga `orkastery maestro` ou use `/orkastery:ork`,
+e escreva o pedido com a #TAG; as fases são `/orkastery:goal`, `/orkastery:plan`, `/orkastery:go`,
+`/orkastery:check`, `/orkastery:ship` e `/orkastery:master`. O host não tem regra de negócio
+nenhuma: ele só traduz. No Codex, `ork adapter install codex` põe a entrada `$ork` nas skills do
+projeto.
+
+O mesmo plugin, sem os hooks do projeto, também sai do marketplace do repositório
+(`claude plugin marketplace add orkastery/orkastery` e `claude plugin install orkastery@orkastery`);
+use um dos dois caminhos, porque os dois se chamam `orkastery`.
 
 ---
 

@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
 import { normalizarAbbrev } from './slug';
-import { exec, gravar } from './util';
+import { branchDoHead, exec, gravar } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
@@ -39,7 +39,12 @@ export function nomeDetectado(dirInicial: string): string {
   return base.replace(/-(novo|new|old|repo|main)$/i, '').toLowerCase();
 }
 
-/** Branch base do repositorio: origin/HEAD, senao main, senao master, senao a atual. */
+/**
+ * Branch base do repositorio: origin/HEAD, senao main, senao master, senao a do HEAD.
+ * A do HEAD vem de `symbolic-ref`, que responde tambem no repositorio ainda sem commit (ensaio
+ * da 0.5.0: o `git init` sem `init.defaultBranch` nasce em `master`, e o `rev-parse` falhava e
+ * caia em `main`). HEAD destacado nao e branch: vale `main`.
+ */
 export function baseBranchDetectada(raiz: string): string {
   const origem = exec('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], raiz);
   if (origem.ok && origem.stdout.trim()) {
@@ -50,8 +55,7 @@ export function baseBranchDetectada(raiz: string): string {
       return candidata;
     }
   }
-  const atual = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], raiz);
-  return atual.ok ? atual.stdout.trim() : 'main';
+  return branchDoHead(raiz) ?? 'main';
 }
 
 function gerenciadorDetectado(dir: string): string {

@@ -19,7 +19,7 @@ import { validarAbbrev } from './slug';
 import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTexto, normalizarFuso,
   rotuloDoFuso } from './horario';
 import { Check } from './types';
-import { exec, noPath, simbolo } from './util';
+import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
@@ -183,9 +183,15 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
     checks.push({ nome: 'onboarding memoria', nivel: 'warn', detalhe: `entrevista escolheu ${modo}; manifesto declara ${carregado.manifesto.memory.mode}`,
       correcao: `revise memory.mode: ${modo} em orkastery.yaml; a entrevista não altera o manifesto` });
   }
-  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto.
+  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto. Com
+  // `owner.timezone` na mesma resposta (gravado no manifesto pelo `onboarding set`), vale ele: no
+  // ensaio da 0.5.0, o `fuso` legado da resposta anterior mandava desfazer a escolha explicita.
   const maestro = estado.etapas.maestro?.conteudo;
-  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? normalizarFuso(maestro.fuso) : undefined;
+  const owner = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? maestro.owner : undefined;
+  const fusoDoOwner = owner && typeof owner === 'object' && !Array.isArray(owner) ? (owner as Record<string, unknown>).timezone : undefined;
+  // Owner invalido (so por edicao a mao: o `onboarding set` recusa) nao cala o fuso legado.
+  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro)
+    ? normalizarFuso(fusoDoOwner) ?? normalizarFuso(maestro.fuso) : undefined;
   if (fusoDaEntrevista && fusoDaEntrevista !== carregado.manifesto.owner?.timezone) {
     checks.push({ nome: 'onboarding fuso', nivel: 'warn',
       detalhe: `entrevista informou ${fusoDaEntrevista}; manifesto declara ${carregado.manifesto.owner?.timezone ?? `${CHAVE_DO_FUSO} ausente`}`,
@@ -216,11 +222,14 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 
   const repo = exec('git', ['rev-parse', '--is-inside-work-tree'], dirInicial);
   const dentroDeRepo = repo.ok && repo.stdout.trim() === 'true';
-  const branch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial);
+  // Ensaio da 0.5.0: sem commit, o `rev-parse --abbrev-ref` respondia "HEAD"; a branch vem do
+  // `symbolic-ref`, e a falta de commit fica dita.
+  const semCommit = dentroDeRepo && !exec('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], dirInicial).ok;
+  const branch = dentroDeRepo ? branchDoHead(dirInicial) ?? exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial).stdout.trim() : '';
   checks.push({
     nome: 'repositorio',
     nivel: dentroDeRepo ? 'ok' : 'fail',
-    detalhe: dentroDeRepo ? `branch ${branch.stdout.trim()}` : 'fora de um repositorio git',
+    detalhe: dentroDeRepo ? `branch ${branch}${semCommit ? ' (sem commit)' : ''}` : 'fora de um repositorio git',
     correcao: dentroDeRepo ? undefined : 'rode o ork dentro de um repositorio git',
   });
   if (dentroDeRepo) {

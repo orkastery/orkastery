@@ -43,6 +43,23 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     conferências e não grava `ship_done`, fase nem fábrica;
   - `ork doctor` reprova arquivo ou pasta do `.git` com dono diferente do dono do repositório, com
     o `sudo chown -R` exato na correção, sem rodar nada.
+- **Primeira experiência da 0.5.0, achados do ensaio em máquina limpa** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork init` num repositório ainda sem commit grava em `worktree.base_branch` a branch do HEAD
+    (como `master`), e não `main`; com o HEAD destacado, `main`, e não `HEAD`. O `ork doctor` diz a
+    branch e "(sem commit)", e o `ork thread new` avisa no stderr que a thread nasce sem base, sem
+    sugerir rodar a fase; o marcador `desconhecido` sai inteiro onde o `ork` mostra commit (resumo
+    da thread, `ork verify`, `ork fix`, `ork ship` e auditoria);
+  - o aviso `onboarding fuso` do `ork doctor` compara o `owner.timezone` da resposta `maestro`, quando
+    há, e não o `fuso` legado da mesma resposta;
+  - a correção de `push_direto_na_base` aponta a branch da thread e, antes do GO,
+    `ork worktree ensure <thread>`, em vez de repetir o `ork ship`; o erro de `ork mcp install` com
+    caminho relativo diz para usar `--project "$PWD"`;
+  - textos: a armadilha do plugin do Claude Code sem contagem fixa de caminhos, "pacote pulado" na
+    instalação com aviso e a continuação do `setup` de volta ao lugar na ajuda;
+  - docs: o quickstart cria a primeira thread com `--worktree auto`, traz os modos vivos no
+    manifesto, uma claim focada, o `.gitignore` do estado, a ativação do plugin e amostras da saída
+    real conferidas por teste; os READMEs dos plugins e o roteiro do revisor pedem um repositório
+    com commit e usam `ork mcp install --project "$PWD"`.
 
 ## [0.5.0] - 2026-09-30
 
