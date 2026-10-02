@@ -58,7 +58,7 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
   'conducao.em-andamento':
     'outra conducao ja executa na worktree da thread (I-36): o pedido foi recusado com quem conduz e as tres acoes (esperar, acompanhar, assumir)',
   'hitl.formato':
-    'o pedido HITL saiu fora do formato obrigatorio (pergunta em uma frase, de 2 a 4 alternativas rotuladas com consequencia, exatamente uma recomendada com o porque, corpo em lista)',
+    'o pedido HITL saiu fora do formato obrigatorio (pergunta em uma frase, de 3 a 5 alternativas rotuladas com consequencia, exatamente uma com o selo Recomendacao e o porque, corpo em lista; texto livre so com dependencia tecnica tipada)',
   'human.pending': 'gate humano do modo de conducao ainda nao autorizou',
 };
 

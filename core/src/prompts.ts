@@ -174,6 +174,28 @@ export const CONTRATO_DE_FASE: ContratoDeTemplate = {
 };
 
 /**
+ * RM-057: os jeitos de um template pedir ao dono texto livre ou texto colado. Lista fechada, como o
+ * vocabulario do pulse: acrescentar um padrao e decisao de contrato, com teste. Casa sobre a linha
+ * em minusculas e sem acento.
+ */
+export const PADROES_DE_HITL_EM_TEXTO_LIVRE: readonly { oQue: string; padrao: RegExp }[] = Object.freeze([
+  { oQue: 'que o dono cole texto', padrao: /\b(cole|colar|colem)\b[^.\n]{0,60}\b(texto|aqui|mensagem|pedido|resposta|saida|conteudo)\b/ },
+  { oQue: 'que o dono cole texto', padrao: /\bpaste\b/ },
+  { oQue: 'confirmacao em texto livre', padrao: /\b(responda|digite|escreva|confirme|responder|digitar|escrever)\b[^.\n]{0,40}(\bconfirmo\b|texto livre|\bem texto\b)/ },
+  { oQue: 'confirmacao em texto livre', padrao: /\b(peca|peco|pedir|solicite|solicitar)\b[^.\n]{0,30}\bconfirmacao\b[^.\n]{0,20}\b(por escrito|em texto|textual)\b/ },
+]);
+
+export function procurarHitlEmTextoLivre(corpo: string): { linha: number; oQue: string }[] {
+  const achados: { linha: number; oQue: string }[] = [];
+  corpo.split('\n').forEach((bruta, i) => {
+    const linha = bruta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const casou = PADROES_DE_HITL_EM_TEXTO_LIVRE.find(p => p.padrao.test(linha));
+    if (casou) achados.push({ linha: i + 1, oQue: casou.oQue });
+  });
+  return achados;
+}
+
+/**
  * Lint de um template. Devolve os problemas; lista vazia quer dizer aprovado.
  *
  * O lint e o que torna "prompt versionado" diferente de "arquivo de texto solto": ele reprova
@@ -245,6 +267,10 @@ export function lintTemplate(
   const bytes = Buffer.byteLength(t.bruto, 'utf8');
   if (bytes > LIMITE_TEMPLATE_BYTES) {
     erro('tamanho', `${bytes} bytes acima do limite de ${LIMITE_TEMPLATE_BYTES}`);
+  }
+
+  for (const achado of procurarHitlEmTextoLivre(t.corpo)) {
+    erro('hitl-texto-livre', `linha ${achado.linha} pede ${achado.oQue}; HITL de conducao e selecao de 3 a 5 alternativas com uma Recomendacao (RM-057)`);
   }
 
   if (t.bruto.includes('—')) {

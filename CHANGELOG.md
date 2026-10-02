@@ -18,6 +18,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     cada perfil do store; cada sessão sai com o id do perfil (coluna `PERFIL`), nunca com o diretório da conta;
   - sessão claude-bg sem `pid` vivo em estado não terminal é fantasma: não ocupa vaga nem vira pausa humana;
     `ork sessions limpar-fantasmas [--dry-run]` grava `sessao_morta` na thread vinculada e nunca toca no runtime.
+- **HITL de condução por alternativas, fatia 1** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - todo pedido que o ork abre ao dono (`ork.hitl/v2` pergunta) sai como seleção de 3 a 5 alternativas, exatamente uma
+    com o selo "Recomendação"; fora disso, o registro recusa sem gravar nada, com `hitl.selecao.fora-da-faixa`,
+    `hitl.selecao.recomendada` ou `hitl.selecao.texto-livre`;
+  - resposta em texto só com `dependenciaTecnica` (o comando exato que o dono roda no terminal e o porquê);
+  - as alternativas vão de `a` a `e`, e a resposta solta aceita a letra `e` e o dígito `5` no núcleo, no OpenClaw e no
+    Hermes; o histórico com duas alternativas e a pergunta nativa das sessões continuam legíveis;
+  - o texto ao dono marca a recomendada com o selo `✅ Recomendação` no Telegram e `[Recomendação]` no terminal;
+  - `ork prompt lint` reprova (regra `hitl-texto-livre`) o template que peça um "confirmo" em texto livre ou que o dono
+    cole texto, e os adaptadores do Claude Code e do Codex dizem a regra à condutora.
 - **Impedimento que só o dono resolve vira pedido a ele** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
   - o despacho recusado por `Workspace not trusted` (claude) ou `Not inside a trusted directory` (codex) sai como
     `runtime.workspace-untrusted`, e o de termos novos do CLI como `runtime.consent-pending`, a partir da saída real do

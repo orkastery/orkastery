@@ -6,23 +6,23 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-02T16:39:03+00:00
+atualizado_em: 2026-10-02T17:32:20+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: 7ab4932
     pr: null
 sdlc:
   thread: ork-rm055impedim
   modo: "#Auto"
-  fase: GOAL
+  fase: MASTER
   status: aberta
 ---
 
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -81,7 +81,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
 | Documentação | Em revisão | — | 2026-10-02 | Julio |
-| Código | Branch criada | — | 2026-10-02 | Julio |
+| Código | Mesclado | commit `7ab4932` | 2026-10-02 | Julio |
 | Testes | Em execução | — | 2026-10-02 | Julio |
 | Deploy | Não implantado | — | 2026-10-02 | Julio |
 | Exposição | Flag desligada | — | 2026-10-02 | Julio |

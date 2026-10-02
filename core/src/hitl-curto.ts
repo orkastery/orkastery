@@ -15,7 +15,8 @@
  *   trava        o que esta parado, desde quando, e o que acontece sem resposta;
  *   sem volta    so quando responder autoriza um ato da lista congelada;
  *   corpo        no maximo `TETO_DE_LINHAS_DO_CORPO` linhas de evidencia;
- *   alternativas de 2 a 4, uma linha cada, com a consequencia, e UMA recomendada com o porque;
+ *   alternativas de 2 a 5, uma linha cada, com a consequencia, e UMA com o selo "Recomendação" e o
+ *                porque (RM-057: o pedido que o proprio ork abre traz de 3 a 5);
  *   responder    a ultima linha, dizendo exatamente o que digitar.
  *
  * O detalhe profundo (artefato, claims, riscos, diff) fica a um pedido de distancia: a ultima
@@ -31,6 +32,9 @@ import { formatarDesde, formatarHora } from './horario';
 import { EventoLedger } from './types';
 
 export const CONTRATO_PEDIDO_CURTO = 'ork.hitl-curto/v1' as const;
+
+/** RM-057: o selo que o dono procura na lista, igual em todo canal. */
+export const SELO_DA_RECOMENDADA = 'Recomendação';
 
 /** Nenhum pedido passa disto por padrao (RM-048, criterio c). */
 export const TETO_DE_LINHAS_DO_PEDIDO = 15;
@@ -134,10 +138,10 @@ function semResposta(e: EntradaDoPedidoCurto, agora: string): string {
 
 /**
  * Monta o pedido curto. Recusa, em vez de cortar em silencio, o que o contrato nao aceita: menos
- * de duas alternativas, mais de quatro, ou recomendada diferente de exatamente uma.
+ * de duas alternativas, mais de cinco, ou recomendada diferente de exatamente uma.
  */
 export function montarPedidoCurto(e: EntradaDoPedidoCurto, opcoes: { quando: string; responder: ComoResponder }): PedidoCurto {
-  if (e.alternativas.length < 2 || e.alternativas.length > 4) throw new Error('pedido curto: de 2 a 4 alternativas');
+  if (e.alternativas.length < 2 || e.alternativas.length > 5) throw new Error('pedido curto: de 2 a 5 alternativas');
   if (e.alternativas.filter(a => a.recomendada).length !== 1) throw new Error('pedido curto: exatamente uma alternativa é recomendada');
   const onde = e.alvo?.tipo === 'session'
     ? `A sessão ${e.alvo.sessionId.slice(0, 8)} está parada esperando você`
@@ -183,7 +187,7 @@ export function textoDoPedidoCurto(p: PedidoCurto, canal: CanalDoPedido): string
     ...(p.semVolta ? [`${tg ? '🔒 ' : '! '}${p.semVolta}`] : []),
     ...p.corpo.map(l => `${tg ? '• ' : '- '}${l}`),
     ...p.alternativas.flatMap(a => [
-      `${a.chave}) ${a.texto}${a.recomendada ? (tg ? ' ✅ recomendada' : ' [recomendada]') : ''}: ${a.consequencia}`,
+      `${a.chave}) ${a.texto}${a.recomendada ? (tg ? ` ✅ ${SELO_DA_RECOMENDADA}` : ` [${SELO_DA_RECOMENDADA}]`) : ''}: ${a.consequencia}`,
       ...(a.recomendada ? [`   porquê: ${a.recomendada.porque}`] : []),
     ]),
   ];

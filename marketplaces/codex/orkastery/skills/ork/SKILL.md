@@ -26,6 +26,13 @@ com rótulos claros; UUID interno. Use `ork_request_decision` na condutora e pre
 a resposta literal/cancelamento da elicitation. Não use pergunta genérica do agente
 como aprovação de gate nem texto em toolargs como identidade humana.
 
+HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo
+"Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
+que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
+Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a
+fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: mostre o
+comando exato.
+
 Use a skill `orkastery-bootstrap` do mesmo catalogo instalado para conduzir o pedido.
 O dono conversa sobre o objetivo; voce opera o nucleo `ork` e apresenta o resultado e o proximo
 passo. Preserve o modo e as autorizacoes da thread. Se ja recebeu uma fase do Orkastery,

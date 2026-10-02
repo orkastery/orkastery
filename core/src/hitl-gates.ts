@@ -4,7 +4,7 @@ import { comLockInspecionavel } from './hitl-lock';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { AlternativaHitlV2, alvoDoPedido, atoDaPausa, CONTRATO_HITL_V2,
   DecisaoInformada, ehV2, estadoDoPedido, LetraDeAlternativa, motivoDoPedido, PedidoHitl,
-  PedidoHitlQualquer, PerguntaAoDono, profundidadeDoPedido, TETOS_HITL_V2, validarPedidoHitl,
+  exigirSelecaoDeConducao, PedidoHitlQualquer, PerguntaAoDono, profundidadeDoPedido, TETOS_HITL_V2, validarPedidoHitl,
   validarRespostaHitl, vereditoDoGate } from './hitl-contract';
 import { CONSEQUENCIA_DA_ACAO } from './hitl-lote';
 import { ALVO_DO_PULSE, ENDERECO_DA_RESPOSTA, gerarCodigo } from './pulse-consentimento';
@@ -170,6 +170,10 @@ export function resolverCriterio(raiz: string, pedido: DecisaoInformada): { reso
 
 export function registrarPedidoHitl(raiz: string, pedido: PedidoHitlQualquer): PedidoHitlQualquer {
   validarPedidoHitl(pedido);
+  // RM-057: o pedido que o ork abre ao dono e uma selecao de 3 a 5, com uma recomendada. O v1 e o
+  // contrato congelado que o nucleo nao emite mais por aqui (o gate sai em v2 desde a I-41); ele
+  // segue registravel so para os leitores do historico e para os testes que o reproduzem.
+  if (ehV2(pedido)) exigirSelecaoDeConducao(pedido);
   // R1, camada 1: um `decidido` cujo critério não resolve não chega a existir.
   if (ehV2(pedido) && pedido.classe === 'decidido') {
     const { resolve, detalhe } = resolverCriterio(raiz, pedido);

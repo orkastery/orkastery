@@ -206,8 +206,9 @@ export function vereditoDoGate(pedido: PedidoHitlQualquer, opcao: PedidoHitl['op
 export const CONTRATO_HITL_V2 = 'ork.hitl/v2' as const;
 
 export type ClasseHitl = 'decidido' | 'pergunta';
-export type LetraDeAlternativa = 'a' | 'b' | 'c' | 'd';
-export const LETRAS_DE_ALTERNATIVA: readonly LetraDeAlternativa[] = ['a', 'b', 'c', 'd'];
+export type LetraDeAlternativa = 'a' | 'b' | 'c' | 'd' | 'e';
+/** RM-057: ate cinco alternativas, de a a e. A leitura aceita as de duas do historico. */
+export const LETRAS_DE_ALTERNATIVA: readonly LetraDeAlternativa[] = ['a', 'b', 'c', 'd', 'e'];
 export type TipoDeResposta = 'objetiva' | 'aberta';
 
 /**
@@ -292,6 +293,17 @@ export interface PerguntaAoDono extends ComumV2 {
   prazo: string;
   acaoPadraoAoExpirar: AcaoAoExpirar;
   respostaAceita: { tipo: 'opcao' | 'texto'; maxCaracteres: number };
+  /**
+   * RM-057: a unica porta para pedir texto ao dono. So existe quando a fabrica nao consegue seguir
+   * sozinha com os runtimes que tem e o dono precisa rodar um comando no terminal (um login
+   * interativo, por exemplo). Traz o comando exato, pronto para copiar, e o porque em uma linha.
+   */
+  dependenciaTecnica?: DependenciaTecnica;
+}
+
+export interface DependenciaTecnica {
+  comando: string;
+  porque: string;
 }
 
 export type PedidoHitlV2 = DecisaoInformada | PerguntaAoDono;
@@ -374,12 +386,12 @@ function validarDecidido(v: Record<string, unknown>): void {
 function validarAlternativas(v: Record<string, unknown>): void {
   const alternativas = v.alternativas;
   if (!Array.isArray(alternativas) || alternativas.length < 2 || alternativas.length > LETRAS_DE_ALTERNATIVA.length) {
-    throw new Error('pedido HITL v2: de 2 a 4 alternativas, rotuladas de a a d');
+    throw new Error('pedido HITL v2: de 2 a 5 alternativas, rotuladas de a a e');
   }
   let recomendadas = 0;
   alternativas.forEach((bruta, i) => {
     if (!objeto(bruta) || bruta.letra !== LETRAS_DE_ALTERNATIVA[i]) {
-      throw new Error('pedido HITL v2: de 2 a 4 alternativas, rotuladas de a a d');
+      throw new Error('pedido HITL v2: de 2 a 5 alternativas, rotuladas de a a e');
     }
     if (!linhaUnica(bruta.texto, TETOS_HITL_V2.alternativaTexto)) throw new Error('pedido HITL v2: alternativa sem texto');
     if (!['aprovar', 'recusar', 'responder', 'esperar'].includes(bruta.acao as string)) {
@@ -428,6 +440,12 @@ function validarPergunta(v: Record<string, unknown>): void {
       !['esperar', 'escalar', 'seguir-recomendada'].includes(v.acaoPadraoAoExpirar as string)) {
     throw new Error('pedido HITL v2: prazo ou ação de expiração inválidos');
   }
+  if (v.dependenciaTecnica !== undefined) {
+    const d = v.dependenciaTecnica;
+    if (!objeto(d) || !linhaUnica(d.comando, TETOS_HITL_V2.campoDaDecisao) || !linhaUnica(d.porque, TETOS_HITL_V2.porque)) {
+      throw new Error('pedido HITL v2: dependência técnica exige o comando exato e o porquê, uma linha cada');
+    }
+  }
   if (typeof v.irreversivel !== 'boolean') throw new Error('pedido HITL v2: irreversível precisa ser declarado');
   if (v.irreversivel) {
     if (!(ATOS_IRREVERSIVEIS as readonly string[]).includes(String(v.ato))) {
@@ -439,6 +457,62 @@ function validarPergunta(v: Record<string, unknown>): void {
     }
   } else if (v.ato !== undefined) {
     throw new Error('pedido HITL v2: só pedido irreversível nomeia ato');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RM-057: o HITL de conducao que parte do ork e uma SELECAO.
+//
+// Na noite de 01 para 02/10/2026 a conducao parou mais de dez horas esperando um "confirmo" em
+// texto livre. A regra do dono (02/10) e que todo pedido que o PROPRIO ork abre ao maestro sai com
+// de 3 a 5 alternativas, exatamente uma com o selo "Recomendação", e nunca depende de o dono
+// escrever ou colar texto. A unica excecao e a dependencia tecnica tipada: o dono roda um comando
+// no terminal que a fabrica nao consegue rodar sozinha.
+//
+// A regra vale na CRIACAO (`registrarPedidoHitl`), nunca na leitura: o ledger guarda pedidos de
+// duas alternativas que continuam legiveis para sempre, e a pergunta nativa de uma sessao do host
+// (v1) traz as opcoes do host, que nao sao do ork.
+// ---------------------------------------------------------------------------
+
+export const MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO = 3;
+export const MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO = 5;
+
+/** Os motivos tipados de recusa de um pedido de conducao fora da forma de selecao. */
+export type MotivoDeSelecaoRecusada =
+  | 'hitl.selecao.versao'
+  | 'hitl.selecao.fora-da-faixa'
+  | 'hitl.selecao.recomendada'
+  | 'hitl.selecao.texto-livre';
+
+export class SelecaoRecusada extends Error {
+  constructor(readonly motivo: MotivoDeSelecaoRecusada, detalhe: string) {
+    super(`${motivo}: ${detalhe}`);
+    this.name = 'SelecaoRecusada';
+  }
+}
+
+/**
+ * RM-057: confere que um pedido que o ork vai ABRIR e uma selecao. Decisao informada (`decidido`)
+ * nao pergunta nada e passa. Recusa com motivo tipado, nunca corta nem completa em silencio.
+ */
+export function exigirSelecaoDeConducao(pedido: PedidoHitlQualquer): void {
+  if (!ehV2(pedido)) {
+    throw new SelecaoRecusada('hitl.selecao.versao', 'o pedido de condução do ork sai em ork.hitl/v2, com alternativas declaradas');
+  }
+  if (pedido.classe === 'decidido') return;
+  const n = pedido.alternativas.length;
+  if (n < MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO || n > MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO) {
+    throw new SelecaoRecusada('hitl.selecao.fora-da-faixa',
+      `de ${MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO} a ${MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO} alternativas, este traz ${n}`);
+  }
+  const recomendadas = pedido.alternativas.filter(a => a.recomendada).length;
+  if (recomendadas !== 1) {
+    throw new SelecaoRecusada('hitl.selecao.recomendada', `exatamente uma alternativa com o selo Recomendação, este traz ${recomendadas}`);
+  }
+  const pedeTexto = pedido.tipoDeResposta === 'aberta' || pedido.respostaAceita.tipo === 'texto';
+  if (pedeTexto && !pedido.dependenciaTecnica) {
+    throw new SelecaoRecusada('hitl.selecao.texto-livre',
+      'resposta em texto só com dependência técnica tipada: o comando exato que o dono roda no terminal e o porquê');
   }
 }
 

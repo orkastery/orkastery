@@ -1,0 +1,155 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm057alterna",
+  "branch": "ork/ork-rm057alterna-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-contract.ts",
+      "alegacao": "R1: o pedido de condução v2 tem de 3 a 5 alternativas; 2 e 6 são recusadas com hitl.selecao.fora-da-faixa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='de 3 a 5 alternativas' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:11.616Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-contract.ts",
+      "alegacao": "R2: exatamente uma alternativa leva o selo Recomendação; nenhuma e duas são recusadas com hitl.selecao.recomendada",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='selo Recomendação: nenhuma' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:11.760Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-contract.ts",
+      "alegacao": "R3: resposta em texto só passa com dependenciaTecnica tipada (comando exato e porquê); sem ela, hitl.selecao.texto-livre",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='dependência técnica' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:11.908Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-gates.ts",
+      "alegacao": "R4: o gate que o ork abre sai como seleção de 3 a 5 com uma recomendada, e registrarPedidoHitl recusa a pergunta de duas alternativas sem gravar no ledger",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='o gate que o ork abre' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.056Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-curto.ts",
+      "alegacao": "R5: o texto ao dono numera até cinco opções e mostra o selo Recomendação uma vez, no Telegram e no terminal",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='numera as cinco' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.204Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-texto-livre.ts",
+      "alegacao": "R6: a quinta alternativa se responde pela letra e e pelo dígito 5",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='quinta alternativa' core/dist-test/test/rm057-hitl-alternativas.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.349Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "R7: ork prompt lint reprova (hitl-texto-livre) o template que pede confirmação em texto livre ou texto colado, e o template embutido passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='lint de prompt' core/dist-test/test/rm057-hitl-alternativas.test.js && node core/dist/index.js prompt lint"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.496Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/src/hitl-ingress.ts",
+      "alegacao": "R8: a gramática do pulse copiada no OpenClaw e no Hermes aceita a letra e e o dígito 5 e segue igual à do núcleo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/pulse-gramatica-ingresso.test.js && grep -q '(?:\\[a-e\\]|' adapters/openclaw/src/hitl-ingress.ts && grep -q '(?:\\[a-e\\]|' adapters/hermes/hitl-ingress/__init__.py"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.644Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-057-hitl-por-alternativas.md",
+      "alegacao": "R10: a RM-057, o guia do HITL e o CHANGELOG descrevem a fatia 1 e a documentação passa na paridade",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr && grep -q 'RM-057' CHANGELOG.md && grep -q 'hitl.selecao.fora-da-faixa' docs/guias/sincronismo-hitl.md"
+      ],
+      "criadoEm": "2026-10-02T17:26:12.927Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm057alterna",
+      "fase": "GO",
+      "arquivo": "adapters/claude-code/commands/ork.md",
+      "alegacao": "R9: os adaptadores do Claude Code e do Codex (e os marketplaces gerados) dizem à condutora que HITL de condução é seleção de 3 a 5 com uma Recomendação e nunca texto colado",
+      "negativa": true,
+      "verificar": [
+        "grep -q 'HITL de condução é seleção (RM-057)' adapters/claude-code/commands/ork.md && grep -q 'HITL de condução é seleção (RM-057)' adapters/codex/skills/ork/SKILL.md && node core/scripts/gerar-marketplaces.cjs >/dev/null && git diff --exit-code --quiet -- marketplaces && grep -q 'HITL de condução é seleção (RM-057)' marketplaces/claude-code/orkastery/commands/ork.md"
+      ],
+      "criadoEm": "2026-10-02T17:26:23.156Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -214,7 +214,7 @@ test('a apresentação do v2 sai pelo contrato curto: consequência na linha, le
   assert.equal(linhas[1], 'Pergunta: A entrega do pulse pode passar a mandar um resumo por hora?');
   assert.ok(linhas[2].startsWith('Situação: A fase GO está parada esperando você'), linhas[2]);
   assert.ok(linhas[2].endsWith('sigo com a recomendada.'), linhas[2]);
-  assert.ok(linhas.includes('a) Sim, um resumo por hora [recomendada]: você recebe no máximo 24 por dia'), mensagem);
+  assert.ok(linhas.includes('a) Sim, um resumo por hora [Recomendação]: você recebe no máximo 24 por dia'), mensagem);
   assert.ok(linhas.includes('   porquê: foi o que você pediu'), mensagem);
   assert.ok(linhas.includes('b) Não, mantenha por item: volta a mandar uma mensagem por item'), mensagem);
   assert.equal(linhas.at(-1), 'Responda selecionando a opção no diálogo; digitar a letra também vale.');
