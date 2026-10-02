@@ -21,6 +21,8 @@ import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-st
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
 import { commitMcp } from '../src/mcp-git';
 import { adicionarClaim } from '../src/claims';
+import { avaliarPolicies } from '../src/policies';
+import { garantirWorktree } from '../src/worktree';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -33,7 +35,7 @@ import { planejar } from '../src/board';
 import { montarMonitor } from '../src/orquestracao';
 import { operationalSources } from '../src/maestro-runtime';
 import { MaestroReader } from '../src/maestro-sources';
-import { ajustarManifesto, commitar, dirTemporario, projetoTemporario } from './apoio';
+import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, shaNoRemotoDeTeste } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -446,4 +448,43 @@ test('fatia 2 P8: commit MCP adiciona caminho rastreado com add -u e diz o subco
     p.limpar(); limpar(casa);
     for (const [k, v] of Object.entries(anterior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
+});
+
+test('fatia 2 P9: ship sem delta com a base local a frente do remoto e push direto', () => {
+  const p = projetoTemporario('fatia2-p9', true);
+  try {
+    // A policy pura: o fato novo barra; sem ele, a rota da thread passa como antes.
+    const rota = { gate: 'ship' as const, baseBranch: 'main', threadId: 'ork-exemplo', de: 'ork/ork-exemplo-full', para: 'main', remoto: 'origin' };
+    const v = avaliarPolicies(p.carregado.manifesto, { ...rota, semDeltaComBaseAFrente: true }).find((x) => x.policy === 'push_direto_na_base');
+    assert.equal(v?.severidade, 'block');
+    assert.match(v?.detalhe ?? '', /a branch "ork\/ork-exemplo-full" nao traz commit alem de "main", e main local tem commit que origin\/main nao tem/);
+    assert.match(v?.correcao ?? '', /leve os commits que estao so em main local para a branch da thread/);
+    for (const fato of [false, undefined]) {
+      assert.equal(avaliarPolicies(p.carregado.manifesto, { ...rota, semDeltaComBaseAFrente: fato }).some((x) => x.policy === 'push_direto_na_base'), false);
+    }
+
+    // O caso do CHECK da fatia 1: thread sem worktree depois do GO, com o commit feito direto na base.
+    const { thread } = novaThread(p.carregado, { nome: 'sem worktree depois do GO', modo: 'auto' });
+    commitar(p.dir, 'src/entrega.txt', 'feito na base\n', 'feat: direto na base');
+    const remotoAntes = shaNoRemotoDeTeste(p.dir, p.remoto!, 'main');
+    assert.equal(garantirWorktree(p.carregado, thread.id).ok, true);
+    const ensaio = ship(p.carregado, thread.id, { para: 'main', dryRun: true });
+    assert.deepEqual([ensaio.bloqueado, ensaio.motivo], [true, 'policy.violation']);
+    assert.match(ensaio.detalhe, /push_direto_na_base: a branch "ork\/\S+" nao traz commit alem de "main"/);
+    const real = ship(p.carregado, thread.id, { para: 'main' });
+    assert.deepEqual([real.bloqueado, real.motivo, real.pushVerificado], [true, 'policy.violation', false]);
+    assert.equal(shaNoRemotoDeTeste(p.dir, p.remoto!, 'main'), remotoAntes, 'o remoto nao recebeu a base');
+  } finally { p.limpar(); }
+
+  // Base igual ao remoto e sem delta: nada muda. Com delta, a regra nova nao vale.
+  const q = projetoTemporario('fatia2-p9-igual', true);
+  try {
+    const { thread } = novaThread(q.carregado, { nome: 'ja contida na base', modo: 'auto', criarWorktree: true });
+    const igual = ship(q.carregado, thread.id, { para: 'main', dryRun: true });
+    assert.equal(igual.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, igual.detalhe);
+    commitar(thread.worktree!, 'src/da-thread.txt', 'da thread\n', 'feat: da thread');
+    commitar(q.dir, 'src/outra.txt', 'outra\n', 'feat: outra na base local');
+    const comDelta = ship(q.carregado, thread.id, { para: 'main', dryRun: true });
+    assert.equal(comDelta.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, comDelta.detalhe);
+  } finally { q.limpar(); }
 });

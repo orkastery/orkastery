@@ -438,6 +438,15 @@ export function ship(
   const branchAtrasDaBase = pontaDe && pontaPara && de !== para
     ? !exec('git', ['merge-base', '--is-ancestor', pontaPara, pontaDe], raiz).ok
     : undefined;
+  // Fatia 2 do ensaio da 0.5.0 (P9): sem delta (a branch da thread ja esta contida na base) e com a base
+  // local a frente da ref de rastreio do remoto, o push publicaria a base sem merge de thread. A medida e
+  // local, sem rede; sem remoto, sem ref de rastreio ou com --sem-push, o fato nao vem e nada muda.
+  const rastreio = pontaDe && pontaPara && de !== para && !opcoes.semPush && remotoConfigurado(raiz, remoto)
+    ? shaDaRef(raiz, `refs/remotes/${remoto}/${para}`) : null;
+  const semDeltaComBaseAFrente = rastreio
+    ? exec('git', ['merge-base', '--is-ancestor', pontaDe!, pontaPara!], raiz).ok &&
+      !exec('git', ['merge-base', '--is-ancestor', pontaPara!, rastreio], raiz).ok
+    : undefined;
   const violacoes = avaliarPolicies(manifesto, {
     gate: 'ship',
     de,
@@ -445,6 +454,8 @@ export function ship(
     baseBranch: manifesto.worktree.base_branch,
     threadId,
     branchAtrasDaBase,
+    semDeltaComBaseAFrente,
+    remoto,
   });
   r.violacoes = violacoes;
   if (!r.dryRun) {
