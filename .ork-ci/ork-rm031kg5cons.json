@@ -369,7 +369,7 @@
         "node -e \"const b=require('./.ork-ci/ork-rm031kg5cons.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-rm031kg5cons' || b.branch!=='ork/ork-rm031kg5cons-full' || b.base!=='main' || b.claims.length<26) process.exit(1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-rm031kg5cons.json"
       ],
       "criadoEm": "2026-10-02T05:29:29.032Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
