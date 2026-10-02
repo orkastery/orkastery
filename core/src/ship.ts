@@ -108,10 +108,13 @@ export interface ResultadoShip {
  * merge que descende do `shaDe`, nao o `shaDe`) sumia da lista; agora sao duas listas e a intersecao. `null` quando o
  * git nao responde.
  */
-export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string): string | null {
+export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string, passos: string[] = []): string | null {
   if (shaDe === ponta) return shaDe;
+  // `passos` recebe os comandos que de fato rodaram, na ordem: e a evidencia do ship (sugestao da conferencia da rodada 2).
+  const curto = (sha: string) => sha.slice(0, 8);
   // As listas crescem com o historico entre a branch e a ponta: o buffer vai alem do 1 MiB padrao do spawnSync.
   const listar = (args: string[]): string[] | null => {
+    passos.push(`git ${args.map((a) => a.replace(/^([0-9a-f]{40,64})\.\.([0-9a-f]{40,64})$/, (_, x, y) => `${curto(x)}..${curto(y)}`)).join(' ')}`);
     const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024 });
     return r.status === 0 && !r.error ? r.stdout.split('\n').filter((l) => /^[0-9a-f]{40,64}$/.test(l)) : null;
   };
@@ -124,6 +127,7 @@ export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string):
   if (!maisVelho) return null;
   // O primeiro pai dele e o proprio `shaDe`: a branch ja estava no primeiro pai da base (fast-forward). Sem a resposta
   // do git, nada e gravado: devolver o mais velho poria no `mergeSha` o filho do `shaDe` (sugestao da rodada 2).
+  passos.push(`git rev-parse ${curto(maisVelho)}^1`);
   const pai = exec('git', ['rev-parse', `${maisVelho}^1`], raiz);
   if (!pai.ok) return null;
   return pai.stdout.trim() === shaDe ? shaDe : maisVelho;
@@ -713,9 +717,7 @@ export function ship(
       }
     } else {
       // RM-037 (fatia 5, A1): o merge que trouxe a branch, e nao a ponta da base.
-      const incorporadoEm = commitQueIncorporou(raiz, shaDe, shaPara);
-      passos.push(`git rev-list --first-parent ${shaDe.slice(0, 8)}..${shaPara.slice(0, 8)}`,
-        `git rev-list --ancestry-path ${shaDe.slice(0, 8)}..${shaPara.slice(0, 8)}`);
+      const incorporadoEm = commitQueIncorporou(raiz, shaDe, shaPara, passos);
       if (!incorporadoEm) {
         return bloquear(
           'artifact.missing',
@@ -724,8 +726,7 @@ export function ship(
         );
       }
       mergeSha = incorporadoEm;
-      passos.push(`git rev-parse ${mergeSha.slice(0, 8)}^1`,
-        `(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
+      passos.push(`(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
     }
     r.mergeSha = mergeSha;
     r.pontaDaBase = pontaDaBase;

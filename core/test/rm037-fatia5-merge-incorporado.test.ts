@@ -111,6 +111,12 @@ test('A1 no fast-forward: a base avancou ate a branch, e o mergeSha e a propria 
     const r = ship(p.carregado, thread.id, { para: 'main' });
     assert.equal(r.ok, true, r.detalhe);
     assert.deepEqual([r.jaIncorporado, r.mergeSha, r.pontaDaBase, r.pushVerificado], [true, sha, ponta, true]);
+    // Os passos sao os comandos que rodaram: o rev-parse e do commit consultado (o filho do shaDe), nao do shaDe.
+    const curto = (x: string) => x.slice(0, 8);
+    assert.ok(r.passos.includes(`git rev-list --first-parent ${curto(sha)}..${curto(ponta)}`), r.passos.join(' | '));
+    assert.ok(r.passos.includes(`git rev-list --ancestry-path ${curto(sha)}..${curto(ponta)}`), r.passos.join(' | '));
+    assert.ok(r.passos.includes(`git rev-parse ${curto(ponta)}^1`), r.passos.join(' | '));
+    assert.ok(!r.passos.includes(`git rev-parse ${curto(sha)}^1`));
   } finally { p.limpar(); }
 });
 
