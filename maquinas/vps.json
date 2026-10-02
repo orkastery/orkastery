@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T02:55:40.186Z",
+  "publicadoEm": "2026-10-02T03:00:04.610Z",
   "threads": [
     {
       "id": "ork-ensaioprimei",
@@ -22,23 +22,6 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
-    },
-    {
-      "id": "ork-estadodoroad",
-      "nome": "estado do roadmap 050",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-estadodoroad-go",
-      "atualizadaEm": "2026-10-01T05:36:40.137Z",
-      "entregue": "9f7e9320",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "xhigh"
     },
     {
       "id": "ork-rm031kg4incr",
