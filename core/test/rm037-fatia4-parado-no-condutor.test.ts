@@ -363,6 +363,30 @@ test('aviso da rodada 6 do CHECK: a sessao que voltou a trabalhar depois do resu
   } finally { p.limpar(); }
 });
 
+test('conferencia da rodada 6: o resultado tecnico depois do gate do observador, no mesmo despacho, nao tira o gate do dono', () => {
+  const p = projetoTemporario('fatia4-outro-depois', true);
+  try {
+    const quando = '2026-09-30T14:40:00.000Z';
+    const a = threadComProduto(p, 'ship retomado que caiu na cota', { publicar: true });
+    forjaSimulada(p);
+    const s = fimDoObservadorEmDone(a.dir, a.t.id, 106);
+    registrar(a.dir, a.t.id, 'runtime_event', { ts: '2026-09-30T14:00:00.000Z', fase: 'SHIP', sessionId: s.sessionId, runtime: 'claude-bg',
+      despachoEm: s.despachoEm, fonte: 'ork sessions event', sensor: 'heartbeat' });
+    // A sessao retomada morreu na cota e o observador gravou o resultado tecnico, que tem dono proprio (o formato do CHECK
+    // desta thread em 02/10). O fim do turno e `outro`: o gate do observador continua com o dono, sem a linha do condutor.
+    const cota = { fase: 'SHIP', sessionId: s.sessionId, despachoEm: s.despachoEm, classificacao: 'gate_blocked', motivo: 'runtime.quota-exhausted',
+      runtime: 'claude-bg', fonte: 'processo da sessão morreu sem terminal nativo nem Stop correlacionado (estado blocked); ' +
+        'runtime.quota-exhausted na transcricao do perfil: SIMULADO', estadoNativo: 'blocked', ok: false, estado: 'bloqueada', stop: null,
+      gate: 'phase.dispatch', origem: 'sessions.watch' };
+    registrar(a.dir, a.t.id, 'gate_blocked', { ts: '2026-09-30T14:10:00.000Z', ...cota });
+    registrar(a.dir, a.t.id, 'phase_result', { ts: '2026-09-30T14:10:00.010Z', ...cota });
+    const checks = [{ nome: 'ork-verify', situacao: 'verde' as const, concluidoEm: '2026-09-30T13:50:00.000Z' }];
+    const r = entregasDoProjeto(p.carregado, { quando, lerPrs: ler(retratoCom([pr(55, a.branch, a.head, { checks })], { lidoEm: quando })) });
+    assert.equal(pendenciaDoDono(lerThread(p.dir, a.t.id), lerLedger(a.dir), quando), 'escalação human.pending');
+    assert.ok(!r.parados.some(x => x.thread === a.t.id) && !r.doCondutor.gates.has(`${a.t.id}|SHIP`), JSON.stringify(r.parados));
+  } finally { p.limpar(); }
+});
+
 test('A4 do CHECK (rodada 5): fora do #Auto e do #Maestro, publicar a branch e abrir o PR levam a autorizacao de push do dono', () => {
   const p = projetoTemporario('fatia4-autorizacao', true);
   try {
