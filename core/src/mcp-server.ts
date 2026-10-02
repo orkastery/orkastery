@@ -42,6 +42,7 @@ import { registerMaestro } from './mcp-maestro';
 import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_PROJETO, raizParaExibir, registrarProjetoEmSilencio,
   remotoDoProjeto } from './projeto-alvo';
 import { registrarConsultasExperiencia } from './mcp-experiencia';
+import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -445,6 +446,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
     });
+  // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
+  if(grafoLigado(carregar().manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});
   return server;
 }
 

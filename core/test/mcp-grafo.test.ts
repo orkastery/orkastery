@@ -12,10 +12,22 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { carregarManifesto } from '../src/manifest';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import type { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { carregarManifesto, exigirManifesto } from '../src/manifest';
 import { raizDoEstado } from '../src/estado-thread';
 import { executarGrafo } from '../src/intelligence-graph-cli';
-import { dirTemporario } from './apoio';
+import { TIPOS_DE_ARESTA } from '../src/intelligence-graph-contract';
+import { LIMITE_MAXIMO, PROFUNDIDADE_MAXIMA } from '../src/intelligence-graph-query';
+import { criarServidorMcp } from '../src/mcp-server';
+import {
+  LIMITE_MAXIMO_DO_MCP, PROFUNDIDADE_MAXIMA_DO_MCP, TETO_PADRAO, TIPOS_DE_ARESTA_DO_MCP, TOOLS_DO_GRAFO, consultarPeloWorker,
+} from '../src/mcp-grafo';
+import { rodarConsulta } from '../src/mcp-grafo-worker';
+import { novaThread } from '../src/thread';
+import type { Thread } from '../src/types';
+import { commitar, dirTemporario, projetoTemporario, type ProjetoDeTeste } from './apoio';
 
 const MANIFESTO_MINIMO = 'project:\n  name: "demo"\n  abbrev: "dem"\n';
 
@@ -47,11 +59,12 @@ const REPO = {
   'docs/x.md': '# X\n\nVeja [alvo](../src/alvo.ts).\n',
 };
 
-/** `ork grafo` pelo modulo, na raiz pedida; erro lancado vira `{ codigo: null, erro }`. */
+/** `ork grafo` pelo modulo, na raiz pedida e com o repositorio do manifesto dela, como a CLI e o worker. */
 function grafo(dir: string, ...argv: string[]): { codigo: number | null; saida: string; erro: string | null } {
   const partes: string[] = [];
   try {
-    const codigo = executarGrafo(argv, { raiz: dir, estado: raizDoEstado(dir), repositorio: 'demo', escrever: (t) => partes.push(t) });
+    const repositorio = exigirManifesto(dir).manifesto.project.name;
+    const codigo = executarGrafo(argv, { raiz: dir, estado: raizDoEstado(dir), repositorio, escrever: (t) => partes.push(t) });
     return { codigo, saida: partes.join('\n'), erro: null };
   } catch (e) {
     return { codigo: null, saida: partes.join('\n'), erro: (e as Error).message };
@@ -277,6 +290,311 @@ test('KG5 indice: cli com indice do HEAD corrompido traz o estado e a correcao n
     fs.truncateSync(path.join(status.dir, status.chave_do_head, 'grafo.json'), 10);
     const e = JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).erro;
     assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.corrompido', 'corrompido', 'ork grafo indexar']);
+  } finally {
+    r.limpar();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// As tools no servidor MCP (T4).
+// ---------------------------------------------------------------------------
+
+/** Fontes do projeto das tools: `alvo` com dois chamadores, um nome repetido e um link de documento. */
+const FONTES = {
+  'src/alvo.ts': 'export function alvo(): number { return 1; }\nexport function repetido(): number { return 2; }\n',
+  'src/usa.ts': "import { alvo } from './alvo';\nexport function um(): number { return alvo(); }\nexport function dois(): number { return alvo() + um(); }\n",
+  'src/outro.ts': 'export function repetido(): number { return 3; }\n',
+  'docs/x.md': '# X\n\nVeja [alvo](../src/alvo.ts).\n',
+};
+const FLAG_LIGADA = 'grafo:\n  mcp: true\n';
+
+async function chamar(c: Client, nome: string, args: Record<string, unknown>): Promise<{ erro: boolean; texto: string }> {
+  const r = await c.callTool({ name: nome, arguments: args });
+  const texto = (r.content as { type: string; text?: string }[]).filter((x) => x.type === 'text').map((x) => x.text ?? '').join('');
+  return { erro: r.isError === true, texto };
+}
+
+async function conectar(projeto: string, threadId?: string): Promise<{ c: Client; fechar: () => Promise<void> }> {
+  const server = criarServidorMcp({ projeto, host: 'codex', ...(threadId ? { threadId } : {}) });
+  const c = new Client({ name: 'kg5-fixture', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  await server.connect(st);
+  await c.connect(ct);
+  return { c, fechar: async () => { await c.close(); await server.close(); } };
+}
+
+/**
+ * Projeto com o manifesto (com a flag pedida) e as fontes commitados, uma thread, o indice do HEAD
+ * da arvore da thread e o servidor MCP com um cliente. O manifesto e rastreado, como no projeto real:
+ * a worktree da thread tem o proprio.
+ */
+async function comServidor(corpo: (f: { p: ProjetoDeTeste; t: Thread; c: Client }) => Promise<void>,
+  opcoes: { flag?: string; indexar?: boolean; worktree?: boolean; vinculada?: boolean } = {}): Promise<void> {
+  const p = projetoTemporario('kg5-mcp');
+  try {
+    const manifesto = path.join(p.dir, 'orkastery.yaml');
+    commitar(p.dir, 'orkastery.yaml', `${fs.readFileSync(manifesto, 'utf8')}\n${opcoes.flag ?? FLAG_LIGADA}`, 'manifesto');
+    for (const [arquivo, conteudo] of Object.entries(FONTES)) commitar(p.dir, arquivo, conteudo, `fonte ${arquivo}`);
+    p.carregado = exigirManifesto(p.dir);
+    const t = novaThread(p.carregado, { nome: 'consulta', modo: 'auto', criarWorktree: opcoes.worktree === true }).thread;
+    if (opcoes.indexar !== false) indexar(t.worktree ?? p.dir);
+    const { c, fechar } = await conectar(p.dir, opcoes.vinculada ? t.id : undefined);
+    try {
+      await corpo({ p, t, c });
+    } finally {
+      await fechar();
+    }
+  } finally {
+    p.limpar();
+  }
+}
+
+/** A lista de tools do servidor no mesmo projeto, com o bloco `grafo` pedido no manifesto. */
+async function listarCom(p: ProjetoDeTeste, bloco: string): Promise<Tool[]> {
+  const manifesto = path.join(p.dir, 'orkastery.yaml');
+  const base = fs.readFileSync(manifesto, 'utf8').split('\ngrafo:')[0];
+  fs.writeFileSync(manifesto, bloco ? `${base}\n${bloco}` : base);
+  const { c, fechar } = await conectar(p.dir);
+  try {
+    return (await c.listTools()).tools;
+  } finally {
+    await fechar();
+  }
+}
+
+test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as mesmas 30 tools; com true, so acrescenta as quatro', async () => {
+  const p = projetoTemporario('kg5-lista');
+  try {
+    const sem = await listarCom(p, '');
+    assert.equal(sem.length, 30);
+    assert.ok(!sem.some((t) => t.name.startsWith('ork_grafo_')));
+    assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: false\n'), sem);
+    assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: sim\n'), sem);
+    const com = await listarCom(p, FLAG_LIGADA);
+    assert.equal(com.length, 34);
+    assert.deepEqual(com.slice(0, 30), sem, 'a flag nao muda nenhuma das outras tools');
+    assert.deepEqual(com.slice(30).map((t) => t.name), [...TOOLS_DO_GRAFO]);
+  } finally {
+    p.limpar();
+  }
+});
+
+test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema fechado e threadId', async () => {
+  const p = projetoTemporario('kg5-schemas');
+  try {
+    const grafoTools = (await listarCom(p, FLAG_LIGADA)).filter((t) => t.name.startsWith('ork_grafo_'));
+    assert.deepEqual(grafoTools.map((t) => t.name), [...TOOLS_DO_GRAFO]);
+    for (const t of grafoTools) {
+      assert.deepEqual([t.annotations?.readOnlyHint, t.annotations?.destructiveHint], [true, false], t.name);
+      assert.equal(t.inputSchema.additionalProperties, false, t.name);
+      const props = Object.keys(t.inputSchema.properties ?? {});
+      assert.ok(props.includes('threadId') && props.includes('tetoBytes') && props.includes('projeto'), `${t.name}: ${props}`);
+      const exigidos = t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
+      assert.deepEqual([...(t.inputSchema.required ?? [])].sort(), exigidos.sort(), t.name);
+      assert.match(t.description ?? '', /ork grafo indexar/, t.name);
+    }
+  } finally {
+    p.limpar();
+  }
+});
+
+test('KG5 contrato: o vocabulario e os limites das tools sao os do contrato v1 e da consulta', () => {
+  assert.deepEqual([...TIPOS_DE_ARESTA_DO_MCP], [...TIPOS_DE_ARESTA]);
+  assert.equal(PROFUNDIDADE_MAXIMA_DO_MCP, PROFUNDIDADE_MAXIMA);
+  assert.equal(LIMITE_MAXIMO_DO_MCP, LIMITE_MAXIMO);
+});
+
+test('KG5 contrato: cada tool responde byte a byte o que o ork grafo responde ao mesmo argv, com a evidencia de cada aresta', () => comServidor(async ({ p, t, c }) => {
+  const teto = `--teto-bytes=${TETO_PADRAO}`;
+  const casos: [string, Record<string, unknown>, string[]][] = [
+    ['ork_grafo_chamadores', { alvo: 'alvo' }, ['chamadores', 'alvo', '--json', teto]],
+    ['ork_grafo_importadores', { alvo: 'src/alvo.ts', profundidade: 2 }, ['importadores', 'src/alvo.ts', '--profundidade=2', '--json', teto]],
+    ['ork_grafo_vizinhos', { alvo: 'src/alvo.ts#alvo', profundidade: 2, sentido: 'entrada', tipos: ['calls', 'declares'], limite: 3, tetoBytes: 8192 },
+      ['vizinhos', 'src/alvo.ts#alvo', '--profundidade=2', '--sentido=entrada', '--tipo=calls,declares', '--limite=3', '--json', '--teto-bytes=8192']],
+    ['ork_grafo_caminho', { de: 'docs/x.md', para: 'alvo', sentido: 'saida' }, ['caminho', 'docs/x.md', 'alvo', '--sentido=saida', '--json', teto]],
+  ];
+  for (const [nome, args, argv] of casos) {
+    const r = await chamar(c, nome, { threadId: t.id, ...args });
+    const cli = grafo(p.dir, ...argv);
+    assert.equal(cli.codigo, 0, cli.saida);
+    assert.equal(r.erro, false, `${nome}: ${r.texto}`);
+    assert.equal(r.texto, cli.saida, nome);
+    const o = JSON.parse(r.texto);
+    assert.equal(o.schema, 'ork.code-graph-query/v0');
+    assert.ok(o.arestas.length >= 1, nome);
+    for (const a of o.arestas) {
+      assert.ok(a.evidencias.length >= 1, `${nome} ${a.edge_id}`);
+      for (const e of a.evidencias) {
+        assert.ok(e.extractor_id && e.extractor_version && e.extraction_method && e.path, nome);
+        assert.ok(Number.isInteger(e.span.byte_start) && Number.isInteger(e.span.byte_end) && Number.isInteger(e.span.line_start), nome);
+      }
+    }
+  }
+  assert.equal(JSON.parse((await chamar(c, 'ork_grafo_vizinhos', { threadId: t.id, alvo: 'src/alvo.ts#alvo', profundidade: 2, sentido: 'entrada', limite: 3 })).texto).truncado, true);
+}));
+
+test('KG5 contrato: recusa da consulta vem como o JSON da CLI, com isError', () => comServidor(async ({ p, t, c }) => {
+  const teto = `--teto-bytes=${TETO_PADRAO}`;
+  for (const [nome, alvo, sub, codigo] of [
+    ['ork_grafo_chamadores', 'repetido', 'chamadores', 'grafo.consulta.ambiguo'],
+    ['ork_grafo_chamadores', 'nada', 'chamadores', 'grafo.consulta.no-desconhecido'],
+    ['ork_grafo_chamadores', 'src/alvo.ts', 'chamadores', 'grafo.consulta.alvo-invalido'],
+    ['ork_grafo_importadores', 'docs/x.md#x', 'importadores', 'grafo.consulta.alvo-invalido'],
+  ] as const) {
+    const r = await chamar(c, nome, { threadId: t.id, alvo });
+    assert.equal(r.erro, true, alvo);
+    assert.equal(r.texto, grafo(p.dir, sub, alvo, '--json', teto).saida, alvo);
+    assert.equal(JSON.parse(r.texto).erro.codigo, codigo, alvo);
+  }
+  assert.deepEqual(JSON.parse((await chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'repetido' })).texto).erro.candidatos,
+    ['symbol src/alvo.ts#repetido', 'symbol src/outro.ts#repetido']);
+}));
+
+test('KG5 contrato: no com -- no inicio, parametro desconhecido ou fora da faixa recusam antes do worker', () => comServidor(async ({ t, c }) => {
+  for (const [nome, args] of [
+    ['ork_grafo_chamadores', { alvo: '--json' }],
+    ['ork_grafo_caminho', { de: 'docs/x.md', para: '--projeto=outro' }],
+    ['ork_grafo_chamadores', { alvo: 'alvo', forcar: true }],
+    ['ork_grafo_chamadores', { alvo: 'alvo', sentido: 'entrada' }],
+    ['ork_grafo_vizinhos', { alvo: 'alvo', profundidade: 6 }],
+    ['ork_grafo_vizinhos', { alvo: 'alvo', tipos: [] }],
+    ['ork_grafo_vizinhos', { alvo: 'alvo', tipos: ['usa'] }],
+    ['ork_grafo_vizinhos', { alvo: 'alvo', limite: 0 }],
+    ['ork_grafo_chamadores', { alvo: 'alvo', tetoBytes: 4095 }],
+    ['ork_grafo_chamadores', { alvo: 'alvo', tetoBytes: 65537 }],
+    ['ork_grafo_chamadores', { alvo: '' }],
+  ] as const) {
+    const r = await chamar(c, nome, { threadId: t.id, ...args });
+    assert.equal(r.erro, true, JSON.stringify(args));
+    assert.ok(!r.texto.includes('ork.code-graph-query'), `${JSON.stringify(args)} chegou ao worker`);
+  }
+}));
+
+test('KG5 indice: tool sem indice diz nao indexado; com indice de outra revisao, indice velho; os dois com a correcao', () => comServidor(async ({ p, t, c }) => {
+  const consultar = async () => chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'alvo' });
+  let r = await consultar();
+  assert.equal(r.erro, true);
+  let e = JSON.parse(r.texto).erro;
+  assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.ausente', 'nao-indexado', 'ork grafo indexar']);
+  indexar(p.dir);
+  commitar(p.dir, 'src/novo.ts', "import { alvo } from './alvo';\nexport function novo(): number { return alvo(); }\n", 'novo');
+  r = await consultar();
+  assert.equal(r.erro, true);
+  e = JSON.parse(r.texto).erro;
+  assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.outra-revisao', 'outra-revisao', 'ork grafo indexar']);
+  indexar(p.dir);
+  r = await consultar();
+  assert.equal(r.erro, false, r.texto);
+  assert.deepEqual(JSON.parse(r.texto).arestas.map((a: { from: string }) => a.from).sort(),
+    ['symbol src/novo.ts#novo', 'symbol src/usa.ts#dois', 'symbol src/usa.ts#um']);
+}, { indexar: false }));
+
+test('KG5 indice: flag desligada com a sessao aberta recusa sem consultar', () => comServidor(async ({ p, t, c }) => {
+  assert.equal((await chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'alvo' })).erro, false);
+  const manifesto = path.join(p.dir, 'orkastery.yaml');
+  fs.writeFileSync(manifesto, fs.readFileSync(manifesto, 'utf8').replace('  mcp: true', '  mcp: false'));
+  const r = await chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'alvo' });
+  assert.equal(r.erro, true);
+  assert.match(JSON.parse(r.texto).erro, /^grafo\.mcp\.desligado: /);
+}));
+
+test('KG5 indice: sessao vinculada a uma thread nao consulta a worktree de outra', () => comServidor(async ({ p, t, c }) => {
+  const outra = novaThread(p.carregado, { nome: 'outra', modo: 'auto' }).thread;
+  const r = await chamar(c, 'ork_grafo_chamadores', { threadId: outra.id, alvo: 'alvo' });
+  assert.equal(r.erro, true);
+  assert.match(r.texto, /mcp\.thread\.scope/);
+  assert.equal((await chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'alvo' })).erro, false);
+}, { vinculada: true }));
+
+test('KG5 indice: na thread com worktree, a tool responde pelo HEAD da worktree, nao pelo da raiz', () => comServidor(async ({ p, t, c }) => {
+  const wt = t.worktree as string;
+  assert.notEqual(wt, p.dir);
+  const head = commitar(wt, 'src/tres.ts', "import { alvo } from './alvo';\nexport function tres(): number { return alvo(); }\n", 'na worktree');
+  indexar(wt);
+  const r = await chamar(c, 'ork_grafo_chamadores', { threadId: t.id, alvo: 'alvo' });
+  assert.equal(r.erro, false, r.texto);
+  const o = JSON.parse(r.texto);
+  assert.equal(o.indice.revision, head);
+  assert.ok(o.arestas.some((a: { from: string }) => a.from === 'symbol src/tres.ts#tres'));
+  assert.equal(r.texto, grafo(wt, 'chamadores', 'alvo', '--json', `--teto-bytes=${TETO_PADRAO}`).saida);
+}, { worktree: true }));
+
+// ---------------------------------------------------------------------------
+// O worker (T4).
+// ---------------------------------------------------------------------------
+
+/** Espera o processo sumir da tabela (o Node colhe o filho morto); reprova se ele ficar. */
+async function semProcesso(pid: number): Promise<void> {
+  for (let i = 0; i < 100; i++) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(`o worker ${pid} ficou vivo`);
+}
+
+test('KG5 worker: so roda as quatro consultas no argv que a tool monta, na raiz conferida', () => {
+  const r = repositorio(REPO, 'kg5-worker');
+  try {
+    indexar(r.dir);
+    const argv = ['chamadores', 'alvo', '--json', '--teto-bytes=32768'];
+    const partes: string[] = [];
+    assert.equal(rodarConsulta({ raiz: r.dir, argv }, r.dir, (x) => partes.push(x)), 0);
+    assert.equal(partes.join(''), grafo(r.dir, ...argv).saida);
+    const recusa = (entrada: unknown, cwd: string, motivo: RegExp): void => {
+      assert.throws(() => rodarConsulta(entrada, cwd, () => undefined), motivo, JSON.stringify(entrada));
+    };
+    const pedido = (...a: string[]) => ({ raiz: r.dir, argv: a });
+    recusa({ raiz: r.dir }, r.dir, /^Error: grafo\.mcp\.worker: pedido fora do schema$/);
+    recusa({ ...pedido(...argv), extra: 1 }, r.dir, /pedido fora do schema/);
+    recusa({ raiz: 'relativa', argv }, r.dir, /pedido fora do schema/);
+    const fora = dirTemporario('kg5-fora');
+    try {
+      recusa(pedido(...argv), fora, /o cwd nao e a raiz pedida/);
+    } finally {
+      fs.rmSync(fora, { recursive: true, force: true });
+    }
+    for (const sub of ['indexar', 'limpar', 'amostra', 'status', 'constructor']) recusa(pedido(sub, 'x', '--json', '--teto-bytes=100'), r.dir, /so as consultas/);
+    recusa(pedido('chamadores', '--forcar', '--json', '--teto-bytes=100'), r.dir, /no ausente ou com -- no inicio/);
+    recusa(pedido('caminho', 'docs/x.md', '--json', '--teto-bytes=100'), r.dir, /no ausente ou com -- no inicio/);
+    recusa(pedido('chamadores', 'alvo', '--json', '--limite=5'), r.dir, /opcoes fora das que a tool monta/);
+    recusa(pedido('chamadores', 'alvo', '--teto-bytes=100', '--limite=5'), r.dir, /opcoes fora das que a tool monta/);
+    recusa(pedido('chamadores', 'alvo', '--json', '--teto-bytes=100', '--projeto=outro'), r.dir, /opcoes fora das que a tool monta/);
+    recusa(pedido('chamadores', 'alvo', '--json', '--teto-bytes=100', '--limite=5;x'), r.dir, /opcoes fora das que a tool monta/);
+    recusa(pedido('chamadores', 'alvo', '--json', '--teto-bytes=100', '--version'), r.dir, /opcoes fora das que a tool monta/);
+  } finally {
+    r.limpar();
+  }
+});
+
+test('KG5 worker: o processo responde como a CLI e, cancelado ou fora do prazo, morre sem deixar processo', async () => {
+  const r = repositorio(REPO, 'kg5-processo');
+  try {
+    indexar(r.dir);
+    const argv = ['chamadores', 'alvo', '--json', '--teto-bytes=32768'];
+    const ok = await consultarPeloWorker(r.dir, argv);
+    assert.deepEqual([ok.codigo, ok.interrompido], [0, null], ok.erro);
+    assert.equal(ok.saida, grafo(r.dir, ...argv).saida);
+    const recusado = await consultarPeloWorker(r.dir, ['indexar', 'x', '--json', '--teto-bytes=1']);
+    assert.equal(recusado.codigo, 2);
+    assert.match(recusado.erro, /^grafo\.mcp\.worker: so as consultas/);
+    const ctl = new AbortController();
+    const pendente = consultarPeloWorker(r.dir, argv, { signal: ctl.signal });
+    ctl.abort();
+    const cancelada = await pendente;
+    assert.equal(cancelada.interrompido, 'cancelada');
+    const fora = await consultarPeloWorker(r.dir, argv, { prazoMs: 1 });
+    assert.equal(fora.interrompido, 'prazo de 1 ms');
+    for (const pid of [cancelada.pid, fora.pid]) {
+      assert.ok(pid);
+      await semProcesso(pid);
+    }
+    const antes = new AbortController();
+    antes.abort();
+    assert.deepEqual(await consultarPeloWorker(r.dir, argv, { signal: antes.signal }), { codigo: null, saida: '', erro: '', interrompido: 'cancelada', pid: null });
   } finally {
     r.limpar();
   }

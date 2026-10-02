@@ -300,6 +300,7 @@ function fechamentoDoNucleo(inicio: string): Set<string> {
 test('KG5 boundary: o servidor MCP nao alcanca a familia do grafo; a consulta pelo MCP vai pelo worker', () => {
   const doServidor = [...fechamentoDoNucleo('mcp-server.ts')];
   assert.ok(doServidor.length > 20, `o fechamento leu os imports do servidor (${doServidor.length})`);
+  assert.ok(doServidor.includes('mcp-grafo.ts'), 'as tools do grafo estao no fechamento do servidor, sem a familia');
   assert.deepEqual(doServidor.filter((m) => FAMILIA_DO_GRAFO.includes(m) || m.includes('intelligence-')), [], 'o servidor MCP carrega o grafo');
   for (const porta of PORTAS_DA_FAMILIA) assert.ok(!doServidor.includes(porta), `${porta} roda fora do servidor`);
 });
