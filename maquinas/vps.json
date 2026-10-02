@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T02:43:35.704Z",
+  "publicadoEm": "2026-10-02T02:45:02.971Z",
   "threads": [
     {
       "id": "ork-ensaioprimei",
@@ -53,23 +53,6 @@
       "esperaVoce": true,
       "pergunta": "autorizacao da retomada",
       "paradaDesde": "2026-10-01T07:28:08.282Z",
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
-    {
-      "id": "ork-rm037fatia3d",
-      "nome": "rm037 fatia3 defeitos",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-rm037fatia3d-full",
-      "atualizadaEm": "2026-10-02T02:43:35.486Z",
-      "entregue": "3b7d9537",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
