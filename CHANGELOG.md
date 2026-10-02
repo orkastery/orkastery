@@ -18,6 +18,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     cada perfil do store; cada sessão sai com o id do perfil (coluna `PERFIL`), nunca com o diretório da conta;
   - sessão claude-bg sem `pid` vivo em estado não terminal é fantasma: não ocupa vaga nem vira pausa humana;
     `ork sessions limpar-fantasmas [--dry-run]` grava `sessao_morta` na thread vinculada e nunca toca no runtime.
+- **Impedimento que só o dono resolve vira pedido a ele** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  - o despacho recusado por `Workspace not trusted` (claude) ou `Not inside a trusted directory` (codex) sai como
+    `runtime.workspace-untrusted`, e o de termos novos do CLI como `runtime.consent-pending`, a partir da saída real do
+    runtime; motivo desconhecido continua `runtime.unavailable`, e cota e login seguem na rotação de conta;
+  - os dois abrem a espera do dono, com o que trava, desde quando, o comando exato (`cd <worktree> && claude`) e o que o
+    `ork` faz depois: aparecem em "espera você" no monitor, no board e no retrato da fábrica, e no pulse pelo contrato curto
+    `ork.hitl-curto/v1`, nunca em "Conosco";
+  - `ork retry run <thread>` re-despacha a mesma fase com o mesmo prompt gravado (mesmo sha256), sem o dono reescrever o
+    pedido; na confiança do diretório, só depois que o `.claude.json` da conta a registra, e sem a prova nada é despachado.
 
 ## [0.5.1] - 2026-10-02
 

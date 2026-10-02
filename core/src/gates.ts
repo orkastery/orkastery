@@ -46,6 +46,10 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
     'o modelo pedido nao existe ou a conta nao tem acesso a ele (RM-037: o perfil segue no rodizio e a fase vai a outro perfil com o mesmo modelo ou ao fallback do bloco)',
   'runtime.profile-invalid':
     'o perfil pedido no despacho (--perfil) nao existe no store ou e de outro runtime (RM-056: o despacho nunca troca de perfil sozinho)',
+  'runtime.workspace-untrusted':
+    'o runtime nao confia no diretorio da worktree e recusou o despacho (RM-055: so o dono aceita a confianca no terminal; depois o ork re-despacha o mesmo prompt)',
+  'runtime.consent-pending':
+    'o runtime espera o dono aceitar termos novos e recusou o despacho (RM-055: so o dono aceita no terminal; depois o ork re-despacha o mesmo prompt)',
   'cost.violation':
     'o despacho seria redirecionado para provider pago (violacao de custo: e o unico motivo que NUNCA recebe retry automatico)',
   'tree.blocked':

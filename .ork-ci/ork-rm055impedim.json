@@ -1,0 +1,85 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm055impedim",
+  "branch": "ork/ork-rm055impedim-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm055impedim",
+      "fase": "GO",
+      "arquivo": "core/src/impedimento.ts",
+      "alegacao": "C1: a saida real do runtime vira runtime.workspace-untrusted (claude e codex) ou runtime.consent-pending, com o comando exato; desconhecido, cota e login ficam fora",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='^a\\)' core/dist-test/test/rm055-impedimento.test.js"
+      ],
+      "criadoEm": "2026-10-02T16:39:28.296Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm055impedim",
+      "fase": "GO",
+      "arquivo": "core/src/orquestracao.ts",
+      "alegacao": "C2: o despacho recusado pelo impedimento do dono vira espera do dono no monitor, na fabrica e no pulse (contrato curto ork.hitl-curto/v1), fora de Conosco",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='^b' core/dist-test/test/rm055-impedimento.test.js"
+      ],
+      "criadoEm": "2026-10-02T16:39:28.443Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm055impedim",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "C3: ork retry run so re-despacha depois do aceite da confianca, a mesma fase com o mesmo prompt (mesmo sha256), e a espera sai",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='c\\)' core/dist-test/test/rm055-impedimento.test.js"
+      ],
+      "criadoEm": "2026-10-02T16:39:28.587Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm055impedim",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+      "alegacao": "C4: RM-055 criado do modelo, CHANGELOG em Nao publicado; ork docs verificar --pr sem erro de paridade",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-02T16:39:28.735Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm055impedim",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "C5: a suite hermetica do nucleo passa inteira com a mudanca",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run test:ci"
+      ],
+      "criadoEm": "2026-10-02T16:39:28.884Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

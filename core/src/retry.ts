@@ -63,6 +63,7 @@ import {
   Thread,
 } from './types';
 import { agora, exec, tabela } from './util';
+import { ehImpedimentoDoDono, impedimentoResolvido, registrarImpedimentoDoDono } from './impedimento';
 import { ResultadoSync, sincronizarWorktree } from './worktree';
 import { avaliarDelegacao, conteudoDePremissas } from './delegation';
 import { aprovacoesHumanas } from './gates';
@@ -248,6 +249,24 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     porque:
       'o modelo pedido nao existe ou a conta nao tem acesso a ele: o MESMO prompt, com o mesmo sha256, segue no proximo perfil do mesmo runtime com o mesmo modelo e depois no fallback do bloco, nunca de novo no par que ja recusou',
     correcao: 'ork retry run <thread> troca o destino; sem destino, ork setup <modo> --bloco N --model <modelo acessivel> ou --fallback runtime:modelo',
+  },
+  // RM-055: so o dono destrava, no terminal. O retry nao repete o despacho as cegas: confere antes se o
+  // impedimento saiu (a confianca do diretorio tem prova local) e, sem prova, deixa o runtime decidir.
+  'runtime.workspace-untrusted': {
+    motivo: 'runtime.workspace-untrusted',
+    acao: 'reexecutar',
+    automatica: true,
+    porque:
+      'o runtime recusou o diretorio da worktree antes de rodar qualquer coisa: depois que o dono aceita a confianca no terminal, o MESMO prompt, com o mesmo sha256, volta a mesma fase; enquanto a confianca nao aparece no .claude.json da conta, nada e despachado',
+    correcao: 'o dono roda o comando da pausa (cd <worktree> && claude, aceita a confianca); ork retry run <thread> re-despacha o prompt ja gravado',
+  },
+  'runtime.consent-pending': {
+    motivo: 'runtime.consent-pending',
+    acao: 'reexecutar',
+    automatica: true,
+    porque:
+      'o runtime espera o dono aceitar termos novos antes de rodar qualquer coisa: depois do aceite, o MESMO prompt, com o mesmo sha256, volta a mesma fase; se o runtime recusar de novo, a mesma pausa do dono volta',
+    correcao: 'o dono abre o CLI do runtime e aceita os termos; ork retry run <thread> re-despacha o prompt ja gravado',
   },
   'tree.blocked': {
     motivo: 'tree.blocked',
@@ -751,8 +770,19 @@ function redespacharSobLock(
     if (!resultado.ok || !resultado.sessionId) {
       registrar(dirThread(raiz, thread.id), thread.id, 'phase_dispatch_failed', { fase, runtime, slug, cwd,
         promptPath: absoluto, promptSha256: sha, controlador: resultado.controlador, model, effort,
-        erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', origem: 'retry', ...(perfil ? { perfil } : {}) });
+        erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', stderr: (resultado.stderr ?? '').slice(0, 500),
+        origem: 'retry', ...(perfil ? { perfil } : {}) });
       const sinal = resultado.rateLimit ?? null;
+      // RM-055: o redespacho recusado pelo que so o dono resolve reabre a pausa dele, com o mesmo comando.
+      const impedimento = !resultado.falhaDeConta && !sinal
+        ? registrarImpedimentoDoDono(dirThread(raiz, thread.id), thread, { fase, slug, runtime, cwd, origem: 'retry',
+          promptPath: absoluto, promptSha256: sha, perfil, saida: `${resultado.stderr ?? ''}\n${resultado.erro ?? ''}` })
+        : null;
+      if (impedimento) {
+        return { ok: false, slug, sessionId: null, verificada: false, motivo: impedimento.motivo,
+          detalhe: `${impedimento.motivo}: ${impedimento.trecho}`, sinal: null, falhaDeConta: null, perfil: perfil ?? null,
+          comando: resultado.comando, controlador: resultado.controlador, dryRun: false };
+      }
       // I-33 (D5): a conta recusou o redespacho; o perfil sai do rodizio aqui, onde a evidencia esta.
       if (resultado.falhaDeConta) {
         try { marcarContaDaFalha(carregado, perfil, resultado.falhaDeConta); } catch { /* a rotacao segue pelo motivo tipado */ }
@@ -1452,6 +1482,18 @@ export function executarRetry(
       `rode a fase de novo com \`ork phase run ${threadId} ${plano.fase} --prompt "..."\``;
     registrarTentativa(false, detalhe);
     return { ...vazio, detalhe };
+  }
+  // RM-055: o impedimento do dono com prova local (confianca do diretorio) so volta ao runtime depois de
+  // resolvido. Sem a prova, nada e despachado e a tentativa nao conta: a pausa do dono continua aberta.
+  if (plano.motivo && ehImpedimentoDoDono(plano.motivo) && typeof falho.cwd === 'string') {
+    const perfilFalho = perfilDoEvento(falho);
+    const resolvido = impedimentoResolvido(plano.motivo, { cwd: falho.cwd,
+      runtime: typeof falho.runtime === 'string' ? falho.runtime : '', configDir: perfilFalho?.configDir ?? null });
+    if (resolvido === false) {
+      const detalhe = `${plano.motivo}: o runtime ainda nao confia em ${falho.cwd}; nada foi despachado. ` +
+        `Rode \`cd ${falho.cwd} && claude\`, aceite a confianca e repita \`ork retry run ${threadId}\``;
+      return { ...vazio, detalhe };
+    }
   }
   const redespacho = redespachar(
     carregado,

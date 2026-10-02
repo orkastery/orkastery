@@ -532,6 +532,10 @@ export type MotivoGate =
   // RM-056 (D1): o perfil PEDIDO pelo dono (`--perfil`) nao existe ou e de outro runtime. E erro do
   // pedido, nao da conta: nenhum retry automatico o corrige, e o despacho nunca troca de perfil sozinho.
   | 'runtime.profile-invalid'
+  // RM-055: o runtime recusou o despacho por algo que SO o dono resolve no terminal (aceitar a confianca
+  // do diretorio, aceitar termos novos do CLI). Vira pausa do dono, com o comando exato, e nao "Conosco".
+  | 'runtime.workspace-untrusted'
+  | 'runtime.consent-pending'
   // Bloco B3: violacao de CUSTO (despacho redirecionado para provider pago). E o unico
   // motivo que NUNCA recebe retry automatico: reexecutar violacao de custo e gastar de novo.
   | 'cost.violation'
@@ -1783,6 +1787,11 @@ export interface ParadaDaThread {
    */
   sessaoEstado?: string | null;
   fonte: FonteDaParada;
+  /**
+   * RM-055: o impedimento do despacho que so o dono resolve, com o comando exato que ele roda e o que o
+   * `ork` faz depois. Ausente em qualquer outra parada.
+   */
+  impedimento?: { comando: string; depois: string; trecho: string };
 }
 
 /** Uma thread na visao do monitor, com tudo que a trava agora. */
