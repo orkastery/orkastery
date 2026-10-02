@@ -10,7 +10,8 @@ contrato [`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md) não muda. 
 Não entrega identidade estável entre revisões: o v1 deriva o ID de todo nó e de toda aresta do
 snapshot, que deriva do manifesto inteiro, então qualquer mudança troca todos os IDs, também no
 incremental. Estabilizar exigiria uma versão nova do contrato. Também ficam fora o consumo pelas
-fases (KG5), a federação (KG6), a paridade entre hosts (KG7), ferramenta MCP e a rodada paga do A/B.
+fases e a ferramenta MCP, que vieram no [KG5](consumo-grafo-kg5.md), a federação (KG6), a paridade
+entre hosts (KG7) e a rodada paga do A/B.
 
 ## O que o KG4 garante e o que não garante
 

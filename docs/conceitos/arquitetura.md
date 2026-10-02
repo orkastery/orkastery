@@ -306,17 +306,22 @@ O B1 roda sobre PostgreSQL, sem fixture nem fallback em produção, com document
 
 Escopo ainda não entregue: B3–B7, K3–K7, cuidadores, Atlas, ponte semântica de dados e world model. A arquitetura completa desses cortes permanece no plano, não no contrato vigente.
 
-## 9. Grafo determinístico no KG1
+## 9. Grafo determinístico de código
 
 O [RM-031](../roadmap/RM-031-grafo-de-codigo.md) quer que as fases peçam só o contexto de que
-precisam, por um grafo local de código e documentos. O KG1 entrega a primeira de três coisas
-distintas, e só ela:
+precisam, por um grafo local de código e documentos. São três coisas distintas, cada uma com o
+seu estado:
 
-| Camada | O que é | Estado no KG1 |
+| Camada | O que é | Estado |
 | --- | --- | --- |
-| Contrato | [grafo](../referencia/contratos/grafo-deterministico-kg1.md) e [benchmark](../referencia/contratos/benchmark-grafo-kg1.md) versionados, validação pura e corpus sintético | entregue |
-| Serviço | extração, índice, consulta, incremental e consumo pelas fases (KG2 a KG5) | não existe |
-| Evidência de economia | registro `measured` do benchmark, com recibos revisados | não existe |
+| Contrato | [grafo](../referencia/contratos/grafo-deterministico-kg1.md) e [benchmark](../referencia/contratos/benchmark-grafo-kg1.md) versionados, validação pura e corpus sintético (KG1) | entregue |
+| Serviço | [extração](../referencia/contratos/extracao-grafo-kg2.md) (KG2), [índice e consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (KG3), [incremental](../referencia/contratos/incremental-grafo-kg4.md) (KG4) e [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP (KG5) | entregue até o KG5, com o consumo atrás da flag `grafo.mcp`, desligada; pacote de contexto da thread, federação (KG6) e paridade entre hosts (KG7) não existem |
+| Evidência de economia | registro `measured` do benchmark, com recibos revisados | não existe: o protocolo está fixado (`not-run`) e a rodada paga, pendente |
+
+O consumo pelas fases (KG5) passa pelo MCP do projeto: as tools `ork_grafo_*` rodam a consulta do
+`ork grafo` na worktree da thread, num processo filho com o ambiente mínimo do MCP, prazo e
+cancelamento, e a resposta tem teto em bytes. O servidor MCP não carrega o grafo, e sem a flag ele
+lista as mesmas tools de antes.
 
 O grafo é projeção descartável: não substitui o estado em arquivos do Ork nem o Company
 Brain. O contrato do grafo não é emitido como evento do OrkMind e não amplia o schema

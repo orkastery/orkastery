@@ -468,6 +468,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
   grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
   grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
+        [--json --teto-bytes N]                  Nas quatro consultas (KG5): JSON compacto de no maximo N bytes; as arestas mais
+                                                 longe do alvo saem ate caber, e o caminho que nao cabe recusa
   grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
   grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 

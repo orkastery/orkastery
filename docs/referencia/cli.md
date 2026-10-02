@@ -334,16 +334,18 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O
 índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD. Desde o
 [KG4](contratos/incremental-grafo-kg4.md), o índice de uma revisão parte do índice ancestral e
-reextrai só o que a mudança alcança, com os mesmos bytes da extração completa.
+reextrai só o que a mudança alcança, com os mesmos bytes da extração completa. Desde o
+[KG5](contratos/consumo-grafo-kg5.md), as mesmas consultas estão no MCP do projeto, atrás da flag
+`grafo.mcp` do manifesto, desligada por padrão.
 
 | Comando | O que faz |
 | --- | --- |
 | `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
-| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
-| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json]` | Quem chama: as arestas `calls` que chegam ao símbolo |
-| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json]` | Quem importa: as arestas `imports` que chegam |
-| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json]` | O menor caminho pelas arestas, no sentido delas por padrão |
+| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
+| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem chama: as arestas `calls` que chegam ao símbolo |
+| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem importa: as arestas `imports` que chegam |
+| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json [--teto-bytes N]]` | O menor caminho pelas arestas, no sentido delas por padrão |
 | `ork grafo amostra [--por-estrato N]` | Amostra estratificada de arestas para auditoria manual |
 | `ork grafo amostra --conferir ARQ [--json]` | Confere a amostra auditada contra o índice do HEAD e os bytes da árvore |
 | `ork grafo limpar [--tudo] [--json]` | Apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (ou todos) e as sobras de construção com mais de uma hora |
@@ -352,6 +354,15 @@ O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome sol
 ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
 extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
 resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+
+`--teto-bytes N` (KG5, só com `--json`) escreve a resposta em JSON compacto de no máximo N bytes: se ela
+não cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o
+limite pedido e se cortou; o caminho não se corta e recusa com `grafo.consulta.teto-excedido`. A recusa
+também sai compacta, mas não passa pelo teto. Sem o índice do HEAD, a consulta diz o caso:
+`grafo.indice.ausente` (não indexado), `grafo.indice.outra-revisao` (o índice guardado é de outra
+revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de outra instalação, outro
+Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
+corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
 
 ```bash
 ork grafo indexar --verificar

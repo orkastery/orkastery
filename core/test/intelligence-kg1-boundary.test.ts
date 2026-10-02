@@ -1,9 +1,10 @@
 /**
- * I-31 KG1 (T3, D9, D10), RM-031 KG2 (D1, D11) e KG3 (D1): fronteiras da familia do grafo.
+ * I-31 KG1 (T3, D9, D10), RM-031 KG2 (D1, D11), KG3 (D1) e KG5 (D8): fronteiras da familia do grafo.
  *
  * O Company Brain v1 fica byte a byte, os contratos KG1 e os extratores puros do KG2 sao fechados
- * por allowlist no fechamento transitivo dos imports, e fora da familia do grafo nenhum modulo do
- * nucleo os consome: consumo e federacao sao KG5 a KG7. O compilador TypeScript entra nos
+ * por allowlist no fechamento transitivo dos imports, e fora da familia do grafo so duas portas a
+ * abrem, e so pelo CLI do grafo: o `index.ts` (o `ork grafo`) e, desde o KG5, o worker da consulta pelo
+ * MCP, que roda num processo filho; o servidor MCP nao alcanca a familia. Federacao e KG6 e KG7. O compilador TypeScript entra nos
  * extratores so como tipo (KG2 D1); em tempo de execucao, so o modulo de analisadores do KG3 o carrega. A analise usa o parser do TypeScript, nao busca de palavra em
  * prosa: comentario que cita "embedding" nao conta, identificador e import contam.
  */
@@ -33,6 +34,8 @@ const MODULO_KG3_CLI = 'intelligence-graph-cli.ts';
 const FAMILIA_DO_GRAFO = [
   ...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA, MODULO_KG3_CLI,
 ];
+/** KG5 (D8): fora da familia, os unicos modulos que a abrem, e so pelo CLI do grafo. */
+const PORTAS_DA_FAMILIA = ['index.ts', 'mcp-grafo-worker.ts'];
 /** Modulos de apoio que o KG2 puro pode alcancar: puros e sem import, conferidos com as mesmas regras. */
 const APOIO_PURO_KG2 = ['yaml.ts'];
 /** Externos que o KG2 puro pode alcancar; `typescript` so em `import type`. */
@@ -263,12 +266,43 @@ test('KG1 boundary: fora da familia do grafo, nenhum modulo do nucleo consome os
     assert.ok(outros.includes(vizinho), `${vizinho} existe: a fronteira nao e vazia`);
   }
   for (const f of outros) {
-    // KG3: so o `index.ts` abre a familia, e so pelo CLI do grafo; MCP, fases, recall, memoria e adaptadores ficam fora (KG5).
+    // KG3: so o `index.ts` abre a familia, e so pelo CLI do grafo. KG5 (D8): o worker da consulta pelo MCP e a
+    // segunda porta, pelo mesmo CLI; o servidor MCP, as fases, recall, memoria e adaptadores ficam fora.
     const doGrafo = [...new Set([...importacoes(f), ...modulosImportados(f)])].filter((i) => i.includes('intelligence-'));
-    assert.deepEqual(doGrafo, f === 'index.ts' ? ['./intelligence-graph-cli'] : [], `${f} importa a familia do grafo`);
+    assert.deepEqual(doGrafo, PORTAS_DA_FAMILIA.includes(f) ? ['./intelligence-graph-cli'] : [], `${f} importa a familia do grafo`);
     const texto = ler(f);
     assert.ok(!texto.includes('ork.code-artifact-graph') && !texto.includes('ork.graph-benchmark'), `${f} cita contrato KG1`);
   }
+});
+
+/**
+ * KG5 (D8): o fechamento dos imports locais a partir de `inicio`, pela AST, resolvendo o caminho
+ * relativo de subpasta (`../types` dos adaptadores). Pacote externo fica fora; import local que nao
+ * resolve para um `.ts` de `core/src` reprova, para o fechamento nao encolher em silencio.
+ */
+function fechamentoDoNucleo(inicio: string): Set<string> {
+  const vistos = new Set<string>(), fila = [inicio];
+  while (fila.length) {
+    const atual = fila.pop() as string;
+    if (vistos.has(atual)) continue;
+    vistos.add(atual);
+    for (const i of modulosImportados(atual)) {
+      if (!i.startsWith('.')) continue;
+      const alvo = path.posix.normalize(path.posix.join(path.posix.dirname(atual), i));
+      const candidato = [`${alvo}.ts`, `${alvo}/index.ts`].find((c) => fs.existsSync(path.join(SRC, c)));
+      assert.ok(candidato, `${atual} importa ${i}, que nao e modulo de core/src`);
+      fila.push(candidato);
+    }
+  }
+  return vistos;
+}
+
+test('KG5 boundary: o servidor MCP nao alcanca a familia do grafo; a consulta pelo MCP vai pelo worker', () => {
+  const doServidor = [...fechamentoDoNucleo('mcp-server.ts')];
+  assert.ok(doServidor.length > 20, `o fechamento leu os imports do servidor (${doServidor.length})`);
+  assert.ok(doServidor.includes('mcp-grafo.ts'), 'as tools do grafo estao no fechamento do servidor, sem a familia');
+  assert.deepEqual(doServidor.filter((m) => FAMILIA_DO_GRAFO.includes(m) || m.includes('intelligence-')), [], 'o servidor MCP carrega o grafo');
+  for (const porta of PORTAS_DA_FAMILIA) assert.ok(!doServidor.includes(porta), `${porta} roda fora do servidor`);
 });
 
 test('KG1 boundary: os schemas publicados do KG1 ficam sob a fronteira de contrato publico', () => {
