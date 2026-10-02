@@ -451,7 +451,37 @@ test('fatia 2 P9: ship sem delta com a base local a frente do remoto e push dire
     const real = ship(p.carregado, thread.id, { para: 'main' });
     assert.deepEqual([real.bloqueado, real.motivo, real.pushVerificado], [true, 'policy.violation', false]);
     assert.equal(shaNoRemotoDeTeste(p.dir, p.remoto!, 'main'), remotoAntes, 'o remoto nao recebeu a base');
+    // Com --sem-push nao ha push a barrar: o fato nem e medido.
+    const semPush = ship(p.carregado, thread.id, { para: 'main', dryRun: true, semPush: true });
+    assert.equal(semPush.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, semPush.detalhe);
   } finally { p.limpar(); }
+
+  // Sem remoto, nada a empurrar: o mesmo caminho segue como antes.
+  const s = projetoTemporario('fatia2-p9-sem-remoto');
+  try {
+    const { thread } = novaThread(s.carregado, { nome: 'sem remoto', modo: 'auto' });
+    commitar(s.dir, 'src/entrega.txt', 'feito na base\n', 'feat: direto na base');
+    assert.equal(garantirWorktree(s.carregado, thread.id).ok, true);
+    const semRemoto = ship(s.carregado, thread.id, { para: 'main', dryRun: true });
+    assert.equal(semRemoto.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, semRemoto.detalhe);
+  } finally { s.limpar(); }
+
+  // CHECK, rodada 1 (B1): o merge do proprio ship que o remoto recusou nao e push direto; o retry entrega.
+  const r = projetoTemporario('fatia2-p9-retry', true);
+  try {
+    const { thread } = novaThread(r.carregado, { nome: 'push recusado', modo: 'auto', criarWorktree: true });
+    commitar(thread.worktree!, 'src/entrega.txt', 'da thread\n', 'feat: entrega da thread');
+    const hook = path.join(r.remoto!, 'hooks', 'pre-receive');
+    fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const recusado = ship(r.carregado, thread.id, { para: 'main' });
+    assert.deepEqual([recusado.bloqueado, recusado.motivo], [true, 'runtime.unavailable'], recusado.detalhe);
+    assert.match(exec('git', ['log', '-1', '--format=%s', 'main'], r.dir).stdout, /^ship\(/, 'o merge local ja aconteceu');
+    fs.rmSync(hook);
+    const retry = ship(r.carregado, thread.id, { para: 'main' });
+    assert.equal(retry.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, retry.detalhe);
+    assert.deepEqual([retry.ok, retry.jaIncorporado, retry.pushVerificado], [true, true, true], retry.detalhe);
+    assert.equal(shaNoRemotoDeTeste(r.dir, r.remoto!, 'main'), exec('git', ['rev-parse', 'main'], r.dir).stdout.trim());
+  } finally { r.limpar(); }
 
   // Base igual ao remoto e sem delta: nada muda. Com delta, a regra nova nao vale.
   const q = projetoTemporario('fatia2-p9-igual', true);

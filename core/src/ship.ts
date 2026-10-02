@@ -441,11 +441,18 @@ export function ship(
   // Fatia 2 do ensaio da 0.5.0 (P9): sem delta (a branch da thread ja esta contida na base) e com a base
   // local a frente da ref de rastreio do remoto, o push publicaria a base sem merge de thread. A medida e
   // local, sem rede; sem remoto, sem ref de rastreio ou com --sem-push, o fato nao vem e nada muda.
+  // CHECK, rodada 1 (B1): o merge que o proprio ship ja fez e nao chegou ao remoto (push recusado,
+  // --sem-push, retomada do MCP) tambem deixa a base a frente sem delta, mas leva a ponta da thread como
+  // pai que nao e o primeiro: e entrega de thread, e o retry empurra como antes.
   const rastreio = pontaDe && pontaPara && de !== para && !opcoes.semPush && remotoConfigurado(raiz, remoto)
     ? shaDaRef(raiz, `refs/remotes/${remoto}/${para}`) : null;
+  const mergeDaThreadNaBase = (desde: string): boolean =>
+    exec('git', ['rev-list', '--merges', '--parents', `${desde}..${pontaPara}`], raiz).stdout.split('\n')
+      .some((linha) => linha.trim().split(' ').slice(2).includes(pontaDe!));
   const semDeltaComBaseAFrente = rastreio
     ? exec('git', ['merge-base', '--is-ancestor', pontaDe!, pontaPara!], raiz).ok &&
-      !exec('git', ['merge-base', '--is-ancestor', pontaPara!, rastreio], raiz).ok
+      !exec('git', ['merge-base', '--is-ancestor', pontaPara!, rastreio], raiz).ok &&
+      !mergeDaThreadNaBase(rastreio)
     : undefined;
   const violacoes = avaliarPolicies(manifesto, {
     gate: 'ship',
