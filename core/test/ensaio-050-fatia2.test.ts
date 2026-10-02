@@ -513,6 +513,23 @@ test('fatia 2 P9: ship sem delta com a base local a frente do remoto e push dire
     assert.equal(shaNoRemotoDeTeste(r.dir, r.remoto!, 'main'), exec('git', ['rev-parse', 'main'], r.dir).stdout.trim());
   } finally { r.limpar(); }
 
+  // CHECK, rodada 2 (S-R2-1): commit direto na base entre a recusa e o retry nao vai junto com o merge.
+  const m = projetoTemporario('fatia2-p9-base-mexida', true);
+  try {
+    const { thread } = novaThread(m.carregado, { nome: 'base mexida', modo: 'auto', criarWorktree: true });
+    commitar(thread.worktree!, 'src/entrega.txt', 'da thread\n', 'feat: entrega da thread');
+    const hook = path.join(m.remoto!, 'hooks', 'pre-receive');
+    fs.writeFileSync(hook, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    assert.equal(ship(m.carregado, thread.id, { para: 'main' }).motivo, 'runtime.unavailable');
+    fs.rmSync(hook);
+    commitar(m.dir, 'src/direto.txt', 'direto na base\n', 'feat: direto na base, sem thread');
+    const remotoAntes = shaNoRemotoDeTeste(m.dir, m.remoto!, 'main');
+    const retry = ship(m.carregado, thread.id, { para: 'main' });
+    assert.deepEqual([retry.bloqueado, retry.motivo], [true, 'policy.violation'], retry.detalhe);
+    assert.match(retry.detalhe, /push_direto_na_base: /);
+    assert.equal(shaNoRemotoDeTeste(m.dir, m.remoto!, 'main'), remotoAntes, 'o commit direto nao chegou ao remoto');
+  } finally { m.limpar(); }
+
   // Base igual ao remoto e sem delta: nada muda. Com delta, a regra nova nao vale.
   const q = projetoTemporario('fatia2-p9-igual', true);
   try {
