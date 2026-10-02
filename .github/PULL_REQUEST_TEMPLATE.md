@@ -56,6 +56,8 @@ https://github.com/orkastery/orkastery/blob/main/docs/guias/contribuir/testes-e-
 - [ ] Não substituo nenhuma lacuna de medida por zero ou por estimativa não declarada.
 - [ ] Skill nova (se houver) tem corpus em `eval/casos/`.
 - [ ] Mudança de comportamento (se houver) tem linha na seção "Não publicado" do `CHANGELOG.md`.
+      *O check `documentacao` reprova PR que muda `core/`, `adapters/` ou `marketplaces/` sem
+      ela; PR só de testes ou só de CI fica de fora.*
 
 ## Uso de agente
 

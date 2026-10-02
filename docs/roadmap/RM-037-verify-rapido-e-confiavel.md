@@ -50,6 +50,14 @@ sdlc:
 ## Escopo e validação
 
 - **Já entregue:** T5 (a árvore inteira morre no estouro do teto), merge `8f02f44` de 22/09/2026.
+- **Defeitos de 27/09 a 01/10/2026 (thread `ork-rm037fatia3d`, fatia 3):** sete defeitos, cada um reproduzido com prova antes do código. Os seis que reproduziam na 0.5.0 têm teste `core/test/rm037-fatia3-*.test.ts` que reprova o código anterior:
+  - o `ork docs verificar` acusa o item cuja thread já entrou na base e segue fora de `Mesclado` (`docs.paridade.merge`) e o índice que diverge do frontmatter (`docs.paridade.indice`); na `main` da 0.5.0 eram RM-031, RM-038, RM-051, RM-054 e o índice sem a RM-051. Escolha registrada: o verificador acusa no CI, em vez de o SHIP gravar, porque o merge é pelo GitHub e o `ship_done` vem do `ork ship registrar-pr`; no PR (`--pr`), as duas regras só avisam, e o push da `main` reprova;
+  - o check `documentacao` do CI exige linha no CHANGELOG quando o PR muda `core/`, `adapters/` ou `marketplaces/`, com a exceção documentada para PR só de testes ou só de CI; sobre a história real, o checador reprova o #26 (`f0b79255`) e o #32 (`d2b180ea`), que entraram sem linha;
+  - o `ork worktree sync` recusa a base reescrita com ancestral comum, que caía no `git rebase` e trazia de volta o commit tirado da base; o corte de 27/09 (raiz nova) já era coberto pela D-5;
+  - lease e fila de thread fechada são órfãos nas conferências prévias do MCP (commit, verify, SHIP, artefato);
+  - o armazém de objetos do `.git` aceita hard link no MCP git, e a recusa nos outros metadados diz o caminho e a receita sem perda (decisão: aceitar com segurança, porque o git nunca escreve dentro de arquivo de `objects/`);
+  - `ork ship registrar-pr --dry-run` deixa de gravar `ship_done`; o `ork ci prepare` na raiz não reproduz na 0.5.0 (corrigido no #28, com o bundle por thread do #34);
+  - o `ork doctor` acusa arquivo ou pasta do `.git` com outro dono, com o `chown` exato e sem rodar nada.
 - **Incluído:** causa tipada do estouro (T3), `verify.timeout` (T4), prazo do manifesto (T6), compilação única.
 - **P2, compilação única (27/09/2026, thread `ork-i54compilaca`):** `verify.preparo` roda uma vez antes das claims; o produto é conferido do preparo ao fim da rodada; `executado` entrou no contrato e comando que não rodou nunca vira verificado (`verify.sem-veredito`). O `incremental` dos dois tsconfig já estava ligado.
 - **P6, lint do comando de claim (27/09/2026, thread `ork-i53lintdocom`):** a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra; SHA intermediário e contagem de commits só avisam; claim antiga só avisa. A lista das integrações locais passou a ter uma fonte só.
@@ -104,4 +112,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | três testes instáveis do CI consertados (umask das fixtures, lock com `ENOENT`, SHA curto lido como número pelo YAML) | PR #6, merge `0b00683` | Julio |
 | 2026-09-28 | corridas de tempo do sensor do controller e do observador sob máquina ocupada; o push da `main` ficou verde de primeira | PR #9, merge `8e6ddda` | Julio |
 | 2026-09-28 | defeitos de condução achados em 28/09: conclusão claude-bg em `blocked`, perfis no `sessions stop`, `ork_git` com hooks, contexto vazado, sync sobre base reescrita, modelo inacessível e o teste instável do PR #14 | thread `ork-defeitosdeco`, PR a abrir | Julio |
+| 2026-10-01 | fatia 3: sete defeitos de condução de 27/09 a 01/10 (estado do item contra o merge, CHANGELOG no CI, base reescrita com ancestral comum, lease de thread fechada no MCP, hard link em `.git/objects`, `registrar-pr --dry-run` e dono do `.git` no doctor) | thread `ork-rm037fatia3d`, reprodução e decisões no ledger, testes `rm037-fatia3-*`, PR a abrir | Julio |
 | 2026-09-30 | defeitos da noite de 29/09: bundle por thread, fila e reservas de thread fechada, runtime na fábrica, sincronizar com escopo e número de FEAT reservado | thread `ork-rm037noite`, fatia aprovada pelo dono (N1 a), PR a abrir | Julio |

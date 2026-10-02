@@ -21,6 +21,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Defeitos de condução de 27/09 a 01/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 3):
+  - `ork docs verificar` reprova o item cuja thread (`sdlc.thread`) já entrou na base pelo merge
+    `ship(<thread>)` e segue fora de `Mesclado` (`docs.paridade.merge`), e o índice gerado que
+    diverge do frontmatter (`docs.paridade.indice`); `ork docs sincronizar --escrever --so RM-NNN`
+    corrige os dois. No PR (`ork docs verificar --pr`, o que o CI usa), as duas regras só avisam, e o
+    push da `main` reprova: a página de outra thread não trava o PR de ninguém;
+  - o check `documentacao` do CI exige linha nova em "Não publicado" quando o PR muda `core/`,
+    `adapters/` ou `marketplaces/` (`core/scripts/checar-changelog.cjs`, `changelog.linha-ausente`);
+    PR só de testes ou só de CI fica de fora, e o PR de versão passa pela seção nova;
+  - `ork worktree sync` recusa a base reescrita também com ancestral comum (force-push que tirou
+    commits): com commit próprio, `tree.blocked` com a causa `base-reescrita` e o `git rebase --onto`
+    que reaplica só os commits da thread; sem commit próprio, a branch é recriada na base;
+  - o commit, o verify, o SHIP e a escrita de artefato pelo MCP soltam o lease e a fila de thread
+    fechada antes de conferir a região, com registro no ledger dela; lease de thread aberta segue
+    barrando;
+  - `ork_git_status` e `ork_git_commit` aceitam hard link no armazém de objetos do `.git` (clone
+    local), que o git nunca abre para escrita; fora dele, `mcp.git.metadata.unsafe` diz o caminho e a
+    receita sem perda;
+  - `ork ship registrar-pr --dry-run`, também com `--repo --pr` e `--todas`, faz as mesmas
+    conferências e não grava `ship_done`, fase nem fábrica;
+  - `ork doctor` reprova arquivo ou pasta do `.git` com dono diferente do dono do repositório, com
+    o `sudo chown -R` exato na correção, sem rodar nada.
 - **Primeira experiência da 0.5.0, achados do ensaio em máquina limpa** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork init` num repositório ainda sem commit grava em `worktree.base_branch` a branch do HEAD
     (como `master`), e não `main`; com o HEAD destacado, `main`, e não `HEAD`. O `ork doctor` diz a

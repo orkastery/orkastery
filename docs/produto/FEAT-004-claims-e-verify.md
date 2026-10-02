@@ -84,3 +84,4 @@ fontes:
 | 2026-09-27 | estouro de prazo tipado, prazo no manifesto e evidência da falha no ledger | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-09-27 | lint do comando de claim: avisa no `claims add`, recusa a suíte inteira no `ci prepare` | Claude (agente) / Julio, revisão pendente | RM-037 |
 | 2026-09-27 | compilação única por preparo, identidade do produto e `executado` no contrato | Claude (agente) / Julio, revisão pendente | RM-037 |
+| 2026-10-01 | fatia 3 da RM-037: o verify e o commit pelo MCP não travam em lease de thread fechada nem em hard link de objeto do `.git`, e o CI cobra a linha do CHANGELOG e o estado do item depois do merge | Claude (agente) / Julio, revisão pendente | RM-037 |
