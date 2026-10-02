@@ -77,8 +77,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `ork sessions` dá a fonte como ausente, com a correção, e não sai mais 1;
   - o `gate_blocked` do `ork ship --dry-run` leva `dryRun: true`, e board, escalonador, monitor
     (pulse) e maestro ignoram o evento de ensaio: a thread não aparece pausada por um dry-run;
-  - `ork init` cria `.orkastery/.gitignore` com `*`, e a primeira worktree, o mesmo na pasta de
-    worktrees; o `.gitignore` do usuário não muda;
+  - `ork init` cria `.orkastery/.gitignore` com `*`, e o `ork`, ao criar a pasta de worktrees, o
+    mesmo nela; o `.gitignore` do usuário não muda;
   - onboarding, ajuda e docs dizem que segredos ficam no ambiente do processo ou no cofre do host
     (no Hermes, `~/.hermes/.env`);
   - a correção do lint de claim de suíte inteira e a dica de `ci.failed` das lições não citam mais

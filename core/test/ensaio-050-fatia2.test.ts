@@ -307,6 +307,12 @@ test('fatia 2 P3: init cria .orkastery/.gitignore com * sem tocar no .gitignore 
     assert.equal(fs.existsSync(path.join(rastreado, '.orkastery/.gitignore')), false);
     // Pasta fora do repositorio nao recebe nada.
     assert.equal(ignorarPastaNoGit(casa, dir), false);
+    // Fora de repositorio git (o `git ls-files` falha), a pasta do ork ganha o arquivo: ele ja vale quando o `git init` vier.
+    const semGit = dirTemporario('fatia2-init-sem-git');
+    try {
+      assert.equal(ignorarPastaNoGit(path.join(semGit, '.orkastery'), semGit), true);
+      assert.equal(fs.readFileSync(path.join(semGit, '.orkastery/.gitignore'), 'utf8'), GITIGNORE_DA_MAQUINA);
+    } finally { limpar(semGit); }
 
     // A CLI diz que deixou o estado fora do git.
     const saida = ork(cli, casa, PATH_ATUAL, 'init');
@@ -421,6 +427,8 @@ test('fatia 2 P7: roadmap status diz o fuso logo abaixo do titulo', () => {
     assert.ok(texto.includes('Roadmap do Orkastery (02/10, 00:00)'));
     assert.deepEqual(texto.filter((l) => /Horários/.test(l)), ['Horários de Brasília.']);
     assert.equal(texto.at(-1), 'Horários de Brasília.');
+    // A feature do monitor descreve o formato com a linha do fuso.
+    assert.match(ler('docs/produto/FEAT-014-monitor-board-e-pulse.md'), /com o fuso dito logo abaixo do título \(`Horários de Brasília\.`\)/);
   } finally { p.limpar(); limpar(casa); }
 });
 

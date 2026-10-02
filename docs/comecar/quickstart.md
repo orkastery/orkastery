@@ -112,8 +112,9 @@ manifesto.
 
 O estado do `ork` (`.orkastery/`) e as worktrees das threads (`.claude/worktrees/`) são da máquina,
 não do repositório. O `ork init` deixa o estado fora do git com um `.orkastery/.gitignore` próprio
-(com `*`), e a pasta das worktrees ganha o mesmo quando a primeira worktree é criada; o seu
-`.gitignore` fica como está. Faça o commit do manifesto antes da primeira thread:
+(com `*`), e a pasta das worktrees ganha o mesmo quando o `ork` a cria, com a primeira worktree;
+se ela já existia, deixe-a fora do git você mesmo. O seu `.gitignore` fica como está. Faça o commit
+do manifesto antes da primeira thread:
 
 ```bash
 git add orkastery.yaml AGENTS.md
