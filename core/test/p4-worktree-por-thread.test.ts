@@ -427,3 +427,59 @@ test('p4 worktree: achado segue a chave e aceita --sem-worktree', () => {
     assert.match(sem.stderr, /^Aviso: thread \S+ sem worktree \(--sem-worktree\): ela trabalha na raiz do projeto, na branch base main/m);
   } finally { p.limpar(); limpar(casa); }
 });
+
+test('p4 worktree: modelo do init documenta a chave', () => {
+  const p = projetoTemporario('p4-modelo');
+  try {
+    const yaml = fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8');
+    const bloco = /\nworktree:\n((?:  .*\n)+)/.exec(yaml)?.[1] ?? '';
+    assert.equal(bloco,
+      `  base_branch: "main"\n  dir: ".claude/worktrees"\n` +
+      '  # true: o ork thread new cria a worktree e a branch da thread sem flag (--sem-worktree cria sem);\n' +
+      '  # false ou ausente: só com --worktree auto\n' +
+      '  por_thread: true\n');
+  } finally { p.limpar(); }
+});
+
+test('p4 worktree: docs e ajuda dizem o comportamento novo', () => {
+  const RAIZ = path.resolve(__dirname, '../../..');
+  const ler = (arquivo: string): string => fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+
+  const quickstart = ler('docs/comecar/quickstart.md');
+  assert.match(quickstart, /\n  por_thread: true +# o ork thread new cria a worktree da thread sem flag; --sem-worktree cria sem\n/);
+  assert.ok(quickstart.includes('\nork thread new "corrigir o filtro de data do relatorio" --modo classic\n'));
+  assert.ok(quickstart.includes(`\n${LINHA_DA_CHAVE}\n  estado: .orkastery/threads/prd-corrigirofil/thread.json\n`));
+  const passo4 = quickstart.slice(quickstart.indexOf('## 4.'), quickstart.indexOf('## 5.'));
+  for (const trecho of ['grava `worktree.por_thread: true`', 'com a chave `false` ou ausente, a worktree só nasce com',
+    'O `--dry-run` mostra a worktree que seria criada', '`--sem-worktree`', '`push_direto_na_base`']) {
+    assert.ok(passo4.replace(/\s+/g, ' ').includes(trecho), `quickstart, passo 4: ${trecho}`);
+  }
+
+  const modos = ler('docs/guias/modos.md');
+  const secao = modos.slice(modos.indexOf('\n## A worktree da thread\n'), modos.indexOf('\n## Uma thread começa a partir de um achado\n'));
+  assert.ok(secao.length > 100, 'guia de modos: secao da worktree antes da thread que nasce de um achado');
+  for (const trecho of ['`worktree.por_thread: true`', 'Com a chave `false` ou ausente, nada muda', '`--worktree auto`',
+    '`--worktree <DIR>`', '`--sem-worktree`', '`push_direto_na_base`', '`ork worktree ensure <thread>`', '`--dry-run`',
+    '`greenfield`, `merge-branch` e `feature-xl-faseada` exigem a worktree e recusam `--sem-worktree`']) {
+    assert.ok(secao.replace(/\s+/g, ' ').includes(trecho), `guia de modos: ${trecho}`);
+  }
+
+  const cli = ler('docs/referencia/cli.md');
+  assert.ok(cli.includes('`[--slug S] [--assunto A] [--worktree auto\\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]`'));
+  assert.ok(cli.includes('| ↳ worktree | Com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree'));
+  assert.ok(cli.includes('a worktree segue a mesma regra do `ork thread new`, com `--worktree auto` e `--sem-worktree` |'));
+  assert.ok(ler('docs/produto/FEAT-001-thread-e-seis-fases.md').includes(
+    'Com `worktree.por_thread: true` (o que o `ork init` grava) ou com `--worktree auto`, a thread ganha uma worktree'));
+  assert.ok(ler('docs/produto/FEAT-007-worktree-e-leases.md').includes(
+    'thread criada com `worktree.por_thread: true` (sem flag) ou com `--worktree auto`, ou depois por `ork worktree ensure`'));
+
+  const casa = dirTemporario('p4-ajuda-casa');
+  try {
+    const ajuda = ork(casa, casa, '--help');
+    assert.equal(ajuda.status, 0, ajuda.stderr);
+    assert.ok(ajuda.stdout.includes(
+      '        [--sem-worktree]                         cria sem worktree (na branch base, o ship barra a entrega);\n' +
+      '                                                 com worktree.por_thread: true, a worktree nasce sem flag\n'), ajuda.stdout);
+    assert.ok(ajuda.stdout.includes('        [--modo M] [--worktree auto] [--sem-worktree] [--dry-run]\n'), ajuda.stdout);
+  } finally { limpar(casa); }
+});

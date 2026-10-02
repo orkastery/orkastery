@@ -38,7 +38,7 @@ fontes:
 ## Comportamento
 
 - **Casos de uso e operações:** garantir worktree, rebasear na base, tomar e soltar lease.
-- **Pré-condições e gatilho:** thread criada com `--worktree auto` ou `ork worktree ensure`.
+- **Pré-condições e gatilho:** thread criada com `worktree.por_thread: true` (sem flag) ou com `--worktree auto`, ou depois por `ork worktree ensure`.
 - **Fluxo principal:**
 
   1. A worktree nasce da base resolvida pelo `ork`.

@@ -333,6 +333,28 @@ Fonte de verdade: `ork ciclos`.
 
 ---
 
+## A worktree da thread
+
+O modo diz quantas pausas, e a variante diz como a thread nasce; a worktree diz **onde** ela escreve.
+Com `worktree.por_thread: true` no `orkastery.yaml`, o que o `ork init` grava, o `ork thread new`
+cria a worktree e a branch da thread (`ork/<slug>`) em qualquer modo, sem flag, e o `ork ship`
+entrega essa branch. Com a chave `false` ou ausente, nada muda: a worktree só nasce com
+`--worktree auto` ou com um ciclo que a exige.
+
+| Você quer | Use |
+| --- | --- |
+| A worktree que a chave já dá | nada a mais: `ork thread new "<nome>" --modo <MODO>` |
+| A worktree com a chave desligada | `--worktree auto` |
+| Um diretório que já existe | `--worktree <DIR>` |
+| Nenhuma worktree | `--sem-worktree`: a thread roda na raiz do projeto, e na branch base o `ork ship` sai barrado por `push_direto_na_base`; antes do GO, `ork worktree ensure <thread>` cria a worktree |
+| Ver antes de criar | `--dry-run` mostra a worktree e a branch que seriam criadas |
+
+`greenfield`, `merge-branch` e `feature-xl-faseada` exigem a worktree e recusam `--sem-worktree`.
+Num repositório ainda sem commit, a worktree da chave não tem de onde partir: a thread nasce na raiz,
+com aviso, e a próxima, depois do primeiro commit, já nasce com ela.
+
+---
+
 ## Uma thread começa a partir de um achado
 
 Quando um auditor periódico encontra alguma coisa, ela não vira um ticket solto: vira uma

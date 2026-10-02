@@ -276,8 +276,10 @@ test('ensaio 050: quickstart traz modos vivos, commit, gitignore, worktree, clai
   // `.gitignore` do usuario saiu do quickstart.
   assert.ok(doc.includes('`.orkastery/.gitignore`') && doc.includes('git add orkastery.yaml AGENTS.md'), 'estado fora do git');
   assert.doesNotMatch(doc, />> \.gitignore/);
-  assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto\n/);
-  assert.doesNotMatch(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
+  // P4 (ork-p4worktreepo, D5): a worktree da primeira thread vem da chave worktree.por_thread que o `ork init`
+  // grava; o comando dispensa o --worktree auto, e a saida explicita aparece no texto.
+  assert.match(doc, /ork thread new "corrigir o filtro de data do relatorio" --modo classic\n/);
+  assert.match(doc, /Com\s+`--sem-worktree`, a thread roda na raiz do projeto/);
   assert.match(doc, /ainda não passou do GO,\s+`ork worktree ensure <thread>`/);
 
   const claim = /ork claims add prd-corrigirofil[\s\S]*?--verificar "([^"]+)"/.exec(doc)?.[1];
@@ -302,8 +304,8 @@ test('ensaio 050: amostras do quickstart batem com a saida do ork do HEAD', () =
     primeiroCommit(semManifesto);
     assert.equal(ork(dir, casa, 'init', '--name', 'meu-produto', '--abbrev', 'prd').status, 0);
 
-    const comando = 'ork thread new "corrigir o filtro de data do relatorio" --modo classic --worktree auto';
-    const thread = ork(dir, casa, 'thread', 'new', 'corrigir o filtro de data do relatorio', '--modo', 'classic', '--worktree', 'auto');
+    const comando = 'ork thread new "corrigir o filtro de data do relatorio" --modo classic\n';
+    const thread = ork(dir, casa, 'thread', 'new', 'corrigir o filtro de data do relatorio', '--modo', 'classic');
     assert.equal(thread.status, 0, thread.stderr);
     assert.equal(normalizar(thread.stdout, dir), normalizar(amostraDepoisDe(doc, comando)));
 
