@@ -10,7 +10,7 @@ import { lerClaims } from './claims';
 import { branchDaWorktree } from './worktree';
 import { validarArquivosEstadoMcp } from './mcp-artifacts';
 import { comEstadoParaGit, auditarEstado, raizDoEstado } from './estado-thread';
-import { adquirirRegiao, lerLease, liberar, leasesColidentes } from './leases';
+import { adquirirRegiao, lerLease, liberar, leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
 import { registrar } from './ledger';
 import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
@@ -67,10 +67,22 @@ function ambiente(env:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
   return { HOME: env.HOME, USER: env.USER, LOGNAME: env.LOGNAME,
     XDG_CONFIG_HOME:env.XDG_CONFIG_HOME, PATH:'/usr/bin:/bin', LANG:'C.UTF-8', TMPDIR:'/tmp' };
 }
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P8): como o git saiu, sem o stderr, que pode citar caminho e conteudo.
+ * O sinal vem antes do erro (CHECK, rodada 1, S4): prazo estourado e saida acima do limite matam o git
+ * que ja executou; so o erro sem sinal (ENOENT, EACCES) e git que nem rodou.
+ */
+export function comoOGitSaiu(r: { status: number | null; signal?: NodeJS.Signals | null; error?: Error }): string {
+  const codigo = r.error ? (r.error as NodeJS.ErrnoException).code ?? 'erro' : '';
+  if (r.signal) return `interrompido por ${r.signal}${codigo ? ` (${codigo})` : ''}`;
+  if (r.error) return `nao executou (${codigo})`;
+  return `saiu ${r.status}`;
+}
 function git(wt: string, args: string[], input?: string): string {
   const r=spawnSync(GIT,['--no-pager','--literal-pathspecs',...args],{cwd:wt,env:ambiente(),
     encoding:'utf8',input,timeout:10000,killSignal:'SIGKILL',maxBuffer:LIMITE});
-  if(r.status!==0 || r.signal || r.error) falha('command.failed');
+  // O subcomando e sempre o primeiro argumento interno, nunca entrada do cliente.
+  if(r.status!==0 || r.signal || r.error) falha(`command.failed: git ${args[0]} ${comoOGitSaiu(r)}`);
   return r.stdout;
 }
 /** Lista positiva de configuração passiva. Não é blacklist de shell. */
@@ -95,18 +107,37 @@ function configPassiva(chave: string, valor: string, credenciaisInertes = false)
     return valor.length<=2048 && !/[\x00-\x1f]/.test(valor);
   return false;
 }
-/** Metadados graváveis pelo Git/API não podem redirecionar escrita para fora. */
-function arvoreMetadados(root:string,alvo:string):void {
+/**
+ * Metadados graváveis pelo Git/API não podem redirecionar escrita para fora.
+ *
+ * RM-037 (fatia 3, defeito 5): no armazém de objetos (`objects/`), arquivo regular com mais de um vínculo
+ * passa. O git nunca abre arquivo de lá para escrita: cria um temporário e renomeia, e objeto que já existe
+ * só tem o horário renovado. O vínculo não redireciona escrita, e um clone local liga os objetos por hard
+ * link (7.621 em 29/09): um clone qualquer travava o `ork_git_status` e o `ork_git_commit` de todas as
+ * threads. Fora de `objects/` (refs, logs, índice), segue um vínculo só, e a recusa diz o caminho e a receita.
+ */
+function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boolean;relativoA?:string}={}):void {
   if(!fs.lstatSync(alvo,{throwIfNoEntry:false}))return;
+  // O caminho da recusa e relativo a raiz do repositorio, onde a receita roda; com caractere fora do
+  // conjunto seguro (ref com `+` ou espaco, por exemplo), vai entre aspas simples para a receita copiar certo.
+  const rotulo=(f:string)=>{
+    const r=path.relative(opcoes.relativoA ?? path.dirname(root),f).replace(/[\x00-\x1f\x7f]/g,'?').slice(0,200);
+    return /^[A-Za-z0-9._/-]+$/.test(r) ? r : `'${r.replace(/'/g,"'\\''")}'`;
+  };
   let vistos=0;
   const visitar=(f:string,profundidade:number)=>{
-    if(++vistos>8192 || profundidade>32)falha('metadata.unsupported');
+    if(++vistos>8192) falha(`metadata.unsupported: mais de 8192 entradas em ${rotulo(alvo)}`+(opcoes.armazemDeObjetos
+      ? '; empacote os objetos soltos sem perda com git repack -d (git count-objects -v mostra quantos)' : ''));
+    if(profundidade>32) falha(`metadata.unsupported: mais de 32 niveis em ${rotulo(alvo)}`);
     const st=fs.lstatSync(f);
-    if(st.isSymbolicLink() || (!st.isDirectory() && (!st.isFile() || st.nlink!==1)))falha('metadata.unsafe');
-    if(f!==root && !dentro(root,f))falha('metadata.unsafe');
+    if(st.isSymbolicLink()) falha(`metadata.unsafe: link simbolico em ${rotulo(f)}`);
+    if(!st.isDirectory() && !st.isFile()) falha(`metadata.unsafe: ${rotulo(f)} nao e arquivo regular nem pasta`);
+    if(st.isFile() && st.nlink!==1 && !opcoes.armazemDeObjetos) falha(`metadata.unsafe: hard link em ${rotulo(f)} (${st.nlink} vinculos); `+
+      `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f+'.tmp')} && mv ${rotulo(f+'.tmp')} ${rotulo(f)}`);
+    if(f!==root && !dentro(root,f))falha(`metadata.unsafe: ${rotulo(f)} fora de ${path.basename(root)}`);
     if(st.isDirectory())for(const n of fs.readdirSync(f))visitar(path.join(f,n),profundidade+1);
   };
-  if(fs.realpathSync(alvo)!==alvo)falha('metadata.unsafe');visitar(alvo,0);
+  if(fs.realpathSync(alvo)!==alvo)falha(`metadata.unsafe: ${rotulo(alvo)} passa por link simbolico`);visitar(alvo,0);
 }
 /** Cobre também refresh do índice e checkout/diff internos da API de estado.
  * --cached e worktree devem concordar na ausência de filtros, sem executar driver.
@@ -150,8 +181,8 @@ export const HOOKS_ESTRITOS: HooksDaOperacao = { inertes: new Set(),
   correcao: 'o SHIP do MCP o executaria (merge ou push); entregue por PR com o bundle do ork ci prepare, ou pelo ork ship do CLI' };
 function perfil(wt: string, comum: string, gitdir: string,id:string,selecionados:string[],hooksDaOperacao:HooksDaOperacao=HOOKS_ESTRITOS): string {
   fisico(path.dirname(comum),comum); fisico(comum,gitdir);
-  for(const nome of ['objects','refs','logs','info'])arvoreMetadados(comum,path.join(comum,nome));
-  for(const nome of ['index','logs','refs'])arvoreMetadados(gitdir,path.join(gitdir,nome));
+  for(const nome of ['objects','refs','logs','info'])arvoreMetadados(comum,path.join(comum,nome),{armazemDeObjetos:nome==='objects'});
+  for(const nome of ['index','logs','refs'])arvoreMetadados(gitdir,path.join(gitdir,nome),{relativoA:path.dirname(comum)});
   const estado=path.join(path.dirname(comum),'.orkastery');
   for(const nome of ['leases','state-backups']) {const f=path.join(estado,nome);if(fs.lstatSync(f,{throwIfNoEntry:false}))fisico(estado,f);}
   arvoreMetadados(estado,path.join(estado,'leases'));
@@ -238,6 +269,8 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     conferir();
     if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
     const regioes=[`worktree-write:${t.id}`,...p.paths.map(f=>'path:'+f)];
+    // RM-037 (fatia 3, defeito 4): lease e fila de thread fechada sao orfaos e saem antes da conferencia.
+    podarRegioesDeThreadsFechadas(raiz,regioes,t.id);
     for(const nome of regioes) {
       if(lerLease(raiz,nome) || leasesColidentes(raiz,nome).length) falha('lease.busy');
       const r=adquirirRegiao(raiz,nome,{thread:t.id,motivo:'MCP git_commit delimitado',ttlMs:TTL,retomarVencido:false});
@@ -247,7 +280,14 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     conferir(); if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
     comEstadoParaGit(raiz,t.id,wt,()=>{
       conferir();
-      git(wt,['add','--',...p.paths]);
+      // Fatia 2 do ensaio da 0.5.0 (P8): caminho rastreado entra por `git add -u`, que nao consulta regra de
+      // ignore; o `git add` dele, sob regra local (`fontes/` casando `marketplaces/fontes/`), indexava e saia 1.
+      // Caminho novo segue pelo `git add`, que continua recusando o ignorado, e vai antes: recusado, os
+      // rastreados nem chegam ao indice.
+      const rastreados=new Set(git(wt,['ls-files','-z','--',...p.paths]).split('\0').filter(Boolean));
+      const antigos=p.paths.filter(f=>rastreados.has(f)),novos=p.paths.filter(f=>!rastreados.has(f));
+      if(novos.length) git(wt,['add','--',...novos]);
+      if(antigos.length) git(wt,['add','-u','--',...antigos]);
       const staged=git(wt,['diff','--cached','--name-only','-z']).split('\0').filter(Boolean).sort();
       if(!staged.length || staged.some(f=>!p.paths.includes(f))) falha('index.selection');
       conferir();

@@ -65,7 +65,8 @@ Reset emite um evento por etapa efetivamente limpa; repetir reset não acrescent
 
 ## Referências de credenciais
 
-Valores secretos ficam somente em `~/.hermes/.env`. O onboarding não lê esse arquivo.
+Valores secretos ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`).
+O onboarding guarda só o nome da variável e nunca lê o valor.
 Nas etapas credenciais/bancos, use um objeto com `env` (array de nomes de variáveis),
 `provedor` e/ou `banco` (identificadores públicos). Campos fora desse formato são recusados.
 Nos demais conteúdos, referências sensíveis usam nomes terminados em `_env`, com o nome da
@@ -111,7 +112,7 @@ Sem a chave vale o fuso do sistema (`TZ` ou a configuração do SO), com piso `U
 resolve. Valor inválido não reprova o manifesto: vira aviso em `ork doctor` (linha
 `fuso do dono`) e no stderr, uma vez por processo, e todo horário cai no default sem mudar o
 código de saída do comando. `ork doctor` também avisa (`onboarding fuso`) quando o fuso da
-entrevista diverge do manifesto. O `ork init` gera o bloco `owner` com a chave comentada.
+entrevista diverge do manifesto. Com `owner.timezone` na mesma resposta `maestro`, o aviso compara esse valor, que o `onboarding set` grava no manifesto; o `fuso` legado vale só sem ele. O `ork init` gera o bloco `owner` com a chave comentada.
 
 O fuso é resolvido uma vez por processo, no primeiro horário formatado. Cada execução do `ork`
 lê o valor novo: CLI, cron do pulse (`monitor/varredura-pulse.sh`), digest e as ofertas nativas

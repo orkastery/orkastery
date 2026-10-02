@@ -15,7 +15,7 @@ import { fusoDoManifesto, registrarFonteDoFuso } from './horario';
 import { dirThread, lerThread, novaThread, resumoDaThread, exigirFase, pausaNaThread } from './thread';
 import { lerLedger } from './ledger';
 import { rodarFase } from './phase';
-import { leasesColidentes } from './leases';
+import { leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
 import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
@@ -42,6 +42,7 @@ import { registerMaestro } from './mcp-maestro';
 import { consultaDoProjeto, ErroDeProjeto, FORA_DA_CONSULTA, PADRAO_DO_NOME_DE_PROJETO, raizParaExibir, registrarProjetoEmSilencio,
   remotoDoProjeto } from './projeto-alvo';
 import { registrarConsultasExperiencia } from './mcp-experiencia';
+import { grafoLigado, registrarConsultasDoGrafo } from './mcp-grafo';
 
 const identidade = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 const daThread = z.object({ threadId: identidade }).strict();
@@ -233,6 +234,10 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   };
   const livre = (id?: string) => {
     const nomes = ['main-tree', ...(id ? ['worktree-write:'+id] : [])];
+    // RM-037 (fatia 3, GO-FIX 2, achado 1 do CHECK): esta e a primeira conferencia de toda tool de escrita.
+    // Lease e fila de thread fechada sao orfaos e saem aqui, com registro no ledger dela; sem isso o
+    // main-tree de um SHIP que caiu antes do fechamento travava verify, commit, ship e artefato pelo MCP.
+    podarRegioesDeThreadsFechadas(raiz, nomes, id ?? '');
     for (const nome of nomes) {
       const conflitos = leasesColidentes(raiz,nome,id);
       if (conflitos.length) throw Error('lease.busy: '+conflitos.map(l=>l.nome+' ('+l.thread+')').join(', '));
@@ -443,6 +448,9 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
     });
+  // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
+  // CHECK rodada 1 (S8): o startup le so o manifesto, como antes; as conferencias de estado ficam na chamada.
+  if(grafoLigado(exigirManifesto(raiz).manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});
   return server;
 }
 

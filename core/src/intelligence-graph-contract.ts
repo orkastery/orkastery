@@ -142,16 +142,69 @@ export function compararUtf8(a: string, b: string): number {
   return a.length - b.length;
 }
 
-/** D2: JSON canonico. Chaves na ordem de bytes UTF-8, sem espaco, so numero finito. */
-export function canonico(v: unknown): string {
-  if (v === null || typeof v === 'boolean' || typeof v === 'string') return JSON.stringify(v);
-  if (typeof v === 'number') return Number.isFinite(v) ? JSON.stringify(v) : falha('grafo.canonico.numero-invalido');
-  if (Array.isArray(v)) return `[${v.map(canonico).join(',')}]`;
-  if (typeof v === 'object') {
-    const o = v as Record<string, unknown>;
-    return `{${Object.keys(o).sort(compararUtf8).map((k) => `${JSON.stringify(k)}:${canonico(o[k])}`).join(',')}}`;
+/**
+ * RM-031 KG4 (D6): a ordem canonica das chaves de cada forma de objeto, calculada uma vez. A forma e
+ * a lista de chaves na ordem em que o objeto as tem, comparada chave a chave (sem texto montado, sem
+ * colisao); o indice e a primeira chave. O teto so limita a memoria: forma fora dele e ordenada na hora.
+ */
+interface Forma { chaves: readonly string[]; ordem: readonly (readonly [string, string])[] }
+const FORMAS = new Map<string, Forma[]>();
+const TETO_DE_FORMAS = 4096;
+let formasGuardadas = 0;
+
+function formaDe(chaves: readonly string[]): Forma['ordem'] {
+  const primeira = chaves.length ? chaves[0] : '', candidatas = FORMAS.get(primeira);
+  if (candidatas) {
+    for (const f of candidatas) {
+      if (f.chaves.length !== chaves.length) continue;
+      let igual = true;
+      for (let i = 1; i < chaves.length && igual; i++) igual = f.chaves[i] === chaves[i];
+      if (igual) return f.ordem;
+    }
   }
-  return falha('grafo.canonico.tipo-invalido');
+  const ordem = [...chaves].sort(compararUtf8).map((k) => [k, `${JSON.stringify(k)}:`] as const);
+  if (formasGuardadas < TETO_DE_FORMAS) {
+    formasGuardadas++;
+    if (candidatas) candidatas.push({ chaves: [...chaves], ordem });
+    else FORMAS.set(primeira, [{ chaves: [...chaves], ordem }]);
+  }
+  return ordem;
+}
+
+/**
+ * D2: JSON canonico. Chaves na ordem de bytes UTF-8, sem espaco, so numero finito. KG4 (D6): mesma
+ * saida da forma original (`map` e `join`, com o buraco de array esparso vazio), sem ordenar as
+ * chaves a cada objeto; a ordem de visita, e com ela o primeiro erro, e a mesma.
+ */
+export function canonico(v: unknown): string {
+  if (v === null) return 'null';
+  switch (typeof v) {
+    case 'string':
+      return JSON.stringify(v);
+    case 'boolean':
+      return v ? 'true' : 'false';
+    case 'number':
+      return Number.isFinite(v) ? JSON.stringify(v) : falha('grafo.canonico.numero-invalido');
+    case 'object': {
+      if (Array.isArray(v)) {
+        let s = '[';
+        for (let i = 0; i < v.length; i++) {
+          if (i > 0) s += ',';
+          if (i in v) s += canonico(v[i]);
+        }
+        return `${s}]`;
+      }
+      const o = v as Record<string, unknown>, forma = formaDe(Object.keys(o));
+      let s = '{';
+      for (let i = 0; i < forma.length; i++) {
+        if (i > 0) s += ',';
+        s += forma[i][1] + canonico(o[forma[i][0]]);
+      }
+      return `${s}}`;
+    }
+    default:
+      return falha('grafo.canonico.tipo-invalido');
+  }
 }
 
 /** SHA-256 sobre os bytes UTF-8 do conteudo canonico. */
@@ -507,7 +560,15 @@ function linhaDoByte(quebras: readonly number[], o: number): number {
  * parser interpretou a relacao certo; essa prova vem da auditoria de arestas do benchmark.
  */
 export function conferirFontes(entrada: unknown, fontes: ReadonlyMap<string, FonteFornecida>): ConferenciaDeFontes {
-  const g = validarGrafo(entrada);
+  return conferirFontesDoGrafoValidado(validarGrafo(entrada), fontes);
+}
+
+/**
+ * RM-031 KG4 (D6): a conferencia de `conferirFontes` sobre o grafo que `validarGrafo` acabou de
+ * devolver, sem validar de novo. So para o produtor que tem esse retorno em maos (a construcao do
+ * indice, logo depois da extracao); qualquer outra entrada passa por `conferirFontes`.
+ */
+export function conferirFontesDoGrafoValidado(g: GrafoCodigo, fontes: ReadonlyMap<string, FonteFornecida>): ConferenciaDeFontes {
   const manifesto = new Map(g.snapshot.source_manifest.map((m) => [m.path, m]));
   for (const [p, f] of fontes) {
     if (!manifesto.has(p)) falha('grafo.fonte.fora-do-manifesto');

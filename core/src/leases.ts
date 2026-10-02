@@ -634,3 +634,16 @@ function podarThreadsFechadas(raiz: string, nome: string, quem: string): void {
     if (threadFechada(raiz, thread)) soltarThreadFechada(raiz, thread, 'poda', quem);
   }
 }
+
+/**
+ * RM-037 (fatia 3, defeito 4): a mesma poda, para as conferencias previas do MCP. O `ork_git_commit`
+ * conferia `lerLease` antes do `adquirirRegiao` e recusava com `lease.busy` o lease que a ork-companybrai3
+ * (fechada) deixou, e soltar o lease de outra thread exigia o dono. Lease e fila de thread fechada sao
+ * orfaos: saem aqui, com registro no ledger dela. Lease de thread aberta, vencido ou nao, e o da propria
+ * thread seguem como estao, e a conferencia de quem chama decide. De melhor esforco, como no `adquirirRegiao`.
+ */
+export function podarRegioesDeThreadsFechadas(raiz: string, nomes: readonly string[], quem: string): void {
+  for (const nome of nomes) {
+    try { podarThreadsFechadas(raiz, nome, quem); } catch { /* a conferencia de quem chama decide */ }
+  }
+}

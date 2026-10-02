@@ -30,7 +30,7 @@
 import * as adapter from './adapters/claude-bg';
 import { estadosDeSessao, planejar, threadsDeTodosOsPerfis, perfisDetectados } from './board';
 import { DESCRICAO_DO_MOTIVO } from './gates';
-import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
+import { ehEnsaio, lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import {
@@ -454,7 +454,8 @@ export function montarMonitor(
   const linhas: LinhaDoMonitor[] = [];
   for (const item of itens) {
     const { thread } = item;
-    const eventos = lerLedger(dirThread(item.raiz, thread.id));
+    // Fatia 2 do ensaio da 0.5.0 (P2): o evento de `--dry-run` nao abre parada no monitor nem no pulse.
+    const eventos = lerLedger(dirThread(item.raiz, thread.id)).filter((e) => !ehEnsaio(e));
     const pausas = pausasAbertas(thread, eventos, estados, quando);
     const impedimentos = impedimentosAbertos(item, eventos, item.raiz, quando);
 

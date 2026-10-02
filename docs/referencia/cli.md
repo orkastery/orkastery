@@ -28,7 +28,10 @@ utilizável como gate de pipeline.
 | `ork accounts check [<id>]` | Confere o login de cada perfil ativo (`claude auth status`, `codex login status`) e marca o store: `sem-auth` sai do rodízio; login por API key, `api_key_helper`, Console ou nuvem vira `provider-pago` e nunca despacha; login de assinatura refeito volta; conferência inconclusiva (timeout, binário ausente, resposta ilegível) mantém o estado e registra a falha. Sai diferente de zero com perfil sem login de assinatura conferido |
 
 O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o store) e a sonda de
-umask e das permissões de `.orkastery` e `.orkastery/private`. Sem perfil configurado, cada
+umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
+arquivo ou pasta do `.git` com dono diferente do dono do repositório (o que `git` rodado como root
+deixa, e que trava o fetch e o commit do dono), com a contagem, exemplos e o `sudo chown -R` exato
+na correção; o doctor não roda nada (RM-037). Sem perfil configurado, cada
 runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MCP de `accounts`
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
@@ -339,16 +342,20 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 ## Grafo de código (RM-031, KG3)
 
 O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O
-índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD.
+índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD. Desde o
+[KG4](contratos/incremental-grafo-kg4.md), o índice de uma revisão parte do índice ancestral e
+reextrai só o que a mudança alcança, com os mesmos bytes da extração completa. Desde o
+[KG5](contratos/consumo-grafo-kg5.md), as mesmas consultas estão no MCP do projeto, atrás da flag
+`grafo.mcp` do manifesto, desligada por padrão.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever); `--verificar` extrai de novo e confere contrato, bytes e determinismo; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
+| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
-| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
-| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json]` | Quem chama: as arestas `calls` que chegam ao símbolo |
-| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json]` | Quem importa: as arestas `imports` que chegam |
-| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json]` | O menor caminho pelas arestas, no sentido delas por padrão |
+| `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
+| `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem chama: as arestas `calls` que chegam ao símbolo |
+| `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem importa: as arestas `imports` que chegam |
+| `ork grafo caminho <de> <para> [--sentido saida\|entrada\|ambos] [--tipo T,...] [--json [--teto-bytes N]]` | O menor caminho pelas arestas, no sentido delas por padrão |
 | `ork grafo amostra [--por-estrato N]` | Amostra estratificada de arestas para auditoria manual |
 | `ork grafo amostra --conferir ARQ [--json]` | Confere a amostra auditada contra o índice do HEAD e os bytes da árvore |
 | `ork grafo limpar [--tudo] [--json]` | Apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (ou todos) e as sobras de construção com mais de uma hora |
@@ -357,6 +364,15 @@ O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome sol
 ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
 extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
 resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+
+`--teto-bytes N` (KG5, só com `--json`) escreve a resposta em JSON compacto de no máximo N bytes: se ela
+não cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o
+limite pedido e se cortou; o caminho não se corta e recusa com `grafo.consulta.teto-excedido`. A recusa
+também sai compacta, mas não passa pelo teto. Sem o índice do HEAD, a consulta diz o caso:
+`grafo.indice.ausente` (não indexado), `grafo.indice.outra-revisao` (o índice guardado é de outra
+revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de outra instalação, outro
+Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
+corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
 
 ```bash
 ork grafo indexar --verificar
@@ -376,7 +392,7 @@ entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 | Comando | O que faz |
 | --- | --- |
 | `ork worktree ensure <thread>` | Garante a worktree da thread, com a base resolvida pelo `ork` |
-| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e sem ancestral comum com a base (base reescrita), recusa com o `git rebase --onto` exato |
+| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e base reescrita (sem ancestral comum, ou com o ponto em que a thread saiu da base fora dela, como depois de um force-push), recusa com `tree.blocked`, causa `base-reescrita`, a contagem por `git rev-list --count` e o `git rebase --onto` que reaplica só os commits da thread (RM-037) |
 | `ork worktree audit <thread>` | Confere a worktree **no próprio git**. Sai diferente de zero se divergir |
 | `ork worktree release <thread> [--forcar]` | Remove a worktree e limpa o registro |
 | `ork lease list` | Os leases, as famílias e as filas (merge e colisão de região) |
@@ -402,7 +418,7 @@ do projeto quando o limite de sessões está cheio.
 | Comando | O que faz |
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
-| `ork ship registrar-pr <thread>\|--todas` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57) |
+| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |

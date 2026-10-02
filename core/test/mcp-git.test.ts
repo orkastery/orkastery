@@ -286,3 +286,33 @@ test('defeitosdeco D-3: fora da secao orkastery, chave desconhecida continua rec
   assert.equal(r.ok, false);
   assert.match(r.erro!, /configuracao preservada/);
 }));
+
+// Fatia 2 do ensaio da 0.5.0 (P8): a regra `fontes/` do `.git/info/exclude` local (para os clones em
+// `fontes/<repo>`) casa tambem `marketplaces/fontes/`. O `git add` do arquivo rastreado ali indexava e
+// saia 1, e o worker so dizia `command.failed`; agora o rastreado entra por `git add -u`.
+test('Git MCP: fatia 2 P8, rastreado sob regra de ignore local entra por add -u e o novo ignorado diz o subcomando',async()=>fixture(async f=>{
+  const rastreado='marketplaces/fontes/README.md';
+  fs.mkdirSync(path.join(f.wt,'marketplaces/fontes'),{recursive:true});
+  fs.writeFileSync(path.join(f.wt,rastreado),'# fonte do marketplace\n');
+  f.git(['add','--',rastreado]);f.git(['commit','-q','-m','fonte rastreada']);
+  fs.appendFileSync(path.join(f.raiz,'.git/info/exclude'),'\nfontes/\n');
+  fs.writeFileSync(path.join(f.wt,rastreado),'# fonte do marketplace, revista\n');
+  adicionarClaim(f.raiz,f.id,{arquivo:rastreado,alegacao:'fixture da fatia 2',fase:'GO',verificar:['true']});
+  const head=()=>f.git(['rev-parse','HEAD']).trim();
+  const antes=head();
+  const ok=await commitMcp(f.raiz,{...f.pedido,expectedHead:antes,paths:[rastreado],mensagem:'fonte revista'});
+  assert.equal(ok.ok,true,ok.erro??'');assert.equal(f.git(['rev-parse','HEAD^']).trim(),antes);
+  assert.deepEqual(f.git(['diff-tree','--no-commit-id','--name-only','-r','-z',ok.commit!]).split('\0').filter(Boolean),[rastreado]);
+
+  // Caminho novo sob a mesma regra segue recusado; o erro diz o subcomando e o codigo, sem o stderr.
+  const novo='fontes/novo.txt';
+  fs.mkdirSync(path.join(f.wt,'fontes'),{recursive:true});fs.writeFileSync(path.join(f.wt,novo),'novo e ignorado\n');
+  adicionarClaim(f.raiz,f.id,{arquivo:novo,alegacao:'fixture da fatia 2',fase:'GO',verificar:['true']});
+  const recusa=await commitMcp(f.raiz,{...f.pedido,expectedHead:head(),paths:[novo],mensagem:'novo ignorado'});
+  assert.deepEqual([recusa.ok,recusa.erro],[false,'mcp.git.command.failed: git add saiu 1']);
+  // Os dois juntos: o novo vai antes ao `git add`, e a recusa dele deixa o rastreado fora do indice.
+  fs.writeFileSync(path.join(f.wt,rastreado),'# fonte do marketplace, revista de novo\n');
+  const juntos=await commitMcp(f.raiz,{...f.pedido,expectedHead:head(),paths:[rastreado,novo],mensagem:'juntos'});
+  assert.equal(juntos.erro,'mcp.git.command.failed: git add saiu 1');
+  assert.equal(f.git(['diff','--cached','--name-only']).trim(),'','nada fica no indice');
+}));

@@ -23,7 +23,7 @@ A metodologia mora no CLI, não no plugin. Quando uma skill e o CLI divergem, va
 
 1. Node 20 ou mais novo e `git`.
 2. O CLI, pelo npm: `npm install -g @orkastery/cli` e depois `ork doctor`.
-3. No seu repositório: `ork init` e depois `ork mcp install --project . --host claude-code`. Esse segundo comando grava o servidor MCP `orkastery` no `.mcp.json` do projeto; as skills chamam as ferramentas dele.
+3. No seu repositório, com pelo menos um commit: `ork init` e depois `ork mcp install --project "$PWD" --host claude-code`. Esse segundo comando grava o servidor MCP `orkastery` no `.mcp.json` do projeto; as skills chamam as ferramentas dele.
 
 Sem o CLI, as skills não têm para onde rotear. O plugin é para sessões do Claude Code abertas dentro de um repositório.
 

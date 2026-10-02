@@ -61,12 +61,12 @@ const DELIMITADOR_DE_TABELA = /^[\s>]*[|:\- \t]+$/;
 const TEXTO_DO_TITULO = new Set(['data', 'codeTextData', 'characterEscapeValue', 'autolinkProtocol', 'autolinkEmail']);
 /** Tokens do titulo que nao aparecem no texto renderizado: destino, rotulo de referencia e imagem. */
 const FORA_DO_TEXTO_DO_TITULO = new Set(['resource', 'reference', 'image']);
-type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
+export type Chave = keyof typeof CHAVES_DO_FRONTMATTER;
 
 interface Linha { inicio: number; texto: string }
-interface Secao { slug: string | null; inicio: number; fim: number }
-interface Link { destino: string; inicio: number; fim: number }
-interface ValorPosicionado { chave: Chave; valor: string; inicio: number; fim: number }
+export interface Secao { slug: string | null; inicio: number; fim: number }
+export interface Link { destino: string; inicio: number; fim: number }
+export interface ValorPosicionado { chave: Chave; valor: string; inicio: number; fim: number }
 interface Estrutura {
   fonte: FonteDeTexto;
   /** Titulos em ordem; `slug` nulo quando o contrato o recusaria (o trecho fica no arquivo). */
@@ -338,15 +338,56 @@ const decodificar = (t: string): string | null => {
   }
 };
 
+/**
+ * RM-031 KG4 (D4): a estrutura de um Markdown no formato que as unidades do indice guardam. E funcao
+ * pura dos bytes (e das versoes dos analisadores, que entram na chave): a ligacao entre arquivos so le
+ * isto, entao a estrutura de um arquivo que nao mudou vale na revisao seguinte. Do frontmatter fica so
+ * o que a ligacao usa: o `id` (quando e texto), se o `tipo` e texto nao vazio e os valores posicionados.
+ */
+export interface EstruturaMd {
+  path: string;
+  secoes: Secao[];
+  links: Link[];
+  /** IDs citados na prosa, com o offset no texto, na ordem de leitura. */
+  mencoes: { inicio: number; id: string }[];
+  frontmatter: { id: string | null; tipo: boolean; valores: ValorPosicionado[] } | null;
+  frontmatterInvalido: boolean;
+  tabelaGrande: boolean;
+}
+
+export function estruturarMarkdown(fonte: FonteDeTexto, e: Pick<EntradaMd, 'aceitaFragmento' | 'analisar' | 'referencia'>): EstruturaMd {
+  const s = estruturar(fonte, e.aceitaFragmento, e.analisar, e.referencia);
+  const mencoes: EstruturaMd['mencoes'] = [];
+  for (const l of s.textoDeMencao) for (const m of l.texto.matchAll(MENCAO)) mencoes.push({ inicio: l.inicio + (m.index as number), id: m[0] });
+  const d = s.frontmatter?.dados;
+  return {
+    path: fonte.path, secoes: s.secoes, links: s.links, mencoes,
+    frontmatter: s.frontmatter && d
+      ? { id: typeof d.id === 'string' ? d.id : null, tipo: typeof d.tipo === 'string' && d.tipo !== '', valores: s.frontmatter.valores }
+      : null,
+    frontmatterInvalido: s.frontmatterInvalido, tabelaGrande: s.tabelaGrande,
+  };
+}
+
+/** A ligacao entre arquivos recebe as estruturas prontas (as da extracao ou as reaproveitadas). */
+export interface EntradaDaLigacaoMd extends Omit<EntradaMd, 'fontes' | 'analisar' | 'referencia'> {
+  /** Uma por fonte Markdown, em ordem de caminho. */
+  estruturas: readonly EstruturaMd[];
+}
+
 export function extrairMarkdown(e: EntradaMd): Achados {
+  return ligarMarkdown({ ...e, estruturas: e.fontes.map((f) => estruturarMarkdown(f, e)) });
+}
+
+export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
   const saida: Achados = { nos: [], arestas: [], diagnosticos: [], lacunas: [] };
   const arquivos = new Set(e.arquivos), diretorios = new Set<string>();
   for (const p of e.arquivos) {
     const partes = p.split('/');
     for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
   }
-  const estruturas = e.fontes.map((f) => estruturar(f, e.aceitaFragmento, e.analisar, e.referencia));
-  const slugs = new Map(estruturas.map((s) => [s.fonte.path, new Set(s.secoes.map((x) => x.slug).filter((x): x is string => x !== null))]));
+  const estruturas = e.estruturas;
+  const slugs = new Map(estruturas.map((s) => [s.path, new Set(s.secoes.map((x) => x.slug).filter((x): x is string => x !== null))]));
   const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, extrator: string, metodo: AchadoDeAresta['metodo'], t: Trecho): void => {
     saida.arestas.push({ kind, from, to, extrator, metodo, trecho: t });
   };
@@ -357,15 +398,15 @@ export function extrairMarkdown(e: EntradaMd): Achados {
   // D6: artefatos; ID repetido em dois arquivos nao prova destino e fica fora dos dois.
   const donos = new Map<string, string[]>();
   for (const s of estruturas) {
-    if (s.frontmatterInvalido) lacuna('frontmatter-invalido', s.fonte.path, 0, null);
-    if (s.tabelaGrande) lacuna('markdown-tabela-grande', s.fonte.path, null, null);
-    const nome = s.fonte.path.slice(s.fonte.path.lastIndexOf('/') + 1), d = s.frontmatter?.dados;
-    if (!d || nome.startsWith('_') || typeof d.id !== 'string' || !PADRAO_DE_ID.test(d.id) || typeof d.tipo !== 'string' || !d.tipo) continue;
+    if (s.frontmatterInvalido) lacuna('frontmatter-invalido', s.path, 0, null);
+    if (s.tabelaGrande) lacuna('markdown-tabela-grande', s.path, null, null);
+    const nome = s.path.slice(s.path.lastIndexOf('/') + 1), d = s.frontmatter;
+    if (!d || nome.startsWith('_') || d.id === null || !PADRAO_DE_ID.test(d.id) || !d.tipo) continue;
     if (!e.aceitaFragmento(d.id)) {
-      lacuna('artefato-recusado', s.fonte.path, 0, null);
+      lacuna('artefato-recusado', s.path, 0, null);
       continue;
     }
-    donos.set(d.id, [...(donos.get(d.id) ?? []), s.fonte.path]);
+    donos.set(d.id, [...(donos.get(d.id) ?? []), s.path]);
   }
   const artefatos = new Map<string, RefDeNo>();
   for (const [id, caminhos] of donos) {
@@ -375,7 +416,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
   for (const r of artefatos.values()) saida.nos.push(r);
 
   // Trecho sob titulo recusado fica no arquivo: atribuir a secao anterior seria outra secao.
-  const secaoEm = (s: Estrutura, arquivo: RefDeNo, o: number): RefDeNo => {
+  const secaoEm = (s: EstruturaMd, arquivo: RefDeNo, o: number): RefDeNo => {
     // Ultima secao que comeca ate `o`, por busca binaria (as secoes estao em ordem de inicio).
     let baixo = 0, alto = s.secoes.length;
     while (baixo < alto) {
@@ -386,21 +427,14 @@ export function extrairMarkdown(e: EntradaMd): Achados {
     const atual = baixo > 0 ? s.secoes[baixo - 1] : null;
     return atual && atual.slug !== null ? { kind: 'section', path: arquivo.path, fragment: atual.slug } : arquivo;
   };
-  const mencoes = (fonte: FonteDeTexto, linhas: readonly Linha[], origem: (o: number) => RefDeNo): void => {
-    for (const l of linhas) {
-      for (const m of l.texto.matchAll(MENCAO)) {
-        const alvo = artefatos.get(m[0]), inicio = l.inicio + (m.index as number);
-        if (!alvo) {
-          lacuna('id-sem-artefato', fonte.path, inicio, m[0]);
-          continue;
-        }
-        aresta('references', origem(inicio), alvo, e.extratorId, 'text-location', { path: fonte.path, inicio, fim: inicio + m[0].length });
-      }
-    }
+  const mencao = (path: string, inicio: number, id: string, origem: (o: number) => RefDeNo): void => {
+    const alvo = artefatos.get(id);
+    if (!alvo) lacuna('id-sem-artefato', path, inicio, id);
+    else aresta('references', origem(inicio), alvo, e.extratorId, 'text-location', { path, inicio, fim: inicio + id.length });
   };
 
   for (const s of estruturas) {
-    const path = s.fonte.path, arquivo: RefDeNo = { kind: 'file', path, fragment: null };
+    const path = s.path, arquivo: RefDeNo = { kind: 'file', path, fragment: null };
     for (const x of s.secoes) {
       if (x.slug === null) {
         lacuna('secao-recusada', path, x.inicio, null);
@@ -446,7 +480,7 @@ export function extrairMarkdown(e: EntradaMd): Achados {
       aresta('references', origem, { kind: 'file', path: alvo, fragment: null }, e.extratorMd, 'explicit-link', t);
     }
 
-    const artefato = s.frontmatter && typeof s.frontmatter.dados.id === 'string' ? artefatos.get(s.frontmatter.dados.id) : undefined;
+    const artefato = s.frontmatter && s.frontmatter.id !== null ? artefatos.get(s.frontmatter.id) : undefined;
     if (artefato && artefato.path === path && s.frontmatter) {
       for (const v of s.frontmatter.valores) {
         const [kind, destino] = CHAVES_DO_FRONTMATTER[v.chave].split(':') as [AchadoDeAresta['kind'], string];
@@ -459,11 +493,11 @@ export function extrairMarkdown(e: EntradaMd): Achados {
         else lacuna('frontmatter-sem-alvo', path, v.inicio, `${v.chave}: ${v.valor}`);
       }
     }
-    mencoes(s.fonte, s.textoDeMencao, (o) => secaoEm(s, arquivo, o));
+    for (const m of s.mencoes) mencao(path, m.inicio, m.id, (o) => secaoEm(s, arquivo, o));
   }
   for (const f of e.codigo) {
     const arquivo: RefDeNo = { kind: 'file', path: f.path, fragment: null };
-    mencoes(f, linhasDe(f.texto), () => arquivo);
+    for (const l of linhasDe(f.texto)) for (const m of l.texto.matchAll(MENCAO)) mencao(f.path, l.inicio + (m.index as number), m[0], () => arquivo);
   }
   return saida;
 }

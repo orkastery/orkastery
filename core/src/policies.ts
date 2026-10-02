@@ -41,6 +41,14 @@ export interface ContextoDePolicy {
   fallbackDoBloco?: string[];
   /** Gate `ship`: a ponta da base nao esta contida na branch da thread. */
   branchAtrasDaBase?: boolean;
+  /**
+   * Fatia 2 do ensaio da 0.5.0 (P9), gate `ship`: a branch da thread nao traz commit alem da base (nada
+   * a mergear) e a base local tem commit que a ref de rastreio do remoto nao tem. O ship empurraria a
+   * base direto, sem merge de thread. Quem mede e o ship; sem o fato, a regra nao avalia.
+   */
+  semDeltaComBaseAFrente?: boolean;
+  /** Gate `ship`: o remoto do push, para o texto da violacao. */
+  remoto?: string;
 }
 
 export interface ViolacaoDePolicy {
@@ -136,6 +144,18 @@ export const POLICIES_CONHECIDAS: Readonly<Record<string, { quando: PontoDeGate[
   },
 };
 
+/**
+ * Ensaio da 0.5.0: a thread criada sem `--worktree auto` entrega a base para a base, e a correcao
+ * repetia o proprio `ork ship`. A thread que ainda nao passou do GO ganha a branch com
+ * `ork worktree ensure`. Depois do GO, nao: os commits ja estao na base, a branch nova nasce com eles
+ * e o ship sem delta empurraria a base direto, que e o que esta policy barra (CHECK, rodada 1).
+ */
+function correcaoSemBranchDaThread(threadId?: string, base?: string): string {
+  return `entregue a branch da thread (ork/<slug>) com --para ${base || '<base>'}; sem worktree e antes do GO, ` +
+    `crie-a com ork worktree ensure ${threadId || '<thread>'} (thread nova: --worktree auto); depois do GO, ` +
+    'os commits ja estao na base e o ship nao os separa: leve-os para a branch da thread antes de entregar';
+}
+
 function severidade(bruta: string | undefined): Severidade {
   if (bruta === 'block' || bruta === 'warn' || bruta === 'off') return bruta;
   return 'warn';
@@ -200,7 +220,7 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           severidade: sev,
           motivo: 'policy.violation',
           detalhe: `origem e destino sao a mesma branch ("${de}"): isso e push direto na base, nao merge de thread`,
-          correcao: 'entregue a partir da branch da thread: ork ship <thread> --para ' + (base || 'main'),
+          correcao: correcaoSemBranchDaThread(ctx.threadId, base),
         });
       } else if (de && base && de === base) {
         violacoes.push({
@@ -208,7 +228,20 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           severidade: sev,
           motivo: 'policy.violation',
           detalhe: `a origem "${de}" e a propria branch base do projeto: nenhuma branch de thread foi usada`,
-          correcao: 'crie a thread com --worktree auto e entregue a branch ork/<slug>',
+          correcao: correcaoSemBranchDaThread(ctx.threadId, base),
+        });
+      } else if (ctx.semDeltaComBaseAFrente === true) {
+        // Fatia 2 do ensaio da 0.5.0 (P9): a thread que perdeu a branch depois do GO ganha uma com os commits
+        // ja na base; o ship ve nada a mergear e empurraria a base, que e o que esta policy barra.
+        const remoto = ctx.remoto ?? 'origin';
+        violacoes.push({
+          policy: nome,
+          severidade: sev,
+          motivo: 'policy.violation',
+          detalhe: `a branch "${de}" nao traz commit alem de "${para}", e ${para} local tem commit que ${remoto}/${para} nao tem: ` +
+            'o ship empurraria a base direto, sem merge de thread',
+          correcao: `leve os commits que estao so em ${para} local para a branch da thread antes de entregar, ou entregue-os ` +
+            `pela thread que os criou (conferido em refs/remotes/${remoto}/${para}, sem rede)`,
         });
       }
       continue;

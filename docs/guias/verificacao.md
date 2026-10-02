@@ -49,7 +49,7 @@ de comando dão problema lá, e o `ork` as aponta no momento em que a claim nasc
 
 | Forma | No `claims add` | No `ci prepare` | Use no lugar |
 | --- | --- | --- | --- |
-| a suíte inteira (`npm test`, `npm --prefix core test`) | avisa | **recusa** | `npm --prefix core run test:ci` ou `node --test` no arquivo |
+| a suíte inteira (`npm test`, `npm --prefix core test`) | avisa | **recusa** | só o teste da claim (`node --test` no arquivo do teste) ou um script hermético do projeto |
 | um SHA intermediário (`git diff 1b16a4a HEAD`) | avisa | avisa | a base carimbada, ou `git merge-base --is-ancestor <sha> HEAD` |
 | contagem de commits comparada a um número | avisa | avisa | `git merge-base --is-ancestor <commit> HEAD` |
 

@@ -56,7 +56,7 @@ export interface PropostaDePolicy {
 }
 
 /** O que evita cada bloqueio, na forma de comando. Sem dica, a licao so conta a recorrencia. */
-const DICA_DO_MOTIVO: Record<string, string> = {
+export const DICA_DO_MOTIVO: Readonly<Record<string, string>> = {
   'claims.failed': 'rode o comando da claim antes de registra-la; claim sem prova local volta como GO-FIX',
   'verify.regression': 'grave a baseline antes do GO (`ork verify <thread> --baseline`) e rode os testes focados antes do CHECK',
   'verify.failed': 'grave a baseline antes do GO, para a falha ter com que ser comparada',
@@ -65,7 +65,8 @@ const DICA_DO_MOTIVO: Record<string, string> = {
   'runtime.quota-exhausted': 'tenha um segundo perfil da conta (`ork accounts add`) ou fallback no bloco',
   'runtime.profile-invalid': 'confira os perfis do runtime em `ork accounts list` antes de pedir `--perfil`',
   'tree.blocked': 'sincronize a worktree com a base antes do SHIP (`ork worktree sync <thread>`)',
-  'ci.failed': 'rode a suite hermetica (`npm --prefix core run test:ci`) antes do push',
+  // Fatia 2 do ensaio da 0.5.0 (P6): o que o CI do projeto roda, e nao o script do Orkastery.
+  'ci.failed': 'rode antes do push o que o CI do projeto roda (`ci.command` do manifesto ou, sem ele, os comandos de `verify`)',
   'artifact.missing': 'grave o artefato da fase exatamente no caminho que o prompt pede',
 };
 

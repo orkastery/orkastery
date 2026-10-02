@@ -16,7 +16,7 @@ import { dirThread } from './thread';
 export function textoDoInventario(r: InventarioDeSessoes): string {
   const linhas = [
     `Inventário ${r.escopo.global ? 'global' : 'do projeto'} da conta ${r.escopo.usuario}; histórico: ${r.escopo.historico ? 'incluído' : 'omitido'}.`,
-    `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
+    `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ausente ? 'ausente' : f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
     `Total: ${r.total}; sem thread: ${r.semThread}; ambíguas: ${r.ambiguas}; fantasmas: ${r.fantasmas}; consulta: ${r.ok ? 'válida' : 'INCOMPLETA'}.`,
   ];
   // RM-056 (D4): a coluna PERFIL e o id do perfil (`processo` sem perfil), nunca o diretorio da conta.
@@ -26,6 +26,8 @@ export function textoDoInventario(r: InventarioDeSessoes): string {
       s.vinculos.map(v => `${v.thread}/${v.fase}`).join(', ') || '(fora do ork)'])));
   if (r.fantasmas > 0) linhas.push('Fantasma: registro sem processo vivo, não ocupa vaga; `ork sessions limpar-fantasmas` solta o vínculo do ork sem tocar no runtime.');
   for (const f of r.fontes.filter(f => !f.ok)) linhas.push(`Falha: ${f.detalhe}`);
+  // Fatia 2 do ensaio da 0.5.0 (P1): a fonte ausente nao e falha, mas diz o que falta e como ter.
+  for (const f of r.fontes.filter(f => f.ausente)) linhas.push(`Ausente: ${f.detalhe}${f.correcao ? `; correção: ${f.correcao}` : ''}`);
   return linhas.join('\n');
 }
 

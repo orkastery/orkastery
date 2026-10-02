@@ -7,9 +7,9 @@ terceiro pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as 
 da thread `ork-rm031kg3`, tomadas em #Auto e registradas no ledger.
 
 O KG3 substitui o comando provisório do KG2: a prova da extração e a amostra auditada passam ao
-`ork grafo`. Não entrega extração incremental (KG4), consumo pelas fases (KG5), federação (KG6),
-paridade entre hosts (KG7), ferramenta MCP nem o benchmark A/B do
-[protocolo](benchmark-grafo-kg1.md).
+`ork grafo`. Não entrega extração incremental, que veio no [KG4](incremental-grafo-kg4.md), consumo
+pelas fases nem ferramenta MCP, que vieram no [KG5](consumo-grafo-kg5.md), federação (KG6), paridade
+entre hosts (KG7) nem o benchmark A/B do [protocolo](benchmark-grafo-kg1.md).
 
 ## O que o KG3 garante e o que não garante
 
@@ -29,10 +29,14 @@ compartilham o índice.
 
 ```text
 <raiz canônica>/.orkastery/grafo/idx-<sha256>/
-  indice.json      manifesto do índice (ork.code-graph-index/v0), sem horário
+  indice.json      manifesto do índice (ork.code-graph-index/v1 desde o KG4), sem horário
   grafo.json       o grafo canônico do KG2; o SHA-256 dos bytes é o digest do grafo
   relatorio.json   o relatório de extração (ork.graph-extraction-report/v0), canônico
+  unidades.json    as unidades por arquivo do KG4 (ork.graph-extraction-units/v0)
 ```
+
+O KG4 acrescentou `unidades.json`, a base do índice incremental; índice v0, do KG3, aparece no
+`status` como formato anterior e o `limpar` o remove. As regras abaixo valem para os quatro arquivos.
 
 | Regra | Como |
 | --- | --- |
@@ -40,10 +44,10 @@ compartilham o índice.
 | Chave | `idx-` e o SHA-256 canônico de: schema do índice, revisão, repositório, tenant, ACL ordenada, versões dos analisadores (TypeScript, Node, micromark e tabela GFM, Unicode), o fecho de pacotes deles com a versão de cada um (`micromark-core-commonmark` e os utilitários incluídos) e a impressão do código compilado dos módulos da extração e do índice |
 | Árvore limpa | `indexar` só roda com a revisão do KG2 não nula: HEAD, nada rastreado mudado e bytes iguais aos blobs. Árvore modificada ou sem commit recusa antes de ler qualquer arquivo; filtro do Git (`filtro-do-git`) só aparece lendo os bytes e recusa depois da leitura. A recusa é `grafo.indice.arvore-nao-limpa` com o motivo |
 | Revisão inteira | arquivo rastreado que a leitura não alcança com o status limpo (sparse checkout, `skip-worktree`: `ausente-na-arvore`, `nao-e-arquivo`, `fora-do-repositorio`) recusa com `rastreado fora da leitura`: o grafo de uma chave é sempre o da revisão inteira, igual em qualquer árvore que a compartilhe |
-| Construção | lê o repositório, extrai, valida, confere fontes e evidências (`conferirFontes` verificada, nenhuma indisponível), grava numa pasta `.tmp-<uuid>` com `fsync` e publica por `rename` |
+| Construção | lê o repositório, extrai (desde o KG4, a partir do índice ancestral quando há base, com os mesmos bytes), valida, confere fontes e evidências (verificada, nenhuma indisponível), grava numa pasta `.tmp-<uuid>` com `fsync` e publica por `rename` |
 | Idempotência | a mesma chave já guardada não é reescrita; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
-| Verificação | `--verificar` sempre extrai de novo, repete a extração com a ordem de leitura invertida e embaralhada e reprova se o digest ou o relatório divergem, ou se o índice guardado íntegro difere da extração nova (`grafo.indice.nao-deterministico`) |
-| Leitura | pelo descritor aberto sem seguir link; confere o manifesto, o tamanho e o digest do grafo e do relatório; não roda `validarGrafo` a cada consulta (2157 ms no grafo deste repositório em d2b180ea, contra 19 ms do SHA-256 dos bytes, medidos no GOAL da thread) |
+| Verificação | `--verificar` sempre extrai de novo, repete a extração com a ordem de leitura invertida e embaralhada e reprova se o digest, o relatório ou as unidades divergem, ou se o índice guardado íntegro difere da extração nova (`grafo.indice.nao-deterministico`); havendo base, compara também o incremental com a completa (KG4) |
+| Leitura | pelo descritor aberto sem seguir link; confere o manifesto, o tamanho e o digest do grafo e do relatório e o tamanho das unidades (o digest delas, quando o incremental as lê); não roda `validarGrafo` a cada consulta (2157 ms no grafo deste repositório em d2b180ea, contra 19 ms do SHA-256 dos bytes, medidos no GOAL da thread) |
 | Corrida | duas construções da mesma chave: a primeira publica, a outra confere a publicada e descarta a sua; a consulta nunca vê índice pela metade |
 | Limpeza | `ork grafo limpar` apaga os índices cuja revisão não é o HEAD de nenhuma árvore do repositório (a principal e as worktrees, pelo `git worktree list`), ou todos com `--tudo`, e as sobras `.tmp-` e `.lixo-` com mais de uma hora; nome que não é do índice nunca é apagado |
 
@@ -92,7 +96,8 @@ A ordem é fixa: arestas por distância, tipo, origem e destino, nós por distâ
 comparação por code point, e a busca do caminho expande os vizinhos nessa ordem, então entre
 caminhos do mesmo tamanho sai sempre o mesmo. `--limite` (padrão 500) corta a lista já ordenada,
 mantendo as arestas mais perto do alvo, e declara `truncado`; a lista de nós traz só o alvo e as
-pontas das arestas devolvidas, com `total_nos` contando o raio inteiro. Opção inválida recusa antes
+pontas das arestas devolvidas, com `total_nos` contando o raio inteiro. Desde o KG5, `--teto-bytes N`
+corta pela mesma ordem até o JSON caber em N bytes ([teto da resposta](consumo-grafo-kg5.md#teto-da-resposta)). Opção inválida recusa antes
 de ler o índice. A saída em
 JSON (`ork.code-graph-query/v0`, provisório e fora do contrato) traz a consulta, o cabeçalho do
 índice (revisão, chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com

@@ -83,7 +83,9 @@ test('ork_roadmap_status declara o projeto consultado com origem instalacao, sem
     assert.ok(!status.consulta.naoLido.some((x: string) => /outros projetos/.test(x)), 'fixado num projeto, nao conta os demais');
     const linhas = texto.split('\n');
     assert.match(linhas[0], /^Roadmap do Orkastery /);
-    assert.match(linhas[1], /^Projeto consultado: orkastery \(ork\) · .* · fixado na instalação do servidor MCP$/);
+    // Fatia 2 do ensaio da 0.5.0 (P7): o fuso vem logo abaixo do titulo, e o projeto consultado em seguida.
+    assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
+    assert.match(linhas[2], /^Projeto consultado: orkastery \(ork\) · .* · fixado na instalação do servidor MCP$/);
     const tool = (await c.listTools()).tools.find((x) => x.name === 'ork_roadmap_status')!;
     assert.match(tool.description ?? '', /nunca conclua sobre ele a partir de ork_maestro/);
     const maestro = (await c.listTools()).tools.find((x) => x.name === 'ork_maestro')!;

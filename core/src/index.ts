@@ -128,10 +128,10 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, configDeEmbedding, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
+import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
@@ -204,8 +204,8 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread, tabelaDeThreads,
-  threadsDaListagem } from './thread';
+import { avisoDeThreadSemBase, canalDaSessao, dirThread, exigirFase, lerThread, listarIds, novaThread, resumoDaThread,
+  tabelaDeThreads, threadsDaListagem } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
@@ -307,11 +307,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   modos                                     Tabela dos ${ORDEM_DOS_MODOS.length} modos de conducao vivos por #TAG
 
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
+                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
+        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
-                                            por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
   experiencia uninstall <host> [--dry-run] [--json]
                                             Remove o bloco de Claude Code/Codex; sem --dry-run aplica a remoção
@@ -462,14 +462,18 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--dry-run] [--json]                     com tokens e custo estimados; --dry-run nao chama o provider
 
   grafo indexar [--verificar] [--forcar]    Indice do grafo de codigo do HEAD limpo (RM-031 KG3) no estado do projeto:
-        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; --verificar
-                                                 confere contrato, bytes e determinismo; precisa de typescript e micromark
+        [--json]                                 pastas 0700, chave por revisao e extrator, idempotente; incremental (KG4)
+                                                 a partir do indice ancestral, ou completo com o motivo; --forcar extrai
+                                                 completo; --verificar confere contrato, bytes, determinismo e o incremental
+                                                 contra a completa; precisa de typescript e micromark
   grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
   grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
         [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
   grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
   grafo importadores <arquivo|simbolo>      Quem importa (arestas imports que chegam) [--profundidade N] [--limite N] [--json]
   grafo caminho <de> <para>                 Menor caminho pelas arestas [--sentido saida|entrada|ambos] [--tipo T,...] [--json]
+        [--json --teto-bytes N]                  Nas quatro consultas (KG5): JSON compacto de no maximo N bytes; as arestas mais
+                                                 longe do alvo saem ate caber, e o caminho que nao cabe recusa
   grafo amostra [--por-estrato N]           Amostra de arestas para auditoria manual; --conferir ARQ confere a auditada
   grafo limpar [--tudo] [--json]            Apaga os indices que nao sao do HEAD e as sobras com mais de uma hora
 
@@ -477,6 +481,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
         [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
+        [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
 
   board [--all] [--sem-remoto]              Visao unica das threads (todos os perfis com --all); com a
@@ -551,7 +556,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
-  docs verificar [--json]                   Documentacao de produto e roadmap contra o codigo e o git
+  docs verificar [--json] [--pr]            Documentacao de produto e roadmap contra o codigo e o git; no PR (--pr),
+                                            o merge de outra thread e o indice que divergem da main so avisam
                                             (padrao do dono: frontmatter, leitura, paridade; sai != 0 com erro)
   docs sincronizar [--escrever]             Fatos do ledger e do git para o roadmap (merge, fase) e indices;
                                             sem --escrever so mostra; nunca muda status por passagem de tempo
@@ -802,14 +808,19 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread));
     console.log('');
     console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
       relatarPublicacao(publicar(carregado, thread.id));
-      console.log('');
-      console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
+      if (!avisoSemBase) {
+        console.log('');
+        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+      }
     }
+    if (avisoSemBase) console.error(avisoSemBase);
     return 0;
   }
   if (sub === 'list' || sub === undefined) {
@@ -1546,7 +1557,8 @@ function comandoVerify(args: Args): number {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
     if (b.comandos.length === 0) {
-      console.log('  (nenhum comando em verify: no manifesto; sem baseline nao ha como separar regressao)');
+      // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
+      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
     }
     return 0;
   }
@@ -1982,18 +1994,26 @@ function comandoShip(args: Args): number {
     // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
     const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
     if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
-      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json]');
+      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
-    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr) })]
-      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto })] : registrarEntregasPorPr(carregado, { remoto });
+    // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
+    const dryRun = args.opcoes['dry-run'] === true;
+    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
+    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
     const registradas = r.filter((x) => x.acao === 'registrou').length;
+    const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
       console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+    }
+    if (registrariam) {
+      console.log('');
+      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
@@ -2800,7 +2820,8 @@ function comandoDocs(args: Args): number {
   const baseBranch = carregado?.manifesto.worktree?.base_branch ?? 'main';
 
   if (sub === 'verificar') {
-    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA });
+    // RM-037 (fatia 3, GO-FIX 2): o CI passa --pr no pull_request; no push da main as duas regras novas reprovam.
+    const { docs, achados } = verificarDocs(raiz, { baseBranch, ajudaDoCli: AJUDA, pr: args.opcoes.pr === true });
     if (args.opcoes.json === true) {
       console.log(JSON.stringify({ paginas: docs.length, erros: achados.filter((a) => a.gravidade === 'erro').length,
         achados }, null, 2));
@@ -2850,7 +2871,7 @@ function comandoDocs(args: Args): number {
         'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
     return 0;
   }
-  console.error(`uso: ork docs verificar [--json] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
+  console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
   return 2;
 }
 
@@ -3888,6 +3909,8 @@ export function main(argvBruto: string[]): number {
       console.log(`  gerenciador ${r.deteccao.gerenciador}`);
       console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
       console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
+      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
       console.log('');
       console.log(PROXIMO_PASSO_INIT);
       return 0;
@@ -3960,7 +3983,9 @@ export function main(argvBruto: string[]): number {
       // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
       const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
       console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
+        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
         avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
       return 0;
     }

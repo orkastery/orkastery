@@ -14,7 +14,7 @@
  * O texto para humano nunca sai em JSON. `resumirHitl` devolve dados; `textoDoResumo` devolve a
  * mensagem do canal. Quem entrega chama a segunda.
  */
-import { formatarDataHoraRotulada } from './horario';
+import { formatarDataHoraRotulada, formatarHora } from './horario';
 import { DecisaoParaODono, FaseAcimaDoLimiar, LIMIAR_DE_DECISOES_POR_FASE } from './decisao-autonoma';
 import {
   ContagemDeClassificacao, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN, OpcoesDeClassificacao, quemDecide,
@@ -48,6 +48,12 @@ export interface ResumoDeMaquina {
   ativas: number;
   esperando: { thread: string; fase: string; pergunta: string | null; desdeEm: string | null }[];
 }
+
+/**
+ * RM-037 (fatia 4): o trabalho parado no condutor depois da entrega, como o resumo o mostra. Nao e
+ * pergunta ao dono e nao entra em "Esperando voce": e o proximo passo de quem conduz, com o desde.
+ */
+export interface LinhaDoCondutor { thread: string; caso: string; desdeEm: string; proximoPasso: string }
 
 export interface ResumoHitl extends ContagemDeClassificacao {
   contrato: typeof CONTRATO_RESUMO;
@@ -86,6 +92,8 @@ export interface ResumoHitl extends ContagemDeClassificacao {
    */
   tecnicos: number;
   threadsTecnicas: string[];
+  /** RM-037 (fatia 4): uma linha por thread parada no condutor, fora das contagens do dono. */
+  paradosNoCondutor?: LinhaDoCondutor[];
 }
 
 export interface OpcoesDeResumo {
@@ -99,6 +107,7 @@ export interface OpcoesDeResumo {
   decisoes?: readonly DecisaoParaODono[];
   acimaDoLimiar?: readonly FaseAcimaDoLimiar[];
   outrasMaquinas?: readonly ResumoDeMaquina[];
+  paradosNoCondutor?: readonly LinhaDoCondutor[];
 }
 
 export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesDeResumo): ResumoHitl {
@@ -116,7 +125,30 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
     ...(opcoes.outrasMaquinas?.length ? { outrasMaquinas: opcoes.outrasMaquinas.map(m => ({ ...m, esperando: [...m.esperando] })) } : {}),
     tecnicos: tecnicos.length,
     threadsTecnicas: [...new Set(tecnicos.map(i => i.thread).filter((t): t is string => !!t))].sort(),
+    ...(opcoes.paradosNoCondutor?.length ? { paradosNoCondutor: opcoes.paradosNoCondutor.map(p => ({ thread: p.thread, caso: p.caso,
+      desdeEm: p.desdeEm, proximoPasso: p.proximoPasso })) } : {}),
   };
+}
+
+/** Quantas linhas do condutor o resumo mostra antes de contar o resto. */
+export const TETO_DE_PARADOS_NO_CONDUTOR = 5;
+
+/**
+ * RM-037 (fatia 4): "<thread> parado no condutor desde HH:MM: <proximo passo>", a mesma frase no pulse,
+ * no resumo dos dois canais e no status do roadmap. O horario sai no fuso do dono.
+ */
+export function linhaDoParadoNoCondutor(p: Pick<LinhaDoCondutor, 'thread' | 'desdeEm' | 'proximoPasso'>,
+  opcoes: { agora: string; fuso?: string }): string {
+  const { desdeEm: desde } = p;
+  return `${p.thread} parado no condutor desde ${formatarHora(desde, opcoes)}: ${p.proximoPasso}`;
+}
+
+/** As linhas do condutor no resumo, uma por thread, com o resto contado. */
+export function linhasDoCondutor(r: ResumoHitl, marcador: string, recuo: string): string[] {
+  const parados = r.paradosNoCondutor ?? [];
+  const mostradas = parados.slice(0, TETO_DE_PARADOS_NO_CONDUTOR), sobra = parados.length - mostradas.length;
+  return [...mostradas.map(p => `${marcador}${linhaDoParadoNoCondutor(p, { agora: r.consultadoEm })}`),
+    ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
 }
 
 /** RM-048 (D6): a linha do que e tecnico, igual nos dois canais. Nao pede nada ao dono. */
@@ -251,6 +283,7 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     `❓ ${linhaDasPerguntas(r.prontas)}`,
     ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
+    ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
     ...(r.outrasMaquinas?.length ? ['', ...linhasDasOutrasMaquinas(r, '🖥️ ', '   ')] : []),
@@ -282,6 +315,7 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
       ? ['', `  threads travadas (${r.threadsBloqueadas.length}): ${nomearThreads(r.threadsBloqueadas)}`] : []),
     ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
+    ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),
     ...(r.outrasMaquinas?.length ? ['', ...linhasDasOutrasMaquinas(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),

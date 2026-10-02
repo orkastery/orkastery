@@ -132,6 +132,25 @@ function mapa(v: ValorYaml): Record<string, ValorYaml> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, ValorYaml>) : {};
 }
 
+/**
+ * RM-031 KG5 (D2): `grafo.mcp` so liga com o booleano `true`. Ausente vale `false`; texto que parece
+ * booleano, outro tipo ou `grafo` que nao e mapa tambem valem `false`, com aviso: ligar expoe as tools
+ * do grafo, e na duvida fica desligado. Chave desconhecida em `grafo` so avisa.
+ */
+function lerGrafo(v: ValorYaml | undefined, avisos: string[]): Manifesto['grafo'] {
+  const mostrar = (x: ValorYaml): string => JSON.stringify(x).slice(0, 80);
+  if (v === undefined || v === null) return { mcp: false };
+  if (typeof v !== 'object' || Array.isArray(v)) {
+    avisos.push(`grafo deve ser um mapa com mcp: true ou false; vale mcp: false (${mostrar(v)} nao reconhecido)`);
+    return { mcp: false };
+  }
+  for (const chave of Object.keys(v)) if (chave !== 'mcp') avisos.push(`grafo.${chave} desconhecida; o bloco grafo so tem mcp`);
+  const mcp = v.mcp;
+  if (mcp === undefined || mcp === null || typeof mcp === 'boolean') return { mcp: mcp === true };
+  avisos.push(`grafo.mcp deve ser true ou false; vale false (${mostrar(mcp)} nao reconhecido)`);
+  return { mcp: false };
+}
+
 /** Mesmo contrato na leitura do YAML e nos consumidores de manifesto em memoria. */
 export function validarOptInPlaybook(valor: unknown): boolean {
   if (valor === undefined) return false;
@@ -511,6 +530,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       compartilhada: booleano(fabrica.compartilhada, false),
       remoto: texto(fabrica.remoto, 'origin'),
     },
+    // RM-031 KG5 (D2): expor as tools do grafo no MCP e opt-in do dono.
+    grafo: lerGrafo(dados.grafo, avisos),
     policies: Object.fromEntries(
       Object.entries(mapa(dados.policies)).map(([k, v]) => [k, texto(v, '')])
     ),

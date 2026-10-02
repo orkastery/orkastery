@@ -27,6 +27,7 @@ import { lerLedger, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import { montarMonitor } from './orquestracao';
+import { esperaDoCondutor } from './parado-no-condutor';
 import { quemSouEu, reservasLocais } from './roadmap-reservas';
 import { dirThread } from './thread';
 import { Thread } from './types';
@@ -43,6 +44,12 @@ const PREFIXO = 'fabrica';
 const TENTATIVAS = 5;
 /** Retrato igual ao ultimo publicado so volta ao remoto depois disto: e o sinal de vida da maquina. */
 export const PULSACAO_MS = 60 * 60 * 1000;
+/**
+ * Maquina sem retrato novo ha mais disto esta sem batida: o mesmo limiar da rede (RM-053, `SEM_BATIDA_MS`).
+ * RM-037 (fatia 4): mora aqui, junto da pulsacao, porque o status do roadmap tambem o le; o panorama da
+ * rede o reexporta.
+ */
+export const LIMIAR_SEM_BATIDA_MS = 3 * 60 * 60 * 1000;
 const ARQUIVO_DA_MARCA = 'fabrica-publicada.json';
 const ARQUIVO_DO_LOG = 'fabrica.log';
 
@@ -159,9 +166,15 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
   const entregas = entregasNaBase(raiz, carregado.manifesto.worktree.base_branch, remoto);
   const itemDaThread = new Map(reservasLocais(raiz, remoto).filter((r) => r.thread).map((r) => [r.thread as string, r.item]));
   const threads = itens.map(({ thread: t, raiz: raizDoPerfil }): ThreadNaFabrica => {
-    const pausa = linhas.get(t.id)?.pausas[0];
     const entregue = entregas.get(t.id) ?? null;
-    const esperaVoce = !entregue && linhas.get(t.id)?.precisaDeHumano === true;
+    // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor, e as outras maquinas nao o leem como espera
+    // do dono. Sai so a pausa que o observador abriu nele; outra pausa da thread continua contando.
+    let espera: ReturnType<typeof esperaDoCondutor> = null;
+    try { espera = esperaDoCondutor(t, lerLedger(dirThread(raizDoPerfil, t.id)), quando); } catch { espera = null; }
+    const pausas = (linhas.get(t.id)?.pausas ?? []).filter((p) => !(espera && p.motivo === 'human.pending' && p.fonte === 'ledger' &&
+      p.fase === (espera.fase ?? t.faseAtual)));
+    const pausa = pausas[0];
+    const esperaVoce = !entregue && pausas.some((p) => p.sessaoViva !== true);
     return {
       id: t.id, nome: curto(t.nome, 100), modo: tagDoModo(t.modo), fase: t.faseAtual, status: t.status,
       roadmap: t.roadmap ?? itemDaThread.get(t.id) ?? null, branch: t.base?.branch ?? null,

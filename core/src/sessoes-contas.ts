@@ -23,7 +23,11 @@ import { SessaoRuntime } from './types';
 /** Uma conta consultada: a do processo (`perfil: null`) ou a de um perfil do store. */
 export interface ContaDeSessoes { runtime: RuntimeComPerfil; perfil: PerfilDeDespacho | null; dir: string }
 
-export interface FonteDeSessoes { origem: string; ok: boolean; detalhe: string }
+/**
+ * Uma fonte consultada. `ausente`: o runtime nem existe nesta máquina (fatia 2 do ensaio da 0.5.0,
+ * P1); a fonte vale, sem sessões, e `correcao` diz o que fazer para tê-la.
+ */
+export interface FonteDeSessoes { origem: string; ok: boolean; detalhe: string; ausente?: boolean; correcao?: string }
 
 export interface SessaoDaConta extends SessaoRuntime {
   runtime: RuntimeComPerfil;
@@ -99,7 +103,13 @@ export function consultarContas(raiz: string | null, opcoes: { todas?: boolean; 
       try { ambiente = ambienteDoPerfil(conta.perfil); }
       catch (e) { fontes.push({ origem: `claude agents (${rotulo(conta)})`, ok: false, detalhe: (e as Error).message }); continue; }
       const r = consultarSessoes(undefined, opcoes.todas, ambiente);
-      fontes.push({ origem: `claude agents --json${opcoes.todas ? ' --all' : ''} (${rotulo(conta)})`, ok: r.ok, detalhe: r.detalhe });
+      const origem = `claude agents --json${opcoes.todas ? ' --all' : ''} (${rotulo(conta)})`;
+      // Fatia 2 do ensaio da 0.5.0 (P1): só o ENOENT antes da consulta prova a fonte ausente; qualquer
+      // outra falha do `claude` continua deixando o inventário incompleto.
+      fontes.push(r.ausente
+        ? { origem, ok: true, ausente: true, detalhe: `${r.detalhe}: nenhuma sessão claude-bg a listar`,
+          correcao: 'para despachar e listar pelo claude-bg, instale o Claude Code e garanta `claude` no PATH' }
+        : { origem, ok: r.ok, detalhe: r.detalhe });
       for (const s of r.sessoes) {
         const fantasma = ehFantasma('claude-bg', s);
         sessoes.push({ ...s, runtime: 'claude-bg', perfil, fantasma, viva: !fantasma && !TERMINAIS.includes(estadoDe(s)) });

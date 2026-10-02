@@ -7,8 +7,8 @@ pai: MOD-05
 roadmap: [RM-006, RM-038]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-29T10:30:00-03:00
-versao: main@3c7e8a7
+verificado_em: 2026-10-01T02:30:00-03:00
+versao: main@1041f1b
 fontes:
   codigo:
     - core/src/memoria.ts
@@ -39,7 +39,7 @@ fontes:
 
 > **Em uma frase:** Decisões, handoffs e lições vão para a base OrkMind do tenant do projeto; sem base ou sem permissão, o regime cai para arquivos com evento tipado, nunca em silêncio.
 
-- **Estado:** vigente · **Verificado em:** 2026-09-29 · **Versão:** main@3c7e8a7
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@1041f1b, publicada na 0.5.0
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-05](MOD-05-memoria-e-registro.md)
 - **Roadmap:** [RM-006](../roadmap/RM-006-orkmind-na-fabrica.md), [RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -73,7 +73,7 @@ fontes:
 
 - **Configuração:** `memory: orkmind` e `memory.database_url_env` no manifesto; nunca o valor da DSN. Embeddings no bloco `memory.embedding` (provider, modelo, dimensão, NOME da variável da chave, fallback local, teto de tokens); sem o bloco, desligados. Veja [a busca por significado](../guias/memoria-e-handoff.md#busca-por-significado-embeddings).
 - **Custo:** estimado por `ork memory index --dry-run`; a fatura fica no painel do provider. O texto indexado sai para o OpenRouter.
-- **Em entrega:** busca semântica em [RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md).
+- **Publicado:** a busca por significado da [RM-038](../roadmap/RM-038-busca-semantica-na-memoria.md) entrou pelo PR #30 (merge `1041f1b`) e está na versão 0.5.0.
 - **Rollback:** `ork activation disable`. A busca por significado desliga com `memory.embedding.provider: none`; o índice local é derivado e pode ser apagado de `.orkastery/memoria/vetores/`.
 
 ## Histórico
@@ -82,3 +82,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-09-29 | busca por significado, índice vetorial local e estado sondado de embeddings | Claude (agente) / Julio, revisão pendente | RM-038, thread `ork-i36buscasema` |
+| 2026-10-01 | busca por significado mesclada e publicada na 0.5.0 | Claude (agente) / Julio, revisão pendente | PR #30, merge `1041f1b`; tag `v0.5.0` |

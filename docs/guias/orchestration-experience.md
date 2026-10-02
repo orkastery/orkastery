@@ -35,7 +35,7 @@ ork adapter install codex --dry-run
 ork adapter install codex
 ```
 
-Replace `codex` with `claude-code` or `hermes` as needed. Claude Code receives the catalog and a dedicated block in `CLAUDE.md`; Codex receives the catalog and a block in `AGENTS.md`. The `ork init` block and outside content remain intact. `--dir` changes the catalog destination; the instruction block stays in the project root and points to the catalog by a path relative to the project, so it works in another clone. A catalog outside the project skips the block with a warning. Without a manifest in that root, installation only copies the adapter.
+Replace `codex` with `claude-code` or `hermes` as needed. Claude Code receives the catalog and a dedicated block in `CLAUDE.md`; Codex receives the catalog and a block in `AGENTS.md`. The `ork init` block and outside content remain intact. `--dir` changes the catalog destination by replacing the host base folder (`.claude` for Claude Code, `.agents` for Codex): the catalog goes to `<dir>/plugins/orkastery` for Claude Code and to `<dir>/skills/orkastery` for Codex; the instruction block stays in the project root and points to the catalog by a path relative to the project, so it works in another clone. A catalog outside the project skips the block with a warning. Without a manifest in that root, installation only copies the adapter.
 
 💬 In the host chat opened in that project, use its Orkastery entry and inspect effective preferences. Claude Code also needs the plugin activation steps reported by the installer. File copies do not prove native discovery or model behavior. Another worktree needs its own installation.
 
@@ -81,4 +81,4 @@ MCP tools `ork_roadmap_reservas` and `ork_fabrica` accept `{}` (or only `projeto
 
 Focused tests cover preferences, blocks, fresh clones without receipt, conflicts, adapters and MCP contracts. Skill evals are static, not proof of real LLM behavior. From the product repository, `node core/scripts/testar-experiencia-e2e.cjs` installs a local tarball into temporary prefix/HOME, uses the installed binary and checks dry-run, reinstallation, fresh clone, opt-out, removal and restoration. Offline installation requires dependencies available in the npm cache.
 
-This change remains unreleased. A local commit or local test result is not SHIP.
+Released in `@orkastery/cli` 0.5.0 (tag `v0.5.0`), merged through PR #33. A local commit or local test result is not SHIP.

@@ -35,7 +35,7 @@ ork adapter install codex --dry-run
 ork adapter install codex
 ```
 
-Troque `codex` por `claude-code` ou `hermes` conforme o host. Claude Code recebe o catálogo e um bloco próprio em `CLAUDE.md`; Codex recebe o catálogo e um bloco em `AGENTS.md`. O bloco do `ork init` e conteúdo externo são preservados. O destino do catálogo pode ser configurado com `--dir`; o bloco fica na raiz do projeto e aponta o catálogo por caminho relativo ao projeto, para valer em outro clone. Catálogo fora do projeto pula o bloco com aviso. Sem manifesto nessa raiz, a instalação apenas copia o adaptador.
+Troque `codex` por `claude-code` ou `hermes` conforme o host. Claude Code recebe o catálogo e um bloco próprio em `CLAUDE.md`; Codex recebe o catálogo e um bloco em `AGENTS.md`. O bloco do `ork init` e conteúdo externo são preservados. O destino do catálogo pode ser configurado com `--dir`, que troca a pasta-base do host (`.claude` no Claude Code, `.agents` no Codex): o catálogo vai para `<dir>/plugins/orkastery` no Claude Code e para `<dir>/skills/orkastery` no Codex; o bloco fica na raiz do projeto e aponta o catálogo por caminho relativo ao projeto, para valer em outro clone. Catálogo fora do projeto pula o bloco com aviso. Sem manifesto nessa raiz, a instalação apenas copia o adaptador.
 
 💬 No chat do host aberto nesse projeto, use a entrada Orkastery e confira a preferência efetiva. Claude Code também exige a ativação do plugin indicada pelo instalador; copiar arquivos não comprova descoberta nativa ou uso pelo modelo. Outra worktree precisa de sua instalação.
 
@@ -81,4 +81,4 @@ No MCP, `ork_roadmap_reservas` e `ork_fabrica` recebem `{}` (ou só `projeto` co
 
 Testes focados cobrem preferências, blocos, clone sem recibo, conflitos, adaptadores e contratos MCP. Evals das skills são estáticos: não comprovam comportamento real de LLM. O ensaio `node core/scripts/testar-experiencia-e2e.cjs`, executado a partir do repositório do produto, instala um tarball local em prefixo e HOME temporários, usa o binário instalado e confere dry-run, reinstalação, clone sem recibo, opt-out, remoção e restauração. Exige dependências disponíveis no cache npm para instalação offline.
 
-Esta mudança permanece em “Não publicado”. Commit local e resultado de teste local não são SHIP.
+Publicado no `@orkastery/cli` 0.5.0 (tag `v0.5.0`), com o merge do PR #33. Commit local e resultado de teste local não são SHIP.

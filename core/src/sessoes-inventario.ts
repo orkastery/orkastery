@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { raizDoEstado } from './estado-thread';
-import { consultarContas, SessaoDaConta } from './sessoes-contas';
+import { consultarContas, FonteDeSessoes, SessaoDaConta } from './sessoes-contas';
 import { listarIds, lerThread } from './thread';
 
 export interface VinculoDeSessao { raiz: string; thread: string; fase: string; origem: string }
@@ -11,10 +11,16 @@ export interface VinculoDeSessao { raiz: string; thread: string; fase: string; o
 export interface SessaoInventariada extends SessaoDaConta {
   vinculos: VinculoDeSessao[];
 }
+/**
+ * Uma fonte consultada. `ausente`: o runtime nem existe nesta máquina (fatia 2 do ensaio da 0.5.0,
+ * P1); a fonte vale, sem sessões, e `correcao` diz o que fazer para tê-la.
+ */
+export type FonteDoInventario = FonteDeSessoes;
+
 export interface InventarioDeSessoes {
   ok: boolean;
   escopo: { usuario: string; global: boolean; historico: boolean; raiz: string };
-  fontes: { origem: string; ok: boolean; detalhe: string }[];
+  fontes: FonteDoInventario[];
   sessoes: SessaoInventariada[];
   total: number;
   semThread: number;
