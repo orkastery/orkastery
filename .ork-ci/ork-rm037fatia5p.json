@@ -355,16 +355,27 @@
       "criadoEm": "2026-10-02T18:30:23.594Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm037fatia5p.json",
+      "alegacao": "RM-037 fatia 5: o bundle de CI da thread (ork.ci-bundle/v1) nomeia a thread e a branch ork/ork-rm037fatia5-full e traz as claims da fatia para o CHECK independente, sem caminho de usuario nem nome de pasta local",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm037fatia5p.json\");if(b.schema!==\"ork.ci-bundle/v1\"||b.thread!==\"ork-rm037fatia5p\"||b.branch!==\"ork/ork-rm037fatia5-full\"||!b.claims.some(c=>c.id===\"C1\"))process.exit(1)'",
+        "! grep -qE '/(home|Users|root)/' .ork-ci/ork-rm037fatia5p.json"
+      ],
+      "criadoEm": "2026-10-02T18:30:51.892Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
     {
       "id": "C12",
       "reason": "local-integration-required"
-    },
-    {
-      "id": "C27",
-      "reason": "artifact-not-in-checkout"
     }
   ],
   "commands": [
