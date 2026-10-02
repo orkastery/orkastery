@@ -26,6 +26,10 @@ import {
 } from '../src/mcp-grafo';
 import { rodarConsulta } from '../src/mcp-grafo-worker';
 import { novaThread } from '../src/thread';
+import { instalarAdaptador } from '../src/hosts';
+import { instalarMcp } from '../src/mcp-install';
+import { contextoDoProjeto } from '../src/runtime-context';
+import { montarComando } from '../src/adapters/claude-bg';
 import type { Thread } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, type ProjetoDeTeste } from './apoio';
 
@@ -597,5 +601,66 @@ test('KG5 worker: o processo responde como a CLI e, cancelado ou fora do prazo, 
     assert.deepEqual(await consultarPeloWorker(r.dir, argv, { signal: antes.signal }), { codigo: null, saida: '', erro: '', interrompido: 'cancelada', pid: null });
   } finally {
     r.limpar();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// O despacho claude-bg (T5).
+// ---------------------------------------------------------------------------
+
+const NOMES_DO_GRAFO_NO_CLAUDE = TOOLS_DO_GRAFO.map((nome) => `mcp__orkastery__${nome}`);
+const valorDe = (args: string[], flag: string): string[] => {
+  const i = args.indexOf(flag);
+  return i < 0 ? [] : args[i + 1].split(',');
+};
+/** O comando sem o valor da allowlist: o que nao pode mudar com a flag. */
+const semAllowlist = (args: string[]): string[] => args.map((x, i) => (args[i - 1] === '--allowedTools' ? '<allowlist>' : x));
+
+function despacho(perfil: 'interactive' | 'worktree'): { p: ProjetoDeTeste; t: Thread; comando: (plano: boolean) => string[] } {
+  const p = projetoTemporario(`kg5-despacho-${perfil}`);
+  instalarAdaptador('claude-code', { projeto: p.dir });
+  instalarMcp({ projeto: p.dir, host: 'claude-code', permissoesFilho: perfil });
+  const t = novaThread(p.carregado, { nome: 'despacho', modo: 'auto', criarWorktree: true }).thread;
+  const contexto = contextoDoProjeto(p.dir, 'claude-bg', t.worktree as string, t.id);
+  assert.ok(contexto, 'projeto preparado pelo instalador');
+  return {
+    p, t,
+    comando: (plano) => montarComando({ cwd: t.worktree as string, nome: 'kg5-despacho', prompt: 'consulta', contextoRuntime: contexto, ...(plano ? { colaboracao: 'plan' as const } : {}) }),
+  };
+}
+
+test('KG5 despacho: com a flag da raiz, as quatro tools entram logo depois das consultas, em todas as fases; sem ela, o comando de sempre', () => {
+  for (const perfil of ['interactive', 'worktree'] as const) {
+    const f = despacho(perfil);
+    try {
+      const manifesto = path.join(f.p.dir, 'orkastery.yaml'), original = fs.readFileSync(manifesto, 'utf8');
+      const antes = [f.comando(false), f.comando(true)];
+      fs.writeFileSync(manifesto, `${original}\n${FLAG_LIGADA}`);
+      const depois = [f.comando(false), f.comando(true)];
+      antes.forEach((a, i) => {
+        const allow = valorDe(a, '--allowedTools'), comFlag = valorDe(depois[i], '--allowedTools');
+        assert.ok(!allow.some((x) => x.includes('ork_grafo_')), `${perfil}: sem a flag, nenhuma tool do grafo`);
+        const fim = allow.indexOf('mcp__orkastery__ork_claims_list') + 1;
+        assert.ok(fim > 0, `${perfil}: as consultas estao na allowlist`);
+        assert.deepEqual(comFlag, [...allow.slice(0, fim), ...NOMES_DO_GRAFO_NO_CLAUDE, ...allow.slice(fim)], `${perfil} ${i ? 'PLAN' : 'fase'}`);
+        assert.deepEqual(semAllowlist(depois[i]), semAllowlist(a), `${perfil}: fora a allowlist, o comando e o mesmo`);
+      });
+      fs.writeFileSync(manifesto, `${original}\ngrafo:\n  mcp: false\n`);
+      assert.deepEqual([f.comando(false), f.comando(true)], antes, `${perfil}: com mcp false, o comando de antes`);
+    } finally {
+      f.p.limpar();
+    }
+  }
+});
+
+test('KG5 despacho: a flag no manifesto da worktree da thread nao liga as tools', () => {
+  const f = despacho('worktree');
+  try {
+    const antes = f.comando(false);
+    fs.writeFileSync(path.join(f.t.worktree as string, 'orkastery.yaml'), `${fs.readFileSync(path.join(f.p.dir, 'orkastery.yaml'), 'utf8')}\n${FLAG_LIGADA}`);
+    assert.deepEqual(f.comando(false), antes);
+    assert.ok(!valorDe(f.comando(true), '--allowedTools').some((x) => x.includes('ork_grafo_')));
+  } finally {
+    f.p.limpar();
   }
 });

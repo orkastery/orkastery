@@ -14,6 +14,7 @@ import { ambienteDeAssinatura } from '../runtime-ambiente';
 import * as path from 'node:path';
 import { ContextoRuntime, validarContextoRuntime } from '../runtime-context';
 import { ambienteComPerfil, diretorioEfetivo, PerfilDeDespacho } from '../runtime-profiles';
+import { TOOLS_DO_GRAFO } from '../mcp-grafo';
 
 function exec(cmd: string, args: string[], cwd?: string, timeoutMs?: number, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()) {
   return executar(cmd, args, cwd, timeoutMs, ambiente);
@@ -54,9 +55,15 @@ const MUTACOES_WORKTREE = [
   'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_claim_add', 'mcp__orkastery__ork_decision_record',
   'mcp__orkastery__ork_git_commit', 'mcp__orkastery__ork_verify', 'mcp__orkastery__ork_ship',
 ] as const;
+/**
+ * RM-031 KG5 (D7): as consultas do grafo, de leitura, so com a flag do manifesto da raiz; sem ela, nada muda.
+ * Montada na chamada: o `mcp-grafo` chega a este modulo pelo `mcp-git`, e no ciclo de imports o valor pode
+ * ainda nao existir quando este modulo carrega.
+ */
+const consultasDoGrafoMcp = (): string[] => TOOLS_DO_GRAFO.map((nome) => `mcp__orkastery__${nome}`);
 
 /** Regras nativas de arquivo, nao sandbox de processos. Edit tambem cobre Write. */
-function permissoesDaWorktree(cwd: string, permiteEditarProduto: boolean): { allow: string[]; deny: string[] } {
+function permissoesDaWorktree(cwd: string, permiteEditarProduto: boolean, consultas: readonly string[]): { allow: string[]; deny: string[] } {
   if (!path.isAbsolute(cwd) || cwd === '/' || path.normalize(cwd) !== cwd || !/^[A-Za-z0-9_./-]+$/.test(cwd))
     throw Error('runtime.context.permissions: worktree contem caracteres ambiguos para regras nativas; use caminho sem glob, espacos ou delimitadores');
   const absoluto = '/' + cwd; // Claude exige // para caminho absoluto.
@@ -65,7 +72,7 @@ function permissoesDaWorktree(cwd: string, permiteEditarProduto: boolean): { all
     for (const prefixo of [`${absoluto}/${nome}`, `${absoluto}/**/${nome}`])
       deny.push(`Edit(${prefixo})`, `Edit(${prefixo}/**)`);
   }
-  return { allow: [...CONSULTAS_MCP, 'mcp__orkastery__ork_git_status', ...MUTACOES_WORKTREE, ...(permiteEditarProduto ? [`Edit(${absoluto}/**)`] : [])], deny };
+  return { allow: [...consultas, 'mcp__orkastery__ork_git_status', ...MUTACOES_WORKTREE, ...(permiteEditarProduto ? [`Edit(${absoluto}/**)`] : [])], deny };
 }
 
 export interface DespachoPedido {
@@ -133,13 +140,14 @@ export function montarComando(pedido: DespachoPedido): string[] {
   if (pedido.contextoRuntime) {
     if (pedido.contextoRuntime.host !== 'claude-code') throw Error('runtime.context.invalid: host Claude esperado');
     const contexto = validarContextoRuntime(pedido.contextoRuntime, pedido.cwd);
+    const consultas = [...CONSULTAS_MCP, ...(contexto.grafoMcp ? consultasDoGrafoMcp() : [])];
     // Somente o servidor gerado: nao mesclar MCP de outros escopos nesta sessao filha.
     const permissoes = contexto.permissoesFilho === 'worktree'
-      ? permissoesDaWorktree(pedido.cwd, contexto.permiteEditarProduto && !plano) : null;
+      ? permissoesDaWorktree(pedido.cwd, contexto.permiteEditarProduto && !plano, consultas) : null;
     // PLAN não implementa: nem commit, nem claim, nem verify, nem ship, em nenhum perfil. Decidir não é
     // implementar, e o PLAN é onde as decisões nascem (RM-037, achado S7 do CHECK): a decisão autônoma fica.
-    const allow = plano ? [...CONSULTAS_MCP, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
-      : permissoes?.allow ?? [...CONSULTAS_MCP];
+    const allow = plano ? [...consultas, 'mcp__orkastery__ork_artifact_write', 'mcp__orkastery__ork_decision_record']
+      : permissoes?.allow ?? consultas;
     const deny = [...(plano ? ESCRITA_DE_ARQUIVO : []), ...(permissoes?.deny ?? [])];
     args.push('--plugin-dir', contexto.instalacao, '--strict-mcp-config',
       '--mcp-config', JSON.stringify({ mcpServers: { orkastery: contexto.servidor } }),
