@@ -3,8 +3,8 @@
   "maquina": "srvjcp86",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-10-02T14:23:33.630Z",
+  "versaoOrk": "0.5.0",
+  "publicadoEm": "2026-10-02T14:26:28.949Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -18,7 +18,10 @@
       "entregue": "ce29557",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "high"
     },
     {
       "id": "ork-rm040piloto",
@@ -32,7 +35,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "high"
     },
     {
       "id": "ork-rm053network",
@@ -46,7 +52,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max"
     },
     {
       "id": "ork-rm055impedim",
@@ -60,7 +69,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "high"
     },
     {
       "id": "ork-rm056perfil",
@@ -74,7 +86,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "high"
     }
   ]
 }
