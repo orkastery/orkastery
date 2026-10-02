@@ -46,6 +46,9 @@ test('auditoria exige 100% das fechadas em 30 dias, três classes humanas e quat
     assert.equal(auditarMaster(p.dir, quando).digest.ok, false, 'recibo forjado não conta');
     const falsa = novaThread(p.carregado, { nome: 'fechada sem prova', modo: 'auto' }).thread;
     falsa.status = 'fechada'; gravarThread(p.dir, falsa);
+    // Dentro da janela de `quando`: com o relógio real, a thread passava de `quando` a partir das 13:00Z de 02/10.
+    const gravada = lerThread(p.dir, falsa.id); gravada.atualizadaEm = '2026-09-20T12:00:00Z';
+    fs.writeFileSync(path.join(dirThread(p.dir, falsa.id), 'thread.json'), JSON.stringify(gravada));
     assert.equal(auditarMaster(p.dir, quando).cobertura.ok, false);
   } finally { p.limpar(); }
 });

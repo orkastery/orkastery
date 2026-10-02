@@ -2406,7 +2406,8 @@ function comandoNetwork(args: Args): number {
   if (sub === 'roadmap') return comandoNetworkRoadmap(args);
   const diretorio = process.cwd();
   const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
-    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair';
+    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
+    'network roadmap [--projeto P] [--json] [--sem-remoto]';
   const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
   if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
       (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
