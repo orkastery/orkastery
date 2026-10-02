@@ -195,14 +195,23 @@
       "criadoEm": "2026-10-02T03:33:18.846Z",
       "estado": "verificado",
       "lint": []
-    }
-  ],
-  "deferredClaims": [
+    },
     {
       "id": "C14",
-      "reason": "artifact-not-in-checkout"
+      "thread": "ork-rm037fatia4t",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-rm037fatia4t.json",
+      "alegacao": "RM-037 fatia 4, T5: o bundle de CI por thread existe, no contrato ork.ci-bundle/v1, da thread ork-rm037fatia4t e da branch ork/ork-rm037fatia4-full",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const b=require(\"./.ork-ci/ork-rm037fatia4t.json\");if(b.schema!==\"ork.ci-bundle/v1\"||b.thread!==\"ork-rm037fatia4t\"||b.branch!==\"ork/ork-rm037fatia4-full\")process.exit(1)'"
+      ],
+      "criadoEm": "2026-10-02T03:45:42.699Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
+  "deferredClaims": [],
   "commands": [
     {
       "name": "ci",
