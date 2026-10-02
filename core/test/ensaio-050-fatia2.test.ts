@@ -208,7 +208,7 @@ test('fatia 2 P1: sessions sem o binario claude diz fonte ausente com a correcao
     fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\nexit 3\n', { mode: 0o755 });
     const falha = ork(p.dir, casa, bin, 'sessions');
     assert.equal(falha.status, 1);
-    assert.match(falha.stdout, /claude agents --json \(FALHA\)/);
+    assert.match(falha.stdout, /claude agents --json(?: \([^)]*\))? \(FALHA\)/);
     assert.match(falha.stdout, /^Falha: claude agents falhou \(código 3\)$/m);
   } finally { p.limpar(); limpar(bin, casa); }
 });

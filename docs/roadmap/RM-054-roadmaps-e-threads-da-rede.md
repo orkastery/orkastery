@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: [FEAT-032]
 owner: Julio
-atualizado_em: 2026-09-30T03:09:41+00:00
+atualizado_em: 2026-10-02T14:33:46+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: b64d2f2
+    commit: 6ea7acb
     pr: null
 sdlc:
   thread: ork-rm054fatia2
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-054 — Roadmaps e threads da rede visíveis a todo agente e runtime
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Aprovados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -139,13 +139,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-30 | Julio |
-| Documentação | Em revisão | — | 2026-09-30 | Julio |
-| Código | Branch criada | commit `b64d2f2` | 2026-09-30 | Julio |
-| Testes | Aprovados | — | 2026-09-30 | Julio |
-| Deploy | Não implantado | — | 2026-09-30 | Julio |
-| Exposição | Flag desligada | — | 2026-09-30 | Julio |
-| Habilitação | Pendente | — | 2026-09-30 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
+| Documentação | Em revisão | — | 2026-10-02 | Julio |
+| Código | Mesclado | commit `6ea7acb` | 2026-10-02 | Julio |
+| Testes | Aprovados | — | 2026-10-02 | Julio |
+| Deploy | Não implantado | — | 2026-10-02 | Julio |
+| Exposição | Flag desligada | — | 2026-10-02 | Julio |
+| Habilitação | Pendente | — | 2026-10-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
