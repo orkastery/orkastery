@@ -17,6 +17,8 @@ import { init } from '../src/init';
 import { ONDE_FICAM_OS_SEGREDOS, PAUTA_ONBOARDING, validarConteudo } from '../src/onboarding';
 import { analisarComando } from '../src/claim-lint';
 import { DICA_DO_MOTIVO } from '../src/licoes';
+import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
+import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -367,4 +369,37 @@ test('fatia 2 P6: correcao do lint de suite inteira e generica e o modulo segue 
   assert.ok(linha, 'linha do lint no guia de verificacao');
   assert.doesNotMatch(linha, /test:ci/);
   assert.match(linha, /script hermético do projeto/);
+});
+
+test('fatia 2 P7: roadmap status diz o fuso logo abaixo do titulo', () => {
+  // Com remoto: o panorama da rede le o roadmap do clone (sem remoto, ele so registra a lacuna).
+  const p = projetoTemporario('fatia2-roadmap', true);
+  const casa = dirTemporario('fatia2-roadmap-casa');
+  try {
+    const status = montarStatusDoRoadmap(p.dir, { quando: '2026-10-02T03:00:00.000Z', projeto: 'orkastery' });
+    const brasilia = textoDoStatusDoRoadmap(status, 'America/Sao_Paulo').split('\n');
+    assert.equal(brasilia[0], 'Roadmap do Orkastery (02/10, 00:00)', 'o titulo aprovado nao muda');
+    assert.equal(brasilia[1], 'Horários de Brasília.');
+    assert.deepEqual(textoDoStatusDoRoadmap(status, 'UTC').split('\n').slice(0, 2), ['Roadmap do Orkastery (02/10, 03:00)', 'Horários em UTC.']);
+    assert.doesNotMatch(textoDoStatusDoRoadmap(status, 'UTC', { legenda: false }), /Horários/, 'sem a legenda para quem ja a diz');
+
+    // A CLI: titulo, fuso e, so depois, o projeto consultado da RM-052.
+    ajustarManifesto(p, '# timezone: "America/Sao_Paulo"', 'timezone: "America/Sao_Paulo"');
+    const cli = ork(p.dir, casa, PATH_ATUAL, 'roadmap', 'status');
+    assert.equal(cli.status, 0, cli.stderr);
+    const linhas = cli.stdout.split('\n');
+    assert.match(linhas[0], /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
+    assert.equal(linhas[1], 'Horários de Brasília.');
+    assert.match(linhas[2], /^Projeto consultado: /);
+    assert.equal(linhas.filter((l) => l.startsWith('Horários')).length, 1, 'o fuso uma vez por mensagem');
+
+    // O panorama da rede diz o fuso no fim; o bloco do status nao repete a legenda.
+    const panorama = montarPanoramaDaRede({ cwd: p.dir, quando: '2026-10-02T03:00:00.000Z', maquina: 'pc-a', semRemoto: true,
+      registro: path.join(casa, 'projetos.json') });
+    assert.ok(panorama.projetos[0]?.roadmap, 'o panorama leu o roadmap do projeto');
+    const texto = textoDoPanoramaDaRede(panorama).split('\n');
+    assert.ok(texto.includes('Roadmap do Orkastery (02/10, 00:00)'));
+    assert.deepEqual(texto.filter((l) => /Horários/.test(l)), ['Horários de Brasília.']);
+    assert.equal(texto.at(-1), 'Horários de Brasília.');
+  } finally { p.limpar(); limpar(casa); }
 });

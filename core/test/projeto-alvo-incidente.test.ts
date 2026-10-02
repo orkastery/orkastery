@@ -94,10 +94,12 @@ test('incidente 29/09: o status do roadmap do orkastery, pedido do gateway no wo
       const r = await tools.get('ork_roadmap_status')!.execute({ projeto: 'orkastery' }, {}, {});
       const linhas = r.split('\n');
       assert.match(linhas[0], /^Roadmap do Orkastery \(/, r);
-      assert.match(linhas[1], /^Projeto consultado: orkastery \(ork\) · .* · pela opção --projeto$/);
+      // Fatia 2 do ensaio da 0.5.0 (P7): o fuso vem logo abaixo do titulo, e o projeto consultado em seguida.
+      assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
+      assert.match(linhas[2], /^Projeto consultado: orkastery \(ork\) · .* · pela opção --projeto$/);
       assert.match(r, /• RM-052 Projeto-alvo explícito e resposta honesta nos hosts \(GOAL\)/);
       assert.match(r, /• RM-053 Orkastery Network/);
-      assert.ok(!/workspace/i.test(linhas.slice(0, 2).join('\n').replace(/\/[^ ]*/g, '')), 'o workspace nao aparece como o consultado');
+      assert.ok(!/workspace/i.test(linhas.slice(0, 3).join('\n').replace(/\/[^ ]*/g, '')), 'o workspace nao aparece como o consultado');
       assert.ok(!/Roadmap do Workspace/.test(r));
     });
   } finally { c.limpar(); }

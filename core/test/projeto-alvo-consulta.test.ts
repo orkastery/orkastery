@@ -49,14 +49,16 @@ function comRegistro(...projetos: ProjetoDeTeste[]): string {
   return usuario;
 }
 
-test('roadmap status: titulo aprovado na linha 1, depois o projeto consultado e o que nao foi lido; JSON com consulta', () => {
+test('roadmap status: titulo aprovado na linha 1, o fuso na 2, depois o projeto consultado e o que nao foi lido; JSON com consulta', () => {
   const a = projeto('orkastery', 'ork', true), b = projeto('workspace', 'wor');
   const usuario = comRegistro(a, b);
   try {
     const linhas = ork(usuario, b.dir, ['--projeto', 'orkastery', 'roadmap', 'status']).split('\n');
     assert.match(linhas[0], /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
-    assert.equal(linhas[1], `Projeto consultado: orkastery (ork) · ${raizParaExibir(a.dir)} · ${a.remoto} · pela opção --projeto`);
-    assert.equal(linhas[2], 'Não lido: reservas do roadmap (ork network roadmap) · threads de outras máquinas (ork network roadmap) · ' +
+    // Fatia 2 do ensaio da 0.5.0 (P7): o fuso vem logo abaixo do titulo.
+    assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
+    assert.equal(linhas[2], `Projeto consultado: orkastery (ork) · ${raizParaExibir(a.dir)} · ${a.remoto} · pela opção --projeto`);
+    assert.equal(linhas[3], 'Não lido: reservas do roadmap (ork network roadmap) · threads de outras máquinas (ork network roadmap) · ' +
       'outros projetos desta máquina: 1 (ork projetos)');
     const json = JSON.parse(ork(usuario, a.dir, ['roadmap', 'status', '--json']));
     assert.deepEqual(json.consulta.projeto, { nome: 'orkastery', abbrev: 'ork', raiz: raizParaExibir(a.dir), remoto: a.remoto, origem: 'cwd' });
