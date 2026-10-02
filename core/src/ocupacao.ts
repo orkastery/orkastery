@@ -21,6 +21,7 @@
  */
 
 import { ehEnsaio, TIPOS_DE_EVENTO } from './ledger';
+import { ehEsperaDoDono, ehImpedimentoDoDono } from './impedimento';
 import { EventoLedger, Fase, MotivoGate, Thread } from './types';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 
@@ -165,7 +166,8 @@ function pausaHumanaAberta(
   for (let i = 0; i < eventos.length; i++) {
     const e = eventos[i];
     const prevista = ehPausaPrevista(e);
-    const escalada = e.tipo === TIPOS_DE_EVENTO.gateBloqueado && e.motivo === 'human.pending';
+    // RM-055: o impedimento do despacho que so o dono resolve tambem e pausa humana: nao ocupa vaga.
+    const escalada = ehEsperaDoDono(e, TIPOS_DE_EVENTO.gateBloqueado);
     if (!prevista && !escalada) continue;
     const iFase = indiceDaFase(e.fase);
     // Na pausa prevista, redespachar a MESMA fase nao resolve pausa nenhuma: so o
@@ -199,7 +201,7 @@ function impedimentoAberto(
     if (typeof e.motivo !== 'string') continue;
     const motivo = e.motivo as MotivoGate;
     // `human.pending` ja e pausa humana; `claims.unverifiable` avisa mas nao bloqueia.
-    if (motivo === 'human.pending' || motivo === 'claims.unverifiable') continue;
+    if (motivo === 'human.pending' || motivo === 'claims.unverifiable' || ehImpedimentoDoDono(motivo)) continue;
     const resolvido = eventos
       .slice(i + 1)
       .some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));

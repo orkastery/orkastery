@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-037]
 owner: Julio
-atualizado_em: 2026-10-02T16:30:53+00:00
+atualizado_em: 2026-10-02T16:39:10+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
