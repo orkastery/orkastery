@@ -256,7 +256,8 @@ test('KG5 indice: cli com indice de outra revisao recusa como indice velho, sem 
     assert.equal(x.codigo, 1);
     const e = JSON.parse(x.saida).erro;
     assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.outra-revisao', 'outra-revisao', 'ork grafo indexar']);
-    assert.equal(e.detalhe, `o HEAD ${head.slice(0, 12)} nao tem indice; o guardado e de outra revisao (${antiga.slice(0, 12)}); rode ork grafo indexar`);
+    assert.equal(e.detalhe, `o HEAD ${head.slice(0, 12)} nao tem indice; o guardado e de outra revisao (${antiga.slice(0, 12)}); `
+      + 'rode ork grafo indexar com a mesma instalacao do ork e o mesmo Node de quem consulta');
     assert.match(grafo(r.dir, 'chamadores', 'alvo').erro ?? '', /^grafo\.indice\.outra-revisao: o HEAD [0-9a-f]{12} nao tem indice/);
     indexar(r.dir);
     assert.equal(JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).arestas.length, CHAMADAS + 1, 'com o indice do HEAD, responde');
@@ -282,6 +283,12 @@ test('KG5 indice: cli com indice do HEAD de outro extrator recusa e manda indexa
     assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.outro-extrator', 'outro-extrator', 'ork grafo indexar']);
     // CHECK rodada 1 (A1): a recusa diz o que mudou e que a correcao e com a instalacao de quem consulta.
     assert.match(e.detalhe, /^ha indice do HEAD [0-9a-f]{12} de outro extrator \(codigo do extrator\); rode ork grafo indexar com a mesma instalacao do ork e o mesmo Node de quem consulta/);
+    // CHECK rodada 2 (N2): outro Node (o rotulo do analisador de JavaScript) e outros pacotes tambem sao ditos.
+    const outroNode = { ...manifesto, chave: outra, analisadores: { ...manifesto.analisadores, javascript: 'node.0.0.0' }, pacotes: ['outro@1.0.0'] };
+    fs.writeFileSync(arquivo, JSON.stringify(outroNode));
+    const n = JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).erro;
+    assert.equal(n.codigo, 'grafo.indice.outro-extrator');
+    assert.match(n.detalhe, new RegExp(`\\(javascript node\\.0\\.0\\.0 no indice, ${manifesto.analisadores.javascript.replace(/\./g, '\\.')} aqui; pacotes dos analisadores\\)`));
   } finally {
     r.limpar();
   }
@@ -765,19 +772,17 @@ test('KG5 worker: o worker abre o proprio grupo, e o cancelamento mata o grupo i
     indexar(r.dir);
     const ctl = new AbortController();
     let lider = 0, grupo = -1;
-    const pendente = consultarPeloWorker(r.dir, ['chamadores', 'alvo', '--json', '--teto-bytes=32768'], {
+    // CHECK rodada 2 (N1): o cancelamento sai no proprio gancho, antes de o worker poder terminar sozinho.
+    const c = await consultarPeloWorker(r.dir, ['chamadores', 'alvo', '--json', '--teto-bytes=32768'], {
       signal: ctl.signal,
       aoIniciar: (pid) => {
         lider = pid;
         const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
         grupo = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]);
+        ctl.abort();
       },
     });
-    // Com o worker ja carregando o modulo do grafo e lendo o Git, o cancelamento mata o grupo dele.
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    ctl.abort();
-    const c = await pendente;
-    assert.ok(c.interrompido === 'cancelada' || c.codigo === 0, JSON.stringify(c));
+    assert.equal(c.interrompido, 'cancelada', JSON.stringify(c));
     assert.ok(lider > 0);
     assert.equal(grupo, lider, 'o worker e lider do proprio grupo');
     for (let i = 0; i < 100; i++) {

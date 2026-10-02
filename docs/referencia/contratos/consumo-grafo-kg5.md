@@ -47,8 +47,9 @@ o checkout de desenvolvimento e o CI os têm, e o pacote publicado `@orkastery/c
 toda chamada recusa com `grafo.parser.indisponivel`, e o `ork grafo indexar` também. Ligar a flag só
 serve numa instalação com os analisadores.
 
-A versão do Node e os bytes do código do extrator entram na chave do índice. O índice que a tool lê é o
-que a mesma instalação do `ork`, com o mesmo Node, construiu: indexado por outra, a tool recusa com
+A versão do Node, as versões dos analisadores e os bytes do código do extrator entram na chave do
+índice. O índice que a tool lê é o que tem a chave da instalação do `ork` que serve o MCP, com o Node
+dela: indexado por outra instalação ou outro Node que dê outra chave, a tool recusa com
 `grafo.indice.outro-extrator` e diz o que mudou.
 
 ## As tools
@@ -92,7 +93,7 @@ corte é da CLI, pela opção `--teto-bytes N`, que também vale fora do MCP:
 - o caminho não se corta: se não cabe, a recusa é `grafo.consulta.teto-excedido`, e o mesmo vale
   quando nem a aresta mais perto do alvo cabe;
 - a recusa sai compacta, mas não passa pelo teto: ela é curta, e o que pode crescer nela é o nó ecoado
-  (até 2.048 caracteres) e a lista de até 20 candidatos do nome ambíguo.
+  (até 2.048 caracteres nas tools) e a lista de até 20 candidatos do nome ambíguo.
 
 ## Recusas
 
@@ -186,9 +187,8 @@ Como ler, sem concluir além do medido:
   crua acha texto, comentário e nome igual em outro escopo.
 - A descoberta é paga por sessão com a flag ligada, mesmo sem consulta; quanto dela chega ao modelo
   depende de como o host carrega as definições.
-- A latência da tool inclui a partida do Node e a leitura do índice a cada chamada; cada worker lê o
-  índice inteiro (lendo o índice deste repositório no processo, o RSS chegou a 280 MB, medido no GOAL
-  da thread), e não há limite de workers simultâneos além das chamadas do host.
+- A latência da tool inclui a partida do Node e a leitura do índice a cada chamada; cada worker lê e
+  monta o índice inteiro em memória, e não há limite de workers simultâneos além das chamadas do host.
 - A leitura crua cresce com o próprio repositório: o nome de um símbolo citado em docs e testes novos
   aumenta os arquivos com ocorrência.
 

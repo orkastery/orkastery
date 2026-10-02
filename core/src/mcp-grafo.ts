@@ -2,8 +2,9 @@
  * RM-031 KG5: a consulta do grafo de codigo pelas fases, pelo MCP do projeto.
  *
  * Quatro tools de leitura com o contrato do `ork grafo` (D6): cada uma roda, na worktree da thread, o
- * argv que a CLI receberia (`<consulta> ... --json --teto-bytes N`) e devolve a saida sem transformar,
- * JSON `ork.code-graph-query/v0` com a evidencia de cada aresta e no maximo `tetoBytes` bytes (D4).
+ * argv que a CLI receberia (`<consulta> ... --json --teto-bytes N`) e devolve o que ela escreve, sem
+ * transformar: a resposta e JSON `ork.code-graph-query/v0` com a evidencia de cada aresta e no maximo
+ * `tetoBytes` bytes (D4); a recusa da consulta sai compacta e nao passa pelo teto.
  *
  * Desligadas por padrao (D2): so existem com `grafo.mcp: true` no manifesto da raiz, lido no startup, e
  * cada chamada confere a flag de novo. A consulta roda num worker (D3), um processo filho por chamada,
@@ -172,7 +173,9 @@ export function consultarPeloWorker(raiz: string, argv: readonly string[],
     filho.on('error', (e) => concluir({ codigo: null, saida: '', erro: e.message, interrompido: null, pid: filho.pid ?? null }));
     filho.on('close', (codigo, sinal) => concluir({ codigo: sinal ? null : codigo, saida, erro, interrompido: null, pid: filho.pid ?? null }));
     filho.stdin.end(JSON.stringify({ raiz, argv }));
-    if (filho.pid) opcoesDoWorker.aoIniciar?.(filho.pid);
+    try {
+      if (filho.pid) opcoesDoWorker.aoIniciar?.(filho.pid);
+    } catch { /* gancho de quem testa: nao muda o resultado da consulta */ }
   });
 }
 
@@ -188,6 +191,8 @@ export function registrarConsultasDoGrafo(registrar: Registrar, contexto: {
   thread: (id: string) => { worktree: string | null };
   prazoMs?: number;
 }): void {
+  // CHECK rodada 2 (N4): o confinamento compara caminhos reais, tambem quando quem registra passa outra forma da raiz.
+  const raiz = fs.realpathSync(contexto.raiz);
   for (const d of DEFINICOES) {
     registrar(d.nome, { description: d.descricao, inputSchema: d.schema, annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false } },
       async (args, extra) => {
@@ -196,8 +201,8 @@ export function registrarConsultasDoGrafo(registrar: Registrar, contexto: {
         }
         const t = contexto.thread(args.threadId as string);
         // CHECK rodada 1 (S6): o caminho real que o worker recebe fica dentro do projeto, conferido aqui de novo.
-        const cwd = fs.realpathSync(t.worktree ?? contexto.raiz);
-        if (cwd !== contexto.raiz && !cwd.startsWith(contexto.raiz + path.sep)) throw Error('mcp.scope.violation: worktree fora do projeto');
+        const cwd = fs.realpathSync(t.worktree ?? raiz);
+        if (cwd !== raiz && !cwd.startsWith(raiz + path.sep)) throw Error('mcp.scope.violation: worktree fora do projeto');
         const r = await consultarPeloWorker(cwd, d.argv(args), { signal: extra.signal, prazoMs: contexto.prazoMs });
         if (r.interrompido) throw Error(`grafo.mcp.indisponivel: consulta interrompida (${r.interrompido})`);
         if (r.codigo === 0 && Buffer.byteLength(r.saida) <= ((args.tetoBytes as number | undefined) ?? TETO_PADRAO)) return texto(r.saida);

@@ -265,7 +265,9 @@ function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
   }
   if (guardados.length) {
     const revisoes = [...new Set(guardados.map((i) => (i.revision as string).slice(0, 12)))].sort(compararUtf8);
-    throw new Error(`grafo.indice.outra-revisao: o HEAD ${head} nao tem indice; o guardado e de outra revisao${alguns(revisoes)}; rode ${CORRECAO_DO_INDICE}`);
+    // CHECK rodada 2 (N7): a ressalva da instalacao ja na primeira recusa, a de cada commit do GO.
+    throw new Error(`grafo.indice.outra-revisao: o HEAD ${head} nao tem indice; o guardado e de outra revisao${alguns(revisoes)}; `
+      + `rode ${CORRECAO_DO_INDICE} com a mesma instalacao do ork e o mesmo Node de quem consulta`);
   }
   throw original;
 }
