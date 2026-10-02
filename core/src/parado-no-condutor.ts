@@ -27,7 +27,7 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
-import { identidadeDaForja } from './forja';
+import { enderecoDoRemoto, identidadeDaForja, repositorioGithubNoHost } from './forja';
 import { redigirSegredos } from './hitl';
 import { alvoDoPedido, estadoDoPedido, PedidoHitlQualquer } from './hitl-contract';
 import { quemDecide } from './hitl-classificacao';
@@ -96,6 +96,8 @@ export interface RetratoDePrs {
   contrato: typeof CONTRATO_PRS;
   lidoEm: string;
   repositorio: string;
+  /** RM-037 (fatia 5, A5): o host do GitHub Enterprise de onde os PRs vieram; sem ele, o github.com. */
+  host?: string;
   base: string;
   /** A forja devolveu a lista de abertos cheia: pode haver PR aberto que nao veio. */
   parcial: boolean;
@@ -104,7 +106,17 @@ export interface RetratoDePrs {
   prs: PrDaForja[];
 }
 
-export type LeituraDePrs = { ok: true; retrato: RetratoDePrs } | { ok: false; lidoEm: string; erro: string };
+/** RM-037 (fatia 5, A5): o remoto cuja forja nao tem leitura de PR (GitLab, caminho local, host sem login do `gh`). */
+export interface ForjaSemLeitura { remoto: string; host: string | null }
+
+export type LeituraDePrs = { ok: true; retrato: RetratoDePrs } | {
+  ok: false; lidoEm: string; erro: string;
+  /** A forja do remoto nao tem leitura de PR: e o estado dela, e nao falha desta batida ("PR nao lido"). */
+  semLeitura?: ForjaSemLeitura;
+};
+
+/** RM-037 (fatia 5, A5): o que as linhas e o resumo dizem quando a forja nao tem leitura de PR. */
+export const FORJA_SEM_LEITURA = 'forja sem leitura de PR';
 
 /** Quem roda o `gh`. Os testes trocam por uma resposta gravada e contam as chamadas. */
 export type ExecutorDoGh = (args: readonly string[], timeoutMs: number) => { status: number | null; stdout: string; stderr: string };
@@ -127,6 +139,8 @@ const git = (raiz: string, args: string[]) => exec('git', args, raiz, 60000, { .
 const SHA = /^[0-9a-f]{40}$/;
 const BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 const REPOSITORIO = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+/** O host do GitHub Enterprise guardado no retrato: rotulos alfanumericos separados por ponto, como na forja. */
+const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
 /** Texto curto vindo de fora: sem controle, num teto. */
 function curto(v: unknown, teto = 120): string | null {
@@ -209,30 +223,66 @@ function prDaForja(bruto: unknown, base: string): PrDaForja | null {
     criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porChave.values()].map((x) => x.check) };
 }
 
+/**
+ * RM-037 (fatia 5, A5): o host e o `dono/nome` do remoto quando ele pode ser um GitHub (o github.com ou um host
+ * proprio), so pelo git local, sem rede nem `gh`. O GitLab fica de fora.
+ */
+function githubDoRemoto(raiz: string, remoto: string): { host: string; repositorio: string } | null {
+  const url = git(raiz, ['remote', 'get-url', remoto]);
+  const forja = url.ok ? repositorioGithubNoHost(url.stdout.trim()) : null;
+  return forja && REPOSITORIO.test(forja.repo) ? { host: forja.host, repositorio: forja.repo } : null;
+}
+
 /** O repositorio `dono/nome` do remoto, so quando ele e do github.com (o host ancorado, nao so citado no caminho). */
 export function repositorioDoRemoto(raiz: string, remoto: string): string | null {
+  const github = githubDoRemoto(raiz, remoto);
+  return github && github.host === 'github.com' ? github.repositorio : null;
+}
+
+type ForjaDosPrs = { leitura: true; host: string; repositorio: string } | { leitura: false; host: string | null; motivo: string };
+
+/**
+ * RM-037 (fatia 5, A5): de onde o pulse le os PRs do remoto. O github.com, como sempre; o host proprio em que o `gh`
+ * esta autenticado, que e um GitHub Enterprise (`gh auth status --hostname <host>`); ou nenhum: GitLab, caminho local,
+ * ou host em que o `gh` nao tem login. Ficar sem leitura nao e falha desta batida (o "PR nao lido"): e o estado da
+ * forja, que o pulse diz uma vez.
+ */
+function forjaDosPrs(raiz: string, remoto: string, executor: ExecutorDoGh, prazoMs: number): ForjaDosPrs {
   const url = git(raiz, ['remote', 'get-url', remoto]);
-  const forja = url.ok ? identidadeDaForja(url.stdout.trim()) : null;
-  return forja && forja.tipo === 'github' && forja.host === 'github.com' && REPOSITORIO.test(forja.repo) ? forja.repo : null;
+  if (!url.ok) return { leitura: false, host: null, motivo: `o remoto ${remoto} não está configurado neste checkout` };
+  const endereco = enderecoDoRemoto(url.stdout.trim());
+  if (!endereco) return { leitura: false, host: null, motivo: `o remoto ${remoto} não é de uma forja (caminho local)` };
+  if (identidadeDaForja(url.stdout.trim())?.tipo === 'gitlab') {
+    return { leitura: false, host: endereco.host, motivo: `a forja de ${remoto} (${endereco.host}) é um GitLab, e o ork só lê PR do GitHub` };
+  }
+  const github = githubDoRemoto(raiz, remoto);
+  if (!github) return { leitura: false, host: endereco.host, motivo: `o remoto ${remoto} (${endereco.host}) não aponta um repositório dono/nome` };
+  if (github.host === 'github.com') return { leitura: true, ...github };
+  const auth = executor(['auth', 'status', '--hostname', github.host], prazoMs);
+  return auth.status === 0 ? { leitura: true, ...github }
+    : { leitura: false, host: github.host, motivo: `o gh não está autenticado em ${github.host}, a forja de ${remoto}` };
 }
 
 /**
  * Le os PRs da base do repositorio do remoto em duas chamadas: os abertos (ate `LIMITE_DE_PRS`; e so a
  * lista deles que pode dizer "sem PR") e os recentes de qualquer estado (para achar o mesclado e o fechado).
- * O `gh` usa a autenticacao dele; nenhum token passa por aqui. Remoto que nao e do github.com nao chama nada.
+ * O `gh` usa a autenticacao dele; nenhum token passa por aqui. RM-037 (fatia 5, A5): no GitHub Enterprise, o host
+ * vai no `--repo`; forja sem leitura de PR nao chama o `gh pr list`.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
   opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number } = {}): LeituraDePrs {
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
   const base = carregado.manifesto.worktree.base_branch;
-  const repositorio = repositorioDoRemoto(carregado.raiz, remoto);
-  if (!repositorio) return { ok: false, lidoEm, erro: `o remoto ${remoto} não é um repositório do github.com` };
   const orcamento = opcoes.orcamentoMs ?? ORCAMENTO_DA_LEITURA_MS, fimDaLeitura = Date.now() + orcamento;
   const resta = () => fimDaLeitura - Date.now();
+  const executor = opcoes.executor ?? ghPadrao;
+  const forja = forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
+  if (!forja.leitura) return { ok: false, lidoEm, erro: forja.motivo, semLeitura: { remoto, host: forja.host } };
+  const { host, repositorio } = forja;
   const pedir = (args: string[]): unknown[] | string => {
     if (resta() <= 0) return `gh pr list: orçamento de ${Math.round(orcamento / 1000)} s da leitura esgotado`;
-    const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, ...args],
+    const r = executor(['pr', 'list', `--repo=${host}/${repositorio}`, `--base=${base}`, ...args],
       Math.min(PRAZO_DO_GH_MS, resta()));
     if (r.status !== 0) {
       const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
@@ -278,8 +328,8 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
         juntar(daBranch, false);
       } catch { semConferir.push(branch); }
     }
-    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: abertos.length >= LIMITE_DE_PRS,
-      ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
+    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, ...(host !== 'github.com' ? { host } : {}), base,
+      parcial: abertos.length >= LIMITE_DE_PRS, ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
   } catch (e) {
     return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
   }
@@ -301,6 +351,66 @@ export function gravarRetratoDePrs(raiz: string, retrato: RetratoDePrs): void {
   }
 }
 
+const ARQUIVO_DA_FORJA_SEM_LEITURA = 'forja-sem-leitura.json';
+export const CONTRATO_FORJA_SEM_LEITURA = 'ork.forja-sem-leitura/v1' as const;
+
+/** RM-037 (fatia 5, A5): o que o pulse ja disse sobre a forja sem leitura de PR, para nao dizer de novo a cada batida. */
+export interface AvisoDeForjaSemLeitura extends ForjaSemLeitura {
+  contrato: typeof CONTRATO_FORJA_SEM_LEITURA;
+  motivo: string;
+  ditoEm: string;
+}
+
+function lerAvisoDeForjaSemLeitura(raiz: string): AvisoDeForjaSemLeitura | null {
+  try {
+    const a = JSON.parse(fs.readFileSync(path.join(dirDoMonitor(raiz), ARQUIVO_DA_FORJA_SEM_LEITURA), 'utf8')) as Record<string, unknown>;
+    const ditoEm = instante(a.ditoEm), motivo = curto(a.motivo, 200);
+    if (a.contrato !== CONTRATO_FORJA_SEM_LEITURA || typeof a.remoto !== 'string' || !/^[A-Za-z0-9._-]{1,100}$/.test(a.remoto) ||
+        !(a.host === null || (typeof a.host === 'string' && HOST.test(a.host))) || !ditoEm || !motivo) return null;
+    return { contrato: CONTRATO_FORJA_SEM_LEITURA, remoto: a.remoto, host: a.host as string | null, motivo, ditoEm };
+  } catch { return null; }
+}
+
+/**
+ * RM-037 (fatia 5, A5): a forja sem leitura de PR e dita uma vez por remoto e host. Com o remoto fora do github.com,
+ * o pulse dizia "PR nao lido" a cada batida, para um estado que nao muda de uma batida para a outra. A marca em
+ * `.orkastery/monitor/` guarda o que ja foi dito; devolve true quando e novidade (e grava a marca).
+ */
+export function avisarForjaSemLeitura(raiz: string, semLeitura: ForjaSemLeitura, motivo: string, quando: string): boolean {
+  const atual = lerAvisoDeForjaSemLeitura(raiz);
+  if (atual && atual.remoto === semLeitura.remoto && atual.host === semLeitura.host) return false;
+  const dir = dirDoMonitor(raiz);
+  fs.mkdirSync(dir, { recursive: true });
+  const arquivo = path.join(dir, ARQUIVO_DA_FORJA_SEM_LEITURA), tmp = `${arquivo}.${process.pid}.${Date.now()}.tmp`;
+  const aviso: AvisoDeForjaSemLeitura = { contrato: CONTRATO_FORJA_SEM_LEITURA, ...semLeitura, motivo: curto(motivo, 200) ?? FORJA_SEM_LEITURA,
+    ditoEm: quando };
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(aviso, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    fs.renameSync(tmp, arquivo);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* ja saiu */ }
+    throw e;
+  }
+  return true;
+}
+
+/** A leitura voltou: a marca sai, e a forja que perder a leitura de novo volta a ser dita. */
+export function esquecerForjaSemLeitura(raiz: string): void {
+  fs.rmSync(path.join(dirDoMonitor(raiz), ARQUIVO_DA_FORJA_SEM_LEITURA), { force: true });
+}
+
+/**
+ * A forja sem leitura que o pulse ja disse, so quando ela e a do remoto de agora (mesmo nome e mesmo host): o status
+ * do roadmap a le sem rede e sem `gh`.
+ */
+export function forjaSemLeituraDoRemoto(raiz: string, remoto: string): AvisoDeForjaSemLeitura | null {
+  const aviso = lerAvisoDeForjaSemLeitura(raiz);
+  if (!aviso || aviso.remoto !== remoto) return null;
+  const url = git(raiz, ['remote', 'get-url', remoto]);
+  const host = url.ok ? enderecoDoRemoto(url.stdout.trim())?.host ?? null : null;
+  return host === aviso.host ? aviso : null;
+}
+
 /** O ultimo retrato gravado pelo pulse, conferido campo a campo e com os nomes de check limpos de novo. */
 export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
   try {
@@ -308,6 +418,7 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
     const lidoEm = instante(r.lidoEm);
     if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !REPOSITORIO.test(r.repositorio) ||
         typeof r.base !== 'string' || typeof r.parcial !== 'boolean' || !Array.isArray(r.prs) ||
+        (r.host !== undefined && !(typeof r.host === 'string' && HOST.test(r.host))) ||
         (r.semConferir !== undefined && !(Array.isArray(r.semConferir) && r.semConferir.every((b) => typeof b === 'string' && BRANCH.test(b))))) return null;
     const opcional = (v: unknown): string | null | undefined => (v === null || v === undefined ? null : instante(v) ?? undefined);
     const prs: PrDaForja[] = [];
@@ -328,8 +439,8 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
       prs.push({ numero: p.numero as number, branch: p.branch, head: p.head, estado, rascunho: p.rascunho,
         url: typeof p.url === 'string' && /^https:\/\/[^\s]+$/.test(p.url) ? curto(p.url, 300) : null, criadoEm, mescladoEm, checks });
     }
-    return { contrato: CONTRATO_PRS, lidoEm, repositorio: r.repositorio, base: r.base, parcial: r.parcial,
-      ...(Array.isArray(r.semConferir) && r.semConferir.length ? { semConferir: r.semConferir as string[] } : {}), prs };
+    return { contrato: CONTRATO_PRS, lidoEm, repositorio: r.repositorio, ...(typeof r.host === 'string' ? { host: r.host } : {}),
+      base: r.base, parcial: r.parcial, ...(Array.isArray(r.semConferir) && r.semConferir.length ? { semConferir: r.semConferir as string[] } : {}), prs };
   } catch { return null; }
 }
 
@@ -767,10 +878,15 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   const candidatas = fatos.filter((f) => f.comProduto && f.temRemota && f.branch).map((f) => f.branch as string);
   if (opcoes.lerPrs && candidatas.length) prs = opcoes.lerPrs(candidatas);
   // O retrato so vale do repositorio e da base de agora, e lido ha menos de `VALIDADE_DO_RETRATO_MIN`.
-  let retrato: RetratoDePrs | null = null, semRetrato = prs && !prs.ok ? prs.erro : 'sem leitura dos PRs';
+  // RM-037 (fatia 5, A5): a forja sem leitura de PR e o estado dela, dito uma vez pelo pulse; a linha nunca diz "PR nao lido".
+  const semLeituraDaForja = !!prs && !prs.ok && !!prs.semLeitura;
+  let retrato: RetratoDePrs | null = null, semRetrato = prs && !prs.ok ? (semLeituraDaForja ? FORJA_SEM_LEITURA : prs.erro) : 'sem leitura dos PRs';
   if (prs?.ok) {
-    const r = prs.retrato;
-    if (r.base !== baseBranch || r.repositorio !== repositorioDoRemoto(raiz, remoto)) semRetrato = 'retrato de PRs de outro repositório ou base';
+    const r = prs.retrato, atual = githubDoRemoto(raiz, remoto);
+    // O retrato vale do mesmo host: o do GitHub Enterprise (`host`) ou, sem ele, o github.com.
+    if (r.base !== baseBranch || !atual || r.repositorio !== atual.repositorio || (r.host ?? 'github.com') !== atual.host) {
+      semRetrato = 'retrato de PRs de outro repositório ou base';
+    }
     else if (minutosDesde(r.lidoEm, quando) > VALIDADE_DO_RETRATO_MIN) semRetrato = 'retrato de PRs velho';
     else if (Date.parse(r.lidoEm) - Date.parse(quando) > FOLGA_DO_RELOGIO_MIN * 60000) semRetrato = 'retrato de PRs com data no futuro';
     else retrato = r;
@@ -837,7 +953,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           // N2 da seguranca (rodada 2): branch que ja foi ao remoto pode ter PR; sem a leitura, nunca "abrir o PR". A4 da
           // rodada 5: publicar e abrir o PR pedem a mesma autorizacao de push que o merge.
           passo = (aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}`
-            : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch} (PR não lido)`
+            // RM-037 (fatia 5, A5): a forja sem leitura de PR ja foi dita uma vez; a linha so diz o passo.
+            : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch}${semLeituraDaForja ? '' : ' (PR não lido)'}`
             : `publicar a branch ${f.branch} e abrir o PR`) + autorizacao;
         }
         evidencia.push(`refs/heads/${f.branch} tem commit fora de refs/remotes/${remoto}/${f.branch}`);
@@ -886,7 +1003,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           caso = 'sessao-sem-pergunta';
           passo = f.shipNoLedger && !f.comProduto ? `fechar o MASTER da thread (ork master ${t.id})`
             : aberto ? `acompanhar os checks do PR #${aberto.numero}, que seguem em andamento`
-            : precisaDePr && !usouPr ? `conferir o PR da branch ${f.branch} (PR não lido) e seguir`
+            : precisaDePr && !usouPr ? (semLeituraDaForja ? `conferir na forja o PR da branch ${f.branch} e seguir`
+              : `conferir o PR da branch ${f.branch} (PR não lido) e seguir`)
             : `ler o fim da sessão ${id} (ork sessions logs ${id}) e seguir a thread`;
         }
       }
@@ -915,7 +1033,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       : daBranch.mesclado && !f.entregueNaPonta ? (f.merge && !f.mergeRegistrado ? `PR #${daBranch.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
         : `PR #${daBranch.mesclado.numero} mesclado sem o assunto ship(${t.id}), falta registrar a entrega`)
       : !f.comProduto && f.merge && !f.mergeRegistrado ? `merge ${f.merge.sha.slice(0, 7)} na base, falta registrar a entrega (${registrar})`
-      : precisaDePr ? (!usouPr ? 'branch publicada, PR não lido'
+      : precisaDePr ? (!usouPr ? (semLeituraDaForja ? `branch publicada, ${FORJA_SEM_LEITURA}` : 'branch publicada, PR não lido')
         : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;
     estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada, pr: prDaEntrega,
