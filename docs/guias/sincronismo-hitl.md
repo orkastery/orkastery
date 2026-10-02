@@ -568,12 +568,21 @@ vencia e o gate renascia com identificador e código novos. A prova do ingresso 
 mudou o que o núcleo traduz depois dela.
 
 - **Pedido curto (`ork.hitl-curto/v1`):** o mesmo contrato no lote do Telegram, no diálogo do host
-  e no item do pulse. Pergunta em uma frase, o que trava e desde quando, até quatro alternativas
-  de uma linha com a consequência, uma recomendada com o porquê e a última linha dizendo o que
-  digitar. No máximo 15 linhas, por construção. `ork gate request <thread> --formato telegram`
+  e no item do pulse. Pergunta em uma frase, o que trava e desde quando, até cinco alternativas
+  de uma linha com a consequência, uma com o selo "Recomendação" e o porquê, e a última linha
+  dizendo o que digitar. No máximo 15 linhas, por construção. `ork gate request <thread> --formato telegram`
   devolve o gate pronto; `<código> detalhes` devolve artefato, claims, riscos e diff.
+- **HITL de condução por alternativas (RM-057):** todo pedido que o próprio ork abre ao dono é uma
+  seleção de 3 a 5 alternativas, exatamente uma com o selo "Recomendação". O registro
+  (`registrarPedidoHitl`) recusa, sem gravar nada, o pedido fora disso com um motivo tipado:
+  `hitl.selecao.fora-da-faixa`, `hitl.selecao.recomendada` ou `hitl.selecao.texto-livre`. Resposta
+  em texto só passa com `dependenciaTecnica` (o comando exato que o dono roda no terminal e o
+  porquê), para o caso em que a fábrica não consegue seguir sozinha com os runtimes disponíveis. A
+  pergunta nativa de uma sessão do host continua com as opções do host, e o histórico com duas
+  alternativas continua legível. `ork prompt lint` reprova o template que peça um "confirmo" em
+  texto livre ou que o dono cole texto (regra `hitl-texto-livre`).
 - **Texto livre inequívoco:** vocabulário fechado (`aprovo`, `sim`, `pode seguir`, `ok`, `revisar`,
-  `esperar`, `detalhes` e parentes), letra `a` a `d` e dígito `1` a `4`. A palavra casa a ação da
+  `esperar`, `detalhes` e parentes), letra `a` a `e` e dígito `1` a `5`. A palavra casa a ação da
   alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de
   um pedido aberto na mesma thread, palavra não registra. A palavra solta, sem número nem código,
   só vale nos 60 minutos depois de a pergunta sair pelo núcleo, quando ela é o único pedido aberto

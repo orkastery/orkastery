@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-02T17:31:12+00:00
+atualizado_em: 2026-10-02T17:32:20+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão

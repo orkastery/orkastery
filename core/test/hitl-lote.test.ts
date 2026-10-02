@@ -84,17 +84,17 @@ test('recusa de formato é defeito do emissor: o item não vira pergunta e não 
   }
 });
 
-test('de 2 a 4 alternativas: uma só e cinco são recusadas', () => {
+test('de 2 a 5 alternativas: uma só e seis são recusadas', () => {
   const uma = pedido({ opcoes: [{ numero: 1, texto: 'Aprovar', acao: 'aprovar' }], recomendacao: 'Aprovar' });
   assert.equal('motivo' in perguntaDoPedido(uma, 1), true);
   const cinco = pedido({
     opcoes: LETRAS.map((_, i) => ({ numero: i + 1, texto: `Opção ${i + 1}`, acao: 'responder' as const }))
-      .concat([{ numero: 5, texto: 'Opção 5', acao: 'responder' as const }]),
+      .concat([{ numero: 6, texto: 'Opção 6', acao: 'responder' as const }]),
     recomendacao: 'Opção 1', respostaAceita: { tipo: 'opcao', maxCaracteres: 100 },
   });
   const r = perguntaDoPedido(cinco, 1);
   assert.equal('motivo' in r, true);
-  if ('motivo' in r) assert.match(r.detalhe, /mais de 4 alternativas/);
+  if ('motivo' in r) assert.match(r.detalhe, /mais de 5 alternativas/);
 });
 
 test('pedido que já traz alternativas prontas usa as dele, e uma só pode ser recomendada', () => {
@@ -147,8 +147,8 @@ test('telegram e terminal marcam a recomendada de jeitos diferentes, com o mesmo
   const lote = montarLote([pedido()]);
   const telegram = textoDoLote(lote, { canal: 'telegram' });
   const terminal = textoDoLote(lote, { canal: 'terminal' });
-  assert.match(telegram, /✅ recomendada/);
-  assert.match(terminal, /\[recomendada\]/);
+  assert.match(telegram, /✅ Recomendação/);
+  assert.match(terminal, /\[Recomendação\]/);
   assert.equal(terminal.includes('✅'), false);
   // RM-048 (D1): os marcadores mudam, o conteúdo não.
   const semMarca = (t: string) => t.replace(/📋 |✅ |❓ |⏳ |↩️ |🔒 |\[|\]|Pergunta: |Situação: |^! /gm, '')
