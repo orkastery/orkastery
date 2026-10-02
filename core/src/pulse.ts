@@ -118,8 +118,10 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   };
   const TERMINAIS = ['failed', 'done', 'stopped', 'completed'];
   for (const s of radar.sessoes.filter(s=>s.precisaDeHumano)) {
-    // RM-037 (fatia 4): sessao `blocked` sem menu, de quem o turno acabou sem pergunta, e do condutor.
-    if (entregas?.doCondutor.sessoes.has(s.sessionId) && sessaoSemPergunta(s)) continue;
+    // RM-037 (fatia 4): sessao `blocked` de quem o turno acabou sem pergunta e do condutor: a que o ledger provou
+    // (Stop sem atividade depois; a lista numerada da mensagem final nao e menu) e a sobra sem menu na tela.
+    if (entregas?.doCondutor.sessoes.has(s.sessionId) &&
+        (sessaoSemPergunta(s) || entregas.doCondutor.turnosEncerrados.has(s.sessionId))) continue;
     // Job morto ou estado terminal é história. Bloqueio vivo ou desconhecido continua visível.
     if (ehRegistro(s.thread?.id ?? null) && s.jobVivo !== true &&
         (s.jobVivo === false || TERMINAIS.includes(s.estadoBruto))) continue;
@@ -263,8 +265,8 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   // retrato que o status do roadmap le sem rede. Falha de leitura e diagnostico, nunca "sem PR".
   let entregas: EntregasDoProjeto | undefined;
   try {
-    entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: (): LeituraDePrs => {
-      const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh });
+    entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: (candidatas): LeituraDePrs => {
+      const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas });
       if (leitura.ok) { try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ } }
       return leitura;
     } });

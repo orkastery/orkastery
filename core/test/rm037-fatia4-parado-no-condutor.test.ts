@@ -259,11 +259,13 @@ test('N5 do CHECK (rodada 2): depois do veredito do dono na pausa prevista, o pa
     registrar(a.dir, a.t.id, 'human_gate', { ts: '2026-10-01T09:00:00.000Z', fase: 'CHECK', estado: 'aprovado', pedidoId: 'pedido-SIMULADO' });
     const depoisDoVeredito = entregasDoProjeto(p.carregado, { quando: AGORA });
     assert.equal(depoisDoVeredito.parados[0]?.caso, 'sem-push');
-    assert.equal(depoisDoVeredito.parados[0].desdeEm, FIM);
+    assert.equal(depoisDoVeredito.parados[0].desdeEm, '2026-10-01T09:00:00.000Z', 'A2 da rodada 3: o tempo do condutor conta do veredito');
+    // Logo depois do veredito, abaixo do limiar, ainda nao e parada.
+    assert.equal(entregasDoProjeto(p.carregado, { quando: '2026-10-01T09:10:00.000Z' }).parados.length, 0);
   } finally { p.limpar(); }
 });
 
-test('N3 do CHECK (rodada 2): pergunta na tela da sessao corrente segura o fim de turno com o dono', () => {
+test('A1 do CHECK (rodada 3): depois do Stop sem atividade, a lista numerada da tela e a mensagem final; sessao retomada volta ao dono', () => {
   const p = projetoTemporario('fatia4-menu-na-tela', true);
   try {
     const a = threadComProduto(p, 'menu na tela');
@@ -273,14 +275,23 @@ test('N3 do CHECK (rodada 2): pergunta na tela da sessao corrente segura o fim d
       detalhe: 'SIMULADO', desdeEm: '2026-10-01T05:06:17.000Z', idadeMin: 1200, pergunta: 'Qual caminho?', alternativas: ['1. A', '2. B'],
       thread: { id: a.t.id, fase: 'GOAL', slug: a.t.slug }, recomendacao: '', comandos: { logs: '', attach: '', parar: '' },
       acimaDoLimite: true, bloqueadaDesdeEm: '2026-10-01T07:30:00.000Z', paradaHaMin: 1100, ...extra });
-    for (const sessao of [tela({}), tela({ tipoDeHitl: null, pergunta: '', alternativas: [] })]) {
+    for (const sessao of [tela({}), tela({ tipoDeHitl: null, pergunta: '', alternativas: [] }), tela({ tipoDeHitl: 'hitl.desconhecido', pergunta: '', alternativas: [] })]) {
       const r = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [sessao] });
-      assert.equal(r.parados.length, 0, JSON.stringify(r.parados));
-      assert.ok(!r.doCondutor.gates.has(`${a.t.id}|GOAL`));
+      assert.equal(r.parados[0]?.caso, 'sem-push', JSON.stringify(r.parados));
+      assert.ok(r.doCondutor.turnosEncerrados.has(sessionId), 'o pulse tira a sessao do dono mesmo com a lista na tela');
     }
-    // Com a tela lida e sem pergunta, o fim de turno e do condutor.
-    const sem = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [tela({ tipoDeHitl: 'hitl.desconhecido', pergunta: '', alternativas: [] })] });
-    assert.equal(sem.parados[0]?.caso, 'sem-push');
+    // O dono respondeu na tela e a sessao voltou a trabalhar: nao ha fim de turno, e a pergunta nova e dele.
+    registrar(a.dir, a.t.id, 'runtime_event', { ts: '2026-10-01T08:00:00.000Z', fase: 'GOAL', sessionId, runtime: 'claude-bg',
+      despachoEm: '2026-10-01T05:06:17.060Z', fonte: 'ork sessions event', sensor: 'heartbeat' });
+    const retomada = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [tela({})] });
+    assert.equal(retomada.parados.length, 0, JSON.stringify(retomada.parados));
+    assert.ok(!retomada.doCondutor.gates.has(`${a.t.id}|GOAL`) && !retomada.doCondutor.turnosEncerrados.has(sessionId));
+    // O turno novo acabou num Stop sem atividade depois: volta a ser do condutor, desde esse Stop.
+    registrar(a.dir, a.t.id, 'runtime_stop', { ts: '2026-10-01T08:30:00.000Z', fase: 'GOAL', sessionId, runtime: 'claude-bg',
+      despachoEm: '2026-10-01T05:06:17.060Z', fonte: 'ork sessions event', sensor: 'stop', sensorEventId: 'c'.repeat(64) });
+    const deNovo = entregasDoProjeto(p.carregado, { quando: AGORA });
+    assert.equal(deNovo.parados[0]?.caso, 'sem-push');
+    assert.equal(deNovo.parados[0].desdeEm, '2026-10-01T08:30:00.000Z');
   } finally { p.limpar(); }
 });
 
@@ -504,6 +515,11 @@ test('a resposta do gh e validada: falha, formato, branch estranha, fork, outra 
           // Mesmo nome, outro workflow: e outro check, e o vermelho dele nao some atras do verde (N1 da seguranca, rodada 2).
           { __typename: 'CheckRun', name: 'build', workflowName: 'CI', status: 'COMPLETED', conclusion: 'FAILURE', startedAt: '2026-10-01T22:00:00Z', completedAt: '2026-10-01T22:05:00Z' },
           { __typename: 'CheckRun', name: 'build', workflowName: 'Docs', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-10-01T22:01:00Z', completedAt: '2026-10-01T22:02:00Z' },
+          // Mesmo workflow e nome, disparado por dois eventos (runs 111 e 222): o vermelho do primeiro fica (rodada 3).
+          { __typename: 'CheckRun', name: 'teste', workflowName: 'CI', status: 'COMPLETED', conclusion: 'FAILURE', startedAt: '2026-10-01T22:03:00Z',
+            completedAt: '2026-10-01T22:06:00Z', detailsUrl: 'https://github.com/exemplo/simulado/actions/runs/111/job/1' },
+          { __typename: 'CheckRun', name: 'teste', workflowName: 'CI', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-10-01T22:03:05Z',
+            completedAt: '2026-10-01T22:05:00Z', detailsUrl: 'https://github.com/exemplo/simulado/actions/runs/222/job/2' },
           { __typename: 'CheckRun', name: sujo, status: 'IN_PROGRESS', conclusion: '', completedAt: '0001-01-01T00:00:00Z' }] },
       { number: 41, state: 'OPEN', headRefName: 'outra', headRefOid: 'b'.repeat(40), baseRefName: 'release', isDraft: false, isCrossRepository: false, statusCheckRollup: [] },
       { number: 42, state: 'OPEN', headRefName: 'fork', headRefOid: 'c'.repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: true, statusCheckRollup: [] },
@@ -517,7 +533,8 @@ test('a resposta do gh e validada: falha, formato, branch estranha, fork, outra 
     assert.equal(ok.retrato.parcial, false);
     assert.deepEqual(ok.retrato.prs[0].checks.map(c => [c.nome, c.situacao, c.concluidoEm]), [
       ['ork-verify', 'verde', '2026-10-01T22:27:00.000Z'], ['externo', 'verde', '2026-10-01T22:01:00.000Z'],
-      ['build', 'vermelho', '2026-10-01T22:05:00.000Z'], ['build', 'verde', '2026-10-01T22:02:00.000Z'], ['MEDIA /etc/x vira linha', 'pendente', null]],
+      ['build', 'vermelho', '2026-10-01T22:05:00.000Z'], ['build', 'verde', '2026-10-01T22:02:00.000Z'],
+      ['teste', 'vermelho', '2026-10-01T22:06:00.000Z'], ['teste', 'verde', '2026-10-01T22:05:00.000Z'], ['MEDIA /etc/x vira linha', 'pendente', null]],
       'vale a reexecucao mais nova do ork-verify, e o build de cada workflow fica');
     // O retrato vai e volta inteiro; arquivo adulterado nao vale; o nome sujo gravado a mao sai limpo na leitura.
     gravarRetratoDePrs(p.dir, ok.retrato);
@@ -572,5 +589,66 @@ test('S1 e S2 do CHECK (rodada 2): o head do PR e a ponta local; o pedido novo d
     registrar(b.dir, b.t.id, 'hitl_requested', { ts: '2026-10-01T06:40:00.000Z', fase: 'GOAL', pedido: p2 });
     registrar(b.dir, b.t.id, 'session_answered', { ts: '2026-10-01T06:50:00.000Z', fase: 'GOAL', pedidoId: p2.id });
     assert.notEqual(esperaDoCondutor(lerThread(p.dir, b.t.id), lerLedger(b.dir), AGORA), null);
+  } finally { p.limpar(); }
+});
+
+test('R1 do CHECK (rodada 3): antes de dizer "sem PR", a branch candidata e conferida sozinha na forja', () => {
+  const p = projetoTemporario('fatia4-candidata', true);
+  try {
+    const a = threadComProduto(p, 'mesclado velho', { publicar: true });
+    forjaSimulada(p);
+    turnoDoObservador(a.dir, a.t.id, 90);
+    const chamadas: string[][] = [];
+    // As listas nao trazem o PR (mesclado ha mais de 100 PRs); so a consulta pela branch o acha.
+    const executor: ExecutorDoGh = (args) => {
+      chamadas.push([...args]);
+      const pelaBranch = args.includes(`--head=${a.branch}`);
+      return { status: 0, stderr: '', stdout: JSON.stringify(pelaBranch ? [{ number: 12, state: 'MERGED', headRefName: a.branch, headRefOid: a.head,
+        baseRefName: 'main', isDraft: false, isCrossRepository: false, mergedAt: '2026-09-20T10:00:00Z' }] : []) };
+    };
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: (candidatas) => lerPrsDaForja(p.carregado, { quando: AGORA, executor, candidatas }) });
+    assert.equal(chamadas.length, 3, 'abertos, recentes e a branch candidata');
+    assert.ok(chamadas[2].includes(`--head=${a.branch}`));
+    assert.ok(!chamadas[1].some(x => x.includes('statusCheckRollup')), 'os recentes vem sem o rollup');
+    assert.equal(r.parados[0]?.caso, 'sem-registro');
+    assert.equal(r.parados[0].proximoPasso, `conferir a entrega do PR #12, mesclado sem o assunto ship(${a.t.id}), e registrar o ship_done`);
+    // Acima do teto da batida, a candidata fica sem conferir: "PR nao lido", nunca "sem PR".
+    const muitas = Array.from({ length: 11 }, (_, i) => `ork/candidata-${i}`);
+    const contadas: string[][] = [];
+    const vazio: ExecutorDoGh = (args) => { contadas.push([...args]); return { status: 0, stdout: '[]', stderr: '' }; };
+    const lida = lerPrsDaForja(p.carregado, { quando: AGORA, executor: vazio, candidatas: muitas });
+    assert.equal(contadas.length, 12);
+    assert.deepEqual(lida.ok ? lida.retrato.semConferir : null, ['ork/candidata-10']);
+    // Com ship_done no ledger, nunca "sem PR".
+    registrar(a.dir, a.t.id, 'ship_done', { de: a.branch, para: 'main', mergeSha: 'a'.repeat(40), pushVerificado: true });
+    const entregue = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([]) }) });
+    assert.ok(!entregue.parados.some(x => x.caso === 'sem-pr'));
+  } finally { p.limpar(); }
+});
+
+test('S-b e S-e do CHECK (rodada 3): aberto so nos recentes nao vira "sem checks"; pausa aprovada sem fase depois pede a fase seguinte', () => {
+  const p = projetoTemporario('fatia4-sb-se', true);
+  try {
+    const a = threadComProduto(p, 'aberto so nos recentes', { publicar: true });
+    forjaSimulada(p);
+    turnoDoObservador(a.dir, a.t.id, 91);
+    const executor: ExecutorDoGh = (args) => ({ status: 0, stderr: '', stdout: JSON.stringify(args.includes('--state=open') ? [] : [{ number: 50,
+      state: 'OPEN', headRefName: a.branch, headRefOid: a.head, baseRefName: 'main', isDraft: false, isCrossRepository: false }]) });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: (candidatas) => lerPrsDaForja(p.carregado, { quando: AGORA, executor, candidatas }) });
+    assert.equal(r.estados[0].resumo, 'PR #50 aberto, checks em andamento');
+    assert.ok(!r.parados.some(x => x.caso === 'pr-verde'));
+    // #Maestro: PLAN aprovado pelo dono e o GO nunca despachado.
+    const { thread: m } = novaThread(p.carregado, { nome: 'plan aprovado', modo: 'maestro' });
+    const dir = dirThread(p.dir, m.id), sessionId = '00000000-0000-4000-8000-000000000092';
+    registrar(dir, m.id, 'phase_dispatch', { ts: '2026-10-01T05:00:00.000Z', fase: 'PLAN', modo: 'maestro', bloco: 'GOAL-PLAN', pausaAoFim: true,
+      runtime: 'claude-bg', sessionId });
+    registrar(dir, m.id, 'phase_result', { ts: '2026-10-01T06:00:00.000Z', fase: 'PLAN', sessionId, classificacao: 'gate_blocked',
+      motivo: 'human.pending', estadoNativo: 'done', ok: false, fonte: 'SIMULADO' });
+    registrar(dir, m.id, 'human_gate', { ts: '2026-10-01T10:00:00.000Z', fase: 'PLAN', estado: 'aprovado', pedidoId: 'pedido-SIMULADO' });
+    const aprovado = entregasDoProjeto(p.carregado, { quando: AGORA });
+    const linha = aprovado.parados.find(x => x.thread === m.id);
+    assert.equal(linha?.caso, 'fase-seguinte');
+    assert.equal(linha?.desdeEm, '2026-10-01T10:00:00.000Z');
+    assert.equal(linha?.proximoPasso, `despachar a fase GO (ork phase run ${m.id} GO --prompt "<pedido da fase>")`);
   } finally { p.limpar(); }
 });

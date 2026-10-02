@@ -207,3 +207,21 @@ test('B1 do CHECK: a sessao nativa do Codex em blocked e pergunta estruturada e 
     assert.ok(!pulse.paradoNoCondutor?.some(x => x.thread === outra.id));
   } finally { c.limpar(); }
 });
+
+test('A1 do CHECK (rodada 3): a sessao do fim de turno com lista numerada na tela sai do dono junto com o gate', () => {
+  const c = cenario('fatia4-pulse-lista');
+  try {
+    const sessionId = '00000000-0000-4000-8000-0000000000aa';
+    const sessao: SessaoNoRadar = { id: sessionId.slice(0, 8), sessionId, nome: 'SIMULADA', cwd: '/tmp/simulada', kind: 'background',
+      estadoBruto: 'blocked', classe: 'hitl', tipoDeHitl: 'hitl.pergunta', jobVivo: true, precisaDeHumano: true, detalhe: 'SIMULADO',
+      desdeEm: '2026-10-01T05:06:17.000Z', idadeMin: 1200, pergunta: 'Próximos passos:', alternativas: ['1. publicar a branch', '2. abrir o PR'],
+      thread: { id: c.t.id, fase: 'GOAL', slug: c.t.slug }, recomendacao: '', comandos: { logs: '', attach: '', parar: '' },
+      acimaDoLimite: true, bloqueadaDesdeEm: null, paradaHaMin: null };
+    const radar: RadarDeSessoes = { consultadoEm: AGORA, atencaoMin: 30, runtimeConsultado: true, runtimeDetalhe: '', logsLidos: true, raiz: c.p.dir,
+      sessoes: [sessao], resumo: { total: 1, precisamDeHumano: 1, hitl: 1, abandonadas: 0, falhas: 0, trabalhando: 0, desconhecidas: 0,
+        acimaDoLimite: 1, foraDoOrk: 0 } };
+    const pulse = comporPulse(c.p.carregado, { radar, monitor: montarMonitor(c.p.carregado, { agora: AGORA, estados: new Map() }), batch: [], orfas: [] });
+    assert.ok(!pulse.precisaDeHumanoAgora.some(i => i.thread === c.t.id), JSON.stringify(pulse.precisaDeHumanoAgora.map(i => i.id)));
+    assert.equal(pulse.paradoNoCondutor?.[0].caso, 'sem-push');
+  } finally { c.limpar(); }
+});

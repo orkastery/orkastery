@@ -39,8 +39,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     vermelho sem fase despachada depois, merge na base sem registro e sessão `blocked` sem pergunta de
     verdade (antes da entrega, o passo é despachar a fase seguinte, fase a fase fora do #Auto). O
     `human.pending` que o observador grava no fim de turno de um bloco sem pausa ao fim deixa de contar
-    como pergunta do dono e volta sempre como linha. Os PRs vêm do `gh pr list`, uma vez por batida e
-    só com branch que já foi ao remoto, e a leitura boa vira o retrato `ork.prs-abertos/v1` em
+    como pergunta do dono e volta sempre como linha. Os PRs vêm do `gh pr list` (os abertos e os
+    recentes, e a branch candidata a "sem PR" conferida sozinha), só com branch que já foi ao remoto, e a
+    leitura boa vira o retrato `ork.prs-abertos/v1` em
     `.orkastery/monitor/prs.json`; falha, lista cortada e retrato velho são "PR não lido";
   - `ork roadmap status` diz em "O que eu faço em seguida" o estado real da entrega (parado no
     condutor, PR com check vermelho, PR verde esperando o merge, branch sem push), lido do git local e

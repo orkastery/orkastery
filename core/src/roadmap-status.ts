@@ -250,7 +250,8 @@ export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): 
   if (!fabricaCompartilhada(carregado.manifesto)) return undefined;
   // Sem rede escondida: num clone parcial, o `git show` dos retratos buscaria o objeto no remoto. O git anterior
   // a 2.45 ignora o GIT_NO_LAZY_FETCH, entao o clone parcial nem e lido aqui (N4 da seguranca, rodada 2).
-  if (exec('git', ['config', '--get', 'extensions.partialclone'], carregado.raiz).stdout.trim()) {
+  // N4 da seguranca (rodada 3): o git novo registra o clone parcial no `remote.<r>.promisor`, o velho no `extensions`.
+  if (exec('git', ['config', '--get-regexp', '^(extensions\\.partialclone|remote\\..+\\.promisor)$'], carregado.raiz).stdout.trim()) {
     return { lido: false, motivo: `clone parcial: a cópia local de ${BRANCH_DA_FABRICA} não é lida sem rede`, semBatida: [] };
   }
   const antes = process.env.GIT_NO_LAZY_FETCH;
