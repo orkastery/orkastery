@@ -171,13 +171,22 @@ export function listarSessoes(cwd?: string, todas = false, ambiente: NodeJS.Proc
   return consultarSessoes(cwd, todas, ambiente).sessoes;
 }
 
-export interface ConsultaDeSessoes { ok: boolean; sessoes: SessaoRuntime[]; detalhe: string }
+export interface ConsultaDeSessoes {
+  ok: boolean; sessoes: SessaoRuntime[]; detalhe: string;
+  /** Fatia 2 do ensaio da 0.5.0 (P1): o `claude` nem existe no PATH (ENOENT antes da consulta). */
+  ausente?: boolean;
+}
 
-/** Falha de consulta não pode ser confundida com uma máquina sem sessões. */
+/**
+ * Falha de consulta não pode ser confundida com uma máquina sem sessões. O binário ausente segue
+ * falha aqui (o observador e o pulse não concluem nada dele); só o inventário o trata como fonte
+ * ausente, com a correção.
+ */
 export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): ConsultaDeSessoes {
   const args = ['agents', '--json'];
   if (todas) args.push('--all');
   const r = exec('claude', args, undefined, 60000, ambiente);
+  if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: 'binário `claude` fora do PATH' };
   if (!r.ok) return { ok: false, sessoes: [], detalhe: `claude agents falhou (código ${r.code})` };
   let dados: SessaoRuntime[];
   try {

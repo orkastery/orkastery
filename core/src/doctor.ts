@@ -27,6 +27,7 @@ import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente
 import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
+import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -200,6 +201,101 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   return checks;
 }
 
+/** Um bloco de modo, como o doctor e o setup o nomeiam: `#Classic 2`. */
+export interface BlocoDeModo { tag: string; bloco: number }
+
+/** Os blocos dos modos permitidos, separados pelo papel que o runtime pedido tem neles. */
+export interface BlocosDoRuntime { principal: BlocoDeModo[]; fallback: BlocoDeModo[] }
+
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P1): por qual runtime cada bloco dos modos de
+ * `conduction.allowed_modes` despacha, pelo mesmo criterio do despacho sem opcao de CLI
+ * (`resolverDespacho`: o bloco do setup vence `runtime.adapter`). Quem passou os blocos para o
+ * Codex nao precisa do `claude`. Setup ilegivel devolve `null`: quem chama fica no lado seguro.
+ */
+export function blocosDoRuntime(carregado: ManifestoCarregado, runtime: string): BlocosDoRuntime | null {
+  const { manifesto } = carregado;
+  const r: BlocosDoRuntime = { principal: [], fallback: [] };
+  try {
+    const setup = lerSetup(carregado.raiz);
+    for (const modo of manifesto.conduction.allowed_modes) {
+      MODOS[modo].blocos.forEach((b, i) => {
+        const doBloco = configDoBloco(setup, modo, b.fases[0]) as ConfigDeBlocoComFallback | null;
+        const bloco = { tag: MODOS[modo].tag, bloco: i + 1 };
+        if ((doBloco?.runtime ?? manifesto.runtime.adapter) === runtime) r.principal.push(bloco);
+        else if (doBloco?.fallback?.some((f) => f.split(':')[0] === runtime)) r.fallback.push(bloco);
+      });
+    }
+  } catch { return null; }
+  return r;
+}
+
+/** `#Classic 1, 2; #Auto 1`: os blocos agrupados por modo, na ordem dos modos permitidos. */
+function textoDosBlocos(blocos: readonly BlocoDeModo[]): string {
+  const porModo = new Map<string, number[]>();
+  for (const b of blocos) porModo.set(b.tag, [...(porModo.get(b.tag) ?? []), b.bloco]);
+  return [...porModo].map(([tag, numeros]) => `${tag} ${numeros.join(', ')}`).join('; ');
+}
+
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P1): o `claude` so e obrigatorio quando algum bloco de modo permitido
+ * despacha por ele. Sem manifesto, com manifesto invalido ou com setup ilegivel vale o padrao (todo
+ * bloco no claude-bg), e a falta reprova como antes.
+ */
+export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude: string | null,
+  versao: string | null): Check {
+  const nome = 'runtime claude-bg';
+  if (claude) return { nome, nivel: 'ok', detalhe: `${claude} (${versao ?? 'versao desconhecida'})` };
+  const blocos = carregado && carregado.erros.length === 0 ? blocosDoRuntime(carregado, 'claude-bg') : null;
+  if (blocos && blocos.principal.length === 0) {
+    // CHECK, rodada 1 (S6): as fases nao precisam dele, mas o `ork audit run` despacha sempre pelo claude-bg.
+    return { nome, nivel: 'warn',
+      detalhe: 'binario `claude` fora do PATH (opcional para as fases: nenhum bloco dos modos permitidos despacha pelo claude-bg' +
+        (blocos.fallback.length
+          ? `; o fallback de ${blocos.fallback.length} bloco(s) cai nele e falharia: ${textoDosBlocos(blocos.fallback)}` : '') +
+        '; o ork audit run ainda despacha por ele)',
+      correcao: 'para despachar pelo claude-bg (e rodar ork audit run), instale o Claude Code e garanta `claude` no PATH' };
+  }
+  return { nome, nivel: 'fail',
+    detalhe: 'binario `claude` fora do PATH' + (blocos
+      ? `; ${blocos.principal.length} bloco(s) dos modos permitidos despacham por ele (${textoDosBlocos(blocos.principal)})` : ''),
+    correcao: 'instale o Claude Code e garanta `claude` no PATH; so com o Codex, passe cada bloco para ele ' +
+      '(ork setup <modo> --bloco N --runtime codex --model <modelo>) ou tire o modo de conduction.allowed_modes ' +
+      '(mantenha o conduction.default_mode entre os permitidos)' };
+}
+
+/**
+ * O despacho pelo Codex quando o projeto o elege: por `runtime.adapter: codex`, como antes, ou, desde
+ * a fatia 2 do ensaio da 0.5.0 (P1), por bloco de modo permitido. A falta do `codex`, ou um sandbox
+ * que nao executa, deixa de ser aviso: e exatamente o que bloquearia a fase. Sem nenhum dos dois, o
+ * check nao sai.
+ */
+export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: string | null,
+  sonda: { ok: boolean } | null): Check | null {
+  const pelaAdapter = carregado.manifesto.runtime.adapter === 'codex';
+  const blocos = blocosDoRuntime(carregado, 'codex')?.principal ?? [];
+  if (!pelaAdapter && blocos.length === 0) return null;
+  const origem = [pelaAdapter ? 'runtime.adapter: codex' : '',
+    blocos.length ? `${blocos.length} bloco(s) dos modos permitidos no codex (${textoDosBlocos(blocos)})` : '']
+    .filter(Boolean).join(' e ');
+  const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
+  const sandboxQuebrado = sonda !== null && !sonda.ok && sandboxConfigurado !== 'danger-full-access';
+  return {
+    nome: 'despacho pelo codex',
+    nivel: !codex ? 'fail' : sandboxQuebrado ? 'fail' : 'ok',
+    detalhe: !codex
+      ? `${origem}, mas o binario \`codex\` esta fora do PATH`
+      : sandboxQuebrado
+        ? `${origem} com sandbox "${sandboxConfigurado}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`
+        : `${origem} com sandbox "${sandboxConfigurado}"`,
+    correcao: !codex
+      ? 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)'
+      : sandboxQuebrado
+        ? 'instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco'
+        : undefined,
+  };
+}
+
 /** Roda todos os checks a partir do diretorio informado. */
 export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): Check[] {
   const checks: Check[] = [];
@@ -237,25 +333,29 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     if (dono) checks.push(dono);
   }
 
+  // Fatia 2 do ensaio da 0.5.0 (P1): o manifesto e lido antes dos runtimes, porque e o setup dos
+  // modos permitidos que diz se o `claude` e obrigatorio; a ordem das linhas do relatorio nao muda.
+  const carregado = carregarManifesto(dirInicial);
   const claude = adapter.disponivel();
   const v = claude ? adapter.versao() : null;
-  checks.push({
-    nome: 'runtime claude-bg',
-    nivel: claude ? 'ok' : 'fail',
-    detalhe: claude ? `${claude} (${v ?? 'versao desconhecida'})` : 'binario `claude` fora do PATH',
-    correcao: claude ? undefined : 'instale o Claude Code e garanta `claude` no PATH',
-  });
+  checks.push(checarRuntimeClaude(carregado, claude, v));
 
   // Segundo runtime homologado. Ausente e `warn`, nao `fail`: o claude-bg segue sendo o
   // padrao, e um projeto que nunca pediu codex nao pode ficar bloqueado por ele.
   const codex = codexAdapter.disponivel();
   const codexVersao = codex ? codexAdapter.versao() : null;
+  // CHECK, rodada 1 (S6): com o projeto despachando pelo codex, a falta dele nao e "opcional"; quem
+  // reprova e o check `despacho pelo codex`, mais abaixo.
+  const usaCodex = !!carregado && carregado.erros.length === 0 && (carregado.manifesto.runtime.adapter === 'codex' ||
+    (blocosDoRuntime(carregado, 'codex')?.principal.length ?? 0) > 0);
   checks.push({
     nome: 'runtime codex',
     nivel: codex ? 'ok' : 'warn',
     detalhe: codex
       ? `${codex} (${codexVersao ?? 'versao desconhecida'})`
-      : 'binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)',
+      : usaCodex
+        ? 'binario `codex` fora do PATH (o projeto despacha por ele: veja despacho pelo codex)'
+        : 'binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)',
     correcao: codex
       ? undefined
       : 'para despachar pelo codex, instale o Codex CLI e autentique com `codex login`',
@@ -279,7 +379,6 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     });
   }
 
-  const carregado = carregarManifesto(dirInicial);
   if (!carregado) {
     checks.push({
       nome: 'manifesto',
@@ -331,27 +430,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       correcao: fuso.aviso ? `corrija ${CHAVE_DO_FUSO} com um nome IANA` : undefined,
     });
 
-    // Quando o manifesto ELEGE o codex como runtime de despacho, a ausencia dele (ou um
+    // Quando o manifesto ou um bloco de modo permitido ELEGE o codex, a ausencia dele (ou um
     // sandbox que nao executa) deixa de ser aviso: e exatamente o que bloquearia a fase.
-    if (carregado.manifesto.runtime.adapter === 'codex') {
-      const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
-      const sandboxQuebrado =
-        sondaDoCodex !== null && !sondaDoCodex.ok && sandboxConfigurado !== 'danger-full-access';
-      checks.push({
-        nome: 'despacho pelo codex',
-        nivel: !codex ? 'fail' : sandboxQuebrado ? 'fail' : 'ok',
-        detalhe: !codex
-          ? 'runtime.adapter: codex, mas o binario `codex` esta fora do PATH'
-          : sandboxQuebrado
-            ? `runtime.adapter: codex com sandbox "${sandboxConfigurado}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`
-            : `runtime.adapter: codex com sandbox "${sandboxConfigurado}"`,
-        correcao: !codex
-          ? 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)'
-          : sandboxQuebrado
-            ? 'instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco'
-            : undefined,
-      });
-    }
+    const despachoPeloCodex = checarDespachoPeloCodex(carregado, codex, sondaDoCodex);
+    if (despachoPeloCodex) checks.push(despachoPeloCodex);
 
     const politica = carregado.manifesto.runtime.provider_policy;
     const soAssinatura = politica === 'subscription-only';
@@ -442,12 +524,15 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 
     {
       const inventario = inventariarSessoes(carregado.raiz, { global: true, todas: true });
+      // Fatia 2 do ensaio da 0.5.0 (P1): binario ausente e fonte ausente, dita no detalhe.
+      const ausentes = inventario.fontes.filter((f) => f.ausente).map((f) => f.origem);
       checks.push({
         nome: 'governanca de sessoes',
         nivel: inventario.ok && inventario.semThread === 0 ? 'ok' : 'warn',
         detalhe: `${inventario.escopo.usuario}, Claude e Codex, global com histórico: ${inventario.total} sessões; ` +
           `${inventario.semThread} sem thread; ${inventario.ambiguas} ambíguas; ` +
-          `inventário ${inventario.ok ? 'válido' : 'INCOMPLETO (zero não comprovado)'}`,
+          `inventário ${inventario.ok ? 'válido' : 'INCOMPLETO (zero não comprovado)'}` +
+          (ausentes.length ? `; fonte ausente: ${ausentes.join(', ')}` : ''),
         correcao: inventario.ok && inventario.semThread === 0 ? undefined :
           'ork sessions --global --all --json; adote identidades sem vínculo com ork sessions adopt <id>',
       });

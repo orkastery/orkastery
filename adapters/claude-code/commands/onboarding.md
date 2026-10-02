@@ -12,8 +12,9 @@ etapas ou validação neste host e não invente respostas em nome do builder.
 
 Grave a resposta pública solicitada com `ork onboarding set <etapa> --conteudo <JSON> --por <quem>`.
 Transporte o JSON como argumento, com escaping de shell adequado; nunca execute o texto recebido.
-Peça somente nomes de variáveis para credenciais. Valores secretos ficam em `~/.hermes/.env`;
-não leia esse arquivo nem transporte valores para a conversa, onboarding ou ledger.
+Peça somente nomes de variáveis para credenciais. Valores secretos ficam no ambiente do processo
+ou no cofre do host (no Hermes, `~/.hermes/.env`); não os leia nem transporte valores para a
+conversa, onboarding ou ledger.
 
 Reset solicitado usa `ork onboarding reset [etapa]`. Publicação opcional usa
 `ork onboarding sync --json`; apresente o motivo tipado de degradação sem bloquear a entrevista.

@@ -14,10 +14,17 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 | Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
-| Um runtime de agente | Hoje o adapter `claude-bg` (o binário `claude`, despachado com `--bg`) |
+| Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
 
 O runtime é opcional para os passos 1 a 4. Sem ele, você ainda cria threads, registra claims,
 roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue é **despachar fase**.
+
+Só com o Codex: o setup padrão despacha todo bloco pelo `claude-bg`, e o `ork doctor` reprova a
+falta do `claude` enquanto algum bloco de modo permitido despachar por ele. Depois do `ork init`,
+passe cada bloco para o Codex com `ork setup <modo> --bloco N --runtime codex --model <modelo>`
+(`ork setup <modo>` lista os blocos), ou tire o modo de `conduction.allowed_modes` (mantenha
+o `conduction.default_mode` entre os permitidos); a partir daí, a falta do `claude` é só aviso,
+e só o `ork audit run` ainda despacha por ele.
 
 ---
 
@@ -104,15 +111,17 @@ Isso gera o `orkastery.yaml`, a **fonte única** da configuração do projeto, c
 manifesto.
 
 O estado do `ork` (`.orkastery/`) e as worktrees das threads (`.claude/worktrees/`) são da máquina,
-não do repositório: deixe os dois fora do git e faça o commit do manifesto antes da primeira thread.
+não do repositório. O `ork init` deixa o estado fora do git com um `.orkastery/.gitignore` próprio
+(com `*`), e a pasta das worktrees ganha o mesmo quando o `ork` a cria, com a primeira worktree;
+se ela já existia, deixe-a fora do git você mesmo. O seu `.gitignore` fica como está. Faça o commit
+do manifesto antes da primeira thread:
 
 ```bash
-printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore
-git add .gitignore orkastery.yaml AGENTS.md
+git add orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
 
-Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam em `~/.hermes/.env`, somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
+Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
 
 O que você provavelmente vai querer ajustar logo de cara:
 

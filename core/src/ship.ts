@@ -405,6 +405,8 @@ export function ship(
       correcao,
       de,
       para,
+      // Fatia 2 do ensaio da 0.5.0 (P2): o gate do ensaio e marcado, e os leitores de estado o ignoram.
+      ...(r.dryRun ? { dryRun: true } : {}),
     });
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipBloqueado, {
       de,
@@ -436,6 +438,26 @@ export function ship(
   const branchAtrasDaBase = pontaDe && pontaPara && de !== para
     ? !exec('git', ['merge-base', '--is-ancestor', pontaPara, pontaDe], raiz).ok
     : undefined;
+  // Fatia 2 do ensaio da 0.5.0 (P9): sem delta (a branch da thread ja esta contida na base) e com a base
+  // local a frente da ref de rastreio do remoto, o push publicaria a base sem merge de thread. A medida e
+  // local, sem rede; sem remoto, sem ref de rastreio ou com --sem-push, o fato nao vem e nada muda.
+  // CHECK, rodada 1 (B1): o merge que o proprio ship ja fez e nao chegou ao remoto (push recusado,
+  // --sem-push, retomada do MCP) tambem deixa a base a frente sem delta, mas leva a ponta da thread como
+  // pai que nao e o primeiro: e entrega de thread, e o retry empurra como antes. Rodada 2 (S-R2-1): so
+  // quando a linha principal da base, alem do remoto, e toda de merge; commit direto nela segue barrado.
+  const rastreio = pontaDe && pontaPara && de !== para && !opcoes.semPush && remotoConfigurado(raiz, remoto)
+    ? shaDaRef(raiz, `refs/remotes/${remoto}/${para}`) : null;
+  const mergeDaThreadNaBase = (desde: string): boolean => {
+    const diretos = exec('git', ['rev-list', '--first-parent', '--no-merges', `${desde}..${pontaPara}`], raiz);
+    return diretos.ok && diretos.stdout.trim() === '' &&
+      exec('git', ['rev-list', '--merges', '--parents', `${desde}..${pontaPara}`], raiz).stdout.split('\n')
+        .some((linha) => linha.trim().split(' ').slice(2).includes(pontaDe!));
+  };
+  const semDeltaComBaseAFrente = rastreio
+    ? exec('git', ['merge-base', '--is-ancestor', pontaDe!, pontaPara!], raiz).ok &&
+      !exec('git', ['merge-base', '--is-ancestor', pontaPara!, rastreio], raiz).ok &&
+      !mergeDaThreadNaBase(rastreio)
+    : undefined;
   const violacoes = avaliarPolicies(manifesto, {
     gate: 'ship',
     de,
@@ -443,6 +465,8 @@ export function ship(
     baseBranch: manifesto.worktree.base_branch,
     threadId,
     branchAtrasDaBase,
+    semDeltaComBaseAFrente,
+    remoto,
   });
   r.violacoes = violacoes;
   if (!r.dryRun) {

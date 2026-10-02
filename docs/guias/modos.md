@@ -202,6 +202,12 @@ Cada entrada é `runtime:modelo[:esforco]`, porque trocar de runtime exige o mod
 de destino; o runtime do bloco nunca se repete na própria ordem. O campo é opcional no
 `ork.setup/v1`: setup antigo continua válido, e a leitura descarta entrada malformada.
 
+Só com o Codex, passe cada bloco dos modos permitidos para ele:
+`ork setup <modo> --bloco N --runtime codex --model <modelo>` (`ork setup <modo>` lista os blocos).
+O `ork doctor` reprova a falta do `claude` só enquanto algum bloco de modo permitido despachar pelo
+`claude-bg`; o fallback que cai nele só avisa. Pelo mesmo critério, o check `despacho pelo codex`
+vale quando um bloco de modo permitido despacha pelo Codex, além de `runtime.adapter: codex`.
+
 ### O setup no repositório (I-52)
 
 O setup mora em um de dois lugares, e só um vale de cada vez:

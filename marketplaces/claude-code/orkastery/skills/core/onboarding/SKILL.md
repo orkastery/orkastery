@@ -24,8 +24,9 @@ preservando as demais respostas. Exemplo de opt-out:
 `ork onboarding set maestro --conteudo '{"owner":{"experience":false}}' --por equipe`.
 Sem resposta, mantenha a pergunta pendente: defaults efetivos não são autoria humana.
 
-Peça somente referências de variáveis nas etapas sensíveis. Valores secretos ficam em
-`~/.hermes/.env`; não leia esse arquivo nem leve credenciais para conversa, onboarding ou ledger.
+Peça somente referências de variáveis nas etapas sensíveis. Valores secretos ficam no ambiente do
+processo ou no cofre do host (no Hermes, `~/.hermes/.env`); não os leia nem leve credenciais para
+conversa, onboarding ou ledger.
 Se o builder fornecer um segredo, não o repita: oriente a configuração local e registre apenas
 a referência pública aceita pelo núcleo.
 

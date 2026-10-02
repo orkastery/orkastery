@@ -46,7 +46,7 @@ fontes:
 
 - **Alternativas, erros e recuperação:** memória desligada degrada com aviso; reset seletivo ou total é idempotente.
 - **Pós-condições:** respostas em `.orkastery/` no contrato `ork.onboarding/v1`.
-- **Regras de negócio:** BR-023-01: valores secretos só em `~/.hermes/.env`, nunca na resposta.
+- **Regras de negócio:** BR-023-01: valores secretos só no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`), nunca na resposta.
 - **Critérios de aceite e testes:** Dada uma etapa respondida duas vezes com o mesmo conteúdo, então nada muda (`core/test/onboarding.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
 

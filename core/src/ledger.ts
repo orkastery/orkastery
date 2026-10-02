@@ -201,6 +201,15 @@ export function registrarSeExiste(
   return evento;
 }
 
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P2): o evento que um `--dry-run` grava (`dryRun: true`) e ensaio, nao
+ * estado. O ledger o guarda como rastro; board, escalonador, monitor (o pulse) e maestro o descartam.
+ * O ensaio do ship gravava `gate_blocked human.pending` e a thread aparecia pausada sem ninguem pedir.
+ */
+export function ehEnsaio(e: EventoLedger): boolean {
+  return e.dryRun === true;
+}
+
 /** Le o ledger inteiro. Linha corrompida vira evento `ledger_corrupted` em vez de quebrar a leitura. */
 export function lerLedger(dirThread: string): EventoLedger[] {
   const caminho = caminhoLedger(dirThread);

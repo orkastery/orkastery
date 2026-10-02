@@ -38,9 +38,12 @@ ork phase list <thread>                     # a prova: mergeSha, shaRemoto, push
 
 ## O que o nucleo verifica por voce
 
-A policy `push_direto_na_base` e bloqueante: origem igual ao destino, ou origem igual a branch base
-do projeto, reprova antes de o `ork` tocar no remoto. Arvore de destino ocupada sai como
-`tree.blocked`; lease tomado por outra thread sai como `lease.busy`.
+A policy `push_direto_na_base` e bloqueante: origem igual ao destino, origem igual a branch base
+do projeto, ou entrega sem delta com a base local a frente do remoto (o push publicaria commit que
+nao passou por merge de thread) reprova antes de o `ork` tocar no remoto. O merge que o proprio
+ship ja fez e nao chegou ao remoto (push recusado, `--sem-push`) nao conta: o ship repetido empurra.
+Arvore de destino ocupada sai como `tree.blocked`; lease tomado por outra thread sai como
+`lease.busy`.
 
 ## Racionalizacoes comuns
 

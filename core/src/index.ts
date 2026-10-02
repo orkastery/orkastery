@@ -128,10 +128,10 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, configDeEmbedding, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
+import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
@@ -309,7 +309,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
                                             por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
+        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
   experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'
@@ -1544,7 +1544,8 @@ function comandoVerify(args: Args): number {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
     if (b.comandos.length === 0) {
-      console.log('  (nenhum comando em verify: no manifesto; sem baseline nao ha como separar regressao)');
+      // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
+      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
     }
     return 0;
   }
@@ -3895,6 +3896,8 @@ export function main(argvBruto: string[]): number {
       console.log(`  gerenciador ${r.deteccao.gerenciador}`);
       console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
       console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
+      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
       console.log('');
       console.log(PROXIMO_PASSO_INIT);
       return 0;
@@ -3967,7 +3970,9 @@ export function main(argvBruto: string[]): number {
       // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
       const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
       console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
+        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
         avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
       return 0;
     }
