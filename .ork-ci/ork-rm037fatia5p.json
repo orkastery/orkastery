@@ -370,6 +370,35 @@
       "criadoEm": "2026-10-02T18:30:51.892Z",
       "estado": "pendente",
       "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "RM-037 fatia 5, aviso da rodada 1 do CHECK: o ork retry run da cota esgotada nao marca de novo o perfil quando o observador ja viu a mesma cota ao vivo (runtime_quota_detected da mesma sessao e despacho, com o mesmo prazo dito): depois da hora da mensagem, a conta que ja voltou continua no rodizio",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js core/dist-test/test/rotacao-retry.test.js core/dist-test/test/cota-terminal.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:56:53.574Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "RM-037 fatia 5, bloqueador da rodada 1 do CHECK: commitQueIncorporou acha o merge do PR que recebeu Update branch no GitHub (o pai dele e um merge que descende da branch) e o merge da branch de integracao, pela intersecao do primeiro pai com a descendencia, sem o teto de 1 MiB do buffer; o ork ship nesse historico grava o merge e nao bloqueia",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"Update branch\" core/dist-test/test/rm037-fatia5-merge-incorporado.test.js",
+        "grep -q \"maxBuffer: 256 \\* 1024 \\* 1024\" core/src/ship.ts"
+      ],
+      "criadoEm": "2026-10-02T18:56:56.620Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
