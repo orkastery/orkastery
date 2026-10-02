@@ -500,13 +500,18 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
   if (perguntaAberta(eventos, despacho.ts, quando)) return 'pergunta aberta';
   const sid = texto(despacho.sessionId);
   if (sid && bloqueioPendente(eventos, sid, despacho.ts)) return 'prompt de permissão pendente';
+  // Aviso da rodada 6 do CHECK: o gate do observador so muda de dono com o fim de turno provado. A sessao que voltou a
+  // trabalhar depois do resultado, sem Stop novo, segue do dono, e a thread nao sai tambem como linha do condutor.
+  const fim = fimDoTurno(eventos, despacho);
+  const turnoEncerrado = !!fim && fim.tipo !== 'outro';
   for (let k = 0; k < depois.length; k++) {
     const e = depois[k];
     if (e.tipo !== 'gate_blocked') continue;
     const motivo = String(e.motivo ?? '');
     // O fim de turno que o observador viu em `blocked`, e o SHIP em `done` sem o `ship_done` (B1 da rodada 5), nao sao
     // escalacao: sao justamente o que muda de dono.
-    if (motivo === 'human.pending' && e.origem === 'sessions.watch' && (e.estadoNativo === 'blocked' || shipSemRegistro(e))) continue;
+    if (turnoEncerrado && motivo === 'human.pending' && e.origem === 'sessions.watch' &&
+        (e.estadoNativo === 'blocked' || shipSemRegistro(e))) continue;
     const doDono = motivo === 'human.pending' ||
       ((MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) && quemDecide(motivo) === 'dono');
     const resolvido = depois.slice(k + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));

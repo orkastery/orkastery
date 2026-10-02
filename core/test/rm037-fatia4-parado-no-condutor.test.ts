@@ -108,7 +108,7 @@ function fimDoObservadorEmDone(dir: string, id: string, n: number,
     detalhe: diagnostico, observadoEm: '2026-09-30T13:54:14.519Z', gate: 'phase.dispatch', origem: 'sessions.watch' };
   registrar(dir, id, 'gate_blocked', { ts: '2026-09-30T13:54:14.906Z', ...comum });
   registrar(dir, id, 'phase_result', { ts: '2026-09-30T13:54:14.918Z', ...comum });
-  return { sessionId, stop };
+  return { sessionId, stop, despachoEm };
 }
 
 const pr = (numero: number, branch: string, head: string, extra: Partial<PrDaForja> = {}): PrDaForja => ({
@@ -266,11 +266,13 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
     const quando = '2026-09-30T14:40:00.000Z'; // 46 min depois do Stop do SHIP
     const a = threadComProduto(p, 'ship em done', { publicar: true });
     // Contraprovas nos formatos do observador: o CHECK em `done` sem o veredito (o da ork-pacotedeexpe em 30/09, A3 da
-    // rodada 5, pendente), o SHIP que falhou depois do Stop (`failed`: o humano decide) e o SHIP parado de fora
-    // (`stopped`), com a mesma prova faltando, seguem do dono.
+    // rodada 5, pendente), o SHIP que falhou depois do Stop (`failed`: o humano decide), o SHIP parado de fora
+    // (`stopped`), com a mesma prova faltando, e o SHIP em `done` sem a prova do ork registrada (sugestao da rodada 6)
+    // seguem do dono.
     const b = threadComProduto(p, 'check em done sem veredito', { publicar: true });
     const c = threadComProduto(p, 'ship em failed', { publicar: true });
     const d = threadComProduto(p, 'ship parado de fora', { publicar: true });
+    const semProva = threadComProduto(p, 'ship em done sem prova registrada', { publicar: true });
     forjaSimulada(p);
     const { sessionId, stop } = fimDoObservadorEmDone(a.dir, a.t.id, 97);
     const semVeredito = 'docs/check.md gravado sem exatamente um veredito legível';
@@ -281,6 +283,7 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
       diagnostico: 'a sessão falhou (failed) depois de encerrar o turno; conclusão não provada' });
     fimDoObservadorEmDone(d.dir, d.t.id, 100, { estadoNativo: 'stopped', fonte: 'Stop correlacionado e sessão encerrada externamente (stopped) ' +
       'sem done; sem prova do ork: nenhum ship_done registrado no intervalo do despacho' });
+    fimDoObservadorEmDone(semProva.dir, semProva.t.id, 103, { prova: null });
     const ta = lerThread(p.dir, a.t.id), eventos = lerLedger(a.dir);
     assert.equal(pendenciaDoDono(ta, eventos, quando), null, 'o gate do observador no SHIP em done nao e escalacao do dono');
     assert.deepEqual(esperaDoCondutor(ta, eventos, quando), { thread: a.t.id, fase: 'SHIP', sessionId, fimDoTurnoEm: stop,
@@ -293,7 +296,7 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
     assert.equal(linha?.proximoPasso, 'mergear o PR #46');
     assert.equal(linha?.desdeEm, stop, 'desde o fim do SHIP');
     assert.ok(r.doCondutor.gates.has(`${a.t.id}|SHIP`));
-    for (const dono of [b, c, d]) {
+    for (const dono of [b, c, d, semProva]) {
       assert.equal(pendenciaDoDono(lerThread(p.dir, dono.t.id), lerLedger(dono.dir), quando), 'escalação human.pending', dono.t.nome);
       assert.ok(!r.parados.some(x => x.thread === dono.t.id), dono.t.nome);
       assert.ok(![...r.doCondutor.gates].some(g => g.startsWith(`${dono.t.id}|`)), dono.t.nome);
@@ -307,11 +310,56 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
     const pulse = montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
     assert.ok(!pulse.precisaDeHumanoAgora.some(i => i.thread === a.t.id), JSON.stringify(pulse.precisaDeHumanoAgora.map(i => i.id)));
     assert.equal(pulse.paradoNoCondutor?.find(x => x.thread === a.t.id)?.proximoPasso, 'mergear o PR #46');
-    for (const dono of [b, c, d]) assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === dono.t.id && i.motivo === 'human.pending'), dono.t.nome);
+    for (const dono of [b, c, d, semProva]) assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === dono.t.id && i.motivo === 'human.pending'), dono.t.nome);
     // O retrato da maquina, que a rede le como "O que precisa de voce": o SHIP nao espera o dono; as contraprovas, sim.
     const retrato = retratoDaMaquina(p.carregado, { agora: quando, maquina: 'pc-a' });
     assert.equal(retrato.threads.find(t => t.id === a.t.id)?.esperaVoce, false);
-    for (const dono of [b, c, d]) assert.equal(retrato.threads.find(t => t.id === dono.t.id)?.esperaVoce, true, dono.t.nome);
+    for (const dono of [b, c, d, semProva]) assert.equal(retrato.threads.find(t => t.id === dono.t.id)?.esperaVoce, true, dono.t.nome);
+  } finally { p.limpar(); }
+});
+
+test('aviso da rodada 6 do CHECK: a sessao que voltou a trabalhar depois do resultado, sem Stop novo, fica so com o dono', () => {
+  const p = projetoTemporario('fatia4-retomada', true);
+  try {
+    const quando = '2026-09-30T14:40:00.000Z';
+    const emDone = threadComProduto(p, 'ship em done retomado', { publicar: true });
+    const emBlocked = threadComProduto(p, 'ship em blocked retomado', { publicar: true });
+    forjaSimulada(p);
+    const sessoes = [
+      { a: emDone, s: fimDoObservadorEmDone(emDone.dir, emDone.t.id, 104), pr: 51 },
+      { a: emBlocked, s: turnoDoObservador(emBlocked.dir, emBlocked.t.id, 105, { despacho: '2026-09-30T13:22:40.289Z',
+        fim: '2026-09-30T13:54:14.918Z', fase: 'SHIP' }), pr: 52 },
+    ];
+    const sensor = (x: (typeof sessoes)[number], tipo: string, ts: string, extra: Record<string, unknown>) => registrar(x.a.dir, x.a.t.id, tipo,
+      { ts, fase: 'SHIP', sessionId: x.s.sessionId, runtime: 'claude-bg', despachoEm: x.s.despachoEm, fonte: 'ork sessions event', ...extra });
+    const checks = [{ nome: 'ork-verify', situacao: 'verde' as const, concluidoEm: '2026-09-30T13:50:00.000Z' }];
+    const retrato = retratoCom(sessoes.map(x => pr(x.pr, x.a.branch, x.a.head, { checks })), { lidoEm: quando });
+    const executor: ExecutorDoGh = (args) => ({ status: 0, stderr: '', stdout: JSON.stringify(args.includes('--state=open') ? sessoes.map(x => ({
+      number: x.pr, state: 'OPEN', headRefName: x.a.branch, headRefOid: x.a.head, baseRefName: 'main', isDraft: false, isCrossRepository: false,
+      url: `https://github.com/exemplo/simulado/pull/${x.pr}`, createdAt: '2026-09-30T13:40:00Z', mergedAt: null, statusCheckRollup: [
+        { __typename: 'CheckRun', name: 'ork-verify', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-09-30T13:45:00Z',
+          completedAt: '2026-09-30T13:50:00Z' }] })) : []) });
+    // O dono respondeu na tela e a sessao voltou a trabalhar depois do resultado, sem Stop novo: a pergunta e dele, e a
+    // thread nao sai tambem como "parado no condutor" com o PR verde.
+    for (const x of sessoes) sensor(x, 'runtime_event', '2026-09-30T14:00:00.000Z', { sensor: 'heartbeat' });
+    const r = entregasDoProjeto(p.carregado, { quando, lerPrs: ler(retrato) });
+    const pulse = montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
+    for (const { a } of sessoes) {
+      assert.equal(pendenciaDoDono(lerThread(p.dir, a.t.id), lerLedger(a.dir), quando), 'escalação human.pending', a.t.nome);
+      assert.ok(!r.parados.some(x => x.thread === a.t.id) && !r.doCondutor.gates.has(`${a.t.id}|SHIP`), JSON.stringify(r.parados));
+      assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === a.t.id && i.motivo === 'human.pending'), a.t.nome);
+      assert.ok(!pulse.paradoNoCondutor?.some(x => x.thread === a.t.id), `${a.t.nome}: numa lista so`);
+    }
+    // O turno novo acabou num Stop sem atividade depois: volta a ser do condutor, desde esse Stop, e so como linha dele.
+    for (const x of sessoes) sensor(x, 'runtime_stop', '2026-09-30T14:05:00.000Z', { sensor: 'stop', sensorEventId: 'e'.repeat(64) });
+    const deNovo = entregasDoProjeto(p.carregado, { quando, lerPrs: ler(retrato) });
+    const pulseDeNovo = montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
+    for (const { a, pr: numero } of sessoes) {
+      const linha = deNovo.parados.find(x => x.thread === a.t.id);
+      assert.deepEqual([linha?.caso, linha?.proximoPasso, linha?.desdeEm], ['pr-verde', `mergear o PR #${numero}`, '2026-09-30T14:05:00.000Z']);
+      assert.ok(deNovo.doCondutor.gates.has(`${a.t.id}|SHIP`), a.t.nome);
+      assert.ok(!pulseDeNovo.precisaDeHumanoAgora.some(i => i.thread === a.t.id), a.t.nome);
+    }
   } finally { p.limpar(); }
 });
 
