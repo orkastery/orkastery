@@ -284,9 +284,13 @@ export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto, g
     ? `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto`
     : `Aviso: sem worktree (--sem-worktree), a thread ${thread.id} trabalharia na raiz do projeto`;
   const ensure = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread`;
-  if (thread.base.commit === COMMIT_DESCONHECIDO || branch === 'HEAD') {
-    const onde = thread.base.commit === COMMIT_DESCONHECIDO ? 'num repositório ainda sem commit' : 'com o HEAD destacado';
-    return `${inicio}, ${onde}, fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}.`;
+  if (thread.base.commit === COMMIT_DESCONHECIDO) {
+    // Sem commit, nem o `ork worktree ensure` tem de onde partir: o caminho e o do aviso de thread sem base.
+    return `${inicio}, num repositório ainda sem commit, fora de qualquer branch, e o ork ship não tem branch de origem ` +
+      'para entregar. Faça o primeiro commit e siga o aviso de thread sem base.';
+  }
+  if (branch === 'HEAD') {
+    return `${inicio}, com o HEAD destacado, fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}.`;
   }
   if (branch !== base) {
     return `${inicio}, na branch ${branch}, e o ork ship entrega essa branch como estiver, com o que mais entrar nela; ` +
@@ -521,14 +525,15 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
 
   // P4 do ensaio da 0.5.0: por que a thread ganha a worktree. O ensaio e a chave preveem a worktree antes; a pedida
   // por flag ou por ciclo segue direto ao git, como era. A pedida so pela chave espera o primeiro commit (D3): sem
-  // commit, a thread fica na raiz, como antes.
+  // commit, a thread fica na raiz, como antes. O ciclo que exige worktree vence a chave e a flag na origem: a worktree
+  // e dele, e o `--sem-worktree` que a linha da chave sugeriria ele recusa (CHECK, rodada 2).
   const pedeWorktree = opcoes.criarWorktree === true || exigeWorktree;
   const pelaChave = opcoes.criarWorktree === true && opcoes.origemDaWorktree === 'chave';
   const prevista = pedeWorktree && (opcoes.dryRun || pelaChave)
     ? worktreePrevista(carregado, id, slug, { branchExistente: opcoes.branch }) : null;
   const worktreePor: OrigemDaWorktree | null =
     !pedeWorktree || (pelaChave && !exigeWorktree && prevista?.falha === 'sem-commit') ? null
-      : pelaChave ? 'chave' : opcoes.criarWorktree ? 'flag' : 'ciclo';
+      : exigeWorktree ? 'ciclo' : pelaChave ? 'chave' : 'flag';
 
   if (opcoes.dryRun) {
     // P4 (D8): o ensaio mostra a worktree que a criacao usaria; quando ela recusaria, diz por que, em vez de preve-la.

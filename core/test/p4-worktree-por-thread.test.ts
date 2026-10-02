@@ -230,7 +230,8 @@ test('p4 worktree: aviso do --sem-worktree diz o que acontece no ship', () => {
       `branch, e o ork ship não tem branch de origem para entregar. ${ensure}`);
     assert.equal(avisoDeThreadSemWorktree({ ...thread, base: { branch: 'desconhecida', commit: COMMIT_DESCONHECIDO } }, m),
       `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto, num repositório ainda sem commit, ` +
-      `fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}`);
+      'fora de qualquer branch, e o ork ship não tem branch de origem para entregar. Faça o primeiro commit e siga o aviso de thread sem base.',
+      'sem commit, nem o ensure tem de onde partir');
     assert.equal(avisoDeThreadSemWorktree(thread, m, false), barra.replace(
       `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha`,
       `Aviso: sem worktree (--sem-worktree), a thread ${thread.id} trabalharia`), 'o ensaio fala da thread que nasceria');
@@ -614,4 +615,46 @@ test('p4 worktree: --dry-run diz quando a criacao recusaria a worktree', () => {
     assert.ok(criadaBranch.stderr.includes('a branch ork/ork-ocupada-full já existe, e a chave worktree.por_thread pede a worktree da ' +
       'thread: tire-a ou crie com --sem-worktree'), criadaBranch.stderr);
   } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: ciclo que exige worktree vence a chave e a flag na origem', () => {
+  const p = projetoTemporario('p4-cli-ciclo-chave');
+  const casa = dirTemporario('p4-cli-ciclo-chave-casa');
+  try {
+    // Com a chave ligada, o ciclo e quem exige a worktree: nada de sugerir o --sem-worktree que ele recusa.
+    const simulada = ork(p.dir, casa, 'thread', 'new', 'novo app', '--modo', 'classic', '--ciclo', 'greenfield', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.ok(simulada.stdout.includes('\n  worktree: seria criada pelo ciclo greenfield, que exige worktree isolada\n'), simulada.stdout);
+    const criada = ork(p.dir, casa, 'thread', 'new', 'novo app', '--modo', 'classic', '--ciclo', 'greenfield');
+    assert.equal(criada.status, 0, criada.stderr);
+    assert.doesNotMatch(criada.stdout + criada.stderr, /--sem-worktree/);
+    assert.equal(eventoDe(p.dir, 'ork-novoapp', 'worktree_created')?.origem, 'ciclo');
+    const pelaFlag = ork(p.dir, casa, 'thread', 'new', 'outro app', '--modo', 'classic', '--ciclo', 'feature-xl-faseada', '--worktree', 'auto');
+    assert.equal(pelaFlag.status, 0, pelaFlag.stderr);
+    assert.equal(eventoDe(p.dir, 'ork-outroapp', 'worktree_created')?.origem, 'ciclo');
+
+    fs.mkdirSync(path.join(p.dir, '.claude/worktrees/ork-terceiroapp'), { recursive: true });
+    const ocupada = ork(p.dir, casa, 'thread', 'new', 'terceiro app', '--modo', 'classic', '--ciclo', 'greenfield', '--dry-run');
+    assert.ok(ocupada.stderr.includes(`Aviso: a pasta ${path.join(p.dir, '.claude/worktrees/ork-terceiroapp')} já existe, ` +
+      'e a criação de verdade recusaria a worktree da thread: tire a pasta.\n'), ocupada.stderr);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: thread nova de uma worktree fora da arvore principal deixa a pasta das worktrees fora do git', () => {
+  const p = projetoTemporario('p4-cli-fora');
+  const casa = dirTemporario('p4-cli-fora-casa');
+  const fora = dirTemporario('p4-cli-fora-wt');
+  try {
+    exec('git', ['add', '--', 'orkastery.yaml'], p.dir);
+    assert.ok(exec('git', ['commit', '-q', '-m', 'ork init'], p.dir).ok);
+    const manual = path.join(fora, 'manual');
+    assert.ok(exec('git', ['worktree', 'add', '-q', '-b', 'manual', manual], p.dir).ok);
+    assert.equal(fs.existsSync(path.join(p.dir, '.claude')), false);
+
+    const r = ork(manual, casa, 'thread', 'new', 'de fora', '--modo', 'auto');
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(r.stdout.includes(`  worktree  ${path.join(p.dir, '.claude/worktrees/ork-defora')}\n`), r.stdout);
+    assert.ok(fs.existsSync(path.join(p.dir, '.claude/worktrees/.gitignore')), 'a pasta das worktrees nasce fora do git da arvore principal');
+    assert.equal(exec('git', ['status', '--porcelain'], p.dir).stdout.trim(), '');
+  } finally { p.limpar(); limpar(casa, fora); }
 });
