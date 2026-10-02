@@ -15,7 +15,7 @@
         "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/versao.test.js >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.5.1"
       ],
       "criadoEm": "2026-10-02T09:26:58.987Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "node -e \"const l=require('./core/package-lock.json'); if (l.name!=='@orkastery/cli' || l.version!=='0.5.1' || l.packages[''].version!=='0.5.1') process.exit(1)\""
       ],
       "criadoEm": "2026-10-02T09:27:00.229Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "node -e \"const p=require('./adapters/openclaw/package.json'); if (p.version!=='0.5.1' || p.version!==require('./core/package.json').version) process.exit(1)\""
       ],
       "criadoEm": "2026-10-02T09:27:02.056Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "node -e \"const p=require('./adapters/openclaw/openclaw.plugin.json'); if (p.version!=='0.5.1' || p.version!==require('./core/package.json').version) process.exit(1)\""
       ],
       "criadoEm": "2026-10-02T09:27:03.912Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "node -e \"if (require('./marketplaces/claude-code/orkastery/.claude-plugin/plugin.json').version!=='0.5.1') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-02T09:27:05.778Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "node -e \"if (require('./marketplaces/codex/orkastery/.codex-plugin/plugin.json').version!=='0.5.1') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-02T09:27:07.634Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "node -e \"const fs=require('fs'),cp=require('child_process'); const git=a=>cp.execFileSync('git',a,{encoding:'utf8'}); const sec=(t,h)=>{const l=t.split('\\n'),i=l.indexOf(h); if(i<0) throw Error('sem '+h); let j=i+1; while(j<l.length && !l[j].startsWith('## ')) j++; return l.slice(i+1,j).filter(x=>x.trim())}; const t=fs.readFileSync('CHANGELOG.md','utf8'); const base=git(['merge-base','origin/main','HEAD']).trim(); const antes=sec(git(['show',base+':CHANGELOG.md']),'## Não publicado'); const v=sec(t,'## [0.5.1] - 2026-10-02'); const falta=antes.filter(x=>!v.includes(x)); const sobra=v.filter(x=>!antes.includes(x)); const rms=['RM-031','RM-032','RM-037','RM-049'].filter(r=>!v.some(x=>x.includes('['+r+']'))); const marcas=['KG4','KG5','fatia 3','fatia 4','fatia 2 do ensaio','achados do ensaio'].filter(m=>!v.some(x=>x.includes(m))); if(!antes.length || sec(t,'## Não publicado').length || t.split('\\n').indexOf('## Não publicado')!==6 || falta.length || sobra.length || rms.length || marcas.length){console.error({base,falta,sobra,rms,marcas}); process.exit(1)}\" && node core/scripts/checar-changelog.cjs --base origin/main | grep -q 'versão nova no CHANGELOG.md: 0.5.1'"
       ],
       "criadoEm": "2026-10-02T09:27:13.409Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-10-02T09:27:15.262Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "node core/dist/index.js eval --so-canarios"
       ],
       "criadoEm": "2026-10-02T09:27:15.897Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "node -e \"const b=require('./.ork-ci/ork-versao051.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-versao051' || b.branch!=='ork/ork-versao051vps-go' || b.claims.length<10) process.exit(1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-versao051.json"
       ],
       "criadoEm": "2026-10-02T09:27:18.107Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
