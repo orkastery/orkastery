@@ -51,19 +51,19 @@ const threadId = z.string().min(1).max(80).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
 const no = (descricao: string) => z.string().min(1).max(2048)
   .refine((v) => !v.startsWith('--') && !v.includes('\u0000'), { message: 'grafo.uso: o no nao comeca com -- nem tem NUL' })
   .describe(descricao);
-const DESCRICAO_DO_NO = 'no do grafo: caminho do arquivo, caminho#fragmento, tipo:caminho#fragmento ou o nome solto de simbolo, secao ou artefato';
+const DESCRICAO_DO_NO = 'arquivo, caminho#fragmento, tipo:caminho#fragmento ou nome solto';
 const profundidade = z.number().int().min(1).max(PROFUNDIDADE_MAXIMA_DO_MCP).optional()
-  .describe(`saltos a partir do alvo, de 1 a ${PROFUNDIDADE_MAXIMA_DO_MCP} (padrao 1)`);
+  .describe('saltos (padrao 1)');
 const limite = z.number().int().min(1).max(LIMITE_MAXIMO_DO_MCP).optional()
-  .describe('maximo de arestas, as mais perto do alvo primeiro (padrao 500)');
-const sentido = z.enum(['entrada', 'saida', 'ambos']).optional().describe('sentido das arestas a partir do alvo');
+  .describe('maximo de arestas, as mais perto primeiro (padrao 500)');
+const sentido = z.enum(['entrada', 'saida', 'ambos']).optional().describe('sentido das arestas');
 const tipos = z.array(z.enum(TIPOS_DE_ARESTA_DO_MCP)).min(1).max(TIPOS_DE_ARESTA_DO_MCP.length).optional()
-  .describe('tipos de aresta a percorrer (padrao: todos)');
+  .describe('tipos de aresta (padrao: todos)');
 const tetoBytes = z.number().int().min(TETO_MINIMO).max(TETO_MAXIMO).optional()
-  .describe(`teto da resposta em bytes, de ${TETO_MINIMO} a ${TETO_MAXIMO} (padrao ${TETO_PADRAO}); acima dele saem as arestas mais longe do alvo`);
+  .describe(`teto da resposta em bytes (padrao ${TETO_PADRAO}); acima, saem as arestas mais longe`);
 
-const COMUM = 'Leitura do grafo de codigo do HEAD da worktree da thread, o mesmo do ork grafo; so o que o extrator prova. '
-  + `Resposta JSON ork.code-graph-query/v0 de no maximo tetoBytes (padrao ${TETO_PADRAO}); sem o indice do HEAD, recusa com a correcao ork grafo indexar.`;
+const COMUM = 'Leitura do grafo do HEAD da worktree da thread (o do ork grafo): so o que o extrator prova. '
+  + 'JSON ork.code-graph-query/v0 de ate tetoBytes; sem indice do HEAD, recusa com a correcao ork grafo indexar.';
 
 interface Definicao { nome: typeof TOOLS_DO_GRAFO[number]; descricao: string; schema: z.AnyZodObject; argv: (a: Record<string, unknown>) => string[] }
 
@@ -81,26 +81,26 @@ function opcoes(a: Record<string, unknown>): string[] {
 const DEFINICOES: readonly Definicao[] = [
   {
     nome: 'ork_grafo_vizinhos',
-    descricao: `Vizinhanca de um no (ork grafo vizinhos): as arestas a ate N saltos, cada uma com extrator, metodo e evidencia (arquivo, linhas e bytes). ${COMUM}`,
+    descricao: `Vizinhanca de um no: arestas a ate N saltos, cada uma com extrator, metodo e evidencia (arquivo, linhas, bytes). ${COMUM}`,
     schema: z.object({ threadId, alvo: no(DESCRICAO_DO_NO), profundidade, sentido, tipos, limite, tetoBytes }).strict(),
     argv: (a) => ['vizinhos', a.alvo as string, ...opcoes(a)],
   },
   {
     nome: 'ork_grafo_chamadores',
-    descricao: `Quem chama o simbolo (ork grafo chamadores): as arestas calls que chegam, cada uma com a evidencia. ${COMUM}`,
-    schema: z.object({ threadId, alvo: no('simbolo chamado, como caminho#simbolo ou o nome solto'), profundidade, limite, tetoBytes }).strict(),
+    descricao: `Quem chama o simbolo: arestas calls que chegam, com a evidencia. ${COMUM}`,
+    schema: z.object({ threadId, alvo: no('simbolo (caminho#simbolo ou nome solto)'), profundidade, limite, tetoBytes }).strict(),
     argv: (a) => ['chamadores', a.alvo as string, ...opcoes(a)],
   },
   {
     nome: 'ork_grafo_importadores',
-    descricao: `Quem importa o arquivo ou o simbolo (ork grafo importadores): as arestas imports que chegam, cada uma com a evidencia. ${COMUM}`,
-    schema: z.object({ threadId, alvo: no('arquivo ou simbolo importado'), profundidade, limite, tetoBytes }).strict(),
+    descricao: `Quem importa o arquivo ou o simbolo: arestas imports que chegam, com a evidencia. ${COMUM}`,
+    schema: z.object({ threadId, alvo: no('arquivo ou simbolo'), profundidade, limite, tetoBytes }).strict(),
     argv: (a) => ['importadores', a.alvo as string, ...opcoes(a)],
   },
   {
     nome: 'ork_grafo_caminho',
-    descricao: `Menor caminho entre dois nos (ork grafo caminho), cada passo com a evidencia; o caminho nao se corta: se nao cabe no teto, recusa. ${COMUM}`,
-    schema: z.object({ threadId, de: no(`origem; ${DESCRICAO_DO_NO}`), para: no('destino, na mesma forma'), sentido, tipos, tetoBytes }).strict(),
+    descricao: `Menor caminho entre dois nos, cada passo com a evidencia; caminho que nao cabe no teto recusa. ${COMUM}`,
+    schema: z.object({ threadId, de: no(`origem: ${DESCRICAO_DO_NO}`), para: no('destino, na mesma forma'), sentido, tipos, tetoBytes }).strict(),
     argv: (a) => ['caminho', a.de as string, a.para as string, ...opcoes(a)],
   },
 ];
