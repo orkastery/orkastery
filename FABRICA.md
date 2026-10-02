@@ -5,8 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-rm040piloto | #Auto | GOAL | RM-040 | — | 02/10 14:46 |
-| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 02/10 14:46 |
-| srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 02/10 14:46 |
+| srvjcp86 | ork-rm040piloto | #Auto | GOAL | RM-040 | — | 02/10 14:47 |
+| srvjcp86 | ork-rm053network | #Auto | GOAL | RM-053 | — | 02/10 14:47 |
+| srvjcp86 | ork-rm055impedim | #Auto | GOAL | RM-055 | — | 02/10 14:47 |
 
 Horários em UTC.
