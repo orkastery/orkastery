@@ -34,6 +34,7 @@ import { quemDecide } from './hitl-classificacao';
 import { MOTIVOS_DE_ESCALACAO_HUMANA } from './hitl-gates';
 import { lerLedger } from './ledger';
 import { ManifestoCarregado } from './manifest';
+import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
 import { bloqueioPendente, stopCorrelacionado } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger, SessaoNoRadar, Thread } from './types';
@@ -260,7 +261,10 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
   const resultado = [...depois].reverse().find((e) => e.tipo === 'phase_result' && daSessao(e));
   if (resultado) {
     const fase = texto(resultado.fase);
-    if (resultado.classificacao === 'fase_concluida' && resultado.ok !== false) return { em: resultado.ts, tipo: 'concluida', sessionId: sid, fase };
+    // O resultado legado (sem classificacao, `ok: true`) tambem e fase concluida.
+    const concluida = resultado.ok !== false && (resultado.classificacao === 'fase_concluida' ||
+      (resultado.classificacao === undefined && resultado.ok === true));
+    if (concluida) return { em: resultado.ts, tipo: 'concluida', sessionId: sid, fase };
     if (resultado.motivo === 'human.pending' && resultado.estadoNativo === 'blocked' && resultado.stop) {
       const { ts: doStop } = resultado.stop as { ts?: unknown };
       return { em: instante(doStop) ?? resultado.ts, tipo: 'espera-do-observador', sessionId: sid, fase };
@@ -293,20 +297,22 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
   const despacho = ultimoDespacho(eventos);
   if (!despacho) return null;
   const depois = eventos.slice(eventos.lastIndexOf(despacho) + 1);
-  const aprovado = (desde: number) => depois.some((e) => Date.parse(e.ts) >= desde &&
-    (e.tipo === 'gate_passed' || (e.tipo === 'human_gate' && e.estado === 'aprovado')));
-  if (despacho.pausaAoFim === true && !aprovado(Date.parse(despacho.ts))) return 'pausa prevista ao fim do bloco';
+  // As mesmas regras de destravar do monitor: a pausa prevista so sai com a aprovacao humana; a escalacao,
+  // tambem com o que destrava o gate (`EVENTOS_QUE_DESTRAVAM`).
+  if (despacho.pausaAoFim === true && !depois.some(ehAprovacaoHumana)) return 'pausa prevista ao fim do bloco';
   if (perguntaAberta(eventos, despacho.ts, quando)) return 'pergunta aberta';
   const sid = texto(despacho.sessionId);
   if (sid && bloqueioPendente(eventos, { sessionId: sid, despachadaEm: despacho.ts })) return 'prompt de permissão pendente';
-  for (const e of depois) {
+  for (let k = 0; k < depois.length; k++) {
+    const e = depois[k];
     if (e.tipo !== 'gate_blocked') continue;
     const motivo = String(e.motivo ?? '');
     // O fim de turno que o observador viu em `blocked` nao e escalacao: e justamente o que muda de dono.
     if (motivo === 'human.pending' && e.origem === 'sessions.watch' && e.estadoNativo === 'blocked') continue;
     const doDono = motivo === 'human.pending' ||
       ((MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) && quemDecide(motivo) === 'dono');
-    if (doDono && !aprovado(Date.parse(e.ts))) return `escalação ${motivo}`;
+    const resolvido = depois.slice(k + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
+    if (doDono && !resolvido) return `escalação ${motivo}`;
   }
   return null;
 }

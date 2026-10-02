@@ -263,6 +263,22 @@ test('contraprovas: limiar, conducao por processo, pausa prevista, pergunta aber
   } finally { p.limpar(); }
 });
 
+test('resultado legado (ok sem classificacao) tambem encerra o turno; gate_passed da vivacidade nao aprova a pausa prevista', () => {
+  const p = projetoTemporario('fatia4-legado', true);
+  try {
+    const a = threadComProduto(p, 'legado');
+    registrar(a.dir, a.t.id, 'phase_dispatch', { ts: '2026-10-01T05:00:00.000Z', fase: 'GO', modo: 'auto', pausaAoFim: false,
+      runtime: 'codex', sessionId: '00000000-0000-4000-8000-000000000040' });
+    registrar(a.dir, a.t.id, 'phase_result', { ts: FIM, fase: 'GO', sessionId: '00000000-0000-4000-8000-000000000040', ok: true });
+    const b = threadComProduto(p, 'pausa com vivacidade');
+    turnoDoObservador(b.dir, b.t.id, 41, { pausaAoFim: true });
+    registrar(b.dir, b.t.id, 'gate_passed', { ts: '2026-10-01T08:00:00.000Z', fase: 'GOAL', motivo: 'runtime.silencio' });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA });
+    assert.deepEqual(r.parados.map(x => [x.thread, x.caso]), [[a.t.id, 'sem-push']]);
+    assert.ok(!r.doCondutor.gates.has(`${b.t.id}|GOAL`), 'a pausa prevista so sai com a aprovacao humana');
+  } finally { p.limpar(); }
+});
+
 test('falha da forja e "PR nao lido", nunca "sem PR"; a resposta do gh e validada', () => {
   const p = projetoTemporario('fatia4-forja', true);
   try {
