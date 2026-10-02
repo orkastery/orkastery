@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T05:30:02.206Z",
+  "publicadoEm": "2026-10-02T06:14:41.173Z",
   "threads": [
     {
       "id": "ork-ensaiofatia2",
@@ -44,18 +44,18 @@
       "id": "ork-rm037fatia4t",
       "nome": "RM-037 fatia 4 trabalho parado e status honesto",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "CHECK",
       "status": "aberta",
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037fatia4-full",
-      "atualizadaEm": "2026-10-02T03:45:42.699Z",
+      "atualizadaEm": "2026-10-02T06:14:40.956Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "xhigh"
     },
     {
       "id": "ork-versao050vps",
