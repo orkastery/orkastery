@@ -136,7 +136,11 @@ reextraídos e o tamanho do programa, e o Markdown reextraído) e, no `--verific
   desses casos caem com `substituido` (o incremental divergiria da completa).
 - **Pares reais** deste repositório, por `core/scripts/medir-incremental-grafo.cjs`, num clone no
   tmp: os seis pares abaixo deram os mesmos bytes, e a extração completa de 2418a4e7 com o código do
-  KG4 dá o digest `9fe38ec2...` que o código do KG3 dava.
+  KG4 dá o digest `9fe38ec2...` que o código do KG3 dava. A âncora fixa os rótulos do Node e do
+  Unicode nos da medida (`node.22.23.2` e `17.0`): a versão do Node entra na do `ork.ts-ast`
+  ([KG2](extracao-grafo-kg2.md)) e, por ela, no id do snapshot, então outro Node dá outro digest com
+  o mesmo conteúdo. O juiz de sintaxe segue o V8 que roda, e o compilador e o micromark do
+  `package-lock` precisam ser os da âncora.
 - **No repositório de quem usa:** `ork grafo indexar --verificar`.
 
 ## Medida do ganho

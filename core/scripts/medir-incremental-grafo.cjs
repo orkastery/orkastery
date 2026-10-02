@@ -10,7 +10,8 @@
  * Para cada par (base, alvo): um clone compartilhado no tmp e um estado novo; o indice completo da
  * base, o incremental do alvo a partir dele e a completa do alvo por `--forcar`, que so da
  * `reconstruido-identico` com os quatro arquivos do indice iguais byte a byte. A ancora: a extracao
- * completa de 2418a4e7 com este codigo da o digest que o codigo do KG3 dava. Tempos de ponta a ponta
+ * completa de 2418a4e7 com este codigo da o digest que o codigo do KG3 dava, com os rotulos do Node e
+ * do Unicode fixados nos da ancora (`parserDaAncora`). Tempos de ponta a ponta
  * do `construirIndice` (relogio monotonico do processo), com a carga da maquina no inicio e no fim.
  * `--dist-antes DIR` mede tambem a completa do alvo com outro `dist` (o do KG3, compilado a parte).
  * `--conferir` refaz os pares e a ancora e sai 1 se algum par diverge; `--validar` confere a forma de
@@ -29,8 +30,18 @@ const SCHEMA = 'ork.graph-incremental-cost/v0';
 const RAIZ = path.resolve(__dirname, '..', '..');
 const DIST = path.join(RAIZ, 'core', 'dist');
 const SHA = /^[0-9a-f]{40}$/;
-/** A extracao de 2418a4e7 (versao 0.5.0, KG3) com o codigo do KG3: o KG4 nao pode mudar um byte. */
-const ANCORA = Object.freeze({ revisao: '2418a4e798a6d8b3d80ef8afdc115d0cf131d480', digest: '9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c' });
+/**
+ * A extracao de 2418a4e7 (versao 0.5.0, KG3) com o codigo do KG3: o KG4 nao pode mudar um byte. O
+ * digest vale para os analisadores com que foi medido: as versoes deles entram nas dos extratores
+ * (KG2 D15 e D16), e delas derivam o id do snapshot e todos os ids do grafo. O compilador e o
+ * micromark vem do package-lock; o rotulo do Node (o do juiz de sintaxe) e o do Unicode vem do Node
+ * que roda, e o CI usa o Node 22 mais recente: com outro rotulo, o mesmo conteudo da outro digest.
+ */
+const ANCORA = Object.freeze({
+  revisao: '2418a4e798a6d8b3d80ef8afdc115d0cf131d480',
+  digest: '9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c',
+  analisadores: Object.freeze({ typescript: '5.9.3', javascript: 'node.22.23.2', markdown: 'micromark.4.0.2.gfm-table.2.1.1', unicode: '17.0' }),
+});
 /** Pares fixos (pai e commit) do historico deste repositorio, um por tipo de mudanca. */
 const PARES = Object.freeze([
   { id: 'ts-tipica', caso: 'tres arquivos TypeScript do nucleo e um Markdown mudados', base: 'c68df3cd1c3409b74918534130155a10bf1efad7', alvo: 'd49106252e1025f477d0defe2d3ef18a41974a51' },
@@ -71,6 +82,20 @@ const ms = (f) => {
   const a = process.hrtime.bigint(), r = f();
   return [r, Number((process.hrtime.bigint() - a) / 1000000n)];
 };
+
+/**
+ * O Parser da ancora: o desta instalacao com os rotulos do Node e do Unicode trocados pelos da
+ * ancora. O juiz de sintaxe segue o V8 que roda: se ele julgar algum arquivo de outro jeito, o
+ * conteudo muda e o digest tambem. Compilador ou micromark de outra versao nao se fixam por rotulo,
+ * porque a extracao pode mudar com eles: nesse caso nao ha parser, e o motivo diz por que.
+ */
+function parserDaAncora(parser, analisadores = ANCORA.analisadores) {
+  const outros = [['typescript', parser.ts.version], ['markdown', parser.markdown.versao]].filter(([k, v]) => v !== analisadores[k]);
+  if (outros.length) {
+    return { parser: null, motivo: `analisadores do package-lock diferentes dos da ancora (${outros.map(([k, v]) => `${k} ${v} aqui, ${analisadores[k]} na ancora`).join('; ')})` };
+  }
+  return { parser: { ...parser, unicode: analisadores.unicode, javascript: { ...parser.javascript, versao: analisadores.javascript } }, motivo: null };
+}
 
 /** Mede os pares e a ancora num clone compartilhado no tmp; nada fica fora do tmp, que sai no fim. */
 function medir(opcoes = {}, log = () => undefined) {
@@ -113,14 +138,20 @@ function medir(opcoes = {}, log = () => undefined) {
       log(par);
     }
     git(clone, 'checkout', '-q', '--detach', ANCORA.revisao);
-    const ancora = construirIndice({ raiz: clone, estado: estado(), repositorio: 'orkastery' }, { parser, forcar: true });
+    const fixado = parserDaAncora(parser);
+    const digest = fixado.parser
+      ? construirIndice({ raiz: clone, estado: estado(), repositorio: 'orkastery' }, { parser: fixado.parser, forcar: true }).manifesto.graph_digest
+      : null;
     return {
       schema: SCHEMA, metodo: METODO, limites: LIMITES, conclusao: CONCLUSAO,
       ambiente: {
         node: process.version, plataforma: `${process.platform}-${process.arch}`, nucleos: os.cpus().length, carga_inicio: inicio, carga_fim: carga(),
         completo_antes: antes ? 'dist do KG3 (2418a4e7) compilado a parte, no mesmo processo' : null,
       },
-      ancora: { revisao: ANCORA.revisao, digest: ancora.manifesto.graph_digest, igual: ancora.manifesto.graph_digest === ANCORA.digest },
+      ancora: {
+        revisao: ANCORA.revisao, digest, igual: digest === ANCORA.digest, analisadores: { ...ANCORA.analisadores },
+        rotulos_do_node: { javascript: parser.javascript.versao, unicode: parser.unicode }, motivo: fixado.motivo,
+      },
       pares,
     };
   } finally {
@@ -157,6 +188,11 @@ function validar(r) {
 }
 
 const fmt = (p) => `${p.id}: ${p.igual ? 'igual' : 'DIFERENTE'}; incremental ${p.ms.incremental} ms, completo ${p.ms.completo} ms${p.ms.completo_antes ? `, completo do KG3 ${p.ms.completo_antes} ms` : ''}; TS ${p.ts?.modo} (${p.ts?.reextraidos} reextraidos, programa ${p.ts?.programa}), MD ${p.md?.reextraidos} reextraidos`;
+const fmtAncora = (a) => {
+  const fixados = `rotulos fixados ${a.analisadores.javascript} e unicode ${a.analisadores.unicode}; este Node: ${a.rotulos_do_node.javascript}, unicode ${a.rotulos_do_node.unicode}`;
+  return a.motivo ? `ancora ${a.revisao.slice(0, 12)}: nao extraida, DIFERENTE: ${a.motivo}`
+    : `ancora ${a.revisao.slice(0, 12)}: digest ${a.digest.slice(0, 16)}, ${a.igual ? 'igual ao do KG3' : 'DIFERENTE'} (${fixados})`;
+};
 
 function main() {
   const a = argumentos(process.argv.slice(2));
@@ -168,7 +204,7 @@ function main() {
     return;
   }
   const r = medir({ distAntes: a.distAntes }, (p) => console.log(fmt(p)));
-  console.log(`ancora ${r.ancora.revisao.slice(0, 12)}: digest ${r.ancora.digest.slice(0, 16)}, ${r.ancora.igual ? 'igual ao do KG3' : 'DIFERENTE'}`);
+  console.log(fmtAncora(r.ancora));
   if (a.saida) {
     fs.writeFileSync(a.saida, `${JSON.stringify(r, null, 2)}\n`);
     console.log(`registro em ${a.saida}`);
@@ -179,4 +215,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { SCHEMA, ANCORA, PARES, METODO, LIMITES, CONCLUSAO, validar, medir };
+module.exports = { SCHEMA, ANCORA, PARES, METODO, LIMITES, CONCLUSAO, parserDaAncora, validar, medir };

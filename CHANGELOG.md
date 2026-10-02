@@ -26,7 +26,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   completa, e `--forcar` extrai completo. O índice passa a `ork.code-graph-index/v1`, com as
   unidades por arquivo (`unidades.json`); índice do KG3 aparece no `status` como formato anterior.
   A parte determinística da linha de base do benchmark está medida e o protocolo, fixado; a rodada
-  paga segue pendente.
+  paga segue pendente. A prova nos pares reais confere a âncora com os rótulos do Node e do Unicode
+  fixados, porque a versão do Node entra no digest do grafo.
 
 ## [0.5.0] - 2026-09-30
 

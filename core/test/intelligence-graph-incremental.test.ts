@@ -6,8 +6,9 @@
  * atravessam arquivos, e reextrai so o que a mudanca alcanca), "KG4 queda" (D5: sem base que prove,
  * extracao completa com o motivo; TypeScript inteiro quando a mudanca toca `package.json` ou arquivo
  * global), "KG4 cli" (D7: a saida, o `--verificar` contra a completa e a integridade das unidades),
- * "KG4 medida" (D8, D9: os validadores dos registros de medida e da linha de base) e "KG4 harness"
- * (D10: a rodada paga com um agente simulado, e a recusa sem `--pago`). A prova de cada caso: depois do incremental, `--forcar` extrai completo e so da
+ * "KG4 medida" (D8, D9: os validadores dos registros de medida e da linha de base, e a ancora com
+ * os rotulos do Node fixados) e "KG4 harness" (D10: a rodada paga com um agente simulado, e a recusa
+ * sem `--pago`). A prova de cada caso: depois do incremental, `--forcar` extrai completo e so da
  * `reconstruido-identico` se os quatro arquivos do indice sao iguais byte a byte. Repositorios Git
  * temporarios.
  */
@@ -24,7 +25,7 @@ import {
   INDICE_SCHEMA, construirIndice, escolherBase, estadoDosIndices, lerIndice, perfilDoIndice, versoesDoParser,
   type ContextoDoIndice, type ResultadoDaConstrucao,
 } from '../src/intelligence-graph-index';
-import { carregarAnalisadores } from '../src/intelligence-graph-parsers';
+import { carregarAnalisadores, type VersoesDosAnalisadores } from '../src/intelligence-graph-parsers';
 import { avaliarBenchmark, validarBenchmark, type RegistroDeBenchmark } from '../src/intelligence-benchmark-contract';
 import { dirTemporario } from './apoio';
 
@@ -421,7 +422,11 @@ test('KG4 cli: indice do KG3 (v0) aparece como formato anterior e nao serve de b
 });
 
 const SCRIPTS = path.resolve(__dirname, '../../scripts'), FIXTURES = path.resolve(__dirname, '../../test/fixtures');
-const MEDIDA = require(path.join(SCRIPTS, 'medir-incremental-grafo.cjs')) as { validar: (r: unknown) => string[] };
+const MEDIDA = require(path.join(SCRIPTS, 'medir-incremental-grafo.cjs')) as {
+  validar: (r: unknown) => string[];
+  ANCORA: { revisao: string; digest: string; analisadores: VersoesDosAnalisadores };
+  parserDaAncora: (p: Parser, analisadores?: VersoesDosAnalisadores) => { parser: Parser | null; motivo: string | null };
+};
 const LINHA = require(path.join(SCRIPTS, 'linha-de-base-grafo.cjs')) as {
   validar: (r: unknown) => string[];
   montarProtocolo: (base: unknown, opcoes?: { repeticoesPorTarefa?: number; tarefas?: string[] }) => RegistroDeBenchmark;
@@ -451,6 +456,35 @@ test('KG4 medida: o registro dos pares reais e valido; par sem prova, ancora tro
   const repetido = copia(r);
   repetido.pares = repetido.pares.map(() => copia(r.pares[0]));
   assert.ok(MEDIDA.validar(repetido).includes('pares repetidos ou fora da lista fixa'));
+});
+
+test('KG4 medida: a ancora fixa os rotulos do Node e do Unicode; com outro Node o mesmo conteudo da o digest da ancora, e outro compilador reprova', () => {
+  // O CHECK do CI rodou com o Node 22.23.3, e o registro foi medido com o 22.23.2: o rotulo entra no
+  // id do snapshot, e o mesmo conteudo deu outro digest.
+  const repo = repositorioGit({ 'src/a.ts': 'export const a = 1;\n', 'src/b.js': 'module.exports = 2;\n', 'docs/x.md': '# X\n\nVer [a](../src/a.ts).\n' }, 'kg4-ancora');
+  try {
+    const ctx = contexto(repo.dir);
+    const digest = (p: Parser | null): string => construirIndice(ctx, { parser: p as Parser, forcar: true }).manifesto.graph_digest;
+    const comRotulos = (javascript: string, unicode: string): Parser => ({ ...PARSER, unicode, javascript: { ...PARSER.javascript, versao: javascript } });
+    const medida = comRotulos('node.22.23.2', '17.0'), ci = comRotulos('node.22.23.3', '16.0');
+    const ancora: VersoesDosAnalisadores = { ...versoesDoParser(PARSER), javascript: 'node.22.23.2', unicode: '17.0' };
+    assert.notEqual(digest(ci), digest(medida), 'o rotulo do Node e o do Unicode entram no digest');
+    const daMedida = MEDIDA.parserDaAncora(medida, ancora), doCi = MEDIDA.parserDaAncora(ci, ancora);
+    assert.deepEqual([daMedida.motivo, doCi.motivo], [null, null]);
+    assert.deepEqual(versoesDoParser(doCi.parser as Parser), ancora);
+    assert.equal(doCi.parser?.javascript.sintaxe, PARSER.javascript.sintaxe, 'o juiz de sintaxe segue o V8 que roda');
+    assert.equal(digest(doCi.parser), digest(medida));
+    assert.equal(digest(daMedida.parser), digest(medida));
+    const outroTs = MEDIDA.parserDaAncora(ci, { ...ancora, typescript: '0.0.1' });
+    assert.equal(outroTs.parser, null);
+    assert.match(outroTs.motivo ?? '', /^analisadores do package-lock diferentes dos da ancora \(typescript /);
+    // O registro que mediu o digest do KG3 rodou no Node do rotulo da ancora.
+    const r = lerFixture('kg4-medida-incremental.json') as { ambiente: { node: string }; ancora: { digest: string } };
+    assert.equal(r.ambiente.node, `v${MEDIDA.ANCORA.analisadores.javascript.slice('node.'.length)}`);
+    assert.equal(r.ancora.digest, MEDIDA.ANCORA.digest);
+  } finally {
+    fs.rmSync(repo.dir, { recursive: true, force: true });
+  }
 });
 
 test('KG4 medida: a linha de base e valida; token medido, braco faltando e promessa de economia reprovam; o protocolo da not-run', () => {
