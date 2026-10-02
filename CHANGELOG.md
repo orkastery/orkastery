@@ -21,6 +21,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Trabalho parado no condutor e status honesto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 4):
+  - o pulse acha, além de 30 min, o trabalho parado depois da entrega e põe cada thread numa linha,
+    `<thread> parado no condutor desde HH:MM: <próximo passo>`, em `ork pulse`, no campo
+    `paradoNoCondutor` do `ork.pulse/v1` e no resumo dos dois canais, fora de "Esperando você" e sem
+    pergunta ao dono: branch sem push, branch publicada sem PR, PR verde sem merge, PR com check
+    vermelho sem fase despachada depois e sessão `blocked` sem pergunta de verdade. O `human.pending`
+    que o observador grava no fim de turno de um bloco sem pausa ao fim deixa de contar como pergunta
+    do dono. Os PRs vêm do `gh pr list`, uma vez por batida e só com branch publicada, e a leitura boa
+    vira o retrato `ork.prs-abertos/v1` em `.orkastery/monitor/prs.json`;
+  - `ork roadmap status` diz em "O que eu faço em seguida" o estado real da entrega (parado no
+    condutor, PR com check vermelho, PR verde esperando o merge, branch sem push), lido do git local e
+    desse retrato, sem rede; com fábrica compartilhada, uma linha "Fábrica:" avisa a máquina sem batida
+    além de 3 h pela cópia local de `ork/fabrica-estado`, ou diz "não lido";
+  - o retrato da máquina em `ork/fabrica-estado` não marca "espera você" no que é do condutor.
 - **Defeitos de condução de 27/09 a 01/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 3):
   - `ork docs verificar` reprova o item cuja thread (`sdlc.thread`) já entrou na base pelo merge
     `ship(<thread>)` e segue fora de `Mesclado` (`docs.paridade.merge`), e o índice gerado que

@@ -4,7 +4,7 @@ tipo: roadmap
 titulo: Verify rápido e confiável
 categoria: iniciativa
 pai: null
-features: [FEAT-004]
+features: [FEAT-004, FEAT-014]
 owner: Julio
 atualizado_em: 2026-09-28T15:23:46-03:00
 estado:
@@ -38,7 +38,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-- **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md)
+- **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md)
 - **Thread:** `ork-verifytimeou`
 
 ## Problema e resultado
@@ -58,6 +58,12 @@ sdlc:
   - o armazém de objetos do `.git` aceita hard link no MCP git, e a recusa nos outros metadados diz o caminho e a receita sem perda (decisão: aceitar com segurança, porque o git nunca escreve dentro de arquivo de `objects/`);
   - `ork ship registrar-pr --dry-run` deixa de gravar `ship_done`; o `ork ci prepare` na raiz não reproduz na 0.5.0 (corrigido no #28, com o bundle por thread do #34);
   - o `ork doctor` acusa arquivo ou pasta do `.git` com outro dono, com o `chown` exato e sem rodar nada.
+- **Trabalho parado no condutor e status honesto (thread `ork-rm037fatia4t`, fatia 4, 02/10/2026):** em 01/10 o condutor parou duas vezes e o pulse só dizia "Esperando você". Os testes `core/test/rm037-fatia4-*.test.ts` reprovam o código anterior:
+  - a varredura do pulse acha, além de 30 min, o trabalho parado depois da entrega e põe cada thread numa linha, `<thread> parado no condutor desde HH:MM: <próximo passo>`, fora de "Esperando você" e sem pergunta ao dono. Os casos: fase terminada com a branch sem push, branch publicada sem PR, PR com os checks verdes sem merge, PR com check vermelho sem fase despachada depois e sessão `blocked` sem pergunta de verdade;
+  - o `human.pending` que o observador grava quando a sessão encerra o turno em `blocked`, num bloco sem pausa ao fim e sem pergunta estruturada aberta, é do condutor; pausa prevista do modo, escalação tipada, pedido aberto, prompt de permissão e menu na tela continuam do dono;
+  - os PRs vêm do `gh pr list` do pulse, uma chamada por batida e só com branch publicada; a leitura boa vira o retrato `ork.prs-abertos/v1` em `.orkastery/monitor/`, e a falha é "PR não lido", nunca "sem PR";
+  - o `ork roadmap status` diz em "O que eu faço em seguida" o estado real da entrega (parado no condutor, PR com check vermelho, PR verde esperando o merge, branch sem push), lido do git local e do retrato de PRs, sem rede; e avisa numa linha a máquina da fábrica sem batida além de 3 h, pela cópia local de `ork/fabrica-estado` ("não lido" sem cópia);
+  - o retrato da máquina não marca "espera você" no que é do condutor, e as outras máquinas deixam de mostrá-lo como pergunta.
 - **Incluído:** causa tipada do estouro (T3), `verify.timeout` (T4), prazo do manifesto (T6), compilação única.
 - **P2, compilação única (27/09/2026, thread `ork-i54compilaca`):** `verify.preparo` roda uma vez antes das claims; o produto é conferido do preparo ao fim da rodada; `executado` entrou no contrato e comando que não rodou nunca vira verificado (`verify.sem-veredito`). O `incremental` dos dois tsconfig já estava ligado.
 - **P6, lint do comando de claim (27/09/2026, thread `ork-i53lintdocom`):** a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra; SHA intermediário e contagem de commits só avisam; claim antiga só avisa. A lista das integrações locais passou a ter uma fonte só.
@@ -78,7 +84,7 @@ sdlc:
   - prazo no manifesto (`verify.timeout_ms` e `verify.timeout_ms_por_comando`), também no MCP, até 300 s por comando;
   - o ledger guarda, por comando que falha, a causa, o prazo, a duração, os testes que caíram e o trecho redigido;
   - o comando de verificação não herda variável `ORK_HITL_*`.
-- Falta: compilação única com identidade verificada (P2), lint de comando de claim e registro de instabilidade (P6), e o verify ciente do steal.
+- Falta: o registro de instabilidade do P6 e o verify ciente do steal (a compilação única do P2 e o lint do P6 entraram em 27/09). Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -114,3 +120,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | defeitos de condução achados em 28/09: conclusão claude-bg em `blocked`, perfis no `sessions stop`, `ork_git` com hooks, contexto vazado, sync sobre base reescrita, modelo inacessível e o teste instável do PR #14 | thread `ork-defeitosdeco`, PR a abrir | Julio |
 | 2026-10-01 | fatia 3: sete defeitos de condução de 27/09 a 01/10 (estado do item contra o merge, CHANGELOG no CI, base reescrita com ancestral comum, lease de thread fechada no MCP, hard link em `.git/objects`, `registrar-pr --dry-run` e dono do `.git` no doctor) | thread `ork-rm037fatia3d`, reprodução e decisões no ledger, testes `rm037-fatia3-*`, PR a abrir | Julio |
 | 2026-09-30 | defeitos da noite de 29/09: bundle por thread, fila e reservas de thread fechada, runtime na fábrica, sincronizar com escopo e número de FEAT reservado | thread `ork-rm037noite`, fatia aprovada pelo dono (N1 a), PR a abrir | Julio |
+| 2026-10-02 | fatia 4: trabalho parado no condutor no pulse e status do roadmap com o estado real da entrega e a batida da fábrica; registro de instabilidade e steal ficam pendentes com a recomendada | thread `ork-rm037fatia4t`, decisões no ledger, testes `rm037-fatia4-*`, PR a abrir | Julio |
