@@ -19,6 +19,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   do host antes e depois, é redigido campo a campo antes de ser gravado e lista o que só o dono
   pode fazer. O roteiro fica no repositório, fora do pacote.
 
+- **Grafo de código: índice incremental e linha de base do protocolo** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG4):
+  sem o índice do HEAD, `ork grafo indexar` parte do índice da revisão ancestral com o mesmo
+  extrator e reextrai só o que a mudança alcança, gravando os mesmos bytes da extração completa;
+  sem base, extrai completo e diz por quê. `--verificar` compara também o incremental com a
+  completa, e `--forcar` extrai completo. O índice passa a `ork.code-graph-index/v1`, com as
+  unidades por arquivo (`unidades.json`); índice do KG3 aparece no `status` como formato anterior.
+  A parte determinística da linha de base do benchmark está medida e o protocolo, fixado; a rodada
+  paga segue pendente. A prova nos pares reais confere a âncora com os rótulos do Node e do Unicode
+  fixados, porque a versão do Node entra no digest do grafo.
+
 ### Corrigido
 
 - **Trabalho parado no condutor e status honesto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 4):

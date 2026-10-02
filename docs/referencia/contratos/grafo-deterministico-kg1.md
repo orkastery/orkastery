@@ -11,15 +11,16 @@ configuração e versão de extrator determinam as mesmas identidades e o mesmo 
 canônico, em qualquer ordem de inserção. O KG1 entrega o contrato, a validação pura e o
 corpus de conformidade. Não entrega parser, AST, extração de PDF, índice, busca, watcher
 nem consumo pelas fases: isso é KG2 a KG7. A extração de código e de Markdown que produz
-esse grafo a partir de um repositório local é o [KG2](extracao-grafo-kg2.md), e o índice
-persistente com a consulta pelo `ork grafo` é o [KG3](indice-grafo-kg3.md).
+esse grafo a partir de um repositório local é o [KG2](extracao-grafo-kg2.md), o índice
+persistente com a consulta pelo `ork grafo` é o [KG3](indice-grafo-kg3.md), e o índice
+incremental, com os mesmos bytes da extração completa, é o [KG4](incremental-grafo-kg4.md).
 
 ## O que o contrato garante e o que não garante
 
 | Garante | Não garante |
 | --- | --- |
 | Estrutura fechada: campo, tipo ou versão desconhecidos são recusados | Que o extrator interpretou a relação certo |
-| IDs recalculados a partir do conteúdo, nunca aceitos do produtor | Estabilidade de identidade entre snapshots (é KG4) |
+| IDs recalculados a partir do conteúdo, nunca aceitos do produtor | Estabilidade de identidade entre snapshots: o ID deriva do snapshot, e o [KG4](incremental-grafo-kg4.md) reaproveita a extração sem estabilizá-lo |
 | Toda aresta com evidência localizável, na fonte de onde ela parte | Que uma chamada extraída de fato executa |
 | Restrição de acesso conservada de fontes e extremidades | Autorização de leitura: ela vem do transporte |
 | Spans conferidos contra bytes que o chamador fornece | Ausência global de arestas falsas num índice real |
