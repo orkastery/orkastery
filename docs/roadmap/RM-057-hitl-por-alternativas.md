@@ -1,0 +1,98 @@
+---
+id: RM-057
+tipo: roadmap
+titulo: "HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado"
+categoria: melhoria
+pai: RM-048
+features: []
+owner: Julio
+atualizado_em: 2026-10-02T11:40:00-03:00
+estado:
+  ciclo: Discovery
+  documentacao: Rascunho
+  codigo: Não iniciado
+  testes: Não iniciados
+  deploy: Não implantado
+  exposicao: Flag desligada
+  habilitacao: Pendente
+evidencias:
+  codigo:
+    commit: null
+    pr: null
+sdlc:
+  thread: null
+  modo: null
+---
+
+# RM-057 — HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado
+
+> **Em uma frase:** todo HITL de condução que parte do Orkastery chega ao maestro humano como uma seleção entre 3 e 5 alternativas, uma delas com o selo "Recomendação" do ork, e nunca depende de o humano colar ou digitar texto livre para a fábrica seguir.
+
+<!-- ork-docs:relance:inicio -->
+
+| Ciclo do item | Código | Testes | Deploy | Exposição |
+| --- | --- | --- | --- | --- |
+| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+
+<!-- ork-docs:relance:fim -->
+
+## Problema e resultado
+
+- **Público e problema/oportunidade:** o product builder maestro humano conduz várias threads em paralelo. Quando a fábrica para e pede uma confirmação em texto livre, a condução fica parada até ele voltar, ler e redigir uma resposta, e o paralelismo da AI Factory cai a zero.
+- **Evidências e fonte:** na noite de 01/10 para 02/10/2026, o agente que conduzia o Orkastery no srvjcp86 recebeu como texto colado o pedido do dono (threads RM-032, RM-056, RM-053, RM-040 e RM-055, com push e merge autorizados até 02/10 às 12h). Ele parou para pedir um "confirmo" em texto livre e a condução ficou mais de 10 horas sem produzir. O texto colado tinha sido pedido pelo próprio fluxo de condução.
+- **Objetivo/OKR:** autonomia é ROI. A fábrica só para quando a decisão é de fato do humano, e mesmo assim ele decide com um clique, em segundos, de qualquer canal.
+- **Hipótese:** Se todo HITL de condução sair como seleção de 3 a 5 alternativas com uma recomendada, então o tempo entre o pedido e a decisão cai e nenhuma thread fica parada esperando texto, porque escolher uma opção pronta custa segundos e pode ser feito do celular.
+- **Métrica principal / linha de base / meta / janela / fonte:** tempo parado por HITL de condução; linha de base: mais de 10 h na noite de 01→02/10; meta: nenhum HITL de condução em texto livre fora da exceção técnica, e mediana de resposta abaixo de 5 min; janela de 30 dias; fonte: ledger e `ork pulse`.
+- **Métricas de proteção:** nenhuma decisão irreversível (push, merge, release, apagar dados) tomada sem a autorização que o dono deu; a alternativa recomendada não pode virar padrão silencioso quando o dono não respondeu.
+
+## Escopo e validação
+
+- **Incluído:**
+  - Todo HITL de condução que o ork abre (gate, pausa, pedido de autorização, dúvida de escopo) sai como seleção, com no mínimo 3 e no máximo 5 alternativas.
+  - O ork escolhe as alternativas mais compatíveis com o cenário da decisão e com o propósito do produto, projeto ou iniciativa, e marca exatamente uma com o selo "Recomendação".
+  - A mesma forma vale em todo canal (Claude Code, OpenClaw, Telegram, pulse), na linha da [RM-048](RM-048-hitl-humano-no-centro.md).
+  - Os adaptadores e os prompts de condução passam a proibir o pedido de confirmação em texto livre e o pedido para colar texto.
+  - Um pedido do dono que chega como texto colado, pedido pelo próprio fluxo, vale como instrução do dono, dentro da autorização que ele declara.
+- **Fora de escopo:** a única exceção ao texto livre é a dependência técnica que a fábrica não consegue resolver sozinha com os runtimes disponíveis e que exige que o maestro humano rode um comando no terminal (um login interativo, por exemplo). Nesse caso o pedido traz o comando exato, pronto para copiar.
+- **Entregáveis e critérios de aceite:**
+  - Contrato do HITL de condução com 3 a 5 alternativas e um selo "Recomendação" → teste que reprova um pedido com menos de 3 ou mais de 5 opções, ou com nenhuma ou mais de uma recomendada.
+  - Lint de prompt e de adaptador → `ork prompt lint` reprova um template que peça confirmação em texto livre ou que o humano cole texto.
+  - Exceção técnica → o pedido em texto só passa com o motivo tipado de dependência técnica e o comando a rodar.
+  - Canário do incidente de 01/10 → um pedido colado com autorização explícita segue sem parar.
+- **Piloto, medição e critérios de expansão/interrupção:** piloto na condução do próprio Orkastery por 7 dias, medindo no ledger o tempo parado por HITL; expande para todos os hosts se nenhum HITL em texto livre passar fora da exceção.
+
+## Plano e decisões
+
+- **Prioridade / método / pontuação / justificativa / data:** Alta; pedido do dono; uma noite inteira de fábrica parada por um HITL em texto livre; 2026-10-02.
+- **Horizonte / alvo / previsão / confiança / marcos:** próxima versão depois da 0.5.1; marcos: contrato, lint, adaptadores, canário.
+- **Dependências e bloqueios (ID, owner, próxima revisão):** [RM-048](RM-048-hitl-humano-no-centro.md) (forma do bloco de decisão), [RM-041](RM-041-hitl-invertido.md) (HITL invertido).
+- **Premissas / riscos / mitigação:** risco de a fábrica decidir sozinha algo irreversível. Mitigação: a alternativa recomendada só é aplicada com a escolha do humano ou dentro da autorização que ele já deu; dúvida dentro da autorização vai para `ork decisao registrar`, sem parar a thread.
+- **Decisões, alternativas e ADRs (ID, decisor, data, link):** regra definida por Julio em 2026-10-02.
+
+## Estado com evidências
+
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
+
+<!-- ork-docs:estado:inicio -->
+
+| Dimensão | Estado | Evidência | Data | Responsável |
+| --- | --- | --- | --- | --- |
+| Ciclo do item | Discovery | — | 2026-10-02 | Julio |
+| Documentação | Rascunho | — | 2026-10-02 | Julio |
+| Código | Não iniciado | — | 2026-10-02 | Julio |
+| Testes | Não iniciados | — | 2026-10-02 | Julio |
+| Deploy | Não implantado | — | 2026-10-02 | Julio |
+| Exposição | Flag desligada | — | 2026-10-02 | Julio |
+| Habilitação | Pendente | — | 2026-10-02 | Julio |
+
+<!-- ork-docs:estado:fim -->
+
+## Responsabilidades e histórico
+
+- **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** reservar o item e abrir a thread, fábrica, próxima janela de condução.
+
+| Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
+| --- | --- | --- | --- |
+| 2026-10-02 | Item criado com prioridade alta | Incidente da noite de 01→02/10: mais de 10 h de condução parada por um HITL em texto livre | Julio |
