@@ -1542,7 +1542,8 @@ function comandoVerify(args: Args): number {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
     if (b.comandos.length === 0) {
-      console.log('  (nenhum comando em verify: no manifesto; sem baseline nao ha como separar regressao)');
+      // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
+      console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
     }
     return 0;
   }
@@ -3967,7 +3968,9 @@ export function main(argvBruto: string[]): number {
       // Preferência inválida vale o padrão e faz o adapter install pular o pacote: a consulta avisa.
       const avisos = manifesto.avisos.filter(a => a.startsWith('experiencia.config.invalid'));
       console.log(args.opcoes.json ? JSON.stringify({ ...p, avisos }, null, 2) :
-        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\nOrigens: ${JSON.stringify(p.origem)}` +
+        `Experiência ${p.experience ? 'ativa' : 'desativada'}: ${p.language}, ${p.timezone}, profundidade ${p.depth}.\nSkill: ${p.skill}\n` +
+        // Fatia 2 do ensaio da 0.5.0 (R2): as origens em texto, e nao o JSON cru.
+        `Origens: ${Object.entries(p.origem).map(([chave, origem]) => `${chave} ${origem}`).join(', ')}` +
         avisos.map(a => `\nAviso: ${a}; o adapter install pula o pacote até ork onboarding set maestro corrigir.`).join(''));
       return 0;
     }

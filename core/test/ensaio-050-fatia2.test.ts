@@ -23,6 +23,7 @@ import { commitMcp } from '../src/mcp-git';
 import { adicionarClaim } from '../src/claims';
 import { avaliarPolicies } from '../src/policies';
 import { garantirWorktree } from '../src/worktree';
+import { HOSTS } from '../src/hosts';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -487,4 +488,42 @@ test('fatia 2 P9: ship sem delta com a base local a frente do remoto e push dire
     const comDelta = ship(q.carregado, thread.id, { para: 'main', dryRun: true });
     assert.equal(comDelta.violacoes.some((x) => x.policy === 'push_direto_na_base'), false, comDelta.detalhe);
   } finally { q.limpar(); }
+});
+
+test('fatia 2 R2: experiencia show diz as origens em texto', () => {
+  const p = projetoTemporario('fatia2-experiencia');
+  const casa = dirTemporario('fatia2-experiencia-casa');
+  try {
+    const r = ork(p.dir, casa, PATH_ATUAL, 'experiencia', 'show');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^Origens: language sistema, timezone sistema, depth padrao, experience padrao$/m);
+    assert.doesNotMatch(r.stdout, /Origens: \{/);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('fatia 2 R5: baseline sem comando de verify nao se contradiz', () => {
+  const p = projetoTemporario('fatia2-baseline');
+  const casa = dirTemporario('fatia2-baseline-casa');
+  try {
+    // O projeto de teste nao tem comando em verify: o init nao detecta script nenhum.
+    assert.deepEqual(Object.values(p.carregado.manifesto.verify).filter((v) => typeof v === 'string' && v.trim()), []);
+    const { thread } = novaThread(p.carregado, { nome: 'baseline sem comando', modo: 'auto' });
+    const r = ork(p.dir, casa, PATH_ATUAL, 'verify', thread.id, '--baseline');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /^Baseline gravada para a thread /m);
+    assert.match(r.stdout, /a baseline guarda so o commit, e o verify nao tem como separar regressao de divida/);
+    assert.doesNotMatch(r.stdout, /sem baseline/);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('fatia 2 R7: guia de experiencia diz onde o --dir poe o catalogo', () => {
+  // O que o guia diz e o que o adaptador faz: `--dir` troca a pasta-base, e o catalogo vai na subpasta dela.
+  assert.deepEqual([HOSTS['claude-code'].destinoPadrao, HOSTS['claude-code'].subdir], ['.claude', path.join('plugins', 'orkastery')]);
+  assert.deepEqual([HOSTS.codex.destinoPadrao, HOSTS.codex.subdir], ['.agents', path.join('skills', 'orkastery')]);
+  for (const arquivo of ['docs/guias/orchestration-experience.md', 'docs/guias/orchestration-experience.pt-BR.md']) {
+    const guia = ler(arquivo);
+    for (const trecho of ['`--dir`', '`.claude`', '`.agents`', '`<dir>/plugins/orkastery`', '`<dir>/skills/orkastery`']) {
+      assert.ok(guia.includes(trecho), `${arquivo}: ${trecho}`);
+    }
+  }
 });
