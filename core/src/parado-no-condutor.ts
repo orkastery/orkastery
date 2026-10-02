@@ -61,6 +61,8 @@ const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isD
 const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup`;
 /** Quantas branches candidatas a "sem PR" sao conferidas uma a uma por batida; o resto fica "PR nao lido". */
 const LIMITE_DE_CANDIDATAS = 10;
+/** A conferencia de uma candidata so comeca com este tempo de sobra no orcamento; com menos, a branch fica sem conferir. */
+const MINIMO_DA_CONFERENCIA_MS = 5000;
 /** As fases que o ciclo despacha antes da entrega: depois de um bloco que para nelas, o passo e despachar, nao publicar. */
 const FASES_ANTES_DA_ENTREGA = ['GOAL', 'PLAN', 'GO', 'CHECK'];
 /** Os modos em que a #TAG ja autoriza o push (`autorizacaoDePush`, `core/src/ship.ts`). */
@@ -263,11 +265,14 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
     const faltam = [...new Set(opcoes.candidatas ?? [])].filter((b) => BRANCH.test(b) && !achadas.has(b));
     const semConferir: string[] = [];
     for (const [i, branch] of faltam.entries()) {
-      // Acima do teto ou do orcamento da batida, a candidata fica sem conferir ("PR nao lido"), sem derrubar o resto.
-      if (i >= LIMITE_DE_CANDIDATAS || resta() <= 0) { semConferir.push(branch); continue; }
+      // Acima do teto da batida, sem tempo para a conferencia inteira ou com ela falhando, a candidata fica sem conferir
+      // ("PR nao lido") e o que ja foi lido vale (sugestao da seguranca na rodada 4 do CHECK).
+      if (i >= LIMITE_DE_CANDIDATAS || resta() < MINIMO_DA_CONFERENCIA_MS) { semConferir.push(branch); continue; }
       const daBranch = pedir(['--state=all', `--head=${branch}`, '--limit=5', `--json=${CAMPOS_DOS_RECENTES}`]);
-      if (typeof daBranch === 'string') return { ok: false, lidoEm, erro: daBranch };
-      juntar(daBranch, false);
+      try {
+        if (typeof daBranch === 'string') throw new Error(daBranch);
+        juntar(daBranch, false);
+      } catch { semConferir.push(branch); }
     }
     return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: abertos.length >= LIMITE_DE_PRS,
       ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
@@ -356,21 +361,34 @@ export function perguntaAberta(eventos: readonly EventoLedger[], desde: string, 
   });
 }
 
+/** O carimbo que o radar grava (`ork sessions hitl --registrar`): a leitura da tela, nao um evento da sessao. */
+const doRadar = (e: EventoLedger): boolean => e.tipo === 'sessao_bloqueada' && e.fonte === 'ork sessions hitl --registrar';
+
 /**
  * O bloqueio que pede o dono: o prompt de permissao do hook e o que o radar leu com pergunta na tela. O
  * carimbo do radar no fim de turno (`blocked` lido sem menu nem pergunta) nao e prompt nenhum.
  */
 function bloqueioDoDono(e: EventoLedger): boolean {
-  return e.tipo === 'sessao_bloqueada' && !(e.fonte === 'ork sessions hitl --registrar' && e.tipoDeHitl === 'hitl.desconhecido' &&
-    !String(e.pergunta ?? '').trim());
+  return e.tipo === 'sessao_bloqueada' && !(doRadar(e) && e.tipoDeHitl === 'hitl.desconhecido' && !String(e.pergunta ?? '').trim());
 }
 
-/** O ultimo entre bloqueio do dono, destravamento e Stop da sessao, desde o despacho, e bloqueio? */
+/**
+ * O ultimo entre bloqueio do dono, destravamento e Stop da sessao, desde o despacho, e bloqueio? R4-1 do CHECK
+ * (rodada 4): o carimbo do radar depois de um Stop, sem atividade da sessao no meio, e a leitura da mensagem
+ * final (a lista numerada vira "hitl.pergunta"; a palavra "token", "hitl.credencial") e nao conta. O prompt do
+ * hook conta sempre.
+ */
 function bloqueioPendente(eventos: readonly EventoLedger[], sessionId: string, desde: string): boolean {
   const inicio = Date.parse(desde);
-  const ultimo = eventos.filter((e) => e.sessionId === sessionId && !(Date.parse(e.ts) < inicio) &&
-    (bloqueioDoDono(e) || e.tipo === 'sessao_destravada' || e.tipo === 'runtime_stop')).at(-1);
-  return ultimo?.tipo === 'sessao_bloqueada';
+  let pendente = false, turnoEncerrado = false;
+  for (const e of eventos) {
+    if (e.sessionId !== sessionId || Date.parse(e.ts) < inicio) continue;
+    if (e.tipo === 'runtime_stop') { pendente = false; turnoEncerrado = true; }
+    else if (e.tipo === 'sessao_destravada') pendente = false;
+    else if (doRadar(e)) { if (bloqueioDoDono(e) && !turnoEncerrado) pendente = true; }
+    else if (atividadeDaSessao(e)) { turnoEncerrado = false; if (e.tipo === 'sessao_bloqueada') pendente = true; }
+  }
+  return pendente;
 }
 
 /** O ultimo despacho de fase da thread, quando ha um. */
@@ -400,11 +418,12 @@ export interface FimDoTurno {
 
 /**
  * Atividade da sessao que supera um fim de turno: heartbeat (fora a notificacao de ociosidade), commit, Stop
- * novo e prompt do dono. O carimbo do radar nao e atividade: so registra o `blocked` que ja estava la.
+ * novo e prompt de permissao do hook. O carimbo do radar nao e atividade: so registra o `blocked` que ja
+ * estava la, mesmo quando a tela traz lista ou palavra-chave (R4-1 do CHECK, rodada 4).
  */
 function atividadeDaSessao(e: EventoLedger): boolean {
   if (e.tipo === 'runtime_event') return !(e.sensor === 'notification' && e.notificationType === 'idle_prompt');
-  return e.tipo === 'commit' || e.tipo === 'runtime_stop' || bloqueioDoDono(e);
+  return e.tipo === 'commit' || e.tipo === 'runtime_stop' || (e.tipo === 'sessao_bloqueada' && !doRadar(e));
 }
 
 export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLedger): FimDoTurno | null {
@@ -413,20 +432,22 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
   const sid = texto(despacho.sessionId);
   const daSessao = (e: EventoLedger) => !sid || !e.sessionId || e.sessionId === sid;
   const resultado = [...depois].reverse().find((e) => e.tipo === 'phase_result' && daSessao(e));
+  let concluida = false;
   if (resultado) {
     const fase = texto(resultado.fase);
     // O resultado legado (sem classificacao, `ok: true`) tambem e fase concluida.
-    const concluida = resultado.ok !== false && (resultado.classificacao === 'fase_concluida' ||
+    concluida = resultado.ok !== false && (resultado.classificacao === 'fase_concluida' ||
       (resultado.classificacao === undefined && resultado.ok === true));
-    if (concluida) return { em: resultado.ts, tipo: 'concluida', sessionId: sid, fase, comProva: true };
-    // S-a do CHECK (rodada 3): no bloco com pausa ao fim, todo `human.pending` do resultado e a fase entregue ao dono.
-    if (resultado.motivo === 'human.pending' && despacho.pausaAoFim === true) {
+    // A1 (rodada 3) e R4-2 (rodada 4) do CHECK: o dono pode ter respondido na tela e a sessao voltado a trabalhar,
+    // depois da fase concluida ou da espera do observador. So vale o fim de turno sem atividade depois; com
+    // atividade, decide o Stop correlacionado mais novo, abaixo.
+    const retomou = !!sid && eventos.slice(eventos.lastIndexOf(resultado) + 1).some((e) => e.sessionId === sid && atividadeDaSessao(e));
+    if (concluida) {
+      if (!retomou) return { em: resultado.ts, tipo: 'concluida', sessionId: sid, fase, comProva: true };
+    } else if (resultado.motivo === 'human.pending' && despacho.pausaAoFim === true) {
+      // S-a do CHECK (rodada 3): no bloco com pausa ao fim, todo `human.pending` do resultado e a fase entregue ao dono.
       return { em: resultado.ts, tipo: 'pausa-do-bloco', sessionId: sid, fase, comProva: true };
-    }
-    if (resultado.motivo === 'human.pending' && resultado.estadoNativo === 'blocked' && resultado.stop) {
-      // A1 do CHECK (rodada 3): o dono pode ter respondido na tela e a sessao voltado a trabalhar. So vale o fim
-      // de turno sem atividade depois; com atividade, decide o Stop correlacionado mais novo, abaixo.
-      const retomou = !!sid && eventos.slice(eventos.lastIndexOf(resultado) + 1).some((e) => e.sessionId === sid && atividadeDaSessao(e));
+    } else if (resultado.motivo === 'human.pending' && resultado.estadoNativo === 'blocked' && resultado.stop) {
       if (!retomou) {
         const { ts: doStop } = resultado.stop as { ts?: unknown };
         const { ok: provou } = (resultado.provaOrk ?? {}) as { ok?: unknown };
@@ -440,9 +461,11 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
     const despachadaEm = texto(ultimoStop?.despachoEm);
     if (ultimoStop && despachadaEm) {
       const stop = stopCorrelacionado(eventos, { sessionId: sid, fase: String(ultimoStop.fase) as Thread['faseAtual'], despachadaEm });
-      // Com resultado anterior e sessao retomada, so o Stop depois do resultado encerra o turno novo.
+      // Com resultado anterior e sessao retomada, so o Stop depois do resultado encerra o turno novo. A fase que
+      // ja tinha concluido continua concluida; o turno novo acabou neste Stop.
       if (stop && (!resultado || Date.parse(stop.ts) > Date.parse(resultado.ts))) {
-        return { em: stop.ts, tipo: 'stop-sem-resultado', sessionId: sid, fase: texto(stop.fase), comProva: null };
+        return concluida ? { em: stop.ts, tipo: 'concluida', sessionId: sid, fase: texto(resultado?.fase) ?? texto(stop.fase), comProva: true }
+          : { em: stop.ts, tipo: 'stop-sem-resultado', sessionId: sid, fase: texto(stop.fase), comProva: null };
       }
     }
   }
@@ -684,8 +707,14 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     // `merge-base --is-ancestor`: 0 contem, 1 nao contem; outro codigo e git sem resposta, que nunca vira "sem push".
     const contem = remota && cabeca && remota !== cabeca ? git(raiz, ['merge-base', '--is-ancestor', cabeca, remota]).code : null;
     const publicada = !cabeca ? null : !remota ? false : remota === cabeca || contem === 0 ? true : contem === 1 ? false : null;
+    const ships = eventos.filter((e) => e.tipo === 'ship_done'), merge = merges.get(t.id) ?? null;
+    // R4-4 do CHECK (rodada 4): o `ship_done` cobre a entrega do mesmo head (`shaDe`) ou do mesmo merge; a entrega
+    // nova depois dele ainda nao foi registrada. O legado sem o sha cobre tudo, como antes.
+    const cobre = (campo: 'shaDe' | 'mergeSha', sha: string | null) =>
+      ships.some((e) => typeof e[campo] !== 'string' || !SHA.test(e[campo] as string) || e[campo] === sha);
     return { t, eventos, branch: cabeca ? branch : null, cabeca, comProduto, publicada, temRemota: !!remota,
-      shipNoLedger: eventos.some((e) => e.tipo === 'ship_done'), merge: merges.get(t.id) ?? null };
+      shipNoLedger: ships.length > 0, entregueNaPonta: cabeca ? cobre('shaDe', cabeca) : ships.length > 0,
+      mergeRegistrado: !!merge && cobre('mergeSha', merge.sha), merge };
   });
 
   // D2: a forja so e lida quando alguma thread tem o que mostrar la: produto numa branch que ja foi ao remoto
@@ -747,7 +776,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     const { ts: aprovadaEm } = aprovacao ?? { ts: null };
     const fimOuVeredito = fimEm ? maisTarde(fimEm, aprovadaEm) : null;
 
-    let caso: CasoParado | null = null, desde: string | null = null, passo = '';
+    let caso: CasoParado | null = null, desde: string | null = null, passo = '', peloGit = false;
     const evidencia: string[] = [];
     if (!conduzidaAgora && !doDono) {
       if (f.comProduto && publicada === false && terminou) {
@@ -771,16 +800,18 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           `${s.semChecks ? ', que não tem checks' : ''}${autorizacao}`;
         evidencia.push(s.semChecks ? `gh pr list: PR #${aberto.numero} sem checks e sem merge`
           : `gh pr list: PR #${aberto.numero} com ${aberto.checks.length} check(s) verde(s) e sem merge`);
-      } else if (!aberto && !f.comProduto && f.merge && !f.shipNoLedger) {
-        caso = 'sem-registro'; desde = f.merge.em ?? fimEm;
+      } else if (!aberto && !f.comProduto && f.merge && !f.mergeRegistrado) {
+        caso = 'sem-registro'; desde = f.merge.em ?? fimEm; peloGit = true;
         passo = `registrar a entrega do merge ${f.merge.sha.slice(0, 7)} (ork ship registrar-pr ${t.id})`;
         evidencia.push(`git log: merge ship(${t.id}) ${f.merge.sha.slice(0, 7)} na base, sem ship_done no ledger`);
-      } else if (!aberto && daBranch.mesclado && !f.shipNoLedger && (daBranch.mesclado.mescladoEm ?? fimEm)) {
-        // N4 do CHECK (rodada 2): PR mesclado sem o assunto ship(<thread>); o `registrar-pr` nao o acha sozinho.
+      } else if (!aberto && daBranch.mesclado && !f.entregueNaPonta && (daBranch.mesclado.mescladoEm ?? fimEm)) {
+        // N4 do CHECK (rodada 2): PR mesclado sem o assunto ship(<thread>); o `registrar-pr` nao o acha sozinho. Com o
+        // merge ship(<thread>) ainda sem registro na base (squash), o `registrar-pr` acha.
         caso = 'sem-registro'; desde = daBranch.mesclado.mescladoEm ?? fimEm;
-        passo = `conferir a entrega do PR #${daBranch.mesclado.numero}, mesclado sem o assunto ship(${t.id}), e registrar o ship_done`;
+        passo = f.merge && !f.mergeRegistrado ? `registrar a entrega do merge ${f.merge.sha.slice(0, 7)} (ork ship registrar-pr ${t.id})`
+          : `conferir a entrega do PR #${daBranch.mesclado.numero}, mesclado sem o assunto ship(${t.id}), e registrar o ship_done`;
         evidencia.push(`gh pr list: PR #${daBranch.mesclado.numero} mesclado na ponta da branch, sem ship_done no ledger`);
-      } else if (!aberto && !daBranch.mesclado && precisaDePr && terminou && usouPr && !f.shipNoLedger) {
+      } else if (!aberto && !daBranch.mesclado && precisaDePr && terminou && usouPr && !f.entregueNaPonta) {
         desde = fimOuVeredito;
         if (antesDaEntrega) { caso = 'fase-seguinte'; passo = despachar; }
         else {
@@ -798,7 +829,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         // O que sai do dono volta sempre: sem caso de entrega, a linha diz o que a thread pede agora.
         desde = espera.fimDoTurnoEm;
         const id = curtoDaSessao(espera.sessionId);
-        if (antesDaEntrega && !f.shipNoLedger && espera.comProva !== false) { caso = 'fase-seguinte'; passo = despachar; }
+        if (antesDaEntrega && !f.entregueNaPonta && espera.comProva !== false) { caso = 'fase-seguinte'; passo = despachar; }
         else {
           caso = 'sessao-sem-pergunta';
           passo = f.shipNoLedger && !f.comProduto ? `fechar o MASTER da thread (ork master ${t.id})`
@@ -811,7 +842,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     if (caso && fim && fim.tipo !== 'outro') evidencia.push(`fim do turno: ${fim.tipo}`);
     const paradoHaMin = desde ? minutosDesde(desde, quando) : 0;
     const dependeDoPr = caso === 'pr-verde' || caso === 'pr-vermelho' || caso === 'sem-pr' || (caso === 'sem-push' && !!aberto) ||
-      (caso === 'sem-registro' && !f.merge);
+      (caso === 'sem-registro' && !peloGit);
     const parado: ParadoNoCondutor | null = caso && desde && paradoHaMin >= limiar ? {
       thread: t.id, caso, desdeEm: desde, paradoHaMin, proximoPasso: passo, evidencia, branch: f.branch, pr: aberto?.numero ?? null,
       sessionId: espera?.sessionId ?? fim?.sessionId ?? null, prLidoEm: dependeDoPr && prLido ? prLido.lidoEm : null,
@@ -820,7 +851,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
 
     const prDaEntrega: PrDaEntrega | null = aberto ? { numero: aberto.numero, estado: 'aberto', situacao: s?.situacao ?? null,
       checkVermelho: s?.vermelho ?? null, rascunho: aberto.rascunho }
-      : daBranch.mesclado && !f.shipNoLedger ? { numero: daBranch.mesclado.numero, estado: 'mesclado', situacao: null, checkVermelho: null, rascunho: false }
+      : daBranch.mesclado && !f.entregueNaPonta ? { numero: daBranch.mesclado.numero, estado: 'mesclado', situacao: null, checkVermelho: null, rascunho: false }
       : null;
     const registrar = `ork ship registrar-pr ${t.id}`;
     const resumo = aberto ? (s?.situacao === 'vermelho' ? `PR #${aberto.numero} aberto com o check ${s.vermelho} vermelho`
@@ -829,9 +860,9 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           : `PR #${aberto.numero} com os checks verdes, esperando o merge`)
         : `PR #${aberto.numero} aberto, checks em andamento`)
       : f.comProduto && publicada === false ? 'branch com commits sem push'
-      : daBranch.mesclado && !f.shipNoLedger ? (f.merge ? `PR #${daBranch.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
+      : daBranch.mesclado && !f.entregueNaPonta ? (f.merge && !f.mergeRegistrado ? `PR #${daBranch.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
         : `PR #${daBranch.mesclado.numero} mesclado sem o assunto ship(${t.id}), falta registrar a entrega`)
-      : !f.comProduto && f.merge && !f.shipNoLedger ? `merge ${f.merge.sha.slice(0, 7)} na base, falta registrar a entrega (${registrar})`
+      : !f.comProduto && f.merge && !f.mergeRegistrado ? `merge ${f.merge.sha.slice(0, 7)} na base, falta registrar a entrega (${registrar})`
       : precisaDePr ? (!usouPr ? 'branch publicada, PR não lido'
         : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;

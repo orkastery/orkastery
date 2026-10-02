@@ -93,6 +93,13 @@ function contador(leitura: () => LeituraDePrs | null) {
   return c;
 }
 
+/** A sessao como o radar a le: `blocked` com a mensagem final na tela (lista numerada, por padrao). */
+const sessaoNaTela = (sessionId: string, t: { id: string; slug: string }, extra: Partial<SessaoNoRadar> = {}): SessaoNoRadar => ({
+  id: sessionId.slice(0, 8), sessionId, nome: 'SIMULADA', cwd: '/tmp/simulada', kind: 'background', estadoBruto: 'blocked', classe: 'hitl',
+  tipoDeHitl: 'hitl.pergunta', jobVivo: true, precisaDeHumano: true, detalhe: 'SIMULADO', desdeEm: '2026-10-01T05:06:17.000Z', idadeMin: 1200,
+  pergunta: 'Qual caminho?', alternativas: ['1. A', '2. B'], thread: { id: t.id, fase: 'GOAL', slug: t.slug }, recomendacao: '',
+  comandos: { logs: '', attach: '', parar: '' }, acimaDoLimite: true, bloqueadaDesdeEm: '2026-10-01T07:30:00.000Z', paradaHaMin: 1100, ...extra });
+
 /** Um pedido de sessao `ork.hitl/v1` valido, do jeito que `abrirPedidoSessao` grava (sem o controle nativo). */
 function pedidoDeSessao(thread: string, sessionId: string, criadoEm: string, prazo: string): PedidoHitl {
   const pedido: PedidoHitl = { contrato: 'ork.hitl/v1', id: randomUUID(), thread, fase: 'GOAL', modo: 'auto',
@@ -314,6 +321,13 @@ test('merge na base sem ship_done vira "registrar a entrega"; entrega nova depoi
     commitNaBranch(p, a.branch, 'segunda-entrega.txt');
     const nova = entregasDoProjeto(p.carregado, { quando: depois(new Date().toISOString(), 60) });
     assert.equal(nova.parados[0]?.caso, 'sem-push');
+    // R4-4 do CHECK (rodada 4): a entrega nova mesclada de novo na base; o merge novo ainda nao tem ship_done.
+    git(p.dir, 'push', '-q', 'origin', a.branch);
+    git(p.dir, 'merge', '-q', '--no-ff', '-m', `ship(${a.t.id}): segunda entrega SIMULADA`, a.branch);
+    git(p.dir, 'push', '-q', 'origin', 'main');
+    const segundo = git(p.dir, 'rev-parse', 'main').slice(0, 7);
+    const remesclada = entregasDoProjeto(p.carregado, { quando: depois(new Date().toISOString(), 60) });
+    assert.equal(remesclada.parados[0]?.proximoPasso, `registrar a entrega do merge ${segundo} (ork ship registrar-pr ${a.t.id})`);
   } finally { p.limpar(); }
 });
 
@@ -435,6 +449,63 @@ test('aviso 4 do CHECK: o carimbo do proprio radar no fim de turno nao devolve o
     const r = entregasDoProjeto(p.carregado, { quando: AGORA });
     assert.equal(r.parados[0]?.caso, 'sem-push');
     assert.ok(r.doCondutor.gates.has(`${a.t.id}|GOAL`));
+  } finally { p.limpar(); }
+});
+
+test('R4-1 do CHECK (rodada 4): o carimbo do radar com lista ou credencial depois do Stop fica com o condutor; o do turno retomado, com o dono', () => {
+  const p = projetoTemporario('fatia4-carimbo-lista', true);
+  try {
+    const a = threadComProduto(p, 'carimbo com lista');
+    const { sessionId, despachoEm } = turnoDoObservador(a.dir, a.t.id, 93);
+    const radar = (ts: string, tipo: string, extra: Record<string, unknown> = {}) => registrar(a.dir, a.t.id, tipo, { ts, thread: a.t.id,
+      sessionId, fase: 'GOAL', fonte: 'ork sessions hitl --registrar', estadoRuntime: 'blocked', ...extra });
+    // A lista numerada da mensagem final vira "hitl.pergunta" no carimbo; a palavra "token", "hitl.credencial".
+    radar('2026-10-01T07:45:00.000Z', 'sessao_bloqueada', { tipoDeHitl: 'hitl.pergunta', pergunta: 'Próximos passos:' });
+    const lista = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [sessaoNaTela(sessionId, a.t)] });
+    assert.equal(lista.parados[0]?.caso, 'sem-push', JSON.stringify(lista.parados));
+    assert.ok(lista.doCondutor.gates.has(`${a.t.id}|GOAL`) && lista.doCondutor.turnosEncerrados.has(sessionId));
+    radar('2026-10-01T08:00:00.000Z', 'sessao_destravada');
+    radar('2026-10-01T08:15:00.000Z', 'sessao_bloqueada', { tipoDeHitl: 'hitl.credencial', pergunta: 'Rode de novo com o token SIMULADO' });
+    assert.equal(entregasDoProjeto(p.carregado, { quando: AGORA }).parados[0]?.caso, 'sem-push');
+    // A sessao retomou (heartbeat depois do Stop) e o radar carimbou um menu no meio do turno novo: a pergunta e do dono.
+    radar('2026-10-01T08:30:00.000Z', 'sessao_destravada');
+    registrar(a.dir, a.t.id, 'runtime_event', { ts: '2026-10-01T08:31:00.000Z', fase: 'GOAL', sessionId, runtime: 'claude-bg', despachoEm,
+      fonte: 'ork sessions event', sensor: 'heartbeat' });
+    radar('2026-10-01T08:40:00.000Z', 'sessao_bloqueada', { tipoDeHitl: 'hitl.pergunta', pergunta: 'Qual caminho?' });
+    const retomada = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [sessaoNaTela(sessionId, a.t)] });
+    assert.deepEqual(retomada.parados, [], JSON.stringify(retomada.parados));
+    assert.ok(!retomada.doCondutor.gates.has(`${a.t.id}|GOAL`) && !retomada.doCondutor.sessoes.has(sessionId));
+  } finally { p.limpar(); }
+});
+
+test('R4-2 do CHECK (rodada 4): a sessao retomada depois da fase concluida nao tem fim de turno ate o Stop novo', () => {
+  const p = projetoTemporario('fatia4-concluida-retomada', true);
+  try {
+    const a = threadComProduto(p, 'concluida e retomada');
+    const sessionId = '00000000-0000-4000-8000-000000000094';
+    const despacho = '2026-10-01T05:06:17.000Z', despachoEm = depois(despacho, 0.001);
+    const sensor = (ts: string, tipo: string, extra: Record<string, unknown>) => registrar(a.dir, a.t.id, tipo, { ts, fase: 'GOAL', sessionId,
+      runtime: 'claude-bg', despachoEm, fonte: 'ork sessions event', ...extra });
+    registrar(a.dir, a.t.id, 'phase_dispatch', { ts: despacho, fase: 'GOAL', modo: 'auto', bloco: 'GOAL-PLAN-GO-CHECK-SHIP-MASTER',
+      pausaAoFim: false, runtime: 'claude-bg', sessionId });
+    // O observador conclui a fase depois do Stop, com a prova do ork.
+    sensor(depois(FIM, -0.2), 'runtime_stop', { sensor: 'stop', sensorEventId: SHA_DO_SENSOR });
+    registrar(a.dir, a.t.id, 'phase_result', { ts: FIM, fase: 'GOAL', sessionId, despachoEm, classificacao: 'fase_concluida', ok: true,
+      runtime: 'claude-bg', estadoNativo: 'done', fonte: 'SIMULADO', stop: { ts: depois(FIM, -0.2), sensorEventId: SHA_DO_SENSOR } });
+    const antes = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [sessaoNaTela(sessionId, a.t)] });
+    assert.equal(antes.parados[0]?.caso, 'sem-push');
+    assert.ok(antes.doCondutor.turnosEncerrados.has(sessionId));
+    // O dono respondeu na tela e a sessao voltou a trabalhar: o menu novo na tela e dele.
+    sensor('2026-10-01T08:00:00.000Z', 'runtime_event', { sensor: 'heartbeat' });
+    const retomada = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [sessaoNaTela(sessionId, a.t)] });
+    assert.deepEqual(retomada.parados, [], JSON.stringify(retomada.parados));
+    assert.ok(!retomada.doCondutor.turnosEncerrados.has(sessionId) && !retomada.doCondutor.sessoes.has(sessionId));
+    // O turno novo acabou num Stop sem atividade depois: a fase segue concluida, desde esse Stop.
+    sensor('2026-10-01T08:30:00.000Z', 'runtime_stop', { sensor: 'stop', sensorEventId: 'd'.repeat(64) });
+    const deNovo = entregasDoProjeto(p.carregado, { quando: AGORA });
+    assert.equal(deNovo.parados[0]?.caso, 'sem-push');
+    assert.equal(deNovo.parados[0].desdeEm, '2026-10-01T08:30:00.000Z');
+    assert.ok(deNovo.parados[0].evidencia.includes('fim do turno: concluida'), JSON.stringify(deNovo.parados[0].evidencia));
   } finally { p.limpar(); }
 });
 
@@ -626,6 +697,26 @@ test('R1 do CHECK (rodada 3): antes de dizer "sem PR", a branch candidata e conf
   } finally { p.limpar(); }
 });
 
+test('R4-4 do CHECK (rodada 4): a entrega nova depois do ship_done, publicada sem PR, pede "abrir o PR"', () => {
+  const p = projetoTemporario('fatia4-segunda-entrega', true);
+  try {
+    const a = threadComProduto(p, 'segunda entrega', { publicar: true });
+    const segunda = commitNaBranch(p, a.branch, 'segunda-entrega.txt');
+    git(p.dir, 'push', '-q', 'origin', a.branch);
+    forjaSimulada(p);
+    turnoDoObservador(a.dir, a.t.id, 95);
+    // A primeira entrega (a.head) foi registrada; a ponta e o commit novo, publicado e sem PR.
+    registrar(a.dir, a.t.id, 'ship_done', { de: a.branch, para: 'main', shaDe: a.head, mergeSha: 'b'.repeat(40), pushVerificado: true });
+    const semPr = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([]) }) });
+    assert.equal(semPr.parados[0]?.caso, 'sem-pr', JSON.stringify(semPr.parados));
+    assert.equal(semPr.parados[0].proximoPasso, `abrir o PR da branch ${a.branch}`);
+    // O ship_done da ponta: a entrega esta feita, nunca "sem PR".
+    registrar(a.dir, a.t.id, 'ship_done', { de: a.branch, para: 'main', shaDe: segunda, mergeSha: 'c'.repeat(40), pushVerificado: true });
+    const feita = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([]) }) });
+    assert.ok(!feita.parados.some(x => x.caso === 'sem-pr'), JSON.stringify(feita.parados));
+  } finally { p.limpar(); }
+});
+
 test('S-b e S-e do CHECK (rodada 3): aberto so nos recentes nao vira "sem checks"; pausa aprovada sem fase depois pede a fase seguinte', () => {
   const p = projetoTemporario('fatia4-sb-se', true);
   try {
@@ -653,7 +744,7 @@ test('S-b e S-e do CHECK (rodada 3): aberto so nos recentes nao vira "sem checks
   } finally { p.limpar(); }
 });
 
-test('o orcamento da leitura da forja cabe na batida: esgotado nas listas e "nao lido"; nas candidatas, sem conferir', () => {
+test('o orcamento da leitura da forja cabe na batida: esgotado nas listas e "nao lido"; candidata sem tempo ou com falha, sem conferir', () => {
   const p = projetoTemporario('fatia4-orcamento', true);
   try {
     forjaSimulada(p);
@@ -662,9 +753,23 @@ test('o orcamento da leitura da forja cabe na batida: esgotado nas listas e "nao
     const esgotado = lerPrsDaForja(p.carregado, { quando: AGORA, executor: lento, orcamentoMs: 0 });
     assert.equal(esgotado.ok, false);
     assert.match(esgotado.ok ? '' : esgotado.erro, /orçamento de 0 s da leitura esgotado/);
-    // 300 ms por chamada num orcamento de 1 s: as duas listas cabem, e as candidatas que nao cabem ficam sem conferir.
+    // 300 ms por chamada num orcamento de 1 s: as duas listas cabem; sem o tempo de uma conferencia inteira, as candidatas
+    // ficam sem conferir, e o que foi lido vale.
     const parcial = lerPrsDaForja(p.carregado, { quando: AGORA, executor: lento, orcamentoMs: 1000, candidatas: ['ork/a', 'ork/b', 'ork/c', 'ork/d'] });
-    assert.equal(parcial.ok, true);
-    assert.ok(parcial.ok && (parcial.retrato.semConferir ?? []).length >= 1, JSON.stringify(parcial.ok ? parcial.retrato.semConferir : null));
+    assert.equal(parcial.ok, true, JSON.stringify(parcial));
+    assert.deepEqual(parcial.ok ? parcial.retrato.semConferir : null, ['ork/a', 'ork/b', 'ork/c', 'ork/d']);
+    // A conferencia que falha deixa so a branch dela sem conferir: as listas e as outras candidatas valem.
+    const chamadas: string[][] = [];
+    const falhaNaB: ExecutorDoGh = (args) => {
+      chamadas.push([...args]);
+      if (args.includes('--head=ork/b')) return { status: null, stdout: '', stderr: 'spawnSync gh ETIMEDOUT' };
+      return { status: 0, stderr: '', stdout: JSON.stringify(args.includes('--head=ork/a') ? [{ number: 7, state: 'MERGED', headRefName: 'ork/a',
+        headRefOid: 'f'.repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: false, mergedAt: '2026-09-20T10:00:00Z' }] : []) };
+    };
+    const umaFalhou = lerPrsDaForja(p.carregado, { quando: AGORA, executor: falhaNaB, candidatas: ['ork/a', 'ork/b', 'ork/c'] });
+    assert.equal(umaFalhou.ok, true, JSON.stringify(umaFalhou));
+    assert.deepEqual(umaFalhou.ok ? umaFalhou.retrato.semConferir : null, ['ork/b']);
+    assert.deepEqual(umaFalhou.ok ? umaFalhou.retrato.prs.map(x => x.numero) : null, [7]);
+    assert.equal(chamadas.length, 5, 'abertos, recentes e as tres candidatas');
   } finally { p.limpar(); }
 });

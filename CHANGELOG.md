@@ -35,9 +35,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - o pulse acha, além de 30 min, o trabalho parado depois da entrega e põe cada thread numa linha,
     `<thread> parado no condutor desde HH:MM: <próximo passo>`, em `ork pulse`, no campo
     `paradoNoCondutor` do `ork.pulse/v1` e no resumo dos dois canais, fora de "Esperando você" e sem
-    pergunta ao dono: branch sem push, branch publicada sem PR, PR verde sem merge, PR com check
-    vermelho sem fase despachada depois, merge na base sem registro e sessão `blocked` sem pergunta de
-    verdade (antes da entrega, o passo é despachar a fase seguinte, fase a fase fora do #Auto). O
+    pergunta ao dono: branch sem push, branch publicada sem PR (inclusive a entrega nova depois de um
+    `ship_done`), PR verde sem merge, PR com check vermelho sem fase despachada depois, merge na base sem
+    registro e sessão `blocked` sem pergunta de verdade (antes da entrega, o passo é despachar a fase
+    seguinte, fase a fase fora do #Auto). O
     `human.pending` que o observador grava no fim de turno de um bloco sem pausa ao fim deixa de contar
     como pergunta do dono e volta sempre como linha. Os PRs vêm do `gh pr list` (os abertos e os
     recentes, e a branch candidata a "sem PR" conferida sozinha), só com branch que já foi ao remoto, e a
