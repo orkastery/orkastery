@@ -14,8 +14,12 @@ import {
   type Acesso, type Aresta, type Diagnostico, type EntradaDoManifesto, type Evidencia, type Extrator, type GrafoCodigo, type No,
   type TipoDeAresta, type TipoDeNo,
 } from './intelligence-graph-contract';
-import { CHAVES_DO_FRONTMATTER, PADRAO_DE_ID, TOKENS_SEM_MENCAO, extrairMarkdown, type EventoMd } from './intelligence-graph-extract-md';
-import { OPCOES_TS_DESCRITAS, extrairTypeScript } from './intelligence-graph-extract-ts';
+import {
+  CHAVES_DO_FRONTMATTER, PADRAO_DE_ID, TOKENS_SEM_MENCAO, estruturarMarkdown, ligarMarkdown, type EstruturaMd, type EventoMd,
+} from './intelligence-graph-extract-md';
+import {
+  OPCOES_TS_DESCRITAS, casaSonda, extrairTypeScript, type EntradaTs, type ResultadoTs, type UnidadeTs,
+} from './intelligence-graph-extract-ts';
 
 export const EXTRATOR_TS = 'ork.ts-ast';
 export const EXTRATOR_MD = 'ork.md-structure';
@@ -101,7 +105,46 @@ export interface RelatorioDeExtracao {
   lacunas: LacunaDoRelatorio[];
 }
 
-export interface ResultadoDaExtracao { grafo: GrafoCodigo; digest: string; relatorio: RelatorioDeExtracao }
+/** RM-031 KG4 (D2): as unidades por arquivo que o indice guarda para a proxima revisao reaproveitar. */
+export const UNIDADES_SCHEMA = 'ork.graph-extraction-units/v0' as const;
+
+/** Uma entrada do manifesto e o que o incremental reaproveita dela quando os bytes nao mudam. */
+export interface UnidadeDoArquivo {
+  path: string;
+  source_hash: string;
+  /** Fonte TS/JS com texto: os achados do `ork.ts-ast`, as dependencias e as sondas. */
+  ts: UnidadeTs | null;
+  /** Markdown com texto: a estrutura, pura dos bytes. */
+  md: EstruturaMd | null;
+}
+
+export interface UnidadesDaExtracao {
+  schema: typeof UNIDADES_SCHEMA;
+  snapshot_id: string;
+  graph_digest: string;
+  /** Fontes TS/JS com declaracao no escopo global ou aumento de modulo. */
+  globais_ts: string[];
+  /** O manifesto inteiro, em ordem de caminho. */
+  arquivos: UnidadeDoArquivo[];
+}
+
+/** O que a extracao com base reaproveitou e por que, para a saida do `ork grafo indexar`. */
+export interface Reaproveitamento {
+  mudanca: { alterados: number; novos: number; removidos: number };
+  ts: {
+    modo: 'reaproveitado' | 'parcial' | 'inteiro'; motivo: string | null; reextraidos: string[]; programa: number; reaproveitados: number;
+  };
+  md: { reextraidos: string[]; reaproveitados: number };
+}
+
+export interface ResultadoDaExtracao {
+  grafo: GrafoCodigo;
+  digest: string;
+  relatorio: RelatorioDeExtracao;
+  unidades: UnidadesDaExtracao;
+  /** So com base: o que veio dela. */
+  reaproveitamento: Reaproveitamento | null;
+}
 
 function falha(codigo: string, onde?: string): never {
   throw new Error(onde ? `${codigo} em ${onde}` : codigo);
@@ -206,11 +249,131 @@ function contagemVazia<T extends string>(chaves: readonly T[]): Record<T, number
   return Object.fromEntries(chaves.map((k) => [k, 0])) as Record<T, number>;
 }
 
+/** RM-031 KG4 (D1, D3, D4): o que muda entre a base e a revisao nova e o que se reaproveita. */
+interface PlanoDeReuso {
+  base: UnidadesDaExtracao;
+  porCaminho: Map<string, UnidadeDoArquivo>;
+  mudanca: { alterados: string[]; novos: string[]; removidos: string[] };
+  /** Estruturas Markdown de arquivos que nao mudaram. */
+  md: Map<string, EstruturaMd>;
+  /** `motivo` nao nulo: o TypeScript e extraido inteiro. */
+  ts: { motivo: string | null; sementes: Set<string>; afetados: Set<string> };
+}
+
+/**
+ * A mudanca e por conteudo: o hash de cada caminho contra o da base, mais os novos e os removidos
+ * (renome e os dois). No TypeScript, semente e o arquivo mudado ou novo e o nao mudado cuja sonda casa
+ * caminho novo ou removido; afetado e a semente e quem alcanca semente ou caminho mudado pelas
+ * dependencias gravadas na base. `package.json` ou arquivo global na mudanca extrai o TypeScript inteiro.
+ */
+function planejarReuso(base: UnidadesDaExtracao, manifesto: ReadonlyMap<string, EntradaDoManifesto>, fontesTs: readonly FonteDeTexto[],
+  fontesMd: readonly FonteDeTexto[]): PlanoDeReuso {
+  const porCaminho = new Map(base.arquivos.map((u) => [u.path, u]));
+  const alterados: string[] = [], novos: string[] = [], removidos: string[] = [];
+  for (const [p, m] of manifesto) {
+    const u = porCaminho.get(p);
+    if (!u) novos.push(p);
+    else if (u.source_hash !== m.source_hash) alterados.push(p);
+  }
+  for (const p of porCaminho.keys()) if (!manifesto.has(p)) removidos.push(p);
+  for (const l of [alterados, novos, removidos]) l.sort(compararUtf8);
+  const mudados = new Set([...alterados, ...novos, ...removidos]);
+  const md = new Map<string, EstruturaMd>();
+  for (const f of fontesMd) {
+    const u = porCaminho.get(f.path);
+    if (u?.md && !mudados.has(f.path)) md.set(f.path, u.md);
+  }
+  const plano: PlanoDeReuso = { base, porCaminho, mudanca: { alterados, novos, removidos }, md, ts: { motivo: null, sementes: new Set(), afetados: new Set() } };
+  const ordenados = [...mudados].sort(compararUtf8), globais = new Set(base.globais_ts), ts1 = new Set(fontesTs.map((f) => f.path));
+  const pacote = ordenados.find((p) => p === 'package.json' || p.endsWith('/package.json'));
+  const global = ordenados.find((p) => globais.has(p));
+  const semUnidade = fontesTs.find((f) => !mudados.has(f.path) && !porCaminho.get(f.path)?.ts);
+  if (pacote !== undefined) plano.ts.motivo = `package.json na mudanca (${pacote})`;
+  else if (global !== undefined) plano.ts.motivo = `arquivo global do TypeScript na mudanca (${global})`;
+  else if (semUnidade !== undefined) plano.ts.motivo = `base sem a unidade TypeScript de ${semUnidade.path}`;
+  if (plano.ts.motivo !== null) return plano;
+  const existencia = [...novos, ...removidos];
+  for (const p of ts1) {
+    if (mudados.has(p)) plano.ts.sementes.add(p);
+    else if (existencia.length && (porCaminho.get(p)?.ts as UnidadeTs).sondas.some((b) => existencia.some((q) => casaSonda(b, q)))) plano.ts.sementes.add(p);
+  }
+  const dependentes = new Map<string, string[]>();
+  for (const u of base.arquivos) {
+    for (const d of u.ts?.dependencias ?? []) {
+      const lista = dependentes.get(d);
+      if (lista) lista.push(u.path);
+      else dependentes.set(d, [u.path]);
+    }
+  }
+  const vistos = new Set<string>(), fila = [...plano.ts.sementes, ...mudados];
+  while (fila.length) {
+    const q = fila.pop() as string;
+    if (vistos.has(q)) continue;
+    vistos.add(q);
+    for (const x of dependentes.get(q) ?? []) if (!vistos.has(x)) fila.push(x);
+  }
+  // CHECK (B1): quem usa um global nao importa o arquivo dele, e o global depende do que esse arquivo
+  // importa (heranca, tipo importado, `export *` atras de UMD, aumento que estende tipo de outro modulo).
+  const globalAlcancado = [...globais].sort(compararUtf8).find((g) => vistos.has(g));
+  if (globalAlcancado !== undefined) {
+    plano.ts.motivo = `dependencia de arquivo global na mudanca (${globalAlcancado})`;
+    return plano;
+  }
+  for (const p of vistos) if (ts1.has(p)) plano.ts.afetados.add(p);
+  return plano;
+}
+
+/**
+ * KG4 (D3): extrai os afetados num programa parcial: eles, os globais e o fecho direto pelas
+ * dependencias da base (a semente descobre as suas no programa, que cresce ate fechar). O resto vem
+ * da base. Afetado que passa a declarar global devolve o motivo, e o TypeScript sai inteiro.
+ */
+function extrairTsParcial(plano: PlanoDeReuso, entrada: EntradaTs, extrair: (e: EntradaTs) => ResultadoTs):
+  { motivo: string | null; unidades: Map<string, UnidadeTs>; globais: string[]; programa: number } {
+  const { afetados, sementes } = plano.ts, ts1 = new Set(entrada.fontes.map((f) => f.path));
+  const daBase = (p: string): UnidadeTs => plano.porCaminho.get(p)?.ts as UnidadeTs;
+  const unidades = new Map<string, UnidadeTs>(), globais = [...plano.base.globais_ts];
+  const raizes = new Set<string>();
+  const incluir = (inicio: Iterable<string>): void => {
+    const fila = [...inicio];
+    while (fila.length) {
+      const p = fila.pop() as string;
+      if (raizes.has(p) || !ts1.has(p)) continue;
+      raizes.add(p);
+      if (!sementes.has(p)) for (const d of daBase(p).dependencias) if (!raizes.has(d)) fila.push(d);
+    }
+  };
+  let r: ResultadoTs | null = null;
+  if (afetados.size) {
+    incluir([...afetados, ...globais]);
+    for (;;) {
+      r = extrair({ ...entrada, fontes: entrada.fontes.filter((f) => raizes.has(f.path)), emitir: afetados });
+      if (!r.faltantes.length) break;
+      const antes = raizes.size;
+      incluir(r.faltantes);
+      if (raizes.size === antes) falha('extracao.interna.programa-parcial');
+    }
+    const daBaseGlobal = new Set(globais), doPrograma = new Set(r.globais);
+    const novo = r.globais.find((g) => !daBaseGlobal.has(g));
+    if (novo !== undefined) return { motivo: `arquivo passa a declarar global no TypeScript (${novo})`, unidades, globais, programa: raizes.size };
+    const sumiu = globais.find((g) => ts1.has(g) && !doPrograma.has(g));
+    if (sumiu !== undefined) return { motivo: `global da base fora do escopo global (${sumiu})`, unidades, globais, programa: raizes.size };
+  }
+  for (const f of entrada.fontes) {
+    const u = afetados.has(f.path) ? r?.unidades.get(f.path) : daBase(f.path);
+    if (!u) falha('extracao.interna.unidade-ts-ausente');
+    unidades.set(f.path, u);
+  }
+  return { motivo: null, unidades, globais, programa: raizes.size };
+}
+
 /**
  * Extrai o grafo das fontes fornecidas. Lanca `extracao.*` para entrada invalida ou teto do
  * contrato estourado (D10), e `grafo.*` se o resultado violar o contrato (defeito do extrator).
+ * RM-031 KG4: com `base` (as unidades do indice de outra revisao, do mesmo extrator), reextrai so o
+ * que a mudanca alcanca; o resultado e o mesmo, byte a byte, da extracao sem base.
  */
-export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): ResultadoDaExtracao {
+export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser, base: UnidadesDaExtracao | null = null): ResultadoDaExtracao {
   const { ts, unicode, markdown, javascript } = parser;
   if (!/^[0-9]+(\.[0-9]+)*$/.test(unicode)) falha('extracao.entrada.unicode-invalido');
   if (!/^[0-9A-Za-z][0-9A-Za-z.-]{0,40}$/.test(markdown.versao) || typeof markdown.analisar !== 'function'
@@ -283,18 +446,38 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
   // B1: a raiz virtual do compilador deriva do manifesto; um caminho do repositorio nao a nomeia.
   const raiz = `/ork-${sha256DoCanonico([...manifesto.values()].map((m) => [m.path, m.source_hash])).slice(0, 32)}`;
   const aceitaFragmento = (f: string): boolean => f.length >= 1 && f.length <= GRAFO_LIMITES.fragmento && textoAceito(f);
-  juntar(semEstouro(EXTRATOR_TS, () => extrairTypeScript({
-    fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, sintaxe: javascript.sintaxe, extrator: EXTRATOR_TS,
-  }, ts)));
+  const entradaTs = { fontes: fontesTs, arquivos: caminhos, texto, raiz, aceitaFragmento, sintaxe: javascript.sintaxe, extrator: EXTRATOR_TS };
+  const extrairTs = (e: EntradaTs): ResultadoTs => semEstouro(EXTRATOR_TS, () => extrairTypeScript(e, ts));
+
+  // KG4 (D1, D3, D4): com as unidades de uma base, so o que a mudanca alcanca e extraido de novo.
+  const plano = base ? planejarReuso(base, manifesto, fontesTs, fontesMd) : null;
+  let tsDaBase: ReturnType<typeof extrairTsParcial> | null = null;
+  if (plano && plano.ts.motivo === null) tsDaBase = extrairTsParcial(plano, entradaTs, extrairTs);
+  const motivoTs = plano ? plano.ts.motivo ?? tsDaBase?.motivo ?? null : null;
+  let unidadesTs: Map<string, UnidadeTs>, globaisTs: string[];
+  if (tsDaBase && tsDaBase.motivo === null) {
+    unidadesTs = tsDaBase.unidades;
+    globaisTs = tsDaBase.globais;
+  } else {
+    const r = extrairTs(entradaTs);
+    unidadesTs = r.unidades;
+    globaisTs = r.globais;
+  }
+  for (const f of fontesTs) {
+    const u = unidadesTs.get(f.path);
+    if (!u) falha('extracao.interna.unidade-ts-ausente');
+    juntar(u.achados);
+  }
   // B4: chave `caminho#fragmento` como o frontmatter a escreve; duas refs na mesma chave ficam ambiguas.
   const simbolos = new Map<string, RefDeNo | null>();
   for (const r of achados.nos.filter((x) => x.kind === 'symbol')) {
     const chave = `${r.path}#${r.fragment}`, antes = simbolos.get(chave);
     simbolos.set(chave, antes === undefined || (antes && antes.path === r.path && antes.fragment === r.fragment) ? r : null);
   }
-  juntar(semEstouro(EXTRATOR_MD, () => extrairMarkdown({
-    fontes: fontesMd, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, analisar: markdown.analisar,
-    referencia: markdown.referencia, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
+  const estruturas = semEstouro(EXTRATOR_MD, () => fontesMd.map((f) => plano?.md.get(f.path)
+    ?? estruturarMarkdown(f, { aceitaFragmento, analisar: markdown.analisar, referencia: markdown.referencia })));
+  juntar(semEstouro(EXTRATOR_MD, () => ligarMarkdown({
+    estruturas, codigo: fontesTs, arquivos: caminhos, simbolos, aceitaFragmento, extratorMd: EXTRATOR_MD, extratorId: EXTRATOR_ID,
   })));
 
   const extratores: Extrator[] = [
@@ -419,5 +602,25 @@ export function extrairGrafo(entrada: EntradaDeExtracao, parser: Parser): Result
     lacunas_por_categoria: Object.fromEntries([...porCategoria.entries()].sort((a, b) => compararUtf8(a[0], b[0]))),
     lacunas: [...listadas.entries()].sort((a, b) => compararUtf8(a[0], b[0])).map(([, l]) => l),
   };
-  return { grafo, digest, relatorio };
+  const estruturaDe = new Map(estruturas.map((x) => [x.path, x]));
+  const unidades: UnidadesDaExtracao = {
+    schema: UNIDADES_SCHEMA, snapshot_id: grafo.snapshot.snapshot_id, graph_digest: digest, globais_ts: globaisTs,
+    arquivos: grafo.snapshot.source_manifest.map((m) => ({
+      path: m.path, source_hash: m.source_hash, ts: unidadesTs.get(m.path) ?? null, md: estruturaDe.get(m.path) ?? null,
+    })),
+  };
+  let reaproveitamento: Reaproveitamento | null = null;
+  if (plano) {
+    const parcial = motivoTs === null, afetados = [...plano.ts.afetados].sort(compararUtf8);
+    reaproveitamento = {
+      mudanca: { alterados: plano.mudanca.alterados.length, novos: plano.mudanca.novos.length, removidos: plano.mudanca.removidos.length },
+      ts: {
+        modo: !parcial ? 'inteiro' : afetados.length ? 'parcial' : 'reaproveitado', motivo: motivoTs,
+        reextraidos: parcial ? afetados : fontesTs.map((f) => f.path), programa: parcial ? tsDaBase?.programa ?? 0 : fontesTs.length,
+        reaproveitados: parcial ? fontesTs.length - afetados.length : 0,
+      },
+      md: { reextraidos: fontesMd.filter((f) => !plano.md.has(f.path)).map((f) => f.path), reaproveitados: plano.md.size },
+    };
+  }
+  return { grafo, digest, relatorio, unidades, reaproveitamento };
 }
