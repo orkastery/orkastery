@@ -123,7 +123,9 @@ test('defeito 1: merge ship(<thread>) na base com o item em Branch criada reprov
     const r = sincronizarDocs(p.dir, { escrever: true, itens: ['RM-001'] });
     assert.ok(r.mudancas.some((m) => m.campo === 'estado.codigo' && m.para === 'Mesclado'), JSON.stringify(r.mudancas));
     assert.deepEqual(erros(verificarDocs(p.dir).achados), []);
-    assert.match(fs.readFileSync(path.join(p.dir, ITEM), 'utf8'), new RegExp(`commit: ${merge.slice(0, 7)}`));
+    // O escritor de YAML poe entre aspas o SHA curto so de digitos (cerca de 4% dos sorteios): os dois formatos sao o mesmo commit.
+    const curto = merge.slice(0, 7);
+    assert.match(fs.readFileSync(path.join(p.dir, ITEM), 'utf8'), new RegExp(`^ *commit: (${curto}|"${curto}")$`, 'm'));
   } finally { p.limpar(); }
 });
 

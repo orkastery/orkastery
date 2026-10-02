@@ -22,6 +22,9 @@ import { DecisaoParaODono, decisoesParaODono, FaseAcimaDoLimiar } from './decisa
 import { mergeDaThread, resolverBase } from './docs';
 import { liberarSeOrfa } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
+import { linhaDoParadoNoCondutor } from './hitl-resumo';
+import { EntregasDoProjeto, entregasDoProjeto, ExecutorDoGh, gravarRetratoDePrs, LeituraDePrs, lerPrsDaForja, ParadoNoCondutor,
+  sessaoSemPergunta } from './parado-no-condutor';
 
 export const CONTRATO_PULSE = 'ork.pulse/v1';
 export interface ItemPulse {
@@ -51,6 +54,11 @@ export interface Pulse {
   acimaDoLimiar?: FaseAcimaDoLimiar[];
   /** I-36 (T17): as threads conduzidas agora, com a linha unica. Conducao nao e parada nem pergunta. */
   conducoes?: { thread: string; linha: string }[];
+  /**
+   * RM-037 (fatia 4): o trabalho parado no condutor depois da entrega, uma linha por thread. Nao e
+   * pergunta ao dono nem conta em "Esperando voce". Campo aditivo: pulse de antes continua valido sem ele.
+   */
+  paradoNoCondutor?: ParadoNoCondutor[];
 }
 
 /** Uma semana: o resumo cita a decisao uma vez, e ela continua lida ate sair da janela. */
@@ -77,9 +85,17 @@ export function apresentacaoCurtaDoItem(pedido: PedidoHitlQualquer, desde: strin
 
 export function comporPulse(carregado: ManifestoCarregado, entrada: {
   radar: RadarDeSessoes; monitor: MonitorDeOrquestracao; batch: PendenteDeScore[]; orfas: FaseOrfa[];
+  /** RM-037 (fatia 4): o estado das entregas ja lido (com a forja); sem ele, so o git local e o ledger. */
+  entregas?: EntregasDoProjeto;
 }): Pulse {
   const {radar,monitor,batch,orfas}=entrada, quando=radar.consultadoEm;
   const humanos: ItemPulse[]=[], automaticas: ItemPulse[]=[];
+  // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor. Ele sai da fila do dono aqui e volta
+  // como linha propria (`paradoNoCondutor`); leitura que falha nao esconde nada do dono.
+  let entregas: EntregasDoProjeto | undefined = entrada.entregas;
+  if (!entregas) {
+    try { entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes }); } catch { entregas = undefined; }
+  }
   const registros = new Map<string, boolean>();
   const ehRegistro = (id: string | null): boolean => {
     if (!id) return false;
@@ -102,6 +118,10 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   };
   const TERMINAIS = ['failed', 'done', 'stopped', 'completed'];
   for (const s of radar.sessoes.filter(s=>s.precisaDeHumano)) {
+    // RM-037 (fatia 4): sessao `blocked` de quem o turno acabou sem pergunta e do condutor: a que o ledger provou
+    // (Stop sem atividade depois; a lista numerada da mensagem final nao e menu) e a sobra sem menu na tela.
+    if (entregas?.doCondutor.sessoes.has(s.sessionId) &&
+        (sessaoSemPergunta(s) || entregas.doCondutor.turnosEncerrados.has(s.sessionId))) continue;
     // Job morto ou estado terminal é história. Bloqueio vivo ou desconhecido continua visível.
     if (ehRegistro(s.thread?.id ?? null) && s.jobVivo !== true &&
         (s.jobVivo === false || TERMINAIS.includes(s.estadoBruto))) continue;
@@ -136,6 +156,8 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   const VERIFICACAO = ['claims.failed', 'claims.unverifiable', 'verify.failed', 'verify.regression', 'verify.timeout', 'verify.sem-veredito', 'ci.failed'];
   for (const l of monitor.linhas) for (const p of l.paradas) {
     if (VERIFICACAO.includes(p.motivo) && jaMesclada(l.thread)) continue;
+    // RM-037 (fatia 4): o `human.pending` que o observador grava no fim de turno sem pergunta nao e do dono.
+    if (p.motivo === 'human.pending' && p.fonte === 'ledger' && entregas?.doCondutor.gates.has(`${l.thread}|${p.fase}`)) continue;
     if (ehRegistro(l.thread)) {
       if (p.fonte === 'escalonador' || ['lease.busy', 'conducao.em-andamento', 'concurrency.limite', 'vaga.stale', 'runtime.silencio'].includes(p.motivo)) continue;
       const sessoes = radar.sessoes.filter(s => s.thread?.id === l.thread && s.thread.fase === p.fase);
@@ -212,12 +234,15 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     } catch { item.evidencia.push('Apresentação indisponível; conferir estado canônico da thread.'); }
   }
   return {contrato:CONTRATO_PULSE,consultadoEm:quando,runtime:{ok:radar.runtimeConsultado,detalhe:radar.runtimeDetalhe},
-    precisaDeHumanoAgora:h,acoesAutomaticas:a,resumo:{humanos:h.length,automaticas:a.length,scores:batch.length,fasesOrfas:orfas.length}};
+    precisaDeHumanoAgora:h,acoesAutomaticas:a,resumo:{humanos:h.length,automaticas:a.length,scores:batch.length,fasesOrfas:orfas.length},
+    ...(entregas?.parados.length ? { paradoNoCondutor: entregas.parados } : {})};
 }
 
 export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   fontes?: (thread: Thread, despacho: EventoLedger) => FontesDeVida;
   registrar?: boolean; escopo?: readonly string[]; quando?: string; linhasLogs?: number; semRuntime?: boolean; consulta?: ConsultaDeSessoes;
+  /** RM-037 (fatia 4): quem roda o `gh` na leitura dos PRs; os testes trocam por resposta gravada. */
+  executorDoGh?: ExecutorDoGh;
 } = {}): Pulse {
   if (opcoes.registrar) exigirEscopoDeEscrita(opcoes.escopo);
   const diagnosticos: string[] = [];
@@ -236,7 +261,18 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
     catch (e) { diagnosticos.push(`conducao.recuperacao: ${id}: ${(e as Error).message.slice(0, 120)}`); }
   }
   const monitor=montarMonitor(carregado,{agora:quando,estados});
-  const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz)});
+  // RM-037 (fatia 4, D2): a forja so e lida quando alguma thread tem branch publicada; a leitura boa vira o
+  // retrato que o status do roadmap le sem rede. Falha de leitura e diagnostico, nunca "sem PR".
+  let entregas: EntregasDoProjeto | undefined;
+  try {
+    entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: (candidatas): LeituraDePrs => {
+      const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas });
+      if (leitura.ok) { try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ } }
+      return leitura;
+    } });
+    if (entregas.prs && !entregas.prs.ok) diagnosticos.push(`prs.nao-lidos: ${entregas.prs.erro.slice(0, 160)}`);
+  } catch (e) { diagnosticos.push(`entregas.indisponiveis: ${(e as Error).message.slice(0, 120)}`); }
+  const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz),...(entregas?{entregas}:{})});
   const conducoes = monitor.linhas.filter((l) => l.conducao).map((l) => ({ thread: l.thread, linha: linhaDeConducao(l.conducao!, { agora: quando }) }));
   if (conducoes.length > 0) pulse.conducoes = conducoes;
   // B4: a metade que presta contas. Leitura pura; falhar aqui nunca derruba a fila de atencao.
@@ -252,7 +288,10 @@ export function textoDoPulse(p: Pulse): string {
   // I-35: o pulse guarda ISO; o texto ao dono sai no fuso dele, rotulado no cabeçalho.
   const local = (texto: string) => localizarTexto(texto, { agora: p.consultadoEm });
   const linhas=[`Pulse (${p.contrato}) ${formatarDataHoraRotulada(p.consultadoEm, { agora: p.consultadoEm })}`,`Precisa de humano agora: ${p.resumo.humanos}`, `${p.resumo.scores} entrega(s) sem nota, aceitas por padrão com registro`];
-  if(p.runtime.ok && p.runtime.detalhe.includes('liveness.snapshot.invalid')) linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
+  // RM-037 (fatia 4): PR nao lido tambem e dito, para a falta de linha do condutor nao parecer "nada parado".
+  if(p.runtime.ok && ['liveness.snapshot.invalid', 'prs.nao-lidos', 'entregas.indisponiveis'].some(d => p.runtime.detalhe.includes(d))) {
+    linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
+  }
   if(!p.runtime.ok) linhas.push(`[consulta incompleta] ${local(p.runtime.detalhe)}`);
   for(const i of p.precisaDeHumanoAgora) {
     linhas.push('',`${i.thread??i.sessionId} [${i.classe}] ${i.paradaHaMin==null?'desconhecido':i.paradaHaMin<1?'menos de 1':i.paradaHaMin} min`,local(i.pergunta),
@@ -262,6 +301,11 @@ export function textoDoPulse(p: Pulse): string {
   if (p.conducoes?.length) {
     linhas.push('',`Conduzidas agora: ${p.conducoes.length}`);
     for (const c of p.conducoes) linhas.push(`${c.thread}: ${c.linha}`);
+  }
+  // RM-037 (fatia 4): o que espera o condutor, uma linha por thread; nao e pergunta ao dono.
+  if (p.paradoNoCondutor?.length) {
+    linhas.push('',`Parado no condutor: ${p.paradoNoCondutor.length}`);
+    for (const x of p.paradoNoCondutor) linhas.push(linhaDoParadoNoCondutor(x, { agora: p.consultadoEm }));
   }
   linhas.push('',`Ações automáticas pendentes: ${p.resumo.automaticas}`);
   for(const i of p.acoesAutomaticas) linhas.push(`${i.thread}: ${i.motivo}; ${i.comandoResposta}`);
