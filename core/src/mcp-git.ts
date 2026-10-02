@@ -67,16 +67,22 @@ function ambiente(env:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
   return { HOME: env.HOME, USER: env.USER, LOGNAME: env.LOGNAME,
     XDG_CONFIG_HOME:env.XDG_CONFIG_HOME, PATH:'/usr/bin:/bin', LANG:'C.UTF-8', TMPDIR:'/tmp' };
 }
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P8): como o git saiu, sem o stderr, que pode citar caminho e conteudo.
+ * O sinal vem antes do erro (CHECK, rodada 1, S4): prazo estourado e saida acima do limite matam o git
+ * que ja executou; so o erro sem sinal (ENOENT, EACCES) e git que nem rodou.
+ */
+export function comoOGitSaiu(r: { status: number | null; signal?: NodeJS.Signals | null; error?: Error }): string {
+  const codigo = r.error ? (r.error as NodeJS.ErrnoException).code ?? 'erro' : '';
+  if (r.signal) return `interrompido por ${r.signal}${codigo ? ` (${codigo})` : ''}`;
+  if (r.error) return `nao executou (${codigo})`;
+  return `saiu ${r.status}`;
+}
 function git(wt: string, args: string[], input?: string): string {
   const r=spawnSync(GIT,['--no-pager','--literal-pathspecs',...args],{cwd:wt,env:ambiente(),
     encoding:'utf8',input,timeout:10000,killSignal:'SIGKILL',maxBuffer:LIMITE});
-  // Fatia 2 do ensaio da 0.5.0 (P8): a falha diz o subcomando e como ele saiu, nunca o stderr, que pode
-  // citar caminho e conteudo. O subcomando e sempre o primeiro argumento interno, nunca entrada do cliente.
-  if(r.status!==0 || r.signal || r.error) {
-    const como=r.error ? `nao executou (${(r.error as NodeJS.ErrnoException).code ?? 'erro'})`
-      : r.signal ? `interrompido por ${r.signal}` : `saiu ${r.status}`;
-    falha(`command.failed: git ${args[0]} ${como}`);
-  }
+  // O subcomando e sempre o primeiro argumento interno, nunca entrada do cliente.
+  if(r.status!==0 || r.signal || r.error) falha(`command.failed: git ${args[0]} ${comoOGitSaiu(r)}`);
   return r.stdout;
 }
 /** Lista positiva de configuração passiva. Não é blacklist de shell. */

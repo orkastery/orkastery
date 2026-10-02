@@ -19,7 +19,7 @@ import { analisarComando } from '../src/claim-lint';
 import { DICA_DO_MOTIVO } from '../src/licoes';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
-import { gitPassivoMcp } from '../src/mcp-git';
+import { comoOGitSaiu, gitPassivoMcp } from '../src/mcp-git';
 import { avaliarPolicies } from '../src/policies';
 import { garantirWorktree } from '../src/worktree';
 import { HOSTS } from '../src/hosts';
@@ -425,6 +425,12 @@ test('fatia 2 P8: a falha de git do commit MCP diz o subcomando e o codigo, sem 
     assert.equal(falha(['rev-parse', '--verify', '--quiet', 'refs/heads/nao-existe']), 'mcp.git.command.failed: git rev-parse saiu 1');
     // O stderr do git (o "ignored by one of your .gitignore files") nao chega ao erro.
     assert.doesNotMatch(falha(['add', '--', 'fontes/novo.txt']), /ignored|hint|fontes/);
+    // CHECK, rodada 1 (S4): sinal antes de erro; prazo e buffer matam o git que ja executou.
+    const erro = (code: string): Error => Object.assign(new Error(code), { code });
+    assert.equal(comoOGitSaiu({ status: null, signal: 'SIGKILL', error: erro('ETIMEDOUT') }), 'interrompido por SIGKILL (ETIMEDOUT)');
+    assert.equal(comoOGitSaiu({ status: null, signal: 'SIGTERM', error: erro('ENOBUFS') }), 'interrompido por SIGTERM (ENOBUFS)');
+    assert.equal(comoOGitSaiu({ status: null, signal: null, error: erro('ENOENT') }), 'nao executou (ENOENT)');
+    assert.equal(comoOGitSaiu({ status: 128, signal: null }), 'saiu 128');
   } finally { limpar(dir); }
 });
 
