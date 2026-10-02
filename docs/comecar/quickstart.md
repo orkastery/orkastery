@@ -22,8 +22,9 @@ roda `verify`, fecha MASTER e usa todo o resto. O que você não consegue é **d
 Só com o Codex: o setup padrão despacha todo bloco pelo `claude-bg`, e o `ork doctor` reprova a
 falta do `claude` enquanto algum bloco de modo permitido despachar por ele. Depois do `ork init`,
 passe cada bloco para o Codex com `ork setup <modo> --bloco N --runtime codex --model <modelo>`
-(`ork setup <modo>` lista os blocos), ou tire o modo de `conduction.allowed_modes`; a partir daí, a
-falta do `claude` é só aviso.
+(`ork setup <modo>` lista os blocos), ou tire o modo de `conduction.allowed_modes` (o
+`conduction.default_mode` segue entre os permitidos); a partir daí, a falta do `claude` é só aviso,
+e só o `ork audit run` ainda despacha por ele.
 
 ---
 

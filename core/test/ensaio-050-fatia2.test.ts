@@ -118,14 +118,15 @@ test('fatia 2 P1: doctor so reprova o claude-bg quando um bloco permitido despac
     assert.equal(editarBloco(p.dir, 'auto', 1, { runtime: 'codex', model: 'gpt-5.5' }).ok, true);
     const soAuto = checarRuntimeClaude(p.carregado, null, null);
     assert.equal(soAuto.nivel, 'warn', soAuto.detalhe);
-    assert.equal(soAuto.detalhe, 'binario `claude` fora do PATH (opcional: nenhum bloco dos modos permitidos despacha pelo claude-bg)');
+    assert.equal(soAuto.detalhe, 'binario `claude` fora do PATH (opcional para as fases: nenhum bloco dos modos permitidos despacha ' +
+      'pelo claude-bg; o ork audit run ainda despacha por ele)');
     assert.deepEqual(blocosDoRuntime(p.carregado, 'claude-bg'), { principal: [], fallback: [] }, 'o #Classic no claude-bg nao e permitido');
 
     // Fallback no claude-bg avisa, sem reprovar.
     assert.equal(editarBloco(p.dir, 'auto', 1, { fallback: ['claude-bg:opus'] }).ok, true);
     const comFallback = checarRuntimeClaude(exigirManifesto(p.dir), null, null);
     assert.equal(comFallback.nivel, 'warn');
-    assert.match(comFallback.detalhe, /o fallback de 1 bloco\(s\) cai nele e falharia: #Auto 1\)$/);
+    assert.match(comFallback.detalhe, /o fallback de 1 bloco\(s\) cai nele e falharia: #Auto 1; o ork audit run ainda despacha por ele\)$/);
 
     // Todos os modos de volta e todos os blocos no Codex: a falta continua aviso.
     ajustarManifesto(p, /allowed_modes: \[auto\]/, 'allowed_modes: [classic, maestro, auto, fast]');
@@ -133,6 +134,14 @@ test('fatia 2 P1: doctor so reprova o claude-bg quando um bloco permitido despac
       MODOS[modo].blocos.forEach((_, i) => assert.equal(editarBloco(p.dir, modo, i + 1, { runtime: 'codex', model: 'gpt-5.5' }).ok, true));
     }
     assert.equal(checarRuntimeClaude(exigirManifesto(p.dir), null, null).nivel, 'warn');
+
+    // O lado seguro: setup ilegivel ou manifesto com erro valem o padrao, e a falta do claude reprova.
+    const setupLocal = path.join(p.dir, '.orkastery', 'setup.json');
+    fs.writeFileSync(setupLocal, '{ setup quebrado');
+    assert.equal(blocosDoRuntime(exigirManifesto(p.dir), 'claude-bg'), null);
+    assert.equal(checarRuntimeClaude(exigirManifesto(p.dir), null, null).nivel, 'fail');
+    fs.rmSync(setupLocal);
+    assert.equal(checarRuntimeClaude({ ...exigirManifesto(p.dir), erros: ['manifesto de teste com erro'] }, null, null).nivel, 'fail');
   } finally { p.limpar(); }
 });
 
@@ -157,6 +166,10 @@ test('fatia 2 P1: despacho pelo codex vale quando um bloco permitido despacha po
       ajustarManifesto(q, /adapter: claude-bg/, 'adapter: codex');
       assert.equal(checarDespachoPeloCodex(q.carregado, null, null)?.detalhe,
         'runtime.adapter: codex, mas o binario `codex` esta fora do PATH');
+      // As duas origens juntas.
+      assert.equal(editarBloco(q.dir, 'auto', 1, { runtime: 'codex', model: 'gpt-5.5' }).ok, true);
+      assert.match(checarDespachoPeloCodex(exigirManifesto(q.dir), null, null)?.detalhe ?? '',
+        /^runtime\.adapter: codex e 1 bloco\(s\) dos modos permitidos no codex \(#Auto 1\), mas /);
     } finally { q.limpar(); }
 
     // A CLI, sem claude nem codex no PATH: os dois checks reprovam, cada um com a origem.
@@ -164,6 +177,8 @@ test('fatia 2 P1: despacho pelo codex vale quando um bloco permitido despacha po
     assert.notEqual(r.status, 0);
     assert.match(r.stdout, /^ {2}\[FAIL\] despacho pelo codex +1 bloco\(s\) dos modos permitidos no codex \(#Auto 1\)/m, r.stdout);
     assert.match(r.stdout, /^ {2}\[FAIL\] runtime claude-bg +binario `claude` fora do PATH; \d+ bloco\(s\)/m);
+    // Com o projeto despachando pelo codex, a falta dele nao e "opcional" (CHECK, rodada 1, S6).
+    assert.match(r.stdout, /^ {2}\[warn\] runtime codex +binario `codex` fora do PATH \(o projeto despacha por ele: veja despacho pelo codex\)$/m);
   } finally { p.limpar(); limpar(bin, casa); }
 });
 

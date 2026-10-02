@@ -248,17 +248,20 @@ export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude
   if (claude) return { nome, nivel: 'ok', detalhe: `${claude} (${versao ?? 'versao desconhecida'})` };
   const blocos = carregado && carregado.erros.length === 0 ? blocosDoRuntime(carregado, 'claude-bg') : null;
   if (blocos && blocos.principal.length === 0) {
+    // CHECK, rodada 1 (S6): as fases nao precisam dele, mas o `ork audit run` despacha sempre pelo claude-bg.
     return { nome, nivel: 'warn',
-      detalhe: 'binario `claude` fora do PATH (opcional: nenhum bloco dos modos permitidos despacha pelo claude-bg' +
+      detalhe: 'binario `claude` fora do PATH (opcional para as fases: nenhum bloco dos modos permitidos despacha pelo claude-bg' +
         (blocos.fallback.length
-          ? `; o fallback de ${blocos.fallback.length} bloco(s) cai nele e falharia: ${textoDosBlocos(blocos.fallback)}` : '') + ')',
-      correcao: 'para despachar pelo claude-bg, instale o Claude Code e garanta `claude` no PATH' };
+          ? `; o fallback de ${blocos.fallback.length} bloco(s) cai nele e falharia: ${textoDosBlocos(blocos.fallback)}` : '') +
+        '; o ork audit run ainda despacha por ele)',
+      correcao: 'para despachar pelo claude-bg (e rodar ork audit run), instale o Claude Code e garanta `claude` no PATH' };
   }
   return { nome, nivel: 'fail',
     detalhe: 'binario `claude` fora do PATH' + (blocos
       ? `; ${blocos.principal.length} bloco(s) dos modos permitidos despacham por ele (${textoDosBlocos(blocos.principal)})` : ''),
     correcao: 'instale o Claude Code e garanta `claude` no PATH; so com o Codex, passe cada bloco para ele ' +
-      '(ork setup <modo> --bloco N --runtime codex --model <modelo>) ou tire o modo de conduction.allowed_modes' };
+      '(ork setup <modo> --bloco N --runtime codex --model <modelo>) ou tire o modo de conduction.allowed_modes ' +
+      '(o conduction.default_mode segue entre os permitidos)' };
 }
 
 /**
@@ -341,12 +344,18 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   // padrao, e um projeto que nunca pediu codex nao pode ficar bloqueado por ele.
   const codex = codexAdapter.disponivel();
   const codexVersao = codex ? codexAdapter.versao() : null;
+  // CHECK, rodada 1 (S6): com o projeto despachando pelo codex, a falta dele nao e "opcional"; quem
+  // reprova e o check `despacho pelo codex`, mais abaixo.
+  const usaCodex = !!carregado && carregado.erros.length === 0 && (carregado.manifesto.runtime.adapter === 'codex' ||
+    (blocosDoRuntime(carregado, 'codex')?.principal.length ?? 0) > 0);
   checks.push({
     nome: 'runtime codex',
     nivel: codex ? 'ok' : 'warn',
     detalhe: codex
       ? `${codex} (${codexVersao ?? 'versao desconhecida'})`
-      : 'binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)',
+      : usaCodex
+        ? 'binario `codex` fora do PATH (o projeto despacha por ele: veja despacho pelo codex)'
+        : 'binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)',
     correcao: codex
       ? undefined
       : 'para despachar pelo codex, instale o Codex CLI e autentique com `codex login`',
