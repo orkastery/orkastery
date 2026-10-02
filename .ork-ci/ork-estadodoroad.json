@@ -1,0 +1,407 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-estadodoroad",
+  "branch": "ork/ork-estadodoroad-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
+      "alegacao": "RM-025: o B4.1 aparece mesclado pelo PR #21 (merge a17ff88, que esta na base) e em producao na 0.5.0, com o CI do merge e da versao no frontmatter; a branch da thread sumiu do estado; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-025-company-brain-fundacao.md && grep -qF 'pr: 21' $f && grep -qF 'release: v0.5.0' $f && grep -qF 'run 36563382672' $f && grep -qF 'commit: a17ff88' $f && grep -qF 'B4.1 na `main` pelo PR #21' $f && ! grep -qF 'ork/ork-companybrai3-full' $f && git merge-base --is-ancestor a17ff88 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:20:38.311Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "a17ff88",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-026-workspace-empresarial.md",
+      "alegacao": "RM-026: o K3.1 aparece mesclado pelo PR #27 (merge 46220bc) e o contexto citavel pelo PR #21 (a17ff88), os dois na base e em producao na 0.5.0, com o CI no frontmatter; as branches das threads sumiram do estado; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-026-workspace-empresarial.md && grep -qF 'commit: 46220bc' $f && grep -qF 'pr: 27' $f && grep -qF 'release: v0.5.0' $f && grep -qF 'run 36662685901' $f && grep -qF '(K3.1) na `main` pelo PR #27' $f && ! grep -qF 'ork/ork-rm026k3dossi-full' $f && ! grep -qF 'ork/ork-companybrai3-full' $f && git merge-base --is-ancestor 46220bc HEAD && git merge-base --is-ancestor a17ff88 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:20:41.568Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "46220bc",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-033-dossie-de-decisao.md",
+      "alegacao": "FEAT-033 vigente aponta a versao da main (main@46220bc, PR #27) em vez da branch da thread, com a linha de historico da publicacao na 0.5.0; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-033-dossie-de-decisao.md && grep -qx 'versao: main@46220bc' $f && grep -qx 'estado: vigente' $f && grep -qF 'publicada na 0.5.0' $f && ! grep -qF 'ork/ork-rm026k3dossi-full' $f && git merge-base --is-ancestor 46220bc HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:20:44.169Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "46220bc",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031: codigo Mesclado com o merge do KG3 (PR #35, c507a3a) e os do KG1 (PR #20) e KG2 (PR #32) na base, testes Aprovados pelo CI, deploy Producao na 0.5.0; o proximo passo nao pede mais o merge do KG3 e a pagina nao diz mais que o KG3 esta na branch; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-031-grafo-de-codigo.md && grep -qx '  codigo: Mesclado' $f && grep -qx '  testes: Aprovados' $f && grep -qF 'commit: c507a3a' $f && grep -qF 'pr: 35' $f && grep -qF 'release: v0.5.0' $f && grep -qF 'KG3, mesclado (PR #35' $f && ! grep -qF 'merge do KG3 com o CI verde' $f && ! grep -qF 'KG3 na branch da thread' $f && git merge-base --is-ancestor c507a3a HEAD && git merge-base --is-ancestor d2b180e HEAD && git merge-base --is-ancestor 8589330 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:21:33.378Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "c507a3a",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "RM-037: evidencia do codigo no merge mais recente (PR #34, 36def09), com os PR #28 (baf065e) e #18 (a61e1e4, na 0.4.3) na base; deploy na 0.5.0 e na 0.4.3; a linha Falta nao cita mais P2 nem o lint de claim, que existem desde 10ca416, e segue com o verify ciente do steal; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-037-verify-rapido-e-confiavel.md && grep -qF 'commit: 36def09' $f && grep -qF 'pr: 34' $f && grep -qF 'thread: ork-rm037noite' $f && grep -qF 'PR #28, merge `baf065e`' $f && grep -qF 'PR #18, merge `a61e1e4`, na vers' $f && ! grep -qF 'Falta: compila' $f && grep -qF 'verify ciente do steal; nenhum' $f && git merge-base --is-ancestor 36def09 HEAD && git merge-base --is-ancestor baf065e HEAD && git merge-base --is-ancestor a61e1e4 HEAD && git grep -q sha-intermediario 10ca416 -- core/src/claim-lint.ts && ! grep -rqi steal core/src",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:23:18.275Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "36def09",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C6",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+      "alegacao": "RM-038: codigo Mesclado pelo PR #30 (merge 1041f1b, na base), testes Aprovados pelo CI, deploy Producao na 0.5.0 e ciclo Em validacao ate a chave dedicada; a pagina nao diz mais que o GO esta na branch; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-038-busca-semantica-na-memoria.md && grep -qx '  codigo: Mesclado' $f && grep -qx '  testes: Aprovados' $f && grep -qF 'commit: 1041f1b' $f && grep -qF 'pr: 30' $f && grep -qF 'release: v0.5.0' $f && grep -qF 'pelo PR #30' $f && ! grep -qF 'GO conclu' $f && git merge-base --is-ancestor 1041f1b HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:23:21.366Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1041f1b",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C7",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-017-memoria-orkmind.md",
+      "alegacao": "FEAT-017: a busca por significado deixa de constar como em entrega e aparece publicada pelo PR #30 (1041f1b) na 0.5.0, com a versao main@1041f1b; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-017-memoria-orkmind.md && grep -qx 'versao: main@1041f1b' $f && ! grep -qF 'Em entrega:' $f && grep -qF 'PR #30 (merge `1041f1b`)' $f && git merge-base --is-ancestor 1041f1b HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:23:23.764Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "1041f1b",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C8",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
+      "alegacao": "RM-048: deploy Producao na 0.5.0 com o merge do PR #19 (8d47740, na base) e o CI no frontmatter; ciclo segue Em validacao pelo piloto; a proxima acao nao pede mais o merge do PR; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-048-hitl-humano-no-centro.md && grep -qx '  deploy: Produção' $f && grep -qx '  ciclo: Em validação' $f && grep -qF 'pr: 19' $f && grep -qF 'run 36562093369' $f && grep -qF 'release: v0.5.0' $f && ! grep -qF 'merge do PR da thread `ork-hitlhumanono` pelo condutor' $f && git merge-base --is-ancestor 8d47740 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:25:00.492Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-049-lancamento.md",
+      "alegacao": "RM-049: so o plugin nos marketplaces, mesclado pelo PR #26 (f0b7925, na base) e na 0.5.0, com testes Aprovados pelo CI do PR e da versao e a reprovacao da claim S9 no push do merge declarada; sem data de outubro a dezembro, sem H1 a H5, sem paises e sem lancamento/; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-049-lancamento.md && grep -qF 'pr: 26' $f && grep -qx '  testes: Aprovados' $f && grep -qF 'run 36660154276' $f && grep -qF 'run 36660497346' $f && grep -qF 'release: v0.5.0' $f && ! grep -qiE 'lancamento/|H[1-5]\\b|países|[0-9]{2}/1[0-2]/2026' $f && git merge-base --is-ancestor f0b7925 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:25:04.038Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-050-guia-de-contribuicao.md",
+      "alegacao": "RM-050: parte do Orkastery mesclada pelo PR #22 (3c7e8a7, na base) e na 0.5.0, guia do OrkMind entregue por orkastery/orkmind PR #6 (merge c78a7f3), testes Aprovados pelo CI; segue Em desenvolvimento pela pagina dos sites e pelo rotulo needs triage; a proxima acao nao pede mais o merge; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-050-guia-de-contribuicao.md && grep -qF 'pr: 22' $f && grep -qx '  testes: Aprovados' $f && grep -qF 'orkastery/orkmind PR #6, merge c78a7f3' $f && grep -qF 'run 36564117438' $f && grep -qx '  ciclo: Em desenvolvimento' $f && ! grep -qF 'merge do PR com o CI verde' $f && ! grep -qF 'e o guia do OrkMind.' $f && git merge-base --is-ancestor 3c7e8a7 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:25:07.564Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "c78a7f3",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C11",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-051-pacote-de-experiencia.md",
+      "alegacao": "RM-051: codigo Mesclado pelo PR #33 (732ce8d, na base), deploy Producao na 0.5.0 e ciclo Disponivel (nao Concluido, sem metrica de adocao); a pagina nao cita mais o commit da branch nem \"sem PR, release ou deploy\"; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-051-pacote-de-experiencia.md && grep -qx '  codigo: Mesclado' $f && grep -qx '  ciclo: Disponível' $f && grep -qF 'commit: 732ce8d' $f && grep -qF 'pr: 33' $f && grep -qF 'release: v0.5.0' $f && ! grep -qF '868e97484c5e' $f && ! grep -qF 'sem PR, release ou deploy' $f && git merge-base --is-ancestor 732ce8d HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:26:10.705Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "732ce8d",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C12",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-034-pacote-de-experiencia.md",
+      "alegacao": "FEAT-034 vigente na versao main@732ce8d (PR #33), publicada na 0.5.0; nao diz mais em desenvolvimento nem que nao ha release; a varredura publica da RM-051 e o docs verificar passam",
+      "negativa": true,
+      "verificar": [
+        "f=docs/produto/FEAT-034-pacote-de-experiencia.md && grep -qx 'estado: vigente' $f && grep -qx 'versao: main@732ce8d' $f && ! grep -qF 'em desenvolvimento' $f && ! grep -qF 'release comprovada' $f && git merge-base --is-ancestor 732ce8d HEAD && node core/scripts/checar-experiencia-publica.cjs",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:26:13.600Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "732ce8d",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/guias/orchestration-experience.md",
+      "alegacao": "O guia em ingles diz que o pacote saiu no @orkastery/cli 0.5.0 (tag v0.5.0, PR #33) e nao diz mais unreleased; o markdownlint do arquivo passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/guias/orchestration-experience.md && grep -qF 'Released in `@orkastery/cli` 0.5.0 (tag `v0.5.0`), merged through PR #33.' $f && ! grep -qi 'unreleased' $f && git merge-base --is-ancestor 732ce8d HEAD",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/orchestration-experience.md"
+      ],
+      "criadoEm": "2026-10-01T05:26:16.248Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/guias/orchestration-experience.pt-BR.md",
+      "alegacao": "O guia em pt-BR diz que o pacote saiu no @orkastery/cli 0.5.0 (tag v0.5.0, PR #33) e a frase antiga de mudanca nao publicada saiu; o markdownlint do arquivo passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/guias/orchestration-experience.pt-BR.md && grep -qF 'Publicado no `@orkastery/cli` 0.5.0 (tag `v0.5.0`), com o merge do PR #33.' $f && ! grep -qF 'Esta mudança permanece em' $f && git merge-base --is-ancestor 732ce8d HEAD",
+        "core/node_modules/.bin/markdownlint-cli2 docs/guias/orchestration-experience.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-01T05:26:53.071Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-052-projeto-alvo-explicito.md",
+      "alegacao": "RM-052: deploy Producao na 0.5.0 com o merge do PR #24 (a24a187, na base) e o CI no frontmatter; segue Em validacao pela reinstalacao da extensao e pelo piloto; a proxima acao nao pede mais o merge; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-052-projeto-alvo-explicito.md && grep -qx '  deploy: Produção' $f && grep -qx '  ciclo: Em validação' $f && grep -qF 'pr: 24' $f && grep -qF 'run 36659111443' $f && grep -qF 'release: v0.5.0' $f && ! grep -qF 'revisão e merge do PR da thread pelo mantenedor' $f && git merge-base --is-ancestor a24a187 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:27:40.600Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-030-projeto-alvo-explicito.md",
+      "alegacao": "FEAT-030 passa de proposto a vigente na versao main@a24a187 (PR #24), publicada na 0.5.0, sem apontar a branch da thread; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-030-projeto-alvo-explicito.md && grep -qx 'estado: vigente' $f && grep -qx 'versao: main@a24a187' $f && ! grep -qF 'proposto' $f && ! grep -qF 'ork/ork-rm052projeto-full' $f && git merge-base --is-ancestor a24a187 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:27:42.483Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "a24a187",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C18",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+      "alegacao": "RM-054: codigo Mesclado com a fatia 2 (PR #29, 6ea7acb) e a fatia 1 (PR #25, b64d2f2) na base, deploy Producao na 0.5.0 e ciclo Em desenvolvimento pela fatia 3; a proxima acao nao pede mais o merge da fatia 2; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md && grep -qx '  codigo: Mesclado' $f && grep -qx '  ciclo: Em desenvolvimento' $f && grep -qF 'commit: 6ea7acb' $f && grep -qF 'pr: 29' $f && grep -qF 'release: v0.5.0' $f && grep -qF 'Fatia 2 na `main` pelo PR #29' $f && ! grep -qF 'revisar e mesclar o PR da fatia 2' $f && ! grep -qF 'fatia 2 em PR' $f && git merge-base --is-ancestor 6ea7acb HEAD && git merge-base --is-ancestor b64d2f2 HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:28:49.780Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "6ea7acb",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C19",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-032-roadmap-da-rede.md",
+      "alegacao": "FEAT-032 passa de em desenvolvimento a vigente na versao main@6ea7acb (PR #29), publicada na 0.5.0, com a fatia 3 declarada em aberto e sem apontar a branch da thread; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/FEAT-032-roadmap-da-rede.md && grep -qx 'estado: vigente' $f && grep -qx 'versao: main@6ea7acb' $f && ! grep -qF 'em desenvolvimento' $f && ! grep -qF 'ork/ork-rm054fatia2-full' $f && grep -qF 'a fatia 3 da RM-054 segue em aberto' $f && git merge-base --is-ancestor 6ea7acb HEAD",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:28:52.417Z",
+      "estado": "verificado",
+      "lint": [
+        {
+          "regra": "sha-intermediario",
+          "trecho": "6ea7acb",
+          "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
+        }
+      ]
+    },
+    {
+      "id": "C21",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "O indice de produto mostra FEAT-030, FEAT-032, FEAT-033 e FEAT-034 vigentes, como o frontmatter delas; o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/produto/README.md && for id in FEAT-030 FEAT-032 FEAT-033 FEAT-034; do grep -E \"^\\| \\[$id\\]\" $f | grep -qF '| vigente |' || exit 1; done && ! grep -E '^\\| \\[FEAT-03[0-4]\\]' $f | grep -qE '\\| (proposto|em desenvolvimento) \\|'",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:29:36.045Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O indice do roadmap bate com o frontmatter: inclui a RM-051, que faltava, e mostra Mesclado, Aprovados e Producao em RM-031, RM-038, RM-048, RM-049, RM-050, RM-051, RM-052 e RM-054; o sincronizar dos 11 itens da thread nao tem o que mudar e o docs verificar passa",
+      "negativa": false,
+      "verificar": [
+        "f=docs/roadmap/README.md && grep -qF '| [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experi' $f && for id in RM-031 RM-038 RM-048 RM-049 RM-050 RM-051 RM-052 RM-054; do grep -E \"^\\| \\[$id\\]\" $f | grep -qF '| Mesclado | Aprovados | Produ' || exit 1; done && node core/dist/index.js docs sincronizar --so RM-025,RM-026,RM-031,RM-037,RM-038,RM-048,RM-049,RM-050,RM-051,RM-052,RM-054 | grep -qF 'bate com o ledger e o git'",
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-01T05:30:01.558Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-estadodoroad",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-estadodoroad.json",
+      "alegacao": "Bundle por thread da ork-estadodoroad: e da thread e da branch dela, leva as claims e nao leva caminho de maquina nem e-mail",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=require('./.ork-ci/ork-estadodoroad.json'); if (b.schema!=='ork.ci-bundle/v1' || b.thread!=='ork-estadodoroad' || b.branch!=='ork/ork-estadodoroad-go' || b.claims.length<20) process.exit(1)\" && ! grep -IEl '/hom[e]/|/User[s]/|[[:alnum:]._%+-]+@[[:alnum:]-]+[.][[:alpha:]]{2,}' .ork-ci/ork-estadodoroad.json"
+      ],
+      "criadoEm": "2026-10-01T05:36:40.137Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

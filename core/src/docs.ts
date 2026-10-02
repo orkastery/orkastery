@@ -180,6 +180,13 @@ export interface OpcoesDeVerificacao {
   ajudaDoCli?: string;
   /** Desliga as checagens que chamam git (teste de unidade sem repositorio). */
   semGit?: boolean;
+  /**
+   * RM-037 (fatia 3, GO-FIX 2): o verificador roda num PR. O merge de outra thread com o item fora de
+   * `Mesclado` e o indice que diverge vivem na `main`, nao no PR: aqui viram aviso, e quem reprova e o
+   * push da `main`. Sem isso, a pagina de outra thread travava todo PR, inclusive o de fora, na janela
+   * entre o merge e o PR de docs que o sincroniza.
+   */
+  pr?: boolean;
 }
 
 function erro(arquivo: string, id: string | undefined, regra: string, mensagem: string, correcao?: string): Achado {
@@ -267,9 +274,11 @@ export function verificarDocs(raiz: string, opcoes: OpcoesDeVerificacao = {}): {
     verificarFontes(raiz, d, comandos, achados);
     if (d.tipo === 'roadmap') {
       verificarEstadoDoRoadmap(raiz, d, base, achados);
+      if (base) verificarMergeDaThread(raiz, d, base, achados, opcoes.pr === true);
       verificarTabelasDeEstado(d, achados);
     }
   }
+  verificarIndices(raiz, docs, achados, opcoes.pr === true);
   return { docs, achados };
 }
 
@@ -582,6 +591,59 @@ function verificarEstadoDoRoadmap(raiz: string, d: Documento, base: string | nul
   }
 }
 
+/**
+ * RM-037 (fatia 3, defeito 1): o outro sentido da paridade com o git. Depois do merge do PR, o
+ * frontmatter da RM-049 (#26) e da RM-051 (#33) seguiu em "Branch criada", e o verificador dizia OK:
+ * ele so conferia que `Mesclado` tem o commit na base. O merge desta fabrica e pelo GitHub, sem o
+ * `ork ship` no caminho, entao a prova mora aqui, no job que o CI obrigatorio roda. A regra usa o
+ * mesmo `ship(<thread>)` do `sincronizarDocs`: tudo o que ela acusa o `sincronizar` corrige.
+ */
+function verificarMergeDaThread(raiz: string, d: Documento, base: string, achados: Achado[], pr = false): void {
+  const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
+  const thread = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread.trim() : '';
+  if (!thread) return;
+  const merges = mergesDaThreadNoGit(raiz, thread, base);
+  if (merges.length === 0) return;
+  const codigo = String((ehMapa(d.dados.estado) ? d.dados.estado.codigo : null) ?? '');
+  if (codigo === 'Mesclado') return;
+  achados.push((pr ? aviso : erro)(d.arquivo, d.id, 'docs.paridade.merge',
+    `a thread ${thread} entrou na ${base} pelo merge ${merges[0].slice(0, 7)} (ship(${thread})), e o estado.codigo diz "${codigo || 'vazio'}"` +
+      (pr ? ' (no PR, aviso: o push da main reprova)' : ''),
+    `abra um PR de docs sobre a ${base} atualizada com ork docs sincronizar --escrever --so ${d.id} (o item e os índices); ` +
+      `se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela`));
+}
+
+/** Os indices gerados (`docs/roadmap/README.md`, `docs/produto/README.md`) e o que o frontmatter diz. */
+const INDICES_GERADOS: ReadonlyArray<[string, (docs: Documento[]) => string]> = [
+  [`${DIR_ROADMAP}/README.md`, (docs) => tabelaDoRoadmap(docs)],
+  [`${DIR_PRODUTO}/README.md`, (docs) => tabelaDoProduto(docs)],
+];
+
+/**
+ * RM-037 (fatia 3, defeito 1): o indice e uma vista do frontmatter, como as tabelas do corpo, e mentia
+ * do mesmo jeito: sem a RM-051 e com a RM-031 de antes. Divergente reprova; vazio (o modelo recem-copiado
+ * pelo `ork docs init`) so avisa; sem os marcadores, nao ha indice gerado para conferir.
+ */
+function verificarIndices(raiz: string, docs: Documento[], achados: Achado[], pr = false): void {
+  for (const [arquivo, gerar] of INDICES_GERADOS) {
+    const abs = path.join(raiz, arquivo);
+    if (!fs.existsSync(abs)) continue;
+    // Checkout com CRLF (Windows com core.autocrlf) nao e divergencia: as paginas tambem normalizam.
+    const atual = blocoEntre(fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n'), INICIO, FIM);
+    if (atual === null) continue;
+    if (atual === '') {
+      if (docs.length > 0) {
+        achados.push(aviso(arquivo, undefined, 'docs.paridade.indice', 'o índice ainda não foi gerado',
+          'rode ork docs sincronizar --escrever'));
+      }
+    } else if (atual !== gerar(docs)) {
+      achados.push((pr ? aviso : erro)(arquivo, undefined, 'docs.paridade.indice',
+        `o índice diverge do frontmatter das páginas${pr ? ' (no PR, aviso: o push da main reprova)' : ''}`,
+        'o índice é gerado do frontmatter: rode ork docs sincronizar --escrever e commite o índice'));
+    }
+  }
+}
+
 // --------------------------------------------------------------------------------------------
 // Saida para humano (TDAH) e para agente
 
@@ -697,11 +759,24 @@ export function mergeDaThread(raiz: string, thread: string, base: string): { sha
       .find((e) => git(raiz, ['merge-base', '--is-ancestor', String(e.mergeSha), base]).ok);
     if (ship) return { sha: String(ship.mergeSha).slice(0, 7), fonte: 'ledger ship_done' };
   } catch { /* thread sem estado nesta maquina: cai para o git */ }
-  // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
-  const log = git(raiz, ['log', base, '--reverse', '--format=%H', '--fixed-strings', `--grep=ship(${thread})`]);
-  const primeiro = log.ok ? log.saida.split('\n')[0] : '';
+  const primeiro = mergesDaThreadNoGit(raiz, thread, base)[0];
   if (primeiro) return { sha: primeiro.slice(0, 7), fonte: `git log ${base}` };
   return null;
+}
+
+/**
+ * Os commits `ship(<thread>)` da base, do mais velho ao mais novo, so pelo git (o CI nao tem ledger).
+ * RM-037 (fatia 3): um lugar so para o `sincronizarDocs` e o `verificarDocs` acharem o mesmo merge.
+ */
+export function mergesDaThreadNoGit(raiz: string, thread: string, base: string): string[] {
+  // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
+  // GO-FIX 2 (achado 4 do CHECK): so a linha de primeiro pai da base e o assunto que COMECA com
+  // `ship(<thread>)`, como no `mergeDaEntrega`. Commit que cita o merge no corpo, ou o Revert dele, nao e merge.
+  const log = git(raiz, ['log', base, '--first-parent', '--reverse', '--format=%H%x09%s', '--fixed-strings', `--grep=ship(${thread})`]);
+  if (!log.ok) return [];
+  return log.saida.split('\n').map((l) => l.split('\t'))
+    .filter(([sha, assunto]) => !!sha && typeof assunto === 'string' && assunto.startsWith(`ship(${thread})`))
+    .map(([sha]) => sha);
 }
 
 function temBranch(raiz: string, thread: string): boolean {

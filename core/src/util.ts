@@ -34,6 +34,23 @@ export function exec(cmd: string, args: string[], cwd?: string, timeoutMs = 1200
   };
 }
 
+/** O commit quando o repositorio ainda nao tem commit (base da thread, HEAD do verify). */
+export const COMMIT_DESCONHECIDO = 'desconhecido';
+
+/**
+ * Sha para exibir: 8 caracteres quando o valor e um sha hexadecimal (SHA-1 ou SHA-256); qualquer
+ * outro valor, como o marcador de repositorio sem commit, sai inteiro (o ensaio da 0.5.0 viu "desconhe").
+ */
+export function shaCurto(valor: string): string {
+  return /^[0-9a-f]{7,64}$/i.test(valor) ? valor.slice(0, 8) : valor;
+}
+
+/** A branch para onde o HEAD aponta, com ou sem commit; `null` com o HEAD destacado. */
+export function branchDoHead(dir: string): string | null {
+  const r = exec('git', ['symbolic-ref', '--quiet', '--short', 'HEAD'], dir);
+  return r.ok && r.stdout.trim() ? r.stdout.trim() : null;
+}
+
 /** O binario esta no PATH? */
 export function noPath(bin: string): string | null {
   const r = exec('which', [bin]);

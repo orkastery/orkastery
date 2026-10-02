@@ -2,13 +2,13 @@
 id: FEAT-034
 tipo: feature
 titulo: Pacote de experiência de orquestração
-estado: em desenvolvimento
+estado: vigente
 pai: MOD-06
 roadmap: [RM-051]
 owner: Equipe Orkastery
 aprovador: Manutenção Orkastery
-verificado_em: 2026-09-30T00:20:00-03:00
-versao: branch@868e974
+verificado_em: 2026-10-01T02:40:00-03:00
+versao: main@732ce8d
 fontes:
   codigo: [core/src/experiencia.ts, core/src/experiencia-instalacao.ts, core/src/onboarding.ts, core/src/hosts.ts, core/src/mcp-experiencia.ts]
   testes: [core/test/experiencia-config.test.ts, core/test/experiencia-instalacao.test.ts, core/test/adapter-experiencia.test.ts, core/test/mcp-experiencia.test.ts, core/test/experiencia-distribuicao.test.ts]
@@ -21,7 +21,7 @@ fontes:
 
 > **Em uma frase:** preferências de idioma, fuso e profundidade orientam a conversa de orquestração nos hosts, com opt-out e restauração dos arquivos de instrução.
 
-- **Estado:** em desenvolvimento até o merge; na branch, testes e ensaio real de tarball verdes, e revisão independente final sem bloqueador.
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@732ce8d (PR #33), publicada na 0.5.0
 - **Onde fica:** [integração com hosts](MOD-06-integracao-com-hosts.md).
 - **Roadmap:** [RM-051](../roadmap/RM-051-pacote-de-experiencia.md).
 
@@ -39,7 +39,7 @@ Preferências: `owner.language`, `owner.timezone`, `owner.depth` e `owner.experi
 
 Claude Code e Codex recebem blocos de projeto; Hermes recebe referências pela skill existente. OpenClaw permanece uma lacuna de distribuição. Opt-out não desativa policies ou gates, e nenhuma preferência muda a proveniência HMAC do HITL.
 
-O ensaio `node core/scripts/testar-experiencia-e2e.cjs` instala o tarball local em HOME e prefixo temporários e confere instalação, reinstalação, clone sem recibo, opt-out e remoção nos hosts. Não há release comprovada. O [guia bilíngue](../guias/orchestration-experience.pt-BR.md) descreve configuração, opt-out, remoção e limites.
+O ensaio `node core/scripts/testar-experiencia-e2e.cjs` instala o tarball local em HOME e prefixo temporários e confere instalação, reinstalação, clone sem recibo, opt-out e remoção nos hosts. Publicado na versão 0.5.0 (tag `v0.5.0`). O [guia bilíngue](../guias/orchestration-experience.pt-BR.md) descreve configuração, opt-out, remoção e limites.
 
 ## Histórico
 
@@ -49,3 +49,4 @@ O ensaio `node core/scripts/testar-experiencia-e2e.cjs` instala o tarball local 
 | 2026-09-29 | Implementação local e testes focados; aceite pendente | Equipe Orkastery | branch@2208305, RM-051 |
 | 2026-09-30 | CHECK independente e GO-FIX 2 a 5; ID passa de FEAT-030 a FEAT-031, que a main já usava | Equipe Orkastery | branch@868e974, RM-051 |
 | 2026-09-30 | ID passa de FEAT-031 a FEAT-034: a FEAT-031 ficou combinada para a RM-053 em outra máquina da rede, e nesta a FEAT-033 é da RM-026 | Equipe Orkastery | RM-051 |
+| 2026-10-01 | Vigente: mesclada pelo PR #33 e publicada na 0.5.0 | Equipe Orkastery | main@732ce8d, tag `v0.5.0` |

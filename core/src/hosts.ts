@@ -73,8 +73,8 @@ export const HOSTS: Readonly<Record<Host, DefinicaoDeHost>> = {
       {
         titulo: 'manifesto sem os caminhos das skills instala limpo e nao expoe nada',
         detalhe:
-          'o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara os 17 caminhos um a um',
-        prova: 'claude plugin details orkastery   # a contagem precisa bater com os SKILL.md em disco',
+          'o plugin auto-descobre skills/<nome>/SKILL.md e para ai: ele nao desce nos buckets (core/, phases/, reviewers/, ...) que este catalogo usa, entao o plugin.json declara cada caminho de skill, um a um',
+        prova: 'claude plugin details orkastery   # Skills (N) soma as skills do plugin.json e os comandos de commands/',
       },
       {
         titulo: 'duas copias do catalogo divergem',
@@ -631,7 +631,11 @@ export function textoDosPitfalls(host: Host): string {
 /** Texto de `ork adapter install`. */
 export function textoDaInstalacao(r: ResultadoInstalacao): string {
   const linhas: string[] = [];
-  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada' : 'desativada ou sem integração de skills'}${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
+  // Ensaio da 0.5.0: com o pacote ativo e pulado por aviso (catalogo fora do projeto), a linha dizia
+  // "desativada"; o aviso logo abaixo diz o motivo.
+  if (r.experiencia) linhas.push(`Experiência: ${r.experiencia.ativa ? 'ativação preparada'
+    : r.experiencia.aviso ? 'pacote pulado nesta instalação, veja o aviso abaixo' : 'desativada ou sem integração de skills'}` +
+    `${r.experiencia.skill ? ` (${r.experiencia.skill})` : ''}.`);
   if (r.experiencia?.aviso) linhas.push(`Aviso: ${r.experiencia.aviso}`);
   linhas.push(
     r.dryRun

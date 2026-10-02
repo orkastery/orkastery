@@ -19,7 +19,7 @@ import { validarAbbrev } from './slug';
 import { CHAVE_DO_FUSO, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTexto, normalizarFuso,
   rotuloDoFuso } from './horario';
 import { Check } from './types';
-import { exec, noPath, simbolo } from './util';
+import { branchDoHead, exec, noPath, simbolo } from './util';
 import { inventariarSessoes } from './sessoes-inventario';
 import { raizDoEstado } from './estado-thread';
 import { memoryState } from './project-state';
@@ -111,6 +111,63 @@ export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJ
     correcao: `exporte ${variavel} com a chave dedicada ao Orkastery (com limite de credito no painel do provider)` };
 }
 
+/** Acima disso a conferencia do dono do `.git` fica parcial (aviso), para o doctor nao pesar. */
+export const TETO_DO_DONO_DO_GIT = 200_000;
+
+/**
+ * RM-037 (fatia 3, defeito 7): git rodado como root no repositorio do dono deixa objeto, pasta e
+ * `FETCH_HEAD` com outro dono, e o git do dono deixa de gravar neles: o fetch travou em 29/09 e em
+ * 01/10. O dono do repositorio e o dono do diretorio comum do git. O check acusa com a contagem, ate
+ * tres exemplos e o `chown` exato; o doctor nunca roda nada. Fora de repositorio git, `null`.
+ */
+export function checarDonoDoGit(dirInicial: string,
+  opcoes: { lstat?: (p: string) => fs.Stats; teto?: number } = {}): Check | null {
+  const nome = 'dono do .git';
+  const comum = exec('git', ['rev-parse', '--git-common-dir'], dirInicial);
+  if (!comum.ok || !comum.stdout.trim()) return null;
+  const dirComum = path.resolve(dirInicial, comum.stdout.trim());
+  const lstat = opcoes.lstat ?? ((p: string) => fs.lstatSync(p));
+  let raiz: fs.Stats;
+  try { raiz = lstat(dirComum); } catch { return null; }
+  const teto = opcoes.teto ?? TETO_DO_DONO_DO_GIT;
+  const relativo = (f: string) => path.relative(path.dirname(dirComum), f);
+  // A correcao sai pronta para copiar: caminho com caractere fora do conjunto seguro vai entre aspas simples.
+  const noShell = (s: string) => /^[A-Za-z0-9._/-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
+  const estranhos: string[] = [], uids = new Set<number>();
+  let total = 0, vistos = 0, parcial = false;
+  const pilha = [dirComum];
+  while (pilha.length > 0 && !parcial) {
+    const atual = pilha.pop() as string;
+    let nomes: string[];
+    // Pasta que o dono nao consegue listar ja aparece pelo dono dela, na entrada de cima.
+    try { nomes = fs.readdirSync(atual); } catch { continue; }
+    for (const n of nomes) {
+      if (++vistos > teto) { parcial = true; break; }
+      const f = path.join(atual, n);
+      let st: fs.Stats;
+      try { st = lstat(f); } catch { continue; }
+      if (st.uid !== raiz.uid) {
+        total++;
+        uids.add(st.uid);
+        if (estranhos.length < 3) estranhos.push(relativo(f));
+      }
+      if (st.isDirectory()) pilha.push(f);
+    }
+  }
+  if (total > 0) {
+    return { nome, nivel: 'fail',
+      detalhe: `${total} entrada(s) de ${relativo(dirComum)} com outro dono (uid ${[...uids].sort((a, b) => a - b).join(', ')}; o do ` +
+        `repositorio e ${raiz.uid}): ${estranhos.join(', ')}${total > estranhos.length ? ', ...' : ''}; o git do dono nao grava nelas, ` +
+        `e o fetch e o commit falham${parcial ? ` (conferencia parcial: mais de ${teto} entradas)` : ''}`,
+      correcao: `sudo chown -R ${raiz.uid}:${raiz.gid} ${noShell(dirComum)} (o ork nao roda isso sozinho)` };
+  }
+  if (parcial) {
+    return { nome, nivel: 'warn', detalhe: `mais de ${teto} entradas em ${relativo(dirComum)}: conferencia parcial, sem outro dono ate aqui`,
+      correcao: `confira o resto com: find ${noShell(dirComum)} -not -uid ${raiz.uid}` };
+  }
+  return { nome, nivel: 'ok', detalhe: `${vistos} entradas de ${relativo(dirComum)} com o dono do repositorio (uid ${raiz.uid})` };
+}
+
 /** Checks locais; ler a entrevista não abre driver, banco, runtime ou rede. */
 export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   const estado = lerOnboarding(carregado.raiz);
@@ -126,9 +183,15 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
     checks.push({ nome: 'onboarding memoria', nivel: 'warn', detalhe: `entrevista escolheu ${modo}; manifesto declara ${carregado.manifesto.memory.mode}`,
       correcao: `revise memory.mode: ${modo} em orkastery.yaml; a entrevista não altera o manifesto` });
   }
-  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto.
+  // I-35: o fuso respondido na etapa maestro orienta owner.timezone, sem editar o manifesto. Com
+  // `owner.timezone` na mesma resposta (gravado no manifesto pelo `onboarding set`), vale ele: no
+  // ensaio da 0.5.0, o `fuso` legado da resposta anterior mandava desfazer a escolha explicita.
   const maestro = estado.etapas.maestro?.conteudo;
-  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? normalizarFuso(maestro.fuso) : undefined;
+  const owner = maestro && typeof maestro === 'object' && !Array.isArray(maestro) ? maestro.owner : undefined;
+  const fusoDoOwner = owner && typeof owner === 'object' && !Array.isArray(owner) ? (owner as Record<string, unknown>).timezone : undefined;
+  // Owner invalido (so por edicao a mao: o `onboarding set` recusa) nao cala o fuso legado.
+  const fusoDaEntrevista = maestro && typeof maestro === 'object' && !Array.isArray(maestro)
+    ? normalizarFuso(fusoDoOwner) ?? normalizarFuso(maestro.fuso) : undefined;
   if (fusoDaEntrevista && fusoDaEntrevista !== carregado.manifesto.owner?.timezone) {
     checks.push({ nome: 'onboarding fuso', nivel: 'warn',
       detalhe: `entrevista informou ${fusoDaEntrevista}; manifesto declara ${carregado.manifesto.owner?.timezone ?? `${CHAVE_DO_FUSO} ausente`}`,
@@ -159,13 +222,20 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 
   const repo = exec('git', ['rev-parse', '--is-inside-work-tree'], dirInicial);
   const dentroDeRepo = repo.ok && repo.stdout.trim() === 'true';
-  const branch = exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial);
+  // Ensaio da 0.5.0: sem commit, o `rev-parse --abbrev-ref` respondia "HEAD"; a branch vem do
+  // `symbolic-ref`, e a falta de commit fica dita.
+  const semCommit = dentroDeRepo && !exec('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], dirInicial).ok;
+  const branch = dentroDeRepo ? branchDoHead(dirInicial) ?? exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], dirInicial).stdout.trim() : '';
   checks.push({
     nome: 'repositorio',
     nivel: dentroDeRepo ? 'ok' : 'fail',
-    detalhe: dentroDeRepo ? `branch ${branch.stdout.trim()}` : 'fora de um repositorio git',
+    detalhe: dentroDeRepo ? `branch ${branch}${semCommit ? ' (sem commit)' : ''}` : 'fora de um repositorio git',
     correcao: dentroDeRepo ? undefined : 'rode o ork dentro de um repositorio git',
   });
+  if (dentroDeRepo) {
+    const dono = checarDonoDoGit(dirInicial);
+    if (dono) checks.push(dono);
+  }
 
   const claude = adapter.disponivel();
   const v = claude ? adapter.versao() : null;

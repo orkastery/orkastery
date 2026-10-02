@@ -81,4 +81,4 @@ MCP tools `ork_roadmap_reservas` and `ork_fabrica` accept `{}` (or only `projeto
 
 Focused tests cover preferences, blocks, fresh clones without receipt, conflicts, adapters and MCP contracts. Skill evals are static, not proof of real LLM behavior. From the product repository, `node core/scripts/testar-experiencia-e2e.cjs` installs a local tarball into temporary prefix/HOME, uses the installed binary and checks dry-run, reinstallation, fresh clone, opt-out, removal and restoration. Offline installation requires dependencies available in the npm cache.
 
-This change remains unreleased. A local commit or local test result is not SHIP.
+Released in `@orkastery/cli` 0.5.0 (tag `v0.5.0`), merged through PR #33. A local commit or local test result is not SHIP.

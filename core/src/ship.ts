@@ -26,7 +26,7 @@ import { tagDoModo } from './modos';
 import { avaliarPolicies, avisos, bloqueantes, linhasDeAviso, ViolacaoDePolicy } from './policies';
 import { dirThread, gravarThread, lerThread } from './thread';
 import { Lease, MotivoGate, Thread } from './types';
-import { agora, exec } from './util';
+import { agora, exec, shaCurto } from './util';
 import { comandoNoLedger, ExecutorVerify, ResultadoVerify, verificar } from './verify';
 import { consultarCi, ExecutorCi, ResultadoCi } from './ci';
 import { contratosTocados } from './contrato-publico';
@@ -769,7 +769,7 @@ export function textoDoShip(r: ResultadoShip): string {
   if (r.verificacao) {
     const v = r.verificacao;
     linhas.push(
-      `  verificacao   ${v.ok ? 'passou' : 'REPROVOU'} no HEAD ${v.commit.slice(0, 8)} ` +
+      `  verificacao   ${v.ok ? 'passou' : 'REPROVOU'} no HEAD ${shaCurto(v.commit)} ` +
         `(${v.claims.filter((c) => c.verificado).length}/${v.claims.length} claims, ` +
         `${v.comandos.filter((c) => c.ok).length}/${v.comandos.length} comandos)`
     );
