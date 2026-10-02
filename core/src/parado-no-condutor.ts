@@ -68,8 +68,12 @@ const FASES_ANTES_DA_ENTREGA = ['GOAL', 'PLAN', 'GO', 'CHECK'];
 /** Os modos em que a #TAG ja autoriza o push (`autorizacaoDePush`, `core/src/ship.ts`). */
 const MODOS_COM_PUSH_AUTORIZADO = ['auto', 'maestro'];
 
-/** Os casos, na ordem de precedencia (D5): os cinco do pedido e os dois que o CHECK pediu. */
-export type CasoParado = 'sem-push' | 'pr-vermelho' | 'pr-verde' | 'sem-registro' | 'sem-pr' | 'fase-seguinte' | 'sessao-sem-pergunta';
+/**
+ * Os casos, na ordem de precedencia (D5): os cinco do pedido e os dois que o CHECK pediu. RM-037 (fatia 5, A3): o
+ * CHECK sem o veredito, no #Auto, vem antes de todos.
+ */
+export type CasoParado = 'check-sem-veredito' | 'sem-push' | 'pr-vermelho' | 'pr-verde' | 'sem-registro' | 'sem-pr' | 'fase-seguinte' |
+  'sessao-sem-pergunta';
 export type SituacaoDoCheck = 'verde' | 'vermelho' | 'pendente';
 
 export interface CheckDoPr { nome: string; situacao: SituacaoDoCheck; concluidoEm: string | null }
@@ -369,11 +373,24 @@ const doRadar = (e: EventoLedger): boolean => e.tipo === 'sessao_bloqueada' && e
  * intervalo do despacho. A prova do ork no SHIP e so o `ship_done` (`provaDoOrk`): o que falta e mergear o PR
  * ou registrar a entrega, e isso e do condutor, como o fim de turno em `blocked`. Dos 4 `human.pending` do SHIP
  * nos ledgers de 30/09, 2 tem este formato (ork-rm037noite e ork-pacotedeexpe). O CHECK em `done` sem o veredito
- * e outra coisa, e continua com o dono (A3 da rodada 5, pendente).
+ * e outra coisa: `checkSemVeredito`.
  */
 function shipSemRegistro(e: EventoLedger): boolean {
   const { ok: provou } = (e.provaOrk ?? {}) as { ok?: unknown };
   return e.motivo === 'human.pending' && e.origem === 'sessions.watch' && e.fase === 'SHIP' && e.estadoNativo === 'done' &&
+    !!e.stop && provou === false;
+}
+
+/**
+ * RM-037 (fatia 5, A3): o CHECK que o observador viu terminar em `done`, com o Stop, sem exatamente um veredito
+ * legivel no `docs/check.md` (`provaDoOrk`). No #Auto, com o bloco sem pausa ao fim, ninguem perguntou nada ao dono:
+ * o passo e do condutor, que redespacha o CHECK. Nos dois casos reais (ork-i35horariodo em 20/09 e ork-pacotedeexpe
+ * em 30/09, as duas #Auto) o condutor seguiu sozinho minutos depois, sem pergunta ao dono. Fora do #Auto, segue com
+ * o dono, como antes.
+ */
+function checkSemVeredito(e: EventoLedger): boolean {
+  const { ok: provou } = (e.provaOrk ?? {}) as { ok?: unknown };
+  return e.motivo === 'human.pending' && e.origem === 'sessions.watch' && e.fase === 'CHECK' && e.estadoNativo === 'done' &&
     !!e.stop && provou === false;
 }
 
@@ -420,10 +437,11 @@ export interface FimDoTurno {
    * observador viu o Stop e a sessao `blocked`, ou o SHIP em `done` sem o `ship_done` (`comProva: false`), e
    * gravou `human.pending`. `stop-sem-resultado`: o Stop foi a ultima atividade e o resultado nunca veio (a
    * fatia 3 de 01/10). `pausa-do-bloco`: a fase terminou e o
-   * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `outro`: falha tecnica, com
-   * dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
+   * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `check-sem-veredito`: no #Auto, o
+   * CHECK em `done` com o Stop e sem o veredito (RM-037, fatia 5, A3); o passo e redespachar o CHECK. `outro`:
+   * falha tecnica, com dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
    */
-  tipo: 'concluida' | 'espera-do-observador' | 'stop-sem-resultado' | 'pausa-do-bloco' | 'outro';
+  tipo: 'concluida' | 'espera-do-observador' | 'check-sem-veredito' | 'stop-sem-resultado' | 'pausa-do-bloco' | 'outro';
   sessionId: string | null;
   fase: string | null;
   /** A prova do ork que o observador conferiu, quando ele diz. */
@@ -440,7 +458,8 @@ function atividadeDaSessao(e: EventoLedger): boolean {
   return e.tipo === 'commit' || e.tipo === 'runtime_stop' || (e.tipo === 'sessao_bloqueada' && !doRadar(e));
 }
 
-export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLedger): FimDoTurno | null {
+/** `modo`: o da thread. Sem ele, o CHECK sem o veredito fica com o dono, como fora do #Auto. */
+export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLedger, modo?: Thread['modo']): FimDoTurno | null {
   const i = eventos.lastIndexOf(despacho);
   const depois = eventos.slice(i + 1);
   const sid = texto(despacho.sessionId);
@@ -461,12 +480,13 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
     } else if (resultado.motivo === 'human.pending' && despacho.pausaAoFim === true) {
       // S-a do CHECK (rodada 3): no bloco com pausa ao fim, todo `human.pending` do resultado e a fase entregue ao dono.
       return { em: resultado.ts, tipo: 'pausa-do-bloco', sessionId: sid, fase, comProva: true };
-    } else if (resultado.motivo === 'human.pending' && resultado.stop && (resultado.estadoNativo === 'blocked' || shipSemRegistro(resultado))) {
+    } else if (resultado.motivo === 'human.pending' && resultado.stop && (resultado.estadoNativo === 'blocked' || shipSemRegistro(resultado) ||
+        (modo === 'auto' && checkSemVeredito(resultado)))) {
       if (!retomou) {
         const { ts: doStop } = resultado.stop as { ts?: unknown };
         const { ok: provou } = (resultado.provaOrk ?? {}) as { ok?: unknown };
-        return { em: instante(doStop) ?? resultado.ts, tipo: 'espera-do-observador', sessionId: sid, fase,
-          comProva: typeof provou === 'boolean' ? provou : null };
+        return { em: instante(doStop) ?? resultado.ts, tipo: checkSemVeredito(resultado) ? 'check-sem-veredito' : 'espera-do-observador',
+          sessionId: sid, fase, comProva: typeof provou === 'boolean' ? provou : null };
       }
     } else return { em: resultado.ts, tipo: 'outro', sessionId: sid, fase, comProva: null };
   }
@@ -502,16 +522,16 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
   if (sid && bloqueioPendente(eventos, sid, despacho.ts)) return 'prompt de permissão pendente';
   // Aviso da rodada 6 do CHECK: o gate do observador so muda de dono com o fim de turno provado. A sessao que voltou a
   // trabalhar depois do resultado, sem Stop novo, segue do dono, e a thread nao sai tambem como linha do condutor.
-  const fim = fimDoTurno(eventos, despacho);
+  const fim = fimDoTurno(eventos, despacho, t.modo);
   const turnoEncerrado = !!fim && fim.tipo !== 'outro';
   for (let k = 0; k < depois.length; k++) {
     const e = depois[k];
     if (e.tipo !== 'gate_blocked') continue;
     const motivo = String(e.motivo ?? '');
-    // O fim de turno que o observador viu em `blocked`, e o SHIP em `done` sem o `ship_done` (B1 da rodada 5), nao sao
-    // escalacao: sao justamente o que muda de dono.
+    // O fim de turno que o observador viu em `blocked`, o SHIP em `done` sem o `ship_done` (B1 da rodada 5) e, no #Auto,
+    // o CHECK em `done` sem o veredito (A3, fatia 5) nao sao escalacao: sao justamente o que muda de dono.
     if (turnoEncerrado && motivo === 'human.pending' && e.origem === 'sessions.watch' &&
-        (e.estadoNativo === 'blocked' || shipSemRegistro(e))) continue;
+        (e.estadoNativo === 'blocked' || shipSemRegistro(e) || (t.modo === 'auto' && checkSemVeredito(e)))) continue;
     const doDono = motivo === 'human.pending' ||
       ((MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) && quemDecide(motivo) === 'dono');
     const resolvido = depois.slice(k + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
@@ -534,7 +554,7 @@ export function esperaDoCondutor(t: Thread, eventos: readonly EventoLedger[], qu
   if (t.status === 'fechada') return null;
   const despacho = ultimoDespacho(eventos);
   if (!despacho || despacho.pausaAoFim !== false) return null;
-  const fim = fimDoTurno(eventos, despacho);
+  const fim = fimDoTurno(eventos, despacho, t.modo);
   if (!fim || fim.tipo === 'outro' || fim.tipo === 'pausa-do-bloco' || pendenciaDoDono(t, eventos, quando)) return null;
   return { thread: t.id, fase: fim.fase, sessionId: fim.sessionId, fimDoTurnoEm: fim.em, tipo: fim.tipo, comProva: fim.comProva };
 }
@@ -761,7 +781,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   for (const f of fatos) {
     const { t, eventos } = f;
     const despacho = ultimoDespacho(eventos);
-    const fim = despacho ? fimDoTurno(eventos, despacho) : null;
+    const fim = despacho ? fimDoTurno(eventos, despacho, t.modo) : null;
     const terminou = !!fim && fim.tipo !== 'outro';
     const fimEm = terminou ? fim!.em : null;
     // A1 do CHECK (rodada 3): o fim de turno vem do ledger (Stop sem atividade depois); a tela da sessao depois
@@ -803,7 +823,13 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     let caso: CasoParado | null = null, desde: string | null = null, passo = '', peloGit = false;
     const evidencia: string[] = [];
     if (!conduzidaAgora && !doDono) {
-      if (f.comProduto && publicada === false && terminou) {
+      if (espera?.tipo === 'check-sem-veredito') {
+        // RM-037 (fatia 5, A3): antes de qualquer caso de entrega. Publicar ou mergear sem o veredito do CHECK pularia
+        // a revisao; e o `ork retry run` nao redespacha `human.pending` (`escalar-humano`), entao o passo e o despacho.
+        caso = 'check-sem-veredito'; desde = espera.fimDoTurnoEm;
+        passo = `redespachar o CHECK (ork phase run ${t.id} CHECK --prompt "<pedido da fase>")`;
+        evidencia.push('ledger: CHECK em done com o Stop, sem exatamente um veredito no docs/check.md');
+      } else if (f.comProduto && publicada === false && terminou) {
         desde = fimOuVeredito;
         if (antesDaEntrega && !aberto) { caso = 'fase-seguinte'; passo = despachar; }
         else {
