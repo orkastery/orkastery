@@ -207,7 +207,7 @@
         "node -e 'const b=require(\"./.ork-ci/ork-rm037fatia4t.json\");if(b.schema!==\"ork.ci-bundle/v1\"||b.thread!==\"ork-rm037fatia4t\"||b.branch!==\"ork/ork-rm037fatia4-full\")process.exit(1)'"
       ],
       "criadoEm": "2026-10-02T03:45:42.699Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
