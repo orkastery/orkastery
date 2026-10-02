@@ -13,7 +13,7 @@
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -202,15 +202,29 @@ test('no fecho e no retry, o erro que a cota ao vivo ja marcou nao marca de novo
   } finally { c.limpar(); }
 });
 
-test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva nem no fecho', { timeout: 20000 }, () => {
+/**
+ * A observacao num processo filho com prazo: o open bloqueado num FIFO trava o processo inteiro, e o prazo do
+ * `node:test` nao interrompe uma chamada sincrona presa. Assim a regressao reprova o teste em vez de travar a suite.
+ */
+function observarNoFilho(c: Cenario, agoraMs: number): { concluido?: boolean } {
+  const modulo = (nome: string) => JSON.stringify(path.resolve(__dirname, '..', 'src', nome));
+  const script = `const { observarSessao } = require(${modulo('session-watcher')}); const { exigirManifesto } = require(${modulo('manifest')});
+    process.stdout.write(JSON.stringify(observarSessao(exigirManifesto(process.argv[1]), process.argv[2], { agoraMs: Number(process.argv[3]) })));`;
+  const r = spawnSync(process.execPath, ['-e', script, c.p.dir, SESSAO, String(agoraMs)], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(r.signal, null, 'o observador travou no FIFO da transcricao');
+  assert.equal(r.status, 0, r.stderr);
+  return JSON.parse(r.stdout) as { concluido?: boolean };
+}
+
+test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva nem no fecho', () => {
   const c = cenario('fatia5-cota-fifo');
   try {
     const { dir } = sessaoViva(c, 'blocked');
     fs.mkdirSync(path.dirname(arquivoDaTranscricao(c)), { recursive: true });
     execFileSync('mkfifo', [arquivoDaTranscricao(c)]);
-    assert.equal(observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA }).concluido, false);
+    assert.equal(observarNoFilho(c, VOLTA).concluido, false);
     c.claude.estadoDaSessao('failed');
-    assert.equal(observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA + 10000 }).concluido, true);
+    assert.equal(observarNoFilho(c, VOLTA + 10000).concluido, true);
     assert.equal(lerLedger(dir).find((e) => e.tipo === 'phase_result')?.motivo, 'runtime.unavailable', 'sem transcricao legivel, sem cota');
     assert.equal(cotas(dir).length, 0);
   } finally { c.limpar(); }
