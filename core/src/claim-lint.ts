@@ -20,7 +20,9 @@ import { AchadoDoLint, RegraDoLint } from './types';
 export type { AchadoDoLint, RegraDoLint };
 
 const CORRECAO: Record<RegraDoLint, string> = {
-  'suite-inteira': 'use `npm --prefix core run test:ci` (a suite hermetica) ou `node --test` no arquivo do teste',
+  // Fatia 2 do ensaio da 0.5.0 (P6): a correcao vale para qualquer projeto; o script do Orkastery saiu daqui.
+  'suite-inteira': 'rode só o teste da claim (`node --test` no arquivo do teste, ou o comando do projeto que roda um arquivo) ' +
+    'ou um script hermético do projeto',
   'sha-intermediario': 'ancore na base (`git diff "$(git merge-base origin/main HEAD)" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`',
   'contagem-de-commits': 'use `git merge-base --is-ancestor <commit> HEAD`: contagem de commits quebra com rebase e merge',
 };

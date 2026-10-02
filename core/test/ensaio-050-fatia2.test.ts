@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import { exec, GITIGNORE_DA_MAQUINA, ignorarPastaNoGit, noPath } from '../src/util';
 import { init } from '../src/init';
 import { ONDE_FICAM_OS_SEGREDOS, PAUTA_ONBOARDING, validarConteudo } from '../src/onboarding';
+import { analisarComando } from '../src/claim-lint';
+import { DICA_DO_MOTIVO } from '../src/licoes';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -344,4 +346,25 @@ test('fatia 2 P5: segredos no ambiente do processo ou no cofre do host, no onboa
     assert.ok(texto.includes(FRASE_DOS_SEGREDOS), `${arquivo}: frase nova ausente`);
     assert.doesNotMatch(texto, SEGREDO_SO_NO_HERMES, `${arquivo}: frase antiga`);
   }
+});
+
+test('fatia 2 P6: correcao do lint de suite inteira e generica e o modulo segue puro', () => {
+  for (const comando of ['npm test', 'npm test -- relatorio', 'npm --prefix core test']) {
+    const [achado] = analisarComando(comando);
+    assert.equal(achado?.regra, 'suite-inteira', comando);
+    assert.doesNotMatch(achado.correcao, /--prefix core|test:ci/, 'o script do Orkastery nao vale em outro projeto');
+    assert.match(achado.correcao, /só o teste da claim/);
+    assert.match(achado.correcao, /script hermético do projeto/);
+  }
+  // O modulo continua puro: nada de disco, processo ou leitura do projeto.
+  const fonte = ler('core/src/claim-lint.ts');
+  assert.doesNotMatch(fonte, /from 'node:|require\(/);
+  assert.doesNotMatch(fonte, /npm --prefix core/);
+  // A dica de ci.failed das licoes tinha o mesmo texto do Orkastery.
+  assert.doesNotMatch(DICA_DO_MOTIVO['ci.failed'], /--prefix core|test:ci/);
+  assert.match(DICA_DO_MOTIVO['ci.failed'], /`ci\.command` do manifesto/);
+  const linha = ler('docs/guias/verificacao.md').split('\n').find((l) => l.startsWith('| a suíte inteira'));
+  assert.ok(linha, 'linha do lint no guia de verificacao');
+  assert.doesNotMatch(linha, /test:ci/);
+  assert.match(linha, /script hermético do projeto/);
 });
