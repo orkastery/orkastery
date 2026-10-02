@@ -3,8 +3,8 @@
   "maquina": "srvjcp86",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T14:26:28.949Z",
+  "versaoOrk": "0.4.3",
+  "publicadoEm": "2026-10-02T14:46:29.176Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -18,10 +18,7 @@
       "entregue": "ce29557",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm040piloto",
@@ -35,10 +32,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm053network",
@@ -52,10 +46,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm055impedim",
@@ -69,27 +60,21 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm056perfil",
       "nome": "RM-056 perfil por thread, rodizio por carga e sessoes dos perfis",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-056",
       "branch": "ork/ork-rm056perfil-full",
-      "atualizadaEm": "2026-10-01T05:16:09.930Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-02T14:46:29.056Z",
+      "entregue": "0a914b0",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     }
   ]
 }
