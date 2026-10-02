@@ -51,10 +51,25 @@ export function branchDoHead(dir: string): string | null {
   return r.ok && r.stdout.trim() ? r.stdout.trim() : null;
 }
 
-/** O binario esta no PATH? */
-export function noPath(bin: string): string | null {
-  const r = exec('which', [bin]);
-  return r.ok ? r.stdout.trim() : null;
+/**
+ * O binario esta no PATH? A busca e do proprio processo, como o `which` fazia: o primeiro arquivo
+ * regular executavel na ordem do PATH. Registro R3 do ensaio da 0.5.0: sem o binario `which` na
+ * maquina, o doctor dizia que o `git` e o `claude` faltavam. Entrada vazia do PATH e pulada (nao vira
+ * o diretorio atual), e nome com barra e conferido direto.
+ */
+export function noPath(bin: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  const executavel = (alvo: string): boolean => {
+    try {
+      if (!fs.statSync(alvo).isFile()) return false;
+      fs.accessSync(alvo, fs.constants.X_OK);
+      return true;
+    } catch { return false; }
+  };
+  if (bin.includes('/')) return executavel(bin) ? bin : null;
+  for (const dir of (env.PATH ?? '').split(path.delimiter)) {
+    if (dir && executavel(path.join(dir, bin))) return path.join(dir, bin);
+  }
+  return null;
 }
 
 /** Sobe a arvore de diretorios procurando um arquivo. Retorna o diretorio que o contem. */
