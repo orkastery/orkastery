@@ -20,8 +20,9 @@ import { comporPulse, montarPulse, textoDoPulse } from '../src/pulse';
 import { resumirHitl, textoDoResumo } from '../src/hitl-resumo';
 import { varrerPulse } from '../src/pulse-delivery';
 import { montarMonitor } from '../src/orquestracao';
-import { ExecutorDoGh, lerRetratoDePrs } from '../src/parado-no-condutor';
+import { ExecutorDoGh, lerRetratoDePrs, ParadoNoCondutor } from '../src/parado-no-condutor';
 import { RadarDeSessoes, SessaoNoRadar } from '../src/types';
+import { itemDoGate, pulseCom } from './apoio-pulse';
 
 const AGORA = '2026-10-02T01:21:00.000Z'; // 22:21 de 01/10 em Brasilia
 const FIM = '2026-10-01T07:28:00.000Z';   // 04:28
@@ -126,8 +127,10 @@ test('PR verde lido da forja vira "mergear o PR" e o retrato fica para o status;
     assert.equal(lerRetratoDePrs(c.p.dir)?.prs[0].numero, 41, 'o retrato da leitura boa fica para o status do roadmap');
     const falha: ExecutorDoGh = () => ({ status: 4, stdout: '', stderr: 'gh auth login: SIMULADO' });
     const semForja = montarPulse(c.p.carregado, { quando: AGORA, consulta: SIMULADA, executorDoGh: falha });
-    assert.equal(semForja.paradoNoCondutor, undefined, 'sem leitura nao se afirma "sem PR"');
-    assert.match(semForja.runtime.detalhe, /prs\.nao-lidos: gh pr list falhou \(4\)/);
+    assert.ok(!semForja.paradoNoCondutor?.some(x => x.caso === 'sem-pr'), 'sem leitura nao se afirma "sem PR"');
+    assert.equal(semForja.paradoNoCondutor?.[0].proximoPasso, `conferir o PR da branch ${c.branch} (PR não lido) e seguir`,
+      'o fim de turno que saiu do dono volta como linha');
+    assert.match(semForja.runtime.detalhe, /prs\.nao-lidos: gh pr list falhou \(código 4\)/);
     assert.match(textoDoPulse(semForja), /^\[diagnostico\] .*prs\.nao-lidos/m);
     assert.ok(!semForja.precisaDeHumanoAgora.some(i => i.thread === c.t.id), 'o fim de turno continua fora do dono');
   } finally { c.limpar(); }
@@ -153,5 +156,54 @@ test('radar: sessao blocked sem menu de thread fechada sai do dono; com menu, a 
     assert.ok(sem.paradoNoCondutor?.some(x => x.thread === velha.id && x.proximoPasso.startsWith(`encerrar a sessão ${sessionId.slice(0, 8)}`)));
     const com = comporPulse(c.p.carregado, { radar: radar(['1. Sim', '2. Não']), monitor, batch: [], orfas: [] });
     assert.ok(com.precisaDeHumanoAgora.some(i => i.sessionId === sessionId), 'menu na tela e pergunta de verdade');
+  } finally { c.limpar(); }
+});
+
+test('aviso 6 do CHECK: a parada que some por uma batida e volta nao e noticia de novo; outra, horas depois, e', () => {
+  const p = projetoTemporario('fatia4-pulse-retem');
+  try {
+    const parado: ParadoNoCondutor = { thread: 'ork-simulada', caso: 'pr-verde', desdeEm: '2026-10-01T22:01:00.000Z', paradoHaMin: 200,
+      proximoPasso: 'mergear o PR #41', evidencia: [], branch: 'ork/ork-simulada-full', pr: 41, sessionId: null, prLidoEm: AGORA };
+    const mensagens: string[] = [];
+    const varrer = (quando: string, comParada: boolean) => varrerPulse({ raiz: p.dir, quando, enviar: m => { mensagens.push(m); return true; },
+      consultar: () => ({ ...pulseCom([], quando), ...(comParada ? { paradoNoCondutor: [parado] } : {}) }) });
+    const t0 = Date.parse(AGORA), min = (n: number) => new Date(t0 + n * 60000).toISOString();
+    assert.equal(varrer(min(0), true).enviadas, 1);
+    assert.equal(varrer(min(15), false).enviadas, 0, 'a batida em que o gh falhou nao manda nada');
+    assert.equal(varrer(min(30), true).enviadas, 0, 'a mesma parada, de volta, nao e noticia');
+    assert.equal(varrer(min(45 + 7 * 60), false).enviadas, 0);
+    assert.equal(varrer(min(60 + 7 * 60), true).enviadas, 1, 'sumida por mais de 6 h, volta como episodio novo');
+    assert.equal(mensagens.length, 2);
+  } finally { p.limpar(); }
+});
+
+test('o transporte passa a mensagem como texto: $& nela nao vira padrao de substituicao', () => {
+  const p = projetoTemporario('fatia4-pulse-transporte');
+  try {
+    const sink = path.join(p.dir, 'sink.txt');
+    const r = varrerPulse({ raiz: p.dir, quando: AGORA, consultar: () => pulseCom([itemDoGate('ork-$&-simulada', 0)], AGORA),
+      transporte: { executavel: process.execPath, argumentos: ['-e', 'require("fs").writeFileSync(process.argv[1],process.argv[2])', sink, '{{mensagem}}'] } });
+    assert.equal(r.enviadas, 1);
+    const enviado = fs.readFileSync(sink, 'utf8');
+    assert.match(enviado, /ork-\$&-simulada/);
+    assert.doesNotMatch(enviado, /\{\{mensagem\}\}/);
+  } finally { p.limpar(); }
+});
+
+test('B1 do CHECK: a sessao nativa do Codex em blocked e pergunta estruturada e continua em "Esperando voce"', () => {
+  const c = cenario('fatia4-pulse-codex');
+  try {
+    const { thread: outra } = novaThread(c.p.carregado, { nome: 'codex', modo: 'auto' });
+    const sessionId = '00000000-0000-4000-8000-0000000000cc';
+    const sessao: SessaoNoRadar = { id: sessionId.slice(0, 8), sessionId, nome: 'SIMULADA', cwd: '/tmp/simulada', kind: 'codex-controller',
+      estadoBruto: 'blocked', classe: 'hitl', tipoDeHitl: null, jobVivo: true, precisaDeHumano: true, detalhe: 'SIMULADO',
+      desdeEm: '2026-10-01T20:00:00.000Z', idadeMin: 300, pergunta: '', alternativas: [], thread: { id: outra.id, fase: 'CHECK', slug: outra.slug },
+      recomendacao: '', comandos: { logs: '', attach: '', parar: '' }, acimaDoLimite: true, bloqueadaDesdeEm: '2026-10-01T20:10:00.000Z', paradaHaMin: 300 };
+    const radar: RadarDeSessoes = { consultadoEm: AGORA, atencaoMin: 30, runtimeConsultado: true, runtimeDetalhe: '', logsLidos: true, raiz: c.p.dir,
+      sessoes: [sessao], resumo: { total: 1, precisamDeHumano: 1, hitl: 1, abandonadas: 0, falhas: 0, trabalhando: 0, desconhecidas: 0,
+        acimaDoLimite: 1, foraDoOrk: 0 } };
+    const pulse = comporPulse(c.p.carregado, { radar, monitor: montarMonitor(c.p.carregado, { agora: AGORA, estados: new Map() }), batch: [], orfas: [] });
+    assert.ok(pulse.precisaDeHumanoAgora.some(i => i.sessionId === sessionId));
+    assert.ok(!pulse.paradoNoCondutor?.some(x => x.thread === outra.id));
   } finally { c.limpar(); }
 });

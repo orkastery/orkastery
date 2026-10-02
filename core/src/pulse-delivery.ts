@@ -24,6 +24,8 @@ import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from '
 export { adquirirLockMonitor } from './monitor-lock';
 
 export interface TransportePulse { executavel: string; argumentos: string[] }
+/** RM-037 (fatia 4): por quanto tempo a parada ja informada continua sabida depois de sumir de uma batida. */
+export const RETEM_PARADO_MS = 6 * 60 * 60 * 1000;
 export interface ResultadoVarredura { code: number; novas: number; enviadas: number; detalhe: string }
 
 /**
@@ -158,10 +160,16 @@ export function varrerPulse(opcoes: {
     const parados=pulse.paradoNoCondutor??[];
     const chaveDoParado=(p:{thread:string;caso:string})=>`parado:${p.thread}:${p.caso}`;
     for(const p of parados) presentes.add(chaveDoParado(p));
-    vistas=Object.fromEntries(Object.entries(vistas).filter(([id])=>presentes.has(id)));
+    // A parada que some por uma batida (gh que falhou, um `ork verify` do condutor) e volta nao e noticia
+    // nova: a marca fica guardada por `RETEM_PARADO_MS` depois da ultima vez que a parada apareceu.
+    const guardada=(id:string,valor:string)=>id.startsWith('parado:')&&
+      Date.parse(quando)-Number(valor.split('|')[1])<RETEM_PARADO_MS;
+    vistas=Object.fromEntries(Object.entries(vistas).filter(([id,valor])=>presentes.has(id)||guardada(id,valor)));
     const esperaNovaFora=esperasFora.some(k=>vistas[k]===undefined);
     const decisoesNovas=decisoes.filter(d=>vistas[chaveDaDecisao(d.id)]===undefined);
     const paradosNovos=parados.filter(p=>vistas[chaveDoParado(p)]===undefined);
+    // A marca guarda o instante em milissegundos: e dado de maquina, nao texto para o dono.
+    for(const p of parados) if(vistas[chaveDoParado(p)]!==undefined) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
     // I-41 (GO-FIX 1): a thread que ja recebeu a pergunta e ainda nao respondeu nao e noticia. A
     // mudanca no item dela (o pedido que o sim do dono abriu) e obra nossa, e avisar sobre ela seria
     // mandar ao dono um resumo sobre a pergunta que ele acabou de receber.
@@ -179,7 +187,8 @@ export function varrerPulse(opcoes: {
           !config.argumentos.every(a=>typeof a==='string')||!config.argumentos.some(a=>a.includes('{{mensagem}}'))) {
           throw new Error('transporte requer executavel e argumentos com {{mensagem}}');
         }
-        const r=spawnSync(config.executavel,config.argumentos.map(a=>a.replaceAll('{{mensagem}}',mensagem)),
+        // A mensagem entra como texto: `$&` e `$'` nela nao sao padrao de substituicao (CHECK da RM-037, fatia 4).
+        const r=spawnSync(config.executavel,config.argumentos.map(a=>a.replaceAll('{{mensagem}}',()=>mensagem)),
           {cwd:raiz,encoding:'utf8',input:mensagem,timeout:30000,maxBuffer:1024*1024});
         entregue=r.status===0;
       }
@@ -223,7 +232,7 @@ export function varrerPulse(opcoes: {
       for(const item of itens) vistas[item.id]=assinaturaPulse(item);
       for(const d of decisoes) vistas[chaveDaDecisao(d.id)]='informada';
       for(const k of esperasFora) vistas[k]='informada';
-      for(const p of parados) vistas[chaveDoParado(p)]='informada';
+      for(const p of parados) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
       gravarUltimoResumo(opcoes.raiz,quando,dir);
     }
     gravarCache(cache,vistas);

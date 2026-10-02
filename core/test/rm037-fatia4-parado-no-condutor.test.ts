@@ -3,28 +3,32 @@
  *
  * Em 01/10/2026 tres threads terminaram de madrugada com o verify verde e ficaram 15 h sem push e sem
  * PR; de dia, PRs ficaram horas verdes sem merge e um ficou 4h38 com o check vermelho sem fase. Cada
- * caso do pedido tem aqui a fixture que o produz e a contraprova que nao deve produzir nada. Projeto,
- * threads, sessoes, PRs e checks SIMULADOS; o executor do `gh` conta as chamadas e nunca toca a rede.
+ * caso do pedido tem aqui a fixture que o produz e a contraprova que nao deve produzir nada; os achados
+ * da rodada 1 do CHECK (pergunta nativa do Codex, PR parado depois de um despacho, carimbo do radar,
+ * pedido vencido que espera, lista cortada, checks repetidos, retrato velho) tambem. Projeto, threads,
+ * sessoes, PRs e checks SIMULADOS; o executor do `gh` conta as chamadas e nunca toca a rede.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario } from './apoio';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
-import { registrar } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import { registrarConducaoDaSessao, tomarConducao } from '../src/conducao';
+import { PedidoHitl, profundidadeDoModo, validarPedidoHitl } from '../src/hitl-contract';
 import { exec } from '../src/util';
 import {
   CONTRATO_PRS, entregasDoProjeto, esperaDoCondutor, ExecutorDoGh, gravarRetratoDePrs, LeituraDePrs, LIMIAR_PARADO_NO_CONDUTOR_MIN,
-  lerPrsDaForja, lerRetratoDePrs, PrDaForja, RetratoDePrs,
+  LIMITE_DE_PRS, lerPrsDaForja, lerRetratoDePrs, nomeDeCheck, PrDaForja, RetratoDePrs,
 } from '../src/parado-no-condutor';
-import { lerLedger } from '../src/ledger';
 import { SessaoNoRadar } from '../src/types';
 
 const AGORA = '2026-10-02T01:21:00.000Z'; // 22:21 de 01/10 em Brasilia
 const FIM = '2026-10-01T07:28:00.000Z';   // 04:28: o turno acabou 15 h antes
 const SHA_DO_SENSOR = 'a'.repeat(64);
+const GITHUB_SIMULADO = 'https://github.com/exemplo/simulado.git';
 const git = (dir: string, ...args: string[]) => {
   const r = exec('git', args, dir);
   assert.ok(r.ok, `git ${args.join(' ')}: ${r.stderr}`);
@@ -39,44 +43,65 @@ function threadComProduto(p: Projeto, nome: string, opcoes: { publicar?: boolean
   const { thread: t } = novaThread(p.carregado, { nome, modo: 'auto' });
   const branch = `ork/${t.slug}`;
   git(p.dir, 'branch', branch, 'main');
-  if (opcoes.produto !== false) {
-    git(p.dir, 'checkout', '-q', branch);
-    fs.writeFileSync(path.join(p.dir, `${t.slug}.txt`), 'produto SIMULADO\n');
-    git(p.dir, 'add', '--', `${t.slug}.txt`);
-    git(p.dir, 'commit', '-q', '-m', `produto de ${t.slug}`);
-    git(p.dir, 'checkout', '-q', 'main');
-  }
+  if (opcoes.produto !== false) commitNaBranch(p, branch, `${t.slug}.txt`);
   if (opcoes.publicar) git(p.dir, 'push', '-q', 'origin', branch);
   return { t, branch, dir: dirThread(p.dir, t.id), head: git(p.dir, 'rev-parse', branch) };
 }
 
+function commitNaBranch(p: Projeto, branch: string, arquivo: string): string {
+  git(p.dir, 'checkout', '-q', branch);
+  fs.writeFileSync(path.join(p.dir, arquivo), `produto SIMULADO ${randomUUID()}\n`);
+  git(p.dir, 'add', '--', arquivo);
+  git(p.dir, 'commit', '-q', '-m', `produto em ${arquivo}`);
+  git(p.dir, 'checkout', '-q', 'main');
+  return git(p.dir, 'rev-parse', branch);
+}
+
+/** O remoto da fixture e um repositorio local; para a forja, ele passa a apontar para um GitHub SIMULADO (depois dos pushes). */
+const forjaSimulada = (p: Projeto) => git(p.dir, 'remote', 'set-url', 'origin', GITHUB_SIMULADO);
+
 /** O despacho do bloco e o fim de turno que o observador grava: Stop e sessao `blocked`, `human.pending`. */
-function turnoDoObservador(dir: string, id: string, n: number, opcoes: { fim?: string; pausaAoFim?: boolean; despacho?: string } = {}) {
+function turnoDoObservador(dir: string, id: string, n: number,
+  opcoes: { fim?: string; pausaAoFim?: boolean; despacho?: string; fase?: string; bloco?: string; provou?: boolean } = {}) {
   const sessionId = `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
   const despacho = opcoes.despacho ?? '2026-10-01T05:06:17.000Z', despachoEm = depois(despacho, 0.001);
-  const fim = opcoes.fim ?? FIM;
-  registrar(dir, id, 'phase_dispatch', { ts: despacho, fase: 'GOAL', slug: `${id}-full`, modo: 'auto',
-    bloco: 'GOAL-PLAN-GO-CHECK-SHIP-MASTER', pausaAoFim: opcoes.pausaAoFim ?? false, runtime: 'claude-bg', sessionId });
-  registrar(dir, id, 'runtime_stop', { ts: depois(fim, -0.2), fase: 'GOAL', sessionId, runtime: 'claude-bg', despachoEm,
+  const fim = opcoes.fim ?? FIM, fase = opcoes.fase ?? 'GOAL';
+  registrar(dir, id, 'phase_dispatch', { ts: despacho, fase, slug: `${id}-full`, modo: 'auto',
+    bloco: opcoes.bloco ?? 'GOAL-PLAN-GO-CHECK-SHIP-MASTER', pausaAoFim: opcoes.pausaAoFim ?? false, runtime: 'claude-bg', sessionId });
+  registrar(dir, id, 'runtime_stop', { ts: depois(fim, -0.2), fase, sessionId, runtime: 'claude-bg', despachoEm,
     fonte: 'ork sessions event', sensor: 'stop', sensorEventId: SHA_DO_SENSOR });
-  const comum = { ts: fim, fase: 'GOAL', sessionId, despachoEm, classificacao: 'gate_blocked', motivo: 'human.pending',
+  const comum = { ts: fim, fase, sessionId, despachoEm, classificacao: 'gate_blocked', motivo: 'human.pending',
     runtime: 'claude-bg', fonte: 'Stop correlacionado e sessão viva à espera humana (blocked); SIMULADO; o humano decide',
     estadoNativo: 'blocked', statusNativo: 'idle', ok: false, estado: 'bloqueada', stop: { ts: depois(fim, -0.2), sensorEventId: SHA_DO_SENSOR },
-    provaOrk: { ok: true, fonte: 'SIMULADO' }, gate: 'phase.dispatch', origem: 'sessions.watch' };
+    provaOrk: { ok: opcoes.provou ?? true, fonte: 'SIMULADO' }, gate: 'phase.dispatch', origem: 'sessions.watch' };
   registrar(dir, id, 'gate_blocked', comum);
   registrar(dir, id, 'phase_result', comum);
-  return { sessionId, despachoEm };
+  return { sessionId, despachoEm, stop: depois(fim, -0.2) };
 }
 
 const pr = (numero: number, branch: string, head: string, extra: Partial<PrDaForja> = {}): PrDaForja => ({
   numero, branch, head, estado: 'aberto', rascunho: false, url: `https://github.com/exemplo/simulado/pull/${numero}`,
   criadoEm: '2026-10-01T22:00:00.000Z', mescladoEm: null, checks: [], ...extra });
 
-const retratoCom = (prs: PrDaForja[], lidoEm = AGORA): RetratoDePrs => ({ contrato: CONTRATO_PRS, lidoEm, repositorio: 'exemplo/simulado', base: 'main', prs });
+const retratoCom = (prs: PrDaForja[], extra: Partial<RetratoDePrs> = {}): RetratoDePrs =>
+  ({ contrato: CONTRATO_PRS, lidoEm: AGORA, repositorio: 'exemplo/simulado', base: 'main', parcial: false, prs, ...extra });
+
+const ler = (retrato: RetratoDePrs) => (): LeituraDePrs => ({ ok: true, retrato });
 
 function contador(leitura: () => LeituraDePrs | null) {
   const c = { chamadas: 0, ler: () => { c.chamadas++; return leitura(); } };
   return c;
+}
+
+/** Um pedido de sessao `ork.hitl/v1` valido, do jeito que `abrirPedidoSessao` grava (sem o controle nativo). */
+function pedidoDeSessao(thread: string, sessionId: string, criadoEm: string, prazo: string): PedidoHitl {
+  const pedido: PedidoHitl = { contrato: 'ork.hitl/v1', id: randomUUID(), thread, fase: 'GOAL', modo: 'auto',
+    alvo: { tipo: 'session', sessionId, runtime: 'claude-bg' }, motivo: 'hitl.pergunta', pergunta: 'Pergunta SIMULADA da sessão?',
+    opcoes: [{ numero: 1, texto: 'Sim', acao: 'responder' }, { numero: 2, texto: 'Não', acao: 'responder' }],
+    recomendacao: 'Responda com o número da opção.', criadoEm, prazo, acaoPadraoAoExpirar: 'esperar',
+    respostaAceita: { tipo: 'opcao', maxCaracteres: 4096 }, profundidade: profundidadeDoModo('auto') };
+  validarPedidoHitl(pedido);
+  return pedido;
 }
 
 test('caso 1: fase terminada com a branch sem push vira "publicar a branch", sem ler a forja', () => {
@@ -84,80 +109,148 @@ test('caso 1: fase terminada com a branch sem push vira "publicar a branch", sem
   try {
     const a = threadComProduto(p, 'sem push');
     turnoDoObservador(a.dir, a.t.id, 1);
-    const prs = contador(() => ({ ok: true, retrato: retratoCom([]) }));
+    const prs = contador(ler(retratoCom([])));
     const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: prs.ler });
     assert.equal(prs.chamadas, 0, 'sem branch publicada nao ha o que ler na forja');
     assert.equal(r.parados.length, 1);
     const [parado] = r.parados;
     assert.equal(parado.caso, 'sem-push');
-    assert.equal(parado.thread, a.t.id);
     assert.equal(parado.proximoPasso, `publicar a branch ${a.branch} e abrir o PR`);
     assert.equal(parado.desdeEm, depois(FIM, -0.2), 'desde o Stop que encerrou o turno');
     assert.ok(parado.paradoHaMin >= 15 * 60);
     assert.ok(r.doCondutor.gates.has(`${a.t.id}|GOAL`), 'o human.pending do observador sai do dono');
-    const estado = r.estados.find(e => e.thread === a.t.id)!;
-    assert.equal(estado.resumo, 'branch com commits sem push');
-    assert.equal(estado.publicada, false);
+    assert.equal(r.estados.find(e => e.thread === a.t.id)!.resumo, 'branch com commits sem push');
   } finally { p.limpar(); }
 });
 
-test('caso 2: branch publicada sem PR vira "abrir o PR"; a forja e lida uma vez so', () => {
+test('caso 2: branch publicada sem PR vira "abrir o PR"; a forja e lida uma vez so; PR fechado e dito', () => {
   const p = projetoTemporario('fatia4-sem-pr', true);
   try {
     const a = threadComProduto(p, 'publicada sem pr', { publicar: true });
     const b = threadComProduto(p, 'outra publicada', { publicar: true });
+    forjaSimulada(p);
     turnoDoObservador(a.dir, a.t.id, 2);
     turnoDoObservador(b.dir, b.t.id, 3);
-    const prs = contador(() => ({ ok: true, retrato: retratoCom([]) }));
+    const prs = contador(ler(retratoCom([pr(9, b.branch, b.head, { estado: 'fechado' })])));
     const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: prs.ler });
     assert.equal(prs.chamadas, 1, 'uma leitura da forja para todas as threads');
     assert.deepEqual(r.parados.map(x => x.caso), ['sem-pr', 'sem-pr']);
     assert.equal(r.parados.find(x => x.thread === a.t.id)!.proximoPasso, `abrir o PR da branch ${a.branch}`);
+    assert.equal(r.parados.find(x => x.thread === b.t.id)!.proximoPasso,
+      `abrir de novo o PR da branch ${b.branch} (o PR #9 foi fechado sem merge)`);
     assert.equal(r.estados.find(e => e.thread === a.t.id)!.resumo, 'branch publicada sem PR');
+    assert.equal(r.estados.find(e => e.thread === b.t.id)!.resumo, 'branch publicada, PR #9 fechado sem merge');
   } finally { p.limpar(); }
 });
 
-test('caso 3: PR com os checks verdes e sem merge vira "mergear o PR", desde o ultimo check', () => {
+test('caso 3: PR verde sem merge vira "mergear o PR"; sem checks e rascunho tambem; checks rodando nao', () => {
   const p = projetoTemporario('fatia4-pr-verde', true);
   try {
     const a = threadComProduto(p, 'pr verde', { publicar: true });
+    forjaSimulada(p);
     turnoDoObservador(a.dir, a.t.id, 4);
     const checks = [{ nome: 'ork-verify', situacao: 'verde' as const, concluidoEm: '2026-10-01T22:01:39.000Z' },
       { nome: 'documentacao', situacao: 'verde' as const, concluidoEm: '2026-10-01T21:57:36.000Z' }];
-    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([pr(39, a.branch, a.head, { checks })]) }) });
-    assert.equal(r.parados.length, 1);
-    assert.equal(r.parados[0].caso, 'pr-verde');
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([pr(39, a.branch, a.head, { checks })])) });
+    assert.equal(r.parados[0]?.caso, 'pr-verde');
     assert.equal(r.parados[0].proximoPasso, 'mergear o PR #39');
-    assert.equal(r.parados[0].desdeEm, '2026-10-01T22:01:39.000Z');
-    assert.equal(r.parados[0].pr, 39);
+    assert.equal(r.parados[0].desdeEm, '2026-10-01T22:01:39.000Z', 'desde o ultimo check, depois do fim do turno');
+    assert.equal(r.parados[0].prLidoEm, AGORA);
     assert.equal(r.estados[0].resumo, 'PR #39 com os checks verdes, esperando o merge');
-    // Checks ainda rodando: nao e parada, e o estado diz isso.
-    const rodando = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([pr(39, a.branch, a.head,
-      { checks: [...checks, { nome: 'nucleo', situacao: 'pendente', concluidoEm: null }] })]) }) });
-    assert.equal(rodando.parados.length, 0);
+    const rascunho = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([pr(39, a.branch, a.head, { checks, rascunho: true })])) });
+    assert.equal(rascunho.parados[0].proximoPasso, 'tirar o PR #39 do rascunho e mergear');
+    assert.equal(rascunho.estados[0].resumo, 'PR #39 em rascunho, com os checks verdes');
+    const semChecks = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([pr(39, a.branch, a.head)])) });
+    assert.equal(semChecks.parados[0].proximoPasso, 'mergear o PR #39, que não tem checks');
+    assert.equal(semChecks.estados[0].resumo, 'PR #39 aberto, sem checks, esperando o merge');
+    // Checks ainda rodando: o PR nao esta parado; o fim de turno, sim, e volta como linha (nada some do dono sem voltar).
+    const rodando = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([pr(39, a.branch, a.head,
+      { checks: [...checks, { nome: 'nucleo', situacao: 'pendente', concluidoEm: null }] })])) });
     assert.equal(rodando.estados[0].resumo, 'PR #39 aberto, checks em andamento');
+    assert.equal(rodando.parados[0]?.proximoPasso, 'acompanhar os checks do PR #39, que seguem em andamento');
   } finally { p.limpar(); }
 });
 
-test('caso 4: PR com check vermelho sem fase despachada depois; despacho depois do vermelho tira a parada', () => {
+test('caso 4: PR vermelho sem fase depois; a correcao rodando tira a parada; a correcao que terminou sem push a devolve', () => {
   const p = projetoTemporario('fatia4-pr-vermelho', true);
   try {
     const a = threadComProduto(p, 'pr vermelho', { publicar: true });
+    forjaSimulada(p);
     turnoDoObservador(a.dir, a.t.id, 5);
     const vermelho = pr(40, a.branch, a.head, { checks: [{ nome: 'ork-verify', situacao: 'vermelho', concluidoEm: '2026-10-01T22:07:15.000Z' },
       { nome: 'documentacao', situacao: 'verde', concluidoEm: '2026-10-01T22:00:23.000Z' }] });
-    const ler = () => ({ ok: true as const, retrato: retratoCom([vermelho]) });
-    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([vermelho])) });
     assert.equal(r.parados[0].caso, 'pr-vermelho');
     assert.equal(r.parados[0].proximoPasso, 'corrigir o check ork-verify vermelho do PR #40 e despachar a correção');
     assert.equal(r.parados[0].desdeEm, '2026-10-01T22:07:15.000Z');
     assert.equal(r.estados[0].resumo, 'PR #40 aberto com o check ork-verify vermelho');
-    // A correcao despachada depois do check: a thread anda, e nao e parada.
-    registrar(a.dir, a.t.id, 'phase_dispatch', { ts: '2026-10-02T02:45:23.000Z', fase: 'GO', modo: 'auto', pausaAoFim: false,
-      runtime: 'claude-bg', sessionId: '00000000-0000-4000-8000-000000000099' });
-    const corrigindo = entregasDoProjeto(p.carregado, { quando: '2026-10-02T03:30:00.000Z', lerPrs: ler });
+    // A correcao despachada depois do check e ainda trabalhando: a thread anda.
+    const sessao = '00000000-0000-4000-8000-000000000099', correcao = '2026-10-02T02:45:23.000Z';
+    registrar(a.dir, a.t.id, 'phase_dispatch', { ts: correcao, fase: 'GO', modo: 'auto', pausaAoFim: false, runtime: 'claude-bg', sessionId: sessao });
+    const corrigindo = entregasDoProjeto(p.carregado, { quando: '2026-10-02T03:30:00.000Z',
+      lerPrs: ler(retratoCom([vermelho], { lidoEm: '2026-10-02T03:30:00.000Z' })) });
     assert.equal(corrigindo.parados.length, 0);
     assert.equal(corrigindo.estados[0].resumo, 'PR #40 aberto com o check ork-verify vermelho', 'o estado continua dito');
+    // A correcao terminou sem push novo e o check segue vermelho: volta a ser do condutor, desde o fim dela (B2 do CHECK).
+    registrar(a.dir, a.t.id, 'phase_result', { ts: '2026-10-02T02:55:00.000Z', fase: 'GO', sessionId: sessao, classificacao: 'fase_concluida', ok: true });
+    const terminou = entregasDoProjeto(p.carregado, { quando: '2026-10-02T03:30:00.000Z',
+      lerPrs: ler(retratoCom([vermelho], { lidoEm: '2026-10-02T03:30:00.000Z' })) });
+    assert.equal(terminou.parados[0]?.caso, 'pr-vermelho');
+    assert.equal(terminou.parados[0].desdeEm, '2026-10-02T02:55:00.000Z');
+    // O commit da correcao ficou sem push: o passo e publicar no PR que ja existe, nunca abrir outro.
+    commitNaBranch(p, a.branch, 'correcao.txt');
+    const semPush = entregasDoProjeto(p.carregado, { quando: '2026-10-02T03:30:00.000Z',
+      lerPrs: ler(retratoCom([vermelho], { lidoEm: '2026-10-02T03:30:00.000Z' })) });
+    assert.equal(semPush.parados[0]?.proximoPasso, `publicar os commits novos da branch ${a.branch} no PR #40`);
+  } finally { p.limpar(); }
+});
+
+test('B2 do CHECK: PR verde e o SHIP despachado depois terminou sem merge: volta a ser do condutor', () => {
+  const p = projetoTemporario('fatia4-ship-sem-merge', true);
+  try {
+    const a = threadComProduto(p, 'ship sem merge', { publicar: true });
+    forjaSimulada(p);
+    turnoDoObservador(a.dir, a.t.id, 6);
+    const verde = pr(41, a.branch, a.head, { checks: [{ nome: 'ork-verify', situacao: 'verde', concluidoEm: '2026-10-01T22:01:00.000Z' }] });
+    turnoDoObservador(a.dir, a.t.id, 7, { despacho: '2026-10-01T22:30:00.000Z', fim: '2026-10-01T22:40:00.000Z', fase: 'SHIP', bloco: 'SHIP' });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([verde])) });
+    assert.equal(r.parados[0]?.caso, 'pr-verde');
+    assert.equal(r.parados[0].proximoPasso, 'mergear o PR #41');
+    assert.equal(r.parados[0].desdeEm, depois('2026-10-01T22:40:00.000Z', -0.2), 'desde o fim do SHIP, nao do check');
+    assert.ok(r.doCondutor.gates.has(`${a.t.id}|SHIP`));
+  } finally { p.limpar(); }
+});
+
+test('bloco antes da entrega: o passo e despachar a fase seguinte, nao publicar', () => {
+  const p = projetoTemporario('fatia4-fase-seguinte', true);
+  try {
+    const a = threadComProduto(p, 'go do classic');
+    turnoDoObservador(a.dir, a.t.id, 8, { fase: 'GO', bloco: 'GOAL-PLAN-GO' });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA });
+    assert.equal(r.parados[0]?.caso, 'fase-seguinte');
+    assert.equal(r.parados[0].proximoPasso, `despachar a fase CHECK (ork phase run ${a.t.id} CHECK)`);
+  } finally { p.limpar(); }
+});
+
+test('merge na base sem ship_done vira "registrar a entrega"; entrega nova depois do ship volta a ser parada', () => {
+  const p = projetoTemporario('fatia4-registro', true);
+  try {
+    const a = threadComProduto(p, 'mesclada sem registro', { publicar: true });
+    turnoDoObservador(a.dir, a.t.id, 9);
+    git(p.dir, 'merge', '-q', '--no-ff', '-m', `ship(${a.t.id}): entregue SIMULADO`, a.branch);
+    git(p.dir, 'push', '-q', 'origin', 'main');
+    const sha = git(p.dir, 'rev-parse', 'main').slice(0, 7);
+    const r = entregasDoProjeto(p.carregado, { quando: depois(new Date().toISOString(), 60) });
+    assert.equal(r.parados[0]?.caso, 'sem-registro');
+    assert.equal(r.parados[0].proximoPasso, `registrar a entrega do merge ${sha} (ork ship registrar-pr ${a.t.id})`);
+    // Com o ship_done, a entrega esta feita; o fim de turno que sobrou pede o MASTER.
+    registrar(a.dir, a.t.id, 'ship_done', { de: a.branch, para: 'main', mergeSha: git(p.dir, 'rev-parse', 'main'), pushVerificado: true });
+    const registrada = entregasDoProjeto(p.carregado, { quando: depois(new Date().toISOString(), 60) });
+    assert.equal(registrada.parados[0]?.proximoPasso, `fechar o MASTER da thread (ork master ${a.t.id})`);
+    // Commit novo na branch depois do ship: entrega nova, sem push.
+    commitNaBranch(p, a.branch, 'segunda-entrega.txt');
+    const nova = entregasDoProjeto(p.carregado, { quando: depois(new Date().toISOString(), 60) });
+    assert.equal(nova.parados[0]?.caso, 'sem-push');
   } finally { p.limpar(); }
 });
 
@@ -165,7 +258,7 @@ test('caso 5: sessao blocked sem pergunta de verdade e sem produto vira "ler o f
   const p = projetoTemporario('fatia4-sessao', true);
   try {
     const a = threadComProduto(p, 'sem produto', { produto: false });
-    const { sessionId } = turnoDoObservador(a.dir, a.t.id, 6);
+    const { sessionId } = turnoDoObservador(a.dir, a.t.id, 10);
     const r = entregasDoProjeto(p.carregado, { quando: AGORA });
     assert.equal(r.parados.length, 1);
     assert.equal(r.parados[0].caso, 'sessao-sem-pergunta');
@@ -174,26 +267,32 @@ test('caso 5: sessao blocked sem pergunta de verdade e sem produto vira "ler o f
   } finally { p.limpar(); }
 });
 
-test('caso 5 no radar: sessao blocked sem menu de thread fechada e sobra, com "encerrar a sessao"', () => {
+test('radar: sobras de thread fechada numa linha; sessao Codex, tela nao lida e sem carimbo continuam do dono', () => {
   const p = projetoTemporario('fatia4-sobra', true);
   try {
     const { thread: t } = novaThread(p.carregado, { nome: 'fechada', modo: 'auto' });
     const fechada = lerThread(p.dir, t.id); fechada.status = 'fechada'; gravarThread(p.dir, fechada);
-    const sessionId = '00000000-0000-4000-8000-000000000077';
-    const radar = (alternativas: string[]): SessaoNoRadar => ({ id: sessionId.slice(0, 8), sessionId, nome: 'SIMULADA', cwd: '/tmp/simulada',
-      kind: 'background', estadoBruto: 'blocked', classe: 'hitl', tipoDeHitl: alternativas.length ? 'hitl.pergunta' : 'hitl.desconhecido',
+    const sessao = (sessionId: string, extra: Partial<SessaoNoRadar> = {}): SessaoNoRadar => ({ id: sessionId.slice(0, 8), sessionId,
+      nome: 'SIMULADA', cwd: '/tmp/simulada', kind: 'background', estadoBruto: 'blocked', classe: 'hitl', tipoDeHitl: 'hitl.desconhecido',
       jobVivo: true, precisaDeHumano: true, detalhe: 'SIMULADO', desdeEm: '2026-10-01T03:00:00.000Z', idadeMin: 1300, pergunta: '',
-      alternativas, thread: { id: t.id, fase: 'CHECK', slug: t.slug }, recomendacao: '', comandos: { logs: '', attach: '', parar: '' },
-      acimaDoLimite: true, bloqueadaDesdeEm: '2026-10-01T09:00:00.000Z', paradaHaMin: 980 });
-    const r = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [radar([])] });
-    assert.equal(r.parados.length, 1);
-    assert.equal(r.parados[0].proximoPasso, `encerrar a sessão ${sessionId.slice(0, 8)}, que sobrou da thread fechada (ork sessions stop ${sessionId.slice(0, 8)})`);
-    assert.equal(r.parados[0].desdeEm, '2026-10-01T09:00:00.000Z');
-    assert.ok(r.doCondutor.sessoes.has(sessionId));
-    // Com menu na tela, a pergunta e de verdade: continua do dono.
-    const comMenu = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [radar(['1. Sim', '2. Nao'])] });
-    assert.equal(comMenu.parados.length, 0);
-    assert.equal(comMenu.doCondutor.sessoes.size, 0);
+      alternativas: [], thread: { id: t.id, fase: 'CHECK', slug: t.slug }, recomendacao: '', comandos: { logs: '', attach: '', parar: '' },
+      acimaDoLimite: true, bloqueadaDesdeEm: '2026-10-01T09:00:00.000Z', paradaHaMin: 980, ...extra });
+    const a = '00000000-0000-4000-8000-0000000000a1', b = '00000000-0000-4000-8000-0000000000b2';
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA,
+      sessoes: [sessao(a), sessao(b, { bloqueadaDesdeEm: '2026-10-01T08:00:00.000Z' })] });
+    assert.equal(r.parados.length, 1, 'uma linha por thread');
+    assert.equal(r.parados[0].proximoPasso, `encerrar as sessões ${a.slice(0, 8)} e ${b.slice(0, 8)}, que sobraram da thread fechada ` +
+      `(ork sessions stop ${a.slice(0, 8)}; ork sessions stop ${b.slice(0, 8)})`);
+    assert.equal(r.parados[0].desdeEm, '2026-10-01T08:00:00.000Z', 'desde o carimbo mais velho');
+    assert.ok(r.doCondutor.sessoes.has(a) && r.doCondutor.sessoes.has(b));
+    // B1 do CHECK: a sessao nativa do Codex em `blocked` e pergunta estruturada; a tela nao lida nao prova nada.
+    for (const dono of [sessao(a, { kind: 'codex-controller', tipoDeHitl: null }), sessao(a, { tipoDeHitl: null }),
+      sessao(a, { alternativas: ['1. Sim', '2. Nao'], tipoDeHitl: 'hitl.pergunta' }), sessao(a, { pergunta: 'Posso seguir?' }),
+      sessao(a, { tipoDeHitl: 'hitl.credencial' }), sessao(a, { bloqueadaDesdeEm: null })]) {
+      const x = entregasDoProjeto(p.carregado, { quando: AGORA, sessoes: [dono] });
+      assert.equal(x.doCondutor.sessoes.size, 0, JSON.stringify({ kind: dono.kind, tipo: dono.tipoDeHitl, desde: dono.bloqueadaDesdeEm }));
+      assert.equal(x.parados.length, 0);
+    }
   } finally { p.limpar(); }
 });
 
@@ -201,7 +300,8 @@ test('fatia 3 de 01/10: sem phase_result, o Stop sem atividade depois encerra o 
   const p = projetoTemporario('fatia4-stop', true);
   try {
     const a = threadComProduto(p, 'so o stop', { publicar: true });
-    const sessionId = '00000000-0000-4000-8000-000000000010';
+    forjaSimulada(p);
+    const sessionId = '00000000-0000-4000-8000-000000000011';
     assert.equal(registrarConducaoDaSessao(p.dir, a.t.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 48 * 3600_000 },
       { sessionId, runtime: 'claude-bg', perfil: null }), true);
     registrar(a.dir, a.t.id, 'phase_dispatch', { ts: '2026-10-01T05:06:12.000Z', fase: 'GOAL', modo: 'auto', pausaAoFim: false,
@@ -209,19 +309,19 @@ test('fatia 3 de 01/10: sem phase_result, o Stop sem atividade depois encerra o 
     registrar(a.dir, a.t.id, 'runtime_stop', { ts: '2026-10-01T06:52:44.000Z', fase: 'GOAL', sessionId, runtime: 'claude-bg',
       despachoEm: '2026-10-01T05:06:12.008Z', fonte: 'ork sessions event', sensor: 'stop', sensorEventId: SHA_DO_SENSOR });
     const verde = pr(39, a.branch, a.head, { checks: [{ nome: 'ork-verify', situacao: 'verde', concluidoEm: '2026-10-01T22:01:39.000Z' }] });
-    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([verde]) }) });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([verde])) });
     assert.equal(r.estados[0].conduzidaAgora, false, 'a sessao que encerrou o turno nao conduz');
     assert.equal(r.parados[0]?.caso, 'pr-verde');
     // Heartbeat da sessao depois do Stop: ela voltou a trabalhar, e conduz.
     registrar(a.dir, a.t.id, 'runtime_event', { ts: '2026-10-01T23:00:00.000Z', fase: 'GOAL', sessionId, runtime: 'claude-bg',
       despachoEm: '2026-10-01T05:06:12.008Z', fonte: 'ork sessions event', sensor: 'heartbeat' });
-    const voltou = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([verde]) }) });
+    const voltou = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([verde])) });
     assert.equal(voltou.estados[0].conduzidaAgora, true);
     assert.equal(voltou.parados.length, 0);
   } finally { p.limpar(); }
 });
 
-test('contraprovas: limiar, conducao por processo, pausa prevista, pergunta aberta, prompt pendente e entrega na base', () => {
+test('contraprovas: limiar, conducao por processo, pausa prevista, pedido aberto ou vencido que espera, prompt do hook', () => {
   const p = projetoTemporario('fatia4-contraprovas', true);
   try {
     // Abaixo do limiar: o condutor pode estar agindo.
@@ -235,31 +335,43 @@ test('contraprovas: limiar, conducao por processo, pausa prevista, pergunta aber
     // Pausa prevista do modo ao fim do bloco: o veredito e do dono.
     const c = threadComProduto(p, 'pausa prevista');
     turnoDoObservador(c.dir, c.t.id, 22, { pausaAoFim: true });
-    // Pergunta estruturada aberta: do dono.
+    // Pedido de sessao valido e aberto: do dono.
     const d = threadComProduto(p, 'pergunta aberta');
-    turnoDoObservador(d.dir, d.t.id, 23);
-    registrar(d.dir, d.t.id, 'hitl_requested', { ts: '2026-10-01T07:00:00.000Z', pedido: { contrato: 'ork.hitl/v2', classe: 'pergunta',
-      id: 'pedido-SIMULADO', thread: d.t.id, fase: 'GOAL', criadoEm: '2026-10-01T07:00:00.000Z', prazo: '2026-10-09T07:00:00.000Z',
-      aoExpirar: 'continuar-esperando', alvo: { tipo: 'session', sessionId: 'x' } } });
-    // Prompt de permissao pendente: do dono.
-    const e = threadComProduto(p, 'prompt pendente');
-    const { sessionId } = turnoDoObservador(e.dir, e.t.id, 24);
-    registrar(e.dir, e.t.id, 'sessao_bloqueada', { ts: '2026-10-01T07:28:30.000Z', sessionId, fase: 'GOAL' });
-    // Entregue na base pelo merge ship(<thread>): nada a fazer pelo condutor.
-    const f = threadComProduto(p, 'entregue', { publicar: true });
-    turnoDoObservador(f.dir, f.t.id, 25);
-    git(p.dir, 'merge', '-q', '--no-ff', '-m', `ship(${f.t.id}): entregue SIMULADO`, f.branch);
-    git(p.dir, 'push', '-q', 'origin', 'main');
+    const { sessionId: sd } = turnoDoObservador(d.dir, d.t.id, 23);
+    registrar(d.dir, d.t.id, 'hitl_requested', { ts: '2026-10-01T07:00:00.000Z', fase: 'GOAL',
+      pedido: pedidoDeSessao(d.t.id, sd, '2026-10-01T07:00:00.000Z', '2026-10-03T07:00:00.000Z') });
+    // Pedido vencido cuja acao ao expirar e esperar: continua do dono (aviso 5 do CHECK).
+    const e = threadComProduto(p, 'pedido vencido');
+    const { sessionId: se } = turnoDoObservador(e.dir, e.t.id, 24);
+    registrar(e.dir, e.t.id, 'hitl_requested', { ts: '2026-10-01T07:00:00.000Z', fase: 'GOAL',
+      pedido: pedidoDeSessao(e.t.id, se, '2026-10-01T07:00:00.000Z', '2026-10-01T08:00:00.000Z') });
+    // Prompt de permissao do hook, sem Stop depois: do dono.
+    const f = threadComProduto(p, 'prompt do hook');
+    const { sessionId: sf } = turnoDoObservador(f.dir, f.t.id, 25);
+    registrar(f.dir, f.t.id, 'sessao_bloqueada', { ts: '2026-10-01T07:28:30.000Z', sessionId: sf, fase: 'GOAL', fonte: 'ork sessions event',
+      sensor: 'permission_prompt', tipoDeHitl: 'permissao', pergunta: null, estadoRuntime: 'blocked' });
 
-    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => ({ ok: true, retrato: retratoCom([]) }) });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA });
     if (conducao.ok) conducao.liberar();
     assert.deepEqual(r.parados, [], JSON.stringify(r.parados));
-    const doCondutor = [...r.doCondutor.gates];
-    for (const dono of [c, d, e]) assert.ok(!doCondutor.includes(`${dono.t.id}|GOAL`), `${dono.t.id} continua do dono`);
-    assert.ok(doCondutor.includes(`${a.t.id}|GOAL`) && doCondutor.includes(`${b.t.id}|GOAL`), 'abaixo do limiar e conduzida ainda nao sao do dono');
+    const gates = [...r.doCondutor.gates];
+    for (const dono of [c, d, e, f]) assert.ok(!gates.includes(`${dono.t.id}|GOAL`), `${dono.t.id} continua do dono`);
+    assert.ok(gates.includes(`${a.t.id}|GOAL`) && gates.includes(`${b.t.id}|GOAL`), 'abaixo do limiar e conduzida ainda nao sao do dono');
     assert.equal(r.estados.find(x => x.thread === b.t.id)!.conduzidaAgora, true);
-    assert.equal(r.estados.find(x => x.thread === f.t.id)!.resumo, null, 'entregue nao tem estado de entrega pendente');
     assert.equal(esperaDoCondutor(lerThread(p.dir, d.t.id), lerLedger(d.dir), AGORA), null);
+  } finally { p.limpar(); }
+});
+
+test('aviso 4 do CHECK: o carimbo do proprio radar no fim de turno nao devolve o caso ao dono', () => {
+  const p = projetoTemporario('fatia4-carimbo', true);
+  try {
+    const a = threadComProduto(p, 'carimbada');
+    const { sessionId } = turnoDoObservador(a.dir, a.t.id, 26);
+    registrar(a.dir, a.t.id, 'sessao_bloqueada', { ts: '2026-10-01T07:45:00.000Z', thread: a.t.id, sessionId, fase: 'GOAL',
+      tipoDeHitl: 'hitl.desconhecido', pergunta: '', fonte: 'ork sessions hitl --registrar', estadoRuntime: 'blocked' });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA });
+    assert.equal(r.parados[0]?.caso, 'sem-push');
+    assert.ok(r.doCondutor.gates.has(`${a.t.id}|GOAL`));
   } finally { p.limpar(); }
 });
 
@@ -268,7 +380,7 @@ test('resultado legado (ok sem classificacao) tambem encerra o turno; gate_passe
   try {
     const a = threadComProduto(p, 'legado');
     registrar(a.dir, a.t.id, 'phase_dispatch', { ts: '2026-10-01T05:00:00.000Z', fase: 'GO', modo: 'auto', pausaAoFim: false,
-      runtime: 'codex', sessionId: '00000000-0000-4000-8000-000000000040' });
+      bloco: 'GO-CHECK-SHIP-MASTER', runtime: 'codex', sessionId: '00000000-0000-4000-8000-000000000040' });
     registrar(a.dir, a.t.id, 'phase_result', { ts: FIM, fase: 'GO', sessionId: '00000000-0000-4000-8000-000000000040', ok: true });
     const b = threadComProduto(p, 'pausa com vivacidade');
     turnoDoObservador(b.dir, b.t.id, 41, { pausaAoFim: true });
@@ -279,59 +391,100 @@ test('resultado legado (ok sem classificacao) tambem encerra o turno; gate_passe
   } finally { p.limpar(); }
 });
 
-test('falha da forja e "PR nao lido", nunca "sem PR"; a resposta do gh e validada', () => {
+test('retrato que nao vale e "PR nao lido", nunca "sem PR": velho, de outra base, anterior ao fim do turno, lista cortada', () => {
+  const p = projetoTemporario('fatia4-retrato', true);
+  try {
+    const a = threadComProduto(p, 'retrato ruim', { publicar: true });
+    forjaSimulada(p);
+    turnoDoObservador(a.dir, a.t.id, 27);
+    const casos: [RetratoDePrs, string][] = [
+      [retratoCom([], { lidoEm: '2026-10-01T23:00:00.000Z' }), 'retrato de PRs velho'],
+      [retratoCom([], { base: 'release' }), 'retrato de PRs de outro repositório ou base'],
+      [retratoCom([], { repositorio: 'outro/repositorio' }), 'retrato de PRs de outro repositório ou base'],
+      [retratoCom([], { parcial: true }), `lista de PRs cortada nos ${LIMITE_DE_PRS} mais novos`],
+    ];
+    for (const [retrato, motivo] of casos) {
+      const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retrato) });
+      assert.equal(r.estados[0].prNaoLido, motivo);
+      assert.equal(r.estados[0].resumo, 'branch publicada, PR não lido');
+      assert.ok(!r.parados.some(x => x.caso === 'sem-pr'), motivo);
+      assert.equal(r.parados[0]?.proximoPasso, `conferir o PR da branch ${a.branch} (PR não lido) e seguir`, 'o fim de turno volta como linha');
+    }
+    // Leitura anterior ao fim do turno: o turno pode ter mudado o PR.
+    const antes = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([], { lidoEm: '2026-10-01T07:00:00.000Z' })) });
+    assert.match(antes.estados[0].prNaoLido ?? '', /retrato de PRs (velho|anterior ao fim do turno)/);
+  } finally { p.limpar(); }
+});
+
+test('a resposta do gh e validada: falha, formato, branch estranha, fork, outra base, checks repetidos e nomes de check', () => {
   const p = projetoTemporario('fatia4-forja', true);
   try {
     const a = threadComProduto(p, 'forja', { publicar: true });
     turnoDoObservador(a.dir, a.t.id, 30);
-    // O remoto da fixture e um repositorio local; para a forja, ele passa a apontar para um GitHub SIMULADO.
-    git(p.dir, 'remote', 'set-url', 'origin', 'https://github.com/exemplo/simulado.git');
+    forjaSimulada(p);
     const chamadas: string[][] = [];
     const falha: ExecutorDoGh = (args) => { chamadas.push([...args]); return { status: 1, stdout: '', stderr: 'HTTP 502: SIMULADO' }; };
     const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: () => lerPrsDaForja(p.carregado, { quando: AGORA, executor: falha }) });
     assert.equal(chamadas.length, 1);
-    assert.deepEqual(chamadas[0].slice(0, 4), ['pr', 'list', '--repo', 'exemplo/simulado']);
-    assert.equal(r.parados.length, 0, 'sem leitura nao se afirma "sem PR"');
-    assert.match(r.estados[0].prNaoLido ?? '', /gh pr list falhou \(1\): HTTP 502: SIMULADO/);
-    assert.equal(r.estados[0].resumo, 'branch publicada, PR não lido');
-    // Resposta fora do formato tambem e "nao lido".
-    const torta: ExecutorDoGh = () => ({ status: 0, stdout: '{"nao":"lista"}', stderr: '' });
-    const lida = lerPrsDaForja(p.carregado, { quando: AGORA, executor: torta });
-    assert.equal(lida.ok, false);
-    // Resposta boa: PR aberto com CheckRun e StatusContext, PR de outra base e de fork ficam de fora.
+    assert.deepEqual(chamadas[0].slice(0, 5), ['pr', 'list', '--repo=github.com/exemplo/simulado', '--base=main', '--state=all']);
+    assert.ok(!r.parados.some(x => x.caso === 'sem-pr'), 'sem leitura nao se afirma "sem PR"');
+    assert.match(r.estados[0].prNaoLido ?? '', /gh pr list falhou \(código 1\): HTTP 502: SIMULADO/);
+    assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor: () => ({ status: 0, stdout: '{"nao":"lista"}', stderr: '' }) }).ok, false);
+    const sem = lerPrsDaForja(p.carregado, { quando: AGORA, executor: () => ({ status: null, stdout: '', stderr: 'spawnSync gh ENOENT' }) });
+    assert.equal(sem.ok, false);
+    assert.match(sem.ok ? '' : sem.erro, /\(sem código de saída\): spawnSync gh ENOENT/);
+    // Nome de check com diretiva, padrao de substituicao, quebra e formatacao invisivel sai limpo.
+    const sujo = `MEDIA:/etc/x $& ${String.fromCharCode(0x202e)}vira${String.fromCharCode(0x2028)}linha${String.fromCharCode(0x200b)}`;
+    assert.equal(nomeDeCheck(sujo), 'MEDIA /etc/x vira linha');
     const boa: ExecutorDoGh = () => ({ status: 0, stderr: '', stdout: JSON.stringify([
       { number: 40, state: 'OPEN', headRefName: a.branch, headRefOid: a.head, baseRefName: 'main', isDraft: false, isCrossRepository: false,
         url: 'https://github.com/exemplo/simulado/pull/40', createdAt: '2026-10-01T22:00:01Z', mergedAt: null,
         statusCheckRollup: [
           { __typename: 'CheckRun', name: 'ork-verify', status: 'COMPLETED', conclusion: 'FAILURE', startedAt: '2026-10-01T22:00:07Z', completedAt: '2026-10-01T22:07:15Z' },
+          { __typename: 'CheckRun', name: 'ork-verify', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-10-01T22:20:00Z', completedAt: '2026-10-01T22:27:00Z' },
           { __typename: 'StatusContext', context: 'externo', state: 'SUCCESS', startedAt: '2026-10-01T22:01:00Z' },
-          { __typename: 'CheckRun', name: 'nucleo', status: 'IN_PROGRESS', conclusion: '', completedAt: '0001-01-01T00:00:00Z' }] },
+          { __typename: 'CheckRun', name: sujo, status: 'IN_PROGRESS', conclusion: '', completedAt: '0001-01-01T00:00:00Z' }] },
       { number: 41, state: 'OPEN', headRefName: 'outra', headRefOid: 'b'.repeat(40), baseRefName: 'release', isDraft: false, isCrossRepository: false, statusCheckRollup: [] },
       { number: 42, state: 'OPEN', headRefName: 'fork', headRefOid: 'c'.repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: true, statusCheckRollup: [] },
+      { number: 43, state: 'MERGED', headRefName: 'fix/issue#12', headRefOid: 'e'.repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: false, statusCheckRollup: null },
       { number: 7, state: 'MERGED', headRefName: 'antiga', headRefOid: 'd'.repeat(40), baseRefName: 'main', isDraft: false, isCrossRepository: false,
         mergedAt: '2026-09-30T10:00:00Z', statusCheckRollup: null }]) });
     const ok = lerPrsDaForja(p.carregado, { quando: AGORA, executor: boa });
     assert.equal(ok.ok, true);
     if (!ok.ok) return;
-    assert.deepEqual(ok.retrato.prs.map(x => x.numero), [40, 7]);
+    assert.deepEqual(ok.retrato.prs.map(x => x.numero), [40, 7], 'outra base, fork e branch fora do formato ficam de fora sem derrubar a leitura');
+    assert.equal(ok.retrato.parcial, false);
     assert.deepEqual(ok.retrato.prs[0].checks.map(c => [c.nome, c.situacao, c.concluidoEm]), [
-      ['ork-verify', 'vermelho', '2026-10-01T22:07:15.000Z'], ['externo', 'verde', '2026-10-01T22:01:00.000Z'], ['nucleo', 'pendente', null]]);
-    // O retrato vai e volta inteiro; arquivo adulterado nao vale.
+      ['ork-verify', 'verde', '2026-10-01T22:27:00.000Z'], ['externo', 'verde', '2026-10-01T22:01:00.000Z'], ['MEDIA /etc/x vira linha', 'pendente', null]],
+      'vale a reexecucao mais nova do ork-verify');
+    // O retrato vai e volta inteiro; arquivo adulterado nao vale; o nome sujo gravado a mao sai limpo na leitura.
     gravarRetratoDePrs(p.dir, ok.retrato);
     assert.deepEqual(lerRetratoDePrs(p.dir), ok.retrato);
     const arquivo = path.join(p.dir, '.orkastery', 'monitor', 'prs.json');
     assert.equal(fs.statSync(arquivo).mode & 0o777, 0o600);
+    const adulterado = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+    adulterado.prs[0].checks[0].nome = sujo;
+    fs.writeFileSync(arquivo, JSON.stringify(adulterado));
+    assert.equal(lerRetratoDePrs(p.dir)?.prs[0].checks[0].nome, 'MEDIA /etc/x vira linha');
     fs.writeFileSync(arquivo, JSON.stringify({ ...ok.retrato, contrato: 'outro/v1' }));
     assert.equal(lerRetratoDePrs(p.dir), null);
+    // Lista cheia: parcial.
+    const cheia: ExecutorDoGh = () => ({ status: 0, stderr: '', stdout: JSON.stringify(Array.from({ length: LIMITE_DE_PRS }, (_, i) =>
+      ({ number: i + 100, state: 'MERGED', headRefName: `velha-${i}`, headRefOid: 'f'.repeat(40), baseRefName: 'main', isDraft: false,
+        isCrossRepository: false, statusCheckRollup: null }))) });
+    const cortada = lerPrsDaForja(p.carregado, { quando: AGORA, executor: cheia });
+    assert.equal(cortada.ok && cortada.retrato.parcial, true);
   } finally { p.limpar(); }
 });
 
-test('remoto que nao e GitHub nao chama o gh', () => {
+test('remoto que nao e do github.com nao chama o gh', () => {
   const p = projetoTemporario('fatia4-sem-github', true);
   try {
     let chamadas = 0;
-    const r = lerPrsDaForja(p.carregado, { quando: AGORA, executor: () => { chamadas++; return { status: 0, stdout: '[]', stderr: '' }; } });
-    assert.equal(r.ok, false);
+    const executor: ExecutorDoGh = () => { chamadas++; return { status: 0, stdout: '[]', stderr: '' }; };
+    assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor }).ok, false);
+    git(p.dir, 'remote', 'set-url', 'origin', 'https://gitlab.com/github.com/exemplo/simulado.git');
+    assert.equal(lerPrsDaForja(p.carregado, { quando: AGORA, executor }).ok, false, 'o host e ancorado, nao so citado no caminho');
     assert.equal(chamadas, 0);
   } finally { p.limpar(); }
 });

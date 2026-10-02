@@ -166,12 +166,15 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
   const entregas = entregasNaBase(raiz, carregado.manifesto.worktree.base_branch, remoto);
   const itemDaThread = new Map(reservasLocais(raiz, remoto).filter((r) => r.thread).map((r) => [r.thread as string, r.item]));
   const threads = itens.map(({ thread: t, raiz: raizDoPerfil }): ThreadNaFabrica => {
-    const pausa = linhas.get(t.id)?.pausas[0];
     const entregue = entregas.get(t.id) ?? null;
-    // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor; as outras maquinas nao o leem como espera do dono.
-    let doCondutor = false;
-    try { doCondutor = esperaDoCondutor(t, lerLedger(dirThread(raizDoPerfil, t.id)), quando) !== null; } catch { doCondutor = false; }
-    const esperaVoce = !entregue && !doCondutor && linhas.get(t.id)?.precisaDeHumano === true;
+    // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor, e as outras maquinas nao o leem como espera
+    // do dono. Sai so a pausa que o observador abriu nele; outra pausa da thread continua contando.
+    let espera: ReturnType<typeof esperaDoCondutor> = null;
+    try { espera = esperaDoCondutor(t, lerLedger(dirThread(raizDoPerfil, t.id)), quando); } catch { espera = null; }
+    const pausas = (linhas.get(t.id)?.pausas ?? []).filter((p) => !(espera && p.motivo === 'human.pending' && p.fonte === 'ledger' &&
+      p.fase === (espera.fase ?? t.faseAtual)));
+    const pausa = pausas[0];
+    const esperaVoce = !entregue && pausas.some((p) => p.sessaoViva !== true);
     return {
       id: t.id, nome: curto(t.nome, 100), modo: tagDoModo(t.modo), fase: t.faseAtual, status: t.status,
       roadmap: t.roadmap ?? itemDaThread.get(t.id) ?? null, branch: t.base?.branch ?? null,

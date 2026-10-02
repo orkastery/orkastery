@@ -116,11 +116,13 @@ function cenario(nome: string) {
   item(p.dir, 'RM-037', verde.t.id);
   item(p.dir, 'RM-049', semPr.t.id);
   item(p.dir, 'RM-005', anda.t.id);
+  // O remoto da fixture e um repositorio local; o retrato de PRs vale do GitHub SIMULADO dele, depois dos pushes.
+  git(p.dir, 'remote', 'set-url', 'origin', 'https://github.com/exemplo/simulado.git');
   return { p, vermelho, verde, semPr, anda };
 }
 
-function retrato(c: ReturnType<typeof cenario>) {
-  return { contrato: CONTRATO_PRS, lidoEm: '2026-10-02T01:15:00.000Z', repositorio: 'exemplo/simulado', base: 'main', prs: [
+function retrato(c: ReturnType<typeof cenario>, lidoEm = '2026-10-02T01:15:00.000Z') {
+  return { contrato: CONTRATO_PRS, lidoEm, repositorio: 'exemplo/simulado', base: 'main', parcial: false, prs: [
     pr(40, c.vermelho.branch, c.vermelho.head, [{ nome: 'ork-verify', situacao: 'vermelho', concluidoEm: '2026-10-01T22:07:15.000Z' },
       { nome: 'documentacao', situacao: 'verde', concluidoEm: '2026-10-01T22:00:23.000Z' }]),
     pr(39, c.verde.branch, c.verde.head, [{ nome: 'ork-verify', situacao: 'verde', concluidoEm: '2026-10-02T01:11:00.000Z' }]),
@@ -133,17 +135,19 @@ test('o que vem a seguir diz o estado real: parado no condutor, PR lido do retra
   try {
     gravarRetratoDePrs(c.p.dir, retrato(c));
     fabricaLocal(c.p, [{ maquina: 'pc-b', publicadoEm: '2026-10-01T06:21:00.000Z' }, { maquina: 'pc-c', publicadoEm: '2026-10-02T00:21:00.000Z' },
-      { maquina: 'pc-a', publicadoEm: '2026-09-30T00:00:00.000Z' }]);
+      { maquina: 'pc-a', publicadoEm: '2026-10-02T01:15:00.000Z' }]);
     const status = montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery' });
     const linhas = textoDoStatusDoRoadmap(status).split('\n');
     const seguir = linhas.indexOf('O que eu faço em seguida'), precisa = linhas.indexOf('O que precisa de você');
     assert.equal(linhas[precisa + 1], '• Nada agora.', 'o fim de turno sem pergunta nao e do dono');
     const fecho = linhas.slice(seguir + 1);
-    assert.ok(fecho.includes(`• RM-031: ${c.vermelho.t.id} parado no condutor desde 19:07: corrigir o check ork-verify vermelho do PR #40 e despachar a correção.`), fecho.join('\n'));
+    assert.ok(fecho.includes(`• RM-031: ${c.vermelho.t.id} parado no condutor desde 19:07: corrigir o check ork-verify vermelho do PR #40 ` +
+      'e despachar a correção (PR lido às 22:15).'), fecho.join('\n'));
     assert.ok(fecho.includes(`• RM-037: ${c.verde.t.id} na fase GOAL, PR #39 com os checks verdes, esperando o merge (PR lido às 22:15).`), fecho.join('\n'));
-    assert.ok(fecho.includes(`• RM-049: ${c.semPr.t.id} parado no condutor desde 04:27: abrir o PR da branch ${c.semPr.branch}.`), fecho.join('\n'));
+    assert.ok(fecho.includes(`• RM-049: ${c.semPr.t.id} parado no condutor desde 04:27: abrir o PR da branch ${c.semPr.branch} (PR lido às 22:15).`),
+      fecho.join('\n'));
     assert.ok(fecho.includes(`• RM-005: sigo ${c.anda.t.id} na fase GOAL.`), fecho.join('\n'));
-    // A batida: so a outra maquina velha, numa linha; esta maquina e a recente ficam de fora.
+    // A batida: so a outra maquina velha, numa linha; esta maquina (que publicou ha pouco) e a recente ficam de fora.
     assert.ok(linhas.includes('Fábrica: pc-b sem batida há 19h00 (último retrato 01/10 03:21), pela cópia local de ork/fabrica-estado.'), linhas.join('\n'));
     assert.equal(linhas.filter(l => l.startsWith('Fábrica:')).length, 1);
     // O JSON leva o mesmo.
@@ -158,9 +162,14 @@ test('sem retrato de PRs e sem copia da fabrica: "nao lido", nunca "sem PR" nem 
   try {
     const linhas = textoDoStatusDoRoadmap(montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
     assert.ok(linhas.includes('Fábrica: não lido (esta máquina não tem cópia local de ork/fabrica-estado).'), linhas.join('\n'));
-    assert.ok(linhas.includes(`• RM-049: ${c.semPr.t.id} na fase GOAL, branch publicada, PR não lido.`), linhas.join('\n'));
-    assert.ok(linhas.includes(`• RM-031: ${c.vermelho.t.id} na fase GOAL, branch publicada, PR não lido.`), linhas.join('\n'));
+    // O fim de turno sem pergunta volta como linha do condutor, com o PR dito como nao lido.
+    assert.ok(linhas.includes(`• RM-049: ${c.semPr.t.id} parado no condutor desde 04:27: conferir o PR da branch ${c.semPr.branch} ` +
+      '(PR não lido) e seguir.'), linhas.join('\n'));
     assert.ok(!linhas.some(l => /abrir o PR/.test(l)), 'sem leitura nao se afirma "sem PR"');
+    // Retrato velho (mais de uma hora) tambem e "nao lido".
+    gravarRetratoDePrs(c.p.dir, retrato(c, '2026-10-01T23:00:00.000Z'));
+    const velho = textoDoStatusDoRoadmap(montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+    assert.ok(velho.some(l => l.startsWith(`• RM-031: ${c.vermelho.t.id} parado no condutor`) && l.includes('(PR não lido)')), velho.join('\n'));
   } finally { c.p.limpar(); restaurar(); }
 });
 
@@ -182,7 +191,8 @@ test('leitura pura e sem rede: o CLI nao chama o gh e nao muda o ledger', () => 
   fs.writeFileSync(path.join(bin, 'gh'), `#!/bin/sh\necho chamado >> '${marca}'\nexit 1\n`, { mode: 0o755 });
   const caminho = process.env.PATH, cwd = process.cwd(), log = console.log;
   try {
-    gravarRetratoDePrs(c.p.dir, retrato(c));
+    // O CLI le no relogio de verdade: o retrato e de agora.
+    gravarRetratoDePrs(c.p.dir, retrato(c, new Date().toISOString()));
     const antes = [c.vermelho, c.verde, c.semPr].map(x => fs.readFileSync(path.join(x.dir, 'ledger.jsonl'), 'utf8'));
     process.env.PATH = `${bin}${path.delimiter}${caminho ?? ''}`;
     process.chdir(c.p.dir);
@@ -225,5 +235,34 @@ test('thread conduzida agora: o "sigo" continua, com o estado da entrega ao lado
       const linhas = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
       assert.ok(linhas.includes(`• RM-031: sigo ${a.t.id} na fase GOAL; branch com commits sem push.`), linhas.join('\n'));
     } finally { if (conducao.ok) conducao.liberar(); }
+  } finally { p.limpar(); restaurar(); }
+});
+
+test('a copia local da fabrica velha ou ilegivel nao acusa ninguem: a linha diz isso', () => {
+  const restaurar = ambiente('1');
+  const p = projetoTemporario('fatia4-status-copia', true);
+  try {
+    fabricaLocal(p, [{ maquina: 'pc-b', publicadoEm: '2026-10-01T06:21:00.000Z' }, { maquina: 'pc-a', publicadoEm: '2026-09-30T00:00:00.000Z' }]);
+    const velha = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+    assert.ok(velha.includes('Fábrica: a cópia local de ork/fabrica-estado está velha (esta máquina publicou nela por último em 29/09 21:00); ' +
+      'não dá para dizer quem está sem batida.'), velha.join('\n'));
+    assert.ok(!velha.some(l => /pc-b sem batida/.test(l)));
+    fabricaLocal(p, [{ maquina: 'pc-b', publicadoEm: '2026-10-01T06:21:00.000Z' }]);
+    const sem = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+    assert.ok(sem.some(l => l.includes('(esta máquina não aparece nela)')), sem.join('\n'));
+    // JSON quebrado na branch: "nao lido", e nao uma linha que some.
+    const arvore = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-fabrica-ruim-')));
+    try {
+      git(arvore, 'init', '-q', '-b', 'ork/fabrica-estado');
+      git(arvore, 'config', 'user.email', 'teste@exemplo.invalid');
+      git(arvore, 'config', 'user.name', 'Teste');
+      fs.mkdirSync(path.join(arvore, 'maquinas'));
+      fs.writeFileSync(path.join(arvore, 'maquinas', 'pc-b.json'), '{ isto nao e json');
+      git(arvore, 'add', '--', 'maquinas');
+      git(arvore, 'commit', '-q', '-m', 'fabrica: retrato quebrado SIMULADO');
+      git(p.dir, 'fetch', '-q', arvore, '+refs/heads/ork/fabrica-estado:refs/remotes/origin/ork/fabrica-estado');
+    } finally { fs.rmSync(arvore, { recursive: true, force: true }); }
+    const ruim = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+    assert.ok(ruim.includes('Fábrica: não lido (a cópia local de ork/fabrica-estado está ilegível).'), ruim.join('\n'));
   } finally { p.limpar(); restaurar(); }
 });

@@ -82,15 +82,22 @@ export interface EntregaNoStatus {
   estado: string | null;
   /** Alguem conduz a thread agora (sessao trabalhando, processo do condutor): o "sigo" continua valendo. */
   conduzida?: boolean;
-  parado?: { desdeEm: string; proximoPasso: string };
+  /** `prLidoEm`: a hora da leitura do PR, quando a parada depende dela. */
+  parado?: { desdeEm: string; proximoPasso: string; prLidoEm?: string };
   /** A hora da leitura dos PRs que sustenta o estado, quando ele veio do retrato. */
   prLidoEm?: string;
 }
 
 /** RM-037 (fatia 4): as maquinas da fabrica sem batida, pela copia local de `ork/fabrica-estado`. */
 export interface BatidaDaFabrica {
-  /** `false`: esta maquina nao tem copia local da branch; nada foi lido. */
+  /** `false`: nada foi lido (sem copia local, ou copia ilegivel: `motivo`). */
   lido: boolean;
+  motivo?: string;
+  /**
+   * A copia local esta velha: esta maquina nao publicou nela dentro do limiar (o fetch daqui pode estar
+   * falhando), e ninguem pode ser dito sem batida. `ultimoDestaMaquina` e null quando ela nem aparece.
+   */
+  copiaVelha?: { ultimoDestaMaquina: string | null };
   semBatida: { maquina: string; publicadoEm: string; idadeMin: number }[];
 }
 
@@ -207,6 +214,11 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
     } catch { entregas = null; }
     return entregas;
   };
+  // A leitura que falhou e dita, e nao vira o "sigo" de sempre.
+  const entrega = (id: string): EntregaNoStatus | undefined => {
+    const lidas = lerEntregas();
+    return lidas ? entregaNoStatus(lidas.estados.find(e => e.thread === id)) : { estado: 'estado da entrega não lido' };
+  };
   for (const id of listarIds(raiz)) {
     let t: Thread;
     try { t = lerThread(raiz, id); } catch { continue; /* thread ilegivel fica de fora */ }
@@ -214,7 +226,7 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
       id: t.id, roadmap: t.roadmap ?? null, aberta: t.status !== 'fechada', fase: t.faseAtual,
       entregueHoje: () => lerLedger(dirThread(raiz, t.id)).some(e => e.tipo === 'ship_done' && dataLocal(e.ts, fuso) === hoje),
       espera: () => esperaDoDono(raiz, t, quando),
-      entrega: () => entregaNoStatus(lerEntregas()?.estados.find(e => e.thread === t.id)),
+      entrega: () => (t.status === 'fechada' ? undefined : entrega(t.id)),
     });
   }
   return fatos;
@@ -224,7 +236,8 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
 function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | undefined {
   if (!e || (!e.resumo && !e.parado)) return undefined;
   return { estado: e.resumo, ...(e.conduzidaAgora ? { conduzida: true } : {}),
-    ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso } } : {}),
+    ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso,
+      ...(e.parado.prLidoEm ? { prLidoEm: e.parado.prLidoEm } : {}) } } : {}),
     ...(e.prLidoEm ? { prLidoEm: e.prLidoEm } : {}) };
 }
 
@@ -234,9 +247,20 @@ function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | unde
  */
 export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): BatidaDaFabrica | undefined {
   if (!fabricaCompartilhada(carregado.manifesto)) return undefined;
-  const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true });
+  // Sem rede escondida: num clone parcial, o `git show` dos retratos buscaria o objeto no remoto.
+  const antes = process.env.GIT_NO_LAZY_FETCH;
+  process.env.GIT_NO_LAZY_FETCH = '1';
+  let painel: ReturnType<typeof lerFabrica>;
+  try { painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true }); }
+  catch { return { lido: false, motivo: `a cópia local de ${BRANCH_DA_FABRICA} está ilegível`, semBatida: [] }; }
+  finally { if (antes === undefined) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = antes; }
   if (!painel.ponta) return { lido: false, semBatida: [] };
   const eu = nomeDaMaquina(), agora = Date.parse(quando);
+  // A copia so diz quem esta sem batida quando esta maquina publicou nela ha pouco: e o fetch daqui que a atualiza.
+  const { publicadoEm: minha } = painel.maquinas.find(m => m.maquina === eu) ?? { publicadoEm: null };
+  if (!minha || !(agora - Date.parse(minha) <= LIMIAR_SEM_BATIDA_MS)) {
+    return { lido: true, copiaVelha: { ultimoDestaMaquina: minha }, semBatida: [] };
+  }
   const semBatida = painel.maquinas.filter(m => m.maquina !== eu).map(m => {
     const { publicadoEm: publicado } = m;
     return { maquina: m.maquina, publicadoEm: publicado, idadeMs: agora - Date.parse(publicado) };
@@ -313,7 +337,11 @@ const naMaquina = (maquina?: string): string => maquina ? ` (${maquina})` : '';
  */
 function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, fuso?: string): string {
   const e = x.entrega;
-  if (e?.parado) return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}.`;
+  if (e?.parado) {
+    const { prLidoEm: lido } = e.parado;
+    return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}` +
+      `${lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : ''}.`;
+  }
   if (e?.estado) {
     const { prLidoEm: lido } = e;
     const daLeitura = lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : '';
@@ -326,7 +354,12 @@ function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, f
 /** RM-037 (fatia 4, D8): uma linha so para a fabrica, e so quando ha o que avisar. */
 function linhaDaFabrica(f: BatidaDaFabrica | undefined, agora: string, fuso?: string): string[] {
   if (!f) return [];
-  if (!f.lido) return [`Fábrica: não lido (esta máquina não tem cópia local de ${BRANCH_DA_FABRICA}).`];
+  if (!f.lido) return [`Fábrica: não lido (${f.motivo ?? `esta máquina não tem cópia local de ${BRANCH_DA_FABRICA}`}).`];
+  if (f.copiaVelha) {
+    const { ultimoDestaMaquina: ultimo } = f.copiaVelha;
+    return [`Fábrica: a cópia local de ${BRANCH_DA_FABRICA} está velha (${ultimo ? `esta máquina publicou nela por último em ` +
+      `${formatarDataHora(ultimo, { agora, fuso })}` : 'esta máquina não aparece nela'}); não dá para dizer quem está sem batida.`];
+  }
   if (!f.semBatida.length) return [];
   return [`Fábrica: ${f.semBatida.map(m => `${m.maquina} sem batida há ${duracaoCurta(m.idadeMin)} ` +
     `(último retrato ${formatarDataHora(m.publicadoEm, { agora, fuso })})`).join('; ')}, pela cópia local de ${BRANCH_DA_FABRICA}.`];

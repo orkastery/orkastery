@@ -287,7 +287,9 @@ export function textoDoPulse(p: Pulse): string {
   const local = (texto: string) => localizarTexto(texto, { agora: p.consultadoEm });
   const linhas=[`Pulse (${p.contrato}) ${formatarDataHoraRotulada(p.consultadoEm, { agora: p.consultadoEm })}`,`Precisa de humano agora: ${p.resumo.humanos}`, `${p.resumo.scores} entrega(s) sem nota, aceitas por padrão com registro`];
   // RM-037 (fatia 4): PR nao lido tambem e dito, para a falta de linha do condutor nao parecer "nada parado".
-  if(p.runtime.ok && (p.runtime.detalhe.includes('liveness.snapshot.invalid') || p.runtime.detalhe.includes('prs.nao-lidos'))) linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
+  if(p.runtime.ok && ['liveness.snapshot.invalid', 'prs.nao-lidos', 'entregas.indisponiveis'].some(d => p.runtime.detalhe.includes(d))) {
+    linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
+  }
   if(!p.runtime.ok) linhas.push(`[consulta incompleta] ${local(p.runtime.detalhe)}`);
   for(const i of p.precisaDeHumanoAgora) {
     linhas.push('',`${i.thread??i.sessionId} [${i.classe}] ${i.paradaHaMin==null?'desconhecido':i.paradaHaMin<1?'menos de 1':i.paradaHaMin} min`,local(i.pergunta),
