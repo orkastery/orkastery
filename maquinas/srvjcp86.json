@@ -3,8 +3,8 @@
   "maquina": "srvjcp86",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.4.3",
-  "publicadoEm": "2026-10-02T17:37:57.747Z",
+  "versaoOrk": "0.5.1",
+  "publicadoEm": "2026-10-02T17:38:29.010Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -18,7 +18,10 @@
       "entregue": "ce29557",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "high"
     },
     {
       "id": "ork-rm040piloto",
@@ -32,7 +35,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "high"
     },
     {
       "id": "ork-rm053network",
@@ -46,7 +52,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max"
     },
     {
       "id": "ork-rm054fatia3s",
@@ -60,7 +69,10 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm055impedim",
@@ -74,7 +86,10 @@
       "entregue": "7ab4932",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "codex",
+      "modelo": "gpt-5.6-sol",
+      "esforco": "high"
     },
     {
       "id": "ork-rm056perfil",
@@ -88,7 +103,10 @@
       "entregue": "0a914b0",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "high"
     },
     {
       "id": "ork-rm057alterna",
@@ -102,7 +120,10 @@
       "entregue": "7266df6",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     }
   ]
 }
