@@ -47,21 +47,6 @@
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-rm031kg4incr",
-      "fase": "GOAL",
-      "arquivo": "core/scripts/medir-incremental-grafo.cjs",
-      "alegacao": "Pares de revisões reais deste repositório: a extração completa da base 2418a4e7 com o código do KG4 dá o digest 9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c, o mesmo do código do KG3; em cada par do registro, o índice incremental é idêntico byte a byte ao completo nos quatro arquivos; o registro guarda os tempos completo e incremental e a carga, e o validador recusa registro sem par conferido ou que conclua além do medido",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node core/scripts/medir-incremental-grafo.cjs --conferir",
-        "node core/scripts/medir-incremental-grafo.cjs --validar core/test/fixtures/kg4-medida-incremental.json"
-      ],
-      "criadoEm": "2026-10-01T05:30:54.418Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C5",
       "thread": "ork-rm031kg4incr",
       "fase": "GOAL",
@@ -410,6 +395,22 @@
         "node -e \"const r=require('./core/test/fixtures/kg4-medida-incremental.json'); const m=(k)=>{const v=r.pares.map((p)=>p.ms[k]).sort((a,b)=>a-b); return (v[2]+v[3])/2;}; const d=require('fs').readFileSync('docs/referencia/contratos/incremental-grafo-kg4.md','utf8'); for (const k of ['incremental','completo','completo_antes']) { const t=m(k).toLocaleString('pt-BR')+' ms'; if (!d.includes(t)) { console.error('mediana '+k+' fora da doc: '+t); process.exit(1); } }\" && node core/scripts/checar-links.cjs && grep -q 'reconstruido-identico' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q 'ork.graph-extraction-units/v0' docs/referencia/contratos/incremental-grafo-kg4.md && grep -q \"dependencia de arquivo global na mudanca\" docs/referencia/contratos/incremental-grafo-kg4.md"
       ],
       "criadoEm": "2026-10-01T07:08:25.295Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm031kg4incr",
+      "fase": "GO",
+      "arquivo": "core/scripts/medir-incremental-grafo.cjs",
+      "alegacao": "Pares de revisões reais deste repositório: a extração completa da base 2418a4e7 com o código do KG4, com os rótulos do Node e do Unicode fixados nos da âncora (node.22.23.2 e 17.0, porque a versão do Node entra no id do snapshot), dá o digest 9fe38ec2c9050f6a61bae114d292531911b15171267b11eeab463c686a25440c, o mesmo do código do KG3; com outro rótulo de Node o mesmo conteúdo dá o digest da âncora, e compilador de outra versão reprova; em cada par do registro, o índice incremental é idêntico byte a byte ao completo nos quatro arquivos; o registro guarda os tempos completo e incremental e a carga, e o validador recusa registro sem par conferido ou que conclua além do medido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/medir-incremental-grafo.cjs --conferir",
+        "node core/scripts/medir-incremental-grafo.cjs --validar core/test/fixtures/kg4-medida-incremental.json",
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='KG4 medida: a ancora' core/dist-test/test/intelligence-graph-incremental.test.js"
+      ],
+      "criadoEm": "2026-10-02T03:02:21.352Z",
       "estado": "verificado",
       "lint": []
     }
