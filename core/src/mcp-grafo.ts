@@ -105,6 +105,13 @@ const DEFINICOES: readonly Definicao[] = [
   },
 ];
 
+/** D9: o argv que a tool monta para os argumentos dados; a medida offline usa o mesmo. */
+export function argvDaTool(nome: typeof TOOLS_DO_GRAFO[number], args: Record<string, unknown>): string[] {
+  const d = DEFINICOES.find((x) => x.nome === nome);
+  if (!d) throw Error(`grafo.mcp.tool-desconhecida: ${nome}`);
+  return d.argv(args);
+}
+
 export interface SaidaDoWorker {
   /** O codigo de saida do worker; `null` quando ele foi morto ou nao abriu. */
   codigo: number | null;

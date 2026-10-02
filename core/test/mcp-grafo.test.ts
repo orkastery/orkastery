@@ -664,3 +664,46 @@ test('KG5 despacho: a flag no manifesto da worktree da thread nao liga as tools'
     f.p.limpar();
   }
 });
+
+// ---------------------------------------------------------------------------
+// O validador da medida offline (T6).
+// ---------------------------------------------------------------------------
+
+const MEDIDA = require(path.resolve(__dirname, '../../scripts/medir-mcp-grafo.cjs')) as { CONCLUSAO: string; LIMITES: string[]; validar: (r: unknown) => string[] };
+const PERGUNTAS_DO_KG3 = (require(path.resolve(__dirname, '../../scripts/medir-consulta-grafo.cjs')) as { PERGUNTAS: { id: string; cru: { indisponivel?: string } }[] }).PERGUNTAS;
+
+/** Um registro de forma valida, com numeros sinteticos: so o validador e o alvo deste teste. */
+function registroSintetico(): Record<string, any> {
+  const tokens = { value: null, source: 'unavailable', unavailable_reason: 'sem tokenizador exato nem contagem do runtime' };
+  return {
+    schema: 'ork.graph-mcp-cost/v0', medido_em: '2026-10-02T05:00:00.000Z', revisao: 'a'.repeat(40), teto_padrao: TETO_PADRAO,
+    maquina: { node: 'v22', plataforma: 'linux', cpus: 8, carga_1min: 1 },
+    preparo_do_indice: { ms: 1, bytes_do_indice: 1, fontes: 1, arestas: 1 },
+    descoberta: { tools: [...TOOLS_DO_GRAFO], bytes_das_tools: 4000, tools_sem_flag: 30, tools_com_flag: 34, bytes_tools_list_sem_flag: 30000, bytes_tools_list_com_flag: 34000 },
+    perguntas: PERGUNTAS_DO_KG3.map((p) => ({
+      id: p.id,
+      tool: { bytes_ao_agente: 1000, arestas_devolvidas: 1, total_arestas: 1, cortado: false, evidencias: 1, arquivos_abertos: 0, latencia_ms: [1], latencia_mediana_ms: 1 },
+      cli: { bytes_ao_agente: 1200, arestas_devolvidas: 1, total_arestas: 1, evidencias: 1, latencia_ms: [1], latencia_mediana_ms: 1 },
+      cru: p.cru.indisponivel ? { indisponivel: 'sem procedimento fixo' } : { bytes_grep: 1, bytes_arquivos: 1, bytes_ao_agente: 2, ocorrencias: 1, arquivos_abertos: 1, latencia_mediana_ms: 1 },
+      tokens: { tool: tokens, cli: tokens, cru: tokens },
+    })),
+    conclusao: MEDIDA.CONCLUSAO, limites: [...MEDIDA.LIMITES],
+  };
+}
+
+test('KG5 medida: o validador aceita o registro de forma valida e recusa promessa, token sem medida, tarefa faltando e tool acima do teto', () => {
+  assert.deepEqual(MEDIDA.validar(registroSintetico()), []);
+  const com = (mudar: (r: Record<string, any>) => void): string[] => {
+    const r = registroSintetico();
+    mudar(r);
+    return MEDIDA.validar(r);
+  };
+  assert.deepEqual(com((r) => { r.conclusao = 'a tool reduz o contexto do agente'; }), ['conclusao', 'promessa de economia']);
+  assert.deepEqual(com((r) => { r.limites.push('economia de 90% medida'); }), ['promessa de economia']);
+  assert.deepEqual(com((r) => { r.perguntas[0].tokens.tool = { value: 1200, source: 'runtime_reported', unavailable_reason: null }; }), ['P1 tokens']);
+  assert.match(com((r) => { r.perguntas.pop(); })[0], /^perguntas P1,P2,P3,P4,P5$/);
+  assert.deepEqual(com((r) => { r.perguntas[1].tool.bytes_ao_agente = TETO_PADRAO + 1; }), ['P2 tool acima do teto']);
+  assert.deepEqual(com((r) => { r.perguntas[2].tool.arestas_devolvidas = 2; }), ['P3 tool sem corte com outra resposta']);
+  assert.deepEqual(com((r) => { r.descoberta.tools_com_flag = 33; }), ['descoberta']);
+  assert.deepEqual(com((r) => { r.teto_padrao = 65536; }), ['teto_padrao']);
+});
