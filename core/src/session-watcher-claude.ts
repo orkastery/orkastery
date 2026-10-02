@@ -300,7 +300,8 @@ export function ultimoErroDeApi(perfil: PerfilDeDespacho | null, cwd: string, se
   const arquivo = arquivoDaTranscricao(perfil, cwd, sessionId);
   if (!arquivo) return null;
   let fd: number;
-  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); } catch { return null; }
+  // O_NONBLOCK: um FIFO no lugar da transcricao nao trava o observador no open (sugestao da rodada 1 do CHECK).
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); } catch { return null; }
   let cauda: string;
   try {
     const st = fs.fstatSync(fd);
@@ -351,7 +352,11 @@ function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | nu
   const { sessao, dir } = ctx;
   const arquivo = arquivoDaTranscricao(perfil, cwd, sessao.sessionId);
   let tamanho: number;
-  try { tamanho = arquivo ? fs.lstatSync(arquivo).size : NaN; } catch { return; }
+  try {
+    const st = arquivo ? fs.lstatSync(arquivo) : null;
+    // Link, FIFO ou diretorio no lugar da transcricao nao e transcricao: nada a ler.
+    tamanho = st?.isFile() ? st.size : NaN;
+  } catch { return; }
   if (!Number.isFinite(tamanho) || cursor.transcricaoBytes === tamanho) return;
   cursor.transcricaoBytes = tamanho;
   const erro = erroDaTranscricao();
@@ -377,7 +382,8 @@ function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | nu
     }
     gravar(TIPOS_DE_EVENTO.cotaVistaNaTranscricao, { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
       runtime: 'claude-bg', sensorEventId, motivo: falha.motivo, erroEm: erro.em, resetEm: falha.resetEm, fonteDoPrazo: falha.fonte,
-      esgotadoAte, trecho: falha.trecho, perfil: perfil ? { id: perfil.id, runtime: perfil.runtime } : null,
+      // O trecho ja vem redigido e numa linha; sem controle, como no store de perfis.
+      esgotadoAte, trecho: falha.trecho.replace(/\p{Cc}/gu, ' '), perfil: perfil ? { id: perfil.id, runtime: perfil.runtime } : null,
       perfilMarcado: !!perfil, origem: 'sessions.watch' });
   });
 }

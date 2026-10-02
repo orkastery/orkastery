@@ -70,6 +70,37 @@ test('A1: com a base andando depois do merge do PR, o ork ship grava o merge que
   } finally { p.limpar(); }
 });
 
+test('A1 com "Update branch" no PR: o merge do PR traz um merge que descende da branch, e o ship nao bloqueia', () => {
+  // Bloqueador da rodada 1 do CHECK: com --first-parent e --ancestry-path juntos, o git so propaga a descendencia pelos
+  // commits de primeiro pai, e o merge do PR cujo pai e o "Update branch" (que descende do shaDe) sumia da lista.
+  const p = projetoTemporario('fatia5-a1-update-branch', true);
+  try {
+    const { thread, sha, branch } = threadComEntrega(p, 'entrega com update branch');
+    commitar(p.dir, 'antes-do-update.txt', 'a main andou antes do Update branch\n', 'docs: commit SIMULADO na main');
+    git(p.dir, 'checkout', '-q', '-b', 'pr-no-github', branch);
+    git(p.dir, 'merge', '--no-ff', '-q', '-m', 'Merge branch main into pr-no-github (Update branch)', 'main');
+    git(p.dir, 'checkout', '-q', 'main');
+    const merge = mergeDoPr(p, 'pr-no-github', thread.id);
+    const ponta = outraEntrega(p, 'ork-depois-do-update');
+    git(p.dir, 'push', '-q', 'origin', 'main');
+    assert.equal(commitQueIncorporou(p.dir, sha, ponta), merge);
+    const r = ship(p.carregado, thread.id, { para: 'main' });
+    assert.equal(r.ok, true, r.detalhe);
+    assert.deepEqual([r.jaIncorporado, r.mergeSha, r.pontaDaBase, r.pushVerificado], [true, merge, ponta, true]);
+    // A branch que entra por uma branch de integracao: o merge da integracao na main e o que a trouxe.
+    git(p.dir, 'checkout', '-q', '-b', 'ork/integrada', 'main');
+    const integrada = commitar(p.dir, 'integrada.txt', 'integrada\n', 'feat: branch que entra pela integracao');
+    git(p.dir, 'checkout', '-q', '-b', 'integracao', 'main');
+    commitar(p.dir, 'integracao.txt', 'integracao\n', 'feat: trabalho da integracao');
+    git(p.dir, 'merge', '--no-ff', '-q', '-m', 'merge da branch na integracao', 'ork/integrada');
+    git(p.dir, 'checkout', '-q', 'main');
+    git(p.dir, 'merge', '--no-ff', '-q', '-m', 'merge da integracao na main', 'integracao');
+    const daIntegracao = shaDaBranch(p.dir, 'main');
+    const depois = commitar(p.dir, 'depois.txt', 'depois\n', 'docs: commit SIMULADO depois da integracao');
+    assert.equal(commitQueIncorporou(p.dir, integrada, depois), daIntegracao);
+  } finally { p.limpar(); }
+});
+
 test('A1 no fast-forward: a base avancou ate a branch, e o mergeSha e a propria branch', () => {
   const p = projetoTemporario('fatia5-a1-ff', true);
   try {

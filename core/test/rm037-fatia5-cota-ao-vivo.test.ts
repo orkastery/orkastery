@@ -14,12 +14,14 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { desligarRotacaoPorCota, projetoTemporario, runtimePorConta } from './apoio';
 import { definirFusoDoDono, formatarDataHora, FUSO_DE_BRASILIA, partesLocais } from '../src/horario';
 import { lerLedger, registrar } from '../src/ledger';
 import { escolherPerfil, rodarFase } from '../src/phase';
+import { executarRetry } from '../src/retry';
 import { lerPerfis, lerPerfisComContas, linhasDePerfis, politicaDeRotacao } from '../src/runtime-profiles';
 import { observarSessao } from '../src/session-watcher';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
@@ -34,7 +36,8 @@ const ERRO_EM = Date.parse(ERRO.timestamp);
 const VOLTA = ERRO_EM + 5000;
 const REDESPACHO = Date.parse('2026-10-02T06:14:40.942Z');
 const RESET = '2026-10-02T07:40:00.000Z';
-const SESSAO = '99999999-0000-4000-8000-000000000001';
+/** Fora da sequencia decimal do stub (`99999999-0000-4000-8000-%012d`): o despacho real nunca repete este id. */
+const SESSAO = '99999999-0000-4000-8000-00000000fa05';
 const QUOTA = 'runtime_quota_detected';
 
 interface Cenario { p: ReturnType<typeof projetoTemporario>; claude: ReturnType<typeof runtimePorConta>; contaA: string; contaB: string; limpar: () => void }
@@ -53,7 +56,9 @@ function sessaoViva(c: Cenario, estado: string, despachadaEm = DESPACHO) {
     despachadaEm, promptPath: '', promptSha256: '', verificada: true });
   gravarThread(c.p.dir, t);
   const dir = dirThread(c.p.dir, t.id);
+  // O prompt gravado (que o retry redespacharia) nao existe no disco: o retry para no redespacho, sem abrir sessao.
   registrar(dir, t.id, 'phase_dispatch', { fase: 'GOAL', sessionId: SESSAO, runtime: 'claude-bg', cwd: c.p.dir,
+    promptPath: `.orkastery/threads/${t.id}/prompts/simulado-goal.md`, promptSha256: 'f'.repeat(64),
     perfil: { id: 'a', runtime: 'claude-bg', configDir: c.contaA } });
   fs.writeFileSync(path.join(c.claude.dir, 'sessao'), SESSAO);
   fs.writeFileSync(path.join(c.claude.dir, 'conta'), c.contaA);
@@ -69,10 +74,14 @@ function transcricao(c: Cenario, linhas: readonly string[]): void {
   fs.writeFileSync(path.join(pasta, `${SESSAO}.jsonl`), linhas.join('\n') + '\n');
 }
 
-/** A linha do erro da fixture com outro texto ou outro instante; `null` tira o instante. */
-function erroCom(mudar: { texto?: string; timestamp?: string | null }): string {
+/** O caminho da transcricao da sessao no diretorio do perfil `a`. */
+const arquivoDaTranscricao = (c: Cenario) => path.join(c.contaA, 'projects', c.p.dir.replace(/[^a-zA-Z0-9-]/g, '-'), `${SESSAO}.jsonl`);
+
+/** A linha do erro da fixture com outro texto, outro instante (`null` tira) ou outro uuid. */
+function erroCom(mudar: { texto?: string; timestamp?: string | null; uuid?: string }): string {
   const e = JSON.parse(LINHAS[2]);
   if (mudar.texto !== undefined) e.message.content[0].text = mudar.texto;
+  if (mudar.uuid !== undefined) e.uuid = mudar.uuid;
   if (mudar.timestamp === null) delete e.timestamp;
   else if (mudar.timestamp !== undefined) e.timestamp = mudar.timestamp;
   return JSON.stringify(e);
@@ -99,7 +108,11 @@ for (const estado of ['blocked', 'working']) {
       const a = perfil(c, 'a');
       assert.deepEqual([a.estado, a.esgotadoAte, a.ultimaFalha?.motivo], ['esgotado', RESET, 'runtime.quota-exhausted']);
       assert.equal(perfil(c, 'b').estado, 'ativo');
-      // A volta seguinte, com a transcricao do mesmo tamanho, nao relê nem grava de novo.
+      // A volta seguinte, com a transcricao do mesmo tamanho, nao relê: o erro com outro uuid e o mesmo tamanho, que
+      // seria outro evento, nao aparece (sugestao da rodada 1 do CHECK).
+      const outroUuid = erroCom({ uuid: randomUUID() });
+      assert.equal(outroUuid.length, LINHAS[2].length);
+      transcricao(c, [...LINHAS.slice(0, 2), outroUuid, ...LINHAS.slice(3)]);
       observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA + 5000 });
       assert.equal(cotas(dir).length, 1);
     } finally { c.limpar(); }
@@ -168,7 +181,7 @@ test('sem hora na mensagem, o perfil sai por 1 h contada da mensagem, nao do rel
   } finally { c.limpar(); }
 });
 
-test('no fecho, o erro que a cota ao vivo ja marcou nao marca de novo, nem depois do prazo dito', () => {
+test('no fecho e no retry, o erro que a cota ao vivo ja marcou nao marca de novo, nem depois do prazo dito', () => {
   const c = cenario('fatia5-cota-fecho');
   try {
     const { dir } = sessaoViva(c, 'blocked');
@@ -182,6 +195,37 @@ test('no fecho, o erro que a cota ao vivo ja marcou nao marca de novo, nem depoi
     assert.equal(lerLedger(dir).find((e) => e.tipo === 'phase_result')?.motivo, 'runtime.quota-exhausted', 'o fecho classifica como antes');
     assert.equal(perfil(c, 'a').esgotadoAte, RESET, 'o prazo continua o da mensagem');
     assert.equal(cotas(dir).length, 1);
+    // O passo recomendado da cota e o `ork retry run`: ele tambem nao marca de novo (aviso da rodada 1 do CHECK; antes,
+    // a janela padrao contada de agora tirava do rodizio a conta que ja tinha voltado).
+    const retry = executarRetry(c.p.carregado, lerLedger(dir)[0].thread as string);
+    assert.equal(perfil(c, 'a').esgotadoAte, RESET, `o retry nao marca de novo: ${retry.detalhe}`);
+  } finally { c.limpar(); }
+});
+
+test('FIFO no lugar da transcricao nao trava o observador, nem com a sessao viva nem no fecho', { timeout: 20000 }, () => {
+  const c = cenario('fatia5-cota-fifo');
+  try {
+    const { dir } = sessaoViva(c, 'blocked');
+    fs.mkdirSync(path.dirname(arquivoDaTranscricao(c)), { recursive: true });
+    execFileSync('mkfifo', [arquivoDaTranscricao(c)]);
+    assert.equal(observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA }).concluido, false);
+    c.claude.estadoDaSessao('failed');
+    assert.equal(observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA + 10000 }).concluido, true);
+    assert.equal(lerLedger(dir).find((e) => e.tipo === 'phase_result')?.motivo, 'runtime.unavailable', 'sem transcricao legivel, sem cota');
+    assert.equal(cotas(dir).length, 0);
+  } finally { c.limpar(); }
+});
+
+test('o trecho do evento sai sem caractere de controle', () => {
+  const c = cenario('fatia5-cota-controle');
+  try {
+    const { dir } = sessaoViva(c, 'blocked');
+    const comControle = ERRO.message.content[0].text.replace('individual', `individual${String.fromCharCode(27)}[31m`);
+    transcricao(c, [...LINHAS.slice(0, 2), erroCom({ texto: comControle }), ...LINHAS.slice(3)]);
+    observarSessao(c.p.carregado, SESSAO, { agoraMs: VOLTA });
+    const trecho = String(cotas(dir)[0]?.trecho);
+    assert.ok(trecho.includes('spend limit'), trecho);
+    assert.ok(!/\p{Cc}/u.test(trecho), JSON.stringify(trecho));
   } finally { c.limpar(); }
 });
 

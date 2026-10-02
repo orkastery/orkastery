@@ -24,7 +24,8 @@ import { exec } from '../src/util';
 const FIM = '2026-10-02T12:00:00.000Z';
 const BATIDA = '2026-10-02T12:45:00.000Z';
 const SEGUINTE = '2026-10-02T13:00:00.000Z';
-const HOST_PROPRIO = 'git.exemplo.com.br';
+/** Dominio reservado (RFC 2606): nenhum teste aponta para um host que pode existir. */
+const HOST_PROPRIO = 'ghe.example.com';
 
 const git = (dir: string, ...args: string[]) => {
   const r = exec('git', args, dir);
@@ -59,12 +60,18 @@ function threadPublicada(p: Projeto, nome: string, n: number) {
   return { t, branch, head: git(p.dir, 'rev-parse', branch) };
 }
 
-/** O `gh` simulado: conta e guarda cada chamada; `auth` diz se ha login no host, `prs` responde o `pr list`. */
-function ghSimulado(opcoes: { auth?: boolean; prs?: unknown[] } = {}) {
+/**
+ * O `gh` simulado: conta e guarda cada chamada; `auth` diz se ha login no host (`falha` e o `auth status` que nao
+ * respondeu: host fora do ar ou prazo estourado), `prs` responde o `pr list`. O texto sem login e o do `gh` 2.46.
+ */
+function ghSimulado(opcoes: { auth?: boolean | 'falha'; prs?: unknown[] } = {}) {
   const chamadas: string[][] = [];
   const executor: ExecutorDoGh = (args) => {
     chamadas.push([...args]);
-    if (args[0] === 'auth') return opcoes.auth ? { status: 0, stdout: '', stderr: '' } : { status: 1, stdout: '', stderr: 'not logged in' };
+    if (args[0] === 'auth') {
+      if (opcoes.auth === 'falha') return { status: 1, stdout: '', stderr: `error connecting to ${args[3]}: dial tcp: i/o timeout` };
+      return opcoes.auth ? { status: 0, stdout: '', stderr: '' } : { status: 1, stdout: '', stderr: `You are not logged into any accounts on ${args[3]}` };
+    }
     return { status: 0, stdout: JSON.stringify(args.includes('--state=open') ? opcoes.prs ?? [] : []), stderr: '' };
   };
   return { chamadas, executor };
@@ -141,6 +148,46 @@ test('A5: GitHub Enterprise com o gh autenticado no host le os PRs pelo host do 
     const doGithub: RetratoDePrs = { contrato: CONTRATO_PRS, lidoEm: BATIDA, repositorio: 'dono/simulado', base: 'main', parcial: false, prs: [] };
     const r = entregasDoProjeto(p.carregado, { quando: BATIDA, lerPrs: () => ({ ok: true, retrato: doGithub }) });
     assert.equal(r.estados.find((e) => e.thread === a.t.id)?.prNaoLido, 'retrato de PRs de outro repositório ou base');
+  } finally { p.limpar(); }
+});
+
+test('A5: o auth status que falha por rede ou prazo e "PR nao lido" desta batida, sem marca nem forja sem leitura', () => {
+  // Aviso da rodada 1 do CHECK: so o "not logged into" e estado da forja; o resto e falha passageira.
+  const p = projetoTemporario('fatia5-a5-auth-falha', true);
+  try {
+    const a = threadPublicada(p, 'ghe fora do ar', 35);
+    git(p.dir, 'remote', 'set-url', 'origin', `https://${HOST_PROPRIO}/dono/simulado.git`);
+    const gh = ghSimulado({ auth: 'falha' });
+    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    assert.equal(leitura.ok, false);
+    assert.equal(!leitura.ok && leitura.semLeitura, undefined);
+    for (const quando of [BATIDA, SEGUINTE]) {
+      const pulse = pulsar(p, quando, gh.executor);
+      assert.match(pulse.runtime.detalhe, /prs\.nao-lidos: gh auth status --hostname ghe\.example\.com falhou/, quando);
+      assert.equal(pulse.paradoNoCondutor?.find((x) => x.thread === a.t.id)?.proximoPasso,
+        `conferir o PR da branch ${a.branch} (PR não lido) e seguir`);
+    }
+    assert.ok(!fs.existsSync(path.join(p.dir, '.orkastery', 'monitor', 'forja-sem-leitura.json')), 'nenhuma marca');
+    // E o gh ausente (sem codigo de saida) tambem.
+    const ausente: ExecutorDoGh = () => ({ status: null, stdout: '', stderr: 'spawnSync gh ENOENT' });
+    const semGh = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: ausente });
+    assert.equal(!semGh.ok && semGh.semLeitura, undefined);
+  } finally { p.limpar(); }
+});
+
+test('A5: o SSH do github.com pela porta 443 e o github.com; apelido de SSH sem dominio e forja sem leitura, com o motivo certo', () => {
+  const p = projetoTemporario('fatia5-a5-ssh', true);
+  try {
+    threadPublicada(p, 'branch pelo ssh 443', 36);
+    git(p.dir, 'remote', 'set-url', 'origin', 'ssh://git@ssh.github.com:443/dono/simulado.git');
+    const gh = ghSimulado({ auth: false });
+    const leitura = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    assert.equal(leitura.ok, true, JSON.stringify(leitura));
+    assert.ok(gh.chamadas.every((c) => c[0] === 'pr' && c[2] === '--repo=github.com/dono/simulado'), JSON.stringify(gh.chamadas));
+    git(p.dir, 'remote', 'set-url', 'origin', 'git@github-trabalho:dono/simulado.git');
+    const apelido = lerPrsDaForja(p.carregado, { quando: BATIDA, executor: gh.executor });
+    assert.deepEqual(!apelido.ok && [apelido.semLeitura, apelido.erro],
+      [{ remoto: 'origin', host: null }, 'o remoto origin não tem host de forja (caminho local ou apelido de SSH)']);
   } finally { p.limpar(); }
 });
 

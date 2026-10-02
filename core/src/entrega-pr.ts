@@ -214,6 +214,9 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
     url: pr.html_url ?? `https://github.com/${repo}/pull/${n}`,
     shaDe: headSha,
     mergeSha,
+    // RM-037 (fatia 5, A1; aviso da rodada 1 do CHECK): a ponta conferida vai em campo proprio, como no PR local; a
+    // comparacao aceita `ahead`, e o recibo do Maestro confere o push contra ela.
+    pontaDaBase: ponta,
     jaIncorporado: true,
     remoto: `github:${repo}`,
     shaRemoto: ponta,
