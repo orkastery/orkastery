@@ -14,6 +14,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { exec, GITIGNORE_DA_MAQUINA, ignorarPastaNoGit, noPath } from '../src/util';
 import { init } from '../src/init';
+import { ONDE_FICAM_OS_SEGREDOS, PAUTA_ONBOARDING, validarConteudo } from '../src/onboarding';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -309,4 +310,38 @@ test('fatia 2 P3: a pasta de worktrees ganha .gitignore com * quando o ork a cri
     novaThread(q.carregado, { nome: 'outra com worktree', modo: 'auto', criarWorktree: true });
     assert.equal(fs.existsSync(path.join(q.dir, '.claude/worktrees/.gitignore')), false);
   } finally { p.limpar(); q.limpar(); }
+});
+
+const FRASE_DOS_SEGREDOS = 'no ambiente do processo ou no cofre do host (no Hermes, ~/.hermes/.env)';
+/** Texto comparavel entre codigo e doc: sem crase e com um espaco so. */
+const semCraseNemQuebra = (t: string): string => t.replace(/`/g, '').replace(/\s+/g, ' ');
+const SEGREDO_SO_NO_HERMES = /(?:somente|só) em ~\/\.hermes\/\.env|(?:ficam|valores) (?:somente )?em ~\/\.hermes\/\.env/i;
+
+test('fatia 2 P5: segredos no ambiente do processo ou no cofre do host, no onboarding e na ajuda', () => {
+  assert.equal(ONDE_FICAM_OS_SEGREDOS, FRASE_DOS_SEGREDOS);
+  for (const etapa of ['credenciais', 'bancos'] as const) {
+    const pergunta = PAUTA_ONBOARDING.find((x) => x.etapa === etapa)?.pergunta ?? '';
+    assert.ok(pergunta.includes(FRASE_DOS_SEGREDOS), etapa);
+    assert.doesNotMatch(pergunta, SEGREDO_SO_NO_HERMES, etapa);
+  }
+  assert.throws(() => validarConteudo('credenciais', { campo: 'livre' }),
+    (e: Error) => e.message.startsWith('onboarding.input.invalid') && e.message.includes(FRASE_DOS_SEGREDOS));
+
+  const casa = dirTemporario('fatia2-ajuda-casa');
+  try {
+    const ajuda = ork(casa, casa, PATH_ATUAL, '--help');
+    assert.equal(ajuda.status, 0, ajuda.stderr);
+    assert.ok(semCraseNemQuebra(ajuda.stdout).includes(`Segredos ficam ${FRASE_DOS_SEGREDOS}`), 'ajuda do onboarding');
+    assert.doesNotMatch(ajuda.stdout, SEGREDO_SO_NO_HERMES);
+  } finally { limpar(casa); }
+
+  // Guia, quickstart, regra da feature, skill, comando do Claude Code e tool do OpenClaw (fonte e dist).
+  for (const arquivo of ['docs/guias/onboarding.md', 'docs/comecar/quickstart.md', 'docs/produto/FEAT-023-onboarding-do-projeto.md',
+    'skills/core/onboarding/SKILL.md', 'marketplaces/claude-code/orkastery/skills/core/onboarding/SKILL.md',
+    'marketplaces/codex/orkastery/skills/core/onboarding/SKILL.md', 'adapters/claude-code/commands/onboarding.md',
+    'marketplaces/claude-code/orkastery/commands/onboarding.md', 'adapters/openclaw/src/index.ts', 'adapters/openclaw/dist/index.js']) {
+    const texto = semCraseNemQuebra(ler(arquivo));
+    assert.ok(texto.includes(FRASE_DOS_SEGREDOS), `${arquivo}: frase nova ausente`);
+    assert.doesNotMatch(texto, SEGREDO_SO_NO_HERMES, `${arquivo}: frase antiga`);
+  }
 });

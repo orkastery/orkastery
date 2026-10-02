@@ -12,10 +12,15 @@ import { resolverExperiencia, validarPreferencias } from './experiencia';
 import { lerYaml } from './yaml';
 
 export const CONTRATO_ONBOARDING = 'ork.onboarding/v1';
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P5): onde ficam os segredos, para quem usa o Hermes e para quem nao
+ * usa. Perguntas, erro e ajuda leem daqui; as docs e os hosts repetem a frase, conferida por teste.
+ */
+export const ONDE_FICAM_OS_SEGREDOS = 'no ambiente do processo ou no cofre do host (no Hermes, ~/.hermes/.env)';
 export const PAUTA_ONBOARDING: ReadonlyArray<{ etapa: EtapaOnboarding; pergunta: string }> = [
   { etapa: 'maestro', pergunta: `Quem conduz o projeto, quais são seus objetivos e preferências, e em qual fuso horário o Orkastery deve mostrar horários? Informe o fuso como nome IANA, ex.: {"fuso":"${FUSO_DE_BRASILIA}"}; ele orienta ${CHAVE_DO_FUSO} no manifesto, sem editá-lo. Preferências em {"owner":{...}} gravam owner no manifesto.` },
-  { etapa: 'credenciais', pergunta: 'Quais provedores públicos e nomes de variáveis em env serão usados? Segredos somente em ~/.hermes/.env; nunca informe valores.' },
-  { etapa: 'bancos', pergunta: 'Quais bancos públicos e nomes de variáveis em env configuram as conexões? Nunca informe DSN ou senha; valores somente em ~/.hermes/.env.' },
+  { etapa: 'credenciais', pergunta: `Quais provedores públicos e nomes de variáveis em env serão usados? Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}; nunca informe valores.` },
+  { etapa: 'bancos', pergunta: `Quais bancos públicos e nomes de variáveis em env configuram as conexões? Nunca informe DSN ou senha; valores ficam ${ONDE_FICAM_OS_SEGREDOS}.` },
   { etapa: 'memoria', pergunta: 'Deseja OrkMind? Informe {"modo":"orkmind"} ou {"modo":"files"}; a escolha orienta memory.mode no manifesto, sem editá-lo.' },
   { etapa: 'produtos', pergunta: 'Quais produtos e repositórios públicos pertencem ao projeto?' },
   { etapa: 'topologia', pergunta: 'Como se distribuem ambientes e serviços? Informe identificadores públicos.' },
@@ -35,7 +40,7 @@ function objeto(v: unknown): v is Record<string, unknown> {
 }
 
 /** Recusa antes de persistir. Diagnósticos nunca incluem a entrada recebida. */
-function invalido(): never { throw new Error('onboarding.input.invalid: use JSON público e referências de variáveis; segredos somente em ~/.hermes/.env'); }
+function invalido(): never { throw new Error(`onboarding.input.invalid: use JSON público e referências de variáveis; segredos ficam ${ONDE_FICAM_OS_SEGREDOS}`); }
 
 function textoSeguro(v: string): boolean {
   return !procurarSegredos(v).length &&

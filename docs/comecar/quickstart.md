@@ -119,7 +119,7 @@ git add orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
 
-Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam em `~/.hermes/.env`, somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
+Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
 
 O que você provavelmente vai querer ajustar logo de cara:
 

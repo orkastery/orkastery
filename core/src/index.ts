@@ -131,7 +131,7 @@ import {
 import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
-import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
+import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
 import { PROXIMO_PASSO_INIT } from './init';
@@ -309,7 +309,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   setup                                     Pauta da entrevista #setup: runtime/modelo/esforco
                                             por bloco de cada modo (default claude-bg/opus/high; #Fast: sonnet)
   onboarding [show|set <etapa>|reset [etapa]] Pauta e respostas do projeto (9 etapas)
-        [--conteudo JSON] [--por Q] [--json]  Valores secretos somente em ~/.hermes/.env
+        [--conteudo JSON] [--por Q] [--json]  Segredos ficam ${ONDE_FICAM_OS_SEGREDOS}
         [--reset [etapa]]                    Reset seletivo ou total, idempotente
   onboarding sync [--json]                  Publicação opcional na memória, com degradação
   experiencia show [--json]                 Preferências efetivas; configure por onboarding set maestro --conteudo '{"owner":{"experience":true}}'

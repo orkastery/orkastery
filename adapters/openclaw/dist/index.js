@@ -205,7 +205,7 @@ const FERRAMENTAS = [
     },
     {
         name: 'ork_onboarding',
-        description: 'Consulta a pauta do núcleo e registra respostas públicas. Credenciais somente como nomes de variáveis; valores ficam em ~/.hermes/.env. Sync publica opcionalmente e relata degradação.',
+        description: 'Consulta a pauta do núcleo e registra respostas públicas. Credenciais somente como nomes de variáveis; valores ficam no ambiente do processo ou no cofre do host (no Hermes, ~/.hermes/.env). Sync publica opcionalmente e relata degradação.',
         parameters: {
             type: 'object', additionalProperties: false, required: ['acao'],
             properties: {
