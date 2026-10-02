@@ -21,8 +21,10 @@ import { PedidoHitl, profundidadeDoModo, validarPedidoHitl } from '../src/hitl-c
 import { exec } from '../src/util';
 import {
   CONTRATO_PRS, entregasDoProjeto, esperaDoCondutor, ExecutorDoGh, gravarRetratoDePrs, LeituraDePrs, LIMIAR_PARADO_NO_CONDUTOR_MIN,
-  LIMITE_DE_PRS, lerPrsDaForja, lerRetratoDePrs, nomeDeCheck, PrDaForja, RetratoDePrs,
+  LIMITE_DE_PRS, lerPrsDaForja, lerRetratoDePrs, nomeDeCheck, pendenciaDoDono, PrDaForja, RetratoDePrs,
 } from '../src/parado-no-condutor';
+import { montarPulse } from '../src/pulse';
+import { retratoDaMaquina } from '../src/fabrica-estado';
 import { SessaoNoRadar } from '../src/types';
 
 const AGORA = '2026-10-02T01:21:00.000Z'; // 22:21 de 01/10 em Brasilia
@@ -38,9 +40,9 @@ const depois = (iso: string, min: number) => new Date(Date.parse(iso) + min * 60
 
 type Projeto = ReturnType<typeof projetoTemporario>;
 
-/** Uma thread #Auto com a branch `ork/<slug>` e um commit de produto; publicada quando pedido. */
-function threadComProduto(p: Projeto, nome: string, opcoes: { publicar?: boolean; produto?: boolean } = {}) {
-  const { thread: t } = novaThread(p.carregado, { nome, modo: 'auto' });
+/** Uma thread (#Auto, por padrao) com a branch `ork/<slug>` e um commit de produto; publicada quando pedido. */
+function threadComProduto(p: Projeto, nome: string, opcoes: { publicar?: boolean; produto?: boolean; modo?: 'auto' | 'fast' } = {}) {
+  const { thread: t } = novaThread(p.carregado, { nome, modo: opcoes.modo ?? 'auto' });
   const branch = `ork/${t.slug}`;
   git(p.dir, 'branch', branch, 'main');
   if (opcoes.produto !== false) commitNaBranch(p, branch, `${t.slug}.txt`);
@@ -77,6 +79,36 @@ function turnoDoObservador(dir: string, id: string, n: number,
   registrar(dir, id, 'gate_blocked', comum);
   registrar(dir, id, 'phase_result', comum);
   return { sessionId, despachoEm, stop: depois(fim, -0.2) };
+}
+
+/**
+ * O fim do SHIP como o observador o gravou na ork-rm037noite em 30/09: Stop, terminal `done` e nenhum `ship_done`
+ * no intervalo do despacho. Os campos, os textos e os instantes sao os do ledger real; ids, pid e sensor sao
+ * SIMULADOS. `fase`, `estadoNativo`, `falta` e `prova` montam as contraprovas nos formatos que o observador grava.
+ */
+function fimDoObservadorEmDone(dir: string, id: string, n: number,
+  opcoes: { fase?: string; estadoNativo?: string; fonte?: string; diagnostico?: string; prova?: Record<string, unknown> | null } = {}) {
+  const sessionId = `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const fase = opcoes.fase ?? 'SHIP', estadoNativo = opcoes.estadoNativo ?? 'done';
+  const despachoEm = '2026-09-30T13:22:40.299Z', stop = '2026-09-30T13:54:12.915Z';
+  const falta = 'nenhum ship_done registrado no intervalo do despacho';
+  registrar(dir, id, 'phase_dispatch', { ts: '2026-09-30T13:22:40.289Z', fase, slug: `${id}-full-2`, modo: 'auto',
+    bloco: 'GOAL-PLAN-GO-CHECK-SHIP-MASTER', pausaAoFim: false, runtime: 'claude-bg', sessionId });
+  registrar(dir, id, 'runtime_stop', { ts: stop, fase, sessionId, runtime: 'claude-bg', despachoEm, fonte: 'ork sessions event', sensor: 'stop',
+    sensorEventId: SHA_DO_SENSOR, recebidoEm: '2026-09-30T13:54:13.243Z' });
+  const diagnostico = opcoes.diagnostico ?? `sem prova do ork: ${falta}`;
+  const prova = opcoes.prova === undefined ? { ok: false, fonte: falta, motivo: 'human.pending' } : opcoes.prova;
+  const comum = { fase, sessionId, despachoEm, sensorResultId: `claude-bg:${'7'.repeat(64)}`, classificacao: 'gate_blocked', motivo: 'human.pending',
+    runtime: 'claude-bg', fonte: opcoes.fonte ?? `terminal nativo done com Stop correlacionado; ${diagnostico}`, estadoNativo,
+    statusNativo: 'idle', pidNativo: 4242, exitCode: null, exitCodeFonte: 'unavailable', signal: null, duracaoMs: null, duracaoFonte: 'unavailable',
+    ok: false, estado: 'bloqueada', stop: { ts: stop, sensorEventId: SHA_DO_SENSOR },
+    evidencia: { fonte: 'claude agents --json --all', consultadoEm: '2026-09-30T13:54:14.519Z', registro: { id: sessionId.slice(0, 8), sessionId,
+      cwd: '/tmp/simulada', kind: 'background', state: estadoNativo, status: 'idle', pid: 4242 } },
+    ...(prova ? { provaOrk: prova } : {}), conclusaoNativa: estadoNativo === 'done', conclusaoNativaAusente: null, diagnostico,
+    detalhe: diagnostico, observadoEm: '2026-09-30T13:54:14.519Z', gate: 'phase.dispatch', origem: 'sessions.watch' };
+  registrar(dir, id, 'gate_blocked', { ts: '2026-09-30T13:54:14.906Z', ...comum });
+  registrar(dir, id, 'phase_result', { ts: '2026-09-30T13:54:14.918Z', ...comum });
+  return { sessionId, stop };
 }
 
 const pr = (numero: number, branch: string, head: string, extra: Partial<PrDaForja> = {}): PrDaForja => ({
@@ -225,6 +257,77 @@ test('B2 do CHECK: PR verde e o SHIP despachado depois terminou sem merge: volta
     assert.equal(r.parados[0].proximoPasso, 'mergear o PR #41');
     assert.equal(r.parados[0].desdeEm, depois('2026-10-01T22:40:00.000Z', -0.2), 'desde o fim do SHIP, nao do check');
     assert.ok(r.doCondutor.gates.has(`${a.t.id}|SHIP`));
+  } finally { p.limpar(); }
+});
+
+test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da ork-rm037noite, sai do dono e traz a linha do PR', () => {
+  const p = projetoTemporario('fatia4-ship-done', true);
+  try {
+    const quando = '2026-09-30T14:40:00.000Z'; // 46 min depois do Stop do SHIP
+    const a = threadComProduto(p, 'ship em done', { publicar: true });
+    // Contraprovas nos formatos do observador: o CHECK em `done` sem o veredito (o da ork-pacotedeexpe em 30/09, A3 da
+    // rodada 5, pendente), o SHIP que falhou depois do Stop (`failed`: o humano decide) e o SHIP parado de fora
+    // (`stopped`), com a mesma prova faltando, seguem do dono.
+    const b = threadComProduto(p, 'check em done sem veredito', { publicar: true });
+    const c = threadComProduto(p, 'ship em failed', { publicar: true });
+    const d = threadComProduto(p, 'ship parado de fora', { publicar: true });
+    forjaSimulada(p);
+    const { sessionId, stop } = fimDoObservadorEmDone(a.dir, a.t.id, 97);
+    const semVeredito = 'docs/check.md gravado sem exatamente um veredito legível';
+    fimDoObservadorEmDone(b.dir, b.t.id, 98, { fase: 'CHECK', diagnostico: `sem prova do ork: ${semVeredito}`,
+      prova: { ok: false, fonte: semVeredito, motivo: 'human.pending', veredito: null, verify: null } });
+    fimDoObservadorEmDone(c.dir, c.t.id, 99, { estadoNativo: 'failed', prova: null,
+      fonte: 'terminal nativo failed depois de Stop correlacionado; a sessão falhou depois de encerrar o turno e o humano decide',
+      diagnostico: 'a sessão falhou (failed) depois de encerrar o turno; conclusão não provada' });
+    fimDoObservadorEmDone(d.dir, d.t.id, 100, { estadoNativo: 'stopped', fonte: 'Stop correlacionado e sessão encerrada externamente (stopped) ' +
+      'sem done; sem prova do ork: nenhum ship_done registrado no intervalo do despacho' });
+    const ta = lerThread(p.dir, a.t.id), eventos = lerLedger(a.dir);
+    assert.equal(pendenciaDoDono(ta, eventos, quando), null, 'o gate do observador no SHIP em done nao e escalacao do dono');
+    assert.deepEqual(esperaDoCondutor(ta, eventos, quando), { thread: a.t.id, fase: 'SHIP', sessionId, fimDoTurnoEm: stop,
+      tipo: 'espera-do-observador', comProva: false });
+    const verde = pr(46, a.branch, a.head, { criadoEm: '2026-09-30T13:40:00.000Z',
+      checks: [{ nome: 'ork-verify', situacao: 'verde', concluidoEm: '2026-09-30T13:50:00.000Z' }] });
+    const r = entregasDoProjeto(p.carregado, { quando, lerPrs: ler(retratoCom([verde], { lidoEm: quando })) });
+    const linha = r.parados.find(x => x.thread === a.t.id);
+    assert.equal(linha?.caso, 'pr-verde', JSON.stringify(r.parados));
+    assert.equal(linha?.proximoPasso, 'mergear o PR #46');
+    assert.equal(linha?.desdeEm, stop, 'desde o fim do SHIP');
+    assert.ok(r.doCondutor.gates.has(`${a.t.id}|SHIP`));
+    for (const dono of [b, c, d]) {
+      assert.equal(pendenciaDoDono(lerThread(p.dir, dono.t.id), lerLedger(dono.dir), quando), 'escalação human.pending', dono.t.nome);
+      assert.ok(!r.parados.some(x => x.thread === dono.t.id), dono.t.nome);
+      assert.ok(![...r.doCondutor.gates].some(g => g.startsWith(`${dono.t.id}|`)), dono.t.nome);
+    }
+    // O pulse: o SHIP sai de "Esperando voce" com a linha do PR; as contraprovas continuam la.
+    const executor: ExecutorDoGh = (args) => ({ status: 0, stderr: '', stdout: JSON.stringify(args.includes('--state=open') ? [{ number: 46,
+      state: 'OPEN', headRefName: a.branch, headRefOid: a.head, baseRefName: 'main', isDraft: false, isCrossRepository: false,
+      url: 'https://github.com/exemplo/simulado/pull/46', createdAt: '2026-09-30T13:40:00Z', mergedAt: null, statusCheckRollup: [
+        { __typename: 'CheckRun', name: 'ork-verify', status: 'COMPLETED', conclusion: 'SUCCESS', startedAt: '2026-09-30T13:45:00Z',
+          completedAt: '2026-09-30T13:50:00Z' }] }] : []) });
+    const pulse = montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
+    assert.ok(!pulse.precisaDeHumanoAgora.some(i => i.thread === a.t.id), JSON.stringify(pulse.precisaDeHumanoAgora.map(i => i.id)));
+    assert.equal(pulse.paradoNoCondutor?.find(x => x.thread === a.t.id)?.proximoPasso, 'mergear o PR #46');
+    for (const dono of [b, c, d]) assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === dono.t.id && i.motivo === 'human.pending'), dono.t.nome);
+    // O retrato da maquina, que a rede le como "O que precisa de voce": o SHIP nao espera o dono; as contraprovas, sim.
+    const retrato = retratoDaMaquina(p.carregado, { agora: quando, maquina: 'pc-a' });
+    assert.equal(retrato.threads.find(t => t.id === a.t.id)?.esperaVoce, false);
+    for (const dono of [b, c, d]) assert.equal(retrato.threads.find(t => t.id === dono.t.id)?.esperaVoce, true, dono.t.nome);
+  } finally { p.limpar(); }
+});
+
+test('A4 do CHECK (rodada 5): fora do #Auto e do #Maestro, publicar a branch e abrir o PR levam a autorizacao de push do dono', () => {
+  const p = projetoTemporario('fatia4-autorizacao', true);
+  try {
+    // #Fast: uma fase so (GO), sem pausa, e o push pede a autorizacao do dono (I-42).
+    const semPush = threadComProduto(p, 'fast sem push', { modo: 'fast' });
+    const semPr = threadComProduto(p, 'fast sem pr', { modo: 'fast', publicar: true });
+    forjaSimulada(p);
+    turnoDoObservador(semPush.dir, semPush.t.id, 101, { fase: 'GO', bloco: 'GO' });
+    turnoDoObservador(semPr.dir, semPr.t.id, 102, { fase: 'GO', bloco: 'GO' });
+    const r = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([])) });
+    const passo = (id: string) => r.parados.find(x => x.thread === id)?.proximoPasso;
+    assert.equal(passo(semPush.t.id), `publicar a branch ${semPush.branch} e abrir o PR, com a autorização de push do dono (#Fast)`);
+    assert.equal(passo(semPr.t.id), `abrir o PR da branch ${semPr.branch}, com a autorização de push do dono (#Fast)`);
   } finally { p.limpar(); }
 });
 
@@ -550,9 +653,12 @@ test('retrato que nao vale e "PR nao lido", nunca "sem PR": velho, de outra base
       { estado: 'mesclado', mescladoEm: '2026-10-01T23:00:00.000Z' })])) });
     assert.equal(mesclado.parados[0]?.caso, 'sem-registro');
     assert.equal(mesclado.parados[0].proximoPasso, `conferir a entrega do PR #44, mesclado sem o assunto ship(${a.t.id}), e registrar o ship_done`);
-    // Leitura anterior ao fim do turno: o turno pode ter mudado o PR.
-    const antes = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([], { lidoEm: '2026-10-01T07:00:00.000Z' })) });
-    assert.match(antes.estados[0].prNaoLido ?? '', /retrato de PRs (velho|anterior ao fim do turno)/);
+    // Leitura anterior ao fim do turno, com menos de uma hora (A2 da rodada 5: a de 14 h caia antes em "velho"). O turno
+    // novo acabou 20 min antes de agora, e o retrato e de 40 min antes: o turno pode ter mudado o PR depois dele.
+    turnoDoObservador(a.dir, a.t.id, 28, { despacho: depois(AGORA, -50), fim: depois(AGORA, -20) });
+    const antes = entregasDoProjeto(p.carregado, { quando: AGORA, lerPrs: ler(retratoCom([], { lidoEm: depois(AGORA, -40) })) });
+    assert.equal(antes.estados[0].prNaoLido, 'retrato de PRs anterior ao fim do turno');
+    assert.equal(antes.estados[0].resumo, 'branch publicada, PR não lido');
   } finally { p.limpar(); }
 });
 

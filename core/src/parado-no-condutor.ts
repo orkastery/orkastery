@@ -365,6 +365,19 @@ export function perguntaAberta(eventos: readonly EventoLedger[], desde: string, 
 const doRadar = (e: EventoLedger): boolean => e.tipo === 'sessao_bloqueada' && e.fonte === 'ork sessions hitl --registrar';
 
 /**
+ * B1 do CHECK (rodada 5): o SHIP que o observador viu terminar em `done`, com o Stop, sem o `ship_done` no
+ * intervalo do despacho. A prova do ork no SHIP e so o `ship_done` (`provaDoOrk`): o que falta e mergear o PR
+ * ou registrar a entrega, e isso e do condutor, como o fim de turno em `blocked`. Dos 4 `human.pending` do SHIP
+ * nos ledgers de 30/09, 2 tem este formato (ork-rm037noite e ork-pacotedeexpe). O CHECK em `done` sem o veredito
+ * e outra coisa, e continua com o dono (A3 da rodada 5, pendente).
+ */
+function shipSemRegistro(e: EventoLedger): boolean {
+  const { ok: provou } = (e.provaOrk ?? {}) as { ok?: unknown };
+  return e.motivo === 'human.pending' && e.origem === 'sessions.watch' && e.fase === 'SHIP' && e.estadoNativo === 'done' &&
+    !!e.stop && provou === false;
+}
+
+/**
  * O bloqueio que pede o dono: o prompt de permissao do hook e o que o radar leu com pergunta na tela. O
  * carimbo do radar no fim de turno (`blocked` lido sem menu nem pergunta) nao e prompt nenhum.
  */
@@ -404,8 +417,9 @@ export interface FimDoTurno {
   em: string;
   /**
    * `concluida`: resultado da fase com a prova do ork (ou o legado `ok: true`). `espera-do-observador`: o
-   * observador viu o Stop e a sessao `blocked` e gravou `human.pending`. `stop-sem-resultado`: o Stop foi a
-   * ultima atividade e o resultado nunca veio (a fatia 3 de 01/10). `pausa-do-bloco`: a fase terminou e o
+   * observador viu o Stop e a sessao `blocked`, ou o SHIP em `done` sem o `ship_done` (`comProva: false`), e
+   * gravou `human.pending`. `stop-sem-resultado`: o Stop foi a ultima atividade e o resultado nunca veio (a
+   * fatia 3 de 01/10). `pausa-do-bloco`: a fase terminou e o
    * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `outro`: falha tecnica, com
    * dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
    */
@@ -447,7 +461,7 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
     } else if (resultado.motivo === 'human.pending' && despacho.pausaAoFim === true) {
       // S-a do CHECK (rodada 3): no bloco com pausa ao fim, todo `human.pending` do resultado e a fase entregue ao dono.
       return { em: resultado.ts, tipo: 'pausa-do-bloco', sessionId: sid, fase, comProva: true };
-    } else if (resultado.motivo === 'human.pending' && resultado.estadoNativo === 'blocked' && resultado.stop) {
+    } else if (resultado.motivo === 'human.pending' && resultado.stop && (resultado.estadoNativo === 'blocked' || shipSemRegistro(resultado))) {
       if (!retomou) {
         const { ts: doStop } = resultado.stop as { ts?: unknown };
         const { ok: provou } = (resultado.provaOrk ?? {}) as { ok?: unknown };
@@ -490,8 +504,9 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
     const e = depois[k];
     if (e.tipo !== 'gate_blocked') continue;
     const motivo = String(e.motivo ?? '');
-    // O fim de turno que o observador viu em `blocked` nao e escalacao: e justamente o que muda de dono.
-    if (motivo === 'human.pending' && e.origem === 'sessions.watch' && e.estadoNativo === 'blocked') continue;
+    // O fim de turno que o observador viu em `blocked`, e o SHIP em `done` sem o `ship_done` (B1 da rodada 5), nao sao
+    // escalacao: sao justamente o que muda de dono.
+    if (motivo === 'human.pending' && e.origem === 'sessions.watch' && (e.estadoNativo === 'blocked' || shipSemRegistro(e))) continue;
     const doDono = motivo === 'human.pending' ||
       ((MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) && quemDecide(motivo) === 'dono');
     const resolvido = depois.slice(k + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
@@ -784,10 +799,11 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         if (antesDaEntrega && !aberto) { caso = 'fase-seguinte'; passo = despachar; }
         else {
           caso = 'sem-push';
-          // N2 da seguranca (rodada 2): branch que ja foi ao remoto pode ter PR; sem a leitura, nunca "abrir o PR".
-          passo = aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}`
+          // N2 da seguranca (rodada 2): branch que ja foi ao remoto pode ter PR; sem a leitura, nunca "abrir o PR". A4 da
+          // rodada 5: publicar e abrir o PR pedem a mesma autorizacao de push que o merge.
+          passo = (aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}`
             : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch} (PR não lido)`
-            : `publicar a branch ${f.branch} e abrir o PR`;
+            : `publicar a branch ${f.branch} e abrir o PR`) + autorizacao;
         }
         evidencia.push(`refs/heads/${f.branch} tem commit fora de refs/remotes/${remoto}/${f.branch}`);
       } else if (aberto && s?.situacao === 'vermelho' && s.desdeEm && valeDesde(s.desdeEm)) {
@@ -816,8 +832,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         if (antesDaEntrega) { caso = 'fase-seguinte'; passo = despachar; }
         else {
           caso = 'sem-pr';
-          passo = daBranch.fechado ? `abrir de novo o PR da branch ${f.branch} (o PR #${daBranch.fechado.numero} foi fechado sem merge)`
-            : `abrir o PR da branch ${f.branch}`;
+          passo = (daBranch.fechado ? `abrir de novo o PR da branch ${f.branch} (o PR #${daBranch.fechado.numero} foi fechado sem merge)`
+            : `abrir o PR da branch ${f.branch}`) + autorizacao;
         }
         evidencia.push(`refs/remotes/${remoto}/${f.branch} contém a ponta`,
           daBranch.fechado ? `gh pr list: PR #${daBranch.fechado.numero} fechado sem merge` : `gh pr list: nenhum PR de ${f.branch}`);
