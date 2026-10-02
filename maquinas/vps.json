@@ -4,25 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T06:33:50.873Z",
+  "publicadoEm": "2026-10-02T06:45:01.762Z",
   "threads": [
-    {
-      "id": "ork-ensaiofatia2",
-      "nome": "Ensaio fatia 2 achados P1-P3 e P5-P9 da primeira experiencia",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-ensaiofatia2-full",
-      "atualizadaEm": "2026-10-02T06:33:50.676Z",
-      "entregue": "e49a193f",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
     {
       "id": "ork-rm031kg5cons",
       "nome": "RM-031 KG5 consumo do grafo pelas fases",
