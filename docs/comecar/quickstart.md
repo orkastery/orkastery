@@ -110,11 +110,12 @@ Isso gera o `orkastery.yaml`, a **fonte única** da configuração do projeto, c
 manifesto.
 
 O estado do `ork` (`.orkastery/`) e as worktrees das threads (`.claude/worktrees/`) são da máquina,
-não do repositório: deixe os dois fora do git e faça o commit do manifesto antes da primeira thread.
+não do repositório. O `ork init` deixa o estado fora do git com um `.orkastery/.gitignore` próprio
+(com `*`), e a pasta das worktrees ganha o mesmo quando a primeira worktree é criada; o seu
+`.gitignore` fica como está. Faça o commit do manifesto antes da primeira thread:
 
 ```bash
-printf '\n.orkastery/\n.claude/worktrees/\n' >> .gitignore
-git add .gitignore orkastery.yaml AGENTS.md
+git add orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
 

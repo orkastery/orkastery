@@ -72,6 +72,28 @@ export function noPath(bin: string, env: NodeJS.ProcessEnv = process.env): strin
   return null;
 }
 
+/** O `.gitignore` que o ork poe na pasta que e da maquina (fatia 2 do ensaio da 0.5.0, P3). */
+export const GITIGNORE_DA_MAQUINA = '# Criado pelo ork: esta pasta é da máquina, não do repositório.\n*\n';
+
+/**
+ * Fatia 2 do ensaio da 0.5.0 (P3): a pasta que o ork cria para a maquina (o estado em `.orkastery/`
+ * e a pasta das worktrees) fica fora do git por um `.gitignore` proprio com `*`; o `.gitignore` do
+ * usuario nao e tocado. Nunca sobrescreve um existente, so vale para pasta dentro do repositorio e
+ * nao cria quando o repositorio ja rastreia algo nela: o projeto que versiona o proprio estado segue
+ * versionando. Devolve se criou.
+ */
+export function ignorarPastaNoGit(dir: string, raizDoRepo: string): boolean {
+  const relativo = path.relative(raizDoRepo, dir);
+  if (!relativo || relativo.startsWith('..') || path.isAbsolute(relativo)) return false;
+  const arquivo = path.join(dir, '.gitignore');
+  if (fs.existsSync(arquivo)) return false;
+  const rastreados = exec('git', ['ls-files', '-z', '--', relativo], raizDoRepo);
+  if (rastreados.ok && rastreados.stdout.length > 0) return false;
+  fs.mkdirSync(dir, { recursive: true });
+  try { fs.writeFileSync(arquivo, GITIGNORE_DA_MAQUINA, { flag: 'wx' }); } catch { return false; }
+  return true;
+}
+
 /** Sobe a arvore de diretorios procurando um arquivo. Retorna o diretorio que o contem. */
 export function subirAte(dirInicial: string, arquivo: string): string | null {
   let dir = path.resolve(dirInicial);

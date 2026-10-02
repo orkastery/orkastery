@@ -12,7 +12,8 @@ import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { exec, noPath } from '../src/util';
+import { exec, GITIGNORE_DA_MAQUINA, ignorarPastaNoGit, noPath } from '../src/util';
+import { init } from '../src/init';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -227,4 +228,85 @@ test('fatia 2 P2: ship --dry-run grava o gate com dryRun e board, monitor e maes
     assert.ok(paradas().some((x) => x.motivo === 'human.pending'));
     assert.ok((maestro().blockers?.items ?? []).length > 0);
   } finally { p.limpar(); }
+});
+
+/** Repositorio novo com um commit (e o `.gitignore` do usuario, quando pedido). */
+function repoComCommit(nome: string, gitignoreDoUsuario?: string): string {
+  const dir = dirTemporario(nome);
+  exec('git', ['init', '-q', '-b', 'main'], dir);
+  for (const [k, v] of [['user.email', 'teste@orkastery.local'], ['user.name', 'Teste Orkastery'], ['commit.gpgsign', 'false']]) {
+    exec('git', ['config', k, v], dir);
+  }
+  fs.writeFileSync(path.join(dir, 'README.md'), '# fatia 2\n');
+  const arquivos = ['README.md'];
+  if (gitignoreDoUsuario !== undefined) { fs.writeFileSync(path.join(dir, '.gitignore'), gitignoreDoUsuario); arquivos.push('.gitignore'); }
+  exec('git', ['add', '--', ...arquivos], dir);
+  assert.ok(exec('git', ['commit', '-q', '-m', 'inicial'], dir).ok, 'commit inicial');
+  return dir;
+}
+
+const naoRastreados = (dir: string): string => exec('git', ['status', '--porcelain', '--untracked-files=all'], dir).stdout;
+
+test('fatia 2 P3: init cria .orkastery/.gitignore com * sem tocar no .gitignore do usuario', () => {
+  const dir = repoComCommit('fatia2-init', 'node_modules/\n');
+  const rastreado = repoComCommit('fatia2-init-rastreado');
+  const casa = dirTemporario('fatia2-init-casa');
+  const cli = repoComCommit('fatia2-init-cli');
+  try {
+    const doUsuario = fs.readFileSync(path.join(dir, '.gitignore'));
+    const r = init(dir, { nome: 'ensaio', abbrev: 'ens' });
+    assert.equal(r.estadoIgnorado, true);
+    assert.equal(fs.readFileSync(path.join(dir, '.orkastery/.gitignore'), 'utf8'), GITIGNORE_DA_MAQUINA);
+    assert.match(GITIGNORE_DA_MAQUINA, /^\*$/m);
+    assert.deepEqual(fs.readFileSync(path.join(dir, '.gitignore')), doUsuario, 'o .gitignore do usuario fica byte a byte');
+
+    // Depois do uso, o estado nao aparece para o `git add`; o manifesto e o AGENTS.md, sim.
+    fs.writeFileSync(path.join(dir, '.orkastery/ledger.jsonl'), '{}\n');
+    fs.mkdirSync(path.join(dir, '.orkastery/private'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.orkastery/private/segredo'), 'x\n');
+    const status = naoRastreados(dir);
+    assert.doesNotMatch(status, /\.orkastery/);
+    assert.match(status, /orkastery\.yaml/);
+
+    // Existente nao e sobrescrito, nem no init --force.
+    fs.writeFileSync(path.join(dir, '.orkastery/.gitignore'), '# do dono\nthreads/\n');
+    assert.equal(init(dir, { force: true, nome: 'ensaio', abbrev: 'ens' }).estadoIgnorado, false);
+    assert.equal(fs.readFileSync(path.join(dir, '.orkastery/.gitignore'), 'utf8'), '# do dono\nthreads/\n');
+
+    // O projeto que versiona o proprio estado segue versionando: nada de .gitignore novo.
+    fs.mkdirSync(path.join(rastreado, '.orkastery/threads/ens-x'), { recursive: true });
+    fs.writeFileSync(path.join(rastreado, '.orkastery/threads/ens-x/thread.json'), '{}\n');
+    exec('git', ['add', '--', '.orkastery/threads/ens-x/thread.json'], rastreado);
+    assert.ok(exec('git', ['commit', '-q', '-m', 'estado versionado'], rastreado).ok);
+    assert.equal(init(rastreado, { nome: 'ensaio', abbrev: 'ens' }).estadoIgnorado, false);
+    assert.equal(fs.existsSync(path.join(rastreado, '.orkastery/.gitignore')), false);
+    // Pasta fora do repositorio nao recebe nada.
+    assert.equal(ignorarPastaNoGit(casa, dir), false);
+
+    // A CLI diz que deixou o estado fora do git.
+    const saida = ork(cli, casa, PATH_ATUAL, 'init');
+    assert.equal(saida.status, 0, saida.stderr);
+    assert.match(saida.stdout, /^ {2}estado {6}\.orkastery\/ fora do git \(\.orkastery\/\.gitignore com \*; o seu \.gitignore fica como está\)$/m);
+  } finally { limpar(dir, rastreado, casa, cli); }
+});
+
+test('fatia 2 P3: a pasta de worktrees ganha .gitignore com * quando o ork a cria', () => {
+  const p = projetoTemporario('fatia2-worktrees');
+  const q = projetoTemporario('fatia2-worktrees-existente');
+  try {
+    const pasta = path.join(p.dir, '.claude/worktrees');
+    assert.equal(fs.existsSync(pasta), false);
+    novaThread(p.carregado, { nome: 'primeira com worktree', modo: 'auto', criarWorktree: true });
+    assert.equal(fs.readFileSync(path.join(pasta, '.gitignore'), 'utf8'), GITIGNORE_DA_MAQUINA);
+    assert.doesNotMatch(naoRastreados(p.dir), /\.claude\/worktrees|\.orkastery/);
+    // A segunda worktree encontra a pasta e o arquivo; nada muda.
+    fs.writeFileSync(path.join(pasta, '.gitignore'), GITIGNORE_DA_MAQUINA + '# conferido\n');
+    novaThread(p.carregado, { nome: 'segunda com worktree', modo: 'auto', criarWorktree: true });
+    assert.equal(fs.readFileSync(path.join(pasta, '.gitignore'), 'utf8'), GITIGNORE_DA_MAQUINA + '# conferido\n');
+
+    // Pasta que ja existia antes do ork nao ganha o arquivo: quem a criou cuida dela.
+    fs.mkdirSync(path.join(q.dir, '.claude/worktrees'), { recursive: true });
+    novaThread(q.carregado, { nome: 'outra com worktree', modo: 'auto', criarWorktree: true });
+    assert.equal(fs.existsSync(path.join(q.dir, '.claude/worktrees/.gitignore')), false);
+  } finally { p.limpar(); q.limpar(); }
 });

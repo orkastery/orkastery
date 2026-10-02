@@ -14,7 +14,7 @@ import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
 import {
   BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Modo, SessaoDaThread, Thread, VarianteDeCiclo,
 } from './types';
-import { agora, COMMIT_DESCONHECIDO, exec, lerJson, shaCurto, tabela } from './util';
+import { agora, COMMIT_DESCONHECIDO, exec, ignorarPastaNoGit, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { estadoCanonico, raizDoEstado, vincularEstado } from './estado-thread';
 import { readCreationOperation, withCreationLock, writeCreationJson } from './creation-operation-store';
@@ -135,6 +135,9 @@ export function criarWorktree(
   const base = opcoes.base ?? manifesto.worktree.base_branch;
   const commitBase = exec('git', ['rev-parse', '--verify', base], raiz);
   const ref = commitBase.ok ? commitBase.stdout.trim() : 'HEAD';
+  // Fatia 2 do ensaio da 0.5.0 (P3): a pasta das worktrees que o ork cria agora nasce fora do git.
+  const pastaDasWorktrees = path.dirname(dir);
+  const pastaNova = !fs.existsSync(pastaDasWorktrees);
 
   // Branch nova (`-b`) no caso comum; branch que ja existe no ciclo `merge-branch`.
   const argumentos = opcoes.branchExistente
@@ -144,6 +147,7 @@ export function criarWorktree(
   if (!r.ok) {
     throw new Error(`git worktree add falhou: ${(r.stderr || r.stdout).trim()}`);
   }
+  if (pastaNova) ignorarPastaNoGit(pastaDasWorktrees, raiz);
   const lista = exec('git', ['worktree', 'list', '--porcelain'], raiz);
   const criada = lista.ok && lista.stdout.split('\n').some((l) => l.trim() === `worktree ${dir}`);
   if (!criada) {

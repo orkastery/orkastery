@@ -128,7 +128,7 @@ import {
   tabelaDeEntregas,
   textoDoMaster,
 } from './master';
-import { carregarManifesto, configDeEmbedding, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
+import { carregarManifesto, configDeEmbedding, DIR_ESTADO, diretorioDoProjeto, exigirManifesto, ManifestoCarregado } from './manifest';
 import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoFuso, localizarTextoRotulado,
   registrarFonteDoFuso } from './horario';
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta } from './onboarding';
@@ -3893,6 +3893,8 @@ export function main(argvBruto: string[]): number {
       console.log(`  gerenciador ${r.deteccao.gerenciador}`);
       console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
       console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
+      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
       console.log('');
       console.log(PROXIMO_PASSO_INIT);
       return 0;
