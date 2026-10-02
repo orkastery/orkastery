@@ -732,9 +732,13 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     // nova depois dele ainda nao foi registrada. O legado sem o sha cobre tudo, como antes.
     const cobre = (campo: 'shaDe' | 'mergeSha', sha: string | null) =>
       ships.some((e) => typeof e[campo] !== 'string' || !SHA.test(e[campo] as string) || e[campo] === sha);
+    // RM-037 (fatia 5, A1): ate esta fatia, o `ork ship` com a branch ja incorporada gravava a ponta da base no
+    // `mergeSha`. Esse `ship_done` registra o merge `ship(<thread>)` que a ponta gravada contem.
+    const contemOMerge = (sha: string) => ships.some((e) => typeof e.mergeSha === 'string' && SHA.test(e.mergeSha) &&
+      e.mergeSha !== sha && git(raiz, ['merge-base', '--is-ancestor', sha, e.mergeSha]).code === 0);
     return { t, eventos, branch: cabeca ? branch : null, cabeca, comProduto, publicada, temRemota: !!remota,
       shipNoLedger: ships.length > 0, entregueNaPonta: cabeca ? cobre('shaDe', cabeca) : ships.length > 0,
-      mergeRegistrado: !!merge && cobre('mergeSha', merge.sha), merge };
+      mergeRegistrado: !!merge && (cobre('mergeSha', merge.sha) || contemOMerge(merge.sha)), merge };
   });
 
   // D2: a forja so e lida quando alguma thread tem o que mostrar la: produto numa branch que ja foi ao remoto

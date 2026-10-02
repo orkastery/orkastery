@@ -96,6 +96,9 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
     para: base,
     shaDe: merge.headSha,
     mergeSha: merge.mergeSha,
+    // RM-037 (fatia 5, A1): a ponta que o ls-remote provou vai em campo proprio; o recibo do Maestro confere o push
+    // contra ela quando a base andou depois do merge.
+    pontaDaBase: ponta,
     jaIncorporado: true,
     remoto,
     shaRemoto: ponta,

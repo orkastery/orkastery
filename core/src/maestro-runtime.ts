@@ -44,8 +44,11 @@ const shipView = z.union([
   z.object({
     tipo: z.literal('ship_done'), ts: shipTs, pushVerificado: z.boolean(), mergeSha: shipSha,
     shaRemoto: shipSha.nullable().optional(),
+    // RM-037 (fatia 5, A1): o push prova a ponta da base; o `mergeSha` e o merge que entregou, que pode ser mais
+    // velho que ela. Recibo sem o campo continua valendo pela regra de antes.
+    pontaDaBase: shipSha.nullable().optional(),
     fonteDaProva: z.string().min(1).max(512).refine(v => !/[\u0000-\u001f\u007f]/.test(v)).nullable().optional(),
-  }).refine(s => !s.pushVerificado || (s.shaRemoto === s.mergeSha && typeof s.fonteDaProva === 'string')),
+  }).refine(s => !s.pushVerificado || (s.shaRemoto === (s.pontaDaBase ?? s.mergeSha) && typeof s.fonteDaProva === 'string')),
   z.object({ tipo: z.enum(['ship_started', 'ship_blocked']), ts: shipTs }),
 ]);
 
