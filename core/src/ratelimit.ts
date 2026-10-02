@@ -136,15 +136,31 @@ export function prazoDaConta(manifesto: Manifesto, falha: SinalDeFalhaDeConta, a
   return new Date(agoraMs + janelaPadraoMs(manifesto)).toISOString();
 }
 
-/** Marca no store o perfil que falhou pela conta. Sem perfil (ambiente do processo), nada a marcar. */
+/**
+ * RM-037 (fatia 5): ate quando a conta sai do rodizio pela cota que o observador viu na transcricao, com a
+ * sessao viva. Vale a hora dita (ja ancorada no instante da mensagem) ou a janela padrao contada da mensagem,
+ * nunca do relogio de quem leu. Prazo que ja venceu volta `null`: a conta ja voltou, e marcar agora tiraria do
+ * rodizio uma conta boa (a regra A10 do despacho recusado nao vale aqui, porque ninguem acabou de recusar nada).
+ */
+export function prazoDaCotaVista(manifesto: Manifesto, falha: SinalDeFalhaDeConta, mensagemMs: number,
+  agoraMs = Date.now()): string | null {
+  if (falha.motivo !== 'runtime.quota-exhausted' || !Number.isFinite(mensagemMs)) return null;
+  const prazo = falha.resetEm ?? new Date(mensagemMs + janelaPadraoMs(manifesto)).toISOString();
+  return Date.parse(prazo) > agoraMs ? prazo : null;
+}
+
+/**
+ * Marca no store o perfil que falhou pela conta. Sem perfil (ambiente do processo), nada a marcar. `prazo`,
+ * quando vem, e o ja calculado por quem viu a falha (`prazoDaCotaVista`); sem ele, vale `prazoDaConta`.
+ */
 export function marcarContaDaFalha(carregado: ManifestoCarregado, perfil: PerfilDeDespacho | null | undefined,
-  falha: SinalDeFalhaDeConta, agoraMs = Date.now()): PerfilDeRuntime | null {
+  falha: SinalDeFalhaDeConta, agoraMs = Date.now(), prazo?: string): PerfilDeRuntime | null {
   // RM-037 (defeitosdeco D-6): modelo inacessivel nao e falha da conta inteira; o perfil fica no rodizio.
   if (!perfil || falha.motivo === 'runtime.model-unavailable') return null;
   const esgotado = falha.motivo === 'runtime.quota-exhausted';
   return marcarFalhaDePerfil(carregado.raiz, perfil.id, { estado: esgotado ? 'esgotado' : 'sem-auth',
-    esgotadoAte: prazoDaConta(carregado.manifesto, falha, agoraMs), motivo: falha.motivo, detalhe: falha.trecho,
-    em: new Date(agoraMs).toISOString() });
+    esgotadoAte: esgotado && prazo ? prazo : prazoDaConta(carregado.manifesto, falha, agoraMs), motivo: falha.motivo,
+    detalhe: falha.trecho, em: new Date(agoraMs).toISOString() });
 }
 
 /** Regrava um pedido (append-only: a versao nova vence, o historico fica). */

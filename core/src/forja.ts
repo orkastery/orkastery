@@ -108,18 +108,36 @@ function montar(tipo: TipoDeForja, host: string, caminho: string): IdentidadeDaF
 }
 
 /**
- * A forja de uma URL de remoto (https, ssh ou scp). Credencial na URL nunca entra na identidade;
- * caminho local e forja desconhecida voltam null.
+ * RM-037 (fatia 5, A5): o host e o caminho de uma URL de remoto (https, ssh ou scp), de qualquer forja. Credencial
+ * na URL nunca entra; caminho local e host que nao e hostname voltam null.
  */
-export function identidadeDaForja(url: string): IdentidadeDaForja | null {
+export function enderecoDoRemoto(url: string): { host: string; caminho: string } | null {
   const t = url.trim();
   const esquema = /^(?:https?|ssh|git|git\+ssh|ssh\+git):\/\/(?:[^@/]*@)?([^/:?#@]+)(?::\d+)?\/([^?#\s]+)$/i.exec(t);
   const scp = esquema ? null : /^(?:[^@\s/:]+@)?([^:\s/@]+):(?!\/\/)([^\s]+)$/.exec(t);
   const achado = esquema ?? scp;
   if (!achado) return null;
   const host = achado[1].toLowerCase();
-  const tipo = tipoDoHost(host);
-  return tipo ? montar(tipo, host, achado[2].replace(/^\/+/, '')) : null;
+  return HOST.test(host) ? { host, caminho: achado[2].replace(/^\/+/, '') } : null;
+}
+
+/**
+ * RM-037 (fatia 5, A5): o `dono/nome` de um repositorio do GitHub no host do remoto, com qualquer host: o GitHub
+ * Enterprise mora em host proprio, com ou sem "github" no nome. Quem diz se o host e mesmo um GitHub e o `gh`.
+ */
+export function repositorioGithubNoHost(url: string): IdentidadeDaForja | null {
+  const endereco = enderecoDoRemoto(url);
+  return endereco && tipoDoHost(endereco.host) !== 'gitlab' ? montar('github', endereco.host, endereco.caminho) : null;
+}
+
+/**
+ * A forja de uma URL de remoto (https, ssh ou scp). Credencial na URL nunca entra na identidade;
+ * caminho local e forja desconhecida voltam null.
+ */
+export function identidadeDaForja(url: string): IdentidadeDaForja | null {
+  const endereco = enderecoDoRemoto(url);
+  const tipo = endereco ? tipoDoHost(endereco.host) : null;
+  return endereco && tipo ? montar(tipo, endereco.host, endereco.caminho) : null;
 }
 
 /** `github:dono/repo`, `gitlab:grupo/sub/repo` (com host proprio: `gitlab:host.tld/grupo/repo`) ou uma URL. */

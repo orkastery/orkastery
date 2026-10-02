@@ -265,10 +265,10 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
   try {
     const quando = '2026-09-30T14:40:00.000Z'; // 46 min depois do Stop do SHIP
     const a = threadComProduto(p, 'ship em done', { publicar: true });
-    // Contraprovas nos formatos do observador: o CHECK em `done` sem o veredito (o da ork-pacotedeexpe em 30/09, A3 da
-    // rodada 5, pendente), o SHIP que falhou depois do Stop (`failed`: o humano decide), o SHIP parado de fora
-    // (`stopped`), com a mesma prova faltando, e o SHIP em `done` sem a prova do ork registrada (sugestao da rodada 6)
-    // seguem do dono.
+    // Contraprovas nos formatos do observador: o SHIP que falhou depois do Stop (`failed`: o humano decide), o SHIP
+    // parado de fora (`stopped`), com a mesma prova faltando, e o SHIP em `done` sem a prova do ork registrada (sugestao
+    // da rodada 6) seguem do dono. O CHECK em `done` sem o veredito (o da ork-pacotedeexpe em 30/09) era contraprova ate
+    // a A3 entrar na fatia 5: no #Auto ele e do condutor, que redespacha o CHECK (rm037-fatia5-check-sem-veredito).
     const b = threadComProduto(p, 'check em done sem veredito', { publicar: true });
     const c = threadComProduto(p, 'ship em failed', { publicar: true });
     const d = threadComProduto(p, 'ship parado de fora', { publicar: true });
@@ -296,7 +296,11 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
     assert.equal(linha?.proximoPasso, 'mergear o PR #46');
     assert.equal(linha?.desdeEm, stop, 'desde o fim do SHIP');
     assert.ok(r.doCondutor.gates.has(`${a.t.id}|SHIP`));
-    for (const dono of [b, c, d, semProva]) {
+    // RM-037 (fatia 5, A3): a thread #Auto do CHECK sem o veredito sai do dono e pede o CHECK de novo.
+    assert.equal(pendenciaDoDono(lerThread(p.dir, b.t.id), lerLedger(b.dir), quando), null);
+    assert.equal(r.parados.find(x => x.thread === b.t.id)?.caso, 'check-sem-veredito');
+    assert.ok(r.doCondutor.gates.has(`${b.t.id}|CHECK`));
+    for (const dono of [c, d, semProva]) {
       assert.equal(pendenciaDoDono(lerThread(p.dir, dono.t.id), lerLedger(dono.dir), quando), 'escalação human.pending', dono.t.nome);
       assert.ok(!r.parados.some(x => x.thread === dono.t.id), dono.t.nome);
       assert.ok(![...r.doCondutor.gates].some(g => g.startsWith(`${dono.t.id}|`)), dono.t.nome);
@@ -310,11 +314,13 @@ test('B1 do CHECK (rodada 5): o SHIP em done sem o ship_done, no formato real da
     const pulse = montarPulse(p.carregado, { quando, consulta: { ok: true, sessoes: [], detalhe: 'SIMULADO' }, executorDoGh: executor });
     assert.ok(!pulse.precisaDeHumanoAgora.some(i => i.thread === a.t.id), JSON.stringify(pulse.precisaDeHumanoAgora.map(i => i.id)));
     assert.equal(pulse.paradoNoCondutor?.find(x => x.thread === a.t.id)?.proximoPasso, 'mergear o PR #46');
-    for (const dono of [b, c, d, semProva]) assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === dono.t.id && i.motivo === 'human.pending'), dono.t.nome);
+    assert.ok(!pulse.precisaDeHumanoAgora.some(i => i.thread === b.t.id), 'A3: o CHECK sem o veredito sai de Esperando voce');
+    for (const dono of [c, d, semProva]) assert.ok(pulse.precisaDeHumanoAgora.some(i => i.thread === dono.t.id && i.motivo === 'human.pending'), dono.t.nome);
     // O retrato da maquina, que a rede le como "O que precisa de voce": o SHIP nao espera o dono; as contraprovas, sim.
     const retrato = retratoDaMaquina(p.carregado, { agora: quando, maquina: 'pc-a' });
     assert.equal(retrato.threads.find(t => t.id === a.t.id)?.esperaVoce, false);
-    for (const dono of [b, c, d, semProva]) assert.equal(retrato.threads.find(t => t.id === dono.t.id)?.esperaVoce, true, dono.t.nome);
+    assert.equal(retrato.threads.find(t => t.id === b.t.id)?.esperaVoce, false);
+    for (const dono of [c, d, semProva]) assert.equal(retrato.threads.find(t => t.id === dono.t.id)?.esperaVoce, true, dono.t.nome);
   } finally { p.limpar(); }
 });
 

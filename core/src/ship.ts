@@ -18,6 +18,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { aprovacoesHumanas, registrarGateBloqueado, registrarGateLiberado } from './gates';
 import { adquirirRegiao, esperandoPor, liberar, lerLease, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -74,11 +75,17 @@ export interface ResultadoShip {
   para: string;
   shaDe: string;
   shaParaAntes: string;
+  /**
+   * O merge que entregou a thread. RM-037 (fatia 5, A1): com a branch ja incorporada, o commit de primeiro pai da
+   * base que a trouxe (`commitQueIncorporou`), e nao a ponta da base.
+   */
   mergeSha: string | null;
+  /** RM-037 (fatia 5, A1): a ponta do destino depois do SHIP, a que o push prova. Sem jaIncorporado, e o proprio merge. */
+  pontaDaBase: string | null;
   jaIncorporado: boolean;
   remoto: string | null;
   shaRemoto: string | null;
-  /** True so quando `git ls-remote` devolveu o MESMO sha do destino local. */
+  /** True so quando `git ls-remote` devolveu o MESMO sha do destino local (a `pontaDaBase`). */
   pushVerificado: boolean;
   autorizacao: Autorizacao;
   verificacao: ResultadoVerify | null;
@@ -89,6 +96,41 @@ export interface ResultadoShip {
   /** Comandos realmente executados, na ordem: e a evidencia do ship. */
   passos: string[];
   dryRun: boolean;
+}
+
+/**
+ * RM-037 (fatia 5, A1): o commit de primeiro pai da base que incorporou o `shaDe`: o merge que trouxe a branch, ou
+ * o proprio `shaDe` quando a base avancou por fast-forward ate ele. Com a branch ja incorporada, a ponta da base e
+ * outra coisa: no `ship_done` da ork-docsusuarios (27/09/2026), o unico do `ork ship` com `jaIncorporado` nos ledgers
+ * deste projeto, ela era o merge de outra thread. O que trouxe a branch e o commit mais velho do primeiro pai da base
+ * que descende do `shaDe`. GO-FIX (rodada 1 do CHECK): `--first-parent` junto com `--ancestry-path` so propaga a
+ * descendencia pelos commits de primeiro pai, e o merge do PR que recebeu "Update branch" no GitHub (o pai dele e um
+ * merge que descende do `shaDe`, nao o `shaDe`) sumia da lista; agora sao duas listas e a intersecao. `null` quando o
+ * git nao responde.
+ */
+export function commitQueIncorporou(raiz: string, shaDe: string, ponta: string, passos: string[] = []): string | null {
+  if (shaDe === ponta) return shaDe;
+  // `passos` recebe os comandos que de fato rodaram, na ordem: e a evidencia do ship (sugestao da conferencia da rodada 2).
+  const curto = (sha: string) => sha.slice(0, 8);
+  // As listas crescem com o historico entre a branch e a ponta: o buffer vai alem do 1 MiB padrao do spawnSync.
+  const listar = (args: string[]): string[] | null => {
+    passos.push(`git ${args.map((a) => a.replace(/^([0-9a-f]{40,64})\.\.([0-9a-f]{40,64})$/, (_, x, y) => `${curto(x)}..${curto(y)}`)).join(' ')}`);
+    const r = spawnSync('git', args, { cwd: raiz, encoding: 'utf8', timeout: 120000, maxBuffer: 256 * 1024 * 1024 });
+    return r.status === 0 && !r.error ? r.stdout.split('\n').filter((l) => /^[0-9a-f]{40,64}$/.test(l)) : null;
+  };
+  const primeiroPai = listar(['rev-list', '--first-parent', `${shaDe}..${ponta}`]);
+  const descendentes = listar(['rev-list', '--ancestry-path', `${shaDe}..${ponta}`]);
+  if (!primeiroPai || !descendentes) return null;
+  const doShaDe = new Set(descendentes);
+  // Do mais velho para o mais novo: o primeiro de primeiro pai que descende do `shaDe`.
+  const maisVelho = [...primeiroPai].reverse().find((c) => doShaDe.has(c));
+  if (!maisVelho) return null;
+  // O primeiro pai dele e o proprio `shaDe`: a branch ja estava no primeiro pai da base (fast-forward). Sem a resposta
+  // do git, nada e gravado: devolver o mais velho poria no `mergeSha` o filho do `shaDe` (sugestao da rodada 2).
+  passos.push(`git rev-parse ${curto(maisVelho)}^1`);
+  const pai = exec('git', ['rev-parse', `${maisVelho}^1`], raiz);
+  if (!pai.ok) return null;
+  return pai.stdout.trim() === shaDe ? shaDe : maisVelho;
 }
 
 /** Os caminhos de contrato publico que a entrega traz sobre a base (diff desde o merge-base). */
@@ -272,6 +314,7 @@ function baseDoResultado(thread: Thread, de: string, opcoes: OpcoesShip): Result
     shaDe: '',
     shaParaAntes: '',
     mergeSha: null,
+    pontaDaBase: null,
     jaIncorporado: false,
     remoto: opcoes.remoto ?? 'origin',
     shaRemoto: null,
@@ -634,6 +677,9 @@ export function ship(
     const jaIncorporado = exec('git', ['merge-base', '--is-ancestor', shaDe, shaPara], raiz).ok;
     r.jaIncorporado = jaIncorporado;
     let mergeSha = shaPara;
+    // RM-037 (fatia 5, A1): a ponta que o push prova. Com o merge feito aqui, e ele; com a branch ja incorporada, a
+    // ponta de antes, que pode trazer outros merges depois do que entregou esta thread.
+    let pontaDaBase = shaPara;
     if (!jaIncorporado) {
       const mensagem =
         opcoes.mensagem ??
@@ -658,6 +704,7 @@ export function ship(
         return bloquear('artifact.missing', 'nao foi possivel ler o HEAD apos o merge', 'confira o repositorio');
       }
       mergeSha = novo;
+      pontaDaBase = novo;
       // Verificacao independente do merge: a origem precisa ser ancestral do resultado.
       const incorporou = exec('git', ['merge-base', '--is-ancestor', shaDe, mergeSha], arvore.dir).ok;
       passos.push(`git merge-base --is-ancestor ${shaDe.slice(0, 8)} ${mergeSha.slice(0, 8)}`);
@@ -669,9 +716,20 @@ export function ship(
         );
       }
     } else {
-      passos.push(`(nada a mergear: ${de} ja e ancestral de ${para})`);
+      // RM-037 (fatia 5, A1): o merge que trouxe a branch, e nao a ponta da base.
+      const incorporadoEm = commitQueIncorporou(raiz, shaDe, shaPara, passos);
+      if (!incorporadoEm) {
+        return bloquear(
+          'artifact.missing',
+          `${de} ja e ancestral de ${para}, mas o git nao achou o commit de primeiro pai que o incorporou`,
+          'confira o repositorio: o ship_done precisa do merge que entregou a thread'
+        );
+      }
+      mergeSha = incorporadoEm;
+      passos.push(`(nada a mergear: ${de} ja e ancestral de ${para}, incorporado em ${mergeSha.slice(0, 8)})`);
     }
     r.mergeSha = mergeSha;
+    r.pontaDaBase = pontaDaBase;
 
     opcoes.revalidarGit?.('push', arvore.dir);
     // 6. Push PROVADO por ls-remote.
@@ -701,12 +759,12 @@ export function ship(
       const shaRemoto = shaNoRemoto(arvore.dir, remoto, para);
       passos.push(`git ls-remote ${remoto} refs/heads/${para}`);
       r.shaRemoto = shaRemoto;
-      r.pushVerificado = shaRemoto !== null && shaRemoto === mergeSha;
+      r.pushVerificado = shaRemoto !== null && shaRemoto === pontaDaBase;
       if (!r.pushVerificado) {
         r.passos = passos;
         return bloquear(
           'runtime.unavailable',
-          `ls-remote devolveu ${shaRemoto ?? '(nada)'} e o destino local esta em ${mergeSha}: ` +
+          `ls-remote devolveu ${shaRemoto ?? '(nada)'} e o destino local esta em ${pontaDaBase}: ` +
             'o push nao ficou provado',
           'rode o ship de novo e confira o remoto'
         );
@@ -728,6 +786,8 @@ export function ship(
       shaDe,
       shaParaAntes: shaPara,
       mergeSha,
+      // RM-037 (fatia 5, A1): a ponta da base vai em campo proprio; o `mergeSha` e o merge que entregou a thread.
+      pontaDaBase,
       jaIncorporado,
       remoto: r.remoto,
       shaRemoto: r.shaRemoto,
@@ -833,12 +893,12 @@ export function textoDoShip(r: ResultadoShip): string {
   linhas.push('');
   linhas.push(
     r.jaIncorporado
-      ? `Nada a mergear: ${r.de} ja estava em ${r.para}.`
+      ? `Nada a mergear: ${r.de} ja estava em ${r.para}, incorporado em ${r.mergeSha}.`
       : `Merge --no-ff concluido: ${r.mergeSha}`
   );
   if (r.pushVerificado) {
     linhas.push(`Push PROVADO: ls-remote de ${r.remoto}/${r.para} devolveu ${r.shaRemoto}`);
-    linhas.push(`  e o destino local esta no mesmo sha: ${r.mergeSha}`);
+    linhas.push(`  e o destino local esta no mesmo sha: ${r.pontaDaBase ?? r.mergeSha}`);
   } else {
     linhas.push(`Push nao provado: ${local(r.detalhe) || 'sem remoto configurado'}`);
   }

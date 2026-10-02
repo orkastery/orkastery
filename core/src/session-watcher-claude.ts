@@ -12,11 +12,11 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { ambienteDoPerfil, consultarAgentesNativos, ConsultaAgentesNativos, parseFalhaDeConta, RegistroAgenteClaude } from './adapters/claude-bg';
 import { ManifestoCarregado } from './manifest';
-import { marcarContaDaFalha } from './ratelimit';
+import { marcarContaDaFalha, prazoDaCotaVista } from './ratelimit';
 import { diretorioEfetivo, PerfilDeDespacho, perfilDoRegistro } from './runtime-profiles';
 import { estadoProcesso, gravarAtomico, identidadeProcesso, IdentidadeProcesso } from './adapters/codex-runner';
 import { comLockDeSessao, SessaoDespachada } from './session-events';
-import { lerLedger, registrarSeExiste, threadPresente } from './ledger';
+import { lerLedger, registrarSeExiste, threadPresente, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, pausaNaThread } from './thread';
 import { EventoLedger, MotivoGate, SinalDeFalhaDeConta, Thread } from './types';
 import { exec } from './util';
@@ -53,6 +53,8 @@ export interface CursorClaude {
   ausenteDesde?: number; doneDesde?: number; mortoDesde?: number; desconhecidoDesde?: number; consultaFalhaDesde?: number;
   /** RM-037 (defeitosdeco D-1): primeira leitura de `blocked` vivo depois do Stop correlacionado. */
   bloqueadoDesde?: number;
+  /** RM-037 (fatia 5): tamanho da transcricao na ultima leitura da cota ao vivo; sem mudanca, nada a reler. */
+  transcricaoBytes?: number;
   pid?: number; identidade?: IdentidadeProcesso | null;
 }
 
@@ -276,22 +278,30 @@ function textoDoErroDeApi(e: Record<string, unknown>): string {
   return redigirSegredos([codigo, textos.filter(Boolean).join(' ')].filter(Boolean).join(': ')).slice(0, 4096);
 }
 
-/**
- * I-33 (D11b): falha de conta registrada pelo proprio Claude Code na transcricao da sessao, no
- * diretorio do perfil (ou no implicito, sem perfil). So entram linhas marcadas como erro de API
- * (`isApiErrorMessage` ou campo `error`): texto do agente nunca vira motivo. Leitura limitada
- * da cauda, sem seguir link; ausencia de transcricao e ausencia de evidencia. Vale o ULTIMO erro de API
- * (N3), o que encerrou a sessao. O codigo `rate_limit`
- * do Claude Code cobre tanto o limite do plano quanto o 429 transitorio ("Request rejected (429)",
- * "not your usage limit"): quem separa e o criterio unico da D16 (`naturezaDoLimite`), pela frase.
- */
-export function falhaDeContaDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string,
-  agoraMs = Date.now()): SinalDeFalhaDeConta | null {
-  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(sessionId)) return null;
-  const arquivo = path.join(diretorioEfetivo('claude-bg', perfil), 'projects', path.resolve(cwd).replace(/[^a-zA-Z0-9-]/g, '-'),
+const UUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+/** A transcricao da sessao no diretorio do perfil (ou no implicito, sem perfil); `null` com sessao que nao e uuid. */
+function arquivoDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): string | null {
+  if (!UUID.test(sessionId)) return null;
+  return path.join(diretorioEfetivo('claude-bg', perfil), 'projects', path.resolve(cwd).replace(/[^a-zA-Z0-9-]/g, '-'),
     `${sessionId}.jsonl`);
+}
+
+/** RM-037 (fatia 5): o ultimo erro de API da transcricao, com o instante e o uuid da linha quando ela os traz. */
+export interface ErroDeApiDaTranscricao { texto: string; em: string | null; uuid: string | null }
+
+/**
+ * I-33 (D11b): o erro de API que o proprio Claude Code gravou na transcricao da sessao. So entram linhas marcadas
+ * como erro de API (`isApiErrorMessage` ou campo `error`): texto do agente nunca vira motivo. Leitura limitada da
+ * cauda, sem seguir link; ausencia de transcricao e ausencia de evidencia. Vale o ULTIMO erro de API (N3), o que
+ * encerrou a sessao. RM-037 (fatia 5): com ele vem o instante da linha, que e a ancora da hora dita.
+ */
+export function ultimoErroDeApi(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string): ErroDeApiDaTranscricao | null {
+  const arquivo = arquivoDaTranscricao(perfil, cwd, sessionId);
+  if (!arquivo) return null;
   let fd: number;
-  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); } catch { return null; }
+  // O_NONBLOCK: um FIFO no lugar da transcricao nao trava o observador no open (sugestao da rodada 1 do CHECK).
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); } catch { return null; }
   let cauda: string;
   try {
     const st = fs.fstatSync(fd);
@@ -300,18 +310,82 @@ export function falhaDeContaDaTranscricao(perfil: PerfilDeDespacho | null, cwd: 
     fs.readSync(fd, buf, 0, n, st.size - n);
     cauda = buf.toString('utf8');
   } finally { fs.closeSync(fd); }
-  const erros: string[] = [];
+  let ultimo: ErroDeApiDaTranscricao | null = null;
   for (const linha of cauda.split('\n')) {
     let e: Record<string, unknown>;
     try { e = JSON.parse(linha); } catch { continue; }
     if (!e || typeof e !== 'object' || (e.isApiErrorMessage !== true && e.error === undefined)) continue;
-    erros.push(textoDoErroDeApi(e));
+    const ms = typeof e.timestamp === 'string' ? Date.parse(e.timestamp) : NaN;
+    ultimo = { texto: textoDoErroDeApi(e), em: Number.isFinite(ms) ? new Date(ms).toISOString() : null,
+      uuid: typeof e.uuid === 'string' && UUID.test(e.uuid) ? e.uuid.toLowerCase() : null };
   }
-  if (!erros.length) return null;
-  // I-33 (N3): o criterio roda sobre o erro que encerrou a sessao (o ultimo erro de API), nunca sobre os
-  // anteriores juntos: um 429 transitorio do meio nao esconde o limite que matou a sessao, e um
-  // esgotamento ja superado nao tira o perfil do rodizio por causa de um 429 transitorio no fim.
-  return parseFalhaDeConta(erros[erros.length - 1], agoraMs);
+  return ultimo;
+}
+
+/**
+ * I-33 (D11b): falha de conta registrada pelo Claude Code na transcricao da sessao. O codigo `rate_limit` do
+ * Claude Code cobre tanto o limite do plano quanto o 429 transitorio ("Request rejected (429)", "not your usage
+ * limit"): quem separa e o criterio unico da D16 (`naturezaDoLimite`), pela frase. I-33 (N3): o criterio roda
+ * sobre o erro que encerrou a sessao, nunca sobre os anteriores juntos. RM-037 (fatia 5): a hora dita e ancorada
+ * no instante da mensagem; sem instante na linha, no relogio de quem le, como antes.
+ */
+export function falhaDeContaDaTranscricao(perfil: PerfilDeDespacho | null, cwd: string, sessionId: string,
+  agoraMs = Date.now()): SinalDeFalhaDeConta | null {
+  return falhaDoErro(ultimoErroDeApi(perfil, cwd, sessionId), agoraMs);
+}
+
+function falhaDoErro(erro: ErroDeApiDaTranscricao | null, agoraMs: number): SinalDeFalhaDeConta | null {
+  return erro ? parseFalhaDeConta(erro.texto, erro.em ? Date.parse(erro.em) : agoraMs) : null;
+}
+
+/**
+ * RM-037 (fatia 5): a cota vista com a sessao viva. Em 02/10/2026 as sessoes de uma conta pararam as 06:00Z no
+ * limite de gasto ("your session limit resets 4:40am (<fuso>)"), sem Stop e com o processo vivo por mais uma
+ * hora; o perfil so saiu do rodizio as 07:15Z, quando o processo morreu, e o redespacho das 06:14Z caiu na mesma
+ * conta. Aqui, a cada volta com a transcricao maior que na anterior, o ultimo erro de API depois do despacho passa
+ * pelo criterio unico da D16; esgotamento com prazo futuro marca o perfil ate a hora dita (ou a janela padrao
+ * contada da mensagem) e grava `runtime_quota_detected` uma vez por erro. A fase nao fecha e a conducao nao muda:
+ * a sessao continua viva, e o fecho segue o caminho de sempre, sem marcar de novo o mesmo erro.
+ */
+function cotaAoVivo(ctx: ContextoObservacaoClaude, perfil: PerfilDeDespacho | null, cwd: string, cursor: CursorClaude,
+    erroDaTranscricao: () => ErroDeApiDaTranscricao | null, gravar: (tipo: string, dados: Record<string, unknown>) => void): void {
+  const { sessao, dir } = ctx;
+  const arquivo = arquivoDaTranscricao(perfil, cwd, sessao.sessionId);
+  let tamanho: number;
+  try {
+    const st = arquivo ? fs.lstatSync(arquivo) : null;
+    // Link, FIFO ou diretorio no lugar da transcricao nao e transcricao: nada a ler.
+    tamanho = st?.isFile() ? st.size : NaN;
+  } catch { return; }
+  if (!Number.isFinite(tamanho) || cursor.transcricaoBytes === tamanho) return;
+  cursor.transcricaoBytes = tamanho;
+  const erro = erroDaTranscricao();
+  const erroMs = erro?.em ? Date.parse(erro.em) : NaN;
+  // Linha sem instante, ou de antes deste despacho (sessao retomada), nao prova que a cota e deste turno.
+  if (!erro || !Number.isFinite(erroMs) || erroMs < Date.parse(sessao.despachadaEm)) return;
+  const falha = falhaDoErro(erro, ctx.agoraMs);
+  if (falha?.motivo !== 'runtime.quota-exhausted' || !ctx.carregado) return;
+  const esgotadoAte = prazoDaCotaVista(ctx.carregado.manifesto, falha, erroMs, ctx.agoraMs);
+  if (!esgotadoAte) return;
+  // A chave do erro: o uuid da linha ou, sem ele, o instante e o trecho (dado de maquina, nunca texto).
+  const sensorEventId = createHash('sha256')
+    .update(JSON.stringify([sessao.sessionId, sessao.despachadaEm, erro.uuid ?? [erro.em, falha.trecho]])).digest('hex');
+  comLockDeSessao(dir, () => {
+    if (lerLedger(dir).some(e => e.tipo === TIPOS_DE_EVENTO.cotaVistaNaTranscricao && e.sensorEventId === sensorEventId)) return;
+    if (perfil) {
+      try { marcarContaDaFalha(ctx.carregado!, perfil, falha, ctx.agoraMs, esgotadoAte); }
+      catch {
+        // Store ocupado ou invalido: a proxima volta le a transcricao de novo e tenta outra vez.
+        delete cursor.transcricaoBytes;
+        return;
+      }
+    }
+    gravar(TIPOS_DE_EVENTO.cotaVistaNaTranscricao, { fase: sessao.fase, sessionId: sessao.sessionId, despachoEm: sessao.despachadaEm,
+      runtime: 'claude-bg', sensorEventId, motivo: falha.motivo, erroEm: erro.em, resetEm: falha.resetEm, fonteDoPrazo: falha.fonte,
+      // O trecho ja vem redigido e numa linha; sem controle, como no store de perfis.
+      esgotadoAte, trecho: falha.trecho.replace(/\p{Cc}/gu, ' '), perfil: perfil ? { id: perfil.id, runtime: perfil.runtime } : null,
+      perfilMarcado: !!perfil, origem: 'sessions.watch' });
+  });
 }
 
 /**
@@ -347,7 +421,9 @@ export function estadoDoArtefato(raiz: string, threadId: string, arquivo: string
   const file = path.join(dirThread(raiz, threadId), arquivo);
   const vazio = { sha256: null, mtimeMs: null, texto: null };
   let fd: number;
-  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
+  // RM-037 (fatia 5, sugestao da rodada 2 do CHECK): O_NONBLOCK, como na transcricao, para um FIFO no lugar do
+  // artefato nao travar o observador no open; o `isFile` abaixo o recusa.
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (erro) { return (erro as NodeJS.ErrnoException).code === 'ENOENT' ? vazio : { ...vazio, invalido: true }; }
   try {
     const stat = fs.fstatSync(fd);
@@ -588,14 +664,23 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
   const registro = consulta.ok ? consulta.registros.find(s => s.sessionId === sessao.sessionId && s.cwd === fonte.cwd) ?? null : null;
   const artefato = saidaDoArtefato(raiz, thread.id, sessao, fonte, eventos);
   let prova: ProvaOrk | undefined;
+  // RM-037 (fatia 5): o ultimo erro de API da transcricao, lido no maximo uma vez por volta, serve a cota ao vivo
+  // e ao fecho.
+  let erroLido: ErroDeApiDaTranscricao | null | undefined;
+  const erroDaTranscricao = () => erroLido !== undefined ? erroLido : (erroLido = ultimoErroDeApi(perfil, fonte.cwd, sessao.sessionId));
   const { c, falha } = comFalhaDeConta(classificarSessaoClaude({ sessao, eventos, consulta, registro, cursor, agoraMs: ctx.agoraMs,
     limiteMs: ctx.limiteMs, pausaAoFim: pausaNaThread(thread, sessao.fase),
     prova: () => prova ??= provaDoOrk(raiz, thread.id, sessao, eventos, fonte), processo: processoNativo }),
-    () => falhaDeContaDaTranscricao(perfil, fonte.cwd, sessao.sessionId, ctx.agoraMs));
+    () => falhaDoErro(erroDaTranscricao(), ctx.agoraMs));
   gravarAtomico(arquivoCursor, cursor);
   // GO-FIX 3 (achado 1): cursor gravado numa thread que sumiu durante a consulta é desfeito aqui;
   // as pastas criadas pela observação, pelo `session-watcher`.
   if (!threadPresente(dir)) { fs.rmSync(arquivoCursor, { force: true }); throw new Error(THREAD_REMOVIDA); }
+  if (!c.terminal) {
+    const lidos = cursor.transcricaoBytes;
+    cotaAoVivo(ctx, perfil, fonte.cwd, cursor, erroDaTranscricao, gravar);
+    if (cursor.transcricaoBytes !== lidos) gravarAtomico(arquivoCursor, cursor);
+  }
   if (!c.terminal && c.inconclusivo) return comLockDeSessao(dir, () => {
     const diagnosticoId = `${resultadoId}:inconclusivo`;
     if (!lerLedger(dir).some(e => e.sensorEventId === diagnosticoId)) gravar('session_watcher_error', {
@@ -630,8 +715,12 @@ export function observarClaudeSobLock(ctx: ContextoObservacaoClaude): ResultadoO
       diagnostico: c.diagnostico ?? null, ...(c.diagnostico ? { detalhe: c.diagnostico } : {}),
       observadoEm, gate: 'phase.dispatch', origem: 'sessions.watch' };
     if (!atuais.some(e => e.tipo === c.classificacao && e.sensorResultId === resultadoId)) gravar(c.classificacao, dados);
-    // I-33 (D12): o perfil sai do rodizio na primeira gravacao do resultado, onde a evidencia esta.
-    if (falha && perfil && ctx.carregado && !atuais.some(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId)) {
+    // I-33 (D12): o perfil sai do rodizio na primeira gravacao do resultado, onde a evidencia esta. RM-037 (fatia 5):
+    // o erro que a cota ao vivo ja marcou nao marca de novo; depois do prazo dito, marcar de novo tiraria do
+    // rodizio uma conta que ja voltou.
+    const jaVista = !!erroLido?.em && atuais.some(e => e.tipo === TIPOS_DE_EVENTO.cotaVistaNaTranscricao &&
+      e.sessionId === sessao.sessionId && e.despachoEm === sessao.despachadaEm && e.erroEm === erroLido!.em);
+    if (falha && perfil && ctx.carregado && !jaVista && !atuais.some(e => e.tipo === 'phase_result' && e.sensorResultId === resultadoId)) {
       try { marcarContaDaFalha(ctx.carregado, perfil, falha, ctx.agoraMs); }
       catch { /* store ocupado ou invalido: o retry marca de novo pelo gate tipado */ }
     }

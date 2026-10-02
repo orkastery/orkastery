@@ -1280,6 +1280,17 @@ function jaMarcado(raiz: string, perfil: PerfilDeDespacho, falha: SinalDeFalhaDe
     : atual.estado === 'sem-auth';
 }
 
+/**
+ * RM-037 (fatia 5, aviso da rodada 1 do CHECK): a cota que o observador viu ao vivo (`runtime_quota_detected`, da mesma
+ * sessao e do mesmo despacho, com o mesmo prazo dito) ja tirou o perfil do rodizio ate a hora da mensagem. Marcar de
+ * novo aqui, depois dessa hora, pela janela padrao (A10), tiraria do rodizio uma conta que ja voltou.
+ */
+function cotaJaVistaAoVivo(eventos: readonly EventoLedger[], gate: EventoLedger | null, falha: SinalDeFalhaDeConta): boolean {
+  if (falha.motivo !== 'runtime.quota-exhausted' || typeof gate?.sessionId !== 'string') return false;
+  return eventos.some((e) => e.tipo === TIPOS_DE_EVENTO.cotaVistaNaTranscricao && e.sessionId === gate.sessionId &&
+    e.despachoEm === gate.despachoEm && (e.resetEm ?? null) === falha.resetEm);
+}
+
 function sinalDoGate(gate: EventoLedger | null, motivo: MotivoGate): SinalDeFalhaDeConta {
   const f = gate?.falhaDeConta as Partial<SinalDeFalhaDeConta> | undefined;
   return { motivo: motivo === 'runtime.auth-missing' ? 'runtime.auth-missing' : 'runtime.quota-exhausted',
@@ -1571,7 +1582,8 @@ function rotacionarConta(carregado: ManifestoCarregado, thread: Thread, plano: P
   const politica = politicaDeRotacao(manifesto);
   const falha = sinalDoGate(gate, motivo);
   // I-33 (D12): o observador ja marca o perfil no caminho terminal; remarcar empurraria o prazo a cada retry.
-  if (!opcoes.dryRun && perfil && !jaMarcado(raiz, perfil, falha)) {
+  // RM-037 (fatia 5, aviso da rodada 1 do CHECK): a cota que ele viu ao vivo ja marcou ate a hora da mensagem.
+  if (!opcoes.dryRun && perfil && !jaMarcado(raiz, perfil, falha) && !cotaJaVistaAoVivo(eventos, gate, falha)) {
     try { marcarContaDaFalha(carregado, perfil, falha); } catch { /* o store pode ja estar marcado */ }
   }
   const tentados: string[] = [];

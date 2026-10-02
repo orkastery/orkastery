@@ -15,6 +15,8 @@ import { ExecutorCi } from '../src/ci';
 import { carregarManifesto } from '../src/manifest';
 import { lerLedger } from '../src/ledger';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { discoverMaestro } from '../src/maestro-discovery';
+import { collectMaestroSources } from '../src/maestro-sources';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const MERGE = 'e29d05e7a3c3e94129bb7dcc6ca66e292e27466a', HEAD_PR = '14b264e40c04b0bbb1ce36338208197f6ddec6ff';
@@ -60,6 +62,11 @@ test('defeito 5: PR mesclado em repositorio declarado sem CI vira ship_done com 
     const e = lerLedger(dir).find(x => x.tipo === 'ship_done')!;
     assert.deepEqual([e.repositorio, e.pr, e.mergeSha, e.shaDe, e.shaRemoto, e.pushVerificado, e.tipoDeAutorizacao, e.para],
       ['orkastery/orkastery.com', 6, MERGE, HEAD_PR, PONTA, true, 'pr-externo', 'orkastery/orkastery.com:main']);
+    // RM-037 (fatia 5, A1; aviso da rodada 2 do CHECK): a ponta conferida vai em campo proprio, e o recibo do Maestro,
+    // que confere o push contra ela, aceita a entrega com a base externa a frente do merge (`ahead`).
+    assert.equal(e.pontaDaBase, PONTA);
+    const navio = collectMaestroSources(discoverMaestro({ cwd: p.dir })).sections.ship!.items.find(i => i.id === `ship:${t.id}`);
+    assert.equal(navio?.status, 'delivered');
     assert.match(String(e.fonteDaProva), new RegExp(`compare/${MERGE}\\.\\.\\.${PONTA} \\(status ahead`));
     assert.deepEqual(e.evidencia, { viaPr: true, externo: true, ciExigido: false, ci: null });
     assert.equal(lerThread(p.dir, t.id).faseAtual, 'SHIP');

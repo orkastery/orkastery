@@ -53,6 +53,24 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     thread, em vez de aninhada nela;
   - num repositório sem commit, a worktree da chave espera o primeiro commit: a thread nasce na raiz, com aviso.
 
+### Corrigido
+
+- **Pendências da fatia 4 e rodízio no limite de gasto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 5):
+  - a sessão claude-bg que bate o limite de gasto (ou outra cota que o rodízio já conhece) tira o perfil do rodízio na
+    hora em que a mensagem aparece na transcrição, e não só quando o processo morre: o perfil fica esgotado até a hora
+    da mensagem, no fuso dito entre parênteses, ou por 1 h contada da mensagem quando ela não diz a hora; o evento
+    `runtime_quota_detected` vai ao ledger uma vez, o despacho seguinte sai pelo outro perfil e o `ork accounts list`
+    mostra o prazo em `ESGOTADO ATE`;
+  - a hora de volta com o fuso entre parênteses (`resets 4:40am (America/Sao_Paulo)`) é lida nesse fuso, e não no
+    relógio da máquina;
+  - com a branch já incorporada, o `ork ship` grava no `mergeSha` o merge de primeiro pai que a trouxe, e a ponta da
+    base vai em `pontaDaBase`, que a prova do push e o recibo do Maestro conferem; o `ork ship registrar-pr` também
+    grava a ponta;
+  - no #Auto, o CHECK que termina em `done` sem o veredito sai de "Esperando você" e vira a linha do condutor com o
+    passo "redespachar o CHECK";
+  - com o remoto fora do GitHub, o pulse diz uma vez que a forja não tem leitura de PR, em vez de "PR não lido" a cada
+    batida; com GitHub Enterprise, os PRs são lidos pelo host do remoto quando o `gh` está autenticado nele.
+
 ## [0.5.1] - 2026-10-02
 
 ### Adicionado
