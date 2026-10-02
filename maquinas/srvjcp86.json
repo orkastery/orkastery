@@ -3,8 +3,8 @@
   "maquina": "srvjcp86",
   "por": "Julio Pessoa",
   "projeto": "orkastery",
-  "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-02T16:41:42.793Z",
+  "versaoOrk": "0.4.3",
+  "publicadoEm": "2026-10-02T17:15:57.151Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -18,10 +18,7 @@
       "entregue": "ce29557",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm040piloto",
@@ -35,10 +32,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm053network",
@@ -52,10 +46,7 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm054fatia3s",
@@ -69,27 +60,21 @@
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "paradaDesde": null
     },
     {
       "id": "ork-rm055impedim",
       "nome": "RM-055 impedimento que so o dono resolve vira HITL",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": "RM-055",
       "branch": "ork/ork-rm055impedim-full",
-      "atualizadaEm": "2026-10-02T16:39:28.884Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-02T17:15:57.038Z",
+      "entregue": "7ab4932",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
+      "paradaDesde": null
     },
     {
       "id": "ork-rm056perfil",
@@ -103,10 +88,7 @@
       "entregue": "0a914b0",
       "esperaVoce": false,
       "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
+      "paradaDesde": null
     }
   ]
 }
