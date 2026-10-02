@@ -60,6 +60,27 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     manifesto, uma claim focada, o `.gitignore` do estado, a ativação do plugin e amostras da saída
     real conferidas por teste; os READMEs dos plugins e o roteiro do revisor pedem um repositório
     com commit e usam `ork mcp install --project "$PWD"`.
+- **Primeira experiência da 0.5.0, fatia 2 do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` só reprova o `claude-bg` quando algum bloco de modo permitido despacha por ele, e a
+    correção ensina o caminho só com o Codex (`ork setup <modo> --bloco N --runtime codex --model
+    <modelo>`); o check `despacho pelo codex` vale também por bloco; sem o binário `claude`, o
+    `ork sessions` dá a fonte como ausente, com a correção, e não sai mais 1;
+  - o `gate_blocked` do `ork ship --dry-run` leva `dryRun: true`, e board, escalonador, monitor
+    (pulse) e maestro ignoram o evento de ensaio: a thread não aparece pausada por um dry-run;
+  - `ork init` cria `.orkastery/.gitignore` com `*`, e a primeira worktree, o mesmo na pasta de
+    worktrees; o `.gitignore` do usuário não muda;
+  - onboarding, ajuda e docs dizem que segredos ficam no ambiente do processo ou no cofre do host
+    (no Hermes, `~/.hermes/.env`);
+  - a correção do lint de claim de suíte inteira e a dica de `ci.failed` das lições não citam mais
+    o script do Orkastery;
+  - `ork roadmap status` diz o fuso logo abaixo do título;
+  - o `ork_git_commit` adiciona caminho rastreado com `git add -u` e, quando o git falha, diz o
+    subcomando e o código de saída, sem o stderr;
+  - o `ork ship` barra por `push_direto_na_base` a entrega sem delta com a base local à frente do
+    remoto;
+  - o `ork` acha binário no PATH sem o `which`; `ork experiencia show` diz as origens em texto;
+    `ork verify --baseline` sem comando não se contradiz; o guia de experiência diz onde o `--dir`
+    põe o catálogo.
 
 ## [0.5.0] - 2026-09-30
 
