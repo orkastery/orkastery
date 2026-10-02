@@ -288,7 +288,7 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
  * aprovacao, a thread pausada, a pergunta aberta, o prompt de permissao pendente e a escalacao tipada
  * dele. Nada disso e do condutor (P3).
  */
-export function esperaDoDono(t: Thread, eventos: readonly EventoLedger[], quando: string): string | null {
+export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], quando: string): string | null {
   if (t.status === 'pausada') return 'thread pausada';
   const despacho = ultimoDespacho(eventos);
   if (!despacho) return null;
@@ -326,7 +326,7 @@ export function esperaDoCondutor(t: Thread, eventos: readonly EventoLedger[], qu
   const despacho = ultimoDespacho(eventos);
   if (!despacho || despacho.pausaAoFim !== false) return null;
   const fim = fimDoTurno(eventos, despacho, radar);
-  if (!fim || fim.tipo === 'outro' || esperaDoDono(t, eventos, quando)) return null;
+  if (!fim || fim.tipo === 'outro' || pendenciaDoDono(t, eventos, quando)) return null;
   return { thread: t.id, fase: fim.fase, sessionId: fim.sessionId, fimDoTurnoEm: fim.em, tipo: fim.tipo };
 }
 
@@ -483,7 +483,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     // P7: a sessao que ja encerrou o turno nao conduz mais nada, mesmo com o lease de pe.
     const conduzidaAgora = !!conducao && !(conducao.dono.tipo === 'sessao' && fim && fim.tipo !== 'outro' &&
       conducao.dono.sessionId === fim.sessionId);
-    const doDono = esperaDoDono(t, eventos, quando);
+    const doDono = pendenciaDoDono(t, eventos, quando);
     const forja = prDaBranch(retrato, f.branch, f.cabeca);
     const pr = forja && !(forja.estado === 'mesclado' && f.entregue) ? forja : null;
     const situacao = pr?.estado === 'aberto' ? situacaoDoPr(pr) : null;
@@ -553,7 +553,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       const despachos = eventos.filter((e) => e.tipo === 'phase_dispatch');
       const atual = texto(despachos.at(-1)?.sessionId) === s.sessionId;
       const antiga = !atual && despachos.some((e) => e.sessionId === s.sessionId);
-      if (!esperaDoDono(t, eventos, quando) && (atual ? doCondutor.sessoes.has(s.sessionId) : antiga)) doCondutor.sessoes.add(s.sessionId);
+      if (!pendenciaDoDono(t, eventos, quando) && (atual ? doCondutor.sessoes.has(s.sessionId) : antiga)) doCondutor.sessoes.add(s.sessionId);
       continue;
     }
     doCondutor.sessoes.add(s.sessionId);

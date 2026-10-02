@@ -30,7 +30,7 @@ import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal } from './branch-de-estado';
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
 import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
-  retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
+  LIMIAR_SEM_BATIDA_MS, retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
 import { ArquivoDaForja, CommitDaBase, detalheSeguro, ErroDaForja, ExecutorDaForja, forjaDoArgumento, IdentidadeDaForja,
   identidadeDaForja, lerCommitsDaForja, lerDaForja, mesmaForja, rotuloDaForja } from './forja';
 import { dataLocal, duracaoCurta, formatarDataHora, fusoDoDono, legendaDoFuso, normalizarFuso, partesLocais } from './horario';
@@ -49,8 +49,8 @@ import { lerYaml, ValorYaml } from './yaml';
 export const CONTRATO_PANORAMA_DA_REDE = 'ork.network-roadmap/v1' as const;
 /** O registro de projetos da RM-052, lido como ela o grava. */
 export const CONTRATO_REGISTRO_DE_PROJETOS = 'ork.projetos/v1' as const;
-/** Maquina sem retrato novo ha mais disto esta sem batida: o mesmo limiar da rede (RM-053, `SEM_BATIDA_MS`). */
-export const LIMIAR_SEM_BATIDA_MS = 3 * 60 * 60 * 1000;
+/** Maquina sem retrato novo ha mais disto esta sem batida (RM-053). Desde a RM-037 (fatia 4) mora em `fabrica-estado`. */
+export { LIMIAR_SEM_BATIDA_MS };
 /** A recusa de projeto sai com o mesmo codigo da RM-052. */
 export const SAIDA_DO_PEDIDO = 4;
 

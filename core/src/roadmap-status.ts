@@ -25,9 +25,14 @@ import { dirThread, lerThread, listarIds } from './thread';
 import { alvoDoPedido, ehV2, estadoDoPedido, PedidoHitlQualquer, textoDoPedido } from './hitl-contract';
 import { contextoHitlDosEventos, MOTIVOS_DE_ESCALACAO_HUMANA, prepararPedidoGate } from './hitl-gates';
 import { quemDecide } from './hitl-classificacao';
-import { dataLocal, partesLocais } from './horario';
+import { dataLocal, duracaoCurta, formatarDataHora, formatarHora, partesLocais } from './horario';
 import { ConsultaDoProjeto, linhasDaConsulta } from './projeto-alvo';
 import { Thread } from './types';
+import { BRANCH_DA_FABRICA, LIMIAR_SEM_BATIDA_MS, lerFabrica } from './fabrica-estado';
+import { linhaDoParadoNoCondutor } from './hitl-resumo';
+import { exigirManifesto, ManifestoCarregado } from './manifest';
+import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
+import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, lerRetratoDePrs } from './parado-no-condutor';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -69,6 +74,24 @@ export interface EsperaDoDono { thread: string; pergunta: string; codigo?: strin
 const recomendadaDe = (p: PedidoHitlQualquer): string | undefined =>
   ehV2(p) && p.classe === 'pergunta' ? p.alternativas.find(a => a.recomendada)?.letra : undefined;
 
+/**
+ * RM-037 (fatia 4): o estado real da entrega da thread que conduz o item, lido do git local e do ultimo
+ * retrato de PRs do pulse (nunca da rede). `parado`: o condutor deixou a entrega parada alem do limiar.
+ */
+export interface EntregaNoStatus {
+  estado: string | null;
+  parado?: { desdeEm: string; proximoPasso: string };
+  /** A hora da leitura dos PRs que sustenta o estado, quando ele veio do retrato. */
+  prLidoEm?: string;
+}
+
+/** RM-037 (fatia 4): as maquinas da fabrica sem batida, pela copia local de `ork/fabrica-estado`. */
+export interface BatidaDaFabrica {
+  /** `false`: esta maquina nao tem copia local da branch; nada foi lido. */
+  lido: boolean;
+  semBatida: { maquina: string; publicadoEm: string; idadeMin: number }[];
+}
+
 export interface ItemDoStatus {
   id: string;
   titulo: string;
@@ -79,7 +102,7 @@ export interface ItemDoStatus {
   /** As threads ligadas ao item (`sdlc.thread` e `thread.json.roadmap`). */
   threads: string[];
   /** A thread aberta que conduz o item agora, com a fase (e a maquina, na visao da rede). */
-  conduzindo?: { thread: string; fase: string; maquina?: string };
+  conduzindo?: { thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus };
   /** O que espera o dono, quando espera: e isto que acende o #HITL. */
   hitl?: EsperaDoDono;
 }
@@ -90,7 +113,9 @@ export interface StatusDoRoadmap {
   projeto: string;
   grupos: { id: GrupoDoRoadmap; icone: string; titulo: string; itens: ItemDoStatus[] }[];
   precisaDeVoce: { item: string; espera: EsperaDoDono }[];
-  emSeguida: { item: string; thread: string; fase: string; maquina?: string }[];
+  emSeguida: { item: string; thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus }[];
+  /** RM-037 (fatia 4): so com fabrica compartilhada; sem copia local, `lido: false`. */
+  fabrica?: BatidaDaFabrica;
   /**
    * RM-052: qual projeto foi lido (nome, raiz, remoto, origem) e o que nao foi. O CLI e o MCP sempre
    * preenchem; sem ele o titulo sozinho deixava um canal relatar o projeto errado como o pedido.
@@ -113,6 +138,8 @@ export interface FatoDeThread {
   espera: () => EsperaDoDono | undefined;
   /** A maquina que conduz, so na visao da rede. */
   maquina?: string;
+  /** RM-037 (fatia 4): o estado da entrega, so das threads deste disco. */
+  entrega?: () => EntregaNoStatus | undefined;
 }
 
 type Mapa = { [k: string]: ValorYaml };
@@ -134,7 +161,9 @@ export function esperaDoDono(raiz: string, t: Thread, quando: string): EsperaDoD
   const escalacoes = [...new Set(eventos.filter(e => e.tipo === 'gate_blocked' && e.fase === t.faseAtual &&
     (MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(String(e.motivo)) && quemDecide(String(e.motivo)) === 'dono')
     .map(e => String(e.motivo)))];
-  for (const motivo of ['human.pending', ...escalacoes]) {
+  // RM-037 (fatia 4): o fim de turno sem pergunta e do condutor, nunca "O que precisa de voce".
+  const doCondutor = esperaDoCondutor(t, eventos, quando) !== null;
+  for (const motivo of [...(doCondutor ? [] : ['human.pending']), ...escalacoes]) {
     try {
       const preparado = prepararPedidoGate(raiz, t.id, motivo, quando);
       const pedido = 'aberto' in preparado ? preparado.aberto : preparado.novo;
@@ -166,6 +195,16 @@ export function esperaDoDono(raiz: string, t: Thread, quando: string): EsperaDoD
 export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDeThread[] {
   const hoje = dataLocal(quando, fuso);
   const fatos: FatoDeThread[] = [];
+  // RM-037 (fatia 4): o estado das entregas sai uma vez, sob demanda, do git local e do retrato de PRs do pulse.
+  let entregas: EntregasDoProjeto | null | undefined;
+  const lerEntregas = (): EntregasDoProjeto | null => {
+    if (entregas !== undefined) return entregas;
+    try {
+      const retrato = lerRetratoDePrs(raiz);
+      entregas = entregasDoProjeto(exigirManifesto(raiz), { quando, lerPrs: () => (retrato ? { ok: true, retrato } : null) });
+    } catch { entregas = null; }
+    return entregas;
+  };
   for (const id of listarIds(raiz)) {
     let t: Thread;
     try { t = lerThread(raiz, id); } catch { continue; /* thread ilegivel fica de fora */ }
@@ -173,21 +212,49 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
       id: t.id, roadmap: t.roadmap ?? null, aberta: t.status !== 'fechada', fase: t.faseAtual,
       entregueHoje: () => lerLedger(dirThread(raiz, t.id)).some(e => e.tipo === 'ship_done' && dataLocal(e.ts, fuso) === hoje),
       espera: () => esperaDoDono(raiz, t, quando),
+      entrega: () => entregaNoStatus(lerEntregas()?.estados.find(e => e.thread === t.id)),
     });
   }
   return fatos;
+}
+
+/** O estado da entrega como o status o diz: so quando ha o que dizer. */
+function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | undefined {
+  if (!e || (!e.resumo && !e.parado)) return undefined;
+  return { estado: e.resumo, ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso } } : {}),
+    ...(e.prLidoEm ? { prLidoEm: e.prLidoEm } : {}) };
+}
+
+/**
+ * RM-037 (fatia 4, D8): as outras maquinas da fabrica sem batida alem do limiar da rede, lidas da copia
+ * local de `ork/fabrica-estado`, sem fetch. Sem fabrica compartilhada, nada; sem copia local, "nao lido".
+ */
+export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): BatidaDaFabrica | undefined {
+  if (!fabricaCompartilhada(carregado.manifesto)) return undefined;
+  const painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true });
+  if (!painel.ponta) return { lido: false, semBatida: [] };
+  const eu = nomeDaMaquina(), agora = Date.parse(quando);
+  const semBatida = painel.maquinas.filter(m => m.maquina !== eu).map(m => {
+    const { publicadoEm: publicado } = m;
+    return { maquina: m.maquina, publicadoEm: publicado, idadeMs: agora - Date.parse(publicado) };
+  }).filter(m => Number.isFinite(m.idadeMs) && m.idadeMs > LIMIAR_SEM_BATIDA_MS)
+    .map(m => ({ maquina: m.maquina, publicadoEm: m.publicadoEm, idadeMin: Math.floor(m.idadeMs / 60000) }));
+  return { lido: true, semBatida };
 }
 
 /** Monta o relatorio. Leitura pura: nada e escrito, nenhum pedido e aberto. */
 export function montarStatusDoRoadmap(raiz: string,
     opcoes: { quando?: string; projeto?: string; consulta?: ConsultaDoProjeto } = {}): StatusDoRoadmap {
   const quando = opcoes.quando ?? new Date().toISOString();
-  return montarStatusDeFatos(carregarDocs(raiz).docs, fatosLocais(raiz, quando), { quando, projeto: opcoes.projeto, consulta: opcoes.consulta });
+  let fabrica: BatidaDaFabrica | undefined;
+  try { fabrica = batidaDaFabrica(exigirManifesto(raiz), quando); } catch { fabrica = undefined; }
+  return montarStatusDeFatos(carregarDocs(raiz).docs, fatosLocais(raiz, quando), { quando, projeto: opcoes.projeto, consulta: opcoes.consulta,
+    ...(fabrica ? { fabrica } : {}) });
 }
 
 /** O relatorio a partir das paginas do roadmap e dos fatos das threads, de onde quer que venham. */
 export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly FatoDeThread[],
-  opcoes: { quando: string; projeto?: string; consulta?: ConsultaDoProjeto }): StatusDoRoadmap {
+  opcoes: { quando: string; projeto?: string; consulta?: ConsultaDoProjeto; fabrica?: BatidaDaFabrica }): StatusDoRoadmap {
   const quando = opcoes.quando;
   const porId = new Map(fatos.map(f => [f.id, f]));
   const porItem = new Map<string, Set<string>>();
@@ -203,7 +270,10 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     const abertas = ligadas.map(id => porId.get(id)!).filter(f => f.aberta);
     let hitl: EsperaDoDono | undefined;
     for (const f of abertas) { hitl = f.espera(); if (hitl) break; }
-    const conduz = abertas[0];
+    // RM-037 (fatia 4): a thread que diz o estado real vem primeiro: a parada no condutor, depois a entrega em curso.
+    const entregas = new Map(abertas.map(f => [f.id, f.entrega?.()]));
+    const conduz = abertas.find(f => entregas.get(f.id)?.parado) ?? abertas.find(f => entregas.get(f.id)?.estado) ?? abertas[0];
+    const entrega = conduz ? entregas.get(conduz.id) : undefined;
     const emAberto = GRUPO_DO_CICLO[ciclo] === 'disponiveis' ? [
       ...(texto(estado.exposicao) && texto(estado.exposicao) !== 'Geral' ? [`exposição ${texto(estado.exposicao)}`] : []),
       ...(texto(estado.habilitacao) && texto(estado.habilitacao) !== 'Concluída' ? [`habilitação ${texto(estado.habilitacao)}`] : []),
@@ -212,7 +282,8 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
       id: d.id, titulo: nomeCurto(texto(d.dados.titulo) || d.id), ciclo,
       grupo: entregueHoje ? 'hoje' : GRUPO_DO_CICLO[ciclo] ?? 'proposto',
       emAberto, threads: ligadas,
-      ...(conduz ? { conduzindo: { thread: conduz.id, fase: conduz.fase, ...(conduz.maquina ? { maquina: conduz.maquina } : {}) } } : {}),
+      ...(conduz ? { conduzindo: { thread: conduz.id, fase: conduz.fase, ...(conduz.maquina ? { maquina: conduz.maquina } : {}),
+        ...(entrega ? { entrega } : {}) } } : {}),
       ...(hitl ? { hitl } : {}),
     });
   }
@@ -223,6 +294,7 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     precisaDeVoce: itens.filter(i => i.hitl).map(i => ({ item: i.id, espera: i.hitl! })),
     emSeguida: itens.filter(i => i.conduzindo && !i.hitl).map(i => ({ item: i.id, ...i.conduzindo! })),
     ...(opcoes.consulta ? { consulta: opcoes.consulta } : {}),
+    ...(opcoes.fabrica ? { fabrica: opcoes.fabrica } : {}),
   };
 }
 
@@ -231,6 +303,29 @@ const capitalizar = (s: string): string => s ? s[0].toUpperCase() + s.slice(1) :
 
 /** A maquina entre parenteses, so quando o fato a traz (visao da rede, D7 da RM-054). */
 const naMaquina = (maquina?: string): string => maquina ? ` (${maquina})` : '';
+
+/**
+ * RM-037 (fatia 4): a linha do que vem a seguir diz o estado real. Parada no condutor sai com o desde e o
+ * proximo passo; entrega em curso, com o estado do PR e a hora em que ele foi lido; sem nada disso, a fase.
+ */
+function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, fuso?: string): string {
+  const e = x.entrega;
+  if (e?.parado) return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}.`;
+  if (e?.estado) {
+    const { prLidoEm: lido } = e;
+    return `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : ''}.`;
+  }
+  return `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}.`;
+}
+
+/** RM-037 (fatia 4, D8): uma linha so para a fabrica, e so quando ha o que avisar. */
+function linhaDaFabrica(f: BatidaDaFabrica | undefined, agora: string, fuso?: string): string[] {
+  if (!f) return [];
+  if (!f.lido) return [`Fábrica: não lido (esta máquina não tem cópia local de ${BRANCH_DA_FABRICA}).`];
+  if (!f.semBatida.length) return [];
+  return [`Fábrica: ${f.semBatida.map(m => `${m.maquina} sem batida há ${duracaoCurta(m.idadeMin)} ` +
+    `(último retrato ${formatarDataHora(m.publicadoEm, { agora, fuso })})`).join('; ')}, pela cópia local de ${BRANCH_DA_FABRICA}.`];
+}
 
 /**
  * O texto do relatorio, igual em todo canal: os icones sao parte do formato aprovado. `fuso`: o do
@@ -250,13 +345,14 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string): strin
     `Roadmap do ${capitalizar(s.projeto)} (${p.dia}/${p.mes}, ${p.hora}:${p.minuto})`,
     // RM-052: logo abaixo do titulo aprovado, qual projeto foi lido e o que nao foi.
     ...(s.consulta ? linhasDaConsulta(s.consulta) : []),
+    ...linhaDaFabrica(s.fabrica, s.consultadoEm, fuso),
     ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${g.titulo}`, ...g.itens.map(linhaDoItem)]),
     '', 'O que precisa de você',
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
       (x.espera.codigo ? ` Responda ${x.espera.codigo} ${x.espera.recomendada ?? 'a'} (ou outra letra).` : ' A pergunta chega no próximo resumo.'))
       : ['• Nada agora.']),
     '', 'O que eu faço em seguida',
-    ...(s.emSeguida.length ? cortar(s.emSeguida, x => `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}.`)
+    ...(s.emSeguida.length ? cortar(s.emSeguida, x => linhaDoQueVem(x, s.consultadoEm, fuso))
       : ['• Nada em andamento; sigo o que você priorizar.']),
   ].join('\n');
 }

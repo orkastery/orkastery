@@ -137,7 +137,8 @@ export const TETO_DE_PARADOS_NO_CONDUTOR = 5;
  * RM-037 (fatia 4): "<thread> parado no condutor desde HH:MM: <proximo passo>", a mesma frase no pulse,
  * no resumo dos dois canais e no status do roadmap. O horario sai no fuso do dono.
  */
-export function linhaDoParadoNoCondutor(p: LinhaDoCondutor, opcoes: { agora: string; fuso?: string }): string {
+export function linhaDoParadoNoCondutor(p: Pick<LinhaDoCondutor, 'thread' | 'desdeEm' | 'proximoPasso'>,
+  opcoes: { agora: string; fuso?: string }): string {
   const { desdeEm: desde } = p;
   return `${p.thread} parado no condutor desde ${formatarHora(desde, opcoes)}: ${p.proximoPasso}`;
 }
