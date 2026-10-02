@@ -242,9 +242,12 @@ export interface FimDoTurno {
   fase: string | null;
 }
 
-/** Sessao `blocked` do radar, com job vivo e sem menu: o turno acabou e ninguem perguntou nada na tela. */
+/**
+ * Sessao `blocked` do radar, com job vivo, sem menu e sem pergunta lida na tela: o turno acabou e ninguem
+ * perguntou nada. Prompt de credencial ou de permissao, mesmo sem menu, continua do dono.
+ */
 export function sessaoSemPergunta(s: SessaoNoRadar): boolean {
-  return s.classe === 'hitl' && s.jobVivo === true && s.alternativas.length === 0 &&
+  return s.classe === 'hitl' && s.jobVivo === true && s.alternativas.length === 0 && !s.pergunta?.trim() &&
     (s.tipoDeHitl === null || s.tipoDeHitl === 'hitl.desconhecido') && !!s.thread?.id;
 }
 
@@ -545,11 +548,12 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     if (t.status !== 'fechada') {
       let eventos: EventoLedger[] = [];
       try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { continue; }
-      const despacho = ultimoDespacho(eventos);
-      // A sessao do despacho corrente so muda de dono pelo predicado; a que sobrou de despacho antigo e sobra.
-      const atual = texto(despacho?.sessionId) === s.sessionId;
-      if (esperaDoDono(t, eventos, quando) || (atual && !doCondutor.sessoes.has(s.sessionId))) continue;
-      doCondutor.sessoes.add(s.sessionId);
+      // A sessao do despacho corrente so muda de dono pelo predicado; a de um despacho antigo da thread e
+      // sobra. Sessao que nenhum despacho abriu (adotada, interativa) continua do dono.
+      const despachos = eventos.filter((e) => e.tipo === 'phase_dispatch');
+      const atual = texto(despachos.at(-1)?.sessionId) === s.sessionId;
+      const antiga = !atual && despachos.some((e) => e.sessionId === s.sessionId);
+      if (!esperaDoDono(t, eventos, quando) && (atual ? doCondutor.sessoes.has(s.sessionId) : antiga)) doCondutor.sessoes.add(s.sessionId);
       continue;
     }
     doCondutor.sessoes.add(s.sessionId);
