@@ -121,7 +121,7 @@ test('PR verde lido da forja vira "mergear o PR" e o retrato fica para o status;
       url: 'https://github.com/exemplo/simulado/pull/41', createdAt: '2026-10-01T22:00:09Z', mergedAt: null, statusCheckRollup: [
         { __typename: 'CheckRun', name: 'ork-verify', status: 'COMPLETED', conclusion: 'SUCCESS', completedAt: '2026-10-01T22:01:39Z' }] }]) }; };
     const pulse = montarPulse(c.p.carregado, { quando: AGORA, consulta: SIMULADA, executorDoGh: verde });
-    assert.equal(chamadas, 1);
+    assert.equal(chamadas, 2, 'duas leituras por batida: os abertos e os recentes');
     assert.equal(pulse.paradoNoCondutor?.[0].caso, 'pr-verde');
     assert.ok(textoDoPulse(pulse).includes(`${c.t.id} parado no condutor desde 19:01: mergear o PR #41`), textoDoPulse(pulse));
     assert.equal(lerRetratoDePrs(c.p.dir)?.prs[0].numero, 41, 'o retrato da leitura boa fica para o status do roadmap');

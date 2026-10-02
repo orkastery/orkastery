@@ -264,5 +264,10 @@ test('a copia local da fabrica velha ou ilegivel nao acusa ninguem: a linha diz 
     } finally { fs.rmSync(arvore, { recursive: true, force: true }); }
     const ruim = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
     assert.ok(ruim.includes('Fábrica: não lido (a cópia local de ork/fabrica-estado está ilegível).'), ruim.join('\n'));
+    // Clone parcial: a copia nem e lida (o git anterior a 2.45 buscaria o objeto no remoto).
+    git(p.dir, 'config', 'core.repositoryformatversion', '1');
+    git(p.dir, 'config', 'extensions.partialClone', 'origin');
+    const parcial = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+    assert.ok(parcial.includes('Fábrica: não lido (clone parcial: a cópia local de ork/fabrica-estado não é lida sem rede).'), parcial.join('\n'));
   } finally { p.limpar(); restaurar(); }
 });

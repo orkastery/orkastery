@@ -33,6 +33,7 @@ import { linhaDoParadoNoCondutor } from './hitl-resumo';
 import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, lerRetratoDePrs } from './parado-no-condutor';
+import { exec } from './util';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -247,7 +248,11 @@ function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | unde
  */
 export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): BatidaDaFabrica | undefined {
   if (!fabricaCompartilhada(carregado.manifesto)) return undefined;
-  // Sem rede escondida: num clone parcial, o `git show` dos retratos buscaria o objeto no remoto.
+  // Sem rede escondida: num clone parcial, o `git show` dos retratos buscaria o objeto no remoto. O git anterior
+  // a 2.45 ignora o GIT_NO_LAZY_FETCH, entao o clone parcial nem e lido aqui (N4 da seguranca, rodada 2).
+  if (exec('git', ['config', '--get', 'extensions.partialclone'], carregado.raiz).stdout.trim()) {
+    return { lido: false, motivo: `clone parcial: a cópia local de ${BRANCH_DA_FABRICA} não é lida sem rede`, semBatida: [] };
+  }
   const antes = process.env.GIT_NO_LAZY_FETCH;
   process.env.GIT_NO_LAZY_FETCH = '1';
   let painel: ReturnType<typeof lerFabrica>;

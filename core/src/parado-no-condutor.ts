@@ -29,7 +29,7 @@ import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
 import { identidadeDaForja } from './forja';
 import { redigirSegredos } from './hitl';
-import { estadoDoPedido, PedidoHitlQualquer } from './hitl-contract';
+import { alvoDoPedido, estadoDoPedido, PedidoHitlQualquer } from './hitl-contract';
 import { quemDecide } from './hitl-classificacao';
 import { MOTIVOS_DE_ESCALACAO_HUMANA } from './hitl-gates';
 import { lerLedger } from './ledger';
@@ -47,8 +47,12 @@ export const CONTRATO_PRS = 'ork.prs-abertos/v1' as const;
 export const LIMIAR_PARADO_NO_CONDUTOR_MIN = 30;
 /** O retrato de PRs vale por uma hora para quem nao le a rede (o status do roadmap); depois, "PR nao lido". */
 export const VALIDADE_DO_RETRATO_MIN = 60;
-/** Quantos PRs a leitura pede. Lista cheia e `parcial`: o PR que nao veio nunca vira "sem PR". */
+/** Quantos PRs ABERTOS a leitura pede. Lista cheia e `parcial`: o PR que nao veio nunca vira "sem PR". */
 export const LIMITE_DE_PRS = 200;
+/** Quantos PRs recentes (de qualquer estado) a segunda leitura pede: so para achar o mesclado e o fechado. */
+export const LIMITE_DE_RECENTES = 100;
+/** Retrato com data mais a frente do relogio do que isto nao vale (relogio adiantado ou arquivo mexido). */
+const FOLGA_DO_RELOGIO_MIN = 5;
 const ARQUIVO_DOS_PRS = 'prs.json';
 const PRAZO_DO_GH_MS = 30000;
 const CAMPOS_DO_GH = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt,statusCheckRollup';
@@ -136,12 +140,17 @@ function instante(v: unknown): string | null {
   return Number.isFinite(ms) && new Date(ms).getUTCFullYear() >= 2000 ? new Date(ms).toISOString() : null;
 }
 
-/** Um check do rollup, com o inicio que decide o mais novo quando o nome se repete. */
-function checkDaForja(c: unknown): { check: CheckDoPr; inicio: string } | null {
+/**
+ * Um check do rollup, com a chave que diz quando ele se repete (o tipo, o workflow e o nome cru, como o `gh
+ * pr checks`: dois checks diferentes com o mesmo nome limpo nunca se fundem) e o inicio que decide o mais novo.
+ */
+function checkDaForja(c: unknown): { check: CheckDoPr; chave: string; inicio: string } | null {
   if (!c || typeof c !== 'object') return null;
   const o = c as Record<string, unknown>;
   const nome = nomeDeCheck(o.name) ?? nomeDeCheck(o.context);
   if (!nome) return null;
+  const chave = JSON.stringify([String(o.__typename ?? ''), String(o.workflowName ?? '').slice(0, 200),
+    String(o.name ?? o.context ?? '').slice(0, 200)]);
   let situacao: SituacaoDoCheck;
   if (o.__typename === 'StatusContext' || (o.status === undefined && typeof o.state === 'string')) {
     const s = String(o.state ?? '').toUpperCase();
@@ -151,7 +160,7 @@ function checkDaForja(c: unknown): { check: CheckDoPr; inicio: string } | null {
     situacao = status !== 'COMPLETED' ? 'pendente' : ['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(conclusao) ? 'verde' : 'vermelho';
   }
   const concluidoEm = situacao === 'pendente' ? null : instante(o.completedAt) ?? instante(o.startedAt);
-  return { check: { nome, situacao, concluidoEm }, inicio: instante(o.startedAt) ?? instante(o.completedAt) ?? '' };
+  return { check: { nome, situacao, concluidoEm }, chave, inicio: instante(o.startedAt) ?? instante(o.completedAt) ?? '' };
 }
 
 /**
@@ -169,19 +178,20 @@ function prDaForja(bruto: unknown, base: string): PrDaForja | null {
       typeof p.headRefName !== 'string' || !BRANCH.test(p.headRefName)) return null;
   const rollup = p.statusCheckRollup;
   if (rollup !== null && rollup !== undefined && !Array.isArray(rollup)) throw new Error('checks fora do formato');
-  const porNome = new Map<string, { check: CheckDoPr; inicio: string }>();
+  const porChave = new Map<string, { check: CheckDoPr; inicio: string }>();
   if (estado === 'aberto') {
-    for (const c of (rollup ?? []) as unknown[]) {
+    for (const [i, c] of ((rollup ?? []) as unknown[]).entries()) {
       // Check ilegivel nunca vira verde: entra como pendente, e o PR nao sai como "esperando merge".
-      const lido = checkDaForja(c) ?? { check: { nome: 'check ilegivel', situacao: 'pendente' as const, concluidoEm: null }, inicio: '' };
-      // O rollup repete o check reexecutado: vale o mais novo, como no `gh pr checks`.
-      const atual = porNome.get(lido.check.nome);
-      if (!atual || lido.inicio > atual.inicio) porNome.set(lido.check.nome, lido);
+      const lido = checkDaForja(c) ?? { check: { nome: 'check ilegivel', situacao: 'pendente' as const, concluidoEm: null },
+        chave: `ilegivel:${i}`, inicio: '' };
+      // O rollup repete o check reexecutado: vale o mais novo da mesma chave, como no `gh pr checks`.
+      const atual = porChave.get(lido.chave);
+      if (!atual || lido.inicio > atual.inicio) porChave.set(lido.chave, lido);
     }
   }
   const url = typeof p.url === 'string' && /^https:\/\/[^\s]+$/.test(p.url) ? curto(p.url, 300) : null;
   return { numero: numero as number, branch: p.headRefName, head, estado, rascunho: p.isDraft as boolean, url,
-    criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porNome.values()].map((x) => x.check) };
+    criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porChave.values()].map((x) => x.check) };
 }
 
 /** O repositorio `dono/nome` do remoto, so quando ele e do github.com (o host ancorado, nao so citado no caminho). */
@@ -192,7 +202,8 @@ export function repositorioDoRemoto(raiz: string, remoto: string): string | null
 }
 
 /**
- * Le os PRs da base do repositorio do remoto (abertos, mesclados e fechados, os mais novos), numa chamada.
+ * Le os PRs da base do repositorio do remoto em duas chamadas: os abertos (ate `LIMITE_DE_PRS`; e so a
+ * lista deles que pode dizer "sem PR") e os recentes de qualquer estado (para achar o mesclado e o fechado).
  * O `gh` usa a autenticacao dele; nenhum token passa por aqui. Remoto que nao e do github.com nao chama nada.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
@@ -202,17 +213,30 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
   const base = carregado.manifesto.worktree.base_branch;
   const repositorio = repositorioDoRemoto(carregado.raiz, remoto);
   if (!repositorio) return { ok: false, lidoEm, erro: `o remoto ${remoto} não é um repositório do github.com` };
-  const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, '--state=all',
-    `--limit=${LIMITE_DE_PRS}`, `--json=${CAMPOS_DO_GH}`], PRAZO_DO_GH_MS);
-  if (r.status !== 0) {
-    const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
-    return { ok: false, lidoEm, erro: `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}` };
+  const listas: unknown[][] = [];
+  for (const [estado, limite] of [['open', LIMITE_DE_PRS], ['all', LIMITE_DE_RECENTES]] as const) {
+    const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, `--state=${estado}`,
+      `--limit=${limite}`, `--json=${CAMPOS_DO_GH}`], PRAZO_DO_GH_MS);
+    if (r.status !== 0) {
+      const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
+      return { ok: false, lidoEm, erro: `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}` };
+    }
+    try {
+      const lista = JSON.parse(r.stdout) as unknown;
+      if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
+      listas.push(lista);
+    } catch (e) {
+      return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
+    }
   }
   try {
-    const lista = JSON.parse(r.stdout) as unknown;
-    if (!Array.isArray(lista)) throw new Error('a resposta não é uma lista');
-    const prs = lista.map((p) => prDaForja(p, base)).filter((p): p is PrDaForja => p !== null);
-    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: lista.length >= LIMITE_DE_PRS, prs } };
+    const porNumero = new Map<number, PrDaForja>();
+    for (const lista of listas) for (const bruto of lista) {
+      const pr = prDaForja(bruto, base);
+      if (pr && !porNumero.has(pr.numero)) porNumero.set(pr.numero, pr);
+    }
+    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: listas[0].length >= LIMITE_DE_PRS,
+      prs: [...porNumero.values()] } };
   } catch (e) {
     return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
   }
@@ -278,11 +302,20 @@ const RESPOSTAS_HITL = ['human_gate', 'session_answered'];
 export function perguntaAberta(eventos: readonly EventoLedger[], desde: string, quando: string): boolean {
   const inicio = Date.parse(desde);
   const respondidos = new Set(eventos.filter((e) => RESPOSTAS_HITL.includes(e.tipo)).map((e) => String(e.pedidoId)));
-  return eventos.some((e) => {
-    if (e.tipo !== 'hitl_requested' || Date.parse(e.ts) < inicio) return false;
+  // O pedido novo para o mesmo alvo substitui o velho: so o mais novo de cada sessao ou gate conta.
+  const porAlvo = new Map<string, PedidoHitlQualquer | null>();
+  for (const e of eventos) {
+    if (e.tipo !== 'hitl_requested' || Date.parse(e.ts) < inicio) continue;
     const pedido = e.pedido as PedidoHitlQualquer | undefined;
-    if (!pedido || typeof pedido !== 'object') return true;
-    if ((pedido as { classe?: unknown }).classe === 'decidido' || respondidos.has(String(pedido.id))) return false;
+    if (!pedido || typeof pedido !== 'object') { porAlvo.set(`ilegivel:${String(e.eventId)}`, null); continue; }
+    if ((pedido as { classe?: unknown }).classe === 'decidido') continue;
+    let alvo: unknown;
+    try { alvo = alvoDoPedido(pedido); } catch { alvo = undefined; }
+    porAlvo.set(alvo ? JSON.stringify(alvo) : `pedido:${String(pedido.id)}`, pedido);
+  }
+  return [...porAlvo.values()].some((pedido) => {
+    if (!pedido) return true;
+    if (respondidos.has(String(pedido.id))) return false;
     try { return estadoDoPedido(pedido, quando) !== 'seguir-recomendada'; } catch { return true; }
   });
 }
@@ -318,10 +351,11 @@ export interface FimDoTurno {
   /**
    * `concluida`: resultado da fase com a prova do ork (ou o legado `ok: true`). `espera-do-observador`: o
    * observador viu o Stop e a sessao `blocked` e gravou `human.pending`. `stop-sem-resultado`: o Stop foi a
-   * ultima atividade e o resultado nunca veio (a fatia 3 de 01/10). `outro`: falha tecnica ou pausa, com
+   * ultima atividade e o resultado nunca veio (a fatia 3 de 01/10). `pausa-do-bloco`: a fase terminou e o
+   * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `outro`: falha tecnica, com
    * dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
    */
-  tipo: 'concluida' | 'espera-do-observador' | 'stop-sem-resultado' | 'outro';
+  tipo: 'concluida' | 'espera-do-observador' | 'stop-sem-resultado' | 'pausa-do-bloco' | 'outro';
   sessionId: string | null;
   fase: string | null;
   /** A prova do ork que o observador conferiu, quando ele diz. */
@@ -345,6 +379,9 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
       const { ok: provou } = (resultado.provaOrk ?? {}) as { ok?: unknown };
       return { em: instante(doStop) ?? resultado.ts, tipo: 'espera-do-observador', sessionId: sid, fase,
         comProva: typeof provou === 'boolean' ? provou : null };
+    }
+    if (resultado.motivo === 'human.pending' && String(resultado.fonte ?? '').includes('pausa prevista ao fim do bloco')) {
+      return { em: resultado.ts, tipo: 'pausa-do-bloco', sessionId: sid, fase, comProva: true };
     }
     return { em: resultado.ts, tipo: 'outro', sessionId: sid, fase, comProva: null };
   }
@@ -393,7 +430,7 @@ export interface EsperaDoCondutor {
   fase: string | null;
   sessionId: string | null;
   fimDoTurnoEm: string;
-  tipo: Exclude<FimDoTurno['tipo'], 'outro'>;
+  tipo: Exclude<FimDoTurno['tipo'], 'outro' | 'pausa-do-bloco'>;
   comProva: boolean | null;
 }
 
@@ -402,7 +439,7 @@ export function esperaDoCondutor(t: Thread, eventos: readonly EventoLedger[], qu
   const despacho = ultimoDespacho(eventos);
   if (!despacho || despacho.pausaAoFim !== false) return null;
   const fim = fimDoTurno(eventos, despacho);
-  if (!fim || fim.tipo === 'outro' || pendenciaDoDono(t, eventos, quando)) return null;
+  if (!fim || fim.tipo === 'outro' || fim.tipo === 'pausa-do-bloco' || pendenciaDoDono(t, eventos, quando)) return null;
   return { thread: t.id, fase: fim.fase, sessionId: fim.sessionId, fimDoTurnoEm: fim.em, tipo: fim.tipo, comProva: fim.comProva };
 }
 
@@ -540,12 +577,17 @@ function prsDaBranch(retrato: RetratoDePrs | null, branch: string | null, cabeca
 const houveDespachoDepois = (eventos: readonly EventoLedger[], desde: string): boolean =>
   eventos.some((e) => e.tipo === 'phase_dispatch' && Date.parse(e.ts) > Date.parse(desde));
 
-/** A fase que vem depois do bloco despachado, quando o ciclo da thread tem uma. */
-function faseDepoisDoBloco(t: Thread, despacho: EventoLedger | null): string | null {
+/**
+ * A fase que vem depois do que o despacho rodou, quando o ciclo da thread tem uma. No #Auto uma sessao roda o
+ * bloco inteiro; nos outros modos o condutor despacha fase a fase dentro do bloco (#Maestro: GOAL e depois
+ * PLAN, as duas com o bloco GOAL-PLAN), e pular uma fase pularia a pausa do dono que mora nela.
+ */
+function faseSeguinte(t: Thread, despacho: EventoLedger | null): string | null {
   if (!despacho) return null;
   const fases = t.fases ?? [];
-  const bloco = typeof despacho.bloco === 'string' && despacho.bloco ? despacho.bloco.split('-') : [String(despacho.fase ?? '')];
-  const i = fases.indexOf(bloco.at(-1) as Thread['faseAtual']);
+  const bloco = typeof despacho.bloco === 'string' && despacho.bloco ? despacho.bloco.split('-') : [];
+  const rodou = t.modo === 'auto' && bloco.length ? bloco.at(-1) : String(despacho.fase ?? '');
+  const i = fases.indexOf(rodou as Thread['faseAtual']);
   return i >= 0 && i + 1 < fases.length ? fases[i + 1] : null;
 }
 
@@ -596,6 +638,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     const r = prs.retrato;
     if (r.base !== baseBranch || r.repositorio !== repositorioDoRemoto(raiz, remoto)) semRetrato = 'retrato de PRs de outro repositório ou base';
     else if (minutosDesde(r.lidoEm, quando) > VALIDADE_DO_RETRATO_MIN) semRetrato = 'retrato de PRs velho';
+    else if (Date.parse(r.lidoEm) - Date.parse(quando) > FOLGA_DO_RELOGIO_MIN * 60000) semRetrato = 'retrato de PRs com data no futuro';
     else retrato = r;
   }
 
@@ -607,7 +650,11 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     const fim = despacho ? fimDoTurno(eventos, despacho) : null;
     const terminou = !!fim && fim.tipo !== 'outro';
     const fimEm = terminou ? fim!.em : null;
-    const espera = esperaDoCondutor(t, eventos, quando);
+    // N3 do CHECK (rodada 2): a sessao corrente com pergunta na tela (menu, pergunta lida, tela nao lida ou
+    // sessao nativa) e do dono, e o fim de turno do ledger nao a tira dele.
+    const sid = texto(despacho?.sessionId);
+    const naTela = sid ? sessoes.find((x) => x.sessionId === sid && x.classe === 'hitl' && x.jobVivo !== false && !sessaoSemPergunta(x)) : undefined;
+    const espera = naTela ? null : esperaDoCondutor(t, eventos, quando);
     if (espera) {
       doCondutor.gates.add(`${t.id}|${espera.fase ?? t.faseAtual}`);
       if (espera.sessionId) doCondutor.sessoes.add(espera.sessionId);
@@ -615,19 +662,22 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     const conducao = conducaoDaThread(raiz, t.id, { agora: new Date(quando) });
     // P7: a sessao que ja encerrou o turno nao conduz mais nada, mesmo com o lease de pe.
     const conduzidaAgora = !!conducao && !(conducao.dono.tipo === 'sessao' && terminou && conducao.dono.sessionId === fim!.sessionId);
-    const doDono = pendenciaDoDono(t, eventos, quando);
+    const doDono = naTela ? 'pergunta na tela da sessão' : pendenciaDoDono(t, eventos, quando);
     // A2 do CHECK: a leitura dos PRs so vale depois do fim do turno; antes dele, o turno pode ter mudado o PR.
     const prLido = retrato && (!fimEm || Date.parse(retrato.lidoEm) >= Date.parse(fimEm)) ? retrato : null;
-    const prs = prsDaBranch(prLido, f.branch, f.cabeca);
-    const aberto = prs.aberto, s = aberto ? situacaoDoPr(aberto) : null;
-    const precisaDePr = f.comProduto && f.publicada === true;
-    const cortado = !!prLido && prLido.parcial && !prs.achado;
+    const daBranch = prsDaBranch(prLido, f.branch, f.cabeca);
+    const aberto = daBranch.aberto, s = aberto ? situacaoDoPr(aberto) : null;
+    // S1 do CHECK (rodada 2): o head do PR aberto e a ponta local: ja esta no GitHub, mesmo com a ref de rastreio velha.
+    const publicada = f.publicada === false && aberto?.head === f.cabeca ? true : f.publicada;
+    const precisaDePr = f.comProduto && publicada === true;
+    const cortado = !!prLido && prLido.parcial && !daBranch.achado;
     const usouPr = !!prLido && precisaDePr && !cortado;
     const prNaoLido = !precisaDePr || usouPr ? null : !retrato ? semRetrato : !prLido ? 'retrato de PRs anterior ao fim do turno'
-      : `lista de PRs cortada nos ${LIMITE_DE_PRS} mais novos`;
-    const proxima = faseDepoisDoBloco(t, despacho);
+      : `lista de PRs abertos cortada nos ${LIMITE_DE_PRS} mais novos`;
+    const proxima = faseSeguinte(t, despacho);
     const antesDaEntrega = !!proxima && FASES_ANTES_DA_ENTREGA.includes(proxima);
-    const despachar = `despachar a fase ${proxima} (ork phase run ${t.id} ${proxima})`;
+    const despachar = `despachar a fase ${proxima} (ork phase run ${t.id} ${proxima} --prompt "<pedido da fase>")`;
+    const prSabido = !!prLido && !cortado;
     const autorizacao = MODOS_COM_PUSH_AUTORIZADO.includes(t.modo) ? '' : `, com a autorização de push do dono (${tagDoModo(t.modo)})`;
     // B2 do CHECK: depois de uma fase que terminou, o PR parado volta a ser do condutor, mesmo com despacho no meio.
     const valeDesde = (instanteDoPr: string) => !houveDespachoDepois(eventos, instanteDoPr) ||
@@ -637,12 +687,15 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     let caso: CasoParado | null = null, desde: string | null = null, passo = '';
     const evidencia: string[] = [];
     if (!conduzidaAgora && !doDono) {
-      if (f.comProduto && f.publicada === false && terminou) {
+      if (f.comProduto && publicada === false && terminou) {
         desde = fimEm;
         if (antesDaEntrega && !aberto) { caso = 'fase-seguinte'; passo = despachar; }
         else {
           caso = 'sem-push';
-          passo = aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}` : `publicar a branch ${f.branch} e abrir o PR`;
+          // N2 da seguranca (rodada 2): branch que ja foi ao remoto pode ter PR; sem a leitura, nunca "abrir o PR".
+          passo = aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}`
+            : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch} (PR não lido)`
+            : `publicar a branch ${f.branch} e abrir o PR`;
         }
         evidencia.push(`refs/heads/${f.branch} tem commit fora de refs/remotes/${remoto}/${f.branch}`);
       } else if (aberto && s?.situacao === 'vermelho' && s.desdeEm && valeDesde(s.desdeEm)) {
@@ -659,16 +712,21 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         caso = 'sem-registro'; desde = f.merge.em ?? fimEm;
         passo = `registrar a entrega do merge ${f.merge.sha.slice(0, 7)} (ork ship registrar-pr ${t.id})`;
         evidencia.push(`git log: merge ship(${t.id}) ${f.merge.sha.slice(0, 7)} na base, sem ship_done no ledger`);
-      } else if (!aberto && !prs.mesclado && precisaDePr && terminou && usouPr) {
+      } else if (!aberto && daBranch.mesclado && !f.shipNoLedger && (daBranch.mesclado.mescladoEm ?? fimEm)) {
+        // N4 do CHECK (rodada 2): PR mesclado sem o assunto ship(<thread>); o `registrar-pr` nao o acha sozinho.
+        caso = 'sem-registro'; desde = daBranch.mesclado.mescladoEm ?? fimEm;
+        passo = `conferir a entrega do PR #${daBranch.mesclado.numero}, mesclado sem o assunto ship(${t.id}), e registrar o ship_done`;
+        evidencia.push(`gh pr list: PR #${daBranch.mesclado.numero} mesclado na ponta da branch, sem ship_done no ledger`);
+      } else if (!aberto && !daBranch.mesclado && precisaDePr && terminou && usouPr) {
         desde = fimEm;
         if (antesDaEntrega) { caso = 'fase-seguinte'; passo = despachar; }
         else {
           caso = 'sem-pr';
-          passo = prs.fechado ? `abrir de novo o PR da branch ${f.branch} (o PR #${prs.fechado.numero} foi fechado sem merge)`
+          passo = daBranch.fechado ? `abrir de novo o PR da branch ${f.branch} (o PR #${daBranch.fechado.numero} foi fechado sem merge)`
             : `abrir o PR da branch ${f.branch}`;
         }
         evidencia.push(`refs/remotes/${remoto}/${f.branch} contém a ponta`,
-          prs.fechado ? `gh pr list: PR #${prs.fechado.numero} fechado sem merge` : `gh pr list: nenhum PR de ${f.branch}`);
+          daBranch.fechado ? `gh pr list: PR #${daBranch.fechado.numero} fechado sem merge` : `gh pr list: nenhum PR de ${f.branch}`);
       } else if (espera) {
         // O que sai do dono volta sempre: sem caso de entrega, a linha diz o que a thread pede agora.
         desde = espera.fimDoTurnoEm;
@@ -685,7 +743,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     }
     if (caso && fim && fim.tipo !== 'outro') evidencia.push(`fim do turno: ${fim.tipo}`);
     const paradoHaMin = desde ? minutosDesde(desde, quando) : 0;
-    const dependeDoPr = caso === 'pr-verde' || caso === 'pr-vermelho' || caso === 'sem-pr' || (caso === 'sem-push' && !!aberto);
+    const dependeDoPr = caso === 'pr-verde' || caso === 'pr-vermelho' || caso === 'sem-pr' || (caso === 'sem-push' && !!aberto) ||
+      (caso === 'sem-registro' && !f.merge);
     const parado: ParadoNoCondutor | null = caso && desde && paradoHaMin >= limiar ? {
       thread: t.id, caso, desdeEm: desde, paradoHaMin, proximoPasso: passo, evidencia, branch: f.branch, pr: aberto?.numero ?? null,
       sessionId: espera?.sessionId ?? fim?.sessionId ?? null, prLidoEm: dependeDoPr && prLido ? prLido.lidoEm : null,
@@ -694,7 +753,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
 
     const prDaEntrega: PrDaEntrega | null = aberto ? { numero: aberto.numero, estado: 'aberto', situacao: s?.situacao ?? null,
       checkVermelho: s?.vermelho ?? null, rascunho: aberto.rascunho }
-      : prs.mesclado && !f.shipNoLedger ? { numero: prs.mesclado.numero, estado: 'mesclado', situacao: null, checkVermelho: null, rascunho: false }
+      : daBranch.mesclado && !f.shipNoLedger ? { numero: daBranch.mesclado.numero, estado: 'mesclado', situacao: null, checkVermelho: null, rascunho: false }
       : null;
     const registrar = `ork ship registrar-pr ${t.id}`;
     const resumo = aberto ? (s?.situacao === 'vermelho' ? `PR #${aberto.numero} aberto com o check ${s.vermelho} vermelho`
@@ -702,13 +761,13 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         : s?.situacao === 'verde' ? (aberto.rascunho ? `PR #${aberto.numero} em rascunho, com os checks verdes`
           : `PR #${aberto.numero} com os checks verdes, esperando o merge`)
         : `PR #${aberto.numero} aberto, checks em andamento`)
-      : f.comProduto && f.publicada === false ? 'branch com commits sem push'
-      : prs.mesclado && !f.shipNoLedger ? `PR #${prs.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
+      : f.comProduto && publicada === false ? 'branch com commits sem push'
+      : daBranch.mesclado && !f.shipNoLedger ? `PR #${daBranch.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
       : !f.comProduto && f.merge && !f.shipNoLedger ? `merge ${f.merge.sha.slice(0, 7)} na base, falta registrar a entrega (${registrar})`
       : precisaDePr ? (!usouPr ? 'branch publicada, PR não lido'
-        : prs.fechado ? `branch publicada, PR #${prs.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
+        : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;
-    estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada: f.publicada, pr: prDaEntrega,
+    estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada, pr: prDaEntrega,
       prLidoEm: prLido && (usouPr || aberto) ? prLido.lidoEm : null, prNaoLido, conduzidaAgora, espera, parado, resumo });
   }
 
