@@ -189,7 +189,7 @@ test('fatia 2 P1: sessions sem o binario claude diz fonte ausente com a correcao
   try {
     const texto = ork(p.dir, casa, bin, 'sessions');
     assert.equal(texto.status, 0, texto.stdout + texto.stderr);
-    assert.match(texto.stdout, /^Fontes: claude agents --json \(ausente\);/m);
+    assert.match(texto.stdout, /^Fontes: claude agents --json(?: \([^)]*\))? \(ausente\);/m);
     assert.match(texto.stdout, /^Ausente: binário `claude` fora do PATH: nenhuma sessão claude-bg a listar; correção: .*instale o Claude Code/m);
     assert.doesNotMatch(texto.stdout, /código -1/);
 
