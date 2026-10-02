@@ -214,6 +214,20 @@
       "criadoEm": "2026-10-02T18:16:59.841Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "p4 worktree (GO-FIX da rodada 1): a pasta da worktree da thread é a da árvore principal, também na criação de dentro de outra worktree e no dirDaWorktree dos comandos ork worktree; a thread criada de dentro da worktree de outra nasce em .claude/worktrees da árvore principal, sem aninhar, e o ork worktree release da mãe não leva a worktree nem o trabalho da filha",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: thread nova de dentro de outra worktree' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T19:12:26.389Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
