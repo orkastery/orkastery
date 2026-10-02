@@ -8,8 +8,8 @@ da thread `ork-rm031kg3`, tomadas em #Auto e registradas no ledger.
 
 O KG3 substitui o comando provisório do KG2: a prova da extração e a amostra auditada passam ao
 `ork grafo`. Não entrega extração incremental, que veio no [KG4](incremental-grafo-kg4.md), consumo
-pelas fases (KG5), federação (KG6), paridade entre hosts (KG7), ferramenta MCP nem o benchmark A/B do
-[protocolo](benchmark-grafo-kg1.md).
+pelas fases nem ferramenta MCP, que vieram no [KG5](consumo-grafo-kg5.md), federação (KG6), paridade
+entre hosts (KG7) nem o benchmark A/B do [protocolo](benchmark-grafo-kg1.md).
 
 ## O que o KG3 garante e o que não garante
 
@@ -96,7 +96,8 @@ A ordem é fixa: arestas por distância, tipo, origem e destino, nós por distâ
 comparação por code point, e a busca do caminho expande os vizinhos nessa ordem, então entre
 caminhos do mesmo tamanho sai sempre o mesmo. `--limite` (padrão 500) corta a lista já ordenada,
 mantendo as arestas mais perto do alvo, e declara `truncado`; a lista de nós traz só o alvo e as
-pontas das arestas devolvidas, com `total_nos` contando o raio inteiro. Opção inválida recusa antes
+pontas das arestas devolvidas, com `total_nos` contando o raio inteiro. Desde o KG5, `--teto-bytes N`
+corta pela mesma ordem até o JSON caber em N bytes ([teto da resposta](consumo-grafo-kg5.md#teto-da-resposta)). Opção inválida recusa antes
 de ler o índice. A saída em
 JSON (`ork.code-graph-query/v0`, provisório e fora do contrato) traz a consulta, o cabeçalho do
 índice (revisão, chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com

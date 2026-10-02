@@ -29,6 +29,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   paga segue pendente. A prova nos pares reais confere a âncora com os rótulos do Node e do Unicode
   fixados, porque a versão do Node entra no digest do grafo.
 
+- **Grafo de código pelas fases, pelo MCP** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md), KG5):
+  com `grafo.mcp: true` no `orkastery.yaml` (desligada por padrão; ligar é decisão do dono), o MCP do
+  projeto expõe `ork_grafo_vizinhos`, `ork_grafo_chamadores`, `ork_grafo_importadores` e
+  `ork_grafo_caminho`, de leitura, que respondem pelo índice do HEAD da worktree da thread o mesmo JSON
+  do `ork grafo`, com a evidência de cada aresta e no máximo 32.768 bytes por padrão; o despacho
+  claude-bg as libera para a sessão filha só com a flag. As consultas do `ork grafo` ganham
+  `--teto-bytes N` (JSON compacto de até N bytes, sem as arestas mais longe do alvo quando não cabe) e,
+  sem o índice do HEAD, dizem se ele falta, se é de outra revisão ou de outro extrator, com a correção
+  `ork grafo indexar`. Sem a flag, as tools e o despacho ficam como estão.
+
 ### Corrigido
 
 - **Defeitos de condução de 27/09 a 01/10/2026** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 3):
