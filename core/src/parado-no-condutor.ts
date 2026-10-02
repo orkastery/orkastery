@@ -821,8 +821,9 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
         }
         evidencia.push(`refs/remotes/${remoto}/${f.branch} contém a ponta`,
           daBranch.fechado ? `gh pr list: PR #${daBranch.fechado.numero} fechado sem merge` : `gh pr list: nenhum PR de ${f.branch}`);
-      } else if (fim?.tipo === 'pausa-do-bloco' && aprovadaEm && proxima && FASES_ANTES_DA_ENTREGA.includes(proxima)) {
-        // S-e do CHECK (rodada 3): o dono aprovou a pausa e a fase seguinte nao foi despachada.
+      } else if (terminou && despacho?.pausaAoFim === true && aprovadaEm && proxima && FASES_ANTES_DA_ENTREGA.includes(proxima)) {
+        // S-e do CHECK (rodada 3): o dono aprovou a pausa e a fase seguinte nao foi despachada. Rodada 5: vale para
+        // qualquer fim de turno do bloco com pausa ao fim, porque no Codex a fase boa chega como `fase_concluida`.
         caso = 'fase-seguinte'; desde = aprovadaEm; passo = despachar;
         evidencia.push('ledger: veredito do dono na pausa prevista, sem despacho depois');
       } else if (espera) {

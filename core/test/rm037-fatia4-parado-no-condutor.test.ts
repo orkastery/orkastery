@@ -744,6 +744,26 @@ test('S-b e S-e do CHECK (rodada 3): aberto so nos recentes nao vira "sem checks
   } finally { p.limpar(); }
 });
 
+test('rodada 5 do CHECK: no Codex, a pausa prevista aprovada tambem pede a fase seguinte', () => {
+  const p = projetoTemporario('fatia4-codex-pausa', true);
+  try {
+    // #Maestro: o PLAN rodou no Codex, que grava a fase boa como `fase_concluida` mesmo com pausa ao fim.
+    const { thread: m } = novaThread(p.carregado, { nome: 'plan no codex', modo: 'maestro' });
+    const dir = dirThread(p.dir, m.id), sessionId = '00000000-0000-4000-8000-000000000096';
+    registrar(dir, m.id, 'phase_dispatch', { ts: '2026-10-01T05:00:00.000Z', fase: 'PLAN', modo: 'maestro', bloco: 'GOAL-PLAN', pausaAoFim: true,
+      runtime: 'codex', sessionId });
+    registrar(dir, m.id, 'phase_result', { ts: '2026-10-01T06:00:00.000Z', fase: 'PLAN', sessionId, classificacao: 'fase_concluida', ok: true,
+      runtime: 'codex', fonte: 'SIMULADO', estado: 'concluida', origem: 'sessions.watch' });
+    // Antes do veredito, a pausa e do dono: sem linha.
+    assert.ok(!entregasDoProjeto(p.carregado, { quando: AGORA }).parados.some(x => x.thread === m.id));
+    registrar(dir, m.id, 'human_gate', { ts: '2026-10-01T10:00:00.000Z', fase: 'PLAN', estado: 'aprovado', pedidoId: 'pedido-SIMULADO' });
+    const linha = entregasDoProjeto(p.carregado, { quando: AGORA }).parados.find(x => x.thread === m.id);
+    assert.equal(linha?.caso, 'fase-seguinte', JSON.stringify(linha));
+    assert.equal(linha?.desdeEm, '2026-10-01T10:00:00.000Z');
+    assert.equal(linha?.proximoPasso, `despachar a fase GO (ork phase run ${m.id} GO --prompt "<pedido da fase>")`);
+  } finally { p.limpar(); }
+});
+
 test('o orcamento da leitura da forja cabe na batida: esgotado nas listas e "nao lido"; candidata sem tempo ou com falha, sem conferir', () => {
   const p = projetoTemporario('fatia4-orcamento', true);
   try {
