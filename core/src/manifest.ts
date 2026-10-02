@@ -463,7 +463,9 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     worktree: {
       base_branch: texto(worktree.base_branch, 'main'),
       dir: texto(worktree.dir, '.claude/worktrees'),
-      por_thread: booleano(worktree.por_thread, true),
+      // P4 do ensaio da 0.5.0: o `ork thread new` cria a worktree sem flag quando a chave diz true. Ausente le
+      // false, para o projeto que nunca a declarou seguir como era.
+      por_thread: booleano(worktree.por_thread, false),
     },
     verify: {
       build: verify.build === null || verify.build === undefined ? undefined : texto(verify.build, ''),
