@@ -81,4 +81,4 @@ No MCP, `ork_roadmap_reservas` e `ork_fabrica` recebem `{}` (ou só `projeto` co
 
 Testes focados cobrem preferências, blocos, clone sem recibo, conflitos, adaptadores e contratos MCP. Evals das skills são estáticos: não comprovam comportamento real de LLM. O ensaio `node core/scripts/testar-experiencia-e2e.cjs`, executado a partir do repositório do produto, instala um tarball local em prefixo e HOME temporários, usa o binário instalado e confere dry-run, reinstalação, clone sem recibo, opt-out, remoção e restauração. Exige dependências disponíveis no cache npm para instalação offline.
 
-Esta mudança permanece em “Não publicado”. Commit local e resultado de teste local não são SHIP.
+Publicado no `@orkastery/cli` 0.5.0 (tag `v0.5.0`), com o merge do PR #33. Commit local e resultado de teste local não são SHIP.

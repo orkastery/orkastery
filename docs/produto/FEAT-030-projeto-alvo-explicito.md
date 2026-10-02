@@ -2,13 +2,13 @@
 id: FEAT-030
 tipo: feature
 titulo: Projeto-alvo explícito e resposta honesta nos hosts
-estado: proposto
+estado: vigente
 pai: MOD-06
 roadmap: [RM-052]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-29T21:00:00-03:00
-versao: ork/ork-rm052projeto-full@c04abbb
+verificado_em: 2026-10-01T02:45:00-03:00
+versao: main@a24a187
 fontes:
   codigo:
     - core/src/projeto-alvo.ts
@@ -44,7 +44,7 @@ fontes:
 
 > **Em uma frase:** todo comando e toda tool `ork_*` leem o projeto pedido, nunca o do diretório do gateway, e toda resposta de maestro, board, fábrica e roadmap diz qual projeto leu e o que não leu.
 
-- **Estado:** proposto · **Verificado em:** 2026-09-29 · **Versão:** ork/ork-rm052projeto-full@c04abbb
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@a24a187 (PR #24), publicada na 0.5.0
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-02](SYS-02-hosts-e-canais.md) > [MOD-06](MOD-06-integracao-com-hosts.md)
 - **Roadmap:** [RM-052](../roadmap/RM-052-projeto-alvo-explicito.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -97,3 +97,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-29 | página criada com a primeira fatia da RM-052 | Claude (agente) / Julio, revisão pendente | RM-052, thread `ork-rm052projeto` |
+| 2026-10-01 | vigente: mesclada pelo PR #24 e publicada na 0.5.0 | Claude (agente) / Julio, revisão pendente | PR #24, merge `a24a187`; tag `v0.5.0` |

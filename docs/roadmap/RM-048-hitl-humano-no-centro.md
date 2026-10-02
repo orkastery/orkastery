@@ -6,24 +6,28 @@ categoria: melhoria
 pai: null
 features: [FEAT-011, FEAT-014, FEAT-015, FEAT-021]
 owner: Julio
-atualizado_em: 2026-09-29T23:50:30+00:00
+atualizado_em: 2026-10-01T02:24:38-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
     commit: 8d47740
-    pr: null
+    pr: 19
+  testes:
+    ci: verde no push do merge (run 36562093369) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
   thread: ork-hitlhumanono
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-048 — HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal
@@ -34,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Em validação | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -74,19 +78,23 @@ sdlc:
 
 ## Estado com evidências
 
+- Os oito itens na `main` pelo PR #19 (merge `8d47740`), com o CI verde no push do merge (run 36562093369).
+- Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
+- Em validação: o piloto de uma semana no Telegram ainda não tem medição registrada nesta página.
+
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `8d47740` | 2026-09-29 | Julio |
-| Testes | Aprovados | — | 2026-09-29 | Julio |
-| Deploy | Não implantado | — | 2026-09-29 | Julio |
-| Exposição | Flag desligada | — | 2026-09-29 | Julio |
-| Habilitação | Pendente | — | 2026-09-29 | Julio |
+| Ciclo do item | Em validação | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `8d47740` · PR #19 | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36562093369) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
+| Exposição | Flag desligada | — | 2026-10-01 | Julio |
+| Habilitação | Pendente | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -94,10 +102,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Hermes registrou a demanda a pedido do dono; execução virá por thread no modo do núcleo; a decisão final é de Julio.
-- **Próxima ação, responsável e prazo:** merge do PR da thread `ork-hitlhumanono` pelo condutor, com o CI verde, e o piloto de uma semana no Telegram desta máquina medindo resposta sem registro no ledger.
+- **Próxima ação, responsável e prazo:** o piloto de uma semana no Telegram desta máquina, medindo resposta sem registro no ledger. O merge do PR da thread já aconteceu (PR #19), e o item está na versão 0.5.0.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-27 | item criado | pedido do dono no Telegram: HITL precisa ser resumido, claro, com opções e recomendação, pensado para quem tem TDAH e dezenas de atividades em paralelo | Julio |
 | 2026-09-28 | decisões do dono: texto livre inequívoco registra, ambíguo volta como pergunta; padrão curto em todo canal; status report único; nota do MASTER com prova de canal; linha que não vence em uma hora | pedido direto do dono, thread `ork-hitlhumanono` | Julio |
 | 2026-09-28 | os 8 itens entregues na branch da thread (contrato `ork.hitl-curto/v1`, texto livre, linha estável, "Conosco", `ork roadmap status`, `ork master pedir`) | thread `ork-hitlhumanono`, #Auto, decisões D3 a D9 no ledger | agente condutor; decisão final de Julio |
+| 2026-09-29 | os 8 itens mesclados na `main` | PR #19, merge `8d47740` | Julio |
+| 2026-10-01 | em produção na versão 0.5.0; o piloto segue em aberto | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
