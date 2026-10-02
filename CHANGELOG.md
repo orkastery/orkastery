@@ -26,10 +26,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `<thread> parado no condutor desde HH:MM: <próximo passo>`, em `ork pulse`, no campo
     `paradoNoCondutor` do `ork.pulse/v1` e no resumo dos dois canais, fora de "Esperando você" e sem
     pergunta ao dono: branch sem push, branch publicada sem PR, PR verde sem merge, PR com check
-    vermelho sem fase despachada depois e sessão `blocked` sem pergunta de verdade. O `human.pending`
-    que o observador grava no fim de turno de um bloco sem pausa ao fim deixa de contar como pergunta
-    do dono. Os PRs vêm do `gh pr list`, uma vez por batida e só com branch publicada, e a leitura boa
-    vira o retrato `ork.prs-abertos/v1` em `.orkastery/monitor/prs.json`;
+    vermelho sem fase despachada depois, merge na base sem registro e sessão `blocked` sem pergunta de
+    verdade (depois de um bloco que para antes da entrega, o passo é despachar a fase seguinte). O
+    `human.pending` que o observador grava no fim de turno de um bloco sem pausa ao fim deixa de contar
+    como pergunta do dono e volta sempre como linha. Os PRs vêm do `gh pr list`, uma vez por batida e
+    só com branch que já foi ao remoto, e a leitura boa vira o retrato `ork.prs-abertos/v1` em
+    `.orkastery/monitor/prs.json`; falha, lista cortada e retrato velho são "PR não lido";
   - `ork roadmap status` diz em "O que eu faço em seguida" o estado real da entrega (parado no
     condutor, PR com check vermelho, PR verde esperando o merge, branch sem push), lido do git local e
     desse retrato, sem rede; com fábrica compartilhada, uma linha "Fábrica:" avisa a máquina sem batida
