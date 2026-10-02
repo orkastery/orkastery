@@ -101,6 +101,9 @@ export const TIPOS_DE_EVENTO = {
   // I-33 (D5): troca de perfil ou de runtime depois de falha da conta (quem, de qual para
   // qual, evidencia e razao). Faz parte do catalogo, nao de literal solto.
   perfilRotacionado: 'runtime_profile_rotated',
+  // RM-037 (fatia 5): a cota que o observador viu na transcricao com a sessao viva; o perfil saiu do rodizio
+  // ali, ate a hora dita na mensagem, e nao so no fecho da fase.
+  cotaVistaNaTranscricao: 'runtime_quota_detected',
   fixAberto: 'go_fix_opened',
   fixDespachado: 'go_fix_dispatched',
   reverifyConcluido: 'check_reverify',

@@ -9,6 +9,7 @@
  */
 
 import { SessaoRuntime, SinalDeFalhaDeConta, SinalDeRateLimit } from '../types';
+import { instanteNoFuso, normalizarFuso, partesLocais } from '../horario';
 import { exec as executar, noPath } from '../util';
 import { ambienteDeAssinatura } from '../runtime-ambiente';
 import * as path from 'node:path';
@@ -408,12 +409,27 @@ function casarDuracao(texto: string, agoraMs: number): { resetEm: string; trecho
 const MESES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 /**
- * N5: data e hora de relogio local nas formas reais. Codex: `or try again at Sep 22nd, 2026 3:05 PM`
+ * RM-037 (fatia 5): o fuso IANA entre parenteses logo depois da hora (`resets 4:40am (<Area>/<Cidade>)`),
+ * quando o Intl o aceita. O nome vem do texto do runtime; nenhum nome literal de fuso mora aqui (I-35).
+ */
+function fusoDito(texto: string, depois: number): string | undefined {
+  const m = /^\s*\(([A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*)\)/.exec(texto.slice(depois));
+  return m ? normalizarFuso(m[1]) : undefined;
+}
+
+/** A data do dia seguinte no calendario (mes de 1 a 12), sem passar por fuso nenhum. */
+function diaSeguinte(ano: number, mes: number, dia: number): [number, number, number] {
+  const d = new Date(Date.UTC(ano, mes - 1, dia + 1));
+  return [d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+}
+
+/**
+ * N5: data e hora de relogio nas formas reais. Codex: `or try again at Sep 22nd, 2026 3:05 PM`
  * (`%b %-d` com sufixo ordinal, `, %Y %-I:%M %p`). Claude Code, quando o reset passa de 24 h:
  * `resets Sep 22, 3pm (<nome IANA do fuso>)` e, em outro ano, `resets Sep 22, 2027, 3:05pm`. Sem ano,
- * vale o ano corrente, ou o seguinte quando a data ja ficou mais de um dia para tras. O fuso entre
- * parenteses nao entra na regex nem no calculo (a hora e lida no relogio desta maquina), e por isso
- * fica como placeholder: o nome literal de fuso mora so em `core/src/horario.ts` (I-35).
+ * vale o ano corrente, ou o seguinte quando a data ja ficou mais de um dia para tras. RM-037 (fatia 5):
+ * com o fuso entre parenteses, a hora e a desse fuso (`fusoDito`); sem ele, ou com um nome que o Intl
+ * recusa, a hora e lida no relogio desta maquina, como antes. `agoraMs` e a ancora: o instante da mensagem.
  */
 function casarData(texto: string, agoraMs: number): { resetEm: string; trecho: string } | null {
   const m = texto.match(
@@ -428,6 +444,14 @@ function casarData(texto: string, agoraMs: number): { resetEm: string; trecho: s
   if (sufixo === 'pm' && hora < 12) hora += 12;
   if (sufixo === 'am' && hora === 12) hora = 0;
   if (dia < 1 || dia > 31 || hora > 23 || minuto > 59) return null;
+  const fuso = fusoDito(texto, (m.index ?? 0) + m[0].length);
+  if (fuso) {
+    const ano = m[3] !== undefined ? Number(m[3]) : Number(partesLocais(agoraMs, fuso).ano);
+    let alvo = instanteNoFuso(ano, mes + 1, dia, hora, minuto, fuso);
+    if (!Number.isFinite(alvo)) return null;
+    if (m[3] === undefined && alvo < agoraMs - 24 * 3600 * 1000) alvo = instanteNoFuso(ano + 1, mes + 1, dia, hora, minuto, fuso);
+    return Number.isFinite(alvo) ? { resetEm: new Date(alvo).toISOString(), trecho: m[0].trim() } : null;
+  }
   const base = new Date(agoraMs);
   const ano = m[3] !== undefined ? Number(m[3]) : base.getFullYear();
   const alvo = new Date(ano, mes, dia, hora, minuto, 0, 0);
@@ -446,7 +470,15 @@ function casarRelogio(texto: string, agoraMs: number): { resetEm: string; trecho
   if (sufixo === 'pm' && hora < 12) hora += 12;
   if (sufixo === 'am' && hora === 12) hora = 0;
   if (hora > 23 || minuto > 59) return null;
-  // Proxima ocorrencia daquela hora de relogio a partir de agora, no fuso da maquina.
+  // RM-037 (fatia 5): a proxima ocorrencia daquela hora depois da ancora, no fuso dito pelo runtime.
+  const fuso = fusoDito(texto, (m.index ?? 0) + m[0].length);
+  if (fuso) {
+    const p = partesLocais(agoraMs, fuso);
+    let alvo = instanteNoFuso(Number(p.ano), Number(p.mes), Number(p.dia), hora, minuto, fuso);
+    if (alvo <= agoraMs) alvo = instanteNoFuso(...diaSeguinte(Number(p.ano), Number(p.mes), Number(p.dia)), hora, minuto, fuso);
+    if (Number.isFinite(alvo)) return { resetEm: new Date(alvo).toISOString(), trecho: m[0].trim() };
+  }
+  // Sem fuso dito: a proxima ocorrencia daquela hora de relogio a partir da ancora, no fuso da maquina.
   const base = new Date(agoraMs);
   const alvo = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hora, minuto, 0, 0);
   if (alvo.getTime() <= agoraMs) alvo.setDate(alvo.getDate() + 1);

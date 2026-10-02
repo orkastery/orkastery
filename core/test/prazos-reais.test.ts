@@ -9,6 +9,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { naturezaDoLimite, parseFalhaDeConta, parseRateLimit } from '../src/adapters/claude-bg';
+import { FUSO_DE_BRASILIA, instanteNoFuso, partesLocais } from '../src/horario';
 import { lerLedger } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { lerPerfis } from '../src/runtime-profiles';
@@ -18,6 +19,8 @@ import { projetoTemporario, runtimePorConta } from './apoio';
 /** Agora fixo no relogio local: os runtimes escrevem a hora no fuso da maquina. */
 const AGORA = new Date(2026, 8, 19, 12, 0, 0, 0).getTime();
 const local = (a: number, m: number, d: number, h: number, min = 0) => new Date(a, m, d, h, min, 0, 0).toISOString();
+/** RM-037 (fatia 5): o Claude Code diz o fuso entre parenteses, e a hora e a desse fuso, nao a da maquina. */
+const noFuso = (a: number, m: number, d: number, h: number, min = 0) => new Date(instanteNoFuso(a, m + 1, d, h, min, FUSO_DE_BRASILIA)).toISOString();
 const CODEX_CREDITOS = "You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at";
 const CODEX_PLUS = "You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at";
 
@@ -56,13 +59,17 @@ test('N5 duracoes reais: dias e partes compostas somam; a de minuto da API conti
 
 test('N5 Claude Code: "resets Sep 22, 3pm (fuso)" e "resets Sep 22, 2027, 3:05pm" viram resetEm; virada de ano sem ano dito', () => {
   const semAno = parseFalhaDeConta("You've hit your limit · resets Sep 22, 3pm (America/Sao_Paulo)", AGORA);
-  assert.deepEqual([semAno?.motivo, semAno?.resetEm], ['runtime.quota-exhausted', local(2026, 8, 22, 15, 0)]);
+  assert.deepEqual([semAno?.motivo, semAno?.resetEm], ['runtime.quota-exhausted', noFuso(2026, 8, 22, 15, 0)]);
   const comAno = parseFalhaDeConta("You've hit your limit · resets Sep 22, 2027, 3:05pm (America/Sao_Paulo)", AGORA);
-  assert.equal(comAno?.resetEm, local(2027, 8, 22, 15, 5));
+  assert.equal(comAno?.resetEm, noFuso(2027, 8, 22, 15, 5));
   const reveillon = new Date(2026, 11, 31, 23, 0, 0, 0).getTime();
-  assert.equal(parseFalhaDeConta("You've hit your limit · resets Jan 2, 3pm (America/Sao_Paulo)", reveillon)?.resetEm, local(2027, 0, 2, 15, 0));
-  assert.equal(parseFalhaDeConta("You've hit your limit · resets 7pm (America/Sao_Paulo)", AGORA)?.resetEm, local(2026, 8, 19, 19, 0),
-    'a forma so com a hora segue igual');
+  assert.equal(parseFalhaDeConta("You've hit your limit · resets Jan 2, 3pm (America/Sao_Paulo)", reveillon)?.resetEm, noFuso(2027, 0, 2, 15, 0));
+  // A proxima 19:00 do fuso dito depois do AGORA (que e 12:00 no relogio desta maquina).
+  const p = partesLocais(AGORA, FUSO_DE_BRASILIA);
+  const hoje = noFuso(Number(p.ano), Number(p.mes) - 1, Number(p.dia), 19, 0);
+  const proxima = Date.parse(hoje) > AGORA ? hoje : noFuso(Number(p.ano), Number(p.mes) - 1, Number(p.dia) + 1, 19, 0);
+  assert.equal(parseFalhaDeConta("You've hit your limit · resets 7pm (America/Sao_Paulo)", AGORA)?.resetEm, proxima,
+    'a forma so com a hora segue valendo, no fuso dito');
   assert.equal(parseRateLimit('Rate limit reached; try again at Sep 22nd, 2026 3:05 PM.', AGORA)?.resetEm, local(2026, 8, 22, 15, 5),
     'a fila do rate limit comum le a mesma data');
 });
@@ -71,10 +78,11 @@ test('N5 despacho: a recusa com o prazo real do Claude Code marca o perfil ate o
   const p = projetoTemporario('n5-prazo-real');
   const claude = runtimePorConta('n5');
   try {
-    const alvo = new Date(Date.now() + 3 * 24 * 3600e3);
-    alvo.setHours(15, 0, 0, 0);
-    const mes = alvo.toLocaleString('en-US', { month: 'short' });
-    claude.conta(p.dir, 'a', { falha: `You've hit your limit · resets ${mes} ${alvo.getDate()}, 3pm (America/Sao_Paulo)` });
+    // RM-037 (fatia 5): o dia e as 15:00 do fuso dito, nao do relogio desta maquina.
+    const dia = partesLocais(Date.now() + 3 * 24 * 3600e3, FUSO_DE_BRASILIA);
+    const alvo = new Date(instanteNoFuso(Number(dia.ano), Number(dia.mes), Number(dia.dia), 15, 0, FUSO_DE_BRASILIA));
+    const mes = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(dia.mes) - 1];
+    claude.conta(p.dir, 'a', { falha: `You've hit your limit · resets ${mes} ${Number(dia.dia)}, 3pm (America/Sao_Paulo)` });
     claude.conta(p.dir, 'b');
     const t = novaThread(p.carregado, { nome: 'n5', modo: 'auto' }).thread;
     const r = rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo SIMULADO' });

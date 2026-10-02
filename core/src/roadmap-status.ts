@@ -32,7 +32,7 @@ import { BRANCH_DA_FABRICA, LIMIAR_SEM_BATIDA_MS, lerFabrica } from './fabrica-e
 import { linhaDoParadoNoCondutor } from './hitl-resumo';
 import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
-import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, lerRetratoDePrs } from './parado-no-condutor';
+import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, forjaSemLeituraDoRemoto, lerRetratoDePrs } from './parado-no-condutor';
 import { exec } from './util';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
@@ -210,8 +210,13 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
   const lerEntregas = (): EntregasDoProjeto | null => {
     if (entregas !== undefined) return entregas;
     try {
-      const retrato = lerRetratoDePrs(raiz);
-      entregas = entregasDoProjeto(exigirManifesto(raiz), { quando, lerPrs: () => (retrato ? { ok: true, retrato } : null) });
+      const carregado = exigirManifesto(raiz);
+      // RM-037 (fatia 5, A5): a forja sem leitura que o pulse ja disse vale sobre o retrato, que e de antes dela (a
+      // leitura boa apaga a marca), e a linha nao diz "PR nao lido".
+      const aviso = forjaSemLeituraDoRemoto(raiz, carregado.manifesto.fabrica.remoto);
+      const retrato = aviso ? null : lerRetratoDePrs(raiz);
+      entregas = entregasDoProjeto(carregado, { quando, lerPrs: () => (retrato ? { ok: true, retrato }
+        : aviso ? { ok: false, lidoEm: aviso.ditoEm, erro: aviso.motivo, semLeitura: { remoto: aviso.remoto, host: aviso.host } } : null) });
     } catch { entregas = null; }
     return entregas;
   };

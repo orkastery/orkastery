@@ -24,8 +24,8 @@ import { mergeDaThread, resolverBase } from './docs';
 import { liberarSeOrfa } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { linhaDoParadoNoCondutor } from './hitl-resumo';
-import { EntregasDoProjeto, entregasDoProjeto, ExecutorDoGh, gravarRetratoDePrs, LeituraDePrs, lerPrsDaForja, ParadoNoCondutor,
-  sessaoSemPergunta } from './parado-no-condutor';
+import { avisarForjaSemLeitura, EntregasDoProjeto, entregasDoProjeto, esquecerForjaSemLeitura, ExecutorDoGh, gravarRetratoDePrs,
+  LeituraDePrs, lerPrsDaForja, ParadoNoCondutor, sessaoSemPergunta } from './parado-no-condutor';
 
 export const CONTRATO_PULSE = 'ork.pulse/v1';
 export interface ItemPulse {
@@ -278,10 +278,19 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   try {
     entregas = entregasDoProjeto(carregado, { quando, sessoes: radar.sessoes, lerPrs: (candidatas): LeituraDePrs => {
       const leitura = lerPrsDaForja(carregado, { quando, executor: opcoes.executorDoGh, candidatas });
-      if (leitura.ok) { try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ } }
+      if (leitura.ok) {
+        try { gravarRetratoDePrs(carregado.raiz, leitura.retrato); } catch { /* o retrato e economia do status */ }
+        try { esquecerForjaSemLeitura(carregado.raiz); } catch { /* sem a marca, a proxima perda de leitura e dita de novo */ }
+      }
       return leitura;
     } });
-    if (entregas.prs && !entregas.prs.ok) diagnosticos.push(`prs.nao-lidos: ${entregas.prs.erro.slice(0, 160)}`);
+    const leitura = entregas.prs;
+    if (leitura && !leitura.ok && leitura.semLeitura) {
+      // RM-037 (fatia 5, A5): a forja sem leitura de PR e dita uma vez por remoto e host; as batidas seguintes nao repetem.
+      let novidade = true;
+      try { novidade = avisarForjaSemLeitura(carregado.raiz, leitura.semLeitura, leitura.erro, quando); } catch { /* sem marca, diz de novo */ }
+      if (novidade) diagnosticos.push(`prs.sem-leitura: ${leitura.erro.slice(0, 160)}`);
+    } else if (leitura && !leitura.ok) diagnosticos.push(`prs.nao-lidos: ${leitura.erro.slice(0, 160)}`);
   } catch (e) { diagnosticos.push(`entregas.indisponiveis: ${(e as Error).message.slice(0, 120)}`); }
   const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz),...(entregas?{entregas}:{})});
   const conducoes = monitor.linhas.filter((l) => l.conducao).map((l) => ({ thread: l.thread, linha: linhaDeConducao(l.conducao!, { agora: quando }) }));
@@ -300,7 +309,7 @@ export function textoDoPulse(p: Pulse): string {
   const local = (texto: string) => localizarTexto(texto, { agora: p.consultadoEm });
   const linhas=[`Pulse (${p.contrato}) ${formatarDataHoraRotulada(p.consultadoEm, { agora: p.consultadoEm })}`,`Precisa de humano agora: ${p.resumo.humanos}`, `${p.resumo.scores} entrega(s) sem nota, aceitas por padrão com registro`];
   // RM-037 (fatia 4): PR nao lido tambem e dito, para a falta de linha do condutor nao parecer "nada parado".
-  if(p.runtime.ok && ['liveness.snapshot.invalid', 'prs.nao-lidos', 'entregas.indisponiveis'].some(d => p.runtime.detalhe.includes(d))) {
+  if(p.runtime.ok && ['liveness.snapshot.invalid', 'prs.nao-lidos', 'prs.sem-leitura', 'entregas.indisponiveis'].some(d => p.runtime.detalhe.includes(d))) {
     linhas.push(`[diagnostico] ${local(p.runtime.detalhe)}`);
   }
   if(!p.runtime.ok) linhas.push(`[consulta incompleta] ${local(p.runtime.detalhe)}`);

@@ -153,6 +153,33 @@ export function dataLocal(quando: string | number | Date, fuso: string = fusoDoD
   return `${p.ano}-${p.mes}-${p.dia}`;
 }
 
+/** Quanto o relógio do fuso está à frente do UTC no instante, em milissegundos. */
+function desvioDoFuso(ms: number, fuso: string): number {
+  const p = partesLocais(ms, fuso);
+  return Date.UTC(Number(p.ano), Number(p.mes) - 1, Number(p.dia), Number(p.hora), Number(p.minuto), Number(p.segundo)) -
+    Math.floor(ms / 1000) * 1000;
+}
+
+/**
+ * RM-037 (fatia 5): o instante de um relógio num fuso IANA (mês de 1 a 12). O runtime diz a hora de
+ * volta da cota no fuso dele (`resets 4:40am (<fuso>)`), e lê-la no relógio desta máquina errava o
+ * prazo em quem roda noutro fuso. Fuso que o Intl recusa e data que não existe voltam NaN, sem chute.
+ * Na volta do horário de verão vale o primeiro dos dois instantes; o relógio que o salto pula cai
+ * depois do salto.
+ */
+export function instanteNoFuso(ano: number, mes: number, dia: number, hora: number, minuto: number, fuso: string): number {
+  const nome = normalizarFuso(fuso);
+  const base = Date.UTC(ano, mes - 1, dia, hora, minuto, 0, 0);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  if (!nome || !Number.isFinite(base) || data.getUTCFullYear() !== ano || data.getUTCMonth() !== mes - 1 ||
+      data.getUTCDate() !== dia) return NaN;
+  // Os desvios de um dia antes e de um dia depois cobrem os dois lados de qualquer mudança de horário.
+  const candidatos = [...new Set([base - 86400000, base, base + 86400000].map((ms) => base - desvioDoFuso(ms, nome)))]
+    .sort((a, b) => a - b);
+  const exatos = candidatos.filter((ms) => ms + desvioDoFuso(ms, nome) === base);
+  return exatos[0] ?? base - desvioDoFuso(base - 86400000, nome);
+}
+
 // ---------------------------------------------------------------------------
 // Texto para pessoa
 // ---------------------------------------------------------------------------
