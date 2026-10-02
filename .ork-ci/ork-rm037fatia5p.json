@@ -1,0 +1,376 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037fatia5p",
+  "branch": "ork/ork-rm037fatia5-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "RM-037 fatia 5, A1: com a branch ja incorporada e a base andando depois do merge que a trouxe, o ork ship grava no ship_done o mergeSha do commit de primeiro pai da base que incorporou o shaDe (o merge, ou o proprio shaDe quando a base avancou por fast-forward) e a ponta da base no campo pontaDaBase; a prova do push compara o ls-remote com a pontaDaBase; o recibo de entrega do Maestro aceita o ship_done novo e continua aceitando o legado sem o campo; o teste reprova o codigo anterior",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:21.816Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "RM-037 fatia 5, A1 no leitor do trabalho parado: o ship_done ja gravado cujo mergeSha descende do merge ship(<thread>) mais novo da base conta como entrega registrada, e a thread nao sai como parado no condutor no caso sem-registro; o merge ship(<thread>) sem ship_done, ou com o ship_done de uma entrega anterior a ele, continua saindo com o passo de registrar a entrega",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:26.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "RM-037 fatia 5, A3: no #Auto, o CHECK que o observador viu terminar em done com o Stop e sem exatamente um veredito no docs/check.md sai do dono (pendenciaDoDono nulo, fora de precisaDeHumanoAgora no pulse, esperaVoce falso no retrato da maquina) e vira a linha parado no condutor com o passo redespachar o CHECK (ork phase run <thread> CHECK --prompt \"<pedido da fase>\"), antes de qualquer caso de entrega da branch; fora do #Auto o mesmo resultado segue com o dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-check-sem-veredito.test.js core/dist-test/test/rm037-fatia4-parado-no-condutor.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:29.698Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "RM-037 fatia 5, A5: com o remoto fora do GitHub (forja gitlab, caminho local ou host em que gh auth status --hostname falha), a leitura dos PRs nunca chama gh pr list e volta como forja sem leitura de PR; o pulse diz uma vez, na primeira batida, prs.sem-leitura com o remoto e o host, e as batidas seguintes nao repetem enquanto a forja for a mesma; os passos, o resumo da entrega e o status do roadmap dizem forja sem leitura de PR, e nenhum diz PR nao lido para essa forja",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:32.052Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "RM-037 fatia 5, A5 com GitHub Enterprise: com o remoto num host proprio (com ou sem github no nome) em que gh auth status --hostname <host> passa, o pulse le os PRs com gh pr list --repo=<host>/<dono>/<repo>, grava o retrato ork.prs-abertos/v1 com o host, e o status do roadmap usa esse retrato; o retrato de outro host nao vale; identidadeDaForja segue igual para os outros chamadores",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js core/dist-test/test/forja.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:35.020Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "RM-037 fatia 5, item 2: a hora de volta dita com o fuso IANA entre parenteses (resets 4:40am (<fuso>) e resets Sep 22, 3pm (<fuso>)) e calculada nesse fuso, a partir do instante da mensagem, com o processo em qualquer fuso (o mesmo resultado com TZ=UTC e TZ=Pacific/Auckland); sem fuso, ou com fuso invalido, vale o relogio da maquina como antes",
+      "negativa": false,
+      "verificar": [
+        "TZ=UTC node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js",
+        "TZ=Pacific/Auckland node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:37.479Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/session-watcher-claude.ts",
+      "alegacao": "RM-037 fatia 5, item 2: com a transcricao real do limite de gasto (fixture sem nome de conta nem caminho de maquina), o observador da sessao claude-bg viva (working ou blocked, sem Stop) reconhece a cota na volta seguinte a linha aparecer, pelas mesmas frases do rodizio (D16), marca o perfil esgotado ate a hora da mensagem no fuso dela (07:40Z para resets 4:40am lido as 06:00Z de 02/10) ou por 1 h contada da mensagem quando ela nao diz a hora, grava runtime_quota_detected no ledger uma vez so, nao fecha a fase e nao marca de novo o mesmo erro no fecho; 429 transitorio e erro anterior ao despacho nao marcam",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:40.436Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-profiles.ts",
+      "alegacao": "RM-037 fatia 5, item 2: depois da marca ao vivo, o despacho seguinte do mesmo runtime pula o perfil esgotado e sai pelo outro perfil ativo (rotate_same_runtime_on_quota no padrao); com rotate_same_runtime_on_quota false, o despacho recusa com runtime.quota-exhausted sem abrir sessao; ork accounts list mostra o perfil no estado esgotado com a coluna ESGOTADO ATE preenchida no fuso do dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:43:42.797Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+      "alegacao": "RM-037 fatia 5: a pagina da RM-037 descreve a fatia 5 (thread ork-rm037fatia5p, testes rm037-fatia5-*), tira A1, A3 e A5 do bloco Falta da rodada 5, mantem o registro de instabilidade e o steal como pendentes, passa no markdownlint e nos links, e o ork docs verificar nao acusa a RM-037",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'thread `ork-rm037fatia5p`, fatia 5' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "! grep -q 'Falta, da revisão da rodada 5 do CHECK da fatia 4' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "grep -q 'Falta: o registro de instabilidade do P6 e o verify ciente do steal' docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-037-verify-rapido-e-confiavel.md",
+        "node core/scripts/checar-links.cjs",
+        "node core/dist/index.js docs verificar --json | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const e=JSON.parse(s).achados.filter(a=>a.gravidade===\"erro\");const ruim=e.filter(a=>![\"docs.paridade.merge\",\"docs.paridade.indice\"].includes(a.regra)||a.id===\"RM-037\");if(ruim.length){console.error(JSON.stringify(ruim));process.exit(1)}console.log(e.length+\" erro(s), nenhum da RM-037\")})'"
+      ],
+      "criadoEm": "2026-10-02T17:43:51.238Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-037 fatia 5: o CHANGELOG ganha em Nao publicado a linha da fatia (mergeSha do merge que incorporou a branch, CHECK sem veredito no condutor, forja sem leitura de PR dita uma vez e GitHub Enterprise, cota vista ao vivo com o perfil esgotado ate a hora da mensagem no fuso dela), e o checador do CHANGELOG passa contra origin/main",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{f=1;next} /^## /{f=0} f' CHANGELOG.md | grep -q 'limite de gasto'",
+        "node core/scripts/checar-changelog.cjs --base origin/main"
+      ],
+      "criadoEm": "2026-10-02T17:43:54.036Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/horario.ts",
+      "alegacao": "RM-037 fatia 5: instanteNoFuso devolve o instante UTC de um relogio num fuso IANA (04:40 de 02/10/2026 em Brasilia e 07:40Z), vale o primeiro instante na volta do horario de verao, cai depois do salto no relogio que nao existe, e devolve NaN para data ou fuso invalidos; o fuso literal e o timeZone do Intl continuam so neste arquivo (lint de horario)",
+      "negativa": true,
+      "verificar": [
+        "TZ=UTC node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js",
+        "node --test core/dist-test/test/horario.test.js core/dist-test/test/horario-lint.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:54:32.382Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-fuso-do-reset.test.ts",
+      "alegacao": "RM-037 fatia 5: o teste da hora de volta no fuso dito usa os dois textos reais do limite de gasto (4:40am de 02/10 e 1:40pm de 29/09/2026) e confere o resultado contra o quotaLimits.resetsAt da mesma linha; passa com o processo em UTC, em Pacific/Auckland e em Asia/Kolkata",
+      "negativa": false,
+      "verificar": [
+        "TZ=UTC node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js",
+        "TZ=Pacific/Auckland node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js",
+        "TZ=Asia/Kolkata node --test core/dist-test/test/rm037-fatia5-fuso-do-reset.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:54:35.398Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/prazos-reais.test.ts",
+      "alegacao": "RM-037 fatia 5: os testes N5 das formas reais do Claude Code com o fuso entre parenteses esperam o instante nesse fuso (e nao no relogio da maquina), e a forma do Codex sem fuso continua no relogio da maquina; o arquivo passa com o processo em UTC e em America/Sao_Paulo",
+      "negativa": false,
+      "verificar": [
+        "TZ=UTC node --test core/dist-test/test/prazos-reais.test.js",
+        "TZ=America/Sao_Paulo node --test core/dist-test/test/prazos-reais.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:54:37.579Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/ratelimit.ts",
+      "alegacao": "RM-037 fatia 5: prazoDaCotaVista da a hora dita (ancorada na mensagem) ou a janela padrao contada da mensagem, e null quando o prazo ja venceu; marcarContaDaFalha aceita o prazo ja calculado por quem viu a cota e, sem ele, segue prazoDaConta como antes (A10 do despacho recusado)",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js core/dist-test/test/prazo-da-conta.test.js core/dist-test/test/cota-terminal.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:02:39.829Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/ledger.ts",
+      "alegacao": "RM-037 fatia 5: o catalogo de eventos do ledger tem runtime_quota_detected (cotaVistaNaTranscricao), o evento que o observador grava quando ve a cota na transcricao com a sessao viva",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"cotaVistaNaTranscricao: 'runtime_quota_detected'\" core/src/ledger.ts",
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:02:41.577Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-cota-ao-vivo.test.ts",
+      "alegacao": "RM-037 fatia 5: o teste da cota ao vivo usa a fixture real e o relogio do incidente (erro 06:00:07Z, volta 5 s depois, redespacho 06:14:40Z): o perfil sai do rodizio ate 07:40Z com a sessao blocked ou working, o redespacho escolhe o outro perfil (antes da marca escolhia o mesmo), a troca desligada recusa pela cota, o ork accounts list e a linha da tabela mostram o prazo, as contraprovas nao marcam, o fecho nao marca de novo e o rodarFase real sai pelo outro perfil; passa com o processo em UTC",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js",
+        "TZ=UTC node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:02:44.633Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/entrega-pr.ts",
+      "alegacao": "RM-037 fatia 5, A1: o ork ship registrar-pr grava no ship_done a pontaDaBase (a ponta que o ls-remote provou) ao lado do mergeSha do merge ship(<thread>), e o recibo do Maestro aceita esse ship_done mesmo com a base andando depois do merge",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js core/dist-test/test/entrega-pr.test.js core/dist-test/test/rm037-fatia3-registrar-pr-ensaio.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:07:31.264Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/maestro-runtime.ts",
+      "alegacao": "RM-037 fatia 5, A1: o recibo de entrega do Maestro aceita o push provado com shaRemoto igual a pontaDaBase (ou ao mergeSha, no recibo legado sem o campo) e continua invalido quando o shaRemoto contradiz a propria ponta",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js core/dist-test/test/maestro-runtime.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:07:33.596Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-merge-incorporado.test.ts",
+      "alegacao": "RM-037 fatia 5, A1: o teste monta o merge do PR na main, a base andando com o merge de outra thread e o push num remoto bare; prova o mergeSha do merge que trouxe a branch e a ponta em pontaDaBase no ork ship (com merge e no fast-forward), o registrar-pr com a ponta, o recibo do Maestro novo, legado e adulterado, e o leitor do trabalho parado com o ship_done legado, o merge sem registro e a entrega nova depois do registro",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-merge-incorporado.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:07:36.154Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-check-sem-veredito.test.ts",
+      "alegacao": "RM-037 fatia 5, A3: o teste usa o formato real do phase_result da ork-pacotedeexpe (30/09) e prova, no #Auto, o CHECK em done sem o veredito fora do dono, com o caso check-sem-veredito antes da branch sem push, o passo de redespachar o CHECK, a linha no texto do pulse e esperaVoce falso; e as contraprovas: #Maestro e #Classic com o dono, CHECK com veredito e em blocked sem o caso novo, abaixo do limiar sem linha e a sessao retomada com o dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-check-sem-veredito.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:11:48.669Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia4-parado-no-condutor.test.ts",
+      "alegacao": "RM-037 fatia 5, A3: no teste B1 da rodada 5 da fatia 4, a thread #Auto do CHECK em done sem o veredito deixa de ser contraprova do dono e passa a provar o caso check-sem-veredito (fora de Esperando voce e esperaVoce falso); as contraprovas do SHIP em failed, em stopped e em done sem a prova registrada seguem com o dono",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia4-parado-no-condutor.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:11:51.007Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/src/roadmap-status.ts",
+      "alegacao": "RM-037 fatia 5, A5: o ork roadmap status, sem rede e sem gh, le a marca da forja sem leitura que o pulse gravou para o remoto de agora (mesmo nome e host) e diz branch publicada, forja sem leitura de PR, com o passo sem PR nao lido; a marca vale sobre um retrato de antes dela; com GitHub Enterprise, usa o retrato com o host",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js core/dist-test/test/rm037-fatia4-status-honesto.test.js core/dist-test/test/roadmap-status.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:19:25.869Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia5-forja-sem-leitura.test.ts",
+      "alegacao": "RM-037 fatia 5, A5: o teste prova, com um gh simulado que conta as chamadas, o GitLab dito uma vez sem nenhuma chamada ao gh, as batidas seguintes quietas e sem PR nao lido, o caminho local e o host proprio sem login como forja sem leitura (so o auth status roda), o GitHub Enterprise lido com --repo=<host>/<dono>/<repo> e o retrato com o host, o retrato do github.com recusado para o host proprio, e a marca que sai quando a leitura volta e volta quando ela cai",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia5-forja-sem-leitura.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:19:29.004Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/transcricao-limite-de-gasto-2026-10-02.jsonl",
+      "alegacao": "RM-037 fatia 5, item 2: a fixture traz as linhas reais da transcricao do Claude Code na madrugada de 02/10/2026 (o erro de API do limite de gasto com quotaLimits, o turn_duration e o cost-state), com sessao, request, cwd e ids trocados por valores simulados: nenhum caminho de usuario (/home, /Users, /root), nenhum e-mail e o cwd simulado",
+      "negativa": true,
+      "verificar": [
+        "grep -q \"You've hit your individual spend limit\" core/test/fixtures/transcricao-limite-de-gasto-2026-10-02.jsonl",
+        "! grep -qE '/(home|Users|root)/|[A-Za-z0-9._-]+@[a-z0-9-]+\\.[a-z]' core/test/fixtures/transcricao-limite-de-gasto-2026-10-02.jsonl",
+        "grep -q '\"cwd\":\"/tmp/projeto-simulado\"' core/test/fixtures/transcricao-limite-de-gasto-2026-10-02.jsonl",
+        "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
+      ],
+      "criadoEm": "2026-10-02T18:30:23.594Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C12",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C27",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
