@@ -332,11 +332,13 @@ Veja [os contratos de governança e migração](../guias/memoria-e-handoff.md) e
 ## Grafo de código (RM-031, KG3)
 
 O índice persistente e a consulta do [grafo determinístico](contratos/indice-grafo-kg3.md). O
-índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD.
+índice mora no estado do projeto, fora do git, e responde pela revisão do HEAD. Desde o
+[KG4](contratos/incremental-grafo-kg4.md), o índice de uma revisão parte do índice ancestral e
+reextrai só o que a mudança alcança, com os mesmos bytes da extração completa.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever); `--verificar` extrai de novo e confere contrato, bytes e determinismo; `--forcar` extrai de novo e só troca os arquivos se o conteúdo mudou |
+| `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
 | `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
 | `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json]` | Quem chama: as arestas `calls` que chegam ao símbolo |

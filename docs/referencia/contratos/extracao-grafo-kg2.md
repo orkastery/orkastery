@@ -8,15 +8,15 @@ thread `ork-rm031kg2extr`, mais a D16 (o V8 como juiz de sintaxe do JavaScript).
 
 O KG2 entregou a extração e um comando provisório para prová-la, que o
 [KG3](indice-grafo-kg3.md) substituiu pelo `ork grafo`: o índice persistente, a consulta, a prova
-da extração e a amostra auditada. Extração incremental (KG4), consumo pelas fases (KG5),
-federação (KG6) e paridade entre hosts (KG7) seguem fora.
+da extração e a amostra auditada. A extração incremental é o [KG4](incremental-grafo-kg4.md);
+consumo pelas fases (KG5), federação (KG6) e paridade entre hosts (KG7) seguem fora.
 
 ## O que o KG2 garante e o que não garante
 
 | Garante | Não garante |
 | --- | --- |
 | Grafo que passa em `validarGrafo`, com spans que passam em `conferirFontes` contra os bytes lidos | Que toda relação do código foi extraída: o que não se prova fica fora |
-| Mesma entrada, mesmo grafo, mesmo digest e mesmo relatório, em qualquer ordem de leitura | Estabilidade de identidade entre revisões (KG4) |
+| Mesma entrada, mesmo grafo, mesmo digest e mesmo relatório, em qualquer ordem de leitura | Estabilidade de identidade entre revisões: os IDs derivam do snapshot, também no [KG4](incremental-grafo-kg4.md) |
 | Aresta só com prova do compilador TypeScript, de link explícito, de frontmatter ou de ID citado | Que uma chamada extraída de fato executa |
 | O que ficou fora declarado: diagnóstico do contrato ou lacuna do relatório | Ausência de aresta falsa no universo: isso é a auditoria integral do [benchmark](benchmark-grafo-kg1.md) |
 
@@ -195,7 +195,8 @@ O comando provisório do KG2 prova a extração até o KG3, que o substituiu pel
 ([referência](indice-grafo-kg3.md#o-que-o-comando-provisório-fazia-e-onde-ficou)). Precisa do
 core compilado e do `typescript` e do micromark instalados com o `ork`, e roda o juiz de sintaxe
 num processo filho do próprio Node para o ESM. Lê o repositório inteiro em memória a cada
-construção; repositório grande é assunto do KG4 (incremental).
+construção sem base; com o índice de uma revisão anterior, o [KG4](incremental-grafo-kg4.md) reextrai só o
+que a mudança alcança.
 
 ```sh
 npm --prefix core run build

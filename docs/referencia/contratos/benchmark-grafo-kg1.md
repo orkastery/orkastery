@@ -9,7 +9,9 @@ decisões D1, D6, D7, D8 e D10 da thread `ork-i31kg1contra`
 
 O KG1 entrega o formato, a validação do registro e a avaliação pura de registros já
 fornecidos. **Não executa o experimento.** Nenhum número deste contrato ou do corpus é
-medida de economia, latência ou relevância estatística.
+medida de economia, latência ou relevância estatística. A parte determinística medida, o
+registro com o protocolo fixado (`not-run`) e o harness da rodada paga vieram no
+[KG4](incremental-grafo-kg4.md#linha-de-base-do-protocolo); a rodada paga segue pendente.
 
 ## Desenho do experimento
 

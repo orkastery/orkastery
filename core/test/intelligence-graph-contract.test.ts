@@ -4,7 +4,8 @@
  * Tres grupos, cada um com casos positivos e negativos: "KG1 graph" (identidade, vocabulario e
  * estrutura), "KG1 provenance" (evidencia contra fontes fornecidas) e "KG1 security" (tenant, ACL,
  * caminhos e recusa de inferencia). Os casos invalidos moram no corpus, para outra implementacao
- * poder rodar a mesma conformidade; aqui ficam os que precisam de bytes ou de recalculo.
+ * poder rodar a mesma conformidade; aqui ficam os que precisam de bytes ou de recalculo. RM-031 KG4
+ * (D6): "KG4 piso" confere que o `canonico` rapido e a conferencia sem nova validacao dao a mesma saida.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -14,7 +15,7 @@ import * as path from 'node:path';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {
   CLASSE_DE_CONFIANCA, GRAFO_SCHEMA, METODOS_DE_EXTRACAO, TIPOS_DE_ARESTA, TIPOS_DE_NO, caminhoValido, canonico, compararUtf8,
-  conferirFontes, derivarIds, digestDoGrafo, grafoSchema, idDoNo, validarGrafo,
+  conferirFontes, conferirFontesDoGrafoValidado, derivarIds, digestDoGrafo, grafoSchema, idDoNo, validarGrafo,
   type FonteFornecida, type GrafoCodigo,
 } from '../src/intelligence-graph-contract';
 
@@ -373,4 +374,72 @@ test('KG1 security: erro de validacao nao ecoa caminho nem conteudo da fonte', (
   const fontes = fontesDoCorpus();
   assert.throws(() => conferirFontes(GRAFO, trocar(fontes, `src/${segredo}.ts`, { tipo: 'texto', bytes: Buffer.from(segredo) })),
     (e: unknown) => e instanceof Error && !e.message.includes(segredo));
+});
+
+/** A forma original do `canonico` (KG1), referencia da saida: `map` e `join`, chaves ordenadas a cada objeto. */
+function canonicoDeReferencia(v: unknown): string {
+  if (v === null || typeof v === 'boolean' || typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) throw new Error('grafo.canonico.numero-invalido');
+    return JSON.stringify(v);
+  }
+  if (Array.isArray(v)) return `[${v.map(canonicoDeReferencia).join(',')}]`;
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o).sort(compararUtf8).map((k) => `${JSON.stringify(k)}:${canonicoDeReferencia(o[k])}`).join(',')}}`;
+  }
+  throw new Error('grafo.canonico.tipo-invalido');
+}
+
+const mesmoErro = (f: () => unknown, g: () => unknown): void => {
+  let a = '', b = '';
+  try {
+    f();
+  } catch (e) {
+    a = (e as Error).message;
+  }
+  try {
+    g();
+  } catch (e) {
+    b = (e as Error).message;
+  }
+  assert.ok(a !== '', 'o canonico devia recusar');
+  assert.equal(a, b);
+};
+
+test('KG4 piso: canonico rapido da a mesma saida da referencia no corpus e em formas dificeis', () => {
+  for (const v of [corpus.graph, corpus, derivarIds(corpus.graph), validarGrafo(corpus.graph)]) assert.equal(canonico(v), canonicoDeReferencia(v));
+  const esparso: unknown[] = [1, , 3]; // eslint-disable-line no-sparse-arrays
+  esparso[6] = 'x';
+  const casos: unknown[] = [
+    {}, [], '', 0, -0, -1.5, 1e21, 2 ** 53, true, false, null, [[[]]], [{}, [{}]], esparso,
+    { b: 1, a: 2 }, { a: 2, b: 1 }, { '': 1 }, { '': { '': [] } }, { 'a\u0000b': 1 }, { a: 1, b: { c: [1, { e: 1, d: 2 }] } },
+    { '10': 'dez', '2': 'dois', b: 'b', a: 'a' }, { 'é': 1, e: 2, 'ê': 3, '\u{1F600}': 4, '\uFFFF': 5, z: 6 },
+    { snapshot_id: 'snap-x', path: 'a', span: { byte_end: 2, byte_start: 1, type: 'text' }, access: { tenant_id: 't', acl_refs: ['r'] } },
+    'aspas " e barra \\ e controle \u0001 e  ', { lista: ['b', 'a'], ['chave com "aspas"']: '\n' },
+  ];
+  for (const v of casos) assert.equal(canonico(v), canonicoDeReferencia(v), JSON.stringify(v));
+  // Mesmas chaves em outra ordem de insercao: a forma guardada nao se confunde.
+  assert.equal(canonico({ x: 1, y: 2, z: 3 }), canonico({ z: 3, y: 2, x: 1 }));
+  assert.equal(canonico({ a: 1, b: 2 }), '{"a":1,"b":2}');
+  assert.equal(canonico({ a: 1, c: 2 }), '{"a":1,"c":2}');
+  // Mais formas que o teto: as que ficam fora seguem certas.
+  for (let i = 0; i < 5000; i++) {
+    const o: Record<string, number> = { [`k${(i * 7919) % 5003}`]: i, a: i, [`z${i}`]: -i };
+    assert.equal(canonico(o), canonicoDeReferencia(o));
+  }
+  // Mesmo primeiro erro, na mesma ordem de visita.
+  for (const ruim of [{ b: Number.NaN, a: undefined }, { a: Infinity }, [1, undefined], { c: () => 1 }, { b: [1, Symbol('s')], a: [Number.NaN] }, 10n]) {
+    mesmoErro(() => canonico(ruim), () => canonicoDeReferencia(ruim));
+  }
+});
+
+test('KG4 piso: conferir as fontes do grafo ja validado da o mesmo resultado e os mesmos erros de conferirFontes', () => {
+  const validado = validarGrafo(GRAFO), fontes = fontesDoCorpus();
+  assert.deepEqual(conferirFontesDoGrafoValidado(validado, fontes), conferirFontes(GRAFO, fontes));
+  assert.deepEqual(conferirFontesDoGrafoValidado(validado, new Map()), conferirFontes(GRAFO, new Map()));
+  const app = fontes.get('src/app.ts') as FonteFornecida;
+  const trocado = new Map(fontes);
+  trocado.set('src/app.ts', { tipo: 'texto', bytes: Buffer.concat([Buffer.from(app.bytes), Buffer.from('\n')]) });
+  mesmoErro(() => conferirFontesDoGrafoValidado(validado, trocado), () => conferirFontes(GRAFO, trocado));
 });
