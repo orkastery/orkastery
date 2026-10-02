@@ -52,7 +52,12 @@ export type ComoResponder =
   /** Dialogo nativo do host (MCP): o dono seleciona a opcao; a letra digitada tambem vale. */
   | { tipo: 'dialogo' }
   /** Pergunta aberta: o texto e enviado literalmente. */
-  | { tipo: 'texto' };
+  | { tipo: 'texto' }
+  /**
+   * RM-055: o impedimento do despacho que so o dono resolve. Ele roda o comando da pausa no terminal e a
+   * recomendada vira o comando que devolve a fase ao runtime, sem reescrever o pedido.
+   */
+  | { tipo: 'terminal'; comando: string };
 
 export interface AlternativaCurta {
   /** O que o dono digita: a letra no v2. */
@@ -156,6 +161,7 @@ export function linhaDeResposta(p: PedidoCurto, canal: CanalDoPedido): string | 
   const r = p.responder, recomendada = p.alternativas.find(a => a.recomendada)!.chave;
   if (r.tipo === 'numero') return null;
   if (r.tipo === 'texto') return `${canal === 'telegram' ? '↩️ ' : ''}Responda escrevendo o texto; ele é enviado como está.`;
+  if (r.tipo === 'terminal') return `${canal === 'telegram' ? '↩️ ' : 'Responder: '}feito o comando, ${recomendada}) é \`${r.comando}\`.`;
   if (r.tipo === 'dialogo') return `${canal === 'telegram' ? '↩️ ' : ''}Responda selecionando a opção no diálogo; digitar a letra também vale.`;
   return canal === 'telegram'
     ? `↩️ Responda: ${r.codigo} ${recomendada} (ou outra letra). Evidências: ${r.codigo} detalhes.`

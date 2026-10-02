@@ -7,6 +7,7 @@ import { ManifestoCarregado } from './manifest';
 import { pendentesDeScore, PendenteDeScore, ORDEM_DAS_CLASSES } from './master';
 import { assinaturaProposta } from './master-batch';
 import { montarMonitor } from './orquestracao';
+import { pedidoCurtoDoImpedimento } from './impedimento';
 import { dirThread, lerThread } from './thread';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { lerLedger } from './ledger';
@@ -175,6 +176,16 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
       thread:l.thread,fase:p.fase,sessionId:null,desdeEm:p.desdeEm,paradaHaMin:p.paradaHaMin,impacto:impacto(p.fase),
       pergunta:p.detalhe,opcoes:[],recomendacao:p.correcao,comandoResposta:p.correcao,evidencia:[p.evidencia],
       fontes:['monitor'],contextoLogs:[]};
+    // RM-055: o impedimento do despacho sai no contrato curto, com o comando exato e o re-despacho depois.
+    if (p.impedimento) {
+      try {
+        const curto = pedidoCurtoDoImpedimento({ thread: l.thread, fase: p.fase, motivo: p.motivo, detalhe: p.detalhe,
+          desdeEm: p.desdeEm, impedimento: p.impedimento }, quando);
+        item.apresentacaoCurta = { telegram: textoDoPedidoCurto(curto, 'telegram'), terminal: textoDoPedidoCurto(curto, 'terminal') };
+        item.opcoes = curto.alternativas.map(a => `${a.chave}. ${a.texto}`);
+        item.comandoResposta = `ork retry run ${l.thread}`;
+      } catch { item.evidencia.push('Pedido curto do impedimento indisponível; a correção acima vale.'); }
+    }
     // I-45: vaga parada e sinal do escalonador (`ork board reap` devolve a vaga), nao pergunta ao dono.
     const esperaAutomatica=['lease.busy','conducao.em-andamento','concurrency.limite','runtime.rate-limited','vaga.stale'].includes(p.motivo);
     (esperaAutomatica?automaticas:humanos).push(item);

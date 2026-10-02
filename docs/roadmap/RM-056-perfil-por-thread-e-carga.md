@@ -6,23 +6,23 @@ categoria: iniciativa
 pai: null
 features: [FEAT-037]
 owner: Julio
-atualizado_em: 2026-10-01T05:16:01+00:00
+atualizado_em: 2026-10-02T16:39:10+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: PR aberto
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 6e1940c
+    commit: 0a914b0
     pr: 37
 sdlc:
   thread: ork-rm056perfil
   modo: "#Auto"
-  fase: GOAL
+  fase: MASTER
   status: aberta
 ---
 
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | PR aberto | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -86,13 +86,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | PR aberto | commit `6e1940c` · PR #37 | 2026-10-01 | Julio |
-| Testes | Em execução | — | 2026-10-01 | Julio |
-| Deploy | Não implantado | — | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
+| Documentação | Em revisão | — | 2026-10-02 | Julio |
+| Código | Mesclado | commit `0a914b0` · PR #37 | 2026-10-02 | Julio |
+| Testes | Em execução | — | 2026-10-02 | Julio |
+| Deploy | Não implantado | — | 2026-10-02 | Julio |
+| Exposição | Flag desligada | — | 2026-10-02 | Julio |
+| Habilitação | Pendente | — | 2026-10-02 | Julio |
 
 <!-- ork-docs:estado:fim -->
 

@@ -182,6 +182,8 @@ não compila sem política).
 | `runtime.quota-exhausted` | reexecutar com rotação | sim | A cota, os créditos ou o limite do plano da **conta** acabaram: o perfil sai do rodízio e o mesmo prompt segue no próximo perfil, no runtime de fallback ou na fila (I-33) |
 | `runtime.auth-missing` | reexecutar com rotação | sim | A conta perdeu o login: o perfil nunca mais recebe despacho até o login ser refeito pelo próprio CLI (I-33) |
 | `runtime.model-unavailable` | reexecutar com troca de destino | sim | O modelo pedido não existe ou a conta não tem acesso a ele (`model_not_found`): o perfil segue no rodízio, e o mesmo prompt vai a outro perfil com o mesmo modelo ou ao fallback do bloco; sem destino, o humano recebe a correção exata (RM-037) |
+| `runtime.workspace-untrusted` | reexecutar depois do dono | sim, depois do aceite | O runtime recusou o diretório da worktree (`Workspace not trusted`). Só o dono aceita a confiança no terminal: a fase vira espera dele, com o comando exato, e `ork retry run` só re-despacha o mesmo prompt quando o `.claude.json` da conta já confia no diretório (RM-055) |
+| `runtime.consent-pending` | reexecutar depois do dono | sim, depois do aceite | O CLI do runtime espera o dono aceitar termos novos: a fase vira espera dele, e o retry re-despacha o mesmo prompt; se o runtime recusar de novo, a mesma espera volta (RM-055) |
 | `ci.failed` | escalar-humano | **não** | O recibo pertence ao provedor e ao SHA candidato: repetir a fase não cria esse resultado |
 | `policy.violation` | escalar-humano | **não** | Policy `block` em qualquer modo: reexecutar sozinho seria a máquina revogando a policy |
 | `human.pending` | escalar-humano | **não** | Não é reprovacao, e espera de autorização. Automatizar seria a máquina se autorizando |

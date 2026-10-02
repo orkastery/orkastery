@@ -23,6 +23,7 @@ import { definicaoDoModo, INVARIANTES } from './modos';
 import { registrarGateBloqueado } from './gates';
 import { avaliarPolicies, avisos, bloqueantes, motivoDominante, ViolacaoDePolicy } from './policies';
 import { enfileirar, marcarContaDaFalha } from './ratelimit';
+import { registrarImpedimentoDoDono } from './impedimento';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
@@ -1168,6 +1169,16 @@ function rodarFaseSobLock(
         };
       }
 
+      // RM-055: o que so o dono resolve no terminal vira a pausa dele, com o comando exato e o que o ork
+      // faz depois. O prompt ja esta gravado com o sha256 acima, e e ele que o retry re-despacha.
+      const impedimento = registrarImpedimentoDoDono(dir, thread, { fase, slug, runtime, cwd, origem: 'phase.run',
+        promptPath, promptSha256: sha, perfil, saida: `${resultado.stderr}\n${erro}` });
+      if (impedimento) {
+        return { thread, slug, promptPath, promptSha256: sha, comando: resultado.comando, controlador: resultado.controlador,
+          sessionId: null, verificada: false, pausaAoFim, dryRun: false, runtime, model, effort, bloqueado: false,
+          motivo: impedimento.motivo, violacoes, naFila: null, erro: `${impedimento.motivo}: ${impedimento.trecho}` };
+      }
+
       return {
         thread,
         slug,
@@ -1287,3 +1298,4 @@ export function descreverSlug(slug: string): string {
   const rot = p.rotacao ? `, rotacao ${p.rotacao}` : '';
   return `produto "${p.produto}", assunto "${p.assunto}", fases "${p.fases}"${rot}`;
 }
+

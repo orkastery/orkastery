@@ -41,6 +41,7 @@ import {
   PAUSA_PREVISTA,
 } from './ocupacao';
 import { faltaPara, lerFilaDeRetomada } from './ratelimit';
+import { ehEsperaDoDono, ehImpedimentoDoDono, impedimentoDoEvento } from './impedimento';
 import { blocoDaThread, dirThread } from './thread';
 import {
   EventoLedger,
@@ -203,7 +204,8 @@ function pausasAbertas(
   // ESCALADA do bloco B3 (limite de tentativas estourado), que pausa qualquer modo,
   // inclusive `#Auto` -- que por definicao nao tem pausa prevista no ledger.
   eventos.forEach((e, i) => {
-    if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado || e.motivo !== 'human.pending') return;
+    // RM-055: o impedimento do despacho que so o dono resolve tambem e espera dele.
+    if (!ehEsperaDoDono(e, TIPOS_DE_EVENTO.gateBloqueado)) return;
     const resolvido = eventos
       .slice(i + 1)
       .some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
@@ -212,15 +214,17 @@ function pausasAbertas(
     const chave = fase ?? `gate-${i}`;
     if (porFase.has(chave)) return;
     const { bloco, pausaSobre } = blocoDaFase(thread, fase);
+    const imp = ehImpedimentoDoDono(e.motivo) ? impedimentoDoEvento(e) : null;
     porFase.set(
       chave,
       parada(
         {
           natureza: 'pausa-humana',
-          motivo: 'human.pending',
+          motivo: imp ? (e.motivo as MotivoGate) : 'human.pending',
           fase,
           bloco,
-          pausaSobre: pausaSobre || 'autorizacao da retomada',
+          pausaSobre: imp ? `rodar \`${imp.comando}\` no terminal` : pausaSobre || 'autorizacao da retomada',
+          ...(imp ? { impedimento: imp } : {}),
           detalhe: typeof e.detalhe === 'string' && e.detalhe !== ''
             ? e.detalhe
             : DESCRICAO_DO_MOTIVO['human.pending'],
@@ -331,7 +335,7 @@ function impedimentosAbertos(
   eventos.forEach((e, i) => {
     if (e.tipo !== TIPOS_DE_EVENTO.gateBloqueado && e.tipo !== 'phase_wait') return;
     const motivo = e.motivo as MotivoGate;
-    if (motivo === 'human.pending' || motivo === 'claims.unverifiable') return;
+    if (motivo === 'human.pending' || motivo === 'claims.unverifiable' || ehImpedimentoDoDono(motivo)) return;
     if (!(motivo in DESCRICAO_DO_MOTIVO)) return;
     // Lease e rate limit ja tem fila propria em disco, que e a fonte mais fresca.
     if ((motivo === 'lease.busy' || motivo === 'runtime.rate-limited') &&
