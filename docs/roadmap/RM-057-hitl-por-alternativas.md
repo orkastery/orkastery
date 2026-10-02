@@ -8,10 +8,10 @@ features: []
 owner: Julio
 atualizado_em: 2026-10-02T11:40:00-03:00
 estado:
-  ciclo: Discovery
-  documentacao: Rascunho
-  codigo: Não iniciado
-  testes: Não iniciados
+  ciclo: Em desenvolvimento
+  documentacao: Em revisão
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,8 +20,10 @@ evidencias:
     commit: null
     pr: null
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm057alterna
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-057 — HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado
@@ -32,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Discovery | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -77,10 +79,10 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Discovery | — | 2026-10-02 | Julio |
-| Documentação | Rascunho | — | 2026-10-02 | Julio |
-| Código | Não iniciado | — | 2026-10-02 | Julio |
-| Testes | Não iniciados | — | 2026-10-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
+| Documentação | Em revisão | — | 2026-10-02 | Julio |
+| Código | Branch criada | — | 2026-10-02 | Julio |
+| Testes | Em execução | — | 2026-10-02 | Julio |
 | Deploy | Não implantado | — | 2026-10-02 | Julio |
 | Exposição | Flag desligada | — | 2026-10-02 | Julio |
 | Habilitação | Pendente | — | 2026-10-02 | Julio |
@@ -91,8 +93,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** reservar o item e abrir a thread, fábrica, próxima janela de condução.
+- **Próxima ação, responsável e prazo:** fatia 2 (canário do pedido colado com autorização, prompts do OpenClaw e do Hermes e medição do tempo parado no ledger), fábrica, depois do merge da fatia 1.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-02 | Item criado com prioridade alta | Incidente da noite de 01→02/10: mais de 10 h de condução parada por um HITL em texto livre | Julio |
+| 2026-10-02 | Fatia 1 na thread ork-rm057alterna: contrato de 3 a 5 com uma Recomendação no registro, dependência técnica tipada, letras a-e, selo no texto ao dono, lint `hitl-texto-livre` e a regra nos adaptadores do Claude Code e do Codex | Recorte registrado com `ork decisao registrar` na thread | Julio |

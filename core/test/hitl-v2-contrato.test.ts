@@ -91,12 +91,13 @@ test('ato irreversível nunca é decisão informada, e nunca avança por expira�
 
 test('o formato da pergunta é verificado na origem, alternativa por alternativa', () => {
   const uma = [{ letra: 'a', texto: 'Só esta', acao: 'responder', consequencia: 'nada a escolher', recomendada: true, porque: 'única' }];
-  assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: uma as never })), /de 2 a 4 alternativas/);
-  const cinco = ['a', 'b', 'c', 'd', 'e'].map(letra => ({ letra, texto: 'x', acao: 'responder', consequencia: 'y' }));
-  assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: cinco as never })), /de 2 a 4 alternativas/);
+  assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: uma as never })), /de 2 a 5 alternativas/);
+  // RM-057: cinco cabem (a a e); seis nao.
+  const seis = ['a', 'b', 'c', 'd', 'e', 'f'].map(letra => ({ letra, texto: 'x', acao: 'responder', consequencia: 'y' }));
+  assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: seis as never })), /de 2 a 5 alternativas/);
   assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: [
     { letra: 'a', texto: 'x', acao: 'responder', consequencia: 'y' }, { letra: 'c', texto: 'z', acao: 'responder', consequencia: 'w', recomendada: true, porque: 'p' },
-  ] as never })), /de 2 a 4 alternativas/, 'letras precisam ser consecutivas');
+  ] as never })), /de 2 a 5 alternativas/, 'letras precisam ser consecutivas');
 
   const semRecomendada = [{ letra: 'a', texto: 'x', acao: 'responder', consequencia: 'y' }, { letra: 'b', texto: 'z', acao: 'responder', consequencia: 'w' }];
   assert.throws(() => validarPedidoHitlV2(pergunta({ alternativas: semRecomendada as never })), /exatamente uma alternativa é recomendada/);
@@ -112,7 +113,7 @@ test('o formato da pergunta é verificado na origem, alternativa por alternativa
     { letra: 'a', texto: 'x', acao: 'responder', consequencia: 'y', porque: 'não sou a recomendada' },
     { letra: 'b', texto: 'z', acao: 'responder', consequencia: 'w', recomendada: true, porque: 'p' },
   ] as never })), /só a alternativa recomendada diz o porquê/);
-  assert.deepEqual([...LETRAS_DE_ALTERNATIVA], ['a', 'b', 'c', 'd']);
+  assert.deepEqual([...LETRAS_DE_ALTERNATIVA], ['a', 'b', 'c', 'd', 'e']);
 });
 
 test('a pergunta é uma frase e o corpo é lista de linhas, nunca prosa corrida', () => {

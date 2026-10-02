@@ -64,7 +64,7 @@ test('pior caso: 4 alternativas, corpo cheio e ato sem volta cabem em 15 linhas 
       assert.ok(linhas.some(l => l.startsWith(`${letra}) Alternativa ${letra}`) && l.includes(`consequência da alternativa ${letra}`)), `${canal} ${letra}`);
     }
     // Exatamente uma recomendada, e é a declarada no pedido, com o porquê logo abaixo.
-    const marca = canal === 'telegram' ? '✅ recomendada' : '[recomendada]';
+    const marca = canal === 'telegram' ? '✅ Recomendação' : '[Recomendação]';
     assert.equal(linhas.filter(l => l.includes(marca)).length, 1, canal);
     const i = linhas.findIndex(l => l.includes(marca));
     assert.ok(linhas[i].startsWith('b) '), canal);
@@ -92,16 +92,16 @@ test('Telegram e terminal dizem a mesma coisa: só o marcador muda', () => {
   assert.match(r.at(-1)!, /^Responda pelo Telegram: DE6H b/);
 });
 
-test('o contrato recusa em vez de cortar: 0 ou 2 recomendadas, 1 ou 5 alternativas', () => {
+test('o contrato recusa em vez de cortar: 0 ou 2 recomendadas, 1 ou 6 alternativas', () => {
   const base = entradaDoPedido(pior());
   const responder = { tipo: 'codigo', codigo: 'DE6H' } as const;
   assert.throws(() => montarPedidoCurto({ ...base, alternativas: base.alternativas.map(a => ({ ...a, recomendada: undefined })) },
     { quando: QUANDO, responder }), /exatamente uma/);
   assert.throws(() => montarPedidoCurto({ ...base, alternativas: base.alternativas.map(a => ({ ...a, recomendada: { porque: 'x' } })) },
     { quando: QUANDO, responder }), /exatamente uma/);
-  assert.throws(() => montarPedidoCurto({ ...base, alternativas: base.alternativas.slice(0, 1) }, { quando: QUANDO, responder }), /de 2 a 4/);
-  assert.throws(() => montarPedidoCurto({ ...base, alternativas: [...base.alternativas, base.alternativas[0]] },
-    { quando: QUANDO, responder }), /de 2 a 4/);
+  assert.throws(() => montarPedidoCurto({ ...base, alternativas: base.alternativas.slice(0, 1) }, { quando: QUANDO, responder }), /de 2 a 5/);
+  assert.throws(() => montarPedidoCurto({ ...base, alternativas: [...base.alternativas, base.alternativas[1], base.alternativas[1]] },
+    { quando: QUANDO, responder }), /de 2 a 5/);
 });
 
 test('o item do pulse leva o texto curto e a linha com o código estável, não o UUID', () => {
