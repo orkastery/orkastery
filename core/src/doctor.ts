@@ -261,7 +261,7 @@ export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude
       ? `; ${blocos.principal.length} bloco(s) dos modos permitidos despacham por ele (${textoDosBlocos(blocos.principal)})` : ''),
     correcao: 'instale o Claude Code e garanta `claude` no PATH; so com o Codex, passe cada bloco para ele ' +
       '(ork setup <modo> --bloco N --runtime codex --model <modelo>) ou tire o modo de conduction.allowed_modes ' +
-      '(o conduction.default_mode segue entre os permitidos)' };
+      '(mantenha o conduction.default_mode entre os permitidos)' };
 }
 
 /**

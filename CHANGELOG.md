@@ -87,7 +87,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - o `ork_git_commit` adiciona caminho rastreado com `git add -u` e, quando o git falha, diz o
     subcomando e o código de saída, sem o stderr;
   - o `ork ship` barra por `push_direto_na_base` a entrega sem delta com a base local à frente do
-    remoto;
+    remoto; o merge do próprio ship que não chegou ao remoto (push recusado, `--sem-push`) segue
+    entregando no ship repetido;
   - o `ork` acha binário no PATH sem o `which`; `ork experiencia show` diz as origens em texto;
     `ork verify --baseline` sem comando não se contradiz; o guia de experiência diz onde o `--dir`
     põe o catálogo.
