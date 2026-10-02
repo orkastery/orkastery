@@ -652,3 +652,19 @@ test('S-b e S-e do CHECK (rodada 3): aberto so nos recentes nao vira "sem checks
     assert.equal(linha?.proximoPasso, `despachar a fase GO (ork phase run ${m.id} GO --prompt "<pedido da fase>")`);
   } finally { p.limpar(); }
 });
+
+test('o orcamento da leitura da forja cabe na batida: esgotado nas listas e "nao lido"; nas candidatas, sem conferir', () => {
+  const p = projetoTemporario('fatia4-orcamento', true);
+  try {
+    forjaSimulada(p);
+    const dormir = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+    const lento: ExecutorDoGh = (_args, prazo) => { assert.ok(prazo <= 30000); dormir(300); return { status: 0, stdout: '[]', stderr: '' }; };
+    const esgotado = lerPrsDaForja(p.carregado, { quando: AGORA, executor: lento, orcamentoMs: 0 });
+    assert.equal(esgotado.ok, false);
+    assert.match(esgotado.ok ? '' : esgotado.erro, /orçamento de 0 s da leitura esgotado/);
+    // 300 ms por chamada num orcamento de 1 s: as duas listas cabem, e as candidatas que nao cabem ficam sem conferir.
+    const parcial = lerPrsDaForja(p.carregado, { quando: AGORA, executor: lento, orcamentoMs: 1000, candidatas: ['ork/a', 'ork/b', 'ork/c', 'ork/d'] });
+    assert.equal(parcial.ok, true);
+    assert.ok(parcial.ok && (parcial.retrato.semConferir ?? []).length >= 1, JSON.stringify(parcial.ok ? parcial.retrato.semConferir : null));
+  } finally { p.limpar(); }
+});

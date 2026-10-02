@@ -55,6 +55,8 @@ export const LIMITE_DE_RECENTES = 100;
 const FOLGA_DO_RELOGIO_MIN = 5;
 const ARQUIVO_DOS_PRS = 'prs.json';
 const PRAZO_DO_GH_MS = 30000;
+/** A leitura inteira da forja numa batida: cabe com folga nos 240 s que a varredura da ao subprocesso do pulse. */
+const ORCAMENTO_DA_LEITURA_MS = 60000;
 const CAMPOS_DOS_RECENTES = 'number,state,headRefName,headRefOid,baseRefName,isDraft,isCrossRepository,url,createdAt,mergedAt';
 const CAMPOS_DO_GH = `${CAMPOS_DOS_RECENTES},statusCheckRollup`;
 /** Quantas branches candidatas a "sem PR" sao conferidas uma a uma por batida; o resto fica "PR nao lido". */
@@ -214,14 +216,18 @@ export function repositorioDoRemoto(raiz: string, remoto: string): string | null
  * O `gh` usa a autenticacao dele; nenhum token passa por aqui. Remoto que nao e do github.com nao chama nada.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
-  opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[] } = {}): LeituraDePrs {
+  opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number } = {}): LeituraDePrs {
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
   const base = carregado.manifesto.worktree.base_branch;
   const repositorio = repositorioDoRemoto(carregado.raiz, remoto);
   if (!repositorio) return { ok: false, lidoEm, erro: `o remoto ${remoto} não é um repositório do github.com` };
+  const orcamento = opcoes.orcamentoMs ?? ORCAMENTO_DA_LEITURA_MS, fimDaLeitura = Date.now() + orcamento;
+  const resta = () => fimDaLeitura - Date.now();
   const pedir = (args: string[]): unknown[] | string => {
-    const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, ...args], PRAZO_DO_GH_MS);
+    if (resta() <= 0) return `gh pr list: orçamento de ${Math.round(orcamento / 1000)} s da leitura esgotado`;
+    const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, ...args],
+      Math.min(PRAZO_DO_GH_MS, resta()));
     if (r.status !== 0) {
       const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
       return `gh pr list falhou (${r.status === null ? 'sem código de saída' : `código ${r.status}`}): ${detalhe}`;
@@ -255,12 +261,14 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
     // fica fora dos recentes). Acima do teto da batida, a branch fica sem conferir, e isso e "PR nao lido".
     const achadas = new Set([...porNumero.values()].map((p) => p.branch));
     const faltam = [...new Set(opcoes.candidatas ?? [])].filter((b) => BRANCH.test(b) && !achadas.has(b));
-    for (const branch of faltam.slice(0, LIMITE_DE_CANDIDATAS)) {
+    const semConferir: string[] = [];
+    for (const [i, branch] of faltam.entries()) {
+      // Acima do teto ou do orcamento da batida, a candidata fica sem conferir ("PR nao lido"), sem derrubar o resto.
+      if (i >= LIMITE_DE_CANDIDATAS || resta() <= 0) { semConferir.push(branch); continue; }
       const daBranch = pedir(['--state=all', `--head=${branch}`, '--limit=5', `--json=${CAMPOS_DOS_RECENTES}`]);
       if (typeof daBranch === 'string') return { ok: false, lidoEm, erro: daBranch };
       juntar(daBranch, false);
     }
-    const semConferir = faltam.slice(LIMITE_DE_CANDIDATAS);
     return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: abertos.length >= LIMITE_DE_PRS,
       ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
   } catch (e) {
