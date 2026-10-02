@@ -5,8 +5,8 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-rm040piloto | #Auto | GOAL | sem despacho | RM-040 | — | 02/10 11:58 |
-| srvjcp86 | ork-rm053network | #Auto | GOAL | sem despacho | RM-053 | — | 02/10 11:58 |
-| srvjcp86 | ork-rm055impedim | #Auto | GOAL | sem despacho | RM-055 | — | 02/10 11:58 |
+| srvjcp86 | ork-rm040piloto | #Auto | GOAL | codex gpt-5.6-sol/high | RM-040 | — | 02/10 15:02 |
+| srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 02/10 15:02 |
+| srvjcp86 | ork-rm055impedim | #Auto | GOAL | codex gpt-5.6-sol/high | RM-055 | — | 02/10 15:02 |
 
-Horários de Brasília.
+Horários em UTC.
