@@ -63,6 +63,7 @@ export const DICA_DO_MOTIVO: Readonly<Record<string, string>> = {
   'verify.timeout': 'divida o comando lento ou suba `verify.timeout_ms` no manifesto',
   'runtime.unavailable': 'declare a ordem de fallback do bloco (`ork setup <modo> --bloco N --fallback runtime:modelo`)',
   'runtime.quota-exhausted': 'tenha um segundo perfil da conta (`ork accounts add`) ou fallback no bloco',
+  'runtime.profile-invalid': 'confira os perfis do runtime em `ork accounts list` antes de pedir `--perfil`',
   'tree.blocked': 'sincronize a worktree com a base antes do SHIP (`ork worktree sync <thread>`)',
   // Fatia 2 do ensaio da 0.5.0 (P6): o que o CI do projeto roda, e nao o script do Orkastery.
   'ci.failed': 'rode antes do push o que o CI do projeto roda (`ci.command` do manifesto ou, sem ele, os comandos de `verify`)',

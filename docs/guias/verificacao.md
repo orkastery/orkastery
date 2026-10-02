@@ -172,6 +172,7 @@ não compila sem política).
 | `verify.sem-veredito` | reexecutar | sim | Um comando não chegou a rodar, ou o produto mudou entre o preparo e o fim da rodada: não há veredito, e a prova certa é rodar de novo, inteira |
 | `hitl.formato` | corrigir-dirigido | sim | O pedido HITL saiu fora do formato: quem errou foi o emissor, que reemite com alternativas e uma recomendada |
 | `runtime.autoconferencia` | escalar-humano | **não** | O CHECK caiu no mesmo runtime do GO: o que falta é um validador diferente, e escolher o outro runtime é decisão de condução |
+| `runtime.profile-invalid` | escalar-humano | **não** | O perfil pedido (`--perfil`) não existe ou é de outro runtime (RM-056): repetir dá a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido |
 | `tree.blocked` | sincronizar-worktree | sim | A árvore andou por baixo da thread: reexecutar antes de rebasar só repete o conflito |
 | `lease.busy` | reexecutar | sim | O lease e de outra thread e vai ser liberado. A fila já serializa: nunca furar a fila |
 | `conducao.em-andamento` | esperar a vez | sim | Outra condução executa na mesma worktree agora (I-36). A vez chega quando ela terminar; repetir já recebe a mesma recusa, e furar a fila é o incidente de 19/09/2026 |

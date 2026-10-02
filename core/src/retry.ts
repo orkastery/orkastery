@@ -140,6 +140,15 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
     correcao:
       'despache o CHECK em outro runtime (`ork phase run <thread> CHECK --runtime <outro>`), ou tire a exigencia de validacao cruzada da thread se ela nao se justifica',
   },
+  // RM-056 (D1): o perfil pedido nao existe ou e de outro runtime. Quem corrige e quem pediu.
+  'runtime.profile-invalid': {
+    motivo: 'runtime.profile-invalid',
+    acao: 'escalar-humano',
+    automatica: false,
+    porque:
+      'o perfil foi pedido pelo dono (--perfil) e nao existe no store ou e de outro runtime: repetir o pedido daria a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido',
+    correcao: 'ork accounts list mostra os perfis de cada runtime; repita o despacho com um perfil do runtime certo ou sem --perfil',
+  },
   'cost.violation': {
     motivo: 'cost.violation',
     acao: 'sem-retry',

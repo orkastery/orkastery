@@ -171,9 +171,10 @@ export function consultarRollouts(todas = false, casa = casaDoCodex()): {
         if (!entrada.isFile() || !entrada.name.endsWith('.jsonl')) continue;
         try {
           const fd = fs.openSync(arquivo, 'r');
-          let primeira: string, cauda: string;
+          let primeira: string, cauda: string, atividadeEm: number;
           try {
-            const tamanho = fs.fstatSync(fd).size;
+            const st = fs.fstatSync(fd), tamanho = st.size;
+            atividadeEm = st.mtimeMs;
             const cab = Buffer.alloc(Math.min(tamanho, 65536));
             fs.readSync(fd, cab, 0, cab.length, 0);
             primeira = cab.toString('utf8').split('\n')[0];
@@ -196,7 +197,7 @@ export function consultarRollouts(todas = false, casa = casaDoCodex()): {
               if (e.type === 'event_msg' && ['task_complete', 'task_aborted'].includes(e.payload?.type)) state = 'completed';
             } catch { /* primeira/última linha do recorte pode estar parcial */ }
           }
-          if (todas || state !== 'completed') sessoes.push({ sessionId: p.id, cwd: p.cwd, state, kind: 'codex-rollout' });
+          if (todas || state !== 'completed') sessoes.push({ sessionId: p.id, cwd: p.cwd, state, kind: 'codex-rollout', atividadeEm });
         } catch { falhar(arquivo, 'leitura ou metadados inválidos ou duplicados'); }
       }
     };

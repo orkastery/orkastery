@@ -189,7 +189,7 @@ test('fatia 2 P1: sessions sem o binario claude diz fonte ausente com a correcao
   try {
     const texto = ork(p.dir, casa, bin, 'sessions');
     assert.equal(texto.status, 0, texto.stdout + texto.stderr);
-    assert.match(texto.stdout, /^Fontes: claude agents --json \(ausente\);/m);
+    assert.match(texto.stdout, /^Fontes: claude agents --json(?: \([^)]*\))? \(ausente\);/m);
     assert.match(texto.stdout, /^Ausente: binário `claude` fora do PATH: nenhuma sessão claude-bg a listar; correção: .*instale o Claude Code/m);
     assert.doesNotMatch(texto.stdout, /código -1/);
 
@@ -208,7 +208,7 @@ test('fatia 2 P1: sessions sem o binario claude diz fonte ausente com a correcao
     fs.writeFileSync(path.join(bin, 'claude'), '#!/bin/sh\nexit 3\n', { mode: 0o755 });
     const falha = ork(p.dir, casa, bin, 'sessions');
     assert.equal(falha.status, 1);
-    assert.match(falha.stdout, /claude agents --json \(FALHA\)/);
+    assert.match(falha.stdout, /claude agents --json(?: \([^)]*\))? \(FALHA\)/);
     assert.match(falha.stdout, /^Falha: claude agents falhou \(código 3\)$/m);
   } finally { p.limpar(); limpar(bin, casa); }
 });

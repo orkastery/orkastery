@@ -2,22 +2,20 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { consultarSessoes } from './adapters/claude-bg';
-import { consultarRollouts } from './adapters/codex';
 import { raizDoEstado } from './estado-thread';
+import { consultarContas, FonteDeSessoes, SessaoDaConta } from './sessoes-contas';
 import { listarIds, lerThread } from './thread';
-import { SessaoRuntime } from './types';
 
 export interface VinculoDeSessao { raiz: string; thread: string; fase: string; origem: string }
-export interface SessaoInventariada extends SessaoRuntime {
-  runtime: 'claude-bg' | 'codex';
+/** RM-056 (D4): cada sessao com o perfil da conta onde ela esta e a marca de fantasma (D5). */
+export interface SessaoInventariada extends SessaoDaConta {
   vinculos: VinculoDeSessao[];
 }
 /**
  * Uma fonte consultada. `ausente`: o runtime nem existe nesta máquina (fatia 2 do ensaio da 0.5.0,
  * P1); a fonte vale, sem sessões, e `correcao` diz o que fazer para tê-la.
  */
-export interface FonteDoInventario { origem: string; ok: boolean; detalhe: string; ausente?: boolean; correcao?: string }
+export type FonteDoInventario = FonteDeSessoes;
 
 export interface InventarioDeSessoes {
   ok: boolean;
@@ -27,6 +25,8 @@ export interface InventarioDeSessoes {
   total: number;
   semThread: number;
   ambiguas: number;
+  /** RM-056 (D5): sessoes sem processo que trabalhe por elas; nao ocupam vaga. */
+  fantasmas: number;
 }
 
 /** Projeto canônico mais próximo de cada cwd declarado, sem varrer o HOME inteiro. */
@@ -56,22 +56,10 @@ function raizesDeRegistros(cwds: string[]): { raizes: string[]; ancestraisPenden
 
 export function inventariarSessoes(raiz: string, opcoes: { global?: boolean; todas?: boolean } = {}): InventarioDeSessoes {
   const canonica = raizDoEstado(raiz);
-  const claude = consultarSessoes(undefined, opcoes.todas);
-  const codex = consultarRollouts(opcoes.todas);
-  const origemClaude = `claude agents --json${opcoes.todas ? ' --all' : ''}`;
-  // Fatia 2 do ensaio da 0.5.0 (P1): como o diretório opcional do Codex, só o ENOENT antes da consulta
-  // prova a fonte ausente; qualquer outra falha do `claude` continua deixando o inventário incompleto.
-  const fontes: FonteDoInventario[] = [
-    claude.ausente
-      ? { origem: origemClaude, ok: true, ausente: true, detalhe: `${claude.detalhe}: nenhuma sessão claude-bg a listar`,
-        correcao: 'para despachar e listar pelo claude-bg, instale o Claude Code e garanta `claude` no PATH' }
-      : { origem: origemClaude, ok: claude.ok, detalhe: claude.detalhe },
-    ...codex.resultadosFontes,
-  ];
-  const todas: SessaoInventariada[] = [
-    ...claude.sessoes.map(s => ({ ...s, runtime: 'claude-bg' as const, vinculos: [] as VinculoDeSessao[] })),
-    ...codex.sessoes.map(s => ({ ...s, runtime: 'codex' as const, vinculos: [] as VinculoDeSessao[] })),
-  ];
+  // RM-056 (D4): a conta do processo e cada perfil do store, sem repetir diretorio.
+  const contas = consultarContas(canonica, { todas: opcoes.todas });
+  const fontes = contas.fontes;
+  const todas: SessaoInventariada[] = contas.sessoes.map(s => ({ ...s, vinculos: [] as VinculoDeSessao[] }));
   // O cruzamento usa o universo global mesmo quando a apresentação é local.
   try {
     const projetos = raizesDeRegistros([canonica, ...todas.map(s => s.cwd!)]);
@@ -136,5 +124,6 @@ export function inventariarSessoes(raiz: string, opcoes: { global?: boolean; tod
     escopo: { usuario: os.userInfo().username, global: !!opcoes.global, historico: !!opcoes.todas, raiz: canonica },
     fontes, sessoes, total: sessoes.length,
     semThread: sessoes.filter(s => s.vinculos.length === 0).length, ambiguas,
+    fantasmas: sessoes.filter(s => s.fantasma).length,
   };
 }
