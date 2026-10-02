@@ -13,13 +13,15 @@ import { tabela } from './util';
 export function textoDoInventario(r: InventarioDeSessoes): string {
   const linhas = [
     `Inventário ${r.escopo.global ? 'global' : 'do projeto'} da conta ${r.escopo.usuario}; histórico: ${r.escopo.historico ? 'incluído' : 'omitido'}.`,
-    `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
+    `Fontes: ${r.fontes.map(f => `${f.origem} (${f.ausente ? 'ausente' : f.ok ? 'ok' : 'FALHA'})`).join('; ')}`,
     `Total: ${r.total}; sem thread: ${r.semThread}; ambíguas: ${r.ambiguas}; consulta: ${r.ok ? 'válida' : 'INCOMPLETA'}.`,
   ];
   if (r.sessoes.length) linhas.push(tabela(['ID', 'RUNTIME', 'ESTADO', 'THREAD/FASE'],
     r.sessoes.map(s => [s.sessionId, s.runtime, s.state ?? s.status ?? 'unknown',
       s.vinculos.map(v => `${v.thread}/${v.fase}`).join(', ') || '(fora do ork)'])));
   for (const f of r.fontes.filter(f => !f.ok)) linhas.push(`Falha: ${f.detalhe}`);
+  // Fatia 2 do ensaio da 0.5.0 (P1): a fonte ausente nao e falha, mas diz o que falta e como ter.
+  for (const f of r.fontes.filter(f => f.ausente)) linhas.push(`Ausente: ${f.detalhe}${f.correcao ? `; correção: ${f.correcao}` : ''}`);
   return linhas.join('\n');
 }
 

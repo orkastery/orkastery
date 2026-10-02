@@ -41,6 +41,14 @@ export interface ContextoDePolicy {
   fallbackDoBloco?: string[];
   /** Gate `ship`: a ponta da base nao esta contida na branch da thread. */
   branchAtrasDaBase?: boolean;
+  /**
+   * Fatia 2 do ensaio da 0.5.0 (P9), gate `ship`: a branch da thread nao traz commit alem da base (nada
+   * a mergear) e a base local tem commit que a ref de rastreio do remoto nao tem. O ship empurraria a
+   * base direto, sem merge de thread. Quem mede e o ship; sem o fato, a regra nao avalia.
+   */
+  semDeltaComBaseAFrente?: boolean;
+  /** Gate `ship`: o remoto do push, para o texto da violacao. */
+  remoto?: string;
 }
 
 export interface ViolacaoDePolicy {
@@ -221,6 +229,19 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           motivo: 'policy.violation',
           detalhe: `a origem "${de}" e a propria branch base do projeto: nenhuma branch de thread foi usada`,
           correcao: correcaoSemBranchDaThread(ctx.threadId, base),
+        });
+      } else if (ctx.semDeltaComBaseAFrente === true) {
+        // Fatia 2 do ensaio da 0.5.0 (P9): a thread que perdeu a branch depois do GO ganha uma com os commits
+        // ja na base; o ship ve nada a mergear e empurraria a base, que e o que esta policy barra.
+        const remoto = ctx.remoto ?? 'origin';
+        violacoes.push({
+          policy: nome,
+          severidade: sev,
+          motivo: 'policy.violation',
+          detalhe: `a branch "${de}" nao traz commit alem de "${para}", e ${para} local tem commit que ${remoto}/${para} nao tem: ` +
+            'o ship empurraria a base direto, sem merge de thread',
+          correcao: `leve os commits que estao so em ${para} local para a branch da thread antes de entregar, ou entregue-os ` +
+            `pela thread que os criou (conferido em refs/remotes/${remoto}/${para}, sem rede)`,
         });
       }
       continue;

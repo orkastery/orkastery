@@ -20,7 +20,7 @@
  * `slot_released` no ledger da thread devolvida.
  */
 
-import { TIPOS_DE_EVENTO } from './ledger';
+import { ehEnsaio, TIPOS_DE_EVENTO } from './ledger';
 import { EventoLedger, Fase, MotivoGate, Thread } from './types';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 
@@ -128,10 +128,12 @@ function ultimaAtividadeEm(eventos: EventoLedger[]): string | null {
  * despacho e a sessao roda ate o fim do bloco. O impedimento de verify tambem nao: a sessao corrige e
  * verifica de novo. Somente leitura.
  */
-export function sessaoLivreDaVaga(eventos: EventoLedger[], desde: string, agora: string, staleMin: number,
+export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora: string, staleMin: number,
   /** A-3 do CHECK 4: o bloqueio no runtime e por sessao; o de outra sessao (a sucedida) nao libera esta. */
   sessionId?: string):
   'stale' | 'human.pending' | 'runtime.silencio' | null {
+  // Fatia 2 do ensaio da 0.5.0 (P2): evento de `--dry-run` nao e atividade nem parada.
+  const eventos = doLedger.filter((e) => !ehEnsaio(e));
   const ultima = ultimaAtividadeEm(eventos);
   if (ultima !== null && minutos(ultima, agora) >= staleMin) return 'stale';
   const inicio = Date.parse(desde);
@@ -234,9 +236,11 @@ function minutos(desdeEm: string, ateEm: string): number {
  */
 export function avaliarOcupacao(
   thread: Thread,
-  eventos: EventoLedger[],
+  doLedger: EventoLedger[],
   opcoes: OpcoesDeOcupacao
 ): OcupacaoDaThread {
+  // Fatia 2 do ensaio da 0.5.0 (P2): o ensaio do ship (`dryRun: true`) nao pausa a thread no board.
+  const eventos = doLedger.filter((e) => !ehEnsaio(e));
   const sessionId = ultimaSessao(thread, eventos);
   const sessaoEstado =
     opcoes.estados === null || sessionId === null

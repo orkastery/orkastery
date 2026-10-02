@@ -49,7 +49,7 @@ fontes:
 ## Comportamento
 
 - **Casos de uso e operações:** ver pausas e impedimentos, planejar quem avança, montar a fila de atenção, gerar o status report do roadmap.
-- **Status report do roadmap (RM-048):** `ork roadmap status` monta o relatório no formato aprovado pelo dono: "Roadmap do Projeto (DD/MM, HH:MM)" no fuso dele, os grupos ✅ Concluídos, 🟢 Disponíveis com algo em aberto, 🚀 Entregue hoje, 🧪 Piloto, 🔨 Em desenvolvimento, 🔍 Refinamento, 🆕 Proposto e ⛔ Descontinuado, um item por linha, `#HITL` no que espera o dono e o fecho "O que precisa de você" e "O que eu faço em seguida". É leitura pura. Os canais chamam o comando (`ork_roadmap_status` no MCP e no OpenClaw, `ork-roadmap-status.sh` no Hermes) e transportam o texto.
+- **Status report do roadmap (RM-048):** `ork roadmap status` monta o relatório no formato aprovado pelo dono: "Roadmap do Projeto (DD/MM, HH:MM)" no fuso dele, com o fuso dito logo abaixo do título (`Horários de Brasília.`), os grupos ✅ Concluídos, 🟢 Disponíveis com algo em aberto, 🚀 Entregue hoje, 🧪 Piloto, 🔨 Em desenvolvimento, 🔍 Refinamento, 🆕 Proposto e ⛔ Descontinuado, um item por linha, `#HITL` no que espera o dono e o fecho "O que precisa de você" e "O que eu faço em seguida". É leitura pura. Os canais chamam o comando (`ork_roadmap_status` no MCP e no OpenClaw, `ork-roadmap-status.sh` no Hermes) e transportam o texto.
 - **Pré-condições e gatilho:** projeto com threads.
 - **Fluxo principal:**
 

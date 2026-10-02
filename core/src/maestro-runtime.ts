@@ -13,6 +13,7 @@ import { controleNativo } from './hitl-sessions';
 import { lerThread } from './thread';
 import { contextoHitlDosEventos } from './hitl-gates';
 import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
+import { ehEnsaio } from './ledger';
 import { formatarDataHoraRotulada } from './horario';
 import { conducaoDosDados, nomeDaConducao } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
@@ -63,6 +64,8 @@ export function operationalSources(reader: MaestroReader, threads: Thread[], nat
       if(raw===null)throw Error('missing');
       events=raw.split('\n').filter(Boolean).map(line=>JSON.parse(line));
       if(events.some(e=>typeof e.tipo!=='string'||e.thread!==t.id))throw Error('invalid');
+      // Fatia 2 do ensaio da 0.5.0 (P2): o ensaio (`dryRun: true`) nao vira bloqueio nem entrega incompleta.
+      events=events.filter(e=>!ehEnsaio(e));
     } catch {
       for(const name of names.filter(n=>!['leases','retries'].includes(n))) sections[name].gaps.push(`ledger.unavailable:${t.id}`);
       continue;
