@@ -209,6 +209,36 @@
       "criadoEm": "2026-10-02T03:45:42.699Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm037fatia4t",
+      "fase": "GO",
+      "arquivo": "core/src/parado-no-condutor.ts",
+      "alegacao": "RM-037 fatia 4, GO-FIX da rodada 5 (B1): o human.pending que o observador grava quando o SHIP termina em done, com o Stop e sem o ship_done no intervalo do despacho (formato real da ork-rm037noite), e fim de turno do condutor (espera-do-observador com comProva false): o pendenciaDoDono pula esse gate, o pulse o tira de Esperando voce e traz a linha do PR (mergear o PR), e o retrato da maquina nao marca esperaVoce; o CHECK em done sem veredito e o SHIP em failed ou stopped continuam do dono",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"B1 do CHECK \\(rodada 5\\)\" core/dist-test/test/rm037-fatia4-parado-no-condutor.test.js",
+        "grep -q 'function shipSemRegistro(e: EventoLedger): boolean' core/src/parado-no-condutor.ts"
+      ],
+      "criadoEm": "2026-10-02T08:03:37.506Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm037fatia4t",
+      "fase": "GO",
+      "arquivo": "core/test/rm037-fatia3-estado-do-merge.test.ts",
+      "alegacao": "RM-037 fatia 4, GO-FIX da rodada 5: o teste do defeito 1 da fatia 3 aceita o commit curto do item com ou sem aspas (o escritor de YAML poe entre aspas o SHA curto so de digitos, cerca de 4% dos sorteios), e passa",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-fatia3-estado-do-merge.test.js",
+        "grep -q 'commit: (${curto}|\"${curto}\")' core/test/rm037-fatia3-estado-do-merge.test.ts"
+      ],
+      "criadoEm": "2026-10-02T08:03:39.606Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
