@@ -2,13 +2,13 @@
 id: FEAT-032
 tipo: feature
 titulo: Roadmap da rede, de qualquer diretório
-estado: em desenvolvimento
+estado: vigente
 pai: MOD-01
 roadmap: [RM-054]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-30T00:20:00-03:00
-versao: ork/ork-rm054fatia2-full@053f94b
+verificado_em: 2026-10-01T02:50:00-03:00
+versao: main@6ea7acb
 fontes:
   codigo:
     - core/src/network-roadmap.ts
@@ -46,7 +46,7 @@ fontes:
 
 > **Em uma frase:** `ork network roadmap` junta, para cada projeto da pessoa, o status report do roadmap, as reservas e as threads de cada máquina, lendo a forja quando não há clone, e diz a fonte e a hora de cada parte e o que ficou sem ler.
 
-- **Estado:** em desenvolvimento · **Verificado em:** 2026-09-30 · **Versão:** `ork/ork-rm054fatia2-full@053f94b`
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@6ea7acb (PR #29), publicada na 0.5.0; a fatia 3 da RM-054 segue em aberto
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-054](../roadmap/RM-054-roadmaps-e-threads-da-rede.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -109,3 +109,4 @@ fontes:
 | 2026-09-29 | GO-FIX da revisão independente: nome é nome, fuso e base do projeto, isolamento por projeto, remoto validado | Claude (agente) / Julio, revisão pendente | RM-054, CHECK da `ork-rm054roadmap` |
 | 2026-09-29 | GO-FIX da rodada 2: base validada, retrato local tolerante, caminho só como raiz, commits e fuso por projeto | Claude (agente) / Julio, revisão pendente | RM-054, CHECK da `ork-rm054roadmap` |
 | 2026-09-30 | fatia 2: `ork_network_roadmap` nos hosts, modo host e modo fixado, e a oferta da rede na recusa do projeto-alvo | Claude (agente) / Julio, revisão pendente | RM-054, thread `ork-rm054fatia2` |
+| 2026-10-01 | vigente: fatias 1 (PR #25) e 2 (PR #29) mescladas e publicadas na 0.5.0 | Claude (agente) / Julio, revisão pendente | merges `b64d2f2` e `6ea7acb`; tag `v0.5.0` |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014]
 owner: Julio
-atualizado_em: 2026-09-28T15:23:46-03:00
+atualizado_em: 2026-10-01T02:30:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,10 +17,15 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 10ca416
-    pr: null
+    commit: 36def09
+    pr: 34
+    anteriores: "baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0)"
+  testes:
+    ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: "v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm"
 sdlc:
-  thread: ork-i54compilaca
+  thread: ork-rm037noite
   modo: "#Auto"
   fase: MASTER
   status: fechada
@@ -39,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md)
-- **Thread:** `ork-verifytimeou`
+- **Thread:** `ork-rm037fatia4t` (a mais recente); antes, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
 
 ## Problema e resultado
 
@@ -67,10 +72,10 @@ sdlc:
 - **Incluído:** causa tipada do estouro (T3), `verify.timeout` (T4), prazo do manifesto (T6), compilação única.
 - **P2, compilação única (27/09/2026, thread `ork-i54compilaca`):** `verify.preparo` roda uma vez antes das claims; o produto é conferido do preparo ao fim da rodada; `executado` entrou no contrato e comando que não rodou nunca vira verificado (`verify.sem-veredito`). O `incremental` dos dois tsconfig já estava ligado.
 - **P6, lint do comando de claim (27/09/2026, thread `ork-i53lintdocom`):** a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra; SHA intermediário e contagem de commits só avisam; claim antiga só avisa. A lista das integrações locais passou a ter uma fonte só.
-- **Defeitos de condução de 28/09/2026 (thread `ork-defeitosdeco`):** sete defeitos que travavam a própria fábrica, cada um reproduzido com prova, corrigido na origem e com teste que reprova o código anterior: a sessão claude-bg em `blocked` depois do Stop abre a pausa humana; `ork sessions stop|logs|attach` acham a sessão no perfil da conta; `ork_git_status` e `ork_git_commit` aceitam hook e config que o commit nunca executa; o contexto do despacho chega por sessão, sem herança do daemon do `claude --bg`; `ork worktree sync` recria a branch sem commit próprio sobre base reescrita; modelo inacessível na conta vira `runtime.model-unavailable` e o retry troca o destino; o teste N1 claude-bg deixa de depender do observador destacado.
-- **Defeitos de condução de 29/09/2026 (thread `ork-rm037defeito`):** sete defeitos, cada um reproduzido com prova e com teste que reprova o código anterior: o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, e a decisão autônoma tem a ferramenta MCP `ork_decision_record`; o modo de sessão (plano no PLAN, review nativo no CHECK) vale só para o bloco que termina na fase de entrada, nos dois runtimes; `ork phase run` respeita `max_parallel_threads` pelas sessões vivas do projeto, com `concurrency.limite` e `--esperar`; `ork decisao registrar` diz o campo e o teto reais; `ork ship registrar-pr --repo --pr` registra PR mesclado em repositório externo declarado em `ci.external_repositories`; `ork ci prepare` grava o bundle na worktree da thread; o teste D-6 deixa de depender de quem vence a corrida com o observador destacado.
+- **Defeitos de condução de 28/09/2026 (thread `ork-defeitosdeco`, PR #18, merge `a61e1e4`, na versão 0.4.3):** sete defeitos que travavam a própria fábrica, cada um reproduzido com prova, corrigido na origem e com teste que reprova o código anterior: a sessão claude-bg em `blocked` depois do Stop abre a pausa humana; `ork sessions stop|logs|attach` acham a sessão no perfil da conta; `ork_git_status` e `ork_git_commit` aceitam hook e config que o commit nunca executa; o contexto do despacho chega por sessão, sem herança do daemon do `claude --bg`; `ork worktree sync` recria a branch sem commit próprio sobre base reescrita; modelo inacessível na conta vira `runtime.model-unavailable` e o retry troca o destino; o teste N1 claude-bg deixa de depender do observador destacado.
+- **Defeitos de condução de 29/09/2026 (thread `ork-rm037defeito`, PR #28, merge `baf065e`, na versão 0.5.0):** sete defeitos, cada um reproduzido com prova e com teste que reprova o código anterior: o despacho codex de bloco com GO grava a baseline antes de soltar a sessão, e a decisão autônoma tem a ferramenta MCP `ork_decision_record`; o modo de sessão (plano no PLAN, review nativo no CHECK) vale só para o bloco que termina na fase de entrada, nos dois runtimes; `ork phase run` respeita `max_parallel_threads` pelas sessões vivas do projeto, com `concurrency.limite` e `--esperar`; `ork decisao registrar` diz o campo e o teto reais; `ork ship registrar-pr --repo --pr` registra PR mesclado em repositório externo declarado em `ci.external_repositories`; `ork ci prepare` grava o bundle na worktree da thread; o teste D-6 deixa de depender de quem vence a corrida com o observador destacado.
 - **Entram (24/09/2026):** verify ciente do steal, nome do teste que reprovou no ledger, tempo de boot do CLI, asserções de relógio na suíte paralela, fixtures independentes de umask e a causa real em `registrarObservacao`.
-- **Defeitos da noite de 29/09/2026 (thread `ork-rm037noite`):** seis defeitos de condução, cada um com teste que reprova o código anterior: bundle de CI por thread, achado pelo nome da branch; fila e leases de thread fechada soltos no fechamento e podados quando outra thread pede a região; reserva do roadmap solta ou passada adiante no fechamento, com a órfã marcada e solta por `--soltar-orfas`; runtime e modelo de cada thread no retrato da fábrica; `docs sincronizar` só no item da thread; número de FEAT reservado entre máquinas.
+- **Defeitos da noite de 29/09/2026 (thread `ork-rm037noite`, PR #34, merge `36def09`, na versão 0.5.0):** seis defeitos de condução, cada um com teste que reprova o código anterior: bundle de CI por thread, achado pelo nome da branch; fila e leases de thread fechada soltos no fechamento e podados quando outra thread pede a região; reserva do roadmap solta ou passada adiante no fechamento, com a órfã marcada e solta por `--soltar-orfas`; runtime e modelo de cada thread no retrato da fábrica; `docs sincronizar` só no item da thread; número de FEAT reservado entre máquinas.
 
 ## Plano e decisões
 
@@ -84,7 +89,10 @@ sdlc:
   - prazo no manifesto (`verify.timeout_ms` e `verify.timeout_ms_por_comando`), também no MCP, até 300 s por comando;
   - o ledger guarda, por comando que falha, a causa, o prazo, a duração, os testes que caíram e o trecho redigido;
   - o comando de verificação não herda variável `ORK_HITL_*`.
-- Falta: o registro de instabilidade do P6 e o verify ciente do steal (a compilação única do P2 e o lint do P6 entraram em 27/09). Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
+- P2 (compilação única e `verify.sem-veredito`) e o lint de comando de claim do P6 (`core/src/claim-lint.ts`) estão na `main` desde `10ca416` (Orkastery 0.3.0).
+- Defeitos de condução: os de 28/09 na `main` pelo PR #18 (merge `a61e1e4`) e na versão 0.4.3; os de 29/09 pelo PR #28 (merge `baf065e`) e os da noite de 29/09 pelo PR #34 (merge `36def09`), os dois na versão 0.5.0. CI verde no push de cada merge (runs 36560460823, 36663174203 e 36725816649).
+- Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
+- Falta: o registro de instabilidade do P6 e o verify ciente do steal; nenhum código de steal existe em `core/src`. Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -92,13 +100,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-28 | Julio |
-| Documentação | Em revisão | — | 2026-09-28 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-28 | Julio |
-| Testes | Aprovados | — | 2026-09-28 | Julio |
-| Deploy | Produção | — | 2026-09-28 | Julio |
-| Exposição | Parcial | — | 2026-09-28 | Julio |
-| Habilitação | Em andamento | — | 2026-09-28 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-01 | Julio |
+| Exposição | Parcial | — | 2026-10-01 | Julio |
+| Habilitação | Em andamento | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -120,4 +128,8 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | defeitos de condução achados em 28/09: conclusão claude-bg em `blocked`, perfis no `sessions stop`, `ork_git` com hooks, contexto vazado, sync sobre base reescrita, modelo inacessível e o teste instável do PR #14 | thread `ork-defeitosdeco`, PR a abrir | Julio |
 | 2026-10-01 | fatia 3: sete defeitos de condução de 27/09 a 01/10 (estado do item contra o merge, CHANGELOG no CI, base reescrita com ancestral comum, lease de thread fechada no MCP, hard link em `.git/objects`, `registrar-pr --dry-run` e dono do `.git` no doctor) | thread `ork-rm037fatia3d`, reprodução e decisões no ledger, testes `rm037-fatia3-*`, PR a abrir | Julio |
 | 2026-09-30 | defeitos da noite de 29/09: bundle por thread, fila e reservas de thread fechada, runtime na fábrica, sincronizar com escopo e número de FEAT reservado | thread `ork-rm037noite`, fatia aprovada pelo dono (N1 a), PR a abrir | Julio |
+| 2026-09-29 | defeitos de 28/09 mesclados na `main` e publicados na versão 0.4.3 | PR #18, merge `a61e1e4`; tag `v0.4.3` | Julio |
+| 2026-09-30 | defeitos de 29/09 mesclados na `main` | PR #28, merge `baf065e` | Julio |
+| 2026-09-30 | defeitos da noite de 29/09 mesclados na `main` | PR #34, merge `36def09` | Julio |
+| 2026-10-01 | defeitos de 29/09 e da noite de 29/09 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
 | 2026-10-02 | fatia 4: trabalho parado no condutor no pulse e status do roadmap com o estado real da entrega e a batida da fábrica; registro de instabilidade e steal ficam pendentes com a recomendada | thread `ork-rm037fatia4t`, decisões no ledger, testes `rm037-fatia4-*`, PR a abrir | Julio |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024, FEAT-033]
 owner: Julio
-atualizado_em: 2026-09-29T23:37:51-03:00
+atualizado_em: 2026-10-01T02:20:06-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,13 +17,18 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: a17ff88
-    pr: null
+    commit: 46220bc
+    pr: 27
+    anteriores: "a17ff88 (PR #21, contexto citável)"
+  testes:
+    ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
   thread: ork-rm026k3dossi
   modo: "#Auto"
-  fase: SHIP
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-026 — Workspace empresarial e Maestro
@@ -52,8 +57,8 @@ sdlc:
 
 - **Entregue até aqui:**
   - K1, cartões, estados e criação: identidade, estado e criação recuperável no núcleo (merge `580abb9`).
-  - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`).
-  - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`).
+  - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`, PR #21, merge `a17ff88`).
+  - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`, PR #27, merge `46220bc`).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
@@ -70,8 +75,9 @@ sdlc:
 ## Estado com evidências
 
 - Código na `main`: K1, presente desde `10ca416` (Orkastery 0.3.0). O merge `580abb9` é do histórico anterior à 0.3.0.
-- Contexto citável: branch `ork/ork-companybrai3-full`, entregue por PR.
-- Dossiê de decisão (K3.1): branch `ork/ork-rm026k3dossi-full`, entregue por PR.
+- Contexto citável na `main` pelo PR #21 (merge `a17ff88`), com o CI verde no push do merge (run 36563382672).
+- Dossiê de decisão (K3.1) na `main` pelo PR #27 (merge `46220bc`), com o CI verde no push do merge (run 36662685901).
+- Os dois em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -79,13 +85,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-09-29 | Julio |
-| Documentação | Em revisão | — | 2026-09-29 | Julio |
-| Código | Mesclado | commit `a17ff88` | 2026-09-29 | Julio |
-| Testes | Aprovados | — | 2026-09-29 | Julio |
-| Deploy | Produção | — | 2026-09-29 | Julio |
-| Exposição | Parcial | — | 2026-09-29 | Julio |
-| Habilitação | Em andamento | — | 2026-09-29 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
+| Documentação | Em revisão | — | 2026-10-01 | Julio |
+| Código | Mesclado | commit `46220bc` · PR #27 · anteriores: a17ff88 (PR #21, contexto citável) | 2026-10-01 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
+| Exposição | Parcial | — | 2026-10-01 | Julio |
+| Habilitação | Em andamento | — | 2026-10-01 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -100,3 +106,6 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | workspace sem interface web; o K2 saiu com a interface | decisão do dono em 28/09/2026, commit `7eb942d` | Julio |
 | 2026-09-28 | contexto citável nos quatro hosts | thread `ork-companybrai3`, por PR | thread `ork-companybrai3` (#Auto) |
 | 2026-09-29 | K3.1, dossiê de decisão somente leitura | thread `ork-rm026k3dossi`, por PR | thread `ork-rm026k3dossi` (#Auto) |
+| 2026-09-29 | contexto citável mesclado na `main` | PR #21, merge `a17ff88` | Julio |
+| 2026-09-30 | K3.1 mesclado na `main` | PR #27, merge `46220bc` | Julio |
+| 2026-10-01 | contexto citável e K3.1 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |

@@ -6,24 +6,28 @@ categoria: melhoria
 pai: null
 features: [FEAT-034]
 owner: Equipe Orkastery
-atualizado_em: 2026-09-30T00:13:18-03:00
+atualizado_em: 2026-10-01T02:26:00-03:00
 estado:
-  ciclo: Em validação
+  ciclo: Disponível
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Aprovados
-  deploy: Não implantado
+  deploy: Produção
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 868e97484c5e93437166929c6ab07d6ffea6362c
-    pr: null
+    commit: 732ce8d
+    pr: 33
+  testes:
+    ci: verde no push do merge (run 36775742228) e no da v0.5.0 (run 36815186450)
+  deploy:
+    release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
   thread: ork-pacotedeexpe
   modo: "#Auto"
-  fase: CHECK
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-051: Pacote de experiência de orquestração
@@ -34,7 +38,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Branch criada | Aprovados | Não implantado | Flag desligada |
+| Disponível | Mesclado | Aprovados | Produção | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -62,36 +66,42 @@ Riscos: caminhos inseguros, conflito de bloco e indisponibilidade remota. A miti
 
 ## Estado com evidências
 
-Implementação completa na branch, em validação até o PR; esta página não é recibo oficial de aceite, instalação ou publicação.
+- Na `main` pelo PR #33 (merge `732ce8d`), com o CI verde no push do merge (run 36775742228).
+- Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
+- Disponível: o aceite da página (testes, verify, revisão independente e instalação real de tarball) foi cumprido antes do merge; sem métrica de adoção medida, o item não fecha como Concluído.
+
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-09-30 | Equipe Orkastery |
-| Documentação | Em revisão | — | 2026-09-30 | Equipe Orkastery |
-| Código | Branch criada | commit `868e97484c5e93437166929c6ab07d6ffea6362c` | 2026-09-30 | Equipe Orkastery |
-| Testes | Aprovados | — | 2026-09-30 | Equipe Orkastery |
-| Deploy | Não implantado | — | 2026-09-30 | Equipe Orkastery |
-| Exposição | Flag desligada | — | 2026-09-30 | Equipe Orkastery |
-| Habilitação | Pendente | — | 2026-09-30 | Equipe Orkastery |
+| Ciclo do item | Disponível | — | 2026-10-01 | Equipe Orkastery |
+| Documentação | Em revisão | — | 2026-10-01 | Equipe Orkastery |
+| Código | Mesclado | commit `732ce8d` · PR #33 | 2026-10-01 | Equipe Orkastery |
+| Testes | Aprovados | ci: verde no push do merge (run 36775742228) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Equipe Orkastery |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Equipe Orkastery |
+| Exposição | Flag desligada | — | 2026-10-01 | Equipe Orkastery |
+| Habilitação | Pendente | — | 2026-10-01 | Equipe Orkastery |
 
 <!-- ork-docs:estado:fim -->
 
 ## Responsabilidades e histórico
 
-A equipe Orkastery conduz implementação e revisão. Próxima ação: abrir o PR para a main e acompanhar o CI.
+A equipe Orkastery conduz implementação e revisão. Próxima ação: definir a medição de adoção para fechar o item. O PR #33 foi mesclado e publicado na versão 0.5.0.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-09-29 | Cadastro planejado | Especificação FEAT-034 | Equipe Orkastery |
 | 2026-09-30 | Em validação, testes aprovados | CHECK independente com GO-FIX 2 a 5; a feature passa a FEAT-031 porque a main já usa FEAT-030 | Equipe Orkastery |
 | 2026-09-30 | Feature renumerada de FEAT-031 para FEAT-034 | A FEAT-031 ficou combinada para a RM-053 em outra máquina da rede; nesta, a FEAT-033 é da RM-026 e a FEAT-034, da RM-051 | Equipe Orkastery |
+| 2026-09-30 | Mesclado na `main` | PR #33, merge `732ce8d` | Equipe Orkastery |
+| 2026-10-01 | Disponível na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Equipe Orkastery |
 
 ## Evidência da implementação
 
 Código na branch com testes de preferências, blocos, clone sem recibo, adaptadores, entradas, MCP, aviso de associação e varredura pública; os arquivos e comandos estão em [FEAT-034](../produto/FEAT-034-pacote-de-experiencia.md) e no [guia de experiência](../guias/orchestration-experience.pt-BR.md).
 
-O CHECK independente rodou o eval completo, o lint de prompts e de Markdown, a verificação documental, os links, a varredura pública e o ensaio real de instalação do tarball, todos verdes. A revisão de código e a auditoria de privacidade acharam dois bloqueadores e seis avisos, corrigidos com teste nos GO-FIX 2 a 5. Versão mantida; mudança em “Não publicado”, sem PR, release ou deploy comprovado.
+O CHECK independente rodou o eval completo, o lint de prompts e de Markdown, a verificação documental, os links, a varredura pública e o ensaio real de instalação do tarball, todos verdes. A revisão de código e a auditoria de privacidade acharam dois bloqueadores e seis avisos, corrigidos com teste nos GO-FIX 2 a 5. A mudança entrou pelo PR #33 e foi publicada na versão 0.5.0 (CHANGELOG da 0.5.0).
 
 OpenClaw permanece sem distribuição de skills do pacote.
