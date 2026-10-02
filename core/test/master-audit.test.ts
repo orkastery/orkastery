@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { projetoTemporario } from './apoio';
-import { novaThread, dirThread, lerThread, gravarThread } from '../src/thread';
+import { novaThread, dirThread, lerThread } from '../src/thread';
 import { registrar } from '../src/ledger';
 import { enviarDigest, lerDigest, dirDigest } from '../src/master-digest';
 import { auditarMaster } from '../src/master-audit';
@@ -45,10 +45,9 @@ test('auditoria exige 100% das fechadas em 30 dias, três classes humanas e quat
     fs.writeFileSync(path.join(dirDigest(p.dir), '2026-09-18.json'), JSON.stringify(job));
     assert.equal(auditarMaster(p.dir, quando).digest.ok, false, 'recibo forjado não conta');
     const falsa = novaThread(p.carregado, { nome: 'fechada sem prova', modo: 'auto' }).thread;
-    falsa.status = 'fechada'; gravarThread(p.dir, falsa);
-    // Dentro da janela de `quando`: com o relógio real, a thread passava de `quando` a partir das 13:00Z de 02/10.
-    const gravada = lerThread(p.dir, falsa.id); gravada.atualizadaEm = '2026-09-20T12:00:00Z';
-    fs.writeFileSync(path.join(dirThread(p.dir, falsa.id), 'thread.json'), JSON.stringify(gravada));
+    // Data fixa dentro da janela: com o relógio real, depois de `quando` a thread sai da auditoria.
+    falsa.status = 'fechada'; falsa.atualizadaEm = '2026-09-20T12:00:00Z';
+    fs.writeFileSync(path.join(dirThread(p.dir, falsa.id), 'thread.json'), JSON.stringify(falsa));
     assert.equal(auditarMaster(p.dir, quando).cobertura.ok, false);
   } finally { p.limpar(); }
 });
