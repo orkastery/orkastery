@@ -411,7 +411,7 @@
         "node --test core/dist-test/test/rm037-entrega-externa.test.js"
       ],
       "criadoEm": "2026-10-02T19:22:28.400Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
