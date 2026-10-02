@@ -30,11 +30,12 @@ import { MODOS } from '../src/modos';
 import { editarBloco } from '../src/setup';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { ship } from '../src/ship';
-import { ehEnsaio, lerLedger } from '../src/ledger';
+import { ehEnsaio, lerLedger, registrar } from '../src/ledger';
 import { planejar } from '../src/board';
 import { montarMonitor } from '../src/orquestracao';
 import { operationalSources } from '../src/maestro-runtime';
 import { MaestroReader } from '../src/maestro-sources';
+import { detectarFasesOrfas } from '../src/liveness';
 import { ajustarManifesto, commitar, dirTemporario, projetoTemporario, shaNoRemotoDeTeste } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -532,4 +533,19 @@ test('fatia 2 R7: guia de experiencia diz onde o --dir poe o catalogo', () => {
       assert.ok(guia.includes(trecho), `${arquivo}: ${trecho}`);
     }
   }
+});
+
+test('fatia 2 P2: o detector de fase orfa do pulse ignora o ensaio do ship', () => {
+  // CHECK, rodada 1 (A1): o gate do dry-run nao tem fase nem sessao e contava como gate em aberto.
+  const p = projetoTemporario('fatia2-orfa');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'fase silenciosa', modo: 'classic', criarWorktree: true });
+    const agora = Date.now();
+    registrar(dirThread(p.dir, thread.id), thread.id, 'phase_dispatch', { ts: new Date(agora - 30 * 60000).toISOString(),
+      fase: 'GOAL', sessionId: '6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b', runtime: 'claude-bg' });
+    const orfas = () => detectarFasesOrfas(p.carregado, { quando: new Date().toISOString(), fontes: () => ({}) }).length;
+    assert.equal(orfas(), 1, 'a fase despachada ha 30 min sem sinal e orfa');
+    assert.equal(ship(p.carregado, thread.id, { para: 'main', dryRun: true }).motivo, 'human.pending');
+    assert.equal(orfas(), 1, 'o ensaio do ship nao esconde a fase orfa');
+  } finally { p.limpar(); }
 });
