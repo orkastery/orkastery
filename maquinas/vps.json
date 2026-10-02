@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.0",
-  "publicadoEm": "2026-10-02T03:47:12.401Z",
+  "publicadoEm": "2026-10-02T03:47:25.992Z",
   "threads": [
     {
       "id": "ork-ensaiofatia2",
@@ -24,21 +24,21 @@
       "esforco": "max"
     },
     {
-      "id": "ork-rm031kg4incr",
-      "nome": "rm031 kg4 incremental",
+      "id": "ork-rm031kg5cons",
+      "nome": "RM-031 KG5 consumo do grafo pelas fases",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-031",
-      "branch": "ork/ork-rm031kg4incr-full",
-      "atualizadaEm": "2026-10-02T03:47:12.182Z",
-      "entregue": "99b10d38",
+      "branch": "ork/ork-rm031kg5cons-full",
+      "atualizadaEm": "2026-10-02T03:47:23.515Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm037fatia4t",
