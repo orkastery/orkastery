@@ -80,6 +80,8 @@ const recomendadaDe = (p: PedidoHitlQualquer): string | undefined =>
  */
 export interface EntregaNoStatus {
   estado: string | null;
+  /** Alguem conduz a thread agora (sessao trabalhando, processo do condutor): o "sigo" continua valendo. */
+  conduzida?: boolean;
   parado?: { desdeEm: string; proximoPasso: string };
   /** A hora da leitura dos PRs que sustenta o estado, quando ele veio do retrato. */
   prLidoEm?: string;
@@ -221,7 +223,8 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
 /** O estado da entrega como o status o diz: so quando ha o que dizer. */
 function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | undefined {
   if (!e || (!e.resumo && !e.parado)) return undefined;
-  return { estado: e.resumo, ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso } } : {}),
+  return { estado: e.resumo, ...(e.conduzidaAgora ? { conduzida: true } : {}),
+    ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso } } : {}),
     ...(e.prLidoEm ? { prLidoEm: e.prLidoEm } : {}) };
 }
 
@@ -313,7 +316,9 @@ function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, f
   if (e?.parado) return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}.`;
   if (e?.estado) {
     const { prLidoEm: lido } = e;
-    return `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : ''}.`;
+    const quando = lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : '';
+    return e.conduzida ? `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}; ${e.estado}${quando}.`
+      : `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${quando}.`;
   }
   return `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}.`;
 }

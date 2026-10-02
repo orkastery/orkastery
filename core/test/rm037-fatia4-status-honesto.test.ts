@@ -21,6 +21,7 @@ import { definirFusoDoDono } from '../src/horario';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { CONTRATO_PRS, gravarRetratoDePrs, PrDaForja } from '../src/parado-no-condutor';
 import { retratoDaMaquina } from '../src/fabrica-estado';
+import { tomarConducao } from '../src/conducao';
 import { main } from '../src/index';
 
 const AGORA = '2026-10-02T01:21:00.000Z'; // 22:21 de 01/10 em Brasilia
@@ -209,5 +210,20 @@ test('o retrato da maquina nao marca "espera voce" no que e do condutor; a pausa
     // A thread fechada some do retrato como antes.
     const t = lerThread(p.dir, doDono.t.id); t.status = 'fechada'; gravarThread(p.dir, t);
     assert.equal(retratoDaMaquina(p.carregado, { agora: AGORA, maquina: 'pc-a' }).threads.some(x => x.id === doDono.t.id), false);
+  } finally { p.limpar(); restaurar(); }
+});
+
+test('thread conduzida agora: o "sigo" continua, com o estado da entrega ao lado', () => {
+  const restaurar = ambiente('0');
+  const p = projetoTemporario('fatia4-status-conduzida', true);
+  try {
+    const a = thread(p, 'conduzida com commit', 7, { turno: false });
+    item(p.dir, 'RM-031', a.t.id);
+    const conducao = tomarConducao(p.dir, a.t.id, { canal: 'cli', operacao: 'verify', prazoMs: 60_000 });
+    assert.equal(conducao.ok, true);
+    try {
+      const linhas = textoDoStatusDoRoadmap(montarStatusDoRoadmap(p.dir, { quando: AGORA, projeto: 'orkastery' })).split('\n');
+      assert.ok(linhas.includes(`• RM-031: sigo ${a.t.id} na fase GOAL; branch com commits sem push.`), linhas.join('\n'));
+    } finally { if (conducao.ok) conducao.liberar(); }
   } finally { p.limpar(); restaurar(); }
 });
