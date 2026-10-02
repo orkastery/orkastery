@@ -70,7 +70,13 @@ function ambiente(env:NodeJS.ProcessEnv=process.env): NodeJS.ProcessEnv {
 function git(wt: string, args: string[], input?: string): string {
   const r=spawnSync(GIT,['--no-pager','--literal-pathspecs',...args],{cwd:wt,env:ambiente(),
     encoding:'utf8',input,timeout:10000,killSignal:'SIGKILL',maxBuffer:LIMITE});
-  if(r.status!==0 || r.signal || r.error) falha('command.failed');
+  // Fatia 2 do ensaio da 0.5.0 (P8): a falha diz o subcomando e como ele saiu, nunca o stderr, que pode
+  // citar caminho e conteudo. O subcomando e sempre o primeiro argumento interno, nunca entrada do cliente.
+  if(r.status!==0 || r.signal || r.error) {
+    const como=r.error ? `nao executou (${(r.error as NodeJS.ErrnoException).code ?? 'erro'})`
+      : r.signal ? `interrompido por ${r.signal}` : `saiu ${r.status}`;
+    falha(`command.failed: git ${args[0]} ${como}`);
+  }
   return r.stdout;
 }
 /** Lista positiva de configuração passiva. Não é blacklist de shell. */
@@ -268,7 +274,14 @@ function executar(raiz: string,p: PedidoCommitMcp): ResultadoCommitMcp {
     conferir(); if(git(wt,['diff','--cached','--name-only','-z']).length) falha('index.not-empty');
     comEstadoParaGit(raiz,t.id,wt,()=>{
       conferir();
-      git(wt,['add','--',...p.paths]);
+      // Fatia 2 do ensaio da 0.5.0 (P8): caminho rastreado entra por `git add -u`, que nao consulta regra de
+      // ignore; o `git add` dele, sob regra local (`fontes/` casando `marketplaces/fontes/`), indexava e saia 1.
+      // Caminho novo segue pelo `git add`, que continua recusando o ignorado, e vai antes: recusado, os
+      // rastreados nem chegam ao indice.
+      const rastreados=new Set(git(wt,['ls-files','-z','--',...p.paths]).split('\0').filter(Boolean));
+      const antigos=p.paths.filter(f=>rastreados.has(f)),novos=p.paths.filter(f=>!rastreados.has(f));
+      if(novos.length) git(wt,['add','--',...novos]);
+      if(antigos.length) git(wt,['add','-u','--',...antigos]);
       const staged=git(wt,['diff','--cached','--name-only','-z']).split('\0').filter(Boolean).sort();
       if(!staged.length || staged.some(f=>!p.paths.includes(f))) falha('index.selection');
       conferir();

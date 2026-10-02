@@ -19,6 +19,8 @@ import { analisarComando } from '../src/claim-lint';
 import { DICA_DO_MOTIVO } from '../src/licoes';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
+import { commitMcp } from '../src/mcp-git';
+import { adicionarClaim } from '../src/claims';
 import { blocosDoRuntime, checarDespachoPeloCodex, checarRuntimeClaude } from '../src/doctor';
 import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
@@ -31,7 +33,7 @@ import { planejar } from '../src/board';
 import { montarMonitor } from '../src/orquestracao';
 import { operationalSources } from '../src/maestro-runtime';
 import { MaestroReader } from '../src/maestro-sources';
-import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
+import { ajustarManifesto, commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const RAIZ = path.resolve(__dirname, '../../..');
@@ -402,4 +404,46 @@ test('fatia 2 P7: roadmap status diz o fuso logo abaixo do titulo', () => {
     assert.deepEqual(texto.filter((l) => /Horários/.test(l)), ['Horários de Brasília.']);
     assert.equal(texto.at(-1), 'Horários de Brasília.');
   } finally { p.limpar(); limpar(casa); }
+});
+
+test('fatia 2 P8: commit MCP adiciona caminho rastreado com add -u e diz o subcomando que falhou', async () => {
+  // O worker do commit le a configuracao do HOME: o teste usa um HOME proprio, sem a de quem roda.
+  const casa = dirTemporario('fatia2-mcp-git-home');
+  const anterior = { HOME: process.env.HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME };
+  process.env.HOME = casa; process.env.XDG_CONFIG_HOME = path.join(casa, 'xdg');
+  const p = projetoTemporario('fatia2-mcp-git');
+  try {
+    const rastreado = 'marketplaces/fontes/README.md';
+    commitar(p.dir, rastreado, '# fonte do marketplace\n', 'fonte rastreada');
+    const t = novaThread(exigirManifesto(p.dir), { nome: 'commit sob regra de ignore', modo: 'auto', criarWorktree: true }).thread;
+    const wt = t.worktree!;
+    const head = (): string => exec('git', ['rev-parse', 'HEAD'], wt).stdout.trim();
+    // A regra local dos clones em `fontes/` casa tambem `marketplaces/fontes/` (o caso da fatia 1).
+    fs.appendFileSync(path.join(p.dir, '.git/info/exclude'), '\nfontes/\n');
+    fs.writeFileSync(path.join(wt, rastreado), '# fonte do marketplace, revista\n');
+    adicionarClaim(p.dir, t.id, { arquivo: rastreado, alegacao: 'fixture da fatia 2', fase: 'GO', verificar: ['true'] });
+    const antes = head();
+    const ok = await commitMcp(p.dir, { threadId: t.id, expectedHead: antes, paths: [rastreado], mensagem: 'fonte revista' });
+    assert.equal(ok.ok, true, ok.erro ?? '');
+    assert.equal(exec('git', ['rev-parse', 'HEAD^'], wt).stdout.trim(), antes);
+    assert.equal(exec('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', ok.commit!], wt).stdout.trim(), rastreado);
+
+    // Caminho novo sob a mesma regra segue recusado pelo `git add`, e o erro diz so o subcomando e o codigo.
+    const novo = 'fontes/novo.txt';
+    fs.mkdirSync(path.join(wt, 'fontes'), { recursive: true });
+    fs.writeFileSync(path.join(wt, novo), 'novo e ignorado\n');
+    adicionarClaim(p.dir, t.id, { arquivo: novo, alegacao: 'fixture da fatia 2', fase: 'GO', verificar: ['true'] });
+    const recusa = await commitMcp(p.dir, { threadId: t.id, expectedHead: head(), paths: [novo], mensagem: 'novo ignorado' });
+    assert.equal(recusa.ok, false);
+    assert.equal(recusa.erro, 'mcp.git.command.failed: git add saiu 1');
+    assert.equal(exec('git', ['diff', '--cached', '--name-only'], wt).stdout.trim(), '', 'nada fica no indice');
+    // Os dois juntos: o novo vai antes ao `git add`, e a recusa dele deixa o rastreado fora do indice.
+    fs.writeFileSync(path.join(wt, rastreado), '# fonte do marketplace, revista de novo\n');
+    const juntos = await commitMcp(p.dir, { threadId: t.id, expectedHead: head(), paths: [rastreado, novo], mensagem: 'juntos' });
+    assert.equal(juntos.erro, 'mcp.git.command.failed: git add saiu 1');
+    assert.equal(exec('git', ['diff', '--cached', '--name-only'], wt).stdout.trim(), '', 'o rastreado nao chegou ao indice');
+  } finally {
+    p.limpar(); limpar(casa);
+    for (const [k, v] of Object.entries(anterior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
 });
