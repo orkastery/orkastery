@@ -1,0 +1,378 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg5cons",
+  "branch": "ork/ork-rm031kg5cons-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "KG5 flag: grafo.mcp no orkastery.yaml da raiz vem desligado por padrao. Ausente ou false, o servidor MCP lista as mesmas 30 tools com os mesmos schemas e o despacho claude-bg monta o mesmo comando de hoje; true liga as quatro tools ork_grafo_*; valor nao booleano vale false com aviso no carregamento do manifesto",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 flag' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:05:24.397Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "KG5 indice: sem o indice do HEAD, a consulta (CLI com --json e tool) recusa tipada e da a correcao ork grafo indexar: grafo.indice.ausente (estado_do_indice nao-indexado), grafo.indice.outra-revisao (ha indice deste repositorio de outra revisao) ou grafo.indice.outro-extrator (ha indice do HEAD com outro extrator), sem responder com outro indice; com a flag desligada depois do startup a tool recusa com grafo.mcp.desligado sem consultar; a sessao vinculada a uma thread nao consulta a worktree de outra",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 indice' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:05:33.195Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/adapters/claude-bg.ts",
+      "alegacao": "KG5 despacho: com grafo.mcp ligado no manifesto da raiz, o comando do despacho claude-bg leva as quatro tools mcp__orkastery__ork_grafo_* no --allowedTools em todas as fases, PLAN incluido; sem a flag, o comando e identico ao de hoje",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 despacho' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:05:35.443Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/kg5-medida-mcp.json",
+      "alegacao": "KG5 medida offline: o registro ork.graph-mcp-cost/v0 mede, nas seis tarefas do protocolo, os bytes que a tool entrega com o teto padrao, as arestas devolvidas e totais, o corte, a latencia, o JSON da CLI sem teto e a leitura crua na mesma revisao, e o custo fixo da descoberta das quatro tools no tools/list; tokens unavailable e nenhuma conclusao de economia; o --conferir mede de novo no HEAD, confere a igualdade com a CLI, o teto e a proveniencia",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && node core/scripts/medir-mcp-grafo.cjs --validar core/test/fixtures/kg5-medida-mcp.json && node core/scripts/medir-mcp-grafo.cjs --conferir"
+      ],
+      "criadoEm": "2026-10-02T04:05:42.795Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-graph-index.test.ts",
+      "alegacao": "KG5 sem regressao no KG3 e no KG4: os testes do indice, da consulta e do incremental passam e os registros de medida do KG3 e do KG4 seguem validos",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-graph-index.test.js core/dist-test/test/intelligence-graph-query.test.js core/dist-test/test/intelligence-graph-incremental.test.js",
+        "node core/scripts/medir-consulta-grafo.cjs --validar core/test/fixtures/kg3-medida-consulta.json && node core/scripts/linha-de-base-grafo.cjs --validar core/test/fixtures/kg4-linha-de-base.json"
+      ],
+      "criadoEm": "2026-10-02T04:05:47.797Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "KG5 docs: o contrato do KG5 descreve a flag grafo.mcp desligada, as quatro tools, o teto de 32768 bytes, as recusas do indice com a correcao e o que fica fora; a RM-031 registra o KG4 mesclado (PR #40) e o KG5; os links relativos valem e o Markdown passa no markdownlint; o CHANGELOG tem a linha em Nao publicado",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-links.cjs",
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/consumo-grafo-kg5.md docs/roadmap/RM-031-grafo-de-codigo.md docs/referencia/cli.md docs/conceitos/arquitetura.md CHANGELOG.md",
+        "grep -q 'grafo.mcp' docs/referencia/contratos/consumo-grafo-kg5.md && grep -q '32.768' docs/referencia/contratos/consumo-grafo-kg5.md && grep -q 'PR #40' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'ork_grafo_' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-02T04:05:51.537Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/test/intelligence-kg1-boundary.test.ts",
+      "alegacao": "KG5 fronteira: os hashes congelados do Company Brain v1 (schema, corpus C1 e schema nativo) seguem iguais; fora da familia do grafo so index.ts e o worker do MCP (mcp-grafo-worker.ts) importam a familia, e so pelo CLI do grafo; o fechamento de imports do servidor MCP nao alcanca modulo do grafo; a branch nao muda os modulos da impressao do extrator nem o schema v1 do grafo em relacao a merge-base com a origin/main",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/intelligence-kg1-boundary.test.js",
+        "git diff --quiet \"$(git merge-base origin/main HEAD)\" HEAD -- core/src/intelligence-graph-contract.ts core/src/intelligence-graph-extract.ts core/src/intelligence-graph-extract-ts.ts core/src/intelligence-graph-extract-md.ts core/src/intelligence-graph-repo.ts core/src/intelligence-graph-parsers.ts core/src/intelligence-graph-index.ts core/src/yaml.ts core/schemas/code-artifact-graph.v1.schema.json"
+      ],
+      "criadoEm": "2026-10-02T04:06:11.716Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "KG5 flag: o tipo Manifesto declara grafo.mcp, que o carregador sempre preenche (padrao false)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 flag: manifesto' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:20.575Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "O manifesto deste repositorio declara a secao grafo com mcp: false (desligado) e carrega sem erro nem aviso",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node -e \"const m=require('./core/dist/manifest.js').carregarManifesto(process.cwd());if(!m||m.erros.length||m.avisos.length||!m.manifesto.grafo||m.manifesto.grafo.mcp!==false){console.error(JSON.stringify(m&&{erros:m.erros,avisos:m.avisos,grafo:m.manifesto.grafo}));process.exit(1)}\" && grep -Eq '^grafo:' orkastery.yaml && grep -Eq '^  mcp: false' orkastery.yaml"
+      ],
+      "criadoEm": "2026-10-02T04:11:23.541Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "A suite do KG5 (flag, contrato, teto, indice, worker, despacho e medida) passa inteira",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:24.729Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "A ajuda do ork mostra o --teto-bytes das consultas do grafo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js --help | grep -q -- '--teto-bytes'"
+      ],
+      "criadoEm": "2026-10-02T04:11:26.563Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-grafo-worker.ts",
+      "alegacao": "KG5 worker: o worker da consulta pelo MCP roda so as quatro consultas, na raiz conferida contra o cwd, e recusa entrada fora do schema, subcomando de escrita (indexar, limpar, amostra, status) e opcao fora do argv da tool",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 worker' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:28.326Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "KG5 flag: o servidor MCP registra as quatro tools do grafo so com grafo.mcp ligado no startup; sem a flag, lista as 30 tools de hoje",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 flag: servidor' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:30.099Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/runtime-context.ts",
+      "alegacao": "KG5 despacho: o contexto do runtime deriva a flag do grafo do manifesto da raiz, nunca da worktree nem do modelo",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 despacho' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:31.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-mcp-grafo.cjs",
+      "alegacao": "KG5 medida: o validador do registro ork.graph-mcp-cost/v0 recusa promessa de economia, token sem medida e tarefa faltando",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 medida' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T04:11:33.689Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "A RM-031 registra o KG4 mesclado pelo PR #40 e o KG5 na branch da thread, com a exposicao em Flag desligada",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'PR #40' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'KG5' docs/roadmap/RM-031-grafo-de-codigo.md && grep -q 'exposicao: Flag desligada' docs/roadmap/RM-031-grafo-de-codigo.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:36.190Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A referencia da CLI descreve o --teto-bytes das consultas do grafo e as recusas do indice ausente com a correcao",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/cli.md && grep -q -- '--teto-bytes' docs/referencia/cli.md && grep -q 'grafo.indice.outra-revisao' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:38.047Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/conceitos/arquitetura.md",
+      "alegacao": "A secao do grafo na arquitetura traz o estado do KG1 ao KG5 e aponta o contrato do KG5",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/conceitos/arquitetura.md && grep -q 'KG5' docs/conceitos/arquitetura.md && grep -q 'consumo-grafo-kg5.md' docs/conceitos/arquitetura.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:40.528Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/indice-grafo-kg3.md",
+      "alegacao": "O contrato do KG3 aponta o KG5 para a ferramenta MCP e para o teto em bytes da consulta",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/indice-grafo-kg3.md && grep -q 'consumo-grafo-kg5.md' docs/referencia/contratos/indice-grafo-kg3.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:42.368Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/incremental-grafo-kg4.md",
+      "alegacao": "O contrato do KG4 aponta o KG5 no lugar de ferramenta MCP fora",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 docs/referencia/contratos/incremental-grafo-kg4.md && grep -q 'consumo-grafo-kg5.md' docs/referencia/contratos/incremental-grafo-kg4.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:44.186Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem a linha do KG5 (tools ork_grafo_* atras da flag grafo.mcp e o --teto-bytes) em Nao publicado",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'ork_grafo_' CHANGELOG.md && grep -q -- '--teto-bytes' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-02T04:11:45.662Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O indice do roadmap tem a linha da RM-031 gerada do frontmatter dela, e a documentacao passa na paridade com o codigo e o git",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && node core/dist/index.js docs verificar --pr && grep -q '| \\[RM-031\\](RM-031-grafo-de-codigo.md) | Grafo determin' docs/roadmap/README.md"
+      ],
+      "criadoEm": "2026-10-02T04:43:33.631Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/test/horario-entradas.test.ts",
+      "alegacao": "O worker da consulta do grafo pelo MCP esta declarado entre as entradas de processo, com a razao de nao mostrar horario, e o teste das entradas passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test core/dist-test/test/horario-entradas.test.js && grep -q \"core/src/mcp-grafo-worker.ts\" core/test/horario-entradas.test.ts"
+      ],
+      "criadoEm": "2026-10-02T04:52:55.415Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-grafo.ts",
+      "alegacao": "KG5 contrato: com a flag, ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores e ork_grafo_caminho sao tools de leitura (readOnlyHint), com schema fechado e threadId; a resposta de cada uma e, byte a byte, o JSON que o ork grafo <consulta> ... --json --teto-bytes N escreve na worktree da thread (a CLI acrescenta so a quebra de linha final), e toda aresta devolvida traz extrator, versao, metodo, arquivo, linhas e bytes da evidencia",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 contrato' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T05:17:43.070Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm031kg5cons",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "KG5 teto: ork grafo <consulta> --json --teto-bytes N escreve a resposta em JSON compacto de no maximo N bytes; acima do teto saem as arestas mais longe do alvo, com o maior limite que cabe, e a resposta traz teto.cortado, o limite pedido e o efetivo, deterministica; nenhuma aresta sai sem toda a evidencia; caminho que nao cabe recusa com grafo.consulta.teto-excedido; a recusa sai compacta e nao passa pelo teto; sem --teto-bytes a resposta (saida 0) da CLI fica byte a byte a de antes; as tools usam 32768 bytes por padrao, de 4096 a 65536",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern='KG5 teto' core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-02T05:17:45.780Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C8",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C31",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
