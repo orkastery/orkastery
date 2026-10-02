@@ -12,7 +12,8 @@ import { definicaoDoModo, MODOS, ORDEM_DOS_MODOS, tagDoModo } from './modos';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
 import {
-  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Modo, SessaoDaThread, Thread, VarianteDeCiclo,
+  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Manifesto, Modo, SessaoDaThread, Thread,
+  VarianteDeCiclo,
 } from './types';
 import { agora, COMMIT_DESCONHECIDO, exec, ignorarPastaNoGit, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -112,6 +113,40 @@ export interface OpcoesDeWorktree {
   base?: string;
 }
 
+/** Pasta e branch da worktree de uma thread: o que `criarWorktree` cria e o `--dry-run` preve. */
+export function alvoDaWorktree(
+  carregado: ManifestoCarregado,
+  id: string,
+  slug: string,
+  opcoes: OpcoesDeWorktree = {}
+): WorktreeDaThread {
+  return {
+    dir: path.resolve(carregado.raiz, carregado.manifesto.worktree.dir, id),
+    branch: opcoes.branchExistente ?? `ork/${slug}`,
+  };
+}
+
+/**
+ * P4 do ensaio da 0.5.0: a worktree que `criarWorktree` criaria para este id, sem criar nada. Mesma pasta, mesma
+ * branch e o commit de onde ela partiria: a branch existente (ciclo `merge-branch`), senao a base do manifesto,
+ * senao o HEAD. `null` quando nenhum resolve em commit (repositorio sem commit), onde o `git worktree add` falharia.
+ */
+export function worktreePrevista(
+  carregado: ManifestoCarregado,
+  id: string,
+  slug: string,
+  opcoes: OpcoesDeWorktree = {}
+): (WorktreeDaThread & { commit: string }) | null {
+  const refs = opcoes.branchExistente
+    ? [opcoes.branchExistente]
+    : [opcoes.base ?? carregado.manifesto.worktree.base_branch, 'HEAD'];
+  for (const ref of refs) {
+    const r = exec('git', ['rev-parse', '--verify', ref], carregado.raiz);
+    if (r.ok) return { ...alvoDaWorktree(carregado, id, slug, opcoes), commit: r.stdout.trim() };
+  }
+  return null;
+}
+
 /**
  * Cria a worktree isolada da thread (paralelismo sem colisao entre threads).
  *
@@ -126,8 +161,7 @@ export function criarWorktree(
   opcoes: OpcoesDeWorktree = {}
 ): WorktreeDaThread {
   const { raiz, manifesto } = carregado;
-  const dir = path.resolve(raiz, manifesto.worktree.dir, id);
-  const branch = opcoes.branchExistente ?? `ork/${slug}`;
+  const { dir, branch } = alvoDaWorktree(carregado, id, slug, opcoes);
 
   if (fs.existsSync(dir)) {
     throw new Error(`worktree ja existe em ${dir}`);
@@ -157,6 +191,102 @@ export function criarWorktree(
   return { dir, branch };
 }
 
+/**
+ * P4 do ensaio da 0.5.0: o que o `ork thread new` pede sobre a worktree. `flag` e `chave` criam a worktree da
+ * thread; `diretorio` reusa um que ja existe; `sem-worktree` e `nenhuma` deixam a thread na raiz do projeto.
+ */
+export type OrigemDoPedidoDeWorktree = 'flag' | 'chave' | 'diretorio' | 'sem-worktree' | 'nenhuma';
+
+/** Por que a thread nova ganhou a worktree (ou ganharia, no `--dry-run`). */
+export type OrigemDaWorktree = 'flag' | 'chave' | 'ciclo';
+
+export interface PedidoDeWorktree {
+  /** Cria a worktree da thread. */
+  criar: boolean;
+  /** Diretorio que ja existe (`--worktree DIR`); `null` nos outros casos. */
+  dir: string | null;
+  origem: OrigemDoPedidoDeWorktree;
+}
+
+/**
+ * Resolve `--worktree`, `--sem-worktree` e `worktree.por_thread`. As flags vencem a chave; as duas juntas, ou
+ * `--sem-worktree` com valor (o parser leva o argumento seguinte), sao erro de uso. `--worktree` sozinho ou `auto`
+ * cria a worktree; outro texto e um diretorio que ja existe, como antes.
+ */
+export function pedidoDeWorktree(
+  flags: { worktree?: string | boolean; semWorktree?: string | boolean },
+  porThread: boolean
+): PedidoDeWorktree {
+  const worktree = flags.worktree === false ? undefined : flags.worktree;
+  if (typeof flags.semWorktree === 'string') {
+    throw new Error(`uso: --sem-worktree não leva valor (recebeu "${flags.semWorktree}")`);
+  }
+  const semWorktree = flags.semWorktree === true;
+  if (semWorktree && worktree !== undefined) throw new Error('uso: --worktree e --sem-worktree se excluem; use um dos dois');
+  if (semWorktree) return { criar: false, dir: null, origem: 'sem-worktree' };
+  if (worktree === true || worktree === 'auto') return { criar: true, dir: null, origem: 'flag' };
+  if (typeof worktree === 'string') return { criar: false, dir: worktree, origem: 'diretorio' };
+  return porThread ? { criar: true, dir: null, origem: 'chave' } : { criar: false, dir: null, origem: 'nenhuma' };
+}
+
+/**
+ * P4 do ensaio da 0.5.0: a linha que diz de onde veio a worktree da thread nova. Na criacao, so quando ela veio da
+ * chave (quem passou `--worktree auto` sabe de onde ela veio); no `--dry-run`, para qualquer origem.
+ */
+export function linhaDaWorktree(
+  por: OrigemDaWorktree | null | undefined,
+  gravada: boolean,
+  variante?: VarianteDeCiclo | null
+): string | null {
+  if (!por || (gravada && por !== 'chave')) return null;
+  const verbo = gravada ? 'criada' : 'seria criada';
+  if (por === 'chave') {
+    return `  worktree: ${verbo} pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree`;
+  }
+  if (por === 'flag') return `  worktree: ${verbo} pelo --worktree auto`;
+  return `  worktree: ${verbo} pelo ciclo ${variante ?? 'da thread'}, que exige worktree isolada`;
+}
+
+/**
+ * P4 do ensaio da 0.5.0: o que acontece no SHIP com a thread criada por `--sem-worktree`. O `ork ship` entrega a
+ * branch em que a raiz estava na criacao (`thread.base.branch`); na branch base, a policy `push_direto_na_base` do
+ * manifesto decide: `block` barra, outro valor avisa e deixa passar, e sem ela (ou `off`) nada confere.
+ */
+export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto): string {
+  const base = manifesto.worktree.base_branch;
+  const inicio = `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto`;
+  const correcao = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread; ` +
+    'depois do GO, os commits já estão na base e o ship não os separa.';
+  if (thread.base.branch !== base) {
+    return `${inicio}, na branch ${thread.base.branch}, e o ork ship entrega essa branch como estiver, ` +
+      `com o que mais entrar nela. ${correcao}`;
+  }
+  const policy = manifesto.policies?.push_direto_na_base;
+  const efeito = policy === 'block'
+    ? 'o ork ship barra a entrega por push_direto_na_base (block): não há branch de thread para mergear'
+    : policy === undefined || policy === 'off'
+      ? 'o ork ship empurra a base direto, sem branch de thread (push_direto_na_base desligada)'
+      : `o ork ship avisa push_direto_na_base (${policy}) e empurra a base direto, sem branch de thread`;
+  return `${inicio}, na branch base ${base}, e ${efeito}. ${correcao}`;
+}
+
+/** P4 do ensaio da 0.5.0: a worktree que a chave pede nao tem de onde partir num repositorio sem commit. */
+export function avisoDeChaveSemCommit(gravada: boolean): string {
+  return 'Aviso: worktree.por_thread pede a worktree da thread, mas o repositório ainda não tem commit: ' +
+    `a thread ${gravada ? 'nasceu' : 'nasceria'} na raiz do projeto, sem worktree.`;
+}
+
+/** P4: o aviso de worktree do `ork thread new`, para o stderr, ou `null` quando nao ha o que avisar. */
+export function avisoDaWorktree(
+  origem: OrigemDoPedidoDeWorktree,
+  resultado: { thread: Thread; gravada: boolean; worktreePor?: OrigemDaWorktree | null },
+  manifesto: Manifesto
+): string | null {
+  if (origem === 'sem-worktree') return avisoDeThreadSemWorktree(resultado.thread, manifesto);
+  if (origem === 'chave' && !resultado.worktreePor) return avisoDeChaveSemCommit(resultado.gravada);
+  return null;
+}
+
 export interface OpcoesNovaThread {
   /** Somente identidades já persistidas no journal de criação. */
   reservation?: { operationId: string; principal: string; threadId: string };
@@ -167,6 +297,11 @@ export interface OpcoesNovaThread {
   worktree?: string | null;
   /** Cria a worktree isolada da thread em vez de reusar um diretorio existente. */
   criarWorktree?: boolean;
+  /**
+   * P4 do ensaio da 0.5.0: de onde veio o pedido de worktree (`pedidoDeWorktree`). `chave` cria como a flag, mas
+   * espera o primeiro commit; `sem-worktree` recusa o ciclo que exige worktree. Ausente, `criarWorktree` vale como flag.
+   */
+  origemDaWorktree?: OrigemDoPedidoDeWorktree;
   dryRun?: boolean;
   /** Variante de ciclo (`--ciclo greenfield|merge-branch|goal-plan|gap|feature-xl-faseada`). */
   variante?: VarianteDeCiclo | null;
@@ -191,6 +326,8 @@ export interface OpcoesNovaThread {
 export interface ResultadoNovaThread {
   thread: Thread;
   gravada: boolean;
+  /** P4 do ensaio da 0.5.0: por que a thread ganhou a worktree (ou ganharia, no `--dry-run`); `null` sem ela. */
+  worktreePor?: OrigemDaWorktree | null;
 }
 
 /** Cria a thread: valida modo contra o manifesto, gera o slug e carimba a base. */
@@ -259,6 +396,13 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   } else if (opcoes.branch) {
     throw new Error('--branch so vale com --ciclo merge-branch');
   }
+  // `greenfield`, `merge-branch` e `feature-xl-faseada` exigem worktree isolada: sao os
+  // ciclos que escrevem codigo em paralelo com outras threads.
+  const exigeWorktree = variante ? definicaoDaVariante(variante).exigeWorktree : false;
+  // P4 do ensaio da 0.5.0 (D4): o ciclo que exige worktree nao nasce sem ela, e a recusa sai antes de gravar.
+  if (exigeWorktree && opcoes.origemDaWorktree === 'sem-worktree') {
+    throw new Error(`o ciclo ${variante} exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo`);
+  }
 
   const reservation = opcoes.reservation;
   const operation = reservation ? readCreationOperation(raiz, reservation.operationId, reservation.principal) : null;
@@ -326,13 +470,25 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   };
   if (variante === 'feature-xl-faseada') thread.fatias = opcoes.fatias ?? 3;
 
-  if (opcoes.dryRun) return { thread, gravada: false };
+  // P4 do ensaio da 0.5.0: por que a thread ganha a worktree. A pedida so pela chave espera o primeiro commit
+  // (D3): sem commit, a thread fica na raiz, como antes. A pedida por flag ou por ciclo segue como era.
+  const pedeWorktree = opcoes.criarWorktree === true || exigeWorktree;
+  const prevista = pedeWorktree ? worktreePrevista(carregado, id, slug, { branchExistente: opcoes.branch }) : null;
+  const pelaChave = opcoes.criarWorktree === true && opcoes.origemDaWorktree === 'chave';
+  const worktreePor: OrigemDaWorktree | null = !pedeWorktree || (pelaChave && !exigeWorktree && !prevista) ? null
+    : pelaChave ? 'chave' : opcoes.criarWorktree ? 'flag' : 'ciclo';
+
+  if (opcoes.dryRun) {
+    // P4 (D8): o ensaio mostra a worktree que a criacao usaria, com a mesma pasta, branch e base.
+    if (worktreePor && prevista) {
+      thread.worktree = prevista.dir;
+      thread.base = { branch: prevista.branch, commit: prevista.commit };
+    }
+    return { thread, gravada: false, worktreePor: prevista ? worktreePor : null };
+  }
 
   let worktreeCriada: WorktreeDaThread | null = null;
-  // `greenfield`, `merge-branch` e `feature-xl-faseada` exigem worktree isolada: sao os
-  // ciclos que escrevem codigo em paralelo com outras threads.
-  const exigeWorktree = variante ? definicaoDaVariante(variante).exigeWorktree : false;
-  if (opcoes.criarWorktree || exigeWorktree) {
+  if (worktreePor) {
     worktreeCriada = criarWorktree(carregado, id, slug, {
       branchExistente: opcoes.branch,
     });
@@ -355,6 +511,8 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     base: thread.base,
     projeto: manifesto.project.name,
     worktree: thread.worktree,
+    // P4 do ensaio da 0.5.0 (D9): quem abriu a thread sem worktree de proposito fica no rastro.
+    ...(opcoes.origemDaWorktree === 'sem-worktree' ? { semWorktree: true } : {}),
     variante,
     branchDeOrigem: opcoes.branch ?? null,
     maquina: thread.maquina,
@@ -365,10 +523,11 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
       dir: worktreeCriada.dir,
       branch: worktreeCriada.branch,
       base: manifesto.worktree.base_branch,
+      origem: worktreePor,
       fonte: 'git worktree list --porcelain',
     });
   }
-  return { thread, gravada: true };
+  return { thread, gravada: true, worktreePor };
 }
 
 /**
