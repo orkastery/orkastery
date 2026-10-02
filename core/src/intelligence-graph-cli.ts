@@ -8,6 +8,10 @@
  * O argv chega cru e o parser e estrito: subcomando conhecido, opcao conhecida uma vez so, valor
  * onde a opcao pede valor e bandeira sem valor, numero exato de posicionais. Resposta sai 0, mesmo
  * vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+ *
+ * RM-031 KG5 (D4, D5): `--teto-bytes N` limita a resposta em bytes (JSON compacto), para quem a leva
+ * ao contexto de um agente, como as tools `ork_grafo_*` do MCP; sem a opcao, a saida e a de antes. Sem
+ * o indice do HEAD, a recusa diz se ha indice de outra revisao ou de outro extrator, e a correcao.
  */
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -30,13 +34,23 @@ export const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0' as const;
 export const USO_DO_GRAFO = [
   'uso: ork grafo indexar [--verificar] [--forcar] [--json]',
   '     ork grafo status [--json]',
-  '     ork grafo vizinhos <no> [--profundidade N] [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]',
-  '     ork grafo chamadores <simbolo> [--profundidade N] [--limite N] [--json]',
-  '     ork grafo importadores <arquivo|simbolo> [--profundidade N] [--limite N] [--json]',
-  '     ork grafo caminho <de> <para> [--sentido saida|entrada|ambos] [--tipo T,...] [--json]',
+  '     ork grafo vizinhos <no> [--profundidade N] [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]',
+  '     ork grafo chamadores <simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
+  '     ork grafo importadores <arquivo|simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
+  '     ork grafo caminho <de> <para> [--sentido saida|entrada|ambos] [--tipo T,...] [--json [--teto-bytes N]]',
   '     ork grafo amostra [--por-estrato N] | ork grafo amostra --conferir ARQ [--json]',
   '     ork grafo limpar [--tudo] [--json]',
 ].join('\n');
+
+/** KG5 (D5): a correcao das recusas de indice que a proxima indexacao resolve. */
+export const CORRECAO_DO_INDICE = 'ork grafo indexar' as const;
+/** KG5 (D5): o estado do indice do HEAD que cada recusa declara no JSON, ao lado da correcao. */
+const ESTADO_DO_INDICE: Readonly<Record<string, string>> = Object.freeze({
+  'grafo.indice.ausente': 'nao-indexado',
+  'grafo.indice.outra-revisao': 'outra-revisao',
+  'grafo.indice.outro-extrator': 'outro-extrator',
+  'grafo.indice.corrompido': 'corrompido',
+});
 
 export interface ContextoDoCli extends ContextoDoIndice {
   escrever: (texto: string) => void;
@@ -46,10 +60,10 @@ interface Especificacao { posicionais: number; bandeiras: readonly string[]; val
 const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
   indexar: { posicionais: 0, bandeiras: ['verificar', 'forcar', 'json'], valores: [] },
   status: { posicionais: 0, bandeiras: ['json'], valores: [] },
-  vizinhos: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'sentido', 'tipo', 'limite'] },
-  chamadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite'] },
-  importadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite'] },
-  caminho: { posicionais: 2, bandeiras: ['json'], valores: ['sentido', 'tipo'] },
+  vizinhos: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'sentido', 'tipo', 'limite', 'teto-bytes'] },
+  chamadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
+  importadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
+  caminho: { posicionais: 2, bandeiras: ['json'], valores: ['sentido', 'tipo', 'teto-bytes'] },
   amostra: { posicionais: 0, bandeiras: ['json'], valores: ['por-estrato', 'conferir'] },
   limpar: { posicionais: 0, bandeiras: ['tudo', 'json'], valores: [] },
 });
@@ -109,6 +123,15 @@ function sentido(p: Pedido): Sentido | undefined {
   const v = p.valores.get('sentido');
   if (v !== undefined && !['entrada', 'saida', 'ambos'].includes(v)) uso(`--sentido desconhecido: ${v}`);
   return v as Sentido | undefined;
+}
+
+/** KG5 (D4): o teto vale para o JSON, que e o que vai ao contexto de quem consulta. */
+function tetoDeBytes(p: Pedido): number | undefined {
+  const teto = inteiro(p, 'teto-bytes');
+  if (teto === undefined) return undefined;
+  if (!p.bandeiras.has('json')) uso('--teto-bytes exige --json');
+  if (teto < 1) uso('--teto-bytes precisa ser ao menos 1');
+  return teto;
 }
 
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -204,9 +227,39 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   return 0;
 }
 
+/**
+ * KG5 (D5): sem o indice do HEAD, diz o que ha no lugar. Indice guardado do mesmo repositorio e da
+ * revisao do HEAD com outra chave e de outro extrator (instalacao, analisadores ou codigo do extrator
+ * mudaram); de outra revisao, e indice velho. Nos dois casos a correcao e indexar de novo; sem nenhum,
+ * fica a recusa original (nao indexado). Nunca responde por um indice que nao e o do HEAD.
+ */
+function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
+  const arvore = revisaoDaArvore(ctx.raiz);
+  if (!arvore.head) throw original;
+  const perfil = perfilDoIndice(arvore.raiz, undefined, ctx.repositorio ? { repository_id: ctx.repositorio } : {});
+  const chave = chaveDoIndice(arvore.head, perfil), head = arvore.head.slice(0, 12);
+  const guardados = estadoDosIndices(ctx).indices
+    .filter((i) => i.problema === null && i.chave !== chave && i.repository_id === perfil.repository_id && i.revision !== null);
+  if (guardados.some((i) => i.revision === arvore.head)) {
+    throw new Error(`grafo.indice.outro-extrator: ha indice do HEAD ${head} de outro extrator (a instalacao do ork, os analisadores ou o codigo do extrator mudaram); rode ${CORRECAO_DO_INDICE}`);
+  }
+  if (guardados.length) {
+    const revisoes = [...new Set(guardados.map((i) => (i.revision as string).slice(0, 12)))].sort(compararUtf8);
+    throw new Error(`grafo.indice.outra-revisao: o HEAD ${head} nao tem indice; o guardado e de outra revisao${alguns(revisoes)}; rode ${CORRECAO_DO_INDICE}`);
+  }
+  throw original;
+}
+
 /** O indice do HEAD pronto para consulta, com a concessao local e o cabecalho; `grafo` ja vem filtrado por ela. */
 function consultavel(ctx: ContextoDoCli): { g: ReturnType<typeof prepararConsulta>; cabecalho: CabecalhoDoIndice; grafo: GrafoCodigo; raiz: string } {
-  const { arvore, perfil, chave, indice } = indiceDoHead(ctx);
+  let doHead: ReturnType<typeof indiceDoHead>;
+  try {
+    doHead = indiceDoHead(ctx);
+  } catch (e) {
+    if (String((e as Error).message).startsWith('grafo.indice.ausente')) semIndiceDoHead(ctx, e as Error);
+    throw e;
+  }
+  const { arvore, perfil, chave, indice } = doHead;
   const concessao = concessaoLocal(arvore.raiz, perfil);
   const grafo = filtrarGrafo(indice.grafo as GrafoCodigo, concessao), m = indice.manifesto;
   const cabecalho: CabecalhoDoIndice = {
@@ -222,15 +275,53 @@ function responder(ctx: ContextoDoCli, p: Pedido, r: RespostaDeConsulta): number
   return 0;
 }
 
+/**
+ * KG5 (D4): a resposta em JSON compacto que cabe em `teto` bytes. Se a pedida nao cabe, vale o maior
+ * limite que cabe: as arestas mais longe do alvo saem primeiro, pela mesma ordem do `--limite`, e
+ * `consulta.limite` passa a ser o efetivo. O tamanho cresce com o limite (cada aresta a mais so soma
+ * bytes), entao a busca binaria acha o maior que cabe, sempre o mesmo. Aresta nunca sai sem toda a
+ * evidencia; o caminho nao se corta.
+ */
+function respostaComTeto(perguntar: (limite: number | undefined) => RespostaDeConsulta, limite: number | undefined, teto: number): string {
+  const pedida = perguntar(limite);
+  const limitePedido = pedida.consulta.limite;
+  const comTeto = (r: RespostaDeConsulta, cortado: boolean): string =>
+    JSON.stringify({ ...r, teto: { bytes: teto, limite_pedido: limitePedido, cortado } });
+  const inteira = comTeto(pedida, false);
+  if (Buffer.byteLength(inteira) <= teto) return inteira;
+  const ehCaminho = pedida.consulta.tipo === 'caminho';
+  // So chega aqui o que nao cabe nem com a aresta mais perto do alvo: estreitar a consulta nao ajuda.
+  const excedido = (resposta: string, bytes: number): never => {
+    throw new ErroDeConsulta('grafo.consulta.teto-excedido',
+      `${resposta} tem ${bytes} bytes, acima do teto de ${teto}; ${ehCaminho ? 'o caminho nao se corta: ' : ''}use --teto-bytes maior`);
+  };
+  if (ehCaminho) excedido(`o caminho de ${pedida.arestas.length} passo(s)`, Buffer.byteLength(inteira));
+  if (pedida.arestas.length <= 1) excedido(`a resposta com ${pedida.arestas.length} aresta(s)`, Buffer.byteLength(inteira));
+  let menor = 1, maior = pedida.arestas.length - 1, melhor: string | null = null;
+  while (menor <= maior) {
+    const k = Math.floor((menor + maior) / 2), texto = comTeto(perguntar(k), true);
+    if (Buffer.byteLength(texto) <= teto) {
+      melhor = texto;
+      menor = k + 1;
+    } else maior = k - 1;
+  }
+  return melhor ?? excedido('a resposta com 1 aresta', Buffer.byteLength(comTeto(perguntar(1), true)));
+}
+
 function consultar(ctx: ContextoDoCli, p: Pedido): number {
   // As opcoes sao conferidas antes de carregar o indice: erro de uso nao custa a leitura do grafo.
   const [a, b] = p.posicionais;
-  const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p);
+  const profundidade = inteiro(p, 'profundidade'), limite = inteiro(p, 'limite'), s = sentido(p), t = tipos(p), teto = tetoDeBytes(p);
   const { g, cabecalho } = consultavel(ctx);
-  if (p.sub === 'vizinhos') return responder(ctx, p, vizinhos(g, cabecalho, a, { profundidade, limite, sentido: s, tipos: t }));
-  if (p.sub === 'chamadores') return responder(ctx, p, chamadores(g, cabecalho, a, { profundidade, limite }));
-  if (p.sub === 'importadores') return responder(ctx, p, importadores(g, cabecalho, a, { profundidade, limite }));
-  return responder(ctx, p, caminho(g, cabecalho, a, b, { sentido: s, tipos: t }));
+  const perguntar = (lim: number | undefined): RespostaDeConsulta => {
+    if (p.sub === 'vizinhos') return vizinhos(g, cabecalho, a, { profundidade, limite: lim, sentido: s, tipos: t });
+    if (p.sub === 'chamadores') return chamadores(g, cabecalho, a, { profundidade, limite: lim });
+    if (p.sub === 'importadores') return importadores(g, cabecalho, a, { profundidade, limite: lim });
+    return caminho(g, cabecalho, a, b, { sentido: s, tipos: t });
+  };
+  if (teto === undefined) return responder(ctx, p, perguntar(limite));
+  ctx.escrever(respostaComTeto(perguntar, limite, teto));
+  return 0;
 }
 
 const sha256 = (b: Uint8Array): string => createHash('sha256').update(b).digest('hex');
@@ -384,22 +475,28 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
   return 0;
 }
 
-const erroEmJson = (ctx: ContextoDoCli, e: unknown): number => {
+/** KG5 (D4, D5): com `--teto-bytes` o erro tambem sai compacto; recusa de indice traz o estado e a correcao. */
+const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number => {
   const [codigo, ...detalhe] = String((e as Error).message).split('\n')[0].split(': ');
-  ctx.escrever(JSON.stringify({
-    schema: CONSULTA_SCHEMA, erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [] },
-  }, null, 2));
+  const doIndice = Object.prototype.hasOwnProperty.call(ESTADO_DO_INDICE, codigo)
+    ? { estado_do_indice: ESTADO_DO_INDICE[codigo], correcao: CORRECAO_DO_INDICE } : {};
+  const r = {
+    schema: CONSULTA_SCHEMA,
+    erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [], ...doIndice },
+  };
+  ctx.escrever(compacto ? JSON.stringify(r) : JSON.stringify(r, null, 2));
   return 1;
 };
 
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
+  const compacto = argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
   let p: Pedido;
   try {
     p = lerPedido(argv);
   } catch (e) {
     // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
-    if (argv.includes('--json')) return erroEmJson(ctx, e);
+    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto);
     throw e;
   }
   try {
@@ -410,7 +507,7 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     return consultar(ctx, p);
   } catch (e) {
     if (!p.bandeiras.has('json')) throw e;
-    return erroEmJson(ctx, e);
+    return erroEmJson(ctx, e, compacto);
   }
 }
 
