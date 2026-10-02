@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {dirThread,lerThread,blocoDaThread} from './thread';
 import {comLockHitl} from './hitl-gates';
-import {adquirirRegiao,lerLease,leasesColidentes,liberar} from './leases';
+import {adquirirRegiao,lerLease,leasesColidentes,liberar,podarRegioesDeThreadsFechadas} from './leases';
 import {adicionarClaim,lerClaims} from './claims';
 import {Fase} from './types';
 
@@ -82,6 +82,8 @@ function comEscrita<T>(raiz:string,id:string,executar:()=>T):T {
       }
     }
     const nome=`path:.orkastery/threads/${id}`;
+    // RM-037 (fatia 3, defeito 4): lease e fila de thread fechada sao orfaos e saem antes da conferencia.
+    podarRegioesDeThreadsFechadas(raiz,[nome],id);
     if(lerLease(raiz,nome) || leasesColidentes(raiz,nome).length) throw Error('lease.busy: estado canonico ocupado');
     const r=adquirirRegiao(raiz,nome,{thread:id,motivo:'MCP documento ou claim',ttlMs:30000,retomarVencido:false});
     if(!r.ok || !r.lease) throw Error('lease.busy: estado canonico ocupado');

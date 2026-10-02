@@ -20,7 +20,8 @@ import { exec } from './util';
 
 export interface EntregaPorPr {
   thread: string;
-  acao: 'registrou' | 'ja-registrada' | 'sem-merge' | 'recusada';
+  /** RM-037 (fatia 3, defeito 6): `registraria` e o ensaio (`--dry-run`) que passou em tudo e nada gravou. */
+  acao: 'registrou' | 'registraria' | 'ja-registrada' | 'sem-merge' | 'recusada';
   mergeSha: string | null;
   headSha: string | null;
   ci: ResultadoCi | null;
@@ -61,7 +62,7 @@ function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, e
  * a mesma entrega nao e registrada duas vezes.
  */
 export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: string,
-  opcoes: { remoto?: string; executorCi?: ExecutorCi; buscar?: boolean; publicar?: boolean } = {}): EntregaPorPr {
+  opcoes: { remoto?: string; executorCi?: ExecutorCi; buscar?: boolean; publicar?: boolean; dryRun?: boolean } = {}): EntregaPorPr {
   const raiz = carregado.raiz;
   const remoto = opcoes.remoto ?? 'origin';
   const base = carregado.manifesto.worktree.base_branch;
@@ -84,6 +85,10 @@ export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: s
   const ci = consultarCi(carregado, merge.headSha ?? merge.mergeSha, remoto, opcoes.executorCi);
   if (ci.required && !ci.ok) {
     return resultado(threadId, 'recusada', `sem CI verde no head do PR: ${ci.detail}`, { ...merge, ci });
+  }
+  // RM-037 (fatia 3, defeito 6): o ensaio confere tudo e para aqui, sem ledger, fase nem fabrica.
+  if (opcoes.dryRun) {
+    return resultado(threadId, 'registraria', `ensaio: registraria ship_done pelo merge ${merge.mergeSha.slice(0, 7)} do PR (nada gravado)`, { ...merge, ci });
   }
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
@@ -128,6 +133,8 @@ export interface OpcoesDaEntregaExterna {
   executorGitHub?: ExecutorGitHub;
   executorCi?: ExecutorCi;
   publicar?: boolean;
+  /** RM-037 (fatia 3, defeito 6): ensaio, sem gravar nada. */
+  dryRun?: boolean;
 }
 
 /**
@@ -191,6 +198,10 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
   if (ci && !ci.ok) {
     return resultado(threadId, 'recusada', `sem CI verde no head do PR: ${ci.detail}`, { mergeSha, headSha, ci });
   }
+  if (opcoes.dryRun) {
+    return resultado(threadId, 'registraria', `ensaio: registraria ship_done pelo merge ${mergeSha.slice(0, 7)} do PR #${n} de ${repo} (nada gravado)`,
+      { mergeSha, headSha, ci });
+  }
 
   registrar(dir, threadId, TIPOS_DE_EVENTO.shipConcluido, {
     de: thread.base?.branch ?? null,
@@ -217,7 +228,8 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
 }
 
 /** `ork ship registrar-pr --todas`: toda thread aberta que ja tem merge `ship(<thread>)` na base. */
-export function registrarEntregasPorPr(carregado: ManifestoCarregado, opcoes: { remoto?: string; executorCi?: ExecutorCi } = {}): EntregaPorPr[] {
+export function registrarEntregasPorPr(carregado: ManifestoCarregado,
+  opcoes: { remoto?: string; executorCi?: ExecutorCi; dryRun?: boolean } = {}): EntregaPorPr[] {
   const remoto = opcoes.remoto ?? 'origin';
   const base = carregado.manifesto.worktree.base_branch;
   exec('git', ['fetch', '-q', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], carregado.raiz);

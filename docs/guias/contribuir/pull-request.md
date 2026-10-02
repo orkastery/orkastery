@@ -34,7 +34,7 @@ A `main` é protegida: o merge só sai com os checks obrigatórios verdes no úl
 
 | Check | O que roda |
 | --- | --- |
-| `documentacao (markdownlint e paridade)` | markdownlint, `ork docs verificar` e os links relativos |
+| `documentacao (markdownlint e paridade)` | markdownlint, `ork docs verificar`, os links relativos e a linha no CHANGELOG ([versões e publicação](versoes-e-publicacao.md#para-quem-contribui)) |
 | `nucleo ork (build, testes, canarios)`, um por versão do Node da matriz | Build, `test:ci`, `eval`, `prompt lint` e `audit lint` |
 | `ork-verify` | O bundle da thread da branch, `.ork-ci/<thread>.json`: as claims dela e a suíte do CI; sem thread, só a suíte |
 

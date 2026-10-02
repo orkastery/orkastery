@@ -28,7 +28,10 @@ utilizável como gate de pipeline.
 | `ork accounts check [<id>]` | Confere o login de cada perfil ativo (`claude auth status`, `codex login status`) e marca o store: `sem-auth` sai do rodízio; login por API key, `api_key_helper`, Console ou nuvem vira `provider-pago` e nunca despacha; login de assinatura refeito volta; conferência inconclusiva (timeout, binário ausente, resposta ilegível) mantém o estado e registra a falha. Sai diferente de zero com perfil sem login de assinatura conferido |
 
 O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o store) e a sonda de
-umask e das permissões de `.orkastery` e `.orkastery/private`. Sem perfil configurado, cada
+umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
+arquivo ou pasta do `.git` com dono diferente do dono do repositório (o que `git` rodado como root
+deixa, e que trava o fetch e o commit do dono), com a contagem, exemplos e o `sudo chown -R` exato
+na correção; o doctor não roda nada (RM-037). Sem perfil configurado, cada
 runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MCP de `accounts`
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
@@ -366,7 +369,7 @@ entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 | Comando | O que faz |
 | --- | --- |
 | `ork worktree ensure <thread>` | Garante a worktree da thread, com a base resolvida pelo `ork` |
-| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e sem ancestral comum com a base (base reescrita), recusa com o `git rebase --onto` exato |
+| `ork worktree sync <thread> [--dry-run]` | Rebasa a branch da thread quando a base avançou. Branch sem commit próprio é recriada no SHA da base (`git reset --keep`), sem rebase; com commit próprio e base reescrita (sem ancestral comum, ou com o ponto em que a thread saiu da base fora dela, como depois de um force-push), recusa com `tree.blocked`, causa `base-reescrita`, a contagem por `git rev-list --count` e o `git rebase --onto` que reaplica só os commits da thread (RM-037) |
 | `ork worktree audit <thread>` | Confere a worktree **no próprio git**. Sai diferente de zero se divergir |
 | `ork worktree release <thread> [--forcar]` | Remove a worktree e limpa o registro |
 | `ork lease list` | Os leases, as famílias e as filas (merge e colisão de região) |
@@ -392,7 +395,7 @@ do projeto quando o limite de sessões está cheio.
 | Comando | O que faz |
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
-| `ork ship registrar-pr <thread>\|--todas` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57) |
+| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |

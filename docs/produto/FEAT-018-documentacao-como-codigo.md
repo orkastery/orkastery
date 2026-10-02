@@ -49,8 +49,8 @@ fontes:
 
 - **Alternativas, erros e recuperação:** sem `--escrever` o sincronizador só mostra; sem histórico do git a paridade com o git vira aviso.
 - **Pós-condições:** páginas e índices atualizados; o CI reprova divergência em todo PR.
-- **Regras de negócio:** BR-018-01: o sincronizador nunca muda ciclo, documentação, deploy, exposição ou habilitação. BR-018-02: `codigo: Mesclado` exige o commit na base.
-- **Critérios de aceite e testes:** Dado um item com `codigo: Mesclado` e commit fora da `main`, quando o verificador roda, então reprova com `docs.paridade.git` (`core/test/docs.test.ts`).
+- **Regras de negócio:** BR-018-01: o sincronizador nunca muda ciclo, documentação, deploy, exposição ou habilitação. BR-018-02: `codigo: Mesclado` exige o commit na base. BR-018-03: o merge `ship(<thread>)` da thread do item na base exige `codigo: Mesclado` (`docs.paridade.merge`), e o índice de `docs/roadmap/README.md` e de `docs/produto/README.md` é o que o frontmatter gera (`docs.paridade.indice`); o que as duas regras acusam, o `ork docs sincronizar --escrever` corrige. No PR (`ork docs verificar --pr`), as duas só avisam, e o push da `main` reprova.
+- **Critérios de aceite e testes:** Dado um item com `codigo: Mesclado` e commit fora da `main`, quando o verificador roda, então reprova com `docs.paridade.git` (`core/test/docs.test.ts`). Dado o merge `ship(<thread>)` na base com o item em "Branch criada", quando o verificador roda, então reprova com `docs.paridade.merge` e a correção `ork docs sincronizar --escrever --so RM-NNN` (`core/test/rm037-fatia3-estado-do-merge.test.ts`).
 - **Interface e acessibilidade:** Saída de texto em tópicos curtos; `--json` com regras tipadas para agentes.
 
 ## Dados e contratos
@@ -70,3 +70,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
+| 2026-10-01 | o verificador confere os dois sentidos do merge e o índice gerado | Claude (agente) / Julio, revisão pendente | RM-037 |
