@@ -353,7 +353,7 @@
         "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js"
       ],
       "criadoEm": "2026-10-02T18:30:23.594Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -368,7 +368,7 @@
         "! grep -qE '/(home|Users|root)/' .ork-ci/ork-rm037fatia5p.json"
       ],
       "criadoEm": "2026-10-02T18:30:51.892Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -382,7 +382,7 @@
         "node --test core/dist-test/test/rm037-fatia5-cota-ao-vivo.test.js core/dist-test/test/rotacao-retry.test.js core/dist-test/test/cota-terminal.test.js"
       ],
       "criadoEm": "2026-10-02T18:56:53.574Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -397,6 +397,20 @@
         "grep -q \"maxBuffer: 256 \\* 1024 \\* 1024\" core/src/ship.ts"
       ],
       "criadoEm": "2026-10-02T18:56:56.620Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm037fatia5p",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-entrega-externa.test.ts",
+      "alegacao": "RM-037 fatia 5, aviso da rodada 2 do CHECK: o registrar-pr de repositorio externo grava a pontaDaBase (a ponta conferida, a frente do merge pela comparacao ahead) e o recibo de entrega do Maestro aceita esse ship_done; sem o campo, o teste reprova",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm037-entrega-externa.test.js"
+      ],
+      "criadoEm": "2026-10-02T19:22:28.400Z",
       "estado": "pendente",
       "lint": []
     }
