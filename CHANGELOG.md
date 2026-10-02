@@ -6,8 +6,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
-## [0.5.1] - 2026-10-02
-
 ### Adicionado
 
 - **Orkastery Network** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)): as máquinas de uma pessoa em
@@ -23,6 +21,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `ork network status` nem ao `REDE.md`;
   - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
   - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
+
+## [0.5.1] - 2026-10-02
+
+### Adicionado
 
 - **Prova de ativação do Maestro por host** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
   `node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` instala o adaptador numa cópia
