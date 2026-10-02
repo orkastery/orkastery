@@ -11,16 +11,22 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { registrarAchadoDaRodada, rodarAuditoria, verificarRodada } from '../src/auditrun';
 import { init } from '../src/init';
 import { lerLedger } from '../src/ledger';
 import { exigirManifesto } from '../src/manifest';
+import { avaliarPolicies } from '../src/policies';
 import {
-  avisoDaWorktree, avisoDeChaveSemCommit, avisoDeThreadSemWorktree, dirThread, linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree,
+  avisoDaWorktree, avisoDeChaveSemCommit, avisoDeThreadSemWorktree, dirThread, lerThread, linhaDaWorktree, listarIds, novaThread,
+  pedidoDeWorktree,
 } from '../src/thread';
 import { COMMIT_DESCONHECIDO, exec } from '../src/util';
-import { ajustarManifesto, dirTemporario, projetoTemporario, shaDaBranch } from './apoio';
+import { ajustarManifesto, commitar, dirTemporario, ProjetoDeTeste, projetoTemporario, shaDaBranch } from './apoio';
+
+const CLI = path.resolve(__dirname, '../../dist/index.js');
 
 const LINHA_DA_CHAVE = '  worktree: criada pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree';
 
@@ -30,6 +36,31 @@ function eventoDe(raiz: string, id: string, tipo: string): Record<string, unknow
 
 function branchExiste(raiz: string, branch: string): boolean {
   return exec('git', ['rev-parse', '--verify', `refs/heads/${branch}`], raiz).ok;
+}
+
+/** A CLI do HEAD, com HOME proprio e sem as variaveis de quem roda o teste. */
+function ork(dir: string, casa: string, ...args: string[]): { status: number | null; stdout: string; stderr: string } {
+  const r = spawnSync(process.execPath, [CLI, ...args], {
+    cwd: dir, encoding: 'utf8', timeout: 120000,
+    env: { HOME: casa, PATH: process.env.PATH ?? '/usr/bin:/bin', LANG: 'C.UTF-8', ORK_FABRICA_PUBLICAR: '0' },
+  });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+function limpar(...dirs: string[]): void {
+  for (const d of dirs) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
+/** A thread `id` nasceu na raiz do projeto, como antes do P4: sem worktree, sem branch e sem a linha da chave. */
+function nasceuNaRaiz(p: ProjetoDeTeste, r: { status: number | null; stdout: string; stderr: string }, id: string, slug: string): void {
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /  base      main @ [0-9a-f]{8}\n  worktree  \(raiz do projeto\)\n/);
+  assert.doesNotMatch(r.stdout, /  worktree: /);
+  assert.doesNotMatch(r.stderr, /worktree/);
+  assert.equal(branchExiste(p.dir, `ork/${slug}`), false, `branch ork/${slug}`);
+  assert.equal(fs.existsSync(path.join(p.dir, '.claude/worktrees', id)), false);
+  assert.equal(lerThread(p.dir, id).worktree, null);
+  assert.equal(eventoDe(p.dir, id, 'worktree_created'), undefined);
 }
 
 test('p4 worktree: manifesto le a chave ausente como false', () => {
@@ -197,4 +228,202 @@ test('p4 worktree: aviso do --sem-worktree diz o que acontece no ship', () => {
     for (const por of ['flag', 'ciclo'] as const) assert.equal(linhaDaWorktree(por, true, 'greenfield'), null, `criacao por ${por} sai como antes`);
     assert.equal(linhaDaWorktree(null, false), null);
   } finally { p.limpar(); }
+});
+
+test('p4 worktree: chave verdadeira cria a worktree sem flag', () => {
+  const p = projetoTemporario('p4-cli-verdadeira');
+  const casa = dirTemporario('p4-cli-verdadeira-casa');
+  try {
+    const base = shaDaBranch(p.dir, 'main');
+    const r = ork(p.dir, casa, 'thread', 'new', 'pela chave', '--modo', 'auto');
+    assert.equal(r.status, 0, r.stderr);
+    const dir = path.join(p.dir, '.claude/worktrees/ork-pelachave');
+    assert.ok(r.stdout.includes(`  base      ork/ork-pelachave-full @ ${base.slice(0, 8)}\n  worktree  ${dir}\n`), r.stdout);
+    assert.ok(r.stdout.includes(`\n${LINHA_DA_CHAVE}\n  estado: .orkastery/threads/ork-pelachave/thread.json\n`), r.stdout);
+    assert.doesNotMatch(r.stderr, /Aviso/);
+    const lista = exec('git', ['worktree', 'list', '--porcelain'], p.dir).stdout;
+    assert.ok(lista.includes(`worktree ${dir}\n`), lista);
+    assert.ok(lista.includes('branch refs/heads/ork/ork-pelachave-full\n'), lista);
+    assert.deepEqual(lerThread(p.dir, 'ork-pelachave').base, { branch: 'ork/ork-pelachave-full', commit: base });
+    assert.equal(lerThread(p.dir, 'ork-pelachave').worktree, dir);
+    assert.equal(eventoDe(p.dir, 'ork-pelachave', 'worktree_created')?.origem, 'chave');
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: chave falsa nao cria worktree', () => {
+  const p = projetoTemporario('p4-cli-falsa');
+  const casa = dirTemporario('p4-cli-falsa-casa');
+  try {
+    ajustarManifesto(p, /\n  por_thread: true/, '\n  por_thread: false');
+    nasceuNaRaiz(p, ork(p.dir, casa, 'thread', 'new', 'chave falsa', '--modo', 'auto'), 'ork-chavefalsa', 'ork-chavefalsa-full');
+    const simulada = ork(p.dir, casa, 'thread', 'new', 'simulada', '--modo', 'auto', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.match(simulada.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.doesNotMatch(simulada.stdout, /  worktree: /);
+    assert.equal(fs.existsSync(path.join(p.dir, '.claude/worktrees')), false);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: chave ausente nao cria worktree', () => {
+  const p = projetoTemporario('p4-cli-ausente');
+  const casa = dirTemporario('p4-cli-ausente-casa');
+  try {
+    ajustarManifesto(p, /\n  por_thread: true/, '');
+    nasceuNaRaiz(p, ork(p.dir, casa, 'thread', 'new', 'chave ausente', '--modo', 'auto'), 'ork-chaveausente', 'ork-chaveausente-full');
+    ajustarManifesto(p, /\nworktree:\n(?:  .*\n)+/, '\n');
+    nasceuNaRaiz(p, ork(p.dir, casa, 'thread', 'new', 'bloco ausente', '--modo', 'auto'), 'ork-blocoausente', 'ork-blocoausente-full');
+    assert.equal(fs.existsSync(path.join(p.dir, '.claude/worktrees')), false);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: --sem-worktree cria sem worktree e avisa o ship', () => {
+  const p = projetoTemporario('p4-cli-sem');
+  const casa = dirTemporario('p4-cli-sem-casa');
+  try {
+    const r = ork(p.dir, casa, 'thread', 'new', 'sem worktree', '--modo', 'auto', '--sem-worktree');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /  base      main @ [0-9a-f]{8}\n  worktree  \(raiz do projeto\)\n/);
+    assert.doesNotMatch(r.stdout, /  worktree: /);
+    assert.ok(r.stderr.includes('Aviso: thread ork-semworktree sem worktree (--sem-worktree): ela trabalha na raiz do projeto, ' +
+      'na branch base main, e o ork ship barra a entrega por push_direto_na_base (block): não há branch de thread para mergear. ' +
+      'Antes do GO, ork worktree ensure ork-semworktree cria a worktree e a branch da thread; ' +
+      'depois do GO, os commits já estão na base e o ship não os separa.\n'), r.stderr);
+    assert.equal(fs.existsSync(path.join(p.dir, '.claude/worktrees')), false);
+    assert.equal(eventoDe(p.dir, 'ork-semworktree', 'thread_created')?.semWorktree, true);
+
+    // O que o aviso diz e o que a policy faz com as entradas que o ship usa (origem = branch da thread).
+    const thread = lerThread(p.dir, 'ork-semworktree');
+    const violacoes = avaliarPolicies(p.carregado.manifesto,
+      { gate: 'ship', de: thread.base.branch, para: 'main', baseBranch: 'main', threadId: thread.id });
+    assert.ok(violacoes.some((v) => v.policy === 'push_direto_na_base' && v.severidade === 'block'), JSON.stringify(violacoes));
+
+    // A correcao do aviso vale antes do GO.
+    const ensure = ork(p.dir, casa, 'worktree', 'ensure', 'ork-semworktree');
+    assert.equal(ensure.status, 0, ensure.stdout + ensure.stderr);
+    assert.equal(lerThread(p.dir, 'ork-semworktree').worktree, path.join(p.dir, '.claude/worktrees/ork-semworktree'));
+
+    const simulada = ork(p.dir, casa, 'thread', 'new', 'simulada sem', '--modo', 'auto', '--sem-worktree', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.match(simulada.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.match(simulada.stderr, /^Aviso: thread ork-simuladasem sem worktree \(--sem-worktree\)/m);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: flags explicitas continuam valendo', () => {
+  const p = projetoTemporario('p4-cli-flags');
+  const casa = dirTemporario('p4-cli-flags-casa');
+  const existente = dirTemporario('p4-cli-flags-existente');
+  try {
+    ajustarManifesto(p, /\n  por_thread: true/, '\n  por_thread: false');
+    const auto = ork(p.dir, casa, 'thread', 'new', 'pela flag', '--modo', 'auto', '--worktree', 'auto');
+    assert.equal(auto.status, 0, auto.stderr);
+    assert.ok(auto.stdout.includes(`  worktree  ${path.join(p.dir, '.claude/worktrees/ork-pelaflag')}\n`), auto.stdout);
+    assert.doesNotMatch(auto.stdout, /  worktree: /, 'quem pediu a flag sabe de onde veio a worktree');
+    assert.ok(branchExiste(p.dir, 'ork/ork-pelaflag-full'));
+    assert.equal(eventoDe(p.dir, 'ork-pelaflag', 'worktree_created')?.origem, 'flag');
+
+    ajustarManifesto(p, /\n  por_thread: false/, '\n  por_thread: true');
+    const reusa = ork(p.dir, casa, 'thread', 'new', 'reusa dir', '--modo', 'auto', '--worktree', existente);
+    assert.equal(reusa.status, 0, reusa.stderr);
+    assert.ok(reusa.stdout.includes(`  worktree  ${existente}\n`), reusa.stdout);
+    assert.match(reusa.stdout, /  base      main @ /);
+    assert.doesNotMatch(reusa.stdout, /  worktree: /);
+    assert.equal(branchExiste(p.dir, 'ork/ork-reusadir-full'), false, 'a chave nao cria worktree por cima do --worktree DIR');
+    assert.equal(eventoDe(p.dir, 'ork-reusadir', 'worktree_created'), undefined);
+
+    const ambos = ork(p.dir, casa, 'thread', 'new', 'ambos', '--modo', 'auto', '--worktree', 'auto', '--sem-worktree');
+    assert.equal(ambos.status, 2);
+    assert.match(ambos.stderr, /^uso: --worktree e --sem-worktree se excluem; use um dos dois$/m);
+    const comValor = ork(p.dir, casa, 'thread', 'new', 'com valor', '--modo', 'auto', '--sem-worktree', 'extra');
+    assert.equal(comValor.status, 2);
+    assert.match(comValor.stderr, /uso: --sem-worktree não leva valor \(recebeu "extra"\)/);
+    const ciclo = ork(p.dir, casa, 'thread', 'new', 'ciclo sem', '--modo', 'classic', '--ciclo', 'greenfield', '--sem-worktree');
+    assert.notEqual(ciclo.status, 0);
+    assert.match(ciclo.stderr, /o ciclo greenfield exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo/);
+    assert.deepEqual(listarIds(p.dir), ['ork-pelaflag', 'ork-reusadir'], 'as recusas nao gravam thread');
+  } finally { p.limpar(); limpar(casa, existente); }
+});
+
+test('p4 worktree: --dry-run mostra a worktree prevista', () => {
+  const p = projetoTemporario('p4-cli-dryrun');
+  const casa = dirTemporario('p4-cli-dryrun-casa');
+  try {
+    const base = shaDaBranch(p.dir, 'main').slice(0, 8);
+    const dir = path.join(p.dir, '.claude/worktrees/ork-prevista');
+    const simulada = ork(p.dir, casa, 'thread', 'new', 'prevista', '--modo', 'auto', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.ok(simulada.stdout.startsWith('Simulacao (--dry-run), nada foi gravado.\n'), simulada.stdout);
+    assert.ok(simulada.stdout.includes(`  base      ork/ork-prevista-full @ ${base}\n  worktree  ${dir}\n`), simulada.stdout);
+    assert.ok(simulada.stdout.includes(
+      '\n  worktree: seria criada pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree\n'), simulada.stdout);
+    assert.equal(fs.existsSync(dir), false);
+    assert.equal(branchExiste(p.dir, 'ork/ork-prevista-full'), false);
+    assert.deepEqual(listarIds(p.dir), []);
+
+    // A criacao de verdade usa a pasta e a branch que o ensaio mostrou.
+    const criada = ork(p.dir, casa, 'thread', 'new', 'prevista', '--modo', 'auto');
+    assert.equal(criada.status, 0, criada.stderr);
+    assert.ok(criada.stdout.includes(`  base      ork/ork-prevista-full @ ${base}\n  worktree  ${dir}\n`), criada.stdout);
+
+    ajustarManifesto(p, /\n  por_thread: true/, '\n  por_thread: false');
+    const pelaFlag = ork(p.dir, casa, 'thread', 'new', 'outra prevista', '--modo', 'auto', '--worktree', 'auto', '--dry-run');
+    assert.equal(pelaFlag.status, 0, pelaFlag.stderr);
+    assert.ok(pelaFlag.stdout.includes(`  worktree  ${path.join(p.dir, '.claude/worktrees/ork-outraprevist')}\n`), pelaFlag.stdout);
+    assert.ok(pelaFlag.stdout.includes('\n  worktree: seria criada pelo --worktree auto\n'), pelaFlag.stdout);
+  } finally { p.limpar(); limpar(casa); }
+});
+
+test('p4 worktree: sem commit pelo CLI a thread nasce na raiz com os dois avisos', () => {
+  const dir = dirTemporario('p4-cli-sem-commit');
+  const casa = dirTemporario('p4-cli-sem-commit-casa');
+  try {
+    exec('git', ['init', '-q', '-b', 'main'], dir);
+    assert.equal(ork(dir, casa, 'init').status, 0);
+    const simulada = ork(dir, casa, 'thread', 'new', 'primeira', '--modo', 'auto', '--dry-run');
+    assert.equal(simulada.status, 0, simulada.stderr);
+    assert.match(simulada.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.doesNotMatch(simulada.stdout, /  worktree: /);
+    assert.ok(simulada.stderr.includes(`${avisoDeChaveSemCommit(false)}\n`), simulada.stderr);
+
+    const criada = ork(dir, casa, 'thread', 'new', 'primeira', '--modo', 'auto');
+    assert.equal(criada.status, 0, criada.stderr);
+    assert.match(criada.stdout, /  worktree  \(raiz do projeto\)\n/);
+    const chave = criada.stderr.indexOf(avisoDeChaveSemCommit(true));
+    const semBase = criada.stderr.indexOf('nasceu sem base');
+    assert.ok(chave >= 0 && semBase > chave, `aviso da chave antes do aviso de sem base:\n${criada.stderr}`);
+    assert.equal(fs.existsSync(path.join(dir, '.claude/worktrees')), false);
+  } finally { limpar(dir, casa); }
+});
+
+test('p4 worktree: achado segue a chave e aceita --sem-worktree', () => {
+  const p = projetoTemporario('p4-cli-achado');
+  const casa = dirTemporario('p4-cli-achado-casa');
+  try {
+    commitar(p.dir, 'src/dupe.ts', 'export const a = 1;\nexport const a2 = 1;\n', 'duplicacao');
+    const rodada = rodarAuditoria(p.carregado, 'reuse', { quando: new Date(2026, 8, 3, 2, 30), dryRun: true });
+    const achado = (titulo: string) => registrarAchadoDaRodada(p.carregado, rodada.id, {
+      regra: 'RU1', severidade: 'maior', titulo, arquivo: 'src/dupe.ts:2',
+      alegacao: 'src/dupe.ts declara o mesmo valor duas vezes', verificar: ['grep -q "export const a2" src/dupe.ts'],
+      impacto: 'duas fontes de verdade', fix: 'manter uma constante so', irreversivel: 'nenhum', estimativa: '1h',
+    });
+    const primeiro = achado('utilitario duplicado');
+    const segundo = achado('outro utilitario duplicado');
+    assert.equal(verificarRodada(p.carregado, rodada.id).ok, true);
+
+    const conflito = ork(p.dir, casa, 'thread', 'new', 'conflito', '--from-finding', primeiro.id, '--worktree', 'auto', '--sem-worktree');
+    assert.equal(conflito.status, 2);
+    assert.match(conflito.stderr, /uso: --worktree e --sem-worktree se excluem/);
+
+    const pelaChave = ork(p.dir, casa, 'thread', 'new', 'tirar duplicacao', '--from-finding', primeiro.id, '--modo', 'classic');
+    assert.equal(pelaChave.status, 0, pelaChave.stderr);
+    assert.ok(pelaChave.stdout.includes(`\n${LINHA_DA_CHAVE}\n`), pelaChave.stdout);
+    const id = /  id        (\S+)\n/.exec(pelaChave.stdout)?.[1] ?? '';
+    assert.equal(lerThread(p.dir, id).worktree, path.join(p.dir, '.claude/worktrees', id));
+    assert.equal(eventoDe(p.dir, id, 'worktree_created')?.origem, 'chave');
+
+    const sem = ork(p.dir, casa, 'thread', 'new', 'outra sem', '--from-finding', segundo.id, '--modo', 'classic', '--sem-worktree');
+    assert.equal(sem.status, 0, sem.stderr);
+    assert.match(sem.stdout, /  worktree  \(raiz do projeto\)\n/);
+    assert.match(sem.stderr, /^Aviso: thread \S+ sem worktree \(--sem-worktree\): ela trabalha na raiz do projeto, na branch base main/m);
+  } finally { p.limpar(); limpar(casa); }
 });

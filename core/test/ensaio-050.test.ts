@@ -156,9 +156,11 @@ test('ensaio 050: thread sem commit avisa no stderr e mostra o marcador inteiro'
     assert.doesNotMatch(criada.stdout, /Proximo passo/, 'thread sem base nao tem fase para rodar');
 
     primeiroCommit(dir);
+    // P4 (ork-p4worktreepo): o manifesto do `ork init` traz worktree.por_thread: true, e com o primeiro commit
+    // a thread nasce com a worktree e a branch dela.
     const depois = ork(dir, casa, 'thread', 'new', 'segunda tarefa', '--modo', 'auto');
     assert.equal(depois.status, 0, depois.stderr);
-    assert.match(depois.stdout, /  base      master @ [0-9a-f]{8}\n/);
+    assert.match(depois.stdout, /  base      ork\/\S+-full @ [0-9a-f]{8}\n  worktree  \S+\/\.claude\/worktrees\/\S+\n/);
     assert.match(depois.stdout, /Proximo passo: ork phase run /);
     assert.doesNotMatch(depois.stderr, /sem base/);
   } finally { limpar(dir, casa); }
