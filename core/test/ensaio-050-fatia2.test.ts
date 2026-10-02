@@ -18,6 +18,13 @@ import { consultarSessoes } from '../src/adapters/claude-bg';
 import { exigirManifesto } from '../src/manifest';
 import { MODOS } from '../src/modos';
 import { editarBloco } from '../src/setup';
+import { dirThread, lerThread, novaThread } from '../src/thread';
+import { ship } from '../src/ship';
+import { ehEnsaio, lerLedger } from '../src/ledger';
+import { planejar } from '../src/board';
+import { montarMonitor } from '../src/orquestracao';
+import { operationalSources } from '../src/maestro-runtime';
+import { MaestroReader } from '../src/maestro-sources';
 import { ajustarManifesto, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -187,4 +194,37 @@ test('fatia 2 P1: quickstart e guia de modos documentam o caminho so com Codex',
     assert.ok(doc.includes('`ork setup <modo> --bloco N --runtime codex --model <modelo>`'), arquivo);
     assert.match(doc, /o `ork doctor` reprova a falta do `claude` (?:só )?enquanto algum bloco de modo permitido despachar/i, arquivo);
   }
+});
+
+test('fatia 2 P2: ship --dry-run grava o gate com dryRun e board, monitor e maestro o ignoram', () => {
+  const p = projetoTemporario('fatia2-dryrun');
+  try {
+    const { thread } = novaThread(p.carregado, { nome: 'pedido de ensaio', modo: 'classic', criarWorktree: true });
+    const dir = dirThread(p.dir, thread.id);
+    const estados = new Map<string, string>();
+    const agora = () => new Date().toISOString();
+    const situacao = () => planejar(p.carregado, { agora: agora(), estados }).vagas.find((v) => v.thread === thread.id)?.situacao;
+    const paradas = () => montarMonitor(p.carregado, { agora: agora(), estados }).linhas.find((l) => l.thread === thread.id)?.paradas ?? [];
+    const maestro = () => operationalSources(new MaestroReader(p.dir), [lerThread(p.dir, thread.id)], [], agora());
+    assert.notEqual(situacao(), 'pausada', 'antes do ensaio');
+
+    const ensaio = ship(p.carregado, thread.id, { para: 'main', dryRun: true });
+    assert.deepEqual([ensaio.dryRun, ensaio.motivo], [true, 'human.pending']);
+    const gate = lerLedger(dir).filter((e) => e.tipo === 'gate_blocked').at(-1);
+    assert.equal(gate?.dryRun, true, 'o gate do ensaio leva dryRun');
+    assert.equal(ehEnsaio(gate!), true);
+    assert.notEqual(situacao(), 'pausada', 'board e escalonador ignoram o ensaio');
+    assert.deepEqual(paradas(), [], 'o monitor (o pulse) nao abre parada');
+    const doEnsaio = maestro();
+    assert.deepEqual(doEnsaio.blockers?.items ?? [], [], 'o maestro nao lista bloqueio');
+    assert.deepEqual(doEnsaio.ship?.items ?? [], [], 'nem entrega incompleta');
+
+    // O ship de verdade, barrado pela pausa do #Classic, continua pausando a thread.
+    const real = ship(p.carregado, thread.id, { para: 'main' });
+    assert.deepEqual([real.dryRun, real.motivo], [false, 'human.pending']);
+    assert.equal(lerLedger(dir).filter((e) => e.tipo === 'gate_blocked').at(-1)?.dryRun, undefined);
+    assert.equal(situacao(), 'pausada');
+    assert.ok(paradas().some((x) => x.motivo === 'human.pending'));
+    assert.ok((maestro().blockers?.items ?? []).length > 0);
+  } finally { p.limpar(); }
 });

@@ -405,6 +405,8 @@ export function ship(
       correcao,
       de,
       para,
+      // Fatia 2 do ensaio da 0.5.0 (P2): o gate do ensaio e marcado, e os leitores de estado o ignoram.
+      ...(r.dryRun ? { dryRun: true } : {}),
     });
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipBloqueado, {
       de,
