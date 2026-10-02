@@ -447,7 +447,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
     });
   // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
-  if(grafoLigado(carregar().manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});
+  // CHECK rodada 1 (S8): o startup le so o manifesto, como antes; as conferencias de estado ficam na chamada.
+  if(grafoLigado(exigirManifesto(raiz).manifesto)) registrarConsultasDoGrafo(registrarTool,{raiz,carregar,thread});
   return server;
 }
 

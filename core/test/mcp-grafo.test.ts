@@ -22,7 +22,7 @@ import { TIPOS_DE_ARESTA } from '../src/intelligence-graph-contract';
 import { LIMITE_MAXIMO, PROFUNDIDADE_MAXIMA } from '../src/intelligence-graph-query';
 import { criarServidorMcp } from '../src/mcp-server';
 import {
-  LIMITE_MAXIMO_DO_MCP, PROFUNDIDADE_MAXIMA_DO_MCP, TETO_PADRAO, TIPOS_DE_ARESTA_DO_MCP, TOOLS_DO_GRAFO, consultarPeloWorker,
+  LIMITE_MAXIMO_DO_MCP, PROFUNDIDADE_MAXIMA_DO_MCP, TETO_PADRAO, TIPOS_DE_ARESTA_DO_MCP, TOOLS_DO_GRAFO, consultarPeloWorker, registrarConsultasDoGrafo,
 } from '../src/mcp-grafo';
 import { rodarConsulta } from '../src/mcp-grafo-worker';
 import { novaThread } from '../src/thread';
@@ -280,7 +280,8 @@ test('KG5 indice: cli com indice do HEAD de outro extrator recusa e manda indexa
     assert.equal(JSON.parse(grafo(r.dir, 'status', '--json').saida).indices.find((i: { chave: string }) => i.chave === outra).problema, null);
     const e = JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).erro;
     assert.deepEqual([e.codigo, e.estado_do_indice, e.correcao], ['grafo.indice.outro-extrator', 'outro-extrator', 'ork grafo indexar']);
-    assert.match(e.detalhe, /^ha indice do HEAD [0-9a-f]{12} de outro extrator \(.*\); rode ork grafo indexar$/);
+    // CHECK rodada 1 (A1): a recusa diz o que mudou e que a correcao e com a instalacao de quem consulta.
+    assert.match(e.detalhe, /^ha indice do HEAD [0-9a-f]{12} de outro extrator \(codigo do extrator\); rode ork grafo indexar com a mesma instalacao do ork e o mesmo Node de quem consulta/);
   } finally {
     r.limpar();
   }
@@ -706,4 +707,124 @@ test('KG5 medida: o validador aceita o registro de forma valida e recusa promess
   assert.deepEqual(com((r) => { r.perguntas[2].tool.arestas_devolvidas = 2; }), ['P3 tool sem corte com outra resposta']);
   assert.deepEqual(com((r) => { r.descoberta.tools_com_flag = 33; }), ['descoberta']);
   assert.deepEqual(com((r) => { r.teto_padrao = 65536; }), ['teto_padrao']);
+});
+
+// ---------------------------------------------------------------------------
+// CHECK rodada 1: o que a revisao independente pediu.
+// ---------------------------------------------------------------------------
+
+test('KG5 indice: cli nao toma indice de outro repositorio nem indice com problema pelo do HEAD', () => {
+  const r = repositorio(REPO, 'kg5-outro-repo');
+  try {
+    // O mesmo HEAD indexado com outro repositorio: e outra identidade, nao outro extrator.
+    assert.equal(executarGrafo(['indexar'], { raiz: r.dir, estado: raizDoEstado(r.dir), repositorio: 'outro', escrever: () => undefined }), 0);
+    let e = JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).erro;
+    assert.deepEqual([e.codigo, e.estado_do_indice], ['grafo.indice.ausente', 'nao-indexado']);
+    // Indice de outra revisao que nao passa na leitura nao vira indice velho: so os integros contam.
+    indexar(r.dir);
+    const status = JSON.parse(grafo(r.dir, 'status', '--json').saida);
+    fs.writeFileSync(path.join(r.dir, 'src/novo.ts'), 'export const novo = 1;\n');
+    r.git('add', '--', 'src/novo.ts');
+    r.git('commit', '-q', '-m', 'dois');
+    fs.truncateSync(path.join(status.dir, status.chave_do_head, 'grafo.json'), 10);
+    e = JSON.parse(grafo(r.dir, 'chamadores', 'alvo', '--json').saida).erro;
+    assert.deepEqual([e.codigo, e.estado_do_indice], ['grafo.indice.ausente', 'nao-indexado']);
+  } finally {
+    r.limpar();
+  }
+});
+
+type Manipulador = (args: Record<string, unknown>, extra: { signal: AbortSignal }) => Promise<unknown>;
+
+test('KG5 indice: tool recusa indisponivel quando o worker passa do prazo ou sai com 2, e worktree fora do projeto', async () => {
+  const raiz = dirTemporario('kg5-handler'), fora = dirTemporario('kg5-fora-do-projeto');
+  const manipuladores = new Map<string, Manipulador>();
+  const registrar = ((nome: string, _config: unknown, manipulador: Manipulador) => { manipuladores.set(nome, manipulador); }) as unknown as Parameters<typeof registrarConsultasDoGrafo>[0];
+  try {
+    const semManifesto = path.join(raiz, 'arvore');
+    fs.mkdirSync(semManifesto);
+    const chamadores = (worktree: string, prazoMs?: number): Manipulador => {
+      manipuladores.clear();
+      registrarConsultasDoGrafo(registrar, { raiz, carregar: () => ({ manifesto: { grafo: { mcp: true } } }), thread: () => ({ worktree }), prazoMs });
+      return manipuladores.get('ork_grafo_chamadores') as Manipulador;
+    };
+    const extra = { signal: new AbortController().signal }, args = { threadId: 'ork-kg5', alvo: 'alvo' };
+    // Arvore sem manifesto: o worker recusa a entrada (saida 2), e a tool diz que nao respondeu.
+    await assert.rejects(chamadores(semManifesto)(args, extra), /^Error: grafo\.mcp\.indisponivel: o worker saiu com 2: /);
+    await assert.rejects(chamadores(semManifesto, 1)(args, extra), /^Error: grafo\.mcp\.indisponivel: consulta interrompida \(prazo de 1 ms\)$/);
+    await assert.rejects(chamadores(fora)(args, extra), /^Error: mcp\.scope\.violation: worktree fora do projeto$/);
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+    fs.rmSync(fora, { recursive: true, force: true });
+  }
+});
+
+test('KG5 worker: o worker abre o proprio grupo, e o cancelamento mata o grupo inteiro', { skip: process.platform !== 'linux' }, async () => {
+  const r = repositorio(REPO, 'kg5-grupo');
+  try {
+    indexar(r.dir);
+    const ctl = new AbortController();
+    let lider = 0, grupo = -1;
+    const pendente = consultarPeloWorker(r.dir, ['chamadores', 'alvo', '--json', '--teto-bytes=32768'], {
+      signal: ctl.signal,
+      aoIniciar: (pid) => {
+        lider = pid;
+        const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+        grupo = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]);
+      },
+    });
+    // Com o worker ja carregando o modulo do grafo e lendo o Git, o cancelamento mata o grupo dele.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    ctl.abort();
+    const c = await pendente;
+    assert.ok(c.interrompido === 'cancelada' || c.codigo === 0, JSON.stringify(c));
+    assert.ok(lider > 0);
+    assert.equal(grupo, lider, 'o worker e lider do proprio grupo');
+    for (let i = 0; i < 100; i++) {
+      try {
+        process.kill(-lider, 0);
+      } catch {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.fail(`o grupo ${lider} ficou com processo`);
+  } finally {
+    r.limpar();
+  }
+});
+
+test('KG5 medida: o registro do repositorio e valido e foi medido com o teto padrao', () => {
+  const registro = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../test/fixtures/kg5-medida-mcp.json'), 'utf8'));
+  assert.deepEqual(MEDIDA.validar(registro), []);
+  assert.equal(registro.teto_padrao, TETO_PADRAO);
+});
+
+test('KG5 flag: servidor sobe sem conferir o estado do projeto no startup, com ou sem a flag, e a tool recusa na chamada', async () => {
+  const p = projetoTemporario('kg5-estado-fora');
+  const alheio = dirTemporario('kg5-estado-alheio');
+  try {
+    const estado = path.join(p.dir, '.orkastery');
+    fs.rmSync(estado, { recursive: true, force: true });
+    fs.symlinkSync(alheio, estado);
+    const manifesto = path.join(p.dir, 'orkastery.yaml'), base = fs.readFileSync(manifesto, 'utf8');
+    for (const bloco of ['', FLAG_LIGADA]) {
+      fs.writeFileSync(manifesto, `${base}\n${bloco}`);
+      const { c, fechar } = await conectar(p.dir);
+      try {
+        const nomes = (await c.listTools()).tools.map((t) => t.name);
+        assert.equal(nomes.includes('ork_grafo_chamadores'), bloco !== '');
+        if (bloco) {
+          const r = await chamar(c, 'ork_grafo_chamadores', { threadId: 'ork-kg5', alvo: 'alvo' });
+          assert.equal(r.erro, true);
+          assert.match(r.texto, /mcp\.scope\.violation: estado fora do projeto/);
+        }
+      } finally {
+        await fechar();
+      }
+    }
+  } finally {
+    p.limpar();
+    fs.rmSync(alheio, { recursive: true, force: true });
+  }
 });

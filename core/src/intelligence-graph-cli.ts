@@ -16,10 +16,10 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { TIPOS_DE_ARESTA, compararUtf8, type Aresta, type GrafoCodigo, type TipoDeAresta } from './intelligence-graph-contract';
+import { TIPOS_DE_ARESTA, canonico, compararUtf8, type Aresta, type GrafoCodigo, type TipoDeAresta } from './intelligence-graph-contract';
 import {
-  chaveDoIndice, concessaoLocal, construirIndice, estadoDosIndices, indiceDoHead, limparIndices, perfilDoIndice,
-  type ContextoDoIndice, type ResultadoDaConstrucao,
+  chaveDoIndice, concessaoLocal, construirIndice, estadoDosIndices, indiceDoHead, lerIndice, limparIndices, perfilDoIndice,
+  type ContextoDoIndice, type PerfilDoIndice, type ResultadoDaConstrucao,
 } from './intelligence-graph-index';
 import {
   CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
@@ -228,10 +228,27 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 /**
+ * KG5 (CHECK rodada 1, A1): o que difere entre o extrator do indice guardado e o de quem consulta. A
+ * versao do Node entra no rotulo do analisador de JavaScript, entao outra instalacao ou outro Node dao
+ * outra chave com o mesmo conteudo.
+ */
+function diferencasDoExtrator(guardado: PerfilDoIndice, atual: PerfilDoIndice): string[] {
+  const r: string[] = [];
+  for (const k of Object.keys(atual.analisadores).sort(compararUtf8) as (keyof PerfilDoIndice['analisadores'])[]) {
+    const antes = guardado.analisadores?.[k];
+    if (antes !== atual.analisadores[k]) r.push(`${k} ${antes ?? '?'} no indice, ${atual.analisadores[k]} aqui`);
+  }
+  if (canonico(guardado.pacotes) !== canonico(atual.pacotes)) r.push('pacotes dos analisadores');
+  if (guardado.codigo !== atual.codigo) r.push('codigo do extrator');
+  return r;
+}
+
+/**
  * KG5 (D5): sem o indice do HEAD, diz o que ha no lugar. Indice guardado do mesmo repositorio e da
- * revisao do HEAD com outra chave e de outro extrator (instalacao, analisadores ou codigo do extrator
- * mudaram); de outra revisao, e indice velho. Nos dois casos a correcao e indexar de novo; sem nenhum,
- * fica a recusa original (nao indexado). Nunca responde por um indice que nao e o do HEAD.
+ * revisao do HEAD com outra chave e de outro extrator (instalacao, Node, analisadores ou codigo do
+ * extrator mudaram), e a recusa diz o que mudou; de outra revisao, e indice velho ou de outra arvore.
+ * Nos dois casos a correcao e indexar de novo, com a instalacao de quem consulta; sem nenhum, fica a
+ * recusa original (nao indexado). Nunca responde por um indice que nao e o do HEAD.
  */
 function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
   const arvore = revisaoDaArvore(ctx.raiz);
@@ -240,8 +257,11 @@ function semIndiceDoHead(ctx: ContextoDoCli, original: Error): never {
   const chave = chaveDoIndice(arvore.head, perfil), head = arvore.head.slice(0, 12);
   const guardados = estadoDosIndices(ctx).indices
     .filter((i) => i.problema === null && i.chave !== chave && i.repository_id === perfil.repository_id && i.revision !== null);
-  if (guardados.some((i) => i.revision === arvore.head)) {
-    throw new Error(`grafo.indice.outro-extrator: ha indice do HEAD ${head} de outro extrator (a instalacao do ork, os analisadores ou o codigo do extrator mudaram); rode ${CORRECAO_DO_INDICE}`);
+  const doHead = guardados.find((i) => i.revision === arvore.head);
+  if (doHead) {
+    const diferencas = diferencasDoExtrator(lerIndice(ctx, doHead.chave, { grafo: false }).manifesto, perfil);
+    throw new Error(`grafo.indice.outro-extrator: ha indice do HEAD ${head} de outro extrator (${diferencas.join('; ') || 'perfil diferente'}); `
+      + `rode ${CORRECAO_DO_INDICE} com a mesma instalacao do ork e o mesmo Node de quem consulta (o servidor MCP consulta com a dele)`);
   }
   if (guardados.length) {
     const revisoes = [...new Set(guardados.map((i) => (i.revision as string).slice(0, 12)))].sort(compararUtf8);
