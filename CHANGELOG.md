@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Contexto compacto da thread, KG5 fatia 3** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  pacote `ork.thread-graph-context/v2` com referências locais, evidências em tupla e fan-in agregado;
+  prioridade entre arquivos e perto do diff, limite por alvo e amostra de sementes ausentes.
+  Sem worktree, o diff é ignorado e declarado. A flag `grafo.mcp` segue desligada.
+  Fixture sintética de 22.973 para 3.093 bytes; medição histórica de descoberta/cobertura preparada
+  e pendente por restrição de subprocesso Git, sem conclusão sobre tokens.
+
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
