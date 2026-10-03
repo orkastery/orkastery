@@ -529,7 +529,7 @@ for (const corrompido of [false, true]) {
   });
 }
 
-test('rm036 gofix: A4 nlink recusa descritor desvinculado antes do flock', (t) => {
+test('rm036 gofix: A4 nlink zero entra na fila como ocupado antes do flock', (t) => {
   simularFlock(t);
   const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
   leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
@@ -543,7 +543,16 @@ test('rm036 gofix: A4 nlink recusa descritor desvinculado antes do flock', (t) =
     }
     return fd;
   });
-  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomada atrasada' }).ok, false);
+  const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomada atrasada' });
+  assert.equal(r.ok, false);
+  assert.equal(r.motivo, 'lease.busy');
+  assert.equal(r.falhaRetomada, undefined);
+  assert.equal(r.esperando, true);
+  assert.equal(r.posicaoNaFila, 1);
+  assert.equal(r.ocupadoPor?.thread, OUTRA);
+  assert.match(r.correcao, /espere a vez/);
+  assert.doesNotMatch(r.detalhe, /retomada indisponivel/);
+  assert.deepEqual(leases.lerFila(c.raiz).map((p) => p.thread), [DONO]);
   assert.equal(trocou, true);
   assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
 });

@@ -297,6 +297,7 @@ function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' 
   try {
     fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     const stat = fs.fstatSync(fd);
+    if (stat.nlink === 0) return 'ocupado';
     if (!stat.isFile() || stat.nlink !== 1) return 'indisponivel';
     const trava = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
       { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2_000 });

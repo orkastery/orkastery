@@ -21,6 +21,7 @@ const cli = 'docs/referencia/cli.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R4-nlink-zero': [[lease, "if (stat.nlink === 0)\n            return 'ocupado';", "if (stat.nlink === 0)\n            return 'indisponivel';"]],
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],
   'B1-iso': [[lease, 'new Date(inicio).toISOString() !== lease.adquiridoEm', 'false']],
