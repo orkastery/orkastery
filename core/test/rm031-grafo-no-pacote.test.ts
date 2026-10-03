@@ -56,7 +56,7 @@ test('grafo no pacote: dependencias: cada pacote que os analisadores carregam e 
   assert.equal(v.markdown, `micromark.${d.micromark}.gfm-table.${d['micromark-extension-gfm-table']}`);
 });
 
-test('grafo no pacote: dependencias: o quickstart, os READMEs e o SECURITY dizem quantas dependencias de runtime o pacote tem', () => {
+test('grafo no pacote: dependencias: os docs dizem quantas dependencias de runtime o pacote tem, inclusive a arquitetura', () => {
   const n = Object.keys(pacote().dependencies ?? {}).length;
   const extenso = ['zero', 'uma', 'duas', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze'][n];
   assert.ok(extenso, `${n} dependências: estenda a lista por extenso`);
@@ -65,6 +65,10 @@ test('grafo no pacote: dependencias: o quickstart, os READMEs e o SECURITY dizem
   assert.ok(ler('README.pt-BR.md').includes(`| Dependências de runtime | ${n}, com versão fixa |`), 'README.pt-BR.md');
   assert.match(ler('SECURITY.md'), new RegExp(`\\| Depend[eê]ncias de runtime \\| \\*\\*${extenso}\\*\\*, com versão fixa em \`core/package\\.json\``), 'SECURITY.md');
   assert.ok(ler('docs/produto/SYS-01-nucleo-ork.md').includes(`com ${extenso} dependências de runtime com versão fixa`), 'SYS-01');
+  const arquitetura = ler('docs/conceitos/arquitetura.md');
+  assert.ok(arquitetura.includes(`com ${extenso} dependências de runtime com versão fixa`), 'arquitetura');
+  assert.doesNotMatch(arquitetura, /Zero dependência de runtime|Instala em qualquer lugar com Node 20/);
+  assert.match(arquitetura, /incluindo o compilador TypeScript; o grafo pede Node 20\.19, 22\.12 ou mais novo/);
 });
 
 test('grafo no pacote: lockfile: o fecho dos analisadores esta no lockfile com a versao instalada e nenhum pacote dele e dev', () => {
