@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:51:38.911Z",
+  "publicadoEm": "2026-10-03T04:53:11.236Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -66,6 +66,23 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm037testede",
+      "nome": "RM-037: teste de lease instável no Node 22",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-rm037testede-full",
+      "atualizadaEm": "2026-10-03T04:53:08.931Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
