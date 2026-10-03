@@ -52,7 +52,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-016](RM-016-experiencia-do-builder.md) | Experiência do builder em Claude Code e Codex | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-018](RM-018-ontologia-de-portfolio.md) | Ontologia de portfólio | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-019](RM-019-catalogo-multi-repositorio.md) | Catálogo multi-repositório | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
-| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-025](RM-025-company-brain-fundacao.md) | Company Brain: fundação | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-026](RM-026-workspace-empresarial.md) | Workspace empresarial e Maestro | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-031](RM-031-grafo-de-codigo.md) | Grafo determinístico de código e artefatos | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-02 |
 | [RM-032](RM-032-bootstrap-maestro.md) | Bootstrap universal Maestro | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
@@ -61,7 +61,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-035](RM-035-horario-do-dono.md) | Horário do dono em toda superfície humana | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-041](RM-041-hitl-invertido.md) | HITL invertido: decisão tomada, lote e pergunta rara | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |

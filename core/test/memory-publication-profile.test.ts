@@ -17,6 +17,7 @@ import { hashAtivacao } from '../src/write-activation';
 import { usingFixture, pythonFixture, fixtureEnv, assets } from './native-fixture';
 import { abrirPedidoGate, RespostaHumana } from '../src/hitl-gates';
 import { evidenciaDoIngresso, gravarIngresso } from '../src/hitl-ingress-receipt';
+import { semPostgres } from './ambiente-de-teste';
 
 const fixtureDatabase = `
 import asyncio,json,sys,uuid
@@ -59,7 +60,7 @@ async def run():
 asyncio.run(run())
 `;
 
-test('perfil fabrica no CLI e PostgreSQL: C1..C4, ativacao explicita, legado intacto e sync integral honestamente falho', t => {
+test('perfil fabrica no CLI e PostgreSQL: C1..C4, ativacao explicita, legado intacto e sync integral honestamente falho', { skip: semPostgres() }, t => {
   const p=projetoTemporario('native-profile');t.after(p.limpar);
   const ingressKey='chave-sintetica-perfil-nativo-00000000',oldIngressKey=process.env.ORK_HITL_INGRESS_KEY;
   process.env.ORK_HITL_INGRESS_KEY=ingressKey;

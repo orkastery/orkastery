@@ -1329,8 +1329,14 @@ export interface EstadoDeEmbeddings {
   indices: IndiceDeEmbeddings[];
   /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
   entradas: number | null;
-  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
+  /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null } | null;
+  /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
+  aviso: string | null;
+  /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
+  falhaDoUniverso: string | null;
   ativo: 'primario' | 'fallback' | 'nenhum';
   /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
   sondado: boolean;
@@ -1366,6 +1372,28 @@ export interface EntradaDeMemoria {
   author_id?: string | null;
   visibility?: string;
   protected?: boolean;
+}
+
+/** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
+export interface ForaDaBusca {
+  /** Ativas com `injection_risk` (a leitura governada as tira; nunca vao ao embed). */
+  injecao: number;
+  expiradas: number;
+  /** Do tenant, em colecoes fora da busca do `ork` (fora de COLECOES_DO_ORK; a ponte grava session e semantic_log). */
+  outrasColecoes: number;
+}
+
+/**
+ * RM-038: o universo da busca e do indice, lido de uma vez e conferido (domicilio unico:
+ * `universoDaBusca` em `indice-vetorial.ts`). Indice, vetor, FTS e status usam este conjunto.
+ */
+export interface UniversoDaBusca {
+  tenant: string;
+  /** Ordenadas por colecao e id. */
+  entradas: EntradaDeMemoria[];
+  porColecao: Record<ColecaoDoOrk, number>;
+  /** null quando a base nao mede (backend sem a contagem). */
+  foraDaBusca: ForaDaBusca | null;
 }
 
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */

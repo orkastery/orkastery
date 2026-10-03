@@ -10,6 +10,7 @@ import math
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 
 class LegacyProvenanceCollision(ValueError):
@@ -370,6 +371,102 @@ async def health(store):
 ORK_COLLECTIONS = ('decision', 'handoff', 'rule', 'learning', 'roadmap')
 
 
+def no_universo(entry, tenant, agora=None):
+    """RM-038: o predicado unico do universo da busca (indice, vetor, FTS e status).
+
+    O search_by_tags governado ja tira expiradas e injection_risk; o search_by_text nao tira
+    injection_risk. O mesmo predicado vale nos dois caminhos, com o tenant conferido como item
+    de lista: texto nunca casa por substring. `agora` e o instante de ANTES da leitura: o que a
+    biblioteca devolveu como ativo continua ativo aqui, sem corrida de expiracao.
+    """
+    tags = getattr(entry, 'tags', None)
+    projeto = tags.get('project') if isinstance(tags, dict) else None
+    expira = getattr(entry, 'expires_at', None)
+    if expira is not None and expira.tzinfo is None:
+        expira = expira.replace(tzinfo=timezone.utc)
+    return (getattr(entry, 'collection', None) in ORK_COLLECTIONS
+            and isinstance(projeto, list) and tenant in projeto
+            and not getattr(entry, 'injection_risk', False)
+            and (expira is None or expira > (agora or datetime.now(timezone.utc))))
+
+
+async def ate_o_fim(contar, ler):
+    """RM-038: le com a janela da contagem mais um; janela cheia conta e le de novo uma vez.
+
+    Cheia so acontece com escrita concorrente entre a contagem e a leitura. Uma escrita isolada
+    se resolve na segunda leitura; cheia de novo, a resposta e falhar alto, nunca cortar.
+    """
+    for _ in range(2):
+        limite = await contar() + 1
+        lidas = await ler(limite)
+        if len(lidas) < limite:
+            return lidas
+    raise QueryError('memory.query.window-saturated')
+
+
+def universo_contract(request):
+    valid = isinstance(request, dict) and set(request) == {'op', 'tenant'}
+    tenant = request.get('tenant') if valid else None
+    if (not valid or request['op'] != 'universo' or not isinstance(tenant, str) or not tenant.strip()
+            or len(tenant) > 128 or re.search(r'[\x00-\x1f\x7f]', tenant) is not None):
+        raise QueryError('memory.universo.invalid')
+
+
+# Contagem SO de numeros: nenhuma coluna de conteudo sai da base por aqui. O tenant e o mesmo
+# predicado da leitura governada por tag (`tags @> {"project": [tenant]}`), que usa o indice de tags.
+FORA_DA_BUSCA_SQL = """
+    SELECT
+      count(*) FILTER (WHERE collection = ANY(%s) AND injection_risk
+                         AND (expires_at IS NULL OR expires_at > now())) AS injecao,
+      count(*) FILTER (WHERE collection = ANY(%s) AND expires_at IS NOT NULL AND expires_at <= now()) AS expiradas,
+      count(*) FILTER (WHERE NOT (collection = ANY(%s))) AS outras_colecoes
+    FROM memories
+    WHERE tags @> jsonb_build_object('project', jsonb_build_array(%s::text))
+"""
+
+
+async def contar_fora_da_busca(store, tenant):
+    """RM-038: quantas entradas do tenant ficam fora do universo e por que.
+
+    A API governada nao devolve o que filtra; a contagem le a tabela pela conexao do adapter
+    pgvector (o mesmo acesso do lock de add e handoff), so com count(*). Em outro backend a
+    contagem nao e medida e volta None.
+    """
+    if getattr(getattr(store, 'capabilities', None), 'backend', None) != 'pgvector':
+        return None
+    conn = await store.inner._get_conn()
+    colecoes = list(ORK_COLLECTIONS)
+    cur = await conn.execute(FORA_DA_BUSCA_SQL, (colecoes, colecoes, colecoes, tenant))
+    linha = await cur.fetchone()
+    return {'injecao': int(linha['injecao']), 'expiradas': int(linha['expiradas']),
+            'outrasColecoes': int(linha['outras_colecoes'])}
+
+
+async def universo(request, store):
+    """RM-038: o universo da busca do tenant, lido ate o fim, uma leitura governada por colecao.
+
+    O tenant e filtro na origem: texto de outro tenant nunca sai da base por aqui. A janela e a
+    colecao inteira mais um (ate_o_fim). Entrada fora do predicado e violacao. O vetor gravado na
+    base nao viaja: o ork nao o usa.
+    """
+    tenant = request['tenant']
+    agora = datetime.now(timezone.utc)
+    entradas = []
+    for colecao in ORK_COLLECTIONS:
+        async def contar(colecao=colecao):
+            return await store.count(colecao)
+        async def ler(limite, colecao=colecao):
+            return await store.search_by_tags({'project': [tenant]}, collection=colecao, limit=limite)
+        lidas = await ate_o_fim(contar, ler)
+        if any(e.collection != colecao or not no_universo(e, tenant, agora) for e in lidas):
+            raise QueryError('memory.query.scope-violation')
+        entradas.extend(lidas)
+    if len({e.id for e in entradas}) != len(entradas):
+        raise QueryError('memory.query.scope-violation')
+    return {'entradas': [e.model_dump(mode='json', exclude={'embedding'}) for e in entradas],
+            'foraDaBusca': await contar_fora_da_busca(store, tenant)}
+
+
 def fts_contract(request):
     valid = isinstance(request, dict) and set(request) == {'op', 'tenant', 'texto'}
     def text(value, maximum):
@@ -379,14 +476,16 @@ def fts_contract(request):
 
 
 async def fts(request, store):
-    """FTS da biblioteca (I-38 D9) com fronteira de tenant obrigatoria: devolve so ids, na ordem do ranking."""
+    """FTS da biblioteca (I-38 D9) restrito ao universo da busca (RM-038): so ids, na ordem do ranking."""
     # A janela cobre a base inteira: ausencia so conta quando nada ficou de fora do corte.
-    limit = await store.count() + 1
-    entries = await store.search_by_text(request['texto'], limit=limit)
-    if len(entries) >= limit:
-        raise QueryError('memory.query.window-saturated')
-    return {'ids': [e.id for e in entries if e.collection in ORK_COLLECTIONS
-                    and request['tenant'] in (e.tags or {}).get('project', [])]}
+    agora = datetime.now(timezone.utc)
+    async def contar():
+        return await store.count()
+    async def ler(limite):
+        return await store.search_by_text(request['texto'], limit=limite)
+    entries = await ate_o_fim(contar, ler)
+    # O search_by_text alcanca injection_risk; o universo nao. Mesmo predicado do indice.
+    return {'ids': [e.id for e in entries if no_universo(e, request['tenant'], agora)]}
 
 
 async def execute(request, store):
@@ -403,6 +502,9 @@ async def execute(request, store):
     if op == 'fts':
         fts_contract(request)
         return await fts(request, store)
+    if op == 'universo':
+        universo_contract(request)
+        return await universo(request, store)
     if op == 'query':
         tags, collection, limit = query_contract(request)
         # GovernedStore conserva validade, anti-injection e visibilidade existentes.
@@ -417,8 +519,12 @@ async def execute(request, store):
         return [e.model_dump(mode='json') for e in entries]
     if op == 'export':
         collection = request['collection']
-        count = await store.count(collection)
-        entries = await store.search_by_tags({}, collection=collection, limit=count + 1)
+        async def contar():
+            return await store.count(collection)
+        async def ler(limite):
+            return await store.search_by_tags({}, collection=collection, limit=limite)
+        # RM-038: le ate o fim; janela cheia de novo e falha alta, nunca corte em silencio.
+        entries = await ate_o_fim(contar, ler)
         return [e.model_dump(mode='json') for e in entries]
     if op == 'get':
         entry = await store.retrieve(request['id'])
@@ -538,6 +644,8 @@ async def main(request):
         health_contract(request)
     if isinstance(request, dict) and request.get('op') == 'fts':
         fts_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'universo':
+        universo_contract(request)
     native_schema_fields()
     from orkmind.core.config import OrkMindConfig
     from orkmind.store.factory import create_store

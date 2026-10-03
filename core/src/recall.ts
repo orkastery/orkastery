@@ -267,7 +267,9 @@ export function recallDaThread(
       falhas.push({ id: 'memoria-busca', titulo: 'Descoberta de handoffs da fase', location: '',
         orkmind: null, retrieve_when: fase, resolvido: false, motivo: 'orkmind-indisponivel', via: null,
         conteudo: '', metodo: '', sha256: '', intervalo: null,
-        detalhe: `${memoria.leituraRestrita ? falhaDeConsulta(erro) : 'memory.transport.export'}: busca semantica falhou; resultado nao comprova colecao vazia` });
+        // RM-038: a janela cheia do export tem codigo proprio; o resto segue como falha de transporte.
+        detalhe: `${memoria.leituraRestrita ? falhaDeConsulta(erro) : erro instanceof Error && erro.message === 'memory.query.window-saturated'
+          ? erro.message : 'memory.transport.export'}: busca semantica falhou; resultado nao comprova colecao vazia` });
     }
   }
 
