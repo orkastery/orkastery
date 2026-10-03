@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:31:29.015Z",
+  "publicadoEm": "2026-10-03T04:32:04.818Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-provadeativa",
+      "nome": "rm032codex",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-032",
+      "branch": "ork/ork-provadeativa-full",
+      "atualizadaEm": "2026-10-03T04:32:02.560Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
