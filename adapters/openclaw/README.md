@@ -41,6 +41,9 @@ openclaw plugins install ~/.openclaw/extensions/orkastery   # registra explicita
 # ou aponte plugins.load.paths para o diretorio instalado na config do OpenClaw
 ```
 
+O instalador grava o `ork` que roda o install (o caminho real do CLI), nao o primeiro `ork` do
+PATH; com outro `ork` no PATH, a saida avisa com as duas versoes. `--ork <caminho>` escolhe outro.
+
 Se a copia nao passou pelo instalador (placeholder nao renderizado), o entry cai no
 fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 
@@ -209,7 +212,8 @@ nativo adicional só fica disponível após prova do callback e configuração d
 Instalação fixture/SDK simulado não comprova ativação em uma sessão real.
 
 HITL de condução é seleção (RM-057, nas descrições de `ork_modo_do_pedido`,
-`ork_maestro` e `ork_phase_run`): de 3 a 5 alternativas, exatamente uma com o selo
+`ork_maestro`, `ork_phase_run`, `ork_network_roadmap` e `ork_network_status`; as duas de rede são as
+únicas que o perfil `coding` expõe, e com elas a regra chega ao modelo sem `tools.alsoAllow`): de 3 a 5 alternativas, exatamente uma com o selo
 "Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
 que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
 Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a
