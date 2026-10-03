@@ -500,8 +500,8 @@ function leasesEmDisco(raiz: string): LeaseEmDisco[] {
 }
 
 /**
- * Todos os leases existentes no projeto, pelo nome canonico gravado no arquivo: os do estado
- * canonico e, ate vencerem, os do legado das worktrees (RM-036, D2).
+ * Leases do estado canonico e legados validos consultados durante a janela da troca.
+ * Vencidos podem aparecer para diagnostico; so os vivos disputam regioes.
  */
 export function listarLeases(raiz: string): Lease[] {
   return leasesEmDisco(raiz).map((e) => e.lease);
@@ -815,7 +815,7 @@ export function tabelaDeLeases(raiz: string): string {
     );
   });
   if (emDisco.length > 0 || fila.length > 0) linhas.push(legendaDoFuso());
-  return linhas.join('\n');
+  return linhas.map(textoSeguro).join('\n');
 }
 
 // ---------------------------------------------------------------------------

@@ -161,6 +161,8 @@ test('rm036 gofix: texto legado e lista de leases e fila saem sem controles', (t
   assert.equal(legado.motivo, 'motivo[2Jinjetado');
   assert.equal(legado.conducao, undefined);
   leases.regravarLease(c.raiz, { ...vivo('service:5173'), thread: 'ork-um\r\u001b', motivo: l.motivo });
+  fs.writeFileSync(leases.caminhoLease(c.raiz, 'board:card-1'), JSON.stringify({ ...vivo('board:card-1'),
+    adquiridoEm: 'data\u001b', expiraEm: 'data\u0007', pid: 'pid\rINJETADO' }));
   fs.writeFileSync(leases.caminhoFila(c.raiz), JSON.stringify([{ nome: 'path:core/**', tipo: 'path',
     thread: 'ork-fila\u001b', motivo: '', desdeEm: l.adquiridoEm,
     colidiuCom: 'path:core/**\u0007', bloqueadaPor: 'ork-um\u202e' }]));
