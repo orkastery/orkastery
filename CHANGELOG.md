@@ -24,6 +24,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Teste da coleta após falha de limpeza do candidato** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  os cenários de `EPERM`, com aquisição bem-sucedida ou erro original, agora exigem que um concorrente
+  recolha o candidato após `ESRCH` simulado e deixe a fila vazia, com `flock` e transporte portátil.
+  Receita de mutação suprime essa coleta sem alterar a recusa de limpeza inicial.
 - **Diagnóstico da entrada fora de UTF-8 no MCP** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   a recusa em metadados Git e em leases/candidatos mostra o caminho relativo da entrada, preserva os
   bytes em escapes hexadecimais e orienta renomear pelo shell. A guarda continua antes do `lstat`;

@@ -25,6 +25,9 @@ const verificacao = 'docs/guias/verificacao.md';
 const mutantes = {
   'R8-fixture-ENOENT': [['core/dist-test/test/rm036-leases-mcp.test.js',
     "['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP']", "['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP', 'ENOENT']"]],
+  'R8-coleta-candidato': [[lease,
+    "if (e.code === 'ESRCH') {\n                    recolherCandidato(dir, c);",
+    "if (e.code === 'ESRCH') {"]],
   'R8-MCP-metadados-entrada': [['core/dist-test/src/mcp-git.js',
     "'metadata.unsafe: ' + (0, mcp_artifacts_1.diagnosticoNomeForaDeUtf8)(opcoes.relativoA ?? path.dirname(root), f, bytes)",
     '`metadata.unsafe: nome fora de UTF-8 em ${rotulo(f)}`']],
