@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-03T11:14:15.085Z",
+  "publicadoEm": "2026-10-03T11:16:58.266Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -109,15 +109,15 @@
       "esforco": null
     },
     {
-      "id": "ork-rm049recibod",
-      "nome": "RM-049: recibo do ensaio em inglês com o merge",
-      "modo": "#Fast",
-      "fase": "GO",
+      "id": "ork-rm049quickst",
+      "nome": "RM-049: quickstart completo até a primeira thread",
+      "modo": "#Auto",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-049",
-      "branch": "ork/ork-rm049recibod-go",
-      "atualizadaEm": "2026-10-03T11:07:11.956Z",
-      "entregue": "1765696",
+      "branch": "ork/ork-rm049quickst-full",
+      "atualizadaEm": "2026-10-03T11:16:55.891Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
