@@ -218,9 +218,9 @@ interface CopiaLegada {
   identidadeLegada?: fs.Stats;
 }
 
-/** Descarte do inode legado no estado confiavel; nunca escreve nem apaga na worktree antiga. */
+/** Descarte da geracao dev/ino/ctime; inode reutilizado nao herda o descarte anterior. */
 function marcaDeLegado(raiz: string, identidade: fs.Stats): string {
-  return path.join(dirLeases(raiz), `.legado-ignorado-${identidade.dev}-${identidade.ino}`);
+  return path.join(dirLeases(raiz), `.legado-ignorado-${identidade.dev}-${identidade.ino}-${identidade.ctimeMs}`);
 }
 
 function legadoIgnorado(raiz: string, identidade: fs.Stats): boolean {
@@ -231,7 +231,7 @@ function ignorarLegado(raiz: string, caminho: string, identidade: fs.Stats): boo
   try {
     if (!diretorioDeVerdade(path.dirname(caminho)) || !diretorioDeVerdade(path.dirname(path.dirname(caminho)))) return false;
     const atual = fs.lstatSync(caminho);
-    if (!atual.isFile() || atual.dev !== identidade.dev || atual.ino !== identidade.ino) return false;
+    if (!atual.isFile() || atual.dev !== identidade.dev || atual.ino !== identidade.ino || atual.ctimeMs !== identidade.ctimeMs) return false;
     fs.writeFileSync(marcaDeLegado(raiz, identidade), '', { flag: 'wx' });
     return true;
   } catch { return false; }

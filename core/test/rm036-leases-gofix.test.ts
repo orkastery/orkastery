@@ -261,6 +261,13 @@ for (const operacao of ['liberar', 'soltarDaThread'] as const) {
   for (const troca of ['arquivo', 'link-arquivo', 'link-diretorio'] as const) {
     test(`rm036 gofix: A3 ${operacao} preserva substituicao por ${troca} apos leitura`, (t) => {
       const c = cenario(t), arquivo = c.gravar(vivo());
+      // A identidade ainda precisa de dev/ino quando dois arquivos compartilham o carimbo.
+      const carimbo = fs.lstatSync(arquivo).ctimeMs, stat = io.lstatSync;
+      t.mock.method(io, 'lstatSync', (...args: unknown[]) => {
+        const r = Reflect.apply(stat, io, args);
+        if (String(args[0]) === arquivo && r) r.ctimeMs = carimbo;
+        return r;
+      });
       const salvo = path.join(c.base, 'original'), outro = path.join(c.base, 'outro');
       const ler = io.readFileSync;
       let trocou = false, leituras = 0;
@@ -366,7 +373,7 @@ test('rm036 gofix: R3 diagnostico de legado vazio preserva vencedor canonico', (
   assert.equal(fs.readFileSync(arquivo, 'utf8'), '{}');
 });
 
-test('rm036 gofix: R3 release separa origens e marca legado por dev ino', (t) => {
+test('rm036 gofix: R3 release separa origens e marca legado por dev ino ctime', (t) => {
   const c = cenario(t), arquivo = c.gravar(vivo());
   const antes = fs.readFileSync(arquivo, 'utf8'), inode = fs.statSync(arquivo);
   leases.regravarLease(c.raiz, vivo('main-tree', OUTRA));
@@ -378,13 +385,48 @@ test('rm036 gofix: R3 release separa origens e marca legado por dev ino', (t) =>
   assert.match(r.detalhe, /legado ignorado/);
   assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
   assert.equal(fs.statSync(arquivo).ino, inode.ino);
-  assert.equal(fs.existsSync(path.join(leases.dirLeases(c.raiz), `.legado-ignorado-${inode.dev}-${inode.ino}`)), true);
+  assert.equal(fs.existsSync(path.join(leases.dirLeases(c.raiz), `.legado-ignorado-${inode.dev}-${inode.ino}-${inode.ctimeMs}`)), true);
   assert.equal(leases.leasesColidentes(c.raiz, 'main-tree').length, 0);
   assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'GO' }).ok, true);
   // Outra copia no mesmo path continua sendo reconhecida, apesar da marca antiga.
   fs.renameSync(arquivo, path.join(c.base, 'inode-antigo'));
   c.gravar(vivo());
   assert.equal(leases.leasesColidentes(c.raiz, 'main-tree', OUTRA).length, 1);
+});
+
+test('rm036 gofix: R4 marca antiga nao oculta legado novo com mesmo dev ino e outro ctime', (t) => {
+  const c = cenario(t), arquivo = c.gravar(vivo()), identidade = fs.lstatSync(arquivo);
+  const stat = io.lstatSync;
+  let geracao = 0;
+  t.mock.method(io, 'lstatSync', (...args: unknown[]) => {
+    const r = Reflect.apply(stat, io, args);
+    if (String(args[0]) === arquivo && r) r.ctimeMs = identidade.ctimeMs + geracao;
+    return r;
+  });
+  assert.equal(leases.liberar(c.raiz, 'main-tree', DONO).ok, true);
+  assert.equal(leases.leasesColidentes(c.raiz, 'main-tree').length, 0);
+  c.gravar(vivo('main-tree', OUTRA));
+  geracao = 1;
+  assert.equal(fs.lstatSync(arquivo).ino, identidade.ino, 'mesmo inode, geracao diferente');
+  const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'concorrente' });
+  assert.equal(r.ok, false);
+  assert.equal(r.motivo, 'lease.busy');
+  assert.equal(r.ocupadoPor?.thread, OUTRA);
+});
+
+test('rm036 gofix: R4 descarte recusa ctime alterado entre leitura e marca', (t) => {
+  const c = cenario(t), arquivo = c.gravar(vivo()), identidade = fs.lstatSync(arquivo);
+  const antes = fs.readFileSync(arquivo, 'utf8'), stat = io.lstatSync;
+  let consultas = 0;
+  t.mock.method(io, 'lstatSync', (...args: unknown[]) => {
+    const r = Reflect.apply(stat, io, args);
+    if (String(args[0]) === arquivo && r) r.ctimeMs = identidade.ctimeMs + (++consultas > 2 ? 1 : 0);
+    return r;
+  });
+  assert.equal(leases.liberar(c.raiz, 'main-tree', DONO).ok, false);
+  assert.ok(consultas >= 3, 'houve comparacao antes da marca');
+  assert.deepEqual(fs.readdirSync(leases.dirLeases(c.raiz)).filter((n) => n.startsWith('.legado-ignorado-')), []);
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
 });
 
 test('rm036 gofix: R3 liberar nao anuncia sucesso quando unlink falha', (t) => {

@@ -30,6 +30,8 @@ const mutantes = {
   'R4-portatil-wx': [[lease, "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });", "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'w' });", 2]],
   'R4-retomada-retry-humano': [['core/dist-test/src/retry.js', "motivo: 'lease.resume-unavailable',\n        acao: 'escalar-humano'", "motivo: 'lease.resume-unavailable',\n        acao: 'corrigir-dirigido'"]],
   'R4-docs-tabela': [[verificacao, '| `lease.resume-unavailable` | escalar-humano |', '| `lease.resume-unavailable` | corrigir-dirigido |']],
+  'R4-legado-ctime-marca': [[lease, '.legado-ignorado-${identidade.dev}-${identidade.ino}-${identidade.ctimeMs}', '.legado-ignorado-${identidade.dev}-${identidade.ino}']],
+  'R4-legado-ctime-releitura': [[lease, ' || atual.ctimeMs !== identidade.ctimeMs', '']],
   'R4-nlink-zero': [[lease, "if (stat.nlink === 0)\n            return 'ocupado';", "if (stat.nlink === 0)\n            return 'indisponivel';"]],
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],
