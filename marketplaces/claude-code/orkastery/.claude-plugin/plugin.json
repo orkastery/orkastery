@@ -2,7 +2,7 @@
   "name": "orkastery",
   "displayName": "Orkastery",
   "description": "Six-phase threads (GOAL, PLAN, GO, CHECK, SHIP, MASTER) run by the local ork CLI: each claim is re-run against the repository before it counts, and you get short decisions only when they matter.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": {
     "name": "Julio Pessoa and Orkastery contributors",
     "url": "https://github.com/orkastery"

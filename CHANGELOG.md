@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.2] - 2026-10-03
+
 ### Adicionado
 
 - **Orkastery Network** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)): as máquinas de uma pessoa em
