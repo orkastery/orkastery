@@ -99,6 +99,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Marcas visíveis da categoria `Cf` na rede** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), Y4 do CHECK 7):
+  o saneador comum (`core/src/saida-segura.ts`) tratava toda a categoria `Cf` como invisível, e o projeto com um
+  sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
+  no caminho saía do retrato com aviso, e a marca sumia da saída. Essas 13 marcas, que têm glifo, passam como
+  texto; bidi, largura zero, tags e o resto de `Cf` continuam barrados.
 - **Suspeitas da revisão de 03/10** (thread `ork-suspeitasdar`):
   - a marca da rede (`~/.orkastery/rede/publicada.json`) é trocada inteira, por `rename`; antes, um
     `ork network status`, o `ork doctor` ou uma publicação concorrente liam o arquivo vazio ou cortado, e um
