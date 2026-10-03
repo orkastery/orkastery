@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T10:24:13.643Z",
+  "publicadoEm": "2026-10-03T10:24:33.499Z",
   "threads": [
     {
       "id": "ork-estadodoroa2",
@@ -15,7 +15,7 @@
       "roadmap": null,
       "branch": "ork/ork-estadodoroa2-go",
       "atualizadaEm": "2026-10-03T09:41:20.790Z",
-      "entregue": null,
+      "entregue": "ffec860c",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
