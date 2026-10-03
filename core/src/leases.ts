@@ -22,6 +22,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { dirEstado } from './manifest';
 import { raizDoEstado } from './estado-thread';
 import { Lease, PedidoNaFila, TipoDeLease } from './types';
@@ -124,21 +125,27 @@ function textoSeguro(texto: unknown): string {
   return String(texto ?? '').replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '');
 }
 
-/** A primeira descoberta abre uma unica janela; o marcador canonico nunca e renovado. */
-function janelaDoLegado(principal: string, abrir = false): boolean | null {
+/** Um argumento literal de shell, inclusive quando vem da fila canonica. */
+export function argumentoDeLease(texto: string): string {
+  return `'${textoSeguro(texto).replace(/'/g, "'\\''")}'`;
+}
+
+/** O legado nao admite sintaxe de shell nem nomes arbitrariamente longos. */
+function nomeLegadoSeguro(nome: unknown): nome is string {
+  return typeof nome === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/*?:@+-]{0,199}$/.test(nome);
+}
+
+/** A primeira consulta abre uma unica janela, mesmo sem legado; nunca a renova. */
+function janelaDoLegado(principal: string): boolean {
   const marcador = path.join(dirLeases(principal), '.legado');
-  if (abrir) {
-    try {
-      fs.mkdirSync(path.dirname(marcador), { recursive: true });
-      fs.closeSync(fs.openSync(marcador, 'wx'));
-    } catch { /* EEXIST: outra chamada abriu a mesma janela. */ }
-  }
+  try {
+    fs.mkdirSync(path.dirname(marcador), { recursive: true });
+    fs.closeSync(fs.openSync(marcador, 'wx'));
+  } catch { /* EEXIST: outra chamada abriu a mesma janela; falha de leitura fecha. */ }
   try {
     const stat = fs.lstatSync(marcador);
     return stat.isFile() && Date.now() - stat.mtimeMs < TTL_PADRAO_MS;
-  } catch (e) {
-    return !abrir && (e as NodeJS.ErrnoException).code === 'ENOENT' ? null : false;
-  }
+  } catch { return false; }
 }
 
 /**
@@ -175,7 +182,7 @@ export function dirsLegadosDeLeases(raiz: string): string[] {
     vistos.add(real(dir));
     dirs.push(dir);
   }
-  return dirs.length > 0 && janelaDoLegado(principal, true) ? dirs : [];
+  return dirs;
 }
 
 /** Legado e entrada nao confiavel: formato, nome do arquivo e prazo precisam concordar. */
@@ -186,14 +193,14 @@ function lerLeaseLegado(caminho: string): Lease | null {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || stat.size > 64 * 1024) return null;
     const lease = JSON.parse(fs.readFileSync(fd, 'utf8')) as Lease;
-    if (!lease || typeof lease.nome !== 'string' || !lease.nome || textoSeguro(lease.nome) !== lease.nome ||
+    if (!lease || !nomeLegadoSeguro(lease.nome) ||
         path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json` || tipoDoLease(lease.nome) === 'exec' ||
         typeof lease.thread !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread) ||
         typeof lease.motivo !== 'string' || !Number.isSafeInteger(lease.pid) || lease.pid <= 0) return null;
     const inicio = Date.parse(lease.adquiridoEm), fim = Date.parse(lease.expiraEm);
     if (!Number.isFinite(inicio) || !Number.isFinite(fim) ||
         new Date(inicio).toISOString() !== lease.adquiridoEm || new Date(fim).toISOString() !== lease.expiraEm ||
-        inicio > Date.now() || fim <= inicio || fim - inicio > TTL_PADRAO_MS) return null;
+        inicio > Date.now() || fim <= inicio || fim - inicio > TTL_PADRAO_MS + 1_000) return null;
     // Nao transporta campos extras (como conducao) de um arquivo gravavel pela worktree.
     return { nome: lease.nome, thread: lease.thread, motivo: textoSeguro(lease.motivo), pid: lease.pid,
       adquiridoEm: lease.adquiridoEm, expiraEm: lease.expiraEm };
@@ -208,6 +215,18 @@ interface CopiaLegada {
   caminho: string;
   /** `null` quando o arquivo esta corrompido ou e de outro nome. */
   lease: Lease | null;
+  identidadeLegada?: fs.Stats;
+}
+
+/** Nunca apaga a substituicao que apareceu entre a leitura e a limpeza do legado. */
+function apagarLegado(caminho: string, identidade: fs.Stats): boolean {
+  try {
+    if (!diretorioDeVerdade(path.dirname(caminho)) || !diretorioDeVerdade(path.dirname(path.dirname(caminho)))) return false;
+    const atual = fs.lstatSync(caminho);
+    if (!atual.isFile() || atual.dev !== identidade.dev || atual.ino !== identidade.ino) return false;
+    fs.unlinkSync(caminho);
+    return true;
+  } catch { return false; }
 }
 
 /** As copias legadas de um nome. O `exec:` nunca morou no legado (I-36). */
@@ -217,8 +236,11 @@ function copiasLegadas(raiz: string, nome: string): CopiaLegada[] {
   for (const dir of dirsLegadosDeLeases(raiz)) {
     const caminho = path.join(dir, `${encodeURIComponent(nome)}.json`);
     if (!arquivoDeVerdade(caminho)) continue;
+    let identidadeLegada: fs.Stats;
+    try { identidadeLegada = fs.lstatSync(caminho); } catch { continue; }
+    if (!identidadeLegada.isFile()) continue;
     const lease = lerLeaseLegado(caminho);
-    copias.push({ caminho, lease: lease && lease.nome === nome ? lease : null });
+    copias.push({ caminho, lease: lease && lease.nome === nome ? lease : null, identidadeLegada });
   }
   return copias;
 }
@@ -255,6 +277,36 @@ function lerArquivoDeLease(caminho: string): Lease | null {
 /** O criador exclusivo pode estar entre o open(wx) e a escrita do JSON. */
 function escritaRecente(caminho: string): boolean {
   try { return Date.now() - fs.lstatSync(caminho).mtimeMs < 5_000; } catch { return false; }
+}
+
+/**
+ * Serializa a retomada no inode vencido. O fd fica aberto ate o novo wx terminar:
+ * outro retomador desse inode nao pode remover o arquivo que acabou de nascer.
+ * O kernel solta a trava se o processo morrer; nao ha lock extra nem hard link.
+ */
+function retomarArquivo(caminho: string, corpo: string): boolean {
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.nlink !== 1) return false;
+    const trava = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
+      { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2_000 });
+    if (trava.error || trava.status !== 0) return false;
+    let atual: Lease | null = null;
+    try { atual = JSON.parse(fs.readFileSync(fd, 'utf8')) as Lease; } catch { /* corrompido */ }
+    if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)) return false;
+    const agoraNoPath = fs.lstatSync(caminho);
+    if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return false;
+    fs.unlinkSync(caminho);
+    fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
+    return true;
+  } catch (e) {
+    if (['ENOENT', 'EEXIST', 'ELOOP'].includes((e as NodeJS.ErrnoException).code ?? '')) return false;
+    throw e;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
 }
 
 /** O lease venceu? */
@@ -384,33 +436,21 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
     if (copia.lease && !expirado(copia.lease)) {
       return { ok: false, lease: null, ocupadoPor: copia.lease, tomadoDeVencido: false };
     }
-    if (!copia.lease) continue; // diagnostico e --forcar ficam disponiveis para o arquivo invalido
-    try {
-      fs.unlinkSync(copia.caminho);
-      tomouLegado = true;
-    } catch {
-      /* outro pedido tomou antes; o `wx` abaixo decide */
-    }
+    // Vencido nao barra: adquirir nunca apaga arquivos da worktree legada.
+    if (copia.lease) tomouLegado = true;
   }
 
-  for (const tentativa of [1, 2]) {
-    try {
-      // `wx` falha se o arquivo existe: e a atomicidade do lease, sem corrida.
-      fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
-      return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: tentativa === 2 || tomouLegado };
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-      const atual = lerLease(raiz, nome);
-      if (opcoes.retomarVencido === false || (atual && !expirado(atual)) || (!atual && escritaRecente(caminho))) {
-        return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
-      }
-      // Lease vencido ou corrompido: remove e tenta uma unica vez mais.
-      try {
-        fs.unlinkSync(caminho);
-      } catch {
-        /* outra thread removeu antes; a segunda tentativa decide */
-      }
+  try {
+    // `wx` falha se o arquivo existe: e a atomicidade do lease, sem corrida.
+    fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
+    return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: tomouLegado };
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+    const atual = lerLease(raiz, nome);
+    if (opcoes.retomarVencido === false || (atual && !expirado(atual)) || (!atual && escritaRecente(caminho))) {
+      return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
     }
+    if (retomarArquivo(caminho, corpo)) return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: true };
   }
   const atual = lerLease(raiz, nome);
   return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
@@ -450,7 +490,9 @@ export function liberar(
   }
   for (const copia of soltas) {
     try {
-      fs.unlinkSync(copia.caminho);
+      if (copia.identidadeLegada) {
+        if (!apagarLegado(copia.caminho, copia.identidadeLegada)) continue;
+      } else fs.unlinkSync(copia.caminho);
     } catch {
       /* outra liberacao chegou antes */
     }
@@ -468,6 +510,7 @@ interface LeaseEmDisco {
   caminho: string;
   /** A pasta legada onde o lease mora; `null` no estado canonico. */
   legado: string | null;
+  identidadeLegada?: fs.Stats;
 }
 
 /** Os leases do estado canonico e os do legado das worktrees, canonico antes do legado no mesmo nome. */
@@ -480,9 +523,11 @@ function leasesEmDisco(raiz: string): LeaseEmDisco[] {
       if (!arquivo.endsWith('.json') || arquivo === NOME_ARQUIVO_FILA) continue;
       const caminho = path.join(dir, arquivo);
       if (legado) {
+        let identidadeLegada: fs.Stats;
+        try { identidadeLegada = fs.lstatSync(caminho); } catch { continue; }
         const lease = arquivoDeVerdade(caminho) ? lerLeaseLegado(caminho) : null;
         // O `exec:` nunca morou no legado (I-36): arquivo de execucao ali nao e lease de versao nenhuma.
-        if (lease && tipoDoLease(lease.nome) !== 'exec') saida.push({ lease, caminho, legado: dir });
+        if (lease && identidadeLegada.isFile() && tipoDoLease(lease.nome) !== 'exec') saida.push({ lease, caminho, legado: dir, identidadeLegada });
         continue;
       }
       try {
@@ -666,7 +711,7 @@ export function adquirirRegiao(
     return { ...base, ok: false, ocupadoPor: proprio.lease, esperando: false, posicaoNaFila: 0,
       colidiuCom: proprio.lease, motivo: 'lease.busy',
       detalhe: `o lease legado "${nome}" ja pertence a thread ${opcoes.thread}`,
-      correcao: `espere o prazo do legado ou libere com: ork lease release "${nome}" --thread ${opcoes.thread}` };
+      correcao: `espere o prazo do legado ou libere com: ork lease release ${argumentoDeLease(nome)} --thread ${argumentoDeLease(opcoes.thread)}` };
   }
 
   const colidentes = leasesColidentes(raiz, nome, opcoes.thread);
@@ -691,7 +736,7 @@ export function adquirirRegiao(
         `desde ${dono.adquiridoEm}`,
       correcao:
         `espere a thread ${dono.thread} liberar (posicao ${posicao} na fila), ` +
-        `ou reduza o glob da sua regiao, ou libere com: ork lease release "${dono.nome}" --forcar`,
+        `ou reduza o glob da sua regiao, ou libere com: ork lease release ${argumentoDeLease(dono.nome)} --forcar`,
     };
   }
 
@@ -737,7 +782,7 @@ export function adquirirRegiao(
       colidiuCom: dono,
       motivo: 'lease.busy',
       detalhe: `o lease "${nome}" esta com a thread ${dono?.thread ?? '(desconhecida)'}`,
-      correcao: `espere a vez (posicao ${posicao} na fila) ou: ork lease release "${nome}" --forcar`,
+      correcao: `espere a vez (posicao ${posicao} na fila) ou: ork lease release ${argumentoDeLease(nome)} --forcar`,
     };
   }
   sairDaFila(raiz, nome, opcoes.thread);
@@ -796,7 +841,9 @@ export function tabelaDeLeases(raiz: string): string {
       try { nome = decodeURIComponent(arquivo.slice(0, -5)); } catch { nome = arquivo.slice(0, -5); }
       if (tipoDoLease(nome) === 'exec') continue;
       linhas.push(`  legado: ${textoSeguro(arquivo)} INVALIDO ou ILEGIVEL (ignorado)`);
-      linhas.push(`    remover: ork lease release ${JSON.stringify(textoSeguro(nome))} --forcar`);
+      if (nomeLegadoSeguro(nome) && `${encodeURIComponent(nome)}.json` === arquivo) {
+        linhas.push(`    remover: ork lease release ${argumentoDeLease(nome)} --forcar`);
+      }
     }
   }
 
@@ -837,7 +884,7 @@ function threadFechada(raiz: string, thread: string): boolean {
 export function soltarDaThread(raiz: string, thread: string): { leases: string[]; fila: string[] } {
   const leases = new Set<string>();
   // RM-036: a copia canonica e as legadas das worktrees, cada uma pelo proprio arquivo.
-  for (const { lease, caminho, legado } of leasesEmDisco(raiz)) {
+  for (const { lease, caminho, legado, identidadeLegada } of leasesEmDisco(raiz)) {
     if (lease.thread !== thread || tipoDoLease(lease.nome) === 'exec') continue;
     // Achado A2 do CHECK 1: rele logo antes de apagar. Outra poda pode ter soltado este lease e uma
     // thread viva pode ter adquirido o mesmo nome no meio; apagar pelo caminho da listagem levaria o
@@ -845,7 +892,9 @@ export function soltarDaThread(raiz: string, thread: string): { leases: string[]
     const atual = legado ? (arquivoDeVerdade(caminho) ? lerLeaseLegado(caminho) : null) : lerArquivoDeLease(caminho);
     if (!atual || atual.thread !== thread || atual.adquiridoEm !== lease.adquiridoEm) continue;
     try {
-      fs.unlinkSync(caminho);
+      if (legado) {
+        if (!identidadeLegada || !apagarLegado(caminho, identidadeLegada)) continue;
+      } else fs.unlinkSync(caminho);
       leases.add(lease.nome);
     } catch { /* outra limpeza chegou antes */ }
   }

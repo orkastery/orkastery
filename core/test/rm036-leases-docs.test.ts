@@ -13,6 +13,8 @@ for (const pagina of paginas) {
   test(`rm036 docs: ${pagina} explica janela e fila sem prometer migracao`, () => {
     const texto = ler(pagina);
     assert.match(texto, /janela de 30 minutos/);
+    assert.match(texto, /primeira consulta desta versão, mesmo sem legado/);
+    assert.match(texto, /janela não reabre/);
     assert.match(texto, /\.orkastery\/leases\/\.legado/);
     assert.match(texto, /[Ff]ila legada não é lida/);
     assert.match(texto, /prova posse canônica/);
@@ -34,14 +36,22 @@ test('rm036 docs: CLI situa todas as familias e a fila no dominio canonico', () 
   const texto = ler('docs/referencia/cli.md').split('## Isolamento: worktree e leases')[1].split('\n---')[0];
   assert.match(texto, /Todas as famílias e a fila por colisão moram no\s+estado canônico/);
   assert.match(texto, /janela de 30 minutos/);
+  assert.match(texto, /primeira consulta desta versão, mesmo sem legado/);
+  assert.match(texto, /janela não reabre/);
   assert.match(texto, /fila legada não é lida/);
   assert.match(texto, /cinco segundos/);
   assert.match(texto, /ork lease release <nome> --forcar/);
+  assert.match(texto, /aspas simples com escape/);
+  assert.match(texto, /mostra apenas o arquivo/);
+  assert.match(texto, /ship --dry-run/);
+  assert.match(texto, /flock/);
 });
 
 test('rm036 docs: changelog nao publicado registra endurecimento e fila sem migracao', () => {
   const texto = ler('CHANGELOG.md').split('## Não publicado')[1].split(/\n## /)[0];
   assert.match(texto, /janela de 30 minutos/);
+  assert.match(texto, /primeira consulta\s+desta versão, mesmo sem legado/);
+  assert.match(texto, /janela não reabre/);
   assert.match(texto, /fila legada não é lida/);
   assert.match(texto, /vínculo de volta/);
   assert.match(texto, /posse canônica/);

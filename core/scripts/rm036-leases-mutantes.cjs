@@ -24,7 +24,7 @@ const mutantes = {
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],
   'B1-iso': [[lease, 'new Date(inicio).toISOString() !== lease.adquiridoEm', 'false']],
-  'B1-ttl': [[lease, 'fim - inicio > exports.TTL_PADRAO_MS', 'false']],
+  'B1-ttl': [[lease, 'fim - inicio > exports.TTL_PADRAO_MS + 1_000', 'false']],
   'B1-controles': [[lease, "String(texto ?? '').replace(/[\\p{Cc}\\p{Cf}\\u2028\\u2029]/gu, '')", "String(texto ?? '')"]],
   'B1-posse': [[lease, 'return lerArquivoDeLease(caminhoLease(raiz, nome));',
     'return lerArquivoDeLease(caminhoLease(raiz, nome)) ?? copiasLegadas(raiz, nome)[0]?.lease ?? null;']],
@@ -40,7 +40,9 @@ const mutantes = {
   'A3-link-arquivo': [
     [lease, 'return fs.lstatSync(caminho).isFile();', 'return fs.statSync(caminho).isFile();'],
     [lease, 'fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK',
-      'fs.constants.O_RDONLY | fs.constants.O_NONBLOCK']],
+      'fs.constants.O_RDONLY | fs.constants.O_NONBLOCK', 2],
+    [lease, '!identidadeLegada.isFile()', 'false'],
+    [lease, 'lease && identidadeLegada.isFile()', 'lease']],
   'A3-link-diretorio': [[lease, 'return fs.lstatSync(caminho).isDirectory();', 'return fs.statSync(caminho).isDirectory();']],
   'S1-liberar': [[lease, 'lease: lerArquivoDeLease(canonico)',
     'lease: lerArquivoDeLease(canonico) ?? copiasLegadas(raiz, nome)[0]?.lease ?? null']],
@@ -50,7 +52,8 @@ const mutantes = {
   'S5-fila-atomica': [[lease, 'const temporario = `${caminho}.${process.pid}.${(0, node_crypto_1.randomUUID)()}.tmp`;',
     'const temporario = caminho;']],
   'S5-prazo': [[paralelo, '}, 60_000);', '}, 60_001);']],
-  'S6-wx': [[lease, ' || (!atual && escritaRecente(caminho))', '']],
+  'S6-wx': [[lease, ' || (!atual && escritaRecente(caminho))', ''],
+    [lease, ' || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)', '']],
   'S7-vinculo': [[lease, '!volta || real(path.resolve(path.dirname(gitDaWorktree), volta[1].trim())) !== real(entrada)', 'false']],
   'S8-janela': [[feat7, 'janela de 30 minutos', 'legado lido até vencer', 2]],
   'S8-fila': [[feat29, 'A fila legada não é lida', 'A espera legada entra na fila canônica']],
@@ -59,10 +62,45 @@ const mutantes = {
   'S8-prova-publica': [[rm, 'Cenários executáveis:', 'os testes caem com o código anterior. Cenários executáveis:']],
   'S8-cli': [[cli, 'Todas as famílias e a fila por colisão moram no', 'A exec mora no']],
   'S8-changelog': [['CHANGELOG.md', 'a fila legada não é lida', 'a espera legada entra na fila canônica']],
+  'R2-B2-nome': [[lease, '!nomeLegadoSeguro(lease.nome)', 'false']],
+  'R2-B2-diagnostico': [[lease, 'nomeLegadoSeguro(nome) && `${encodeURIComponent(nome)}.json` === arquivo', 'true']],
+  'R2-B2-roundtrip': [[lease, '`${encodeURIComponent(nome)}.json` === arquivo', 'true']],
+  'R2-B2-aspas': [[lease, 'function argumentoDeLease(texto) {', 'function argumentoDeLease(texto) { return JSON.stringify(texto);']],
+  'R2-B2-monitor': [['core/dist-test/src/orquestracao.js', '(0, leases_1.argumentoDeLease)(p.colidiuCom)', 'p.colidiuCom']],
+  'R2-A1-primeira-consulta': [[lease, "fs.closeSync(fs.openSync(marcador, 'wx'));", '/* marcador adiado ate descobrir legado */']],
+  'R2-A1-renovar': [[lease, "fs.closeSync(fs.openSync(marcador, 'wx'));", "fs.writeFileSync(marcador, '');"]],
+  'R2-A2-tolerancia': [[lease, 'fim - inicio > exports.TTL_PADRAO_MS + 1_000', 'fim - inicio > exports.TTL_PADRAO_MS']],
+  'R2-A3-adquirir': [[lease, 'tomouLegado = true;', 'fs.unlinkSync(copia.caminho); tomouLegado = true;']],
+  'R2-A3-inode': [[lease, ' || atual.dev !== identidade.dev || atual.ino !== identidade.ino', '']],
+  'R2-A4-trava': [[lease, 'trava.error || trava.status !== 0', 'false']],
+  'R2-A4-inode': [[lease, ' || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino', '']],
+  'R2-A4-releitura': [[lease, '(atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)', 'false']],
+  'R2-A5-dry-run': [['core/dist-test/src/ship.js', '(0, leases_1.leasesColidentes)(raiz, leases_1.LEASE_MAIN_TREE)[0] ?? null',
+    '(0, leases_1.lerLease)(raiz, leases_1.LEASE_MAIN_TREE)']],
+  'R2-docs-janela': [[feat7, 'primeira consulta desta versão, mesmo sem legado', 'primeira descoberta de legado']],
 };
+
+function aplicar(texto, relativo, receitas, nome) {
+  let alterado = texto;
+  for (const [alvo, antes, depois, quantidade = 1] of receitas) {
+    if (alvo !== relativo) continue;
+    if (alterado.split(antes).length - 1 !== quantidade) throw new Error(`receita desatualizada: ${nome} em ${relativo}`);
+    alterado = alterado.split(antes).join(depois);
+  }
+  if (relativo.endsWith('.js')) new Script(alterado, { filename: relativo });
+  return alterado;
+}
 
 if (process.argv.includes('--listar')) {
   console.log(['controle', ...Object.keys(mutantes)].join('\n'));
+} else if (process.argv.includes('--validar')) {
+  // Confere receitas e sintaxe sem executar mutantes nem escrever estado.
+  for (const [nome, receitas] of Object.entries(mutantes)) {
+    for (const relativo of new Set(receitas.map(([arquivo]) => arquivo))) {
+      aplicar(fs.readFileSync(path.join(projeto, relativo), 'utf8'), relativo, receitas, nome);
+    }
+  }
+  console.log(`${Object.keys(mutantes).length} receitas validas; mutantes nao executados`);
 } else {
   const nome = process.env.ORK_RM036_MUTANT || 'controle';
   if (nome !== 'controle' && !Object.hasOwn(mutantes, nome)) throw new Error(`mutante desconhecido: ${nome}`);
@@ -78,12 +116,10 @@ if (process.argv.includes('--listar')) {
     fs.symlinkSync(path.join(projeto, 'core', dir), path.join(destino, 'core', dir), 'dir');
   }
   fs.copyFileSync(path.join(projeto, 'core/package.json'), path.join(destino, 'core/package.json'));
-  for (const [relativo, antes, depois, quantidade = 1] of mutantes[nome] || []) {
+  const receitas = mutantes[nome] || [];
+  for (const relativo of new Set(receitas.map(([arquivo]) => arquivo))) {
     const alvo = path.join(destino, relativo), texto = fs.readFileSync(alvo, 'utf8');
-    if (texto.split(antes).length - 1 !== quantidade) throw new Error(`receita desatualizada: ${nome} em ${relativo}`);
-    const alterado = texto.split(antes).join(depois);
-    if (relativo.endsWith('.js')) new Script(alterado, { filename: relativo });
-    fs.writeFileSync(alvo, alterado);
+    fs.writeFileSync(alvo, aplicar(texto, relativo, receitas, nome));
   }
   console.log(`RM-036 mutante: ${nome}`);
   for (const teste of ['rm036-leases-gofix', 'rm036-leases-docs', 'rm036-leases-canonicos']) {

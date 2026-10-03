@@ -21,6 +21,7 @@ import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { liberarAoFechar } from '../src/fechamento';
 import { comLockHitl } from '../src/hitl-gates';
 import { lerLedger } from '../src/ledger';
+import { ship as ensaiarShip } from '../src/ship';
 import { Lease, PedidoNaFila } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
@@ -195,6 +196,74 @@ test('rm036 leases: corrida entre raiz e worktree tem um vencedor so', async () 
   } finally { c.p.limpar(); }
 });
 
+for (const corrompido of [false, true]) for (const disputaSobTrava of [false, true]) {
+  test(`rm036 leases: A4 dois processos retomam ${corrompido ? 'corrompido' : 'vencido'} (sob trava: ${disputaSobTrava}) com um vencedor`, async (t) => {
+    const raiz = dirTemporario('rm036-retomada');
+    t.after(() => fs.rmSync(raiz, { recursive: true, force: true }));
+    const arquivo = caminhoLease(raiz, 'main-tree');
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    fs.writeFileSync(arquivo, corrompido ? '{' : JSON.stringify(leaseDe('main-tree', 'ork-antiga', -5)));
+    const passado = new Date(Date.now() - 10_000);
+    fs.utimesSync(arquivo, passado, passado);
+    // Ambos leem o inode antigo. O segundo so continua a retomada depois que o primeiro
+    // terminou; um unlink baseado naquela leitura antiga apagaria o vencedor.
+    const programa = `
+      const fs = require('node:fs'), path = require('node:path');
+      const leases = require(process.argv[1]);
+      const raiz = process.argv[2], id = process.argv[3], sobTrava = process.argv[4] === 'true';
+      const arquivo = leases.caminhoLease(raiz, 'main-tree');
+      const ler = fs.readFileSync, apagar = fs.unlinkSync; let leu = false;
+      function esperar(nome) {
+        const limite = Date.now() + 8000;
+        while (!fs.existsSync(path.join(raiz, nome))) {
+          if (Date.now() > limite) throw Error('barreira nao chegou: ' + nome);
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+        }
+      }
+      fs.readFileSync = function(p, ...args) {
+        const texto = ler(p, ...args);
+        if (String(p) === arquivo && !leu) {
+          leu = true;
+          fs.writeFileSync(path.join(raiz, 'lido-' + id), '');
+          esperar('lido-' + (id === 'um' ? 'dois' : 'um'));
+          if (id === 'dois') esperar(sobTrava ? 'primeiro-apagando' : 'primeiro-concluido');
+        }
+        return texto;
+      };
+      fs.unlinkSync = function(p) {
+        if (sobTrava && id === 'um' && String(p) === arquivo) {
+          fs.writeFileSync(path.join(raiz, 'primeiro-apagando'), '');
+          esperar('segundo-concluido');
+        }
+        return apagar(p);
+      };
+      const r = leases.adquirir(raiz, 'main-tree', {thread: 'ork-' + id, motivo: 'retomada'});
+      if (id === 'um') fs.writeFileSync(path.join(raiz, 'primeiro-concluido'), '');
+      else fs.writeFileSync(path.join(raiz, 'segundo-concluido'), '');
+      console.log(JSON.stringify(r));
+    `;
+    const rodar = async (id: string): Promise<leases.ResultadoDeAquisicao> => {
+      const filho = spawn(process.execPath, ['-e', programa, path.resolve(__dirname, '../src/leases.js'), raiz, id, String(disputaSobTrava)],
+        { env: ambiente(), stdio: ['ignore', 'pipe', 'pipe'] });
+      t.after(() => { if (filho.exitCode === null) filho.kill('SIGKILL'); });
+      let stdout = '', stderr = '';
+      filho.stdout.on('data', (d) => { stdout += d; });
+      filho.stderr.on('data', (d) => { stderr += d; });
+      const prazo = setTimeout(() => filho.kill('SIGKILL'), 15_000);
+      try {
+        const [codigo] = await once(filho, 'close');
+        assert.equal(codigo, 0, stderr);
+        assert.ok(stdout.trim(), 'processo filho terminou sem resposta JSON; transporte de subprocesso precisa ser conferido');
+        return JSON.parse(stdout);
+      } finally { clearTimeout(prazo); }
+    };
+    const resultados = await Promise.all([rodar('um'), rodar('dois')]);
+    assert.equal(resultados.filter((r) => r.ok).length, 1, JSON.stringify(resultados));
+    assert.equal(lerLease(raiz, 'main-tree')?.thread, resultados.find((r) => r.ok)?.lease?.thread);
+    assert.equal(fs.statSync(arquivo).nlink, 1);
+  });
+}
+
 test('rm036 leases: fila unica entre raiz e worktree', () => {
   const c = cenario('rm036-fila', { threads: 2 });
   try {
@@ -241,6 +310,40 @@ function gravarLegado(wt: string, lease: Lease): string {
   return arquivo;
 }
 
+test('rm036 leases: B2 CLI de leases fila e monitor rejeita nomes legados hostis', () => {
+  const c = cenario('rm036-b2-cli');
+  try {
+    for (const sufixo of ['$(id)', '`id`', ';id', '|id', ' com espaco', "'aspas'", '"aspas"']) {
+      gravarLegado(c.wt, leaseDe(`path:core/${sufixo}`, c.t1, 20));
+    }
+    const lista = ork(c.wt, 'lease', 'list');
+    assert.equal(lista.codigo, 0, lista.stderr);
+    assert.match(lista.stdout, /INVALIDO ou ILEGIVEL/);
+    assert.doesNotMatch(lista.stdout, /ork lease release/);
+    const pedido = ork(c.raiz, 'lease', 'acquire', 'path:core/**', '--thread', c.outras[0]);
+    assert.equal(pedido.codigo, 0, pedido.stdout + pedido.stderr);
+    assert.deepEqual(lerFila(c.raiz), []);
+    const monitor = ork(c.raiz, 'monitor', '--sem-runtime', '--json');
+    assert.equal(monitor.codigo, 0, monitor.stderr);
+    assert.doesNotMatch(monitor.stdout, /ork lease release/);
+    assert.doesNotMatch(monitor.stdout, /\$\(id\)|`id`|;id|\|id|com espaco|aspas/);
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: A5 ship dry-run informa main-tree legado vivo sem adquirir', () => {
+  const c = cenario('rm036-dry-run-legado', { remoto: true });
+  try {
+    commitar(c.wt, 'entrega.md', '# entrega\n', 'feat: entrega da thread');
+    const arquivo = gravarLegado(c.wt, leaseDe('main-tree', c.outras[0], 20));
+    const antes = fs.readFileSync(arquivo, 'utf8');
+    const r = ensaiarShip(c.p.carregado, c.t1, { para: 'main', dryRun: true });
+    assert.equal(r.ok, true, r.detalhe);
+    assert.equal(r.leaseOcupadoPor?.thread, c.outras[0]);
+    assert.equal(fs.existsSync(caminhoLease(c.raiz, 'main-tree')), false);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+  } finally { c.p.limpar(); }
+});
+
 test('rm036 leases: legado vivo vale ate vencer', () => {
   const c = cenario('rm036-legado-vivo');
   try {
@@ -283,9 +386,9 @@ test('rm036 leases: legado vencido e tomado sem segunda copia', () => {
     const r = ork(c.raiz, 'lease', 'acquire', nome, '--thread', t2);
     assert.equal(r.codigo, 0, r.stdout + r.stderr);
     assert.match(r.stdout, /VENCIDO e foi tomado/);
-    assert.equal(fs.existsSync(arquivo), false, 'o legado vencido saiu');
+    assert.equal(fs.existsSync(arquivo), true, 'adquirir nao apaga o legado vencido');
     assert.equal(lerLease(c.raiz, nome)?.thread, t2);
-    assert.deepEqual(listarLeases(c.raiz).filter((l) => l.nome === nome).map((l) => l.thread), [t2], 'uma copia so, a canonica');
+    assert.deepEqual(listarLeases(c.raiz).filter((l) => l.nome === nome && !leases.expirado(l)).map((l) => l.thread), [t2], 'so a copia canonica disputa a regiao');
   } finally { c.p.limpar(); }
 });
 

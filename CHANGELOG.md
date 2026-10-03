@@ -73,9 +73,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
     projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
     tinha a sua pasta, e duas threads pegavam o `main-tree` ao mesmo tempo);
-  - o legado válido das worktrees só barra enquanto vivo na janela de 30 minutos da troca, marcada em
-    `.orkastery/leases/.legado`; arquivos inválidos ou ilegíveis não bloqueiam, aparecem como diagnóstico durante
-    a janela e saem com `--forcar`; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
+  - o legado válido das worktrees só barra enquanto vivo na janela de 30 minutos iniciada na primeira consulta
+    desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado`; encerrada, a janela não reabre com
+    arquivos novos. Arquivos inválidos ou ilegíveis não bloqueiam; só recebem comando de remoção com `--forcar`
+    se o nome é seguro e corresponde ao arquivo. Os comandos sugeridos citam os argumentos com aspas simples
+    e escape; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
+  - o prazo legado tolera 1 segundo além dos 30 minutos; a aquisição preserva o legado vencido, e a liberação
+    confere dispositivo e inode antes de apagar. A retomada canônica usa `flock` no inode antigo até concluir
+    o novo `wx`, com releitura e conferência do inode; o `ship --dry-run` também considera o legado vivo;
   - a fila legada não é lida e a espera se refaz no próximo pedido; a dona da própria cópia legada não entra na fila
     atrás de si, e a fila canônica grava por temporário e `rename`;
   - o legado nunca prova posse canônica para ativação de escrita; arquivo canônico vazio ou ilegível com menos de

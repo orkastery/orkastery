@@ -9,9 +9,32 @@ import { Lease, Thread } from '../src/types';
 import { planejar } from '../src/board';
 import { exigirManifesto } from '../src/manifest';
 import { gravarThread } from '../src/thread';
+import { montarMonitor } from '../src/orquestracao';
+import { ship } from '../src/ship';
+import { dirThread } from '../src/thread';
+import { lerLedger } from '../src/ledger';
 
 const io = require('node:fs') as typeof fs;
 const DONO = 'ork-primeira', OUTRA = 'ork-segunda';
+
+/** Modelo local de flock por inode; a prova com dois processos fica em leases-canonicos. */
+function simularFlock(t: TestContext) {
+  const processo = require('node:child_process') as typeof import('node:child_process');
+  const held = new Map<string, number>(), fechar = io.closeSync, spawn = processo.spawnSync;
+  t.mock.method(processo, 'spawnSync', (cmd: string, args: string[], opcoes: any) => {
+    if (cmd !== '/usr/bin/flock') return spawn(cmd, args, opcoes);
+    assert.deepEqual(args, ['--exclusive', '--nonblock', '3']);
+    const fd = opcoes.stdio[3], stat = fs.fstatSync(fd), chave = `${stat.dev}:${stat.ino}`;
+    if (held.has(chave)) return { status: 1 };
+    held.set(chave, fd);
+    return { status: 0 };
+  });
+  t.mock.method(io, 'closeSync', (fd: number) => {
+    for (const [chave, dono] of held) if (dono === fd) held.delete(chave);
+    return fechar(fd);
+  });
+  t.after(() => assert.equal(held.size, 0, 'descritores e travas liberados'));
+}
 
 /** O par de arquivos do Git que registra uma linked worktree, sem executar Git. */
 function cenario(t: TestContext) {
@@ -39,6 +62,60 @@ function vivo(nome = 'main-tree', thread = DONO): Lease {
     adquiridoEm: new Date(inicio).toISOString(), expiraEm: new Date(inicio + 20 * 60_000).toISOString() };
 }
 
+for (const sufixo of ['$(id)', '`id`', ';id', '|id', ' com espaco', "'aspas'", '"aspas"', '\ncontrole', 'a'.repeat(200)]) {
+  test(`rm036 gofix: B2 nome hostil ${JSON.stringify(sufixo)} nunca vira comando legado`, (t) => {
+    const c = cenario(t), nome = `path:core/${sufixo}`;
+    for (const conteudo of [vivo(nome), {}]) {
+      c.gravar(conteudo, nome);
+      assert.deepEqual(leases.listarLeases(c.raiz), []);
+      assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /ork lease release/);
+      const r = leases.adquirirRegiao(c.raiz, 'path:core/**', { thread: OUTRA, motivo: 'GO' });
+      assert.equal(r.ok, true);
+      assert.equal(r.correcao, '');
+      assert.deepEqual(leases.lerFila(c.raiz), []);
+      leases.liberar(c.raiz, 'path:core/**', OUTRA);
+    }
+  });
+}
+
+test('rm036 gofix: B2 diagnostico exige nome seguro e round trip do arquivo', (t) => {
+  const c = cenario(t);
+  for (const arquivo of ['%6dain-tree.json', 'main%2dtree.json', 'erro%ZZ.json']) {
+    fs.writeFileSync(path.join(c.legado, arquivo), '{}');
+  }
+  assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /ork lease release/);
+  c.gravar({}, 'path:core/**');
+  assert.match(leases.tabelaDeLeases(c.raiz), /ork lease release 'path:core\/\*\*' --forcar/);
+});
+
+test('rm036 gofix: B2 comandos de fila e monitor protegem argumentos com aspas simples', (t) => {
+  const c = cenario(t), nome = "path:core/$(id)`id`;id|id com 'aspas'";
+  const literal = "'path:core/$(id)`id`;id|id com '\\''aspas'\\'''";
+  // A fila canonica antiga tambem pode conter nomes fora do conjunto aceito para legado.
+  leases.regravarLease(c.raiz, vivo(nome));
+  const r = leases.adquirirRegiao(c.raiz, 'path:core/**', { thread: OUTRA, motivo: 'GO' });
+  assert.equal(r.correcao.split('ork lease release ')[1], `${literal} --forcar`);
+  // O ramo de EEXIST (sem colisao de outra thread) tambem precisa citar o nome.
+  leases.sairDaFila(c.raiz, 'path:core/**', OUTRA);
+  const mesmo = leases.adquirirRegiao(c.raiz, nome, { thread: DONO, motivo: 'reentrada' });
+  assert.equal(mesmo.correcao.split('ork lease release ')[1], `${literal} --forcar`);
+  fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
+  const thread: Thread = { id: DONO, slug: 'ork-primeira-full', nome: 'fixture', assunto: 'primeira',
+    modo: 'auto', fases: ['GO'], blocos: [{ fases: ['GO'], pausa: false, pausaSobre: '', slugFases: 'go' }],
+    faseAtual: 'GO', status: 'aberta', criadaEm: vivo().adquiridoEm, atualizadaEm: vivo().adquiridoEm,
+    projeto: { name: 'fixture', abbrev: 'ork' }, base: { branch: 'main', commit: 'desconhecido' },
+    worktree: c.wt, sessoes: [], decisoes: [], claims: [], leases: [], baseline: null };
+  gravarThread(c.raiz, thread);
+  const monitor = montarMonitor(exigirManifesto(c.raiz), { estados: new Map() });
+  const parada = monitor.linhas.find((l) => l.thread === DONO)?.impedimentos.find((p) => p.motivo === 'lease.busy');
+  assert.ok(parada);
+  assert.equal(parada.correcao.split('ork lease release ')[1], `${literal} --thread '${DONO}'), ou reduza a regiao pedida`);
+  // A propria copia legada gera uma correcao separada, sem entrar na fila.
+  c.gravar(vivo('board:card+1'), 'board:card+1');
+  const proprio = leases.adquirirRegiao(c.raiz, 'board:card+1', { thread: DONO, motivo: 'GO' });
+  assert.equal(proprio.correcao.split('ork lease release ')[1], ` 'board:card+1' --thread '${DONO}'`.trim());
+});
+
 test('rm036 gofix: legado valido barra o MCP mas nao prova posse canonica', (t) => {
   const c = cenario(t);
   c.gravar(vivo());
@@ -56,7 +133,7 @@ for (const [caso, alterar] of Object.entries({
   'thread com controle': (l: Lease) => ({ ...l, thread: 'ork-um\nINJETADO' }),
   'thread como caminho': (l: Lease) => ({ ...l, thread: '../ork-um' }),
   'data nao ISO': (l: Lease) => ({ ...l, adquiridoEm: new Date(l.adquiridoEm).toUTCString() }),
-  'prazo maior que 30 min': (l: Lease) => ({ ...l, expiraEm: new Date(Date.parse(l.adquiridoEm) + leases.TTL_PADRAO_MS + 1).toISOString() }),
+  'prazo maior que 30 min e tolerancia': (l: Lease) => ({ ...l, expiraEm: new Date(Date.parse(l.adquiridoEm) + leases.TTL_PADRAO_MS + 1_001).toISOString() }),
   'inicio futuro': (l: Lease) => ({ ...l, adquiridoEm: new Date(Date.now() + 60_000).toISOString() }),
   'prazo invertido': (l: Lease) => ({ ...l, expiraEm: l.adquiridoEm }),
   'pid invalido': (l: Lease) => ({ ...l, pid: 'INJETADO' }),
@@ -83,7 +160,7 @@ test('rm036 gofix: legado vencido nao bloqueia com retomada canonica desligada',
   const r = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'MCP', retomarVencido: false });
   assert.equal(r.ok, true);
   assert.equal(r.tomadoDeVencido, true);
-  assert.equal(fs.existsSync(arquivo), false);
+  assert.equal(fs.existsSync(arquivo), true, 'adquirir preserva o legado vencido');
 });
 
 for (const ilegivel of [false, true]) {
@@ -129,6 +206,34 @@ test('rm036 gofix: legado limita a janela e nao renova nem varre depois de 30 mi
   assert.equal(fs.statSync(marcador).mtimeMs, carimboVencido);
 });
 
+for (const semRegistro of [false, true]) {
+  test(`rm036 gofix: A1 primeira consulta sem legado inicia janela (sem registro: ${semRegistro})`, (t) => {
+    const c = cenario(t);
+    fs.rmdirSync(c.legado);
+    if (semRegistro) fs.renameSync(path.dirname(c.registro), path.join(c.base, 'registro-salvo'));
+    assert.deepEqual(leases.listarLeases(c.raiz), []);
+    const marcador = path.join(leases.dirLeases(c.raiz), '.legado');
+    assert.equal(fs.existsSync(marcador), true, 'primeira consulta marca mesmo sem worktrees ou legado');
+    const passado = new Date(Date.now() - leases.TTL_PADRAO_MS - 1_000);
+    fs.utimesSync(marcador, passado, passado);
+    const carimbo = fs.statSync(marcador).mtimeMs;
+    if (semRegistro) fs.renameSync(path.join(c.base, 'registro-salvo'), path.dirname(c.registro));
+    fs.mkdirSync(c.legado, { recursive: true });
+    c.gravar(vivo());
+    assert.deepEqual(leases.leasesColidentes(c.raiz, 'main-tree'), [], 'preflight de verify e ship ignora legado tardio');
+    assert.equal(leases.adquirir(c.wt, 'main-tree', { thread: OUTRA, motivo: 'ship', retomarVencido: false }).ok, true);
+    assert.equal(fs.statSync(marcador).mtimeMs, carimbo, 'arquivo hostil nao reabre a janela');
+  });
+}
+
+test('rm036 gofix: A2 prazo legado tolera ate 1 s entre leituras do relogio', (t) => {
+  const c = cenario(t), l = vivo();
+  for (const delta of [0, 1, 999, 1_000, 1_001]) {
+    c.gravar({ ...l, expiraEm: new Date(Date.parse(l.adquiridoEm) + leases.TTL_PADRAO_MS + delta).toISOString() });
+    assert.equal(leases.leasesColidentes(c.raiz, 'main-tree').length, delta <= 1_000 ? 1 : 0, `tolerancia ${delta} ms`);
+  }
+});
+
 for (const camada of ['arquivo', 'leases', '.orkastery']) {
   test(`rm036 gofix: legado ignora link simbolico em ${camada} sem apagar alvo`, (t) => {
     const c = cenario(t), arquivo = c.gravar(vivo());
@@ -142,6 +247,46 @@ for (const camada of ['arquivo', 'leases', '.orkastery']) {
     const conteudo = camada === 'arquivo' ? alvo : path.join(alvo, camada === 'leases' ? '' : 'leases', 'main-tree.json');
     assert.equal(JSON.parse(fs.readFileSync(conteudo, 'utf8')).thread, DONO);
   });
+}
+
+for (const operacao of ['liberar', 'soltarDaThread'] as const) {
+  for (const troca of ['arquivo', 'link-arquivo', 'link-diretorio'] as const) {
+    test(`rm036 gofix: A3 ${operacao} preserva substituicao por ${troca} apos leitura`, (t) => {
+      const c = cenario(t), arquivo = c.gravar(vivo());
+      const salvo = path.join(c.base, 'original'), outro = path.join(c.base, 'outro');
+      const ler = io.readFileSync;
+      let trocou = false, leituras = 0;
+      t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+        const resultado = Reflect.apply(ler, io, [p, ...args]);
+        if (typeof p === 'number' && String(resultado).includes('"motivo":"legado"')) {
+          leituras++;
+          // soltarDaThread rele o lease depois da listagem; trocar apos essa releitura.
+          if (!trocou && leituras === (operacao === 'liberar' ? 1 : 2)) {
+            trocou = true;
+            if (troca === 'link-diretorio') {
+              fs.renameSync(c.legado, salvo);
+              fs.mkdirSync(outro);
+              fs.writeFileSync(path.join(outro, 'main-tree.json'), JSON.stringify(vivo('main-tree', OUTRA)));
+              fs.symlinkSync(outro, c.legado);
+            } else {
+              fs.renameSync(arquivo, salvo);
+              if (troca === 'arquivo') fs.writeFileSync(arquivo, JSON.stringify(vivo('main-tree', OUTRA)));
+              else {
+                fs.writeFileSync(outro, JSON.stringify(vivo('main-tree', OUTRA)));
+                fs.symlinkSync(outro, arquivo);
+              }
+            }
+          }
+        }
+        return resultado;
+      });
+      if (operacao === 'liberar') leases.liberar(c.raiz, 'main-tree', DONO, true);
+      else assert.deepEqual(leases.soltarDaThread(c.raiz, DONO).leases, []);
+      assert.equal(trocou, true, 'corrida ocorreu depois da leitura');
+      assert.equal(JSON.parse(ler(arquivo, 'utf8')).thread, OUTRA, 'substituicao preservada');
+      if (troca.startsWith('link')) assert.equal(fs.lstatSync(troca === 'link-diretorio' ? c.legado : arquivo).isSymbolicLink(), true);
+    });
+  }
 }
 
 test('rm036 gofix: vinculo de volta da worktree deve conferir com o registro', (t) => {
@@ -286,20 +431,129 @@ test('rm036 gofix: arquivo recem-criado entre wx e JSON tem somente um vencedor'
 
 for (const conteudo of ['', '{']) {
   test(`rm036 gofix: arquivo recem-criado ${conteudo ? 'ilegivel' : 'vazio'} so e retomado depois de 5 s`, (t) => {
+    simularFlock(t);
     const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
     fs.mkdirSync(path.dirname(arquivo), { recursive: true });
     fs.writeFileSync(arquivo, conteudo);
     const carimbo = fs.statSync(arquivo).mtimeMs;
-    t.mock.method(Date, 'now', () => carimbo + 4_999);
+    let avancar = 4_999;
+    t.mock.method(Date, 'now', () => carimbo + avancar);
     assert.equal(leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'cedo' }).ok, false);
     assert.equal(fs.readFileSync(arquivo, 'utf8'), conteudo);
-    t.mock.method(Date, 'now', () => carimbo + 5_001);
+    avancar = 5_001;
     const retomada = leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'apos prazo' });
     assert.equal(retomada.ok, true);
     assert.equal(retomada.tomadoDeVencido, true);
     assert.equal(leases.lerLease(c.raiz, nome)?.thread, OUTRA);
   });
 }
+
+for (const corrompido of [false, true]) {
+  test(`rm036 gofix: A4 corrida de retomada ${corrompido ? 'corrompida' : 'vencida'} tem um vencedor`, (t) => {
+    simularFlock(t);
+    const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    if (corrompido) fs.writeFileSync(arquivo, '{');
+    const passado = new Date(Date.now() - 10_000);
+    fs.utimesSync(arquivo, passado, passado);
+    const apagar = io.unlinkSync;
+    let segundo: leases.ResultadoDeAquisicao | undefined;
+    let entrou = false;
+    t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+      if (String(p) === arquivo && !entrou) {
+        entrou = true;
+        segundo = leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'segundo retomador' });
+      }
+      return apagar(p);
+    });
+    const primeiro = leases.adquirir(c.raiz, nome, { thread: DONO, motivo: 'primeiro retomador' });
+    assert.equal(entrou, true);
+    assert.ok(segundo);
+    assert.equal(Number(primeiro.ok) + Number(segundo.ok), 1, 'nao existem dois vencedores da mesma retomada');
+    assert.equal(leases.lerLease(c.raiz, nome)?.thread, primeiro.ok ? DONO : OUTRA);
+    assert.equal(fs.statSync(arquivo).nlink, 1);
+  });
+}
+
+test('rm036 gofix: A4 retomador atrasado preserva inode substituido', (t) => {
+  simularFlock(t);
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const abrir = io.openSync;
+  let trocou = false;
+  t.mock.method(io, 'openSync', (p: fs.PathLike, flags: string | number, mode?: fs.Mode) => {
+    const fd = abrir(p, flags, mode);
+    if (String(p) === arquivo && typeof flags === 'number' && !trocou) {
+      trocou = true;
+      leases.regravarLease(c.raiz, vivo('main-tree', OUTRA));
+    }
+    return fd;
+  });
+  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomada atrasada' }).ok, false);
+  assert.equal(trocou, true);
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+});
+
+test('rm036 gofix: A4 lease renovado no mesmo inode e relido sob trava', (t) => {
+  simularFlock(t);
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const processo = require('node:child_process') as typeof import('node:child_process'), flock = processo.spawnSync;
+  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => {
+    const r = Reflect.apply(flock, processo, args);
+    if (args[0] === '/usr/bin/flock') fs.writeFileSync(arquivo, JSON.stringify(vivo('main-tree', OUTRA)));
+    return r;
+  });
+  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomar' }).ok, false);
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+});
+
+test('rm036 gofix: A4 falha de transporte do flock preserva lease vencido', (t) => {
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
+  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => args[0] === '/usr/bin/flock'
+    ? { status: 0, error: Object.assign(new Error('transporte indisponivel'), { code: 'EPERM' }) }
+    : Reflect.apply(spawn, processo, args));
+  const antes = fs.readFileSync(arquivo, 'utf8');
+  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomar' }).ok, false);
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+});
+
+test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora da janela', (t) => {
+  const c = cenario(t);
+  fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
+  const thread: Thread = { id: OUTRA, slug: 'ork-segunda-full', nome: 'fixture', assunto: 'segunda',
+    modo: 'auto', fases: ['GO', 'CHECK', 'SHIP'], blocos: [], faseAtual: 'SHIP', status: 'aberta',
+    criadaEm: vivo().adquiridoEm, atualizadaEm: vivo().adquiridoEm,
+    projeto: { name: 'fixture', abbrev: 'ork' }, base: { branch: 'entrega', commit: 'fixture' },
+    worktree: c.wt, sessoes: [], decisoes: [], claims: [], leases: [], baseline: null };
+  gravarThread(c.raiz, thread);
+  // Gates e refs simulados: este teste cobre a consulta de leases no ensaio, sem rede nem Git.
+  t.mock.method(require('../src/verify'), 'verificar', () => ({ ok: true }));
+  t.mock.method(require('../src/ci'), 'consultarCi', () => ({ ok: true }));
+  t.mock.method(require('../src/util'), 'exec', (cmd: string, args: string[]) => {
+    assert.equal(cmd, 'git');
+    assert.ok(['rev-parse', 'merge-base', 'remote', 'worktree', 'diff'].includes(args[0]), `comando inesperado: ${args[0]}`);
+    return { ok: true, code: 0, stdout: args[0] === 'rev-parse' ? 'a'.repeat(40) : '', stderr: '' };
+  });
+  const carregado = exigirManifesto(c.raiz);
+  const arquivo = c.gravar(vivo());
+  const bytes = fs.readFileSync(arquivo, 'utf8');
+  const ensaio = () => ship(carregado, OUTRA, { para: 'main', dryRun: true });
+  const r = ensaio();
+  assert.equal(r.ok, true, r.detalhe);
+  assert.equal(r.leaseOcupadoPor?.thread, DONO);
+  assert.equal(lerLedger(dirThread(c.raiz, OUTRA)).filter((e) => e.tipo === 'ship_started').at(-1)?.leaseLivre, false);
+  assert.equal(fs.existsSync(leases.caminhoLease(c.raiz, 'main-tree')), false, 'ensaio nao adquire lease');
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), bytes);
+  c.gravar({ ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  assert.equal(ensaio().leaseOcupadoPor, null);
+  c.gravar(vivo());
+  const passado = new Date(Date.now() - leases.TTL_PADRAO_MS - 1_000);
+  fs.utimesSync(path.join(leases.dirLeases(c.raiz), '.legado'), passado, passado);
+  assert.equal(ensaio().leaseOcupadoPor, null, 'legado posterior nao reabre janela do ship');
+});
 
 test('rm036 gofix: leasesDaThread e planejar tiram nomes repetidos e preferem o canonico', (t) => {
   const c = cenario(t), nome = 'path:core/**';

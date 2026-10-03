@@ -20,7 +20,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { aprovacoesHumanas, registrarGateBloqueado, registrarGateLiberado } from './gates';
-import { adquirirRegiao, esperandoPor, liberar, lerLease, LEASE_MAIN_TREE } from './leases';
+import { adquirirRegiao, esperandoPor, liberar, leasesColidentes, LEASE_MAIN_TREE } from './leases';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
@@ -589,7 +589,7 @@ export function ship(
 
   // 4. Lease `main-tree`: so uma thread mergeia por vez.
   if (r.dryRun) {
-    const ocupado = lerLease(raiz, LEASE_MAIN_TREE);
+    const ocupado = leasesColidentes(raiz, LEASE_MAIN_TREE)[0] ?? null;
     r.leaseOcupadoPor = ocupado;
     // O ensaio tambem responde ONDE o merge aconteceria e se aquela arvore esta limpa:
     // descobrir isso so na hora do merge real seria descobrir tarde demais.
