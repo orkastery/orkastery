@@ -24,6 +24,15 @@ import { Fase, FASES, Modo, Thread } from './types';
 /** Limite duro de um template, o mesmo do manifesto: prosa longa nao vira prompt. */
 export const LIMITE_TEMPLATE_BYTES = 16384;
 
+/** KG5 fatia 2: dica opt-in no pedido; desligada preserva o texto byte a byte. */
+export function pedidoComDicaDoGrafo(pedido: string, thread: string, ligado: boolean): string {
+  if (!ligado) return pedido;
+  return pedido.trimEnd() + '\n\n## Contexto do grafo (opcional)\n'
+    + `Consulte ork_grafo_contexto {threadId: "${thread}"} ou ork grafo contexto ${thread} --json para o pacote da thread com evidencias e teto em bytes.\n`
+    + 'As tools ork_grafo_vizinhos, ork_grafo_chamadores, ork_grafo_importadores e ork_grafo_caminho permitem aprofundar. '
+    + 'Sem indice do HEAD, rode ork grafo indexar. O grafo e parcial; com arvore modificada, descreve o HEAD.\n';
+}
+
 /** Onde um projeto guarda os templates que sobrescrevem os embutidos. */
 export function dirDeTemplates(raiz: string): string {
   return path.join(raiz, 'prompts');

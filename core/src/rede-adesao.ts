@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { lerConfigDaMaquina, pastaDoUsuario } from './maquina';
+import { adquirirLockMonitor } from './monitor-lock';
 import { agora as agoraIso } from './util';
 
 export const CONTRATO_DA_ADESAO = 'ork.rede/v1' as const;
@@ -226,19 +227,29 @@ export function publicacaoDesligada(env: NodeJS.ProcessEnv = process.env): boole
 /**
  * D9: toma a vez de tentar publicar, no maximo uma a cada 14 minutos por maquina. Devolve `false`
  * quando a ultima tentativa (evento ou batida) foi ha menos que isso; a marca e gravada antes da
- * tentativa, para duas batidas simultaneas nao dispararem juntas.
+ * tentativa, para duas batidas simultaneas nao dispararem juntas. Revisao de 03/10: a leitura e a
+ * gravacao da marca correm sob uma trava (quem nao a pega perde a vez) e a marca troca por rename;
+ * sem isso, varios processos na mesma batida liam a marca velha e todos tomavam a vez.
  */
 export function tomarVezDePublicar(agora: number = Date.now()): boolean {
+  try { fs.mkdirSync(pastaDaRede(), { recursive: true }); } catch { return false; }
+  const trava = adquirirLockMonitor(path.join(pastaDaRede(), 'tentativa.lock'));
+  if (!trava.ok) return false;
   try {
-    const ultima = Date.parse((JSON.parse(fs.readFileSync(arquivoDaTentativa(), 'utf8')) as { em?: string }).em ?? '');
-    if (Number.isFinite(ultima) && agora - ultima < TETO_DE_TENTATIVA_MS && agora >= ultima) return false;
-  } catch { /* primeira vez, ou marca ilegivel: tenta */ }
-  try {
-    fs.mkdirSync(pastaDaRede(), { recursive: true });
-    // Dado de maquina: o JSON vai inteiro, sem concatenar o ISO em texto (lint de horario, RM-035).
-    fs.writeFileSync(arquivoDaTentativa(), JSON.stringify({ em: new Date(agora).toISOString() }), { mode: 0o600 });
-  } catch { return false; }
-  return true;
+    try {
+      const ultima = Date.parse((JSON.parse(fs.readFileSync(arquivoDaTentativa(), 'utf8')) as { em?: string }).em ?? '');
+      if (Number.isFinite(ultima) && agora - ultima < TETO_DE_TENTATIVA_MS && agora >= ultima) return false;
+    } catch { /* primeira vez, ou marca ilegivel: tenta */ }
+    try {
+      // Dado de maquina: o JSON vai inteiro, sem concatenar o ISO em texto (lint de horario, RM-035).
+      const temporario = `${arquivoDaTentativa()}.${process.pid}.tmp`;
+      fs.writeFileSync(temporario, JSON.stringify({ em: new Date(agora).toISOString() }), { mode: 0o600 });
+      fs.renameSync(temporario, arquivoDaTentativa());
+    } catch { return false; }
+    return true;
+  } finally {
+    try { trava.liberar(); } catch { /* a trava de outro dono nao e desfeita aqui */ }
+  }
 }
 
 /**

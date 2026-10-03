@@ -8,6 +8,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
+  a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
+  Índice ausente ou de outra revisão recusa com `ork grafo indexar`. A medida offline compara bytes
+  do pacote e dos mesmos arquivos indexados, sem estimar tokens. Com `grafo.mcp` ligada, o pedido da
+  fase ganha uma dica curta; desligada, mantém o texto anterior. A flag continua desligada por padrão.
 - **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
   - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
     arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
@@ -88,6 +94,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
+  - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
+    nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
+    `fabrica.sem-leitura`; antes, uma URL com credencial no lugar do nome aparecia inteira no texto e no JSON. O
+    projeto do diretório no retrato da rede também deixa de passar o valor cru ao `git remote get-url`.
+  - o teto de uma tentativa de publicar na rede a cada 14 minutos vale também para processos simultâneos: a marca
+    da tentativa é lida e gravada sob uma trava e trocada por `rename`; antes, vários pulses na mesma batida
+    tomavam a vez juntos.
+  - `ork network status` sem o `maquina-id` local (antes da primeira publicação, ou com `~/.orkastery` apagada) diz
+    `maquina.nome-em-uso` quando o retrato com o nome desta máquina é de outra instalação, como a publicação já
+    recusava; antes o mostrava como "(esta máquina)", publicado e sem lacuna.
+  - `ork_network_status` no MCP (só o projeto servido) tira também a lacuna da máquina que saiu dos membros por ser
+    vista só na fábrica de outro projeto; antes, a `maquina.sem-batida` dela continuava com o nome (D5).
+  - `ork memory search --texto` mostra o `detalhe` também na busca que deu certo: a quantidade de ids do FTS fora
+    do universo e o aviso de cobertura do índice (RM-038) só apareciam no `--json`.
+- **Defeitos do ensaio isolado da reinstalação do OpenClaw** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - a regra do HITL de condução vai também nas descrições de `ork_network_roadmap` e `ork_network_status`, as únicas
+    tools que o perfil `coding` do OpenClaw expõe; antes o modelo desse perfil nunca lia a regra. O perfil não foi
+    ampliado: `tools.alsoAllow` segue como decisão do dono;
+  - `ork adapter install` aponta a extensão para o `ork` que roda o install (o caminho real do CLI), e não para o
+    primeiro `ork` do PATH; com outro `ork` no PATH, a saída avisa com as duas versões. `--ork <caminho>` continua
+    vencendo.
 - **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
     `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
