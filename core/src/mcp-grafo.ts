@@ -37,7 +37,7 @@ const TETO_DO_STDOUT = 1024 * 1024;
  * O vocabulario e os limites da consulta do KG3, repetidos aqui porque este modulo nao importa a
  * familia do grafo (D8); o teste confere que sao os mesmos do contrato v1 e da consulta.
  */
-export const TIPOS_DE_ARESTA_DO_MCP = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from'] as const;
+export const TIPOS_DE_ARESTA_DO_MCP = ['contains', 'declares', 'imports', 'calls', 'references', 'derived_from', 'cites'] as const;
 export const PROFUNDIDADE_MAXIMA_DO_MCP = 5;
 export const LIMITE_MAXIMO_DO_MCP = 10_000;
 
@@ -110,7 +110,7 @@ const DEFINICOES: readonly Definicao[] = [
   {
     nome: 'ork_grafo_contexto',
     descricao: 'Pacote deterministico da thread: diff da worktree contra base (ignorado sem worktree), GOAL, PLAN e claims; fan-in agregado e evidencias compactas. '
-      + 'JSON ork.thread-graph-context/v2 limitado em bytes, refs locais, prioridade entre arquivos e por proximidade ao diff. Sem indice do HEAD, recusa com ork grafo indexar.',
+      + 'JSON ork.thread-graph-context/v2 limitado em bytes, refs locais, prioridade entre arquivos e por proximidade ao diff. Citacoes literais cites; segundo salto marcado usa a sobra apos ligacoes diretas. Sem indice do HEAD, recusa com ork grafo indexar.',
     schema: z.object({ threadId, tetoBytes }).strict(),
     argv: (a) => ['contexto', a.threadId as string, ...opcoes(a)],
   },

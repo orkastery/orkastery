@@ -15,7 +15,7 @@
       ],
       "base": "36def098464a72098185928074ec34744b35b97a",
       "indice": {
-        "graph_digest": "99a4f55b0768fd18746634845eaa1dedbe1a48dfbef751b8b7aebe35c4cb96a9",
+        "graph_digest": "b45076585e3ea52b61065f50c7cbf74b390fba7f508baa074c4936c1ebc5aee6",
         "fontes": 947
       },
       "entrada": {
@@ -57,22 +57,41 @@
         ]
       },
       "pacote": {
-        "bytes_ao_agente": 15122,
-        "sha256": "8c113743500d5a30c96ba948554130bad8d9fde7933c955ce0612fab62f5b606",
+        "bytes_ao_agente": 28015,
+        "sha256": "91d5559d56c5132470ef1e133cb4542bb6c57b1e239de695b5809f3492e1adac",
         "truncado": false,
         "omitidos": {
-          "arestas": 0,
+          "arestas": 10,
           "evidencias_auxiliares": 0,
           "ligacoes": 0,
+          "segundo_salto": 8,
           "sementes": 0
         },
         "arquivos": [
+          "README.md",
+          "README.pt-BR.md",
+          "core/scripts/extrair-grafo.cjs",
+          "core/scripts/micromark-adaptador.cjs",
+          "core/scripts/sintaxe-node.cjs",
+          "core/src/intelligence-benchmark-contract.ts",
           "core/src/intelligence-graph-contract.ts",
           "core/src/intelligence-graph-extract-md.ts",
           "core/src/intelligence-graph-extract-ts.ts",
           "core/src/intelligence-graph-extract.ts",
           "core/src/intelligence-graph-repo.ts",
+          "core/src/yaml.ts",
+          "core/test/apoio.ts",
+          "core/test/fixtures/kg2-amostra-auditada.json",
+          "core/test/intelligence-graph-contract.test.ts",
           "core/test/intelligence-graph-extract.test.ts",
+          "docs/conceitos/arquitetura.md",
+          "docs/produto/FEAT-018-documentacao-como-codigo.md",
+          "docs/referencia/contratos/benchmark-grafo-kg1.md",
+          "docs/referencia/contratos/extracao-grafo-kg2.md",
+          "docs/referencia/contratos/grafo-deterministico-kg1.md",
+          "docs/roadmap/README.md",
+          "docs/roadmap/RM-001-radar-ork-pulse.md",
+          "docs/roadmap/RM-002-higiene-de-runtime.md",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ]
       },
@@ -250,32 +269,62 @@
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "apontados": [
+          "README.md",
+          "README.pt-BR.md",
+          "core/scripts/extrair-grafo.cjs",
+          "core/scripts/micromark-adaptador.cjs",
+          "core/scripts/sintaxe-node.cjs",
+          "core/src/intelligence-benchmark-contract.ts",
           "core/src/intelligence-graph-contract.ts",
           "core/src/intelligence-graph-extract-md.ts",
           "core/src/intelligence-graph-extract-ts.ts",
           "core/src/intelligence-graph-extract.ts",
           "core/src/intelligence-graph-repo.ts",
+          "core/src/yaml.ts",
+          "core/test/apoio.ts",
+          "core/test/fixtures/kg2-amostra-auditada.json",
+          "core/test/intelligence-graph-contract.test.ts",
           "core/test/intelligence-graph-extract.test.ts",
+          "docs/conceitos/arquitetura.md",
+          "docs/produto/FEAT-018-documentacao-como-codigo.md",
+          "docs/referencia/contratos/benchmark-grafo-kg1.md",
+          "docs/referencia/contratos/extracao-grafo-kg2.md",
+          "docs/referencia/contratos/grafo-deterministico-kg1.md",
+          "docs/roadmap/README.md",
+          "docs/roadmap/RM-001-radar-ork-pulse.md",
+          "docs/roadmap/RM-002-higiene-de-runtime.md",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "acertos": [
+          "core/scripts/extrair-grafo.cjs",
+          "core/scripts/micromark-adaptador.cjs",
+          "core/scripts/sintaxe-node.cjs",
           "core/src/intelligence-graph-repo.ts",
+          "core/test/fixtures/kg2-amostra-auditada.json",
           "core/test/intelligence-graph-extract.test.ts",
+          "docs/referencia/contratos/extracao-grafo-kg2.md",
+          "docs/referencia/contratos/grafo-deterministico-kg1.md",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "total_editados": 13,
-        "total_apontados": 7,
-        "total_acertos": 3,
+        "total_apontados": 25,
+        "total_acertos": 9,
         "fora_das_sementes": {
           "total_editados": 13,
           "acertos": [
+            "core/scripts/extrair-grafo.cjs",
+            "core/scripts/micromark-adaptador.cjs",
+            "core/scripts/sintaxe-node.cjs",
             "core/src/intelligence-graph-repo.ts",
+            "core/test/fixtures/kg2-amostra-auditada.json",
             "core/test/intelligence-graph-extract.test.ts",
+            "docs/referencia/contratos/extracao-grafo-kg2.md",
+            "docs/referencia/contratos/grafo-deterministico-kg1.md",
             "docs/roadmap/RM-031-grafo-de-codigo.md"
           ]
         },
-        "cobertura": 0.23076923076923078,
-        "precisao": 0.42857142857142855
+        "cobertura": 0.6923076923076923,
+        "precisao": 0.36
       },
       "cobertura_descoberta": {
         "editados": [
@@ -356,6 +405,23 @@
         "precisao": 0.07317073170731707
       },
       "arquivos_do_pacote_fora_da_descoberta": [
+        "README.md",
+        "README.pt-BR.md",
+        "core/scripts/micromark-adaptador.cjs",
+        "core/scripts/sintaxe-node.cjs",
+        "core/src/intelligence-benchmark-contract.ts",
+        "core/src/yaml.ts",
+        "core/test/apoio.ts",
+        "core/test/fixtures/kg2-amostra-auditada.json",
+        "core/test/intelligence-graph-contract.test.ts",
+        "docs/conceitos/arquitetura.md",
+        "docs/produto/FEAT-018-documentacao-como-codigo.md",
+        "docs/referencia/contratos/benchmark-grafo-kg1.md",
+        "docs/referencia/contratos/extracao-grafo-kg2.md",
+        "docs/referencia/contratos/grafo-deterministico-kg1.md",
+        "docs/roadmap/README.md",
+        "docs/roadmap/RM-001-radar-ork-pulse.md",
+        "docs/roadmap/RM-002-higiene-de-runtime.md",
         "docs/roadmap/RM-031-grafo-de-codigo.md"
       ],
       "tokens": {
@@ -377,7 +443,7 @@
       ],
       "base": "4d1115aa90483d04baf1cce6a07c268dd5674a18",
       "indice": {
-        "graph_digest": "0a110878613ff3237500e4895f80a4a6ac5c61af47b43b2e1b211c2cb8d52517",
+        "graph_digest": "942b579c1da5881c0c91431f14c2a10ffeaf8fe4c39fce342a2ab5b572bfb41e",
         "fontes": 1008
       },
       "entrada": {
@@ -422,22 +488,33 @@
         ]
       },
       "pacote": {
-        "bytes_ao_agente": 16974,
-        "sha256": "4e155bcb98841a7d114086ff301ae51d070e54122b51d5d42074c4a305179f7e",
+        "bytes_ao_agente": 32706,
+        "sha256": "3fbb639976535b5769b3caa669e113fcc715fb48bfaba9a4e7a5638f80655ffd",
         "truncado": false,
         "omitidos": {
-          "arestas": 0,
+          "arestas": 154,
           "evidencias_auxiliares": 0,
           "ligacoes": 0,
+          "segundo_salto": 145,
           "sementes": 0
         },
         "arquivos": [
+          "core/src/estado-thread.ts",
+          "core/src/index.ts",
+          "core/src/intelligence-benchmark-contract.ts",
           "core/src/intelligence-graph-cli.ts",
           "core/src/intelligence-graph-contract.ts",
+          "core/src/intelligence-graph-extract-md.ts",
+          "core/src/intelligence-graph-extract-ts.ts",
           "core/src/intelligence-graph-extract.ts",
           "core/src/intelligence-graph-index.ts",
           "core/src/intelligence-graph-parsers.ts",
+          "core/src/intelligence-graph-query.ts",
           "core/src/intelligence-graph-repo.ts",
+          "core/src/yaml.ts",
+          "core/test/apoio.ts",
+          "core/test/intelligence-graph-contract.test.ts",
+          "core/test/intelligence-graph-extract.test.ts",
           "core/test/intelligence-graph-index.test.ts",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ]
@@ -569,40 +646,58 @@
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "apontados": [
+          "core/src/estado-thread.ts",
+          "core/src/index.ts",
+          "core/src/intelligence-benchmark-contract.ts",
           "core/src/intelligence-graph-cli.ts",
           "core/src/intelligence-graph-contract.ts",
+          "core/src/intelligence-graph-extract-md.ts",
+          "core/src/intelligence-graph-extract-ts.ts",
           "core/src/intelligence-graph-extract.ts",
           "core/src/intelligence-graph-index.ts",
           "core/src/intelligence-graph-parsers.ts",
+          "core/src/intelligence-graph-query.ts",
           "core/src/intelligence-graph-repo.ts",
+          "core/src/yaml.ts",
+          "core/test/apoio.ts",
+          "core/test/intelligence-graph-contract.test.ts",
+          "core/test/intelligence-graph-extract.test.ts",
           "core/test/intelligence-graph-index.test.ts",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "acertos": [
+          "core/src/index.ts",
           "core/src/intelligence-graph-cli.ts",
           "core/src/intelligence-graph-contract.ts",
+          "core/src/intelligence-graph-extract-md.ts",
+          "core/src/intelligence-graph-extract-ts.ts",
           "core/src/intelligence-graph-extract.ts",
           "core/src/intelligence-graph-index.ts",
           "core/src/intelligence-graph-repo.ts",
+          "core/test/intelligence-graph-contract.test.ts",
           "core/test/intelligence-graph-index.test.ts",
           "docs/roadmap/RM-031-grafo-de-codigo.md"
         ],
         "total_editados": 17,
-        "total_apontados": 8,
-        "total_acertos": 7,
+        "total_apontados": 18,
+        "total_acertos": 11,
         "fora_das_sementes": {
           "total_editados": 16,
           "acertos": [
+            "core/src/index.ts",
             "core/src/intelligence-graph-cli.ts",
             "core/src/intelligence-graph-contract.ts",
+            "core/src/intelligence-graph-extract-md.ts",
+            "core/src/intelligence-graph-extract-ts.ts",
             "core/src/intelligence-graph-extract.ts",
             "core/src/intelligence-graph-repo.ts",
+            "core/test/intelligence-graph-contract.test.ts",
             "core/test/intelligence-graph-index.test.ts",
             "docs/roadmap/RM-031-grafo-de-codigo.md"
           ]
         },
-        "cobertura": 0.4117647058823529,
-        "precisao": 0.875
+        "cobertura": 0.6470588235294118,
+        "precisao": 0.6111111111111112
       },
       "cobertura_descoberta": {
         "editados": [
@@ -662,6 +757,16 @@
         "precisao": 0.5454545454545454
       },
       "arquivos_do_pacote_fora_da_descoberta": [
+        "core/src/estado-thread.ts",
+        "core/src/index.ts",
+        "core/src/intelligence-benchmark-contract.ts",
+        "core/src/intelligence-graph-extract-md.ts",
+        "core/src/intelligence-graph-extract-ts.ts",
+        "core/src/intelligence-graph-query.ts",
+        "core/src/yaml.ts",
+        "core/test/apoio.ts",
+        "core/test/intelligence-graph-contract.test.ts",
+        "core/test/intelligence-graph-extract.test.ts",
         "docs/roadmap/RM-031-grafo-de-codigo.md"
       ],
       "tokens": {
