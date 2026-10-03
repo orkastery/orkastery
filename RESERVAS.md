@@ -15,6 +15,6 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-054 | Julio Pessoa | srvjcp86 | ork-rm054fatia3s | 02/10 16:41 | — |
 | RM-055 | Julio Pessoa | srvjcp86 | ork-rm055impedim | 30/09 02:39 | — |
 | RM-056 | Julio Pessoa | srvjcp86 | ork-rm056perfil | 01/10 04:57 | — |
-| RM-057 | Julio Pessoa | srvjcp86 | ork-rm057fatia2c | 02/10 17:17 | — |
+| RM-057 | Julio Pessoa | srvjcp86 | ork-rm057fatia3t | 02/10 17:17 | — |
 
 Horários em UTC.
