@@ -99,6 +99,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
+  MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
+  fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
+  thread tem sessão sem fim, o fechamento grava `sessao_morta` (origem `fechamento`) só nos fantasmas dela; sessão
+  viva e fantasma de outra thread ficam, e o runtime nunca é parado.
+- **O MASTER sem `--classe` infere a classe de falha pelo motivo do gate** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  antes, toda thread com gate reprovado fechava com a classe `outra`, que o `ork licoes` ignora; 8 POSTMORTEMs de
+  03/10 fecharam assim pelo aceite por omissão. Agora os motivos de verificação e evidência (`claims.failed`,
+  `verify.failed`, `ci.failed` e os outros da tabela `CLASSE_DO_MOTIVO`) gravam `processo`, os de limite de uso
+  gravam `rate-limit` e os de região e condução gravam `conflito`; o resto segue `outra`. O aviso cita os motivos, e
+  `--classe` continua vencendo.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna

@@ -227,7 +227,8 @@ test('sem --classe o ork infere a classe do ledger e avisa o humano', () => {
 
   const comGate = registrarMaster(p.dir, suja.id, { score: 3, justificativa: 'reprovou no gate', por: 'julio' });
   assert.equal(comGate.classesInferidas, true);
-  assert.deepEqual(comGate.masterLog.classesDeFalha, ['outra']);
+  // RM-008 (classe pelo gate): claims.failed sustenta "processo", nao mais o "outra" que o ork licoes ignora.
+  assert.deepEqual(comGate.masterLog.classesDeFalha, ['processo']);
   assert.equal(comGate.postmortem.gatesBloqueados.length, 1);
   assert.match(comGate.avisos[0], /--classe/);
   p.limpar();
