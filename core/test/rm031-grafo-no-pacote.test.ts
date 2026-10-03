@@ -417,6 +417,7 @@ test('grafo no pacote: workflow: o CI roda a prova no job nucleo, na matriz de N
   const ci = ler('.github/workflows/ci.yml');
   const nucleo = ci.slice(ci.indexOf('\n  nucleo:'), ci.indexOf('\n# Nota deliberada'));
   assert.ok(nucleo.length > 20, 'o job nucleo existe');
+  assert.match(nucleo, /\n {6}- uses: actions\/checkout@v4\n {8}with:\n {10}persist-credentials: false\n/, 'o checkout do nucleo nao guarda credenciais');
   assert.match(nucleo, /node-version: \$\{\{ matrix\.node \}\}/, 'roda em cada Node da matriz');
   const passo = nucleo.indexOf(PASSO_DA_PROVA), testes = nucleo.indexOf('run: npm run test:ci');
   assert.ok(testes > 0 && passo > testes, 'o passo da prova vem depois dos testes do nucleo');
@@ -432,7 +433,9 @@ test('grafo no pacote: workflow: o publicar.yml so publica depois da prova, que 
   assert.ok(prova.includes(PASSO_DA_PROVA), 'a prova no job dela');
   assert.match(prova, /\n {4}permissions:\n {6}contents: read\n/, 'o job da prova so le');
   assert.doesNotMatch(prova, /id-token/, 'a prova nunca ve a credencial de publicacao');
+  assert.match(prova, /\n {6}- uses: actions\/checkout@v4\n {8}with:\n {10}persist-credentials: false\n/, 'o checkout da prova nao guarda credenciais');
   assert.match(publicar, /\n {4}needs: provar-grafo\n/, 'o publicar espera a prova');
+  assert.doesNotMatch(publicar, /^\s+(?:-\s+)?(?:if|'if'|"if")\s*:/m, 'nenhum if pode publicar com a prova reprovada');
   assert.ok(!publicar.includes(PASSO_DA_PROVA), 'a prova nao roda no job que publica');
   const onde = (trecho: string): number => {
     const i = publicar.indexOf(trecho);
