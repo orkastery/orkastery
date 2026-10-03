@@ -18,6 +18,7 @@ const rm = 'docs/roadmap/RM-036-maestro-multicanal.md';
 const feat7 = 'docs/produto/FEAT-007-worktree-e-leases.md';
 const feat29 = 'docs/produto/FEAT-029-conducao-multicanal.md';
 const cli = 'docs/referencia/cli.md';
+const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
@@ -27,6 +28,8 @@ const mutantes = {
   'R4-portatil-morto': [[lease, "e.code === 'ESRCH'", "false"]],
   'R4-portatil-vivo': [[lease, "e.code === 'ESRCH'", "true"]],
   'R4-portatil-wx': [[lease, "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });", "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'w' });", 2]],
+  'R4-retomada-retry-humano': [['core/dist-test/src/retry.js', "motivo: 'lease.resume-unavailable',\n        acao: 'escalar-humano'", "motivo: 'lease.resume-unavailable',\n        acao: 'corrigir-dirigido'"]],
+  'R4-docs-tabela': [[verificacao, '| `lease.resume-unavailable` | escalar-humano |', '| `lease.resume-unavailable` | corrigir-dirigido |']],
   'R4-nlink-zero': [[lease, "if (stat.nlink === 0)\n            return 'ocupado';", "if (stat.nlink === 0)\n            return 'indisponivel';"]],
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],
@@ -96,8 +99,8 @@ const mutantes = {
   'R3-retomada-tipagem': [[lease, "falhaRetomada: 'lease.resume-unavailable'", 'falhaRetomada: undefined']],
   'R3-retomada-regiao': [[lease, "motivo: r.falhaRetomada ?? 'lease.busy'", "motivo: 'lease.busy'"]],
   'R3-retomada-correcao': [[lease, 'ork lease release ${argumentoDeLease(nome)} --forcar; depois repita a aquisicao', 'espere a vez']],
-  'R3-retomada-retry': [['core/dist-test/src/retry.js', "motivo: 'lease.resume-unavailable',\n        acao: 'corrigir-dirigido',\n        automatica: false",
-    "motivo: 'lease.resume-unavailable',\n        acao: 'corrigir-dirigido',\n        automatica: true"]],
+  'R3-retomada-retry': [['core/dist-test/src/retry.js', "motivo: 'lease.resume-unavailable',\n        acao: 'escalar-humano',\n        automatica: false",
+    "motivo: 'lease.resume-unavailable',\n        acao: 'escalar-humano',\n        automatica: true"]],
   'R3-motivo-legado': [[lease, "motivo: '(legado)'", 'motivo: lease.motivo']],
   'R3-ship-motivo': [['core/dist-test/src/ship.js', "aquisicao.motivo ?? 'lease.busy'", "'lease.busy'", 2]],
   'R3-ship-correcao': [['core/dist-test/src/ship.js', 'aquisicao.correcao', "'ork lease release main-tree --forcar'"]],
@@ -134,7 +137,7 @@ if (process.argv.includes('--listar')) {
   if (nome !== 'controle' && !Object.hasOwn(mutantes, nome)) throw new Error(`mutante desconhecido: ${nome}`);
   const destino = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm036-mutante-'));
   process.once('exit', () => fs.rmSync(destino, { recursive: true, force: true }));
-  for (const relativo of ['core/dist-test', feat7, feat29, rm, cli, 'CHANGELOG.md']) {
+  for (const relativo of ['core/dist-test', feat7, feat29, rm, cli, verificacao, 'CHANGELOG.md']) {
     const alvo = path.join(destino, relativo);
     fs.mkdirSync(path.dirname(alvo), { recursive: true });
     fs.cpSync(path.join(projeto, relativo), alvo, { recursive: true });

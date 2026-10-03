@@ -278,9 +278,9 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
   },
   'lease.resume-unavailable': {
     motivo: 'lease.resume-unavailable',
-    acao: 'corrigir-dirigido',
+    acao: 'escalar-humano',
     automatica: false,
-    porque: 'sem flock disponivel ou inode seguro, repetir nao destrava a retomada',
+    porque: 'sem inode seguro, a remocao forcada exige avaliar a posse antes de retomar',
     correcao: 'ork lease release <nome> --forcar; depois repita a aquisicao',
   },
   'lease.busy': {

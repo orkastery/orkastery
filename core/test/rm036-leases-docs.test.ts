@@ -9,6 +9,16 @@ const ler = (arquivo: string) => fs.readFileSync(path.join(raiz, arquivo), 'utf8
 const paginas = ['docs/produto/FEAT-007-worktree-e-leases.md', 'docs/produto/FEAT-029-conducao-multicanal.md',
   'docs/roadmap/RM-036-maestro-multicanal.md'];
 
+test('rm036 docs: R4 verificacao escala retomada insegura ao humano', () => {
+  const texto = ler('docs/guias/verificacao.md').split('## 3.')[1].split('## 4.')[0];
+  const linha = texto.split('\n').find((l) => l.startsWith('| `lease.resume-unavailable`'));
+  assert.ok(linha, 'motivo consta da tabela publica');
+  assert.match(linha, /\| escalar-humano \| \*\*não\*\* \|/);
+  assert.match(linha, /hard link ou link simbólico/);
+  assert.match(linha, /Ausência de `flock` usa retomada portátil/);
+  assert.match(linha, /`nlink === 0` é `lease.busy`/);
+});
+
 for (const pagina of paginas) {
   test(`rm036 docs: ${pagina} explica janela e fila sem prometer migracao`, () => {
     const texto = ler(pagina);

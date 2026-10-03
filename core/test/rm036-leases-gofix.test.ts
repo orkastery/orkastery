@@ -659,6 +659,7 @@ for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'h
     assert.equal(r.correcao, "ork lease release 'main-tree' --forcar; depois repita a aquisicao");
     assert.match(require('../src/gates').DESCRICAO_DO_MOTIVO[motivo], /retomada indisponivel/);
     assert.equal(require('../src/retry').POLITICA_DE_RETRY[motivo].automatica, false);
+    assert.equal(require('../src/retry').POLITICA_DE_RETRY[motivo].acao, 'escalar-humano');
     assert.equal(leases.liberar(c.raiz, nome, OUTRA, true).ok, true);
     if (['symlink', 'hardlink'].includes(falha)) assert.equal(fs.readFileSync(alvo, 'utf8'), antes);
     const novo = leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' });
