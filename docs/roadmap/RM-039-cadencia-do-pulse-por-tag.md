@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-011]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-10-03T03:40:00+00:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -20,10 +20,10 @@ evidencias:
     commit: 10ca416
     pr: null
 sdlc:
-  thread: ork-i50cadencia
+  thread: ork-doctoracusap
   modo: "#Auto"
-  fase: MASTER
-  status: fechada
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-039 — Cadência do pulse por tag em qualquer canal
@@ -39,7 +39,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-011](../produto/FEAT-011-hitl-em-camadas.md)
-- **Thread:** `ork-i50cadencia`
+- **Thread:** `ork-i50cadencia`; aviso do doctor na `ork-doctoracusap`
 
 ## Problema e resultado
 
@@ -60,8 +60,9 @@ sdlc:
   - o status periódico sai no máximo uma vez por janela da cadência, e a novidade que esperou continua não vista até sair;
   - a tag só vale sozinha na mensagem; no meio de uma frase, continua conversa com o assistente;
   - a cadência curta não encurta o prazo para responder ao resumo, que nunca fica abaixo de 60 minutos.
+- **Aviso do doctor:** com `.orkastery/monitor/pulse-host.json`, o `ork doctor` lê o `crontab -l` e avisa, sem bloquear, a linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos, com a linha do template pronta. O doctor nunca edita o crontab.
 - **Fora:** cadência por thread ou por projeto dentro da mesma fábrica; ferramenta MCP para a tag.
-- **Validação:** `core/test/pulse-cadencia.test.ts` (forma da tag, janelas no fuso do dono, a batida do cron, o prazo, o ingresso autenticado e a CLI) e os testes de ingresso dos dois adaptadores.
+- **Validação:** `core/test/pulse-cadencia.test.ts` (forma da tag, janelas no fuso do dono, a batida do cron, o prazo, o ingresso autenticado e a CLI), os testes de ingresso dos dois adaptadores e `core/test/rm039-doctor-cron.test.ts` (o aviso do doctor: sem `pulse-host.json`, `*/15`, `0 * * * *`, linha ausente, crontab inexistente e paridade com o template).
 
 ## Plano e decisões
 
@@ -73,6 +74,7 @@ sdlc:
 ## Estado com evidências
 
 - Implementado na thread `ork-i50cadencia` e mesclado em 27/09/2026 (PR #33).
+- O aviso do doctor entrou na thread `ork-doctoracusap` (03/10/2026): a srvjcp86 rodava sem pulse nenhum, e nada acusava.
 - Em produção na VPS de referência desde 27/09/2026 às 08h22: a linha do cron passou de `0 * * * *` para `*/15 * * * *`, e os adaptadores do Telegram foram reinstalados. Falta a publicação no npm para as outras máquinas.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -81,13 +83,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
-| Habilitação | Em andamento | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-10-03 | Julio |
+| Testes | Aprovados | — | 2026-10-03 | Julio |
+| Deploy | Produção | — | 2026-10-03 | Julio |
+| Exposição | Parcial | — | 2026-10-03 | Julio |
+| Habilitação | Em andamento | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -101,3 +103,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-20 | proposto | PLAN da `ork-i41hitlinver` | Julio |
 | 2026-09-27 | implementado | tags pelo Telegram e pelo terminal, cron de 15 em 15 minutos, pergunta nova fora da janela | Julio |
 | 2026-09-27 | em produção na VPS de referência | merge `8480ba1` (PR #33); cron do pulse em `*/15`, adaptadores do Telegram reinstalados; npm pendente | Julio |
+| 2026-10-03 | `ork doctor` acusa a varredura ausente ou de hora em hora | Thread `ork-doctoracusap` (#Auto); `core/test/rm039-doctor-cron.test.ts` | Claude (agente, #Auto), revisão de Julio pendente |
