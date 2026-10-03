@@ -58,3 +58,20 @@ test('rm036 docs: changelog nao publicado registra endurecimento e fila sem migr
   assert.match(texto, /cinco segundos/);
   assert.doesNotMatch(texto, /espera legada entra na fila canônica/);
 });
+
+
+for (const pagina of [...paginas, 'docs/referencia/cli.md', 'CHANGELOG.md']) {
+  test(`rm036 docs: R3 ${pagina} preserva legado e explica retomada indisponivel`, () => {
+    const texto = ler(pagina);
+    assert.match(texto, /[Ll]egado nunca é apagado/);
+    assert.match(texto, /dev:ino/);
+    assert.match(texto, /\.legado-ignorado-<dev>-<ino>/);
+    assert.match(texto, /[Dd]iagnóstico do legado não sugere `release`|[Dd]iagnóstico mostra apenas o arquivo e não sugere `release` para legado/);
+    assert.match(texto, /\(legado\)/);
+    assert.match(texto, /[Nn]enhuma liberação é anunciada quando nada saiu/);
+    assert.match(texto, /lease\.resume-unavailable/);
+    assert.match(texto, /ork lease release <nome> --forcar/);
+    assert.match(texto, /[Nn]ão há retry automático|sem retry automático/);
+    assert.doesNotMatch(texto, /confere dispositivo e inode antes de apagar|[Ss]ó (há|recebem) comando de remoção/);
+  });
+}
