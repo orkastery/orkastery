@@ -69,6 +69,37 @@ function vivo(nome = 'main-tree', thread = DONO): Lease {
     adquiridoEm: new Date(inicio).toISOString(), expiraEm: new Date(inicio + 20 * 60_000).toISOString() };
 }
 
+for (const transporte of ['flock', 'portatil']) {
+  for (const codigo of ['EPERM', 'EACCES', 'ENOTDIR', 'EBUSY']) {
+    test(`rm036 gofix: R6 limpeza ${codigo} preserva retomada ${transporte}`, (t) => {
+      if (transporte === 'flock') simularFlock(t); else semFlock(t);
+      const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree'), fila = `${arquivo}.retomadas`;
+      leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+      const remover = io.rmdirSync;
+      let limpezas = 0;
+      let donoNaLimpeza: string | undefined;
+      t.mock.method(io, 'rmdirSync', (...args: unknown[]) => {
+        if (String(args[0]) === fila && limpezas === 0) {
+          limpezas++;
+          donoNaLimpeza = leases.lerLease(c.raiz, 'main-tree')?.thread;
+          throw Object.assign(Error('limpeza indisponivel'), { code: codigo });
+        }
+        return Reflect.apply(remover, io, args);
+      });
+      const r = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomada' });
+      assert.equal(limpezas, 1, 'tentou remover a pasta vazia');
+      assert.equal(donoNaLimpeza, OUTRA, 'novo lease ja gravado pelo wx');
+      assert.equal(r.ok, true);
+      assert.equal(r.tomadoDeVencido, true);
+      assert.equal(r.falhaRetomada, undefined);
+      assert.deepEqual(leases.lerLease(c.raiz, 'main-tree'), r.lease);
+      assert.equal(r.lease?.thread, OUTRA);
+      assert.deepEqual(fs.readdirSync(fila), [], 'candidato removido apesar da pasta remanescente');
+      assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'concorrente' }).ok, false);
+    });
+  }
+}
+
 for (const sufixo of ['$(id)', '`id`', ';id', '|id', ' com espaco', "'aspas'", '"aspas"', '\ncontrole', 'a'.repeat(200)]) {
   test(`rm036 gofix: B2 nome hostil ${JSON.stringify(sufixo)} nunca vira comando legado`, (t) => {
     const c = cenario(t), nome = `path:core/${sufixo}`;

@@ -23,6 +23,9 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R6-limpeza-resultado': [[lease,
+    'catch { /* Melhor esforco: nao altera o resultado da retomada. */ }',
+    "catch (e) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(e.code ?? '')) throw e; }"]],
   'R6-MCP-metadados-lstat': [['core/dist-test/src/mcp-git.js',
     'const st = fs.lstatSync(f, { throwIfNoEntry: false });', 'const st = fs.lstatSync(f);']],
   'R6-MCP-metadados-readdir': [['core/dist-test/src/mcp-git.js', "if (e.code === 'ENOENT')", 'if (false)']],
