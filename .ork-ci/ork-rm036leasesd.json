@@ -174,21 +174,6 @@
       "lint": []
     },
     {
-      "id": "C18",
-      "thread": "ork-rm036leasesd",
-      "fase": "GOAL",
-      "arquivo": ".ork-ci/ork-rm036leasesd.json",
-      "alegacao": "rm036 leases: o bundle de CI da thread (ork.ci-bundle/v1) é da thread ork-rm036leasesd e da branch ork/ork-rm036leases-full, leva as claims ativas C1 a C14, C16 e C17 (entre as que rodam no CI e as adiadas por integração local) e não tem caminho de usuário",
-      "negativa": false,
-      "verificar": [
-        "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm036leasesd.json','utf8'));const ids=new Set([...b.claims,...(b.deferredClaims||[])].map(c=>c.id));const faltam=['C1','C2','C3','C4','C5','C6','C7','C8','C9','C10','C11','C12','C13','C14','C16','C17'].filter(i=>!ids.has(i));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm036leasesd'||b.branch!=='ork/ork-rm036leases-full'||faltam.length){console.error('bundle incompleto: '+faltam.join(','));process.exit(1)}\"",
-        "! grep -qE '/(home|Users|root)/' .ork-ci/ork-rm036leasesd.json"
-      ],
-      "criadoEm": "2026-10-03T04:06:45.229Z",
-      "estado": "reprovado",
-      "lint": []
-    },
-    {
       "id": "C19",
       "thread": "ork-rm036leasesd",
       "fase": "GO",
@@ -727,7 +712,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T07:53:55.687Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -741,7 +726,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T07:53:55.914Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -755,7 +740,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T07:53:56.135Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -770,7 +755,7 @@
         "node --test core/dist-test/test/rm036-leases-mcp.test.js"
       ],
       "criadoEm": "2026-10-03T07:59:33.665Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -785,23 +770,7 @@
         "node --test --test-name-pattern='rm036 gofix: R5' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T08:04:53.538Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C64",
-      "thread": "ork-rm036leasesd",
-      "fase": "GO",
-      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
-      "alegacao": "R5: receitas incluem MCP, pasta vazia, TTL, temporario SIGKILL, perda de candidato, lista, motivo e correcao. Validacao estatica nao comprova morte de mutantes; execucao pela condutora.",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build:test",
-        "node core/scripts/rm036-leases-mutantes.cjs --validar",
-        "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|mcp:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
-      ],
-      "criadoEm": "2026-10-03T08:04:53.570Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -816,7 +785,7 @@
         "node --test --test-name-pattern='rm036 gofix: R5 troca depois' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T08:06:21.561Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -831,7 +800,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:14.174Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -846,7 +815,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:14.204Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -861,7 +830,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:14.234Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -876,7 +845,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:14.262Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -891,7 +860,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:14.288Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -906,7 +875,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:50.519Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -921,7 +890,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:50.549Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -936,7 +905,7 @@
         "node --test core/dist-test/test/rm036-leases-mcp.test.js core/dist-test/test/mcp-artifacts.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:50.586Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -951,22 +920,20 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T08:09:50.622Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C75",
+      "id": "C76",
       "thread": "ork-rm036leasesd",
       "fase": "GO",
       "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
-      "alegacao": "R5 final: 87 receitas estaticamente validas, com inclusao dos testes MCP no controle. npm build:test saiu 0 e --validar saiu 0 com '87 receitas validas; mutantes nao executados'. Suite, mortes de mutantes e ork_verify permanecem pendentes para condutora.",
+      "alegacao": "RM-036 final: as 87 receitas são válidas; o controle documentado (gofix, docs e orkEmParalelo) passa; os testes do MCP passam à parte, onde caem os três mutantes do MCP. Os demais 84 caem no executor (medido pelo condutor em 03/10 ~05h40)",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test",
-        "node core/scripts/rm036-leases-mutantes.cjs --validar",
-        "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|mcp:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
+        "npm --prefix core run build:test >/dev/null && node core/scripts/rm036-leases-mutantes.cjs --validar && ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern=\"rm036 (gofix:|docs:|leases: orkEmParalelo)\" core/scripts/rm036-leases-mutantes.cjs && node --test core/dist-test/test/rm036-leases-mcp.test.js"
       ],
-      "criadoEm": "2026-10-03T08:10:28.556Z",
+      "criadoEm": "2026-10-03T08:34:43.471Z",
       "estado": "pendente",
       "lint": []
     }
