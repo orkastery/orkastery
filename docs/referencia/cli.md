@@ -442,8 +442,19 @@ O legado nunca prova posse canônica para ativar escrita; a própria cópia lega
 segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
 com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
 O legado nunca é apagado: o descarte grava uma marca `dev:ino` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode continua visível. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
-A retomada canônica usa `flock` no inode antigo, relê o conteúdo e confere o inode antes de remover,
-segurando a trava até criar com `wx`. Sem `/usr/bin/flock`, com spawn bloqueado, timeout, erro da trava, `nlink` diferente de 1 ou link simbólico, a retomada recusa com `lease.resume-unavailable`. A correção explícita é `ork lease release <nome> --forcar`, seguida de nova aquisição; não há retry automático. Contenção normal do `flock` continua como `lease.busy`.
+A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`. Toda retomada
+publica um candidato exclusivo com ticket em `<lease>.json.retomadas`, usando `rename` atômico;
+a ordem dos tickets serializa também concorrentes com transportes diferentes. Sob essa exclusão,
+relê o conteúdo, confere dispositivo e inode e só então remove o vencido e cria com `wx`.
+`flock`, quando disponível, acrescenta uma trava no inode antigo. Ausência, bloqueio do spawn,
+timeout ou erro do `flock` usam o caminho portátil. Candidatos de processos mortos são descartados;
+PID reutilizado ou sem permissão de consulta é conservadoramente tratado como vivo. Se um PID for
+reutilizado, a espera pode exigir inspeção humana do candidato órfão; não há expiração por prazo
+que remova candidatos vivos. O diretório vazio pode permanecer; cada operação limpa seu candidato.
+`nlink === 0` significa `lease.busy`, com fila normal e preservação do vencedor. Hard link ou link
+simbólico continuam como `lease.resume-unavailable`, com escalada humana e sem retry automático.
+A correção explícita, após avaliar a posse, é `ork lease release <nome> --forcar`, seguida de nova
+aquisição. Contenção normal do `flock` ou dos tickets continua como `lease.busy`.
 O `ship --dry-run` consulta também o legado válido e vivo durante a janela, sem adquirir o lease.
 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam

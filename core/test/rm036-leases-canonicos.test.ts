@@ -196,8 +196,9 @@ test('rm036 leases: corrida entre raiz e worktree tem um vencedor so', async () 
   } finally { c.p.limpar(); }
 });
 
+for (const transporte of ['flock', 'sem-flock', 'misto'])
 for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 'sob-trava', 'inode-aberto']) {
-  test(`rm036 leases: A4 dois processos retomam ${corrompido ? 'corrompido' : 'vencido'} (modo: ${modo}) com um vencedor`, async (t) => {
+  test(`rm036 leases: A4 dois processos retomam ${corrompido ? 'corrompido' : 'vencido'} (modo: ${modo}, transporte: ${transporte}) com um vencedor`, async (t) => {
     const raiz = dirTemporario('rm036-retomada');
     t.after(() => fs.rmSync(raiz, { recursive: true, force: true }));
     const arquivo = caminhoLease(raiz, 'main-tree');
@@ -210,7 +211,7 @@ for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 's
     const programa = `
       const fs = require('node:fs'), path = require('node:path');
       const leases = require(process.argv[1]);
-      const raiz = process.argv[2], id = process.argv[3], modo = process.argv[4], sobTrava = modo === 'sob-trava';
+      const raiz = process.argv[2], id = process.argv[3], modo = process.argv[4], transporte = process.argv[5], sobTrava = modo === 'sob-trava';
       const arquivo = leases.caminhoLease(raiz, 'main-tree');
       const ler = fs.readFileSync, apagar = fs.unlinkSync; let leu = false;
       const processo = require('node:child_process'), flock = processo.spawnSync;
@@ -218,6 +219,9 @@ for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 's
         if (cmd === '/usr/bin/flock' && modo === 'inode-aberto' && id === 'dois') {
           fs.writeFileSync(path.join(raiz, 'segundo-abriu-inode'), '');
           esperar('primeiro-concluido');
+        }
+        if (cmd === '/usr/bin/flock' && (transporte === 'sem-flock' || (transporte === 'misto' && id === 'dois'))) {
+          return { status: null, error: Object.assign(new Error('flock ausente'), { code: 'ENOENT' }) };
         }
         return flock(cmd, ...args);
       };
@@ -253,7 +257,7 @@ for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 's
       console.log(JSON.stringify(r));
     `;
     const rodar = async (id: string): Promise<leases.ResultadoDeAquisicao> => {
-      const filho = spawn(process.execPath, ['-e', programa, path.resolve(__dirname, '../src/leases.js'), raiz, id, modo],
+      const filho = spawn(process.execPath, ['-e', programa, path.resolve(__dirname, '../src/leases.js'), raiz, id, modo, transporte],
         { env: ambiente(), stdio: ['ignore', 'pipe', 'pipe'] });
       t.after(() => { if (filho.exitCode === null) filho.kill('SIGKILL'); });
       let stdout = '', stderr = '';
@@ -271,6 +275,7 @@ for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 's
     assert.equal(resultados.filter((r) => r.ok).length, 1, JSON.stringify(resultados));
     assert.equal(lerLease(raiz, 'main-tree')?.thread, resultados.find((r) => r.ok)?.lease?.thread);
     assert.equal(fs.statSync(arquivo).nlink, 1);
+    assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
   });
 }
 

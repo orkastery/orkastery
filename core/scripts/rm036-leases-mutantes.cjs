@@ -21,6 +21,12 @@ const cli = 'docs/referencia/cli.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R4-portatil-exclusao': [[lease, "return comFilaDeRetomada(caminho, () => {", "return (() => {"],
+    [lease, "return 'retomado';\n        });", "return 'retomado';\n        })();"]],
+  'R4-portatil-ticket': [[lease, "c.ticket < ticket", "false"]],
+  'R4-portatil-morto': [[lease, "e.code === 'ESRCH'", "false"]],
+  'R4-portatil-vivo': [[lease, "e.code === 'ESRCH'", "true"]],
+  'R4-portatil-wx': [[lease, "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });", "fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'w' });", 2]],
   'R4-nlink-zero': [[lease, "if (stat.nlink === 0)\n            return 'ocupado';", "if (stat.nlink === 0)\n            return 'indisponivel';"]],
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],
@@ -54,7 +60,7 @@ const mutantes = {
     'const temporario = caminho;']],
   'S5-prazo': [[paralelo, '}, 60_000);', '}, 60_001);']],
   'S6-wx': [[lease, ' || (!atual && escritaRecente(caminho))', ''],
-    [lease, ' || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)', '']],
+    [lease, ' || (!atual && Date.now() - fs.fstatSync(descritor).mtimeMs < 5_000)', '']],
   'S7-vinculo': [[lease, '!volta || real(path.resolve(path.dirname(gitDaWorktree), volta[1].trim())) !== real(entrada)', 'false']],
   'S8-janela': [[feat7, 'janela de 30 minutos', 'legado lido até vencer', 2]],
   'S8-fila': [[feat29, 'A fila legada não é lida', 'A espera legada entra na fila canônica']],
@@ -73,7 +79,7 @@ const mutantes = {
   'R2-A3-inode': [[lease, ' || atual.dev !== identidade.dev || atual.ino !== identidade.ino', '']],
   'R2-A4-trava': [[lease, 'trava.status === 1', 'false']],
   'R2-A4-inode': [[lease, ' || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino', '']],
-  'R2-A4-releitura': [[lease, '(atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)', 'false']],
+  'R2-A4-releitura': [[lease, '(atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(descritor).mtimeMs < 5_000)', 'false']],
   'R2-A5-dry-run': [['core/dist-test/src/ship.js', '(0, leases_1.leasesColidentes)(raiz, leases_1.LEASE_MAIN_TREE)[0] ?? null',
     '(0, leases_1.lerLease)(raiz, leases_1.LEASE_MAIN_TREE)']],
   // R2-B2-diagnostico/roundtrip foram retirados: nao existe mais comando no diagnostico legado.
@@ -84,7 +90,7 @@ const mutantes = {
   'R3-legado-marca': [[lease, 'return arquivoDeVerdade(marcaDeLegado(raiz, identidade));', 'return false;']],
   'R3-legado-origens': [[lease, 'if (copias.length === 0) {\n        for (const copia of copiasLegadas(raiz, nome))', 'if (true) {\n        for (const copia of copiasLegadas(raiz, nome))']],
   'R3-liberado-sem-efeito': [[lease, 'if (removidas.length === 0)', 'if (false)']],
-  'R3-flock-indisponivel': [[lease, "trava.error || (trava.status !== 0 && trava.status !== 1)", 'false']],
+  'R4-sem-flock': [[lease, 'if (!trava.error && trava.status === 1)', "if (trava.error) return 'indisponivel'; if (!trava.error && trava.status === 1)"]],
   'R3-release-symlink': [[lease, 'fs.lstatSync(canonico, { throwIfNoEntry: false })', 'fs.existsSync(canonico)']],
   'R3-retomada-nlink': [[lease, ' || stat.nlink !== 1', '']],
   'R3-retomada-tipagem': [[lease, "falhaRetomada: 'lease.resume-unavailable'", 'falhaRetomada: undefined']],

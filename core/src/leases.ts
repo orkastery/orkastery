@@ -288,10 +288,60 @@ function escritaRecente(caminho: string): boolean {
 }
 
 /**
- * Serializa a retomada no inode vencido. O fd fica aberto ate o novo wx terminar:
- * outro retomador desse inode nao pode remover o arquivo que acabou de nascer.
- * O kernel solta a trava se o processo morrer; nao ha lock extra nem hard link.
+ * Bakery local e portatil: publica a escolha (ticket zero), depois o ticket, sempre
+ * por rename atomico. Nomes UUID nunca sao reutilizados, nem na limpeza de mortos.
+ * Todo retomador participa, inclusive com flock: transportes mistos se excluem.
+ * Nao expira candidato vivo. PID reutilizado pode atrasar, nunca autoriza dois donos.
  */
+function comFilaDeRetomada(caminho: string, retomar: () => 'retomado' | 'ocupado'): 'retomado' | 'ocupado' {
+  const dir = `${caminho}.retomadas`;
+  fs.mkdirSync(dir, { recursive: true });
+  const nome = `${process.pid}-${randomUUID()}.json`, arquivo = path.join(dir, nome);
+  const publicar = (ticket: number): void => {
+    const tmp = `${arquivo}.tmp`;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify({ ticket }), { flag: 'wx' });
+      fs.renameSync(tmp, arquivo);
+    } finally {
+      try { fs.unlinkSync(tmp); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    }
+  };
+  const candidatos = (): { nome: string; ticket: number }[] => {
+    const resultado: { nome: string; ticket: number }[] = [];
+    for (const entrada of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
+      const pid = Number(/^(\d+)-[a-f0-9-]+\.json$/.exec(entrada)?.[1]);
+      if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('candidato de retomada invalido');
+      const file = path.join(dir, entrada);
+      try { process.kill(pid, 0); } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'ESRCH') {
+          try { fs.unlinkSync(file); } catch (erro) { if ((erro as NodeJS.ErrnoException).code !== 'ENOENT') throw erro; }
+          continue;
+        }
+        // EPERM nao prova morte. O candidato continua bloqueando normalmente.
+      }
+      let ticket: number;
+      try { ticket = JSON.parse(fs.readFileSync(file, 'utf8')).ticket; } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue;
+        throw e;
+      }
+      if (!Number.isSafeInteger(ticket) || ticket < 0) throw new Error('ticket de retomada invalido');
+      resultado.push({ nome: entrada, ticket });
+    }
+    return resultado;
+  };
+  try {
+    publicar(0);
+    const ticket = Math.max(0, ...candidatos().map((c) => c.ticket)) + 1;
+    publicar(ticket);
+    if (candidatos().some((c) => c.nome !== nome && (c.ticket === 0 || c.ticket < ticket ||
+        (c.ticket === ticket && c.nome < nome)))) return 'ocupado';
+    return retomar();
+  } finally {
+    try { fs.unlinkSync(arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+  }
+}
+
+/** O fd e a fila exclusiva ficam presos ao inode antigo ate concluir o novo wx. */
 function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' | 'indisponivel' {
   let fd: number | undefined;
   try {
@@ -299,18 +349,22 @@ function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' 
     const stat = fs.fstatSync(fd);
     if (stat.nlink === 0) return 'ocupado';
     if (!stat.isFile() || stat.nlink !== 1) return 'indisponivel';
-    const trava = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
-      { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2_000 });
-    if (trava.error || (trava.status !== 0 && trava.status !== 1)) return 'indisponivel';
-    if (trava.status === 1) return 'ocupado';
-    let atual: Lease | null = null;
-    try { atual = JSON.parse(fs.readFileSync(fd, 'utf8')) as Lease; } catch { /* corrompido */ }
-    if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)) return 'ocupado';
-    const agoraNoPath = fs.lstatSync(caminho);
-    if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return 'ocupado';
-    fs.unlinkSync(caminho);
-    fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
-    return 'retomado';
+    try {
+      const trava = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
+        { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2_000 });
+      if (!trava.error && trava.status === 1) return 'ocupado';
+    } catch { /* Transporte ausente ou bloqueado: a fila portatil ainda serializa. */ }
+    const descritor = fd;
+    return comFilaDeRetomada(caminho, () => {
+      let atual: Lease | null = null;
+      try { atual = JSON.parse(fs.readFileSync(descritor, 'utf8')) as Lease; } catch { /* corrompido */ }
+      if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(descritor).mtimeMs < 5_000)) return 'ocupado';
+      const agoraNoPath = fs.lstatSync(caminho);
+      if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return 'ocupado';
+      fs.unlinkSync(caminho);
+      fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
+      return 'retomado';
+    });
   } catch (e) {
     if (['ENOENT', 'EEXIST'].includes((e as NodeJS.ErrnoException).code ?? '')) return 'ocupado';
     if (['ELOOP', 'EACCES', 'EPERM', 'ENOSYS'].includes((e as NodeJS.ErrnoException).code ?? '')) return 'indisponivel';

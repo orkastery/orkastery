@@ -36,6 +36,13 @@ function simularFlock(t: TestContext) {
   t.after(() => assert.equal(held.size, 0, 'descritores e travas liberados'));
 }
 
+function semFlock(t: TestContext) {
+  const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
+  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => args[0] === '/usr/bin/flock'
+    ? { status: null, error: Object.assign(new Error('flock ausente'), { code: 'ENOENT' }) }
+    : Reflect.apply(spawn, processo, args));
+}
+
 /** O par de arquivos do Git que registra uma linked worktree, sem executar Git. */
 function cenario(t: TestContext) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm036-fix-'));
@@ -597,16 +604,17 @@ test('rm036 gofix: A4 inode trocado durante flock preserva novo vencedor', (t) =
   assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
 });
 
-test('rm036 gofix: A4 falha de transporte do flock preserva lease vencido', (t) => {
-  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+test('rm036 gofix: R4 falha de transporte do flock retoma pelo caminho portatil', (t) => {
+  const c = cenario(t);
   leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
   const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
   t.mock.method(processo, 'spawnSync', (...args: unknown[]) => args[0] === '/usr/bin/flock'
     ? { status: 0, error: Object.assign(new Error('transporte indisponivel'), { code: 'EPERM' }) }
     : Reflect.apply(spawn, processo, args));
-  const antes = fs.readFileSync(arquivo, 'utf8');
-  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomar' }).ok, false);
-  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+  const r = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomar' });
+  assert.equal(r.ok, true);
+  assert.equal(r.tomadoDeVencido, true);
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
 });
 
 for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'hardlink', 'symlink', 'contencao']) {
@@ -627,14 +635,24 @@ for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'h
       if (falha === 'contencao') return { status: 1 };
       return { status: null, error: Object.assign(new Error('indisponivel'), { code: falha === 'timeout' ? 'ETIMEDOUT' : falha }) };
     });
-    const motivo = falha === 'contencao' ? 'lease.busy' : 'lease.resume-unavailable';
     const r = leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' });
+    assert.equal(chamadas, ['symlink', 'hardlink'].includes(falha) ? 0 : 1);
+    if (!['hardlink', 'symlink', 'contencao'].includes(falha)) {
+      assert.equal(r.ok, true, 'transporte indisponivel tem alternativa portatil');
+      assert.equal(r.motivo, null);
+      assert.equal(r.tomadoDeVencido, true);
+      assert.equal(leases.lerLease(c.raiz, nome)?.thread, OUTRA);
+      assert.equal(fs.statSync(arquivo).nlink, 1);
+      assert.deepEqual(leases.lerFila(c.raiz), []);
+      assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), [], 'nenhum candidato vazou');
+      return;
+    }
+    const motivo = falha === 'contencao' ? 'lease.busy' : 'lease.resume-unavailable';
     assert.equal(r.ok, false);
     assert.equal(r.motivo, motivo);
     assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
     assert.equal(r.posicaoNaFila, 1);
     assert.equal(leases.lerFila(c.raiz)[0].thread, OUTRA);
-    assert.equal(chamadas, ['symlink', 'hardlink'].includes(falha) ? 0 : 1);
     if (falha === 'contencao') return;
     assert.equal(r.falhaRetomada, motivo);
     assert.match(r.detalhe, /retomada indisponivel/);
@@ -648,6 +666,93 @@ for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'h
     assert.deepEqual(leases.lerFila(c.raiz), []);
   });
 }
+
+for (const transporte of ['portatil', 'flock-primeiro', 'flock-segundo']) for (const corrompido of [false, true]) {
+  test(`rm036 gofix: R4 concorrencia ${transporte} ${corrompido ? 'corrompida' : 'vencida'} preserva um vencedor`, (t) => {
+    simularFlock(t);
+    const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    if (corrompido) fs.writeFileSync(arquivo, '{');
+    const passado = new Date(Date.now() - 10_000);
+    fs.utimesSync(arquivo, passado, passado);
+    const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
+    let chamadas = 0;
+    t.mock.method(processo, 'spawnSync', (...args: unknown[]) => {
+      if (args[0] !== '/usr/bin/flock') return Reflect.apply(spawn, processo, args);
+      chamadas++;
+      if ((transporte === 'flock-primeiro' && chamadas === 1) || (transporte === 'flock-segundo' && chamadas === 2)) {
+        return Reflect.apply(spawn, processo, args);
+      }
+      return { status: null, error: Object.assign(new Error('flock ausente'), { code: 'ENOENT' }) };
+    });
+    const apagar = io.unlinkSync;
+    let segundo: ReturnType<typeof leases.adquirirRegiao> | undefined;
+    let entrou = false;
+    t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+      if (String(p) === arquivo && !entrou) {
+        entrou = true;
+        segundo = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'segundo' });
+      }
+      return apagar(p);
+    });
+    const primeiro = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'primeiro' });
+    assert.equal(entrou, true);
+    assert.equal(primeiro.ok, true);
+    assert.equal(segundo?.ok, false);
+    assert.equal(segundo?.motivo, 'lease.busy');
+    assert.equal(segundo?.posicaoNaFila, 1);
+    assert.equal(chamadas, 2);
+    assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, DONO);
+    assert.equal(fs.statSync(arquivo).nlink, 1);
+    assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
+  });
+}
+
+for (const estado of ['morto', 'vivo', 'sem-permissao']) {
+  test(`rm036 gofix: R4 candidato ${estado} so sai com prova de processo morto`, (t) => {
+    semFlock(t);
+    const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    const antes = fs.readFileSync(arquivo, 'utf8'), dir = `${arquivo}.retomadas`;
+    fs.mkdirSync(dir);
+    const pid = process.pid + 100_000, candidato = path.join(dir, `${pid}-00000000-0000-4000-8000-000000000000.json`);
+    fs.writeFileSync(candidato, JSON.stringify({ ticket: 1 }));
+    const matar = process.kill;
+    t.mock.method(process, 'kill', (alvo: number, sinal: NodeJS.Signals | number) => {
+      if (alvo !== pid) return matar(alvo, sinal);
+      if (estado !== 'vivo') throw Object.assign(new Error(estado), { code: estado === 'morto' ? 'ESRCH' : 'EPERM' });
+      return true;
+    });
+    const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomada' });
+    assert.equal(r.ok, estado === 'morto');
+    if (estado === 'morto') {
+      assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+      assert.deepEqual(fs.readdirSync(dir), []);
+    } else {
+      assert.equal(r.motivo, 'lease.busy');
+      assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+      assert.deepEqual(fs.readdirSync(dir), [path.basename(candidato)]);
+    }
+  });
+}
+
+test('rm036 gofix: R4 corrida wx portatil preserva quem criou na janela apos unlink', (t) => {
+  semFlock(t);
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const apagar = io.unlinkSync;
+  let segundo: leases.ResultadoDeAquisicao | undefined;
+  t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+    apagar(p);
+    if (String(p) === arquivo) segundo = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'wx concorrente' });
+  });
+  const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomar' });
+  assert.equal(segundo?.ok, true);
+  assert.equal(r.ok, false);
+  assert.equal(r.motivo, 'lease.busy');
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+  assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
+});
 
 function prepararShip(t: TestContext, c: ReturnType<typeof cenario>) {
   fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
@@ -733,10 +838,7 @@ test('rm036 gofix: R3 retomada indisponivel chega ao ship e ao ledger com correc
   const arquivo = leases.caminhoLease(c.raiz, 'main-tree');
   leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
   const antes = fs.readFileSync(arquivo, 'utf8');
-  const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
-  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => args[0] === '/usr/bin/flock'
-    ? { status: null, error: Object.assign(new Error('spawn indisponivel'), { code: 'EPERM' }) }
-    : Reflect.apply(spawn, processo, args));
+  fs.linkSync(arquivo, path.join(c.base, 'hardlink'));
   const r = ship(carregado, OUTRA, { para: 'main' });
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'lease.resume-unavailable');
