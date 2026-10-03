@@ -25,13 +25,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
     biblioteca marca com `injection_risk`;
   - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
-    silêncio); id do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
-  - `universo`, `export` e `fts` saem com `memory.query.window-saturated` quando a janela enche, em vez de cortar;
+    silêncio); a quantidade de ids do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
+  - `universo` e `export` leem até o fim: quando a janela enche, a ponte conta e lê de novo uma vez, e cheia de novo sai
+    com `memory.query.window-saturated` (como o `fts` já fazia) em vez de cortar;
   - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
     `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
   - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
     `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
-    que a busca enxerga; sem o universo lido inteiro, o status diz o motivo e não calcula cobertura.
+    que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
+    e não calcula cobertura.
 
 ### Segurança
 

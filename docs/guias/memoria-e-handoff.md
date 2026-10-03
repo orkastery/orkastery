@@ -277,15 +277,19 @@ Como funciona:
   biblioteca marca com `injection_risk` (o mesmo filtro da leitura por tag). O tenant é filtro na
   origem, e o `ork` confere de novo cada entrada: entrada de outro tenant ou de outra coleção é
   falha tipada (`memory.query.scope-violation`), nunca descarte silencioso, e nada dela vai ao
-  embed. A leitura pede a coleção inteira mais um; quando a janela enche (escrita concorrente),
+  embed. A leitura pede a coleção inteira mais um (no FTS, a base inteira mais um); quando a
+  janela enche (escrita concorrente), a ponte conta e lê de novo uma vez, e cheia de novo
   `universo`, `export` e `fts` saem com `memory.query.window-saturated` em vez de cortar. O FTS
   da ponte passa pelo mesmo predicado: o que ele acha fora do universo não volta.
 - **Fora da busca e cobertura.** `ork memory status` e `ork memory index` mostram o universo da
   busca por coleção e contam o que fica fora da busca, só em número: entradas com
-  `injection_risk`, expiradas e em coleções que o `ork` não grava. A cobertura é a dos vetores
-  coerentes contra o universo da busca, e o status avisa quando o índice cobre menos do que a
-  busca enxerga. A busca diz o mesmo no `detalhe`, junto com os ids do FTS que ficaram fora do
-  universo (`ftsForaDoUniverso` no JSON). Sem o universo lido inteiro, o status diz o motivo e
+  `injection_risk` e expiradas (governança da biblioteca) e em outras coleções, fora da busca do
+  `ork` (entre elas `session` e `semantic_log`, que o próprio handoff grava). A cobertura é a dos
+  vetores coerentes contra o universo da busca, e o status avisa quando o índice cobre menos do
+  que a busca enxerga: só manda reindexar quando isso resolve, e diz à parte a entrada que fica
+  fora do índice por desenho (vazia, acima do limite ou com padrão de segredo). A busca diz o
+  mesmo no `detalhe`, junto com a quantidade de ids do FTS que ficaram fora do universo
+  (`ftsForaDoUniverso` no JSON). Sem o universo lido inteiro, o status diz o motivo e
   não calcula cobertura, e o `ork memory index` sai 1 sem embedar nada.
 - **O que é indexado.** Só o universo da busca. Conteúdo com padrão de segredo e entrada acima de
   24.000 caracteres ficam fora, contados no relatório; nada é truncado em silêncio. No fallback
