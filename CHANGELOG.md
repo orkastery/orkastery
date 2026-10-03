@@ -271,6 +271,44 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
     `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
 
+- **Leases de todas as famílias no estado canônico** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md), [FEAT-007](docs/produto/FEAT-007-worktree-e-leases.md)):
+  - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
+    projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
+    tinha a sua pasta, e duas threads pegavam o `main-tree` ao mesmo tempo);
+  - o legado válido das worktrees só barra enquanto vivo na janela de 30 minutos iniciada na primeira consulta
+    desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado`; encerrada, a janela não reabre com
+    arquivos novos. Arquivos inválidos ou ilegíveis não bloqueiam; o diagnóstico do legado não sugere `release`. Os comandos sugeridos citam os argumentos com aspas simples
+    e escape; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
+  - o prazo legado tolera 1 segundo além dos 30 minutos. O legado nunca é apagado: o descarte grava uma marca
+    `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. `release` atua somente no
+    canônico quando presente; sem ele, marca o legado. Nenhuma liberação é anunciada quando nada saiu.
+    A marca usa `ctimeMs`, conferido novamente antes do descarte: reutilizar o inode não oculta um legado novo.
+    O motivo exposto do legado é sempre `(legado)`. A retomada automática funciona em Linux e macOS, inclusive
+    sem `/usr/bin/flock`, por candidatos exclusivos e tickets publicados com `rename` atômico. A fila portátil
+    também serializa concorrentes com `flock`; sob exclusão, relê o conteúdo, confere dispositivo e inode e cria
+    com `wx`. Ausência, bloqueio do spawn, timeout ou erro do `flock` usam o caminho portátil. A fila fica
+    em `.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato, com
+    candidatos regulares de um único vínculo, e a pasta vazia é removida. `ork lease list` mostra
+    candidatos, PID, ticket, idade e temporários `.json.tmp`. A prova de morte por `process.kill(pid, 0)` só
+    vale no mesmo namespace de PID; processos de namespaces diferentes não devem compartilhar esta fila. PID
+    reutilizado ou sem permissão de consulta bloqueia até o limite de 30 minutos (`TTL_PADRAO_MS`).
+    Candidatos e temporários expirados são recolhidos na próxima tentativa, que retorna
+    `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir a aquisição, sem apagar o
+    lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes do prazo, inclusive JSON
+    parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode prosseguir. Dispositivo e
+    inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de sistema não constituem um
+    CAS atômico contra escritores externos à exclusão.
+    `nlink === 0` é `lease.busy`, com fila normal e
+    preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana
+    e sem retry automático: avaliar a posse antes de `ork lease release <nome> --forcar`, seguido de nova aquisição.
+    O `ship --dry-run` também considera o legado vivo;
+  - a fila legada não é lida e a espera se refaz no próximo pedido; a dona da própria cópia legada não entra na fila
+    atrás de si, e a fila canônica grava por temporário e `rename`;
+  - o legado nunca prova posse canônica para ativação de escrita; arquivo canônico vazio ou ilegível com menos de
+    cinco segundos é preservado para o escritor que o criou com `wx`, e o escalonador elimina nomes repetidos;
+  - o lock de espera do `ork portfolio` também passa para a raiz: a worktree espera a vez em vez de recusar com
+    `brain.journal.busy`.
+
 ### Segurança
 
 - **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):

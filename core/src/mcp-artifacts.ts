@@ -77,7 +77,22 @@ function comEscrita<T>(raiz:string,id:string,executar:()=>T):T {
     if(st) {
       if(!st.isDirectory() || st.isSymbolicLink() || fs.realpathSync(pastaLeases)!==pastaLeases) throw Error('mcp.state.unsafe: leases');
       for(const nome of fs.readdirSync(pastaLeases)) {
-        const s=fs.lstatSync(path.join(pastaLeases,nome));
+        const entrada=path.join(pastaLeases,nome),s=fs.lstatSync(entrada,{throwIfNoEntry:false});
+        if(!s) continue; // Uma retomada pode ter acabado durante o preflight.
+        if(s.isDirectory() && nome.endsWith('.json.retomadas')) {
+          const base=nome.slice(0,-'.json.retomadas'.length);
+          if(!base || encodeURIComponent(decodeURIComponent(base))!==base) throw Error('mcp.state.unsafe: fila de retomada');
+          let candidatos:string[];
+          try {candidatos=fs.readdirSync(entrada);}
+          catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT') continue;throw e;}
+          for(const candidato of candidatos) {
+            const c=fs.lstatSync(path.join(entrada,candidato),{throwIfNoEntry:false});
+            if(!c) continue;
+            if(!/^\d+-[a-f0-9-]+\.json(?:\.tmp)?$/.test(candidato) || !c.isFile() || c.nlink!==1)
+              throw Error('mcp.state.unsafe: candidato de retomada');
+          }
+          continue;
+        }
         if(!s.isFile() || s.isSymbolicLink() || s.nlink!==1) throw Error('mcp.state.unsafe: lease ou fila');
       }
     }
