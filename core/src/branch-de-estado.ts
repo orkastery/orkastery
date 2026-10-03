@@ -82,16 +82,31 @@ export function pontaLocal(raiz: string, remoto: string, branch: string): string
 export function buscarBranch(raiz: string, remoto: string, branch: string, prefixo: string,
   timeoutMs?: number, env?: NodeJS.ProcessEnv): { ponta: string | null; atualizado: boolean } {
   exigirRemoto(remoto, prefixo);
-  // `--`: daqui para a frente, so repositorio e refspec, nunca opcao (RM-047).
-  const r = git(raiz, ['fetch', '--quiet', '--no-tags', '--', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs, env });
-  if (r.ok) return { ponta: exigirGit(raiz, ['rev-parse', '--verify', refRemota(remoto, branch)], prefixo).trim(), atualizado: true };
-  if (/couldn't find remote ref|could not find remote ref/i.test(r.stderr)) {
-    // A branch ainda nao nasceu: a primeira gravacao a cria. Copia local antiga nao vale mais.
-    git(raiz, ['update-ref', '-d', refRemota(remoto, branch)]);
-    return { ponta: null, atualizado: true };
+  for (let tentativa = 1; ; tentativa++) {
+    // `--`: daqui para a frente, so repositorio e refspec, nunca opcao (RM-047).
+    const r = git(raiz, ['fetch', '--quiet', '--no-tags', '--', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs, env });
+    if (r.ok) return { ponta: exigirGit(raiz, ['rev-parse', '--verify', refRemota(remoto, branch)], prefixo).trim(), atualizado: true };
+    if (/couldn't find remote ref|could not find remote ref/i.test(r.stderr)) {
+      // A branch ainda nao nasceu: a primeira gravacao a cria. Copia local antiga nao vale mais.
+      git(raiz, ['update-ref', '-d', refRemota(remoto, branch)]);
+      return { ponta: null, atualizado: true };
+    }
+    if (tentativa < TENTATIVAS_NA_DISPUTA_DE_REF && DISPUTA_DE_REF.test(r.stderr)) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50 * tentativa);
+      continue;
+    }
+    return { ponta: pontaLocal(raiz, remoto, branch), atualizado: false };
   }
-  return { ponta: pontaLocal(raiz, remoto, branch), atualizado: false };
 }
+
+/**
+ * Suspeitas da revisao de 03/10: dois `fetch` simultaneos na mesma copia (o `ork network status` e a
+ * publicacao no cache da casa, a leitura e a gravacao da fabrica no clone) disputam o lock da ref
+ * remota, e o perdedor sai com "incorrect old value provided" (ou "cannot lock ref") sem que a rede
+ * tenha falhado. A ref ja foi atualizada pelo vencedor: buscar de novo da certo.
+ */
+const DISPUTA_DE_REF = /incorrect old value provided|cannot lock ref|unable to create '[^']*\.lock'|is at [0-9a-f]+ but expected/i;
+const TENTATIVAS_NA_DISPUTA_DE_REF = 5;
 
 /** Os `.json` de um diretorio da ponta, ja lidos. Filtro por caminho: diretorio vazio some da arvore. */
 export function jsonsDaPonta(raiz: string, ponta: string | null, dir: string, prefixo: string): unknown[] {
