@@ -335,9 +335,9 @@ chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta
   `markdown`, `yaml`, `yml`, `toml`, `py`, `rs`, `go`, `c`, `h`, `css`, `html`, `svg`, `png`,
   `jpg`, `jpeg`, `gif`, `webp`, `pdf`, `txt`, `sh` ou `sql`. Argumentos de módulo podem omitir
   extensão, mas exigem prefixo de caminho; nomes de pacote como `zod` e `typescript` não geram
-  sondas de citação. Bases vazias são recusadas. Para diretórios, só o candidato exato é ignorado;
-  as variantes de extensão e `index` continuam como candidatos e sondas, inclusive na troca de
-  diretório por arquivo e na volta. Palavras como `core` e `docs` não geram sondas de citação.
+  sondas de citação. Bases vazias são recusadas. Diretório nunca é alvo de `cites`, mas o candidato
+  exato e as variantes de extensão e `index` ficam como sondas, inclusive diretório com extensão no
+  nome, na troca de diretório por arquivo e na volta. Palavras como `core` e `docs` não geram sondas de citação.
 - A resolução de módulo tenta o caminho exato, variantes de extensão e `index`; `.js`/`.mjs`/
   `.cjs`/`.jsx` admitem fontes TypeScript. Na ausência, a convenção `dist/` → `src/` permite, por
   exemplo, `require('../dist/x')` citar `../src/x.ts`. Só um alvo no primeiro grupo de candidatos
