@@ -441,7 +441,7 @@ Links simbólicos são ignorados. A fila legada não é lida; a espera se refaz 
 O legado nunca prova posse canônica para ativar escrita; a própria cópia legada recusa a
 segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
 com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
-O legado nunca é apagado: o descarte grava uma marca `dev:ino` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode continua visível. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
+O legado nunca é apagado: o descarte grava uma marca `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode ou `ctime` continua visível. O `ctime` usa `ctimeMs` e é conferido novamente antes de gravar a marca. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
 A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`. Toda retomada
 publica um candidato exclusivo com ticket em `<lease>.json.retomadas`, usando `rename` atômico;
 a ordem dos tickets serializa também concorrentes com transportes diferentes. Sob essa exclusão,

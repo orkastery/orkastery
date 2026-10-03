@@ -185,12 +185,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     arquivos novos. Arquivos inválidos ou ilegíveis não bloqueiam; o diagnóstico do legado não sugere `release`. Os comandos sugeridos citam os argumentos com aspas simples
     e escape; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
   - o prazo legado tolera 1 segundo além dos 30 minutos. O legado nunca é apagado: o descarte grava uma marca
-    `dev:ino` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>` no estado canônico. `release` atua somente no
+    `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. `release` atua somente no
     canônico quando presente; sem ele, marca o legado. Nenhuma liberação é anunciada quando nada saiu.
-    O motivo exposto do legado é sempre `(legado)`. A retomada canônica usa `flock` no inode antigo até concluir
-    o novo `wx`, com releitura e conferência do inode; o `ship --dry-run` também considera o legado vivo.
-    Sem `flock`, com spawn bloqueado, timeout, erro da trava, hard link ou link simbólico, a retomada recebe
-    `lease.resume-unavailable` e orienta `ork lease release <nome> --forcar`, seguido de nova aquisição, sem retry automático;
+    A marca usa `ctimeMs`, conferido novamente antes do descarte: reutilizar o inode não oculta um legado novo.
+    O motivo exposto do legado é sempre `(legado)`. A retomada automática funciona em Linux e macOS, inclusive
+    sem `/usr/bin/flock`, por candidatos exclusivos e tickets publicados com `rename` atômico. A fila portátil
+    também serializa concorrentes com `flock`; sob exclusão, relê o conteúdo, confere dispositivo e inode e cria
+    com `wx`. Ausência, bloqueio do spawn, timeout ou erro do `flock` usam o caminho portátil. Candidatos com PID
+    morto são descartados; PID reutilizado ou sem permissão de consulta é tratado como vivo e pode exigir
+    inspeção humana, sem expiração que remova candidato vivo. `nlink === 0` é `lease.busy`, com fila normal e
+    preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana
+    e sem retry automático: avaliar a posse antes de `ork lease release <nome> --forcar`, seguido de nova aquisição.
+    O `ship --dry-run` também considera o legado vivo;
   - a fila legada não é lida e a espera se refaz no próximo pedido; a dona da própria cópia legada não entra na fila
     atrás de si, e a fila canônica grava por temporário e `rename`;
   - o legado nunca prova posse canônica para ativação de escrita; arquivo canônico vazio ou ilegível com menos de
