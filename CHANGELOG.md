@@ -105,6 +105,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     quando outro processo atualizou a mesma ref no mesmo instante; antes, o `ork network status` rodando junto da
     publicação, com a casa avançada, fazia uma das duas sair com `rede.sem-leitura` ("incorrect old value
     provided"), sem falha de rede nenhuma.
+  - `ork network status` e `ork network entrar` não confundem mais a falha da forja com falta de login: prazo, erro do
+    servidor ou falta de rede no `gh api user` (ou `glab api user`) saem como `rede.sem-leitura`, com o erro da forja
+    redigido; antes viravam `forja.sem-login` e mandavam a pessoa rodar `gh auth login`. A falta de login de verdade
+    continua `forja.sem-login`.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna

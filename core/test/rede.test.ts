@@ -58,6 +58,7 @@ if (args[0] !== 'api') sair(2, '', 'fake: nao simulado\\n');
 if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
 if (process.env.FORJA_FAKE_SEM_LOGIN === '1') sair(1, '', cli === 'gh' ? 'gh: To get started with GitHub CLI, please run:  gh auth login\\n' : 'glab: not authenticated\\n');
 if (process.env.FORJA_FAKE_ERRO === '1') sair(1, '', cli + ': Server Error (HTTP 500)\\n');
+if (process.env.FORJA_FAKE_SEM_REDE === '1') sair(1, '', 'error connecting to api.github.com\\ncheck your internet connection or https://githubstatus.com\\n');
 let metodo = 'GET', rota = null;
 const campos = {};
 for (let i = 1; i < args.length; i++) {
@@ -2147,5 +2148,27 @@ test('suspeitas 03/10: sair durante uma publicacao em curso nao deixa a marca re
     assert.match(sai, /^"[a-f0-9]{40}"$/, `o sair tira o retrato da casa: ${sai}`);
     assert.equal(naMaquina(u, () => adesaoDaRede().membro), false);
     assert.equal(fs.existsSync(path.join(u, 'rede', 'publicada.json')), false, 'a marca nao sobrevive ao sair');
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('suspeitas 03/10: falha da forja no gh api user (500, sem rede) nao vira forja.sem-login', () => {
+  const f = forjaFalsa('susp0310-forja-falha');
+  const u = dirTemporario('rede-susp0310-forja-falha');
+  try {
+    const tipos = (s: ReturnType<typeof lerRede>) => s.lacunas.map((l) => l.tipo);
+    naMaquina(u, () => {
+      for (const [extra, motivo] of [[{ FORJA_FAKE_ERRO: '1' }, /HTTP 500/], [{ FORJA_FAKE_SEM_REDE: '1' }, /internet connection/]] as const) {
+        const s = lerRede({ amb: ligado(f, extra), maquina: 'pc-a' });
+        assert.ok(!tipos(s).includes('forja.sem-login'), `falha da forja virou falta de login: ${JSON.stringify(s.lacunas)}`);
+        const lacuna = s.lacunas.find((l) => l.tipo === 'rede.sem-leitura');
+        assert.ok(lacuna, `a falha aparece como leitura que nao aconteceu: ${JSON.stringify(s.lacunas)}`);
+        assert.match(lacuna.detalhe, /gh api user falhou/);
+        assert.match(lacuna.detalhe, motivo);
+        assert.doesNotMatch(lacuna.detalhe, /auth login/);
+        assert.throws(() => entrarNaRede({ amb: ligado(f, extra), maquina: 'pc-a' }), /gh api user falhou/);
+      }
+      // Sem login de verdade continua forja.sem-login.
+      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { FORJA_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
+    });
   } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });

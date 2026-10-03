@@ -116,8 +116,8 @@ export interface CasaResolvida {
   casa: CasaDaRede | null;
   forja: Forja | null;
   identidades: IdentidadeNaForja[];
-  /** Por que nao ha casa: `forja.ausente` ou `forja.sem-login`. */
-  motivo: { tipo: 'forja.ausente' | 'forja.sem-login'; detalhe: string } | null;
+  /** Por que nao ha casa: `forja.ausente`, `forja.sem-login` ou `rede.sem-leitura` (o login nao foi lido). */
+  motivo: { tipo: 'forja.ausente' | 'forja.sem-login' | 'rede.sem-leitura'; detalhe: string } | null;
 }
 
 /**
@@ -145,13 +145,20 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
     return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.ausente',
       detalhe: nomeDaForja ? `a CLI da forja ${nomeDaForja} nao esta nesta maquina` : 'nenhuma CLI de forja (gh ou glab) nesta maquina' } };
   }
+  const falhas: string[] = [];
   for (const forja of candidatas) {
-    const lida = identidades.find((i) => i.forja === forja.nome && i.host === forja.host);
-    const usuario = (lida ?? forja.identidade()).usuario;
-    if (!usuario) continue;
+    const lida = identidades.find((i) => i.forja === forja.nome && i.host === forja.host) ?? forja.identidade();
+    const usuario = lida.usuario;
+    if (!usuario) { if (lida.falha) falhas.push(lida.falha); continue; }
     const origem = opcoes.forja || opcoes.repositorio ? 'opcao' : 'forja';
     return { casa: { forja: forja.nome, host: forja.host, dono: donoPedido ?? usuario, repositorio: nomePedido ?? REPOSITORIO_PADRAO, origem },
       forja, identidades, motivo: null };
+  }
+  // Suspeitas da revisao de 03/10: prazo, erro da forja ou falta de rede no `gh api user` nao e falta de
+  // login; mandar a pessoa ao `gh auth login` esconderia o motivo de verdade.
+  if (falhas.length) {
+    return { casa: null, forja: null, identidades, motivo: { tipo: 'rede.sem-leitura',
+      detalhe: `${falhas.join('; ')}; o login nao foi lido, rode de novo com a forja respondendo` } };
   }
   return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.sem-login',
     detalhe: `${candidatas.map((f) => f.cli).join(' e ')} sem login nesta maquina (${candidatas.map((f) => `${f.cli} auth login`).join(' ou ')})` } };
