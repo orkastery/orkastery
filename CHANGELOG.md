@@ -50,6 +50,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `npm install -g`, o `ork grafo indexar`, as consultas e as tools `ork_grafo_*` rodam sem passo manual, onde antes
     a recusa era `grafo.parser.indisponivel: typescript`. Os rótulos `ork.ts-ast` e `ork.md-structure` não mudam; a
     instalação fica com 125 pacotes e cerca de 26 MB a mais em disco, quase todo o compilador;
+  - depois de atualizar, `ork grafo indexar` refaz o índice completo uma vez: o comentário atualizado dos
+    analisadores entra no `dist` e muda a impressão do extrator, invalidando o índice anterior para o HEAD;
   - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
     recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
     instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
