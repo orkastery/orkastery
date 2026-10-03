@@ -258,7 +258,8 @@
                   "imports",
                   "calls",
                   "references",
-                  "derived_from"
+                  "derived_from",
+                  "cites"
                 ]
               },
               "snapshot_id": {

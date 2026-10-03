@@ -1,4 +1,4 @@
-/** KG5 fatia 3: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia. */
+/** KG5: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia. */
 import { createHash } from 'node:crypto';
 import { canonico, compararUtf8, type GrafoCodigo, type Evidencia, type TipoDeAresta } from './intelligence-graph-contract';
 import { AVISO_DE_PARCIALIDADE, ErroDeConsulta, rotuloDoNo, type CabecalhoDoIndice } from './intelligence-graph-query';
@@ -7,6 +7,7 @@ export const CONTEXTO_SCHEMA = 'ork.thread-graph-context/v2' as const;
 export const CONTEXTO_TETO_PADRAO = 32768;
 export const CONTEXTO_POR_ALVO = 8;
 export const CONTEXTO_FORA_DO_INDICE = 3;
+const LIMITE_REJEICOES_SEGUNDO_SALTO = 8;
 export interface EntradaDoContexto {
   thread: string;
   base: string;
@@ -68,7 +69,10 @@ type TuplaDeEvidencia = [number, Evidencia['extraction_method'],
 interface Grupo {
   kind: TipoDeAresta; origem: string; destino: string; alvo: string; quantidade: number;
   evidencias: Map<string, TuplaDeEvidencia>; entreArquivos: boolean; distancia: number;
+  salto: 1 | 2;
 }
+const compararTipo = (a: TipoDeAresta, b: TipoDeAresta): number =>
+  Number(a === 'cites') - Number(b === 'cites') || compararUtf8(a, b);
 
 /** O grafo recebido ja deve estar filtrado pela concessao de quem consulta. */
 export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, entrada: EntradaDoContexto,
@@ -90,6 +94,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     if (!adj.has(para)) adj.set(para, new Set());
     adj.get(de)!.add(para); adj.get(para)!.add(de);
   }
+  const vizinhos = new Set([...alvos].flatMap((p) => [...(adj.get(p) ?? [])]));
   const dist = new Map(diff.filter((p) => arquivos.has(p)).map((p) => [p, 0]));
   const fila = [...dist.keys()];
   for (let i = 0; i < fila.length; i++) for (const p of adj.get(fila[i]) ?? []) {
@@ -98,22 +103,27 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   const extratores = [...indice.extratores].sort((a, b) => compararUtf8(canonico(a), canonico(b)));
   const extratorIds = new Map(extratores.map((e, i) => [canonico(e), i]));
   const grupos = new Map<string, Grupo>();
-  let totalArestas = 0, estruturais = 0, evidenciasAuxiliares = 0;
+  let totalArestas = 0, arestasDiretas = 0, estruturais = 0, evidenciasAuxiliares = 0, auxiliaresDiretas = 0;
   for (const a of grafo.edges) {
     const de = porId.get(a.from)!, para = porId.get(a.to)!;
-    if (!alvos.has(de.locator.path) && !alvos.has(para.locator.path)) continue;
+    const direto = alvos.has(de.locator.path) || alvos.has(para.locator.path);
+    if (!direto && (de.locator.path === para.locator.path
+      || (!vizinhos.has(de.locator.path) && !vizinhos.has(para.locator.path)))) continue;
     totalArestas++;
+    if (direto) arestasDiretas++;
     if ((a.kind === 'declares' || a.kind === 'contains') && de.locator.path === para.locator.path && alvos.has(de.locator.path)) {
       estruturais++; continue;
     }
     const proprias = a.evidence.filter((e) => e.path === de.locator.path);
     evidenciasAuxiliares += a.evidence.length - proprias.length;
+    if (direto) auxiliaresDiretas += a.evidence.length - proprias.length;
     // Sem evidencia no arquivo de origem, a aresta fica em omitidos.arestas.
     if (!proprias.length) continue;
     const origem = `file ${de.locator.path}`, destino = rotuloDoNo(para);
     const chave = canonico([a.kind, destino, de.locator.path]);
     const grupo = grupos.get(chave) ?? { kind: a.kind, origem, destino, alvo: para.node_id, quantidade: 0,
       evidencias: new Map<string, TuplaDeEvidencia>(), entreArquivos: de.locator.path !== para.locator.path,
+      salto: direto ? 1 : 2,
       distancia: Math.min(dist.get(de.locator.path) ?? Infinity, dist.get(para.locator.path) ?? Infinity) };
     grupo.quantidade++;
     for (const e of proprias) {
@@ -127,18 +137,18 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     grupos.set(chave, grupo);
   }
   // Entre arquivos > perto do diff > tipo > rotulos; empates independem da ordem do indice.
-  const ordenados = [...grupos.values()].sort((a, b) => Number(b.entreArquivos) - Number(a.entreArquivos)
+  const ordenados = [...grupos.values()].sort((a, b) => a.salto - b.salto || Number(b.entreArquivos) - Number(a.entreArquivos)
     || (a.distancia === b.distancia ? 0 : a.distancia < b.distancia ? -1 : 1)
-    || compararUtf8(a.kind, b.kind) || compararUtf8(a.destino, b.destino) || compararUtf8(a.origem, b.origem));
+    || compararTipo(a.kind, b.kind) || compararUtf8(a.destino, b.destino) || compararUtf8(a.origem, b.origem));
   // Dentro da mesma prioridade, intercalar tipos impede calls de expulsar imports/references.
   const rodadas = new Map<string, number>();
   const justos = ordenados.map((g) => {
-    const chave = JSON.stringify([g.alvo, g.entreArquivos, g.distancia, g.kind]);
+    const chave = JSON.stringify([g.salto, g.alvo, g.entreArquivos, g.distancia, g.kind]);
     const rodada = rodadas.get(chave) ?? 0; rodadas.set(chave, rodada + 1);
     return { g, rodada };
-  }).sort((a, b) => Number(b.g.entreArquivos) - Number(a.g.entreArquivos)
+  }).sort((a, b) => a.g.salto - b.g.salto || Number(b.g.entreArquivos) - Number(a.g.entreArquivos)
     || (a.g.distancia === b.g.distancia ? 0 : a.g.distancia < b.g.distancia ? -1 : 1)
-    || a.rodada - b.rodada || compararUtf8(a.g.kind, b.g.kind)
+    || a.rodada - b.rodada || compararTipo(a.g.kind, b.g.kind)
     || compararUtf8(a.g.destino, b.g.destino) || compararUtf8(a.g.origem, b.g.origem)).map(({ g }) => g);
   const normalizada = { ...entrada, diff, diffEstado: entrada.diffEstado ?? 'coletado-na-worktree',
     claims: [...entrada.claims].sort((a, b) => compararUtf8(canonico(a), canonico(b))) };
@@ -146,21 +156,27 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     indice: { ...indice, extratores },
     fontes: { goal: entrada.goal === null ? 'ausente' : hash(entrada.goal), plan: entrada.plan === null ? 'ausente' : hash(entrada.plan),
       diff: normalizada.diffEstado },
-    consulta: { profundidade: 1, sentido: 'ambos', por_alvo: CONTEXTO_POR_ALVO, fora_do_indice: CONTEXTO_FORA_DO_INDICE },
+    consulta: { profundidade: 2, sentido: 'ambos', por_alvo: CONTEXTO_POR_ALVO, fora_do_indice: CONTEXTO_FORA_DO_INDICE },
     total_sementes: sementes.length, sementes_fora_do_indice: ausentes.length, total_arestas: totalArestas,
     total_ligacoes: ordenados.length, resumidas: { estruturais }, parcial: AVISO_DE_PARCIALIDADE };
   const selecionadas: typeof sementes = [], ligacoes: Grupo[] = [];
+  const totalDiretas = ordenados.filter((a) => a.salto === 1).length;
+  const totalSegundoSalto = ordenados.length - totalDiretas;
   const montar = (): string => {
     const caminhos = new Set(selecionadas.filter((s) => s.estado === 'indexado').map((s) => s.arquivo));
     const rotulos = new Set([...caminhos].map((p) => `file ${p}`));
     for (const a of ligacoes) { rotulos.add(a.origem); rotulos.add(a.destino); caminhos.add(porId.get(a.alvo)!.locator.path); caminhos.add(a.origem.slice(5)); }
     const refs = new Map([...rotulos].sort(compararUtf8).map((r, i) => [r, `n${i + 1}`]));
     const fontes = grafo.snapshot.source_manifest.filter((m) => caminhos.has(m.path)).sort((a, b) => compararUtf8(a.path, b.path));
-    const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: ordenados.length - ligacoes.length,
+    const diretas = ligacoes.filter((a) => a.salto === 1);
+    const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: totalDiretas - diretas.length,
+      segundo_salto: totalSegundoSalto - (ligacoes.length - diretas.length),
       arestas: totalArestas - estruturais - ligacoes.reduce((s, a) => s + a.quantidade, 0), evidencias_auxiliares: evidenciasAuxiliares };
-    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || omitidos.arestas > 0 || evidenciasAuxiliares > 0;
+    const diretasOmitidas = arestasDiretas - estruturais - diretas.reduce((s, a) => s + a.quantidade, 0);
+    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || diretasOmitidas > 0 || auxiliaresDiretas > 0;
     const r = { ...fixo, sementes: selecionadas, nos: Object.fromEntries([...refs].map(([r, ref]) => [ref, r])),
       arestas: ligacoes.map((a) => ({ kind: a.kind, from: refs.get(a.origem)!, to: refs.get(a.destino)!, quantidade: a.quantidade,
+        ...(a.salto === 2 ? { salto: 2 } : {}),
         evidencias: [...a.evidencias].sort(([a], [b]) => compararUtf8(a, b)).map(([, e]) => e) })),
       truncado: cortado, omitidos, teto: { bytes: tetoBytes, cortado },
       medida: { pacote_bytes: 0, leitura_crua_bytes: fontes.reduce((s, f) => s + f.size_bytes, 0),
@@ -179,13 +195,26 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   };
   for (const s of indexadas) tentarSemente(s);
   const porAlvo = new Map<string, number>();
-  for (const a of justos) {
-    if ((porAlvo.get(a.alvo) ?? 0) >= CONTEXTO_POR_ALVO) continue;
+  const tentarLigacao = (a: Grupo): 'incluida' | 'por-alvo' | 'sem-espaco' => {
+    if ((porAlvo.get(a.alvo) ?? 0) >= CONTEXTO_POR_ALVO) return 'por-alvo';
     ligacoes.push(a);
     const texto = montar();
-    if (Buffer.byteLength(texto) <= tetoBytes) { melhor = texto; porAlvo.set(a.alvo, (porAlvo.get(a.alvo) ?? 0) + 1); }
-    else ligacoes.pop(); // Um hub grande nao impede uma ligacao menor e relevante de entrar.
-  }
+    if (Buffer.byteLength(texto) <= tetoBytes) {
+      melhor = texto; porAlvo.set(a.alvo, (porAlvo.get(a.alvo) ?? 0) + 1);
+      return 'incluida';
+    }
+    ligacoes.pop(); // Um hub grande nao impede uma ligacao menor e relevante de entrar.
+    return 'sem-espaco';
+  };
+  for (const a of justos) if (a.salto === 1) tentarLigacao(a);
   for (const s of ausentes.slice(0, CONTEXTO_FORA_DO_INDICE)) tentarSemente(s);
+  // Expande somente pontes que sobreviveram ao corte direto; a fronteira fica fixa nesta rodada.
+  const pontes = new Set(ligacoes.flatMap((a) => [a.origem.slice(5), porId.get(a.alvo)!.locator.path]));
+  let rejeicoes = 0;
+  for (const a of justos) if (a.salto === 2 && (pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo)!.locator.path))) {
+    const resultado = tentarLigacao(a);
+    if (resultado === 'incluida') rejeicoes = 0;
+    else if (resultado === 'sem-espaco' && ++rejeicoes >= LIMITE_REJEICOES_SEGUNDO_SALTO) break;
+  }
   return melhor;
 }
