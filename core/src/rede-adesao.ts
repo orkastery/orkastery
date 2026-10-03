@@ -231,10 +231,13 @@ export function publicacaoDesligada(env: NodeJS.ProcessEnv = process.env): boole
  * gravacao da marca correm sob uma trava (quem nao a pega perde a vez) e a marca troca por rename;
  * sem isso, varios processos na mesma batida liam a marca velha e todos tomavam a vez.
  */
-export function tomarVezDePublicar(agora: number = Date.now()): boolean {
+export function tomarVezDePublicar(agoraPedido?: number): boolean {
   try { fs.mkdirSync(pastaDaRede(), { recursive: true }); } catch { return false; }
   const trava = adquirirLockMonitor(path.join(pastaDaRede(), 'tentativa.lock'));
   if (!trava.ok) return false;
+  // A hora e lida DENTRO da trava: lida antes, o processo que perdia a CPU entre a leitura e a trava
+  // via a marca do vencedor "no futuro", a tomava por relogio que voltou e tomava a vez tambem.
+  const agora = agoraPedido ?? Date.now();
   try {
     try {
       const ultima = Date.parse((JSON.parse(fs.readFileSync(arquivoDaTentativa(), 'utf8')) as { em?: string }).em ?? '');
