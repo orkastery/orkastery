@@ -14,10 +14,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerLease, listarLeases } from '../src/leases';
+import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerFila, lerLease, listarLeases } from '../src/leases';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
-import { Lease } from '../src/types';
+import { Lease, PedidoNaFila } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -279,5 +279,38 @@ test('rm036 leases: legado solto pela thread ou com --forcar', () => {
     const forcado = ork(c.wt, 'lease', 'release', 'board:card-3', '--forcar');
     assert.equal(forcado.codigo, 0, forcado.stdout + forcado.stderr);
     assert.equal(fs.existsSync(alheio), false, '--forcar tira o legado de outra thread');
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: fila legada entra na canonica em FIFO', () => {
+  const c = cenario('rm036-fila-legada', { threads: 4 });
+  try {
+    const [t2, t3, t4, t5] = c.outras;
+    const base = Date.now() - 600_000;
+    const quando = (segundos: number) => new Date(base + segundos * 1000).toISOString();
+    const pedido = (thread: string, nome: string, segundos: number): PedidoNaFila => ({ nome, tipo: 'path', thread,
+      motivo: 'GO', desdeEm: quando(segundos), colidiuCom: 'path:core/**', bloqueadaPor: c.t1 });
+    assert.equal(ork(c.raiz, 'lease', 'acquire', 'path:core/**', '--thread', c.t1).codigo, 0);
+    // Canonica: t4 espera desde 20 s. Legada, na worktree: t2 desde 10 s, t3 desde 30 s e t4 de novo, desde 40 s.
+    fs.writeFileSync(caminhoFila(c.raiz), JSON.stringify([pedido(t4, 'path:core/b.ts', 20)], null, 2) + '\n');
+    const legada = path.join(pastaDaWorktree(c.wt), 'fila.json');
+    fs.mkdirSync(path.dirname(legada), { recursive: true });
+    fs.writeFileSync(legada, JSON.stringify([pedido(t2, 'path:core/a.ts', 10), pedido(t3, 'path:core/c.ts', 30),
+      pedido(t4, 'path:core/b.ts', 40)], null, 2) + '\n');
+
+    // A leitura ja une as duas, em FIFO, sem gravar nada.
+    assert.deepEqual(lerFila(c.raiz).map((p) => p.thread), [t2, t4, t3]);
+    assert.ok(fs.existsSync(legada), 'ler nao apaga a fila legada');
+
+    // A primeira gravacao: t5 pede pela worktree e entra atras dos tres; a legada sai.
+    const r = ork(c.wt, 'lease', 'acquire', 'path:core/**', '--thread', t5);
+    assert.equal(r.codigo, 1, r.stdout + r.stderr);
+    assert.match(r.stderr, /posicao na fila: 4/);
+    assert.equal(fs.existsSync(legada), false, 'a fila legada saiu na primeira gravacao');
+    const fila = JSON.parse(fs.readFileSync(caminhoFila(c.raiz), 'utf8')) as PedidoNaFila[];
+    assert.deepEqual(fila.map((p) => p.thread), [t2, t4, t3, t5]);
+    assert.equal(fila.find((p) => p.thread === t4)?.desdeEm, quando(20), 'fica a espera mais antiga');
+    // Gravacao atomica: nenhum temporario fica para tras na pasta.
+    assert.deepEqual(fs.readdirSync(dirLeases(c.raiz)).filter((f) => f.endsWith('.tmp')), []);
   } finally { c.p.limpar(); }
 });

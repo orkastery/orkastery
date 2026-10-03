@@ -21,6 +21,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { dirEstado } from './manifest';
 import { raizDoEstado } from './estado-thread';
 import { Lease, PedidoNaFila, TipoDeLease } from './types';
@@ -491,22 +492,69 @@ export function caminhoFila(raiz: string): string {
   return path.join(dirLeases(raiz), NOME_ARQUIVO_FILA);
 }
 
-/** Le a fila inteira, em ordem FIFO. Arquivo corrompido conta como fila vazia. */
-export function lerFila(raiz: string): PedidoNaFila[] {
-  const caminho = caminhoFila(raiz);
-  if (!fs.existsSync(caminho)) return [];
+/** Le um arquivo de fila: so os pedidos bem formados. Ausente ou corrompido conta como fila vazia. */
+function lerArquivoDeFila(caminho: string): PedidoNaFila[] | null {
   try {
-    const dados = JSON.parse(fs.readFileSync(caminho, 'utf8')) as PedidoNaFila[];
-    return Array.isArray(dados) ? dados.sort((a, b) => a.desdeEm.localeCompare(b.desdeEm)) : [];
+    const dados = JSON.parse(fs.readFileSync(caminho, 'utf8')) as unknown;
+    if (!Array.isArray(dados)) return null;
+    return dados.filter((p): p is PedidoNaFila => !!p && typeof p === 'object' &&
+      typeof (p as PedidoNaFila).nome === 'string' && typeof (p as PedidoNaFila).thread === 'string' &&
+      typeof (p as PedidoNaFila).desdeEm === 'string');
   } catch {
-    return [];
+    return null;
   }
 }
 
-function gravarFila(raiz: string, fila: PedidoNaFila[]): void {
+/**
+ * RM-036 (D4): a fila canonica unida as filas legadas das worktrees, em FIFO por `desdeEm`. A mesma
+ * thread com o mesmo nome nas duas fica uma vez so, com a espera mais antiga, que e a vez dela.
+ * `legadas` sao as filas legadas lidas: a proxima gravacao as apaga, porque a espera delas ja esta
+ * na canonica.
+ */
+function lerFilaComOrigem(raiz: string): { fila: PedidoNaFila[]; legadas: string[] } {
+  const todos = [...(lerArquivoDeFila(caminhoFila(raiz)) ?? [])];
+  const legadas: string[] = [];
+  for (const dir of dirsLegadosDeLeases(raiz)) {
+    const caminho = path.join(dir, NOME_ARQUIVO_FILA);
+    if (!arquivoDeVerdade(caminho)) continue;
+    const dela = lerArquivoDeFila(caminho);
+    if (!dela) continue;
+    todos.push(...dela);
+    legadas.push(caminho);
+  }
+  const vistos = new Set<string>();
+  const fila = todos.sort((a, b) => a.desdeEm.localeCompare(b.desdeEm)).filter((p) => {
+    const chave = JSON.stringify([p.thread, p.nome]);
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+  return { fila, legadas };
+}
+
+/** Le a fila inteira, em ordem FIFO. Arquivo corrompido conta como fila vazia. */
+export function lerFila(raiz: string): PedidoNaFila[] {
+  return lerFilaComOrigem(raiz).fila;
+}
+
+/**
+ * Grava a fila canonica por arquivo temporario e rename (RM-036, D4): a raiz e as worktrees dividem
+ * esta fila, e a fila lida pela metade contava como vazia, sumindo com a espera de todos. As filas
+ * legadas que entraram na leitura saem depois.
+ */
+function gravarFila(raiz: string, fila: PedidoNaFila[], legadas: readonly string[]): void {
   const caminho = caminhoFila(raiz);
   fs.mkdirSync(path.dirname(caminho), { recursive: true });
-  fs.writeFileSync(caminho, JSON.stringify(fila, null, 2) + '\n', 'utf8');
+  const temporario = `${caminho}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(temporario, JSON.stringify(fila, null, 2) + '\n', 'utf8');
+    fs.renameSync(temporario, caminho);
+  } finally {
+    try { fs.unlinkSync(temporario); } catch { /* ja virou a fila */ }
+  }
+  for (const legada of legadas) {
+    try { fs.unlinkSync(legada); } catch { /* outra gravacao ja a tirou */ }
+  }
 }
 
 /** Coloca o pedido na fila (idempotente por thread e nome). Devolve a posicao, 1 = proxima. */
@@ -515,7 +563,7 @@ export function enfileirar(
   nome: string,
   dados: { thread: string; motivo: string; colidiuCom: string; bloqueadaPor: string }
 ): number {
-  const fila = lerFila(raiz);
+  const { fila, legadas } = lerFilaComOrigem(raiz);
   const jaEsta = fila.find((p) => p.nome === nome && p.thread === dados.thread);
   if (!jaEsta) {
     fila.push({
@@ -527,16 +575,16 @@ export function enfileirar(
       colidiuCom: dados.colidiuCom,
       bloqueadaPor: dados.bloqueadaPor,
     });
-    gravarFila(raiz, fila);
+    gravarFila(raiz, fila, legadas);
   }
   return posicaoNaFila(raiz, nome, dados.thread);
 }
 
 /** Tira a thread da fila do lease informado. */
 export function sairDaFila(raiz: string, nome: string, thread: string): void {
-  const fila = lerFila(raiz);
+  const { fila, legadas } = lerFilaComOrigem(raiz);
   const restante = fila.filter((p) => !(p.nome === nome && p.thread === thread));
-  if (restante.length !== fila.length) gravarFila(raiz, restante);
+  if (restante.length !== fila.length) gravarFila(raiz, restante, legadas);
 }
 
 /** Espera da regiao: pedidos na fila cujo nome colide com o nome informado, em FIFO. */
@@ -752,9 +800,9 @@ export function soltarDaThread(raiz: string, thread: string): { leases: string[]
       leases.add(lease.nome);
     } catch { /* outra limpeza chegou antes */ }
   }
-  const fila = lerFila(raiz);
+  const { fila, legadas } = lerFilaComOrigem(raiz);
   const dela = fila.filter((p) => p.thread === thread);
-  if (dela.length > 0) gravarFila(raiz, fila.filter((p) => p.thread !== thread));
+  if (dela.length > 0) gravarFila(raiz, fila.filter((p) => p.thread !== thread), legadas);
   return { leases: [...leases], fila: dela.map((p) => p.nome) };
 }
 
