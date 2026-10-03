@@ -110,6 +110,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
   da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
   de entrada e na cópia do marketplace.
+- **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
+  merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
+  branch cujo pai trazido já estava na base. Git sem resposta conta 0, e `--classe` continua vencendo.
 - **O POSTMORTEM conta o CHECK e o SHIP que o ledger registrou** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   o `verify_run` e o `ship_done` são gravados sem o campo `fase`, e as `fasesPercorridas` só contavam evento com
   fase. Dos 35 POSTMORTEMs de 03/10, só 1 listava o CHECK e 2 o SHIP. Agora `verify_run` e `check_reverify` contam
