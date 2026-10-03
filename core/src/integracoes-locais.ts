@@ -13,4 +13,6 @@ export const TESTES_DE_INTEGRACAO_LOCAL: ReadonlySet<string> = new Set([
   'memory-publication-profile.test.js', 'native-fixture.test.js', 'orkmind-transport.test.js', 'verify-sandbox.test.js',
   // RM-037 (fatia 3): o worker do ork_git_commit e o sandbox do verify de verdade, como no mcp-git.test.js.
   'rm037-fatia3-hard-link-mcp-git.test.js', 'rm037-fatia3-lease-mcp-git.test.js',
+  // RM-038 (fatia de correcao): a ponte com o GovernedStore real da biblioteca instalada.
+  'rm038-universo-ponte.test.js',
 ]);

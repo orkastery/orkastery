@@ -325,51 +325,6 @@
       "lint": []
     },
     {
-      "id": "C37",
-      "thread": "ork-rm053network",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-025-company-brain-fundacao.md",
-      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit a17ff88); a paridade confere que o commit está na base",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node core/dist/index.js docs verificar",
-        "grep -q '^    commit: a17ff88$' docs/roadmap/RM-025-company-brain-fundacao.md"
-      ],
-      "criadoEm": "2026-09-29T23:49:06.555Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C40",
-      "thread": "ork-rm053network",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-048-hitl-humano-no-centro.md",
-      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit 8d47740, codigo Mesclado); a paridade confere que o commit está na base",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node core/dist/index.js docs verificar",
-        "grep -q '^    commit: 8d47740$' docs/roadmap/RM-048-hitl-humano-no-centro.md && grep -q '^  codigo: Mesclado$' docs/roadmap/RM-048-hitl-humano-no-centro.md"
-      ],
-      "criadoEm": "2026-09-29T23:49:07.539Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
-      "id": "C41",
-      "thread": "ork-rm053network",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/RM-050-guia-de-contribuicao.md",
-      "alegacao": "T7: ork docs sincronizar --escrever trouxe do git o fato de merge deste item (commit 3c7e8a7, codigo Mesclado); a paridade confere que o commit está na base",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && node core/dist/index.js docs verificar",
-        "grep -q '^    commit: 3c7e8a7$' docs/roadmap/RM-050-guia-de-contribuicao.md && grep -q '^  codigo: Mesclado$' docs/roadmap/RM-050-guia-de-contribuicao.md"
-      ],
-      "criadoEm": "2026-09-29T23:49:07.857Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C42",
       "thread": "ork-rm053network",
       "fase": "GOAL",

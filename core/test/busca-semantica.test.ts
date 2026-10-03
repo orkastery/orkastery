@@ -11,9 +11,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DriverEmMemoria, filtrarPorTags, PedidoDeEmbedding, RespostaDeEmbedding, vetorDeDuble } from '../src/orkmind';
-import { FonteDeMemoria, indexar, universoDoTenant } from '../src/indice-vetorial';
+import { indexar, universoDaBusca } from '../src/indice-vetorial';
 import { buscarPorSignificado, cosseno, fundirRrf, OpcoesDaBusca, RRF_K } from '../src/busca-semantica';
-import { ConfigDeEmbedding, EntradaDeMemoria } from '../src/types';
+import { ConfigDeEmbedding, ConsultaPorTag, EntradaDeMemoria } from '../src/types';
 import { projetoTemporario } from './apoio';
 
 const CONFIG: ConfigDeEmbedding = { provider: 'openrouter', model: 'org/primario', dim: 16,
@@ -52,8 +52,9 @@ const MEMORIA = () => [
 function cenario(extra: Partial<OpcoesDaBusca> = {}) {
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-busca-'));
   const driver = new DriverEmMemoria(MEMORIA());
-  const fonte: FonteDeMemoria = { buscar: q => filtrarPorTags(driver.exportar(q.collection!), q) };
-  const universo = universoDoTenant(fonte, 'fabrica');
+  // A busca por tag (export governado filtrado pelo ork) segue como era: o universo vem da operacao `universo`.
+  const fonte = { buscar: (q: ConsultaPorTag) => filtrarPorTags(driver.exportar(q.collection!), q) };
+  const universo = universoDaBusca(driver, 'fabrica');
   const indexarCom = (config: ConfigDeEmbedding, alvo: 'primario' | 'fallback', env?: NodeJS.ProcessEnv) =>
     indexar({ raiz, tenant: 'fabrica', dsn: '', config, alvo, universo, dryRun: false, chavePresente: true, embeddar: conceitual, env });
   const opcoes = (o: Partial<OpcoesDaBusca> = {}): OpcoesDaBusca => ({ raiz, tenant: 'fabrica', dsn: '', config: CONFIG,
@@ -104,11 +105,15 @@ test('resultado nunca traz entrada de outro tenant, nem vinda do FTS nem do univ
   try {
     c.indexarCom(CONFIG, 'primario');
     const alheia = MEMORIA()[3];
-    const r = buscarPorSignificado(c.opcoes({ universo: [...c.universo, alheia],
-      buscarTexto: () => ['alheia', 'rot'], texto: 'rotacao conta cota' }));
+    // RM-038: id alheio vindo do FTS e descartado e declarado; entrada alheia no universo e violacao.
+    const r = buscarPorSignificado(c.opcoes({ buscarTexto: () => ['alheia', 'rot'], texto: 'rotacao conta cota' }));
     const ids = [...r.resultados.map(e => e.id), ...r.listas.fts, ...r.listas.vetor];
     assert.ok(!ids.includes('alheia'));
     assert.ok(ids.includes('rot'));
+    assert.equal(r.ftsForaDoUniverso, 1);
+    assert.match(r.detalhe, /fts: 1 id\(s\) fora do universo da busca descartado\(s\)/);
+    assert.throws(() => buscarPorSignificado(c.opcoes({ universo: { ...c.universo, entradas: [...c.universo.entradas, alheia] } })),
+      /memory\.query\.scope-violation/);
   } finally { c.limpar(); }
 });
 
@@ -230,6 +235,7 @@ const d=new (require(${JSON.stringify(DUBLE)}).DriverEmMemoria)(dados.map(e=>({.
 if (q.op==='health') console.log(JSON.stringify({contagens:cont,orkmind:'teste',fallback:{dependencias:false}}));
 else if (q.op==='export') console.log(JSON.stringify(dados.filter(e=>e.collection===q.collection)));
 else if (q.op==='fts') console.log(JSON.stringify({ids:d.buscarTexto(q.tenant,q.texto)}));
+else if (q.op==='universo') console.log(JSON.stringify(d.universo(q.tenant)));
 else if (q.op==='embed' && ${embedderConceitual}) { const temas=${JSON.stringify(TEMAS)};
   console.log(JSON.stringify({alvo:q.alvo,modelo:q.modelo,dim:q.dim,vetores:q.textos.map(t=>{const v=Array(q.dim).fill(0);
     for (const w of t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9]+/g)||[]) if (w in temas) v[temas[w]]+=1;

@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-011]
 owner: Julio
-atualizado_em: 2026-10-03T03:40:00+00:00
+atualizado_em: 2026-10-03T04:00:34+00:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,13 +17,13 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: 10ca416
+    commit: d3ae643
     pr: null
 sdlc:
   thread: ork-doctoracusap
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-039 — Cadência do pulse por tag em qualquer canal
@@ -75,7 +75,8 @@ sdlc:
 
 - Implementado na thread `ork-i50cadencia` e mesclado em 27/09/2026 (PR #33).
 - O aviso do doctor entrou na thread `ork-doctoracusap` (03/10/2026): a srvjcp86 rodava sem pulse nenhum, e nada acusava.
-- Em produção na VPS de referência desde 27/09/2026 às 08h22: a linha do cron passou de `0 * * * *` para `*/15 * * * *`, e os adaptadores do Telegram foram reinstalados. Falta a publicação no npm para as outras máquinas.
+- Em produção na VPS de referência desde 27/09/2026 às 08h22: a linha do cron passou de `0 * * * *` para `*/15 * * * *`, e os adaptadores do Telegram foram reinstalados.
+- No npm desde a versão 0.4.1 (28/09/2026), para as outras máquinas também: o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). O aviso do doctor ainda está em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -85,7 +86,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-10-03 | Julio |
+| Código | Mesclado | commit `d3ae643` | 2026-10-03 | Julio |
 | Testes | Aprovados | — | 2026-10-03 | Julio |
 | Deploy | Produção | — | 2026-10-03 | Julio |
 | Exposição | Parcial | — | 2026-10-03 | Julio |
@@ -104,3 +105,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | implementado | tags pelo Telegram e pelo terminal, cron de 15 em 15 minutos, pergunta nova fora da janela | Julio |
 | 2026-09-27 | em produção na VPS de referência | merge `8480ba1` (PR #33); cron do pulse em `*/15`, adaptadores do Telegram reinstalados; npm pendente | Julio |
 | 2026-10-03 | `ork doctor` acusa a varredura ausente ou de hora em hora | Thread `ork-doctoracusap` (#Auto); `core/test/rm039-doctor-cron.test.ts` | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | o texto deixa de dizer que falta o npm | o código `10ca416` está na `v0.4.1` (`git merge-base --is-ancestor 10ca416 v0.4.1`); thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto), revisão de Julio pendente |

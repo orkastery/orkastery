@@ -147,7 +147,7 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
 import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
@@ -220,7 +220,7 @@ import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
+import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { gravarBaseline, textoDoVerify, verificar } from './verify';
 import {
   auditarWorktree,
@@ -2046,6 +2046,8 @@ function comandoShip(args: Args): number {
       console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
+    // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
+    if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
     const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
@@ -2072,6 +2074,9 @@ function comandoShip(args: Args): number {
     console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
     return 2;
   }
+  // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
+  // e `--remoto` sem valor nao vira `origin` em silencio.
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
   const r = ship(carregado, id, {
     para,
@@ -2242,7 +2247,9 @@ function comandoCi(args: Args): number {
       console.error('uso: ork ci status --sha <commit> [--remoto origin]');
       return 2;
     }
-    const result = consultarCi(carregado, sha, texto(args.opcoes.remoto) ?? 'origin');
+    // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
+    const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
+    const result = consultarCi(carregado, sha, remoto);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
     return result.ok ? 0 : 1;
   }
@@ -3776,7 +3783,15 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    // RM-038: o universo da busca inteiro, numa leitura; sem ele, nada e embedado (nunca um pedaco).
+    let universo: UniversoDaBusca;
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
+      const motivo = codigoDaFalha(erro);
+      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
+      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      return 1;
+    }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3827,15 +3842,24 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   const memoria = abrirMemoria(carregado);
   const config = configDeEmbedding(carregado.manifesto);
   let r: ResultadoDaBuscaSemantica;
+  const vazio = { texto: frase, modo, origem: 'nenhum' as const, modeloUsado: null, deterministico: false as const,
+    resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0, coberturaDoIndice: null };
+  let universo: UniversoDaBusca | null = null;
+  let falhaDoUniverso = '';
+  if (memoria.ativo) {
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) { falhaDoUniverso = codigoDaFalha(erro); }
+  }
   if (!memoria.ativo) {
-    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
-      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+    r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
+  } else if (!universo) {
+    // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      universo, colecao: colecao as ColecaoDoOrk | undefined,
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
@@ -3856,21 +3880,6 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   console.log('');
   console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
   return 0;
-}
-
-/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
-function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
-  return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
-  ].join('\n');
 }
 
 /**

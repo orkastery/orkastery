@@ -7,6 +7,7 @@ import { DriverEmMemoria, entradaDoJson } from '../src/orkmind';
 import { abrirMemoria, gravarPolicies, sincronizarMemoria } from '../src/memoria';
 import { projetoTemporario } from './apoio';
 import { EntradaNova } from '../src/types';
+import { semOrkMind } from './ambiente-de-teste';
 
 const original: EntradaNova = { collection: 'decision', source: 'agent', priority: 'high',
   content: 'Decisao D1 de teste: preservar os contratos publicados durante a evolucao de fase.',
@@ -168,7 +169,7 @@ test('CG10: entry semeada com identidade comprovada equivale a ponte; legado e f
 });
 
 
-test('CG10/F2: seeds T5 e v2 com chaves astrais aninhadas sao reconhecidas no duplo', () => {
+test('CG10/F2: seeds T5 e v2 com chaves astrais aninhadas sao reconhecidas no duplo', { skip: semOrkMind() }, () => {
   const cli = (process.env.PATH ?? '').split(path.delimiter).map(p => path.join(p, 'orkmind')).find(p => fs.existsSync(p));
   assert.ok(cli, 'prova cruzada exige biblioteca instalada, sem banco');
   const python = /^#!(\S+)/.exec(fs.readFileSync(cli, 'utf8'))?.[1]; assert.ok(python);

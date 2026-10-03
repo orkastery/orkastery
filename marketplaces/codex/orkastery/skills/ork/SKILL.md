@@ -6,14 +6,19 @@ license: MIT
 
 # Orkastery no Codex
 
+Ao receber literalmente `orkastery maestro`, a primeira ação é a ferramenta `ork_maestro` do
+servidor MCP `orkastery`, descoberta no namespace efetivamente exposto: ela consulta o projeto
+fixado. Com a ferramenta exposta, não rode `ork maestro`, `ork doctor` nem `ork onboarding` no
+shell antes nem no lugar dela: o CLI resolve o projeto pelo diretório da sessão, e é essa a
+classe de erro que a frase evita (prova de ativação do Codex, RM-032).
+
 Consulte `ork experiencia show --json` no projeto da sessão. Quando `experience` for true,
 leia `../core/<skill>/SKILL.md`, usando o nome devolvido em `skill` pelo núcleo:
 `orchestration-experience-pt-br` ou `orchestration-experience`. Idioma, fuso e profundidade
 vêm da mesma consulta. Se false, não ative o pacote. O bloco próprio de AGENTS.md também
 aponta para esse catálogo; instalação não altera permissões nativas.
 
-Ao receber literalmente `orkastery maestro`, descubra `ork_maestro` no namespace
-efetivamente exposto e consulte o projeto fixado pelo MCP. A frase pede panorama,
+Depois de `ork_maestro`, a frase `orkastery maestro` continua pedindo só panorama,
 sem abrir trabalho. Sem projeto nomeado, ofereça também o panorama da rede
 (`ork_network_roadmap`, ou `ork network roadmap` no CLI), com fontes, frescor e lacunas.
 Siga a seleção de contexto e os limites do bootstrap comum.

@@ -1,0 +1,425 @@
+{
+  "contrato": "ork.prova-ativacao/v1",
+  "host": "codex",
+  "frase": "orkastery maestro",
+  "maquina": "srvjcp86",
+  "inicio": "2026-10-03T04:36:14.409Z",
+  "fim": "2026-10-03T04:37:02.414Z",
+  "estado": "reprovada",
+  "candidato": {
+    "head": "53554632c0401799ee90181f87706425901fcb19",
+    "sujo": false,
+    "cli": "core/dist/index.js",
+    "node": "v24.21.0"
+  },
+  "hostVersao": "codex-cli 0.159.3",
+  "modelo": null,
+  "raiz": "/tmp/ork-prova-ativacao-codex-K1RCCd",
+  "comandos": [
+    {
+      "argv": [
+        "codex",
+        "--version"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd",
+      "inicio": "2026-10-03T04:36:14.414Z",
+      "fim": "2026-10-03T04:36:14.443Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "codex-cli 0.159.3\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "codex",
+        "login",
+        "status"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd",
+      "inicio": "2026-10-03T04:36:14.460Z",
+      "fim": "2026-10-03T04:36:14.506Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": "Logged in using ChatGPT\n"
+    },
+    {
+      "argv": [
+        "git",
+        "init",
+        "-q",
+        "-b",
+        "main"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.506Z",
+      "fim": "2026-10-03T04:36:14.508Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.email",
+        "prova@orkastery.invalid"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.508Z",
+      "fim": "2026-10-03T04:36:14.510Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "config",
+        "user.name",
+        "prova de ativacao"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.510Z",
+      "fim": "2026-10-03T04:36:14.511Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "init",
+        "--name",
+        "provaativacao",
+        "--abbrev",
+        "pav"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.511Z",
+      "fim": "2026-10-03T04:36:14.667Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Manifesto criado: /tmp/ork-prova-ativacao-codex-K1RCCd/projeto/orkastery.yaml\n  projeto     provaativacao (abbrev \"pav\")\n  branch base main\n  gerenciador npm\n  verify      (nenhum script detectado)\n  AGENTS.md   criado: /tmp/ork-prova-ativacao-codex-K1RCCd/projeto/AGENTS.md\n  estado      .orkastery/ fora do git (.orkastery/.gitignore com *; o seu .gitignore fica como está)\n\nProximo passo: ork doctor; depois ork onboarding para conduzir a entrevista do projeto.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "add",
+        "-A"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.667Z",
+      "fim": "2026-10-03T04:36:14.669Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "git",
+        "commit",
+        "-q",
+        "-m",
+        "fixture da prova de ativacao"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.669Z",
+      "fim": "2026-10-03T04:36:14.672Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "adapter",
+        "install",
+        "codex"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.723Z",
+      "fim": "2026-10-03T04:36:14.863Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Experiência: ativação preparada (orchestration-experience).\nArquivos do adaptador codex preparados.\nAbra o Codex neste projeto e use $ork.\nDescoberta e uso nativo ainda nao verificados por esta copia.\nPrepare tambem as ferramentas do projeto: ork mcp install --project '/tmp/ork-prova-ativacao-codex-K1RCCd/projeto' --host codex\nA configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.\n  catalogo: ~/orkastery/.claude/worktrees/ork-provadeativa\n  destino:  /tmp/ork-prova-ativacao-codex-K1RCCd/projeto/.agents/skills/orkastery\n  ork:      /tmp/ork-prova-ativacao-codex-K1RCCd/bin/ork\n\n  arquivos: 27 (27 novo(s), 0 ja identico(s), 0 divergente(s))\n    + skills/ork/SKILL.md\n    + skills/core/onboarding/SKILL.md\n    + skills/core/orchestration-experience/SKILL.md\n    + skills/core/orchestration-experience-pt-br/SKILL.md\n    + skills/core/orkastery-bootstrap/SKILL.md\n    + skills/core/thread-state/SKILL.md\n    + skills/phases/check-quality/SKILL.md\n    + skills/phases/go-implementation/SKILL.md\n    + skills/phases/goal-definition/SKILL.md\n    + skills/phases/master-metrics/SKILL.md\n    + skills/phases/plan-specification/SKILL.md\n    + skills/phases/ship-release/SKILL.md\n    + skills/reviewers/code-reviewer/SKILL.md\n    + skills/reviewers/security-auditor/SKILL.md\n    + skills/reviewers/test-engineer/SKILL.md\n    + skills/reviewers/web-performance-auditor/SKILL.md\n    + skills/governance/decision-triage/SKILL.md\n    + skills/governance/narrative-guardian/SKILL.md\n    + skills/governance/roadmap-keeper/SKILL.md\n    + skills/governance/scope-check-capability-map/SKILL.md\n    + skills/observability/thread-tracing/SKILL.md\n    + references/README.md\n    + references/code-review-axes.md\n    + references/definition-of-done.md\n    + references/performance-checklist.md\n    + references/security-checklist.md\n    + references/testing-patterns.md\n\nOs 3 pitfalls de instalacao do codex (confira, nao suponha):\n\n  1. skills instaladas fora do projeto da sessao\n     Codex descobre .agents/skills a partir do diretorio da sessao ate a raiz do repositorio; outra worktree precisa da sua propria instalacao e comprovacao de descoberta\n     prova: No Codex aberto no projeto instalado: $ork\n\n  2. copia instalada diferente do catalogo\n     o recibo INSTALADO.json registra os arquivos e hashes dentro da pasta propria orkastery; uma edicao divergente barra a reinstalacao sem substituir arquivos de outras skills\n     prova: ork adapter install codex --dry-run\n\n  3. skill confundida com autorizacao de runtime\n     instalar instrucoes nao habilita permissoes, hooks ou sandbox; em projeto configurado, AGENTS.md recebe apenas o bloco reversível da experiência. Gates e preflight continuam no nucleo, e descoberta nao prova a jornada conversacional\n     prova: ork doctor\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ork",
+        "mcp",
+        "install",
+        "--project",
+        "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+        "--host",
+        "codex"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:14.863Z",
+      "fim": "2026-10-03T04:36:15.002Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": "Configuracao MCP preparada. /tmp/ork-prova-ativacao-codex-K1RCCd/projeto/.codex/config.toml (novo).\nAbra uma nova sessao neste projeto, conclua o consentimento nativo solicitado pelo cliente e confira a descoberta das ferramentas ork_*.\nAtivacao e uso ainda pendentes de verificacao no cliente. Respostas automaticas de elicitation nao devem estar habilitadas para decisoes do dono.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "~/.local/node24/bin/node",
+        "~/orkastery/.claude/worktrees/ork-provadeativa/core/dist/index.js",
+        "mcp",
+        "serve",
+        "--project",
+        "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+        "--host",
+        "codex",
+        "--ship-transport",
+        "github-ssh"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:15.003Z",
+      "fim": "2026-10-03T04:36:15.230Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": {
+        "ferramentas": 30
+      },
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "codex",
+        "exec",
+        "--json",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "-s",
+        "read-only",
+        "-C",
+        "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+        "-c",
+        "approval_policy=\"never\"",
+        "-c",
+        "mcp_servers.orkastery.command=\"~/.local/node24/bin/node\"",
+        "-c",
+        "mcp_servers.orkastery.args=[\"~/orkastery/.claude/worktrees/ork-provadeativa/core/dist/index.js\",\"mcp\",\"serve\",\"--project\",\"/tmp/ork-prova-ativacao-codex-K1RCCd/projeto\",\"--host\",\"codex\",\"--ship-transport\",\"github-ssh\"]",
+        "-c",
+        "mcp_servers.orkastery.env_vars=[\"CODEX_HOME\"]",
+        "-c",
+        "mcp_servers.orkastery.tools.ork_maestro.approval_mode=\"approve\"",
+        "orkastery maestro"
+      ],
+      "cwd": "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "inicio": "2026-10-03T04:36:15.231Z",
+      "fim": "2026-10-03T04:37:02.407Z",
+      "codigo": 0,
+      "sinal": null,
+      "erro": null,
+      "stdout": {
+        "bytes": 46399,
+        "sha256": "d300b6055324306d762d4ec5d85e9bdb5bb8d9e3d277773ad7f036917abc47ae"
+      },
+      "stderr": "Reading additional input from stdin...\n"
+    }
+  ],
+  "conferencias": [
+    {
+      "id": "entrada.exposta",
+      "ok": true,
+      "detalhe": "mcp__orkastery__ork_maestro exposta(s) ao modelo"
+    },
+    {
+      "id": "entrada.chamada",
+      "ok": false,
+      "detalhe": "mcp__orkastery__ork_maestro chamada, mas também desvio: command_execution \"/bin/bash -lc '/tmp/ork-prova-ativacao-codex-K1RCCd/bin/ork maestro --json'\""
+    },
+    {
+      "id": "resultado.sem-erro",
+      "ok": true,
+      "detalhe": "resultado sem erro"
+    },
+    {
+      "id": "resultado.contrato",
+      "ok": true,
+      "detalhe": "ork.maestro-snapshot/v1 validado"
+    },
+    {
+      "id": "resultado.projeto",
+      "ok": true,
+      "detalhe": "leu provaativacao (installation) em [caminho privado], impressão 72e806894151; esperado provaativacao, impressão 72e806894151"
+    },
+    {
+      "id": "resultado.nao-consultado",
+      "ok": true,
+      "detalhe": "declara o que não leu: 3 item(ns)"
+    },
+    {
+      "id": "resposta.cita-projeto",
+      "ok": true,
+      "detalhe": "a resposta nomeia o projeto lido"
+    },
+    {
+      "id": "resposta.sem-roadmap-vazio",
+      "ok": true,
+      "detalhe": "sem concluir \"roadmap vazio\" a partir do panorama"
+    },
+    {
+      "id": "estado.consulta-sem-escrita",
+      "ok": true,
+      "detalhe": "nenhuma thread, demanda ou arquivo novo em .orkastery"
+    },
+    {
+      "id": "estado-do-cli.sessao-efemera",
+      "ok": true,
+      "detalhe": "nenhuma sessão da prova em $CODEX_HOME/sessions"
+    },
+    {
+      "id": "global.intocado",
+      "ok": true,
+      "detalhe": "3 alvos globais com o mesmo sha256 antes e depois"
+    }
+  ],
+  "snapshot": {
+    "schema": "ork.maestro-snapshot/v1",
+    "projeto": {
+      "id": "pav",
+      "name": "provaativacao",
+      "origin": "installation",
+      "fingerprint": "72e806894151e37ddbb3369e399c2d0d574e6bff820c1f5579b9a0540ae238a2",
+      "root": "[caminho privado]",
+      "remote": null
+    },
+    "secoes": {
+      "portfolio": "unavailable",
+      "demands": "empty",
+      "threads": "empty",
+      "sessions": "empty",
+      "blockers": "empty",
+      "leases": "empty",
+      "retries": "empty",
+      "hitl": "empty",
+      "ship": "empty",
+      "master": "empty",
+      "nextActions": "empty"
+    },
+    "notConsulted": [
+      "roadmap (ork network roadmap)",
+      "reservas do roadmap (ork network roadmap)",
+      "outras máquinas (ork network roadmap)"
+    ]
+  },
+  "pendenciasHumanas": [
+    {
+      "passo": "confiar no projeto para o Codex ler o .codex/config.toml",
+      "bloqueiaProva": false,
+      "comando": "cd <projeto> && codex   # aceite a confiança na pasta; ela é gravada em $CODEX_HOME/config.toml",
+      "porque": "a prova não grava confiança na config global: o servidor vai à sessão por -c"
+    },
+    {
+      "passo": "aprovar a tool somente leitura na primeira chamada",
+      "bloqueiaProva": false,
+      "comando": "na sessão: orkastery maestro   # aprove ork_maestro quando o Codex pedir",
+      "porque": "a prova aprova só ork_maestro por -c, na própria sessão de prova"
+    }
+  ],
+  "global": {
+    "antes": {
+      "orkastery:projetos.json": "c8db03dce717dcddaa2fb061081493ce422d101ccfce349ada1597b2fffee630",
+      "codex:config.toml": "fb47f0808b134dca642878eb973dc326fec31a7b1721923a0dd8f71cc8d7cabd",
+      "codex:skills": "474965434cd25b1b52a980573590b21bf8f1504db3a79a374639a8ccb34c2e35"
+    },
+    "depois": {
+      "orkastery:projetos.json": "c8db03dce717dcddaa2fb061081493ce422d101ccfce349ada1597b2fffee630",
+      "codex:config.toml": "fb47f0808b134dca642878eb973dc326fec31a7b1721923a0dd8f71cc8d7cabd",
+      "codex:skills": "474965434cd25b1b52a980573590b21bf8f1504db3a79a374639a8ccb34c2e35"
+    },
+    "intocado": true
+  },
+  "limpeza": {
+    "raiz": "/tmp/ork-prova-ativacao-codex-K1RCCd",
+    "removido": false,
+    "porque": "--manter"
+  },
+  "erro": null,
+  "mcp": {
+    "via": "-c a partir de .codex/config.toml do projeto (ork mcp install --host codex)",
+    "command": "~/.local/node24/bin/node",
+    "args": [
+      "~/orkastery/.claude/worktrees/ork-provadeativa/core/dist/index.js",
+      "mcp",
+      "serve",
+      "--project",
+      "/tmp/ork-prova-ativacao-codex-K1RCCd/projeto",
+      "--host",
+      "codex",
+      "--ship-transport",
+      "github-ssh"
+    ],
+    "envVars": [
+      "CODEX_HOME"
+    ],
+    "aprovadas": [
+      "ork_maestro"
+    ]
+  },
+  "transcript": {
+    "threadId": "01a1000c-6788-78d1-af14-98bba5e6d5dc",
+    "modelo": "(padrão do Codex)",
+    "eventos": {
+      "thread.started": 1,
+      "turn.started": 1,
+      "item:agent_message": 2,
+      "item.started": 8,
+      "item:command_execution": 6,
+      "item:mcp_tool_call": 2,
+      "turn.completed": 1
+    },
+    "ferramentasExpostasOrk": 30,
+    "chamadas": [
+      {
+        "nome": "command_execution",
+        "via": "shell",
+        "entrada": {
+          "command": "/bin/bash -lc '/tmp/ork-prova-ativacao-codex-K1RCCd/bin/ork maestro --json'"
+        },
+        "erro": false
+      },
+      {
+        "nome": "mcp__orkastery__ork_maestro",
+        "via": "entrada",
+        "entrada": {},
+        "erro": false
+      }
+    ],
+    "resultado": {
+      "tipo": "turn.completed",
+      "uso": {
+        "input_tokens": 88959,
+        "cached_input_tokens": 72448,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 903,
+        "reasoning_output_tokens": 50
+      },
+      "erro": null
+    },
+    "respostaFinal": "Projeto **provaativacao (pav)** consultado pelo núcleo: nenhuma demanda, thread ou sessão local; nenhuma decisão humana pendente. Nenhum trabalho foi aberto.\n\n`ork doctor`: **PRONTO**, com avisos sobre o sandbox do Codex e nove etapas de onboarding pendentes. Próximo passo recomendado: concluir a configuração do projeto.\n\nPanorama da rede lido de srvjcp86 (03/10, 04:36)\nConsultado: provaativacao (clone em /tmp/ork-prova-ativacao-codex-K1RCCd/projeto)\nNão consultado:\n\n• rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto\n• outros projetos desta máquina: este servidor MCP lê só o projeto fixado na instalação; os outros vêm do CLI `ork network roadmap`\n\n────────\n\nRoadmap do provaativacao: não lido (roadmap.sem-leitura, reservas.sem-leitura, fabrica.sem-leitura).\n\nThreads por máquina\n\n• srvjcp86 (esta máquina): 0 ativa(s), estado local lido agora\n\nReservas\n\n• não lidas: veja as lacunas\n\nFontes\n\n• esta máquina: estado local em /tmp/ork-prova-ativacao-codex-K1RCCd/projeto/.orkastery, lido agora\n\nLacunas\n\n• roadmap.sem-leitura (origin/main): sem leitura de origin/main: a leitura de origin falhou; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• reservas.sem-leitura (origin/ork/roadmap-reservas): sem leitura de origin/ork/roadmap-reservas: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n• fabrica.sem-leitura (origin/ork/fabrica-estado): sem leitura de origin/ork/fabrica-estado: a leitura de origin falhou antes, e não houve nova tentativa; esta máquina não tem cópia dela. O que fazer: confira a rede e o acesso a origin (git fetch).\n\nHorários em UTC."
+  }
+}
