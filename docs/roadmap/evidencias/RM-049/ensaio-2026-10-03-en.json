@@ -1028,7 +1028,7 @@
     {
       "id": "EN2",
       "tipo": "documentação",
-      "estado": "em-pr",
+      "estado": "corrigido",
       "o_que": "o README EN parava em 'ork docs init': não dizia que o init pede a raiz de um repositório git com commit nem mostrava a primeira thread (phase run, verify, ship com --autorizar-push, master); o leitor só acha o próximo passo no 'Proximo passo' em português do CLI",
       "comandos": [
         6,
@@ -1041,20 +1041,22 @@
         34,
         36
       ],
+      "pr": 107,
       "commit": "5ece81a"
     },
     {
       "id": "EN3",
       "tipo": "documentação",
-      "estado": "em-pr",
+      "estado": "corrigido",
       "o_que": "o README EN leva 'Getting started → Quickstart' a docs/comecar/quickstart.md, em português, sem avisar; o quickstart EN existe em orkastery.com/en/docs/comecar/ e o README não o citava",
       "comandos": [],
+      "pr": 107,
       "commit": "5ece81a"
     },
     {
       "id": "EN4",
       "tipo": "documentação",
-      "estado": "em-pr",
+      "estado": "corrigido",
       "o_que": "termos sem tradução nem explicação para quem só lê inglês: HITL, ledger, lease, pulse, maestro no README; e as palavras do CLI (PRONTO, BLOQUEADO, correcao, Proximo passo, VERDADE SUSTENTADA, AGUARDANDO AUTORIZACAO HUMANA, Precisa de humano agora, aceitas por omissao) e as flags (--para, --por, --autorizar-push, --conteudo, --verificar). Agora há um glossário 'Reading the CLI in English' no README",
       "comandos": [
         6,
@@ -1064,6 +1066,7 @@
         33,
         36
       ],
+      "pr": 107,
       "commit": "5ece81a"
     },
     {
@@ -1129,7 +1132,7 @@
     {
       "id": "EN10",
       "tipo": "documentação",
-      "estado": "em-pr",
+      "estado": "corrigido",
       "o_que": "o CONTRIBUTING.md tem um parágrafo em inglês e o resto, com os nove guias, em português; o leitor só de inglês não tinha os comandos do caminho curto (clone, ci, build, test:ci), a prova do PR, os checks obrigatórios nem a regra do CHANGELOG. Agora há a seção 'In English: the short path'",
       "comandos": [
         47,
@@ -1140,6 +1143,7 @@
         52,
         53
       ],
+      "pr": 107,
       "commit": "1b212e3"
     }
   ],
