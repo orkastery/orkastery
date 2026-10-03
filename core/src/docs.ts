@@ -599,18 +599,66 @@ function verificarEstadoDoRoadmap(raiz: string, d: Documento, base: string | nul
  * mesmo `ship(<thread>)` do `sincronizarDocs`: tudo o que ela acusa o `sincronizar` corrige.
  */
 function verificarMergeDaThread(raiz: string, d: Documento, base: string, achados: Achado[], pr = false): void {
-  const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
-  const thread = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread.trim() : '';
-  if (!thread) return;
-  const merges = mergesDaThreadNoGit(raiz, thread, base);
-  if (merges.length === 0) return;
-  const codigo = String((ehMapa(d.dados.estado) ? d.dados.estado.codigo : null) ?? '');
-  if (codigo === 'Mesclado') return;
+  const pendente = pendenciaDeMerge(raiz, d, base);
+  if (!pendente) return;
+  const { thread, merges, codigo } = pendente;
   achados.push((pr ? aviso : erro)(d.arquivo, d.id, 'docs.paridade.merge',
     `a thread ${thread} entrou na ${base} pelo merge ${merges[0].slice(0, 7)} (ship(${thread})), e o estado.codigo diz "${codigo || 'vazio'}"` +
       (pr ? ' (no PR, aviso: o push da main reprova)' : ''),
     `abra um PR de docs sobre a ${base} atualizada com ork docs sincronizar --escrever --so ${d.id} (o item e os índices); ` +
       `se o item tem outra fatia em curso, aponte sdlc.thread para a thread dela`));
+}
+
+/**
+ * A regra do `docs.paridade.merge`, isolada para o `ork ship registrar-pr` (RM-044, A3): a pagina cujo
+ * `sdlc.thread` ja tem merge `ship(<thread>)` na base e cujo `estado.codigo` ainda nao diz `Mesclado`.
+ * `thread`, quando dada, restringe a pagina a essa thread.
+ */
+function pendenciaDeMerge(raiz: string, d: Documento, base: string, thread?: string):
+  { thread: string; merges: string[]; codigo: string } | null {
+  const sdlc = ehMapa(d.dados.sdlc) ? d.dados.sdlc : null;
+  const daPagina = sdlc && typeof sdlc.thread === 'string' ? sdlc.thread.trim() : '';
+  if (!daPagina || (thread !== undefined && daPagina !== thread)) return null;
+  const codigo = String((ehMapa(d.dados.estado) ? d.dados.estado.codigo : null) ?? '');
+  if (codigo === 'Mesclado') return null;
+  const merges = mergesDaThreadNoGit(raiz, daPagina, base);
+  if (merges.length === 0) return null;
+  return { thread: daPagina, merges, codigo };
+}
+
+/** Uma pagina do roadmap que o push da base vai reprovar em `docs.paridade.merge`. */
+export interface DocPendente {
+  id: string;
+  arquivo: string;
+  /** O `estado.codigo` da pagina na base (vazio quando falta). */
+  codigo: string;
+  /** O primeiro merge `ship(<thread>)` na base. */
+  merge: string;
+  /** O comando que corrige, o mesmo que a correcao do `docs verificar` ensina. */
+  comando: string;
+}
+
+/**
+ * RM-044 (A3): as paginas do roadmap, lidas da `ref` (a base remota depois do fetch, nao a copia local,
+ * que pode estar atras), que a regra `docs.paridade.merge` vai acusar por causa da `thread`. Nao grava
+ * nada: so lista. Ref ilegivel ou sem `docs/roadmap` devolve lista vazia.
+ */
+export function docsPendentesDoMerge(raiz: string, thread: string, ref: string): DocPendente[] {
+  const ls = git(raiz, ['ls-tree', '--name-only', `${ref}:${DIR_ROADMAP}`]);
+  if (!ls.ok || !ls.saida) return [];
+  const pendentes: DocPendente[] = [];
+  for (const nome of ls.saida.split('\n').filter(ehPaginaDeDocs).sort()) {
+    const arquivo = `${DIR_ROADMAP}/${nome}`;
+    const blob = git(raiz, ['show', `${ref}:${arquivo}`]);
+    if (!blob.ok) continue;
+    const lido = documentoDeTexto(arquivo, `${blob.saida}\n`);
+    if (!('doc' in lido) || lido.doc.tipo !== 'roadmap') continue;
+    const p = pendenciaDeMerge(raiz, lido.doc, ref, thread);
+    if (!p) continue;
+    pendentes.push({ id: lido.doc.id, arquivo, codigo: p.codigo, merge: p.merges[0],
+      comando: `ork docs sincronizar --escrever --so ${lido.doc.id}` });
+  }
+  return pendentes;
 }
 
 /** Os indices gerados (`docs/roadmap/README.md`, `docs/produto/README.md`) e o que o frontmatter diz. */
