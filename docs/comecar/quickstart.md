@@ -396,7 +396,8 @@ ledger. A nota humana, quando vier, sobrescreve:
 
 ```bash
 ork master                    # as entregas, com o indice derivado do ledger
-ork master --aceitar-omissao  # aceita as entregues, com indice e insumos no ledger
+ork master <thread> --aceitar-omissao  # aceita so esta entrega, com indice e insumos no ledger
+ork master --aceitar-omissao --dry-run  # sem a thread, lista todas as que fecharia, sem gravar
 ```
 
 ---

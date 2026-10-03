@@ -18,7 +18,7 @@ faz, o nucleo vence, e a divergencia e defeito da skill.
 | phases | [go-implementation](phases/go-implementation/SKILL.md) | `ork worktree ensure`, `ork verify --baseline` |
 | phases | [check-quality](phases/check-quality/SKILL.md) | `ork verify`, `ork gate request` |
 | phases | [ship-release](phases/ship-release/SKILL.md) | `ork ship` |
-| phases | [master-metrics](phases/master-metrics/SKILL.md) | `ork master`, `ork master --aceitar-omissao` |
+| phases | [master-metrics](phases/master-metrics/SKILL.md) | `ork master`, `ork master <thread> --aceitar-omissao` |
 | reviewers | [code-reviewer](reviewers/code-reviewer/SKILL.md) | `references/code-review-axes.md` |
 | reviewers | [security-auditor](reviewers/security-auditor/SKILL.md) | `references/security-checklist.md` |
 | reviewers | [test-engineer](reviewers/test-engineer/SKILL.md) | `references/testing-patterns.md` |

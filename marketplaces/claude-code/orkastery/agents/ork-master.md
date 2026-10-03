@@ -22,6 +22,8 @@ ork phase list <thread>        # o que ja aconteceu, com evidencia
 - Classe de falha vem do catalogo fixo (`ork master classes`).
 - Justificativa vazia e recusada pelo comando, e a recusa nao grava nada.
 - Entrega sem MASTER log nao aconteceu.
+- Aceite por omissao so da sua thread: `ork master <thread> --aceitar-omissao`. Sem a thread, o
+  comando fecha tambem as entregas de outras frentes paralelas.
 
 ## Regras que valem em toda fase
 
