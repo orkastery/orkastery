@@ -4,9 +4,11 @@
  * Grupos: "grafo no pacote: dependencias" (os pacotes que os analisadores carregam sao dependencias
  * de runtime com versao exata, e os docs dizem quantas dependencias o pacote tem), "lockfile" (o
  * fecho dos analisadores nao fica marcado dev, e nenhum pacote de producao roda script de instalacao),
- * "doctor" (o check analisadores do grafo) e "status" (a correcao no `ork grafo status`). A instalacao
- * sem os analisadores e uma copia do `dist` com o `node_modules` do checkout ligado pacote a pacote,
- * menos os analisadores: o mesmo que a 0.5.1 do npm tinha.
+ * "doctor" (o check analisadores do grafo), "status" (a correcao no `ork grafo status`) e "script" (as
+ * partes puras da prova de instalacao limpa, que roda no CI com o registro do npm; aqui, sem rede, os
+ * conferidores leem a saida real do `ork grafo` e do doctor). A instalacao sem os analisadores e uma
+ * copia do `dist` com o `node_modules` do checkout ligado pacote a pacote, menos os analisadores: o
+ * mesmo que a 0.5.1 do npm tinha.
  */
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
@@ -19,7 +21,10 @@ import { correcaoDosAnalisadores, descreverVersoes, executarGrafo } from '../src
 import { PACOTES_DOS_ANALISADORES, pacotesDosAnalisadores, versoesDosAnalisadores } from '../src/intelligence-graph-parsers';
 import { noPath } from '../src/util';
 import { VERSAO_DO_ORK } from '../src/versao';
+import { init } from '../src/init';
 import { dirTemporario, projetoTemporario } from './apoio';
+
+const prova = require('../../scripts/provar-grafo-instalado.cjs');
 
 const CORE = path.resolve(__dirname, '../..');
 const RAIZ = path.resolve(CORE, '..');
@@ -206,5 +211,97 @@ test('grafo no pacote: status: sem os analisadores na instalacao, o status diz a
     assert.ok(texto.stdout.includes(`\n  analisadores    ${RECUSA_DO_TS}\n  correcao        ${status.correcao}\n`), texto.stdout);
   } finally {
     p.limpar();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// script
+
+test('grafo no pacote: script: o ambiente da prova nao leva nada de quem chama, e o PATH poe o ork instalado e o Node de quem roda na frente', () => {
+  const antes = { ...process.env };
+  process.env.ORK_VAZAMENTO_DE_TESTE = 'vazou';
+  process.env.ORKASTERY_VAZAMENTO_DE_TESTE = 'vazou';
+  try {
+    const env = prova.ambienteLimpo('/tmp/base', '/opt/node/bin/node') as Record<string, string>;
+    assert.deepEqual(Object.keys(env).sort(), ['HOME', 'LANG', 'PATH', 'TZ', 'npm_config_audit', 'npm_config_cache', 'npm_config_fund',
+      'npm_config_prefix', 'npm_config_update_notifier']);
+    assert.deepEqual([env.HOME, env.npm_config_prefix, env.npm_config_cache], ['/tmp/base/home', '/tmp/base/npm', '/tmp/base/npm-cache']);
+    assert.deepEqual(env.PATH.split(path.delimiter).slice(0, 2), ['/tmp/base/npm/bin', '/opt/node/bin']);
+    assert.ok(!Object.values(env).includes('vazou'));
+    assert.ok(!env.PATH.split(path.delimiter).includes(path.join(antes.HOME ?? '/sem-home', '.local', 'bin')), 'nada do HOME de quem roda');
+  } finally {
+    delete process.env.ORK_VAZAMENTO_DE_TESTE;
+    delete process.env.ORKASTERY_VAZAMENTO_DE_TESTE;
+  }
+});
+
+test('grafo no pacote: script: o pack nao usa rede, e a instalacao e global, do tarball, pelo registro', () => {
+  const c = prova.comandos('/c/core', '/tmp/base', '/tmp/base/pacote.tgz');
+  assert.deepEqual(c.pack, { bin: 'npm', args: ['pack', '--offline', '--pack-destination', '/tmp/base'], cwd: '/c/core' });
+  assert.deepEqual(c.instalar, { bin: 'npm', args: ['install', '-g', '--no-audit', '--no-fund', '/tmp/base/pacote.tgz'], cwd: '/tmp/base' });
+  assert.deepEqual([c.ork, c.instalacao], ['/tmp/base/npm/bin/ork', '/tmp/base/npm/lib/node_modules/@orkastery/cli']);
+});
+
+test('grafo no pacote: script: as versoes esperadas saem das dependencias do pacote e batem com os analisadores do checkout', () => {
+  const v = versoesDosAnalisadores();
+  assert.deepEqual(prova.esperadoDoPacote(pacote()), { typescript: v.typescript, javascript: v.javascript, markdown: v.markdown });
+  assert.throws(() => prova.esperadoDoPacote({ dependencies: { ...pacote().dependencies, typescript: '^5.9.3' } }),
+    /^Error: prova\.pacote: typescript sem versao exata em dependencies \(\^5\.9\.3\)$/);
+  assert.throws(() => prova.esperadoDoPacote({}), /^Error: prova\.pacote: typescript sem versao exata em dependencies \(ausente\)$/);
+});
+
+test('grafo no pacote: script: os conferidores aceitam a saida real do ork grafo no repositorio de ensaio e recusam a ruim dizendo o passo', () => {
+  const dir = dirTemporario('rm031-script-repo');
+  try {
+    prova.criarRepositorio(dir, { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: dir, LANG: 'C.UTF-8' });
+    init(dir, { nome: 'ensaio', abbrev: 'ens' });
+    const esperado = prova.esperadoDoPacote(pacote());
+    const antes = JSON.parse(grafo(dir, 'status', '--json'));
+    prova.conferirStatus(antes, esperado, 'ausente');
+    const indice = JSON.parse(grafo(dir, 'indexar', '--json'));
+    prova.conferirIndice(indice);
+    prova.conferirChamadores(JSON.parse(grafo(dir, 'chamadores', 'src/soma.ts#soma', '--json')));
+    prova.conferirStatus(JSON.parse(grafo(dir, 'status', '--json')), esperado, 'presente');
+
+    assert.throws(() => prova.conferirStatus(antes, esperado, 'presente'), /^Error: prova\.status: indice do HEAD ausente, presente esperado$/);
+    assert.throws(() => prova.conferirStatus({ ...antes, erro: RECUSA_DO_TS, correcao: 'x' }, esperado, 'ausente'),
+      /^Error: prova\.status: analisadores indisponiveis: grafo\.parser\.indisponivel: typescript$/);
+    assert.throws(() => prova.conferirStatus({ ...antes, analisadores: { ...antes.analisadores, typescript: '0.0.1' } }, esperado, 'ausente'),
+      new RegExp(`^Error: prova\\.status: typescript 0\\.0\\.1 na instalacao, ${esperado.typescript.replace(/\./g, '\\.')} no pacote$`));
+    assert.throws(() => prova.conferirStatus({ ...antes, correcao: 'reinstale' }, esperado, 'ausente'), /^Error: prova\.status: correcao sem erro/);
+    assert.throws(() => prova.conferirIndice({ ...indice, estado: 'existente' }), /^Error: prova\.indexar: estado existente, criado esperado$/);
+    const semChamada = { ...indice, manifesto: { ...indice.manifesto, contagens: { ...indice.manifesto.contagens, arestas: { ...indice.manifesto.contagens.arestas, calls: 0 } } } };
+    assert.throws(() => prova.conferirIndice(semChamada), /^Error: prova\.indexar: nenhuma aresta calls no indice$/);
+    assert.throws(() => prova.conferirChamadores({ arestas: [] }),
+      /^Error: prova\.chamadores: a aresta calls de symbol src\/dobro\.ts#dobro para symbol src\/soma\.ts#soma pelo ork\.ts-ast nao veio \(0 aresta\(s\)\)$/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('grafo no pacote: script: a linha do doctor sai do relatorio de verdade, com a correcao quando ha', () => {
+  const ok = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo()]));
+  assert.deepEqual([ok.nivel, ok.correcao], ['ok', null]);
+  const semTs = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo(falha(RECUSA_DO_TS))]));
+  assert.equal(semTs.nivel, 'warn');
+  assert.equal(semTs.correcao, correcaoDosAnalisadores(RECUSA_DO_TS));
+  prova.conferirDoctorSemCompilador(semTs, VERSAO_DO_ORK);
+  assert.throws(() => prova.conferirDoctorSemCompilador(ok, VERSAO_DO_ORK), /^Error: prova\.doctor sem typescript: nivel ok, warn esperado/);
+  assert.throws(() => prova.conferirDoctorSemCompilador(semTs, '9.9.9'), /^Error: prova\.doctor sem typescript: sem a correcao npm install -g @orkastery\/cli@9\.9\.9/);
+  assert.throws(() => prova.linhaDoDoctor('ork doctor: o que vale nesta maquina agora\n'), /^Error: prova\.doctor: o relatorio nao traz o check analisadores do grafo$/);
+});
+
+test('grafo no pacote: script: a medida soma bytes e blocos dos arquivos sem seguir link simbolico', () => {
+  const dir = dirTemporario('rm031-script-medida');
+  try {
+    fs.mkdirSync(path.join(dir, 'a', 'b'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'a', 'um.txt'), 'x'.repeat(10));
+    fs.writeFileSync(path.join(dir, 'a', 'b', 'dois.txt'), 'y'.repeat(5));
+    fs.symlinkSync(CORE, path.join(dir, 'a', 'link'));
+    const m = prova.medirInstalacao(dir);
+    assert.deepEqual([m.bytes, m.arquivos], [15, 2]);
+    assert.ok(m.disco >= 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
