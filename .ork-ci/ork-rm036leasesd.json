@@ -156,7 +156,7 @@
         "node -e \"const s=require('fs').readFileSync('CHANGELOG.md','utf8');const np=s.split('## Não publicado')[1].split(/\\n## /)[0];const c=np.split('### Corrigido')[1]||'';if(!c.includes('Leases de todas as famílias no estado canônico'))process.exit(1);if(!c.includes('docs/roadmap/RM-036-maestro-multicanal.md')||!c.includes('docs/produto/FEAT-007-worktree-e-leases.md'))process.exit(2);if(!c.includes('lease.busy')||!c.includes('legado'))process.exit(3)\""
       ],
       "criadoEm": "2026-10-03T03:58:43.063Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -185,7 +185,7 @@
         "! grep -qE '/(home|Users|root)/' .ork-ci/ork-rm036leasesd.json"
       ],
       "criadoEm": "2026-10-03T04:06:45.229Z",
-      "estado": "verificado",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -200,7 +200,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T05:06:26.512Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -214,7 +214,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T05:06:55.107Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -229,7 +229,7 @@
         "node --test --test-name-pattern='rm036 leases: (fila legada|legado de thread fechada)' core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T05:10:41.208Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -243,7 +243,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T05:12:15.677Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -257,7 +257,7 @@
         "node --test --test-name-pattern='leasesDaThread e planejar' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T05:16:18.231Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -271,7 +271,7 @@
         "node --test --test-name-pattern='orkEmParalelo' core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T05:16:18.310Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -285,7 +285,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:18:49.375Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -299,7 +299,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:18:49.419Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -313,7 +313,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:18:49.459Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -327,7 +327,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:18:49.507Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -341,7 +341,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:20:51.151Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -355,7 +355,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T05:20:51.201Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -369,7 +369,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm036 gofix: B2\" core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:18:27.312Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -383,7 +383,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T06:18:27.585Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -397,7 +397,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:33:14.504Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -411,7 +411,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T06:33:14.748Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -425,7 +425,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T06:33:14.995Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -439,7 +439,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:33:15.232Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -455,7 +455,7 @@
         "node --test core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T06:40:38.104Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -471,7 +471,7 @@
         "node --test --test-name-pattern='rm036 gofix: R3 retomada' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:41:02.455Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -487,7 +487,7 @@
         "node --test --test-name-pattern='rm036 gofix: R3 retomada' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:41:02.528Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -502,7 +502,7 @@
         "node --test --test-name-pattern='rm036 gofix: R3 retomada' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:41:21.541Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -517,7 +517,7 @@
         "node --test --test-name-pattern='rm036 gofix: R3' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:46:33.816Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -532,7 +532,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T06:49:23.070Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -547,7 +547,7 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T06:49:23.106Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -563,7 +563,7 @@
         "node --test core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T06:50:58.494Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -579,6 +579,140 @@
         "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
       ],
       "criadoEm": "2026-10-03T06:54:19.833Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "RM-036 rodada 4: nlink 0 na retomada é ocupado, não indisponível; sem flock (por exemplo, macOS) a retomada usa caminho portátil protegido por inode; a política do motivo escala ao humano; a tabela de motivos traz lease.resume-unavailable",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:13:35.278Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "RM-036 rodada 4: nlink 0 na retomada é ocupado, não indisponível; sem flock (por exemplo, macOS) a retomada usa caminho portátil protegido por inode; a política do motivo escala ao humano; a tabela de motivos traz lease.resume-unavailable",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:13:35.517Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX R4-1: descritor com nlink zero retorna lease.busy, preserva vencedor e fila; teste A4 confere motivo, ocupadoPor e ausencia de falhaRetomada.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='rm036 gofix: A4 nlink zero' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:17:02.295Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX R4-2: retomada automatica portatil sem flock, fila exclusiva de candidatos por ticket compartilhada com flock, releitura e dev/ino sob exclusao, criacao wx; candidatos mortos sao descartados conservadoramente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:24:05.220Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "GO-FIX R4-2: concorrencia em processos distintos cobre lease vencido/corrompido, fd antigo, disputa durante remocao e apos conclusao, com flock, sem flock e transporte misto.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='rm036 leases: A4 dois processos' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:24:05.261Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX R4-4: marca legada inclui dev, inode e ctimeMs; revalidacao antes do descarte tambem confere ctime para nao ocultar geracao nova do mesmo inode.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='rm036 gofix: (R3 release|R4 marca antiga|R4 descarte)' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:27:41.219Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "GO-FIX R4: receitas atualizadas e novas contraprovas para nlink zero, retomada portatil, exclusao mista, candidatos mortos/vivos, wx, escalada humana, ctime e documentacao. Validacao estatica nao executa nem comprova morte dos mutantes.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/rm036-leases-mutantes.cjs --validar",
+        "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
+      ],
+      "criadoEm": "2026-10-03T07:30:56.717Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-gofix.test.ts",
+      "alegacao": "GO-FIX R4: cenarios deterministas verificam motivo de nlink zero, fallback de flock, contencao portatil/mista, wx concorrente, candidato morto versus vivo/EPERM, ctime reutilizado ou alterado e politica escalar-humano.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:30:56.765Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-docs.test.ts",
+      "alegacao": "GO-FIX R4: contratos publicos descrevem retomada Linux/macOS com tickets, ctime na marca, nlink zero ocupado, escalada humana e limite conservador de PID reutilizado; guia inclui motivo tipado.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:30:56.826Z",
       "estado": "pendente",
       "lint": []
     }
