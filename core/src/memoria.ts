@@ -110,7 +110,7 @@ export interface Memoria {
    * RM-038: o universo da busca do tenant pela operacao `universo` da ponte. Use por
    * `universoDaBusca` (indice-vetorial.ts), que confere a fronteira e conta por colecao.
    */
-  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number };
 }
 
 export interface OpcoesDeMemoria {
@@ -267,7 +267,7 @@ export function abrirMemoria(
       if (!ativo || !driver) return null;
       return driver.exportar(colecao).find((e) => e.id === id) ?? null;
     },
-    universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null } {
+    universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } {
       // A fronteira do manifesto vale antes de qualquer leitura: tenant e so o configurado.
       if (tenant !== estado.tenant) throw new Error('memory.tenant.mismatch');
       if (leituraRestrita) throw new Error('memory.query.invalid');
@@ -361,11 +361,12 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
   if (opcoes.universo) {
     // RM-038: o universo vem de universoDaBusca; a fronteira vale de novo antes de contar.
     if (opcoes.universo.tenant !== tenant) throw new Error('memory.query.scope-violation');
-    conferirUniverso(opcoes.universo.entradas, tenant);
+    conferirUniverso(opcoes.universo.entradas, tenant, opcoes.universo.lidoEm);
     const universo = opcoes.universo.entradas;
     estado.indices = indicesDoTenant(raiz, tenant, base, universo);
     estado.entradas = universo.length;
-    estado.universo = { porColecao: { ...opcoes.universo.porColecao }, foraDaBusca: opcoes.universo.foraDaBusca };
+    estado.universo = { porColecao: { ...opcoes.universo.porColecao }, foraDaBusca: opcoes.universo.foraDaBusca,
+      ...(opcoes.universo.latenciaMs === undefined ? {} : { latenciaMs: opcoes.universo.latenciaMs }) };
     const referencia = estado.ativo === 'fallback' ? { modelo: fallback.modelo, dim: fallback.dim } : { modelo: config.model, dim: config.dim };
     const indice = estado.indices.find(i => i.modelo === referencia.modelo && i.dim === referencia.dim);
     const coerentes = indice?.coerentes ?? 0;
