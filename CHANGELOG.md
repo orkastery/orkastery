@@ -18,6 +18,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Segurança
+
+- **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
+    (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um
+    repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
+    e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
+  - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e
+    `ork roadmap reservas`, `pegar`, `soltar` e `feat` com `roadmap.remoto-invalido`, com o valor redigido e nada passado
+    ao git; o `fetch`, o `push` e o `remote get-url` recebem `--` antes do remoto.
+
 ## [0.5.2] - 2026-10-03
 
 ### Adicionado
