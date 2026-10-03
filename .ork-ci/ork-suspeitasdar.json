@@ -1,0 +1,169 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-suspeitasdar",
+  "branch": "ork/ork-suspeitasdar-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "a marca da rede troca por rename: leitor concorrente e SIGKILL no meio da escrita nunca a deixam ilegivel",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-rede-marca.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:26.383Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede.ts",
+      "alegacao": "sair durante uma publicacao em curso nao deixa a marca regravada depois da saida",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test --test-name-pattern='sair durante uma publicacao' core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:26.550Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "buscas simultaneas no mesmo cache, com a casa avancando, todas atualizam",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-rede-cache.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:26.715Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/rede-forja.ts",
+      "alegacao": "falha da forja no gh api user (500, sem rede) vira rede.sem-leitura, nao forja.sem-login",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test --test-name-pattern='falha da forja no gh api user' core/dist-test/test/rede.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:26.877Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "o MCP fixado nao le a fabrica de outro projeto (batida e git fetch)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-rede-fixado.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.045Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "no panorama, o retrato de outra instalacao com o meu nome nao e esta maquina",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-rede-panorama.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.208Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "remoto com barra vale como no git; a barra nao abre caminho, opcao nem transporte",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-remoto-barra.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.372Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "com a policy, ork_claim_add pelo MCP nao roda o comando da claim; worktree apagada nao culpa a claim",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-claim-prova-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.541Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/company-brain-context.ts",
+      "alegacao": "os dois caminhos do contexto do Brain dao o mesmo pacote com pais divergentes e sem authority",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test --test-name-pattern='suspeitas 03/10' core/dist-test/test/rm025-b42-contexto-no-servidor.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.704Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/prova-ativacao.ts",
+      "alegacao": "toda forma de rodar o ork maestro pelo shell e desvio na prova de ativacao",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-prova-desvio.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:27.864Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-suspeitasdar",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse-delivery.ts",
+      "alegacao": "a falha da batida da rede no cron do pulse fica no rede.log como falhou",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run -s build && npm --prefix core run -s build:test && node --test core/dist-test/test/suspeitas-0310-pulse-rede-falha.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:28.019Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
