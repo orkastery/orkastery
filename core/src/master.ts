@@ -364,7 +364,7 @@ export function autoriaHumana(por: unknown): por is string {
     !/(?:^|[^a-z0-9])(codex|claude|gpt(?:[0-9-]*)?|openai|agente?|agent|runtime|auto|ia|llm|bot|pendente|pending|batch)(?:$|[^a-z0-9])/i.test(semAcento(por));
 }
 export function exigirAutoriaHumana(por: unknown): asserts por is string {
-  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito; agente ou autoria pendente não pode pontuar');
+  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
 }
 
 export function masterRatificado(raiz: string, id: string): boolean {

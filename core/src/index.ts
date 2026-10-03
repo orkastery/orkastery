@@ -514,8 +514,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   master batch --aceitar <thread:assinatura,...> --por <humano>
   master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>"
-        [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
+  master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>
+        [--classe C[,C]] [--resumo R] [--refazer]
                                             Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
                                             de processo de host e recusado com master.prova-de-canal)
   master pedir <thread-id> [--formato telegram|terminal|json]
@@ -2693,7 +2693,7 @@ function comandoMaster(args: Args): number {
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>"');
+    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
     console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
     return 2;
   }
