@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T09:25:14.352Z",
+  "publicadoEm": "2026-10-03T09:25:17.380Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -50,23 +50,6 @@
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm037testesi",
-      "nome": "RM-037: testes instáveis do CI de 03/10",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm037testesi-full",
-      "atualizadaEm": "2026-10-03T09:25:14.201Z",
-      "entregue": "fba6b67",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
