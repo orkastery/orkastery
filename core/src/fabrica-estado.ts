@@ -17,7 +17,7 @@
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
+import { buscarBranch, exigirRemoto, git, gravarNaBranch, jsonsDaPonta, pontaLocal } from './branch-de-estado';
 import { adquirirLockMonitor } from './monitor-lock';
 import { threadsDeTodosOsPerfis } from './board';
 import { raizDoEstado } from './estado-thread';
@@ -240,7 +240,8 @@ function gravarMarca(raiz: string, marca: MarcaDePublicacao): void {
 export function publicarMaquina(carregado: ManifestoCarregado,
   opcoes: { remoto?: string; forcar?: boolean; agora?: string; maquina?: string; por?: string } = {}): ResultadoDaPublicacao {
   const raiz = carregado.raiz;
-  const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
+  // RM-047: antes do retrato e da marca, para o remoto invalido recusar mesmo sem mudanca a enviar.
+  const remoto = exigirRemoto(opcoes.remoto ?? carregado.manifesto.fabrica.remoto, PREFIXO);
   const estado = retratoDaMaquina(carregado, { ...opcoes, remoto });
   const assinatura = assinaturaDoRetrato(estado);
   const marca = lerMarca(raiz);
@@ -276,7 +277,7 @@ export function publicarMaquina(carregado: ManifestoCarregado,
 /** `ork fabrica sair`: tira o retrato desta maquina da branch. `null` quando nao havia retrato. */
 export function removerMaquina(carregado: ManifestoCarregado, opcoes: { remoto?: string; maquina?: string } = {}): string | null {
   const raiz = carregado.raiz;
-  const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
+  const remoto = exigirRemoto(opcoes.remoto ?? carregado.manifesto.fabrica.remoto, PREFIXO);
   const maquina = quemSouEu(raiz, { maquina: opcoes.maquina }).maquina;
   for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
     const { ponta, atualizado } = buscarBranch(raiz, remoto, BRANCH_DA_FABRICA, PREFIXO, 30000);

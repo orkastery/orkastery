@@ -222,7 +222,9 @@ export function varrerPulse(opcoes: {
       const guardadas=anterior?fila.candidatos.filter(c=>anterior.candidatos.some(a=>a.thread===c.thread)).length:0;
       const resumo=resumirHitl(itens,{quando,janelaMin,prontas:fila.candidatos.length,acumuladas:guardadas,
         consertos:fila.consertos,atoDoItem:i=>fila.atos.get(`${i.thread}|${i.fase}`),
-        decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras,paradosNoCondutor:parados});
+        decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras,paradosNoCondutor:parados,
+        // RM-057 (fatia 3): a linha so acompanha o resumo que ja sai; nao e novidade nem fura a cadencia.
+        ...(pulse.hitlDeConducao?{hitlDeConducao:pulse.hitlDeConducao}:{})});
       // Pedir licenca para mandar zero perguntas era o defeito: sem pergunta, nao ha codigo.
       // I-50: cadencia curta nao encurta o prazo do dono para responder ao resumo (minimo de 60 min).
       const consentimento=fila.candidatos.length?comLockDaConversa(dir,()=>abrirConsentimento(raiz,{quando,

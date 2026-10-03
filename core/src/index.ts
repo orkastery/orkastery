@@ -210,6 +210,7 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cana
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
@@ -2372,7 +2373,10 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
+  // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
+  if (sub !== 'publicar') exigirRemoto(remoto, 'fabrica');
   if (sub === 'publicar') {
     const silencioso = args.opcoes.silencioso === true;
     try {
