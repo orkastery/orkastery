@@ -19,25 +19,12 @@ import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { pastaDoUsuario } from './maquina';
 import { comGitIsolado } from './rede-forja';
+import { emUmaLinha, INVISIVEL } from './saida-segura';
 
 export const CONTRATO_DO_REGISTRO = 'ork.projetos/v1';
 
-/**
- * V2 da revisao 4, W11 da revisao 5 e X3 da revisao 6: caractere que o terminal executa ou que
- * ninguem ve, pelas classes do Unicode: controles (`Cc`: ESC, BEL, CSI, quebra de linha), formato
- * (`Cf`: bidi, largura zero, tags), separadores de linha e todo `Default_Ignorable_Code_Point`
- * (preenchimentos Hangul, seletores de variacao, os de musica e de estenografia), mais o braile
- * vazio. Ficam de fora o ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns.
- */
-export const INVISIVEL = /(?![\u200d\ufe0e\ufe0f])[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}\u2800]/u;
-const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
-
-/**
- * W4 da revisao 5: o valor numa linha so, sem nada invisivel. A quebra de linha (e a tabulacao) vira
- * espaco: um valor que vem de fora nunca abre uma linha propria na saida, como se fosse do `ork`.
- */
-export const emUmaLinha = (texto: string): string =>
-  texto.replace(INVISIVEIS, (c) => (/[\t\n\v\f\r\u0085\u2028\u2029]/.test(c) ? ' ' : ''));
+// RM-053 (fatia 2): a regra de saida mora em `saida-segura`; os nomes seguem exportados daqui.
+export { emUmaLinha, INVISIVEL };
 
 /**
  * V3 da revisao 4 e W1 da revisao 5: a regra UNICA de nome de projeto. Cabe no leitor

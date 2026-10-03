@@ -32,6 +32,7 @@ import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './docto
 import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
 import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
 import { avisoDaFabricaPedida } from './maquina';
+import { checarRede } from './doctor-rede';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -623,6 +624,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       });
     }
   }
+
+  // RM-053 (fatia 2): a rede da pessoa e da maquina, nao do projeto; vale de qualquer diretorio.
+  checks.push(checarRede());
 
   return checks;
 }
