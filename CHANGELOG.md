@@ -79,6 +79,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     recusava; antes o mostrava como "(esta máquina)", publicado e sem lacuna.
   - `ork_network_status` no MCP (só o projeto servido) tira também a lacuna da máquina que saiu dos membros por ser
     vista só na fábrica de outro projeto; antes, a `maquina.sem-batida` dela continuava com o nome (D5).
+  - `ork memory search --texto` mostra o `detalhe` também na busca que deu certo: a quantidade de ids do FTS fora
+    do universo e o aviso de cobertura do índice (RM-038) só apareciam no `--json`.
 - **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
     `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
