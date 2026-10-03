@@ -121,6 +121,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     vindo do pedido MCP rodava no processo do servidor, fora do sandbox do `ork_verify` e por até `verify.timeout_ms`
     dentro do pedido, embora a tool diga "Nao executa comandos". Pela CLI, com a worktree da thread apagada, o aviso
     diz que a worktree não existe, em vez de dizer que a claim "reprova no verify".
+  - o pacote de contexto do Company Brain (`ork brain context`) exige `source.authority` na citação também pelo caminho
+    da consulta (OrkMind sem o modo `context`), como o servidor; antes, um Brain fora do próprio contrato dava pacote e
+    digest diferentes conforme o caminho. Com pais divergentes entre a fonte e o Brain, os dois caminhos já davam o
+    mesmo pacote, agora com teste.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
