@@ -44,6 +44,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **`rm038-universo-ponte` pula sem o OrkMind** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  os 9 testes da ponte do universo (RM-038) reprovavam numa máquina sem o interpretador do OrkMind, e a suíte local
+  voltava a ter falha de ambiente. Agora saem como skip com o motivo (8 pelo OrkMind, o do pgvector também pelo
+  PostgreSQL) e voltam a reprovar com `ORK_TESTE_EXIGE_AMBIENTE=1`. O arquivo já estava na lista das integrações
+  locais, então o CI segue igual.
 - **Teste instável do lease da sucessora no Node 22** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o caso B-1 de `rm037-baseline-no-despacho` lia `conducaoDaThread` logo depois de despachar uma sessão codex que
   termina sozinha. O watcher destacado grava o `phase_result` na volta seguinte do laço de 1 s, e dali em diante a
