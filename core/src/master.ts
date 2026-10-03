@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { raizDoEstado } from './estado-thread';
-import { ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
+import { MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds, pausaNaThread } from './thread';
@@ -59,6 +59,37 @@ export const CLASSES_DE_FALHA: Readonly<Record<ClasseDeFalha, string>> = {
   'scope-creep': 'a entrega cresceu alem do que o GOAL prometia',
   outra: 'nao cabe em nenhuma classe acima (descreva na justificativa)',
 };
+
+/**
+ * RM-008 (classe pelo gate): a classe que cada motivo tipado do gate sustenta quando ninguem informa
+ * `--classe`. Antes, todo gate virava "outra", a classe que o `ork licoes` ignora: 8 POSTMORTEMs de
+ * 03/10 fecharam assim por aceite por omissao. Motivo fora da tabela (prazo, falta de veredito,
+ * runtime, conta, custo, espera humana) nao cabe numa classe fixa e segue "outra".
+ */
+export const CLASSE_DO_MOTIVO: Readonly<Partial<Record<MotivoGate, ClasseDeFalha>>> = {
+  'artifact.missing': 'processo',
+  'claims.failed': 'processo',
+  'claims.unverifiable': 'processo',
+  'policy.violation': 'processo',
+  'runtime.autoconferencia': 'processo',
+  'verify.regression': 'processo',
+  'verify.failed': 'processo',
+  'ci.failed': 'processo',
+  'hitl.formato': 'processo',
+  'runtime.rate-limited': 'rate-limit',
+  'runtime.quota-exhausted': 'rate-limit',
+  'lease.busy': 'conflito',
+  'conducao.em-andamento': 'conflito',
+  'tree.blocked': 'conflito',
+};
+
+/** As classes que os motivos dos gates sustentam, na ordem canonica e sem repetir. */
+export function classesPelosGates(motivos: readonly string[]): ClasseDeFalha[] {
+  const achadas = new Set<ClasseDeFalha>();
+  for (const m of motivos) achadas.add(CLASSE_DO_MOTIVO[m as MotivoGate] ?? 'outra');
+  if (achadas.size === 0) achadas.add('sem-falha');
+  return ORDEM_DAS_CLASSES.filter((c) => achadas.has(c));
+}
 
 /** Ordem canonica das classes na saida do CLI. */
 export const ORDEM_DAS_CLASSES: readonly ClasseDeFalha[] = [
@@ -271,11 +302,12 @@ function prepararDocumentos(
   let classes = opcoes.classes ?? [];
   if (classes.length === 0) {
     classesInferidas = true;
-    classes = gatesBloqueados.length > 0 ? ['outra'] : ['sem-falha'];
+    classes = classesPelosGates(gatesBloqueados.map((g) => g.motivo));
+    const motivos = [...new Set(gatesBloqueados.map((g) => g.motivo))];
     avisos.push(
       gatesBloqueados.length > 0
-        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) e nenhuma --classe foi ` +
-          'informada: o `ork` gravou "outra". Corrija com --classe <classe> --refazer.'
+        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) (${motivos.join(', ')}) e nenhuma --classe foi ` +
+          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate. Corrija com --classe <classe> --refazer.`
         : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".'
     );
   }
