@@ -15,7 +15,8 @@ import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerFila, lerLease, listarLeases } from '../src/leases';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
+import { liberarAoFechar } from '../src/fechamento';
 import { lerLedger } from '../src/ledger';
 import { Lease, PedidoNaFila } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
@@ -312,5 +313,46 @@ test('rm036 leases: fila legada entra na canonica em FIFO', () => {
     assert.equal(fila.find((p) => p.thread === t4)?.desdeEm, quando(20), 'fica a espera mais antiga');
     // Gravacao atomica: nenhum temporario fica para tras na pasta.
     assert.deepEqual(fs.readdirSync(dirLeases(c.raiz)).filter((f) => f.endsWith('.tmp')), []);
+  } finally { c.p.limpar(); }
+});
+
+/** Fecha a thread no estado, como o MASTER e o `ork thread close` gravam. */
+function fechar(raiz: string, id: string): void {
+  const t = lerThread(raiz, id);
+  t.status = 'fechada';
+  gravarThread(raiz, t);
+}
+
+test('rm036 leases: legado de thread fechada sai na poda e no fechamento', () => {
+  const c = cenario('rm036-legado-fechada', { threads: 2 });
+  try {
+    const [t2, t3] = c.outras;
+    // t1 fechada, com lease e espera gravados pela versao anterior na worktree.
+    const legado = gravarLegado(c.wt, leaseDe('path:core/**', c.t1, 20));
+    const filaLegada = path.join(pastaDaWorktree(c.wt), 'fila.json');
+    fs.writeFileSync(filaLegada, JSON.stringify([{ nome: 'path:docs/**', tipo: 'path', thread: c.t1, motivo: 'GO',
+      desdeEm: new Date(Date.now() - 60_000).toISOString(), colidiuCom: 'path:docs/**', bloqueadaPor: t3 }], null, 2) + '\n');
+    fechar(c.raiz, c.t1);
+
+    // Poda: quem pede a regiao pela raiz tira da frente o que e da fechada, com registro no ledger dela.
+    const r = ork(c.raiz, 'lease', 'acquire', 'path:core/src/leases.ts', '--thread', t2);
+    assert.equal(r.codigo, 0, r.stdout + r.stderr);
+    assert.equal(fs.existsSync(legado), false, 'o lease legado da fechada saiu');
+    assert.deepEqual(lerFila(c.raiz).filter((p) => p.thread === c.t1), [], 'a espera legada da fechada saiu');
+    const eventos = lerLedger(dirThread(c.raiz, c.t1));
+    const solto = eventos.find((e) => e.tipo === 'lease_released' && e.lease === 'path:core/**');
+    assert.equal(solto?.origem, 'poda');
+    assert.equal(solto?.pedidaPor, t2);
+    assert.ok(eventos.some((e) => e.tipo === 'lease_dequeued' && e.lease === 'path:docs/**' && e.origem === 'poda'));
+
+    // Fechamento: t3 aberta com um legado; fechar a thread o solta, com registro.
+    const deT3 = gravarLegado(c.wt, leaseDe('board:card-9', t3, 20));
+    fechar(c.raiz, t3);
+    const soltura = liberarAoFechar(c.wt, t3);
+    assert.deepEqual(soltura.falhas, []);
+    assert.deepEqual(soltura.leases, ['board:card-9']);
+    assert.equal(fs.existsSync(deT3), false);
+    assert.ok(lerLedger(dirThread(c.raiz, t3)).some((e) => e.tipo === 'lease_released' && e.lease === 'board:card-9' &&
+      e.origem === 'fechamento'));
   } finally { c.p.limpar(); }
 });
