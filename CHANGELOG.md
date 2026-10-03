@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Suíte local sem as dependências opcionais** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
+  `npm --prefix core test` passa com 0 falhas numa máquina sem o codex em `/usr/bin`, sem PostgreSQL ou sem o
+  interpretador do OrkMind. Os 44 testes que dependem deles sondam a dependência e saem como skip com o motivo
+  (`skip: PostgreSQL ausente ...`), em vez de reprovar. `ORK_TESTE_EXIGE_AMBIENTE=1` desliga o skip, e o
+  `test:ci` a liga na suíte hermética. `node core/scripts/suite-local.cjs` roda a suíte e conta falhas e skips.
+- **HITL de condução por alternativas, fatia 3** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - `ork pulse` e `ork roadmap status` trazem `hitlDeConducao`: as perguntas de condução abertas com há quanto tempo cada
+    uma para a thread (e desde que hora, no fuso do dono) e a mediana dos últimos 7 dias contra a meta de 5 min;
+  - o resumo do pulse (Telegram e terminal) ganha uma linha só quando passa da meta, sem sair fora da cadência.
 - **Conferência opt-in da claim no registro** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): a policy
   `claim_sem_prova_local` (alias `claims_failed`, o nome que o `ork licoes` propõe) vem desligada. Declarada, o
   `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
@@ -37,6 +46,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Segurança
 
+- **`--remoto` de `ork ship registrar-pr` e de `ork ci status` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  o valor passa pelo mesmo validador do remoto da fábrica; fora do formato, `ork ship registrar-pr` (com a thread ou
+  `--todas`) recusa com `ship.remoto-invalido` e `ork ci status` com `ci.remoto-invalido`, sem nada passado ao git nem
+  consulta ao GitHub; antes, o valor ia cru ao `git fetch`, ao `git ls-remote` e ao `git remote get-url`, que agora
+  recebem `--` antes do remoto. `--remoto` sem valor também recusa, em vez de virar `origin` em silêncio.
 - **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
     (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um

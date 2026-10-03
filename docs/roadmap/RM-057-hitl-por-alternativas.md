@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-03T03:30:00+00:00
+atualizado_em: 2026-10-03T03:40:00+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,7 +20,7 @@ evidencias:
     commit: 7266df6
     pr: 49
 sdlc:
-  thread: ork-rm057fatia2c
+  thread: ork-rm057fatia3t
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -93,7 +93,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** depois do merge da fatia 2, o piloto de 7 dias na condução do próprio Orkastery, lendo `ork ledger stats --desde 7d` (`hitlDeConducao`); o tempo parado no `ork pulse` e a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts ficam com o dono; responsável: Julio.
+- **Próxima ação, responsável e prazo:** depois do merge da fatia 3, o piloto de 7 dias na condução do próprio Orkastery, lendo o tempo parado no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`, mediana de 7 dias) ou em `ork ledger stats --desde 7d`; a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts fica com o dono; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -101,3 +101,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-02 | Fatia 1 na thread ork-rm057alterna: contrato de 3 a 5 com uma Recomendação no registro, dependência técnica tipada, letras a-e, selo no texto ao dono, lint `hitl-texto-livre` e a regra nos adaptadores do Claude Code e do Codex | Recorte registrado com `ork decisao registrar` na thread | Julio |
 | 2026-10-02 | Fatia 1 mesclada | PR 49, merge 7266df6 | Julio |
 | 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: canário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Fatia 2 mesclada | PR 52, merge 66b7ee3 | Julio |
+| 2026-10-03 | Fatia 3 na thread ork-rm057fatia3t: o tempo parado por HITL de condução no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`: abertas com há quanto tempo, mediana de 7 dias), com uma linha no resumo do pulse só acima da meta de 5 min | Recorte registrado com `ork decisao registrar` na thread; campo aditivo opcional nos contratos que já existem, sem contrato novo | Claude (agente, #Auto), revisão de Julio pendente |

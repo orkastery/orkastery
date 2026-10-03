@@ -92,7 +92,7 @@ sdlc:
 
 - Parte do repositório do Orkastery (itens 1, 2, 4 e 5), na thread `ork-rm050guiadec`: índice no `CONTRIBUTING.md`, nove guias em `docs/guias/contribuir/`, modelos de issue e de PR e a checagem `core/scripts/checar-comandos-dos-guias.cjs`. Na `main` pelo PR #22 (merge `3c7e8a7`), com o CI verde no push do merge (run 36564117438), e na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36).
 - Guia do OrkMind: entregue pela thread `ork-rm050guiade2` no `orkastery/orkmind`, pelo PR #6 ("Guia de contribuição por tarefa", merge `c78a7f3`, estado MERGED no GitHub), com o CI do OrkMind verde (run 36583041988).
-- Fica para outra thread: a página "Contribuir" nos dois sites (item 3).
+- Página "Contribuir" (item 3) no ar nos dois sites, em PT, EN e ES, desde 29/09/2026, pela thread `ork-siteshomesco`: <https://orkastery.com/docs/contribuir/> (`orkastery/orkastery.com` PR #6, merge `e29d05e`) e <https://orkmind.com/docs/contribuir/> (`orkastery/orkmind.com` commit `5adde94`). As versões em inglês e espanhol ficam em `/en/docs/contribuir/` e `/es/docs/contribuir/`.
 - O rótulo `needs triage` ainda não existe em nenhum dos dois repositórios (`gh label list`).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -115,7 +115,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** executor da thread / Julio / colaboradores convidados / comunidade.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** executor da thread `ork-rm050guiadec` em #Auto; o merge, a criação dos rótulos e a decisão final ficam com Julio.
-- **Próxima ação, responsável e prazo:** criação do rótulo `needs triage` nos dois repositórios e a thread da página "Contribuir" nos sites; condução. Os merges do PR #22 e do guia do OrkMind (`orkastery/orkmind` #6) já aconteceram.
+- **Próxima ação, responsável e prazo:** criação do rótulo `needs triage` nos dois repositórios; condução. Os merges do PR #22, do guia do OrkMind (`orkastery/orkmind` #6) e da página "Contribuir" nos dois sites já aconteceram.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -124,3 +124,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | Parte do repositório do Orkastery mesclada na `main` | PR #22, merge `3c7e8a7` | Julio |
 | 2026-09-29 | Guia do OrkMind mesclado | `orkastery/orkmind` PR #6, merge `c78a7f3`; thread `ork-rm050guiade2` | Julio |
 | 2026-10-01 | Parte do Orkastery na versão 0.5.0 | tag `v0.5.0` (PR #36) | Julio |
+| 2026-10-03 | o texto registra a página "Contribuir" no ar nos dois sites | `curl` 200 em `orkastery.com/docs/contribuir/` e `orkmind.com/docs/contribuir/` (PT, EN e ES); `orkastery.com` PR #6 (`e29d05e`), `orkmind.com` `5adde94`; thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto), revisão de Julio pendente |
