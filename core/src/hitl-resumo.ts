@@ -15,6 +15,7 @@
  * mensagem do canal. Quem entrega chama a segunda.
  */
 import { formatarDataHoraRotulada, formatarHora } from './horario';
+import { HitlDeConducaoAgora, linhaDoHitlAcimaDaMeta } from './hitl-tempo-parado';
 import { DecisaoParaODono, FaseAcimaDoLimiar, LIMIAR_DE_DECISOES_POR_FASE } from './decisao-autonoma';
 import {
   ContagemDeClassificacao, contarClassificacoes, ItemClassificavel, JANELA_PADRAO_MIN, OpcoesDeClassificacao, quemDecide,
@@ -94,6 +95,12 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   threadsTecnicas: string[];
   /** RM-037 (fatia 4): uma linha por thread parada no condutor, fora das contagens do dono. */
   paradosNoCondutor?: LinhaDoCondutor[];
+  /**
+   * RM-057 (fatia 3): o tempo parado por HITL de conducao, so quando passou da meta de 5 min (uma
+   * aberta alem dela ou a mediana dos 7 dias acima). Vira uma linha; nao conta como pergunta nem e
+   * novidade que faca o resumo sair fora da cadencia do dono.
+   */
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 export interface OpcoesDeResumo {
@@ -108,6 +115,7 @@ export interface OpcoesDeResumo {
   acimaDoLimiar?: readonly FaseAcimaDoLimiar[];
   outrasMaquinas?: readonly ResumoDeMaquina[];
   paradosNoCondutor?: readonly LinhaDoCondutor[];
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesDeResumo): ResumoHitl {
@@ -127,6 +135,7 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
     threadsTecnicas: [...new Set(tecnicos.map(i => i.thread).filter((t): t is string => !!t))].sort(),
     ...(opcoes.paradosNoCondutor?.length ? { paradosNoCondutor: opcoes.paradosNoCondutor.map(p => ({ thread: p.thread, caso: p.caso,
       desdeEm: p.desdeEm, proximoPasso: p.proximoPasso })) } : {}),
+    ...(opcoes.hitlDeConducao?.acimaDaMeta ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
 }
 
@@ -149,6 +158,12 @@ export function linhasDoCondutor(r: ResumoHitl, marcador: string, recuo: string)
   const mostradas = parados.slice(0, TETO_DE_PARADOS_NO_CONDUTOR), sobra = parados.length - mostradas.length;
   return [...mostradas.map(p => `${marcador}${linhaDoParadoNoCondutor(p, { agora: r.consultadoEm })}`),
     ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
+}
+
+/** RM-057 (fatia 3): a linha do tempo parado por HITL de conducao, a mesma nos dois canais. */
+function linhaDoHitlParado(r: ResumoHitl): string[] {
+  const linha = linhaDoHitlAcimaDaMeta(r.hitlDeConducao, { agora: r.consultadoEm });
+  return linha ? [linha] : [];
 }
 
 /** RM-048 (D6): a linha do que e tecnico, igual nos dois canais. Nao pede nada ao dono. */
@@ -283,6 +298,7 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     `❓ ${linhaDasPerguntas(r.prontas)}`,
     ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
+    ...linhaDoHitlParado(r).map(l => `⏳ ${l}`),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
@@ -315,6 +331,7 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
       ? ['', `  threads travadas (${r.threadsBloqueadas.length}): ${nomearThreads(r.threadsBloqueadas)}`] : []),
     ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
+    ...linhaDoHitlParado(r).flatMap(l => ['', `  ${l}`]),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),
