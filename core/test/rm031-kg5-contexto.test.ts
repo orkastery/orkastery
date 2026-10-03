@@ -337,4 +337,25 @@ test('KG5 contexto v2: grupo maior que o teto nao expulsa imports e references m
   assert.equal(r.omitidos.arestas, 300);
 });
 
+test('KG5 medida historica: cobertura separa semente, descoberta e arquivo novo nao apontado', () => {
+  const { coberturaContexto, validarContexto, CONTEXTO_MEDIDA_SCHEMA } = require('../../scripts/medir-mcp-grafo.cjs');
+  const cobertura = coberturaContexto(['src/base.ts', 'src/vizinho.ts', 'src/novo.ts'],
+    ['src/base.ts', 'src/vizinho.ts', 'docs/guia.md'], ['src/base.ts']);
+  assert.equal(cobertura.total_editados, 3);
+  assert.equal(cobertura.total_acertos, 2);
+  assert.equal(cobertura.cobertura, 2 / 3);
+  assert.deepEqual(cobertura.fora_das_sementes, { total_editados: 2, acertos: ['src/vizinho.ts'] });
+  assert.deepEqual(validarContexto({ schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'not-run', casos: [] }), ['medicao historica nao executada']);
+});
 
+test('KG5 medida historica: registro pendente nao vira recibo e numero sintetico tem origem executavel', () => {
+  const { validarContexto } = require('../../scripts/medir-mcp-grafo.cjs');
+  const registro = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../test/fixtures/kg5-medida-contexto.json'), 'utf8'));
+  if (registro.estado === 'not-run') {
+    assert.match(registro.motivo, /EPERM/);
+    assert.deepEqual(validarContexto(registro), ['medicao historica nao executada']);
+    assert.equal(registro.sintetica.v2_bytes, Buffer.byteLength(pacoteDeContexto(GRAFO, INDICE, ENTRADA)));
+    assert.equal(registro.sintetica.tokens, 'unavailable');
+    assert.ok(registro.casos.every((c: any) => c.cobertura_pacote === undefined && c.pacote === undefined));
+  } else assert.deepEqual(validarContexto(registro), []);
+});

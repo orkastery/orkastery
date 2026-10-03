@@ -9,12 +9,16 @@
  *   node core/scripts/medir-mcp-grafo.cjs --saida ARQ [--repeticoes N]
  *   node core/scripts/medir-mcp-grafo.cjs --validar ARQ
  *
+ *   node core/scripts/medir-mcp-grafo.cjs --contexto --conferir
+ *   node core/scripts/medir-mcp-grafo.cjs --contexto --saida core/test/fixtures/kg5-medida-contexto.json
+ *   node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json
+ *
  * Para cada pergunta, no HEAD com a arvore limpa e o indice do HEAD:
  * - tool: o worker das tools `ork_grafo_*` (o processo que a tool abre, com o ambiente minimo do MCP),
  *   com o argv que a tool monta para a pergunta e o teto padrao; ao agente chega o texto da resposta;
  * - CLI: `ork grafo <consulta> --json` num processo novo, sem teto (o braco grafo do KG3);
  * - cru: `git grep -n -I -F` do nome e a leitura inteira de cada arquivo com ocorrencia (o braco cru do KG3).
- * A descoberta e o custo fixo de ligar a flag: os bytes das definicoes das quatro tools no `tools/list`
+ * A descoberta e o custo fixo de ligar a flag: os bytes das definicoes das cinco tools no `tools/list`
  * de um servidor MCP num projeto temporario com `grafo.mcp: true`, contra o mesmo servidor sem a flag.
  * Tokens ficam `unavailable`: sem tokenizador exato nem contagem do runtime, bytes/4 seria estimativa.
  *
@@ -41,7 +45,7 @@ const METODO = {
   tool: 'tool-mcp/v0: o worker das tools ork_grafo_* (core/dist/mcp-grafo-worker.js) com o argv que a tool monta e o teto padrao, num processo novo com o ambiente minimo do MCP; ao agente chega o texto da resposta da tool, e ele nao abre arquivo',
   cli: 'consulta-grafo/v0 do KG3: ork grafo <consulta> --json num processo novo, sem teto',
   cru: 'leitura-crua/v0 do KG3: git grep -n -I -F do nome nos arquivos rastreados, mais a leitura inteira de cada arquivo com ocorrencia',
-  descoberta: 'bytes do JSON das definicoes das quatro tools no tools/list de um servidor MCP num projeto temporario com grafo.mcp: true, e do tools/list inteiro com e sem a flag',
+  descoberta: 'bytes do JSON das definicoes das cinco tools no tools/list de um servidor MCP num projeto temporario com grafo.mcp: true, e do tools/list inteiro com e sem a flag',
   latencia: 'relogio monotonico do processo que mede, de ponta a ponta por repeticao, com a mediana',
 };
 const LIMITES = [
@@ -60,7 +64,9 @@ function argumentos(argv) {
       if (i + 1 >= argv.length) throw new Error(`${a} exige valor`);
       return argv[++i];
     };
-    if (a === '--conferir') r.conferir = true;
+    if (a === '--contexto') r.contexto = true;
+    else if (a === '--listar-historico') r.listarHistorico = true;
+    else if (a === '--conferir') r.conferir = true;
     else if (a === '--saida') r.saida = valor();
     else if (a === '--validar') r.validar = valor();
     else if (a === '--repeticoes') {
@@ -68,7 +74,7 @@ function argumentos(argv) {
       if (!Number.isInteger(r.repeticoes) || r.repeticoes < 1 || r.repeticoes > 20) throw new Error('--repeticoes de 1 a 20');
     } else throw new Error(`opcao desconhecida: ${a}`);
   }
-  if ([r.conferir, r.saida, r.validar].filter(Boolean).length !== 1) throw new Error('use uma de --conferir, --saida ARQ ou --validar ARQ');
+  if ([r.conferir, r.saida, r.validar, r.listarHistorico].filter(Boolean).length !== 1) throw new Error('use uma de --conferir, --saida ARQ ou --validar ARQ');
   return r;
 }
 
@@ -167,7 +173,7 @@ function bracoCru(p, repeticoes) {
   return { ...medida, latencia_ms: latencias, latencia_mediana_ms: arredondar(mediana(latencias)) };
 }
 
-/** O custo fixo: as definicoes das quatro tools no `tools/list`, num projeto temporario, com e sem a flag. */
+/** O custo fixo: as definicoes das cinco tools no `tools/list`, num projeto temporario, com e sem a flag. */
 async function descoberta(mcp) {
   const doCore = (modulo) => require(require.resolve(modulo, { paths: [path.join(RAIZ, 'core')] }));
   const { Client } = doCore('@modelcontextprotocol/sdk/client/index.js');
@@ -305,13 +311,163 @@ function tabela(registro) {
   escrever(`  tokens: unavailable nos tres bracos; conclusao: ${registro.conclusao}`);
 }
 
+/** KG5 fatia 3: dois merges reais, somente blobs historicos, sem checkout nem estado do ork. */
+const CONTEXTO_CASOS = [
+  { thread: 'ork-rm031kg3', merge: 'c507a3a', sementes: ['core/src/intelligence-graph-extract.ts'],
+    origem: 'RM-031, KG3: indice e consultas sobre o extrator entregue no KG2; semente retrospectiva fixa, nao prompt historico' },
+  { thread: 'ork-rm031kg4incr', merge: '99b10d3', sementes: ['core/src/intelligence-graph-index.ts'],
+    origem: 'RM-031, KG4: incremental sobre o indice entregue no KG3; semente retrospectiva fixa, nao prompt historico' },
+];
+const CONTEXTO_MEDIDA_SCHEMA = 'ork.graph-context-cost/v2';
+
+function coberturaContexto(editados, apontados, sementes) {
+  const conjunto = new Set(apontados), iniciais = new Set(sementes);
+  const acertos = editados.filter((p) => conjunto.has(p));
+  const novosAcertos = acertos.filter((p) => !iniciais.has(p));
+  return { editados: [...editados], apontados: [...apontados].sort(), acertos,
+    total_editados: editados.length, total_apontados: conjunto.size, total_acertos: acertos.length,
+    fora_das_sementes: { total_editados: editados.filter((p) => !iniciais.has(p)).length, acertos: novosAcertos },
+    cobertura: editados.length ? acertos.length / editados.length : null };
+}
+
+function fontesHistoricas(revisao) {
+  const registros = git(['ls-tree', '-r', '-z', revisao]).toString('utf8').split('\0').filter(Boolean)
+    .map((r) => { const tab = r.indexOf('\t'), [modo, tipo, objeto] = r.slice(0, tab).split(' ');
+      return { modo, tipo, objeto, path: r.slice(tab + 1) }; })
+    .filter((r) => ['100644', '100755'].includes(r.modo) && r.tipo === 'blob');
+  // Uma leitura batch evita milhares de processos; bytes sao blobs crus, nunca filtros de checkout.
+  const bruto = rodar('git', ['-c', 'core.fsmonitor=false', 'cat-file', '--batch'], {
+    input: registros.map((r) => r.objeto).join('\n') + '\n',
+  });
+  if (bruto.status !== 0) throw new Error('cat-file historico falhou');
+  let offset = 0;
+  return registros.map((r) => {
+    const fim = bruto.stdout.indexOf(10, offset), cabecalho = bruto.stdout.subarray(offset, fim).toString('ascii').split(' ');
+    const tamanho = Number(cabecalho[2]);
+    if (cabecalho[0] !== r.objeto || cabecalho[1] !== 'blob' || !Number.isSafeInteger(tamanho)) throw new Error('blob historico invalido');
+    const bytes = bruto.stdout.subarray(fim + 1, fim + 1 + tamanho);
+    if (bytes.length !== tamanho) throw new Error('blob historico incompleto');
+    offset = fim + tamanho + 2;
+    return { path: r.path, bytes };
+  });
+}
+
+/** Baseline independente do grafo: ler sementes, grep de nomes/caminhos e ler os arquivos encontrados. */
+function descobertaContexto(revisao, fontes, sementes) {
+  const porPath = new Map(fontes.map((f) => [f.path, f.bytes]));
+  const termos = new Set(), abertos = new Set(sementes);
+  for (const s of sementes) {
+    const bytes = porPath.get(s);
+    if (!bytes) throw new Error(`semente ausente na base historica: ${s}`);
+    const texto = bytes.toString('utf8');
+    termos.add(s); termos.add(path.posix.basename(s, path.posix.extname(s)));
+    for (const m of texto.matchAll(/\b(?:function|class|interface|type|const|let|enum)\s+([\p{L}_$][\p{L}\p{N}_$]*)/gu)) termos.add(m[1]);
+    // Saidas explicitas relativas da semente: imports/reexports e links Markdown, sem inferencia.
+    for (const m of texto.matchAll(/(?:from\s*['"]|import\s*['"]|require\(\s*['"]|\]\()((?:\.\.\/|\.\/)[^'"\s)]+)/g)) {
+      const alvo = path.posix.normalize(path.posix.join(path.posix.dirname(s), m[1].split('#')[0]));
+      const candidatos = [alvo, ...['.ts', '.tsx', '.js', '.md', '/index.ts', '/index.js'].map((ext) => alvo + ext)];
+      const encontrado = candidatos.find((p) => porPath.has(p));
+      if (encontrado) abertos.add(encontrado);
+    }
+  }
+  const argv = ['grep', '-n', '-I', '-F', ...[...termos].sort().flatMap((t) => ['-e', t]), revisao, '--'];
+  const r = rodar('git', ['-c', 'core.fsmonitor=false', ...argv]);
+  if (r.status !== 0 && r.status !== 1) throw new Error('grep historico falhou');
+  const prefixo = `${revisao}:`, linhas = r.stdout.toString('utf8').split('\n').filter(Boolean);
+  for (const linha of linhas) {
+    if (!linha.startsWith(prefixo)) throw new Error('grep sem revisao esperada');
+    const arquivo = linha.slice(prefixo.length).replace(/:\d+:.*$/, '');
+    if (porPath.has(arquivo)) abertos.add(arquivo);
+  }
+  const arquivos = [...abertos].sort();
+  const bytesArquivos = arquivos.reduce((n, p) => n + porPath.get(p).length, 0);
+  return { argv: ['git', ...argv], termos: [...termos].sort(), arquivos, bytes_grep: r.stdout.length,
+    bytes_arquivos: bytesArquivos, bytes_ao_agente: r.stdout.length + bytesArquivos, ocorrencias: linhas.length };
+}
+
+async function medirContexto() {
+  const { extrairGrafo } = require(path.join(DIST, 'intelligence-graph-extract.js'));
+  const { carregarAnalisadores } = require(path.join(DIST, 'intelligence-graph-parsers.js'));
+  const { pacoteDeContexto } = require(path.join(DIST, 'intelligence-graph-contexto.js'));
+  const { sha256DoCanonico } = require(path.join(DIST, 'intelligence-graph-contract.js'));
+  const casos = [];
+  for (const c of CONTEXTO_CASOS) {
+    const merge = git(['rev-parse', '--verify', `${c.merge}^{commit}`]).toString('utf8').trim();
+    git(['merge-base', '--is-ancestor', merge, 'main']);
+    const pais = git(['rev-list', '--parents', '-n', '1', merge]).toString('utf8').trim().split(' ').slice(1);
+    if (pais.length !== 2) throw new Error(`caso ${c.thread} exige merge de dois pais`);
+    const base = git(['merge-base', ...pais]).toString('utf8').trim();
+    const fontes = fontesHistoricas(base);
+    const { grafo } = extrairGrafo({ tenant_id: 'local', repository_id: 'orkastery', revision: base,
+      revision_unavailable_reason: null, acl_refs: ['repo:orkastery:leitura'], fontes }, carregarAnalisadores());
+    const digest = sha256DoCanonico(grafo);
+    const indice = { repository_id: 'orkastery', revision: base, snapshot_id: grafo.snapshot.snapshot_id,
+      graph_digest: digest, chave: sha256DoCanonico({ base, digest, metodo: CONTEXTO_MEDIDA_SCHEMA }), arvore: 'limpa', extratores: grafo.snapshot.extractors };
+    const entrada = { thread: c.thread, base, diff: [], diffEstado: 'ignorado-sem-worktree',
+      goal: c.sementes.map((s) => `\`${s}\``).join(' '), plan: null, claims: [] };
+    const texto = pacoteDeContexto(grafo, indice, entrada), pacote = JSON.parse(texto);
+    if (texto !== pacoteDeContexto(grafo, indice, entrada)) throw new Error('pacote historico nao deterministico');
+    const cru = descobertaContexto(base, fontes, c.sementes);
+    // Resultado final so lido DEPOIS de gerar ambos os bracos: nunca e semente ou termo de busca.
+    const editados = git(['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', pais[0], merge, '--'])
+      .toString('utf8').split('\0').filter(Boolean).sort();
+    const apontados = pacote.medida.arquivos.map((f) => f.path);
+    casos.push({ ...c, merge, pais, base, indice: { graph_digest: digest, fontes: fontes.length }, entrada,
+      pacote: { bytes_ao_agente: Buffer.byteLength(texto), sha256: require('node:crypto').createHash('sha256').update(texto).digest('hex'),
+        truncado: pacote.truncado, omitidos: pacote.omitidos, arquivos: apontados },
+      descoberta: cru, cobertura_pacote: coberturaContexto(editados, apontados, c.sementes),
+      cobertura_descoberta: coberturaContexto(editados, cru.arquivos, c.sementes),
+      arquivos_do_pacote_fora_da_descoberta: apontados.filter((p) => !cru.arquivos.includes(p)), tokens: TOKENS });
+  }
+  return { schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'measured', casos,
+    metodo: 'bases = merge-base dos pais; extracao em memoria dos blobs anteriores; sementes retrospectivas fixadas no script; grep literal de caminhos e nomes declarados na semente, leitura inteira dos matches e saidas relativas; resultado do merge somente para cobertura',
+    limites: ['dois casos do mesmo subsistema, nao amostra representativa nem replay de prompts historicos',
+      'sem diffs futuros nas entradas; novos arquivos contam como perdas; acertos das sementes separados',
+      'grep textual pode achar homonimos e comentarios; divergencias de vizinhanca ficam listadas',
+      'bytes nao sao tokens; nao ha promessa de economia nem medicao de latencia',
+      'preparo do indice e descoberta das tools nao incluidos no custo por pacote; snapshot reconstruido, nao cache de producao'],
+    conclusao: 'nenhuma sobre tokens; bytes e cobertura retrospectiva somente nos casos registrados' };
+}
+
+function validarContexto(r) {
+  const erros = [], inteiro = (n) => Number.isSafeInteger(n) && n >= 0;
+  if (r?.schema !== CONTEXTO_MEDIDA_SCHEMA || r?.estado !== 'measured') return ['medicao historica nao executada'];
+  if (r.casos?.length !== CONTEXTO_CASOS.length) erros.push('casos');
+  for (const c of r.casos ?? []) {
+    if (!/^[a-f0-9]{40}$/.test(c.base ?? '') || !/^[a-f0-9]{40}$/.test(c.merge ?? '')) erros.push('revisoes');
+    if (!inteiro(c.pacote?.bytes_ao_agente) || c.pacote.bytes_ao_agente > 32768) erros.push('bytes pacote');
+    if (!inteiro(c.descoberta?.bytes_grep) || !inteiro(c.descoberta?.bytes_arquivos)
+      || c.descoberta.bytes_ao_agente !== c.descoberta.bytes_grep + c.descoberta.bytes_arquivos) erros.push('bytes descoberta');
+    for (const k of ['cobertura_pacote', 'cobertura_descoberta']) {
+      const v = c[k];
+      if (!v || !Array.isArray(v.editados) || !Array.isArray(v.apontados)
+        || JSON.stringify(v) !== JSON.stringify(coberturaContexto(v.editados, v.apontados, c.sementes))) erros.push(k);
+    }
+    if (c.tokens?.source !== 'unavailable' || c.tokens?.value !== null) erros.push('tokens');
+    if (!Array.isArray(c.entrada?.diff) || c.entrada.diff.length) erros.push('diff futuro na entrada');
+  }
+  return erros;
+}
+
 async function principal() {
   const a = argumentos(process.argv.slice(2));
+  if (a.listarHistorico) {
+    escrever(git(['log', '--first-parent', '--merges', '-30', '--format=%H %P %s', 'main']).toString('utf8'));
+    return 0;
+  }
   if (a.validar) {
-    const falhas = validar(JSON.parse(fs.readFileSync(a.validar, 'utf8')));
+    const falhas = (a.contexto ? validarContexto : validar)(JSON.parse(fs.readFileSync(a.validar, 'utf8')));
     for (const f of falhas) escrever(`FALHA ${f}`);
     escrever(falhas.length ? `reprovado: ${falhas.length} falha(s)` : `registro ${a.validar} valido`);
     return falhas.length ? 1 : 0;
+  }
+  if (a.contexto) {
+    const registro = await medirContexto();
+    const falhas = validarContexto(registro);
+    if (falhas.length) throw new Error(falhas.join('; '));
+    if (a.saida) fs.writeFileSync(a.saida, `${JSON.stringify(registro, null, 2)}\n`);
+    escrever(JSON.stringify(registro, null, 2));
+    return 0;
   }
   const { registro, respostas, textos } = await medir(a.repeticoes);
   tabela(registro);
@@ -337,4 +493,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { CONCLUSAO, LIMITES, SCHEMA, validar };
+module.exports = { CONCLUSAO, LIMITES, SCHEMA, validar, CONTEXTO_CASOS, CONTEXTO_MEDIDA_SCHEMA, coberturaContexto, validarContexto };

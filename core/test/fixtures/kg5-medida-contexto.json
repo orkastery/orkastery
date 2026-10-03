@@ -1,0 +1,35 @@
+{
+  "schema": "ork.graph-context-cost/v2",
+  "estado": "not-run",
+  "motivo": "Leitura do historico bloqueada no perfil da sessao: spawnSync git EPERM. Sem medida de bytes ou cobertura em threads reais.",
+  "comando": "npm --prefix core run build && node core/scripts/medir-mcp-grafo.cjs --contexto --saida core/test/fixtures/kg5-medida-contexto.json",
+  "casos": [
+    {
+      "thread": "ork-rm031kg3",
+      "merge": "c507a3a",
+      "sementes": [
+        "core/src/intelligence-graph-extract.ts"
+      ],
+      "origem": "RM-031, KG3: indice e consultas sobre o extrator entregue no KG2; semente retrospectiva fixa, nao prompt historico"
+    },
+    {
+      "thread": "ork-rm031kg4incr",
+      "merge": "99b10d3",
+      "sementes": [
+        "core/src/intelligence-graph-index.ts"
+      ],
+      "origem": "RM-031, KG4: incremental sobre o indice entregue no KG3; semente retrospectiva fixa, nao prompt historico"
+    }
+  ],
+  "sintetica": {
+    "origem_v0": "docs/referencia/contratos/consumo-grafo-kg5.md, registro da fatia 2",
+    "comando_v2": "npm --prefix core run build:test && node --test-name-pattern='KG5 medida offline' core/dist-test/test/rm031-kg5-contexto.test.js",
+    "v0_bytes": 22973,
+    "v2_bytes": 3093,
+    "arquivos_bytes": 1567,
+    "arquivos": 3,
+    "truncado": false,
+    "tokens": "unavailable"
+  },
+  "conclusao": "medida historica pendente; fixture sintetica nao prova economia de tokens nem cobertura real"
+}
