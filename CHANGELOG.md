@@ -71,6 +71,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - com o remoto fora do GitHub, o pulse diz uma vez que a forja não tem leitura de PR, em vez de "PR não lido" a cada
     batida; com GitHub Enterprise, os PRs são lidos pelo host do remoto quando o `gh` está autenticado nele.
 
+### Segurança
+
+- **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
+    (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um
+    repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
+    e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
+  - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e
+    `ork roadmap reservas`, `pegar`, `soltar` e `feat` com `roadmap.remoto-invalido`, com o valor redigido e nada passado
+    ao git; o `fetch`, o `push` e o `remote get-url` recebem `--` antes do remoto.
+
 ## [0.5.1] - 2026-10-02
 
 ### Adicionado
