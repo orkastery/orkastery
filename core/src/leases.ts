@@ -252,6 +252,11 @@ function lerArquivoDeLease(caminho: string): Lease | null {
   }
 }
 
+/** O criador exclusivo pode estar entre o open(wx) e a escrita do JSON. */
+function escritaRecente(caminho: string): boolean {
+  try { return Date.now() - fs.lstatSync(caminho).mtimeMs < 5_000; } catch { return false; }
+}
+
 /** O lease venceu? */
 export function expirado(lease: Lease, referencia: Date = new Date()): boolean {
   const fim = Date.parse(lease.expiraEm);
@@ -396,7 +401,7 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
       const atual = lerLease(raiz, nome);
-      if (opcoes.retomarVencido === false || (atual && !expirado(atual))) {
+      if (opcoes.retomarVencido === false || (atual && !expirado(atual)) || (!atual && escritaRecente(caminho))) {
         return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
       }
       // Lease vencido ou corrompido: remove e tenta uma unica vez mais.

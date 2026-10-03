@@ -64,6 +64,10 @@ test('retomarVencido false preserva bytes de lease expirada/corrompida; default 
       assert.throws(() => verificarMcp(f.p.dir, f.thread.id), /lease.busy/);
       assert.equal(fs.readFileSync(file, 'utf8'), bytes);
     }
+    const recente = adquirir(f.p.dir, f.lease, { thread: f.thread.id, motivo: 'ainda escrevendo' });
+    assert.equal(recente.ok, false, 'RM-036: arquivo recem-criado ainda pode pertencer ao escritor wx');
+    const antes = new Date(Date.now() - 6_000);
+    fs.utimesSync(file, antes, antes);
     const legado = adquirir(f.p.dir, f.lease, { thread: f.thread.id, motivo: 'legado' });
     assert.equal(legado.ok, true); assert.equal(legado.tomadoDeVencido, true);
     liberar(f.p.dir, f.lease, f.thread.id);

@@ -254,3 +254,40 @@ test('rm036 gofix: falha do rename da fila conserva estado anterior e limpa temp
   assert.equal(fs.readFileSync(leases.caminhoFila(c.raiz), 'utf8'), antes);
   assert.deepEqual(fs.readdirSync(leases.dirLeases(c.raiz)).filter((n) => n.endsWith('.tmp')), []);
 });
+
+test('rm036 gofix: arquivo recem-criado entre wx e JSON tem somente um vencedor', (t) => {
+  const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
+  const escrever = io.writeFileSync;
+  let naJanela = false;
+  t.mock.method(io, 'writeFileSync', (p: fs.PathOrFileDescriptor, data: string, options: fs.WriteFileOptions) => {
+    if (String(p) !== arquivo || naJanela) return escrever(p, data, options);
+    naJanela = true;
+    const fd = fs.openSync(arquivo, 'wx');
+    try {
+      const rival = leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'durante escrita' });
+      assert.equal(rival.ok, false, 'rival nao apaga o arquivo ainda vazio criado por wx');
+      escrever(fd, data, options);
+    } finally { fs.closeSync(fd); }
+  });
+  assert.equal(leases.adquirir(c.raiz, nome, { thread: DONO, motivo: 'primeira escrita' }).ok, true);
+  assert.equal(naJanela, true);
+  assert.equal(leases.lerLease(c.raiz, nome)?.thread, DONO);
+  assert.equal(fs.statSync(arquivo).nlink, 1, 'sem hard link que o ship recusaria');
+});
+
+for (const conteudo of ['', '{']) {
+  test(`rm036 gofix: arquivo recem-criado ${conteudo ? 'ilegivel' : 'vazio'} so e retomado depois de 5 s`, (t) => {
+    const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
+    fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+    fs.writeFileSync(arquivo, conteudo);
+    const carimbo = fs.statSync(arquivo).mtimeMs;
+    t.mock.method(Date, 'now', () => carimbo + 4_999);
+    assert.equal(leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'cedo' }).ok, false);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), conteudo);
+    t.mock.method(Date, 'now', () => carimbo + 5_001);
+    const retomada = leases.adquirir(c.raiz, nome, { thread: OUTRA, motivo: 'apos prazo' });
+    assert.equal(retomada.ok, true);
+    assert.equal(retomada.tomadoDeVencido, true);
+    assert.equal(leases.lerLease(c.raiz, nome)?.thread, OUTRA);
+  });
+}
