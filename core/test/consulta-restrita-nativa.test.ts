@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { usingFixture, pythonFixture, fixtureEnv, assets } from './native-fixture';
+import { semPostgres } from './ambiente-de-teste';
 
-test('consulta delimitada usa PostgreSQL governado e filtra na origem antes da janela', () => {
+test('consulta delimitada usa PostgreSQL governado e filtra na origem antes da janela', { skip: semPostgres() }, () => {
   usingFixture(receipt => {
     const script = String.raw`
 import asyncio, json, logging, os, sys, uuid
