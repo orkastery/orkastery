@@ -6,7 +6,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | Item | Com quem | Máquina | Thread | Desde | Nota |
 | --- | --- | --- | --- | --- | --- |
 | RM-031 | Julio Pessoa | vps | ork-rm031grafofu | 03/10 02:35 | — |
-| RM-037 | Julio Pessoa | srvjcp86 | — | 03/10 02:48 | — |
+| RM-037 | Julio Pessoa | srvjcp86 | ork-rm037fatia6r | 03/10 02:48 | — |
 | RM-038 | Julio Pessoa | vps | ork-rm038univers | 03/10 02:35 | — |
 | RM-040 | Julio Pessoa | srvjcp86 | ork-rm040piloto | 01/10 04:51 | — |
 | RM-053 | Julio Pessoa | srvjcp86 | ork-rm053network | 29/09 16:32 | — |
