@@ -1,5 +1,6 @@
 /**
- * Contraprovas do GO-FIX da RM-036. Nunca altera o checkout nem abre subprocessos.
+ * Contraprovas do GO-FIX da RM-036. Nunca altera o checkout original.
+ * Os casos MCP usam o helper local flock; execute no host da verificacao independente.
  * Primeiro: npm --prefix core run build:test
  * Controle (deve passar), ou um nome de `node core/scripts/rm036-leases-mutantes.cjs --listar` (deve falhar):
  * ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test \
