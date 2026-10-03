@@ -145,16 +145,17 @@ test('grafo no pacote: doctor: com os analisadores na instalacao, o check e ok c
 test('grafo no pacote: doctor: sem um analisador, warn com a recusa, o que deixa de rodar e a correcao do npm na versao do ork', () => {
   const c = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha(RECUSA_DO_TS));
   assert.equal(c.nivel, 'warn', 'o grafo nao e condicao do despacho: nunca fail');
-  assert.equal(c.detalhe, `${RECUSA_DO_TS}: ork grafo indexar, as consultas e as tools ork_grafo_* recusam nesta instalacao`);
+  assert.equal(c.detalhe, `${RECUSA_DO_TS}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`);
   assert.equal(c.correcao, `reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM}`
     + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)');
   // Pacote fora da instalacao (o npm icou para o projeto): a mesma correcao.
   const fora = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha('grafo.parser.indisponivel: micromark fora da instalacao do ork'));
   assert.equal(fora.correcao, c.correcao);
-  // Sem a versao (o worker do MCP nao a passa), a correcao instala a ultima publicada.
-  assert.equal(checarAnalisadoresDoGrafo(undefined, falha(RECUSA_DO_TS)).correcao,
-    'reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli'
-    + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)');
+  // Sem a versao (o worker do MCP nao a passa), ou com a desconhecida, a correcao instala a ultima publicada.
+  const semVersao = 'reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli'
+    + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)';
+  assert.equal(checarAnalisadoresDoGrafo(undefined, falha(RECUSA_DO_TS)).correcao, semVersao);
+  assert.equal(checarAnalisadoresDoGrafo('0.0.0-desconhecida', falha('grafo.parser.indisponivel: instalacao do ork nao encontrada')).correcao, semVersao);
   // O relatorio imprime a correcao debaixo da linha, e o doctor sai 0 por esse check.
   const texto = relatorio([c]);
   assert.match(texto, /^ {2}\[warn\] analisadores do grafo {2}grafo\.parser\.indisponivel: typescript: /m);
@@ -165,8 +166,26 @@ test('grafo no pacote: doctor: sem um analisador, warn com a recusa, o que deixa
 test('grafo no pacote: doctor: Node sem require de ESM pede o Node 20.19 ou 22.12, nao a reinstalacao', () => {
   const c = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'));
   assert.equal(c.nivel, 'warn');
-  assert.equal(c.correcao, `o micromark e so ESM, e o Node ${process.version} nao o carrega por require: use Node 20.19, 22.12 ou mais novo`);
+  assert.equal(c.correcao, `o micromark e so ESM, e este Node (${process.version}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, `
+    + 'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)');
   assert.equal(correcaoDosAnalisadores('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'), c.correcao);
+});
+
+test('grafo no pacote: doctor: o check carrega os analisadores de verdade, e no Node sem require de ESM avisa com a correcao do Node', (t) => {
+  if (!process.allowedNodeEnvironmentFlags.has('--no-experimental-require-module')) {
+    t.skip('este Node nao tem --no-experimental-require-module');
+    return;
+  }
+  // So a carga real (e nao a leitura dos package.json) ve o Node que nao carrega o micromark por require.
+  const cli = path.resolve(__dirname, '../src/intelligence-graph-cli.js');
+  const r = spawnSync(process.execPath, ['--no-experimental-require-module', '-e',
+    `process.stdout.write(JSON.stringify(require(${JSON.stringify(cli)}).checarAnalisadoresDoGrafo('9.9.9')))`],
+  { encoding: 'utf8', timeout: 120_000, env: { PATH: process.env.PATH ?? '/usr/bin:/bin' } });
+  assert.equal(r.status, 0, r.stderr);
+  const c = JSON.parse(r.stdout);
+  assert.equal(c.nivel, 'warn');
+  assert.match(c.detalhe, /^grafo\.parser\.indisponivel: micromark \(ERR_REQUIRE_ESM\): o ork grafo indexar recusa/);
+  assert.match(c.correcao, /use Node 20\.19, 22\.12 ou mais novo, sem a opcao --no-experimental-require-module/);
 });
 
 test('grafo no pacote: doctor: o checar traz o check que o index.ts passa logo depois do node, e sem ele o doctor nao abre o grafo', () => {
@@ -188,7 +207,7 @@ test('grafo no pacote: doctor: na instalacao sem os analisadores, o ork doctor d
     const r = orkSemAnalisadores(p.dir, 'doctor');
     const linhas = r.stdout.split('\n'), i = linhas.findIndex((l) => l.includes(' analisadores do grafo '));
     assert.ok(i > 0, r.stdout + r.stderr);
-    assert.match(linhas[i], /^ {2}\[warn\] analisadores do grafo +grafo\.parser\.indisponivel: typescript: ork grafo indexar/);
+    assert.match(linhas[i], /^ {2}\[warn\] analisadores do grafo +grafo\.parser\.indisponivel: typescript: o ork grafo indexar recusa/);
     assert.match(linhas[i + 1], new RegExp(`^ +correcao: reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM.replace(/[.@/]/g, '\\$&')}`));
   } finally {
     p.limpar();
@@ -201,6 +220,25 @@ test('grafo no pacote: status: com os analisadores, o campo correcao e null e o 
     const status = JSON.parse(grafo(p.dir, 'status', '--json'));
     assert.deepEqual([status.erro, status.correcao, status.indice_do_head], [null, null, 'ausente']);
     assert.ok(!/^ {2}correcao /m.test(grafo(p.dir, 'status')));
+  } finally {
+    p.limpar();
+  }
+});
+
+test('grafo no pacote: status: erro que nao e dos analisadores nao ganha a correcao deles', () => {
+  const p = projetoTemporario('rm031-status-outro-erro');
+  try {
+    const partes: string[] = [];
+    const ctx = { raiz: p.dir, estado: raizDoEstado(p.dir), repositorio: 'nome com espaco', versao: VERSAO_DO_ORK, escrever: (x: string) => partes.push(x) };
+    assert.equal(executarGrafo(['status', '--json'], ctx), 0);
+    const status = JSON.parse(partes.join('\n'));
+    assert.equal(status.indice_do_head, 'indisponivel');
+    assert.ok(status.erro && !status.erro.startsWith('grafo.parser.indisponivel'), status.erro);
+    assert.equal(status.correcao, null);
+    partes.length = 0;
+    assert.equal(executarGrafo(['status'], ctx), 0);
+    assert.ok(!partes.join('\n').includes('sem os analisadores'), partes.join('\n'));
+    assert.ok(!/^ {2}correcao /m.test(partes.join('\n')));
   } finally {
     p.limpar();
   }

@@ -48,9 +48,13 @@ const RECUSA_DOS_ANALISADORES = 'grafo.parser.indisponivel';
  */
 export function correcaoDosAnalisadores(motivo: string, versao?: string): string {
   if (/ERR_REQUIRE_ESM/.test(motivo)) {
-    return `o micromark e so ESM, e o Node ${process.version} nao o carrega por require: use Node 20.19, 22.12 ou mais novo`;
+    return `o micromark e so ESM, e este Node (${process.version}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, ` +
+      'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)';
   }
-  return `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${versao ? `@${versao}` : ''}` +
+  // Sem a versao do pacote (`0.0.0-desconhecida` quando o package.json dele nao e achado), o comando
+  // sai sem `@<versao>` e o npm instala a ultima publicada.
+  const fixada = versao && /^\d+\.\d+\.\d+/.test(versao) && !versao.startsWith('0.0.0') ? `@${versao}` : '';
+  return `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${fixada}` +
     ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)';
 }
 
@@ -73,7 +77,7 @@ export function checarAnalisadoresDoGrafo(versao?: string, carregar: () => unkno
   } catch (e) {
     const motivo = (e as Error).message;
     return { nome, nivel: 'warn',
-      detalhe: `${motivo}: ork grafo indexar, as consultas e as tools ork_grafo_* recusam nesta instalacao`,
+      detalhe: `${motivo}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`,
       correcao: correcaoDosAnalisadores(motivo, versao) };
   }
 }
@@ -268,7 +272,9 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const linhas = [
     `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
     `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
-      : r.indice_do_head === 'indisponivel' ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : `(${r.indice_do_head})`}`,
+      : r.indice_do_head === 'indisponivel'
+        ? (correcao ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : '(sem a chave do indice: o erro esta na linha de baixo)')
+        : `(${r.indice_do_head})`}`,
     `  analisadores    ${erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)}`,
     ...(correcao ? [`  correcao        ${correcao}`] : []),
     `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
