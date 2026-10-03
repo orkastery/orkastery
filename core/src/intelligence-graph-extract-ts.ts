@@ -212,6 +212,11 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
   const checker = programa.getTypeChecker();
   const cache = ts.createModuleResolutionCache(e.raiz, (p) => p, opts);
   const arquivos = new Set(e.arquivos);
+  const diretorios = new Set<string>();
+  for (const p of e.arquivos) {
+    const partes = p.split('/');
+    for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
+  }
   const S = ts.SymbolFlags, K = ts.SyntaxKind;
 
   const ehTopo = (n: TS.Node): boolean => !!n.parent && ts.isSourceFile(n.parent);
@@ -659,9 +664,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     // Strings so em testes/scripts. Comentarios, interpolacoes e concatenacoes nao sao avaliados.
     const citacoes: { alvo: string; trecho: Trecho }[] = [];
     if (/(?:^|\/)(?:tests?|__tests__|scripts?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fonte.path)) {
-      const citar = (literal: string, n: TS.Node): void => {
-        const base = caminhoDaCitacao(fonte.path, literal);
-        if (base === null) return;
+      const citar = (literal: string, n: TS.Node, modulo = false): void => {
+        const base = caminhoDaCitacao(fonte.path, literal, modulo);
+        if (base === null || diretorios.has(base)) return;
         const grupos = candidatosDaCitacao(base);
         // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
         for (const grupo of grupos) for (const p of grupo) sondas.add(p);
@@ -680,9 +685,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
           const chave = literaisDeModulo.get(n);
           // O resolver de import ja provou esta ocorrencia; outra string igual ainda pode citar.
           if (chave !== undefined && mapa.get(chave)?.alvo != null) return;
-          citar(n.text, n);
+          citar(n.text, n, chave !== undefined);
           // Codigo citado por fixture: so argumentos literais de require/import dentro da string.
-          for (const m of n.text.matchAll(/\b(?:require|import)\s*\(\s*(['"])([^'"\r\n]+)\1\s*\)/g)) citar(m[2], n);
+          for (const m of n.text.matchAll(/\b(?:require|import)\s*\(\s*(['"])([^'"\r\n]+)\1\s*\)/g)) citar(m[2], n, true);
         }
         ts.forEachChild(n, literais);
       };

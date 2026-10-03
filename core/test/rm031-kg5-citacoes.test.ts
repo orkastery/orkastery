@@ -114,6 +114,40 @@ test('KG5 citacoes GO-FIX: links e imports resolvidos nao duplicam cites; prova 
   ]) assert.throws(() => provarSemDuplicacao(mutante(modulo, antes, depois)), antes);
 });
 
+function provarSondasRestritas(extrair = extrairGrafo): void {
+  const repo = {
+    'alvo.ts': 'export const raiz = 0;',
+    'core/src/alvo.ts': 'export const alvo = 1;',
+    'core/src/pasta.ts/index.ts': 'export const interno = 2;',
+    'core/src/sem-extensao': 'arquivo sem extensao',
+    'core/src/nao-conhecida.xyz': 'extensao desconhecida',
+    'core/test/ruido.test.ts': ["export const palavras = ['core', 'docs', '../..', 'core/src/alvo', 'alvo.ts',",
+      "'core/src/sem-extensao', 'core/src/nao-conhecida.xyz', 'core/src/pasta.ts', 'core/src/'];",
+      'export const invalidos = ["require(\'../..\')", "import(\'core/src/\')"];'].join('\n'),
+    'docs/ruido.md': '`core` `docs` `../..` `core/src/alvo` `core/src/sem-extensao` `core/src/nao-conhecida.xyz` `core/src/pasta.ts`',
+    'core/test/caminho.test.ts': "export const arquivo = 'core/src/alvo.ts';",
+    'core/test/fixture.test.ts': 'export const codigo = "require(\'../dist/alvo\')";',
+  };
+  const r = extrair(entrada(repo), PARSER);
+  const ruido = r.unidades.arquivos.find((u) => u.path === 'core/test/ruido.test.ts')!.ts!;
+  assert.deepEqual(ruido.sondas, [], 'palavras, diretorios e caminhos sem extensao nao geram sondas');
+  assert.deepEqual(ruido.dependencias, []);
+  assert.deepEqual(rotulos(r.grafo), ['core/test/caminho.test.ts -> core/src/alvo.ts', 'core/test/fixture.test.ts -> core/src/alvo.ts']);
+  const caminho = r.unidades.arquivos.find((u) => u.path === 'core/test/caminho.test.ts')!.ts!;
+  assert.deepEqual(caminho.sondas, ['core/src/alvo.ts'], 'caminho com extensao nao expande 17 candidatos');
+  const novo = extrair(entrada({ ...repo, 'core/src/novo.ts': 'export const novo = 3;' }), PARSER, r.unidades);
+  assert.ok(novo.reaproveitamento);
+  assert.ok(!novo.reaproveitamento.ts.reextraidos.includes('core/test/ruido.test.ts'), 'arquivo novo nao invalida palavras comuns');
+}
+
+test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas caem por mutacao', () => {
+  provarSondasRestritas();
+  for (const [modulo, antes, depois] of [
+    ['intelligence-graph-extract-md', '!modulo && (', 'false && ('],
+    ['intelligence-graph-extract-ts', 'base === null || diretorios.has(base)', 'base === null'],
+  ]) assert.throws(() => provarSondasRestritas(mutante(modulo, antes, depois)), antes);
+});
+
 /** Mutantes carregados em memoria, sem tocar nos arquivos nem no cache do Node. */
 function mutante(modulo: string, antes: string, depois: string): typeof extrairGrafo {
   const Module = require('node:module');
@@ -126,7 +160,11 @@ function mutante(modulo: string, antes: string, depois: string): typeof extrairG
     return m.exports;
   };
   const alterado = carregar(modulo, (s) => { assert.ok(s.includes(antes), `ponto de mutacao: ${antes}`); return s.replace(antes, depois); });
-  return carregar('intelligence-graph-extract', (s) => s, { [`./${modulo}`]: alterado }).extrairGrafo;
+  const dependencias: Record<string, unknown> = { [`./${modulo}`]: alterado };
+  // TS compartilha caminhoDaCitacao com Markdown; o mutante deve chegar aos dois consumidores.
+  if (modulo === 'intelligence-graph-extract-md') dependencias['./intelligence-graph-extract-ts'] =
+    carregar('intelligence-graph-extract-ts', (s) => s, dependencias);
+  return carregar('intelligence-graph-extract', (s) => s, dependencias).extrairGrafo;
 }
 
 test('KG5 citacoes: provas caem ao retirar inline, links, strings, resolucao ou linhas', () => {
