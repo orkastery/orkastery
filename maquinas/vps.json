@@ -4,24 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T12:15:01.974Z",
+  "publicadoEm": "2026-10-03T12:15:43.028Z",
   "threads": [
     {
       "id": "ork-rm036watcher",
       "nome": "ork-rm036watcherl",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-036",
       "branch": "ork/ork-rm036watcher-full",
-      "atualizadaEm": "2026-10-03T12:10:57.020Z",
+      "atualizadaEm": "2026-10-03T12:15:42.811Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "runtime": "codex",
+      "modelo": "gpt-6-astra",
+      "esforco": "xhigh"
     }
   ]
 }
