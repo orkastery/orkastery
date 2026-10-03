@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **`ork brain context` pelo modo `context` do OrkMind** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  o núcleo pede primeiro o pacote `orkmind.company-brain-context/v1` ao servidor, confere schema, tenant, pedido,
+  digest, citação inteira, ordem, fecho de pais e o destino de cada id, e o traduz para `ork.brain-context/v1` com o
+  frescor contra o portfólio. Com um OrkMind anterior ao modo (`brain.selection.context-unsupported`), monta o pacote
+  por `query` e `get`, como antes; os dois caminhos dão o mesmo digest, e o campo `caminho` diz qual foi. Pacote do
+  servidor que não confere encerra com `conflict` e `brain.context.server-invalid`. Vale também para a ferramenta
+  `ork_brain_context` e para o contexto do dossiê.
 - **Suíte local sem as dependências opcionais** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o
   `npm --prefix core test` passa com 0 falhas numa máquina sem o codex em `/usr/bin`, sem PostgreSQL ou sem o
   interpretador do OrkMind. Os 44 testes que dependem deles sondam a dependência e saem como skip com o motivo
