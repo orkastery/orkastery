@@ -424,6 +424,14 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
       `memory.database_url_env invalido: "${variavelDaDsn}" (esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*)`
     );
   }
+  // RM-047 (fronteira de confiança): `memory.cli` escolhe o executável que o `ork doctor`, a memória e o
+  // `ork brain` rodam. Caminho relativo apontaria para um arquivo do próprio clone; só nome procurado no
+  // PATH (o `orkmind` instalado) ou caminho absoluto escolhido por quem instalou.
+  const cliDaMemoria = texto(memory.cli, 'orkmind');
+  if (!cliDaMemoriaValido(cliDaMemoria)) {
+    erros.push(`memory.cli invalido: ${JSON.stringify(cliDaMemoria).slice(0, 60)} ` +
+      '(esperado nome de executável no PATH, como orkmind, ou caminho absoluto; caminho relativo não é aceito)');
+  }
   if (modoDeMemoria === 'orkmind' && variavelDaDsn === '') {
     avisos.push(
       'memory.mode: orkmind sem memory.database_url_env: o regime efetivo cai para files ' +
@@ -553,6 +561,17 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   };
 
   return { caminho: achado.caminho, raiz, legado: achado.legado, bytes, manifesto, erros, avisos };
+}
+
+/**
+ * RM-047: `memory.cli` aceito. Nome simples (procurado no PATH, sem barra e sem `-` no começo) ou caminho
+ * absoluto normalizado. Caminho relativo (`./bin/x`, `bin/x`) resolveria dentro do repositório clonado.
+ */
+export function cliDaMemoriaValido(cli: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  if (cli === '' || /[\x00-\x1f\x7f]/.test(cli)) return false;
+  if (/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/.test(cli)) return true;
+  return path.isAbsolute(cli) && path.normalize(cli) === cli;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
