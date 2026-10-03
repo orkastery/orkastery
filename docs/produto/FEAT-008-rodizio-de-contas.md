@@ -13,24 +13,29 @@ fontes:
   codigo:
     - core/src/runtime-profiles.ts
     - core/src/retry.ts
+    - core/src/esgotamentos.ts
   testes:
     - core/test/runtime-profiles.test.ts
     - core/test/rotacao-perfis.test.ts
     - core/test/rotacao-politica.test.ts
     - core/test/contas-compartilhadas.test.ts
+    - core/test/rm040-esgotamentos.test.ts
   simbolos:
     - core/src/runtime-profiles.ts#adicionarPerfil
     - core/src/runtime-profiles.ts#perfilDeDespacho
     - core/src/runtime-profiles.ts#lerPerfisComContas
     - core/src/runtime-profiles.ts#publicarEstadoDaConta
+    - core/src/esgotamentos.ts#relatorioDeEsgotamentos
   contratos:
     - ork.runtime-profiles/v1
     - ork.contas-compartilhadas/v1
+    - ork.esgotamentos/v1
   comandos:
     - ork accounts list
     - ork accounts add
     - ork accounts check
     - ork accounts remove
+    - ork accounts esgotamentos
 ---
 
 # FEAT-008 — Rodízio de contas dos runtimes
@@ -68,6 +73,7 @@ fontes:
 
 - **Configuração:** `CLAUDE_CONFIG_DIR` ou `CODEX_HOME` por perfil; nenhum segredo no manifesto.
 - **Estado compartilhado:** cota esgotada, login perdido e credencial paga valem para a conta em todos os projetos do mesmo usuário ([RM-040](../roadmap/RM-040-estado-de-conta-compartilhado.md)). Uso bem-sucedido ou login reconferido limpa a marca. `ork accounts list` mostra o que o despacho enxerga.
+- **Medida:** `ork accounts esgotamentos [--desde 7d] [--json]` (contrato `ork.esgotamentos/v1`) só lê: as marcas vivas do registro e, em cada projeto registrado, os despachos com perfil que caíram na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o perfil, pelo id; nenhum diretório de conta vai à saída. Como o registro só guarda marcas vivas, o total é um piso.
 - **Rollback:** `ork accounts remove <id>` desativa o perfil; diretório e login ficam onde estão.
 
 ## Histórico
@@ -76,3 +82,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-09-27 | estado da conta compartilhado entre os projetos do mesmo usuário | Claude (agente) / Julio, revisão pendente | RM-040 |
+| 2026-10-03 | `ork accounts esgotamentos`, a medida da métrica da RM-040 | Claude (agente) / Julio, revisão pendente | RM-040, thread `ork-b7relatoriod` |
