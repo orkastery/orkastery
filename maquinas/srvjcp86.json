@@ -4,25 +4,8 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T10:06:49.660Z",
+  "publicadoEm": "2026-10-03T10:06:52.117Z",
   "threads": [
-    {
-      "id": "ork-c4fechamento",
-      "nome": "C4 fechamento com falha numa parte sob teste",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-056",
-      "branch": "ork/ork-c4fechamento-full",
-      "atualizadaEm": "2026-10-03T10:06:49.510Z",
-      "entregue": "f840856",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
     {
       "id": "ork-c5ramosdoork",
       "nome": "C5 ramos do ork doctor de 03-10 sob teste",
