@@ -6,15 +6,15 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-01T02:24:38-03:00
+atualizado_em: 2026-10-03T06:52:15-03:00
 estado:
-  ciclo: Em desenvolvimento
+  ciclo: Piloto
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
   deploy: Produção
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  exposicao: Geral
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: 3c7e8a7
@@ -24,6 +24,8 @@ evidencias:
     ci: "verde no push do merge (run 36564117438), no da v0.5.0 (run 36815186450) e no PR #6 do OrkMind (run 36583041988)"
   deploy:
     release: v0.5.0; guias na main dos dois repositórios
+  habilitacao:
+    rotulos: needs triage nos dois repositórios; criação confirmada pela condução em 2026-10-03; piloto externo pendente
 sdlc:
   thread: ork-rm050guiadec
   modo: "#Auto"
@@ -39,7 +41,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Aprovados | Produção | Flag desligada |
+| Piloto | Mesclado | Aprovados | Produção | Geral |
 
 <!-- ork-docs:relance:fim -->
 
@@ -93,7 +95,7 @@ sdlc:
 - Parte do repositório do Orkastery (itens 1, 2, 4 e 5), na thread `ork-rm050guiadec`: índice no `CONTRIBUTING.md`, nove guias em `docs/guias/contribuir/`, modelos de issue e de PR e a checagem `core/scripts/checar-comandos-dos-guias.cjs`. Na `main` pelo PR #22 (merge `3c7e8a7`), com o CI verde no push do merge (run 36564117438), e na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36).
 - Guia do OrkMind: entregue pela thread `ork-rm050guiade2` no `orkastery/orkmind`, pelo PR #6 ("Guia de contribuição por tarefa", merge `c78a7f3`, estado MERGED no GitHub), com o CI do OrkMind verde (run 36583041988).
 - Página "Contribuir" (item 3) no ar nos dois sites, em PT, EN e ES, desde 29/09/2026, pela thread `ork-siteshomesco`: <https://orkastery.com/docs/contribuir/> (`orkastery/orkastery.com` PR #6, merge `e29d05e`) e <https://orkmind.com/docs/contribuir/> (`orkastery/orkmind.com` commit `5adde94`). As versões em inglês e espanhol ficam em `/en/docs/contribuir/` e `/es/docs/contribuir/`.
-- O rótulo `needs triage` ainda não existe em nenhum dos dois repositórios (`gh label list`).
+- O rótulo `needs triage`, já usado pelos modelos de issue, existe nos dois repositórios. A condução confirmou a criação em 03/10/2026; é configuração do GitHub, sem commit de produto. Os modelos do Orkastery vieram no PR #22 (`3c7e8a7`). Consulta reproduzível: `gh label list --repo orkastery/orkastery --search "needs triage"` e `gh label list --repo orkastery/orkmind --search "needs triage"`. Esta rodada não repetiu essas consultas de rede.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -101,13 +103,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `3c7e8a7` · PR #22 · orkmind: orkastery/orkmind PR #6, merge c78a7f3 | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36564117438), no da v0.5.0 (run 36815186450) e no PR #6 do OrkMind (run 36583041988) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0; guias na main dos dois repositórios | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `3c7e8a7` · PR #22 · orkmind: orkastery/orkmind PR #6, merge c78a7f3 | 2026-10-03 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36564117438), no da v0.5.0 (run 36815186450) e no PR #6 do OrkMind (run 36583041988) | 2026-10-03 | Julio |
+| Deploy | Produção | release: v0.5.0; guias na main dos dois repositórios | 2026-10-03 | Julio |
+| Exposição | Geral | — | 2026-10-03 | Julio |
+| Habilitação | Em andamento | rotulos: needs triage nos dois repositórios; criação confirmada pela condução em 2026-10-03; piloto externo pendente | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -115,7 +117,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** executor da thread / Julio / colaboradores convidados / comunidade.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** executor da thread `ork-rm050guiadec` em #Auto; o merge, a criação dos rótulos e a decisão final ficam com Julio.
-- **Próxima ação, responsável e prazo:** criação do rótulo `needs triage` nos dois repositórios; condução. Os merges do PR #22, do guia do OrkMind (`orkastery/orkmind` #6) e da página "Contribuir" nos dois sites já aconteceram.
+- **Próxima ação e responsável:** acompanhar o piloto com colaboradores externos e registrar o teste de fumaça do clone ao PR verde. O mantenedor confere o critério de dois PRs externos seguindo só o guia, sem ajuda; rótulos, guias e páginas já estão disponíveis.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -125,3 +127,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | Guia do OrkMind mesclado | `orkastery/orkmind` PR #6, merge `c78a7f3`; thread `ork-rm050guiade2` | Julio |
 | 2026-10-01 | Parte do Orkastery na versão 0.5.0 | tag `v0.5.0` (PR #36) | Julio |
 | 2026-10-03 | o texto registra a página "Contribuir" no ar nos dois sites | `curl` 200 em `orkastery.com/docs/contribuir/` e `orkmind.com/docs/contribuir/` (PT, EN e ES); `orkastery.com` PR #6 (`e29d05e`), `orkmind.com` `5adde94`; thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Rótulo needs triage criado nos dois repositórios; item em piloto, com exposição geral | Confirmação da condução; modelos no PR #22 (`3c7e8a7`) e guia do OrkMind no PR #6 (`c78a7f3`); falta medir os dois PRs externos do critério de aceite | Codex (agente, #Fast), revisão pendente |

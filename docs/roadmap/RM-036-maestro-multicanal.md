@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-029]
 owner: Julio
-atualizado_em: 2026-10-03T01:10:00-03:00
+atualizado_em: 2026-10-03T06:50:27-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -17,10 +17,10 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 10ca416
-    pr: null
+    commit: 4e1a6f0
+    pr: 95
 sdlc:
-  thread: ork-i36multicana
+  thread: ork-rm036leasesd
   modo: "#Auto"
   fase: MASTER
   status: fechada
@@ -65,7 +65,8 @@ sdlc:
 - GO entregue na thread `ork-i36multicana` (27/09/2026): o lease mora no estado canônico do projeto, e a raiz e as worktrees disputam o mesmo arquivo.
 - A recusa chega igual pelo CLI (código de saída `3`) e pelo MCP; os adaptadores Hermes e OpenClaw declaram o canal deles.
 - Fatia dos leases (thread `ork-rm036leasesd`, 03/10/2026): os leases das famílias antigas passam ao domínio canônico em [leases.ts](../../core/src/leases.ts), e o lock de espera do portfólio acompanha seu dado em [portfolio.ts](../../core/src/portfolio.ts). O legado de worktrees registradas e com vínculo de volta válido só é consultado na janela de 30 minutos iniciada na primeira consulta desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado`. Arquivo regular válido, com nome correspondente, thread no formato de id, datas ISO e prazo de até 30 minutos (com tolerância de 1 segundo entre as leituras do relógio), barra enquanto vivo, aparece no `ork lease list` e nunca prova posse canônica nem ganha segunda cópia. Arquivo inválido ou ilegível não bloqueia; aparece como diagnóstico durante a janela. O diagnóstico mostra apenas o arquivo, sem comando de remoção. Links simbólicos são ignorados. Depois de encerrada, a janela não reabre com arquivos legados novos. A aquisição preserva o legado vencido. A fila legada não é lida; a espera se refaz no próximo pedido. Limite: um `ork` da versão anterior ainda rodando numa worktree durante a troca não vê os leases canônicos; os do CLI vencem em 30 minutos. O legado nunca é apagado: o descarte grava uma marca `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode ou `ctime` continua visível. O `ctime` usa `ctimeMs` e é conferido novamente antes de gravar a marca. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu. A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`: candidatos exclusivos e tickets publicados por `rename` atômico serializam as retomadas, inclusive entre transportes diferentes; sob essa exclusão, o núcleo relê o conteúdo, confere dispositivo e inode e cria com `wx`. Ausência, bloqueio do spawn, timeout ou erro de `flock` usam o caminho portátil. A fila fica em `.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato, com candidatos regulares de um único vínculo, e a pasta vazia é removida. `ork lease list` mostra candidatos, PID, ticket, idade e temporários `.json.tmp`. A prova de morte por `process.kill(pid, 0)` só vale no mesmo namespace de PID; processos de namespaces diferentes não devem compartilhar esta fila. PID reutilizado ou sem permissão de consulta bloqueia até o limite de 30 minutos (`TTL_PADRAO_MS`). Candidatos e temporários expirados são recolhidos na próxima tentativa, que retorna `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir a aquisição, sem apagar o lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes do prazo, inclusive JSON parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode prosseguir. Dispositivo e inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de sistema não constituem um CAS atômico contra escritores externos à exclusão. `nlink === 0` é `lease.busy`, com fila normal e preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana e sem retry automático. Após avaliar a posse, a correção explícita é `ork lease release <nome> --forcar`, seguida de nova aquisição. Contenção normal do `flock` ou dos tickets continua como `lease.busy`.
-- Regressão MCP e retomada: [rm036-leases-mcp.test.ts](../../core/test/rm036-leases-mcp.test.ts) cobre claim e documento durante e depois da retomada, com `flock` e pelo caminho portátil; execução independente exigida antes de SHIP.
+- A fatia dos leases está na `main`: merge `4e1a6f0c`, [PR #95](https://github.com/orkastery/orkastery/pull/95). Os ajustes finais das revisões integram esse merge: diagnóstico do legado sem sugerir `release`, motivo `(legado)`, comandos com argumentos citados e nenhuma liberação anunciada quando nada saiu. A publicação dessa fatia continua em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
+- Regressão MCP e retomada: [rm036-leases-mcp.test.ts](../../core/test/rm036-leases-mcp.test.ts) cobre claim e documento durante e depois da retomada, com `flock` e pelo caminho portátil; cenários incluídos na fatia mesclada pelo PR #95.
 - Conhecido, fora da fatia dos leases (não são locks): os objetivos, o journal de criação, a fila de retomada (`.orkastery/retry/fila.jsonl`), a dívida, as auditorias e os perfis do board ainda moram no checkout de quem chama.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -76,7 +77,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-10-03 | Julio |
+| Código | Mesclado | commit `4e1a6f0` · PR #95 | 2026-10-03 | Julio |
 | Testes | Aprovados | — | 2026-10-03 | Julio |
 | Deploy | Produção | — | 2026-10-03 | Julio |
 | Exposição | Parcial | — | 2026-10-03 | Julio |
@@ -95,3 +96,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | D2 respondida: recusa imediata, sempre explicada para o humano | Telegram, 27/09 10:53 | Julio |
 | 2026-09-27 | GO entregue | thread `ork-i36multicana`, PR da entrega | Julio |
 | 2026-10-03 | fatia dos leases: todas as famílias e a fila por colisão no estado canônico, legado validado na janela de 30 minutos, lock do portfólio na raiz | thread `ork-rm036leasesd`, testes `rm036-leases-canonicos` e `rm036-leases-gofix`, revisão pendente | Agentes |
+| 2026-10-03 | Fatia dos leases e ajustes finais mesclados na `main` | Merge `4e1a6f0c`, PR #95; `core/test/rm036-leases-canonicos.test.ts`, `rm036-leases-gofix.test.ts` e `rm036-leases-mcp.test.ts` | Codex (agente, #Fast), revisão pendente |
