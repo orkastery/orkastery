@@ -28,28 +28,6 @@ import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
-import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
-import { correcaoDosAnalisadores, descreverVersoes } from './intelligence-graph-cli';
-
-/**
- * RM-031 (pacote do npm): o grafo de codigo (`ork grafo`, as tools `ork_grafo_*`) so roda com os
- * analisadores dentro da instalacao do `ork`. O check carrega o que o `ork grafo indexar` carrega
- * (`carregarAnalisadores`), entao diz o que o indexar faria, inclusive no Node sem `require` de ESM.
- * A falta e `warn`, com a correcao: o grafo nao e condicao do despacho de fase.
- */
-export function checarAnalisadoresDoGrafo(carregar: () => unknown = carregarAnalisadores,
-  versoes: () => VersoesDosAnalisadores = versoesDosAnalisadores): Check {
-  const nome = 'analisadores do grafo';
-  try {
-    carregar();
-    return { nome, nivel: 'ok', detalhe: descreverVersoes(versoes()) };
-  } catch (e) {
-    const motivo = (e as Error).message;
-    return { nome, nivel: 'warn',
-      detalhe: `${motivo}: ork grafo indexar, as consultas e as tools ork_grafo_* recusam nesta instalacao`,
-      correcao: correcaoDosAnalisadores(motivo) };
-  }
-}
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -318,8 +296,12 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   };
 }
 
-/** Roda todos os checks a partir do diretorio informado. */
-export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): Check[] {
+/**
+ * Roda todos os checks a partir do diretorio informado. RM-031: `analisadores` e o check do grafo
+ * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
+ * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
+ */
+export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(), analisadores?: () => Check): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -329,7 +311,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : 'instale Node 20 ou superior',
   });
-  checks.push(checarAnalisadoresDoGrafo());
+  if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
   checks.push({
@@ -599,8 +581,9 @@ export function relatorio(checks: Check[]): string {
 }
 
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
-export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados);
+export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  analisadores?: () => Check): { texto: string; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }

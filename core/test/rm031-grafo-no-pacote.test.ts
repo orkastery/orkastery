@@ -17,9 +17,9 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { after, test } from 'node:test';
-import { checar, checarAnalisadoresDoGrafo, relatorio } from '../src/doctor';
+import { checar, relatorio } from '../src/doctor';
 import { raizDoEstado } from '../src/estado-thread';
-import { correcaoDosAnalisadores, descreverVersoes, executarGrafo } from '../src/intelligence-graph-cli';
+import { checarAnalisadoresDoGrafo, correcaoDosAnalisadores, descreverVersoes, executarGrafo } from '../src/intelligence-graph-cli';
 import { PACOTES_DOS_ANALISADORES, pacotesDosAnalisadores, versoesDosAnalisadores } from '../src/intelligence-graph-parsers';
 import { noPath } from '../src/util';
 import { VERSAO_DO_ORK } from '../src/versao';
@@ -136,21 +136,25 @@ function grafo(dir: string, ...argv: string[]): string {
 }
 
 test('grafo no pacote: doctor: com os analisadores na instalacao, o check e ok com as versoes no formato do grafo status', () => {
-  const c = checarAnalisadoresDoGrafo();
+  const c = checarAnalisadoresDoGrafo(VERSAO_DO_ORK);
   assert.deepEqual([c.nome, c.nivel, c.correcao], ['analisadores do grafo', 'ok', undefined]);
   assert.equal(c.detalhe, descreverVersoes(versoesDosAnalisadores()));
   assert.match(c.detalhe, /^typescript \d+\.\d+\.\d+, javascript node\.\S+, markdown micromark\.\S+\.gfm-table\.\S+, unicode \S+$/);
 });
 
 test('grafo no pacote: doctor: sem um analisador, warn com a recusa, o que deixa de rodar e a correcao do npm na versao do ork', () => {
-  const c = checarAnalisadoresDoGrafo(falha(RECUSA_DO_TS));
+  const c = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha(RECUSA_DO_TS));
   assert.equal(c.nivel, 'warn', 'o grafo nao e condicao do despacho: nunca fail');
   assert.equal(c.detalhe, `${RECUSA_DO_TS}: ork grafo indexar, as consultas e as tools ork_grafo_* recusam nesta instalacao`);
   assert.equal(c.correcao, `reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM}`
     + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)');
   // Pacote fora da instalacao (o npm icou para o projeto): a mesma correcao.
-  const fora = checarAnalisadoresDoGrafo(falha('grafo.parser.indisponivel: micromark fora da instalacao do ork'));
+  const fora = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha('grafo.parser.indisponivel: micromark fora da instalacao do ork'));
   assert.equal(fora.correcao, c.correcao);
+  // Sem a versao (o worker do MCP nao a passa), a correcao instala a ultima publicada.
+  assert.equal(checarAnalisadoresDoGrafo(undefined, falha(RECUSA_DO_TS)).correcao,
+    'reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli'
+    + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)');
   // O relatorio imprime a correcao debaixo da linha, e o doctor sai 0 por esse check.
   const texto = relatorio([c]);
   assert.match(texto, /^ {2}\[warn\] analisadores do grafo {2}grafo\.parser\.indisponivel: typescript: /m);
@@ -159,17 +163,20 @@ test('grafo no pacote: doctor: sem um analisador, warn com a recusa, o que deixa
 });
 
 test('grafo no pacote: doctor: Node sem require de ESM pede o Node 20.19 ou 22.12, nao a reinstalacao', () => {
-  const c = checarAnalisadoresDoGrafo(falha('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'));
+  const c = checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'));
   assert.equal(c.nivel, 'warn');
   assert.equal(c.correcao, `o micromark e so ESM, e o Node ${process.version} nao o carrega por require: use Node 20.19, 22.12 ou mais novo`);
   assert.equal(correcaoDosAnalisadores('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'), c.correcao);
 });
 
-test('grafo no pacote: doctor: o checar inteiro traz o check logo depois do node', () => {
+test('grafo no pacote: doctor: o checar traz o check que o index.ts passa logo depois do node, e sem ele o doctor nao abre o grafo', () => {
   const dir = dirTemporario('rm031-doctor-ordem');
   try {
-    const nomes = checar(dir).map((c) => c.nome);
+    const nomes = checar(dir, undefined, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK)).map((c) => c.nome);
     assert.equal(nomes[nomes.indexOf('node') + 1], 'analisadores do grafo', nomes.join(', '));
+    // Fronteira do KG1: o doctor nao importa a familia do grafo; o check so vem de quem a abre.
+    assert.ok(!checar(dir).some((c) => c.nome === 'analisadores do grafo'));
+    // Que o `index.ts` passa o check, prova o `ork doctor` de verdade, no teste da instalacao sem os analisadores.
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -206,7 +213,7 @@ test('grafo no pacote: status: sem os analisadores na instalacao, o status diz a
     assert.equal(json.status, 0, json.stderr);
     const status = JSON.parse(json.stdout);
     assert.deepEqual([status.indice_do_head, status.erro], ['indisponivel', RECUSA_DO_TS]);
-    assert.equal(status.correcao, correcaoDosAnalisadores(RECUSA_DO_TS));
+    assert.equal(status.correcao, correcaoDosAnalisadores(RECUSA_DO_TS, VERSAO_DO_ORK), 'o index.ts passa a versao ao status');
     assert.ok(status.correcao.includes(CORRECAO_DO_NPM), status.correcao);
     const texto = orkSemAnalisadores(p.dir, 'grafo', 'status');
     assert.equal(texto.status, 0, texto.stderr);
@@ -282,11 +289,11 @@ test('grafo no pacote: script: os conferidores aceitam a saida real do ork grafo
 });
 
 test('grafo no pacote: script: a linha do doctor sai do relatorio de verdade, com a correcao quando ha', () => {
-  const ok = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo()]));
+  const ok = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo(VERSAO_DO_ORK)]));
   assert.deepEqual([ok.nivel, ok.correcao], ['ok', null]);
-  const semTs = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo(falha(RECUSA_DO_TS))]));
+  const semTs = prova.linhaDoDoctor(relatorio([{ nome: 'node', nivel: 'ok', detalhe: process.version }, checarAnalisadoresDoGrafo(VERSAO_DO_ORK, falha(RECUSA_DO_TS))]));
   assert.equal(semTs.nivel, 'warn');
-  assert.equal(semTs.correcao, correcaoDosAnalisadores(RECUSA_DO_TS));
+  assert.equal(semTs.correcao, correcaoDosAnalisadores(RECUSA_DO_TS, VERSAO_DO_ORK));
   prova.conferirDoctorSemCompilador(semTs, VERSAO_DO_ORK);
   assert.throws(() => prova.conferirDoctorSemCompilador(ok, VERSAO_DO_ORK), /^Error: prova\.doctor sem typescript: nivel ok, warn esperado/);
   assert.throws(() => prova.conferirDoctorSemCompilador(semTs, '9.9.9'), /^Error: prova\.doctor sem typescript: sem a correcao npm install -g @orkastery\/cli@9\.9\.9/);
