@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T10:33:54.644Z",
+  "publicadoEm": "2026-10-03T10:34:12.915Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -24,15 +24,15 @@
       "esforco": null
     },
     {
-      "id": "ork-coberturader",
-      "nome": "Cobertura de ramos dos módulos de 03/10",
+      "id": "ork-coberturade2",
+      "nome": "Cobertura de ramos do master de 03/10",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": null,
-      "branch": "ork/ork-coberturader-full",
-      "atualizadaEm": "2026-10-03T10:33:54.500Z",
-      "entregue": "9d8d0bf",
+      "branch": "ork/ork-coberturade2-full",
+      "atualizadaEm": "2026-10-03T10:34:12.759Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
