@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T10:02:40.067Z",
+  "publicadoEm": "2026-10-03T10:02:44.007Z",
   "threads": [
     {
       "id": "ork-estadodoroa2",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-estadodoroa2-go",
       "atualizadaEm": "2026-10-03T09:41:20.790Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-6-astra",
-      "esforco": "xhigh"
-    },
-    {
-      "id": "ork-rm031kg5fat2",
-      "nome": "RM-031 KG5 fatia 3 pacote compacto e relevante",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-031",
-      "branch": "ork/ork-kg5compacto-full",
-      "atualizadaEm": "2026-10-03T10:02:39.831Z",
-      "entregue": "a9f2be7a",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
