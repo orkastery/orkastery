@@ -19,6 +19,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
   despacho que caiu na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o
   perfil, pelo id; nenhum diretório de conta vai à saída. O total é um piso: o registro só guarda as marcas vivas.
+- **Contexto compacto da thread, KG5 fatia 3** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  pacote `ork.thread-graph-context/v2` com referências locais, evidências em tupla e fan-in agregado;
+  prioridade entre arquivos e perto do diff, limite por alvo e amostra de sementes ausentes.
+  Sem worktree, o diff é ignorado e declarado. A flag `grafo.mcp` segue desligada.
+  Sementes de prosa exigem extensão conhecida ou diretório do índice; evidências auxiliares
+  de outro arquivo são omitidas e declaradas. Fixture sintética de 22.973 para 3.119 bytes.
+  A [medida histórica](core/test/fixtures/kg5-medida-contexto.json) foi executada; o GO-FIX
+  corrige a descoberta para exports de pelo menos quatro caracteres e `grep -w`, mede precisão
+  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. Medida v3 em dois
+  casos reais ([tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)): o pacote, que é só o mapa, tem 15.122 e 16.974 bytes,
+  2,2 e 1,5 vez menos que a saída do grep (sem a leitura dos arquivos); precisão 3/7 (43%) e 7/8 (88%)
+  contra 3/41 (7%) e 6/11 (55%); cobertura 3/13 e 7/17 contra 3/13 e 6/17. Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.

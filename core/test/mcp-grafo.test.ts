@@ -391,7 +391,7 @@ test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as me
   }
 });
 
-test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema fechado e threadId', async () => {
+test('KG5 flag: servidor com a flag expoe as cinco tools de leitura, com schema fechado e threadId', async () => {
   const p = projetoTemporario('kg5-schemas');
   try {
     const grafoTools = (await listarCom(p, FLAG_LIGADA)).filter((t) => t.name.startsWith('ork_grafo_'));
@@ -401,6 +401,7 @@ test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema
       assert.equal(t.inputSchema.additionalProperties, false, t.name);
       const props = Object.keys(t.inputSchema.properties ?? {});
       assert.ok(props.includes('threadId') && props.includes('tetoBytes') && props.includes('projeto'), `${t.name}: ${props}`);
+      if (t.name === 'ork_grafo_contexto') assert.match(t.description ?? '', /ork\.thread-graph-context\/v2/);
       const exigidos = t.name === 'ork_grafo_contexto' ? ['threadId'] : t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
       assert.deepEqual([...(t.inputSchema.required ?? [])].sort(), exigidos.sort(), t.name);
       assert.match(t.description ?? '', /ork grafo indexar/, t.name);
@@ -637,7 +638,7 @@ function despacho(perfil: 'interactive' | 'worktree'): { p: ProjetoDeTeste; t: T
   };
 }
 
-test('KG5 despacho: com a flag da raiz, as quatro tools entram logo depois das consultas, em todas as fases; sem ela, o comando de sempre', () => {
+test('KG5 despacho: com a flag da raiz, as cinco tools entram logo depois das consultas, em todas as fases; sem ela, o comando de sempre', () => {
   for (const perfil of ['interactive', 'worktree'] as const) {
     const f = despacho(perfil);
     try {
