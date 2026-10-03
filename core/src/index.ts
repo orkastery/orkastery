@@ -7,7 +7,7 @@ import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
+import { exigirNotaSemHost, marcaDeHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -116,11 +116,14 @@ import { inventariarSessoes } from './sessoes-inventario';
 import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } from './ledger-stats';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { avaliarPolicies, linhasDeAviso } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
+  entregasParaOmissao,
+  indiceDaThread,
+  motivoForaDaOmissao,
   ORDEM_DAS_CLASSES,
   parseClasse,
   registrarMaster,
@@ -489,7 +492,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
-        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
@@ -527,7 +530,11 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             Pede a nota ao dono com codigo curto; ele responde pelo Telegram
                                             (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
   master [--todas] [--json]                 As entregas, com o indice derivado do ledger
-  master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
+  master <thread-id> --aceitar-omissao      Aceita por omissao SO a entrega desta thread, com registro (ou --thread T)
+        [--dry-run] [--json]                     --dry-run lista o que seria fechado, sem gravar
+  master --aceitar-omissao [--dry-run] [--json]
+                                            Aceita TODAS as entregues por omissao, listando cada uma
+                                            (de processo de agente com mais de uma, avisa em stderr)
   master classes                            As classes de falha fixas do POSTMORTEM
   licoes [--json]                           O que volta no GOAL e no PLAN da proxima thread (POSTMORTEM e
                                             MASTER) e as propostas de policy por recorrencia (I-55)
@@ -2066,7 +2073,10 @@ function comandoShip(args: Args): number {
     const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+      // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
+      // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
+      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER so a(s) desta entrega (a nota humana sobrescreve):`);
+      for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
@@ -2765,20 +2775,14 @@ function comandoMaster(args: Args): number {
       'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
       'Entregue e aceito, a menos que voce diga o contrario.\n' +
       '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master --aceitar-omissao   aceita as entregues, com indice e insumos no ledger\n' +
+      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
+      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
       '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
     );
     return 2;
   }
-  if (args.opcoes['aceitar-omissao'] === true) {
-    const aceitos = aceitarPendentesPorOmissao(carregado.raiz);
-    if (args.opcoes.json === true) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-    if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-    for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
-    console.log('');
-    console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
-    return 0;
+  if (args.opcoes['aceitar-omissao'] !== undefined) {
+    return comandoAceitarOmissao(args, carregado.raiz, primeiro);
   }
   if (primeiro === undefined) {
     console.log(args.opcoes.json
@@ -2844,6 +2848,72 @@ function comandoMaster(args: Args): number {
   console.log('');
   console.log(`Proximo passo: ork board --all   |   entregas e indice: ork master`);
   return 0;
+}
+
+/**
+ * RM-008 (03/10/2026): `ork master [<thread>] --aceitar-omissao [--thread T] [--dry-run] [--json]`.
+ *
+ * Tres vezes na madrugada de 03/10, um condutor rodou `ork master --aceitar-omissao` para fechar a
+ * propria thread, e o comando fechou tambem as entregues de outras frentes (ork-rm057fatia3t,
+ * ork-rm025modocon). A thread indicada (posicional, `--thread T` ou `--aceitar-omissao=T`) limita o
+ * aceite a ela. Sem thread, o padrao continua o mesmo, por decisao registrada: drenar todas, agora
+ * listando cada uma e avisando em stderr quando quem roda e processo de agente.
+ */
+function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | undefined): number {
+  const bruto = args.opcoes['aceitar-omissao'];
+  const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+  if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
+    console.error('uso: ork master <thread-id> --aceitar-omissao [--dry-run] [--json]   (ou --thread <thread-id>, uma thread so)');
+    return 2;
+  }
+  const alvo = candidatos[0];
+  const dryRun = args.opcoes['dry-run'] === true;
+  const json = args.opcoes.json === true;
+  if (alvo) {
+    const fora = motivoForaDaOmissao(raiz, alvo);
+    if (fora) {
+      if (json) console.log(JSON.stringify(dryRun ? { dryRun: true, fecharia: [], motivo: fora.motivo } : [], null, 2));
+      else (fora.motivo === 'ja-fechada' ? console.log : console.error)(fora.texto);
+      return fora.motivo === 'ja-fechada' ? 0 : 1;
+    }
+  }
+  if (dryRun) {
+    const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
+    if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
+    console.log('Ensaio (--dry-run): nada foi gravado.');
+    if (fecharia.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+    console.log(`Fecharia por omissao: ${fecharia.length}.`);
+    for (const f of fecharia) console.log(`  ${f.thread.padEnd(20)} indice ${f.indice.valor}/${f.indice.base}`);
+    avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
+    return 0;
+  }
+  const aceitos = aceitarPendentesPorOmissao(raiz, { thread: alvo });
+  avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
+  if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
+  if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+  console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
+  for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
+  console.log('');
+  console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
+  return 0;
+}
+
+/**
+ * O aviso do aceite SEM thread vindo de processo de agente que alcanca mais de uma entrega. A marca
+ * e a mesma do `master.prova-de-canal` (ambiente do host ou do despacho). Vai para stderr: o stdout,
+ * inclusive o `--json`, fica como era.
+ */
+function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio: boolean): void {
+  if (alvo || quantas <= 1) return;
+  const marca = marcaDeHost(process.env);
+  if (!marca) return;
+  const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  console.error('');
+  console.error(`aviso: master.omissao-sem-thread: processo de agente (${marca}) ${ensaio ? 'fecharia' : 'fechou'} ${quantas} threads, ` +
+    'inclusive as de outras frentes paralelas.');
+  console.error(`  Para fechar so a sua: ork master ${propria || '<thread-id>'} --aceitar-omissao` +
+    (ensaio ? '' : '  (a nota humana sobrescreve o aceite de quem nao era seu)'));
 }
 
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
