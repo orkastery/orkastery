@@ -229,11 +229,243 @@
       "criadoEm": "2026-10-03T04:06:45.229Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-gofix.test.ts",
+      "alegacao": "GO-FIX rodada 1: testes de legado nao confiavel, janela de 30 minutos, arquivo ilegivel removivel, links simbolicos, vinculo de volta e leitura canonica sem fallback.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:06:26.512Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX B1/A2/A3/S1/S7: legado valido e vivo barra sem provar posse; falso ou ilegivel nao bloqueia e pode sair com forcar; links e registros sem vinculo de volta sao ignorados; a janela canonica encerra a leitura apos 30 minutos.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:06:55.107Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX B1/A1/S5: fila legada nao e lida nem incorporada; propria copia legada recusa sem autoespera; leitor conserva fila completa durante escrita parcial e falha de rename preserva estado anterior.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js",
+        "node --test --test-name-pattern='rm036 leases: (fila legada|legado de thread fechada)' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:10:41.208Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "GO-FIX S6: arquivo canonico vazio ou ilegivel criado ha menos de cinco segundos nao e tomado; corrida entre wx e escrita preserva um vencedor e um vinculo de arquivo.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:12:15.677Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/board.ts",
+      "alegacao": "GO-FIX S3/S5: planejar e leasesDaThread eliminam nomes repetidos quando ha copias canonica e legada; a precedencia canonica e conservada e ambas as passadas do escalonador sao cobertas.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='leasesDaThread e planejar' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:16:18.231Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-canonicos.test.ts",
+      "alegacao": "GO-FIX S5: orkEmParalelo encerra filho pendente com SIGKILL e rejeita apos 60000 ms; regressao com relogio controlado nao depende de aguardar o prazo real.",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='orkEmParalelo' core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:16:18.310Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-docs.test.ts",
+      "alegacao": "GO-FIX S8: contrato publico descreve janela do legado de 30 minutos, validacao sem prova de posse e fila legada ignorada; roadmap aponta fontes publicas executaveis.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:18:49.375Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-007-worktree-e-leases.md",
+      "alegacao": "GO-FIX S8: contrato publico descreve janela do legado de 30 minutos, validacao sem prova de posse e fila legada ignorada; roadmap aponta fontes publicas executaveis.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:18:49.419Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-029-conducao-multicanal.md",
+      "alegacao": "GO-FIX S8: contrato publico descreve janela do legado de 30 minutos, validacao sem prova de posse e fila legada ignorada; roadmap aponta fontes publicas executaveis.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:18:49.459Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-036-maestro-multicanal.md",
+      "alegacao": "GO-FIX S8: contrato publico descreve janela do legado de 30 minutos, validacao sem prova de posse e fila legada ignorada; roadmap aponta fontes publicas executaveis.",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:18:49.507Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "GO-FIX S8: CLI e changelog descrevem todas as familias no canonico, janela de 30 minutos, fila legada ignorada, diagnostico e forcar, posse canonica e protecao dos cinco segundos.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:20:51.151Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX S8: CLI e changelog descrevem todas as familias no canonico, janela de 30 minutos, fila legada ignorada, diagnostico e forcar, posse canonica e protecao dos cinco segundos.",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:20:51.201Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "GO-FIX rodada 1: receitas reproduziveis de 27 mutantes em copia descartavel, sem subprocessos nem alteracao do checkout; controle executa 34 testes. Na execucao local os 27 mutantes foram detectados por testes nomeados.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs",
+        "node core/scripts/rm036-leases-mutantes.cjs --listar"
+      ],
+      "criadoEm": "2026-10-03T05:26:58.765Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "RM-036 rodada 2, B2: nome ou arquivo legado com $(, crase, ;, |, espaço ou aspas nunca entra num comando sugerido (lista, CLI da fila e monitor); o nome legado exige o conjunto seguro, e os argumentos dos comandos vão com aspas simples e escape",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm036 gofix: B2\" core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:18:27.312Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "RM-036 rodada 2, A1 a A5: a janela nasce ou fecha na primeira chamada da versão e não reabre; tolerância de 1 s no prazo do legado; adquirir não apaga legado vencido e os outros unlink conferem dev e inode; retomada com trava, sem dois vencedores; ship --dry-run considera o legado vivo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:18:27.585Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "RM-036 rodada 2: as 42 receitas de mutante são válidas e o controle passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node core/scripts/rm036-leases-mutantes.cjs --validar && ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern=\"rm036 (gofix:|docs:|leases: orkEmParalelo)\" core/scripts/rm036-leases-mutantes.cjs"
+      ],
+      "criadoEm": "2026-10-03T06:18:27.861Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [
     {
       "id": "C11",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C23",
       "reason": "local-integration-required"
     }
   ],
