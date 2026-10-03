@@ -80,6 +80,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
   - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
     `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
+  - o README traz os números do CI da `main` de 03/10 (run 37102089623): 2.733 testes do núcleo, 24 canários e
+    20 skills com 199 asserções; dizia 1.553 testes, de 27/09;
 - **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
     por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois

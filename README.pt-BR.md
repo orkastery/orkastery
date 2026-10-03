@@ -9,7 +9,7 @@
 > **Em uma frase:** o `ork` conduz agentes de IA (Claude Code e Codex) em threads paralelas de seis fases, confere cada afirmação contra o repositório antes de ela valer e só chama você quando a decisão é de fato sua.
 
 - **Estado:** em uso diário · no npm como [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), com as [mudanças por versão](CHANGELOG.md) · revisado em 27/09/2026
-- **Prova:** CI no GitHub em todo PR: 1.553 testes do núcleo, 23 canários e 18 skills com 193 asserções, zero falhas (PR #28, 27/09/2026)
+- **Prova:** CI no GitHub em todo PR: 2.733 testes do núcleo, 24 canários e 20 skills com 199 asserções, zero falhas (CI da `main` no PR #74, run 37102089623, 03/10/2026)
 - **Produto e roadmap:** [`docs/produto/`](docs/produto/README.md) e [`docs/roadmap/`](docs/roadmap/README.md), conferidos contra o código por `ork docs verificar`
 - **Idioma:** a página canônica é a [versão em inglês](README.md), e esta a espelha em português; o CLI e os docs estão em português do Brasil
 
@@ -176,9 +176,9 @@ O quadro completo, item por item e com evidência do git, está no [índice do r
 
 | Medida | Valor | Como conferir |
 | --- | --- | --- |
-| Testes do núcleo | 1.553, zero falhando (CI de 27/09/2026) | `npm --prefix core run test:ci` |
-| Canários de comportamento | 23, todos verdes | `ork eval --so-canarios` |
-| Corpus das skills | 18 skills, 95 casos, 193 asserções | `ork eval --so-skills` |
+| Testes do núcleo | 2.733, zero falhando (CI de 03/10/2026) | `npm --prefix core run test:ci` |
+| Canários de comportamento | 24, todos verdes | `ork eval --so-canarios` |
+| Corpus das skills | 20 skills, 101 casos, 199 asserções | `ork eval --so-skills` |
 | Documentação de produto e roadmap | zero erro de paridade | `ork docs verificar` |
 | Dependências de runtime | 4, com versão fixa | `core/package.json` |
 
