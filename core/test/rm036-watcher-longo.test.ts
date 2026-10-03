@@ -147,6 +147,25 @@ test('RM036: erro permanente registra diagnóstico sanitizado antes de sair, sem
   assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
 });
 
+test('RM036: processo destacado registra falha anterior à leitura do manifesto', async t => {
+  const p = fixture(t);
+  fs.writeFileSync(path.join(p.dir, 'orkastery.yaml'), 'manifesto inválido da fixture');
+  const stderrFile = path.join(p.dir, 'watcher.stderr'), fd = fs.openSync(stderrFile, 'w');
+  let filho;
+  try {
+    filho = spawn(process.execPath, [path.resolve(__dirname, '../src/session-watcher.js'), '--run', p.dir,
+      SID, path.join(p.dirEstado, 'ready.json'), 'token-fixture', p.t.id], { stdio: ['ignore', 'ignore', fd] });
+  } finally { fs.closeSync(fd); }
+  const [codigo] = await once(filho, 'close');
+  assert.equal(codigo, 1);
+  assert.match(fs.readFileSync(stderrFile, 'utf8'), /confira session_watcher_error/);
+  const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+  assert.equal(erros.length, 1);
+  assert.equal(erros[0].sessionId, SID);
+  assert.equal(erros[0].transitorio, false);
+  assert.ok(!JSON.stringify(erros).includes(p.dir));
+});
+
 for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identidade', 'despacho-antigo',
   'sem-fixacao', 'fixacao-divergente', 'outra-maquina'] as const) {
   test(`RM036: handoff local com prova de identidade (${caso})`, async t => {

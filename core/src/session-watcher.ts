@@ -242,13 +242,14 @@ function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean } 
   return { erro: 'falha permanente na observação; confira vínculo e fonte do sensor', transitorio: false };
 }
 const errosRegistrados = new WeakSet<object>();
-function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown): void {
-  if (e && typeof e === 'object' && errosRegistrados.has(e)) return;
+function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown): boolean {
+  if (e && typeof e === 'object' && errosRegistrados.has(e)) return true;
   const dados = diagnosticoWatcher(e);
   const registrado = registrarSeExiste(dirThread(raiz, threadId), threadId, 'session_watcher_error', {
     sessionId, motivo: 'runtime.unavailable', ...dados, origem: 'sessions.watch',
   });
   if (registrado && e && typeof e === 'object') errosRegistrados.add(e);
+  return registrado !== null;
 }
 
 export function observarSessao(carregado: ManifestoCarregado, sessionId: string, opcoes: OpcoesObservacao = {}): ResultadoWatcher {
@@ -620,7 +621,16 @@ export async function acompanharSessao(carregado: ManifestoCarregado, sessionId:
       : atual?.sessoes.at(-1)?.runtime === 'claude-bg' ? INTERVALO_WATCH_CLAUDE_MS : INTERVALO_WATCH_MS);
   }
 }
-if (require.main === module && process.argv[2] === '--run') acompanhar().catch(() => {
-  process.stderr.write('ork watcher: observação interrompida; confira session_watcher_error e estado canônico.\n');
+if (require.main === module && process.argv[2] === '--run') acompanhar().catch(e => {
+  // O dispatcher fornece o vínculo antes do spawn: até falha ao carregar o manifesto
+  // precisa de diagnóstico. Sem ledger acessível, o stderr não promete um recibo inexistente.
+  let registroIndisponivel = !process.argv[7];
+  if (process.argv[7]) {
+    try { registroIndisponivel = !registrarErroWatcher(process.argv[3], process.argv[7], process.argv[4], e); }
+    catch { registroIndisponivel = true; }
+  }
+  process.stderr.write(registroIndisponivel
+    ? 'ork watcher: observação interrompida; não foi possível registrar session_watcher_error.\n'
+    : 'ork watcher: observação interrompida; confira session_watcher_error e estado canônico.\n');
   process.exitCode = 1;
 });
