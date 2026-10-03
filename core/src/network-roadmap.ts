@@ -27,7 +27,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { buscarBranch, git, pontaLocal } from './branch-de-estado';
+import { buscarBranch, git, pontaLocal, remotoValido, remotoRedigido } from './branch-de-estado';
 import { DIR_ROADMAP, Documento, documentoDeTexto, ehPaginaDeDocs } from './docs';
 import { BRANCH_DA_FABRICA, CONTRATO_MAQUINA, DIR_DA_FABRICA, despachoDaThread, entregasNaBase, EstadoDaMaquina, estadoValido,
   LIMIAR_SEM_BATIDA_MS, retratoDaMaquina, runtimeDaThread, ThreadNaFabrica } from './fabrica-estado';
@@ -197,9 +197,8 @@ const lacuna = (tipo: TipoDeLacunaDaRede, parte: ParteDaRede, alvo: string | und
 /**
  * Nome de remoto do git, como `origin`. O valor vem do manifesto versionado (`fabrica.remoto`), e um
  * valor que comece com `-` viraria opcao do `git fetch` (`--upload-pack=...`): so este formato chega
- * ao git (achado 4 do CHECK).
+ * ao git (achado 4 do CHECK). O validador e o mesmo da branch de estado (RM-047).
  */
-const REMOTO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 /**
  * Nome de branch base, como `main`. Tambem vem do manifesto (`worktree.base_branch`), e o `git log`
@@ -210,7 +209,7 @@ const baseValida = (base: string | null | undefined): base is string =>
 
 function projetoDoClone(c: ManifestoCarregado, origem: OrigemNoPanorama): ProjetoDaRede {
   const remoto = c.manifesto.fabrica.remoto;
-  const url = REMOTO.test(remoto) ? git(c.raiz, ['remote', 'get-url', remoto]) : null;
+  const url = remotoValido(remoto) ? git(c.raiz, ['remote', 'get-url', '--', remoto]) : null;
   return { nome: c.manifesto.project.name, forja: url?.ok ? identidadeDaForja(url.stdout.trim()) : null, raiz: c.raiz,
     base: c.manifesto.worktree.base_branch, remoto, origem };
 }
@@ -634,9 +633,9 @@ function lerProjetoDoClone(p: ProjetoDaRede, geral: Contexto): ProjetoNoPanorama
   const carregado = carregarManifesto(raiz);
   // O fuso do dono deste projeto vale para o dia e os horarios dele (achado 5 do CHECK).
   const ctx: Contexto = { ...geral, fuso: carregado?.manifesto.owner?.timezone ?? geral.fuso };
-  if (!REMOTO.test(remoto)) {
+  if (!remotoValido(remoto)) {
     lacunas.push(lacuna('projeto.remoto-invalido', 'projeto', raizParaExibir(raiz),
-      `fabrica.remoto do manifesto (${JSON.stringify(remoto).slice(0, 60)}) não é nome de remoto do git: nada foi lido pelo git`,
+      `fabrica.remoto do manifesto (${remotoRedigido(remoto)}) não é nome de remoto do git: nada foi lido pelo git`,
       'corrija fabrica.remoto no orkastery.yaml (padrão: origin)'));
     return montarProjeto(p, { nome: p.nome, docs: null, reservas: null, retratos: null, local: null, commits: [] }, ctx, fontes, lacunas);
   }

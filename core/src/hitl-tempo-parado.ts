@@ -21,10 +21,17 @@
  * Limite dito: o "confirmo" que um condutor pede na conversa, fora do ork, nao chega ao ledger e
  * nao entra aqui. Por isso o canario `fx-pedido-colado` e a regra nos adaptadores existem.
  *
- * Funcao pura sobre eventos: nao le disco nem relogio. Ausencia de pedido e zero pedidos, e a
- * mediana sem resposta e `null`, nunca zero inventado.
+ * Funcoes puras sobre eventos: nao leem disco nem relogio. Ausencia de pedido e zero pedidos, e a
+ * mediana sem resposta e `null`, nunca zero inventado. A unica leitura de disco e
+ * `lerHitlDeConducaoAgora`, que so junta os ledgers e entrega a conta as funcoes puras.
+ *
+ * Fatia 3: o mesmo tempo parado chega ao `ork pulse` e ao `ork roadmap status`, com as perguntas
+ * abertas agora (ha quanto tempo cada uma espera) e a mediana dos ultimos 7 dias.
  */
 import { alvoDoPedido, ehV2, PedidoHitlQualquer, PerguntaAoDono } from './hitl-contract';
+import { duracaoRelativa, formatarHora } from './horario';
+import { lerLedger } from './ledger';
+import { dirThread, listarIds } from './thread';
 import { EventoLedger } from './types';
 
 /** A meta da RM-057: mediana de resposta abaixo de 5 minutos. */
@@ -141,4 +148,77 @@ export function resumirTempoParado(esperas: readonly EsperaDeHitl[], desdeMs: nu
     metaMedianaMs: META_DA_MEDIANA_DE_RESPOSTA_MS, dentroDaMeta: med === null ? null : med < META_DA_MEDIANA_DE_RESPOSTA_MS,
     emTexto: { comDependenciaTecnica: comDependencia, foraDaExcecao },
   };
+}
+
+/** RM-057 (fatia 3): a janela da mediana que o pulse e o status mostram. */
+export const JANELA_DA_MEDIANA_MS = 7 * 24 * 60 * 60_000;
+
+/** Uma pergunta de conducao aberta agora, com ha quanto tempo ela para a thread. */
+export interface PerguntaParada {
+  thread: string;
+  pedidoId: string;
+  fase: string;
+  desdeEm: string;
+  paradaHaMin: number;
+}
+
+/**
+ * O retrato que o pulse e o status levam: as abertas agora, da mais antiga para a mais nova, e o
+ * resumo dos ultimos 7 dias na mesma forma do `hitlDeConducao` do `ork ledger stats`.
+ */
+export interface HitlDeConducaoAgora {
+  abertas: PerguntaParada[];
+  seteDias: TempoParadoPorHitl;
+  /** Alguma aberta passou da meta de 5 min, ou a mediana dos 7 dias esta acima dela. */
+  acimaDaMeta: boolean;
+}
+
+/** O retrato num instante. Pura: `quando` e o relogio de quem chama. */
+export function hitlDeConducaoAgora(esperas: readonly EsperaDeHitl[], quando: string): HitlDeConducaoAgora {
+  const agoraMs = Date.parse(quando);
+  const abertas = esperas
+    .filter(x => x.inicioMs <= agoraMs && (x.fimMs === null || x.fimMs > agoraMs))
+    .sort((a, b) => a.inicioMs - b.inicioMs || a.thread.localeCompare(b.thread))
+    .map(x => ({ thread: x.thread, pedidoId: x.pedidoId, fase: x.fase, desdeEm: new Date(x.inicioMs).toISOString(),
+      paradaHaMin: Math.floor((agoraMs - x.inicioMs) / 60_000) }));
+  const seteDias = resumirTempoParado(esperas, agoraMs - JANELA_DA_MEDIANA_MS, agoraMs);
+  const abertaAcima = abertas.some(a => (agoraMs - Date.parse(a.desdeEm)) > META_DA_MEDIANA_DE_RESPOSTA_MS);
+  return { abertas, seteDias, acimaDaMeta: abertaAcima || seteDias.dentroDaMeta === false };
+}
+
+/** Junta os ledgers de todas as threads do projeto e devolve o retrato. Ledger ilegivel fica de fora. */
+export function lerHitlDeConducaoAgora(raiz: string, quando: string): HitlDeConducaoAgora {
+  const esperas: EsperaDeHitl[] = [];
+  for (const id of listarIds(raiz)) {
+    try { esperas.push(...esperasDeHitl(id, lerLedger(dirThread(raiz, id)))); } catch { /* ledger ilegivel nao para o pulse */ }
+  }
+  return hitlDeConducaoAgora(esperas, quando);
+}
+
+const emMinutos = (ms: number): string => `${(ms / 60_000).toFixed(1)} min`;
+
+/** "mediana de 7 dias 3.0 min (dentro da meta de 5 min)", ou sem resposta medida. */
+export function textoDaMediana(h: HitlDeConducaoAgora): string {
+  const s = h.seteDias;
+  if (s.medianaRespostaMs === null) return 'mediana de 7 dias sem resposta medida';
+  return `mediana de 7 dias ${emMinutos(s.medianaRespostaMs)} (${s.dentroDaMeta ? 'dentro' : 'acima'} da meta de 5 min, ` +
+    `${s.respondidos} resposta(s))`;
+}
+
+/** "<thread> (<fase>) parada ha 12min, desde 01:02": a hora no fuso do dono (RM-035). */
+export function linhaDaPerguntaParada(p: PerguntaParada, opcoes: { agora: string; fuso?: string }): string {
+  return `${p.thread} (${p.fase}) parada há ${duracaoRelativa(p.paradaHaMin)}, desde ${formatarHora(p.desdeEm, opcoes)}`;
+}
+
+/**
+ * A linha unica do resumo do pulse, so quando passou da meta: quantas abertas, a mais antiga e a
+ * mediana. Abaixo da meta, nada: o resumo nao ganha uma linha que nao pede atencao.
+ */
+export function linhaDoHitlAcimaDaMeta(h: HitlDeConducaoAgora | undefined, opcoes: { agora: string; fuso?: string }): string | null {
+  if (!h || !h.acimaDaMeta) return null;
+  const velha = h.abertas[0];
+  const abertas = h.abertas.length
+    ? `${h.abertas.length} pergunta(s) de condução aberta(s), a mais antiga ${linhaDaPerguntaParada(velha, opcoes)}; `
+    : 'nenhuma pergunta de condução aberta; ';
+  return `HITL de condução acima da meta de 5 min: ${abertas}${textoDaMediana(h)}.`;
 }

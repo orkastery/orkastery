@@ -20,7 +20,8 @@ import { validarEvidenciaLocal } from './hitl-local-receipt';
 import { ehContratoDePedido } from './hitl-contract';
 
 /** Onde um gate acontece. Uma policy declara em quais gates ela vale. */
-export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship';
+/** RM-008 (B8): `claims.add` so avalia policy em warn; nenhum gate bloqueia o registro de claim. */
+export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add';
 
 /** O que cada motivo tipado significa, em uma linha, para a saida do CLI. */
 export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {

@@ -28,6 +28,7 @@ import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
+import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -301,7 +302,8 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
  * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
  * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
  */
-export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(), analisadores?: () => Check): Check[] {
+export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  lerCrontab: LeitorDoCrontab = lerCrontabDoSistema, analisadores?: () => Check): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -522,6 +524,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         : `${dirEstadoProjeto} ausente`,
       correcao: fs.existsSync(dirEstadoProjeto) ? undefined : 'ork init cria o diretorio de estado',
     });
+    // RM-039 (B6): com o transporte do pulse configurado, a varredura tem de bater de 15 em 15
+    // minutos; a instalacao antiga em `0 * * * *` vira aviso com a linha nova. Nunca edita o crontab.
+    const cronDoPulse = checarCronDoPulse(path.join(dirEstadoProjeto, 'monitor'), raizDoEstado(carregado.raiz), lerCrontab);
+    if (cronDoPulse) checks.push(cronDoPulse);
 
     checks.push(checarContas(carregado.raiz));
     // I-33 (D7): umask e permissoes do estado, na mesma regra do sensor (sem bits 0o022).
@@ -583,7 +589,7 @@ export function relatorio(checks: Check[]): string {
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
 export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
   analisadores?: () => Check): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados, analisadores);
+  const checks = checar(dirInicial, nomesHerdados, undefined, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }

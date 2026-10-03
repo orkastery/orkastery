@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { redigirCredenciaisUrl } from './redacao-url';
 
 export interface SaidaGit { ok: boolean; stdout: string; stderr: string }
 
@@ -32,6 +33,40 @@ export function exigirGit(raiz: string, args: string[], prefixo: string, extra: 
   return r.stdout;
 }
 
+/**
+ * Nome de remoto do git, como `origin`, `upstream` ou `meu-remoto.2`. O valor vem do manifesto
+ * versionado (`fabrica.remoto`) ou da linha de comando (`--remoto`): quem clona um repositorio roda
+ * o `orkastery.yaml` de outra pessoa. Um valor que comece com `-` viraria opcao do git, e uma URL
+ * escolheria o transporte (`ext::` roda comando): so este formato chega ao git (RM-047).
+ */
+export const REMOTO_DO_GIT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/** `true` quando o valor e nome de remoto que pode ir ao git como argumento. */
+export const remotoValido = (remoto: unknown): remoto is string =>
+  typeof remoto === 'string' && REMOTO_DO_GIT.test(remoto) && !remoto.includes('..') && !remoto.endsWith('.');
+
+/**
+ * O valor recusado, para a mensagem: sem credencial de URL, sem caractere de controle e curto.
+ * A mensagem vai ao terminal, ao log da publicacao em segundo plano e ao ledger.
+ */
+export function remotoRedigido(remoto: unknown): string {
+  if (typeof remoto !== 'string') return `(${remoto === null ? 'null' : typeof remoto})`;
+  const semCredencial = redigirCredenciaisUrl(remoto);
+  const curto = semCredencial.length > 40 ? `${semCredencial.slice(0, 40)}...` : semCredencial;
+  return JSON.stringify(curto);
+}
+
+/**
+ * Recusa tipada (`<prefixo>.remoto-invalido`) antes de qualquer chamada ao git com o remoto.
+ * `prefixo` e o de quem usa: `fabrica` na fabrica, `roadmap` nas reservas.
+ */
+export function exigirRemoto(remoto: unknown, prefixo: string): string {
+  if (remotoValido(remoto)) return remoto;
+  throw new Error(`${prefixo}.remoto-invalido: o remoto ${remotoRedigido(remoto)} não é nome de remoto do git ` +
+    '(letras, dígitos, ".", "_" e "-", sem "-" no começo, sem URL); nada foi passado ao git. ' +
+    'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).');
+}
+
 export const refRemota = (remoto: string, branch: string): string => `refs/remotes/${remoto}/${branch}`;
 
 /** A ultima copia lida da branch nesta maquina, sem rede. `null` quando nunca foi lida. */
@@ -46,7 +81,9 @@ export function pontaLocal(raiz: string, remoto: string, branch: string): string
  */
 export function buscarBranch(raiz: string, remoto: string, branch: string, prefixo: string,
   timeoutMs?: number, env?: NodeJS.ProcessEnv): { ponta: string | null; atualizado: boolean } {
-  const r = git(raiz, ['fetch', '--quiet', '--no-tags', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs, env });
+  exigirRemoto(remoto, prefixo);
+  // `--`: daqui para a frente, so repositorio e refspec, nunca opcao (RM-047).
+  const r = git(raiz, ['fetch', '--quiet', '--no-tags', '--', remoto, `+refs/heads/${branch}:${refRemota(remoto, branch)}`], { timeoutMs, env });
   if (r.ok) return { ponta: exigirGit(raiz, ['rev-parse', '--verify', refRemota(remoto, branch)], prefixo).trim(), atualizado: true };
   if (/couldn't find remote ref|could not find remote ref/i.test(r.stderr)) {
     // A branch ainda nao nasceu: a primeira gravacao a cria. Copia local antiga nao vale mais.
@@ -73,6 +110,7 @@ export interface MudancaNaBranch { caminho: string; conteudo: string | null }
  */
 export function gravarNaBranch(raiz: string, remoto: string, branch: string, ponta: string | null,
   mudancas: readonly MudancaNaBranch[], mensagem: string, prefixo: string, rede: OpcoesDeGit = {}): string | false {
+  exigirRemoto(remoto, prefixo);
   const indice = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ork-branch-estado-')), 'index');
   const env = { GIT_INDEX_FILE: indice };
   try {
@@ -89,7 +127,7 @@ export function gravarNaBranch(raiz: string, remoto: string, branch: string, pon
     const arvore = exigirGit(raiz, ['write-tree'], prefixo, { env }).trim();
     const commit = exigirGit(raiz, ['commit-tree', arvore, ...(ponta ? ['-p', ponta] : []), '-m', mensagem], prefixo).trim();
     // `rede`: prazo e ambiente so do que vai a rede (RM-037, achado A3: o fechamento nao espera 60 s).
-    const push = git(raiz, ['push', '--quiet', remoto, `${commit}:refs/heads/${branch}`], rede);
+    const push = git(raiz, ['push', '--quiet', '--', remoto, `${commit}:refs/heads/${branch}`], rede);
     if (push.ok) {
       git(raiz, ['update-ref', refRemota(remoto, branch), commit]);
       return commit;

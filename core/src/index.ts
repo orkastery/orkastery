@@ -210,6 +210,7 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cana
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
@@ -1510,6 +1511,9 @@ function comandoClaims(args: Args): number {
       console.log('');
       console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
     }
+    // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
+    const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
+    if (linhasDePolicy.length) { console.log(''); for (const l of linhasDePolicy) console.log(l); }
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');
@@ -2030,6 +2034,8 @@ function comandoShip(args: Args): number {
       console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
+    // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
+    if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
     const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
@@ -2226,7 +2232,9 @@ function comandoCi(args: Args): number {
       console.error('uso: ork ci status --sha <commit> [--remoto origin]');
       return 2;
     }
-    const result = consultarCi(carregado, sha, texto(args.opcoes.remoto) ?? 'origin');
+    // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
+    const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
+    const result = consultarCi(carregado, sha, remoto);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
     return result.ok ? 0 : 1;
   }
@@ -2357,7 +2365,10 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
+  // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
+  if (sub !== 'publicar') exigirRemoto(remoto, 'fabrica');
   if (sub === 'publicar') {
     const silencioso = args.opcoes.silencioso === true;
     try {

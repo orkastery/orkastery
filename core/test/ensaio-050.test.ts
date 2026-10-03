@@ -318,7 +318,7 @@ test('ensaio 050: amostras do quickstart batem com a saida do ork do HEAD', () =
     // O doctor depende da maquina (versoes, caminhos, runtimes): conferem os rotulos e o veredito.
     // RM-031: como o `ork doctor` do index.ts, que passa ao doctor o check dos analisadores do grafo.
     const doGrafo = () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK);
-    const nomes = new Set([...checar(semManifesto, undefined, doGrafo), ...checar(dir, undefined, doGrafo)].map(c => c.nome));
+    const nomes = new Set([...checar(semManifesto, undefined, undefined, doGrafo), ...checar(dir, undefined, undefined, doGrafo)].map(c => c.nome));
     const amostras = [...doc.matchAll(/```text\n(ork doctor: o que vale nesta maquina agora\n[\s\S]*?)\n```/g)].map(m => m[1]);
     assert.equal(amostras.length, 2, 'antes e depois do ork init');
     for (const a of amostras) {
