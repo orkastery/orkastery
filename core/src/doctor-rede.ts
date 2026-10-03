@@ -12,6 +12,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { formatarDataHora } from './horario';
 import { lerMarcaDaRede } from './rede';
 import { adesaoDaRede, pastaDaRede } from './rede-adesao';
 import { duracao, SEM_BATIDA_MS } from './rede-status';
@@ -90,8 +91,8 @@ export function checarRede(opcoes: { agoraMs?: number; log?: string } = {}): Che
   const partes = [
     adesao.adesao === 'fabrica' ? 'membro herdado da fabrica' : 'membro',
     casa ? `casa ${curto(casa, 120)}` : 'casa ainda nao gravada',
-    emBatida ? `ultima batida ${emBatida} (ha ${duracao(idade)})` : 'nenhuma batida publicada',
-    falha ? `ultima falha ${falha.ts}${falha.origem ? ` (${curto(falha.origem, 20)})` : ''}: ${curto(falha.erro ?? 'sem detalhe')}`
+    emBatida ? `ultima batida ${formatarDataHora(emBatida)} (ha ${duracao(idade)})` : 'nenhuma batida publicada',
+    falha ? `ultima falha ${formatarDataHora(falha.ts)}${falha.origem ? ` (${curto(falha.origem, 20)})` : ''}: ${curto(falha.erro ?? 'sem detalhe')}`
       : 'nenhuma falha no rede.log',
   ];
   // A falha mais nova que a ultima batida e o estado de agora; a de antes ja passou.

@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createRequire } from 'node:module';
 import { checar } from '../src/doctor';
+import { formatarDataHora } from '../src/horario';
 import { painelDaRede, RETRATO_PARADO_MS, retratoParado, tirarTravaOrfa } from '../src/rede';
 import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
 import { jsonSemInvisivel, valoresEmUmaLinha } from '../src/saida-segura';
@@ -58,7 +59,7 @@ test('RM-053 fatia 2 doctor: membro herdado com a casa ausente vira aviso com a 
     assert.match(c.detalhe, /membro herdado da fabrica/);
     assert.match(c.detalhe, /casa ainda nao gravada/);
     assert.match(c.detalhe, /nenhuma batida publicada/);
-    assert.match(c.detalhe, /ultima falha 2026-09-03T06:08:44\.187Z \(pulse\): rede\.sem-repositorio/);
+    assert.ok(c.detalhe.includes(`ultima falha ${formatarDataHora('2026-09-03T06:08:44.187Z')} (pulse): rede.sem-repositorio`), c.detalhe);
     assert.ok(!/[\u001b\n]/.test(c.detalhe), 'o erro do log chega numa linha, sem controle de terminal');
     assert.match(c.correcao ?? '', /ork network entrar/);
 
@@ -72,7 +73,7 @@ test('RM-053 fatia 2 doctor: membro herdado com a casa ausente vira aviso com a 
     assert.equal(c.nivel, 'ok');
     assert.match(c.detalhe, /casa github\.com\/p\/orkastery-network/);
     assert.match(c.detalhe, /ultima batida .* \(ha 10 min\)/);
-    assert.match(c.detalhe, /ultima falha 2026-09-03T06:08:44\.187Z/, 'a falha que ja passou continua dita');
+    assert.ok(c.detalhe.includes(`ultima falha ${formatarDataHora('2026-09-03T06:08:44.187Z')}`), 'a falha que ja passou continua dita');
 
     // A batida parada ha mais de 3 h: aviso, mesmo sem falha nova.
     marca(agora - 4 * 60 * 60 * 1000);
