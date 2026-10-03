@@ -4,6 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T02:30:02.679Z",
-  "threads": []
+  "publicadoEm": "2026-10-03T02:35:23.164Z",
+  "threads": [
+    {
+      "id": "ork-rm031grafofu",
+      "nome": "RM-031 grafo funciona na instalacao do npm",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-031",
+      "branch": "ork/ork-rm031pacote-full",
+      "atualizadaEm": "2026-10-03T02:35:20.703Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    }
+  ]
 }
