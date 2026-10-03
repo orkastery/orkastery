@@ -49,6 +49,8 @@ e `ork_request_decision(threadId, pedidoId)`. Use o namespace efetivamente expos
 - Status do roadmap: use `ork_network_roadmap` (ou `ork network roadmap --projeto <nome>`) e mostre o
   texto como vem, com as threads de todas as maquinas, as fontes e as lacunas; `ork_roadmap_status` e
   so desta maquina. Nao escreva relatorio proprio de roadmap: lacuna nunca e roadmap vazio.
+- Maquinas da pessoa (RM-053): use `ork_network_status` (ou `ork network status`) e mostre o texto como
+  vem, com a batida de cada maquina, a fonte e as lacunas; lacuna nunca e "nenhuma maquina".
 - Status: apresente a evidencia da thread; `ork pulse --json` mostra quem precisa agir.
   As pausas dos blocos do modo sao previstas: so diga "aguardando voce" com pendencia
   humana atual comprovada no estado/ultimo resultado, identificando gate, pedido ou evento.

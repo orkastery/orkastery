@@ -2517,7 +2517,9 @@ function comandoNetwork(args: Args): number {
     console.error(uso);
     return 2;
   }
-  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio });
+  // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
+  const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio });
   console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }
