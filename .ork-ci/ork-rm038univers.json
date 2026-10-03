@@ -269,7 +269,7 @@
         "node --test --test-name-pattern='descoberta por fase exige tenant e thread exatos' core/dist-test/test/recall.test.js"
       ],
       "criadoEm": "2026-10-03T04:16:43.626Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -283,7 +283,7 @@
         "node --test core/dist-test/test/recall.test.js"
       ],
       "criadoEm": "2026-10-03T04:16:44.953Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -297,7 +297,7 @@
         "node --test --test-name-pattern='rm038 universo: (busca|status e busca)' core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T04:16:46.984Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -311,7 +311,7 @@
         "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm038univers.json','utf8'));const ids=new Set([...b.claims,...(b.deferredClaims||[])].map(c=>c.id));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-rm038univers'||b.branch!=='ork/ork-rm038univers-full'||ids.size<28){console.error('bundle da thread incompleto');process.exit(1)}\""
       ],
       "criadoEm": "2026-10-03T04:26:55.068Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
