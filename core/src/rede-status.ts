@@ -10,7 +10,7 @@
  * rede; quando esta nos dois, o retrato da rede vence.
  * D15: maquina sem batida ha mais de 3 h vira a lacuna `maquina.sem-batida`.
  */
-import { buscarBranch, git, pontaLocal } from './branch-de-estado';
+import { buscarBranch, git, pontaLocal, remotoRedigido, remotoValido } from './branch-de-estado';
 import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
 import { carregarManifesto } from './manifest';
@@ -179,7 +179,14 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
     }
     let remoto = 'origin';
     try { remoto = carregarManifesto(p.caminho)?.manifesto.fabrica.remoto ?? 'origin'; } catch { /* manifesto ruim: origin */ }
-    if (!comGitIsolado(() => git(p.caminho, ['remote', 'get-url', remoto]).ok)) {
+    // RM-047: o `fabrica.remoto` vem do manifesto versionado; so nome de remoto vai ao git (depois do `--`),
+    // e o valor recusado sai redigido, sem a credencial de uma URL, no texto e no JSON.
+    if (!remotoValido(remoto)) {
+      lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome,
+        detalhe: `${p.nome}: fabrica.remoto ${remotoRedigido(remoto)} nao e nome de remoto do git; nada foi lido pelo git` });
+      continue;
+    }
+    if (!comGitIsolado(() => git(p.caminho, ['remote', 'get-url', '--', remoto]).ok)) {
       lacunas.push({ tipo: 'fabrica.sem-leitura', projeto: p.nome, detalhe: `${p.nome}: sem o remoto ${remoto}, nao ha fabrica compartilhada para ler` });
       continue;
     }
@@ -223,7 +230,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   let idDeOutraVersao: string | null = null;
   if (!comMeuNome && lida) { try { idDeOutraVersao = idNoArquivo(lida.cache, lida.ponta, arquivoDoRetrato(eu)); } catch { /* nome impossivel */ } }
   const idNaCasa = comMeuNome?.id ?? idDeOutraVersao;
-  const nomeEmUso = !!idNaCasa && !!meuId && idNaCasa !== meuId;
+  // Revisao de 03/10: sem id local (nunca publicou, ou ~/.orkastery apagada), a proxima publicacao cria um id novo
+  // e o `publicarRede` recusa com `rede.nome-em-uso`; o status diz o mesmo, em vez de chamar de "esta maquina".
+  const nomeEmUso = !!idNaCasa && idNaCasa !== meuId;
   if (nomeEmUso) {
     lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: `o retrato "${eu}" na casa e de outra instalacao: esta maquina nao ` +
       'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)' });

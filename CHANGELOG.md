@@ -94,6 +94,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `verify.failed`, `ci.failed` e os outros da tabela `CLASSE_DO_MOTIVO`) gravam `processo`, os de limite de uso
   gravam `rate-limit` e os de região e condução gravam `conflito`; o resto segue `outra`. O aviso cita os motivos, e
   `--classe` continua vencendo.
+- **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
+  - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
+    nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
+    `fabrica.sem-leitura`; antes, uma URL com credencial no lugar do nome aparecia inteira no texto e no JSON. O
+    projeto do diretório no retrato da rede também deixa de passar o valor cru ao `git remote get-url`.
+  - o teto de uma tentativa de publicar na rede a cada 14 minutos vale também para processos simultâneos: a marca
+    da tentativa é lida e gravada sob uma trava e trocada por `rename`; antes, vários pulses na mesma batida
+    tomavam a vez juntos.
+  - `ork network status` sem o `maquina-id` local (antes da primeira publicação, ou com `~/.orkastery` apagada) diz
+    `maquina.nome-em-uso` quando o retrato com o nome desta máquina é de outra instalação, como a publicação já
+    recusava; antes o mostrava como "(esta máquina)", publicado e sem lacuna.
+  - `ork_network_status` no MCP (só o projeto servido) tira também a lacuna da máquina que saiu dos membros por ser
+    vista só na fábrica de outro projeto; antes, a `maquina.sem-batida` dela continuava com o nome (D5).
+  - `ork memory search --texto` mostra o `detalhe` também na busca que deu certo: a quantidade de ids do FTS fora
+    do universo e o aviso de cobertura do índice (RM-038) só apareciam no `--json`.
 - **Defeitos do ensaio isolado da reinstalação do OpenClaw** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
   - a regra do HITL de condução vai também nas descrições de `ork_network_roadmap` e `ork_network_status`, as únicas
     tools que o perfil `coding` do OpenClaw expõe; antes o modelo desse perfil nunca lia a regra. O perfil não foi
