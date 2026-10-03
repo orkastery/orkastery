@@ -2511,7 +2511,7 @@ function comandoNetwork(args: Args): number {
   }
   if (sub === 'publicar') {
     if (args.opcoes.silencioso === true) {
-      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 15 min) e nao espera.
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
       try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
       catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
     }
