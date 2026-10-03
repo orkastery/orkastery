@@ -1011,7 +1011,8 @@ export function redeDoProjetoFixado(raiz: string, opcoes: { status?: StatusDaRed
       'confira a raiz fixada na instalação do servidor MCP (ork mcp install --project <raiz>)');
   }
   const p = projetoDoClone(c, 'instalacao');
-  const s = opcoes.status ?? lerRede({ semRemoto: opcoes.semRemoto === true || (process.env.ORK_REDE_LER ?? '').trim() === '0', diretorio: c.raiz });
+  const s = opcoes.status ?? lerRede({ semRemoto: opcoes.semRemoto === true || (process.env.ORK_REDE_LER ?? '').trim() === '0', diretorio: c.raiz,
+    soRaiz: c.raiz });
   const membros = s.membros.map((m) => ({ ...m, projetos: m.projetos.filter((q) => declara(q, p, p.nome)) }))
     .filter((m) => m.origem === 'rede' || m.projetos.length > 0);
   // Revisao de 03/10 (D5): a lacuna de uma maquina que saiu dos membros (vista so em outro projeto) sai junto.
