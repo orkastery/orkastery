@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.3] - 2026-10-03
+
 ### Adicionado
 
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
@@ -125,8 +127,29 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Alterado
+
+- **Ramos do `ork doctor` sob teste, C5** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)):
+  cobertura do cron, do manifesto fora do repositório e do login do Claude com diferentes perfis de conta.
+- **Fechamento com falha parcial sob teste, C4** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)):
+  falhas isoladas em leases, sessões e reserva comprovam que as demais liberações continuam e a pendência fica registrada.
+- **Piloto de contas compartilhadas** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  prova real só de leitura registra ausência de marcas; esgotamento entre dois projetos reais segue sem caso observado.
+- **Fatos da rede após os merges** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), [RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  roadmaps registram os PRs #31 e #72 e distinguem código mesclado de implantação pendente.
+- **Company Brain, B4.2 após o merge** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  roadmap registra o modo `context` no núcleo pelo PR #64 e as capacidades já presentes no OrkMind.
+- **Fatos do roadmap e ordem do CHANGELOG, B3:** documentação consolidada após as entregas, com as notas em ordem.
+
 ### Corrigido
 
+- **A skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro`** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  na segunda rodada da prova do Codex, o `ork doctor`, o `ork onboarding` e o `ork experiencia show` rodaram no
+  shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
+  da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
+  de entrada e na cópia do marketplace.
+- **Recibos do ensaio com o estado real dos achados** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
 - **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
   merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
@@ -157,6 +180,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
   no caminho saía do retrato com aviso, e a marca sumia da saída. Essas 13 marcas, que têm glifo, passam como
   texto; bidi, largura zero, tags e o resto de `Cf` continuam barrados.
+- **Avisos finais dos leases multicanais** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  o teste de fila simbólica usa um alvo fora de `.orkastery/leases`, isolando a recusa do link;
+  a varredura de metadados usada pelo commit e pelo SHIP do MCP ignora `ENOENT` quando a fila de
+  retomada ou um candidato desaparece durante `lstat` ou `readdir`, preservando os demais erros.
+  Nomes fora de UTF-8 são recusados antes de `lstat`, tanto nos metadados quanto no preflight de
+  documentos e claims, inclusive nas filas; perda de bytes na decodificação não conta como desaparecimento.
+  Falhas de `unlink` do candidato ou de `rmdir` da fila vazia não alteram o resultado da aquisição
+  nem encobrem a exceção original; candidatos remanescentes são recolhidos por concorrentes quando
+  o PID morre ou o prazo vence. Os ajustes têm cenários de regressão e receitas em
+  `core/scripts/rm036-leases-mutantes.cjs`.
 - **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
   para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
   Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado

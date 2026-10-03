@@ -377,11 +377,10 @@ function comFilaDeRetomada(caminho: string, retomar: (aindaCandidato: () => bool
         (c.ticket === ticket && c.nome < nome)))) return 'ocupado';
     return retomar(aindaCandidato);
   } finally {
-    try { fs.unlinkSync(arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    // Se ficar, outro retomador o recolhe por PID morto ou prazo; preservar resultado e erro original.
+    try { fs.unlinkSync(arquivo); } catch { /* Melhor esforco: candidato remanescente sera recolhido. */ }
     // rmdir e atomico e so remove uma pasta vazia; nunca remove candidato concorrente.
-    try { fs.rmdirSync(dir); } catch (e) {
-      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes((e as NodeJS.ErrnoException).code ?? '')) throw e;
-    }
+    try { fs.rmdirSync(dir); } catch { /* Melhor esforco: nao altera o resultado da retomada. */ }
   }
 }
 
