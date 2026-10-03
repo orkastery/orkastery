@@ -539,7 +539,9 @@ o `ork claims add` roda os comandos da claim uma vez, na worktree da thread e no
 `verify.timeout_ms`. A claim entra de qualquer jeito. Se o comando reprova, o `ork` grava
 `policy_warn` com `claims.failed`; se estoura o prazo, com `verify.timeout`. Ela nunca para o
 registro, nem declarada em `block`. Como o `add` fica tão lento quanto o comando da claim, quem
-decide ligá-la é o dono do projeto.
+decide ligá-la é o dono do projeto. Sem a worktree da thread (apagada), nada roda e o aviso diz
+isso. Pelo MCP (`ork_claim_add`), o registro nunca roda o texto da claim, com ou sem a policy: lá a
+prova é o `ork_verify`, no sandbox.
 
 A política `provider_policy: subscription-only` do bloco `runtime` é o que da sentido a policy
 `provider`: ela declara que este projeto só despacha pela assinatura local, e transforma
