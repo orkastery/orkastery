@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-017]
 owner: Julio
-atualizado_em: 2026-10-03T00:45:00-03:00
+atualizado_em: 2026-10-03T06:50:27-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
@@ -17,14 +17,16 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 1041f1b
-    pr: 30
+    commit: 3d77e53
+    pr: null
+    universo: "888770c0, PR #68"
+    avisos: 3d77e53b; número do PR não consta nas fontes locais consultadas
   testes:
     ci: verde no push do merge (run 36667583455) e no da v0.5.0 (run 36815186450)
   deploy:
     release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
-  thread: ork-i36buscasema
+  thread: ork-rm038ajusted
   modo: "#Classic"
   fase: MASTER
   status: fechada
@@ -43,7 +45,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-017](../produto/FEAT-017-memoria-orkmind.md)
-- **Thread:** `ork-i36buscasema`
+- **Thread:** `ork-rm038ajusted` (avisos); anteriores: `ork-rm038univers` (universo) e `ork-i36buscasema` (busca)
 
 ## Problema e resultado
 
@@ -67,9 +69,9 @@ sdlc:
 
 - Na `main` pelo PR #30 (merge `1041f1b`), com o CI verde no push do merge (run 36667583455).
 - Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450). Sem o bloco `memory.embedding` no manifesto, a busca por significado fica desligada (CHANGELOG da 0.5.0).
-- Em validação: a indexação e a busca contra o OpenRouter, e as claims C4, C17 e C20, dependem da chave dedicada, que é ato do dono.
-- Fatia de correção (thread `ork-rm038univers`), na `main` pelo PR #68: uma operação `universo` da ponte lê o universo da busca do tenant até o fim, com `memory.query.window-saturated` quando a janela enche; o FTS da ponte passa pelo mesmo predicado; entrada de outro tenant vira `memory.query.scope-violation` antes de qualquer embed; `ork memory status` e `ork memory index` mostram o universo da busca por coleção, o que fica fora da busca e avisam quando o índice cobre menos.
-- Ajuste da rodada 2 em GO na thread `ork-rm038ajusted`, pendente de CHECK independente e entrega. Testes em `core/test/rm038-universo.test.ts` cobrem código de saída, governança antes do embed, prazo próprio e latência; `core/test/rm038-universo-ponte.test.ts` exercita FTS e universo com relógio crescente e entrada que expira durante a leitura.
+- Em validação: C17 e C20 foram provadas com a chave dedicada na fatia do universo; C4 continua falhando com os pares padrão. A escolha de outros pares é do dono e não foi feita nesta atualização.
+- Fatia de correção (thread `ork-rm038univers`), na `main` pelo PR #68 (merge `888770c0`): uma operação `universo` da ponte lê o universo da busca do tenant até o fim, com `memory.query.window-saturated` quando a janela enche; o FTS da ponte passa pelo mesmo predicado; entrada de outro tenant vira `memory.query.scope-violation` antes de qualquer embed; `ork memory status` e `ork memory index` mostram o universo da busca por coleção, o que fica fora da busca e avisam quando o índice cobre menos.
+- Avisos das revisões mesclados na `main` em `3d77e53b` (thread `ork-rm038ajusted`); o número do PR não consta nas fontes locais consultadas. Incluem as saídas tipadas das rodadas 2 e 3: memória inativa ou universo não lido sai 1; universo vazio lido com sucesso sai 0. Testes em `core/test/rm038-universo.test.ts` cobrem código de saída, governança antes do embed, prazo próprio e latência; `core/test/rm038-universo-ponte.test.ts` exercita FTS e universo com relógio crescente e entrada que expira durante a leitura.
 - Prova local dos avisos: após `npm --prefix core run build` e `npm --prefix core run build:test`, `python3 core/scripts/prova-rm038-avisos.py` derrubou 17/17 mutantes em cópias temporárias, exigindo baseline verde e falha por asserção para cada caso. Isso não substitui a suíte completa nem o CHECK independente.
 - Prova na base real em 03/10/2026, com o CLI da branch e o índice gravado só numa cópia temporária do estado: universo da busca de 30 entradas (decision 9, handoff 2, rule 7, learning 10, roadmap 2); fora da busca, 5 com `injection_risk`, 0 expiradas e 13 em outras coleções do tenant; o universo é igual à leitura por tag em cada coleção e nenhum id do FTS fica fora dele (`core/scripts/prova-universo-da-busca.cjs`); o índice do universo inteiro estimou 9.993 tokens (US$ 0,0001) em 2 chamadas e a segunda execução não embedou nada (C17 da I-38); a busca por tag ficou igual com e sem a chave (C20 da I-38); cobertura de 100% de 30.
 - A C4 segue falhando: os alvos dos pares padrão estão no índice, mas caem em 6º, 7º e 15º lugar no ranking (o alvo do par "rotacao" só cita a palavra, e os do par "handoff" são pacotes de passagem de fase). Um diagnóstico com dois pares escolhidos antes da execução, pelo critério escrito no PLAN da thread, alcançou 3 alvos só pela semântica. Trocar os pares da prova é decisão do dono; até lá a validação continua pendente e a exposição segue com a flag desligada.
@@ -82,7 +84,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em validação | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `1041f1b` · PR #30 | 2026-10-03 | Julio |
+| Código | Mesclado | commit `3d77e53` · universo: 888770c0, PR #68 · avisos: 3d77e53b; número do PR não consta nas fontes locais consultadas | 2026-10-03 | Julio |
 | Testes | Aprovados | ci: verde no push do merge (run 36667583455) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
 | Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-03 | Julio |
 | Exposição | Flag desligada | — | 2026-10-03 | Julio |
@@ -103,3 +105,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-01 | em produção na versão 0.5.0; em validação até a chave dedicada | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
 | 2026-10-03 | fatia de correção: o universo do índice é o mesmo da busca; C17 e C20 da I-38 provadas com a chave; C4 segue falhando pelos pares | thread `ork-rm038univers` (GOAL, PLAN e CHECK), branch `ork/ork-rm038univers-full` | agente (#Auto) |
 | 2026-10-03 | ajuste dos avisos da rodada 2, após o PR #68; prazo próprio e defesa antes do embed | thread `ork-rm038ajusted`, testes RM-038 e referência da CLI; CHECK e entrega pendentes | agente (#Auto) |
+| 2026-10-03 | Universo e avisos das revisões mesclados; C4 segue pendente com os pares padrão | `888770c0` (PR #68) e `3d77e53b` (PR não identificado nas fontes locais); testes `rm038-universo` e `rm038-universo-ponte`; troca dos pares é do dono | Codex (agente, #Fast), revisão pendente |
