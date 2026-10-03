@@ -7,12 +7,19 @@ pai: MOD-03
 roadmap: [RM-033, RM-040]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-09-27T08:30:00-03:00
-versao: main@74db81b
+verificado_em: 2026-10-03T09:52:15+00:00
+versao: main@059f257a
+evidencias:
+  codigo:
+    commit: d2a54075
+    pr: null
+    fatia4: "107ac246; número do PR não identificado nas fontes locais"
+    fatia5: "d2a54075; número do PR não identificado nas fontes locais"
 fontes:
   codigo:
     - core/src/runtime-profiles.ts
     - core/src/retry.ts
+    - core/src/session-watcher-claude.ts
     - core/src/esgotamentos.ts
   testes:
     - core/test/runtime-profiles.test.ts
@@ -20,6 +27,8 @@ fontes:
     - core/test/rotacao-politica.test.ts
     - core/test/contas-compartilhadas.test.ts
     - core/test/rm040-esgotamentos.test.ts
+    - core/test/rm037-fatia5-cota-ao-vivo.test.ts
+    - core/test/rm037-fatia5-fuso-do-reset.test.ts
   simbolos:
     - core/src/runtime-profiles.ts#adicionarPerfil
     - core/src/runtime-profiles.ts#perfilDeDespacho
@@ -42,7 +51,7 @@ fontes:
 
 > **Em uma frase:** Quando uma conta esgota cota ou perde o login, o mesmo prompt segue em outro perfil do mesmo runtime ou no fallback do bloco, sem o `ork` tocar em credencial.
 
-- **Estado:** vigente · **Verificado em:** 2026-09-27 · **Versão:** main@74db81b
+- **Estado:** vigente · **Verificado em:** 2026-10-03 · **Versão:** main@059f257a
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-03](MOD-03-runtimes-e-contas.md)
 - **Roadmap:** [RM-033](../roadmap/RM-033-rotacao-de-contas.md), [RM-040](../roadmap/RM-040-estado-de-conta-compartilhado.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -55,19 +64,23 @@ fontes:
 
   1. `ork accounts add <id> --runtime R --dir D` cria o perfil e roda o login do CLI.
   2. O despacho resolve a conta pelo registro da sessão, nunca pelo ambiente do processo.
-  3. Esgotou: evento `runtime_profile_rotated` e o prompt segue no próximo perfil.
+  3. Esgotou: o perfil fica indisponível até o prazo da cota. No próximo despacho ou retry permitido, a política de rodízio pula esse perfil; a troca gera `runtime_profile_rotated`.
+
+- **Cota detectada durante a sessão (RM-037, fatia 5):** o observador da sessão `claude-bg` viva relê a transcrição quando ela cresce. Uma mensagem de esgotamento posterior ao despacho, entre os motivos já reconhecidos pelo rodízio, marca o perfil e grava `runtime_quota_detected` uma vez por erro. A detecção não espera a morte do processo, não encerra a fase e não muda a condução.
+- **Prazo do esgotamento:** vale a hora de retorno da mensagem, interpretada no fuso que ela declara entre parênteses; sem hora de retorno, vale 1 h a partir da mensagem. `ork accounts list` mostra o prazo em `ESGOTADO ATE`. A escolha do próximo perfil continua sujeita a `rotate_same_runtime_on_quota`, à disponibilidade e aos gates.
 
 - **Alternativas, erros e recuperação:** rate limit de janela curta nunca troca de perfil: espera a janela na fila. Chave paga no ambiente é `cost.violation`, sem retry.
 - **Pós-condições:** estado do perfil (esgotado até, último uso, última falha) no store do projeto, e o estado da **conta** no registro do usuário, que as outras fábricas da mesma máquina leem antes de despachar.
 - **Regras de negócio:** BR-008-01: `runtime_profiles.rotate_same_runtime_on_quota: true` por padrão (decisão do dono, 19/09/2026). BR-008-02: perfil autenticado por API paga nunca recebe despacho. BR-008-03: o registro compartilhado só escurece: ele nunca devolve ao rodízio um perfil que o projeto tirou, e leitura com problema vale registro vazio.
-- **Critérios de aceite e testes:** Dado um perfil esgotado, quando a fase é despachada, então ela sai no próximo perfil com login (`core/test/rotacao-perfis.test.ts`). Dada uma conta esgotada num projeto, quando outro projeto do mesmo usuário escolhe o perfil, então ele pula essa conta até o prazo (`core/test/contas-compartilhadas.test.ts`).
+- **Regra do observador:** BR-008-04: mensagem antiga, anterior ao despacho, não marca a conta da sessão atual; observar de novo o mesmo erro não duplica o evento nem prorroga o prazo.
+- **Critérios de aceite e testes:** Dado um perfil esgotado, quando a fase é despachada, então ela sai no próximo perfil com login (`core/test/rotacao-perfis.test.ts`). Dada uma conta esgotada num projeto, quando outro projeto do mesmo usuário escolhe o perfil, então ele pula essa conta até o prazo (`core/test/contas-compartilhadas.test.ts`). Com a sessão viva e a cota na transcrição, o perfil sai do rodízio na observação seguinte, sem encerrar a fase (`core/test/rm037-fatia5-cota-ao-vivo.test.ts`); o reset respeita o fuso da mensagem (`core/test/rm037-fatia5-fuso-do-reset.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
 
 ## Dados e contratos
 
 - **Entidades:** `.orkastery/private/runtime-profiles.json` do projeto (contrato `ork.runtime-profiles/v1`) e `~/.orkastery/private/contas.json` do usuário (contrato `ork.contas-compartilhadas/v1`, chave = runtime mais o caminho real do diretório da conta). Nenhum dos dois guarda segredo.
 - **APIs:** Não aplicável.
-- **Eventos:** `runtime_profile_rotated`, `runtime.quota-exhausted`, `runtime.auth-missing`.
+- **Eventos:** `runtime_quota_detected` (motivo, instante do erro, reset, fonte do prazo e perfil pelo id), `runtime_profile_rotated`, `runtime.quota-exhausted`, `runtime.auth-missing`.
 
 ## Operação e controle
 
@@ -83,3 +96,4 @@ fontes:
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-09-27 | estado da conta compartilhado entre os projetos do mesmo usuário | Claude (agente) / Julio, revisão pendente | RM-040 |
 | 2026-10-03 | `ork accounts esgotamentos`, a medida da métrica da RM-040 | Claude (agente) / Julio, revisão pendente | RM-040, thread `ork-b7relatoriod` |
+| 2026-10-03 | Observador detecta cota ao vivo, marca o perfil até o reset no fuso da mensagem e evita novo despacho na conta esgotada | Codex (agente) / revisão pendente | RM-037: fatia 4 em `107ac246`, fatia 5 em `d2a54075`; números dos PRs não identificados nas fontes locais |
