@@ -44,7 +44,7 @@ fontes:
   1. O GOAL e o PLAN recebem um item de memória com as recorrências (no GOAL, só quando o OrkMind não trouxe a lição da coleção `learning`, para não repetir): os três bloqueios que mais apareceram, as duas classes de falha que mais fecharam thread (com o comando que evita cada uma) e as últimas notas de 1 a 3, com a justificativa do MASTER.
   2. Ao fechar uma thread, o `ork master` confere a recorrência: a mesma falha em 3 ou mais threads nos últimos 30 dias vira proposta de policy no ledger do projeto (`policy_proposta`), uma vez por janela.
   3. `ork licoes` mostra a lição que vai voltar e as propostas em vigor, e diz quais já podem ser declaradas em `policies:`.
-  4. As que o `ork` confere sem ambiguidade (`verify_regression`, `verify_failed`, `runtime_unavailable` e `tree_blocked`) viram policy executável: em `warn`, avisam no gate com a correção e gravam `policy_warn`; em `block`, reprovam como as outras policies.
+  4. As que o `ork` confere sem ambiguidade (`verify_regression`, `verify_failed`, `runtime_unavailable` e `tree_blocked`) viram policy executável: em `warn`, avisam no gate com a correção e gravam `policy_warn`; em `block`, reprovam como as outras policies. A lição `claims.failed` vira a policy opt-in `claim_sem_prova_local` (alias `claims_failed`): declarada, o `ork claims add` roda o comando da claim uma vez no prazo do verify e só avisa (B8).
 
 - **Alternativas, erros e recuperação:** sem thread fechada, não há item nem seção vazia no prompt; arquivo ilegível é ignorado.
 - **Entrega por PR (I-57):** a thread entregue por PR entra no loop depois de `ork ship registrar-pr` e do `ork master --aceitar-omissao`; antes, ela ficava aberta para sempre e não ensinava nada.

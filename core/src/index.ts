@@ -1511,6 +1511,9 @@ function comandoClaims(args: Args): number {
       console.log('');
       console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
     }
+    // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
+    const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
+    if (linhasDePolicy.length) { console.log(''); for (const l of linhasDePolicy) console.log(l); }
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');

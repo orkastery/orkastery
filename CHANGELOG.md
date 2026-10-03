@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Conferência opt-in da claim no registro** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): a policy
+  `claim_sem_prova_local` (alias `claims_failed`, o nome que o `ork licoes` propõe) vem desligada. Declarada, o
+  `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
+  reprova, grava `policy_warn` com `claims.failed`, e se estoura o prazo, com `verify.timeout`. A claim entra do
+  mesmo jeito e nada para, nem com a policy em `block`.
 - **`ork doctor` acusa o pulse que bate devagar** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)): com
   `.orkastery/monitor/pulse-host.json`, o check `cadencia do pulse no cron` lê o `crontab -l` e avisa, sem bloquear, a
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
