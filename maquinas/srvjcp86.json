@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T06:57:41.856Z",
+  "publicadoEm": "2026-10-03T07:01:28.995Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -33,23 +33,6 @@
       "branch": "ork/ork-revisaodasen-full",
       "atualizadaEm": "2026-10-03T06:50:28.499Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm008aceitar",
-      "nome": "RM-008: aceitar por omissão só a thread indicada",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-008",
-      "branch": "ork/ork-rm008aceitar-full",
-      "atualizadaEm": "2026-10-03T06:57:41.705Z",
-      "entregue": "b432dd7",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
