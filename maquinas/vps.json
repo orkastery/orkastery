@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T10:02:44.007Z",
+  "publicadoEm": "2026-10-03T10:03:03.251Z",
   "threads": [
     {
       "id": "ork-estadodoroa2",
@@ -22,6 +22,23 @@
       "runtime": "codex",
       "modelo": "gpt-6-astra",
       "esforco": "xhigh"
+    },
+    {
+      "id": "ork-rm031kg5fat3",
+      "nome": "ork-rm031kg5fat4",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-031",
+      "branch": "HEAD",
+      "atualizadaEm": "2026-10-03T10:03:00.269Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm036ajusted",
