@@ -156,7 +156,7 @@
         "node -e \"const s=require('fs').readFileSync('CHANGELOG.md','utf8');const np=s.split('## Não publicado')[1].split(/\\n## /)[0];const c=np.split('### Corrigido')[1]||'';if(!c.includes('Leases de todas as famílias no estado canônico'))process.exit(1);if(!c.includes('docs/roadmap/RM-036-maestro-multicanal.md')||!c.includes('docs/produto/FEAT-007-worktree-e-leases.md'))process.exit(2);if(!c.includes('lease.busy')||!c.includes('legado'))process.exit(3)\""
       ],
       "criadoEm": "2026-10-03T03:58:43.063Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -934,7 +934,7 @@
         "npm --prefix core run build:test >/dev/null && node core/scripts/rm036-leases-mutantes.cjs --validar && ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern=\"rm036 (gofix:|docs:|leases: orkEmParalelo)\" core/scripts/rm036-leases-mutantes.cjs && node --test core/dist-test/test/rm036-leases-mcp.test.js"
       ],
       "criadoEm": "2026-10-03T08:34:43.471Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
