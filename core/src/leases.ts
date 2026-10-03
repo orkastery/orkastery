@@ -119,15 +119,38 @@ function arquivoDeVerdade(caminho: string): boolean {
   try { return fs.lstatSync(caminho).isFile(); } catch { return false; }
 }
 
+/** Texto que pode sair no terminal, no monitor ou numa correcao de comando. */
+function textoSeguro(texto: unknown): string {
+  return String(texto ?? '').replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '');
+}
+
+/** A primeira descoberta abre uma unica janela; o marcador canonico nunca e renovado. */
+function janelaDoLegado(principal: string, abrir = false): boolean | null {
+  const marcador = path.join(dirLeases(principal), '.legado');
+  if (abrir) {
+    try {
+      fs.mkdirSync(path.dirname(marcador), { recursive: true });
+      fs.closeSync(fs.openSync(marcador, 'wx'));
+    } catch { /* EEXIST: outra chamada abriu a mesma janela. */ }
+  }
+  try {
+    const stat = fs.lstatSync(marcador);
+    return stat.isFile() && Date.now() - stat.mtimeMs < TTL_PADRAO_MS;
+  } catch (e) {
+    return !abrir && (e as NodeJS.ErrnoException).code === 'ENOENT' ? null : false;
+  }
+}
+
 /**
  * As pastas `.orkastery/leases` das worktrees registradas no git do projeto, onde a versao anterior
- * gravava os leases pedidos de dentro delas (D3 do PLAN). A lista vem do git (`.git/worktrees/<n>/gitdir`),
+ * gravava os leases pedidos de dentro delas. A lista vem do git (`.git/worktrees/<n>/gitdir`),
  * nunca de argumento, e so entra diretorio de verdade, sem link simbolico em `.orkastery` nem em `leases`:
- * a leitura e o `unlink` do legado nunca sao levados para fora. Sem memoria entre chamadas (D8): 2,8 ms
- * medidos com 129 worktrees, e um processo longo (o MCP) nao guarda worktree que ja mudou.
+ * a leitura e o `unlink` do legado nunca sao levados para fora. O `.git` da worktree precisa apontar
+ * de volta ao registro. A janela de 30 min dispensa a varredura depois da troca de versao.
  */
 export function dirsLegadosDeLeases(raiz: string): string[] {
   const principal = raizDoEstado(raiz);
+  if (janelaDoLegado(principal) === false) return [];
   const registro = path.join(principal, '.git', 'worktrees');
   let nomes: string[];
   try { nomes = fs.readdirSync(registro); } catch { return []; }
@@ -135,25 +158,49 @@ export function dirsLegadosDeLeases(raiz: string): string[] {
   const vistos = new Set([real(dirLeases(principal))]);
   const dirs: string[] = [];
   for (const nome of nomes.sort()) {
+    const entrada = path.join(registro, nome);
+    if (!diretorioDeVerdade(entrada) || !arquivoDeVerdade(path.join(entrada, 'gitdir'))) continue;
     let gitdir: string;
-    try { gitdir = fs.readFileSync(path.join(registro, nome, 'gitdir'), 'utf8').trim(); } catch { continue; }
+    try { gitdir = fs.readFileSync(path.join(entrada, 'gitdir'), 'utf8').trim(); } catch { continue; }
     if (!gitdir) continue;
-    const estado = dirEstado(path.dirname(path.resolve(registro, nome, gitdir)));
+    const gitDaWorktree = path.resolve(entrada, gitdir);
+    if (path.basename(gitDaWorktree) !== '.git' || !arquivoDeVerdade(gitDaWorktree)) continue;
+    try {
+      const volta = /^gitdir: (.+)\s*$/.exec(fs.readFileSync(gitDaWorktree, 'utf8').trim());
+      if (!volta || real(path.resolve(path.dirname(gitDaWorktree), volta[1].trim())) !== real(entrada)) continue;
+    } catch { continue; }
+    const estado = dirEstado(path.dirname(gitDaWorktree));
     const dir = path.join(estado, 'leases');
     if (!diretorioDeVerdade(estado) || !diretorioDeVerdade(dir) || vistos.has(real(dir))) continue;
     vistos.add(real(dir));
     dirs.push(dir);
   }
-  return dirs;
+  return dirs.length > 0 && janelaDoLegado(principal, true) ? dirs : [];
 }
 
-/** Le um arquivo de lease do legado: so arquivo regular, com o nome dentro. O resto conta como corrompido. */
+/** Legado e entrada nao confiavel: formato, nome do arquivo e prazo precisam concordar. */
 function lerLeaseLegado(caminho: string): Lease | null {
+  let fd: number | undefined;
   try {
-    const lease = JSON.parse(fs.readFileSync(caminho, 'utf8')) as Lease;
-    return lease && typeof lease.nome === 'string' && typeof lease.thread === 'string' ? lease : null;
+    fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > 64 * 1024) return null;
+    const lease = JSON.parse(fs.readFileSync(fd, 'utf8')) as Lease;
+    if (!lease || typeof lease.nome !== 'string' || !lease.nome || textoSeguro(lease.nome) !== lease.nome ||
+        path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json` || tipoDoLease(lease.nome) === 'exec' ||
+        typeof lease.thread !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread) ||
+        typeof lease.motivo !== 'string' || !Number.isSafeInteger(lease.pid) || lease.pid <= 0) return null;
+    const inicio = Date.parse(lease.adquiridoEm), fim = Date.parse(lease.expiraEm);
+    if (!Number.isFinite(inicio) || !Number.isFinite(fim) ||
+        new Date(inicio).toISOString() !== lease.adquiridoEm || new Date(fim).toISOString() !== lease.expiraEm ||
+        inicio > Date.now() || fim <= inicio || fim - inicio > TTL_PADRAO_MS) return null;
+    // Nao transporta campos extras (como conducao) de um arquivo gravavel pela worktree.
+    return { nome: lease.nome, thread: lease.thread, motivo: textoSeguro(lease.motivo), pid: lease.pid,
+      adquiridoEm: lease.adquiridoEm, expiraEm: lease.expiraEm };
   } catch {
     return null;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
   }
 }
 
@@ -189,14 +236,11 @@ export function regravarLease(raiz: string, lease: Lease): void {
 }
 
 /**
- * Le o lease em disco. Arquivo corrompido conta como lease ausente. Sem o arquivo canonico, vale a copia
- * legada do mesmo nome (RM-036, D2), a viva antes da vencida.
+ * Le somente o arquivo canonico. Legado pode barrar uma aquisicao, nunca provar posse
+ * para ativacao de escrita nem substituir um arquivo canonico que sumiu durante uma liberacao.
  */
 export function lerLease(raiz: string, nome: string): Lease | null {
-  const caminho = caminhoLease(raiz, nome);
-  if (fs.existsSync(caminho)) return lerArquivoDeLease(caminho);
-  const legadas = copiasLegadas(raiz, nome).map((c) => c.lease).filter((l): l is Lease => l !== null);
-  return legadas.find((l) => !expirado(l)) ?? legadas[0] ?? null;
+  return lerArquivoDeLease(caminhoLease(raiz, nome));
 }
 
 /** O arquivo de lease do estado canonico; ausente ou corrompido conta como lease ausente. */
@@ -329,14 +373,13 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
   };
   const corpo = JSON.stringify(lease, null, 2) + '\n';
 
-  // RM-036 (D2): a copia legada do mesmo nome ocupa o nome como a canonica ocuparia. Viva (ou com a
-  // retomada desligada, como no MCP), recusa: o ork novo nunca cria a segunda copia. Vencida ou
-  // corrompida, e tomada pelo mesmo TTL.
+  // So o legado valido e vivo barra, inclusive quando o MCP desliga a retomada do canonico.
   let tomouLegado = false;
   for (const copia of copiasLegadas(raiz, nome)) {
-    if (opcoes.retomarVencido === false || (copia.lease && !expirado(copia.lease))) {
+    if (copia.lease && !expirado(copia.lease)) {
       return { ok: false, lease: null, ocupadoPor: copia.lease, tomadoDeVencido: false };
     }
+    if (!copia.lease) continue; // diagnostico e --forcar ficam disponiveis para o arquivo invalido
     try {
       fs.unlinkSync(copia.caminho);
       tomouLegado = true;
@@ -373,7 +416,7 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
  * dos outros e exatamente o bug que o lease existe para impedir.
  *
  * RM-036 (D2): solta a copia canonica e as legadas do mesmo nome, de qualquer checkout; arquivo
- * corrompido continua contando como ausente.
+ * invalido sai apenas com --forcar, pelo nome do arquivo mostrado na lista.
  */
 export function liberar(
   raiz: string,
@@ -381,24 +424,23 @@ export function liberar(
   thread: string,
   forcar = false
 ): { ok: boolean; detalhe: string } {
-  const copias: { caminho: string; lease: Lease }[] = [];
+  const copias: CopiaLegada[] = [];
   const canonico = caminhoLease(raiz, nome);
   if (fs.existsSync(canonico)) {
-    const atual = lerLease(raiz, nome);
-    if (atual) copias.push({ caminho: canonico, lease: atual });
+    copias.push({ caminho: canonico, lease: lerArquivoDeLease(canonico) });
   }
   for (const copia of copiasLegadas(raiz, nome)) {
-    if (copia.lease) copias.push({ caminho: copia.caminho, lease: copia.lease });
+    copias.push(copia);
   }
   if (copias.length === 0) {
     sairDaFila(raiz, nome, thread);
     return { ok: true, detalhe: `lease ${nome} ja estava livre` };
   }
-  const soltas = copias.filter((c) => forcar || c.lease.thread === thread);
+  const soltas = copias.filter((c) => forcar || c.lease?.thread === thread);
   if (soltas.length === 0) {
     return {
       ok: false,
-      detalhe: `lease ${nome} pertence a thread ${copias[0].lease.thread}; use --forcar para tomar`,
+      detalhe: `lease ${nome} pertence a thread ${textoSeguro(copias[0].lease?.thread ?? '(ilegivel)')}; use --forcar para tomar`,
     };
   }
   for (const copia of soltas) {
@@ -407,12 +449,12 @@ export function liberar(
     } catch {
       /* outra liberacao chegou antes */
     }
-    sairDaFila(raiz, nome, copia.lease.thread);
+    if (copia.lease) sairDaFila(raiz, nome, copia.lease.thread);
   }
   const outra = copias.find((c) => !soltas.includes(c));
   const proximo = proximoDaFila(raiz, nome);
   const seguinte = proximo ? `; proximo da fila: thread ${proximo.thread}` : '';
-  const resta = outra ? `; segue a copia da thread ${outra.lease.thread} ate vencer` : '';
+  const resta = outra ? `; segue a copia da thread ${textoSeguro(outra.lease?.thread ?? '(ilegivel)')}` : '';
   return { ok: true, detalhe: `lease ${nome} liberado${seguinte}${resta}` };
 }
 
@@ -735,19 +777,35 @@ export function tabelaDeLeases(raiz: string): string {
     for (const { lease: l, legado } of emDisco) {
       const situacao = expirado(l) ? 'VENCIDO (tomavel)' : 'ativo';
       linhas.push(
-        `  ${l.nome.padEnd(28)} [${tipoDoLease(l.nome)}] thread ${l.thread.padEnd(18)} ${situacao}`
+        `  ${textoSeguro(l.nome).padEnd(28)} [${tipoDoLease(l.nome)}] thread ${textoSeguro(l.thread).padEnd(18)} ${situacao}`
       );
       linhas.push(`    desde ${formatarDataHora(l.adquiridoEm)} ate ${formatarDataHora(l.expiraEm)} (pid ${l.pid})`);
-      linhas.push(`    motivo: ${l.motivo}`);
+      linhas.push(`    motivo: ${textoSeguro(l.motivo)}`);
       // RM-036: o lease que a versao anterior gravou numa worktree vale ate vencer, e sai pelo release.
       if (legado) {
         const relativo = path.relative(principal, legado);
         const onde = relativo && !relativo.startsWith('..') && !path.isAbsolute(relativo) ? relativo : legado;
-        linhas.push(`    legado: ${onde} (gravado pela versao anterior; vale ate vencer, sem segunda copia)`);
+        linhas.push(`    legado: ${textoSeguro(onde)} (vale enquanto vivo, dentro da janela de 30 min da troca)`);
       }
       // I-36: o lease de execucao diz quem conduz, com a mesma linha das outras superficies.
       const conducao = conducaoDoLease(l);
       if (conducao) linhas.push(`    ${linhaDeConducao(conducao)}`);
+    }
+  }
+
+  // Diagnosticos nunca entram em listarLeases: arquivo invalido nao disputa regiao nem prova posse.
+  for (const dir of dirsLegadosDeLeases(raiz)) {
+    let arquivos: string[];
+    try { arquivos = fs.readdirSync(dir); } catch { continue; }
+    for (const arquivo of arquivos.sort()) {
+      const caminho = path.join(dir, arquivo);
+      if (!arquivo.endsWith('.json') || arquivo === NOME_ARQUIVO_FILA ||
+          !arquivoDeVerdade(caminho) || lerLeaseLegado(caminho)) continue;
+      let nome: string;
+      try { nome = decodeURIComponent(arquivo.slice(0, -5)); } catch { nome = arquivo.slice(0, -5); }
+      if (tipoDoLease(nome) === 'exec') continue;
+      linhas.push(`  legado: ${textoSeguro(arquivo)} INVALIDO ou ILEGIVEL (ignorado)`);
+      linhas.push(`    remover: ork lease release ${JSON.stringify(textoSeguro(nome))} --forcar`);
     }
   }
 
@@ -756,13 +814,13 @@ export function tabelaDeLeases(raiz: string): string {
   const regiao = fila.filter((p) => p.tipo !== 'main-tree');
   linhas.push(`Fila de merge (lease ${LEASE_MAIN_TREE}): ${merge.length === 0 ? 'vazia' : `${merge.length} na espera`}`);
   merge.forEach((p, i) => {
-    linhas.push(`  ${i + 1}. thread ${p.thread} desde ${formatarDesde(p.desdeEm)} (bloqueada por ${p.bloqueadaPor})`);
+    linhas.push(`  ${i + 1}. thread ${textoSeguro(p.thread)} desde ${formatarDesde(p.desdeEm)} (bloqueada por ${textoSeguro(p.bloqueadaPor)})`);
   });
   linhas.push(`Fila por colisao de regiao: ${regiao.length === 0 ? 'vazia' : `${regiao.length} na espera`}`);
   regiao.forEach((p, i) => {
     linhas.push(
-      `  ${i + 1}. thread ${p.thread} quer ${p.nome}, colide com ${p.colidiuCom} ` +
-        `(thread ${p.bloqueadaPor}) desde ${formatarDesde(p.desdeEm)}`
+      `  ${i + 1}. thread ${textoSeguro(p.thread)} quer ${textoSeguro(p.nome)}, colide com ${textoSeguro(p.colidiuCom)} ` +
+        `(thread ${textoSeguro(p.bloqueadaPor)}) desde ${formatarDesde(p.desdeEm)}`
     );
   });
   if (emDisco.length > 0 || fila.length > 0) linhas.push(legendaDoFuso());

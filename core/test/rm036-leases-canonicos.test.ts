@@ -206,7 +206,8 @@ test('rm036 leases: fila unica entre raiz e worktree', () => {
 function leaseDe(nome: string, thread: string, minutos: number): Lease {
   const agora = Date.now();
   return { nome, thread, motivo: 'gravado pela versao anterior', pid: 4242,
-    adquiridoEm: new Date(agora - 60_000).toISOString(), expiraEm: new Date(agora + minutos * 60_000).toISOString() };
+    adquiridoEm: new Date(agora + Math.min(-1, minutos - 1) * 60_000).toISOString(),
+    expiraEm: new Date(agora + minutos * 60_000).toISOString() };
 }
 
 /** Grava o lease como a versao anterior gravava quando o `ork` rodava na worktree. */
@@ -232,7 +233,7 @@ test('rm036 leases: legado vivo vale ate vencer', () => {
     assert.match(mesma.stderr, /motivo tipado: lease\.busy/);
     assert.equal(fs.existsSync(caminhoLease(c.raiz, escrita)), false, 'nenhuma copia canonica nasceu');
     assert.ok(fs.existsSync(arquivo), 'o legado segue onde estava');
-    assert.equal(lerLease(c.raiz, escrita)?.thread, c.t1, 'a leitura acha o legado');
+    assert.equal(lerLease(c.raiz, escrita), null, 'legado nao prova posse canonica');
 
     // Outra thread, pela raiz, numa regiao que cruza a do legado: recusa com quem segura.
     gravarLegado(c.wt, leaseDe('path:docs/**', c.t1, 20));
