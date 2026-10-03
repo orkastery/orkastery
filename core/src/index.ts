@@ -3945,12 +3945,13 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
       embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
   }
+  const codigo = universo ? 0 : 1;
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
-    return 0;
+    return codigo;
   }
   console.log(textoDaBuscaPorSignificado(r));
-  return 0;
+  return codigo;
 }
 
 /**

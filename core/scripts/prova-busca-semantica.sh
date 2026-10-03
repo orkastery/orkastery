@@ -17,6 +17,18 @@ set -euo pipefail
 CLI="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dist/index.js"
 ork() { node "$CLI" "$@"; }
 
+# set -e encerra a prova na falha; preserve antes o JSON com o motivo tipado no stderr.
+buscar() {
+  local resposta codigo
+  if resposta=$(ork memory search "$@"); then
+    printf '%s\n' "$resposta"
+  else
+    codigo=$?
+    printf '%s\n' "$resposta" >&2
+    return "$codigo"
+  fi
+}
+
 if [ "$#" -gt 0 ]; then
   PARES=("$@")
 else
@@ -49,10 +61,13 @@ for par in "${PARES[@]}"; do
     const palavras = process.argv[2].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]{4,}/g) || [];
     console.log(JSON.stringify({ project: [process.argv[1]], domain: [...new Set(palavras)] }));
   ' "$TENANT" "$frase")
-  alvo=$(ork memory search --texto "$termo" --modo fts --limite 100 --json | ids)
-  tag=$(ork memory search --tags "$tags" --json | ids)
-  fts=$(ork memory search --texto "$frase" --modo fts --limite 100 --json | ids)
-  semantica_json=$(ork memory search --texto "$frase" --modo vetor --limite 5 --json)
+  alvo_json=$(buscar --texto "$termo" --modo fts --limite 100 --json)
+  alvo=$(printf '%s' "$alvo_json" | ids)
+  tag_json=$(buscar --tags "$tags" --json)
+  tag=$(printf '%s' "$tag_json" | ids)
+  fts_json=$(buscar --texto "$frase" --modo fts --limite 100 --json)
+  fts=$(printf '%s' "$fts_json" | ids)
+  semantica_json=$(buscar --texto "$frase" --modo vetor --limite 5 --json)
   semantica=$(printf '%s' "$semantica_json" | ids 5)
   origem=$(printf '%s' "$semantica_json" | node -e '
     const r = JSON.parse(require("fs").readFileSync(0, "utf8"));

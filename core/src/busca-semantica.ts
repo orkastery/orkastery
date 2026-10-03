@@ -138,7 +138,7 @@ function ladoVetorial(o: OpcoesDaBusca, entradas: EntradaDeMemoria[]): { alvo: A
 export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantica {
   // RM-038 (D6): entrada alheia no universo e violacao antes de embedar a consulta, nunca descarte.
   if (o.universo.tenant !== o.tenant) throw new Error('memory.query.scope-violation');
-  conferirUniverso(o.universo.entradas, o.tenant);
+  conferirUniverso(o.universo.entradas, o.tenant, o.universo.lidoEm);
   const doUniverso = new Set(o.universo.entradas.map(e => e.id));
   // As entradas buscadas: o universo inteiro, ou so a colecao pedida.
   const buscadas = o.colecao ? o.universo.entradas.filter(e => e.collection === o.colecao) : o.universo.entradas;
