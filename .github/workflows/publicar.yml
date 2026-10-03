@@ -15,8 +15,8 @@ permissions:
 
 jobs:
   # RM-031: o pacote desta tag, instalado global num prefixo e num HOME temporarios, indexa e consulta
-  # o grafo (a 0.5.0 e a 0.5.1 sairam sem os analisadores). Job proprio, so com leitura: a prova instala
-  # as transitivas do registro, sem lockfile, e roda o codigo instalado, longe do id-token da publicacao.
+  # o grafo (a 0.5.0, a 0.5.1 e a 0.5.2 sairam sem os analisadores). Job proprio, so com leitura:
+  # a prova instala as transitivas do registro, sem lockfile, e roda o codigo longe do id-token da publicacao.
   provar-grafo:
     name: grafo no pacote instalado
     runs-on: ubuntu-latest
