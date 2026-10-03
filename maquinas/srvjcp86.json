@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T06:09:00.398Z",
+  "publicadoEm": "2026-10-03T06:10:16.431Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -117,6 +117,23 @@
       "roadmap": "RM-047",
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:02:10.032Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm049achados",
+      "nome": "RM-049: achados do ensaio de 03/10",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-049",
+      "branch": "ork/ork-rm049achados-full",
+      "atualizadaEm": "2026-10-03T06:10:14.145Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
