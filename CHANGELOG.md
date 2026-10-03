@@ -8,6 +8,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Verify ciente do steal e registro de instabilidade** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 6):
+  - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal da CPU no `/proc/stat` na rodada e na janela de cada
+    comando e grava a medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha);
+  - a reprovação só de teste com relógio (estouro de prazo do `node --test`, ou entrada vigente do registro) sob steal
+    acima de 40% vira `verify.timeout`, que o retry reexecuta, e nunca `verify.regression`; asserção comum continua
+    regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
+  - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
+    nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
+  - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
   no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
