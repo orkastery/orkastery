@@ -161,7 +161,9 @@ test('ork fix open/list/reverify conduz o sub-loop pelo binario, sem humano', (t
   const p = projetoTemporario('b3-cli-fix');
   t.after(p.limpar);
 
-  ork(p.dir, ['thread', 'new', 'cli go fix', '--modo', 'auto']);
+  // P4 do ensaio da 0.5.0: o GO-FIX deste teste escreve na raiz do projeto, entao a thread nasce sem a worktree
+  // que a chave worktree.por_thread do `ork init` daria; o assunto aqui e o sub-loop, nao a worktree.
+  ork(p.dir, ['thread', 'new', 'cli go fix', '--modo', 'auto', '--sem-worktree']);
   const id = 'ork-cligofix';
   ork(p.dir, [
     'claims',

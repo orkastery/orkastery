@@ -1,0 +1,240 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-p4worktreepo",
+  "branch": "ork/ork-p4worktree-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "p4 worktree: o manifesto lê worktree.por_thread ausente como false (a chave apagada, o bloco worktree apagado e valor que não é booleano YAML), e o modelo do ork init segue gravando true",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: manifesto' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:42:57.268Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/test/p4-worktree-por-thread.test.ts",
+      "alegacao": "p4 worktree: o arquivo de testes da thread passa inteiro: os três casos da chave, a saída explícita --sem-worktree, as flags explícitas, o --dry-run, o repositório sem commit, o achado, o modelo do ork init e as docs",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:42:58.809Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread.ts",
+      "alegacao": "p4 worktree: pedidoDeWorktree resolve --worktree, --sem-worktree e a chave (flags vencem a chave, as duas juntas e --sem-worktree com valor são uso); o dry-run prevê a mesma pasta, branch e base que a criação usa, sem criar nada; sem commit a worktree só da chave não nasce e a flag explícita segue com o erro do git; ciclo que exige worktree recusa --sem-worktree antes de gravar; o aviso de --sem-worktree diz o que o ork ship faz pela policy push_direto_na_base; worktree_created leva origem e thread_created leva semWorktree",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: (pedido|previsao|sem commit a chave|ciclo|aviso)' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:47:37.292Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "p4 worktree: pela CLI do HEAD, com worktree.por_thread: true o ork thread new cria a worktree e a branch ork/<slug> sem flag e diz que ela veio da chave; com a chave false, apagada ou com o bloco worktree apagado, a thread nasce na raiz como antes; --sem-worktree cria sem worktree e avisa no stderr que o ork ship barra a entrega na branch base (push_direto_na_base) e como corrigir antes do GO; --worktree auto e --worktree DIR seguem valendo; --worktree com --sem-worktree e --sem-worktree com valor saem 2; ciclo greenfield com --sem-worktree recusa sem gravar; --dry-run mostra a pasta e a branch previstas sem criar nada; sem commit a thread nasce na raiz com o aviso da chave antes do aviso de sem base; a ajuda traz --sem-worktree",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: (chave|--sem-worktree|flags|--dry-run|sem commit pelo)' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:56:17.319Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/auditrun.ts",
+      "alegacao": "p4 worktree: ork thread new --from-finding segue worktree.por_thread como o thread new (a thread do achado nasce com a worktree da chave, com a linha de origem), aceita --sem-worktree com o aviso do ship e recusa --worktree com --sem-worktree com saída 2",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: achado' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:56:19.323Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/test/ensaio-050.test.ts",
+      "alegacao": "p4 worktree: os testes do ensaio 050 passam inteiros com a chave valendo: a thread aberta depois do primeiro commit num manifesto do ork init nasce com a worktree e a branch dela, o quickstart ensina o comando sem --worktree auto e as amostras batem com a saída do ork do HEAD",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/ensaio-050.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:56:21.317Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/test/cli-b3.test.ts",
+      "alegacao": "p4 worktree: os testes de CLI do bloco B3 passam inteiros; o do sub-loop de GO-FIX, que escreve o arquivo corrigido na raiz do projeto, abre a thread com --sem-worktree em vez de depender da chave do ork init",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/cli-b3.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:56:23.110Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/init.ts",
+      "alegacao": "p4 worktree: o modelo do ork init grava worktree.por_thread: true precedido do comentário que diz o que a chave faz (true cria a worktree e a branch da thread sem flag, --sem-worktree cria sem; false ou ausente só com --worktree auto)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: modelo' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:25.457Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "docs/comecar/quickstart.md",
+      "alegacao": "p4 worktree: o quickstart ensina ork thread new sem --worktree auto, porque a worktree vem da chave que o ork init grava; a amostra traz a linha de origem da worktree e bate com a saída do ork do HEAD; o texto diz a chave, o --dry-run, o --sem-worktree e o push_direto_na_base do ship",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: docs' core/dist-test/test/p4-worktree-por-thread.test.js",
+        "node --test --test-name-pattern='ensaio 050: (quickstart|amostras)' core/dist-test/test/ensaio-050.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:27.997Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/modos.md",
+      "alegacao": "p4 worktree: o guia de modos tem a seção A worktree da thread, antes da thread que nasce de um achado, com a chave worktree.por_thread, o que muda com ela false ou ausente, quando usar --worktree auto, --worktree DIR, --sem-worktree e --dry-run, o push_direto_na_base e os três ciclos que recusam --sem-worktree",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: docs' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:30.342Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "p4 worktree: a referência da CLI lista --sem-worktree nas opções do ork thread new, explica a worktree pela chave worktree.por_thread, o --worktree DIR, o aviso do ship e o --dry-run, e diz que o --from-finding segue a mesma regra",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: docs' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:32.344Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-001-thread-e-seis-fases.md",
+      "alegacao": "p4 worktree: a FEAT-001 diz no fluxo principal que a thread ganha worktree e branch com worktree.por_thread: true ou com --worktree auto, que --sem-worktree cria sem ela e que --dry-run mostra a que seria criada, e lista o teste da thread nas fontes",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: docs' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:34.497Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "docs/produto/FEAT-007-worktree-e-leases.md",
+      "alegacao": "p4 worktree: a FEAT-007 diz na pré-condição que a worktree nasce com worktree.por_thread: true sem flag, com --worktree auto ou depois por ork worktree ensure",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: docs' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T17:58:36.299Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "p4 worktree: a seção Não publicado do CHANGELOG traz o item do P4: worktree.por_thread vale no ork thread new e no --from-finding, a chave ausente lê false, --sem-worktree avisa o push_direto_na_base do ship, --dry-run mostra a worktree e a thread sem commit nasce na raiz",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('## Não publicado');const j=t.indexOf('\\n## [',i);const s=t.slice(i,j);const ok=['worktree.por_thread','--sem-worktree','--dry-run','--from-finding','push_direto_na_base'].every(x=>s.includes(x));if(i<0||j<0||!ok){console.error('item do P4 ausente em Não publicado');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-02T17:59:04.340Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": ".ork-ci/ork-p4worktreepo.json",
+      "alegacao": "p4 worktree: o bundle de CI da thread (ork.ci-bundle/v1) é da thread ork-p4worktreepo e da branch ork/ork-p4worktree-full e leva as 15 claims, entre ativas e adiadas",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const b=JSON.parse(require('fs').readFileSync('.ork-ci/ork-p4worktreepo.json','utf8'));const ids=new Set([...b.claims,...(b.deferredClaims||[])].map(c=>c.id));if(b.schema!=='ork.ci-bundle/v1'||b.thread!=='ork-p4worktreepo'||b.branch!=='ork/ork-p4worktree-full'||ids.size<15){console.error('bundle da thread incompleto');process.exit(1)}\""
+      ],
+      "criadoEm": "2026-10-02T18:16:59.841Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-p4worktreepo",
+      "fase": "GOAL",
+      "arquivo": "core/src/worktree.ts",
+      "alegacao": "p4 worktree (GO-FIX da rodada 1): a pasta da worktree da thread é a da árvore principal, também na criação de dentro de outra worktree e no dirDaWorktree dos comandos ork worktree; a thread criada de dentro da worktree de outra nasce em .claude/worktrees da árvore principal, sem aninhar, e o ork worktree release da mãe não leva a worktree nem o trabalho da filha",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='p4 worktree: thread nova de dentro de outra worktree' core/dist-test/test/p4-worktree-por-thread.test.js"
+      ],
+      "criadoEm": "2026-10-02T19:12:26.389Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

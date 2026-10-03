@@ -27,7 +27,7 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
-import { identidadeDaForja } from './forja';
+import { enderecoDoRemoto, identidadeDaForja, repositorioGithubNoHost } from './forja';
 import { redigirSegredos } from './hitl';
 import { alvoDoPedido, estadoDoPedido, PedidoHitlQualquer } from './hitl-contract';
 import { quemDecide } from './hitl-classificacao';
@@ -68,8 +68,12 @@ const FASES_ANTES_DA_ENTREGA = ['GOAL', 'PLAN', 'GO', 'CHECK'];
 /** Os modos em que a #TAG ja autoriza o push (`autorizacaoDePush`, `core/src/ship.ts`). */
 const MODOS_COM_PUSH_AUTORIZADO = ['auto', 'maestro'];
 
-/** Os casos, na ordem de precedencia (D5): os cinco do pedido e os dois que o CHECK pediu. */
-export type CasoParado = 'sem-push' | 'pr-vermelho' | 'pr-verde' | 'sem-registro' | 'sem-pr' | 'fase-seguinte' | 'sessao-sem-pergunta';
+/**
+ * Os casos, na ordem de precedencia (D5): os cinco do pedido e os dois que o CHECK pediu. RM-037 (fatia 5, A3): o
+ * CHECK sem o veredito, no #Auto, vem antes de todos.
+ */
+export type CasoParado = 'check-sem-veredito' | 'sem-push' | 'pr-vermelho' | 'pr-verde' | 'sem-registro' | 'sem-pr' | 'fase-seguinte' |
+  'sessao-sem-pergunta';
 export type SituacaoDoCheck = 'verde' | 'vermelho' | 'pendente';
 
 export interface CheckDoPr { nome: string; situacao: SituacaoDoCheck; concluidoEm: string | null }
@@ -92,6 +96,8 @@ export interface RetratoDePrs {
   contrato: typeof CONTRATO_PRS;
   lidoEm: string;
   repositorio: string;
+  /** RM-037 (fatia 5, A5): o host do GitHub Enterprise de onde os PRs vieram; sem ele, o github.com. */
+  host?: string;
   base: string;
   /** A forja devolveu a lista de abertos cheia: pode haver PR aberto que nao veio. */
   parcial: boolean;
@@ -100,7 +106,17 @@ export interface RetratoDePrs {
   prs: PrDaForja[];
 }
 
-export type LeituraDePrs = { ok: true; retrato: RetratoDePrs } | { ok: false; lidoEm: string; erro: string };
+/** RM-037 (fatia 5, A5): o remoto cuja forja nao tem leitura de PR (GitLab, caminho local, host sem login do `gh`). */
+export interface ForjaSemLeitura { remoto: string; host: string | null }
+
+export type LeituraDePrs = { ok: true; retrato: RetratoDePrs } | {
+  ok: false; lidoEm: string; erro: string;
+  /** A forja do remoto nao tem leitura de PR: e o estado dela, e nao falha desta batida ("PR nao lido"). */
+  semLeitura?: ForjaSemLeitura;
+};
+
+/** RM-037 (fatia 5, A5): o que as linhas e o resumo dizem quando a forja nao tem leitura de PR. */
+export const FORJA_SEM_LEITURA = 'forja sem leitura de PR';
 
 /** Quem roda o `gh`. Os testes trocam por uma resposta gravada e contam as chamadas. */
 export type ExecutorDoGh = (args: readonly string[], timeoutMs: number) => { status: number | null; stdout: string; stderr: string };
@@ -123,6 +139,8 @@ const git = (raiz: string, args: string[]) => exec('git', args, raiz, 60000, { .
 const SHA = /^[0-9a-f]{40}$/;
 const BRANCH = /^[A-Za-z0-9._/-]{1,200}$/;
 const REPOSITORIO = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+/** O host do GitHub Enterprise guardado no retrato: rotulos alfanumericos separados por ponto, como na forja. */
+const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
 /** Texto curto vindo de fora: sem controle, num teto. */
 function curto(v: unknown, teto = 120): string | null {
@@ -205,30 +223,86 @@ function prDaForja(bruto: unknown, base: string): PrDaForja | null {
     criadoEm: instante(p.createdAt), mescladoEm: instante(p.mergedAt), checks: [...porChave.values()].map((x) => x.check) };
 }
 
+/**
+ * RM-037 (fatia 5, A5): o host e o `dono/nome` do remoto quando ele pode ser um GitHub (o github.com ou um host
+ * proprio), so pelo git local, sem rede nem `gh`. O GitLab fica de fora.
+ */
+function githubDoRemoto(raiz: string, remoto: string): { host: string; repositorio: string } | null {
+  const url = git(raiz, ['remote', 'get-url', remoto]);
+  const forja = url.ok ? repositorioGithubNoHost(url.stdout.trim()) : null;
+  // `ssh.github.com` e o SSH do github.com pela porta 443, e nao um GitHub Enterprise (sugestao da rodada 1 do CHECK).
+  return forja && REPOSITORIO.test(forja.repo) ? { host: forja.host === 'ssh.github.com' ? 'github.com' : forja.host, repositorio: forja.repo }
+    : null;
+}
+
 /** O repositorio `dono/nome` do remoto, so quando ele e do github.com (o host ancorado, nao so citado no caminho). */
 export function repositorioDoRemoto(raiz: string, remoto: string): string | null {
+  const github = githubDoRemoto(raiz, remoto);
+  return github && github.host === 'github.com' ? github.repositorio : null;
+}
+
+/**
+ * `semLeitura` falso: a forja pode ter leitura, mas a conferencia desta batida falhou (o `gh` ausente, fora do prazo ou
+ * sem resposta do host). Isso e "PR nao lido" desta batida, nunca o estado da forja (aviso da rodada 1 do CHECK).
+ */
+type ForjaDosPrs = { leitura: true; host: string; repositorio: string } |
+  { leitura: false; host: string | null; motivo: string; semLeitura: boolean };
+
+/**
+ * RM-037 (fatia 5, A5): de onde o pulse le os PRs do remoto. O github.com, como sempre; o host proprio em que o `gh`
+ * esta autenticado, que e um GitHub Enterprise (`gh auth status --hostname <host>`); ou nenhum: GitLab, caminho local,
+ * ou host em que o `gh` nao tem login. Ficar sem leitura nao e falha desta batida (o "PR nao lido"): e o estado da
+ * forja, que o pulse diz uma vez.
+ */
+function forjaDosPrs(raiz: string, remoto: string, executor: ExecutorDoGh, prazoMs: number): ForjaDosPrs {
   const url = git(raiz, ['remote', 'get-url', remoto]);
-  const forja = url.ok ? identidadeDaForja(url.stdout.trim()) : null;
-  return forja && forja.tipo === 'github' && forja.host === 'github.com' && REPOSITORIO.test(forja.repo) ? forja.repo : null;
+  if (!url.ok) return { leitura: false, host: null, motivo: `o remoto ${remoto} não está configurado neste checkout`, semLeitura: true };
+  const endereco = enderecoDoRemoto(url.stdout.trim());
+  // Caminho local, ou apelido de SSH sem dominio (`git@github-trabalho:dono/repo.git`): nao ha host para ler.
+  if (!endereco) {
+    return { leitura: false, host: null, motivo: `o remoto ${remoto} não tem host de forja (caminho local ou apelido de SSH)`, semLeitura: true };
+  }
+  if (identidadeDaForja(url.stdout.trim())?.tipo === 'gitlab') {
+    return { leitura: false, host: endereco.host, motivo: `a forja de ${remoto} (${endereco.host}) é um GitLab, e o ork só lê PR do GitHub`,
+      semLeitura: true };
+  }
+  const github = githubDoRemoto(raiz, remoto);
+  if (!github) {
+    return { leitura: false, host: endereco.host, motivo: `o remoto ${remoto} (${endereco.host}) não aponta um repositório dono/nome`,
+      semLeitura: true };
+  }
+  if (github.host === 'github.com') return { leitura: true, ...github };
+  const auth = executor(['auth', 'status', '--hostname', github.host], prazoMs);
+  if (auth.status === 0) return { leitura: true, ...github };
+  // So a resposta de login ausente (o `gh` 2.46 diz "You are not logged into any accounts on <host>") e o estado da
+  // forja; prazo estourado, `gh` ausente ou host fora do ar sao falha desta batida.
+  const semLogin = auth.status === 1 && /\bnot logged in/i.test(`${auth.stdout}\n${auth.stderr}`);
+  return { leitura: false, host: github.host, semLeitura: semLogin, motivo: semLogin
+    ? `o gh não está autenticado em ${github.host}, a forja de ${remoto}`
+    : `gh auth status --hostname ${github.host} falhou (${auth.status === null ? 'sem código de saída' : `código ${auth.status}`}): ` +
+      (curto(redigirSegredos(auth.stderr || auth.stdout || ''), 120) ?? 'sem detalhe') };
 }
 
 /**
  * Le os PRs da base do repositorio do remoto em duas chamadas: os abertos (ate `LIMITE_DE_PRS`; e so a
  * lista deles que pode dizer "sem PR") e os recentes de qualquer estado (para achar o mesclado e o fechado).
- * O `gh` usa a autenticacao dele; nenhum token passa por aqui. Remoto que nao e do github.com nao chama nada.
+ * O `gh` usa a autenticacao dele; nenhum token passa por aqui. RM-037 (fatia 5, A5): no GitHub Enterprise, o host
+ * vai no `--repo`; forja sem leitura de PR nao chama o `gh pr list`.
  */
 export function lerPrsDaForja(carregado: ManifestoCarregado,
   opcoes: { quando?: string; executor?: ExecutorDoGh; remoto?: string; candidatas?: readonly string[]; orcamentoMs?: number } = {}): LeituraDePrs {
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const remoto = opcoes.remoto ?? carregado.manifesto.fabrica.remoto;
   const base = carregado.manifesto.worktree.base_branch;
-  const repositorio = repositorioDoRemoto(carregado.raiz, remoto);
-  if (!repositorio) return { ok: false, lidoEm, erro: `o remoto ${remoto} não é um repositório do github.com` };
   const orcamento = opcoes.orcamentoMs ?? ORCAMENTO_DA_LEITURA_MS, fimDaLeitura = Date.now() + orcamento;
   const resta = () => fimDaLeitura - Date.now();
+  const executor = opcoes.executor ?? ghPadrao;
+  const forja = forjaDosPrs(carregado.raiz, remoto, executor, Math.min(PRAZO_DO_GH_MS, Math.max(1, resta())));
+  if (!forja.leitura) return { ok: false, lidoEm, erro: forja.motivo, ...(forja.semLeitura ? { semLeitura: { remoto, host: forja.host } } : {}) };
+  const { host, repositorio } = forja;
   const pedir = (args: string[]): unknown[] | string => {
     if (resta() <= 0) return `gh pr list: orçamento de ${Math.round(orcamento / 1000)} s da leitura esgotado`;
-    const r = (opcoes.executor ?? ghPadrao)(['pr', 'list', `--repo=github.com/${repositorio}`, `--base=${base}`, ...args],
+    const r = executor(['pr', 'list', `--repo=${host}/${repositorio}`, `--base=${base}`, ...args],
       Math.min(PRAZO_DO_GH_MS, resta()));
     if (r.status !== 0) {
       const detalhe = curto(redigirSegredos(r.stderr || r.stdout || ''), 160) ?? 'sem detalhe';
@@ -274,8 +348,8 @@ export function lerPrsDaForja(carregado: ManifestoCarregado,
         juntar(daBranch, false);
       } catch { semConferir.push(branch); }
     }
-    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, base, parcial: abertos.length >= LIMITE_DE_PRS,
-      ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
+    return { ok: true, retrato: { contrato: CONTRATO_PRS, lidoEm, repositorio, ...(host !== 'github.com' ? { host } : {}), base,
+      parcial: abertos.length >= LIMITE_DE_PRS, ...(semConferir.length ? { semConferir } : {}), prs: [...porNumero.values()] } };
   } catch (e) {
     return { ok: false, lidoEm, erro: `resposta do gh pr list fora do formato: ${curto(redigirSegredos((e as Error).message), 120) ?? 'sem detalhe'}` };
   }
@@ -297,6 +371,66 @@ export function gravarRetratoDePrs(raiz: string, retrato: RetratoDePrs): void {
   }
 }
 
+const ARQUIVO_DA_FORJA_SEM_LEITURA = 'forja-sem-leitura.json';
+export const CONTRATO_FORJA_SEM_LEITURA = 'ork.forja-sem-leitura/v1' as const;
+
+/** RM-037 (fatia 5, A5): o que o pulse ja disse sobre a forja sem leitura de PR, para nao dizer de novo a cada batida. */
+export interface AvisoDeForjaSemLeitura extends ForjaSemLeitura {
+  contrato: typeof CONTRATO_FORJA_SEM_LEITURA;
+  motivo: string;
+  ditoEm: string;
+}
+
+function lerAvisoDeForjaSemLeitura(raiz: string): AvisoDeForjaSemLeitura | null {
+  try {
+    const a = JSON.parse(fs.readFileSync(path.join(dirDoMonitor(raiz), ARQUIVO_DA_FORJA_SEM_LEITURA), 'utf8')) as Record<string, unknown>;
+    const ditoEm = instante(a.ditoEm), motivo = curto(a.motivo, 200);
+    if (a.contrato !== CONTRATO_FORJA_SEM_LEITURA || typeof a.remoto !== 'string' || !/^[A-Za-z0-9._-]{1,100}$/.test(a.remoto) ||
+        !(a.host === null || (typeof a.host === 'string' && HOST.test(a.host))) || !ditoEm || !motivo) return null;
+    return { contrato: CONTRATO_FORJA_SEM_LEITURA, remoto: a.remoto, host: a.host as string | null, motivo, ditoEm };
+  } catch { return null; }
+}
+
+/**
+ * RM-037 (fatia 5, A5): a forja sem leitura de PR e dita uma vez por remoto e host. Com o remoto fora do github.com,
+ * o pulse dizia "PR nao lido" a cada batida, para um estado que nao muda de uma batida para a outra. A marca em
+ * `.orkastery/monitor/` guarda o que ja foi dito; devolve true quando e novidade (e grava a marca).
+ */
+export function avisarForjaSemLeitura(raiz: string, semLeitura: ForjaSemLeitura, motivo: string, quando: string): boolean {
+  const atual = lerAvisoDeForjaSemLeitura(raiz);
+  if (atual && atual.remoto === semLeitura.remoto && atual.host === semLeitura.host) return false;
+  const dir = dirDoMonitor(raiz);
+  fs.mkdirSync(dir, { recursive: true });
+  const arquivo = path.join(dir, ARQUIVO_DA_FORJA_SEM_LEITURA), tmp = `${arquivo}.${process.pid}.${Date.now()}.tmp`;
+  const aviso: AvisoDeForjaSemLeitura = { contrato: CONTRATO_FORJA_SEM_LEITURA, ...semLeitura, motivo: curto(motivo, 200) ?? FORJA_SEM_LEITURA,
+    ditoEm: quando };
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(aviso, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    fs.renameSync(tmp, arquivo);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* ja saiu */ }
+    throw e;
+  }
+  return true;
+}
+
+/** A leitura voltou: a marca sai, e a forja que perder a leitura de novo volta a ser dita. */
+export function esquecerForjaSemLeitura(raiz: string): void {
+  fs.rmSync(path.join(dirDoMonitor(raiz), ARQUIVO_DA_FORJA_SEM_LEITURA), { force: true });
+}
+
+/**
+ * A forja sem leitura que o pulse ja disse, so quando ela e a do remoto de agora (mesmo nome e mesmo host): o status
+ * do roadmap a le sem rede e sem `gh`.
+ */
+export function forjaSemLeituraDoRemoto(raiz: string, remoto: string): AvisoDeForjaSemLeitura | null {
+  const aviso = lerAvisoDeForjaSemLeitura(raiz);
+  if (!aviso || aviso.remoto !== remoto) return null;
+  const url = git(raiz, ['remote', 'get-url', remoto]);
+  const host = url.ok ? enderecoDoRemoto(url.stdout.trim())?.host ?? null : null;
+  return host === aviso.host ? aviso : null;
+}
+
 /** O ultimo retrato gravado pelo pulse, conferido campo a campo e com os nomes de check limpos de novo. */
 export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
   try {
@@ -304,6 +438,7 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
     const lidoEm = instante(r.lidoEm);
     if (r.contrato !== CONTRATO_PRS || !lidoEm || typeof r.repositorio !== 'string' || !REPOSITORIO.test(r.repositorio) ||
         typeof r.base !== 'string' || typeof r.parcial !== 'boolean' || !Array.isArray(r.prs) ||
+        (r.host !== undefined && !(typeof r.host === 'string' && HOST.test(r.host))) ||
         (r.semConferir !== undefined && !(Array.isArray(r.semConferir) && r.semConferir.every((b) => typeof b === 'string' && BRANCH.test(b))))) return null;
     const opcional = (v: unknown): string | null | undefined => (v === null || v === undefined ? null : instante(v) ?? undefined);
     const prs: PrDaForja[] = [];
@@ -324,8 +459,8 @@ export function lerRetratoDePrs(raiz: string): RetratoDePrs | null {
       prs.push({ numero: p.numero as number, branch: p.branch, head: p.head, estado, rascunho: p.rascunho,
         url: typeof p.url === 'string' && /^https:\/\/[^\s]+$/.test(p.url) ? curto(p.url, 300) : null, criadoEm, mescladoEm, checks });
     }
-    return { contrato: CONTRATO_PRS, lidoEm, repositorio: r.repositorio, base: r.base, parcial: r.parcial,
-      ...(Array.isArray(r.semConferir) && r.semConferir.length ? { semConferir: r.semConferir as string[] } : {}), prs };
+    return { contrato: CONTRATO_PRS, lidoEm, repositorio: r.repositorio, ...(typeof r.host === 'string' ? { host: r.host } : {}),
+      base: r.base, parcial: r.parcial, ...(Array.isArray(r.semConferir) && r.semConferir.length ? { semConferir: r.semConferir as string[] } : {}), prs };
   } catch { return null; }
 }
 
@@ -369,11 +504,24 @@ const doRadar = (e: EventoLedger): boolean => e.tipo === 'sessao_bloqueada' && e
  * intervalo do despacho. A prova do ork no SHIP e so o `ship_done` (`provaDoOrk`): o que falta e mergear o PR
  * ou registrar a entrega, e isso e do condutor, como o fim de turno em `blocked`. Dos 4 `human.pending` do SHIP
  * nos ledgers de 30/09, 2 tem este formato (ork-rm037noite e ork-pacotedeexpe). O CHECK em `done` sem o veredito
- * e outra coisa, e continua com o dono (A3 da rodada 5, pendente).
+ * e outra coisa: `checkSemVeredito`.
  */
 function shipSemRegistro(e: EventoLedger): boolean {
   const { ok: provou } = (e.provaOrk ?? {}) as { ok?: unknown };
   return e.motivo === 'human.pending' && e.origem === 'sessions.watch' && e.fase === 'SHIP' && e.estadoNativo === 'done' &&
+    !!e.stop && provou === false;
+}
+
+/**
+ * RM-037 (fatia 5, A3): o CHECK que o observador viu terminar em `done`, com o Stop, sem exatamente um veredito
+ * legivel no `docs/check.md` (`provaDoOrk`). No #Auto, com o bloco sem pausa ao fim, ninguem perguntou nada ao dono:
+ * o passo e do condutor, que redespacha o CHECK. Nos dois casos reais (ork-i35horariodo em 20/09 e ork-pacotedeexpe
+ * em 30/09, as duas #Auto) o condutor seguiu sozinho minutos depois, sem pergunta ao dono. Fora do #Auto, segue com
+ * o dono, como antes.
+ */
+function checkSemVeredito(e: EventoLedger): boolean {
+  const { ok: provou } = (e.provaOrk ?? {}) as { ok?: unknown };
+  return e.motivo === 'human.pending' && e.origem === 'sessions.watch' && e.fase === 'CHECK' && e.estadoNativo === 'done' &&
     !!e.stop && provou === false;
 }
 
@@ -420,10 +568,11 @@ export interface FimDoTurno {
    * observador viu o Stop e a sessao `blocked`, ou o SHIP em `done` sem o `ship_done` (`comProva: false`), e
    * gravou `human.pending`. `stop-sem-resultado`: o Stop foi a ultima atividade e o resultado nunca veio (a
    * fatia 3 de 01/10). `pausa-do-bloco`: a fase terminou e o
-   * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `outro`: falha tecnica, com
-   * dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
+   * bloco pausou para o dono (depois do veredito dele, o passo e do condutor). `check-sem-veredito`: no #Auto, o
+   * CHECK em `done` com o Stop e sem o veredito (RM-037, fatia 5, A3); o passo e redespachar o CHECK. `outro`:
+   * falha tecnica, com dono proprio. Sessao `blocked` sem Stop e prompt no meio do turno, e nao fim de turno.
    */
-  tipo: 'concluida' | 'espera-do-observador' | 'stop-sem-resultado' | 'pausa-do-bloco' | 'outro';
+  tipo: 'concluida' | 'espera-do-observador' | 'check-sem-veredito' | 'stop-sem-resultado' | 'pausa-do-bloco' | 'outro';
   sessionId: string | null;
   fase: string | null;
   /** A prova do ork que o observador conferiu, quando ele diz. */
@@ -440,7 +589,8 @@ function atividadeDaSessao(e: EventoLedger): boolean {
   return e.tipo === 'commit' || e.tipo === 'runtime_stop' || (e.tipo === 'sessao_bloqueada' && !doRadar(e));
 }
 
-export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLedger): FimDoTurno | null {
+/** `modo`: o da thread. Sem ele, o CHECK sem o veredito fica com o dono, como fora do #Auto. */
+export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLedger, modo?: Thread['modo']): FimDoTurno | null {
   const i = eventos.lastIndexOf(despacho);
   const depois = eventos.slice(i + 1);
   const sid = texto(despacho.sessionId);
@@ -461,12 +611,13 @@ export function fimDoTurno(eventos: readonly EventoLedger[], despacho: EventoLed
     } else if (resultado.motivo === 'human.pending' && despacho.pausaAoFim === true) {
       // S-a do CHECK (rodada 3): no bloco com pausa ao fim, todo `human.pending` do resultado e a fase entregue ao dono.
       return { em: resultado.ts, tipo: 'pausa-do-bloco', sessionId: sid, fase, comProva: true };
-    } else if (resultado.motivo === 'human.pending' && resultado.stop && (resultado.estadoNativo === 'blocked' || shipSemRegistro(resultado))) {
+    } else if (resultado.motivo === 'human.pending' && resultado.stop && (resultado.estadoNativo === 'blocked' || shipSemRegistro(resultado) ||
+        (modo === 'auto' && checkSemVeredito(resultado)))) {
       if (!retomou) {
         const { ts: doStop } = resultado.stop as { ts?: unknown };
         const { ok: provou } = (resultado.provaOrk ?? {}) as { ok?: unknown };
-        return { em: instante(doStop) ?? resultado.ts, tipo: 'espera-do-observador', sessionId: sid, fase,
-          comProva: typeof provou === 'boolean' ? provou : null };
+        return { em: instante(doStop) ?? resultado.ts, tipo: checkSemVeredito(resultado) ? 'check-sem-veredito' : 'espera-do-observador',
+          sessionId: sid, fase, comProva: typeof provou === 'boolean' ? provou : null };
       }
     } else return { em: resultado.ts, tipo: 'outro', sessionId: sid, fase, comProva: null };
   }
@@ -502,16 +653,16 @@ export function pendenciaDoDono(t: Thread, eventos: readonly EventoLedger[], qua
   if (sid && bloqueioPendente(eventos, sid, despacho.ts)) return 'prompt de permissão pendente';
   // Aviso da rodada 6 do CHECK: o gate do observador so muda de dono com o fim de turno provado. A sessao que voltou a
   // trabalhar depois do resultado, sem Stop novo, segue do dono, e a thread nao sai tambem como linha do condutor.
-  const fim = fimDoTurno(eventos, despacho);
+  const fim = fimDoTurno(eventos, despacho, t.modo);
   const turnoEncerrado = !!fim && fim.tipo !== 'outro';
   for (let k = 0; k < depois.length; k++) {
     const e = depois[k];
     if (e.tipo !== 'gate_blocked') continue;
     const motivo = String(e.motivo ?? '');
-    // O fim de turno que o observador viu em `blocked`, e o SHIP em `done` sem o `ship_done` (B1 da rodada 5), nao sao
-    // escalacao: sao justamente o que muda de dono.
+    // O fim de turno que o observador viu em `blocked`, o SHIP em `done` sem o `ship_done` (B1 da rodada 5) e, no #Auto,
+    // o CHECK em `done` sem o veredito (A3, fatia 5) nao sao escalacao: sao justamente o que muda de dono.
     if (turnoEncerrado && motivo === 'human.pending' && e.origem === 'sessions.watch' &&
-        (e.estadoNativo === 'blocked' || shipSemRegistro(e))) continue;
+        (e.estadoNativo === 'blocked' || shipSemRegistro(e) || (t.modo === 'auto' && checkSemVeredito(e)))) continue;
     const doDono = motivo === 'human.pending' ||
       ((MOTIVOS_DE_ESCALACAO_HUMANA as readonly string[]).includes(motivo) && quemDecide(motivo) === 'dono');
     const resolvido = depois.slice(k + 1).some((p) => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p));
@@ -534,7 +685,7 @@ export function esperaDoCondutor(t: Thread, eventos: readonly EventoLedger[], qu
   if (t.status === 'fechada') return null;
   const despacho = ultimoDespacho(eventos);
   if (!despacho || despacho.pausaAoFim !== false) return null;
-  const fim = fimDoTurno(eventos, despacho);
+  const fim = fimDoTurno(eventos, despacho, t.modo);
   if (!fim || fim.tipo === 'outro' || fim.tipo === 'pausa-do-bloco' || pendenciaDoDono(t, eventos, quando)) return null;
   return { thread: t.id, fase: fim.fase, sessionId: fim.sessionId, fimDoTurnoEm: fim.em, tipo: fim.tipo, comProva: fim.comProva };
 }
@@ -732,9 +883,13 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     // nova depois dele ainda nao foi registrada. O legado sem o sha cobre tudo, como antes.
     const cobre = (campo: 'shaDe' | 'mergeSha', sha: string | null) =>
       ships.some((e) => typeof e[campo] !== 'string' || !SHA.test(e[campo] as string) || e[campo] === sha);
+    // RM-037 (fatia 5, A1): ate esta fatia, o `ork ship` com a branch ja incorporada gravava a ponta da base no
+    // `mergeSha`. Esse `ship_done` registra o merge `ship(<thread>)` que a ponta gravada contem.
+    const contemOMerge = (sha: string) => ships.some((e) => typeof e.mergeSha === 'string' && SHA.test(e.mergeSha) &&
+      e.mergeSha !== sha && git(raiz, ['merge-base', '--is-ancestor', sha, e.mergeSha]).code === 0);
     return { t, eventos, branch: cabeca ? branch : null, cabeca, comProduto, publicada, temRemota: !!remota,
       shipNoLedger: ships.length > 0, entregueNaPonta: cabeca ? cobre('shaDe', cabeca) : ships.length > 0,
-      mergeRegistrado: !!merge && cobre('mergeSha', merge.sha), merge };
+      mergeRegistrado: !!merge && (cobre('mergeSha', merge.sha) || contemOMerge(merge.sha)), merge };
   });
 
   // D2: a forja so e lida quando alguma thread tem o que mostrar la: produto numa branch que ja foi ao remoto
@@ -743,10 +898,15 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   const candidatas = fatos.filter((f) => f.comProduto && f.temRemota && f.branch).map((f) => f.branch as string);
   if (opcoes.lerPrs && candidatas.length) prs = opcoes.lerPrs(candidatas);
   // O retrato so vale do repositorio e da base de agora, e lido ha menos de `VALIDADE_DO_RETRATO_MIN`.
-  let retrato: RetratoDePrs | null = null, semRetrato = prs && !prs.ok ? prs.erro : 'sem leitura dos PRs';
+  // RM-037 (fatia 5, A5): a forja sem leitura de PR e o estado dela, dito uma vez pelo pulse; a linha nunca diz "PR nao lido".
+  const semLeituraDaForja = !!prs && !prs.ok && !!prs.semLeitura;
+  let retrato: RetratoDePrs | null = null, semRetrato = prs && !prs.ok ? (semLeituraDaForja ? FORJA_SEM_LEITURA : prs.erro) : 'sem leitura dos PRs';
   if (prs?.ok) {
-    const r = prs.retrato;
-    if (r.base !== baseBranch || r.repositorio !== repositorioDoRemoto(raiz, remoto)) semRetrato = 'retrato de PRs de outro repositório ou base';
+    const r = prs.retrato, atual = githubDoRemoto(raiz, remoto);
+    // O retrato vale do mesmo host: o do GitHub Enterprise (`host`) ou, sem ele, o github.com.
+    if (r.base !== baseBranch || !atual || r.repositorio !== atual.repositorio || (r.host ?? 'github.com') !== atual.host) {
+      semRetrato = 'retrato de PRs de outro repositório ou base';
+    }
     else if (minutosDesde(r.lidoEm, quando) > VALIDADE_DO_RETRATO_MIN) semRetrato = 'retrato de PRs velho';
     else if (Date.parse(r.lidoEm) - Date.parse(quando) > FOLGA_DO_RELOGIO_MIN * 60000) semRetrato = 'retrato de PRs com data no futuro';
     else retrato = r;
@@ -757,7 +917,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
   for (const f of fatos) {
     const { t, eventos } = f;
     const despacho = ultimoDespacho(eventos);
-    const fim = despacho ? fimDoTurno(eventos, despacho) : null;
+    const fim = despacho ? fimDoTurno(eventos, despacho, t.modo) : null;
     const terminou = !!fim && fim.tipo !== 'outro';
     const fimEm = terminou ? fim!.em : null;
     // A1 do CHECK (rodada 3): o fim de turno vem do ledger (Stop sem atividade depois); a tela da sessao depois
@@ -799,7 +959,13 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
     let caso: CasoParado | null = null, desde: string | null = null, passo = '', peloGit = false;
     const evidencia: string[] = [];
     if (!conduzidaAgora && !doDono) {
-      if (f.comProduto && publicada === false && terminou) {
+      if (espera?.tipo === 'check-sem-veredito') {
+        // RM-037 (fatia 5, A3): antes de qualquer caso de entrega. Publicar ou mergear sem o veredito do CHECK pularia
+        // a revisao; e o `ork retry run` nao redespacha `human.pending` (`escalar-humano`), entao o passo e o despacho.
+        caso = 'check-sem-veredito'; desde = espera.fimDoTurnoEm;
+        passo = `redespachar o CHECK (ork phase run ${t.id} CHECK --prompt "<pedido da fase>")`;
+        evidencia.push('ledger: CHECK em done com o Stop, sem exatamente um veredito no docs/check.md');
+      } else if (f.comProduto && publicada === false && terminou) {
         desde = fimOuVeredito;
         if (antesDaEntrega && !aberto) { caso = 'fase-seguinte'; passo = despachar; }
         else {
@@ -807,7 +973,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           // N2 da seguranca (rodada 2): branch que ja foi ao remoto pode ter PR; sem a leitura, nunca "abrir o PR". A4 da
           // rodada 5: publicar e abrir o PR pedem a mesma autorizacao de push que o merge.
           passo = (aberto ? `publicar os commits novos da branch ${f.branch} no PR #${aberto.numero}`
-            : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch} (PR não lido)`
+            // RM-037 (fatia 5, A5): a forja sem leitura de PR ja foi dita uma vez; a linha so diz o passo.
+            : f.temRemota && !prSabido ? `publicar os commits novos da branch ${f.branch}${semLeituraDaForja ? '' : ' (PR não lido)'}`
             : `publicar a branch ${f.branch} e abrir o PR`) + autorizacao;
         }
         evidencia.push(`refs/heads/${f.branch} tem commit fora de refs/remotes/${remoto}/${f.branch}`);
@@ -856,7 +1023,8 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
           caso = 'sessao-sem-pergunta';
           passo = f.shipNoLedger && !f.comProduto ? `fechar o MASTER da thread (ork master ${t.id})`
             : aberto ? `acompanhar os checks do PR #${aberto.numero}, que seguem em andamento`
-            : precisaDePr && !usouPr ? `conferir o PR da branch ${f.branch} (PR não lido) e seguir`
+            : precisaDePr && !usouPr ? (semLeituraDaForja ? `conferir na forja o PR da branch ${f.branch} e seguir`
+              : `conferir o PR da branch ${f.branch} (PR não lido) e seguir`)
             : `ler o fim da sessão ${id} (ork sessions logs ${id}) e seguir a thread`;
         }
       }
@@ -885,7 +1053,7 @@ export function entregasDoProjeto(carregado: ManifestoCarregado, opcoes: OpcoesD
       : daBranch.mesclado && !f.entregueNaPonta ? (f.merge && !f.mergeRegistrado ? `PR #${daBranch.mesclado.numero} mesclado, falta registrar a entrega (${registrar})`
         : `PR #${daBranch.mesclado.numero} mesclado sem o assunto ship(${t.id}), falta registrar a entrega`)
       : !f.comProduto && f.merge && !f.mergeRegistrado ? `merge ${f.merge.sha.slice(0, 7)} na base, falta registrar a entrega (${registrar})`
-      : precisaDePr ? (!usouPr ? 'branch publicada, PR não lido'
+      : precisaDePr ? (!usouPr ? (semLeituraDaForja ? `branch publicada, ${FORJA_SEM_LEITURA}` : 'branch publicada, PR não lido')
         : daBranch.fechado ? `branch publicada, PR #${daBranch.fechado.numero} fechado sem merge` : 'branch publicada sem PR')
       : null;
     estados.push({ thread: t.id, branch: f.branch, comProduto: f.comProduto, publicada, pr: prDaEntrega,

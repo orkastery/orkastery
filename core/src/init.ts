@@ -161,6 +161,8 @@ conduction:
 worktree:
   base_branch: "${d.baseBranch}"
   dir: ".claude/worktrees"
+  # true: o ork thread new cria a worktree e a branch da thread sem flag (--sem-worktree cria sem);
+  # false ou ausente: só com --worktree auto
   por_thread: true
 
 verify:

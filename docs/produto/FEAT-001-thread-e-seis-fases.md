@@ -18,6 +18,7 @@ fontes:
     - core/test/thread.test.ts
     - core/test/thread-listagem.test.ts
     - core/test/estado-thread.test.ts
+    - core/test/p4-worktree-por-thread.test.ts
   simbolos:
     - core/src/thread.ts#novaThread
     - core/src/thread.ts#threadsDaListagem
@@ -45,7 +46,7 @@ fontes:
 - **Fluxo principal:**
 
   1. `ork thread new <nome> --modo <MODO>` grava `thread.json` e o primeiro evento do ledger.
-  2. Com `--worktree auto`, a thread ganha uma worktree e uma branch `ork/<thread>-<fases>`.
+  2. Com `worktree.por_thread: true` (o que o `ork init` grava) ou com `--worktree auto`, a thread ganha uma worktree e uma branch `ork/<thread>-<fases>`; `--sem-worktree` cria sem ela, e `--dry-run` mostra a que seria criada.
   3. Cada fase avança só depois do gate da anterior.
 
 - **Alternativas, erros e recuperação:** modo aposentado (`#Look`, `#Ork`) recusa com `modo.aposentado` e nomeia o substituto; `--done` aceita critério de pronto executável.

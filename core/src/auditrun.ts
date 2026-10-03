@@ -52,7 +52,7 @@ import {
   ResultadoDaVarredura,
   varrerSuperficie,
 } from './superficie';
-import { dirThread, novaThread } from './thread';
+import { dirThread, novaThread, OrigemDaWorktree, OrigemDoPedidoDeWorktree, ResultadoNovaThread } from './thread';
 import {
   Achado,
   MotivoDeAuditoria,
@@ -1015,6 +1015,10 @@ export interface ResultadoDoFromFinding {
   thread: import('./types').Thread | null;
   /** O texto de GOAL ja montado a partir do achado. */
   pedido: string;
+  /** P4 do ensaio da 0.5.0: por que a thread do achado ganhou a worktree (ou ganharia, no `--dry-run`). */
+  worktreePor?: OrigemDaWorktree | null;
+  /** P4 (CHECK): no `--dry-run`, a worktree pedida que a criacao de verdade recusaria, e por que. */
+  worktreeFalharia?: ResultadoNovaThread['worktreeFalharia'];
   motivo: MotivoDeAuditoria | null;
   detalhe: string;
   correcao: string;
@@ -1039,6 +1043,8 @@ export function abrirThreadDoAchado(
     assunto?: string;
     criarWorktree?: boolean;
     worktree?: string | null;
+    /** P4 do ensaio da 0.5.0: de onde veio o pedido de worktree, como no `ork thread new`. */
+    origemDaWorktree?: OrigemDoPedidoDeWorktree;
     variante?: import('./types').VarianteDeCiclo | null;
     dryRun?: boolean;
   } = {}
@@ -1085,13 +1091,14 @@ export function abrirThreadDoAchado(
   }
 
   const modo = opcoes.modo ?? manifesto.conduction.default_mode;
-  const { thread, gravada } = novaThread(carregado, {
+  const { thread, gravada, worktreePor, worktreeFalharia } = novaThread(carregado, {
     nome: opcoes.nome ?? achado.titulo,
     modo,
     slug: opcoes.slug,
     assunto: opcoes.assunto,
     worktree: opcoes.worktree ?? null,
     criarWorktree: opcoes.criarWorktree,
+    origemDaWorktree: opcoes.origemDaWorktree,
     dryRun: opcoes.dryRun,
     variante: opcoes.variante ?? null,
   });
@@ -1102,6 +1109,8 @@ export function abrirThreadDoAchado(
       achado,
       thread,
       pedido,
+      worktreePor,
+      worktreeFalharia,
       motivo: null,
       detalhe: 'simulacao (--dry-run): nenhuma thread e nenhum carimbo no board foram gravados',
       correcao: '',
@@ -1166,6 +1175,7 @@ export function abrirThreadDoAchado(
     achado,
     thread,
     pedido,
+    worktreePor,
     motivo: achado.claim.estado === 'nao-verificavel' ? 'claims.unverifiable' : null,
     detalhe:
       achado.claim.estado === 'nao-verificavel'
