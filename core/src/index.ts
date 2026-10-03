@@ -114,6 +114,7 @@ import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
 import { inventariarSessoes } from './sessoes-inventario';
 import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } from './ledger-stats';
+import { relatorioDeEsgotamentos, textoDosEsgotamentos } from './esgotamentos';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
 import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
@@ -334,6 +335,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--sem-login]                            do perfil (nunca copia credencial)
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
+  accounts esgotamentos [--desde 7d] [--json]
+                                            Despachos numa conta que outro projeto desta maquina viu esgotada
+                                            (RM-040), so leitura: conta opaca, perfil pelo id, sem diretorio
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
@@ -1067,7 +1071,15 @@ function comandoAccounts(args: Args): number {
     imprimir();
     return falhas > 0 ? 1 : 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove ou check)`);
+  if (sub === 'esgotamentos') {
+    // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
+    let relatorio;
+    try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
+    catch (e) { console.error(`${(e as Error).message} (use --desde 7d, 24h, 30m ou uma data ISO)`); return 2; }
+    console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
+    return 0;
+  }
+  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`);
   return 2;
 }
 
