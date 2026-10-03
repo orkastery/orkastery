@@ -2,6 +2,7 @@
 import { runBrain } from './company-brain-cli';
 import { raizDoEstado } from './estado-thread';
 import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
+import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
@@ -477,6 +478,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  completo; --verificar confere contrato, bytes, determinismo e o incremental
                                                  contra a completa; precisa de typescript e micromark
   grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo contexto <thread> [--json]          Pacote da thread com evidencias e medida em bytes [--teto-bytes N]
   grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
         [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
   grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
@@ -4207,6 +4209,7 @@ export function main(argvBruto: string[]): number {
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
         { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
+          contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
           escrever: (texto) => console.log(texto) });
     }
     case 'ship':
