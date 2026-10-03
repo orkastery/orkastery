@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:21:04.686Z",
+  "publicadoEm": "2026-10-03T04:23:12.754Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm025modocon",
+      "nome": "RM-025: modo context e histórico no OrkMind",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-025",
+      "branch": "ork/ork-rm025modocon-full",
+      "atualizadaEm": "2026-10-03T04:23:10.528Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
