@@ -210,6 +210,7 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cana
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
@@ -1510,6 +1511,9 @@ function comandoClaims(args: Args): number {
       console.log('');
       console.log('AVISO: alegacao negativa sem comando de verificacao reprova em `ork verify`.');
     }
+    // RM-008 (B8): a conferencia local da policy claim_sem_prova_local avisa e segue.
+    const linhasDePolicy = linhasDeAviso(claim.avisosDePolicy ?? []);
+    if (linhasDePolicy.length) { console.log(''); for (const l of linhasDePolicy) console.log(l); }
     // I-53 (RM-037, P6): o lint avisa aqui; a suite inteira e recusada no `ci prepare`.
     for (const a of claim.lint ?? []) {
       console.log('');
@@ -2357,7 +2361,10 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
+  // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
+  if (sub !== 'publicar') exigirRemoto(remoto, 'fabrica');
   if (sub === 'publicar') {
     const silencioso = args.opcoes.silencioso === true;
     try {

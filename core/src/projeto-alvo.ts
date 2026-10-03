@@ -21,6 +21,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { remotoValido } from './branch-de-estado';
 import { raizDoEstado } from './estado-thread';
 import { carregarManifesto, fixarDiretorioDoProjeto, ManifestoCarregado, NOME_MANIFESTO, NOME_MANIFESTO_LEGADO } from './manifest';
 import { pastaDoUsuario } from './maquina';
@@ -174,7 +175,9 @@ export function remotoSemCredencial(url: string): string {
 
 /** URL do remoto, sem credencial. `null` quando o projeto nao tem aquele remoto. */
 export function remotoDoProjeto(raiz: string, remoto = 'origin'): string | null {
-  const r = exec('git', ['remote', 'get-url', remoto], raiz, 5000);
+  // RM-047: o nome vem do manifesto; fora do formato de remoto, nada vai ao git.
+  if (!remotoValido(remoto)) return null;
+  const r = exec('git', ['remote', 'get-url', '--', remoto], raiz, 5000);
   const url = r.ok ? r.stdout.trim() : '';
   return url ? remotoSemCredencial(url) : null;
 }

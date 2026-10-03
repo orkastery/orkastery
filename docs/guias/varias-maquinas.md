@@ -52,6 +52,16 @@ fabrica:
   remoto: origin
 ```
 
+`fabrica.remoto` é o **nome** de um remoto do git já configurado no clone (`git remote -v`), e
+não uma URL: só passam letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem `..` e com até
+64 caracteres (`origin`, `upstream`, `meu-remoto.2`). O mesmo vale para o `--remoto` de
+`ork fabrica` e de `ork roadmap`. Como o manifesto vem de quem fez o repositório, o valor fora
+do formato nunca chega ao git: `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com
+`fabrica.remoto-invalido`, `ork roadmap reservas`, `pegar`, `soltar` e `feat` com
+`roadmap.remoto-invalido`, e o `ork network roadmap` registra a lacuna `projeto.remoto-invalido`.
+A mensagem mostra o valor redigido e curto. Para usar outro servidor, crie o remoto
+(`git remote add <nome> <url>`) e ponha o nome no manifesto.
+
 ## O que é publicado, e quando
 
 Cada máquina grava só o próprio arquivo, `maquinas/<nome>.json` (contrato

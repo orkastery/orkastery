@@ -584,6 +584,11 @@ mudou o que o núcleo traduz depois dela.
   O tempo parado por essas perguntas sai do ledger em `ork ledger stats` (`hitlDeConducao`, com a
   mediana contra a meta de 5 min), e o canário `fx-pedido-colado` prova que o pedido colado com
   autorização explícita segue sem parar. A regra está nos quatro adaptadores de condução.
+  O mesmo tempo chega ao `ork pulse` e ao `ork roadmap status` (campo `hitlDeConducao`): cada
+  pergunta de condução aberta com há quanto tempo para a thread e desde que hora, no fuso do dono,
+  e a mediana dos últimos 7 dias. O resumo do pulse ganha uma linha só quando passa da meta (uma
+  aberta além de 5 min ou a mediana da semana acima dela); a linha acompanha o resumo que já sai e
+  não o faz sair fora da cadência.
 - **Texto livre inequívoco:** vocabulário fechado (`aprovo`, `sim`, `pode seguir`, `ok`, `revisar`,
   `esperar`, `detalhes` e parentes), letra `a` a `e` e dígito `1` a `5`. A palavra casa a ação da
   alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de
