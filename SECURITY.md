@@ -50,6 +50,11 @@ branches `ork/*`, arquivos de outra máquina) não vira opção de processo, exe
 raiz. A matriz de cada chamada de processo e de cada caminho, com o que ainda depende de decisão, está em
 [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md).
 
+Duas decisões ficam com a máquina, nunca com o repositório. A postura de sandbox que afrouxa o agente
+(`runtime.sandbox: danger-full-access`) só despacha depois de `ork setup sandbox confirmar <postura>`
+nesta máquina. E o estado de `.orkastery/` versionado no git não escolhe onde git e agente rodam nem o
+executável do pulse e do digest: o cwd só vale na raiz ou numa worktree registrada no `git worktree list`.
+
 ---
 
 ## Segredos

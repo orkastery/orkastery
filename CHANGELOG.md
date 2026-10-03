@@ -69,6 +69,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Segurança
 
+- **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
+  P1 e P2 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)):
+  - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
+    máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
+    (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
+    `runtime.sandbox-nao-confirmado`, e o `ork doctor` acusa. **Muda para quem já usa `danger-full-access`:** rode o
+    comando uma vez em cada máquina;
+  - estado de `.orkastery/` rastreado pelo git não escolhe cwd, worktree nem executável (`estado.rastreado`), e o cwd
+    de git e agente vindo do `thread.json`, do ledger ou da fila só vale na raiz do projeto ou numa worktree do
+    `git worktree list` do repositório (`estado.worktree-nao-registrada`). Vale para despacho, retomada, verify, claims,
+    GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
+    `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
+  - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
+    fora do índice do git (`transporte.rastreado`).
 - **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
   [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:

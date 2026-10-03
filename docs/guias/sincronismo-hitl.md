@@ -118,6 +118,9 @@ para OpenClaw, substituindo o destino pelo chat autorizado:
 }
 ```
 
+O arquivo é desta máquina: versionado no git, ou como link, ele não vale, e a varredura sai com
+`transporte.rastreado` sem rodar nada (RM-047). O mesmo vale para o `master-host.json` do digest.
+
 Os argumentos são passados diretamente ao executável, sem shell ou eval. Um adaptador
 Hermes pode fornecer um executável determinístico com a mesma interface e código 0
 somente após confirmar a entrega. Não use uma sessão de chat ou cron LLM como transporte.
