@@ -9,5 +9,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 02/10 14:38 |
 | srvjcp86 | ork-rm054fatia3s | #Auto | GOAL | sem despacho | RM-054 | — | 02/10 14:38 |
 | vps | ork-rm031grafofu | #Auto | GOAL | sem despacho | RM-031 | — | 02/10 23:35 |
+| vps | ork-rm038univers | #Auto | GOAL | sem despacho | RM-038 | — | 02/10 23:35 |
 
 Horários de Brasília.

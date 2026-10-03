@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T02:35:23.164Z",
+  "publicadoEm": "2026-10-03T02:35:31.779Z",
   "threads": [
     {
       "id": "ork-rm031grafofu",
@@ -15,6 +15,23 @@
       "roadmap": "RM-031",
       "branch": "ork/ork-rm031pacote-full",
       "atualizadaEm": "2026-10-03T02:35:20.703Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm038univers",
+      "nome": "RM-038 universo do indice igual ao da busca",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-038",
+      "branch": "ork/ork-rm038univers-full",
+      "atualizadaEm": "2026-10-03T02:35:29.312Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
