@@ -50,7 +50,8 @@ export function withProcessLock<T>(dir: string, busy: string, run: () => T): T {
 }
 export function durableAppend(file: string, value: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const fd = fs.openSync(file, 'a', 0o600);
+  // RM-047: O_NOFOLLOW; um ledger versionado como link não leva o append para fora da raiz.
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o600);
   try { fs.writeFileSync(fd, JSON.stringify(value) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   syncDirectory(path.dirname(file));
 }
