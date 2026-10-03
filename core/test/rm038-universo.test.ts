@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { carregarManifesto, ManifestoCarregado } from '../src/manifest';
 import { abrirMemoria, estadoDeEmbeddings, textoDoEstado } from '../src/memoria';
@@ -182,6 +182,83 @@ test('rm038 universo: cli retorna 1 com motivo em texto e json sem confundir uni
       }
     }
   } finally { fixarProjetoAlvo(null); process.chdir(cwd); m.limpar(); }
+});
+
+test('rm038 universo: cli retorna 1 com memoria inativa em texto e json, como o indice', (t) => {
+  const m = manifesto();
+  const cwd = process.cwd();
+  const dsnAntes = process.env.TESTE_RM038_DSN;
+  const arquivo = path.join(m.raiz, 'orkastery.yaml');
+  const original = fs.readFileSync(arquivo, 'utf8');
+  const linhas: string[] = [];
+  t.mock.method(console, 'log', (s: string) => linhas.push(s));
+  t.mock.method(console, 'error', (s: string) => linhas.push(s));
+  t.mock.method(DriverCliOrkMind.prototype, 'disponivel', () => ({ ok: false, detalhe: 'memory.transport.timeout' }));
+  const universo = t.mock.method(DriverCliOrkMind.prototype, 'universo', () => { throw Error('universo indevido'); });
+  const fts = t.mock.method(DriverCliOrkMind.prototype, 'buscarTexto', () => { throw Error('fts indevido'); });
+  const embed = t.mock.method(DriverCliOrkMind.prototype, 'embeddar', () => { throw Error('embed indevido'); });
+  try {
+    process.chdir(m.raiz);
+    for (const motivo of ['modo.files', 'dsn.env-ausente', 'orkmind.indisponivel']) {
+      fs.writeFileSync(arquivo, motivo === 'modo.files' ? original.replace('mode: orkmind', 'mode: files') : original);
+      if (motivo === 'orkmind.indisponivel') process.env.TESTE_RM038_DSN = 'dsn-de-teste-rm038';
+      else delete process.env.TESTE_RM038_DSN;
+      for (const formato of [[], ['--json']]) {
+        linhas.length = 0;
+        assert.equal(main(['memory', 'search', '--texto', 'comum', ...formato]), 1, motivo);
+        if (formato.length) {
+          const r = JSON.parse(linhas.join('\n'));
+          assert.equal(r.motivo, motivo);
+          assert.deepEqual(r.resultados, []);
+        } else assert.ok(linhas.some(s => s.includes(`motivo: ${motivo}`)), linhas.join('\n'));
+        linhas.length = 0;
+        assert.equal(main(['memory', 'index', ...formato]), 1, motivo);
+        assert.ok(linhas.some(s => s.includes(motivo)));
+      }
+    }
+    assert.equal(universo.mock.callCount(), 0);
+    assert.equal(fts.mock.callCount(), 0);
+    assert.equal(embed.mock.callCount(), 0);
+  } finally {
+    if (dsnAntes === undefined) delete process.env.TESTE_RM038_DSN; else process.env.TESTE_RM038_DSN = dsnAntes;
+    fixarProjetoAlvo(null); process.chdir(cwd); m.limpar();
+  }
+});
+
+test('rm038 universo: prova imprime motivo antes de sair em qualquer busca com falha', (t) => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm038-prova-'));
+  t.after(() => fs.rmSync(raiz, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(raiz, 'core', 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(raiz, 'core', 'dist'), { recursive: true });
+  const script = path.join(raiz, 'core', 'scripts', 'prova-busca-semantica.sh');
+  fs.copyFileSync(path.resolve(__dirname, '../../scripts/prova-busca-semantica.sh'), script);
+  // CLI falsa exercita o Bash real, inclusive set -euo pipefail e as atribuicoes de stdout.
+  fs.writeFileSync(path.join(raiz, 'core', 'dist', 'index.js'), `
+const fs = require('fs');
+if (process.argv[3] === 'status') { console.log(JSON.stringify({tenant:'fabrica'})); process.exit(0); }
+const n = fs.existsSync('chamadas') ? Number(fs.readFileSync('chamadas','utf8')) + 1 : 1;
+fs.writeFileSync('chamadas', String(n));
+const falha = JSON.parse(fs.readFileSync('falha.json','utf8'));
+if (n === falha.etapa) { console.log(JSON.stringify({motivo:falha.motivo,resultados:[]})); process.exit(1); }
+const resultados = n === 1 || n === 4 ? [{collection:'decision',id:'exclusiva'}] : [];
+console.log(JSON.stringify({resultados,origem:'primario',motivo:null}));
+`);
+  for (const motivo of ['modo.files', 'dsn.env-ausente', 'orkmind.indisponivel']) {
+    for (const etapa of [1, 2, 3, 4]) {
+      fs.rmSync(path.join(raiz, 'chamadas'), { force: true });
+      fs.writeFileSync(path.join(raiz, 'falha.json'), JSON.stringify({ etapa, motivo }));
+      const r = spawnSync('bash', [script, 'termo|parafrase'], { cwd: raiz, encoding: 'utf8', timeout: 10000 });
+      assert.equal(r.status, 1, r.stderr);
+      assert.ok(r.stderr.includes(`"motivo":"${motivo}"`), `${etapa}: ${r.stderr}`);
+      assert.doesNotMatch(r.stderr, /SyntaxError|Unexpected end/, 'a falha nao chega ao parser de ids');
+      assert.equal(Number(fs.readFileSync(path.join(raiz, 'chamadas'), 'utf8')), etapa, 'para na busca que falhou');
+    }
+  }
+  fs.rmSync(path.join(raiz, 'chamadas'));
+  fs.writeFileSync(path.join(raiz, 'falha.json'), JSON.stringify({ etapa: 0 }));
+  const sucesso = spawnSync('bash', [script, 'termo|parafrase'], { cwd: raiz, encoding: 'utf8', timeout: 10000 });
+  assert.equal(sucesso.status, 0, sucesso.stderr);
+  assert.match(sucesso.stdout, /exclusiva da busca semantica: decision\/exclusiva/);
 });
 
 test('rm038 universo: normalizacao preserva governanca e predicado recusa injecao e expiracao', () => {

@@ -301,6 +301,12 @@ tipo B não é CHECK.
 | `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; sem o universo lido inteiro, sai 1 com motivo tipado e sem resultados (também em `--json`); uso inválido sai 2; não combina com `--tags` nem `--thread` |
 | `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
 
+`memory search --texto` também sai 1 quando a memória está desligada ou indisponível
+(`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
+como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
+`core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
+quando uma busca falha, preservando seu código de saída.
+
 A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro positivo em milissegundos,
 com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas demais
 chamadas). Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,

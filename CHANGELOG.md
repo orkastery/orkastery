@@ -94,6 +94,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   Com 3 s de atraso injetado depois do despacho, o teste antigo reprova com a mesma mensagem do CI e o novo passa; sob
   carga, o arquivo passou 60 vezes seguidas no Node 22 e no 24. A varredura de `FINALIZAR-SIMULADO` e `conducaoDaThread`
   em `core/test` não achou outro teste que leia estado vivo de sessão que termina sozinha.
+- **Memória inativa na busca por significado, rodada 3** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  `memory search --texto` mantém saída 1 também em `modo.files`, `dsn.env-ausente` e
+  `orkmind.indisponivel`, com motivo tipado em texto e JSON, como `memory index`;
+  universo vazio lido com sucesso sai 0. A prova `core/scripts/prova-busca-semantica.sh`
+  imprime a resposta com o motivo antes de sair se qualquer busca falhar.
 - **Avisos da rodada 2 do universo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   - `ork memory search --texto` sai 1 com motivo tipado quando o universo não foi lido, em texto e JSON;
   - o cliente preserva `injection_risk` e `expires_at` e reconfere a governança antes de qualquer embed;
