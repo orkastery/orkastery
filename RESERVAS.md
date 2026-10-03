@@ -12,7 +12,6 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-038 | Julio Pessoa | vps | ork-rm038ajusted | 03/10 05:39 | — |
 | RM-040 | Julio Pessoa | srvjcp86 | ork-rm040piloto | 01/10 04:51 | — |
 | RM-047 | Julio Pessoa | srvjcp86 | ork-rm047procede | 03/10 05:39 | — |
-| RM-049 | Julio Pessoa | srvjcp86 | ork-rm049ensaiod | 03/10 05:30 | — |
 | RM-053 | Julio Pessoa | srvjcp86 | ork-rm053fatia2r | 03/10 06:08 | fatia 2: rede no doctor, retrato parado, saida saneada |
 
 Horários em UTC.
