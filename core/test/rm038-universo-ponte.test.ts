@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { assets, fixtureEnv, pythonFixture, usingFixture } from './native-fixture';
+import { semOrkMind, semPostgres } from './ambiente-de-teste';
 
 const PONTE = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
 
@@ -54,7 +55,7 @@ ${corpo}
   assert.match(r.stdout, new RegExp(nome));
 }
 
-test('rm038 ponte: universo le ate o fim pelo GovernedStore real e deixa fora o que a governanca tira', () => {
+test('rm038 ponte: universo le ate o fim pelo GovernedStore real e deixa fora o que a governanca tira', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 async def run():
     s = await povoado()
@@ -68,7 +69,7 @@ async def run():
 asyncio.run(run())`, 'universo inteiro');
 });
 
-test('rm038 ponte: universo pede a colecao inteira mais um e sai window-saturated quando a janela enche', () => {
+test('rm038 ponte: universo pede a colecao inteira mais um e sai window-saturated quando a janela enche', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 def e(i, c='decision'): return MemoryEntry(id=i, collection=c, content='x ' + i, tags={'project': [T]})
 class Contado:
@@ -88,7 +89,7 @@ async def run():
 asyncio.run(run())`, 'janela da colecao');
 });
 
-test('rm038 ponte: universo recusa entrada fora do predicado e pedido invalido antes de I/O', () => {
+test('rm038 ponte: universo recusa entrada fora do predicado e pedido invalido antes de I/O', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 class Fixo:
     def __init__(self, entradas): self.entradas = entradas; self.chamadas = 0
@@ -113,7 +114,7 @@ async def run():
 asyncio.run(run())`, 'fronteira do universo');
 });
 
-test('rm038 ponte: fts devolve so ids do universo e o conjunto do termo comum e o proprio universo', () => {
+test('rm038 ponte: fts devolve so ids do universo e o conjunto do termo comum e o proprio universo', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 async def run():
     s = await povoado()
@@ -133,7 +134,7 @@ async def run():
 asyncio.run(run())`, 'fts no universo');
 });
 
-test('rm038 ponte: fora da busca no pgvector e uma leitura so de contagem e em outro backend sai null', () => {
+test('rm038 ponte: fora da busca no pgvector e uma leitura so de contagem e em outro backend sai null', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 class Cursor:
     async def fetchone(self): return {'injecao': 5, 'expiradas': 0, 'outras_colecoes': 13}
@@ -159,7 +160,7 @@ async def run():
 asyncio.run(run())`, 'contagem so de numeros');
 });
 
-test('rm038 ponte: export sai window-saturated em vez de cortar em silencio', () => {
+test('rm038 ponte: export sai window-saturated em vez de cortar em silencio', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 class Export:
     def __init__(self, n, folga): self.n = n; self.folga = folga
@@ -173,7 +174,7 @@ async def run():
 asyncio.run(run())`, 'export sem corte');
 });
 
-test('rm038 ponte: universo, export e fts releem uma vez quando uma escrita isolada enche a janela', () => {
+test('rm038 ponte: universo, export e fts releem uma vez quando uma escrita isolada enche a janela', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 def e(i, c='decision'): return MemoryEntry(id=i, collection=c, content='comum ' + i, tags={'project': [T]})
 class UmaEscrita:
@@ -195,7 +196,7 @@ async def run():
 asyncio.run(run())`, 'uma escrita se resolve');
 });
 
-test('rm038 ponte: fts e universo julgam a expiracao pelo instante de antes da leitura', () => {
+test('rm038 ponte: fts e universo julgam a expiracao pelo instante de antes da leitura', { skip: semOrkMind() }, () => {
   rodarPython(String.raw`
 async def run():
     agora = datetime(2030, 1, 1, tzinfo=timezone.utc)
@@ -234,7 +235,7 @@ async def run():
 asyncio.run(run())`, 'expiracao pelo instante da leitura');
 });
 
-test('rm038 ponte: pgvector de verdade, universo, contagem de fora da busca e FTS batem com o predicado', () => {
+test('rm038 ponte: pgvector de verdade, universo, contagem de fora da busca e FTS batem com o predicado', { skip: semPostgres() }, () => {
   usingFixture(receipt => {
     const script = String.raw`
 import asyncio, logging, sys, uuid

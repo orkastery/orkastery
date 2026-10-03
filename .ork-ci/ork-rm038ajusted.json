@@ -1,0 +1,71 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm038ajusted",
+  "branch": "ork/ork-rm038ajuste-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/prova-rm038-avisos.py",
+      "alegacao": "RM-038 avisos da rodada 2: a prova negativa derruba os 17 mutantes (expiração julgada pelo instante de antes da leitura, saída 1 da busca sem universo, recusa de injection_risk e expiração no pertenceAoUniverso, prazo próprio do universo e latência no índice e no status), com baseline verde e os originais preservados",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && python3 core/scripts/prova-rm038-avisos.py"
+      ],
+      "criadoEm": "2026-10-03T06:10:24.772Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "RM-038 avisos da rodada 2: ork memory search --texto sai 1 com o motivo tipado quando o universo não foi lido; universo vazio válido sai 0",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern=\"rm038 universo: cli retorna\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:10:25.039Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "RM-038 avisos da rodada 2: injection_risk e expires_at seguem na entrada e o pertenceAoUniverso recusa os dois; o universo tem prazo próprio (universo_timeout_ms, padrão 90000) e mede a latência",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test --test-name-pattern=\"rm038 universo: (manifesto|transporte aplica|normalizacao|dominio|invariante|indice|busca|status)\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:10:25.316Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-038 avisos da rodada 2: a referência da CLI documenta a saída 1 da busca sem universo e o universo_timeout_ms; CHANGELOG e página da RM-038 registram o ajuste",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"universo_timeout_ms\" docs/referencia/cli.md && grep -q \"Avisos da rodada 2\" CHANGELOG.md && grep -q \"Ajuste da rodada 2\" docs/roadmap/RM-038-busca-semantica-na-memoria.md"
+      ],
+      "criadoEm": "2026-10-03T06:10:25.613Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

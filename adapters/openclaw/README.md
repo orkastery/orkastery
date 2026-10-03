@@ -2,7 +2,7 @@
 
 O OpenClaw recebe o Orkastery como uma **extensao** no formato 2026.7.1: um pacote com
 `package.json` (`openclaw.extensions: ["./dist/index.js"]`), um entry JS que registra as
-**27 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
+**28 tools `ork_*`** via `defineToolPlugin` do SDK do proprio OpenClaw, e o manifesto
 `openclaw.plugin.json` gerado (`id`, `activation`, `contracts.tools`). Cada tool e uma
 chamada de CLI do `ork`, sem regra de negocio no host.
 
@@ -66,11 +66,12 @@ fallback: usa `ORK_BIN` do ambiente ou o `ork` do PATH.
 | `ork_board` | As threads DESTE projeto e o escalonador; nao le o roadmap (zero threads nao e roadmap vazio) |
 | `ork_roadmap_status` | Status report do roadmap so desta maquina (`ork roadmap status`), transportado como vem |
 | `ork_network_roadmap` | Roadmap da rede (`ork network roadmap`): o status report com as threads de todas as maquinas, reservas, fonte e hora de cada parte e lacunas; a fonte do status do roadmap |
+| `ork_network_status` | As maquinas da pessoa na Orkastery Network (`ork network status`): a batida de cada uma, forjas, runtimes, hosts e projetos, a fonte e as lacunas; sem `projeto` (RM-054, fatia 3) |
 | `ork_master_batch` | Todas as entregas, com o indice do ledger (`ork master --todas`; a fila de score saiu na I-43) |
 
 ### O projeto de cada chamada (RM-052)
 
-Toda tool aceita `projeto`, o **nome** de um projeto registrado nesta maquina (`ork projetos`),
+Toda tool de projeto aceita `projeto`, o **nome** de um projeto registrado nesta maquina (`ork projetos`),
 nunca um caminho. Ele vai ao `ork` como `--projeto <nome>`. O adaptador declara
 `ORK_PROJETO_EXPLICITO=1`: o diretorio do gateway nao escolhe projeto. Sem `projeto` e com mais de
 um projeto conhecido, a resposta e a escolha tipada `projeto.escolha`, com os candidatos; com um
@@ -89,8 +90,15 @@ nucleo so aceita a forja em `github.com`, `gitlab.com` ou no host de um projeto 
 `projeto`, vem o panorama de todos os projetos do registro, e e o que a frase `orkastery maestro`
 sem projeto oferece. O projeto do diretorio do gateway so entra se estiver no registro.
 
-Ela e a unica tool do catalogo declarada nos perfis `coding` e `messaging` do OpenClaw
-(`toolMetadata.ork_network_roadmap.profiles` no manifesto): com o perfil `coding`, o padrao do
+Na fatia 3, o panorama le tambem a rede por pessoa (RM-053): a casa e as maquinas com a batida de
+cada uma, o projeto que uma maquina da rede declara (que passa a ser pedido pelo nome mesmo sem clone
+nem registro nesta maquina) e a maquina da rede que nao publicou na fabrica do projeto, com as
+threads dela ditas como nao lidas. `ork_network_status` (sem `projeto`) devolve a rede inteira, como
+`ork network status`. Com o `gh` fora do PATH do gateway (em `~/.local/bin`, por exemplo), o `ork`
+o acha nas pastas de usuario, como a rede.
+
+Ela e `ork_network_status` (fatia 3) sao as unicas tools do catalogo declaradas nos perfis `coding` e
+`messaging` do OpenClaw (`toolMetadata` no manifesto): com o perfil `coding`, o padrao do
 onboarding, as tools de plugin so chegam ao modelo quando o manifesto as declara no perfil ou o
 operador as libera. Sem isso o modelo nao ve tool `ork_*` nenhuma e vai ao `ork` pelo shell, como
 no incidente de 29/09. As outras tools continuam sob escolha do operador:
