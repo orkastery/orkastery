@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T08:00:15.555Z",
+  "publicadoEm": "2026-10-03T08:01:10.704Z",
   "threads": [
     {
       "id": "ork-b7relatoriod",
@@ -109,15 +109,15 @@
       "esforco": null
     },
     {
-      "id": "ork-rm056fechara",
-      "nome": "RM-056: fechar a thread solta as sessões fantasma dela",
+      "id": "ork-rm053avezdep",
+      "nome": "RM-053: a vez de publicar na rede usa a hora de depois da trava",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
-      "roadmap": "RM-056",
-      "branch": "ork/ork-rm056fechara-full",
-      "atualizadaEm": "2026-10-03T08:00:15.405Z",
-      "entregue": "5b75aa6",
+      "roadmap": "RM-053",
+      "branch": "ork/ork-rm053avezdep-full",
+      "atualizadaEm": "2026-10-03T08:01:08.221Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
