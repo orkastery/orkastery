@@ -27,10 +27,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   commits MCP auditados do despacho renovam o prazo de inatividade com controller e runtime vivos,
   mesmo quando o rollout não avança. A materialização temporária do estado durante commit exige nova
-  auditoria; erros transitórios encerram após 12 falhas consecutivas ou 600 segundos sem observação
-  bem-sucedida. O diagnóstico contém categoria saneada, primeira falha e resumo final com contagem;
-  falha ao registrá-lo não derruba o retry. `conducao assumir` exige todos os watchers, controlador e
-  runtime ausentes por identidade comprovada, reconferindo eventos terminais sob a trava.
+  auditoria. Contenção e estado dividido usam somente o orçamento de 600 segundos sem observação
+  bem-sucedida; as demais falhas transitórias também têm teto de 12 tentativas. Contenção passageira
+  não grava erro; esgotar o prazo gera diagnóstico próprio. Falha permanente inicial gera um único
+  resumo com contagem 1. Os recibos MCP incluem sessão e despacho quando o servidor tem esse vínculo.
+  `conducao assumir` exige todos os watchers, controlador e runtime ausentes por identidade comprovada,
+  relendo os eventos terminais após conferir os processos, sob a trava.
+  Nos dois incidentes históricos, conforme cruzamento do ledger pela condutora, os heartbeats param
+  logo depois de `mcp_git_committed`, a 8 e a 11 minutos do despacho, sem `gate_blocked` aos 600 segundos.
+  A causa provável é a exceção de estado dividido durante o commit MCP, antes lançada fora do `try`.
+  Essa evidência não comprova a causa; os incidentes não são atribuídos ao prazo de 600 segundos.
 
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
