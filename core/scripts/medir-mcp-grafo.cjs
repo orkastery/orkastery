@@ -251,9 +251,12 @@ function validar(registro) {
   const pr = registro.preparo_do_indice;
   if (!pr || !numero(pr.ms) || !numero(pr.bytes_do_indice) || !numero(pr.fontes) || !numero(pr.arestas)) f.push('preparo_do_indice');
   const d = registro.descoberta;
-  if (!d || JSON.stringify(d.tools) !== JSON.stringify(['ork_grafo_vizinhos', 'ork_grafo_chamadores', 'ork_grafo_importadores', 'ork_grafo_caminho'])
+  // Registros da fatia 1 continuam validos: quatro tools; fatia 2 acrescenta contexto.
+  const toolsFatia1 = ['ork_grafo_vizinhos', 'ork_grafo_chamadores', 'ork_grafo_importadores', 'ork_grafo_caminho'];
+  const toolsFatia2 = [...toolsFatia1, 'ork_grafo_contexto'];
+  if (!d || ![toolsFatia1, toolsFatia2].some((nomes) => JSON.stringify(d.tools) === JSON.stringify(nomes))
     || !numero(d.bytes_das_tools) || !numero(d.bytes_tools_list_sem_flag) || !numero(d.bytes_tools_list_com_flag)
-    || d.tools_com_flag !== d.tools_sem_flag + 4 || d.bytes_tools_list_com_flag <= d.bytes_tools_list_sem_flag) f.push('descoberta');
+    || d.tools_com_flag !== d.tools_sem_flag + d.tools.length || d.bytes_tools_list_com_flag <= d.bytes_tools_list_sem_flag) f.push('descoberta');
   if (registro.conclusao !== CONCLUSAO) f.push('conclusao');
   if (!Array.isArray(registro.limites) || registro.limites.length < 1) f.push('limites');
   const ids = (registro.perguntas ?? []).map((p) => p.id);

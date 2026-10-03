@@ -374,6 +374,7 @@ reextrai só o que a mudança alcança, com os mesmos bytes da extração comple
 | --- | --- |
 | `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
+| `ork grafo contexto <thread> [--json [--teto-bytes N]]` | Pacote determinístico da thread a partir de diff contra base, GOAL, PLAN e claims: arquivos e símbolos ligados em um salto, evidência integral, corte declarado e medida offline em bytes dos mesmos arquivos no índice; JSON `ork.thread-graph-context/v0`, 32.768 bytes por padrão (4.096 a 65.536) |
 | `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
 | `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem chama: as arestas `calls` que chegam ao símbolo |
 | `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem importa: as arestas `imports` que chegam |
@@ -395,6 +396,12 @@ também sai compacta, mas não passa pelo teto. Sem o índice do HEAD, a consult
 revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de outra instalação, outro
 Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
 corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
+
+No `contexto`, o teto vale mesmo sem explicitá-lo: sementes primeiro, depois ligações inteiras,
+com omissões declaradas. A medida compara o JSON com os bytes dos mesmos arquivos no manifesto
+da revisão indexada; tokens ficam indisponíveis. O [contrato da fatia 2](contratos/consumo-grafo-kg5.md#fatia-2-pacote-de-contexto-da-thread)
+detalha as fontes e os limites. Com a flag ligada, `ork_grafo_contexto` fornece o mesmo pacote no
+MCP e o pedido da fase ganha uma dica curta; com a flag desligada, o prompt é idêntico ao anterior.
 
 ```bash
 ork grafo indexar --verificar
@@ -448,7 +455,7 @@ do projeto quando o limite de sessões está cheio.
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
-| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
+| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]`. Sem `--classe`, a classe sai do motivo de cada gate reprovado (`processo`, `rate-limit` ou `conflito`; o motivo fora da tabela segue `outra`), com aviso; vale também no `--aceitar-omissao` (RM-008) |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |
 | `ork master <thread> --aceitar-omissao [--dry-run] [--json]` | Aceita por default só a entrega da thread indicada (também `--thread <thread>`), gravando índice, insumos e quem decidiu. Thread sem entrega recusa (saída 1); já fechada não grava de novo (saída 0). Com `--dry-run`, lista o que fecharia, sem gravar (RM-008) |
 | `ork master --aceitar-omissao [--dry-run] [--json]` | Aceita por default **todas** as entregues do projeto, inclusive as de outras frentes, e lista cada uma. De processo de agente com mais de uma, avisa em stderr com `master.omissao-sem-thread` e o comando com a thread |

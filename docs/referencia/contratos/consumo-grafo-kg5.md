@@ -1,21 +1,21 @@
 # Consumo do grafo pelas fases (KG5)
 
 O KG5 deixa um agente numa fase (GOAL, PLAN, GO ou CHECK) consultar o grafo de código pelo MCP do
-projeto, sem ler o repositório cru: quatro tools de leitura com o contrato do `ork grafo`, que
+projeto, sem ler o repositório cru: cinco tools de leitura com o contrato do `ork grafo`, que
 respondem pelo índice do HEAD da worktree da thread, com a proveniência de cada aresta e a resposta
 limitada em bytes. O contrato [`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md) não muda. É
 o quinto pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D10 da
 thread `ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
 
-Fica desligado por padrão: a exposição e a habilitação são do dono. Esta fatia entrega o consumo
-pelo MCP (D1); o pacote de contexto determinístico da thread, com os arquivos e símbolos ligados ao
-que ela mexe, fica para a fatia seguinte do KG5.
+Fica desligado por padrão: a exposição e a habilitação são do dono. A fatia 1 entrega as quatro
+consultas pelo MCP; a [fatia 2](#fatia-2-pacote-de-contexto-da-thread) acrescenta o pacote
+determinístico da thread e a dica no pedido da fase, na thread `ork-rm031kg5fati`.
 
 ## O que o KG5 garante e o que não garante
 
 | Garante | Não garante |
 | --- | --- |
-| Sem a flag, nada muda: as mesmas 30 tools, com os mesmos schemas, e o mesmo comando de despacho | Que a resposta é completa: o grafo só tem o que o extrator prova |
+| Sem a flag, nada muda: as mesmas 31 tools, com os mesmos schemas, e o mesmo comando de despacho | Que a resposta é completa: o grafo só tem o que o extrator prova |
 | A resposta da tool é, byte a byte, o JSON que o `ork grafo <consulta> ... --json --teto-bytes N` escreve na worktree da thread (a CLI só acrescenta a quebra de linha final) | Que o host não corta a resposta por um limite próprio |
 | Toda aresta sai com toda a evidência: o teto tira arestas inteiras, as mais longe do alvo | Que a recusa cabe no teto: ele vale para a resposta |
 | Sem os analisadores na instalação, a tool recusa com `grafo.parser.indisponivel`, nunca responde pela metade | Economia de contexto: isso é o benchmark do [protocolo](benchmark-grafo-kg1.md) |
@@ -62,6 +62,7 @@ dela: indexado por outra instalação ou outro Node que dê outra chave, a tool 
 | `ork_grafo_chamadores` | `ork grafo chamadores` | `alvo` (símbolo), `profundidade`, `limite`, `tetoBytes` |
 | `ork_grafo_importadores` | `ork grafo importadores` | `alvo` (arquivo ou símbolo), `profundidade`, `limite`, `tetoBytes` |
 | `ork_grafo_caminho` | `ork grafo caminho` | `de`, `para`, `sentido`, `tipos`, `tetoBytes` |
+| `ork_grafo_contexto` | `ork grafo contexto <thread>` | `threadId`, `tetoBytes`; contrato da fatia 2 abaixo |
 
 Todas pedem `threadId` e aceitam `projeto`, que só confere o projeto servido, como as outras tools do
 servidor. São de leitura (`readOnlyHint`), com schema fechado. A consulta roda na worktree da thread
@@ -77,14 +78,14 @@ ork_grafo_vizinhos {threadId, alvo: "src/a.ts#a", profundidade: 2, tipos: ["call
   = ork grafo vizinhos src/a.ts#a --profundidade=2 --tipo=calls --json --teto-bytes=32768
 ```
 
-A resposta é o JSON `ork.code-graph-query/v0` da CLI, compacto, com o cabeçalho do índice (revisão,
+A resposta das quatro consultas por nó é o JSON `ork.code-graph-query/v0` da CLI, compacto, com o cabeçalho do índice (revisão,
 chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com extrator, versão,
 método, arquivo, linhas e bytes de cada evidência, o aviso de parcialidade e o campo `teto`.
 
 ## Teto da resposta
 
-A resposta das tools tem no máximo `tetoBytes` bytes, 32.768 por padrão, de 4.096 a 65.536 (D4). O
-corte é da CLI, pela opção `--teto-bytes N`, que também vale fora do MCP:
+A resposta das tools tem no máximo `tetoBytes` bytes, 32.768 por padrão, de 4.096 a 65.536 (D4).
+Nas quatro consultas por nó, o corte é da CLI, pela opção `--teto-bytes N`, que também vale fora do MCP:
 
 - só com `--json`, e o JSON sai compacto; sem a opção, a resposta da CLI é a de antes (as recusas de
   índice ganharam o caso e a correção, abaixo);
@@ -131,7 +132,7 @@ Cada chamada abre um processo filho, o worker (`core/src/mcp-grafo-worker.ts`), 
 | Ambiente | o mínimo do MCP: `HOME`, `USER`, `LOGNAME`, `XDG_CONFIG_HOME`, `PATH=/usr/bin:/bin`, `LANG` e `TMPDIR`; nada do cliente, como `NODE_OPTIONS` ou variável do Git |
 | Grupo | processo em grupo próprio; prazo de 60 s, cancelamento da chamada e stdout acima de 1 MiB matam o grupo |
 | Entrada | `{raiz, argv}` pelo stdin, com schema; o cwd tem de ser a raiz pedida, e o manifesto, o dela |
-| Argv | só as quatro consultas, com `--json`, `--teto-bytes` e as opções que a tool monta; `indexar`, `limpar`, `amostra` e `status` recusam |
+| Argv | só as cinco consultas, com `--json`, `--teto-bytes` e as opções que a tool monta; `indexar`, `limpar`, `amostra` e `status` recusam |
 | CLI | chama o `executarGrafo` direto: o `main` do `ork` não roda, então nada vira `--projeto`, `--version` ou `--help` |
 | Saída | 0 é resposta, 1 é recusa tipada da consulta (JSON no stdout), 2 é entrada recusada pelo próprio worker |
 
@@ -140,11 +141,11 @@ de sempre (tamanho e digest). O servidor fica sem o compilador e sem o grafo em 
 
 ## Despacho
 
-Com a flag, o despacho `claude-bg` põe as quatro tools (`mcp__orkastery__ork_grafo_*`) na allowlist da
+Com a flag, o despacho `claude-bg` põe as cinco tools (`mcp__orkastery__ork_grafo_*`) na allowlist da
 sessão filha logo depois das consultas, nos perfis `interactive` e `worktree` e no PLAN (D7); sem a
 flag, o comando é o de antes. A flag é lida do manifesto da raiz pelo contexto do runtime, a mesma que
 o servidor da sessão filha lê. No Codex nada muda: as tools são de leitura, como as consultas, e não
-pedem grant. O prompt da fase não muda nesta fatia (D10): as tools se descrevem na descoberta.
+pedem grant. Na fatia 1, o prompt não mudava (D10); a fatia 2 acrescenta a dica descrita abaixo.
 
 ## Fronteira
 
@@ -204,10 +205,93 @@ node core/scripts/medir-mcp-grafo.cjs --validar core/test/fixtures/kg5-medida-mc
 que cabe no teto e que o trecho de cada evidência, no blob do HEAD, cita o alvo da aresta. `--validar`
 confere a forma do registro e recusa token medido sem medida e texto que prometa economia.
 
-## Fora desta fatia
+## Fatia 2: pacote de contexto da thread
 
-- O pacote de contexto determinístico da thread (a fatia seguinte do KG5).
-- A dica do grafo no prompt da fase (D10).
+```sh
+ork grafo contexto <thread> --json
+ork grafo contexto <thread> --json --teto-bytes 8192
+```
+
+`ork_grafo_contexto {threadId, tetoBytes?}` roda exatamente esse argv na worktree da thread e
+devolve o mesmo JSON compacto, sem a quebra de linha final da CLI. O schema é
+`ork.thread-graph-context/v0`; a CLI está disponível sem ligar a flag, e o MCP continua opt-in.
+O manifesto da worktree não habilita tools nem a dica: vale `grafo.mcp` da raiz do estado.
+O servidor lista 31 tools sem a flag e 36 com ela, conforme `core/test/mcp-grafo.test.ts`.
+
+### Entrada e seleção
+
+- `diff`: nomes rastreados alterados contra o commit base carimbado na thread, incluindo mudanças
+  commitadas, staged, unstaged e exclusões; renomeações entram como nome antigo e novo. Arquivos
+  ainda não rastreados só entram se citados em GOAL, PLAN ou claims.
+- `goal` e `plan`: caminhos relativos à raiz citados nos documentos do agente (`docs/goal.md` e
+  `docs/plan.md` do estado da thread), em código, destino de link ou texto. Não executa a prosa.
+  Links externos, caminhos absolutos, travessias e `.git`/`.orkastery` ficam fora. Fragmentos e
+  números de linha em citações são removidos; referências em prosa não constituem arestas.
+- `claims`: arquivos das claims ativas, com o ID da claim como origem. Claims retiradas ficam fora;
+  uma claim pendente continua sendo uma entrada prospectiva, sem virar prova de verificação.
+
+Cada semente lista as origens (`diff`, `goal`, `plan`, `claim:Cn`) e o estado `indexado` ou
+`fora-do-indice`. Um caminho novo, excluído ou não extraído não ganha ligações inventadas.
+Documentos ausentes ficam declarados em `fontes`; documentos presentes têm hash SHA-256.
+`entrada_sha256` identifica base, diff, documentos e claims normalizados, sem relógio, paths
+absolutos da instalação, metadados de sessão ou texto integral dos documentos na resposta.
+
+A expansão percorre um salto, nos dois sentidos, desde os arquivos indexados das sementes e seus
+símbolos/seções. Só entram arestas existentes no grafo filtrado pela concessão. O pacote contém
+`nos`, `arestas` com as duas pontas por ID e todas as evidências (extrator, versão, método, arquivo,
+linhas e offsets em bytes). O cabeçalho `indice` identifica revisão, snapshot, digest, extratores
+e estado da árvore. Não reextrai alterações ainda não commitadas: o grafo continua sendo do HEAD.
+
+### Determinismo e teto
+
+O mesmo índice e a mesma entrada dão os mesmos bytes. JSON usa a serialização canônica do grafo;
+sementes ficam em ordem UTF-8 por caminho, origens ordenadas, e arestas por tipo, rótulo de origem,
+rótulo de destino e ID. Duplicatas de caminhos são consolidadas. Os nós e evidências também têm
+ordem fixa. O arquivo `core/src/intelligence-graph-contexto.ts` só compõe dados recebidos; CLI e
+worker leem a thread por uma função compartilhada, fora da família do grafo.
+
+O teto do JSON completo é 32.768 bytes por padrão, de 4.096 a 65.536, incluindo cabeçalho e medida.
+Retém o maior prefixo que cabe: primeiro sementes, depois arestas. Cada aresta entra junto com
+as duas pontas e a evidência integral, nunca com strings cortadas. `truncado`, `teto.cortado` e
+`omitidos` declaram o corte. Muitas sementes podem ocupar todo o teto, deixando as arestas de fora;
+as tools por nó permitem aprofundar a consulta. Pacote vazio é válido e não é erro.
+Sem `--json`, a CLI apresenta resumo e JSON; o teto se aplica ao JSON, não às linhas do resumo.
+
+As recusas do índice mantêm `estado_do_indice` e `correcao: "ork grafo indexar"`, no schema do
+contexto. Índice ausente, de outra revisão, de outro extrator ou corrompido nunca fornece nós.
+Base inválida, falha ao ler o diff ou worktree incompatível recusam o pacote. Mudança do HEAD
+durante a coleta recusa com `grafo.contexto.revisao-mudou` e pede repetir. Não há indexação automática.
+
+### Dica no prompt e medida offline
+
+Com `grafo.mcp: true` na raiz, o pedido da fase recebe um bloco curto com `ork_grafo_contexto`,
+o comando CLI, as quatro consultas por nó, a correção do índice e a ressalva de parcialidade.
+A dica entra antes da renderização e do hash do prompt, inclusive em templates do projeto que
+usam `pedido`. Com a flag ausente ou `false`, o texto renderizado fica byte a byte igual ao anterior.
+A dica não carrega o grafo, não chama tool e não executa rodada paga.
+
+`medida.pacote_bytes` é o tamanho real do JSON UTF-8, incluindo o próprio campo. A leitura crua
+compara os mesmos arquivos presentes no pacote (sementes indexadas, nós e evidências), uma vez
+por caminho: `medida.arquivos` lista cada tamanho e `leitura_crua_bytes` soma `size_bytes` do
+`source_manifest` da revisão indexada. Não mede bytes da árvore editada nem tokens:
+`tokens: "unavailable"`. A medida acompanha cada pacote, inclusive quando há corte.
+
+Na fixture sintética de `core/test/rm031-kg5-contexto.test.ts` (30 funções chamadoras, Node 22.23.2),
+o comando abaixo mediu **22.973 bytes** de pacote e **1.567 bytes** de leitura crua dos mesmos
+3 arquivos, sem corte. Nesse corpus o pacote é maior: IDs e evidências têm custo. Não é economia
+de tokens, não é a rodada A/B e não generaliza para outros repositórios.
+
+```sh
+npm --prefix core run build:test
+node core/dist-test/test/rm031-kg5-contexto.test.js
+```
+
+O grupo `KG5 medida offline` imprime os números e confere os tamanhos contra os bytes reais da
+fixture. Os testes integrados também cobrem CLI/worker/MCP e recusas, e precisam de subprocessos
+permitidos. Passagem parcial no sandbox não substitui `ork verify` e o CHECK da condutora.
+
+## Fora destas fatias
+
 - As tools no OpenClaw e no Hermes: a paridade entre hosts é o KG7.
 - `indexar` pelo MCP: a tool diz a correção, e quem indexa é a CLI.
 - A habilitação da flag, que é do dono, e a rodada paga do protocolo.
