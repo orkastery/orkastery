@@ -47,16 +47,16 @@
       "lint": []
     },
     {
-      "id": "C7",
+      "id": "C8",
       "thread": "ork-rm037suitelo",
       "fase": "GO",
       "arquivo": "core/src/ci.ts",
       "alegacao": "a claim que chama suite-local.cjs fica para a estação no CHECK independente (local-integration-required)",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='bundle separa claims do host' core/dist-test/test/ci.test.js > /tmp/ork-rm037-ci.log 2>&1; grep -qx 'ℹ pass 1' /tmp/ork-rm037-ci.log && grep -qx 'ℹ fail 0' /tmp/ork-rm037-ci.log"
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern='bundle separa claims do host' core/dist-test/test/ci.test.js > /tmp/ork-rm037-ci.log 2>&1; grep -qx '# pass 1' /tmp/ork-rm037-ci.log && grep -qx '# fail 0' /tmp/ork-rm037-ci.log"
       ],
-      "criadoEm": "2026-10-03T04:00:53.844Z",
+      "criadoEm": "2026-10-03T04:12:08.205Z",
       "estado": "verificado",
       "lint": []
     }
@@ -67,7 +67,7 @@
       "reason": "local-integration-required"
     },
     {
-      "id": "C3",
+      "id": "C9",
       "reason": "local-integration-required"
     }
   ],
