@@ -10,7 +10,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 | RM-036 | Julio Pessoa | vps | ork-rm036leasesd | 03/10 03:10 | — |
 | RM-037 | Julio Pessoa | srvjcp86 | ork-rm037fatia6r | 03/10 02:48 | — |
 | RM-044 | Julio Pessoa | srvjcp86 | ork-rm044registr | 03/10 08:07 | — |
-| RM-049 | Julio Pessoa | srvjcp86 | — | 03/10 08:11 | — |
+| RM-049 | Julio Pessoa | srvjcp86 | ork-rm049recibos | 03/10 08:11 | — |
 | RM-053 | Julio Pessoa | srvjcp86 | ork-suspeitasdar | 03/10 07:38 | — |
 
 Horários em UTC.
