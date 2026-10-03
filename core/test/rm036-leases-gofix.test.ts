@@ -110,7 +110,7 @@ for (const transporte of ['flock', 'portatil']) {
       const original = Object.assign(Error('falha original no wx'), { code: 'EIO' });
       let limpezas = 0, falhasDeEscrita = 0;
       let candidato: string | undefined, donoNaLimpeza: string | undefined;
-      t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+      const limpezaNegada = t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
         const alvo = String(p);
         if (path.dirname(alvo) === fila && alvo.endsWith('.json')) {
           limpezas++;
@@ -120,7 +120,7 @@ for (const transporte of ['flock', 'portatil']) {
         }
         return apagar(p);
       });
-      t.mock.method(io, 'writeFileSync', (...args: unknown[]) => {
+      const escritaNegada = t.mock.method(io, 'writeFileSync', (...args: unknown[]) => {
         if (desfecho === 'erro-original' && String(args[0]) === arquivo && !fs.existsSync(arquivo)) {
           falhasDeEscrita++;
           assert.equal((args[2] as fs.WriteFileOptions & { flag: string }).flag, 'wx');
@@ -148,8 +148,36 @@ for (const transporte of ['flock', 'portatil']) {
       assert.ok(candidato);
       assert.deepEqual(fs.readdirSync(fila), [path.basename(candidato)], 'candidato fica para coleta por PID ou prazo');
       assert.ok(JSON.parse(fs.readFileSync(candidato, 'utf8')).ticket > 0);
-      // A limpeza do cenario (t.after) apaga o candidato que ficou; sem o mock, ela usa o fs real.
-      t.mock.restoreAll();
+      limpezaNegada.mock.restore();
+      escritaNegada.mock.restore();
+      // Mesmo arquivo remanescente, agora representando outro processo; o concorrente usa process.pid.
+      const antes = fs.statSync(candidato), pidMorto = process.pid + 1;
+      assert.equal(Number(path.basename(candidato).split('-')[0]), process.pid);
+      const candidatoMorto = path.join(fila, path.basename(candidato).replace(/^\d+-/, `${pidMorto}-`));
+      fs.renameSync(candidato, candidatoMorto);
+      assert.equal(fs.statSync(candidatoMorto).ino, antes.ino, 'a fixture conserva o candidato deixado pelo EPERM');
+      assert.ok(Date.now() - antes.mtimeMs < leases.TTL_PADRAO_MS, 'coleta por PID morto, sem expirar o candidato');
+      const kill = process.kill;
+      let sondasDoMorto = 0;
+      t.mock.method(process, 'kill', (pid: number, sinal: NodeJS.Signals | number) => {
+        if (pid === pidMorto) {
+          assert.equal(sinal, 0);
+          sondasDoMorto++;
+          throw Object.assign(Error('candidato morto'), { code: 'ESRCH' });
+        }
+        return kill(pid, sinal);
+      });
+      // Uma nova disputa por lease vencido visita a fila, inclusive apos o EIO deixar o lease ausente.
+      leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+      const seguinte = leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'coletar remanescente' });
+      assert.ok(sondasDoMorto > 0, 'o concorrente consultou o PID do candidato remanescente');
+      assert.equal(seguinte.ok, true);
+      assert.equal(seguinte.tomadoDeVencido, true);
+      assert.equal(seguinte.falhaRetomada, undefined);
+      assert.equal(seguinte.lease?.thread, DONO);
+      assert.deepEqual(leases.lerLease(c.raiz, 'main-tree'), seguinte.lease);
+      assert.equal(fs.existsSync(candidatoMorto), false, 'o concorrente recolheu o candidato apos ESRCH');
+      assert.equal(fs.existsSync(fila), false, 'fila vazia removida depois da aquisicao seguinte');
     });
   }
 }
