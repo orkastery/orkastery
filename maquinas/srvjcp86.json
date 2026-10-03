@@ -4,8 +4,25 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T07:28:29.454Z",
+  "publicadoEm": "2026-10-03T07:29:16.454Z",
   "threads": [
+    {
+      "id": "ork-b7relatoriod",
+      "nome": "B7 relatorio de despacho em conta esgotada",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-040",
+      "branch": "ork/ork-b7relatoriod-full",
+      "atualizadaEm": "2026-10-03T07:29:14.155Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
     {
       "id": "ork-ciactionsfor",
       "nome": "CI actions fora do Node 20",
