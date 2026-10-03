@@ -129,3 +129,18 @@ test('ensaio 0310 R5: sem remoto, o ship --dry-run diz o mesmo que o real e nao 
     } finally { p.limpar(); }
   }
 });
+
+test('ensaio 0310 R6: ork adapter install termina com a ativacao e o ork mcp install, depois dos pitfalls', () => {
+  const p = projetoTemporario('ensaio0310-r6');
+  const casa = dirTemporario('ensaio0310-r6-casa');
+  try {
+    const r = ork(p.dir, casa, ['adapter', 'install', 'claude-code']);
+    assert.equal(r.status, 0, r.stderr);
+    const fim = r.stdout.slice(r.stdout.lastIndexOf('Os 3 pitfalls de instalacao'));
+    const depois = fim.slice(fim.indexOf('Proximo passo, no diretorio deste projeto (o mesmo do comeco):'));
+    assert.ok(fim.includes('Proximo passo, no diretorio deste projeto'), r.stdout.slice(-800));
+    for (const linha of ['claude plugin validate', 'claude plugin marketplace add', 'claude plugin install orkastery@orkastery --scope project',
+      'claude plugin list --json', '/orkastery:ork', 'ork mcp install --project']) assert.ok(depois.includes(linha), linha);
+    assert.match(r.stdout.trimEnd().split('\n').pop() ?? '', /ork mcp install --project .* --host claude-code$/);
+  } finally { limpar(p.dir, casa); }
+});
