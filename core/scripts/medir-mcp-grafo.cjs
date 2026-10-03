@@ -318,8 +318,15 @@ const CONTEXTO_CASOS = [
   { thread: 'ork-rm031kg4incr', merge: '99b10d3', sementes: ['core/src/intelligence-graph-index.ts'],
     origem: 'RM-031, KG4: incremental sobre o indice entregue no KG3; semente retrospectiva fixa, nao prompt historico' },
 ];
-const CONTEXTO_MEDIDA_SCHEMA = 'ork.graph-context-cost/v2';
+const CONTEXTO_MEDIDA_SCHEMA = 'ork.graph-context-cost/v3';
+const CONTEXTO_FIXTURE = path.join(RAIZ, 'core/test/fixtures/kg5-medida-contexto.json');
 
+function separarEditadosContexto(editados, arquivosNaBase) {
+  const base = new Set(arquivosNaBase), unicos = [...new Set(editados)].sort();
+  return { editados_na_base: unicos.filter((p) => base.has(p)), arquivos_novos: unicos.filter((p) => !base.has(p)) };
+}
+
+/** O chamador fornece somente editados que existiam na base, nunca os novos. */
 function coberturaContexto(editados, apontados, sementes) {
   const conjunto = new Set(apontados), iniciais = new Set(sementes);
   const acertos = editados.filter((p) => conjunto.has(p));
@@ -327,7 +334,8 @@ function coberturaContexto(editados, apontados, sementes) {
   return { editados: [...editados], apontados: [...apontados].sort(), acertos,
     total_editados: editados.length, total_apontados: conjunto.size, total_acertos: acertos.length,
     fora_das_sementes: { total_editados: editados.filter((p) => !iniciais.has(p)).length, acertos: novosAcertos },
-    cobertura: editados.length ? acertos.length / editados.length : null };
+    cobertura: editados.length ? acertos.length / editados.length : null,
+    precisao: conjunto.size ? acertos.length / conjunto.size : null };
 }
 
 function fontesHistoricas(revisao) {
@@ -352,16 +360,41 @@ function fontesHistoricas(revisao) {
   });
 }
 
-/** Baseline independente do grafo: ler sementes, grep de nomes/caminhos e ler os arquivos encontrados. */
-function descobertaContexto(revisao, fontes, sementes) {
+/** Nomes publicos explicitos no AST da semente; sem locais, comentarios ou resolucao de outro arquivo. */
+function nomesExportadosContexto(texto, arquivo) {
+  const ts = require('typescript');
+  const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.Latest, true);
+  const nomes = new Set();
+  const adicionar = (nome) => {
+    if (nome && ts.isIdentifier(nome) && [...nome.text].length >= 4) nomes.add(nome.text);
+  };
+  const binding = (nome) => {
+    if (ts.isIdentifier(nome)) adicionar(nome);
+    else for (const e of nome.elements) if (ts.isBindingElement(e)) binding(e.name);
+  };
+  for (const no of fonte.statements) {
+    if (ts.isExportDeclaration(no)) {
+      if (no.exportClause && ts.isNamedExports(no.exportClause)) for (const e of no.exportClause.elements) adicionar(e.name);
+      else if (no.exportClause && ts.isNamespaceExport(no.exportClause)) adicionar(no.exportClause.name);
+      continue;
+    }
+    if (!no.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+      || no.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword)) continue;
+    if (ts.isVariableStatement(no)) for (const d of no.declarationList.declarations) binding(d.name);
+    else adicionar(no.name);
+  }
+  return [...nomes].sort();
+}
+
+/** Baseline independente do grafo: ler sementes, grep de exports e ler os arquivos encontrados. */
+function descobertaContexto(revisao, fontes, sementes, executar = rodar) {
   const porPath = new Map(fontes.map((f) => [f.path, f.bytes]));
   const termos = new Set(), abertos = new Set(sementes);
   for (const s of sementes) {
     const bytes = porPath.get(s);
     if (!bytes) throw new Error(`semente ausente na base historica: ${s}`);
     const texto = bytes.toString('utf8');
-    termos.add(s); termos.add(path.posix.basename(s, path.posix.extname(s)));
-    for (const m of texto.matchAll(/\b(?:function|class|interface|type|const|let|enum)\s+([\p{L}_$][\p{L}\p{N}_$]*)/gu)) termos.add(m[1]);
+    for (const nome of nomesExportadosContexto(texto, s)) termos.add(nome);
     // Saidas explicitas relativas da semente: imports/reexports e links Markdown, sem inferencia.
     for (const m of texto.matchAll(/(?:from\s*['"]|import\s*['"]|require\(\s*['"]|\]\()((?:\.\.\/|\.\/)[^'"\s)]+)/g)) {
       const alvo = path.posix.normalize(path.posix.join(path.posix.dirname(s), m[1].split('#')[0]));
@@ -370,8 +403,9 @@ function descobertaContexto(revisao, fontes, sementes) {
       if (encontrado) abertos.add(encontrado);
     }
   }
-  const argv = ['grep', '-n', '-I', '-F', ...[...termos].sort().flatMap((t) => ['-e', t]), revisao, '--'];
-  const r = rodar('git', ['-c', 'core.fsmonitor=false', ...argv]);
+  const argv = termos.size ? ['grep', '-n', '-I', '-F', '-w', ...[...termos].sort().flatMap((t) => ['-e', t]), revisao, '--'] : null;
+  // Nenhum nome elegivel: nao executar um grep sem padroes ou usar fallback de termos locais.
+  const r = argv ? executar('git', ['-c', 'core.fsmonitor=false', ...argv]) : { status: 1, stdout: Buffer.alloc(0) };
   if (r.status !== 0 && r.status !== 1) throw new Error('grep historico falhou');
   const prefixo = `${revisao}:`, linhas = r.stdout.toString('utf8').split('\n').filter(Boolean);
   for (const linha of linhas) {
@@ -381,7 +415,7 @@ function descobertaContexto(revisao, fontes, sementes) {
   }
   const arquivos = [...abertos].sort();
   const bytesArquivos = arquivos.reduce((n, p) => n + porPath.get(p).length, 0);
-  return { argv: ['git', ...argv], termos: [...termos].sort(), arquivos, bytes_grep: r.stdout.length,
+  return { argv: argv ? ['git', ...argv] : null, termos: [...termos].sort(), arquivos, bytes_grep: r.stdout.length,
     bytes_arquivos: bytesArquivos, bytes_ao_agente: r.stdout.length + bytesArquivos, ocorrencias: linhas.length };
 }
 
@@ -412,17 +446,20 @@ async function medirContexto() {
     const editados = git(['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--name-only', '-z', pais[0], merge, '--'])
       .toString('utf8').split('\0').filter(Boolean).sort();
     const apontados = pacote.medida.arquivos.map((f) => f.path);
-    casos.push({ ...c, merge, pais, base, indice: { graph_digest: digest, fontes: fontes.length }, entrada,
+    // Existencia na base vem da arvore inteira, inclusive entradas que nao viram fontes do extrator.
+    const caminhosNaBase = git(['ls-tree', '-r', '--name-only', '-z', base]).toString('utf8').split('\0').filter(Boolean);
+    const resultado = separarEditadosContexto(editados, caminhosNaBase);
+    casos.push({ ...c, merge, pais, base, indice: { graph_digest: digest, fontes: fontes.length }, entrada, resultado,
       pacote: { bytes_ao_agente: Buffer.byteLength(texto), sha256: require('node:crypto').createHash('sha256').update(texto).digest('hex'),
         truncado: pacote.truncado, omitidos: pacote.omitidos, arquivos: apontados },
-      descoberta: cru, cobertura_pacote: coberturaContexto(editados, apontados, c.sementes),
-      cobertura_descoberta: coberturaContexto(editados, cru.arquivos, c.sementes),
+      descoberta: cru, cobertura_pacote: coberturaContexto(resultado.editados_na_base, apontados, c.sementes),
+      cobertura_descoberta: coberturaContexto(resultado.editados_na_base, cru.arquivos, c.sementes),
       arquivos_do_pacote_fora_da_descoberta: apontados.filter((p) => !cru.arquivos.includes(p)), tokens: TOKENS });
   }
   return { schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'measured', casos,
-    metodo: 'bases = merge-base dos pais; extracao em memoria dos blobs anteriores; sementes retrospectivas fixadas no script; grep literal de caminhos e nomes declarados na semente, leitura inteira dos matches e saidas relativas; resultado do merge somente para cobertura',
+    metodo: 'bases = merge-base dos pais; extracao em memoria dos blobs anteriores; sementes retrospectivas fixadas no script; grep -F -w de nomes exportados explicitamente pela semente, com pelo menos 4 caracteres, via AST TypeScript; leitura inteira dos matches e saidas relativas; resultado do merge somente para cobertura e precisao',
     limites: ['dois casos do mesmo subsistema, nao amostra representativa nem replay de prompts historicos',
-      'sem diffs futuros nas entradas; novos arquivos contam como perdas; acertos das sementes separados',
+      'sem diffs futuros nas entradas; cobertura somente dos editados existentes na base; arquivos novos separados, inalcançaveis pelos dois bracos; acertos das sementes separados',
       'grep textual pode achar homonimos e comentarios; divergencias de vizinhanca ficam listadas',
       'bytes nao sao tokens; nao ha promessa de economia nem medicao de latencia',
       'preparo do indice e descoberta das tools nao incluidos no custo por pacote; snapshot reconstruido, nao cache de producao'],
@@ -431,21 +468,45 @@ async function medirContexto() {
 
 function validarContexto(r) {
   const erros = [], inteiro = (n) => Number.isSafeInteger(n) && n >= 0;
-  if (r?.schema !== CONTEXTO_MEDIDA_SCHEMA || r?.estado !== 'measured') return ['medicao historica nao executada'];
+  if (r?.estado !== 'measured') return ['medicao historica nao executada'];
+  if (r.schema !== CONTEXTO_MEDIDA_SCHEMA) return ['metodo historico desatualizado: regravar fixture'];
   if (r.casos?.length !== CONTEXTO_CASOS.length) erros.push('casos');
-  for (const c of r.casos ?? []) {
+  for (const [i, c] of (r.casos ?? []).entries()) {
+    if (c.thread !== CONTEXTO_CASOS[i]?.thread || JSON.stringify(c.sementes) !== JSON.stringify(CONTEXTO_CASOS[i]?.sementes)) erros.push('identidade do caso');
     if (!/^[a-f0-9]{40}$/.test(c.base ?? '') || !/^[a-f0-9]{40}$/.test(c.merge ?? '')) erros.push('revisoes');
+    if (!/^[a-f0-9]{64}$/.test(c.pacote?.sha256 ?? '')) erros.push('sha256 pacote');
     if (!inteiro(c.pacote?.bytes_ao_agente) || c.pacote.bytes_ao_agente > 32768) erros.push('bytes pacote');
     if (!inteiro(c.descoberta?.bytes_grep) || !inteiro(c.descoberta?.bytes_arquivos)
       || c.descoberta.bytes_ao_agente !== c.descoberta.bytes_grep + c.descoberta.bytes_arquivos) erros.push('bytes descoberta');
-    for (const k of ['cobertura_pacote', 'cobertura_descoberta']) {
+    const resultado = c.resultado;
+    if (!resultado || !Array.isArray(resultado.editados_na_base) || !Array.isArray(resultado.arquivos_novos)
+      || resultado.arquivos_novos.some((p) => resultado.editados_na_base.includes(p))) erros.push('resultado');
+    const termos = c.descoberta?.termos;
+    if (!Array.isArray(termos) || termos.some((t) => typeof t !== 'string' || [...t].length < 4)
+      || JSON.stringify(c.descoberta.argv) !== JSON.stringify(termos.length ? ['git', 'grep', '-n', '-I', '-F', '-w',
+        ...[...termos].sort().flatMap((t) => ['-e', t]), c.base, '--'] : null)) erros.push('termos descoberta');
+    for (const [k, apontados] of [['cobertura_pacote', c.pacote?.arquivos], ['cobertura_descoberta', c.descoberta?.arquivos]]) {
       const v = c[k];
       if (!v || !Array.isArray(v.editados) || !Array.isArray(v.apontados)
-        || JSON.stringify(v) !== JSON.stringify(coberturaContexto(v.editados, v.apontados, c.sementes))) erros.push(k);
+        || !Array.isArray(apontados) || !Array.isArray(resultado?.editados_na_base)
+        || resultado?.arquivos_novos?.some((p) => apontados.includes(p))
+        || JSON.stringify(v) !== JSON.stringify(coberturaContexto(resultado.editados_na_base, apontados, c.sementes))) erros.push(k);
     }
     if (c.tokens?.source !== 'unavailable' || c.tokens?.value !== null) erros.push('tokens');
     if (!Array.isArray(c.entrada?.diff) || c.entrada.diff.length) erros.push('diff futuro na entrada');
   }
+  return erros;
+}
+
+/** O hash mede bytes exatos do pacote; o resto do registro tambem deve reproduzir a fixture. */
+function conferirContexto(registro, fixture) {
+  const erros = validarContexto(fixture);
+  if (erros.length) return erros;
+  for (const c of registro.casos) {
+    const esperado = fixture.casos.find((f) => f.thread === c.thread);
+    if (c.pacote.sha256 !== esperado?.pacote.sha256) erros.push(`${c.thread}: sha256 do pacote difere da fixture`);
+  }
+  if (JSON.stringify(registro) !== JSON.stringify(fixture)) erros.push('registro historico difere da fixture');
   return erros;
 }
 
@@ -464,6 +525,7 @@ async function principal() {
   if (a.contexto) {
     const registro = await medirContexto();
     const falhas = validarContexto(registro);
+    if (a.conferir) falhas.push(...conferirContexto(registro, JSON.parse(fs.readFileSync(CONTEXTO_FIXTURE, 'utf8'))));
     if (falhas.length) throw new Error(falhas.join('; '));
     if (a.saida) fs.writeFileSync(a.saida, `${JSON.stringify(registro, null, 2)}\n`);
     escrever(JSON.stringify(registro, null, 2));
@@ -493,4 +555,5 @@ if (require.main === module) {
   });
 }
 
-module.exports = { CONCLUSAO, LIMITES, SCHEMA, validar, CONTEXTO_CASOS, CONTEXTO_MEDIDA_SCHEMA, coberturaContexto, validarContexto };
+module.exports = { CONCLUSAO, LIMITES, SCHEMA, validar, CONTEXTO_CASOS, CONTEXTO_MEDIDA_SCHEMA,
+  separarEditadosContexto, coberturaContexto, nomesExportadosContexto, descobertaContexto, validarContexto, conferirContexto };

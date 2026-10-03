@@ -364,25 +364,143 @@ test('KG5 contexto v2: grupo maior que o teto nao expulsa imports e references m
   assert.equal(r.omitidos.arestas, 300);
 });
 
-test('KG5 medida historica: cobertura separa semente, descoberta e arquivo novo nao apontado', () => {
-  const { coberturaContexto, validarContexto, CONTEXTO_MEDIDA_SCHEMA } = require('../../scripts/medir-mcp-grafo.cjs');
-  const cobertura = coberturaContexto(['src/base.ts', 'src/vizinho.ts', 'src/novo.ts'],
-    ['src/base.ts', 'src/vizinho.ts', 'docs/guia.md'], ['src/base.ts']);
-  assert.equal(cobertura.total_editados, 3);
-  assert.equal(cobertura.total_acertos, 2);
-  assert.equal(cobertura.cobertura, 2 / 3);
-  assert.deepEqual(cobertura.fora_das_sementes, { total_editados: 2, acertos: ['src/vizinho.ts'] });
-  assert.deepEqual(validarContexto({ schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'not-run', casos: [] }), ['medicao historica nao executada']);
+function provarTermosContexto({ nomesExportadosContexto, descobertaContexto }: any): void {
+  const texto = `
+    const privadoLongo = 1; let localLongo = 2;
+    // export function falsoComentario() {}
+    const literal = "export const falsoLiteral = 1";
+    export const a = 1, id = 2, abc = 3, nome = 4;
+    export function publico() { const internoLongo = 0; return internoLongo; }
+    export class ClassePublica {}
+    export interface ContratoPublico {}
+    export type TipoPublico = string;
+    export enum EnumPublico { valor }
+    const interno = 1; export { interno as externo };
+    export { remoto as aliasPublico } from './dep';
+    export * as espacoPublico from './dep';
+    export * from './dep';
+    export default function nomeDoDefault() {}
+    export const { origem: desestruturado, outro } = objeto;
+  `;
+  const esperados = ['ClassePublica', 'ContratoPublico', 'EnumPublico', 'TipoPublico', 'aliasPublico',
+    'desestruturado', 'espacoPublico', 'externo', 'nome', 'outro', 'publico'].sort();
+  assert.deepEqual(nomesExportadosContexto(texto, 'src/base.ts'), esperados);
+  const fontes = [{ path: 'src/base.ts', bytes: Buffer.from(texto) },
+    { path: 'src/dep.ts', bytes: Buffer.from('export const soNaDependencia = 1;') },
+    { path: 'src/match.ts', bytes: Buffer.from('publico();') }];
+  const stdout = Buffer.from('base:src/match.ts:1:publico();\n');
+  let chamadas = 0;
+  const r = descobertaContexto('base', fontes, ['src/base.ts'], (cmd: string, argv: string[]) => {
+    chamadas++;
+    assert.equal(cmd, 'git');
+    assert.deepEqual(argv, ['-c', 'core.fsmonitor=false', 'grep', '-n', '-I', '-F', '-w',
+      ...esperados.flatMap((t) => ['-e', t]), 'base', '--']);
+    return { status: 0, stdout };
+  });
+  assert.equal(chamadas, 1);
+  assert.deepEqual(r.termos, esperados);
+  assert.deepEqual(r.arquivos, ['src/base.ts', 'src/dep.ts', 'src/match.ts']);
+  assert.equal(r.bytes_ao_agente, stdout.length + fontes.reduce((n, f) => n + f.bytes.length, 0));
+  const vazio = descobertaContexto('base', [{ path: 'src/base.ts', bytes: Buffer.from('const privadoLongo = 1;') }],
+    ['src/base.ts'], () => { throw Error('nao deve executar grep sem exports'); });
+  assert.equal(vazio.argv, null);
+  assert.deepEqual(vazio.termos, []);
+  assert.deepEqual(vazio.arquivos, ['src/base.ts']);
+}
+
+test('KG5 medida historica: exports com quatro caracteres e grep por palavra inteira', () => {
+  provarTermosContexto(require('../../scripts/medir-mcp-grafo.cjs'));
 });
 
-test('KG5 medida historica: registro pendente nao vira recibo e numero sintetico tem origem executavel', () => {
-  const { validarContexto } = require('../../scripts/medir-mcp-grafo.cjs');
+test('KG5 medida historica: a prova dos termos cai nas mutacoes de tamanho, exports e -w', () => {
+  const Module = require('node:module');
+  const arquivo = path.resolve(__dirname, '../../scripts/medir-mcp-grafo.cjs');
+  const original = fs.readFileSync(arquivo, 'utf8');
+  const mutacoes = [
+    ['tamanho', '[...nome.text].length >= 4', '[...nome.text].length >= 1'],
+    ['exports', '!no.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)', 'false'],
+    ['palavra inteira', "['grep', '-n', '-I', '-F', '-w',", "['grep', '-n', '-I', '-F',"],
+  ];
+  for (const [nome, antes, depois] of mutacoes) {
+    assert.ok(original.includes(antes), `ponto da mutacao ${nome}`);
+    const modulo = new Module(arquivo);
+    modulo.filename = arquivo;
+    modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
+    // Modulo isolado em memoria: nenhum arquivo ou cache da implementacao e alterado.
+    modulo._compile(original.replace(antes, depois), arquivo);
+    assert.throws(() => provarTermosContexto(modulo.exports), assert.AssertionError, nome);
+  }
+});
+
+test('KG5 medida historica: cobertura do alcancavel, novos separados e precisao nos dois bracos', () => {
+  const { separarEditadosContexto, coberturaContexto } = require('../../scripts/medir-mcp-grafo.cjs');
+  const resultado = separarEditadosContexto(['src/base.ts', 'src/vizinho.ts', 'src/novo.ts', 'src/perdido.ts'],
+    ['src/base.ts', 'src/vizinho.ts', 'src/perdido.ts', 'docs/guia.md', 'src/ruido.ts']);
+  assert.deepEqual(resultado, { editados_na_base: ['src/base.ts', 'src/perdido.ts', 'src/vizinho.ts'], arquivos_novos: ['src/novo.ts'] });
+  const pacote = coberturaContexto(resultado.editados_na_base, ['src/base.ts', 'src/vizinho.ts'], ['src/base.ts']);
+  const descoberta = coberturaContexto(resultado.editados_na_base,
+    ['src/base.ts', 'src/vizinho.ts', 'docs/guia.md', 'src/ruido.ts'], ['src/base.ts']);
+  assert.equal(pacote.total_editados, 3);
+  assert.equal(pacote.total_acertos, 2);
+  assert.equal(pacote.cobertura, 2 / 3);
+  assert.equal(descoberta.cobertura, 2 / 3);
+  assert.equal(pacote.precisao, 1);
+  assert.equal(descoberta.precisao, 1 / 2);
+  assert.deepEqual(pacote.fora_das_sementes, { total_editados: 2, acertos: ['src/vizinho.ts'] });
+  assert.equal(coberturaContexto([], ['src/base.ts'], []).cobertura, null);
+  assert.equal(coberturaContexto(['src/base.ts'], [], []).precisao, null);
+});
+
+function registroHistoricoSintetico(): any {
+  const { coberturaContexto, CONTEXTO_CASOS, CONTEXTO_MEDIDA_SCHEMA } = require('../../scripts/medir-mcp-grafo.cjs');
+  return { schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'measured', casos: CONTEXTO_CASOS.map((c: any) => {
+    const base = 'a'.repeat(40), arquivos = c.sementes;
+    return { ...c, base, merge: 'b'.repeat(40), entrada: { diff: [] },
+      resultado: { editados_na_base: arquivos, arquivos_novos: ['src/novo.ts'] },
+      pacote: { bytes_ao_agente: 100, sha256: 'c'.repeat(64), arquivos },
+      descoberta: { bytes_grep: 10, bytes_arquivos: 100, bytes_ao_agente: 110, arquivos,
+        termos: ['exportado'], argv: ['git', 'grep', '-n', '-I', '-F', '-w', '-e', 'exportado', base, '--'] },
+      cobertura_pacote: coberturaContexto(arquivos, arquivos, c.sementes),
+      cobertura_descoberta: coberturaContexto(arquivos, arquivos, c.sementes), tokens: { source: 'unavailable', value: null } };
+  }) };
+}
+
+test('KG5 medida historica: conferir detecta hash e metricas alterados e valida ambos os bracos', () => {
+  const { validarContexto, conferirContexto } = require('../../scripts/medir-mcp-grafo.cjs');
+  const registro = registroHistoricoSintetico();
+  assert.deepEqual(validarContexto(registro), []);
+  assert.deepEqual(conferirContexto(registro, structuredClone(registro)), []);
+  const hashAlterado = structuredClone(registro);
+  hashAlterado.casos[0].pacote.sha256 = 'd'.repeat(64);
+  assert.ok(conferirContexto(registro, hashAlterado).some((e: string) => e.includes('sha256')));
+  const bytesAlterados = structuredClone(registro);
+  bytesAlterados.casos[0].pacote.bytes_ao_agente++;
+  assert.ok(conferirContexto(registro, bytesAlterados).includes('registro historico difere da fixture'));
+  for (const braco of ['cobertura_pacote', 'cobertura_descoberta']) {
+    for (const campo of ['cobertura', 'precisao', 'total_editados']) {
+      const errado = structuredClone(registro);
+      errado.casos[0][braco][campo]++;
+      assert.ok(validarContexto(errado).includes(braco));
+    }
+  }
+  const novoAlcancavel = structuredClone(registro);
+  novoAlcancavel.casos[0].resultado.arquivos_novos.push(registro.casos[0].sementes[0]);
+  assert.ok(validarContexto(novoAlcancavel).includes('resultado'));
+  const semPalavra = structuredClone(registro);
+  semPalavra.casos[0].descoberta.argv = semPalavra.casos[0].descoberta.argv.filter((a: string) => a !== '-w');
+  assert.ok(validarContexto(semPalavra).includes('termos descoberta'));
+});
+
+test('KG5 medida historica: fixture anterior e identificada como metodo obsoleto, nunca recibo novo', () => {
+  const { validarContexto, conferirContexto, CONTEXTO_MEDIDA_SCHEMA } = require('../../scripts/medir-mcp-grafo.cjs');
   const registro = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../test/fixtures/kg5-medida-contexto.json'), 'utf8'));
-  if (registro.estado === 'not-run') {
-    assert.match(registro.motivo, /EPERM/);
-    assert.deepEqual(validarContexto(registro), ['medicao historica nao executada']);
-    assert.equal(registro.sintetica.v2_bytes, Buffer.byteLength(pacoteDeContexto(GRAFO, INDICE, ENTRADA)));
-    assert.equal(registro.sintetica.tokens, 'unavailable');
-    assert.ok(registro.casos.every((c: any) => c.cobertura_pacote === undefined && c.pacote === undefined));
-  } else assert.deepEqual(validarContexto(registro), []);
+  assert.equal(registro.estado, 'measured');
+  if (registro.schema === 'ork.graph-context-cost/v2') {
+    assert.deepEqual(validarContexto(registro), ['metodo historico desatualizado: regravar fixture']);
+    assert.deepEqual(conferirContexto(registroHistoricoSintetico(), registro), ['metodo historico desatualizado: regravar fixture']);
+  } else {
+    assert.equal(registro.schema, CONTEXTO_MEDIDA_SCHEMA);
+    assert.deepEqual(validarContexto(registro), []);
+  }
+  assert.deepEqual(validarContexto({ schema: CONTEXTO_MEDIDA_SCHEMA, estado: 'not-run', casos: [] }), ['medicao historica nao executada']);
 });
