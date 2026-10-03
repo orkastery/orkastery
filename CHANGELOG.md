@@ -55,6 +55,23 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Corrigido
+
+- **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
+  - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
+    da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
+    biblioteca marca com `injection_risk`;
+  - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
+    silêncio); a quantidade de ids do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
+  - `universo` e `export` leem até o fim: quando a janela enche, a ponte conta e lê de novo uma vez, e cheia de novo sai
+    com `memory.query.window-saturated` (como o `fts` já fazia) em vez de cortar;
+  - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
+    `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
+  - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
+    `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
+    que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
+    e não calcula cobertura.
+
 ### Segurança
 
 - **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
