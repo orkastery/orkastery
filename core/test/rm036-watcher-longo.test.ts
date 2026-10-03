@@ -19,6 +19,18 @@ const SID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const INSTANCIA = '11111111-2222-3333-4444-555555555555';
 const linha = (e: unknown) => JSON.stringify(e) + '\n';
 
+test('RM036: documentação registra a correção e mantém revisão pendente', () => {
+  const raiz = path.resolve(__dirname, '../../..');
+  const roadmap = fs.readFileSync(path.join(raiz, 'docs/roadmap/RM-036-maestro-multicanal.md'), 'utf8');
+  const historico = roadmap.split('\n').find(l => l.startsWith('|') && l.includes('`ork-rm036watcher`'));
+  assert.ok(historico?.includes('`rm036-watcher-longo`'));
+  const secoes = fs.readFileSync(path.join(raiz, 'CHANGELOG.md'), 'utf8').split(/\n## /).slice(1);
+  const secao = secoes.find(s => s.includes('**Watcher e recuperação da condução Codex**'));
+  assert.ok(secao, 'correção consta do changelog');
+  assert.match(secao, /^(Não publicado|\[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2})\n/);
+  assert.match(secao, /ausentes por identidade comprovada/);
+});
+
 function fixture(teste: TestContext) {
   const p = projetoTemporario('rm036-longo');
   const t = novaThread(p.carregado, { nome: 'watch', modo: 'auto' }).thread;

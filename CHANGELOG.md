@@ -24,6 +24,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)): observações ficam vinculadas à thread, erros deixam diagnóstico sem conteúdo sensível e leituras transitórias repetem com espera limitada; `conducao assumir` recupera a sessão sem consultar o runtime quando watcher e controlador estão ausentes por identidade comprovada.
+
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
   `experiencia`, `mcp`, `docs verificar`, os novos `sessions` e várias opções que o binário já aceitava; o exemplo do
