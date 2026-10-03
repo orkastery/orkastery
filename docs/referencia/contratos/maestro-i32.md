@@ -34,10 +34,10 @@ readback. A execução revalida a fonte e usa a autoridade existente do núcleo.
 
 ## Prova de ativação por host (RM-032)
 
-`node core/scripts/prova-ativacao.cjs <claude-code|openclaw>` abre uma sessão nova e não
+`node core/scripts/prova-ativacao.cjs <claude-code|openclaw|codex>` abre uma sessão nova e não
 interativa no host instalado numa cópia descartável e diz `orkastery maestro`. A conferência
 (`core/src/prova-ativacao.ts`) só julga o determinístico: a entrada contratada foi exposta e
-chamada (`mcp__orkastery__ork_maestro` no Claude Code; no OpenClaw, `ork_network_roadmap` para a
+chamada (`mcp__orkastery__ork_maestro` no Claude Code e no Codex; no OpenClaw, `ork_network_roadmap` para a
 frase sem projeto e `ork_maestro` com projeto; `ork maestro` pelo shell do host é desvio, porque o
 CLI resolve o projeto pelo diretório) e o resultado cumpre o contrato da entrada: este snapshot,
 com o `project.fingerprint` da cópia esperada (a raiz exibida pode vir mascarada) e `notConsulted`,
@@ -45,7 +45,10 @@ ou o texto do `ork.network-roadmap/v1` com o projeto esperado em "Consultado" e 
 consultado". A resposta precisa nomear o projeto e não concluir "roadmap vazio". O roteiro
 acrescenta que a consulta não escreveu em `.orkastery`, que os arquivos de configuração global do
 host têm o mesmo sha256 antes e depois, que o `.claude.json` não ganhou aceite para a raiz
-temporária e que o OpenClaw da cópia não escreveu no log compartilhado. O recibo
+temporária, que o OpenClaw da cópia não escreveu no log compartilhado e que a sessão efêmera do
+Codex não ficou em `$CODEX_HOME/sessions`. No Codex, o servidor MCP do projeto vai à sessão por
+`-c` (o Codex só lê o `.codex/config.toml` de projeto confiável, e confiar grava na config global),
+e as ferramentas expostas vêm do `tools/list` desse servidor, porque o `codex exec --json` não as lista. O recibo
 `ork.prova-ativacao/v1` é redigido campo a campo antes de ser serializado. Limite conhecido: num
 timeout, só o processo filho direto recebe o sinal. Saídas: 0 aprovada, 1 reprovada, 2 host ausente ou fora da prova, 3 pendente de ação
 humana. A prova não revisa procedência, não consente MCP e não reinicia gateway por ninguém.
