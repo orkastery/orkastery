@@ -10,14 +10,17 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 import { carregarManifesto, ManifestoCarregado } from '../src/manifest';
 import { abrirMemoria, estadoDeEmbeddings, textoDoEstado } from '../src/memoria';
-import { COLECOES_DO_ORK, DriverCliOrkMind, DriverEmMemoria, PedidoDeEmbedding, pertenceAoUniverso } from '../src/orkmind';
+import { COLECOES_DO_ORK, ConfigDoDriver, configDoManifesto, DriverCliOrkMind, DriverEmMemoria, entradaDoJson, PedidoDeEmbedding, pertenceAoUniverso } from '../src/orkmind';
 import { conferirUniverso, FonteDoUniverso, indexar, textoDoIndice, universoDaBusca } from '../src/indice-vetorial';
 import { buscarPorSignificado, OpcoesDaBusca } from '../src/busca-semantica';
 import { motivoDiferimentoCi } from '../src/ci';
 import { ConfigDeEmbedding, EntradaDeMemoria, ForaDaBusca, UniversoDaBusca } from '../src/types';
 import { projetoTemporario } from './apoio';
+import { main } from '../src/index';
+import { fixarProjetoAlvo } from '../src/projeto-alvo';
 
 const T = 'fabrica';
 const CONFIG: ConfigDeEmbedding = { provider: 'openrouter', model: 'org/primario', dim: 32,
@@ -74,17 +77,132 @@ function comChave<R>(f: () => R): R {
 }
 
 /** Ponte falsa em node: o driver de verdade, o processo filho trocado (sem Python e sem base). */
-function ponteFalsa(corpo: string) {
+function ponteFalsa(corpo: string, config: Partial<ConfigDoDriver> = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm038-ponte-'));
   const runner = path.join(dir, 'python');
   fs.writeFileSync(runner, `#!${process.execPath}\n${corpo}`, { mode: 0o755 });
   const cli = path.join(dir, 'orkmind');
   fs.writeFileSync(cli, `#!${runner}\n`, { mode: 0o755 });
-  return { driver: new DriverCliOrkMind({ cli, dsn: 'dsn-de-teste-rm038', variavel: 'TESTE_RM038_DSN', timeoutMs: 5000 }),
+  return { driver: new DriverCliOrkMind({ cli, dsn: 'dsn-de-teste-rm038', variavel: 'TESTE_RM038_DSN', timeoutMs: 5000, ...config }),
     limpar: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 const responder = (resposta: unknown) => `console.log(${JSON.stringify(JSON.stringify(resposta))});`;
-const json = (e: EntradaDeMemoria) => ({ id: e.id, collection: e.collection, content: e.content, tags: e.tags });
+const json = (e: EntradaDeMemoria) => ({ id: e.id, collection: e.collection, content: e.content, tags: e.tags,
+  injection_risk: e.injection_risk, expires_at: e.expires_at });
+
+test('rm038 universo: manifesto configura prazo proprio positivo com padrao de 90 segundos', () => {
+  const m = manifesto();
+  try {
+    assert.equal(m.carregado.manifesto.memory.universo_timeout_ms, 90_000);
+    assert.equal(configDoManifesto(m.carregado.manifesto).universoTimeoutMs, 90_000);
+    const arquivo = path.join(m.raiz, 'orkastery.yaml');
+    const original = fs.readFileSync(arquivo, 'utf8');
+    fs.writeFileSync(arquivo, original + '  universo_timeout_ms: 240000\n');
+    const configurado = carregarManifesto(m.raiz)!;
+    assert.deepEqual(configurado.erros, []);
+    assert.equal(configDoManifesto(configurado.manifesto).universoTimeoutMs, 240_000);
+    assert.equal(configDoManifesto(configurado.manifesto).timeoutMs, 15_000);
+    for (const invalido of ['0', '-1', '1.5', '"90000"', 'null', '9007199254740992']) {
+      fs.writeFileSync(arquivo, original + `  universo_timeout_ms: ${invalido}\n`);
+      assert.ok(carregarManifesto(m.raiz)!.erros.some(e => e.startsWith('memory.universo_timeout_ms:')), invalido);
+    }
+  } finally { m.limpar(); }
+});
+
+test('rm038 universo: transporte aplica prazo exclusivo e mede latencia monotonica no resultado', (t) => {
+  const chamadas: { op: string; timeout: number }[] = [];
+  t.mock.method(require('node:child_process'), 'spawnSync', (_cmd: string, _args: string[], o: { input: string; timeout: number }) => {
+    const { op } = JSON.parse(o.input);
+    chamadas.push({ op, timeout: o.timeout });
+    return { status: 0, stdout: JSON.stringify(op === 'universo' ? { entradas: [], foraDaBusca: null } : []) };
+  });
+  let tempo = 100;
+  t.mock.method(performance, 'now', () => { const antes = tempo; tempo += 37.5; return antes; });
+  const padrao = ponteFalsa('', { timeoutMs: 17 });
+  const configurado = ponteFalsa('', { timeoutMs: 17, universoTimeoutMs: 240_000 });
+  const m = manifesto();
+  try {
+    assert.equal(padrao.driver.universo(T).latenciaMs, 37.5);
+    const u = universoDaBusca(configurado.driver, T);
+    assert.equal(u.latenciaMs, 37.5);
+    const indice = indexar({ raiz: m.raiz, tenant: T, dsn: '', config: CONFIG, alvo: 'primario', universo: u,
+      dryRun: true, chavePresente: true });
+    assert.equal(indice.latenciaUniversoMs, 37.5);
+    const estado = estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, T, '', { universo: u, env: {} });
+    assert.equal(estado.universo?.latenciaMs, 37.5);
+    configurado.driver.exportar('decision');
+    assert.deepEqual(chamadas, [{ op: 'universo', timeout: 90_000 }, { op: 'universo', timeout: 240_000 },
+      { op: 'export', timeout: 17 }]);
+  } finally { padrao.limpar(); configurado.limpar(); m.limpar(); }
+});
+
+test('rm038 universo: prazo proprio espera a ponte e prazo esgotado falha tipado', () => {
+  const corpo = `setTimeout(() => { ${responder({ entradas: [], foraDaBusca: null })} }, 150);`;
+  const suficiente = ponteFalsa(corpo, { timeoutMs: 1, universoTimeoutMs: 2000 });
+  const curto = ponteFalsa(corpo, { timeoutMs: 2000, universoTimeoutMs: 1 });
+  try {
+    assert.ok(suficiente.driver.universo(T).latenciaMs >= 150);
+    assert.throws(() => curto.driver.universo(T), /^Error: memory\.transport\.timeout$/);
+  } finally { suficiente.limpar(); curto.limpar(); }
+});
+
+test('rm038 universo: cli retorna 1 com motivo em texto e json sem confundir universo vazio com falha', (t) => {
+  const m = manifesto();
+  const cwd = process.cwd();
+  const memoria = abrirMemoria(m.carregado, { driver: new DriverEmMemoria([]) });
+  let falha = '';
+  memoria.universo = () => {
+    if (falha) throw Error(falha);
+    return { entradas: [], foraDaBusca: null };
+  };
+  t.mock.method(require('../src/memoria'), 'abrirMemoria', () => memoria);
+  const fts = t.mock.method(DriverCliOrkMind.prototype, 'buscarTexto', () => []);
+  const embed = t.mock.method(DriverCliOrkMind.prototype, 'embeddar', () => { throw Error('embed indevido'); });
+  const linhas: string[] = [];
+  t.mock.method(console, 'log', (s: string) => linhas.push(s));
+  try {
+    process.chdir(m.raiz);
+    for (const formato of [[], ['--json']]) {
+      const args = ['memory', 'search', '--texto', 'comum', '--modo', 'fts', ...formato];
+      falha = '';
+      linhas.length = 0;
+      assert.equal(main(args), 0, 'universo vazio foi lido e nao e falha');
+      const chamadasAntes = fts.mock.callCount();
+      for (const motivo of ['memory.query.window-saturated', 'memory.query.scope-violation', 'memory.transport.timeout']) {
+        falha = motivo;
+        linhas.length = 0;
+        assert.equal(main(args), 1, motivo);
+        if (formato.length) {
+          const r = JSON.parse(linhas.join('\n'));
+          assert.equal(r.motivo, motivo);
+          assert.deepEqual(r.resultados, []);
+        } else assert.ok(linhas.some(s => s.includes(`motivo: ${motivo}`)));
+        assert.equal(fts.mock.callCount(), chamadasAntes, 'sem universo nada chega ao FTS');
+        assert.equal(embed.mock.callCount(), 0);
+      }
+    }
+  } finally { fixarProjetoAlvo(null); process.chdir(cwd); m.limpar(); }
+});
+
+test('rm038 universo: normalizacao preserva governanca e predicado recusa injecao e expiracao', () => {
+  const agora = Date.parse('2030-01-01T00:00:00Z');
+  const inj = entradaDoJson(json({ ...entrada('inj'), injection_risk: true, expires_at: null }))!;
+  assert.equal(inj.injection_risk, true);
+  assert.equal(inj.expires_at, null);
+  assert.equal(pertenceAoUniverso(inj, T, agora), false);
+  for (const expires_at of ['2029-12-31T23:59:59Z', '2030-01-01T00:00:00Z', 'invalida']) {
+    const e = entradaDoJson(json({ ...entrada('exp'), injection_risk: false, expires_at }))!;
+    assert.equal(e.injection_risk, false);
+    assert.equal(e.expires_at, expires_at);
+    assert.equal(pertenceAoUniverso(e, T, agora), false, expires_at);
+  }
+  for (const expires_at of [undefined, null, '2030-01-01T00:00:01Z', '2030-01-01T00:00:01', '2029-12-31T21:00:01-03:00']) {
+    assert.equal(pertenceAoUniverso({ ...entrada('ativa'), expires_at }, T, agora), true, String(expires_at));
+  }
+  for (const campos of [{ injection_risk: 'true' }, { expires_at: 42 }]) {
+    assert.equal(entradaDoJson({ ...json(entrada('invalida')), ...campos }), null);
+  }
+});
 
 test('rm038 universo: dominio le a fonte uma vez pelo tenant, ordena e conta por colecao', () => {
   const fora = { injecao: 5, expiradas: 0, outrasColecoes: 13 };
@@ -130,6 +248,8 @@ test('rm038 universo: transporte recusa entrada alheia, envelope invalido e repa
   const casos: [string, unknown, RegExp][] = [
     ['outro tenant', { entradas: [json(entrada('x', 'decision', ['outro-produto']))], foraDaBusca: null }, /^memory\.query\.scope-violation$/],
     ['outra colecao', { entradas: [json(entrada('x', 'session'))], foraDaBusca: null }, /^memory\.query\.scope-violation$/],
+    ['injecao', { entradas: [json({ ...entrada('inj'), injection_risk: true })], foraDaBusca: null }, /^memory\.query\.scope-violation$/],
+    ['expirada', { entradas: [json({ ...entrada('exp'), expires_at: '2000-01-01T00:00:00Z' })], foraDaBusca: null }, /^memory\.query\.scope-violation$/],
     ['sem entradas', { foraDaBusca: null }, /^memory\.transport\.universo$/],
     ['lista solta', [json(entrada('d1'))], /^memory\.transport\.universo$/],
     ['contagem negativa', { entradas: [], foraDaBusca: { injecao: -1, expiradas: 0, outrasColecoes: 0 } }, /^memory\.transport\.universo$/],
@@ -195,9 +315,13 @@ test('rm038 universo: indice recusa entrada alheia antes de qualquer pedido de e
   const d = povoado();
   try {
     const u = universoDaBusca(d, T);
-    const contaminado: UniversoDaBusca = { ...u, entradas: [...u.entradas, entrada('alheia', 'decision', ['outro-produto'])] };
-    assert.throws(() => indexar({ raiz, tenant: T, dsn: '', config: CONFIG, alvo: 'primario', universo: contaminado, dryRun: false,
-      chavePresente: true, embeddar: p => d.embeddar(p) }), /memory\.query\.scope-violation/);
+    for (const ruim of [entrada('alheia', 'decision', ['outro-produto']),
+      { ...entrada('inj'), injection_risk: true }, { ...entrada('exp'), expires_at: '2000-01-01T00:00:00Z' }]) {
+      const contaminado: UniversoDaBusca = { ...u, entradas: [...u.entradas, ruim] };
+      assert.throws(() => indexar({ raiz, tenant: T, dsn: '', config: CONFIG, alvo: 'primario', universo: contaminado, dryRun: false,
+        chavePresente: true, embeddar: p => d.embeddar(p) }), /memory\.query\.scope-violation/);
+      assert.equal(d.pedidosDeEmbedding.length, 0);
+    }
     assert.throws(() => indexar({ raiz, tenant: 'outro', dsn: '', config: CONFIG, alvo: 'primario', universo: u, dryRun: false,
       chavePresente: true, embeddar: p => d.embeddar(p) }), /memory\.query\.scope-violation/);
     // Universo vazio de outro tenant: sem a conferencia, o indexar esvaziaria o indice do outro.
@@ -384,6 +508,7 @@ test('rm038 universo: cli do HEAD mostra o universo da busca, declara o FTS fora
   assert.equal(s.universo, 3, 'a alheia fica fora do universo');
   assert.deepEqual(s.porColecao, { decision: 1, handoff: 1, rule: 1, learning: 0, roadmap: 0 });
   assert.deepEqual(s.foraDaBusca, { injecao: 5, expiradas: 0, outrasColecoes: 13 });
+  assert.ok(Number.isFinite(s.latenciaUniversoMs) && s.latenciaUniversoMs > 0);
   const texto = orkCli(p.dir, ['memory', 'index', '--dry-run']);
   assert.match(texto.saida, /universo da busca\s+3 entrada\(s\): decision 1, handoff 1, rule 1, learning 0, roadmap 0/);
   assert.match(texto.saida, /fora da busca\s+5 com injection_risk e 0 expirada\(s\) \(governanca da biblioteca\), 13 em outras colecoes \(fora da busca do ork\)/);
@@ -391,8 +516,11 @@ test('rm038 universo: cli do HEAD mostra o universo da busca, declara o FTS fora
   const e = status.embeddings ?? status.estado?.embeddings;
   assert.equal(e.entradas, 3);
   assert.deepEqual(e.universo.foraDaBusca, { injecao: 5, expiradas: 0, outrasColecoes: 13 });
+  assert.ok(Number.isFinite(e.universo.latenciaMs) && e.universo.latenciaMs > 0);
   assert.equal(e.aviso, 'o indice cobre 0 de 3 entrada(s) que a busca enxerga: rode ork memory index');
-  const busca = JSON.parse(orkCli(p.dir, ['memory', 'search', '--texto', 'comum', '--modo', 'fts', '--json']).saida);
+  const buscaCli = orkCli(p.dir, ['memory', 'search', '--texto', 'comum', '--modo', 'fts', '--json']);
+  assert.equal(buscaCli.codigo, 0, buscaCli.saida);
+  const busca = JSON.parse(buscaCli.saida);
   assert.deepEqual(busca.listas.fts, ['r1', 'd1']);
   assert.equal(busca.ftsForaDoUniverso, 1);
   assert.match(busca.detalhe, /fts: 1 id\(s\) fora do universo da busca descartado\(s\)/);
@@ -403,9 +531,14 @@ test('rm038 universo: cli do HEAD mostra o universo da busca, declara o FTS fora
   assert.doesNotMatch(fs.readFileSync(path.join(p.dir, 'chamadas.log'), 'utf8'), /embed/);
   const semUniverso = JSON.parse(orkCli(p.dir, ['memory', 'status', '--json']).saida);
   assert.equal((semUniverso.embeddings ?? semUniverso.estado?.embeddings).falhaDoUniverso, 'memory.query.window-saturated');
-  const buscaSem = JSON.parse(orkCli(p.dir, ['memory', 'search', '--texto', 'comum', '--json']).saida);
+  const buscaSemCli = orkCli(p.dir, ['memory', 'search', '--texto', 'comum', '--json']);
+  assert.equal(buscaSemCli.codigo, 1, buscaSemCli.saida);
+  const buscaSem = JSON.parse(buscaSemCli.saida);
   assert.equal(buscaSem.motivo, 'memory.query.window-saturated');
   assert.deepEqual(buscaSem.resultados, []);
+  const buscaSemTexto = orkCli(p.dir, ['memory', 'search', '--texto', 'comum']);
+  assert.equal(buscaSemTexto.codigo, 1, buscaSemTexto.saida);
+  assert.match(buscaSemTexto.saida, /motivo: memory\.query\.window-saturated/);
 });
 
 test('rm038 universo: ci adia a prova na base e o teste da ponte, e roda o teste hermetico', () => {

@@ -44,6 +44,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Avisos da rodada 2 do universo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - `ork memory search --texto` sai 1 com motivo tipado quando o universo não foi lido, em texto e JSON;
+  - o cliente preserva `injection_risk` e `expires_at` e reconfere a governança antes de qualquer embed;
+  - a operação `universo` tem prazo próprio, `memory.universo_timeout_ms`, com padrão de 90.000 ms, e informa a
+    latência medida no JSON do índice e do status;
+  - o teste de expiração da ponte atravessa a leitura com relógio crescente, cobrindo FTS e universo.
 - **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
   - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
     da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a

@@ -25,6 +25,7 @@ import * as fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { performance } from 'node:perf_hooks';
 import { Manifesto } from './types';
 import {
   ColecaoDoOrk,
@@ -52,14 +53,20 @@ export const COLECOES_DO_ORK: readonly ColecaoDoOrk[] = [
   'roadmap',
 ] as const;
 
+/** Cinco leituras governadas e a contagem, num unico subprocesso. */
+export const TIMEOUT_DO_UNIVERSO_MS = 90_000;
+
 /**
  * RM-038: a fronteira do universo da busca vista do `ork`: colecao do ork e o tenant como item
- * de `project`. A governanca da biblioteca (injection_risk, expiracao) e o predicado
- * `no_universo` da ponte; aqui so o que o `ork` consegue conferir em cada entrada recebida.
+ * de `project`, sem injection_risk e ainda ativa. Reconferida antes de qualquer embed,
+ * mesmo quando a ponte ou outro driver devolve uma entrada que a biblioteca deveria recusar.
  */
-export function pertenceAoUniverso(e: EntradaDeMemoria, tenant: string): boolean {
+export function pertenceAoUniverso(e: EntradaDeMemoria, tenant: string, agora = Date.now()): boolean {
+  // A biblioteca trata datas sem fuso como UTC. Data invalida nunca vira entrada ativa.
+  const expira = e.expires_at == null ? null : Date.parse(
+    /(?:Z|[+-]\d{2}:?\d{2})$/i.test(e.expires_at) ? e.expires_at : `${e.expires_at}Z`);
   return COLECOES_DO_ORK.includes(e.collection as ColecaoDoOrk) && Array.isArray(e.tags.project) &&
-    e.tags.project.includes(tenant);
+    e.tags.project.includes(tenant) && e.injection_risk !== true && (expira === null || expira > agora);
 }
 
 /** RM-038: contagem de fora da busca bem formada (tres inteiros nao negativos, nada mais). */
@@ -198,7 +205,7 @@ export interface DriverDeMemoria {
   /** I-38 (T5): FTS da biblioteca restrito ao universo da busca; so ids, na ordem do ranking. */
   buscarTexto?(tenant: string, texto: string): string[];
   /** RM-038: o universo da busca do tenant numa leitura so, ate o fim ou com falha tipada. */
-  universo?(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
+  universo?(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number };
 }
 
 /** Texto de busca: nao vazio, sem caractere de controle, ate 2.000 caracteres. */
@@ -347,6 +354,8 @@ export function entradaDoJson(bruto: unknown): EntradaDeMemoria | null {
   if (!bruto || typeof bruto !== 'object') return null;
   const o = bruto as Record<string, unknown>;
   if (typeof o.id !== 'string' || typeof o.content !== 'string') return null;
+  if (o.injection_risk !== undefined && typeof o.injection_risk !== 'boolean') return null;
+  if (o.expires_at !== undefined && o.expires_at !== null && typeof o.expires_at !== 'string') return null;
   const tags: Record<string, string[]> = {};
   if (o.tags && typeof o.tags === 'object' && !Array.isArray(o.tags)) {
     for (const [k, v] of Object.entries(o.tags as Record<string, unknown>)) {
@@ -374,6 +383,8 @@ export function entradaDoJson(bruto: unknown): EntradaDeMemoria | null {
     author_id: typeof o.author_id === 'string' ? o.author_id : null,
     visibility: typeof o.visibility === 'string' ? o.visibility : undefined,
     protected: typeof o.protected === 'boolean' ? o.protected : undefined,
+    injection_risk: o.injection_risk as boolean | undefined,
+    expires_at: o.expires_at as string | null | undefined,
     criadaEm: typeof o.created_at === 'string' ? o.created_at : '',
   };
 }
@@ -386,6 +397,7 @@ export interface ConfigDoDriver {
   /** Valor da DSN lido do ambiente. Vazio quer dizer "nao ligue". */
   dsn: string;
   timeoutMs: number;
+  universoTimeoutMs?: number;
   /** I-38 (D5): NOME da variavel com a chave de embedding; o valor e lido so na operacao `embed`. */
   variavelDaChaveDeEmbedding?: string;
 }
@@ -578,20 +590,23 @@ export class DriverCliOrkMind implements DriverDeMemoria {
    * RM-038: o universo da busca numa chamada. A ponte filtra o tenant na origem e confere o
    * predicado; o `ork` confere de novo cada entrada e recusa a alheia, nunca a descarta.
    */
-  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null } {
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs: number } {
     if (!textoDeConsulta(tenant, 128) || tenant.trim() === '') throw new Error('memory.universo.invalid');
-    const r = this.rodar({ op: 'universo', tenant }) as Record<string, unknown>;
+    const agora = Date.now();
+    const inicio = performance.now();
+    const r = this.rodar({ op: 'universo', tenant }, this.config.universoTimeoutMs ?? TIMEOUT_DO_UNIVERSO_MS) as Record<string, unknown>;
     if (!objetoDeConsulta(r) || !Array.isArray(r.entradas) || !(r.foraDaBusca === null || foraDaBuscaValida(r.foraDaBusca))) {
       throw new Error('memory.transport.universo');
     }
     const entradas = r.entradas.map(d => {
       const e = entradaDoJson(d);
       if (!e) throw new Error('memory.transport.universo');
-      if (!pertenceAoUniverso(e, tenant)) throw new Error('memory.query.scope-violation');
+      if (!pertenceAoUniverso(e, tenant, agora)) throw new Error('memory.query.scope-violation');
       return e;
     });
     const fora = r.foraDaBusca as ForaDaBusca | null;
-    return { entradas, foraDaBusca: fora === null ? null : { injecao: fora.injecao, expiradas: fora.expiradas, outrasColecoes: fora.outrasColecoes } };
+    return { entradas, foraDaBusca: fora === null ? null : { injecao: fora.injecao, expiradas: fora.expiradas, outrasColecoes: fora.outrasColecoes },
+      latenciaMs: performance.now() - inicio };
   }
 
   submeterHandoff(pedido: PedidoDeHandoff): ResultadoDeHandoff {
@@ -892,6 +907,7 @@ export function configDoManifesto(manifesto: Manifesto): ConfigDoDriver & { modo
     variavel,
     dsn: variavel ? (process.env[variavel] ?? '') : '',
     timeoutMs: manifesto.memory.timeout_ms || 15000,
+    universoTimeoutMs: manifesto.memory.universo_timeout_ms ?? TIMEOUT_DO_UNIVERSO_MS,
     tenant: manifesto.memory.tenant || manifesto.project.name,
     // Lido direto do bloco: este modulo carrega sem o parser do manifesto (memory-native-schema).
     variavelDaChaveDeEmbedding: manifesto.memory.embedding?.provider === 'openrouter' ? manifesto.memory.embedding.api_key_env : '',

@@ -3775,9 +3775,10 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
       embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
   }
+  const codigo = universo ? 0 : 1;
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
-    return 0;
+    return codigo;
   }
   console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
   if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
@@ -3789,7 +3790,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   });
   console.log('');
   console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
-  return 0;
+  return codigo;
 }
 
 /**

@@ -198,8 +198,33 @@ asyncio.run(run())`, 'uma escrita se resolve');
 test('rm038 ponte: fts e universo julgam a expiracao pelo instante de antes da leitura', () => {
   rodarPython(String.raw`
 async def run():
-    agora = datetime.now(timezone.utc)
+    agora = datetime(2030, 1, 1, tzinfo=timezone.utc)
     quase = MemoryEntry(id='quase', collection='decision', content='x', tags={'project': [T]}, expires_at=agora + timedelta(seconds=1))
+    class Relogio(datetime):
+        instante = agora
+        @classmethod
+        def now(cls, tz=None):
+            valor = cls.instante
+            cls.instante += timedelta(seconds=2)
+            return valor if tz is None else valor.astimezone(tz)
+    class LeituraDemorada:
+        async def count(self, c=None): return 1
+        async def search_by_tags(self, tags, collection=None, limit=50, **kw):
+            Relogio.now(timezone.utc)
+            return [quase] if collection == 'decision' else []
+        async def search_by_text(self, q, limit=10, **kw):
+            Relogio.now(timezone.utc)
+            return [quase]
+    # O retorno atravessa a expiracao. Capturar depois da leitura, ou omitir agora
+    # no predicado, perde a entrada que estava ativa no inicio de cada operacao.
+    b.datetime = Relogio
+    for op in ('fts', 'universo'):
+        Relogio.instante = agora
+        pedido = {'op': op, 'tenant': T}
+        if op == 'fts': pedido['texto'] = 'x'
+        out = await b.execute(pedido, LeituraDemorada())
+        ids = out['ids'] if op == 'fts' else [e['id'] for e in out['entradas']]
+        assert ids == ['quase'], (op, ids)
     assert b.no_universo(quase, T, agora) is True
     assert b.no_universo(quase, T, agora + timedelta(seconds=2)) is False
     ingenua = SimpleNamespace(id='ingenua', collection='decision', tags={'project': [T]}, injection_risk=False,

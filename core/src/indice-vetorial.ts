@@ -63,7 +63,7 @@ export interface IndiceVetorial {
  * driver). Uma leitura so, ate o fim ou com falha tipada.
  */
 export interface FonteDoUniverso {
-  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null; latenciaMs?: number };
 }
 
 export type Embeddar = (pedido: PedidoDeEmbedding, opcoes?: { timeoutMs?: number }) => RespostaDeEmbedding;
@@ -78,6 +78,8 @@ export interface ResultadoDoIndice {
   /** RM-038: o universo da busca por colecao e o que fica fora dele (isso nunca vai ao embed). */
   porColecao: Record<ColecaoDoOrk, number>;
   foraDaBusca: ForaDaBusca | null;
+  /** Tempo observado na leitura do universo, null quando a fonte nao mede. */
+  latenciaUniversoMs: number | null;
   coerentes: number;
   embedados: number;
   reescritos: number;
@@ -202,7 +204,8 @@ export function universoDaBusca(fonte: FonteDoUniverso, tenant: string): Univers
   const entradas = [...lido.entradas].sort((a, b) => a.collection.localeCompare(b.collection) || a.id.localeCompare(b.id));
   const porColecao = Object.fromEntries(COLECOES_DO_ORK.map(c => [c, 0])) as Record<ColecaoDoOrk, number>;
   for (const e of entradas) porColecao[e.collection as ColecaoDoOrk] += 1;
-  return { tenant, entradas, porColecao, foraDaBusca: lido.foraDaBusca };
+  return { tenant, entradas, porColecao, foraDaBusca: lido.foraDaBusca,
+    ...(lido.latenciaMs === undefined ? {} : { latenciaMs: lido.latenciaMs }) };
 }
 
 /** Codigo tipado de uma falha (`memory.query.window-saturated`), ou o padrao quando nao ha. */
@@ -298,6 +301,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   const indexaveis = universo.filter(indexavel);
   const base: ResultadoDoIndice = { alvo: o.alvo, modelo: null, dim: null, arquivo: null, dryRun: o.dryRun,
     universo: universo.length, porColecao: { ...o.universo.porColecao }, foraDaBusca: o.universo.foraDaBusca,
+    latenciaUniversoMs: o.universo.latenciaMs ?? null,
     coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
     foraDoLimite: foraDoLimite.length, truncados: 0, tokensEstimados: 0, custoEstimadoUsd: 0, chamadasAoProvider: 0, motivo: null, detalhe: '' };
   if ('motivo' in espaco) {
