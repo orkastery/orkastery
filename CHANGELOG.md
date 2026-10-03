@@ -219,9 +219,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     O motivo exposto do legado é sempre `(legado)`. A retomada automática funciona em Linux e macOS, inclusive
     sem `/usr/bin/flock`, por candidatos exclusivos e tickets publicados com `rename` atômico. A fila portátil
     também serializa concorrentes com `flock`; sob exclusão, relê o conteúdo, confere dispositivo e inode e cria
-    com `wx`. Ausência, bloqueio do spawn, timeout ou erro do `flock` usam o caminho portátil. Candidatos com PID
-    morto são descartados; PID reutilizado ou sem permissão de consulta é tratado como vivo e pode exigir
-    inspeção humana, sem expiração que remova candidato vivo. `nlink === 0` é `lease.busy`, com fila normal e
+    com `wx`. Ausência, bloqueio do spawn, timeout ou erro do `flock` usam o caminho portátil. A fila fica
+    em `.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato, com
+    candidatos regulares de um único vínculo, e a pasta vazia é removida. `ork lease list` mostra
+    candidatos, PID, ticket, idade e temporários `.json.tmp`. A prova de morte por `process.kill(pid, 0)` só
+    vale no mesmo namespace de PID; processos de namespaces diferentes não devem compartilhar esta fila. PID
+    reutilizado ou sem permissão de consulta bloqueia até o limite de 30 minutos (`TTL_PADRAO_MS`).
+    Candidatos e temporários expirados são recolhidos na próxima tentativa, que retorna
+    `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir a aquisição, sem apagar o
+    lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes do prazo, inclusive JSON
+    parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode prosseguir. Dispositivo e
+    inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de sistema não constituem um
+    CAS atômico contra escritores externos à exclusão.
+    `nlink === 0` é `lease.busy`, com fila normal e
     preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana
     e sem retry automático: avaliar a posse antes de `ork lease release <nome> --forcar`, seguido de nova aquisição.
     O `ship --dry-run` também considera o legado vivo;
