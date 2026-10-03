@@ -9,12 +9,13 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { projetoTemporario, runtimeFalso, runtimePorConta } from './apoio';
-import { controllerSimulado } from './controller-simulado';
+import { controllerSimulado, esperarCondicao } from './controller-simulado';
 import { encerrarController } from '../src/adapters/codex-controller';
 import { lerLedger } from '../src/ledger';
 import { baselineDoDespachoNecessaria, hashDoPrompt, rodarFase } from '../src/phase';
 import { redespachar } from '../src/retry';
-import { assumirConducao, conducaoDaThread, registrarConducaoDaSessao } from '../src/conducao';
+import { assumirConducao, conducaoDaThread, nomeDaConducao, registrarConducaoDaSessao } from '../src/conducao';
+import { lerLease } from '../src/leases';
 import { criarServidorMcp } from '../src/mcp-server';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -248,7 +249,14 @@ test('defeito 1 (B-1): a sucessora de uma sessao blocked, no codex sem baseline,
     assert.ok(iBaseline >= 0 && iBaseline < iDespachoCodex, `baseline antes da sucessora: ${eventos.map(e => e.tipo).join(', ')}`);
     assert.equal(eventos.some(e => e.tipo === 'conducao_recusada'), false, 'a baseline rodou como reentrada da tomada');
     const d = eventos.find(e => e.tipo === 'phase_dispatch' && e.runtime === 'codex')!;
-    assert.equal(conducaoDaThread(p.dir, t.id)?.identidade, (d.identidade as { dispatchId: string }).dispatchId,
+    // RM-037 (verify confiavel): a sucessora termina sozinha (FINALIZAR-SIMULADO) e o watcher destacado grava
+    // o phase_result na volta seguinte do laco de 1 s; dali em diante `conducaoDaThread` e null por desenho.
+    // Ler a conducao viva fazia a assercao depender de o teste chegar aqui antes do watcher (no runner
+    // carregado do Node 22 nao chegou). Agora o teste espera o fim e le a identidade no LEASE: a ordem e
+    // sempre a mesma, e a pior.
+    esperarCondicao(() => lerLedger(dir).some(e => e.tipo === 'phase_result' && e.sessionId === r.sessionId), 20000);
+    assert.equal(conducaoDaThread(p.dir, t.id), null, 'sessao encerrada no ledger sai da leitura derivada');
+    assert.equal(lerLease(p.dir, nomeDaConducao(t.id))?.conducao?.identidade, (d.identidade as { dispatchId: string }).dispatchId,
       'a sessao herdou a identidade gravada no lease: ela reentra na propria conducao');
   } finally { encerrar(dir); f.restaurar(); p.limpar(); claude.restaurar(); }
 });
