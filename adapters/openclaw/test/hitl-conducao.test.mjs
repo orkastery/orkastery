@@ -51,6 +51,23 @@ test('o dist commitado é o build do src: a regra está nos dois', () => {
   const dist = fs.readFileSync(new URL('../dist/index.js', import.meta.url), 'utf8');
   for (const texto of [src, dist]) {
     assert.match(texto, /const REGRA_HITL_DE_CONDUCAO =/);
-    assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 3);
+    assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 5);
   }
+});
+
+// Ensaio isolado de 03/10: no perfil `coding` do OpenClaw o modelo so ve as tools declaradas em
+// `toolMetadata` com esse perfil. A regra precisa estar em TODA tool visivel ali, sem ampliar o perfil.
+test('toda tool visível no perfil coding carrega a regra do HITL de condução', async () => {
+  const regra = regraDaFatia1();
+  const manifesto = JSON.parse(fs.readFileSync(new URL('../openclaw.plugin.json', import.meta.url), 'utf8'));
+  const doCoding = Object.entries(manifesto.toolMetadata ?? {})
+    .filter(([, meta]) => (meta.profiles ?? []).includes('coding')).map(([nome]) => nome).sort();
+  assert.deepEqual(doCoding, ['ork_network_roadmap', 'ork_network_status'], 'o perfil coding não foi ampliado');
+  await comTools(async (tools) => {
+    const d = Object.fromEntries(tools.map(t => [t.name, t.description]));
+    for (const nome of doCoding) {
+      assert.ok(d[nome], `${nome} existe no plugin`);
+      assert.ok(d[nome].replace(/\s+/g, ' ').endsWith(regra), `${nome}, visível no coding, termina com a regra da fatia 1`);
+    }
+  });
 });

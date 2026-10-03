@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-03T03:40:00+00:00
+atualizado_em: 2026-10-03T07:20:00+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -20,7 +20,7 @@ evidencias:
     commit: 7266df6
     pr: 49
 sdlc:
-  thread: ork-rm057fatia3t
+  thread: ork-rm057regrada
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -103,3 +103,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: canário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | Fatia 2 mesclada | PR 52, merge 66b7ee3 | Julio |
 | 2026-10-03 | Fatia 3 na thread ork-rm057fatia3t: o tempo parado por HITL de condução no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`: abertas com há quanto tempo, mediana de 7 dias), com uma linha no resumo do pulse só acima da meta de 5 min | Recorte registrado com `ork decisao registrar` na thread; campo aditivo opcional nos contratos que já existem, sem contrato novo | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Fatia 4 na thread ork-rm057regrada, defeitos do ensaio isolado da reinstalação do OpenClaw: a regra também em `ork_network_roadmap` e `ork_network_status`, as únicas tools visíveis no perfil `coding` (o perfil não foi ampliado), e o `ork adapter install` apontando a extensão para o `ork` em execução, com aviso quando o do PATH é outro | Ensaio de 03/10: no `coding` o modelo do Telegram nunca lia a regra; pelo tarball, a extensão 0.5.2 chamava o `ork` 0.4.3 global. `tools.alsoAllow` fica como decisão do dono | Claude (agente, #Auto), revisão de Julio pendente |
