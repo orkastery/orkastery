@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002, FEAT-026, FEAT-031, FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-03T14:45:00+00:00
+atualizado_em: 2026-10-03T11:45:00-03:00
 estado:
   ciclo: Refinamento
   documentacao: Em revisão
@@ -43,7 +43,7 @@ Features relacionadas: [modos de condução](../produto/FEAT-002-modos-de-conduc
 ## Problema e resultado
 
 - **Público e problema:** product builder com roadmap priorizado e trabalho suficiente para avançar enquanto fica ausente por 6 a 12 horas. Hoje precisa vigiar a condução, recuperar sessões e coordenar contas, revisões e merges.
-- **Evidências e fonte:** pedido do dono para a RM-058 e relato de uma condução manual na noite de 02 para 03/10/2026. As ocorrências relatadas estão em [Resiliência](#resiliência-ao-longo-de-horas), com suas limitações de evidência.
+- **Evidências e fonte:** pedido do dono para a RM-058 e registro da condutora sobre a condução manual na noite de 02 para 03/10/2026. As ocorrências relatadas estão em [Resiliência](#resiliência-ao-longo-de-horas), com suas limitações de evidência.
 - **Objetivo:** conduzir um arco inteiro, da seleção de itens ao relatório final, sem solicitar intervenção humana durante a janela autorizada, mantendo os bloqueios de cada ação e a prova de cada entrega.
 - **Hipótese:** se o núcleo persistir autorização, fila, limites, supervisão e retomada, o arco poderá continuar com trabalho independente quando uma thread falhar ou depender do dono, sem precisar de vigilância manual.
 - **Métrica principal:** tempo de condução elegível sem intervenção humana, medido entre eventos do arco no ledger. Linha de base quantitativa ainda não medida; o relato manual não equivale a benchmark. Meta proposta: completar ensaios de 6 h e 12 h sem intervenção, se houver fila e orçamento. Janela: piloto de cada duração, com injeção de falhas e recibos por transição.
@@ -112,7 +112,7 @@ Se uma máquina perder batidas, o arco suspenderá novos despachos para ela, con
 
 ### Resiliência ao longo de horas
 
-**Origem:** relato do dono na abertura deste planejamento, sobre a condução manual de 02→03/10/2026. As quantidades abaixo são ocorrências relatadas, não métricas de um Noctum implementado. A correção do watcher foi indicada no [PR #117](https://github.com/orkastery/orkastery/pull/117); o [CHANGELOG](../../CHANGELOG.md#não-publicado) descreve a recuperação e explicita que a causa dos incidentes não ficou comprovada. O piloto deverá produzir medições reproduzíveis.
+**Origem:** registro da condutora no pedido deste planejamento, sobre a condução manual de 02→03/10/2026. As quantidades abaixo são ocorrências relatadas, não métricas de um Noctum implementado. A correção do watcher foi indicada no [PR #117](https://github.com/orkastery/orkastery/pull/117); o [CHANGELOG](../../CHANGELOG.md#não-publicado) descreve a recuperação e explicita que a causa dos incidentes não ficou comprovada. O piloto deverá produzir medições reproduzíveis.
 
 | Ocorrência relatada | Como o Noctum deverá detectar | O que deverá fazer sozinho |
 | --- | --- | --- |

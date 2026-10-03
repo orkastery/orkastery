@@ -4,7 +4,7 @@ tipo: feature
 titulo: Reservas de item do roadmap entre máquinas
 estado: vigente
 pai: MOD-01
-roadmap: [RM-047]
+roadmap: [RM-047, RM-058]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-27T08:00:00-03:00

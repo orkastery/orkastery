@@ -4,7 +4,7 @@ tipo: feature
 titulo: Modos de condução
 estado: vigente
 pai: MOD-01
-roadmap: [RM-100, RM-042, RM-043]
+roadmap: [RM-100, RM-042, RM-043, RM-058]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-27T07:30:00-03:00
