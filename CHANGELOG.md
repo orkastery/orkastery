@@ -21,6 +21,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `ork network status` nem ao `REDE.md`;
   - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
   - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
+- **A rede por pessoa no roadmap da rede, fatia 3** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  - `ork network roadmap` lê a casa da RM-053: a seção "Rede por pessoa" traz a casa e cada máquina com a batida e
+    os projetos que declara, e o JSON ganha `rede`; o projeto que uma máquina da rede declara passa a ser pedido
+    pelo nome mesmo sem clone nem registro, e a máquina da rede sem retrato na fábrica do projeto sai com as
+    threads não lidas e a lacuna `maquina.sem-fabrica`; `ORK_REDE_LER=0` desliga a leitura;
+  - `ork_network_status` no OpenClaw (perfis `coding` e `messaging`, sem `projeto`), no Hermes e no MCP (só o projeto
+    servido em cada máquina); no host, `ork network status` não lê o projeto do diretório do gateway;
+  - o `gh` e o `glab` da forja são achados também em `~/.local/bin` e nas outras pastas de usuário, fora do PATH
+    curto do gateway e do cron.
 
 - **Conferência opt-in da claim no registro** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): a policy
   `claim_sem_prova_local` (alias `claims_failed`, o nome que o `ork licoes` propõe) vem desligada. Declarada, o
