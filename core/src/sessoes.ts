@@ -11,7 +11,7 @@ import { lerPerfis, PerfilDeDespacho, perfilDeDespacho } from './runtime-profile
 import { tabela } from './util';
 import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar } from './ledger';
-import { dirThread } from './thread';
+import { dirThread, lerThread } from './thread';
 
 export function textoDoInventario(r: InventarioDeSessoes): string {
   const linhas = [
@@ -102,14 +102,18 @@ const ENCERRAM_A_SESSAO = ['phase_result', 'sessao_morta', 'session_superseded']
  * projeto, gravando `sessao_morta` no ledger da thread: e o evento que libera a conducao
  * (`fimDaSessao`) e a vaga. Nunca chama o runtime: o registro no `claude agents` fica onde esta.
  */
-export function limparFantasmas(raiz: string, opcoes: { dryRun?: boolean; agora?: string } = {}):
+export function limparFantasmas(raiz: string,
+  opcoes: { dryRun?: boolean; agora?: string; thread?: string; origem?: string } = {}):
   { ok: boolean; dryRun: boolean; itens: FantasmaTratado[]; falhas: string[] } {
   const canonica = raizDoEstado(raiz);
   const inv = inventariarSessoes(canonica, { global: true });
   const itens: FantasmaTratado[] = [];
   for (const s of inv.sessoes.filter(x => x.fantasma)) {
-    if (s.vinculos.length === 0) { itens.push({ sessionId: s.sessionId, perfil: s.perfil, thread: null, fase: null, acao: 'sem-thread' }); continue; }
-    for (const v of s.vinculos) {
+    // Fechamento (RM-056, ao fechar): so os vinculos da thread que fecha; o resto fica como estava.
+    const vinculos = opcoes.thread ? s.vinculos.filter(v => v.thread === opcoes.thread && v.raiz === canonica) : s.vinculos;
+    if (opcoes.thread && vinculos.length === 0) continue;
+    if (vinculos.length === 0) { itens.push({ sessionId: s.sessionId, perfil: s.perfil, thread: null, fase: null, acao: 'sem-thread' }); continue; }
+    for (const v of vinculos) {
       const base = { sessionId: s.sessionId, perfil: s.perfil, thread: v.thread, fase: v.fase };
       if (v.raiz !== canonica) { itens.push({ ...base, acao: 'outro-projeto' }); continue; }
       const dir = dirThread(canonica, v.thread);
@@ -118,7 +122,7 @@ export function limparFantasmas(raiz: string, opcoes: { dryRun?: boolean; agora?
       }
       if (!opcoes.dryRun) registrar(dir, v.thread, 'sessao_morta', {
         fase: v.fase, sessionId: s.sessionId, runtime: s.runtime, ...(s.perfil ? { perfilId: s.perfil } : {}),
-        origem: 'sessions.limpar-fantasmas', estadoNoRuntime: s.state ?? s.status ?? null,
+        origem: opcoes.origem ?? 'sessions.limpar-fantasmas', estadoNoRuntime: s.state ?? s.status ?? null,
         evidencia: 'claude agents lista a sessao sem pid ou com pid sem processo (fantasma, RM-056 D5)',
         razao: 'solta o vinculo do ork (conducao e vaga) sem tocar no runtime: claude stop e claude rm nao acham o job',
       });
@@ -126,6 +130,20 @@ export function limparFantasmas(raiz: string, opcoes: { dryRun?: boolean; agora?
     }
   }
   return { ok: inv.ok, dryRun: opcoes.dryRun === true, itens, falhas: inv.fontes.filter(f => !f.ok).map(f => `${f.origem}: ${f.detalhe}`) };
+}
+
+/**
+ * RM-056 (ao fechar): as sessoes registradas na thread que o ledger dela ainda nao encerra. E o filtro
+ * barato do fechamento: so com alguma delas o `liberarAoFechar` consulta o inventario (o `claude agents`
+ * de cada conta). Sessao sem fim pode estar viva; quem decide se e fantasma e o inventario.
+ */
+export function sessoesSemFim(raiz: string, threadId: string): string[] {
+  const canonica = raizDoEstado(raiz);
+  const t = lerThread(canonica, threadId);
+  const eventos = lerLedger(dirThread(canonica, threadId));
+  const encerradas = new Set(eventos.filter(e => ENCERRAM_A_SESSAO.includes(e.tipo)).map(e => String(e.sessionId ?? '')));
+  const ids = (Array.isArray(t.sessoes) ? t.sessoes : []).map(s => s?.sessionId).filter((id): id is string => typeof id === 'string');
+  return [...new Set(ids)].filter(id => !encerradas.has(id));
 }
 
 export function textoDaLimpeza(r: ReturnType<typeof limparFantasmas>): string {

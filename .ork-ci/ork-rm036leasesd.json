@@ -593,7 +593,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T07:13:35.278Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -607,7 +607,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T07:13:35.517Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -622,7 +622,7 @@
         "node --test --test-name-pattern='rm036 gofix: A4 nlink zero' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T07:17:02.295Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -637,7 +637,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T07:24:05.220Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -652,7 +652,7 @@
         "node --test --test-name-pattern='rm036 leases: A4 dois processos' core/dist-test/test/rm036-leases-canonicos.test.js"
       ],
       "criadoEm": "2026-10-03T07:24:05.261Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -667,7 +667,7 @@
         "node --test --test-name-pattern='rm036 gofix: (R3 release|R4 marca antiga|R4 descarte)' core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T07:27:41.219Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -683,7 +683,7 @@
         "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
       ],
       "criadoEm": "2026-10-03T07:30:56.717Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -698,7 +698,7 @@
         "node --test core/dist-test/test/rm036-leases-gofix.test.js"
       ],
       "criadoEm": "2026-10-03T07:30:56.765Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -713,6 +713,260 @@
         "node --test core/dist-test/test/rm036-leases-docs.test.js"
       ],
       "criadoEm": "2026-10-03T07:30:56.826Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "RM-036 rodada 5: a fila de retomada não trava as escritas do MCP (claim e documento continuam funcionando depois de uma retomada); fila sem sobra e candidato órfão visível e recolhido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:53:55.687Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-mcp.test.ts",
+      "alegacao": "RM-036 rodada 5: a fila de retomada não trava as escritas do MCP (claim e documento continuam funcionando depois de uma retomada); fila sem sobra e candidato órfão visível e recolhido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:53:55.914Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "RM-036 rodada 5: a fila de retomada não trava as escritas do MCP (claim e documento continuam funcionando depois de uma retomada); fila sem sobra e candidato órfão visível e recolhido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-gofix.test.js && node --test core/dist-test/test/rm036-leases-canonicos.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:53:56.135Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C62",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-mcp.test.ts",
+      "alegacao": "R5 bloqueador: testes de claim/documento durante e depois da retomada com flock e caminho portatil; pasta vazia removida e preflight recusa fila/candidato hostil. Execucao independente pendente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-mcp.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:59:33.665Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C63",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "R5 aviso 1: lease list expoe candidatos e temporarios; prazo de 30 min recolhe expirados com lease.resume-unavailable e correcao de nova aquisicao. Temporario parcial de processo morto e recolhido; retomador sem candidato nao prossegue.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='rm036 gofix: R5' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:04:53.538Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C64",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "R5: receitas incluem MCP, pasta vazia, TTL, temporario SIGKILL, perda de candidato, lista, motivo e correcao. Validacao estatica nao comprova morte de mutantes; execucao pela condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/rm036-leases-mutantes.cjs --validar",
+        "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|mcp:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
+      ],
+      "criadoEm": "2026-10-03T08:04:53.570Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C65",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/leases.ts",
+      "alegacao": "R5 aviso 3: reconsulta dev/ino imediatamente antes de unlink; teste troca path por vencedor wx depois do primeiro lstat, com flock e caminho portatil. Nao promete CAS atomico contra substituicao entre ultima syscall lstat e unlink.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test --test-name-pattern='rm036 gofix: R5 troca depois' core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:06:21.561Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C66",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "R5: contrato publico da fila MCP segura e removida quando vazia, listagem de candidatos, TTL de 30 min com correcao, temporarios SIGKILL, premissa de mesmo namespace PID e rechecagem dev/ino sem prometer CAS atomico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:14.174Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C67",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-007-worktree-e-leases.md",
+      "alegacao": "R5: contrato publico da fila MCP segura e removida quando vazia, listagem de candidatos, TTL de 30 min com correcao, temporarios SIGKILL, premissa de mesmo namespace PID e rechecagem dev/ino sem prometer CAS atomico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:14.204Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C68",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-029-conducao-multicanal.md",
+      "alegacao": "R5: contrato publico da fila MCP segura e removida quando vazia, listagem de candidatos, TTL de 30 min com correcao, temporarios SIGKILL, premissa de mesmo namespace PID e rechecagem dev/ino sem prometer CAS atomico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:14.234Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C69",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-036-maestro-multicanal.md",
+      "alegacao": "R5: contrato publico da fila MCP segura e removida quando vazia, listagem de candidatos, TTL de 30 min com correcao, temporarios SIGKILL, premissa de mesmo namespace PID e rechecagem dev/ino sem prometer CAS atomico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:14.262Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "R5: contrato publico da fila MCP segura e removida quando vazia, listagem de candidatos, TTL de 30 min com correcao, temporarios SIGKILL, premissa de mesmo namespace PID e rechecagem dev/ino sem prometer CAS atomico.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:14.288Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C71",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-docs.test.ts",
+      "alegacao": "R5: contratos executaveis para fila MCP, candidatos com TTL, namespace PID, temporarios SIGKILL, rechecagem inode e correcao de fila expirada sem apagar lease. Testes ainda nao executados nesta sessao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:50.519Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C72",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "R5: contratos executaveis para fila MCP, candidatos com TTL, namespace PID, temporarios SIGKILL, rechecagem inode e correcao de fila expirada sem apagar lease. Testes ainda nao executados nesta sessao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:50.549Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C73",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-artifacts.ts",
+      "alegacao": "R5: preflight aceita somente pasta real .json.retomadas e candidatos regulares nlink=1; tolera entradas que desapareceram durante limpeza. Cobre claim e documento durante/depois da retomada.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-mcp.test.js core/dist-test/test/mcp-artifacts.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:50.586Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C74",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-gofix.test.ts",
+      "alegacao": "R5: cenarios de PID reutilizado/EPERM expirado, temporario parcial, perda de candidato durante pausa e troca por vencedor wx depois do primeiro lstat. Inclui comportamento com flock e sem flock.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node --test core/dist-test/test/rm036-leases-gofix.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:09:50.622Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C75",
+      "thread": "ork-rm036leasesd",
+      "fase": "GO",
+      "arquivo": "core/scripts/rm036-leases-mutantes.cjs",
+      "alegacao": "R5 final: 87 receitas estaticamente validas, com inclusao dos testes MCP no controle. npm build:test saiu 0 e --validar saiu 0 com '87 receitas validas; mutantes nao executados'. Suite, mortes de mutantes e ork_verify permanecem pendentes para condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test",
+        "node core/scripts/rm036-leases-mutantes.cjs --validar",
+        "ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test --test-name-pattern='rm036 (gofix:|docs:|mcp:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs"
+      ],
+      "criadoEm": "2026-10-03T08:10:28.556Z",
       "estado": "pendente",
       "lint": []
     }
