@@ -256,6 +256,8 @@ filtrado pela concessão.
   **tipo, nó alvo e arquivo de origem**; `from` aponta ao rótulo `file` da origem. `quantidade`
   conta arestas originais, não tuplas; evidências idênticas são deduplicadas. Não há lista
   redundante de símbolos chamadores: os spans permitem localizar cada chamada no arquivo.
+  Na fatia 4, grupos do segundo salto acrescentam `salto: 2`; a ausência do campo significa
+  ligação direta. O schema permanece `ork.thread-graph-context/v2`.
 - Cada evidência é `[extrator, método, linhas, bytes]`: `extrator` é o índice numérico, começando
   em zero, na tabela ordenada `indice.extratores`; `linhas` é `[início, fim]`, inclusivo, com
   `null` quando indisponível; `bytes` é `[início, fim]` UTF-8, fim exclusivo. O caminho é o de
@@ -267,12 +269,22 @@ filtrado pela concessão.
 - `declares` e `contains` internos ao arquivo semente saem da lista e são contados em
   `resumidas.estruturais`. Não são relações perdidas pelo teto.
 
-A vizinhança tem um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
-A ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
+A vizinhança começa por um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
+Dentro dele, a ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
 (distância no grafo não dirigido de arquivos, não distância em linhas). Empates intercalam tipos
 por rodada de cada alvo; depois tipo e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
 empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários arquivos e preserva
 diversidade de tipos dentro da mesma prioridade.
+
+Na fatia 4, depois desse corte e da amostra de sementes ausentes, o orçamento restante admite
+ligações entre arquivos a dois saltos das sementes indexadas. Qualquer ligação direta tem
+prioridade sobre elas, inclusive uma ligação interna à semente. Só se expande por uma ponte
+presente nas ligações diretas que couberam; ponte cortada ou sem evidência própria não sustenta
+a expansão. A fronteira fica fixa: não há terceiro salto nem expansão das declarações internas
+dos vizinhos. `consulta.profundidade` passa a 2, em ambos os sentidos; `salto: 2` identifica os
+grupos indiretos, sem alterar referências locais nem tuplas de evidência. O limite de oito grupos
+por alvo é compartilhado com o primeiro salto. As contagens incluem candidatos de ambos os saltos,
+inclusive os omitidos por falta de ponte selecionada.
 
 O teto do JSON completo é 32.768 bytes, de 4.096 a 65.536, incluindo cabeçalho e medida.
 Cada grupo entra com as pontas e todas as tuplas. Se um grupo não cabe, tenta-se o próximo;
@@ -283,6 +295,38 @@ não estruturais, inclusive as que depois não cabem no teto.
 `omitidos.ligacoes` conta grupos, `omitidos.arestas` conta arestas originais. A identidade é:
 `total_arestas = soma(quantidade) + omitidos.arestas + resumidas.estruturais`.
 Pacote vazio é válido. As consultas por nó permitem aprofundar o que ficou de fora.
+
+### Fatia 4: citações literais no índice
+
+`cites` é uma aresta extraída de citação literal para um **arquivo existente no manifesto**,
+com evidência de arquivo, linhas e bytes. Sua origem é arquivo ou seção; não prova importação,
+chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta permanecem.
+
+- Markdown: caminhos em código inline ou destinos de links inline/imagens reconhecidos pelo
+  analisador CommonMark. Código cercado, comentários HTML e caminhos soltos na prosa não entram.
+  Código inline usa caminho desde a raiz ou `./`/`../` desde o documento. Links procuram primeiro
+  o caminho relativo ao documento e depois o literal desde a raiz; âncora e busca não fazem parte
+  do caminho. Links externos, caminhos que escapam da raiz, estado privado e alvos ausentes não
+  geram `cites`. Não há resolução adicional de links por definição de referência.
+- TypeScript/JavaScript em diretórios `test`, `tests`, `__tests__`, `script` ou `scripts`, ou nomes
+  `*.test.*`/`*.spec.*`: strings e templates sem interpolação que citam caminhos, inclusive
+  argumentos literais de `require(...)`/`import(...)` dentro de uma string de fixture. Comentários
+  e expressões dinâmicas não são avaliados. A evidência cobre o literal completo no arquivo real.
+- A resolução de módulo tenta o caminho exato, variantes de extensão e `index`; `.js`/`.mjs`/
+  `.cjs`/`.jsx` admitem fontes TypeScript. Na ausência, a convenção `dist/` → `src/` permite, por
+  exemplo, `require('../dist/x')` citar `../src/x.ts`. Só um alvo no primeiro grupo de candidatos
+  existente é aceito; ambiguidade recusa, sem escolher pelo nome. Isso é uma convenção de citação,
+  não uma reprodução do resolver do Node: não consulta disco, aliases, pacotes ou rede.
+
+A ligação Markdown é refeita sobre o manifesto atual. As unidades TypeScript guardam sondas
+também para candidatos ausentes, para criação, remoção ou ambiguidade invalidar citações antigas.
+O hash do código dos extratores já participa da chave do índice; um índice anterior exige
+`ork grafo indexar`. A flag `grafo.mcp` continua desligada por padrão.
+
+O comparador de `medir-mcp-grafo.cjs --contexto` permanece `ork.graph-context-cost/v3`, com as
+mesmas sementes, exports de pelo menos quatro caracteres e `grep -w` da fatia 3. A fixture
+histórica não é regravada por este GO. Cobertura maior nos dois casos, precisão superior ao grep
+e pacote menor que a saída do grep são metas pendentes da nova medida, não resultados destes testes.
 
 A mesma entrada e índice produzem bytes idênticos, mesmo com coleções permutadas. O compositor
 `core/src/intelligence-graph-contexto.ts` não faz E/S. CLI e worker compartilham o leitor da thread.
