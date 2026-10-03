@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T03:00:04.702Z",
+  "publicadoEm": "2026-10-03T03:10:56.346Z",
   "threads": [
     {
       "id": "ork-rm031grafofu",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-031",
       "branch": "ork/ork-rm031pacote-full",
-      "atualizadaEm": "2026-10-03T02:56:04.603Z",
+      "atualizadaEm": "2026-10-03T03:09:04.651Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -24,6 +24,23 @@
       "esforco": "max"
     },
     {
+      "id": "ork-rm036leasesd",
+      "nome": "RM-036 leases de todas as familias no estado canonico",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-036",
+      "branch": "ork/ork-rm036leases-full",
+      "atualizadaEm": "2026-10-03T03:10:53.853Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
       "id": "ork-rm038univers",
       "nome": "RM-038 universo do indice igual ao da busca",
       "modo": "#Auto",
@@ -31,7 +48,7 @@
       "status": "aberta",
       "roadmap": "RM-038",
       "branch": "ork/ork-rm038univers-full",
-      "atualizadaEm": "2026-10-03T02:57:32.312Z",
+      "atualizadaEm": "2026-10-03T03:09:53.186Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
