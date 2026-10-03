@@ -42,6 +42,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Corrigido
+
+- **Teste instável do lease da sucessora no Node 22** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o caso B-1 de `rm037-baseline-no-despacho` lia `conducaoDaThread` logo depois de despachar uma sessão codex que
+  termina sozinha. O watcher destacado grava o `phase_result` na volta seguinte do laço de 1 s, e dali em diante a
+  leitura derivada é `null` por desenho; num runner carregado o teste chegava depois do watcher e reprovava (run
+  37096532937, que passou no rerun). Agora ele espera o fim da sessão e lê a identidade no lease, sempre na mesma ordem.
+  Com 3 s de atraso injetado depois do despacho, o teste antigo reprova com a mesma mensagem do CI e o novo passa; sob
+  carga, o arquivo passou 60 vezes seguidas no Node 22 e no 24. A varredura de `FINALIZAR-SIMULADO` e `conducaoDaThread`
+  em `core/test` não achou outro teste que leia estado vivo de sessão que termina sozinha.
+
 ### Segurança
 
 - **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
