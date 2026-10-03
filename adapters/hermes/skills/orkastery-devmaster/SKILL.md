@@ -8,7 +8,7 @@ license: MIT
 
 # Orkastery no Hermes
 
-Consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
+Mensagem literal `orkastery maestro`: a primeira ação é a `ork_maestro`; só depois dela consulte `ork experiencia show --json --projeto <nome>`. Se `experience` for true, leia `../<skill>/SKILL.md` conforme `skill`: `orchestration-experience-pt-br` ou `orchestration-experience`, ambas instaladas. Use idioma, fuso e profundidade efetivos; se false, não ative o pacote. Preferências não alteram permissões nem HMAC.
 
 Mensagem literal `orkastery maestro`: use `ork_maestro` (wrapper de `ork maestro --json`) para o panorama do projeto pedido; o nome dito pelo dono ("do orkastery") vai como `--projeto <nome>` (RM-052). Sem projeto nomeado, ofereça o panorama da rede: `ork_network_roadmap` (wrapper de `ork network roadmap`), com cada projeto conhecido, as threads de todas as máquinas, fontes, frescor e lacunas, transportado como vem (RM-054).
 Não abra thread por essa consulta. O gateway não tem diretório de projeto: `projeto.escolha` traz os candidatos; apresente-os e pergunte, nunca escolha pelo cwd.

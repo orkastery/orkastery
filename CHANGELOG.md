@@ -133,9 +133,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **A skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro`** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  na segunda rodada da prova do Codex, o `ork doctor`, o `ork onboarding` e o `ork experiencia show` rodaram no
+  shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
+  da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
+  de entrada e na cópia do marketplace.
 - **Recibos do ensaio com o estado real dos achados** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
-
 - **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
   merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
