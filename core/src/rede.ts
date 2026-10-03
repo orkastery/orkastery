@@ -550,9 +550,22 @@ export function lerMarcaDaRede(): MarcaDaRede | null {
   try { return JSON.parse(fs.readFileSync(arquivoDaMarca(), 'utf8')) as MarcaDaRede; } catch { return null; }
 }
 
-function gravarMarca(marca: MarcaDaRede): void {
+/**
+ * Suspeitas da revisao de 03/10: a marca troca inteira, por `rename`. Escrita direta deixava o
+ * `ork network status`, o doctor e o `publicarRede` (que le fora da trava) ver o arquivo vazio ou
+ * cortado, e um processo morto entre o truncamento e a escrita deixava a marca ilegivel: a proxima
+ * publicacao perdia a reserva D7 dos projetos. Exportada so para o teste.
+ */
+export function gravarMarca(marca: MarcaDaRede): void {
   fs.mkdirSync(pastaDaRede(), { recursive: true });
-  fs.writeFileSync(arquivoDaMarca(), JSON.stringify(marca, null, 2) + '\n', { mode: 0o600 });
+  const temporario = `${arquivoDaMarca()}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporario, JSON.stringify(marca, null, 2) + '\n', { mode: 0o600 });
+    fs.renameSync(temporario, arquivoDaMarca());
+  } catch (e) {
+    try { fs.rmSync(temporario, { force: true }); } catch { /* o temporario e so deste processo */ }
+    throw e;
+  }
 }
 
 export interface OpcoesDaPublicacao extends OpcoesDaCasa {
