@@ -125,12 +125,17 @@ test(`RM036: commit ${transporte} mantém Codex vivo com rollout parado além de
 }
 
 for (const caso of ['expirou', 'sem-auditoria', 'outra-sessao', 'outra-thread', 'outra-origem', 'sha-invalido',
-  'futuro', 'antes-do-despacho', 'depois-de-outro-despacho', 'runtime-ausente', 'terminal-nativo'] as const) {
+  'futuro', 'antes-do-despacho', 'depois-de-outro-despacho', 'runtime-ausente', 'controller-ausente', 'terminal-nativo'] as const) {
   test(`RM036: commit não oculta silêncio nem lacuna de prova (${caso})`, async t => {
     const p = fixture(t);
     p.run(2000);
     if (caso === 'runtime-ausente') {
       const fim = once(p.filhos[1], 'close'); p.filhos[1].kill(); await fim;
+    }
+    if (caso === 'controller-ausente') {
+      const fim = once(p.filhos[0], 'close'); p.filhos[0].kill(); await fim;
+      assert.equal(p.filhos[1].exitCode, null, 'runtime continua vivo');
+      assert.equal(p.filhos[1].signalCode, null);
     }
     // Terminal presente vence até um estado mutável que ainda diga working.
     if (caso === 'terminal-nativo') p.escrever('state.json', { ...p.state,
