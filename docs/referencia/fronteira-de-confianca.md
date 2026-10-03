@@ -93,7 +93,7 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `memory.cli` | manifesto | `path.resolve` no cwd | nome no PATH ou absoluto |
 | `worktree.dir` | manifesto | `..` e absoluto aceitos | **Pendente do dono** (P3) |
 | `thread.worktree` | `thread.json` | cwd de agente, git e `ci prepare` | só worktree registrada no git e `thread.json` fora do índice (**Corrigido, em decisão do dono**, P2) |
-| ponteiros do `ork recall` e do handoff | `handoff.json`, `claim.arquivo`, `promptPath` | `path.resolve` sem contenção | **Pendente do dono** (P2) |
+| ponteiros do `ork recall` e do handoff | `handoff.json`, `claim.arquivo`, `promptPath` | `path.resolve` sem contenção | pelo caminho real, só dentro da raiz ou da worktree registrada da thread: o recall recusa com `ponteiro.fora-da-raiz`, e o export não aponta para fora (**Corrigido, em decisão do dono**, P2) |
 | `.ork-ci/*.json` | bundle do clone | lido até 1 MiB, segue link | Declarado (o bundle é executado por desenho no CI) |
 | `docs/roadmap/*.md`, `README.md`, `orkastery.setup.json`, `orkastery.yaml` como link | arquivo do clone | escrita segue o link, só se o alvo tiver o formato esperado e só em comando explícito | Defendido pelo formato; baixo |
 | nomes vindos das branches `ork/*` e de outras máquinas | branch de estado | nunca viram caminho local | Inerte |
@@ -108,7 +108,7 @@ o mesclar; a coluna da direita diz o estado de cada um.
 | Id | Classe do problema | Por que é contrato, ou o estado |
 | --- | --- | --- |
 | P1 | O manifesto escolhe a postura de sandbox do agente | **Corrigido, em decisão do dono.** A postura que afrouxa o sandbox (`danger-full-access`) só despacha, no `ork phase run` e no `ork retry run`, depois de a máquina confirmá-la no setup local, fora do git (`ork setup sandbox confirmar <postura>`). Sem isso, o despacho recusa com `runtime.sandbox-nao-confirmado` e diz o comando |
-| P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro | **Corrigido em parte, em decisão do dono.** Estado rastreado pelo git não escolhe cwd, worktree nem executável; o cwd de git e agente só vale na raiz ou numa worktree do `git worktree list` do repositório; o transporte do pulse e do digest só vale do arquivo de host local. Falta a contenção dos ponteiros do recall e do handoff, que seguem pendentes |
+| P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro | **Corrigido, em decisão do dono.** Estado rastreado pelo git não escolhe cwd, worktree nem executável; o cwd de git e agente só vale na raiz ou numa worktree do `git worktree list` do repositório; o transporte do pulse e do digest só vale do arquivo de host local; os ponteiros do recall e do handoff só leem arquivo que, pelo caminho real, fica na raiz ou na worktree registrada da thread (`ponteiro.fora-da-raiz`) |
 | P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | Worktree fora da raiz é um uso comum e não está proibido em lugar nenhum. O MCP já recusa; o CLI aceita |
 | P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | O comando é do CI do kit e roda o próprio código de propósito; falta decidir se ele confere a raiz do pacote |
 | P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | É opt-in documentado no manifesto; a pergunta é se o opt-in deve ser da máquina, não do repositório |

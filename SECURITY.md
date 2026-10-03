@@ -54,6 +54,8 @@ Duas decisões ficam com a máquina, nunca com o repositório. A postura de sand
 (`runtime.sandbox: danger-full-access`) só despacha depois de `ork setup sandbox confirmar <postura>`
 nesta máquina. E o estado de `.orkastery/` versionado no git não escolhe onde git e agente rodam nem o
 executável do pulse e do digest: o cwd só vale na raiz ou numa worktree registrada no `git worktree list`.
+Os ponteiros que o estado guarda (o `location` do `handoff.json`, o arquivo de uma claim, o prompt de uma
+sessão) só leem arquivo que, pelo caminho real, fica na raiz do projeto ou na worktree registrada da thread.
 
 ---
 

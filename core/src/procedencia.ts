@@ -118,3 +118,42 @@ export function exigirHostLocal(raiz: string, arquivo: string): void {
       'não link nem diretório.');
   }
 }
+
+/** `filho` está dentro de `pai` (ou é o próprio `pai`), pelos caminhos reais? */
+function dentroDe(pai: string, filho: string): boolean {
+  const rel = path.relative(pai, filho);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * Um ponteiro que o estado guarda (`location` do `handoff.json`, `arquivo` de uma claim, `promptPath`
+ * de uma sessão, arquivo de handoff ou de lição da memória) só é lido se, pelo caminho real (links
+ * resolvidos), cair na raiz do projeto, na árvore principal ou na worktree registrada da thread.
+ * Devolve o caminho real, ou `null` quando ele sai dessas raízes ou não existe.
+ */
+export function caminhoContidoOuNulo(raiz: string, thread: { id: string; worktree: string | null } | null,
+  caminho: string): string | null {
+  let alvo: string;
+  try { alvo = fs.realpathSync(caminho); } catch { return null; }
+  let principal: string;
+  try { principal = raizDoEstado(raiz); } catch { principal = path.resolve(raiz); }
+  const raizes = [real(raiz), real(principal)];
+  if (thread?.worktree) {
+    const w = cwdLocalOuNulo(raiz, thread.id, thread.worktree, 'thread');
+    if (w) raizes.push(real(w));
+  }
+  return raizes.some(r => dentroDe(r, alvo)) ? alvo : null;
+}
+
+/**
+ * Como `caminhoContidoOuNulo`, com a recusa tipada `ponteiro.fora-da-raiz` quando o arquivo existe
+ * mas sai das raízes. Arquivo ausente segue para quem chamou dizer que o ponteiro não resolve.
+ */
+export function exigirCaminhoContido(raiz: string, thread: { id: string; worktree: string | null } | null,
+  caminho: string, origem: string): string {
+  const contido = caminhoContidoOuNulo(raiz, thread, caminho);
+  if (contido) return contido;
+  throw new Error(`ponteiro.fora-da-raiz: ${JSON.stringify(String(origem)).slice(0, 200)} aponta para fora da raiz do ` +
+    'projeto e da worktree registrada da thread (também por link simbólico). Um ponteiro guardado no estado só lê ' +
+    'arquivo de dentro do projeto. Exporte o handoff de novo (ork handoff export) ou copie o arquivo para dentro do projeto.');
+}

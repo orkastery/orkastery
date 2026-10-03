@@ -124,7 +124,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
     `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
   - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
-    fora do índice do git (`transporte.rastreado`).
+    fora do índice do git (`transporte.rastreado`);
+  - os ponteiros do `ork recall`, do `ork handoff recall` e do `ork handoff export` (o `location` do `handoff.json`,
+    o arquivo de uma claim, o prompt de uma sessão, o handoff e a lição vindos da memória) só leem arquivo que, pelo
+    caminho real, fica na raiz do projeto ou na worktree registrada da thread. O recall recusa com
+    `ponteiro.fora-da-raiz`, e o export deixa de apontar para fora.
 - **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
   [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:
