@@ -20,6 +20,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 export const BRAIN_HOST_SURFACES = {
   hermes: 'cli', openclaw: 'cli', 'claude-code': 'mcp', codex: 'mcp',
@@ -299,6 +300,8 @@ export interface ResultadoInstalacao {
   reciboVizinho?: string;
   ok: boolean;
   orkBin: string;
+  /** Ensaio de 03/10: o `ork` do PATH é outro binário que o que roda o install; diz as duas versões. */
+  avisoOrk?: string;
   pitfalls: Pitfall[];
   experiencia?: { ativa: boolean; arquivos: string[]; skill: string; aviso?: string };
 }
@@ -312,8 +315,14 @@ export interface OpcoesInstalacao {
   force?: boolean;
   /** Raiz do catalogo (padrao: descoberta a partir do cwd e do proprio codigo). */
   catalogo?: string;
-  /** Caminho do `ork` gravado nos manifestos (padrao: o que estiver no PATH). */
+  /** Caminho do `ork` gravado nos manifestos (`--ork`, o override explícito: vence tudo). */
   orkBin?: string;
+  /**
+   * O `ork` que roda este install (caminho real do CLI). Sem `--ork`, é ele que a extensão chama, e não o
+   * primeiro `ork` do PATH: pelo tarball, a extensão 0.5.2 ficava chamando o `ork` 0.4.3 global (ensaio de 03/10).
+   * Sem ele (função chamada por outro código), vale a ordem antiga: o PATH e depois o catálogo.
+   */
+  orkEmExecucao?: string;
   versao?: string;
   /**
    * I-43 (D5): a decisao do operador sobre UM arquivo, por caminho relativo.
@@ -345,6 +354,26 @@ function listarArquivos(dir: string, prefixo = ''): { origem: string; relativo: 
   return achados;
 }
 
+function mesmoArquivo(a: string, b: string): boolean {
+  try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); }
+}
+
+/**
+ * Ensaio de 03/10: com outro `ork` primeiro no PATH, a extensão segue apontando para o binário que roda o
+ * install, e o aviso diz as duas versões para ninguém descobrir a diferença pela extensão chamando o velho.
+ */
+export function avisoDoOrkNoPath(emExecucao: string, versao: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const doPath = noPath('ork', env);
+  if (!doPath || mesmoArquivo(doPath, emExecucao)) return undefined;
+  let outra = 'versão desconhecida';
+  try {
+    const saida = execFileSync(doPath, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'], env });
+    outra = saida.trim().split('\n')[0]?.trim() || outra;
+  } catch { /* o aviso sai mesmo sem a versão */ }
+  return `o ork do PATH (${doPath}, ${outra}) não é o que roda este install (${emExecucao}, ${versao}). ` +
+    `A extensão chama ${emExecucao}; para outro binário, passe --ork <caminho>.`;
+}
+
 /** Substitui os tres placeholders. Nao ha template engine aqui de proposito. */
 export function renderizarArquivo(
   conteudo: string,
@@ -370,8 +399,10 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ? path.resolve(projeto, opcoes.dir)
     : path.join(projeto, def.destinoPadrao);
   const destino = def.subdir ? path.join(base, def.subdir) : base;
-  const orkBin = opcoes.orkBin ?? noPath('ork') ?? cliDoCatalogo(catalogo);
+  const orkBin = opcoes.orkBin ?? opcoes.orkEmExecucao ?? noPath('ork') ?? cliDoCatalogo(catalogo);
   const versao = opcoes.versao ?? VERSAO_DO_ORK;
+  const avisoOrk = opcoes.orkBin === undefined && opcoes.orkEmExecucao
+    ? avisoDoOrkNoPath(opcoes.orkEmExecucao, versao) : undefined;
 
   const dirDoHost = path.join(catalogo, 'adapters', host);
   if (!fs.existsSync(dirDoHost)) {
@@ -535,6 +566,7 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     ...(reciboVizinho ? { reciboVizinho } : {}),
     ok: !barrado,
     orkBin,
+    ...(avisoOrk ? { avisoOrk } : {}),
     pitfalls: def.pitfalls,
     ...(preferencias || avisoExperiencia ? { experiencia: { ativa: host !== 'openclaw' && !!preferencias?.experience && !avisoExperiencia,
       arquivos: planoExperiencia?.mudancas.map(m => path.relative(planoExperiencia!.projeto, m.arquivo)) ?? [], skill: preferencias?.skill ?? '',
@@ -644,27 +676,32 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
         ? `Arquivos do adaptador ${r.host} preparados.`
         : `Instalacao do adaptador ${r.host} BARRADA: ha arquivo diferente no destino.`
   );
+  // Ensaio de 03/10 (R6): a ativacao sai no comeco e de novo no fim, depois da lista de arquivos e dos
+  // pitfalls, para que o fim da saida diga o proximo passo.
+  const ativacao: string[] = [];
   if (r.ok && !r.dryRun && r.host === 'claude-code') {
     const destino = "'" + r.destino.replace(/'/g, "'\"'\"'") + "'";
     linhas.push('Uso no Claude Code ainda nao verificado por esta copia.');
     linhas.push('No diretorio deste projeto, valide e ative o plugin:');
-    linhas.push(`  claude plugin validate ${destino}`);
-    linhas.push(`  claude plugin marketplace add ${destino} --scope project`);
-    linhas.push('  claude plugin install orkastery@orkastery --scope project');
-    linhas.push('  claude plugin list --json');
-    linhas.push('Depois, na sessao deste projeto: /orkastery:ork');
+    ativacao.push(`  claude plugin validate ${destino}`);
+    ativacao.push(`  claude plugin marketplace add ${destino} --scope project`);
+    ativacao.push('  claude plugin install orkastery@orkastery --scope project');
+    ativacao.push('  claude plugin list --json');
+    ativacao.push('Depois, na sessao deste projeto: /orkastery:ork');
   } else if (r.ok && !r.dryRun && r.host === 'codex') {
-    linhas.push('Abra o Codex neste projeto e use $ork.');
-    linhas.push('Descoberta e uso nativo ainda nao verificados por esta copia.');
+    ativacao.push('Abra o Codex neste projeto e use $ork.');
+    ativacao.push('Descoberta e uso nativo ainda nao verificados por esta copia.');
   }
   if(r.ok && !r.dryRun && (r.host==='codex' || r.host==='claude-code')) {
     const projeto="'"+r.projeto.replace(/'/g,"'\"'\"'")+"'";
-    linhas.push(`Prepare tambem as ferramentas do projeto: ork mcp install --project ${projeto} --host ${r.host}`);
-    linhas.push('A configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.');
+    ativacao.push(`Prepare tambem as ferramentas do projeto: ork mcp install --project ${projeto} --host ${r.host}`);
   }
+  linhas.push(...ativacao);
+  if (ativacao.length) linhas.push('A configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.');
   linhas.push(`  catalogo: ${r.catalogo}`);
   linhas.push(`  destino:  ${r.destino}`);
   linhas.push(`  ork:      ${r.orkBin}`);
+  if (r.avisoOrk) linhas.push(`  Aviso: ${r.avisoOrk}`);
   linhas.push('');
   const novos = r.arquivos.filter((a) => a.estado === 'novo').length;
   const iguais = r.arquivos.filter((a) => a.estado === 'igual').length;
@@ -717,5 +754,10 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
   }
   linhas.push('');
   linhas.push(textoDosPitfalls(r.host));
+  if (ativacao.length) {
+    linhas.push('');
+    linhas.push(r.host === 'claude-code' ? 'Proximo passo, no diretorio deste projeto (o mesmo do comeco):' : 'Proximo passo (o mesmo do comeco):');
+    linhas.push(...ativacao);
+  }
   return linhas.join('\n');
 }

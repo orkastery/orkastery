@@ -90,6 +90,8 @@ function brainFalso(p: ProjetoDeTeste, opcoes: { fatos?: any[]; retidos?: string
     ...(opcoes.fatos ?? [])].map(e => [e.id, e]));
   const retidos = opcoes.retidos ?? [];
   return request => {
+    // OrkMind anterior ao modo `context` (B4.2): o contexto do dossiê vai pelo caminho da consulta.
+    if ((request.payload as any)?.mode === 'context' && !opcoes.fora) return { schema: BRAIN_API, state: 'unavailable', error: 'brain.selection.context-unsupported' };
     opcoes.chamadas?.push(request.operation);
     if (opcoes.fora) return { schema: BRAIN_API, state: 'unavailable', error: 'brain.transport.unavailable' };
     const payload = request.payload as any;

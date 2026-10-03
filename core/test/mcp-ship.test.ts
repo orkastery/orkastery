@@ -10,6 +10,7 @@ import {lerLedger} from '../src/ledger';
 import {adquirirRegiao,lerLease,liberar,caminhoLease} from '../src/leases';
 import {exec} from '../src/util';
 import {criarPerfilShipMcp,shipMcp,PedidoShipMcp,PerfilShipMcp} from '../src/mcp-ship';
+import { semCodexSandbox } from './ambiente-de-teste';
 async function fixture(fn:(f:{raiz:string;wt:string;remoto:string;id:string;pedido:PedidoShipMcp;git:(args:string[],cwd?:string)=>string})=>Promise<void>) {
   const home=dirTemporario('mcp-ship-home'),antes=process.env.HOME,xdg=process.env.XDG_CONFIG_HOME;
   process.env.HOME=home;process.env.XDG_CONFIG_HOME=path.join(home,'xdg');const p=projetoTemporario('mcp-ship',true);
@@ -23,7 +24,7 @@ async function fixture(fn:(f:{raiz:string;wt:string;remoto:string;id:string;pedi
     if(xdg===undefined)delete process.env.XDG_CONFIG_HOME;else process.env.XDG_CONFIG_HOME=xdg;fs.rmSync(home,{recursive:true,force:true});}
 }
 
-test('SHIP MCP: API integral verifica em sandbox, mergeia e prova push no bare fixado',async()=>fixture(async f=>{
+test('SHIP MCP: API integral verifica em sandbox, mergeia e prova push no bare fixado', { skip: semCodexSandbox() },async()=>fixture(async f=>{
   const perfil=criarPerfilShipMcp(f.raiz,'bare-local');const r=await shipMcp(perfil,f.pedido);
   assert.equal(r.ok,true,r.erro??r.resultado?.detalhe);assert.equal(r.resultado!.pushVerificado,true);
   const remoto=f.git(['ls-remote','origin','refs/heads/main']).trim().split(/\s/)[0];assert.equal(remoto,r.resultado!.mergeSha);
@@ -94,7 +95,7 @@ for(const tipo of ['existente','corrompida']) {
 }
 
 
-test('SHIP MCP: cancelar VERIFY encerra descendentes antes de retornar incompleto',async()=>fixture(async f=>{
+test('SHIP MCP: cancelar VERIFY encerra descendentes antes de retornar incompleto', { skip: semCodexSandbox() },async()=>fixture(async f=>{
   adicionarClaim(f.raiz,f.id,{arquivo:'entrega.md',alegacao:'contraprova de cleanup',fase:'GO',verificar:[
     'echo $$ > pid-fixture; while :; do date +%s%N > heartbeat-fixture; sleep .05; done'
   ]});
@@ -110,7 +111,7 @@ test('SHIP MCP: cancelar VERIFY encerra descendentes antes de retornar incomplet
 
 
 for(const alvo of ['fonte','destino','verify']) {
-  test(`SHIP MCP: tracked dirty em ${alvo} recusa antes de merge/push`,async()=>fixture(async f=>{
+  test(`SHIP MCP: tracked dirty em ${alvo} recusa antes de merge/push`, { skip: alvo==='verify' && semCodexSandbox() },async()=>fixture(async f=>{
     if(alvo==='verify')adicionarClaim(f.raiz,f.id,{arquivo:'entrega.md',alegacao:'contraprova de HEAD/conteudo',fase:'GO',verificar:['printf alterado >> entrega.md']});
     else fs.appendFileSync(path.join(alvo==='fonte'?f.wt:f.raiz,alvo==='fonte'?'entrega.md':'README.md'),'alterado');
     const r=await shipMcp(criarPerfilShipMcp(f.raiz,'bare-local'),f.pedido);assert.equal(r.ok,false);

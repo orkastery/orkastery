@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { raizDoEstado } from './estado-thread';
-import { ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
+import { MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds, pausaNaThread } from './thread';
@@ -59,6 +59,37 @@ export const CLASSES_DE_FALHA: Readonly<Record<ClasseDeFalha, string>> = {
   'scope-creep': 'a entrega cresceu alem do que o GOAL prometia',
   outra: 'nao cabe em nenhuma classe acima (descreva na justificativa)',
 };
+
+/**
+ * RM-008 (classe pelo gate): a classe que cada motivo tipado do gate sustenta quando ninguem informa
+ * `--classe`. Antes, todo gate virava "outra", a classe que o `ork licoes` ignora: 8 POSTMORTEMs de
+ * 03/10 fecharam assim por aceite por omissao. Motivo fora da tabela (prazo, falta de veredito,
+ * runtime, conta, custo, espera humana) nao cabe numa classe fixa e segue "outra".
+ */
+export const CLASSE_DO_MOTIVO: Readonly<Partial<Record<MotivoGate, ClasseDeFalha>>> = {
+  'artifact.missing': 'processo',
+  'claims.failed': 'processo',
+  'claims.unverifiable': 'processo',
+  'policy.violation': 'processo',
+  'runtime.autoconferencia': 'processo',
+  'verify.regression': 'processo',
+  'verify.failed': 'processo',
+  'ci.failed': 'processo',
+  'hitl.formato': 'processo',
+  'runtime.rate-limited': 'rate-limit',
+  'runtime.quota-exhausted': 'rate-limit',
+  'lease.busy': 'conflito',
+  'conducao.em-andamento': 'conflito',
+  'tree.blocked': 'conflito',
+};
+
+/** As classes que os motivos dos gates sustentam, na ordem canonica e sem repetir. */
+export function classesPelosGates(motivos: readonly string[]): ClasseDeFalha[] {
+  const achadas = new Set<ClasseDeFalha>();
+  for (const m of motivos) achadas.add(CLASSE_DO_MOTIVO[m as MotivoGate] ?? 'outra');
+  if (achadas.size === 0) achadas.add('sem-falha');
+  return ORDEM_DAS_CLASSES.filter((c) => achadas.has(c));
+}
 
 /** Ordem canonica das classes na saida do CLI. */
 export const ORDEM_DAS_CLASSES: readonly ClasseDeFalha[] = [
@@ -249,7 +280,8 @@ function prepararDocumentos(
   sincronizarReversao(raiz, id);
   const eventos = lerLedger(dirThread(raiz, id));
   const gatesBloqueados = eventos
-    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado)
+    // Ensaio de 03/10/2026 (RM-049): o gate barrado por um `ork ship --dry-run` e ensaio, nao reprovacao.
+    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado && e.dryRun !== true)
     .map((e) => ({
       ts: e.ts,
       motivo: String(e.motivo ?? '(sem motivo)'),
@@ -270,11 +302,12 @@ function prepararDocumentos(
   let classes = opcoes.classes ?? [];
   if (classes.length === 0) {
     classesInferidas = true;
-    classes = gatesBloqueados.length > 0 ? ['outra'] : ['sem-falha'];
+    classes = classesPelosGates(gatesBloqueados.map((g) => g.motivo));
+    const motivos = [...new Set(gatesBloqueados.map((g) => g.motivo))];
     avisos.push(
       gatesBloqueados.length > 0
-        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) e nenhuma --classe foi ` +
-          'informada: o `ork` gravou "outra". Corrija com --classe <classe> --refazer.'
+        ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) (${motivos.join(', ')}) e nenhuma --classe foi ` +
+          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate. Corrija com --classe <classe> --refazer.`
         : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".'
     );
   }
@@ -363,7 +396,7 @@ export function autoriaHumana(por: unknown): por is string {
     !/(?:^|[^a-z0-9])(codex|claude|gpt(?:[0-9-]*)?|openai|agente?|agent|runtime|auto|ia|llm|bot|pendente|pending|batch)(?:$|[^a-z0-9])/i.test(semAcento(por));
 }
 export function exigirAutoriaHumana(por: unknown): asserts por is string {
-  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito; agente ou autoria pendente não pode pontuar');
+  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
 }
 
 export function masterRatificado(raiz: string, id: string): boolean {
@@ -722,7 +755,8 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
     tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'ENTREGOU', 'INDICE', 'DE ONDE VEIO'], linhas),
     '',
     'ENTREGUE E ACEITO, a menos que voce diga o contrario.',
-    '  ork master --aceitar-omissao          aceita as entregues, com o indice e os insumos no ledger',
+    '  ork master <id> --aceitar-omissao     aceita so esta entrega, com o indice e os insumos no ledger',
+    '  ork master --aceitar-omissao          aceita TODAS as entregues da lista (--dry-run mostra quais, sem gravar)',
     '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   se quiser reclamar',
     '',
     `Classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`,
@@ -737,10 +771,41 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
  * ENTREGOU: uma thread que nunca chegou ao ship nao tem entrega para aceitar, e
  * aceita-la seria inventar um fato.
  */
-export function aceitarPendentesPorOmissao(raiz: string): AceitePorOmissao[] {
+export function aceitarPendentesPorOmissao(raiz: string, opcoes: { thread?: string } = {}): AceitePorOmissao[] {
+  return entregasParaOmissao(raiz, opcoes.thread).map((p) => aceitarPorOmissao(raiz, p.thread.id));
+}
+
+/**
+ * RM-008 (03/10/2026): o que `ork master --aceitar-omissao` fecharia, sem gravar nada.
+ *
+ * Na madrugada de 03/10, tres vezes, um condutor rodou `ork master --aceitar-omissao` para fechar
+ * a PROPRIA thread, e o comando fechou tambem as entregues de outras frentes paralelas. A CLI nao
+ * deixava indicar a thread. Com `thread`, o alvo e so ela; sem, continua sendo toda entrega que
+ * espera decisao (o padrao nao mudou). Thread inexistente recusa pelo `lerThread`.
+ */
+export function entregasParaOmissao(raiz: string, thread?: string): PendenteDeScore[] {
+  if (thread !== undefined) lerThread(raiz, thread);
   return pendentesDeScore(raiz)
     .filter((p) => p.entregou)
-    .map((p) => aceitarPorOmissao(raiz, p.thread.id));
+    .filter((p) => thread === undefined || p.thread.id === thread);
+}
+
+/**
+ * Por que a thread indicada nao entra no aceite por omissao, ou `null` quando entra.
+ * `ja-fechada` e idempotencia (nada a fazer); `fechamento-admin` e `sem-entrega` sao recusa.
+ */
+export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fechada' | 'fechamento-admin' | 'sem-entrega'; texto: string } | null {
+  const thread = lerThread(raiz, id);
+  if (thread.fechamentoAdmin) {
+    return { motivo: 'fechamento-admin', texto: `a thread ${id} foi fechada administrativamente (${thread.fechamentoAdmin.motivo}); nao ha entrega para aceitar.` };
+  }
+  if (masterRatificado(raiz, id)) {
+    return { motivo: 'ja-fechada', texto: `a thread ${id} ja tem MASTER registrado; nada a aceitar.` };
+  }
+  if (!entregou(raiz, id)) {
+    return { motivo: 'sem-entrega', texto: `a thread ${id} ainda nao entregou (sem ship_done no ledger); registre a entrega antes: ork ship registrar-pr ${id}` };
+  }
+  return null;
 }
 
 /** Texto de `ork master <thread-id> --score`. */

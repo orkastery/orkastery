@@ -11,7 +11,7 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
+| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com nove dependências de runtime; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
 | Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
@@ -82,14 +82,15 @@ Numa máquina com o Claude Code e sem o Codex, antes do `ork init`, a saída da 
 ```text
 ork doctor: o que vale nesta maquina agora
 
-  [ok]   node               v22.23.2
-  [ok]   git                /usr/bin/git
-  [ok]   repositorio        branch main
-  [ok]   runtime claude-bg  /home/voce/.local/bin/claude (2.1.287 (Claude Code))
-  [warn] runtime codex      binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
-                            correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
-  [FAIL] manifesto          orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
-                            correcao: ork init
+  [ok]   node                   v22.23.2
+  [ok]   analisadores do grafo  typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
+  [ok]   git                    /usr/bin/git
+  [ok]   repositorio            branch main
+  [ok]   runtime claude-bg      /home/voce/.local/bin/claude (2.1.287 (Claude Code))
+  [warn] runtime codex          binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
+                                correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
+  [FAIL] manifesto              orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
+                                correcao: ork init
 
 Veredito: BLOQUEADO (1 fail, 1 warn). Corrija os itens acima antes de despachar fase.
 ```
@@ -106,6 +107,10 @@ que use o `ork`.
 ork init --name "meu-produto" --abbrev prd
 ```
 
+Rode na raiz do repositório: fora de um repositório git, o `ork init` recusa sem criar nada
+(`init.fora-do-repositorio`), e o `ork doctor` avisa quando o `orkastery.yaml` que ele leu fica fora do
+repositório (um `ork init` antigo numa pasta acima dele).
+
 Isso gera o `orkastery.yaml`, a **fonte única** da configuração do projeto, com limite duro de
 16 KB, e um bloco do Orkastery no `AGENTS.md`. Prosa longa vai para a memória com tag, nunca para o
 manifesto.
@@ -121,7 +126,9 @@ git add orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
 
-Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
+Depois de `init`, execute `ork onboarding` para obter a pauta. A etapa `maestro`, respondida com
+`{"owner":{...}}`, grava o bloco `owner` no `orkastery.yaml`: faça o commit do manifesto de novo antes do
+primeiro `ork ship`, porque a árvore principal suja barra o merge (`tree.blocked`). Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
 
 O que você provavelmente vai querer ajustar logo de cara:
 
@@ -166,6 +173,7 @@ máquina, ainda sem sessões do Claude Code, logo depois do `ork init`:
 ork doctor: o que vale nesta maquina agora
 
   [ok]   node                         v22.23.2
+  [ok]   analisadores do grafo        typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
   [ok]   git                          /usr/bin/git
   [ok]   repositorio                  branch main
   [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))
@@ -376,9 +384,10 @@ Qualquer passo que reprove grava `ship_blocked` com motivo tipado, e não avanç
 ```bash
 ork master prd-corrigirofil --score 4 \
   --justificativa "plano segurou, mas o fuso apareceu tarde no CHECK" \
-  --classe erro-de-spec
+  --classe erro-de-spec --por "seu-nome"
 ```
 
+O `--por` é obrigatório: a nota é de uma pessoa, e sem ele (ou com um nome de agente) o `ork` recusa.
 Isso grava o `POSTMORTEM.json` (com classe de falha das nove fixas) e o `master-log.json` (no
 contrato congelado `ork.master-log/v1`). Score sem justificativa é recusado, em qualquer modo.
 
@@ -387,7 +396,8 @@ ledger. A nota humana, quando vier, sobrescreve:
 
 ```bash
 ork master                    # as entregas, com o indice derivado do ledger
-ork master --aceitar-omissao  # aceita as entregues, com indice e insumos no ledger
+ork master <thread> --aceitar-omissao  # aceita so esta entrega, com indice e insumos no ledger
+ork master --aceitar-omissao --dry-run  # sem a thread, lista todas as que fecharia, sem gravar
 ```
 
 ---

@@ -12,6 +12,7 @@ import { ship } from '../src/ship';
 import { lerLedger } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { commitar, projetoTemporario } from './apoio';
+import { semCodexSandbox } from './ambiente-de-teste';
 
 const q = (s: string) => "'" + s.replace(/'/g, "'\\''") + "'";
 function fixture() {
@@ -23,7 +24,7 @@ function fixture() {
   return { base, wt, externo, e, limpar: () => { e.fechar(); fs.rmSync(base, { recursive: true, force: true }); } };
 }
 
-test('sandbox real permite WT, bloqueia externo, symlink, Git e rede, preservando stdout/exit', () => {
+test('sandbox real permite WT, bloqueia externo, symlink, Git e rede, preservando stdout/exit', { skip: semCodexSandbox() }, () => {
   const f = fixture();
   try {
     const positivo = f.e.executar('ok', 'echo real-output; echo gravado > local.txt', f.wt) as ResultadoSandbox;
@@ -42,7 +43,7 @@ test('sandbox real permite WT, bloqueia externo, symlink, Git e rede, preservand
   } finally { f.limpar(); }
 });
 
-test('sandbox não herda perfil permissivo do projeto nem aceita outro cwd ou executor fechado', () => {
+test('sandbox não herda perfil permissivo do projeto nem aceita outro cwd ou executor fechado', { skip: semCodexSandbox() }, () => {
   const f = fixture();
   try {
     assert.equal(f.e.executar('missing', 'mkdir .codex; echo fuga > .codex/config.toml', f.wt).ok, false);
@@ -56,7 +57,7 @@ test('sandbox não herda perfil permissivo do projeto nem aceita outro cwd ou ex
   } finally { f.limpar(); }
 });
 
-test('timeout recolhe neto setsid e nenhum processo marcado sobrevive', async () => {
+test('timeout recolhe neto setsid e nenhum processo marcado sobrevive', { skip: semCodexSandbox() }, async () => {
   // As janelas crescem juntas para o teste nao depender de o neto nascer em 500 ms: sob a
   // suite paralela ele nao nascia, e a reprovacao caia no passo que so PREPARA o cenario
   // ("o comando realmente iniciou"). O que se prova continua o mesmo: o timeout estoura
@@ -80,7 +81,7 @@ test('timeout recolhe neto setsid e nenhum processo marcado sobrevive', async ()
   } finally { e.fechar(); f.limpar(); }
 });
 
-test('limite de saída falha fechado e comando não recebe credenciais herdadas', () => {
+test('limite de saída falha fechado e comando não recebe credenciais herdadas', { skip: semCodexSandbox() }, () => {
   const f = fixture(); const anterior = process.env.ORK_VERIFY_SECRET;
   process.env.ORK_VERIFY_SECRET = 'nao-deve-chegar';
   try {
@@ -90,7 +91,7 @@ test('limite de saída falha fechado e comando não recebe credenciais herdadas'
   } finally { if (anterior === undefined) delete process.env.ORK_VERIFY_SECRET; else process.env.ORK_VERIFY_SECRET = anterior; f.limpar(); }
 });
 
-test('VERIFY baseline/claims/manifest e SHIP dry-run usam executor interno; ledger continua canônico', () => {
+test('VERIFY baseline/claims/manifest e SHIP dry-run usam executor interno; ledger continua canônico', { skip: semCodexSandbox() }, () => {
   const p = projetoTemporario('sandbox-integration');
   const { thread } = novaThread(p.carregado, { nome: 'sandbox integration', modo: 'auto', criarWorktree: true });
   const wt = thread.worktree as string; const e = criarExecutorSandbox({ worktree: wt, timeoutMs: 3_000 });
@@ -112,7 +113,7 @@ test('VERIFY baseline/claims/manifest e SHIP dry-run usam executor interno; ledg
 });
 
 
-test('scratch fora WT mantém Git limpo antes/durante/depois sem ocultar untracked real',()=>{
+test('scratch fora WT mantém Git limpo antes/durante/depois sem ocultar untracked real', { skip: semCodexSandbox() },()=>{
   const p=projetoTemporario('sandbox-clean-git');
   // Commitar os arquivos reais de init estabelece o oráculo limpo explicitamente.
   const git=(args:string[])=>{const r=childProcess.spawnSync('git',args,{cwd:p.dir,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout;};
@@ -130,7 +131,7 @@ test('scratch fora WT mantém Git limpo antes/durante/depois sem ocultar untrack
   } finally {e.fechar();p.limpar();}
 });
 
-test('leaf scratch gravável, parent/sibling/codexHome e metadados readonly',()=>{
+test('leaf scratch gravável, parent/sibling/codexHome e metadados readonly', { skip: semCodexSandbox() },()=>{
   const f=fixture();
   try {
     const r=f.e.executar('scratch',`printf '%s\n' "$HOME"; echo scratch > "$TMPDIR/proof"; test -s "$TMPDIR/proof"`,f.wt) as ResultadoSandbox;
@@ -144,7 +145,7 @@ test('leaf scratch gravável, parent/sibling/codexHome e metadados readonly',()=
   } finally {f.limpar();}
 });
 
-test('diretório protegido preexistente fica intacto; arquivo/symlink inesperado não é convertido',()=>{
+test('diretório protegido preexistente fica intacto; arquivo/symlink inesperado não é convertido', { skip: semCodexSandbox() },()=>{
   const f=fixture();
   try {
     const target=path.join(f.wt,'.claude');fs.mkdirSync(target);fs.writeFileSync(path.join(target,'sentinel'),'owner');
@@ -160,7 +161,7 @@ test('diretório protegido preexistente fica intacto; arquivo/symlink inesperado
 });
 
 for(const tipo of ['conteudo','substituido'] as const) {
-  test('cleanup preserva placeholder '+tipo+' por outro escritor e não declara sucesso',()=>{
+  test('cleanup preserva placeholder '+tipo+' por outro escritor e não declara sucesso', { skip: semCodexSandbox() },()=>{
     const f=fixture(),target=path.join(f.wt,'.claude');
     const spawn=childProcess.spawnSync;let isolamentoProprio='';
     let restore=()=>{};
@@ -183,7 +184,7 @@ for(const tipo of ['conteudo','substituido'] as const) {
 }
 
 
-test('fechar preserva scratch substituído após erro de identidade; teardown explícito só da fixture',()=>{
+test('fechar preserva scratch substituído após erro de identidade; teardown explícito só da fixture', { skip: semCodexSandbox() },()=>{
   const f=fixture(),spawn=childProcess.spawnSync;let isolamentoProprio='',scratch='';
   let restore=()=>{};
   try {

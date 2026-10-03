@@ -20,7 +20,8 @@ import { validarEvidenciaLocal } from './hitl-local-receipt';
 import { ehContratoDePedido } from './hitl-contract';
 
 /** Onde um gate acontece. Uma policy declara em quais gates ela vale. */
-export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship';
+/** RM-008 (B8): `claims.add` so avalia policy em warn; nenhum gate bloqueia o registro de claim. */
+export type PontoDeGate = 'phase.dispatch' | 'verify' | 'ship' | 'claims.add';
 
 /** O que cada motivo tipado significa, em uma linha, para a saida do CLI. */
 export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
@@ -55,6 +56,7 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
   'tree.blocked':
     'a arvore de destino nao esta disponivel para o merge (branch em check-out com alteracao nao commitada, ou worktree que nao pode ser montada)',
   'lease.busy': 'lease ocupado por outra thread',
+  'lease.resume-unavailable': 'retomada indisponivel; libere o lease explicitamente com --forcar',
   'conducao.em-andamento':
     'outra conducao ja executa na worktree da thread (I-36): o pedido foi recusado com quem conduz e as tres acoes (esperar, acompanhar, assumir)',
   'hitl.formato':

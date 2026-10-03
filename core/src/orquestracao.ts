@@ -31,6 +31,7 @@ import * as adapter from './adapters/claude-bg';
 import { estadosDeSessao, planejar, threadsDeTodosOsPerfis, perfisDetectados } from './board';
 import { DESCRICAO_DO_MOTIVO } from './gates';
 import { ehEnsaio, lerLedger, TIPOS_DE_EVENTO } from './ledger';
+import { argumentoDeLease } from './leases';
 import { ManifestoCarregado } from './manifest';
 import { tagDoModo } from './modos';
 import {
@@ -294,7 +295,7 @@ function impedimentosAbertos(
           pausaSobre: '',
           detalhe: `na fila de ${p.nome}, atras da thread ${p.bloqueadaPor} (colide com ${p.colidiuCom})`,
           evidencia: `.orkastery/leases/fila.json (${p.tipo})`,
-          correcao: `espere a thread ${p.bloqueadaPor} liberar (ork lease release ${p.colidiuCom} --thread ${p.bloqueadaPor}), ou reduza a regiao pedida`,
+          correcao: `espere a thread ${p.bloqueadaPor} liberar (ork lease release ${argumentoDeLease(p.colidiuCom)} --thread ${argumentoDeLease(p.bloqueadaPor)}), ou reduza a regiao pedida`,
           desdeEm: p.desdeEm,
           sessaoViva: null,
           fonte: 'fila-de-lease',

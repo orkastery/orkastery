@@ -6,21 +6,21 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-02T11:40:00-03:00
+atualizado_em: 2026-10-03T07:20:00+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
-    pr: null
+    commit: 7266df6
+    pr: 49
 sdlc:
-  thread: ork-rm057alterna
+  thread: ork-rm057regrada
   modo: "#Auto"
   fase: GOAL
   status: aberta
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -79,13 +79,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
-| Documentação | Em revisão | — | 2026-10-02 | Julio |
-| Código | Branch criada | — | 2026-10-02 | Julio |
-| Testes | Em execução | — | 2026-10-02 | Julio |
-| Deploy | Não implantado | — | 2026-10-02 | Julio |
-| Exposição | Flag desligada | — | 2026-10-02 | Julio |
-| Habilitação | Pendente | — | 2026-10-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-03 | Julio |
+| Testes | Em execução | — | 2026-10-03 | Julio |
+| Deploy | Não implantado | — | 2026-10-03 | Julio |
+| Exposição | Flag desligada | — | 2026-10-03 | Julio |
+| Habilitação | Pendente | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -93,9 +93,14 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** fatia 2 (canário do pedido colado com autorização, prompts do OpenClaw e do Hermes e medição do tempo parado no ledger), fábrica, depois do merge da fatia 1.
+- **Próxima ação, responsável e prazo:** depois do merge da fatia 3, o piloto de 7 dias na condução do próprio Orkastery, lendo o tempo parado no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`, mediana de 7 dias) ou em `ork ledger stats --desde 7d`; a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts fica com o dono; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-02 | Item criado com prioridade alta | Incidente da noite de 01→02/10: mais de 10 h de condução parada por um HITL em texto livre | Julio |
 | 2026-10-02 | Fatia 1 na thread ork-rm057alterna: contrato de 3 a 5 com uma Recomendação no registro, dependência técnica tipada, letras a-e, selo no texto ao dono, lint `hitl-texto-livre` e a regra nos adaptadores do Claude Code e do Codex | Recorte registrado com `ork decisao registrar` na thread | Julio |
+| 2026-10-02 | Fatia 1 mesclada | PR 49, merge 7266df6 | Julio |
+| 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: canário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Fatia 2 mesclada | PR 52, merge 66b7ee3 | Julio |
+| 2026-10-03 | Fatia 3 na thread ork-rm057fatia3t: o tempo parado por HITL de condução no `ork pulse` e no `ork roadmap status` (`hitlDeConducao`: abertas com há quanto tempo, mediana de 7 dias), com uma linha no resumo do pulse só acima da meta de 5 min | Recorte registrado com `ork decisao registrar` na thread; campo aditivo opcional nos contratos que já existem, sem contrato novo | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | Fatia 4 na thread ork-rm057regrada, defeitos do ensaio isolado da reinstalação do OpenClaw: a regra também em `ork_network_roadmap` e `ork_network_status`, as únicas tools visíveis no perfil `coding` (o perfil não foi ampliado), e o `ork adapter install` apontando a extensão para o `ork` em execução, com aviso quando o do PATH é outro | Ensaio de 03/10: no `coding` o modelo do Telegram nunca lia a regra; pelo tarball, a extensão 0.5.2 chamava o `ork` 0.4.3 global. `tools.alsoAllow` fica como decisão do dono | Claude (agente, #Auto), revisão de Julio pendente |

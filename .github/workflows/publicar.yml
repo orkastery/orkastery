@@ -2,7 +2,7 @@
 # maquina nenhuma. O dono configura uma vez no npmjs.com: pacote @orkastery/cli > Settings >
 # Trusted publishing > GitHub Actions, com organizacao `orkastery`, repositorio `orkastery` e
 # workflow `publicar.yml`. Dispara pela tag `v<versao>` num commit da main, e so publica quando a
-# tag bate com o package.json e os canarios do produto passam.
+# tag bate com o package.json, os canarios do produto passam e o grafo roda no pacote instalado.
 name: Publicar no npm
 
 on:
@@ -14,8 +14,37 @@ permissions:
   id-token: write
 
 jobs:
+  # RM-031: o pacote desta tag, instalado global num prefixo e num HOME temporarios, indexa e consulta
+  # o grafo (a 0.5.0, a 0.5.1 e a 0.5.2 sairam sem os analisadores). Job proprio, so com leitura:
+  # a prova instala as transitivas do registro, sem lockfile, e roda o codigo longe do id-token da publicacao.
+  provar-grafo:
+    name: grafo no pacote instalado
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # O mesmo npm do job que publica.
+      - name: npm atual
+        run: npm install -g npm@latest
+
+      - name: instalar e compilar
+        run: npm ci && npm run build
+        working-directory: core
+
+      - name: grafo no pacote instalado
+        run: node core/scripts/provar-grafo-instalado.cjs
+
   publicar:
     name: publicar @orkastery/cli
+    needs: provar-grafo
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

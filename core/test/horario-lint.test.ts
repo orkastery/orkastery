@@ -143,7 +143,7 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'phase.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correção gravada no evento rate_limit_enqueued' },
   { arquivo: 'orquestracao.ts', trecho: '(${p.liberaEm}, ', razao: 'detalhe do JSON do monitor guarda ISO; linhaDaParada localiza' },
   { arquivo: 'ocupacao.ts', trecho: '(${PAUSA_PREVISTA}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
-  { arquivo: 'ocupacao.ts', trecho: '(human.pending) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
+  { arquivo: 'ocupacao.ts', trecho: '(${String(e.motivo)}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
   { arquivo: 'ocupacao.ts', trecho: '(${motivo}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
   { arquivo: 'liveness.ts', trecho: 'phase_dispatch ${d.ts} sessão', razao: 'evidência de máquina do liveness' },
   { arquivo: 'liveness.ts', trecho: 'chave = `${d.ts}|', razao: 'chave de deduplicação' },

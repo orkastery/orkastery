@@ -8,6 +8,10 @@ O agregador conta apenas `phase_result` como término de sessão e elimina repla
 
 Throughput usa `ship_done`; lead time vai de `thread_created` a `ship_done`; espera humana pareia `gate_blocked` com motivo `human.pending` ao `human_gate`, recortando o período consultado. Riscos preventivos contam somente gates com motivos conservadores e tipados. Linhas corrompidas são ignoradas e declaradas em `qualidade`.
 
+`hitlDeConducao` mede o tempo parado por HITL de condução ([RM-057](../../roadmap/RM-057-hitl-por-alternativas.md)): cada pergunta `ork.hitl/v2` que o ork abriu (`hitl_requested`, classe `pergunta`) espera do `criadoEm` até a primeira resposta (`human_gate` ou `session_answered`), o prazo de quem segue a recomendada, um pedido novo para o mesmo alvo ou o fechamento da thread, o que vier primeiro. O campo traz `pedidos`, `respondidos`, `semResposta`, `abertos`, `paradoMs` (recortado ao período), `medianaRespostaMs` e `maiorRespostaMs` (só das respondidas), a meta de 5 min com `dentroDaMeta` (`null` sem amostra) e `emTexto`, que separa a resposta em texto pela dependência técnica tipada da que veio fora da exceção. Decisão informada não para nada e fica fora. O "confirmo" pedido na conversa, fora do ork, não chega ao ledger: quem o barra é a regra dos adaptadores e o canário `fx-pedido-colado`.
+
+O `ork pulse` e o `ork roadmap status` levam o mesmo cálculo no campo opcional `hitlDeConducao`, que só aparece com pergunta aberta ou com pergunta e resposta na semana: `abertas` (thread, `pedidoId`, fase, `desdeEm` e `paradaHaMin`, da mais antiga para a mais nova), `seteDias` (a forma acima, nos últimos 7 dias) e `acimaDaMeta` (alguma aberta além de 5 min ou a mediana da semana acima). O resumo do pulse traz uma linha só com `acimaDaMeta`. O status lê só este disco; a visão da rede não soma o campo.
+
 No PLAN, o responsável pode registrar dois contrafactuais:
 
 ```sh

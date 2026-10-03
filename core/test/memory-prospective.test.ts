@@ -7,6 +7,7 @@ import { CAMPOS_NATIVOS, prepararVersaoProspectiva, hashProspectivo, SnapshotNat
 import { projetoTemporario } from './apoio';
 import { DriverEmMemoria, entradaDoJson } from '../src/orkmind';
 import { abrirMemoria, gravarPolicies } from '../src/memoria';
+import { semOrkMind } from './ambiente-de-teste';
 
 function fixture() {
   const p = projetoTemporario('prospectiva-isolada');
@@ -59,7 +60,7 @@ test('B4 preparo usa snapshot integral de tenant generico e preserva private, AC
   } finally { p.limpar(); }
 });
 
-test('B4 marcador integral sobrevive sync normal e repetido no duplo e na ponte nativa privada', () => {
+test('B4 marcador integral sobrevive sync normal e repetido no duplo e na ponte nativa privada', { skip: semOrkMind() }, () => {
   const { p, snapshot, autoria } = fixture();
   try {
     const plano = prepararVersaoProspectiva(p.carregado, snapshot, autoria);
@@ -127,7 +128,7 @@ test('B4 comando recusa aplicacao antes de carregar projeto ou banco', () => {
   assert.equal(r.status, 1); assert.equal(JSON.parse(r.stderr).erro, 'memory.prospective.apply-unavailable');
 });
 
-test('G3/G4/G10: produtor e validadores TS/Python recusam agentes human, protected nao booleano e scopes divergentes', () => {
+test('G3/G4/G10: produtor e validadores TS/Python recusam agentes human, protected nao booleano e scopes divergentes', { skip: semOrkMind() }, () => {
   const { p, snapshot, autoria } = fixture();
   try {
     const { agenteProspectivoValido, prospectivaCompativel } = require('../src/orkmind');

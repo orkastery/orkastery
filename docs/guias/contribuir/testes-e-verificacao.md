@@ -43,7 +43,8 @@ npm --prefix core test
 ```
 
 - Ela inclui integrações que pedem recurso local (Docker, OrkMind, sessão de runtime), listadas em [integracoes-locais.ts](../../../core/src/integracoes-locais.ts).
-- O CI não roda essas integrações. Na sua máquina, falha só nelas não é regressão sua.
+- O CI não roda essas integrações. Sem as dependências opcionais, cada teste que precisa delas sai como skip com o motivo (`# skip: PostgreSQL ausente ...`), e a suíte passa com 0 falhas. O fim do relatório conta os skips em `ℹ skipped`.
+- Tem tudo instalado e quer a prova completa? `ORK_TESTE_EXIGE_AMBIENTE=1 npm --prefix core test` não pula nada: a dependência que faltar reprova. Ver [verificação](../verificacao.md#dependência-opcional-ausente-é-skip-não-falha-rm-037).
 
 ## Falha anterior ou regressão
 

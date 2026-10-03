@@ -52,7 +52,7 @@ fontes:
 
   1. `ork master <thread>` grava POSTMORTEM e MASTER log.
   2. O índice sai de fatos: rodadas de GO-FIX, veredito do CHECK, CI vermelho antes de verde, reversão.
-  3. `ork master --aceitar-omissao` drena o que sobrou, com evento `aceite_por_omissao`.
+  3. `ork master --aceitar-omissao` drena o que sobrou, com evento `aceite_por_omissao`; `ork master <thread> --aceitar-omissao` aceita só a thread indicada, e `--dry-run` lista sem gravar (RM-008, 03/10/2026).
 
 - **Alternativas, erros e recuperação:** a nota humana sobrescreve a aceitação por omissão, e o evento antigo permanece.
 - **Pós-condições:** MASTER log e score na thread.

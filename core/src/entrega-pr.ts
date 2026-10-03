@@ -10,7 +10,9 @@
  * remota (ancestralidade conferida contra a ponta que o `ls-remote` devolve) e o check do CI no
  * head do PR. Sem CI verde, nao registra: merge sem prova independente nao e entrega.
  */
+import { exigirRemoto } from './branch-de-estado';
 import { consultarCi, consultarCiDoRepositorio, ExecutorCi, ResultadoCi } from './ci';
+import { DocPendente, docsPendentesDoMerge } from './docs';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { ManifestoCarregado } from './manifest';
@@ -26,6 +28,12 @@ export interface EntregaPorPr {
   headSha: string | null;
   ci: ResultadoCi | null;
   motivo: string;
+  /**
+   * RM-044 (A3): as paginas do roadmap desta thread que o push da base vai reprovar em
+   * `docs.paridade.merge` (merge ship(<thread>) na base com o `estado.codigo` fora de `Mesclado`).
+   * So aviso: nao grava, nao bloqueia o registro e nao muda o veredito do `docs verificar`.
+   */
+  docsPendentes: DocPendente[];
 }
 
 /** O merge `ship(<thread>)` mais recente na base remota, com o head do PR (segundo pai). */
@@ -54,7 +62,7 @@ function avancarParaShip(raiz: string, threadId: string): void {
 }
 
 function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, extra: Partial<EntregaPorPr> = {}): EntregaPorPr {
-  return { thread, acao, motivo, mergeSha: null, headSha: null, ci: null, ...extra };
+  return { thread, acao, motivo, mergeSha: null, headSha: null, ci: null, docsPendentes: [], ...extra };
 }
 
 /**
@@ -64,20 +72,24 @@ function resultado(thread: string, acao: EntregaPorPr['acao'], motivo: string, e
 export function registrarEntregaPorPr(carregado: ManifestoCarregado, threadId: string,
   opcoes: { remoto?: string; executorCi?: ExecutorCi; buscar?: boolean; publicar?: boolean; dryRun?: boolean } = {}): EntregaPorPr {
   const raiz = carregado.raiz;
-  const remoto = opcoes.remoto ?? 'origin';
+  // RM-047: o `--remoto` vem da linha de comando; so nome de remoto chega ao git, e depois do `--`.
+  const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const base = carregado.manifesto.worktree.base_branch;
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') return resultado(threadId, 'ja-registrada', 'thread ja fechada');
-  if (opcoes.buscar !== false) exec('git', ['fetch', '-q', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
-  const merge = mergeDaEntrega(raiz, threadId, remoto, base);
-  if (!merge) return resultado(threadId, 'sem-merge', `nenhum merge ship(${threadId}) em ${remoto}/${base}`);
+  if (opcoes.buscar !== false) exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], raiz);
+  const encontrado = mergeDaEntrega(raiz, threadId, remoto, base);
+  if (!encontrado) return resultado(threadId, 'sem-merge', `nenhum merge ship(${threadId}) em ${remoto}/${base}`);
+  // RM-044 (A3): o condutor roda o registrar-pr logo depois do merge; e aqui que ele fica sabendo da pagina que
+  // vai deixar o push da base vermelho, lida da base remota que o fetch acabou de trazer.
+  const merge = { ...encontrado, docsPendentes: docsPendentesDoMerge(raiz, threadId, `refs/remotes/${remoto}/${base}`) };
 
   const dir = dirThread(raiz, threadId);
   const jaTem = lerLedger(dir).some((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido && e.mergeSha === merge.mergeSha);
   if (jaTem) return resultado(threadId, 'ja-registrada', 'esta entrega ja tem ship_done', merge);
 
   // A ponta do remoto AGORA, e o merge dentro dela: e o que torna o push provado, nao presumido.
-  const remotoAgora = exec('git', ['ls-remote', remoto, `refs/heads/${base}`], raiz);
+  const remotoAgora = exec('git', ['ls-remote', '--', remoto, `refs/heads/${base}`], raiz);
   const ponta = remotoAgora.ok ? remotoAgora.stdout.split('\t')[0].trim() : '';
   if (!ponta || !exec('git', ['merge-base', '--is-ancestor', merge.mergeSha, ponta], raiz).ok) {
     return resultado(threadId, 'recusada', `o merge ${merge.mergeSha.slice(0, 7)} nao esta na ponta de ${remoto}/${base}`, merge);
@@ -236,9 +248,9 @@ export function registrarEntregaExternaPorPr(carregado: ManifestoCarregado, thre
 /** `ork ship registrar-pr --todas`: toda thread aberta que ja tem merge `ship(<thread>)` na base. */
 export function registrarEntregasPorPr(carregado: ManifestoCarregado,
   opcoes: { remoto?: string; executorCi?: ExecutorCi; dryRun?: boolean } = {}): EntregaPorPr[] {
-  const remoto = opcoes.remoto ?? 'origin';
+  const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const base = carregado.manifesto.worktree.base_branch;
-  exec('git', ['fetch', '-q', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], carregado.raiz);
+  exec('git', ['fetch', '-q', '--', remoto, `+refs/heads/${base}:refs/remotes/${remoto}/${base}`], carregado.raiz);
   const r = listarIds(carregado.raiz)
     .filter((id) => lerThread(carregado.raiz, id).status !== 'fechada')
     .filter((id) => mergeDaEntrega(carregado.raiz, id, remoto, base) !== null)

@@ -60,6 +60,9 @@ sdlc:
 ## Estado com evidências
 
 - Implementado na thread `ork-i49contas` (27/09/2026), com testes de duas fábricas apontando a mesma conta.
+- Prova real na srvjcp86 (03/10/2026, thread `ork-rm040piloto`, só leitura, sem despacho): [recibo](evidencias/RM-040/srvjcp86-2026-10-03.json). Há 3 projetos registrados (`ork projetos`), mas só o `orkastery` tem perfis (`codex-a`, `codex-b`, `claude-b`, todos ativos, sem `esgotadoAte`); `fx` e `p` são projetos de ensaio sem perfil. A tabela do `ork accounts list`, que aplica o registro compartilhado, não mostra marca vinda de outro projeto. Nos ledgers dos 3 projetos há 8 despachos em 7 dias, 4 com perfil, e nenhum evento de cota esgotada. Despachos numa conta que outro projeto viu esgotada: **0**. A métrica fica cumprida sem caso que a teste: nesta máquina nenhum segundo projeto real usa a mesma conta, e nenhuma conta foi marcada. O teste de duas fábricas (`contas-compartilhadas.test.js`) passa na `main` `3d77e53`.
+- Medida (03/10/2026, thread `ork-b7relatoriod`): `ork accounts esgotamentos [--desde 7d] [--json]` mede a métrica sem gravar nada. Na srvjcp86 deu 0 marca e 0 despacho, e a leitura que testa a métrica de verdade é a da VPS.
+- Achado: o `ork accounts list --json` devolve o store do projeto, sem as marcas das outras fábricas; só a tabela aplica o registro. O contrato `ork.runtime-profiles/v1` ficou como está, e o relatório do B7 (`ork accounts esgotamentos`) é quem lê as marcas.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -87,3 +90,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-20 | proposto | rotação levada a três projetos | Julio |
 | 2026-09-27 | implementado | registro por usuário, provado com duas fábricas na mesma conta | Julio |
 | 2026-09-27 | em produção na VPS de referência | merge `e324025` (PR #32), `ork` de produção reconstruído; npm pendente | Julio |
+| 2026-10-03 | prova real na srvjcp86, só leitura: 0 despacho em conta marcada por outro projeto, 0 marca, um projeto real com perfis | [recibo](evidencias/RM-040/srvjcp86-2026-10-03.json), thread `ork-rm040piloto`; o ciclo segue Piloto até a decisão do dono | condutor #Auto |
+| 2026-10-03 | `ork accounts esgotamentos`, a medida da métrica | thread `ork-b7relatoriod`, teste `rm040-esgotamentos` com duas fábricas na mesma conta | condutor #Auto |

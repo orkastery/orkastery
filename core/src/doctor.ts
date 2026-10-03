@@ -28,6 +28,32 @@ import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
+import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { checarRede } from './doctor-rede';
+
+/**
+ * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
+ * `orkastery.yaml` de uma pasta acima do repositorio (um `ork init` rodado por engano no HOME) era
+ * lido como o deste projeto, com outro nome e outra abbrev, e o doctor dizia PRONTO. Vale o manifesto
+ * dentro do repositorio ou na arvore principal dele (a worktree de thread le o da arvore principal).
+ */
+export function manifestoForaDoRepositorio(dirInicial: string, caminhoDoManifesto: string): Check | null {
+  const topo = exec('git', ['rev-parse', '--show-toplevel'], dirInicial);
+  if (!topo.ok) return null;
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const dirDoManifesto = real(path.dirname(caminhoDoManifesto));
+  const dentro = (raiz: string) => { const r = path.relative(real(raiz), dirDoManifesto);
+    return r === '' || (!r.startsWith('..') && !path.isAbsolute(r)); };
+  if (dentro(topo.stdout.trim())) return null;
+  const comum = exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], dirInicial);
+  if (comum.ok && path.basename(comum.stdout.trim()) === '.git' && dentro(path.dirname(comum.stdout.trim()))) return null;
+  return {
+    nome: 'manifesto do repositorio',
+    nivel: 'warn',
+    detalhe: `o ${NOME_MANIFESTO} lido fica fora deste repositorio (${caminhoDoManifesto}): o ork conduz o projeto daquela pasta, nao o de ${topo.stdout.trim()}`,
+    correcao: `rode ork init na raiz deste repositorio (${topo.stdout.trim()}); se o manifesto de fora nasceu por engano, apague-o junto com o AGENTS.md e o .orkastery/ ao lado dele`,
+  };
+}
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -238,14 +264,36 @@ function textoDosBlocos(blocos: readonly BlocoDeModo[]): string {
 }
 
 /**
+ * Ensaio de 03/10 (R1): com perfil ativo do runtime, quem confere o login e o check "contas por runtime";
+ * sem perfil (ou com o store ilegivel, que aquele check reprova), o despacho usa o login do `claude` do processo.
+ */
+function temPerfilAtivo(carregado: ManifestoCarregado | null, runtime: string): boolean {
+  if (!carregado || carregado.erros.length) return false;
+  try { return lerPerfisComContas(carregado.raiz).perfis.some(p => p.runtime === runtime && p.estado !== 'desativado'); }
+  catch { return false; }
+}
+
+/**
  * Fatia 2 do ensaio da 0.5.0 (P1): o `claude` so e obrigatorio quando algum bloco de modo permitido
  * despacha por ele. Sem manifesto, com manifesto invalido ou com setup ilegivel vale o padrao (todo
  * bloco no claude-bg), e a falta reprova como antes.
  */
 export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude: string | null,
-  versao: string | null): Check {
+  versao: string | null, auth: StatusDeAuth | null = null): Check {
   const nome = 'runtime claude-bg';
-  if (claude) return { nome, nivel: 'ok', detalhe: `${claude} (${versao ?? 'versao desconhecida'})` };
+  if (claude) {
+    const detalhe = `${claude} (${versao ?? 'versao desconhecida'})`;
+    // Ensaio de 03/10 (R1): sem perfil de conta, o despacho usa o login do proprio `claude`; sem ele, o
+    // primeiro despacho falha. Conferencia inconclusiva (timeout, JSON ilegivel) nao prova falta de login.
+    if (auth && !auth.ok && !auth.transitorio) {
+      return { nome, nivel: 'warn', detalhe: `${detalhe}; ${auth.detalhe}: o despacho pelo claude-bg falharia`,
+        correcao: auth.pago
+          ? 'faca o login de assinatura (claude.ai) no `claude`, sem API key nem provider de nuvem'
+          : 'rode `claude` uma vez, faca o login de assinatura (/login) e aceite a confianca no diretorio do projeto; ' +
+            'ou crie um perfil com ork accounts add <id> --runtime claude-bg --dir <pasta>' };
+    }
+    return { nome, nivel: 'ok', detalhe };
+  }
   const blocos = carregado && carregado.erros.length === 0 ? blocosDoRuntime(carregado, 'claude-bg') : null;
   if (blocos && blocos.principal.length === 0) {
     // CHECK, rodada 1 (S6): as fases nao precisam dele, mas o `ork audit run` despacha sempre pelo claude-bg.
@@ -296,8 +344,15 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   };
 }
 
-/** Roda todos os checks a partir do diretorio informado. */
-export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): Check[] {
+/**
+ * Roda todos os checks a partir do diretorio informado. RM-031: `analisadores` e o check do grafo
+ * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
+ * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
+ */
+export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  lerCrontab: LeitorDoCrontab = lerCrontabDoSistema,
+  conferirAuthDoClaude: () => StatusDeAuth = () => adapter.conferirAuth(null),
+  analisadores?: () => Check): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -307,6 +362,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : 'instale Node 20 ou superior',
   });
+  if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
   checks.push({
@@ -338,7 +394,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   const carregado = carregarManifesto(dirInicial);
   const claude = adapter.disponivel();
   const v = claude ? adapter.versao() : null;
-  checks.push(checarRuntimeClaude(carregado, claude, v));
+  checks.push(checarRuntimeClaude(carregado, claude, v,
+    claude && !temPerfilAtivo(carregado, 'claude-bg') ? conferirAuthDoClaude() : null));
 
   // Segundo runtime homologado. Ausente e `warn`, nao `fail`: o claude-bg segue sendo o
   // padrao, e um projeto que nunca pediu codex nao pode ficar bloqueado por ele.
@@ -384,7 +441,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'manifesto',
       nivel: 'fail',
       detalhe: `${NOME_MANIFESTO} nao encontrado a partir de ${dirInicial}`,
-      correcao: 'ork init',
+      // Ensaio de 03/10/2026 (RM-049): fora de repositorio, o `ork init` recusa; a correcao diz onde roda-lo.
+      correcao: dentroDeRepo ? 'ork init' : 'entre no repositorio do projeto (ou crie um com git init e o primeiro commit) e rode ork init',
     });
   } else {
     checks.push({
@@ -397,6 +455,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             (carregado.avisos.length > 0 ? `; ${carregado.avisos.join('; ')}` : ''),
       correcao: carregado.erros.length > 0 ? 'corrija o manifesto e rode ork doctor de novo' : undefined,
     });
+    if (dentroDeRepo) {
+      const fora = manifestoForaDoRepositorio(dirInicial, carregado.caminho);
+      if (fora) checks.push(fora);
+    }
 
     checks.push(...checarOnboarding(carregado));
     const abbrev = carregado.manifesto.project.abbrev;
@@ -517,6 +579,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         : `${dirEstadoProjeto} ausente`,
       correcao: fs.existsSync(dirEstadoProjeto) ? undefined : 'ork init cria o diretorio de estado',
     });
+    // RM-039 (B6): com o transporte do pulse configurado, a varredura tem de bater de 15 em 15
+    // minutos; a instalacao antiga em `0 * * * *` vira aviso com a linha nova. Nunca edita o crontab.
+    const cronDoPulse = checarCronDoPulse(path.join(dirEstadoProjeto, 'monitor'), raizDoEstado(carregado.raiz), lerCrontab);
+    if (cronDoPulse) checks.push(cronDoPulse);
 
     checks.push(checarContas(carregado.raiz));
     // I-33 (D7): umask e permissoes do estado, na mesma regra do sensor (sem bits 0o022).
@@ -538,6 +604,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       });
     }
   }
+
+  // RM-053 (fatia 2): a rede da pessoa e da maquina, nao do projeto; vale de qualquer diretorio.
+  checks.push(checarRede());
 
   return checks;
 }
@@ -576,8 +645,9 @@ export function relatorio(checks: Check[]): string {
 }
 
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
-export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados);
+export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  analisadores?: () => Check): { texto: string; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }

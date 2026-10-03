@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { assets, fixtureEnv, pythonFixture, usingFixture, prepareFixture,
   FIXTURE_TTL_PADRAO_MS, FIXTURE_TTL_MIN_MS, FIXTURE_TTL_MAX_MS } from './native-fixture';
+import { semPostgres } from './ambiente-de-teste';
 
 test('fixture ausente e Docker indisponivel falham runtime.unavailable sem skip ou ensaio falso', t => {
   const dir = fs.mkdtempSync('/tmp/ork-fixture-runtime-'); t.after(() => fs.rmSync(dir, { recursive: true }));
@@ -14,7 +15,7 @@ test('fixture ausente e Docker indisponivel falham runtime.unavailable sem skip 
   assert.equal(r.status, 1); assert.match(r.stderr, /runtime.unavailable/); assert.equal(r.stdout, '');
 });
 
-test('fixture externa valida identidade, localizacao, tenant, dono e recibo antes de ensaio; varias execucoes isoladas', () => {
+test('fixture externa valida identidade, localizacao, tenant, dono e recibo antes de ensaio; varias execucoes isoladas', { skip: semPostgres() }, () => {
   usingFixture(receipt => {
     const original = fs.readFileSync(receipt);
     const code = `

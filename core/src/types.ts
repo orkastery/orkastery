@@ -268,8 +268,10 @@ export interface Manifesto {
     cli: string;
     /** Tenant/produto dono da base. Vazio herda `project.name`. */
     tenant: string;
-    /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
+    /** Timeout geral de chamada ao OrkMind, em ms (universo tem prazo proprio). */
     timeout_ms: number;
+    /** Prazo da leitura das cinco colecoes; padrao 90.000 ms. */
+    universo_timeout_ms?: number;
     /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
     embedding?: ConfigDeEmbedding;
   };
@@ -541,6 +543,7 @@ export type MotivoGate =
   | 'cost.violation'
   | 'tree.blocked'
   | 'lease.busy'
+  | 'lease.resume-unavailable'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
@@ -1344,8 +1347,14 @@ export interface EstadoDeEmbeddings {
   indices: IndiceDeEmbeddings[];
   /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
   entradas: number | null;
-  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
+  /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } | null;
+  /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
+  aviso: string | null;
+  /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
+  falhaDoUniverso: string | null;
   ativo: 'primario' | 'fallback' | 'nenhum';
   /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
   sondado: boolean;
@@ -1381,6 +1390,35 @@ export interface EntradaDeMemoria {
   author_id?: string | null;
   visibility?: string;
   protected?: boolean;
+  /** Governanca recebida da biblioteca, reconferida antes do embed. */
+  injection_risk?: boolean;
+  expires_at?: string | null;
+}
+
+/** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
+export interface ForaDaBusca {
+  /** Ativas com `injection_risk` (a leitura governada as tira; nunca vao ao embed). */
+  injecao: number;
+  expiradas: number;
+  /** Do tenant, em colecoes fora da busca do `ork` (fora de COLECOES_DO_ORK; a ponte grava session e semantic_log). */
+  outrasColecoes: number;
+}
+
+/**
+ * RM-038: o universo da busca e do indice, lido de uma vez e conferido (domicilio unico:
+ * `universoDaBusca` em `indice-vetorial.ts`). Indice, vetor, FTS e status usam este conjunto.
+ */
+export interface UniversoDaBusca {
+  tenant: string;
+  /** Instante anterior a leitura, em ms desde epoch; referencia unica para a expiracao. */
+  lidoEm: number;
+  /** Ordenadas por colecao e id. */
+  entradas: EntradaDeMemoria[];
+  porColecao: Record<ColecaoDoOrk, number>;
+  /** null quando a base nao mede (backend sem a contagem). */
+  foraDaBusca: ForaDaBusca | null;
+  /** Tempo monotonico da leitura pelo transporte, incluindo o subprocesso; ausente se nao medido. */
+  latenciaMs?: number;
 }
 
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */

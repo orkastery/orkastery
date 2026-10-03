@@ -57,7 +57,7 @@ ork thread new "aplicar o PR <numero>" --ciclo merge-branch --branch <branch-do-
 
 ```bash
 ork ship registrar-pr <thread>
-ork master --aceitar-omissao
+ork master <thread> --aceitar-omissao
 ```
 
 ## Próximo passo

@@ -31,6 +31,7 @@ Projeto: **${seguro(manifesto.project.name)}** (${seguro(manifesto.project.abbre
 - Edite produto somente na worktree vinculada; estado em \`.orkastery/\` pertence ao núcleo.
 - PLAN não implementa. GO usa commits atômicos. CHECK não corrige. SHIP acontece por \`ork ship\`.
 - Toda alegação exige claim e comando reproduzível; self-report não é evidência.
+- MASTER por omissão só da sua thread: \`ork master <thread> --aceitar-omissao\`; sem a thread, fecha também as entregas de outras frentes.
 ${comandos.length ? `\nVerificações do manifesto:\n\n${comandos.join('\n')}\n` : ''}
 Este bloco é mantido por \`ork init\`. Edite livremente o restante do arquivo.
 ${FIM_AGENTS_ORK}`;

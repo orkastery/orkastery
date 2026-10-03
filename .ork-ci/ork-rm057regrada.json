@@ -1,0 +1,99 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm057regrada",
+  "branch": "ork/ork-rm057regrada-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "adapter install grava na extensao (dist e INSTALADO.json) o ork em execucao, nao o primeiro ork do PATH, e avisa com as duas versoes quando o do PATH e outro",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern \"avisa as duas\" core/dist-test/test/adapter-ork-em-execucao.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:08:38.365Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "adapters/openclaw/src/index.ts",
+      "alegacao": "toda tool visivel no perfil coding do OpenClaw (toolMetadata) termina com a regra da RM-057, e o perfil segue so com ork_network_roadmap e ork_network_status",
+      "negativa": false,
+      "verificar": [
+        "node --test adapters/openclaw/test/hitl-conducao.test.mjs"
+      ],
+      "criadoEm": "2026-10-03T07:08:38.666Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "core/src/hosts.ts",
+      "alegacao": "os testes de instalacao de adaptador ja existentes seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/hosts.test.js core/dist-test/test/adapter.test.js core/dist-test/test/adapter-conflito.test.js core/dist-test/test/experiencia-hosts.test.js core/dist-test/test/company-brain-hosts.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:08:38.816Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "documentacao em paridade e marketplaces iguais a fonte",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:08:38.968Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "a opcao ork explicita continua vencendo como override, sem aviso; o ork do PATH igual ao em execucao nao avisa",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern \"override|binário em execução\" core/dist-test/test/adapter-ork-em-execucao.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:08:42.662Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm057regrada",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm057-fatia2.test.ts",
+      "alegacao": "a regra no src e no dist commitado do OpenClaw e a mesma da fatia 1, em cinco tools",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm057-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:10:29.255Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

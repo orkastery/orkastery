@@ -16,7 +16,8 @@ import { esperarVaga, vagaDoDespacho, VagaRecusada } from './board';
 import { gravarBaseline } from './verify';
 import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
-import { ManifestoCarregado } from './manifest';
+import { ManifestoCarregado, exigirManifesto } from './manifest';
+import { grafoLigado } from './mcp-grafo';
 import { resolverRuntime, runtimeConhecido } from './runtimes';
 import { configDoBloco, fallbackDoBloco, lerSetup, limitesDoBloco } from './setup';
 import { definicaoDoModo, INVARIANTES } from './modos';
@@ -27,7 +28,7 @@ import { registrarImpedimentoDoDono } from './impedimento';
 import { conferirAuth as authClaude } from './adapters/claude-bg';
 import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
-import { renderizar, templateDaFase } from './prompts';
+import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
@@ -45,7 +46,7 @@ import {
 } from './types';
 import { agora, gravar, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
-import { vincularEstado } from './estado-thread';
+import { raizDoEstado, vincularEstado } from './estado-thread';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import {
   lerPerfisComContas, marcarFalhaDePerfil, StoreDePerfis, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, perfisDoRuntime, POLITICA_PADRAO,
@@ -355,8 +356,10 @@ export function montarPromptComMemoria(
   memoria: Memoria
 ): { prompt: string; injecao: InjecaoDeMemoria } {
   const injecao = injecaoDaFase(carregado, memoria, thread, fase);
+  // Mesma raiz usada pelo MCP e runtime-context; o manifesto da WT nao habilita a dica.
+  const ligado = grafoLigado(exigirManifesto(raizDoEstado(carregado.raiz)).manifesto);
   return {
-    prompt: montarPrompt(thread, fase, pedido, carregado.raiz, injecao.texto),
+    prompt: montarPrompt(thread, fase, pedidoComDicaDoGrafo(pedido, thread.id, ligado), carregado.raiz, injecao.texto),
     injecao,
   };
 }
@@ -1259,7 +1262,12 @@ export function tabelaDoLedger(raiz: string, threadId: string): string {
     // Eventos do bloco B3: acao de retry, playbook da retomada e rodada de GO-FIX.
     if (e.acao) detalhe.push(`acao ${String(e.acao)}`);
     if (e.playbook) detalhe.push(`playbook ${String(e.playbook)}`);
-    if (e.pedido) detalhe.push(`pedido ${String(e.pedido)}`);
+    // Ensaio de 03/10/2026 (RM-049): na decisao autonoma o pedido e o objeto `ork.hitl/v2`, e a tabela
+    // mostrava "pedido [object Object]"; do objeto sai o id curto.
+    if (typeof e.pedido === 'string' && e.pedido !== '') detalhe.push(`pedido ${e.pedido}`);
+    else if (e.pedido && typeof e.pedido === 'object' && typeof (e.pedido as { id?: unknown }).id === 'string') {
+      detalhe.push(`pedido ${(e.pedido as { id: string }).id.slice(0, 8)}`);
+    }
     if (e.rodada !== undefined) detalhe.push(`rodada ${String(e.rodada)}`);
     if (e.cobertura) detalhe.push(`cobertura ${String(e.cobertura)}`);
     if (e.liberaEm) detalhe.push(`libera em ${formatarDataHora(String(e.liberaEm))}`);
@@ -1298,4 +1306,3 @@ export function descreverSlug(slug: string): string {
   const rot = p.rotacao ? `, rotacao ${p.rotacao}` : '';
   return `produto "${p.produto}", assunto "${p.assunto}", fases "${p.fases}"${rot}`;
 }
-

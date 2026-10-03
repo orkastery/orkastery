@@ -2,7 +2,7 @@
  * RM-032: conferência da prova de ativação por host, sem host.
  *
  * O roteiro `core/scripts/prova-ativacao.cjs` abre uma sessão nova e não interativa no host
- * (Claude Code ou OpenClaw), diz `orkastery maestro` e entrega aqui o transcript. Esta
+ * (Claude Code, OpenClaw ou Codex), diz `orkastery maestro` e entrega aqui o transcript. Esta
  * conferência olha só o que é determinístico: qual ferramenta o modelo chamou, o resultado que
  * ela devolveu (contra o contrato da entrada) e o projeto lido. Da resposta final em texto
  * livre, exige apenas que cite o projeto e não repita o incidente de 29/09 ("roadmap vazio").
@@ -11,8 +11,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { MaestroSnapshot, validateMaestroSnapshot } from './maestro-contract';
 
-export type HostProva = 'claude-code' | 'openclaw';
-export const HOSTS_DA_PROVA: readonly HostProva[] = ['claude-code', 'openclaw'];
+export type HostProva = 'claude-code' | 'openclaw' | 'codex';
+export const HOSTS_DA_PROVA: readonly HostProva[] = ['claude-code', 'openclaw', 'codex'];
 
 /** `maestro`: JSON `ork.maestro-snapshot/v1`; `rede`: texto de `ork network roadmap` (`ork.network-roadmap/v1`). */
 export type ContratoDaEntrada = 'maestro' | 'rede';
@@ -21,14 +21,17 @@ export interface EntradaDoHost { ferramenta: string; contrato: ContratoDaEntrada
  * As entradas da frase em cada host. No Claude, a tool MCP do servidor `orkastery` fixado no
  * projeto (MAESTRO_HOST_SURFACES em hosts.ts). No OpenClaw 0.5.0 (RM-054, fatia 2), a frase sem
  * projeto vai a `ork_network_roadmap`, a única tool da extensão no perfil `coding`; com projeto
- * nomeado, a `ork_maestro`. `ork maestro` pelo shell do host é desvio: o CLI resolve o projeto
- * pelo diretório atual, a classe de erro do incidente.
+ * nomeado, a `ork_maestro`. No Codex (B11), a tool `ork_maestro` do servidor `orkastery` que o
+ * `ork mcp install --host codex` grava no projeto; o nome segue o padrão `mcp__<servidor>__<tool>`.
+ * `ork maestro` pelo shell do host é desvio: o CLI resolve o projeto pelo diretório atual, a classe
+ * de erro do incidente.
  */
 export const ENTRADAS: Readonly<Record<HostProva, readonly EntradaDoHost[]>> = {
   'claude-code': [{ ferramenta: 'mcp__orkastery__ork_maestro', contrato: 'maestro' }],
   openclaw: [{ ferramenta: 'ork_network_roadmap', contrato: 'rede' }, { ferramenta: 'ork_maestro', contrato: 'maestro' }],
+  codex: [{ ferramenta: 'mcp__orkastery__ork_maestro', contrato: 'maestro' }],
 };
-const SHELL_DO_HOST: Readonly<Record<HostProva, string>> = { 'claude-code': 'Bash', openclaw: 'exec' };
+const SHELL_DO_HOST: Readonly<Record<HostProva, string>> = { 'claude-code': 'Bash', openclaw: 'exec', codex: 'command_execution' };
 
 export interface ChamadaMaestro {
   ferramenta: string;
@@ -65,7 +68,15 @@ export interface ResultadoDaConferencia {
   rede: { cabecalho: string; consultado: string; naoConsultado: string[] } | null;
 }
 
-const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(/])ork(\s+(--projeto|--project|-p)(\s+|=)\S+)?\s+maestro\b/;
+// B11: o shell do Codex chega embrulhado (`bash -lc 'ork maestro'`), então aspas também abrem o comando.
+// Suspeitas da revisão de 03/10: o mesmo CLI roda também pelo caminho do binário (`$(which ork)`), pelo
+// node (`core/dist/index.js`), pelo npx (`@orkastery/cli`) e com o projeto entre aspas. É desvio a
+// invocação do ork cujo subcomando, depois só de opções (com valor, até entre aspas), é `maestro`;
+// `maestro` dentro do argumento de outro subcomando não é.
+const INVOCACAO_DO_ORK = String.raw`(?:(?:^|[^\w.@-])ork|@orkastery\/cli(?:@[\w.-]+)?|\bdist\/index\.js)(?![\w.-])[)\x60]?`;
+const VALOR = String.raw`(?:"[^"]*"|'[^']*'|[^\s"'-][^\s"']*)`;
+const OPCOES = String.raw`(?:\s+-[\w-]*(?:=(?:"[^"]*"|'[^']*'|[^\s"']+))?(?:\s+${VALOR})?)*`;
+const ORK_MAESTRO_NO_SHELL = new RegExp(String.raw`${INVOCACAO_DO_ORK}${OPCOES}\s+maestro(?![\w.-])`);
 
 function linhasJson(texto: string): Record<string, unknown>[] {
   const eventos: Record<string, unknown>[] = [];
@@ -154,6 +165,55 @@ export function transcriptDoOpenclaw(eventsJsonl: string, agenteJson: unknown): 
   const ferramentasExpostas = Array.isArray(entradas) ? entradas.map(t => t?.name).filter((n): n is string => typeof n === 'string') : null;
   const textos = (agente.payloads ?? []).map(p => p?.text).filter((t): t is string => typeof t === 'string');
   return { ferramentasExpostas, chamadas, respostaFinal: textos.length ? textos.join('\n') : null };
+}
+
+/**
+ * Eventos do `codex exec --json` (B11): `item.started`/`item.completed` com `mcp_tool_call` (servidor,
+ * tool, argumentos, resultado, erro), `command_execution` (o shell do host) e `agent_message` (a
+ * resposta). O `codex exec` não lista as ferramentas expostas ao modelo: quem chama passa as do
+ * `tools/list` do mesmo servidor MCP que a sessão recebeu, já com o nome `mcp__<servidor>__<tool>`.
+ */
+export function transcriptDoCodex(eventosJsonl: string, ferramentasExpostas: string[] | null): TranscriptExtraido {
+  const porItem = new Map<string, ChamadaMaestro>();
+  const chamadas: ChamadaMaestro[] = [];
+  const mensagens: string[] = [];
+  for (const e of linhasJson(eventosJsonl)) {
+    if (e.type !== 'item.started' && e.type !== 'item.completed') continue;
+    const item = (e.item ?? {}) as Record<string, unknown>;
+    const id = typeof item.id === 'string' ? item.id : null;
+    if (item.type === 'agent_message') {
+      if (e.type === 'item.completed' && typeof item.text === 'string') mensagens.push(item.text);
+      continue;
+    }
+    let ferramenta: string, argumentos: unknown, resultado: string | null = null, erro = false;
+    if (item.type === 'mcp_tool_call' && typeof item.server === 'string' && typeof item.tool === 'string') {
+      ferramenta = `mcp__${item.server}__${item.tool}`;
+      argumentos = item.arguments ?? null;
+      const r = item.result as { content?: unknown } | string | null | undefined;
+      resultado = typeof r === 'string' ? r : textoDoConteudo(r?.content);
+      const falha = item.error as { message?: unknown } | string | null | undefined;
+      erro = !!falha || item.status === 'failed';
+      if (erro && resultado === null) resultado = typeof falha === 'string' ? falha : typeof falha?.message === 'string' ? falha.message : 'falhou';
+    } else if (item.type === 'command_execution' && typeof item.command === 'string') {
+      ferramenta = 'command_execution';
+      argumentos = { command: item.command };
+      resultado = typeof item.aggregated_output === 'string' ? item.aggregated_output : null;
+      erro = item.status === 'failed' || (typeof item.exit_code === 'number' && item.exit_code !== 0);
+    } else continue;
+    const tipo = classificar('codex', ferramenta, argumentos);
+    if (!tipo) continue;
+    const anterior = id ? porItem.get(id) : undefined;
+    if (anterior) {
+      // `item.completed` do mesmo item fecha a chamada aberta no `item.started`.
+      if (e.type === 'item.completed') Object.assign(anterior, { argumentos, resultado, erro });
+      continue;
+    }
+    const chamada: ChamadaMaestro = { ferramenta, ...tipo, argumentos, resultado: e.type === 'item.completed' ? resultado : null,
+      erro: e.type === 'item.completed' ? erro : false };
+    if (id) porItem.set(id, chamada);
+    chamadas.push(chamada);
+  }
+  return { ferramentasExpostas, chamadas, respostaFinal: mensagens.length ? mensagens.at(-1)! : null };
 }
 
 /** O primeiro objeto `ork.maestro-snapshot/v1` do texto (o host pode juntar stderr ao stdout). */
