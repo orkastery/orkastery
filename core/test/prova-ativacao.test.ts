@@ -5,7 +5,7 @@ import { projetoTemporario } from './apoio';
 import { runMaestroCli } from '../src/maestro-cli';
 import { discoverMaestro } from '../src/maestro-discovery';
 import { montarPanoramaDaRede, textoDoPanoramaDaRede } from '../src/network-roadmap';
-import { conferirProva, EsperadoDaProva, extrairSnapshot, redigir, redigirObjeto, transcriptDoClaude, transcriptDoOpenclaw } from '../src/prova-ativacao';
+import { conferirProva, EsperadoDaProva, extrairSnapshot, redigir, redigirObjeto, transcriptDoClaude, transcriptDoCodex, transcriptDoOpenclaw } from '../src/prova-ativacao';
 
 function snapshotDe(dir: string): string {
   let saida = '';
@@ -191,6 +191,64 @@ test('OpenClaw: sem tool ork_* exposta (perfil coding na 0.4.3) a frase não che
     const desvio = conferirProva('openclaw', transcriptDoOpenclaw(trajetoria('exec', { command: 'ork maestro --json' }, snapshotDe(p.dir)),
       agente('orkastery', ['exec', 'ork_maestro'])), esperadoDe(p.dir));
     assert.match(ok(desvio, 'entrada.chamada')!.detalhe, /desvio: exec/);
+  } finally { p.limpar(); }
+});
+
+/** Eventos do `codex exec --json`: uma chamada (MCP ou shell) aberta e fechada, e a resposta do agente. */
+function eventosCodex(opcoes: { item?: Record<string, unknown>; resultado?: string; erro?: string; resposta?: string }): string {
+  const item = opcoes.item ?? { type: 'mcp_tool_call', server: 'orkastery', tool: 'ork_maestro', arguments: {} };
+  const fechado = item.type === 'command_execution'
+    ? { ...item, aggregated_output: opcoes.resultado ?? '', exit_code: 0, status: 'completed' }
+    : { ...item, result: opcoes.erro ? null : { content: [{ type: 'text', text: opcoes.resultado ?? '' }] },
+      error: opcoes.erro ? { message: opcoes.erro } : null, status: opcoes.erro ? 'failed' : 'completed' };
+  return [
+    { type: 'thread.started', thread_id: '0199-prova' },
+    { type: 'turn.started' },
+    { type: 'item.completed', item: { id: 'item_0', type: 'agent_message', text: 'Vou consultar o Maestro.' } },
+    { type: 'item.started', item: { id: 'item_1', ...item, status: 'in_progress' } },
+    { type: 'item.completed', item: { id: 'item_1', ...fechado } },
+    { type: 'item.completed', item: { id: 'item_2', type: 'agent_message', text: opcoes.resposta ?? 'Panorama Maestro do projeto orkastery: nada em andamento.' } },
+    { type: 'turn.completed', usage: { input_tokens: 10, cached_input_tokens: 0, output_tokens: 5 } },
+  ].map(e => JSON.stringify(e)).join('\n') + '\n';
+}
+const EXPOSTAS_CODEX = ['mcp__orkastery__ork_maestro', 'mcp__orkastery__ork_network_roadmap'];
+
+test('Codex (B11): ork_maestro pelo MCP com snapshot do projeto esperado passa em todas as conferências', () => {
+  const p = projetoTemporario('prova-codex-ok');
+  try {
+    const t = transcriptDoCodex(eventosCodex({ resultado: snapshotDe(p.dir) }), EXPOSTAS_CODEX);
+    assert.equal(t.chamadas.length, 1, 'item.started e item.completed do mesmo item são uma chamada');
+    assert.equal(t.respostaFinal, 'Panorama Maestro do projeto orkastery: nada em andamento.', 'vale a última mensagem do agente');
+    const r = conferirProva('codex', t, esperadoDe(p.dir));
+    assert.equal(r.ok, true, JSON.stringify(r.conferencias));
+    assert.deepEqual(r.conferencias.map(c => c.id), ['entrada.exposta', 'entrada.chamada', 'resultado.sem-erro', 'resultado.contrato',
+      'resultado.projeto', 'resultado.nao-consultado', 'resposta.cita-projeto', 'resposta.sem-roadmap-vazio']);
+    assert.equal(r.snapshot?.projeto.name, 'orkastery');
+  } finally { p.limpar(); }
+});
+
+test('Codex (B11): `ork maestro` pelo shell é desvio; erro do MCP e ferramenta ausente reprovam', () => {
+  const p = projetoTemporario('prova-codex-desvio');
+  try {
+    const shell = transcriptDoCodex(eventosCodex({ item: { type: 'command_execution', command: "bash -lc 'ork maestro --json'" },
+      resultado: snapshotDe(p.dir) }), EXPOSTAS_CODEX);
+    assert.equal(shell.chamadas[0].via, 'shell');
+    const r = conferirProva('codex', shell, esperadoDe(p.dir));
+    assert.equal(r.ok, false);
+    assert.match(ok(r, 'entrada.chamada')!.detalhe, /desvio: command_execution "bash -lc 'ork maestro --json'" em vez de mcp__orkastery__ork_maestro/);
+
+    const erro = conferirProva('codex', transcriptDoCodex(eventosCodex({ erro: 'user cancelled MCP tool call' }), EXPOSTAS_CODEX), esperadoDe(p.dir));
+    assert.equal(ok(erro, 'resultado.sem-erro')?.ok, false);
+    assert.match(ok(erro, 'resultado.sem-erro')!.detalhe, /user cancelled MCP tool call/);
+
+    const semTool = conferirProva('codex', transcriptDoCodex(eventosCodex({ resultado: snapshotDe(p.dir) }), ['mcp__orkastery__ork_status']), esperadoDe(p.dir));
+    assert.equal(ok(semTool, 'entrada.exposta')?.ok, false);
+    const semLista = conferirProva('codex', transcriptDoCodex(eventosCodex({ resultado: snapshotDe(p.dir) }), null), esperadoDe(p.dir));
+    assert.match(ok(semLista, 'entrada.exposta')!.detalhe, /não lista as ferramentas expostas/);
+    // Outro servidor com a mesma tool não é a entrada contratada.
+    const outro = transcriptDoCodex(eventosCodex({ item: { type: 'mcp_tool_call', server: 'outro', tool: 'ork_maestro', arguments: {} },
+      resultado: snapshotDe(p.dir) }), EXPOSTAS_CODEX);
+    assert.equal(outro.chamadas.length, 0);
   } finally { p.limpar(); }
 });
 
