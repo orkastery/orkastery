@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T09:45:17.858Z",
+  "publicadoEm": "2026-10-03T09:45:26.053Z",
   "threads": [
     {
       "id": "ork-c4fechamento",
@@ -134,6 +134,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:41:41.084Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-skilldocodex",
+      "nome": "Skill do Codex consulta o ork no shell depois da tool",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-032",
+      "branch": "ork/ork-skilldocodex-full",
+      "atualizadaEm": "2026-10-03T09:45:23.689Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
