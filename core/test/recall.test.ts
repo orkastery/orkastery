@@ -244,6 +244,11 @@ test('descoberta por fase exige tenant e thread exatos mesmo para mandatory', ()
     assert.equal(r.falhas.length, 0);
     driver.exportar = () => { throw new Error('falha simulada'); };
     assert.ok(recallDaThread(carregado, memoria, thread.id, { momento: 'GOAL' }).falhas.some(f => f.id === 'memoria-busca'));
+    // RM-038: a janela cheia do export chega com o proprio codigo; o resto segue como falha de transporte.
+    const detalhe = () => recallDaThread(carregado, memoria, thread.id, { momento: 'GOAL' }).falhas.find(f => f.id === 'memoria-busca')?.detalhe;
+    assert.equal(detalhe(), 'memory.transport.export: busca semantica falhou; resultado nao comprova colecao vazia');
+    driver.exportar = () => { throw new Error('memory.query.window-saturated'); };
+    assert.equal(detalhe(), 'memory.query.window-saturated: busca semantica falhou; resultado nao comprova colecao vazia');
   } finally { projeto.limpar(); }
 });
 

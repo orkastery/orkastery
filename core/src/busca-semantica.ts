@@ -16,8 +16,8 @@
  */
 
 import {
-  AlvoDeEmbedding, arquivoDoIndice, codigoDeEmbedding, conferirUniverso, Embeddar, espacoDoAlvo, impressaoDaBase, lerIndice,
-  vetoresCoerentes,
+  AlvoDeEmbedding, arquivoDoIndice, avisoDeCobertura, codigoDaFalha, codigoDeEmbedding, conferirUniverso, Embeddar, espacoDoAlvo,
+  impressaoDaBase, lerIndice, vetoresCoerentes,
 } from './indice-vetorial';
 import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria, MotivoDeEmbeddings, UniversoDaBusca } from './types';
 
@@ -50,7 +50,7 @@ export interface ResultadoDaBuscaSemantica {
   detalhe: string;
   resultados: ResultadoDaBusca[];
   listas: { vetor: string[]; fts: string[] };
-  /** RM-038: ids do FTS fora do universo da busca, descartados e declarados no detalhe. */
+  /** RM-038: quantos ids do FTS ficaram fora do universo da busca (descartados; a quantidade sai no detalhe). */
   ftsForaDoUniverso: number;
   /** RM-038: vetores coerentes do indice usado contra as entradas buscadas; null sem lado vetorial. */
   coberturaDoIndice: { coerentes: number; universo: number } | null;
@@ -140,15 +140,16 @@ export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantic
   if (o.universo.tenant !== o.tenant) throw new Error('memory.query.scope-violation');
   conferirUniverso(o.universo.entradas, o.tenant);
   const doUniverso = new Set(o.universo.entradas.map(e => e.id));
-  const universo = o.colecao ? o.universo.entradas.filter(e => e.collection === o.colecao) : o.universo.entradas;
-  const porId = new Map(universo.map(e => [e.id, e]));
+  // As entradas buscadas: o universo inteiro, ou so a colecao pedida.
+  const buscadas = o.colecao ? o.universo.entradas.filter(e => e.collection === o.colecao) : o.universo.entradas;
+  const porId = new Map(buscadas.map(e => [e.id, e]));
   const saida: ResultadoDaBuscaSemantica = { texto: o.texto, modo: o.modo, origem: 'nenhum', modeloUsado: null,
     deterministico: false, motivo: null, detalhe: '', resultados: [], listas: { vetor: [], fts: [] },
     ftsForaDoUniverso: 0, coberturaDoIndice: null };
   const detalhes: string[] = [];
   let similaridade = new Map<string, number>();
   if (o.modo !== 'fts') {
-    const v = ladoVetorial(o, universo);
+    const v = ladoVetorial(o, buscadas);
     detalhes.push(...v.detalhes);
     saida.motivo = v.motivo;
     if (v.alvo) {
@@ -158,24 +159,23 @@ export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantic
       saida.listas.vetor = candidatos.map(c => c.id);
       similaridade = new Map(candidatos.map(c => [c.id, c.sim]));
       // RM-038 (D7): o vetor so ranqueia o que o indice cobre; menos que o universo e dito aqui.
-      saida.coberturaDoIndice = { coerentes: v.ranking.length, universo: universo.length };
-      if (v.ranking.length < universo.length) {
-        detalhes.push(`vetor: o indice cobre ${v.ranking.length} de ${universo.length} entrada(s) do universo da busca; rode ork memory index`);
-      }
+      saida.coberturaDoIndice = { coerentes: v.ranking.length, universo: buscadas.length };
+      const aviso = avisoDeCobertura(v.ranking.length, buscadas, v.alvo, o.colecao ? ` na colecao ${o.colecao}` : '');
+      if (aviso) detalhes.push(`vetor: ${aviso}`);
     }
   }
   if (o.modo !== 'vetor') {
     let ftsFalhou = false;
     try {
       if (!o.buscarTexto) throw new Error('memory.transport.fts');
-      // A ponte ja restringe ao universo; a intersecao vale de novo aqui e o que sobra e declarado (D5).
+      // A ponte ja restringe ao universo; a intersecao vale de novo aqui e a quantidade que sobra e declarada (D5).
       const ids = [...new Set(o.buscarTexto(o.tenant, o.texto))];
       saida.ftsForaDoUniverso = ids.filter(id => !doUniverso.has(id)).length;
       if (saida.ftsForaDoUniverso) detalhes.push(`fts: ${saida.ftsForaDoUniverso} id(s) fora do universo da busca descartado(s)`);
       saida.listas.fts = ids.filter(id => porId.has(id));
     } catch (erro) {
       ftsFalhou = true;
-      const codigo = /^[a-z]+(?:\.[a-z-]+)+/.exec(erro instanceof Error ? erro.message : '')?.[0] ?? 'memory.transport.fts';
+      const codigo = codigoDaFalha(erro, 'memory.transport.fts');
       detalhes.push(`fts: ${codigo}`);
       if (o.modo === 'fts' || saida.origem === 'nenhum') saida.motivo = saida.motivo ?? codigo;
     }

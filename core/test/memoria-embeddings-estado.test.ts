@@ -152,6 +152,8 @@ test('cobertura cai quando o conteudo muda e o texto do status nunca imprime o v
       const estado = abrirMemoria(m.carregado, { driver, embeddings: 'detalhado' }).estado;
       assert.equal(estado.embeddings!.cobertura, 0.6667);
       assert.equal(estado.embeddings!.indices[0].desatualizados, 1);
+      // RM-038 (D7): indice velho depois de conteudo novo pede reindexacao, com a conta exata.
+      assert.equal(estado.embeddings!.aviso, 'o indice cobre 2 de 3 entrada(s) que a busca enxerga: rode ork memory index');
       const texto = textoDoEstado(estado);
       assert.ok(texto.includes(`${CHAVE} presente no ambiente (valor nunca impresso)`));
       assert.ok(texto.includes('cobertura'));

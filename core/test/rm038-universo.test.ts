@@ -181,7 +181,7 @@ test('rm038 universo: indice embeda so o universo e traz colecoes e fora da busc
     assert.deepEqual(seco.foraDaBusca, { injecao: 1, expiradas: 1, outrasColecoes: 1 });
     const texto = textoDoIndice(seco);
     assert.match(texto, /universo da busca\s+6 entrada\(s\): decision 2, handoff 1, rule 1, learning 1, roadmap 1; coerentes 0/);
-    assert.match(texto, /fora da busca\s+1 com injection_risk, 1 expirada\(s\), 1 em colecoes fora do ork/);
+    assert.match(texto, /fora da busca\s+1 com injection_risk e 1 expirada\(s\) \(governanca da biblioteca\), 1 em outras colecoes \(fora da busca do ork\); nada disso vai ao embed/);
     const r = indexar({ raiz, tenant: T, dsn: '', config: CONFIG, alvo: 'primario', universo: u, dryRun: false, chavePresente: true,
       embeddar: p => d.embeddar(p) });
     assert.equal(r.embedados, 6);
@@ -200,6 +200,10 @@ test('rm038 universo: indice recusa entrada alheia antes de qualquer pedido de e
       chavePresente: true, embeddar: p => d.embeddar(p) }), /memory\.query\.scope-violation/);
     assert.throws(() => indexar({ raiz, tenant: 'outro', dsn: '', config: CONFIG, alvo: 'primario', universo: u, dryRun: false,
       chavePresente: true, embeddar: p => d.embeddar(p) }), /memory\.query\.scope-violation/);
+    // Universo vazio de outro tenant: sem a conferencia, o indexar esvaziaria o indice do outro.
+    assert.throws(() => indexar({ raiz, tenant: 'outro', dsn: '', config: CONFIG, alvo: 'primario',
+      universo: universoDaBusca(fonteFixa([]).fonte, T), dryRun: false, chavePresente: true, embeddar: p => d.embeddar(p) }),
+      /memory\.query\.scope-violation/);
     assert.equal(d.pedidosDeEmbedding.length, 0);
     assert.ok(!fs.existsSync(path.join(raiz, '.orkastery')), 'nada gravado');
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
@@ -231,6 +235,9 @@ test('rm038 universo: busca usa o universo inteiro, restringe a colecao e declar
     assert.equal(so.ftsForaDoUniverso, 2, 'r1 e da colecao nao pedida; fantasma e inj estao fora do universo');
     assert.match(so.detalhe, /fts: 2 id\(s\) fora do universo da busca descartado\(s\)/);
     assert.equal(so.origem, 'primario');
+    // A cobertura e contra a colecao buscada, nao contra o universo inteiro.
+    assert.deepEqual(so.coberturaDoIndice, { coerentes: 2, universo: 2 });
+    assert.doesNotMatch(so.detalhe, /o indice cobre/);
   } finally { c.limpar(); }
 });
 
@@ -242,7 +249,7 @@ test('rm038 universo: busca avisa quando o indice cobre menos que o universo e r
     const r = buscarPorSignificado(c.opcoes({ universo: maior, modo: 'vetor' }));
     assert.equal(r.origem, 'primario');
     assert.deepEqual(r.coberturaDoIndice, { coerentes: 6, universo: 7 });
-    assert.match(r.detalhe, /vetor: o indice cobre 6 de 7 entrada\(s\) do universo da busca; rode ork memory index/);
+    assert.match(r.detalhe, /vetor: o indice cobre 6 de 7 entrada\(s\) que a busca enxerga: rode ork memory index/);
     const fts = buscarPorSignificado(c.opcoes({ modo: 'fts', buscarTexto: () => ['fantasma'] }));
     assert.equal(fts.origem, 'fts', 'id descartado nao e falha do FTS');
     assert.equal(fts.motivo, null);
@@ -250,6 +257,9 @@ test('rm038 universo: busca avisa quando o indice cobre menos que o universo e r
     const contaminado: UniversoDaBusca = { ...c.u, entradas: [...c.u.entradas, entrada('alheia', 'decision', ['outro-produto'])] };
     assert.throws(() => buscarPorSignificado(c.opcoes({ universo: contaminado })), /memory\.query\.scope-violation/);
     assert.throws(() => buscarPorSignificado(c.opcoes({ tenant: 'outro' })), /memory\.query\.scope-violation/);
+    // Universo vazio de outro tenant: so a conferencia do tenant do universo segura.
+    const vazio = universoDaBusca(fonteFixa([]).fonte, T);
+    assert.throws(() => buscarPorSignificado(c.opcoes({ tenant: 'outro', universo: vazio })), /memory\.query\.scope-violation/);
     assert.equal(c.d.pedidosDeEmbedding.length, antes, 'nenhuma consulta embedada com universo contaminado');
   } finally { c.limpar(); }
 });
@@ -269,7 +279,7 @@ test('rm038 universo: status mostra o universo por colecao, fora da busca e avis
       assert.equal(e.aviso, 'o indice cobre 0 de 6 entrada(s) que a busca enxerga: rode ork memory index');
       const texto = textoDoEstado(antes);
       assert.match(texto, /universo da busca\s+6 entrada\(s\) do tenant: decision 2, handoff 1, rule 1, learning 1, roadmap 1/);
-      assert.match(texto, /fora da busca\s+1 com injection_risk, 1 expirada\(s\), 1 em colecoes fora do ork/);
+      assert.match(texto, /fora da busca\s+1 com injection_risk e 1 expirada\(s\) \(governanca da biblioteca\), 1 em outras colecoes \(fora da busca do ork\); nada disso vai ao embed/);
       assert.match(texto, /cobertura\s+0% de 6 entrada\(s\) do universo da busca/);
       assert.match(texto, /\n  aviso\s+o indice cobre 0 de 6/);
       indexar({ raiz: m.raiz, tenant: T, dsn: '', config: m.carregado.manifesto.memory.embedding!, alvo: 'primario',
@@ -306,6 +316,9 @@ test('rm038 universo: status sem universo lido traz o motivo tipado e nunca cobe
     assert.match(linhas, /fora da busca\s+nao medido nesta base/);
     assert.throws(() => estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, T, '',
       { universo: { ...universoDaBusca(fonteFixa([entrada('d1')]).fonte, T), tenant: 'outro' }, env: {} }), /memory\.query\.scope-violation/);
+    const contaminado = { ...universoDaBusca(fonteFixa([entrada('d1')]).fonte, T), entradas: [entrada('d1'), entrada('x', 'decision', ['outro'])] };
+    assert.throws(() => estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, T, '', { universo: contaminado, env: {} }),
+      /memory\.query\.scope-violation/);
   } finally { m.limpar(); }
 });
 
@@ -373,7 +386,7 @@ test('rm038 universo: cli do HEAD mostra o universo da busca, declara o FTS fora
   assert.deepEqual(s.foraDaBusca, { injecao: 5, expiradas: 0, outrasColecoes: 13 });
   const texto = orkCli(p.dir, ['memory', 'index', '--dry-run']);
   assert.match(texto.saida, /universo da busca\s+3 entrada\(s\): decision 1, handoff 1, rule 1, learning 0, roadmap 0/);
-  assert.match(texto.saida, /fora da busca\s+5 com injection_risk, 0 expirada\(s\), 13 em colecoes fora do ork/);
+  assert.match(texto.saida, /fora da busca\s+5 com injection_risk e 0 expirada\(s\) \(governanca da biblioteca\), 13 em outras colecoes \(fora da busca do ork\)/);
   const status = JSON.parse(orkCli(p.dir, ['memory', 'status', '--json']).saida);
   const e = status.embeddings ?? status.estado?.embeddings;
   assert.equal(e.entradas, 3);
@@ -408,4 +421,28 @@ test('rm038 universo: ci adia a prova na base e o teste da ponte, e roda o teste
     ]) assert.equal(motivoDiferimentoCi({ ...base, verificar: [comando] }, p.dir), 'local-integration-required', comando);
     assert.equal(motivoDiferimentoCi({ ...base, verificar: ['node --test core/dist-test/test/rm038-universo.test.js'] }, p.dir), null);
   } finally { p.limpar(); }
+});
+
+test('rm038 universo: status e busca nao mandam reindexar o que o indice nunca embeda', () => {
+  const m = manifesto();
+  // Padrao de segredo montado em tempo de execucao: o indice recusa o texto e nunca o embeda.
+  const segredo = entrada('seg', 'rule', [T], 'chave ' + 'sk-' + 'or-v1-' + 'a'.repeat(40));
+  const d = new DriverEmMemoria([entrada('d1'), entrada('r1', 'rule'), segredo]);
+  try {
+    comChave(() => {
+      const u = universoDaBusca(abrirMemoria(m.carregado, { driver: d }), T);
+      const r = indexar({ raiz: m.raiz, tenant: T, dsn: '', config: m.carregado.manifesto.memory.embedding!, alvo: 'primario',
+        universo: u, dryRun: false, chavePresente: true, embeddar: p => d.embeddar(p) });
+      assert.equal(r.recusados, 1);
+      assert.equal(r.embedados, 2);
+      const e = abrirMemoria(m.carregado, { driver: d, embeddings: 'detalhado' }).estado.embeddings!;
+      assert.equal(e.aviso, 'o indice cobre 2 de 3 entrada(s) que a busca enxerga; 1 fica(m) fora do indice por desenho ' +
+        '(vazia, acima de 24000 caracteres ou com padrao de segredo)');
+      assert.doesNotMatch(e.aviso!, /rode ork memory index/);
+      const busca = buscarPorSignificado({ raiz: m.raiz, tenant: T, dsn: '', config: m.carregado.manifesto.memory.embedding!,
+        universo: u, texto: 'comum', modo: 'vetor', limite: 10, chavePresente: true, fallbackUsavel: false, timeoutMs: 15000,
+        embeddar: p => d.embeddar(p) });
+      assert.match(busca.detalhe, /vetor: o indice cobre 2 de 3 entrada\(s\) que a busca enxerga; 1 fica\(m\) fora do indice por desenho/);
+    });
+  } finally { m.limpar(); }
 });

@@ -1379,7 +1379,7 @@ export interface ForaDaBusca {
   /** Ativas com `injection_risk` (a leitura governada as tira; nunca vao ao embed). */
   injecao: number;
   expiradas: number;
-  /** Do tenant, mas em colecoes que o `ork` nao grava. */
+  /** Do tenant, em colecoes fora da busca do `ork` (fora de COLECOES_DO_ORK; a ponte grava session e semantic_log). */
   outrasColecoes: number;
 }
 

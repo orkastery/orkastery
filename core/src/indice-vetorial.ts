@@ -215,6 +215,14 @@ export function conteudoRecusado(conteudo: string): boolean {
   return procurarSegredos(conteudo).length > 0 || URL_COM_CREDENCIAL.test(conteudo);
 }
 
+/**
+ * RM-038: o indice embeda a entrada? Nao embeda texto vazio, acima do limite nem com padrao de
+ * segredo. Domicilio unico para o `indexar` e para o aviso de cobertura do status.
+ */
+export function indexavel(e: EntradaDeMemoria): boolean {
+  return e.content.trim() !== '' && e.content.length <= EMBED_MAX_CARACTERES && !conteudoRecusado(e.content);
+}
+
 export function tokensEstimados(conteudo: string): number {
   return Math.ceil(conteudo.length / CARACTERES_POR_TOKEN);
 }
@@ -287,7 +295,7 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   const universo = o.universo.entradas;
   const foraDoLimite = universo.filter(e => e.content.length > EMBED_MAX_CARACTERES);
   const recusados = universo.filter(e => e.content.length <= EMBED_MAX_CARACTERES && conteudoRecusado(e.content));
-  const indexaveis = universo.filter(e => e.content.length <= EMBED_MAX_CARACTERES && !conteudoRecusado(e.content) && e.content.trim());
+  const indexaveis = universo.filter(indexavel);
   const base: ResultadoDoIndice = { alvo: o.alvo, modelo: null, dim: null, arquivo: null, dryRun: o.dryRun,
     universo: universo.length, porColecao: { ...o.universo.porColecao }, foraDaBusca: o.universo.foraDaBusca,
     coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
@@ -345,10 +353,23 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   return r;
 }
 
+/**
+ * RM-038 (D7): o aviso de cobertura, o mesmo no status e na busca. Reindexar so e sugerido quando
+ * resolve; o que o indice nunca embeda (vazio, acima do limite, padrao de segredo) e dito a parte.
+ */
+export function avisoDeCobertura(coerentes: number, entradas: readonly EntradaDeMemoria[],
+  alvo: AlvoDeEmbedding | 'nenhum', onde = ''): string | null {
+  if (coerentes >= entradas.length) return null;
+  const foraPorDesenho = entradas.filter(e => !indexavel(e)).length;
+  const base = `o indice cobre ${coerentes} de ${entradas.length} entrada(s) que a busca enxerga${onde}`;
+  if (coerentes < entradas.length - foraPorDesenho) return `${base}: rode ork memory index${alvo === 'fallback' ? ' --modelo fallback' : ''}`;
+  return `${base}; ${foraPorDesenho} fica(m) fora do indice por desenho (vazia, acima de ${EMBED_MAX_CARACTERES} caracteres ou com padrao de segredo)`;
+}
+
 /** RM-038: a linha do que fica fora da busca, a mesma no `ork memory index` e no `ork memory status`. */
 export function textoForaDaBusca(f: ForaDaBusca | null): string {
-  return f ? `${f.injecao} com injection_risk, ${f.expiradas} expirada(s), ${f.outrasColecoes} em colecoes fora do ork ` +
-    '(governanca da biblioteca; nunca vao ao embed)' : 'nao medido nesta base';
+  return f ? `${f.injecao} com injection_risk e ${f.expiradas} expirada(s) (governanca da biblioteca), ` +
+    `${f.outrasColecoes} em outras colecoes (fora da busca do ork); nada disso vai ao embed` : 'nao medido nesta base';
 }
 
 /** Texto de `ork memory index`: de que universo, o que foi (ou seria) embedado e quanto custa estimado. */

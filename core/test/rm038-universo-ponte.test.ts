@@ -10,7 +10,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { pythonFixture } from './native-fixture';
+import { assets, fixtureEnv, pythonFixture, usingFixture } from './native-fixture';
 
 const PONTE = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
 
@@ -171,4 +171,97 @@ async def run():
     await falha({'op': 'export', 'collection': 'decision'}, Export(3, -1), 'memory.query.window-saturated')
     print('export sem corte')
 asyncio.run(run())`, 'export sem corte');
+});
+
+test('rm038 ponte: universo, export e fts releem uma vez quando uma escrita isolada enche a janela', () => {
+  rodarPython(String.raw`
+def e(i, c='decision'): return MemoryEntry(id=i, collection=c, content='comum ' + i, tags={'project': [T]})
+class UmaEscrita:
+    # A primeira contagem chega antes de uma escrita; a segunda ja a ve. Nada foi cortado.
+    def __init__(self, entradas): self.entradas = entradas; self.contagens = 0
+    async def count(self, c=None):
+        self.contagens += 1
+        total = len([x for x in self.entradas if c is None or x.collection == c])
+        return total - 1 if self.contagens == 1 else total
+    async def search_by_tags(self, tags, collection=None, limit=50, **kw):
+        return [x for x in self.entradas if x.collection == collection][:limit]
+    async def search_by_text(self, q, collection=None, limit=10, **kw): return self.entradas[:limit]
+async def run():
+    dados = [e('a'), e('b'), e('c')]
+    assert sorted(x['id'] for x in (await b.execute({'op': 'universo', 'tenant': T}, UmaEscrita(dados)))['entradas']) == ['a', 'b', 'c']
+    assert len(await b.execute({'op': 'export', 'collection': 'decision'}, UmaEscrita(dados))) == 3
+    assert (await b.execute({'op': 'fts', 'tenant': T, 'texto': 'comum'}, UmaEscrita(dados)))['ids'] == ['a', 'b', 'c']
+    print('uma escrita se resolve')
+asyncio.run(run())`, 'uma escrita se resolve');
+});
+
+test('rm038 ponte: fts e universo julgam a expiracao pelo instante de antes da leitura', () => {
+  rodarPython(String.raw`
+async def run():
+    agora = datetime.now(timezone.utc)
+    quase = MemoryEntry(id='quase', collection='decision', content='x', tags={'project': [T]}, expires_at=agora + timedelta(seconds=1))
+    assert b.no_universo(quase, T, agora) is True
+    assert b.no_universo(quase, T, agora + timedelta(seconds=2)) is False
+    ingenua = SimpleNamespace(id='ingenua', collection='decision', tags={'project': [T]}, injection_risk=False,
+                              expires_at=(agora + timedelta(hours=1)).replace(tzinfo=None))
+    assert b.no_universo(ingenua, T, agora) is True
+    print('expiracao pelo instante da leitura')
+asyncio.run(run())`, 'expiracao pelo instante da leitura');
+});
+
+test('rm038 ponte: pgvector de verdade, universo, contagem de fora da busca e FTS batem com o predicado', () => {
+  usingFixture(receipt => {
+    const script = String.raw`
+import asyncio, logging, sys, uuid
+from datetime import datetime, timedelta, timezone
+sys.path.insert(0, sys.argv[2])
+import psycopg
+import orkmind_bridge as bridge
+from orkmind_fixture import connect_fixture, fixture_dsn
+from orkmind.core.config import OrkMindConfig
+from orkmind.core.models import MemoryEntry
+from orkmind.store.factory import create_store
+logging.disable(logging.CRITICAL)
+T = 'fabrica'
+async def run():
+ boot, fixture = await connect_fixture(sys.argv[1])
+ schema = 'universo_' + uuid.uuid4().hex
+ await boot.execute(psycopg.sql.SQL('CREATE SCHEMA {}').format(psycopg.sql.Identifier(schema)))
+ dsn = psycopg.conninfo.make_conninfo(fixture_dsn(fixture), options=f'-c search_path={schema},public')
+ store = create_store(OrkMindConfig(database_url=dsn, store_backend='pgvector', embedding_provider=''))
+ try:
+  await store.inner.initialize()
+  async def seed(nome, colecao, projeto, **extra):
+   e = MemoryEntry(content='comum entrada ' + nome, collection=colecao, source='agent', author_id='fixture-agent',
+     tags={'project': projeto}, embedding=[0.01] * 1024, **extra)
+   await store.store(e)
+   return e.id
+  esperado = {await seed('d1', 'decision', [T]), await seed('d2', 'decision', [T]), await seed('l1', 'learning', [T]),
+              await seed('multi', 'rule', ['outro-produto', T])}
+  await seed('inj', 'learning', [T], injection_risk=True)
+  for n in ('exp1', 'exp2'):
+   await seed(n, 'roadmap', [T], expires_at=datetime.now(timezone.utc) - timedelta(days=1))
+  for n in ('ses', 'log'):
+   await seed(n, 'session' if n == 'ses' else 'semantic_log', [T])
+  await seed('alheia', 'decision', ['outro-produto'])
+  await seed('vizinha', 'decision', [T + '-x'])
+  await seed('injalheia', 'learning', ['outro-produto'], injection_risk=True)
+  out = await bridge.execute({'op': 'universo', 'tenant': T}, store)
+  assert {x['id'] for x in out['entradas']} == esperado, out['entradas']
+  assert all('embedding' not in x for x in out['entradas'])
+  assert out['foraDaBusca'] == {'injecao': 1, 'expiradas': 2, 'outrasColecoes': 2}, out['foraDaBusca']
+  assert await bridge.contar_fora_da_busca(store, 'outro-produto') == {'injecao': 1, 'expiradas': 0, 'outrasColecoes': 0}
+  ids = (await bridge.execute({'op': 'fts', 'tenant': T, 'texto': 'comum'}, store))['ids']
+  assert set(ids) == esperado and len(ids) == len(set(ids)), ids
+  print('PASS: pgvector universo, fora da busca e fts no mesmo predicado')
+ finally:
+  await store.close()
+  await boot.execute(psycopg.sql.SQL('DROP SCHEMA {} CASCADE').format(psycopg.sql.Identifier(schema)))
+  await boot.close()
+asyncio.run(run())
+`;
+    const r = spawnSync(pythonFixture(), ['-c', script, receipt, assets], { encoding: 'utf8', env: fixtureEnv(), timeout: 60_000 });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /PASS: pgvector universo, fora da busca e fts no mesmo predicado/);
+  });
 });

@@ -46,7 +46,7 @@ import {
   SaudeDaPonte,
 } from './orkmind';
 import {
-  arquivoDoIndice, codigoDaFalha, conferirUniverso, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice,
+  arquivoDoIndice, avisoDeCobertura, codigoDaFalha, conferirUniverso, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice,
   textoForaDaBusca, universoDaBusca, vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
 } from './indice-vetorial';
 import { registrar, lerLedger, TIPOS_DE_EVENTO } from './ledger';
@@ -371,10 +371,7 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
     const coerentes = indice?.coerentes ?? 0;
     estado.cobertura = universo.length === 0 ? 0 : Math.round((coerentes / universo.length) * 10_000) / 10_000;
     // RM-038 (D7): o indice que a busca usa cobre menos do que ela enxerga: dito, nunca escondido.
-    if (coerentes < universo.length) {
-      estado.aviso = `o indice cobre ${coerentes} de ${universo.length} entrada(s) que a busca enxerga: ` +
-        `rode ork memory index${estado.ativo === 'fallback' ? ' --modelo fallback' : ''}`;
-    }
+    estado.aviso = avisoDeCobertura(coerentes, universo, estado.ativo);
   } else if (opcoes.falhaDoUniverso) estado.falhaDoUniverso = opcoes.falhaDoUniverso;
   return estado;
 }
