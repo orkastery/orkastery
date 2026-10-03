@@ -1,0 +1,85 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-provadeativa",
+  "branch": "ork/ork-provadeativa-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-provadeativa",
+      "fase": "GO",
+      "arquivo": "core/src/prova-ativacao.ts",
+      "alegacao": "a conferência aceita o Codex: transcriptDoCodex junta item.started e item.completed, aprova ork_maestro pelo MCP com o snapshot do projeto e reprova shell embrulhado, erro do MCP, tool ausente e outro servidor",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='Codex' core/dist-test/test/prova-ativacao.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:41:10.458Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-provadeativa",
+      "fase": "GO",
+      "arquivo": "core/scripts/prova-ativacao.cjs",
+      "alegacao": "o roteiro codex abre sessão efêmera com --ignore-user-config e -s read-only, passa o MCP do projeto por -c, aprova só ork_maestro e fecha 11 de 11 com um codex falso; sem login sai 3 e sem codex sai 2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/prova-ativacao-roteiro.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:41:10.597Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-provadeativa",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/codex-2026-10-03.json",
+      "alegacao": "o recibo real do Codex na srvjcp86 está aprovado, com 11 de 11 conferências, ork_maestro chamada e a config global intocada; o da primeira rodada registra o desvio pelo shell",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const r=require('./docs/roadmap/evidencias/RM-032/codex-2026-10-03.json');const d=require('./docs/roadmap/evidencias/RM-032/codex-2026-10-03-desvio.json');process.exit(r.contrato==='ork.prova-ativacao/v1'&&r.host==='codex'&&r.estado==='aprovada'&&r.conferencias.length===11&&r.conferencias.every(c=>c.ok)&&r.global.intocado&&r.transcript.chamadas.some(c=>c.nome==='mcp__orkastery__ork_maestro'&&c.via==='entrada')&&d.estado==='reprovada'&&/desvio/.test(d.conferencias.find(c=>c.id==='entrada.chamada').detalhe)?0:1)\""
+      ],
+      "criadoEm": "2026-10-03T04:41:10.742Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-provadeativa",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG traz a prova do Codex em Não publicado e a RM-032 cita o recibo e 3 de 4 hosts",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'Prova de ativação do Maestro no Codex' CHANGELOG.md && grep -q 'evidencias/RM-032/codex-2026-10-03.json' docs/roadmap/RM-032-bootstrap-maestro.md && grep -q '3 de 4' docs/roadmap/RM-032-bootstrap-maestro.md"
+      ],
+      "criadoEm": "2026-10-03T04:41:11.029Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-provadeativa",
+      "fase": "GO",
+      "arquivo": "adapters/codex/skills/ork/SKILL.md",
+      "alegacao": "a skill ork do Codex e a cópia do marketplace pedem ork_maestro antes de qualquer ork no shell, e as suítes de hosts, marketplaces e do maestro no Codex seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'a primeira ação é a ferramenta .ork_maestro.' adapters/codex/skills/ork/SKILL.md && grep -q 'a primeira ação é a ferramenta .ork_maestro.' marketplaces/codex/orkastery/skills/ork/SKILL.md && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/maestro-codex.test.js core/dist-test/test/hosts.test.js core/dist-test/test/marketplaces.test.js core/dist-test/test/rm057-fatia2.test.js"
+      ],
+      "criadoEm": "2026-10-03T04:41:38.037Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
