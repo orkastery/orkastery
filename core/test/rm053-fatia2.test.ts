@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { checar } from '../src/doctor';
+import { painelDaRede, RETRATO_PARADO_MS, retratoParado } from '../src/rede';
 import { dirTemporario } from './apoio';
 
 function naMaquina<T>(usuario: string, f: () => T): T {
@@ -84,4 +85,20 @@ test('RM-053 fatia 2 doctor: membro herdado com a casa ausente vira aviso com a 
     assert.equal(c.nivel, 'ok');
     assert.match(c.detalhe, /saiu com ork network sair/);
   } finally { fs.rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('RM-053 fatia 2 REDE.md: a regua do retrato parado e de 14 dias; batida ilegivel ou no futuro fica no indice', () => {
+  const agora = Date.parse('2026-10-03T12:00:00Z');
+  const dia = 24 * 60 * 60 * 1000;
+  assert.equal(RETRATO_PARADO_MS, 14 * dia);
+  assert.equal(retratoParado({ publicadoEm: new Date(agora - 14 * dia).toISOString() }, agora), false, 'no limite, fica');
+  assert.equal(retratoParado({ publicadoEm: new Date(agora - 14 * dia - 1).toISOString() }, agora), true);
+  assert.equal(retratoParado({ publicadoEm: 'ontem' }, agora), false, 'ilegivel nao se sabe parado');
+  assert.equal(retratoParado({ publicadoEm: new Date(agora + 30 * dia).toISOString() }, agora), false, 'relogio adiantado fica');
+  const retrato = (maquina: string, publicadoEm: string) => ({ contrato: 'ork.rede-maquina/v1' as const, maquina, hostname: maquina,
+    adesao: 'rede' as const, forjas: [], runtimes: [], hosts: [], projetos: [], versaoOrk: '0.5.2', publicadoEm });
+  const so = painelDaRede([retrato('pc-velho', new Date(agora - 40 * dia).toISOString())], agora);
+  assert.match(so, /nenhuma máquina com batida recente/);
+  assert.match(so, /Fora do índice, sem batida há mais de 14 dias: pc-velho/);
+  assert.doesNotMatch(painelDaRede([], agora), /Fora do índice/);
 });
