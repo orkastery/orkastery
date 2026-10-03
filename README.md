@@ -11,16 +11,32 @@
 - **Status:** in daily use · on npm as [`@orkastery/cli`](https://www.npmjs.com/package/@orkastery/cli), with [changes per version](CHANGELOG.md) · reviewed on 2026-09-27
 - **Proof:** GitHub CI on every PR: 2,733 core tests, 24 canaries and 20 skills with 199 assertions, zero failures (CI of the `main` at PR #74, run 37102089623, 2026-10-03)
 - **Product and roadmap:** [`docs/produto/`](docs/produto/README.md) and [`docs/roadmap/`](docs/roadmap/README.md), checked against the code by `ork docs verificar`
-- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md); the CLI and the docs are in Brazilian Portuguese today
+- **Language:** this page is the canonical entry point, mirrored in [Portuguese](README.pt-BR.md). The CLI output and the pages under `docs/` are in Brazilian Portuguese today, whatever your `LANG`; in English, read the [quickstart on orkastery.com](https://orkastery.com/en/docs/comecar/) and the [glossary of what the CLI prints](#reading-the-cli-in-english)
 
 ```bash
 npm install -g @orkastery/cli
 ork demo          # 30 seconds: a false claim rejected, the fixed one accepted; no account, no model
 ork doctor        # what holds on this machine right now; exits != 0 when blocked
-ork init          # writes the orkastery.yaml for your repository
+ork init          # writes the orkastery.yaml; run it at the root of a git repository with at least one commit
 ork modos         # the four conduction modes
 ork docs init     # product docs and roadmap in the standard, with lint
 ```
+
+## Your first thread
+
+The smallest full cycle, in `#Fast` mode (a single GO phase), right after `ork init`. `<thread>` is the ID that `ork thread new` prints.
+
+```bash
+git add orkastery.yaml AGENTS.md && git commit -m "ork init"
+ork thread new "add an exclamation mark to greet" --modo fast
+ork phase run <thread> GO --prompt "<the request>"   # the agent runtime works in the thread's worktree
+ork verify <thread>                                  # re-runs the claims and the manifest checks on the real HEAD
+ork ship <thread> --para main --autorizar-push <you> # #Fast never pushes without your authorization
+ork master <thread> --aceitar-omissao                # closes the thread with the index derived from the ledger
+```
+
+- If `phase run` stops with `runtime.workspace-untrusted`, run `claude` once in the worktree, accept the trust prompt, then `ork retry run <thread>`. `ork pulse` shows the same instruction.
+- A claim is what the agent states plus the command that judges it: `ork claims add <thread> <file> --claim "<statement>" --verificar "<command>"`.
 
 ## Why it exists
 
@@ -186,15 +202,48 @@ On a virtual machine whose CPU the hypervisor steals (the `steal` in `sar`), the
 
 ## Documentation
 
-The [docs home](docs/README.md) is organized by what you want to do now:
+The [docs home](docs/README.md) is organized by what you want to do now. Every page under `docs/` is in Brazilian Portuguese; the English quickstart lives on [orkastery.com](https://orkastery.com/en/docs/comecar/).
 
 | Section | Start with |
 | --- | --- |
-| **Getting started** | [Quickstart](docs/comecar/quickstart.md): from zero to the first full cycle |
+| **Getting started** | [Quickstart in English](https://orkastery.com/en/docs/comecar/), and the full [quickstart](docs/comecar/quickstart.md) in Portuguese: from zero to the first full cycle |
 | **Guides** | [Modes](docs/guias/modos.md), [verification](docs/guias/verificacao.md), [human attention](docs/guias/sincronismo-hitl.md), [memory](docs/guias/memoria-e-handoff.md), [audits](docs/guias/auditoria.md) |
 | **Reference** | [CLI](docs/referencia/cli.md) (the source is `ork --help`) and [contracts](docs/referencia/contratos/) |
 | **Concepts** | [Overview](docs/conceitos/visao-geral.md) and [architecture](docs/conceitos/arquitetura.md) |
 | **Product and roadmap** | [What exists](docs/produto/README.md) and [what comes next](docs/roadmap/README.md), checked against the code |
+
+## Reading the CLI in English
+
+The CLI prints Brazilian Portuguese. These are the words a first run shows.
+
+| The CLI prints | It means |
+| --- | --- |
+| `PRONTO` / `BLOQUEADO` | ready / blocked: the `ork doctor` verdict |
+| `correcao` | the fix for the line above it |
+| `Proximo passo` | next step |
+| `VERDADE SUSTENTADA` / `REPROVADO` | the claims held / failed: the `ork verify` verdict |
+| `AGUARDANDO AUTORIZACAO HUMANA` | waiting for your authorization |
+| `Precisa de humano agora` | needs a human now: the first line of `ork pulse` |
+| `Recomendação`, `opção` | recommendation, option |
+| `aceitas por omissao` | accepted by default, because nobody scored them |
+| `pendente`, `respondida` | pending, answered |
+| `Horários em <zone>` | times are shown in that time zone |
+
+- **Dates are day/month:** `03/10 06:30` is October 3.
+- **Commands and flags in Portuguese:** `modos` (modes), `--modo` (mode; `--mode` also works), `--para` (target branch), `--por` (who records it), `--autorizar-push` (authorize the push), `--conteudo` (content), `--verificar` (the command that verifies), `decisao registrar` (record a decision), `docs verificar` (check the docs), `experiencia show` (conversation preferences).
+- **`owner.language: en-US`** sets the language of the conversation in your host (Claude Code, Codex); the CLI itself stays in Portuguese.
+
+| Term | Meaning |
+| --- | --- |
+| **HITL** | human in the loop: a question only you can answer, with alternatives and one recommendation |
+| **ledger** | the append-only event log of a thread, in `.orkastery/threads/<thread>/ledger.jsonl`; `ork phase list <thread>` prints it |
+| **claim** | a statement, the file it is about and the command that judges it |
+| **worktree** | the separate git checkout of each thread, under `.claude/worktrees/` |
+| **lease** | a lock on a shared resource, such as the main tree during a merge, with a queue |
+| **pulse** | the hourly summary of what waits for you: `ork pulse` |
+| **maestro** | the conversational overview in a host (say `orkastery maestro`), and the onboarding stage about you |
+| **GOAL … MASTER** | the six phases, in [the thread table](#the-thread-six-phases-no-agent-skips) |
+| **#Classic, #Maestro, #Auto, #Fast** | the conduction modes, in [the modes table](#four-modes-chosen-by-tag) |
 
 ## Built with itself
 
@@ -224,4 +273,4 @@ The [docs home](docs/README.md) is organized by what you want to do now:
 > **No metronome ever turned anyone into Bernstein.** Mastery is not tempo: it is knowing, after each performance, what you did, what it cost and how well it went, and being better at the next one. That is the phase we call MASTER, and it is why the project is called Orkastery.
 
 - Original implementation, [MIT](LICENSE) license, with [credit to those who came before](ATTRIBUTION.md).
-- [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Quickstart](docs/comecar/quickstart.md) · [Architecture](docs/conceitos/arquitetura.md)
+- [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Quickstart](https://orkastery.com/en/docs/comecar/) · [Architecture](docs/conceitos/arquitetura.md)
