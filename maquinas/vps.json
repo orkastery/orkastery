@@ -4,24 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-03T14:38:02.237Z",
+  "publicadoEm": "2026-10-03T14:42:51.112Z",
   "threads": [
     {
       "id": "ork-rm058planeja",
       "nome": "ork-rm058noctum",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm058planeja-full",
-      "atualizadaEm": "2026-10-03T14:38:01.897Z",
+      "atualizadaEm": "2026-10-03T14:42:50.865Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "runtime": "codex",
+      "modelo": "gpt-6-astra",
+      "esforco": "xhigh"
     },
     {
       "id": "ork-siteorkaste2",
