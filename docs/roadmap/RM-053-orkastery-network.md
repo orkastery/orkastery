@@ -39,7 +39,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Feature:** [FEAT-031](../produto/FEAT-031-orkastery-network.md) · **Decisão:** [ADR-001](../conceitos/decisoes/ADR-001-estado-da-rede.md) · **Contratos:** [rede-rm053](../referencia/contratos/rede-rm053.md)
-- **Thread:** `ork-rm053network` (fatia 1) · **Irmãs:** RM-052 (projeto-alvo) e RM-054 (roadmap da rede), em paralelo
+- **Thread:** `ork-rm053network` (fatia 1), `ork-rm053fatia2r` (fatia 2) · **Irmãs:** RM-052 (projeto-alvo) e RM-054 (roadmap da rede), em paralelo
 
 ## Problema e resultado
 
@@ -84,15 +84,17 @@ sdlc:
   - piloto: depois do merge, o dono roda `ork network entrar` na srvjcp86; a vps entra sozinha na batida do pulse quando o `ork` dela for atualizado;
   - medição: a métrica principal, 7 dias depois do piloto;
   - interromper se um segredo aparecer na casa ou se o repositório ficar público; a guarda já recusa a publicação nesses casos.
+- **Incluído na fatia 2 (thread `ork-rm053fatia2r`, 03/10/2026):**
+  - check `rede` no `ork doctor`: adesão, casa, última batida e última falha do `rede.log`, só de arquivos locais; aviso com a correção quando a falha é mais nova que a batida ou a batida passou de 3 h; nunca bloqueia;
+  - retrato sem batida há mais de 14 dias (`RETRATO_PARADO_MS`) sai da tabela do `REDE.md` e vai ao rodapé; o arquivo e o `ork network status` ficam;
+  - saneador de saída comum ao núcleo (`core/src/saida-segura.ts`), aplicado ao `ork fabrica`, ao `ork fabrica --json` e à seção de outras máquinas do `ork board` (o achado do `por` e do `projeto` legados);
+  - faxina da trava órfã serializada sob `publicar.lock.faxina` (W9 do CHECK 5): a trava viva nunca sai do lugar.
 - **Próxima fatia (registrada, não implementada):**
-  - piloto com GitLab real: `glab auth git-credential` só foi provado com `glab` simulado;
-  - check da rede no `ork doctor`: adesão, casa, última batida e última falha do `rede.log`;
-  - retrato parado há muitos dias sai do índice `REDE.md` (hoje só vira a lacuna `maquina.sem-batida`);
-  - remoção de trava órfã serializada (W9 do CHECK 5, limitação aceita): com três processos e uma órfã, a trava viva devolvida pode encalhar em `publicar.lock.orfa-*`, e o `liberar()` do dono dá erro depois de um push que já deu certo;
+  - piloto com GitLab real: `glab auth git-credential` só foi provado com `glab` simulado (o `glab` não está instalado na srvjcp86);
   - id derivado numa pasta dividida (X6 do CHECK 6, limitação aceita): sem hard link, entre hosts ou contêineres, o último a gravar vence; o boot só entra no Linux;
   - marcas visíveis da categoria `Cf` (Y4 do CHECK 7, limitação aceita): sinais numéricos árabes e U+070F contam como invisíveis, e o projeto com eles sai do retrato com aviso.
 - **Achado extra, fora do escopo:** despacho que falha por impedimento que só o dono resolve (por exemplo, "Workspace not trusted" do Claude Code) hoje vira só `phase_dispatch_failed`, sem HITL e sem "espera você" no board e na fábrica. Evidência: o `phase_dispatch_failed` de 29/09 16:32 UTC no ledger desta thread. Proposta: classificar o motivo e abrir pedido tipado ao dono; candidato a item próprio.
-- **Outro achado, fora do escopo:** o `ork fabrica` (RM-047) imprime o `por` e o `projeto` da fábrica legada crus; lá, a quebra de linha e o controle de terminal que a rede passou a limpar ainda chegam à tela. Candidato: um saneador de saída comum ao núcleo.
+- **Outro achado, fechado na fatia 2:** o `ork fabrica` (RM-047) imprimia o `por` e o `projeto` da fábrica legada crus; a quebra de linha e o controle de terminal que a rede já limpava chegavam à tela. O saneador comum (`core/src/saida-segura.ts`) passou a valer para o `ork fabrica` e o `ork board`. O "Workspace not trusted" do achado anterior virou a RM-055.
 
 ## Plano e decisões
 
@@ -132,6 +134,7 @@ sdlc:
 - GO-FIX 7 (30/09): a batida legível de outra fábrica vence a ilegível; o AWS com borda dos dois lados e a OpenAI com `T3BlbkFJ` no corpo ou 60 na cauda, sem os falsos positivos novos; testes dos lookaheads de caixa e do `boot_id` sozinho; 70 testes verdes em `core/test/rede.test.ts` contra forja simulada.
 - Evidência dos testes: cada correção tem teste. Os que cobrem correção nova reprovam no código anterior, inclusive a corrida do id da instalação: os processos concorrentes reprovam `b3f5dbe`, e o processo lento determinístico reprova `f4da67c`. A trava órfã movida, a saída JSON do CLI, o helper só para https, o filtro de caminho do escritor, o id sem hard link, o `boot_id` no id derivado, os lookaheads de caixa dos padrões, o `~` da célula, os tetos do escritor e o `core.sshCommand` na leitura legada foram provados por mutação. A guarda "conteúdo já válido" do id derivado só aparece em estresse de milhares de processos e não tem teste na suíte. O SSH em lote (M5) é provado só pelo formato do ambiente.
 - Nenhum repositório real foi criado e nada foi publicado no npm.
+- Fatia 2 na branch `ork/ork-rm053fatia2r-full` (03/10/2026): quatro commits de GO, um por parte, cada um com teste em `core/test/rm053-fatia2.test.ts` (e o do `REDE.md` também em `core/test/rede.test.ts`) que reprova o código da fatia 1. Na srvjcp86, o `ork doctor` passou a acusar o que o `rede.log` guardava desde 02/10: membro herdado da fábrica com `rede.sem-repositorio`, porque a casa só nasce no `ork network entrar` do dono.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -153,7 +156,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery (thread `ork-rm053network`) · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude (claude-code, sessão `624f65db`) conduziu do GOAL à SHIP no modo `#Auto`, com as decisões autônomas no ledger; revisão e merge: Julio.
-- **Próxima ação, responsável e prazo:** Julio revisa e mescla o PR, depois roda `ork network entrar` na srvjcp86; prazo a definir pelo dono.
+- **Próxima ação, responsável e prazo:** Julio roda `ork network entrar` na srvjcp86 (o `ork doctor` acusa a casa ausente desde a fatia 2); prazo a definir pelo dono.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -167,3 +170,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | CHECK 5 reprovado (quinta revisão) e GO-FIX 5: predicado de projeto único, padrões sem falso positivo, `id` com cabeçalho, texto em uma linha por valor; W9 aceita e registrada | parecer do CHECK 5 e commit `fix(ork-rm053network): GO-FIX 5` | agente |
 | 2026-09-30 | CHECK 6 reprovado (sexta revisão) e GO-FIX 6: `:` escapado, `readlink` tolerante, invisível pelo Unicode, padrões sem limite à esquerda, batida ilegível como lacuna; X6 aceita e registrada | parecer do CHECK 6 e commit `fix(ork-rm053network): GO-FIX 6` | agente |
 | 2026-09-30 | CHECK 7 liberou o PR em rascunho; GO-FIX 7 fecha as cinco baixas (Y4 aceita e registrada) | parecer do CHECK 7 e commit `fix(ork-rm053network): GO-FIX 7` | agente |
+| 2026-10-03 | fatia 2: rede no `ork doctor`, retrato parado fora do `REDE.md`, saneador de saída no `ork fabrica` e W9 fechada; piloto GitLab, X6 e Y4 seguem fora | thread `ork-rm053fatia2r`, decisões no ledger dela | agente (#Auto) |
