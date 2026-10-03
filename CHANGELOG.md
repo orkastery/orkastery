@@ -117,6 +117,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - a validação do remoto da RM-047 aceita o nome com `/` que o git aceita (`fabrica.remoto: time/origem`), como a
     0.5.2; a primeira versão dela o recusava com `fabrica.remoto-invalido`. Cada parte começa por letra ou dígito, então
     caminho absoluto, `..`, opção e transporte continuam recusados.
+  - com `claim_sem_prova_local` declarada, o `ork_claim_add` do MCP não roda mais o comando da claim: antes, o texto
+    vindo do pedido MCP rodava no processo do servidor, fora do sandbox do `ork_verify` e por até `verify.timeout_ms`
+    dentro do pedido, embora a tool diga "Nao executa comandos". Pela CLI, com a worktree da thread apagada, o aviso
+    diz que a worktree não existe, em vez de dizer que a claim "reprova no verify".
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
