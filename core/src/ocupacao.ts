@@ -90,6 +90,8 @@ export interface OcupacaoDaThread {
   detalhe: string;
   /** Evidencia verificavel: evento do ledger ou estado de sessao do runtime. */
   evidencia: string;
+  /** Na pausa humana por escalada, a correcao gravada no gate; ausente nas demais. */
+  correcao?: string;
   /** Sessao do ultimo despacho, quando existe. */
   sessionId: string | null;
   /** State bruto da sessao no runtime; null quando nao consultado ou sem sessao. */
@@ -157,7 +159,7 @@ export function sessaoLivreDaVaga(doLedger: EventoLedger[], desde: string, agora
 function pausaHumanaAberta(
   thread: Thread,
   eventos: EventoLedger[]
-): { desdeEm: string; evidencia: string } | null {
+): { desdeEm: string; evidencia: string; correcao?: string } | null {
   if (thread.status === 'pausada' && faseTemPausaPrevista(thread)) {
     return { desdeEm: thread.atualizadaEm, evidencia: 'thread.json (status: pausada)' };
   }
@@ -181,11 +183,16 @@ function pausaHumanaAberta(
       );
     });
     if (resolvida) continue;
+    // Ensaio de 03/10/2026 (RM-049): a escalada traz a correcao gravada no gate (no impedimento do dono,
+    // o comando dele e o `ork retry run`); o board a mostra, em vez de um `ork gate request` que o
+    // modo sem pausa prevista recusa.
+    const correcao = escalada && typeof e.correcao === 'string' && e.correcao !== '' ? e.correcao : undefined;
     return {
       desdeEm: e.ts,
       evidencia: prevista
         ? `ledger ${TIPOS_DE_EVENTO.pausaHumana} (${PAUSA_PREVISTA}) em ${e.ts}`
-        : `ledger ${TIPOS_DE_EVENTO.gateBloqueado} (human.pending) em ${e.ts}`,
+        : `ledger ${TIPOS_DE_EVENTO.gateBloqueado} (${String(e.motivo)}) em ${e.ts}`,
+      ...(correcao ? { correcao } : {}),
     };
   }
   return null;
@@ -297,6 +304,7 @@ export function avaliarOcupacao(
         `pausa humana aberta ha ${minutos(pausa.desdeEm, opcoes.agora)} min: ` +
         'esperar veredito humano nao ocupa vaga da maquina',
       evidencia: pausa.evidencia,
+      ...(pausa.correcao ? { correcao: pausa.correcao } : {}),
     };
   }
 
