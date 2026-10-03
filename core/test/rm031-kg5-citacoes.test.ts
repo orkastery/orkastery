@@ -92,7 +92,7 @@ function provarTrocaDeDiretorio(extrair = extrairGrafo): void {
   let anterior = extrair(entrada(diretorio), PARSER);
   assert.deepEqual(rotulos(anterior.grafo), [`${teste} -> core/src/pasta/index.ts`]);
   const sondas = anterior.unidades.arquivos.find((u) => u.path === teste)!.ts!.sondas;
-  assert.ok(!sondas.includes('core/src/pasta'), 'diretorio nao vira sonda ampla');
+  assert.ok(sondas.includes('core/src/pasta'), 'diretorio conserva sonda para a troca por arquivo');
   assert.ok(sondas.includes('core/src/pasta.ts'), 'variante de arquivo ausente fica sondada');
   assert.ok(sondas.includes('core/src/pasta/index.ts'), 'variante index fica sondada');
   for (const [repo, alvo] of [[arquivo, 'core/src/pasta.ts'], [diretorio, 'core/src/pasta/index.ts']] as const) {
@@ -109,8 +109,38 @@ function provarTrocaDeDiretorio(extrair = extrairGrafo): void {
 test('KG5 citacoes GO-FIX 2: diretorio vira arquivo e volta com indice incremental igual ao completo; prova cai por mutacao', () => {
   provarTrocaDeDiretorio();
   const semVariantes = mutante('intelligence-graph-extract-ts',
-    'const grupos = candidatosDaCitacao(base)', 'if (diretorios.has(base)) return; const grupos = candidatosDaCitacao(base)');
+    'const grupos = candidatosDaCitacao(base)',
+    'if ([...arquivos].some((p) => p.startsWith(base + "/"))) return; const grupos = candidatosDaCitacao(base)');
   assert.throws(() => provarTrocaDeDiretorio(semVariantes), 'retorno antecipado perde index e sondas');
+});
+
+function provarTrocaDeDiretorioComExtensao(base: string, filho: string, extrair = extrairGrafo): void {
+  const teste = 'core/test/diretorio.test.ts';
+  const fixture = { [teste]: `export const caminho = '${base}';` };
+  const diretorio = { ...fixture, [filho]: 'export const interno = 1;' };
+  const arquivo = { ...fixture, [base]: base.endsWith('.ts') ? 'export const alvo = 2;' : 'body { color: red; }' };
+  let anterior = extrair(entrada(diretorio), PARSER);
+  assert.deepEqual(rotulos(anterior.grafo), [], 'diretorio nao e alvo de cites');
+  for (const [repo, esperado] of [[arquivo, [`${teste} -> ${base}`]], [diretorio, []]] as const) {
+    const e = entrada(repo), incremental = extrair(e, PARSER, anterior.unidades), completo = extrair(e, PARSER);
+    assert.deepEqual(incremental.grafo, completo.grafo, `${base}: grafo incremental igual ao completo`);
+    assert.deepEqual(incremental.unidades, completo.unidades, `${base}: unidades incrementais iguais as completas`);
+    assert.equal(incremental.digest, completo.digest, `${base}: digest incremental igual ao completo`);
+    assert.deepEqual(rotulos(incremental.grafo), esperado);
+    assert.ok(incremental.reaproveitamento?.ts.reextraidos.includes(teste), 'citante precisa ser reextraido nos dois sentidos');
+    anterior = incremental;
+  }
+}
+
+for (const [base, filho] of [
+  ['core/src/pasta.ts', 'core/src/pasta.ts/index.ts'],
+  ['dist/x.css', 'dist/x.css/estilo.css'],
+]) test(`KG5 citacoes GO-FIX 3: ${base} troca entre diretorio e arquivo nos dois sentidos; filtro de sondas mutante reprova`, () => {
+  provarTrocaDeDiretorioComExtensao(base, filho);
+  const semDiretorios = mutante('intelligence-graph-extract-ts', 'const grupos = candidatosDaCitacao(base);',
+    'const grupos = candidatosDaCitacao(base).map((grupo) => grupo.filter((p) => ![...arquivos].some((f) => f.startsWith(p + "/"))));');
+  assert.throws(() => provarTrocaDeDiretorioComExtensao(base, filho, semDiretorios),
+    /grafo incremental igual ao completo/, 'filtrar diretorios perde a invalidacao incremental');
 });
 
 function provarSemDuplicacao(extrair = extrairGrafo): void {
@@ -174,7 +204,7 @@ function provarSondasRestritas(extrair = extrairGrafo): void {
   };
   const r = extrair(entrada(repo), PARSER);
   const ruido = r.unidades.arquivos.find((u) => u.path === 'core/test/ruido.test.ts')!.ts!;
-  assert.deepEqual(ruido.sondas, [], 'palavras, diretorios e caminhos sem extensao nao geram sondas');
+  assert.deepEqual(ruido.sondas, ['core/src/pasta.ts'], 'caminho de diretorio com extensao conserva sonda; palavras e caminhos sem extensao ficam fora');
   assert.deepEqual(ruido.dependencias, []);
   for (const arquivo of ['core/test/pacotes.test.ts', 'core/test/fixture-pacotes.test.ts']) {
     const pacote = r.unidades.arquivos.find((u) => u.path === arquivo)!.ts!;
@@ -195,7 +225,6 @@ test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas 
     ['intelligence-graph-extract-md', '!modulo && (', 'false && ('],
     ['intelligence-graph-extract-md', 'if (modulo &&', 'if (false &&'],
     ['intelligence-graph-extract-md', '[cm]?[jt]s|[jt]sx', '[cm]?[jt]sx?'],
-    ['intelligence-graph-extract-ts', 'grupo.filter((p) => !diretorios.has(p))', 'grupo'],
   ]) {
     const extrair = mutante(modulo, antes, depois);
     assert.throws(() => provarSondasRestritas(extrair), antes);

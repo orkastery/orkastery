@@ -212,11 +212,6 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
   const checker = programa.getTypeChecker();
   const cache = ts.createModuleResolutionCache(e.raiz, (p) => p, opts);
   const arquivos = new Set(e.arquivos);
-  const diretorios = new Set<string>();
-  for (const p of e.arquivos) {
-    const partes = p.split('/');
-    for (let i = 1; i < partes.length; i++) diretorios.add(partes.slice(0, i).join('/'));
-  }
   const S = ts.SymbolFlags, K = ts.SyntaxKind;
 
   const ehTopo = (n: TS.Node): boolean => !!n.parent && ts.isSourceFile(n.parent);
@@ -667,9 +662,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
       const citar = (literal: string, n: TS.Node, modulo = false): void => {
         const base = caminhoDaCitacao(fonte.path, literal, modulo);
         if (base === null) return;
-        // Diretorio nao e candidato exato, mas suas variantes ainda podem citar um arquivo.
-        const grupos = candidatosDaCitacao(base).map((grupo) => grupo.filter((p) => !diretorios.has(p)));
-        // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
+        const grupos = candidatosDaCitacao(base);
+        // Inclui ausentes e diretorios: a troca para arquivo invalida a unidade incremental.
+        // So arquivos presentes podem virar alvo; diretorios conservam apenas a sonda.
         for (const grupo of grupos) for (const p of grupo) sondas.add(p);
         for (const grupo of grupos) {
           const presentes = grupo.filter((p) => arquivos.has(p));
