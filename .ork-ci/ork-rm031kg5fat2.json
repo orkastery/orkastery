@@ -15,7 +15,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.455Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.705Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.960Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.217Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.446Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.706Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.961Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.210Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.445Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.698Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.959Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
@@ -169,21 +169,133 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:51.230Z",
-      "estado": "pendente",
+      "estado": "reprovado",
       "lint": []
     },
     {
-      "id": "C13",
+      "id": "C14",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-contexto.ts",
+      "alegacao": "GO-FIX T1: sementes de GOAL/PLAN exigem extensao conhecida ou diretorio do indice; evidencia auxiliar e omitida e contada, sem recusar o pacote.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 contexto (puro|v2)|KG5 sementes|KG5 relevancia|KG5 medida offline' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:33:55.985Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "GO-FIX T1: regressao cobre prosa com barras, novos arquivos e evidencias auxiliares, incluindo aresta sem evidencia propria.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 contexto (puro|v2)|KG5 sementes|KG5 relevancia|KG5 medida offline' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:33:56.021Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/scripts/medir-mcp-grafo.cjs",
+      "alegacao": "GO-FIX T2: somente exports explicitos >=4 em grep -w; cobertura dos editados da base e novos separados; precisao nos dois bracos; --conferir compara hash e registro com fixture.",
+      "negativa": false,
+      "verificar": [
+        "node --check core/scripts/medir-mcp-grafo.cjs && npm --prefix core run build:test && node --test-name-pattern='KG5 medida historica' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:42:01.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "GO-FIX T2: prova de termos detecta tres mutacoes (tamanho, exports, -w); testes cobrem cobertura, precisao, novos e adulteracao de hash/metricas.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 medida historica' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:42:01.744Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "core/test/fixtures/kg5-medida-contexto.json",
-      "alegacao": "Registro explicita medição histórica not-run por Git EPERM e registra somente a medida sintética v2 de 3093 bytes contra 22973 do v0; não comprova cobertura real.",
+      "alegacao": "Pre-condicao de SHIP do GO-FIX: fixture historica deve ser regravada no metodo v3 e reproduzir hashes e metricas por --conferir. Pendente da condutora, nao concluida nesta sessao.",
       "negativa": false,
       "verificar": [
-        "npm --prefix core run build:test && node --test-name-pattern='KG5 medida' core/dist-test/test/rm031-kg5-contexto.test.js"
+        "node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json && node core/scripts/medir-mcp-grafo.cjs --contexto --conferir"
       ],
-      "criadoEm": "2026-10-03T08:05:36.010Z",
-      "estado": "pendente",
+      "criadoEm": "2026-10-03T08:42:50.192Z",
+      "estado": "reprovado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "GO-FIX T3: contrato descreve medida executada, metodologia v3, omissoes e tabela dos dois bracos com marcadores numericos para a condutora.",
+      "negativa": false,
+      "verificar": [
+        "rg -n 'graph-context-cost/v3|PREENCHER_KG|evidencias_auxiliares|3.119|Pacote pequeno' docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-03T08:43:30.308Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "GO-FIX T3: roadmap cita medida historica executada, nova metodologia e regravacao necessaria; nao afirma economia de tokens.",
+      "negativa": false,
+      "verificar": [
+        "rg -n 'Fixture sintética após o GO-FIX|formato v2 e medida histórica executada' docs/roadmap/RM-031-grafo-de-codigo.md"
+      ],
+      "criadoEm": "2026-10-03T08:43:30.345Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX T3: changelog descreve correcoes de contexto/medida e cita fixture executada com regravacao v3 antes do SHIP.",
+      "negativa": false,
+      "verificar": [
+        "rg -n -A 12 'Contexto compacto da thread, KG5 fatia 3' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-03T08:43:30.396Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "Pre-condicao de SHIP: condutora deve substituir todos os marcadores numericos da tabela pela medida v3. Pendente, nao concluida nesta sessao.",
+      "negativa": true,
+      "verificar": [
+        "! rg -n 'PREENCHER_KG[34]_' docs/referencia/contratos/consumo-grafo-kg5.md"
+      ],
+      "criadoEm": "2026-10-03T08:43:30.447Z",
+      "estado": "reprovado",
       "lint": []
     }
   ],
