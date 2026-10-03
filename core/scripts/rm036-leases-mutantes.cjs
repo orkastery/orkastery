@@ -23,6 +23,8 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R6-MCP-fila-symlink': [['core/dist-test/src/mcp-artifacts.js',
+    's = fs.lstatSync(entrada, { throwIfNoEntry: false })', 's = fs.statSync(entrada, { throwIfNoEntry: false })']],
   'R5-docs-namespace': [[cli, 'só vale no mesmo namespace de PID', 'vale entre namespaces de PID']],
   'R5-docs-pasta': [[feat7, 'a pasta vazia é removida', 'o diretório vazio pode permanecer']],
   'R5-docs-limite': [[feat29, 'limite de 30 minutos (`TTL_PADRAO_MS`)', 'limite indefinido']],

@@ -84,7 +84,12 @@ for (const tipo of ['pasta-arbitraria', 'fila-symlink', 'candidato-symlink', 'ca
     fs.mkdirSync(c.fila);
     const candidato = path.join(c.fila, `${process.pid}-00000000-0000-4000-8000-000000000000.json`);
     if (tipo === 'pasta-arbitraria') fs.renameSync(c.fila, path.join(path.dirname(c.fila), 'arbitraria'));
-    if (tipo === 'fila-symlink') { fs.renameSync(c.fila, `${c.fila}-real`); fs.symlinkSync(`${c.fila}-real`, c.fila); }
+    if (tipo === 'fila-symlink') {
+      // Fora de leases: a recusa deve vir do link, nao de uma pasta irma arbitraria.
+      const real = path.join(c.raiz, 'fila-real');
+      fs.renameSync(c.fila, real);
+      fs.symlinkSync(real, c.fila);
+    }
     if (tipo === 'candidato-symlink') fs.symlinkSync(alvo, candidato);
     if (tipo === 'candidato-hardlink') fs.linkSync(alvo, candidato);
     if (tipo === 'subpasta') fs.mkdirSync(candidato);
