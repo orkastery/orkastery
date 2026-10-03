@@ -24,6 +24,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Teste da coleta após falha de limpeza do candidato** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  os cenários de `EPERM`, com aquisição bem-sucedida ou erro original, agora exigem que um concorrente
+  recolha o candidato após `ESRCH` simulado e deixe a fila vazia, com `flock` e transporte portátil.
+  Receita de mutação suprime essa coleta sem alterar a recusa de limpeza inicial.
+- **Diagnóstico da entrada fora de UTF-8 no MCP** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  a recusa em metadados Git e em leases/candidatos mostra o caminho relativo da entrada, preserva os
+  bytes em escapes hexadecimais e orienta renomear pelo shell. A guarda continua antes do `lstat`;
+  testes cobrem `refs/`, `logs/`, worktrees e nomes com controles ou barra invertida, com receitas de mutação.
+- **Fixture de nome fora de UTF-8 sem pulo silencioso** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  `ENOENT` ao criar a entrada faz o teste falhar; só incompatibilidade do filesystem permite pular.
+  Regressão com pasta-mãe ausente e receita de mutação que recoloca `ENOENT` na lista de pulo.
 - **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   commits MCP auditados do despacho renovam o prazo de inatividade com controller e runtime vivos,
   mesmo quando o rollout não avança. A materialização temporária do estado durante commit exige nova
@@ -37,7 +48,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   logo depois de `mcp_git_committed`, a 8 e a 11 minutos do despacho, sem `gate_blocked` aos 600 segundos.
   A causa provável é a exceção de estado dividido durante o commit MCP, antes lançada fora do `try`.
   Essa evidência não comprova a causa; os incidentes não são atribuídos ao prazo de 600 segundos.
-
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
   `experiencia`, `mcp`, `docs verificar`, os novos `sessions` e várias opções que o binário já aceitava; o exemplo do

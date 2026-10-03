@@ -12,6 +12,14 @@ export type DocumentoMcp='goal'|'plan'|'check';
 const fases:Record<DocumentoMcp,Fase>={goal:'GOAL',plan:'PLAN',check:'CHECK'};
 const limite=128*1024;
 const hash=(bytes:Buffer|string)=>createHash('sha256').update(bytes).digest('hex');
+/** Diagnostico relativo, sem perda de bytes nem controles de terminal; nao e um comando shell. */
+export function diagnosticoNomeForaDeUtf8(raiz:string,pasta:string,nome:Buffer):string {
+  const pai=path.relative(raiz,pasta);
+  const entrada=Buffer.concat([Buffer.from(pai ? pai+path.sep : ''),nome]);
+  const rotulo=Array.from(entrada,byte=>byte>=0x20 && byte<=0x7e && byte!==0x5c
+    ? String.fromCharCode(byte) : '\\x'+byte.toString(16).padStart(2,'0')).join('');
+  return `nome fora de UTF-8 em ${rotulo}\nRenomeie a entrada pelo shell para um nome UTF-8 valido e repita a operacao.`;
+}
 /** Core legado usa nomes de arquivos: este preflight recusa links existentes, nao promete CAS contra writers hostis. */
 export function validarArquivosEstadoMcp(raiz:string,id:string):void {
   validarId(id);
@@ -79,7 +87,7 @@ function comEscrita<T>(raiz:string,id:string,executar:()=>T):T {
       for(const nomeBytes of fs.readdirSync(pastaLeases,{encoding:'buffer'})) {
         const nome=nomeBytes.toString('utf8');
         // Antes do lstat: uma decodificacao com perda nao prova que a entrada desapareceu.
-        if(!Buffer.from(nome,'utf8').equals(nomeBytes)) throw Error('mcp.state.unsafe: nome fora de UTF-8 em leases');
+        if(!Buffer.from(nome,'utf8').equals(nomeBytes)) throw Error('mcp.state.unsafe: '+diagnosticoNomeForaDeUtf8(raiz,pastaLeases,nomeBytes));
         const entrada=path.join(pastaLeases,nome),s=fs.lstatSync(entrada,{throwIfNoEntry:false});
         if(!s) continue; // Uma retomada pode ter acabado durante o preflight.
         if(s.isDirectory() && nome.endsWith('.json.retomadas')) {
@@ -90,7 +98,7 @@ function comEscrita<T>(raiz:string,id:string,executar:()=>T):T {
           catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT') continue;throw e;}
           for(const candidatoBytes of candidatos) {
             const candidato=candidatoBytes.toString('utf8');
-            if(!Buffer.from(candidato,'utf8').equals(candidatoBytes)) throw Error('mcp.state.unsafe: nome fora de UTF-8 na fila');
+            if(!Buffer.from(candidato,'utf8').equals(candidatoBytes)) throw Error('mcp.state.unsafe: '+diagnosticoNomeForaDeUtf8(raiz,entrada,candidatoBytes));
             const c=fs.lstatSync(path.join(entrada,candidato),{throwIfNoEntry:false});
             if(!c) continue;
             if(!/^\d+-[a-f0-9-]+\.json(?:\.tmp)?$/.test(candidato) || !c.isFile() || c.nlink!==1)
