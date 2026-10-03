@@ -61,7 +61,9 @@ do formato nunca chega ao git: `ork fabrica` (e `publicar`, `entrar`, `sair`) re
 `fabrica.remoto-invalido`, `ork roadmap reservas`, `pegar`, `soltar` e `feat` com
 `roadmap.remoto-invalido`, e o `ork network roadmap` registra a lacuna `projeto.remoto-invalido`.
 O `--remoto` de `ork ship registrar-pr` e de `ork ci status` passa pelo mesmo validador e recusa
-com `ship.remoto-invalido` e `ci.remoto-invalido`, sem consultar o GitHub.
+com `ship.remoto-invalido` e `ci.remoto-invalido`, sem consultar o GitHub. O `--remoto` de
+`ork ship <thread> --para <branch>` também: fora do formato, recusa com `ship.remoto-invalido`
+antes de qualquer git, em vez de entregar sem push provado.
 A mensagem mostra o valor redigido e curto. Para usar outro servidor, crie o remoto
 (`git remote add <nome> <url>`) e ponha o nome no manifesto.
 
