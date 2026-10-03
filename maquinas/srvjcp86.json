@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-03T11:20:59.806Z",
+  "publicadoEm": "2026-10-03T11:21:02.841Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -50,23 +50,6 @@
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm044derivae",
-      "nome": "RM-044: deriva entre docs e CLI depois de 03/10",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-044",
-      "branch": "ork/ork-rm044derivae-full",
-      "atualizadaEm": "2026-10-03T11:20:59.651Z",
-      "entregue": "a598ad8",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
