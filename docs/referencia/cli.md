@@ -307,9 +307,11 @@ como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
 `core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
 quando uma busca falha, preservando seu código de saída.
 
-A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro positivo em milissegundos,
-com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas demais
-chamadas). Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,
+A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
+(24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas
+demais chamadas). O manifesto recusa valores fora desse intervalo; configuração direta do driver
+com valor inválido usa o padrão, inclusive zero, que nunca significa espera ilimitada.
+Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,
 incluindo o subprocesso e a conferência da resposta, aparece em `latenciaUniversoMs` no JSON do
 índice e em `embeddings.universo.latenciaMs` no JSON do status. Fontes sem medição não inventam
 latência: no índice, o campo é `null`; no universo, fica ausente.

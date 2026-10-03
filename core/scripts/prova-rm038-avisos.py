@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prova negativa dos avisos da rodada 2, sem rede e sem alterar fontes ou estado.
+"""Prova negativa dos avisos das rodadas 2 e 3, sem rede e sem alterar fontes ou estado.
 
 Preparo: npm --prefix core run build && npm --prefix core run build:test
 Uso: python3 core/scripts/prova-rm038-avisos.py [--grupo ts|ponte|todos]
@@ -60,6 +60,8 @@ def main():
     transporte = 'transporte aplica prazo exclusivo'
     config = 'manifesto configura prazo proprio'
     cli = 'cli retorna 1'
+    instante = 'instante da leitura preservado'
+    prazo_invalido = 'driver normaliza prazo invalido'
     temporal = 'fts e universo julgam'
     casos = []
 
@@ -78,14 +80,44 @@ def main():
         mutacao('aceita expiracao no limite', 'orkmind', 'expira > agora', 'expira >= agora', normalizacao)
         mutacao('prazo padrao volta a 15 s', 'orkmind', 'exports.TIMEOUT_DO_UNIVERSO_MS = 90_000;',
                 'exports.TIMEOUT_DO_UNIVERSO_MS = 15_000;', transporte)
-        mutacao('universo usa prazo geral', 'orkmind', 'this.config.universoTimeoutMs ?? exports.TIMEOUT_DO_UNIVERSO_MS',
+        mutacao('universo usa prazo geral', 'orkmind', 'prazoDoUniversoMs(this.config.universoTimeoutMs)',
                 'this.config.timeoutMs', transporte)
-        mutacao('ignora prazo configurado', 'orkmind', 'manifesto.memory.universo_timeout_ms ?? exports.TIMEOUT_DO_UNIVERSO_MS',
+        mutacao('ignora prazo configurado', 'orkmind', 'prazoDoUniversoMs(manifesto.memory.universo_timeout_ms)',
                 'exports.TIMEOUT_DO_UNIVERSO_MS', config)
         mutacao('latencia inventada', 'orkmind', 'latenciaMs: node_perf_hooks_1.performance.now() - inicio', 'latenciaMs: 0', transporte)
         mutacao('indice perde latencia', 'indice-vetorial', 'latenciaUniversoMs: o.universo.latenciaMs ?? null',
                 'latenciaUniversoMs: null', transporte)
         mutacao('status perde latencia', 'memoria', '{ latenciaMs: opcoes.universo.latenciaMs }', '{}', transporte)
+
+        # Rodada 3: o relogio atravessa a leitura, os dois alvos, a busca e o status.
+        mutacao('dominio captura instante depois da leitura', 'indice-vetorial',
+                'const lidoEm = Date.now();\n    const lido = fonte.universo(tenant);',
+                'const lido = fonte.universo(tenant);\n    const lidoEm = Date.now();', instante)
+        mutacao('dominio omite instante', 'indice-vetorial',
+                'conferirUniverso(lido.entradas, tenant, lidoEm)', 'conferirUniverso(lido.entradas, tenant)', instante)
+        mutacao('predicado perde instante', 'indice-vetorial',
+                'pertenceAoUniverso)(e, tenant, lidoEm)', 'pertenceAoUniverso)(e, tenant)', instante)
+        for arquivo in ('indice-vetorial', 'busca-semantica'):
+            mutacao(arquivo + ' omite instante', arquivo, 'o.universo.entradas, o.tenant, o.universo.lidoEm',
+                    'o.universo.entradas, o.tenant', instante)
+        mutacao('segundo alvo renova instante', 'indice-vetorial',
+                'conferirUniverso(o.universo.entradas, o.tenant, o.universo.lidoEm)',
+                "conferirUniverso(o.universo.entradas, o.tenant, o.alvo === 'fallback' ? Date.now() : o.universo.lidoEm)", instante)
+        mutacao('status omite instante', 'memoria', 'opcoes.universo.entradas, tenant, opcoes.universo.lidoEm',
+                'opcoes.universo.entradas, tenant', instante)
+        mutacao('memoria inativa volta a sair zero', 'index', 'const codigo = universo ? 0 : 1;',
+                'const codigo = !memoria.ativo || universo ? 0 : 1;', 'cli retorna 1 com memoria inativa')
+        # A prova executa o Bash de verdade contra uma CLI falsa, sem consultar a base.
+        casos.append(('prova silencia motivo', 'core/scripts/prova-busca-semantica.sh', teste, 'prova imprime motivo',
+                      lambda texto: trocar(texto, "    printf '%s\\n' \"$resposta\" >&2", '    :')))
+        for etapa in ('alvo_json', 'tag_json', 'fts_json', 'semantica_json'):
+            casos.append(('prova silencia ' + etapa, 'core/scripts/prova-busca-semantica.sh', teste, 'prova imprime motivo',
+                          lambda texto, e=etapa: trocar(texto, e + '=$(buscar ', e + '=$(ork memory search ')))
+        mutacao('manifesto perde teto de 24 h', 'manifest',
+                'prazoDoUniverso > orkmind_1.LIMITE_TIMEOUT_DO_UNIVERSO_MS', 'false', config)
+        for expressao in ('this.config.universoTimeoutMs', 'manifesto.memory.universo_timeout_ms'):
+            mutacao('prazo invalido passa por ' + expressao, 'orkmind', 'prazoDoUniversoMs(' + expressao + ')',
+                    expressao + ' ?? exports.TIMEOUT_DO_UNIVERSO_MS', prazo_invalido)
 
     if grupo in ('ponte', 'todos'):
         for funcao, leitura in [('universo', '        lidas = await ate_o_fim(contar, ler)'),
@@ -103,6 +135,8 @@ def main():
             shutil.copytree(origem / pasta, raiz / 'core' / pasta)
         (raiz / 'core/node_modules').symlink_to(origem / 'node_modules', target_is_directory=True)
         shutil.copy2(origem / 'package.json', raiz / 'core/package.json')
+        (raiz / 'core/scripts').mkdir()
+        shutil.copy2(origem / 'scripts/prova-busca-semantica.sh', raiz / 'core/scripts/prova-busca-semantica.sh')
         for arquivo, padrao in dict.fromkeys((c[2], c[3]) for c in casos):
             codigo, saida = executar(raiz, arquivo, padrao)
             if codigo != 0:

@@ -55,6 +55,13 @@ export const COLECOES_DO_ORK: readonly ColecaoDoOrk[] = [
 
 /** Cinco leituras governadas e a contagem, num unico subprocesso. */
 export const TIMEOUT_DO_UNIVERSO_MS = 90_000;
+export const LIMITE_TIMEOUT_DO_UNIVERSO_MS = 86_400_000;
+
+/** Configuracao direta tambem tem prazo finito: zero no spawnSync significaria sem limite. */
+function prazoDoUniversoMs(prazo: unknown): number {
+  return typeof prazo === 'number' && Number.isSafeInteger(prazo) && prazo > 0 && prazo <= LIMITE_TIMEOUT_DO_UNIVERSO_MS
+    ? prazo : TIMEOUT_DO_UNIVERSO_MS;
+}
 
 /**
  * RM-038: a fronteira do universo da busca vista do `ork`: colecao do ork e o tenant como item
@@ -594,7 +601,7 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     if (!textoDeConsulta(tenant, 128) || tenant.trim() === '') throw new Error('memory.universo.invalid');
     const agora = Date.now();
     const inicio = performance.now();
-    const r = this.rodar({ op: 'universo', tenant }, this.config.universoTimeoutMs ?? TIMEOUT_DO_UNIVERSO_MS) as Record<string, unknown>;
+    const r = this.rodar({ op: 'universo', tenant }, prazoDoUniversoMs(this.config.universoTimeoutMs)) as Record<string, unknown>;
     if (!objetoDeConsulta(r) || !Array.isArray(r.entradas) || !(r.foraDaBusca === null || foraDaBuscaValida(r.foraDaBusca))) {
       throw new Error('memory.transport.universo');
     }
@@ -907,7 +914,7 @@ export function configDoManifesto(manifesto: Manifesto): ConfigDoDriver & { modo
     variavel,
     dsn: variavel ? (process.env[variavel] ?? '') : '',
     timeoutMs: manifesto.memory.timeout_ms || 15000,
-    universoTimeoutMs: manifesto.memory.universo_timeout_ms ?? TIMEOUT_DO_UNIVERSO_MS,
+    universoTimeoutMs: prazoDoUniversoMs(manifesto.memory.universo_timeout_ms),
     tenant: manifesto.memory.tenant || manifesto.project.name,
     // Lido direto do bloco: este modulo carrega sem o parser do manifesto (memory-native-schema).
     variavelDaChaveDeEmbedding: manifesto.memory.embedding?.provider === 'openrouter' ? manifesto.memory.embedding.api_key_env : '',

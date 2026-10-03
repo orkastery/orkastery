@@ -16,7 +16,7 @@ import { validarDelegacao } from './delegation';
 import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
-import { MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
+import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -425,8 +425,9 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   }
   const embedding = lerEmbedding(memory.embedding, variavelDaDsn, erros);
   const prazoDoUniverso = memory.universo_timeout_ms === undefined ? TIMEOUT_DO_UNIVERSO_MS : memory.universo_timeout_ms;
-  if (typeof prazoDoUniverso !== 'number' || !Number.isSafeInteger(prazoDoUniverso) || prazoDoUniverso <= 0) {
-    erros.push('memory.universo_timeout_ms: esperado inteiro positivo em ms (valor omitido)');
+  if (typeof prazoDoUniverso !== 'number' || !Number.isSafeInteger(prazoDoUniverso) || prazoDoUniverso <= 0 ||
+      prazoDoUniverso > LIMITE_TIMEOUT_DO_UNIVERSO_MS) {
+    erros.push('memory.universo_timeout_ms: esperado inteiro em ms entre 1 e 86400000 (24 h; valor omitido)');
   }
 
   const bytes = Buffer.byteLength(bruto, 'utf8');

@@ -102,7 +102,13 @@ test('rm038 universo: manifesto configura prazo proprio positivo com padrao de 9
     assert.deepEqual(configurado.erros, []);
     assert.equal(configDoManifesto(configurado.manifesto).universoTimeoutMs, 240_000);
     assert.equal(configDoManifesto(configurado.manifesto).timeoutMs, 15_000);
-    for (const invalido of ['0', '-1', '1.5', '"90000"', 'null', '9007199254740992']) {
+    for (const valido of [1, 86_400_000]) {
+      fs.writeFileSync(arquivo, original + `  universo_timeout_ms: ${valido}\n`);
+      const limite = carregarManifesto(m.raiz)!;
+      assert.deepEqual(limite.erros, []);
+      assert.equal(configDoManifesto(limite.manifesto).universoTimeoutMs, valido);
+    }
+    for (const invalido of ['0', '-1', '1.5', '"90000"', 'null', '86400001', '9007199254740992']) {
       fs.writeFileSync(arquivo, original + `  universo_timeout_ms: ${invalido}\n`);
       assert.ok(carregarManifesto(m.raiz)!.erros.some(e => e.startsWith('memory.universo_timeout_ms:')), invalido);
     }
@@ -134,6 +140,27 @@ test('rm038 universo: transporte aplica prazo exclusivo e mede latencia monotoni
     assert.deepEqual(chamadas, [{ op: 'universo', timeout: 90_000 }, { op: 'universo', timeout: 240_000 },
       { op: 'export', timeout: 17 }]);
   } finally { padrao.limpar(); configurado.limpar(); m.limpar(); }
+});
+
+test('rm038 universo: driver normaliza prazo invalido para 90 segundos sem espera ilimitada', (t) => {
+  const prazos: number[] = [];
+  t.mock.method(require('node:child_process'), 'spawnSync', (_cmd: string, _args: string[], o: { timeout: number }) => {
+    prazos.push(o.timeout);
+    return { status: 0, stdout: JSON.stringify({ entradas: [], foraDaBusca: null }) };
+  });
+  const m = manifesto();
+  t.after(m.limpar);
+  for (const prazo of [undefined, null, 0, -1, 1.5, NaN, Infinity, '90000', 86_400_001, Number.MAX_SAFE_INTEGER + 1,
+    1, 240_000, 86_400_000]) {
+    const esperado = typeof prazo === 'number' && [1, 240_000, 86_400_000].includes(prazo) ? prazo : 90_000;
+    m.carregado.manifesto.memory.universo_timeout_ms = prazo as number;
+    assert.equal(configDoManifesto(m.carregado.manifesto).universoTimeoutMs, esperado, `manifesto direto: ${prazo}`);
+    const p = ponteFalsa('', { universoTimeoutMs: prazo as number });
+    try {
+      p.driver.universo(T);
+      assert.equal(prazos.at(-1), esperado, `spawnSync: ${prazo}`);
+    } finally { p.limpar(); }
+  }
 });
 
 test('rm038 universo: prazo proprio espera a ponte e prazo esgotado falha tipado', () => {
