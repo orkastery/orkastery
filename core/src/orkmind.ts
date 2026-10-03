@@ -389,8 +389,11 @@ export class DriverCliOrkMind implements DriverDeMemoria {
 
   private python(): string[] {
     const cli = this.config.cli;
-    const candidatos = cli.includes(path.sep) ? [path.resolve(cli)] :
-      (process.env.PATH ?? '').split(path.delimiter).map(p => path.join(p, cli));
+    // RM-047 (fronteira de confiança): caminho relativo resolveria no diretório atual, que é o clone, e
+    // entrada relativa do PATH também. Só caminho absoluto ou nome procurado em entrada absoluta do PATH.
+    if (cli.includes(path.sep) && !path.isAbsolute(cli)) throw new Error('cli.ausente: memory.cli relativo recusado');
+    const candidatos = path.isAbsolute(cli) ? [cli] :
+      (process.env.PATH ?? '').split(path.delimiter).filter(p => path.isAbsolute(p)).map(p => path.join(p, cli));
     const executavel = candidatos.find(p => {
       try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile(); } catch { return false; }
     });
@@ -398,6 +401,8 @@ export class DriverCliOrkMind implements DriverDeMemoria {
     const linha = fs.readFileSync(executavel, 'utf8').split('\n')[0];
     const match = /^#!(\S+)(?:\s+(\S+))?\s*$/.exec(linha);
     if (!match) throw new Error('memory.transport.interpreter: shebang nao suportado');
+    // RM-047: interpretador relativo resolveria no diretório atual (o clone).
+    if (!path.isAbsolute(match[1])) throw new Error('memory.transport.interpreter: shebang nao suportado');
     return match[2] ? [match[1], match[2]] : [match[1]];
   }
 
