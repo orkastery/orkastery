@@ -28,7 +28,7 @@ function caminhoPublico(bruto: string): string | null {
 }
 
 /** GOAL/PLAN citam caminhos relativos a raiz em codigo, links ou texto; nao executam instrucoes. */
-function caminhosCitados(texto: string): string[] {
+function caminhosCitados(texto: string, diretorios: Set<string>): string[] {
   const r: string[] = [];
   const semCitacoes = texto.replace(/`([^`\n]+)`|\]\(([^)\n]+)\)/g, (_m, codigo: string | undefined, link: string | undefined) => {
     const v = codigo ?? link ?? '';
@@ -38,10 +38,17 @@ function caminhosCitados(texto: string): string[] {
   });
   // Em prosa, exigir diretorio ou extensao de fonte conhecida evita versoes, Node.js e dominios.
   for (const m of semCitacoes.matchAll(/(?:^|[\s(\["'])((?:[\p{L}\p{N}_@.-]+\/)+[\p{L}\p{N}_@.-]+|[\p{L}\p{N}_@-]+\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts|json|md|markdown|yaml|yml|toml|py|rs|go|c|h|css|html))(?=\.(?:\s|$)|[:#\s),;\]"']|$)/gu)) if (!/^Node\.js\.?$/i.test(m[1])) r.push(m[1].replace(/\.$/, ''));
-  return r;
+  return r.filter((bruto) => {
+    const p = caminhoPublico(bruto);
+    return p !== null && !/^Node\.js$/i.test(p) && (
+      /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts|json|md|markdown|yaml|yml|toml|py|rs|go|c|h|css|html)$/i.test(p)
+      || /(?:^|\/)(?:Dockerfile|Makefile|LICENSE)$/.test(p)
+      || (p.includes('/') && diretorios.has(p.split('/')[0])));
+  });
 }
 
-export function sementesDaThread(entrada: EntradaDoContexto): { arquivo: string; origens: Origem[] }[] {
+export function sementesDaThread(entrada: EntradaDoContexto, caminhosDoRepositorio: readonly string[] = []): { arquivo: string; origens: Origem[] }[] {
+  const diretorios = new Set(caminhosDoRepositorio.filter((p) => p.includes('/')).map((p) => p.split('/')[0]));
   const mapa = new Map<string, Set<Origem>>();
   const adicionar = (bruto: string, origem: Origem): void => {
     const p = caminhoPublico(bruto);
@@ -50,7 +57,7 @@ export function sementesDaThread(entrada: EntradaDoContexto): { arquivo: string;
     origens.add(origem); mapa.set(p, origens);
   };
   if (entrada.diffEstado !== 'ignorado-sem-worktree') for (const p of entrada.diff) adicionar(p, 'diff');
-  for (const tipo of ['goal', 'plan'] as const) for (const p of caminhosCitados(entrada[tipo] ?? '')) adicionar(p, tipo);
+  for (const tipo of ['goal', 'plan'] as const) for (const p of caminhosCitados(entrada[tipo] ?? '', diretorios)) adicionar(p, tipo);
   for (const c of entrada.claims) adicionar(c.arquivo, `claim:${c.id}`);
   return [...mapa].sort(([a], [b]) => compararUtf8(a, b))
     .map(([arquivo, origens]) => ({ arquivo, origens: [...origens].sort(compararUtf8) }));
@@ -70,7 +77,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
   const porId = new Map(grafo.nodes.map((n) => [n.node_id, n]));
   const arquivos = new Set(grafo.nodes.filter((n) => n.kind === 'file').map((n) => n.locator.path));
-  const sementes = sementesDaThread(entrada).map((s) => ({ ...s, estado: arquivos.has(s.arquivo) ? 'indexado' : 'fora-do-indice' }));
+  const sementes = sementesDaThread(entrada, [...arquivos]).map((s) => ({ ...s, estado: arquivos.has(s.arquivo) ? 'indexado' : 'fora-do-indice' }));
   const indexadas = sementes.filter((s) => s.estado === 'indexado'), ausentes = sementes.filter((s) => s.estado !== 'indexado');
   const alvos = new Set(indexadas.map((s) => s.arquivo));
   const diff = entrada.diffEstado === 'ignorado-sem-worktree' ? [] : [...new Set(entrada.diff)].sort(compararUtf8);
@@ -91,7 +98,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   const extratores = [...indice.extratores].sort((a, b) => compararUtf8(canonico(a), canonico(b)));
   const extratorIds = new Map(extratores.map((e, i) => [canonico(e), i]));
   const grupos = new Map<string, Grupo>();
-  let totalArestas = 0, estruturais = 0;
+  let totalArestas = 0, estruturais = 0, evidenciasAuxiliares = 0;
   for (const a of grafo.edges) {
     const de = porId.get(a.from)!, para = porId.get(a.to)!;
     if (!alvos.has(de.locator.path) && !alvos.has(para.locator.path)) continue;
@@ -99,15 +106,17 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     if ((a.kind === 'declares' || a.kind === 'contains') && de.locator.path === para.locator.path && alvos.has(de.locator.path)) {
       estruturais++; continue;
     }
+    const proprias = a.evidence.filter((e) => e.path === de.locator.path);
+    evidenciasAuxiliares += a.evidence.length - proprias.length;
+    // Sem evidencia no arquivo de origem, a aresta fica em omitidos.arestas.
+    if (!proprias.length) continue;
     const origem = `file ${de.locator.path}`, destino = rotuloDoNo(para);
     const chave = canonico([a.kind, destino, de.locator.path]);
     const grupo = grupos.get(chave) ?? { kind: a.kind, origem, destino, alvo: para.node_id, quantidade: 0,
       evidencias: new Map<string, TuplaDeEvidencia>(), entreArquivos: de.locator.path !== para.locator.path,
       distancia: Math.min(dist.get(de.locator.path) ?? Infinity, dist.get(para.locator.path) ?? Infinity) };
     grupo.quantidade++;
-    for (const e of a.evidence) {
-      // O contrato do grafo admite evidencia auxiliar em outro arquivo. Nao atribui-la a origem.
-      if (e.path !== de.locator.path) throw new ErroDeConsulta('grafo.contexto.evidencia-incompativel', 'evidencia fora do arquivo de origem');
+    for (const e of proprias) {
       const x = extratorIds.get(canonico({ extractor_id: e.extractor_id, extractor_version: e.extractor_version }));
       if (x === undefined) throw new ErroDeConsulta('grafo.contexto.extrator-ausente', 'extrator da evidencia ausente no cabecalho');
       const s = e.span;
@@ -148,8 +157,8 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     const refs = new Map([...rotulos].sort(compararUtf8).map((r, i) => [r, `n${i + 1}`]));
     const fontes = grafo.snapshot.source_manifest.filter((m) => caminhos.has(m.path)).sort((a, b) => compararUtf8(a.path, b.path));
     const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: ordenados.length - ligacoes.length,
-      arestas: totalArestas - estruturais - ligacoes.reduce((s, a) => s + a.quantidade, 0) };
-    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0;
+      arestas: totalArestas - estruturais - ligacoes.reduce((s, a) => s + a.quantidade, 0), evidencias_auxiliares: evidenciasAuxiliares };
+    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || omitidos.arestas > 0 || evidenciasAuxiliares > 0;
     const r = { ...fixo, sementes: selecionadas, nos: Object.fromEntries([...refs].map(([r, ref]) => [ref, r])),
       arestas: ligacoes.map((a) => ({ kind: a.kind, from: refs.get(a.origem)!, to: refs.get(a.destino)!, quantidade: a.quantidade,
         evidencias: [...a.evidencias].sort(([a], [b]) => compararUtf8(a, b)).map(([, e]) => e) })),

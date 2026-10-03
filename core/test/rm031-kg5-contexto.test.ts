@@ -128,6 +128,20 @@ test('KG5 sementes: prosa nao confunde versao, runtime ou dominio com arquivo', 
   assert.deepEqual(r.map((s) => s.arquivo), ['README.md', 'src/app.ts']);
 });
 
+test('KG5 sementes: barras de prosa nao ocupam amostra e diretorios do indice aceitam arquivos novos', () => {
+  const entrada = { ...ENTRADA, diff: [], goal: 'e/ou CHECK/SHIP 03/10/2026 imports/references src/novo.ts src/sem-extensao nova/pasta/arquivo.ts',
+    plan: '`e/ou` [fase](CHECK/SHIP) `03/10/2026` `imports/references` [novo](docs/novo.md)' };
+  const r = JSON.parse(pacoteDeContexto(GRAFO, INDICE, entrada));
+  assert.equal(r.sementes_fora_do_indice, 4);
+  assert.deepEqual(r.sementes.map((s: any) => s.arquivo), ['docs/novo.md', 'nova/pasta/arquivo.ts', 'src/novo.ts']);
+  const sementes = sementesDaThread(entrada, Object.keys(REPO));
+  assert.deepEqual(sementes.map((s) => s.arquivo), ['docs/novo.md', 'nova/pasta/arquivo.ts', 'src/novo.ts', 'src/sem-extensao']);
+  assert.deepEqual(sementesDaThread({ ...entrada, goal: 'desconhecido/sem-extensao src/sem-extensao', plan: null }), []);
+  // Diff e claims sao caminhos explicitos, nao prosa: nao dependem da extensao ou do indice.
+  assert.deepEqual(sementesDaThread({ ...ENTRADA, diff: ['nova/sem-extensao'], claims: [{ id: 'C1', arquivo: 'nova/outra' }] })
+    .map((s) => s.arquivo), ['nova/outra', 'nova/sem-extensao']);
+});
+
 test('KG5 relevancia: entre arquivos antes de internas, diff antes de ordem alfabetica e teto por alvo', () => {
   const fontes = {
     'src/hub.ts': 'export function hub() { return 1; }\nexport function local() { return hub(); }\n',
@@ -315,7 +329,20 @@ test('KG5 contexto puro: estado sem worktree ignora diff mesmo se o chamador o f
 test('KG5 contexto puro: nao atribui evidencia auxiliar a arquivo errado e preserva span PDF', () => {
   const a = GRAFO.edges.find((a) => a.kind === 'calls')!, e = a.evidence[0];
   const auxiliar = { ...a, evidence: [...a.evidence, { ...e, path: 'docs/guia.md' }] };
-  assert.throws(() => pacoteDeContexto({ ...GRAFO, edges: [auxiliar] }, INDICE, ENTRADA), /evidencia-incompativel/);
+  const texto = pacoteDeContexto({ ...GRAFO, edges: [auxiliar] }, INDICE, ENTRADA);
+  const comAuxiliar = JSON.parse(texto);
+  const semAuxiliar = JSON.parse(pacoteDeContexto({ ...GRAFO, edges: [a] }, INDICE, ENTRADA));
+  assert.deepEqual(comAuxiliar.arestas, semAuxiliar.arestas);
+  assert.equal(comAuxiliar.omitidos.evidencias_auxiliares, 1);
+  assert.equal(comAuxiliar.omitidos.arestas, 0);
+  assert.equal(comAuxiliar.truncado, true);
+  assert.ok(!Object.values(comAuxiliar.nos).includes('file docs/guia.md'));
+  assert.equal(texto, pacoteDeContexto({ ...GRAFO, edges: [{ ...auxiliar, evidence: [...auxiliar.evidence].reverse() }] }, INDICE, ENTRADA));
+  const soAuxiliar = JSON.parse(pacoteDeContexto({ ...GRAFO, edges: [{ ...a, evidence: [{ ...e, path: 'docs/guia.md' }] }] }, INDICE, ENTRADA));
+  assert.deepEqual(soAuxiliar.arestas, []);
+  assert.equal(soAuxiliar.omitidos.evidencias_auxiliares, 1);
+  assert.equal(soAuxiliar.omitidos.arestas, 1);
+  assert.equal(soAuxiliar.total_arestas, 1);
   const pdf = { ...a, evidence: [{ ...e, span: { type: 'pdf-text' as const, page: 2, byte_start: 3, byte_end: 9, extracted_text_hash: 'd'.repeat(64) } }] };
   const r = JSON.parse(pacoteDeContexto({ ...GRAFO, edges: [pdf] }, INDICE, ENTRADA));
   assert.deepEqual(r.arestas[0].evidencias[0].slice(2), [['pdf', 2, 'd'.repeat(64)], [3, 9]]);
