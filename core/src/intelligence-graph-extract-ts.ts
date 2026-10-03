@@ -335,11 +335,18 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
   /** Fonte TypeScript, que o compilador transforma; JavaScript roda como esta. */
   const compiladoEm = (arquivo: string): boolean => !EXTENSOES_JS.includes(extensao(arquivo));
   /** Chaves de todos os imports dentro de um no. */
-  function especificadoresEm(raiz: TS.Node): string[] {
+  function especificadoresEm(raiz: TS.Node, literais?: Map<TS.Node, string>): string[] {
     const r: string[] = [], compilado = compiladoEm(raiz.getSourceFile().fileName);
     const coletar = (n: TS.Node): void => {
       const chave = chaveDoImport(n, compilado);
-      if (chave !== null) r.push(chave);
+      if (chave !== null) {
+        r.push(chave);
+        const esp = ts.isImportDeclaration(n) || ts.isExportDeclaration(n) ? n.moduleSpecifier
+          : ts.isImportEqualsDeclaration(n) && ts.isExternalModuleReference(n.moduleReference) ? n.moduleReference.expression
+            : ts.isImportTypeNode(n) && ts.isLiteralTypeNode(n.argument) ? n.argument.literal
+              : ts.isCallExpression(n) ? n.arguments[0] : undefined;
+        if (esp) literais?.set(esp, chave);
+      }
       ts.forEachChild(n, coletar);
     };
     coletar(raiz);
@@ -624,37 +631,8 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     if (!sf || sf.fileName !== absoluto(fonte.path)) continue;
     const ext = extensao(fonte.path), mapa = new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
     const dependencias = new Set<string>(), sondas = new Set<string>();
-    // Strings so em testes/scripts. Comentarios, interpolacoes e concatenacoes nao sao avaliados.
-    const citacoes: { alvo: string; trecho: Trecho }[] = [];
-    if (/(?:^|\/)(?:tests?|__tests__|scripts?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fonte.path)) {
-      const citar = (literal: string, n: TS.Node): void => {
-        const base = caminhoDaCitacao(fonte.path, literal);
-        if (base === null) return;
-        const grupos = candidatosDaCitacao(base);
-        // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
-        for (const grupo of grupos) for (const p of grupo) sondas.add(p);
-        for (const grupo of grupos) {
-          const presentes = grupo.filter((p) => arquivos.has(p));
-          if (!presentes.length) continue;
-          if (presentes.length === 1 && presentes[0] !== fonte.path) {
-            dependencias.add(presentes[0]);
-            citacoes.push({ alvo: presentes[0], trecho: { path: fonte.path, inicio: n.getStart(sf), fim: n.getEnd() } });
-          }
-          break; // Ambiguidade nao autoriza escolher uma fonte nem tentar outro grupo.
-        }
-      };
-      const literais = (n: TS.Node): void => {
-        if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
-          citar(n.text, n);
-          // Codigo citado por fixture: so argumentos literais de require/import dentro da string.
-          for (const m of n.text.matchAll(/\b(?:require|import)\s*\(\s*(['"])([^'"\r\n]+)\1\s*\)/g)) citar(m[2], n);
-        }
-        ts.forEachChild(n, literais);
-      };
-      literais(sf);
-    }
-    citacoesDe.set(fonte.path, citacoes);
-    for (const chave of especificadoresEm(sf)) {
+    const literaisDeModulo = new Map<TS.Node, string>();
+    for (const chave of especificadoresEm(sf, literaisDeModulo)) {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
       sondar(baseDaSonda(fonte.path, esp), sondas);
@@ -678,6 +656,39 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
       mapa.set(chave, { alvo, divergente, doCompilador });
       if (divergente) divergentesGlobais.add(`${fonte.path}\u0000${chave}`);
     }
+    // Strings so em testes/scripts. Comentarios, interpolacoes e concatenacoes nao sao avaliados.
+    const citacoes: { alvo: string; trecho: Trecho }[] = [];
+    if (/(?:^|\/)(?:tests?|__tests__|scripts?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fonte.path)) {
+      const citar = (literal: string, n: TS.Node): void => {
+        const base = caminhoDaCitacao(fonte.path, literal);
+        if (base === null) return;
+        const grupos = candidatosDaCitacao(base);
+        // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
+        for (const grupo of grupos) for (const p of grupo) sondas.add(p);
+        for (const grupo of grupos) {
+          const presentes = grupo.filter((p) => arquivos.has(p));
+          if (!presentes.length) continue;
+          if (presentes.length === 1 && presentes[0] !== fonte.path) {
+            dependencias.add(presentes[0]);
+            citacoes.push({ alvo: presentes[0], trecho: { path: fonte.path, inicio: n.getStart(sf), fim: n.getEnd() } });
+          }
+          break; // Ambiguidade nao autoriza escolher uma fonte nem tentar outro grupo.
+        }
+      };
+      const literais = (n: TS.Node): void => {
+        if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
+          const chave = literaisDeModulo.get(n);
+          // O resolver de import ja provou esta ocorrencia; outra string igual ainda pode citar.
+          if (chave !== undefined && mapa.get(chave)?.alvo != null) return;
+          citar(n.text, n);
+          // Codigo citado por fixture: so argumentos literais de require/import dentro da string.
+          for (const m of n.text.matchAll(/\b(?:require|import)\s*\(\s*(['"])([^'"\r\n]+)\1\s*\)/g)) citar(m[2], n);
+        }
+        ts.forEachChild(n, literais);
+      };
+      literais(sf);
+    }
+    citacoesDe.set(fonte.path, citacoes);
     // O que o TypeScript coleta e a varredura nao ve (tipo importado no JSDoc) tambem liga o checker a outro arquivo.
     for (const nome of nomesDeModulo(sf)) {
       sondar(baseDaSonda(fonte.path, nome), sondas);

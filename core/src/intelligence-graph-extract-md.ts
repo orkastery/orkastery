@@ -482,7 +482,8 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
       const relativo = caminhoDecodificado === '' ? path : resolverCaminho(path, caminhoDecodificado);
       // Links seguem o diretorio do documento; a citacao tambem admite caminho desde a raiz.
       const literal = caminhoDaCitacao(path, caminhoDecodificado);
-      citar(relativo !== null && arquivos.has(relativo) && literal !== null ? relativo : literal, k, 'explicit-link');
+      // Uma referencia ao arquivo ou a uma secao ja representa esta ocorrencia do link.
+      if (relativo === null || !arquivos.has(relativo)) citar(literal, k, 'explicit-link');
       const alvo = relativo;
       if (alvo === null) {
         lacuna('link-fora-do-repositorio', path, k.inicio, destino);

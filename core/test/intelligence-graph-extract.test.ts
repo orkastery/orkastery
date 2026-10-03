@@ -258,11 +258,6 @@ test('KG2 extract: Markdown gera secoes, links, artefatos, frontmatter e mencoes
   const { grafo } = extrair(REPO_MD);
   const md = arestas(grafo).filter((a) => !/^(declares|contains symbol|calls|imports)/.test(a));
   assert.deepEqual(md, [
-    'cites section:docs/adr/ADR-001.md#decisão -> file:docs/guia.md',
-    'cites section:docs/guia.md#configuração -> file:docs/adr/ADR-001.md',
-    'cites section:docs/guia.md#configuração -> file:src/util.ts',
-    'cites section:docs/guia.md#configuração-1 -> file:assets/logo.png',
-    'cites section:docs/guia.md#configuração-1 -> file:docs/adr/ADR-001.md',
     'contains file:docs/adr/ADR-001.md -> section:docs/adr/ADR-001.md#adr-001-soma-pura',
     'contains file:docs/adr/ADR-001.md -> section:docs/adr/ADR-001.md#decisão',
     'contains file:docs/guia.md -> section:docs/guia.md#configuração',

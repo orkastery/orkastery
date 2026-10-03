@@ -45,8 +45,8 @@ const rotulos = (g: GrafoCodigo): string[] => {
 function provarCitacoes(extrair = extrairGrafo): void {
   const e = entrada(), r = extrair(e, PARSER), g = r.grafo;
   assert.deepEqual(rotulos(g), [
-    'docs/guia.md -> core/src/alvo.ts', 'docs/guia.md -> core/src/modulo.ts', 'docs/guia.md -> core/src/extra.ts',
-    'core/test/prova.test.ts -> core/src/alvo.ts', 'core/test/prova.test.ts -> core/src/modulo.ts', 'core/test/prova.test.ts -> core/src/extra.ts',
+    'docs/guia.md -> core/src/alvo.ts', 'docs/guia.md -> core/src/modulo.ts',
+    'core/test/prova.test.ts -> core/src/alvo.ts', 'core/test/prova.test.ts -> core/src/modulo.ts',
     'core/scripts/prova.cjs -> core/src/modulo.ts', 'core/scripts/prova.cjs -> core/src/alvo.ts',
   ].sort());
   assert.deepEqual(validarGrafo(g), g);
@@ -84,6 +84,36 @@ test('KG5 citacoes: incremental religa Markdown e invalida strings quando alvos 
   provarIncremental();
 });
 
+function provarSemDuplicacao(extrair = extrairGrafo): void {
+  const repo = {
+    'core/src/alvo.ts': 'export const alvo = 1;',
+    'core/test/import.test.ts': "import { alvo } from '../src/alvo.ts';\nconst citado = '../src/alvo.ts';",
+    'core/test/require.test.ts': "const alvo = require('../src/alvo.ts');",
+    'core/test/dinamico.test.ts': "const alvo = import('../src/alvo.ts');",
+    'docs/alvo.md': '# Alvo',
+    'docs/guia.md': '[arquivo](../core/src/alvo.ts)\n[seção](alvo.md#alvo)\n`core/src/alvo.ts`\n[raiz](core/src/alvo.ts)',
+  };
+  const g = extrair(entrada(repo), PARSER).grafo;
+  const ocorrencias = (arquivo: string, kind: string): number[] => g.edges
+    .filter((a) => a.kind === kind).flatMap((a) => a.evidence)
+    .filter((e) => e.path === arquivo).map((e) => e.span.type === 'text' ? e.span.line_start! : -1).sort();
+  assert.deepEqual(ocorrencias('docs/guia.md', 'references'), [1, 2]);
+  assert.deepEqual(ocorrencias('docs/guia.md', 'cites'), [3, 4]);
+  assert.deepEqual(ocorrencias('core/test/import.test.ts', 'cites'), [2], 'outra string igual continua citando');
+  for (const arquivo of ['core/test/import.test.ts', 'core/test/require.test.ts', 'core/test/dinamico.test.ts']) {
+    assert.ok(ocorrencias(arquivo, 'imports').includes(1), arquivo);
+    assert.ok(!ocorrencias(arquivo, 'cites').includes(1), arquivo);
+  }
+}
+
+test('KG5 citacoes GO-FIX: links e imports resolvidos nao duplicam cites; prova cai por mutacao', () => {
+  provarSemDuplicacao();
+  for (const [modulo, antes, depois] of [
+    ['intelligence-graph-extract-md', 'relativo === null || !arquivos.has(relativo)', 'true'],
+    ['intelligence-graph-extract-ts', 'chave !== undefined && mapa.get(chave)?.alvo != null', 'false'],
+  ]) assert.throws(() => provarSemDuplicacao(mutante(modulo, antes, depois)), antes);
+});
+
 /** Mutantes carregados em memoria, sem tocar nos arquivos nem no cache do Node. */
 function mutante(modulo: string, antes: string, depois: string): typeof extrairGrafo {
   const Module = require('node:module');
@@ -103,7 +133,7 @@ test('KG5 citacoes: provas caem ao retirar inline, links, strings, resolucao ou 
   provarCitacoes();
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', "e.tipo === 'codeTextData' && !emExcesso", 'false'],
-    ['intelligence-graph-extract-md', 'citar(relativo !== null', 'false && citar(relativo !== null'],
+    ['intelligence-graph-extract-md', "citar(literal, k, 'explicit-link')", "void literal"],
     ['intelligence-graph-extract-ts', "aresta('cites', arquivo,", "aresta('references', arquivo,"],
     ['intelligence-graph-extract-ts', 'presentes.length === 1', 'presentes.length >= 1'],
     ['intelligence-graph-extract-ts', 'grupo.filter((p) => arquivos.has(p))', 'grupo'],
