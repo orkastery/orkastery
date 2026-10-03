@@ -5,6 +5,7 @@ import { lerLedger, registrar } from './ledger';
 import { EventoLedger } from './types';
 import { exec } from './util';
 import { formatarDataHora, formatarDataHoraRotulada } from './horario';
+import { EsperaDeHitl, esperasDeHitl, resumirTempoParado, TempoParadoPorHitl } from './hitl-tempo-parado';
 
 interface TarifaModelo { product: string; input: number; cachedInput: number; output: number; source: string }
 interface Tarifas { schema: string; verifiedAt: string; currency: 'USD'; unitTokens: number; nature: 'estimated_reference'; models: Record<string, TarifaModelo> }
@@ -30,6 +31,8 @@ export interface LedgerStats {
   custoReferencia: { natureza: 'estimated_reference'; moeda: 'USD'; valor: number | null; sessoesPrecificadas: number; sessoesSemTarifa: number; tarifasVerificadasEm: string; fontes: string[] };
   leadTime: { mediaMs: number | null; amostras: number };
   esperaHumana: { milissegundos: number; fechadas: number; abertas: number };
+  /** RM-057 (fatia 2): o tempo parado por HITL de conducao, das perguntas que o ork abriu. */
+  hitlDeConducao: TempoParadoPorHitl;
   riscosPreventivos: { total: number; porMotivo: Record<string, number> };
   estimativasPlano: { amostras: number; semIaHoras: number; iaSemOrkHoras: number };
   qualidade: { ledgersCorrompidos: number; observacoes: string[] };
@@ -112,8 +115,10 @@ export function coletarEstatisticas(raiz: string, filtros: FiltrosLedgerStats): 
   const riscos: Record<string, number> = {};
   const leads: number[] = [];
   const fontes = new Set<string>();
+  const esperasDeConducao: EsperaDeHitl[] = [];
 
-  for (const { eventos } of selecionadas) {
+  for (const { thread, eventos } of selecionadas) {
+    esperasDeConducao.push(...esperasDeHitl(thread.id, eventos));
     corrompidos += eventos.filter(e => e.tipo === 'ledger_corrupted').length;
     const despachos = new Map<string, EventoLedger>();
     for (const e of eventos) if (e.tipo === 'phase_dispatch' && typeof e.sessionId === 'string') despachos.set(e.sessionId, e);
@@ -197,6 +202,7 @@ export function coletarEstatisticas(raiz: string, filtros: FiltrosLedgerStats): 
     custoReferencia: { natureza: tarifas.nature, moeda: tarifas.currency, valor: precificadas ? Number(custo.toFixed(6)) : null, sessoesPrecificadas: precificadas, sessoesSemTarifa: semTarifa, tarifasVerificadasEm: tarifas.verifiedAt, fontes: [...fontes].sort() },
     leadTime: { mediaMs: leads.length ? leads.reduce((a, b) => a + b, 0) / leads.length : null, amostras: leads.length },
     esperaHumana: { milissegundos: esperaMs, fechadas: esperasFechadas, abertas: esperasAbertas },
+    hitlDeConducao: resumirTempoParado(esperasDeConducao, desdeMs, ateMs),
     riscosPreventivos: { total: Object.values(riscos).reduce((a, b) => a + b, 0), porMotivo: riscos },
     estimativasPlano: { amostras: estimativas, semIaHoras, iaSemOrkHoras },
     qualidade: { ledgersCorrompidos: corrompidos, observacoes },
@@ -213,6 +219,16 @@ export function registrarEstimativaPlano(raiz: string, threadId: string, dados: 
   return registrar(dirThread(raiz, threadId), threadId, 'plan_estimate', { fase: 'PLAN', unidade: 'hours', semIaHoras: dados.semIaHoras, iaSemOrkHoras: dados.iaSemOrkHoras, por: dados.por, metodo: dados.metodo, premissas: dados.premissas, incerteza: dados.incerteza ?? 'nao informada', head: head.stdout.trim() });
 }
 
+const minutos = (ms: number | null): string => ms === null ? 'sem resposta medida' : `${(ms / 60_000).toFixed(1)} min`;
+
+/** RM-057: uma linha, com a meta ao lado da mediana, para o dono ver o tempo parado sem abrir o JSON. */
+export function linhaDoHitlDeConducao(h: TempoParadoPorHitl): string {
+  const meta = h.dentroDaMeta === null ? '' : h.dentroDaMeta ? ' (dentro da meta de 5 min)' : ' (acima da meta de 5 min)';
+  return `  HITL de conducao ${h.pedidos} pergunta(s); parado ${(h.paradoMs / 3_600_000).toFixed(2)} h; ` +
+    `mediana ${minutos(h.medianaRespostaMs)}${meta}; ${h.abertos} aberta(s); ` +
+    `texto fora da excecao ${h.emTexto.foraDaExcecao}`;
+}
+
 export function textoDasEstatisticas(r: LedgerStats): string {
   const dinheiro = r.custoReferencia.valor === null ? 'sem cobertura' : `USD ${r.custoReferencia.valor.toFixed(6)}`;
   return [
@@ -223,6 +239,7 @@ export function textoDasEstatisticas(r: LedgerStats): string {
     `  tokens           ${r.tokens.total} total; input ${r.tokens.input} (cached ${r.tokens.cachedInput}); output ${r.tokens.output}`,
     `  custo referencia ${dinheiro} — estimativa por tarifa publica, nao gasto/fatura`,
     `  espera humana    ${(r.esperaHumana.milissegundos / 3_600_000).toFixed(2)} h; ${r.esperaHumana.abertas} aberta(s)`,
+    linhaDoHitlDeConducao(r.hitlDeConducao),
     `  riscos evitados  ${r.riscosPreventivos.total} gate(s) preventivo(s)`,
     `  estimativas PLAN ${r.estimativasPlano.amostras} amostra(s)`,
     ...r.qualidade.observacoes.map(o => `  cobertura         ${o}`),
