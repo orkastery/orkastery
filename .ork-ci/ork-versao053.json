@@ -155,6 +155,20 @@
           "correcao": "ancore na base (`git diff \"$(git merge-base origin/main HEAD)\" HEAD`) ou prove ancestralidade com `git merge-base --is-ancestor <sha> HEAD`"
         }
       ]
+    },
+    {
+      "id": "C13",
+      "thread": "ork-versao053",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-leases-docs.test.ts",
+      "alegacao": "O teste de docs da RM-036 acha o item do CHANGELOG na seção que o publicou (Não publicado antes da versão, a seção da versão depois)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-leases-docs.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:46:35.051Z",
+      "estado": "pendente",
+      "lint": []
     }
   ],
   "deferredClaims": [],
