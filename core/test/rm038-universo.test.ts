@@ -204,6 +204,54 @@ test('rm038 universo: normalizacao preserva governanca e predicado recusa injeca
   }
 });
 
+for (const duranteLeitura of [true, false]) {
+  test(`rm038 universo: instante da leitura preservado com expiracao ${duranteLeitura ? 'durante a leitura' : 'entre os alvos'}`, (t) => {
+    const m = manifesto();
+    t.after(m.limpar);
+    const inicio = Date.parse('2030-01-01T00:00:00Z');
+    let agora = inicio;
+    t.mock.method(Date, 'now', () => agora);
+    const e = { ...entrada('temporaria'), expires_at: new Date(inicio + 1000).toISOString() };
+    const fonte: FonteDoUniverso = { universo: () => {
+      if (duranteLeitura) agora += 2000;
+      return { entradas: [e], foraDaBusca: null };
+    } };
+    let u!: UniversoDaBusca;
+    assert.doesNotThrow(() => { u = universoDaBusca(fonte, T); });
+    assert.equal(u.lidoEm, inicio);
+    const config = { ...CONFIG, fallback_model: 'org/local' };
+    const hub = path.join(m.raiz, 'hub');
+    const modelo = path.join(hub, 'models--org--local');
+    const ref = 'a'.repeat(40);
+    fs.mkdirSync(path.join(modelo, 'refs'), { recursive: true });
+    fs.mkdirSync(path.join(modelo, 'snapshots', ref), { recursive: true });
+    fs.writeFileSync(path.join(modelo, 'refs', 'main'), ref);
+    fs.writeFileSync(path.join(modelo, 'snapshots', ref, 'config.json'), JSON.stringify({ hidden_size: 32 }));
+    const d = new DriverEmMemoria([]);
+    const embeddar = (p: PedidoDeEmbedding) => { agora += 2000; return d.embeddar(p); };
+    // Como --modelo todos: uma leitura, primario seguido do fallback, sem renovar o instante.
+    for (const alvo of ['primario', 'fallback'] as const) {
+      assert.doesNotThrow(() => {
+        const r = indexar({ raiz: m.raiz, tenant: T, dsn: '', config, alvo, universo: u,
+          dryRun: false, chavePresente: true, embeddar, env: { HF_HUB_CACHE: hub } });
+        assert.equal(r.motivo, null);
+        assert.equal(r.embedados, 1, alvo);
+      });
+    }
+    assert.equal(pertenceAoUniverso(e, T), false, 'o relogio ja passou da expiracao');
+    assert.doesNotThrow(() => {
+      const busca = buscarPorSignificado({ raiz: m.raiz, tenant: T, dsn: '', config, universo: u,
+        texto: 'comum', modo: 'vetor', limite: 5, chavePresente: true, fallbackUsavel: false,
+        timeoutMs: 15000, embeddar });
+      assert.deepEqual(busca.resultados.map(r => r.id), ['temporaria']);
+      const status = estadoDeEmbeddings(m.carregado.manifesto, null, m.raiz, T, '', { universo: u, env: {} });
+      assert.equal(status.entradas, 1);
+    });
+    // Uma leitura nova julga pelo instante novo: o carimbo nao libera entradas ja expiradas.
+    assert.throws(() => universoDaBusca(fonte, T), /memory\.query\.scope-violation/);
+  });
+}
+
 test('rm038 universo: dominio le a fonte uma vez pelo tenant, ordena e conta por colecao', () => {
   const fora = { injecao: 5, expiradas: 0, outrasColecoes: 13 };
   const { fonte, pedidos } = fonteFixa([entrada('r1', 'rule'), entrada('d2'), entrada('d1'), entrada('h1', 'handoff')], fora);

@@ -361,7 +361,7 @@ export function estadoDeEmbeddings(manifesto: Manifesto, saude: SaudeDaPonte | n
   if (opcoes.universo) {
     // RM-038: o universo vem de universoDaBusca; a fronteira vale de novo antes de contar.
     if (opcoes.universo.tenant !== tenant) throw new Error('memory.query.scope-violation');
-    conferirUniverso(opcoes.universo.entradas, tenant);
+    conferirUniverso(opcoes.universo.entradas, tenant, opcoes.universo.lidoEm);
     const universo = opcoes.universo.entradas;
     estado.indices = indicesDoTenant(raiz, tenant, base, universo);
     estado.entradas = universo.length;

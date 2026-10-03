@@ -1394,6 +1394,8 @@ export interface ForaDaBusca {
  */
 export interface UniversoDaBusca {
   tenant: string;
+  /** Instante anterior a leitura, em ms desde epoch; referencia unica para a expiracao. */
+  lidoEm: number;
   /** Ordenadas por colecao e id. */
   entradas: EntradaDeMemoria[];
   porColecao: Record<ColecaoDoOrk, number>;
