@@ -156,6 +156,20 @@ export function caminhoMasterLog(raiz: string, id: string): string {
 }
 
 /**
+ * RM-008 (fases pelo tipo): a fase dos eventos que o nucleo grava sem o campo `fase`. O `verify_run`
+ * e o `ship_done` nunca trouxeram fase, e 34 dos 35 POSTMORTEM de 03/10 sairam sem o CHECK, e 33 sem o
+ * SHIP, embora o ledger os tivesse (`ork-rm037testesi`: 6 `verify_run`, 1 `ship_done`, "GOAL GO MASTER").
+ * So vale quando o evento nao traz `fase`: o campo explicito continua vencendo.
+ */
+export const FASE_DO_TIPO: Readonly<Record<string, Fase>> = {
+  [TIPOS_DE_EVENTO.verificacao]: 'CHECK',
+  [TIPOS_DE_EVENTO.reverifyConcluido]: 'CHECK',
+  [TIPOS_DE_EVENTO.shipIniciado]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipConcluido]: 'SHIP',
+  [TIPOS_DE_EVENTO.shipBloqueado]: 'SHIP',
+};
+
+/**
  * As fases que a thread realmente percorreu, reconstruidas do LEDGER.
  *
  * Nao e o que o modo prometia nem o que a sessao disse ter feito: e o que ficou
@@ -165,7 +179,7 @@ export function fasesPercorridas(raiz: string, id: string): FasePercorrida[] {
   const eventos = lerLedger(dirThread(raiz, id));
   const porFase = new Map<Fase, FasePercorrida>();
   for (const e of eventos) {
-    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : null;
+    const bruta = typeof e.fase === 'string' ? (e.fase.toUpperCase() as Fase) : (FASE_DO_TIPO[e.tipo] ?? null);
     if (!bruta || !FASES.includes(bruta)) continue;
     const atual = porFase.get(bruta) ?? {
       fase: bruta,
