@@ -19,7 +19,7 @@ evidencias:
   codigo:
     commit: d3ae643
     pr: null
-    cadencia: "8480ba1, PR #33; aviso do doctor em d3ae643b, PR não identificado nas fontes locais"
+    cadencia: "8480ba1, PR #33; aviso do doctor em d3ae643b, PR #56"
   deploy:
     release: Cadência publicada no npm, inclusive nas versões 0.5.0 e 0.5.1; aviso do doctor ainda em Não publicado
 sdlc:
@@ -89,7 +89,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Piloto | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `d3ae643` · cadencia: 8480ba1, PR #33; aviso do doctor em d3ae643b, PR não identificado nas fontes locais | 2026-10-03 | Julio |
+| Código | Mesclado | commit `d3ae643` · cadencia: 8480ba1, PR #33; aviso do doctor em d3ae643b, PR #56 | 2026-10-03 | Julio |
 | Testes | Aprovados | — | 2026-10-03 | Julio |
 | Deploy | Produção | release: Cadência publicada no npm, inclusive nas versões 0.5.0 e 0.5.1; aviso do doctor ainda em Não publicado | 2026-10-03 | Julio |
 | Exposição | Parcial | — | 2026-10-03 | Julio |

@@ -7,14 +7,14 @@ pai: MOD-02
 roadmap: [RM-100, RM-012, RM-008]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-10-03T09:52:15+00:00
+verificado_em: 2026-10-03T06:52:15-03:00
 versao: main@059f257a
 evidencias:
   codigo:
     commit: d2a54075
-    pr: null
-    fatia4: "107ac246; número do PR não identificado nas fontes locais"
-    fatia5: "d2a54075; número do PR não identificado nas fontes locais"
+    pr: 50
+    fatia4: "107ac246, PR #45"
+    fatia5: "d2a54075, PR #50"
 fontes:
   codigo:
     - core/src/ship.ts
@@ -78,4 +78,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-09-27 | a entrega feita por PR também vira `ship_done` (`ork ship registrar-pr`) | Claude (agente) / Julio, revisão pendente | RM-008 |
-| 2026-10-03 | Recibo separa o commit de incorporação da ponta provada no remoto; leitor aceita recibos legados sem ocultar nova entrega | Codex (agente) / revisão pendente | RM-037: fatia 4 em `107ac246`, fatia 5 em `d2a54075`; números dos PRs não identificados nas fontes locais |
+| 2026-10-03 | Recibo separa o commit de incorporação da ponta provada no remoto; leitor aceita recibos legados sem ocultar nova entrega | Codex (agente) / revisão pendente | RM-037: fatia 4 em `107ac246` (PR #45), fatia 5 em `d2a54075` (PR #50) |

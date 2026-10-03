@@ -7,14 +7,14 @@ pai: MOD-04
 roadmap: [RM-001, RM-037, RM-045, RM-048, RM-052]
 owner: Julio
 aprovador: Julio
-verificado_em: 2026-10-03T09:52:15+00:00
+verificado_em: 2026-10-03T06:52:15-03:00
 versao: main@059f257a
 evidencias:
   codigo:
     commit: d2a54075
-    pr: null
-    fatia4: "107ac246; número do PR não identificado nas fontes locais"
-    fatia5: "d2a54075; número do PR não identificado nas fontes locais"
+    pr: 50
+    fatia4: "107ac246, PR #45"
+    fatia5: "d2a54075, PR #50"
 fontes:
   codigo:
     - core/src/orquestracao.ts
@@ -106,4 +106,4 @@ fontes:
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
 | 2026-10-02 | BR-014-04 e BR-014-05: trabalho parado no condutor e status do roadmap com o estado real e a batida da fábrica | Claude (agente) / Julio, revisão pendente | RM-037, thread `ork-rm037fatia4t` |
-| 2026-10-03 | Pulse e status incorporam A1, A3 e A5: recibo legado, CHECK sem veredito no Auto e aviso único de forja sem leitura | Codex (agente) / revisão pendente | RM-037: fatia 4 em `107ac246`, fatia 5 em `d2a54075`; números dos PRs não identificados nas fontes locais |
+| 2026-10-03 | Pulse e status incorporam A1, A3 e A5: recibo legado, CHECK sem veredito no Auto e aviso único de forja sem leitura | Codex (agente) / revisão pendente | RM-037: fatia 4 em `107ac246` (PR #45), fatia 5 em `d2a54075` (PR #50) |
