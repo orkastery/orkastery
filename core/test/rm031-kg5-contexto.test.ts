@@ -421,8 +421,41 @@ test('KG5 segundo salto: sobra, prioridade direta, marca, sentidos, limite, pont
   provarSegundoSalto();
 });
 
-test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {
+function carregarContexto(transformar: (s: string) => string): typeof pacoteDeContexto {
   const Module = require('node:module');
+  const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
+  const modulo = new Module(arquivo);
+  modulo.filename = arquivo; modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
+  modulo._compile(transformar(fs.readFileSync(arquivo, 'utf8')), arquivo);
+  return modulo.exports.pacoteDeContexto;
+}
+
+function mutanteContexto(antes: string, depois: string): typeof pacoteDeContexto {
+  return carregarContexto((s) => {
+    assert.ok(s.includes(antes), `ponto de mutacao: ${antes}`);
+    return s.replaceAll(antes, depois);
+  });
+}
+
+function provarCitesPorUltimo(pacote = pacoteDeContexto): void {
+  const repo = {
+    'src/alvo.ts': 'export const alvo = 1;',
+    'src/importador.ts': "import './alvo.ts';",
+    'docs/referencia.md': '[alvo](../src/alvo.ts)',
+    'test/citacao.test.ts': "const citado = 'src/alvo.ts';",
+  };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const r = JSON.parse(pacote(g, { ...INDICE, extratores: g.snapshot.extractors }, ENTRADA));
+  assert.deepEqual(r.arestas.map((a: any) => a.kind), ['imports', 'references', 'cites']);
+}
+
+test('KG5 relevancia GO-FIX: cites perde o desempate por tipo; prova cai por mutacao', () => {
+  provarCitesPorUltimo();
+  assert.throws(() => provarCitesPorUltimo(mutanteContexto("Number(a === 'cites') - Number(b === 'cites')", '0')));
+});
+
+test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {
   const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
   const original = fs.readFileSync(arquivo, 'utf8');
   for (const [antes, depois] of [
@@ -434,10 +467,7 @@ test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade diret
     ["(pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo).locator.path))", "true"],
   ]) {
     assert.ok(original.includes(antes), `ponto de mutacao: ${antes}`);
-    const modulo = new Module(arquivo);
-    modulo.filename = arquivo; modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
-    modulo._compile(original.replaceAll(antes, depois), arquivo);
-    assert.throws(() => provarSegundoSalto(modulo.exports.pacoteDeContexto), antes);
+    assert.throws(() => provarSegundoSalto(mutanteContexto(antes, depois)), antes);
   }
 });
 

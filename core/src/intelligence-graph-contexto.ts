@@ -70,6 +70,8 @@ interface Grupo {
   evidencias: Map<string, TuplaDeEvidencia>; entreArquivos: boolean; distancia: number;
   salto: 1 | 2;
 }
+const compararTipo = (a: TipoDeAresta, b: TipoDeAresta): number =>
+  Number(a === 'cites') - Number(b === 'cites') || compararUtf8(a, b);
 
 /** O grafo recebido ja deve estar filtrado pela concessao de quem consulta. */
 export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, entrada: EntradaDoContexto,
@@ -134,7 +136,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   // Entre arquivos > perto do diff > tipo > rotulos; empates independem da ordem do indice.
   const ordenados = [...grupos.values()].sort((a, b) => a.salto - b.salto || Number(b.entreArquivos) - Number(a.entreArquivos)
     || (a.distancia === b.distancia ? 0 : a.distancia < b.distancia ? -1 : 1)
-    || compararUtf8(a.kind, b.kind) || compararUtf8(a.destino, b.destino) || compararUtf8(a.origem, b.origem));
+    || compararTipo(a.kind, b.kind) || compararUtf8(a.destino, b.destino) || compararUtf8(a.origem, b.origem));
   // Dentro da mesma prioridade, intercalar tipos impede calls de expulsar imports/references.
   const rodadas = new Map<string, number>();
   const justos = ordenados.map((g) => {
@@ -143,7 +145,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     return { g, rodada };
   }).sort((a, b) => a.g.salto - b.g.salto || Number(b.g.entreArquivos) - Number(a.g.entreArquivos)
     || (a.g.distancia === b.g.distancia ? 0 : a.g.distancia < b.g.distancia ? -1 : 1)
-    || a.rodada - b.rodada || compararUtf8(a.g.kind, b.g.kind)
+    || a.rodada - b.rodada || compararTipo(a.g.kind, b.g.kind)
     || compararUtf8(a.g.destino, b.g.destino) || compararUtf8(a.g.origem, b.g.origem)).map(({ g }) => g);
   const normalizada = { ...entrada, diff, diffEstado: entrada.diffEstado ?? 'coletado-na-worktree',
     claims: [...entrada.claims].sort((a, b) => compararUtf8(canonico(a), canonico(b))) };
