@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Medida da conta esgotada entre projetos** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  `ork accounts esgotamentos [--desde 7d] [--json]` (`ork.esgotamentos/v1`) só lê as marcas vivas de
+  `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
+  despacho que caiu na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o
+  perfil, pelo id; nenhum diretório de conta vai à saída. O total é um piso: o registro só guarda as marcas vivas.
 - **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
   - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
     arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
