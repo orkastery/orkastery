@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** Não aplicável — sem feature vigente
-- **Thread:** `ork-rm031kg5cons` (KG5, consumo pelas fases pelo MCP); o KG4 foi a `ork-rm031kg4incr`, o KG3, a `ork-rm031kg3`, o KG2, a `ork-rm031kg2extr` e o KG1, a `ork-i31kg1contra`
+- **Thread:** `ork-rm031kg5cons` (KG5, consumo pelas fases pelo MCP); a correção de empacotamento (o grafo em quem instala do npm) é a `ork-rm031grafofu`; o KG4 foi a `ork-rm031kg4incr`, o KG3, a `ork-rm031kg3`, o KG2, a `ork-rm031kg2extr` e o KG1, a `ork-i31kg1contra`
 
 ## Problema e resultado
 
@@ -66,7 +66,7 @@ sdlc:
 ## Plano e decisões
 
 - **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, KG3, D1 a D10 da thread `ork-rm031kg3`, KG4, D1 a D11 da thread `ork-rm031kg4incr`, e KG5, D1 a D10 da thread `ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
-- **Próximo passo:** merge do KG5 com o CI verde; o dono decide ligar `grafo.mcp` (exposição e habilitação), numa instalação do `ork` com o `typescript` e o micromark, que o pacote publicado 0.5.0 não tem; depois, a fatia seguinte do KG5 (pacote de contexto da thread) e a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
+- **Próximo passo:** o dono decide ligar `grafo.mcp` (exposição e habilitação); depois, a fatia seguinte do KG5 (pacote de contexto da thread) e a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
 
 ## Estado com evidências
 
@@ -84,6 +84,7 @@ sdlc:
 - KG5, revisão independente do CHECK: na rodada 1, nenhum bloqueador e quatro avisos (recusa de outro extrator sem dizer o que mudou, texto do teto e da saída da CLI, pré-requisito dos analisadores), corrigidos no GO-FIX 1 com as sugestões de teste e de endurecimento; as de desempenho e a do worker que segue se o servidor morre de repente ficaram sem mudança, por decisão no ledger. Na rodada 2, nenhum bloqueador nem aviso.
 - CI verde no push de cada merge: KG1 (run 36563021189), KG2 (run 36721687751), KG3 (run 36773338449) e KG4 (run 36961667790).
 - KG1, KG2 e KG3 em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450). O `ork grafo` pede o `typescript` e o micromark no pacote do `ork`, que não são dependências dele; sem eles, a recusa é `grafo.parser.indisponivel` (CHANGELOG da 0.5.0).
+- Correção de empacotamento na thread `ork-rm031grafofu`: o `typescript` 5.9.3, o micromark 4.0.2, a tabela GFM 2.1.1 e os dois decodificadores de referência de caractere passam a ser dependências de runtime do `@orkastery/cli`, com versão exata, e os rótulos `ork.ts-ast` e `ork.md-structure` não mudam. A prova `core/scripts/provar-grafo-instalado.cjs` empacota a árvore, instala o tarball com `npm install -g` num prefixo e num HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende. O `ork doctor` ganha o check "analisadores do grafo", e o `ork grafo status` diz a correção quando eles faltam. Medida: o tarball vai de 1.132.641 para 1.133.927 bytes, e a instalação, de 96 para 125 pacotes e de 29,3 para 55,7 MB em disco.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -120,3 +121,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-01 | KG4 implementado na thread `ork-rm031kg4incr` | índice incremental com os mesmos bytes da completa, provado em fixtures e em seis pares reais, linha de base determinística do protocolo, protocolo fixado e harness da rodada paga; decisões D1 a D11 no ledger | agente em #Auto; revisão: Julio |
 | 2026-10-02 | KG4 mesclado na `main` | PR #40, merge `99b10d3`, CI verde no push (run 36961667790) | Julio |
 | 2026-10-02 | KG5 implementado na thread `ork-rm031kg5cons` | tools `ork_grafo_*` no MCP atrás da flag `grafo.mcp` desligada, teto em bytes, recusas do índice com a correção e medida offline; decisões D1 a D10 no ledger | agente em #Auto; revisão: Julio |
+| 2026-10-03 | correção de empacotamento na thread `ork-rm031grafofu` | `typescript` e micromark como dependências do pacote, check no `ork doctor`, correção no `ork grafo status` e prova de instalação limpa no CI e no `publicar.yml`; decisões D1 a D10 no ledger | agente em #Auto; revisão: Julio |

@@ -29,6 +29,7 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { checarRede } from './doctor-rede';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -263,14 +264,36 @@ function textoDosBlocos(blocos: readonly BlocoDeModo[]): string {
 }
 
 /**
+ * Ensaio de 03/10 (R1): com perfil ativo do runtime, quem confere o login e o check "contas por runtime";
+ * sem perfil (ou com o store ilegivel, que aquele check reprova), o despacho usa o login do `claude` do processo.
+ */
+function temPerfilAtivo(carregado: ManifestoCarregado | null, runtime: string): boolean {
+  if (!carregado || carregado.erros.length) return false;
+  try { return lerPerfisComContas(carregado.raiz).perfis.some(p => p.runtime === runtime && p.estado !== 'desativado'); }
+  catch { return false; }
+}
+
+/**
  * Fatia 2 do ensaio da 0.5.0 (P1): o `claude` so e obrigatorio quando algum bloco de modo permitido
  * despacha por ele. Sem manifesto, com manifesto invalido ou com setup ilegivel vale o padrao (todo
  * bloco no claude-bg), e a falta reprova como antes.
  */
 export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude: string | null,
-  versao: string | null): Check {
+  versao: string | null, auth: StatusDeAuth | null = null): Check {
   const nome = 'runtime claude-bg';
-  if (claude) return { nome, nivel: 'ok', detalhe: `${claude} (${versao ?? 'versao desconhecida'})` };
+  if (claude) {
+    const detalhe = `${claude} (${versao ?? 'versao desconhecida'})`;
+    // Ensaio de 03/10 (R1): sem perfil de conta, o despacho usa o login do proprio `claude`; sem ele, o
+    // primeiro despacho falha. Conferencia inconclusiva (timeout, JSON ilegivel) nao prova falta de login.
+    if (auth && !auth.ok && !auth.transitorio) {
+      return { nome, nivel: 'warn', detalhe: `${detalhe}; ${auth.detalhe}: o despacho pelo claude-bg falharia`,
+        correcao: auth.pago
+          ? 'faca o login de assinatura (claude.ai) no `claude`, sem API key nem provider de nuvem'
+          : 'rode `claude` uma vez, faca o login de assinatura (/login) e aceite a confianca no diretorio do projeto; ' +
+            'ou crie um perfil com ork accounts add <id> --runtime claude-bg --dir <pasta>' };
+    }
+    return { nome, nivel: 'ok', detalhe };
+  }
   const blocos = carregado && carregado.erros.length === 0 ? blocosDoRuntime(carregado, 'claude-bg') : null;
   if (blocos && blocos.principal.length === 0) {
     // CHECK, rodada 1 (S6): as fases nao precisam dele, mas o `ork audit run` despacha sempre pelo claude-bg.
@@ -321,9 +344,15 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   };
 }
 
-/** Roda todos os checks a partir do diretorio informado. */
+/**
+ * Roda todos os checks a partir do diretorio informado. RM-031: `analisadores` e o check do grafo
+ * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
+ * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
+ */
 export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
-  lerCrontab: LeitorDoCrontab = lerCrontabDoSistema): Check[] {
+  lerCrontab: LeitorDoCrontab = lerCrontabDoSistema,
+  conferirAuthDoClaude: () => StatusDeAuth = () => adapter.conferirAuth(null),
+  analisadores?: () => Check): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -333,6 +362,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : 'instale Node 20 ou superior',
   });
+  if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
   checks.push({
@@ -364,7 +394,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   const carregado = carregarManifesto(dirInicial);
   const claude = adapter.disponivel();
   const v = claude ? adapter.versao() : null;
-  checks.push(checarRuntimeClaude(carregado, claude, v));
+  checks.push(checarRuntimeClaude(carregado, claude, v,
+    claude && !temPerfilAtivo(carregado, 'claude-bg') ? conferirAuthDoClaude() : null));
 
   // Segundo runtime homologado. Ausente e `warn`, nao `fail`: o claude-bg segue sendo o
   // padrao, e um projeto que nunca pediu codex nao pode ficar bloqueado por ele.
@@ -574,6 +605,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     }
   }
 
+  // RM-053 (fatia 2): a rede da pessoa e da maquina, nao do projeto; vale de qualquer diretorio.
+  checks.push(checarRede());
+
   return checks;
 }
 
@@ -611,8 +645,9 @@ export function relatorio(checks: Check[]): string {
 }
 
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
-export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados);
+export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  analisadores?: () => Check): { texto: string; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }

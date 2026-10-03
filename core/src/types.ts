@@ -268,8 +268,10 @@ export interface Manifesto {
     cli: string;
     /** Tenant/produto dono da base. Vazio herda `project.name`. */
     tenant: string;
-    /** Timeout de cada chamada ao OrkMind, em ms. Estourou, degrada para `files`. */
+    /** Timeout geral de chamada ao OrkMind, em ms (universo tem prazo proprio). */
     timeout_ms: number;
+    /** Prazo da leitura das cinco colecoes; padrao 90.000 ms. */
+    universo_timeout_ms?: number;
     /** I-38 (D5): embeddings da busca por significado. Ausente vale `provider: none`. */
     embedding?: ConfigDeEmbedding;
   };
@@ -1333,7 +1335,7 @@ export interface EstadoDeEmbeddings {
   /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
   /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
-  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null } | null;
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null; latenciaMs?: number } | null;
   /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
   aviso: string | null;
   /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
@@ -1373,6 +1375,9 @@ export interface EntradaDeMemoria {
   author_id?: string | null;
   visibility?: string;
   protected?: boolean;
+  /** Governanca recebida da biblioteca, reconferida antes do embed. */
+  injection_risk?: boolean;
+  expires_at?: string | null;
 }
 
 /** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
@@ -1390,11 +1395,15 @@ export interface ForaDaBusca {
  */
 export interface UniversoDaBusca {
   tenant: string;
+  /** Instante anterior a leitura, em ms desde epoch; referencia unica para a expiracao. */
+  lidoEm: number;
   /** Ordenadas por colecao e id. */
   entradas: EntradaDeMemoria[];
   porColecao: Record<ColecaoDoOrk, number>;
   /** null quando a base nao mede (backend sem a contagem). */
   foraDaBusca: ForaDaBusca | null;
+  /** Tempo monotonico da leitura pelo transporte, incluindo o subprocesso; ausente se nao medido. */
+  latenciaMs?: number;
 }
 
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */

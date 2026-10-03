@@ -114,6 +114,8 @@ ork network sair                       # tira o retrato desta máquina da casa
 - Quem já fez `ork fabrica entrar` é membro da rede sem refazer nada: a batida do pulse publica o retrato quando a casa existe.
 - A `ork/fabrica-estado` continua lida: máquina que só publicou lá aparece como vista na fábrica, sem supor adesão.
 - Depois de entrar, a máquina publica sozinha na batida do pulse e nos eventos de thread; `ork network publicar` publica na hora.
+- O `ork doctor` tem a linha `rede`: a adesão, a casa, a última batida e a última falha do `~/.orkastery/rede/rede.log`. Ele só lê arquivos locais e nunca bloqueia; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida passou de 3 h. O membro herdado da fábrica cuja casa ainda não existe aparece aí, com `rede.sem-repositorio`.
+- O `REDE.md` da casa mostra as máquinas com batida nos últimos 14 dias; as paradas há mais tempo ficam no rodapé e no `ork network status`.
 
 | Vai para a casa | Nunca vai |
 | --- | --- |

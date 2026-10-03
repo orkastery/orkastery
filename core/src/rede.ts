@@ -628,16 +628,37 @@ function travaOrfa(dir: string = TRAVA()): boolean {
 }
 
 /**
- * Tira a trava orfa. Renomeia antes de apagar e so apaga o que, JA MOVIDO, continua orfao (V6 da
- * revisao 4): entre julgar e mover, outro processo pode ter tirado a orfa e tomado a trava; a trava
- * nova volta para o lugar, intacta. `removida` quando apagou; `viva` quando devolveu.
+ * W9 do CHECK 5 (RM-053 fatia 2): a faxina da trava orfa e SERIAL, sob a trava `<trava>.faxina`.
+ * Antes, com tres processos e uma orfa, quem tinha julgado "orfa" podia mover a trava VIVA de outro
+ * (que entrou depois da orfa sair) e, se um terceiro ja ocupava o lugar, a viva encalhava em
+ * `publicar.lock.orfa-*` e o `liberar()` do dono dava erro depois de um push que ja tinha dado certo.
+ *
+ * Sob a faxina, o julgamento e refeito no lugar antes de mover: so uma faxina tira orfa (a trava com
+ * `pid` valido o monitor-lock troca sozinho, e nunca e orfa aqui), entao o que esta no lugar quando a
+ * faxina julga e o que ela move. A trava viva nunca sai do lugar. O renomear antes de apagar fica
+ * como segunda guarda (V6 da revisao 4): so apaga o que, ja movido, continua orfao.
+ *
+ * `ocupada`: outra faxina esta em curso; quem chamou espera a trava como sempre. A faxina que caiu
+ * entre o `mkdir` e o `pid` (velha, sem `pid` valido) e tirada, e a proxima rodada faz a faxina.
  */
-export function tirarTravaOrfa(trava: string = TRAVA()): 'removida' | 'viva' | 'sumiu' {
-  const lixo = `${trava}.orfa-${process.pid}-${Date.now()}`;
-  try { fs.renameSync(trava, lixo); } catch { return 'sumiu'; }
-  if (travaOrfa(lixo)) { fs.rmSync(lixo, { recursive: true, force: true }); return 'removida'; }
-  try { fs.renameSync(lixo, trava); } catch { /* uma terceira trava ja ocupa o lugar: esta fica para o dono */ }
-  return 'viva';
+export function tirarTravaOrfa(trava: string = TRAVA()): 'removida' | 'viva' | 'sumiu' | 'ocupada' {
+  const faxina = `${trava}.faxina`;
+  const vez = adquirirLockMonitor(faxina);
+  if (!vez.ok) {
+    if (!vez.ativo && travaOrfa(faxina)) fs.rmSync(faxina, { recursive: true, force: true });
+    return 'ocupada';
+  }
+  try {
+    if (!fs.existsSync(trava)) return 'sumiu';
+    if (!travaOrfa(trava)) return 'viva';
+    const lixo = `${trava}.orfa-${process.pid}-${Date.now()}`;
+    try { fs.renameSync(trava, lixo); } catch { return 'sumiu'; }
+    if (travaOrfa(lixo)) { fs.rmSync(lixo, { recursive: true, force: true }); return 'removida'; }
+    try { fs.renameSync(lixo, trava); } catch { /* uma terceira trava ja ocupa o lugar: esta fica para o dono */ }
+    return 'viva';
+  } finally {
+    try { vez.liberar(); } catch { /* a faxina e desta chamada; sumir com ela nao desfaz o que foi feito */ }
+  }
 }
 
 /**
@@ -714,7 +735,7 @@ function gravarNaCasa(conferida: CasaConferida, retrato: RetratoDaMaquina, desca
       }
       const mudancas: MudancaNaBranch[] = [
         { caminho: arquivoDoRetrato(maquina), conteudo: JSON.stringify(retrato, null, 2) + '\n' },
-        { caminho: PAINEL_DA_REDE, conteudo: painelDaRede([...retratos.filter((r) => r.maquina !== maquina), retrato]) },
+        { caminho: PAINEL_DA_REDE, conteudo: painelDaRede([...retratos.filter((r) => r.maquina !== maquina), retrato], Date.parse(retrato.publicadoEm)) },
       ];
       exigirSoOProprioRetrato(maquina, mudancas);
       const mensagem = alheio ? `rede: ${maquina} publicou o retrato, tomando o nome de outra instalacao` : `rede: ${maquina} publicou o retrato`;
@@ -888,8 +909,26 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
 // valor fica numa linha so.
 const celula = (s: string) => emUmaLinha(s).replace(/[\\`*_[\]<>|!.:~&]/g, (c) => `\\${c}`);
 
-/** O `REDE.md`: a mesma rede, para quem abre a forja. Sem caminho local: esses ficam no JSON. */
-export function painelDaRede(retratos: readonly RetratoDaMaquina[]): string {
+/**
+ * RM-053 (fatia 2): retrato sem batida ha mais de 14 dias sai do INDICE `REDE.md`. O arquivo dele
+ * em `maquinas/` fica (cada maquina so escreve o proprio retrato, D6) e o `ork network status`
+ * continua a mostra-lo, com a lacuna `maquina.sem-batida`. Quatorze dias cobrem ferias e uma maquina
+ * desligada por duas semanas sem tirar ninguem do indice; o rodape diz quem saiu, nunca em silencio.
+ * Batida ilegivel ou no futuro fica no indice: so sai o que se sabe parado.
+ */
+export const RETRATO_PARADO_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** O retrato publicado ha mais de `RETRATO_PARADO_MS` antes de `agoraMs`. */
+export function retratoParado(r: Pick<RetratoDaMaquina, 'publicadoEm'>, agoraMs: number): boolean {
+  const em = Date.parse(r.publicadoEm);
+  return Number.isFinite(em) && agoraMs - em > RETRATO_PARADO_MS;
+}
+
+/**
+ * O `REDE.md`: a mesma rede, para quem abre a forja. Sem caminho local: esses ficam no JSON.
+ * `agoraMs` e a hora de quem publica (a batida do proprio retrato), a regua do retrato parado.
+ */
+export function painelDaRede(retratos: readonly RetratoDaMaquina[], agoraMs: number = Date.now()): string {
   const linhas = [
     '# Orkastery Network',
     '',
@@ -899,14 +938,21 @@ export function painelDaRede(retratos: readonly RetratoDaMaquina[]): string {
     '| Máquina | Hostname | Forjas | Runtimes | Hosts | Projetos | ork | Última batida |',
     '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
-  const lista = [...retratos].sort((a, b) => a.maquina.localeCompare(b.maquina));
-  if (lista.length === 0) linhas.push('| — | nenhuma máquina publicou | — | — | — | — | — | — |');
+  const ordenados = [...retratos].sort((a, b) => a.maquina.localeCompare(b.maquina));
+  const lista = ordenados.filter((r) => !retratoParado(r, agoraMs));
+  const parados = ordenados.filter((r) => retratoParado(r, agoraMs));
+  if (lista.length === 0) linhas.push(`| — | ${parados.length ? 'nenhuma máquina com batida recente' : 'nenhuma máquina publicou'} | — | — | — | — | — | — |`);
   for (const r of lista) {
     const forjas = r.forjas.map((f) => `${f.forja}: ${f.usuario ?? 'sem login'}`).join(', ') || '—';
     const runtimes = r.runtimes.map((x) => `${x.runtime} ${x.versao ?? '?'}`).join(', ') || '—';
     const hosts = r.hosts.map((h) => `${h.host} ${h.versao ?? '?'}${h.adaptador ? ` (adaptador ${h.adaptador})` : ''}`).join(', ') || '—';
     const projetos = r.projetos.map((p) => p.nome).join(', ') || '—';
     linhas.push(`| ${[r.maquina, r.hostname, forjas, runtimes, hosts, projetos, r.versaoOrk, formatarDataHora(r.publicadoEm)].map(celula).join(' | ')} |`);
+  }
+  if (parados.length) {
+    const quem = parados.map((r) => `${celula(r.maquina)} (última batida ${celula(formatarDataHora(r.publicadoEm))})`).join(', ');
+    linhas.push('', `Fora do índice, sem batida há mais de ${RETRATO_PARADO_MS / 86400000} dias: ${quem}. ` +
+      'O retrato continua em `maquinas/` e no `ork network status`.');
   }
   return [...linhas, '', legendaDoFuso(), ''].join('\n');
 }

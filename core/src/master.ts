@@ -723,7 +723,8 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
     tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'ENTREGOU', 'INDICE', 'DE ONDE VEIO'], linhas),
     '',
     'ENTREGUE E ACEITO, a menos que voce diga o contrario.',
-    '  ork master --aceitar-omissao          aceita as entregues, com o indice e os insumos no ledger',
+    '  ork master <id> --aceitar-omissao     aceita so esta entrega, com o indice e os insumos no ledger',
+    '  ork master --aceitar-omissao          aceita TODAS as entregues da lista (--dry-run mostra quais, sem gravar)',
     '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   se quiser reclamar',
     '',
     `Classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`,
@@ -738,10 +739,41 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
  * ENTREGOU: uma thread que nunca chegou ao ship nao tem entrega para aceitar, e
  * aceita-la seria inventar um fato.
  */
-export function aceitarPendentesPorOmissao(raiz: string): AceitePorOmissao[] {
+export function aceitarPendentesPorOmissao(raiz: string, opcoes: { thread?: string } = {}): AceitePorOmissao[] {
+  return entregasParaOmissao(raiz, opcoes.thread).map((p) => aceitarPorOmissao(raiz, p.thread.id));
+}
+
+/**
+ * RM-008 (03/10/2026): o que `ork master --aceitar-omissao` fecharia, sem gravar nada.
+ *
+ * Na madrugada de 03/10, tres vezes, um condutor rodou `ork master --aceitar-omissao` para fechar
+ * a PROPRIA thread, e o comando fechou tambem as entregues de outras frentes paralelas. A CLI nao
+ * deixava indicar a thread. Com `thread`, o alvo e so ela; sem, continua sendo toda entrega que
+ * espera decisao (o padrao nao mudou). Thread inexistente recusa pelo `lerThread`.
+ */
+export function entregasParaOmissao(raiz: string, thread?: string): PendenteDeScore[] {
+  if (thread !== undefined) lerThread(raiz, thread);
   return pendentesDeScore(raiz)
     .filter((p) => p.entregou)
-    .map((p) => aceitarPorOmissao(raiz, p.thread.id));
+    .filter((p) => thread === undefined || p.thread.id === thread);
+}
+
+/**
+ * Por que a thread indicada nao entra no aceite por omissao, ou `null` quando entra.
+ * `ja-fechada` e idempotencia (nada a fazer); `fechamento-admin` e `sem-entrega` sao recusa.
+ */
+export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fechada' | 'fechamento-admin' | 'sem-entrega'; texto: string } | null {
+  const thread = lerThread(raiz, id);
+  if (thread.fechamentoAdmin) {
+    return { motivo: 'fechamento-admin', texto: `a thread ${id} foi fechada administrativamente (${thread.fechamentoAdmin.motivo}); nao ha entrega para aceitar.` };
+  }
+  if (masterRatificado(raiz, id)) {
+    return { motivo: 'ja-fechada', texto: `a thread ${id} ja tem MASTER registrado; nada a aceitar.` };
+  }
+  if (!entregou(raiz, id)) {
+    return { motivo: 'sem-entrega', texto: `a thread ${id} ainda nao entregou (sem ship_done no ledger); registre a entrega antes: ork ship registrar-pr ${id}` };
+  }
+  return null;
 }
 
 /** Texto de `ork master <thread-id> --score`. */

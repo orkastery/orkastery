@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
+  - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
+    arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
+    passou de 3 h, e nunca bloqueia o despacho;
+  - o retrato sem batida há mais de 14 dias sai da tabela do `REDE.md` e vai ao rodapé; o arquivo dele e o
+    `ork network status` ficam;
+  - um saneador de saída comum ao núcleo (`core/src/saida-segura.ts`): o `ork fabrica`, a seção de outras máquinas
+    do `ork board` e o `ork fabrica --json` deixam de levar à tela a quebra de linha e o controle de terminal do
+    `por`, do `projeto` e da pergunta lidos de `ork/fabrica-estado`; o JSON tem o mesmo valor, com o invisível
+    escrito como `\uXXXX`;
+  - a faxina da trava órfã da rede é serial e não move mais a trava viva de outro processo (W9 do CHECK 5).
 - **A rede por pessoa no roadmap da rede, fatia 3** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
   - `ork network roadmap` lê a casa da RM-053: a seção "Rede por pessoa" traz a casa e cada máquina com a batida e
     os projetos que declara, e o JSON ganha `rede`; o projeto que uma máquina da rede declara passa a ser pedido
@@ -59,6 +70,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
   reprova, grava `policy_warn` com `claims.failed`, e se estoura o prazo, com `verify.timeout`. A claim entra do
   mesmo jeito e nada para, nem com a policy em `block`.
+- **Aceite por omissão só da thread indicada** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): em 03/10,
+  três vezes, um condutor rodou `ork master --aceitar-omissao` para fechar a própria thread e fechou também as
+  entregues de outras frentes paralelas, porque a CLI não deixava indicar a thread.
+  - `ork master <thread> --aceitar-omissao` (também `--thread <thread>` e `--aceitar-omissao=<thread>`) aceita só a
+    entrega daquela thread; thread sem entrega recusa (saída 1) e a já fechada não grava de novo (saída 0);
+  - `--dry-run` lista o que seria fechado, com o índice, sem gravar (`--json`: `{ dryRun, fecharia }`);
+  - sem a thread, o padrão continua o mesmo (aceita todas as entregues e lista cada uma). De processo de agente
+    (a mesma marca do `master.prova-de-canal`) com mais de uma, sai em stderr o aviso `master.omissao-sem-thread`,
+    com o comando da thread do despacho; o stdout e o `--json` ficam como eram;
+  - o `ork ship registrar-pr`, a tabela do `ork master`, o bloco do `AGENTS.md` que o `ork init` escreve, as skills,
+    os adaptadores e os guias passam a ensinar a forma com a thread.
 - **`ork doctor` acusa o pulse que bate devagar** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)): com
   `.orkastery/monitor/pulse-host.json`, o check `cadencia do pulse no cron` lê o `crontab -l` e avisa, sem bloquear, a
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
@@ -66,6 +88,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
+    `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
+    despacho falhava;
+  - sem idioma escolhido no ambiente (`LANG=C.UTF-8`, `C`, `POSIX`), o `ork onboarding` recomenda a
+    experiência em `pt-BR`, a língua da CLI, em vez de `en-US`; um locale escolhido continua valendo;
+  - `ork ci status` com `--sha HEAD` ou sha curto diz que pede o sha completo de 40 caracteres
+    (`git rev-parse HEAD`); antes respondia só a linha de uso;
+  - `ork ship --dry-run` sem o remoto configurado (ou com `--sem-push`) diz o mesmo que o ship real, "merge
+    local concluído, sem push a provar", em vez de listar o `git push` e o `git ls-remote`;
+  - `ork adapter install claude-code` (e `codex`) repete no fim, depois da lista de arquivos e dos pitfalls, as
+    linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
+  - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
+    `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
+  - o README traz os números do CI da `main` de 03/10 (run 37102089623): 2.733 testes do núcleo, 24 canários e
+    20 skills com 199 asserções; dizia 1.553 testes, de 27/09;
 - **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
     por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois
@@ -94,6 +132,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   Com 3 s de atraso injetado depois do despacho, o teste antigo reprova com a mesma mensagem do CI e o novo passa; sob
   carga, o arquivo passou 60 vezes seguidas no Node 22 e no 24. A varredura de `FINALIZAR-SIMULADO` e `conducaoDaThread`
   em `core/test` não achou outro teste que leia estado vivo de sessão que termina sozinha.
+- **Memória inativa na busca por significado, rodada 3** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  `memory search --texto` mantém saída 1 também em `modo.files`, `dsn.env-ausente` e
+  `orkmind.indisponivel`, com motivo tipado em texto e JSON, como `memory index`;
+  universo vazio lido com sucesso sai 0. A prova `core/scripts/prova-busca-semantica.sh`
+  imprime a resposta com o motivo antes de sair se qualquer busca falhar.
+- **Avisos da rodada 2 do universo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  - `ork memory search --texto` sai 1 com motivo tipado quando o universo não foi lido, em texto e JSON;
+  - o cliente preserva `injection_risk` e `expires_at` e reconfere a governança antes de qualquer embed;
+  - a operação `universo` tem prazo próprio, `memory.universo_timeout_ms`, com padrão de 90.000 ms, e informa a
+    latência medida no JSON do índice e do status;
+  - o teste de expiração da ponte atravessa a leitura com relógio crescente, cobrindo FTS e universo.
 - **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
   - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
     da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
@@ -108,6 +157,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
     que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
     e não calcula cobertura.
+- **O grafo de código funciona em quem instala o `ork` pelo npm** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  - o `typescript` 5.9.3 e o micromark 4.0.2, com a tabela GFM 2.1.1 e os dois decodificadores de referência de
+    caractere que o extrator usa, passam a ser dependências de runtime do `@orkastery/cli`, com versão exata: no
+    `npm install -g`, o `ork grafo indexar`, as consultas e as tools `ork_grafo_*` rodam sem passo manual, onde antes
+    a recusa era `grafo.parser.indisponivel: typescript`. Os rótulos `ork.ts-ast` e `ork.md-structure` não mudam; a
+    instalação fica com 125 pacotes e cerca de 26 MB a mais em disco, quase todo o compilador;
+  - depois de atualizar, `ork grafo indexar` refaz o índice completo uma vez: o comentário atualizado dos
+    analisadores entra no `dist` e muda a impressão do extrator, invalidando o índice anterior para o HEAD;
+  - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
+    recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
+    instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
+    por `require`). Quando falta um pacote dos analisadores, o `ork grafo status` diz a mesma correção, na linha
+    `correcao` e no campo `correcao` do `--json`;
+  - `core/scripts/provar-grafo-instalado.cjs` instala o tarball do `npm pack` com `npm install -g` num prefixo e num
+    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
+    `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
 
 ### Corrigido
 

@@ -33,6 +33,7 @@ import { dirThread } from './thread';
 import { Thread } from './types';
 import { agora as agoraIso } from './util';
 import { VERSAO_DO_ORK } from './versao';
+import { valoresEmUmaLinha } from './saida-segura';
 
 export const CONTRATO_MAQUINA = 'ork.fabrica-maquina/v1' as const;
 export const BRANCH_DA_FABRICA = 'ork/fabrica-estado';
@@ -333,8 +334,13 @@ function blocoDaMaquina(m: EstadoDaMaquina, eu: string): string[] {
   ]))];
 }
 
-/** `ork fabrica`: todas as maquinas. */
-export function textoDaFabrica(p: PainelDaFabrica, eu: string): string {
+/**
+ * `ork fabrica`: todas as maquinas. RM-053 (fatia 2): o painel vem do remoto, onde outras pessoas
+ * escrevem; cada valor dele (o `por`, o `projeto`, a pergunta) chega a tela numa linha so, sem nada
+ * que o terminal execute.
+ */
+export function textoDaFabrica(painel: PainelDaFabrica, eu: string): string {
+  const p = valoresEmUmaLinha(painel);
   const linhas: string[] = [];
   if (!p.atualizado) linhas.push('AVISO: sem leitura nova do remoto; esta e a ultima copia lida nesta maquina.', '');
   if (p.maquinas.length === 0) {
@@ -346,8 +352,9 @@ export function textoDaFabrica(p: PainelDaFabrica, eu: string): string {
   return linhas.join('\n');
 }
 
-/** A secao de `ork board` com as outras maquinas. */
-export function textoDasOutrasMaquinas(p: PainelDaFabrica, eu: string): string {
+/** A secao de `ork board` com as outras maquinas, saneada como o `ork fabrica`. */
+export function textoDasOutrasMaquinas(painel: PainelDaFabrica, eu: string): string {
+  const p = valoresEmUmaLinha(painel);
   const outras = p.maquinas.filter((m) => m.maquina !== eu);
   const origem = p.atualizado ? 'lido agora' : 'ultima copia local';
   if (outras.length === 0) return `Outras maquinas (${BRANCH_DA_FABRICA}, ${origem}): nenhuma publicou ainda.`;

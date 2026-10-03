@@ -11,7 +11,7 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
+| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com nove dependências de runtime; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
 | Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
@@ -82,14 +82,15 @@ Numa máquina com o Claude Code e sem o Codex, antes do `ork init`, a saída da 
 ```text
 ork doctor: o que vale nesta maquina agora
 
-  [ok]   node               v22.23.2
-  [ok]   git                /usr/bin/git
-  [ok]   repositorio        branch main
-  [ok]   runtime claude-bg  /home/voce/.local/bin/claude (2.1.287 (Claude Code))
-  [warn] runtime codex      binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
-                            correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
-  [FAIL] manifesto          orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
-                            correcao: ork init
+  [ok]   node                   v22.23.2
+  [ok]   analisadores do grafo  typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
+  [ok]   git                    /usr/bin/git
+  [ok]   repositorio            branch main
+  [ok]   runtime claude-bg      /home/voce/.local/bin/claude (2.1.287 (Claude Code))
+  [warn] runtime codex          binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
+                                correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
+  [FAIL] manifesto              orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
+                                correcao: ork init
 
 Veredito: BLOQUEADO (1 fail, 1 warn). Corrija os itens acima antes de despachar fase.
 ```
@@ -172,6 +173,7 @@ máquina, ainda sem sessões do Claude Code, logo depois do `ork init`:
 ork doctor: o que vale nesta maquina agora
 
   [ok]   node                         v22.23.2
+  [ok]   analisadores do grafo        typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
   [ok]   git                          /usr/bin/git
   [ok]   repositorio                  branch main
   [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))
@@ -394,7 +396,8 @@ ledger. A nota humana, quando vier, sobrescreve:
 
 ```bash
 ork master                    # as entregas, com o indice derivado do ledger
-ork master --aceitar-omissao  # aceita as entregues, com indice e insumos no ledger
+ork master <thread> --aceitar-omissao  # aceita so esta entrega, com indice e insumos no ledger
+ork master --aceitar-omissao --dry-run  # sem a thread, lista todas as que fecharia, sem gravar
 ```
 
 ---
