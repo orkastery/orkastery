@@ -5,12 +5,12 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 03/10 11:14 |
-| srvjcp86 | ork-rm026k7conhe | #Auto | GOAL | sem despacho | RM-026 | — | 03/10 11:14 |
-| srvjcp86 | ork-rm037fatia6r | #Auto | GOAL | sem despacho | RM-037 | — | 03/10 11:14 |
-| srvjcp86 | ork-rm044derivae | #Auto | GOAL | sem despacho | RM-044 | — | 03/10 11:14 |
-| srvjcp86 | ork-rm047frontei | #Auto | GOAL | sem despacho | RM-047 | — | 03/10 11:14 |
-| srvjcp86 | ork-rm047procede | #Auto | GOAL | sem despacho | — | — | 03/10 11:14 |
-| vps | ork-rm031kg5fat3 | #Auto | GO | codex gpt-6-astra/xhigh | RM-031 | — | 03/10 11:00 |
+| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 03/10 08:14 |
+| srvjcp86 | ork-rm026k7conhe | #Auto | GOAL | sem despacho | RM-026 | — | 03/10 08:14 |
+| srvjcp86 | ork-rm037fatia6r | #Auto | GOAL | sem despacho | RM-037 | — | 03/10 08:14 |
+| srvjcp86 | ork-rm044derivae | #Auto | GOAL | sem despacho | RM-044 | — | 03/10 08:14 |
+| srvjcp86 | ork-rm047frontei | #Auto | GOAL | sem despacho | RM-047 | — | 03/10 08:14 |
+| srvjcp86 | ork-rm047procede | #Auto | GOAL | sem despacho | — | — | 03/10 08:14 |
+| vps | ork-rm031kg5fat3 | #Auto | GO | codex gpt-6-astra/xhigh | RM-031 | — | 03/10 08:15 |
 
-Horários em UTC.
+Horários de Brasília.
