@@ -115,6 +115,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
   `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
   trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
+- **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
+  para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
+  Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado
+  em `docs/` e nos READMEs. Os três testes que usam `mock.timers` deixam de imprimir o `ExperimentalWarning` do
+  MockTimers no Node 20 e 22, e qualquer outro aviso continua saindo.
 - **Suspeitas da revisão de 03/10** (thread `ork-suspeitasdar`):
   - a marca da rede (`~/.orkastery/rede/publicada.json`) é trocada inteira, por `rename`; antes, um
     `ork network status`, o `ork doctor` ou uma publicação concorrente liam o arquivo vazio ou cortado, e um
