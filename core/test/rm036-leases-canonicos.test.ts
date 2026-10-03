@@ -70,8 +70,8 @@ test('rm036 leases: orkEmParalelo encerra o filho e rejeita no prazo', async (t)
   t.mock.timers.tick(59_999);
   assert.equal(filho.kill.mock.callCount(), 0);
   t.mock.timers.tick(1);
-  await resultado;
   assert.deepEqual(filho.kill.mock.calls.map((c) => c.arguments), [['SIGKILL']]);
+  await resultado;
 });
 
 interface Cenario { p: ProjetoDeTeste; raiz: string; wt: string; t1: string; outras: string[] }
