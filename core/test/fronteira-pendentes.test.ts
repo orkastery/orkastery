@@ -22,6 +22,9 @@ import { garantirWorktree } from '../src/worktree';
 import { exec } from '../src/util';
 import { spawnSync } from 'node:child_process';
 import { ProjetoDeTeste } from './apoio';
+import { fabricaCompartilhada, gravarConfigDaMaquina, pastaDoUsuario } from '../src/maquina';
+import { publicarEmSegundoPlano } from '../src/fabrica-publicar';
+import { carregarManifesto } from '../src/manifest';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const ork = (dir: string, ...args: string[]) => {
@@ -168,4 +171,31 @@ test('P4: ork eval não executa o catálogo achado a partir do cwd quando ele n�
     assert.ok(!r.stdout.includes(alheio), 'o eval não leu o catálogo alheio');
     assert.equal(fs.existsSync(marca), false, 'nada do catálogo alheio rodou');
   } finally { fs.rmSync(alheio, { recursive: true, force: true }); }
+});
+
+test('P5: fabrica.compartilhada do manifesto não liga a publicação desta máquina; ork fabrica entrar liga', () => {
+  const p = projetoTemporario('p5-fabrica', true);
+  const antes = { publicar: process.env.ORK_FABRICA_PUBLICAR, comp: process.env.ORK_FABRICA_COMPARTILHADA };
+  const maquina = path.join(pastaDoUsuario(), 'maquina.json');
+  try {
+    delete process.env.ORK_FABRICA_COMPARTILHADA;
+    fs.rmSync(maquina, { force: true });
+    fs.appendFileSync(path.join(p.dir, 'orkastery.yaml'), '\nfabrica:\n  compartilhada: true\n');
+    const pedido = carregarManifesto(p.dir)!;
+    assert.equal(pedido.manifesto.fabrica.compartilhada, true, 'o manifesto do clone pede a fábrica');
+    assert.equal(fabricaCompartilhada(pedido.manifesto), false, 'o manifesto sozinho não liga a fábrica desta máquina');
+    delete process.env.ORK_FABRICA_PUBLICAR;
+    assert.equal(publicarEmSegundoPlano(p.dir), false, 'nada sai em segundo plano só pelo manifesto');
+
+    // A máquina que entrou publica, com ou sem o pedido do manifesto.
+    process.env.ORK_FABRICA_PUBLICAR = '0';
+    gravarConfigDaMaquina({ fabricaCompartilhada: true });
+    assert.equal(fabricaCompartilhada(pedido.manifesto), true);
+    assert.equal(fabricaCompartilhada({ fabrica: { compartilhada: false } }), true);
+  } finally {
+    fs.rmSync(maquina, { force: true });
+    if (antes.publicar === undefined) delete process.env.ORK_FABRICA_PUBLICAR; else process.env.ORK_FABRICA_PUBLICAR = antes.publicar;
+    if (antes.comp === undefined) delete process.env.ORK_FABRICA_COMPARTILHADA; else process.env.ORK_FABRICA_COMPARTILHADA = antes.comp;
+    p.limpar();
+  }
 });

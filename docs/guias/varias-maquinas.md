@@ -45,7 +45,10 @@ ambiente, porque o cron e os gateways não leem o perfil do shell: sem o arquivo
 apareceria com dois nomes. `ORK_MAQUINA` continua valendo por cima do arquivo, para quem precisa.
 
 A adesão é da máquina, não do projeto: quem clona o repositório não publica nada até entrar. Um
-time que quer a fábrica ligada em todas as máquinas pode declarar no `orkastery.yaml`:
+time que quer a fábrica em todas as máquinas declara o pedido no `orkastery.yaml`. O pedido não
+liga a publicação (RM-047, P5): o manifesto vem com o repositório, e só a máquina decide publicar
+o retrato dela. Com o pedido e sem a adesão, o `ork doctor` e o `ork fabrica` avisam e dizem o
+`ork fabrica entrar`:
 
 ```yaml
 fabrica:

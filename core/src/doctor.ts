@@ -31,6 +31,7 @@ import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
 import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
+import { avisoDaFabricaPedida } from './maquina';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -474,6 +475,14 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     // sandbox que nao executa) deixa de ser aviso: e exatamente o que bloquearia a fase.
     const despachoPeloCodex = checarDespachoPeloCodex(carregado, codex, sondaDoCodex);
     if (despachoPeloCodex) checks.push(despachoPeloCodex);
+
+    // RM-047 (P5): o manifesto pede a fabrica compartilhada, mas quem liga a publicacao e a maquina.
+    const fabricaPedida = avisoDaFabricaPedida(carregado.manifesto);
+    if (fabricaPedida) {
+      checks.push({ nome: 'fabrica compartilhada', nivel: 'warn',
+        detalhe: 'o orkastery.yaml pede fabrica.compartilhada: true e esta maquina nao entrou: nada desta maquina e publicado no remoto',
+        correcao: 'ork fabrica entrar, se esta maquina deve publicar o retrato dela no remoto do projeto' });
+    }
 
     // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao local desta maquina.
     const recusaDaPasta = recusaDePastaDasWorktrees(carregado.raiz, carregado.manifesto);

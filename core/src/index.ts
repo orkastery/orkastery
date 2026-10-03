@@ -213,7 +213,7 @@ import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, texto
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
-import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { avisoDaFabricaPedida, fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { ehNomeDeForja } from './rede-forja';
@@ -2468,6 +2468,8 @@ function comandoFabrica(args: Args): number {
           : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
         console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
+        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
       }
       return 0;
     } catch (e) {
@@ -2495,7 +2497,7 @@ function comandoFabrica(args: Args): number {
     const r = removerMaquina(carregado, { remoto });
     console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
       (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: o manifesto do projeto (ou ORK_FABRICA_COMPARTILHADA) ainda liga a fabrica aqui.');
+    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
     void config;
     return 0;
   }
@@ -2521,6 +2523,9 @@ function comandoFabrica(args: Args): number {
   console.log(url === null
     ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
     : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
+  const pedida = avisoDaFabricaPedida(carregado.manifesto);
+  if (pedida) console.log(`\n${pedida}`);
   return 0;
 }
 

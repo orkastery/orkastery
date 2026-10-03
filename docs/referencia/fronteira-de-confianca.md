@@ -102,8 +102,10 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 ## 6. Pendentes do dono
 
 Fechar estes itens exige mudar comportamento que hoje é aceito ou documentado. Por isso a auditoria não os
-alterou. P1 e P2 ganharam correção na thread `ork-rm047procede`, num PR em rascunho que só vale quando o dono
-o mesclar; a coluna da direita diz o estado de cada um.
+alterou. P1 a P5 ganharam correção na thread `ork-rm047procede`, num PR em rascunho que só vale quando o dono
+o mesclar; a coluna da direita diz o estado de cada um. A regra é a mesma nos cinco: o que vem com o repositório
+não decide executável, caminho fora da raiz nem publicação desta máquina; quando o uso é legítimo, a máquina
+confirma fora do git, e a recusa é tipada e diz o comando.
 
 | Id | Classe do problema | Por que é contrato, ou o estado |
 | --- | --- | --- |
@@ -111,7 +113,7 @@ o mesclar; a coluna da direita diz o estado de cada um.
 | P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro | **Corrigido, em decisão do dono.** Estado rastreado pelo git não escolhe cwd, worktree nem executável; o cwd de git e agente só vale na raiz ou numa worktree do `git worktree list` do repositório; o transporte do pulse e do digest só vale do arquivo de host local; os ponteiros do recall e do handoff só leem arquivo que, pelo caminho real, fica na raiz ou na worktree registrada da thread (`ponteiro.fora-da-raiz`) |
 | P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | **Corrigido, em decisão do dono.** Worktree fora da raiz segue possível, mas quem decide é a máquina: fora da raiz pelo caminho real (`..`, absoluto, link no caminho, `.git`), a criação recusa com `worktree.dir-fora-da-raiz` até `ork setup worktree confirmar`, gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). O `ork doctor` acusa. O MCP segue recusando |
 | P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | **Corrigido, em decisão do dono.** O eval só executa o catálogo do pacote que está rodando (achado a partir do próprio código). Um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`, e a mensagem diz como rodar o `ork` daquele checkout de propósito. O CI do kit (`node core/dist/index.js eval` na raiz) não muda |
-| P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | É opt-in documentado no manifesto; a pergunta é se o opt-in deve ser da máquina, não do repositório |
+| P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | **Corrigido, em decisão do dono.** O opt-in é da máquina: só `ork fabrica entrar` (`~/.orkastery/maquina.json`) ou `ORK_FABRICA_COMPARTILHADA=1` ligam a publicação e a leitura das outras máquinas. O `fabrica.compartilhada` do manifesto vira pedido do time: o `ork doctor` e o `ork fabrica` avisam (`fabrica.nao-confirmada`) e dizem o comando |
 
 Também ficam registrados, com risco baixo: `ork retry run --dry-run` na ação `corrigir-dirigido`
 reexecuta claims e verify (comandos declarados, mas contra a semântica do `--dry-run`); o perfil do
@@ -130,4 +132,8 @@ PATH quando ele existe; fica registrado com risco baixo.
   configuração não é a raiz do clone.
 - Caminho com id vindo de arquivo: um segmento só, com regex, e o diretório de estado não é link.
 - Append em estado: `O_NOFOLLOW`. Escrita de arquivo inteiro: temporário com `wx` e `rename`.
-- O teste da correção reprova o código anterior: veja `core/test/fronteira-de-confianca.test.ts`.
+- Caminho lido de ponteiro guardado no estado: confira pelo caminho real com `exigirCaminhoContido`
+  (`core/src/procedencia.ts`). Decisão que o manifesto não pode tomar sozinho: confirmação local em
+  `.orkastery/private/` (`lerArquivoPrivado`/`gravarArquivoPrivado`, em `core/src/postura-local.ts`).
+- O teste da correção reprova o código anterior: veja `core/test/fronteira-de-confianca.test.ts`,
+  `core/test/procedencia-e-postura.test.ts` e `core/test/fronteira-pendentes.test.ts`.
