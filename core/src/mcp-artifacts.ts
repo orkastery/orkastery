@@ -151,6 +151,6 @@ export function adicionarClaimMcp(raiz:string,id:string,entrada:{arquivo:string;
   return comDocs(raiz,id,()=>comEscrita(raiz,id,()=>{
     if(lerThread(raiz,id).status==='fechada') throw Error('mcp.claim.closed');
     // Strings sao dados da claim; a reexecucao MCP deve usar o executor confinado.
-    return adicionarClaim(raiz,id,entrada);
+    return adicionarClaim(raiz,id,{...entrada,semProvaLocal:true});
   }));
 }

@@ -58,6 +58,7 @@ if (args[0] !== 'api') sair(2, '', 'fake: nao simulado\\n');
 if (process.env.FORJA_FAKE_LOG) fs.appendFileSync(process.env.FORJA_FAKE_LOG, JSON.stringify({ cli, args }) + '\\n');
 if (process.env.FORJA_FAKE_SEM_LOGIN === '1') sair(1, '', cli === 'gh' ? 'gh: To get started with GitHub CLI, please run:  gh auth login\\n' : 'glab: not authenticated\\n');
 if (process.env.FORJA_FAKE_ERRO === '1') sair(1, '', cli + ': Server Error (HTTP 500)\\n');
+if (process.env.FORJA_FAKE_SEM_REDE === '1') sair(1, '', 'error connecting to api.github.com\\ncheck your internet connection or https://githubstatus.com\\n');
 let metodo = 'GET', rota = null;
 const campos = {};
 for (let i = 1; i < args.length; i++) {
@@ -2111,4 +2112,63 @@ test('RM-053 fatia 2: retrato sem batida ha mais de 14 dias sai do indice REDE.m
     naMaquina(ub, () => publicarRede({ amb, maquina: 'pc-b', forcar: true }));
     assert.match(exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout, /^\| pc-b \| /m);
   } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------
+// Suspeitas da revisao de 03/10 (thread ork-suspeitasdar).
+// ---------------------------------------------------------------------------
+
+test('suspeitas 03/10: sair durante uma publicacao em curso nao deixa a marca regravada depois da saida', async () => {
+  const f = forjaFalsa('susp0310-sair-marca');
+  const u = dirTemporario('rede-susp0310-sair-marca');
+  try {
+    const env: NodeJS.ProcessEnv = { ...ligado(f).env, ORK_USUARIO_DIR: u };
+    delete env.ORK_MAQUINA;
+    naMaquina(u, () => { entrarNaRede({ amb: { env, home: f.home }, maquina: 'pc-a' }); });
+    // O push da publicacao fica 2 s no pre-receive da casa, uma vez: a publicacao segura a trava nesse meio.
+    const sinal = path.join(f.raiz, 'empurrando'), uma = path.join(f.raiz, 'segurar');
+    fs.writeFileSync(uma, '1');
+    fs.writeFileSync(path.join(casaFalsa(f), 'hooks', 'pre-receive'),
+      `#!/bin/sh\nif [ -f '${uma}' ]; then rm -f '${uma}'; : > '${sinal}'; '${process.execPath}' -e 'setTimeout(() => {}, 2000)'; fi\nexit 0\n`, { mode: 0o755 });
+    const modulo = JSON.stringify(path.resolve(__dirname, '../src/rede.js'));
+    const rodar = (corpo: string) => new Promise<string>((resolve, reject) => {
+      const p = spawn(process.execPath, ['-e', `const r = require(${modulo}); const amb = { env: process.env, home: process.env.HOME };` +
+        `try { process.stdout.write(JSON.stringify(${corpo})); } catch (e) { process.stdout.write('ERRO ' + e.message); }`], { env });
+      let saida = '';
+      p.stdout.on('data', (d) => { saida += String(d); });
+      p.on('error', reject);
+      p.on('close', () => resolve(saida));
+    });
+    const publicacao = rodar(`r.publicarRede({ amb, maquina: 'pc-a', forcar: true }).acao`);
+    for (let i = 0; i < 100 && !fs.existsSync(sinal); i++) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(fs.existsSync(sinal), 'a publicacao chegou ao push');
+    const saida = rodar(`r.sairDaRede({ amb, maquina: 'pc-a' }).commit`);
+    const [pub, sai] = await Promise.all([publicacao, saida]);
+    assert.equal(pub, '"publicou"', `a publicacao em curso termina: ${pub}`);
+    assert.match(sai, /^"[a-f0-9]{40}"$/, `o sair tira o retrato da casa: ${sai}`);
+    assert.equal(naMaquina(u, () => adesaoDaRede().membro), false);
+    assert.equal(fs.existsSync(path.join(u, 'rede', 'publicada.json')), false, 'a marca nao sobrevive ao sair');
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
+});
+
+test('suspeitas 03/10: falha da forja no gh api user (500, sem rede) nao vira forja.sem-login', () => {
+  const f = forjaFalsa('susp0310-forja-falha');
+  const u = dirTemporario('rede-susp0310-forja-falha');
+  try {
+    const tipos = (s: ReturnType<typeof lerRede>) => s.lacunas.map((l) => l.tipo);
+    naMaquina(u, () => {
+      for (const [extra, motivo] of [[{ FORJA_FAKE_ERRO: '1' }, /HTTP 500/], [{ FORJA_FAKE_SEM_REDE: '1' }, /internet connection/]] as const) {
+        const s = lerRede({ amb: ligado(f, extra), maquina: 'pc-a' });
+        assert.ok(!tipos(s).includes('forja.sem-login'), `falha da forja virou falta de login: ${JSON.stringify(s.lacunas)}`);
+        const lacuna = s.lacunas.find((l) => l.tipo === 'rede.sem-leitura');
+        assert.ok(lacuna, `a falha aparece como leitura que nao aconteceu: ${JSON.stringify(s.lacunas)}`);
+        assert.match(lacuna.detalhe, /gh api user falhou/);
+        assert.match(lacuna.detalhe, motivo);
+        assert.doesNotMatch(lacuna.detalhe, /auth login/);
+        assert.throws(() => entrarNaRede({ amb: ligado(f, extra), maquina: 'pc-a' }), /gh api user falhou/);
+      }
+      // Sem login de verdade continua forja.sem-login.
+      assert.deepEqual(tipos(lerRede({ amb: ligado(f, { FORJA_FAKE_SEM_LOGIN: '1' }), maquina: 'pc-a' })), ['forja.sem-login']);
+    });
+  } finally { f.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
