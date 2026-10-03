@@ -30,7 +30,7 @@ Vale saber o que o Orkastery é, antes de procurar o que ele expõe:
 | Processo residente | **nenhum**. É um CLI, não um daemon |
 | Porta de rede aberta | **nenhuma** |
 | Servidor embutido | **nenhum** |
-| Dependencias de runtime | **zero**. Sem árvore de deps transitivas para auditar |
+| Dependencias de runtime | **nove**, com versão fixa em `core/package.json`: o SDK do MCP, `smol-toml`, `zod`, `zod-to-json-schema` e os analisadores do grafo de código (o `typescript` e o micromark com a tabela GFM e dois decodificadores de referência de caractere). Nenhum pacote da árvore de produção do `package-lock.json` roda script de instalação; quem instala do npm recebe as transitivas pela faixa de cada pacote, sem o lockfile |
 | Chamada de LLM feita pelo núcleo | **nenhuma**. Não há cliente de API nem chave |
 | Estado | Arquivos no repositório, sob `.orkastery/` |
 

@@ -180,7 +180,7 @@ The full picture, item by item and with git evidence, is in the [roadmap index](
 | Behavior canaries | 24, all green | `ork eval --so-canarios` |
 | Skills corpus | 20 skills, 101 cases, 199 assertions | `ork eval --so-skills` |
 | Product docs and roadmap | zero parity errors | `ork docs verificar` |
-| Runtime dependencies | 4, pinned | `core/package.json` |
+| Runtime dependencies | 9, pinned | `core/package.json` |
 
 On a virtual machine whose CPU the hypervisor steals (the `steal` in `sar`), the local verify can overrun the tests' time windows. That is why the merge gate is the independent CI, and the fix is planned in [RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md).
 

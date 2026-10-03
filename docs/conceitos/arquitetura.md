@@ -1,7 +1,7 @@
 # Arquitetura
 
 O Orkastery é um **núcleo CLI determinístico** com adaptadores nas duas pontas. Não há LLM
-dentro do núcleo, não há servidor, não há banco obrigatório e não há dependência de runtime.
+dentro do núcleo, não há servidor e não há banco obrigatório; as dependências de runtime são poucas, com versão fixa (veja a seção 7).
 
 ---
 
@@ -278,7 +278,7 @@ Saber o que um produto recusa a ser diz mais do que a lista de features.
 
 | Decisão | Ganho | Preço aceito |
 | --- | --- | --- |
-| Zero dependência de runtime | Instala em qualquer lugar com Node 20, sem árvore de deps para auditar | Um leitor de YAML próprio, restrito ao subconjunto do manifesto |
+| Pacote com nove dependências de runtime com versão fixa | Analisadores do grafo incluídos no `npm install -g` | Árvore de dependências para auditar, incluindo o compilador TypeScript; o grafo pede Node 20.19, 22.12 ou mais novo |
 | Estado em arquivos, não em banco | `cat`, `grep` e `git diff` funcionam. Auditável sem ferramenta | Consulta pesada exige a camada OrkMind, que é opcional |
 | CLI, não daemon | Sem processo residente, sem porta, sem superfície de ataque própria | Não há push de evento: o host consulta |
 | OrkMind como adaptador | O produto funciona inteiro sem ele | Duas implementacoes de recall para manter coerentes, e um teste de degradação para cada uma |

@@ -31,7 +31,9 @@ O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o stor
 umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
 arquivo ou pasta do `.git` com dono diferente do dono do repositório (o que `git` rodado como root
 deixa, e que trava o fetch e o commit do dono), com a contagem, exemplos e o `sudo chown -R` exato
-na correção; o doctor não roda nada (RM-037). Sem perfil configurado, cada
+na correção; o doctor não roda nada (RM-037). O check "analisadores do grafo" carrega o
+`typescript` e o micromark como o `ork grafo indexar` e, quando faltam, avisa (`warn`) com a
+correção (RM-031). Sem perfil configurado, cada
 runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MCP de `accounts`
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
@@ -386,9 +388,12 @@ ork grafo importadores core/src/intelligence-graph-contract.ts --json
 ork grafo caminho core/src/index.ts#main dirEstado
 ```
 
-Todo o `ork grafo` precisa do `typescript` e do micromark instalados com o `ork`, no
-`node_modules` do próprio pacote (o checkout de desenvolvimento e o CI os têm): as versões deles
-entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
+Todo o `ork grafo` precisa do `typescript` e do micromark no `node_modules` do próprio pacote do
+`ork`: são dependências do pacote, com versão exata, e as versões entram na chave do índice. O
+`npm install -g` os traz; instalado dentro de um projeto ou pelo `npx`, o npm os iça para fora do
+pacote, e a recusa é `grafo.parser.indisponivel`, com a correção no `ork grafo status` e no check
+"analisadores do grafo" do `ork doctor`. O micromark é só ESM e carrega por `require`: o grafo pede
+Node 20.19, 22.12 ou mais novo.
 
 ---
 

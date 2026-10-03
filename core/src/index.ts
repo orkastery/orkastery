@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
 import { raizDoEstado } from './estado-thread';
-import { executarGrafo } from './intelligence-graph-cli';
+import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
@@ -216,6 +216,7 @@ import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
+import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
@@ -2451,7 +2452,8 @@ function comandoFabrica(args: Args): number {
     naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
   });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    // RM-053 (fatia 2): o mesmo JSON, com o invisivel do remoto escrito como \uXXXX.
+    console.log(jsonSemInvisivel({ ...painel, consulta }));
     return 0;
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));
@@ -4020,7 +4022,8 @@ export function main(argvBruto: string[]): number {
           throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
         const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
-      const r = doctor(diretorioDoProjeto(), nomesHerdados);
+      // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK));
       console.log(r.texto);
       return r.codigo;
     }
@@ -4194,7 +4197,8 @@ export function main(argvBruto: string[]): number {
       // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
+          escrever: (texto) => console.log(texto) });
     }
     case 'ship':
       return comandoShip(args);

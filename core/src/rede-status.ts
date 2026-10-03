@@ -19,7 +19,8 @@ import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, 
   prepararCache, refDaCasa, resolverCasa, RetratoDaMaquina, retratosDaPonta, RuntimeNoRetrato, urlDaCasaAceita } from './rede';
 import { Adesao, adesaoDaRede, lerIdDaMaquina } from './rede-adesao';
 import { AmbienteDaMaquina, comGitIsolado, ehNomeDeForja } from './rede-forja';
-import { emUmaLinha, INVISIVEL, projetosConhecidos } from './rede-projetos';
+import { projetosConhecidos } from './rede-projetos';
+import { jsonSemInvisivel, valoresEmUmaLinha } from './saida-segura';
 
 export const CONTRATO_DO_STATUS = 'ork.rede-status/v1' as const;
 /** D15: tres batidas perdidas. */
@@ -266,10 +267,7 @@ export function textoDaRede(status: StatusDaRede): string {
   // escrevem. Cada VALOR vai numa linha so e sem nada que o terminal execute ou que ninguem ve, antes de
   // entrar no texto: um `\n` num valor nao abre uma linha que parece do `ork`.
   // X5 da revisao 6: um mapa que so troca texto (a ida e volta em JSON trocava `NaN` por `null`).
-  const limpar = (v: unknown): unknown => typeof v === 'string' ? emUmaLinha(v)
-    : Array.isArray(v) ? v.map(limpar)
-      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, limpar(x)])) : v;
-  const s = limpar(status) as StatusDaRede;
+  const s = valoresEmUmaLinha(status);
   const linhas: string[] = [];
   const rede = s.fontes.find((f) => f.fonte === 'rede');
   const estadoDaCasa = rede ? (rede.atualizado ? 'lida agora' : 'última cópia local') : 'não lida';
@@ -321,6 +319,5 @@ export function textoDaRede(status: StatusDaRede): string {
  * (o valor lido e o mesmo; so o terminal deixa de executa-los). A quebra de linha da indentacao fica.
  */
 export function jsonDaRede(s: StatusDaRede): string {
-  return JSON.stringify(s, null, 2).replace(new RegExp(INVISIVEL.source, 'gu'), (c) => c === '\n' ? c
-    : Array.from({ length: c.length }, (_, i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join(''));
+  return jsonSemInvisivel(s);
 }
