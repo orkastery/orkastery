@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:21:01.871Z",
+  "publicadoEm": "2026-10-03T04:21:04.686Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -58,23 +58,6 @@
       "esforco": null
     },
     {
-      "id": "ork-rm037suitelo",
-      "nome": "RM-037: suíte local com skip tipado sem as dependências opcionais",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-037",
-      "branch": "ork/ork-rm037suitelo-full",
-      "atualizadaEm": "2026-10-03T04:21:01.560Z",
-      "entregue": "67d1f7a",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
       "id": "ork-rm040piloto",
       "nome": "RM-040 fechar o piloto com prova real na srvjcp86",
       "modo": "#Auto",
@@ -118,23 +101,6 @@
       "branch": "ork/ork-rm054fatia3-full",
       "atualizadaEm": "2026-10-03T04:17:07.239Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm057fatia3t",
-      "nome": "RM-057 fatia 3: tempo parado por HITL no pulse e no status",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-057",
-      "branch": "ork/ork-rm057fatia3t-full",
-      "atualizadaEm": "2026-10-03T03:46:05.583Z",
-      "entregue": "f621f54",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
