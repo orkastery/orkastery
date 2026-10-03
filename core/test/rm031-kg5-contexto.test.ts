@@ -104,7 +104,7 @@ test('KG5 contexto v2: teto preserva grupos inteiros, contagens e Unicode', () =
     const texto = pacoteDeContexto(GRAFO, INDICE, { ...ENTRADA, diff: [...ENTRADA.diff, 'src/ação.ts'] }, teto), r = JSON.parse(texto);
     assert.ok(Buffer.byteLength(texto) <= teto);
     assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
-    assert.equal(r.omitidos.ligacoes + r.arestas.length, r.total_ligacoes);
+    assert.equal(r.omitidos.ligacoes + r.omitidos.segundo_salto + r.arestas.length, r.total_ligacoes);
     assert.equal(r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0), r.total_arestas);
     assert.equal(r.teto.cortado, r.truncado);
     const calls = r.arestas.find((a: any) => a.kind === 'calls');
@@ -381,6 +381,9 @@ function provarSegundoSalto(pacote = pacoteDeContexto): void {
   const completo = JSON.parse(pacote(g, i, e, 65536));
   assert.equal(completo.schema, 'ork.thread-graph-context/v2');
   assert.equal(completo.consulta.profundidade, 2);
+  assert.equal(completo.omitidos.ligacoes, 0);
+  assert.ok(completo.omitidos.segundo_salto > 0, 'limite por alvo tambem conta como omissao indireta');
+  assert.equal(completo.truncado, false, 'limite indireto nao trunca a vizinhanca direta');
   const caminhos = completo.medida.arquivos.map((f: any) => f.path);
   assert.ok(caminhos.includes('src/segundo.ts'));
   assert.ok(caminhos.includes('src/inverso.ts'));
@@ -499,6 +502,49 @@ test('KG5 segundo salto GO-FIX: montagens limitadas em hubs; prova cai sem parad
     assert.ok(s.includes(antes));
     return s.replace(antes, 'false');
   }), /montou o pacote/);
+});
+
+function provarOmissoesSeparadas(pacote = pacoteDeContexto): void {
+  const g = hubDoSegundoSalto(64), i = { ...INDICE, extratores: g.snapshot.extractors };
+  const e = { ...ENTRADA, diff: ['src/semente.ts'] };
+  for (const teto of [4096, 65536]) {
+    const texto = pacote(g, i, e, teto), r = JSON.parse(texto);
+    const indiretas = r.arestas.filter((a: any) => a.salto === 2).length;
+    assert.equal(r.schema, 'ork.thread-graph-context/v2');
+    assert.equal(r.omitidos.ligacoes, 0, 'a unica ligacao direta cabe inteira');
+    assert.equal(r.omitidos.segundo_salto, 64 - indiretas);
+    assert.equal(r.total_ligacoes, r.arestas.length + r.omitidos.ligacoes + r.omitidos.segundo_salto);
+    assert.equal(r.total_arestas, r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0));
+    assert.equal(r.truncado, false);
+    assert.equal(r.teto.cortado, false);
+    assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
+    if (teto === 4096) assert.ok(r.omitidos.segundo_salto > 0, 'inclui candidatos nunca tentados depois da parada');
+    else assert.equal(r.omitidos.segundo_salto, 0);
+  }
+  const nos = new Map(g.nodes.map((n) => [n.node_id, n.locator.path]));
+  const direta = g.edges.find((a) => nos.get(a.from) === 'src/semente.ts')!;
+  const indireta = g.edges.find((a) => a.kind === 'imports' && nos.get(a.from) === 'src/ponte.ts')!;
+  // Evidencia auxiliar e aresta sem evidencia propria continuam contadas, mas so a direta trunca.
+  for (const original of [direta, indireta]) for (const manterPropria of [false, true]) {
+    const auxiliar = { ...original.evidence[0], path: 'src/vizinho-0000.ts' };
+    const alterada = { ...original, evidence: [...(manterPropria ? original.evidence : []), auxiliar] };
+    const pequeno = { ...g, edges: [original === direta ? alterada : direta, original === indireta ? alterada : indireta] };
+    const r = JSON.parse(pacote(pequeno, i, e, 65536));
+    assert.equal(r.omitidos.evidencias_auxiliares, 1);
+    assert.equal(r.truncado, original === direta, 'somente evidencia omitida da vizinhanca direta trunca');
+    if (original === indireta) assert.equal(r.omitidos.arestas, manterPropria ? 0 : 1);
+    else if (!manterPropria) assert.equal(r.omitidos.segundo_salto, 1, 'ponte descartada deixa o candidato indireto omitido');
+  }
+}
+
+test('KG5 segundo salto GO-FIX: omissoes indiretas separadas sem truncar diretas; provas caem por mutacao', () => {
+  provarOmissoesSeparadas();
+  for (const [antes, depois] of [
+    ['ligacoes: totalDiretas - diretas.length', 'ligacoes: ordenados.length - ligacoes.length'],
+    ['segundo_salto: totalSegundoSalto - (ligacoes.length - diretas.length)', 'segundo_salto: 0'],
+    ['diretasOmitidas > 0', 'omitidos.arestas > 0'],
+    ['auxiliaresDiretas > 0', 'evidenciasAuxiliares > 0'],
+  ]) assert.throws(() => provarOmissoesSeparadas(mutanteContexto(antes, depois)), antes);
 });
 
 test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {

@@ -103,18 +103,20 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   const extratores = [...indice.extratores].sort((a, b) => compararUtf8(canonico(a), canonico(b)));
   const extratorIds = new Map(extratores.map((e, i) => [canonico(e), i]));
   const grupos = new Map<string, Grupo>();
-  let totalArestas = 0, estruturais = 0, evidenciasAuxiliares = 0;
+  let totalArestas = 0, arestasDiretas = 0, estruturais = 0, evidenciasAuxiliares = 0, auxiliaresDiretas = 0;
   for (const a of grafo.edges) {
     const de = porId.get(a.from)!, para = porId.get(a.to)!;
     const direto = alvos.has(de.locator.path) || alvos.has(para.locator.path);
     if (!direto && (de.locator.path === para.locator.path
       || (!vizinhos.has(de.locator.path) && !vizinhos.has(para.locator.path)))) continue;
     totalArestas++;
+    if (direto) arestasDiretas++;
     if ((a.kind === 'declares' || a.kind === 'contains') && de.locator.path === para.locator.path && alvos.has(de.locator.path)) {
       estruturais++; continue;
     }
     const proprias = a.evidence.filter((e) => e.path === de.locator.path);
     evidenciasAuxiliares += a.evidence.length - proprias.length;
+    if (direto) auxiliaresDiretas += a.evidence.length - proprias.length;
     // Sem evidencia no arquivo de origem, a aresta fica em omitidos.arestas.
     if (!proprias.length) continue;
     const origem = `file ${de.locator.path}`, destino = rotuloDoNo(para);
@@ -158,15 +160,20 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     total_sementes: sementes.length, sementes_fora_do_indice: ausentes.length, total_arestas: totalArestas,
     total_ligacoes: ordenados.length, resumidas: { estruturais }, parcial: AVISO_DE_PARCIALIDADE };
   const selecionadas: typeof sementes = [], ligacoes: Grupo[] = [];
+  const totalDiretas = ordenados.filter((a) => a.salto === 1).length;
+  const totalSegundoSalto = ordenados.length - totalDiretas;
   const montar = (): string => {
     const caminhos = new Set(selecionadas.filter((s) => s.estado === 'indexado').map((s) => s.arquivo));
     const rotulos = new Set([...caminhos].map((p) => `file ${p}`));
     for (const a of ligacoes) { rotulos.add(a.origem); rotulos.add(a.destino); caminhos.add(porId.get(a.alvo)!.locator.path); caminhos.add(a.origem.slice(5)); }
     const refs = new Map([...rotulos].sort(compararUtf8).map((r, i) => [r, `n${i + 1}`]));
     const fontes = grafo.snapshot.source_manifest.filter((m) => caminhos.has(m.path)).sort((a, b) => compararUtf8(a.path, b.path));
-    const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: ordenados.length - ligacoes.length,
+    const diretas = ligacoes.filter((a) => a.salto === 1);
+    const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: totalDiretas - diretas.length,
+      segundo_salto: totalSegundoSalto - (ligacoes.length - diretas.length),
       arestas: totalArestas - estruturais - ligacoes.reduce((s, a) => s + a.quantidade, 0), evidencias_auxiliares: evidenciasAuxiliares };
-    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || omitidos.arestas > 0 || evidenciasAuxiliares > 0;
+    const diretasOmitidas = arestasDiretas - estruturais - diretas.reduce((s, a) => s + a.quantidade, 0);
+    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || diretasOmitidas > 0 || auxiliaresDiretas > 0;
     const r = { ...fixo, sementes: selecionadas, nos: Object.fromEntries([...refs].map(([r, ref]) => [ref, r])),
       arestas: ligacoes.map((a) => ({ kind: a.kind, from: refs.get(a.origem)!, to: refs.get(a.destino)!, quantidade: a.quantidade,
         ...(a.salto === 2 ? { salto: 2 } : {}),

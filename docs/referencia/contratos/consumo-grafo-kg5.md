@@ -272,7 +272,7 @@ filtrado pela concessão.
 A vizinhança começa por um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
 Dentro dele, a ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
 (distância no grafo não dirigido de arquivos, não distância em linhas). Empates intercalam tipos
-por rodada de cada alvo; depois tipo e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
+por rodada de cada alvo; depois tipo (com `cites` por último) e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
 empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários arquivos e preserva
 diversidade de tipos dentro da mesma prioridade.
 
@@ -283,16 +283,28 @@ presente nas ligações diretas que couberam; ponte cortada ou sem evidência pr
 a expansão. A fronteira fica fixa: não há terceiro salto nem expansão das declarações internas
 dos vizinhos. `consulta.profundidade` passa a 2, em ambos os sentidos; `salto: 2` identifica os
 grupos indiretos, sem alterar referências locais nem tuplas de evidência. O limite de oito grupos
-por alvo é compartilhado com o primeiro salto. As contagens incluem candidatos de ambos os saltos,
-inclusive os omitidos por falta de ponte selecionada.
+por alvo é compartilhado com o primeiro salto. `total_ligacoes` e `total_arestas` incluem candidatos
+de ambos os saltos, inclusive os omitidos por falta de ponte selecionada.
 
 O teto do JSON completo é 32.768 bytes, de 4.096 a 65.536, incluindo cabeçalho e medida.
 Cada grupo entra com as pontas e todas as tuplas. Se um grupo não cabe, tenta-se o próximo;
 não se corta uma evidência nem se deixa um hub grande impedir todas as relações menores.
-`truncado`/`teto.cortado` abrangem corte por bytes, por alvo, pela amostra de sementes ausentes
-e por evidências auxiliares omitidas. A contagem de auxiliares cobre as arestas candidatas
-não estruturais, inclusive as que depois não cabem no teto.
-`omitidos.ligacoes` conta grupos, `omitidos.arestas` conta arestas originais. A identidade é:
+No segundo salto, oito rejeições consecutivas por bytes encerram a tentativa de expansão;
+um grupo aceito reinicia a contagem. Grupos descartados pelo limite por alvo não montam o
+pacote nem alteram essa contagem. Esse limite pode deixar grupos menores posteriores sem tentativa.
+
+`omitidos.ligacoes` conta apenas grupos **diretos** omitidos. O campo aditivo
+`omitidos.segundo_salto` conta grupos indiretos omitidos por bytes, por alvo, por falta de ponte
+ou pela parada das tentativas. Permanece o schema `ork.thread-graph-context/v2`.
+`truncado`/`teto.cortado` abrangem as omissões de sementes e da vizinhança **direta**: corte por
+bytes, por alvo, arestas sem evidência própria ou evidências auxiliares omitidas. Omissões do
+segundo salto não ativam essas marcas; mesmo `truncado: false` pode ter `omitidos.segundo_salto > 0`.
+
+`omitidos.arestas` conta arestas originais de ambos os saltos; `omitidos.evidencias_auxiliares`
+também cobre as arestas candidatas não estruturais dos dois saltos, inclusive as que depois
+não cabem no teto. Esses dois totais não ativam `truncado` quando a perda é só indireta.
+As identidades são:
+`total_ligacoes = arestas.length + omitidos.ligacoes + omitidos.segundo_salto` e
 `total_arestas = soma(quantidade) + omitidos.arestas + resumidas.estruturais`.
 Pacote vazio é válido. As consultas por nó permitem aprofundar o que ficou de fora.
 
