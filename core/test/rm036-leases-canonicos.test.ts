@@ -275,7 +275,7 @@ for (const corrompido of [false, true]) for (const modo of ['apos-conclusao', 's
     assert.equal(resultados.filter((r) => r.ok).length, 1, JSON.stringify(resultados));
     assert.equal(lerLease(raiz, 'main-tree')?.thread, resultados.find((r) => r.ok)?.lease?.thread);
     assert.equal(fs.statSync(arquivo).nlink, 1);
-    assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
+    assert.equal(fs.existsSync(`${arquivo}.retomadas`), false);
   });
 }
 

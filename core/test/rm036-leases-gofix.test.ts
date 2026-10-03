@@ -686,7 +686,7 @@ for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'h
       assert.equal(leases.lerLease(c.raiz, nome)?.thread, OUTRA);
       assert.equal(fs.statSync(arquivo).nlink, 1);
       assert.deepEqual(leases.lerFila(c.raiz), []);
-      assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), [], 'nenhum candidato vazou');
+      assert.equal(fs.existsSync(`${arquivo}.retomadas`), false, 'fila vazia removida');
       return;
     }
     const motivo = falha === 'contencao' ? 'lease.busy' : 'lease.resume-unavailable';
@@ -747,7 +747,7 @@ for (const transporte of ['portatil', 'flock-primeiro', 'flock-segundo']) for (c
     assert.equal(chamadas, 2);
     assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, DONO);
     assert.equal(fs.statSync(arquivo).nlink, 1);
-    assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
+    assert.equal(fs.existsSync(`${arquivo}.retomadas`), false);
   });
 }
 
@@ -770,7 +770,7 @@ for (const estado of ['morto', 'vivo', 'sem-permissao']) {
     assert.equal(r.ok, estado === 'morto');
     if (estado === 'morto') {
       assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
-      assert.deepEqual(fs.readdirSync(dir), []);
+      assert.equal(fs.existsSync(dir), false);
     } else {
       assert.equal(r.motivo, 'lease.busy');
       assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
@@ -794,7 +794,7 @@ test('rm036 gofix: R4 corrida wx portatil preserva quem criou na janela apos unl
   assert.equal(r.ok, false);
   assert.equal(r.motivo, 'lease.busy');
   assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
-  assert.deepEqual(fs.readdirSync(`${arquivo}.retomadas`), []);
+  assert.equal(fs.existsSync(`${arquivo}.retomadas`), false);
 });
 
 function prepararShip(t: TestContext, c: ReturnType<typeof cenario>) {

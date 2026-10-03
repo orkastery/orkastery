@@ -338,6 +338,10 @@ function comFilaDeRetomada(caminho: string, retomar: () => 'retomado' | 'ocupado
     return retomar();
   } finally {
     try { fs.unlinkSync(arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+    // rmdir e atomico e so remove uma pasta vazia; nunca remove candidato concorrente.
+    try { fs.rmdirSync(dir); } catch (e) {
+      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes((e as NodeJS.ErrnoException).code ?? '')) throw e;
+    }
   }
 }
 
