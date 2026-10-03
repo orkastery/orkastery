@@ -1,0 +1,57 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-postmortemco",
+  "branch": "ork/ork-postmortemco-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-postmortemco",
+      "fase": "GO",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "fasesPercorridas conta verify_run e check_reverify como CHECK e ship_* como SHIP quando o evento nao traz fase; o campo fase vence",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm008-fases-pelo-tipo.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:39:39.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-postmortemco",
+      "fase": "GO",
+      "arquivo": "core/test/master.test.ts",
+      "alegacao": "master, licoes e as fatias anteriores da RM-008 seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/master*.test.js core/dist-test/test/licoes*.test.js core/dist-test/test/rm008*.test.js"
+      ],
+      "criadoEm": "2026-10-03T09:39:39.890Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-postmortemco",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG e RM-008 registram a fatia 7 e a paridade de docs passa",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'O POSTMORTEM conta o CHECK e o SHIP que o ledger registrou' CHANGELOG.md && grep -q 'ork-postmortemco' docs/roadmap/RM-008-loop-de-aprendizado.md && node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 CHANGELOG.md docs/roadmap/RM-008-loop-de-aprendizado.md"
+      ],
+      "criadoEm": "2026-10-03T09:39:40.046Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
