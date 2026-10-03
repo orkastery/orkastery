@@ -18,16 +18,17 @@ Proposta de 26/09/2026, a confirmar pelo dono. Ordem por impacto em quem constr�
 | 2 | [RM-046](RM-046-go-to-open-source.md) GoToOpenSource | Sem repositório público, release atual e página, ninguém adota o resto |
 | 3 | [RM-042](RM-042-modo-fast.md) Modo #Fast | Tira a cerimônia do pedido pequeno, que é o primeiro contato de quem chega |
 | 4 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) Fábrica em várias máquinas | Builder usa notebook, desktop e servidor; hoje cada um é uma ilha |
-| 5 | [RM-037](RM-037-verify-rapido-e-confiavel.md) Verify rápido e confiável | Confiança na prova em qualquer máquina, inclusive a de quem contribui |
-| 6 | [RM-040](RM-040-estado-de-conta-compartilhado.md) Estado de conta compartilhado | Quem tem vários projetos não bate duas vezes na mesma conta esgotada |
-| 7 | [RM-036](RM-036-maestro-multicanal.md) Condução multicanal | Conduzir do celular e do terminal como uma conversa só |
-| 8 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) Cadência do pulse por tag | O dono controla quando é interrompido, em conversa |
-| 9 | [RM-031](RM-031-grafo-de-codigo.md) Grafo de código | Menos contexto gasto por fase em bases grandes |
-| 10 | [RM-038](RM-038-busca-semantica-na-memoria.md) Busca semântica na memória | Memória útil sem depender de etiqueta |
-| 11 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
-| 12 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
-| 13 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
-| 14 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
+| 5 | [RM-058](RM-058-modo-noctum.md) Modo #Noctum (posição proposta; decisão final do dono) | Após a base multimáquina da RM-047, planeja arcos autônomos de muitas threads; proposta de 03/10/2026 |
+| 6 | [RM-037](RM-037-verify-rapido-e-confiavel.md) Verify rápido e confiável | Confiança na prova em qualquer máquina, inclusive a de quem contribui |
+| 7 | [RM-040](RM-040-estado-de-conta-compartilhado.md) Estado de conta compartilhado | Quem tem vários projetos não bate duas vezes na mesma conta esgotada |
+| 8 | [RM-036](RM-036-maestro-multicanal.md) Condução multicanal | Conduzir do celular e do terminal como uma conversa só |
+| 9 | [RM-039](RM-039-cadencia-do-pulse-por-tag.md) Cadência do pulse por tag | O dono controla quando é interrompido, em conversa |
+| 10 | [RM-031](RM-031-grafo-de-codigo.md) Grafo de código | Menos contexto gasto por fase em bases grandes |
+| 11 | [RM-038](RM-038-busca-semantica-na-memoria.md) Busca semântica na memória | Memória útil sem depender de etiqueta |
+| 12 | [RM-008](RM-008-loop-de-aprendizado.md) Loop de aprendizado | A fábrica melhora a cada entrega, sem ninguém lembrar a lição |
+| 13 | [RM-032](RM-032-bootstrap-maestro.md) e [RM-012](RM-012-ci-check-independente.md) | Fechamentos: ativação por host e proteção da `main`, que o repositório público destrava |
+| 14 | [RM-025](RM-025-company-brain-fundacao.md) e [RM-026](RM-026-workspace-empresarial.md) Company Brain | Produto principal é o OrkMind; entra depois da adoção do núcleo |
+| 15 | [RM-050](RM-050-guia-de-contribuicao.md) Guia de contribuição | Quem é convidado a colaborar chega ao primeiro PR verde sem perguntar |
 
 ## Itens
 
@@ -81,6 +82,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
+| [RM-058](RM-058-modo-noctum.md) | Modo #Noctum: arcos autônomos de muitas threads e máquinas | Refinamento | Não iniciado | Não iniciados | Não implantado | 2026-10-03 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->
