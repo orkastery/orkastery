@@ -19,7 +19,7 @@ A pauta oferece ativar com os valores detectados, configurar ou desativar. O exe
 
 | Campo | Valores | Quando ausente |
 | --- | --- | --- |
-| `owner.language` | Locale BCP-47, como `pt-BR` ou `en-US` | Locale do sistema |
+| `owner.language` | Locale BCP-47, como `pt-BR` ou `en-US` | Locale do sistema; com `C`, `POSIX` ou sem locale, `pt-BR`, a língua da CLI |
 | `owner.timezone` | Fuso IANA | Resolução de fuso do núcleo |
 | `owner.depth` | `curta` ou `detalhada` | `curta` |
 | `owner.experience` | `true` ou `false` | `true` |

@@ -600,11 +600,17 @@ export function ship(
       ? `${dona} (arvore que tem ${para} em check-out; ${temAlteracaoNaoCommitada(dona) ? 'SUJA, o ship reprovaria com tree.blocked' : 'limpa'})`
       : `worktree temporaria em ${path.join(dirEstado(raiz), 'tmp')} (ninguem tem ${para} em check-out)`;
     r.detalhe = `arvore de merge: ${arvoreDoMerge}`;
+    // Ensaio de 03/10 (R5): sem remoto (ou com --sem-push), o ensaio diz o mesmo que o ship real, e nao
+    // promete um push e uma prova que nao vao acontecer.
+    const semPushNoReal = opcoes.semPush ? 'push nao executado por --sem-push (merge local concluido)'
+      : !remotoConfigurado(raiz, remoto) ? `remoto "${remoto}" nao configurado: merge local concluido, sem push a provar` : null;
     r.passos = [
       `arvore de merge: ${arvoreDoMerge}`,
       `git merge --no-ff ${de} -m "<mensagem de ship>"`,
-      `git push ${remoto} ${para}`,
-      `git ls-remote ${remoto} refs/heads/${para}   (prova do push)`,
+      ...(semPushNoReal ? [`sem push: ${semPushNoReal}`] : [
+        `git push ${remoto} ${para}`,
+        `git ls-remote ${remoto} refs/heads/${para}   (prova do push)`,
+      ]),
     ];
     registrar(dir, threadId, TIPOS_DE_EVENTO.shipIniciado, {
       de,
