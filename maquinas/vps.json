@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T08:58:53.280Z",
+  "publicadoEm": "2026-10-03T08:59:08.604Z",
   "threads": [
     {
       "id": "ork-rm031kg5fat2",
@@ -24,21 +24,21 @@
       "esforco": "xhigh"
     },
     {
-      "id": "ork-rm036leasesd",
-      "nome": "RM-036 leases de todas as familias no estado canonico",
+      "id": "ork-rm036ajusted",
+      "nome": "RM-036 ajuste dos avisos finais",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": "RM-036",
-      "branch": "ork/ork-rm036leases-full",
-      "atualizadaEm": "2026-10-03T08:58:53.061Z",
-      "entregue": "4e1a6f0c",
+      "branch": "ork/ork-rm036ajuste-full",
+      "atualizadaEm": "2026-10-03T08:59:05.951Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-6-astra",
-      "esforco": "xhigh"
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     }
   ]
 }
