@@ -26,6 +26,7 @@ utilizável como gate de pipeline.
 | `ork accounts add <id> --runtime R --dir D [--sem-login]` | Cria o perfil e o diretório (0700) e roda o login do **próprio CLI** com o env do perfil (`claude auth login --claudeai`, `codex login`); sem TTY, imprime o comando. Nunca copia credencial |
 | `ork accounts remove <id>` | Desativa o perfil; o diretório e o login do CLI ficam onde estão |
 | `ork accounts check [<id>]` | Confere o login de cada perfil ativo (`claude auth status`, `codex login status`) e marca o store: `sem-auth` sai do rodízio; login por API key, `api_key_helper`, Console ou nuvem vira `provider-pago` e nunca despacha; login de assinatura refeito volta; conferência inconclusiva (timeout, binário ausente, resposta ilegível) mantém o estado e registra a falha. Sai diferente de zero com perfil sem login de assinatura conferido |
+| `ork accounts esgotamentos [--desde 7d] [--json]` | Mede a métrica da RM-040 sem gravar nada: as marcas vivas do registro de contas e os despachos com perfil, em cada projeto registrado (`ork projetos`), que caíram na conta de uma marca de outro projeto dentro do prazo dela. A conta sai como id opaco, o perfil pelo id, sem diretório (`ork.esgotamentos/v1`). O registro só guarda marcas vivas, então o total é um piso |
 
 O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o store) e a sonda de
 umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
@@ -456,7 +457,7 @@ do projeto quando o limite de sessões está cheio.
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
-| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
+| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]`. Sem `--classe`, a classe sai do motivo de cada gate reprovado (`processo`, `rate-limit` ou `conflito`; o motivo fora da tabela segue `outra`), com aviso; vale também no `--aceitar-omissao` (RM-008) |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |
 | `ork master <thread> --aceitar-omissao [--dry-run] [--json]` | Aceita por default só a entrega da thread indicada (também `--thread <thread>`), gravando índice, insumos e quem decidiu. Thread sem entrega recusa (saída 1); já fechada não grava de novo (saída 0). Com `--dry-run`, lista o que fecharia, sem gravar (RM-008) |
 | `ork master --aceitar-omissao [--dry-run] [--json]` | Aceita por default **todas** as entregues do projeto, inclusive as de outras frentes, e lista cada uma. De processo de agente com mais de uma, avisa em stderr com `master.omissao-sem-thread` e o comando com a thread |

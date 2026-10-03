@@ -1,0 +1,197 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg5fat2",
+  "branch": "ork/ork-kg5compacto-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-contexto.ts",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:48.455Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:48.705Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-grafo.ts",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:48.960Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:49.217Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/scripts/medir-mcp-grafo.cjs",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:49.446Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:49.706Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:49.961Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:50.210Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:50.445Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "orkastery.yaml",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:50.698Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:50.959Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/kg5-medida-contexto.json",
+      "alegacao": "RM-031 KG5 fatia 3: pacote de contexto compacto (contrato v2, referências curtas, evidência em tupla), fan-in agregado, corte por relevância, sementes indexadas primeiro, diff ignorado sem worktree e medida contra a descoberta em threads reais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T07:41:51.230Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg5fat2",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/kg5-medida-contexto.json",
+      "alegacao": "Registro explicita medição histórica not-run por Git EPERM e registra somente a medida sintética v2 de 3093 bytes contra 22973 do v0; não comprova cobertura real.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 medida' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T08:05:36.010Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
