@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T03:16:02.712Z",
+  "publicadoEm": "2026-10-03T03:30:03.158Z",
   "threads": [
     {
       "id": "ork-rm031grafofu",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-031",
       "branch": "ork/ork-rm031pacote-full",
-      "atualizadaEm": "2026-10-03T03:15:32.545Z",
+      "atualizadaEm": "2026-10-03T03:26:25.988Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -31,7 +31,7 @@
       "status": "aberta",
       "roadmap": "RM-036",
       "branch": "ork/ork-rm036leases-full",
-      "atualizadaEm": "2026-10-03T03:11:18.648Z",
+      "atualizadaEm": "2026-10-03T03:28:36.936Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -56,23 +56,6 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
-    },
-    {
-      "id": "ork-versao052",
-      "nome": "Versao 0.5.2",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-versao052vps-go",
-      "atualizadaEm": "2026-10-03T02:53:11.316Z",
-      "entregue": "6b2899a6",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "xhigh"
     }
   ]
 }
