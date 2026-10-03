@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T02:47:58.021Z",
+  "publicadoEm": "2026-10-03T02:48:08.417Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -22,6 +22,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "high"
+    },
+    {
+      "id": "ork-rm037fatia6r",
+      "nome": "RM-037 fatia 6: registro de instabilidade e verify ciente do steal",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-rm037fatia6r-full",
+      "atualizadaEm": "2026-10-03T02:48:05.722Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm040piloto",
