@@ -22,6 +22,11 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R5-docs-namespace': [[cli, 'só vale no mesmo namespace de PID', 'vale entre namespaces de PID']],
+  'R5-docs-pasta': [[feat7, 'a pasta vazia é removida', 'o diretório vazio pode permanecer']],
+  'R5-docs-limite': [[feat29, 'limite de 30 minutos (`TTL_PADRAO_MS`)', 'limite indefinido']],
+  'R5-docs-inode': [[rm, 'reconferidos imediatamente antes de `unlink`', 'conferidos somente na entrada']],
+  'R5-docs-correcao': [[verificacao, 'repetir a aquisição, sem apagar o lease', 'apagar o lease']],
   'R5-inode-final': [[lease, ' || antesDeApagar.dev !== stat.dev || antesDeApagar.ino !== stat.ino', '']],
   'R5-MCP-fila': [['core/dist-test/src/mcp-artifacts.js', "s.isDirectory() && nome.endsWith('.json.retomadas')", 'false']],
   'R5-MCP-candidato-link': [['core/dist-test/src/mcp-artifacts.js', ' || !c.isFile()', '']],
@@ -121,7 +126,7 @@ const mutantes = {
   'R3-ship-motivo': [['core/dist-test/src/ship.js', "aquisicao.motivo ?? 'lease.busy'", "'lease.busy'", 2]],
   'R3-ship-correcao': [['core/dist-test/src/ship.js', 'aquisicao.correcao', "'ork lease release main-tree --forcar'"]],
   'R3-docs-legado': [[feat7, 'O legado nunca é apagado', 'O legado é apagado']],
-  'R3-docs-retomada': [[cli, 'lease.resume-unavailable', 'lease.busy']],
+  'R3-docs-retomada': [[cli, 'lease.resume-unavailable', 'lease.busy', 2]],
   'R3-docs-motivo': [[feat29, '(legado)', 'texto livre']],
   'R3-docs-changelog': [['CHANGELOG.md', 'Nenhuma liberação é anunciada quando nada saiu', 'Liberação anunciada mesmo sem efeito']],
   'R2-docs-janela': [[feat7, 'primeira consulta desta versão, mesmo sem legado', 'primeira descoberta de legado']],

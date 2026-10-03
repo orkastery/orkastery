@@ -35,7 +35,7 @@ for (const pagina of paginas) {
 test('rm036 docs: roadmap aponta evidencia publica sem alegacao de mutacao sem origem', () => {
   const texto = ler(paginas[2]);
   assert.doesNotMatch(texto, /está no PLAN da thread|testes caem com o código anterior/);
-  for (const arquivo of ['leases.ts', 'portfolio.ts', 'rm036-leases-canonicos.test.ts', 'rm036-leases-gofix.test.ts']) {
+  for (const arquivo of ['leases.ts', 'portfolio.ts', 'rm036-leases-canonicos.test.ts', 'rm036-leases-gofix.test.ts', 'rm036-leases-mcp.test.ts']) {
     const link = [...texto.matchAll(/\]\(([^)]+)\)/g)].find((m) => m[1].endsWith('/' + arquivo));
     assert.ok(link, `fonte publica para ${arquivo}`);
     assert.equal(fs.existsSync(path.resolve(raiz, path.dirname(paginas[2]), link[1])), true);
@@ -92,3 +92,30 @@ for (const pagina of [...paginas, 'docs/referencia/cli.md', 'CHANGELOG.md']) {
     assert.doesNotMatch(texto, /confere dispositivo e inode antes de apagar|[Ss]ó (há|recebem) comando de remoção/);
   });
 }
+
+for (const pagina of [...paginas, 'docs/referencia/cli.md', 'CHANGELOG.md']) {
+  test(`rm036 docs: R5 ${pagina} explica fila MCP prazo e namespace PID`, () => {
+    const texto = ler(pagina).replace(/\s+/g, ' ');
+    assert.match(texto, /\.orkastery\/leases\/<lease>\.json\.retomadas/);
+    assert.match(texto, /MCP aceita somente diretório real/);
+    assert.match(texto, /candidatos regulares de um único vínculo/);
+    assert.match(texto, /pasta vazia é removida/);
+    assert.match(texto, /`ork lease list` mostra candidatos, PID, ticket, idade e temporários `\.json\.tmp`/);
+    assert.match(texto, /`process\.kill\(pid, 0\)` só vale no mesmo namespace de PID/);
+    assert.match(texto, /limite de 30 minutos \(`TTL_PADRAO_MS`\)/);
+    assert.match(texto, /expirados são recolhidos na próxima tentativa, que retorna `lease.resume-unavailable`/);
+    assert.match(texto, /repetir a aquisição, sem apagar o lease/);
+    assert.match(texto, /JSON parcial deixado por SIGKILL/);
+    assert.match(texto, /perdeu seu candidato não pode prosseguir/);
+    assert.match(texto, /reconferidos imediatamente antes de `unlink`/);
+    assert.match(texto, /não constituem um CAS atômico/);
+    assert.doesNotMatch(texto, /diretório vazio pode permanecer|sem expiração que remova|não há expiração por prazo/);
+  });
+}
+
+test('rm036 docs: R5 tabela distingue fila expirada de lease inseguro', () => {
+  const linha = ler('docs/guias/verificacao.md').split('\n').find((l) => l.startsWith('| `lease.resume-unavailable`'))!;
+  assert.match(linha, /Fila de retomada expirada \(30 minutos\)/);
+  assert.match(linha, /candidatos e temporários recolhidos/);
+  assert.match(linha, /consultar `ork lease list` e repetir a aquisição, sem apagar o lease/);
+});

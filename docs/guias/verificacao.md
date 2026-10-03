@@ -217,7 +217,7 @@ não compila sem política).
 | `runtime.profile-invalid` | escalar-humano | **não** | O perfil pedido (`--perfil`) não existe ou é de outro runtime (RM-056): repetir dá a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido |
 | `tree.blocked` | sincronizar-worktree | sim | A árvore andou por baixo da thread: reexecutar antes de rebasar só repete o conflito |
 | `lease.busy` | reexecutar | sim | O lease e de outra thread e vai ser liberado. A fila já serializa: nunca furar a fila |
-| `lease.resume-unavailable` | escalar-humano | **não** | Retomada sem caminho seguro, como hard link ou link simbólico: avaliar a posse antes de `ork lease release <nome> --forcar`. Ausência de `flock` usa retomada portátil; `nlink === 0` é `lease.busy` |
+| `lease.resume-unavailable` | escalar-humano | **não** | Retomada sem caminho seguro, como hard link ou link simbólico: avaliar a posse antes de `ork lease release <nome> --forcar`. Ausência de `flock` usa retomada portátil; `nlink === 0` é `lease.busy`. Fila de retomada expirada (30 minutos): candidatos e temporários recolhidos; consultar `ork lease list` e repetir a aquisição, sem apagar o lease |
 | `conducao.em-andamento` | esperar a vez | sim | Outra condução executa na mesma worktree agora (I-36). A vez chega quando ela terminar; repetir já recebe a mesma recusa, e furar a fila é o incidente de 19/09/2026 |
 | `runtime.unavailable` | reexecutar | sim | Falha de infra não é falha de conteúdo: o MESMO prompt, com o mesmo sha256, e redespachado |
 | `runtime.silencio` | reexecutar | sim, com prova terminal | Fase sem heartbeat: só redespacha com prova terminal atual da mesma sessão |
