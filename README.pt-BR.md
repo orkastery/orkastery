@@ -17,10 +17,26 @@
 npm install -g @orkastery/cli
 ork demo          # 30 segundos: uma afirmação falsa reprovada e a corrigida aceita, sem conta nem modelo
 ork doctor        # o que vale nesta máquina agora; sai != 0 se estiver bloqueado
-ork init          # gera o orkastery.yaml do seu repositório
+ork init          # gera o orkastery.yaml; rode na raiz de um repositório git com pelo menos um commit
 ork modos         # os quatro modos de condução
 ork docs init     # documentação de produto e roadmap no padrão, com lint
 ```
+
+## A primeira thread
+
+O menor ciclo completo, no modo `#Fast` (uma fase só, o GO), logo depois do `ork init`. `<thread>` é o ID que o `ork thread new` imprime.
+
+```bash
+git add orkastery.yaml AGENTS.md && git commit -m "ork init"
+ork thread new "pôr exclamação no greet" --modo fast
+ork phase run <thread> GO --prompt "<o pedido>"      # o runtime do agente trabalha na worktree da thread
+ork verify <thread>                                  # reexecuta as claims e o verify do manifesto no HEAD real
+ork ship <thread> --para main --autorizar-push <você> # o #Fast nunca faz push sem a sua autorização
+ork master <thread> --aceitar-omissao                # fecha a thread com o índice derivado do ledger
+```
+
+- Se o `phase run` parar com `runtime.workspace-untrusted`, rode `claude` uma vez na worktree, aceite a confiança e depois `ork retry run <thread>`. O `ork pulse` mostra a mesma instrução.
+- Uma claim é o que o agente afirma mais o comando que a julga: `ork claims add <thread> <arquivo> --claim "<alegação>" --verificar "<comando>"`.
 
 ## Por que existe
 
