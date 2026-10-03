@@ -35,12 +35,20 @@ Vale saber o que o Orkastery é, antes de procurar o que ele expõe:
 | Estado | Arquivos no repositório, sob `.orkastery/` |
 
 O que ele **executa**: comandos declarados por você, no manifesto (`verify.build`,
-`verify.test`) e nas claims (`--verificar "<comando>"`), além do binário do runtime adapter.
+`verify.test`, `verify.typecheck`, `verify.preparo`, `ci.command`), nas claims
+(`--verificar "<comando>"`, o `--done` da thread, as correções do GO-FIX, os achados de auditoria)
+e no bundle `.ork-ci/<thread>.json` do CI, além do binário do runtime adapter e do executável do
+OrkMind (`memory.cli`, só nome no PATH ou caminho absoluto).
 
 Isso é a superfície real, e ela merece a atenção: **um manifesto ou uma claim de origem não
 confiável executam comando na sua máquina.** Trate `orkastery.yaml` e `claims.jsonl` de um
 repositório de terceiros com o mesmo cuidado que você trata um `Makefile` ou um script de
 `postinstall`.
+
+Fora desses comandos declarados, um valor que vem do repositório (manifesto, estado em `.orkastery/`,
+branches `ork/*`, arquivos de outra máquina) não vira opção de processo, executável nem caminho fora da
+raiz. A matriz de cada chamada de processo e de cada caminho, com o que ainda depende de decisão, está em
+[docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md).
 
 ---
 
