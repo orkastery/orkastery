@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:37:56.992Z",
+  "publicadoEm": "2026-10-03T03:37:59.870Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-doctoracusap",
-      "nome": "doctor acusa pulse de hora em hora",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-039",
-      "branch": "ork/ork-doctoracusap-full",
-      "atualizadaEm": "2026-10-03T03:25:33.605Z",
-      "entregue": "d3ae643",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
