@@ -6,15 +6,15 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-10-01T02:45:00-03:00
+atualizado_em: 2026-10-03T06:52:15-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão
   codigo: Mesclado
   testes: Aprovados
   deploy: Produção
-  exposicao: Flag desligada
-  habilitacao: Pendente
+  exposicao: Parcial
+  habilitacao: Em andamento
 evidencias:
   codigo:
     commit: a24a187
@@ -23,6 +23,7 @@ evidencias:
     ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450)
   deploy:
     release: v0.5.0, @orkastery/cli 0.5.0 no npm
+    gateway: Extensão OpenClaw 0.5.0+ instalada, conforme confirmação da condução; piloto no Telegram pendente
 sdlc:
   thread: ork-rm052projeto
   modo: "#Auto"
@@ -38,14 +39,14 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em validação | Mesclado | Aprovados | Produção | Flag desligada |
+| Em validação | Mesclado | Aprovados | Produção | Parcial |
 
 <!-- ork-docs:relance:fim -->
 
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** o dono, que pergunta pelo Telegram ou pelo terminal sobre um projeto específico, e os agentes dos hosts (OpenClaw, Hermes, Claude Code, Codex), que respondem. Hoje o `ork` resolve o projeto pelo diretório do processo, e a resposta não diz qual projeto foi lido.
-- **Evidências e fonte (origem: incidente relatado pelo dono, 29/09/2026, máquina srvjcp86):**
+- **Evidências e fonte (origem: incidente relatado pelo dono, 29/09/2026, máquina do incidente):**
   - no Telegram, "orkastery maestro - qual é o status report do roadmap do orkastery agora?" recebeu o panorama de `~/.openclaw/workspace` (projeto "workspace", 0 threads), com "o roadmap está vazio" e "outras máquinas: nenhuma publicou ainda"; o roadmap tinha 13 itens reservados e a vps conduzia 10 threads;
   - a extensão OpenClaw publicada (0.4.3) não tem tool de roadmap (`~/.openclaw/extensions/orkastery/openclaw.plugin.json`: 23 tools, sem `ork_roadmap_status`);
   - as tools chamavam o `ork` sem projeto, e o núcleo partia do `process.cwd()` (`core/src/manifest.ts`, `acharRaiz` e `carregarManifesto`);
@@ -69,7 +70,7 @@ sdlc:
   - os cinco comandos declaram o projeto consultado e o não lido (`core/test/projeto-alvo-consulta.test.ts`);
   - OpenClaw aceita só nome e repassa `--projeto` (`adapters/openclaw/test/projeto-alvo.test.mjs`); MCP confere o projeto servido (`core/test/projeto-alvo-mcp.test.ts`); Hermes e Claude Code (`core/test/projeto-alvo-hosts.test.ts`);
   - regressão do incidente pela extensão OpenClaw real (`core/test/projeto-alvo-incidente.test.ts`).
-- **Piloto, medição e critérios de expansão/interrupção:** piloto na srvjcp86 depois da publicação: o dono repete a pergunta de 29/09 no Telegram. Expande se a resposta nomear o orkastery ou pedir a escolha; interrompe se algum canal voltar a responder por um projeto não pedido.
+- **Piloto, medição e critérios de expansão/interrupção:** piloto na máquina do incidente, com a extensão 0.5.0+ já instalada: o dono repete a pergunta de 29/09 no Telegram. Expande se a resposta nomear o orkastery ou pedir a escolha; interrompe se algum canal voltar a responder por um projeto não pedido.
 
 ## Plano e decisões
 
@@ -86,13 +87,14 @@ sdlc:
   - risco: `ork board --json` deixou de ser lista; mitigação: nenhum consumidor no repositório além do teste de contrato, ajustado, e a mudança no CHANGELOG.
 - **Decisões, alternativas e ADRs (ID, decisor, data, link):** D1 a D10 no ledger da thread `ork-rm052projeto`, decididas pelo agente condutor sob o #Auto do dono em 29/09/2026: registro por máquina (D1), precedência (D2), host sem cwd e saída 4 (D3), só nome no host (D4), MCP fixado (D5), contrato JSON do board (D6), registro que nunca derruba o comando (D7), raiz com `~` (D8), transporte MCP desta sessão (D9) e entrega por PR (D10). Alternativa descartada: resolver pelo `HOME` ou pelo primeiro projeto registrado, que chutaria.
 - **Achado extra (registrado, não implementado aqui):** despacho que falha por impedimento que só o dono resolve vira apenas `phase_dispatch_failed`, sem HITL e sem "espera você" no board e na fábrica. Evidência: o primeiro despacho desta própria thread (evento `7123c016` do ledger de `ork-rm052projeto`, 29/09 16:32) falhou com "Workspace not trusted. Run `claude` in ... once and accept the trust prompt, then retry." e nada chegou ao dono. Proposta para um item próprio: motivo tipado do impedimento, com pedido HITL e a linha "espera você" até o dono destravar.
-- **Próxima fatia:** reinstalação da extensão OpenClaw pelo mantenedor, agora que a versão 0.5.0 está publicada; a skill do Codex com o mesmo texto do bootstrap; a medição do piloto.
+- **Próxima fatia:** medir o piloto no Telegram da máquina do incidente, sob condução do dono. A extensão OpenClaw 0.5.0+ já está instalada no gateway; a prova de ativação do Codex tem acompanhamento próprio na RM-032.
 
 ## Estado com evidências
 
 - Na `main` pelo PR #24 (merge `a24a187`), com o CI verde no push do merge (run 36659111443).
 - Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
-- Em validação: falta reinstalar a extensão do OpenClaw no gateway e medir o piloto no Telegram.
+- A extensão OpenClaw 0.5.0+ já está instalada no gateway, conforme confirmação da condução. A instalação é um fato operacional, sem novo commit do produto; o código segue ancorado no PR #24 (`a24a187`).
+- Em validação: falta o dono repetir a pergunta no Telegram da outra máquina e registrar se a resposta nomeia o projeto correto ou pede a escolha. Instalação concluída não é prova do piloto.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -100,13 +102,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em validação | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `a24a187` · PR #24 | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Em validação | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `a24a187` · PR #24 | 2026-10-03 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36659111443) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm · gateway: Extensão OpenClaw 0.5.0+ instalada, conforme confirmação da condução; piloto no Telegram pendente | 2026-10-03 | Julio |
+| Exposição | Parcial | — | 2026-10-03 | Julio |
+| Habilitação | Em andamento | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -114,7 +116,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: agentes do Orkastery · A: Julio · C: — · I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a thread `ork-rm052projeto` (#Auto, claude-code) conduziu GOAL a MASTER; o CHECK independente é o do CI (`ork-verify`), e a decisão final de merge é de Julio.
-- **Próxima ação, responsável e prazo:** reinstalar a extensão do OpenClaw com a versão 0.5.0 e fazer o piloto no Telegram da máquina do incidente (mantenedor). O merge (PR #24) e a publicação (versão 0.5.0) já aconteceram.
+- **Próxima ação e responsável:** o dono faz o piloto no Telegram da outra máquina e registra o resultado. Merge (PR #24, `a24a187`), publicação e instalação da extensão 0.5.0+ no gateway já aconteceram.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -123,3 +125,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | CHECK: GO-FIX de F1 (host só nome), F2 (cópia do cwd) e F3 (suíte isolada); `ork verify` com 47/47 claims e 0 regressões; PR #24 aberto como rascunho | `docs/check.md` da thread e o PR #24 | agente condutor; merge pelo mantenedor |
 | 2026-09-29 | mesclado na `main` | PR #24, merge `a24a187` | Julio |
 | 2026-10-01 | em produção na versão 0.5.0; o piloto segue em aberto | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
+| 2026-10-03 | Extensão OpenClaw 0.5.0+ instalada; piloto permanece com o dono | Instalação confirmada pela condução; código no PR #24 (`a24a187`), versão 0.5.0 no PR #36 (`2418a4e7`); nenhum resultado de piloto declarado | Codex (agente, #Fast), revisão pendente |

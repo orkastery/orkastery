@@ -1905,7 +1905,7 @@ test('RM-053 autoria: o id da instalacao sem hard link nunca passa por arquivo v
     assert.match(id, /^[0-9a-f-]{36}$/);
     assert.equal(fs.lstatSync(path.join(u, 'maquina-id')).isFile(), true);
     assert.equal(naMaquina(u, () => idDaMaquina()), id, 'estavel');
-    // W7: sem hard link, a criacao e derivada da pasta e do boot: criar de novo, neste boot, da o mesmo id.
+    // W7 e X6: sem hard link, a criacao sai da reserva da pasta: criar de novo da o mesmo id.
     const semLink = path.join(d, 'sem-link.js');
     fs.writeFileSync(semLink, "const fs = require('fs'); fs.linkSync = () => { const e = new Error('EPERM'); e.code = 'EPERM'; throw e; };\n");
     const w = fs.mkdtempSync(path.join(d, 'semlink-'));
@@ -1917,7 +1917,7 @@ test('RM-053 autoria: o id da instalacao sem hard link nunca passa por arquivo v
     };
     const primeiro = criar();
     fs.rmSync(path.join(w, 'maquina-id'));
-    assert.equal(criar(), primeiro, 'o id sem hard link e derivado, nunca um arquivo vazio preenchido depois');
+    assert.equal(criar(), primeiro, 'o id sem hard link vem da reserva (X6), nunca de um arquivo vazio preenchido depois');
     // W6: o id derivado muda com o boot (clones da mesma imagem) e e igual para o mesmo estado.
     const a = idDerivado(['x', 1n], ['h', 'boot-a', 'm']), b = idDerivado(['x', 1n], ['h', 'boot-b', 'm']);
     assert.match(a, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

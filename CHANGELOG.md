@@ -17,6 +17,33 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
     nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
   - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+
+- **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
+  no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
+  no rótulo de links relativos ou resolvidos pela raiz, nem sondar palavras ou nomes de pacote.
+  Sondas e variantes de extensão e `index` preservam a equivalência incremental quando
+  diretório vira arquivo e volta, inclusive diretórios com extensão no nome. `cites` fica por último no
+  desempate por tipo. Após selecionar as ligações diretas,
+  o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
+  bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
+  omissões indiretas, que não ativam `truncado` quando a vizinhança direta está completa. A medida
+  histórica continua v3, com o mesmo comparador: a cobertura do pacote vai de 23% para 69% (KG3) e de
+  41% para 65% (KG4), acima da descoberta por grep nos dois casos; a precisão cai para 36% e 61%, ainda acima
+  dela; o pacote quase dobra (28.015 e 32.706 bytes) e, no KG4, passa a saída do grep (25.988).
+
+### Corrigido
+
+- **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
+  depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
+  `experiencia`, `mcp`, `docs verificar`, os novos `sessions` e várias opções que o binário já aceitava; o exemplo do
+  `ork memory status` no guia de memória não batia com a saída. Só documentação, mais um teste que confere as
+  invocações da referência contra o despacho do `main` e a ajuda, com exceções explícitas.
+
+## [0.5.3] - 2026-10-03
+
+### Adicionado
+
 - **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
   de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge
@@ -28,6 +55,18 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
   despacho que caiu na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o
   perfil, pelo id; nenhum diretório de conta vai à saída. O total é um piso: o registro só guarda as marcas vivas.
+- **Contexto compacto da thread, KG5 fatia 3** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  pacote `ork.thread-graph-context/v2` com referências locais, evidências em tupla e fan-in agregado;
+  prioridade entre arquivos e perto do diff, limite por alvo e amostra de sementes ausentes.
+  Sem worktree, o diff é ignorado e declarado. A flag `grafo.mcp` segue desligada.
+  Sementes de prosa exigem extensão conhecida ou diretório do índice; evidências auxiliares
+  de outro arquivo são omitidas e declaradas. Fixture sintética de 22.973 para 3.119 bytes.
+  A [medida histórica](core/test/fixtures/kg5-medida-contexto.json) foi executada; o GO-FIX
+  corrige a descoberta para exports de pelo menos quatro caracteres e `grep -w`, mede precisão
+  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. Medida v3 em dois
+  casos reais ([tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)): o pacote, que é só o mapa, tem 15.122 e 16.974 bytes,
+  2,2 e 1,5 vez menos que a saída do grep (sem a leitura dos arquivos); precisão 3/7 (43%) e 7/8 (88%)
+  contra 3/41 (7%) e 6/11 (55%); cobertura 3/13 e 7/17 contra 3/13 e 6/17. Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
@@ -112,13 +151,69 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Alterado
+
+- **Ramos do `ork doctor` sob teste, C5** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)):
+  cobertura do cron, do manifesto fora do repositório e do login do Claude com diferentes perfis de conta.
+- **Fechamento com falha parcial sob teste, C4** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)):
+  falhas isoladas em leases, sessões e reserva comprovam que as demais liberações continuam e a pendência fica registrada.
+- **Piloto de contas compartilhadas** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  prova real só de leitura registra ausência de marcas; esgotamento entre dois projetos reais segue sem caso observado.
+- **Fatos da rede após os merges** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), [RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  roadmaps registram os PRs #31 e #72 e distinguem código mesclado de implantação pendente.
+- **Company Brain, B4.2 após o merge** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  roadmap registra o modo `context` no núcleo pelo PR #64 e as capacidades já presentes no OrkMind.
+- **Fatos do roadmap e ordem do CHANGELOG, B3:** documentação consolidada após as entregas, com as notas em ordem.
+
 ### Corrigido
 
+- **A skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro`** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
+  na segunda rodada da prova do Codex, o `ork doctor`, o `ork onboarding` e o `ork experiencia show` rodaram no
+  shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
+  da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
+  de entrada e na cópia do marketplace.
+- **Recibos do ensaio com o estado real dos achados** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
+- **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
+  merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
+  branch cujo pai trazido já estava na base. Git sem resposta conta 0, e `--classe` continua vencendo.
+- **O POSTMORTEM conta o CHECK e o SHIP que o ledger registrou** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  o `verify_run` e o `ship_done` são gravados sem o campo `fase`, e as `fasesPercorridas` só contavam evento com
+  fase. Dos 35 POSTMORTEMs de 03/10, só 1 listava o CHECK e 2 o SHIP. Agora `verify_run` e `check_reverify` contam
+  como CHECK, e `ship_started`, `ship_done` e `ship_blocked` como SHIP, quando o evento não traz fase; o campo
+  explícito continua vencendo. A forma do POSTMORTEM não muda, e os já gravados ficam como estão.
+- **Id da instalação numa pasta dividida** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), X6 do CHECK 6):
+  sem hard link (vboxsf, SMB, alguns FUSE), e na troca de um `~/.orkastery/maquina-id` ruim, cada host ou contêiner
+  que divide a pasta gravava um id derivado do próprio hostname e boot, e o último a gravar vencia. Por isso, quem
+  já tinha publicado passava a ler outro id. Agora o id sai de uma reserva que entra por `rename` de pasta com
+  conteúdo (`maquina-id.reserva/` ou `maquina-id.troca-<chave>/`): só a primeira entra, e todos leem o mesmo id.
+  O `maquina-id` continua um arquivo com o UUID, e o id derivado fica para quando a reserva falha.
+- **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
+  outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
+  `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
+  e o processo destacado escrevia em `objects/` enquanto o `rmSync` apagava o diretório; o `git clone` local da
+  outra máquina também podia copiar um repack pela metade. Os testes que usam `core/test/apoio.ts` agora desligam a
+  manutenção automática do git: por `GIT_CONFIG_COUNT` do lado de quem roda o comando e por `GIT_CONFIG_SYSTEM`
+  (que inclui a configuração de sistema de verdade) no `receive-pack` do remoto bare, porque o transporte local
+  limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
+  `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
+  trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
 - **Marcas visíveis da categoria `Cf` na rede** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), Y4 do CHECK 7):
   o saneador comum (`core/src/saida-segura.ts`) tratava toda a categoria `Cf` como invisível, e o projeto com um
   sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
   no caminho saía do retrato com aviso, e a marca sumia da saída. Essas 13 marcas, que têm glifo, passam como
   texto; bidi, largura zero, tags e o resto de `Cf` continuam barrados.
+- **Avisos finais dos leases multicanais** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  o teste de fila simbólica usa um alvo fora de `.orkastery/leases`, isolando a recusa do link;
+  a varredura de metadados usada pelo commit e pelo SHIP do MCP ignora `ENOENT` quando a fila de
+  retomada ou um candidato desaparece durante `lstat` ou `readdir`, preservando os demais erros.
+  Nomes fora de UTF-8 são recusados antes de `lstat`, tanto nos metadados quanto no preflight de
+  documentos e claims, inclusive nas filas; perda de bytes na decodificação não conta como desaparecimento.
+  Falhas de `unlink` do candidato ou de `rmdir` da fila vazia não alteram o resultado da aquisição
+  nem encobrem a exceção original; candidatos remanescentes são recolhidos por concorrentes quando
+  o PID morre ou o prazo vence. Os ajustes têm cenários de regressão e receitas em
+  `core/scripts/rm036-leases-mutantes.cjs`.
 - **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
   para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
   Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado
