@@ -141,7 +141,7 @@
         "node core/dist/index.js docs verificar --pr && node core/dist/index.js docs verificar --json | node -e \"let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{const e=JSON.parse(s).achados.filter(a=>a.gravidade==='erro' && !(a.id==='RM-057' && a.regra==='docs.paridade.merge')); if(e.length){console.error(e); process.exit(1)}})\" && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-10-03T02:53:11.316Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
