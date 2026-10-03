@@ -9,8 +9,9 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createRequire } from 'node:module';
 import { checar } from '../src/doctor';
-import { painelDaRede, RETRATO_PARADO_MS, retratoParado } from '../src/rede';
+import { painelDaRede, RETRATO_PARADO_MS, retratoParado, tirarTravaOrfa } from '../src/rede';
 import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
 import { jsonSemInvisivel, valoresEmUmaLinha } from '../src/saida-segura';
 import { dirTemporario } from './apoio';
@@ -124,4 +125,46 @@ test('RM-053 fatia 2 saida: o ork fabrica e o board nao imprimem quebra de linha
   assert.ok(!json.includes(ESC) && !json.includes('\r') && !json.includes('\u202e'));
   assert.deepEqual(JSON.parse(json), painel, 'quem le o JSON recebe o mesmo texto');
   assert.deepEqual(valoresEmUmaLinha({ n: Number.NaN, a: ['x\ny'], b: null }), { n: Number.NaN, a: ['x y'], b: null });
+});
+
+test('RM-053 fatia 2 W9: a trava viva nunca sai do lugar, mesmo com um terceiro entrando no meio; a faxina e serial', () => {
+  const d = dirTemporario('rm053f2-w9');
+  const fsReal = createRequire(__filename)('node:fs') as typeof fs;
+  const renomear = fsReal.renameSync;
+  try {
+    const trava = path.join(d, 'publicar.lock');
+    // Quem julgou "orfa" chega tarde: no lugar ja esta a trava viva de B. Se ela for movida, C entra
+    // no lugar vazio antes da volta (o renomear de teste simula C), e a de B encalharia em .orfa-*.
+    fs.mkdirSync(trava);
+    fs.writeFileSync(path.join(trava, 'pid'), String(process.pid));
+    fsReal.renameSync = ((de: fs.PathLike, para: fs.PathLike) => {
+      renomear(de, para);
+      if (String(de) === trava && String(para).includes('.orfa-')) {
+        fs.mkdirSync(trava);
+        fs.writeFileSync(path.join(trava, 'pid'), 'C');
+      }
+    }) as typeof fs.renameSync;
+    assert.equal(tirarTravaOrfa(trava), 'viva');
+    fsReal.renameSync = renomear;
+    assert.deepEqual(fs.readdirSync(d).filter((n) => n.includes('.orfa-')), [], 'a trava viva de B nao encalhou');
+    assert.equal(fs.readFileSync(path.join(trava, 'pid'), 'utf8'), String(process.pid), 'a trava de B continua no lugar');
+
+    // Com outra faxina em curso (pid vivo), ninguem mexe na orfa: a faxina e uma por vez.
+    fs.rmSync(trava, { recursive: true });
+    fs.mkdirSync(trava);
+    const velho = (Date.now() - 10 * 60 * 1000) / 1000;
+    fs.utimesSync(trava, velho, velho);
+    const faxina = `${trava}.faxina`;
+    fs.mkdirSync(faxina);
+    fs.writeFileSync(path.join(faxina, 'pid'), String(process.pid));
+    assert.equal(tirarTravaOrfa(trava), 'ocupada');
+    assert.ok(fs.existsSync(trava), 'a orfa espera a faxina em curso');
+    // A faxina que caiu antes de gravar o pid (velha) sai; a rodada seguinte tira a orfa.
+    fs.rmSync(path.join(faxina, 'pid'));
+    fs.utimesSync(faxina, velho, velho);
+    assert.equal(tirarTravaOrfa(trava), 'ocupada');
+    assert.equal(fs.existsSync(faxina), false);
+    assert.equal(tirarTravaOrfa(trava), 'removida');
+    assert.deepEqual(fs.readdirSync(d), [], 'nem orfa, nem faxina, nem .orfa- para tras');
+  } finally { fsReal.renameSync = renomear; fs.rmSync(d, { recursive: true, force: true }); }
 });
