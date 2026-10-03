@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T11:06:17.111Z",
+  "publicadoEm": "2026-10-03T11:06:22.023Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -101,23 +101,6 @@
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:41:41.084Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm049ensaio2",
-      "nome": "RM-049: ensaio de primeira experiência em inglês",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-rm049ensaio2-full",
-      "atualizadaEm": "2026-10-03T11:06:16.943Z",
-      "entregue": "3c4d6cb",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
