@@ -112,6 +112,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork_network_status` no servidor MCP fixado num projeto lê a fábrica só desse projeto; antes lia a de todos os
     projetos do registro e só filtrava a saída: a batida e a versão do ork de uma máquina vista nos dois vinham do
     projeto que o servidor não serve (D5 da RM-052), e o servidor rodava `git fetch` no clone do outro projeto.
+  - `ork network roadmap` não marca mais como "(esta máquina)" o retrato de outra instalação com o nome desta
+    (`maquina.nome-em-uso`), como o `ork network status` já fazia desde a revisão de 03/10.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna

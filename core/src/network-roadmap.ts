@@ -954,11 +954,21 @@ function projetosDaRede(status: StatusDaRede, conhecidos: readonly ProjetoDaRede
   return saida;
 }
 
+/**
+ * Suspeitas da revisao de 03/10 (mesma raiz do defeito 3 da revisao): o retrato com o nome desta
+ * maquina e de outra instalacao quando o status diz `nomeEmUso`; entao nenhum retrato da rede e "esta
+ * maquina". `null` nesse caso; senao, o nome saneado desta maquina.
+ */
+function euNaRede(status: StatusDaRede, ctx: Contexto): string | null {
+  const eu = nomeSeguro(ctx.maquina);
+  return status.estaMaquina.maquina === eu && status.estaMaquina.nomeEmUso ? null : eu;
+}
+
 /** A rede no panorama; no MCP fixado, os projetos de cada maquina ficam so o servido (D5 da RM-052). */
 function redeNoPanorama(status: StatusDaRede, ctx: Contexto, servido: { p: ProjetoDaRede; nome: string } | null): RedeNoPanorama {
   const agora = Date.parse(ctx.quando);
   const fonte = status.fontes.find((f) => f.fonte === 'rede');
-  const eu = nomeSeguro(ctx.maquina);
+  const eu = euNaRede(status, ctx);
   const membros = status.membros.filter((m) => m.origem === 'rede').map((m): MembroNoPanorama => {
     const idadeMs = agora - Date.parse(m.publicadoEm);
     const idadeMin = Number.isFinite(idadeMs) ? Math.floor(Math.max(0, idadeMs) / 60000) : null;
@@ -986,7 +996,7 @@ function completarComARede(x: ProjetoNoPanorama, p: ProjetoDaRede, status: Statu
     const legivel = Number.isFinite(idadeMs);
     const idadeMin = legivel ? Math.floor(Math.max(0, idadeMs) / 60000) : 0;
     const semBatida = !legivel || idadeMin * 60000 > LIMIAR_SEM_BATIDA_MS;
-    x.maquinas.push({ maquina, por: 'rede por pessoa', publicadoEm: m.publicadoEm, idadeMin, semBatida, estaMaquina: m.maquina === nomeSeguro(ctx.maquina),
+    x.maquinas.push({ maquina, por: 'rede por pessoa', publicadoEm: m.publicadoEm, idadeMin, semBatida, estaMaquina: m.maquina === euNaRede(status, ctx),
       origem: 'rede', versaoOrk: m.versaoOrk ? emUmaLinha(m.versaoOrk) : null, ativas: [], entreguesSemMaster: 0, threadsLidas: false });
     x.lacunas.push(lacuna('maquina.sem-fabrica', 'fabrica', maquina,
       `${maquina} está na rede por pessoa e declara ${x.projeto.nome}, mas não tem retrato em ${BRANCH_DA_FABRICA}: as threads dela neste projeto não foram lidas`,
