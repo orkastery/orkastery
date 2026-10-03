@@ -108,7 +108,7 @@ import {
   textoDaInstalacao,
   textoDosPitfalls,
 } from './hosts';
-import { init } from './init';
+import { exigirRepositorioParaInit, init } from './init';
 import { createInitiative, createProduct, createProject, findEntity, listEntities, PortfolioKind, PortfolioStatus, readPortfolio } from './portfolio';
 import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
@@ -204,7 +204,7 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
@@ -519,8 +519,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   master batch --aceitar <thread:assinatura,...> --por <humano>
   master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>"
-        [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
+  master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>
+        [--classe C[,C]] [--resumo R] [--refazer]
                                             Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
                                             de processo de host e recusado com master.prova-de-canal)
   master pedir <thread-id> [--formato telegram|terminal|json]
@@ -1606,6 +1606,11 @@ function comandoVerify(args: Args): number {
     for (const c of b.comandos) {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
+    if (b.comandos.some((c) => !c.ok)) {
+      // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
+      console.log(`  saida de quem falhou: as ultimas linhas em ${caminhoThread(carregado.raiz, id)}, campo baseline.comandos ` +
+        `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`);
+    }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
       console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
@@ -2245,7 +2250,10 @@ function comandoCi(args: Args): number {
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
-      console.error('uso: ork ci status --sha <commit> [--remoto origin]');
+      // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
+      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
+      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
       return 2;
     }
     // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
@@ -2785,7 +2793,7 @@ function comandoMaster(args: Args): number {
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>"');
+    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
     console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
     return 2;
   }
@@ -4028,6 +4036,7 @@ export function main(argvBruto: string[]): number {
       return r.codigo;
     }
     case 'init': {
+      exigirRepositorioParaInit(process.cwd());
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),

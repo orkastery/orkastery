@@ -77,6 +77,42 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
+    `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
+    despacho falhava;
+  - sem idioma escolhido no ambiente (`LANG=C.UTF-8`, `C`, `POSIX`), o `ork onboarding` recomenda a
+    experiência em `pt-BR`, a língua da CLI, em vez de `en-US`; um locale escolhido continua valendo;
+  - `ork ci status` com `--sha HEAD` ou sha curto diz que pede o sha completo de 40 caracteres
+    (`git rev-parse HEAD`); antes respondia só a linha de uso;
+  - `ork ship --dry-run` sem o remoto configurado (ou com `--sem-push`) diz o mesmo que o ship real, "merge
+    local concluído, sem push a provar", em vez de listar o `git push` e o `git ls-remote`;
+  - `ork adapter install claude-code` (e `codex`) repete no fim, depois da lista de arquivos e dos pitfalls, as
+    linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
+  - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
+    `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
+  - o README traz os números do CI da `main` de 03/10 (run 37102089623): 2.733 testes do núcleo, 24 canários e
+    20 skills com 199 asserções; dizia 1.553 testes, de 27/09;
+- **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
+    por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois
+    dentro dessa pasta herdava o manifesto de fora. O `ork doctor` avisa o `orkastery.yaml` lido de fora do
+    repositório (`manifesto do repositorio`), e fora de repositório a correção do manifesto manda entrar nele;
+  - `ork board` mostra, na thread parada por impedimento do dono (`runtime.workspace-untrusted`,
+    `runtime.consent-pending`), a correção gravada no gate, com o `ork retry run` que o pulse recomenda, em
+    vez de um `ork gate request` que o `#Fast` e o `#Auto` recusam;
+  - o `ship_blocked` e o `gate_blocked` de um `ork ship --dry-run` não descontam o índice do `ork master`
+    nem entram nas reprovações do POSTMORTEM;
+  - a linha do cron que o `ork doctor` sugere para o pulse aponta o `monitor/varredura-pulse.sh` do `ork`
+    instalado, com `ORK_PULSE_PROJECT`, quando o projeto não tem o script; antes apontava um caminho que só
+    existe no checkout do Orkastery;
+  - `ork phase list` mostra o id curto do pedido da decisão autônoma, e não `[object Object]`; a linha `ci`
+    do resumo do `ork ship` fica alinhada com as outras;
+  - `ork master` com score: a ajuda e o erro dizem que o `--por` é obrigatório; o quickstart, a referência
+    da CLI e a definição de pronto o trazem, e o quickstart manda fazer o commit do manifesto de novo depois
+    da etapa `maestro` do onboarding, que grava `owner` nele;
+  - o `npm --prefix core test` volta a 0 falhas sem o interpretador do OrkMind: os testes da ponte da
+    RM-038 saem como skip tipado, e um teste-guarda reprova arquivo que suba a fixture sem ele.
 - **Teste instável do lease da sucessora no Node 22** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
   o caso B-1 de `rm037-baseline-no-despacho` lia `conducaoDaThread` logo depois de despachar uma sessão codex que
   termina sozinha. O watcher destacado grava o `phase_result` na volta seguinte do laço de 1 s, e dali em diante a
