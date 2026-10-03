@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:38:07.895Z",
+  "publicadoEm": "2026-10-03T03:38:10.279Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -84,23 +84,6 @@
       "branch": "ork/ork-rm054fatia3-full",
       "atualizadaEm": "2026-10-02T16:41:40.311Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm057alterna",
-      "nome": "rm057alternativas",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-057",
-      "branch": "ork/ork-rm057alterna-full",
-      "atualizadaEm": "2026-10-02T17:37:52.452Z",
-      "entregue": "7266df6",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
