@@ -1,6 +1,7 @@
 /** Catálogo determinístico de produto -> projeto -> iniciativa. */
 import * as fs from 'node:fs';
 import { stateFile } from './project-state';
+import { raizDoEstado } from './estado-thread';
 import { portfolioMutation, replaceWithJournal } from './company-brain-journal';
 import { agora, lerJson } from './util';
 import { readCreationOperation, withCreationLock } from './creation-operation-store';
@@ -34,7 +35,9 @@ export function readPortfolio(root: string): Portfolio {
 }
 function persist(root: string, value: Portfolio): Portfolio { value.updatedAt = agora(); replaceWithJournal(file(root), value); return value; }
 function mutatePortfolio<T>(root:string, run:()=>T):T {
-  return withCreationLock(root,'portfolio',()=>portfolioMutation(file(root),run));
+  // RM-036 (D5): o portfolio.json e canonico, e o lock de espera tambem: chamado da raiz ou de uma worktree,
+  // quem chega depois espera a vez, em vez de recusar com brain.journal.busy no lock interno.
+  return withCreationLock(raizDoEstado(root),'portfolio',()=>portfolioMutation(file(root),run));
 }
 
 function validateBase(kind: PortfolioKind, input: Partial<PortfolioEntity> & { id: string; title: string }): void {
