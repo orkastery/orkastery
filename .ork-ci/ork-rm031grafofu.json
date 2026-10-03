@@ -362,7 +362,7 @@
         "grep -q \"refaz o índice completo uma vez\" CHANGELOG.md"
       ],
       "criadoEm": "2026-10-03T05:38:19.643Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -376,7 +376,7 @@
         "node --test --test-name-pattern=\"grafo no pacote: script: scripts de instalacao\" core/dist-test/test/rm031-grafo-no-pacote.test.js"
       ],
       "criadoEm": "2026-10-03T05:38:19.893Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -390,7 +390,7 @@
         "node --test --test-name-pattern=\"grafo no pacote: workflow\" core/dist-test/test/rm031-grafo-no-pacote.test.js"
       ],
       "criadoEm": "2026-10-03T05:38:20.134Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -404,7 +404,7 @@
         "node --test --test-name-pattern=\"grafo no pacote: dependencias\" core/dist-test/test/rm031-grafo-no-pacote.test.js && grep -q \"nove dependências de runtime\" docs/conceitos/arquitetura.md"
       ],
       "criadoEm": "2026-10-03T05:38:20.393Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -418,7 +418,7 @@
         "grep -q \"0\\.5\\.2\" .github/workflows/publicar.yml"
       ],
       "criadoEm": "2026-10-03T05:38:20.652Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
