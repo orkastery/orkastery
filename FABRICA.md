@@ -8,7 +8,6 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 03/10 03:37 |
 | srvjcp86 | ork-rm037fatia6r | #Auto | GOAL | sem despacho | RM-037 | — | 03/10 03:37 |
 | srvjcp86 | ork-rm040piloto | #Auto | GOAL | codex gpt-5.6-sol/high | RM-040 | — | 03/10 03:37 |
-| srvjcp86 | ork-rm047remotod | #Auto | GOAL | sem despacho | RM-047 | — | 03/10 03:37 |
 | srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 03/10 03:37 |
 | srvjcp86 | ork-rm054fatia3s | #Auto | GOAL | sem despacho | RM-054 | — | 03/10 03:37 |
 | srvjcp86 | ork-rm057fatia3t | #Auto | GOAL | sem despacho | RM-057 | — | 03/10 03:37 |
