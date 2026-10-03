@@ -151,7 +151,7 @@ import {
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
 import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
-import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
+import { buscarPorSignificado, textoDaBuscaPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -2523,7 +2523,7 @@ function comandoNetwork(args: Args): number {
   }
   if (sub === 'publicar') {
     if (args.opcoes.silencioso === true) {
-      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 15 min) e nao espera.
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
       try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
       catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
     }
@@ -3963,16 +3963,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
     console.log(JSON.stringify(r, null, 2));
     return codigo;
   }
-  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
-  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
-  console.log('');
-  r.resultados.forEach((e, i) => {
-    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
-    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
-    console.log(`      ${e.resumo}`);
-  });
-  console.log('');
-  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  console.log(textoDaBuscaPorSignificado(r));
   return codigo;
 }
 

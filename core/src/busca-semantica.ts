@@ -194,3 +194,21 @@ export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantic
   saida.detalhe = detalhes.join('; ');
   return saida;
 }
+
+/**
+ * Texto de `ork memory search --texto`. Revisao de 03/10 (RM-038): o detalhe sai tambem sem motivo; o
+ * id do FTS fora do universo e o aviso de cobertura vivem nele, e o texto os perdia na busca que deu certo.
+ */
+export function textoDaBuscaPorSignificado(r: ResultadoDaBuscaSemantica): string {
+  const linhas = [`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`];
+  if (r.motivo) linhas.push(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
+  else if (r.detalhe) linhas.push(`  detalhe: ${r.detalhe}`);
+  linhas.push('');
+  r.resultados.forEach((e, i) => {
+    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
+    linhas.push(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
+    linhas.push(`      ${e.resumo}`);
+  });
+  linhas.push('', `  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
+  return linhas.join('\n');
+}
