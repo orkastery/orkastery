@@ -12,7 +12,8 @@ test('entrada da fábrica limpa credenciais passivas e preserva bloqueios antes 
   const p = projetoTemporario('fabrica-higiene');
   try {
     const cli = path.resolve(__dirname, '../../dist/index.js');
-    const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${p.dir}:${process.env.PATH}`, CODEX_HOME: p.dir };
+    // O texto do doctor conferido aqui e o pt-BR: o locale fica fixo, sem herdar o LANG de quem roda (CLI por locale).
+    const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${p.dir}:${process.env.PATH}`, CODEX_HOME: p.dir, LANG: 'C.UTF-8', LC_ALL: '', LC_MESSAGES: '' };
     for (const nome of ENVS_DE_PROVIDER_PAGO) delete env[nome];
     env.OPENROUTER_API_KEY = 'fixture-nao-imprimir';
     env.OPENAI_API_KEY = 'fixture-nao-imprimir';

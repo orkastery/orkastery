@@ -22,6 +22,8 @@ function ork(cwd: string, args: string[]): { saida: string; codigo: number } {
         cwd,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
+        // O texto destes testes e o pt-BR: o locale fica fixo, sem herdar o LANG de quem roda (CLI por locale).
+        env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: '', LC_MESSAGES: '' },
       }),
       codigo: 0,
     };
