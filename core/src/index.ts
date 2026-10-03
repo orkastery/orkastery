@@ -2034,6 +2034,8 @@ function comandoShip(args: Args): number {
       console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
+    // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
+    if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
     const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
@@ -2230,7 +2232,9 @@ function comandoCi(args: Args): number {
       console.error('uso: ork ci status --sha <commit> [--remoto origin]');
       return 2;
     }
-    const result = consultarCi(carregado, sha, texto(args.opcoes.remoto) ?? 'origin');
+    // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
+    const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
+    const result = consultarCi(carregado, sha, remoto);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
     return result.ok ? 0 : 1;
   }
