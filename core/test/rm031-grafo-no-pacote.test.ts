@@ -63,7 +63,8 @@ test('grafo no pacote: dependencias: o quickstart, os READMEs e o SECURITY dizem
   assert.ok(ler('docs/comecar/quickstart.md').includes(`com ${extenso} dependências de runtime`), 'quickstart');
   assert.ok(ler('README.md').includes(`| Runtime dependencies | ${n}, pinned |`), 'README.md');
   assert.ok(ler('README.pt-BR.md').includes(`| Dependências de runtime | ${n}, com versão fixa |`), 'README.pt-BR.md');
-  assert.ok(ler('SECURITY.md').includes(`| Dependencias de runtime | **${extenso}**, com versão fixa em \`core/package.json\``), 'SECURITY.md');
+  assert.match(ler('SECURITY.md'), new RegExp(`\\| Depend[eê]ncias de runtime \\| \\*\\*${extenso}\\*\\*, com versão fixa em \`core/package\\.json\``), 'SECURITY.md');
+  assert.ok(ler('docs/produto/SYS-01-nucleo-ork.md').includes(`com ${extenso} dependências de runtime com versão fixa`), 'SYS-01');
 });
 
 test('grafo no pacote: lockfile: o fecho dos analisadores esta no lockfile com a versao instalada e nenhum pacote dele e dev', () => {
@@ -410,15 +411,13 @@ test('grafo no pacote: workflow: o publicar.yml so publica depois da prova, que 
 // ---------------------------------------------------------------------------
 // docs
 
-test('grafo no pacote: docs: o Próximo passo da RM-031 nao cita mais a instalacao sem os analisadores, e a pagina registra a correcao', () => {
-  const rm = ler('docs/roadmap/RM-031-grafo-de-codigo.md');
-  const proximo = rm.split('\n').find((l) => l.startsWith('- **Próximo passo:**'));
-  assert.ok(proximo, 'a linha do Próximo passo');
-  assert.doesNotMatch(proximo, /typescript|micromark|analisadores/);
-  assert.match(rm, /`ork-rm031grafofu`/);
+test('grafo no pacote: docs: a pagina da RM-031 registra a correcao de empacotamento', () => {
+  // O Próximo passo e reescrito a cada fatia: o que ele diz agora fica na claim da thread, nao aqui.
+  assert.match(ler('docs/roadmap/RM-031-grafo-de-codigo.md'), /`ork-rm031grafofu`/);
 });
 
 test('grafo no pacote: docs: os contratos e a referencia da CLI dizem que os analisadores vem com o pacote e citam o check do doctor', () => {
+  assert.doesNotMatch(ler('docs/referencia/contratos/extracao-grafo-kg2.md').replace(/\s+/g, ' '), /markdownlint do core já instala/);
   for (const arquivo of ['docs/referencia/contratos/indice-grafo-kg3.md', 'docs/referencia/contratos/consumo-grafo-kg5.md', 'docs/referencia/cli.md']) {
     const texto = ler(arquivo).replace(/\s+/g, ' ');
     assert.doesNotMatch(texto, /não são dependências de runtime|que não são dependências|e o pacote publicado `@orkastery\/cli` 0\.5\.0 não/, arquivo);

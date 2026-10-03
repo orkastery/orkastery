@@ -33,10 +33,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
     recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
     instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
-    por `require`). O `ork grafo status` diz a mesma correção, na linha `correcao` e no campo `correcao` do `--json`;
+    por `require`). Quando falta um pacote dos analisadores, o `ork grafo status` diz a mesma correção, na linha
+    `correcao` e no campo `correcao` do `--json`;
   - `core/scripts/provar-grafo-instalado.cjs` instala o tarball do `npm pack` com `npm install -g` num prefixo e num
-    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, Node 20 e 22) e no
-    `publicar.yml`, antes do `npm publish`.
+    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
+    `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
 
 ### Segurança
 
