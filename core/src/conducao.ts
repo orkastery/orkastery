@@ -28,6 +28,7 @@ import { nomeDaMaquina } from './maquina';
 import { dirThread, lerThread } from './thread';
 import { formatarDataHoraRotulada } from './horario';
 import { exec, agora } from './util';
+import { diretorioDaThread } from './procedencia';
 import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
 import {
   CanalDeConducao, ConducaoAtual, DadosDaConducao, DonoDaConducao, EventoLedger, Fase, Lease, OperacaoDeConducao,
@@ -834,7 +835,8 @@ export interface ResultadoDoHandoff {
 function estadoDaWorktree(raiz: string, threadId: string): { head: string | null; alterados: string[] } {
   try {
     const t = lerThread(raiz, threadId);
-    const dir = t.worktree ?? raiz;
+    // RM-047 (P2): o git do handoff so roda na worktree registrada.
+    const dir = diretorioDaThread(raiz, t);
     const head = exec('git', ['rev-parse', 'HEAD'], dir);
     const st = exec('git', ['status', '--porcelain'], dir);
     return { head: head.ok ? head.stdout.trim() : null, alterados: st.ok ? st.stdout.split('\n').filter(Boolean).slice(0, 40) : [] };

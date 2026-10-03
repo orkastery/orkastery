@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { ItemPulse, Pulse, CONTRATO_PULSE } from './pulse';
 import { raizDoEstado } from './estado-thread';
+import { exigirHostLocal } from './procedencia';
 import { contextoSeguro, redigirSegredos } from './hitl';
 import { formatarPrazo, fusoDoManifesto, legendaDoFuso, localizarTexto, registrarFonteDoFuso } from './horario';
 import { CanalDoResumo, ResumoDeMaquina, ResumoHitl, resumirHitl, textoDoResumo } from './hitl-resumo';
@@ -182,6 +183,8 @@ export function varrerPulse(opcoes: {
       let entregue:boolean;
       if(opcoes.enviar) entregue=opcoes.enviar(mensagem);
       else {
+        // RM-047 (P2): o executavel do transporte so sai do arquivo local, nunca de um versionado no git.
+        if(!opcoes.transporte) exigirHostLocal(raiz,path.join(dir,'pulse-host.json'));
         const config=opcoes.transporte??JSON.parse(fs.readFileSync(path.join(dir,'pulse-host.json'),'utf8')) as TransportePulse;
         if(typeof config.executavel!=='string'||!config.executavel||!Array.isArray(config.argumentos)||
           !config.argumentos.every(a=>typeof a==='string')||!config.argumentos.some(a=>a.includes('{{mensagem}}'))) {

@@ -14,6 +14,7 @@ import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { soltarThreadFechada } from './leases';
 import { ResultadoDaSoltura, soltarReservaDaThread } from './roadmap-reservas';
 import { dirThread, lerThread } from './thread';
+import { cwdLocalOuNulo } from './procedencia';
 
 export interface SolturaAoFechar {
   /** Leases de escrita soltos (o `exec:` fica com a conducao). */
@@ -36,7 +37,8 @@ export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar
   try { candidatos.push(raizDoEstado(raiz)); } catch (e) { falhou('raiz', e); }
   try {
     const wt = lerThread(raiz, threadId).worktree;
-    if (wt && fs.existsSync(wt)) candidatos.push(wt);
+    // RM-047 (P2): so a worktree registrada no git recebe a soltura; outro diretorio do thread.json fica de fora.
+    if (wt && fs.existsSync(wt) && cwdLocalOuNulo(raiz, threadId, wt, 'thread') !== null) candidatos.push(wt);
   } catch (e) { falhou('thread', e); }
   const checkouts = candidatos.filter((c, i) => candidatos.findIndex((x) => real(x) === real(c)) === i);
   for (const checkout of checkouts) {
