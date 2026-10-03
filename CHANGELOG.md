@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O `ork portfolio show` deixa de aceitar em silêncio as sobras do `objective`** ([RM-043](docs/roadmap/RM-043-aposentadoria.md)):
+  a ajuda ainda listava `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`
+  sob `portfolio show`, herança do `objective` aposentado na I-43, e o comando as aceitava e ignorava. Elas saem da
+  ajuda e recusam com `portfolio.opcao-aposentada` (saída 2), apontando `ork thread new --exige-runtime-diferente` e
+  `--done`, como a recusa `objective.aposentado`.
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,
   `experiencia`, `mcp`, `docs verificar`, os novos `sessions` e várias opções que o binário já aceitava; o exemplo do
