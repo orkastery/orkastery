@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:48:20.622Z",
+  "publicadoEm": "2026-10-03T03:49:23.689Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -49,6 +49,23 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm037suitelo",
+      "nome": "RM-037: suíte local com skip tipado sem as dependências opcionais",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-037",
+      "branch": "ork/ork-rm037suitelo-full",
+      "atualizadaEm": "2026-10-03T03:49:21.472Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
