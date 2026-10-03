@@ -5,19 +5,21 @@
  * deterministicos. Esta busca e superficie separada e todo resultado sai com
  * `deterministico: false`.
  *
- * O universo e o export governado do tenant (filtro de injecao e visibilidade da biblioteca):
+ * O universo e o universo da busca do tenant (RM-038: `universoDaBusca`, o mesmo do indice e do
+ * status, com a governanca da biblioteca aplicada na ponte):
  *  - vetor: cosseno da consulta contra o indice local do MESMO modelo e dimensao, so para
  *    entradas com sha256 coerente; nunca compara vetores de espacos diferentes;
- *  - FTS: `search_by_text` da biblioteca, filtrado por tenant na ponte e intersectado aqui;
+ *  - FTS: `search_by_text` da biblioteca, restrito ao universo na ponte e intersectado aqui (id
+ *    fora do universo e descartado e declarado, nunca em silencio);
  *  - fusao: RRF com k = 60.
  * A cadeia do vetor e primario, fallback local, nenhum; sem vetor, cai para FTS com motivo tipado.
  */
 
 import {
-  AlvoDeEmbedding, arquivoDoIndice, codigoDeEmbedding, Embeddar, espacoDoAlvo, impressaoDaBase, lerIndice,
+  AlvoDeEmbedding, arquivoDoIndice, codigoDeEmbedding, conferirUniverso, Embeddar, espacoDoAlvo, impressaoDaBase, lerIndice,
   vetoresCoerentes,
 } from './indice-vetorial';
-import { ConfigDeEmbedding, EntradaDeMemoria, MotivoDeEmbeddings } from './types';
+import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria, MotivoDeEmbeddings, UniversoDaBusca } from './types';
 
 export type ModoDeBusca = 'hibrido' | 'vetor' | 'fts';
 export type OrigemDaBusca = 'primario' | 'fallback' | 'fts' | 'nenhum';
@@ -48,6 +50,10 @@ export interface ResultadoDaBuscaSemantica {
   detalhe: string;
   resultados: ResultadoDaBusca[];
   listas: { vetor: string[]; fts: string[] };
+  /** RM-038: ids do FTS fora do universo da busca, descartados e declarados no detalhe. */
+  ftsForaDoUniverso: number;
+  /** RM-038: vetores coerentes do indice usado contra as entradas buscadas; null sem lado vetorial. */
+  coberturaDoIndice: { coerentes: number; universo: number } | null;
 }
 
 export interface OpcoesDaBusca {
@@ -55,8 +61,9 @@ export interface OpcoesDaBusca {
   tenant: string;
   dsn: string;
   config: ConfigDeEmbedding;
-  /** Universo governado do tenant (ja restrito a colecao, quando pedida). */
-  universo: EntradaDeMemoria[];
+  /** RM-038: o universo da busca inteiro, de `universoDaBusca`; a colecao pedida restringe aqui. */
+  universo: UniversoDaBusca;
+  colecao?: ColecaoDoOrk;
   texto: string;
   modo: ModoDeBusca;
   limite: number;
@@ -85,8 +92,8 @@ export function fundirRrf(listas: string[][], k: number = RRF_K): Map<string, nu
 const resumo = (conteudo: string): string => conteudo.split('\n')[0].slice(0, 100);
 
 /** Lado vetorial: o primeiro caminho da cadeia que tem indice, responde e fala o mesmo espaco. */
-function ladoVetorial(o: OpcoesDaBusca): { alvo: AlvoDeEmbedding | null; modelo: string | null; ranking: { id: string; sim: number }[];
-  motivo: MotivoDeEmbeddings | null; detalhes: string[] } {
+function ladoVetorial(o: OpcoesDaBusca, entradas: EntradaDeMemoria[]): { alvo: AlvoDeEmbedding | null; modelo: string | null;
+  ranking: { id: string; sim: number }[]; motivo: MotivoDeEmbeddings | null; detalhes: string[] } {
   const detalhes: string[] = [];
   let motivo: MotivoDeEmbeddings | null = null;
   const falhar = (alvo: AlvoDeEmbedding, m: MotivoDeEmbeddings, d: string) => {
@@ -119,7 +126,7 @@ function ladoVetorial(o: OpcoesDaBusca): { alvo: AlvoDeEmbedding | null; modelo:
       continue;
     }
     if (resposta.truncados?.length) detalhes.push(`${alvo}: consulta acima do contexto do modelo, embedada pelo comeco`);
-    const ranking = [...vetoresCoerentes(lido.indice, o.universo)]
+    const ranking = [...vetoresCoerentes(lido.indice, entradas)]
       .map(([id, v]) => ({ id, sim: cosseno(vetor, v) }))
       .sort((a, b) => b.sim - a.sim || a.id.localeCompare(b.id));
     return { alvo, modelo: espaco.modelo, ranking, motivo, detalhes };
@@ -129,14 +136,19 @@ function ladoVetorial(o: OpcoesDaBusca): { alvo: AlvoDeEmbedding | null; modelo:
 
 /** `ork memory search --texto`: ranking hibrido, nunca deterministico, sempre dentro do tenant. */
 export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantica {
-  const universo = o.universo.filter(e => (e.tags.project ?? []).includes(o.tenant));
+  // RM-038 (D6): entrada alheia no universo e violacao antes de embedar a consulta, nunca descarte.
+  if (o.universo.tenant !== o.tenant) throw new Error('memory.query.scope-violation');
+  conferirUniverso(o.universo.entradas, o.tenant);
+  const doUniverso = new Set(o.universo.entradas.map(e => e.id));
+  const universo = o.colecao ? o.universo.entradas.filter(e => e.collection === o.colecao) : o.universo.entradas;
   const porId = new Map(universo.map(e => [e.id, e]));
   const saida: ResultadoDaBuscaSemantica = { texto: o.texto, modo: o.modo, origem: 'nenhum', modeloUsado: null,
-    deterministico: false, motivo: null, detalhe: '', resultados: [], listas: { vetor: [], fts: [] } };
+    deterministico: false, motivo: null, detalhe: '', resultados: [], listas: { vetor: [], fts: [] },
+    ftsForaDoUniverso: 0, coberturaDoIndice: null };
   const detalhes: string[] = [];
   let similaridade = new Map<string, number>();
   if (o.modo !== 'fts') {
-    const v = ladoVetorial({ ...o, universo });
+    const v = ladoVetorial(o, universo);
     detalhes.push(...v.detalhes);
     saida.motivo = v.motivo;
     if (v.alvo) {
@@ -145,19 +157,29 @@ export function buscarPorSignificado(o: OpcoesDaBusca): ResultadoDaBuscaSemantic
       const candidatos = v.ranking.slice(0, CANDIDATOS_DO_VETOR);
       saida.listas.vetor = candidatos.map(c => c.id);
       similaridade = new Map(candidatos.map(c => [c.id, c.sim]));
+      // RM-038 (D7): o vetor so ranqueia o que o indice cobre; menos que o universo e dito aqui.
+      saida.coberturaDoIndice = { coerentes: v.ranking.length, universo: universo.length };
+      if (v.ranking.length < universo.length) {
+        detalhes.push(`vetor: o indice cobre ${v.ranking.length} de ${universo.length} entrada(s) do universo da busca; rode ork memory index`);
+      }
     }
   }
   if (o.modo !== 'vetor') {
+    let ftsFalhou = false;
     try {
       if (!o.buscarTexto) throw new Error('memory.transport.fts');
-      // A ponte ja filtra o tenant; a intersecao com o universo governado vale de novo aqui.
-      saida.listas.fts = [...new Set(o.buscarTexto(o.tenant, o.texto))].filter(id => porId.has(id));
+      // A ponte ja restringe ao universo; a intersecao vale de novo aqui e o que sobra e declarado (D5).
+      const ids = [...new Set(o.buscarTexto(o.tenant, o.texto))];
+      saida.ftsForaDoUniverso = ids.filter(id => !doUniverso.has(id)).length;
+      if (saida.ftsForaDoUniverso) detalhes.push(`fts: ${saida.ftsForaDoUniverso} id(s) fora do universo da busca descartado(s)`);
+      saida.listas.fts = ids.filter(id => porId.has(id));
     } catch (erro) {
+      ftsFalhou = true;
       const codigo = /^[a-z]+(?:\.[a-z-]+)+/.exec(erro instanceof Error ? erro.message : '')?.[0] ?? 'memory.transport.fts';
       detalhes.push(`fts: ${codigo}`);
       if (o.modo === 'fts' || saida.origem === 'nenhum') saida.motivo = saida.motivo ?? codigo;
     }
-    if (saida.origem === 'nenhum' && !detalhes.some(d => d.startsWith('fts:'))) saida.origem = 'fts';
+    if (saida.origem === 'nenhum' && !ftsFalhou) saida.origem = 'fts';
   }
   const scores = fundirRrf([saida.listas.vetor, saida.listas.fts]);
   saida.resultados = [...scores]

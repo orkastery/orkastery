@@ -1329,8 +1329,14 @@ export interface EstadoDeEmbeddings {
   indices: IndiceDeEmbeddings[];
   /** Entradas do tenant nas colecoes do ork; null fora do `memory status`. */
   entradas: number | null;
-  /** Coerentes do indice ativo / entradas do tenant; null fora do `memory status`. */
+  /** Coerentes do indice ativo / entradas do universo da busca; null fora do `memory status`. */
   cobertura: number | null;
+  /** RM-038: o universo da busca por colecao e o que fica fora dele; null sem leitura do universo. */
+  universo: { porColecao: Record<ColecaoDoOrk, number>; foraDaBusca: ForaDaBusca | null } | null;
+  /** RM-038: o indice ativo cobre menos que o universo da busca; null quando cobre tudo ou sem universo. */
+  aviso: string | null;
+  /** RM-038: codigo tipado quando o universo nao foi lido inteiro (a cobertura fica null, nunca inventada). */
+  falhaDoUniverso: string | null;
   ativo: 'primario' | 'fallback' | 'nenhum';
   /** true quando o estado veio da operacao `health` da ponte, nao de suposicao. */
   sondado: boolean;

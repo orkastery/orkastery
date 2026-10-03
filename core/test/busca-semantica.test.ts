@@ -54,7 +54,7 @@ function cenario(extra: Partial<OpcoesDaBusca> = {}) {
   const driver = new DriverEmMemoria(MEMORIA());
   // A busca por tag (export governado filtrado pelo ork) segue como era: o universo vem da operacao `universo`.
   const fonte = { buscar: (q: ConsultaPorTag) => filtrarPorTags(driver.exportar(q.collection!), q) };
-  const universo = universoDaBusca(driver, 'fabrica').entradas;
+  const universo = universoDaBusca(driver, 'fabrica');
   const indexarCom = (config: ConfigDeEmbedding, alvo: 'primario' | 'fallback', env?: NodeJS.ProcessEnv) =>
     indexar({ raiz, tenant: 'fabrica', dsn: '', config, alvo, universo, dryRun: false, chavePresente: true, embeddar: conceitual, env });
   const opcoes = (o: Partial<OpcoesDaBusca> = {}): OpcoesDaBusca => ({ raiz, tenant: 'fabrica', dsn: '', config: CONFIG,
@@ -105,11 +105,15 @@ test('resultado nunca traz entrada de outro tenant, nem vinda do FTS nem do univ
   try {
     c.indexarCom(CONFIG, 'primario');
     const alheia = MEMORIA()[3];
-    const r = buscarPorSignificado(c.opcoes({ universo: [...c.universo, alheia],
-      buscarTexto: () => ['alheia', 'rot'], texto: 'rotacao conta cota' }));
+    // RM-038: id alheio vindo do FTS e descartado e declarado; entrada alheia no universo e violacao.
+    const r = buscarPorSignificado(c.opcoes({ buscarTexto: () => ['alheia', 'rot'], texto: 'rotacao conta cota' }));
     const ids = [...r.resultados.map(e => e.id), ...r.listas.fts, ...r.listas.vetor];
     assert.ok(!ids.includes('alheia'));
     assert.ok(ids.includes('rot'));
+    assert.equal(r.ftsForaDoUniverso, 1);
+    assert.match(r.detalhe, /fts: 1 id\(s\) fora do universo da busca descartado\(s\)/);
+    assert.throws(() => buscarPorSignificado(c.opcoes({ universo: { ...c.universo, entradas: [...c.universo.entradas, alheia] } })),
+      /memory\.query\.scope-violation/);
   } finally { c.limpar(); }
 });
 

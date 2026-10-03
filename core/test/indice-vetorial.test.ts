@@ -30,7 +30,7 @@ function cenario(entradas: EntradaDeMemoria[]) {
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-indice-'));
   const driver = new DriverEmMemoria(entradas);
   const opcoes = (extra: Partial<OpcoesDoIndice> = {}): OpcoesDoIndice => ({ raiz, tenant: 'fabrica', dsn: DSN,
-    config: CONFIG, alvo: 'primario', universo: universoDaBusca(driver, 'fabrica').entradas, dryRun: false,
+    config: CONFIG, alvo: 'primario', universo: universoDaBusca(driver, 'fabrica'), dryRun: false,
     chavePresente: true, embeddar: p => driver.embeddar(p), ...extra });
   return { raiz, driver, opcoes, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
 }
@@ -78,12 +78,17 @@ test('entrada de outro tenant nunca chega ao embed', () => {
   const alheia = entrada('x1', 'decision', 'Segredo comercial de outro produto', 'outro-produto');
   const c = cenario([...BASICO(), alheia]);
   try {
-    // Mesmo que o chamador entregue a entrada alheia no universo, o indexador filtra de novo.
-    const r = indexar(c.opcoes({ universo: [...universoDaBusca(c.driver, 'fabrica').entradas, alheia] }));
-    assert.equal(r.universo, 3);
+    // RM-038: o universo da busca nunca traz a alheia; se um chamador a puser a mao, o indexador
+    // recusa com a falha tipada antes de qualquer pedido de embed (antes, filtrava em silencio).
+    const universo = universoDaBusca(c.driver, 'fabrica');
+    assert.ok(!universo.entradas.some(e => e.id === 'x1'));
+    assert.equal(indexar(c.opcoes({ universo })).universo, 3);
+    const antes = c.driver.pedidosDeEmbedding.length;
+    assert.throws(() => indexar(c.opcoes({ universo: { ...universo, entradas: [...universo.entradas, alheia] } })),
+      /memory\.query\.scope-violation/);
+    assert.equal(c.driver.pedidosDeEmbedding.length, antes, 'nenhum pedido de embed com a alheia');
     const enviados = c.driver.pedidosDeEmbedding.flatMap(p => p.textos);
     assert.ok(!enviados.some(t => t.includes('outro produto')));
-    assert.ok(!universoDaBusca(c.driver, 'fabrica').entradas.some(e => e.id === 'x1'));
   } finally { c.limpar(); }
 });
 
@@ -92,7 +97,7 @@ test('conteudo alterado reembeda so aquela entrada e entrada removida sai do ind
   try {
     indexar(c.opcoes());
     const mudou = [entrada('d1', 'decision', 'Rotacao de conta: texto revisado'), BASICO()[1]];
-    const r = indexar(c.opcoes({ universo: mudou }));
+    const r = indexar(c.opcoes({ universo: universoDaBusca({ universo: () => ({ entradas: mudou, foraDaBusca: null }) }, 'fabrica') }));
     assert.equal(r.embedados, 1);
     assert.equal(r.reescritos, 1);
     assert.equal(r.removidos, 1);

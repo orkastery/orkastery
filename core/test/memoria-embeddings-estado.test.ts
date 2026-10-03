@@ -126,7 +126,7 @@ test('chave presente sem indice pede ork memory index; com indice o primario fic
       assert.equal(antes.motivo, 'embeddings.indice-ausente');
       const memoria = abrirMemoria(m.carregado, { driver });
       const r = indexar({ raiz: m.raiz, tenant: 'fabrica', dsn: '', config: m.carregado.manifesto.memory.embedding!,
-        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica').entradas, dryRun: false, chavePresente: true,
+        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica'), dryRun: false, chavePresente: true,
         embeddar: p => driver.embeddar(p) });
       assert.equal(r.embedados, 3);
       const depois = abrirMemoria(m.carregado, { driver, embeddings: 'detalhado' }).estado.embeddings!;
@@ -146,7 +146,7 @@ test('cobertura cai quando o conteudo muda e o texto do status nunca imprime o v
     comAmbiente({ [CHAVE]: VALOR }, () => {
       const memoria = abrirMemoria(m.carregado, { driver });
       indexar({ raiz: m.raiz, tenant: 'fabrica', dsn: '', config: m.carregado.manifesto.memory.embedding!,
-        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica').entradas, dryRun: false, chavePresente: true,
+        alvo: 'primario', universo: universoDaBusca(memoria, 'fabrica'), dryRun: false, chavePresente: true,
         embeddar: p => driver.embeddar(p) });
       base[0].content = 'Rotacao de conta: conteudo revisado depois do indice';
       const estado = abrirMemoria(m.carregado, { driver, embeddings: 'detalhado' }).estado;

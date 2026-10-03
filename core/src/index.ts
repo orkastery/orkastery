@@ -147,7 +147,7 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDaBusca } from './indice-vetorial';
+import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
 import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
@@ -215,7 +215,7 @@ import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
+import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { gravarBaseline, textoDoVerify, verificar } from './verify';
 import {
   auditarWorktree,
@@ -3679,7 +3679,15 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDaBusca(memoria, memoria.estado.tenant).entradas;
+    // RM-038: o universo da busca inteiro, numa leitura; sem ele, nada e embedado (nunca um pedaco).
+    let universo: UniversoDaBusca;
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
+      const motivo = codigoDaFalha(erro);
+      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
+      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      return 1;
+    }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3730,15 +3738,24 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   const memoria = abrirMemoria(carregado);
   const config = configDeEmbedding(carregado.manifesto);
   let r: ResultadoDaBuscaSemantica;
+  const vazio = { texto: frase, modo, origem: 'nenhum' as const, modeloUsado: null, deterministico: false as const,
+    resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0, coberturaDoIndice: null };
+  let universo: UniversoDaBusca | null = null;
+  let falhaDoUniverso = '';
+  if (memoria.ativo) {
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) { falhaDoUniverso = codigoDaFalha(erro); }
+  }
   if (!memoria.ativo) {
-    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
-      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+    r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
+  } else if (!universo) {
+    // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDaBusca(memoria, memoria.estado.tenant).entradas.filter(e => !colecao || e.collection === colecao),
+      universo, colecao: colecao as ColecaoDoOrk | undefined,
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
@@ -3759,21 +3776,6 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   console.log('');
   console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
   return 0;
-}
-
-/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
-function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
-  return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
-  ].join('\n');
 }
 
 /**

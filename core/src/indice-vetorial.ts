@@ -75,6 +75,9 @@ export interface ResultadoDoIndice {
   arquivo: string | null;
   dryRun: boolean;
   universo: number;
+  /** RM-038: o universo da busca por colecao e o que fica fora dele (isso nunca vai ao embed). */
+  porColecao: Record<ColecaoDoOrk, number>;
+  foraDaBusca: ForaDaBusca | null;
   coerentes: number;
   embedados: number;
   reescritos: number;
@@ -258,7 +261,8 @@ export interface OpcoesDoIndice {
   dsn: string;
   config: ConfigDeEmbedding;
   alvo: AlvoDeEmbedding;
-  universo: EntradaDeMemoria[];
+  /** RM-038: o universo da busca de `universoDaBusca`, o mesmo da busca e do status. */
+  universo: UniversoDaBusca;
   dryRun: boolean;
   chavePresente: boolean;
   /** A variavel existe, mas o valor foi recusado (URL, DSN ou texto com espaco). */
@@ -275,13 +279,18 @@ export interface OpcoesDoIndice {
  * que ja voltaram, porque cada vetor gravado e coerente por si.
  */
 export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
+  // RM-038 (D6): conferir de novo antes de qualquer coisa; nada de outro tenant vai ao embed, nem de
+  // um chamador que montou o universo a mao. Violacao falha alto, nunca vira descarte silencioso.
+  if (o.universo.tenant !== o.tenant) throw new Error('memory.query.scope-violation');
+  conferirUniverso(o.universo.entradas, o.tenant);
   const espaco = espacoDoAlvo(o.config, o.alvo, o.env);
-  const universo = o.universo.filter(e => (e.tags.project ?? []).includes(o.tenant));
+  const universo = o.universo.entradas;
   const foraDoLimite = universo.filter(e => e.content.length > EMBED_MAX_CARACTERES);
   const recusados = universo.filter(e => e.content.length <= EMBED_MAX_CARACTERES && conteudoRecusado(e.content));
   const indexaveis = universo.filter(e => e.content.length <= EMBED_MAX_CARACTERES && !conteudoRecusado(e.content) && e.content.trim());
   const base: ResultadoDoIndice = { alvo: o.alvo, modelo: null, dim: null, arquivo: null, dryRun: o.dryRun,
-    universo: universo.length, coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
+    universo: universo.length, porColecao: { ...o.universo.porColecao }, foraDaBusca: o.universo.foraDaBusca,
+    coerentes: 0, embedados: 0, reescritos: 0, removidos: 0, recusados: recusados.length,
     foraDoLimite: foraDoLimite.length, truncados: 0, tokensEstimados: 0, custoEstimadoUsd: 0, chamadasAoProvider: 0, motivo: null, detalhe: '' };
   if ('motivo' in espaco) {
     const tokens = indexaveis.reduce((t, e) => t + tokensEstimados(e.content), 0);
@@ -334,6 +343,29 @@ export function indexar(o: OpcoesDoIndice): ResultadoDoIndice {
   r.coerentes = indexaveis.filter(coerente).length;
   if (motivo) return { ...r, motivo, detalhe: `indexacao interrompida depois de ${r.embedados} vetor(es); os lotes concluidos ficaram gravados` };
   return r;
+}
+
+/** RM-038: a linha do que fica fora da busca, a mesma no `ork memory index` e no `ork memory status`. */
+export function textoForaDaBusca(f: ForaDaBusca | null): string {
+  return f ? `${f.injecao} com injection_risk, ${f.expiradas} expirada(s), ${f.outrasColecoes} em colecoes fora do ork ` +
+    '(governanca da biblioteca; nunca vao ao embed)' : 'nao medido nesta base';
+}
+
+/** Texto de `ork memory index`: de que universo, o que foi (ou seria) embedado e quanto custa estimado. */
+export function textoDoIndice(r: ResultadoDoIndice): string {
+  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
+  const colecoes = Object.entries(r.porColecao).map(([c, n]) => `${c} ${n}`).join(', ');
+  return [
+    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
+    `  universo da busca    ${r.universo} entrada(s): ${colecoes}; coerentes ${r.coerentes}`,
+    `  fora da busca        ${textoForaDaBusca(r.foraDaBusca)}`,
+    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
+    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
+    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
+    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
+    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
+    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
+  ].join('\n');
 }
 
 /** Vetores coerentes de um indice para o universo informado: a base da busca e da cobertura. */
