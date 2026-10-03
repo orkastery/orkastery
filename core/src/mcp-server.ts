@@ -340,7 +340,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       paths:z.array(z.string().min(1).max(512)).min(1).max(32),mensagem:z.string().trim().min(1).max(2048)}).strict(),
     annotations:{readOnlyHint:false,destructiveHint:false}},async(args,extra)=>{
       thread(args.threadId);livre(args.threadId);
-      const r=await commitMcp(raiz,args,extra.signal);return {...resposta(r),...(r.ok?{}:{isError:true})};
+      const r=await commitMcp(raiz,args,extra.signal,opcoes.dispatchId);return {...resposta(r),...(r.ok?{}:{isError:true})};
     });
   const documento=daThread.extend({tipo:z.enum(['goal','plan','check'])}).strict();
   registrarTool('ork_artifact_read',{description:'Le documento GOAL, PLAN ou CHECK da thread, com hash para revisao; nao le caminhos arbitrarios.',

@@ -397,6 +397,7 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         if (e.tipo !== 'mcp_git_committed' || e.thread !== thread.id || e.origem !== 'mcp.git' ||
             e.estadoAuditado !== true || typeof e.commit !== 'string' || !/^[a-f0-9]{40}$/.test(e.commit) ||
             (e.sessionId !== undefined && e.sessionId !== sessionId) ||
+            (e.despachoEm !== undefined && e.despachoEm !== sessao.despachadaEm) ||
             quando > now || quando <= cursor.progressoEm) continue;
         cresceu = true;
         cursor.crescimentoEm = Math.max(cursor.crescimentoEm, quando);

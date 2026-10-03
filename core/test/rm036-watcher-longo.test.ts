@@ -67,7 +67,8 @@ function fixture(teste: TestContext, opcoes: { worktree?: boolean; baseMs?: numb
     cwd, criadoEm: new Date(baseMs).toISOString() });
   escrever('process-launch.json', { instancia: INSTANCIA, pid: controller.pid, processoController: controller });
   escrever('state.json', state);
-  registrar(dir, t.id, 'phase_dispatch', { ts: despachadaEm, sessionId: SID, controlador, cwd, fase: 'GO', promptSha256 });
+  registrar(dir, t.id, 'phase_dispatch', { ts: despachadaEm, sessionId: SID, controlador, cwd, fase: 'GO', promptSha256,
+    identidade: { dispatchId: INSTANCIA } });
   registrar(dir, t.id, 'session_sensor_registered', { sessionId: SID, despachoEm: despachadaEm, controlador, cwd });
   const evento = (ms: number, payload: unknown) => {
     fs.appendFileSync(roll, linha({ type: 'event_msg', timestamp: new Date(baseMs + ms).toISOString(), payload }));
@@ -97,17 +98,21 @@ test(`RM036: commit ${transporte} mantém Codex vivo com rollout parado além de
     fs.writeFileSync(path.join(p.t.worktree!, arquivo), 'produção da fixture\n');
     adicionarClaim(p.dir, p.t.id, { arquivo, fase: 'GO', alegacao: 'produto da fixture', verificar: ['true'] });
     const head = estadoGitMcp(p.dir, p.t.id).source.head;
-    const commit = await commitMcp(p.dir, { threadId: p.t.id, expectedHead: head, paths: [arquivo], mensagem: 'produto da fixture' });
+    const commit = await commitMcp(p.dir, { threadId: p.t.id, expectedHead: head, paths: [arquivo], mensagem: 'produto da fixture' },
+      undefined, INSTANCIA);
     assert.equal(commit.ok, true, commit.erro ?? '');
     sha = commit.commit!;
   } else {
     sha = 'b'.repeat(40);
     registrar(p.dirEstado, p.t.id, 'mcp_git_committed', { ts: new Date(p.baseMs + 500000).toISOString(),
-      commit: sha, paths: ['produto-fixture.txt'], origem: 'mcp.git', estadoAuditado: true });
+      commit: sha, paths: ['produto-fixture.txt'], origem: 'mcp.git', estadoAuditado: true,
+      sessionId: SID, despachoEm: p.t.sessoes[0].despachadaEm });
   }
   const recibo = p.eventos().find(e => e.tipo === 'mcp_git_committed')!;
   assert.equal(recibo.commit, sha);
   assert.equal(recibo.estadoAuditado, true);
+  assert.equal(recibo.sessionId, SID);
+  assert.equal(recibo.despachoEm, p.t.sessoes[0].despachadaEm);
   const commitMs = Date.parse(recibo.ts) - p.baseMs;
   assert.ok(commitMs < LIMITE_MORTE_MS);
   assert.equal(p.run(600999).concluido, false);
@@ -124,7 +129,31 @@ test(`RM036: commit ${transporte} mantém Codex vivo com rollout parado além de
 });
 }
 
-for (const caso of ['expirou', 'sem-auditoria', 'outra-sessao', 'outra-thread', 'outra-origem', 'sha-invalido',
+for (const contexto of ['ausente', 'invalido'] as const) {
+  test(`RM036: MCP-real não inventa sessão com despacho ${contexto}`, async t => {
+    const p = fixture(t, { worktree: true });
+    const arquivo = 'produto-fixture.txt';
+    fs.writeFileSync(path.join(p.t.worktree!, arquivo), 'produto\n');
+    adicionarClaim(p.dir, p.t.id, { arquivo, fase: 'GO', alegacao: 'produto da fixture', verificar: ['true'] });
+    const head = estadoGitMcp(p.dir, p.t.id).source.head;
+    const r = await commitMcp(p.dir, { threadId: p.t.id, expectedHead: head, paths: [arquivo], mensagem: 'produto da fixture' },
+      undefined, contexto === 'invalido' ? '00000000-0000-0000-0000-000000000000' : undefined);
+    const recibos = p.eventos().filter(e => e.tipo === 'mcp_git_committed');
+    if (contexto === 'invalido') {
+      assert.equal(r.ok, false);
+      assert.equal(r.erro, 'mcp.git.session.invalid');
+      assert.equal(estadoGitMcp(p.dir, p.t.id).source.head, head);
+      assert.equal(recibos.length, 0);
+    } else {
+      assert.equal(r.ok, true, r.erro ?? '');
+      assert.equal(recibos.length, 1);
+      assert.equal(recibos[0].sessionId, undefined);
+      assert.equal(recibos[0].despachoEm, undefined);
+    }
+  });
+}
+
+for (const caso of ['expirou', 'sem-auditoria', 'outra-sessao', 'outro-despacho', 'outra-thread', 'outra-origem', 'sha-invalido',
   'futuro', 'antes-do-despacho', 'depois-de-outro-despacho', 'runtime-ausente', 'controller-ausente', 'terminal-nativo'] as const) {
   test(`RM036: commit não oculta silêncio nem lacuna de prova (${caso})`, async t => {
     const p = fixture(t);
@@ -146,7 +175,8 @@ for (const caso of ['expirou', 'sem-auditoria', 'outra-sessao', 'outra-thread', 
       ts: new Date(BASE + (caso === 'futuro' ? 900000 : caso === 'antes-do-despacho' ? 0 : 500000)).toISOString(),
       origem: caso === 'outra-origem' ? 'agente' : 'mcp.git', estadoAuditado: caso !== 'sem-auditoria',
       commit: caso === 'sha-invalido' ? 'invalido' : 'b'.repeat(40),
-      ...(caso === 'outra-sessao' ? { sessionId: 'outra-sessao' } : {}) });
+      sessionId: caso === 'outra-sessao' ? 'outra-sessao' : SID,
+      despachoEm: caso === 'outro-despacho' ? new Date(BASE).toISOString() : p.t.sessoes[0].despachadaEm });
     const ms = caso === 'expirou' ? 1100000 : 601000;
     assert.equal(p.run(ms - 1).concluido, false);
     assert.equal(p.run(ms).classificacao, 'gate_blocked');
