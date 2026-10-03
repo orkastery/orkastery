@@ -2062,6 +2062,9 @@ function comandoShip(args: Args): number {
     console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
     return 2;
   }
+  // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
+  // e `--remoto` sem valor nao vira `origin` em silencio.
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
   const r = ship(carregado, id, {
     para,
