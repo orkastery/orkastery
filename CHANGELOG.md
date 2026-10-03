@@ -36,6 +36,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Segurança
 
+- **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  o valor passa pelo mesmo validador; fora do formato, `ork ship <thread> --para <branch>` recusa com
+  `ship.remoto-invalido` antes de qualquer git, na CLI e na API. Antes, com o gate de CI desligado, o valor ia cru ao
+  `git remote get-url`, ao `git ls-remote` e ao `git push`, e um remoto inválido virava "remoto não configurado": o ship
+  entregava com merge local e sem push provado. O `ls-remote`, o `remote get-url` e o `push` recebem `--` antes do
+  remoto, o merge usa o sha verificado de `--de` (nome de branch nunca vira opção do `git merge`) e a leitura dos PRs do
+  pulse só leva nome de remoto ao git.
 - **`--remoto` de `ork ship registrar-pr` e de `ork ci status` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   o valor passa pelo mesmo validador do remoto da fábrica; fora do formato, `ork ship registrar-pr` (com a thread ou
   `--todas`) recusa com `ship.remoto-invalido` e `ork ci status` com `ci.remoto-invalido`, sem nada passado ao git nem
