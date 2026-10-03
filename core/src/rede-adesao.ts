@@ -123,6 +123,8 @@ export function lerIdDaMaquina(): string | null {
  * U6 da revisao 3: sem arquivo, `link` de um temporario cria so se nao existe (atomico).
  * V5 da revisao 4: arquivo ruim e trocado por um id DERIVADO dele, o mesmo para todo processo que o
  * viu. W7 e W8 da revisao 5: nenhum caminho expoe arquivo vazio, e link pendurado tambem e trocado.
+ * X6 do CHECK 6: sem hard link, e na troca do arquivo ruim, o id vem de uma reserva (`idReservado`),
+ * igual para todo host que divide a pasta; o derivado so fica para quando a reserva falha.
  * Todo caminho devolve o que ficou gravado, nunca o que tentou gravar.
  */
 export function idDaMaquina(): string {
@@ -168,10 +170,34 @@ function criarId(arquivo: string): void {
     if (!SEM_HARD_LINK.has(codigo)) throw e;
   } finally { fs.rmSync(temporario, { force: true }); }
   // W7 da revisao 5: sistema de arquivos sem hard link (vboxsf, alguns FUSE e SMB). Nada de arquivo
-  // vazio nem de espera por relogio: o id DERIVADO da pasta e do boot, o mesmo para todo processo
-  // desta maquina agora, gravado inteiro por `rename`.
+  // vazio nem de espera por relogio. X6 do CHECK 6: o id sai da reserva, o mesmo para todo processo
+  // de todo host que divide a pasta; so se a reserva falhar, o id DERIVADO da pasta e do boot.
+  const reservado = idReservado('maquina-id.reserva');
+  if (reservado) return trocarPor(arquivo, reservado);
   const pasta = fs.statSync(pastaDoUsuario(), { bigint: true });
   trocarPor(arquivo, idDerivado(['novo', pasta.dev, pasta.ino]));
+}
+
+/**
+ * X6 do CHECK 6: cria-se-ausente sem hard link, sem relogio e sem arquivo vazio. A pasta temporaria
+ * ganha o id inteiro antes do `rename`; `rename` de pasta sobre pasta NAO vazia falha (ENOTEMPTY ou
+ * EEXIST no POSIX, EPERM no Windows), entao so a primeira entra, e todo processo, de qualquer host ou
+ * conteiner que divida `~/.orkastery`, le dela o mesmo id. A reserva fica: e ela que responde ao lento.
+ * Clones de uma imagem (W6) tem disco proprio e criam cada um a sua. Qualquer falha devolve `null`, e
+ * quem chamou usa o id derivado de antes.
+ */
+function idReservado(nome: string): string | null {
+  const reserva = path.join(pastaDoUsuario(), nome);
+  const jaReservado = lerId(path.join(reserva, 'id'));
+  if (jaReservado) return jaReservado;
+  const temporaria = path.join(pastaDoUsuario(), `.${nome}.${process.pid}.${randomUUID()}.tmp`);
+  try {
+    fs.mkdirSync(temporaria, { mode: 0o700 });
+    fs.writeFileSync(path.join(temporaria, 'id'), randomUUID(), { mode: 0o600 });
+    fs.renameSync(temporaria, reserva);
+  } catch { /* outro entrou antes (ou a pasta recusa): vale o que estiver na reserva */ }
+  finally { fs.rmSync(temporaria, { recursive: true, force: true }); }
+  return lerId(path.join(reserva, 'id'));
 }
 
 /** O arquivo ruim (vazio, corrompido, link pendurado) vira o id derivado dele; o que mudou no meio, quem chamou rele. */
@@ -198,7 +224,11 @@ function trocarIdInvalido(arquivo: string, st: fs.BigIntStats): void {
   } else {
     throw new Error(`rede.id: ${arquivo} nao e um arquivo; apague-o e rode de novo`);
   }
-  trocarPor(arquivo, idDerivado([createHash('sha256').update(conteudo).digest('hex'), st.dev, st.ino, st.mtimeNs, st.size]));
+  // X6 do CHECK 6: a reserva da troca e chaveada pelo que todo host ve igual do arquivo ruim (conteudo,
+  // tamanho e hora); `dev` e local a cada host e fica so no id derivado, o caminho de quando a reserva falha.
+  const sha = createHash('sha256').update(conteudo).digest('hex');
+  const chave = createHash('sha256').update([sha, st.size, st.mtimeNs].join('\0')).digest('hex').slice(0, 32);
+  trocarPor(arquivo, idReservado(`maquina-id.troca-${chave}`) ?? idDerivado([sha, st.dev, st.ino, st.mtimeNs, st.size]));
 }
 
 /**

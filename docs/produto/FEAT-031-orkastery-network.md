@@ -91,7 +91,7 @@ fontes:
 
 - **Entidades e campos:**
   - `~/.orkastery/rede.json` (`ork.rede/v1`): adesão e casa;
-  - `~/.orkastery/maquina-id`: o identificador desta instalação, fora da pasta de cache (aleatório quando criado; derivado do arquivo ruim, da pasta e do boot quando precisa ser trocado);
+  - `~/.orkastery/maquina-id`: o identificador desta instalação, fora da pasta de cache (aleatório quando criado; sem hard link, ou na troca do arquivo ruim, aleatório numa reserva `maquina-id.reserva/` ou `maquina-id.troca-<chave>/`, igual para todo host que divide a pasta; derivado do arquivo ruim, da pasta e do boot só se a reserva falhar);
   - `maquinas/<maquina>.json` (`ork.rede-maquina/v1`): máquina, `id`, hostname, forjas com o login, runtimes e hosts com versão, projetos com remoto sem credencial e caminho, versão do `ork` e batida;
   - `ork network status --json` (`ork.rede-status/v1`): casa, esta máquina, fontes, membros, lacunas e o que não foi consultado.
 - **APIs e endpoints:** a API da forja pela CLI dela, sempre com o host da casa: `gh api --hostname` e `glab api --hostname`; o git por HTTPS, autenticado pelo helper da própria CLI.
@@ -117,3 +117,4 @@ fontes:
 | 2026-09-30 | revista com o GO-FIX 5: o escritor usa o predicado de projeto do leitor, o `id` com cabeçalho prende o nome, cada valor do texto numa linha | Claude (agente) / Julio, revisão pendente | parecer do CHECK 5 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 6: invisível pelas classes do Unicode, nome sem `://`, o id derivado descrito | Claude (agente) / Julio, revisão pendente | parecer do CHECK 6 da thread `ork-rm053network` |
 | 2026-09-30 | revista com o GO-FIX 7: o aviso só do diretório atual, a batida ilegível | Claude (agente) / Julio, revisão pendente | parecer do CHECK 7 da thread `ork-rm053network` |
+| 2026-10-03 | o `id` sem hard link e o da troca do arquivo ruim saem de uma reserva igual entre hosts (X6) | Claude (agente) / Julio, revisão pendente | decisões no ledger da thread `ork-rm053iddains` |
