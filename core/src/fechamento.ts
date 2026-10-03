@@ -7,14 +7,11 @@
  * derruba. Cada parte roda isolada (achado A1 do CHECK 1): erro de E/S numa nao impede a outra, e o
  * que nao saiu agora sai na poda do proximo pedido de regiao ou no `ork roadmap reservas --soltar-orfas`.
  */
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { raizDoEstado } from './estado-thread';
 import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { soltarThreadFechada } from './leases';
 import { ResultadoDaSoltura, soltarReservaDaThread } from './roadmap-reservas';
 import { FantasmaTratado, limparFantasmas, sessoesSemFim } from './sessoes';
-import { dirThread, lerThread } from './thread';
+import { dirThread } from './thread';
 
 export interface SolturaAoFechar {
   /** Leases de escrita soltos (o `exec:` fica com a conducao). */
@@ -32,23 +29,13 @@ export interface SolturaAoFechar {
 export function liberarAoFechar(raiz: string, threadId: string): SolturaAoFechar {
   const saida: SolturaAoFechar = { leases: [], fila: [], reservas: [], sessoes: [], falhas: [] };
   const falhou = (parte: string, e: unknown) => saida.falhas.push(`${parte}: ${(e as Error)?.message ?? String(e)}`);
-  // Os leases de regiao sao por checkout: o de quem fecha, a raiz do projeto e, quando a thread tem
-  // worktree, os pegos de la (sugestao 6 do CHECK 2: fechar da worktree tambem solta os da raiz).
-  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
-  const candidatos = [raiz];
-  try { candidatos.push(raizDoEstado(raiz)); } catch (e) { falhou('raiz', e); }
+  // RM-036 (D6): os leases de regiao moram todos no estado canonico, chamado de qualquer checkout, e a
+  // soltura de la ja alcanca o legado que a versao anterior gravou nas worktrees. Uma soltura basta.
   try {
-    const wt = lerThread(raiz, threadId).worktree;
-    if (wt && fs.existsSync(wt)) candidatos.push(wt);
-  } catch (e) { falhou('thread', e); }
-  const checkouts = candidatos.filter((c, i) => candidatos.findIndex((x) => real(x) === real(c)) === i);
-  for (const checkout of checkouts) {
-    try {
-      const solto = soltarThreadFechada(checkout, threadId, 'fechamento');
-      saida.leases.push(...solto.leases);
-      saida.fila.push(...solto.fila);
-    } catch (e) { falhou(`leases em ${checkout}`, e); }
-  }
+    const solto = soltarThreadFechada(raiz, threadId, 'fechamento');
+    saida.leases.push(...solto.leases);
+    saida.fila.push(...solto.fila);
+  } catch (e) { falhou(`leases em ${raiz}`, e); }
   try { saida.reservas = soltarReservaDaThread(raiz, threadId); } catch (e) { falhou('reserva', e); }
   // RM-056 (ao fechar): a sessao fantasma presa a thread fechada seguia no inventario e no doctor ate
   // alguem rodar `ork sessions limpar-fantasmas` (624f65db e d38ae1d4, 03/10). So consulta o runtime

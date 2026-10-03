@@ -436,8 +436,43 @@ Node 20.19, 22.12 ou mais novo.
 | `ork conducao assumir <thread> --por Q --motivo M [--canal C]` | Handoff: encerra a condução atual pelo runtime, registra quem assumiu, de qual canal e por que, e reserva a vez para esse canal |
 
 Famílias: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
-`service:<porta>` e `exec:<thread>`. A `exec` (I-36) é a condução: protege a **execução** na
-worktree da thread e mora no estado canônico do projeto, e não no checkout de quem chamou.
+`service:<porta>` e `exec:<thread>`. Todas as famílias e a fila por colisão moram no
+estado canônico do projeto: a raiz e as worktrees disputam os mesmos arquivos.
+A `exec` (I-36) é a condução: protege a **execução** na worktree da thread.
+
+O legado válido das famílias antigas só barra enquanto vivo na janela de 30 minutos iniciada
+na primeira consulta desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado` na raiz. Nesse período, `ork lease list` mostra o legado e
+diagnostica arquivos inválidos ou ilegíveis, que não bloqueiam. Depois de encerrada, a janela não reabre
+com arquivos legados novos. O diagnóstico mostra apenas o arquivo e não sugere `release` para legado. Nomes legados
+usam até 200 caracteres do conjunto `A-Za-z0-9._/*?:@+-`, com inicial alfanumérica. Os argumentos dos
+comandos sugeridos usam aspas simples com escape. O prazo admite 1 segundo de tolerância sobre 30 minutos.
+Links simbólicos são ignorados. A fila legada não é lida; a espera se refaz no próximo pedido.
+O legado nunca prova posse canônica para ativar escrita; a própria cópia legada recusa a
+segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
+com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
+O legado nunca é apagado: o descarte grava uma marca `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode ou `ctime` continua visível. O `ctime` usa `ctimeMs` e é conferido novamente antes de gravar a marca. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
+A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`. Toda retomada
+publica um candidato exclusivo com ticket em `<lease>.json.retomadas`, usando `rename` atômico;
+a ordem dos tickets serializa também concorrentes com transportes diferentes. Sob essa exclusão,
+relê o conteúdo, confere dispositivo e inode e só então remove o vencido e cria com `wx`.
+`flock`, quando disponível, acrescenta uma trava no inode antigo. Ausência, bloqueio do spawn,
+timeout ou erro do `flock` usam o caminho portátil. A fila fica em
+`.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato,
+com candidatos regulares de um único vínculo. A pasta vazia é removida com `rmdir`, sem remover
+candidatos concorrentes. `ork lease list` mostra candidatos, PID, ticket, idade e temporários `.json.tmp`.
+A prova de morte por `process.kill(pid, 0)` só vale no mesmo namespace de PID; processos de namespaces
+diferentes não devem compartilhar esta fila. PID reutilizado ou sem permissão de consulta bloqueia
+até o limite de 30 minutos (`TTL_PADRAO_MS`). Candidatos e temporários expirados são recolhidos na próxima
+tentativa, que retorna `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir
+a aquisição, sem apagar o lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes
+do prazo, inclusive JSON parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode
+prosseguir. Dispositivo e inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de
+sistema não constituem um CAS atômico contra escritores externos à exclusão.
+`nlink === 0` significa `lease.busy`, com fila normal e preservação do vencedor. Hard link ou link
+simbólico continuam como `lease.resume-unavailable`, com escalada humana e sem retry automático.
+A correção explícita, após avaliar a posse, é `ork lease release <nome> --forcar`, seguida de nova
+aquisição. Contenção normal do `flock` ou dos tickets continua como `lease.busy`.
+O `ship --dry-run` consulta também o legado válido e vivo durante a janela, sem adquirir o lease.
 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (sem ele, o que o host declara),

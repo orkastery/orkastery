@@ -16,6 +16,7 @@ fontes:
   testes:
     - core/test/worktree.test.ts
     - core/test/leases-b2.test.ts
+    - core/test/rm036-leases-canonicos.test.ts
   simbolos:
     - core/src/worktree.ts#garantirWorktree
     - core/src/leases.ts#adquirirRegiao
@@ -47,13 +48,15 @@ fontes:
 
 - **Alternativas, erros e recuperação:** `ork worktree audit` sai diferente de zero se a worktree divergir do registro.
 - **Pós-condições:** registro da worktree e dos leases em `.orkastery/`.
-- **Regras de negócio:** BR-007-01: famílias de lease: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`, `service:<porta>`.
+- **Regras de negócio:**
+  - BR-007-01: famílias de lease: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`, `service:<porta>`.
+  - BR-007-02: os leases e a fila moram no `.orkastery/leases` da raiz do projeto (o estado canônico), com o `ork` chamado da raiz ou de qualquer worktree. O legado das worktrees só é consultado na janela de 30 minutos iniciada na primeira consulta desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado` na raiz. Só um arquivo regular válido, com nome correspondente, thread no formato de id, datas ISO e prazo de até 30 minutos (com tolerância de 1 segundo entre as leituras do relógio), barra enquanto vivo; não é copiado nem prova posse canônica. Arquivo inválido ou ilegível é ignorado e aparece na lista durante a janela. O diagnóstico mostra apenas o arquivo, sem comando de remoção. Depois de encerrada, a janela não reabre com arquivos legados novos. A aquisição preserva o legado vencido. A fila legada não é lida; a espera se refaz no próximo pedido. O legado nunca é apagado: o descarte grava uma marca `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode ou `ctime` continua visível. O `ctime` usa `ctimeMs` e é conferido novamente antes de gravar a marca. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu. A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`: candidatos exclusivos e tickets publicados por `rename` atômico serializam as retomadas, inclusive entre transportes diferentes; sob essa exclusão, o núcleo relê o conteúdo, confere dispositivo e inode e cria com `wx`. Ausência, bloqueio do spawn, timeout ou erro de `flock` usam o caminho portátil. A fila fica em `.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato, com candidatos regulares de um único vínculo, e a pasta vazia é removida. `ork lease list` mostra candidatos, PID, ticket, idade e temporários `.json.tmp`. A prova de morte por `process.kill(pid, 0)` só vale no mesmo namespace de PID; processos de namespaces diferentes não devem compartilhar esta fila. PID reutilizado ou sem permissão de consulta bloqueia até o limite de 30 minutos (`TTL_PADRAO_MS`). Candidatos e temporários expirados são recolhidos na próxima tentativa, que retorna `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir a aquisição, sem apagar o lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes do prazo, inclusive JSON parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode prosseguir. Dispositivo e inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de sistema não constituem um CAS atômico contra escritores externos à exclusão. `nlink === 0` é `lease.busy`, com fila normal e preservação do vencedor. Hard link ou link simbólico recebem `lease.resume-unavailable`, com escalada humana e sem retry automático. Após avaliar a posse, a correção explícita é `ork lease release <nome> --forcar`, seguida de nova aquisição. Contenção normal do `flock` ou dos tickets continua como `lease.busy`.
 - **Critérios de aceite e testes:** Dado um lease tomado, quando outra thread pede o mesmo, então ela entra na fila (`core/test/leases-b2.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
 
 ## Dados e contratos
 
-- **Entidades:** leases em `.orkastery/leases/`.
+- **Entidades:** leases em `.orkastery/leases/` da raiz do projeto, com a fila por colisão em `fila.json`.
 - **APIs:** Não aplicável.
 - **Eventos:** `lease_acquired`, `lease_released`, `worktree_created`.
 
@@ -66,3 +69,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
+| 2026-10-03 | BR-007-02: leases e fila no estado canônico; legado validado na janela de 30 minutos, sem importar fila legada | Agentes Claude e Codex, revisão pendente | RM-036, thread `ork-rm036leasesd` |

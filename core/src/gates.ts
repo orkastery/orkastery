@@ -56,6 +56,7 @@ export const DESCRICAO_DO_MOTIVO: Readonly<Record<MotivoGate, string>> = {
   'tree.blocked':
     'a arvore de destino nao esta disponivel para o merge (branch em check-out com alteracao nao commitada, ou worktree que nao pode ser montada)',
   'lease.busy': 'lease ocupado por outra thread',
+  'lease.resume-unavailable': 'retomada indisponivel; libere o lease explicitamente com --forcar',
   'conducao.em-andamento':
     'outra conducao ja executa na worktree da thread (I-36): o pedido foi recusado com quem conduz e as tres acoes (esperar, acompanhar, assumir)',
   'hitl.formato':
