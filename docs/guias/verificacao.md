@@ -679,6 +679,7 @@ ork eval --so-canarios
 | `fx-concurrency` | Duas threads pedindo região que se cruza | Fila FIFO com `lease.busy` e posição, **nunca** escrita por cima |
 | `fx-schema-drift` | MASTER log com contrato, escala ou catálogo de classes alterados | Recusa em todos: contrato trocado, score fora da escala, classe inventada, fase fora do ciclo, justificativa vazia, evidência ausente |
 | `fx-wiki-destroy` | Operação destrutiva sobre conteúdo existente | Bloqueio antes do dano |
+| `fx-pedido-colado` | O pedido do dono chega colado, em `#Auto`, com push e merge autorizados (incidente de 01/10, [RM-057](../roadmap/RM-057-hitl-por-alternativas.md)) | Segue sem parar: sem pausa do modo, dúvida vira decisão informada, "confirmo" em texto recusado com `hitl.selecao.texto-livre` sem gravar nada, ninguém esperando no pulse, tempo parado zero e a regra nos quatro adaptadores |
 
 Um canario não pergunta se uma função retorna o valor certo. Ele pergunta se **o sistema
 inteiro ainda recusa a coisa errada**.

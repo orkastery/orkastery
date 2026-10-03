@@ -200,6 +200,14 @@ recomendação e opções rotuladas, sem UUID exposto. Telegram é opcional; ing
 nativo adicional só fica disponível após prova do callback e configuração do host.
 Instalação fixture/SDK simulado não comprova ativação em uma sessão real.
 
+HITL de condução é seleção (RM-057, nas descrições de `ork_modo_do_pedido`,
+`ork_maestro` e `ork_phase_run`): de 3 a 5 alternativas, exatamente uma com o selo
+"Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
+que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
+Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a
+fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: mostre o
+comando exato.
+
 Na callback autenticada, `/ork offer <thread> <pedido>` consulta a pergunta e a
 oferta nativa sem responder ao pedido. O gateway assina uma prova efêmera da
 mensagem e chama `gate context --native-offer-stdin`; só uma prova válida para

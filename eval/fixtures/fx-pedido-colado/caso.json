@@ -1,0 +1,20 @@
+{
+  "id": "fx-pedido-colado",
+  "sobre": "Incidente de 01/10/2026 (RM-057): o pedido colado com autorização explícita segue sem parar",
+  "precisa": [
+    "git"
+  ],
+  "esperado": {
+    "simulado": true,
+    "modoDoPedido": "auto",
+    "semPausaDoModo": true,
+    "decisaoInformada": true,
+    "confirmoRecusado": "hitl.selecao.texto-livre",
+    "nadaGravadoNaRecusa": true,
+    "humanosNoPulse": 0,
+    "perguntasDeConducao": 0,
+    "tempoParadoMs": 0,
+    "adaptadoresComARegra": 4
+  },
+  "porque": "Na noite de 01 para 02/10 o condutor parou mais de 10 h pedindo um confirmo em texto livre a um pedido colado que já trazia a autorização. O canário prova, contra o código real, que o #Auto não pausa, a dúvida vira decisão informada, o confirmo em texto é recusado sem gravar nada, ninguém aparece esperando no pulse, o tempo parado é zero e os quatro adaptadores dizem a regra."
+}

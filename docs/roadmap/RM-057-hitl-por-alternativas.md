@@ -6,7 +6,7 @@ categoria: melhoria
 pai: RM-048
 features: []
 owner: Julio
-atualizado_em: 2026-10-02T17:38:36+00:00
+atualizado_em: 2026-10-03T03:30:00+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -18,11 +18,11 @@ estado:
 evidencias:
   codigo:
     commit: 7266df6
-    pr: null
+    pr: 49
 sdlc:
-  thread: ork-rm057alterna
+  thread: ork-rm057fatia2c
   modo: "#Auto"
-  fase: MASTER
+  fase: GOAL
   status: aberta
 ---
 
@@ -79,13 +79,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
-| Documentação | Em revisão | — | 2026-10-02 | Julio |
-| Código | Mesclado | commit `7266df6` | 2026-10-02 | Julio |
-| Testes | Em execução | — | 2026-10-02 | Julio |
-| Deploy | Não implantado | — | 2026-10-02 | Julio |
-| Exposição | Flag desligada | — | 2026-10-02 | Julio |
-| Habilitação | Pendente | — | 2026-10-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `7266df6` · PR #49 | 2026-10-03 | Julio |
+| Testes | Em execução | — | 2026-10-03 | Julio |
+| Deploy | Não implantado | — | 2026-10-03 | Julio |
+| Exposição | Flag desligada | — | 2026-10-03 | Julio |
+| Habilitação | Pendente | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -93,9 +93,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery / A: Julio / C: — / I: —
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** Claude Code redigiu o item a pedido do dono; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** fatia 2 (canário do pedido colado com autorização, prompts do OpenClaw e do Hermes e medição do tempo parado no ledger), fábrica, depois do merge da fatia 1.
+- **Próxima ação, responsável e prazo:** depois do merge da fatia 2, o piloto de 7 dias na condução do próprio Orkastery, lendo `ork ledger stats --desde 7d` (`hitlDeConducao`); o tempo parado no `ork pulse` e a reinstalação da extensão do OpenClaw e da skill do Hermes nos hosts ficam com o dono; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-02 | Item criado com prioridade alta | Incidente da noite de 01→02/10: mais de 10 h de condução parada por um HITL em texto livre | Julio |
 | 2026-10-02 | Fatia 1 na thread ork-rm057alterna: contrato de 3 a 5 com uma Recomendação no registro, dependência técnica tipada, letras a-e, selo no texto ao dono, lint `hitl-texto-livre` e a regra nos adaptadores do Claude Code e do Codex | Recorte registrado com `ork decisao registrar` na thread | Julio |
+| 2026-10-02 | Fatia 1 mesclada | PR 49, merge 7266df6 | Julio |
+| 2026-10-03 | Fatia 2 na thread ork-rm057fatia2c: canário `fx-pedido-colado` (o pedido colado com autorização explícita segue sem parar), a regra nas descrições das tools do OpenClaw e na skill do Hermes, e o tempo parado por HITL de condução no `ork ledger stats` (`hitlDeConducao`, mediana contra a meta de 5 min) | Recorte registrado com `ork decisao registrar` na thread; o pulse e o piloto ficam para depois | Claude (agente, #Auto), revisão de Julio pendente |
