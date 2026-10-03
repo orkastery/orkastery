@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T08:39:27.635Z",
+  "publicadoEm": "2026-10-03T08:46:41.395Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -109,23 +109,6 @@
       "esforco": null
     },
     {
-      "id": "ork-rm049recibos",
-      "nome": "RM-049 recibos de ensaio com o estado real dos achados",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-049",
-      "branch": "ork/ork-rm049recibos-full",
-      "atualizadaEm": "2026-10-03T08:39:26.815Z",
-      "entregue": "7202e47",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
       "id": "ork-rm053marcasv",
       "nome": "RM-053: marcas visíveis Cf passam no saneador (Y4)",
       "modo": "#Auto",
@@ -146,12 +129,12 @@
       "id": "ork-suiteeinstal",
       "nome": "Suite e instalacao sem os avisos do repositorio",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-avisossuite-full",
-      "atualizadaEm": "2026-10-03T08:21:30.125Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-03T08:46:41.246Z",
+      "entregue": "8250e5e",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
