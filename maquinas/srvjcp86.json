@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:53:11.236Z",
+  "publicadoEm": "2026-10-03T04:58:34.522Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -107,6 +107,23 @@
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "high"
+    },
+    {
+      "id": "ork-rm047frontei",
+      "nome": "RM-047: fronteira de confiança do repositório clonado",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-047",
+      "branch": "ork/ork-rm047frontei-full",
+      "atualizadaEm": "2026-10-03T04:58:31.874Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm053network",
