@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T06:07:29.019Z",
+  "publicadoEm": "2026-10-03T06:08:43.425Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -134,6 +134,23 @@
       "roadmap": "RM-049",
       "branch": "ork/ork-rm049ensaiod-full",
       "atualizadaEm": "2026-10-03T05:48:23.193Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm053fatia2r",
+      "nome": "RM-053 fatia 2: rede no doctor, retrato parado e saída saneada",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-053",
+      "branch": "ork/ork-rm053fatia2r-full",
+      "atualizadaEm": "2026-10-03T06:08:41.010Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
