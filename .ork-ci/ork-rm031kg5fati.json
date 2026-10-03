@@ -15,7 +15,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:09.275Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:09.516Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:09.759Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:10.013Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:10.247Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:10.481Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:10.722Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:10.976Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:11.264Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:11.515Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:11.753Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:12.012Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
       ],
       "criadoEm": "2026-10-03T06:44:12.270Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -197,7 +197,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:25.340Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -211,7 +211,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:25.579Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -225,7 +225,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:25.856Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:26.111Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -253,7 +253,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:26.355Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -267,7 +267,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
       ],
       "criadoEm": "2026-10-03T07:03:26.601Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
