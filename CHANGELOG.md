@@ -28,8 +28,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
     projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
     tinha a sua pasta, e duas threads pegavam o `main-tree` ao mesmo tempo);
-  - o lease que a versão anterior gravou numa worktree vale até vencer, aparece no `ork lease list` como legado e nunca
-    ganha segunda cópia; a espera legada entra na fila canônica, na ordem, e a fila grava por temporário e `rename`;
+  - o legado válido das worktrees só barra enquanto vivo na janela de 30 minutos da troca, marcada em
+    `.orkastery/leases/.legado`; arquivos inválidos ou ilegíveis não bloqueiam, aparecem como diagnóstico durante
+    a janela e saem com `--forcar`; links simbólicos são ignorados e o registro da worktree exige vínculo de volta;
+  - a fila legada não é lida e a espera se refaz no próximo pedido; a dona da própria cópia legada não entra na fila
+    atrás de si, e a fila canônica grava por temporário e `rename`;
+  - o legado nunca prova posse canônica para ativação de escrita; arquivo canônico vazio ou ilegível com menos de
+    cinco segundos é preservado para o escritor que o criou com `wx`, e o escalonador elimina nomes repetidos;
   - o lock de espera do `ork portfolio` também passa para a raiz: a worktree espera a vez em vez de recusar com
     `brain.journal.busy`.
 

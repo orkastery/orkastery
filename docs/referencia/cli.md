@@ -403,8 +403,17 @@ entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 | `ork conducao assumir <thread> --por Q --motivo M [--canal C]` | Handoff: encerra a condução atual pelo runtime, registra quem assumiu, de qual canal e por que, e reserva a vez para esse canal |
 
 Famílias: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
-`service:<porta>` e `exec:<thread>`. A `exec` (I-36) é a condução: protege a **execução** na
-worktree da thread e mora no estado canônico do projeto, e não no checkout de quem chamou.
+`service:<porta>` e `exec:<thread>`. Todas as famílias e a fila por colisão moram no
+estado canônico do projeto: a raiz e as worktrees disputam os mesmos arquivos.
+A `exec` (I-36) é a condução: protege a **execução** na worktree da thread.
+
+O legado válido das famílias antigas só barra enquanto vivo na janela de 30 minutos da troca,
+marcada em `.orkastery/leases/.legado` na raiz. Nesse período, `ork lease list` mostra o legado e
+diagnostica arquivos inválidos ou ilegíveis, que não bloqueiam e saem com `ork lease release <nome> --forcar`.
+Links simbólicos são ignorados. A fila legada não é lida; a espera se refaz no próximo pedido.
+O legado nunca prova posse canônica para ativar escrita; a própria cópia legada recusa a
+segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
+com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (sem ele, o que o host declara),
