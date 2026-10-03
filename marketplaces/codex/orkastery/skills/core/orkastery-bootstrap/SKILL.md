@@ -56,6 +56,7 @@ Prefira MCP no projeto fixado pelo servidor, sem outro root/cwd. No Claude com s
 | Demanda nova | `ork_thread_new(nome, modo)` | `ork thread new "<nome>" --mode <modo> --worktree auto` |
 | Despacho | `ork_phase_run(threadId, fase, prompt, runtime?, model?, effort?, dryRun?)` | `ork phase run <thread> GOAL --prompt "<pedido>"` |
 | Progresso nativo | `ork_observe(threadId)` | `ork thread status <thread>` |
+| Contexto do grafo (somente com `grafo.mcp: true`) | `ork_grafo_contexto(threadId, tetoBytes?)`; aprofundar com `ork_grafo_vizinhos`, `ork_grafo_chamadores`, `ork_grafo_importadores`, `ork_grafo_caminho` | `ork grafo contexto <thread> --json` |
 | Pendencia/decisao | `ork_hitl_pending`, `ork_request_decision(threadId, pedidoId)` | Consulte o ingresso suportado; nao fabrique resposta. |
 
 Prefira `ork_git_commit` (HEAD atual, paths com claims), `ork_verify` e `ork_ship` (HEADs fonte/destino reais) para registrar, verificar e entregar. Autoria/commit nao e SHIP; retorno incomplete exige reconciliacao antes de repetir. Para demandas novas, use `ork modos --do-pedido "<pedido do dono>"` e `ork_preflight({modo})` (CLI: `ork doctor --modo <modo>`). A sonda por bloco não comprova autenticação, gates ou entrega.

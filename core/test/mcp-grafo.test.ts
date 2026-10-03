@@ -383,7 +383,7 @@ test('KG5 flag: servidor sem a flag, com false ou com valor invalido lista as me
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: false\n'), sem);
     assert.deepEqual(await listarCom(p, 'grafo:\n  mcp: sim\n'), sem);
     const com = await listarCom(p, FLAG_LIGADA);
-    assert.equal(com.length, 35);
+    assert.equal(com.length, 36);
     assert.deepEqual(com.slice(0, 31), sem, 'a flag nao muda nenhuma das outras tools');
     assert.deepEqual(com.slice(31).map((t) => t.name), [...TOOLS_DO_GRAFO]);
   } finally {
@@ -401,7 +401,7 @@ test('KG5 flag: servidor com a flag expoe as quatro tools de leitura, com schema
       assert.equal(t.inputSchema.additionalProperties, false, t.name);
       const props = Object.keys(t.inputSchema.properties ?? {});
       assert.ok(props.includes('threadId') && props.includes('tetoBytes') && props.includes('projeto'), `${t.name}: ${props}`);
-      const exigidos = t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
+      const exigidos = t.name === 'ork_grafo_contexto' ? ['threadId'] : t.name === 'ork_grafo_caminho' ? ['threadId', 'de', 'para'] : ['threadId', 'alvo'];
       assert.deepEqual([...(t.inputSchema.required ?? [])].sort(), exigidos.sort(), t.name);
       assert.match(t.description ?? '', /ork grafo indexar/, t.name);
     }
@@ -687,7 +687,7 @@ function registroSintetico(): Record<string, any> {
     schema: 'ork.graph-mcp-cost/v0', medido_em: '2026-10-02T05:00:00.000Z', revisao: 'a'.repeat(40), teto_padrao: TETO_PADRAO,
     maquina: { node: 'v22', plataforma: 'linux', cpus: 8, carga_1min: 1 },
     preparo_do_indice: { ms: 1, bytes_do_indice: 1, fontes: 1, arestas: 1 },
-    descoberta: { tools: [...TOOLS_DO_GRAFO], bytes_das_tools: 4000, tools_sem_flag: 30, tools_com_flag: 34, bytes_tools_list_sem_flag: 30000, bytes_tools_list_com_flag: 34000 },
+    descoberta: { tools: [...TOOLS_DO_GRAFO], bytes_das_tools: 4000, tools_sem_flag: 31, tools_com_flag: 36, bytes_tools_list_sem_flag: 30000, bytes_tools_list_com_flag: 34000 },
     perguntas: PERGUNTAS_DO_KG3.map((p) => ({
       id: p.id,
       tool: { bytes_ao_agente: 1000, arestas_devolvidas: 1, total_arestas: 1, cortado: false, evidencias: 1, arquivos_abertos: 0, latencia_ms: [1], latencia_mediana_ms: 1 },
