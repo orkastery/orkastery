@@ -49,6 +49,11 @@ export interface ContextoDePolicy {
   semDeltaComBaseAFrente?: boolean;
   /** Gate `ship`: o remoto do push, para o texto da violacao. */
   remoto?: string;
+  /**
+   * RM-008 (B8), gate `claims.add`: o comando da claim que reprovou na conferencia local, rodado uma vez no
+   * prazo do verify. Ausente quando passou ou nao rodou; sem o fato, a regra nao avalia.
+   */
+  provaLocalReprovada?: { claim: string; comando: string; code: number; estourou: boolean; prazoMs: number };
 }
 
 export interface ViolacaoDePolicy {
@@ -142,7 +147,29 @@ export const POLICIES_CONHECIDAS: Readonly<Record<string, { quando: PontoDeGate[
     quando: ['ship'],
     descricao: 'avisa quando a branch da thread esta atras da base',
   },
+  // RM-008 (B8): a licao `claims.failed` ("rode o comando da claim antes de registra-la"). Desligada por
+  // padrao; declarada, o `ork claims add` roda o comando uma vez no prazo do verify. So avisa, nunca para.
+  claim_sem_prova_local: {
+    quando: ['claims.add'],
+    descricao: 'avisa quando o comando da claim reprova (ou estoura o prazo do verify) no registro',
+  },
+  claims_failed: {
+    quando: ['claims.add'],
+    descricao: 'a mesma conferencia de claim_sem_prova_local, com o nome que o ork licoes propoe',
+  },
 };
+
+/** RM-008 (B8): as policies que conferem a claim no registro (um aviso so, como verify_regression e verify_failed). */
+export const POLICIES_DE_PROVA_LOCAL: readonly string[] = ['claim_sem_prova_local', 'claims_failed'];
+
+/** A primeira policy de prova local declarada fora de `off`, ou `null` (o `claims add` nao roda nada). */
+export function policyDeProvaLocal(manifesto: Manifesto): string | null {
+  const declaradas = manifesto.policies ?? {};
+  for (const [nome, bruta] of Object.entries(declaradas)) {
+    if (POLICIES_DE_PROVA_LOCAL.includes(nome) && severidade(bruta) !== 'off') return nome;
+  }
+  return null;
+}
 
 /**
  * Ensaio da 0.5.0: a thread criada sem `--worktree auto` entrega a base para a base, e a correcao
@@ -172,6 +199,8 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
   const violacoes: ViolacaoDePolicy[] = [];
   // verify_regression e verify_failed conferem a mesma coisa: um aviso so, com o nome da primeira declarada.
   let baselineJaAvaliada = false;
+  // claim_sem_prova_local e claims_failed idem.
+  let provaLocalJaAvaliada = false;
 
   for (const [nome, bruta] of Object.entries(declaradas)) {
     const conhecida = POLICIES_CONHECIDAS[nome];
@@ -270,6 +299,29 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           motivo: 'policy.violation',
           detalhe: 'o bloco nao declara runtime de fallback: se o runtime cair, a fase para ate alguem trocar a mao',
           correcao: `ork setup ${ctx.modo ?? '<modo>'} --bloco ${ctx.bloco ?? 'N'} --fallback <runtime:modelo>`,
+        });
+      }
+      continue;
+    }
+
+    if (POLICIES_DE_PROVA_LOCAL.includes(nome)) {
+      if (provaLocalJaAvaliada) continue;
+      provaLocalJaAvaliada = true;
+      const r = ctx.provaLocalReprovada;
+      if (r) {
+        const id = ctx.threadId ?? '<thread>';
+        violacoes.push({
+          policy: nome,
+          // O registro de claim nunca para: `block` declarado avisa como `warn`.
+          severidade: 'warn',
+          motivo: r.estourou ? 'verify.timeout' : 'claims.failed',
+          detalhe: r.estourou
+            ? `o comando da claim ${r.claim} estourou o prazo do verify (${Math.round(r.prazoMs / 1000)} s) no registro; a claim entrou sem prova local`
+            : `o comando da claim ${r.claim} saiu ${r.code} no registro; a claim entrou sem prova local e reprova no verify`,
+          correcao: r.estourou
+            ? `divida o comando ou suba verify.timeout_ms; depois, ork verify ${id}`
+            : `corrija o produto ou o comando e anexe o certo com ork claims verificar ${id} ${r.claim} --comando "<comando>"; ` +
+              `se a alegacao nao vale, ork claims retirar ${id} ${r.claim} --motivo "<motivo>"`,
         });
       }
       continue;
