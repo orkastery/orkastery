@@ -22,6 +22,13 @@ utilizável como gate de pipeline.
 | `ork setup <modo> --bloco N [--runtime R] [--model M] [--effort E]` | Edita o bloco do modo e carimba `setup_configured` no ledger do projeto |
 | `ork setup <modo> --bloco N --fallback R:M[:E],...` | Ordem de fallback de runtime do bloco (I-33); `--fallback ""` remove |
 | `ork setup versionar` | Leva o setup que vale para `orkastery.setup.json`, na raiz do checkout: por PR, vale em todas as máquinas e passa a ser o arquivo editado (I-52) |
+| `ork setup [<modo>] --reset` | Volta o modo (ou todos) ao default |
+| `ork onboarding [show\|set <etapa>\|reset [etapa]] [--conteudo JSON] [--por Q] [--json]` | Pauta e respostas do projeto (9 etapas); o reset é seletivo ou total e idempotente. Segredos ficam no ambiente do processo ou no cofre do host. Passo a passo em [onboarding.md](../guias/onboarding.md) |
+| `ork onboarding sync [--json]` | Publicação opcional das respostas na memória, com degradação |
+| `ork experiencia show [--json]` | As preferências efetivas do pacote de experiência; liga e desliga por `ork onboarding set maestro --conteudo '{"owner":{"experience":true}}'` ([orchestration-experience.pt-BR.md](../guias/orchestration-experience.pt-BR.md)) |
+| `ork experiencia uninstall <host> [--dry-run] [--json]` | Remove o bloco do Claude Code ou do Codex; sem `--dry-run` aplica a remoção |
+| `ork mcp serve --project RAIZ --host HOST` | Servidor MCP stdio deste projeto (`codex` ou `claude-code`); a raiz vem por `--project`, nunca por `--projeto` |
+| `ork mcp install --project RAIZ --host HOST` | Prepara o MCP do host; aceita `--dry-run`, `--ship-transport`, `--child-permissions` e `--owner-permissions` (Codex) |
 | `ork accounts list [--json]` | Perfis de conta por runtime: id, runtime, diretório, estado, prazo, último uso e última falha. **Sem segredo**, porque o store não guarda nenhum |
 | `ork accounts add <id> --runtime R --dir D [--sem-login]` | Cria o perfil e o diretório (0700) e roda o login do **próprio CLI** com o env do perfil (`claude auth login --claudeai`, `codex login`); sem TTY, imprime o comando. Nunca copia credencial |
 | `ork accounts remove <id>` | Desativa o perfil; o diretório e o login do CLI ficam onde estão |
@@ -149,6 +156,8 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork roadmap soltar RM-NNN` | Devolve o item quando o trabalho termina |
 | `ork roadmap feat [--thread T] [--nota N]` | Reserva o próximo número de FEAT na branch `ork/roadmap-reservas`, por push atômico: duas máquinas nunca levam o mesmo número, e o número reservado não volta (RM-037) |
 | `ork docs sincronizar [--escrever] [--so RM-NNN[,RM-MMM]] [--todos]` | Fatos do ledger e do git (merge, fase, status) para os itens do roadmap e os índices. `--so` limita aos itens pedidos; na worktree de uma thread com item, o padrão é o item dela, dito na saída; `--todos` volta a todo item, o padrão na raiz do projeto (RM-037) |
+| `ork docs verificar [--json] [--pr]` | Documentação de produto e roadmap contra o código e o git: frontmatter, leitura e paridade; sai diferente de zero com erro. No PR (`--pr`), o merge de outra thread e o índice que divergem da `main` só avisam |
+| `ork docs init` | Cria padrões, modelos, índices e o lint de Markdown no projeto |
 | `ork fabrica entrar [--maquina NOME]` | Esta máquina entra na fábrica compartilhada, com esse nome (`~/.orkastery/maquina.json`), e publica o primeiro retrato |
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
@@ -164,6 +173,15 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork phase run <thread> <FASE> --prompt "<texto>"` | Despacha a fase como background agent. Com `concurrency.max_parallel_threads` sessões vivas em outras threads do projeto (condução `exec:<thread>` de sessão, de qualquer runtime ou conta), recusa com `concurrency.limite`, diz quem ocupa, grava `slot_refused` e sai com 3 (espera, como a condução); sessão parada (sem trabalho há `concurrency.stale_after_min`), escalada ao dono, bloqueada no runtime ou em silêncio pelo pulse não ocupa, e a que segue rodando depois de uma pausa prevista ou de um verify reprovado ocupa; com `--esperar`, espera a vaga. No codex, bloco com GO sem baseline sai com a baseline gravada pelo despacho, também no redespacho do `ork retry`; pelo MCP (`ork_phase_run`), que não roda a suíte, a falta dela volta como `baseline.pendente` com o comando do CLI (RM-037). Com `--perfil <id>` (e `perfil` no `ork_phase_run`), o despacho sai pela conta pedida, ou recusa com motivo tipado sem trocar de perfil (RM-056) |
 | ↳ opções | `[--model M] [--effort E] [--dry-run]` |
 | `ork phase list <thread>` | O histórico do ledger, **com o modelo e o esforço reais de cada fase** |
+| `ork ledger stats --desde 7d [--ate ISO] [--thread T] [--modo M] [--runtime R] [--json]` | Telemetria econômica do ledger no intervalo `[desde, ate)` ([FEAT-019](../produto/FEAT-019-telemetria-do-ledger.md)) |
+| `ork ledger estimate <thread> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]` | Registra as estimativas explícitas da fase PLAN |
+| `ork portfolio create <product\|project\|initiative> <id> --title T [--parent ID]` | Cria a entidade no catálogo produto, projeto e iniciativa ([FEAT-025](../produto/FEAT-025-catalogo-de-portfolio.md)) |
+| `ork portfolio list [product\|project\|initiative] [--parent ID] [--json]` | Lista o catálogo |
+| `ork portfolio show <id> [--json]` | Mostra a entidade do catálogo: id, título e estado (`--json` devolve a entidade inteira) |
+| `ork portfolio inspect <id> --json` | Entidade, origem e ciclos, com as lacunas explícitas |
+| `ork creation start --input-file F --json` | Criação durável, com a identidade do processo local |
+| `ork creation show\|list\|events [id] --json` | Consulta o journal da criação e a recuperação |
+| `ork creation resume\|compensate <id> --expected-version N --json` | Retoma ou compensa a criação na versão esperada |
 
 > Passar só `--model` assume `--effort high`: quem informa apenas o modelo está pedindo o
 > despacho mais capaz. O par efetivo vai ao ledger como fato verificável, em sucesso, em falha
@@ -179,6 +197,13 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork sessions stop <sessao>` | Para uma sessão com o `CLAUDE_CONFIG_DIR` da conta onde ela está: a do processo ou a de um perfil claude-bg do projeto, inclusive desativado; achada em mais de uma conta, pede o id completo |
 | `ork sessions attach <sessao>` | Imprime o comando de attach (precisa de TTY), com o prefixo `CLAUDE_CONFIG_DIR=<dir>` quando a sessão é de um perfil |
 | `ork sessions hitl [--json]` | Radar das sessões que exigem ação humana AGORA |
+| `ork sessions adopt <id> [--json]` | Adota a identidade real da sessão, sem executar prompt ([FEAT-010](../produto/FEAT-010-observacao-de-sessoes.md)) |
+| `ork sessions event --tipo T --sessao ID` | Ingere JSON limitado pelo stdin; observa, sem aprovar gate |
+| `ork sessions watch --thread T [--sessao ID] [--once]` | Observa só a sessão selecionada; `--once` faz uma varredura |
+| `ork sessions supersede <thread> <UUID> --fase F --runtime R` | Confirma o encerramento da sessão superada |
+| `ork sessions request <thread> <UUID> --fase F --runtime R --pergunta P` | Abre o pedido vinculado ao prompt nativo da sessão |
+| `ork sessions answer <thread> <pedido> --stdin --origem telegram --canal C --por ID --mensagem REF [--conta ID]` | Confirma a entrega autenticada da resposta |
+| `ork sessions reconcile <thread> <pedido>` | Fecha o envio pendente só com thread e pedido: consulta o recibo, nunca reenvia |
 
 O `ork sessions hitl` é o lado das SESSÕES da conduta proativa; o `ork monitor` é o lado
 das THREADS. Ele parte de `claude agents --json --all`, classifica o estado de cada
@@ -234,6 +259,7 @@ há, `1` quando o runtime não respondeu).
 | `ork claims list <thread>` | As claims e o estado de cada uma |
 | `ork claims verificar <thread> <claim-id> --comando "<cmd>"` | Anexa o comando que comprova uma claim já feita |
 | `ork claims retirar <thread> <claim-id> --motivo "<motivo>"` | Retira a alegação. **O histórico fica no `claims.jsonl`** |
+| `ork claims ausente <thread> --paths A,B --motivo "<motivo>" [--commit SHA]` | Ciclo sem CHECK: declara no ledger o que ficou sem prova (o `#Fast` usa, ver [modos.md](../guias/modos.md)) |
 | `ork verify <thread> [--baseline] [--so-claims]` | Reexecuta claims e verify do manifesto **no HEAD real** |
 | `ork gate next <thread> [--proximo FASE]` | Gate de tokens: mesma sessão ou nova sessão |
 | ↳ opções | `[--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]` |
@@ -303,6 +329,8 @@ tipo B não é CHECK.
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
 | `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; sem o universo lido inteiro, sai 1 com motivo tipado e sem resultados (também em `--json`); uso inválido sai 2; não combina com `--tags` nem `--thread` |
 | `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
+| `ork brain status\|inventory\|get\|query\|receipts\|context\|dossie\|sync\|reconcile\|apply\|rollback\|bind` | O Company Brain pelo CLI ([FEAT-024](../produto/FEAT-024-company-brain-no-cli.md)); sem configuração, responde `brain.configuration.missing` |
+| `ork brain dossie --thread T [--decisao ID]` | Dossiê de decisão: vínculo, contexto citável, alternativas, quem decidiu e evidência, com os ids do Brain. Só leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)) |
 
 `memory search --texto` também sai 1 quando a memória está desligada ou indisponível
 (`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
