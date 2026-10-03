@@ -13,7 +13,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { checar, checarRuntimeClaude } from '../src/doctor';
 import { LeituraDoCrontab } from '../src/doctor-pulse-cron';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { ship } from '../src/ship';
+import { novaThread } from '../src/thread';
+import { commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const PATH_ATUAL = process.env.PATH ?? '/usr/bin:/bin';
@@ -102,4 +104,28 @@ test('ensaio 0310 R4: ork ci status --sha HEAD diz que pede o sha completo de 40
       assert.match(r.stderr, /uso: ork ci status --sha <sha de 40 caracteres> \[--remoto origin\]/);
     }
   } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R5: sem remoto, o ship --dry-run diz o mesmo que o real e nao lista push nem ls-remote', () => {
+  for (const comRemoto of [false, true]) {
+    const p = projetoTemporario(`ensaio0310-r5-${comRemoto}`, comRemoto);
+    try {
+      const { thread } = novaThread(p.carregado, { nome: 'ensaio sem remoto', modo: 'auto', criarWorktree: true });
+      commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega');
+      const ensaio = ship(p.carregado, thread.id, { para: 'main', dryRun: true });
+      assert.equal(ensaio.ok, true, ensaio.detalhe);
+      if (comRemoto) {
+        assert.ok(ensaio.passos.includes('git push origin main'), ensaio.passos.join('\n'));
+        assert.ok(ensaio.passos.some(x => x.startsWith('git ls-remote origin refs/heads/main')));
+        // Com --sem-push, nem com remoto.
+        const semPush = ship(p.carregado, thread.id, { para: 'main', dryRun: true, semPush: true });
+        assert.ok(semPush.passos.includes('sem push: push nao executado por --sem-push (merge local concluido)'), semPush.passos.join('\n'));
+        continue;
+      }
+      assert.ok(!ensaio.passos.some(x => x.startsWith('git push') || x.startsWith('git ls-remote')), ensaio.passos.join('\n'));
+      const real = ship(p.carregado, thread.id, { para: 'main' });
+      assert.equal(real.ok, true, real.detalhe);
+      assert.ok(ensaio.passos.includes(`sem push: ${real.detalhe}`), `${ensaio.passos.join('\n')}\n${real.detalhe}`);
+    } finally { p.limpar(); }
+  }
 });
