@@ -45,20 +45,29 @@ export const ERRO_PROVA_DE_CANAL = 'master.prova-de-canal';
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 /**
- * D8: nota em nome de pessoa, vinda de processo de host, e recusada. O canal e lido SO do
- * ambiente: `--canal` em argv nao conta, porque quem escreve argv e justamente quem chama.
+ * A marca de host ou de despacho do processo, ou `undefined` no terminal do dono. Lida SO do
+ * ambiente. Serve para RECUSAR (D8) e para AVISAR (RM-008, aceite por omissao sem thread), nunca
+ * para autorizar.
  */
-export function exigirNotaSemHost(ambiente: NodeJS.ProcessEnv = process.env): void {
+export function marcaDeHost(ambiente: NodeJS.ProcessEnv = process.env): string | undefined {
   let canal: CanalDeConducao;
   try { canal = canalDoProcesso(undefined, ambiente); } catch { canal = 'mcp'; }
   // B2 do CHECK: `ORK_CANAL=cli` NAO absolve. A sessao despachada herda `ORK_CANAL=cli` quando a
   // thread e conduzida do terminal, e o Claude Code e o Codex marcam os proprios processos. Qualquer
-  // marca de host ou de despacho recusa, mesmo com o canal declarado como terminal.
-  const marca = canal !== 'cli' ? canal
+  // marca de host ou de despacho conta, mesmo com o canal declarado como terminal.
+  return canal !== 'cli' ? canal
     : ambiente.ORK_DISPATCH_ID ? 'sessão despachada (ORK_DISPATCH_ID)'
       : ambiente.CLAUDECODE === '1' ? 'claude-code (CLAUDECODE)'
         : ambiente.CODEX_SANDBOX || ambiente.CODEX_SANDBOX_NETWORK_DISABLED ? 'codex (CODEX_SANDBOX)'
           : (ambiente.HERMES_HOME ?? '').trim() ? 'hermes (HERMES_HOME)' : undefined;
+}
+
+/**
+ * D8: nota em nome de pessoa, vinda de processo de host, e recusada. O canal e lido SO do
+ * ambiente: `--canal` em argv nao conta, porque quem escreve argv e justamente quem chama.
+ */
+export function exigirNotaSemHost(ambiente: NodeJS.ProcessEnv = process.env): void {
+  const marca = marcaDeHost(ambiente);
   if (marca) {
     throw new Error(`${ERRO_PROVA_DE_CANAL}: nota em nome de pessoa vinda de ${marca} exige a prova de canal do ingresso. ` +
       'Peça a nota com ork master pedir <thread>: o dono responde pelo Telegram com o código, e a nota é gravada com o recibo.');

@@ -1,8 +1,8 @@
 ---
 name: master-metrics
-description: "Fase MASTER (F6): POSTMORTEM tipado, MASTER log no contrato congelado ork.master-log/v1 e o score humano de 0 a 5 com justificativa. Roteia para ork master e ork master --aceitar-omissao."
+description: "Fase MASTER (F6): POSTMORTEM tipado, MASTER log no contrato congelado ork.master-log/v1 e o score humano de 0 a 5 com justificativa. Roteia para ork master e ork master <thread> --aceitar-omissao."
 bucket: phases
-roteia: "ork master <thread> --score N --justificativa \"...\" | ork master --aceitar-omissao"
+roteia: "ork master <thread> --score N --justificativa \"...\" | ork master <thread> --aceitar-omissao"
 license: MIT
 ---
 
@@ -21,8 +21,13 @@ ork master classes                            # as classes de falha do catalogo 
 ork master <thread> --score 4 --justificativa "<texto>" --classe base-avancou --por <quem>
 ork master                                    # as entregas, com o indice derivado do ledger
 ork master --todas                            # inclusive as ja pontuadas
-ork master --aceitar-omissao                  # aceita as entregues, com indice e insumos no ledger
+ork master <thread> --aceitar-omissao         # aceita so a entrega desta thread, com indice e insumos no ledger
+ork master --aceitar-omissao --dry-run        # lista o que a forma sem thread fecharia, sem gravar
 ```
+
+Agente fecha so a propria thread: `ork master <thread> --aceitar-omissao`. Sem a thread, o comando
+aceita TODAS as entregues do projeto, inclusive as de outras frentes paralelas (o que aconteceu tres
+vezes em 03/10/2026); de processo de agente com mais de uma, o `ork` avisa em stderr.
 
 ## O que o MASTER entrega
 

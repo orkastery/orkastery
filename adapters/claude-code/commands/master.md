@@ -34,6 +34,14 @@ ork master --todas
 
 4. Nos modos sem pausa de MASTER, a entrega e aceita a menos que o builder diga o contrario; o
    `ork master --todas` mostra as entregas com o indice derivado do ledger, inclusive as ja pontuadas.
+   Para fechar por omissao, sempre com a thread, que e so a sua:
+
+```bash
+ork master <thread> --aceitar-omissao
+```
+
+   Sem a thread, o comando aceita TODAS as entregues do projeto, inclusive as de outras frentes
+   paralelas; `ork master --aceitar-omissao --dry-run` mostra quais, sem gravar.
 
 ## Regras do adaptador
 

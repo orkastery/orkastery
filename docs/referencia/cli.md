@@ -300,8 +300,23 @@ tipo B não é CHECK.
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
-| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; não combina com `--tags` nem `--thread` |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; sem o universo lido inteiro, sai 1 com motivo tipado e sem resultados (também em `--json`); uso inválido sai 2; não combina com `--tags` nem `--thread` |
 | `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
+
+`memory search --texto` também sai 1 quando a memória está desligada ou indisponível
+(`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
+como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
+`core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
+quando uma busca falha, preservando seu código de saída.
+
+A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
+(24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas
+demais chamadas). O manifesto recusa valores fora desse intervalo; configuração direta do driver
+com valor inválido usa o padrão, inclusive zero, que nunca significa espera ilimitada.
+Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,
+incluindo o subprocesso e a conferência da resposta, aparece em `latenciaUniversoMs` no JSON do
+índice e em `embeddings.universo.latenciaMs` no JSON do status. Fontes sem medição não inventam
+latência: no índice, o campo é `null`; no universo, fica ausente.
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
@@ -435,14 +450,15 @@ do projeto quando o limite de sessões está cheio.
 | Comando | O que faz |
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
-| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
+| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master <thread> --aceitar-omissao` fecha só ela (I-57; RM-008). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
 | ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |
-| `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
+| `ork master <thread> --aceitar-omissao [--dry-run] [--json]` | Aceita por default só a entrega da thread indicada (também `--thread <thread>`), gravando índice, insumos e quem decidiu. Thread sem entrega recusa (saída 1); já fechada não grava de novo (saída 0). Com `--dry-run`, lista o que fecharia, sem gravar (RM-008) |
+| `ork master --aceitar-omissao [--dry-run] [--json]` | Aceita por default **todas** as entregues do projeto, inclusive as de outras frentes, e lista cada uma. De processo de agente com mais de uma, avisa em stderr com `master.omissao-sem-thread` e o comando com a thread |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
 | `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |

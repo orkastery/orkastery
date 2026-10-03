@@ -9,6 +9,7 @@ Projeto: **orkastery** (ork). Branch base: `main`.
 - Edite produto somente na worktree vinculada; estado em `.orkastery/` pertence ao núcleo.
 - PLAN não implementa. GO usa commits atômicos. CHECK não corrige. SHIP acontece por `ork ship`.
 - Toda alegação exige claim e comando reproduzível; self-report não é evidência.
+- MASTER por omissão só da sua thread: `ork master <thread> --aceitar-omissao`; sem a thread, fecha também as entregas de outras frentes.
 
 Verificações do manifesto:
 
