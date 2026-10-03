@@ -3,7 +3,7 @@
  * Primeiro: npm --prefix core run build:test
  * Controle (deve passar), ou um nome de `node core/scripts/rm036-leases-mutantes.cjs --listar` (deve falhar):
  * ORK_RM036_MUTANT=controle node --experimental-test-isolation=none --test \
- *   --test-name-pattern='rm036 (gofix:|docs:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs
+ *   --test-name-pattern='rm036 (gofix:|docs:|mcp:|leases: orkEmParalelo)' core/scripts/rm036-leases-mutantes.cjs
  */
 const fs = require('node:fs');
 const os = require('node:os');
@@ -22,8 +22,18 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
-  'R4-portatil-exclusao': [[lease, "return comFilaDeRetomada(caminho, () => {", "return (() => {"],
-    [lease, "return 'retomado';\n        });", "return 'retomado';\n        })();"]],
+  'R5-MCP-fila': [['core/dist-test/src/mcp-artifacts.js', "s.isDirectory() && nome.endsWith('.json.retomadas')", 'false']],
+  'R5-MCP-candidato-link': [['core/dist-test/src/mcp-artifacts.js', ' || !c.isFile()', '']],
+  'R5-MCP-candidato-vinculos': [['core/dist-test/src/mcp-artifacts.js', ' || c.nlink !== 1', '']],
+  'R5-pasta-vazia': [[lease, 'fs.rmdirSync(dir);', '/* pasta vazia abandonada */']],
+  'R5-candidato-prazo': [[lease, 'Date.now() - c.stat.mtimeMs >= exports.TTL_PADRAO_MS', 'false']],
+  'R5-temporario-SIGKILL': [[lease, 'for (const entrada of fs.readdirSync(dir)) {', "for (const entrada of fs.readdirSync(dir).filter(n => n.endsWith('.json'))) {"]],
+  'R5-candidato-atrasado': [[lease, "if (!aindaCandidato())\n                return 'fila-expirada';", '/* candidato removido ainda prossegue */']],
+  'R5-fila-lista': [[lease, "linhas.push(`    ${textoSeguro(c.nome)} pid ${c.pid} ${c.ticket === null ? 'temporario' : `ticket ${c.ticket}`} idade ${Math.floor(idade / 1000)}s`);", '/* candidatos invisiveis */']],
+  'R5-fila-motivo': [[lease, "tomadoDeVencido: false, falhaRetomada: 'lease.resume-unavailable', filaRetomadaExpirada: true", "tomadoDeVencido: false, filaRetomadaExpirada: false"]],
+  'R5-fila-correcao': [[lease, 'consulte ork lease list; depois repita a aquisicao', 'espere a vez']],
+  'R4-portatil-exclusao': [[lease, "return comFilaDeRetomada(caminho, (aindaCandidato) => {", "return ((aindaCandidato) => {"],
+    [lease, "return 'retomado';\n        });", "return 'retomado';\n        })(() => true);"]],
   'R4-portatil-ticket': [[lease, "c.ticket < ticket", "false"]],
   'R4-portatil-morto': [[lease, "e.code === 'ESRCH'", "false"]],
   'R4-portatil-vivo': [[lease, "e.code === 'ESRCH'", "true"]],
@@ -54,7 +64,7 @@ const mutantes = {
   'A3-link-arquivo': [
     [lease, 'return fs.lstatSync(caminho).isFile();', 'return fs.statSync(caminho).isFile();'],
     [lease, 'fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK',
-      'fs.constants.O_RDONLY | fs.constants.O_NONBLOCK', 2],
+      'fs.constants.O_RDONLY | fs.constants.O_NONBLOCK', 3],
     [lease, '!identidadeLegada.isFile()', 'false'],
     [lease, 'lease && identidadeLegada.isFile()', 'lease']],
   'A3-link-diretorio': [[lease, 'return fs.lstatSync(caminho).isDirectory();', 'return fs.statSync(caminho).isDirectory();']],
@@ -99,8 +109,8 @@ const mutantes = {
   'R3-liberado-sem-efeito': [[lease, 'if (removidas.length === 0)', 'if (false)']],
   'R4-sem-flock': [[lease, 'if (!trava.error && trava.status === 1)', "if (trava.error) return 'indisponivel'; if (!trava.error && trava.status === 1)"]],
   'R3-release-symlink': [[lease, 'fs.lstatSync(canonico, { throwIfNoEntry: false })', 'fs.existsSync(canonico)']],
-  'R3-retomada-nlink': [[lease, ' || stat.nlink !== 1', '']],
-  'R3-retomada-tipagem': [[lease, "falhaRetomada: 'lease.resume-unavailable'", 'falhaRetomada: undefined']],
+  'R3-retomada-nlink': [[lease, ' || stat.nlink !== 1', '', 2]],
+  'R3-retomada-tipagem': [[lease, "falhaRetomada: 'lease.resume-unavailable'", 'falhaRetomada: undefined', 2]],
   'R3-retomada-regiao': [[lease, "motivo: r.falhaRetomada ?? 'lease.busy'", "motivo: 'lease.busy'"]],
   'R3-retomada-correcao': [[lease, 'ork lease release ${argumentoDeLease(nome)} --forcar; depois repita a aquisicao', 'espere a vez']],
   'R3-retomada-retry': [['core/dist-test/src/retry.js', "motivo: 'lease.resume-unavailable',\n        acao: 'escalar-humano',\n        automatica: false",
@@ -157,7 +167,7 @@ if (process.argv.includes('--listar')) {
     fs.writeFileSync(alvo, aplicar(texto, relativo, receitas, nome));
   }
   console.log(`RM-036 mutante: ${nome}`);
-  for (const teste of ['rm036-leases-gofix', 'rm036-leases-docs', 'rm036-leases-canonicos']) {
+  for (const teste of ['rm036-leases-gofix', 'rm036-leases-docs', 'rm036-leases-canonicos', 'rm036-leases-mcp']) {
     require(path.join(destino, 'core/dist-test/test', `${teste}.test.js`));
   }
 }

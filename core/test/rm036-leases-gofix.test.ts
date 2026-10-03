@@ -797,6 +797,95 @@ test('rm036 gofix: R4 corrida wx portatil preserva quem criou na janela apos unl
   assert.equal(fs.existsSync(`${arquivo}.retomadas`), false);
 });
 
+for (const estado of ['reutilizado', 'sem-permissao']) for (const temporario of [false, true]) {
+  test(`rm036 gofix: R5 candidato expirado ${estado} ${temporario ? 'temporario' : 'ticket'} sai com motivo e correcao`, (t) => {
+    semFlock(t);
+    const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree'), dir = `${arquivo}.retomadas`;
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    const antes = fs.readFileSync(arquivo, 'utf8');
+    fs.mkdirSync(dir);
+    const pid = process.pid + 100_000;
+    const nome = `${pid}-00000000-0000-4000-8000-000000000000.json${temporario ? '.tmp' : ''}`;
+    const candidato = path.join(dir, nome);
+    fs.writeFileSync(candidato, temporario ? '{' : JSON.stringify({ ticket: 0 }));
+    const velho = new Date(Date.now() - leases.TTL_PADRAO_MS - 1_000);
+    fs.utimesSync(candidato, velho, velho);
+    const matar = process.kill;
+    t.mock.method(process, 'kill', (alvo: number, sinal: NodeJS.Signals | number) => {
+      if (alvo !== pid) return matar(alvo, sinal);
+      if (estado === 'sem-permissao') throw Object.assign(Error('sem permissao'), { code: 'EPERM' });
+      return true;
+    });
+    const lista = leases.tabelaDeLeases(c.raiz);
+    assert.match(lista, /Fila de retomada: 1 lease/);
+    assert.ok(lista.includes(nome));
+    assert.ok(lista.includes(`pid ${pid}`));
+    assert.match(lista, temporario ? /temporario idade/ : /ticket 0 idade/);
+    assert.match(lista, /lease.resume-unavailable: prazo de 30 min excedido/);
+    assert.match(lista, /repita a aquisicao para recolher/);
+    assert.equal(fs.existsSync(candidato), true, 'listar nao altera candidatos');
+    const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomada' });
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, 'lease.resume-unavailable');
+    assert.equal(r.falhaRetomada, r.motivo);
+    assert.equal(r.filaRetomadaExpirada, true);
+    assert.match(r.detalhe, /candidatos expirados recolhidos/);
+    assert.equal(r.correcao, 'consulte ork lease list; depois repita a aquisicao');
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), antes, 'recusa nao apaga o lease');
+    assert.equal(fs.existsSync(dir), false, 'recolhe candidato e pasta');
+    assert.match(leases.tabelaDeLeases(c.raiz), /Fila de retomada: vazia/);
+    assert.equal(leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'apos correcao' }).ok, true);
+  });
+}
+
+for (const morto of [false, true]) {
+  test(`rm036 gofix: R5 temporario parcial de PID ${morto ? 'morto' : 'vivo'} apos SIGKILL`, (t) => {
+    semFlock(t);
+    const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree'), dir = `${arquivo}.retomadas`;
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    fs.mkdirSync(dir);
+    const pid = process.pid + 100_000, candidato = path.join(dir, `${pid}-00000000-0000-4000-8000-000000000000.json.tmp`);
+    fs.writeFileSync(candidato, '{');
+    const matar = process.kill;
+    t.mock.method(process, 'kill', (alvo: number, sinal: NodeJS.Signals | number) => {
+      if (alvo !== pid) return matar(alvo, sinal);
+      if (morto) throw Object.assign(Error('morto'), { code: 'ESRCH' });
+      return true;
+    });
+    assert.match(leases.tabelaDeLeases(c.raiz), /temporario idade/);
+    const r = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomada' });
+    assert.equal(r.ok, true);
+    assert.equal(fs.existsSync(candidato), !morto, 'publicacao recente de vivo e preservada');
+    assert.equal(fs.existsSync(dir), !morto);
+  });
+}
+
+test('rm036 gofix: R5 retomador pausado perde candidato e nao remove o lease', (t) => {
+  semFlock(t);
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree'), dir = `${arquivo}.retomadas`;
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const antes = fs.readFileSync(arquivo, 'utf8'), inode = fs.statSync(arquivo).ino;
+  const ler = io.readFileSync, agora = Date.now;
+  let entrou = false, segundo: leases.ResultadoDeAquisicao | undefined;
+  t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+    const valor = Reflect.apply(ler, io, [p, ...args]);
+    if (typeof p === 'number' && fs.fstatSync(p).ino === inode && !entrou) {
+      entrou = true;
+      t.mock.method(Date, 'now', () => agora() + leases.TTL_PADRAO_MS + 1_000);
+      segundo = leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'recolher atrasado' });
+    }
+    return valor;
+  });
+  const r = leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'pausado' });
+  assert.equal(entrou, true);
+  assert.equal(segundo?.ok, false);
+  assert.equal(segundo?.filaRetomadaExpirada, true);
+  assert.equal(r.ok, false, 'candidato retirado nao pode entrar na secao critica');
+  assert.equal(r.falhaRetomada, 'lease.resume-unavailable');
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+  assert.equal(fs.existsSync(dir), false);
+});
+
 function prepararShip(t: TestContext, c: ReturnType<typeof cenario>) {
   fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
   const thread: Thread = { id: OUTRA, slug: 'ork-segunda-full', nome: 'fixture', assunto: 'segunda',

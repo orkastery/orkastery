@@ -287,16 +287,48 @@ function escritaRecente(caminho: string): boolean {
   try { return Date.now() - fs.lstatSync(caminho).mtimeMs < 5_000; } catch { return false; }
 }
 
+type Retomada = 'retomado' | 'ocupado' | 'fila-expirada';
+
+/** Candidatos e temporarios pertencem ao mesmo namespace de PID do processo local. */
+function lerCandidatoRetomada(dir: string, nome: string): { nome: string; pid: number; ticket: number | null; stat: fs.Stats } | null {
+  const match = /^(\d+)-[a-f0-9-]+\.json(\.tmp)?$/.exec(nome);
+  const pid = Number(match?.[1]);
+  if (!match || !Number.isSafeInteger(pid) || pid <= 0) throw Object.assign(Error('candidato de retomada invalido'), { code: 'EPERM' });
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(path.join(dir, nome), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.nlink !== 1 || stat.size > 1024) throw Object.assign(Error('candidato inseguro'), { code: 'EPERM' });
+    // SIGKILL pode deixar JSON parcial: o temporario nao participa da ordem de tickets.
+    const ticket = match[2] ? null : JSON.parse(fs.readFileSync(fd, 'utf8')).ticket;
+    if (ticket !== null && (!Number.isSafeInteger(ticket) || ticket < 0)) throw Object.assign(Error('ticket invalido'), { code: 'EPERM' });
+    return { nome, pid, ticket, stat };
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw e;
+  } finally { if (fd !== undefined) fs.closeSync(fd); }
+}
+
+/** Nomes nao se repetem. Ainda assim, nunca recolhe um inode substituido. */
+function recolherCandidato(dir: string, c: NonNullable<ReturnType<typeof lerCandidatoRetomada>>): void {
+  const arquivo = path.join(dir, c.nome), atual = fs.lstatSync(arquivo, { throwIfNoEntry: false });
+  if (atual?.isFile() && atual.nlink === 1 && atual.dev === c.stat.dev && atual.ino === c.stat.ino) {
+    try { fs.unlinkSync(arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+  }
+}
+
 /**
- * Bakery local e portatil: publica a escolha (ticket zero), depois o ticket, sempre
- * por rename atomico. Nomes UUID nunca sao reutilizados, nem na limpeza de mortos.
- * Todo retomador participa, inclusive com flock: transportes mistos se excluem.
- * Nao expira candidato vivo. PID reutilizado pode atrasar, nunca autoriza dois donos.
+ * Bakery local e portatil, com prazo limitado a 30 min. Publica ticket zero e depois
+ * o ticket por rename atomico. Todo retomador participa, inclusive com flock.
+ * Candidato recolhido nao autoriza seu processo a continuar: a posse e revalidada
+ * na entrada da secao critica e imediatamente antes da conferencia final do lease.
  */
-function comFilaDeRetomada(caminho: string, retomar: () => 'retomado' | 'ocupado'): 'retomado' | 'ocupado' {
+function comFilaDeRetomada(caminho: string, retomar: (aindaCandidato: () => boolean) => Retomada): Retomada {
   const dir = `${caminho}.retomadas`;
   fs.mkdirSync(dir, { recursive: true });
+  if (!fs.lstatSync(dir).isDirectory()) throw Object.assign(Error('fila insegura'), { code: 'EPERM' });
   const nome = `${process.pid}-${randomUUID()}.json`, arquivo = path.join(dir, nome);
+  const prazo = Date.now() + TTL_PADRAO_MS;
   const publicar = (ticket: number): void => {
     const tmp = `${arquivo}.tmp`;
     try {
@@ -306,36 +338,44 @@ function comFilaDeRetomada(caminho: string, retomar: () => 'retomado' | 'ocupado
       try { fs.unlinkSync(tmp); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
     }
   };
+  let recolheuExpirado = false;
   const candidatos = (): { nome: string; ticket: number }[] => {
     const resultado: { nome: string; ticket: number }[] = [];
-    for (const entrada of fs.readdirSync(dir).filter((n) => n.endsWith('.json'))) {
-      const pid = Number(/^(\d+)-[a-f0-9-]+\.json$/.exec(entrada)?.[1]);
-      if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('candidato de retomada invalido');
-      const file = path.join(dir, entrada);
-      try { process.kill(pid, 0); } catch (e) {
+    for (const entrada of fs.readdirSync(dir)) {
+      const c = lerCandidatoRetomada(dir, entrada);
+      if (!c) continue;
+      if (Date.now() - c.stat.mtimeMs >= TTL_PADRAO_MS) {
+        recolherCandidato(dir, c);
+        recolheuExpirado = true;
+        continue;
+      }
+      try { process.kill(c.pid, 0); } catch (e) {
         if ((e as NodeJS.ErrnoException).code === 'ESRCH') {
-          try { fs.unlinkSync(file); } catch (erro) { if ((erro as NodeJS.ErrnoException).code !== 'ENOENT') throw erro; }
+          recolherCandidato(dir, c);
           continue;
         }
-        // EPERM nao prova morte. O candidato continua bloqueando normalmente.
+        // EPERM nao prova morte; o prazo limita a espera por PID inacessivel/reutilizado.
       }
-      let ticket: number;
-      try { ticket = JSON.parse(fs.readFileSync(file, 'utf8')).ticket; } catch (e) {
-        if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue;
-        throw e;
-      }
-      if (!Number.isSafeInteger(ticket) || ticket < 0) throw new Error('ticket de retomada invalido');
-      resultado.push({ nome: entrada, ticket });
+      if (c.ticket !== null) resultado.push({ nome: entrada, ticket: c.ticket });
     }
     return resultado;
   };
   try {
     publicar(0);
     const ticket = Math.max(0, ...candidatos().map((c) => c.ticket)) + 1;
+    if (recolheuExpirado) return 'fila-expirada';
     publicar(ticket);
-    if (candidatos().some((c) => c.nome !== nome && (c.ticket === 0 || c.ticket < ticket ||
+    const identidade = fs.lstatSync(arquivo);
+    const aindaCandidato = (): boolean => {
+      const atual = fs.lstatSync(arquivo, { throwIfNoEntry: false });
+      return Date.now() < prazo && !!atual?.isFile() && atual.nlink === 1 &&
+        atual.dev === identidade.dev && atual.ino === identidade.ino;
+    };
+    const outros = candidatos();
+    if (recolheuExpirado || !aindaCandidato()) return 'fila-expirada';
+    if (outros.some((c) => c.nome !== nome && (c.ticket === 0 || c.ticket < ticket ||
         (c.ticket === ticket && c.nome < nome)))) return 'ocupado';
-    return retomar();
+    return retomar(aindaCandidato);
   } finally {
     try { fs.unlinkSync(arquivo); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
     // rmdir e atomico e so remove uma pasta vazia; nunca remove candidato concorrente.
@@ -346,7 +386,7 @@ function comFilaDeRetomada(caminho: string, retomar: () => 'retomado' | 'ocupado
 }
 
 /** O fd e a fila exclusiva ficam presos ao inode antigo ate concluir o novo wx. */
-function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' | 'indisponivel' {
+function retomarArquivo(caminho: string, corpo: string): Retomada | 'indisponivel' {
   let fd: number | undefined;
   try {
     fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
@@ -359,12 +399,13 @@ function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' 
       if (!trava.error && trava.status === 1) return 'ocupado';
     } catch { /* Transporte ausente ou bloqueado: a fila portatil ainda serializa. */ }
     const descritor = fd;
-    return comFilaDeRetomada(caminho, () => {
+    return comFilaDeRetomada(caminho, (aindaCandidato) => {
       let atual: Lease | null = null;
       try { atual = JSON.parse(fs.readFileSync(descritor, 'utf8')) as Lease; } catch { /* corrompido */ }
       if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(descritor).mtimeMs < 5_000)) return 'ocupado';
       const agoraNoPath = fs.lstatSync(caminho);
       if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return 'ocupado';
+      if (!aindaCandidato()) return 'fila-expirada';
       fs.unlinkSync(caminho);
       fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
       return 'retomado';
@@ -473,6 +514,8 @@ export interface ResultadoDeAquisicao {
   tomadoDeVencido: boolean;
   /** Falha persistente de retomada: exige correcao, nao espera por outro dono. */
   falhaRetomada?: 'lease.resume-unavailable';
+  /** Fila recolhida por prazo; a correcao nao precisa remover o lease. */
+  filaRetomadaExpirada?: boolean;
 }
 
 export interface OpcoesDeLease {
@@ -523,6 +566,8 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
     }
     const retomada = retomarArquivo(caminho, corpo);
     if (retomada === 'retomado') return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: true };
+    if (retomada === 'fila-expirada') return { ok: false, lease: null, ocupadoPor: lerLease(raiz, nome),
+      tomadoDeVencido: false, falhaRetomada: 'lease.resume-unavailable', filaRetomadaExpirada: true };
     if (retomada === 'indisponivel') return { ok: false, lease: null, ocupadoPor: lerLease(raiz, nome),
       tomadoDeVencido: false, falhaRetomada: 'lease.resume-unavailable' };
   }
@@ -861,10 +906,11 @@ export function adquirirRegiao(
       posicaoNaFila: posicao,
       colidiuCom: dono,
       falhaRetomada: r.falhaRetomada,
+      filaRetomadaExpirada: r.filaRetomadaExpirada,
       motivo: r.falhaRetomada ?? 'lease.busy',
-      detalhe: r.falhaRetomada ? `retomada indisponivel para o lease "${nome}"; use --forcar para liberar explicitamente` :
+      detalhe: r.filaRetomadaExpirada ? `fila de retomada do lease \"${nome}\" excedeu 30 min; candidatos expirados recolhidos` : r.falhaRetomada ? `retomada indisponivel para o lease "${nome}"; use --forcar para liberar explicitamente` :
         `o lease "${nome}" esta com a thread ${dono?.thread ?? '(desconhecida)'}`,
-      correcao: r.falhaRetomada ? `ork lease release ${argumentoDeLease(nome)} --forcar; depois repita a aquisicao` :
+      correcao: r.filaRetomadaExpirada ? 'consulte ork lease list; depois repita a aquisicao' : r.falhaRetomada ? `ork lease release ${argumentoDeLease(nome)} --forcar; depois repita a aquisicao` :
         `espere a vez (posicao ${posicao} na fila) ou: ork lease release ${argumentoDeLease(nome)} --forcar`,
     };
   }
@@ -930,6 +976,26 @@ export function tabelaDeLeases(raiz: string): string {
   }
 
   linhas.push('');
+  // Consulta nao recolhe candidatos: mostra a fila, inclusive sobras de SIGKILL.
+  const pasta = dirLeases(raiz);
+  const retomadas = fs.existsSync(pasta) ? fs.readdirSync(pasta).filter((n) => n.endsWith('.json.retomadas')).sort() : [];
+  linhas.push(`Fila de retomada: ${retomadas.length === 0 ? 'vazia' : `${retomadas.length} lease(s)`}`);
+  for (const nome of retomadas) {
+    const dir = path.join(pasta, nome);
+    linhas.push(`  ${textoSeguro(nome)}`);
+    try {
+      if (!fs.lstatSync(dir).isDirectory()) throw Error('fila insegura');
+      for (const entrada of fs.readdirSync(dir).sort()) {
+        const c = lerCandidatoRetomada(dir, entrada);
+        if (!c) continue;
+        const idade = Math.max(0, Date.now() - c.stat.mtimeMs), vencido = idade >= TTL_PADRAO_MS;
+        linhas.push(`    ${textoSeguro(c.nome)} pid ${c.pid} ${c.ticket === null ? 'temporario' : `ticket ${c.ticket}`} idade ${Math.floor(idade / 1000)}s`);
+        if (vencido) linhas.push('      lease.resume-unavailable: prazo de 30 min excedido; repita a aquisicao para recolher e consulte ork lease list');
+      }
+    } catch {
+      linhas.push('    lease.resume-unavailable: fila ilegivel ou insegura; inspecione candidatos antes de repetir a aquisicao');
+    }
+  }
   const merge = fila.filter((p) => p.tipo === 'main-tree');
   const regiao = fila.filter((p) => p.tipo !== 'main-tree');
   linhas.push(`Fila de merge (lease ${LEASE_MAIN_TREE}): ${merge.length === 0 ? 'vazia' : `${merge.length} na espera`}`);
