@@ -375,7 +375,7 @@ reextrai só o que a mudança alcança, com os mesmos bytes da extração comple
 | --- | --- |
 | `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
-| `ork grafo contexto <thread> [--json [--teto-bytes N]]` | Pacote determinístico da thread a partir de diff contra base, GOAL, PLAN e claims: arquivos e símbolos ligados em um salto, evidência integral, corte declarado e medida offline em bytes dos mesmos arquivos no índice; JSON `ork.thread-graph-context/v0`, 32.768 bytes por padrão (4.096 a 65.536) |
+| `ork grafo contexto <thread> [--json [--teto-bytes N]]` | Pacote compacto da thread: diff só com worktree, GOAL, PLAN e claims; fan-in agregado, referências locais, evidência em tupla e corte por relevância; JSON `ork.thread-graph-context/v2`, 32.768 bytes por padrão (4.096 a 65.536) |
 | `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
 | `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem chama: as arestas `calls` que chegam ao símbolo |
 | `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem importa: as arestas `imports` que chegam |
@@ -398,11 +398,12 @@ revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de 
 Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
 corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
 
-No `contexto`, o teto vale mesmo sem explicitá-lo: sementes primeiro, depois ligações inteiras,
-com omissões declaradas. A medida compara o JSON com os bytes dos mesmos arquivos no manifesto
-da revisão indexada; tokens ficam indisponíveis. O [contrato da fatia 2](contratos/consumo-grafo-kg5.md#fatia-2-pacote-de-contexto-da-thread)
-detalha as fontes e os limites. Com a flag ligada, `ork_grafo_contexto` fornece o mesmo pacote no
-MCP e o pedido da fase ganha uma dica curta; com a flag desligada, o prompt é idêntico ao anterior.
+No `contexto`, o teto vale mesmo sem explicitá-lo: sementes indexadas primeiro, ligações
+entre arquivos e mais próximas do diff, até oito grupos por alvo e três exemplos de sementes
+fora do índice. Sem worktree, o diff é ignorado e declarado. A medida interna soma tamanhos,
+não o custo de descoberta sem grafo; tokens ficam indisponíveis. O [contrato v2](contratos/consumo-grafo-kg5.md#fatia-3-pacote-compacto-e-relevante)
+detalha referências locais, evidências, omissões e a medição histórica. Com a flag ligada,
+`ork_grafo_contexto` fornece o mesmo JSON no MCP.
 
 ```bash
 ork grafo indexar --verificar

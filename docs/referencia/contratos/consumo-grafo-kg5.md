@@ -207,88 +207,182 @@ confere a forma do registro e recusa token medido sem medida e texto que prometa
 
 ## Fatia 2: pacote de contexto da thread
 
+A fatia 2 introduziu `ork grafo contexto <thread>` e `ork_grafo_contexto`, a dica opt-in no
+pedido da fase e o compositor puro. A fatia 3 substitui integralmente seu wire format v0 pelo
+**`ork.thread-graph-context/v2`**. A flag permanece desligada, sem consumidor a migrar.
+
+## Fatia 3: pacote compacto e relevante
+
 ```sh
 ork grafo contexto <thread> --json
 ork grafo contexto <thread> --json --teto-bytes 8192
 ```
 
-`ork_grafo_contexto {threadId, tetoBytes?}` roda exatamente esse argv na worktree da thread e
-devolve o mesmo JSON compacto, sem a quebra de linha final da CLI. O schema é
-`ork.thread-graph-context/v0`; a CLI está disponível sem ligar a flag, e o MCP continua opt-in.
-O manifesto da worktree não habilita tools nem a dica: vale `grafo.mcp` da raiz do estado.
-O servidor lista 31 tools sem a flag e 36 com ela, conforme `core/test/mcp-grafo.test.ts`.
+`ork_grafo_contexto {threadId, tetoBytes?}` entrega os mesmos bytes do JSON da CLI. A CLI sem
+`--json` acrescenta um resumo fora do teto. O índice deve corresponder ao HEAD da worktree;
+sem worktree usa-se o HEAD da raiz somente para consultar o índice. Nenhuma consulta indexa
+implicitamente nem altera estado.
 
-### Entrada e seleção
+### Fontes e sementes
 
-- `diff`: nomes rastreados alterados contra o commit base carimbado na thread, incluindo mudanças
-  commitadas, staged, unstaged e exclusões; renomeações entram como nome antigo e novo. Arquivos
-  ainda não rastreados só entram se citados em GOAL, PLAN ou claims.
-- `goal` e `plan`: caminhos relativos à raiz citados nos documentos do agente (`docs/goal.md` e
-  `docs/plan.md` do estado da thread), em código, destino de link ou texto. Não executa a prosa.
-  Links externos, caminhos absolutos, travessias e `.git`/`.orkastery` ficam fora. Fragmentos e
-  números de linha em citações são removidos; referências em prosa não constituem arestas.
-- `claims`: arquivos das claims ativas, com o ID da claim como origem. Claims retiradas ficam fora;
-  uma claim pendente continua sendo uma entrada prospectiva, sem virar prova de verificação.
+As fontes são caminhos do diff contra a base, GOAL/PLAN e claims ativas. Caminhos públicos
+relativos são deduplicados com suas origens. Código inline e links aceitam referências explícitas;
+em prosa, caminhos com diretório e extensões de fonte conhecidas. `v0.5.0`, `Node.js` e domínios
+como `example.com` não viram sementes. Para nomes ambíguos, use código inline.
 
-Cada semente lista as origens (`diff`, `goal`, `plan`, `claim:Cn`) e o estado `indexado` ou
-`fora-do-indice`. Um caminho novo, excluído ou não extraído não ganha ligações inventadas.
-Documentos ausentes ficam declarados em `fontes`; documentos presentes têm hash SHA-256.
-`entrada_sha256` identifica base, diff, documentos e claims normalizados, sem relógio, paths
-absolutos da instalação, metadados de sessão ou texto integral dos documentos na resposta.
+**Sem worktree vinculada, o diff é ignorado**, inclusive alterações locais e o que entrou na
+`main` depois da base: `fontes.diff: "ignorado-sem-worktree"`. Com worktree,
+`fontes.diff: "coletado-na-worktree"`. Esta proteção evita atribuir mudanças de outras threads
+à consultada; GOAL, PLAN e claims continuam disponíveis. A base continua identificada, sem
+pretender que o índice atual representa a árvore histórica da base.
 
-A expansão percorre um salto, nos dois sentidos, desde os arquivos indexados das sementes e seus
-símbolos/seções. Só entram arestas existentes no grafo filtrado pela concessão. O pacote contém
-`nos`, `arestas` com as duas pontas por ID e todas as evidências (extrator, versão, método, arquivo,
-linhas e offsets em bytes). O cabeçalho `indice` identifica revisão, snapshot, digest, extratores
-e estado da árvore. Não reextrai alterações ainda não commitadas: o grafo continua sendo do HEAD.
+As sementes indexadas entram primeiro, em ordem UTF-8. As ausentes entram depois das ligações,
+limitadas às **três primeiras** na mesma ordem; `sementes_fora_do_indice` conta todas.
+`total_sementes` e `omitidos.sementes` incluem as ausentes. Caminhos absolutos, URLs e estado
+privado são recusados como sementes. Em GOAL/PLAN, inclusive código e links, o token precisa
+ter extensão conhecida, nome especial de arquivo (como `Dockerfile`) ou prefixo de diretório
+presente no índice consultado. `e/ou`, `CHECK/SHIP`, `03/10/2026` e `imports/references`
+não ocupam a amostra de ausentes; um arquivo novo com extensão conhecida continua elegível.
+Diff e claims já declaram caminhos e não passam pelo filtro de prosa. O grafo já deve estar
+filtrado pela concessão.
 
-### Determinismo e teto
+### Wire format v2
 
-O mesmo índice e a mesma entrada dão os mesmos bytes. JSON usa a serialização canônica do grafo;
-sementes ficam em ordem UTF-8 por caminho, origens ordenadas, e arestas por tipo, rótulo de origem,
-rótulo de destino e ID. Duplicatas de caminhos são consolidadas. Os nós e evidências também têm
-ordem fixa. O arquivo `core/src/intelligence-graph-contexto.ts` só compõe dados recebidos; CLI e
-worker leem a thread por uma função compartilhada, fora da família do grafo.
+- `nos` é uma tabela única `{n1: "file src/app.ts", n2: "symbol src/alvo.ts#alvo", ...}`.
+  As referências são locais ao pacote, atribuídas pela ordem UTF-8 dos rótulos; não são IDs
+  persistentes entre respostas. `node_id` e `edge_id` longos não são transmitidos. O cabeçalho
+  identifica revisão, snapshot e digest para reencontrar os nós no índice.
+- `arestas` contém grupos `{kind, from, to, quantidade, evidencias}`. A chave da agregação é
+  **tipo, nó alvo e arquivo de origem**; `from` aponta ao rótulo `file` da origem. `quantidade`
+  conta arestas originais, não tuplas; evidências idênticas são deduplicadas. Não há lista
+  redundante de símbolos chamadores: os spans permitem localizar cada chamada no arquivo.
+- Cada evidência é `[extrator, método, linhas, bytes]`: `extrator` é o índice numérico, começando
+  em zero, na tabela ordenada `indice.extratores`; `linhas` é `[início, fim]`, inclusivo, com
+  `null` quando indisponível; `bytes` é `[início, fim]` UTF-8, fim exclusivo. O caminho é o de
+  `from`. Para spans PDF, `linhas` usa `["pdf", página, hash_do_texto_extraído]`; os bytes se
+  referem ao texto extraído, não ao PDF binário. Evidência auxiliar em arquivo diferente da
+  origem é omitida e contada em `omitidos.evidencias_auxiliares`, sem derrubar o pacote.
+  Se a aresta não tem evidência no arquivo de origem, ela fica em `omitidos.arestas`;
+  nenhuma ligação é entregue com uma tupla atribuída ao arquivo errado.
+- `declares` e `contains` internos ao arquivo semente saem da lista e são contados em
+  `resumidas.estruturais`. Não são relações perdidas pelo teto.
 
-O teto do JSON completo é 32.768 bytes por padrão, de 4.096 a 65.536, incluindo cabeçalho e medida.
-Retém o maior prefixo que cabe: primeiro sementes, depois arestas. Cada aresta entra junto com
-as duas pontas e a evidência integral, nunca com strings cortadas. `truncado`, `teto.cortado` e
-`omitidos` declaram o corte. Muitas sementes podem ocupar todo o teto, deixando as arestas de fora;
-as tools por nó permitem aprofundar a consulta. Pacote vazio é válido e não é erro.
-Sem `--json`, a CLI apresenta resumo e JSON; o teto se aplica ao JSON, não às linhas do resumo.
+A vizinhança tem um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
+A ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
+(distância no grafo não dirigido de arquivos, não distância em linhas). Empates intercalam tipos
+por rodada de cada alvo; depois tipo e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
+empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários arquivos e preserva
+diversidade de tipos dentro da mesma prioridade.
 
-As recusas do índice mantêm `estado_do_indice` e `correcao: "ork grafo indexar"`, no schema do
-contexto. Índice ausente, de outra revisão, de outro extrator ou corrompido nunca fornece nós.
-Base inválida, falha ao ler o diff ou worktree incompatível recusam o pacote. Mudança do HEAD
-durante a coleta recusa com `grafo.contexto.revisao-mudou` e pede repetir. Não há indexação automática.
+O teto do JSON completo é 32.768 bytes, de 4.096 a 65.536, incluindo cabeçalho e medida.
+Cada grupo entra com as pontas e todas as tuplas. Se um grupo não cabe, tenta-se o próximo;
+não se corta uma evidência nem se deixa um hub grande impedir todas as relações menores.
+`truncado`/`teto.cortado` abrangem corte por bytes, por alvo, pela amostra de sementes ausentes
+e por evidências auxiliares omitidas. A contagem de auxiliares cobre as arestas candidatas
+não estruturais, inclusive as que depois não cabem no teto.
+`omitidos.ligacoes` conta grupos, `omitidos.arestas` conta arestas originais. A identidade é:
+`total_arestas = soma(quantidade) + omitidos.arestas + resumidas.estruturais`.
+Pacote vazio é válido. As consultas por nó permitem aprofundar o que ficou de fora.
 
-### Dica no prompt e medida offline
+A mesma entrada e índice produzem bytes idênticos, mesmo com coleções permutadas. O compositor
+`core/src/intelligence-graph-contexto.ts` não faz E/S. CLI e worker compartilham o leitor da thread.
+As recusas de índice ausente, de outra revisão/extrator ou corrompido mantêm `estado_do_indice`
+e `correcao: "ork grafo indexar"`, agora no schema v2, sem fornecer nós. Base inválida,
+falha no diff de uma worktree ou incompatibilidade da worktree recusam o pacote; mudança do
+HEAD durante a leitura recusa com `grafo.contexto.revisao-mudou`.
 
-Com `grafo.mcp: true` na raiz, o pedido da fase recebe um bloco curto com `ork_grafo_contexto`,
-o comando CLI, as quatro consultas por nó, a correção do índice e a ressalva de parcialidade.
-A dica entra antes da renderização e do hash do prompt, inclusive em templates do projeto que
-usam `pedido`. Com a flag ausente ou `false`, o texto renderizado fica byte a byte igual ao anterior.
-A dica não carrega o grafo, não chama tool e não executa rodada paga.
+### Dica e medidas
 
-`medida.pacote_bytes` é o tamanho real do JSON UTF-8, incluindo o próprio campo. A leitura crua
-compara os mesmos arquivos presentes no pacote (sementes indexadas, nós e evidências), uma vez
-por caminho: `medida.arquivos` lista cada tamanho e `leitura_crua_bytes` soma `size_bytes` do
-`source_manifest` da revisão indexada. Não mede bytes da árvore editada nem tokens:
-`tokens: "unavailable"`. A medida acompanha cada pacote, inclusive quando há corte.
+Com `grafo.mcp: true` na raiz, o pedido da fase recebe a dica curta de contexto, as quatro
+consultas por nó, correção do índice e parcialidade. A dica entra antes da renderização e do
+hash do prompt. Com a flag ausente ou `false`, o prompt permanece byte a byte igual ao anterior.
 
-Na fixture sintética de `core/test/rm031-kg5-contexto.test.ts` (30 funções chamadoras, Node 22.23.2),
-o comando abaixo mediu **22.973 bytes** de pacote e **1.567 bytes** de leitura crua dos mesmos
-3 arquivos, sem corte. Nesse corpus o pacote é maior: IDs e evidências têm custo. Não é economia
-de tokens, não é a rodada A/B e não generaliza para outros repositórios.
+`medida.pacote_bytes` mede o JSON UTF-8 completo, incluindo esse campo. `leitura_crua_bytes`
+é apenas a soma dos tamanhos do `source_manifest` dos arquivos presentes no pacote, listados
+em `medida.arquivos`. **Essa soma não é o custo de descobrir a vizinhança sem o grafo.**
+Não mede a árvore editada; tokens permanecem `unavailable`.
+
+Na mesma fixture sintética de 30 funções chamadoras e três arquivos, o v2 mediu **3.119 bytes**,
+sem corte, contra os **22.973 bytes** registrados no v0: aproximadamente **7,4 vezes menor**.
+Os arquivos continuam somando **1.567 bytes**. A redução supera a meta de 4–5 vezes para essa
+fixture; ela não demonstra economia de tokens nem cobertura em trabalho real.
 
 ```sh
 npm --prefix core run build:test
-node core/dist-test/test/rm031-kg5-contexto.test.js
+node --test-name-pattern='KG5 medida offline' core/dist-test/test/rm031-kg5-contexto.test.js
 ```
 
-O grupo `KG5 medida offline` imprime os números e confere os tamanhos contra os bytes reais da
-fixture. Os testes integrados também cobrem CLI/worker/MCP e recusas, e precisam de subprocessos
-permitidos. Passagem parcial no sandbox não substitui `ork verify` e o CHECK da condutora.
+A medição histórica está registrada em `core/test/fixtures/kg5-medida-contexto.json`
+(`estado: measured`), produzida por `core/scripts/medir-mcp-grafo.cjs --contexto` para duas
+threads já mescladas: KG3 (`c507a3a`, semente `core/src/intelligence-graph-extract.ts`) e KG4
+(`99b10d3`, semente `core/src/intelligence-graph-index.ts`). Os identificadores curtos vêm deste
+roadmap; o script resolve os SHAs completos, exige dois pais e comprova ancestralidade na `main`.
+Extrai em memória os blobs da base comum dos pais, sem checkout, indexação persistente ou escrita
+no estado. As sementes são retrospectivas e fixas, não uma reconstrução dos prompts originais.
+
+O braço sem grafo lê a mesma semente, extrai pelo AST TypeScript somente nomes exportados
+explicitamente com **quatro caracteres ou mais** e usa `git grep -n -I -F -w`. Nomes locais,
+comentários e strings não fornecem termos; aliases usam o nome público. Não expande `export *`
+nem usa o nome local de um `export default`. Sem termos elegíveis, não executa grep.
+Lê integralmente os arquivos encontrados e as saídas relativas explícitas da semente.
+Contabiliza **saída do grep + bytes lidos**, incluindo cada arquivo uma vez. Divergências de
+vizinhança são listadas, pois busca textual ainda pode incluir homônimos/comentários.
+
+Só depois de produzir os dois braços o script lê o diff entregue pelo merge. O denominador
+da **cobertura do alcançável** é o número de arquivos editados que **já existiam na base**:
+`total_acertos / total_editados`. Novos arquivos ficam em `resultado.arquivos_novos`, fora desse
+denominador, pois nenhum dos braços poderia encontrá-los. A **precisão** de cada braço é
+`total_acertos / total_apontados`; sementes contam em ambos, com acertos fora das sementes
+reportados à parte. Denominador vazio produz `null`, não uma porcentagem inventada.
+
+**Pacote pequeno e preciso nos vínculos apresentados, com cobertura parcial; sem conclusão
+de economia de tokens.** Na rodada anterior, o pacote tinha 15.096 bytes no KG3 e 16.948 no KG4;
+os editados entre os apontados eram 3/7 e 7/8. Essa precisão de seleção varia por caso e não
+significa cobertura completa. A comparação anterior com a descoberta não sustenta a manchete
+“15 KB contra 28 MB”: o grep admitia variáveis locais curtas e substrings, alcançando quase
+todo o repositório. Seus bytes e sua cobertura não valem como referência da metodologia corrigida.
+
+O registro offline passa de `ork.graph-context-cost/v2` para **`ork.graph-context-cost/v3`**;
+o pacote continua `ork.thread-graph-context/v2`. A fixture v2 existente é uma medida executada,
+não `not-run`, mas o validador corrigido a recusa como método desatualizado. A condutora regravou
+a fixture após os commits do GO-FIX (03/10/2026) e preencheu os números abaixo com a nova rodada:
+
+| Caso | Braço | Bytes ao agente | Precisão (editados/apontados) | Cobertura do alcançável (acertos/editados na base) |
+| --- | --- | --- | --- | --- |
+| KG3 | Pacote | 15.122 | 3/7 (43%) | 3/13 (23%) |
+| KG3 | Descoberta | 723.688 | 3/41 (7%) | 3/13 (23%) |
+| KG4 | Pacote | 16.974 | 7/8 (88%) | 7/17 (41%) |
+| KG4 | Descoberta | 299.953 | 6/11 (55%) | 6/17 (35%) |
+
+Arquivos novos, contados separadamente: **10** no KG3 e
+**9** no KG4. Origem dos valores: `casos[0]` (KG3) e `casos[1]` (KG4),
+`pacote/descoberta.bytes_ao_agente`, `cobertura_pacote/cobertura_descoberta.precisao` e `.cobertura`,
+com as respectivas contagens; novos vêm de `resultado.arquivos_novos.length`.
+Os dois braços não medem a mesma coisa: o pacote é só o mapa, e a descoberta soma a saída do grep à leitura inteira de cada arquivo achado. Mapa contra mapa (o pacote contra a saída do grep, 33.070 e 25.988 bytes), o pacote é 2,2 e 1,5 vez menor. A precisão do pacote é maior nos dois casos (43% e 88% contra 7% e 55%). A cobertura empata no KG3 (23%), graças a um único acerto por referência de Markdown, e é maior no KG4 (41% contra 35%). O braço sem grafo não busca o caminho da semente, o que pode subestimar a cobertura dele. Nomes exportados que são palavras comuns (por exemplo, `Lacuna`) trazem docs e skills para a descoberta e inflam os bytes dela. São dois casos do mesmo subsistema, sem conclusão sobre tokens.
+
+`--conferir` refaz a medida e compara o **sha256 dos bytes do pacote** de cada caso com a fixture,
+além do registro determinístico completo. Diferença de hash ou métrica reprova; somente produzir
+um pacote determinístico duas vezes já não basta. A sequência de regravação e conferência é:
+
+```sh
+npm --prefix core run build
+node core/scripts/medir-mcp-grafo.cjs --contexto --saida core/test/fixtures/kg5-medida-contexto.json
+node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json
+node core/scripts/medir-mcp-grafo.cjs --contexto --conferir
+```
+
+Dois casos do mesmo subsistema não representam todas as threads. Preparo do índice e descoberta
+das tools são custos separados do pacote. Nenhum número de tokens ou latência é inferido.
+Os testes puros passaram e detectaram oito mutações temporárias no JavaScript compilado: quebra
+de fan-in, offset de span, teto por alvo, amostra de ausentes, diff sem worktree, proximidade,
+intercalação de tipos e prioridade entre arquivos. O código foi restaurado e os testes passaram
+novamente. O GO-FIX acrescenta a prova executável de três mutações dos termos: admitir nomes
+curtos, admitir locais e retirar `-w`; todas precisam derrubar a mesma prova da descoberta.
+Comando: `node --test-name-pattern="KG5 medida historica" core/dist-test/test/rm031-kg5-contexto.test.js`.
+Esses ensaios locais não são recibo oficial do núcleo.
+
+Os testes integrados CLI/worker/MCP exigem subprocessos permitidos; a passagem dos testes puros
+não substitui a suíte, `ork verify` ou a revisão independente da condutora.
 
 ## Fora destas fatias
 

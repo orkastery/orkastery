@@ -424,8 +424,9 @@ function contexto(ctx: ContextoDoCli, p: Pedido): number {
   else {
     const r = JSON.parse(json);
     ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
-      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_arestas} arestas; ${r.medida.pacote_bytes} bytes JSON`,
-      `  leitura crua dos mesmos arquivos: ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
+      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
+      `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
+      `  diff: ${r.fontes.diff}`,
       `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
   }
   return 0;
