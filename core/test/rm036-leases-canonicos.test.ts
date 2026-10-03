@@ -386,3 +386,69 @@ test('rm036 leases: board da worktree mostra o dominio canonico', () => {
     assert.equal(chamadas, 1, 'uma listagem para o perfil inteiro');
   } finally { c.p.limpar(); }
 });
+
+/** Espera a condicao, sem relogio no veredito: o prazo so evita teste preso. */
+async function ate(condicao: () => boolean, ms: number, oque: () => string): Promise<void> {
+  const fim = Date.now() + ms;
+  while (!condicao()) {
+    if (Date.now() > fim) throw new Error(`tempo esgotado esperando: ${oque()}`);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+/**
+ * Outro processo, com cwd na raiz, segura um lock do nucleo (o codigo do HEAD, de `dist/`) ate o teste
+ * mandar soltar: grava `pronto` dentro do lock e sai quando `soltar` aparece (ou em 60 s, para nunca
+ * ficar orfao).
+ */
+function seguraNaRaiz(raiz: string, corpo: string): { pronto: string; erro: () => string; soltar: () => Promise<void> } {
+  const sinais = dirTemporario('rm036-sinais');
+  const pronto = path.join(sinais, 'pronto'), soltar = path.join(sinais, 'soltar');
+  const script = `const fs=require('fs');const dist=${JSON.stringify(path.resolve(__dirname, '../../dist'))};
+const esperar=()=>{const fim=Date.now()+60000;while(!fs.existsSync(${JSON.stringify(soltar)})&&Date.now()<fim)Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,50);};
+const dentro=()=>{fs.writeFileSync(${JSON.stringify(pronto)},'');esperar();};
+${corpo}`;
+  const filho = spawn(process.execPath, ['-e', script], { cwd: raiz, env: ambiente(), stdio: ['ignore', 'ignore', 'pipe'] });
+  let erro = '';
+  filho.stderr.on('data', (b) => { erro += b; });
+  const saiu = once(filho, 'close');
+  return {
+    pronto,
+    erro: () => erro,
+    soltar: async () => {
+      fs.writeFileSync(soltar, '');
+      await saiu;
+      fs.rmSync(sinais, { recursive: true, force: true });
+    },
+  };
+}
+
+test('rm036 leases: portfolio usa o lock canonico', async () => {
+  const c = cenario('rm036-portfolio');
+  try {
+    // A primeira criacao, pela raiz, cria o portfolio.json canonico e o lock de espera.
+    const primeira = ork(c.raiz, 'portfolio', 'create', 'product', 'prod-pela-raiz', '--title', 'Pela raiz');
+    assert.equal(primeira.codigo, 0, primeira.stdout + primeira.stderr);
+    const dono = seguraNaRaiz(c.raiz,
+      `require(dist+'/creation-operation-store.js').withCreationLock(process.cwd(),'portfolio',dentro);`);
+    try {
+      await ate(() => fs.existsSync(dono.pronto), 30_000, () => `o processo da raiz segurar o lock do portfolio ${dono.erro()}`);
+      // Com o lock seguro, quem chama pela worktree e pela raiz espera a vez (5 s) e recusa tipado.
+      const [daWorktree, daRaiz] = await Promise.all([
+        orkEmParalelo(c.wt, 'portfolio', 'create', 'product', 'prod-pela-worktree', '--title', 'Pela worktree'),
+        orkEmParalelo(c.raiz, 'portfolio', 'create', 'product', 'prod-outra-raiz', '--title', 'Outra pela raiz'),
+      ]);
+      assert.notEqual(daWorktree.codigo, 0, daWorktree.stdout + daWorktree.stderr);
+      assert.match(daWorktree.stderr, /creation\.busy/);
+      assert.notEqual(daRaiz.codigo, 0, daRaiz.stdout + daRaiz.stderr);
+      assert.match(daRaiz.stderr, /creation\.busy/);
+    } finally { await dono.soltar(); }
+
+    const depois = ork(c.wt, 'portfolio', 'create', 'product', 'prod-pela-worktree', '--title', 'Pela worktree');
+    assert.equal(depois.codigo, 0, depois.stdout + depois.stderr);
+    const portfolio = JSON.parse(fs.readFileSync(path.join(c.raiz, '.orkastery', 'portfolio.json'), 'utf8')) as { products: { id: string }[] };
+    assert.deepEqual(portfolio.products.map((p) => p.id).sort(), ['prod-pela-raiz', 'prod-pela-worktree']);
+    assert.equal(fs.existsSync(path.join(c.wt, '.orkastery', 'creation-operations')), false,
+      'a worktree nao ganha lock de portfolio proprio');
+  } finally { c.p.limpar(); }
+});
