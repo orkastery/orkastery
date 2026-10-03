@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:46:01.741Z",
+  "publicadoEm": "2026-10-03T03:48:20.622Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -75,6 +75,23 @@
       "esforco": "high"
     },
     {
+      "id": "ork-rm047remoto2",
+      "nome": "RM-047: --remoto da linha de comando validado",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-047",
+      "branch": "ork/ork-rm047remoto2-full",
+      "atualizadaEm": "2026-10-03T03:48:18.140Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
       "id": "ork-rm053network",
       "nome": "RM-053 Orkastery Network: maquinas de uma pessoa em rede",
       "modo": "#Auto",
@@ -112,11 +129,11 @@
       "id": "ork-rm057fatia3t",
       "nome": "RM-057 fatia 3: tempo parado por HITL no pulse e no status",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "MASTER",
       "status": "aberta",
       "roadmap": "RM-057",
       "branch": "ork/ork-rm057fatia3t-full",
-      "atualizadaEm": "2026-10-03T03:46:01.602Z",
+      "atualizadaEm": "2026-10-03T03:46:05.583Z",
       "entregue": "f621f54",
       "esperaVoce": false,
       "pergunta": null,
