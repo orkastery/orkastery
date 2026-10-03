@@ -421,11 +421,22 @@ test('KG5 segundo salto: sobra, prioridade direta, marca, sentidos, limite, pont
   provarSegundoSalto();
 });
 
-function carregarContexto(transformar: (s: string) => string): typeof pacoteDeContexto {
+function carregarContexto(transformar: (s: string) => string, aoMontar?: () => void): typeof pacoteDeContexto {
   const Module = require('node:module');
   const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
   const modulo = new Module(arquivo);
   modulo.filename = arquivo; modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
+  if (aoMontar) {
+    const original = modulo.require.bind(modulo);
+    modulo.require = (nome: string) => {
+      const dependencia = original(nome);
+      if (nome !== './intelligence-graph-contract') return dependencia;
+      return { ...dependencia, canonico: (valor: any) => {
+        if (valor?.schema === 'ork.thread-graph-context/v2' && valor.medida?.pacote_bytes === 0) aoMontar();
+        return dependencia.canonico(valor);
+      } };
+    };
+  }
   modulo._compile(transformar(fs.readFileSync(arquivo, 'utf8')), arquivo);
   return modulo.exports.pacoteDeContexto;
 }
@@ -453,6 +464,41 @@ function provarCitesPorUltimo(pacote = pacoteDeContexto): void {
 test('KG5 relevancia GO-FIX: cites perde o desempate por tipo; prova cai por mutacao', () => {
   provarCitesPorUltimo();
   assert.throws(() => provarCitesPorUltimo(mutanteContexto("Number(a === 'cites') - Number(b === 'cites')", '0')));
+});
+
+function hubDoSegundoSalto(total: number): GrafoCodigo {
+  const nomes = Array.from({ length: total }, (_, n) => `vizinho-${String(n).padStart(4, '0')}`);
+  const repo = {
+    'src/semente.ts': "import './ponte';",
+    'src/ponte.ts': nomes.map((n) => `import './${n}';`).join('\n'),
+    ...Object.fromEntries(nomes.map((n) => [`src/${n}.ts`, 'export const valor = 1;'])),
+  };
+  return extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+}
+
+function provarCustoSegundoSalto(transformar = (s: string) => s): number[] {
+  const montagens: number[] = [];
+  for (const total of [64, 256]) {
+    const g = hubDoSegundoSalto(total), i = { ...INDICE, extratores: g.snapshot.extractors };
+    let feitas = 0;
+    const pacote = carregarContexto(transformar, () => feitas++);
+    const texto = pacote(g, i, { ...ENTRADA, diff: ['src/semente.ts'] }, 4096), r = JSON.parse(texto);
+    assert.ok(Buffer.byteLength(texto) <= 4096);
+    assert.ok(r.arestas.some((a: any) => a.salto === 2), 'usa a sobra antes de parar');
+    assert.ok(feitas <= 32, `hub de ${total} vizinhos montou o pacote ${feitas} vezes`);
+    montagens.push(feitas);
+  }
+  return montagens;
+}
+
+test('KG5 segundo salto GO-FIX: montagens limitadas em hubs; prova cai sem parada', (t) => {
+  t.diagnostic(JSON.stringify({ vizinhos: [64, 256], montagens: provarCustoSegundoSalto() }));
+  assert.throws(() => provarCustoSegundoSalto((s) => {
+    const antes = '++rejeicoes >= LIMITE_REJEICOES_SEGUNDO_SALTO';
+    assert.ok(s.includes(antes));
+    return s.replace(antes, 'false');
+  }), /montou o pacote/);
 });
 
 test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {

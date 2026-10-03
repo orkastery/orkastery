@@ -7,6 +7,7 @@ export const CONTEXTO_SCHEMA = 'ork.thread-graph-context/v2' as const;
 export const CONTEXTO_TETO_PADRAO = 32768;
 export const CONTEXTO_POR_ALVO = 8;
 export const CONTEXTO_FORA_DO_INDICE = 3;
+const LIMITE_REJEICOES_SEGUNDO_SALTO = 8;
 export interface EntradaDoContexto {
   thread: string;
   base: string;
@@ -187,17 +188,26 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   };
   for (const s of indexadas) tentarSemente(s);
   const porAlvo = new Map<string, number>();
-  const tentarLigacao = (a: Grupo): void => {
-    if ((porAlvo.get(a.alvo) ?? 0) >= CONTEXTO_POR_ALVO) return;
+  const tentarLigacao = (a: Grupo): 'incluida' | 'por-alvo' | 'sem-espaco' => {
+    if ((porAlvo.get(a.alvo) ?? 0) >= CONTEXTO_POR_ALVO) return 'por-alvo';
     ligacoes.push(a);
     const texto = montar();
-    if (Buffer.byteLength(texto) <= tetoBytes) { melhor = texto; porAlvo.set(a.alvo, (porAlvo.get(a.alvo) ?? 0) + 1); }
-    else ligacoes.pop(); // Um hub grande nao impede uma ligacao menor e relevante de entrar.
+    if (Buffer.byteLength(texto) <= tetoBytes) {
+      melhor = texto; porAlvo.set(a.alvo, (porAlvo.get(a.alvo) ?? 0) + 1);
+      return 'incluida';
+    }
+    ligacoes.pop(); // Um hub grande nao impede uma ligacao menor e relevante de entrar.
+    return 'sem-espaco';
   };
   for (const a of justos) if (a.salto === 1) tentarLigacao(a);
   for (const s of ausentes.slice(0, CONTEXTO_FORA_DO_INDICE)) tentarSemente(s);
   // Expande somente pontes que sobreviveram ao corte direto; a fronteira fica fixa nesta rodada.
   const pontes = new Set(ligacoes.flatMap((a) => [a.origem.slice(5), porId.get(a.alvo)!.locator.path]));
-  for (const a of justos) if (a.salto === 2 && (pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo)!.locator.path))) tentarLigacao(a);
+  let rejeicoes = 0;
+  for (const a of justos) if (a.salto === 2 && (pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo)!.locator.path))) {
+    const resultado = tentarLigacao(a);
+    if (resultado === 'incluida') rejeicoes = 0;
+    else if (resultado === 'sem-espaco' && ++rejeicoes >= LIMITE_REJEICOES_SEGUNDO_SALTO) break;
+  }
   return melhor;
 }
