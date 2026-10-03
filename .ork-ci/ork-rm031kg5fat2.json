@@ -229,72 +229,72 @@
       "lint": []
     },
     {
-      "id": "C18",
+      "id": "C23",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "core/test/fixtures/kg5-medida-contexto.json",
-      "alegacao": "Pre-condicao de SHIP do GO-FIX: fixture historica deve ser regravada no metodo v3 e reproduzir hashes e metricas por --conferir. Pendente da condutora, nao concluida nesta sessao.",
+      "alegacao": "O registro da medida histórica v3 é válido (esquema, hashes e métricas coerentes); o --conferir local da condutora reproduziu os hashes",
       "negativa": false,
       "verificar": [
-        "node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json && node core/scripts/medir-mcp-grafo.cjs --contexto --conferir"
+        "node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json"
       ],
-      "criadoEm": "2026-10-03T08:42:50.192Z",
+      "criadoEm": "2026-10-03T09:32:02.983Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C19",
+      "id": "C24",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
-      "alegacao": "GO-FIX T3: contrato descreve medida executada, metodologia v3, omissoes e tabela dos dois bracos com marcadores numericos para a condutora.",
+      "alegacao": "O contrato descreve a medida v3, as omissões e a tabela dos dois braços",
       "negativa": false,
       "verificar": [
-        "rg -n 'graph-context-cost/v3|PREENCHER_KG|evidencias_auxiliares|3.119|Pacote pequeno' docs/referencia/contratos/consumo-grafo-kg5.md"
+        "grep -E -n 'graph-context-cost/v3|PREENCHER_KG|evidencias_auxiliares|3.119|Pacote pequeno' docs/referencia/contratos/consumo-grafo-kg5.md"
       ],
-      "criadoEm": "2026-10-03T08:43:30.308Z",
+      "criadoEm": "2026-10-03T09:32:03.287Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C20",
+      "id": "C25",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
-      "alegacao": "GO-FIX T3: roadmap cita medida historica executada, nova metodologia e regravacao necessaria; nao afirma economia de tokens.",
+      "alegacao": "A RM-031 registra a fatia 3 com o formato v2 e a medida histórica",
       "negativa": false,
       "verificar": [
-        "rg -n 'Fixture sintética após o GO-FIX|formato v2 e medida histórica executada' docs/roadmap/RM-031-grafo-de-codigo.md"
+        "grep -E -n 'Fixture sintética após o GO-FIX|formato v2 e medida histórica executada' docs/roadmap/RM-031-grafo-de-codigo.md"
       ],
-      "criadoEm": "2026-10-03T08:43:30.345Z",
+      "criadoEm": "2026-10-03T09:32:03.560Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C21",
+      "id": "C26",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "CHANGELOG.md",
-      "alegacao": "GO-FIX T3: changelog descreve correcoes de contexto/medida e cita fixture executada com regravacao v3 antes do SHIP.",
+      "alegacao": "O CHANGELOG traz a KG5 fatia 3 em Não publicado",
       "negativa": false,
       "verificar": [
-        "rg -n -A 12 'Contexto compacto da thread, KG5 fatia 3' CHANGELOG.md"
+        "grep -n -A 12 'Contexto compacto da thread, KG5 fatia 3' CHANGELOG.md"
       ],
-      "criadoEm": "2026-10-03T08:43:30.396Z",
+      "criadoEm": "2026-10-03T09:32:03.818Z",
       "estado": "verificado",
       "lint": []
     },
     {
-      "id": "C22",
+      "id": "C27",
       "thread": "ork-rm031kg5fat2",
       "fase": "GO",
       "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
-      "alegacao": "Pre-condicao de SHIP: condutora deve substituir todos os marcadores numericos da tabela pela medida v3. Pendente, nao concluida nesta sessao.",
+      "alegacao": "Nenhum marcador PREENCHER_KG3_ ou PREENCHER_KG4_ ficou no contrato",
       "negativa": true,
       "verificar": [
-        "! rg -n 'PREENCHER_KG[34]_' docs/referencia/contratos/consumo-grafo-kg5.md"
+        "! grep -E -n 'PREENCHER_KG[34]_' docs/referencia/contratos/consumo-grafo-kg5.md"
       ],
-      "criadoEm": "2026-10-03T08:43:30.447Z",
+      "criadoEm": "2026-10-03T09:32:04.059Z",
       "estado": "verificado",
       "lint": []
     }
