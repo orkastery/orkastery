@@ -229,7 +229,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   let idDeOutraVersao: string | null = null;
   if (!comMeuNome && lida) { try { idDeOutraVersao = idNoArquivo(lida.cache, lida.ponta, arquivoDoRetrato(eu)); } catch { /* nome impossivel */ } }
   const idNaCasa = comMeuNome?.id ?? idDeOutraVersao;
-  const nomeEmUso = !!idNaCasa && !!meuId && idNaCasa !== meuId;
+  // Revisao de 03/10: sem id local (nunca publicou, ou ~/.orkastery apagada), a proxima publicacao cria um id novo
+  // e o `publicarRede` recusa com `rede.nome-em-uso`; o status diz o mesmo, em vez de chamar de "esta maquina".
+  const nomeEmUso = !!idNaCasa && idNaCasa !== meuId;
   if (nomeEmUso) {
     lacunas.push({ tipo: 'maquina.nome-em-uso', maquina: eu, detalhe: `o retrato "${eu}" na casa e de outra instalacao: esta maquina nao ` +
       'publica ate trocar de nome (ork network entrar --maquina NOME) ou retomar este (ork network entrar --forcar)' });

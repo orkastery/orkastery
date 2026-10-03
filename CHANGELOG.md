@@ -74,6 +74,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - o teto de uma tentativa de publicar na rede a cada 14 minutos vale também para processos simultâneos: a marca
     da tentativa é lida e gravada sob uma trava e trocada por `rename`; antes, vários pulses na mesma batida
     tomavam a vez juntos.
+  - `ork network status` sem o `maquina-id` local (antes da primeira publicação, ou com `~/.orkastery` apagada) diz
+    `maquina.nome-em-uso` quando o retrato com o nome desta máquina é de outra instalação, como a publicação já
+    recusava; antes o mostrava como "(esta máquina)", publicado e sem lacuna.
 - **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
     `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
