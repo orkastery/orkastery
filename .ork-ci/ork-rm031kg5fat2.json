@@ -15,7 +15,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.455Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.705Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:48.960Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,7 +57,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.217Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -71,7 +71,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.446Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.706Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:49.961Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.210Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.445Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.698Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:50.959Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
       ],
       "criadoEm": "2026-10-03T07:41:51.230Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -239,7 +239,7 @@
         "node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json && node core/scripts/medir-mcp-grafo.cjs --contexto --conferir"
       ],
       "criadoEm": "2026-10-03T08:42:50.192Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -295,7 +295,7 @@
         "! rg -n 'PREENCHER_KG[34]_' docs/referencia/contratos/consumo-grafo-kg5.md"
       ],
       "criadoEm": "2026-10-03T08:43:30.447Z",
-      "estado": "reprovado",
+      "estado": "verificado",
       "lint": []
     }
   ],
