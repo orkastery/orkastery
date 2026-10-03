@@ -108,7 +108,7 @@ import {
   textoDaInstalacao,
   textoDosPitfalls,
 } from './hosts';
-import { init } from './init';
+import { exigirRepositorioParaInit, init } from './init';
 import { createInitiative, createProduct, createProject, findEntity, listEntities, PortfolioKind, PortfolioStatus, readPortfolio } from './portfolio';
 import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
@@ -3936,6 +3936,7 @@ export function main(argvBruto: string[]): number {
       return r.codigo;
     }
     case 'init': {
+      exigirRepositorioParaInit(process.cwd());
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),
