@@ -117,13 +117,15 @@ test('rm036 gofix: legado limita a janela e nao renova nem varre depois de 30 mi
   fs.utimesSync(marcador, passado, passado);
   const carimboVencido = fs.statSync(marcador).mtimeMs;
   const readdir = io.readdirSync;
+  let varreduras = 0;
   t.mock.method(io, 'readdirSync', (dir: fs.PathLike, ...args: unknown[]) => {
-    assert.notEqual(String(dir), path.dirname(c.registro), 'apos janela nao varre registros');
+    if (String(dir) === path.dirname(c.registro)) varreduras++;
     return Reflect.apply(readdir, io, [dir, ...args]);
   });
   assert.deepEqual(leases.dirsLegadosDeLeases(c.raiz), []);
   assert.deepEqual(leases.listarLeases(c.raiz), []);
   assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'MCP', retomarVencido: false }).ok, true);
+  assert.equal(varreduras, 0, 'apos janela nao varre registros');
   assert.equal(fs.statSync(marcador).mtimeMs, carimboVencido);
 });
 
@@ -199,8 +201,9 @@ test('rm036 gofix: fila legada envenenada nao e lida nem incorporada', (t) => {
     desdeEm: '2000-01-01T00:00:00.000Z', motivo: '', bloqueadaPor: 'falsa', colidiuCom: 'main-tree' }]);
   fs.writeFileSync(arquivo, veneno);
   const ler = io.readFileSync;
+  let leituras = 0;
   t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
-    assert.notEqual(String(p), arquivo, 'nao le fila legada');
+    if (String(p) === arquivo) leituras++;
     return Reflect.apply(ler, io, [p, ...args]);
   });
   assert.deepEqual(leases.lerFila(c.raiz), []);
@@ -210,6 +213,7 @@ test('rm036 gofix: fila legada envenenada nao e lida nem incorporada', (t) => {
   assert.deepEqual(leases.lerFila(c.raiz).map((p) => p.thread), [OUTRA]);
   assert.equal(ler(arquivo, 'utf8'), veneno);
   assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /INJETADO|ork-falsa/);
+  assert.equal(leituras, 0, 'nao le fila legada');
 });
 
 test('rm036 gofix: propria copia legada nao enfileira atras de si nem de outra espera', (t) => {
