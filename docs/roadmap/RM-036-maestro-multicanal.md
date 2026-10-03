@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-029]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-10-03T01:10:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -39,7 +39,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-029](../produto/FEAT-029-conducao-multicanal.md) Condução multicanal da thread
-- **Thread:** `ork-i36multicana`
+- **Thread:** `ork-rm036leasesd` (a mais recente, fatia dos leases); antes, `ork-i36multicana`
 
 ## Problema e resultado
 
@@ -52,6 +52,7 @@ sdlc:
 - **Escopo:** lease de execução `exec:<thread>` nos pontos de entrada que executam (`ork phase run`, `ork verify`, `ork fix`, `ork retry run` e o `ork_verify` do MCP); canal e correlação no despacho; recusa tipada com as três ações; despacho idempotente; `ork conducao status|assumir`; recuperação de condução órfã com prova; a mesma linha de condução em todas as telas e hosts.
 - **Fora de escopo:** multi-dono, interface web, contrato de HITL e desempenho do `ork verify`.
 - **Validação:** 20 testes novos (`core/test/conducao-*.test.ts`), incluindo o caso de aceite do incidente: dois `ork verify` reais na mesma worktree, e só um executa.
+- **Fatia dos leases (thread `ork-rm036leasesd`, 03/10/2026):** todas as famílias de lease, não só o `exec:`, moram no estado canônico do projeto (o `.orkastery/leases` da raiz), e um `ork` chamado da raiz e outro de uma worktree se excluem em `main-tree`, `worktree-write`, `path`, `board`, `service` e na fila por colisão. O lock de espera do `ork portfolio` também foi para a raiz. Validação: `core/test/rm036-leases-canonicos.test.ts`, com o CLI em processos filhos, um com cwd na raiz e outro na worktree; os testes caem com o código anterior.
 
 ## Plano e decisões
 
@@ -63,7 +64,8 @@ sdlc:
 
 - GO entregue na thread `ork-i36multicana` (27/09/2026): o lease mora no estado canônico do projeto, e a raiz e as worktrees disputam o mesmo arquivo.
 - A recusa chega igual pelo CLI (código de saída `3`) e pelo MCP; os adaptadores Hermes e OpenClaw declaram o canal deles.
-- Conhecido: os leases das famílias antigas continuam por checkout; `ork` chamado da raiz e de uma worktree não se excluem nelas.
+- Fatia dos leases (thread `ork-rm036leasesd`, 03/10/2026): resolvido o conhecido de 27/09, os leases das famílias antigas que moravam no checkout de quem chamava. O inventário de cada lease e lock (onde morava, quem usa e a decisão) está no PLAN da thread. O lease que a versão anterior gravou numa worktree vale até vencer, aparece no `ork lease list` como legado e nunca ganha segunda cópia; a espera legada entra na fila canônica, na ordem. Limite: um `ork` da versão anterior ainda rodando numa worktree durante a troca não vê os leases canônicos; os do CLI vencem em 30 minutos.
+- Conhecido, fora da fatia dos leases (não são locks): os objetivos, o journal de criação, a fila de retomada (`.orkastery/retry/fila.jsonl`), a dívida, as auditorias e os perfis do board ainda moram no checkout de quem chama.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -71,13 +73,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
-| Habilitação | Pendente | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `10ca416` | 2026-10-03 | Julio |
+| Testes | Aprovados | — | 2026-10-03 | Julio |
+| Deploy | Produção | — | 2026-10-03 | Julio |
+| Exposição | Parcial | — | 2026-10-03 | Julio |
+| Habilitação | Pendente | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -91,3 +93,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-19 | thread aberta | thread `ork-i36multicana` | Julio |
 | 2026-09-27 | D2 respondida: recusa imediata, sempre explicada para o humano | Telegram, 27/09 10:53 | Julio |
 | 2026-09-27 | GO entregue | thread `ork-i36multicana`, PR da entrega | Julio |
+| 2026-10-03 | fatia dos leases: todas as famílias e a fila por colisão no estado canônico, legado honrado até vencer, lock do portfólio na raiz | thread `ork-rm036leasesd`, decisões no ledger, testes `rm036-leases-canonicos`, PR a abrir | Julio |

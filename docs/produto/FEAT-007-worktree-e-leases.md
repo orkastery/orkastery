@@ -16,6 +16,7 @@ fontes:
   testes:
     - core/test/worktree.test.ts
     - core/test/leases-b2.test.ts
+    - core/test/rm036-leases-canonicos.test.ts
   simbolos:
     - core/src/worktree.ts#garantirWorktree
     - core/src/leases.ts#adquirirRegiao
@@ -47,13 +48,15 @@ fontes:
 
 - **Alternativas, erros e recuperação:** `ork worktree audit` sai diferente de zero se a worktree divergir do registro.
 - **Pós-condições:** registro da worktree e dos leases em `.orkastery/`.
-- **Regras de negócio:** BR-007-01: famílias de lease: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`, `service:<porta>`.
+- **Regras de negócio:**
+  - BR-007-01: famílias de lease: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`, `service:<porta>`.
+  - BR-007-02: os leases e a fila moram no `.orkastery/leases` da raiz do projeto (o estado canônico), com o `ork` chamado da raiz ou de qualquer worktree; o `.orkastery/leases` de uma worktree é legado da versão anterior, lido até vencer e nunca copiado.
 - **Critérios de aceite e testes:** Dado um lease tomado, quando outra thread pede o mesmo, então ela entra na fila (`core/test/leases-b2.test.ts`).
 - **Interface e acessibilidade:** Não aplicável — CLI.
 
 ## Dados e contratos
 
-- **Entidades:** leases em `.orkastery/leases/`.
+- **Entidades:** leases em `.orkastery/leases/` da raiz do projeto, com a fila por colisão em `fila.json`.
 - **APIs:** Não aplicável.
 - **Eventos:** `lease_acquired`, `lease_released`, `worktree_created`.
 
@@ -66,3 +69,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-24 | página criada no padrão v1.1 | Claude (agente) / Julio, revisão pendente | RM-044 |
+| 2026-10-03 | BR-007-02: leases e fila no estado canônico, legado das worktrees lido até vencer | Claude (agente) / Julio, revisão pendente | RM-036, thread `ork-rm036leasesd` |

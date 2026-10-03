@@ -62,6 +62,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Leases de todas as famílias no estado canônico** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md), [FEAT-007](docs/produto/FEAT-007-worktree-e-leases.md)):
+  - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
+    projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
+    tinha a sua pasta, e duas threads pegavam o `main-tree` ao mesmo tempo);
+  - o lease que a versão anterior gravou numa worktree vale até vencer, aparece no `ork lease list` como legado e nunca
+    ganha segunda cópia; a espera legada entra na fila canônica, na ordem, e a fila grava por temporário e `rename`;
+  - o lock de espera do `ork portfolio` também passa para a raiz: a worktree espera a vez em vez de recusar com
+    `brain.journal.busy`.
 - **Pendências da fatia 4 e rodízio no limite de gasto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 5):
   - a sessão claude-bg que bate o limite de gasto (ou outra cota que o rodízio já conhece) tira o perfil do rodízio na
     hora em que a mensagem aparece na transcrição, e não só quando o processo morre: o perfil fica esgotado até a hora

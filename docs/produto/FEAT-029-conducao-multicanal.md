@@ -23,6 +23,7 @@ fontes:
     - core/test/conducao-despacho.test.ts
     - core/test/conducao-handoff.test.ts
     - core/test/conducao-paridade.test.ts
+    - core/test/rm036-leases-canonicos.test.ts
   docs:
     - docs/guias/modos.md
     - docs/guias/verificacao.md
@@ -77,6 +78,7 @@ fontes:
   - BR-029-03: a sessão que já conduz reentra pela identidade do despacho, que recebe no ambiente (`ORK_DISPATCH_ID`) e no servidor MCP (`--dispatch`).
   - BR-029-04: liberar a condução nunca conclui fase; só a prova da I-34 grava o resultado.
   - BR-029-05: a linha "conduzido agora por ..." sai de uma função só e é a mesma em todas as telas e hosts.
+  - BR-029-06: todas as famílias de lease (`main-tree`, `worktree-write`, `path`, `board`, `service` e `exec`) e a fila por colisão moram no estado canônico do projeto; a raiz e as worktrees disputam os mesmos arquivos. O lease que a versão anterior gravou no `.orkastery/leases` de uma worktree vale até vencer e nunca ganha segunda cópia.
 - **Critérios de aceite e testes:** Dados dois `ork verify` na mesma worktree por canais diferentes, quando o segundo chega com o primeiro executando, então ele sai sem executar nada e diz quem conduz (`core/test/conducao-verify.test.ts`); dada uma fase em andamento, quando o mesmo pedido chega de novo, então nenhuma sessão nova é aberta (`core/test/conducao-despacho.test.ts`).
 - **Interface e acessibilidade:** Recusa em português claro, para uma pessoa, com o comando exato de cada ação; `--json` com a mesma estrutura (`ork.conducao-recusa/v1`); horários no fuso do dono; o CLI sai com código `3`.
 
@@ -97,3 +99,4 @@ fontes:
 | Data | Mudança | Autor/revisor | Evidência ou decisão |
 | --- | --- | --- | --- |
 | 2026-09-27 | página criada com a entrega da RM-036 (D2 do dono: recusa imediata, sempre explicada para humano) | Claude (agente) / Julio, revisão pendente | RM-036 |
+| 2026-10-03 | BR-029-06: todas as famílias de lease no estado canônico (fatia dos leases) | Claude (agente) / Julio, revisão pendente | RM-036, thread `ork-rm036leasesd` |
