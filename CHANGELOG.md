@@ -105,6 +105,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Avisos finais dos leases multicanais** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  o teste de fila simbólica usa um alvo fora de `.orkastery/leases`, isolando a recusa do link;
+  a varredura de metadados usada pelo commit e pelo SHIP do MCP ignora `ENOENT` quando a fila de
+  retomada ou um candidato desaparece durante `lstat` ou `readdir`, preservando os demais erros;
+  falhas de `rmdir` na limpeza da fila vazia não alteram o resultado da aquisição já concluída.
+  Os três ajustes têm cenários de regressão e receitas em `core/scripts/rm036-leases-mutantes.cjs`.
 - **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
   para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
   Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado
