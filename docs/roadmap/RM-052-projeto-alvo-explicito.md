@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: [FEAT-030, FEAT-020, FEAT-014, FEAT-027]
 owner: Julio
-atualizado_em: 2026-10-03T09:52:15+00:00
+atualizado_em: 2026-10-03T06:52:15-03:00
 estado:
   ciclo: Em validação
   documentacao: Em revisão

@@ -6,7 +6,7 @@ categoria: melhoria
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-03T09:52:15+00:00
+atualizado_em: 2026-10-03T06:52:15-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
