@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-02T17:38:29.010Z",
+  "publicadoEm": "2026-10-03T02:47:58.021Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -118,6 +118,23 @@
       "branch": "ork/ork-rm057alterna-full",
       "atualizadaEm": "2026-10-02T17:37:52.452Z",
       "entregue": "7266df6",
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm057fatia2c",
+      "nome": "RM-057 fatia 2: canário, OpenClaw e Hermes, tempo parado no ledger",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-057",
+      "branch": "ork/ork-rm057fatia2c-full",
+      "atualizadaEm": "2026-10-03T02:47:55.510Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
