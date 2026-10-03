@@ -16,9 +16,9 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { identidadeProcesso } from './adapters/codex-runner';
+import { estadoProcesso, identidadeProcesso, IdentidadeProcesso } from './adapters/codex-runner';
 import { conducaoDoLease, quemConduz, linhaDeConducao, NOME_DA_OPERACAO } from './conducao-texto';
 
 export { conducaoDoLease } from './conducao-texto';
@@ -857,6 +857,48 @@ const controleNativoDoHandoff: ControleDoHandoff = (runtime, raiz, threadId, ses
 };
 
 /**
+ * A fonte fixada pelo sensor contém a identidade capturada no spawn, não um PID descoberto.
+ * Sem as duas ausências provadas, a recuperação continua dependendo do runtime homologado.
+ * Quem chama segura a trava da condução; nenhum prazo ou heartbeat autoriza esta soltura.
+ */
+function morteLocalDoCodex(raiz: string, threadId: string, lease: Lease): Record<string, unknown> | null {
+  const dono = lease.conducao?.dono;
+  if (dono?.tipo !== 'sessao' || dono.runtime !== 'codex' || dono.maquina !== nomeDaMaquina()) return null;
+  try {
+    const t = lerThread(raiz, threadId), sessao = t.sessoes.at(-1);
+    if (!sessao || sessao.sessionId !== dono.sessionId || sessao.runtime !== 'codex' || !sessao.despachadaEm ||
+        sessao.fase !== lease.conducao?.fase || sessao.promptSha256 !== lease.conducao?.promptSha256) return null;
+    const dir = dirThread(raiz, threadId), eventos = lerLedger(dir);
+    const mesmo = (e: EventoLedger) => e.sessionId === dono.sessionId && e.despachoEm === sessao.despachadaEm;
+    const watcher = eventos.filter(e => e.tipo === 'session_watcher_started' && mesmo(e)).at(-1);
+    const identidade = watcher?.identidade as IdentidadeProcesso | undefined;
+    if (!identidade || watcher?.pid !== identidade.pid || estadoProcesso(identidade) !== 'ausente') return null;
+    const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && mesmo(e)).at(-1);
+    const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === dono.sessionId).at(-1);
+    if (!registro || typeof registro.controlador !== 'string' || typeof registro.cwd !== 'string' ||
+        registro.logPath || registro.processoPath || registro.reciboPath || registro.nativo ||
+        despacho?.controlador !== registro.controlador || despacho.cwd !== registro.cwd ||
+        (sessao.controlador && sessao.controlador !== registro.controlador)) return null;
+    const chave = createHash('sha256').update(dono.sessionId + '|' + sessao.despachadaEm).digest('hex');
+    const fixacao = path.join(dir, 'sessoes', `watcher-source-${chave}.json`);
+    // Recuperação não cria uma fonte nova nem depende do state.json mutável de um controller morto.
+    if (!fs.existsSync(fixacao)) return null;
+    const { registrarFonteController } = require('./adapters/codex-controller-sensor') as typeof import('./adapters/codex-controller-sensor');
+    const fonte = registrarFonteController(registro.controlador, { dirSessoes: path.join(dir, 'sessoes'), fixacao,
+      sessionId: dono.sessionId, cwd: registro.cwd, despachoEm: sessao.despachadaEm,
+      vinculo: { thread: threadId, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
+    const controller = fonte.processoController;
+    if (!controller || estadoProcesso({ pid: controller.pid, inicio: controller.inicio, boot: controller.bootId }) !== 'ausente') return null;
+    return { sessionId: dono.sessionId, despachoEm: sessao.despachadaEm, fase: sessao.fase, runtime: 'codex',
+      origem: 'conducao.assumir', motivo: 'watcher-e-controlador-ausentes',
+      prova: { fonte: 'session_sensor_registered+controller-source-pin+/proc',
+        registroEventId: registro.eventId, watcherEventId: watcher!.eventId,
+        watcher: identidade, controlador: { pid: controller.pid, inicio: controller.inicio, boot: controller.bootId,
+          uid: controller.uid }, estadoWatcher: 'ausente', estadoControlador: 'ausente' } };
+  } catch { return null; } // Fonte ilegível, divergente ou identidade desconhecida nunca prova morte.
+}
+
+/**
  * `ork conducao assumir` (T15): encerra a conducao atual pelo mecanismo suportado do runtime, toma
  * uma reserva curta para o canal de quem assumiu e registra quem, de qual canal e por que. Processo
  * local vivo nao e encerrado por sinal (D8): o handoff recusa e diz como esperar.
@@ -868,7 +910,8 @@ export function assumirConducao(raiz: string, threadId: string,
   if (!motivo) throw new Error('conducao.assumir: informe --motivo; handoff sem razao registrada e o mesmo kill de antes, com outro nome');
   const dir = dirThread(raiz, threadId);
   lerThread(raiz, threadId);
-  liberarSeOrfa(raiz, threadId, { consultarSessao: opcoes.consultarSessao });
+  // A prova local vem antes de qualquer consulta ao runtime; ledger ainda libera sessões terminadas.
+  liberarSeOrfa(raiz, threadId, { consultarRuntime: false });
   const fd = tentarTrava(raiz, threadId);
   if (fd === null) {
     const atual = conducaoDaThread(raiz, threadId);
@@ -884,29 +927,36 @@ export function assumirConducao(raiz: string, threadId: string,
     let prova = 'lease exec ausente';
     if (lease && anterior?.dono.tipo === 'sessao') {
       const dono = anterior.dono;
-      const ctl = (opcoes.controle ?? controleNativoDoHandoff)(dono.runtime, raiz, threadId, dono.sessionId);
-      const antes = ctl.consultar();
-      if (!antes.ok) {
-        return { ok: false, thread: threadId, anterior, mecanismo: 'nenhum',
-          detalhe: 'runtime.unavailable: nao consegui consultar a sessao no runtime; nada foi encerrado e a conducao segue com ela' };
-      }
-      const s = antes.sessoes.find((x) => x.sessionId === dono.sessionId);
-      if (s && !TERMINAIS.includes(s.estado)) {
-        if (!ctl.parar(s)) {
-          return { ok: false, thread: threadId, anterior, mecanismo: `parar ${dono.runtime}`,
-            detalhe: `runtime.unavailable: o runtime ${dono.runtime} nao confirmou o encerramento; a conducao segue com a sessao ${dono.sessionId.slice(0, 8)}` };
-        }
-        const depois = ctl.consultar();
-        const ainda = depois.ok ? depois.sessoes.find((x) => x.sessionId === dono.sessionId) : s;
-        if (!depois.ok || (ainda && !TERMINAIS.includes(ainda.estado))) {
-          return { ok: false, thread: threadId, anterior, mecanismo: `parar ${dono.runtime}`,
-            detalhe: 'runtime.unavailable: a consulta depois do encerramento nao confirma a sessao parada; o lease foi mantido' };
-        }
-        mecanismo = `parar pelo runtime ${dono.runtime} (controle homologado)`;
-        prova = `runtime: ${s.estado} -> ${ainda?.estado ?? 'ausente'}`;
+      const morte = morteLocalDoCodex(raiz, threadId, lease);
+      if (morte) {
+        registrar(dir, threadId, 'sessao_morta', morte);
+        mecanismo = 'recuperação local: watcher e controlador ausentes por identidade';
+        prova = 'ledger: sessao_morta com identidades capturadas e ausência conferida no kernel';
       } else {
-        mecanismo = 'nenhum: a sessao ja tinha terminado';
-        prova = `runtime: ${s?.estado ?? 'sessao ausente'}`;
+        const ctl = (opcoes.controle ?? controleNativoDoHandoff)(dono.runtime, raiz, threadId, dono.sessionId);
+        const antes = ctl.consultar();
+        if (!antes.ok) {
+          return { ok: false, thread: threadId, anterior, mecanismo: 'nenhum',
+            detalhe: 'runtime.unavailable: nao consegui consultar a sessao no runtime; nada foi encerrado e a conducao segue com ela' };
+        }
+        const s = antes.sessoes.find((x) => x.sessionId === dono.sessionId);
+        if (s && !TERMINAIS.includes(s.estado)) {
+          if (!ctl.parar(s)) {
+            return { ok: false, thread: threadId, anterior, mecanismo: `parar ${dono.runtime}`,
+              detalhe: `runtime.unavailable: o runtime ${dono.runtime} nao confirmou o encerramento; a conducao segue com a sessao ${dono.sessionId.slice(0, 8)}` };
+          }
+          const depois = ctl.consultar();
+          const ainda = depois.ok ? depois.sessoes.find((x) => x.sessionId === dono.sessionId) : s;
+          if (!depois.ok || (ainda && !TERMINAIS.includes(ainda.estado))) {
+            return { ok: false, thread: threadId, anterior, mecanismo: `parar ${dono.runtime}`,
+              detalhe: 'runtime.unavailable: a consulta depois do encerramento nao confirma a sessao parada; o lease foi mantido' };
+          }
+          mecanismo = `parar pelo runtime ${dono.runtime} (controle homologado)`;
+          prova = `runtime: ${s.estado} -> ${ainda?.estado ?? 'ausente'}`;
+        } else {
+          mecanismo = 'nenhum: a sessao ja tinha terminado';
+          prova = `runtime: ${s?.estado ?? 'sessao ausente'}`;
+        }
       }
     } else if (lease && anterior?.dono.tipo === 'reserva') {
       mecanismo = `reserva de ${anterior.dono.por} substituida`;

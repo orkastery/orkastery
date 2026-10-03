@@ -8,6 +8,10 @@ import { projetoTemporario } from './apoio';
 import { novaThread, gravarThread, dirThread } from '../src/thread';
 import { lerLedger, registrar } from '../src/ledger';
 import { identidadeDoProcesso } from '../src/adapters/codex-controller';
+import { identidadeProcesso } from '../src/adapters/codex-runner';
+import { assumirConducao, nomeDaConducao, conducaoDaThread } from '../src/conducao';
+import { regravarLease } from '../src/leases';
+import { nomeDaMaquina } from '../src/maquina';
 import { acompanharSessao, observarSessao, LIMITE_MORTE_MS, MAX_ESPERA_ERRO_WATCH_MS } from '../src/session-watcher';
 
 const BASE = Date.parse('2026-01-01T00:00:00.000Z');
@@ -60,7 +64,7 @@ function fixture(teste: TestContext) {
       threadId: SID, turnId: 'turn-1', status: 'completed' },
       processoEncerrado: { em: new Date(BASE + ms).toISOString(), code: 0, signal: null } });
   };
-  return { ...p, t, dirEstado: dir, controlador, state, escrever, progresso, terminar,
+  return { ...p, t, dirEstado: dir, controlador, state, escrever, progresso, terminar, filhos,
     eventos: () => lerLedger(dir),
     run: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: BASE + ms, threadId: t.id }) };
 }
@@ -130,3 +134,59 @@ test('RM036: erro permanente registra diagnóstico sanitizado antes de sair, sem
   assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
   assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
 });
+
+for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identidade', 'despacho-antigo',
+  'sem-fixacao', 'fixacao-divergente', 'outra-maquina'] as const) {
+  test(`RM036: handoff local com prova de identidade (${caso})`, async t => {
+    const p = fixture(t);
+    p.run(2000); // Fixa a fonte autenticada como no despacho real.
+    const watcher = { ...identidadeProcesso(p.filhos[1].pid!)!, ...(caso === 'watcher-vivo' ? {} : { inicio: '0' }) };
+    registrar(p.dirEstado, p.t.id, 'session_watcher_started', { sessionId: SID,
+      despachoEm: caso === 'despacho-antigo' ? new Date(BASE).toISOString() : p.t.sessoes[0].despachadaEm,
+      pid: watcher.pid, ...(caso === 'sem-identidade' ? {} : { identidade: watcher }) });
+    const pin = path.join(p.dirEstado, 'sessoes', fs.readdirSync(path.join(p.dirEstado, 'sessoes'))
+      .find(n => n.startsWith('watcher-source-'))!);
+    if (caso === 'sem-fixacao') fs.unlinkSync(pin);
+    if (caso === 'fixacao-divergente') {
+      const fonte = JSON.parse(fs.readFileSync(pin, 'utf8'));
+      fs.writeFileSync(pin, JSON.stringify({ ...fonte, sessionId: 'outra-sessao' }));
+    }
+    if (caso !== 'controlador-ocioso') {
+      const fechado = once(p.filhos[0], 'close'); p.filhos[0].kill(); await fechado;
+      // O fallback não depende da releitura do IPC que já pode ter sido removido.
+      fs.unlinkSync(path.join(p.controlador, 'state.json'));
+    }
+    regravarLease(p.dir, { nome: nomeDaConducao(p.t.id), thread: p.t.id, motivo: 'sessão da fixture', pid: process.pid,
+      adquiridoEm: new Date(BASE + 1000).toISOString(), expiraEm: new Date(Date.now() + 3600000).toISOString(),
+      conducao: { contrato: 'ork.conducao/v1', canal: 'codex', correlacao: null, operacao: 'phase.run', fase: 'GO',
+        promptSha256: p.state.vinculo.promptSha256, identidade: INSTANCIA,
+        dono: { tipo: 'sessao', sessionId: SID, runtime: 'codex', perfil: null,
+          maquina: caso === 'outra-maquina' ? 'maquina-da-fixture-remota' : nomeDaMaquina() } } });
+    let consultas = 0;
+    const resultado = assumirConducao(p.dir, p.t.id, { por: 'operador-fixture', motivo: 'recuperar sessão', canal: 'cli',
+      consultarSessao: () => { assert.fail('não consultar runtime antes da prova local'); },
+      controle: () => ({ consultar: () => {
+        consultas++; assert.notEqual(caso, 'mortos', 'morte provada dispensa runtime');
+        return { ok: true, sessoes: [{ sessionId: SID, estado: 'idle' }] };
+      }, parar: () => false }) });
+    const mortes = p.eventos().filter(e => e.tipo === 'sessao_morta');
+    if (caso === 'mortos') {
+      assert.equal(resultado.ok, true, resultado.detalhe);
+      assert.equal(consultas, 0);
+      assert.equal(mortes.length, 1);
+      const prova = mortes[0].prova as { watcher: { inicio: string }; controlador: { inicio: string }; estadoControlador: string };
+      assert.equal(prova.watcher.inicio, '0', 'PID reciclado não torna vivo o watcher anterior');
+      assert.equal(prova.controlador.inicio, p.state.processoController.inicio);
+      assert.equal(prova.estadoControlador, 'ausente');
+      assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'reserva');
+      assert.equal(p.eventos().filter(e => e.tipo === 'conducao_assumida').length, 1);
+    } else {
+      assert.equal(resultado.ok, false);
+      assert.equal(consultas, 1);
+      assert.match(resultado.detalhe, /não confirmou|nao confirmou/);
+      assert.equal(mortes.length, 0);
+      assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'sessao');
+    }
+    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0, 'recuperar não conclui fase');
+  });
+}
