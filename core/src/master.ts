@@ -19,7 +19,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { raizDoEstado } from './estado-thread';
-import { MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
+import { EventoLedger, MotivoGate, ScoreProposto, MasterLogPendente, PostmortemPendente } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { tagDoModo } from './modos';
 import { dirThread, gravarThread, lerThread, listarIds, pausaNaThread } from './thread';
@@ -33,7 +33,7 @@ import {
   ScoreHumano,
   Thread,
 } from './types';
-import { agora, gravarJson, lerJson, tabela } from './util';
+import { agora, exec, gravarJson, lerJson, tabela } from './util';
 import * as fs from 'node:fs';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso } from './horario';
 import { calcularIndice, Indice } from './indice';
@@ -89,6 +89,33 @@ export function classesPelosGates(motivos: readonly string[]): ClasseDeFalha[] {
   for (const m of motivos) achadas.add(CLASSE_DO_MOTIVO[m as MotivoGate] ?? 'outra');
   if (achadas.size === 0) achadas.add('sem-falha');
   return ORDEM_DAS_CLASSES.filter((c) => achadas.has(c));
+}
+
+/** Teto de merges conferidos por entrega: a branch de 03/10 com mais sincronizacoes trouxe 16. */
+const TETO_DE_MERGES_POR_ENTREGA = 200;
+
+/**
+ * RM-008 (base-avancou): quantas vezes a thread precisou trazer a base para dentro da branch. Conta os
+ * `worktree_synced` do ledger e, em cada entrega com merge, os merges da branch (entre o primeiro e o
+ * segundo pai do merge) cujo pai trazido ja estava na base. Em 03/10/2026, 29 de 35 entregas trouxeram
+ * a `origin/main` antes do merge, e nenhuma fechou com `base-avancou`. Git sem resposta conta 0 e nunca
+ * derruba o MASTER.
+ */
+export function sincronizacoesComABase(raiz: string, eventos: readonly EventoLedger[], mergeShas: readonly string[]): number {
+  let total = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.worktreeSincronizada).length;
+  for (const sha of new Set(mergeShas)) {
+    if (!/^[0-9a-f]{40}$/.test(sha)) continue;
+    const r = exec('git', ['rev-list', '--merges', '--parents', `--max-count=${TETO_DE_MERGES_POR_ENTREGA}`,
+      `${sha}^1..${sha}^2`], raiz, 30000);
+    if (!r.ok) continue;
+    for (const linha of r.stdout.split('\n')) {
+      const pais = linha.trim().split(/\s+/).slice(1);
+      // O pai trazido (o segundo em diante) ja estava na base: e a base entrando na branch.
+      if (pais.slice(1).some((p) => /^[0-9a-f]{40}$/.test(p) &&
+          exec('git', ['merge-base', '--is-ancestor', p, `${sha}^1`], raiz, 30000).ok)) total += 1;
+    }
+  }
+  return total;
 }
 
 /** Ordem canonica das classes na saida do CLI. */
@@ -318,11 +345,19 @@ function prepararDocumentos(
     classesInferidas = true;
     classes = classesPelosGates(gatesBloqueados.map((g) => g.motivo));
     const motivos = [...new Set(gatesBloqueados.map((g) => g.motivo))];
+    const sincronizacoes = sincronizacoesComABase(raiz, eventos, entregas.map((e) => e.mergeSha));
+    if (sincronizacoes > 0) {
+      classes = ORDEM_DAS_CLASSES.filter((c) => c === 'base-avancou' || (c !== 'sem-falha' && classes.includes(c)));
+    }
+    const pelaBase = sincronizacoes > 0
+      ? ` A branch trouxe a base ${sincronizacoes} vez(es) antes da entrega: o \`ork\` juntou "base-avancou".` : '';
     avisos.push(
-      gatesBloqueados.length > 0
+      (gatesBloqueados.length > 0
         ? `a thread levou ${gatesBloqueados.length} reprovacao(oes) tipada(s) (${motivos.join(', ')}) e nenhuma --classe foi ` +
-          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate. Corrija com --classe <classe> --refazer.`
-        : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".'
+          `informada: o \`ork\` inferiu "${classes.join('", "')}" pelo motivo do gate.${pelaBase} Corrija com --classe <classe> --refazer.`
+        : sincronizacoes > 0
+          ? `nenhuma --classe informada e nenhum gate reprovou.${pelaBase} Corrija com --classe <classe> --refazer.`
+          : 'nenhuma --classe informada e nenhum gate reprovou: o `ork` gravou "sem-falha".')
     );
   }
 
