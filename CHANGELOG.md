@@ -21,9 +21,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   de outro arquivo são omitidas e declaradas. Fixture sintética de 22.973 para 3.119 bytes.
   A [medida histórica](core/test/fixtures/kg5-medida-contexto.json) foi executada; o GO-FIX
   corrige a descoberta para exports de pelo menos quatro caracteres e `grep -w`, mede precisão
-  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. A condutora
-  regrava o registro v3 e preenche a [tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)
-  antes do SHIP. Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
+  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. Medida v3 em dois
+  casos reais ([tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)): pacote de 15.122 e 16.974 bytes contra 723.688 e 299.953 da descoberta por grep,
+  precisão 3/7 (43%) e 7/8 (88%) contra 3/41 (7%) e 6/11 (55%). Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.

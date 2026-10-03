@@ -344,21 +344,21 @@ todo o repositório. Seus bytes e sua cobertura não valem como referência da m
 
 O registro offline passa de `ork.graph-context-cost/v2` para **`ork.graph-context-cost/v3`**;
 o pacote continua `ork.thread-graph-context/v2`. A fixture v2 existente é uma medida executada,
-não `not-run`, mas o validador corrigido a recusa como método desatualizado. A condutora regrava
-a fixture após os commits do GO-FIX e preenche somente os números abaixo com a nova rodada:
+não `not-run`, mas o validador corrigido a recusa como método desatualizado. A condutora regravou
+a fixture após os commits do GO-FIX (03/10/2026) e preencheu os números abaixo com a nova rodada:
 
 | Caso | Braço | Bytes ao agente | Precisão (editados/apontados) | Cobertura do alcançável (acertos/editados na base) |
 | --- | --- | --- | --- | --- |
-| KG3 | Pacote | PREENCHER_KG3_PACOTE_BYTES | PREENCHER_KG3_PACOTE_PRECISAO | PREENCHER_KG3_PACOTE_COBERTURA |
-| KG3 | Descoberta | PREENCHER_KG3_DESCOBERTA_BYTES | PREENCHER_KG3_DESCOBERTA_PRECISAO | PREENCHER_KG3_DESCOBERTA_COBERTURA |
-| KG4 | Pacote | PREENCHER_KG4_PACOTE_BYTES | PREENCHER_KG4_PACOTE_PRECISAO | PREENCHER_KG4_PACOTE_COBERTURA |
-| KG4 | Descoberta | PREENCHER_KG4_DESCOBERTA_BYTES | PREENCHER_KG4_DESCOBERTA_PRECISAO | PREENCHER_KG4_DESCOBERTA_COBERTURA |
+| KG3 | Pacote | 15.122 | 3/7 (43%) | 3/13 (23%) |
+| KG3 | Descoberta | 723.688 | 3/41 (7%) | 3/13 (23%) |
+| KG4 | Pacote | 16.974 | 7/8 (88%) | 7/17 (41%) |
+| KG4 | Descoberta | 299.953 | 6/11 (55%) | 6/17 (35%) |
 
-Arquivos novos, contados separadamente: **PREENCHER_KG3_NOVOS** no KG3 e
-**PREENCHER_KG4_NOVOS** no KG4. Origem dos valores: `casos[0]` (KG3) e `casos[1]` (KG4),
+Arquivos novos, contados separadamente: **10** no KG3 e
+**9** no KG4. Origem dos valores: `casos[0]` (KG3) e `casos[1]` (KG4),
 `pacote/descoberta.bytes_ao_agente`, `cobertura_pacote/cobertura_descoberta.precisao` e `.cobertura`,
 com as respectivas contagens; novos vêm de `resultado.arquivos_novos.length`.
-Esses marcadores não são resultados: devem ser substituídos antes do SHIP.
+Com a descoberta justa, o pacote entrega de 18 a 48 vezes menos bytes, cobre o mesmo ou mais e tem precisão maior nos dois casos; são dois casos do mesmo subsistema, sem conclusão sobre tokens.
 
 `--conferir` refaz a medida e compara o **sha256 dos bytes do pacote** de cada caso com a fixture,
 além do registro determinístico completo. Diferença de hash ou métrica reprova; somente produzir
