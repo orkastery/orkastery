@@ -70,6 +70,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
   reprova, grava `policy_warn` com `claims.failed`, e se estoura o prazo, com `verify.timeout`. A claim entra do
   mesmo jeito e nada para, nem com a policy em `block`.
+- **Aceite por omissão só da thread indicada** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): em 03/10,
+  três vezes, um condutor rodou `ork master --aceitar-omissao` para fechar a própria thread e fechou também as
+  entregues de outras frentes paralelas, porque a CLI não deixava indicar a thread.
+  - `ork master <thread> --aceitar-omissao` (também `--thread <thread>` e `--aceitar-omissao=<thread>`) aceita só a
+    entrega daquela thread; thread sem entrega recusa (saída 1) e a já fechada não grava de novo (saída 0);
+  - `--dry-run` lista o que seria fechado, com o índice, sem gravar (`--json`: `{ dryRun, fecharia }`);
+  - sem a thread, o padrão continua o mesmo (aceita todas as entregues e lista cada uma). De processo de agente
+    (a mesma marca do `master.prova-de-canal`) com mais de uma, sai em stderr o aviso `master.omissao-sem-thread`,
+    com o comando da thread do despacho; o stdout e o `--json` ficam como eram;
+  - o `ork ship registrar-pr`, a tabela do `ork master`, o bloco do `AGENTS.md` que o `ork init` escreve, as skills,
+    os adaptadores e os guias passam a ensinar a forma com a thread.
 - **`ork doctor` acusa o pulse que bate devagar** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)): com
   `.orkastery/monitor/pulse-host.json`, o check `cadencia do pulse no cron` lê o `crontab -l` e avisa, sem bloquear, a
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
