@@ -543,6 +543,7 @@ export type MotivoGate =
   | 'cost.violation'
   | 'tree.blocked'
   | 'lease.busy'
+  | 'lease.resume-unavailable'
   /**
    * I-36 (RM-036, D2): outra conducao ja executa na worktree desta thread. Nao e reprovacao nem
    * falha: e a resposta util ao segundo pedido, com quem conduz e as tres acoes possiveis.
