@@ -92,6 +92,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
+| 2026-10-03 | GO-FIX 2 do watcher: prova de morte reconfere terminal após os processos; recibo MCP correlaciona sessão e despacho; contenção e estado dividido usam o orçamento de 600 s sem consumir 12 tentativas | thread `ork-rm036watcher`, testes `rm036-watcher-longo`. A condutora cruzou os ledgers dos dois incidentes: heartbeats param logo depois de `mcp_git_committed`, a 8 e a 11 minutos do despacho, sem `gate_blocked` aos 600 s. A causa provável é o estado dividido durante o commit MCP, cuja exceção antes escapava fora do `try`; não é causa comprovada nem atribuída ao prazo de 600 s. Integração MCP real, revisão e verify da condutora pendentes | Agente Codex, #Auto |
 | 2026-09-19 | thread aberta | thread `ork-i36multicana` | Julio |
 | 2026-09-27 | D2 respondida: recusa imediata, sempre explicada para o humano | Telegram, 27/09 10:53 | Julio |
 | 2026-09-27 | GO entregue | thread `ork-i36multicana`, PR da entrega | Julio |

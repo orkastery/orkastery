@@ -107,6 +107,7 @@ test('sess찾o adotada n찾o tem despacho: sensor e watcher recusam sem inventar �
     assert.throws(() => ingerirEvento(p.dir, adotado, 'heartbeat', '{}', Date.parse(hora(1))),
       /adotada, n찾o despachada/);
     assert.throws(() => observarSessao(p.carregado, adotado, { rollout: null }), /adotada, n찾o despachada/);
+    assert.throws(() => observarSessao(p.carregado, adotado, { rollout: null, threadId: t.id }), /adotada, n찾o despachada/);
     const r = spawnSync(process.execPath, [cli, 'sessions', 'event', '--tipo', 'heartbeat', '--sessao', adotado],
       { cwd: p.dir, input: '{}', encoding: 'utf8', timeout: 5000 });
     assert.equal(r.status, 1, r.stdout);
