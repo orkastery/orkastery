@@ -858,7 +858,7 @@ const controleNativoDoHandoff: ControleDoHandoff = (runtime, raiz, threadId, ses
 
 /**
  * A fonte fixada pelo sensor contém a identidade capturada no spawn, não um PID descoberto.
- * Sem as duas ausências provadas, a recuperação continua dependendo do runtime homologado.
+ * Todos os watchers, o controller e o runtime precisam estar ausentes por identidade.
  * Quem chama segura a trava da condução; nenhum prazo ou heartbeat autoriza esta soltura.
  */
 function morteLocalDoCodex(raiz: string, threadId: string, lease: Lease): Record<string, unknown> | null {
@@ -869,10 +869,13 @@ function morteLocalDoCodex(raiz: string, threadId: string, lease: Lease): Record
     if (!sessao || sessao.sessionId !== dono.sessionId || sessao.runtime !== 'codex' || !sessao.despachadaEm ||
         sessao.fase !== lease.conducao?.fase || sessao.promptSha256 !== lease.conducao?.promptSha256) return null;
     const dir = dirThread(raiz, threadId), eventos = lerLedger(dir);
+    if (fimDaSessao(eventos, lease)) return null;
     const mesmo = (e: EventoLedger) => e.sessionId === dono.sessionId && e.despachoEm === sessao.despachadaEm;
-    const watcher = eventos.filter(e => e.tipo === 'session_watcher_started' && mesmo(e)).at(-1);
-    const identidade = watcher?.identidade as IdentidadeProcesso | undefined;
-    if (!identidade || watcher?.pid !== identidade.pid || estadoProcesso(identidade) !== 'ausente') return null;
+    const watchers = eventos.filter(e => e.tipo === 'session_watcher_started' && mesmo(e));
+    if (!watchers.length || watchers.some(watcher => {
+      const identidade = watcher.identidade as IdentidadeProcesso | undefined;
+      return !identidade || watcher.pid !== identidade.pid || estadoProcesso(identidade) !== 'ausente';
+    })) return null;
     const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && mesmo(e)).at(-1);
     const despacho = eventos.filter(e => e.tipo === 'phase_dispatch' && e.sessionId === dono.sessionId).at(-1);
     if (!registro || typeof registro.controlador !== 'string' || typeof registro.cwd !== 'string' ||
@@ -889,12 +892,16 @@ function morteLocalDoCodex(raiz: string, threadId: string, lease: Lease): Record
       vinculo: { thread: threadId, fase: sessao.fase, promptSha256: sessao.promptSha256 } });
     const controller = fonte.processoController;
     if (!controller || estadoProcesso({ pid: controller.pid, inicio: controller.inicio, boot: controller.bootId }) !== 'ausente') return null;
+    const runtime = fonte.processoRuntime;
+    if (!runtime || estadoProcesso({ pid: runtime.pid, inicio: runtime.inicio, boot: runtime.bootId }) !== 'ausente') return null;
     return { sessionId: dono.sessionId, despachoEm: sessao.despachadaEm, fase: sessao.fase, runtime: 'codex',
-      origem: 'conducao.assumir', motivo: 'watcher-e-controlador-ausentes',
+      origem: 'conducao.assumir', motivo: 'watchers-controlador-e-runtime-ausentes',
       prova: { fonte: 'session_sensor_registered+controller-source-pin+/proc',
-        registroEventId: registro.eventId, watcherEventId: watcher!.eventId,
-        watcher: identidade, controlador: { pid: controller.pid, inicio: controller.inicio, boot: controller.bootId,
-          uid: controller.uid }, estadoWatcher: 'ausente', estadoControlador: 'ausente' } };
+        registroEventId: registro.eventId,
+        watchers: watchers.map(w => ({ eventId: w.eventId, identidade: w.identidade, estado: 'ausente' })),
+        controlador: { pid: controller.pid, inicio: controller.inicio, boot: controller.bootId, uid: controller.uid },
+        runtime: { pid: runtime.pid, inicio: runtime.inicio, boot: runtime.bootId, uid: runtime.uid },
+        estadoControlador: 'ausente', estadoRuntime: 'ausente' } };
   } catch { return null; } // Fonte ilegível, divergente ou identidade desconhecida nunca prova morte.
 }
 
@@ -930,7 +937,7 @@ export function assumirConducao(raiz: string, threadId: string,
       const morte = morteLocalDoCodex(raiz, threadId, lease);
       if (morte) {
         registrar(dir, threadId, 'sessao_morta', morte);
-        mecanismo = 'recuperação local: watcher e controlador ausentes por identidade';
+        mecanismo = 'recuperação local: watchers, controlador e runtime ausentes por identidade';
         prova = 'ledger: sessao_morta com identidades capturadas e ausência conferida no kernel';
       } else {
         const ctl = (opcoes.controle ?? controleNativoDoHandoff)(dono.runtime, raiz, threadId, dono.sessionId);

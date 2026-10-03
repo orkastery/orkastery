@@ -42,7 +42,7 @@ function fixture(teste: TestContext) {
   const dir = dirThread(p.dir, t.id), sessoes = path.join(dir, 'sessoes');
   const controlador = path.join(sessoes, 'controller-' + INSTANCIA);
   fs.mkdirSync(controlador, { recursive: true, mode: 0o700 });
-  const filhos = [controlador, p.dir].map(cwd => spawn(process.execPath,
+  const filhos = [controlador, p.dir, p.dir].map(cwd => spawn(process.execPath,
     ['-e', 'setInterval(() => {}, 3600000)'], { cwd, stdio: 'ignore' }));
   teste.after(async () => {
     await Promise.all(filhos.map(async filho => {
@@ -91,8 +91,9 @@ test('RM036: Codex vivo progride além de dez minutos e só conclui no terminal 
   assert.equal(p.run(LIMITE_MORTE_MS + 2000).concluido, false);
   assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
   let agora = LIMITE_MORTE_MS + 3000;
+  const prazo = agora + 10000;
   await acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
-    esperar: async () => { agora += 1000; p.terminar(agora); } });
+    esperar: async () => { agora += 1000; assert.ok(agora <= prazo, 'watcher deve terminar dentro do prazo da fixture'); p.terminar(agora); } });
   assert.equal(p.run(agora + 1).concluido, true);
   const resultados = p.eventos().filter(e => e.tipo === 'phase_result');
   assert.equal(resultados.length, 1);
@@ -166,12 +167,15 @@ test('RM036: processo destacado registra falha anterior à leitura do manifesto'
   assert.ok(!JSON.stringify(erros).includes(p.dir));
 });
 
-for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identidade', 'despacho-antigo',
+for (const caso of ['mortos', 'runtime-vivo', 'pid-runtime-reciclado', 'watcher-vivo', 'watcher-anterior-vivo',
+  'controlador-ocioso', 'sem-identidade', 'despacho-antigo', 'terminal-concorrente',
   'sem-fixacao', 'fixacao-divergente', 'outra-maquina'] as const) {
   test(`RM036: handoff local com prova de identidade (${caso})`, async t => {
     const p = fixture(t);
     p.run(2000); // Fixa a fonte autenticada como no despacho real.
-    const watcher = { ...identidadeProcesso(p.filhos[1].pid!)!, ...(caso === 'watcher-vivo' ? {} : { inicio: '0' }) };
+    const watcher = { ...identidadeProcesso(p.filhos[2].pid!)!, ...(caso === 'watcher-vivo' ? {} : { inicio: '0' }) };
+    if (caso === 'watcher-anterior-vivo') registrar(p.dirEstado, p.t.id, 'session_watcher_started', {
+      sessionId: SID, despachoEm: p.t.sessoes[0].despachadaEm, pid: p.filhos[2].pid, identidade: identidadeProcesso(p.filhos[2].pid!) });
     registrar(p.dirEstado, p.t.id, 'session_watcher_started', { sessionId: SID,
       despachoEm: caso === 'despacho-antigo' ? new Date(BASE).toISOString() : p.t.sessoes[0].despachadaEm,
       pid: watcher.pid, ...(caso === 'sem-identidade' ? {} : { identidade: watcher }) });
@@ -181,6 +185,13 @@ for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identid
     if (caso === 'fixacao-divergente') {
       const fonte = JSON.parse(fs.readFileSync(pin, 'utf8'));
       fs.writeFileSync(pin, JSON.stringify({ ...fonte, sessionId: 'outra-sessao' }));
+    }
+    if (caso === 'pid-runtime-reciclado') {
+      const fonte = JSON.parse(fs.readFileSync(pin, 'utf8'));
+      // O PID existe, mas agora pertence a outro processo (inicio distinto da captura).
+      fs.writeFileSync(pin, JSON.stringify({ ...fonte, processoRuntime: { ...fonte.processoRuntime, inicio: '0' } }));
+    } else if (caso !== 'runtime-vivo') {
+      const fechado = once(p.filhos[1], 'close'); p.filhos[1].kill(); await fechado;
     }
     if (caso !== 'controlador-ocioso') {
       const fechado = once(p.filhos[0], 'close'); p.filhos[0].kill(); await fechado;
@@ -194,21 +205,34 @@ for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identid
         dono: { tipo: 'sessao', sessionId: SID, runtime: 'codex', perfil: null,
           maquina: caso === 'outra-maquina' ? 'maquina-da-fixture-remota' : nomeDaMaquina() } } });
     let consultas = 0;
+    if (caso === 'terminal-concorrente') {
+      const ledger = require('../src/ledger') as typeof import('../src/ledger');
+      const ler = ledger.lerLedger;
+      let leituras = 0;
+      t.mock.method(ledger, 'lerLedger', (dir: string) => {
+        if (dir === p.dirEstado && ++leituras === 2) registrar(dir, p.t.id, 'phase_result', { sessionId: SID });
+        return ler(dir);
+      });
+    }
+    const recupera = caso === 'mortos' || caso === 'pid-runtime-reciclado';
     const resultado = assumirConducao(p.dir, p.t.id, { por: 'operador-fixture', motivo: 'recuperar sessão', canal: 'cli',
       consultarSessao: () => { assert.fail('não consultar runtime antes da prova local'); },
       controle: () => ({ consultar: () => {
-        consultas++; assert.notEqual(caso, 'mortos', 'morte provada dispensa runtime');
+        consultas++; assert.equal(recupera, false, 'morte provada dispensa runtime');
         return { ok: true, sessoes: [{ sessionId: SID, estado: 'idle' }] };
       }, parar: () => false }) });
     const mortes = p.eventos().filter(e => e.tipo === 'sessao_morta');
-    if (caso === 'mortos') {
+    if (recupera) {
       assert.equal(resultado.ok, true, resultado.detalhe);
       assert.equal(consultas, 0);
       assert.equal(mortes.length, 1);
-      const prova = mortes[0].prova as { watcher: { inicio: string }; controlador: { inicio: string }; estadoControlador: string };
-      assert.equal(prova.watcher.inicio, '0', 'PID reciclado não torna vivo o watcher anterior');
+      const prova = mortes[0].prova as { watchers: { identidade: { inicio: string } }[];
+        controlador: { inicio: string }; runtime: { inicio: string }; estadoControlador: string; estadoRuntime: string };
+      assert.equal(prova.watchers[0].identidade.inicio, '0', 'PID reciclado não torna vivo o watcher anterior');
       assert.equal(prova.controlador.inicio, p.state.processoController.inicio);
       assert.equal(prova.estadoControlador, 'ausente');
+      assert.equal(prova.estadoRuntime, 'ausente');
+      assert.equal(prova.runtime.inicio, caso === 'pid-runtime-reciclado' ? '0' : p.state.processoRuntime.inicio);
       assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'reserva');
       assert.equal(p.eventos().filter(e => e.tipo === 'conducao_assumida').length, 1);
     } else {
@@ -216,8 +240,9 @@ for (const caso of ['mortos', 'watcher-vivo', 'controlador-ocioso', 'sem-identid
       assert.equal(consultas, 1);
       assert.match(resultado.detalhe, /não confirmou|nao confirmou/);
       assert.equal(mortes.length, 0);
-      assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'sessao');
+      if (caso !== 'terminal-concorrente') assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'sessao');
     }
-    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0, 'recuperar não conclui fase');
+    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length,
+      caso === 'terminal-concorrente' ? 1 : 0, 'recuperar não conclui fase');
   });
 }
