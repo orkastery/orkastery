@@ -2244,7 +2244,10 @@ function comandoCi(args: Args): number {
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
-      console.error('uso: ork ci status --sha <commit> [--remoto origin]');
+      // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
+      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
+      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
       return 2;
     }
     // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.

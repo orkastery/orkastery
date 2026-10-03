@@ -90,3 +90,16 @@ test('ensaio 0310 R2: com LANG=C.UTF-8, o onboarding recomenda pt-BR, a lingua d
     assert.match(ork(p.dir, casa, ['onboarding'], { LANG: 'en_GB.UTF-8' }).stdout, /Experiência recomendada: en-GB, /);
   } finally { limpar(p.dir, casa); }
 });
+
+test('ensaio 0310 R4: ork ci status --sha HEAD diz que pede o sha completo de 40 caracteres', () => {
+  const p = projetoTemporario('ensaio0310-r4');
+  const casa = dirTemporario('ensaio0310-r4-casa');
+  try {
+    for (const sha of ['HEAD', 'a7852e4']) {
+      const r = ork(p.dir, casa, ['ci', 'status', '--sha', sha]);
+      assert.equal(r.status, 2, r.stdout);
+      assert.match(r.stderr, /--sha exige o sha completo, de 40 caracteres hexadecimais minusculos \(git rev-parse HEAD\)/, sha);
+      assert.match(r.stderr, /uso: ork ci status --sha <sha de 40 caracteres> \[--remoto origin\]/);
+    }
+  } finally { limpar(p.dir, casa); }
+});
