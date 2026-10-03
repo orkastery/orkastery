@@ -89,7 +89,12 @@
       "lint": []
     }
   ],
-  "deferredClaims": [],
+  "deferredClaims": [
+    {
+      "id": "C7",
+      "reason": "local-integration-required"
+    }
+  ],
   "commands": [
     {
       "name": "ci",
