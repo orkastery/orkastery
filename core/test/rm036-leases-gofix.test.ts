@@ -100,6 +100,58 @@ for (const transporte of ['flock', 'portatil']) {
   }
 }
 
+for (const transporte of ['flock', 'portatil']) {
+  for (const desfecho of ['aquisicao', 'erro-original']) {
+    test(`rm036 gofix: R7 limpeza do candidato com EPERM preserva ${desfecho} ${transporte}`, (t) => {
+      if (transporte === 'flock') simularFlock(t); else semFlock(t);
+      const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree'), fila = `${arquivo}.retomadas`;
+      leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+      const apagar = io.unlinkSync, escrever = io.writeFileSync;
+      const original = Object.assign(Error('falha original no wx'), { code: 'EIO' });
+      let limpezas = 0, falhasDeEscrita = 0;
+      let candidato: string | undefined, donoNaLimpeza: string | undefined;
+      t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+        const alvo = String(p);
+        if (path.dirname(alvo) === fila && alvo.endsWith('.json')) {
+          limpezas++;
+          candidato = alvo;
+          donoNaLimpeza = leases.lerLease(c.raiz, 'main-tree')?.thread;
+          throw Object.assign(Error('candidato nao removido'), { code: 'EPERM' });
+        }
+        return apagar(p);
+      });
+      t.mock.method(io, 'writeFileSync', (...args: unknown[]) => {
+        if (desfecho === 'erro-original' && String(args[0]) === arquivo && !fs.existsSync(arquivo)) {
+          falhasDeEscrita++;
+          assert.equal((args[2] as fs.WriteFileOptions & { flag: string }).flag, 'wx');
+          throw original;
+        }
+        return Reflect.apply(escrever, io, args);
+      });
+      const adquirir = () => leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'retomada' });
+      if (desfecho === 'erro-original') {
+        assert.throws(adquirir, (e: unknown) => e === original, 'EPERM da limpeza nao encobre EIO original');
+        assert.equal(falhasDeEscrita, 1);
+        assert.equal(donoNaLimpeza, undefined);
+        assert.equal(fs.existsSync(arquivo), false);
+      } else {
+        const r = adquirir();
+        assert.equal(donoNaLimpeza, OUTRA, 'limpeza acontece depois do wx');
+        assert.equal(r.ok, true);
+        assert.equal(r.tomadoDeVencido, true);
+        assert.equal(r.falhaRetomada, undefined);
+        assert.deepEqual(leases.lerLease(c.raiz, 'main-tree'), r.lease);
+        assert.equal(r.lease?.thread, OUTRA);
+        assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'concorrente' }).ok, false);
+      }
+      assert.equal(limpezas, 1, 'tentou remover o candidato publicado');
+      assert.ok(candidato);
+      assert.deepEqual(fs.readdirSync(fila), [path.basename(candidato)], 'candidato fica para coleta por PID ou prazo');
+      assert.ok(JSON.parse(fs.readFileSync(candidato, 'utf8')).ticket > 0);
+    });
+  }
+}
+
 for (const sufixo of ['$(id)', '`id`', ';id', '|id', ' com espaco', "'aspas'", '"aspas"', '\ncontrole', 'a'.repeat(200)]) {
   test(`rm036 gofix: B2 nome hostil ${JSON.stringify(sufixo)} nunca vira comando legado`, (t) => {
     const c = cenario(t), nome = `path:core/${sufixo}`;

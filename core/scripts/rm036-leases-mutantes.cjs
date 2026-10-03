@@ -23,6 +23,9 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R7-limpeza-candidato': [[lease,
+    'catch { /* Melhor esforco: candidato remanescente sera recolhido. */ }',
+    "catch (e) { if (e.code !== 'ENOENT') throw e; }"]],
   'R6-limpeza-resultado': [[lease,
     'catch { /* Melhor esforco: nao altera o resultado da retomada. */ }',
     "catch (e) { if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(e.code ?? '')) throw e; }"]],
