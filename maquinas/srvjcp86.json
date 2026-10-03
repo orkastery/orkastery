@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T08:06:21.528Z",
+  "publicadoEm": "2026-10-03T08:07:14.253Z",
   "threads": [
     {
       "id": "ork-b7relatoriod",
@@ -66,6 +66,23 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm044registr",
+      "nome": "RM-044 registrar-pr avisa docs pendentes",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-044",
+      "branch": "ork/ork-rm044registr-full",
+      "atualizadaEm": "2026-10-03T08:07:10.990Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
