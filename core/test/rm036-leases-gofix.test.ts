@@ -475,7 +475,7 @@ for (const corrompido of [false, true]) {
   });
 }
 
-test('rm036 gofix: A4 retomador atrasado preserva inode substituido', (t) => {
+test('rm036 gofix: A4 nlink recusa descritor desvinculado antes do flock', (t) => {
   simularFlock(t);
   const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
   leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
@@ -505,6 +505,32 @@ test('rm036 gofix: A4 lease renovado no mesmo inode e relido sob trava', (t) => 
     return r;
   });
   assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomar' }).ok, false);
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+});
+
+test('rm036 gofix: A4 inode trocado durante flock preserva novo vencedor', (t) => {
+  simularFlock(t);
+  const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const antigo = fs.statSync(arquivo);
+  const processo = require('node:child_process') as typeof import('node:child_process'), flock = processo.spawnSync;
+  let trocou = false;
+  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => {
+    const r = Reflect.apply(flock, processo, args);
+    if (args[0] === '/usr/bin/flock') {
+      const fd = (args[2] as any).stdio[3];
+      assert.equal(fs.fstatSync(fd).nlink, 1, 'passou pela guarda anterior ao flock');
+      leases.regravarLease(c.raiz, vivo('main-tree', OUTRA));
+      assert.equal(fs.fstatSync(fd).ino, antigo.ino, 'descritor continua no inode vencido');
+      assert.notEqual(fs.statSync(arquivo).ino, antigo.ino, 'path aponta para o novo vencedor');
+      trocou = true;
+    }
+    return r;
+  });
+  const r = leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomar' });
+  assert.equal(trocou, true);
+  assert.equal(r.ok, false);
+  assert.equal(r.ocupadoPor?.thread, OUTRA);
   assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
 });
 
