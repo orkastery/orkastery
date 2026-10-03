@@ -23,6 +23,12 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R7-MCP-metadados-UTF8': [['core/dist-test/src/mcp-git.js',
+    "if (!Buffer.from(n, 'utf8').equals(bytes))", 'if (false)']],
+  'R7-MCP-leases-UTF8': [['core/dist-test/src/mcp-artifacts.js',
+    "if (!Buffer.from(nome, 'utf8').equals(nomeBytes))", 'if (false)']],
+  'R7-MCP-candidatos-UTF8': [['core/dist-test/src/mcp-artifacts.js',
+    "if (!Buffer.from(candidato, 'utf8').equals(candidatoBytes))", 'if (false)']],
   'R7-limpeza-candidato': [[lease,
     'catch { /* Melhor esforco: candidato remanescente sera recolhido. */ }',
     "catch (e) { if (e.code !== 'ENOENT') throw e; }"]],

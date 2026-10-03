@@ -148,3 +148,68 @@ for (const metodo of ['lstatSync', 'readdirSync'] as const) {
     assert.equal(fs.existsSync(c.fila), true);
   });
 }
+
+/** Nome real, nunca um mock da decodificacao do readdir. Nem todo filesystem admite esses bytes. */
+function criarNomeForaDeUtf8(t: TestContext, dir: string, pasta: boolean): Buffer | null {
+  const alvo = Buffer.concat([Buffer.from(path.join(dir, 'invalido-')), Buffer.from([0xff]),
+    Buffer.from(pasta ? '.json.retomadas' : '.json')]);
+  try {
+    if (pasta) fs.mkdirSync(alvo);
+    else fs.writeFileSync(alvo, '{}');
+  } catch (e) {
+    const codigo = (e as NodeJS.ErrnoException).code;
+    if (!['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP', 'ENOENT'].includes(codigo ?? '')) throw e;
+    t.skip(`sistema de arquivos recusou criar nome fora de UTF-8 (${codigo})`);
+    return null;
+  }
+  assert.equal(fs.readdirSync(dir, { encoding: 'buffer' }).some((nome) => nome.equals(alvo.subarray(Buffer.byteLength(dir + path.sep)))), true);
+  assert.equal(fs.lstatSync(alvo).isDirectory(), pasta, 'entrada real existe com os bytes originais');
+  return alvo;
+}
+
+for (const tipo of ['arquivo', 'subarvore']) {
+  test(`rm036 mcp: R7 metadados recusam ${tipo} fora de UTF-8 antes de lstat`, (t) => {
+    const c = fixture(t), pastaLeases = path.dirname(c.fila);
+    const alvo = criarNomeForaDeUtf8(t, pastaLeases, tipo === 'subarvore');
+    if (!alvo) return;
+    if (tipo === 'subarvore') {
+      fs.symlinkSync(c.raiz, Buffer.concat([alvo, Buffer.from(path.sep + 'link-inseguro')]));
+    }
+    assert.throws(() => metadadosGitMcp(path.dirname(pastaLeases), pastaLeases), /metadata.unsafe: nome fora de UTF-8/);
+    assert.equal(fs.lstatSync(alvo).isDirectory(), tipo === 'subarvore');
+    assert.equal(lerLease(c.raiz, 'main-tree')?.thread, 'ork-antiga');
+  });
+}
+
+for (const tipo of ['lease', 'fila', 'candidato']) {
+  for (const operacao of ['documento', 'claim']) {
+    test(`rm036 mcp: R7 ${operacao} recusa ${tipo} fora de UTF-8 sem escrita`, (t) => {
+      const c = fixture(t);
+      if (tipo === 'candidato') fs.mkdirSync(c.fila);
+      const alvo = criarNomeForaDeUtf8(t, tipo === 'candidato' ? c.fila : path.dirname(c.fila), tipo === 'fila');
+      if (!alvo) return;
+      const escrever = () => operacao === 'documento'
+        ? escreverArtefatoMcp(c.raiz, c.id, 'goal', 'recusado', null)
+        : adicionarClaimMcp(c.raiz, c.id, { arquivo: 'core/src/leases.ts', alegacao: 'recusado', verificar: ['true'] });
+      assert.throws(escrever, /mcp.state.unsafe: nome fora de UTF-8/);
+      assert.equal(fs.existsSync(alvo), true, 'nome ilegivel nao foi removido');
+      assert.equal(listarClaimsMcp(c.raiz, c.id).length, 0);
+      assert.equal(lerArtefatoMcp(c.raiz, c.id, 'goal').conteudo, null);
+    });
+  }
+}
+
+test('rm036 mcp: R7 UTF-8 valido com U+FFFD literal continua conferido e aceito', (t) => {
+  const c = fixture(t), pastaLeases = path.dirname(c.fila);
+  const valido = path.join(pastaLeases, 'utf8-\ufffd');
+  fs.writeFileSync(valido, 'regular');
+  assert.doesNotThrow(() => metadadosGitMcp(path.dirname(pastaLeases), pastaLeases));
+  c.escrever('UTF-8 sem perda');
+  assert.equal(listarClaimsMcp(c.raiz, c.id).length, 1);
+  fs.unlinkSync(valido);
+  fs.symlinkSync(c.raiz, valido);
+  assert.throws(() => metadadosGitMcp(path.dirname(pastaLeases), pastaLeases), /metadata.unsafe: link simbolico/);
+  assert.throws(() => c.escrever('link recusado'), /mcp.state.unsafe/);
+  assert.equal(listarClaimsMcp(c.raiz, c.id).length, 1);
+  assert.equal(lerArtefatoMcp(c.raiz, c.id, 'goal').conteudo, 'UTF-8 sem perda');
+});

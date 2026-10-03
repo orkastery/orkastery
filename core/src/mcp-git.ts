@@ -137,10 +137,15 @@ function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boole
       `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f+'.tmp')} && mv ${rotulo(f+'.tmp')} ${rotulo(f)}`);
     if(f!==root && !dentro(root,f))falha(`metadata.unsafe: ${rotulo(f)} fora de ${path.basename(root)}`);
     if(st.isDirectory()) {
-      let entradas:string[];
-      try {entradas=fs.readdirSync(f);}
+      let entradas:Buffer[];
+      try {entradas=fs.readdirSync(f,{encoding:'buffer'});}
       catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
-      for(const n of entradas)visitar(path.join(f,n),profundidade+1);
+      for(const bytes of entradas) {
+        const n=bytes.toString('utf8');
+        // Perda de bytes nao e ENOENT transitorio: o nome decodificado pode nem apontar para esta entrada.
+        if(!Buffer.from(n,'utf8').equals(bytes))falha(`metadata.unsafe: nome fora de UTF-8 em ${rotulo(f)}`);
+        visitar(path.join(f,n),profundidade+1);
+      }
     }
   };
   if(fs.realpathSync(alvo)!==alvo)falha(`metadata.unsafe: ${rotulo(alvo)} passa por link simbolico`);visitar(alvo,0);
