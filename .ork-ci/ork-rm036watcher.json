@@ -257,17 +257,17 @@
       "lint": []
     },
     {
-      "id": "C19",
+      "id": "C20",
       "thread": "ork-rm036watcher",
       "fase": "GO",
       "arquivo": "docs/roadmap/RM-036-maestro-multicanal.md",
-      "alegacao": "GO-FIX 2 item 7: documentação qualifica estado dividido no commit MCP como causa provável, citando o cruzamento da condutora: heartbeats interrompidos a 8 e 11 minutos e ausência de gate_blocked aos 600 s; não alega causa comprovada.",
+      "alegacao": "A RM-036 e o CHANGELOG registram a causa provável do watcher morto, com a evidência dos incidentes",
       "negativa": false,
       "verificar": [
-        "rg -n 'causa provável|8 e a 11|gate_blocked' docs/roadmap/RM-036-maestro-multicanal.md CHANGELOG.md"
+        "grep -E -n 'causa provável|8 e a 11|gate_blocked' docs/roadmap/RM-036-maestro-multicanal.md CHANGELOG.md"
       ],
-      "criadoEm": "2026-10-03T13:43:24.678Z",
-      "estado": "verificado",
+      "criadoEm": "2026-10-03T14:03:46.508Z",
+      "estado": "pendente",
       "lint": []
     }
   ],
