@@ -300,8 +300,23 @@ tipo B não é CHECK.
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
-| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; não combina com `--tags` nem `--thread` |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; sem o universo lido inteiro, sai 1 com motivo tipado e sem resultados (também em `--json`); uso inválido sai 2; não combina com `--tags` nem `--thread` |
 | `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
+
+`memory search --texto` também sai 1 quando a memória está desligada ou indisponível
+(`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
+como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
+`core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
+quando uma busca falha, preservando seu código de saída.
+
+A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
+(24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas
+demais chamadas). O manifesto recusa valores fora desse intervalo; configuração direta do driver
+com valor inválido usa o padrão, inclusive zero, que nunca significa espera ilimitada.
+Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,
+incluindo o subprocesso e a conferência da resposta, aparece em `latenciaUniversoMs` no JSON do
+índice e em `embeddings.universo.latenciaMs` no JSON do status. Fontes sem medição não inventam
+latência: no índice, o campo é `null`; no universo, fica ausente.
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
