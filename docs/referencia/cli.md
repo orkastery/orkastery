@@ -472,7 +472,7 @@ Um template do projeto (`prompts/<id>.md`) sobrescreve o embutido de mesmo id.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills |
+| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills do catálogo do pacote que está rodando; um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio` (RM-047) |
 
 Sai diferente de zero em qualquer falha. Canários: `fx-happy`, `fx-hallucination`,
 `fx-stale-base`, `fx-wiki-destroy`, `fx-schema-drift`, `fx-concurrency`.

@@ -79,7 +79,7 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `adapters/codex-controller-worker.ts` | codex app-server | `runtime.sandbox` | lista fechada; a postura que afrouxa só despacha com a confirmação local da máquina (`runtime.sandbox-nao-confirmado`) | **Corrigido, em decisão do dono** (P1) |
 | `session-watcher*.ts`, `liveness.ts`, `worktree.ts`, `conducao.ts`, `retry.ts`, `verify.ts`, `phase.ts`, `ci.ts` (git status, log, rev-parse; cwd do agente) | git, runtime | cwd = `thread.worktree`, `cwd` do ledger ou da fila | cwd só na raiz ou em worktree do `git worktree list` (`estado.worktree-nao-registrada`); estado versionado não escolhe (`estado.rastreado`) | **Corrigido, em decisão do dono** (P2) |
 | `pulse-delivery.ts`, `master-digest.ts` | transporte do host | `executavel` e `argumentos` de `.orkastery/monitor/*-host.json` | tipos conferidos; só o arquivo local, comum e fora do índice do git (`transporte.rastreado`) | **Corrigido, em decisão do dono** (P2) |
-| `canarios*.ts` (via `ork eval`) | node | hooks e `core/dist` do catálogo achado a partir do cwd | nenhuma | **Pendente do dono** (P4) |
+| `canarios*.ts` (via `ork eval`) | node | hooks e `core/dist` do catálogo achado a partir do cwd | o eval só executa o catálogo do pacote que está rodando; um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio` | **Corrigido, em decisão do dono** (P4) |
 | `intelligence-graph-*.ts`, `superficie.ts`, `ledger-stats.ts`, `demo.ts`, `init.ts`, `doctor.ts`, `preflight.ts`, `hitl-*.ts`, `creation-operation-store.ts`, `fabrica-publicar.ts` | git, node, flock | nenhum, ou sha validado | `-c core.fsmonitor=false` no grafo; `O_NOFOLLOW` nos locks | Inerte |
 
 ## 5. Matriz de caminhos
@@ -110,14 +110,16 @@ o mesclar; a coluna da direita diz o estado de cada um.
 | P1 | O manifesto escolhe a postura de sandbox do agente | **Corrigido, em decisão do dono.** A postura que afrouxa o sandbox (`danger-full-access`) só despacha, no `ork phase run` e no `ork retry run`, depois de a máquina confirmá-la no setup local, fora do git (`ork setup sandbox confirmar <postura>`). Sem isso, o despacho recusa com `runtime.sandbox-nao-confirmado` e diz o comando |
 | P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro | **Corrigido, em decisão do dono.** Estado rastreado pelo git não escolhe cwd, worktree nem executável; o cwd de git e agente só vale na raiz ou numa worktree do `git worktree list` do repositório; o transporte do pulse e do digest só vale do arquivo de host local; os ponteiros do recall e do handoff só leem arquivo que, pelo caminho real, fica na raiz ou na worktree registrada da thread (`ponteiro.fora-da-raiz`) |
 | P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | **Corrigido, em decisão do dono.** Worktree fora da raiz segue possível, mas quem decide é a máquina: fora da raiz pelo caminho real (`..`, absoluto, link no caminho, `.git`), a criação recusa com `worktree.dir-fora-da-raiz` até `ork setup worktree confirmar`, gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). O `ork doctor` acusa. O MCP segue recusando |
-| P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | O comando é do CI do kit e roda o próprio código de propósito; falta decidir se ele confere a raiz do pacote |
+| P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | **Corrigido, em decisão do dono.** O eval só executa o catálogo do pacote que está rodando (achado a partir do próprio código). Um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`, e a mensagem diz como rodar o `ork` daquele checkout de propósito. O CI do kit (`node core/dist/index.js eval` na raiz) não muda |
 | P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | É opt-in documentado no manifesto; a pergunta é se o opt-in deve ser da máquina, não do repositório |
 
 Também ficam registrados, com risco baixo: `ork retry run --dry-run` na ação `corrigir-dirigido`
 reexecuta claims e verify (comandos declarados, mas contra a semântica do `--dry-run`); o perfil do
 runtime gravado no ledger escolhe `CLAUDE_CONFIG_DIR`/`CODEX_HOME` de comandos de consulta; o
 `memory.database_url_env` aceita nome de qualquer variável de ambiente; e `ci.external_repositories`
-aceita segmento `..` no caminho de um `gh api` de leitura.
+aceita segmento `..` no caminho de um `gh api` de leitura. O `ork adapter install` ainda acha o catálogo a partir
+do projeto, como o `ork eval` achava (P4), mas só copia o adaptador para dentro do próprio projeto e usa o `ork` do
+PATH quando ele existe; fica registrado com risco baixo.
 
 ## 7. Para quem contribui
 

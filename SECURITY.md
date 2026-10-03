@@ -58,6 +58,8 @@ Os ponteiros que o estado guarda (o `location` do `handoff.json`, o arquivo de u
 sessão) só leem arquivo que, pelo caminho real, fica na raiz do projeto ou na worktree registrada da thread.
 O `worktree.dir` que leva para fora da raiz (pelo caminho real) só cria checkout depois de
 `ork setup worktree confirmar` nesta máquina.
+O `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando, nunca o de um
+diretório achado a partir do cwd.
 
 ---
 

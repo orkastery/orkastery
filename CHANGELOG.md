@@ -112,7 +112,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 ### Segurança
 
 - **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
-  P1, P2 e P3 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)):
+  P1 a P4 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)):
   - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
     máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
     (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
@@ -133,7 +133,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     caminho ou `.git`) só cria worktree depois de a máquina confirmar a pasta com `ork setup worktree confirmar`,
     gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). Sem
     isso, a criação recusa com `worktree.dir-fora-da-raiz`, e o `ork doctor` acusa. **Muda para quem já usa worktree
-    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo.
+    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo;
+  - o `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando. Um diretório com
+    `skills/`, `references/` e `eval/` achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`.
+    **Muda para quem roda o `ork` instalado dentro de um checkout do Orkastery:** use o `ork` do checkout
+    (`node core/dist/index.js eval`), como o CI já faz.
 - **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
   [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:

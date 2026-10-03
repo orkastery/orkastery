@@ -92,7 +92,7 @@ import {
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
-import { exigirCatalogo } from './catalogo';
+import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
@@ -3217,7 +3217,8 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
+  // RM-047 (P4): o eval so executa o catalogo do proprio pacote, nunca o achado a partir do cwd.
+  const catalogo = exigirCatalogoDoPacote(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;

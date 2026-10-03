@@ -152,3 +152,20 @@ test('P3: a confirmação local libera a pasta de fora nesta máquina; versionad
     assert.equal(JSON.parse(s.stdout).criacao, 'recusada');
   } finally { p.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
 });
+
+test('P4: ork eval não executa o catálogo achado a partir do cwd quando ele não é o do pacote', () => {
+  const alheio = dirTemporario('p4-catalogo-alheio');
+  const marca = path.join(alheio, 'executou');
+  try {
+    for (const d of ['skills', 'references', path.join('eval', 'casos'), path.join('eval', 'fixtures'), path.join('core', 'dist')]) {
+      fs.mkdirSync(path.join(alheio, d), { recursive: true });
+    }
+    fs.writeFileSync(path.join(alheio, 'core', 'dist', 'index.js'),
+      `require('fs').writeFileSync(${JSON.stringify(marca)}, 'x');\n`);
+    const r = ork(alheio, 'eval', '--json');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /eval\.catalogo-alheio: /, r.stderr + r.stdout);
+    assert.ok(!r.stdout.includes(alheio), 'o eval não leu o catálogo alheio');
+    assert.equal(fs.existsSync(marca), false, 'nada do catálogo alheio rodou');
+  } finally { fs.rmSync(alheio, { recursive: true, force: true }); }
+});
