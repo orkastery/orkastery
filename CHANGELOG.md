@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Medida da conta esgotada entre projetos** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  `ork accounts esgotamentos [--desde 7d] [--json]` (`ork.esgotamentos/v1`) só lê as marcas vivas de
+  `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
+  despacho que caiu na conta de uma marca de outro projeto, dentro do prazo dela. A conta sai como id opaco e o
+  perfil, pelo id; nenhum diretório de conta vai à saída. O total é um piso: o registro só guarda as marcas vivas.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
