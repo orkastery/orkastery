@@ -88,3 +88,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-24 | thread aberta e implementação | pedido do dono | Julio |
 | 2026-09-24 | mesclado e em produção | PR #20, merge `fc0ab14`; `ork` recompilado da `main` | Julio |
 | 2026-09-28 | concluído | em produção desde o merge; MASTER aceito por omissão em 27/09/2026 (score gravado 5/5) | Julio |
+| 2026-10-03 | Fatia na thread `ork-rm044registr`: o `ork ship registrar-pr` lista a página com `sdlc.thread` da thread registrada que o push da `main` reprova em `docs.paridade.merge`, com o comando de sincronizar e o campo `docsPendentes` no `--json`; só aviso | 6 pushes da `main` vermelhos em 02 e 03/10 e os PRs de docs #67 e #75; teste `rm044-registrar-pr-docs` | Condutor #Auto, por delegação do dono |
