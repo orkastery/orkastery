@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: [FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-03T04:10:52+00:00
+atualizado_em: 2026-10-03T05:56:42+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Em execução
+  testes: Aprovados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: 6ea7acb
-    pr: null
+    commit: 91dd987
+    pr: 72
 sdlc:
   thread: ork-rm054fatia3s
   modo: "#Auto"
-  fase: GOAL
-  status: aberta
+  fase: MASTER
+  status: fechada
 ---
 
 # RM-054 — Roadmaps e threads da rede visíveis a todo agente e runtime
@@ -34,12 +34,12 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-032](../produto/FEAT-032-roadmap-da-rede.md)
-- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2, mesclada em `6ea7acb`) · `ork-rm054fatia3s` (fatia 3)
+- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2, mesclada em `6ea7acb`) · `ork-rm054fatia3s` (fatia 3, mesclada em `91dd987`)
 
 ## Problema e resultado
 
@@ -163,8 +163,8 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `6ea7acb` | 2026-10-03 | Julio |
-| Testes | Em execução | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `91dd987` · PR #72 | 2026-10-03 | Julio |
+| Testes | Aprovados | — | 2026-10-03 | Julio |
 | Deploy | Não implantado | — | 2026-10-03 | Julio |
 | Exposição | Flag desligada | — | 2026-10-03 | Julio |
 | Habilitação | Pendente | — | 2026-10-03 | Julio |
@@ -184,3 +184,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | fatia 1 mesclada; fatia 2 aberta com as tools dos hosts | PR 25; thread `ork-rm054fatia2` | Julio |
 | 2026-09-30 | `ork_network_status` e a rede por pessoa passam para a fatia 3 | a RM-053 não está na `main`; D-G1 no ledger da `ork-rm054fatia2` | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | fatia 3 aberta e entregue por PR: a rede por pessoa no panorama e `ork_network_status` nos hosts; o `glab` real segue lacuna | a RM-053 entrou na `main` (PR 31); decisões no ledger da `ork-rm054fatia3s` | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | fatia 3 mesclada pelo PR 72 (`91dd987`), com o CI independente verde no SHA exato; MASTER por omissão | `ork ship registrar-pr` e `ork master --aceitar-omissao` no ledger da `ork-rm054fatia3s` | Claude (agente, #Auto), autorizado por Julio |

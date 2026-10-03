@@ -73,6 +73,7 @@ sdlc:
 
 - Item 2, só o plugin nos marketplaces: na `main` pelo PR #26 (merge `f0b7925`), na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36). O marketplace próprio fica em `marketplaces/` no repositório, fora do pacote do npm.
 - CI: verde no PR #26 (run 36660154276) e no push da versão 0.5.0 (run 36815186450). No push do merge, a suíte passou (1995 aprovados, 1 pulado, 0 falhas) e o CHECK independente reprovou só a claim S9 da thread, que compara a branch com a `main` (run 36660497346).
+- Ensaio de primeira experiência sobre a `main` de 03/10/2026 (thread `ork-rm049ensaiod`): o tarball do `npm pack` num prefixo isolado com HOME temporário, o README e o quickstart num repositório de brinquedo, a primeira thread em #Fast. Recibos: [rodada da `main`](evidencias/RM-049/ensaio-2026-10-03.json), com cada atrito, a prova e a recomendação, e [rodada do candidato](evidencias/RM-049/ensaio-2026-10-03-candidato.json), refazendo os passos corrigidos. Corrigidos 7 defeitos (E1 a E7) e 2 da documentação (Q1, Q2); 8 achados (R1 a R8) ficam com a recomendada no recibo.
 - Seguem em aberto: o item 1 (documentação do site gerada de `docs/`), a submissão aos diretórios oficiais e o item 3, todos com o dono.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -103,3 +104,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | Itens 2 e 3 em PR | Thread `ork-rm049marketp` (#Auto): plugin e skills prontos para os diretórios, marketplace próprio, guia de submissão e rascunhos do anúncio; item 1 em outra thread | Julio |
 | 2026-09-29 | Rascunhos do anúncio fora do PR | Regra do dono (28/09/2026): o repositório público leva só o necessário; os textos vão ao dono pelo condutor | Julio |
 | 2026-09-29 | Plugin nos marketplaces mesclado na `main`; entra na versão 0.5.0 | PR #26, merge `f0b7925`; tag `v0.5.0` | Julio |
+| 2026-10-03 | Terceiro ensaio de primeira experiência, sobre a `main` | Thread `ork-rm049ensaiod` (#Auto): 9 correções e 8 achados com recomendação, recibos em `evidencias/RM-049/` | Julio |

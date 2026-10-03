@@ -32,6 +32,30 @@ import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './docto
 import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
 
 /**
+ * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
+ * `orkastery.yaml` de uma pasta acima do repositorio (um `ork init` rodado por engano no HOME) era
+ * lido como o deste projeto, com outro nome e outra abbrev, e o doctor dizia PRONTO. Vale o manifesto
+ * dentro do repositorio ou na arvore principal dele (a worktree de thread le o da arvore principal).
+ */
+export function manifestoForaDoRepositorio(dirInicial: string, caminhoDoManifesto: string): Check | null {
+  const topo = exec('git', ['rev-parse', '--show-toplevel'], dirInicial);
+  if (!topo.ok) return null;
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  const dirDoManifesto = real(path.dirname(caminhoDoManifesto));
+  const dentro = (raiz: string) => { const r = path.relative(real(raiz), dirDoManifesto);
+    return r === '' || (!r.startsWith('..') && !path.isAbsolute(r)); };
+  if (dentro(topo.stdout.trim())) return null;
+  const comum = exec('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], dirInicial);
+  if (comum.ok && path.basename(comum.stdout.trim()) === '.git' && dentro(path.dirname(comum.stdout.trim()))) return null;
+  return {
+    nome: 'manifesto do repositorio',
+    nivel: 'warn',
+    detalhe: `o ${NOME_MANIFESTO} lido fica fora deste repositorio (${caminhoDoManifesto}): o ork conduz o projeto daquela pasta, nao o de ${topo.stdout.trim()}`,
+    correcao: `rode ork init na raiz deste repositorio (${topo.stdout.trim()}); se o manifesto de fora nasceu por engano, apague-o junto com o AGENTS.md e o .orkastery/ ao lado dele`,
+  };
+}
+
+/**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
  * CLI com o env dele (`claude auth status`, `codex login status`); o doctor so le e relata, sem
  * marcar o store. Runtime com perfis e nenhum pronto reprova: o despacho dele nao sairia.
@@ -394,7 +418,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'manifesto',
       nivel: 'fail',
       detalhe: `${NOME_MANIFESTO} nao encontrado a partir de ${dirInicial}`,
-      correcao: 'ork init',
+      // Ensaio de 03/10/2026 (RM-049): fora de repositorio, o `ork init` recusa; a correcao diz onde roda-lo.
+      correcao: dentroDeRepo ? 'ork init' : 'entre no repositorio do projeto (ou crie um com git init e o primeiro commit) e rode ork init',
     });
   } else {
     checks.push({
@@ -407,6 +432,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
             (carregado.avisos.length > 0 ? `; ${carregado.avisos.join('; ')}` : ''),
       correcao: carregado.erros.length > 0 ? 'corrija o manifesto e rode ork doctor de novo' : undefined,
     });
+    if (dentroDeRepo) {
+      const fora = manifestoForaDoRepositorio(dirInicial, carregado.caminho);
+      if (fora) checks.push(fora);
+    }
 
     checks.push(...checarOnboarding(carregado));
     const abbrev = carregado.manifesto.project.abbrev;
