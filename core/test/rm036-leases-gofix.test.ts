@@ -5,7 +5,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as leases from '../src/leases';
-import { Lease } from '../src/types';
+import { Lease, Thread } from '../src/types';
+import { planejar } from '../src/board';
+import { exigirManifesto } from '../src/manifest';
+import { gravarThread } from '../src/thread';
 
 const io = require('node:fs') as typeof fs;
 const DONO = 'ork-primeira', OUTRA = 'ork-segunda';
@@ -291,3 +294,27 @@ for (const conteudo of ['', '{']) {
     assert.equal(leases.lerLease(c.raiz, nome)?.thread, OUTRA);
   });
 }
+
+test('rm036 gofix: leasesDaThread e planejar tiram nomes repetidos e preferem o canonico', (t) => {
+  const c = cenario(t), nome = 'path:core/**';
+  c.gravar(vivo(nome), nome);
+  leases.regravarLease(c.raiz, { ...vivo(nome), motivo: 'canonico' });
+  const daThread = leases.leasesDaThread(c.raiz, DONO);
+  assert.equal(daThread.length, 1);
+  assert.equal(daThread[0].motivo, 'canonico');
+  fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
+  const carregado = exigirManifesto(c.raiz);
+  const thread: Thread = { id: DONO, slug: 'ork-primeira-full', nome: 'fixture', assunto: 'primeira',
+    modo: 'auto', fases: ['GO'], blocos: [], faseAtual: 'GO', status: 'aberta',
+    criadaEm: new Date().toISOString(), atualizadaEm: new Date().toISOString(),
+    projeto: { name: 'fixture', abbrev: 'ork' }, base: { branch: 'main', commit: 'desconhecido' },
+    worktree: c.wt, sessoes: [], decisoes: [], claims: [], leases: [], baseline: null };
+  for (const origem of [undefined, 'adocao'] as const) {
+    thread.origem = origem;
+    gravarThread(c.raiz, thread);
+    const plano = planejar(carregado, { estados: new Map() });
+    const vaga = plano.vagas.find((v) => v.thread === DONO);
+    assert.deepEqual(vaga?.leases, [nome], `nomes unicos na passada ${origem ? 'de espera' : 'em andamento'}`);
+    assert.equal((vaga?.detalhe.match(/path:core\/\*\*/g) ?? []).length, origem ? 0 : 1);
+  }
+});

@@ -227,7 +227,7 @@ export function planejar(
   for (const t of threads) {
     if (t.status === 'fechada' || ehRegistroDeAdocao(t)) continue;
     const oc = ocupacoes.get(t.id) as OcupacaoDaThread;
-    const meus = ativos.filter((l) => l.thread === t.id).map((l) => l.nome);
+    const meus = [...new Set(ativos.filter((l) => l.thread === t.id).map((l) => l.nome))];
     const ocupa = oc.ocupaVaga || (meus.length > 0 && oc.classe === 'ociosa');
     if (!ocupa) continue;
     emAndamento.add(t.id);
@@ -249,7 +249,7 @@ export function planejar(
   // NAO ocupa vaga: e exatamente a thread orfa que sufocava as demandas legitimas.
   for (const t of threads) {
     if (emAndamento.has(t.id)) continue;
-    const meus = ativos.filter((l) => l.thread === t.id).map((l) => l.nome);
+    const meus = [...new Set(ativos.filter((l) => l.thread === t.id).map((l) => l.nome))];
     if (t.status === 'fechada') {
       vagas.push({
         thread: t.id,

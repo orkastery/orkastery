@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 import * as leases from '../src/leases';
 import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerFila, lerLease, listarLeases } from '../src/leases';
 import { threadsDeTodosOsPerfis } from '../src/board';
@@ -47,9 +47,32 @@ async function orkEmParalelo(cwd: string, ...args: string[]): Promise<Saida> {
   let stdout = '', stderr = '';
   filho.stdout.on('data', (b) => { stdout += b; });
   filho.stderr.on('data', (b) => { stderr += b; });
-  const [codigo] = await once(filho, 'close');
-  return { codigo: codigo as number | null, stdout, stderr };
+  let prazo: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const limite = new Promise<never>((_, rejeitar) => {
+      prazo = setTimeout(() => {
+        try { filho.kill('SIGKILL'); }
+        finally { rejeitar(new Error('orkEmParalelo excedeu o prazo de 60000 ms')); }
+      }, 60_000);
+    });
+    const [codigo] = await Promise.race([once(filho, 'close'), limite]);
+    return { codigo: codigo as number | null, stdout, stderr };
+  } finally { clearTimeout(prazo); }
 }
+
+test('rm036 leases: orkEmParalelo encerra o filho e rejeita no prazo', async (t) => {
+  const processo = require('node:child_process') as typeof import('node:child_process');
+  const filho = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(),
+    kill: t.mock.fn((_signal: string) => true) });
+  t.mock.method(processo, 'spawn', () => filho);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const resultado = assert.rejects(orkEmParalelo('.', 'lease', 'list'), /excedeu o prazo de 60000 ms/);
+  t.mock.timers.tick(59_999);
+  assert.equal(filho.kill.mock.callCount(), 0);
+  t.mock.timers.tick(1);
+  await resultado;
+  assert.deepEqual(filho.kill.mock.calls.map((c) => c.arguments), [['SIGKILL']]);
+});
 
 interface Cenario { p: ProjetoDeTeste; raiz: string; wt: string; t1: string; outras: string[] }
 
