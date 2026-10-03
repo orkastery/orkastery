@@ -22,6 +22,11 @@
  *
  * Na fatia 2, os hosts chegam aqui por dois modos: `host` (gateway sem cwd de projeto, a regra da
  * RM-052 no `--projeto` proprio do `network`) e `fixado` (o servidor MCP, que le so o projeto dele).
+ *
+ * Na fatia 3, a rede por pessoa da RM-053 (`ork.rede-status/v1`) entra como fonte: as maquinas da
+ * casa, com a batida de cada uma, os projetos que elas declaram (um projeto sem clone nem registro
+ * nesta maquina passa a ser conhecido pelo nome) e a maquina que esta na rede mas nao publicou na
+ * fabrica do projeto, dita como lacuna e nunca como "0 threads".
  */
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -39,6 +44,9 @@ import { carregarManifesto, ManifestoCarregado, NOME_MANIFESTO } from './manifes
 import { nomeDaMaquina, pastaDoUsuario } from './maquina';
 import { tagDoModo } from './modos';
 import { PADRAO_DO_NOME_DE_PROJETO } from './projeto-alvo';
+import { nomeSeguro, refDaCasa } from './rede';
+import { emUmaLinha } from './rede-projetos';
+import { lerRede, MembroDaRede, StatusDaRede, TipoDeLacuna as TipoDeLacunaDoStatus } from './rede-status';
 import { BRANCH_DE_RESERVAS, DIR_DE_RESERVAS, quemSouEu, ReservaDeItem, reservaValida } from './roadmap-reservas';
 import { EsperaDoDono, esperaDoDono, FatoDeThread, fatosLocais, montarStatusDeFatos, StatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -63,7 +71,9 @@ export type TipoDeLacunaDaRede =
   | 'reservas.sem-branch' | 'reservas.sem-leitura' | 'reserva.invalida'
   | 'fabrica.sem-branch' | 'fabrica.sem-leitura' | 'retrato.invalido' | 'maquina.sem-batida'
   | ErroDaForja['codigo'] | 'forja.nao-consultada' | 'forja.leitura-parcial'
-  | 'registro.invalido' | 'rede.sem-projeto';
+  | 'registro.invalido' | 'rede.sem-projeto'
+  // Fatia 3: as lacunas da casa da rede por pessoa (RM-053), com o tipo de la, e a maquina da rede sem fabrica.
+  | TipoDeLacunaDoStatus | 'maquina.sem-fabrica';
 
 /** O que ficou sem ler, com o tipo e o que fazer. Lacuna nunca vira lista vazia. */
 export interface LacunaDaRede { tipo: TipoDeLacunaDaRede; parte: ParteDaRede; alvo?: string; detalhe: string; correcao: string }
@@ -91,15 +101,40 @@ export interface MaquinaNoPanorama {
   idadeMin: number;
   semBatida: boolean;
   estaMaquina: boolean;
-  origem: 'retrato' | 'estado-local';
+  /** `rede` (fatia 3): vista so no retrato da rede por pessoa, sem retrato na fabrica deste projeto. */
+  origem: 'retrato' | 'estado-local' | 'rede';
   versaoOrk: string | null;
   /** As threads ainda nao entregues, no formato do retrato (`ork.fabrica-maquina/v1`). */
   ativas: ThreadNaFabrica[];
   entreguesSemMaster: number;
+  /** false: as threads desta maquina neste projeto nao foram lidas (`ativas` vazio nao e "0 threads"). */
+  threadsLidas: boolean;
+}
+
+/** Fatia 3: uma maquina da rede por pessoa (RM-053), com os projetos que o retrato dela declara. */
+export interface MembroNoPanorama {
+  maquina: string;
+  estaMaquina: boolean;
+  publicadoEm: string;
+  /** null: batida ilegivel. */
+  idadeMin: number | null;
+  semBatida: boolean;
+  versaoOrk: string | null;
+  projetos: string[];
+}
+
+/** Fatia 3: a leitura da rede por pessoa. `casa` null: nenhuma casa achada (a lacuna diz por que). */
+export interface RedeNoPanorama {
+  casa: string | null;
+  ponta: string | null;
+  /** Leitura nova agora (true) ou a ultima copia desta maquina (false); null: a casa nao foi lida. */
+  atualizado: boolean | null;
+  lidoEm: string;
+  membros: MembroNoPanorama[];
 }
 
 /** `instalacao`: o projeto fixado no servidor MCP (RM-054, fatia 2), como a origem de mesmo nome da RM-052. */
-export type OrigemNoPanorama = 'cwd' | 'registro' | 'argumento' | 'instalacao';
+export type OrigemNoPanorama = 'cwd' | 'registro' | 'argumento' | 'instalacao' | 'rede';
 
 export interface ProjetoNoPanorama {
   /** `fuso`: o `owner.timezone` do projeto (clone ou forja), senao o do dono deste processo. */
@@ -123,6 +158,8 @@ export interface PanoramaDaRede {
   /** O fuso dos horarios do texto: o do primeiro projeto consultado (achado 5 do CHECK). */
   fuso: string;
   projetos: ProjetoNoPanorama[];
+  /** Fatia 3: a rede por pessoa (RM-053); null: nao lida (o `naoConsultado` diz por que). */
+  rede: RedeNoPanorama | null;
   /** O que esta leitura NAO olhou: nada daqui pode virar "vazio". */
   naoConsultado: string[];
   lacunas: LacunaDaRede[];
@@ -182,6 +219,11 @@ export interface OpcoesDoPanorama {
    * registro: o servidor fixado nao revela os outros projetos desta maquina (D5 da RM-052).
    */
   fixado?: string;
+  /**
+   * Fatia 3: a rede por pessoa ja lida (os testes passam a deles), ou `false` para nao ler. Sem a
+   * opcao, o panorama le com `lerRede`, salvo com `ORK_REDE_LER=0` (a suite de testes, sem forja real).
+   */
+  rede?: StatusDaRede | false;
 }
 
 /** `fuso`: o do projeto em leitura; no panorama, o do dono deste processo ate um projeto dizer o seu. */
@@ -504,12 +546,12 @@ function maquinasDoPanorama(retratos: readonly EstadoDaMaquina[], local: EstadoD
     }
     saida.push({ maquina: m.maquina, por: m.por, publicadoEm: m.publicadoEm, idadeMin: Math.floor(idadeMs / 60000), semBatida,
       estaMaquina: m.maquina === ctx.maquina, origem: 'retrato', versaoOrk: m.versaoOrk ?? null,
-      ativas: m.threads.filter((t) => !t.entregue), entreguesSemMaster: m.threads.filter((t) => t.entregue).length });
+      ativas: m.threads.filter((t) => !t.entregue), entreguesSemMaster: m.threads.filter((t) => t.entregue).length, threadsLidas: true });
   }
   if (local) {
     saida.push({ maquina: local.maquina, por: local.por, publicadoEm: local.publicadoEm, idadeMin: 0, semBatida: false, estaMaquina: true,
       origem: 'estado-local', versaoOrk: local.versaoOrk, ativas: local.threads.filter((t) => !t.entregue),
-      entreguesSemMaster: local.threads.filter((t) => t.entregue).length });
+      entreguesSemMaster: local.threads.filter((t) => t.entregue).length, threadsLidas: true });
   }
   return saida.sort((a, b) => a.maquina.localeCompare(b.maquina));
 }
@@ -860,6 +902,123 @@ function lerProjeto(p: ProjetoDaRede, ctx: Contexto): ProjetoNoPanorama {
   }
 }
 
+// ---------------------------------------------------------------------------
+// A rede por pessoa (fatia 3).
+// ---------------------------------------------------------------------------
+
+/** As lacunas do `ork.rede-status/v1` que sao da casa (forja, casa, retrato), e nao da fabrica de um projeto. */
+const lacunaDaCasa = (tipo: TipoDeLacunaDoStatus): boolean =>
+  tipo.startsWith('forja.') || tipo.startsWith('rede.') || tipo === 'retrato.invalido' || tipo === 'maquina.nome-em-uso';
+
+const CORRECAO_DA_CASA: Partial<Record<TipoDeLacunaDoStatus, string>> = {
+  'forja.ausente': 'instale o gh (ou o glab) nesta máquina',
+  'forja.sem-login': 'gh auth login (ou glab auth login) nesta máquina',
+  'rede.sem-repositorio': 'ork network entrar numa máquina da pessoa',
+  'maquina.nome-em-uso': 'ork network entrar --maquina NOME ou --forcar',
+};
+
+/** A rede lida para o panorama, ou o motivo de nao ter lido (vai ao `naoConsultado`). */
+function lerRedeDoPanorama(opcoes: OpcoesDoPanorama, ctx: Contexto, cwd: string): { status: StatusDaRede | null; motivo: string | null } {
+  if (opcoes.rede === false) return { status: null, motivo: 'não lida nesta chamada' };
+  if (opcoes.rede) return { status: opcoes.rede, motivo: null };
+  if ((process.env.ORK_REDE_LER ?? '').trim() === '0') return { status: null, motivo: 'leitura desligada (ORK_REDE_LER=0)' };
+  try {
+    // D-G6 da fatia 2: no host, o diretorio do gateway nao e projeto; a rede le so o registro e os retratos.
+    return { status: lerRede({ semRemoto: ctx.semRemoto, maquina: opcoes.maquina, agora: ctx.quando, diretorio: opcoes.host ? null : cwd }),
+      motivo: null };
+  } catch (e) {
+    return { status: null, motivo: `a leitura parou: ${detalheSeguro((e as Error)?.message ?? String(e))}` };
+  }
+}
+
+/** O projeto que um retrato declara casa com o projeto do panorama: pela forja, ou pelo nome quando falta a forja. */
+function declara(q: MembroDaRede['projetos'][number], p: ProjetoDaRede, nome: string): boolean {
+  const forja = q.remoto ? identidadeDaForja(q.remoto) : null;
+  if (forja && p.forja) return mesmaForja(forja, p.forja);
+  return emUmaLinha(q.nome) === nome;
+}
+
+/** Os projetos que as maquinas da rede declaram com remoto de forja e que esta maquina nao conhece. */
+function projetosDaRede(status: StatusDaRede, conhecidos: readonly ProjetoDaRede[]): ProjetoDaRede[] {
+  const saida: ProjetoDaRede[] = [];
+  for (const m of status.membros) {
+    if (m.origem !== 'rede') continue;
+    for (const q of m.projetos) {
+      const nome = emUmaLinha(q.nome);
+      const forja = q.remoto ? identidadeDaForja(q.remoto) : null;
+      if (!forja || !PADRAO_DO_NOME_DE_PROJETO.test(nome)) continue;
+      const p: ProjetoDaRede = { nome, forja, raiz: null, base: null, remoto: 'origin', origem: 'rede' };
+      if (![...conhecidos, ...saida].some((x) => mesmoProjeto(x, p))) saida.push(p);
+    }
+  }
+  return saida;
+}
+
+/** A rede no panorama; no MCP fixado, os projetos de cada maquina ficam so o servido (D5 da RM-052). */
+function redeNoPanorama(status: StatusDaRede, ctx: Contexto, servido: { p: ProjetoDaRede; nome: string } | null): RedeNoPanorama {
+  const agora = Date.parse(ctx.quando);
+  const fonte = status.fontes.find((f) => f.fonte === 'rede');
+  const eu = nomeSeguro(ctx.maquina);
+  const membros = status.membros.filter((m) => m.origem === 'rede').map((m): MembroNoPanorama => {
+    const idadeMs = agora - Date.parse(m.publicadoEm);
+    const idadeMin = Number.isFinite(idadeMs) ? Math.floor(Math.max(0, idadeMs) / 60000) : null;
+    const projetos = m.projetos.filter((q) => !servido || declara(q, servido.p, servido.nome)).map((q) => emUmaLinha(q.nome));
+    return { maquina: emUmaLinha(m.maquina), estaMaquina: m.maquina === eu, publicadoEm: m.publicadoEm, idadeMin,
+      semBatida: idadeMin === null || idadeMin * 60000 > LIMIAR_SEM_BATIDA_MS, versaoOrk: m.versaoOrk ? emUmaLinha(m.versaoOrk) : null,
+      projetos: [...new Set(projetos)] };
+  });
+  return { casa: status.casa ? refDaCasa(status.casa) : null, ponta: fonte?.ponta ?? null, atualizado: fonte ? fonte.atualizado : null,
+    lidoEm: status.consultadoEm, membros };
+}
+
+/**
+ * A maquina da rede que declara o projeto e nao publicou na fabrica dele entra na lista com as
+ * threads NAO lidas e uma lacuna: antes ela sumia, e a lista parecia completa.
+ */
+function completarComARede(x: ProjetoNoPanorama, p: ProjetoDaRede, status: StatusDaRede, ctx: Contexto): void {
+  if (x.maquinas === null) return;
+  const agora = Date.parse(ctx.quando);
+  for (const m of status.membros) {
+    if (m.origem !== 'rede' || !m.projetos.some((q) => declara(q, p, x.projeto.nome))) continue;
+    if (x.maquinas.some((y) => nomeSeguro(y.maquina) === m.maquina)) continue;
+    const maquina = emUmaLinha(m.maquina);
+    const idadeMs = agora - Date.parse(m.publicadoEm);
+    const legivel = Number.isFinite(idadeMs);
+    const idadeMin = legivel ? Math.floor(Math.max(0, idadeMs) / 60000) : 0;
+    const semBatida = !legivel || idadeMin * 60000 > LIMIAR_SEM_BATIDA_MS;
+    x.maquinas.push({ maquina, por: 'rede por pessoa', publicadoEm: m.publicadoEm, idadeMin, semBatida, estaMaquina: m.maquina === nomeSeguro(ctx.maquina),
+      origem: 'rede', versaoOrk: m.versaoOrk ? emUmaLinha(m.versaoOrk) : null, ativas: [], entreguesSemMaster: 0, threadsLidas: false });
+    x.lacunas.push(lacuna('maquina.sem-fabrica', 'fabrica', maquina,
+      `${maquina} está na rede por pessoa e declara ${x.projeto.nome}, mas não tem retrato em ${BRANCH_DA_FABRICA}: as threads dela neste projeto não foram lidas`,
+      `na ${maquina}, rode ork fabrica entrar no clone de ${x.projeto.nome} (ou atualize o ork dela)`));
+    if (semBatida) {
+      x.lacunas.push(lacuna('maquina.sem-batida', 'rede', maquina, `${maquina} sem retrato novo na rede ${legivel
+        ? `há ${duracaoCurta(idadeMin)}` : '(batida ilegível)'}`, `confira a ${maquina}: ela publica na batida do pulse`));
+    }
+  }
+  x.maquinas.sort((a, b) => a.maquina.localeCompare(b.maquina));
+}
+
+/**
+ * Fatia 3: o `ork network status` do servidor MCP fixado. A rede e da pessoa, mas o retrato de cada
+ * maquina lista todos os projetos dela: aqui fica so o projeto servido (D5 da RM-052), e o resto vai
+ * ao "nao consultado". Com `ORK_REDE_LER=0`, a casa e lida so da ultima copia desta maquina.
+ */
+export function redeDoProjetoFixado(raiz: string, opcoes: { status?: StatusDaRede; semRemoto?: boolean } = {}): StatusDaRede {
+  const c = carregarManifesto(raiz);
+  if (!c) {
+    throw new ErroDoPedidoDeProjeto('projeto.sem-manifesto', `a raiz fixada não tem ${NOME_MANIFESTO}`, [],
+      'confira a raiz fixada na instalação do servidor MCP (ork mcp install --project <raiz>)');
+  }
+  const p = projetoDoClone(c, 'instalacao');
+  const s = opcoes.status ?? lerRede({ semRemoto: opcoes.semRemoto === true || (process.env.ORK_REDE_LER ?? '').trim() === '0', diretorio: c.raiz });
+  const membros = s.membros.map((m) => ({ ...m, projetos: m.projetos.filter((q) => declara(q, p, p.nome)) }))
+    .filter((m) => m.origem === 'rede' || m.projetos.length > 0);
+  return { ...s, membros, fontes: s.fontes.filter((f) => !f.projeto || f.projeto === p.nome),
+    lacunas: s.lacunas.filter((l) => !l.projeto || l.projeto === p.nome),
+    naoConsultado: [...s.naoConsultado, `outros projetos das máquinas (este servidor MCP mostra só ${p.nome}; os outros vêm do CLI ork network status)`] };
+}
+
 /**
  * `ork network roadmap`: os projetos pedidos (ou todos os conhecidos), cada um com roadmap, reservas,
  * threads por maquina, fontes e lacunas. Recusa o `--projeto` ambiguo ou desconhecido.
@@ -869,11 +1028,20 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
   const cwd = opcoes.cwd ?? process.cwd();
   const ctx: Contexto = { quando, maquina: nomeDaMaquina(opcoes.maquina), semRemoto: opcoes.semRemoto === true, executor: opcoes.executor,
     fuso: fusoDoDono().fuso };
-  const naoConsultado = [
-    'rede por pessoa (RM-053, ork.rede-status/v1): não lida nesta versão; as máquinas vêm da branch ork/fabrica-estado de cada projeto',
-  ];
+  const naoConsultado: string[] = [];
   const lacunas: LacunaDaRede[] = [];
+  const lida = lerRedeDoPanorama(opcoes, ctx, cwd);
+  const status = lida.status;
+  if (!status) naoConsultado.push(`rede por pessoa (RM-053, ork.rede-status/v1): ${lida.motivo}; as máquinas vêm da branch ${BRANCH_DA_FABRICA} de cada projeto`);
+  else {
+    for (const l of status.lacunas) {
+      if (!lacunaDaCasa(l.tipo) || l.projeto) continue;
+      lacunas.push(lacuna(l.tipo, 'rede', l.maquina, detalheSeguro(emUmaLinha(l.detalhe)),
+        CORRECAO_DA_CASA[l.tipo] ?? 'confira com ork network status'));
+    }
+  }
   let alvos: ProjetoDaRede[];
+  let servido: { p: ProjetoDaRede; nome: string } | null = null;
   if (opcoes.fixado !== undefined) {
     // D-G5 (fatia 2): o servidor MCP le so o projeto dele, em todas as maquinas; o registro nao e lido.
     const c = carregarManifesto(opcoes.fixado);
@@ -882,19 +1050,22 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
         'confira a raiz fixada na instalação do servidor MCP (ork mcp install --project <raiz>)');
     }
     alvos = [projetoDoClone(c, 'instalacao')];
+    servido = { p: alvos[0], nome: alvos[0].nome };
     naoConsultado.push('outros projetos desta máquina: este servidor MCP lê só o projeto fixado na instalação; ' +
       'os outros vêm do CLI `ork network roadmap`');
   } else {
     const conhecidos = projetosConhecidos({ cwd, registro: opcoes.registro, host: opcoes.host });
     naoConsultado.push(...conhecidos.naoConsultado);
     lacunas.push(...conhecidos.lacunas);
+    // Fatia 3: o projeto que uma maquina da rede declara passa a ser conhecido, lido pela forja.
+    const todos = [...conhecidos.projetos, ...(status ? projetosDaRede(status, conhecidos.projetos) : [])];
     if (opcoes.pedido !== undefined) {
-      if (opcoes.host) exigirPedidoDoHost(opcoes.pedido, conhecidos.projetos);
-      const alvo = resolverProjeto(opcoes.pedido, conhecidos.projetos, cwd);
+      if (opcoes.host) exigirPedidoDoHost(opcoes.pedido, todos);
+      const alvo = resolverProjeto(opcoes.pedido, todos, cwd);
       alvos = [alvo];
-      for (const p of conhecidos.projetos) if (!mesmoProjeto(p, alvo)) naoConsultado.push(`projeto ${p.nome}: fora do pedido (--projeto)`);
+      for (const p of todos) if (!mesmoProjeto(p, alvo)) naoConsultado.push(`projeto ${p.nome}: fora do pedido (--projeto)`);
     } else {
-      alvos = conhecidos.projetos;
+      alvos = todos;
     }
   }
   if (alvos.length === 0) {
@@ -904,9 +1075,14 @@ export function montarPanoramaDaRede(opcoes: OpcoesDoPanorama = {}): PanoramaDaR
     opcoes.host ? 'peça o projeto pela forja (--projeto github:dono/repo) ou registre o clone com `ork projetos registrar <caminho>`'
       : 'peça o projeto: --projeto <caminho do clone> ou --projeto github:dono/repo'));
   }
-  const projetos = alvos.map((p) => lerProjeto(p, ctx));
+  const projetos = alvos.map((p) => {
+    const x = lerProjeto(p, ctx);
+    if (status) completarComARede(x, p, status, ctx);
+    return x;
+  });
   return { contrato: CONTRATO_PANORAMA_DA_REDE, consultadoEm: quando, maquina: ctx.maquina, pedido: opcoes.pedido ?? null,
-    limiarSemBatidaMin: LIMIAR_SEM_BATIDA_MS / 60000, fuso: projetos[0]?.projeto.fuso ?? ctx.fuso, projetos, naoConsultado, lacunas };
+    limiarSemBatidaMin: LIMIAR_SEM_BATIDA_MS / 60000, fuso: projetos[0]?.projeto.fuso ?? ctx.fuso, projetos,
+    rede: status ? redeNoPanorama(status, ctx, servido) : null, naoConsultado, lacunas };
 }
 
 // ---------------------------------------------------------------------------
@@ -932,6 +1108,11 @@ function linhasDasMaquinas(x: ProjetoNoPanorama, fuso: string): string[] {
   if (x.maquinas.length === 0) return ['• nenhuma máquina publicou em ork/fabrica-estado'];
   return x.maquinas.flatMap((m) => {
     const quem = `${m.maquina}${m.estaMaquina ? ' (esta máquina)' : ''}`;
+    // Fatia 3: a maquina so da rede por pessoa; as threads dela neste projeto nao foram lidas.
+    if (m.origem === 'rede') {
+      return [`• ${quem}: threads não lidas, na rede por pessoa (retrato de ${formatarDataHora(m.publicadoEm, { fuso })}, ` +
+        `há ${duracaoCurta(m.idadeMin)}${m.semBatida ? ', SEM BATIDA' : ''}) e sem retrato em ${BRANCH_DA_FABRICA}`];
+    }
     const batida = m.origem === 'estado-local' ? 'estado local lido agora'
       : `retrato de ${formatarDataHora(m.publicadoEm, { fuso })} (há ${duracaoCurta(m.idadeMin)})${m.semBatida ? ', SEM BATIDA' : ''}`;
     const cabeca = `• ${quem}: ${m.ativas.length} ativa(s)${m.entreguesSemMaster ? `, ${m.entreguesSemMaster} entregue(s) sem MASTER` : ''}, ${batida}`;
@@ -948,6 +1129,19 @@ function linhasDasReservas(x: ProjetoNoPanorama, fuso: string): string[] {
   return x.reservas.map((r) => `  ${r.item} · ${r.maquina} · ${r.thread ?? 'sem thread'} · desde ${formatarDataHora(r.desdeEm, { fuso })}`);
 }
 
+/** Fatia 3: a casa da rede por pessoa e as maquinas dela, com a batida e os projetos que declaram. */
+function linhasDaRede(r: RedeNoPanorama, quando: string, fuso: string): string[] {
+  const lido = r.lidoEm === quando ? 'lida agora' : `lida ${formatarDataHora(r.lidoEm, { fuso })}`;
+  const casa = !r.casa ? '• casa: nenhuma achada (veja as lacunas)'
+    : r.atualizado === null ? `• casa: ${r.casa}, não lida (veja as lacunas)`
+      : `• casa: ${r.casa} @ ${r.ponta ? r.ponta.slice(0, 7) : 'sem commit'}, ${r.atualizado ? lido : 'última cópia desta máquina, sem leitura nova'}`;
+  if (r.membros.length === 0) return [casa, '• nenhum retrato lido na casa; isso não quer dizer que não há máquinas: veja as lacunas'];
+  return [casa, ...r.membros.map((m) => `• ${m.maquina}${m.estaMaquina ? ' (esta máquina)' : ''}: retrato de ` +
+    `${formatarDataHora(m.publicadoEm, { fuso })}${m.idadeMin === null ? ' (batida ilegível)' : ` (há ${duracaoCurta(m.idadeMin)})`}` +
+    `${m.semBatida ? ', SEM BATIDA' : ''}${m.versaoOrk ? `, ork ${m.versaoOrk}` : ''}, ` +
+    (m.projetos.length ? `projetos: ${m.projetos.join(', ')}` : 'nenhum projeto declarado aqui'))];
+}
+
 const linhaDaLacuna = (l: LacunaDaRede): string => `• ${l.tipo}${l.alvo ? ` (${l.alvo})` : ''}: ${l.detalhe}. O que fazer: ${l.correcao}.`;
 
 /** O texto de `ork network roadmap`: o consultado e o nao consultado no alto, e cada parte com a fonte e a hora. */
@@ -959,6 +1153,7 @@ export function textoDoPanoramaDaRede(p: PanoramaDaRede): string {
     p.projetos.length ? `Consultado: ${p.projetos.map((x) => descreverProjeto(x.projeto)).join('; ')}` : 'Consultado: nenhum projeto.',
     'Não consultado:', ...(p.naoConsultado.length ? p.naoConsultado.map((n) => `• ${n}`) : ['• nada fora do pedido']),
   ];
+  if (p.rede) linhas.push('', 'Rede por pessoa (RM-053)', ...linhasDaRede(p.rede, p.consultadoEm, p.fuso));
   if (p.lacunas.length) linhas.push('', 'Lacunas da consulta', ...p.lacunas.map(linhaDaLacuna));
   for (const x of p.projetos) {
     // Cada projeto no fuso do dono dele (achado 5 da rodada 2): a legenda do bloco diz quando difere.
