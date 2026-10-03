@@ -150,8 +150,8 @@ for (const metodo of ['lstatSync', 'readdirSync'] as const) {
 }
 
 /** Nome real, nunca um mock da decodificacao do readdir. Nem todo filesystem admite esses bytes. */
-function criarNomeForaDeUtf8(t: Pick<TestContext, 'skip'>, dir: string, pasta: boolean): Buffer | null {
-  const alvo = Buffer.concat([Buffer.from(path.join(dir, 'invalido-')), Buffer.from([0xff]),
+function criarNomeForaDeUtf8(t: Pick<TestContext, 'skip'>, dir: string, pasta: boolean, bytes = [0xff]): Buffer | null {
+  const alvo = Buffer.concat([Buffer.from(path.join(dir, 'invalido-')), Buffer.from(bytes),
     Buffer.from(pasta ? '.json.retomadas' : '.json')]);
   try {
     if (pasta) fs.mkdirSync(alvo);
@@ -165,6 +165,11 @@ function criarNomeForaDeUtf8(t: Pick<TestContext, 'skip'>, dir: string, pasta: b
   assert.equal(fs.readdirSync(dir, { encoding: 'buffer' }).some((nome) => nome.equals(alvo.subarray(Buffer.byteLength(dir + path.sep)))), true);
   assert.equal(fs.lstatSync(alvo).isDirectory(), pasta, 'entrada real existe com os bytes originais');
   return alvo;
+}
+
+function conferirRecusaUtf8(acao: () => unknown, prefixo: string, relativo: string): void {
+  assert.throws(acao, { message: `${prefixo}: nome fora de UTF-8 em ${relativo}\n` +
+    'Renomeie a entrada pelo shell para um nome UTF-8 valido e repita a operacao.' });
 }
 
 for (const pasta of [false, true]) {
@@ -186,10 +191,39 @@ for (const tipo of ['arquivo', 'subarvore']) {
     if (tipo === 'subarvore') {
       fs.symlinkSync(c.raiz, Buffer.concat([alvo, Buffer.from(path.sep + 'link-inseguro')]));
     }
-    assert.throws(() => metadadosGitMcp(path.dirname(pastaLeases), pastaLeases), /metadata.unsafe: nome fora de UTF-8/);
+    conferirRecusaUtf8(() => metadadosGitMcp(path.dirname(pastaLeases), pastaLeases), 'mcp.git.metadata.unsafe',
+      `.orkastery/leases/invalido-\\xff${tipo === 'subarvore' ? '.json.retomadas' : '.json'}`);
     assert.equal(fs.lstatSync(alvo).isDirectory(), tipo === 'subarvore');
     assert.equal(lerLease(c.raiz, 'main-tree')?.thread, 'ork-antiga');
   });
+}
+
+for (const ramo of ['refs/heads', 'logs/refs/heads']) {
+  for (const ligado of [false, true]) {
+    for (const { bytes, escapado } of [
+      { bytes: [0xe9], escapado: '\\xe9' },
+      { bytes: [0xc3, 0x28], escapado: '\\xc3(' },
+      { bytes: [0xff, 0x5c, 0x78, 0x66, 0x66, 0x0a], escapado: '\\xff\\x5cxff\\x0a' },
+    ]) {
+      test(`rm036 mcp: R8 diagnostico de ${ramo} ${ligado ? 'worktree' : 'comum'} em bytes ${escapado}`, (t) => {
+        const c = fixture(t), relativo = ligado ? `.git/worktrees/thread/${ramo}` : `.git/${ramo}`;
+        const root = path.join(c.raiz, ligado ? '.git/worktrees/thread' : '.git');
+        const dir = path.join(c.raiz, relativo);
+        fs.mkdirSync(dir, { recursive: true });
+        const alvo = criarNomeForaDeUtf8(t, dir, false, bytes);
+        if (!alvo) return;
+        const io = require('node:fs') as typeof fs, lstat = io.lstatSync;
+        // O diagnostico nao pode depender de consultar o nome ja decodificado com perda.
+        t.mock.method(io, 'lstatSync', (...args: unknown[]) => {
+          assert.notEqual(path.dirname(String(args[0])), dir, 'recusa antes do lstat da entrada');
+          return Reflect.apply(lstat, io, args);
+        });
+        conferirRecusaUtf8(() => metadadosGitMcp(root, dir, ligado ? { relativoA: c.raiz } : {}),
+          'mcp.git.metadata.unsafe', `${relativo}/invalido-${escapado}.json`);
+        assert.equal(fs.readFileSync(alvo, 'utf8'), '{}', 'entrada original preservada');
+      });
+    }
+  }
 }
 
 for (const tipo of ['lease', 'fila', 'candidato']) {
@@ -202,7 +236,8 @@ for (const tipo of ['lease', 'fila', 'candidato']) {
       const escrever = () => operacao === 'documento'
         ? escreverArtefatoMcp(c.raiz, c.id, 'goal', 'recusado', null)
         : adicionarClaimMcp(c.raiz, c.id, { arquivo: 'core/src/leases.ts', alegacao: 'recusado', verificar: ['true'] });
-      assert.throws(escrever, /mcp.state.unsafe: nome fora de UTF-8/);
+      conferirRecusaUtf8(escrever, 'mcp.state.unsafe', '.orkastery/leases/' +
+        `${tipo === 'candidato' ? 'main-tree.json.retomadas/' : ''}invalido-\\xff${tipo === 'fila' ? '.json.retomadas' : '.json'}`);
       assert.equal(fs.existsSync(alvo), true, 'nome ilegivel nao foi removido');
       assert.equal(listarClaimsMcp(c.raiz, c.id).length, 0);
       assert.equal(lerArtefatoMcp(c.raiz, c.id, 'goal').conteudo, null);

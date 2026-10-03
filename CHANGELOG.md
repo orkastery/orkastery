@@ -24,6 +24,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Diagnóstico da entrada fora de UTF-8 no MCP** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  a recusa em metadados Git e em leases/candidatos mostra o caminho relativo da entrada, preserva os
+  bytes em escapes hexadecimais e orienta renomear pelo shell. A guarda continua antes do `lstat`;
+  testes cobrem `refs/`, `logs/`, worktrees e nomes com controles ou barra invertida, com receitas de mutação.
 - **Fixture de nome fora de UTF-8 sem pulo silencioso** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   `ENOENT` ao criar a entrada faz o teste falhar; só incompatibilidade do filesystem permite pular.
   Regressão com pasta-mãe ausente e receita de mutação que recoloca `ENOENT` na lista de pulo.

@@ -8,7 +8,7 @@ import { exigirManifesto } from './manifest';
 import { lerThread, dirThread, blocoDaThread } from './thread';
 import { lerClaims } from './claims';
 import { branchDaWorktree } from './worktree';
-import { validarArquivosEstadoMcp } from './mcp-artifacts';
+import { diagnosticoNomeForaDeUtf8, validarArquivosEstadoMcp } from './mcp-artifacts';
 import { comEstadoParaGit, auditarEstado, raizDoEstado } from './estado-thread';
 import { adquirirRegiao, lerLease, liberar, leasesColidentes, podarRegioesDeThreadsFechadas } from './leases';
 import { registrar } from './ledger';
@@ -143,7 +143,7 @@ function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boole
       for(const bytes of entradas) {
         const n=bytes.toString('utf8');
         // Perda de bytes nao e ENOENT transitorio: o nome decodificado pode nem apontar para esta entrada.
-        if(!Buffer.from(n,'utf8').equals(bytes))falha(`metadata.unsafe: nome fora de UTF-8 em ${rotulo(f)}`);
+        if(!Buffer.from(n,'utf8').equals(bytes))falha('metadata.unsafe: '+diagnosticoNomeForaDeUtf8(opcoes.relativoA ?? path.dirname(root),f,bytes));
         visitar(path.join(f,n),profundidade+1);
       }
     }
