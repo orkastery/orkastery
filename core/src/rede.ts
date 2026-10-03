@@ -881,6 +881,10 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   const trava = travarCasa(30000);
   if (!trava.ok) throw new Error(`rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${TRAVA()}); rode ork network sair de novo`);
   try {
+    // Suspeitas da revisao de 03/10: a publicacao que ja segurava a trava quando o `sair` comecou grava
+    // a marca ao terminar o push. Sob a trava ela ja terminou, e a proxima reconfere a adesao e recusa
+    // (B6): a marca sai de novo aqui e nao volta.
+    try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
     const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
     const proprio = arquivoDoRetrato(maquina);
     const id = idDaMaquina();

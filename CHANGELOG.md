@@ -93,6 +93,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `ork network status`, o `ork doctor` ou uma publicação concorrente liam o arquivo vazio ou cortado, e um
     processo morto no meio da escrita deixava a marca ilegível, o que fazia a próxima publicação perder a reserva
     dos projetos (D7) e o doctor dizer "nenhuma batida publicada".
+  - `ork network sair` durante uma publicação em curso não deixa mais a marca da rede regravada depois da saída: a
+    marca sai de novo sob a trava, quando a publicação já terminou; antes, ela sobrevivia ao `sair` e o próximo
+    `ork network entrar` na mesma casa voltava a reservar os projetos que a saída tinha esquecido.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
