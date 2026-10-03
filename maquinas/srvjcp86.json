@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:38:05.430Z",
+  "publicadoEm": "2026-10-03T03:38:07.895Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -90,23 +90,6 @@
       "runtime": null,
       "modelo": null,
       "esforco": null
-    },
-    {
-      "id": "ork-rm056perfil",
-      "nome": "RM-056 perfil por thread, rodizio por carga e sessoes dos perfis",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-056",
-      "branch": "ork/ork-rm056perfil-full",
-      "atualizadaEm": "2026-10-02T14:47:04.069Z",
-      "entregue": "0a914b0",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "high"
     },
     {
       "id": "ork-rm057alterna",
