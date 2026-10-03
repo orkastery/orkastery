@@ -78,6 +78,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     local concluído, sem push a provar", em vez de listar o `git push` e o `git ls-remote`;
   - `ork adapter install claude-code` (e `codex`) repete no fim, depois da lista de arquivos e dos pitfalls, as
     linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
+  - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
+    `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
 - **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
     por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois

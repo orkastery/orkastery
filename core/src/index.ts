@@ -204,7 +204,7 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
@@ -1604,6 +1604,11 @@ function comandoVerify(args: Args): number {
     console.log(`  commit ${b.commit}`);
     for (const c of b.comandos) {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
+    }
+    if (b.comandos.some((c) => !c.ok)) {
+      // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
+      console.log(`  saida de quem falhou: as ultimas linhas em ${caminhoThread(carregado.raiz, id)}, campo baseline.comandos ` +
+        `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`);
     }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.

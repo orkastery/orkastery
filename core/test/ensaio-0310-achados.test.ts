@@ -15,7 +15,7 @@ import { checar, checarRuntimeClaude } from '../src/doctor';
 import { LeituraDoCrontab } from '../src/doctor-pulse-cron';
 import { ship } from '../src/ship';
 import { novaThread } from '../src/thread';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { ajustarManifesto, commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const PATH_ATUAL = process.env.PATH ?? '/usr/bin:/bin';
@@ -143,4 +143,23 @@ test('ensaio 0310 R6: ork adapter install termina com a ativacao e o ork mcp ins
       'claude plugin list --json', '/orkastery:ork', 'ork mcp install --project']) assert.ok(depois.includes(linha), linha);
     assert.match(r.stdout.trimEnd().split('\n').pop() ?? '', /ork mcp install --project .* --host claude-code$/);
   } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R7: ork verify --baseline diz onde ver a saida do comando que ja falhava', () => {
+  const p = projetoTemporario('ensaio0310-r7');
+  const casa = dirTemporario('ensaio0310-r7-casa');
+  try {
+    ajustarManifesto(p, '  # test: nao detectado', '  test: "echo saida-do-teste-r7; exit 1"');
+    commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'verify com test');
+    const { thread } = novaThread(p.carregado, { nome: 'baseline com falha', modo: 'auto', criarWorktree: true });
+    const r = ork(p.dir, casa, ['verify', thread.id, '--baseline']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /test\s+ja falhava \(codigo 1\)/);
+    const m = /saida de quem falhou: as ultimas linhas em (\S+), campo baseline\.comandos \(resumo e trecho\); o evento baseline_recorded esta em ork phase list (\S+)/.exec(r.stdout);
+    assert.ok(m, r.stdout);
+    assert.equal(m![2], thread.id);
+    // O caminho apontado tem mesmo a saida.
+    const gravada = JSON.parse(fs.readFileSync(m![1], 'utf8')) as { baseline: { comandos: Array<{ resumo: string }> } };
+    assert.match(gravada.baseline.comandos[0].resumo, /saida-do-teste-r7/);
+  } finally { p.limpar(); limpar(casa); }
 });
