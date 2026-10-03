@@ -247,8 +247,19 @@ test('grafo no pacote: script: o ambiente da prova nao leva nada de quem chama, 
 test('grafo no pacote: script: o pack nao usa rede, e a instalacao e global, do tarball, pelo registro', () => {
   const c = prova.comandos('/c/core', '/tmp/base', '/tmp/base/pacote.tgz');
   assert.deepEqual(c.pack, { bin: 'npm', args: ['pack', '--offline', '--pack-destination', '/tmp/base'], cwd: '/c/core' });
-  assert.deepEqual(c.instalar, { bin: 'npm', args: ['install', '-g', '--no-audit', '--no-fund', '/tmp/base/pacote.tgz'], cwd: '/tmp/base' });
+  assert.deepEqual(c.instalar, { bin: 'npm', args: ['install', '-g', '--ignore-scripts', '--no-audit', '--no-fund', '/tmp/base/pacote.tgz'], cwd: '/tmp/base' });
   assert.deepEqual([c.ork, c.instalacao], ['/tmp/base/npm/bin/ork', '/tmp/base/npm/lib/node_modules/@orkastery/cli']);
+});
+
+test('grafo no pacote: script: o prazo usa o timeout em primeiro plano, e o codigo de saida decide o passo', () => {
+  // `--foreground`: o timeout fica no grupo da prova, e o sinal de quem a roda alcanca o npm e o ork junto.
+  assert.deepEqual(prova.comandoComPrazo('npm', ['pack'], 61_000, process.execPath), [process.execPath, ['--foreground', '--kill-after=15', '61', 'npm', 'pack']]);
+  assert.deepEqual(prova.comandoComPrazo('npm', ['pack'], 61_000, path.join(CORE, 'nao-existe')), ['npm', ['pack']]);
+  const env = { PATH: process.env.PATH ?? '/usr/bin:/bin' };
+  assert.throws(() => prova.rodar('teste', process.execPath, ['-e', 'process.exit(3)'], CORE, env, 60_000),
+    /^Error: prova\.teste: node -e process\.exit\(3\) saiu com status 3/);
+  assert.equal(prova.rodar('teste', process.execPath, ['-e', 'process.exit(3)'], CORE, env, 60_000, [3]).status, 3);
+  assert.deepEqual(prova.COPIAS_DO_PREPACK, ['skills', 'references', 'eval', 'adapters', 'monitor', 'LICENSE'], 'a lista do preparar-pacote.js');
 });
 
 test('grafo no pacote: script: as versoes esperadas saem das dependencias do pacote e batem com os analisadores do checkout', () => {
@@ -283,6 +294,10 @@ test('grafo no pacote: script: os conferidores aceitam a saida real do ork grafo
     assert.throws(() => prova.conferirIndice(semChamada), /^Error: prova\.indexar: nenhuma aresta calls no indice$/);
     assert.throws(() => prova.conferirChamadores({ arestas: [] }),
       /^Error: prova\.chamadores: a aresta calls de symbol src\/dobro\.ts#dobro para symbol src\/soma\.ts#soma pelo ork\.ts-ast nao veio \(0 aresta\(s\)\)$/);
+    const resposta = JSON.parse(grafo(dir, 'chamadores', 'src/soma.ts#soma', '--json'));
+    const semTsAst = { ...resposta, arestas: resposta.arestas.map((a: { evidencias: { extractor_id: string }[] }) => ({
+      ...a, evidencias: a.evidencias.map((e) => ({ ...e, extractor_id: 'ork.outro' })) })) };
+    assert.throws(() => prova.conferirChamadores(semTsAst), /^Error: prova\.chamadores: a aresta calls .* pelo ork\.ts-ast nao veio/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -297,6 +312,8 @@ test('grafo no pacote: script: a linha do doctor sai do relatorio de verdade, co
   prova.conferirDoctorSemCompilador(semTs, VERSAO_DO_ORK);
   assert.throws(() => prova.conferirDoctorSemCompilador(ok, VERSAO_DO_ORK), /^Error: prova\.doctor sem typescript: nivel ok, warn esperado/);
   assert.throws(() => prova.conferirDoctorSemCompilador(semTs, '9.9.9'), /^Error: prova\.doctor sem typescript: sem a correcao npm install -g @orkastery\/cli@9\.9\.9/);
+  const outraRecusa = { ...semTs, linha: semTs.linha.replace('grafo.parser.indisponivel: typescript', 'grafo.parser.indisponivel: micromark') };
+  assert.throws(() => prova.conferirDoctorSemCompilador(outraRecusa, VERSAO_DO_ORK), /^Error: prova\.doctor sem typescript: sem a recusa/);
   assert.throws(() => prova.linhaDoDoctor('ork doctor: o que vale nesta maquina agora\n'), /^Error: prova\.doctor: o relatorio nao traz o check analisadores do grafo$/);
 });
 
@@ -320,25 +337,33 @@ test('grafo no pacote: script: a medida soma bytes e blocos dos arquivos sem seg
 
 const PASSO_DA_PROVA = 'run: node core/scripts/provar-grafo-instalado.cjs';
 
-test('grafo no pacote: workflow: o CI roda a prova no job nucleo, nas duas versoes do Node, depois dos testes', () => {
+test('grafo no pacote: workflow: o CI roda a prova no job nucleo, na matriz de Node, depois dos testes, sem credencial de publicacao', () => {
   const ci = ler('.github/workflows/ci.yml');
   const nucleo = ci.slice(ci.indexOf('\n  nucleo:'), ci.indexOf('\n# Nota deliberada'));
   assert.ok(nucleo.length > 20, 'o job nucleo existe');
-  assert.match(nucleo, /node: \['20', '22'\]/);
+  assert.match(nucleo, /node-version: \$\{\{ matrix\.node \}\}/, 'roda em cada Node da matriz');
   const passo = nucleo.indexOf(PASSO_DA_PROVA), testes = nucleo.indexOf('run: npm run test:ci');
   assert.ok(testes > 0 && passo > testes, 'o passo da prova vem depois dos testes do nucleo');
   assert.equal(ci.split(PASSO_DA_PROVA).length - 1, 1, 'so no job nucleo');
+  assert.doesNotMatch(ci, /id-token/, 'o CI nao tem credencial de publicacao');
 });
 
-test('grafo no pacote: workflow: o publicar.yml roda a prova antes do npm publish, com as conferencias de versao intactas', () => {
+test('grafo no pacote: workflow: o publicar.yml so publica depois da prova, que roda num job sem o id-token, com as conferencias de versao intactas', () => {
   const pub = ler('.github/workflows/publicar.yml');
+  const iProva = pub.indexOf('\n  provar-grafo:'), iPublicar = pub.indexOf('\n  publicar:');
+  assert.ok(iProva > 0 && iPublicar > iProva, 'os jobs provar-grafo e publicar');
+  const prova = pub.slice(iProva, iPublicar), publicar = pub.slice(iPublicar);
+  assert.ok(prova.includes(PASSO_DA_PROVA), 'a prova no job dela');
+  assert.match(prova, /\n {4}permissions:\n {6}contents: read\n/, 'o job da prova so le');
+  assert.doesNotMatch(prova, /id-token/, 'a prova nunca ve a credencial de publicacao');
+  assert.match(publicar, /\n {4}needs: provar-grafo\n/, 'o publicar espera a prova');
+  assert.ok(!publicar.includes(PASSO_DA_PROVA), 'a prova nao roda no job que publica');
   const onde = (trecho: string): number => {
-    const i = pub.indexOf(trecho);
-    assert.ok(i > 0, `publicar.yml sem: ${trecho}`);
+    const i = publicar.indexOf(trecho);
+    assert.ok(i > 0, `job publicar sem: ${trecho}`);
     return i;
   };
-  const canarios = onde('run: node core/dist/index.js eval --so-canarios'), passo = onde(PASSO_DA_PROVA), publicar = onde('run: npm publish --access public');
-  assert.ok(canarios < passo && passo < publicar, 'depois dos canarios e antes do npm publish');
+  assert.ok(onde('run: node core/dist/index.js eval --so-canarios') < onde('run: npm publish --access public'));
   onde('test "v$(node -p "require(\'./core/package.json\').version")" = "$GITHUB_REF_NAME"');
   onde('test "$(node -p "require(\'./core/package.json\').repository.url")" = "git+https://github.com/$GITHUB_REPOSITORY.git"');
   onde('run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main');

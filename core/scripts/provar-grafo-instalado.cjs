@@ -9,7 +9,10 @@
  * e o `ork doctor`. Depois tira o `typescript` da instalacao e confere que o doctor aponta a falta
  * com a correcao e que o grafo recusa. A unica rede e a do registro do npm, para as dependencias do
  * pacote: o cache do runner hospedado so tem os tarballs do `npm ci`, sem os metadados que o
- * `--offline` pediria. Roda no CI (job `nucleo` e `publicar.yml`), fora da suite hermetica.
+ * `--offline` pediria. A instalacao roda com `--ignore-scripts` (nenhuma dependencia do pacote tem
+ * script de instalacao) e a prova nunca roda num job com credencial de publicacao: as transitivas
+ * vem do registro, sem lockfile. Roda no CI (job `nucleo` e o job `provar-grafo` do `publicar.yml`),
+ * fora da suite hermetica.
  *
  *   node core/scripts/provar-grafo-instalado.cjs            prova e imprime as medidas em JSON
  *   node core/scripts/provar-grafo-instalado.cjs --manter   deixa o diretorio temporario no disco
@@ -20,13 +23,19 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+const { DIRETORIOS, ARQUIVOS } = require('./preparar-pacote.js');
+
 const CORE = path.resolve(__dirname, '..');
 const PRAZO_DO_NPM_MS = 600_000;
 const PRAZO_DO_ORK_MS = 180_000;
-/** O `timeout` na frente leva a arvore inteira do comando no estouro, como no `ork verify`. */
+/**
+ * O `timeout` na frente encerra o comando no prazo. Com `--foreground` ele fica no grupo de processos
+ * da prova: Ctrl-C ou o prazo de quem roda a prova (o `ork verify`) alcancam o npm e o ork junto, e o
+ * `finally` limpa o temporario. Sem ele, o `timeout` abriria grupo proprio e sobreviveria ao node.
+ */
 const TIMEOUT_BIN = '/usr/bin/timeout';
-/** As copias que o `prepack` monta em `core/` e o `postpack` tira (`scripts/preparar-pacote.js`). */
-const COPIAS_DO_PREPACK = ['skills', 'references', 'eval', 'adapters', 'monitor', 'LICENSE'];
+/** As copias que o `prepack` monta em `core/` e o `postpack` tira, pela lista do proprio script. */
+const COPIAS_DO_PREPACK = [...DIRETORIOS, ...ARQUIVOS];
 const ALVO = 'src/soma.ts#soma';
 const CHAMADOR = 'symbol src/dobro.ts#dobro';
 const CHAMADO = `symbol ${ALVO}`;
@@ -51,7 +60,7 @@ function ambienteLimpo(base, node = process.execPath) {
 function comandos(core, base, tarball) {
   return {
     pack: { bin: 'npm', args: ['pack', '--offline', '--pack-destination', base], cwd: core },
-    instalar: { bin: 'npm', args: ['install', '-g', '--no-audit', '--no-fund', tarball], cwd: base },
+    instalar: { bin: 'npm', args: ['install', '-g', '--ignore-scripts', '--no-audit', '--no-fund', tarball], cwd: base },
     ork: path.join(base, 'npm', 'bin', 'ork'),
     instalacao: path.join(base, 'npm', 'lib', 'node_modules', '@orkastery', 'cli'),
   };
@@ -120,9 +129,15 @@ function conferirDoctorSemCompilador(doctor, versao) {
   if (!doctor.correcao || !doctor.correcao.includes(correcao)) falhar('doctor sem typescript', `sem a correcao ${correcao}: ${doctor.correcao}`);
 }
 
+/** O executavel e os argumentos de um comando com prazo: o `timeout` em primeiro plano, quando existe. */
+function comandoComPrazo(bin, args, prazoMs, timeoutBin = TIMEOUT_BIN) {
+  const segundos = Math.ceil(prazoMs / 1000);
+  return fs.existsSync(timeoutBin) ? [timeoutBin, ['--foreground', '--kill-after=15', String(segundos), bin, ...args]] : [bin, args];
+}
+
 function rodar(passo, bin, args, cwd, env, prazoMs, aceitos = [0]) {
   const segundos = Math.ceil(prazoMs / 1000);
-  const [exe, argv] = fs.existsSync(TIMEOUT_BIN) ? [TIMEOUT_BIN, ['--kill-after=15', String(segundos), bin, ...args]] : [bin, args];
+  const [exe, argv] = comandoComPrazo(bin, args, prazoMs);
   const r = spawnSync(exe, argv, { cwd, env, encoding: 'utf8', timeout: prazoMs + 30_000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
   if (r.error || r.signal || !aceitos.includes(r.status)) {
     const saida = `${r.stdout || ''}\n${r.stderr || ''}`.trim().split('\n').slice(-20).join('\n');
@@ -237,11 +252,15 @@ function provar(opcoes = {}) {
 }
 
 module.exports = {
-  ambienteLimpo, comandos, esperadoDoPacote, conferirStatus, conferirIndice, conferirChamadores, linhaDoDoctor,
-  conferirDoctorSemCompilador, criarRepositorio, medirInstalacao, provar,
+  ambienteLimpo, comandos, comandoComPrazo, esperadoDoPacote, conferirStatus, conferirIndice, conferirChamadores, linhaDoDoctor,
+  conferirDoctorSemCompilador, criarRepositorio, medirInstalacao, rodar, provar, COPIAS_DO_PREPACK,
 };
 
 if (require.main === module) {
+  // Ctrl-C ou o prazo de quem roda a prova: o sinal chega tambem ao comando em curso (mesmo grupo), e o
+  // node, que nao morre no meio, ve o spawnSync voltar com o comando morto; o passo falha e o `finally`
+  // limpa o temporario. O handler so impede a morte imediata do node.
+  for (const sinal of ['SIGINT', 'SIGTERM']) process.once(sinal, () => { if (!process.exitCode) process.exitCode = 1; });
   try {
     console.log(JSON.stringify(provar({ manter: process.argv.includes('--manter') }), null, 2));
   } catch (e) {
