@@ -53,7 +53,7 @@ export interface ContextoDePolicy {
    * RM-008 (B8), gate `claims.add`: o comando da claim que reprovou na conferencia local, rodado uma vez no
    * prazo do verify. Ausente quando passou ou nao rodou; sem o fato, a regra nao avalia.
    */
-  provaLocalReprovada?: { claim: string; comando: string; code: number; estourou: boolean; prazoMs: number };
+  provaLocalReprovada?: { claim: string; comando: string; code: number; estourou: boolean; prazoMs: number; semDiretorio?: string };
 }
 
 export interface ViolacaoDePolicy {
@@ -315,10 +315,14 @@ export function avaliarPolicies(manifesto: Manifesto, ctx: ContextoDePolicy): Vi
           // O registro de claim nunca para: `block` declarado avisa como `warn`.
           severidade: 'warn',
           motivo: r.estourou ? 'verify.timeout' : 'claims.failed',
-          detalhe: r.estourou
+          detalhe: r.semDiretorio
+            ? `a worktree da thread (${r.semDiretorio}) nao existe; o comando da claim ${r.claim} nao rodou e a claim entrou sem prova local`
+            : r.estourou
             ? `o comando da claim ${r.claim} estourou o prazo do verify (${Math.round(r.prazoMs / 1000)} s) no registro; a claim entrou sem prova local`
             : `o comando da claim ${r.claim} saiu ${r.code} no registro; a claim entrou sem prova local e reprova no verify`,
-          correcao: r.estourou
+          correcao: r.semDiretorio
+            ? `recrie a worktree da thread (ou feche a thread que perdeu a worktree); depois, ork verify ${id}`
+            : r.estourou
             ? `divida o comando ou suba verify.timeout_ms; depois, ork verify ${id}`
             : `corrija o produto ou o comando e anexe o certo com ork claims verificar ${id} ${r.claim} --comando "<comando>"; ` +
               `se a alegacao nao vale, ork claims retirar ${id} ${r.claim} --motivo "<motivo>"`,

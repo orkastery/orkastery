@@ -116,8 +116,8 @@ export interface CasaResolvida {
   casa: CasaDaRede | null;
   forja: Forja | null;
   identidades: IdentidadeNaForja[];
-  /** Por que nao ha casa: `forja.ausente` ou `forja.sem-login`. */
-  motivo: { tipo: 'forja.ausente' | 'forja.sem-login'; detalhe: string } | null;
+  /** Por que nao ha casa: `forja.ausente`, `forja.sem-login` ou `rede.sem-leitura` (o login nao foi lido). */
+  motivo: { tipo: 'forja.ausente' | 'forja.sem-login' | 'rede.sem-leitura'; detalhe: string } | null;
 }
 
 /**
@@ -145,13 +145,20 @@ export function resolverCasa(opcoes: OpcoesDaCasa = {}): CasaResolvida {
     return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.ausente',
       detalhe: nomeDaForja ? `a CLI da forja ${nomeDaForja} nao esta nesta maquina` : 'nenhuma CLI de forja (gh ou glab) nesta maquina' } };
   }
+  const falhas: string[] = [];
   for (const forja of candidatas) {
-    const lida = identidades.find((i) => i.forja === forja.nome && i.host === forja.host);
-    const usuario = (lida ?? forja.identidade()).usuario;
-    if (!usuario) continue;
+    const lida = identidades.find((i) => i.forja === forja.nome && i.host === forja.host) ?? forja.identidade();
+    const usuario = lida.usuario;
+    if (!usuario) { if (lida.falha) falhas.push(lida.falha); continue; }
     const origem = opcoes.forja || opcoes.repositorio ? 'opcao' : 'forja';
     return { casa: { forja: forja.nome, host: forja.host, dono: donoPedido ?? usuario, repositorio: nomePedido ?? REPOSITORIO_PADRAO, origem },
       forja, identidades, motivo: null };
+  }
+  // Suspeitas da revisao de 03/10: prazo, erro da forja ou falta de rede no `gh api user` nao e falta de
+  // login; mandar a pessoa ao `gh auth login` esconderia o motivo de verdade.
+  if (falhas.length) {
+    return { casa: null, forja: null, identidades, motivo: { tipo: 'rede.sem-leitura',
+      detalhe: `${falhas.join('; ')}; o login nao foi lido, rode de novo com a forja respondendo` } };
   }
   return { casa: null, forja: null, identidades, motivo: { tipo: 'forja.sem-login',
     detalhe: `${candidatas.map((f) => f.cli).join(' e ')} sem login nesta maquina (${candidatas.map((f) => `${f.cli} auth login`).join(' ou ')})` } };
@@ -550,9 +557,22 @@ export function lerMarcaDaRede(): MarcaDaRede | null {
   try { return JSON.parse(fs.readFileSync(arquivoDaMarca(), 'utf8')) as MarcaDaRede; } catch { return null; }
 }
 
-function gravarMarca(marca: MarcaDaRede): void {
+/**
+ * Suspeitas da revisao de 03/10: a marca troca inteira, por `rename`. Escrita direta deixava o
+ * `ork network status`, o doctor e o `publicarRede` (que le fora da trava) ver o arquivo vazio ou
+ * cortado, e um processo morto entre o truncamento e a escrita deixava a marca ilegivel: a proxima
+ * publicacao perdia a reserva D7 dos projetos. Exportada so para o teste.
+ */
+export function gravarMarca(marca: MarcaDaRede): void {
   fs.mkdirSync(pastaDaRede(), { recursive: true });
-  fs.writeFileSync(arquivoDaMarca(), JSON.stringify(marca, null, 2) + '\n', { mode: 0o600 });
+  const temporario = `${arquivoDaMarca()}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temporario, JSON.stringify(marca, null, 2) + '\n', { mode: 0o600 });
+    fs.renameSync(temporario, arquivoDaMarca());
+  } catch (e) {
+    try { fs.rmSync(temporario, { force: true }); } catch { /* o temporario e so deste processo */ }
+    throw e;
+  }
 }
 
 export interface OpcoesDaPublicacao extends OpcoesDaCasa {
@@ -868,6 +888,10 @@ export function sairDaRede(opcoes: OpcoesDaPublicacao = {}): ResultadoDaSaida {
   const trava = travarCasa(30000);
   if (!trava.ok) throw new Error(`rede.ocupado: saiu da rede aqui, mas outra publicacao desta maquina segura a casa (${TRAVA()}); rode ork network sair de novo`);
   try {
+    // Suspeitas da revisao de 03/10: a publicacao que ja segurava a trava quando o `sair` comecou grava
+    // a marca ao terminar o push. Sob a trava ela ja terminou, e a proxima reconfere a adesao e recusa
+    // (B6): a marca sai de novo aqui e nao volta.
+    try { fs.rmSync(arquivoDaMarca(), { force: true }); } catch { /* marca local */ }
     const cache = prepararCache(r.casa, repo.url, r.forja.helperDeCredencial(), maquina);
     const proprio = arquivoDoRetrato(maquina);
     const id = idDaMaquina();

@@ -69,7 +69,14 @@ export interface ResultadoDaConferencia {
 }
 
 // B11: o shell do Codex chega embrulhado (`bash -lc 'ork maestro'`), então aspas também abrem o comando.
-const ORK_MAESTRO_NO_SHELL = /(^|[\s;&|(/'"])ork(\s+(--projeto|--project|-p)(\s+|=)\S+)?\s+maestro\b/;
+// Suspeitas da revisão de 03/10: o mesmo CLI roda também pelo caminho do binário (`$(which ork)`), pelo
+// node (`core/dist/index.js`), pelo npx (`@orkastery/cli`) e com o projeto entre aspas. É desvio a
+// invocação do ork cujo subcomando, depois só de opções (com valor, até entre aspas), é `maestro`;
+// `maestro` dentro do argumento de outro subcomando não é.
+const INVOCACAO_DO_ORK = String.raw`(?:(?:^|[^\w.@-])ork|@orkastery\/cli(?:@[\w.-]+)?|\bdist\/index\.js)(?![\w.-])[)\x60]?`;
+const VALOR = String.raw`(?:"[^"]*"|'[^']*'|[^\s"'-][^\s"']*)`;
+const OPCOES = String.raw`(?:\s+-[\w-]*(?:=(?:"[^"]*"|'[^']*'|[^\s"']+))?(?:\s+${VALOR})?)*`;
+const ORK_MAESTRO_NO_SHELL = new RegExp(String.raw`${INVOCACAO_DO_ORK}${OPCOES}\s+maestro(?![\w.-])`);
 
 function linhasJson(texto: string): Record<string, unknown>[] {
   const eventos: Record<string, unknown>[] = [];
