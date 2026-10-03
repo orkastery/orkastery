@@ -156,6 +156,8 @@ function provarSemDuplicacao(extrair = extrairGrafo): void {
       '[`core/README.md`](../../core/README.md) `core/src/alvo.ts`',
       '[`core/src/alvo.ts`](../alvo.md#alvo)',
       '[`core/src/alvo.ts`](ausente.md)',
+      '[`core/src/alvo.ts`](core/src/alvo.ts)',
+      '[`core/src/alvo.ts`](core/src/alvo.ts) `core/src/alvo.ts`',
     ].join('\n'),
   };
   const g = extrair(entrada(repo), PARSER).grafo;
@@ -165,7 +167,7 @@ function provarSemDuplicacao(extrair = extrairGrafo): void {
   assert.deepEqual(ocorrencias('docs/guia.md', 'references'), [1, 2]);
   assert.deepEqual(ocorrencias('docs/guia.md', 'cites'), [3, 4]);
   assert.deepEqual(ocorrencias('docs/referencia/guia.md', 'references'), [1, 2]);
-  assert.deepEqual(ocorrencias('docs/referencia/guia.md', 'cites'), [1, 3], 'rotulo resolvido nao duplica; inline independente e link sem alvo conservam citacoes');
+  assert.deepEqual(ocorrencias('docs/referencia/guia.md', 'cites'), [1, 3, 4, 5, 5], 'rotulo resolvido, inclusive pela raiz, nao duplica; inline independente e link sem alvo conservam citacoes');
   assert.deepEqual(ocorrencias('core/test/import.test.ts', 'cites'), [2], 'outra string igual continua citando');
   for (const arquivo of ['core/test/import.test.ts', 'core/test/require.test.ts', 'core/test/dinamico.test.ts']) {
     assert.ok(ocorrencias(arquivo, 'imports').includes(1), arquivo);
@@ -178,6 +180,7 @@ test('KG5 citacoes GO-FIX: links e imports resolvidos nao duplicam cites; prova 
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', 'relativo === null || !arquivos.has(relativo)', 'true'],
     ['intelligence-graph-extract-md', 'k.fim <= l.fim', 'false'],
+    ['intelligence-graph-extract-md', "if (citar(literal, k, 'explicit-link'))", "if (citar(literal, k, 'explicit-link') && false)"],
     ['intelligence-graph-extract-ts', 'chave !== undefined && mapa.get(chave)?.alvo != null', 'false'],
   ]) {
     const extrair = mutante(modulo, antes, depois);

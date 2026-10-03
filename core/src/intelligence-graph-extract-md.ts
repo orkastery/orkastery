@@ -455,9 +455,11 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
 
   for (const s of estruturas) {
     const path = s.path, arquivo: RefDeNo = { kind: 'file', path, fragment: null };
-    const citar = (alvo: string | null, k: Link, metodo: AchadoDeAresta['metodo']): void => {
-      if (alvo !== null && alvo !== path && arquivos.has(alvo)) aresta('cites', secaoEm(s, arquivo, k.inicio),
+    const citar = (alvo: string | null, k: Link, metodo: AchadoDeAresta['metodo']): boolean => {
+      if (alvo === null || alvo === path || !arquivos.has(alvo)) return false;
+      aresta('cites', secaoEm(s, arquivo, k.inicio),
         { kind: 'file', path: alvo, fragment: null }, e.extratorMd, metodo, { path, inicio: k.inicio, fim: k.fim });
+      return true;
     };
     const linksReferenciados: Link[] = [];
     for (const x of s.secoes) {
@@ -489,7 +491,9 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
       // Links seguem o diretorio do documento; a citacao tambem admite caminho desde a raiz.
       const literal = caminhoDaCitacao(path, caminhoDecodificado);
       // Uma referencia ao arquivo ou a uma secao ja representa esta ocorrencia do link.
-      if (relativo === null || !arquivos.has(relativo)) citar(literal, k, 'explicit-link');
+      if (relativo === null || !arquivos.has(relativo)) {
+        if (citar(literal, k, 'explicit-link')) linksReferenciados.push(k);
+      }
       const alvo = relativo;
       if (alvo === null) {
         lacuna('link-fora-do-repositorio', path, k.inicio, destino);
