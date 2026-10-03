@@ -240,6 +240,8 @@ function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean; c
     .includes(nome) ? nome : 'desconhecido';
   const base = { code, construtor };
   const mensagem = erro?.message ?? '';
+  if (mensagem === 'prazo de observação esgotado') return { ...base, categoria: 'observacao.prazo',
+    erro: 'nenhuma observação bem-sucedida dentro do orçamento de espera', transitorio: false };
   // Só motivos literais do núcleo saem no diagnóstico: nenhum conteúdo de metadado.
   const motivos = ['sessão do controller divergente', 'instância do controller divergente',
     'vínculo thread/fase/prompt do controller divergente', 'cwd do controller divergente',
@@ -273,6 +275,7 @@ interface SerieErroWatcher {
 function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown, serie?: SerieErroWatcher): boolean {
   if (!serie && e && typeof e === 'object' && errosRegistrados.has(e)) return true;
   const dados = diagnosticoWatcher(e);
+  if (dados.categoria === 'observacao.ocupada') return true;
   const registrado = registrarSeExiste(dirThread(raiz, threadId), threadId, 'session_watcher_error', {
     sessionId, motivo: 'runtime.unavailable', ...dados, ...serie,
     transitorio: dados.transitorio && (!serie?.encerramento || serie.encerramento === 'recuperado'), origem: 'sessions.watch',
@@ -662,7 +665,7 @@ export async function acompanharSessao(carregado: ManifestoCarregado, sessionId:
   const dir = dirThread(carregado.raiz, opcoes.threadId);
   const esperar = opcoes.esperar ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
   const agora = opcoes.agora ?? Date.now;
-  let falhas = 0, ultimaObservacao = agora(), ultimoErro: unknown;
+  let falhas = 0, tentativas = 0, esperas = 0, ultimaObservacao = agora(), ultimoErro: unknown;
   for (;;) {
     // Projeto ou thread apagados encerram o laço em silêncio: nada a observar nem a recriar.
     if (!threadPresente(dir)) return;
@@ -676,22 +679,31 @@ export async function acompanharSessao(carregado: ManifestoCarregado, sessionId:
       if (!r.ocupado) {
         if (falhas) tentarRegistrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, ultimoErro,
           { falhasConsecutivas: falhas, etapa: 'final', encerramento: 'recuperado' });
-        falhas = 0;
+        falhas = 0; tentativas = 0; esperas = 0;
         ultimaObservacao = agora();
       }
       if (r.concluido || r.encerrado) return;
     } catch (e) {
       if (!threadPresente(dir)) return;
-      falhas++;
-      ultimoErro = e;
-      const encerramento = !diagnosticoWatcher(e).transitorio ? 'permanente'
-        : agora() - ultimaObservacao >= LIMITE_MORTE_MS ? 'prazo'
-        : falhas >= MAX_FALHAS_WATCH ? 'tentativas' : undefined;
-      if (falhas === 1 || encerramento) tentarRegistrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, e,
-        { falhasConsecutivas: falhas, etapa: encerramento ? 'final' : 'inicial', ...(encerramento ? { encerramento } : {}) });
-      if (encerramento) throw e;
+      esperas++;
+      const dados = diagnosticoWatcher(e), ocupado = dados.categoria === 'observacao.ocupada';
+      const expirou = agora() - ultimaObservacao >= LIMITE_MORTE_MS;
+      // Contenção não é erro. Estado dividido exige nova auditoria; ambos consomem
+      // só tempo, sem antecipar os 600 s pelo teto das outras falhas.
+      if (!ocupado || expirou) {
+        if (ocupado) e = new Error('prazo de observação esgotado');
+        falhas++;
+        if (!ocupado && dados.categoria !== 'estado.dividido') tentativas++;
+        ultimoErro = e;
+        const encerramento = ocupado ? 'prazo' : !dados.transitorio ? 'permanente'
+          : expirou ? 'prazo' : tentativas >= MAX_FALHAS_WATCH ? 'tentativas' : undefined;
+        if (falhas === 1 || encerramento) tentarRegistrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, e,
+          { falhasConsecutivas: falhas, etapa: encerramento ? 'final' : 'inicial', ...(encerramento ? { encerramento } : {}) });
+        if (encerramento) throw e;
+      }
     }
-    await esperar(falhas ? Math.min(MAX_ESPERA_ERRO_WATCH_MS, INTERVALO_WATCH_MS * 2 ** Math.min(falhas - 1, 5))
+    await esperar(esperas ? Math.min(MAX_ESPERA_ERRO_WATCH_MS, INTERVALO_WATCH_MS * 2 ** Math.min(esperas - 1, 5),
+      Math.max(1, LIMITE_MORTE_MS - (agora() - ultimaObservacao)))
       : atual?.sessoes.at(-1)?.runtime === 'claude-bg' ? INTERVALO_WATCH_CLAUDE_MS : INTERVALO_WATCH_MS);
   }
 }

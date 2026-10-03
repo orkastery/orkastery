@@ -223,17 +223,15 @@ test('RM036: Codex vivo progride além de dez minutos e só conclui no terminal 
   assert.equal(resultados[0].exitCodeFonte, 'controller.close');
 });
 
-for (const falha of ['json-thread', 'json-state', 'ENOENT', 'lock'] as const) {
+for (const falha of ['json-thread', 'json-state', 'ENOENT'] as const) {
   test(`RM036: laço registra e repete ${falha} com espera limitada até terminal`, async t => {
     const p = fixture(t);
     p.run(2000); p.progresso(601000);
     const threadFile = path.join(p.dirEstado, 'thread.json');
     const backup = fs.readFileSync(threadFile);
-    const lock = path.join(p.dirEstado, 'ledger.jsonl.hitl-lock');
     if (falha === 'json-thread') fs.writeFileSync(threadFile, '{"segredo-fixture":');
     if (falha === 'json-state') fs.writeFileSync(path.join(p.controlador, 'state.json'), '{"segredo-fixture":');
     if (falha === 'ENOENT') fs.renameSync(path.join(p.controlador, 'state.json'), path.join(p.controlador, 'state.backup'));
-    if (falha === 'lock') { fs.mkdirSync(lock); fs.writeFileSync(path.join(lock, 'pid'), String(process.pid)); }
     const esperas: number[] = [];
     let agora = 602000;
     await acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
@@ -242,7 +240,6 @@ for (const falha of ['json-thread', 'json-state', 'ENOENT', 'lock'] as const) {
         assert.ok(esperas.length <= 9, 'loop precisa recuperar');
         if (esperas.length < 8) return;
         fs.writeFileSync(threadFile, backup);
-        if (falha === 'lock') fs.rmSync(lock, { recursive: true });
         p.terminar(agora);
       } });
     assert.equal(esperas.length, 8);
@@ -254,13 +251,74 @@ for (const falha of ['json-thread', 'json-state', 'ENOENT', 'lock'] as const) {
     assert.equal(erros[1].encerramento, 'recuperado');
     assert.ok(erros.every(e => e.sessionId === SID && e.transitorio === true));
     const categoria = { 'json-thread': 'json.invalido', 'json-state': 'runtime.unavailable: metadado state.json de controller inválido',
-      ENOENT: 'runtime.unavailable: metadado state.json de controller ausente', lock: 'observacao.ocupada' }[falha];
+      ENOENT: 'runtime.unavailable: metadado state.json de controller ausente' }[falha];
     assert.ok(erros.every(e => e.categoria === categoria && e.construtor === 'Error'));
     assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
     assert.ok(!JSON.stringify(erros).includes(p.dir));
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok === true).length, 1);
   });
 }
+
+for (const falha of ['lock-ingestao', 'watcher-ocupado', 'estado-dividido'] as const) {
+  test(`RM036: ${falha} por mais de 12 tentativas recupera dentro de 600 s`, async t => {
+    const p = fixture(t, { worktree: falha === 'estado-dividido' });
+    p.run(2000);
+    let restaurar: () => void;
+    if (falha === 'estado-dividido') {
+      const local = path.join(p.t.worktree!, '.orkastery', 'threads', p.t.id);
+      fs.unlinkSync(local); fs.mkdirSync(local);
+      restaurar = () => { fs.rmdirSync(local); fs.symlinkSync(p.dirEstado, local, 'dir'); };
+    } else {
+      const sensores = path.join(p.dirEstado, 'sensores');
+      const lock = falha === 'lock-ingestao' ? path.join(p.dirEstado, 'ledger.jsonl.hitl-lock')
+        : path.join(sensores, fs.readdirSync(sensores)[0], 'watch.lock');
+      fs.mkdirSync(lock);
+      if (falha === 'lock-ingestao') fs.writeFileSync(path.join(lock, 'pid'), String(process.pid));
+      else fs.writeFileSync(path.join(lock, 'owner.json'), JSON.stringify({ identidade: identidadeProcesso(process.pid), token: 'fixture' }));
+      restaurar = () => fs.rmSync(lock, { recursive: true });
+    }
+    let restaurado = false, esperas = 0, agora = 3000;
+    try {
+      await acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
+        esperar: async ms => {
+          assert.ok(++esperas <= MAX_FALHAS_WATCH + 4, 'recupera após espera longa');
+          agora += ms;
+          if (esperas === MAX_FALHAS_WATCH + 4) {
+            restaurar(); restaurado = true;
+            p.terminar(agora);
+          }
+        } });
+      assert.equal(esperas, MAX_FALHAS_WATCH + 4);
+      assert.ok(agora > 300000 && agora < 3000 + LIMITE_MORTE_MS);
+      assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok).length, 1);
+      const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+      assert.equal(erros.length, falha === 'estado-dividido' ? 2 : 0);
+      if (falha === 'estado-dividido') {
+        assert.equal(erros[1].falhasConsecutivas, esperas);
+        assert.equal(erros[1].encerramento, 'recuperado');
+      }
+    } finally { if (!restaurado) restaurar(); }
+  });
+}
+
+test('RM036: ocupado persistente só esgota o orçamento de 600 s', async t => {
+  const p = fixture(t);
+  p.run(2000);
+  const sensores = path.join(p.dirEstado, 'sensores');
+  const lock = path.join(sensores, fs.readdirSync(sensores)[0], 'watch.lock');
+  fs.mkdirSync(lock);
+  fs.writeFileSync(path.join(lock, 'owner.json'), JSON.stringify({ identidade: identidadeProcesso(process.pid), token: 'fixture' }));
+  let agora = 3000, esperas = 0;
+  await assert.rejects(acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
+    esperar: async ms => { assert.ok(++esperas < 30); agora += ms; } }), /prazo de observação esgotado/);
+  assert.equal(agora, 3000 + LIMITE_MORTE_MS);
+  assert.ok(esperas > MAX_FALHAS_WATCH);
+  const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+  assert.equal(erros.length, 1);
+  assert.equal(erros[0].categoria, 'observacao.prazo');
+  assert.equal(erros[0].encerramento, 'prazo');
+  assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
+});
 
 for (const falha of ['state-ausente', 'controller-ausente', 'ENOENT', 'prazo'] as const) {
   test(`RM036: falha persistente encerra sem inundar ledger (${falha})`, async t => {
@@ -360,15 +418,17 @@ test('RM036: estado dividido persistente esgota retry sem ler a cópia local', a
   const local = path.join(p.t.worktree!, '.orkastery', 'threads', p.t.id);
   fs.unlinkSync(local); fs.mkdirSync(local);
   try {
-    let esperas = 0;
-    await assert.rejects(acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + 3000,
-      esperar: async () => { assert.ok(++esperas < MAX_FALHAS_WATCH + 1); } }), /estado dividido/);
-    assert.equal(esperas, MAX_FALHAS_WATCH - 1);
+    let esperas = 0, agora = 3000;
+    await assert.rejects(acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
+      esperar: async ms => { assert.ok(++esperas < 30); agora += ms; } }), /estado dividido/);
+    assert.ok(esperas > MAX_FALHAS_WATCH);
+    assert.equal(agora, 3000 + LIMITE_MORTE_MS);
     const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
     assert.equal(erros.length, 2);
     assert.equal(erros[1].categoria, 'estado.dividido');
     assert.equal(erros[1].code, 'SESSION_STATE_SPLIT');
     assert.equal(erros[1].transitorio, false);
+    assert.equal(erros[1].encerramento, 'prazo');
     assert.ok(!JSON.stringify(erros).includes(p.dir));
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
   } finally { fs.rmdirSync(local); fs.symlinkSync(p.dirEstado, local, 'dir'); }
