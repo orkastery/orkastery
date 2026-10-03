@@ -72,6 +72,7 @@ interface Estrutura {
   /** Titulos em ordem; `slug` nulo quando o contrato o recusaria (o trecho fica no arquivo). */
   secoes: Secao[];
   links: Link[];
+  citacoes: Link[];
   /** Linhas de prosa, com codigo, HTML, frontmatter e destino de link apagados. */
   textoDeMencao: Linha[];
   frontmatter: { dados: Record<string, ValorYaml>; valores: ValorPosicionado[] } | null;
@@ -225,9 +226,10 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     if (l.includes('|') && l.includes('-') && DELIMITADOR_DE_TABELA.test(l)) comDelimitador = true;
   }
   if (linhasDeTabela > TETO_DE_LINHAS_DE_TABELA) {
-    return { fonte, secoes: [], links: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
+    return { fonte, secoes: [], links: [], citacoes: [], textoDeMencao: [], frontmatter, frontmatterInvalido, tabelaGrande: true };
   }
   const secoes: Secao[] = [], links: Link[] = [], semMencao: [number, number][] = [];
+  const citacoes: Link[] = [];
   // Parte do destino: o texto e se ele e cru (dado) ou decodificado (escape, referencia).
   type ParteDoDestino = [texto: string, cru: boolean];
   const slug = contadorDeSlugs(), abertos: { inicio: number; fim: number; destino: ParteDoDestino[] | null; descartado: boolean }[] = [];
@@ -269,6 +271,9 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
         semMencao.push([e.inicio, e.fim]);
       }
       // Titulo, lido em paralelo: o texto dele junta dado, codigo, escape e entidade.
+      if (e.tipo === 'codeTextData' && !emExcesso) citacoes.push({
+        destino: corpo.slice(e.inicio, e.fim), inicio: no(e.inicio), fim: no(e.fim),
+      });
       if (e.tipo === 'atxHeading' || e.tipo === 'setextHeading') titulo = { inicio: no(e.inicio), fim: no(e.fim), partes: [], noTexto: 0, foraDoTexto: 0, noCodigo: 0 };
       else if (titulo) {
         if (e.tipo === 'atxHeadingText' || e.tipo === 'setextHeadingText') titulo.noTexto++;
@@ -313,7 +318,7 @@ function estruturar(fonte: FonteDeTexto, aceitaFragmento: (f: string) => boolean
     }
   }
   const textoDeMencao = linhasDe(apagarTrechos(corpo, semMencao)).map((l) => ({ inicio: no(l.inicio), texto: l.texto }));
-  return { fonte, secoes: secoes.sort((a, b) => a.inicio - b.inicio), links, textoDeMencao, frontmatter, frontmatterInvalido, tabelaGrande: false };
+  return { fonte, secoes: secoes.sort((a, b) => a.inicio - b.inicio), links, citacoes, textoDeMencao, frontmatter, frontmatterInvalido, tabelaGrande: false };
 }
 
 /** Caminho relativo a raiz a partir do arquivo do link; `null` se sair do repositorio. */
@@ -328,6 +333,13 @@ function resolverCaminho(base: string, destino: string): string | null {
     } else r.push(p);
   }
   return r.join('/');
+}
+
+/** Citacao nao e resolucao de runtime: so caminho literal dentro do manifesto. */
+export function caminhoDaCitacao(base: string, literal: string): string | null {
+  if (!literal || /[\s\\:#?%\u0000-\u001f\u007f]/u.test(literal) || literal.startsWith('/') || literal.startsWith('~')) return null;
+  if (literal.split('/').some((p) => p === '.git' || p === '.orkastery')) return null;
+  return literal.startsWith('./') || literal.startsWith('../') ? resolverCaminho(base, literal) : literal;
 }
 
 const decodificar = (t: string): string | null => {
@@ -348,6 +360,8 @@ export interface EstruturaMd {
   path: string;
   secoes: Secao[];
   links: Link[];
+  /** Caminhos em codigo inline; a existencia do alvo e conferida em cada ligacao. */
+  citacoes: Link[];
   /** IDs citados na prosa, com o offset no texto, na ordem de leitura. */
   mencoes: { inicio: number; id: string }[];
   frontmatter: { id: string | null; tipo: boolean; valores: ValorPosicionado[] } | null;
@@ -361,7 +375,7 @@ export function estruturarMarkdown(fonte: FonteDeTexto, e: Pick<EntradaMd, 'acei
   for (const l of s.textoDeMencao) for (const m of l.texto.matchAll(MENCAO)) mencoes.push({ inicio: l.inicio + (m.index as number), id: m[0] });
   const d = s.frontmatter?.dados;
   return {
-    path: fonte.path, secoes: s.secoes, links: s.links, mencoes,
+    path: fonte.path, secoes: s.secoes, links: s.links, citacoes: s.citacoes, mencoes,
     frontmatter: s.frontmatter && d
       ? { id: typeof d.id === 'string' ? d.id : null, tipo: typeof d.tipo === 'string' && d.tipo !== '', valores: s.frontmatter.valores }
       : null,
@@ -435,6 +449,11 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
 
   for (const s of estruturas) {
     const path = s.path, arquivo: RefDeNo = { kind: 'file', path, fragment: null };
+    const citar = (alvo: string | null, k: Link, metodo: AchadoDeAresta['metodo']): void => {
+      if (alvo !== null && alvo !== path && arquivos.has(alvo)) aresta('cites', secaoEm(s, arquivo, k.inicio),
+        { kind: 'file', path: alvo, fragment: null }, e.extratorMd, metodo, { path, inicio: k.inicio, fim: k.fim });
+    };
+    for (const k of s.citacoes) citar(caminhoDaCitacao(path, k.destino), k, 'text-location');
     for (const x of s.secoes) {
       if (x.slug === null) {
         lacuna('secao-recusada', path, x.inicio, null);
@@ -460,7 +479,11 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
         lacuna('link-invalido', path, k.inicio, destino);
         continue;
       }
-      const alvo = caminhoDecodificado === '' ? path : resolverCaminho(path, caminhoDecodificado);
+      const relativo = caminhoDecodificado === '' ? path : resolverCaminho(path, caminhoDecodificado);
+      // Links seguem o diretorio do documento; a citacao tambem admite caminho desde a raiz.
+      const literal = caminhoDaCitacao(path, caminhoDecodificado);
+      citar(relativo !== null && arquivos.has(relativo) && literal !== null ? relativo : literal, k, 'explicit-link');
+      const alvo = relativo;
       if (alvo === null) {
         lacuna('link-fora-do-repositorio', path, k.inicio, destino);
         continue;

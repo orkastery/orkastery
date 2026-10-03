@@ -12,6 +12,7 @@
  */
 import type * as TS from 'typescript';
 import type { AchadoDeAresta, Achados, FonteDeTexto, RefDeNo, Trecho } from './intelligence-graph-extract';
+import { caminhoDaCitacao } from './intelligence-graph-extract-md';
 
 export interface EntradaTs {
   /** Fontes TS/JS ja decodificadas, em ordem de caminho. */
@@ -55,6 +56,20 @@ export interface ResultadoTs {
 /** Extensoes que o extrator TS le; as do `extensaoDe` do KG2. */
 const EXTENSOES_DO_PROGRAMA = ['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'];
 const DECLARACOES_TS = ['.d.ts', '.d.mts', '.d.cts'];
+
+/** KG5: candidatos literais; dist -> src e uma convencao de citacao, nunca prova de import. */
+function candidatosDaCitacao(base: string): string[][] {
+  const formas = (p: string): string[] => {
+    const semJs = p.replace(/\.(?:[cm]?js|jsx)$/, '');
+    if (semJs !== p) return [semJs + '.ts', semJs + '.tsx', semJs + '.mts', semJs + '.cts'];
+    if (/\.[^/]+$/.test(p)) return [];
+    return EXTENSOES_DO_PROGRAMA.flatMap((ext) => [p + ext, p + '/index' + ext]);
+  };
+  const grupos = [[base], formas(base)];
+  const fonte = base.replace(/(^|\/)dist\//, '$1src/');
+  if (fonte !== base) grupos.push([fonte], formas(fonte));
+  return grupos;
+}
 
 /** A base sem a extensao (o TypeScript troca `.js` por `.ts`, e `.d.ts` conta inteira). */
 function semExtensao(base: string): string {
@@ -603,11 +618,42 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
   const divergentesGlobais = new Set<string>();
   // KG4 (D3): por fonte, os caminhos a que as referencias de modulo resolvem e as bases das relativas.
   const dependenciasDe = new Map<string, Set<string>>(), sondasDe = new Map<string, Set<string>>();
+  const citacoesDe = new Map<string, { alvo: string; trecho: Trecho }[]>();
   for (const fonte of e.fontes) {
     const sf = programa.getSourceFile(absoluto(fonte.path));
     if (!sf || sf.fileName !== absoluto(fonte.path)) continue;
     const ext = extensao(fonte.path), mapa = new Map<string, { alvo: string | null; divergente: boolean; doCompilador: string | null }>();
     const dependencias = new Set<string>(), sondas = new Set<string>();
+    // Strings so em testes/scripts. Comentarios, interpolacoes e concatenacoes nao sao avaliados.
+    const citacoes: { alvo: string; trecho: Trecho }[] = [];
+    if (/(?:^|\/)(?:tests?|__tests__|scripts?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fonte.path)) {
+      const citar = (literal: string, n: TS.Node): void => {
+        const base = caminhoDaCitacao(fonte.path, literal);
+        if (base === null) return;
+        const grupos = candidatosDaCitacao(base);
+        // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
+        for (const grupo of grupos) for (const p of grupo) sondas.add(p);
+        for (const grupo of grupos) {
+          const presentes = grupo.filter((p) => arquivos.has(p));
+          if (!presentes.length) continue;
+          if (presentes.length === 1 && presentes[0] !== fonte.path) {
+            dependencias.add(presentes[0]);
+            citacoes.push({ alvo: presentes[0], trecho: { path: fonte.path, inicio: n.getStart(sf), fim: n.getEnd() } });
+          }
+          break; // Ambiguidade nao autoriza escolher uma fonte nem tentar outro grupo.
+        }
+      };
+      const literais = (n: TS.Node): void => {
+        if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
+          citar(n.text, n);
+          // Codigo citado por fixture: so argumentos literais de require/import dentro da string.
+          for (const m of n.text.matchAll(/\b(?:require|import)\s*\(\s*(['"])([^'"\r\n]+)\1\s*\)/g)) citar(m[2], n);
+        }
+        ts.forEachChild(n, literais);
+      };
+      literais(sf);
+    }
+    citacoesDe.set(fonte.path, citacoes);
     for (const chave of especificadoresEm(sf)) {
       if (mapa.has(chave)) continue;
       const esp = especificadorDaChave(chave), doCompilador = resolver(esp, fonte.path);
@@ -729,6 +775,7 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     const aresta = (kind: AchadoDeAresta['kind'], from: RefDeNo, to: RefDeNo, t: Trecho): void => {
       saida.arestas.push({ kind, from, to, extrator: e.extrator, metodo: 'ast', trecho: t });
     };
+    for (const c of citacoesDe.get(fonte.path) ?? []) aresta('cites', arquivo, { kind: 'file', path: c.alvo, fragment: null }, c.trecho);
     const lacuna = (categoria: string, n: TS.Node | null, detalhe: string | null = null): void => {
       saida.lacunas.push({ categoria, path: fonte.path, inicio: n ? n.getStart(sf) : null, detalhe });
     };
