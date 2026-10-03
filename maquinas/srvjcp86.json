@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T04:45:25.626Z",
+  "publicadoEm": "2026-10-03T04:45:35.063Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -135,23 +135,6 @@
       "branch": "ork/ork-rm054fatia3-full",
       "atualizadaEm": "2026-10-03T04:27:40.531Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-shipparacomr",
-      "nome": "rm047shippara",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-047",
-      "branch": "ork/ork-shipparacomr-full",
-      "atualizadaEm": "2026-10-03T04:45:25.474Z",
-      "entregue": "64cdeea",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
