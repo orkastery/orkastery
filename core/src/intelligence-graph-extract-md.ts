@@ -457,7 +457,7 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
       if (alvo !== null && alvo !== path && arquivos.has(alvo)) aresta('cites', secaoEm(s, arquivo, k.inicio),
         { kind: 'file', path: alvo, fragment: null }, e.extratorMd, metodo, { path, inicio: k.inicio, fim: k.fim });
     };
-    for (const k of s.citacoes) citar(caminhoDaCitacao(path, k.destino), k, 'text-location');
+    const linksReferenciados: Link[] = [];
     for (const x of s.secoes) {
       if (x.slug === null) {
         lacuna('secao-recusada', path, x.inicio, null);
@@ -500,12 +500,24 @@ export function ligarMarkdown(e: EntradaDaLigacaoMd): Achados {
       const secoesDoAlvo = slugs.get(alvo);
       if (ancora && secoesDoAlvo?.has(ancora)) {
         aresta('references', origem, { kind: 'section', path: alvo, fragment: ancora }, e.extratorMd, 'explicit-link', t);
+        linksReferenciados.push(k);
         continue;
       }
       // P6: ancora que nao bate fica declarada; o link ainda prova a referencia ao arquivo.
       if (ancora && secoesDoAlvo) lacuna('ancora-nao-resolvida', path, k.inicio, destino);
       if (alvo === path) continue;
       aresta('references', origem, { kind: 'file', path: alvo, fragment: null }, e.extratorMd, 'explicit-link', t);
+      linksReferenciados.push(k);
+    }
+    // Codigo inline no rotulo pertence a mesma ocorrencia do link ja resolvido.
+    // Varredura por spans preserva citacoes independentes, inclusive na mesma linha.
+    linksReferenciados.sort((a, b) => a.inicio - b.inicio || b.fim - a.fim);
+    let link = 0;
+    for (const k of s.citacoes) {
+      while (link < linksReferenciados.length && linksReferenciados[link].fim <= k.inicio) link++;
+      const l = linksReferenciados[link];
+      if (l && l.inicio <= k.inicio && k.fim <= l.fim) continue;
+      citar(caminhoDaCitacao(path, k.destino), k, 'text-location');
     }
 
     const artefato = s.frontmatter && s.frontmatter.id !== null ? artefatos.get(s.frontmatter.id) : undefined;

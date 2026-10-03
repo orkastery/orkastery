@@ -115,12 +115,18 @@ test('KG5 citacoes GO-FIX 2: diretorio vira arquivo e volta com indice increment
 
 function provarSemDuplicacao(extrair = extrairGrafo): void {
   const repo = {
+    'core/README.md': '# Core',
     'core/src/alvo.ts': 'export const alvo = 1;',
     'core/test/import.test.ts': "import { alvo } from '../src/alvo.ts';\nconst citado = '../src/alvo.ts';",
     'core/test/require.test.ts': "const alvo = require('../src/alvo.ts');",
     'core/test/dinamico.test.ts': "const alvo = import('../src/alvo.ts');",
     'docs/alvo.md': '# Alvo',
     'docs/guia.md': '[arquivo](../core/src/alvo.ts)\n[seção](alvo.md#alvo)\n`core/src/alvo.ts`\n[raiz](core/src/alvo.ts)',
+    'docs/referencia/guia.md': [
+      '[`core/README.md`](../../core/README.md) `core/src/alvo.ts`',
+      '[`core/src/alvo.ts`](../alvo.md#alvo)',
+      '[`core/src/alvo.ts`](ausente.md)',
+    ].join('\n'),
   };
   const g = extrair(entrada(repo), PARSER).grafo;
   const ocorrencias = (arquivo: string, kind: string): number[] => g.edges
@@ -128,6 +134,8 @@ function provarSemDuplicacao(extrair = extrairGrafo): void {
     .filter((e) => e.path === arquivo).map((e) => e.span.type === 'text' ? e.span.line_start! : -1).sort();
   assert.deepEqual(ocorrencias('docs/guia.md', 'references'), [1, 2]);
   assert.deepEqual(ocorrencias('docs/guia.md', 'cites'), [3, 4]);
+  assert.deepEqual(ocorrencias('docs/referencia/guia.md', 'references'), [1, 2]);
+  assert.deepEqual(ocorrencias('docs/referencia/guia.md', 'cites'), [1, 3], 'rotulo resolvido nao duplica; inline independente e link sem alvo conservam citacoes');
   assert.deepEqual(ocorrencias('core/test/import.test.ts', 'cites'), [2], 'outra string igual continua citando');
   for (const arquivo of ['core/test/import.test.ts', 'core/test/require.test.ts', 'core/test/dinamico.test.ts']) {
     assert.ok(ocorrencias(arquivo, 'imports').includes(1), arquivo);
@@ -139,8 +147,12 @@ test('KG5 citacoes GO-FIX: links e imports resolvidos nao duplicam cites; prova 
   provarSemDuplicacao();
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', 'relativo === null || !arquivos.has(relativo)', 'true'],
+    ['intelligence-graph-extract-md', 'k.fim <= l.fim', 'false'],
     ['intelligence-graph-extract-ts', 'chave !== undefined && mapa.get(chave)?.alvo != null', 'false'],
-  ]) assert.throws(() => provarSemDuplicacao(mutante(modulo, antes, depois)), antes);
+  ]) {
+    const extrair = mutante(modulo, antes, depois);
+    assert.throws(() => provarSemDuplicacao(extrair), antes);
+  }
 });
 
 function provarSondasRestritas(extrair = extrairGrafo): void {
