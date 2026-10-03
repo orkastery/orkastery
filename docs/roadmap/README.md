@@ -76,6 +76,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-053](RM-053-orkastery-network.md) | Orkastery Network, as máquinas de uma pessoa em rede | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-09-30 |
 | [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-02 |
 | [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
