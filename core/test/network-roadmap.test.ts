@@ -406,8 +406,9 @@ test('rede: CLI network roadmap imprime o panorama e --json devolve o contrato',
     assert.equal(rodar(workspace, ['network', 'roadmap', '--projeto', 'orkastery', '--json']), 4);
     assert.equal(JSON.parse(saida).erro, 'projeto.desconhecido');
     // Uso errado sai 2, com a linha de uso.
-    assert.equal(rodar(r.a, ['network']), 2);
-    assert.match(saida, /^uso: ork network roadmap/m);
+    // RM-053: `ork network` sem subcomando e o status da rede; o subcomando desconhecido sai 2.
+    assert.equal(rodar(r.a, ['network', 'nada']), 2);
+    assert.match(saida, /^uso: ork network /m);
     assert.equal(rodar(r.a, ['network', 'roadmap', '--projeto']), 2);
   } finally {
     console.log = log; console.error = erro; process.chdir(cwd);

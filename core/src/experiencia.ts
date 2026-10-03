@@ -34,6 +34,12 @@ export function validarPreferencias(valor: unknown): PreferenciasExperiencia {
   return resultado;
 }
 
+/**
+ * Ensaio de 03/10 (R2): sem idioma escolhido, vale a língua da CLI. Antes era en-US, e uma máquina com
+ * LANG=C.UTF-8 (contêiner, CI, servidor) recebia a experiência em inglês de uma CLI que fala português.
+ */
+export const IDIOMA_PADRAO = 'pt-BR';
+
 /** C, POSIX e und (raiz do ICU) dizem que o sistema não escolheu idioma: vale o padrão. */
 const SEM_IDIOMA = new Set(['c', 'posix', 'und']);
 function idiomaEscolhido(valor: string | undefined): string | undefined {
@@ -44,13 +50,17 @@ function idiomaEscolhido(valor: string | undefined): string | undefined {
 export function idiomaDoSistema(env: NodeJS.ProcessEnv = process.env,
   doIntl: () => string = () => Intl.DateTimeFormat().resolvedOptions().locale): string {
   const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG;
-  return idiomaEscolhido(locale?.split(/[.@]/)[0].replace(/_/g, '-')) ?? idiomaEscolhido(doIntl()) ?? 'en-US';
+  if (locale) {
+    // Com C ou POSIX explícito, o Intl do Node cai no en-US do ICU: ele não diz a escolha de ninguém.
+    return idiomaEscolhido(locale.split(/[.@]/)[0].replace(/_/g, '-')) ?? IDIOMA_PADRAO;
+  }
+  return idiomaEscolhido(doIntl()) ?? IDIOMA_PADRAO;
 }
 
 export function resolverExperiencia(owner: PreferenciasExperiencia = {},
   sistema = { language: idiomaDoSistema(), timezone: fusoDoSistema() }) {
   const p = validarPreferencias(owner);
-  const language = p.language ?? normalizarIdioma(sistema.language) ?? 'en-US';
+  const language = p.language ?? normalizarIdioma(sistema.language) ?? IDIOMA_PADRAO;
   return {
     language, timezone: p.timezone ?? normalizarFuso(sistema.timezone) ?? 'UTC',
     depth: p.depth ?? 'curta', experience: p.experience ?? true,

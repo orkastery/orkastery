@@ -26,12 +26,15 @@ utilizável como gate de pipeline.
 | `ork accounts add <id> --runtime R --dir D [--sem-login]` | Cria o perfil e o diretório (0700) e roda o login do **próprio CLI** com o env do perfil (`claude auth login --claudeai`, `codex login`); sem TTY, imprime o comando. Nunca copia credencial |
 | `ork accounts remove <id>` | Desativa o perfil; o diretório e o login do CLI ficam onde estão |
 | `ork accounts check [<id>]` | Confere o login de cada perfil ativo (`claude auth status`, `codex login status`) e marca o store: `sem-auth` sai do rodízio; login por API key, `api_key_helper`, Console ou nuvem vira `provider-pago` e nunca despacha; login de assinatura refeito volta; conferência inconclusiva (timeout, binário ausente, resposta ilegível) mantém o estado e registra a falha. Sai diferente de zero com perfil sem login de assinatura conferido |
+| `ork accounts esgotamentos [--desde 7d] [--json]` | Mede a métrica da RM-040 sem gravar nada: as marcas vivas do registro de contas e os despachos com perfil, em cada projeto registrado (`ork projetos`), que caíram na conta de uma marca de outro projeto dentro do prazo dela. A conta sai como id opaco, o perfil pelo id, sem diretório (`ork.esgotamentos/v1`). O registro só guarda marcas vivas, então o total é um piso |
 
 O `ork doctor` tem o check "contas por runtime" (lê e relata, sem marcar o store) e a sonda de
 umask e das permissões de `.orkastery` e `.orkastery/private`. O check "dono do .git" reprova
 arquivo ou pasta do `.git` com dono diferente do dono do repositório (o que `git` rodado como root
 deixa, e que trava o fetch e o commit do dono), com a contagem, exemplos e o `sudo chown -R` exato
-na correção; o doctor não roda nada (RM-037). Sem perfil configurado, cada
+na correção; o doctor não roda nada (RM-037). O check "analisadores do grafo" carrega o
+`typescript` e o micromark como o `ork grafo indexar` e, quando faltam, avisa (`warn`) com a
+correção (RM-031). Sem perfil configurado, cada
 runtime despacha pelo ambiente do processo, como antes da I-33. A superfície MCP de `accounts`
 não existe neste ciclo: o `add` é interativo e local, e a leitura de estado já vem do
 `ork_observe`. Nos hosts de superfície CLI (Hermes, OpenClaw), a paridade é por estes comandos.
@@ -150,6 +153,10 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
 | `ork fabrica sair` | Para de publicar daqui e tira o retrato desta máquina da branch |
+| `ork network status [--json] [--sem-remoto]` | A Orkastery Network da pessoa: as máquinas, de qualquer diretório, com a fonte, as lacunas tipadas e o que não foi lido (`ork.rede-status/v1`, RM-053) |
+| `ork network entrar [--maquina NOME] [--forja github\|gitlab] [--repositorio [DONO/]NOME] [--forcar]` | Esta máquina entra na rede: confere a casa privada `<usuario>/orkastery-network` na forja, cria quando falta, publica o primeiro retrato e só então grava o nome e a adesão. A identidade vem do `gh` ou do `glab` autenticados. `--forcar` toma um nome que outra instalação usa, registrado no commit |
+| `ork network publicar [--forcar] [--json]` | Grava o retrato desta máquina na casa, com push sem força; depois de entrar, sai sozinho na batida do pulse e nos eventos de thread |
+| `ork network sair` | Para de publicar daqui e tira o retrato desta máquina da casa; vence a adesão herdada do `ork fabrica entrar` |
 | `ork network roadmap [--projeto P] [--json] [--sem-remoto]` | O roadmap da rede, de qualquer diretório: para cada projeto, o status report do roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte e a hora de cada parte e lacuna tipada no que não leu. `P` é `github:dono/repo`, `gitlab:grupo/repo`, um nome do registro ou a raiz do clone escrita como caminho (`./` ou absoluto); sem clone, lê a forja só com consulta. Pedido ambíguo ou desconhecido sai 4, com os candidatos (RM-054). Com `ORK_PROJETO_EXPLICITO=1` (os hosts), `P` é só o nome do registro ou a forja em `github.com`, `gitlab.com` ou no host de um projeto registrado, e o projeto do diretório atual só entra pelo registro |
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto; a worktree segue a mesma regra do `ork thread new`, com `--worktree auto` e `--sem-worktree` |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
@@ -289,13 +296,28 @@ tipo B não é CHECK.
 | `ork handoff recall <thread> <ponteiro>` | Resolve um ponteiro `path#ancora` de volta ao conteúdo |
 | `ork recall <thread> --fase FASE` | Recuperação tardia de ponteiros e descoberta de handoffs por tenant, thread e fase |
 | ↳ opções | `[--id ptr-N] [--todos] [--forcar] [--sem-conteudo] [--json]` |
-| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings; `--sondar` faz uma chamada real e mede a latência |
+| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings: o universo da busca por coleção, o que fica fora da busca (com `injection_risk`, expiradas e em outras coleções, só em número), a cobertura do índice contra o universo e o aviso quando ele cobre menos; `--sondar` faz uma chamada real e mede a latência |
 | `ork memory sync [<thread>] [--json]` | Publica decisões, policies, handoff, lição, roadmap e human gates elegíveis somente da thread informada; sem id, apenas policies |
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
-| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no tenant (vetor e FTS por RRF), **não determinística**; não combina com `--tags` nem `--thread` |
-| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do tenant, idempotente, com tokens e custo estimados; `--dry-run` não chama o provider |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; sem o universo lido inteiro, sai 1 com motivo tipado e sem resultados (também em `--json`); uso inválido sai 2; não combina com `--tags` nem `--thread` |
+| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
+
+`memory search --texto` também sai 1 quando a memória está desligada ou indisponível
+(`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
+como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
+`core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
+quando uma busca falha, preservando seu código de saída.
+
+A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
+(24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas
+demais chamadas). O manifesto recusa valores fora desse intervalo; configuração direta do driver
+com valor inválido usa o padrão, inclusive zero, que nunca significa espera ilimitada.
+Prazo esgotado retorna `memory.transport.timeout`. A latência medida no transporte,
+incluindo o subprocesso e a conferência da resposta, aparece em `latenciaUniversoMs` no JSON do
+índice e em `embeddings.universo.latenciaMs` no JSON do status. Fontes sem medição não inventam
+latência: no índice, o campo é `null`; no universo, fica ausente.
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
@@ -353,6 +375,7 @@ reextrai só o que a mudança alcança, com os mesmos bytes da extração comple
 | --- | --- |
 | `ork grafo indexar [--verificar] [--forcar] [--json]` | Constrói o índice do HEAD limpo (ou confirma o que existe, sem reescrever): incremental a partir do índice da revisão ancestral com o mesmo extrator, ou completo, dizendo por quê; `--verificar` extrai de novo, confere contrato, bytes e determinismo e, havendo base, compara o incremental com a completa; `--forcar` extrai completo e só troca os arquivos se o conteúdo mudou |
 | `ork grafo status [--json]` | O HEAD, se a árvore está limpa, a chave e o índice do HEAD, os analisadores e os índices guardados, com o tamanho e a integridade |
+| `ork grafo contexto <thread> [--json [--teto-bytes N]]` | Pacote determinístico da thread a partir de diff contra base, GOAL, PLAN e claims: arquivos e símbolos ligados em um salto, evidência integral, corte declarado e medida offline em bytes dos mesmos arquivos no índice; JSON `ork.thread-graph-context/v0`, 32.768 bytes por padrão (4.096 a 65.536) |
 | `ork grafo vizinhos <nó> [--profundidade N] [--sentido entrada\|saida\|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]` | Vizinhança de arquivo, símbolo, seção ou artefato, com extrator, método e evidência de cada aresta |
 | `ork grafo chamadores <símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem chama: as arestas `calls` que chegam ao símbolo |
 | `ork grafo importadores <arquivo\|símbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]` | Quem importa: as arestas `imports` que chegam |
@@ -375,6 +398,12 @@ revisão ou de outra árvore) ou `grafo.indice.outro-extrator` (o do HEAD é de 
 Node ou outro extrator, e a recusa diz o que mudou); com `--json`, essas recusas e a de índice
 corrompido trazem `estado_do_indice` e `correcao: "ork grafo indexar"`.
 
+No `contexto`, o teto vale mesmo sem explicitá-lo: sementes primeiro, depois ligações inteiras,
+com omissões declaradas. A medida compara o JSON com os bytes dos mesmos arquivos no manifesto
+da revisão indexada; tokens ficam indisponíveis. O [contrato da fatia 2](contratos/consumo-grafo-kg5.md#fatia-2-pacote-de-contexto-da-thread)
+detalha as fontes e os limites. Com a flag ligada, `ork_grafo_contexto` fornece o mesmo pacote no
+MCP e o pedido da fase ganha uma dica curta; com a flag desligada, o prompt é idêntico ao anterior.
+
 ```bash
 ork grafo indexar --verificar
 ork grafo chamadores core/src/intelligence-graph-repo.ts#lerRepositorio
@@ -382,9 +411,12 @@ ork grafo importadores core/src/intelligence-graph-contract.ts --json
 ork grafo caminho core/src/index.ts#main dirEstado
 ```
 
-Todo o `ork grafo` precisa do `typescript` e do micromark instalados com o `ork`, no
-`node_modules` do próprio pacote (o checkout de desenvolvimento e o CI os têm): as versões deles
-entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
+Todo o `ork grafo` precisa do `typescript` e do micromark no `node_modules` do próprio pacote do
+`ork`: são dependências do pacote, com versão exata, e as versões entram na chave do índice. O
+`npm install -g` os traz; instalado dentro de um projeto ou pelo `npx`, o npm os iça para fora do
+pacote, e a recusa é `grafo.parser.indisponivel`, com a correção no `ork grafo status` e no check
+"analisadores do grafo" do `ork doctor`. O micromark é só ESM e carrega por `require`: o grafo pede
+Node 20.19, 22.12 ou mais novo.
 
 ---
 
@@ -403,8 +435,43 @@ entram na chave do índice. Sem eles, a recusa é `grafo.parser.indisponivel`.
 | `ork conducao assumir <thread> --por Q --motivo M [--canal C]` | Handoff: encerra a condução atual pelo runtime, registra quem assumiu, de qual canal e por que, e reserva a vez para esse canal |
 
 Famílias: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
-`service:<porta>` e `exec:<thread>`. A `exec` (I-36) é a condução: protege a **execução** na
-worktree da thread e mora no estado canônico do projeto, e não no checkout de quem chamou.
+`service:<porta>` e `exec:<thread>`. Todas as famílias e a fila por colisão moram no
+estado canônico do projeto: a raiz e as worktrees disputam os mesmos arquivos.
+A `exec` (I-36) é a condução: protege a **execução** na worktree da thread.
+
+O legado válido das famílias antigas só barra enquanto vivo na janela de 30 minutos iniciada
+na primeira consulta desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado` na raiz. Nesse período, `ork lease list` mostra o legado e
+diagnostica arquivos inválidos ou ilegíveis, que não bloqueiam. Depois de encerrada, a janela não reabre
+com arquivos legados novos. O diagnóstico mostra apenas o arquivo e não sugere `release` para legado. Nomes legados
+usam até 200 caracteres do conjunto `A-Za-z0-9._/*?:@+-`, com inicial alfanumérica. Os argumentos dos
+comandos sugeridos usam aspas simples com escape. O prazo admite 1 segundo de tolerância sobre 30 minutos.
+Links simbólicos são ignorados. A fila legada não é lida; a espera se refaz no próximo pedido.
+O legado nunca prova posse canônica para ativar escrita; a própria cópia legada recusa a
+segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
+com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
+O legado nunca é apagado: o descarte grava uma marca `dev:ino:ctime` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>-<ctime>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode ou `ctime` continua visível. O `ctime` usa `ctimeMs` e é conferido novamente antes de gravar a marca. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
+A retomada automática funciona em Linux e macOS, inclusive sem `/usr/bin/flock`. Toda retomada
+publica um candidato exclusivo com ticket em `<lease>.json.retomadas`, usando `rename` atômico;
+a ordem dos tickets serializa também concorrentes com transportes diferentes. Sob essa exclusão,
+relê o conteúdo, confere dispositivo e inode e só então remove o vencido e cria com `wx`.
+`flock`, quando disponível, acrescenta uma trava no inode antigo. Ausência, bloqueio do spawn,
+timeout ou erro do `flock` usam o caminho portátil. A fila fica em
+`.orkastery/leases/<lease>.json.retomadas`; o MCP aceita somente diretório real desse formato,
+com candidatos regulares de um único vínculo. A pasta vazia é removida com `rmdir`, sem remover
+candidatos concorrentes. `ork lease list` mostra candidatos, PID, ticket, idade e temporários `.json.tmp`.
+A prova de morte por `process.kill(pid, 0)` só vale no mesmo namespace de PID; processos de namespaces
+diferentes não devem compartilhar esta fila. PID reutilizado ou sem permissão de consulta bloqueia
+até o limite de 30 minutos (`TTL_PADRAO_MS`). Candidatos e temporários expirados são recolhidos na próxima
+tentativa, que retorna `lease.resume-unavailable`; a correção é consultar `ork lease list` e repetir
+a aquisição, sem apagar o lease. Temporários de PID comprovadamente morto são recolhidos mesmo antes
+do prazo, inclusive JSON parcial deixado por SIGKILL. Um retomador que perdeu seu candidato não pode
+prosseguir. Dispositivo e inode são reconferidos imediatamente antes de `unlink`; as duas chamadas de
+sistema não constituem um CAS atômico contra escritores externos à exclusão.
+`nlink === 0` significa `lease.busy`, com fila normal e preservação do vencedor. Hard link ou link
+simbólico continuam como `lease.resume-unavailable`, com escalada humana e sem retry automático.
+A correção explícita, após avaliar a posse, é `ork lease release <nome> --forcar`, seguida de nova
+aquisição. Contenção normal do `flock` ou dos tickets continua como `lease.busy`.
+O `ship --dry-run` consulta também o legado válido e vivo durante a janela, sem adquirir o lease.
 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam
 `--canal <claude-code|hermes|openclaw|codex|mcp|cli>` (sem ele, o que o host declara),
@@ -419,14 +486,15 @@ do projeto quando o limite de sessões está cheio.
 | Comando | O que faz |
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
-| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
+| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master <thread> --aceitar-omissao` fecha só ela (I-57; RM-008). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
-| `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
+| `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
-| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
+| ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]`. Sem `--classe`, a classe sai do motivo de cada gate reprovado (`processo`, `rate-limit` ou `conflito`; o motivo fora da tabela segue `outra`), com aviso; vale também no `--aceitar-omissao` (RM-008) |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |
-| `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
+| `ork master <thread> --aceitar-omissao [--dry-run] [--json]` | Aceita por default só a entrega da thread indicada (também `--thread <thread>`), gravando índice, insumos e quem decidiu. Thread sem entrega recusa (saída 1); já fechada não grava de novo (saída 0). Com `--dry-run`, lista o que fecharia, sem gravar (RM-008) |
+| `ork master --aceitar-omissao [--dry-run] [--json]` | Aceita por default **todas** as entregues do projeto, inclusive as de outras frentes, e lista cada uma. De processo de agente com mais de uma, avisa em stderr com `master.omissao-sem-thread` e o comando com a thread |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
 | `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |

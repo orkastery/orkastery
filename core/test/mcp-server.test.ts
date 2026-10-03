@@ -17,6 +17,7 @@ import { registrarPedidoHitl } from '../src/hitl-gates';
 import { PedidoHitl } from '../src/hitl-contract';
 import { adquirirRegiao, liberar } from '../src/leases';
 import { MODOS_APOSENTADOS } from '../src/modos';
+import { semCodexSandbox } from './ambiente-de-teste';
 
 async function fixture(body:(p:ProjetoDeTeste,c:Client)=>Promise<void>,nomesProviderHerdados?:string[]) {
   const p=projetoTemporario('mcp-project');
@@ -93,7 +94,7 @@ test('MCP filho fixa thread e omite criacao, redespacho e decisao do dono',async
 test('MCP schemas fechados recusam shell, raiz, traversal e resposta gerada pelo modelo sem efeito',()=>fixture(async(p,c)=>{
   const {t,q}=pedido(p),before=fs.readFileSync(path.join(dirThread(p.dir,t.id),'ledger.jsonl'));
   const tools=(await c.listTools()).tools;
-  assert.equal(tools.length,30);assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
+  assert.equal(tools.length,31);assert.ok(tools.some(t=>t.name==='ork_network_status'));assert.ok(tools.some(t=>t.name==='ork_network_roadmap'));assert.ok(tools.some(t=>t.name==='ork_decision_record'));assert.ok(tools.some(t=>t.name==='ork_brain_dossie'));
   assert.ok(tools.some(t=>t.name==='ork_roadmap_reservas'));assert.ok(tools.some(t=>t.name==='ork_fabrica'));assert.ok(!tools.some(t=>/shell|answer/.test(t.name)));
   assert.equal(tools.find(t=>t.name==='ork_brain_context')?.annotations?.readOnlyHint,true);
   for(const tool of tools) assert.equal(tool.inputSchema.additionalProperties,false);
@@ -208,11 +209,11 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   const transport=new StdioClientTransport({command:process.execPath,
     args:[path.resolve(__dirname,'../src/index.js'),'mcp','serve','--project',p.dir,'--host','codex'],
     cwd:p.dir,env:{PATH:process.env.PATH??'',HOME:p.dir},stderr:'pipe'});
-  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,30);}
+  try {await c.connect(transport);assert.equal((await c.listTools()).tools.length,31);}
   finally {await c.close();await transport.close();p.limpar();}
 });
 
-test('MCP commit integra claim e HEAD real sem registrar entrega SHIP',()=>comHomeGitIsolado(()=>fixture(async(p,c)=>{
+test('MCP commit integra claim e HEAD real sem registrar entrega SHIP', { skip: semCodexSandbox() },()=>comHomeGitIsolado(()=>fixture(async(p,c)=>{
   const t=novaThread(p.carregado,{nome:'commit via MCP',modo:'auto',criarWorktree:true}).thread;
   fs.writeFileSync(path.join(t.worktree!,'produto.txt'),'fixture');
   const claim=await call(c,'ork_claim_add',{threadId:t.id,arquivo:'produto.txt',alegacao:'arquivo da fixture',verificar:['test -f produto.txt']});
@@ -234,7 +235,7 @@ test('MCP commit integra claim e HEAD real sem registrar entrega SHIP',()=>comHo
 })));
 
 
-test('MCP SHIP entrega por SDK com perfil bare instalado e recusa opções livres',()=>comHomeGitIsolado(async()=>{
+test('MCP SHIP entrega por SDK com perfil bare instalado e recusa opções livres', { skip: semCodexSandbox() },()=>comHomeGitIsolado(async()=>{
   const p=projetoTemporario('mcp-sdk-ship',true);
   const t=novaThread(p.carregado,{nome:'SHIP SDK',modo:'auto',criarWorktree:true}).thread;
   const source=commitar(t.worktree!,'entrega.txt','fixture SDK','entrega SDK');

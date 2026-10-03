@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import { runBrain } from './company-brain-cli';
 import { raizDoEstado } from './estado-thread';
-import { executarGrafo } from './intelligence-graph-cli';
+import { checarAnalisadoresDoGrafo, executarGrafo } from './intelligence-graph-cli';
+import { lerEntradaDaThread } from './mcp-grafo';
 import { runMaestroCli } from './maestro-cli';
 import { publicHitlVerifiers } from './hitl-public-receipt';
 import { apresentarDecisao, ofertaDoPedido, prazoLocalDoPedido } from './hitl-presentation';
 import { desdeDoPedido, entradaDoPedido, montarPedidoCurto, textoDoPedidoCurto } from './hitl-curto';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { exigirNotaSemHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
+import { exigirNotaSemHost, marcaDeHost, pedirNota, textoDoPedidoDeNota } from './master-nota';
 import { readNativeOfferStdin } from './hitl-native-offer';
 import { prepararRecibosParaDespacho } from './hitl-ingress-receipt';
 import { isAbsolute } from 'node:path';
@@ -108,19 +109,23 @@ import {
   textoDaInstalacao,
   textoDosPitfalls,
 } from './hosts';
-import { init } from './init';
+import { exigirRepositorioParaInit, init } from './init';
 import { createInitiative, createProduct, createProject, findEntity, listEntities, PortfolioKind, PortfolioStatus, readPortfolio } from './portfolio';
 import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
 import { inventariarSessoes } from './sessoes-inventario';
 import { coletarEstatisticas, registrarEstimativaPlano, textoDasEstatisticas } from './ledger-stats';
+import { relatorioDeEsgotamentos, textoDosEsgotamentos } from './esgotamentos';
 import { adotarSessao } from './sessoes-adopt';
 import { textoDoInventario } from './sessoes';
-import { ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
+import { ENV_THREAD_DO_DESPACHO, ENVS_DE_PROVIDER_PAGO, nomesDeProviderAtivos } from './runtime-ambiente';
 import { avaliarPolicies, linhasDeAviso } from './policies';
 import {
   aceitarPendentesPorOmissao,
   aceitosPorOmissao,
+  entregasParaOmissao,
+  indiceDaThread,
+  motivoForaDaOmissao,
   ORDEM_DAS_CLASSES,
   parseClasse,
   registrarMaster,
@@ -147,8 +152,8 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
-import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
+import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
+import { buscarPorSignificado, textoDaBuscaPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
 import {
@@ -204,18 +209,24 @@ import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLim
 import { exec, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
-import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, canalDaSessao, dirThread, exigirFase, lerThread,
+import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
+import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
+import { registrarNaRede } from './rede-adesao';
+import { jsonSemInvisivel } from './saida-segura';
+import { ehNomeDeForja } from './rede-forja';
+import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
+import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { gravarBaseline, textoDoVerify, verificar } from './verify';
 import {
   auditarWorktree,
@@ -325,6 +336,9 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
         [--sem-login]                            do perfil (nunca copia credencial)
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
+  accounts esgotamentos [--desde 7d] [--json]
+                                            Despachos numa conta que outro projeto desta maquina viu esgotada
+                                            (RM-040), so leitura: conta opaca, perfil pelo id, sem diretorio
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
@@ -471,6 +485,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  completo; --verificar confere contrato, bytes, determinismo e o incremental
                                                  contra a completa; precisa de typescript e micromark
   grafo status [--json]                     Indices guardados, o do HEAD, os analisadores e o tamanho
+  grafo contexto <thread> [--json]          Pacote da thread com evidencias e medida em bytes [--teto-bytes N]
   grafo vizinhos <no> [--profundidade N]    Vizinhanca de arquivo ou simbolo, com extrator e evidencia de cada aresta
         [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json]
   grafo chamadores <simbolo>                Quem chama (arestas calls que chegam) [--profundidade N] [--limite N] [--json]
@@ -483,7 +498,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
 
   ship <thread-id> --para <branch>          Merge --no-ff serializado por lease e push PROVADO
   ship registrar-pr <thread-id>|--todas    A entrega feita por PR vira ship_done: merge ship(<thread>) na base
-        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master --aceitar-omissao
+        [--remoto R] [--json]                    remota e CI verde no head do PR; depois, ork master <thread> --aceitar-omissao
         [--repo <dono/nome> --pr <n>]            PR mesclado em repositorio externo de ci.external_repositories
         [--dry-run]                              Ensaio: as mesmas conferencias, sem gravar ship_done, fase nem fabrica
         [--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]
@@ -513,15 +528,19 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   master batch --aceitar <thread:assinatura,...> --por <humano>
   master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>"
-        [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
+  master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>
+        [--classe C[,C]] [--resumo R] [--refazer]
                                             Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
                                             de processo de host e recusado com master.prova-de-canal)
   master pedir <thread-id> [--formato telegram|terminal|json]
                                             Pede a nota ao dono com codigo curto; ele responde pelo Telegram
                                             (<codigo> <0 a 5> <porque>) e a nota vai ao ledger com o recibo (RM-048)
   master [--todas] [--json]                 As entregas, com o indice derivado do ledger
-  master --aceitar-omissao [--json]         Aceita as entregues por omissao, com registro
+  master <thread-id> --aceitar-omissao      Aceita por omissao SO a entrega desta thread, com registro (ou --thread T)
+        [--dry-run] [--json]                     --dry-run lista o que seria fechado, sem gravar
+  master --aceitar-omissao [--dry-run] [--json]
+                                            Aceita TODAS as entregues por omissao, listando cada uma
+                                            (de processo de agente com mais de uma, avisa em stderr)
   master classes                            As classes de falha fixas do POSTMORTEM
   licoes [--json]                           O que volta no GOAL e no PLAN da proxima thread (POSTMORTEM e
                                             MASTER) e as propostas de policy por recorrencia (I-55)
@@ -557,6 +576,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
+  network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
+                                            com a fonte, as lacunas e o que nao foi lido (RM-053)
+  network entrar [--maquina NOME]           Esta maquina entra na rede: repositorio privado <usuario>/orkastery-network
+        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato;
+        [--forcar]                               --forcar toma um nome que outra instalacao usa (fica no commit)
+  network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
+                                            entrar, sai sozinho na batida do pulse e nos eventos de thread
+  network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
@@ -1046,7 +1073,15 @@ function comandoAccounts(args: Args): number {
     imprimir();
     return falhas > 0 ? 1 : 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove ou check)`);
+  if (sub === 'esgotamentos') {
+    // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
+    let relatorio;
+    try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
+    catch (e) { console.error(`${(e as Error).message} (use --desde 7d, 24h, 30m ou uma data ISO)`); return 2; }
+    console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
+    return 0;
+  }
+  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`);
   return 2;
 }
 
@@ -1592,6 +1627,11 @@ function comandoVerify(args: Args): number {
     for (const c of b.comandos) {
       console.log(`  ${c.nome.padEnd(10)} ${c.ok ? 'passava' : `ja falhava (codigo ${c.code})`}  ${c.comando}`);
     }
+    if (b.comandos.some((c) => !c.ok)) {
+      // Ensaio de 03/10 (R7): "ja falhava" sem dizer onde ver a saida do comando.
+      console.log(`  saida de quem falhou: as ultimas linhas em ${caminhoThread(carregado.raiz, id)}, campo baseline.comandos ` +
+        `(resumo e trecho); o evento baseline_recorded esta em ork phase list ${id}`);
+    }
     if (b.comandos.length === 0) {
       // Fatia 2 do ensaio da 0.5.0 (R5): a baseline foi gravada; o que falta e comando, nao baseline.
       console.log('  (nenhum comando em verify: no manifesto: a baseline guarda so o commit, e o verify nao tem como separar regressao de divida)');
@@ -2033,6 +2073,8 @@ function comandoShip(args: Args): number {
       console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
       return 2;
     }
+    // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
+    if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
     const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
@@ -2041,11 +2083,25 @@ function comandoShip(args: Args): number {
     if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
+    // So aviso: nada e gravado e o codigo de saida nao muda.
+    const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
+    if (pendentes.length) {
+      console.log('');
+      console.log(`Aviso: ${pendentes.length} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; o push da base reprova em docs.paridade.merge:`);
+      for (const d of pendentes) {
+        console.log(`  ${d.id} (${d.arquivo}): merge ${d.merge.slice(0, 7)} de ship(${d.thread}), estado.codigo "${d.codigo || 'vazio'}"`);
+        console.log(`    ${d.comando}   (num PR de docs sobre a base atualizada)`);
+      }
+    }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
     const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
       console.log('');
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER: ork master --aceitar-omissao (a nota humana sobrescreve).`);
+      // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
+      // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
+      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER so a(s) desta entrega (a nota humana sobrescreve):`);
+      for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
@@ -2059,6 +2115,9 @@ function comandoShip(args: Args): number {
     console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
     return 2;
   }
+  // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
+  // e `--remoto` sem valor nao vira `origin` em silencio.
+  if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
   const r = ship(carregado, id, {
     para,
@@ -2226,10 +2285,15 @@ function comandoCi(args: Args): number {
   if (sub === 'status') {
     const sha = texto(args.opcoes.sha) ?? args.posicionais[2] ?? exec('git', ['rev-parse', 'HEAD'], carregado.raiz).stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(sha)) {
-      console.error('uso: ork ci status --sha <commit> [--remoto origin]');
+      // Ensaio de 03/10 (R4): `--sha HEAD` ou um sha curto respondiam so a linha de uso, sem dizer por que.
+      console.error('erro: ci status: --sha exige o sha completo, de 40 caracteres hexadecimais minusculos ' +
+        '(git rev-parse HEAD); o check e consultado no commit exato, nunca por ref nem prefixo');
+      console.error('uso: ork ci status --sha <sha de 40 caracteres> [--remoto origin]');
       return 2;
     }
-    const result = consultarCi(carregado, sha, texto(args.opcoes.remoto) ?? 'origin');
+    // RM-047: recusa o `--remoto` que nao e nome de remoto mesmo com o gate de CI desligado.
+    const remoto = exigirRemoto(args.opcoes.remoto === undefined ? 'origin' : args.opcoes.remoto, 'ci');
+    const result = consultarCi(carregado, sha, remoto);
     console.log(args.opcoes.json === true ? JSON.stringify(result, null, 2) : `${result.ok ? 'CI VERDE' : 'CI NÃO LIBEROU'}: ${result.detail}`);
     return result.ok ? 0 : 1;
   }
@@ -2360,7 +2424,10 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
+  // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
+  // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
   const remoto = texto(args.opcoes.remoto) ?? carregado.manifesto.fabrica.remoto;
+  if (sub !== 'publicar') exigirRemoto(remoto, 'fabrica');
   if (sub === 'publicar') {
     const silencioso = args.opcoes.silencioso === true;
     try {
@@ -2420,13 +2487,92 @@ function comandoFabrica(args: Args): number {
     naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
   });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    // RM-053 (fatia 2): o mesmo JSON, com o invisivel do remoto escrito como \uXXXX.
+    console.log(jsonSemInvisivel({ ...painel, consulta }));
     return 0;
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));
   console.log(url === null
     ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
     : textoDaFabrica(painel, nomeDaMaquina()));
+  return 0;
+}
+
+/**
+ * RM-053: `ork network` e a Orkastery Network, as maquinas de uma pessoa em rede. Roda de qualquer
+ * diretorio, com ou sem projeto: a rede e da pessoa, nao de um repositorio. O projeto do diretorio
+ * atual, quando ha, so entra no retrato e na leitura da fabrica legada.
+ */
+function comandoNetwork(args: Args): number {
+  const sub = args.posicionais[1];
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso.
+  if (sub === 'roadmap') return comandoNetworkRoadmap(args);
+  const diretorio = process.cwd();
+  const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
+    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
+    'network roadmap [--projeto P] [--json] [--sem-remoto]';
+  const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
+  if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
+      (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
+    console.error(uso);
+    return 2;
+  }
+  if (sub === 'entrar') {
+    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio,
+      tomarNome: args.opcoes.forcar === true });
+    console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
+      `privado${r.criado ? ', criado agora' : ''}).`);
+    console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
+    if (r.publicacao.tomouNome) console.log(`  Tomou o nome "${r.publicacao.maquina}" de outra instalacao; o commit registra.`);
+    console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
+    for (const d of r.publicacao.descartados) {
+      console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
+    if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
+      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
+    }
+    return 0;
+  }
+  if (sub === 'sair') {
+    const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
+      ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
+      : r.alheio
+        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
+          (r.mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : '')
+        : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) {
+      console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
+    }
+    return 0;
+  }
+  if (sub === 'publicar') {
+    if (args.opcoes.silencioso === true) {
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 14 min) e nao espera.
+      try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
+      catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
+    }
+    const r = publicarRede({ diretorio, forcar: args.opcoes.forcar === true, forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else console.log(r.acao === 'publicou'
+      ? `Rede: ${r.maquina} publicou o retrato em ${r.casa} (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
+      : r.acao === 'ocupado'
+        ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
+        : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    if (args.opcoes.json !== true) {
+      for (const d of r.descartados) console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
+    return 0;
+  }
+  if (sub !== undefined && sub !== 'status') {
+    console.error(`subcomando desconhecido: network ${sub}`);
+    console.error(uso);
+    return 2;
+  }
+  // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
+  const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio });
+  console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
   return 0;
 }
 
@@ -2654,20 +2800,14 @@ function comandoMaster(args: Args): number {
       'master.fila-aposentada: a fila de ratificacao de score saiu na I-43. ' +
       'Entregue e aceito, a menos que voce diga o contrario.\n' +
       '  ork master                     as entregas, com o indice ja derivado do ledger\n' +
-      '  ork master --aceitar-omissao   aceita as entregues, com indice e insumos no ledger\n' +
+      '  ork master <id> --aceitar-omissao   aceita so esta entrega, com indice e insumos no ledger\n' +
+      '  ork master --aceitar-omissao        aceita todas as entregues (--dry-run mostra quais)\n' +
       '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   para reclamar'
     );
     return 2;
   }
-  if (args.opcoes['aceitar-omissao'] === true) {
-    const aceitos = aceitarPendentesPorOmissao(carregado.raiz);
-    if (args.opcoes.json === true) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-    if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-    for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
-    console.log('');
-    console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
-    return 0;
+  if (args.opcoes['aceitar-omissao'] !== undefined) {
+    return comandoAceitarOmissao(args, carregado.raiz, primeiro);
   }
   if (primeiro === undefined) {
     console.log(args.opcoes.json
@@ -2682,7 +2822,7 @@ function comandoMaster(args: Args): number {
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>"');
+    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
     console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
     return 2;
   }
@@ -2733,6 +2873,72 @@ function comandoMaster(args: Args): number {
   console.log('');
   console.log(`Proximo passo: ork board --all   |   entregas e indice: ork master`);
   return 0;
+}
+
+/**
+ * RM-008 (03/10/2026): `ork master [<thread>] --aceitar-omissao [--thread T] [--dry-run] [--json]`.
+ *
+ * Tres vezes na madrugada de 03/10, um condutor rodou `ork master --aceitar-omissao` para fechar a
+ * propria thread, e o comando fechou tambem as entregues de outras frentes (ork-rm057fatia3t,
+ * ork-rm025modocon). A thread indicada (posicional, `--thread T` ou `--aceitar-omissao=T`) limita o
+ * aceite a ela. Sem thread, o padrao continua o mesmo, por decisao registrada: drenar todas, agora
+ * listando cada uma e avisando em stderr quando quem roda e processo de agente.
+ */
+function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | undefined): number {
+  const bruto = args.opcoes['aceitar-omissao'];
+  const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
+    .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
+  if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
+    console.error('uso: ork master <thread-id> --aceitar-omissao [--dry-run] [--json]   (ou --thread <thread-id>, uma thread so)');
+    return 2;
+  }
+  const alvo = candidatos[0];
+  const dryRun = args.opcoes['dry-run'] === true;
+  const json = args.opcoes.json === true;
+  if (alvo) {
+    const fora = motivoForaDaOmissao(raiz, alvo);
+    if (fora) {
+      if (json) console.log(JSON.stringify(dryRun ? { dryRun: true, fecharia: [], motivo: fora.motivo } : [], null, 2));
+      else (fora.motivo === 'ja-fechada' ? console.log : console.error)(fora.texto);
+      return fora.motivo === 'ja-fechada' ? 0 : 1;
+    }
+  }
+  if (dryRun) {
+    const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
+    if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
+    console.log('Ensaio (--dry-run): nada foi gravado.');
+    if (fecharia.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+    console.log(`Fecharia por omissao: ${fecharia.length}.`);
+    for (const f of fecharia) console.log(`  ${f.thread.padEnd(20)} indice ${f.indice.valor}/${f.indice.base}`);
+    avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
+    return 0;
+  }
+  const aceitos = aceitarPendentesPorOmissao(raiz, { thread: alvo });
+  avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
+  if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
+  if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
+  console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
+  for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
+  console.log('');
+  console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
+  return 0;
+}
+
+/**
+ * O aviso do aceite SEM thread vindo de processo de agente que alcanca mais de uma entrega. A marca
+ * e a mesma do `master.prova-de-canal` (ambiente do host ou do despacho). Vai para stderr: o stdout,
+ * inclusive o `--json`, fica como era.
+ */
+function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio: boolean): void {
+  if (alvo || quantas <= 1) return;
+  const marca = marcaDeHost(process.env);
+  if (!marca) return;
+  const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
+  console.error('');
+  console.error(`aviso: master.omissao-sem-thread: processo de agente (${marca}) ${ensaio ? 'fecharia' : 'fechou'} ${quantas} threads, ` +
+    'inclusive as de outras frentes paralelas.');
+  console.error(`  Para fechar so a sua: ork master ${propria || '<thread-id>'} --aceitar-omissao` +
+    (ensaio ? '' : '  (a nota humana sobrescreve o aceite de quem nao era seu)'));
 }
 
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
@@ -2829,7 +3035,7 @@ function comandoRoadmap(args: Args): number {
  * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
  * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
  */
-function comandoNetwork(args: Args): number {
+function comandoNetworkRoadmap(args: Args): number {
   const pedido = texto(args.opcoes.projeto);
   if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
     console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
@@ -2988,6 +3194,17 @@ function exigirFaseCanonica(bruto: string | undefined): Fase {
 /**
  * `ork adapter list|show|install <host>`: instalacao dos adaptadores de Camada 1 (bloco B4).
  */
+/**
+ * O caminho real do `ork` em execução, quando o processo é este CLI (argv[1] resolve para este arquivo).
+ * Importado por outro script, devolve undefined e o install volta à ordem antiga (PATH, catálogo).
+ */
+function orkEmExecucao(): string | undefined {
+  try {
+    const proprio = fs.realpathSync(__filename);
+    return process.argv[1] && fs.realpathSync(process.argv[1]) === proprio ? proprio : undefined;
+  } catch { return undefined; }
+}
+
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
 
@@ -3024,6 +3241,8 @@ function comandoAdapter(args: Args): number {
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
       orkBin: texto(args.opcoes.ork),
+      // Ensaio de 03/10: a extensão chama o ork que a instalou, não o primeiro do PATH.
+      orkEmExecucao: orkEmExecucao(),
       versao: VERSAO,
       // I-43 (D5): a decisao por ARQUIVO, que e o que faz `--force` deixar de ser o
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
@@ -3682,7 +3901,15 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    // RM-038: o universo da busca inteiro, numa leitura; sem ele, nada e embedado (nunca um pedaco).
+    let universo: UniversoDaBusca;
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
+      const motivo = codigoDaFalha(erro);
+      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
+      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      return 1;
+    }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3733,50 +3960,36 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   const memoria = abrirMemoria(carregado);
   const config = configDeEmbedding(carregado.manifesto);
   let r: ResultadoDaBuscaSemantica;
+  const vazio = { texto: frase, modo, origem: 'nenhum' as const, modeloUsado: null, deterministico: false as const,
+    resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0, coberturaDoIndice: null };
+  let universo: UniversoDaBusca | null = null;
+  let falhaDoUniverso = '';
+  if (memoria.ativo) {
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) { falhaDoUniverso = codigoDaFalha(erro); }
+  }
   if (!memoria.ativo) {
-    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
-      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+    r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
+  } else if (!universo) {
+    // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      universo, colecao: colecao as ColecaoDoOrk | undefined,
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
       embeddar: (p, o) => transporte.embeddar(p, o), buscarTexto: (t, q) => transporte.buscarTexto(t, q) });
   }
+  const codigo = universo ? 0 : 1;
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
-    return 0;
+    return codigo;
   }
-  console.log(`Busca por significado (NAO deterministica; modo ${r.modo}, origem ${r.origem}${r.modeloUsado ? ` ${r.modeloUsado}` : ''})`);
-  if (r.motivo) console.log(`  motivo: ${r.motivo}${r.detalhe ? `; ${r.detalhe}` : ''}`);
-  console.log('');
-  r.resultados.forEach((e, i) => {
-    const sim = e.similaridade === null ? '' : `  similaridade ${e.similaridade}`;
-    console.log(`  ${i + 1}. [${e.collection}] ${e.id}  score ${e.score}  ${e.fontes.join('+')}${sim}`);
-    console.log(`      ${e.resumo}`);
-  });
-  console.log('');
-  console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
-  return 0;
-}
-
-/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
-function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
-  return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
-  ].join('\n');
+  console.log(textoDaBuscaPorSignificado(r));
+  return codigo;
 }
 
 /**
@@ -3918,11 +4131,13 @@ export function main(argvBruto: string[]): number {
           throw Error(`uso: ork doctor --modo ${ORDEM_DOS_MODOS.join('|')}`);
         const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
-      const r = doctor(diretorioDoProjeto(), nomesHerdados);
+      // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK));
       console.log(r.texto);
       return r.codigo;
     }
     case 'init': {
+      exigirRepositorioParaInit(process.cwd());
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),
@@ -4091,7 +4306,9 @@ export function main(argvBruto: string[]): number {
       // RM-031 KG3 (D7): o argv cru depois do comando; o parser do grafo e estrito.
       const carregado = exigirManifesto();
       return executarGrafo(argv.slice(argv.indexOf('grafo') + 1),
-        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, escrever: (texto) => console.log(texto) });
+        { raiz: carregado.raiz, estado: raizDoEstado(carregado.raiz), repositorio: carregado.manifesto.project.name, versao: VERSAO_DO_ORK,
+          contextoDaThread: (id) => lerEntradaDaThread(carregado.raiz, id),
+          escrever: (texto) => console.log(texto) });
     }
     case 'ship':
       return comandoShip(args);

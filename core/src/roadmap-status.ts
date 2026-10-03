@@ -30,6 +30,7 @@ import { ConsultaDoProjeto, linhasDaConsulta } from './projeto-alvo';
 import { Thread } from './types';
 import { BRANCH_DA_FABRICA, LIMIAR_SEM_BATIDA_MS, lerFabrica } from './fabrica-estado';
 import { linhaDoParadoNoCondutor } from './hitl-resumo';
+import { HitlDeConducaoAgora, lerHitlDeConducaoAgora, linhaDaPerguntaParada, textoDaMediana } from './hitl-tempo-parado';
 import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, forjaSemLeituraDoRemoto, lerRetratoDePrs } from './parado-no-condutor';
@@ -131,6 +132,11 @@ export interface StatusDoRoadmap {
    * preenchem; sem ele o titulo sozinho deixava um canal relatar o projeto errado como o pedido.
    */
   consulta?: ConsultaDoProjeto;
+  /**
+   * RM-057 (fatia 3): o tempo parado por HITL de conducao deste disco, na mesma forma do pulse. So
+   * sai com pergunta aberta ou resposta medida na semana; a visao da rede nao o soma.
+   */
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 /**
@@ -286,13 +292,20 @@ export function montarStatusDoRoadmap(raiz: string,
   const quando = opcoes.quando ?? new Date().toISOString();
   let fabrica: BatidaDaFabrica | undefined;
   try { fabrica = batidaDaFabrica(exigirManifesto(raiz), quando); } catch { fabrica = undefined; }
+  // RM-057 (fatia 3): leitura pura do ledger; sem ela o relatorio sai como antes.
+  let hitlDeConducao: HitlDeConducaoAgora | undefined;
+  try {
+    const h = lerHitlDeConducaoAgora(raiz, quando);
+    if (h.abertas.length || h.seteDias.pedidos || h.seteDias.respondidos) hitlDeConducao = h;
+  } catch { hitlDeConducao = undefined; }
   return montarStatusDeFatos(carregarDocs(raiz).docs, fatosLocais(raiz, quando), { quando, projeto: opcoes.projeto, consulta: opcoes.consulta,
-    ...(fabrica ? { fabrica } : {}) });
+    ...(fabrica ? { fabrica } : {}), ...(hitlDeConducao ? { hitlDeConducao } : {}) });
 }
 
 /** O relatorio a partir das paginas do roadmap e dos fatos das threads, de onde quer que venham. */
 export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly FatoDeThread[],
-  opcoes: { quando: string; projeto?: string; consulta?: ConsultaDoProjeto; fabrica?: BatidaDaFabrica }): StatusDoRoadmap {
+  opcoes: { quando: string; projeto?: string; consulta?: ConsultaDoProjeto; fabrica?: BatidaDaFabrica;
+    hitlDeConducao?: HitlDeConducaoAgora }): StatusDoRoadmap {
   const quando = opcoes.quando;
   const porId = new Map(fatos.map(f => [f.id, f]));
   const porItem = new Map<string, Set<string>>();
@@ -333,6 +346,7 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     emSeguida: itens.filter(i => i.conduzindo && !i.hitl).map(i => ({ item: i.id, ...i.conduzindo! })),
     ...(opcoes.consulta ? { consulta: opcoes.consulta } : {}),
     ...(opcoes.fabrica ? { fabrica: opcoes.fabrica } : {}),
+    ...(opcoes.hitlDeConducao ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
 }
 
@@ -405,6 +419,9 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
       (x.espera.codigo ? ` Responda ${x.espera.codigo} ${x.espera.recomendada ?? 'a'} (ou outra letra).` : ' A pergunta chega no próximo resumo.'))
       : ['• Nada agora.']),
+    // RM-057 (fatia 3): ha quanto tempo cada pergunta de conducao parou a thread, e a mediana da semana.
+    ...(s.hitlDeConducao ? [`• HITL de condução: ${s.hitlDeConducao.abertas.length} aberta(s); ${textoDaMediana(s.hitlDeConducao)}.`,
+      ...cortar(s.hitlDeConducao.abertas, a => `  ${linhaDaPerguntaParada(a, { agora: s.consultadoEm, fuso })}.`)] : []),
     '', 'O que eu faço em seguida',
     ...(s.emSeguida.length ? cortar(s.emSeguida, x => linhaDoQueVem(x, s.consultadoEm, fuso))
       : ['• Nada em andamento; sigo o que você priorizar.']),

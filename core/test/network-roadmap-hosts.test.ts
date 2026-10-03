@@ -496,7 +496,7 @@ test('rede nos hosts: incidente de 29/09, o status do roadmap do orkastery pedid
       const linhas = t.split('\n');
       assert.match(linhas[0], /^Panorama da rede lido de pc-a \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
       assert.equal(linhas[1], `Consultado: orkastery (clone em ${r.a.dir})`);
-      assert.match(t, /^• rede por pessoa \(RM-053, ork\.rede-status\/v1\): não lida nesta versão/m);
+      assert.match(t, /^• rede por pessoa \(RM-053, ork\.rede-status\/v1\): leitura desligada \(ORK_REDE_LER=0\)/m);
       assert.match(t, new RegExp(`^• diretório do host \\(${escapar(gateway)}\\): o projeto workspace está fora do registro desta máquina`, 'm'));
       assert.match(t, /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/m);
       for (const id of ['RM-001', 'RM-002', 'RM-003']) assert.match(t, new RegExp(`• ${id} `), id);

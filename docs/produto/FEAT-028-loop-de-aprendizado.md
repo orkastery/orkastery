@@ -47,7 +47,7 @@ fontes:
   4. As que o `ork` confere sem ambiguidade (`verify_regression`, `verify_failed`, `runtime_unavailable` e `tree_blocked`) viram policy executável: em `warn`, avisam no gate com a correção e gravam `policy_warn`; em `block`, reprovam como as outras policies. A lição `claims.failed` vira a policy opt-in `claim_sem_prova_local` (alias `claims_failed`): declarada, o `ork claims add` roda o comando da claim uma vez no prazo do verify e só avisa (B8).
 
 - **Alternativas, erros e recuperação:** sem thread fechada, não há item nem seção vazia no prompt; arquivo ilegível é ignorado.
-- **Entrega por PR (I-57):** a thread entregue por PR entra no loop depois de `ork ship registrar-pr` e do `ork master --aceitar-omissao`; antes, ela ficava aberta para sempre e não ensinava nada.
+- **Entrega por PR (I-57):** a thread entregue por PR entra no loop depois de `ork ship registrar-pr` e do `ork master <thread> --aceitar-omissao`; antes, ela ficava aberta para sempre e não ensinava nada.
 - **Pós-condições:** o prompt carimbado no ledger já contém a lição, com a origem declarada (`.orkastery/threads/*/POSTMORTEM.json`).
 - **Regras de negócio:**
   - BR-028-01: só thread fechada pelo MASTER ensina; a thread corrente nunca aprende consigo mesma.

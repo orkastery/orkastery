@@ -24,6 +24,7 @@ import { mergeDaThread, resolverBase } from './docs';
 import { liberarSeOrfa } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { linhaDoParadoNoCondutor } from './hitl-resumo';
+import { HitlDeConducaoAgora, linhaDaPerguntaParada, lerHitlDeConducaoAgora, textoDaMediana } from './hitl-tempo-parado';
 import { avisarForjaSemLeitura, EntregasDoProjeto, entregasDoProjeto, esquecerForjaSemLeitura, ExecutorDoGh, gravarRetratoDePrs,
   LeituraDePrs, lerPrsDaForja, ParadoNoCondutor, sessaoSemPergunta } from './parado-no-condutor';
 
@@ -60,6 +61,12 @@ export interface Pulse {
    * pergunta ao dono nem conta em "Esperando voce". Campo aditivo: pulse de antes continua valido sem ele.
    */
   paradoNoCondutor?: ParadoNoCondutor[];
+  /**
+   * RM-057 (fatia 3): o tempo parado por HITL de conducao, as perguntas abertas agora e a mediana dos
+   * ultimos 7 dias, na forma do `hitlDeConducao` do `ork ledger stats`. Campo aditivo: so sai quando
+   * ha pergunta aberta ou resposta medida na semana, e pulse de antes continua valido sem ele.
+   */
+  hitlDeConducao?: HitlDeConducaoAgora;
 }
 
 /** Uma semana: o resumo cita a decisao uma vez, e ela continua lida ate sair da janela. */
@@ -300,6 +307,11 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
     const { decisoes, acimaDoLimiar } = decisoesParaODono(carregado.raiz, new Date(Date.parse(quando) - JANELA_DAS_DECISOES_MS).toISOString());
     pulse.decisoes = decisoes; pulse.acimaDoLimiar = acimaDoLimiar;
   } catch (e) { diagnosticos.push(`decisoes.indisponiveis: ${(e as Error).message.slice(0, 120)}`); }
+  // RM-057 (fatia 3): leitura pura do ledger; falhar aqui nunca derruba a fila de atencao.
+  try {
+    const hitl = lerHitlDeConducaoAgora(carregado.raiz, quando);
+    if (hitl.abertas.length || hitl.seteDias.pedidos || hitl.seteDias.respondidos) pulse.hitlDeConducao = hitl;
+  } catch (e) { diagnosticos.push(`hitl-conducao.indisponivel: ${(e as Error).message.slice(0, 120)}`); }
   if (diagnosticos.length) pulse.runtime.detalhe = [pulse.runtime.detalhe, ...diagnosticos].filter(Boolean).join('; ');
   return pulse;
 }
@@ -326,6 +338,12 @@ export function textoDoPulse(p: Pulse): string {
   if (p.paradoNoCondutor?.length) {
     linhas.push('',`Parado no condutor: ${p.paradoNoCondutor.length}`);
     for (const x of p.paradoNoCondutor) linhas.push(linhaDoParadoNoCondutor(x, { agora: p.consultadoEm }));
+  }
+  // RM-057 (fatia 3): quanto tempo cada pergunta de conducao aberta ja parou a thread, e a mediana da semana.
+  if (p.hitlDeConducao) {
+    const h = p.hitlDeConducao;
+    linhas.push('',`HITL de condução: ${h.abertas.length} aberta(s); ${textoDaMediana(h)}`);
+    for (const a of h.abertas) linhas.push(linhaDaPerguntaParada(a, { agora: p.consultadoEm }));
   }
   linhas.push('',`Ações automáticas pendentes: ${p.resumo.automaticas}`);
   for(const i of p.acoesAutomaticas) linhas.push(`${i.thread}: ${i.motivo}; ${i.comandoResposta}`);

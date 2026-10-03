@@ -1,4 +1,5 @@
 /** GitHub CI como CHECK independente (I-12). */
+import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
@@ -59,9 +60,13 @@ const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
   /verify-check-c2-b3\.cjs\s+channel-offer(?:\s|$)/,
   // I-38: a prova da busca por significado le a memoria do tenant pela DSN do manifesto.
   /prova-busca-semantica\.sh(?:\s|$)/,
+  // RM-038: a prova do universo da busca tambem le a memoria do tenant pela DSN do manifesto.
+  /prova-universo-da-busca\.cjs(?:\s|$)/,
   // RM-051: o ensaio instala o tarball com npm --offline e resolve as dependencias pelo cache do npm
   // da estacao; o runner hospedado so tem os tarballs do npm ci, sem os metadados do registro.
   /testar-experiencia-e2e\.cjs(?:\s|$)/,
+  // RM-037: a suite local inteira, com as integracoes locais; o runner hospedado roda o test:ci.
+  /suite-local\.cjs(?:\s|$)/,
 ];
 /**
  * I-38: o runner hospedado nao oferece OrkMind nem a base do tenant. Claim que chama a memoria
@@ -123,7 +128,8 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
   if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: 'gate de CI não exigido pelo manifesto' };
-  const remote = exec('git', ['remote', 'get-url', remoto], carregado.raiz);
+  // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
+  const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
   const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
   if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: `remoto ${remoto} não é um repositório GitHub reconhecível` };
   return consultarCiDoRepositorio(repository, sha, context, executor);

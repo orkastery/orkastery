@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pythonFixture } from './native-fixture';
+import { semOrkMind } from './ambiente-de-teste';
 
 const PONTE = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
 
@@ -48,7 +49,7 @@ ${corpo}
   } finally { fs.rmSync(cache, { recursive: true, force: true }); }
 }
 
-test('embed primario usa o provider da biblioteca com request_dimensions e a chave pelo nome fixo', () => {
+test('embed primario usa o provider da biblioteca com request_dimensions e a chave pelo nome fixo', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 async def run():
     out = await b.embed(pedido(textos=['uma entrada', 'outra entrada']))
@@ -63,7 +64,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'x'.repeat(24)].join
   assert.match(r.stdout, /primario ok/);
 });
 
-test('embed confere a dimensao devolvida e recusa vetor divergente', () => {
+test('embed confere a dimensao devolvida e recusa vetor divergente', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 class Curto(Falso):
     async def embed_batch(self, textos):
@@ -84,7 +85,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'y'.repeat(24)].join
   assert.match(r.stdout, /dimensao ok/);
 });
 
-test('texto com padrao de segredo e recusado antes de instanciar o provider', () => {
+test('texto com padrao de segredo e recusado antes de instanciar o provider', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 async def run():
     segredos = ['sk-' + 'ant-' + 'a' * 20, 'sk-' + 'or-v1-' + 'b' * 40, 'gh' + 'p_' + 'c' * 30,
@@ -99,7 +100,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'z'.repeat(24)].join
   assert.match(r.stdout, /segredo ok/);
 });
 
-test('sem chave no ambiente o primario responde chave-ausente sem provider', () => {
+test('sem chave no ambiente o primario responde chave-ausente sem provider', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 async def run():
     await falha(pedido(), 'embeddings.chave-ausente')
@@ -110,7 +111,7 @@ asyncio.run(run())`);
   assert.match(r.stdout, /chave ok/);
 });
 
-test('falha do provider vira codigo tipado, timeout separado, sem texto do provider', () => {
+test('falha do provider vira codigo tipado, timeout separado, sem texto do provider', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 import httpx
 class Rede(Falso):
@@ -130,7 +131,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'w'.repeat(24)].join
   assert.match(r.stdout, /provider ok/);
 });
 
-test('modelo local ausente do cache responde local-ausente, offline', () => {
+test('modelo local ausente do cache responde local-ausente, offline', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 import os
 async def run():
@@ -142,7 +143,7 @@ asyncio.run(run())`);
   assert.match(r.stdout, /local ok/);
 });
 
-test('pedido fora do contrato e recusado antes de qualquer provider', () => {
+test('pedido fora do contrato e recusado antes de qualquer provider', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 async def run():
     invalidos = [pedido(dim=16), pedido(dim=True), pedido(textos=[]), pedido(textos=['x'] * 33),
@@ -157,7 +158,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'v'.repeat(24)].join
   assert.match(r.stdout, /contrato ok/);
 });
 
-test('nenhuma outra operacao instancia provider e embed nao le a DSN', () => {
+test('nenhuma outra operacao instancia provider e embed nao le a DSN', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 import os
 class Proibido:
@@ -192,7 +193,7 @@ asyncio.run(run())`);
   assert.match(r.stdout, /isolamento ok/);
 });
 
-test('prefixo de instrucao depende da familia do modelo e nunca altera o conteudo', () => {
+test('prefixo de instrucao depende da familia do modelo e nunca altera o conteudo', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 assert b.model_prefix('intfloat/multilingual-e5-small', 'consulta') == 'query: '
 assert b.model_prefix('intfloat/multilingual-e5-small', 'documento') == 'passage: '
@@ -213,7 +214,7 @@ asyncio.run(run())`, { ORKMIND_EMBEDDING_API_KEY: ['falsa', 'u'.repeat(24)].join
   assert.match(r.stdout, /prefixo ok/);
 });
 
-test('fallback declara em truncados o texto acima do contexto do modelo local, nunca em silencio', () => {
+test('fallback declara em truncados o texto acima do contexto do modelo local, nunca em silencio', { skip: semOrkMind() }, () => {
   const r = rodarPython(String.raw`
 import torch
 class Tok:

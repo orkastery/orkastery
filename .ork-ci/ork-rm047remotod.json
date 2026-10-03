@@ -1,0 +1,141 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm047remotod",
+  "branch": "ork/ork-rm047remotod-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "buscarBranch e gravarNaBranch recusam opção, transporte, URL e controle com <prefixo>.remoto-invalido antes do git, e a marca que o valor criaria não nasce",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='buscarBranch e gravarNaBranch recusam' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:06.834Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "o validador aceita origin, upstream, meu-remoto.2 e recusa os maliciosos com mensagem tipada e valor redigido (sem credencial, sem controle, curto)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='aceita origin|redige credencial' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:06.981Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "ork fabrica, fabrica --json, publicar, entrar e sair recusam o fabrica.remoto do manifesto com fabrica.remoto-invalido, sem executar nada e sem gravar a adesão",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='ork fabrica, publicar, entrar e sair' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.126Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/fabrica-estado.ts",
+      "alegacao": "ork fabrica publicar --silencioso deixa fabrica.remoto-invalido no fabrica.log, sem saída no terminal e sem executar nada",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='silencioso' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.272Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/roadmap-reservas.ts",
+      "alegacao": "ork roadmap reservas, pegar, soltar e feat recusam --remoto que não é nome de remoto com roadmap.remoto-invalido",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='ork roadmap reservas, pegar e soltar' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.418Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "nomes legítimos seguem: upstream no manifesto publica a fábrica e meu-remoto.2 no --remoto reserva o item",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='nomes legitimos' core/dist-test/test/branch-de-estado-remoto.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.569Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/branch-de-estado.ts",
+      "alegacao": "fetch, push e remote get-url recebem '--' antes do remoto",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"'fetch', '--quiet', '--no-tags', '--', remoto\" core/src/branch-de-estado.ts && grep -q \"'push', '--quiet', '--', remoto\" core/src/branch-de-estado.ts && grep -q \"'remote', 'get-url', '--', remoto\" core/src/projeto-alvo.ts && grep -q \"'remote', 'get-url', '--', remoto\" core/src/parado-no-condutor.ts && grep -q \"'remote', 'get-url', '--', remoto\" core/src/network-roadmap.ts"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.720Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "core/src/network-roadmap.ts",
+      "alegacao": "o network roadmap reaproveita o validador e as suítes de rede, reservas e fábrica seguem verdes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/network-roadmap.test.js core/dist-test/test/roadmap-reservas.test.js core/dist-test/test/fabrica-estado.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:11:07.864Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm047remotod",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG traz a linha de segurança em Não publicado e o guia de várias máquinas documenta a regra",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q '^### Segurança' CHANGELOG.md && grep -q 'fabrica.remoto-invalido' docs/guias/varias-maquinas.md"
+      ],
+      "criadoEm": "2026-10-03T03:11:08.017Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -93,15 +93,44 @@ export function linhasDaVarredura(crontab: string): string[] {
     .filter(l => l && !l.startsWith('#') && !/^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(l) && l.includes(SCRIPT_DA_VARREDURA));
 }
 
+/** Aspas de shell so quando o caminho precisa (a linha vai colada no crontab, que roda por `sh`). */
+function citar(caminho: string): string {
+  return /^[A-Za-z0-9_./:@+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * O script da varredura que este `ork` traz: no pacote do npm, `monitor/` fica ao lado de `dist/`; no
+ * checkout, na raiz do repositorio, dois niveis acima de `core/dist/`. `null` quando nenhum existe.
+ */
+export function scriptDaVarreduraDoOrk(dirDoDist: string = __dirname): string | null {
+  for (const dir of [path.join(dirDoDist, '..', 'monitor'), path.join(dirDoDist, '..', '..', 'monitor')]) {
+    const script = path.join(dir, SCRIPT_DA_VARREDURA);
+    if (fs.existsSync(script)) return path.resolve(script);
+  }
+  return null;
+}
+
+/**
+ * O comando que a linha nova do crontab roda. Ensaio de 03/10/2026 (RM-049): a correcao apontava
+ * `<projeto>/monitor/varredura-pulse.sh`, que so existe no checkout do proprio Orkastery; quem instalou
+ * pelo npm recebia um caminho que nao existe. Quando o projeto nao traz o script, a linha usa o do `ork`
+ * instalado e diz o projeto por `ORK_PULSE_PROJECT` (o cron nao roda no diretorio do projeto).
+ */
+export function comandoDaVarredura(raizDoProjeto: string, scriptDoOrk: string | null = scriptDaVarreduraDoOrk()): string {
+  const doProjeto = path.join(raizDoProjeto, 'monitor', SCRIPT_DA_VARREDURA);
+  if (fs.existsSync(doProjeto) || !scriptDoOrk) return citar(doProjeto);
+  return `ORK_PULSE_PROJECT=${citar(raizDoProjeto)} ${citar(scriptDoOrk)}`;
+}
+
 /**
  * Check "cadencia do pulse no cron". `null` quando o projeto nao tem transporte do pulse: sem
  * `pulse-host.json` nao ha resumo para entregar, e o doctor nao fala de cron.
  */
 export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,
-  ler: LeitorDoCrontab = lerCrontabDoSistema): Check | null {
+  ler: LeitorDoCrontab = lerCrontabDoSistema, scriptDoOrk: string | null = scriptDaVarreduraDoOrk()): Check | null {
   if (!fs.existsSync(path.join(dirMonitor, 'pulse-host.json'))) return null;
   const nome = 'cadencia do pulse no cron';
-  const comandoSugerido = path.join(raizDoCheckout, 'monitor', SCRIPT_DA_VARREDURA);
+  const comandoSugerido = comandoDaVarredura(raizDoCheckout, scriptDoOrk);
   const linhaNova = (comando: string) => `${BATIDA_DO_TEMPLATE} ${comando}`;
   const ausente = (detalhe: string): Check => ({ nome, nivel: 'warn', detalhe,
     correcao: `adicione ao crontab (crontab -e), como no template monitor/pulse.cron: ${linhaNova(comandoSugerido)}` });

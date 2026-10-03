@@ -152,11 +152,53 @@ Todo comando agora diz se **rodou** (`executado`). Comando que o sistema não ch
 nunca vira verificado, mesmo com `ok: true`. A claim sai como `verify.sem-veredito` e o estado
 anterior dela não muda. Sem `verify.preparo`, nada disso muda o comportamento de antes.
 
+### Dependência opcional ausente é skip, não falha (RM-037)
+
+O `npm --prefix core test` roda também as integrações locais listadas em
+[integracoes-locais.ts](../../core/src/integracoes-locais.ts), e elas pedem ferramentas que nem toda
+máquina tem. Cada teste que depende de uma delas sonda a dependência antes e, se ela falta, sai
+como skip com o motivo, em vez de reprovar:
+
+| Dependência | O que a sonda confere | Motivo do skip |
+| --- | --- | --- |
+| Sandbox do codex | `/usr/bin/codex` existe (o binário que o executor do `verify` usa) | `skip: codex do sandbox ausente em /usr/bin/codex` |
+| Interpretador do OrkMind | `orkmind` no `PATH`, com o interpretador no shebang (a ponte Python) | `skip: interpretador do OrkMind ausente (orkmind fora do PATH)` |
+| PostgreSQL | Docker com a imagem `pgvector/pgvector:pg16`, mais o OrkMind | `skip: PostgreSQL ausente (Docker com a imagem pgvector/pgvector:pg16)` |
+
+Assim, a suíte inteira passa com 0 falhas numa máquina sem nenhuma delas, e o fim do relatório do
+`node --test` lista os skips (`ℹ skipped`); cada um aparece com `# skip: <motivo>`. Uma falha que
+sobra é de verdade, e não precisa mais ser comparada à mão com a lista da `main`.
+
+Quem quer a prova completa liga `ORK_TESTE_EXIGE_AMBIENTE=1`: nada é pulado, e o teste roda e
+reprova pela falta real. O `npm --prefix core run test:ci` liga a variável sozinho, então nenhum teste
+com o skip tipado pula no CI. Os arquivos que usam o skip ficam todos na lista das integrações
+locais, que o CI não roda, e um teste confere isso. Os dois skips anteriores, `biblioteca opcional
+ausente no CI` (em `decision-identity` e `handoff-governado`), seguem como eram: quem os torna
+obrigatórios é `ORK_I06_REQUIRE_REAL_DATABASE=1`.
+
+Para ver a conta sem ler o relatório inteiro, `node core/scripts/suite-local.cjs` roda a suíte, sai
+0 só com 0 falhas e lista cada skip com o motivo (`--minimo-de-skips N` exige ao menos N).
+
+```bash
+npm --prefix core test                                    # 0 falhas, skips com o motivo
+ORK_TESTE_EXIGE_AMBIENTE=1 npm --prefix core test         # exige as três dependências
+```
+
+O teste novo que depende de ferramenta externa usa o mesmo helper:
+
+```ts
+import { semPostgres } from './ambiente-de-teste';
+test('...', { skip: semPostgres() }, () => { /* ... */ });
+```
+
+Os atalhos são `semCodexSandbox()`, `semOrkMind()` e `semPostgres()`, em
+[ambiente-de-teste.ts](../../core/test/ambiente-de-teste.ts).
+
 ---
 
-## 3. Os 22 motivos tipados de gate
+## 3. Os motivos tipados de gate
 
-Nenhum bloqueio é uma string de prosa. Todo bloqueio é um destes vinte e dois, e o motivo
+Nenhum bloqueio é uma string de prosa. Todo bloqueio tem um motivo tipado, e o motivo
 determina a ação. Isso é o que torna retry, metrica e auditoria automatizaveis: `ork retry
 policy` imprime a tabela a partir do código, que é um mapa total sobre o catálogo (motivo novo
 não compila sem política).
@@ -175,6 +217,7 @@ não compila sem política).
 | `runtime.profile-invalid` | escalar-humano | **não** | O perfil pedido (`--perfil`) não existe ou é de outro runtime (RM-056): repetir dá a mesma recusa, e trocar de perfil sozinho desobedeceria o pedido |
 | `tree.blocked` | sincronizar-worktree | sim | A árvore andou por baixo da thread: reexecutar antes de rebasar só repete o conflito |
 | `lease.busy` | reexecutar | sim | O lease e de outra thread e vai ser liberado. A fila já serializa: nunca furar a fila |
+| `lease.resume-unavailable` | escalar-humano | **não** | Retomada sem caminho seguro, como hard link ou link simbólico: avaliar a posse antes de `ork lease release <nome> --forcar`. Ausência de `flock` usa retomada portátil; `nlink === 0` é `lease.busy`. Fila de retomada expirada (30 minutos): candidatos e temporários recolhidos; consultar `ork lease list` e repetir a aquisição, sem apagar o lease |
 | `conducao.em-andamento` | esperar a vez | sim | Outra condução executa na mesma worktree agora (I-36). A vez chega quando ela terminar; repetir já recebe a mesma recusa, e furar a fila é o incidente de 19/09/2026 |
 | `runtime.unavailable` | reexecutar | sim | Falha de infra não é falha de conteúdo: o MESMO prompt, com o mesmo sha256, e redespachado |
 | `runtime.silencio` | reexecutar | sim, com prova terminal | Fase sem heartbeat: só redespacha com prova terminal atual da mesma sessão |
@@ -497,7 +540,9 @@ o `ork claims add` roda os comandos da claim uma vez, na worktree da thread e no
 `verify.timeout_ms`. A claim entra de qualquer jeito. Se o comando reprova, o `ork` grava
 `policy_warn` com `claims.failed`; se estoura o prazo, com `verify.timeout`. Ela nunca para o
 registro, nem declarada em `block`. Como o `add` fica tão lento quanto o comando da claim, quem
-decide ligá-la é o dono do projeto.
+decide ligá-la é o dono do projeto. Sem a worktree da thread (apagada), nada roda e o aviso diz
+isso. Pelo MCP (`ork_claim_add`), o registro nunca roda o texto da claim, com ou sem a policy: lá a
+prova é o `ork_verify`, no sandbox.
 
 A política `provider_policy: subscription-only` do bloco `runtime` é o que da sentido a policy
 `provider`: ela declara que este projeto só despacha pela assinatura local, e transforma

@@ -192,7 +192,9 @@ const PROJETO_DA_REDE: ProjetoDaTool = {
 /**
  * RM-057 (fatia 2): a regra do HITL de conducao, a mesma frase dos adaptadores do Claude Code e do
  * Codex (fatia 1). No OpenClaw o modelo so le as descricoes das tools: ela vai nas que recebem o
- * pedido do dono (ork_modo_do_pedido), apresentam o panorama (ork_maestro) e despacham fase.
+ * pedido do dono (ork_modo_do_pedido), apresentam o panorama (ork_maestro) e despacham fase. Ensaio
+ * de 03/10: no perfil `coding` o modelo so ve as tools do `toolMetadata` (ork_network_roadmap e
+ * ork_network_status), entao a regra vai tambem nelas, sem ampliar o que o perfil expoe.
  */
 const REGRA_HITL_DE_CONDUCAO =
   'HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo "Recomendação". ' +
@@ -210,6 +212,8 @@ interface FerramentaOrk {
   entrada?: (params: Record<string, unknown>) => string;
   /** O `projeto` desta tool, quando nao e o da RM-052 (so nome). */
   projeto?: ProjetoDaTool;
+  /** RM-054 (fatia 3): a tool e da pessoa, nao de um projeto (`ork network status`); sem `projeto`. */
+  semProjeto?: true;
 }
 
 const FERRAMENTAS: FerramentaOrk[] = [
@@ -477,11 +481,20 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_network_roadmap',
     description:
-      'Roadmap da rede, somente leitura: para cada projeto, o status report do roadmap (RM-048) com as threads de TODAS as máquinas, as reservas, as threads por máquina com a idade da batida, a fonte e a hora de cada parte e as lacunas. É a fonte para qualquer pergunta sobre o roadmap ou o status report: transporte o texto como vem, sem reescrever nem resumir. Passe projeto com o nome que o dono pediu (ex.: orkastery) ou github:dono/repo; sem projeto, vêm todos os projetos conhecidos, e esse é o panorama da frase orkastery maestro sem projeto. Lacuna, "não lido" e "Não consultado" são fontes que ficaram sem leitura: nunca conclua "roadmap vazio" nem "nenhuma máquina publicou" a partir delas.',
+      'Roadmap da rede, somente leitura: para cada projeto, o status report do roadmap (RM-048) com as threads de TODAS as máquinas, as reservas, as threads por máquina com a idade da batida, a fonte e a hora de cada parte e as lacunas. É a fonte para qualquer pergunta sobre o roadmap ou o status report: transporte o texto como vem, sem reescrever nem resumir. Passe projeto com o nome que o dono pediu (ex.: orkastery) ou github:dono/repo; sem projeto, vêm todos os projetos conhecidos, e esse é o panorama da frase orkastery maestro sem projeto. Lacuna, "não lido" e "Não consultado" são fontes que ficaram sem leitura: nunca conclua "roadmap vazio" nem "nenhuma máquina publicou" a partir delas. ' + REGRA_HITL_DE_CONDUCAO,
     parameters: schema({}),
     projeto: PROJETO_DA_REDE,
     // RM-054 (fatia 2): uma chamada de CLI; o `--projeto` vai no inicio e o nucleo o devolve ao `network`.
     argv: () => ['network', 'roadmap'],
+  },
+  {
+    name: 'ork_network_status',
+    description:
+      'Status da Orkastery Network, somente leitura: as máquinas da pessoa (a casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versão e os projetos que cada uma declara, mais a fonte e as lacunas. É a fonte para "quais máquinas eu tenho" e "qual máquina está parada": transporte o texto como vem. Lacuna e "Não consultado" são o que não foi lido: nunca conclua "nenhuma máquina" nem "rede vazia" a partir delas. Não lê roadmap nem threads: para isso, ork_network_roadmap. ' + REGRA_HITL_DE_CONDUCAO,
+    parameters: schema({}),
+    semProjeto: true,
+    // RM-054 (fatia 3): uma chamada de CLI; a rede e da pessoa e nao recebe `--projeto`.
+    argv: () => ['network', 'status'],
   },
   {
     name: 'ork_master_batch',
@@ -494,6 +507,7 @@ const FERRAMENTAS: FerramentaOrk[] = [
 
 /** RM-052: toda tool aceita `projeto` opcional, sem mudar o que ela ja exigia. */
 function comProjeto(f: FerramentaOrk): Record<string, unknown> {
+  if (f.semProjeto) return f.parameters;
   const propriedades = (f.parameters.properties ?? {}) as Record<string, unknown>;
   const p = f.projeto;
   const projeto = p ? { type: 'string', pattern: p.padrao.source, description: p.descricao } : PARAMETRO_PROJETO;
@@ -503,6 +517,11 @@ function comProjeto(f: FerramentaOrk): Record<string, unknown> {
 /** `--projeto <nome>` vai no inicio do argv; o resto dos parametros segue para a tool como antes. */
 function argvComProjeto(f: FerramentaOrk, params: Record<string, unknown>): { argv: string[]; resto: Record<string, unknown> } {
   const { projeto, ...resto } = params;
+  if (f.semProjeto) {
+    // A tool sem `projeto` recusa o parametro em vez de ignora-lo: o modelo saberia que a rede veio filtrada.
+    if (projeto !== undefined) throw new Error('projeto.invalido');
+    return { argv: f.argv(resto), resto };
+  }
   if (projeto !== undefined && (typeof projeto !== 'string' || !(f.projeto ?? PROJETO_DA_RM052).padrao.test(projeto))) {
     throw new Error('projeto.invalido');
   }
@@ -513,7 +532,7 @@ const plugin = defineToolPlugin({
   id: 'orkastery',
   name: 'Orkastery',
   description:
-    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap.',
+    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).',
   tools: (tool) =>
     FERRAMENTAS.map((f) =>
       tool({
@@ -525,7 +544,7 @@ const plugin = defineToolPlugin({
           try { chamada = argvComProjeto(f, params); }
           catch (e) {
             if ((e as Error).message === 'projeto.invalido') {
-              return `[ork recusou] projeto.invalido: ${(f.projeto ?? PROJETO_DA_RM052).recusa}`;
+              return `[ork recusou] projeto.invalido: ${f.semProjeto ? 'esta tool é da rede da pessoa e não recebe projeto; chame sem projeto' : (f.projeto ?? PROJETO_DA_RM052).recusa}`;
             }
             return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido';
           }

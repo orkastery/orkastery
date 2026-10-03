@@ -25,6 +25,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { remotoRedigido, remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
 import { enderecoDoRemoto, identidadeDaForja, repositorioGithubNoHost } from './forja';
@@ -228,7 +229,9 @@ function prDaForja(bruto: unknown, base: string): PrDaForja | null {
  * proprio), so pelo git local, sem rede nem `gh`. O GitLab fica de fora.
  */
 function githubDoRemoto(raiz: string, remoto: string): { host: string; repositorio: string } | null {
-  const url = git(raiz, ['remote', 'get-url', remoto]);
+  // RM-047: o remoto vem do manifesto versionado; so nome de remoto chega ao git, e depois do `--`.
+  if (!remotoValido(remoto)) return null;
+  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
   const forja = url.ok ? repositorioGithubNoHost(url.stdout.trim()) : null;
   // `ssh.github.com` e o SSH do github.com pela porta 443, e nao um GitHub Enterprise (sugestao da rodada 1 do CHECK).
   return forja && REPOSITORIO.test(forja.repo) ? { host: forja.host === 'ssh.github.com' ? 'github.com' : forja.host, repositorio: forja.repo }
@@ -255,7 +258,11 @@ type ForjaDosPrs = { leitura: true; host: string; repositorio: string } |
  * forja, que o pulse diz uma vez.
  */
 function forjaDosPrs(raiz: string, remoto: string, executor: ExecutorDoGh, prazoMs: number): ForjaDosPrs {
-  const url = git(raiz, ['remote', 'get-url', remoto]);
+  // RM-047: remoto que nao e nome de remoto nao chega ao git; para o pulse, e forja sem leitura.
+  if (!remotoValido(remoto)) {
+    return { leitura: false, host: null, motivo: `o remoto ${remotoRedigido(remoto)} não é nome de remoto do git`, semLeitura: true };
+  }
+  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
   if (!url.ok) return { leitura: false, host: null, motivo: `o remoto ${remoto} não está configurado neste checkout`, semLeitura: true };
   const endereco = enderecoDoRemoto(url.stdout.trim());
   // Caminho local, ou apelido de SSH sem dominio (`git@github-trabalho:dono/repo.git`): nao ha host para ler.
@@ -425,8 +432,8 @@ export function esquecerForjaSemLeitura(raiz: string): void {
  */
 export function forjaSemLeituraDoRemoto(raiz: string, remoto: string): AvisoDeForjaSemLeitura | null {
   const aviso = lerAvisoDeForjaSemLeitura(raiz);
-  if (!aviso || aviso.remoto !== remoto) return null;
-  const url = git(raiz, ['remote', 'get-url', remoto]);
+  if (!aviso || aviso.remoto !== remoto || !remotoValido(remoto)) return null;
+  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
   const host = url.ok ? enderecoDoRemoto(url.stdout.trim())?.host ?? null : null;
   return host === aviso.host ? aviso : null;
 }

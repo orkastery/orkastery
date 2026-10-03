@@ -32,6 +32,7 @@ const MODULO_KG3_CONSULTA = 'intelligence-graph-query.ts';
 /** RM-031 KG3 (D7): `ork grafo`, a unica porta da familia para o resto do nucleo. */
 const MODULO_KG3_CLI = 'intelligence-graph-cli.ts';
 const FAMILIA_DO_GRAFO = [
+  'intelligence-graph-contexto.ts',
   ...MODULOS_KG1, ...MODULOS_KG2_PUROS, MODULO_KG2_LEITURA, MODULO_KG3_ANALISADORES, MODULO_KG3_INDICE, MODULO_KG3_CONSULTA, MODULO_KG3_CLI,
 ];
 /** KG5 (D8): fora da familia, os unicos modulos que a abrem, e so pelo CLI do grafo. */
@@ -303,6 +304,17 @@ test('KG5 boundary: o servidor MCP nao alcanca a familia do grafo; a consulta pe
   assert.ok(doServidor.includes('mcp-grafo.ts'), 'as tools do grafo estao no fechamento do servidor, sem a familia');
   assert.deepEqual(doServidor.filter((m) => FAMILIA_DO_GRAFO.includes(m) || m.includes('intelligence-')), [], 'o servidor MCP carrega o grafo');
   for (const porta of PORTAS_DA_FAMILIA) assert.ok(!doServidor.includes(porta), `${porta} roda fora do servidor`);
+});
+
+test('KG5 contexto boundary: composicao pura so alcanca contrato e consulta, sem estado nem processo', () => {
+  const modulo = 'intelligence-graph-contexto.ts';
+  const { locais, externos } = fechamento(modulo);
+  assert.deepEqual([...locais].sort(), [modulo, 'intelligence-graph-contract.ts', 'intelligence-graph-query.ts'].sort());
+  assert.ok([...externos].every((e) => EXTERNOS_PERMITIDOS.has(e)));
+  const { identificadores, relogio, deCrypto } = simbolos(modulo);
+  for (const global of GLOBAIS_PROIBIDOS) assert.ok(!identificadores.has(global), global);
+  assert.equal(relogio, 0);
+  assert.deepEqual(deCrypto, ['createHash']);
 });
 
 test('KG1 boundary: os schemas publicados do KG1 ficam sob a fronteira de contrato publico', () => {

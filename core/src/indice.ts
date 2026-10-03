@@ -104,7 +104,9 @@ export function calcularIndice(eventos: readonly EventoLedger[]): Indice {
   let valor = INDICE_BASE;
 
   for (const insumo of INSUMOS_DO_INDICE) {
-    const ocorrencias = eventos.filter((e) => e.tipo === insumo.evento).length;
+    // Ensaio de 03/10/2026 (RM-049): o `ork ship --dry-run` barrado grava `ship_blocked` com `dryRun: true`;
+    // ensaio nao e tropeco da entrega, como ja nao e pausa no board (fatia 2 do ensaio da 0.5.0, P2).
+    const ocorrencias = eventos.filter((e) => e.tipo === insumo.evento && e.dryRun !== true).length;
     if (ocorrencias === 0) continue;
     const bruto = insumo.peso * ocorrencias;
     const desconto = Math.max(bruto, insumo.piso);

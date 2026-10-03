@@ -24,7 +24,7 @@ Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
 HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo "Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização. Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: mostre o comando exato.
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
-Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`, ou `--projeto github:dono/repo` sem clone), com as threads de todas as máquinas, reservas, fonte e hora de cada parte e lacunas, texto como vem; `ork_roadmap_status` (`ork roadmap status --projeto <nome>`) é só desta máquina. Nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio, e lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou".
+Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`, ou `--projeto github:dono/repo` sem clone), com as threads de todas as máquinas, reservas, fonte e hora de cada parte e lacunas, texto como vem; `ork_roadmap_status` (`ork roadmap status --projeto <nome>`) é só desta máquina. Nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio, e lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou". As máquinas da pessoa (RM-053): `ork_network_status` (`ork network status`, sem projeto), texto como vem; lacuna nunca vira "nenhuma máquina".
 
 ## O que esta skill e
 
@@ -135,8 +135,8 @@ Quando o bloco nao pausa (`#Maestro`, `#Auto`, `#Fast`), o `ork` registra a deci
 
 ## Passo 5: a entrega e o MASTER
 
-O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master --aceitar-omissao` aceita as
-pendentes com registro. Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
+O MASTER fecha com POSTMORTEM tipado e indice derivado do ledger; `ork master <thread> --aceitar-omissao` aceita a
+entrega da sua thread com registro (sem a thread, aceita tambem as de outras frentes). Nota do dono: `ork master pedir <thread>` e mande a linha; ele responde `<codigo> 4 porque`
 e o ingresso prova a origem. Nunca `--por` em nome dele: daqui da `master.prova-de-canal` (RM-048).
 
 Memoria "degradada" tem dois portoes: a variavel da DSN no ambiente do processo

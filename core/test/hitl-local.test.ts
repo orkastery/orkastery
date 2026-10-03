@@ -1,5 +1,6 @@
 /** Clientes e escolhas exclusivamente SINTÉTICOS; nenhum veredito do dono real. */
 import { test } from 'node:test';
+import './sem-aviso-mocktimers';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
