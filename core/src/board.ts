@@ -282,7 +282,7 @@ export function planejar(
         situacao: 'pausada',
         motivo: 'human.pending',
         detalhe: oc.detalhe,
-        correcao: `ork gate request ${t.id}`,
+        correcao: oc.correcao ?? `ork gate request ${t.id}`,
         leases: meus,
       });
       continue;

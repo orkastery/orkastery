@@ -12,6 +12,9 @@ import { hashDoPrompt, montarPrompt, rodarFase, slugDaSessao } from '../src/phas
 import { criarWorktree, dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
 import { receiveCreationOperation } from '../src/creation-operation-store';
+// RM-053: o despacho de fase publica fabrica e rede em segundo plano; o apoio isola a pasta do
+// usuario e desliga as duas, para nenhum teste publicar a partir da maquina de quem roda.
+import './apoio';
 
 function projetoTemporario(nome: string) {
   const bruto = fs.mkdtempSync(path.join(os.tmpdir(), `ork-test-${nome}-`));

@@ -21,6 +21,10 @@ if (!process.env.ORK_CONTAS_DIR) {
 // I-51: nenhum teste publica o estado da fabrica em segundo plano; quem testa a publicacao chama
 // `publicarMaquina` direto, contra um remoto bare temporario.
 if (process.env.ORK_FABRICA_PUBLICAR === undefined) process.env.ORK_FABRICA_PUBLICAR = '0';
+// RM-053: nem a rede da pessoa; quem testa a publicacao chama `publicarRede` com a forja simulada.
+if (process.env.ORK_REDE_PUBLICAR === undefined) process.env.ORK_REDE_PUBLICAR = '0';
+// RM-054 (fatia 3): o panorama da rede nao le a casa de verdade; quem testa a leitura passa a rede dele.
+if (process.env.ORK_REDE_LER === undefined) process.env.ORK_REDE_LER = '0';
 // RM-052 (F3 do CHECK): o projeto-alvo de cada teste vem do cwd dele, nunca do shell de quem roda a
 // suite. Com `ORK_PROJETO` exportado, todo teste que chama o CLI miraria o projeto registrado.
 delete process.env.ORK_PROJETO;
