@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T07:20:33.680Z",
+  "publicadoEm": "2026-10-03T07:26:34.864Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -117,6 +117,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:41:41.084Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm056fechara",
+      "nome": "RM-056: fechar a thread solta as sessões fantasma dela",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-056",
+      "branch": "ork/ork-rm056fechara-full",
+      "atualizadaEm": "2026-10-03T07:26:32.536Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
