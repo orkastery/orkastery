@@ -426,6 +426,22 @@ Arquivos novos, contados separadamente: **10** no KG3 e
 com as respectivas contagens; novos vêm de `resultado.arquivos_novos.length`.
 Os dois braços não medem a mesma coisa: o pacote é só o mapa, e a descoberta soma a saída do grep à leitura inteira de cada arquivo achado. Mapa contra mapa (o pacote contra a saída do grep, 33.070 e 25.988 bytes), o pacote é 2,2 e 1,5 vez menor. A precisão do pacote é maior nos dois casos (43% e 88% contra 7% e 55%). A cobertura empata no KG3 (23%), graças a um único acerto por referência de Markdown, e é maior no KG4 (41% contra 35%). O braço sem grafo não busca o caminho da semente, o que pode subestimar a cobertura dele. Nomes exportados que são palavras comuns (por exemplo, `Lacuna`) trazem docs e skills para a descoberta e inflam os bytes dela. São dois casos do mesmo subsistema, sem conclusão sobre tokens.
 
+**Fatia 4 (citações literais e segundo salto), medida v3 regravada pela condutora em 03/10/2026**
+com o mesmo comparador e a mesma descoberta. A tabela acima fica como o retrato da fatia 3.
+
+| Caso | Braço | Bytes ao agente | Precisão (editados/apontados) | Cobertura do alcançável (acertos/editados na base) |
+| --- | --- | --- | --- | --- |
+| KG3 | Pacote | 28.015 | 9/25 (36%) | 9/13 (69%) |
+| KG3 | Descoberta | 723.688 | 3/41 (7%) | 3/13 (23%) |
+| KG4 | Pacote | 32.706 | 11/18 (61%) | 11/17 (65%) |
+| KG4 | Descoberta | 299.953 | 6/11 (55%) | 6/17 (35%) |
+
+A cobertura do pacote sobe de 23% para 69% no KG3 e de 41% para 65% no KG4, e passa a da descoberta
+nos dois casos. A precisão cai (de 43% para 36% e de 88% para 61%), mas continua acima da descoberta.
+O custo é o tamanho: o segundo salto usa a sobra do orçamento, e o pacote quase dobra. Mapa contra
+mapa, o pacote ainda é menor que a saída do grep no KG3 (28.015 contra 33.070 bytes), mas é maior no
+KG4 (32.706 contra 25.988). São dois casos do mesmo subsistema, sem conclusão sobre tokens.
+
 `--conferir` refaz a medida e compara o **sha256 dos bytes do pacote** de cada caso com a fixture,
 além do registro determinístico completo. Diferença de hash ou métrica reprova; somente produzir
 um pacote determinístico duas vezes já não basta. A sequência de regravação e conferência é:

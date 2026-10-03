@@ -15,7 +15,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
   bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
   omissões indiretas, que não ativam `truncado` quando a vizinhança direta está completa. A medida
-  histórica continua v3, com o mesmo comparador; ganho de cobertura e precisão aguardam nova medição.
+  histórica continua v3, com o mesmo comparador: a cobertura do pacote vai de 23% para 69% (KG3) e de
+  41% para 65% (KG4), acima da descoberta por grep nos dois casos; a precisão cai para 36% e 61%, ainda acima
+  dela; o pacote quase dobra (28.015 e 32.706 bytes) e, no KG4, passa a saída do grep (25.988).
 - **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
   de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge
