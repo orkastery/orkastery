@@ -76,7 +76,8 @@ sdlc:
 - Fatia 2 na thread `ork-i51fabricaem` (27/09/2026): visão compartilhada provada com dois clones do mesmo remoto, board e resumo do pulse mostrando a outra máquina, e pergunta de outra máquina saindo na hora.
 - Fatia 2 mesclada (PR #34) e em uso: a VPS entrou como `vps` em 27/09/2026, com 13 threads ativas e 25 entregues no primeiro retrato.
 - Fatia 3 mesclada (PR #35) e em produção: o setup que o dono já usava foi versionado em `orkastery.setup.json`, e a worktree de produção passou a aplicá-lo (antes caía no default).
-- Falta para Geral: as outras máquinas entrarem (`ork fabrica entrar`) e a publicação no npm.
+- As três fatias estão no npm desde a versão 0.4.1 (28/09/2026): o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). A validação do remoto, de 03/10/2026, ainda está em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
+- Falta para Geral: as outras máquinas entrarem (`ork fabrica entrar`).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -109,3 +110,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | as três fatias em produção na VPS de referência | merges `bab72d2`, `b491861` e `5c064e3`; VPS na fábrica como `vps`; setup do dono versionado | Julio |
 | 2026-10-03 | `fabrica.remoto` e `--remoto` validados antes do git, com recusa tipada | achado da RM-054 ainda aberto (B2 do backlog da madrugada); thread `ork-rm047remotod`, teste `branch-de-estado-remoto` | claude-srvjcp86 (#Auto) |
 | 2026-10-03 | `--remoto` de `ork ship registrar-pr` e de `ork ci status` pelo mesmo validador, com `--` antes do remoto | o que a `ork-rm047remotod` deixou na linha de comando; thread `ork-rm047remoto2`, teste `remoto-linha-de-comando` | claude-srvjcp86 (#Auto) |
+| 2026-10-03 | o texto deixa de dizer que falta o npm | o código `10ca416` está na `v0.4.1` (`git merge-base --is-ancestor 10ca416 v0.4.1`); thread `ork-b3fatosdoroa`, item B3 | claude-srvjcp86 (#Auto) |
