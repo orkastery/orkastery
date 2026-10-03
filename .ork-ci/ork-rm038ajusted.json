@@ -5,20 +5,6 @@
   "base": "main",
   "claims": [
     {
-      "id": "C1",
-      "thread": "ork-rm038ajusted",
-      "fase": "GO",
-      "arquivo": "core/scripts/prova-rm038-avisos.py",
-      "alegacao": "RM-038 avisos da rodada 2: a prova negativa derruba os 17 mutantes (expiração julgada pelo instante de antes da leitura, saída 1 da busca sem universo, recusa de injection_risk e expiração no pertenceAoUniverso, prazo próprio do universo e latência no índice e no status), com baseline verde e os originais preservados",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build && npm --prefix core run build:test && python3 core/scripts/prova-rm038-avisos.py"
-      ],
-      "criadoEm": "2026-10-03T06:10:24.772Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C2",
       "thread": "ork-rm038ajusted",
       "fase": "GO",
