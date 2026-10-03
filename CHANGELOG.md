@@ -110,6 +110,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   fase. Dos 35 POSTMORTEMs de 03/10, só 1 listava o CHECK e 2 o SHIP. Agora `verify_run` e `check_reverify` contam
   como CHECK, e `ship_started`, `ship_done` e `ship_blocked` como SHIP, quando o evento não traz fase; o campo
   explícito continua vencendo. A forma do POSTMORTEM não muda, e os já gravados ficam como estão.
+- **Id da instalação numa pasta dividida** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), X6 do CHECK 6):
+  sem hard link (vboxsf, SMB, alguns FUSE), e na troca de um `~/.orkastery/maquina-id` ruim, cada host ou contêiner
+  que divide a pasta gravava um id derivado do próprio hostname e boot, e o último a gravar vencia. Por isso, quem
+  já tinha publicado passava a ler outro id. Agora o id sai de uma reserva que entra por `rename` de pasta com
+  conteúdo (`maquina-id.reserva/` ou `maquina-id.troca-<chave>/`): só a primeira entra, e todos leem o mesmo id.
+  O `maquina-id` continua um arquivo com o UUID, e o id derivado fica para quando a reserva falha.
 - **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
   outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
   `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
