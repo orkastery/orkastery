@@ -152,7 +152,7 @@ function janelaDoLegado(principal: string): boolean {
  * As pastas `.orkastery/leases` das worktrees registradas no git do projeto, onde a versao anterior
  * gravava os leases pedidos de dentro delas. A lista vem do git (`.git/worktrees/<n>/gitdir`),
  * nunca de argumento, e so entra diretorio de verdade, sem link simbolico em `.orkastery` nem em `leases`:
- * a leitura e o `unlink` do legado nunca sao levados para fora. O `.git` da worktree precisa apontar
+ * a leitura do legado nunca e levada para fora; limpeza grava apenas marcas no canonico. O `.git` da worktree precisa apontar
  * de volta ao registro. A janela de 30 min dispensa a varredura depois da troca de versao.
  */
 export function dirsLegadosDeLeases(raiz: string): string[] {
@@ -218,13 +218,21 @@ interface CopiaLegada {
   identidadeLegada?: fs.Stats;
 }
 
-/** Nunca apaga a substituicao que apareceu entre a leitura e a limpeza do legado. */
-function apagarLegado(caminho: string, identidade: fs.Stats): boolean {
+/** Descarte do inode legado no estado confiavel; nunca escreve nem apaga na worktree antiga. */
+function marcaDeLegado(raiz: string, identidade: fs.Stats): string {
+  return path.join(dirLeases(raiz), `.legado-ignorado-${identidade.dev}-${identidade.ino}`);
+}
+
+function legadoIgnorado(raiz: string, identidade: fs.Stats): boolean {
+  return arquivoDeVerdade(marcaDeLegado(raiz, identidade));
+}
+
+function ignorarLegado(raiz: string, caminho: string, identidade: fs.Stats): boolean {
   try {
     if (!diretorioDeVerdade(path.dirname(caminho)) || !diretorioDeVerdade(path.dirname(path.dirname(caminho)))) return false;
     const atual = fs.lstatSync(caminho);
     if (!atual.isFile() || atual.dev !== identidade.dev || atual.ino !== identidade.ino) return false;
-    fs.unlinkSync(caminho);
+    fs.writeFileSync(marcaDeLegado(raiz, identidade), '', { flag: 'wx' });
     return true;
   } catch { return false; }
 }
@@ -238,7 +246,7 @@ function copiasLegadas(raiz: string, nome: string): CopiaLegada[] {
     if (!arquivoDeVerdade(caminho)) continue;
     let identidadeLegada: fs.Stats;
     try { identidadeLegada = fs.lstatSync(caminho); } catch { continue; }
-    if (!identidadeLegada.isFile()) continue;
+    if (!identidadeLegada.isFile() || legadoIgnorado(raiz, identidadeLegada)) continue;
     const lease = lerLeaseLegado(caminho);
     copias.push({ caminho, lease: lease && lease.nome === nome ? lease : null, identidadeLegada });
   }
@@ -460,8 +468,8 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
  * Libera o lease. Sem `forcar`, so a thread que o segura pode liberar: liberar o lease
  * dos outros e exatamente o bug que o lease existe para impedir.
  *
- * RM-036 (D2): solta a copia canonica e as legadas do mesmo nome, de qualquer checkout; arquivo
- * invalido sai apenas com --forcar, pelo nome do arquivo mostrado na lista.
+ * RM-036: release atua no canonico, quando presente. Sem canonico, apenas marca o inode legado
+ * como ignorado. Nunca apaga o legado nem limpa as duas origens no mesmo pedido.
  */
 export function liberar(
   raiz: string,
@@ -474,8 +482,8 @@ export function liberar(
   if (fs.existsSync(canonico)) {
     copias.push({ caminho: canonico, lease: lerArquivoDeLease(canonico) });
   }
-  for (const copia of copiasLegadas(raiz, nome)) {
-    copias.push(copia);
+  if (copias.length === 0) {
+    for (const copia of copiasLegadas(raiz, nome)) copias.push(copia);
   }
   if (copias.length === 0) {
     sairDaFila(raiz, nome, thread);
@@ -488,21 +496,25 @@ export function liberar(
       detalhe: `lease ${nome} pertence a thread ${textoSeguro(copias[0].lease?.thread ?? '(ilegivel)')}; use --forcar para tomar`,
     };
   }
+  const removidas: CopiaLegada[] = [];
   for (const copia of soltas) {
     try {
       if (copia.identidadeLegada) {
-        if (!apagarLegado(copia.caminho, copia.identidadeLegada)) continue;
+        if (!ignorarLegado(raiz, copia.caminho, copia.identidadeLegada)) continue;
       } else fs.unlinkSync(copia.caminho);
+      removidas.push(copia);
     } catch {
-      /* outra liberacao chegou antes */
+      continue; // Nada saiu: nao anunciar liberacao nem retirar o dono da fila.
     }
     if (copia.lease) sairDaFila(raiz, nome, copia.lease.thread);
   }
-  const outra = copias.find((c) => !soltas.includes(c));
+  if (removidas.length === 0) return { ok: false, detalhe: `lease ${nome}: nada removido ou ignorado; consulte ork lease list` };
+  const outra = copias.find((c) => !removidas.includes(c));
   const proximo = proximoDaFila(raiz, nome);
   const seguinte = proximo ? `; proximo da fila: thread ${proximo.thread}` : '';
   const resta = outra ? `; segue a copia da thread ${textoSeguro(outra.lease?.thread ?? '(ilegivel)')}` : '';
-  return { ok: true, detalhe: `lease ${nome} liberado${seguinte}${resta}` };
+  const acao = removidas.every((c) => c.identidadeLegada) ? 'legado ignorado (arquivo preservado)' : 'liberado';
+  return { ok: true, detalhe: `lease ${nome} ${acao}${seguinte}${resta}` };
 }
 
 interface LeaseEmDisco {
@@ -527,7 +539,7 @@ function leasesEmDisco(raiz: string): LeaseEmDisco[] {
         try { identidadeLegada = fs.lstatSync(caminho); } catch { continue; }
         const lease = arquivoDeVerdade(caminho) ? lerLeaseLegado(caminho) : null;
         // O `exec:` nunca morou no legado (I-36): arquivo de execucao ali nao e lease de versao nenhuma.
-        if (lease && identidadeLegada.isFile() && tipoDoLease(lease.nome) !== 'exec') saida.push({ lease, caminho, legado: dir, identidadeLegada });
+        if (lease && identidadeLegada.isFile() && !legadoIgnorado(raiz, identidadeLegada) && tipoDoLease(lease.nome) !== 'exec') saida.push({ lease, caminho, legado: dir, identidadeLegada });
         continue;
       }
       try {
@@ -711,12 +723,14 @@ export function adquirirRegiao(
     return { ...base, ok: false, ocupadoPor: proprio.lease, esperando: false, posicaoNaFila: 0,
       colidiuCom: proprio.lease, motivo: 'lease.busy',
       detalhe: `o lease legado "${nome}" ja pertence a thread ${opcoes.thread}`,
-      correcao: `espere o prazo do legado ou libere com: ork lease release ${argumentoDeLease(nome)} --thread ${argumentoDeLease(opcoes.thread)}` };
+      correcao: 'aguarde o prazo do legado ou o fim da janela de 30 min; o arquivo legado e preservado' };
   }
 
   const colidentes = leasesColidentes(raiz, nome, opcoes.thread);
   if (colidentes.length > 0) {
     const dono = colidentes[0];
+    const legado = copiasLegadas(raiz, dono.nome).some((c) => c.lease?.thread === dono.thread &&
+      c.lease.adquiridoEm === dono.adquiridoEm);
     const posicao = enfileirar(raiz, nome, {
       thread: opcoes.thread,
       motivo: opcoes.motivo,
@@ -734,7 +748,7 @@ export function adquirirRegiao(
       detalhe:
         `a regiao "${nome}" colide com "${dono.nome}", que esta com a thread ${dono.thread} ` +
         `desde ${dono.adquiridoEm}`,
-      correcao:
+      correcao: legado ? 'aguarde o prazo do legado ou o fim da janela de 30 min; o arquivo legado e preservado' :
         `espere a thread ${dono.thread} liberar (posicao ${posicao} na fila), ` +
         `ou reduza o glob da sua regiao, ou libere com: ork lease release ${argumentoDeLease(dono.nome)} --forcar`,
     };
@@ -817,7 +831,7 @@ export function tabelaDeLeases(raiz: string): string {
       );
       linhas.push(`    desde ${formatarDataHora(l.adquiridoEm)} ate ${formatarDataHora(l.expiraEm)} (pid ${l.pid})`);
       linhas.push(`    motivo: ${textoSeguro(l.motivo)}`);
-      // RM-036: o lease que a versao anterior gravou numa worktree vale ate vencer, e sai pelo release.
+      // RM-036: a copia antiga e somente lida, ate vencer ou encerrar a janela.
       if (legado) {
         const relativo = path.relative(principal, legado);
         const onde = relativo && !relativo.startsWith('..') && !path.isAbsolute(relativo) ? relativo : legado;
@@ -837,13 +851,12 @@ export function tabelaDeLeases(raiz: string): string {
       const caminho = path.join(dir, arquivo);
       if (!arquivo.endsWith('.json') || arquivo === NOME_ARQUIVO_FILA ||
           !arquivoDeVerdade(caminho) || lerLeaseLegado(caminho)) continue;
+      try { if (legadoIgnorado(raiz, fs.lstatSync(caminho))) continue; } catch { continue; }
       let nome: string;
       try { nome = decodeURIComponent(arquivo.slice(0, -5)); } catch { nome = arquivo.slice(0, -5); }
       if (tipoDoLease(nome) === 'exec') continue;
       linhas.push(`  legado: ${textoSeguro(arquivo)} INVALIDO ou ILEGIVEL (ignorado)`);
-      if (nomeLegadoSeguro(nome) && `${encodeURIComponent(nome)}.json` === arquivo) {
-        linhas.push(`    remover: ork lease release ${argumentoDeLease(nome)} --forcar`);
-      }
+      linhas.push('    arquivo legado preservado; ignorado sem alterar o lease canonico');
     }
   }
 
@@ -893,7 +906,7 @@ export function soltarDaThread(raiz: string, thread: string): { leases: string[]
     if (!atual || atual.thread !== thread || atual.adquiridoEm !== lease.adquiridoEm) continue;
     try {
       if (legado) {
-        if (!identidadeLegada || !apagarLegado(caminho, identidadeLegada)) continue;
+        if (!identidadeLegada || !ignorarLegado(raiz, caminho, identidadeLegada)) continue;
       } else fs.unlinkSync(caminho);
       leases.add(lease.nome);
     } catch { /* outra limpeza chegou antes */ }

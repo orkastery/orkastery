@@ -402,15 +402,16 @@ test('rm036 leases: legado vencido e tomado sem segunda copia', () => {
   } finally { c.p.limpar(); }
 });
 
-test('rm036 leases: legado solto pela thread ou com --forcar', () => {
+test('rm036 leases: legado solto por marca canonica sem apagar o arquivo', () => {
   const c = cenario('rm036-legado-solto');
   try {
     const [t2] = c.outras;
     const proprio = gravarLegado(c.wt, leaseDe('path:docs/**', c.t1, 20));
     const solta = ork(c.raiz, 'lease', 'release', 'path:docs/**', '--thread', c.t1);
     assert.equal(solta.codigo, 0, solta.stdout + solta.stderr);
-    assert.match(solta.stdout, /lease path:docs\/\*\* liberado/);
-    assert.equal(fs.existsSync(proprio), false, 'a thread solta o proprio legado pela raiz');
+    assert.match(solta.stdout, /lease path:docs\/\*\* legado ignorado/);
+    assert.equal(fs.existsSync(proprio), true, 'arquivo preservado apos descarte no canonico');
+    assert.equal(leases.leasesColidentes(c.raiz, 'path:docs/**').length, 0);
 
     const alheio = gravarLegado(c.wt, leaseDe('board:card-3', c.t1, 20));
     const negado = ork(c.raiz, 'lease', 'release', 'board:card-3', '--thread', t2);
@@ -419,7 +420,8 @@ test('rm036 leases: legado solto pela thread ou com --forcar', () => {
     assert.ok(fs.existsSync(alheio), 'sem --forcar, o legado de outra thread fica');
     const forcado = ork(c.wt, 'lease', 'release', 'board:card-3', '--forcar');
     assert.equal(forcado.codigo, 0, forcado.stdout + forcado.stderr);
-    assert.equal(fs.existsSync(alheio), false, '--forcar tira o legado de outra thread');
+    assert.equal(fs.existsSync(alheio), true, '--forcar so marca o inode legado');
+    assert.equal(leases.leasesColidentes(c.raiz, 'board:card-3').length, 0);
   } finally { c.p.limpar(); }
 });
 
@@ -477,7 +479,7 @@ test('rm036 leases: legado de thread fechada sai na poda e no fechamento', () =>
     // Poda: quem pede a regiao pela raiz tira da frente o que e da fechada, com registro no ledger dela.
     const r = ork(c.raiz, 'lease', 'acquire', 'path:core/src/leases.ts', '--thread', t2);
     assert.equal(r.codigo, 0, r.stdout + r.stderr);
-    assert.equal(fs.existsSync(legado), false, 'o lease legado da fechada saiu');
+    assert.equal(fs.existsSync(legado), true, 'poda preserva arquivo e ignora inode legado');
     assert.deepEqual(lerFila(c.raiz).filter((p) => p.thread === c.t1), [], 'a espera legada da fechada saiu');
     const eventos = lerLedger(dirThread(c.raiz, c.t1));
     const solto = eventos.find((e) => e.tipo === 'lease_released' && e.lease === 'path:core/**');
@@ -493,7 +495,8 @@ test('rm036 leases: legado de thread fechada sai na poda e no fechamento', () =>
     const soltura = liberarAoFechar(c.wt, t3);
     assert.deepEqual(soltura.falhas, []);
     assert.deepEqual(soltura.leases, ['board:card-9']);
-    assert.equal(fs.existsSync(deT3), false);
+    assert.equal(fs.existsSync(deT3), true);
+    assert.equal(leases.leasesColidentes(c.raiz, 'board:card-9').length, 0);
     assert.ok(lerLedger(dirThread(c.raiz, t3)).some((e) => e.tipo === 'lease_released' && e.lease === 'board:card-9' &&
       e.origem === 'fechamento'));
   } finally { c.p.limpar(); }

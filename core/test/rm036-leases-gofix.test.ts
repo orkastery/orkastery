@@ -78,14 +78,14 @@ for (const sufixo of ['$(id)', '`id`', ';id', '|id', ' com espaco', "'aspas'", '
   });
 }
 
-test('rm036 gofix: B2 diagnostico exige nome seguro e round trip do arquivo', (t) => {
+test('rm036 gofix: B2 diagnostico legado nunca sugere release canonico', (t) => {
   const c = cenario(t);
   for (const arquivo of ['%6dain-tree.json', 'main%2dtree.json', 'erro%ZZ.json']) {
     fs.writeFileSync(path.join(c.legado, arquivo), '{}');
   }
   assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /ork lease release/);
   c.gravar({}, 'path:core/**');
-  assert.match(leases.tabelaDeLeases(c.raiz), /ork lease release 'path:core\/\*\*' --forcar/);
+  assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /ork lease release/);
 });
 
 test('rm036 gofix: B2 comandos de fila e monitor protegem argumentos com aspas simples', (t) => {
@@ -113,7 +113,8 @@ test('rm036 gofix: B2 comandos de fila e monitor protegem argumentos com aspas s
   // A propria copia legada gera uma correcao separada, sem entrar na fila.
   c.gravar(vivo('board:card+1'), 'board:card+1');
   const proprio = leases.adquirirRegiao(c.raiz, 'board:card+1', { thread: DONO, motivo: 'GO' });
-  assert.equal(proprio.correcao.split('ork lease release ')[1], ` 'board:card+1' --thread '${DONO}'`.trim());
+  assert.doesNotMatch(proprio.correcao, /ork lease release/);
+  assert.match(proprio.correcao, /fim da janela/);
 });
 
 test('rm036 gofix: legado valido barra o MCP mas nao prova posse canonica', (t) => {
@@ -138,7 +139,7 @@ for (const [caso, alterar] of Object.entries({
   'prazo invertido': (l: Lease) => ({ ...l, expiraEm: l.adquiridoEm }),
   'pid invalido': (l: Lease) => ({ ...l, pid: 'INJETADO' }),
 })) {
-  test(`rm036 gofix: legado falso ${caso} nao bloqueia e sai com forcar`, (t) => {
+  test(`rm036 gofix: legado falso ${caso} nao bloqueia e permanece intacto`, (t) => {
     const c = cenario(t);
     const arquivo = c.gravar(alterar(vivo()));
     assert.deepEqual(leases.listarLeases(c.raiz), []);
@@ -148,7 +149,7 @@ for (const [caso, alterar] of Object.entries({
     assert.doesNotMatch(lista, /INJETADO/);
     assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'MCP', retomarVencido: false }).ok, true);
     assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA, true).ok, true);
-    assert.equal(fs.existsSync(arquivo), false);
+    assert.equal(fs.existsSync(arquivo), true, 'o legado permanece intacto');
   });
 }
 
@@ -164,7 +165,7 @@ test('rm036 gofix: legado vencido nao bloqueia com retomada canonica desligada',
 });
 
 for (const ilegivel of [false, true]) {
-  test(`rm036 gofix: legado ${ilegivel ? 'ilegivel' : 'corrompido'} aparece sem bloquear e sai com forcar`, (t) => {
+  test(`rm036 gofix: legado ${ilegivel ? 'ilegivel' : 'corrompido'} aparece sem bloquear e permanece intacto`, (t) => {
     const c = cenario(t), arquivo = c.gravar(vivo());
     if (ilegivel) {
       const abrir = io.openSync;
@@ -178,7 +179,7 @@ for (const ilegivel of [false, true]) {
     assert.equal(leases.liberar(c.raiz, 'main-tree', DONO).ok, false, 'sem posse, exige forcar');
     assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'MCP', retomarVencido: false }).ok, true);
     assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA, true).ok, true);
-    assert.equal(fs.existsSync(arquivo), false);
+    assert.equal(fs.existsSync(arquivo), true, 'o legado permanece intacto');
   });
 }
 
@@ -280,7 +281,11 @@ for (const operacao of ['liberar', 'soltarDaThread'] as const) {
         }
         return resultado;
       });
-      if (operacao === 'liberar') leases.liberar(c.raiz, 'main-tree', DONO, true);
+      if (operacao === 'liberar') {
+        const r = leases.liberar(c.raiz, 'main-tree', DONO, true);
+        assert.equal(r.ok, false);
+        assert.doesNotMatch(r.detalhe, /liberado|legado ignorado/);
+      }
       else assert.deepEqual(leases.soltarDaThread(c.raiz, DONO).leases, []);
       assert.equal(trocou, true, 'corrida ocorreu depois da leitura');
       assert.equal(JSON.parse(ler(arquivo, 'utf8')).thread, OUTRA, 'substituicao preservada');
@@ -338,8 +343,57 @@ test('rm036 gofix: liberar nao usa legado quando o canonico desaparece durante a
     }
     return Reflect.apply(ler, io, [p, ...args]);
   });
-  assert.equal(leases.liberar(c.raiz, nome, DONO).ok, true, 'solta somente o proprio legado');
+  assert.equal(leases.liberar(c.raiz, nome, DONO).ok, false, 'nao confunde legado proprio com canonico ausente na leitura');
   assert.equal(JSON.parse(ler(canonico, 'utf8')).thread, OUTRA, 'nao apaga a nova dona canonica');
+});
+
+test('rm036 gofix: R3 diagnostico de legado vazio preserva vencedor canonico', (t) => {
+  const c = cenario(t), arquivo = c.gravar({});
+  leases.regravarLease(c.raiz, vivo('main-tree', OUTRA));
+  const antes = fs.readFileSync(leases.caminhoLease(c.raiz, 'main-tree'), 'utf8');
+  assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /ork lease release/);
+  assert.equal(leases.liberar(c.raiz, 'main-tree', DONO).ok, false);
+  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: DONO, motivo: 'GO' }).ok, false);
+  assert.deepEqual(leases.soltarDaThread(c.raiz, DONO).leases, []);
+  assert.equal(fs.readFileSync(leases.caminhoLease(c.raiz, 'main-tree'), 'utf8'), antes);
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), '{}');
+});
+
+test('rm036 gofix: R3 release separa origens e marca legado por dev ino', (t) => {
+  const c = cenario(t), arquivo = c.gravar(vivo());
+  const antes = fs.readFileSync(arquivo, 'utf8'), inode = fs.statSync(arquivo);
+  leases.regravarLease(c.raiz, vivo('main-tree', OUTRA));
+  assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA, true).ok, true);
+  assert.equal(leases.leasesColidentes(c.raiz, 'main-tree').length, 1, 'release canonico nao descarta legado');
+  assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA).ok, false);
+  const r = leases.liberar(c.raiz, 'main-tree', DONO);
+  assert.equal(r.ok, true);
+  assert.match(r.detalhe, /legado ignorado/);
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+  assert.equal(fs.statSync(arquivo).ino, inode.ino);
+  assert.equal(fs.existsSync(path.join(leases.dirLeases(c.raiz), `.legado-ignorado-${inode.dev}-${inode.ino}`)), true);
+  assert.equal(leases.leasesColidentes(c.raiz, 'main-tree').length, 0);
+  assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'GO' }).ok, true);
+  // Outra copia no mesmo path continua sendo reconhecida, apesar da marca antiga.
+  fs.renameSync(arquivo, path.join(c.base, 'inode-antigo'));
+  c.gravar(vivo());
+  assert.equal(leases.leasesColidentes(c.raiz, 'main-tree', OUTRA).length, 1);
+});
+
+test('rm036 gofix: R3 liberar nao anuncia sucesso quando unlink falha', (t) => {
+  const c = cenario(t);
+  leases.regravarLease(c.raiz, vivo());
+  leases.enfileirar(c.raiz, 'main-tree', { thread: DONO, motivo: 'GO', colidiuCom: 'main-tree', bloqueadaPor: OUTRA });
+  const apagar = io.unlinkSync;
+  t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
+    if (String(p) === leases.caminhoLease(c.raiz, 'main-tree')) throw Object.assign(new Error('negado'), { code: 'EACCES' });
+    return apagar(p);
+  });
+  const r = leases.liberar(c.raiz, 'main-tree', DONO);
+  assert.equal(r.ok, false);
+  assert.doesNotMatch(r.detalhe, /liberado/);
+  assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, DONO);
+  assert.equal(leases.lerFila(c.raiz).length, 1);
 });
 
 test('rm036 gofix: fila legada envenenada nao e lida nem incorporada', (t) => {

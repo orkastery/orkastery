@@ -641,7 +641,7 @@ export function ship(
       `lease ${LEASE_MAIN_TREE} esta com a thread ${dono?.thread ?? '(desconhecida)'} ` +
         `desde ${dono?.adquiridoEm ?? '?'} (${dono?.motivo ?? 'sem motivo'}); ` +
         `esta thread entrou na merge queue na posicao ${aquisicao.posicaoNaFila}`,
-      `espere a vez na fila (ork lease list), ou libere com: ork lease release ${LEASE_MAIN_TREE} --forcar`
+      aquisicao.correcao
     );
   }
   r.lease = aquisicao.lease;
