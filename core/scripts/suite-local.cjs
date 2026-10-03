@@ -18,7 +18,8 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const r = spawnSync(npm, ['test'], { cwd: core, encoding: 'utf8', env: process.env, maxBuffer: 256 * 1024 * 1024 });
 const saida = (r.stdout ?? '') + (r.stderr ?? '');
 const total = (nome) => {
-  const m = new RegExp(`^ℹ ${nome} (\\d+)$`, 'm').exec(saida);
+  // Reporter spec (`ℹ fail 0`) ou TAP (`# fail 0`), conforme o terminal e a versao do Node.
+  const m = new RegExp(`^(?:ℹ|#) ${nome} (\\d+)$`, 'm').exec(saida);
   return m ? Number(m[1]) : null;
 };
 const testes = total('tests'), falhas = total('fail'), pulados = total('skipped');
@@ -27,11 +28,11 @@ if (testes === null || falhas === null || pulados === null) {
   process.stderr.write('suite-local: relatorio do node --test sem os totais (tests, fail, skipped)\n');
   process.exit(1);
 }
-// O reporter spec marca o teste pulado com `﹣ <nome> (<ms>) # <motivo>`.
-const skips = saida.split('\n').filter((l) => /^\s*﹣ /.test(l));
+// O teste pulado: `﹣ <nome> (<ms>) # <motivo>` no spec, `ok N - <nome> # SKIP <motivo>` no TAP.
+const skips = saida.split('\n').filter((l) => /^\s*﹣ /.test(l) || /^\s*ok \d+ - .* # SKIP\b/.test(l));
 const motivos = new Map();
 for (const s of skips) {
-  const motivo = (/ # (.*)$/.exec(s)?.[1] ?? 'sem motivo').replace(/^skip: /, '');
+  const motivo = (/ # (?:SKIP ?)?(.*)$/.exec(s)?.[1] || 'sem motivo').replace(/^skip: /, '');
   motivos.set(motivo, (motivos.get(motivo) ?? 0) + 1);
 }
 process.stdout.write(`suite local: ${testes} testes, ${falhas} falhas, ${pulados} skips\n`);
