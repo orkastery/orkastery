@@ -249,7 +249,8 @@ function prepararDocumentos(
   sincronizarReversao(raiz, id);
   const eventos = lerLedger(dirThread(raiz, id));
   const gatesBloqueados = eventos
-    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado)
+    // Ensaio de 03/10/2026 (RM-049): o gate barrado por um `ork ship --dry-run` e ensaio, nao reprovacao.
+    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado && e.dryRun !== true)
     .map((e) => ({
       ts: e.ts,
       motivo: String(e.motivo ?? '(sem motivo)'),
@@ -363,7 +364,7 @@ export function autoriaHumana(por: unknown): por is string {
     !/(?:^|[^a-z0-9])(codex|claude|gpt(?:[0-9-]*)?|openai|agente?|agent|runtime|auto|ia|llm|bot|pendente|pending|batch)(?:$|[^a-z0-9])/i.test(semAcento(por));
 }
 export function exigirAutoriaHumana(por: unknown): asserts por is string {
-  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito; agente ou autoria pendente não pode pontuar');
+  if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
 }
 
 export function masterRatificado(raiz: string, id: string): boolean {

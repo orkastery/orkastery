@@ -239,6 +239,20 @@ export interface ResultadoInit {
   estadoIgnorado?: boolean;
 }
 
+/**
+ * Ensaio de 03/10/2026 (RM-049): o `ork init` rodado por engano fora de um repositorio (no HOME, por
+ * exemplo) gravava manifesto, `AGENTS.md` e `.orkastery/` ali e saia 0; um repositorio criado depois
+ * dentro dessa pasta herdava o manifesto de fora, com outro nome e outra abbrev, e o doctor dizia PRONTO.
+ * A CLI recusa antes de gravar qualquer coisa. A funcao `init` segue aceitando qualquer pasta (demo e
+ * canarios montam o projeto por ela).
+ */
+export function exigirRepositorioParaInit(dir: string): void {
+  const r = exec('git', ['rev-parse', '--is-inside-work-tree'], dir);
+  if (r.ok && r.stdout.trim() === 'true') return;
+  throw new Error(`init.fora-do-repositorio: ${path.resolve(dir)} não está num repositório git; nada foi criado. ` +
+    'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.');
+}
+
 /** Gera o manifesto e o esqueleto de `.orkastery/`. Nao sobrescreve sem `force`. */
 export function init(
   dirInicial: string,

@@ -866,7 +866,7 @@ export function textoDoShip(r: ResultadoShip): string {
   }
   if (r.ci) {
     linhas.push(
-      `  ci             ${r.ci.required ? `${r.ci.state.toUpperCase()} ${r.ci.context} em ${r.ci.sha.slice(0, 8)}` : 'não exigido'}`
+      `  ci            ${r.ci.required ? `${r.ci.state.toUpperCase()} ${r.ci.context} em ${r.ci.sha.slice(0, 8)}` : 'não exigido'}`
     );
   }
   linhas.push(...linhasDeAviso(r.violacoes ?? []));
