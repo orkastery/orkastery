@@ -71,7 +71,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:20:48.157Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -85,7 +85,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:20:48.442Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -99,7 +99,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:20:48.731Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -113,7 +113,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:20:48.999Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -127,7 +127,7 @@
         "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:20:49.274Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -141,7 +141,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='rm038 universo: instante' core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:22:56.976Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -155,7 +155,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='rm038 universo: instante' core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:22:57.040Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -169,7 +169,7 @@
         "node -e \"const fs=require('fs'); for(const f of ['CHANGELOG.md','docs/referencia/cli.md']) for(const s of ['modo.files','dsn.env-ausente','orkmind.indisponivel','prova-busca-semantica.sh']) if(!fs.readFileSync(f,'utf8').includes(s)) process.exit(1)\""
       ],
       "criadoEm": "2026-10-03T06:28:21.893Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -183,7 +183,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && python3 core/scripts/prova-rm038-avisos.py --grupo ts"
       ],
       "criadoEm": "2026-10-03T06:33:05.023Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
