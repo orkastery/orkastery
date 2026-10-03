@@ -4,24 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T12:16:33.505Z",
+  "publicadoEm": "2026-10-03T12:21:31.509Z",
   "threads": [
     {
       "id": "ork-rm036tresavi",
       "nome": "ork-rm036avisos3",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
-      "branch": "HEAD",
-      "atualizadaEm": "2026-10-03T12:16:33.269Z",
+      "branch": "ork/ork-rm036tresavi-full",
+      "atualizadaEm": "2026-10-03T12:21:31.275Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
+      "runtime": "codex",
+      "modelo": "gpt-6-astra",
+      "esforco": "xhigh"
     },
     {
       "id": "ork-rm036watcher",
