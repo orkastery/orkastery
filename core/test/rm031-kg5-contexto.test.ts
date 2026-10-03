@@ -104,7 +104,7 @@ test('KG5 contexto v2: teto preserva grupos inteiros, contagens e Unicode', () =
     const texto = pacoteDeContexto(GRAFO, INDICE, { ...ENTRADA, diff: [...ENTRADA.diff, 'src/ação.ts'] }, teto), r = JSON.parse(texto);
     assert.ok(Buffer.byteLength(texto) <= teto);
     assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
-    assert.equal(r.omitidos.ligacoes + r.arestas.length, r.total_ligacoes);
+    assert.equal(r.omitidos.ligacoes + r.omitidos.segundo_salto + r.arestas.length, r.total_ligacoes);
     assert.equal(r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0), r.total_arestas);
     assert.equal(r.teto.cortado, r.truncado);
     const calls = r.arestas.find((a: any) => a.kind === 'calls');
@@ -362,6 +362,205 @@ test('KG5 contexto v2: grupo maior que o teto nao expulsa imports e references m
   assert.ok(r.arestas.some((a: any) => a.kind === 'imports'));
   assert.ok(r.arestas.some((a: any) => a.kind === 'references'));
   assert.equal(r.omitidos.arestas, 300);
+});
+
+function provarSegundoSalto(pacote = pacoteDeContexto): void {
+  const repo = {
+    'src/semente.ts': "import './ponte';\nexport function local() { return 1; }\nexport function usa() { return local(); }",
+    'src/ponte.ts': "import './segundo';",
+    'src/segundo.ts': "import './terceiro';",
+    'src/terceiro.ts': 'export const terceiro = 1;',
+    'src/inverso.ts': "import './ponte';",
+    ...Object.fromEntries(Array.from({ length: 16 }, (_, n) => [`src/outro-${n}.ts`, "import './ponte';"])),
+  };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const i = { ...INDICE, extratores: g.snapshot.extractors };
+  // GOAL sem diff tambem deve abrir o segundo salto; ele nao depende da distancia ao diff.
+  const e = { ...ENTRADA, diff: [], goal: '`src/semente.ts`', claims: [{ id: 'C1', arquivo: 'src/ausente.ts' }] };
+  const completo = JSON.parse(pacote(g, i, e, 65536));
+  assert.equal(completo.schema, 'ork.thread-graph-context/v2');
+  assert.equal(completo.consulta.profundidade, 2);
+  assert.equal(completo.omitidos.ligacoes, 0);
+  assert.ok(completo.omitidos.segundo_salto > 0, 'limite por alvo tambem conta como omissao indireta');
+  assert.equal(completo.truncado, false, 'limite indireto nao trunca a vizinhanca direta');
+  const caminhos = completo.medida.arquivos.map((f: any) => f.path);
+  assert.ok(caminhos.includes('src/segundo.ts'));
+  assert.ok(caminhos.includes('src/inverso.ts'));
+  assert.ok(!caminhos.includes('src/terceiro.ts'));
+  const segundo = completo.arestas.find((a: any) => completo.nos[a.to] === 'file src/segundo.ts');
+  assert.equal(segundo.salto, 2);
+  for (const teto of [4096, 5000, 8192, 32768, 65536]) {
+    const texto = pacote(g, i, e, teto), r = JSON.parse(texto);
+    assert.ok(Buffer.byteLength(texto) <= teto);
+    assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
+    const internas = r.arestas.findIndex((a: any) => a.kind === 'calls');
+    const inicioDoSegundo = r.arestas.findIndex((a: any) => a.salto === 2);
+    assert.ok(internas >= 0, 'ligacao direta interna tem prioridade sobre qualquer segundo salto');
+    if (inicioDoSegundo >= 0) {
+      assert.ok(internas < inicioDoSegundo);
+      assert.ok(r.arestas.slice(inicioDoSegundo).every((a: any) => a.salto === 2));
+    }
+    for (const alvo of new Set(r.arestas.map((a: any) => a.to)))
+      assert.ok(r.arestas.filter((a: any) => a.to === alvo).length <= CONTEXTO_POR_ALVO);
+    assert.equal(r.total_arestas, r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0));
+    assert.equal(texto, pacote({ ...g, nodes: [...g.nodes].reverse(), edges: [...g.edges].reverse() },
+      { ...i, extratores: [...i.extratores].reverse() }, e, teto));
+  }
+  // Uma ponte sem evidencia na origem nao pode sustentar a expansao.
+  const porId = new Map(g.nodes.map((n) => [n.node_id, n.locator.path]));
+  const semPonte = { ...g, edges: g.edges.map((a) => porId.get(a.from) === 'src/semente.ts' && porId.get(a.to) === 'src/ponte.ts'
+    ? { ...a, evidence: a.evidence.map((ev) => ({ ...ev, path: 'src/terceiro.ts' })) } : a) };
+  assert.ok(!JSON.parse(pacote(semPonte, i, e)).arestas.some((a: any) => a.salto === 2));
+  // Se a ponte nao couber, nao basta que exista no indice para incluir o segundo salto.
+  const ponteGrande = { ...g, edges: g.edges.map((a) => porId.get(a.from) === 'src/semente.ts' && porId.get(a.to) === 'src/ponte.ts'
+    ? { ...a, evidence: Array.from({ length: 500 }, (_, n) => ({ ...a.evidence[0], span: {
+      type: 'text' as const, line_start: n + 1, line_end: n + 1, byte_start: n * 10, byte_end: n * 10 + 5,
+    } })) } : a) };
+  assert.ok(!JSON.parse(pacote(ponteGrande, i, e, 4096)).arestas.some((a: any) => a.salto === 2));
+}
+
+test('KG5 segundo salto: sobra, prioridade direta, marca, sentidos, limite, ponte selecionada e determinismo', () => {
+  provarSegundoSalto();
+});
+
+function carregarContexto(transformar: (s: string) => string, aoMontar?: () => void): typeof pacoteDeContexto {
+  const Module = require('node:module');
+  const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
+  const modulo = new Module(arquivo);
+  modulo.filename = arquivo; modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
+  if (aoMontar) {
+    const original = modulo.require.bind(modulo);
+    modulo.require = (nome: string) => {
+      const dependencia = original(nome);
+      if (nome !== './intelligence-graph-contract') return dependencia;
+      return { ...dependencia, canonico: (valor: any) => {
+        if (valor?.schema === 'ork.thread-graph-context/v2' && valor.medida?.pacote_bytes === 0) aoMontar();
+        return dependencia.canonico(valor);
+      } };
+    };
+  }
+  modulo._compile(transformar(fs.readFileSync(arquivo, 'utf8')), arquivo);
+  return modulo.exports.pacoteDeContexto;
+}
+
+function mutanteContexto(antes: string, depois: string): typeof pacoteDeContexto {
+  return carregarContexto((s) => {
+    assert.ok(s.includes(antes), `ponto de mutacao: ${antes}`);
+    return s.replaceAll(antes, depois);
+  });
+}
+
+function provarCitesPorUltimo(pacote = pacoteDeContexto): void {
+  const repo = {
+    'src/alvo.ts': 'export const alvo = 1;',
+    'src/importador.ts': "import './alvo.ts';",
+    'docs/referencia.md': '[alvo](../src/alvo.ts)',
+    'test/citacao.test.ts': "const citado = 'src/alvo.ts';",
+  };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const r = JSON.parse(pacote(g, { ...INDICE, extratores: g.snapshot.extractors }, ENTRADA));
+  assert.deepEqual(r.arestas.map((a: any) => a.kind), ['imports', 'references', 'cites']);
+}
+
+test('KG5 relevancia GO-FIX: cites perde o desempate por tipo; prova cai por mutacao', () => {
+  provarCitesPorUltimo();
+  assert.throws(() => provarCitesPorUltimo(mutanteContexto("Number(a === 'cites') - Number(b === 'cites')", '0')));
+});
+
+function hubDoSegundoSalto(total: number): GrafoCodigo {
+  const nomes = Array.from({ length: total }, (_, n) => `vizinho-${String(n).padStart(4, '0')}`);
+  const repo = {
+    'src/semente.ts': "import './ponte';",
+    'src/ponte.ts': nomes.map((n) => `import './${n}';`).join('\n'),
+    ...Object.fromEntries(nomes.map((n) => [`src/${n}.ts`, 'export const valor = 1;'])),
+  };
+  return extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+}
+
+function provarCustoSegundoSalto(transformar = (s: string) => s): number[] {
+  const montagens: number[] = [];
+  for (const total of [64, 256]) {
+    const g = hubDoSegundoSalto(total), i = { ...INDICE, extratores: g.snapshot.extractors };
+    let feitas = 0;
+    const pacote = carregarContexto(transformar, () => feitas++);
+    const texto = pacote(g, i, { ...ENTRADA, diff: ['src/semente.ts'] }, 4096), r = JSON.parse(texto);
+    assert.ok(Buffer.byteLength(texto) <= 4096);
+    assert.ok(r.arestas.some((a: any) => a.salto === 2), 'usa a sobra antes de parar');
+    assert.ok(feitas <= 32, `hub de ${total} vizinhos montou o pacote ${feitas} vezes`);
+    montagens.push(feitas);
+  }
+  return montagens;
+}
+
+test('KG5 segundo salto GO-FIX: montagens limitadas em hubs; prova cai sem parada', (t) => {
+  t.diagnostic(JSON.stringify({ vizinhos: [64, 256], montagens: provarCustoSegundoSalto() }));
+  assert.throws(() => provarCustoSegundoSalto((s) => {
+    const antes = '++rejeicoes >= LIMITE_REJEICOES_SEGUNDO_SALTO';
+    assert.ok(s.includes(antes));
+    return s.replace(antes, 'false');
+  }), /montou o pacote/);
+});
+
+function provarOmissoesSeparadas(pacote = pacoteDeContexto): void {
+  const g = hubDoSegundoSalto(64), i = { ...INDICE, extratores: g.snapshot.extractors };
+  const e = { ...ENTRADA, diff: ['src/semente.ts'] };
+  for (const teto of [4096, 65536]) {
+    const texto = pacote(g, i, e, teto), r = JSON.parse(texto);
+    const indiretas = r.arestas.filter((a: any) => a.salto === 2).length;
+    assert.equal(r.schema, 'ork.thread-graph-context/v2');
+    assert.equal(r.omitidos.ligacoes, 0, 'a unica ligacao direta cabe inteira');
+    assert.equal(r.omitidos.segundo_salto, 64 - indiretas);
+    assert.equal(r.total_ligacoes, r.arestas.length + r.omitidos.ligacoes + r.omitidos.segundo_salto);
+    assert.equal(r.total_arestas, r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0));
+    assert.equal(r.truncado, false);
+    assert.equal(r.teto.cortado, false);
+    assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
+    if (teto === 4096) assert.ok(r.omitidos.segundo_salto > 0, 'inclui candidatos nunca tentados depois da parada');
+    else assert.equal(r.omitidos.segundo_salto, 0);
+  }
+  const nos = new Map(g.nodes.map((n) => [n.node_id, n.locator.path]));
+  const direta = g.edges.find((a) => nos.get(a.from) === 'src/semente.ts')!;
+  const indireta = g.edges.find((a) => a.kind === 'imports' && nos.get(a.from) === 'src/ponte.ts')!;
+  // Evidencia auxiliar e aresta sem evidencia propria continuam contadas, mas so a direta trunca.
+  for (const original of [direta, indireta]) for (const manterPropria of [false, true]) {
+    const auxiliar = { ...original.evidence[0], path: 'src/vizinho-0000.ts' };
+    const alterada = { ...original, evidence: [...(manterPropria ? original.evidence : []), auxiliar] };
+    const pequeno = { ...g, edges: [original === direta ? alterada : direta, original === indireta ? alterada : indireta] };
+    const r = JSON.parse(pacote(pequeno, i, e, 65536));
+    assert.equal(r.omitidos.evidencias_auxiliares, 1);
+    assert.equal(r.truncado, original === direta, 'somente evidencia omitida da vizinhanca direta trunca');
+    if (original === indireta) assert.equal(r.omitidos.arestas, manterPropria ? 0 : 1);
+    else if (!manterPropria) assert.equal(r.omitidos.segundo_salto, 1, 'ponte descartada deixa o candidato indireto omitido');
+  }
+}
+
+test('KG5 segundo salto GO-FIX: omissoes indiretas separadas sem truncar diretas; provas caem por mutacao', () => {
+  provarOmissoesSeparadas();
+  for (const [antes, depois] of [
+    ['ligacoes: totalDiretas - diretas.length', 'ligacoes: ordenados.length - ligacoes.length'],
+    ['segundo_salto: totalSegundoSalto - (ligacoes.length - diretas.length)', 'segundo_salto: 0'],
+    ['diretasOmitidas > 0', 'omitidos.arestas > 0'],
+    ['auxiliaresDiretas > 0', 'evidenciasAuxiliares > 0'],
+  ]) assert.throws(() => provarOmissoesSeparadas(mutanteContexto(antes, depois)), antes);
+});
+
+test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {
+  const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
+  const original = fs.readFileSync(arquivo, 'utf8');
+  for (const [antes, depois] of [
+    ["a.salto === 2 && (pontes.has", "false && (pontes.has"],
+    ["{ salto: 2 }", "{ salto: 1 }"],
+    ["if (a.salto === 1)", "if (a.salto === 2)"],
+    ["Buffer.byteLength(texto) <= tetoBytes", "true"],
+    ["(porAlvo.get(a.alvo) ?? 0) >= exports.CONTEXTO_POR_ALVO", "false"],
+    ["(pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo).locator.path))", "true"],
+  ]) {
+    assert.ok(original.includes(antes), `ponto de mutacao: ${antes}`);
+    assert.throws(() => provarSegundoSalto(mutanteContexto(antes, depois)), antes);
+  }
 });
 
 function provarTermosContexto({ nomesExportadosContexto, descobertaContexto }: any): void {

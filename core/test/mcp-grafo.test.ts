@@ -413,6 +413,7 @@ test('KG5 flag: servidor com a flag expoe as cinco tools de leitura, com schema 
 
 test('KG5 contrato: o vocabulario e os limites das tools sao os do contrato v1 e da consulta', () => {
   assert.deepEqual([...TIPOS_DE_ARESTA_DO_MCP], [...TIPOS_DE_ARESTA]);
+  assert.ok(TIPOS_DE_ARESTA_DO_MCP.includes('cites'));
   assert.equal(PROFUNDIDADE_MAXIMA_DO_MCP, PROFUNDIDADE_MAXIMA);
   assert.equal(LIMITE_MAXIMO_DO_MCP, LIMITE_MAXIMO);
 });

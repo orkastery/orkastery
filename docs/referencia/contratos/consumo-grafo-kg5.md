@@ -256,6 +256,8 @@ filtrado pela concessão.
   **tipo, nó alvo e arquivo de origem**; `from` aponta ao rótulo `file` da origem. `quantidade`
   conta arestas originais, não tuplas; evidências idênticas são deduplicadas. Não há lista
   redundante de símbolos chamadores: os spans permitem localizar cada chamada no arquivo.
+  Na fatia 4, grupos do segundo salto acrescentam `salto: 2`; a ausência do campo significa
+  ligação direta. O schema permanece `ork.thread-graph-context/v2`.
 - Cada evidência é `[extrator, método, linhas, bytes]`: `extrator` é o índice numérico, começando
   em zero, na tabela ordenada `indice.extratores`; `linhas` é `[início, fim]`, inclusivo, com
   `null` quando indisponível; `bytes` é `[início, fim]` UTF-8, fim exclusivo. O caminho é o de
@@ -267,22 +269,90 @@ filtrado pela concessão.
 - `declares` e `contains` internos ao arquivo semente saem da lista e são contados em
   `resumidas.estruturais`. Não são relações perdidas pelo teto.
 
-A vizinhança tem um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
-A ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
+A vizinhança começa por um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
+Dentro dele, a ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
 (distância no grafo não dirigido de arquivos, não distância em linhas). Empates intercalam tipos
-por rodada de cada alvo; depois tipo e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
-empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários arquivos e preserva
-diversidade de tipos dentro da mesma prioridade.
+por rodada de cada alvo; depois tipo (com `cites` por último) e rótulos em UTF-8. Sem diff conhecido,
+todas as distâncias empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários
+arquivos e preserva diversidade de tipos dentro da mesma prioridade.
+
+Na fatia 4, depois desse corte e da amostra de sementes ausentes, o orçamento restante admite
+ligações entre arquivos a dois saltos das sementes indexadas. Qualquer ligação direta tem
+prioridade sobre elas, inclusive uma ligação interna à semente. Só se expande por uma ponte
+presente nas ligações diretas que couberam; ponte cortada ou sem evidência própria não sustenta
+a expansão. A fronteira fica fixa: não há terceiro salto nem expansão das declarações internas
+dos vizinhos. `consulta.profundidade` passa a 2, em ambos os sentidos; `salto: 2` identifica os
+grupos indiretos, sem alterar referências locais nem tuplas de evidência. O limite de oito grupos
+por alvo é compartilhado com o primeiro salto. `total_ligacoes` e `total_arestas` incluem candidatos
+de ambos os saltos, inclusive os omitidos por falta de ponte selecionada.
 
 O teto do JSON completo é 32.768 bytes, de 4.096 a 65.536, incluindo cabeçalho e medida.
 Cada grupo entra com as pontas e todas as tuplas. Se um grupo não cabe, tenta-se o próximo;
 não se corta uma evidência nem se deixa um hub grande impedir todas as relações menores.
-`truncado`/`teto.cortado` abrangem corte por bytes, por alvo, pela amostra de sementes ausentes
-e por evidências auxiliares omitidas. A contagem de auxiliares cobre as arestas candidatas
-não estruturais, inclusive as que depois não cabem no teto.
-`omitidos.ligacoes` conta grupos, `omitidos.arestas` conta arestas originais. A identidade é:
+No segundo salto, oito rejeições consecutivas por bytes encerram a tentativa de expansão;
+um grupo aceito reinicia a contagem. Grupos descartados pelo limite por alvo não montam o
+pacote nem alteram essa contagem. Esse limite pode deixar grupos menores posteriores sem tentativa.
+
+`omitidos.ligacoes` conta apenas grupos **diretos** omitidos. O campo aditivo
+`omitidos.segundo_salto` conta grupos indiretos omitidos por bytes, por alvo, por falta de ponte
+ou pela parada das tentativas. Permanece o schema `ork.thread-graph-context/v2`.
+`truncado`/`teto.cortado` abrangem as omissões de sementes e da vizinhança **direta**: corte por
+bytes, por alvo, arestas sem evidência própria ou evidências auxiliares omitidas. Omissões do
+segundo salto não ativam essas marcas; mesmo `truncado: false` pode ter `omitidos.segundo_salto > 0`.
+
+`omitidos.arestas` conta arestas originais de ambos os saltos; `omitidos.evidencias_auxiliares`
+também cobre as arestas candidatas não estruturais dos dois saltos, inclusive as que depois
+não cabem no teto. Esses dois totais não ativam `truncado` quando a perda é só indireta.
+As identidades são:
+`total_ligacoes = arestas.length + omitidos.ligacoes + omitidos.segundo_salto` e
 `total_arestas = soma(quantidade) + omitidos.arestas + resumidas.estruturais`.
 Pacote vazio é válido. As consultas por nó permitem aprofundar o que ficou de fora.
+
+### Fatia 4: citações literais no índice
+
+`cites` é uma aresta extraída de citação literal para um **arquivo existente no manifesto**,
+com evidência de arquivo, linhas e bytes. Sua origem é arquivo ou seção; não prova importação,
+chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta permanecem.
+
+- Markdown: caminhos em código inline ou destinos de links inline/imagens reconhecidos pelo
+  analisador CommonMark. Código cercado, comentários HTML e caminhos soltos na prosa não entram.
+  Código inline usa caminho desde a raiz ou `./`/`../` desde o documento. Links procuram primeiro
+  o caminho relativo ao documento e depois o literal desde a raiz; âncora e busca não fazem parte
+  do caminho. Se o link já gerou `references` ao arquivo ou a uma seção dele, a mesma ocorrência
+  não gera `cites`, inclusive no código inline do rótulo. Código inline fora do link, mesmo na
+  mesma linha, continua independente. A citação continua possível quando apenas o caminho desde
+  a raiz resolve.
+  Links externos, caminhos que escapam da raiz, estado privado e alvos ausentes não geram `cites`.
+  Não há resolução adicional de links por definição de referência.
+- TypeScript/JavaScript em diretórios `test`, `tests`, `__tests__`, `script` ou `scripts`, ou nomes
+  `*.test.*`/`*.spec.*`: strings e templates sem interpolação que citam caminhos, inclusive
+  argumentos literais de `require(...)`/`import(...)` dentro de uma string de fixture. Comentários
+  e expressões dinâmicas não são avaliados. Literais de imports ou requires já resolvidos pelo
+  extrator não geram `cites`; outra string com o mesmo texto é uma ocorrência independente.
+  A evidência cobre o literal completo no arquivo real.
+- Caminhos comuns exigem `/` e extensão conhecida de código, documento ou asset: TS/JS
+  (`ts`, `tsx`, `cts`, `mts`, `js`, `jsx`, `cjs`, `mjs`), `json`, `md`,
+  `markdown`, `yaml`, `yml`, `toml`, `py`, `rs`, `go`, `c`, `h`, `css`, `html`, `svg`, `png`,
+  `jpg`, `jpeg`, `gif`, `webp`, `pdf`, `txt`, `sh` ou `sql`. Argumentos de módulo podem omitir
+  extensão, mas exigem prefixo de caminho; nomes de pacote como `zod` e `typescript` não geram
+  sondas de citação. Bases vazias são recusadas. Diretório nunca é alvo de `cites`, mas o candidato
+  exato e as variantes de extensão e `index` ficam como sondas, inclusive diretório com extensão no
+  nome, na troca de diretório por arquivo e na volta. Palavras como `core` e `docs` não geram sondas de citação.
+- A resolução de módulo tenta o caminho exato, variantes de extensão e `index`; `.js`/`.mjs`/
+  `.cjs`/`.jsx` admitem fontes TypeScript. Na ausência, a convenção `dist/` → `src/` permite, por
+  exemplo, `require('../dist/x')` citar `../src/x.ts`. Só um alvo no primeiro grupo de candidatos
+  existente é aceito; ambiguidade recusa, sem escolher pelo nome. Isso é uma convenção de citação,
+  não uma reprodução do resolver do Node: não consulta disco, aliases, pacotes ou rede.
+
+A ligação Markdown é refeita sobre o manifesto atual. As unidades TypeScript guardam sondas
+também para candidatos ausentes, para criação, remoção ou ambiguidade invalidar citações antigas.
+O hash do código dos extratores já participa da chave do índice; um índice anterior exige
+`ork grafo indexar`. A flag `grafo.mcp` continua desligada por padrão.
+
+O comparador de `medir-mcp-grafo.cjs --contexto` permanece `ork.graph-context-cost/v3`, com as
+mesmas sementes, exports de pelo menos quatro caracteres e `grep -w` da fatia 3. A fixture
+histórica e os resultados de cobertura, precisão e custo estão descritos na seção **Fatia 4**
+em [Dica e medidas](#dica-e-medidas), atualizada pela condutora após cada nova medida.
 
 A mesma entrada e índice produzem bytes idênticos, mesmo com coleções permutadas. O compositor
 `core/src/intelligence-graph-contexto.ts` não faz E/S. CLI e worker compartilham o leitor da thread.
@@ -359,6 +429,22 @@ Arquivos novos, contados separadamente: **10** no KG3 e
 `pacote/descoberta.bytes_ao_agente`, `cobertura_pacote/cobertura_descoberta.precisao` e `.cobertura`,
 com as respectivas contagens; novos vêm de `resultado.arquivos_novos.length`.
 Os dois braços não medem a mesma coisa: o pacote é só o mapa, e a descoberta soma a saída do grep à leitura inteira de cada arquivo achado. Mapa contra mapa (o pacote contra a saída do grep, 33.070 e 25.988 bytes), o pacote é 2,2 e 1,5 vez menor. A precisão do pacote é maior nos dois casos (43% e 88% contra 7% e 55%). A cobertura empata no KG3 (23%), graças a um único acerto por referência de Markdown, e é maior no KG4 (41% contra 35%). O braço sem grafo não busca o caminho da semente, o que pode subestimar a cobertura dele. Nomes exportados que são palavras comuns (por exemplo, `Lacuna`) trazem docs e skills para a descoberta e inflam os bytes dela. São dois casos do mesmo subsistema, sem conclusão sobre tokens.
+
+**Fatia 4 (citações literais e segundo salto), medida v3 regravada pela condutora em 03/10/2026**
+com o mesmo comparador e a mesma descoberta. A tabela acima fica como o retrato da fatia 3.
+
+| Caso | Braço | Bytes ao agente | Precisão (editados/apontados) | Cobertura do alcançável (acertos/editados na base) |
+| --- | --- | --- | --- | --- |
+| KG3 | Pacote | 28.015 | 9/25 (36%) | 9/13 (69%) |
+| KG3 | Descoberta | 723.688 | 3/41 (7%) | 3/13 (23%) |
+| KG4 | Pacote | 32.706 | 11/18 (61%) | 11/17 (65%) |
+| KG4 | Descoberta | 299.953 | 6/11 (55%) | 6/17 (35%) |
+
+A cobertura do pacote sobe de 23% para 69% no KG3 e de 41% para 65% no KG4, e passa a da descoberta
+nos dois casos. A precisão cai (de 43% para 36% e de 88% para 61%), mas continua acima da descoberta.
+O custo é o tamanho: o segundo salto usa a sobra do orçamento, e o pacote quase dobra. Mapa contra
+mapa, o pacote ainda é menor que a saída do grep no KG3 (28.015 contra 33.070 bytes), mas é maior no
+KG4 (32.706 contra 25.988). São dois casos do mesmo subsistema, sem conclusão sobre tokens.
 
 `--conferir` refaz a medida e compara o **sha256 dos bytes do pacote** de cada caso com a fixture,
 além do registro determinístico completo. Diferença de hash ou métrica reprova; somente produzir
