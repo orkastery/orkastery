@@ -14,6 +14,10 @@ import { coletarEstatisticas, linhaDoHitlDeConducao, textoDasEstatisticas } from
 import { registrar } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { EventoLedger } from '../src/types';
+import { fxPedidoColado, PEDIDO_COLADO_DO_INCIDENTE, PROMPTS_DE_CONDUCAO } from '../src/canarios-rm057';
+import { rodarCanarios } from '../src/evalrunner';
+import { extrairTagDoPedido } from '../src/modos';
+import { dirTemporario } from '../src/sandbox';
 
 const min = (n: number) => new Date(Date.parse('2026-10-03T10:00:00.000Z') + n * 60_000).toISOString();
 const MIN = 60_000;
@@ -152,4 +156,35 @@ test('o OpenClaw diz a regra nas descrições de três tools, no src e no dist c
     assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 3, rel);
   }
   assert.ok(umaLinha(ler('adapters/openclaw/README.md')).includes('o pedido que ele colou com autorização explícita vale como instrução dele'));
+});
+
+// ---------------------------------------------------------------------------
+// O canario do incidente de 01/10: o pedido colado com autorizacao explicita segue sem parar.
+// ---------------------------------------------------------------------------
+
+test('fx-pedido-colado passa contra o código e o catálogo reais, com a fixture versionada', () => {
+  const r = rodarCanarios(catalogo, ['fx-pedido-colado']);
+  assert.deepEqual(r.falhas, []);
+  assert.equal(r.resultados.length, 1);
+  const c = r.resultados[0];
+  assert.equal(c.estado, 'passou');
+  assert.equal(c.observado.simulado, true);
+  assert.equal(c.observado.confirmoRecusado, 'hitl.selecao.texto-livre');
+  assert.equal(c.observado.adaptadoresComARegra, 4);
+  assert.equal(extrairTagDoPedido(PEDIDO_COLADO_DO_INCIDENTE), 'auto');
+});
+
+test('fx-pedido-colado acusa o adaptador que não diz a regra: com só os da fatia 1, conta 2', () => {
+  const dir = dirTemporario('rm057-catalogo');
+  try {
+    for (const rel of PROMPTS_DE_CONDUCAO) {
+      fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+      const original = ler(rel);
+      const daFatia1 = rel.startsWith('adapters/claude-code') || rel.startsWith('adapters/codex');
+      fs.writeFileSync(path.join(dir, rel), daFatia1 ? original : '# adaptador sem a regra da RM-057\n');
+    }
+    const observado = fxPedidoColado.rodar({ catalogo: dir });
+    assert.equal(observado.adaptadoresComARegra, 2);
+    assert.equal(observado.humanosNoPulse, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
