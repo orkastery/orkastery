@@ -17,9 +17,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
-import { COLECOES_DO_ORK, EMBED_MAX_CARACTERES, MODELO_DE_EMBEDDING, PedidoDeEmbedding, RespostaDeEmbedding } from './orkmind';
+import { COLECOES_DO_ORK, EMBED_MAX_CARACTERES, MODELO_DE_EMBEDDING, PedidoDeEmbedding, pertenceAoUniverso, RespostaDeEmbedding } from './orkmind';
 import { procurarSegredos } from './policies';
-import { ColecaoDoOrk, ConfigDeEmbedding, ConsultaPorTag, EntradaDeMemoria, MotivoDeEmbeddings } from './types';
+import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria, ForaDaBusca, MotivoDeEmbeddings, UniversoDaBusca } from './types';
 
 export const CONTRATO_INDICE = 'ork.indice-vetorial/v1';
 /** D11: lote por chamada da ponte na indexacao. */
@@ -58,9 +58,12 @@ export interface IndiceVetorial {
   entradas: Record<string, EntradaDoIndice>;
 }
 
-/** Fonte do universo: a mesma leitura governada de `ork memory search --tags`. */
-export interface FonteDeMemoria {
-  buscar(consulta: ConsultaPorTag): EntradaDeMemoria[];
+/**
+ * RM-038: a fonte do universo da busca (a operacao `universo` da ponte, pela `Memoria` ou pelo
+ * driver). Uma leitura so, ate o fim ou com falha tipada.
+ */
+export interface FonteDoUniverso {
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
 }
 
 export type Embeddar = (pedido: PedidoDeEmbedding, opcoes?: { timeoutMs?: number }) => RespostaDeEmbedding;
@@ -174,14 +177,34 @@ export function gravarIndice(arquivo: string, indice: IndiceVetorial): boolean {
 }
 
 /**
- * Universo do tenant: o export governado das colecoes do ork (filtro de injecao e visibilidade
- * da biblioteca), com checagem EXPLICITA do tenant antes de qualquer texto ir ao embed.
+ * RM-038 (D6): a fronteira do universo no `ork`, num lugar so. Entrada de outro tenant, de colecao
+ * fora do ork ou com id repetido e violacao tipada, nunca descarte silencioso: nada disso vai ao embed.
  */
-export function universoDoTenant(fonte: FonteDeMemoria, tenant: string,
-  colecoes: readonly ColecaoDoOrk[] = COLECOES_DO_ORK): EntradaDeMemoria[] {
-  return colecoes.flatMap(c => fonte.buscar({ collection: c, tags: { project: [tenant] } })
-    .filter(e => e.collection === c && (e.tags.project ?? []).includes(tenant)))
-    .sort((a, b) => a.collection.localeCompare(b.collection) || a.id.localeCompare(b.id));
+export function conferirUniverso(entradas: readonly EntradaDeMemoria[], tenant: string): void {
+  const vistos = new Set<string>();
+  for (const e of entradas) {
+    if (!pertenceAoUniverso(e, tenant) || vistos.has(e.id)) throw new Error('memory.query.scope-violation');
+    vistos.add(e.id);
+  }
+}
+
+/**
+ * RM-038 (D4): o universo da busca e do indice, o domicilio unico. A fonte le uma vez (a ponte
+ * filtra o tenant na origem e aplica a governanca da biblioteca); aqui a fronteira e conferida de
+ * novo, a ordem fica estavel e a contagem por colecao sai pronta para o status e o index.
+ */
+export function universoDaBusca(fonte: FonteDoUniverso, tenant: string): UniversoDaBusca {
+  const lido = fonte.universo(tenant);
+  conferirUniverso(lido.entradas, tenant);
+  const entradas = [...lido.entradas].sort((a, b) => a.collection.localeCompare(b.collection) || a.id.localeCompare(b.id));
+  const porColecao = Object.fromEntries(COLECOES_DO_ORK.map(c => [c, 0])) as Record<ColecaoDoOrk, number>;
+  for (const e of entradas) porColecao[e.collection as ColecaoDoOrk] += 1;
+  return { tenant, entradas, porColecao, foraDaBusca: lido.foraDaBusca };
+}
+
+/** Codigo tipado de uma falha (`memory.query.window-saturated`), ou o padrao quando nao ha. */
+export function codigoDaFalha(erro: unknown, padrao = 'memory.universo.indisponivel'): string {
+  return /^[a-z]+(?:\.[a-z-]+)+/.exec(erro instanceof Error ? erro.message : '')?.[0] ?? padrao;
 }
 
 /** Conteudo que nunca vai ao provider: padrao de segredo da policy ou URL com credencial. */

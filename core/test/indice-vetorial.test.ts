@@ -10,10 +10,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { projetoTemporario } from './apoio';
-import { DriverEmMemoria, filtrarPorTags } from '../src/orkmind';
+import { DriverEmMemoria } from '../src/orkmind';
 import {
-  arquivoDoIndice, codigoDeEmbedding, dimDoModeloLocal, FonteDeMemoria, impressaoDaBase, indexar, lerIndice, OpcoesDoIndice,
-  PRECO_USD_POR_TOKEN, universoDoTenant,
+  arquivoDoIndice, codigoDeEmbedding, dimDoModeloLocal, impressaoDaBase, indexar, lerIndice, OpcoesDoIndice,
+  PRECO_USD_POR_TOKEN, universoDaBusca,
 } from '../src/indice-vetorial';
 import { ColecaoDoOrk, ConfigDeEmbedding, EntradaDeMemoria } from '../src/types';
 
@@ -29,11 +29,10 @@ function entrada(id: string, collection: ColecaoDoOrk, content: string, project 
 function cenario(entradas: EntradaDeMemoria[]) {
   const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-indice-'));
   const driver = new DriverEmMemoria(entradas);
-  const fonte: FonteDeMemoria = { buscar: q => filtrarPorTags(driver.exportar(q.collection!), q) };
   const opcoes = (extra: Partial<OpcoesDoIndice> = {}): OpcoesDoIndice => ({ raiz, tenant: 'fabrica', dsn: DSN,
-    config: CONFIG, alvo: 'primario', universo: universoDoTenant(fonte, 'fabrica'), dryRun: false,
+    config: CONFIG, alvo: 'primario', universo: universoDaBusca(driver, 'fabrica').entradas, dryRun: false,
     chavePresente: true, embeddar: p => driver.embeddar(p), ...extra });
-  return { raiz, driver, fonte, opcoes, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
+  return { raiz, driver, opcoes, limpar: () => fs.rmSync(raiz, { recursive: true, force: true }) };
 }
 
 const BASICO = () => [
@@ -80,11 +79,11 @@ test('entrada de outro tenant nunca chega ao embed', () => {
   const c = cenario([...BASICO(), alheia]);
   try {
     // Mesmo que o chamador entregue a entrada alheia no universo, o indexador filtra de novo.
-    const r = indexar(c.opcoes({ universo: [...universoDoTenant(c.fonte, 'fabrica'), alheia] }));
+    const r = indexar(c.opcoes({ universo: [...universoDaBusca(c.driver, 'fabrica').entradas, alheia] }));
     assert.equal(r.universo, 3);
     const enviados = c.driver.pedidosDeEmbedding.flatMap(p => p.textos);
     assert.ok(!enviados.some(t => t.includes('outro produto')));
-    assert.ok(!universoDoTenant(c.fonte, 'fabrica').some(e => e.id === 'x1'));
+    assert.ok(!universoDaBusca(c.driver, 'fabrica').entradas.some(e => e.id === 'x1'));
   } finally { c.limpar(); }
 });
 
@@ -248,6 +247,7 @@ const cont={}; for (const e of dados) cont[e.collection]=(cont[e.collection]||0)
 if (q.op==='stats') console.log(JSON.stringify(cont));
 else if (q.op==='health') console.log(JSON.stringify({contagens:cont,orkmind:'teste',fallback:{modelo:null,presente:false,dependencias:false}}));
 else if (q.op==='export') console.log(JSON.stringify(dados.filter(e=>e.collection===q.collection)));
+else if (q.op==='universo') console.log(JSON.stringify(new (require(${JSON.stringify(DUBLE)}).DriverEmMemoria)(dados.map(e=>({...e,criadaEm:e.created_at}))).universo(q.tenant)));
 else if (q.op==='embed') { if (!process.env.ORKMIND_EMBEDDING_API_KEY && q.alvo==='primario') { console.log(JSON.stringify({error:'embeddings.chave-ausente'})); process.exit(1); }
   const {vetorDeDuble}=require(${JSON.stringify(DUBLE)}); console.log(JSON.stringify({alvo:q.alvo,modelo:q.modelo,dim:q.dim,vetores:q.textos.map(t=>vetorDeDuble(t,q.dim))})); }
 else { console.log(JSON.stringify({error:'memory.bridge.failed'})); process.exit(1); }

@@ -46,7 +46,7 @@ import {
   SaudeDaPonte,
 } from './orkmind';
 import {
-  arquivoDoIndice, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice, universoDoTenant,
+  arquivoDoIndice, dirDosIndices, dimDoModeloLocal, Embeddar, impressaoDaBase, lerIndice, universoDaBusca,
   vetoresCoerentes, codigoDeEmbedding, CONTRATO_INDICE,
 } from './indice-vetorial';
 import { registrar, lerLedger, TIPOS_DE_EVENTO } from './ledger';
@@ -61,6 +61,7 @@ import {
   EntradaNova,
   EstadoDaMemoria,
   EstadoDeEmbeddings,
+  ForaDaBusca,
   IndiceDeEmbeddings,
   Fase,
   Handoff,
@@ -104,6 +105,11 @@ export interface Memoria {
   buscar(consulta: ConsultaPorTag): EntradaDeMemoria[];
   /** Uma entrada pelo id, dentro de uma colecao. Usado pelo `ork recall`. */
   porId(colecao: string, id: string): EntradaDeMemoria | null;
+  /**
+   * RM-038: o universo da busca do tenant pela operacao `universo` da ponte. Use por
+   * `universoDaBusca` (indice-vetorial.ts), que confere a fronteira e conta por colecao.
+   */
+  universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null };
 }
 
 export interface OpcoesDeMemoria {
@@ -260,10 +266,18 @@ export function abrirMemoria(
       if (!ativo || !driver) return null;
       return driver.exportar(colecao).find((e) => e.id === id) ?? null;
     },
+    universo(tenant: string): { entradas: EntradaDeMemoria[]; foraDaBusca: ForaDaBusca | null } {
+      // A fronteira do manifesto vale antes de qualquer leitura: tenant e so o configurado.
+      if (tenant !== estado.tenant) throw new Error('memory.tenant.mismatch');
+      if (leituraRestrita) throw new Error('memory.query.invalid');
+      if (!ativo || !driver) throw new Error('memory.universo.indisponivel');
+      if (typeof driver.universo !== 'function') throw new Error('memory.universo.unsupported');
+      return driver.universo(tenant);
+    },
   };
   // A cobertura precisa do universo do tenant (um export por colecao): so quando pedida.
   if (opcoes.embeddings === 'detalhado' && ativo && !leituraRestrita) {
-    estado.embeddings = embeddings(universoDoTenant(memoria, estado.tenant));
+    estado.embeddings = embeddings(universoDaBusca(memoria, estado.tenant).entradas);
   }
   return memoria;
 }

@@ -1368,6 +1368,28 @@ export interface EntradaDeMemoria {
   protected?: boolean;
 }
 
+/** RM-038: entradas do tenant que ficam fora do universo da busca, so a contagem e o porque. */
+export interface ForaDaBusca {
+  /** Ativas com `injection_risk` (a leitura governada as tira; nunca vao ao embed). */
+  injecao: number;
+  expiradas: number;
+  /** Do tenant, mas em colecoes que o `ork` nao grava. */
+  outrasColecoes: number;
+}
+
+/**
+ * RM-038: o universo da busca e do indice, lido de uma vez e conferido (domicilio unico:
+ * `universoDaBusca` em `indice-vetorial.ts`). Indice, vetor, FTS e status usam este conjunto.
+ */
+export interface UniversoDaBusca {
+  tenant: string;
+  /** Ordenadas por colecao e id. */
+  entradas: EntradaDeMemoria[];
+  porColecao: Record<ColecaoDoOrk, number>;
+  /** null quando a base nao mede (backend sem a contagem). */
+  foraDaBusca: ForaDaBusca | null;
+}
+
 /** O que o `ork` manda gravar (o id e a data quem carimba e o OrkMind). */
 export interface EntradaNova {
   source?: 'agent' | 'human';

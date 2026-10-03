@@ -147,7 +147,7 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDaBusca } from './indice-vetorial';
 import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
@@ -3679,7 +3679,7 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    const universo = universoDaBusca(memoria, memoria.estado.tenant).entradas;
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3738,7 +3738,7 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      universo: universoDaBusca(memoria, memoria.estado.tenant).entradas.filter(e => !colecao || e.collection === colecao),
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
