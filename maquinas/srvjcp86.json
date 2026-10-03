@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:37:54.308Z",
+  "publicadoEm": "2026-10-03T03:37:56.992Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-claimsemprov",
-      "nome": "claim sem prova local",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-008",
-      "branch": "ork/ork-claimsemprov-full",
-      "atualizadaEm": "2026-10-03T03:31:39.876Z",
-      "entregue": "96a0e1c",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
