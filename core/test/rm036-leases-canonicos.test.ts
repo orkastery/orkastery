@@ -287,7 +287,7 @@ test('rm036 leases: legado solto pela thread ou com --forcar', () => {
   } finally { c.p.limpar(); }
 });
 
-test('rm036 leases: fila legada entra na canonica em FIFO', () => {
+test('rm036 leases: fila legada e ignorada e a canonica conserva FIFO', () => {
   const c = cenario('rm036-fila-legada', { threads: 4 });
   try {
     const [t2, t3, t4, t5] = c.outras;
@@ -303,17 +303,17 @@ test('rm036 leases: fila legada entra na canonica em FIFO', () => {
     fs.writeFileSync(legada, JSON.stringify([pedido(t2, 'path:core/a.ts', 10), pedido(t3, 'path:core/c.ts', 30),
       pedido(t4, 'path:core/b.ts', 40)], null, 2) + '\n');
 
-    // A leitura ja une as duas, em FIFO, sem gravar nada.
-    assert.deepEqual(lerFila(c.raiz).map((p) => p.thread), [t2, t4, t3]);
+    // A fila antiga era so daquele checkout; nao recebe prioridade no projeto inteiro.
+    assert.deepEqual(lerFila(c.raiz).map((p) => p.thread), [t4]);
     assert.ok(fs.existsSync(legada), 'ler nao apaga a fila legada');
 
-    // A primeira gravacao: t5 pede pela worktree e entra atras dos tres; a legada sai.
+    // A primeira gravacao: t5 pede pela worktree e entra atras de t4, sem incorporar o legado.
     const r = ork(c.wt, 'lease', 'acquire', 'path:core/**', '--thread', t5);
     assert.equal(r.codigo, 1, r.stdout + r.stderr);
-    assert.match(r.stderr, /posicao na fila: 4/);
-    assert.equal(fs.existsSync(legada), false, 'a fila legada saiu na primeira gravacao');
+    assert.match(r.stderr, /posicao na fila: 2/);
+    assert.equal(fs.existsSync(legada), true, 'fila legada nao e lida nem alterada');
     const fila = JSON.parse(fs.readFileSync(caminhoFila(c.raiz), 'utf8')) as PedidoNaFila[];
-    assert.deepEqual(fila.map((p) => p.thread), [t2, t4, t3, t5]);
+    assert.deepEqual(fila.map((p) => p.thread), [t4, t5]);
     assert.equal(fila.find((p) => p.thread === t4)?.desdeEm, quando(20), 'fica a espera mais antiga');
     // Gravacao atomica: nenhum temporario fica para tras na pasta.
     assert.deepEqual(fs.readdirSync(dirLeases(c.raiz)).filter((f) => f.endsWith('.tmp')), []);
@@ -347,7 +347,9 @@ test('rm036 leases: legado de thread fechada sai na poda e no fechamento', () =>
     const solto = eventos.find((e) => e.tipo === 'lease_released' && e.lease === 'path:core/**');
     assert.equal(solto?.origem, 'poda');
     assert.equal(solto?.pedidaPor, t2);
-    assert.ok(eventos.some((e) => e.tipo === 'lease_dequeued' && e.lease === 'path:docs/**' && e.origem === 'poda'));
+    assert.equal(fs.existsSync(filaLegada), true, 'poda nao incorpora nem altera a fila legada');
+    assert.equal(eventos.some((e) => e.tipo === 'lease_dequeued' && e.lease === 'path:docs/**'), false,
+      'nao inventa evento de uma espera que nao entrou na fila canonica');
 
     // Fechamento: t3 aberta com um legado; fechar a thread o solta, com registro.
     const deT3 = gravarLegado(c.wt, leaseDe('board:card-9', t3, 20));

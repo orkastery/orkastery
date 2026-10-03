@@ -189,3 +189,68 @@ test('rm036 gofix: liberar nao usa legado quando o canonico desaparece durante a
   assert.equal(leases.liberar(c.raiz, nome, DONO).ok, true, 'solta somente o proprio legado');
   assert.equal(JSON.parse(ler(canonico, 'utf8')).thread, OUTRA, 'nao apaga a nova dona canonica');
 });
+
+test('rm036 gofix: fila legada envenenada nao e lida nem incorporada', (t) => {
+  const c = cenario(t), arquivo = path.join(c.legado, 'fila.json');
+  const veneno = JSON.stringify([{ nome: 'main-tree', tipo: 'main-tree', thread: 'ork-falsa\nINJETADO',
+    desdeEm: '2000-01-01T00:00:00.000Z', motivo: '', bloqueadaPor: 'falsa', colidiuCom: 'main-tree' }]);
+  fs.writeFileSync(arquivo, veneno);
+  const ler = io.readFileSync;
+  t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+    assert.notEqual(String(p), arquivo, 'nao le fila legada');
+    return Reflect.apply(ler, io, [p, ...args]);
+  });
+  assert.deepEqual(leases.lerFila(c.raiz), []);
+  assert.equal(leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'GO' }).ok, true);
+  const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'GO' });
+  assert.equal(r.posicaoNaFila, 1);
+  assert.deepEqual(leases.lerFila(c.raiz).map((p) => p.thread), [OUTRA]);
+  assert.equal(ler(arquivo, 'utf8'), veneno);
+  assert.doesNotMatch(leases.tabelaDeLeases(c.raiz), /INJETADO|ork-falsa/);
+});
+
+test('rm036 gofix: propria copia legada nao enfileira atras de si nem de outra espera', (t) => {
+  const c = cenario(t);
+  c.gravar(vivo());
+  leases.enfileirar(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'aguarda', colidiuCom: 'main-tree', bloqueadaPor: DONO });
+  // Simula uma autoespera deixada pela versao da rodada 1.
+  leases.enfileirar(c.raiz, 'main-tree', { thread: DONO, motivo: 'reentrada', colidiuCom: 'main-tree', bloqueadaPor: DONO });
+  const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'GO' });
+  assert.equal(r.ok, false);
+  assert.equal(r.esperando, false);
+  assert.equal(r.posicaoNaFila, 0);
+  assert.equal(r.ocupadoPor?.thread, DONO);
+  assert.deepEqual(leases.lerFila(c.raiz).map((p) => p.thread), [OUTRA]);
+  assert.equal(leases.liberar(c.raiz, 'main-tree', DONO).ok, true);
+  assert.equal(leases.adquirirRegiao(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'GO' }).ok, true);
+});
+
+test('rm036 gofix: fila atomica preserva leitores durante escrita parcial', (t) => {
+  const c = cenario(t), nome = 'main-tree';
+  leases.enfileirar(c.raiz, nome, { thread: DONO, motivo: 'um', colidiuCom: nome, bloqueadaPor: OUTRA });
+  const antes = leases.lerFila(c.raiz), escrever = io.writeFileSync;
+  let durante = 0;
+  t.mock.method(io, 'writeFileSync', (p: fs.PathOrFileDescriptor, data: string, ...args: unknown[]) => {
+    if (String(p).startsWith(leases.caminhoFila(c.raiz))) {
+      Reflect.apply(escrever, io, [p, data.slice(0, 10), ...args]);
+      assert.deepEqual(leases.lerFila(c.raiz), antes, 'leitor ve a fila antiga inteira ate o rename');
+      durante++;
+    }
+    return Reflect.apply(escrever, io, [p, data, ...args]);
+  });
+  leases.enfileirar(c.raiz, nome, { thread: OUTRA, motivo: 'dois', colidiuCom: nome, bloqueadaPor: DONO });
+  assert.equal(durante, 1, 'interceptou a escrita real');
+  assert.deepEqual(leases.lerFila(c.raiz).map((p) => p.thread), [DONO, OUTRA]);
+  assert.deepEqual(fs.readdirSync(leases.dirLeases(c.raiz)).filter((n) => n.endsWith('.tmp')), []);
+});
+
+test('rm036 gofix: falha do rename da fila conserva estado anterior e limpa temporario', (t) => {
+  const c = cenario(t), nome = 'main-tree';
+  leases.enfileirar(c.raiz, nome, { thread: DONO, motivo: 'um', colidiuCom: nome, bloqueadaPor: OUTRA });
+  const antes = fs.readFileSync(leases.caminhoFila(c.raiz), 'utf8');
+  t.mock.method(io, 'renameSync', () => { throw new Error('rename indisponivel'); });
+  assert.throws(() => leases.enfileirar(c.raiz, nome, { thread: OUTRA, motivo: 'dois', colidiuCom: nome, bloqueadaPor: DONO }),
+    /rename indisponivel/);
+  assert.equal(fs.readFileSync(leases.caminhoFila(c.raiz), 'utf8'), antes);
+  assert.deepEqual(fs.readdirSync(leases.dirLeases(c.raiz)).filter((n) => n.endsWith('.tmp')), []);
+});
