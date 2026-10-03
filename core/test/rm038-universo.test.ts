@@ -15,6 +15,7 @@ import { abrirMemoria, estadoDeEmbeddings, textoDoEstado } from '../src/memoria'
 import { COLECOES_DO_ORK, DriverCliOrkMind, DriverEmMemoria, PedidoDeEmbedding, pertenceAoUniverso } from '../src/orkmind';
 import { conferirUniverso, FonteDoUniverso, indexar, textoDoIndice, universoDaBusca } from '../src/indice-vetorial';
 import { buscarPorSignificado, OpcoesDaBusca } from '../src/busca-semantica';
+import { motivoDiferimentoCi } from '../src/ci';
 import { ConfigDeEmbedding, EntradaDeMemoria, ForaDaBusca, UniversoDaBusca } from '../src/types';
 import { projetoTemporario } from './apoio';
 
@@ -392,4 +393,19 @@ test('rm038 universo: cli do HEAD mostra o universo da busca, declara o FTS fora
   const buscaSem = JSON.parse(orkCli(p.dir, ['memory', 'search', '--texto', 'comum', '--json']).saida);
   assert.equal(buscaSem.motivo, 'memory.query.window-saturated');
   assert.deepEqual(buscaSem.resultados, []);
+});
+
+test('rm038 universo: ci adia a prova na base e o teste da ponte, e roda o teste hermetico', () => {
+  const p = projetoTemporario('rm038-ci');
+  try {
+    const base = { id: 'C1', thread: 'ork-rm038', fase: 'GOAL' as const, arquivo: 'README.md', alegacao: 'prova',
+      negativa: false, criadoEm: new Date().toISOString(), estado: 'pendente' as const };
+    for (const comando of [
+      "npm --prefix core run build > /dev/null && node core/scripts/prova-universo-da-busca.cjs | grep -qF 'invariantes ok'",
+      'node core/scripts/prova-universo-da-busca.cjs thread',
+      'node --test core/dist-test/test/rm038-universo-ponte.test.js',
+      "node --test --test-name-pattern='rm038 ponte: fts' core/dist-test/test/rm038-universo-ponte.test.js",
+    ]) assert.equal(motivoDiferimentoCi({ ...base, verificar: [comando] }, p.dir), 'local-integration-required', comando);
+    assert.equal(motivoDiferimentoCi({ ...base, verificar: ['node --test core/dist-test/test/rm038-universo.test.js'] }, p.dir), null);
+  } finally { p.limpar(); }
 });
