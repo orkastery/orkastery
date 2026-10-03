@@ -23,6 +23,10 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R6-MCP-metadados-lstat': [['core/dist-test/src/mcp-git.js',
+    'const st = fs.lstatSync(f, { throwIfNoEntry: false });', 'const st = fs.lstatSync(f);']],
+  'R6-MCP-metadados-readdir': [['core/dist-test/src/mcp-git.js', "if (e.code === 'ENOENT')", 'if (false)']],
+  'R6-MCP-metadados-erros': [['core/dist-test/src/mcp-git.js', "if (e.code === 'ENOENT')", 'if (true)']],
   'R6-MCP-fila-symlink': [['core/dist-test/src/mcp-artifacts.js',
     's = fs.lstatSync(entrada, { throwIfNoEntry: false })', 's = fs.statSync(entrada, { throwIfNoEntry: false })']],
   'R5-docs-namespace': [[cli, 'só vale no mesmo namespace de PID', 'vale entre namespaces de PID']],

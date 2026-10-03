@@ -129,13 +129,19 @@ function arvoreMetadados(root:string,alvo:string,opcoes:{armazemDeObjetos?:boole
     if(++vistos>8192) falha(`metadata.unsupported: mais de 8192 entradas em ${rotulo(alvo)}`+(opcoes.armazemDeObjetos
       ? '; empacote os objetos soltos sem perda com git repack -d (git count-objects -v mostra quantos)' : ''));
     if(profundidade>32) falha(`metadata.unsupported: mais de 32 niveis em ${rotulo(alvo)}`);
-    const st=fs.lstatSync(f);
+    const st=fs.lstatSync(f,{throwIfNoEntry:false});
+    if(!st)return; // Uma retomada pode remover a fila ou o candidato depois da enumeracao.
     if(st.isSymbolicLink()) falha(`metadata.unsafe: link simbolico em ${rotulo(f)}`);
     if(!st.isDirectory() && !st.isFile()) falha(`metadata.unsafe: ${rotulo(f)} nao e arquivo regular nem pasta`);
     if(st.isFile() && st.nlink!==1 && !opcoes.armazemDeObjetos) falha(`metadata.unsafe: hard link em ${rotulo(f)} (${st.nlink} vinculos); `+
       `tire o vinculo sem perder conteudo: cp -p ${rotulo(f)} ${rotulo(f+'.tmp')} && mv ${rotulo(f+'.tmp')} ${rotulo(f)}`);
     if(f!==root && !dentro(root,f))falha(`metadata.unsafe: ${rotulo(f)} fora de ${path.basename(root)}`);
-    if(st.isDirectory())for(const n of fs.readdirSync(f))visitar(path.join(f,n),profundidade+1);
+    if(st.isDirectory()) {
+      let entradas:string[];
+      try {entradas=fs.readdirSync(f);}
+      catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT')return;throw e;}
+      for(const n of entradas)visitar(path.join(f,n),profundidade+1);
+    }
   };
   if(fs.realpathSync(alvo)!==alvo)falha(`metadata.unsafe: ${rotulo(alvo)} passa por link simbolico`);visitar(alvo,0);
 }
