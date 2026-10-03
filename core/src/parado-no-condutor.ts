@@ -25,6 +25,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { remotoValido } from './branch-de-estado';
 import { conducaoDaThread } from './conducao';
 import { raizDoEstado } from './estado-thread';
 import { enderecoDoRemoto, identidadeDaForja, repositorioGithubNoHost } from './forja';
@@ -425,8 +426,8 @@ export function esquecerForjaSemLeitura(raiz: string): void {
  */
 export function forjaSemLeituraDoRemoto(raiz: string, remoto: string): AvisoDeForjaSemLeitura | null {
   const aviso = lerAvisoDeForjaSemLeitura(raiz);
-  if (!aviso || aviso.remoto !== remoto) return null;
-  const url = git(raiz, ['remote', 'get-url', remoto]);
+  if (!aviso || aviso.remoto !== remoto || !remotoValido(remoto)) return null;
+  const url = git(raiz, ['remote', 'get-url', '--', remoto]);
   const host = url.ok ? enderecoDoRemoto(url.stdout.trim())?.host ?? null : null;
   return host === aviso.host ? aviso : null;
 }

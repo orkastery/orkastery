@@ -8,6 +8,46 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Conferência opt-in da claim no registro** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)): a policy
+  `claim_sem_prova_local` (alias `claims_failed`, o nome que o `ork licoes` propõe) vem desligada. Declarada, o
+  `ork claims add` roda o comando da claim uma vez, na worktree da thread e no prazo do `verify.timeout_ms`; se ele
+  reprova, grava `policy_warn` com `claims.failed`, e se estoura o prazo, com `verify.timeout`. A claim entra do
+  mesmo jeito e nada para, nem com a policy em `block`.
+- **`ork doctor` acusa o pulse que bate devagar** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)): com
+  `.orkastery/monitor/pulse-host.json`, o check `cadencia do pulse no cron` lê o `crontab -l` e avisa, sem bloquear, a
+  linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
+  com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
+
+### Corrigido
+
+- **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
+  - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
+    da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
+    biblioteca marca com `injection_risk`;
+  - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
+    silêncio); id do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
+  - `universo`, `export` e `fts` saem com `memory.query.window-saturated` quando a janela enche, em vez de cortar;
+  - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
+    `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
+  - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
+    `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
+    que a busca enxerga; sem o universo lido inteiro, o status diz o motivo e não calcula cobertura.
+
+### Segurança
+
+- **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
+    (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um
+    repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
+    e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
+  - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e
+    `ork roadmap reservas`, `pegar`, `soltar` e `feat` com `roadmap.remoto-invalido`, com o valor redigido e nada passado
+    ao git; o `fetch`, o `push` e o `remote get-url` recebem `--` antes do remoto.
+
+## [0.5.2] - 2026-10-03
+
+### Adicionado
+
 - **Perfil por despacho, rodízio por carga e sessões de cada conta** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md), [FEAT-037](docs/produto/FEAT-037-perfil-carga-e-sessoes-das-contas.md)):
   - `ork phase run ... --perfil <id>`, e `perfil` em `ork_phase_run` (MCP e OpenClaw): o despacho sai pela conta pedida;
     perfil inexistente ou de outro runtime recusa com o motivo novo `runtime.profile-invalid` (sem retry automático),
@@ -18,6 +58,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     cada perfil do store; cada sessão sai com o id do perfil (coluna `PERFIL`), nunca com o diretório da conta;
   - sessão claude-bg sem `pid` vivo em estado não terminal é fantasma: não ocupa vaga nem vira pausa humana;
     `ork sessions limpar-fantasmas [--dry-run]` grava `sessao_morta` na thread vinculada e nunca toca no runtime.
+- **HITL de condução por alternativas, fatia 2** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
+  - `ork ledger stats` traz `hitlDeConducao`: as perguntas `ork.hitl/v2` que o ork abriu, o tempo parado do pedido à
+    primeira resposta (recortado ao período), a mediana contra a meta de 5 min e o texto fora da exceção à parte;
+  - canário `fx-pedido-colado` (incidente de 01/10): o pedido colado em `#Auto` com push e merge autorizados segue sem
+    parar, e o "confirmo" em texto livre é recusado com `hitl.selecao.texto-livre` sem gravar nada;
+  - a regra do HITL de condução entra nas descrições de `ork_modo_do_pedido`, `ork_maestro` e `ork_phase_run` do
+    OpenClaw e na skill `orkastery-devmaster` do Hermes, que passa a dizer alternativas de `a` a `e`.
 - **HITL de condução por alternativas, fatia 1** ([RM-057](docs/roadmap/RM-057-hitl-por-alternativas.md)):
   - todo pedido que o ork abre ao dono (`ork.hitl/v2` pergunta) sai como seleção de 3 a 5 alternativas, exatamente uma
     com o selo "Recomendação"; fora disso, o registro recusa sem gravar nada, com `hitl.selecao.fora-da-faixa`,
@@ -55,18 +102,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
-  - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
-    da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
-    biblioteca marca com `injection_risk`;
-  - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
-    silêncio); id do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
-  - `universo`, `export` e `fts` saem com `memory.query.window-saturated` quando a janela enche, em vez de cortar;
-  - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
-    `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
-  - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
-    `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
-    que a busca enxerga; sem o universo lido inteiro, o status diz o motivo e não calcula cobertura.
 - **Pendências da fatia 4 e rodízio no limite de gasto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 5):
   - a sessão claude-bg que bate o limite de gasto (ou outra cota que o rodízio já conhece) tira o perfil do rodízio na
     hora em que a mensagem aparece na transcrição, e não só quando o processo morre: o perfil fica esgotado até a hora

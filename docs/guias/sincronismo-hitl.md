@@ -581,6 +581,9 @@ mudou o que o núcleo traduz depois dela.
   pergunta nativa de uma sessão do host continua com as opções do host, e o histórico com duas
   alternativas continua legível. `ork prompt lint` reprova o template que peça um "confirmo" em
   texto livre ou que o dono cole texto (regra `hitl-texto-livre`).
+  O tempo parado por essas perguntas sai do ledger em `ork ledger stats` (`hitlDeConducao`, com a
+  mediana contra a meta de 5 min), e o canário `fx-pedido-colado` prova que o pedido colado com
+  autorização explícita segue sem parar. A regra está nos quatro adaptadores de condução.
 - **Texto livre inequívoco:** vocabulário fechado (`aprovo`, `sim`, `pode seguir`, `ok`, `revisar`,
   `esperar`, `detalhes` e parentes), letra `a` a `e` e dígito `1` a `5`. A palavra casa a ação da
   alternativa; `não` num gate casa revisar e esperar, e por isso volta como pergunta. Com mais de

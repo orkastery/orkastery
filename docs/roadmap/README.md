@@ -44,7 +44,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-005](RM-005-master-e-digest.md) | MASTER ratificado e digest semanal | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 | [RM-006](RM-006-orkmind-na-fabrica.md) | OrkMind ligado na fábrica | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-007](RM-007-telemetria-economica.md) | Telemetria econômica no ledger | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
-| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-09-28 |
+| [RM-008](RM-008-loop-de-aprendizado.md) | Loop de aprendizado | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-009](RM-009-playbook-dos-runtimes.md) | Playbook dos runtimes | Concluído | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-012](RM-012-ci-check-independente.md) | CI como CHECK independente | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-013](RM-013-maestro-objetivo.md) | Maestro Mode B7: objetivo e envelope | Descontinuado | Mesclado | Aprovados | Não implantado | 2026-09-24 |
@@ -62,7 +62,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-036](RM-036-maestro-multicanal.md) | Condução multicanal do Maestro no núcleo | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-037](RM-037-verify-rapido-e-confiavel.md) | Verify rápido e confiável | Piloto | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-038](RM-038-busca-semantica-na-memoria.md) | Busca semântica na memória | Em validação | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
+| [RM-039](RM-039-cadencia-do-pulse-por-tag.md) | Cadência do pulse por tag em qualquer canal | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-040](RM-040-estado-de-conta-compartilhado.md) | Estado de conta compartilhado entre projetos | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
 | [RM-041](RM-041-hitl-invertido.md) | HITL invertido: decisão tomada, lote e pergunta rara | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-042](RM-042-modo-fast.md) | Modo #Fast: uma fase, sem cerimônia | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
@@ -79,7 +79,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-054](RM-054-roadmaps-e-threads-da-rede.md) | Roadmaps e threads da rede visíveis a todo agente e runtime | Em desenvolvimento | Mesclado | Aprovados | Não implantado | 2026-10-02 |
 | [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
 | [RM-056](RM-056-perfil-por-thread-e-carga.md) | Perfil por thread, rodízio por carga e sessões dos perfis | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-02 |
-| [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Branch criada | Em execução | Não implantado | 2026-10-02 |
+| [RM-057](RM-057-hitl-por-alternativas.md) | HITL de condução por alternativas: de 3 a 5 opções, uma recomendada, nunca texto colado | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
 | [RM-100](RM-100-fundacao-do-nucleo.md) | Fundação do núcleo: blocos B0 a B6 | Concluído | Mesclado | Aprovados | Produção | 2026-09-24 |
 
 <!-- ork-docs:indice:fim -->

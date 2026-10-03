@@ -28,6 +28,7 @@ import { StatusDeAuth } from './adapters/claude-bg';
 import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponivel, RUNTIMES_COM_PERFIL } from './runtime-profiles';
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
+import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -297,7 +298,8 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
 }
 
 /** Roda todos os checks a partir do diretorio informado. */
-export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): Check[] {
+export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  lerCrontab: LeitorDoCrontab = lerCrontabDoSistema): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -517,6 +519,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
         : `${dirEstadoProjeto} ausente`,
       correcao: fs.existsSync(dirEstadoProjeto) ? undefined : 'ork init cria o diretorio de estado',
     });
+    // RM-039 (B6): com o transporte do pulse configurado, a varredura tem de bater de 15 em 15
+    // minutos; a instalacao antiga em `0 * * * *` vira aviso com a linha nova. Nunca edita o crontab.
+    const cronDoPulse = checarCronDoPulse(path.join(dirEstadoProjeto, 'monitor'), raizDoEstado(carregado.raiz), lerCrontab);
+    if (cronDoPulse) checks.push(cronDoPulse);
 
     checks.push(checarContas(carregado.raiz));
     // I-33 (D7): umask e permissoes do estado, na mesma regra do sensor (sem bits 0o022).

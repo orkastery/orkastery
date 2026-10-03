@@ -189,6 +189,18 @@ const PROJETO_DA_REDE: ProjetoDaTool = {
   recusa: 'informe o NOME de um projeto de `ork projetos` (ex.: orkastery) ou github:dono/repo, nunca caminho nem URL',
 };
 
+/**
+ * RM-057 (fatia 2): a regra do HITL de conducao, a mesma frase dos adaptadores do Claude Code e do
+ * Codex (fatia 1). No OpenClaw o modelo so le as descricoes das tools: ela vai nas que recebem o
+ * pedido do dono (ork_modo_do_pedido), apresentam o panorama (ork_maestro) e despacham fase.
+ */
+const REGRA_HITL_DE_CONDUCAO =
+  'HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo "Recomendação". ' +
+  'Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido que ele colou com autorização ' +
+  'explícita vale como instrução dele, dentro dessa autorização. Dúvida dentro da autorização vira `ork decisao registrar` ' +
+  'e a thread segue. Texto só quando a fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: ' +
+  'mostre o comando exato.';
+
 /** Catálogo em paridade nome a nome com o manifesto; aprovação genérica legada aposentada. */
 interface FerramentaOrk {
   name: string;
@@ -203,7 +215,7 @@ interface FerramentaOrk {
 const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_maestro',
-    description: 'Ao receber a frase exata orkastery maestro: sem projeto nomeado, chame ork_network_roadmap sem projeto (o panorama da rede, com fontes, frescor e lacunas) e apresente-o como vem; com projeto nomeado, consulte este panorama somente leitura com projeto. Não cria thread. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. O panorama NÃO lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_network_roadmap. Ação posterior exige operação autorizada e readback.',
+    description: 'Ao receber a frase exata orkastery maestro: sem projeto nomeado, chame ork_network_roadmap sem projeto (o panorama da rede, com fontes, frescor e lacunas) e apresente-o como vem; com projeto nomeado, consulte este panorama somente leitura com projeto. Não cria thread. Apresente fontes, lacunas e HITL com recomendação e opções claras; horários para o dono vêm dos campos *Local (fuso do dono), nunca do ISO. O panorama NÃO lê o roadmap, as reservas nem as outras máquinas (veja notConsulted): zero threads nunca é roadmap vazio; para o roadmap use ork_network_roadmap. Ação posterior exige operação autorizada e readback. ' + REGRA_HITL_DE_CONDUCAO,
     parameters: { type: 'object', additionalProperties: false, properties: {
       thread: { type: 'string' }, section: { type: 'string', enum: ['portfolio','demands','threads','sessions','blockers','leases','retries','hitl','ship','master','nextActions'] },
       offset: { type: 'integer', minimum: 0, maximum: 100000 },
@@ -245,7 +257,7 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_modo_do_pedido',
     description:
-      'Le a #TAG de conducao do pedido do builder (#Classic, #Maestro, #Auto, #Fast) e devolve o modo. #TAG aposentada (#Look, #Ork) recebe recusa tipada modo.aposentado, com saida != 0, em vez de virar o default em silencio. Sem tag, devolve o conduction.default_mode do manifesto. Use SEMPRE este tool em vez de reconhecer a tag no host.',
+      'Le a #TAG de conducao do pedido do builder (#Classic, #Maestro, #Auto, #Fast) e devolve o modo. #TAG aposentada (#Look, #Ork) recebe recusa tipada modo.aposentado, com saida != 0, em vez de virar o default em silencio. Sem tag, devolve o conduction.default_mode do manifesto. Use SEMPRE este tool em vez de reconhecer a tag no host. ' + REGRA_HITL_DE_CONDUCAO,
     parameters: schema({
       pedido: { type: 'string', description: 'O texto inteiro do pedido do builder' },
     }),
@@ -281,7 +293,8 @@ const FERRAMENTAS: FerramentaOrk[] = [
   {
     name: 'ork_phase_run',
     description:
-      'Despacha uma fase (GOAL PLAN GO CHECK SHIP MASTER) pelo runtime adapter, gravando o prompt exato com sha256 no ledger.',
+      'Despacha uma fase (GOAL PLAN GO CHECK SHIP MASTER) pelo runtime adapter, gravando o prompt exato com sha256 no ledger. ' +
+      REGRA_HITL_DE_CONDUCAO,
     parameters: {
       type: 'object', additionalProperties: false, required: ['thread', 'fase', 'prompt'],
       properties: {
