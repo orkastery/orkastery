@@ -143,6 +143,20 @@
       "criadoEm": "2026-10-03T02:56:39.236Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm057fatia2c",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-057-hitl-por-alternativas.md",
+      "alegacao": "D1: a paridade de docs fica verde (a main estava vermelha desde 02/10 com RM-057 em Branch criada depois do merge 7266df6): o mesmo comando do job documentacao passa",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T03:04:31.774Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
