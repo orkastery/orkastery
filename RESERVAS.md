@@ -5,13 +5,13 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 
 | Item | Com quem | Máquina | Thread | Desde | Nota |
 | --- | --- | --- | --- | --- | --- |
-| RM-031 | Julio Pessoa | vps | ork-rm031grafofu | 02/10 23:35 | — |
-| RM-038 | Julio Pessoa | vps | ork-rm038univers | 02/10 23:35 | — |
-| RM-040 | Julio Pessoa | srvjcp86 | ork-rm040piloto | 01/10 01:51 | — |
-| RM-053 | Julio Pessoa | srvjcp86 | ork-rm053network | 29/09 13:32 | — |
-| RM-054 | Julio Pessoa | srvjcp86 | ork-rm054fatia3s | 02/10 13:41 | — |
-| RM-055 | Julio Pessoa | srvjcp86 | ork-rm055impedim | 29/09 23:39 | — |
-| RM-056 | Julio Pessoa | srvjcp86 | ork-rm056perfil | 01/10 01:57 | — |
-| RM-057 | Julio Pessoa | srvjcp86 | ork-rm057alterna | 02/10 14:17 | — |
+| RM-031 | Julio Pessoa | vps | ork-rm031grafofu | 03/10 02:35 | — |
+| RM-038 | Julio Pessoa | vps | ork-rm038univers | 03/10 02:35 | — |
+| RM-040 | Julio Pessoa | srvjcp86 | ork-rm040piloto | 01/10 04:51 | — |
+| RM-053 | Julio Pessoa | srvjcp86 | ork-rm053network | 29/09 16:32 | — |
+| RM-054 | Julio Pessoa | srvjcp86 | ork-rm054fatia3s | 02/10 16:41 | — |
+| RM-055 | Julio Pessoa | srvjcp86 | ork-rm055impedim | 30/09 02:39 | — |
+| RM-056 | Julio Pessoa | srvjcp86 | ork-rm056perfil | 01/10 04:57 | — |
+| RM-057 | Julio Pessoa | srvjcp86 | ork-rm057alterna | 02/10 17:17 | — |
 
-Horários de Brasília.
+Horários em UTC.
