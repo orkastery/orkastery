@@ -105,6 +105,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
+  merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da
+  branch cujo pai trazido já estava na base. Git sem resposta conta 0, e `--classe` continua vencendo.
 - **Id da instalação numa pasta dividida** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), X6 do CHECK 6):
   sem hard link (vboxsf, SMB, alguns FUSE), e na troca de um `~/.orkastery/maquina-id` ruim, cada host ou contêiner
   que divide a pasta gravava um id derivado do próprio hostname e boot, e o último a gravar vencia. Por isso, quem
