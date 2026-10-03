@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T05:30:03.114Z",
+  "publicadoEm": "2026-10-03T05:39:38.551Z",
   "threads": [
     {
       "id": "ork-rm031grafofu",
@@ -14,7 +14,7 @@
       "status": "aberta",
       "roadmap": "RM-031",
       "branch": "ork/ork-rm031pacote-full",
-      "atualizadaEm": "2026-10-03T05:07:28.577Z",
+      "atualizadaEm": "2026-10-03T05:38:20.652Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -39,6 +39,23 @@
       "runtime": "codex",
       "modelo": "gpt-6-astra",
       "esforco": "xhigh"
+    },
+    {
+      "id": "ork-rm038ajusted",
+      "nome": "RM-038 ajuste dos avisos da rodada 2",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-038",
+      "branch": "ork/ork-rm038ajuste-full",
+      "atualizadaEm": "2026-10-03T05:39:36.066Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     }
   ]
 }
