@@ -11,6 +11,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { checar } from '../src/doctor';
 import { painelDaRede, RETRATO_PARADO_MS, retratoParado } from '../src/rede';
+import { textoDaFabrica, textoDasOutrasMaquinas } from '../src/fabrica-estado';
+import { jsonSemInvisivel, valoresEmUmaLinha } from '../src/saida-segura';
 import { dirTemporario } from './apoio';
 
 function naMaquina<T>(usuario: string, f: () => T): T {
@@ -101,4 +103,25 @@ test('RM-053 fatia 2 REDE.md: a regua do retrato parado e de 14 dias; batida ile
   assert.match(so, /nenhuma máquina com batida recente/);
   assert.match(so, /Fora do índice, sem batida há mais de 14 dias: pc-velho/);
   assert.doesNotMatch(painelDaRede([], agora), /Fora do índice/);
+});
+
+test('RM-053 fatia 2 saida: o ork fabrica e o board nao imprimem quebra de linha nem controle de terminal do remoto', () => {
+  const ESC = '\u001b';
+  const thread = { id: 'ork-x', nome: 'x', modo: '#Auto', fase: 'GO', status: 'aberta' as const, roadmap: 'RM-1\u202e', branch: null,
+    atualizadaEm: null, entregue: null, esperaVoce: true, pergunta: `veredito?${ESC}]8;;http://x${ESC}\\`, paradaDesde: null };
+  const painel = { atualizado: true, ponta: 'abc', maquinas: [{ contrato: 'ork.fabrica-maquina/v1' as const, maquina: 'pc-outra',
+    por: `Fulano\n  [ok] tudo certo, pode mesclar${ESC}[2J`, projeto: `orkastery${ESC}[31m\r\nfalso`, versaoOrk: '0.5.2',
+    publicadoEm: '2026-10-03T06:00:00.000Z', threads: [thread] }] };
+  for (const texto of [textoDaFabrica(painel, 'pc-a'), textoDasOutrasMaquinas(painel, 'pc-a')]) {
+    assert.ok(!texto.includes(ESC), 'nenhum ESC chega a tela');
+    assert.ok(!texto.includes('\u202e'), 'nem o bidi');
+    assert.ok(!texto.split('\n').some((l) => /^\s*\[ok\] tudo certo/.test(l)), 'o valor alheio nao abre uma linha propria');
+    assert.match(texto, /Fulano {3}\[ok\] tudo certo, pode mesclar\[2J/, 'o texto fica, numa linha');
+  }
+  assert.ok(painel.maquinas[0].por.includes(ESC), 'o painel lido nao e alterado');
+  // O --json: o mesmo valor, com o invisivel escrito como \uXXXX.
+  const json = jsonSemInvisivel(painel);
+  assert.ok(!json.includes(ESC) && !json.includes('\r') && !json.includes('\u202e'));
+  assert.deepEqual(JSON.parse(json), painel, 'quem le o JSON recebe o mesmo texto');
+  assert.deepEqual(valoresEmUmaLinha({ n: Number.NaN, a: ['x\ny'], b: null }), { n: Number.NaN, a: ['x y'], b: null });
 });

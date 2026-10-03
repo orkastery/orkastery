@@ -216,6 +216,7 @@ import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
+import { jsonSemInvisivel } from './saida-segura';
 import { ehNomeDeForja } from './rede-forja';
 import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
@@ -2443,7 +2444,8 @@ function comandoFabrica(args: Args): number {
     naoLido: [FORA_DA_CONSULTA.roadmap, FORA_DA_CONSULTA.reservas, ...(url === null ? [semRemoto(remoto)] : [])],
   });
   if (args.opcoes.json === true) {
-    console.log(JSON.stringify({ ...painel, consulta }, null, 2));
+    // RM-053 (fatia 2): o mesmo JSON, com o invisivel do remoto escrito como \uXXXX.
+    console.log(jsonSemInvisivel({ ...painel, consulta }));
     return 0;
   }
   console.log([...linhasDaConsulta(consulta), ''].join('\n'));

@@ -14,8 +14,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { lerMarcaDaRede } from './rede';
 import { adesaoDaRede, pastaDaRede } from './rede-adesao';
-import { emUmaLinha } from './rede-projetos';
 import { duracao, SEM_BATIDA_MS } from './rede-status';
+import { emUmaLinha } from './saida-segura';
 import { Check } from './types';
 
 /** O fim do `rede.log` que o doctor le: o log so cresce, e o que importa e o mais recente. */
