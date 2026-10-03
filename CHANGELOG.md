@@ -8,6 +8,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
+  a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
+  Índice ausente ou de outra revisão recusa com `ork grafo indexar`. A medida offline compara bytes
+  do pacote e dos mesmos arquivos indexados, sem estimar tokens. Com `grafo.mcp` ligada, o pedido da
+  fase ganha uma dica curta; desligada, mantém o texto anterior. A flag continua desligada por padrão.
 - **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
   - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
     arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
