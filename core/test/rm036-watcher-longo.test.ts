@@ -310,6 +310,9 @@ test('RM036: erro permanente registra diagnóstico sanitizado antes de sair, sem
   assert.equal(erros.length, 1);
   assert.equal(erros[0].transitorio, false);
   assert.equal(erros[0].categoria, 'runtime.unavailable: sessão do controller divergente');
+  assert.equal(erros[0].etapa, 'final');
+  assert.equal(erros[0].encerramento, 'permanente');
+  assert.equal(erros[0].falhasConsecutivas, 1);
   assert.equal(erros[0].code, null);
   assert.equal(erros[0].construtor, 'Error');
   assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));

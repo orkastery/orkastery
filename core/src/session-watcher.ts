@@ -294,7 +294,9 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
   let threadId = opcoes.threadId;
   try {
     const resolvida = resolverSessao(carregado.raiz, sessionId, threadId);
-    threadId = resolvida.thread.id;
+    // Recusa de entrada sem despacho não é falha de um watcher ancorado.
+    threadId = resolvida.sessao.origem !== 'adocao' && resolvida.sessao.despachadaEm
+      ? resolvida.thread.id : undefined;
     return observarSessaoResolvida(carregado, sessionId, resolvida, opcoes);
   } catch (e) {
     if (threadId) tentarRegistrarErroWatcher(carregado.raiz, threadId, sessionId, e);
