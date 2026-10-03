@@ -69,6 +69,7 @@ function semProvaNativa(snapshot: SnapshotController, terminal: TerminalCodex, f
 
 export const LIMITE_MORTE_MS = 600000;
 export const INTERVALO_WATCH_MS = 1000;
+export const MAX_ESPERA_ERRO_WATCH_MS = 30000;
 export const BLOCO_WATCH_BYTES = LIMITE_LINHA_CODEX + 65536;
 interface FonteCursor {
   file: string; ino: number; tamanho: number; offset: number;
@@ -220,12 +221,50 @@ function desfazerNaThreadRemovida(pasta: string, criadas: readonly string[]): vo
 export interface ResultadoWatcher { sessionId: string; thread: string; concluido: boolean; ocupado?: boolean; bytesLidos: number; classificacao?: string;
   /** I-34: observação claude-bg inconclusiva além do limite; o laço para sem gate. */
   encerrado?: boolean; espera?: string }
-export function observarSessao(carregado: ManifestoCarregado, sessionId: string, opcoes: {
+interface OpcoesObservacao {
   agoraMs?: number; rollout?: string | null;
+  /** Vínculo já resolvido pelo dispatcher, reconferido em cada leitura. */
+  threadId?: string;
   /** I-34: consulta nativa injetável em teste, como `rollout` no Codex. */
   consultaClaude?: () => ConsultaAgentesNativos;
-} = {}): ResultadoWatcher {
-  const { thread, sessao: registrada } = resolverSessao(carregado.raiz, sessionId);
+}
+
+/** Diagnóstico fechado: mensagens de E/S e JSON podem conter caminhos e segredos. */
+function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean } {
+  const erro = e as NodeJS.ErrnoException;
+  if (['ENOENT', 'EAGAIN', 'EBUSY', 'EINTR'].includes(erro?.code ?? ''))
+    return { erro: `leitura temporariamente indisponível (${erro.code})`, transitorio: true };
+  if (e instanceof SyntaxError || /^JSON invalido em /.test(erro?.message ?? '') ||
+      /^runtime\.unavailable: metadado [\w.-]+ de controller (inválido|ausente)$/.test(erro?.message ?? ''))
+    return { erro: 'metadado JSON indisponível ou incompleto', transitorio: true };
+  if (/^(ingestão ocupada|creation\.busy:)/.test(erro?.message ?? ''))
+    return { erro: 'observação ocupada; nova tentativa agendada', transitorio: true };
+  return { erro: 'falha permanente na observação; confira vínculo e fonte do sensor', transitorio: false };
+}
+const errosRegistrados = new WeakSet<object>();
+function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown): void {
+  if (e && typeof e === 'object' && errosRegistrados.has(e)) return;
+  const dados = diagnosticoWatcher(e);
+  const registrado = registrarSeExiste(dirThread(raiz, threadId), threadId, 'session_watcher_error', {
+    sessionId, motivo: 'runtime.unavailable', ...dados, origem: 'sessions.watch',
+  });
+  if (registrado && e && typeof e === 'object') errosRegistrados.add(e);
+}
+
+export function observarSessao(carregado: ManifestoCarregado, sessionId: string, opcoes: OpcoesObservacao = {}): ResultadoWatcher {
+  let threadId = opcoes.threadId;
+  try {
+    const resolvida = resolverSessao(carregado.raiz, sessionId, threadId);
+    threadId = resolvida.thread.id;
+    return observarSessaoResolvida(carregado, sessionId, resolvida, opcoes);
+  } catch (e) {
+    if (threadId) registrarErroWatcher(carregado.raiz, threadId, sessionId, e);
+    throw e;
+  }
+}
+
+function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: string,
+  { thread, sessao: registrada }: ReturnType<typeof resolverSessao>, opcoes: OpcoesObservacao): ResultadoWatcher {
   const sessao = exigirSessaoDespachada(registrada, sessionId);
   if (sessao.runtime !== 'codex' && sessao.runtime !== 'claude-bg') throw new Error('watch requer sessão Codex ou claude-bg registrada');
   const now = opcoes.agoraMs ?? Date.now();
@@ -438,12 +477,6 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
   catch (e) {
     // Thread apagada no meio da observação: encerra sem erro, sem recriar a pasta e sem resíduo.
     if (!threadPresente(dir)) return desfazer();
-    if (!/ocupad/.test((e as Error).message) && !registrarSeExiste(dir, thread.id, 'session_watcher_error', {
-      fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm, motivo: 'runtime.unavailable',
-      // Não copiar conteúdo de metadados/logs em mensagens de JSON.parse.
-      erro: e instanceof SyntaxError ? 'metadado JSON inválido' : (e as Error).message,
-      origem: 'sessions.watch',
-    })) return removida;
     throw e;
   }
 }
@@ -498,7 +531,7 @@ export function iniciarWatcher(raiz: string, sessionId: string): number {
   const ackPath = readyPath + '.ack';
   const err = fs.openSync(path.join(dir, `watcher-${sessionId}.stderr`), 'a', 0o600);
   let child;
-  try { child = spawn(process.execPath, [__filename, '--run', raiz, sessionId, readyPath, token], {
+  try { child = spawn(process.execPath, [__filename, '--run', raiz, sessionId, readyPath, token, thread.id], {
     cwd: raiz, detached: true, stdio: ['ignore', 'ignore', err],
   }); } finally { fs.closeSync(err); }
   let erroRegistrado = false;
@@ -538,34 +571,53 @@ export function iniciarWatcher(raiz: string, sessionId: string): number {
 }
 async function acompanhar(): Promise<void> {
   const carregado = exigirManifesto(process.argv[3]), sessionId = process.argv[4];
-  const { thread } = resolverSessao(carregado.raiz, sessionId);
-  const readyPath = process.argv[5], token = process.argv[6];
-  if (readyPath && token) {
-    validarFonteWatcher(carregado.raiz, sessionId);
-    const sessao = exigirSessaoDespachada(resolverSessao(carregado.raiz, sessionId).sessao, sessionId);
-    const identidade = identidadeProcesso(process.pid);
-    if (!identidade) throw new Error('watcher sem identidade propria');
-    gravarAtomico(readyPath, { token, sessionId, despachoEm: sessao.despachadaEm, identidade });
-    const deadline = Date.now() + 5000;
-    while (lerJson<{ token: string }>(readyPath + '.ack')?.token !== token) {
-      if (Date.now() >= deadline) throw new Error('watcher sem confirmacao do pai');
-      await new Promise(r => setTimeout(r, 10));
+  const threadId = process.argv[7] ?? resolverSessao(carregado.raiz, sessionId).thread.id;
+  try {
+    const readyPath = process.argv[5], token = process.argv[6];
+    if (readyPath && token) {
+      validarFonteWatcher(carregado.raiz, sessionId);
+      const sessao = exigirSessaoDespachada(resolverSessao(carregado.raiz, sessionId, threadId).sessao, sessionId);
+      const identidade = identidadeProcesso(process.pid);
+      if (!identidade) throw new Error('watcher sem identidade propria');
+      gravarAtomico(readyPath, { token, sessionId, despachoEm: sessao.despachadaEm, identidade });
+      const deadline = Date.now() + 5000;
+      while (lerJson<{ token: string }>(readyPath + '.ack')?.token !== token) {
+        if (Date.now() >= deadline) throw new Error('watcher sem confirmacao do pai');
+        await new Promise(r => setTimeout(r, 10));
+      }
     }
+    await acompanharSessao(carregado, sessionId, { threadId });
+  } catch (e) {
+    registrarErroWatcher(carregado.raiz, threadId, sessionId, e);
+    throw e;
   }
-  const dir = dirThread(carregado.raiz, thread.id);
+}
+
+/** Mesmo laço do processo destacado, com relógio e espera injetáveis para regressões. */
+export async function acompanharSessao(carregado: ManifestoCarregado, sessionId: string, opcoes: {
+  threadId: string; agora?: () => number; esperar?: (ms: number) => Promise<void>;
+}): Promise<void> {
+  const dir = dirThread(carregado.raiz, opcoes.threadId);
+  const esperar = opcoes.esperar ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
+  let falhas = 0;
   for (;;) {
     // Projeto ou thread apagados encerram o laço em silêncio: nada a observar nem a recriar.
     if (!threadPresente(dir)) return;
     let atual: ReturnType<typeof lerThread> | undefined;
     try {
-      atual = lerThread(carregado.raiz, thread.id);
+      atual = lerThread(carregado.raiz, opcoes.threadId);
       if (atual.status !== 'aberta' || atual.sessoes.at(-1)?.sessionId !== sessionId) return;
-      const r = observarSessao(carregado, sessionId); if (r.concluido || r.encerrado) return;
+      const r = observarSessao(carregado, sessionId, { threadId: opcoes.threadId, agoraMs: opcoes.agora?.() });
+      if (r.concluido || r.encerrado) return;
+      falhas = 0;
     } catch (e) {
       if (!threadPresente(dir)) return;
-      if (!/ocupad/.test((e as Error).message)) throw e;
+      registrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, e);
+      if (!diagnosticoWatcher(e).transitorio) throw e;
+      falhas++;
     }
-    await new Promise(r => setTimeout(r, atual?.sessoes.at(-1)?.runtime === 'claude-bg' ? INTERVALO_WATCH_CLAUDE_MS : INTERVALO_WATCH_MS));
+    await esperar(falhas ? Math.min(MAX_ESPERA_ERRO_WATCH_MS, INTERVALO_WATCH_MS * 2 ** Math.min(falhas - 1, 5))
+      : atual?.sessoes.at(-1)?.runtime === 'claude-bg' ? INTERVALO_WATCH_CLAUDE_MS : INTERVALO_WATCH_MS);
   }
 }
 if (require.main === module && process.argv[2] === '--run') acompanhar().catch(() => {
