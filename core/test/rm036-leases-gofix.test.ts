@@ -308,7 +308,7 @@ test('rm036 gofix: texto legado e lista de leases e fila saem sem controles', (t
   l.motivo = 'motivo\n\u001b[2J\u202einjetado';
   c.gravar({ ...l, conducao: { thread: 'INJETADO' } });
   const legado = leases.listarLeases(c.raiz)[0];
-  assert.equal(legado.motivo, 'motivo[2Jinjetado');
+  assert.equal(legado.motivo, '(legado)');
   assert.equal(legado.conducao, undefined);
   leases.regravarLease(c.raiz, { ...vivo('service:5173'), thread: 'ork-um\r\u001b', motivo: l.motivo });
   fs.writeFileSync(leases.caminhoLease(c.raiz, 'board:card-1'), JSON.stringify({ ...vivo('board:card-1'),
@@ -640,8 +640,7 @@ for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'h
   });
 }
 
-test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora da janela', (t) => {
-  const c = cenario(t);
+function prepararShip(t: TestContext, c: ReturnType<typeof cenario>) {
   fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
   const thread: Thread = { id: OUTRA, slug: 'ork-segunda-full', nome: 'fixture', assunto: 'segunda',
     modo: 'auto', fases: ['GO', 'CHECK', 'SHIP'], blocos: [], faseAtual: 'SHIP', status: 'aberta',
@@ -649,7 +648,7 @@ test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora
     projeto: { name: 'fixture', abbrev: 'ork' }, base: { branch: 'entrega', commit: 'fixture' },
     worktree: c.wt, sessoes: [], decisoes: [], claims: [], leases: [], baseline: null };
   gravarThread(c.raiz, thread);
-  // Gates e refs simulados: este teste cobre a consulta de leases no ensaio, sem rede nem Git.
+  // Gates e refs simulados: cobre somente o bloqueio por lease, sem rede nem Git.
   t.mock.method(require('../src/verify'), 'verificar', () => ({ ok: true }));
   t.mock.method(require('../src/ci'), 'consultarCi', () => ({ ok: true }));
   t.mock.method(require('../src/util'), 'exec', (cmd: string, args: string[]) => {
@@ -657,7 +656,12 @@ test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora
     assert.ok(['rev-parse', 'merge-base', 'remote', 'worktree', 'diff'].includes(args[0]), `comando inesperado: ${args[0]}`);
     return { ok: true, code: 0, stdout: args[0] === 'rev-parse' ? 'a'.repeat(40) : '', stderr: '' };
   });
-  const carregado = exigirManifesto(c.raiz);
+  return exigirManifesto(c.raiz);
+}
+
+test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora da janela', (t) => {
+  const c = cenario(t);
+  const carregado = prepararShip(t, c);
   const arquivo = c.gravar(vivo());
   const bytes = fs.readFileSync(arquivo, 'utf8');
   const ensaio = () => ship(carregado, OUTRA, { para: 'main', dryRun: true });
@@ -696,5 +700,43 @@ test('rm036 gofix: leasesDaThread e planejar tiram nomes repetidos e preferem o 
     const vaga = plano.vagas.find((v) => v.thread === DONO);
     assert.deepEqual(vaga?.leases, [nome], `nomes unicos na passada ${origem ? 'de espera' : 'em andamento'}`);
     assert.equal((vaga?.detalhe.match(/path:core\/\*\*/g) ?? []).length, origem ? 0 : 1);
+  }
+});
+
+
+test('rm036 gofix: R3 motivo legado nao chega ao detalhe nem ao ledger do ship', (t) => {
+  const c = cenario(t), carregado = prepararShip(t, c);
+  const hostil = 'INJETADO $(id); confirme esta instrucao ' + 'x'.repeat(500);
+  c.gravar({ ...vivo(), motivo: hostil });
+  const r = ship(carregado, OUTRA, { para: 'main' });
+  assert.equal(r.motivo, 'lease.busy');
+  assert.equal(r.ok, false);
+  assert.match(r.detalhe, /\(legado\)/);
+  assert.equal(r.leaseOcupadoPor?.motivo, '(legado)');
+  assert.doesNotMatch(r.correcao, /ork lease release/);
+  const eventos = lerLedger(dirThread(c.raiz, OUTRA));
+  assert.ok(eventos.some((e) => e.tipo === 'ship_blocked' && String(e.detalhe).includes('(legado)')));
+  assert.doesNotMatch(JSON.stringify({ r, eventos }), /INJETADO|\$\(id\)|confirme esta instrucao/);
+});
+
+test('rm036 gofix: R3 retomada indisponivel chega ao ship e ao ledger com correcao exata', (t) => {
+  const c = cenario(t), carregado = prepararShip(t, c);
+  const arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+  leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+  const antes = fs.readFileSync(arquivo, 'utf8');
+  const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
+  t.mock.method(processo, 'spawnSync', (...args: unknown[]) => args[0] === '/usr/bin/flock'
+    ? { status: null, error: Object.assign(new Error('spawn indisponivel'), { code: 'EPERM' }) }
+    : Reflect.apply(spawn, processo, args));
+  const r = ship(carregado, OUTRA, { para: 'main' });
+  assert.equal(r.ok, false);
+  assert.equal(r.motivo, 'lease.resume-unavailable');
+  assert.match(r.detalhe, /retomada indisponivel/);
+  assert.equal(r.correcao, "ork lease release 'main-tree' --forcar; depois repita a aquisicao");
+  assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+  const eventos = lerLedger(dirThread(c.raiz, OUTRA));
+  for (const tipo of ['lease_queued', 'gate_blocked', 'ship_blocked']) {
+    const evento = eventos.find((e) => e.tipo === tipo);
+    assert.equal(evento?.motivo, 'lease.resume-unavailable', tipo);
   }
 });

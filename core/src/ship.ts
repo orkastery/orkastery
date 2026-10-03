@@ -634,11 +634,11 @@ export function ship(
       posicao: aquisicao.posicaoNaFila,
       naFrente: esperandoPor(raiz, LEASE_MAIN_TREE).length,
       bloqueadaPor: dono?.thread ?? '(desconhecida)',
-      motivo: 'lease.busy',
+      motivo: aquisicao.motivo ?? 'lease.busy',
     });
     return bloquear(
-      'lease.busy',
-      `lease ${LEASE_MAIN_TREE} esta com a thread ${dono?.thread ?? '(desconhecida)'} ` +
+      aquisicao.motivo ?? 'lease.busy',
+      aquisicao.falhaRetomada ? aquisicao.detalhe : `lease ${LEASE_MAIN_TREE} esta com a thread ${dono?.thread ?? '(desconhecida)'} ` +
         `desde ${dono?.adquiridoEm ?? '?'} (${dono?.motivo ?? 'sem motivo'}); ` +
         `esta thread entrou na merge queue na posicao ${aquisicao.posicaoNaFila}`,
       aquisicao.correcao

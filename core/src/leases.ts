@@ -202,7 +202,7 @@ function lerLeaseLegado(caminho: string): Lease | null {
         new Date(inicio).toISOString() !== lease.adquiridoEm || new Date(fim).toISOString() !== lease.expiraEm ||
         inicio > Date.now() || fim <= inicio || fim - inicio > TTL_PADRAO_MS + 1_000) return null;
     // Nao transporta campos extras (como conducao) de um arquivo gravavel pela worktree.
-    return { nome: lease.nome, thread: lease.thread, motivo: textoSeguro(lease.motivo), pid: lease.pid,
+    return { nome: lease.nome, thread: lease.thread, motivo: '(legado)', pid: lease.pid,
       adquiridoEm: lease.adquiridoEm, expiraEm: lease.expiraEm };
   } catch {
     return null;
