@@ -234,6 +234,42 @@ test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas 
   }
 });
 
+function provarPrefixosDeModulo(extrair = extrairGrafo): void {
+  const teste = 'core/test/prefixos.test.ts';
+  const repo = {
+    'core/test/alvo.ts': 'export const local = 1;',
+    'core/src/alvo.ts': 'export const pai = 2;',
+    '.../alvo.ts': 'export const tresPontos = 3;',
+    [teste]: [
+      'export const local = "require(\'./alvo.ts\')";',
+      'export const pai = "import(\'../src/alvo.ts\')";',
+      'export const pacote = "require(\'core/src/alvo.ts\')";',
+      'export const absoluto = "require(\'/core/src/alvo.ts\')";',
+      'export const tresPontos = "require(\'.../alvo.ts\')";',
+      'export const fuga = "require(\'../../../../alvo.ts\')";',
+      "export const caminhoAbsoluto = '/core/src/alvo.ts';",
+    ].join('\n'),
+  };
+  const r = extrair(entrada(repo), PARSER);
+  assert.deepEqual(rotulos(r.grafo), [`${teste} -> core/src/alvo.ts`, `${teste} -> core/test/alvo.ts`]);
+  const unidade = r.unidades.arquivos.find((u) => u.path === teste)!.ts!;
+  assert.deepEqual(unidade.sondas, ['core/src/alvo.ts', 'core/test/alvo.ts'], 'so ./ e ../ sondam caminhos locais');
+  assert.deepEqual(unidade.dependencias, ['core/src/alvo.ts', 'core/test/alvo.ts']);
+}
+
+test('KG5 citacoes GO-FIX 3: prefixos de modulo aceitam ./ e ../, recusam absolutos, pacotes e tres pontos; mutantes reprovam', () => {
+  provarPrefixosDeModulo();
+  for (const [antes, depois] of [
+    [String.raw`/^\.{1,2}\//`, String.raw`/^\.\//`],
+    [String.raw`/^\.{1,2}\//`, String.raw`/^\.\.\//`],
+    [String.raw`/^\.{1,2}\//`, String.raw`/^\.{1,3}\//`],
+    ["literal.startsWith('/')", 'false'],
+  ]) {
+    const extrair = mutante('intelligence-graph-extract-md', antes, depois);
+    assert.throws(() => provarPrefixosDeModulo(extrair), antes);
+  }
+});
+
 /** Mutantes carregados em memoria, sem tocar nos arquivos nem no cache do Node. */
 function mutante(modulo: string, antes: string, depois: string): typeof extrairGrafo {
   const Module = require('node:module');

@@ -340,7 +340,7 @@ export function caminhoDaCitacao(base: string, literal: string, modulo = false):
   if (!literal || /[\s\\:#?%\u0000-\u001f\u007f]/u.test(literal) || literal.startsWith('/') || literal.startsWith('~')) return null;
   if (literal.split('/').some((p) => p === '.git' || p === '.orkastery')) return null;
   // Argumento sem prefixo de caminho e nome de pacote, nao candidato local.
-  if (modulo && !/^(?:\.{1,2}\/|\/)/.test(literal)) return null;
+  if (modulo && !/^\.{1,2}\//.test(literal)) return null;
   // Palavras e diretorios nao sao citacoes de arquivo. Modulos podem omitir extensao.
   if (!modulo && (!literal.includes('/') || !/\.(?:[cm]?[jt]s|[jt]sx|json|md|markdown|ya?ml|toml|py|rs|go|c|h|css|html|svg|png|jpe?g|gif|webp|pdf|txt|sh|sql)$/i.test(literal))) return null;
   if (['', '.', '..'].includes(literal.split('/').at(-1)!)) return null;
