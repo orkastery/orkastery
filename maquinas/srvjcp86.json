@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T06:26:10.276Z",
+  "publicadoEm": "2026-10-03T06:27:36.254Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-revisaodasen",
+      "nome": "Revisão das entregas da madrugada de 03/10",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-revisaodasen-full",
+      "atualizadaEm": "2026-10-03T06:27:36.087Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
