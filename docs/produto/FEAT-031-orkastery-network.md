@@ -100,7 +100,7 @@ fontes:
 ## Operação e controle
 
 - **Configuração e ambientes:** `ork network entrar`, `--forja github|gitlab`, `--repositorio` e `--forcar`; `ORK_MAQUINA` vale na primeira entrada e fica gravado; `ORK_REDE_PUBLICAR=0` desliga a publicação automática; `ORK_BINARIOS_EXTRA` troca as pastas extras de binários.
-- **Observabilidade:** `ork network status`, o `REDE.md` da casa e `~/.orkastery/rede/rede.log`.
+- **Observabilidade:** `ork network status`, o `REDE.md` da casa, `~/.orkastery/rede/rede.log` e, desde a fatia 2, a linha `rede` do `ork doctor`, com a última batida e a última falha.
 - **Acesso, privacidade e conformidade:** casa privada da pessoa; nenhum token é lido pelo `ork`; hostname e caminhos locais só vão para a casa privada, nunca para a branch da fábrica (BR-027-02 continua).
 - **Dependências e rollback:** depende da CLI da forja e do git. Rollback: `ork network sair` em cada máquina; apagar o repositório `orkastery-network` zera a rede sem afetar projeto nenhum.
 - **Código, PR, testes e release:** `core/src/rede*.ts`, `core/test/rede.test.ts`; PR e release a registrar no RM-053.

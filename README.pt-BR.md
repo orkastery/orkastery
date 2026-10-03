@@ -180,7 +180,7 @@ O quadro completo, item por item e com evidência do git, está no [índice do r
 | Canários de comportamento | 24, todos verdes | `ork eval --so-canarios` |
 | Corpus das skills | 20 skills, 101 casos, 199 asserções | `ork eval --so-skills` |
 | Documentação de produto e roadmap | zero erro de paridade | `ork docs verificar` |
-| Dependências de runtime | 4, com versão fixa | `core/package.json` |
+| Dependências de runtime | 9, com versão fixa | `core/package.json` |
 
 Em máquina virtual com CPU roubada pelo hipervisor (o `steal` do `sar`), o verify local pode estourar as janelas de tempo dos testes. Por isso o portão de merge é o CI independente, e a correção está planejada em [RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md).
 

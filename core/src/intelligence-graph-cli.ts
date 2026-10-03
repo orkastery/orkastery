@@ -21,6 +21,7 @@ import {
   chaveDoIndice, concessaoLocal, construirIndice, estadoDosIndices, indiceDoHead, lerIndice, limparIndices, perfilDoIndice,
   type ContextoDoIndice, type PerfilDoIndice, type ResultadoDaConstrucao,
 } from './intelligence-graph-index';
+import { carregarAnalisadores, versoesDosAnalisadores, type VersoesDosAnalisadores } from './intelligence-graph-parsers';
 import {
   CONSULTA_SCHEMA, ErroDeConsulta, caminho, chamadores, filtrarGrafo, importadores, jsonDaResposta, prepararConsulta, textoDaResposta, vizinhos,
   type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido,
@@ -28,6 +29,58 @@ import {
 import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
 
 export const STATUS_SCHEMA = 'ork.code-graph-index-status/v0' as const;
+
+/** As versoes dos analisadores como o `ork grafo status` e o `ork doctor` as mostram. */
+export function descreverVersoes(v: VersoesDosAnalisadores): string {
+  return Object.entries(v).map(([k, x]) => `${k} ${x}`).join(', ');
+}
+
+/** O prefixo das recusas dos analisadores (`intelligence-graph-parsers.ts`). */
+const RECUSA_DOS_ANALISADORES = 'grafo.parser.indisponivel';
+
+/**
+ * RM-031 (pacote do npm): o que fazer quando os analisadores nao carregam, dito pelo `ork doctor` e
+ * pelo `ork grafo status`. O micromark e so ESM e carrega por `require`, o que o Node so faz sem flag
+ * a partir de 20.19 e de 22.12. Nos outros casos o pacote falta ou esta fora da instalacao do `ork`,
+ * e a instalacao global do npm traz os analisadores, que sao dependencias do pacote. Mora aqui, fora
+ * de `MODULOS_DO_EXTRATOR`, para a redacao nao entrar na chave do indice; a versao vem de quem chama
+ * (o `index.ts`), porque o CLI do grafo so importa a propria familia (fronteira do KG3).
+ */
+export function correcaoDosAnalisadores(motivo: string, versao?: string): string {
+  if (/ERR_REQUIRE_ESM/.test(motivo)) {
+    return `o micromark e so ESM, e este Node (${process.version}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, ` +
+      'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)';
+  }
+  // Sem a versao do pacote (`0.0.0-desconhecida` quando o package.json dele nao e achado), o comando
+  // sai sem `@<versao>` e o npm instala a ultima publicada.
+  const fixada = versao && /^\d+\.\d+\.\d+/.test(versao) && !versao.startsWith('0.0.0') ? `@${versao}` : '';
+  return `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${fixada}` +
+    ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)';
+}
+
+/** O check do `ork doctor`, na forma do `Check` do nucleo (`types.ts`, que o CLI do grafo nao importa). */
+export interface CheckDosAnalisadores { nome: string; nivel: 'ok' | 'warn'; detalhe: string; correcao?: string }
+
+/**
+ * RM-031 (pacote do npm): o check "analisadores do grafo" do `ork doctor`. Carrega o que o
+ * `ork grafo indexar` carrega (`carregarAnalisadores`), entao diz o que o indexar faria, inclusive no
+ * Node sem `require` de ESM. A falta e `warn`, com a correcao: o grafo nao e condicao do despacho de
+ * fase. Fora da familia do grafo so o `index.ts` e o worker do MCP a abrem (fronteira do KG1), entao o
+ * `index.ts` passa este check ao doctor, que nao importa o grafo.
+ */
+export function checarAnalisadoresDoGrafo(versao?: string, carregar: () => unknown = carregarAnalisadores,
+  versoes: () => VersoesDosAnalisadores = versoesDosAnalisadores): CheckDosAnalisadores {
+  const nome = 'analisadores do grafo';
+  try {
+    carregar();
+    return { nome, nivel: 'ok', detalhe: descreverVersoes(versoes()) };
+  } catch (e) {
+    const motivo = (e as Error).message;
+    return { nome, nivel: 'warn',
+      detalhe: `${motivo}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`,
+      correcao: correcaoDosAnalisadores(motivo, versao) };
+  }
+}
 /** O mesmo schema da amostra do KG2: as amostras auditadas continuam validas. */
 export const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0' as const;
 
@@ -53,6 +106,8 @@ const ESTADO_DO_INDICE: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export interface ContextoDoCli extends ContextoDoIndice {
+  /** RM-031: a versao do `ork` que roda, para a correcao do `status` sem os analisadores (o `index.ts` passa). */
+  versao?: string;
   escrever: (texto: string) => void;
 }
 
@@ -203,9 +258,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const doHead = chave ? estado.indices.find((i) => i.chave === chave) ?? null : null;
   // Sem analisadores nao ha chave: o indice do HEAD fica indisponivel, nunca "ausente" (indexar tambem nao roda).
   const indiceDoHeadEstado = erro ? 'indisponivel' : doHead ? (doHead.problema ? 'com-problema' : 'presente') : 'ausente';
+  // RM-031 (pacote do npm): a recusa dos analisadores vem com o que fazer, a mesma correcao do `ork doctor`.
+  const correcao = erro !== null && erro.startsWith(RECUSA_DOS_ANALISADORES) ? correcaoDosAnalisadores(erro, ctx.versao) : null;
   const r = {
     schema: STATUS_SCHEMA, head: arvore.head, arvore: arvore.motivo === null ? 'limpa' : arvore.motivo, chave_do_head: chave,
-    indice_do_head: indiceDoHeadEstado, analisadores, erro,
+    indice_do_head: indiceDoHeadEstado, analisadores, erro, correcao,
     dir: estado.dir, bytes: estado.bytes, indices: estado.indices, sobras: estado.sobras,
   };
   if (p.bandeiras.has('json')) {
@@ -215,8 +272,11 @@ function status(ctx: ContextoDoCli, p: Pedido): number {
   const linhas = [
     `grafo: HEAD ${arvore.head ? arvore.head.slice(0, 12) : 'sem commit'}, arvore ${r.arvore}`,
     `  indice do HEAD  ${chave ?? 'indisponivel'} ${r.indice_do_head === 'ausente' ? '(ausente: rode ork grafo indexar)'
-      : r.indice_do_head === 'indisponivel' ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : `(${r.indice_do_head})`}`,
-    `  analisadores    ${erro ?? Object.entries(analisadores as Record<string, string>).map(([k, v]) => `${k} ${v}`).join(', ')}`,
+      : r.indice_do_head === 'indisponivel'
+        ? (correcao ? '(sem os analisadores nesta instalacao, nem a consulta nem o indexar rodam)' : '(sem a chave do indice: o erro esta na linha de baixo)')
+        : `(${r.indice_do_head})`}`,
+    `  analisadores    ${erro ?? descreverVersoes(analisadores as VersoesDosAnalisadores)}`,
+    ...(correcao ? [`  correcao        ${correcao}`] : []),
     `  pasta           ${estado.dir ?? 'ainda nao criada'} (${estado.indices.length} indice(s), ${mb(estado.bytes)})`,
   ];
   for (const i of estado.indices) {

@@ -19,7 +19,7 @@ verificado_em: 2026-09-24T21:30:00-03:00
 
 - **Objetivo:** ser a única fonte de regra da fábrica; host e canal só roteiam.
 - **Limites:** não fala com o Telegram diretamente (isso é do [SYS-02](SYS-02-hosts-e-canais.md)); não executa o modelo, despacha o runtime.
-- **Localização do código:** `core/src/` (TypeScript, zero dependência de runtime); testes em `core/test/`.
+- **Localização do código:** `core/src/` (TypeScript, com nove dependências de runtime com versão fixa, os analisadores do grafo de código entre elas); testes em `core/test/`.
 - **Contratos:** JSON versionados com o prefixo `ork.` (por exemplo `ork.hitl/v2`, `ork.ci-bundle/v1`); leitor antigo continua aceitando para sempre.
 - **Configuração:** `orkastery.yaml` na raiz do projeto (modos, runtimes, verify, fuso do dono) e o setup por bloco (modelo e esforço): `orkastery.setup.json` versionado, que vale para todas as máquinas, ou o `.orkastery/setup.json` local.
 - **Falha e impacto:** se o `ork` não roda, nenhuma fase avança; nada é aprovado por omissão.

@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Orkastery Network, fatia 2** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
+  - o `ork doctor` ganha a linha `rede`: a adesão, a casa, a última batida e a última falha do `rede.log`, só de
+    arquivos locais; vira aviso, com a correção, quando a falha é mais nova que a última batida ou quando a batida
+    passou de 3 h, e nunca bloqueia o despacho;
+  - o retrato sem batida há mais de 14 dias sai da tabela do `REDE.md` e vai ao rodapé; o arquivo dele e o
+    `ork network status` ficam;
+  - um saneador de saída comum ao núcleo (`core/src/saida-segura.ts`): o `ork fabrica`, a seção de outras máquinas
+    do `ork board` e o `ork fabrica --json` deixam de levar à tela a quebra de linha e o controle de terminal do
+    `por`, do `projeto` e da pergunta lidos de `ork/fabrica-estado`; o JSON tem o mesmo valor, com o invisível
+    escrito como `\uXXXX`;
+  - a faxina da trava órfã da rede é serial e não move mais a trava viva de outro processo (W9 do CHECK 5).
 - **A rede por pessoa no roadmap da rede, fatia 3** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
   - `ork network roadmap` lê a casa da RM-053: a seção "Rede por pessoa" traz a casa e cada máquina com a batida e
     os projetos que declara, e o JSON ganha `rede`; o projeto que uma máquina da rede declara passa a ser pedido
@@ -135,6 +146,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
     que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
     e não calcula cobertura.
+- **O grafo de código funciona em quem instala o `ork` pelo npm** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  - o `typescript` 5.9.3 e o micromark 4.0.2, com a tabela GFM 2.1.1 e os dois decodificadores de referência de
+    caractere que o extrator usa, passam a ser dependências de runtime do `@orkastery/cli`, com versão exata: no
+    `npm install -g`, o `ork grafo indexar`, as consultas e as tools `ork_grafo_*` rodam sem passo manual, onde antes
+    a recusa era `grafo.parser.indisponivel: typescript`. Os rótulos `ork.ts-ast` e `ork.md-structure` não mudam; a
+    instalação fica com 125 pacotes e cerca de 26 MB a mais em disco, quase todo o compilador;
+  - depois de atualizar, `ork grafo indexar` refaz o índice completo uma vez: o comentário atualizado dos
+    analisadores entra no `dist` e muda a impressão do extrator, invalidando o índice anterior para o HEAD;
+  - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
+    recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
+    instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
+    por `require`). Quando falta um pacote dos analisadores, o `ork grafo status` diz a mesma correção, na linha
+    `correcao` e no campo `correcao` do `--json`;
+  - `core/scripts/provar-grafo-instalado.cjs` instala o tarball do `npm pack` com `npm install -g` num prefixo e num
+    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
+    `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
 
 ### Segurança
 

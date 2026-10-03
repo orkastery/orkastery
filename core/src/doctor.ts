@@ -29,6 +29,7 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { checarRede } from './doctor-rede';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -343,10 +344,15 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
   };
 }
 
-/** Roda todos os checks a partir do diretorio informado. */
+/**
+ * Roda todos os checks a partir do diretorio informado. RM-031: `analisadores` e o check do grafo
+ * (`checarAnalisadoresDoGrafo` do CLI do grafo), que o `index.ts` passa: fora da familia do grafo so
+ * ele e o worker do MCP a abrem (fronteira do KG1), e o doctor nao a importa.
+ */
 export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
   lerCrontab: LeitorDoCrontab = lerCrontabDoSistema,
-  conferirAuthDoClaude: () => StatusDeAuth = () => adapter.conferirAuth(null)): Check[] {
+  conferirAuthDoClaude: () => StatusDeAuth = () => adapter.conferirAuth(null),
+  analisadores?: () => Check): Check[] {
   const checks: Check[] = [];
 
   const major = versaoNode();
@@ -356,6 +362,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     detalhe: `v${process.versions.node}`,
     correcao: major >= 20 ? undefined : 'instale Node 20 ou superior',
   });
+  if (analisadores) checks.push(analisadores());
 
   const git = noPath('git');
   checks.push({
@@ -598,6 +605,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     }
   }
 
+  // RM-053 (fatia 2): a rede da pessoa e da maquina, nao do projeto; vale de qualquer diretorio.
+  checks.push(checarRede());
+
   return checks;
 }
 
@@ -635,8 +645,9 @@ export function relatorio(checks: Check[]): string {
 }
 
 /** Executa o doctor e devolve o codigo de saida (0 = pronto). */
-export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos()): { texto: string; codigo: number } {
-  const checks = checar(dirInicial, nomesHerdados);
+export function doctor(dirInicial: string = process.cwd(), nomesHerdados = nomesDeProviderAtivos(),
+  analisadores?: () => Check): { texto: string; codigo: number } {
+  const checks = checar(dirInicial, nomesHerdados, undefined, undefined, analisadores);
   const falhas = checks.filter((c) => c.nivel === 'fail').length;
   return { texto: relatorio(checks), codigo: falhas > 0 ? 1 : 0 };
 }

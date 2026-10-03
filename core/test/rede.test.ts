@@ -2086,3 +2086,29 @@ test('RM-053 honestidade: a batida ilegivel de uma fabrica nao esconde a batida 
     assert.ok(!status.lacunas.some((l) => l.detalhe === 'vps: batida ilegivel'), JSON.stringify(status.lacunas));
   } finally { f.limpar(); p1.limpar(); p2.limpar(); fs.rmSync(u, { recursive: true, force: true }); }
 });
+
+// ---------------------------------------------------------------------------
+// RM-053 fatia 2: o retrato parado sai do indice REDE.md.
+// ---------------------------------------------------------------------------
+
+test('RM-053 fatia 2: retrato sem batida ha mais de 14 dias sai do indice REDE.md, com rodape; o arquivo e o status ficam', () => {
+  const f = forjaFalsa('fatia2-parado');
+  const [ua, ub] = [dirTemporario('rede-parado-a'), dirTemporario('rede-parado-b')];
+  try {
+    const amb = ligado(f);
+    const velho = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString();
+    naMaquina(ub, () => entrarNaRede({ amb, maquina: 'pc-b', agora: velho }));
+    naMaquina(ua, () => entrarNaRede({ amb, maquina: 'pc-a' }));
+    const painel = exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout;
+    assert.match(painel, /^\| pc-a \| /m);
+    assert.doesNotMatch(painel, /^\| pc-b \| /m, 'o retrato parado nao e linha do indice');
+    assert.match(painel, /Fora do índice, sem batida há mais de 14 dias: pc-b \(última batida /, 'quem saiu do indice e dito');
+    assert.ok(exec('git', ['cat-file', '-e', 'main:maquinas/pc-b.json'], casaFalsa(f)).ok, 'o arquivo do retrato fica na casa');
+    const status = naMaquina(ua, () => lerRede({ amb, maquina: 'pc-a' }));
+    assert.deepEqual(status.membros.map((m) => m.maquina).sort(), ['pc-a', 'pc-b'], 'o status continua lendo o parado');
+    assert.ok(status.lacunas.some((l) => l.tipo === 'maquina.sem-batida' && l.maquina === 'pc-b'));
+    // Quando pc-b volta a bater, ele volta ao indice.
+    naMaquina(ub, () => publicarRede({ amb, maquina: 'pc-b', forcar: true }));
+    assert.match(exec('git', ['show', 'main:REDE.md'], casaFalsa(f)).stdout, /^\| pc-b \| /m);
+  } finally { f.limpar(); for (const d of [ua, ub]) fs.rmSync(d, { recursive: true, force: true }); }
+});
