@@ -35,6 +35,8 @@ então consulte o projeto fixado. Não abre thread nem despacho por consulta.
 Sem projeto nomeado, ofereça também o panorama da rede (RM-054): `ork network roadmap`
 (todos os projetos conhecidos, as threads de todas as máquinas, fontes, frescor e lacunas)
 ou `mcp__orkastery__ork_network_roadmap` (o projeto fixado, em todas as máquinas), mostrado como vem.
+As máquinas da pessoa (RM-053) vêm de `ork network status` ou de `mcp__orkastery__ork_network_status`
+(no MCP, só o projeto fixado em cada máquina), mostrado como vem: lacuna nunca é "nenhuma máquina".
 O MCP atende só o projeto fixado; `projeto` em qualquer ferramenta apenas confere esse
 projeto (`projeto.fora-do-servidor` quando é outro). Pedido de outro projeto vai ao CLI com
 `--projeto <nome>` (RM-052). Leia "Projeto consultado" e "Não lido" antes de responder.
