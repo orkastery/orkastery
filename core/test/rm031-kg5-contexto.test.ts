@@ -364,6 +364,83 @@ test('KG5 contexto v2: grupo maior que o teto nao expulsa imports e references m
   assert.equal(r.omitidos.arestas, 300);
 });
 
+function provarSegundoSalto(pacote = pacoteDeContexto): void {
+  const repo = {
+    'src/semente.ts': "import './ponte';\nexport function local() { return 1; }\nexport function usa() { return local(); }",
+    'src/ponte.ts': "import './segundo';",
+    'src/segundo.ts': "import './terceiro';",
+    'src/terceiro.ts': 'export const terceiro = 1;',
+    'src/inverso.ts': "import './ponte';",
+    ...Object.fromEntries(Array.from({ length: 16 }, (_, n) => [`src/outro-${n}.ts`, "import './ponte';"])),
+  };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(repo).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const i = { ...INDICE, extratores: g.snapshot.extractors };
+  // GOAL sem diff tambem deve abrir o segundo salto; ele nao depende da distancia ao diff.
+  const e = { ...ENTRADA, diff: [], goal: '`src/semente.ts`', claims: [{ id: 'C1', arquivo: 'src/ausente.ts' }] };
+  const completo = JSON.parse(pacote(g, i, e, 65536));
+  assert.equal(completo.schema, 'ork.thread-graph-context/v2');
+  assert.equal(completo.consulta.profundidade, 2);
+  const caminhos = completo.medida.arquivos.map((f: any) => f.path);
+  assert.ok(caminhos.includes('src/segundo.ts'));
+  assert.ok(caminhos.includes('src/inverso.ts'));
+  assert.ok(!caminhos.includes('src/terceiro.ts'));
+  const segundo = completo.arestas.find((a: any) => completo.nos[a.to] === 'file src/segundo.ts');
+  assert.equal(segundo.salto, 2);
+  for (const teto of [4096, 5000, 8192, 32768, 65536]) {
+    const texto = pacote(g, i, e, teto), r = JSON.parse(texto);
+    assert.ok(Buffer.byteLength(texto) <= teto);
+    assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
+    const internas = r.arestas.findIndex((a: any) => a.kind === 'calls');
+    const inicioDoSegundo = r.arestas.findIndex((a: any) => a.salto === 2);
+    assert.ok(internas >= 0, 'ligacao direta interna tem prioridade sobre qualquer segundo salto');
+    if (inicioDoSegundo >= 0) {
+      assert.ok(internas < inicioDoSegundo);
+      assert.ok(r.arestas.slice(inicioDoSegundo).every((a: any) => a.salto === 2));
+    }
+    for (const alvo of new Set(r.arestas.map((a: any) => a.to)))
+      assert.ok(r.arestas.filter((a: any) => a.to === alvo).length <= CONTEXTO_POR_ALVO);
+    assert.equal(r.total_arestas, r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0));
+    assert.equal(texto, pacote({ ...g, nodes: [...g.nodes].reverse(), edges: [...g.edges].reverse() },
+      { ...i, extratores: [...i.extratores].reverse() }, e, teto));
+  }
+  // Uma ponte sem evidencia na origem nao pode sustentar a expansao.
+  const porId = new Map(g.nodes.map((n) => [n.node_id, n.locator.path]));
+  const semPonte = { ...g, edges: g.edges.map((a) => porId.get(a.from) === 'src/semente.ts' && porId.get(a.to) === 'src/ponte.ts'
+    ? { ...a, evidence: a.evidence.map((ev) => ({ ...ev, path: 'src/terceiro.ts' })) } : a) };
+  assert.ok(!JSON.parse(pacote(semPonte, i, e)).arestas.some((a: any) => a.salto === 2));
+  // Se a ponte nao couber, nao basta que exista no indice para incluir o segundo salto.
+  const ponteGrande = { ...g, edges: g.edges.map((a) => porId.get(a.from) === 'src/semente.ts' && porId.get(a.to) === 'src/ponte.ts'
+    ? { ...a, evidence: Array.from({ length: 500 }, (_, n) => ({ ...a.evidence[0], span: {
+      type: 'text' as const, line_start: n + 1, line_end: n + 1, byte_start: n * 10, byte_end: n * 10 + 5,
+    } })) } : a) };
+  assert.ok(!JSON.parse(pacote(ponteGrande, i, e, 4096)).arestas.some((a: any) => a.salto === 2));
+}
+
+test('KG5 segundo salto: sobra, prioridade direta, marca, sentidos, limite, ponte selecionada e determinismo', () => {
+  provarSegundoSalto();
+});
+
+test('KG5 segundo salto: prova cai sem expansao, marca, teto ou prioridade direta', () => {
+  const Module = require('node:module');
+  const arquivo = path.resolve(__dirname, '../src/intelligence-graph-contexto.js');
+  const original = fs.readFileSync(arquivo, 'utf8');
+  for (const [antes, depois] of [
+    ["a.salto === 2 && (pontes.has", "false && (pontes.has"],
+    ["{ salto: 2 }", "{ salto: 1 }"],
+    ["if (a.salto === 1)", "if (a.salto === 2)"],
+    ["Buffer.byteLength(texto) <= tetoBytes", "true"],
+    ["(porAlvo.get(a.alvo) ?? 0) >= exports.CONTEXTO_POR_ALVO", "false"],
+    ["(pontes.has(a.origem.slice(5)) || pontes.has(porId.get(a.alvo).locator.path))", "true"],
+  ]) {
+    assert.ok(original.includes(antes), `ponto de mutacao: ${antes}`);
+    const modulo = new Module(arquivo);
+    modulo.filename = arquivo; modulo.paths = Module._nodeModulePaths(path.dirname(arquivo));
+    modulo._compile(original.replaceAll(antes, depois), arquivo);
+    assert.throws(() => provarSegundoSalto(modulo.exports.pacoteDeContexto), antes);
+  }
+});
+
 function provarTermosContexto({ nomesExportadosContexto, descobertaContexto }: any): void {
   const texto = `
     const privadoLongo = 1; let localLongo = 2;
