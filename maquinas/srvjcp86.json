@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T07:28:26.943Z",
+  "publicadoEm": "2026-10-03T07:28:29.454Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -73,23 +73,6 @@
       "runtime": null,
       "modelo": null,
       "esforco": null
-    },
-    {
-      "id": "ork-rm040piloto",
-      "nome": "RM-040 fechar o piloto com prova real na srvjcp86",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-040",
-      "branch": "ork/ork-rm040piloto-full",
-      "atualizadaEm": "2026-10-03T07:28:26.793Z",
-      "entregue": "44674be",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
     },
     {
       "id": "ork-rm047frontei",
