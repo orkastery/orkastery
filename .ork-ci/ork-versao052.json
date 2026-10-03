@@ -1,0 +1,146 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versao052",
+  "branch": "ork/ork-versao052vps-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O CLI se declara 0.5.2: o package.json do core, o ork --version e o teste de versão (core e adaptador OpenClaw na mesma versão)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/versao.test.js >/dev/null && test \"$(node core/dist/index.js --version)\" = 0.5.2"
+      ],
+      "criadoEm": "2026-10-03T02:47:02.593Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile do core acompanha a 0.5.2, na raiz e no pacote do projeto",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/package-lock.json'); if (l.name!=='@orkastery/cli' || l.version!=='0.5.2' || l.packages[''].version!=='0.5.2') process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T02:47:04.423Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/package.json",
+      "alegacao": "O pacote do adaptador OpenClaw anda na 0.5.2, a mesma versão do core",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./adapters/openclaw/package.json'); if (p.version!=='0.5.2' || p.version!==require('./core/package.json').version) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T02:47:05.652Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "O manifesto do plugin OpenClaw anda na 0.5.2, a mesma versão do core",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const p=require('./adapters/openclaw/openclaw.plugin.json'); if (p.version!=='0.5.2' || p.version!==require('./core/package.json').version) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T02:47:07.492Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "O plugin do Claude Code nos marketplaces sai na 0.5.2 e é igual ao que o gerador produz do catálogo",
+      "negativa": false,
+      "verificar": [
+        "node -e \"if (require('./marketplaces/claude-code/orkastery/.claude-plugin/plugin.json').version!=='0.5.2') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T02:47:09.315Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/.codex-plugin/plugin.json",
+      "alegacao": "O plugin de skills do Codex nos marketplaces sai na 0.5.2 e é igual ao que o gerador produz do catálogo",
+      "negativa": false,
+      "verificar": [
+        "node -e \"if (require('./marketplaces/codex/orkastery/.codex-plugin/plugin.json').version!=='0.5.2') process.exit(1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T02:47:10.870Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG fecha a 0.5.2 em \"## [0.5.2] - 2026-10-03\" com exatamente as linhas da \"Não publicado\" da base (git merge-base origin/main HEAD), cita RM-037 (fatia 5, limite de gasto), RM-049 (worktree.por_thread), RM-055, RM-056 e RM-057 (fatia 1), abre uma \"Não publicado\" nova e vazia, e o checador do CI vê a versão nova",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'),cp=require('child_process'); const git=a=>cp.execFileSync('git',a,{encoding:'utf8'}); const sec=(t,h)=>{const l=t.split('\\n'),i=l.indexOf(h); if(i<0) throw Error('sem '+h); let j=i+1; while(j<l.length && !l[j].startsWith('## ')) j++; return l.slice(i+1,j).filter(x=>x.trim())}; const t=fs.readFileSync('CHANGELOG.md','utf8'); const base=git(['merge-base','origin/main','HEAD']).trim(); const antes=sec(git(['show',base+':CHANGELOG.md']),'## Não publicado'); const v=sec(t,'## [0.5.2] - 2026-10-03'); const falta=antes.filter(x=>!v.includes(x)); const sobra=v.filter(x=>!antes.includes(x)); const rms=['RM-037','RM-049','RM-055','RM-056','RM-057'].filter(r=>!v.some(x=>x.includes('['+r+']'))); const marcas=['fatia 5','limite de gasto','worktree.por_thread','fatia 1','Perfil por despacho','Impedimento que só o dono resolve'].filter(m=>!v.some(x=>x.includes(m))); if(!antes.length || sec(t,'## Não publicado').length || t.split('\\n').indexOf('## Não publicado')!==6 || falta.length || sobra.length || rms.length || marcas.length){console.error({base,falta,sobra,rms,marcas}); process.exit(1)}\" && node core/scripts/checar-changelog.cjs --base origin/main | grep -q 'versão nova no CHANGELOG.md: 0.5.2'"
+      ],
+      "criadoEm": "2026-10-03T02:47:34.266Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "docs",
+      "alegacao": "A documentação passa na paridade, no lint e nos links",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-03T02:47:35.491Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-versao052",
+      "fase": "GO",
+      "arquivo": "eval",
+      "alegacao": "Os canários de comportamento passam",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js eval --so-canarios"
+      ],
+      "criadoEm": "2026-10-03T02:47:36.270Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C10",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
