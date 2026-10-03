@@ -4,6 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-03T14:15:02.053Z",
-  "threads": []
+  "publicadoEm": "2026-10-03T14:36:13.502Z",
+  "threads": [
+    {
+      "id": "ork-siteorkaste2",
+      "nome": "ork-siteaifactory",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-siteorkaste2-full",
+      "atualizadaEm": "2026-10-03T14:36:13.234Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    }
+  ]
 }
