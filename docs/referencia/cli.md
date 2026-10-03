@@ -152,6 +152,10 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork fabrica [--json] [--sem-remoto]` | O que cada máquina conduz, lido da branch `ork/fabrica-estado` |
 | `ork fabrica publicar [--forcar] [--json]` | Grava o retrato desta máquina na branch, com push sem força; depois de entrar, sai sozinho ao criar thread, despachar fase, entregar e fechar, e a cada batida do pulse |
 | `ork fabrica sair` | Para de publicar daqui e tira o retrato desta máquina da branch |
+| `ork network status [--json] [--sem-remoto]` | A Orkastery Network da pessoa: as máquinas, de qualquer diretório, com a fonte, as lacunas tipadas e o que não foi lido (`ork.rede-status/v1`, RM-053) |
+| `ork network entrar [--maquina NOME] [--forja github\|gitlab] [--repositorio [DONO/]NOME] [--forcar]` | Esta máquina entra na rede: confere a casa privada `<usuario>/orkastery-network` na forja, cria quando falta, publica o primeiro retrato e só então grava o nome e a adesão. A identidade vem do `gh` ou do `glab` autenticados. `--forcar` toma um nome que outra instalação usa, registrado no commit |
+| `ork network publicar [--forcar] [--json]` | Grava o retrato desta máquina na casa, com push sem força; depois de entrar, sai sozinho na batida do pulse e nos eventos de thread |
+| `ork network sair` | Para de publicar daqui e tira o retrato desta máquina da casa; vence a adesão herdada do `ork fabrica entrar` |
 | `ork network roadmap [--projeto P] [--json] [--sem-remoto]` | O roadmap da rede, de qualquer diretório: para cada projeto, o status report do roadmap com as threads de todas as máquinas, as reservas e as threads por máquina, com a fonte e a hora de cada parte e lacuna tipada no que não leu. `P` é `github:dono/repo`, `gitlab:grupo/repo`, um nome do registro ou a raiz do clone escrita como caminho (`./` ou absoluto); sem clone, lê a forja só com consulta. Pedido ambíguo ou desconhecido sai 4, com os candidatos (RM-054). Com `ORK_PROJETO_EXPLICITO=1` (os hosts), `P` é só o nome do registro ou a forja em `github.com`, `gitlab.com` ou no host de um projeto registrado, e o projeto do diretório atual só entra pelo registro |
 | `ork thread new <nome> --from-finding <ID>` | Abre a thread a partir de um achado de auditoria. Evidência, claim e proposta viajam junto; a worktree segue a mesma regra do `ork thread new`, com `--worktree auto` e `--sem-worktree` |
 | `ork thread list [--todas] [--json]` | As threads NAO fechadas do projeto; `--todas` inclui as fechadas, `--json` devolve JSON |
@@ -291,13 +295,13 @@ tipo B não é CHECK.
 | `ork handoff recall <thread> <ponteiro>` | Resolve um ponteiro `path#ancora` de volta ao conteúdo |
 | `ork recall <thread> --fase FASE` | Recuperação tardia de ponteiros e descoberta de handoffs por tenant, thread e fase |
 | ↳ opções | `[--id ptr-N] [--todos] [--forcar] [--sem-conteudo] [--json]` |
-| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings; `--sondar` faz uma chamada real e mede a latência |
+| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings: o universo da busca por coleção, o que fica fora da busca (com `injection_risk`, expiradas e em outras coleções, só em número), a cobertura do índice contra o universo e o aviso quando ele cobre menos; `--sondar` faz uma chamada real e mede a latência |
 | `ork memory sync [<thread>] [--json]` | Publica decisões, policies, handoff, lição, roadmap e human gates elegíveis somente da thread informada; sem id, apenas policies |
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
-| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no tenant (vetor e FTS por RRF), **não determinística**; não combina com `--tags` nem `--thread` |
-| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do tenant, idempotente, com tokens e custo estimados; `--dry-run` não chama o provider |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; não combina com `--tags` nem `--thread` |
+| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
@@ -427,7 +431,7 @@ do projeto quando o limite de sessões está cheio.
 | `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
-| `ork master <thread> --score 0-5 --justificativa "<texto>"` | Fecha a thread: POSTMORTEM, MASTER log e score. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
+| `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
 | ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |

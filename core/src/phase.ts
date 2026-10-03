@@ -1259,7 +1259,12 @@ export function tabelaDoLedger(raiz: string, threadId: string): string {
     // Eventos do bloco B3: acao de retry, playbook da retomada e rodada de GO-FIX.
     if (e.acao) detalhe.push(`acao ${String(e.acao)}`);
     if (e.playbook) detalhe.push(`playbook ${String(e.playbook)}`);
-    if (e.pedido) detalhe.push(`pedido ${String(e.pedido)}`);
+    // Ensaio de 03/10/2026 (RM-049): na decisao autonoma o pedido e o objeto `ork.hitl/v2`, e a tabela
+    // mostrava "pedido [object Object]"; do objeto sai o id curto.
+    if (typeof e.pedido === 'string' && e.pedido !== '') detalhe.push(`pedido ${e.pedido}`);
+    else if (e.pedido && typeof e.pedido === 'object' && typeof (e.pedido as { id?: unknown }).id === 'string') {
+      detalhe.push(`pedido ${(e.pedido as { id: string }).id.slice(0, 8)}`);
+    }
     if (e.rodada !== undefined) detalhe.push(`rodada ${String(e.rodada)}`);
     if (e.cobertura) detalhe.push(`cobertura ${String(e.cobertura)}`);
     if (e.liberaEm) detalhe.push(`libera em ${formatarDataHora(String(e.liberaEm))}`);

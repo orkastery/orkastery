@@ -107,6 +107,10 @@ que use o `ork`.
 ork init --name "meu-produto" --abbrev prd
 ```
 
+Rode na raiz do repositório: fora de um repositório git, o `ork init` recusa sem criar nada
+(`init.fora-do-repositorio`), e o `ork doctor` avisa quando o `orkastery.yaml` que ele leu fica fora do
+repositório (um `ork init` antigo numa pasta acima dele).
+
 Isso gera o `orkastery.yaml`, a **fonte única** da configuração do projeto, com limite duro de
 16 KB, e um bloco do Orkastery no `AGENTS.md`. Prosa longa vai para a memória com tag, nunca para o
 manifesto.
@@ -122,7 +126,9 @@ git add orkastery.yaml AGENTS.md
 git commit -m "ork init"
 ```
 
-Depois de `init`, execute `ork onboarding` para obter a pauta. Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
+Depois de `init`, execute `ork onboarding` para obter a pauta. A etapa `maestro`, respondida com
+`{"owner":{...}}`, grava o bloco `owner` no `orkastery.yaml`: faça o commit do manifesto de novo antes do
+primeiro `ork ship`, porque a árvore principal suja barra o merge (`tree.blocked`). Use `ork onboarding show --json` para retomar pendências; respostas públicas são registradas por etapa. Credenciais ficam no ambiente do processo ou no cofre do host (no Hermes, `~/.hermes/.env`); somente os nomes de variáveis entram na entrevista. Veja o [guia completo](../guias/onboarding.md).
 
 O que você provavelmente vai querer ajustar logo de cara:
 
@@ -378,9 +384,10 @@ Qualquer passo que reprove grava `ship_blocked` com motivo tipado, e não avanç
 ```bash
 ork master prd-corrigirofil --score 4 \
   --justificativa "plano segurou, mas o fuso apareceu tarde no CHECK" \
-  --classe erro-de-spec
+  --classe erro-de-spec --por "seu-nome"
 ```
 
+O `--por` é obrigatório: a nota é de uma pessoa, e sem ele (ou com um nome de agente) o `ork` recusa.
 Isso grava o `POSTMORTEM.json` (com classe de falha das nove fixas) e o `master-log.json` (no
 contrato congelado `ork.master-log/v1`). Score sem justificativa é recusado, em qualquer modo.
 

@@ -39,11 +39,15 @@
       "ork_board",
       "ork_roadmap_status",
       "ork_network_roadmap",
+      "ork_network_status",
       "ork_master_batch"
     ]
   },
   "toolMetadata": {
     "ork_network_roadmap": {
+      "profiles": ["coding", "messaging"]
+    },
+    "ork_network_status": {
       "profiles": ["coding", "messaging"]
     }
   }

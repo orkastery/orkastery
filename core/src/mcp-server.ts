@@ -20,7 +20,8 @@ import { contextoHitl, abrirPedidoGate } from './hitl-gates';
 import { CAMPOS_DA_DECISAO_NO_MCP, estadoDoPedido, recusaNaSuperficie, respostaAceitaDoPedido } from './hitl-contract';
 import { apresentarDecisao, ofertaDoPedido, pedidoHitlAberto, prazoLocalDoPedido } from './hitl-presentation';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from './roadmap-status';
-import { montarPanoramaDaRede, textoDoPanoramaDaRede } from './network-roadmap';
+import { montarPanoramaDaRede, redeDoProjetoFixado, textoDoPanoramaDaRede } from './network-roadmap';
+import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
@@ -413,6 +414,16 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       carregar();
       const panorama=montarPanoramaDaRede({fixado:raiz});
       return resposta({texto:textoDoPanoramaDaRede(panorama),panorama});
+    });
+  /**
+   * RM-054 (fatia 3): as maquinas da pessoa (RM-053, `ork.rede-status/v1`), com a fonte, a batida e as
+   * lacunas. O retrato de cada maquina fica so com o projeto servido (D5 da RM-052).
+   */
+  registrarTool('ork_network_status',{description:'Status da Orkastery Network, somente leitura: as maquinas da pessoa (casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versao e o projeto servido em cada uma, mais a fonte e as lacunas. Transporte o texto como vem. Lacuna e "Nao consultado" sao o que nao foi lido: nunca conclua "nenhuma maquina" nem "rede vazia" a partir deles. Nao le roadmap nem threads: para isso, ork_network_roadmap.',
+    inputSchema:z.object({}).strict(),annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:true}},async () => {
+      carregar();
+      const status=redeDoProjetoFixado(raiz);
+      return resposta({texto:textoDaRede(status),status:JSON.parse(jsonDaRede(status))});
     });
   registrarTool('ork_observe',{description:'Observa uma vez o progresso canonico e pedidos da thread. Nao cria monitor ou despacho.',
     inputSchema:daThread,annotations:{readOnlyHint:true}},async ({threadId}) => {

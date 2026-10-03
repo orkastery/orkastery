@@ -8,6 +8,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **A rede por pessoa no roadmap da rede, fatia 3** ([RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  - `ork network roadmap` lê a casa da RM-053: a seção "Rede por pessoa" traz a casa e cada máquina com a batida e
+    os projetos que declara, e o JSON ganha `rede`; o projeto que uma máquina da rede declara passa a ser pedido
+    pelo nome mesmo sem clone nem registro, e a máquina da rede sem retrato na fábrica do projeto sai com as
+    threads não lidas e a lacuna `maquina.sem-fabrica`; `ORK_REDE_LER=0` desliga a leitura;
+  - `ork_network_status` no OpenClaw (perfis `coding` e `messaging`, sem `projeto`), no Hermes e no MCP (só o projeto
+    servido em cada máquina); no host, `ork network status` não lê o projeto do diretório do gateway;
+  - o `gh` e o `glab` da forja são achados também em `~/.local/bin` e nas outras pastas de usuário, fora do PATH
+    curto do gateway e do cron.
+- **Orkastery Network** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)): as máquinas de uma pessoa em
+  rede, num repositório privado dela na forja (`<usuario>/orkastery-network`):
+  - `ork network entrar`, `status`, `publicar` e `sair`, de qualquer diretório; GitHub pelo `gh` e GitLab
+    pelo `glab`, com a identidade da CLI já autenticada;
+  - o retrato leva nome, hostname, forja e login, runtimes e hosts com versão, projetos conhecidos, versão do
+    `ork` e a batida; nunca token, conta paga ou caminho de credencial: a varredura de segredo recusa o
+    retrato, e o projeto suspeito fica fora sozinho, com aviso;
+  - cada instalação tem uma identidade aleatória no retrato: duas máquinas com o mesmo nome não se
+    sobrescrevem;
+  - a casa só fala por HTTPS, e nada que o terminal execute (ESC, bidi) chega à saída do
+    `ork network status` nem ao `REDE.md`;
+  - quem já fez `ork fabrica entrar` entra sem refazer, e `ork/fabrica-estado` continua lida;
+  - `ork network status --json` (`ork.rede-status/v1`) declara a fonte, as lacunas e o que não foi consultado.
 - **Prova de ativação do Maestro no Codex** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
   `node core/scripts/prova-ativacao.cjs codex` prova o terceiro host. A sessão é nova, não interativa e efêmera
   (`codex exec --json --ephemeral --ignore-user-config`), usa o login nativo do `CODEX_HOME` de quem roda e recebe por
@@ -44,6 +66,48 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
+    por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois
+    dentro dessa pasta herdava o manifesto de fora. O `ork doctor` avisa o `orkastery.yaml` lido de fora do
+    repositório (`manifesto do repositorio`), e fora de repositório a correção do manifesto manda entrar nele;
+  - `ork board` mostra, na thread parada por impedimento do dono (`runtime.workspace-untrusted`,
+    `runtime.consent-pending`), a correção gravada no gate, com o `ork retry run` que o pulse recomenda, em
+    vez de um `ork gate request` que o `#Fast` e o `#Auto` recusam;
+  - o `ship_blocked` e o `gate_blocked` de um `ork ship --dry-run` não descontam o índice do `ork master`
+    nem entram nas reprovações do POSTMORTEM;
+  - a linha do cron que o `ork doctor` sugere para o pulse aponta o `monitor/varredura-pulse.sh` do `ork`
+    instalado, com `ORK_PULSE_PROJECT`, quando o projeto não tem o script; antes apontava um caminho que só
+    existe no checkout do Orkastery;
+  - `ork phase list` mostra o id curto do pedido da decisão autônoma, e não `[object Object]`; a linha `ci`
+    do resumo do `ork ship` fica alinhada com as outras;
+  - `ork master` com score: a ajuda e o erro dizem que o `--por` é obrigatório; o quickstart, a referência
+    da CLI e a definição de pronto o trazem, e o quickstart manda fazer o commit do manifesto de novo depois
+    da etapa `maestro` do onboarding, que grava `owner` nele;
+  - o `npm --prefix core test` volta a 0 falhas sem o interpretador do OrkMind: os testes da ponte da
+    RM-038 saem como skip tipado, e um teste-guarda reprova arquivo que suba a fixture sem ele.
+- **Teste instável do lease da sucessora no Node 22** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o caso B-1 de `rm037-baseline-no-despacho` lia `conducaoDaThread` logo depois de despachar uma sessão codex que
+  termina sozinha. O watcher destacado grava o `phase_result` na volta seguinte do laço de 1 s, e dali em diante a
+  leitura derivada é `null` por desenho; num runner carregado o teste chegava depois do watcher e reprovava (run
+  37096532937, que passou no rerun). Agora ele espera o fim da sessão e lê a identidade no lease, sempre na mesma ordem.
+  Com 3 s de atraso injetado depois do despacho, o teste antigo reprova com a mesma mensagem do CI e o novo passa; sob
+  carga, o arquivo passou 60 vezes seguidas no Node 22 e no 24. A varredura de `FINALIZAR-SIMULADO` e `conducaoDaThread`
+  em `core/test` não achou outro teste que leia estado vivo de sessão que termina sozinha.
+- **O universo do índice é o mesmo da busca** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md), fatia de correção):
+  - índice, vetor, FTS e `ork memory status` usam o mesmo universo da busca, lido de uma vez pela operação `universo`
+    da ponte, com o tenant como filtro na origem: as entradas ativas do tenant nas coleções do `ork`, sem as que a
+    biblioteca marca com `injection_risk`;
+  - o FTS da ponte deixa de devolver entrada com `injection_risk` (antes ela chegava ao `ork` e era descartada em
+    silêncio); a quantidade de ids do FTS fora do universo aparece no `detalhe` da busca e em `ftsForaDoUniverso`;
+  - `universo` e `export` leem até o fim: quando a janela enche, a ponte conta e lê de novo uma vez, e cheia de novo sai
+    com `memory.query.window-saturated` (como o `fts` já fazia) em vez de cortar;
+  - entrada de outro tenant ou de outra coleção no universo, no `ork memory index` ou na busca vira
+    `memory.query.scope-violation` antes de qualquer embed, em vez de ser filtrada em silêncio;
+  - `ork memory status` e `ork memory index` mostram o universo da busca por coleção e o que fica fora da busca (com
+    `injection_risk`, expiradas e em outras coleções, só em número), e o status avisa quando o índice cobre menos do
+    que a busca enxerga, só mandando reindexar quando isso resolve; sem o universo lido inteiro, o status diz o motivo
+    e não calcula cobertura.
 - **O grafo de código funciona em quem instala o `ork` pelo npm** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   - o `typescript` 5.9.3 e o micromark 4.0.2, com a tabela GFM 2.1.1 e os dois decodificadores de referência de
     caractere que o extrator usa, passam a ser dependências de runtime do `@orkastery/cli`, com versão exata: no

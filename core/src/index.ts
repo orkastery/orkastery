@@ -108,7 +108,7 @@ import {
   textoDaInstalacao,
   textoDosPitfalls,
 } from './hosts';
-import { init } from './init';
+import { exigirRepositorioParaInit, init } from './init';
 import { createInitiative, createProduct, createProject, findEntity, listEntities, PortfolioKind, PortfolioStatus, readPortfolio } from './portfolio';
 import { atualizarAgentsMd } from './agents-md';
 import { adquirirRegiao, liberar, tabelaDeLeases } from './leases';
@@ -147,7 +147,7 @@ import {
   textoDoSync,
 } from './memoria';
 import { chaveDeEmbeddingAceita, COLECOES_DO_ORK, configDoManifesto, criarEscopoDeLeitura, DriverCliOrkMind, textoDeBuscaValido, validarConsultaDelimitada, LIMITE_CONSULTA_PADRAO } from './orkmind';
-import { AlvoDeEmbedding, indexar, ResultadoDoIndice, universoDoTenant } from './indice-vetorial';
+import { AlvoDeEmbedding, codigoDaFalha, indexar, ResultadoDoIndice, textoDoIndice, universoDaBusca } from './indice-vetorial';
 import { buscarPorSignificado, LIMITE_MAXIMO_DA_BUSCA, LIMITE_PADRAO_DA_BUSCA, ModoDeBusca, MODOS_DE_BUSCA, ResultadoDaBuscaSemantica } from './busca-semantica';
 import { recallDaThread, textoDoRecall } from './recall';
 import { inventariarHandoffs, migrarHandoffs } from './memory-migration';
@@ -214,9 +214,13 @@ import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
+import { registrarNaRede } from './rede-adesao';
+import { ehNomeDeForja } from './rede-forja';
+import { jsonDaRede, lerRede, textoDaRede } from './rede-status';
 import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
-import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate } from './types';
+import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { gravarBaseline, textoDoVerify, verificar } from './verify';
 import {
   auditarWorktree,
@@ -514,8 +518,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   master batch --aceitar <thread:assinatura,...> --por <humano>
   master migrar --dry-run --por Q           Inspeciona correções sem alterar originais
   master digest <enviar|preview|responder>  Digest semanal com recibos do host
-  master <thread-id> --score 0-5 --justificativa "<texto>"
-        [--classe C[,C]] [--resumo R] [--por Q] [--refazer]
+  master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>
+        [--classe C[,C]] [--resumo R] [--refazer]
                                             Fecha a thread: POSTMORTEM + MASTER log + score (so do terminal;
                                             de processo de host e recusado com master.prova-de-canal)
   master pedir <thread-id> [--formato telegram|terminal|json]
@@ -558,6 +562,14 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
+  network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
+                                            com a fonte, as lacunas e o que nao foi lido (RM-053)
+  network entrar [--maquina NOME]           Esta maquina entra na rede: repositorio privado <usuario>/orkastery-network
+        [--forja github|gitlab] [--repositorio [DONO/]NOME]  na forja (criado se falta) e o primeiro retrato;
+        [--forcar]                               --forcar toma um nome que outra instalacao usa (fica no commit)
+  network publicar [--forcar] [--json]      Grava o retrato desta maquina na casa da rede (push sem forca); depois de
+                                            entrar, sai sozinho na batida do pulse e nos eventos de thread
+  network sair                              Para de publicar daqui e tira o retrato desta maquina da casa
   network roadmap [--projeto P] [--json]    Roadmap, reservas e threads de cada maquina de cada projeto, de qualquer diretorio:
         [--sem-remoto]                           fonte e hora de cada parte, lacuna tipada no que nao leu. P = caminho do clone,
                                                  github:dono/repo, gitlab:grupo/repo ou nome conhecido; sem clone, le a forja (RM-054)
@@ -2442,6 +2454,84 @@ function comandoFabrica(args: Args): number {
 }
 
 /**
+ * RM-053: `ork network` e a Orkastery Network, as maquinas de uma pessoa em rede. Roda de qualquer
+ * diretorio, com ou sem projeto: a rede e da pessoa, nao de um repositorio. O projeto do diretorio
+ * atual, quando ha, so entra no retrato e na leitura da fabrica legada.
+ */
+function comandoNetwork(args: Args): number {
+  const sub = args.posicionais[1];
+  // RM-054: `network roadmap` tem o proprio --projeto e o proprio uso.
+  if (sub === 'roadmap') return comandoNetworkRoadmap(args);
+  const diretorio = process.cwd();
+  const uso = 'uso: ork network [status] [--json] [--sem-remoto] | network entrar [--maquina NOME] [--forja github|gitlab] ' +
+    '[--repositorio [DONO/]NOME] [--forcar] | network publicar [--forcar] [--json] | network sair | ' +
+    'network roadmap [--projeto P] [--json] [--sem-remoto]';
+  const forja = texto(args.opcoes.forja), repositorio = texto(args.opcoes.repositorio);
+  if ((args.opcoes.forja !== undefined && !ehNomeDeForja(forja)) || args.opcoes.repositorio === true ||
+      (repositorio !== undefined && !/^(?:[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositorio))) {
+    console.error(uso);
+    return 2;
+  }
+  if (sub === 'entrar') {
+    const r = entrarNaRede({ maquina: texto(args.opcoes.maquina), forja: ehNomeDeForja(forja) ? forja : undefined, repositorio, diretorio,
+      tomarNome: args.opcoes.forcar === true });
+    console.log(`Rede: ${r.publicacao.maquina} entrou na Orkastery Network de ${r.casa.dono} (${r.casa.forja}: ${refDaCasa(r.casa)}, ` +
+      `privado${r.criado ? ', criado agora' : ''}).`);
+    console.log(`  Primeiro retrato publicado (${r.publicacao.commit?.slice(0, 7)}). Depois, esta maquina publica sozinha na batida do pulse`);
+    if (r.publicacao.tomouNome) console.log(`  Tomou o nome "${r.publicacao.maquina}" de outra instalacao; o commit registra.`);
+    console.log('  e ao criar thread, despachar fase, entregar e fechar. De qualquer maquina desta pessoa: ork network status');
+    for (const d of r.publicacao.descartados) {
+      console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
+    if (process.env.ORK_MAQUINA && process.env.ORK_MAQUINA.trim() !== r.publicacao.maquina) {
+      console.log(`  AVISO: ORK_MAQUINA=${process.env.ORK_MAQUINA} neste shell vence o nome gravado; alinhe os dois.`);
+    }
+    return 0;
+  }
+  if (sub === 'sair') {
+    const r = sairDaRede({ forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    console.log(`Rede: ${r.maquina} saiu; nada mais e publicado daqui.` + (r.commit
+      ? ` Retrato removido de ${r.casa} (${r.commit.slice(0, 7)}).`
+      : r.alheio
+        ? ` O retrato "${r.maquina}" em ${r.casa} e de outra instalacao com o mesmo nome; nada foi removido.` +
+          (r.mesmoHostname ? ' Ele tem o hostname desta maquina: se ~/.orkastery foi apagada, retome o nome com ork network entrar --forcar.' : '')
+        : ` Nao havia retrato desta maquina${r.casa ? ` em ${r.casa}` : ' numa casa alcancavel'}.`));
+    if (lerConfigDaMaquina()?.fabricaCompartilhada) {
+      console.log('  A fabrica compartilhada dos projetos continua publicando daqui (ork/fabrica-estado); ork fabrica sair em cada um para parar.');
+    }
+    return 0;
+  }
+  if (sub === 'publicar') {
+    if (args.opcoes.silencioso === true) {
+      // O filho do evento de thread: quem disparou ja tomou a vez (teto de 15 min) e nao espera.
+      try { registrarNaRede({ ...publicarRede({ diretorio }), origem: 'evento' }); return 0; }
+      catch (e) { registrarNaRede({ acao: 'falhou', origem: 'evento', erro: (e as Error).message }); return 1; }
+    }
+    const r = publicarRede({ diretorio, forcar: args.opcoes.forcar === true, forja: ehNomeDeForja(forja) ? forja : undefined, repositorio });
+    if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
+    else console.log(r.acao === 'publicou'
+      ? `Rede: ${r.maquina} publicou o retrato em ${r.casa} (${r.commit?.slice(0, 7)}, ${r.tentativas} tentativa(s)).`
+      : r.acao === 'ocupado'
+        ? 'Rede: outra publicacao desta maquina esta em andamento; tente de novo em instantes.'
+        : `Rede: retrato de ${r.maquina} igual ao ultimo publicado em ${r.casa}; nada a enviar (use --forcar para publicar mesmo assim).`);
+    if (args.opcoes.json !== true) {
+      for (const d of r.descartados) console.log(`  AVISO: um projeto ficou fora do retrato: padrao "${d.padrao}" em ${d.campo} (valor omitido de proposito).`);
+    }
+    return 0;
+  }
+  if (sub !== undefined && sub !== 'status') {
+    console.error(`subcomando desconhecido: network ${sub}`);
+    console.error(uso);
+    return 2;
+  }
+  // RM-054 (fatia 3): o host sem cwd de projeto (RM-052, D3) nao faz do diretorio do gateway um projeto lido.
+  const doHost = (process.env[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+  const status = lerRede({ semRemoto: args.opcoes['sem-remoto'] === true, diretorio: doHost ? null : diretorio });
+  console.log(args.opcoes.json === true ? jsonDaRede(status) : textoDaRede(status));
+  return 0;
+}
+
+/**
  * RM-052: `ork projetos` lista o registro desta maquina (`~/.orkastery/projetos.json`); `registrar`
  * poe uma copia que ja existia antes do registro (init, thread new e fabrica entrar ja registram) e
  * `esquecer` tira a copia que sumiu ou sobrou. Sem segredo: so nome, abbrev, raiz e remoto redigido.
@@ -2693,7 +2783,7 @@ function comandoMaster(args: Args): number {
   const brutoScore = texto(args.opcoes.score);
   const justificativa = texto(args.opcoes.justificativa) ?? texto(args.opcoes.porque);
   if (brutoScore === undefined) {
-    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>"');
+    console.error('uso: ork master <thread-id> --score 0-5 --justificativa "<texto>" --por <seu-nome>');
     console.error('  o score do MASTER e humano, de 0 a 5, e a justificativa e obrigatoria.');
     return 2;
   }
@@ -2840,7 +2930,7 @@ function comandoRoadmap(args: Args): number {
  * RM-054 (fatia 1): `ork network roadmap`, o roadmap da rede de qualquer diretorio. Pedido de projeto
  * ambiguo ou desconhecido e resposta, nao erro: a recusa com os candidatos, e o codigo da RM-052.
  */
-function comandoNetwork(args: Args): number {
+function comandoNetworkRoadmap(args: Args): number {
   const pedido = texto(args.opcoes.projeto);
   if (args.posicionais[1] !== 'roadmap' || args.posicionais.length > 2 || (args.opcoes.projeto !== undefined && !pedido)) {
     console.error('uso: ork network roadmap [--projeto <caminho|github:dono/repo|gitlab:grupo/repo|nome>] [--json] [--sem-remoto]');
@@ -3693,7 +3783,15 @@ function comandoMemory(args: Args): number {
     const config = configDeEmbedding(carregado.manifesto);
     const driver = configDoManifesto(carregado.manifesto);
     const embedder = new DriverCliOrkMind(driver);
-    const universo = universoDoTenant(memoria, memoria.estado.tenant);
+    // RM-038: o universo da busca inteiro, numa leitura; sem ele, nada e embedado (nunca um pedaco).
+    let universo: UniversoDaBusca;
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) {
+      const motivo = codigoDaFalha(erro);
+      const detalhe = 'o universo da busca nao foi lido inteiro; nada foi embedado';
+      if (args.opcoes.json === true) console.log(JSON.stringify({ motivo, detalhe }, null, 2));
+      else console.error(`memory.index: ${motivo}; ${detalhe}`);
+      return 1;
+    }
     const alvos: AlvoDeEmbedding[] = modelo === 'todos' ? ['primario', 'fallback'] : [modelo as AlvoDeEmbedding];
     const resultados: ResultadoDoIndice[] = alvos.map(alvo => indexar({ raiz: carregado.raiz, tenant: memoria.estado.tenant,
       dsn: driver.dsn, config, alvo, universo, dryRun: args.opcoes['dry-run'] === true,
@@ -3744,15 +3842,24 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   const memoria = abrirMemoria(carregado);
   const config = configDeEmbedding(carregado.manifesto);
   let r: ResultadoDaBuscaSemantica;
+  const vazio = { texto: frase, modo, origem: 'nenhum' as const, modeloUsado: null, deterministico: false as const,
+    resultados: [], listas: { vetor: [], fts: [] }, ftsForaDoUniverso: 0, coberturaDoIndice: null };
+  let universo: UniversoDaBusca | null = null;
+  let falhaDoUniverso = '';
+  if (memoria.ativo) {
+    try { universo = universoDaBusca(memoria, memoria.estado.tenant); } catch (erro) { falhaDoUniverso = codigoDaFalha(erro); }
+  }
   if (!memoria.ativo) {
-    r = { texto: frase, modo, origem: 'nenhum', modeloUsado: null, deterministico: false, motivo: memoria.estado.motivo,
-      detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}`, resultados: [], listas: { vetor: [], fts: [] } };
+    r = { ...vazio, motivo: memoria.estado.motivo, detalhe: `${memoria.estado.detalhe}; correcao: ${memoria.estado.correcao}` };
+  } else if (!universo) {
+    // RM-038: sem o universo inteiro nao ha busca; o motivo tipado sai, nunca um resultado parcial.
+    r = { ...vazio, motivo: falhaDoUniverso, detalhe: 'o universo da busca nao foi lido inteiro; nada foi buscado' };
   } else {
     const driver = configDoManifesto(carregado.manifesto);
     const transporte = new DriverCliOrkMind(driver);
     const fallback = memoria.estado.embeddings?.fallback;
     r = buscarPorSignificado({ raiz: carregado.raiz, tenant: memoria.estado.tenant, dsn: driver.dsn, config,
-      universo: universoDoTenant(memoria, memoria.estado.tenant, colecao ? [colecao as ColecaoDoOrk] : COLECOES_DO_ORK),
+      universo, colecao: colecao as ColecaoDoOrk | undefined,
       texto: frase, modo, limite, timeoutMs: driver.timeoutMs,
       chavePresente: memoria.estado.embeddings?.chavePresente === true,
       fallbackUsavel: memoria.estado.embeddings?.sondado === true && fallback?.dependencias === true,
@@ -3773,21 +3880,6 @@ function buscaPorTexto(args: Args, carregado: ManifestoCarregado): number {
   console.log('');
   console.log(`  ${r.resultados.length} resultado(s); busca por tag continua em ork memory search --tags`);
   return 0;
-}
-
-/** Texto de `ork memory index`: o que foi (ou seria) embedado e quanto custa estimado. */
-function textoDoIndice(r: ResultadoDoIndice): string {
-  const custo = r.custoEstimadoUsd === null ? 'nao estimado' : `US$ ${r.custoEstimadoUsd.toFixed(8)}`;
-  return [
-    `Indice vetorial (${r.alvo}${r.dryRun ? ', --dry-run' : ''}): ${r.modelo ?? '(sem modelo)'}${r.dim ? ` / ${r.dim} dim` : ''}`,
-    `  universo do tenant   ${r.universo} entrada(s); coerentes ${r.coerentes}`,
-    `  embedados            ${r.embedados} (reescritos ${r.reescritos}); removidos ${r.removidos}`,
-    `  fora do indice       ${r.recusados} recusada(s) por padrao de segredo, ${r.foraDoLimite} acima do limite`,
-    ...(r.truncados ? [`  truncados            ${r.truncados} acima do contexto do modelo local, embedados pelo comeco`] : []),
-    `  estimativa           ${r.tokensEstimados} token(s), ${custo}; chamadas ao provider ${r.chamadasAoProvider}`,
-    ...(r.arquivo ? [`  arquivo              ${r.arquivo}`] : []),
-    ...(r.motivo ? [`  motivo               ${r.motivo}: ${r.detalhe}`] : r.detalhe ? [`  ${r.detalhe}`] : []),
-  ].join('\n');
 }
 
 /**
@@ -3935,6 +4027,7 @@ export function main(argvBruto: string[]): number {
       return r.codigo;
     }
     case 'init': {
+      exigirRepositorioParaInit(process.cwd());
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),

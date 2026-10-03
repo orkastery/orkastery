@@ -1,0 +1,71 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm037testede",
+  "branch": "ork/ork-rm037testede-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm037testede",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-baseline-no-despacho.test.ts",
+      "alegacao": "o arquivo rm037-baseline-no-despacho passa 50 vezes seguidas sob carga (6 cópias em paralelo e 4 laços de CPU), sem nenhuma reprovação",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && bash -c 'c=\"\"; for i in 1 2 3 4; do (while :; do :; done) & c=\"$c $!\"; done; trap \"kill $c\" EXIT; seq 50 | xargs -P 6 -I{} sh -c \"node --test core/dist-test/test/rm037-baseline-no-despacho.test.js >/dev/null 2>&1 || exit 255\"'"
+      ],
+      "criadoEm": "2026-10-03T05:15:31.972Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm037testede",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-baseline-no-despacho.test.ts",
+      "alegacao": "o B-1 espera o phase_result da sucessora antes de afirmar e lê a identidade no lease: a asserção não depende mais de chegar antes do watcher",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && grep -q \"esperarCondicao(() => lerLedger(dir).some(e => e.tipo === 'phase_result' && e.sessionId === r.sessionId)\" core/test/rm037-baseline-no-despacho.test.ts && grep -q \"lerLease(p.dir, nomeDaConducao(t.id))?.conducao?.identidade\" core/test/rm037-baseline-no-despacho.test.ts && node --test --test-name-pattern='B-1' core/dist-test/test/rm037-baseline-no-despacho.test.js"
+      ],
+      "criadoEm": "2026-10-03T05:15:32.122Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm037testede",
+      "fase": "GOAL",
+      "arquivo": "core/test",
+      "alegacao": "varredura de gêmeos: nenhum outro teste de core/test lê conducaoDaThread num arquivo que despacha sessão que termina sozinha (FINALIZAR-SIMULADO)",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -l FINALIZAR-SIMULADO core/test/*.test.ts | xargs grep -l 'conducaoDaThread' | tr '\\n' ' ')\" = \"core/test/rm037-baseline-no-despacho.test.ts \""
+      ],
+      "criadoEm": "2026-10-03T05:15:32.273Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm037testede",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "CHANGELOG traz a correção do teste instável em Não publicado",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'Teste instável do lease da sucessora no Node 22' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-03T05:15:32.420Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
