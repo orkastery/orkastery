@@ -6,8 +6,9 @@
  * fecho dos analisadores nao fica marcado dev, e nenhum pacote de producao roda script de instalacao),
  * "doctor" (o check analisadores do grafo), "status" (a correcao no `ork grafo status`), "script" (as
  * partes puras da prova de instalacao limpa, que roda no CI com o registro do npm; aqui, sem rede, os
- * conferidores leem a saida real do `ork grafo` e do doctor) e "workflow" (o passo da prova no CI e no
- * `publicar.yml`). A instalacao sem os analisadores e uma
+ * conferidores leem a saida real do `ork grafo` e do doctor), "workflow" (o passo da prova no CI e no
+ * `publicar.yml`) e "docs" (o que continua valendo nos docs depois da correcao, sem depender de texto
+ * que a proxima fatia reescreve). A instalacao sem os analisadores e uma
  * copia do `dist` com o `node_modules` do checkout ligado pacote a pacote, menos os analisadores: o
  * mesmo que a 0.5.1 do npm tinha.
  */
@@ -334,4 +335,31 @@ test('grafo no pacote: workflow: o publicar.yml roda a prova antes do npm publis
   onde('test "v$(node -p "require(\'./core/package.json\').version")" = "$GITHUB_REF_NAME"');
   onde('test "$(node -p "require(\'./core/package.json\').repository.url")" = "git+https://github.com/$GITHUB_REPOSITORY.git"');
   onde('run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main');
+});
+
+// ---------------------------------------------------------------------------
+// docs
+
+test('grafo no pacote: docs: o Próximo passo da RM-031 nao cita mais a instalacao sem os analisadores, e a pagina registra a correcao', () => {
+  const rm = ler('docs/roadmap/RM-031-grafo-de-codigo.md');
+  const proximo = rm.split('\n').find((l) => l.startsWith('- **Próximo passo:**'));
+  assert.ok(proximo, 'a linha do Próximo passo');
+  assert.doesNotMatch(proximo, /typescript|micromark|analisadores/);
+  assert.match(rm, /`ork-rm031grafofu`/);
+});
+
+test('grafo no pacote: docs: os contratos e a referencia da CLI dizem que os analisadores vem com o pacote e citam o check do doctor', () => {
+  for (const arquivo of ['docs/referencia/contratos/indice-grafo-kg3.md', 'docs/referencia/contratos/consumo-grafo-kg5.md', 'docs/referencia/cli.md']) {
+    const texto = ler(arquivo).replace(/\s+/g, ' ');
+    assert.doesNotMatch(texto, /não são dependências de runtime|que não são dependências|e o pacote publicado `@orkastery\/cli` 0\.5\.0 não/, arquivo);
+    assert.match(texto, /são dependências (de runtime )?do pacote/, arquivo);
+    assert.match(texto, /"analisadores do grafo"/, arquivo);
+  }
+  assert.match(ler('docs/referencia/cli.md').replace(/\s+/g, ' '), /o grafo pede Node 20\.19, 22\.12 ou mais novo/);
+});
+
+test('grafo no pacote: docs: as amostras do doctor no quickstart trazem o check dos analisadores logo depois do node', () => {
+  const amostras = [...ler('docs/comecar/quickstart.md').matchAll(/```text\n(ork doctor: o que vale nesta maquina agora\n[\s\S]*?)\n```/g)].map((m) => m[1]);
+  assert.equal(amostras.length, 2, 'antes e depois do ork init');
+  for (const a of amostras) assert.match(a, /\n {2}\[ok\] {3}node +v\S+\n {2}\[ok\] {3}analisadores do grafo +typescript \d/);
 });

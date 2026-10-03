@@ -82,14 +82,15 @@ Numa máquina com o Claude Code e sem o Codex, antes do `ork init`, a saída da 
 ```text
 ork doctor: o que vale nesta maquina agora
 
-  [ok]   node               v22.23.2
-  [ok]   git                /usr/bin/git
-  [ok]   repositorio        branch main
-  [ok]   runtime claude-bg  /home/voce/.local/bin/claude (2.1.287 (Claude Code))
-  [warn] runtime codex      binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
-                            correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
-  [FAIL] manifesto          orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
-                            correcao: ork init
+  [ok]   node                   v22.23.2
+  [ok]   analisadores do grafo  typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
+  [ok]   git                    /usr/bin/git
+  [ok]   repositorio            branch main
+  [ok]   runtime claude-bg      /home/voce/.local/bin/claude (2.1.287 (Claude Code))
+  [warn] runtime codex          binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)
+                                correcao: para despachar pelo codex, instale o Codex CLI e autentique com `codex login`
+  [FAIL] manifesto              orkastery.yaml nao encontrado a partir de /caminho/do/seu/projeto
+                                correcao: ork init
 
 Veredito: BLOQUEADO (1 fail, 1 warn). Corrija os itens acima antes de despachar fase.
 ```
@@ -166,6 +167,7 @@ máquina, ainda sem sessões do Claude Code, logo depois do `ork init`:
 ork doctor: o que vale nesta maquina agora
 
   [ok]   node                         v22.23.2
+  [ok]   analisadores do grafo        typescript 5.9.3, javascript node.22.23.2, markdown micromark.4.0.2.gfm-table.2.1.1, unicode 17.0
   [ok]   git                          /usr/bin/git
   [ok]   repositorio                  branch main
   [ok]   runtime claude-bg            /home/voce/.local/bin/claude (2.1.287 (Claude Code))

@@ -55,6 +55,19 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O grafo de código funciona em quem instala o `ork` pelo npm** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  - o `typescript` 5.9.3 e o micromark 4.0.2, com a tabela GFM 2.1.1 e os dois decodificadores de referência de
+    caractere que o extrator usa, passam a ser dependências de runtime do `@orkastery/cli`, com versão exata: no
+    `npm install -g`, o `ork grafo indexar`, as consultas e as tools `ork_grafo_*` rodam sem passo manual, onde antes
+    a recusa era `grafo.parser.indisponivel: typescript`. Os rótulos `ork.ts-ast` e `ork.md-structure` não mudam; a
+    instalação fica com 125 pacotes e cerca de 26 MB a mais em disco, quase todo o compilador;
+  - `ork doctor` ganha o check "analisadores do grafo", logo depois do `node`: `ok` com as versões, ou `warn` com a
+    recusa e a correção (`npm install -g @orkastery/cli@<versão>`, quando o pacote falta ou o npm o deixou fora da
+    instalação, como dentro de um projeto ou pelo `npx`; Node 20.19, 22.12 ou mais novo, quando o Node não carrega ESM
+    por `require`). O `ork grafo status` diz a mesma correção, na linha `correcao` e no campo `correcao` do `--json`;
+  - `core/scripts/provar-grafo-instalado.cjs` instala o tarball do `npm pack` com `npm install -g` num prefixo e num
+    HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, Node 20 e 22) e no
+    `publicar.yml`, antes do `npm publish`.
 - **Pendências da fatia 4 e rodízio no limite de gasto** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 5):
   - a sessão claude-bg que bate o limite de gasto (ou outra cota que o rodízio já conhece) tira o perfil do rodízio na
     hora em que a mensagem aparece na transcrição, e não só quando o processo morre: o perfil fica esgotado até a hora

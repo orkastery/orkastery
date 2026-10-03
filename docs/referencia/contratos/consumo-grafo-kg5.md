@@ -42,10 +42,12 @@ vale para as sessões abertas depois.
 ## Pré-requisito
 
 As tools rodam o `ork grafo` da instalação do `ork` que serve o MCP, e ele precisa do `typescript` e
-do micromark no `node_modules` dessa instalação ([analisadores do KG3](indice-grafo-kg3.md#analisadores)):
-o checkout de desenvolvimento e o CI os têm, e o pacote publicado `@orkastery/cli` 0.5.0 não. Sem eles,
-toda chamada recusa com `grafo.parser.indisponivel`, e o `ork grafo indexar` também. Ligar a flag só
-serve numa instalação com os analisadores.
+do micromark no `node_modules` dessa instalação ([analisadores do KG3](indice-grafo-kg3.md#analisadores)).
+Eles são dependências do pacote desde a correção de empacotamento da RM-031: o checkout de
+desenvolvimento, o CI e o `npm install -g` os têm, e as versões publicadas até a 0.5.1 não os
+levavam. Sem eles, toda chamada recusa com `grafo.parser.indisponivel`, e o `ork grafo indexar`
+também; o check "analisadores do grafo" do `ork doctor` diz a correção. Ligar a flag só serve numa
+instalação com os analisadores.
 
 A versão do Node, as versões dos analisadores e os bytes do código do extrator entram na chave do
 índice. O índice que a tool lê é o que tem a chave da instalação do `ork` que serve o MCP, com o Node
