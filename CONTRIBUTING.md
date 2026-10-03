@@ -29,6 +29,14 @@ below are in Brazilian Portuguese too.
 2. Prepare o ambiente pelo [desenvolvimento local](docs/guias/contribuir/desenvolvimento-local.md).
 3. Rode o que [testes e verificação](docs/guias/contribuir/testes-e-verificacao.md) lista e cole a saída no PR.
 
+## Sem as dependências opcionais
+
+A suíte inteira (`npm --prefix core test`) roda em qualquer máquina. Sem o codex em `/usr/bin`, sem
+PostgreSQL (Docker com `pgvector/pgvector:pg16`) ou sem o interpretador do OrkMind, os testes que
+precisam deles saem como skip com o motivo, e a suíte termina com 0 falhas. Com
+`ORK_TESTE_EXIGE_AMBIENTE=1`, nada é pulado. O detalhe está em
+[testes e verificação](docs/guias/contribuir/testes-e-verificacao.md#a-suíte-inteira).
+
 ## Também
 
 - Vulnerabilidade: nunca em issue pública. Ver [SECURITY.md](SECURITY.md).
