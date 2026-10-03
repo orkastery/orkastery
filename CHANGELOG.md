@@ -94,6 +94,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
+  MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
+  fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
+  thread tem sessão sem fim, o fechamento grava `sessao_morta` (origem `fechamento`) só nos fantasmas dela; sessão
+  viva e fantasma de outra thread ficam, e o runtime nunca é parado.
 - **O MASTER sem `--classe` infere a classe de falha pelo motivo do gate** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   antes, toda thread com gate reprovado fechava com a classe `outra`, que o `ork licoes` ignora; 8 POSTMORTEMs de
   03/10 fecharam assim pelo aceite por omissão. Agora os motivos de verificação e evidência (`claims.failed`,
