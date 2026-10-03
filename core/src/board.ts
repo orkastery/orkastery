@@ -22,7 +22,6 @@ import {
   expirado,
   LEASE_MAIN_TREE,
   lerFila,
-  leasesDaThread,
   listarLeases,
   tipoDoLease,
 } from './leases';
@@ -84,14 +83,16 @@ export function threadsDeTodosOsPerfis(
   const saida: ThreadNoBoard[] = [];
   for (const perfil of perfis) {
     const fila = lerFila(perfil.raiz);
+    // RM-036 (D7): uma listagem por perfil. Por thread, a leitura do legado das worktrees se repetiria.
+    // I-36: a conducao (`exec:`) tem secao propria; o escalonador segue contando so os leases de escrita.
+    const ativos = listarLeases(perfil.raiz).filter((l) => !expirado(l) && tipoDoLease(l.nome) !== 'exec');
     for (const id of listarIds(perfil.raiz)) {
       const thread = lerThread(perfil.raiz, id);
       saida.push({
         perfil: perfil.nome,
         raiz: perfil.raiz,
         thread,
-        // I-36: a conducao (`exec:`) tem secao propria; o escalonador segue contando so os leases de escrita.
-        leases: leasesDaThread(perfil.raiz, id).filter((l) => tipoDoLease(l.nome) !== 'exec').map((l) => l.nome),
+        leases: [...new Set(ativos.filter((l) => l.thread === id).map((l) => l.nome))],
         naFila: fila.filter((p) => p.thread === id),
       });
     }

@@ -14,7 +14,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
+import * as leases from '../src/leases';
 import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerFila, lerLease, listarLeases } from '../src/leases';
+import { threadsDeTodosOsPerfis } from '../src/board';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { liberarAoFechar } from '../src/fechamento';
 import { lerLedger } from '../src/ledger';
@@ -354,5 +356,33 @@ test('rm036 leases: legado de thread fechada sai na poda e no fechamento', () =>
     assert.equal(fs.existsSync(deT3), false);
     assert.ok(lerLedger(dirThread(c.raiz, t3)).some((e) => e.tipo === 'lease_released' && e.lease === 'board:card-9' &&
       e.origem === 'fechamento'));
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: board da worktree mostra o dominio canonico', () => {
+  const c = cenario('rm036-board');
+  try {
+    const [t2] = c.outras;
+    assert.equal(ork(c.raiz, 'lease', 'acquire', 'path:core/**', '--thread', c.t1).codigo, 0);
+    assert.equal(ork(c.raiz, 'lease', 'acquire', 'path:core/src/a.ts', '--thread', t2).codigo, 1);
+    const r = ork(c.wt, 'board', '--json');
+    assert.equal(r.codigo, 0, r.stderr);
+    const board = JSON.parse(r.stdout) as { threads: { thread: { id: string }; leases: string[]; naFila: PedidoNaFila[] }[] };
+    const um = board.threads.find((x) => x.thread.id === c.t1), dois = board.threads.find((x) => x.thread.id === t2);
+    assert.deepEqual(um?.leases, ['path:core/**'], 'o lease pego pela raiz aparece pela worktree');
+    assert.deepEqual(dois?.naFila.map((p) => p.nome), ['path:core/src/a.ts'], 'e a espera tambem');
+
+    // D7: uma listagem de leases por perfil, nao uma por thread (cada uma varre o legado das worktrees).
+    const modulo = leases as unknown as Record<string, (...a: unknown[]) => unknown>;
+    const originais = { listarLeases: modulo.listarLeases, leasesDaThread: modulo.leasesDaThread };
+    let chamadas = 0;
+    for (const nome of Object.keys(originais) as (keyof typeof originais)[]) {
+      modulo[nome] = (...a: unknown[]) => { chamadas++; return originais[nome](...a); };
+    }
+    try {
+      const vistas = threadsDeTodosOsPerfis(c.p.carregado, false);
+      assert.equal(vistas.length, 2);
+    } finally { Object.assign(modulo, originais); }
+    assert.equal(chamadas, 1, 'uma listagem para o perfil inteiro');
   } finally { c.p.limpar(); }
 });
