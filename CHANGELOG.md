@@ -99,6 +99,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Instalação e suíte sem os avisos do próprio repositório:** o `markdownlint-cli2` de desenvolvimento desce
+  para `^0.22.1` (com o `markdownlint` 0.40.0), a última que aceita o Node 20 que o `core/package.json` declara.
+  Assim, o `npm ci` do núcleo no Node 20 deixa de imprimir `npm warn EBADENGINE`, e o lint dá o mesmo resultado
+  em `docs/` e nos READMEs. Os três testes que usam `mock.timers` deixam de imprimir o `ExperimentalWarning` do
+  MockTimers no Node 20 e 22, e qualquer outro aviso continua saindo.
 - **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
   MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
   fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
