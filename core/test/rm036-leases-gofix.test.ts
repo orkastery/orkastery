@@ -148,6 +148,8 @@ for (const transporte of ['flock', 'portatil']) {
       assert.ok(candidato);
       assert.deepEqual(fs.readdirSync(fila), [path.basename(candidato)], 'candidato fica para coleta por PID ou prazo');
       assert.ok(JSON.parse(fs.readFileSync(candidato, 'utf8')).ticket > 0);
+      // A limpeza do cenario (t.after) apaga o candidato que ficou; sem o mock, ela usa o fs real.
+      t.mock.restoreAll();
     });
   }
 }
