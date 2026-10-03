@@ -13,15 +13,18 @@ fontes:
   codigo:
     - core/src/network-roadmap.ts
     - core/src/forja.ts
+    - core/src/rede-status.ts
     - core/src/roadmap-status.ts
     - core/src/projeto-alvo.ts
     - core/src/mcp-server.ts
     - adapters/openclaw/src/index.ts
     - adapters/hermes/bin/ork-network-roadmap.sh
+    - adapters/hermes/bin/ork-network-status.sh
   testes:
     - core/test/network-roadmap.test.ts
     - core/test/forja.test.ts
     - core/test/network-roadmap-hosts.test.ts
+    - core/test/rm054-fatia3-rede.test.ts
     - adapters/openclaw/test/network-roadmap.test.mjs
   docs:
     - docs/guias/varias-maquinas.md
@@ -34,19 +37,23 @@ fontes:
     - core/src/roadmap-status.ts#montarStatusDeFatos
     - core/src/network-roadmap.ts#projetosConhecidos
     - core/src/projeto-alvo.ts#OFERTA_DA_REDE
+    - core/src/network-roadmap.ts#redeDoProjetoFixado
+    - core/src/forja.ts#executorPadrao
   contratos:
     - ork.network-roadmap/v1
     - ork.roadmap-status/v1
     - ork.projetos/v1
+    - ork.rede-status/v1
   comandos:
     - ork network roadmap
+    - ork network status
 ---
 
 # FEAT-032 — Roadmap da rede, de qualquer diretório
 
 > **Em uma frase:** `ork network roadmap` junta, para cada projeto da pessoa, o status report do roadmap, as reservas e as threads de cada máquina, lendo a forja quando não há clone, e diz a fonte e a hora de cada parte e o que ficou sem ler.
 
-- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@6ea7acb (PR #29), publicada na 0.5.0; a fatia 3 da RM-054 segue em aberto
+- **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@6ea7acb (PR #29), publicada na 0.5.0; a fatia 3 da RM-054 (rede por pessoa no panorama e `ork_network_status`) em PR
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-01](SYS-01-nucleo-ork.md) > [MOD-01](MOD-01-conducao-de-threads.md)
 - **Roadmap:** [RM-054](../roadmap/RM-054-roadmaps-e-threads-da-rede.md)
 - **Dono da página / aprovador:** Julio / Julio
@@ -63,6 +70,7 @@ fontes:
   4. O status report do RM-048 é montado com as threads de todas as máquinas; o fecho diz entre parênteses em que máquina cada uma anda.
   5. Cada parte sai com a fonte (clone ou forja, ref, commit, data do commit, hora da leitura, leitura nova ou cópia) e cada falta, como lacuna tipada.
   6. Nos hosts (fatia 2): o OpenClaw e o Hermes chamam `ork network roadmap` com `ORK_PROJETO_EXPLICITO=1` (modo host); o MCP chama o mesmo montador em modo fixado, só com o projeto servido; o Claude Code e o Codex usam o CLI ou a tool do MCP. A descrição de cada tool manda transportar o texto como vem.
+  7. A rede por pessoa (fatia 3): o panorama lê a casa da RM-053 (`ork.rede-status/v1`) e mostra, na seção "Rede por pessoa", a casa com o commit e a hora e cada máquina com a batida, a versão do `ork` e os projetos que declara. O projeto que uma máquina da rede declara com remoto de forja passa a ser conhecido pelo nome (lido pela forja, sem clone); a máquina da rede que declara o projeto e não publicou na fábrica dele entra em "Threads por máquina" com as threads não lidas e a lacuna `maquina.sem-fabrica`. `ork_network_status` (OpenClaw, Hermes e MCP) é uma chamada de `ork network status`, sem projeto.
 
 - **Alternativas, erros e recuperação:**
   - `--projeto` ambíguo ou desconhecido: a recusa `projeto.ambiguo` ou `projeto.desconhecido`, com os candidatos, e saída 4; caminho sem manifesto: `projeto.sem-manifesto`;
@@ -73,6 +81,7 @@ fontes:
   - estado local ilegível (um `thread.json` corrompido): `estado-local.sem-leitura`, e esta máquina entra com as threads legíveis;
   - `fabrica.remoto` ou `worktree.base_branch` que não são nome de remoto ou de branch (por exemplo, `--upload-pack=...` ou `--output=...`): `projeto.remoto-invalido` ou `projeto.base-invalida`, e nada chega ao git;
   - caminho que não é a raiz de um projeto: `projeto.sem-manifesto`, dizendo onde está o manifesto mais próximo;
+  - a casa da rede sem leitura: a lacuna da RM-053 (`forja.sem-login`, `rede.sem-repositorio`, `rede.sem-leitura` e as outras) entra nas lacunas da consulta, com o que fazer; `ORK_REDE_LER=0` desliga a leitura e o "Não consultado" diz isso;
   - no host, caminho ou URL no `--projeto`: `projeto.desconhecido` e saída 4, sem ecoar o pedido; sem projeto e com mais de um conhecido, a recusa `projeto.escolha` da RM-052 oferece o panorama da rede.
 - **Pós-condições:** nada é gravado no estado do `ork` nem na forja; no clone, o fetch atualiza só as refs remotas.
 - **Regras de negócio:**
@@ -84,19 +93,22 @@ fontes:
   - BR-032-06: no host (`ORK_PROJETO_EXPLICITO=1`), o `--projeto` é o nome registrado ou a forja (`github:`/`gitlab:`) em `github.com`, `gitlab.com` ou no host de um projeto registrado, e o projeto do cwd do gateway só entra pelo registro; forja de host livre recusa sem chamar `gh` nem `glab`.
   - BR-032-07: no MCP, só o projeto servido, em todas as máquinas dele; o registro não é lido e os outros projetos não aparecem.
   - BR-032-08: nos hosts, o status do roadmap vem desta leitura, transportada como vem; lacuna e "Não consultado" nunca viram "roadmap vazio" nem "nenhuma máquina publicou".
-  - BR-032-09: no OpenClaw, `ork_network_roadmap` é declarada nos perfis `coding` e `messaging` do manifesto, e chega ao modelo sem liberação do operador; as outras tools `ork_*` seguem sob `tools.alsoAllow`.
-- **Critérios de aceite e testes:** Dado um projeto com duas máquinas no mesmo remoto, quando o dono pede o roadmap de um diretório de outro projeto, então a resposta é a do projeto pedido, com as threads das duas máquinas e a fonte de cada parte (`core/test/network-roadmap.test.ts`); a forja lida sem clone, sem mutation e sem segredo (`core/test/forja.test.ts`); pela extensão do OpenClaw com o `ork` real, do cwd de um workspace fora do registro, o pedido do `orkastery` volta com as threads das duas máquinas e a hora de cada fonte, e os hosts fazem a mesma rota (`core/test/network-roadmap-hosts.test.ts`, `adapters/openclaw/test/network-roadmap.test.mjs`).
+  - BR-032-09: no OpenClaw, `ork_network_roadmap` e `ork_network_status` são declaradas nos perfis `coding` e `messaging` do manifesto, e chegam ao modelo sem liberação do operador; as outras tools `ork_*` seguem sob `tools.alsoAllow`.
+  - BR-032-10: máquina vista só na rede por pessoa nunca vira "0 threads": sai com `threadsLidas: false`, "threads não lidas" no texto e a lacuna `maquina.sem-fabrica`.
+  - BR-032-11: no MCP, `ork_network_status` e a seção da rede do panorama mostram de cada máquina só o projeto servido; os outros vão ao "Não consultado".
+  - BR-032-12: o `gh` e o `glab` da forja são procurados no PATH e nas pastas de usuário (`~/.local/bin` e as outras da RM-053), porque o gateway e o cron rodam com PATH curto; no host (`ORK_PROJETO_EXPLICITO=1`), `ork network status` não lê o projeto do diretório do gateway.
+- **Critérios de aceite e testes:** Dado um projeto com duas máquinas no mesmo remoto, quando o dono pede o roadmap de um diretório de outro projeto, então a resposta é a do projeto pedido, com as threads das duas máquinas e a fonte de cada parte (`core/test/network-roadmap.test.ts`); a forja lida sem clone, sem mutation e sem segredo (`core/test/forja.test.ts`); pela extensão do OpenClaw com o `ork` real, do cwd de um workspace fora do registro, o pedido do `orkastery` volta com as threads das duas máquinas e a hora de cada fonte, e os hosts fazem a mesma rota (`core/test/network-roadmap-hosts.test.ts`, `adapters/openclaw/test/network-roadmap.test.mjs`); a rede por pessoa no panorama, a máquina sem fábrica, o projeto conhecido só pela rede, o `ork_network_status` nos três hosts e o `gh` em `~/.local/bin` (`core/test/rm054-fatia3-rede.test.ts`).
 - **Interface e acessibilidade:** texto com o consultado e o não consultado no alto; cada projeto no fuso do dono dele, com a legenda do bloco quando difere; `--json` com o contrato `ork.network-roadmap/v1` para agentes.
 
 ## Dados e contratos
 
-- **Entidades:** o panorama `ork.network-roadmap/v1`, com `projetos` (cada um com `projeto`, `roadmap` no contrato `ork.roadmap-status/v1`, `reservas`, `maquinas`, `fontes` e `lacunas`), `naoConsultado` e `lacunas` da consulta.
+- **Entidades:** o panorama `ork.network-roadmap/v1`, com `projetos` (cada um com `projeto`, `roadmap` no contrato `ork.roadmap-status/v1`, `reservas`, `maquinas`, `fontes` e `lacunas`), `rede` (fatia 3: `casa`, `ponta`, `atualizado`, `lidoEm` e `membros`, ou `null` quando não lida), `naoConsultado` e `lacunas` da consulta. Cada máquina em `maquinas` diz `origem` (`retrato`, `estado-local` ou `rede`) e `threadsLidas`.
 - **APIs:** GraphQL do GitHub (`gh api graphql`) e do GitLab (`glab api graphql`), mais o REST de commits do GitLab, só leitura.
 - **Eventos:** Não aplicável — leitura pura, sem evento no ledger.
 
 ## Operação e controle
 
-- **Configuração:** o nome desta máquina vem de `ORK_MAQUINA`, de `~/.orkastery/maquina.json` ou do hostname; o login da forja é o da própria CLI.
+- **Configuração:** o nome desta máquina vem de `ORK_MAQUINA`, de `~/.orkastery/maquina.json` ou do hostname; o login da forja é o da própria CLI; `ORK_REDE_LER=0` desliga a leitura da rede por pessoa no panorama (a suíte de testes usa).
 - **Observabilidade:** a seção "Fontes" e as lacunas da própria saída.
 - **Acesso e privacidade:** só o que a pessoa já enxerga pela forja; detalhe de erro redigido e descartado se casar padrão de segredo.
 - **Dependências e rollback:** usa o RM-048 (`montarStatusDeFatos`), as reservas (FEAT-026) e a fábrica (FEAT-027); voltar atrás é reverter os commits da thread, sem dado a migrar.
@@ -109,4 +121,5 @@ fontes:
 | 2026-09-29 | GO-FIX da revisão independente: nome é nome, fuso e base do projeto, isolamento por projeto, remoto validado | Claude (agente) / Julio, revisão pendente | RM-054, CHECK da `ork-rm054roadmap` |
 | 2026-09-29 | GO-FIX da rodada 2: base validada, retrato local tolerante, caminho só como raiz, commits e fuso por projeto | Claude (agente) / Julio, revisão pendente | RM-054, CHECK da `ork-rm054roadmap` |
 | 2026-09-30 | fatia 2: `ork_network_roadmap` nos hosts, modo host e modo fixado, e a oferta da rede na recusa do projeto-alvo | Claude (agente) / Julio, revisão pendente | RM-054, thread `ork-rm054fatia2` |
+| 2026-10-03 | fatia 3: a rede por pessoa (RM-053) como fonte do panorama, `ork_network_status` nos hosts e o `gh` fora do PATH curto | Claude (agente) / Julio, revisão pendente | RM-054, thread `ork-rm054fatia3s` |
 | 2026-10-01 | vigente: fatias 1 (PR #25) e 2 (PR #29) mescladas e publicadas na 0.5.0 | Claude (agente) / Julio, revisão pendente | merges `b64d2f2` e `6ea7acb`; tag `v0.5.0` |
