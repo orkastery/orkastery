@@ -1,0 +1,281 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg5fati",
+  "branch": "ork/ork-kg5contexto-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-contexto.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:09.275Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:09.516Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-cli.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:09.759Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-grafo.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:10.013Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-grafo-worker.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:10.247Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/mcp-server.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:10.481Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/prompts.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:10.722Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:10.976Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:11.264Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:11.515Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:11.753Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:12.012Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-031 KG5 fatia 2: pacote de contexto determinístico da thread (CLI e MCP, mesmo contrato, limitado em bytes, com evidência por ligação) e dica do grafo no prompt da fase só com grafo.mcp ligada; desligada, o prompt não muda",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:44:12.270Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/scripts/medir-mcp-grafo.cjs",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:25.340Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-kg1-boundary.test.ts",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:25.579Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:25.856Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:26.111Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:26.355Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031kg5fati",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/skills/core/orkastery-bootstrap/SKILL.md",
+      "alegacao": "RM-031 KG5 fatia 2: a quinta tool ork_grafo_contexto entra na contagem, no schema, no catálogo e nas cópias geradas dos marketplaces; a medida e a fronteira do grafo continuam válidas",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/mcp-grafo.test.js && node --test core/dist-test/test/intelligence-kg1-boundary.test.js && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-03T07:03:26.601Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
