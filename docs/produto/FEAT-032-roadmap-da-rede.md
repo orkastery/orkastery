@@ -4,7 +4,7 @@ tipo: feature
 titulo: Roadmap da rede, de qualquer diretório
 estado: vigente
 pai: MOD-01
-roadmap: [RM-054]
+roadmap: [RM-054, RM-058]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-10-01T02:50:00-03:00
