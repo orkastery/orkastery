@@ -1,0 +1,165 @@
+/**
+ * Achados do ensaio de primeira experiencia de 03/10/2026 (recibo
+ * docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json, thread ork-rm049achados): cada achado com a
+ * recomendada do recibo. Os nomes comecam por "ensaio 0310 R<n>:" para que cada claim rode so o seu.
+ *
+ * A CLI roda com HOME temporario e so PATH e LANG no ambiente; o `claude` dos testes e um script falso.
+ */
+
+import { strict as assert } from 'node:assert';
+import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { checar, checarRuntimeClaude } from '../src/doctor';
+import { LeituraDoCrontab } from '../src/doctor-pulse-cron';
+import { ship } from '../src/ship';
+import { novaThread } from '../src/thread';
+import { ajustarManifesto, commitar, dirTemporario, projetoTemporario } from './apoio';
+
+const CLI = path.resolve(__dirname, '../../dist/index.js');
+const PATH_ATUAL = process.env.PATH ?? '/usr/bin:/bin';
+const semCrontab = (): LeituraDoCrontab => ({ ok: false, motivo: 'crontab -l falhou: no crontab for teste' });
+
+function ork(dir: string, casa: string, args: string[], env: Record<string, string> = {}):
+  { status: number | null; stdout: string; stderr: string } {
+  const r = spawnSync(process.execPath, [CLI, ...args], {
+    cwd: dir, encoding: 'utf8', timeout: 120000,
+    env: { HOME: casa, PATH: PATH_ATUAL, LANG: 'C.UTF-8', ...env },
+  });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+function limpar(...dirs: string[]): void {
+  for (const d of dirs) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
+/** Um `claude` falso que responde a versao e o `auth status --json` dado. */
+function claudeFalso(dir: string, auth: Record<string, unknown>): string {
+  const bin = path.join(dir, 'bin');
+  fs.mkdirSync(bin, { recursive: true });
+  fs.writeFileSync(path.join(bin, 'claude'), [
+    '#!/bin/sh',
+    'if [ "$1" = "--version" ]; then echo "2.1.288 (Claude Code)"; exit 0; fi',
+    `if [ "$1" = "auth" ] && [ "$2" = "status" ]; then echo '${JSON.stringify(auth)}'; exit 0; fi`,
+    'exit 1', '',
+  ].join('\n'), { mode: 0o755 });
+  return bin;
+}
+
+test('ensaio 0310 R1: doctor avisa o claude sem login quando nao ha perfil de conta', () => {
+  const p = projetoTemporario('ensaio0310-r1');
+  const casa = dirTemporario('ensaio0310-r1-casa');
+  try {
+    const bin = claudeFalso(casa, { loggedIn: false, authMethod: 'none', apiProvider: 'firstParty' });
+    const r = ork(p.dir, casa, ['doctor'], { PATH: `${bin}:${PATH_ATUAL}` });
+    const linha = r.stdout.split('\n').find(l => l.includes('runtime claude-bg')) ?? '';
+    assert.match(linha, /^\s*\[warn\]\s+runtime claude-bg\s+.*claude auth status: loggedIn false: o despacho pelo claude-bg falharia/, r.stdout);
+    assert.match(r.stdout, /faca o login de assinatura \(\/login\) e aceite a confianca no diretorio do projeto/);
+
+    // Com o login de assinatura, a linha volta a ok.
+    const logado = claudeFalso(dirTemporario('ensaio0310-r1-logado'), { loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty' });
+    const ok = ork(p.dir, casa, ['doctor'], { PATH: `${logado}:${PATH_ATUAL}` });
+    assert.match(ok.stdout.split('\n').find(l => l.includes('runtime claude-bg')) ?? '', /^\s*\[ok\]/, ok.stdout);
+  } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R1: conferencia inconclusiva nao avisa, e o check de contas cuida de quem tem perfil', () => {
+  const p = projetoTemporario('ensaio0310-r1-func');
+  try {
+    assert.equal(checarRuntimeClaude(p.carregado, '/opt/bin/claude', '2.1.0',
+      { ok: false, transitorio: true, detalhe: 'claude auth status sem resposta' }).nivel, 'ok');
+    assert.equal(checarRuntimeClaude(p.carregado, '/opt/bin/claude', '2.1.0',
+      { ok: false, pago: true, detalhe: 'claude auth status: provider pago (authMethod apiKey)' }).nivel, 'warn');
+    let conferiu = 0;
+    const linha = checar(p.dir, [], semCrontab, () => { conferiu++; return { ok: false, detalhe: 'claude auth status: loggedIn false' }; })
+      .find(c => c.nome === 'runtime claude-bg');
+    if (linha && linha.detalhe.includes('fora do PATH')) return; // maquina sem o claude: nada a conferir
+    assert.equal(conferiu, 1);
+    assert.equal(linha?.nivel, 'warn');
+  } finally { limpar(p.dir); }
+});
+
+test('ensaio 0310 R2: com LANG=C.UTF-8, o onboarding recomenda pt-BR, a lingua da CLI', () => {
+  const p = projetoTemporario('ensaio0310-r2');
+  const casa = dirTemporario('ensaio0310-r2-casa');
+  try {
+    const r = ork(p.dir, casa, ['onboarding']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Experiência recomendada: pt-BR, /);
+    assert.match(r.stdout, /"owner":\{"language":"pt-BR"/);
+    // Locale escolhido continua valendo.
+    assert.match(ork(p.dir, casa, ['onboarding'], { LANG: 'en_GB.UTF-8' }).stdout, /Experiência recomendada: en-GB, /);
+  } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R4: ork ci status --sha HEAD diz que pede o sha completo de 40 caracteres', () => {
+  const p = projetoTemporario('ensaio0310-r4');
+  const casa = dirTemporario('ensaio0310-r4-casa');
+  try {
+    for (const sha of ['HEAD', 'a7852e4']) {
+      const r = ork(p.dir, casa, ['ci', 'status', '--sha', sha]);
+      assert.equal(r.status, 2, r.stdout);
+      assert.match(r.stderr, /--sha exige o sha completo, de 40 caracteres hexadecimais minusculos \(git rev-parse HEAD\)/, sha);
+      assert.match(r.stderr, /uso: ork ci status --sha <sha de 40 caracteres> \[--remoto origin\]/);
+    }
+  } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R5: sem remoto, o ship --dry-run diz o mesmo que o real e nao lista push nem ls-remote', () => {
+  for (const comRemoto of [false, true]) {
+    const p = projetoTemporario(`ensaio0310-r5-${comRemoto}`, comRemoto);
+    try {
+      const { thread } = novaThread(p.carregado, { nome: 'ensaio sem remoto', modo: 'auto', criarWorktree: true });
+      commitar(thread.worktree as string, 'entrega.md', '# entrega\n', 'feat: entrega');
+      const ensaio = ship(p.carregado, thread.id, { para: 'main', dryRun: true });
+      assert.equal(ensaio.ok, true, ensaio.detalhe);
+      if (comRemoto) {
+        assert.ok(ensaio.passos.includes('git push origin main'), ensaio.passos.join('\n'));
+        assert.ok(ensaio.passos.some(x => x.startsWith('git ls-remote origin refs/heads/main')));
+        // Com --sem-push, nem com remoto.
+        const semPush = ship(p.carregado, thread.id, { para: 'main', dryRun: true, semPush: true });
+        assert.ok(semPush.passos.includes('sem push: push nao executado por --sem-push (merge local concluido)'), semPush.passos.join('\n'));
+        continue;
+      }
+      assert.ok(!ensaio.passos.some(x => x.startsWith('git push') || x.startsWith('git ls-remote')), ensaio.passos.join('\n'));
+      const real = ship(p.carregado, thread.id, { para: 'main' });
+      assert.equal(real.ok, true, real.detalhe);
+      assert.ok(ensaio.passos.includes(`sem push: ${real.detalhe}`), `${ensaio.passos.join('\n')}\n${real.detalhe}`);
+    } finally { p.limpar(); }
+  }
+});
+
+test('ensaio 0310 R6: ork adapter install termina com a ativacao e o ork mcp install, depois dos pitfalls', () => {
+  const p = projetoTemporario('ensaio0310-r6');
+  const casa = dirTemporario('ensaio0310-r6-casa');
+  try {
+    const r = ork(p.dir, casa, ['adapter', 'install', 'claude-code']);
+    assert.equal(r.status, 0, r.stderr);
+    const fim = r.stdout.slice(r.stdout.lastIndexOf('Os 3 pitfalls de instalacao'));
+    const depois = fim.slice(fim.indexOf('Proximo passo, no diretorio deste projeto (o mesmo do comeco):'));
+    assert.ok(fim.includes('Proximo passo, no diretorio deste projeto'), r.stdout.slice(-800));
+    for (const linha of ['claude plugin validate', 'claude plugin marketplace add', 'claude plugin install orkastery@orkastery --scope project',
+      'claude plugin list --json', '/orkastery:ork', 'ork mcp install --project']) assert.ok(depois.includes(linha), linha);
+    assert.match(r.stdout.trimEnd().split('\n').pop() ?? '', /ork mcp install --project .* --host claude-code$/);
+  } finally { limpar(p.dir, casa); }
+});
+
+test('ensaio 0310 R7: ork verify --baseline diz onde ver a saida do comando que ja falhava', () => {
+  const p = projetoTemporario('ensaio0310-r7');
+  const casa = dirTemporario('ensaio0310-r7-casa');
+  try {
+    ajustarManifesto(p, '  # test: nao detectado', '  test: "echo saida-do-teste-r7; exit 1"');
+    commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8'), 'verify com test');
+    const { thread } = novaThread(p.carregado, { nome: 'baseline com falha', modo: 'auto', criarWorktree: true });
+    const r = ork(p.dir, casa, ['verify', thread.id, '--baseline']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /test\s+ja falhava \(codigo 1\)/);
+    const m = /saida de quem falhou: as ultimas linhas em (\S+), campo baseline\.comandos \(resumo e trecho\); o evento baseline_recorded esta em ork phase list (\S+)/.exec(r.stdout);
+    assert.ok(m, r.stdout);
+    assert.equal(m![2], thread.id);
+    // O caminho apontado tem mesmo a saida.
+    const gravada = JSON.parse(fs.readFileSync(m![1], 'utf8')) as { baseline: { comandos: Array<{ resumo: string }> } };
+    assert.match(gravada.baseline.comandos[0].resumo, /saida-do-teste-r7/);
+  } finally { p.limpar(); limpar(casa); }
+});
