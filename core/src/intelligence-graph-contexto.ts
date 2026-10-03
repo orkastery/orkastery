@@ -1,14 +1,17 @@
-/** KG5 fatia 2: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia. */
+/** KG5 fatia 3: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia. */
 import { createHash } from 'node:crypto';
-import { canonico, compararUtf8, type GrafoCodigo, type No } from './intelligence-graph-contract';
+import { canonico, compararUtf8, type GrafoCodigo, type Evidencia, type TipoDeAresta } from './intelligence-graph-contract';
 import { AVISO_DE_PARCIALIDADE, ErroDeConsulta, rotuloDoNo, type CabecalhoDoIndice } from './intelligence-graph-query';
 
-export const CONTEXTO_SCHEMA = 'ork.thread-graph-context/v0' as const;
+export const CONTEXTO_SCHEMA = 'ork.thread-graph-context/v2' as const;
 export const CONTEXTO_TETO_PADRAO = 32768;
+export const CONTEXTO_POR_ALVO = 8;
+export const CONTEXTO_FORA_DO_INDICE = 3;
 export interface EntradaDoContexto {
   thread: string;
   base: string;
   diff: string[];
+  diffEstado?: 'coletado-na-worktree' | 'ignorado-sem-worktree';
   goal: string | null;
   plan: string | null;
   claims: { id: string; arquivo: string }[];
@@ -33,7 +36,8 @@ function caminhosCitados(texto: string): string[] {
       || /^(?:Dockerfile|Makefile|LICENSE)$/.test(v))) r.push(v.replace(/#.*$/, '').replace(/:\d+(?::\d+)?$/, ''));
     return ' ';
   });
-  for (const m of semCitacoes.matchAll(/(?:^|[\s(\["'])((?:\.?\/?[\p{L}\p{N}_@.-]+\/)*[\p{L}\p{N}_@.-]+\.[a-zA-Z0-9]+)(?=[:#\s),;\]"']|$)/gu)) r.push(m[1]);
+  // Em prosa, exigir diretorio ou extensao de fonte conhecida evita versoes, Node.js e dominios.
+  for (const m of semCitacoes.matchAll(/(?:^|[\s(\["'])((?:[\p{L}\p{N}_@.-]+\/)+[\p{L}\p{N}_@.-]+|[\p{L}\p{N}_@-]+\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts|json|md|markdown|yaml|yml|toml|py|rs|go|c|h|css|html))(?=\.(?:\s|$)|[:#\s),;\]"']|$)/gu)) if (!/^Node\.js\.?$/i.test(m[1])) r.push(m[1].replace(/\.$/, ''));
   return r;
 }
 
@@ -45,11 +49,18 @@ export function sementesDaThread(entrada: EntradaDoContexto): { arquivo: string;
     const origens = mapa.get(p) ?? new Set<Origem>();
     origens.add(origem); mapa.set(p, origens);
   };
-  for (const p of entrada.diff) adicionar(p, 'diff');
+  if (entrada.diffEstado !== 'ignorado-sem-worktree') for (const p of entrada.diff) adicionar(p, 'diff');
   for (const tipo of ['goal', 'plan'] as const) for (const p of caminhosCitados(entrada[tipo] ?? '')) adicionar(p, tipo);
   for (const c of entrada.claims) adicionar(c.arquivo, `claim:${c.id}`);
   return [...mapa].sort(([a], [b]) => compararUtf8(a, b))
     .map(([arquivo, origens]) => ({ arquivo, origens: [...origens].sort(compararUtf8) }));
+}
+
+type TuplaDeEvidencia = [number, Evidencia['extraction_method'],
+  [number | null, number | null] | ['pdf', number, string], [number, number]];
+interface Grupo {
+  kind: TipoDeAresta; origem: string; destino: string; alvo: string; quantidade: number;
+  evidencias: Map<string, TuplaDeEvidencia>; entreArquivos: boolean; distancia: number;
 }
 
 /** O grafo recebido ja deve estar filtrado pela concessao de quem consulta. */
@@ -60,48 +71,112 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
   const porId = new Map(grafo.nodes.map((n) => [n.node_id, n]));
   const arquivos = new Set(grafo.nodes.filter((n) => n.kind === 'file').map((n) => n.locator.path));
   const sementes = sementesDaThread(entrada).map((s) => ({ ...s, estado: arquivos.has(s.arquivo) ? 'indexado' : 'fora-do-indice' }));
-  const alvos = new Set(sementes.filter((s) => s.estado === 'indexado').map((s) => s.arquivo));
-  const nosAlvo = new Set(grafo.nodes.filter((n) => alvos.has(n.locator.path)).map((n) => n.node_id));
-  const arestas = grafo.edges.filter((a) => nosAlvo.has(a.from) || nosAlvo.has(a.to))
-    .map((a) => ({ edge_id: a.edge_id, kind: a.kind, from: a.from, to: a.to,
-      evidencias: a.evidence.map((e) => ({ extractor_id: e.extractor_id, extractor_version: e.extractor_version,
-        extraction_method: e.extraction_method, path: e.path, span: e.span }))
-        .sort((a, b) => compararUtf8(canonico(a), canonico(b))) }))
-    .sort((a, b) => compararUtf8(a.kind, b.kind)
-      || compararUtf8(rotuloDoNo(porId.get(a.from)!), rotuloDoNo(porId.get(b.from)!))
-      || compararUtf8(rotuloDoNo(porId.get(a.to)!), rotuloDoNo(porId.get(b.to)!)) || compararUtf8(a.edge_id, b.edge_id));
-  const resumoNo = (n: No) => ({ node_id: n.node_id, kind: n.kind, path: n.locator.path, fragment: n.locator.fragment });
-  const normalizada = { ...entrada, diff: [...new Set(entrada.diff)].sort(compararUtf8),
+  const indexadas = sementes.filter((s) => s.estado === 'indexado'), ausentes = sementes.filter((s) => s.estado !== 'indexado');
+  const alvos = new Set(indexadas.map((s) => s.arquivo));
+  const diff = entrada.diffEstado === 'ignorado-sem-worktree' ? [] : [...new Set(entrada.diff)].sort(compararUtf8);
+  // Distancia em arquivos, em ambos os sentidos, sem depender da ordem das arestas.
+  const adj = new Map<string, Set<string>>();
+  for (const a of grafo.edges) {
+    const de = porId.get(a.from)!.locator.path, para = porId.get(a.to)!.locator.path;
+    if (de === para) continue;
+    if (!adj.has(de)) adj.set(de, new Set());
+    if (!adj.has(para)) adj.set(para, new Set());
+    adj.get(de)!.add(para); adj.get(para)!.add(de);
+  }
+  const dist = new Map(diff.filter((p) => arquivos.has(p)).map((p) => [p, 0]));
+  const fila = [...dist.keys()];
+  for (let i = 0; i < fila.length; i++) for (const p of adj.get(fila[i]) ?? []) {
+    if (!dist.has(p)) { dist.set(p, dist.get(fila[i])! + 1); fila.push(p); }
+  }
+  const extratores = [...indice.extratores].sort((a, b) => compararUtf8(canonico(a), canonico(b)));
+  const extratorIds = new Map(extratores.map((e, i) => [canonico(e), i]));
+  const grupos = new Map<string, Grupo>();
+  let totalArestas = 0, estruturais = 0;
+  for (const a of grafo.edges) {
+    const de = porId.get(a.from)!, para = porId.get(a.to)!;
+    if (!alvos.has(de.locator.path) && !alvos.has(para.locator.path)) continue;
+    totalArestas++;
+    if ((a.kind === 'declares' || a.kind === 'contains') && de.locator.path === para.locator.path && alvos.has(de.locator.path)) {
+      estruturais++; continue;
+    }
+    const origem = `file ${de.locator.path}`, destino = rotuloDoNo(para);
+    const chave = canonico([a.kind, destino, de.locator.path]);
+    const grupo = grupos.get(chave) ?? { kind: a.kind, origem, destino, alvo: para.node_id, quantidade: 0,
+      evidencias: new Map<string, TuplaDeEvidencia>(), entreArquivos: de.locator.path !== para.locator.path,
+      distancia: Math.min(dist.get(de.locator.path) ?? Infinity, dist.get(para.locator.path) ?? Infinity) };
+    grupo.quantidade++;
+    for (const e of a.evidence) {
+      // O contrato do grafo admite evidencia auxiliar em outro arquivo. Nao atribui-la a origem.
+      if (e.path !== de.locator.path) throw new ErroDeConsulta('grafo.contexto.evidencia-incompativel', 'evidencia fora do arquivo de origem');
+      const x = extratorIds.get(canonico({ extractor_id: e.extractor_id, extractor_version: e.extractor_version }));
+      if (x === undefined) throw new ErroDeConsulta('grafo.contexto.extrator-ausente', 'extrator da evidencia ausente no cabecalho');
+      const s = e.span;
+      const tupla: TuplaDeEvidencia = [x, e.extraction_method,
+        s.type === 'text' ? [s.line_start, s.line_end] : ['pdf', s.page, s.extracted_text_hash], [s.byte_start, s.byte_end]];
+      grupo.evidencias.set(canonico(tupla), tupla);
+    }
+    grupos.set(chave, grupo);
+  }
+  // Entre arquivos > perto do diff > tipo > rotulos; empates independem da ordem do indice.
+  const ordenados = [...grupos.values()].sort((a, b) => Number(b.entreArquivos) - Number(a.entreArquivos)
+    || (a.distancia === b.distancia ? 0 : a.distancia < b.distancia ? -1 : 1)
+    || compararUtf8(a.kind, b.kind) || compararUtf8(a.destino, b.destino) || compararUtf8(a.origem, b.origem));
+  // Dentro da mesma prioridade, intercalar tipos impede calls de expulsar imports/references.
+  const rodadas = new Map<string, number>();
+  const justos = ordenados.map((g) => {
+    const chave = JSON.stringify([g.alvo, g.entreArquivos, g.distancia, g.kind]);
+    const rodada = rodadas.get(chave) ?? 0; rodadas.set(chave, rodada + 1);
+    return { g, rodada };
+  }).sort((a, b) => Number(b.g.entreArquivos) - Number(a.g.entreArquivos)
+    || (a.g.distancia === b.g.distancia ? 0 : a.g.distancia < b.g.distancia ? -1 : 1)
+    || a.rodada - b.rodada || compararUtf8(a.g.kind, b.g.kind)
+    || compararUtf8(a.g.destino, b.g.destino) || compararUtf8(a.g.origem, b.g.origem)).map(({ g }) => g);
+  const normalizada = { ...entrada, diff, diffEstado: entrada.diffEstado ?? 'coletado-na-worktree',
     claims: [...entrada.claims].sort((a, b) => compararUtf8(canonico(a), canonico(b))) };
-  const fixo = { schema: CONTEXTO_SCHEMA, thread: entrada.thread, base: entrada.base, entrada_sha256: hash(canonico(normalizada)), indice,
-    fontes: { goal: entrada.goal === null ? 'ausente' : hash(entrada.goal), plan: entrada.plan === null ? 'ausente' : hash(entrada.plan) },
-    consulta: { profundidade: 1, sentido: 'ambos', sementes: 'arquivos e seus simbolos/secoes' },
-    total_sementes: sementes.length, total_arestas: arestas.length, parcial: AVISO_DE_PARCIALIDADE };
-  // Prefixo: sementes primeiro, depois arestas. Uma aresta entra com ambas as pontas e TODA evidencia.
-  const montar = (quantas: number): string => {
-    const ss = sementes.slice(0, quantas), aa = arestas.slice(0, Math.max(0, quantas - sementes.length));
-    const caminhos = new Set(ss.filter((s) => s.estado === 'indexado').map((s) => s.arquivo));
-    const ids = new Set(grafo.nodes.filter((n) => n.kind === 'file' && caminhos.has(n.locator.path)).map((n) => n.node_id));
-    for (const a of aa) { ids.add(a.from); ids.add(a.to); for (const e of a.evidencias) caminhos.add(e.path); }
-    const nos = [...ids].map((id) => porId.get(id)!).sort((a, b) => compararUtf8(rotuloDoNo(a), rotuloDoNo(b)));
-    for (const n of nos) caminhos.add(n.locator.path);
+  const fixo = { schema: CONTEXTO_SCHEMA, thread: entrada.thread, base: entrada.base, entrada_sha256: hash(canonico(normalizada)),
+    indice: { ...indice, extratores },
+    fontes: { goal: entrada.goal === null ? 'ausente' : hash(entrada.goal), plan: entrada.plan === null ? 'ausente' : hash(entrada.plan),
+      diff: normalizada.diffEstado },
+    consulta: { profundidade: 1, sentido: 'ambos', por_alvo: CONTEXTO_POR_ALVO, fora_do_indice: CONTEXTO_FORA_DO_INDICE },
+    total_sementes: sementes.length, sementes_fora_do_indice: ausentes.length, total_arestas: totalArestas,
+    total_ligacoes: ordenados.length, resumidas: { estruturais }, parcial: AVISO_DE_PARCIALIDADE };
+  const selecionadas: typeof sementes = [], ligacoes: Grupo[] = [];
+  const montar = (): string => {
+    const caminhos = new Set(selecionadas.filter((s) => s.estado === 'indexado').map((s) => s.arquivo));
+    const rotulos = new Set([...caminhos].map((p) => `file ${p}`));
+    for (const a of ligacoes) { rotulos.add(a.origem); rotulos.add(a.destino); caminhos.add(porId.get(a.alvo)!.locator.path); caminhos.add(a.origem.slice(5)); }
+    const refs = new Map([...rotulos].sort(compararUtf8).map((r, i) => [r, `n${i + 1}`]));
     const fontes = grafo.snapshot.source_manifest.filter((m) => caminhos.has(m.path)).sort((a, b) => compararUtf8(a.path, b.path));
-    const cortado = quantas < sementes.length + arestas.length;
-    const r = { ...fixo, sementes: ss, nos: nos.map(resumoNo), arestas: aa, truncado: cortado,
-      omitidos: { sementes: sementes.length - ss.length, arestas: arestas.length - aa.length },
-      teto: { bytes: tetoBytes, cortado },
+    const omitidos = { sementes: sementes.length - selecionadas.length, ligacoes: ordenados.length - ligacoes.length,
+      arestas: totalArestas - estruturais - ligacoes.reduce((s, a) => s + a.quantidade, 0) };
+    const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0;
+    const r = { ...fixo, sementes: selecionadas, nos: Object.fromEntries([...refs].map(([r, ref]) => [ref, r])),
+      arestas: ligacoes.map((a) => ({ kind: a.kind, from: refs.get(a.origem)!, to: refs.get(a.destino)!, quantidade: a.quantidade,
+        evidencias: [...a.evidencias].sort(([a], [b]) => compararUtf8(a, b)).map(([, e]) => e) })),
+      truncado: cortado, omitidos, teto: { bytes: tetoBytes, cortado },
       medida: { pacote_bytes: 0, leitura_crua_bytes: fontes.reduce((s, f) => s + f.size_bytes, 0),
-        arquivos: fontes.map((f) => ({ path: f.path, bytes: f.size_bytes })), origem: 'source_manifest do indice; arquivos presentes no pacote', tokens: 'unavailable' } };
-    // Ponto fixo: incluir o tamanho em seu proprio JSON so altera o numero de digitos.
+        arquivos: fontes.map((f) => ({ path: f.path, bytes: f.size_bytes })),
+        origem: 'source_manifest; tamanho dos arquivos, nao custo de descoberta', tokens: 'unavailable' } };
     let texto = canonico(r);
     while (r.medida.pacote_bytes !== Buffer.byteLength(texto)) { r.medida.pacote_bytes = Buffer.byteLength(texto); texto = canonico(r); }
     return texto;
   };
-  let menor = 0, maior = sementes.length + arestas.length, melhor = montar(0);
+  let melhor = montar();
   if (Buffer.byteLength(melhor) > tetoBytes) throw new ErroDeConsulta('grafo.contexto.teto-excedido', 'cabecalho nao cabe no teto');
-  while (menor <= maior) {
-    const meio = Math.floor((menor + maior) / 2), texto = montar(meio);
-    if (Buffer.byteLength(texto) <= tetoBytes) { melhor = texto; menor = meio + 1; } else maior = meio - 1;
+  const tentarSemente = (s: typeof sementes[number]): void => {
+    selecionadas.push(s);
+    const texto = montar();
+    if (Buffer.byteLength(texto) <= tetoBytes) melhor = texto; else selecionadas.pop();
+  };
+  for (const s of indexadas) tentarSemente(s);
+  const porAlvo = new Map<string, number>();
+  for (const a of justos) {
+    if ((porAlvo.get(a.alvo) ?? 0) >= CONTEXTO_POR_ALVO) continue;
+    ligacoes.push(a);
+    const texto = montar();
+    if (Buffer.byteLength(texto) <= tetoBytes) { melhor = texto; porAlvo.set(a.alvo, (porAlvo.get(a.alvo) ?? 0) + 1); }
+    else ligacoes.pop(); // Um hub grande nao impede uma ligacao menor e relevante de entrar.
   }
+  for (const s of ausentes.slice(0, CONTEXTO_FORA_DO_INDICE)) tentarSemente(s);
   return melhor;
 }

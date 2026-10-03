@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { pacoteDeContexto, sementesDaThread, type EntradaDoContexto } from '../src/intelligence-graph-contexto';
+import { CONTEXTO_POR_ALVO, CONTEXTO_FORA_DO_INDICE, pacoteDeContexto, sementesDaThread, type EntradaDoContexto } from '../src/intelligence-graph-contexto';
 import { extrairGrafo } from '../src/intelligence-graph-extract';
 import { carregarAnalisadores } from '../src/intelligence-graph-parsers';
 import type { GrafoCodigo } from '../src/intelligence-graph-contract';
@@ -55,51 +55,106 @@ test('KG5 contexto puro: mesma entrada e indice, inclusive ordem permutada, prod
     snapshot: { ...GRAFO.snapshot, source_manifest: [...GRAFO.snapshot.source_manifest].reverse() } }, INDICE,
   { ...entrada, diff: [...entrada.diff].reverse(), claims: [...entrada.claims].reverse() });
   assert.equal(a, b);
+  assert.equal(a, pacoteDeContexto({ ...GRAFO, edges: GRAFO.edges.map((a) => ({ ...a, evidence: [...a.evidence].reverse() })) },
+    { ...INDICE, extratores: [...INDICE.extratores].reverse() }, entrada));
   assert.equal(a, pacoteDeContexto(GRAFO, INDICE, entrada));
 });
 
-test('KG5 contexto puro: expande simbolos, importadores, chamadas e docs; toda ligacao tem pontas e evidencia integral', () => {
-  const r = JSON.parse(pacoteDeContexto(GRAFO, INDICE, ENTRADA, 65536));
+test('KG5 contexto v2: agrega fan-in e preserva todos os spans com referencias locais', () => {
+  const texto = pacoteDeContexto(GRAFO, INDICE, ENTRADA, 65536), r = JSON.parse(texto);
+  assert.equal(r.schema, 'ork.thread-graph-context/v2');
   assert.equal(r.truncado, false);
-  assert.ok(r.arestas.some((a: any) => a.kind === 'calls'));
+  assert.doesNotMatch(texto, /(?:node|edge)-[a-f0-9]{64}/);
+  assert.ok(Object.keys(r.nos).every((k) => /^n[1-9][0-9]*$/.test(k)));
+  assert.ok(Object.values(r.nos).includes('file docs/guia.md'));
+  assert.ok(!Object.values(r.nos).includes('file src/isolado.ts'));
+  const calls = r.arestas.filter((a: any) => a.kind === 'calls');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].quantidade, 30);
+  assert.equal(calls[0].evidencias.length, 30);
+  assert.equal(r.nos[calls[0].from], 'file src/app.ts');
+  assert.equal(r.nos[calls[0].to], 'symbol src/alvo.ts#alvo');
   assert.ok(r.arestas.some((a: any) => a.kind === 'imports'));
-  assert.ok(r.nos.some((n: any) => n.path === 'docs/guia.md'));
-  assert.ok(!r.nos.some((n: any) => n.path === 'src/isolado.ts'));
-  const ids = new Set(r.nos.map((n: any) => n.node_id));
+  assert.ok(r.arestas.some((a: any) => a.kind === 'references'));
+  assert.ok(!r.arestas.some((a: any) => a.kind === 'declares' || a.kind === 'contains'));
+  assert.equal(r.resumidas.estruturais, 1);
   for (const a of r.arestas) {
-    assert.ok(ids.has(a.from) && ids.has(a.to));
-    const original = GRAFO.edges.find((x) => x.edge_id === a.edge_id)!;
-    assert.equal(a.evidencias.length, original.evidence.length);
-    for (const e of a.evidencias) {
-      assert.ok(original.evidence.some((o) => o.path === e.path && o.span.byte_start === e.span.byte_start && o.span.byte_end === e.span.byte_end));
-      assert.ok(Buffer.from(REPO[e.path]).subarray(e.span.byte_start, e.span.byte_end).length > 0);
-      assert.ok(e.extractor_id && e.extractor_version && e.extraction_method);
-    }
+    assert.ok(r.nos[a.from] && r.nos[a.to]);
+    const arquivo = r.nos[a.from].slice(5);
+    const originais = GRAFO.edges.filter((e) => e.kind === a.kind
+      && GRAFO.nodes.find((n) => n.node_id === e.from)!.locator.path === arquivo
+      && r.nos[a.to] === (() => { const n = GRAFO.nodes.find((n) => n.node_id === e.to)!;
+        return `${n.kind} ${n.locator.path}${n.locator.fragment === null ? '' : `#${n.locator.fragment}`}`; })());
+    assert.equal(a.quantidade, originais.length);
+    const tuplas = originais.flatMap((o) => o.evidence.map((e) => {
+      assert.equal(e.span.type, 'text');
+      if (e.span.type !== 'text') throw Error('fixture textual');
+      return [r.indice.extratores.findIndex((x: any) => x.extractor_id === e.extractor_id && x.extractor_version === e.extractor_version),
+        e.extraction_method, [e.span.line_start, e.span.line_end], [e.span.byte_start, e.span.byte_end]];
+    }));
+    assert.deepEqual(a.evidencias.map(JSON.stringify).sort(), [...new Set(tuplas.map((t) => JSON.stringify(t)))].sort());
+    for (const [, , , [inicio, fim]] of a.evidencias) assert.ok(Buffer.from(REPO[arquivo]).subarray(inicio, fim).length > 0);
   }
+  // Comparacao com a medida v0 registrada na fatia 2, mesma fixture de 30 chamadas.
+  assert.ok(22973 / Buffer.byteLength(pacoteDeContexto(GRAFO, INDICE, ENTRADA)) >= 4, 'meta minima: quatro vezes menor');
 });
 
-test('KG5 contexto puro: teto corta unidades inteiras, declara omissoes e suporta Unicode em bytes', () => {
+test('KG5 contexto v2: teto preserva grupos inteiros, contagens e Unicode', () => {
   for (const teto of [4096, 8192, 16384, 32768, 65536]) {
     const texto = pacoteDeContexto(GRAFO, INDICE, { ...ENTRADA, diff: [...ENTRADA.diff, 'src/ação.ts'] }, teto), r = JSON.parse(texto);
     assert.ok(Buffer.byteLength(texto) <= teto);
     assert.equal(r.medida.pacote_bytes, Buffer.byteLength(texto));
-    assert.equal(r.omitidos.arestas + r.arestas.length, r.total_arestas);
+    assert.equal(r.omitidos.ligacoes + r.arestas.length, r.total_ligacoes);
+    assert.equal(r.omitidos.arestas + r.resumidas.estruturais + r.arestas.reduce((s: number, a: any) => s + a.quantidade, 0), r.total_arestas);
     assert.equal(r.teto.cortado, r.truncado);
-    for (const a of r.arestas) assert.equal(a.evidencias.length, GRAFO.edges.find((x) => x.edge_id === a.edge_id)!.evidence.length);
+    const calls = r.arestas.find((a: any) => a.kind === 'calls');
+    if (calls) { assert.equal(calls.quantidade, 30); assert.equal(calls.evidencias.length, 30); }
   }
-  const pequeno = JSON.parse(pacoteDeContexto(GRAFO, INDICE, ENTRADA, 4096));
-  assert.equal(pequeno.truncado, true);
-  const muitas = { ...ENTRADA, diff: Array.from({ length: 1000 }, (_, i) => `src/arquivo-${i}.ts`) };
-  const cortadas = JSON.parse(pacoteDeContexto(GRAFO, INDICE, muitas, 4096));
-  assert.ok(cortadas.omitidos.sementes > 0);
-  assert.equal(cortadas.arestas.length, 0);
+  const muitas = { ...ENTRADA, diff: ['src/alvo.ts', ...Array.from({ length: 1000 }, (_, i) => `aaa/arquivo-${i}.ts`)] };
+  const r = JSON.parse(pacoteDeContexto(GRAFO, INDICE, muitas, 4096));
+  assert.equal(r.sementes[0].arquivo, 'src/alvo.ts');
+  assert.equal(r.sementes_fora_do_indice, 1000);
+  assert.ok(r.sementes.filter((s: any) => s.estado === 'fora-do-indice').length <= CONTEXTO_FORA_DO_INDICE);
+  assert.ok(r.arestas.some((a: any) => a.kind === 'imports'));
+  assert.ok(r.arestas.some((a: any) => a.kind === 'references'));
+  assert.equal(r.truncado, true);
+  const grande = JSON.parse(pacoteDeContexto(GRAFO, INDICE, muitas, 65536));
+  assert.deepEqual(grande.sementes.slice(1).map((s: any) => s.arquivo), ['aaa/arquivo-0.ts', 'aaa/arquivo-1.ts', 'aaa/arquivo-10.ts']);
   for (const n of [1, 4095, 65537, NaN, 4096.5]) assert.throws(() => pacoteDeContexto(GRAFO, INDICE, ENTRADA, n), /teto-invalido/);
+});
+
+test('KG5 sementes: prosa nao confunde versao, runtime ou dominio com arquivo', () => {
+  const r = sementesDaThread({ ...ENTRADA, diff: [], goal: 'Usar v0.5.0 no Node.js e example.com ou api.example.org. Editar src/app.ts e README.md.', plan: null });
+  assert.deepEqual(r.map((s) => s.arquivo), ['README.md', 'src/app.ts']);
+});
+
+test('KG5 relevancia: entre arquivos antes de internas, diff antes de ordem alfabetica e teto por alvo', () => {
+  const fontes = {
+    'src/hub.ts': 'export function hub() { return 1; }\nexport function local() { return hub(); }\n',
+    ...Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`src/a${i}.ts`, "import { hub } from './hub';\nexport function f() { return hub(); }\n"])),
+    'src/z-diff.ts': "import { hub } from './hub';\nexport function perto() { return hub(); }\n",
+  };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(fontes).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const entrada = { ...ENTRADA, diff: ['src/z-diff.ts'], goal: '`src/hub.ts`' };
+  const r = JSON.parse(pacoteDeContexto(g, { ...INDICE, extratores: g.snapshot.extractors }, entrada, 65536));
+  const calls = r.arestas.filter((a: any) => a.kind === 'calls');
+  assert.equal(r.arestas.filter((a: any) => a.to === calls[0].to).length, CONTEXTO_POR_ALVO);
+  assert.equal(r.nos[calls[0].from], 'file src/z-diff.ts');
+  assert.ok(calls.every((a: any) => r.nos[a.from] !== 'file src/hub.ts'));
+  assert.ok(r.arestas.some((a: any) => a.kind === 'imports' && a.to === calls[0].to && r.nos[a.from] !== 'file src/z-diff.ts'));
+  assert.equal(r.omitidos.ligacoes, 24); // 19 omitidos no alvo simbolo e 5 no alvo arquivo.
+  assert.equal(r.truncado, true);
+  assert.ok(r.arestas.some((a: any) => a.kind === 'imports'));
+  const reduzido = JSON.parse(pacoteDeContexto(g, { ...INDICE, extratores: g.snapshot.extractors }, entrada, 4096));
+  assert.equal(reduzido.nos[reduzido.arestas[0].from], 'file src/z-diff.ts');
+  assert.ok(reduzido.omitidos.ligacoes >= r.omitidos.ligacoes);
 });
 
 test('KG5 contexto puro: ausentes declarados, pacote vazio valido e concessao nao revela ligacoes ocultas', () => {
   const r = JSON.parse(pacoteDeContexto(GRAFO, INDICE, { ...ENTRADA, diff: ['src/novo.ts'] }));
   assert.deepEqual(r.sementes, [{ arquivo: 'src/novo.ts', estado: 'fora-do-indice', origens: ['diff'] }]);
-  assert.deepEqual(r.nos, []); assert.deepEqual(r.arestas, []);
+  assert.deepEqual(r.nos, {}); assert.deepEqual(r.arestas, []);
   const vazio = JSON.parse(pacoteDeContexto(GRAFO, INDICE, { ...ENTRADA, diff: [] }));
   assert.equal(vazio.truncado, false); assert.deepEqual(vazio.sementes, []);
   const filtrado = filtrarGrafo(GRAFO, { tenant_id: 'outro', acl_refs: [] });
@@ -140,7 +195,7 @@ function fixture() {
   return { p, t, cli };
 }
 
-test('KG5 contexto integrado: coleta artefatos, claims ativas e diff modificado; CLI/worker/MCP identicos', async () => {
+test('KG5 contexto integrado: coleta artefatos e claims ativas, ignora diff sem worktree; CLI/worker/MCP identicos', async () => {
   const { p, t, cli } = fixture();
   let cliente: Client | undefined, servidor: ReturnType<typeof criarServidorMcp> | undefined;
   try {
@@ -156,7 +211,10 @@ test('KG5 contexto integrado: coleta artefatos, claims ativas e diff modificado;
     const esperado = cli(...argv); assert.equal(esperado.codigo, 0, esperado.saida);
     const r = JSON.parse(esperado.saida);
     assert.equal(r.indice.arvore, 'modificada');
-    assert.ok(r.sementes.find((s: any) => s.arquivo === 'src/app.ts').origens.includes('diff'));
+    assert.equal(r.fontes.diff, 'ignorado-sem-worktree');
+    assert.ok(!r.sementes.some((s: any) => s.origens.includes('diff')));
+    assert.ok(!r.sementes.some((s: any) => s.arquivo === 'src/app.ts'));
+    assert.ok(!r.sementes.some((s: any) => s.arquivo === 'orkastery.yaml'));
     assert.ok(r.sementes.find((s: any) => s.arquivo === 'src/alvo.ts').origens.includes('goal'));
     assert.ok(r.sementes.find((s: any) => s.arquivo === 'docs/guia.md').origens.includes('plan'));
     assert.equal(r.sementes.find((s: any) => s.arquivo === 'src/novo.ts').estado, 'fora-do-indice');
@@ -183,7 +241,7 @@ test('KG5 contexto integrado: indice ausente ou de outra revisao recusa com corr
     commitar(p.dir, 'src/alvo.ts', REPO['src/alvo.ts'] + '// nova revisao\n', 'mover HEAD');
     const velho = cli(...argv); assert.equal(velho.codigo, 1);
     const r = JSON.parse(velho.saida);
-    assert.equal(r.schema, 'ork.thread-graph-context/v0');
+    assert.equal(r.schema, 'ork.thread-graph-context/v2');
     assert.equal(r.erro.estado_do_indice, 'outra-revisao'); assert.equal(r.erro.correcao, 'ork grafo indexar');
     assert.equal(r.nos, undefined);
     assert.throws(() => lerEntradaDaThread(p.dir, '../outra'), /thread-invalida/);
@@ -242,3 +300,41 @@ test('KG5 contexto integrado: CLI na raiz usa HEAD da worktree; dica usa flag da
     assert.match(montarPromptComMemoria(carregadoWt, t, 'GO', 'implementar', memoria).prompt, /ork_grafo_contexto/);
   } finally { p.limpar(); }
 });
+
+
+
+test('KG5 contexto puro: estado sem worktree ignora diff mesmo se o chamador o fornecer', () => {
+  const entrada = { ...ENTRADA, diffEstado: 'ignorado-sem-worktree' as const, goal: '`docs/guia.md`' };
+  const a = pacoteDeContexto(GRAFO, INDICE, entrada);
+  assert.equal(a, pacoteDeContexto(GRAFO, INDICE, { ...entrada, diff: ['src/isolado.ts'] }));
+  const r = JSON.parse(a);
+  assert.equal(r.fontes.diff, 'ignorado-sem-worktree');
+  assert.ok(!r.sementes.some((s: any) => s.origens.includes('diff')));
+});
+
+test('KG5 contexto puro: nao atribui evidencia auxiliar a arquivo errado e preserva span PDF', () => {
+  const a = GRAFO.edges.find((a) => a.kind === 'calls')!, e = a.evidence[0];
+  const auxiliar = { ...a, evidence: [...a.evidence, { ...e, path: 'docs/guia.md' }] };
+  assert.throws(() => pacoteDeContexto({ ...GRAFO, edges: [auxiliar] }, INDICE, ENTRADA), /evidencia-incompativel/);
+  const pdf = { ...a, evidence: [{ ...e, span: { type: 'pdf-text' as const, page: 2, byte_start: 3, byte_end: 9, extracted_text_hash: 'd'.repeat(64) } }] };
+  const r = JSON.parse(pacoteDeContexto({ ...GRAFO, edges: [pdf] }, INDICE, ENTRADA));
+  assert.deepEqual(r.arestas[0].evidencias[0].slice(2), [['pdf', 2, 'd'.repeat(64)], [3, 9]]);
+});
+
+
+test('KG5 contexto v2: grupo maior que o teto nao expulsa imports e references menores', () => {
+  const fontes = { ...REPO, 'src/app.ts': "import { alvo } from './alvo';\n" + Array.from({ length: 300 }, (_, i) => `export function f${i}() { return alvo(); }\n`).join('') };
+  const g = extrairGrafo({ tenant_id: 'local', repository_id: 'demo', revision: ENTRADA.base, revision_unavailable_reason: null,
+    acl_refs: ['repo:demo:leitura'], fontes: Object.entries(fontes).map(([p, c]) => ({ path: p, bytes: Buffer.from(c) })) }, carregarAnalisadores()).grafo;
+  const i = { ...INDICE, extratores: g.snapshot.extractors };
+  const completo = JSON.parse(pacoteDeContexto(g, i, ENTRADA, 65536));
+  assert.equal(completo.arestas.find((a: any) => a.kind === 'calls').quantidade, 300);
+  const texto = pacoteDeContexto(g, i, ENTRADA, 4096), r = JSON.parse(texto);
+  assert.ok(Buffer.byteLength(texto) <= 4096);
+  assert.ok(!r.arestas.some((a: any) => a.kind === 'calls'));
+  assert.ok(r.arestas.some((a: any) => a.kind === 'imports'));
+  assert.ok(r.arestas.some((a: any) => a.kind === 'references'));
+  assert.equal(r.omitidos.arestas, 300);
+});
+
+
