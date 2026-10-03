@@ -105,6 +105,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O POSTMORTEM conta o CHECK e o SHIP que o ledger registrou** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
+  o `verify_run` e o `ship_done` são gravados sem o campo `fase`, e as `fasesPercorridas` só contavam evento com
+  fase. Dos 35 POSTMORTEMs de 03/10, só 1 listava o CHECK e 2 o SHIP. Agora `verify_run` e `check_reverify` contam
+  como CHECK, e `ship_started`, `ship_done` e `ship_blocked` como SHIP, quando o evento não traz fase; o campo
+  explícito continua vencendo. A forma do POSTMORTEM não muda, e os já gravados ficam como estão.
 - **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
   outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
   `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
