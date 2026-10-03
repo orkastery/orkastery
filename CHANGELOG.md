@@ -105,6 +105,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Id da instalação numa pasta dividida** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), X6 do CHECK 6):
+  sem hard link (vboxsf, SMB, alguns FUSE), e na troca de um `~/.orkastery/maquina-id` ruim, cada host ou contêiner
+  que divide a pasta gravava um id derivado do próprio hostname e boot, e o último a gravar vencia. Por isso, quem
+  já tinha publicado passava a ler outro id. Agora o id sai de uma reserva que entra por `rename` de pasta com
+  conteúdo (`maquina-id.reserva/` ou `maquina-id.troca-<chave>/`): só a primeira entra, e todos leem o mesmo id.
+  O `maquina-id` continua um arquivo com o UUID, e o id derivado fica para quando a reserva falha.
 - **Marcas visíveis da categoria `Cf` na rede** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), Y4 do CHECK 7):
   o saneador comum (`core/src/saida-segura.ts`) tratava toda a categoria `Cf` como invisível, e o projeto com um
   sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
