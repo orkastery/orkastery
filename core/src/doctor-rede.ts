@@ -18,6 +18,7 @@ import { adesaoDaRede, pastaDaRede } from './rede-adesao';
 import { duracao, SEM_BATIDA_MS } from './rede-status';
 import { emUmaLinha } from './saida-segura';
 import { Check } from './types';
+import { msg } from './locale';
 
 /** O fim do `rede.log` que o doctor le: o log so cresce, e o que importa e o mais recente. */
 export const CAUDA_DO_LOG_BYTES = 64 * 1024;
@@ -77,7 +78,7 @@ export function checarRede(opcoes: { agoraMs?: number; log?: string } = {}): Che
   if (!adesao.membro) {
     return { nome, nivel: 'ok', detalhe: adesao.config && !adesao.config.membro
       ? 'fora da rede (saiu com ork network sair)'
-      : 'fora da rede; ork network entrar poe esta maquina na rede da pessoa' };
+      : msg().doctor.foraDaRede };
   }
   const marca = lerMarcaDaRede();
   const config = adesao.config;

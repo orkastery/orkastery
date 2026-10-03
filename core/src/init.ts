@@ -5,6 +5,7 @@
  * verificacao) e nunca sobrescreve um manifesto existente sem `--force`.
  */
 
+import { msg } from './locale';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DIR_ESTADO, NOME_MANIFESTO } from './manifest';
@@ -13,7 +14,8 @@ import { branchDoHead, exec, gravar, ignorarPastaNoGit } from './util';
 import { FUSO_DE_BRASILIA } from './horario';
 import { ORDEM_DOS_MODOS } from './modos';
 
-export const PROXIMO_PASSO_INIT = 'Proximo passo: ork doctor; depois ork onboarding para conduzir a entrevista do projeto.';
+/** O proximo passo do `ork init` em pt-BR; o texto do CLI sai pelo catalogo (`msg().init.proximoPasso`). */
+export const PROXIMO_PASSO_INIT = msg('pt-BR').init.proximoPasso;
 
 export interface Deteccao {
   raiz: string;
