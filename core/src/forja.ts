@@ -18,6 +18,7 @@
 import { spawnSync } from 'node:child_process';
 import { redigirSegredos } from './hitl';
 import { procurarSegredos } from './policies';
+import { acharBinario } from './rede-forja';
 
 export type TipoDeForja = 'github' | 'gitlab';
 
@@ -79,9 +80,14 @@ const SEGMENTO = /^[A-Za-z0-9_.-]+$/;
 /** Hostname de verdade: rotulos alfanumericos separados por ponto (`..` ou `a..b` nao passam). */
 const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
 
-/** Sem shell, sem token: a CLI usa a autenticacao que ja tem; prompt e aviso de versao desligados. */
+/**
+ * Sem shell, sem token: a CLI usa a autenticacao que ja tem; prompt e aviso de versao desligados.
+ * RM-054 (fatia 3): o binario e procurado como na rede (D11 da RM-053), no PATH e depois nas pastas de
+ * usuario (`~/.local/bin` e as outras): o gateway e o cron rodam com PATH curto, e o `gh` da srvjcp86
+ * mora em `~/.local/bin`. Sem achar, o nome vai cru ao spawn, e o ENOENT continua `forja.ausente`.
+ */
 export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => {
-  const r = spawnSync(cmd, [...args], {
+  const r = spawnSync(acharBinario(cmd) ?? cmd, [...args], {
     input: entrada, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GLAB_CHECK_UPDATE: 'false', NO_COLOR: '1' },
   });

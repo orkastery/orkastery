@@ -210,6 +210,8 @@ interface FerramentaOrk {
   entrada?: (params: Record<string, unknown>) => string;
   /** O `projeto` desta tool, quando nao e o da RM-052 (so nome). */
   projeto?: ProjetoDaTool;
+  /** RM-054 (fatia 3): a tool e da pessoa, nao de um projeto (`ork network status`); sem `projeto`. */
+  semProjeto?: true;
 }
 
 const FERRAMENTAS: FerramentaOrk[] = [
@@ -484,6 +486,15 @@ const FERRAMENTAS: FerramentaOrk[] = [
     argv: () => ['network', 'roadmap'],
   },
   {
+    name: 'ork_network_status',
+    description:
+      'Status da Orkastery Network, somente leitura: as máquinas da pessoa (a casa privada na forja), com a batida de cada uma, a forja e o login, os runtimes e hosts com versão e os projetos que cada uma declara, mais a fonte e as lacunas. É a fonte para "quais máquinas eu tenho" e "qual máquina está parada": transporte o texto como vem. Lacuna e "Não consultado" são o que não foi lido: nunca conclua "nenhuma máquina" nem "rede vazia" a partir delas. Não lê roadmap nem threads: para isso, ork_network_roadmap.',
+    parameters: schema({}),
+    semProjeto: true,
+    // RM-054 (fatia 3): uma chamada de CLI; a rede e da pessoa e nao recebe `--projeto`.
+    argv: () => ['network', 'status'],
+  },
+  {
     name: 'ork_master_batch',
     description:
       'Todas as entregas em JSON, com o indice derivado do ledger, as ja pontuadas e as aceitas por omissao. Roda ork master --todas; o nome e da antiga fila de score (ork master --batch), aposentada na I-43.',
@@ -494,6 +505,7 @@ const FERRAMENTAS: FerramentaOrk[] = [
 
 /** RM-052: toda tool aceita `projeto` opcional, sem mudar o que ela ja exigia. */
 function comProjeto(f: FerramentaOrk): Record<string, unknown> {
+  if (f.semProjeto) return f.parameters;
   const propriedades = (f.parameters.properties ?? {}) as Record<string, unknown>;
   const p = f.projeto;
   const projeto = p ? { type: 'string', pattern: p.padrao.source, description: p.descricao } : PARAMETRO_PROJETO;
@@ -503,6 +515,11 @@ function comProjeto(f: FerramentaOrk): Record<string, unknown> {
 /** `--projeto <nome>` vai no inicio do argv; o resto dos parametros segue para a tool como antes. */
 function argvComProjeto(f: FerramentaOrk, params: Record<string, unknown>): { argv: string[]; resto: Record<string, unknown> } {
   const { projeto, ...resto } = params;
+  if (f.semProjeto) {
+    // A tool sem `projeto` recusa o parametro em vez de ignora-lo: o modelo saberia que a rede veio filtrada.
+    if (projeto !== undefined) throw new Error('projeto.invalido');
+    return { argv: f.argv(resto), resto };
+  }
   if (projeto !== undefined && (typeof projeto !== 'string' || !(f.projeto ?? PROJETO_DA_RM052).padrao.test(projeto))) {
     throw new Error('projeto.invalido');
   }
@@ -513,7 +530,7 @@ const plugin = defineToolPlugin({
   id: 'orkastery',
   name: 'Orkastery',
   description:
-    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap.',
+    'Conducao de looping threads em 6 fases pelo nucleo `ork`, exposta ao OpenClaw como tools `ork_*`. Zero regra de negocio no host: cada tool e uma chamada de CLI. Toda tool de projeto aceita projeto (nome do projeto pedido); o cwd do gateway nunca escolhe o projeto. O status do roadmap vem de ork_network_roadmap; as maquinas da pessoa, de ork_network_status (sem projeto).',
   tools: (tool) =>
     FERRAMENTAS.map((f) =>
       tool({
@@ -525,7 +542,7 @@ const plugin = defineToolPlugin({
           try { chamada = argvComProjeto(f, params); }
           catch (e) {
             if ((e as Error).message === 'projeto.invalido') {
-              return `[ork recusou] projeto.invalido: ${(f.projeto ?? PROJETO_DA_RM052).recusa}`;
+              return `[ork recusou] projeto.invalido: ${f.semProjeto ? 'esta tool é da rede da pessoa e não recebe projeto; chame sem projeto' : (f.projeto ?? PROJETO_DA_RM052).recusa}`;
             }
             return '[ork recusou] resposta humana não confirmada; confira origem e correlação do pedido';
           }

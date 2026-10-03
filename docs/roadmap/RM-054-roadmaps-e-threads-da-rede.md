@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: [FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-02T14:33:46+00:00
+atualizado_em: 2026-10-03T04:10:52+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
   codigo: Mesclado
-  testes: Aprovados
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -20,10 +20,10 @@ evidencias:
     commit: 6ea7acb
     pr: null
 sdlc:
-  thread: ork-rm054fatia2
+  thread: ork-rm054fatia3s
   modo: "#Auto"
-  fase: MASTER
-  status: fechada
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-054 — Roadmaps e threads da rede visíveis a todo agente e runtime
@@ -34,12 +34,12 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Mesclado | Aprovados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-032](../produto/FEAT-032-roadmap-da-rede.md)
-- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2)
+- **Threads:** `ork-rm054roadmap` (fatia 1, mesclada em `b64d2f2`) · `ork-rm054fatia2` (fatia 2, mesclada em `6ea7acb`) · `ork-rm054fatia3s` (fatia 3)
 
 ## Problema e resultado
 
@@ -70,11 +70,25 @@ sdlc:
   - a frase "orkastery maestro" sem projeto nomeado oferece o panorama da rede, nas entradas dos hosts e na própria recusa `projeto.escolha` do núcleo;
   - o núcleo em modo host (`ORK_PROJETO_EXPLICITO=1`): o `--projeto` do `network` é nome registrado ou `github:`/`gitlab:`, e o projeto do cwd do gateway só entra pelo registro; em modo fixado, o MCP lê só o projeto servido, em todas as máquinas dele;
   - o critério de aceite do incidente: da srvjcp86, pelo OpenClaw, "qual é o status report do roadmap do orkastery agora?" devolve o roadmap real do `orkastery/orkastery` com as threads da `vps` e da `srvjcp86`, citando a fonte e o horário de cada parte.
-- **Lacunas tipadas da fatia 2, que dependem da RM-053 na `main` (fatia 3):**
+- **Lacunas tipadas da fatia 2, que dependiam da RM-053 na `main` (fatia 3, thread `ork-rm054fatia3s`):**
   - `ork_network_status` nos hosts: o núcleo desta base não expõe `ork network status`;
   - a rede por pessoa (`ork.rede-status/v1`) como fonte de projetos e máquinas: o panorama segue dizendo "rede por pessoa (RM-053): não lida";
   - o localizador de binário da forja para o PATH curto do gateway e do cron (o `gh` desta máquina está em `~/.local/bin`);
   - o leitor do GitLab provado com `glab` de verdade (`glab` não está instalado na srvjcp86).
+- **Fatia 3, a rede por pessoa e o status da rede nos hosts (thread `ork-rm054fatia3s`):**
+  - o panorama lê a casa da RM-053 (`ork.rede-status/v1`): a seção "Rede por pessoa" traz a casa, com o commit e a hora, e cada máquina com a batida, a versão do `ork` e os projetos que declara; as lacunas da casa (`forja.sem-login`, `rede.sem-repositorio`, `rede.sem-leitura` e as outras) entram nas lacunas da consulta, e o JSON ganha `rede`;
+  - o projeto que uma máquina da rede declara com remoto de forja passa a ser conhecido pelo nome: do gateway de uma máquina sem clone nem registro, "o roadmap do orkastery" acha o projeto pela rede e o lê pela forja;
+  - a máquina da rede que declara o projeto e não publicou na fábrica dele aparece em "Threads por máquina" com as threads não lidas (`threadsLidas: false`) e a lacuna `maquina.sem-fabrica`, nunca como "0 ativas";
+  - `ork_network_status` no OpenClaw (perfis `coding` e `messaging`, sem `projeto`), no Hermes (`bin/ork-network-status.sh`) e no MCP (só o projeto servido em cada máquina), e a regra nas entradas do Claude Code e do Codex; no host (`ORK_PROJETO_EXPLICITO=1`), `ork network status` não lê o projeto do diretório do gateway;
+  - a forja do panorama acha o `gh` e o `glab` como a rede (D11 da RM-053): no PATH e nas pastas de usuário, como `~/.local/bin`;
+  - fica como lacuna, com decisão no ledger: o leitor do GitLab com `glab` de verdade, que não está instalado na srvjcp86.
+- **Critérios de aceite da fatia 3, cada um com o teste que prova** (`core/test/rm054-fatia3-rede.test.ts`, os nove reprovam o código da fatia 2):
+  - a rede no panorama, com a casa, a batida, os projetos e as lacunas da casa: `rm054 fatia 3: o panorama le a rede por pessoa`;
+  - a máquina da rede sem fábrica: `a maquina da rede que declara o projeto e nao publicou na fabrica`;
+  - o projeto conhecido só pela rede, no host: `no host, o projeto que so a rede conhece`;
+  - a leitura sem casa vira lacuna e `ORK_REDE_LER=0` vai ao "Não consultado": `sem ORK_REDE_LER=0 nem rede pronta`;
+  - MCP, OpenClaw e Hermes: `MCP, ork_network_status`, `OpenClaw, ork_network_status` e `Hermes, ork-network-status.sh`;
+  - o host no `ork network status` e o `gh` em `~/.local/bin`: `no host, ork network status` e `a forja do panorama acha o gh`.
 - **Fora de escopo:** publicar no npm (ato do mantenedor, RM-049); o `--projeto` global e `ORK_PROJETO` (RM-052); a casa da rede e `ork network entrar`, `status` e `sair` (RM-053); rede de equipe (RM-026).
 - **Achado extra, registrado e não implementado aqui:** o despacho que falha por impedimento que só o dono resolve vira só `phase_dispatch_failed`, sem HITL nem "espera você" no board e na fábrica. Evidência: ledger da `ork-rm054roadmap`, 29/09 16:32 UTC, `claude --bg` recusado com "Workspace not trusted".
 - **Critérios de aceite da fatia 1, cada um com o teste que prova:**
@@ -99,7 +113,7 @@ sdlc:
 ## Plano e decisões
 
 - **Prioridade:** 3 de 3 no pedido de 29/09/2026 (RM-052, RM-053, RM-054); consome as outras duas.
-- **Horizonte:** fatia 1 mesclada em 30/09; fatia 2 em PR; fatia 3 (as lacunas acima) depois da RM-053 na `main`.
+- **Horizonte:** fatia 1 mesclada em 30/09; fatia 2 em 01/10; fatia 3 (as lacunas acima) em 03/10, depois da RM-053 na `main` (PR 31).
 - **Dependências:** RM-048 (formato do status report), RM-052 (registro `ork.projetos/v1`, lido aqui), RM-053 (vocabulário das lacunas e `ork.rede-status/v1`), RM-025 (fonte, frescor e lacuna do pacote citável), RM-032 (ativação por host, na fatia 2) e RM-049 (a publicação no npm destrava o uso fora do checkout).
 - **Decisões da fatia 1** (ledger da `ork-rm054roadmap`, tomadas pelo agente no #Auto em 29/09/2026, revisão do dono pendente):
   - o roadmap da rede vem de `docs/roadmap` da base remota, e não da árvore de trabalho: toda máquina vê o mesmo roadmap;
@@ -121,6 +135,13 @@ sdlc:
   - o aceite ao vivo usa cópia temporária da extensão e turno isolado, sem tocar na extensão global nem no gateway;
   - entrega por PR em rascunho; o merge, o `ork ship registrar-pr` e o MASTER ficam com o mantenedor;
   - a `main` de 30/09 (RM-049) entrou na branch antes do GO, porque o catálogo ganhou cópia derivada em `marketplaces/`.
+- **Decisões da fatia 3** (ledger da `ork-rm054fatia3s`, tomadas pelo agente no #Auto em 03/10/2026, revisão do dono pendente):
+  - a rede por pessoa é lida pelo próprio `lerRede` da RM-053, com `--sem-remoto` valendo para ela também; `ORK_REDE_LER=0` a desliga, e o "Não consultado" diz por quê;
+  - só as lacunas da casa (forja, casa, retrato e nome em uso) sobem para o panorama; as da fábrica de um projeto já saem no bloco dele;
+  - a máquina da rede casa com o projeto pela forja do remoto declarado, e pelo nome quando falta a forja; vista só na rede, ela não vira "0 ativas";
+  - o projeto declarado pela rede entra como conhecido (origem `rede`), também para a forja aceita no host;
+  - `ork_network_status` não recebe `projeto` no OpenClaw (a rede é da pessoa) e recusa o parâmetro em vez de ignorá-lo; no MCP, o retrato de cada máquina fica só com o projeto servido;
+  - o `glab` real fica como lacuna: instalar software na máquina está fora desta sessão.
 - **Achado de segurança pré-existente, para uma próxima thread:** `ork fabrica` e `ork roadmap reservas` passam o `fabrica.remoto` do manifesto ao `git fetch` sem validar; um valor que comece com `-` vira opção do git. O `ork network roadmap` valida o remoto e a `worktree.base_branch`, e o `git log` de `entregasNaBase` passou a receber a ref qualificada (`refs/...`), que nunca vira opção; o helper `branch-de-estado.ts` ainda não valida o remoto.
 - **Riscos e mitigação:**
   - o esquema do GitLab sem prova real: parse estrito, e a divergência vira `forja.resposta-invalida`;
@@ -131,6 +152,7 @@ sdlc:
 - 29/09/2026: fatia 1 na thread `ork-rm054roadmap` (#Auto). A revisão independente do CHECK achou quatro defeitos maiores e cinco menores (thread corrompida derrubava o comando, pasta de mesmo nome tomava o `--projeto`, página não-ASCII sumia, `fabrica.remoto` virava opção do git); os três GO-FIX os corrigem, cada um com teste que falhava antes.
 - A rodada 2 da revisão resolveu seis achados e achou a mesma injeção pela `worktree.base_branch`, que o GO-FIX 4 fecha junto com os três achados parciais; a rodada 3 confirmou tudo e achou dois menores (a ref do `git log` e a espera do dono igual nas duas seções), fechados no GO-FIX 5.
 - Testes focados verdes: `network-roadmap.test.js` 17 de 17, `forja.test.js` 5 de 5, e o RM-048 sem regressão.
+- 03/10/2026: fatia 3 na thread `ork-rm054fatia3s` (#Auto), depois da RM-053 na `main`. Os nove testes de `core/test/rm054-fatia3-rede.test.ts` reprovam o código da fatia 2 e passam no desta.
 - 30/09/2026: fatia 1 mesclada pelo PR 25 (`b64d2f2`); fatia 2 na thread `ork-rm054fatia2` (#Auto). A prova ao vivo achou duas causas a mais (o perfil `coding` escondia as tools, e o "Não lido" apontava as fontes separadas), fechadas na T4b e na T2b. A revisão independente do CHECK achou um defeito maior (no host, a forja aceitava qualquer host, e o `gh`/`glab` falaria com o servidor pedido pelo texto do modelo) e um menor (um assert sempre verdadeiro), fechados no GO-FIX 1 com testes que reprovam o código de antes.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -139,13 +161,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
-| Documentação | Em revisão | — | 2026-10-02 | Julio |
-| Código | Mesclado | commit `6ea7acb` | 2026-10-02 | Julio |
-| Testes | Aprovados | — | 2026-10-02 | Julio |
-| Deploy | Não implantado | — | 2026-10-02 | Julio |
-| Exposição | Flag desligada | — | 2026-10-02 | Julio |
-| Habilitação | Pendente | — | 2026-10-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `6ea7acb` | 2026-10-03 | Julio |
+| Testes | Em execução | — | 2026-10-03 | Julio |
+| Deploy | Não implantado | — | 2026-10-03 | Julio |
+| Exposição | Flag desligada | — | 2026-10-03 | Julio |
+| Habilitação | Pendente | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -153,7 +175,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI:** R: agentes do Orkastery (Claude) · A: Julio · C: — · I: —
 - **Agentes e autonomia:** execução por agente no modo #Auto da thread; revisão e decisão final: Julio.
-- **Próxima ação:** revisar e mesclar o PR da fatia 2, publicar a extensão (RM-049) e reinstalar a do gateway; depois, a fatia 3 com a RM-053 na `main`; responsável: Julio.
+- **Próxima ação:** publicar a versão com a fatia 3 (RM-049), reinstalar a extensão do gateway e provar ao vivo, pelo OpenClaw, o status da rede e o panorama com a rede por pessoa; o `glab` real fica para quando houver um; responsável: Julio.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
@@ -161,3 +183,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | limiar de batida de 2 h para 3 h | alinhar ao vocabulário publicado pela RM-053 | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-09-30 | fatia 1 mesclada; fatia 2 aberta com as tools dos hosts | PR 25; thread `ork-rm054fatia2` | Julio |
 | 2026-09-30 | `ork_network_status` e a rede por pessoa passam para a fatia 3 | a RM-053 não está na `main`; D-G1 no ledger da `ork-rm054fatia2` | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-03 | fatia 3 aberta e entregue por PR: a rede por pessoa no panorama e `ork_network_status` nos hosts; o `glab` real segue lacuna | a RM-053 entrou na `main` (PR 31); decisões no ledger da `ork-rm054fatia3s` | Claude (agente, #Auto), revisão de Julio pendente |
