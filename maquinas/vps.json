@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T04:55:49.042Z",
+  "publicadoEm": "2026-10-03T04:57:53.323Z",
   "threads": [
     {
       "id": "ork-rm031grafofu",
@@ -27,18 +27,18 @@
       "id": "ork-rm036leasesd",
       "nome": "RM-036 leases de todas as familias no estado canonico",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": "RM-036",
       "branch": "ork/ork-rm036leases-full",
-      "atualizadaEm": "2026-10-03T04:06:45.229Z",
+      "atualizadaEm": "2026-10-03T04:57:53.083Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "runtime": "codex",
+      "modelo": "gpt-6-astra",
+      "esforco": "xhigh"
     },
     {
       "id": "ork-rm038univers",
