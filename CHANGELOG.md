@@ -17,8 +17,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   pacote `ork.thread-graph-context/v2` com referências locais, evidências em tupla e fan-in agregado;
   prioridade entre arquivos e perto do diff, limite por alvo e amostra de sementes ausentes.
   Sem worktree, o diff é ignorado e declarado. A flag `grafo.mcp` segue desligada.
-  Fixture sintética de 22.973 para 3.093 bytes; medição histórica de descoberta/cobertura preparada
-  e pendente por restrição de subprocesso Git, sem conclusão sobre tokens.
+  Sementes de prosa exigem extensão conhecida ou diretório do índice; evidências auxiliares
+  de outro arquivo são omitidas e declaradas. Fixture sintética de 22.973 para 3.119 bytes.
+  A [medida histórica](core/test/fixtures/kg5-medida-contexto.json) foi executada; o GO-FIX
+  corrige a descoberta para exports de pelo menos quatro caracteres e `grep -w`, mede precisão
+  e cobertura só dos editados existentes na base, e conta arquivos novos à parte. A condutora
+  regrava o registro v3 e preenche a [tabela do contrato](docs/referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas)
+  antes do SHIP. Pacote pequeno e preciso nos vínculos, cobertura parcial; sem economia de tokens demonstrada.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.

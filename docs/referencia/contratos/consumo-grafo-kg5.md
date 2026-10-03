@@ -239,7 +239,12 @@ pretender que o índice atual representa a árvore histórica da base.
 As sementes indexadas entram primeiro, em ordem UTF-8. As ausentes entram depois das ligações,
 limitadas às **três primeiras** na mesma ordem; `sementes_fora_do_indice` conta todas.
 `total_sementes` e `omitidos.sementes` incluem as ausentes. Caminhos absolutos, URLs e estado
-privado são recusados como sementes. O grafo já deve estar filtrado pela concessão.
+privado são recusados como sementes. Em GOAL/PLAN, inclusive código e links, o token precisa
+ter extensão conhecida, nome especial de arquivo (como `Dockerfile`) ou prefixo de diretório
+presente no índice consultado. `e/ou`, `CHECK/SHIP`, `03/10/2026` e `imports/references`
+não ocupam a amostra de ausentes; um arquivo novo com extensão conhecida continua elegível.
+Diff e claims já declaram caminhos e não passam pelo filtro de prosa. O grafo já deve estar
+filtrado pela concessão.
 
 ### Wire format v2
 
@@ -256,7 +261,9 @@ privado são recusados como sementes. O grafo já deve estar filtrado pela conce
   `null` quando indisponível; `bytes` é `[início, fim]` UTF-8, fim exclusivo. O caminho é o de
   `from`. Para spans PDF, `linhas` usa `["pdf", página, hash_do_texto_extraído]`; os bytes se
   referem ao texto extraído, não ao PDF binário. Evidência auxiliar em arquivo diferente da
-  origem recusa com `grafo.contexto.evidencia-incompativel`, em vez de atribuí-la ao arquivo errado.
+  origem é omitida e contada em `omitidos.evidencias_auxiliares`, sem derrubar o pacote.
+  Se a aresta não tem evidência no arquivo de origem, ela fica em `omitidos.arestas`;
+  nenhuma ligação é entregue com uma tupla atribuída ao arquivo errado.
 - `declares` e `contains` internos ao arquivo semente saem da lista e são contados em
   `resumidas.estruturais`. Não são relações perdidas pelo teto.
 
@@ -270,7 +277,9 @@ diversidade de tipos dentro da mesma prioridade.
 O teto do JSON completo é 32.768 bytes, de 4.096 a 65.536, incluindo cabeçalho e medida.
 Cada grupo entra com as pontas e todas as tuplas. Se um grupo não cabe, tenta-se o próximo;
 não se corta uma evidência nem se deixa um hub grande impedir todas as relações menores.
-`truncado`/`teto.cortado` abrangem corte por bytes, por alvo e pela amostra de sementes ausentes.
+`truncado`/`teto.cortado` abrangem corte por bytes, por alvo, pela amostra de sementes ausentes
+e por evidências auxiliares omitidas. A contagem de auxiliares cobre as arestas candidatas
+não estruturais, inclusive as que depois não cabem no teto.
 `omitidos.ligacoes` conta grupos, `omitidos.arestas` conta arestas originais. A identidade é:
 `total_arestas = soma(quantidade) + omitidos.arestas + resumidas.estruturais`.
 Pacote vazio é válido. As consultas por nó permitem aprofundar o que ficou de fora.
@@ -293,7 +302,7 @@ hash do prompt. Com a flag ausente ou `false`, o prompt permanece byte a byte ig
 em `medida.arquivos`. **Essa soma não é o custo de descobrir a vizinhança sem o grafo.**
 Não mede a árvore editada; tokens permanecem `unavailable`.
 
-Na mesma fixture sintética de 30 funções chamadoras e três arquivos, o v2 mediu **3.093 bytes**,
+Na mesma fixture sintética de 30 funções chamadoras e três arquivos, o v2 mediu **3.119 bytes**,
 sem corte, contra os **22.973 bytes** registrados no v0: aproximadamente **7,4 vezes menor**.
 Os arquivos continuam somando **1.567 bytes**. A redução supera a meta de 4–5 vezes para essa
 fixture; ela não demonstra economia de tokens nem cobertura em trabalho real.
@@ -303,25 +312,57 @@ npm --prefix core run build:test
 node --test-name-pattern='KG5 medida offline' core/dist-test/test/rm031-kg5-contexto.test.js
 ```
 
-A medição histórica está preparada em `core/scripts/medir-mcp-grafo.cjs --contexto` para duas
+A medição histórica está registrada em `core/test/fixtures/kg5-medida-contexto.json`
+(`estado: measured`), produzida por `core/scripts/medir-mcp-grafo.cjs --contexto` para duas
 threads já mescladas: KG3 (`c507a3a`, semente `core/src/intelligence-graph-extract.ts`) e KG4
 (`99b10d3`, semente `core/src/intelligence-graph-index.ts`). Os identificadores curtos vêm deste
 roadmap; o script resolve os SHAs completos, exige dois pais e comprova ancestralidade na `main`.
 Extrai em memória os blobs da base comum dos pais, sem checkout, indexação persistente ou escrita
 no estado. As sementes são retrospectivas e fixas, não uma reconstrução dos prompts originais.
 
-O braço sem grafo lê a mesma semente, usa `git grep -n -I -F` para os caminhos e nomes declarados
-nela e lê integralmente os arquivos encontrados e as saídas relativas explícitas. Contabiliza
-**saída do grep + bytes lidos**, incluindo a semente uma vez. Divergências de vizinhança são
-listadas, pois busca textual pode incluir homônimos/comentários. Só depois de produzir os dois
-braços o script lê o diff entregue pelo merge para medir acertos/total de arquivos editados,
-separando sementes de descobertas novas; arquivos criados também entram no denominador.
+O braço sem grafo lê a mesma semente, extrai pelo AST TypeScript somente nomes exportados
+explicitamente com **quatro caracteres ou mais** e usa `git grep -n -I -F -w`. Nomes locais,
+comentários e strings não fornecem termos; aliases usam o nome público. Não expande `export *`
+nem usa o nome local de um `export default`. Sem termos elegíveis, não executa grep.
+Lê integralmente os arquivos encontrados e as saídas relativas explícitas da semente.
+Contabiliza **saída do grep + bytes lidos**, incluindo cada arquivo uma vez. Divergências de
+vizinhança são listadas, pois busca textual ainda pode incluir homônimos/comentários.
 
-**Estado da medição histórica: pendente.** A tentativa de leitura nesta sessão foi bloqueada
-com `spawnSync git EPERM`. `core/test/fixtures/kg5-medida-contexto.json` registra `not-run`, os
-casos e a medida sintética; não contém bytes nem cobertura histórica inventados. O validador
-recusa `not-run` como medição concluída. A condutora precisa gerar o registro e incluir aqui a
-tabela de bytes e cobertura antes de considerar o item 6 concluído:
+Só depois de produzir os dois braços o script lê o diff entregue pelo merge. O denominador
+da **cobertura do alcançável** é o número de arquivos editados que **já existiam na base**:
+`total_acertos / total_editados`. Novos arquivos ficam em `resultado.arquivos_novos`, fora desse
+denominador, pois nenhum dos braços poderia encontrá-los. A **precisão** de cada braço é
+`total_acertos / total_apontados`; sementes contam em ambos, com acertos fora das sementes
+reportados à parte. Denominador vazio produz `null`, não uma porcentagem inventada.
+
+**Pacote pequeno e preciso nos vínculos apresentados, com cobertura parcial; sem conclusão
+de economia de tokens.** Na rodada anterior, o pacote tinha 15.096 bytes no KG3 e 16.948 no KG4;
+os editados entre os apontados eram 3/7 e 7/8. Essa precisão de seleção varia por caso e não
+significa cobertura completa. A comparação anterior com a descoberta não sustenta a manchete
+“15 KB contra 28 MB”: o grep admitia variáveis locais curtas e substrings, alcançando quase
+todo o repositório. Seus bytes e sua cobertura não valem como referência da metodologia corrigida.
+
+O registro offline passa de `ork.graph-context-cost/v2` para **`ork.graph-context-cost/v3`**;
+o pacote continua `ork.thread-graph-context/v2`. A fixture v2 existente é uma medida executada,
+não `not-run`, mas o validador corrigido a recusa como método desatualizado. A condutora regrava
+a fixture após os commits do GO-FIX e preenche somente os números abaixo com a nova rodada:
+
+| Caso | Braço | Bytes ao agente | Precisão (editados/apontados) | Cobertura do alcançável (acertos/editados na base) |
+| --- | --- | --- | --- | --- |
+| KG3 | Pacote | PREENCHER_KG3_PACOTE_BYTES | PREENCHER_KG3_PACOTE_PRECISAO | PREENCHER_KG3_PACOTE_COBERTURA |
+| KG3 | Descoberta | PREENCHER_KG3_DESCOBERTA_BYTES | PREENCHER_KG3_DESCOBERTA_PRECISAO | PREENCHER_KG3_DESCOBERTA_COBERTURA |
+| KG4 | Pacote | PREENCHER_KG4_PACOTE_BYTES | PREENCHER_KG4_PACOTE_PRECISAO | PREENCHER_KG4_PACOTE_COBERTURA |
+| KG4 | Descoberta | PREENCHER_KG4_DESCOBERTA_BYTES | PREENCHER_KG4_DESCOBERTA_PRECISAO | PREENCHER_KG4_DESCOBERTA_COBERTURA |
+
+Arquivos novos, contados separadamente: **PREENCHER_KG3_NOVOS** no KG3 e
+**PREENCHER_KG4_NOVOS** no KG4. Origem dos valores: `casos[0]` (KG3) e `casos[1]` (KG4),
+`pacote/descoberta.bytes_ao_agente`, `cobertura_pacote/cobertura_descoberta.precisao` e `.cobertura`,
+com as respectivas contagens; novos vêm de `resultado.arquivos_novos.length`.
+Esses marcadores não são resultados: devem ser substituídos antes do SHIP.
+
+`--conferir` refaz a medida e compara o **sha256 dos bytes do pacote** de cada caso com a fixture,
+além do registro determinístico completo. Diferença de hash ou métrica reprova; somente produzir
+um pacote determinístico duas vezes já não basta. A sequência de regravação e conferência é:
 
 ```sh
 npm --prefix core run build
@@ -335,7 +376,10 @@ das tools são custos separados do pacote. Nenhum número de tokens ou latência
 Os testes puros passaram e detectaram oito mutações temporárias no JavaScript compilado: quebra
 de fan-in, offset de span, teto por alvo, amostra de ausentes, diff sem worktree, proximidade,
 intercalação de tipos e prioridade entre arquivos. O código foi restaurado e os testes passaram
-novamente. Esse ensaio local não é recibo oficial do núcleo.
+novamente. O GO-FIX acrescenta a prova executável de três mutações dos termos: admitir nomes
+curtos, admitir locais e retirar `-w`; todas precisam derrubar a mesma prova da descoberta.
+Comando: `node --test-name-pattern="KG5 medida historica" core/dist-test/test/rm031-kg5-contexto.test.js`.
+Esses ensaios locais não são recibo oficial do núcleo.
 
 Os testes integrados CLI/worker/MCP exigem subprocessos permitidos; a passagem dos testes puros
 não substitui a suíte, `ork verify` ou a revisão independente da condutora.
