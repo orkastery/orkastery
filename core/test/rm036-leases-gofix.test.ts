@@ -646,6 +646,43 @@ test('rm036 gofix: A4 inode trocado durante flock preserva novo vencedor', (t) =
   assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
 });
 
+for (const transporte of ['flock', 'portatil']) {
+  test(`rm036 gofix: R5 troca depois do primeiro lstat preserva vencedor ${transporte}`, (t) => {
+    if (transporte === 'flock') simularFlock(t); else semFlock(t);
+    const c = cenario(t), arquivo = leases.caminhoLease(c.raiz, 'main-tree');
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    const stat = io.lstatSync, ler = io.readFileSync;
+    let releu = false, trocou = false, conferencias = 0;
+    const inode = fs.statSync(arquivo).ino;
+    t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
+      const resultado = Reflect.apply(ler, io, [p, ...args]);
+      if (typeof p === 'number' && fs.fstatSync(p).ino === inode) releu = true;
+      return resultado;
+    });
+    t.mock.method(io, 'lstatSync', (p: fs.PathLike, ...args: unknown[]) => {
+      const resultado = Reflect.apply(stat, io, [p, ...args]);
+      if (String(p) === arquivo && releu) {
+        conferencias++;
+        if (!trocou) {
+          trocou = true;
+          // O retorno ainda descreve o inode antigo; o path ja e do novo vencedor wx.
+          fs.unlinkSync(arquivo);
+          assert.equal(leases.adquirir(c.raiz, 'main-tree', { thread: OUTRA, motivo: 'wx vencedor' }).ok, true);
+        }
+      }
+      return resultado;
+    });
+    const r = leases.adquirirRegiao(c.raiz, 'main-tree', { thread: DONO, motivo: 'retomador atrasado' });
+    assert.equal(trocou, true);
+    assert.ok(conferencias >= 2, 'reconfere dev/ino imediatamente antes do unlink');
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, 'lease.busy');
+    assert.equal(r.ocupadoPor?.thread, OUTRA);
+    assert.equal(leases.lerLease(c.raiz, 'main-tree')?.thread, OUTRA);
+    assert.equal(fs.existsSync(`${arquivo}.retomadas`), false);
+  });
+}
+
 test('rm036 gofix: R4 falha de transporte do flock retoma pelo caminho portatil', (t) => {
   const c = cenario(t);
   leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });

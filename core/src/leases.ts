@@ -406,6 +406,9 @@ function retomarArquivo(caminho: string, corpo: string): Retomada | 'indisponive
       const agoraNoPath = fs.lstatSync(caminho);
       if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return 'ocupado';
       if (!aindaCandidato()) return 'fila-expirada';
+      // Reconfere imediatamente antes do unlink; a primeira leitura pode ter envelhecido.
+      const antesDeApagar = fs.lstatSync(caminho);
+      if (!antesDeApagar.isFile() || antesDeApagar.dev !== stat.dev || antesDeApagar.ino !== stat.ino) return 'ocupado';
       fs.unlinkSync(caminho);
       fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
       return 'retomado';

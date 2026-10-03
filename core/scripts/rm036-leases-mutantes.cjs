@@ -22,6 +22,7 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R5-inode-final': [[lease, ' || antesDeApagar.dev !== stat.dev || antesDeApagar.ino !== stat.ino', '']],
   'R5-MCP-fila': [['core/dist-test/src/mcp-artifacts.js', "s.isDirectory() && nome.endsWith('.json.retomadas')", 'false']],
   'R5-MCP-candidato-link': [['core/dist-test/src/mcp-artifacts.js', ' || !c.isFile()', '']],
   'R5-MCP-candidato-vinculos': [['core/dist-test/src/mcp-artifacts.js', ' || c.nlink !== 1', '']],
@@ -95,7 +96,8 @@ const mutantes = {
   'R2-A3-adquirir': [[lease, 'tomouLegado = true;', 'fs.unlinkSync(copia.caminho); tomouLegado = true;']],
   'R2-A3-inode': [[lease, ' || atual.dev !== identidade.dev || atual.ino !== identidade.ino', '']],
   'R2-A4-trava': [[lease, 'trava.status === 1', 'false']],
-  'R2-A4-inode': [[lease, ' || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino', '']],
+  'R2-A4-inode': [[lease, ' || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino', ''],
+    [lease, ' || antesDeApagar.dev !== stat.dev || antesDeApagar.ino !== stat.ino', '']],
   'R2-A4-releitura': [[lease, '(atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(descritor).mtimeMs < 5_000)', 'false']],
   'R2-A5-dry-run': [['core/dist-test/src/ship.js', '(0, leases_1.leasesColidentes)(raiz, leases_1.LEASE_MAIN_TREE)[0] ?? null',
     '(0, leases_1.lerLease)(raiz, leases_1.LEASE_MAIN_TREE)']],
