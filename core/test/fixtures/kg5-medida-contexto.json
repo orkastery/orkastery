@@ -15,7 +15,7 @@
       ],
       "base": "36def098464a72098185928074ec34744b35b97a",
       "indice": {
-        "graph_digest": "4ff12312081681605948ca8f6eae1a58805c89b728e8c691c38beb11c3920e49",
+        "graph_digest": "b45076585e3ea52b61065f50c7cbf74b390fba7f508baa074c4936c1ebc5aee6",
         "fontes": 947
       },
       "entrada": {
@@ -58,7 +58,7 @@
       },
       "pacote": {
         "bytes_ao_agente": 28015,
-        "sha256": "f2783a28c730066ce3dd34f178c43a1c2111fe4dd03c7dcc6fa307a26494d8c2",
+        "sha256": "91d5559d56c5132470ef1e133cb4542bb6c57b1e239de695b5809f3492e1adac",
         "truncado": false,
         "omitidos": {
           "arestas": 10,
@@ -443,7 +443,7 @@
       ],
       "base": "4d1115aa90483d04baf1cce6a07c268dd5674a18",
       "indice": {
-        "graph_digest": "905c48e84b7f4dd69fbda30d06c5ef5b18235641b5a39148f9e6c393231d00f9",
+        "graph_digest": "942b579c1da5881c0c91431f14c2a10ffeaf8fe4c39fce342a2ab5b572bfb41e",
         "fontes": 1008
       },
       "entrada": {
@@ -489,7 +489,7 @@
       },
       "pacote": {
         "bytes_ao_agente": 32706,
-        "sha256": "6402950aa142ce0adfe4a071ff59816d2d587a472b0af1494d5a97db2a985269",
+        "sha256": "3fbb639976535b5769b3caa669e113fcc715fb48bfaba9a4e7a5638f80655ffd",
         "truncado": false,
         "omitidos": {
           "arestas": 154,
