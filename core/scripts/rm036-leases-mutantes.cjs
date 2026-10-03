@@ -23,6 +23,8 @@ const verificacao = 'docs/guias/verificacao.md';
 
 // Cada receita retira uma guarda ou reintroduz o comportamento apontado no CHECK.
 const mutantes = {
+  'R8-fixture-ENOENT': [['core/dist-test/test/rm036-leases-mcp.test.js',
+    "['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP']", "['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP', 'ENOENT']"]],
   'R7-MCP-metadados-UTF8': [['core/dist-test/src/mcp-git.js',
     "if (!Buffer.from(n, 'utf8').equals(bytes))", 'if (false)']],
   'R7-MCP-leases-UTF8': [['core/dist-test/src/mcp-artifacts.js',

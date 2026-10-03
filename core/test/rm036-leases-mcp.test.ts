@@ -150,7 +150,7 @@ for (const metodo of ['lstatSync', 'readdirSync'] as const) {
 }
 
 /** Nome real, nunca um mock da decodificacao do readdir. Nem todo filesystem admite esses bytes. */
-function criarNomeForaDeUtf8(t: TestContext, dir: string, pasta: boolean): Buffer | null {
+function criarNomeForaDeUtf8(t: Pick<TestContext, 'skip'>, dir: string, pasta: boolean): Buffer | null {
   const alvo = Buffer.concat([Buffer.from(path.join(dir, 'invalido-')), Buffer.from([0xff]),
     Buffer.from(pasta ? '.json.retomadas' : '.json')]);
   try {
@@ -158,13 +158,24 @@ function criarNomeForaDeUtf8(t: TestContext, dir: string, pasta: boolean): Buffe
     else fs.writeFileSync(alvo, '{}');
   } catch (e) {
     const codigo = (e as NodeJS.ErrnoException).code;
-    if (!['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP', 'ENOENT'].includes(codigo ?? '')) throw e;
+    if (!['EINVAL', 'EILSEQ', 'ENOTSUP', 'EOPNOTSUPP'].includes(codigo ?? '')) throw e;
     t.skip(`sistema de arquivos recusou criar nome fora de UTF-8 (${codigo})`);
     return null;
   }
   assert.equal(fs.readdirSync(dir, { encoding: 'buffer' }).some((nome) => nome.equals(alvo.subarray(Buffer.byteLength(dir + path.sep)))), true);
   assert.equal(fs.lstatSync(alvo).isDirectory(), pasta, 'entrada real existe com os bytes originais');
   return alvo;
+}
+
+for (const pasta of [false, true]) {
+  test(`rm036 mcp: R8 fixture sem pasta-mae falha sem skip (${pasta ? 'pasta' : 'arquivo'})`, (t) => {
+    const c = fixture(t);
+    let pulos = 0;
+    // Um observador separado impede que a regressao pule este proprio teste.
+    const contexto = { skip: () => { pulos++; } };
+    assert.throws(() => criarNomeForaDeUtf8(contexto, path.join(c.raiz, 'ausente'), pasta), { code: 'ENOENT' });
+    assert.equal(pulos, 0, 'ENOENT da fixture nunca indica filesystem incompativel');
+  });
 }
 
 for (const tipo of ['arquivo', 'subarvore']) {
