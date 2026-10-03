@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T03:38:02.406Z",
+  "publicadoEm": "2026-10-03T03:38:05.430Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -58,23 +58,6 @@
       "esforco": "high"
     },
     {
-      "id": "ork-rm047remotod",
-      "nome": "RM-047: remoto da fábrica validado antes do git",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-047",
-      "branch": "ork/ork-rm047remotod-full",
-      "atualizadaEm": "2026-10-03T03:37:54.071Z",
-      "entregue": "95134df",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
       "id": "ork-rm053network",
       "nome": "RM-053 Orkastery Network: maquinas de uma pessoa em rede",
       "modo": "#Auto",
@@ -107,23 +90,6 @@
       "runtime": null,
       "modelo": null,
       "esforco": null
-    },
-    {
-      "id": "ork-rm055impedim",
-      "nome": "RM-055 impedimento que so o dono resolve vira HITL",
-      "modo": "#Auto",
-      "fase": "MASTER",
-      "status": "aberta",
-      "roadmap": "RM-055",
-      "branch": "ork/ork-rm055impedim-full",
-      "atualizadaEm": "2026-10-02T17:16:08.780Z",
-      "entregue": "7ab4932",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "high"
     },
     {
       "id": "ork-rm056perfil",
