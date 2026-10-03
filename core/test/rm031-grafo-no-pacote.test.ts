@@ -67,7 +67,7 @@ test('grafo no pacote: dependencias: os docs dizem quantas dependencias de runti
   assert.ok(ler('docs/produto/SYS-01-nucleo-ork.md').includes(`com ${extenso} dependências de runtime com versão fixa`), 'SYS-01');
   const arquitetura = ler('docs/conceitos/arquitetura.md');
   assert.ok(arquitetura.includes(`com ${extenso} dependências de runtime com versão fixa`), 'arquitetura');
-  assert.doesNotMatch(arquitetura, /Zero dependência de runtime|Instala em qualquer lugar com Node 20/);
+  assert.doesNotMatch(arquitetura, /Zero dependência de runtime|Instala em qualquer lugar com Node 20|não há dependência de runtime/);
   assert.match(arquitetura, /incluindo o compilador TypeScript; o grafo pede Node 20\.19, 22\.12 ou mais novo/);
 });
 

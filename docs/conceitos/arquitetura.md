@@ -1,7 +1,7 @@
 # Arquitetura
 
 O Orkastery é um **núcleo CLI determinístico** com adaptadores nas duas pontas. Não há LLM
-dentro do núcleo, não há servidor, não há banco obrigatório e não há dependência de runtime.
+dentro do núcleo, não há servidor e não há banco obrigatório; as dependências de runtime são poucas, com versão fixa (veja a seção 7).
 
 ---
 
