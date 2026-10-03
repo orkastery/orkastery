@@ -8,6 +8,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
+  seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
+  de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge
+  `ship(<thread>)` com o `estado.codigo` fora de `Mesclado`, com o comando `ork docs sincronizar --escrever --so RM-NNN`.
+  No `--json`, o campo aditivo `docsPendentes`. Só avisa: não grava, não muda o código de saída nem o veredito do
+  `ork docs verificar`.
 - **Medida da conta esgotada entre projetos** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
   `ork accounts esgotamentos [--desde 7d] [--json]` (`ork.esgotamentos/v1`) só lê as marcas vivas de
   `~/.orkastery/private/contas.json` e os `phase_dispatch` com perfil dos projetos de `ork projetos`, e conta o
@@ -109,6 +115,48 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
   `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
   trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
+- **Suspeitas da revisão de 03/10** (thread `ork-suspeitasdar`):
+  - a marca da rede (`~/.orkastery/rede/publicada.json`) é trocada inteira, por `rename`; antes, um
+    `ork network status`, o `ork doctor` ou uma publicação concorrente liam o arquivo vazio ou cortado, e um
+    processo morto no meio da escrita deixava a marca ilegível, o que fazia a próxima publicação perder a reserva
+    dos projetos (D7) e o doctor dizer "nenhuma batida publicada".
+  - `ork network sair` durante uma publicação em curso não deixa mais a marca da rede regravada depois da saída: a
+    marca sai de novo sob a trava, quando a publicação já terminou; antes, ela sobrevivia ao `sair` e o próximo
+    `ork network entrar` na mesma casa voltava a reservar os projetos que a saída tinha esquecido.
+  - a prova de ativação (`core/scripts/prova-ativacao.cjs`) reconhece como desvio toda forma de rodar o
+    `ork maestro` pelo shell do host: pelo caminho do binário (`$(which ork) maestro`), pelo node
+    (`node core/dist/index.js maestro`), pelo npx (`npx @orkastery/cli maestro`) e com o projeto entre aspas
+    (`ork --projeto "/srv/meu projeto" maestro`); antes só a forma `ork [--projeto X] maestro` reprovava, e as outras,
+    ao lado da chamada contratada, deixavam a prova verde. `maestro` no argumento de outro subcomando continua não
+    sendo desvio.
+  - a leitura de uma branch de estado (a casa da rede, `ork/fabrica-estado`, as reservas do roadmap) busca de novo
+    quando outro processo atualizou a mesma ref no mesmo instante; antes, o `ork network status` rodando junto da
+    publicação, com a casa avançada, fazia uma das duas sair com `rede.sem-leitura` ("incorrect old value
+    provided"), sem falha de rede nenhuma.
+  - `ork network status` e `ork network entrar` não confundem mais a falha da forja com falta de login: prazo, erro do
+    servidor ou falta de rede no `gh api user` (ou `glab api user`) saem como `rede.sem-leitura`, com o erro da forja
+    redigido; antes viravam `forja.sem-login` e mandavam a pessoa rodar `gh auth login`. A falta de login de verdade
+    continua `forja.sem-login`.
+  - `ork_network_status` no servidor MCP fixado num projeto lê a fábrica só desse projeto; antes lia a de todos os
+    projetos do registro e só filtrava a saída: a batida e a versão do ork de uma máquina vista nos dois vinham do
+    projeto que o servidor não serve (D5 da RM-052), e o servidor rodava `git fetch` no clone do outro projeto.
+  - `ork network roadmap` não marca mais como "(esta máquina)" o retrato de outra instalação com o nome desta
+    (`maquina.nome-em-uso`), como o `ork network status` já fazia desde a revisão de 03/10.
+  - a validação do remoto da RM-047 aceita o nome com `/` que o git aceita (`fabrica.remoto: time/origem`), como a
+    0.5.2; a primeira versão dela o recusava com `fabrica.remoto-invalido`. Cada parte começa por letra ou dígito, então
+    caminho absoluto, `..`, opção e transporte continuam recusados.
+  - com `claim_sem_prova_local` declarada, o `ork_claim_add` do MCP não roda mais o comando da claim: antes, o texto
+    vindo do pedido MCP rodava no processo do servidor, fora do sandbox do `ork_verify` e por até `verify.timeout_ms`
+    dentro do pedido, embora a tool diga "Nao executa comandos". Pela CLI, com a worktree da thread apagada, o aviso
+    diz que a worktree não existe, em vez de dizer que a claim "reprova no verify".
+  - o pacote de contexto do Company Brain (`ork brain context`) exige `source.authority` na citação também pelo caminho
+    da consulta (OrkMind sem o modo `context`), como o servidor; antes, um Brain fora do próprio contrato dava pacote e
+    digest diferentes conforme o caminho. Com pais divergentes entre a fonte e o Brain, os dois caminhos já davam o
+    mesmo pacote, agora com teste.
+- **A vez de publicar na rede tem um vencedor só também sob carga** ([RM-053](docs/roadmap/RM-053-orkastery-network.md)):
+  `tomarVezDePublicar` lia a hora antes de pegar a trava; o processo que perdia a CPU nesse intervalo achava a marca
+  do vencedor "no futuro", a tomava por relógio que voltou e tomava a vez também (o teste da revisão de 03/10 reprovou
+  assim no CI, `FFFTFFFFFTFF`). Agora a hora é lida dentro da trava.
 - **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
   MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
   fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
@@ -244,7 +292,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   recebem `--` antes do remoto. `--remoto` sem valor também recusa, em vez de virar `origin` em silêncio.
 - **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
-    (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um
+    (letras, dígitos, `.`, `_`, `-` e `/` entre partes, cada parte começando por letra ou dígito, sem URL nem
+    transporte, sem caractere de controle); antes, um
     repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
     e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
   - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e

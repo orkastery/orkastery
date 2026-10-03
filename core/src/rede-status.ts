@@ -10,6 +10,8 @@
  * rede; quando esta nos dois, o retrato da rede vence.
  * D15: maquina sem batida ha mais de 3 h vira a lacuna `maquina.sem-batida`.
  */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal, remotoRedigido, remotoValido } from './branch-de-estado';
 import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
@@ -79,6 +81,11 @@ export interface OpcoesDaLeitura {
   maquina?: string;
   arquivoDeProjetos?: string;
   timeoutMs?: number;
+  /**
+   * Suspeitas da revisao de 03/10: o servidor MCP fixado le a fabrica so do projeto dele. Sem isto, a
+   * batida de uma maquina vista em dois projetos vinha do outro, e o servidor buscava no clone alheio.
+   */
+  soRaiz?: string;
 }
 
 const mensagem = (e: unknown) => (e as Error).message.replace(/^[a-z.-]+: /, '');
@@ -171,7 +178,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
   // 3. A fabrica legada dos projetos conhecidos (D10).
   const marca = lerMarcaDaRede();
   const anteriores = retratos.find((r) => r.maquina === eu)?.projetos ?? (marca?.maquina === eu ? marca.projetos : undefined);
-  const { projetos } = projetosConhecidos({ arquivo: o.arquivoDeProjetos, diretorio: o.diretorio, anteriores });
+  const conhecidos = projetosConhecidos({ arquivo: o.arquivoDeProjetos, diretorio: o.diretorio, anteriores }).projetos;
+  const raizDe = (c: string) => { try { return fs.realpathSync(c); } catch { return path.resolve(c); } };
+  const projetos = o.soRaiz === undefined ? conhecidos : conhecidos.filter((p) => raizDe(p.caminho) === raizDe(o.soRaiz!));
   for (const p of projetos) {
     if (!p.presente) {
       lacunas.push({ tipo: 'projeto.sem-clone', projeto: p.nome, detalhe: `${p.nome}: ${p.caminho} nao tem mais o projeto nesta maquina` });
