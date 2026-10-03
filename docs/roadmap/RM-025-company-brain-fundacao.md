@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024]
 owner: Julio
-atualizado_em: 2026-10-03T04:29:37+00:00
+atualizado_em: 2026-10-03T04:36:32+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,8 +17,8 @@ estado:
   habilitacao: Em andamento
 evidencias:
   codigo:
-    commit: a17ff88
-    pr: 21
+    commit: "5678875"
+    pr: 64
   testes:
     ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450)
   deploy:
@@ -26,7 +26,7 @@ evidencias:
 sdlc:
   thread: ork-rm025modocon
   modo: "#Auto"
-  fase: GOAL
+  fase: MASTER
   status: aberta
 ---
 
@@ -59,7 +59,7 @@ sdlc:
   - B2, captura da fábrica: portfólio e ledger por thread, com recibos (merge `3962717`). A escrita no Brain depende da ativação, hoje desligada.
   - B4.1, pacote de contexto citável: `ork brain context`, a ferramenta `ork_brain_context` no MCP e no OpenClaw e o repasse do Hermes (thread `ork-companybrai3`, PR #21, merge `a17ff88`, na versão 0.5.0).
   - B4.2 no OrkMind: o modo `context` da seleção (pacote `orkmind.company-brain-context/v1`, montado no servidor numa transação só de leitura), a operação `history` (versões append-only de uma entidade, com a origem de cada uma) e a documentação do Brain v1 em `docs/company-brain.md` (orkastery/orkmind PR #5, merge `b533e3e`, 29/09/2026; ainda sem versão publicada do OrkMind).
-  - B4.2 no núcleo (thread `ork-rm025modocon`, 03/10/2026, PR a abrir): `ork brain context`, a `ork_brain_context` e o contexto do dossiê pedem primeiro o modo `context`, conferem o pacote do servidor (schema, tenant, pedido, digest, citação inteira, ordem, fecho de pais e destino de cada id) e só voltam a `query` e `get` com `brain.selection.context-unsupported`; pacote que não confere encerra com `conflict` e `brain.context.server-invalid`; o campo `caminho` diz por onde o pacote veio, fora do digest. Teste `rm025-b42-contexto-no-servidor`, com o pacote dourado do OrkMind copiado byte a byte.
+  - B4.2 no núcleo (thread `ork-rm025modocon`, 03/10/2026, PR #64, merge `5678875`, CI verde em `544cb68`): `ork brain context`, a `ork_brain_context` e o contexto do dossiê pedem primeiro o modo `context`, conferem o pacote do servidor (schema, tenant, pedido, digest, citação inteira, ordem, fecho de pais e destino de cada id) e só voltam a `query` e `get` com `brain.selection.context-unsupported`; pacote que não confere encerra com `conflict` e `brain.context.server-invalid`; o campo `caminho` diz por onde o pacote veio, fora do digest. Teste `rm025-b42-contexto-no-servidor`, com o pacote dourado do OrkMind copiado byte a byte.
 - **Não entregue:**
   - B3, organização, geografias, sistemas e estratégia: o merge `9b7fef1` trouxe canais de HITL e documentação, sem tipos novos no contrato, que continua com `prod`, `proj` e `init`.
   - O resto da B4: consulta federada e afirmações no contexto.
@@ -79,6 +79,7 @@ sdlc:
 
 - Código na `main`: B1 e B2, presentes desde `10ca416` (Orkastery 0.3.0). Os merges `3962717` e `9b7fef1` são do histórico anterior à 0.3.0.
 - B4.1 na `main` pelo PR #21 (merge `a17ff88`), com o CI verde no push do merge (run 36563382672).
+- B4.2 do núcleo na `main` pelo PR #64 (merge `5678875`), com o CI verde no head `544cb68`; ainda sem versão publicada.
 - Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -89,7 +90,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `a17ff88` · PR #21 | 2026-10-03 | Julio |
+| Código | Mesclado | commit `5678875` · PR #64 | 2026-10-03 | Julio |
 | Testes | Aprovados | ci: verde no push do merge (run 36563382672) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
 | Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-03 | Julio |
 | Exposição | Parcial | — | 2026-10-03 | Julio |
@@ -111,4 +112,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-28 | B4.1, pacote de contexto citável | thread `ork-companybrai3`, por PR | thread `ork-companybrai3` (#Auto) |
 | 2026-09-29 | B4.1 mesclado na `main` | PR #21, merge `a17ff88` | Julio |
 | 2026-10-01 | B4.1 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
-| 2026-10-03 | B4.2: o modo `context`, o `history` e a doc do Brain v1 já estavam no OrkMind (PR #5); o núcleo passa a usar o modo `context`; `ork brain history` fica com o dono (classe 2) | thread `ork-rm025modocon`, decisões no ledger, teste `rm025-b42-contexto-no-servidor`, PR a abrir | thread `ork-rm025modocon` (#Auto) |
+| 2026-10-03 | B4.2: o modo `context`, o `history` e a doc do Brain v1 já estavam no OrkMind (PR #5); o núcleo passa a usar o modo `context`; `ork brain history` fica com o dono (classe 2) | thread `ork-rm025modocon`, decisões no ledger, teste `rm025-b42-contexto-no-servidor`, PR #64, merge `5678875` | thread `ork-rm025modocon` (#Auto) |

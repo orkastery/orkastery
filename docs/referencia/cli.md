@@ -289,13 +289,13 @@ tipo B não é CHECK.
 | `ork handoff recall <thread> <ponteiro>` | Resolve um ponteiro `path#ancora` de volta ao conteúdo |
 | `ork recall <thread> --fase FASE` | Recuperação tardia de ponteiros e descoberta de handoffs por tenant, thread e fase |
 | ↳ opções | `[--id ptr-N] [--todos] [--forcar] [--sem-conteudo] [--json]` |
-| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings; `--sondar` faz uma chamada real e mede a latência |
+| `ork memory status [--json] [--sondar]` | O regime efetivo (`files` ou `orkmind`), o tenant, a degradação e o estado sondado dos embeddings: o universo da busca por coleção, o que fica fora da busca (com `injection_risk`, expiradas e em outras coleções, só em número), a cobertura do índice contra o universo e o aviso quando ele cobre menos; `--sondar` faz uma chamada real e mede a latência |
 | `ork memory sync [<thread>] [--json]` | Publica decisões, policies, handoff, lição, roadmap e human gates elegíveis somente da thread informada; sem id, apenas policies |
 | `ork memory inventory --escopo <threads> [--json]` | Inventário somente leitura de fontes atuais, históricos e tenants excluídos |
 | `ork memory migrate --operadora <thread> --escopo <threads> [--dry-run] [--json]` | Migração aditiva pelo G3, com identidade por tenant/origem/hash e readback da cadeia |
 | `ork memory search --tags '<json>' [--colecao C] [--limite N]` | Busca deterministica por tag |
-| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no tenant (vetor e FTS por RRF), **não determinística**; não combina com `--tags` nem `--thread` |
-| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do tenant, idempotente, com tokens e custo estimados; `--dry-run` não chama o provider |
+| `ork memory search --texto "<frase>" [--modo hibrido\|vetor\|fts] [--colecao C] [--limite N] [--json]` | Busca por significado no universo da busca do tenant (vetor e FTS por RRF), **não determinística**; a quantidade de ids do FTS fora do universo e o índice que cobre menos saem no `detalhe`; não combina com `--tags` nem `--thread` |
+| `ork memory index [--modelo primario\|fallback\|todos] [--dry-run] [--json]` | Índice vetorial local do universo da busca do tenant, idempotente, com o universo por coleção, o que fica fora da busca, tokens e custo estimados; `--dry-run` não chama o provider; sem o universo lido inteiro (`memory.query.window-saturated`), sai 1 sem embedar |
 
 Um ponteiro pedido fora do seu `retrieve_when` volta como `fora-do-momento`, **sem conteúdo**.
 `--forcar` ignora o momento e declara no resultado que ignorou.
