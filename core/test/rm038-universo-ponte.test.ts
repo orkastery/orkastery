@@ -295,3 +295,20 @@ asyncio.run(run())
     assert.match(r.stdout, /PASS: pgvector universo, fora da busca e fts no mesmo predicado/);
   });
 });
+
+// Suspeitas da revisao de 03/10 (thread ork-suspeitasdar): "entrada com injection_risk vinda do
+// search_by_tags derruba o universo com scope-violation". O search_by_tags governado nunca a devolve
+// (I5 da biblioteca), nem marcada mandatory, que passa pelo caminho que garante as obrigatorias.
+test('suspeitas 03/10: injection_risk em toda colecao, ate mandatory, fica fora do universo sem scope-violation', { skip: semOrkMind() }, () => {
+  rodarPython(String.raw`
+async def run():
+    s = create_store(OrkMindConfig(store_backend='memory', embedding_provider=''))
+    for c in b.ORK_COLLECTIONS:
+        await s.store(MemoryEntry(id='ok-' + c, collection=c, content='boa ' + c, tags={'project': [T]}))
+        await s.store(MemoryEntry(id='inj-' + c, collection=c, content='ruim ' + c, tags={'project': [T]}, injection_risk=True))
+        await s.store(MemoryEntry(id='obr-' + c, collection=c, content='obrigatoria ' + c, tags={'project': [T]}, injection_risk=True, mandatory=True))
+    out = await b.execute({'op': 'universo', 'tenant': T}, s)
+    assert sorted(x['id'] for x in out['entradas']) == sorted('ok-' + c for c in b.ORK_COLLECTIONS), out['entradas']
+    print('injecao fora sem violacao')
+asyncio.run(run())`, 'injecao fora sem violacao');
+});
