@@ -139,6 +139,11 @@ ork network roadmap --projeto orkastery --json           # nome do registro ~/.o
 - Sem clone, a leitura usa a CLI da forja já autenticada (`gh`, `glab`); nenhum token sai dela.
 - O que não foi lido sai como lacuna, com o tipo e o que fazer: máquina sem batida há mais de 3 h,
   forja sem login, sem rede. A resposta nunca diz "vazio" por não ter lido.
+- A rede da pessoa também entra (fatia 3): a seção "Rede por pessoa" traz a casa e cada máquina com a
+  batida e os projetos que declara. Um projeto que só uma máquina da rede declara pode ser pedido pelo
+  nome, mesmo sem clone nem registro nesta, e a máquina da rede que não publicou na fábrica do projeto
+  aparece com as threads não lidas (lacuna `maquina.sem-fabrica`), nunca com "0 ativas".
+  `ORK_REDE_LER=0` desliga essa leitura.
 
 ## Sair
 
@@ -153,6 +158,7 @@ gravado, para quando ela voltar.
 | A mesma máquina aparece com dois nomes | `ORK_MAQUINA` num shell diferente do nome do arquivo; `ork fabrica entrar` avisa |
 | Sem rede | `ork board --sem-remoto` e `ork fabrica --sem-remoto` mostram a última cópia, com aviso |
 | A thread entregue ainda aparece ativa | o merge não tem o assunto `ship(<thread>): ...` |
+| `ork network roadmap` mostra `maquina.sem-fabrica` | a máquina está na rede e declara o projeto, mas não publicou em `ork/fabrica-estado`: `ork fabrica entrar` no clone dela (ou atualize o `ork` dela) |
 | `ork network status` mostra `rede.sem-repositorio` | ninguém rodou `ork network entrar` ainda: a primeira máquina cria a casa |
 | A rede não publica em segundo plano | `~/.orkastery/rede/rede.log`: cada tentativa deixa uma linha, inclusive a que falhou |
 | `ork network entrar` recusa com `rede.nome-em-uso` | outra instalação já usa esse nome: escolha outro com `--maquina`, ou tome-o com `--forcar` (fica no commit). Se a mensagem diz que o retrato tem o hostname desta máquina, pode ser ela mesma com um `~/.orkastery/maquina-id` novo (retome com `--forcar`) ou outra com o mesmo hostname (escolha outro nome) |
