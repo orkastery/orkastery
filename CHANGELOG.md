@@ -222,8 +222,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no
     `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende.
 
-### Corrigido
-
 - **Leases de todas as famílias no estado canônico** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md), [FEAT-007](docs/produto/FEAT-007-worktree-e-leases.md)):
   - `main-tree`, `worktree-write`, `path`, `board`, `service` e a fila por colisão moram no `.orkastery/leases` da raiz do
     projeto: um `ork` chamado da raiz e outro de uma worktree passam a se excluir, com `lease.busy` (antes cada checkout
