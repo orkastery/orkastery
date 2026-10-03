@@ -11,9 +11,9 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 03/10 00:05 |
 | srvjcp86 | ork-rm054fatia3s | #Auto | GOAL | sem despacho | RM-054 | — | 03/10 00:05 |
 | srvjcp86 | ork-rm057fatia2c | #Auto | GOAL | sem despacho | RM-057 | — | 03/10 00:05 |
-| vps | ork-rm031grafofu | #Auto | GOAL | claude-bg opus/max | RM-031 | — | 03/10 00:10 |
-| vps | ork-rm036leasesd | #Auto | GOAL | sem despacho | RM-036 | — | 03/10 00:10 |
-| vps | ork-rm038univers | #Auto | GOAL | claude-bg opus/max | RM-038 | — | 03/10 00:10 |
-| vps | ork-versao052 | #Fast | GO | claude-bg opus/xhigh | — | — | 03/10 00:10 |
+| vps | ork-rm031grafofu | #Auto | GOAL | claude-bg opus/max | RM-031 | — | 03/10 00:11 |
+| vps | ork-rm036leasesd | #Auto | GOAL | claude-bg opus/max | RM-036 | — | 03/10 00:11 |
+| vps | ork-rm038univers | #Auto | GOAL | claude-bg opus/max | RM-038 | — | 03/10 00:11 |
+| vps | ork-versao052 | #Fast | GO | claude-bg opus/xhigh | — | — | 03/10 00:11 |
 
 Horários de Brasília.
