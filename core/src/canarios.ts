@@ -34,6 +34,7 @@ import { CANARIOS_PULSE } from './canarios-pulse';
 import { CANARIO_SENSORES } from './canarios-sensores';
 import { CANARIOS_HITL } from './canarios-hitl';
 import { CANARIOS_I43 } from './canarios-i43';
+import { fxPedidoColado } from './canarios-rm057';
 import { createObjective, reviseObjective } from './objective';
 import { discoverMaestro } from './maestro-discovery';
 import { readMaestro, runMaestroCli } from './maestro-cli';
@@ -374,6 +375,7 @@ export const CANARIOS: readonly Canario[] = [
   CANARIO_SENSORES,
   ...CANARIOS_HITL,
   ...CANARIOS_I43,
+  fxPedidoColado,
 ];
 
 /** Um canario por id, ou null quando a fixture aponta para um canario que nao existe. */
