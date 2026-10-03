@@ -12,7 +12,7 @@ import { identidadeProcesso } from '../src/adapters/codex-runner';
 import { assumirConducao, nomeDaConducao, conducaoDaThread } from '../src/conducao';
 import { regravarLease } from '../src/leases';
 import { nomeDaMaquina } from '../src/maquina';
-import { acompanharSessao, observarSessao, LIMITE_MORTE_MS, MAX_ESPERA_ERRO_WATCH_MS } from '../src/session-watcher';
+import { acompanharSessao, observarSessao, LIMITE_MORTE_MS, MAX_ESPERA_ERRO_WATCH_MS, MAX_FALHAS_WATCH } from '../src/session-watcher';
 
 const BASE = Date.parse('2026-01-01T00:00:00.000Z');
 const SID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -127,13 +127,86 @@ for (const falha of ['json-thread', 'json-state', 'ENOENT', 'lock'] as const) {
     assert.equal(esperas.length, 8);
     assert.ok(esperas.every(ms => ms > 0 && ms <= MAX_ESPERA_ERRO_WATCH_MS));
     const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
-    assert.equal(erros.length, 8);
+    assert.equal(erros.length, 2, 'somente primeira falha e resumo final');
+    assert.equal(erros[0].falhasConsecutivas, 1);
+    assert.equal(erros[1].falhasConsecutivas, 8);
+    assert.equal(erros[1].encerramento, 'recuperado');
     assert.ok(erros.every(e => e.sessionId === SID && e.transitorio === true));
     assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
     assert.ok(!JSON.stringify(erros).includes(p.dir));
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok === true).length, 1);
   });
 }
+
+for (const falha of ['state-ausente', 'controller-ausente', 'ENOENT', 'prazo'] as const) {
+  test(`RM036: falha persistente encerra sem inundar ledger (${falha})`, async t => {
+    const p = fixture(t);
+    p.run(2000);
+    if (falha === 'controller-ausente') fs.rmSync(p.controlador, { recursive: true });
+    else fs.unlinkSync(path.join(p.controlador, 'state.json'));
+    if (falha === 'ENOENT') {
+      t.mock.method(require('../src/session-events'), 'resolverSessao', () => {
+        throw Object.assign(new Error('caminho-segredo-fixture'), { code: 'ENOENT' });
+      });
+    }
+    let agora = 3000, esperas = 0;
+    await assert.rejects(acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
+      esperar: async ms => {
+        assert.ok(++esperas < MAX_FALHAS_WATCH + 2, 'retry persistente tem teto de tentativas');
+        agora += falha === 'prazo' ? LIMITE_MORTE_MS : ms;
+      } }));
+    assert.equal(esperas, falha === 'prazo' ? 1 : MAX_FALHAS_WATCH - 1);
+    const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+    assert.equal(erros.length, 2);
+    assert.equal(erros[0].etapa, 'inicial');
+    assert.equal(erros[0].falhasConsecutivas, 1);
+    assert.equal(erros[1].etapa, 'final');
+    assert.equal(erros[1].transitorio, false);
+    assert.equal(erros[1].encerramento, falha === 'prazo' ? 'prazo' : 'tentativas');
+    assert.equal(erros[1].falhasConsecutivas, esperas + 1);
+    assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
+    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
+  });
+}
+
+test('RM036: observação bem-sucedida reinicia orçamento e série de erros', async t => {
+  const p = fixture(t);
+  p.run(2000);
+  fs.unlinkSync(path.join(p.controlador, 'state.json'));
+  let agora = 3000, esperas = 0;
+  await acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + agora,
+    esperar: async ms => {
+      assert.ok(++esperas <= 2 * MAX_FALHAS_WATCH, 'duas séries precisam recuperar');
+      agora += ms;
+      if (esperas === MAX_FALHAS_WATCH - 1) {
+        agora += LIMITE_MORTE_MS - 1;
+        p.progresso(agora); p.escrever('state.json', p.state);
+      } else if (esperas === MAX_FALHAS_WATCH) fs.unlinkSync(path.join(p.controlador, 'state.json'));
+      else if (esperas === 2 * MAX_FALHAS_WATCH - 1) p.terminar(agora);
+    } });
+  const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+  assert.deepEqual(erros.map(e => e.falhasConsecutivas), [1, MAX_FALHAS_WATCH - 1, 1, MAX_FALHAS_WATCH - 1]);
+  assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok).length, 1);
+});
+
+test('RM036: falha no registro do diagnóstico não derruba retry transitório', async t => {
+  const p = fixture(t);
+  p.run(2000);
+  fs.unlinkSync(path.join(p.controlador, 'state.json'));
+  const ledger = require('../src/ledger') as typeof import('../src/ledger');
+  const registrarReal = ledger.registrarSeExiste;
+  let registros = 0, esperas = 0;
+  t.mock.method(ledger, 'registrarSeExiste', (...args: Parameters<typeof registrarReal>) => {
+    if (args[2] === 'session_watcher_error' && ++registros === 1) throw new Error('registro indisponível');
+    return registrarReal(...args);
+  });
+  await acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + 3000,
+    esperar: async () => { assert.ok(++esperas <= 1, 'retry deve recuperar na próxima observação'); p.terminar(3000); } });
+  assert.equal(registros, 2);
+  assert.equal(esperas, 1);
+  assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok).length, 1);
+  assert.equal(p.eventos().find(e => e.tipo === 'session_watcher_error')?.encerramento, 'recuperado');
+});
 
 test('RM036: erro permanente registra diagnóstico sanitizado antes de sair, sem resultado', async t => {
   const p = fixture(t);

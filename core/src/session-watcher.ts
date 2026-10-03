@@ -70,6 +70,7 @@ function semProvaNativa(snapshot: SnapshotController, terminal: TerminalCodex, f
 export const LIMITE_MORTE_MS = 600000;
 export const INTERVALO_WATCH_MS = 1000;
 export const MAX_ESPERA_ERRO_WATCH_MS = 30000;
+export const MAX_FALHAS_WATCH = 12;
 export const BLOCO_WATCH_BYTES = LIMITE_LINHA_CODEX + 65536;
 interface FonteCursor {
   file: string; ino: number; tamanho: number; offset: number;
@@ -242,14 +243,29 @@ function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean } 
   return { erro: 'falha permanente na observação; confira vínculo e fonte do sensor', transitorio: false };
 }
 const errosRegistrados = new WeakSet<object>();
-function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown): boolean {
-  if (e && typeof e === 'object' && errosRegistrados.has(e)) return true;
+interface SerieErroWatcher {
+  falhasConsecutivas: number;
+  etapa: 'inicial' | 'final';
+  encerramento?: 'recuperado' | 'tentativas' | 'prazo' | 'permanente';
+}
+function registrarErroWatcher(raiz: string, threadId: string, sessionId: string, e: unknown, serie?: SerieErroWatcher): boolean {
+  if (!serie && e && typeof e === 'object' && errosRegistrados.has(e)) return true;
   const dados = diagnosticoWatcher(e);
   const registrado = registrarSeExiste(dirThread(raiz, threadId), threadId, 'session_watcher_error', {
-    sessionId, motivo: 'runtime.unavailable', ...dados, origem: 'sessions.watch',
+    sessionId, motivo: 'runtime.unavailable', ...dados, ...serie,
+    transitorio: dados.transitorio && (!serie?.encerramento || serie.encerramento === 'recuperado'), origem: 'sessions.watch',
   });
   if (registrado && e && typeof e === 'object') errosRegistrados.add(e);
   return registrado !== null;
+}
+
+/** Falhar ao diagnosticar não troca o erro observado nem interrompe o retry transitório. */
+function tentarRegistrarErroWatcher(...args: Parameters<typeof registrarErroWatcher>): boolean {
+  try { return registrarErroWatcher(...args); } catch { return false; }
+}
+
+function observarSemDiagnostico(carregado: ManifestoCarregado, sessionId: string, opcoes: OpcoesObservacao): ResultadoWatcher {
+  return observarSessaoResolvida(carregado, sessionId, resolverSessao(carregado.raiz, sessionId, opcoes.threadId), opcoes);
 }
 
 export function observarSessao(carregado: ManifestoCarregado, sessionId: string, opcoes: OpcoesObservacao = {}): ResultadoWatcher {
@@ -259,7 +275,7 @@ export function observarSessao(carregado: ManifestoCarregado, sessionId: string,
     threadId = resolvida.thread.id;
     return observarSessaoResolvida(carregado, sessionId, resolvida, opcoes);
   } catch (e) {
-    if (threadId) registrarErroWatcher(carregado.raiz, threadId, sessionId, e);
+    if (threadId) tentarRegistrarErroWatcher(carregado.raiz, threadId, sessionId, e);
     throw e;
   }
 }
@@ -589,7 +605,7 @@ async function acompanhar(): Promise<void> {
     }
     await acompanharSessao(carregado, sessionId, { threadId });
   } catch (e) {
-    registrarErroWatcher(carregado.raiz, threadId, sessionId, e);
+    tentarRegistrarErroWatcher(carregado.raiz, threadId, sessionId, e);
     throw e;
   }
 }
@@ -600,7 +616,8 @@ export async function acompanharSessao(carregado: ManifestoCarregado, sessionId:
 }): Promise<void> {
   const dir = dirThread(carregado.raiz, opcoes.threadId);
   const esperar = opcoes.esperar ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
-  let falhas = 0;
+  const agora = opcoes.agora ?? Date.now;
+  let falhas = 0, ultimaObservacao = agora(), ultimoErro: unknown;
   for (;;) {
     // Projeto ou thread apagados encerram o laço em silêncio: nada a observar nem a recriar.
     if (!threadPresente(dir)) return;
@@ -608,14 +625,26 @@ export async function acompanharSessao(carregado: ManifestoCarregado, sessionId:
     try {
       atual = lerThread(carregado.raiz, opcoes.threadId);
       if (atual.status !== 'aberta' || atual.sessoes.at(-1)?.sessionId !== sessionId) return;
-      const r = observarSessao(carregado, sessionId, { threadId: opcoes.threadId, agoraMs: opcoes.agora?.() });
+      // O laço agrega sua série de erros; a API de observação avulsa diagnostica separadamente.
+      const r = observarSemDiagnostico(carregado, sessionId, { threadId: opcoes.threadId, agoraMs: opcoes.agora?.() });
+      if (r.ocupado) throw new Error('ingestão ocupada; tente novamente');
+      if (!r.ocupado) {
+        if (falhas) tentarRegistrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, ultimoErro,
+          { falhasConsecutivas: falhas, etapa: 'final', encerramento: 'recuperado' });
+        falhas = 0;
+        ultimaObservacao = agora();
+      }
       if (r.concluido || r.encerrado) return;
-      falhas = 0;
     } catch (e) {
       if (!threadPresente(dir)) return;
-      registrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, e);
-      if (!diagnosticoWatcher(e).transitorio) throw e;
       falhas++;
+      ultimoErro = e;
+      const encerramento = !diagnosticoWatcher(e).transitorio ? 'permanente'
+        : agora() - ultimaObservacao >= LIMITE_MORTE_MS ? 'prazo'
+        : falhas >= MAX_FALHAS_WATCH ? 'tentativas' : undefined;
+      if (falhas === 1 || encerramento) tentarRegistrarErroWatcher(carregado.raiz, opcoes.threadId, sessionId, e,
+        { falhasConsecutivas: falhas, etapa: encerramento ? 'final' : 'inicial', ...(encerramento ? { encerramento } : {}) });
+      if (encerramento) throw e;
     }
     await esperar(falhas ? Math.min(MAX_ESPERA_ERRO_WATCH_MS, INTERVALO_WATCH_MS * 2 ** Math.min(falhas - 1, 5))
       : atual?.sessoes.at(-1)?.runtime === 'claude-bg' ? INTERVALO_WATCH_CLAUDE_MS : INTERVALO_WATCH_MS);
