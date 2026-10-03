@@ -152,6 +152,48 @@ Todo comando agora diz se **rodou** (`executado`). Comando que o sistema não ch
 nunca vira verificado, mesmo com `ok: true`. A claim sai como `verify.sem-veredito` e o estado
 anterior dela não muda. Sem `verify.preparo`, nada disso muda o comportamento de antes.
 
+### Dependência opcional ausente é skip, não falha (RM-037)
+
+O `npm --prefix core test` roda também as integrações locais listadas em
+[integracoes-locais.ts](../../core/src/integracoes-locais.ts), e elas pedem ferramentas que nem toda
+máquina tem. Cada teste que depende de uma delas sonda a dependência antes e, se ela falta, sai
+como skip com o motivo, em vez de reprovar:
+
+| Dependência | O que a sonda confere | Motivo do skip |
+| --- | --- | --- |
+| Sandbox do codex | `/usr/bin/codex` existe (o binário que o executor do `verify` usa) | `skip: codex do sandbox ausente em /usr/bin/codex` |
+| Interpretador do OrkMind | `orkmind` no `PATH`, com o interpretador no shebang (a ponte Python) | `skip: interpretador do OrkMind ausente (orkmind fora do PATH)` |
+| PostgreSQL | Docker com a imagem `pgvector/pgvector:pg16`, mais o OrkMind | `skip: PostgreSQL ausente (Docker com a imagem pgvector/pgvector:pg16)` |
+
+Assim, a suíte inteira passa com 0 falhas numa máquina sem nenhuma delas, e o fim do relatório do
+`node --test` lista os skips (`ℹ skipped`); cada um aparece com `# skip: <motivo>`. Uma falha que
+sobra é de verdade, e não precisa mais ser comparada à mão com a lista da `main`.
+
+Quem quer a prova completa liga `ORK_TESTE_EXIGE_AMBIENTE=1`: nada é pulado, e o teste roda e
+reprova pela falta real. O `npm --prefix core run test:ci` liga a variável sozinho, então nenhum teste
+com o skip tipado pula no CI. Os arquivos que usam o skip ficam todos na lista das integrações
+locais, que o CI não roda, e um teste confere isso. Os dois skips anteriores, `biblioteca opcional
+ausente no CI` (em `decision-identity` e `handoff-governado`), seguem como eram: quem os torna
+obrigatórios é `ORK_I06_REQUIRE_REAL_DATABASE=1`.
+
+Para ver a conta sem ler o relatório inteiro, `node core/scripts/suite-local.cjs` roda a suíte, sai
+0 só com 0 falhas e lista cada skip com o motivo (`--minimo-de-skips N` exige ao menos N).
+
+```bash
+npm --prefix core test                                    # 0 falhas, skips com o motivo
+ORK_TESTE_EXIGE_AMBIENTE=1 npm --prefix core test         # exige as três dependências
+```
+
+O teste novo que depende de ferramenta externa usa o mesmo helper:
+
+```ts
+import { semPostgres } from './ambiente-de-teste';
+test('...', { skip: semPostgres() }, () => { /* ... */ });
+```
+
+Os atalhos são `semCodexSandbox()`, `semOrkMind()` e `semPostgres()`, em
+[ambiente-de-teste.ts](../../core/test/ambiente-de-teste.ts).
+
 ---
 
 ## 3. Os 22 motivos tipados de gate

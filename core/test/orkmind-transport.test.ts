@@ -7,6 +7,7 @@ import { DriverCliOrkMind, violacoesDeGovernanca } from '../src/orkmind';
 import { ConsultaDelimitada, EntradaNova } from '../src/types';
 import { spawnSync } from 'node:child_process';
 import { pythonFixture } from './native-fixture';
+import { semOrkMind } from './ambiente-de-teste';
 
 const sentinel = 'transport-test-secret';
 function fixture(body: string, timeoutMs = 3000, variavelDaChaveDeEmbedding?: string) {
@@ -201,7 +202,7 @@ test('query valida pedido antes de resolver executavel e preserva erros tipados 
   }
 });
 
-test('ponte Python executa uma consulta governada delimitada e recusa invalidos antes de I/O', () => {
+test('ponte Python executa uma consulta governada delimitada e recusa invalidos antes de I/O', { skip: semOrkMind() }, () => {
   const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
   const py = String.raw`
 import asyncio, importlib.util, sys
@@ -256,7 +257,7 @@ test('saude vem da operacao health da ponte, nunca de frase fixa', () => {
   } finally { malformada.limpar(); }
 });
 
-test('ponte Python responde health com contagens, versao e dependencias, sem torch nem rede', () => {
+test('ponte Python responde health com contagens, versao e dependencias, sem torch nem rede', { skip: semOrkMind() }, () => {
   const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
   const py = String.raw`
 import asyncio, importlib.util, sys
@@ -282,7 +283,7 @@ print('ponte health: contagens, versao e dependencias sem importar torch')
   assert.match(r.stdout, /ponte health:/);
 });
 
-test('ponte Python responde fts so com ids do tenant, na ordem do ranking, e prova ausencia sem corte', () => {
+test('ponte Python responde fts so com ids do tenant, na ordem do ranking, e prova ausencia sem corte', { skip: semOrkMind() }, () => {
   const source = path.resolve(__dirname, '../../assets/orkmind_bridge.py');
   const py = String.raw`
 import asyncio, importlib.util, sys
