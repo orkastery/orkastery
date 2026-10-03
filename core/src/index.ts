@@ -239,6 +239,8 @@ import {
   linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
   resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
+import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
+  recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
 import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -334,6 +336,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
   setup sandbox [confirmar <postura>|revogar]  Postura de sandbox desta maquina (RM-047): runtime.sandbox que afrouxa
                                             (danger-full-access) so despacha com a confirmacao local, fora do git
+  setup worktree [confirmar [<dir>]|revogar]  Pasta das worktrees desta maquina (RM-047): worktree.dir fora da raiz
+                                            so cria checkout com a confirmacao local, fora do git
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
 
@@ -1078,6 +1082,37 @@ function comandoSetup(args: Args): number {
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
     console.log(`Setup versionado em ${r.caminho}.`);
     console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    return 0;
+  }
+  if (modoBruto === 'worktree') {
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
+      if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
+      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
+      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarWorktreeLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
+    const local = lerWorktreeLocal(raiz);
+    const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
+    if (json) {
+      console.log(JSON.stringify({ manifesto: carregado.manifesto.worktree.dir, dir: pedida.dir, dentroDaRaiz: pedida.dentro,
+        confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
+      return 0;
+    }
+    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
+    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
     return 0;
   }
   if (modoBruto === 'sandbox') {

@@ -56,6 +56,8 @@ nesta máquina. E o estado de `.orkastery/` versionado no git não escolhe onde 
 executável do pulse e do digest: o cwd só vale na raiz ou numa worktree registrada no `git worktree list`.
 Os ponteiros que o estado guarda (o `location` do `handoff.json`, o arquivo de uma claim, o prompt de uma
 sessão) só leem arquivo que, pelo caminho real, fica na raiz do projeto ou na worktree registrada da thread.
+O `worktree.dir` que leva para fora da raiz (pelo caminho real) só cria checkout depois de
+`ork setup worktree confirmar` nesta máquina.
 
 ---
 

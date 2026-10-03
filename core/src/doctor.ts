@@ -30,6 +30,7 @@ import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
+import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -473,6 +474,14 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     // sandbox que nao executa) deixa de ser aviso: e exatamente o que bloquearia a fase.
     const despachoPeloCodex = checarDespachoPeloCodex(carregado, codex, sondaDoCodex);
     if (despachoPeloCodex) checks.push(despachoPeloCodex);
+
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao local desta maquina.
+    const recusaDaPasta = recusaDePastaDasWorktrees(carregado.raiz, carregado.manifesto);
+    if (recusaDaPasta) {
+      checks.push({ nome: 'pasta das worktrees', nivel: 'fail',
+        detalhe: `worktree.dir "${carregado.manifesto.worktree.dir}" leva para fora da raiz e esta maquina nao confirmou: a criacao de worktree recusa com worktree.dir-fora-da-raiz`,
+        correcao: `${COMANDO_CONFIRMAR_WORKTREE}, ou volte worktree.dir para dentro do projeto` });
+    }
 
     const politica = carregado.manifesto.runtime.provider_policy;
     const soAssinatura = politica === 'subscription-only';

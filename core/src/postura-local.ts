@@ -65,35 +65,49 @@ export function comandoDeConfirmacao(postura: string): string {
 }
 
 /**
+ * RM-047 (P3): lê um arquivo de `.orkastery/private/` com as regras da confirmação local: pasta 0700 e
+ * arquivo 0600 do próprio usuário, nunca link, nunca rastreado pelo git, até 4 KiB e JSON válido.
+ * Devolve o objeto cru, ou `null` com o motivo.
+ */
+export function lerArquivoPrivado(raiz: string, nome: string): { bruto: Record<string, unknown> | null; motivo: string | null } {
+  const pasta = pastaPrivadaDaPostura(raiz), arquivo = path.join(pasta, nome);
+  const stPasta = fs.lstatSync(pasta, { throwIfNoEntry: false });
+  if (!stPasta) return { bruto: null, motivo: 'sem confirmação local' };
+  const dono = uid();
+  if (!stPasta.isDirectory() || stPasta.isSymbolicLink() || (dono !== null && stPasta.uid !== dono) ||
+      (stPasta.mode & 0o077) !== 0) return { bruto: null, motivo: '.orkastery/private precisa ser pasta 0700 do próprio usuário' };
+  const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
+  if (!st) return { bruto: null, motivo: 'sem confirmação local' };
+  if (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1 || (dono !== null && st.uid !== dono) ||
+      (st.mode & 0o077) !== 0 || st.size > LIMITE_BYTES) {
+    return { bruto: null, motivo: `${nome} precisa ser arquivo 0600 do próprio usuário` };
+  }
+  if (rastreadoPeloGit(raiz, arquivo)) {
+    return { bruto: null, motivo: `${nome} está versionado no git e não vale como confirmação local` };
+  }
+  let bruto: unknown;
+  try { bruto = JSON.parse(fs.readFileSync(arquivo, 'utf8')); } catch { return { bruto: null, motivo: `${nome} com JSON inválido` }; }
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return { bruto: null, motivo: `${nome} com JSON inválido` };
+  return { bruto: bruto as Record<string, unknown>, motivo: null };
+}
+
+/** Caminho real da raiz de estado: a confirmação local vale só para o checkout que a gravou. */
+export function raizRealDoEstado(raiz: string): string {
+  try { return fs.realpathSync(raizDoEstado(raiz)); } catch { return path.resolve(raiz); }
+}
+
+/**
  * Lê a confirmação local. `null` quando ela não existe ou não vale (pasta ou arquivo com dono ou modo
  * errado, link, rastreado pelo git, JSON inválido, outra raiz); o motivo vai em `motivo`.
  */
 export function lerPosturaLocal(raiz: string): { postura: PosturaLocal | null; motivo: string | null } {
-  const pasta = pastaPrivadaDaPostura(raiz), arquivo = caminhoDaPosturaLocal(raiz);
-  const stPasta = fs.lstatSync(pasta, { throwIfNoEntry: false });
-  if (!stPasta) return { postura: null, motivo: 'sem confirmação local' };
-  const dono = uid();
-  if (!stPasta.isDirectory() || stPasta.isSymbolicLink() || (dono !== null && stPasta.uid !== dono) ||
-      (stPasta.mode & 0o077) !== 0) return { postura: null, motivo: '.orkastery/private precisa ser pasta 0700 do próprio usuário' };
-  const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
-  if (!st) return { postura: null, motivo: 'sem confirmação local' };
-  if (!st.isFile() || st.isSymbolicLink() || st.nlink !== 1 || (dono !== null && st.uid !== dono) ||
-      (st.mode & 0o077) !== 0 || st.size > LIMITE_BYTES) {
-    return { postura: null, motivo: `${ARQUIVO_POSTURA_LOCAL} precisa ser arquivo 0600 do próprio usuário` };
-  }
-  if (rastreadoPeloGit(raiz, arquivo)) {
-    return { postura: null, motivo: `${ARQUIVO_POSTURA_LOCAL} está versionado no git e não vale como confirmação local` };
-  }
-  let bruto: unknown;
-  try { bruto = JSON.parse(fs.readFileSync(arquivo, 'utf8')); } catch { return { postura: null, motivo: `${ARQUIVO_POSTURA_LOCAL} com JSON inválido` }; }
-  const o = bruto as Record<string, unknown>;
-  if (!o || typeof o !== 'object' || o.contrato !== CONTRATO_POSTURA_LOCAL || typeof o.sandbox !== 'string' ||
+  const { bruto: o, motivo } = lerArquivoPrivado(raiz, ARQUIVO_POSTURA_LOCAL);
+  if (!o) return { postura: null, motivo };
+  if (o.contrato !== CONTRATO_POSTURA_LOCAL || typeof o.sandbox !== 'string' ||
       typeof o.raiz !== 'string' || typeof o.confirmadoEm !== 'string' || typeof o.por !== 'string') {
     return { postura: null, motivo: `${ARQUIVO_POSTURA_LOCAL} fora do contrato ${CONTRATO_POSTURA_LOCAL}` };
   }
-  let raizReal: string;
-  try { raizReal = fs.realpathSync(raizDoEstado(raiz)); } catch { raizReal = path.resolve(raiz); }
-  if (o.raiz !== raizReal) return { postura: null, motivo: 'a confirmação local é de outro checkout' };
+  if (o.raiz !== raizRealDoEstado(raiz)) return { postura: null, motivo: 'a confirmação local é de outro checkout' };
   return { postura: o as unknown as PosturaLocal, motivo: null };
 }
 
@@ -115,12 +129,12 @@ export function recusaDePostura(raiz: string, manifesto: Pick<Manifesto, 'runtim
     ` (ou volte o manifesto para ${SANDBOX_PADRAO}).`;
 }
 
-/** Grava a confirmação local de uma postura de sandbox para este checkout. */
-export function confirmarPosturaLocal(raiz: string, sandbox: string, por: string): PosturaLocal {
-  if (!(SANDBOXES_DO_CODEX as readonly string[]).includes(sandbox)) {
-    throw new Error(`runtime.sandbox-invalido: "${sandbox}" (aceitos: ${SANDBOXES_DO_CODEX.join(', ')})`);
-  }
-  const pasta = pastaPrivadaDaPostura(raiz), arquivo = caminhoDaPosturaLocal(raiz);
+/**
+ * RM-047 (P3): grava um objeto em `.orkastery/private/<nome>` com as regras da confirmação local
+ * (pasta 0700, arquivo 0600 por temporário exclusivo e `rename`, nunca seguindo link).
+ */
+export function gravarArquivoPrivado(raiz: string, nome: string, objeto: object): void {
+  const pasta = pastaPrivadaDaPostura(raiz), arquivo = path.join(pasta, nome);
   const estado = path.dirname(pasta);
   const stEstado = fs.lstatSync(estado, { throwIfNoEntry: false });
   if (stEstado && (!stEstado.isDirectory() || stEstado.isSymbolicLink())) throw new Error('estado.link: .orkastery precisa ser pasta de verdade');
@@ -130,24 +144,35 @@ export function confirmarPosturaLocal(raiz: string, sandbox: string, por: string
   if (!stPasta.isDirectory() || stPasta.isSymbolicLink()) throw new Error('estado.link: .orkastery/private precisa ser pasta de verdade');
   fs.chmodSync(pasta, 0o700);
   if (rastreadoPeloGit(raiz, arquivo)) {
-    throw new Error(`estado.rastreado: ${ARQUIVO_POSTURA_LOCAL} está versionado no git; tire-o do índice (git rm --cached) antes de confirmar`);
+    throw new Error(`estado.rastreado: ${nome} está versionado no git; tire-o do índice (git rm --cached) antes de confirmar`);
   }
-  let raizReal: string;
-  try { raizReal = fs.realpathSync(raizDoEstado(raiz)); } catch { raizReal = path.resolve(raiz); }
-  const postura: PosturaLocal = { contrato: CONTRATO_POSTURA_LOCAL, sandbox, raiz: raizReal, confirmadoEm: agora(), por };
-  const temp = path.join(pasta, `.${ARQUIVO_POSTURA_LOCAL}.${randomUUID()}.tmp`);
+  const temp = path.join(pasta, `.${nome}.${randomUUID()}.tmp`);
   const fd = fs.openSync(temp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
-  try { fs.fchmodSync(fd, 0o600); fs.writeFileSync(fd, JSON.stringify(postura, null, 2) + '\n'); fs.fsyncSync(fd); }
+  try { fs.fchmodSync(fd, 0o600); fs.writeFileSync(fd, JSON.stringify(objeto, null, 2) + '\n'); fs.fsyncSync(fd); }
   finally { fs.closeSync(fd); }
   fs.renameSync(temp, arquivo);
+}
+
+/** Apaga um arquivo de `.orkastery/private/`; devolve se havia um. */
+export function revogarArquivoPrivado(raiz: string, nome: string): boolean {
+  const arquivo = path.join(pastaPrivadaDaPostura(raiz), nome);
+  const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
+  if (!st) return false;
+  fs.rmSync(arquivo, { force: true });
+  return true;
+}
+
+/** Grava a confirmação local de uma postura de sandbox para este checkout. */
+export function confirmarPosturaLocal(raiz: string, sandbox: string, por: string): PosturaLocal {
+  if (!(SANDBOXES_DO_CODEX as readonly string[]).includes(sandbox)) {
+    throw new Error(`runtime.sandbox-invalido: "${sandbox}" (aceitos: ${SANDBOXES_DO_CODEX.join(', ')})`);
+  }
+  const postura: PosturaLocal = { contrato: CONTRATO_POSTURA_LOCAL, sandbox, raiz: raizRealDoEstado(raiz), confirmadoEm: agora(), por };
+  gravarArquivoPrivado(raiz, ARQUIVO_POSTURA_LOCAL, postura);
   return postura;
 }
 
 /** Apaga a confirmação local; devolve se havia uma. */
 export function revogarPosturaLocal(raiz: string): boolean {
-  const arquivo = caminhoDaPosturaLocal(raiz);
-  const st = fs.lstatSync(arquivo, { throwIfNoEntry: false });
-  if (!st) return false;
-  fs.rmSync(arquivo, { force: true });
-  return true;
+  return revogarArquivoPrivado(raiz, ARQUIVO_POSTURA_LOCAL);
 }

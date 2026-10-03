@@ -18,6 +18,27 @@ import { dirTemporario } from '../src/sandbox';
 import { gravarThread, lerThread, novaThread } from '../src/thread';
 import { exportarHandoff, recall } from '../src/handoff';
 import { adicionarClaim } from '../src/claims';
+import { garantirWorktree } from '../src/worktree';
+import { exec } from '../src/util';
+import { spawnSync } from 'node:child_process';
+import { ProjetoDeTeste } from './apoio';
+
+const CLI = path.resolve(__dirname, '../../dist/index.js');
+const ork = (dir: string, ...args: string[]) => {
+  const env = { ...process.env };
+  delete env.ORK_PROJETO;
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env });
+};
+
+/** O manifesto do repositório pede a pasta das worktrees em `dir`, como um clone de terceiro poderia pedir. */
+function pastaDasWorktrees(p: ProjetoDeTeste, dir: string): void {
+  const manifesto = path.join(p.dir, 'orkastery.yaml');
+  const texto = fs.readFileSync(manifesto, 'utf8');
+  const novo = texto.replace(/^(\s+dir:\s*).*$/m, `$1${JSON.stringify(dir)}`);
+  assert.notEqual(novo, texto, 'o manifesto de teste tem worktree.dir');
+  fs.writeFileSync(manifesto, novo);
+  p.carregado.manifesto.worktree.dir = dir;
+}
 
 /** Um arquivo fora do projeto, com um conteúdo que não pode aparecer em nenhuma saída do `ork`. */
 function arquivoDeFora(nome: string): { dir: string; arquivo: string; conteudo: string } {
@@ -78,3 +99,56 @@ test('P2: o export do handoff não aponta para arquivo de claim nem prompt fora 
   } finally { p.limpar(); fs.rmSync(fora.dir, { recursive: true, force: true }); }
 });
 
+
+test('P3: worktree.dir do manifesto fora da raiz não cria checkout sem a confirmação local', () => {
+  const p = projetoTemporario('p3-dir-fora');
+  const fora = dirTemporario('p3-dir-fora-alvo');
+  try {
+    for (const dir of [path.relative(p.dir, fora), fora]) {
+      pastaDasWorktrees(p, dir);
+      const t = novaThread(p.carregado, { nome: `p3 ${dir.length}`, modo: 'auto' }).thread;
+      assert.throws(() => garantirWorktree(p.carregado, t.id), /^Error: worktree\.dir-fora-da-raiz: .*ork setup worktree confirmar/);
+      assert.deepEqual(fs.readdirSync(fora), [], 'nada foi criado fora da raiz');
+    }
+  } finally { p.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
+});
+
+test('P3: um link no caminho de worktree.dir não leva o checkout para fora da raiz', () => {
+  const p = projetoTemporario('p3-dir-link');
+  const fora = dirTemporario('p3-dir-link-alvo');
+  try {
+    fs.symlinkSync(fora, path.join(p.dir, 'pasta-link'));
+    pastaDasWorktrees(p, 'pasta-link/worktrees');
+    const t = novaThread(p.carregado, { nome: 'p3 link', modo: 'auto' }).thread;
+    assert.throws(() => garantirWorktree(p.carregado, t.id), /^Error: worktree\.dir-fora-da-raiz: /);
+    assert.deepEqual(fs.readdirSync(fora), []);
+  } finally { p.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
+});
+
+test('P3: a confirmação local libera a pasta de fora nesta máquina; versionada no git ou revogada, não vale', () => {
+  const p = projetoTemporario('p3-dir-confirmada');
+  const fora = dirTemporario('p3-dir-confirmada-alvo');
+  try {
+    pastaDasWorktrees(p, fora);
+    const conf = ork(p.dir, 'setup', 'worktree', 'confirmar', fora, '--por', 'teste');
+    assert.equal(conf.status, 0, conf.stderr + conf.stdout);
+    const arquivo = path.join(p.dir, '.orkastery', 'private', 'worktree-local.json');
+    assert.equal(fs.statSync(arquivo).mode & 0o777, 0o600);
+    const t = novaThread(p.carregado, { nome: 'p3 confirmada', modo: 'auto' }).thread;
+    const w = garantirWorktree(p.carregado, t.id);
+    assert.equal(w.ok, true, w.detalhe);
+    assert.equal(fs.realpathSync(path.dirname(w.dir)), fs.realpathSync(fora));
+
+    // A mesma confirmação, vinda no índice do git, é estado do repositório e não da máquina.
+    const r = exec('git', ['add', '-f', '--', '.orkastery/private/worktree-local.json'], p.dir);
+    assert.equal(r.ok, true, r.stderr);
+    const t2 = novaThread(p.carregado, { nome: 'p3 versionada', modo: 'auto' }).thread;
+    assert.throws(() => garantirWorktree(p.carregado, t2.id), /^Error: worktree\.dir-fora-da-raiz: .*versionado no git/);
+    exec('git', ['rm', '-q', '--cached', '--', '.orkastery/private/worktree-local.json'], p.dir);
+    assert.equal(ork(p.dir, 'setup', 'worktree', 'revogar').status, 0);
+    assert.throws(() => garantirWorktree(p.carregado, t2.id), /^Error: worktree\.dir-fora-da-raiz: /);
+    const s = ork(p.dir, 'setup', 'worktree', '--json');
+    assert.equal(s.status, 0, s.stderr);
+    assert.equal(JSON.parse(s.stdout).criacao, 'recusada');
+  } finally { p.limpar(); fs.rmSync(fora, { recursive: true, force: true }); }
+});
