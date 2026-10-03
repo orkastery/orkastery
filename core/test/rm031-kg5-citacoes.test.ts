@@ -169,11 +169,18 @@ function provarSondasRestritas(extrair = extrairGrafo): void {
     'docs/ruido.md': '`core` `docs` `../..` `core/src/alvo` `core/src/sem-extensao` `core/src/nao-conhecida.xyz` `core/src/nao-conhecida.ctsx` `core/src/pasta.ts`',
     'core/test/caminho.test.ts': "export const arquivo = 'core/src/alvo.ts';",
     'core/test/fixture.test.ts': 'export const codigo = "require(\'../dist/alvo\')";',
+    'core/test/pacotes.test.ts': "export {}; require('zod'); import('typescript'); require('@scope/pacote');",
+    'core/test/fixture-pacotes.test.ts': 'export const codigo = "require(\'zod\'); import(\'typescript\'); require(\'core/src/alvo\');";',
   };
   const r = extrair(entrada(repo), PARSER);
   const ruido = r.unidades.arquivos.find((u) => u.path === 'core/test/ruido.test.ts')!.ts!;
   assert.deepEqual(ruido.sondas, [], 'palavras, diretorios e caminhos sem extensao nao geram sondas');
   assert.deepEqual(ruido.dependencias, []);
+  for (const arquivo of ['core/test/pacotes.test.ts', 'core/test/fixture-pacotes.test.ts']) {
+    const pacote = r.unidades.arquivos.find((u) => u.path === arquivo)!.ts!;
+    assert.deepEqual(pacote.sondas, [], `${arquivo}: nomes de pacote nao geram candidatos locais`);
+    assert.deepEqual(pacote.dependencias, []);
+  }
   assert.deepEqual(rotulos(r.grafo), ['core/test/caminho.test.ts -> core/src/alvo.ts', 'core/test/fixture.test.ts -> core/src/alvo.ts']);
   const caminho = r.unidades.arquivos.find((u) => u.path === 'core/test/caminho.test.ts')!.ts!;
   assert.deepEqual(caminho.sondas, ['core/src/alvo.ts'], 'caminho com extensao nao expande 17 candidatos');
@@ -186,9 +193,13 @@ test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas 
   provarSondasRestritas();
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', '!modulo && (', 'false && ('],
+    ['intelligence-graph-extract-md', 'if (modulo &&', 'if (false &&'],
     ['intelligence-graph-extract-md', '[cm]?[jt]s|[jt]sx', '[cm]?[jt]sx?'],
     ['intelligence-graph-extract-ts', 'grupo.filter((p) => !diretorios.has(p))', 'grupo'],
-  ]) assert.throws(() => provarSondasRestritas(mutante(modulo, antes, depois)), antes);
+  ]) {
+    const extrair = mutante(modulo, antes, depois);
+    assert.throws(() => provarSondasRestritas(extrair), antes);
+  }
 });
 
 /** Mutantes carregados em memoria, sem tocar nos arquivos nem no cache do Node. */
