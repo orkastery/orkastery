@@ -4,6 +4,8 @@
  * explicita segue sem parar.
  */
 import { strict as assert } from 'node:assert';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { test } from 'node:test';
 import { projetoTemporario } from './apoio';
 import { CONTRATO_HITL_V2, PerguntaAoDono } from '../src/hitl-contract';
@@ -115,4 +117,39 @@ test('ork ledger stats traz hitlDeConducao no JSON e a linha com a meta no texto
     assert.ok(texto.includes(linhaDoHitlDeConducao(r.hitlDeConducao)));
     assert.match(texto, /HITL de conducao 1 pergunta\(s\); parado 0\.20 h; mediana 12\.0 min \(acima da meta de 5 min\)/);
   } finally { p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// A regra nos prompts dos adaptadores: OpenClaw e Hermes nesta fatia; Claude Code e Codex na fatia 1.
+// ---------------------------------------------------------------------------
+
+const catalogo = path.resolve(__dirname, '../../..');
+const ler = (rel: string) => fs.readFileSync(path.join(catalogo, rel), 'utf8');
+const umaLinha = (s: string) => s.replace(/\s+/g, ' ');
+
+function regraDaFatia1(): string {
+  const md = ler('adapters/claude-code/commands/ork.md');
+  const i = md.indexOf('HITL de condução é seleção (RM-057)');
+  assert.ok(i >= 0);
+  return umaLinha(md.slice(i, md.indexOf('comando exato.', i) + 'comando exato.'.length));
+}
+
+test('a skill do Hermes diz a regra do HITL de condução com a frase dos outros adaptadores, e as letras vão até e', () => {
+  const skill = ler('adapters/hermes/skills/orkastery-devmaster/SKILL.md');
+  assert.ok(umaLinha(skill).includes(regraDaFatia1()));
+  assert.doesNotMatch(skill, /objetivas a–d/);
+  assert.match(skill, /de 3 a 5 alternativas a–e e uma "Recomendação"/);
+});
+
+test('o OpenClaw diz a regra nas descrições de três tools, no src e no dist commitado', () => {
+  const regra = regraDaFatia1();
+  for (const rel of ['adapters/openclaw/src/index.ts', 'adapters/openclaw/dist/index.js']) {
+    const texto = ler(rel);
+    const m = /const REGRA_HITL_DE_CONDUCAO =([\s\S]*?);\n/.exec(texto);
+    assert.ok(m, rel);
+    const frase = [...m[1].matchAll(/'([^']*)'/g)].map(x => x[1]).join('');
+    assert.equal(umaLinha(frase), regra, rel);
+    assert.equal((texto.match(/\+ REGRA_HITL_DE_CONDUCAO|^\s*REGRA_HITL_DE_CONDUCAO,/gm) ?? []).length, 3, rel);
+  }
+  assert.ok(umaLinha(ler('adapters/openclaw/README.md')).includes('o pedido que ele colou com autorização explícita vale como instrução dele'));
 });

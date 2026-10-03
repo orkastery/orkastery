@@ -21,6 +21,14 @@ interno. Telegram é opcional. Só anuncie ingresso humano disponível quando o 
 do host estiver homologado e configurado; texto de tool não é identidade humana.
 Sem ingresso no canal escolhido, conserve o pedido pendente e explique o motivo.
 Não altere runtime, provider, perfil filho ou sandbox para contornar falha.
+
+HITL de condução é seleção (RM-057): de 3 a 5 alternativas, exatamente uma com o selo
+"Recomendação". Nunca peça ao dono um "confirmo" em texto livre nem que ele cole texto; o pedido
+que ele colou com autorização explícita vale como instrução dele, dentro dessa autorização.
+Dúvida dentro da autorização vira `ork decisao registrar` e a thread segue. Texto só quando a
+fábrica não consegue seguir sozinha e o dono precisa rodar um comando no terminal: mostre o
+comando exato.
+
 Horário para o dono sai no fuso dele (`owner.timezone`): use `prazoLocal` e os fatos
 `*Local` do JSON (ex.: `19/09 15:16 (horário de Brasília)`), nunca o ISO em UTC.
 Status do roadmap: `ork_network_roadmap` (`ork network roadmap --projeto <nome>`, ou `--projeto github:dono/repo` sem clone), com as threads de todas as máquinas, reservas, fonte e hora de cada parte e lacunas, texto como vem; `ork_roadmap_status` (`ork roadmap status --projeto <nome>`) é só desta máquina. Nunca relatório próprio nem dedução pelo board ou panorama: zero threads nunca é roadmap vazio, e lacuna ou "Não consultado" nunca vira "roadmap vazio" nem "nenhuma máquina publicou".
@@ -121,7 +129,7 @@ python3 adapters/hermes/bin/ork-hitl-answer.py ork_session_answer <thread> <pedi
 
 O nucleo monta e o Hermes so transporta: (1) UM resumo recorrente com as contagens e
 `Posso te mandar as perguntas agora?`; (2) o dono responde com o codigo e a letra (`K7QX a`);
-(3) com o sim, ate cinco objetivas a–d com uma recomendada, respondidas numa linha (`1a 2c 3b`).
+(3) com o sim, ate cinco objetivas, cada uma com de 3 a 5 alternativas a–e e uma "Recomendação", respondidas numa linha (`1a 2c 3b`).
 Decisao obvia chega tomada e informada no resumo (`ork decisao registrar`). Cadencia (I-50): so a tag na mensagem (`#OrkPulseOff` 8h, `#OrkPulseOn` 2h, `#OrkPulseOn-15m`, `-30m`, `-60m`); pedida no meio da frase, devolva a tag exata para o dono mandar sozinha.
 
 O plugin `orkastery-hitl` registra essas formas, a resposta numerada em prosa curta (`1. B, 2. A`,
