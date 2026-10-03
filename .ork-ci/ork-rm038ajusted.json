@@ -15,7 +15,7 @@
         "npm --prefix core run build && npm --prefix core run build:test && python3 core/scripts/prova-rm038-avisos.py"
       ],
       "criadoEm": "2026-10-03T06:10:24.772Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -29,7 +29,7 @@
         "npm --prefix core run build:test && node --test --test-name-pattern=\"rm038 universo: cli retorna\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:10:25.039Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -43,7 +43,7 @@
         "npm --prefix core run build:test && node --test --test-name-pattern=\"rm038 universo: (manifesto|transporte aplica|normalizacao|dominio|invariante|indice|busca|status)\" core/dist-test/test/rm038-universo.test.js"
       ],
       "criadoEm": "2026-10-03T06:10:25.316Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -57,6 +57,132 @@
         "grep -q \"universo_timeout_ms\" docs/referencia/cli.md && grep -q \"Avisos da rodada 2\" CHANGELOG.md && grep -q \"Ajuste da rodada 2\" docs/roadmap/RM-038-busca-semantica-na-memoria.md"
       ],
       "criadoEm": "2026-10-03T06:10:25.613Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "RM-038 avisos da rodada 3: o instante da leitura do universo vai junto (lidoEm) para o conferirUniverso nos três pontos; a busca com a memória desligada sai 1, documentada e testada; o prazo do universo tem teto e o driver cai no padrão com valor não positivo; o script de prova imprime o motivo antes de sair",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:20:48.157Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/busca-semantica.ts",
+      "alegacao": "RM-038 avisos da rodada 3: o instante da leitura do universo vai junto (lidoEm) para o conferirUniverso nos três pontos; a busca com a memória desligada sai 1, documentada e testada; o prazo do universo tem teto e o driver cai no padrão com valor não positivo; o script de prova imprime o motivo antes de sair",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:20:48.442Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/manifest.ts",
+      "alegacao": "RM-038 avisos da rodada 3: o instante da leitura do universo vai junto (lidoEm) para o conferirUniverso nos três pontos; a busca com a memória desligada sai 1, documentada e testada; o prazo do universo tem teto e o driver cai no padrão com valor não positivo; o script de prova imprime o motivo antes de sair",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:20:48.731Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/test/rm038-universo.test.ts",
+      "alegacao": "RM-038 avisos da rodada 3: o instante da leitura do universo vai junto (lidoEm) para o conferirUniverso nos três pontos; a busca com a memória desligada sai 1, documentada e testada; o prazo do universo tem teto e o driver cai no padrão com valor não positivo; o script de prova imprime o motivo antes de sair",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:20:48.999Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/prova-busca-semantica.sh",
+      "alegacao": "RM-038 avisos da rodada 3: o instante da leitura do universo vai junto (lidoEm) para o conferirUniverso nos três pontos; a busca com a memória desligada sai 1, documentada e testada; o prazo do universo tem teto e o driver cai no padrão com valor não positivo; o script de prova imprime o motivo antes de sair",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test --test-name-pattern=\"rm038 universo\" core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:20:49.274Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "RM-038 rodada 3: UniversoDaBusca preserva o instante anterior a leitura e a cobertura do status valida expiracao nesse instante, como indice e busca.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='rm038 universo: instante' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:22:56.976Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "RM-038 rodada 3: UniversoDaBusca preserva o instante anterior a leitura e a cobertura do status valida expiracao nesse instante, como indice e busca.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test --test-name-pattern='rm038 universo: instante' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:22:57.040Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-038 rodada 3: documenta saida 1 com memoria inativa nos motivos modo.files, dsn.env-ausente e orkmind.indisponivel e a resposta de erro preservada pela prova.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const fs=require('fs'); for(const f of ['CHANGELOG.md','docs/referencia/cli.md']) for(const s of ['modo.files','dsn.env-ausente','orkmind.indisponivel','prova-busca-semantica.sh']) if(!fs.readFileSync(f,'utf8').includes(s)) process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-03T06:28:21.893Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm038ajusted",
+      "fase": "GO",
+      "arquivo": "core/scripts/prova-rm038-avisos.py",
+      "alegacao": "RM-038 rodada 3: prova hermetica derruba 29 mutantes TS/Bash das rodadas 2 e 3, incluindo instante em todos os consumidores e segundo alvo, memoria inativa, falha impressa em cada busca, teto e fallback do prazo; preserva os originais.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && python3 core/scripts/prova-rm038-avisos.py --grupo ts"
+      ],
+      "criadoEm": "2026-10-03T06:33:05.023Z",
       "estado": "pendente",
       "lint": []
     }
