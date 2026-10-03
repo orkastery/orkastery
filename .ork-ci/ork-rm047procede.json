@@ -87,6 +87,76 @@
       "criadoEm": "2026-10-03T06:02:10.031Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/test/fronteira-pendentes.test.ts",
+      "alegacao": "pendentes da fronteira de ponta a ponta: os ponteiros do recall e do handoff só leem dentro do projeto (P2), worktree.dir fora da raiz só com a confirmação local (P3), ork eval só executa o catálogo do pacote (P4) e fabrica.compartilhada do manifesto não liga a publicação (P5)",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/fronteira-pendentes.test.js > /tmp/ork-p2p5.log 2>&1; grep -qx '# pass 8' /tmp/ork-p2p5.log && grep -qx '# fail 0' /tmp/ork-p2p5.log"
+      ],
+      "criadoEm": "2026-10-03T06:41:06.212Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/test/fronteira-pendentes.test.ts",
+      "alegacao": "os 8 testes de fronteira-pendentes reprovam no código anterior (a base da main, sem a correção)",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d)/antes && git worktree add -q --detach \"$d\" \"$(git merge-base HEAD origin/main)\" && ln -s \"$PWD/core/node_modules\" \"$d/core/node_modules\" && cp core/test/fronteira-pendentes.test.ts \"$d/core/test/\" && (cd \"$d/core\" && npm run build >/dev/null && npm run build:test >/dev/null; node --test --test-reporter=tap dist-test/test/fronteira-pendentes.test.js > /tmp/ork-p2p5-antes.log 2>&1); git worktree remove --force \"$d\"; grep -qx \"# fail 8\" /tmp/ork-p2p5-antes.log && grep -qx \"# pass 0\" /tmp/ork-p2p5-antes.log"
+      ],
+      "criadoEm": "2026-10-03T06:41:06.510Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/src/catalogo.ts",
+      "alegacao": "o eval do CI do kit (node core/dist/index.js eval na raiz do checkout) segue verde com o catálogo ancorado no pacote",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js eval > /tmp/ork-eval.log 2>&1 && grep -q 'VEREDITO: verde' /tmp/ork-eval.log"
+      ],
+      "criadoEm": "2026-10-03T06:41:17.848Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/src/maquina.ts",
+      "alegacao": "a fábrica compartilhada segue funcionando com a adesão da máquina, e a confirmação local do P1 segue igual depois de a pasta privada virar helper comum",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/fabrica-estado.test.js core/dist-test/test/postura-local.test.js core/dist-test/test/procedencia-e-postura.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:41:18.213Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/fronteira-de-confianca.md",
+      "alegacao": "matriz, SECURITY, CHANGELOG (Segurança, Não publicado) e referência da CLI descrevem P2 a P5 corrigidos em decisão do dono, e nenhuma linha das matrizes segue pendente do dono",
+      "negativa": true,
+      "verificar": [
+        "! grep -q 'Pendente do dono\\*\\* (P' docs/referencia/fronteira-de-confianca.md && test $(grep -c '^| P[1-5] .*Corrigido, em decisão do dono' docs/referencia/fronteira-de-confianca.md) -eq 5 && grep -q 'ork setup worktree confirmar' SECURITY.md && grep -q 'ork fabrica entrar' SECURITY.md && grep -q 'ork setup worktree' docs/referencia/cli.md && awk '/^## Não publicado/{f=1} /^## \\[/{f=0} f' CHANGELOG.md > /tmp/ork-naopub.md && for c in ponteiro.fora-da-raiz worktree.dir-fora-da-raiz eval.catalogo-alheio fabrica.nao-confirmada; do grep -qF \"$c\" /tmp/ork-naopub.md || exit 1; done"
+      ],
+      "criadoEm": "2026-10-03T06:41:41.084Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [
