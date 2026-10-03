@@ -27,6 +27,7 @@ import {
   type CabecalhoDoIndice, type RespostaDeConsulta, type Sentido,
 } from './intelligence-graph-query';
 import { headsDasArvores, revisaoDaArvore } from './intelligence-graph-repo';
+import { CONTEXTO_SCHEMA, pacoteDeContexto, type EntradaDoContexto } from './intelligence-graph-contexto';
 
 export const STATUS_SCHEMA = 'ork.code-graph-index-status/v0' as const;
 
@@ -87,6 +88,7 @@ export const AMOSTRA_SCHEMA = 'ork.graph-edge-audit-sample/v0' as const;
 export const USO_DO_GRAFO = [
   'uso: ork grafo indexar [--verificar] [--forcar] [--json]',
   '     ork grafo status [--json]',
+  '     ork grafo contexto <thread> [--json [--teto-bytes N]]',
   '     ork grafo vizinhos <no> [--profundidade N] [--sentido entrada|saida|ambos] [--tipo T,...] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo chamadores <simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
   '     ork grafo importadores <arquivo|simbolo> [--profundidade N] [--limite N] [--json [--teto-bytes N]]',
@@ -106,6 +108,8 @@ const ESTADO_DO_INDICE: Readonly<Record<string, string>> = Object.freeze({
 });
 
 export interface ContextoDoCli extends ContextoDoIndice {
+  /** A borda le a thread; a familia do grafo nao importa o estado nem o servidor. */
+  contextoDaThread?: (id: string) => { raiz: string; head: string; entrada: EntradaDoContexto };
   /** RM-031: a versao do `ork` que roda, para a correcao do `status` sem os analisadores (o `index.ts` passa). */
   versao?: string;
   escrever: (texto: string) => void;
@@ -115,6 +119,7 @@ interface Especificacao { posicionais: number; bandeiras: readonly string[]; val
 const SUBCOMANDOS: Readonly<Record<string, Especificacao>> = Object.freeze({
   indexar: { posicionais: 0, bandeiras: ['verificar', 'forcar', 'json'], valores: [] },
   status: { posicionais: 0, bandeiras: ['json'], valores: [] },
+  contexto: { posicionais: 1, bandeiras: ['json'], valores: ['teto-bytes'] },
   vizinhos: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'sentido', 'tipo', 'limite', 'teto-bytes'] },
   chamadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
   importadores: { posicionais: 1, bandeiras: ['json'], valores: ['profundidade', 'limite', 'teto-bytes'] },
@@ -406,6 +411,26 @@ function consultar(ctx: ContextoDoCli, p: Pedido): number {
   return 0;
 }
 
+function contexto(ctx: ContextoDoCli, p: Pedido): number {
+  const teto = tetoDeBytes(p);
+  if (teto !== undefined && (teto < 4096 || teto > 65536))
+    throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
+  if (!ctx.contextoDaThread) throw new ErroDeConsulta('grafo.contexto.indisponivel', 'borda sem leitor da thread');
+  const lido = ctx.contextoDaThread(p.posicionais[0]);
+  const { grafo, cabecalho } = consultavel({ ...ctx, raiz: lido.raiz });
+  if (lido.head !== cabecalho.revision) throw new ErroDeConsulta('grafo.contexto.revisao-mudou', 'HEAD mudou durante a leitura; repita a consulta');
+  const json = pacoteDeContexto(grafo, cabecalho, lido.entrada, teto);
+  if (p.bandeiras.has('json')) ctx.escrever(json);
+  else {
+    const r = JSON.parse(json);
+    ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
+      `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_arestas} arestas; ${r.medida.pacote_bytes} bytes JSON`,
+      `  leitura crua dos mesmos arquivos: ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
+      `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
+  }
+  return 0;
+}
+
 const sha256 = (b: Uint8Array): string => createHash('sha256').update(b).digest('hex');
 
 /**
@@ -558,12 +583,12 @@ function limpar(ctx: ContextoDoCli, p: Pedido): number {
 }
 
 /** KG5 (D4, D5): com `--teto-bytes` o erro tambem sai compacto; recusa de indice traz o estado e a correcao. */
-const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number => {
+const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean, schema: string = CONSULTA_SCHEMA): number => {
   const [codigo, ...detalhe] = String((e as Error).message).split('\n')[0].split(': ');
   const doIndice = Object.prototype.hasOwnProperty.call(ESTADO_DO_INDICE, codigo)
     ? { estado_do_indice: ESTADO_DO_INDICE[codigo], correcao: CORRECAO_DO_INDICE } : {};
   const r = {
-    schema: CONSULTA_SCHEMA,
+    schema,
     erro: { codigo, detalhe: detalhe.join(': ') || null, candidatos: e instanceof ErroDeConsulta ? e.candidatos : [], ...doIndice },
   };
   ctx.escrever(compacto ? JSON.stringify(r) : JSON.stringify(r, null, 2));
@@ -572,13 +597,14 @@ const erroEmJson = (ctx: ContextoDoCli, e: unknown, compacto: boolean): number =
 
 /** `ork grafo <subcomando> ...`: devolve o codigo de saida; sem `--json`, o erro de uso ou tipado e lancado. */
 export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): number {
-  const compacto = argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
+  const schema = argv[0] === 'contexto' ? CONTEXTO_SCHEMA : CONSULTA_SCHEMA;
+  const compacto = argv[0] === 'contexto' || argv.some((a) => a === '--teto-bytes' || a.startsWith('--teto-bytes='));
   let p: Pedido;
   try {
     p = lerPedido(argv);
   } catch (e) {
     // Com `--json` no argv, tambem o erro de uso sai como objeto, como os demais.
-    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto);
+    if (argv.includes('--json')) return erroEmJson(ctx, e, compacto, schema);
     throw e;
   }
   try {
@@ -586,10 +612,10 @@ export function executarGrafo(argv: readonly string[], ctx: ContextoDoCli): numb
     if (p.sub === 'status') return status(ctx, p);
     if (p.sub === 'amostra') return amostra(ctx, p);
     if (p.sub === 'limpar') return limpar(ctx, p);
+    if (p.sub === 'contexto') return contexto(ctx, p);
     return consultar(ctx, p);
   } catch (e) {
     if (!p.bandeiras.has('json')) throw e;
-    return erroEmJson(ctx, e, compacto);
+    return erroEmJson(ctx, e, compacto, schema);
   }
 }
-

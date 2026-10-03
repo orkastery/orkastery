@@ -5,7 +5,7 @@
  * thread nova) nao pode esperar rede nem arrastar o retrato inteiro para dentro de si.
  *
  * RM-053 (D9): o mesmo evento tambem dispara o retrato desta maquina na rede da pessoa, pela
- * `rede-adesao` (tao leve quanto este modulo): so membro, no maximo uma vez a cada 15 minutos.
+ * `rede-adesao` (tao leve quanto este modulo): so membro, no maximo uma vez a cada 14 minutos.
  */
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';

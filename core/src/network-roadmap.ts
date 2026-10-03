@@ -1014,8 +1014,11 @@ export function redeDoProjetoFixado(raiz: string, opcoes: { status?: StatusDaRed
   const s = opcoes.status ?? lerRede({ semRemoto: opcoes.semRemoto === true || (process.env.ORK_REDE_LER ?? '').trim() === '0', diretorio: c.raiz });
   const membros = s.membros.map((m) => ({ ...m, projetos: m.projetos.filter((q) => declara(q, p, p.nome)) }))
     .filter((m) => m.origem === 'rede' || m.projetos.length > 0);
+  // Revisao de 03/10 (D5): a lacuna de uma maquina que saiu dos membros (vista so em outro projeto) sai junto.
+  const nomes = new Set(membros.map((m) => m.maquina));
   return { ...s, membros, fontes: s.fontes.filter((f) => !f.projeto || f.projeto === p.nome),
-    lacunas: s.lacunas.filter((l) => !l.projeto || l.projeto === p.nome),
+    lacunas: s.lacunas.filter((l) => (!l.projeto || l.projeto === p.nome) &&
+      (!l.maquina || l.tipo === 'maquina.nome-em-uso' || nomes.has(l.maquina))),
     naoConsultado: [...s.naoConsultado, `outros projetos das máquinas (este servidor MCP mostra só ${p.nome}; os outros vêm do CLI ork network status)`] };
 }
 
