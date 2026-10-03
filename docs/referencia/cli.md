@@ -414,17 +414,16 @@ A `exec` (I-36) é a condução: protege a **execução** na worktree da thread.
 O legado válido das famílias antigas só barra enquanto vivo na janela de 30 minutos iniciada
 na primeira consulta desta versão, mesmo sem legado, marcada em `.orkastery/leases/.legado` na raiz. Nesse período, `ork lease list` mostra o legado e
 diagnostica arquivos inválidos ou ilegíveis, que não bloqueiam. Depois de encerrada, a janela não reabre
-com arquivos legados novos. O diagnóstico só sugere `ork lease release <nome> --forcar` quando o nome é
-seguro e sua codificação corresponde ao arquivo; nos demais casos mostra apenas o arquivo. Nomes legados
+com arquivos legados novos. O diagnóstico mostra apenas o arquivo e não sugere `release` para legado. Nomes legados
 usam até 200 caracteres do conjunto `A-Za-z0-9._/*?:@+-`, com inicial alfanumérica. Os argumentos dos
 comandos sugeridos usam aspas simples com escape. O prazo admite 1 segundo de tolerância sobre 30 minutos.
 Links simbólicos são ignorados. A fila legada não é lida; a espera se refaz no próximo pedido.
 O legado nunca prova posse canônica para ativar escrita; a própria cópia legada recusa a
 segunda aquisição sem enfileirar a dona atrás de si mesma. Arquivo canônico vazio ou ilegível
 com menos de cinco segundos ainda pode pertencer ao escritor que o criou com `wx` e não é retomado.
-A aquisição preserva o legado vencido; a liberação confere dispositivo e inode antes de apagar.
+O legado nunca é apagado: o descarte grava uma marca `dev:ino` em `.orkastery/leases/.legado-ignorado-<dev>-<ino>` no estado canônico. Se existe cópia canônica, `release` atua somente nela; sem ela, a dona do legado (ou `--forcar`) apenas registra a marca. A poda e o fechamento também usam marcas, e uma substituição por outro inode continua visível. O diagnóstico do legado não sugere `release`; o motivo exposto é sempre `(legado)`. Nenhuma liberação é anunciada quando nada saiu.
 A retomada canônica usa `flock` no inode antigo, relê o conteúdo e confere o inode antes de remover,
-segurando a trava até criar com `wx`. Falha do `flock` mantém o lease sem retomada.
+segurando a trava até criar com `wx`. Sem `/usr/bin/flock`, com spawn bloqueado, timeout, erro da trava, `nlink` diferente de 1 ou link simbólico, a retomada recusa com `lease.resume-unavailable`. A correção explícita é `ork lease release <nome> --forcar`, seguida de nova aquisição; não há retry automático. Contenção normal do `flock` continua como `lease.busy`.
 O `ship --dry-run` consulta também o legado válido e vivo durante a janela, sem adquirir o lease.
 
 `ork verify`, `ork phase run`, `ork fix open`, `ork fix reverify` e `ork retry run` aceitam
