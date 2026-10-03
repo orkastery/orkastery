@@ -139,7 +139,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { PROXIMO_PASSO_INIT } from './init';
+import { ativarLocale, COMANDOS_COM_LOCALE, msg, resolverLocale } from './locale';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -4034,6 +4034,8 @@ export function main(argvBruto: string[]): number {
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
+  // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
+  ativarLocale(undefined);
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
@@ -4088,6 +4090,13 @@ export function main(argvBruto: string[]): number {
     // O gate oficial precisa observar e registrar a violação (inclusive warn).
     // Diagnósticos continuam acessíveis; os adapters sanitizam seus filhos sempre.
     if (violacoes.length === 0) for (const nome of ENVS_DE_PROVIDER_PAGO) delete process.env[nome];
+  }
+
+  // Prova de conceito do CLI por locale (EN1, EN7): a escolha do onboarding (owner.language) ou o
+  // LC_ALL/LC_MESSAGES/LANG decidem a lingua do TEXTO dos comandos cobertos; `--json` e contrato e
+  // `doctor --modo` (preflight) ainda nao passa pelo catalogo, entao os dois ficam em pt-BR.
+  if (COMANDOS_COM_LOCALE.includes(comando) && args.opcoes.json === undefined && args.opcoes.modo === undefined) {
+    ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
   }
 
   switch (comando) {
@@ -4148,22 +4157,23 @@ export function main(argvBruto: string[]): number {
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);
+      const m = msg().init, estadoAgents = m.estadosAgents[agents.estado] ?? agents.estado;
       if (!r.criado) {
-        console.log(`Manifesto ja existe: ${r.caminho}`);
-        console.log('Nada foi sobrescrito. Use --force para regerar.');
-        console.log(`AGENTS.md ${agents.estado}: ${agents.caminho}`);
+        console.log(m.jaExiste(r.caminho));
+        console.log(m.nadaSobrescrito);
+        console.log(m.agentsMd(estadoAgents, agents.caminho));
         return 0;
       }
-      console.log(`Manifesto criado: ${r.caminho}`);
-      console.log(`  projeto     ${r.deteccao.nome} (abbrev "${r.deteccao.abbrev}")`);
-      console.log(`  branch base ${r.deteccao.baseBranch}`);
-      console.log(`  gerenciador ${r.deteccao.gerenciador}`);
-      console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
-      console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      console.log(m.criado(r.caminho));
+      console.log(m.projeto(r.deteccao.nome, r.deteccao.abbrev));
+      console.log(m.branchBase(r.deteccao.baseBranch));
+      console.log(m.gerenciador(r.deteccao.gerenciador));
+      console.log(m.verify(Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || m.semScript));
+      console.log(m.agentsMdLinha(estadoAgents, agents.caminho));
       // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
-      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
+      if (r.estadoIgnorado) console.log(m.estado(DIR_ESTADO));
       console.log('');
-      console.log(PROXIMO_PASSO_INIT);
+      console.log(m.proximoPasso);
       return 0;
     }
     case 'modos': {
