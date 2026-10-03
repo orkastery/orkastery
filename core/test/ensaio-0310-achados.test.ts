@@ -77,3 +77,16 @@ test('ensaio 0310 R1: conferencia inconclusiva nao avisa, e o check de contas cu
     assert.equal(linha?.nivel, 'warn');
   } finally { limpar(p.dir); }
 });
+
+test('ensaio 0310 R2: com LANG=C.UTF-8, o onboarding recomenda pt-BR, a lingua da CLI', () => {
+  const p = projetoTemporario('ensaio0310-r2');
+  const casa = dirTemporario('ensaio0310-r2-casa');
+  try {
+    const r = ork(p.dir, casa, ['onboarding']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Experiência recomendada: pt-BR, /);
+    assert.match(r.stdout, /"owner":\{"language":"pt-BR"/);
+    // Locale escolhido continua valendo.
+    assert.match(ork(p.dir, casa, ['onboarding'], { LANG: 'en_GB.UTF-8' }).stdout, /Experiência recomendada: en-GB, /);
+  } finally { limpar(p.dir, casa); }
+});
