@@ -104,7 +104,14 @@ jobs:
       - name: lint dos templates de auditoria
         run: node core/dist/index.js audit lint
 
+      # RM-031: quem instala do npm tem o grafo. O tarball do npm pack, instalado global num prefixo
+      # e num HOME temporarios, indexa e consulta um repositorio novo, e o doctor aponta a falta dos
+      # analisadores com a correcao. A unica rede e a do registro do npm.
+      - name: grafo no pacote instalado
+        run: node core/scripts/provar-grafo-instalado.cjs
+
 # Nota deliberada: `ork doctor` NAO roda aqui. Ele exige o runtime adapter
 # instalado na maquina, e um runner de CI nao tem um. Rodar doctor no CI
 # significaria ou um job vermelho por um motivo que nao e defeito, ou um
-# doctor afrouxado para caber no CI. Nenhuma das duas serve.
+# doctor afrouxado para caber no CI. Nenhuma das duas serve. A prova do grafo
+# no pacote instalado le do relatorio so o check dos analisadores, sem o veredito.

@@ -48,6 +48,11 @@ jobs:
       - name: canarios do produto
         run: node core/dist/index.js eval --so-canarios
 
+      # RM-031: o pacote que vai ao npm, instalado global num prefixo e num HOME temporarios, indexa
+      # e consulta o grafo (a 0.5.0 e a 0.5.1 sairam sem os analisadores); so o registro do npm.
+      - name: grafo no pacote instalado
+        run: node core/scripts/provar-grafo-instalado.cjs
+
       - name: publicar
         run: npm publish --access public
         working-directory: core

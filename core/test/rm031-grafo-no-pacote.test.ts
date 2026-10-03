@@ -4,9 +4,10 @@
  * Grupos: "grafo no pacote: dependencias" (os pacotes que os analisadores carregam sao dependencias
  * de runtime com versao exata, e os docs dizem quantas dependencias o pacote tem), "lockfile" (o
  * fecho dos analisadores nao fica marcado dev, e nenhum pacote de producao roda script de instalacao),
- * "doctor" (o check analisadores do grafo), "status" (a correcao no `ork grafo status`) e "script" (as
+ * "doctor" (o check analisadores do grafo), "status" (a correcao no `ork grafo status`), "script" (as
  * partes puras da prova de instalacao limpa, que roda no CI com o registro do npm; aqui, sem rede, os
- * conferidores leem a saida real do `ork grafo` e do doctor). A instalacao sem os analisadores e uma
+ * conferidores leem a saida real do `ork grafo` e do doctor) e "workflow" (o passo da prova no CI e no
+ * `publicar.yml`). A instalacao sem os analisadores e uma
  * copia do `dist` com o `node_modules` do checkout ligado pacote a pacote, menos os analisadores: o
  * mesmo que a 0.5.1 do npm tinha.
  */
@@ -304,4 +305,33 @@ test('grafo no pacote: script: a medida soma bytes e blocos dos arquivos sem seg
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// workflow
+
+const PASSO_DA_PROVA = 'run: node core/scripts/provar-grafo-instalado.cjs';
+
+test('grafo no pacote: workflow: o CI roda a prova no job nucleo, nas duas versoes do Node, depois dos testes', () => {
+  const ci = ler('.github/workflows/ci.yml');
+  const nucleo = ci.slice(ci.indexOf('\n  nucleo:'), ci.indexOf('\n# Nota deliberada'));
+  assert.ok(nucleo.length > 20, 'o job nucleo existe');
+  assert.match(nucleo, /node: \['20', '22'\]/);
+  const passo = nucleo.indexOf(PASSO_DA_PROVA), testes = nucleo.indexOf('run: npm run test:ci');
+  assert.ok(testes > 0 && passo > testes, 'o passo da prova vem depois dos testes do nucleo');
+  assert.equal(ci.split(PASSO_DA_PROVA).length - 1, 1, 'so no job nucleo');
+});
+
+test('grafo no pacote: workflow: o publicar.yml roda a prova antes do npm publish, com as conferencias de versao intactas', () => {
+  const pub = ler('.github/workflows/publicar.yml');
+  const onde = (trecho: string): number => {
+    const i = pub.indexOf(trecho);
+    assert.ok(i > 0, `publicar.yml sem: ${trecho}`);
+    return i;
+  };
+  const canarios = onde('run: node core/dist/index.js eval --so-canarios'), passo = onde(PASSO_DA_PROVA), publicar = onde('run: npm publish --access public');
+  assert.ok(canarios < passo && passo < publicar, 'depois dos canarios e antes do npm publish');
+  onde('test "v$(node -p "require(\'./core/package.json\').version")" = "$GITHUB_REF_NAME"');
+  onde('test "$(node -p "require(\'./core/package.json\').repository.url")" = "git+https://github.com/$GITHUB_REPOSITORY.git"');
+  onde('run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main');
 });
