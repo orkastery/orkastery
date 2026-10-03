@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T05:30:14.094Z",
+  "publicadoEm": "2026-10-03T05:33:04.624Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -66,6 +66,23 @@
       "roadmap": "RM-037",
       "branch": "ork/ork-rm037fatia6r-full",
       "atualizadaEm": "2026-10-03T02:58:00.841Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm037manuten",
+      "nome": "RM-037 manutenção: skip tipado no rm038-universo-ponte",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm037manuten-full",
+      "atualizadaEm": "2026-10-03T05:33:04.485Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
