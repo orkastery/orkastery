@@ -92,7 +92,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| — | Watcher vinculado à thread, retry de leitura e recuperação de condução por identidade de processos ausentes | thread `ork-rm036watcher`, testes `rm036-watcher-longo`; revisão e verify da condutora pendentes | Agente Codex, #Auto |
+| 2026-10-03 | GO-FIX do watcher: runtime e todos os watchers entram na prova de morte; evento terminal é reconferido sob trava; retry finito e diagnóstico saneado | thread `ork-rm036watcher`, testes `rm036-watcher-longo` e mutações. Fixtures reproduzem corte aos 600 s por produção MCP fora do rollout e falha de auditoria durante materialização do estado para commit. Mecanismos corrigidos; causa exclusiva do incidente histórico não comprovada. Integração MCP real, revisão e verify da condutora pendentes | Agente Codex, #Auto |
 | 2026-09-19 | thread aberta | thread `ork-i36multicana` | Julio |
 | 2026-09-27 | D2 respondida: recusa imediata, sempre explicada para o humano | Telegram, 27/09 10:53 | Julio |
 | 2026-09-27 | GO entregue | thread `ork-i36multicana`, PR da entrega | Julio |

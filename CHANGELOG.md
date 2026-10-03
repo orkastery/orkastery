@@ -24,7 +24,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)): observações ficam vinculadas à thread, erros deixam diagnóstico sem conteúdo sensível e leituras transitórias repetem com espera limitada; `conducao assumir` recupera a sessão sem consultar o runtime quando watcher e controlador estão ausentes por identidade comprovada.
+- **Watcher e recuperação da condução Codex** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
+  commits MCP auditados do despacho renovam o prazo de inatividade com controller e runtime vivos,
+  mesmo quando o rollout não avança. A materialização temporária do estado durante commit exige nova
+  auditoria; erros transitórios encerram após 12 falhas consecutivas ou 600 segundos sem observação
+  bem-sucedida. O diagnóstico contém categoria saneada, primeira falha e resumo final com contagem;
+  falha ao registrá-lo não derruba o retry. `conducao assumir` exige todos os watchers, controlador e
+  runtime ausentes por identidade comprovada, reconferindo eventos terminais sob a trava.
 
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   depois dos ~50 PRs de 03/10, `docs/referencia/cli.md` estava sem `brain`, `portfolio`, `creation`, `onboarding`,

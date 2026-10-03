@@ -30,7 +30,7 @@ test('RM036: documentação registra a correção e mantém revisão pendente', 
   const secoes = fs.readFileSync(path.join(raiz, 'CHANGELOG.md'), 'utf8').split(/\n## /).slice(1);
   const secao = secoes.find(s => s.includes('**Watcher e recuperação da condução Codex**'));
   assert.ok(secao, 'correção consta do changelog');
-  assert.match(secao, /^(Não publicado|\[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2})\n/);
+  assert.match(secao, /^Não publicado\n/);
   assert.match(secao, /ausentes por identidade comprovada/);
 });
 
