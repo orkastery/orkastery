@@ -6,6 +6,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **O `ork roadmap status` diz quando uma thread fora do roadmap espera você** ([RM-049](docs/roadmap/RM-049-lancamento.md), R3):
+  no ensaio, uma thread sem item do roadmap esperava o dono por `runtime.workspace-untrusted`, e o relatório dizia
+  "O que precisa de você: Nada agora" enquanto o `ork pulse` dizia "Precisa de humano agora: 1". Pela alternativa (a)
+  da decisão do dono, o fecho ganha a linha "Fora do roadmap: N thread(s) esperam você (ork pulse)", só quando há, e o
+  `--json` o campo opcional e aditivo `foraDoRoadmap`. Sem thread fora do roadmap esperando, a saída fica igual byte a byte.
+
 ### Corrigido
 
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
