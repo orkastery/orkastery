@@ -212,7 +212,7 @@
         "node -e \"const s=require('fs').readFileSync('docs/produto/FEAT-007-worktree-e-leases.md','utf8');if(!/BR-007-02: os leases e a fila moram no/.test(s))process.exit(1);if(!s.includes('    - core/test/rm036-leases-canonicos.test.ts'))process.exit(2);if(!s.includes('da raiz do projeto, com a fila por colisão em'))process.exit(3)\""
       ],
       "criadoEm": "2026-10-03T04:05:56.969Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -227,7 +227,7 @@
         "! grep -qE '/(home|Users|root)/' .ork-ci/ork-rm036leasesd.json"
       ],
       "criadoEm": "2026-10-03T04:06:45.229Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     }
   ],
