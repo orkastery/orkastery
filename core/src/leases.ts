@@ -1,5 +1,5 @@
 /**
- * Leases de exclusao mutua entre threads (`.orkastery/leases/<nome>.json`).
+ * Leases de exclusao mutua entre threads (`.orkastery/leases/<nome>.json` da raiz do projeto).
  *
  * O lease `main-tree` serializa o SHIP: com N threads paralelas, so uma mergeia por vez.
  * A aquisicao e atomica de verdade (`open` com flag `wx`, que falha se o arquivo existe),
@@ -12,6 +12,11 @@
  * `path:<glob>`, `board:<card>` e `service:<porta>`, e uma FILA por colisao. Duas threads
  * que pedem a mesma regiao de path nao brigam: a segunda entra na fila em FIFO e recebe
  * o motivo tipado `lease.busy` com a correcao acionavel.
+ *
+ * RM-036 (fatia dos leases): todas as familias, e a fila, moram no estado CANONICO do projeto
+ * (`raizDoEstado`), como o `exec:` da I-36. O `ork` acha a raiz subindo do cwd e a worktree tem
+ * o proprio manifesto: com a pasta do checkout de quem chamava, um `ork` da raiz e outro da
+ * worktree pegavam o mesmo lease ao mesmo tempo.
  */
 
 import * as fs from 'node:fs';
@@ -44,18 +49,22 @@ export const FAMILIAS_DE_LEASE: Readonly<Record<TipoDeLease, string>> = {
 /** I-36 (D1): prefixo da familia de execucao, `exec:<thread>`. */
 export const PREFIXO_EXEC = 'exec';
 
-/** Diretorio dos leases do projeto. */
+/**
+ * Diretorio dos leases do projeto: o `.orkastery/leases` da raiz do estado, o mesmo das threads,
+ * chamado da raiz ou de qualquer worktree (RM-036, D1 do PLAN). Com o diretorio do checkout, cada
+ * um teria o seu e os dois segurariam o mesmo lease. Fora de repositorio git, `raizDoEstado`
+ * devolve a propria raiz.
+ */
 export function dirLeases(raiz: string): string {
-  return path.join(dirEstado(raiz), 'leases');
+  return path.join(dirEstado(raizDoEstado(raiz)), 'leases');
 }
 
 /**
- * I-36: o lease de execucao mora no estado CANONICO do projeto (o mesmo das threads), nunca no
- * checkout de quem chamou. Um canal que roda da raiz e outro que roda de uma worktree disputam o
- * mesmo arquivo; com o diretorio do checkout, cada um teria o seu e os dois executariam juntos.
+ * I-36: o lease de execucao mora no estado CANONICO do projeto, nunca no checkout de quem chamou.
+ * Desde a RM-036 todas as familias moram la; o nome segue para quem ja o importava.
  */
 export function dirLeasesDeExecucao(raiz: string): string {
-  return path.join(dirEstado(raizDoEstado(raiz)), 'leases');
+  return dirLeases(raiz);
 }
 
 /**
@@ -92,8 +101,7 @@ export function alvoDoLease(nome: string): string {
  * inalterado, o que preserva os leases gravados pelo bloco B1.
  */
 export function caminhoLease(raiz: string, nome: string): string {
-  const dir = tipoDoLease(nome) === 'exec' ? dirLeasesDeExecucao(raiz) : dirLeases(raiz);
-  return path.join(dir, `${encodeURIComponent(nome)}.json`);
+  return path.join(dirLeases(raiz), `${encodeURIComponent(nome)}.json`);
 }
 
 /**
@@ -294,25 +302,18 @@ export function liberar(
 /** Todos os leases existentes no projeto, pelo nome canonico gravado no arquivo. */
 export function listarLeases(raiz: string): Lease[] {
   const leases: Lease[] = [];
-  const ler = (dir: string, soExecucao: boolean): void => {
-    if (!fs.existsSync(dir)) return;
-    for (const arquivo of fs.readdirSync(dir)) {
-      if (!arquivo.endsWith('.json') || arquivo === NOME_ARQUIVO_FILA) continue;
-      try {
-        const lease = JSON.parse(fs.readFileSync(path.join(dir, arquivo), 'utf8')) as Lease;
-        if (!lease || typeof lease.nome !== 'string') continue;
-        if (soExecucao && tipoDoLease(lease.nome) !== 'exec') continue;
-        leases.push(lease);
-      } catch {
-        /* arquivo corrompido conta como lease ausente */
-      }
+  const dir = dirLeases(raiz);
+  if (!fs.existsSync(dir)) return leases;
+  for (const arquivo of fs.readdirSync(dir)) {
+    if (!arquivo.endsWith('.json') || arquivo === NOME_ARQUIVO_FILA) continue;
+    try {
+      const lease = JSON.parse(fs.readFileSync(path.join(dir, arquivo), 'utf8')) as Lease;
+      if (!lease || typeof lease.nome !== 'string') continue;
+      leases.push(lease);
+    } catch {
+      /* arquivo corrompido conta como lease ausente */
     }
-  };
-  // I-36: os do checkout, mais os de execucao do estado canonico quando ele e outro diretorio.
-  const local = dirLeases(raiz), canonico = dirLeasesDeExecucao(raiz);
-  const real = (dir: string): string => (fs.existsSync(dir) ? fs.realpathSync(dir) : path.resolve(dir));
-  ler(local, false);
-  if (real(local) !== real(canonico)) ler(canonico, true);
+  }
   return leases.sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
