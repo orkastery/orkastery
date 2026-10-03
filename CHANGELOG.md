@@ -96,6 +96,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `ork network sair` durante uma publicação em curso não deixa mais a marca da rede regravada depois da saída: a
     marca sai de novo sob a trava, quando a publicação já terminou; antes, ela sobrevivia ao `sair` e o próximo
     `ork network entrar` na mesma casa voltava a reservar os projetos que a saída tinha esquecido.
+  - a prova de ativação (`core/scripts/prova-ativacao.cjs`) reconhece como desvio toda forma de rodar o `ork maestro` pelo shell do
+    host: pelo caminho do binário (`$(which ork) maestro`), pelo node (`node core/dist/index.js maestro`), pelo npx
+    (`npx @orkastery/cli maestro`) e com o projeto entre aspas (`ork --projeto "/srv/meu projeto" maestro`); antes só
+    a forma `ork [--projeto X] maestro` reprovava, e as outras, ao lado da chamada contratada, deixavam a prova verde.
+    `maestro` no argumento de outro subcomando continua não sendo desvio.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
