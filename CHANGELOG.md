@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Verify ciente do steal e registro de instabilidade** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md), fatia 6):
+  - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal da CPU no `/proc/stat` na rodada e na janela de cada
+    comando e grava a medida no `verify_run` (`steal`, e `stealPct` em cada comando que falha);
+  - a reprovação só de teste com relógio (estouro de prazo do `node --test`, ou entrada vigente do registro) sob steal
+    acima de 40% vira `verify.timeout`, que o retry reexecuta, e nunca `verify.regression`; asserção comum continua
+    regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
+  - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
+    nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
+  - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
 - **Perfil por despacho, rodízio por carga e sessões de cada conta** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md), [FEAT-037](docs/produto/FEAT-037-perfil-carga-e-sessoes-das-contas.md)):
   - `ork phase run ... --perfil <id>`, e `perfil` em `ork_phase_run` (MCP e OpenClaw): o despacho sai pela conta pedida;
     perfil inexistente ou de outro runtime recusa com o motivo novo `runtime.profile-invalid` (sem retry automático),
