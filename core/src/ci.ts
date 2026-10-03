@@ -62,6 +62,8 @@ const CASOS_DE_VERIFICADOR_COM_INTEGRACAO_LOCAL = [
   // RM-051: o ensaio instala o tarball com npm --offline e resolve as dependencias pelo cache do npm
   // da estacao; o runner hospedado so tem os tarballs do npm ci, sem os metadados do registro.
   /testar-experiencia-e2e\.cjs(?:\s|$)/,
+  // RM-037: a suite local inteira, com as integracoes locais; o runner hospedado roda o test:ci.
+  /suite-local\.cjs(?:\s|$)/,
 ];
 /**
  * I-38: o runner hospedado nao oferece OrkMind nem a base do tenant. Claim que chama a memoria
