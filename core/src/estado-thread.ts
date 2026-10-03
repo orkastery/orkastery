@@ -25,7 +25,28 @@ export function raizDoEstado(raiz: string): string {
 
 export function estadoCanonico(raiz: string, id: string): string {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) throw new Error('id de thread inválido');
-  return path.join(raizDoEstado(raiz), '.orkastery', 'threads', id);
+  const principal = raizDoEstado(raiz);
+  exigirEstadoSemLink(principal, ['.orkastery', 'threads', id]);
+  return path.join(principal, '.orkastery', 'threads', id);
+}
+
+/**
+ * RM-047 (fronteira de confiança): na árvore principal, `.orkastery`, `threads` e o diretório da thread
+ * são pastas de verdade. Um link versionado no clone levaria ledger, claims e thread.json para fora da
+ * raiz, e o `ork` anexaria linhas em arquivo alheio. O link que o próprio `ork` cria fica na worktree
+ * (`vincularEstado`) e aponta para cá; ele nunca é um destes componentes.
+ */
+export function exigirEstadoSemLink(principal: string, componentes: readonly string[]): void {
+  let atual = principal;
+  for (const nome of componentes) {
+    atual = path.join(atual, nome);
+    const stat = fs.lstatSync(atual, { throwIfNoEntry: false });
+    if (!stat) return;
+    if (stat.isSymbolicLink()) {
+      throw new Error(`estado.link: ${path.relative(principal, atual)} é link simbólico; o estado do ork fica em ` +
+        'pastas de verdade dentro da raiz (um link versionado levaria a escrita para fora dela). Remova o link.');
+    }
+  }
 }
 
 function mesmoArquivo(a: string, b: string): boolean {

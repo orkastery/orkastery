@@ -63,7 +63,12 @@ export function acharRaiz(dirInicial: string = diretorioDoProjeto()): string {
 
 /** Caminho do diretorio de estado da raiz informada. */
 export function dirEstado(raiz: string): string {
-  return path.join(raiz, DIR_ESTADO);
+  // RM-047 (fronteira de confiança): `.orkastery` versionado como link levaria o estado para fora da raiz.
+  const dir = path.join(raiz, DIR_ESTADO);
+  if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    throw new Error(`estado.link: ${DIR_ESTADO} é link simbólico; o estado do ork fica numa pasta de verdade dentro da raiz. Remova o link.`);
+  }
+  return dir;
 }
 
 function texto(v: ValorYaml, padrao: string): string {
