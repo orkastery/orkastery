@@ -8,6 +8,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
+  seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
+  de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge
+  `ship(<thread>)` com o `estado.codigo` fora de `Mesclado`, com o comando `ork docs sincronizar --escrever --so RM-NNN`.
+  No `--json`, o campo aditivo `docsPendentes`. Só avisa: não grava, não muda o código de saída nem o veredito do
+  `ork docs verificar`.
 - **Contexto determinístico da thread, KG5 fatia 2** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   `ork grafo contexto <thread>` e `ork_grafo_contexto` compõem o mesmo pacote de arquivos e símbolos
   a partir de diff, GOAL, PLAN e claims, com evidências, teto em bytes e omissões declaradas.
