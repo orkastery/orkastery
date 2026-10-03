@@ -11,8 +11,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
   no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
-  no rótulo, nem sondar palavras ou nomes de pacote. Variantes de extensão e `index` preservam a
-  equivalência incremental quando diretório vira arquivo e volta. `cites` fica por último no
+  no rótulo de links relativos ou resolvidos pela raiz, nem sondar palavras ou nomes de pacote.
+  Sondas e variantes de extensão e `index` preservam a equivalência incremental quando
+  diretório vira arquivo e volta, inclusive diretórios com extensão no nome. `cites` fica por último no
   desempate por tipo. Após selecionar as ligações diretas,
   o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
   bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
