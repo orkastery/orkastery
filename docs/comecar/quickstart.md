@@ -11,7 +11,7 @@ você já usa, pela sua assinatura, pelo canal oficial dele.
 
 | O que | Por que |
 | --- | --- |
-| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com quatro dependências de runtime |
+| Node 20 ou mais novo | O núcleo é TypeScript compilado para CommonJS, com nove dependências de runtime; o grafo de código (`ork grafo`) pede Node 20.19, 22.12 ou mais novo |
 | `git` | Worktree por thread, base carimbada, merge serializado e push provado |
 | Um repositório git com pelo menos um commit | O `ork` conduz trabalho dentro de um repositório, nunca solto no disco; a thread parte do commit da base, e sem commit ela nasce sem base |
 | Um runtime de agente | O adapter `claude-bg` (o binário `claude`, despachado com `--bg`), que é o padrão, ou o Codex CLI (`codex`) |
