@@ -15,7 +15,8 @@ function fixture(t: TestContext) {
   fs.writeFileSync(path.join(raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');
   const id = 'ork-documentos', agora = new Date().toISOString();
   const thread: Thread = { id, slug: id, nome: 'fixture', assunto: 'documentos', modo: 'auto',
-    fases: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'], blocos: [], faseAtual: 'GOAL', status: 'aberta',
+    fases: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'],
+    blocos: [{ fases: ['GOAL', 'PLAN', 'GO', 'CHECK', 'SHIP', 'MASTER'], pausa: false, pausaSobre: '', slugFases: 'full' }], faseAtual: 'GOAL', status: 'aberta',
     criadaEm: agora, atualizadaEm: agora, projeto: { name: 'fixture', abbrev: 'ork' },
     base: { branch: 'main', commit: 'fixture' }, worktree: null, sessoes: [], decisoes: [], claims: [], leases: [], baseline: null };
   gravarThread(raiz, thread);
@@ -49,7 +50,7 @@ for (const transporte of ['flock', 'portatil']) {
     const io = require('node:fs'), apagar = io.unlinkSync;
     let durante = false;
     t.mock.method(io, 'unlinkSync', (p: fs.PathLike) => {
-      if (String(p) === c.arquivo) {
+      if (String(p) === c.arquivo && !durante) {
         assert.equal(fs.readdirSync(c.fila).length, 1);
         c.escrever('Durante a retomada');
         durante = true;

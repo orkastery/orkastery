@@ -88,7 +88,7 @@ for (const pagina of [...paginas, 'docs/referencia/cli.md', 'CHANGELOG.md']) {
     assert.match(texto, /`rename` atômico/);
     assert.match(texto, /`nlink === 0` (é|significa) `lease\.busy`/);
     assert.match(texto, /escalada humana/);
-    assert.match(texto, /PID reutilizado/);
+    assert.match(texto, /PID\s+reutilizado/);
     assert.doesNotMatch(texto, /confere dispositivo e inode antes de apagar|[Ss]ó (há|recebem) comando de remoção/);
   });
 }
