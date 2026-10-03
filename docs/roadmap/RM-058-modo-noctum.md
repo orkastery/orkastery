@@ -74,12 +74,12 @@ O registro ficará no estado governado pelo núcleo, referenciado por todo event
 
 | Operação | Autorização que deverá constar | Conferência antes de executar |
 | --- | --- | --- |
-| Push e PR | Remotos, branches de trabalho e repositórios já existentes; permissão separada para criar/atualizar PR | Destino permitido, claims, identidade do executor, prazo e ausência de segredo; push direto na base continuará sujeito à policy |
+| Push e PR | Remotos, branches de trabalho e repositórios já existentes; permissão separada para criar/atualizar PR | Destino permitido, claims, identidade do executor, prazo e ausência de segredo; push direto na base fica fora do envelope |
 | Merge | Branch de destino e exigência dos checks obrigatórios, revisão independente e verify aprovados | SHA fonte exato, base atual e candidato de integração; qualquer alteração invalida a prova afetada e exige nova rodada |
 | Despacho de threads | Lista ou filtro fechado de itens do roadmap e dependências autorizadas | Item elegível, reserva ganha, capacidade disponível e gates satisfeitos; expansão do escopo vai ao lote |
 | Rodízio de contas e runtime | Lista de perfis previamente autenticados, runtimes, modelos/esforços e política de provider admitidos | Saúde, saldo e concorrência da conta; mudança de runtime, inclusive Claude → Codex, somente entre opções já autorizadas |
 
-**Nunca entrará no envelope geral:** tag e publicação de versão/pacote/site, atualização de produção sem autorização explícita própria, acesso ou circulação de segredos, ações destrutivas e criação de repositório público. Credenciais continuarão locais, consumidas apenas pelo mecanismo já autorizado do host. Nenhum agente poderá ampliar permissões, mudar sandbox, trocar identidade ou habilitar provider pago para recuperar o arco.
+**Nunca entra em nenhum envelope:** tag e publicação de versão, pacote ou site; acesso ou circulação de segredos; ações destrutivas; criação de repositório público. A atualização de produção também fica fora: só com autorização explícita própria e fluxo próprio, descrito abaixo. Credenciais continuarão locais, consumidas apenas pelo mecanismo já autorizado do host. Nenhum agente poderá ampliar permissões, mudar sandbox, trocar identidade ou habilitar provider pago para recuperar o arco.
 
 Uma implantação em produção exigirá autorização específica do dono e fluxo próprio; não será inferida de push, PR ou merge. Revogação ou expiração negará novos efeitos imediatamente. Trabalho em voo será interrompido ou encerrado em checkpoint seguro, conforme o limite do host, sem aproveitar uma ação iniciada antes do prazo para autorizar a seguinte.
 
@@ -112,7 +112,7 @@ Se uma máquina perder batidas, o arco suspenderá novos despachos para ela, con
 
 ### Resiliência ao longo de horas
 
-**Origem:** registro da condutora no pedido deste planejamento, sobre a condução manual de 02→03/10/2026. As quantidades abaixo são ocorrências relatadas, não métricas de um Noctum implementado. A correção do watcher foi indicada no [PR #117](https://github.com/orkastery/orkastery/pull/117); o [CHANGELOG](../../CHANGELOG.md#não-publicado) descreve a recuperação e explicita que a causa dos incidentes não ficou comprovada. O piloto deverá produzir medições reproduzíveis.
+**Origem:** registro da condutora no pedido deste planejamento, sobre a condução manual de 02→03/10/2026. As quantidades abaixo são ocorrências relatadas, não métricas de um Noctum implementado. A correção do watcher foi indicada no [PR #117](https://github.com/orkastery/orkastery/pull/117); o [CHANGELOG](../../CHANGELOG.md#não-publicado) descreve a recuperação e descreve a causa dos incidentes como provável, não comprovada. O piloto deverá produzir medições reproduzíveis.
 
 | Ocorrência relatada | Como o Noctum deverá detectar | O que deverá fazer sozinho |
 | --- | --- | --- |
@@ -202,19 +202,37 @@ Os aceites abaixo são testes a construir durante a implementação; não são p
 - Implementar ou habilitar #Noctum nesta etapa documental, nem alterar os modos existentes.
 - Garantir trabalho útil sem fila elegível, capacidade, autenticação, orçamento ou dependências disponíveis.
 - Criar uma rede de equipe, compartilhar credenciais ou transformar a descoberta da RM-053 em autorização remota.
-- Publicar versões, criar tags/repositórios públicos, executar ações destrutivas ou alterar produção por autorização genérica.
+- Publicar versões, criar tags ou repositórios públicos e executar ações destrutivas; alterar produção sem a autorização própria dela.
 - Remover policies, aceitar autoavaliação como revisão ou obter nota humana durante o arco.
 
 ### Decisões para o dono
 
-**Domicílio único das propostas:** D1–D4 abaixo. Cada uma tem quatro alternativas e exatamente uma recomendada pelo agente; nenhuma está ratificada. As recomendações orientaram este planejamento, não concedem permissão para execução. Julio revisará antes de autorizar o primeiro piloto.
+As decisões D1–D4 abaixo concentram as escolhas de produto. Cada uma tem quatro alternativas e uma recomendada; nenhuma está ratificada. As recomendações orientaram este planejamento, não concedem permissão para execução. Julio revisará antes de autorizar o primeiro piloto.
 
-| ID / decisão | A | B | C | D | Recomendação e razão |
-| --- | --- | --- | --- | --- | --- |
-| D1 — Alcance da entrega automática | Só commits locais | Push e PR, sem merge | Push, PR e merge com todas as provas no SHA exato | Escolher previamente por repositório entre A, B e C | **C — Recomendada:** atende ao arco com entregas completas, limitado ao destino autorizado e aos gates; se o núcleo não puder provar, a ação fica bloqueada |
-| D2 — Entrada do multimáquina | Primeira implementação só local | Piloto local, seguido de piloto em duas máquinas antes de ampliar | Várias máquinas já no primeiro piloto | Só preparar PRs nas máquinas; integração concentrada em uma | **B — Recomendada:** prova a recuperação local antes de adicionar partição, exclusão mútua e retomada remota; preserva multimáquina no escopo |
-| D3 — Janela e supervisão | Arcos fixos de 6 h | Arcos fixos de 12 h | Janela escolhida entre 6 e 12 h, vigia externo a cada 5 min e prazo de avanço por fase | Janela entre 6 e 12 h, vigia externo a cada 30 min | **C — Recomendada:** permite o período desejado com detecção mais frequente que o despertador manual; 5 min é parâmetro proposto, sujeito a medição de custo e falso alarme |
-| D4 — Regime de custo e rodízio | Um runtime/conta, com teto | Vários perfis autenticados e runtimes de assinatura, com teto de arco e subtetos | Admitir também provider pago explicitamente autorizado, com limite imposto pelo provider | Sem rodízio automático; limite de conta encerra o arco | **B — Recomendada:** usa a capacidade já autorizada e permite trocar runtime sem ampliar provider; exige informar valores, unidades, margens e contas antes de iniciar, sem teto padrão ilimitado |
+- **D1. Até onde vai a entrega automática?**
+  - A) só commits locais;
+  - B) push e PR, sem merge;
+  - C) push, PR e merge com todas as provas no SHA exato;
+  - D) escolher antes, por repositório, entre A, B e C.
+  - **Recomendo C:** o arco entrega completo, limitado ao destino autorizado e aos gates. Se o núcleo não conseguir provar, a ação fica bloqueada.
+- **D2. Como entra o multimáquina?**
+  - A) primeira implementação só local;
+  - B) piloto local, depois piloto em duas máquinas antes de ampliar;
+  - C) várias máquinas já no primeiro piloto;
+  - D) só preparar PRs nas máquinas, com integração concentrada em uma.
+  - **Recomendo B:** prova a recuperação local antes de somar partição, exclusão mútua e retomada remota, sem tirar o multimáquina do escopo.
+- **D3. Janela e supervisão?**
+  - A) arcos fixos de 6 h;
+  - B) arcos fixos de 12 h;
+  - C) janela entre 6 e 12 h, vigia externo a cada 5 min e prazo de avanço por fase;
+  - D) janela entre 6 e 12 h, vigia externo a cada 30 min.
+  - **Recomendo C:** dá o período pedido com detecção mais rápida que o despertador manual; os 5 min são um parâmetro a medir (custo e falso alarme).
+- **D4. Custo e rodízio?**
+  - A) um runtime e uma conta, com teto;
+  - B) vários perfis autenticados e runtimes de assinatura, com teto do arco e subtetos;
+  - C) também provider pago explicitamente autorizado, com limite imposto pelo provider;
+  - D) sem rodízio automático: o limite da conta encerra o arco.
+  - **Recomendo B:** usa a capacidade já autorizada e troca de runtime sem ampliar provider. Exige informar valores, unidades, margens e contas antes de começar, sem teto ilimitado por padrão.
 
 Como mudar: registrar a escolha do dono por ingresso autenticado e atualizar esta seção e o contrato afetado, mantendo o histórico. Custo agora: revisão documental. Depois de N1–N6: migração do contrato, ajuste de admissões e repetição dos ensaios relacionados. Prioridade final, horário/canal e valores de teto também deverão ser preenchidos pelo dono antes do piloto.
 
