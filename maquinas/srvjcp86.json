@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T10:42:14.017Z",
+  "publicadoEm": "2026-10-03T10:49:18.532Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -75,6 +75,23 @@
       "esforco": null
     },
     {
+      "id": "ork-rm044derivae",
+      "nome": "RM-044: deriva entre docs e CLI depois de 03/10",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-044",
+      "branch": "ork/ork-rm044derivae-full",
+      "atualizadaEm": "2026-10-03T10:49:16.210Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
       "id": "ork-rm047frontei",
       "nome": "RM-047: fronteira de confiança do repositório clonado",
       "modo": "#Auto",
@@ -118,23 +135,6 @@
       "branch": "ork/ork-rm049ensaio2-full",
       "atualizadaEm": "2026-10-03T10:38:34.130Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-skilldocodex",
-      "nome": "Skill do Codex consulta o ork no shell depois da tool",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-032",
-      "branch": "ork/ork-skilldocodex-full",
-      "atualizadaEm": "2026-10-03T10:42:13.866Z",
-      "entregue": "23bdeb2",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
