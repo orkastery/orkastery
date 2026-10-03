@@ -15,6 +15,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   byte a byte; os demais comandos, o `--json` e o `ork doctor --modo` não mudam. Sem dependência nova
   (`core/src/locale.ts`).
 
+- **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
+  no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
+  no rótulo de links relativos ou resolvidos pela raiz, nem sondar palavras ou nomes de pacote.
+  Sondas e variantes de extensão e `index` preservam a equivalência incremental quando
+  diretório vira arquivo e volta, inclusive diretórios com extensão no nome. `cites` fica por último no
+  desempate por tipo. Após selecionar as ligações diretas,
+  o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
+  bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
+  omissões indiretas, que não ativam `truncado` quando a vizinhança direta está completa. A medida
+  histórica continua v3, com o mesmo comparador: a cobertura do pacote vai de 23% para 69% (KG3) e de
+  41% para 65% (KG4), acima da descoberta por grep nos dois casos; a precisão cai para 36% e 61%, ainda acima
+  dela; o pacote quase dobra (28.015 e 32.706 bytes) e, no KG4, passa a saída do grep (25.988).
+
 ### Corrigido
 
 - **A referência do CLI volta a cobrir a ajuda do `ork`** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
