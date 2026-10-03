@@ -389,7 +389,7 @@ test('RM036: processo destacado registra falha anterior à leitura do manifesto'
 
 for (const caso of ['mortos', 'runtime-vivo', 'pid-runtime-reciclado', 'watcher-vivo', 'watcher-anterior-vivo',
   'controlador-ocioso', 'sem-identidade', 'despacho-antigo', 'terminal-concorrente',
-  'sem-fixacao', 'fixacao-divergente', 'outra-maquina'] as const) {
+  'terminal-apos-processos', 'sem-fixacao', 'fixacao-divergente', 'outra-maquina'] as const) {
   test(`RM036: handoff local com prova de identidade (${caso})`, async t => {
     const p = fixture(t);
     p.run(2000); // Fixa a fonte autenticada como no despacho real.
@@ -434,6 +434,20 @@ for (const caso of ['mortos', 'runtime-vivo', 'pid-runtime-reciclado', 'watcher-
         return ler(dir);
       });
     }
+    if (caso === 'terminal-apos-processos') {
+      const processos = require('../src/adapters/codex-runner') as typeof import('../src/adapters/codex-runner');
+      const consultar = processos.estadoProcesso;
+      let gravado = false;
+      t.mock.method(processos, 'estadoProcesso', (...args: Parameters<typeof consultar>) => {
+        const estado = consultar(...args);
+        if (!gravado && args[0]?.pid === p.state.processoRuntime.pid && estado === 'ausente') {
+          gravado = true;
+          registrar(p.dirEstado, p.t.id, 'phase_result', { sessionId: SID });
+        }
+        return estado;
+      });
+    }
+    const terminalConcorrente = caso === 'terminal-concorrente' || caso === 'terminal-apos-processos';
     const recupera = caso === 'mortos' || caso === 'pid-runtime-reciclado';
     const resultado = assumirConducao(p.dir, p.t.id, { por: 'operador-fixture', motivo: 'recuperar sessão', canal: 'cli',
       consultarSessao: () => { assert.fail('não consultar runtime antes da prova local'); },
@@ -460,9 +474,9 @@ for (const caso of ['mortos', 'runtime-vivo', 'pid-runtime-reciclado', 'watcher-
       assert.equal(consultas, 1);
       assert.match(resultado.detalhe, /não confirmou|nao confirmou/);
       assert.equal(mortes.length, 0);
-      if (caso !== 'terminal-concorrente') assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'sessao');
+      if (!terminalConcorrente) assert.equal(conducaoDaThread(p.dir, p.t.id)?.dono.tipo, 'sessao');
     }
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length,
-      caso === 'terminal-concorrente' ? 1 : 0, 'recuperar não conclui fase');
+      terminalConcorrente ? 1 : 0, 'recuperar não conclui fase');
   });
 }

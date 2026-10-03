@@ -894,6 +894,8 @@ function morteLocalDoCodex(raiz: string, threadId: string, lease: Lease): Record
     if (!controller || estadoProcesso({ pid: controller.pid, inicio: controller.inicio, boot: controller.bootId }) !== 'ausente') return null;
     const runtime = fonte.processoRuntime;
     if (!runtime || estadoProcesso({ pid: runtime.pid, inicio: runtime.inicio, boot: runtime.bootId }) !== 'ausente') return null;
+    // O watcher pode ter gravado o terminal e saído durante a prova dos processos.
+    if (fimDaSessao(lerLedger(dir), lease)) return null;
     return { sessionId: dono.sessionId, despachoEm: sessao.despachadaEm, fase: sessao.fase, runtime: 'codex',
       origem: 'conducao.assumir', motivo: 'watchers-controlador-e-runtime-ausentes',
       prova: { fonte: 'session_sensor_registered+controller-source-pin+/proc',
