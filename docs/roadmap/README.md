@@ -70,9 +70,9 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-044](RM-044-documentacao-como-codigo.md) | Documentação como código com paridade | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-045](RM-045-pulse-enxuto.md) | Pulse enxuto: fila sem lixo e varredura dentro do teto | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
 | [RM-046](RM-046-go-to-open-source.md) | GoToOpenSource, o Orkastery aberto, seguro e fácil de adotar | Concluído | Mesclado | Aprovados | Produção | 2026-09-28 |
-| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-09-27 |
+| [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
-| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
+| [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-003, FEAT-026, FEAT-027]
 owner: Julio
-atualizado_em: 2026-09-27T23:46:57-03:00
+atualizado_em: 2026-10-03T09:52:15+00:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -19,6 +19,9 @@ evidencias:
   codigo:
     commit: 10ca416
     pr: null
+    fatias: "bab72d2 (PR #28), b491861 (PR #34), 5c064e3 (PR #35)"
+  deploy:
+    release: Reservas, visão compartilhada e setup no npm, inclusive nas versões 0.5.0 e 0.5.1; validação do remoto em Não publicado
 sdlc:
   thread: ork-i52setupporb
   modo: "#Auto"
@@ -74,9 +77,9 @@ sdlc:
 - Discovery: levantado em 26/09/2026 ao planejar o desenvolvimento fora da VPS de referência.
 - Fatia 1 mesclada (PR #28) e em uso na fábrica desde 27/09/2026: reservas de item entre máquinas, provadas com dois clones do mesmo remoto, inclusive a corrida no meio do push. A primeira reserva real foi a RM-046.
 - Fatia 2 na thread `ork-i51fabricaem` (27/09/2026): visão compartilhada provada com dois clones do mesmo remoto, board e resumo do pulse mostrando a outra máquina, e pergunta de outra máquina saindo na hora.
-- Fatia 2 mesclada (PR #34) e em uso: a VPS entrou como `vps` em 27/09/2026, com 13 threads ativas e 25 entregues no primeiro retrato.
+- Fatia 2 mesclada (PR #34, merge `b491861`) e em uso: a instalação de referência entrou na fábrica, com 13 threads ativas e 25 entregues no primeiro retrato.
 - Fatia 3 mesclada (PR #35) e em produção: o setup que o dono já usava foi versionado em `orkastery.setup.json`, e a worktree de produção passou a aplicá-lo (antes caía no default).
-- As três fatias estão no npm desde a versão 0.4.1 (28/09/2026): o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). A validação do remoto, de 03/10/2026, ainda está em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
+- As três fatias estão no npm desde a versão 0.4.1 (28/09/2026): o código `10ca416` está na tag (`git merge-base --is-ancestor 10ca416 v0.4.1`). As versões 0.5.0 e 0.5.1 também estão publicadas no npm, conforme confirmação da condução; publicar essas fatias não é uma pendência. A validação do remoto, de 03/10/2026, ainda está em "Não publicado" no [CHANGELOG](../../CHANGELOG.md).
 - Falta para Geral: as outras máquinas entrarem (`ork fabrica entrar`).
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -85,13 +88,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-09-27 | Julio |
-| Documentação | Em revisão | — | 2026-09-27 | Julio |
-| Código | Mesclado | commit `10ca416` | 2026-09-27 | Julio |
-| Testes | Aprovados | — | 2026-09-27 | Julio |
-| Deploy | Produção | — | 2026-09-27 | Julio |
-| Exposição | Parcial | — | 2026-09-27 | Julio |
-| Habilitação | Em andamento | — | 2026-09-27 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `10ca416` · fatias: bab72d2 (PR #28), b491861 (PR #34), 5c064e3 (PR #35) | 2026-10-03 | Julio |
+| Testes | Aprovados | — | 2026-10-03 | Julio |
+| Deploy | Produção | release: Reservas, visão compartilhada e setup no npm, inclusive nas versões 0.5.0 e 0.5.1; validação do remoto em Não publicado | 2026-10-03 | Julio |
+| Exposição | Parcial | — | 2026-10-03 | Julio |
+| Habilitação | Em andamento | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -107,8 +110,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | a reserva valida o item também contra a `main` | checkout em branch antiga recusava item que já existe | Julio |
 | 2026-09-27 | fatia 2: visão compartilhada da fábrica | critério de aceite do item: board e resumo mostram as duas máquinas | Julio |
 | 2026-09-27 | fatia 3: setup por bloco versionado no repositório | escopo do item: configuração de modos por bloco versionada | Julio |
-| 2026-09-27 | as três fatias em produção na VPS de referência | merges `bab72d2`, `b491861` e `5c064e3`; VPS na fábrica como `vps`; setup do dono versionado | Julio |
-| 2026-10-03 | `fabrica.remoto` e `--remoto` validados antes do git, com recusa tipada | achado da RM-054 ainda aberto (B2 do backlog da madrugada); thread `ork-rm047remotod`, teste `branch-de-estado-remoto` | claude-srvjcp86 (#Auto) |
-| 2026-10-03 | `--remoto` de `ork ship registrar-pr` e de `ork ci status` pelo mesmo validador, com `--` antes do remoto | o que a `ork-rm047remotod` deixou na linha de comando; thread `ork-rm047remoto2`, teste `remoto-linha-de-comando` | claude-srvjcp86 (#Auto) |
-| 2026-10-03 | `--remoto` de `ork ship --para` pelo mesmo validador, `--` antes do remoto no git do ship e na leitura da forja do pulse | o que a `ork-rm047remoto2` deixou fora do escopo; thread `ork-shipparacomr`, teste `ship-remoto-validado` | claude-srvjcp86 (#Auto) |
-| 2026-10-03 | o texto deixa de dizer que falta o npm | o código `10ca416` está na `v0.4.1` (`git merge-base --is-ancestor 10ca416 v0.4.1`); thread `ork-b3fatosdoroa`, item B3 | claude-srvjcp86 (#Auto) |
+| 2026-09-27 | as três fatias em produção na VPS de referência | merges `bab72d2`, `b491861` e `5c064e3`; instalação de referência na fábrica; setup do dono versionado | Julio |
+| 2026-10-03 | `fabrica.remoto` e `--remoto` validados antes do git, com recusa tipada | achado da RM-054 ainda aberto (B2 do backlog da madrugada); thread `ork-rm047remotod`, teste `branch-de-estado-remoto` | Claude (agente, #Auto) |
+| 2026-10-03 | `--remoto` de `ork ship registrar-pr` e de `ork ci status` pelo mesmo validador, com `--` antes do remoto | o que a `ork-rm047remotod` deixou na linha de comando; thread `ork-rm047remoto2`, teste `remoto-linha-de-comando` | Claude (agente, #Auto) |
+| 2026-10-03 | `--remoto` de `ork ship --para` pelo mesmo validador, `--` antes do remoto no git do ship e na leitura da forja do pulse | o que a `ork-rm047remoto2` deixou fora do escopo; thread `ork-shipparacomr`, teste `ship-remoto-validado` | Claude (agente, #Auto) |
+| 2026-10-03 | o texto deixa de dizer que falta o npm | o código `10ca416` está na `v0.4.1` (`git merge-base --is-ancestor 10ca416 v0.4.1`); thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto) |
+| 2026-10-03 | Publicação das três fatias concluída; adesão de outras máquinas continua pendente | `bab72d2` (PR #28), `b491861` (PR #34), `5c064e3` (PR #35); versões 0.5.0 (`2418a4e7`, PR #36) e 0.5.1 (`681cb413`) no npm, conforme confirmação da condução | Codex (agente, #Fast), revisão pendente |
