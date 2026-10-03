@@ -14,9 +14,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { caminhoFila, caminhoLease, dirLeases, lerLease } from '../src/leases';
+import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerLease, listarLeases } from '../src/leases';
 import { dirThread, novaThread } from '../src/thread';
 import { lerLedger } from '../src/ledger';
+import { Lease } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -190,5 +191,93 @@ test('rm036 leases: fila unica entre raiz e worktree', () => {
     assert.equal(solta.codigo, 0, solta.stdout + solta.stderr);
     assert.match(solta.stdout, new RegExp(`proximo da fila: thread ${t2}\\b`));
     assert.equal(fs.existsSync(pastaDaWorktree(c.wt)), false);
+  } finally { c.p.limpar(); }
+});
+
+// ---------------------------------------------------------------------------
+// Legado: o que a versao anterior gravou no `.orkastery/leases` de uma worktree (D2 e D3 do PLAN).
+// ---------------------------------------------------------------------------
+
+/** Lease com o prazo em minutos a partir de agora: positivo vivo, negativo vencido. */
+function leaseDe(nome: string, thread: string, minutos: number): Lease {
+  const agora = Date.now();
+  return { nome, thread, motivo: 'gravado pela versao anterior', pid: 4242,
+    adquiridoEm: new Date(agora - 60_000).toISOString(), expiraEm: new Date(agora + minutos * 60_000).toISOString() };
+}
+
+/** Grava o lease como a versao anterior gravava quando o `ork` rodava na worktree. */
+function gravarLegado(wt: string, lease: Lease): string {
+  fs.mkdirSync(pastaDaWorktree(wt), { recursive: true });
+  const arquivo = path.join(pastaDaWorktree(wt), `${encodeURIComponent(lease.nome)}.json`);
+  fs.writeFileSync(arquivo, JSON.stringify(lease, null, 2) + '\n', 'utf8');
+  return arquivo;
+}
+
+test('rm036 leases: legado vivo vale ate vencer', () => {
+  const c = cenario('rm036-legado-vivo');
+  try {
+    const [t2] = c.outras;
+    assert.deepEqual(dirsLegadosDeLeases(c.raiz), [], 'sem pasta na worktree, nada de legado');
+    // A propria thread nao ganha a segunda copia: o nome ja esta tomado pelo legado vivo.
+    const escrita = `worktree-write:${c.t1}`;
+    const arquivo = gravarLegado(c.wt, leaseDe(escrita, c.t1, 20));
+    assert.deepEqual(dirsLegadosDeLeases(c.raiz), [pastaDaWorktree(c.wt)]);
+    assert.deepEqual(dirsLegadosDeLeases(c.wt), [pastaDaWorktree(c.wt)], 'da worktree, a mesma lista');
+    const mesma = ork(c.raiz, 'lease', 'acquire', escrita, '--thread', c.t1);
+    assert.equal(mesma.codigo, 1, mesma.stdout + mesma.stderr);
+    assert.match(mesma.stderr, /motivo tipado: lease\.busy/);
+    assert.equal(fs.existsSync(caminhoLease(c.raiz, escrita)), false, 'nenhuma copia canonica nasceu');
+    assert.ok(fs.existsSync(arquivo), 'o legado segue onde estava');
+    assert.equal(lerLease(c.raiz, escrita)?.thread, c.t1, 'a leitura acha o legado');
+
+    // Outra thread, pela raiz, numa regiao que cruza a do legado: recusa com quem segura.
+    gravarLegado(c.wt, leaseDe('path:docs/**', c.t1, 20));
+    const regiao = ork(c.raiz, 'lease', 'acquire', 'path:docs/guias/modos.md', '--thread', t2);
+    assert.equal(regiao.codigo, 1, regiao.stdout + regiao.stderr);
+    assert.match(regiao.stderr, /motivo tipado: lease\.busy/);
+    assert.match(regiao.stderr, new RegExp(`thread ${c.t1}\\b`));
+
+    // O `ork lease list` mostra os dois, marcados como legado.
+    const lista = ork(c.wt, 'lease', 'list');
+    assert.equal(lista.codigo, 0, lista.stderr);
+    assert.match(lista.stdout, new RegExp(`${escrita}.*ativo`));
+    assert.match(lista.stdout, /path:docs\/\*\*.*ativo/);
+    assert.equal((lista.stdout.match(/legado: /g) ?? []).length, 2, lista.stdout);
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: legado vencido e tomado sem segunda copia', () => {
+  const c = cenario('rm036-legado-vencido');
+  try {
+    const [t2] = c.outras;
+    const nome = 'path:core/**';
+    const arquivo = gravarLegado(c.wt, leaseDe(nome, c.t1, -5));
+    const r = ork(c.raiz, 'lease', 'acquire', nome, '--thread', t2);
+    assert.equal(r.codigo, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /VENCIDO e foi tomado/);
+    assert.equal(fs.existsSync(arquivo), false, 'o legado vencido saiu');
+    assert.equal(lerLease(c.raiz, nome)?.thread, t2);
+    assert.deepEqual(listarLeases(c.raiz).filter((l) => l.nome === nome).map((l) => l.thread), [t2], 'uma copia so, a canonica');
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: legado solto pela thread ou com --forcar', () => {
+  const c = cenario('rm036-legado-solto');
+  try {
+    const [t2] = c.outras;
+    const proprio = gravarLegado(c.wt, leaseDe('path:docs/**', c.t1, 20));
+    const solta = ork(c.raiz, 'lease', 'release', 'path:docs/**', '--thread', c.t1);
+    assert.equal(solta.codigo, 0, solta.stdout + solta.stderr);
+    assert.match(solta.stdout, /lease path:docs\/\*\* liberado/);
+    assert.equal(fs.existsSync(proprio), false, 'a thread solta o proprio legado pela raiz');
+
+    const alheio = gravarLegado(c.wt, leaseDe('board:card-3', c.t1, 20));
+    const negado = ork(c.raiz, 'lease', 'release', 'board:card-3', '--thread', t2);
+    assert.equal(negado.codigo, 1, negado.stdout + negado.stderr);
+    assert.match(negado.stdout, new RegExp(`pertence a thread ${c.t1}\\b`));
+    assert.ok(fs.existsSync(alheio), 'sem --forcar, o legado de outra thread fica');
+    const forcado = ork(c.wt, 'lease', 'release', 'board:card-3', '--forcar');
+    assert.equal(forcado.codigo, 0, forcado.stdout + forcado.stderr);
+    assert.equal(fs.existsSync(alheio), false, '--forcar tira o legado de outra thread');
   } finally { c.p.limpar(); }
 });
