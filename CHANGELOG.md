@@ -114,6 +114,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     projeto que o servidor não serve (D5 da RM-052), e o servidor rodava `git fetch` no clone do outro projeto.
   - `ork network roadmap` não marca mais como "(esta máquina)" o retrato de outra instalação com o nome desta
     (`maquina.nome-em-uso`), como o `ork network status` já fazia desde a revisão de 03/10.
+  - a validação do remoto da RM-047 aceita o nome com `/` que o git aceita (`fabrica.remoto: time/origem`), como a
+    0.5.2; a primeira versão dela o recusava com `fabrica.remoto-invalido`. Cada parte começa por letra ou dígito, então
+    caminho absoluto, `..`, opção e transporte continuam recusados.
 - **Revisão das entregas da madrugada de 03/10** (thread `ork-revisaodasen`):
   - `ork network status` não repete mais o `fabrica.remoto` cru: o valor do manifesto versionado vai ao git só como
     nome de remoto, depois do `--`, como no resto da RM-047, e o recusado sai redigido na lacuna
@@ -238,7 +241,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   recebem `--` antes do remoto. `--remoto` sem valor também recusa, em vez de virar `origin` em silêncio.
 - **Remoto da fábrica validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   - o `fabrica.remoto` do `orkastery.yaml` e o `--remoto` da linha de comando só chegam ao git como nome de remoto
-    (letras, dígitos, `.`, `_` e `-`, sem `-` no começo, sem URL nem transporte, sem caractere de controle); antes, um
+    (letras, dígitos, `.`, `_`, `-` e `/` entre partes, cada parte começando por letra ou dígito, sem URL nem
+    transporte, sem caractere de controle); antes, um
     repositório podia pôr ali uma opção do git, e o `ork fabrica` ou o `ork roadmap reservas` a passavam ao `git fetch`
     e ao `git push` de quem o clonou (classe: injeção de argumento na linha de comando do git);
   - fora do formato, `ork fabrica` (e `publicar`, `entrar`, `sair`) recusa com `fabrica.remoto-invalido`, e

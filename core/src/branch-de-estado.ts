@@ -39,11 +39,15 @@ export function exigirGit(raiz: string, args: string[], prefixo: string, extra: 
  * o `orkastery.yaml` de outra pessoa. Um valor que comece com `-` viraria opcao do git, e uma URL
  * escolheria o transporte (`ext::` roda comando): so este formato chega ao git (RM-047).
  */
-export const REMOTO_DO_GIT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+export const REMOTO_DO_GIT = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
-/** `true` quando o valor e nome de remoto que pode ir ao git como argumento. */
+/**
+ * `true` quando o valor e nome de remoto que pode ir ao git como argumento. Suspeitas da revisao de
+ * 03/10: o git aceita `/` no nome (`time/origem`), e a 0.5.2 tambem; cada parte comeca por letra ou
+ * digito, entao a barra nao abre caminho absoluto, `.`/`..`, opcao nem transporte.
+ */
 export const remotoValido = (remoto: unknown): remoto is string =>
-  typeof remoto === 'string' && REMOTO_DO_GIT.test(remoto) && !remoto.includes('..') && !remoto.endsWith('.');
+  typeof remoto === 'string' && remoto.length <= 64 && REMOTO_DO_GIT.test(remoto) && !remoto.includes('..') && !remoto.endsWith('.');
 
 /**
  * O valor recusado, para a mensagem: sem credencial de URL, sem caractere de controle e curto.
@@ -63,7 +67,7 @@ export function remotoRedigido(remoto: unknown): string {
 export function exigirRemoto(remoto: unknown, prefixo: string): string {
   if (remotoValido(remoto)) return remoto;
   throw new Error(`${prefixo}.remoto-invalido: o remoto ${remotoRedigido(remoto)} não é nome de remoto do git ` +
-    '(letras, dígitos, ".", "_" e "-", sem "-" no começo, sem URL); nada foi passado ao git. ' +
+    '(letras, dígitos, ".", "_", "-" e "/" entre partes, cada parte começando por letra ou dígito, sem URL); nada foi passado ao git. ' +
     'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).');
 }
 
