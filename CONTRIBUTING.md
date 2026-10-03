@@ -5,6 +5,30 @@ Brazilian Portuguese, and a pull request that follows that convention is easier 
 clear technical contribution in English will never be turned away for language alone. The guides
 below are in Brazilian Portuguese too.
 
+## In English: the short path
+
+The guides below are in Portuguese; this is the path they describe, from the root of the checkout.
+
+<!-- checagem: citado -->
+
+```bash
+git clone https://github.com/orkastery/orkastery.git
+cd orkastery
+npm --prefix core ci
+npm --prefix core run build
+node core/dist/index.js --version
+npm --prefix core run test:ci
+```
+
+1. **Before the PR, run `npm --prefix core run test:ci`.** It is hermetic: no network, no Docker, no agent runtime. Paste its output in the PR.
+2. **A behavior change needs a test** that fails before your change and passes after it. A text change needs `node core/dist/index.js docs verificar` and markdownlint green.
+3. **The PR template** asks for the problem, the change, the proof (the real output, pasted), the baseline (what already failed before) and the risk. An empty section sends the PR back.
+4. **Required checks:** `documentacao (markdownlint e paridade)`; `nucleo ork (build, testes, canarios)`, one per Node version; and `ork-verify`. A PR that changes `core/`, `adapters/` or `marketplaces/` needs a new line under "Não publicado" (unreleased) in the `CHANGELOG.md`, or `documentacao` fails with `changelog.linha-ausente`. Never change `version` in `core/package.json`.
+5. **Language:** the guides ask for the PR title, the commit messages and the CHANGELOG line in pt-BR. English is accepted, as the paragraph above says.
+6. **Security issues** never go in a public issue: see [SECURITY.md](SECURITY.md).
+
+The CLI prints Portuguese; the README has a [glossary of what it prints](README.md#reading-the-cli-in-english).
+
 > **Nada entra sem evidência executável.** Toda mudança de comportamento vem com o comando que a
 > comprova, e o comando roda nesta árvore. Vale para quem contribui como vale para os agentes que o
 > `ork` conduz.

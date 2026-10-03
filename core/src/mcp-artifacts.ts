@@ -76,16 +76,21 @@ function comEscrita<T>(raiz:string,id:string,executar:()=>T):T {
     const st=fs.lstatSync(pastaLeases,{throwIfNoEntry:false});
     if(st) {
       if(!st.isDirectory() || st.isSymbolicLink() || fs.realpathSync(pastaLeases)!==pastaLeases) throw Error('mcp.state.unsafe: leases');
-      for(const nome of fs.readdirSync(pastaLeases)) {
+      for(const nomeBytes of fs.readdirSync(pastaLeases,{encoding:'buffer'})) {
+        const nome=nomeBytes.toString('utf8');
+        // Antes do lstat: uma decodificacao com perda nao prova que a entrada desapareceu.
+        if(!Buffer.from(nome,'utf8').equals(nomeBytes)) throw Error('mcp.state.unsafe: nome fora de UTF-8 em leases');
         const entrada=path.join(pastaLeases,nome),s=fs.lstatSync(entrada,{throwIfNoEntry:false});
         if(!s) continue; // Uma retomada pode ter acabado durante o preflight.
         if(s.isDirectory() && nome.endsWith('.json.retomadas')) {
           const base=nome.slice(0,-'.json.retomadas'.length);
           if(!base || encodeURIComponent(decodeURIComponent(base))!==base) throw Error('mcp.state.unsafe: fila de retomada');
-          let candidatos:string[];
-          try {candidatos=fs.readdirSync(entrada);}
+          let candidatos:Buffer[];
+          try {candidatos=fs.readdirSync(entrada,{encoding:'buffer'});}
           catch(e) {if((e as NodeJS.ErrnoException).code==='ENOENT') continue;throw e;}
-          for(const candidato of candidatos) {
+          for(const candidatoBytes of candidatos) {
+            const candidato=candidatoBytes.toString('utf8');
+            if(!Buffer.from(candidato,'utf8').equals(candidatoBytes)) throw Error('mcp.state.unsafe: nome fora de UTF-8 na fila');
             const c=fs.lstatSync(path.join(entrada,candidato),{throwIfNoEntry:false});
             if(!c) continue;
             if(!/^\d+-[a-f0-9-]+\.json(?:\.tmp)?$/.test(candidato) || !c.isFile() || c.nlink!==1)

@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-01T02:24:38-03:00
+atualizado_em: 2026-10-03T06:50:27-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -17,14 +17,18 @@ estado:
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: f0b7925
-    pr: 26
+    commit: 7202e47
+    pr: 90
+    ensaio: "73df05b1, PR #74"
+    achados: "0080d87f, PR #77"
+    recibos: "7202e479, PR #90"
+    p4: "e7c465a5, PR #51"
   testes:
     ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346)
   deploy:
-    release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório
+    release: Marketplace próprio em marketplaces/; P4 incluído na v0.5.2; ensaio, achados e recibos posteriores na main
 sdlc:
-  thread: ork-rm049marketp
+  thread: ork-rm049recibos
   modo: "#Auto"
   fase: MASTER
   status: fechada
@@ -57,7 +61,7 @@ sdlc:
   1. documentação do orkastery.com gerada no build a partir de `docs/`, em inglês e português;
   2. plugin do Claude Code e skills do Codex nos marketplaces oficiais;
   3. textos do anúncio, entregues ao dono fora do repositório público. Publicar é ato do dono.
-- **Fora de escopo:** mudar o comportamento do produto.
+- **Fora de escopo dos marketplaces:** mudar o comportamento do produto. As fatias posteriores do ensaio corrigiram os atritos da primeira experiência, incluindo P4 (`worktree.por_thread`), com evidências abaixo.
 - **Entregáveis e critérios de aceite:** a documentação do site bate com `docs/` na checagem do CI; o plugin e as skills aparecem nos marketplaces; os textos são aprovados pelo dono.
 - **Piloto, medição e critérios de expansão/interrupção:** itens 2 e 3 na thread `ork-rm049marketp`; medição: as regras bloqueantes dos dois checklists que se conferem offline estão no gerador do plugin e rodam no CI, e cada campo dos dois portais tem valor pronto no kit; expansão: listagem aprovada nos dois diretórios; interrupção: achado do portal que exija mudar o comportamento do produto.
 
@@ -73,7 +77,9 @@ sdlc:
 
 - Item 2, só o plugin nos marketplaces: na `main` pelo PR #26 (merge `f0b7925`), na versão 0.5.0 (tag `v0.5.0`, merge `2418a4e`, PR #36). O marketplace próprio fica em `marketplaces/` no repositório, fora do pacote do npm.
 - CI: verde no PR #26 (run 36660154276) e no push da versão 0.5.0 (run 36815186450). No push do merge, a suíte passou (1995 aprovados, 1 pulado, 0 falhas) e o CHECK independente reprovou só a claim S9 da thread, que compara a branch com a `main` (run 36660497346).
-- Ensaio de primeira experiência sobre a `main` de 03/10/2026 (thread `ork-rm049ensaiod`): o tarball do `npm pack` num prefixo isolado com HOME temporário, o README e o quickstart num repositório de brinquedo, a primeira thread em #Fast. Recibos: [rodada da `main`](evidencias/RM-049/ensaio-2026-10-03.json), com cada atrito, a prova e a recomendação, e [rodada do candidato](evidencias/RM-049/ensaio-2026-10-03-candidato.json), refazendo os passos corrigidos. Corrigidos 7 defeitos (E1 a E7) e 2 da documentação (Q1, Q2) no PR #74; R1, R2 e R4 a R8, no PR #77. No recibo, cada achado corrigido cita o PR e o commit, e o R3 segue registrado, com a decisão do dono. O teste `rm049-recibos-de-ensaio` confere todo `ensaio-*.json`: achado corrigido cita um commit que está na `main`, e achado registrado não cita commit.
+- Ensaio de primeira experiência sobre a `main` de 03/10/2026 (thread `ork-rm049ensaiod`): o tarball do `npm pack` num prefixo isolado com HOME temporário, o README e o quickstart num repositório de brinquedo, a primeira thread em #Fast. Recibos: [rodada da `main`](evidencias/RM-049/ensaio-2026-10-03.json), com cada atrito, a prova e a recomendação, e [rodada do candidato](evidencias/RM-049/ensaio-2026-10-03-candidato.json), refazendo os passos corrigidos. Corrigidos 7 defeitos (E1 a E7) e 2 da documentação (Q1, Q2) no PR #74 (merge `73df05b1`); R1, R2 e R4 a R8, no PR #77 (merge `0080d87f`). O ajuste dos recibos também está na `main`, pelo PR #90 (merge `7202e479`). No recibo, cada achado corrigido cita o PR e o commit, e o R3 segue registrado, com a decisão do dono. O teste `rm049-recibos-de-ensaio` confere todo `ensaio-*.json`: achado corrigido cita um commit que está na `main`, e achado registrado não cita commit.
+- Ensaio de primeira experiência em inglês sobre a `main` de 03/10/2026 (thread `ork-rm049ensaio2`): o mesmo tarball num prefixo isolado, com `LANG=en_US.UTF-8` e HOME temporário, seguindo o README em inglês, o quickstart EN de orkastery.com e o CONTRIBUTING, num repositório de brinquedo, com a primeira thread em #Fast. [Recibo](evidencias/RM-049/ensaio-2026-10-03-en.json): EN2 a EN4 e EN10 corrigidos na documentação pelo PR #107 (merge `3c4d6cb9`): a primeira thread e o glossário do CLI no README, o caminho curto em inglês no CONTRIBUTING; EN1 (o CLI fala só português), EN5 (o quickstart EN do site para antes do ciclo), EN6 (datas dia/mês), EN7, EN8 e EN9 registrados com a recomendação, para o dono.
+- P4 do ensaio está na `main` em `e7c465a5`, incluído na versão 0.5.2 (`6b2899a6`). Com `worktree.por_thread: true`, `ork thread new` cria a worktree e a branch da thread, inclusive com `--from-finding`; chave ausente ou `false` mantém a criação sem worktree automática. `--sem-worktree` opta pela raiz e avisa as consequências; combinações incompatíveis recusam antes de reservar o item. `--dry-run` mostra o destino, e a criação a partir de outra worktree usa a pasta da árvore principal. Sem commit no repositório, a worktree automática espera o primeiro commit. Prova: `core/test/p4-worktree-por-thread.test.ts`.
 - Seguem em aberto: o item 1 (documentação do site gerada de `docs/`), a submissão aos diretórios oficiais e o item 3, todos com o dono.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -82,13 +88,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `f0b7925` · PR #26 | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0; marketplace próprio em marketplaces/ na main do repositório | 2026-10-01 | Julio |
-| Exposição | Flag desligada | — | 2026-10-01 | Julio |
-| Habilitação | Pendente | — | 2026-10-01 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `7202e47` · PR #90 · ensaio: 73df05b1, PR #74 · achados: 0080d87f, PR #77 · recibos: 7202e479, PR #90 · p4: e7c465a5, PR #51 | 2026-10-03 | Julio |
+| Testes | Aprovados | ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346) | 2026-10-03 | Julio |
+| Deploy | Produção | release: Marketplace próprio em marketplaces/; P4 incluído na v0.5.2; ensaio, achados e recibos posteriores na main | 2026-10-03 | Julio |
+| Exposição | Flag desligada | — | 2026-10-03 | Julio |
+| Habilitação | Pendente | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -106,3 +112,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-29 | Plugin nos marketplaces mesclado na `main`; entra na versão 0.5.0 | PR #26, merge `f0b7925`; tag `v0.5.0` | Julio |
 | 2026-10-03 | Terceiro ensaio de primeira experiência, sobre a `main` | Thread `ork-rm049ensaiod` (#Auto): 9 correções e 8 achados com recomendação, recibos em `evidencias/RM-049/` | Julio |
 | 2026-10-03 | Recibo do ensaio com o estado real dos achados | Thread `ork-rm049recibos` (#Auto): R1, R2 e R4 a R8 em `corrigido` com o PR #77 e o commit, E1 a E7, Q1 e Q2 com o PR #74 e o commit, R3 registrado; teste de guarda `rm049-recibos-de-ensaio` | Condutor #Auto, por delegação do dono |
+| 2026-10-03 | Ensaio, achados, recibos e P4 já mesclados; frentes restantes seguem abertas | `73df05b1` (PR #74), `0080d87f` (PR #77), `7202e479` (recibos, PR #90) e `e7c465a5` (P4, PR #51) | Codex (agente, #Fast), revisão pendente |
+| 2026-10-03 | Ensaio de primeira experiência em inglês | Thread `ork-rm049ensaio2` (#Auto): 4 correções de documentação e 6 achados com recomendação, recibo `evidencias/RM-049/ensaio-2026-10-03-en.json` | Condutor #Auto, por delegação do dono |

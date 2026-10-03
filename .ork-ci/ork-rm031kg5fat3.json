@@ -1,0 +1,533 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm031kg5fat3",
+  "branch": "ork/ork-rm031kg5fat3-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-contexto.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:10.667Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:10.950Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:11.213Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:11.476Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-extract-ts.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:11.740Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-contract.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:12.014Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/intelligence-graph-index.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:12.274Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm031-kg5-citacoes.test.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:12.582Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/src/mcp-grafo.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:12.864Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/test/mcp-grafo.test.ts",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:13.182Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/medir-mcp-grafo.cjs",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:13.495Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:13.745Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-031-grafo-de-codigo.md",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:14.044Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "RM-031 KG5 fatia 4: arestas cites de citação literal (Markdown e strings de teste/script) e segundo salto com o orçamento que sobrar, sem quebrar o determinismo nem o formato v2",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js && node --test core/dist-test/test/mcp-grafo.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:03:14.340Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-citacoes.test.ts",
+      "alegacao": "Citacoes literais, spans UTF-8, alvos ausentes/ambiguos e reuso incremental sao verificados com provas que reprovam mutantes em memoria.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:24:58.576Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "O segundo salto conserva teto, prioridade direta, limite por alvo, marca salto:2, sentidos e determinismo; provas reprovam mutantes sem essas propriedades. Comparador historico continua v3.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 segundo salto|KG5 contexto puro|KG5 relevancia|KG5 contexto v2|KG5 sementes|KG5 medida historica' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:30:51.204Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/schemas/code-artifact-graph.v1.schema.json",
+      "alegacao": "RM-031 KG5 fatia 4: o esquema do grafo aceita a aresta cites e as expectativas KG1/KG2 incluem as citações literais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/intelligence-graph-contract.test.js core/dist-test/test/intelligence-graph-extract.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:37:36.610Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-graph-contract.test.ts",
+      "alegacao": "RM-031 KG5 fatia 4: o esquema do grafo aceita a aresta cites e as expectativas KG1/KG2 incluem as citações literais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/intelligence-graph-contract.test.js core/dist-test/test/intelligence-graph-extract.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:37:36.843Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/intelligence-graph-extract.test.ts",
+      "alegacao": "RM-031 KG5 fatia 4: o esquema do grafo aceita a aresta cites e as expectativas KG1/KG2 incluem as citações literais",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/intelligence-graph-contract.test.js core/dist-test/test/intelligence-graph-extract.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:37:37.073Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-query.ts",
+      "alegacao": "RM-031 KG5 fatia 4 GO-FIX: cites sem duplicar references/imports, sondas limitadas, segundo salto com parada e omitidos.segundo_salto",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm031-kg5-contexto.test.js core/dist-test/test/rm031-kg5-citacoes.test.js core/dist-test/test/intelligence-graph-extract.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:50:21.806Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-citacoes.test.ts",
+      "alegacao": "GO-FIX item 1: links, imports estáticos, require e import dinâmico resolvidos não geram cites na mesma ocorrência; outra string com caminho igual permanece. As provas rejeitam mutantes que reintroduzem duplicação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:53:23.617Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "GO-FIX item 1: cites fica por último no desempate por tipo; o teste de ordem rejeita mutante que restaura ordem alfabética.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 relevancia GO-FIX' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:54:10.253Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-citacoes.test.ts",
+      "alegacao": "GO-FIX item 2: citações comuns exigem barra e extensão conhecida; módulos podem omitir extensão. Palavras, bases vazias e diretórios não criam sondas de citação. Provas também cobrem reuso incremental e rejeitam mutantes dos filtros.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:56:05.613Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "GO-FIX item 3: após oito rejeições consecutivas por bytes, o segundo salto para; grupos aceitos reiniciam a contagem. Hubs de 64 e 256 vizinhos têm no máximo 32 montagens no teto de 4096 bytes; mutante sem parada reprova.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 segundo salto' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:57:01.370Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-contexto.test.ts",
+      "alegacao": "GO-FIX item 4: omitidos.segundo_salto conta grupos indiretos separados de omitidos.ligacoes; perdas exclusivamente indiretas não ativam truncado/teto.cortado. Totais originais conservam identidades v2; mutantes dos contadores, arestas e auxiliares reprovam.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node --test-name-pattern='KG5 segundo salto|KG5 contexto v2|KG5 contexto puro' core/dist-test/test/rm031-kg5-contexto.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:58:27.998Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX item 5: a entrada existente de KG5 fatia 4 em Não publicado descreve deduplicação, filtro, parada e omissões separadas, sem criar outra entrada.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const s=require('fs').readFileSync('CHANGELOG.md','utf8').split('## Não publicado')[1].split('\\n## ')[0]; const a=require('node:assert/strict'); a.equal(s.split('**Citações e segundo salto no contexto da thread, KG5 fatia 4**').length-1,1); a.ok(s.includes('omitidos.segundo_salto')); a.ok(s.includes('oito rejeições')); console.log('CHANGELOG: uma entrada KG5 em Não publicado; correções documentadas');\""
+      ],
+      "criadoEm": "2026-10-03T11:00:14.859Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/fixtures/kg5-medida-contexto.json",
+      "alegacao": "Medida histórica v3 da fatia 4 regravada pela condutora; o --conferir local reproduziu os hashes (cobertura 69% e 65%, precisão 36% e 61%)",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/medir-mcp-grafo.cjs --contexto --validar core/test/fixtures/kg5-medida-contexto.json"
+      ],
+      "criadoEm": "2026-10-03T11:09:33.416Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-ts.ts",
+      "alegacao": "GO-FIX 2 item 1: a troca de pasta/index.ts para pasta.ts e a volta conservam grafo, digest e unidades incrementais iguais aos completos, sem sondar o diretório exato; prova rejeita o retorno antecipado.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:19:17.718Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "GO-FIX 2 item 2: código inline contido no span de link que gerou references não gera cites; citações independentes na mesma linha e em rótulos sem alvo permanecem. provarSemDuplicacao rejeita mutação sem supressão.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:20:07.369Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "GO-FIX 2 item 3: a regra compartilhada por TS/JS exige prefixo de caminho nos argumentos de módulo; require('zod'), import('typescript') e pacotes em fixtures não geram sondas nem dependências locais. A prova rejeita a retirada desse guard.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:21:37.609Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/consumo-grafo-kg5.md",
+      "alegacao": "GO-FIX 2 item 4: o parágrafo do comparador remete à medida da Fatia 4, sem as afirmações antigas de fixture não regravada e metas pendentes; o comando rejeita três mutações desse texto.",
+      "negativa": false,
+      "verificar": [
+        "node <<'NODE'\nconst fs = require('node:fs'), a = require('node:assert/strict');\nconst s = fs.readFileSync('docs/referencia/contratos/consumo-grafo-kg5.md', 'utf8');\nconst trecho = s.split('O comparador de ')[1].split('A mesma entrada')[0];\nfunction provar(t) {\n  a.ok(t.includes('seção **Fatia 4**'));\n  a.ok(t.includes('[Dica e medidas](#dica-e-medidas)'));\n  a.ok(t.includes('atualizada pela condutora'));\n  a.doesNotMatch(t, /não é regravada por este GO|metas pendentes/);\n}\nprovar(trecho);\na.throws(() => provar(trecho + 'histórica não é regravada por este GO'));\na.throws(() => provar(trecho + 'metas pendentes da nova medida'));\na.throws(() => provar(trecho.replace('seção **Fatia 4**', 'outra seção')));\nconsole.log('Contrato: remissão à Fatia 4 confirmada; 3 mutações rejeitadas');\nNODE"
+      ],
+      "criadoEm": "2026-10-03T11:22:21.603Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 2 item 5: a única entrada da KG5 fatia 4 em Não publicado cobre diretório/arquivo, código inline em rótulo e pacotes sem sondas; o comando rejeita duplicação e remoção de correção.",
+      "negativa": false,
+      "verificar": [
+        "node <<'NODE'\nconst fs = require('node:fs'), a = require('node:assert/strict');\nconst s = fs.readFileSync('CHANGELOG.md', 'utf8');\nconst titulo = '**Citações e segundo salto no contexto da thread, KG5 fatia 4**';\nfunction provar(t) {\n  const n = t.split('## Não publicado')[1].split('\\n## ')[0];\n  a.equal(n.split(titulo).length - 1, 1);\n  for (const item of ['código inline', 'nomes de pacote', 'diretório vira arquivo e volta', 'omitidos.segundo_salto', 'oito rejeições']) a.ok(n.includes(item), item);\n}\nprovar(s);\na.throws(() => provar(s.replace(titulo, titulo + titulo)));\na.throws(() => provar(s.replace('diretório vira arquivo e volta', '')));\nconsole.log('CHANGELOG: uma entrada KG5 em Não publicado; correções presentes; 2 mutações rejeitadas');\nNODE"
+      ],
+      "criadoEm": "2026-10-03T11:22:21.645Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-ts.ts",
+      "alegacao": "GO-FIX 3 item 1: sondas incluem candidatos que atualmente são diretórios; pasta.ts/index.ts -> pasta.ts e dist/x.css/estilo.css -> dist/x.css, nos dois sentidos, comparam grafo, unidades e digest incrementais aos completos. Cada caso rejeita mutante que restaura o filtro de diretórios.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:36:46.017Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "GO-FIX 3 item 2: link resolvido só pela raiz marca seu span quando citar emite aresta. provarSemDuplicacao cobre rótulo inline com o mesmo alvo e uma citação independente na mesma linha; rejeita mutante que omite a marcação.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:37:56.240Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/src/intelligence-graph-extract-md.ts",
+      "alegacao": "GO-FIX 3 item 3: guard de módulo simplificado a ./ ou ../, preservando recusa prévia de absolutos. Teste de alvos, sondas e dependências rejeita quatro mutantes não equivalentes dos prefixos e da recusa de absolutos; restauração isolada do ramo morto é equivalente.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:38:58.471Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO-FIX 3 item 4: a única entrada KG5 fatia 4 em Não publicado explicita links resolvidos pela raiz e diretórios com extensão no nome, sem adicionar outra entrada; prova rejeita duplicação e omissão de cada correção.",
+      "negativa": false,
+      "verificar": [
+        "node <<'NODE'\nconst fs = require('node:fs'), a = require('node:assert/strict');\nconst s = fs.readFileSync('CHANGELOG.md', 'utf8');\nconst titulo = '**Citações e segundo salto no contexto da thread, KG5 fatia 4**';\nfunction provar(t) {\n  const n = t.split('## Não publicado')[1].split('\\n## ')[0];\n  a.equal(n.split(titulo).length - 1, 1);\n  for (const item of ['resolvidos pela raiz', 'diretórios com extensão no nome', 'diretório vira arquivo e volta', 'omitidos.segundo_salto', 'oito rejeições']) a.ok(n.includes(item), item);\n}\nprovar(s);\na.throws(() => provar(s.replace(titulo, titulo + titulo)));\na.throws(() => provar(s.replace('resolvidos pela raiz', '')));\na.throws(() => provar(s.replace('diretórios com extensão no nome', '')));\nconsole.log('CHANGELOG: uma entrada KG5 em Não publicado; 3 mutações rejeitadas');\nNODE"
+      ],
+      "criadoEm": "2026-10-03T11:39:47.624Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm031kg5fat3",
+      "fase": "GO",
+      "arquivo": "core/test/rm031-kg5-citacoes.test.ts",
+      "alegacao": "GO-FIX 3: nove testes de citações cobrem diretórios com extensão nos dois sentidos, deduplicação de link pela raiz e limites de prefixos. As provas rejeitam mutantes em memória. Execução local não substitui verify da condutora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build:test && node core/dist-test/test/rm031-kg5-citacoes.test.js"
+      ],
+      "criadoEm": "2026-10-03T11:40:36.094Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-estadodoroa2",
+  "branch": "ork/ork-estadodoroa2-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-006-ship-com-push-provado.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:04.555Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-008-rodizio-de-contas.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:04.808Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/produto/FEAT-014-monitor-board-e-pulse.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:05.077Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/produto/README.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:05.340Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:05.591Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-036-maestro-multicanal.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:05.831Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:06.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:06.323Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-047-fabrica-em-varias-maquinas.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:06.576Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-049-lancamento.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:06.814Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-050-guia-de-contribuicao.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:07.064Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-052-projeto-alvo-explicito.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:07.310Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-estadodoroa2",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "Estado do roadmap e das features alinhado à main depois da 0.5.2, com evidência de commit e PR; índices regenerados",
+      "negativa": false,
+      "verificar": [
+        "node core/dist/index.js docs verificar"
+      ],
+      "criadoEm": "2026-10-03T09:35:07.571Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
