@@ -37,6 +37,6 @@ test('RM-037: só arquivo de integração local usa o skip de ambiente, então n
   const usam = fs.readdirSync(dir).filter(n => n.endsWith('.test.ts') && n !== 'ambiente-de-teste.test.ts')
     .filter(n => /from '\.\/ambiente-de-teste'/.test(fs.readFileSync(path.join(dir, n), 'utf8')))
     .map(n => n.replace(/\.ts$/, '.js')).sort();
-  assert.ok(usam.length >= 14, `esperados os 14 arquivos de integração local, achados ${usam.length}`);
+  assert.ok(usam.length >= 15, `esperados os 15 arquivos de integração local, achados ${usam.length}`);
   for (const nome of usam) assert.ok(TESTES_DE_INTEGRACAO_LOCAL.has(nome), `${nome} pula por ambiente mas roda no CI hermético`);
 });
