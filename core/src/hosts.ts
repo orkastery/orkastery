@@ -644,24 +644,28 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
         ? `Arquivos do adaptador ${r.host} preparados.`
         : `Instalacao do adaptador ${r.host} BARRADA: ha arquivo diferente no destino.`
   );
+  // Ensaio de 03/10 (R6): a ativacao sai no comeco e de novo no fim, depois da lista de arquivos e dos
+  // pitfalls, para que o fim da saida diga o proximo passo.
+  const ativacao: string[] = [];
   if (r.ok && !r.dryRun && r.host === 'claude-code') {
     const destino = "'" + r.destino.replace(/'/g, "'\"'\"'") + "'";
     linhas.push('Uso no Claude Code ainda nao verificado por esta copia.');
     linhas.push('No diretorio deste projeto, valide e ative o plugin:');
-    linhas.push(`  claude plugin validate ${destino}`);
-    linhas.push(`  claude plugin marketplace add ${destino} --scope project`);
-    linhas.push('  claude plugin install orkastery@orkastery --scope project');
-    linhas.push('  claude plugin list --json');
-    linhas.push('Depois, na sessao deste projeto: /orkastery:ork');
+    ativacao.push(`  claude plugin validate ${destino}`);
+    ativacao.push(`  claude plugin marketplace add ${destino} --scope project`);
+    ativacao.push('  claude plugin install orkastery@orkastery --scope project');
+    ativacao.push('  claude plugin list --json');
+    ativacao.push('Depois, na sessao deste projeto: /orkastery:ork');
   } else if (r.ok && !r.dryRun && r.host === 'codex') {
-    linhas.push('Abra o Codex neste projeto e use $ork.');
-    linhas.push('Descoberta e uso nativo ainda nao verificados por esta copia.');
+    ativacao.push('Abra o Codex neste projeto e use $ork.');
+    ativacao.push('Descoberta e uso nativo ainda nao verificados por esta copia.');
   }
   if(r.ok && !r.dryRun && (r.host==='codex' || r.host==='claude-code')) {
     const projeto="'"+r.projeto.replace(/'/g,"'\"'\"'")+"'";
-    linhas.push(`Prepare tambem as ferramentas do projeto: ork mcp install --project ${projeto} --host ${r.host}`);
-    linhas.push('A configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.');
+    ativacao.push(`Prepare tambem as ferramentas do projeto: ork mcp install --project ${projeto} --host ${r.host}`);
   }
+  linhas.push(...ativacao);
+  if (ativacao.length) linhas.push('A configuracao MCP exige descoberta e consentimento no cliente; a copia nao concede aprovacoes.');
   linhas.push(`  catalogo: ${r.catalogo}`);
   linhas.push(`  destino:  ${r.destino}`);
   linhas.push(`  ork:      ${r.orkBin}`);
@@ -717,5 +721,10 @@ export function textoDaInstalacao(r: ResultadoInstalacao): string {
   }
   linhas.push('');
   linhas.push(textoDosPitfalls(r.host));
+  if (ativacao.length) {
+    linhas.push('');
+    linhas.push(r.host === 'claude-code' ? 'Proximo passo, no diretorio deste projeto (o mesmo do comeco):' : 'Proximo passo (o mesmo do comeco):');
+    linhas.push(...ativacao);
+  }
   return linhas.join('\n');
 }

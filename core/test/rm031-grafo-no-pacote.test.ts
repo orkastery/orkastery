@@ -196,7 +196,7 @@ test('grafo no pacote: doctor: o check carrega os analisadores de verdade, e no 
 test('grafo no pacote: doctor: o checar traz o check que o index.ts passa logo depois do node, e sem ele o doctor nao abre o grafo', () => {
   const dir = dirTemporario('rm031-doctor-ordem');
   try {
-    const nomes = checar(dir, undefined, undefined, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK)).map((c) => c.nome);
+    const nomes = checar(dir, undefined, undefined, undefined, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK)).map((c) => c.nome);
     assert.equal(nomes[nomes.indexOf('node') + 1], 'analisadores do grafo', nomes.join(', '));
     // Fronteira do KG1: o doctor nao importa a familia do grafo; o check so vem de quem a abre.
     assert.ok(!checar(dir).some((c) => c.nome === 'analisadores do grafo'));
