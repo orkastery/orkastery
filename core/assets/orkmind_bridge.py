@@ -10,6 +10,7 @@ import math
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 
 class LegacyProvenanceCollision(ValueError):
@@ -370,6 +371,84 @@ async def health(store):
 ORK_COLLECTIONS = ('decision', 'handoff', 'rule', 'learning', 'roadmap')
 
 
+def no_universo(entry, tenant):
+    """RM-038: o predicado unico do universo da busca (indice, vetor, FTS e status).
+
+    O search_by_tags governado ja tira expiradas e injection_risk; o search_by_text nao tira
+    injection_risk. O mesmo predicado vale nos dois caminhos, com o tenant conferido como item
+    de lista: texto nunca casa por substring.
+    """
+    tags = getattr(entry, 'tags', None)
+    projeto = tags.get('project') if isinstance(tags, dict) else None
+    expira = getattr(entry, 'expires_at', None)
+    if expira is not None and expira.tzinfo is None:
+        expira = expira.replace(tzinfo=timezone.utc)
+    return (getattr(entry, 'collection', None) in ORK_COLLECTIONS
+            and isinstance(projeto, list) and tenant in projeto
+            and not getattr(entry, 'injection_risk', False)
+            and (expira is None or expira > datetime.now(timezone.utc)))
+
+
+def universo_contract(request):
+    valid = isinstance(request, dict) and set(request) == {'op', 'tenant'}
+    tenant = request.get('tenant') if valid else None
+    if (not valid or request['op'] != 'universo' or not isinstance(tenant, str) or not tenant.strip()
+            or len(tenant) > 128 or re.search(r'[\x00-\x1f\x7f]', tenant) is not None):
+        raise QueryError('memory.universo.invalid')
+
+
+# Contagem SO de numeros: nenhuma coluna de conteudo sai da base por aqui.
+FORA_DA_BUSCA_SQL = """
+    SELECT
+      count(*) FILTER (WHERE collection = ANY(%s) AND injection_risk
+                         AND (expires_at IS NULL OR expires_at > now())) AS injecao,
+      count(*) FILTER (WHERE collection = ANY(%s) AND expires_at IS NOT NULL AND expires_at <= now()) AS expiradas,
+      count(*) FILTER (WHERE NOT (collection = ANY(%s))) AS outras_colecoes
+    FROM memories
+    WHERE jsonb_typeof(tags->'project') = 'array' AND tags->'project' ? %s
+"""
+
+
+async def contar_fora_da_busca(store, tenant):
+    """RM-038: quantas entradas do tenant ficam fora do universo e por que.
+
+    A API governada nao devolve o que filtra; a contagem le a tabela pela conexao do adapter
+    pgvector (o mesmo acesso do lock de add e handoff), so com count(*). Em outro backend a
+    contagem nao e medida e volta None.
+    """
+    if getattr(getattr(store, 'capabilities', None), 'backend', None) != 'pgvector':
+        return None
+    conn = await store.inner._get_conn()
+    colecoes = list(ORK_COLLECTIONS)
+    cur = await conn.execute(FORA_DA_BUSCA_SQL, (colecoes, colecoes, colecoes, tenant))
+    linha = await cur.fetchone()
+    return {'injecao': int(linha['injecao']), 'expiradas': int(linha['expiradas']),
+            'outrasColecoes': int(linha['outras_colecoes'])}
+
+
+async def universo(request, store):
+    """RM-038: o universo da busca do tenant, lido ate o fim, uma leitura governada por colecao.
+
+    O tenant e filtro na origem: texto de outro tenant nunca sai da base por aqui. A janela e a
+    colecao inteira mais um; janela cheia so acontece com escrita concorrente entre a contagem e a
+    leitura, e a resposta e falhar alto, nunca cortar. Entrada fora do predicado e violacao.
+    """
+    tenant = request['tenant']
+    entradas = []
+    for colecao in ORK_COLLECTIONS:
+        limite = await store.count(colecao) + 1
+        lidas = await store.search_by_tags({'project': [tenant]}, collection=colecao, limit=limite)
+        if len(lidas) >= limite:
+            raise QueryError('memory.query.window-saturated')
+        if any(e.collection != colecao or not no_universo(e, tenant) for e in lidas):
+            raise QueryError('memory.query.scope-violation')
+        entradas.extend(lidas)
+    if len({e.id for e in entradas}) != len(entradas):
+        raise QueryError('memory.query.scope-violation')
+    return {'entradas': [e.model_dump(mode='json') for e in entradas],
+            'foraDaBusca': await contar_fora_da_busca(store, tenant)}
+
+
 def fts_contract(request):
     valid = isinstance(request, dict) and set(request) == {'op', 'tenant', 'texto'}
     def text(value, maximum):
@@ -379,14 +458,14 @@ def fts_contract(request):
 
 
 async def fts(request, store):
-    """FTS da biblioteca (I-38 D9) com fronteira de tenant obrigatoria: devolve so ids, na ordem do ranking."""
+    """FTS da biblioteca (I-38 D9) restrito ao universo da busca (RM-038): so ids, na ordem do ranking."""
     # A janela cobre a base inteira: ausencia so conta quando nada ficou de fora do corte.
     limit = await store.count() + 1
     entries = await store.search_by_text(request['texto'], limit=limit)
     if len(entries) >= limit:
         raise QueryError('memory.query.window-saturated')
-    return {'ids': [e.id for e in entries if e.collection in ORK_COLLECTIONS
-                    and request['tenant'] in (e.tags or {}).get('project', [])]}
+    # O search_by_text alcanca injection_risk; o universo nao. Mesmo predicado do indice.
+    return {'ids': [e.id for e in entries if no_universo(e, request['tenant'])]}
 
 
 async def execute(request, store):
@@ -403,6 +482,9 @@ async def execute(request, store):
     if op == 'fts':
         fts_contract(request)
         return await fts(request, store)
+    if op == 'universo':
+        universo_contract(request)
+        return await universo(request, store)
     if op == 'query':
         tags, collection, limit = query_contract(request)
         # GovernedStore conserva validade, anti-injection e visibilidade existentes.
@@ -419,6 +501,9 @@ async def execute(request, store):
         collection = request['collection']
         count = await store.count(collection)
         entries = await store.search_by_tags({}, collection=collection, limit=count + 1)
+        # RM-038: janela cheia e escrita concorrente; falhar alto, nunca cortar em silencio.
+        if len(entries) >= count + 1:
+            raise QueryError('memory.query.window-saturated')
         return [e.model_dump(mode='json') for e in entries]
     if op == 'get':
         entry = await store.retrieve(request['id'])
@@ -538,6 +623,8 @@ async def main(request):
         health_contract(request)
     if isinstance(request, dict) and request.get('op') == 'fts':
         fts_contract(request)
+    if isinstance(request, dict) and request.get('op') == 'universo':
+        universo_contract(request)
     native_schema_fields()
     from orkmind.core.config import OrkMindConfig
     from orkmind.store.factory import create_store
