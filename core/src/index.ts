@@ -2071,6 +2071,17 @@ function comandoShip(args: Args): number {
     if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
     if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
     for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
+    // So aviso: nada e gravado e o codigo de saida nao muda.
+    const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
+    if (pendentes.length) {
+      console.log('');
+      console.log(`Aviso: ${pendentes.length} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; o push da base reprova em docs.paridade.merge:`);
+      for (const d of pendentes) {
+        console.log(`  ${d.id} (${d.arquivo}): merge ${d.merge.slice(0, 7)} de ship(${d.thread}), estado.codigo "${d.codigo || 'vazio'}"`);
+        console.log(`    ${d.comando}   (num PR de docs sobre a base atualizada)`);
+      }
+    }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
     const registrariam = r.filter((x) => x.acao === 'registraria').length;
     if (registradas) {
