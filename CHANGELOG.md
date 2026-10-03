@@ -66,6 +66,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Achados do ensaio de 03/10, com a recomendada de cada um** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  - `ork doctor` avisa (`warn`) quando o `claude` do PATH está sem login e não há perfil de conta do
+    `claude-bg`: confere pelo mesmo `claude auth status` do check de contas; antes dizia `ok` e o primeiro
+    despacho falhava;
+  - sem idioma escolhido no ambiente (`LANG=C.UTF-8`, `C`, `POSIX`), o `ork onboarding` recomenda a
+    experiência em `pt-BR`, a língua da CLI, em vez de `en-US`; um locale escolhido continua valendo;
+  - `ork ci status` com `--sha HEAD` ou sha curto diz que pede o sha completo de 40 caracteres
+    (`git rev-parse HEAD`); antes respondia só a linha de uso;
+  - `ork ship --dry-run` sem o remoto configurado (ou com `--sem-push`) diz o mesmo que o ship real, "merge
+    local concluído, sem push a provar", em vez de listar o `git push` e o `git ls-remote`;
+  - `ork adapter install claude-code` (e `codex`) repete no fim, depois da lista de arquivos e dos pitfalls, as
+    linhas de ativação e o `ork mcp install`: o fim da saída diz o próximo passo;
+  - `ork verify --baseline` com comando que já falhava diz onde ver a saída: as últimas linhas no
+    `thread.json` da thread (`baseline.comandos`, `resumo` e `trecho`) e o evento em `ork phase list`;
+  - o README traz os números do CI da `main` de 03/10 (run 37102089623): 2.733 testes do núcleo, 24 canários e
+    20 skills com 199 asserções; dizia 1.553 testes, de 27/09;
 - **Primeira experiência sobre a main de 03/10, achados do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
   - `ork init` fora de um repositório git recusa com `init.fora-do-repositorio` sem criar nada; antes, rodado
     por engano no HOME, gravava manifesto, `AGENTS.md` e `.orkastery/` ali, e um repositório criado depois

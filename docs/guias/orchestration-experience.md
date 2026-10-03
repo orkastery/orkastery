@@ -19,7 +19,7 @@ The agenda offers activation with detected values, configuration or opt-out. UTC
 
 | Field | Values | When absent |
 | --- | --- | --- |
-| `owner.language` | BCP-47 locale, such as `en-US` or `pt-BR` | System locale |
+| `owner.language` | BCP-47 locale, such as `en-US` or `pt-BR` | System locale; with `C`, `POSIX` or no locale, `pt-BR`, the language of the CLI |
 | `owner.timezone` | IANA timezone | Core timezone resolution |
 | `owner.depth` | `curta` (short) or `detalhada` (detailed) | `curta` |
 | `owner.experience` | `true` or `false` | `true` |
