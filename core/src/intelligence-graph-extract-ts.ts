@@ -666,8 +666,9 @@ export function extrairTypeScript(e: EntradaTs, ts: typeof TS): ResultadoTs {
     if (/(?:^|\/)(?:tests?|__tests__|scripts?)\/|\.(?:test|spec)\.[cm]?[jt]sx?$/.test(fonte.path)) {
       const citar = (literal: string, n: TS.Node, modulo = false): void => {
         const base = caminhoDaCitacao(fonte.path, literal, modulo);
-        if (base === null || diretorios.has(base)) return;
-        const grupos = candidatosDaCitacao(base);
+        if (base === null) return;
+        // Diretorio nao e candidato exato, mas suas variantes ainda podem citar um arquivo.
+        const grupos = candidatosDaCitacao(base).map((grupo) => grupo.filter((p) => !diretorios.has(p)));
         // Inclui ausentes: criar/remover candidato invalida a unidade incremental.
         for (const grupo of grupos) for (const p of grupo) sondas.add(p);
         for (const grupo of grupos) {

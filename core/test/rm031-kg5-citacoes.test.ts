@@ -84,6 +84,35 @@ test('KG5 citacoes: incremental religa Markdown e invalida strings quando alvos 
   provarIncremental();
 });
 
+function provarTrocaDeDiretorio(extrair = extrairGrafo): void {
+  const teste = 'core/test/pasta.test.ts';
+  const fixture = { [teste]: 'export const codigo = "require(\'../src/pasta\')";' };
+  const diretorio = { ...fixture, 'core/src/pasta/index.ts': 'export const pasta = 1;' };
+  const arquivo = { ...fixture, 'core/src/pasta.ts': 'export const pasta = 2;' };
+  let anterior = extrair(entrada(diretorio), PARSER);
+  assert.deepEqual(rotulos(anterior.grafo), [`${teste} -> core/src/pasta/index.ts`]);
+  const sondas = anterior.unidades.arquivos.find((u) => u.path === teste)!.ts!.sondas;
+  assert.ok(!sondas.includes('core/src/pasta'), 'diretorio nao vira sonda ampla');
+  assert.ok(sondas.includes('core/src/pasta.ts'), 'variante de arquivo ausente fica sondada');
+  assert.ok(sondas.includes('core/src/pasta/index.ts'), 'variante index fica sondada');
+  for (const [repo, alvo] of [[arquivo, 'core/src/pasta.ts'], [diretorio, 'core/src/pasta/index.ts']] as const) {
+    const e = entrada(repo), incremental = extrair(e, PARSER, anterior.unidades), completo = extrair(e, PARSER);
+    assert.deepEqual(incremental.grafo, completo.grafo);
+    assert.deepEqual(incremental.unidades, completo.unidades);
+    assert.equal(incremental.digest, completo.digest);
+    assert.deepEqual(rotulos(incremental.grafo), [`${teste} -> ${alvo}`]);
+    assert.ok(incremental.reaproveitamento?.ts.reextraidos.includes(teste), 'fixture precisa ser reextraida');
+    anterior = incremental;
+  }
+}
+
+test('KG5 citacoes GO-FIX 2: diretorio vira arquivo e volta com indice incremental igual ao completo; prova cai por mutacao', () => {
+  provarTrocaDeDiretorio();
+  const semVariantes = mutante('intelligence-graph-extract-ts',
+    'const grupos = candidatosDaCitacao(base)', 'if (diretorios.has(base)) return; const grupos = candidatosDaCitacao(base)');
+  assert.throws(() => provarTrocaDeDiretorio(semVariantes), 'retorno antecipado perde index e sondas');
+});
+
 function provarSemDuplicacao(extrair = extrairGrafo): void {
   const repo = {
     'core/src/alvo.ts': 'export const alvo = 1;',
@@ -146,7 +175,7 @@ test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas 
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', '!modulo && (', 'false && ('],
     ['intelligence-graph-extract-md', '[cm]?[jt]s|[jt]sx', '[cm]?[jt]sx?'],
-    ['intelligence-graph-extract-ts', 'base === null || diretorios.has(base)', 'base === null'],
+    ['intelligence-graph-extract-ts', 'grupo.filter((p) => !diretorios.has(p))', 'grupo'],
   ]) assert.throws(() => provarSondasRestritas(mutante(modulo, antes, depois)), antes);
 });
 
