@@ -32,6 +32,8 @@ const mutantes = {
   'R4-docs-tabela': [[verificacao, '| `lease.resume-unavailable` | escalar-humano |', '| `lease.resume-unavailable` | corrigir-dirigido |']],
   'R4-legado-ctime-marca': [[lease, '.legado-ignorado-${identidade.dev}-${identidade.ino}-${identidade.ctimeMs}', '.legado-ignorado-${identidade.dev}-${identidade.ino}']],
   'R4-legado-ctime-releitura': [[lease, ' || atual.ctimeMs !== identidade.ctimeMs', '']],
+  'R4-docs-portabilidade': [[feat7, 'Linux e macOS', 'somente Linux']],
+  'R4-docs-ctime': [[feat29, '.legado-ignorado-<dev>-<ino>-<ctime>', '.legado-ignorado-<dev>-<ino>']],
   'R4-nlink-zero': [[lease, "if (stat.nlink === 0)\n            return 'ocupado';", "if (stat.nlink === 0)\n            return 'indisponivel';"]],
   'B1-nome': [[lease, 'path.basename(caminho) !== `${encodeURIComponent(lease.nome)}.json`', 'false']],
   'B1-thread': [[lease, '!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(lease.thread)', 'false']],

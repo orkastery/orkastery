@@ -74,14 +74,21 @@ for (const pagina of [...paginas, 'docs/referencia/cli.md', 'CHANGELOG.md']) {
   test(`rm036 docs: R3 ${pagina} preserva legado e explica retomada indisponivel`, () => {
     const texto = ler(pagina);
     assert.match(texto, /[Ll]egado nunca é apagado/);
-    assert.match(texto, /dev:ino/);
-    assert.match(texto, /\.legado-ignorado-<dev>-<ino>/);
+    assert.match(texto, /dev:ino:ctime/);
+    assert.match(texto, /\.legado-ignorado-<dev>-<ino>-<ctime>/);
+    assert.match(texto, /ctimeMs/);
     assert.match(texto, /[Dd]iagnóstico do legado não sugere `release`|[Dd]iagnóstico mostra apenas o arquivo e não sugere `release` para legado/);
     assert.match(texto, /\(legado\)/);
     assert.match(texto, /[Nn]enhuma liberação é anunciada quando nada saiu/);
     assert.match(texto, /lease\.resume-unavailable/);
     assert.match(texto, /ork lease release <nome> --forcar/);
     assert.match(texto, /[Nn]ão há retry automático|sem retry automático/);
+    assert.match(texto, /Linux e macOS, inclusive\s+sem `\/usr\/bin\/flock`/);
+    assert.match(texto, /tickets/);
+    assert.match(texto, /`rename` atômico/);
+    assert.match(texto, /`nlink === 0` (é|significa) `lease\.busy`/);
+    assert.match(texto, /escalada humana/);
+    assert.match(texto, /PID reutilizado/);
     assert.doesNotMatch(texto, /confere dispositivo e inode antes de apagar|[Ss]ó (há|recebem) comando de remoção/);
   });
 }

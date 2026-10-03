@@ -198,7 +198,7 @@ Os atalhos são `semCodexSandbox()`, `semOrkMind()` e `semPostgres()`, em
 
 ## 3. Os motivos tipados de gate
 
-Nenhum bloqueio é uma string de prosa. Todo bloqueio é um destes vinte e dois, e o motivo
+Nenhum bloqueio é uma string de prosa. Todo bloqueio tem um motivo tipado, e o motivo
 determina a ação. Isso é o que torna retry, metrica e auditoria automatizaveis: `ork retry
 policy` imprime a tabela a partir do código, que é um mapa total sobre o catálogo (motivo novo
 não compila sem política).
