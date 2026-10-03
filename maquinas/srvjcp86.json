@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T09:15:54.321Z",
+  "publicadoEm": "2026-10-03T09:18:43.773Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -100,6 +100,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:41:41.084Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm053iddains",
+      "nome": "RM-053: id da instalação sem hard link converge entre hosts (X6)",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-053",
+      "branch": "ork/ork-rm053iddains-full",
+      "atualizadaEm": "2026-10-03T09:18:41.519Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
