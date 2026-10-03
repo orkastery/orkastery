@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.2] - 2026-10-03
+
 ### Adicionado
 
 - **Perfil por despacho, rodízio por carga e sessões de cada conta** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md), [FEAT-037](docs/produto/FEAT-037-perfil-carga-e-sessoes-das-contas.md)):
