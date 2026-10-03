@@ -235,6 +235,7 @@ import {
   linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
   resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
+import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -327,6 +328,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
+  setup sandbox [confirmar <postura>|revogar]  Postura de sandbox desta maquina (RM-047): runtime.sandbox que afrouxa
+                                            (danger-full-access) so despacha com a confirmacao local, fora do git
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
 
@@ -1063,6 +1066,39 @@ function comandoSetup(args: Args): number {
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
     console.log(`Setup versionado em ${r.caminho}.`);
     console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    return 0;
+  }
+  if (modoBruto === 'sandbox') {
+    // RM-047 (P1): a postura de sandbox que afrouxa so vale com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const postura = args.posicionais[3];
+      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      const p = confirmarPosturaLocal(raiz, postura, por);
+      if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
+      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
+      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarPosturaLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    const pedida = carregado.manifesto.runtime.sandbox;
+    const local = lerPosturaLocal(raiz);
+    const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
+    if (json) {
+      console.log(JSON.stringify({ manifesto: pedida, afrouxa: posturaAfrouxada(carregado.manifesto) !== null,
+        confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
+      return 0;
+    }
+    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
+    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
     return 0;
   }
   if (!modoBruto) {

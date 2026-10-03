@@ -29,6 +29,7 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
 
 /**
  * I-33 (D7): check "contas por runtime". Cada perfil ativo tem o login conferido pelo proprio
@@ -281,19 +282,25 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
     .filter(Boolean).join(' e ');
   const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
   const sandboxQuebrado = sonda !== null && !sonda.ok && sandboxConfigurado !== 'danger-full-access';
+  // RM-047 (P1): a postura que afrouxa o sandbox so despacha com a confirmacao local desta maquina.
+  const posturaSemConfirmacao = recusaDePostura(carregado.raiz, carregado.manifesto, 'codex') !== null;
   return {
     nome: 'despacho pelo codex',
-    nivel: !codex ? 'fail' : sandboxQuebrado ? 'fail' : 'ok',
+    nivel: !codex ? 'fail' : sandboxQuebrado || posturaSemConfirmacao ? 'fail' : 'ok',
     detalhe: !codex
       ? `${origem}, mas o binario \`codex\` esta fora do PATH`
       : sandboxQuebrado
         ? `${origem} com sandbox "${sandboxConfigurado}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`
-        : `${origem} com sandbox "${sandboxConfigurado}"`,
+        : posturaSemConfirmacao
+          ? `${origem} com sandbox "${sandboxConfigurado}" pedido pelo orkastery.yaml, sem a confirmacao desta maquina: o despacho recusa com runtime.sandbox-nao-confirmado`
+          : `${origem} com sandbox "${sandboxConfigurado}"`,
     correcao: !codex
       ? 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)'
       : sandboxQuebrado
-        ? 'instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco'
-        : undefined,
+        ? `instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${comandoDeConfirmacao('danger-full-access')}`
+        : posturaSemConfirmacao
+          ? `${comandoDeConfirmacao(sandboxConfigurado)} (ou volte o manifesto para workspace-write)`
+          : undefined,
   };
 }
 
@@ -377,7 +384,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       correcao: sondaDoCodex.ok
         ? undefined
         : 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
-          'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco',
+          'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta ' +
+          `maquina com ${comandoDeConfirmacao('danger-full-access')}`,
     });
   }
 
