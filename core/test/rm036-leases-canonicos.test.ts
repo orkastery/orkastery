@@ -19,6 +19,7 @@ import { caminhoFila, caminhoLease, dirLeases, dirsLegadosDeLeases, lerFila, ler
 import { threadsDeTodosOsPerfis } from '../src/board';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { liberarAoFechar } from '../src/fechamento';
+import { comLockHitl } from '../src/hitl-gates';
 import { lerLedger } from '../src/ledger';
 import { Lease, PedidoNaFila } from '../src/types';
 import { commitar, dirTemporario, projetoTemporario, ProjetoDeTeste, shaDaBranch } from './apoio';
@@ -450,5 +451,20 @@ test('rm036 leases: portfolio usa o lock canonico', async () => {
     assert.deepEqual(portfolio.products.map((p) => p.id).sort(), ['prod-pela-raiz', 'prod-pela-worktree']);
     assert.equal(fs.existsSync(path.join(c.wt, '.orkastery', 'creation-operations')), false,
       'a worktree nao ganha lock de portfolio proprio');
+  } finally { c.p.limpar(); }
+});
+
+test('rm036 leases: hitl ja canonico', async () => {
+  const c = cenario('rm036-hitl');
+  try {
+    // Guarda do inventario: o lock HITL ja mora na pasta canonica da thread (`dirThread`), entao a raiz e a
+    // worktree disputam o mesmo arquivo. Se alguem o mudar para o checkout, este teste cai.
+    const dono = seguraNaRaiz(c.raiz,
+      `require(dist+'/hitl-gates.js').comLockHitl(process.cwd(),${JSON.stringify(c.t1)},dentro);`);
+    try {
+      await ate(() => fs.existsSync(dono.pronto), 30_000, () => `o processo da raiz segurar o lock HITL ${dono.erro()}`);
+      assert.throws(() => comLockHitl(c.wt, c.t1, () => 'nao devia rodar'), /HITL ocupado/);
+    } finally { await dono.soltar(); }
+    assert.equal(comLockHitl(c.wt, c.t1, () => 'rodou'), 'rodou', 'solto pela raiz, a worktree pega');
   } finally { c.p.limpar(); }
 });
