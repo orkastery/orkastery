@@ -105,6 +105,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
+  outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
+  `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
+  e o processo destacado escrevia em `objects/` enquanto o `rmSync` apagava o diretório; o `git clone` local da
+  outra máquina também podia copiar um repack pela metade. Os testes que usam `core/test/apoio.ts` agora desligam a
+  manutenção automática do git: por `GIT_CONFIG_COUNT` do lado de quem roda o comando e por `GIT_CONFIG_SYSTEM`
+  (que inclui a configuração de sistema de verdade) no `receive-pack` do remoto bare, porque o transporte local
+  limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
+  `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
+  trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
+- **Marcas visíveis da categoria `Cf` na rede** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), Y4 do CHECK 7):
+  o saneador comum (`core/src/saida-segura.ts`) tratava toda a categoria `Cf` como invisível, e o projeto com um
+  sinal numérico árabe (U+0600 a U+0605, U+06DD), U+070F, U+0890, U+0891, U+08E2, U+110BD ou U+110CD no nome ou
+  no caminho saía do retrato com aviso, e a marca sumia da saída. Essas 13 marcas, que têm glifo, passam como
+  texto; bidi, largura zero, tags e o resto de `Cf` continuam barrados.
 - **Avisos finais dos leases multicanais** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   o teste de fila simbólica usa um alvo fora de `.orkastery/leases`, isolando a recusa do link;
   a varredura de metadados usada pelo commit e pelo SHIP do MCP ignora `ENOENT` quando a fila de

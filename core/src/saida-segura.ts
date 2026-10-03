@@ -8,13 +8,26 @@
  */
 
 /**
+ * Y4 do CHECK 7: as marcas de `Cf` que se veem, lista fechada (todo `Prepended_Concatenation_Mark=Yes`
+ * do Unicode 17: os sinais numericos arabes U+0600 a U+0605, o fim de aya U+06DD, a abreviacao siriaca
+ * U+070F, as marcas de libra e piastra U+0890 e U+0891, o sanah U+08E2 e as marcas de numero kaithi
+ * U+110BD e U+110CD). Elas tem glifo e nao movem o texto, ao contrario das bidi, de largura zero e das
+ * tags, que seguem invisiveis. O regex do JS nao aceita `\p{Prepended_Concatenation_Mark}`; por isso a
+ * lista literal, presa ao `INVISIVEL` e conferida ponto a ponto no teste.
+ */
+export const CF_VISIVEL: readonly number[] = Object.freeze([
+  0x0600, 0x0601, 0x0602, 0x0603, 0x0604, 0x0605, 0x06dd, 0x070f, 0x0890, 0x0891, 0x08e2, 0x110bd, 0x110cd,
+]);
+
+/**
  * V2 da revisao 4, W11 da revisao 5 e X3 da revisao 6: caractere que o terminal executa ou que
  * ninguem ve, pelas classes do Unicode: controles (`Cc`: ESC, BEL, CSI, quebra de linha), formato
  * (`Cf`: bidi, largura zero, tags), separadores de linha e todo `Default_Ignorable_Code_Point`
  * (preenchimentos Hangul, seletores de variacao, os de musica e de estenografia), mais o braile
- * vazio. Ficam de fora o ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns.
+ * vazio. Ficam de fora o ZWJ (U+200D) e os seletores U+FE0E e U+FE0F: eles montam emoji comuns, e as
+ * marcas visiveis de `Cf` (`CF_VISIVEL`, Y4 do CHECK 7).
  */
-export const INVISIVEL = /(?![\u200d\ufe0e\ufe0f])[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}\u2800]/u;
+export const INVISIVEL = /(?![\u200d\ufe0e\ufe0f\u0600-\u0605\u06dd\u070f\u0890\u0891\u08e2\u{110bd}\u{110cd}])[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Default_Ignorable_Code_Point}\u2800]/u;
 const INVISIVEIS = new RegExp(INVISIVEL.source, 'gu');
 
 /**
