@@ -16,7 +16,7 @@ import { politicaDoMotivo } from './retry';
 import { marcarContaDaFalha } from './ratelimit';
 import { SinalDeFalhaDeConta } from './types';
 import { ConsultaAgentesNativos } from './adapters/claude-bg';
-import { garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
+import { eventosDoIntervalo, garantirFonteClaude, INTERVALO_WATCH_CLAUDE_MS, observarClaudeSobLock, THREAD_REMOVIDA, validarFonteClaude } from './session-watcher-claude';
 
 /** Falhas operacionais e bloqueios sem retry automático não alegam conclusão do produto. */
 function bloqueioPreservado(terminal: TerminalCodex): boolean {
@@ -231,16 +231,38 @@ interface OpcoesObservacao {
 }
 
 /** Diagnóstico fechado: mensagens de E/S e JSON podem conter caminhos e segredos. */
-function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean } {
+function diagnosticoWatcher(e: unknown): { erro: string; transitorio: boolean; categoria: string; code: string | null; construtor: string } {
   const erro = e as NodeJS.ErrnoException;
+  const code = ['ENOENT', 'EAGAIN', 'EBUSY', 'EINTR', 'EACCES', 'EPERM', 'EIO', 'ENOSPC', 'SESSION_STATE_SPLIT']
+    .includes(erro?.code ?? '') ? erro.code! : null;
+  const nome = e instanceof Error ? e.constructor.name : '';
+  const construtor = ['Error', 'SyntaxError', 'TypeError', 'RangeError', 'ReferenceError', 'URIError', 'EvalError', 'AggregateError']
+    .includes(nome) ? nome : 'desconhecido';
+  const base = { code, construtor };
+  const mensagem = erro?.message ?? '';
+  // Só motivos literais do núcleo saem no diagnóstico: nenhum conteúdo de metadado.
+  const motivos = ['sessão do controller divergente', 'instância do controller divergente',
+    'vínculo thread/fase/prompt do controller divergente', 'cwd do controller divergente',
+    'identidade do controller divergente da registrada', 'identidade do runtime divergente da registrada',
+    'rollout do controller ausente', 'rollout do controller divergente do registrado',
+    'rollout do controller rotacionado sem vínculo provado com a fonte fixada',
+    'descritor consumidor de rollout divergente da fonte fixada'];
+  const metadado = /^runtime\.unavailable: metadado (state\.json|launch\.json|process-launch\.json) de controller (inválido|ausente)$/.test(mensagem);
+  const categoria = metadado || motivos.some(m => mensagem === `runtime.unavailable: ${m}`) ? mensagem
+    : mensagem === 'controlador registrado divergente do despacho' ? 'controller.registro-divergente'
+    : mensagem === 'despacho do controller sem cwd registrado' ? 'controller.cwd-ausente'
+    : mensagem.startsWith('runtime.unavailable:') ? 'runtime.unavailable: motivo não categorizado'
+    : code ? `io.${code}` : construtor;
+  if (code === 'SESSION_STATE_SPLIT') return { ...base, categoria: 'estado.dividido',
+    erro: 'estado canônico temporariamente sem vínculo; auditoria será repetida', transitorio: true };
   if (['ENOENT', 'EAGAIN', 'EBUSY', 'EINTR'].includes(erro?.code ?? ''))
-    return { erro: `leitura temporariamente indisponível (${erro.code})`, transitorio: true };
+    return { ...base, categoria, erro: `leitura temporariamente indisponível (${erro.code})`, transitorio: true };
   if (e instanceof SyntaxError || /^JSON invalido em /.test(erro?.message ?? '') ||
-      /^runtime\.unavailable: metadado [\w.-]+ de controller (inválido|ausente)$/.test(erro?.message ?? ''))
-    return { erro: 'metadado JSON indisponível ou incompleto', transitorio: true };
+      metadado)
+    return { ...base, categoria: metadado ? categoria : 'json.invalido', erro: 'metadado JSON indisponível ou incompleto', transitorio: true };
   if (/^(ingestão ocupada|creation\.busy:)/.test(erro?.message ?? ''))
-    return { erro: 'observação ocupada; nova tentativa agendada', transitorio: true };
-  return { erro: 'falha permanente na observação; confira vínculo e fonte do sensor', transitorio: false };
+    return { ...base, categoria: 'observacao.ocupada', erro: 'observação ocupada; nova tentativa agendada', transitorio: true };
+  return { ...base, categoria, erro: 'falha permanente na observação; confira vínculo e fonte do sensor', transitorio: false };
 }
 const errosRegistrados = new WeakSet<object>();
 interface SerieErroWatcher {
@@ -361,6 +383,25 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
       if (leitura.cresceu) { cresceu = true; cursor.crescimentoEm = Math.max(cursor.crescimentoEm, leitura.quando);
         cursor.progressoEm = Math.max(cursor.progressoEm, leitura.quando); }
     }
+    // Commit MCP é produção do núcleo, mesmo quando app-server não avança o rollout.
+    // Só renova inatividade com ambos os processos vivos, dentro deste despacho e
+    // sem terminal/erro nativo. Não substitui terminal, close ou prova de conclusão.
+    let progressoMcpEventId: unknown;
+    if (snapshot?.estadoController === 'vivo' && snapshot.estadoRuntime === 'vivo' &&
+        ['working', 'running'].includes(snapshot.estado) && !snapshot.fechamento &&
+        !snapshot.terminalNativo && !snapshot.erro && !snapshot.limitacao) {
+      for (const e of eventosDoIntervalo(eventos, sessao)) {
+        const quando = Date.parse(e.ts);
+        if (e.tipo !== 'mcp_git_committed' || e.thread !== thread.id || e.origem !== 'mcp.git' ||
+            e.estadoAuditado !== true || typeof e.commit !== 'string' || !/^[a-f0-9]{40}$/.test(e.commit) ||
+            (e.sessionId !== undefined && e.sessionId !== sessionId) ||
+            quando > now || quando <= cursor.progressoEm) continue;
+        cresceu = true;
+        cursor.crescimentoEm = Math.max(cursor.crescimentoEm, quando);
+        cursor.progressoEm = quando;
+        progressoMcpEventId = e.eventId;
+      }
+    }
     // Erro de metadados posterior não obriga a reler o mesmo backlog no restart.
     gravarAtomico(file, cursor);
     const processo = registro?.processoPath ? lerJson<ProcessoCodex>(registro.processoPath) : null;
@@ -440,7 +481,8 @@ function observarSessaoResolvida(carregado: ManifestoCarregado, sessionId: strin
         const heartbeatId = `${resultadoId}:heartbeat:${cursor.crescimentoEm}`;
         if (!atuais.some(e => e.sensorEventId === heartbeatId)) registrar(dir, thread.id, 'runtime_heartbeat', {
           ts: new Date(cursor.crescimentoEm).toISOString(), fase: sessao.fase, sessionId, despachoEm: sessao.despachadaEm,
-          sensorEventId: heartbeatId, fonte: 'progresso reconhecido do stream/rollout', bytesLidos,
+          sensorEventId: heartbeatId, fonte: progressoMcpEventId ? 'mcp_git_committed do despacho' : 'progresso reconhecido do stream/rollout',
+          ...(progressoMcpEventId ? { mcpEventId: progressoMcpEventId } : {}), bytesLidos,
         });
         cursor.heartbeatEm = cursor.crescimentoEm; gravarAtomico(file, cursor);
       }

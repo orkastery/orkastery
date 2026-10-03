@@ -48,7 +48,9 @@ export function resolverSessao(raiz: string, sessionId: string, threadId?: strin
   const achada = achadas[0];
   if (achada.thread.worktree) {
     const estado = auditarEstado(raiz, achada.thread.id, achada.thread.worktree);
-    if (estado.nivel !== 'ok') throw new Error(estado.detalhe);
+    // comEstadoParaGit materializa o estado local durante commit/rebase. Não leia essa
+    // cópia: o watcher pode repetir a auditoria, com seu orçamento finito de falhas.
+    if (estado.nivel !== 'ok') throw Object.assign(new Error(estado.detalhe), { code: 'SESSION_STATE_SPLIT' });
   }
   return achada;
 }

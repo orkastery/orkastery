@@ -11,6 +11,9 @@ import { identidadeDoProcesso } from '../src/adapters/codex-controller';
 import { identidadeProcesso } from '../src/adapters/codex-runner';
 import { assumirConducao, nomeDaConducao, conducaoDaThread } from '../src/conducao';
 import { regravarLease } from '../src/leases';
+import { adicionarClaim } from '../src/claims';
+import { commitMcp, estadoGitMcp } from '../src/mcp-git';
+import { comEstadoParaGit } from '../src/estado-thread';
 import { nomeDaMaquina } from '../src/maquina';
 import { acompanharSessao, observarSessao, LIMITE_MORTE_MS, MAX_ESPERA_ERRO_WATCH_MS, MAX_FALHAS_WATCH } from '../src/session-watcher';
 
@@ -31,10 +34,12 @@ test('RM036: documentação registra a correção e mantém revisão pendente', 
   assert.match(secao, /ausentes por identidade comprovada/);
 });
 
-function fixture(teste: TestContext) {
+function fixture(teste: TestContext, opcoes: { worktree?: boolean; baseMs?: number } = {}) {
+  const baseMs = opcoes.baseMs ?? BASE;
   const p = projetoTemporario('rm036-longo');
-  const t = novaThread(p.carregado, { nome: 'watch', modo: 'auto' }).thread;
-  const despachadaEm = new Date(BASE + 1000).toISOString();
+  const t = novaThread(p.carregado, { nome: 'watch', modo: 'auto', criarWorktree: opcoes.worktree }).thread;
+  const cwd = t.worktree ?? p.dir;
+  const despachadaEm = new Date(baseMs + 1000).toISOString();
   const promptSha256 = 'a'.repeat(64);
   t.sessoes.push({ sessionId: SID, slug: t.slug, fase: 'GO', bloco: 'GO', runtime: 'codex',
     despachadaEm, promptPath: '', promptSha256, verificada: true });
@@ -42,7 +47,7 @@ function fixture(teste: TestContext) {
   const dir = dirThread(p.dir, t.id), sessoes = path.join(dir, 'sessoes');
   const controlador = path.join(sessoes, 'controller-' + INSTANCIA);
   fs.mkdirSync(controlador, { recursive: true, mode: 0o700 });
-  const filhos = [controlador, p.dir, p.dir].map(cwd => spawn(process.execPath,
+  const filhos = [controlador, cwd, cwd].map(cwd => spawn(process.execPath,
     ['-e', 'setInterval(() => {}, 3600000)'], { cwd, stdio: 'ignore' }));
   teste.after(async () => {
     await Promise.all(filhos.map(async filho => {
@@ -53,20 +58,20 @@ function fixture(teste: TestContext) {
   });
   const [controller, runtime] = filhos.map(f => identidadeDoProcesso(f.pid!));
   const roll = path.join(sessoes, 'rollout.jsonl');
-  fs.writeFileSync(roll, linha({ type: 'session_meta', payload: { id: SID, cwd: p.dir } }), { mode: 0o600 });
+  fs.writeFileSync(roll, linha({ type: 'session_meta', payload: { id: SID, cwd } }), { mode: 0o600 });
   const vinculo = { thread: t.id, fase: 'GO', promptSha256 };
   const escrever = (nome: string, dado: unknown) => fs.writeFileSync(path.join(controlador, nome), JSON.stringify(dado), { mode: 0o600 });
-  const state = { instancia: INSTANCIA, vinculo, cwd: p.dir, sessionId: SID, pid: controller.pid,
+  const state = { instancia: INSTANCIA, vinculo, cwd, sessionId: SID, pid: controller.pid,
     processoController: controller, processoRuntime: runtime, rollout: roll, turno: 'turn-1', estado: 'working' };
   escrever('launch.json', { contrato: 'ork.controller-launch/v1', instancia: INSTANCIA, vinculo,
-    cwd: p.dir, criadoEm: new Date(BASE).toISOString() });
+    cwd, criadoEm: new Date(baseMs).toISOString() });
   escrever('process-launch.json', { instancia: INSTANCIA, pid: controller.pid, processoController: controller });
   escrever('state.json', state);
-  registrar(dir, t.id, 'phase_dispatch', { sessionId: SID, controlador, cwd: p.dir, fase: 'GO', promptSha256 });
-  registrar(dir, t.id, 'session_sensor_registered', { sessionId: SID, despachoEm: despachadaEm, controlador, cwd: p.dir });
+  registrar(dir, t.id, 'phase_dispatch', { ts: despachadaEm, sessionId: SID, controlador, cwd, fase: 'GO', promptSha256 });
+  registrar(dir, t.id, 'session_sensor_registered', { sessionId: SID, despachoEm: despachadaEm, controlador, cwd });
   const evento = (ms: number, payload: unknown) => {
-    fs.appendFileSync(roll, linha({ type: 'event_msg', timestamp: new Date(BASE + ms).toISOString(), payload }));
-    fs.utimesSync(roll, (BASE + ms) / 1000, (BASE + ms) / 1000);
+    fs.appendFileSync(roll, linha({ type: 'event_msg', timestamp: new Date(baseMs + ms).toISOString(), payload }));
+    fs.utimesSync(roll, (baseMs + ms) / 1000, (baseMs + ms) / 1000);
   };
   evento(1000, { type: 'task_started', turn_id: 'turn-1' });
   const progresso = (ms: number) => evento(ms, { type: 'agent_message', message: 'Progresso da fixture', turn_id: 'turn-1' });
@@ -74,12 +79,93 @@ function fixture(teste: TestContext) {
     evento(ms, { type: 'task_complete', turn_id: 'turn-1', last_agent_message: 'Concluído.' });
     escrever('state.json', { ...state, estado: 'completed', terminal: { metodo: 'turn/completed',
       threadId: SID, turnId: 'turn-1', status: 'completed' },
-      processoEncerrado: { em: new Date(BASE + ms).toISOString(), code: 0, signal: null } });
+      processoEncerrado: { em: new Date(baseMs + ms).toISOString(), code: 0, signal: null } });
   };
-  return { ...p, t, dirEstado: dir, controlador, state, escrever, progresso, terminar, filhos,
+  return { ...p, t, dirEstado: dir, controlador, state, escrever, progresso, terminar, filhos, baseMs, roll,
     eventos: () => lerLedger(dir),
-    run: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: BASE + ms, threadId: t.id }) };
+    run: (ms: number) => observarSessao(p.carregado, SID, { agoraMs: baseMs + ms, threadId: t.id }) };
 }
+
+for (const transporte of ['recibo-fixture', 'MCP-real'] as const) {
+test(`RM036: commit ${transporte} mantém Codex vivo com rollout parado além de 600 s`, async t => {
+  const p = fixture(t, { worktree: transporte === 'MCP-real', baseMs: Date.now() - 500000 });
+  assert.equal(p.run(2000).concluido, false);
+  const antes = fs.readFileSync(p.roll);
+  let sha: string;
+  if (transporte === 'MCP-real') {
+    const arquivo = 'produto-fixture.txt';
+    fs.writeFileSync(path.join(p.t.worktree!, arquivo), 'produção da fixture\n');
+    adicionarClaim(p.dir, p.t.id, { arquivo, fase: 'GO', alegacao: 'produto da fixture', verificar: ['true'] });
+    const head = estadoGitMcp(p.dir, p.t.id).source.head;
+    const commit = await commitMcp(p.dir, { threadId: p.t.id, expectedHead: head, paths: [arquivo], mensagem: 'produto da fixture' });
+    assert.equal(commit.ok, true, commit.erro ?? '');
+    sha = commit.commit!;
+  } else {
+    sha = 'b'.repeat(40);
+    registrar(p.dirEstado, p.t.id, 'mcp_git_committed', { ts: new Date(p.baseMs + 500000).toISOString(),
+      commit: sha, paths: ['produto-fixture.txt'], origem: 'mcp.git', estadoAuditado: true });
+  }
+  const recibo = p.eventos().find(e => e.tipo === 'mcp_git_committed')!;
+  assert.equal(recibo.commit, sha);
+  assert.equal(recibo.estadoAuditado, true);
+  const commitMs = Date.parse(recibo.ts) - p.baseMs;
+  assert.ok(commitMs < LIMITE_MORTE_MS);
+  assert.equal(p.run(600999).concluido, false);
+  assert.equal(p.run(601000).concluido, false, 'regressão aparece somente na fronteira sem progresso do rollout');
+  assert.equal(p.run(commitMs + LIMITE_MORTE_MS - 1).concluido, false);
+  assert.deepEqual(fs.readFileSync(p.roll), antes, 'MCP não avançou o rollout');
+  assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
+  p.terminar(commitMs + LIMITE_MORTE_MS);
+  assert.equal(p.run(commitMs + LIMITE_MORTE_MS).concluido, true);
+  const resultados = p.eventos().filter(e => e.tipo === 'phase_result');
+  assert.equal(resultados.length, 1);
+  assert.equal(resultados[0].ok, true);
+  assert.equal(resultados[0].conclusaoNativa, true);
+});
+}
+
+for (const caso of ['expirou', 'sem-auditoria', 'outra-sessao', 'outra-thread', 'outra-origem', 'sha-invalido',
+  'futuro', 'antes-do-despacho', 'depois-de-outro-despacho', 'runtime-ausente', 'terminal-nativo'] as const) {
+  test(`RM036: commit não oculta silêncio nem lacuna de prova (${caso})`, async t => {
+    const p = fixture(t);
+    p.run(2000);
+    if (caso === 'runtime-ausente') {
+      const fim = once(p.filhos[1], 'close'); p.filhos[1].kill(); await fim;
+    }
+    // Terminal presente vence até um estado mutável que ainda diga working.
+    if (caso === 'terminal-nativo') p.escrever('state.json', { ...p.state,
+      terminal: { metodo: 'turn/completed', threadId: SID, turnId: 'turn-1', status: 'completed' } });
+    if (caso === 'depois-de-outro-despacho') registrar(p.dirEstado, p.t.id, 'phase_dispatch', {
+      ts: new Date(BASE + 400000).toISOString(), sessionId: 'outra-sessao' });
+    registrar(p.dirEstado, caso === 'outra-thread' ? 'outra-thread' : p.t.id, 'mcp_git_committed', {
+      ts: new Date(BASE + (caso === 'futuro' ? 900000 : caso === 'antes-do-despacho' ? 0 : 500000)).toISOString(),
+      origem: caso === 'outra-origem' ? 'agente' : 'mcp.git', estadoAuditado: caso !== 'sem-auditoria',
+      commit: caso === 'sha-invalido' ? 'invalido' : 'b'.repeat(40),
+      ...(caso === 'outra-sessao' ? { sessionId: 'outra-sessao' } : {}) });
+    const ms = caso === 'expirou' ? 1100000 : 601000;
+    assert.equal(p.run(ms - 1).concluido, false);
+    assert.equal(p.run(ms).classificacao, 'gate_blocked');
+    assert.equal(p.eventos().find(e => e.tipo === 'phase_result')?.conclusaoNativa, false);
+  });
+}
+
+test('RM036: materialização real do estado para commit é retry, sem ignorar auditoria', async t => {
+  const p = fixture(t, { worktree: true });
+  p.run(2000);
+  let soltar!: () => void;
+  const destravar = new Promise<void>(r => { soltar = r; });
+  let laço!: Promise<void>, esperas = 0;
+  comEstadoParaGit(p.dir, p.t.id, p.t.worktree!, () => {
+    assert.throws(() => p.run(3000), /estado dividido/);
+    laço = acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + 3000,
+      esperar: async () => { assert.ok(++esperas <= 1); await destravar; } });
+  });
+  p.terminar(3000); soltar();
+  await laço;
+  assert.equal(esperas, 1);
+  assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok).length, 1);
+  assert.ok(p.eventos().filter(e => e.tipo === 'session_watcher_error').every(e => e.categoria === 'estado.dividido'));
+});
 
 test('RM036: Codex vivo progride além de dez minutos e só conclui no terminal nativo', async t => {
   const p = fixture(t);
@@ -132,6 +218,9 @@ for (const falha of ['json-thread', 'json-state', 'ENOENT', 'lock'] as const) {
     assert.equal(erros[1].falhasConsecutivas, 8);
     assert.equal(erros[1].encerramento, 'recuperado');
     assert.ok(erros.every(e => e.sessionId === SID && e.transitorio === true));
+    const categoria = { 'json-thread': 'json.invalido', 'json-state': 'runtime.unavailable: metadado state.json de controller inválido',
+      ENOENT: 'runtime.unavailable: metadado state.json de controller ausente', lock: 'observacao.ocupada' }[falha];
+    assert.ok(erros.every(e => e.categoria === categoria && e.construtor === 'Error'));
     assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
     assert.ok(!JSON.stringify(erros).includes(p.dir));
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result' && e.ok === true).length, 1);
@@ -164,6 +253,9 @@ for (const falha of ['state-ausente', 'controller-ausente', 'ENOENT', 'prazo'] a
     assert.equal(erros[1].transitorio, false);
     assert.equal(erros[1].encerramento, falha === 'prazo' ? 'prazo' : 'tentativas');
     assert.equal(erros[1].falhasConsecutivas, esperas + 1);
+    if (falha === 'ENOENT' || falha === 'controller-ausente') {
+      assert.equal(erros[1].code, 'ENOENT'); assert.equal(erros[1].categoria, 'io.ENOENT');
+    }
     assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
     assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
   });
@@ -217,9 +309,61 @@ test('RM036: erro permanente registra diagnóstico sanitizado antes de sair, sem
   const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
   assert.equal(erros.length, 1);
   assert.equal(erros[0].transitorio, false);
+  assert.equal(erros[0].categoria, 'runtime.unavailable: sessão do controller divergente');
+  assert.equal(erros[0].code, null);
+  assert.equal(erros[0].construtor, 'Error');
   assert.ok(!JSON.stringify(erros).includes('segredo-fixture'));
   assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
 });
+
+test('RM036: estado dividido persistente esgota retry sem ler a cópia local', async t => {
+  const p = fixture(t, { worktree: true });
+  p.run(2000);
+  const local = path.join(p.t.worktree!, '.orkastery', 'threads', p.t.id);
+  fs.unlinkSync(local); fs.mkdirSync(local);
+  try {
+    let esperas = 0;
+    await assert.rejects(acompanharSessao(p.carregado, SID, { threadId: p.t.id, agora: () => BASE + 3000,
+      esperar: async () => { assert.ok(++esperas < MAX_FALHAS_WATCH + 1); } }), /estado dividido/);
+    assert.equal(esperas, MAX_FALHAS_WATCH - 1);
+    const erros = p.eventos().filter(e => e.tipo === 'session_watcher_error');
+    assert.equal(erros.length, 2);
+    assert.equal(erros[1].categoria, 'estado.dividido');
+    assert.equal(erros[1].code, 'SESSION_STATE_SPLIT');
+    assert.equal(erros[1].transitorio, false);
+    assert.ok(!JSON.stringify(erros).includes(p.dir));
+    assert.equal(p.eventos().filter(e => e.tipo === 'phase_result').length, 0);
+  } finally { fs.rmdirSync(local); fs.symlinkSync(p.dirEstado, local, 'dir'); }
+});
+
+for (const categoria of ['controller.registro-divergente', 'controller.cwd-ausente', 'SyntaxError', 'motivo-desconhecido'] as const) {
+  test(`RM036: diagnóstico saneado de ${categoria}`, async t => {
+    const p = fixture(t);
+    p.run(2000);
+    // Metadados são lidos em cada poll, não apenas no ramo estavel de 600 s.
+    if (categoria === 'controller.registro-divergente') registrar(p.dirEstado, p.t.id, 'phase_dispatch', {
+      sessionId: SID, controlador: p.controlador + '-divergente', cwd: p.dir });
+    else if (categoria === 'controller.cwd-ausente') {
+      registrar(p.dirEstado, p.t.id, 'phase_dispatch', { sessionId: SID, controlador: p.controlador });
+      registrar(p.dirEstado, p.t.id, 'session_sensor_registered', { sessionId: SID,
+        despachoEm: p.t.sessoes[0].despachadaEm, controlador: p.controlador });
+    } else {
+      t.mock.method(require('../src/session-events'), 'resolverSessao', () => {
+        if (categoria === 'SyntaxError') throw new SyntaxError('segredo-fixture');
+        class ErroSegredoFixture extends Error {}
+        throw Object.assign(new ErroSegredoFixture('runtime.unavailable: segredo-fixture'), { code: 'SEGREDO_FIXTURE' });
+      });
+    }
+    assert.throws(() => p.run(3000));
+    const e = p.eventos().find(e => e.tipo === 'session_watcher_error')!;
+    assert.equal(e.categoria, categoria === 'SyntaxError' ? 'json.invalido'
+      : categoria === 'motivo-desconhecido' ? 'runtime.unavailable: motivo não categorizado' : categoria);
+    assert.equal(e.construtor, categoria === 'SyntaxError' ? 'SyntaxError' : categoria === 'motivo-desconhecido' ? 'desconhecido' : 'Error');
+    assert.equal(e.code, null);
+    assert.ok(!JSON.stringify(e).includes('segredo-fixture'));
+    assert.ok(!JSON.stringify(e).includes(p.dir));
+  });
+}
 
 test('RM036: processo destacado registra falha anterior à leitura do manifesto', async t => {
   const p = fixture(t);
