@@ -276,6 +276,13 @@ export const POLITICA_DE_RETRY: Readonly<Record<MotivoGate, PoliticaDeRetry>> = 
       'a arvore de destino andou por baixo da thread: rebasar a worktree contra a base e o passo que desbloqueia, e reexecutar antes disso so repete o conflito',
     correcao: 'ork worktree sync <thread> e so entao repetir o passo',
   },
+  'lease.resume-unavailable': {
+    motivo: 'lease.resume-unavailable',
+    acao: 'corrigir-dirigido',
+    automatica: false,
+    porque: 'sem flock disponivel ou inode seguro, repetir nao destrava a retomada',
+    correcao: 'ork lease release <nome> --forcar; depois repita a aquisicao',
+  },
   'lease.busy': {
     motivo: 'lease.busy',
     acao: 'reexecutar',

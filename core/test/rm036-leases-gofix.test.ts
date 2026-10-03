@@ -600,6 +600,46 @@ test('rm036 gofix: A4 falha de transporte do flock preserva lease vencido', (t) 
   assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
 });
 
+for (const falha of ['ENOENT', 'EPERM', 'throw-EPERM', 'status-2', 'timeout', 'hardlink', 'symlink', 'contencao']) {
+  test(`rm036 gofix: R3 retomada ${falha} tem motivo e correcao proprios`, (t) => {
+    const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
+    leases.regravarLease(c.raiz, { ...vivo(), expiraEm: new Date(Date.now() - 1_000).toISOString() });
+    const alvo = path.join(c.base, 'alvo');
+    if (falha === 'hardlink') fs.linkSync(arquivo, alvo);
+    if (falha === 'symlink') { fs.renameSync(arquivo, alvo); fs.symlinkSync(alvo, arquivo); }
+    const antes = fs.readFileSync(arquivo, 'utf8');
+    const processo = require('node:child_process') as typeof import('node:child_process'), spawn = processo.spawnSync;
+    let chamadas = 0;
+    t.mock.method(processo, 'spawnSync', (...args: unknown[]) => {
+      if (args[0] !== '/usr/bin/flock') return Reflect.apply(spawn, processo, args);
+      chamadas++;
+      if (falha === 'throw-EPERM') throw Object.assign(new Error('spawn bloqueado'), { code: 'EPERM' });
+      if (falha === 'status-2') return { status: 2 };
+      if (falha === 'contencao') return { status: 1 };
+      return { status: null, error: Object.assign(new Error('indisponivel'), { code: falha === 'timeout' ? 'ETIMEDOUT' : falha }) };
+    });
+    const motivo = falha === 'contencao' ? 'lease.busy' : 'lease.resume-unavailable';
+    const r = leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' });
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, motivo);
+    assert.equal(fs.readFileSync(arquivo, 'utf8'), antes);
+    assert.equal(r.posicaoNaFila, 1);
+    assert.equal(leases.lerFila(c.raiz)[0].thread, OUTRA);
+    assert.equal(chamadas, ['symlink', 'hardlink'].includes(falha) ? 0 : 1);
+    if (falha === 'contencao') return;
+    assert.equal(r.falhaRetomada, motivo);
+    assert.match(r.detalhe, /retomada indisponivel/);
+    assert.equal(r.correcao, "ork lease release 'main-tree' --forcar; depois repita a aquisicao");
+    assert.match(require('../src/gates').DESCRICAO_DO_MOTIVO[motivo], /retomada indisponivel/);
+    assert.equal(require('../src/retry').POLITICA_DE_RETRY[motivo].automatica, false);
+    assert.equal(leases.liberar(c.raiz, nome, OUTRA, true).ok, true);
+    if (['symlink', 'hardlink'].includes(falha)) assert.equal(fs.readFileSync(alvo, 'utf8'), antes);
+    const novo = leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' });
+    assert.equal(novo.ok, true, 'a correcao exata destrava a fila');
+    assert.deepEqual(leases.lerFila(c.raiz), []);
+  });
+}
+
 test('rm036 gofix: A5 ship dry-run consulta legado vivo e ignora vencido ou fora da janela', (t) => {
   const c = cenario(t);
   fs.writeFileSync(path.join(c.raiz, 'orkastery.yaml'), 'project:\n  name: fixture\n  abbrev: ork\n');

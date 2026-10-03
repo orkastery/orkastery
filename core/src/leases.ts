@@ -292,25 +292,27 @@ function escritaRecente(caminho: string): boolean {
  * outro retomador desse inode nao pode remover o arquivo que acabou de nascer.
  * O kernel solta a trava se o processo morrer; nao ha lock extra nem hard link.
  */
-function retomarArquivo(caminho: string, corpo: string): boolean {
+function retomarArquivo(caminho: string, corpo: string): 'retomado' | 'ocupado' | 'indisponivel' {
   let fd: number | undefined;
   try {
     fd = fs.openSync(caminho, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
     const stat = fs.fstatSync(fd);
-    if (!stat.isFile() || stat.nlink !== 1) return false;
+    if (!stat.isFile() || stat.nlink !== 1) return 'indisponivel';
     const trava = spawnSync('/usr/bin/flock', ['--exclusive', '--nonblock', '3'],
       { stdio: ['ignore', 'pipe', 'pipe', fd], timeout: 2_000 });
-    if (trava.error || trava.status !== 0) return false;
+    if (trava.error || (trava.status !== 0 && trava.status !== 1)) return 'indisponivel';
+    if (trava.status === 1) return 'ocupado';
     let atual: Lease | null = null;
     try { atual = JSON.parse(fs.readFileSync(fd, 'utf8')) as Lease; } catch { /* corrompido */ }
-    if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)) return false;
+    if ((atual && !expirado(atual)) || (!atual && Date.now() - fs.fstatSync(fd).mtimeMs < 5_000)) return 'ocupado';
     const agoraNoPath = fs.lstatSync(caminho);
-    if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return false;
+    if (!agoraNoPath.isFile() || agoraNoPath.dev !== stat.dev || agoraNoPath.ino !== stat.ino) return 'ocupado';
     fs.unlinkSync(caminho);
     fs.writeFileSync(caminho, corpo, { encoding: 'utf8', flag: 'wx' });
-    return true;
+    return 'retomado';
   } catch (e) {
-    if (['ENOENT', 'EEXIST', 'ELOOP'].includes((e as NodeJS.ErrnoException).code ?? '')) return false;
+    if (['ENOENT', 'EEXIST'].includes((e as NodeJS.ErrnoException).code ?? '')) return 'ocupado';
+    if (['ELOOP', 'EACCES', 'EPERM', 'ENOSYS'].includes((e as NodeJS.ErrnoException).code ?? '')) return 'indisponivel';
     throw e;
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
@@ -410,6 +412,8 @@ export interface ResultadoDeAquisicao {
   ocupadoPor: Lease | null;
   /** True quando um lease vencido foi tomado desta thread. */
   tomadoDeVencido: boolean;
+  /** Falha persistente de retomada: exige correcao, nao espera por outro dono. */
+  falhaRetomada?: 'lease.resume-unavailable';
 }
 
 export interface OpcoesDeLease {
@@ -458,7 +462,10 @@ export function adquirir(raiz: string, nome: string, opcoes: OpcoesDeLease): Res
     if (opcoes.retomarVencido === false || (atual && !expirado(atual)) || (!atual && escritaRecente(caminho))) {
       return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
     }
-    if (retomarArquivo(caminho, corpo)) return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: true };
+    const retomada = retomarArquivo(caminho, corpo);
+    if (retomada === 'retomado') return { ok: true, lease, ocupadoPor: null, tomadoDeVencido: true };
+    if (retomada === 'indisponivel') return { ok: false, lease: null, ocupadoPor: lerLease(raiz, nome),
+      tomadoDeVencido: false, falhaRetomada: 'lease.resume-unavailable' };
   }
   const atual = lerLease(raiz, nome);
   return { ok: false, lease: null, ocupadoPor: atual, tomadoDeVencido: false };
@@ -693,7 +700,7 @@ export interface ResultadoDeRegiao extends ResultadoDeAquisicao {
   posicaoNaFila: number;
   /** Lease ativo que barrou o pedido (pode ser de outro glob que cruza a regiao). */
   colidiuCom: Lease | null;
-  motivo: 'lease.busy' | null;
+  motivo: 'lease.busy' | 'lease.resume-unavailable' | null;
   detalhe: string;
   correcao: string;
 }
@@ -794,9 +801,12 @@ export function adquirirRegiao(
       esperando: true,
       posicaoNaFila: posicao,
       colidiuCom: dono,
-      motivo: 'lease.busy',
-      detalhe: `o lease "${nome}" esta com a thread ${dono?.thread ?? '(desconhecida)'}`,
-      correcao: `espere a vez (posicao ${posicao} na fila) ou: ork lease release ${argumentoDeLease(nome)} --forcar`,
+      falhaRetomada: r.falhaRetomada,
+      motivo: r.falhaRetomada ?? 'lease.busy',
+      detalhe: r.falhaRetomada ? `retomada indisponivel para o lease "${nome}"; use --forcar para liberar explicitamente` :
+        `o lease "${nome}" esta com a thread ${dono?.thread ?? '(desconhecida)'}`,
+      correcao: r.falhaRetomada ? `ork lease release ${argumentoDeLease(nome)} --forcar; depois repita a aquisicao` :
+        `espere a vez (posicao ${posicao} na fila) ou: ork lease release ${argumentoDeLease(nome)} --forcar`,
     };
   }
   sairDaFila(raiz, nome, opcoes.thread);
