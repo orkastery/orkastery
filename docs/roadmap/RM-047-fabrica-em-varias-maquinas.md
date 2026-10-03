@@ -107,3 +107,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-27 | fatia 2: visão compartilhada da fábrica | critério de aceite do item: board e resumo mostram as duas máquinas | Julio |
 | 2026-09-27 | fatia 3: setup por bloco versionado no repositório | escopo do item: configuração de modos por bloco versionada | Julio |
 | 2026-09-27 | as três fatias em produção na VPS de referência | merges `bab72d2`, `b491861` e `5c064e3`; VPS na fábrica como `vps`; setup do dono versionado | Julio |
+| 2026-10-03 | `fabrica.remoto` e `--remoto` validados antes do git, com recusa tipada | achado da RM-054 ainda aberto (B2 do backlog da madrugada); thread `ork-rm047remotod`, teste `branch-de-estado-remoto` | claude-srvjcp86 (#Auto) |
