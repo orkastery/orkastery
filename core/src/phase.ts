@@ -54,6 +54,8 @@ import {
 } from './runtime-profiles';
 import { sessoesVivasPorPerfil } from './sessoes-contas';
 import { nomeDaMaquina } from './maquina';
+import { diretorioDaThread } from './procedencia';
+import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import {
   ambienteDaConducao, canalDoProcesso, ConducaoOcupada, ConducaoTomada, conducaoDaThread, dormir, ErroDeConducao, esperarConducaoLivre,
@@ -228,6 +230,8 @@ export function runtimeCruzadoParaDespacho(
 export function estadoParaDespacho(raiz: string, thread: Thread, dryRun = false): string | null {
   if (!thread.worktree) return null;
   try {
+    // RM-047 (P2): a worktree do thread.json so vale registrada no git e com o estado local.
+    diretorioDaThread(raiz, thread);
     vincularEstado(raiz, thread.id, thread.worktree, dryRun);
     return null;
   } catch(e) { return (e as Error).message; }
@@ -866,6 +870,16 @@ function rodarFaseSobLock(
       verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
       runtime, model, effort, bloqueado: true, motivo: 'runtime.autoconferencia', violacoes, erro: erroDeRuntime };
   }
+  // RM-047 (P1): sandbox afrouxado pelo manifesto so despacha com a confirmacao local desta maquina.
+  const erroDePostura = recusaDePostura(raiz, manifesto, runtime);
+  if (erroDePostura) {
+    const postura = posturaAfrouxada(manifesto) ?? '';
+    if (!opcoes.dryRun) registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'policy.violation',
+      modo: thread.modo, detalhe: erroDePostura, correcao: comandoDeConfirmacao(postura), fase, slug });
+    return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
+      verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
+      runtime, model, effort, bloqueado: true, motivo: 'policy.violation', violacoes, erro: erroDePostura };
+  }
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
   if (erroDeEstado) {
     registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'tree.blocked',
@@ -951,7 +965,7 @@ function rodarFaseSobLock(
         return pendente;
       }
     }
-    const cwd = thread.worktree ?? raiz;
+    const cwd = diretorioDaThread(raiz, thread);
     let contextoRuntime: ContextoRuntime | undefined;
     try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
     catch (e) {

@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { lerYaml, ValorYaml } from './yaml';
 import { dirThread, lerThread, listarIds } from './thread';
 import { lerLedger } from './ledger';
+import { branchValida, shaValido } from './branch-de-estado';
 
 export type TipoDoc = 'plataforma' | 'sistema' | 'modulo' | 'feature' | 'roadmap';
 
@@ -203,6 +204,8 @@ function git(raiz: string, args: string[]): { ok: boolean; saida: string } {
 
 /** Resolve a branch base: local, depois `origin/`, porque o CI faz checkout destacado. */
 export function resolverBase(raiz: string, preferida = 'main'): string | null {
+  // RM-047 (fronteira de confiança): `preferida` vem do `worktree.base_branch` do clone.
+  if (!branchValida(preferida)) return null;
   for (const ref of [preferida, `origin/${preferida}`]) {
     if (git(raiz, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]).ok) return ref;
   }
@@ -582,7 +585,8 @@ function verificarEstadoDoRoadmap(raiz: string, d: Documento, base: string | nul
       'preencha evidencias.codigo.commit (ork docs sincronizar faz isso a partir do ledger e do git)'));
   }
   if (commit && base) {
-    if (!git(raiz, ['cat-file', '-e', `${commit}^{commit}`]).ok) {
+    // RM-047: o commit vem do frontmatter do clone; só sha hexadecimal vai ao git.
+    if (!shaValido(commit) || !git(raiz, ['cat-file', '-e', `${commit}^{commit}`]).ok) {
       achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', `o commit ${commit} não existe neste repositório`));
     } else if (codigo === 'Mesclado' && !git(raiz, ['merge-base', '--is-ancestor', commit, base]).ok) {
       achados.push(erro(d.arquivo, d.id, 'docs.paridade.git', `o commit ${commit} não está na ${base}: o merge não aconteceu`,
@@ -756,7 +760,7 @@ export function mergeDaThread(raiz: string, thread: string, base: string): { sha
   try {
     const eventos = lerLedger(dirThread(raiz, thread));
     const ship = eventos.filter((e) => e.tipo === 'ship_done' && typeof e.mergeSha === 'string')
-      .find((e) => git(raiz, ['merge-base', '--is-ancestor', String(e.mergeSha), base]).ok);
+      .find((e) => shaValido(e.mergeSha) && branchValida(base) && git(raiz, ['merge-base', '--is-ancestor', e.mergeSha, base]).ok);
     if (ship) return { sha: String(ship.mergeSha).slice(0, 7), fonte: 'ledger ship_done' };
   } catch { /* thread sem estado nesta maquina: cai para o git */ }
   const primeiro = mergesDaThreadNoGit(raiz, thread, base)[0];
@@ -772,6 +776,8 @@ export function mergesDaThreadNoGit(raiz: string, thread: string, base: string):
   // Sem `-n 1`: o git corta antes de inverter, e `--reverse -n 1` devolveria o mais recente.
   // GO-FIX 2 (achado 4 do CHECK): so a linha de primeiro pai da base e o assunto que COMECA com
   // `ship(<thread>)`, como no `mergeDaEntrega`. Commit que cita o merge no corpo, ou o Revert dele, nao e merge.
+  // RM-047 (fronteira de confiança): a base pode ser o `worktree.base_branch` cru do clone.
+  if (!branchValida(base)) return [];
   const log = git(raiz, ['log', base, '--first-parent', '--reverse', '--format=%H%x09%s', '--fixed-strings', `--grep=ship(${thread})`]);
   if (!log.ok) return [];
   return log.saida.split('\n').map((l) => l.split('\t'))

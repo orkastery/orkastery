@@ -36,6 +36,7 @@ import { formatarDataHoraRotulada } from './horario';
 import { redigirSaida, testesQueCairam } from './redacao-saida';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
+import { diretorioDaThread } from './procedencia';
 
 /** Teto de tempo de um comando de verificacao (build e suite completa cabem). */
 export const TIMEOUT_VERIFY_MS = 10 * 60 * 1000;
@@ -178,9 +179,13 @@ export function comandosDoManifesto(manifesto: Manifesto): { nome: string; coman
   return lista;
 }
 
-/** Diretorio onde a verificacao roda: a worktree da thread, ou a raiz do projeto. */
+/**
+ * Diretorio onde a verificacao roda: a worktree da thread, ou a raiz do projeto. RM-047 (P2): a worktree
+ * do `thread.json` so vale registrada no `git worktree list` e com o estado local (`estado.rastreado`,
+ * `estado.worktree-nao-registrada`).
+ */
 export function cwdDaThread(raiz: string, thread: Thread): string {
-  return thread.worktree ?? raiz;
+  return diretorioDaThread(raiz, thread);
 }
 
 /** HEAD real do diretorio de trabalho, carimbado em toda verificacao. */

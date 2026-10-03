@@ -21,6 +21,8 @@ utilizável como gate de pipeline.
 | `ork ciclos` | As 5 variantes de ciclo de `ork thread new --ciclo` |
 | `ork setup <modo> --bloco N [--runtime R] [--model M] [--effort E]` | Edita o bloco do modo e carimba `setup_configured` no ledger do projeto |
 | `ork setup <modo> --bloco N --fallback R:M[:E],...` | Ordem de fallback de runtime do bloco (I-33); `--fallback ""` remove |
+| `ork setup sandbox [confirmar <postura>\|revogar] [--json]` | Postura de sandbox desta máquina (RM-047): o `runtime.sandbox` que afrouxa (`danger-full-access`) só despacha pelo Codex depois de confirmado aqui. A confirmação fica em `.orkastery/private/postura-local.json` (0600, fora do git) e vale só para este checkout; sem ela, `ork phase run` e `ork retry run` recusam com `runtime.sandbox-nao-confirmado` |
+| `ork setup worktree [confirmar [<dir>]\|revogar] [--json]` | Pasta das worktrees desta máquina (RM-047): o `worktree.dir` que leva para fora da raiz, pelo caminho real, só cria worktree depois de confirmado aqui. A confirmação fica em `.orkastery/private/worktree-local.json` (0600, fora do git) e vale só para este checkout e esta pasta; sem ela, a criação recusa com `worktree.dir-fora-da-raiz` |
 | `ork setup versionar` | Leva o setup que vale para `orkastery.setup.json`, na raiz do checkout: por PR, vale em todas as máquinas e passa a ser o arquivo editado (I-52) |
 | `ork accounts list [--json]` | Perfis de conta por runtime: id, runtime, diretório, estado, prazo, último uso e última falha. **Sem segredo**, porque o store não guarda nenhum |
 | `ork accounts add <id> --runtime R --dir D [--sem-login]` | Cria o perfil e o diretório (0700) e roda o login do **próprio CLI** com o env do perfil (`claude auth login --claudeai`, `codex login`); sem TTY, imprime o comando. Nunca copia credencial |
@@ -475,7 +477,7 @@ Um template do projeto (`prompts/<id>.md`) sobrescreve o embutido de mesmo id.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills |
+| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills do catálogo do pacote que está rodando; um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio` (RM-047) |
 
 Sai diferente de zero em qualquer falha. Canários: `fx-happy`, `fx-hallucination`,
 `fx-stale-base`, `fx-wiki-destroy`, `fx-schema-drift`, `fx-concurrency`.

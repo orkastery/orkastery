@@ -21,6 +21,7 @@ import { criarWorktree, dirThread, gravarThread, lerThread, pastaDaWorktree } fr
 import { Check, MotivoGate, Thread } from './types';
 import { exec, simbolo } from './util';
 import { auditarEstado, vincularEstado, comEstadoParaGit } from './estado-thread';
+import { exigirCwdLocal } from './procedencia';
 
 /**
  * Diretorio canonico da worktree de uma thread, resolvido pelo `ork` na arvore principal: o mesmo que a criacao usa,
@@ -551,7 +552,16 @@ export function auditarWorktree(carregado: ManifestoCarregado, id: string): Resu
     );
   }
 
+  // RM-047 (P2): git so roda na worktree registrada e com o thread.json local.
+  let procedencia: string | null = null;
   if (existe) {
+    try { exigirCwdLocal(raiz, id, dir, 'thread'); }
+    catch (e) {
+      procedencia = (e as Error).message;
+      checks.push({ nome: 'procedencia', nivel: 'fail', detalhe: procedencia, correcao: `ork worktree ensure ${id}` });
+    }
+  }
+  if (existe && procedencia === null) {
     const limpa = arvoreLimpa(dir);
     checks.push(
       limpa === true
@@ -704,6 +714,12 @@ export function liberarWorktree(
     };
   }
 
+  // RM-047 (P2): nada de git num diretorio que o thread.json escolheu e o git nao registra.
+  try { exigirCwdLocal(raiz, id, dir, 'thread'); }
+  catch (e) {
+    return { ok: false, removida: false, dir, branch, leasesLiberados: [], motivo: 'tree.blocked',
+      detalhe: (e as Error).message, correcao: `confira o diretorio e o thread.json da thread ${id}` };
+  }
   const limpa = arvoreLimpa(dir);
   if (limpa === false && !opcoes.forcar) {
     return {

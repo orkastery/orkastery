@@ -73,6 +73,8 @@ import {
 } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { CanalDeConducao } from './types';
+import { cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
+import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 
 /**
  * Escada de esforco da 2a tentativa em diante.
@@ -686,7 +688,10 @@ function redespacharSobLock(
     conducao = tomada;
   }
   try {
-    const cwd = opcoes.cwd ?? thread.worktree ?? raiz;
+    // RM-047 (P2): o cwd do pedido da fila ou da worktree da thread so vale como worktree registrada no git.
+    let cwd: string;
+    try { cwd = opcoes.cwd !== undefined ? exigirCwdLocal(raiz, thread.id, opcoes.cwd, 'fila') : diretorioDaThread(raiz, thread); }
+    catch (e) { return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: (e as Error).message, dryRun: opcoes.dryRun === true }; }
     // Mesma resolucao do `ork phase run`: a retomada carimba no ledger o trio que ela de
     // fato despachou, inclusive quando o pedido da fila trazia um modelo proprio. O setup
     // do bloco (feature #setup) vale aqui tambem: a fase retomada abre no MESMO runtime
@@ -702,6 +707,14 @@ function redespacharSobLock(
       doBloco
     );
     const rt = resolverRuntime(runtime);
+    // RM-047 (P1): a retomada recusa o sandbox afrouxado sem a confirmacao local, como o `ork phase run`.
+    const erroDePostura = recusaDePostura(raiz, manifesto, runtime);
+    if (erroDePostura) {
+      if (!opcoes.dryRun) registrarGateBloqueado(dirThread(raiz, thread.id), thread.id, { gate: 'phase.dispatch',
+        motivo: 'policy.violation', modo: thread.modo, detalhe: erroDePostura,
+        correcao: comandoDeConfirmacao(posturaAfrouxada(manifesto) ?? ''), fase, slug, origem: opcoes.origem ?? 'retry' });
+      return { ...vazio, ok: false, motivo: 'policy.violation', detalhe: erroDePostura, dryRun: opcoes.dryRun === true };
+    }
     if (!opcoes.dryRun && baselineDoDespachoNecessaria(carregado, thread.id, { fase, prompt: '', runtime, model, effort })) {
       // Na primeira passada a tomada fica retida para a baseline (o `finally` nao a solta); na repeticao, o
       // `finally` devolve o que a tomada consumiu (A-1 do CHECK 3).
@@ -1241,7 +1254,10 @@ export function producaoNoIntervalo(raiz: string, thread: Thread,
     // pelo shell nao passa pelo ledger, entao so o HEAD o revela.
     const registro = eventos.filter(e => e.tipo === 'session_sensor_registered' && e.sessionId === sessao.sessionId &&
       e.despachoEm === sessao.despachadaEm).at(-1);
-    const cwd = typeof registro?.cwd === 'string' ? registro.cwd : typeof despacho?.cwd === 'string' ? despacho.cwd : thread.worktree ?? raiz;
+    const doLedger = typeof registro?.cwd === 'string' ? registro.cwd : typeof despacho?.cwd === 'string' ? despacho.cwd : null;
+    // RM-047 (P2): git so roda em worktree registrada; cwd que nao vale e duvida, e duvida conta como producao.
+    const cwd = doLedger !== null ? cwdLocalOuNulo(raiz, thread.id, doLedger, 'ledger') : cwdLocalOuNulo(raiz, thread.id, thread.worktree ?? raiz, 'thread');
+    if (cwd === null) return { produziu: true, evidencia: 'cwd do despacho fora das worktrees registradas; producao nao descartada' };
     const head = registro?.head;
     if (typeof head !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(head))
       return { produziu: true, evidencia: 'HEAD da worktree no despacho desconhecido; producao nao descartada' };

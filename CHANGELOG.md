@@ -154,6 +154,57 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Segurança
 
+- **Postura de sandbox e procedência do estado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md),
+  P1 a P5 da [fronteira de confiança](docs/referencia/fronteira-de-confianca.md)):
+  - o `runtime.sandbox` que afrouxa o sandbox do agente (`danger-full-access`) só despacha pelo Codex depois de a
+    máquina confirmá-lo com `ork setup sandbox confirmar <postura>`, gravado em `.orkastery/private/postura-local.json`
+    (0600, fora do git, só para este checkout). Sem isso, `ork phase run` e `ork retry run` recusam com
+    `runtime.sandbox-nao-confirmado`, e o `ork doctor` acusa. **Muda para quem já usa `danger-full-access`:** rode o
+    comando uma vez em cada máquina;
+  - estado de `.orkastery/` rastreado pelo git não escolhe cwd, worktree nem executável (`estado.rastreado`), e o cwd
+    de git e agente vindo do `thread.json`, do ledger ou da fila só vale na raiz do projeto ou numa worktree do
+    `git worktree list` do repositório (`estado.worktree-nao-registrada`). Vale para despacho, retomada, verify, claims,
+    GO-FIX, prova do GO, handoff, liveness, `ci prepare` e `ork worktree audit|release`. **Muda para quem versiona o
+    `.orkastery/`:** tire o estado do índice (`git rm -r --cached .orkastery`);
+  - o transporte do pulse e do digest só vale do `pulse-host.json` e do `master-host.json` locais, arquivos comuns
+    fora do índice do git (`transporte.rastreado`);
+  - os ponteiros do `ork recall`, do `ork handoff recall` e do `ork handoff export` (o `location` do `handoff.json`,
+    o arquivo de uma claim, o prompt de uma sessão, o handoff e a lição vindos da memória) só leem arquivo que, pelo
+    caminho real, fica na raiz do projeto ou na worktree registrada da thread. O recall recusa com
+    `ponteiro.fora-da-raiz`, e o export deixa de apontar para fora;
+  - o `worktree.dir` do manifesto que leva para fora da raiz pelo caminho real (`..`, caminho absoluto, link no
+    caminho ou `.git`) só cria worktree depois de a máquina confirmar a pasta com `ork setup worktree confirmar`,
+    gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). Sem
+    isso, a criação recusa com `worktree.dir-fora-da-raiz`, e o `ork doctor` acusa. **Muda para quem já usa worktree
+    fora da raiz:** rode o comando uma vez em cada máquina; as worktrees que já existem seguem valendo;
+  - o `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando. Um diretório com
+    `skills/`, `references/` e `eval/` achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`.
+    **Muda para quem roda o `ork` instalado dentro de um checkout do Orkastery:** use o `ork` do checkout
+    (`node core/dist/index.js eval`), como o CI já faz;
+  - o `fabrica.compartilhada: true` do manifesto não liga mais a publicação do retrato desta máquina (threads, nome,
+    host) no remoto do clone, nem a leitura das outras máquinas: só a adesão da máquina liga (`ork fabrica entrar`,
+    em `~/.orkastery/maquina.json`, ou `ORK_FABRICA_COMPARTILHADA=1`). Com o pedido no manifesto e sem a adesão, o
+    `ork doctor` e o `ork fabrica` avisam com `fabrica.nao-confirmada`. **Muda para o time que ligava a fábrica só
+    pelo manifesto:** rode `ork fabrica entrar` uma vez em cada máquina.
+- **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
+  [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:
+  - o `mergeSha` e o `para` de um `ship_done` do ledger só chegam ao `git log` da detecção de reversão como sha
+    hexadecimal e nome de branch, depois de `--end-of-options`; antes, um ledger versionado no clone passava uma
+    opção ao git em `ork master` e `ork ship`;
+  - `ork docs sincronizar` não cai mais na base crua do manifesto quando ela não resolve, e o sha do ledger e o
+    commit do frontmatter só vão ao git como sha hexadecimal;
+  - o manifesto recusa `worktree.base_branch` que o git não aceita como nome de branch (começa com `-`, tem `..`);
+  - o manifesto recusa `memory.cli` relativo: vale nome procurado no PATH, como `orkmind`, ou caminho absoluto. A
+    sonda do OrkMind (inclusive a do `ork doctor`) ignora entradas relativas do PATH e shebang com interpretador
+    relativo, e o `ork brain` roda o executável com cwd no `$HOME`, não na raiz do clone;
+  - `.orkastery`, `.orkastery/threads` e a pasta de uma thread como link simbólico recusam com `estado.link`, e o
+    append do ledger, das claims e do board usa `O_NOFOLLOW`; antes, um link versionado levava a escrita para fora
+    da raiz;
+  - o id de uma rodada de auditoria lido do `run.json` precisa ser um nome simples (`audit.rodada-invalida`).
+  - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
+    `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
+    como pendentes do dono.
 - **`--remoto` de `ork ship --para` validado antes do git** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
   o valor passa pelo mesmo validador; fora do formato, `ork ship <thread> --para <branch>` recusa com
   `ship.remoto-invalido` antes de qualquer git, na CLI e na API. Antes, com o gate de CI desligado, o valor ia cru ao

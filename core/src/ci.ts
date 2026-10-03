@@ -3,6 +3,7 @@ import { exigirRemoto } from './branch-de-estado';
 import { ManifestoCarregado } from './manifest';
 import { exec } from './util';
 import { branchDaWorktree } from './worktree';
+import { cwdLocalOuNulo } from './procedencia';
 import { verificar, ResultadoVerify } from './verify';
 import { comandosDoManifesto, commitReal, executar, prazoDoComando, verificarClaim } from './verify';
 import { lerClaims } from './claims';
@@ -222,7 +223,9 @@ export function lintDoBundle(claims: readonly Claim[]): { recusas: string[]; avi
  */
 export function destinoDoBundle(carregado: ManifestoCarregado, threadId: string): string {
   const worktree = lerThread(carregado.raiz, threadId).worktree;
-  return worktree && fs.existsSync(worktree) ? worktree : carregado.raiz;
+  // RM-047 (P2): o bundle so e gravado na worktree registrada; outro diretorio do thread.json cai na raiz.
+  return worktree && fs.existsSync(worktree) && cwdLocalOuNulo(carregado.raiz, threadId, worktree, 'thread') !== null
+    ? worktree : carregado.raiz;
 }
 
 export function prepararBundleCi(carregado: ManifestoCarregado, threadId: string,

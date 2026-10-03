@@ -29,6 +29,9 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { comandoDeConfirmacao, recusaDePostura } from './postura-local';
+import { COMANDO_CONFIRMAR_WORKTREE, recusaDePastaDasWorktrees } from './worktree-local';
+import { avisoDaFabricaPedida } from './maquina';
 import { checarRede } from './doctor-rede';
 
 /**
@@ -328,19 +331,25 @@ export function checarDespachoPeloCodex(carregado: ManifestoCarregado, codex: st
     .filter(Boolean).join(' e ');
   const sandboxConfigurado = carregado.manifesto.runtime.sandbox;
   const sandboxQuebrado = sonda !== null && !sonda.ok && sandboxConfigurado !== 'danger-full-access';
+  // RM-047 (P1): a postura que afrouxa o sandbox so despacha com a confirmacao local desta maquina.
+  const posturaSemConfirmacao = recusaDePostura(carregado.raiz, carregado.manifesto, 'codex') !== null;
   return {
     nome: 'despacho pelo codex',
-    nivel: !codex ? 'fail' : sandboxQuebrado ? 'fail' : 'ok',
+    nivel: !codex ? 'fail' : sandboxQuebrado || posturaSemConfirmacao ? 'fail' : 'ok',
     detalhe: !codex
       ? `${origem}, mas o binario \`codex\` esta fora do PATH`
       : sandboxQuebrado
         ? `${origem} com sandbox "${sandboxConfigurado}", mas o sandbox nao executa nesta maquina (o agente narraria sucesso sem rodar nada)`
-        : `${origem} com sandbox "${sandboxConfigurado}"`,
+        : posturaSemConfirmacao
+          ? `${origem} com sandbox "${sandboxConfigurado}" pedido pelo orkastery.yaml, sem a confirmacao desta maquina: o despacho recusa com runtime.sandbox-nao-confirmado`
+          : `${origem} com sandbox "${sandboxConfigurado}"`,
     correcao: !codex
       ? 'instale o Codex CLI e autentique com `codex login` (assinatura, nunca API key)'
       : sandboxQuebrado
-        ? 'instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco'
-        : undefined,
+        ? `instale o bubblewrap do sistema, ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${comandoDeConfirmacao('danger-full-access')}`
+        : posturaSemConfirmacao
+          ? `${comandoDeConfirmacao(sandboxConfigurado)} (ou volte o manifesto para workspace-write)`
+          : undefined,
   };
 }
 
@@ -432,7 +441,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       correcao: sondaDoCodex.ok
         ? undefined
         : 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
-          'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco',
+          'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta ' +
+          `maquina com ${comandoDeConfirmacao('danger-full-access')}`,
     });
   }
 
@@ -496,6 +506,22 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     // sandbox que nao executa) deixa de ser aviso: e exatamente o que bloquearia a fase.
     const despachoPeloCodex = checarDespachoPeloCodex(carregado, codex, sondaDoCodex);
     if (despachoPeloCodex) checks.push(despachoPeloCodex);
+
+    // RM-047 (P5): o manifesto pede a fabrica compartilhada, mas quem liga a publicacao e a maquina.
+    const fabricaPedida = avisoDaFabricaPedida(carregado.manifesto);
+    if (fabricaPedida) {
+      checks.push({ nome: 'fabrica compartilhada', nivel: 'warn',
+        detalhe: 'o orkastery.yaml pede fabrica.compartilhada: true e esta maquina nao entrou: nada desta maquina e publicado no remoto',
+        correcao: 'ork fabrica entrar, se esta maquina deve publicar o retrato dela no remoto do projeto' });
+    }
+
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao local desta maquina.
+    const recusaDaPasta = recusaDePastaDasWorktrees(carregado.raiz, carregado.manifesto);
+    if (recusaDaPasta) {
+      checks.push({ nome: 'pasta das worktrees', nivel: 'fail',
+        detalhe: `worktree.dir "${carregado.manifesto.worktree.dir}" leva para fora da raiz e esta maquina nao confirmou: a criacao de worktree recusa com worktree.dir-fora-da-raiz`,
+        correcao: `${COMANDO_CONFIRMAR_WORKTREE}, ou volte worktree.dir para dentro do projeto` });
+    }
 
     const politica = carregado.manifesto.runtime.provider_policy;
     const soAssinatura = politica === 'subscription-only';

@@ -92,7 +92,7 @@ import {
 } from './divida';
 import { definicaoDaVariante, parseVariante, tabelaDeVariantes, VARIANTES } from './ciclos';
 import { adicionarClaim, anexarComando, retirarClaim, tabelaDeClaims } from './claims';
-import { exigirCatalogo } from './catalogo';
+import { exigirCatalogoDoPacote } from './catalogo';
 import { doctor } from './doctor';
 import { endurecerUmask, preflight, textoPreflight } from './preflight';
 import { rodarEval, textoDoEval } from './evalrunner';
@@ -213,7 +213,7 @@ import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, texto
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
-import { fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
+import { avisoDaFabricaPedida, fabricaCompartilhada, gravarConfigDaMaquina, lerConfigDaMaquina, nomeDaMaquina } from './maquina';
 import { entrarNaRede, publicarRede, refDaCasa, sairDaRede } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { jsonSemInvisivel } from './saida-segura';
@@ -240,6 +240,9 @@ import {
   linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
   resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
+import { ARQUIVO_WORKTREE_LOCAL, COMANDO_CONFIRMAR_WORKTREE, confirmarWorktreeLocal, lerWorktreeLocal, pastaDasWorktreesPedida,
+  recusaDePastaDasWorktrees, revogarWorktreeLocal } from './worktree-local';
+import { caminhoDaPosturaLocal, comandoDeConfirmacao, confirmarPosturaLocal, lerPosturaLocal, posturaAfrouxada, recusaDePostura, revogarPosturaLocal } from './postura-local';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
 // Antes de qualquer arquivo ou despacho: sem escrita de grupo nem de outros, que o sensor recusaria.
@@ -332,6 +335,10 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   accounts remove <id>                      Desativa o perfil (diretorio e login ficam onde estao)
   accounts check [<id>]                     Confere o login de cada perfil e marca o store
   setup [<modo>] --reset                    Volta o modo (ou tudo) ao default
+  setup sandbox [confirmar <postura>|revogar]  Postura de sandbox desta maquina (RM-047): runtime.sandbox que afrouxa
+                                            (danger-full-access) so despacha com a confirmacao local, fora do git
+  setup worktree [confirmar [<dir>]|revogar]  Pasta das worktrees desta maquina (RM-047): worktree.dir fora da raiz
+                                            so cria checkout com a confirmacao local, fora do git
   setup versionar                           Leva o setup que vale para orkastery.setup.json: por PR, vale em
                                             todas as maquinas e passa a ser o arquivo editado (I-52)
 
@@ -1076,6 +1083,70 @@ function comandoSetup(args: Args): number {
     if (args.opcoes.json === true) { console.log(JSON.stringify({ caminho: r.caminho, setup: r.setup }, null, 2)); return 0; }
     console.log(`Setup versionado em ${r.caminho}.`);
     console.log('  Leve para o repositorio por PR: dali em diante ele vale em todas as maquinas, e ork setup <modo> --bloco N passa a editar este arquivo.');
+    return 0;
+  }
+  if (modoBruto === 'worktree') {
+    // RM-047 (P3): worktree.dir fora da raiz so cria checkout com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const local = confirmarWorktreeLocal(raiz, carregado.manifesto, por, args.posicionais[3]);
+      if (json) { console.log(JSON.stringify(local, null, 2)); return 0; }
+      console.log(`Pasta das worktrees "${local.dir}" confirmada nesta maquina para ${local.raiz}.`);
+      console.log(`  Gravada em .orkastery/private/${ARQUIVO_WORKTREE_LOCAL} (local, fora do git). Para desfazer: ork setup worktree revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarWorktreeLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da pasta das worktrees revogada.' : 'Nao havia confirmacao local da pasta das worktrees.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup worktree ${acao} (use confirmar [<dir>] ou revogar)`); return 2; }
+    const pedida = pastaDasWorktreesPedida(raiz, carregado.manifesto);
+    const local = lerWorktreeLocal(raiz);
+    const recusa = recusaDePastaDasWorktrees(raiz, carregado.manifesto);
+    if (json) {
+      console.log(JSON.stringify({ manifesto: carregado.manifesto.worktree.dir, dir: pedida.dir, dentroDaRaiz: pedida.dentro,
+        confirmadaNestaMaquina: local.local?.dir ?? null, criacao: recusa === null ? 'permitida' : 'recusada' }, null, 2));
+      return 0;
+    }
+    console.log(`worktree.dir no orkastery.yaml: ${carregado.manifesto.worktree.dir} (${pedida.dir}, ${pedida.dentro ? 'dentro' : 'fora'} da raiz)`);
+    console.log(`confirmacao local desta maquina: ${local.local ? local.local.dir : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'criacao de worktree: permitida' : `criacao de worktree: recusada. ${COMANDO_CONFIRMAR_WORKTREE}`);
+    return 0;
+  }
+  if (modoBruto === 'sandbox') {
+    // RM-047 (P1): a postura de sandbox que afrouxa so vale com a confirmacao desta maquina, fora do git.
+    const acao = args.posicionais[2];
+    const json = args.opcoes.json === true;
+    if (acao === 'confirmar') {
+      const postura = args.posicionais[3];
+      if (!postura) { console.error('uso: ork setup sandbox confirmar <read-only|workspace-write|danger-full-access> [--por Q]'); return 2; }
+      const p = confirmarPosturaLocal(raiz, postura, por);
+      if (json) { console.log(JSON.stringify(p, null, 2)); return 0; }
+      console.log(`Postura de sandbox "${p.sandbox}" confirmada nesta maquina para ${p.raiz}.`);
+      console.log(`  Gravada em ${caminhoDaPosturaLocal(raiz)} (local, fora do git). Para desfazer: ork setup sandbox revogar.`);
+      return 0;
+    }
+    if (acao === 'revogar') {
+      const havia = revogarPosturaLocal(raiz);
+      if (json) { console.log(JSON.stringify({ revogada: havia }, null, 2)); return 0; }
+      console.log(havia ? 'Confirmacao local da postura de sandbox revogada.' : 'Nao havia confirmacao local de postura de sandbox.');
+      return 0;
+    }
+    if (acao !== undefined) { console.error(`subcomando desconhecido: setup sandbox ${acao} (use confirmar <postura> ou revogar)`); return 2; }
+    const pedida = carregado.manifesto.runtime.sandbox;
+    const local = lerPosturaLocal(raiz);
+    const recusa = recusaDePostura(raiz, carregado.manifesto, 'codex');
+    if (json) {
+      console.log(JSON.stringify({ manifesto: pedida, afrouxa: posturaAfrouxada(carregado.manifesto) !== null,
+        confirmadaNestaMaquina: local.postura?.sandbox ?? null, despachoCodex: recusa === null ? 'permitido' : 'recusado' }, null, 2));
+      return 0;
+    }
+    console.log(`runtime.sandbox no orkastery.yaml: ${pedida}`);
+    console.log(`confirmacao local desta maquina: ${local.postura ? local.postura.sandbox : `nenhuma (${local.motivo})`}`);
+    console.log(recusa === null ? 'despacho pelo codex: permitido' : `despacho pelo codex: recusado. ${comandoDeConfirmacao(pedida)}`);
     return 0;
   }
   if (!modoBruto) {
@@ -2406,6 +2477,8 @@ function comandoFabrica(args: Args): number {
           : `Fabrica: retrato de ${r.maquina} igual ao ultimo publicado; nada a enviar (use --forcar para publicar mesmo assim).`);
       if (!fabricaCompartilhada(carregado.manifesto) && !silencioso) {
         console.log('  esta maquina nao entrou na fabrica compartilhada: so publica quando voce pede (ork fabrica entrar liga).');
+        // RM-047 (P5): o manifesto que pede a fabrica nao liga a publicacao desta maquina.
+        if (carregado.manifesto.fabrica.compartilhada) console.log('  o orkastery.yaml pede a fabrica compartilhada; quem liga e a maquina, com ork fabrica entrar.');
       }
       return 0;
     } catch (e) {
@@ -2433,7 +2506,7 @@ function comandoFabrica(args: Args): number {
     const r = removerMaquina(carregado, { remoto });
     console.log(`Fabrica: ${nomeDaMaquina()} saiu; nada mais e publicado daqui.` +
       (r ? ` Retrato removido de ork/fabrica-estado (${r.slice(0, 7)}).` : ' Nao havia retrato desta maquina na branch.'));
-    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: o manifesto do projeto (ou ORK_FABRICA_COMPARTILHADA) ainda liga a fabrica aqui.');
+    if (fabricaCompartilhada(carregado.manifesto)) console.log('  AVISO: ORK_FABRICA_COMPARTILHADA=1 neste shell ainda liga a fabrica aqui.');
     void config;
     return 0;
   }
@@ -2460,6 +2533,9 @@ function comandoFabrica(args: Args): number {
   console.log(url === null
     ? `Fabrica: o projeto ${carregado.manifesto.project.name} nao tem o remoto ${remoto}; nada foi lido de ork/fabrica-estado.`
     : textoDaFabrica(painel, nomeDaMaquina()));
+  // RM-047 (P5): o manifesto pede a fabrica, mas quem liga a publicacao e a maquina.
+  const pedida = avisoDaFabricaPedida(carregado.manifesto);
+  if (pedida) console.log(`\n${pedida}`);
   return 0;
 }
 
@@ -3156,7 +3232,8 @@ function comandoAdapter(args: Args): number {
  * de zero em qualquer falha, para o CI do kit poder barrar merge sem eval.
  */
 function comandoEval(args: Args): number {
-  const catalogo = exigirCatalogo(carregarManifesto()?.raiz ?? diretorioDoProjeto());
+  // RM-047 (P4): o eval so executa o catalogo do proprio pacote, nunca o achado a partir do cwd.
+  const catalogo = exigirCatalogoDoPacote(carregarManifesto()?.raiz ?? diretorioDoProjeto());
   const lista = (v: string | boolean | undefined): string[] | undefined => {
     const t = texto(v);
     return t ? t.split(',').map((x) => x.trim()).filter(Boolean) : undefined;

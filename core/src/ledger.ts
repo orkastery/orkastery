@@ -194,7 +194,7 @@ export function registrarSeExiste(
   if (tipo === TIPOS_DE_EVENTO.decisaoAutonoma) exigirRastroDeDecisaoAutonoma(dados);
   if (!fs.existsSync(path.join(dirThread, 'thread.json'))) return null;
   let fd: number;
-  try { fd = fs.openSync(caminhoLedger(dirThread), fs.constants.O_WRONLY | fs.constants.O_APPEND); }
+  try { fd = fs.openSync(caminhoLedger(dirThread), fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW); }
   catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw e;

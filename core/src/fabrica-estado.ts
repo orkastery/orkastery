@@ -6,8 +6,9 @@
  * GitHub. `ork board`, `ork fabrica` e o resumo do pulse leem as outras maquinas dali. Cada
  * maquina so escreve o proprio arquivo: push recusado se resolve relendo a ponta.
  *
- * Publicar e empurrar para o remoto do projeto, entao so acontece sozinho com
- * `fabrica.compartilhada: true` no manifesto; `ork fabrica publicar` e o caminho explicito. Nada de
+ * Publicar e empurrar para o remoto do projeto, entao so acontece sozinho com a adesao da maquina
+ * (`ork fabrica entrar`); o `fabrica.compartilhada` do manifesto so pede (RM-047, P5), e
+ * `ork fabrica publicar` e o caminho explicito. Nada de
  * credencial, prompt, log ou caminho local sai daqui: so identificadores, fase, status e o assunto
  * da pausa que espera o dono.
  *

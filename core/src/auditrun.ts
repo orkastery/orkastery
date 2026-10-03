@@ -76,7 +76,18 @@ export function dirAuditorias(raiz: string): string {
 
 /** Diretorio de uma rodada. */
 export function dirRodada(raiz: string, id: string): string {
-  return path.join(dirAuditorias(raiz), id);
+  return path.join(dirAuditorias(raiz), exigirIdDeRodada(id));
+}
+
+/**
+ * RM-047 (fronteira de confiança): o id da rodada vira nome de pasta e de relatório, e o `run.json` que o
+ * traz pode ter vindo do clone. Um segmento só, como o que `novoIdDeRodada` gera, sem `/` nem `..`.
+ */
+export function exigirIdDeRodada(id: string): string {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(id) || id.includes('..')) {
+    throw new Error(`audit.rodada-invalida: id de rodada ${JSON.stringify(String(id)).slice(0, 60)} não é um nome simples`);
+  }
+  return id;
 }
 
 /** Caminho do `run.json` da rodada. */
@@ -884,7 +895,7 @@ export function relatorioDaRodada(
 
   let publicado: string | null = null;
   if (opcoes.publicar) {
-    publicado = path.join(raiz, 'docs', 'audit', `${rodada.id}.md`);
+    publicado = path.join(raiz, 'docs', 'audit', `${exigirIdDeRodada(rodada.id)}.md`);
     gravar(publicado, texto);
   }
 

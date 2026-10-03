@@ -11,6 +11,7 @@ import { ManifestoCarregado } from './manifest';
 import { EventoLedger, Fase, PlanoDeRetry, Thread } from './types';
 import { planejarRetry } from './retry';
 import { agora, exec } from './util';
+import { cwdLocalOuNulo } from './procedencia';
 
 export interface FontesDeVida { commitEm?: string; rollout?: string }
 export interface FaseOrfa {
@@ -40,8 +41,10 @@ export function transcricaoClaude(sessionId: string, cwd: string, config: string
   return undefined;
 }
 
-function fontesReais(t: Thread, d: EventoLedger): FontesDeVida {
-  const commit = t.worktree ? exec('git', ['log', '-1', '--format=%cI'], t.worktree) : null;
+function fontesReais(raiz: string, t: Thread, d: EventoLedger): FontesDeVida {
+  // RM-047 (P2): o git da prova de vida so roda na worktree registrada.
+  const wt = t.worktree ? cwdLocalOuNulo(raiz, t.id, t.worktree, 'thread') : null;
+  const commit = wt ? exec('git', ['log', '-1', '--format=%cI'], wt) : null;
   const commitEm = commit?.ok ? commit.stdout.trim() : undefined;
   if (typeof d.sessionId !== 'string') return { commitEm };
   // I-33 (D4): a fonte de vida mora no diretório do perfil gravado no `phase_dispatch`. Perfil
@@ -113,7 +116,7 @@ export function detectarFasesOrfas(carregado: ManifestoCarregado, opcoes: {
         incorporar(e.ts,e.tipo);
       }
     }
-    const fontes = (opcoes.fontes ?? fontesReais)(t,d);
+    const fontes = opcoes.fontes ? opcoes.fontes(t,d) : fontesReais(carregado.raiz,t,d);
     incorporar(fontes.commitEm,'commit na worktree');
     const file = path.join(dir,'liveness.json'), chave = `${d.ts}|${d.sessionId}`;
     let anterior: Snapshot | null = null;

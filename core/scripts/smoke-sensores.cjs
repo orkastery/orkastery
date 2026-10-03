@@ -69,8 +69,14 @@ async function executar(runtime) {
   const configurado = exigirManifesto(process.cwd());
   const sandbox = configurado.manifesto.runtime.sandbox;
   if (!['read-only', 'workspace-write', 'danger-full-access'].includes(sandbox)) throw new Error('Sandbox configurado inválido');
+  // RM-047 (P1): o sandbox que afrouxa só vale com a confirmação local do projeto configurado; a tentativa herda essa
+  // confirmação, e só ela.
+  const { confirmarPosturaLocal, posturaAfrouxada, recusaDePostura } = require(path.join(dist, 'postura-local'));
+  const recusa = recusaDePostura(configurado.raiz, configurado.manifesto, runtime === 'claude' ? 'claude-bg' : 'codex');
+  if (recusa) throw new Error(recusa);
   const s = sandboxGit('smoke-sensores-' + runtime), start = new Date().toISOString();
   s.carregado.manifesto.runtime.sandbox = sandbox;
+  if (runtime !== 'claude' && posturaAfrouxada(s.carregado.manifesto)) confirmarPosturaLocal(s.dir, sandbox, 'smoke-sensores');
   const t = novaThread(s.carregado, { nome: 'smoke', modo: 'auto' }).thread;
   const dir = dirThread(s.dir, t.id);
   const registrarSessao = sid => {
