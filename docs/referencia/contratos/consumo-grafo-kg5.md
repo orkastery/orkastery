@@ -319,7 +319,9 @@ chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta
   Código inline usa caminho desde a raiz ou `./`/`../` desde o documento. Links procuram primeiro
   o caminho relativo ao documento e depois o literal desde a raiz; âncora e busca não fazem parte
   do caminho. Se o link já gerou `references` ao arquivo ou a uma seção dele, a mesma ocorrência
-  não gera `cites`. A citação continua possível quando apenas o caminho desde a raiz resolve.
+  não gera `cites`, inclusive no código inline do rótulo. Código inline fora do link, mesmo na
+  mesma linha, continua independente. A citação continua possível quando apenas o caminho desde
+  a raiz resolve.
   Links externos, caminhos que escapam da raiz, estado privado e alvos ausentes não geram `cites`.
   Não há resolução adicional de links por definição de referência.
 - TypeScript/JavaScript em diretórios `test`, `tests`, `__tests__`, `script` ou `scripts`, ou nomes
@@ -332,8 +334,10 @@ chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta
   (`ts`, `tsx`, `cts`, `mts`, `js`, `jsx`, `cjs`, `mjs`), `json`, `md`,
   `markdown`, `yaml`, `yml`, `toml`, `py`, `rs`, `go`, `c`, `h`, `css`, `html`, `svg`, `png`,
   `jpg`, `jpeg`, `gif`, `webp`, `pdf`, `txt`, `sh` ou `sql`. Argumentos de módulo podem omitir
-  extensão. Bases vazias e diretórios são recusados para citação, antes das sondas; palavras
-  como `core` e `docs` não invalidam todos os arquivos desses diretórios no incremental.
+  extensão, mas exigem prefixo de caminho; nomes de pacote como `zod` e `typescript` não geram
+  sondas de citação. Bases vazias são recusadas. Para diretórios, só o candidato exato é ignorado;
+  as variantes de extensão e `index` continuam como candidatos e sondas, inclusive na troca de
+  diretório por arquivo e na volta. Palavras como `core` e `docs` não geram sondas de citação.
 - A resolução de módulo tenta o caminho exato, variantes de extensão e `index`; `.js`/`.mjs`/
   `.cjs`/`.jsx` admitem fontes TypeScript. Na ausência, a convenção `dist/` → `src/` permite, por
   exemplo, `require('../dist/x')` citar `../src/x.ts`. Só um alvo no primeiro grupo de candidatos
@@ -347,8 +351,8 @@ O hash do código dos extratores já participa da chave do índice; um índice a
 
 O comparador de `medir-mcp-grafo.cjs --contexto` permanece `ork.graph-context-cost/v3`, com as
 mesmas sementes, exports de pelo menos quatro caracteres e `grep -w` da fatia 3. A fixture
-histórica não é regravada por este GO. Cobertura maior nos dois casos, precisão superior ao grep
-e pacote menor que a saída do grep são metas pendentes da nova medida, não resultados destes testes.
+histórica e os resultados de cobertura, precisão e custo estão descritos na seção **Fatia 4**
+em [Dica e medidas](#dica-e-medidas), atualizada pela condutora após cada nova medida.
 
 A mesma entrada e índice produzem bytes idênticos, mesmo com coleções permutadas. O compositor
 `core/src/intelligence-graph-contexto.ts` não faz E/S. CLI e worker compartilham o leitor da thread.
