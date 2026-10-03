@@ -245,12 +245,16 @@ async def run():
    await seed(n, 'session' if n == 'ses' else 'semantic_log', [T])
   await seed('alheia', 'decision', ['outro-produto'])
   await seed('vizinha', 'decision', [T + '-x'])
+  # Tenant vizinho (o nome contem o tenant) fora da busca: so um predicado por substring o contaria.
+  await seed('vizinha-ses', 'session', [T + '-x'])
+  await seed('vizinha-inj', 'learning', [T + '-x'], injection_risk=True)
   await seed('injalheia', 'learning', ['outro-produto'], injection_risk=True)
   out = await bridge.execute({'op': 'universo', 'tenant': T}, store)
   assert {x['id'] for x in out['entradas']} == esperado, out['entradas']
   assert all('embedding' not in x for x in out['entradas'])
   assert out['foraDaBusca'] == {'injecao': 1, 'expiradas': 2, 'outrasColecoes': 2}, out['foraDaBusca']
   assert await bridge.contar_fora_da_busca(store, 'outro-produto') == {'injecao': 1, 'expiradas': 0, 'outrasColecoes': 0}
+  assert await bridge.contar_fora_da_busca(store, T + '-x') == {'injecao': 1, 'expiradas': 0, 'outrasColecoes': 1}
   ids = (await bridge.execute({'op': 'fts', 'tenant': T, 'texto': 'comum'}, store))['ids']
   assert set(ids) == esperado and len(ids) == len(set(ids)), ids
   print('PASS: pgvector universo, fora da busca e fts no mesmo predicado')
