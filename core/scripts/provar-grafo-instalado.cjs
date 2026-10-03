@@ -9,8 +9,8 @@
  * e o `ork doctor`. Depois tira o `typescript` da instalacao e confere que o doctor aponta a falta
  * com a correcao e que o grafo recusa. A unica rede e a do registro do npm, para as dependencias do
  * pacote: o cache do runner hospedado so tem os tarballs do `npm ci`, sem os metadados que o
- * `--offline` pediria. A instalacao roda com `--ignore-scripts` (nenhuma dependencia do pacote tem
- * script de instalacao) e a prova nunca roda num job com credencial de publicacao: as transitivas
+ * `--offline` pediria. A instalacao roda com `--ignore-scripts`, e a prova recusa dependencias
+ * instaladas com preinstall, install ou postinstall. Nunca roda num job com credencial de publicacao: as transitivas
  * vem do registro, sem lockfile. Roda no CI (job `nucleo` e o job `provar-grafo` do `publicar.yml`),
  * fora da suite hermetica.
  *
@@ -68,6 +68,33 @@ function comandos(core, base, tarball) {
 
 function falhar(passo, detalhe) {
   throw new Error(`prova.${passo}: ${detalhe}`);
+}
+
+/** Confere os pacotes realmente instalados, inclusive os com escopo e os node_modules aninhados. */
+function conferirScriptsDeInstalacao(instalacao) {
+  const comScripts = [];
+  const visitarPacote = (dir) => {
+    const arquivo = path.join(dir, 'package.json');
+    const pacote = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+    const scripts = ['preinstall', 'install', 'postinstall']
+      .filter((nome) => Object.prototype.hasOwnProperty.call(pacote.scripts || {}, nome));
+    if (scripts.length) comScripts.push(`${path.relative(instalacao, arquivo).split(path.sep).join('/')}: ${scripts.join(', ')}`);
+    const aninhado = path.join(dir, 'node_modules');
+    if (fs.existsSync(aninhado)) visitarModulos(aninhado);
+  };
+  const visitarModulos = (dir) => {
+    for (const entrada of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!entrada.isDirectory() || entrada.name.startsWith('.')) continue;
+      const destino = path.join(dir, entrada.name);
+      if (entrada.name.startsWith('@')) {
+        for (const pacote of fs.readdirSync(destino, { withFileTypes: true })) {
+          if (pacote.isDirectory()) visitarPacote(path.join(destino, pacote.name));
+        }
+      } else visitarPacote(destino);
+    }
+  };
+  visitarModulos(path.join(instalacao, 'node_modules'));
+  if (comScripts.length) falhar('scripts de instalacao', `dependencias instaladas com scripts:\n${comScripts.sort().join('\n')}`);
 }
 
 /** As versoes que os rotulos dos extratores tem de mostrar, lidas das dependencias do pacote. */
@@ -204,6 +231,7 @@ function provar(opcoes = {}) {
     const tarball = path.join(base, tarballs[0]);
     const c = comandos(core, base, tarball);
     const instalado = rodar('instalar', c.instalar.bin, c.instalar.args, c.instalar.cwd, env, PRAZO_DO_NPM_MS);
+    conferirScriptsDeInstalacao(c.instalacao);
     const npm = rodar('npm', 'npm', ['--version'], base, env, 60_000).stdout.trim();
 
     const repo = path.join(base, 'repo');
@@ -253,7 +281,7 @@ function provar(opcoes = {}) {
 
 module.exports = {
   ambienteLimpo, comandos, comandoComPrazo, esperadoDoPacote, conferirStatus, conferirIndice, conferirChamadores, linhaDoDoctor,
-  conferirDoctorSemCompilador, criarRepositorio, medirInstalacao, rodar, provar, COPIAS_DO_PREPACK,
+  conferirDoctorSemCompilador, conferirScriptsDeInstalacao, criarRepositorio, medirInstalacao, rodar, provar, COPIAS_DO_PREPACK,
 };
 
 if (require.main === module) {

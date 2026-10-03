@@ -290,6 +290,43 @@ test('grafo no pacote: script: o pack nao usa rede, e a instalacao e global, do 
   assert.deepEqual([c.ork, c.instalacao], ['/tmp/base/npm/bin/ork', '/tmp/base/npm/lib/node_modules/@orkastery/cli']);
 });
 
+test('grafo no pacote: script: scripts de instalacao nas dependencias diretas e aninhadas reprovam com a lista', () => {
+  const dir = dirTemporario('rm031-scripts-instalacao');
+  const pacotes = [
+    'node_modules/direta',
+    'node_modules/@escopo/direta',
+    'node_modules/direta/node_modules/indireta',
+    'node_modules/@escopo/direta/node_modules/@outro/indireta',
+  ];
+  const gravar = (p: string, scripts: Record<string, string>): void => {
+    fs.mkdirSync(path.join(dir, p), { recursive: true });
+    fs.writeFileSync(path.join(dir, p, 'package.json'), JSON.stringify({ name: path.basename(p), version: '1.0.0', scripts }));
+  };
+  try {
+    for (const p of pacotes) gravar(p, { test: 'node teste.js', prepare: 'node preparar.js' });
+    // O package.json de exemplo dentro de um pacote nao e uma dependencia instalada.
+    gravar('node_modules/direta/exemplos/app', { install: 'node exemplo.js' });
+    assert.doesNotThrow(() => prova.conferirScriptsDeInstalacao(dir));
+    // Cada mutacao isolada tem de reprovar, seja qual for o hook ou a profundidade.
+    for (const p of pacotes) {
+      for (const hook of ['preinstall', 'install', 'postinstall']) {
+        gravar(p, { [hook]: 'node instalar.js' });
+        assert.throws(() => prova.conferirScriptsDeInstalacao(dir), {
+          message: `prova.scripts de instalacao: dependencias instaladas com scripts:\n${p}/package.json: ${hook}`,
+        });
+        gravar(p, {});
+      }
+    }
+    for (const p of pacotes) gravar(p, { postinstall: 'node depois.js', preinstall: 'node antes.js', install: 'node instalar.js' });
+    assert.throws(() => prova.conferirScriptsDeInstalacao(dir), {
+      message: 'prova.scripts de instalacao: dependencias instaladas com scripts:\n'
+        + pacotes.map((p) => `${p}/package.json: preinstall, install, postinstall`).sort().join('\n'),
+    });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('grafo no pacote: script: o prazo usa o timeout em primeiro plano, e o codigo de saida decide o passo', () => {
   // `--foreground`: o timeout fica no grupo da prova, e o sinal de quem a roda alcanca o npm e o ork junto.
   assert.deepEqual(prova.comandoComPrazo('npm', ['pack'], 61_000, process.execPath), [process.execPath, ['--foreground', '--kill-after=15', '61', 'npm', 'pack']]);
