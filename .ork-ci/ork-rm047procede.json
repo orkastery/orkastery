@@ -1,0 +1,99 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm047procede",
+  "branch": "ork/ork-rm047procede-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/test/procedencia-e-postura.test.ts",
+      "alegacao": "P1 e P2 de ponta a ponta: despacho e retomada recusam o sandbox afrouxado sem confirmação local; verify, despacho e prova do GO só usam worktree registrada e estado local; pulse e digest só o host local",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/procedencia-e-postura.test.js > /tmp/ork-p1p2.log 2>&1; grep -qx '# pass 9' /tmp/ork-p1p2.log && grep -qx '# fail 0' /tmp/ork-p1p2.log"
+      ],
+      "criadoEm": "2026-10-03T06:02:09.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/test/procedencia-e-postura.test.ts",
+      "alegacao": "os 9 testes de procedencia-e-postura reprovam no código anterior (a base da main, sem a correção)",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d)/antes && git worktree add -q --detach \"$d\" \"$(git merge-base HEAD origin/main)\" && ln -s \"$PWD/core/node_modules\" \"$d/core/node_modules\" && cp core/test/procedencia-e-postura.test.ts \"$d/core/test/\" && (cd \"$d/core\" && npm run build >/dev/null && npm run build:test >/dev/null && node --test --test-reporter=tap dist-test/test/procedencia-e-postura.test.js > /tmp/ork-p1p2-antes.log 2>&1); git worktree remove --force \"$d\"; grep -qx '# fail 9' /tmp/ork-p1p2-antes.log && grep -qx '# pass 0' /tmp/ork-p1p2-antes.log"
+      ],
+      "criadoEm": "2026-10-03T06:02:09.440Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/src/postura-local.ts",
+      "alegacao": "a confirmação local é 0600 em pasta 0700, vale só para o mesmo checkout e a mesma postura, e versionada ou com modo aberto não vale",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/postura-local.test.js"
+      ],
+      "criadoEm": "2026-10-03T06:02:09.589Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/src/phase.ts",
+      "alegacao": "só phase.ts e retry.ts passam o runtime.sandbox do manifesto ao runtime, e os dois passam antes por recusaDePostura",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -rln 'sandbox: manifesto.runtime.sandbox' core/src | sort | tr '\\n' ' ')\" = 'core/src/phase.ts core/src/retry.ts ' && grep -q 'recusaDePostura(raiz, manifesto, runtime)' core/src/phase.ts && grep -q 'recusaDePostura(raiz, manifesto, runtime)' core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-03T06:02:09.735Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "core/scripts/smoke-sensores.cjs",
+      "alegacao": "o smoke dos sensores recusa sem a confirmação do projeto e o harness passa os três sandboxes",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/smoke-sensores.test.js && grep -q 'recusaDePostura(configurado.raiz' core/scripts/smoke-sensores.cjs"
+      ],
+      "criadoEm": "2026-10-03T06:02:09.883Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm047procede",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/fronteira-de-confianca.md",
+      "alegacao": "matriz, SECURITY, referência da CLI, guia do pulse e CHANGELOG (Segurança, Não publicado) descrevem P1 e P2 corrigidos em decisão do dono",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Corrigido, em decisão do dono' docs/referencia/fronteira-de-confianca.md && grep -q 'ork setup sandbox confirmar' SECURITY.md && grep -q 'ork setup sandbox' docs/referencia/cli.md && grep -q 'transporte.rastreado' docs/guias/sincronismo-hitl.md && awk '/^## Não publicado/{f=1} /^## \\[/{f=0} f' CHANGELOG.md | grep -qF 'Postura de sandbox e procedência do estado'"
+      ],
+      "criadoEm": "2026-10-03T06:02:10.031Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
