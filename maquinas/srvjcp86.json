@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T07:01:28.995Z",
+  "publicadoEm": "2026-10-03T07:04:06.502Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -117,6 +117,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm047procede-full",
       "atualizadaEm": "2026-10-03T06:41:41.084Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm057regrada",
+      "nome": "RM-057: regra das alternativas no perfil coding e binário certo no adapter install",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-057",
+      "branch": "ork/ork-rm057regrada-full",
+      "atualizadaEm": "2026-10-03T07:04:04.152Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
