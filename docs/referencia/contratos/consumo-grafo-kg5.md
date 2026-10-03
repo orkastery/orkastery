@@ -329,7 +329,7 @@ chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta
   extrator não geram `cites`; outra string com o mesmo texto é uma ocorrência independente.
   A evidência cobre o literal completo no arquivo real.
 - Caminhos comuns exigem `/` e extensão conhecida de código, documento ou asset: TS/JS
-  (`ts`, `tsx`, `cts`, `mts`, `js`, `jsx`, `cjs`, `mjs` e variantes com `x`), `json`, `md`,
+  (`ts`, `tsx`, `cts`, `mts`, `js`, `jsx`, `cjs`, `mjs`), `json`, `md`,
   `markdown`, `yaml`, `yml`, `toml`, `py`, `rs`, `go`, `c`, `h`, `css`, `html`, `svg`, `png`,
   `jpg`, `jpeg`, `gif`, `webp`, `pdf`, `txt`, `sh` ou `sql`. Argumentos de módulo podem omitir
   extensão. Bases vazias e diretórios são recusados para citação, antes das sondas; palavras

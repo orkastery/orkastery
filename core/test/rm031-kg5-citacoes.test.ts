@@ -121,10 +121,11 @@ function provarSondasRestritas(extrair = extrairGrafo): void {
     'core/src/pasta.ts/index.ts': 'export const interno = 2;',
     'core/src/sem-extensao': 'arquivo sem extensao',
     'core/src/nao-conhecida.xyz': 'extensao desconhecida',
+    'core/src/nao-conhecida.ctsx': 'nao e uma extensao TypeScript',
     'core/test/ruido.test.ts': ["export const palavras = ['core', 'docs', '../..', 'core/src/alvo', 'alvo.ts',",
-      "'core/src/sem-extensao', 'core/src/nao-conhecida.xyz', 'core/src/pasta.ts', 'core/src/'];",
+      "'core/src/sem-extensao', 'core/src/nao-conhecida.xyz', 'core/src/nao-conhecida.ctsx', 'core/src/pasta.ts', 'core/src/'];",
       'export const invalidos = ["require(\'../..\')", "import(\'core/src/\')"];'].join('\n'),
-    'docs/ruido.md': '`core` `docs` `../..` `core/src/alvo` `core/src/sem-extensao` `core/src/nao-conhecida.xyz` `core/src/pasta.ts`',
+    'docs/ruido.md': '`core` `docs` `../..` `core/src/alvo` `core/src/sem-extensao` `core/src/nao-conhecida.xyz` `core/src/nao-conhecida.ctsx` `core/src/pasta.ts`',
     'core/test/caminho.test.ts': "export const arquivo = 'core/src/alvo.ts';",
     'core/test/fixture.test.ts': 'export const codigo = "require(\'../dist/alvo\')";',
   };
@@ -144,6 +145,7 @@ test('KG5 citacoes GO-FIX: sondas exigem arquivo ou argumento de modulo; provas 
   provarSondasRestritas();
   for (const [modulo, antes, depois] of [
     ['intelligence-graph-extract-md', '!modulo && (', 'false && ('],
+    ['intelligence-graph-extract-md', '[cm]?[jt]s|[jt]sx', '[cm]?[jt]sx?'],
     ['intelligence-graph-extract-ts', 'base === null || diretorios.has(base)', 'base === null'],
   ]) assert.throws(() => provarSondasRestritas(mutante(modulo, antes, depois)), antes);
 });
