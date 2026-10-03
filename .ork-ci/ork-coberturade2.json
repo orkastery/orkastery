@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-coberturade2",
+  "branch": "ork/ork-coberturade2-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-coberturade2",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "Omissao com a thread fecha so ela e recusa a inexistente; gate sem motivo e outra, o de ensaio nao conta, base trazida junta base-avancou; campo fora do contrato do MASTER log da o erro dele",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-name-pattern='C5 master' core/dist-test/test/rm039-ramos-0310-master.test.js"
+      ],
+      "criadoEm": "2026-10-03T10:37:07.049Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
