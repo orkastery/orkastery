@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-03T11:06:30.904Z",
+  "publicadoEm": "2026-10-03T11:14:15.085Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -116,8 +116,8 @@
       "status": "aberta",
       "roadmap": "RM-049",
       "branch": "ork/ork-rm049recibod-go",
-      "atualizadaEm": "2026-10-03T11:06:28.601Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-03T11:07:11.956Z",
+      "entregue": "1765696",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
