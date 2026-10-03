@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.1",
-  "publicadoEm": "2026-10-03T03:01:29.456Z",
+  "publicadoEm": "2026-10-03T03:05:07.590Z",
   "threads": [
     {
       "id": "ork-rm032ativaca",
@@ -56,6 +56,23 @@
       "runtime": "codex",
       "modelo": "gpt-5.6-sol",
       "esforco": "high"
+    },
+    {
+      "id": "ork-rm047remotod",
+      "nome": "RM-047: remoto da fábrica validado antes do git",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-047",
+      "branch": "ork/ork-rm047remotod-full",
+      "atualizadaEm": "2026-10-03T03:05:05.100Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm053network",
@@ -150,7 +167,7 @@
       "status": "aberta",
       "roadmap": "RM-057",
       "branch": "ork/ork-rm057fatia2c-full",
-      "atualizadaEm": "2026-10-03T02:56:39.237Z",
+      "atualizadaEm": "2026-10-03T03:04:31.774Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
