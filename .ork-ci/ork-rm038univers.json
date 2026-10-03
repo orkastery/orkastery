@@ -1,0 +1,308 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm038univers",
+  "branch": "ork/ork-rm038univers-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "rm038 universo: universoDaBusca é o domicílio único do universo da busca: lê a fonte uma vez pelo tenant, recusa com memory.query.scope-violation entrada de outro tenant, de coleção fora do ork ou com id repetido (nunca descarta em silêncio), ordena por coleção e id, conta por coleção e repassa a contagem de fora da busca",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: dominio' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:33.863Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "rm038 universo: DriverCliOrkMind.universo manda à ponte só {op: universo, tenant}, recusa tenant inválido antes do processo filho, confere o envelope (entradas e foraDaBusca), recusa entrada de outro tenant ou de outra coleção com memory.query.scope-violation e repassa memory.query.window-saturated da ponte",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: transporte' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:36.335Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/indice-vetorial.ts",
+      "alegacao": "rm038 universo: indexar embeda só o universo da busca, recusa entrada de outro tenant com memory.query.scope-violation antes de qualquer pedido de embed, e o relatório do ork memory index traz o universo por coleção e a contagem de fora da busca, também no --dry-run",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: indice' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:38.734Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/busca-semantica.ts",
+      "alegacao": "rm038 universo: a busca por significado usa o universo inteiro e restringe só a coleção pedida, declara no detalhe os ids do FTS fora do universo e o índice que cobre menos que o universo, e recusa entrada de outro tenant no universo com memory.query.scope-violation",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: busca' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:40.477Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/memoria.ts",
+      "alegacao": "rm038 universo: ork memory status mostra o universo da busca por coleção, quantas entradas do tenant ficam fora da busca (injection_risk, expiradas, outras coleções) e a cobertura contra o universo, avisa quando o índice cobre menos que o universo, e falha de leitura do universo aparece como motivo tipado, sem cobertura inventada",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: status' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:42.318Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/orkmind.ts",
+      "alegacao": "rm038 universo: invariante no dublê alinhado: o universo é igual à leitura por tag do tenant (export filtrado por project), entrada marcada como fora da busca fica fora dos dois lados, e o FTS de um termo presente em todas as entradas devolve exatamente os ids do universo",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: invariante' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:56:43.819Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "rm038 universo: o bundle de CI adia para a estação a claim que roda core/scripts/prova-universo-da-busca.cjs (lê a base do tenant) e a que roda rm038-universo-ponte.test.js (interpretador do OrkMind), e roda no runner hospedado a que roda rm038-universo.test.js",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: ci' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:01.997Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm038-universo.test.ts",
+      "alegacao": "rm038 universo: os testes herméticos da thread passam inteiros, e os testes antigos do índice, da busca e do estado de embeddings seguem verdes com a fronteira de tenant como falha tipada",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm038-universo.test.js core/dist-test/test/indice-vetorial.test.js core/dist-test/test/busca-semantica.test.js core/dist-test/test/memoria-embeddings-estado.test.js"
+      ],
+      "criadoEm": "2026-10-03T02:57:05.359Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "rm038 universo: a seção Não publicado do CHANGELOG tem a linha da correção, com o universo da busca, a contagem de fora da busca e a falha alta memory.query.window-saturated",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const t=require(\"fs\").readFileSync(\"CHANGELOG.md\",\"utf8\");const s=t.split(\"\\n## \")[1]||\"\";process.exit(/^Não publicado/.test(s)&&/RM-038/.test(s)&&/universo da busca/.test(s)&&/fora da busca/.test(s)&&/memory\\.query\\.window-saturated/.test(s)?0:1)'"
+      ],
+      "criadoEm": "2026-10-03T02:57:25.051Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "docs/guias/memoria-e-handoff.md",
+      "alegacao": "rm038 universo: o guia de memória diz que índice, vetor, FTS e status usam o mesmo universo da busca, o que fica fora da busca e por quê, o aviso de cobertura e a falha alta memory.query.window-saturated",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'universo da busca' docs/guias/memoria-e-handoff.md && grep -qF 'fora da busca' docs/guias/memoria-e-handoff.md && grep -qF 'memory.query.window-saturated' docs/guias/memoria-e-handoff.md"
+      ],
+      "criadoEm": "2026-10-03T02:57:27.554Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "rm038 universo: a referência da CLI diz que ork memory status e ork memory index mostram o universo da busca por coleção e o que fica fora da busca",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'universo da busca' docs/referencia/cli.md && grep -qF 'fora da busca' docs/referencia/cli.md"
+      ],
+      "criadoEm": "2026-10-03T02:57:29.329Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-038-busca-semantica-na-memoria.md",
+      "alegacao": "rm038 universo: a página da RM-038 traz a fatia de correção desta thread com a causa medida, os números do universo da busca na base real e o estado da C4",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'ork-rm038univers' docs/roadmap/RM-038-busca-semantica-na-memoria.md && grep -qF 'universo da busca' docs/roadmap/RM-038-busca-semantica-na-memoria.md && grep -qF 'C4' docs/roadmap/RM-038-busca-semantica-na-memoria.md"
+      ],
+      "criadoEm": "2026-10-03T02:57:31.160Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/integracoes-locais.ts",
+      "alegacao": "rm038 ponte: rm038-universo-ponte.test.js está na lista única de testes de integração local, porque precisa do interpretador do OrkMind que o runner hospedado não tem; o bundle de CI o adia para a estação",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"'rm038-universo-ponte.test.js'\" core/src/integracoes-locais.ts",
+        "node --test --test-name-pattern='rm038 universo: ci' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:44.018Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/types.ts",
+      "alegacao": "rm038 universo: types.ts declara ForaDaBusca e UniversoDaBusca, e o estado de embeddings ganha o universo por coleção, a contagem de fora da busca, o aviso de cobertura e a falha tipada da leitura do universo",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build > /dev/null",
+        "node --test --test-name-pattern='rm038 universo: (dominio|status)' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:45.966Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "rm038 universo: pela CLI do HEAD com uma ponte falsa, ork memory index --dry-run e ork memory status mostram o universo da busca por coleção e o que fica fora da busca, ork memory search --texto declara os ids do FTS fora do universo, e quando a ponte responde memory.query.window-saturated o index sai 1 com o código e nada é embedado",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern='rm038 universo: cli' core/dist-test/test/rm038-universo.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:48.313Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/test/indice-vetorial.test.ts",
+      "alegacao": "rm038 universo: os testes do índice vetorial da I-38 seguem verdes com o universo da busca; o caso de entrada de outro tenant passa a exigir memory.query.scope-violation sem nenhum pedido de embed",
+      "negativa": true,
+      "verificar": [
+        "node --test core/dist-test/test/indice-vetorial.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:50.120Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/test/busca-semantica.test.ts",
+      "alegacao": "rm038 universo: os testes da busca por significado da I-38 seguem verdes com o universo da busca; entrada de outro tenant no universo passa a ser memory.query.scope-violation e id alheio do FTS sai declarado",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/busca-semantica.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:51.867Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "core/test/memoria-embeddings-estado.test.ts",
+      "alegacao": "rm038 universo: os testes do estado de embeddings da I-38 seguem verdes com a cobertura calculada contra o universo da busca",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/memoria-embeddings-estado.test.js"
+      ],
+      "criadoEm": "2026-10-03T03:09:53.185Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm038univers",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "rm038 universo: o índice do roadmap e as tabelas geradas da RM-038 batem com o frontmatter (data nova da RM-038, regerados por ork docs sincronizar --so RM-038); o docs verificar não acusa erro na RM-038 nem no índice",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build > /dev/null && node core/dist/index.js docs verificar --json | node -e 'const r=JSON.parse(require(\"fs\").readFileSync(0,\"utf8\"));const meus=r.achados.filter(a=>a.gravidade===\"erro\"&&/RM-038|docs\\/roadmap\\/README\\.md/.test(a.arquivo+\" \"+a.id));process.exit(meus.length?1:0)'"
+      ],
+      "criadoEm": "2026-10-03T03:33:27.246Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C8",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C9",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C11",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C17",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C18",
+      "reason": "local-integration-required"
+    },
+    {
+      "id": "C26",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
