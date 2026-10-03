@@ -34,6 +34,7 @@ import { contratosTocados } from './contrato-publico';
 import { cicloSemCheck } from './prova-minima';
 import { formatarDataHora, legendaDoFuso, localizarTexto } from './horario';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
+import { exigirRemoto } from './branch-de-estado';
 
 export interface OpcoesShip {
   /** Revalidação interna confiável; nunca exposta pela CLI/MCP como argumento. */
@@ -258,7 +259,7 @@ export function prepararArvore(raiz: string, para: string): ArvoreDeMerge {
   }
   const dir = dirTemporarioDeShip(raiz, para);
   fs.mkdirSync(path.dirname(dir), { recursive: true });
-  const r = exec('git', ['worktree', 'add', dir, para], raiz);
+  const r = exec('git', ['worktree', 'add', '--', dir, para], raiz);
   if (!r.ok) {
     throw new Error(
       `nao foi possivel montar a arvore de merge de "${para}": ${(r.stderr || r.stdout).trim()}`
@@ -288,7 +289,8 @@ export function shaDaRef(dir: string, ref: string): string | null {
  * codigo de saida do `git push` nao prova que o remoto ficou com o commit certo.
  */
 export function shaNoRemoto(dir: string, remoto: string, branch: string): string | null {
-  const r = exec('git', ['ls-remote', remoto, `refs/heads/${branch}`], dir, 120000);
+  // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
+  const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
   if (!r.ok) return null;
   const linha = r.stdout.split('\n').find((l) => l.trim() !== '');
   if (!linha) return null;
@@ -298,7 +300,7 @@ export function shaNoRemoto(dir: string, remoto: string, branch: string): string
 
 /** O remoto esta configurado neste repositorio? */
 export function remotoConfigurado(dir: string, remoto: string): boolean {
-  return exec('git', ['remote', 'get-url', remoto], dir).ok;
+  return exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ship')], dir).ok;
 }
 
 function baseDoResultado(thread: Thread, de: string, opcoes: OpcoesShip): ResultadoShip {
@@ -430,7 +432,10 @@ export function ship(
   const dir = dirThread(raiz, threadId);
   const de = opcoes.de ?? thread.base.branch;
   const para = opcoes.para;
-  const remoto = opcoes.remoto ?? 'origin';
+  // RM-047: o `--remoto` vem da linha de comando. Antes de qualquer git (inclusive a leitura da reversao),
+  // so nome de remoto passa; o resto recusa com `ship.remoto-invalido`, e o ship nao entrega sem push provado
+  // por um remoto que nunca existiu.
+  const remoto = exigirRemoto(opcoes.remoto ?? 'origin', 'ship');
   const r = baseDoResultado(thread, de, opcoes);
 
   // I-43 (T7): antes de qualquer coisa, se a entrega ANTERIOR desta thread foi
@@ -688,7 +693,8 @@ export function ship(
           `modo: ${tagDoModo(thread.modo)}\n` +
           `autorizado por: ${autorizacao.por} (${autorizacao.tipo})\n` +
           `verificado em: HEAD ${verificacao.commit}\n`;
-      const merge = exec('git', ['merge', '--no-ff', de, '-m', mensagem], arvore.dir, 300000);
+      // RM-047: o merge e do sha verificado, e nao do nome que veio de `--de` (nome nunca vira opcao do git).
+      const merge = exec('git', ['merge', '--no-ff', '-m', mensagem, shaDe], arvore.dir, 300000);
       passos.push(`git merge --no-ff ${de}`);
       if (!merge.ok) {
         exec('git', ['merge', '--abort'], arvore.dir);
@@ -743,8 +749,8 @@ export function ship(
     } else {
       const existeNoRemoto = shaNoRemoto(arvore.dir, remoto, para) !== null;
       const argsPush = existeNoRemoto
-        ? ['push', remoto, `${para}:refs/heads/${para}`]
-        : ['push', '-u', remoto, `${para}:refs/heads/${para}`];
+        ? ['push', '--', remoto, `refs/heads/${para}:refs/heads/${para}`]
+        : ['push', '-u', '--', remoto, `refs/heads/${para}:refs/heads/${para}`];
       const push = exec('git', argsPush, arvore.dir, 300000);
       passos.push(`git ${argsPush.join(' ')}`);
       if (!push.ok) {
