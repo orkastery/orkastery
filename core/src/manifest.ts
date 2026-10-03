@@ -17,6 +17,7 @@ import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { MODELO_DE_EMBEDDING } from './orkmind';
+import { branchValida } from './branch-de-estado';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -289,6 +290,12 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push('conduction.delegation exige thread, escopo premissas, prazo ISO, evidencia e delegado');
   }
   const worktree = mapa(dados.worktree);
+  // RM-047 (fronteira de confiança): a base vai ao git em rev-parse, log, fetch e worktree add. Nome que o
+  // git não aceita como branch (começa com `-`, tem `..`) viraria opção dele; a regra é a do check-ref-format.
+  if (worktree.base_branch !== undefined && worktree.base_branch !== null && !branchValida(texto(worktree.base_branch, ''))) {
+    erros.push(`worktree.base_branch invalido: ${JSON.stringify(texto(worktree.base_branch, '')).slice(0, 60)} ` +
+      '(esperado nome de branch do git, sem "-" no começo e sem "..")');
+  }
   const verify = mapa(dados.verify);
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
