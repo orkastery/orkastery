@@ -18,11 +18,11 @@ estado:
 evidencias:
   codigo:
     commit: 7202e47
-    pr: null
+    pr: 90
     ensaio: "73df05b1, PR #74"
     achados: "0080d87f, PR #77"
-    recibos: 7202e479, PR #90
-    p4: e7c465a5, PR #51
+    recibos: "7202e479, PR #90"
+    p4: "e7c465a5, PR #51"
   testes:
     ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346)
   deploy:
@@ -89,7 +89,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
 | Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `7202e47` · ensaio: 73df05b1, PR #74 · achados: 0080d87f, PR #77 · recibos: 7202e479, PR #90 · p4: e7c465a5, PR #51 | 2026-10-03 | Julio |
+| Código | Mesclado | commit `7202e47` · PR #90 · ensaio: 73df05b1, PR #74 · achados: 0080d87f, PR #77 · recibos: 7202e479, PR #90 · p4: e7c465a5, PR #51 | 2026-10-03 | Julio |
 | Testes | Aprovados | ci: verde no PR (run 36660154276) e no push da v0.5.0 (run 36815186450); no push do merge, a suíte passou e o CHECK independente reprovou a claim S9, que compara a branch com a main (run 36660497346) | 2026-10-03 | Julio |
 | Deploy | Produção | release: Marketplace próprio em marketplaces/; P4 incluído na v0.5.2; ensaio, achados e recibos posteriores na main | 2026-10-03 | Julio |
 | Exposição | Flag desligada | — | 2026-10-03 | Julio |
