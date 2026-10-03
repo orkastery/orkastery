@@ -72,8 +72,7 @@ Dry-run nao inicia modelo, mas pode gravar prompt/eventos. Confira o trio efetiv
 
 ## Conducao durante o trabalho
 
-O modo afrouxa a pausa, NUNCA a verificacao. Claims, verify, policies e gates tipados
-rodam identicos em `#Classic` e em `#Auto`; o modo decide se o veredito espera o humano.
+O modo afrouxa a pausa, NUNCA a verificacao. Claims, verify, policies e gates tipados rodam identicos em `#Classic` e em `#Auto`; o modo decide se o veredito espera o humano.
 
 Depois de uma acao, use o resultado do nucleo para executar o proximo passo autorizado.
 Em #Auto/#Maestro, nao termine um bloco apenas oferecendo continuar quando ainda ha trabalho
