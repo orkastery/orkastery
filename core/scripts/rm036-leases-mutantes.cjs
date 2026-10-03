@@ -84,6 +84,7 @@ const mutantes = {
   'R3-legado-origens': [[lease, 'if (copias.length === 0) {\n        for (const copia of copiasLegadas(raiz, nome))', 'if (true) {\n        for (const copia of copiasLegadas(raiz, nome))']],
   'R3-liberado-sem-efeito': [[lease, 'if (removidas.length === 0)', 'if (false)']],
   'R3-flock-indisponivel': [[lease, "trava.error || (trava.status !== 0 && trava.status !== 1)", 'false']],
+  'R3-release-symlink': [[lease, 'fs.lstatSync(canonico, { throwIfNoEntry: false })', 'fs.existsSync(canonico)']],
   'R3-retomada-nlink': [[lease, ' || stat.nlink !== 1', '']],
   'R3-retomada-tipagem': [[lease, "falhaRetomada: 'lease.resume-unavailable'", 'falhaRetomada: undefined']],
   'R3-retomada-regiao': [[lease, "motivo: r.falhaRetomada ?? 'lease.busy'", "motivo: 'lease.busy'"]],

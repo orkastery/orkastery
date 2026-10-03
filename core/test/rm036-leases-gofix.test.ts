@@ -324,15 +324,15 @@ test('rm036 gofix: liberar nao usa legado quando o canonico desaparece durante a
   const c = cenario(t), nome = 'main-tree';
   c.gravar(vivo(nome, DONO));
   leases.regravarLease(c.raiz, vivo(nome, OUTRA));
-  const canonico = leases.caminhoLease(c.raiz, nome), existe = io.existsSync;
+  const canonico = leases.caminhoLease(c.raiz, nome), stat = io.lstatSync;
   let corrida = false;
-  t.mock.method(io, 'existsSync', (p: fs.PathLike) => {
+  t.mock.method(io, 'lstatSync', (p: fs.PathLike, ...args: unknown[]) => {
+    const resultado = Reflect.apply(stat, io, [p, ...args]);
     if (String(p) === canonico && !corrida) {
       corrida = true;
       fs.unlinkSync(canonico);
-      return true;
     }
-    return existe(p);
+    return resultado;
   });
   const ler = io.readFileSync;
   t.mock.method(io, 'readFileSync', (p: fs.PathOrFileDescriptor, ...args: unknown[]) => {
@@ -739,4 +739,21 @@ test('rm036 gofix: R3 retomada indisponivel chega ao ship e ao ledger com correc
     const evento = eventos.find((e) => e.tipo === tipo);
     assert.equal(evento?.motivo, 'lease.resume-unavailable', tipo);
   }
+});
+
+
+test('rm036 gofix: R3 retomada de symlink sem alvo sai com a correcao exata', (t) => {
+  const c = cenario(t), nome = 'main-tree', arquivo = leases.caminhoLease(c.raiz, nome);
+  fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+  const alvo = path.join(c.base, 'alvo-ausente');
+  fs.symlinkSync(alvo, arquivo);
+  const passado = new Date(Date.now() - 10_000);
+  fs.lutimesSync(arquivo, passado, passado);
+  const r = leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' });
+  assert.equal(r.motivo, 'lease.resume-unavailable');
+  assert.equal(r.correcao, "ork lease release 'main-tree' --forcar; depois repita a aquisicao");
+  assert.equal(leases.liberar(c.raiz, nome, OUTRA, true).ok, true);
+  assert.equal(fs.lstatSync(arquivo, { throwIfNoEntry: false }), undefined);
+  assert.equal(fs.existsSync(alvo), false);
+  assert.equal(leases.adquirirRegiao(c.raiz, nome, { thread: OUTRA, motivo: 'GO' }).ok, true);
 });

@@ -486,7 +486,7 @@ export function liberar(
 ): { ok: boolean; detalhe: string } {
   const copias: CopiaLegada[] = [];
   const canonico = caminhoLease(raiz, nome);
-  if (fs.existsSync(canonico)) {
+  if (fs.lstatSync(canonico, { throwIfNoEntry: false })) {
     copias.push({ caminho: canonico, lease: lerArquivoDeLease(canonico) });
   }
   if (copias.length === 0) {
