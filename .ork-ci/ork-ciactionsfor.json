@@ -1,0 +1,57 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-ciactionsfor",
+  "branch": "ork/ork-ciactionsfor-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-ciactionsfor",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Nenhum workflow usa actions/checkout@v4 nem actions/setup-node@v4 (as duas rodam em Node 20)",
+      "negativa": true,
+      "verificar": [
+        "! grep -n 'actions/checkout@v4\\|actions/setup-node@v4' .github/workflows/*.yml"
+      ],
+      "criadoEm": "2026-10-03T03:12:52.955Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-ciactionsfor",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "Todo uses de checkout e setup-node está na v6, cujo action.yml declara using: node24",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/ci.yml) -eq 6 && test $(grep -c 'uses: actions/\\(checkout\\|setup-node\\)@v6$' .github/workflows/publicar.yml) -eq 2"
+      ],
+      "criadoEm": "2026-10-03T03:12:53.249Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-ciactionsfor",
+      "fase": "GOAL",
+      "arquivo": ".github/workflows/ci.yml",
+      "alegacao": "A única linha que muda nos workflows é o uses de checkout/setup-node: nomes de job, matriz node 20/22 e passos ficam iguais aos da base (os quatro checks obrigatórios são por nome)",
+      "negativa": false,
+      "verificar": [
+        "! git diff -U0 \"$(git merge-base origin/main HEAD)\" HEAD -- .github/workflows | grep -E '^[-+] ' | grep -vE '^[-+] +- uses: actions/(checkout|setup-node)@v[46]$'"
+      ],
+      "criadoEm": "2026-10-03T03:13:01.525Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
