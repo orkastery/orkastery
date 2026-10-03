@@ -2,14 +2,24 @@
  * RM-031, correcao de empacotamento: o grafo de codigo funciona em quem instala o `ork` pelo npm.
  *
  * Grupos: "grafo no pacote: dependencias" (os pacotes que os analisadores carregam sao dependencias
- * de runtime com versao exata, e os docs dizem quantas dependencias o pacote tem) e "lockfile" (o
- * fecho dos analisadores nao fica marcado dev, e nenhum pacote de producao roda script de instalacao).
+ * de runtime com versao exata, e os docs dizem quantas dependencias o pacote tem), "lockfile" (o
+ * fecho dos analisadores nao fica marcado dev, e nenhum pacote de producao roda script de instalacao),
+ * "doctor" (o check analisadores do grafo) e "status" (a correcao no `ork grafo status`). A instalacao
+ * sem os analisadores e uma copia do `dist` com o `node_modules` do checkout ligado pacote a pacote,
+ * menos os analisadores: o mesmo que a 0.5.1 do npm tinha.
  */
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
+import { checar, checarAnalisadoresDoGrafo, relatorio } from '../src/doctor';
+import { raizDoEstado } from '../src/estado-thread';
+import { correcaoDosAnalisadores, descreverVersoes, executarGrafo } from '../src/intelligence-graph-cli';
 import { PACOTES_DOS_ANALISADORES, pacotesDosAnalisadores, versoesDosAnalisadores } from '../src/intelligence-graph-parsers';
+import { noPath } from '../src/util';
+import { VERSAO_DO_ORK } from '../src/versao';
+import { dirTemporario, projetoTemporario } from './apoio';
 
 const CORE = path.resolve(__dirname, '../..');
 const RAIZ = path.resolve(CORE, '..');
@@ -66,4 +76,135 @@ test('grafo no pacote: lockfile: nenhum pacote de producao roda script de instal
   const comScript = Object.entries(lock().packages)
     .filter(([caminho, e]) => caminho !== '' && e.dev !== true && e.hasInstallScript === true).map(([caminho]) => caminho);
   assert.deepEqual(comScript, []);
+});
+
+// ---------------------------------------------------------------------------
+// doctor e status
+
+const RECUSA_DO_TS = 'grafo.parser.indisponivel: typescript';
+const falha = (motivo: string) => (): never => { throw new Error(motivo); };
+const CORRECAO_DO_NPM = `npm install -g @orkastery/cli@${VERSAO_DO_ORK}`;
+
+let copia: { dir: string; cli: string; bin: string } | null = null;
+/**
+ * A instalacao que a 0.5.1 do npm tinha: o pacote com as dependencias de runtime e sem os
+ * analisadores. O `dist` do checkout e copiado, e cada pacote do `node_modules` e ligado, menos os
+ * cinco que os analisadores carregam. Feita uma vez por arquivo; o `after` a apaga.
+ */
+function instalacaoSemAnalisadores(): { dir: string; cli: string; bin: string } {
+  if (copia) return copia;
+  const dir = dirTemporario('rm031-sem-analisadores'), raiz = path.join(dir, 'instalacao');
+  // O que o pacote publica e o `ork` le no caminho do doctor e do grafo: o codigo, os schemas e os assets.
+  for (const pasta of ['dist', 'schemas', 'assets']) fs.cpSync(path.join(CORE, pasta), path.join(raiz, pasta), { recursive: true });
+  fs.copyFileSync(path.join(CORE, 'package.json'), path.join(raiz, 'package.json'));
+  const modulos = path.join(raiz, 'node_modules'), fora = new Set<string>(PACOTES_DOS_ANALISADORES);
+  fs.mkdirSync(modulos);
+  for (const nome of fs.readdirSync(path.join(CORE, 'node_modules'))) {
+    if (!nome.startsWith('.') && !fora.has(nome)) fs.symlinkSync(path.join(CORE, 'node_modules', nome), path.join(modulos, nome));
+  }
+  // So o git no PATH: o doctor nao sonda claude nem codex, e o check do grafo nao depende deles.
+  const bin = path.join(dir, 'bin'), git = noPath('git');
+  assert.ok(git, 'git no PATH de quem roda');
+  fs.mkdirSync(bin);
+  fs.symlinkSync(path.resolve(git), path.join(bin, 'git'));
+  copia = { dir, cli: path.join(raiz, 'dist', 'index.js'), bin };
+  return copia;
+}
+after(() => { if (copia) fs.rmSync(copia.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
+
+/** A CLI da instalacao sem os analisadores, num projeto, com HOME proprio. */
+function orkSemAnalisadores(dir: string, ...args: string[]): { status: number | null; stdout: string; stderr: string } {
+  const inst = instalacaoSemAnalisadores();
+  const r = spawnSync(process.execPath, [inst.cli, ...args], {
+    cwd: dir, encoding: 'utf8', timeout: 120_000, env: { HOME: path.join(inst.dir, 'casa'), PATH: inst.bin, LANG: 'C.UTF-8' },
+  });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/** `ork grafo` pelo modulo, com a saida capturada. */
+function grafo(dir: string, ...argv: string[]): string {
+  const partes: string[] = [];
+  assert.equal(executarGrafo(argv, { raiz: dir, estado: raizDoEstado(dir), escrever: (t) => partes.push(t) }), 0);
+  return partes.join('\n');
+}
+
+test('grafo no pacote: doctor: com os analisadores na instalacao, o check e ok com as versoes no formato do grafo status', () => {
+  const c = checarAnalisadoresDoGrafo();
+  assert.deepEqual([c.nome, c.nivel, c.correcao], ['analisadores do grafo', 'ok', undefined]);
+  assert.equal(c.detalhe, descreverVersoes(versoesDosAnalisadores()));
+  assert.match(c.detalhe, /^typescript \d+\.\d+\.\d+, javascript node\.\S+, markdown micromark\.\S+\.gfm-table\.\S+, unicode \S+$/);
+});
+
+test('grafo no pacote: doctor: sem um analisador, warn com a recusa, o que deixa de rodar e a correcao do npm na versao do ork', () => {
+  const c = checarAnalisadoresDoGrafo(falha(RECUSA_DO_TS));
+  assert.equal(c.nivel, 'warn', 'o grafo nao e condicao do despacho: nunca fail');
+  assert.equal(c.detalhe, `${RECUSA_DO_TS}: ork grafo indexar, as consultas e as tools ork_grafo_* recusam nesta instalacao`);
+  assert.equal(c.correcao, `reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM}`
+    + ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)');
+  // Pacote fora da instalacao (o npm icou para o projeto): a mesma correcao.
+  const fora = checarAnalisadoresDoGrafo(falha('grafo.parser.indisponivel: micromark fora da instalacao do ork'));
+  assert.equal(fora.correcao, c.correcao);
+  // O relatorio imprime a correcao debaixo da linha, e o doctor sai 0 por esse check.
+  const texto = relatorio([c]);
+  assert.match(texto, /^ {2}\[warn\] analisadores do grafo {2}grafo\.parser\.indisponivel: typescript: /m);
+  assert.ok(texto.includes(`correcao: reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM}`), texto);
+  assert.match(texto, /Veredito: PRONTO \(1 warn\)/);
+});
+
+test('grafo no pacote: doctor: Node sem require de ESM pede o Node 20.19 ou 22.12, nao a reinstalacao', () => {
+  const c = checarAnalisadoresDoGrafo(falha('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'));
+  assert.equal(c.nivel, 'warn');
+  assert.equal(c.correcao, `o micromark e so ESM, e o Node ${process.version} nao o carrega por require: use Node 20.19, 22.12 ou mais novo`);
+  assert.equal(correcaoDosAnalisadores('grafo.parser.indisponivel: micromark (ERR_REQUIRE_ESM)'), c.correcao);
+});
+
+test('grafo no pacote: doctor: o checar inteiro traz o check logo depois do node', () => {
+  const dir = dirTemporario('rm031-doctor-ordem');
+  try {
+    const nomes = checar(dir).map((c) => c.nome);
+    assert.equal(nomes[nomes.indexOf('node') + 1], 'analisadores do grafo', nomes.join(', '));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('grafo no pacote: doctor: na instalacao sem os analisadores, o ork doctor de verdade da warn com a correcao', () => {
+  const p = projetoTemporario('rm031-doctor-sem');
+  try {
+    const r = orkSemAnalisadores(p.dir, 'doctor');
+    const linhas = r.stdout.split('\n'), i = linhas.findIndex((l) => l.includes(' analisadores do grafo '));
+    assert.ok(i > 0, r.stdout + r.stderr);
+    assert.match(linhas[i], /^ {2}\[warn\] analisadores do grafo +grafo\.parser\.indisponivel: typescript: ork grafo indexar/);
+    assert.match(linhas[i + 1], new RegExp(`^ +correcao: reinstale o ork global, que traz os analisadores como dependencias: ${CORRECAO_DO_NPM.replace(/[.@/]/g, '\\$&')}`));
+  } finally {
+    p.limpar();
+  }
+});
+
+test('grafo no pacote: status: com os analisadores, o campo correcao e null e o texto nao tem a linha', () => {
+  const p = projetoTemporario('rm031-status-com');
+  try {
+    const status = JSON.parse(grafo(p.dir, 'status', '--json'));
+    assert.deepEqual([status.erro, status.correcao, status.indice_do_head], [null, null, 'ausente']);
+    assert.ok(!/^ {2}correcao /m.test(grafo(p.dir, 'status')));
+  } finally {
+    p.limpar();
+  }
+});
+
+test('grafo no pacote: status: sem os analisadores na instalacao, o status diz a correcao do doctor no texto e no --json', () => {
+  const p = projetoTemporario('rm031-status-sem');
+  try {
+    const json = orkSemAnalisadores(p.dir, 'grafo', 'status', '--json');
+    assert.equal(json.status, 0, json.stderr);
+    const status = JSON.parse(json.stdout);
+    assert.deepEqual([status.indice_do_head, status.erro], ['indisponivel', RECUSA_DO_TS]);
+    assert.equal(status.correcao, correcaoDosAnalisadores(RECUSA_DO_TS));
+    assert.ok(status.correcao.includes(CORRECAO_DO_NPM), status.correcao);
+    const texto = orkSemAnalisadores(p.dir, 'grafo', 'status');
+    assert.equal(texto.status, 0, texto.stderr);
+    assert.ok(texto.stdout.includes(`\n  analisadores    ${RECUSA_DO_TS}\n  correcao        ${status.correcao}\n`), texto.stdout);
+  } finally {
+    p.limpar();
+  }
 });
