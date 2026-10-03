@@ -17,6 +17,7 @@ import { registrarPedidoHitl } from '../src/hitl-gates';
 import { PedidoHitl } from '../src/hitl-contract';
 import { adquirirRegiao, liberar } from '../src/leases';
 import { MODOS_APOSENTADOS } from '../src/modos';
+import { semCodexSandbox } from './ambiente-de-teste';
 
 async function fixture(body:(p:ProjetoDeTeste,c:Client)=>Promise<void>,nomesProviderHerdados?:string[]) {
   const p=projetoTemporario('mcp-project');
@@ -212,7 +213,7 @@ test('CLI mcp serve negocia stdio real sem banner e sem configuracao global',asy
   finally {await c.close();await transport.close();p.limpar();}
 });
 
-test('MCP commit integra claim e HEAD real sem registrar entrega SHIP',()=>comHomeGitIsolado(()=>fixture(async(p,c)=>{
+test('MCP commit integra claim e HEAD real sem registrar entrega SHIP', { skip: semCodexSandbox() },()=>comHomeGitIsolado(()=>fixture(async(p,c)=>{
   const t=novaThread(p.carregado,{nome:'commit via MCP',modo:'auto',criarWorktree:true}).thread;
   fs.writeFileSync(path.join(t.worktree!,'produto.txt'),'fixture');
   const claim=await call(c,'ork_claim_add',{threadId:t.id,arquivo:'produto.txt',alegacao:'arquivo da fixture',verificar:['test -f produto.txt']});
@@ -234,7 +235,7 @@ test('MCP commit integra claim e HEAD real sem registrar entrega SHIP',()=>comHo
 })));
 
 
-test('MCP SHIP entrega por SDK com perfil bare instalado e recusa opções livres',()=>comHomeGitIsolado(async()=>{
+test('MCP SHIP entrega por SDK com perfil bare instalado e recusa opções livres', { skip: semCodexSandbox() },()=>comHomeGitIsolado(async()=>{
   const p=projetoTemporario('mcp-sdk-ship',true);
   const t=novaThread(p.carregado,{nome:'SHIP SDK',modo:'auto',criarWorktree:true}).thread;
   const source=commitar(t.worktree!,'entrega.txt','fixture SDK','entrega SDK');
