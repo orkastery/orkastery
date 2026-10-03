@@ -10,9 +10,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
-  no índice, com evidência de linha. Após selecionar as ligações diretas, o pacote v2 usa a sobra
-  para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em bytes. A medida histórica
-  continua v3, com o mesmo comparador; ganho de cobertura e precisão aguardam nova medição.
+  no índice, com evidência de linha, sem duplicar links ou imports resolvidos nem sondar palavras
+  e diretórios. `cites` fica por último no desempate por tipo. Após selecionar as ligações diretas,
+  o pacote v2 usa a sobra para vizinhos a dois saltos, marcados com `salto: 2`, mantendo o teto em
+  bytes e parando após oito rejeições seguidas por espaço. `omitidos.segundo_salto` separa as
+  omissões indiretas, que não ativam `truncado` quando a vizinhança direta está completa. A medida
+  histórica continua v3, com o mesmo comparador; ganho de cobertura e precisão aguardam nova medição.
 - **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
   seis pushes da `main` reprovaram em `docs.paridade.merge` em 02 e 03/10, e o condutor só descobria no push. Depois
   de registrar, o `registrar-pr` lê as páginas do roadmap da base remota e lista a da thread que já entrou pelo merge

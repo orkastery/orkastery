@@ -272,9 +272,9 @@ filtrado pela concessão.
 A vizinhança começa por um salto, nos dois sentidos, incluindo símbolos/seções das sementes.
 Dentro dele, a ordem de relevância é: **entre arquivos diferentes**, depois **menor distância ao diff**
 (distância no grafo não dirigido de arquivos, não distância em linhas). Empates intercalam tipos
-por rodada de cada alvo; depois tipo (com `cites` por último) e rótulos em UTF-8. Sem diff conhecido, todas as distâncias
-empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários arquivos e preserva
-diversidade de tipos dentro da mesma prioridade.
+por rodada de cada alvo; depois tipo (com `cites` por último) e rótulos em UTF-8. Sem diff conhecido,
+todas as distâncias empatam. Há no máximo **oito grupos por nó alvo**. Isso limita hubs de vários
+arquivos e preserva diversidade de tipos dentro da mesma prioridade.
 
 Na fatia 4, depois desse corte e da amostra de sementes ausentes, o orçamento restante admite
 ligações entre arquivos a dois saltos das sementes indexadas. Qualquer ligação direta tem
@@ -318,12 +318,22 @@ chamada, uso em execução nem impacto semântico. Os tipos anteriores de aresta
   analisador CommonMark. Código cercado, comentários HTML e caminhos soltos na prosa não entram.
   Código inline usa caminho desde a raiz ou `./`/`../` desde o documento. Links procuram primeiro
   o caminho relativo ao documento e depois o literal desde a raiz; âncora e busca não fazem parte
-  do caminho. Links externos, caminhos que escapam da raiz, estado privado e alvos ausentes não
-  geram `cites`. Não há resolução adicional de links por definição de referência.
+  do caminho. Se o link já gerou `references` ao arquivo ou a uma seção dele, a mesma ocorrência
+  não gera `cites`. A citação continua possível quando apenas o caminho desde a raiz resolve.
+  Links externos, caminhos que escapam da raiz, estado privado e alvos ausentes não geram `cites`.
+  Não há resolução adicional de links por definição de referência.
 - TypeScript/JavaScript em diretórios `test`, `tests`, `__tests__`, `script` ou `scripts`, ou nomes
   `*.test.*`/`*.spec.*`: strings e templates sem interpolação que citam caminhos, inclusive
   argumentos literais de `require(...)`/`import(...)` dentro de uma string de fixture. Comentários
-  e expressões dinâmicas não são avaliados. A evidência cobre o literal completo no arquivo real.
+  e expressões dinâmicas não são avaliados. Literais de imports ou requires já resolvidos pelo
+  extrator não geram `cites`; outra string com o mesmo texto é uma ocorrência independente.
+  A evidência cobre o literal completo no arquivo real.
+- Caminhos comuns exigem `/` e extensão conhecida de código, documento ou asset: TS/JS
+  (`ts`, `tsx`, `cts`, `mts`, `js`, `jsx`, `cjs`, `mjs` e variantes com `x`), `json`, `md`,
+  `markdown`, `yaml`, `yml`, `toml`, `py`, `rs`, `go`, `c`, `h`, `css`, `html`, `svg`, `png`,
+  `jpg`, `jpeg`, `gif`, `webp`, `pdf`, `txt`, `sh` ou `sql`. Argumentos de módulo podem omitir
+  extensão. Bases vazias e diretórios são recusados para citação, antes das sondas; palavras
+  como `core` e `docs` não invalidam todos os arquivos desses diretórios no incremental.
 - A resolução de módulo tenta o caminho exato, variantes de extensão e `index`; `.js`/`.mjs`/
   `.cjs`/`.jsx` admitem fontes TypeScript. Na ausência, a convenção `dist/` → `src/` permite, por
   exemplo, `require('../dist/x')` citar `../src/x.ts`. Só um alvo no primeiro grupo de candidatos
