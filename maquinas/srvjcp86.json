@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.2",
-  "publicadoEm": "2026-10-03T07:37:33.541Z",
+  "publicadoEm": "2026-10-03T07:38:50.796Z",
   "threads": [
     {
       "id": "ork-b7relatoriod",
@@ -134,6 +134,23 @@
       "roadmap": "RM-056",
       "branch": "ork/ork-rm056fechara-full",
       "atualizadaEm": "2026-10-03T07:29:53.975Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-suspeitasdar",
+      "nome": "Suspeitas da revisão de 03/10",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": "RM-053",
+      "branch": "ork/ork-suspeitasdar-full",
+      "atualizadaEm": "2026-10-03T07:38:48.161Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
