@@ -249,7 +249,8 @@ function prepararDocumentos(
   sincronizarReversao(raiz, id);
   const eventos = lerLedger(dirThread(raiz, id));
   const gatesBloqueados = eventos
-    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado)
+    // Ensaio de 03/10/2026 (RM-049): o gate barrado por um `ork ship --dry-run` e ensaio, nao reprovacao.
+    .filter((e) => e.tipo === TIPOS_DE_EVENTO.gateBloqueado && e.dryRun !== true)
     .map((e) => ({
       ts: e.ts,
       motivo: String(e.motivo ?? '(sem motivo)'),
