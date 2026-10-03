@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.3] - 2026-10-03
+
 ### Adicionado
 
 - **O `ork ship registrar-pr` avisa a página que vai deixar a `main` vermelha** ([RM-044](docs/roadmap/RM-044-documentacao-como-codigo.md)):
@@ -115,6 +117,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   linha da varredura ausente, o crontab inexistente ou a batida mais lenta que 15 minutos (como a antiga `0 * * * *`),
   com a linha do template `monitor/pulse.cron` pronta para colar. O doctor nunca edita o crontab.
 
+### Alterado
+
+- **Ramos do `ork doctor` sob teste, C5** ([RM-039](docs/roadmap/RM-039-cadencia-do-pulse-por-tag.md)):
+  cobertura do cron, do manifesto fora do repositório e do login do Claude com diferentes perfis de conta.
+- **Fechamento com falha parcial sob teste, C4** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)):
+  falhas isoladas em leases, sessões e reserva comprovam que as demais liberações continuam e a pendência fica registrada.
+- **Piloto de contas compartilhadas** ([RM-040](docs/roadmap/RM-040-estado-de-conta-compartilhado.md)):
+  prova real só de leitura registra ausência de marcas; esgotamento entre dois projetos reais segue sem caso observado.
+- **Fatos da rede após os merges** ([RM-053](docs/roadmap/RM-053-orkastery-network.md), [RM-054](docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md)):
+  roadmaps registram os PRs #31 e #72 e distinguem código mesclado de implantação pendente.
+- **Company Brain, B4.2 após o merge** ([RM-025](docs/roadmap/RM-025-company-brain-fundacao.md)):
+  roadmap registra o modo `context` no núcleo pelo PR #64 e as capacidades já presentes no OrkMind.
+- **Fatos do roadmap e ordem do CHANGELOG, B3:** documentação consolidada após as entregas, com as notas em ordem.
+
 ### Corrigido
 
 - **A skill do Codex e a do Hermes consultam o `ork` no shell só depois da `ork_maestro`** ([RM-032](docs/roadmap/RM-032-bootstrap-maestro.md)):
@@ -122,6 +138,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   shell antes da tool, e a skill mandava consultar a experiência sem ordem. O CLI resolve o projeto pelo diretório
   da sessão, a classe de erro que a frase `orkastery maestro` evita. Um teste de guarda confere a ordem nas skills
   de entrada e na cópia do marketplace.
+- **Recibos do ensaio com o estado real dos achados** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
 - **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
   merge, e todas fecharam sem ela. Agora conta o `worktree_synced` do ledger e, no merge da entrega, os merges da

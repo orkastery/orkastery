@@ -57,8 +57,11 @@ test('rm036 docs: CLI situa todas as familias e a fila no dominio canonico', () 
   assert.match(texto, /flock/);
 });
 
-test('rm036 docs: changelog nao publicado registra endurecimento e fila sem migracao', () => {
-  const texto = ler('CHANGELOG.md').split('## Não publicado')[1].split(/\n## /)[0];
+test('rm036 docs: changelog registra endurecimento e fila sem migracao', () => {
+  // Antes da versao o item fica em "Nao publicado"; depois, na secao da versao que o publicou.
+  const secoes = ler('CHANGELOG.md').split(/\n## /).slice(1);
+  const texto = secoes.find((s) => /janela de 30 minutos/.test(s)) ?? '';
+  assert.match(texto, /^(Não publicado|\[\d+\.\d+\.\d+\] - \d{4}-\d{2}-\d{2})\n/);
   assert.match(texto, /janela de 30 minutos/);
   assert.match(texto, /primeira consulta\s+desta versão, mesmo sem legado/);
   assert.match(texto, /janela não reabre/);
