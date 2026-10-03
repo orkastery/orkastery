@@ -428,14 +428,15 @@ do projeto quando o limite de sessões está cheio.
 | Comando | O que faz |
 | --- | --- |
 | `ork ship <thread> --para <branch>` | Merge `--no-ff` serializado por lease, e push **provado** |
-| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master --aceitar-omissao` fecha (I-57). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
+| `ork ship registrar-pr <thread>\|--todas [--dry-run]` | A entrega feita por PR vira `ship_done`: o merge `ship(<thread>)` dentro da ponta remota e o CI verde no head do PR; depois, `ork master <thread> --aceitar-omissao` fecha só ela (I-57; RM-008). Com `--dry-run`, também com `--repo --pr`, faz as mesmas conferências e responde `registraria`, sem gravar `ship_done`, sem mudar a fase e sem publicar a fábrica (RM-037) |
 | `ork ship registrar-pr <thread> --repo <dono/nome> --pr <n>` | PR mesclado em repositório externo declarado em `ci.external_repositories` vira `ship_done`: o PR mesclado na branch padrão do repositório, com o id da thread no título, no corpo ou na branch, e o merge dentro da ponta da base, conferidos pela API do GitHub, e o check declarado verde no head do PR (vazio declara repositório sem CI). Repositório não declarado é recusado (RM-037) |
 | ↳ opções | `[--de <branch>] [--remoto origin] [--autorizar-push <quem>] [--sem-push] [--dry-run]` |
 | `ork master <thread> --score 0-5 --justificativa "<texto>" --por <seu-nome>` | Fecha a thread: POSTMORTEM, MASTER log e score; sem `--por` humano, recusa. Só do terminal: de processo de host é recusado com `master.prova-de-canal` |
 | `ork master pedir <thread> [--formato telegram\|terminal\|json]` | Pede a nota ao dono com código curto; ele responde pelo Telegram (`<código> <0 a 5> <porquê>`) e a nota vai ao ledger com o recibo do ingresso (RM-048) |
 | ↳ opções | `[--classe C[,C]] [--resumo R] [--por Q] [--refazer]` |
 | `ork master [--todas] [--json]` | As entregas, com o **índice derivado do ledger**; e as aceitas por omissão |
-| `ork master --aceitar-omissao [--json]` | Aceita por default as entregues, gravando índice, insumos e quem decidiu |
+| `ork master <thread> --aceitar-omissao [--dry-run] [--json]` | Aceita por default só a entrega da thread indicada (também `--thread <thread>`), gravando índice, insumos e quem decidiu. Thread sem entrega recusa (saída 1); já fechada não grava de novo (saída 0). Com `--dry-run`, lista o que fecharia, sem gravar (RM-008) |
+| `ork master --aceitar-omissao [--dry-run] [--json]` | Aceita por default **todas** as entregues do projeto, inclusive as de outras frentes, e lista cada uma. De processo de agente com mais de uma, avisa em stderr com `master.omissao-sem-thread` e o comando com a thread |
 | `ork master classes` | As classes de falha fixas do POSTMORTEM |
 | `ork licoes [--json]` | O que volta no GOAL e no PLAN da próxima thread (POSTMORTEM e MASTER) e as propostas de policy por recorrência (I-55), dizendo quais já são executáveis (RM-008, fatia 3) |
 | `ork ci prepare <thread>` | Exporta as claims e os comandos do manifesto para `.ork-ci/<thread>.json` da worktree da thread, com a branch dela (da raiz ou da worktree, o arquivo vai para a branch da thread), que o runner do CI reexecuta; recusa claim que roda a suíte inteira do npm e avisa sobre SHA intermediário e contagem de commits (I-53) |
