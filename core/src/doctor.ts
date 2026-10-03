@@ -29,6 +29,7 @@ import { lerPerfisComContas, perfilDeDespacho, PerfilDeDespacho, perfilDisponive
 import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
+import { checarRede } from './doctor-rede';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -597,6 +598,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       });
     }
   }
+
+  // RM-053 (fatia 2): a rede da pessoa e da maquina, nao do projeto; vale de qualquer diretorio.
+  checks.push(checarRede());
 
   return checks;
 }

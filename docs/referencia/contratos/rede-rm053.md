@@ -73,6 +73,8 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 - Caractere invisível, aqui, pelas classes do Unicode: controle (`Cc`), formato (`Cf`: bidi, largura zero, tags), separador de linha e todo `Default_Ignorable_Code_Point` (preenchimentos Hangul, seletores de variação), mais o braile vazio. O ZWJ e os seletores U+FE0E e U+FE0F, que montam emoji comuns, passam. Marcas visíveis da categoria `Cf` (sinais numéricos árabes, U+070F) também contam como invisíveis: o projeto com elas sai com aviso (limitação aceita, Y4 do CHECK 7).
 - O id derivado vale por máquina: numa pasta dividida por hosts ou contêineres sem hard link, o último a gravar vence, e o boot (`boot_id`, `machine-id`) só entra no Linux (limitação aceita, X6 do CHECK 6).
 - Os commits da casa têm a máquina como autor e committer, nunca o e-mail do ambiente.
+- O `REDE.md` é índice, não contrato: o retrato sem batida há mais de 14 dias (`RETRATO_PARADO_MS`, contado da batida de quem publica) sai da tabela e entra no rodapé, com o nome e a última batida. O arquivo em `maquinas/` fica, e o `ork network status` continua a lê-lo, com a lacuna `maquina.sem-batida`. Batida ilegível ou no futuro fica no índice. Quatorze dias cobrem férias e uma máquina desligada por duas semanas.
+- A faxina da trava órfã (`publicar.lock` sem `pid` válido há mais de 5 min) é serial, sob `publicar.lock.faxina`, e refaz o julgamento no lugar antes de mover: a trava viva nunca sai do lugar (W9 do CHECK 5, fechada na fatia 2).
 
 ## `ork.rede-status/v1` — a leitura
 
@@ -141,4 +143,5 @@ A rede **lê** o registro de projetos da RM-052 por um adaptador único, `core/s
 | --- | --- | --- |
 | Batida (retrato igual volta ao remoto) | 1 h | `PULSACAO_DA_REDE_MS` |
 | Máquina sem batida | 3 h | `SEM_BATIDA_MS` |
+| Retrato fora do índice `REDE.md` (fatia 2) | 14 dias sem batida, pela batida de quem publica | `RETRATO_PARADO_MS` |
 | Intervalo mínimo entre tentativas em segundo plano | 14 min, um abaixo do cron de 15 | `TETO_DE_TENTATIVA_MS` |
