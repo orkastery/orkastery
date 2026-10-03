@@ -3171,6 +3171,17 @@ function exigirFaseCanonica(bruto: string | undefined): Fase {
 /**
  * `ork adapter list|show|install <host>`: instalacao dos adaptadores de Camada 1 (bloco B4).
  */
+/**
+ * O caminho real do `ork` em execução, quando o processo é este CLI (argv[1] resolve para este arquivo).
+ * Importado por outro script, devolve undefined e o install volta à ordem antiga (PATH, catálogo).
+ */
+function orkEmExecucao(): string | undefined {
+  try {
+    const proprio = fs.realpathSync(__filename);
+    return process.argv[1] && fs.realpathSync(process.argv[1]) === proprio ? proprio : undefined;
+  } catch { return undefined; }
+}
+
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
 
@@ -3207,6 +3218,8 @@ function comandoAdapter(args: Args): number {
       dryRun: args.opcoes['dry-run'] === true,
       force: args.opcoes.force === true || args.opcoes.forcar === true,
       orkBin: texto(args.opcoes.ork),
+      // Ensaio de 03/10: a extensão chama o ork que a instalou, não o primeiro do PATH.
+      orkEmExecucao: orkEmExecucao(),
       versao: VERSAO,
       // I-43 (D5): a decisao por ARQUIVO, que e o que faz `--force` deixar de ser o
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
