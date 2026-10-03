@@ -29,6 +29,7 @@ if (process.env.ORK_REDE_LER === undefined) process.env.ORK_REDE_LER = '0';
 // suite. Com `ORK_PROJETO` exportado, todo teste que chama o CLI miraria o projeto registrado.
 delete process.env.ORK_PROJETO;
 delete process.env.ORK_PROJETO_EXPLICITO;
+semManutencaoAutomaticaDoGit();
 // I-51: a configuracao da maquina (`~/.orkastery/maquina.json`) dos testes tambem e propria.
 if (!process.env.ORK_USUARIO_DIR) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-usuario-'));
@@ -55,6 +56,40 @@ if (!process.env.ORK_USUARIO_DIR) {
 export function semAutoridadeHitlNoAmbiente(): void {
   for (const nome of Object.keys(process.env))
     if (nome.startsWith('ORK_HITL_') || nome === ENV_HITL_VERIFIERS) delete process.env[nome];
+}
+
+/**
+ * RM-037 (CI de 03/10, run 37106955227): depois de push, fetch e commit, o git solta
+ * `git maintenance run --auto --detach`, e o processo destacado continua escrevendo em `objects/`
+ * (lock, pack temporario, commit-graph) depois que o comando do teste ja voltou. Quando isso cai
+ * no meio do `rmSync` da limpeza, o diretorio ganha arquivo novo e a remocao sai com ENOTEMPTY; e o
+ * `git clone` local, que copia `objects/` do remoto, pode ler um repack pela metade.
+ *
+ * Repositorio de teste nao precisa de manutencao: ela fica desligada para todo git que o processo
+ * lanca, em dois lugares. `GIT_CONFIG_COUNT` vence qualquer configuracao do lado de quem roda o
+ * comando, mas o transporte local a limpa antes do `receive-pack` e do `upload-pack` do remoto
+ * bare. `GIT_CONFIG_SYSTEM` atravessa o transporte: aponta para um arquivo que inclui a
+ * configuracao de sistema de verdade e desliga a manutencao. Nenhum repositorio ganha chave nova
+ * (o SHIP do MCP recusa remoto bare com configuracao fora da lista passiva), e o git do MCP, que
+ * nao herda variavel GIT_, segue como era.
+ */
+export function semManutencaoAutomaticaDoGit(env: NodeJS.ProcessEnv = process.env): void {
+  const total = Number.parseInt(env.GIT_CONFIG_COUNT ?? '0', 10) || 0;
+  let presente = false;
+  for (let i = 0; i < total; i++) if (env[`GIT_CONFIG_KEY_${i}`] === 'maintenance.auto') presente = true;
+  if (!presente) {
+    env[`GIT_CONFIG_KEY_${total}`] = 'maintenance.auto';
+    env[`GIT_CONFIG_VALUE_${total}`] = 'false';
+    env.GIT_CONFIG_COUNT = String(total + 1);
+  }
+  const sistema = env.GIT_CONFIG_SYSTEM || exec('git', ['var', 'GIT_CONFIG_SYSTEM'], os.tmpdir()).stdout.trim() ||
+    '/etc/gitconfig';
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-git-sistema-'));
+  const arquivo = path.join(base, 'gitconfig');
+  const incluir = sistema && fs.existsSync(sistema) ? `[include]\n\tpath = ${sistema}\n` : '';
+  fs.writeFileSync(arquivo, `${incluir}[maintenance]\n\tauto = false\n`);
+  env.GIT_CONFIG_SYSTEM = arquivo;
+  process.once('exit', () => fs.rmSync(base, { recursive: true, force: true }));
 }
 
 /** Diretorio temporario com caminho real (o macOS e o /tmp do linux usam symlink). */

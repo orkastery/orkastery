@@ -99,6 +99,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Testes instáveis do CI de 03/10** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)): o caso "tomar a reserva de
+  outra maquina fica registrado com de quem e por que" (`roadmap-reservas`, Node 20, run 37106955227) caía com
+  `ENOTEMPTY` na limpeza do remoto bare. Depois de push e fetch, o git solta `git maintenance run --auto --detach`,
+  e o processo destacado escrevia em `objects/` enquanto o `rmSync` apagava o diretório; o `git clone` local da
+  outra máquina também podia copiar um repack pela metade. Os testes que usam `core/test/apoio.ts` agora desligam a
+  manutenção automática do git: por `GIT_CONFIG_COUNT` do lado de quem roda o comando e por `GIT_CONFIG_SYSTEM`
+  (que inclui a configuração de sistema de verdade) no `receive-pack` do remoto bare, porque o transporte local
+  limpa a primeira. Nenhum repositório ganha chave nova. Sem retry e sem prazo maior; a prova
+  `bash core/scripts/prova-laco-sob-carga.sh` roda o teste N vezes sob carga de CPU, com a manutenção do git fazendo
+  trabalho a cada push: antes, 13 de 1000 rodadas caíam; depois, nenhuma.
 - **Fechar a thread solta as sessões fantasma dela** ([RM-056](docs/roadmap/RM-056-perfil-por-thread-e-carga.md)): o
   MASTER e o `ork thread close` soltavam leases, fila e reserva, mas a sessão `blocked` sem processo presa à thread
   fechada seguia no `ork sessions list` até alguém rodar `ork sessions limpar-fantasmas`. Agora, quando o ledger da
