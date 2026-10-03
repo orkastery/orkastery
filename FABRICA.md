@@ -13,8 +13,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm047frontei | #Auto | GOAL | sem despacho | RM-047 | — | 03/10 01:58 |
 | srvjcp86 | ork-rm053network | #Auto | GOAL | claude-bg opus/max | RM-053 | — | 03/10 01:58 |
 | srvjcp86 | ork-rm054fatia3s | #Auto | GOAL | sem despacho | RM-054 | — | 03/10 01:58 |
-| vps | ork-rm031grafofu | #Auto | GO | codex gpt-6-astra/xhigh | RM-031 | — | 03/10 02:15 |
-| vps | ork-rm036leasesd | #Auto | GO | codex gpt-6-astra/xhigh | RM-036 | — | 03/10 02:15 |
-| vps | ork-rm038univers | #Auto | CHECK | claude-bg opus/max | RM-038 | — | 03/10 02:15 |
+| vps | ork-rm031grafofu | #Auto | GO | codex gpt-6-astra/xhigh | RM-031 | — | 03/10 02:16 |
+| vps | ork-rm036leasesd | #Auto | GO | codex gpt-6-astra/xhigh | RM-036 | — | 03/10 02:16 |
 
 Horários de Brasília.
