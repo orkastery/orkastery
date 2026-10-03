@@ -53,6 +53,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Visão geral](conceitos/visao-geral.md) | O vocabulário inteiro em uma página: thread, bloco, fase, claim, lease |
 | [Arquitetura](conceitos/arquitetura.md) | As três camadas, o mapa dos módulos e os fluxos de despacho e entrega |
 | [Diagramas](conceitos/diagramas/README.md) | O ciclo, o espectro de modos, o paralelismo e os auditores em imagem |
+| [ADR-001](conceitos/decisoes/ADR-001-estado-da-rede.md) | Onde mora a rede das máquinas de uma pessoa, e por que não numa branch de cada projeto |
 
 ## Produto e roadmap, como código
 
