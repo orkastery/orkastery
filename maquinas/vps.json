@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-05T03:48:18.655Z",
+  "publicadoEm": "2026-10-05T03:48:22.448Z",
   "threads": [
     {
       "id": "ork-rm031grafo3",
@@ -44,11 +44,11 @@
       "id": "ork-rm050guia3",
       "nome": "rm050guia3",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "PLAN",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm050guia3-full",
-      "atualizadaEm": "2026-10-05T03:37:49.121Z",
+      "atualizadaEm": "2026-10-05T03:48:22.169Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
