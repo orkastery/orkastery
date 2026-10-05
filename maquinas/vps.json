@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-05T03:34:06.203Z",
+  "publicadoEm": "2026-10-05T03:34:12.012Z",
   "threads": [
     {
       "id": "ork-rm031grafo2",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm031grafo2-goal",
       "atualizadaEm": "2026-10-05T03:34:05.952Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm038busca2",
+      "nome": "rm038busca2",
+      "modo": "#Classic",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm038busca2-goal",
+      "atualizadaEm": "2026-10-05T03:34:11.553Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
