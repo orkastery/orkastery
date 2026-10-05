@@ -17,7 +17,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | vps | ork-rm031grafo3 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 05/10 00:48 |
 | vps | ork-rm038busca3 | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 05/10 00:48 |
 | vps | ork-rm050guia3 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 05/10 00:48 |
-| vps | ork-rm055impedi2 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 05/10 00:48 |
+| vps | ork-rm055impedi2 | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 05/10 00:48 |
 | vps | ork-siteorkaste2 | #Auto | GO | codex gpt-6-astra/xhigh | — | — | 05/10 00:48 |
 
 Horários de Brasília.
