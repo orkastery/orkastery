@@ -4,24 +4,24 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-10T06:05:12.031Z",
+  "publicadoEm": "2026-10-10T06:05:29.258Z",
   "threads": [
     {
       "id": "ork-rm031grafo3",
       "nome": "rm031grafo3",
       "modo": "#Auto",
-      "fase": "PLAN",
+      "fase": "GO",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm031grafo3-full",
-      "atualizadaEm": "2026-10-05T03:48:18.399Z",
+      "atualizadaEm": "2026-10-10T06:05:28.351Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh"
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max"
     },
     {
       "id": "ork-rm038busca3",
