@@ -10,8 +10,8 @@
  *    e a de hoje: guarde a coleta de cada rodada (`--salvar-dados`) como evidencia;
  *  - os runs do PR: os do workflow de CI com evento `pull_request` criados enquanto o PR esteve
  *    aberto, na branch de origem dele e no repositorio de origem, o que cobre o commit que saiu do
- *    PR por `push --force` ou rebase. Com o fork apagado, sobra o nome da branch: o PR sai marcado
- *    para conferir e fica fora do fechamento. Limites: o intervalo em que um PR reaberto ficou
+ *    PR por `push --force` ou rebase. Com o fork apagado, sobra o nome da branch, entre os runs que
+ *    tambem perderam a origem: o PR sai marcado para conferir e fica fora do fechamento. Limites: o intervalo em que um PR reaberto ficou
  *    fechado conta como aberto, e a branch renomeada com o PR aberto perde os runs do nome antigo;
  *  - primeira execucao: o mais antigo desses runs. `action_required` (o GitHub esperando o
  *    mantenedor liberar o PR de fork), `skipped`, `stale` e `cancelled` (todo cancelado: o push
@@ -87,7 +87,8 @@ function estadoDoPr(pr) {
  * O run e deste PR: evento `pull_request`, criado enquanto o PR esteve aberto (o PR reaberto como
  * outro, da mesma branch, nao herda o run do anterior) e na branch de origem dele, no repositorio de
  * origem. O SHA nao entra: ele casaria o mesmo commit noutra branch (PRs empilhados) e perderia o
- * commit que saiu por push forcado. Com o fork apagado (`head.repo` nulo), sobra a branch.
+ * commit que saiu por push forcado. Com o fork apagado (`head.repo` nulo), sobra a branch, e so entre
+ * os runs que tambem perderam a origem: o run de um fork vivo com a mesma branch (`patch-1`) nao entra.
  */
 function doPr(run, pr) {
   if (run.event !== 'pull_request') return false;
@@ -96,8 +97,7 @@ function doPr(run, pr) {
   // `closed_at` so corta com o PR fechado: o reaberto, aberto de novo, nao perde os runs novos.
   if (pr.state === 'closed' && pr.closed_at && criado > Date.parse(pr.closed_at)) return false;
   if (!pr.head?.ref || run.head_branch !== pr.head.ref) return false;
-  const origem = pr.head.repo ?? null;
-  return origem === null || run.head_repo === origem;
+  return (run.head_repo ?? null) === (pr.head.repo ?? null);
 }
 
 /**
@@ -143,6 +143,8 @@ function validarColeta(dados) {
     throw new Error('dados inválidos: falta o objeto repos');
   }
   if (!dataValida(dados.desde)) throw new Error(`dados inválidos: a coleta não diz desde quando (desde: ${dados.desde})`);
+  const chaves = Object.keys(dados.repos).map((r) => r.toLowerCase());
+  if (new Set(chaves).size !== chaves.length) throw new Error('dados inválidos: o mesmo repositório aparece duas vezes, com grafias diferentes');
   for (const [repo, d] of Object.entries(dados.repos)) {
     if (!Array.isArray(d?.prs) || (d.runs !== undefined && !Array.isArray(d.runs))) {
       throw new Error(`dados inválidos: ${repo} sem a lista de PRs ou com runs fora de lista`);

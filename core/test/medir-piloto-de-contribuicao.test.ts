@@ -178,6 +178,8 @@ test('com o fork apagado, o run e do PR pela branch, e o PR sai marcado e fora d
       run(260, 'q1', 'failure', '2026-10-01T12:01:00Z', { head_branch: 'pr-26', head_repo: null }),
       run(261, 'q2', 'success', '2026-10-01T12:30:00Z', { head_branch: 'pr-26', head_repo: null }),
       run(270, 'r1', 'success', '2026-10-01T12:05:00Z', { head_branch: 'pr-27', head_repo: null }),
+      // Um fork vivo com a mesma branch nao e do PR de fork apagado.
+      run(271, 'v1', 'failure', '2026-10-01T12:01:00Z', { head_branch: 'pr-27', head_repo: 'beltrano/orkastery' }),
     ],
   ));
   const [p, q] = m.repos[0].prs;
@@ -253,6 +255,9 @@ test('lacuna ou coleta fora de forma reprova a leitura em vez de virar zero', ()
   delete (semData.repos[REPO].prs[0] as Partial<Pr>).created_at;
   assert.throws(() => medirPiloto(semData), /PR sem número ou sem created_at/);
   assert.throws(() => medirPiloto({ ...dados([], {}, []), desde: undefined }), /a coleta não diz desde quando/);
+  const duasGrafias = dados([], {}, []);
+  (duasGrafias.repos as Record<string, unknown>)['Orkastery/Orkastery'] = { prs: [], commits: {}, runs: [], tentativas: {} };
+  assert.throws(() => medirPiloto(duasGrafias), /o mesmo repositório aparece duas vezes/);
 });
 
 test('commit de outra pessoa ou sem login tira o PR do criterio de fechamento', () => {
