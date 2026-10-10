@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-10T06:05:44.376Z",
+  "publicadoEm": "2026-10-10T06:05:53.731Z",
   "threads": [
     {
       "id": "ork-rm031grafo3",
@@ -61,18 +61,18 @@
       "id": "ork-rm052projet2",
       "nome": "rm052projeto2",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "PLAN",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm052projet2-full",
-      "atualizadaEm": "2026-10-05T03:50:35.481Z",
+      "atualizadaEm": "2026-10-10T06:05:53.340Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "codex",
-      "modelo": "gpt-5.6-sol",
-      "esforco": "xhigh"
+      "runtime": "claude-bg",
+      "modelo": "opus",
+      "esforco": "max"
     },
     {
       "id": "ork-rm055impedi2",
