@@ -83,6 +83,7 @@ test('a janela vem da coleta; --desde so pode estreitar, e repositorio repetido 
   assert.deepEqual(prsMedidos(medirPiloto(d, { desde: '2026-09-29' })), [], 'a publicacao do guia foi em 29/09/2026');
   assert.throws(() => medirPiloto({ ...d, desde: '2026-09-29' }, { desde: '2026-09-01' }), /a coleta começa em 2026-09-29: para medir desde 2026-09-01, colete de novo/);
   assert.equal(medirPiloto(d, { repos: [REPO, REPO] }).resumo.prsDeFora, 1);
+  assert.equal(medirPiloto(d, { repos: [REPO, 'Orkastery/Orkastery'] }).resumo.prsDeFora, 1, 'o GitHub nao diferencia maiusculas no nome');
 });
 
 test('a primeira execucao e o run mais antigo do workflow na branch do PR', () => {
@@ -165,17 +166,40 @@ test('action_required, skipped, stale e cancelled nao sao execucao; so liberacao
   assert.equal(m.resumo.comExecucao, 1);
 });
 
-test('sem a origem (fork apagado), o run e do PR pelos SHAs dos commits de hoje', () => {
+test('com o fork apagado, o run e do PR pela branch, e o PR sai marcado e fora do fechamento', () => {
   const p26 = pr(26, 'sumido', 'NONE', { head: { ref: 'pr-26', repo: null } });
+  const p27 = pr(27, 'sumida', 'NONE', { head: { ref: 'pr-27', repo: null } });
   const m = medirPiloto(dados(
-    [p26],
-    { 26: commitsDe('sumido', 'q2') },
+    [p26, p27],
+    // O push forcado tirou `q1` do #26; o commit `q2` tambem rodou noutra branch (PR empilhado).
+    { 26: commitsDe('sumido', 'q2'), 27: commitsDe('sumida', 'r1') },
     [
+      run(259, 'q2', 'success', '2026-10-01T12:00:30Z', { head_branch: 'feat', head_repo: null }),
       run(260, 'q1', 'failure', '2026-10-01T12:01:00Z', { head_branch: 'pr-26', head_repo: null }),
       run(261, 'q2', 'success', '2026-10-01T12:30:00Z', { head_branch: 'pr-26', head_repo: null }),
+      run(270, 'r1', 'success', '2026-10-01T12:05:00Z', { head_branch: 'pr-27', head_repo: null }),
     ],
   ));
-  assert.equal(m.repos[0].prs[0].primeiraExecucao.run, 261, 'sem a origem, so o SHA de hoje prova que o run e do PR');
+  const [p, q] = m.repos[0].prs;
+  assert.equal(p.primeiraExecucao.run, 260, 'o commit que saiu por push forcado continua sendo a primeira execucao');
+  assert.equal(p.origemDesconhecida, true);
+  assert.equal(q.primeiraExecucao.conclusao, 'success');
+  assert.equal(q.contaParaFechamento, false, 'sem a origem, outro fork com a mesma branch pode ter entrado');
+  assert.match(relatorio(m), /#27 @sumida, mesclado: primeira execução success \(run 270, tentativa 1\), commits de outra pessoa: 0, fork apagado: runs casados só pela branch \(confira\)/);
+});
+
+test('o fim da janela e o fechamento do PR, e o PR reaberto e aberto nao tem fim', () => {
+  const p28 = pr(28, 'fulano', 'NONE', { closed_at: '2026-10-01T13:00:00Z', merged_at: '2026-10-01T13:00:00Z' });
+  // Reaberto: aberto de novo, com o `closed_at` do fechamento anterior.
+  const p29 = pr(29, 'fulana', 'NONE', { state: 'open', closed_at: '2026-10-01T12:30:00Z', merged_at: null });
+  const m = medirPiloto(dados(
+    [p28, p29],
+    { 28: commitsDe('fulano', 's1'), 29: commitsDe('fulana', 't1') },
+    [runDe(p28, 280, 's1', 'failure', '2026-10-01T13:30:00Z'), runDe(p29, 290, 't1', 'success', '2026-10-01T13:00:00Z')],
+  ));
+  const [p, q] = m.repos[0].prs;
+  assert.equal(p.primeiraExecucao, null, 'run depois do fechamento nao e do PR');
+  assert.equal(q.primeiraExecucao.run, 290);
 });
 
 test('num run reexecutado vale a primeira tentativa que rodou', () => {
@@ -245,7 +269,7 @@ test('commit de outra pessoa ou sem login tira o PR do criterio de fechamento', 
   assert.equal(p19.commitsSemLogin, 1);
   assert.equal(p19.contaParaFechamento, false, 'commit sem login nao prova que nao houve ajuda');
   assert.equal(m.resumo.fechamento.atingidos, 0);
-  assert.match(relatorio(m), /Fechamento: 0 PR\(s\) de fora mesclado\(s\), verde\(s\) na primeira execução, sem commit de outra pessoa nem sem login; o critério pede 2\./);
+  assert.match(relatorio(m), /Fechamento: 0 PR\(s\) de fora mesclado\(s\), verde\(s\) na primeira execução, sem commit de outra pessoa nem sem login, com o fork de origem; o critério pede 2\./);
 });
 
 test('taxa contra a meta de 80% e o criterio de dois PRs de fora', () => {
@@ -378,6 +402,21 @@ test('a coleta pede ao gh, paginado, so o que a medida usa, e a coleta salva med
   });
 });
 
+test('a branch de origem vai codificada na consulta de runs', () => {
+  const especial = pr(32, 'visitante', 'NONE', { head: { ref: 'fix/ação+#1&x', repo: 'visitante/orkastery' } });
+  comGhFalso({
+    [`repos/${REPO}/pulls?state=all&per_page=100`]: [linhas(especial)],
+    [`repos/${REPO}/pulls/32/commits?per_page=100`]: [linhas(...commitsDe('visitante', 'u1'))],
+    [RUNS_DA_BRANCH('fix/ação+#1&x')]: [linhas(runDe(especial, 320, 'u1', 'failure', '2026-10-01T12:00:00Z'))],
+  }, false, (_dir, rodar, chamadas) => {
+    const r = rodar('--repo', REPO, '--json');
+    assert.equal(r.status, 0, String(r.stderr));
+    assert.ok(chamadas()[2].includes(RUNS_DA_BRANCH('fix/ação+#1&x')));
+    assert.ok(RUNS_DA_BRANCH('fix/ação+#1&x').includes('branch=fix%2Fa%C3%A7%C3%A3o%2B%231%26x&'));
+    assert.equal(JSON.parse(String(r.stdout)).repos[0].prs[0].primeiraExecucao.run, 320);
+  });
+});
+
 test('lista no teto da API reprova a coleta: 250 commits num PR, 1.000 runs numa consulta', () => {
   const pulls = { [`repos/${REPO}/pulls?state=all&per_page=100`]: [linhas(pr(40, 'visitante', 'NONE'))] };
   const muitos = Array.from({ length: 250 }, (_, i) => `c${i}`);
@@ -404,7 +443,7 @@ test('sem PR de fora a taxa sai sem medida; gh com erro e uso errado saem 2', ()
     assert.equal(r.status, 0, String(r.stderr));
     assert.match(String(r.stdout), new RegExp(`${REPO}: nenhum PR de fora\\.`));
     assert.match(String(r.stdout), /0 verde\(s\): taxa sem medida, nenhuma primeira execução concluída \(meta: 80%\)/);
-    assert.match(String(r.stdout), /Fechamento: 0 PR\(s\) de fora mesclado\(s\), verde\(s\) na primeira execução, sem commit de outra pessoa nem sem login; o critério pede 2\./);
+    assert.match(String(r.stdout), /Fechamento: 0 PR\(s\) de fora mesclado\(s\), verde\(s\) na primeira execução, sem commit de outra pessoa nem sem login, com o fork de origem; o critério pede 2\./);
     assert.doesNotMatch(String(r.stdout), /Ensaio/);
     assert.equal(chamadas().length, 1, 'sem PR de fora, nem runs nem commits');
   });

@@ -9,13 +9,14 @@
  *  - PR de fora: `author_association` fora de OWNER e MEMBER, de autor que nao e bot. A associacao
  *    e a de hoje: guarde a coleta de cada rodada (`--salvar-dados`) como evidencia;
  *  - os runs do PR: os do workflow de CI com evento `pull_request` criados enquanto o PR esteve
- *    aberto, na branch de origem dele (mesmo repositorio, mesma branch), o que cobre o commit que
- *    saiu do PR por `push --force` ou rebase. Sem a origem (fork apagado), valem os SHAs dos
- *    commits de hoje;
+ *    aberto, na branch de origem dele e no repositorio de origem, o que cobre o commit que saiu do
+ *    PR por `push --force` ou rebase. Com o fork apagado, sobra o nome da branch: o PR sai marcado
+ *    para conferir e fica fora do fechamento. Limites: o intervalo em que um PR reaberto ficou
+ *    fechado conta como aberto, e a branch renomeada com o PR aberto perde os runs do nome antigo;
  *  - primeira execucao: o mais antigo desses runs. `action_required` (o GitHub esperando o
- *    mantenedor liberar o PR de fork), `skipped`, `stale` e `cancelled` (o push seguinte cancela o
- *    anterior quando o CI tem `cancel-in-progress`) nao sao execucao; num run reexecutado vale a
- *    primeira tentativa que rodou;
+ *    mantenedor liberar o PR de fork), `skipped`, `stale` e `cancelled` (todo cancelado: o push
+ *    seguinte cancela o anterior quando o CI tem `cancel-in-progress`) nao sao execucao; num run
+ *    reexecutado vale a primeira tentativa que rodou;
  *  - sem ajuda: nenhum commit de outra pessoa nem commit sem login do GitHub no PR. Ajuda em
  *    comentario nao vira dado: o mantenedor confere nos PRs listados.
  *
@@ -66,6 +67,11 @@ function dataValida(data) {
     new Date(instante(data)).toISOString().slice(0, 10) === data;
 }
 
+/** Os repositorios sem repeticao, sem diferenciar maiusculas, na grafia da primeira vez. */
+function semRepetir(repos) {
+  return [...new Map(repos.map((r) => [r.toLowerCase(), r])).values()];
+}
+
 function deFora(pr, externos) {
   const login = pr.user?.login ?? null;
   if (login !== null && externos.has(login)) return true;
@@ -79,18 +85,19 @@ function estadoDoPr(pr) {
 
 /**
  * O run e deste PR: evento `pull_request`, criado enquanto o PR esteve aberto (o PR reaberto como
- * outro, da mesma branch, nao herda o run do anterior) e na branch de origem dele, no mesmo
- * repositorio de origem. O SHA sozinho casaria o mesmo commit noutra branch (PRs empilhados): ele so
- * vale quando a origem sumiu (fork apagado), e entao com os commits de hoje.
+ * outro, da mesma branch, nao herda o run do anterior) e na branch de origem dele, no repositorio de
+ * origem. O SHA nao entra: ele casaria o mesmo commit noutra branch (PRs empilhados) e perderia o
+ * commit que saiu por push forcado. Com o fork apagado (`head.repo` nulo), sobra a branch.
  */
-function doPr(run, pr, shas) {
+function doPr(run, pr) {
   if (run.event !== 'pull_request') return false;
   const criado = Date.parse(run.created_at);
   if (!(criado >= Date.parse(pr.created_at))) return false;
-  if (pr.closed_at && criado > Date.parse(pr.closed_at)) return false;
-  const origem = pr.head?.repo ?? null;
-  if (origem !== null && pr.head?.ref) return run.head_repo === origem && run.head_branch === pr.head.ref;
-  return shas.has(run.head_sha);
+  // `closed_at` so corta com o PR fechado: o reaberto, aberto de novo, nao perde os runs novos.
+  if (pr.state === 'closed' && pr.closed_at && criado > Date.parse(pr.closed_at)) return false;
+  if (!pr.head?.ref || run.head_branch !== pr.head.ref) return false;
+  const origem = pr.head.repo ?? null;
+  return origem === null || run.head_repo === origem;
 }
 
 /**
@@ -157,10 +164,12 @@ function medirPiloto(dados, opcoes = {}) {
     throw new Error(`a coleta começa em ${dados.desde}: para medir desde ${desde}, colete de novo com --desde ${desde}`);
   }
   const externos = new Set(opcoes.tratarComoExterno ?? []);
-  const nomes = opcoes.repos?.length ? [...new Set(opcoes.repos)] : Object.keys(dados.repos);
-  const repos = nomes.map((repo) => {
+  // Nome de repositorio no GitHub nao diferencia maiusculas: o mesmo repositorio nao conta duas vezes.
+  const nomes = opcoes.repos?.length ? semRepetir(opcoes.repos) : Object.keys(dados.repos);
+  const repos = nomes.map((pedido) => {
+    const repo = Object.keys(dados.repos).find((r) => r.toLowerCase() === pedido.toLowerCase());
+    if (!repo) throw new Error(`dados sem o repositório ${pedido}`);
     const d = dados.repos[repo];
-    if (!d) throw new Error(`dados sem o repositório ${repo}`);
     const prs = d.prs
       .filter((pr) => Date.parse(pr.created_at) >= instante(desde) && deFora(pr, externos))
       .sort((a, b) => a.number - b.number)
@@ -168,8 +177,8 @@ function medirPiloto(dados, opcoes = {}) {
         const commits = d.commits?.[String(pr.number)];
         if (!Array.isArray(commits)) throw new Error(`dados sem os commits do PR #${pr.number} de ${repo}: colete de novo com as mesmas opções`);
         const autor = pr.user?.login ?? null;
-        const shas = new Set(commits.map((c) => c.sha));
-        const runsDoPr = (d.runs ?? []).filter((r) => doPr(r, pr, shas));
+        const runsDoPr = (d.runs ?? []).filter((r) => doPr(r, pr));
+        const origemDesconhecida = !pr.head?.repo;
         const execucao = primeiraExecucao(runsDoPr, d.tentativas, repo);
         const commitsDeOutraPessoa = commits.filter((c) => c.author?.login && c.author.login !== autor).length;
         const commitsSemLogin = commits.filter((c) => !c.author?.login).length;
@@ -186,8 +195,10 @@ function medirPiloto(dados, opcoes = {}) {
           commits: commits.length,
           commitsDeOutraPessoa,
           commitsSemLogin,
-          contaParaFechamento:
-            estado === 'mesclado' && execucao?.conclusao === 'success' && commitsDeOutraPessoa === 0 && commitsSemLogin === 0,
+          origemDesconhecida,
+          // Sem a origem, outro fork com a mesma branch pode ter entrado: o fechamento pede a conferencia.
+          contaParaFechamento: estado === 'mesclado' && execucao?.conclusao === 'success' && commitsDeOutraPessoa === 0 &&
+            commitsSemLogin === 0 && !origemDesconhecida,
         };
       });
     return { repo, prs };
@@ -256,8 +267,7 @@ function coletar({ repos, workflow, desde, tratarComoExterno }) {
       if (daBranch.length >= TETO_DE_RUNS) {
         throw new Error(`a consulta de runs do PR #${pr.number} de ${repo} chegou a ${daBranch.length}, o teto da API: a lista pode estar cortada`);
       }
-      const shas = new Set(doPrAtual.map((c) => c.sha));
-      for (const run of daBranch) if (doPr(run, pr, shas)) runs.set(run.id, run);
+      for (const run of daBranch) if (doPr(run, pr)) runs.set(run.id, run);
     }
     const tentativas = {};
     for (const run of runs.values()) {
@@ -296,7 +306,8 @@ function relatorio(m) {
       else if (e) ci = `primeira execução ${e.conclusao} (run ${e.run}, tentativa ${e.tentativa})`;
       else ci = p.aguardandoLiberacao ? 'CI aguardando o mantenedor liberar' : 'sem execução do CI';
       const semLogin = p.commitsSemLogin ? `, commits sem login do GitHub: ${p.commitsSemLogin} (confira)` : '';
-      linhas.push(`  #${p.numero} @${p.autor ?? '?'}, ${p.estado}: ${ci}, commits de outra pessoa: ${p.commitsDeOutraPessoa}${semLogin}`);
+      const semOrigem = p.origemDesconhecida ? ', fork apagado: runs casados só pela branch (confira)' : '';
+      linhas.push(`  #${p.numero} @${p.autor ?? '?'}, ${p.estado}: ${ci}, commits de outra pessoa: ${p.commitsDeOutraPessoa}${semLogin}${semOrigem}`);
       if (e?.url) linhas.push(`      ${e.url}`);
     }
   }
@@ -308,7 +319,7 @@ function relatorio(m) {
   linhas.push(
     '',
     `Resumo: ${r.prsDeFora} PR(s) de fora, ${r.comExecucao} com a primeira execução do CI concluída, ${r.verdesNaPrimeira} verde(s): ${taxa}.`,
-    `Fechamento: ${r.fechamento.atingidos} PR(s) de fora mesclado(s), verde(s) na primeira execução, sem commit de outra pessoa nem sem login; ` +
+    `Fechamento: ${r.fechamento.atingidos} PR(s) de fora mesclado(s), verde(s) na primeira execução, sem commit de outra pessoa nem sem login, com o fork de origem; ` +
       `o critério pede ${r.fechamento.exigidos}${r.fechamento.fechado ? ': atingido.' : '.'}`,
     'Ajuda em comentário não entra na conta: confira nos PRs listados.',
   );
@@ -335,7 +346,7 @@ function lerArgs(argv) {
   }
   for (const r of args.repos) if (!/^[\w.-]+\/[\w.-]+$/.test(r)) throw new Error(`--repo inválido: ${r} (use DONO/NOME)`);
   // O mesmo repositorio duas vezes contaria o mesmo PR duas vezes no fechamento.
-  args.repos = [...new Set(args.repos)];
+  args.repos = semRepetir(args.repos);
   if (args.desde !== undefined && !dataValida(args.desde)) throw new Error(`--desde inválido: ${args.desde} (use AAAA-MM-DD, uma data que existe)`);
   if (args.workflow !== undefined && !/^[\w.-]+$/.test(args.workflow)) throw new Error(`--workflow inválido: ${args.workflow}`);
   if (args.dados && args.salvarDados) throw new Error('--dados e --salvar-dados não andam juntos: ou lê a coleta, ou coleta');
