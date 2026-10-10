@@ -105,11 +105,16 @@ corta pela mesma ordem até o JSON caber em N bytes ([teto da resposta](consumo-
 de ler o índice. A saída em
 JSON (`ork.code-graph-query/v0`, provisório e fora do contrato) traz a consulta, o cabeçalho do
 índice (revisão, chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com
-todas as evidências, o total e o aviso de parcialidade. Não há horário nem tempo na resposta.
+todas as evidências, o total e o aviso de parcialidade. Desde a
+[fatia 5 do KG5](consumo-grafo-kg5.md#fatia-5-proveniência-conferida-contra-a-árvore), cada aresta
+traz também a situação das fontes dela na árvore (`arvore`, `igual` ou `modificada`), e a resposta
+traz `fontes`, com o sha256, o blob do Git e a situação de cada arquivo citado. Não há horário nem
+tempo na resposta.
 
 Com a árvore modificada, a consulta responde pelo índice do HEAD e diz isso no texto e no
-campo `arvore`. Toda resposta diz que é parcial: chamada por despacho de tipo, chamada fora de
-símbolo, import não resolvido e as outras lacunas do relatório de extração não viram aresta.
+campo `indice.arvore` (`limpa` ou `modificada`), e, por aresta, no `arvore` de cada uma. Toda resposta
+diz que é parcial: chamada por despacho de tipo, chamada fora de símbolo, import não resolvido e as
+outras lacunas do relatório de extração não viram aresta.
 
 ## Tenant, ACL e não vazamento
 
