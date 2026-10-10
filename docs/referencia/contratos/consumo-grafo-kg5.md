@@ -611,9 +611,10 @@ Mutações temporárias no JavaScript compilado derrubaram o grupo: as nove da i
 ignorado, evidências fora das fontes, sem conferir o tamanho, sem o caminho real, situação pedida para
 todas as arestas, árvore limpa lida, pacote sem o alvo, pacote marcando tudo e CLI sem a situação no
 pacote) e as oito do GO-FIX da rodada 1 do CHECK (caminho real só dentro da raiz, inode sem conferir,
-link seguido no último nome, situação fora de vizinhos, de chamadores, de importadores e de caminho, e
-grupo igual marcado no pacote); o código foi restaurado. Esses ensaios locais não são recibo oficial do
-núcleo.
+link seguido no último nome junto com o caminho real só dentro da raiz, situação fora de vizinhos, de
+chamadores, de importadores e de caminho, e grupo igual marcado no pacote); o código foi restaurado.
+Seguir o link no último nome sozinho não muda o resultado: o `lstat`, o `O_NOFOLLOW` e o caminho real
+exato recusam o link, cada um por si. Esses ensaios locais não são recibo oficial do núcleo.
 
 ## Fora destas fatias
 

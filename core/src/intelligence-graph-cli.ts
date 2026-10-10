@@ -500,7 +500,10 @@ export function situacaoNaArvore(raiz: string, manifesto: readonly EntradaDoMani
     try {
       raizReal ??= fs.realpathSync(raiz);
       const st = fs.lstatSync(absoluto, { throwIfNoEntry: false });
-      if (!st || !st.isFile() || fs.realpathSync(absoluto) !== path.join(raizReal, p)) return 'ausente';
+      if (!st || !st.isFile()) return 'ausente';
+      // CHECK rodada 2 (R2-S1): caminho de manifesto adulterado com `..` coincidiria com o real fora da raiz.
+      const real = fs.realpathSync(absoluto);
+      if (real !== path.join(raizReal, p) || !real.startsWith(raizReal + path.sep)) return 'ausente';
       if (st.size !== m.size_bytes) return 'modificada';
       const fd = fs.openSync(absoluto, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
       try {

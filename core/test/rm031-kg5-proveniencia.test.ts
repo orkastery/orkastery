@@ -225,7 +225,8 @@ test('KG5 proveniencia: na CLI, editar, apagar ou trocar a fonte por link, pasta
     // Link para uma copia identica fora da raiz: nao e mais o arquivo regular indexado.
     fs.writeFileSync(path.join(fora, 'app.ts'), APP);
     cenario('link para fora', () => { fs.rmSync(app); fs.symlinkSync(path.join(fora, 'app.ts'), app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
-    // CHECK rodada 1 (A3): link no ultimo nome para uma copia identica DENTRO da raiz; so o lstat e o O_NOFOLLOW o recusam.
+    // CHECK rodada 1 (A3): link no ultimo nome para uma copia identica DENTRO da raiz. O lstat, o O_NOFOLLOW e o caminho
+    // real exato o recusam, cada um por si (camadas redundantes); este cenario derruba quem tirar todas.
     fs.mkdirSync(path.join(r.dir, 'copia'));
     fs.writeFileSync(path.join(r.dir, 'copia', 'app.ts'), APP);
     cenario('link para dentro', () => { fs.rmSync(app); fs.symlinkSync(path.join(r.dir, 'copia', 'app.ts'), app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
@@ -279,6 +280,14 @@ test('KG5 proveniencia: situacaoNaArvore le cada caminho uma vez, so do manifest
     fs.writeFileSync(path.join(dir, 'src/a.ts'), 'export const a = 9;\n');
     assert.equal(situacao('src/a.ts'), 'igual');
     assert.equal(situacaoNaArvore(dir, manifesto)('src/a.ts'), 'modificada');
+    // CHECK rodada 2 (R2-S1): manifesto adulterado com `..` nao le arquivo fora da raiz, mesmo com os bytes certos.
+    const vizinho = `${path.basename(dir)}-fora.txt`;
+    fs.writeFileSync(path.join(dir, '..', vizinho), 'fora\n');
+    try {
+      assert.equal(situacaoNaArvore(dir, [...manifesto, entrada(`../${vizinho}`, 'fora\n')])(`../${vizinho}`), 'ausente');
+    } finally {
+      fs.rmSync(path.join(dir, '..', vizinho), { force: true });
+    }
     // CHECK rodada 1 (S3): o arquivo trocado entre o lstat e o open, mesmo com os mesmos bytes (outro inode), e recusado.
     // A troca entra no openSync do modulo real, que o CLI le a cada chamada.
     const modulo = require('node:fs') as { openSync: (...a: unknown[]) => number };
