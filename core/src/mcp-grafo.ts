@@ -4,7 +4,8 @@
  * Cinco tools de leitura com o contrato do `ork grafo` (D6): cada uma roda, na worktree da thread, o
  * argv que a CLI receberia (`<consulta> ... --json --teto-bytes N`) e devolve o que ela escreve, sem
  * transformar: a resposta e JSON `ork.code-graph-query/v0` com a evidencia de cada aresta e no maximo
- * `tetoBytes` bytes (D4); contexto usa ork.thread-graph-context/v2. A recusa nao passa pelo teto.
+ * `tetoBytes` bytes (D4); contexto usa ork.thread-graph-context/v2. A recusa nao passa pelo teto. Desde a
+ * fatia 5, a resposta traz as fontes (sha256 e blob) e diz por aresta se elas conferem com a arvore.
  *
  * Desligadas por padrao (D2): so existem com `grafo.mcp: true` no manifesto da raiz, lido no startup, e
  * cada chamada confere a flag de novo. A consulta roda num worker (D3), um processo filho por chamada,
@@ -67,7 +68,8 @@ const tetoBytes = z.number().int().min(TETO_MINIMO).max(TETO_MAXIMO).optional()
   .describe(`teto da resposta em bytes (padrao ${TETO_PADRAO}); acima, saem as arestas mais longe`);
 
 const COMUM = 'Leitura do grafo do HEAD da worktree da thread (o do ork grafo): so o que o extrator prova. '
-  + 'Resposta JSON ork.code-graph-query/v0 de ate tetoBytes; sem indice do HEAD, recusa com a correcao ork grafo indexar.';
+  + 'Resposta JSON ork.code-graph-query/v0 de ate tetoBytes; sem indice do HEAD, recusa com a correcao ork grafo indexar. '
+  + 'Cada aresta traz arvore (modificada quando uma fonte dela mudou depois do HEAD) e a resposta traz fontes, com o sha256 e o blob de cada arquivo citado.';
 
 interface Definicao { nome: typeof TOOLS_DO_GRAFO[number]; descricao: string; schema: z.AnyZodObject; argv: (a: Record<string, unknown>) => string[] }
 
@@ -110,7 +112,8 @@ const DEFINICOES: readonly Definicao[] = [
   {
     nome: 'ork_grafo_contexto',
     descricao: 'Pacote deterministico da thread: diff da worktree contra base (ignorado sem worktree), GOAL, PLAN e claims; fan-in agregado e evidencias compactas. '
-      + 'JSON ork.thread-graph-context/v2 limitado em bytes, refs locais, prioridade entre arquivos e por proximidade ao diff. Citacoes literais cites; segundo salto marcado usa a sobra apos ligacoes diretas. Sem indice do HEAD, recusa com ork grafo indexar.',
+      + 'JSON ork.thread-graph-context/v2 limitado em bytes, refs locais, prioridade entre arquivos e por proximidade ao diff. Citacoes literais cites; segundo salto marcado usa a sobra apos ligacoes diretas. '
+      + 'Grupo com fonte que mudou depois do HEAD traz arvore: modificada. Sem indice do HEAD, recusa com ork grafo indexar.',
     schema: z.object({ threadId, tetoBytes }).strict(),
     argv: (a) => ['contexto', a.threadId as string, ...opcoes(a)],
   },

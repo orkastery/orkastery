@@ -203,6 +203,32 @@ Veredito: PRONTO (2 warn). Despacho de fase liberado por `ork phase run`.
 
 ---
 
+## Atalho: a primeira thread em #Fast, até fechar
+
+O menor ciclo completo, logo depois do `ork init` e do commit do manifesto: o modo `#Fast` tem uma
+única fase, GO, e só pausa no push. `<thread>` é o ID que o `ork thread new` imprime.
+
+```bash
+ork thread new "corrigir o filtro de data" --modo fast
+ork phase run <thread> GO --prompt "<o pedido>"   # o runtime trabalha na worktree da thread
+ork claims add <thread> <arquivo> --claim "<alegacao>" --verificar "<comando de teste>"
+ork verify <thread>                                 # reexecuta as claims e o verify do manifesto no HEAD real
+ork ship <thread> --para main --autorizar-push <voce>  # o #Fast nunca faz push sem a sua autorização
+ork master <thread> --aceitar-omissao               # fecha a thread com o índice derivado do ledger
+ork thread status <thread>                          # status fechada
+```
+
+- Se o `phase run` parar com `runtime.workspace-untrusted`, rode `claude` uma vez na worktree, aceite
+  a confiança no diretório e saia; depois, `ork retry run <thread>` despacha o GO de novo com o mesmo
+  prompt gravado. O `ork pulse` mostra a mesma instrução.
+- A claim é o que o agente afirma mais o comando que a julga; registre-a antes do `verify`.
+- Sem o `--autorizar-push`, o `ship` para com `human.pending` e diz o comando que autoriza.
+
+Os passos 4 a 9 mostram cada etapa em detalhe, no `#Classic`, que pausa no objetivo, no plano e nas
+evidências.
+
+---
+
 ## 4. A primeira thread
 
 ```bash

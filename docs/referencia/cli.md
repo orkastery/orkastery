@@ -177,7 +177,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork ledger estimate <thread> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]` | Registra as estimativas explícitas da fase PLAN |
 | `ork portfolio create <product\|project\|initiative> <id> --title T [--parent ID]` | Cria a entidade no catálogo produto, projeto e iniciativa ([FEAT-025](../produto/FEAT-025-catalogo-de-portfolio.md)) |
 | `ork portfolio list [product\|project\|initiative] [--parent ID] [--json]` | Lista o catálogo |
-| `ork portfolio show <id> [--json]` | Mostra a entidade do catálogo: id, título e estado (`--json` devolve a entidade inteira) |
+| `ork portfolio show <id> [--json]` | Mostra a entidade do catálogo: id, título e estado (`--json` devolve a entidade inteira). `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`, sobras do `objective` aposentado na I-43, recusam com `portfolio.opcao-aposentada` (saída 2), apontando `thread new --exige-runtime-diferente` e `--done` |
 | `ork portfolio inspect <id> --json` | Entidade, origem e ciclos, com as lacunas explícitas |
 | `ork creation start --input-file F --json` | Criação durável, com a identidade do processo local |
 | `ork creation show\|list\|events [id] --json` | Consulta o journal da criação e a recuperação |
@@ -419,8 +419,11 @@ reextrai só o que a mudança alcança, com os mesmos bytes da extração comple
 
 O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome solto, que precisa
 ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
-extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
-resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Desde a
+[fatia 5 do KG5](contratos/consumo-grafo-kg5.md#fatia-5-proveniência-conferida-contra-a-árvore), o texto
+marca com `[fonte modificada na arvore]` a aresta cuja origem, alvo ou evidência mudou depois do HEAD e
+lista até cinco fontes que mudaram; no JSON, cada aresta traz `arvore`, e a resposta traz `fontes`. Saída
+0 com resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
 
 `--teto-bytes N` (KG5, só com `--json`) escreve a resposta em JSON compacto de no máximo N bytes: se ela
 não cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o
