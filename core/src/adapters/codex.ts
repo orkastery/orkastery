@@ -326,6 +326,16 @@ export function parseRateLimitCodex(saida: string, agoraMs = Date.now()): SinalD
   return { resetEm: null, fonte: 'sem-horario', trecho: linha.trim().slice(0, 200) };
 }
 
+/**
+ * O ambiente do filho do despacho: o do processo, sem provider pago, com o contexto da condução POR
+ * CIMA. RM-052 (fatia 2, D2): a ordem importa, porque e o extra que neutraliza o `ORK_PROJETO` e o
+ * modo host herdados de quem despachou.
+ */
+export function ambienteDoFilho(pedido: Pick<DespachoCodexPedido, 'perfil' | 'ambienteExtra'>,
+    base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  return { ...ambienteDoDespacho(base, pedido.perfil), ...(pedido.ambienteExtra ?? {}) };
+}
+
 /** Despacho governado exige vínculo: nenhum fallback implícito para codex exec. */
 export function despachar(pedido: DespachoCodexPedido): DespachoCodexResultado {
   if (!pedido.vinculo) return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '',
@@ -338,7 +348,7 @@ export function despachar(pedido: DespachoCodexPedido): DespachoCodexResultado {
     } catch (e) { return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   }
   let ambiente: NodeJS.ProcessEnv;
-  try { ambiente = { ...ambienteDoDespacho(process.env, pedido.perfil), ...(pedido.ambienteExtra ?? {}) }; }
+  try { ambiente = ambienteDoFilho(pedido); }
   catch (e) { return { ok: false, comando: [], sessionId: null, verificada: false, stdout: '', stderr: '', erro: (e as Error).message }; }
   const r = despacharComController(pedido, ambiente);
   if (r.ok) return r;

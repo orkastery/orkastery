@@ -19,10 +19,11 @@ import { exigirManifesto } from '../src/manifest';
 import { novaThread } from '../src/thread';
 import { registrarProjeto } from '../src/projeto-alvo';
 import { ambienteDaConducao } from '../src/conducao';
-import { ambienteDoDespacho } from '../src/adapters/codex';
+import { ambienteDoDespacho, ambienteDoFilho } from '../src/adapters/codex';
 import { montarComando, semContextoDeDespacho } from '../src/adapters/claude-bg';
 import { publicarEmSegundoPlano } from '../src/fabrica-publicar';
-import { dirTemporario, projetoTemporario } from './apoio';
+import { rodarAuditoria } from '../src/auditrun';
+import { dirTemporario, projetoTemporario, runtimeFalso } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 const ID = '0b6f4c7e-6d1f-4a7b-9e2a-1c3d5e7f9a0b';
@@ -82,10 +83,11 @@ test('L1: o despacho codex e o claude-bg levam o projeto neutro; o processo clau
   assert.equal(extra.ORK_PROJETO, '');
   assert.equal(extra.ORK_PROJETO_EXPLICITO, '0');
   const gateway: NodeJS.ProcessEnv = { ...process.env, ORK_PROJETO_EXPLICITO: '1', ORK_PROJETO: 'alfa' };
-  // codex: o filho recebe o ambiente do processo com o extra por cima (despachar, em adapters/codex.ts).
-  const codex = { ...ambienteDoDespacho(gateway), ...extra };
+  // codex: o filho recebe o ambiente do processo com o extra por cima (ambienteDoFilho, o que o despachar usa).
+  const codex = ambienteDoFilho({ ambienteExtra: extra }, gateway);
   assert.equal(codex.ORK_PROJETO, '');
   assert.equal(codex.ORK_PROJETO_EXPLICITO, '0');
+  assert.equal(ambienteDoDespacho(gateway).ORK_PROJETO_EXPLICITO, '1', 'sem o extra, o filho herdaria o modo host');
   // claude-bg: o extra vai por sessao, no `--settings`, e sai do ambiente do processo `claude`, o que um
   // daemon novo guardaria.
   const comando = montarComando({ prompt: 'fase', nome: 'ork-x-go', cwd: dirTemporario('despacho-cwd'), ambienteExtra: extra });
@@ -95,6 +97,18 @@ test('L1: o despacho codex e o claude-bg levam o projeto neutro; o processo clau
   const processo = semContextoDeDespacho(gateway, extra);
   assert.equal(processo.ORK_PROJETO, undefined);
   assert.equal(processo.ORK_PROJETO_EXPLICITO, undefined);
+});
+
+test('L1 (aviso A1 do CHECK): a sessao do ork audit run tambem le o projeto pelo proprio cwd', (t) => {
+  const p = projetoTemporario('despacho-auditoria');
+  const runtime = runtimeFalso('despacho-auditoria');
+  t.after(() => { runtime.restaurar(); p.limpar(); });
+  // Na janela ociosa padrao (22:00-06:00) e no estagio nascente, o pack clean-code despacha de verdade.
+  const rodada = rodarAuditoria(p.carregado, 'clean-code', { quando: new Date(2026, 8, 3, 2, 30) });
+  assert.equal(rodada.status, 'despachada', rodada.detalhe);
+  // O stub do `claude` grava o `--settings` que recebeu: o projeto da sessao vem neutro, por sessao.
+  const settings = JSON.parse(fs.readFileSync(path.join(runtime.dir, 'settings'), 'utf8')) as { env: Record<string, string> };
+  assert.deepEqual(settings.env, { ORK_PROJETO: '', ORK_PROJETO_EXPLICITO: '0' });
 });
 
 test('L1: o filho da fabrica, chamado por um host, publica o projeto do proprio cwd', async (t) => {
