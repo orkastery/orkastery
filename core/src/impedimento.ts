@@ -64,6 +64,18 @@ function citar(caminho: string): string {
   return /^[A-Za-z0-9_./:@+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 }
 
+/**
+ * RM-055 (continuacao, D4): frases que dizem "Workspace not trusted" mas que aceitar a confianca NAO
+ * resolve. No claude 2.1.296 o veredito do `--bg` tem tres saidas: o diretorio que nao existe mais no
+ * disco, o diretorio home (que so confia uma sessao por vez) e a recusa de confianca de verdade. As duas
+ * primeiras ficam no caminho generico (`runtime.unavailable`), com o stderr gravado no despacho falho:
+ * mandar o dono rodar `cd <dir> && claude` ali nao destrava nada.
+ */
+const FRASES_QUE_NAO_SAO_DO_DONO: readonly RegExp[] = [
+  /could not be resolved on disk/i,
+  /home directory is trusted one session at a time/i,
+];
+
 const FRASES_DE_CONFIANCA: readonly RegExp[] = [
   /workspace not trusted/i,
   /accept the trust (?:prompt|dialog)/i,
@@ -71,11 +83,42 @@ const FRASES_DE_CONFIANCA: readonly RegExp[] = [
   /(?:folder|directory|workspace) (?:is )?not trusted/i,
 ];
 
-const FRASES_DE_CONSENTIMENTO: readonly RegExp[] = [
-  /accept (?:the )?(?:updated |new )?(?:terms|consumer terms|privacy policy|usage policy)/i,
-  /(?:terms|policy) (?:have|has) (?:been )?updated[^\n]*accept/i,
-  /consent (?:is )?required/i,
+/** Uma recusa por consentimento: a frase, o que o dono aceita e o que ele faz antes de sair. */
+interface RegraDeConsentimento {
+  regra: RegExp;
+  aceita: string;
+  feito: string;
+}
+
+const FRASES_DE_CONSENTIMENTO: readonly RegraDeConsentimento[] = [
+  // claude 2.1.296, modo print: o aviso que bloqueia e sai com 1. O aviso de carencia ("will take effect
+  // ... Run `claude` to review the updated terms") nao bloqueia e nao casa aqui.
+  { regra: /\[ACTION REQUIRED\][^\n]*(?:terms|policy)/i, aceita: 'revisar e aceitar os termos novos',
+    feito: 'aceite os termos e saia' },
+  // claude 2.1.296: o portao do `--bg` que vem antes da confianca (gateCause "disclaimer").
+  { regra: /requires accepting the disclaimer first/i, aceita: 'aceitar o aviso do modo sem permissões (bypass)',
+    feito: 'aceite o aviso e saia' },
+  { regra: /requires opting in first/i, aceita: 'ativar o modo auto uma vez', feito: 'confirme o modo auto e saia' },
+  // Fatia 1 (02/10/2026): frases genericas de termos novos.
+  { regra: /accept (?:the )?(?:updated |new )?(?:terms|consumer terms|privacy policy|usage policy)/i,
+    aceita: 'aceitar termos novos', feito: 'aceite os termos e saia' },
+  { regra: /(?:terms|policy) (?:have|has) (?:been )?updated[^\n]*accept/i, aceita: 'aceitar termos novos',
+    feito: 'aceite os termos e saia' },
+  { regra: /consent (?:is )?required/i, aceita: 'aceitar termos novos', feito: 'aceite os termos e saia' },
 ];
+
+/** A forma fechada de um comando que o runtime manda rodar: o binario e opcoes `--nome` com valor simples. */
+const FORMA_DO_COMANDO = /^(?:claude|codex)(?: --[a-z][a-z-]*(?: [a-z][a-z0-9-]*)?)*$/;
+
+/**
+ * RM-055 (continuacao, D4): o comando que a propria frase do runtime manda rodar ("Run `claude
+ * --permission-mode auto` once interactively"). So na forma fechada e so do binario do runtime: a saida
+ * do runtime nunca chega ao dono como comando arbitrario. Fora disso, o binario puro.
+ */
+function comandoDaFrase(trecho: string, bin: string): string {
+  const pedido = /\brun `([^`]{1,120})`/i.exec(trecho)?.[1].replace(/\s+/g, ' ').trim();
+  return pedido && FORMA_DO_COMANDO.test(pedido) && pedido.split(' ')[0] === bin ? pedido : bin;
+}
 
 function trechoDa(texto: string, regra: RegExp): string {
   const linha = texto.split(/\r?\n/).find(l => regra.test(l)) ?? texto;
@@ -92,6 +135,7 @@ function binarioDo(runtime: string): string {
  */
 export function classificarImpedimento(saida: string, ctx: ContextoDoImpedimento): ImpedimentoDoDono | null {
   const texto = saida ?? '';
+  if (FRASES_QUE_NAO_SAO_DO_DONO.some(r => r.test(texto))) return null;
   const bin = binarioDo(ctx.runtime);
   const depois = `depois, \`ork retry run ${ctx.thread}\` re-despacha ${ctx.fase} com o mesmo prompt gravado`;
   const confianca = FRASES_DE_CONFIANCA.find(r => r.test(texto));
@@ -104,14 +148,15 @@ export function classificarImpedimento(saida: string, ctx: ContextoDoImpedimento
       trecho: trechoDa(texto, confianca),
     };
   }
-  const consentimento = FRASES_DE_CONSENTIMENTO.find(r => r.test(texto));
+  const consentimento = FRASES_DE_CONSENTIMENTO.find(c => c.regra.test(texto));
   if (consentimento) {
+    const trecho = trechoDa(texto, consentimento.regra);
     return {
       motivo: 'runtime.consent-pending',
-      trava: `o ${bin} espera você aceitar termos novos e recusou o despacho de ${ctx.fase}`,
-      comando: bin,
-      depois: `aceite os termos e saia; ${depois}`,
-      trecho: trechoDa(texto, consentimento),
+      trava: `o ${bin} espera você ${consentimento.aceita} e recusou o despacho de ${ctx.fase}`,
+      comando: comandoDaFrase(trecho, bin),
+      depois: `${consentimento.feito}; ${depois}`,
+      trecho,
     };
   }
   return null;
