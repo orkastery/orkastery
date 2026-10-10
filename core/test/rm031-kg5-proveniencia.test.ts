@@ -27,11 +27,12 @@ import {
 import { executarGrafo, situacaoNaArvore } from '../src/intelligence-graph-cli';
 import { exigirManifesto } from '../src/manifest';
 import { raizDoEstado } from '../src/estado-thread';
-import { argvDaTool, consultarPeloWorker, lerEntradaDaThread } from '../src/mcp-grafo';
+import { TOOLS_DO_GRAFO, argvDaTool, consultarPeloWorker, lerEntradaDaThread, registrarConsultasDoGrafo } from '../src/mcp-grafo';
 import { rodarConsulta } from '../src/mcp-grafo-worker';
 import { criarServidorMcp } from '../src/mcp-server';
 import { escreverArtefatoMcp } from '../src/mcp-artifacts';
 import { novaThread } from '../src/thread';
+import { pedidoComDicaDoGrafo } from '../src/prompts';
 import { commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const UTIL = 'export function soma(a: number, b: number): number { return a + b; }\nexport function dobro(x: number): number { return soma(x, x); }\n';
@@ -426,4 +427,24 @@ test('KG5 proveniencia: com a arvore modificada, o pacote pelo MCP e pelo worker
     await servidor?.close();
     p.limpar();
   }
+});
+
+test('KG5 proveniencia: as descricoes das tools citam fontes e a marca arvore, e a dica do pedido diz o que a marca quer dizer', () => {
+  const descricoes = new Map<string, string>();
+  const raiz = dirTemporario('kg5f5-descricoes');
+  try {
+    registrarConsultasDoGrafo((nome: string, config: { description: string }) => { descricoes.set(nome, config.description); },
+      { raiz, carregar: () => ({ manifesto: { grafo: { mcp: true } } }), thread: () => ({ worktree: null }) });
+  } finally {
+    fs.rmSync(raiz, { recursive: true, force: true });
+  }
+  assert.deepEqual([...descricoes.keys()], [...TOOLS_DO_GRAFO]);
+  for (const nome of TOOLS_DO_GRAFO.filter((t) => t !== 'ork_grafo_contexto')) {
+    assert.match(descricoes.get(nome) ?? '', /Cada aresta traz arvore \(modificada quando uma fonte dela mudou depois do HEAD\)/, nome);
+    assert.match(descricoes.get(nome) ?? '', /a resposta traz fontes, com o sha256 e o blob de cada arquivo citado\.$/, nome);
+  }
+  assert.match(descricoes.get('ork_grafo_contexto') ?? '', /Grupo com fonte que mudou depois do HEAD traz arvore: modificada\./);
+  const dica = pedidoComDicaDoGrafo('implementar\n', 'ork-x', true);
+  assert.match(dica, /O grafo e parcial e descreve o HEAD; aresta com arvore: modificada vem de fonte que mudou depois dele: confira o arquivo antes de usar\.\n$/);
+  assert.equal(pedidoComDicaDoGrafo('implementar\n', 'ork-x', false), 'implementar\n', 'sem a flag, o pedido fica byte a byte');
 });
