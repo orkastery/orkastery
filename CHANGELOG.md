@@ -8,6 +8,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
+  ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
+  vetorial, agora com `--limite 100`. O critério da prova (alvo no top 5 da semântica, fora da tag e do
+  FTS da paráfrase), os pares padrão e os códigos de saída não mudam.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
