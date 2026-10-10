@@ -481,10 +481,13 @@ function leitorDaArvore(raiz: string, grafo: GrafoCodigo): (p: string) => Buffer
 
 /**
  * KG5 fatia 5 (D3, D6): a situacao de cada fonte do indice na arvore, pelos bytes. So caminho do manifesto;
- * sem seguir link (nem no ultimo nome nem numa pasta do caminho, pelo caminho real dentro da raiz), so arquivo
- * regular; tamanho diferente do indexado e `modificada` sem ler, e o sha256 dos bytes decide o resto, lidos ate
- * o tamanho indexado mais um. Qualquer falha e `ausente`: nao ha arquivo regular legivel no caminho. Cada
- * caminho e lido uma vez, sob demanda, e nada e escrito.
+ * sem seguir link, nem no ultimo nome nem numa pasta do caminho: o caminho real tem de ser o proprio caminho
+ * indexado dentro da raiz (CHECK rodada 1, A1). So arquivo regular; tamanho diferente do indexado e
+ * `modificada` sem ler, e o sha256 dos bytes decide o resto, lidos ate o tamanho indexado mais um. O arquivo
+ * aberto tem de ser o mesmo do `lstat` (dispositivo e inode, CHECK rodada 1, S3): troca entre a conferencia e
+ * a abertura vira `ausente`; duas trocas no intervalo ainda passam, e revelariam so se os bytes sao os
+ * indexados. Qualquer falha e `ausente`: nao ha arquivo regular legivel no caminho. Cada caminho e lido uma
+ * vez, sob demanda, e nada e escrito.
  */
 export function situacaoNaArvore(raiz: string, manifesto: readonly EntradaDoManifesto[]): SituacaoNaArvore {
   const porCaminho = new Map(manifesto.map((m) => [m.path, m]));
@@ -497,12 +500,12 @@ export function situacaoNaArvore(raiz: string, manifesto: readonly EntradaDoMani
     try {
       raizReal ??= fs.realpathSync(raiz);
       const st = fs.lstatSync(absoluto, { throwIfNoEntry: false });
-      if (!st || !st.isFile() || !fs.realpathSync(absoluto).startsWith(raizReal + path.sep)) return 'ausente';
+      if (!st || !st.isFile() || fs.realpathSync(absoluto) !== path.join(raizReal, p)) return 'ausente';
       if (st.size !== m.size_bytes) return 'modificada';
       const fd = fs.openSync(absoluto, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
       try {
         const aberto = fs.fstatSync(fd);
-        if (!aberto.isFile()) return 'ausente';
+        if (!aberto.isFile() || aberto.dev !== st.dev || aberto.ino !== st.ino) return 'ausente';
         if (aberto.size !== m.size_bytes) return 'modificada';
         const bytes = Buffer.alloc(m.size_bytes + 1);
         let lidos = 0;

@@ -224,13 +224,24 @@ test('KG5 proveniencia: na CLI, editar, apagar ou trocar a fonte por link, pasta
     cenario('apagada', () => fs.rmSync(app), { app: 'ausente', util: 'igual', chamada: 'modificada' });
     // Link para uma copia identica fora da raiz: nao e mais o arquivo regular indexado.
     fs.writeFileSync(path.join(fora, 'app.ts'), APP);
-    cenario('link', () => { fs.rmSync(app); fs.symlinkSync(path.join(fora, 'app.ts'), app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
+    cenario('link para fora', () => { fs.rmSync(app); fs.symlinkSync(path.join(fora, 'app.ts'), app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
+    // CHECK rodada 1 (A3): link no ultimo nome para uma copia identica DENTRO da raiz; so o lstat e o O_NOFOLLOW o recusam.
+    fs.mkdirSync(path.join(r.dir, 'copia'));
+    fs.writeFileSync(path.join(r.dir, 'copia', 'app.ts'), APP);
+    cenario('link para dentro', () => { fs.rmSync(app); fs.symlinkSync(path.join(r.dir, 'copia', 'app.ts'), app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
     cenario('pasta', () => { fs.rmSync(app); fs.mkdirSync(app); }, { app: 'ausente', util: 'igual', chamada: 'modificada' });
     // Pasta-mae trocada por link para fora, com os mesmos bytes: o caminho real sai da raiz.
     fs.mkdirSync(path.join(fora, 'src'));
     fs.writeFileSync(path.join(fora, 'src', 'app.ts'), APP);
     fs.writeFileSync(path.join(fora, 'src', 'util.ts'), UTIL);
     cenario('pasta-mae fora', () => { fs.rmSync(path.join(r.dir, 'src'), { recursive: true }); fs.symlinkSync(path.join(fora, 'src'), path.join(r.dir, 'src')); },
+      { app: 'ausente', util: 'ausente', chamada: 'modificada' });
+    // CHECK rodada 1 (A1): pasta-mae trocada por link para uma copia identica DENTRO da raiz. O git ve as fontes apagadas,
+    // e o caminho real deixa de ser o indexado: o arquivo no caminho nao e o regular que o indice leu.
+    fs.mkdirSync(path.join(r.dir, 'lib'));
+    fs.writeFileSync(path.join(r.dir, 'lib', 'app.ts'), APP);
+    fs.writeFileSync(path.join(r.dir, 'lib', 'util.ts'), UTIL);
+    cenario('pasta-mae dentro', () => { fs.rmSync(path.join(r.dir, 'src'), { recursive: true }); fs.symlinkSync(path.join(r.dir, 'lib'), path.join(r.dir, 'src')); },
       { app: 'ausente', util: 'ausente', chamada: 'modificada' });
     if (process.platform !== 'win32') {
       // FIFO no lugar da fonte: recusada pelo lstat, sem abrir, entao a consulta nao trava.
@@ -268,6 +279,25 @@ test('KG5 proveniencia: situacaoNaArvore le cada caminho uma vez, so do manifest
     fs.writeFileSync(path.join(dir, 'src/a.ts'), 'export const a = 9;\n');
     assert.equal(situacao('src/a.ts'), 'igual');
     assert.equal(situacaoNaArvore(dir, manifesto)('src/a.ts'), 'modificada');
+    // CHECK rodada 1 (S3): o arquivo trocado entre o lstat e o open, mesmo com os mesmos bytes (outro inode), e recusado.
+    // A troca entra no openSync do modulo real, que o CLI le a cada chamada.
+    const modulo = require('node:fs') as { openSync: (...a: unknown[]) => number };
+    const original = modulo.openSync;
+    const alvo = path.join(dir, 'src/b.ts');
+    fs.writeFileSync(alvo, 'export const b = 2;\n');
+    assert.equal(situacaoNaArvore(dir, manifesto)('src/b.ts'), 'igual', 'sem troca, os bytes do indice conferem');
+    modulo.openSync = (p: unknown, ...resto: unknown[]): number => {
+      if (String(p) === alvo) {
+        fs.writeFileSync(`${alvo}.novo`, 'export const b = 2;\n');
+        fs.renameSync(`${alvo}.novo`, alvo);
+      }
+      return original(p, ...resto);
+    };
+    try {
+      assert.equal(situacaoNaArvore(dir, manifesto)('src/b.ts'), 'ausente', 'o inode aberto nao e o do lstat');
+    } finally {
+      modulo.openSync = original;
+    }
     if (typeof process.getuid === 'function' && process.getuid() !== 0) {
       // Sem permissao de leitura: tamanho diferente ja e modificada (nao abriu); o mesmo tamanho precisa abrir e falha.
       fs.writeFileSync(path.join(dir, 'src/a.ts'), 'export const a = 10;\n');
