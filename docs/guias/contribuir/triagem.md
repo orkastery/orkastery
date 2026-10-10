@@ -47,6 +47,21 @@ A lista está em [good first issue](https://github.com/orkastery/orkastery/label
 | Fora de escopo | `wontfix`, com o motivo |
 | Pergunta | Vai para o Discussions, categoria Q&A |
 
+## Medir os PRs de fora
+
+O [RM-050](../../roadmap/RM-050-guia-de-contribuicao.md) mede este guia pelos PRs de fora: a fração cujo CI passa na primeira execução (meta de 80%) e dois PRs mesclados sem ajuda do mantenedor, que fecham o piloto. A medida usa a rede e o `gh` autenticado:
+
+<!-- checagem: citado -->
+
+```bash
+node core/scripts/medir-piloto-de-contribuicao.cjs
+```
+
+- De fora é quem não é dono nem membro da organização, e não é bot. Convidado com acesso de escrita conta como de fora.
+- A primeira execução é o primeiro run do CI sobre um commit do PR. Esperar o mantenedor liberar o CI do fork não é execução, e reexecutar até passar não vira verde na primeira.
+- Sem ajuda quer dizer nenhum commit de outra pessoa no PR. Ajuda em comentário não vira dado: confira nos PRs que a medida lista.
+- `--salvar-dados <arquivo>` guarda a coleta, e `--dados <arquivo>` mede de novo sem rede.
+
 ## Próximo passo
 
 [Versões e publicação](versoes-e-publicacao.md), para quem mantém o projeto.
