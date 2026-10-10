@@ -8,6 +8,17 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Proveniência conferida contra a árvore nas tools do grafo, KG5 fatia 5** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
+  as consultas por nó (`ork grafo vizinhos`, `chamadores`, `importadores` e `caminho` com `--json`, e as
+  tools `ork_grafo_*`) trazem `fontes`, com o sha256 e o blob do Git de cada arquivo citado e a situação
+  dele na árvore (`igual`, `modificada` ou `ausente`), e cada aresta traz `arvore`, `modificada` quando a
+  origem, o alvo ou uma evidência mudou depois do HEAD. No pacote de contexto, só o grupo de fonte mudada
+  ganha `arvore: "modificada"`; com a árvore limpa, o pacote é o de antes, byte a byte. A árvore só é
+  lida quando o `git status` diz que mudou, pelos bytes, sem seguir link e com o tamanho conferido antes
+  de abrir; nenhum índice guardado precisa ser refeito. O texto da CLI marca a aresta, e as descrições
+  das tools e a dica do pedido explicam a marca. Custo medido no mesmo índice: de 15% a 29% a mais de
+  bytes por resposta; na pergunta cortada pelo teto, 34 arestas em vez de 41. A flag `grafo.mcp`
+  continua desligada.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
