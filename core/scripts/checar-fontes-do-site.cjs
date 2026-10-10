@@ -3,16 +3,17 @@
  * RM-050: que pagina do site uma mudanca neste repositorio deixa para revisar.
  *
  * Os sites (orkastery.com e orkmind.com) montam a documentacao a partir de um catalogo:
- * `src/data/docs-catalog.ts` lista as paginas e as fontes de cada uma, e o snapshot
- * `src/data/docs-sources.json` guarda o SHA-256 de cada fonte, as paginas que a usam e a revisao
- * editorial de cada pagina por idioma. O build do site confere so o snapshot: a mudanca feita aqui
+ * `src/data/docs-catalog.ts` lista os modulos editoriais, cada modulo (`src/data/docs-*.ts`) diz
+ * que arquivos deste repositorio cada pagina usa, e o snapshot `src/data/docs-sources.json` guarda o
+ * SHA-256 de cada fonte, as paginas que a usam e a revisao editorial de cada pagina por idioma. O build do site confere so o snapshot: a mudanca feita aqui
  * so aparece la com `npm run docs:check -- --source <clone>`, e sem dizer a pagina. Este script faz
  * a conta do lado do produto, contra um snapshot:
  *
  *  - fonte do snapshot com outro SHA-256 aqui: mudada, e cada pagina que a usa fica para revisar;
  *  - fonte do snapshot que nao existe aqui: removida (o site reprova fonte removida ainda citada);
- *  - arquivo do inventario que o snapshot nao tem: nova, ainda sem pagina (o site reprova fonte
- *    sem destino depois de sincronizar).
+ *  - arquivo do inventario que o snapshot nao tem: nova, com o destino que a sincronizacao do site
+ *    daria (`scripts/sync-docs.mjs`): roadmap vai para a pagina `roadmap`; indice de pasta, modelo e
+ *    marca, para `padroes`; artigo novo fica sem pagina ate entrar num modulo do catalogo.
  *
  * O inventario espelha a funcao `inventory` de `scripts/check-docs.mjs` dos sites: os `.md` e
  * `.json` de `docs/`, mais os arquivos de raiz do produto. Se o site mudar a regra, vale a dele.
@@ -64,20 +65,36 @@ function inventario(raiz, produto) {
     .map((caminho) => ({ caminho, sha256: sha256(fs.readFileSync(path.join(raiz, caminho))) }));
 }
 
-/** Confere a forma do snapshot e a integridade que o site confere (`inventoryHash`). */
+/** Confere a forma do snapshot e a integridade que o site confere (`inventoryHash`, fonte unica). */
 function validarSnapshot(snapshot) {
   if (!snapshot || snapshot.schemaVersion !== 1 || !Array.isArray(snapshot.sources)) {
     throw new Error('snapshot inválido: falta schemaVersion 1 ou a lista sources');
   }
   if (typeof snapshot.product !== 'string' || !snapshot.product) throw new Error('snapshot inválido: falta product');
+  const vistos = new Set();
   for (const s of snapshot.sources) {
     if (typeof s?.path !== 'string' || !/^[a-f0-9]{64}$/.test(s.sha256 ?? '')) {
       throw new Error(`snapshot inválido: fonte sem path ou sem sha256: ${JSON.stringify(s)}`);
     }
+    if (vistos.has(s.path)) throw new Error(`snapshot inválido: fonte repetida: ${s.path}`);
+    vistos.add(s.path);
   }
-  if (snapshot.inventoryHash !== undefined && sha256(JSON.stringify(snapshot.sources)) !== snapshot.inventoryHash) {
+  if (typeof snapshot.inventoryHash !== 'string') throw new Error('snapshot inválido: falta o inventoryHash');
+  if (sha256(JSON.stringify(snapshot.sources)) !== snapshot.inventoryHash) {
     throw new Error('snapshot inválido: o inventoryHash não confere com as fontes (arquivo editado à mão?)');
   }
+}
+
+/**
+ * O tratamento e o destino que a sincronizacao do site (`scripts/sync-docs.mjs`) da a uma fonte nova
+ * sem pagina no catalogo: roadmap vai para `roadmap`; marca, modelo e indice de pasta, para `padroes`.
+ */
+function destinoDaFonteNova(caminho) {
+  const tratamento = caminho.includes('/roadmap/') ? 'roadmap'
+    : caminho.includes('/assets/') ? 'brand'
+    : caminho.includes('/_modelo') ? 'template'
+    : caminho.endsWith('README.md') && caminho !== 'README.md' ? 'index' : 'article';
+  return { tratamento, paginas: tratamento === 'article' ? [] : [tratamento === 'roadmap' ? 'roadmap' : 'padroes'] };
 }
 
 /**
@@ -103,7 +120,7 @@ function checarFontesDoSite(raiz, snapshot, opcoes = {}) {
     });
   }
   for (const caminho of vivos.keys()) {
-    if (!noSnapshot.has(caminho) && entra(caminho)) fontes.push({ caminho, estado: 'nova', paginas: [], tratamento: null });
+    if (!noSnapshot.has(caminho) && entra(caminho)) fontes.push({ caminho, estado: 'nova', ...destinoDaFonteNova(caminho) });
   }
   // Ordem por unidade de codigo, a mesma do inventario do site, e nao a da localidade de quem roda.
   fontes.sort((a, b) => (a.caminho < b.caminho ? -1 : a.caminho > b.caminho ? 1 : 0));
@@ -129,17 +146,24 @@ function checarFontesDoSite(raiz, snapshot, opcoes = {}) {
  */
 function arquivosMudados(raiz, base) {
   const git = (...args) => spawnSync('git', ['-C', raiz, ...args], { encoding: 'utf8' });
+  if (git('rev-parse', '--is-inside-work-tree').stdout.trim() !== 'true') throw new Error(`--base ${base}: ${raiz} não é um repositório git`);
   const ref = git('rev-parse', '--verify', '--quiet', `${base}^{commit}`);
   if (ref.status !== 0) throw new Error(`--base ${base}: o git não conhece esse commit`);
   const partida = git('merge-base', ref.stdout.trim(), 'HEAD');
-  if (partida.status !== 0) throw new Error(`--base ${base}: sem ponto em comum com o HEAD`);
-  // Sem deteccao de renomeacao: o caminho antigo tambem entra, e a fonte removida aparece.
-  const diff = git('diff', '--name-only', '--no-renames', '--relative', partida.stdout.trim());
-  const novos = git('ls-files', '--others', '--exclude-standard');
+  if (partida.status !== 0) {
+    const raso = git('rev-parse', '--is-shallow-repository').stdout.trim() === 'true';
+    throw new Error(raso
+      ? `--base ${base}: o clone é raso e não alcança o ponto em comum com o HEAD (rode git fetch --unshallow)`
+      : `--base ${base}: sem ponto em comum com o HEAD`);
+  }
+  // Sem deteccao de renomeacao: o caminho antigo tambem entra, e a fonte removida aparece. O `-z` tira
+  // as aspas e os escapes que o `core.quotePath` poe em nome fora do ASCII.
+  const diff = git('diff', '--name-only', '-z', '--no-renames', '--relative', partida.stdout.trim());
+  const novos = git('ls-files', '-z', '--others', '--exclude-standard');
   if (diff.status !== 0 || novos.status !== 0) throw new Error(`git falhou: ${(diff.stderr || novos.stderr).trim()}`);
   return {
     partida: partida.stdout.trim(),
-    arquivos: [...diff.stdout.split('\n'), ...novos.stdout.split('\n')].map((l) => l.trim()).filter(Boolean),
+    arquivos: [...diff.stdout.split('\0'), ...novos.stdout.split('\0')].filter(Boolean),
   };
 }
 
@@ -152,8 +176,11 @@ function relatorio(r, raiz) {
   }
   const marca = (caminho) => {
     const f = r.fontes.find((x) => x.caminho === caminho);
-    const tratamento = f.tratamento && f.tratamento !== 'article' ? `  (tratamento ${f.tratamento})` : '';
-    return `  ${f.estado.padEnd(9)}${caminho}${tratamento}`;
+    const notas = [
+      ...(f.tratamento && f.tratamento !== 'article' ? [`tratamento ${f.tratamento}`] : []),
+      ...(f.estado === 'nova' && f.paginas.length ? ['destino previsto'] : []),
+    ];
+    return `  ${f.estado.padEnd(9)}${caminho}${notas.length ? `  (${notas.join(', ')})` : ''}`;
   };
   for (const { pagina, fontes } of r.paginas) linhas.push('', `${pagina} (${fontes.length})`, ...fontes.map(marca));
   if (r.semPagina.length) linhas.push('', `sem página (${r.semPagina.length})`, ...r.semPagina.map(marca));
@@ -164,8 +191,8 @@ function relatorio(r, raiz) {
   );
   if (r.paginas.length) linhas.push(`Páginas: ${r.paginas.map((p) => p.pagina).join(',')}`);
   linhas.push(
-    'No repositório do site: npm run docs:sync -- --source <este checkout>, leia as fontes, revise PT, EN e ES',
-    'de cada página e só então registre a revisão com --review pt,en,es e --articles com as páginas acima.',
+    'No repositório do site: npm run docs:sync -- --source <este checkout>, leia as fontes, revise PT, EN e ES de cada',
+    'página e só então registre a revisão com --review pt,en,es --reviewer <nome> e --articles com as páginas acima.',
   );
   return linhas.join('\n');
 }

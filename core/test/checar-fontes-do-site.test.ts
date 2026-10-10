@@ -134,6 +134,34 @@ test('fonte mudada aponta a pagina, fonte nova fica sem pagina e fonte removida 
     assert.match(cli.stdout, /^sem página \(1\)$/m);
     assert.match(cli.stdout, /2 página\(s\) a revisar, 1 fonte\(s\) mudada\(s\), 1 nova\(s\), 1 removida\(s\)/);
     assert.match(cli.stdout, /^Páginas: contribuir,padroes$/m);
+    assert.match(cli.stdout, /--review pt,en,es --reviewer <nome> e --articles/, 'o sync do site exige o revisor');
+  });
+});
+
+test('fonte nova ganha o destino que o sync do site daria; a ordem e por unidade de codigo', () => {
+  const snapshot = snapshotDe(ARVORE);
+  comArvore({
+    ...ARVORE,
+    'README.md': '# Orkastery\n\nNovo.\n',
+    'docs/guias/contribuir/triagem.md': '# Triagem\n\nNovo.\n',
+    'docs/roadmap/RM-099-novo.md': '# RM-099\n',
+    'docs/produto/README.md': '# Produto\n',
+    'docs/guias/novo.md': '# Novo\n',
+  }, (raiz) => {
+    const r = checarFontesDoSite(raiz, snapshot);
+    // Por unidade de codigo, README.md vem antes de docs/; pela localidade, viria depois.
+    assert.deepEqual(r.fontes.map((f: { caminho: string; estado: string; paginas: string[]; tratamento: string }) =>
+      `${f.estado} ${f.caminho} [${f.paginas.join(',')}] ${f.tratamento}`), [
+      'mudada README.md [comecar] article',
+      'mudada docs/guias/contribuir/triagem.md [contribuir] article',
+      'nova docs/guias/novo.md [] article',
+      'nova docs/produto/README.md [padroes] index',
+      'nova docs/roadmap/RM-099-novo.md [roadmap] roadmap',
+    ]);
+    assert.deepEqual(r.semPagina, ['docs/guias/novo.md'], 'artigo novo espera um modulo do catalogo');
+    const cli = rodar(raiz, snapshot);
+    assert.match(cli.stdout, /nova {5}docs\/roadmap\/RM-099-novo\.md {2}\(tratamento roadmap, destino previsto\)/);
+    assert.match(cli.stdout, /^Páginas: comecar,contribuir,padroes,roadmap$/m);
   });
 });
 
@@ -219,6 +247,52 @@ test('--base lista so o que a mudanca tocou desde que saiu da base, mesmo com a 
   });
 });
 
+test('--base acha nome fora do ASCII, mudado ou novo fora do indice', () => {
+  const comAcento = { ...ARVORE, 'docs/guias/ação.md': '# Ação\n' };
+  const fontes: Fonte[] = [{ path: 'docs/guias/ação.md', sha256: sha('# Ação\n'), category: 'guias', treatment: 'article', targets: ['acao'] }];
+  const snapshot = snapshotDe(comAcento, fontes);
+  comArvore(comAcento, (raiz) => {
+    git(raiz, 'init', '-q', '-b', 'main');
+    git(raiz, 'add', '--', ...Object.keys(comAcento));
+    git(raiz, 'commit', '-q', '-m', 'base');
+    fs.writeFileSync(path.join(raiz, 'docs/guias/ação.md'), '# Ação\n\nOutra.\n');
+    escrever(raiz, { 'docs/guias/introdução.md': '# Introdução\n' });
+    const r = rodar(raiz, snapshot, '--base', 'HEAD', '--json');
+    assert.equal(r.status, 1, r.stdout);
+    assert.deepEqual(JSON.parse(r.stdout).fontes.map((f: { caminho: string; estado: string }) => `${f.estado} ${f.caminho}`),
+      ['mudada docs/guias/ação.md', 'nova docs/guias/introdução.md']);
+  });
+});
+
+test('--base diz por que nao ha ponto de partida: sem repositorio, ref desconhecida ou clone raso', () => {
+  comArvore(ARVORE, (raiz) => {
+    const semRepo = rodar(raiz, snapshotDe(ARVORE), '--base', 'HEAD');
+    assert.equal(semRepo.status, 2);
+    assert.match(semRepo.stderr, /não é um repositório git/);
+    git(raiz, 'init', '-q', '-b', 'main');
+    git(raiz, 'add', '--', ...Object.keys(ARVORE));
+    git(raiz, 'commit', '-q', '-m', 'base');
+    git(raiz, 'branch', 'velha');
+    fs.writeFileSync(path.join(raiz, 'README.md'), '# Orkastery\n\nDois.\n');
+    git(raiz, 'commit', '-q', '-am', 'dois');
+    const semRef = rodar(raiz, snapshotDe(ARVORE), '--base', 'ref-que-nao-existe');
+    assert.equal(semRef.status, 2);
+    assert.match(semRef.stderr, /o git não conhece esse commit/);
+    // Clone raso das duas branches: a partida de `velha` com a main fica fora do que veio.
+    const raso = dirTemporario('fontes-site-raso');
+    try {
+      git(raso, 'clone', '-q', '--depth', '1', '--no-single-branch', `file://${raiz}`, 'clone');
+      const clone = path.join(raso, 'clone');
+      const r = spawnSync(process.execPath, [SCRIPT, '--snapshot', '-', '--raiz', clone, '--base', 'origin/velha'],
+        { encoding: 'utf8', input: JSON.stringify(snapshotDe(ARVORE)) });
+      assert.equal(r.status, 2, r.stdout);
+      assert.match(r.stderr, /o clone é raso e não alcança o ponto em comum com o HEAD \(rode git fetch --unshallow\)/);
+    } finally {
+      fs.rmSync(raso, { recursive: true, force: true });
+    }
+  });
+});
+
 test('erro de uso e snapshot invalido saem 2, sem relatorio', () => {
   comArvore(ARVORE, (raiz) => {
     const valido = snapshotDe(ARVORE);
@@ -226,8 +300,13 @@ test('erro de uso e snapshot invalido saem 2, sem relatorio', () => {
       [{ ...valido, schemaVersion: 2 }, [], /schemaVersion 1/],
       [{ ...valido, inventoryHash: sha('outra coisa') }, [], /inventoryHash não confere/],
       [{ ...valido, sources: [{ path: 'README.md', sha256: 'curto' }] }, [], /sem path ou sem sha256/],
+      [{ ...valido, inventoryHash: undefined }, [], /falta o inventoryHash/],
+      [(() => {
+        const repetidas = [...valido.sources, valido.sources[0]];
+        return { ...valido, sources: repetidas, inventoryHash: sha(JSON.stringify(repetidas)) };
+      })(), [], /fonte repetida: CONTRIBUTING\.md/],
       ['{ quebrado', [], /não é JSON/],
-      [valido, ['--base', 'ref-que-nao-existe'], /o git não conhece esse commit/],
+      [valido, ['--base', 'ref-que-nao-existe'], /não é um repositório git/],
       [valido, ['--opcao-que-nao-existe'], /opção desconhecida/],
     ];
     for (const [snapshot, args, erro] of casos) {
