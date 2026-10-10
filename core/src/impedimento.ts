@@ -64,6 +64,18 @@ function citar(caminho: string): string {
   return /^[A-Za-z0-9_./:@+-]+$/.test(caminho) ? caminho : `'${caminho.replace(/'/g, `'\\''`)}'`;
 }
 
+/**
+ * RM-055 (continuacao, D4): frases que dizem "Workspace not trusted" mas que aceitar a confianca NAO
+ * resolve. No claude 2.1.296 o veredito do `--bg` tem tres saidas: o diretorio que nao existe mais no
+ * disco, o diretorio home (que so confia uma sessao por vez) e a recusa de confianca de verdade. As duas
+ * primeiras ficam no caminho generico (`runtime.unavailable`), com o stderr gravado no despacho falho:
+ * mandar o dono rodar `cd <dir> && claude` ali nao destrava nada.
+ */
+const FRASES_QUE_NAO_SAO_DO_DONO: readonly RegExp[] = [
+  /could not be resolved on disk/i,
+  /home directory is trusted one session at a time/i,
+];
+
 const FRASES_DE_CONFIANCA: readonly RegExp[] = [
   /workspace not trusted/i,
   /accept the trust (?:prompt|dialog)/i,
@@ -71,11 +83,42 @@ const FRASES_DE_CONFIANCA: readonly RegExp[] = [
   /(?:folder|directory|workspace) (?:is )?not trusted/i,
 ];
 
-const FRASES_DE_CONSENTIMENTO: readonly RegExp[] = [
-  /accept (?:the )?(?:updated |new )?(?:terms|consumer terms|privacy policy|usage policy)/i,
-  /(?:terms|policy) (?:have|has) (?:been )?updated[^\n]*accept/i,
-  /consent (?:is )?required/i,
+/** Uma recusa por consentimento: a frase, o que o dono aceita e o que ele faz antes de sair. */
+interface RegraDeConsentimento {
+  regra: RegExp;
+  aceita: string;
+  feito: string;
+}
+
+const FRASES_DE_CONSENTIMENTO: readonly RegraDeConsentimento[] = [
+  // claude 2.1.296, modo print: o aviso que bloqueia e sai com 1. O aviso de carencia ("will take effect
+  // ... Run `claude` to review the updated terms") nao bloqueia e nao casa aqui.
+  { regra: /\[ACTION REQUIRED\][^\n]*(?:terms|policy)/i, aceita: 'revisar e aceitar os termos novos',
+    feito: 'aceite os termos e saia' },
+  // claude 2.1.296: o portao do `--bg` que vem antes da confianca (gateCause "disclaimer").
+  { regra: /requires accepting the disclaimer first/i, aceita: 'aceitar o aviso do modo sem permissões (bypass)',
+    feito: 'aceite o aviso e saia' },
+  { regra: /requires opting in first/i, aceita: 'ativar o modo auto uma vez', feito: 'confirme o modo auto e saia' },
+  // Fatia 1 (02/10/2026): frases genericas de termos novos.
+  { regra: /accept (?:the )?(?:updated |new )?(?:terms|consumer terms|privacy policy|usage policy)/i,
+    aceita: 'aceitar termos novos', feito: 'aceite os termos e saia' },
+  { regra: /(?:terms|policy) (?:have|has) (?:been )?updated[^\n]*accept/i, aceita: 'aceitar termos novos',
+    feito: 'aceite os termos e saia' },
+  { regra: /consent (?:is )?required/i, aceita: 'aceitar termos novos', feito: 'aceite os termos e saia' },
 ];
+
+/** A forma fechada de um comando que o runtime manda rodar: o binario e opcoes `--nome` com valor simples. */
+const FORMA_DO_COMANDO = /^(?:claude|codex)(?: --[a-z][a-z-]*(?: [a-z][a-z0-9-]*)?)*$/;
+
+/**
+ * RM-055 (continuacao, D4): o comando que a propria frase do runtime manda rodar ("Run `claude
+ * --permission-mode auto` once interactively"). So na forma fechada e so do binario do runtime: a saida
+ * do runtime nunca chega ao dono como comando arbitrario. Fora disso, o binario puro.
+ */
+function comandoDaFrase(trecho: string, bin: string): string {
+  const pedido = /\brun `([^`]{1,120})`/i.exec(trecho)?.[1].replace(/\s+/g, ' ').trim();
+  return pedido && FORMA_DO_COMANDO.test(pedido) && pedido.split(' ')[0] === bin ? pedido : bin;
+}
 
 function trechoDa(texto: string, regra: RegExp): string {
   const linha = texto.split(/\r?\n/).find(l => regra.test(l)) ?? texto;
@@ -92,6 +135,7 @@ function binarioDo(runtime: string): string {
  */
 export function classificarImpedimento(saida: string, ctx: ContextoDoImpedimento): ImpedimentoDoDono | null {
   const texto = saida ?? '';
+  if (FRASES_QUE_NAO_SAO_DO_DONO.some(r => r.test(texto))) return null;
   const bin = binarioDo(ctx.runtime);
   const depois = `depois, \`ork retry run ${ctx.thread}\` re-despacha ${ctx.fase} com o mesmo prompt gravado`;
   const confianca = FRASES_DE_CONFIANCA.find(r => r.test(texto));
@@ -104,24 +148,66 @@ export function classificarImpedimento(saida: string, ctx: ContextoDoImpedimento
       trecho: trechoDa(texto, confianca),
     };
   }
-  const consentimento = FRASES_DE_CONSENTIMENTO.find(r => r.test(texto));
+  const consentimento = FRASES_DE_CONSENTIMENTO.find(c => c.regra.test(texto));
   if (consentimento) {
+    const trecho = trechoDa(texto, consentimento.regra);
     return {
       motivo: 'runtime.consent-pending',
-      trava: `o ${bin} espera você aceitar termos novos e recusou o despacho de ${ctx.fase}`,
-      comando: bin,
-      depois: `aceite os termos e saia; ${depois}`,
-      trecho: trechoDa(texto, consentimento),
+      trava: `o ${bin} espera você ${consentimento.aceita} e recusou o despacho de ${ctx.fase}`,
+      comando: comandoDaFrase(trecho, bin),
+      depois: `${consentimento.feito}; ${depois}`,
+      trecho,
     };
   }
   return null;
 }
 
+/** O caminho como o claude o compara: o real, sem link; o resolvido quando ele nao existe no disco. */
+function caminhoReal(caminho: string): string {
+  try { return fs.realpathSync.native(caminho); } catch { return path.resolve(caminho); }
+}
+
+/** A raiz git do diretorio: o ancestral mais proximo, ele incluido, com `.git` (arquivo ou diretorio). */
+function raizGit(dir: string): string | null {
+  for (let d = dir; ; d = path.dirname(d)) {
+    try {
+      const st = fs.lstatSync(path.join(d, '.git'));
+      if (st.isFile() || st.isDirectory()) return d;
+    } catch { /* sem `.git` aqui: sobe */ }
+    if (path.dirname(d) === d) return null;
+  }
+}
+
+/**
+ * A raiz canonica de uma raiz git, conferida como o claude 2.1.296 confere: numa worktree vinculada (o
+ * arquivo `.git` aponta `gitdir:` para `<comum>/worktrees/<nome>`, que tem `commondir` e um `gitdir` de
+ * volta para `<raiz>/.git`), e o repositorio principal, o diretorio de cima do `<comum>` chamado `.git`.
+ * Qualquer conferencia que falha devolve a propria raiz, e um repositorio comum (`.git` diretorio) tambem.
+ */
+function raizCanonica(raiz: string): string {
+  try {
+    const conteudo = fs.readFileSync(path.join(raiz, '.git'), 'utf8').trim();
+    if (!conteudo.startsWith('gitdir:')) return raiz;
+    const gitdir = path.resolve(raiz, conteudo.slice('gitdir:'.length).trim());
+    const comum = path.resolve(gitdir, fs.readFileSync(path.join(gitdir, 'commondir'), 'utf8').trim());
+    if (path.dirname(gitdir) !== path.join(comum, 'worktrees')) return raiz;
+    const deVolta = path.resolve(gitdir, fs.readFileSync(path.join(gitdir, 'gitdir'), 'utf8').trim());
+    if (caminhoReal(deVolta) !== path.join(caminhoReal(raiz), '.git')) return raiz;
+    if (path.basename(comum) !== '.git') return fs.existsSync(path.join(comum, '.git')) ? raiz : comum;
+    return path.dirname(comum);
+  } catch { return raiz; }
+}
+
 /**
  * O impedimento ja foi resolvido? So o de confianca do diretorio tem prova local: o `claude` grava
- * `hasTrustDialogAccepted` por projeto no `.claude.json` da conta (o do perfil, com `CLAUDE_CONFIG_DIR`),
- * e a confianca de um diretorio vale para os de baixo. `null` e "nao sei": o retry despacha e o runtime
- * decide; se recusar de novo, a mesma pausa volta.
+ * `hasTrustDialogAccepted` por projeto no `.claude.json` da conta (o do perfil, com `CLAUDE_CONFIG_DIR`).
+ * `null` e "nao sei": o retry despacha e o runtime decide; se recusar de novo, a mesma pausa volta.
+ *
+ * RM-055 (continuacao, D1): a regra e a que o claude 2.1.296 aplica no `--bg`, medida com worktrees git
+ * reais: vale a confianca do proprio diretorio e dos de cima ate a raiz git, inclusive, e a da raiz
+ * canonica de uma worktree vinculada (o repositorio principal), more a worktree dentro ou fora dele. Acima
+ * da raiz git nada vale: com so o diretorio de cima do repositorio confiado, o claude recusa a worktree.
+ * Fora de git, qualquer diretorio de cima vale, como no claude.
  */
 export function impedimentoResolvido(motivo: MotivoGate, ctx: { cwd: string; runtime: string; configDir?: string | null;
   home?: string }): boolean | null {
@@ -135,9 +221,13 @@ export function impedimentoResolvido(motivo: MotivoGate, ctx: { cwd: string; run
     if (!dados || typeof dados.projects !== 'object' || dados.projects === null) return null;
     projetos = dados.projects as typeof projetos;
   } catch { return null; }
-  for (let dir = path.resolve(ctx.cwd); ; dir = path.dirname(dir)) {
-    if (projetos[dir]?.hasTrustDialogAccepted === true) return true;
-    if (path.dirname(dir) === dir) return false;
+  const confia = (dir: string): boolean => projetos[dir]?.hasTrustDialogAccepted === true;
+  const cwd = caminhoReal(ctx.cwd);
+  const raiz = raizGit(cwd);
+  if (raiz && confia(raizCanonica(raiz))) return true;
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    if (confia(dir)) return true;
+    if (dir === raiz || path.dirname(dir) === dir) return false;
   }
 }
 
