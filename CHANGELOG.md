@@ -213,7 +213,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   itens corrigidos citam PR e commit; R3 segue registrado, e um teste confere essa distinção em todos os recibos.
 - **O MASTER sem `--classe` junta `base-avancou` quando a branch trouxe a base** ([RM-008](docs/roadmap/RM-008-loop-de-aprendizado.md)):
   a classe fixa nunca era inferida. Em 03/10, 29 das 35 entregas trouxeram a `origin/main` para a branch antes do
-  merge, e todas fecharam sem ela. Agora 
+  merge, e todas fecharam sem ela. Agora
 
 ... [OUTPUT TRUNCATED - 40101 chars omitted out of 90101 total] ...
 
@@ -221,14 +221,15 @@ acado, `main`, e não `HEAD`. O `ork doctor` diz a
     branch e "(sem commit)", e o `ork thread new` avisa no stderr que a thread nasce sem base, sem
     sugerir rodar a fase; o marcador `desconhecido` sai inteiro onde o `ork` mostra commit (resumo
     da thread, `ork verify`, `ork fix`, `ork ship` e auditoria);
-  - o aviso `onboarding fuso` do `ork doctor` compara o `owner.timezone` da resposta `maestro`, quando
+
+- o aviso `onboarding fuso` do `ork doctor` compara o `owner.timezone` da resposta `maestro`, quando
     há, e não o `fuso` legado da mesma resposta;
-  - a correção de `push_direto_na_base` aponta a branch da thread e, antes do GO,
+- a correção de `push_direto_na_base` aponta a branch da thread e, antes do GO,
     `ork worktree ensure <thread>`, em vez de repetir o `ork ship`; o erro de `ork mcp install` com
     caminho relativo diz para usar `--project "$PWD"`;
-  - textos: a armadilha do plugin do Claude Code sem contagem fixa de caminhos, "pacote pulado" na
+- textos: a armadilha do plugin do Claude Code sem contagem fixa de caminhos, "pacote pulado" na
     instalação com aviso e a continuação do `setup` de volta ao lugar na ajuda;
-  - docs: o quickstart cria a primeira thread com `--worktree auto`, traz os modos vivos no
+- docs: o quickstart cria a primeira thread com `--worktree auto`, traz os modos vivos no
     manifesto, uma claim focada, o `.gitignore` do estado, a ativação do plugin e amostras da saída
     real conferidas por teste; os READMEs dos plugins e o roteiro do revisor pedem um repositório
     com commit e usam `ork mcp install --project "$PWD"`.
