@@ -44,9 +44,18 @@ node core/dist/index.js docs sincronizar --escrever --so RM-NNN
 
 ## Como o site usa este texto
 
-- O site orkastery.com tem repositório próprio: [orkastery/orkastery.com](https://github.com/orkastery/orkastery.com).
-- A documentação do site vai sair de `docs/` por um catálogo de fontes, em construção na [RM-049](../../roadmap/RM-049-lancamento.md) e na [RM-050](../../roadmap/RM-050-guia-de-contribuicao.md).
-- Por isso a correção vai sempre aqui, na fonte. Se a página do site também estiver errada, abra a issue no repositório do site.
+- Os dois sites têm repositório próprio: [orkastery/orkastery.com](https://github.com/orkastery/orkastery.com) e [orkastery/orkmind.com](https://github.com/orkastery/orkmind.com). Cada página de documentação sai de um catálogo, sem cópia manual: `src/data/docs-catalog.ts` lista os módulos editoriais, cada módulo (`src/data/docs-*.ts`) diz que arquivos deste repositório cada página usa, e `src/data/docs-sources.json` guarda o SHA-256 de cada fonte e a revisão editorial da página em PT, EN e ES.
+- O build do site confere só esse snapshot. A sua mudança aparece lá quando o site roda `npm run docs:check -- --source <clone deste repositório>`, e a página volta a valer depois da revisão nas três línguas. Por isso a correção vai sempre aqui, na fonte.
+- Para saber que página do orkastery.com a sua mudança deixa para revisar, compare o checkout com o snapshot publicado. Usa a rede e o `gh` autenticado:
+
+<!-- checagem: citado -->
+
+```bash
+gh api repos/orkastery/orkastery.com/contents/src/data/docs-sources.json -H 'Accept: application/vnd.github.raw' | node core/scripts/checar-fontes-do-site.cjs --snapshot - --base origin/main
+```
+
+- Sai 0 quando nenhum arquivo da mudança difere do snapshot do site, e 1 com as páginas e as fontes de cada uma: cite as páginas no PR. Fonte nova sai com o destino que o site daria (roadmap, padrões); artigo novo fica sem página até entrar num módulo do catálogo. Sem `--base`, a lista traz tudo o que mudou aqui desde a última revisão do site. O inventário é o do site (os `.md` e `.json` de `docs/`, mais `README.md`, `CONTRIBUTING.md` e `core/package.json`); se o site mudar a regra, vale a dele.
+- A página do site está errada e a fonte aqui está certa? Abra a issue no repositório do site.
 
 ## Comandos nos guias
 
