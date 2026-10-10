@@ -321,6 +321,9 @@ test('prova do C4: o script imprime os tres conjuntos e a exclusiva da busca sem
   const semIndice = rodar([]);
   assert.equal(semIndice.codigo, 1, 'sem indice nao ha exclusiva, e a prova reprova');
   assert.doesNotMatch(semIndice.saida, /exclusiva da busca semantica/);
+  // Diagnostico da RM-038 (10/10): sem indice nao ha ranking vetorial nem cobertura a mostrar.
+  assert.match(semIndice.saida, /posicao dos alvos\s+\(sem ranking vetorial: origem nenhum\)/);
+  assert.match(semIndice.saida, /cobertura do indice\s+\(nao informada\)/);
   assert.equal(ork(p.dir, ['memory', 'index', '--json'], env).codigo, 0);
   const r = rodar(['rotacao|trocar de conta quando acaba a cota']);
   assert.equal(r.codigo, 0, r.saida);
@@ -329,6 +332,8 @@ test('prova do C4: o script imprime os tres conjuntos e a exclusiva da busca sem
   assert.match(r.saida, /FTS da parafrase\s+\(nenhuma\)/);
   assert.match(r.saida, /semantica top 5\s+decision\/rot.*\[origem primario org\/primario\]/);
   assert.match(r.saida, /exclusiva da busca semantica: decision\/rot/);
+  assert.match(r.saida, /posicao dos alvos\s+decision\/rot na posicao 1 \(similaridade (?:1|0\.\d+)\)/);
+  assert.match(r.saida, /cobertura do indice\s+3 de 3 entrada\(s\) da busca com vetor coerente/);
   assert.doesNotMatch(r.saida, /alheia/);
   assert.equal(rodar(['sem-separador']).codigo, 2);
 });

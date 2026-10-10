@@ -286,6 +286,71 @@ console.log(JSON.stringify({resultados,origem:'primario',motivo:null}));
   const sucesso = spawnSync('bash', [script, 'termo|parafrase'], { cwd: raiz, encoding: 'utf8', timeout: 10000 });
   assert.equal(sucesso.status, 0, sucesso.stderr);
   assert.match(sucesso.stdout, /exclusiva da busca semantica: decision\/exclusiva/);
+  // Diagnostico de 10/10: a resposta sem similaridade nem cobertura ainda diz a posicao do alvo.
+  assert.match(sucesso.stdout, /posicao dos alvos\s+decision\/exclusiva na posicao 1$/m);
+  assert.match(sucesso.stdout, /cobertura do indice\s+\(nao informada\)$/m);
+});
+
+test('rm038 prova: diagnostico mostra posicao, similaridade e cobertura do alvo sem mudar o criterio do top 5', (t) => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm038-diagnostico-'));
+  t.after(() => fs.rmSync(raiz, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(raiz, 'core', 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(raiz, 'core', 'dist'), { recursive: true });
+  const script = path.join(raiz, 'core', 'scripts', 'prova-busca-semantica.sh');
+  fs.copyFileSync(path.resolve(__dirname, '../../scripts/prova-busca-semantica.sh'), script);
+  // CLI falsa que respeita --limite e grava os argumentos: ranking vetorial de 7 entradas, alvo por cenario.
+  fs.writeFileSync(path.join(raiz, 'core', 'dist', 'index.js'), `
+const fs = require('fs');
+const args = process.argv.slice(2);
+if (args[1] === 'status') { console.log(JSON.stringify({tenant:'fabrica'})); process.exit(0); }
+fs.appendFileSync('argumentos.jsonl', JSON.stringify(args) + require('os').EOL);
+const c = JSON.parse(fs.readFileSync('cenario.json','utf8'));
+const valor = (nome) => { const i = args.indexOf(nome); return i < 0 ? null : args[i + 1]; };
+if (args.includes('--tags')) { console.log('[]'); process.exit(0); }
+const vetor = valor('--modo') === 'vetor';
+const resultados = vetor
+  ? c.ranking.slice(0, Number(valor('--limite') || 10)).map((id, i) => ({collection:'decision', id, similaridade: c.similaridades[i]}))
+  : (valor('--texto') === 'termo' ? c.alvos.map((id) => ({collection:'decision', id})) : []);
+console.log(JSON.stringify({resultados, origem: vetor ? 'primario' : 'fts', modeloUsado: vetor ? 'org/primario' : null,
+  motivo: null, coberturaDoIndice: vetor ? c.cobertura : null}));
+`);
+  const ranking = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'];
+  const similaridades = [0.61, 0.55, 0.52, 0.5, 0.47, 0.45, 0.4];
+  const rodar = (alvos: string[], cobertura: { coerentes: number; universo: number }) => {
+    fs.rmSync(path.join(raiz, 'argumentos.jsonl'), { force: true });
+    fs.writeFileSync(path.join(raiz, 'cenario.json'), JSON.stringify({ alvos, ranking, similaridades, cobertura }));
+    const r = spawnSync('bash', [script, 'termo|parafrase'], { cwd: raiz, encoding: 'utf8', timeout: 10000 });
+    const chamadas = fs.readFileSync(path.join(raiz, 'argumentos.jsonl'), 'utf8').trim().split(os.EOL)
+      .map((linha) => JSON.parse(linha) as string[]);
+    return { ...r, chamadas };
+  };
+
+  // O alvo na 7a posicao esta na resposta, mas fora do top 5: a prova reprova e diz onde ele ficou.
+  const fora = rodar(['r7'], { coerentes: 30, universo: 31 });
+  assert.equal(fora.status, 1, fora.stderr);
+  assert.match(fora.stdout, /semantica top 5\s+decision\/r1, decision\/r2, decision\/r3, decision\/r4, decision\/r5\s/);
+  assert.match(fora.stdout, /posicao dos alvos\s+decision\/r7 na posicao 7 \(similaridade 0\.4\)$/m);
+  assert.match(fora.stdout, /cobertura do indice\s+30 de 31 entrada\(s\) da busca com vetor coerente$/m);
+  assert.doesNotMatch(fora.stdout, /exclusiva da busca semantica/);
+  assert.match(fora.stdout, /resultado: nenhum par teve alvo alcancado so pela semantica/);
+  // Uma consulta vetorial por par, com o limite maximo da busca: o diagnostico nao custa outra chamada.
+  const vetoriais = fora.chamadas.filter((a) => a.includes('vetor'));
+  assert.equal(vetoriais.length, 1);
+  assert.equal(vetoriais[0][vetoriais[0].indexOf('--limite') + 1], '100');
+
+  // No top 5, o criterio de antes vale igual: exclusiva e saida 0.
+  const dentro = rodar(['r3'], { coerentes: 30, universo: 31 });
+  assert.equal(dentro.status, 0, dentro.stderr);
+  assert.match(dentro.stdout, /posicao dos alvos\s+decision\/r3 na posicao 3 \(similaridade 0\.52\)$/m);
+  assert.match(dentro.stdout, /exclusiva da busca semantica: decision\/r3/);
+
+  // Alvo fora da resposta: sem vetor coerente quando a resposta traz todos; fora do corte quando ela foi cortada.
+  const semVetor = rodar(['nunca-indexada'], { coerentes: 7, universo: 8 });
+  assert.equal(semVetor.status, 1, semVetor.stderr);
+  assert.match(semVetor.stdout, /posicao dos alvos\s+decision\/nunca-indexada sem vetor coerente no indice$/m);
+  const cortado = rodar(['nunca-indexada'], { coerentes: 60, universo: 60 });
+  assert.equal(cortado.status, 1, cortado.stderr);
+  assert.match(cortado.stdout, /posicao dos alvos\s+decision\/nunca-indexada fora dos 7 primeiros do ranking vetorial$/m);
 });
 
 test('rm038 universo: normalizacao preserva governanca e predicado recusa injecao e expiracao', () => {
