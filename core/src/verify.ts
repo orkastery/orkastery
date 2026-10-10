@@ -33,7 +33,10 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { agora, COMMIT_DESCONHECIDO, exec, shaCurto } from './util';
 import { formatarDataHoraRotulada } from './horario';
-import { redigirSaida, testesQueCairam } from './redacao-saida';
+import { falhasDeTeste, redigirSaida, testesQueCairam } from './redacao-saida';
+import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat, reprovacaoSoDeRelogio, stealAlto,
+  TestesDeRelogio } from './steal';
+import { lerRegistroDeInstabilidade, RegistroLido, testesDeRelogioVigentes } from './instabilidade';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 
@@ -108,9 +111,39 @@ export function executar(nome: string, comando: string, cwd: string,
     const saida = r.stdout + (r.stderr ? '\n' + r.stderr : '');
     const testes = testesQueCairam(saida);
     if (testes.length > 0) resultado.testeQueCaiu = testes;
+    const falhas = falhasDeTeste(saida);
+    if (falhas.length > 0) resultado.falhasDeTeste = falhas;
     resultado.trecho = redigirSaida(saida);
   }
   return resultado;
+}
+
+/**
+ * RM-037 (fatia 6): o comando nao tem veredito. Estouro de prazo, ou reprovacao so de teste com relogio
+ * sob steal acima de 40%: a maquina, e nao o codigo, decidiu o resultado.
+ */
+export function semVereditoPorTempo(c: ResultadoDeComando): boolean {
+  return c.causa === 'timeout' || (c.relogioSobSteal?.length ?? 0) > 0;
+}
+
+/**
+ * RM-037 (fatia 6): mede o steal na janela de cada comando e marca a reprovacao que foi so de teste com
+ * relogio sob steal alto. Os testes de relogio sao os da assinatura de prazo do runner e os do registro
+ * de instabilidade vigente. Comando que passou, estourou ou nem rodou so ganha a medida.
+ */
+export function executorComSteal(base: ExecutorVerify, leitor: LeitorProcStat = lerProcStat,
+  registro: TestesDeRelogio = new Set()): ExecutorVerify {
+  return (nome, comando, cwd) => {
+    const janela = abrirJanela(leitor);
+    const r = base(nome, comando, cwd);
+    const stealPct = janela.fechar();
+    const resultado: ResultadoDeComando = { ...r, stealPct };
+    if (!r.ok && r.causa !== 'timeout' && r.executado !== false && stealAlto(stealPct)) {
+      const testes = reprovacaoSoDeRelogio(r.falhasDeTeste, registro);
+      if (testes) resultado.relogioSobSteal = testes;
+    }
+    return resultado;
+  };
 }
 
 /** I-54 (D11): erros de spawn em que o processo nem chegou a existir. */
@@ -165,6 +198,8 @@ export function comandoNoLedger(c: ResultadoDeComando): Record<string, unknown> 
     ...(c.duracaoMs !== undefined ? { duracaoMs: c.duracaoMs } : {}),
     ...(c.testeQueCaiu?.length ? { testeQueCaiu: c.testeQueCaiu } : {}),
     ...(c.trecho !== undefined ? { trecho: c.trecho } : {}),
+    ...(c.stealPct !== undefined ? { stealPct: c.stealPct } : {}),
+    ...(c.relogioSobSteal?.length ? { relogioSobSteal: c.relogioSobSteal } : {}),
   };
 }
 
@@ -274,9 +309,27 @@ export interface ResultadoVerify {
   estouros: ResultadoDeComando[];
   /** I-54 (D10): o preparo unico da rodada, quando o manifesto declara `verify.preparo`. */
   preparo: { resultado: ResultadoDeComando; identidade: string; identidadeFinal: string; produtoAlterado: boolean } | null;
+  /** RM-037 (fatia 6): o steal medido na rodada, gravado no `verify_run`. */
+  steal: MedidaDeSteal;
+  /** RM-037 (fatia 6): o registro de instabilidade lido na arvore verificada. */
+  instabilidade: RegistroLido;
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
+}
+
+/** RM-037 (fatia 6): o steal da rodada inteira e de cada comando, como vai ao `verify_run`. */
+export interface MedidaDeSteal {
+  fonte: typeof FONTE_STEAL;
+  /** Houve medida da rodada (Linux com `/proc/stat`). Sem ela, nada e atenuado. */
+  medido: boolean;
+  /** Steal da rodada inteira, do preparo ao ultimo comando, em %. */
+  rodadaPct: number | null;
+  limiarPct: number;
+  /** Steal na janela de cada comando (`build`, `test`, `C3.1`...), em %. */
+  porComando: Record<string, number | null>;
+  /** Comandos cuja reprovacao foi so de teste com relogio sob steal acima do limiar. */
+  relogioSobSteal: string[];
 }
 
 /** Dependência interna; nunca desserializada de argumentos CLI/MCP. */
@@ -290,6 +343,10 @@ export interface OpcoesVerify {
   conducao?: ConducaoDoVerify;
   /** I-36: quem pede a verificacao (default `verify`); o MCP declara `mcp.verify`. */
   operacao?: OperacaoDeConducao;
+  /** RM-037 (fatia 6): de onde vem o `/proc/stat` (dependencia interna, os testes injetam a VPS sob steal). */
+  lerProcStat?: LeitorProcStat;
+  /** RM-037 (fatia 6): o relogio da vigencia do registro de instabilidade. */
+  agoraMs?: number;
 }
 
 /**
@@ -325,15 +382,19 @@ export function verificarClaim(claim: ResultadoDeClaim['claim'], cwd: string, ex
     };
   }
   const falhou = execucoes.find((e) => !e.ok);
-  // I-37 (D1): estouro de prazo nao desmente a alegacao; a prova so nao chegou ao fim.
-  const estourou = falhou?.causa === 'timeout';
+  // I-37 (D1): estouro de prazo nao desmente a alegacao; a prova so nao chegou ao fim. RM-037 (fatia 6):
+  // nem a reprovacao so de teste com relogio sob steal acima de 40%.
+  const estourou = !!falhou && semVereditoPorTempo(falhou);
   return {
     claim,
     verificado: !falhou,
     motivo: falhou ? (estourou ? 'verify.timeout' : 'claims.failed') : null,
     detalhe: falhou
       ? estourou
-        ? `comando "${falhou.comando}" estourou o prazo de ${Math.round((falhou.prazoMs ?? 0) / 1000)} s sem terminar`
+        ? falhou.causa === 'timeout'
+          ? `comando "${falhou.comando}" estourou o prazo de ${Math.round((falhou.prazoMs ?? 0) / 1000)} s sem terminar`
+          : `comando "${redigirCredenciaisUrl(falhou.comando)}" reprovou so em teste com relogio sob steal de ` +
+            `${falhou.stealPct}% (acima de ${LIMIAR_STEAL_PCT}%): ${falhou.relogioSobSteal!.join(', ')}`
         : `comando "${redigirCredenciaisUrl(falhou.comando)}" saiu com codigo ${falhou.code}`
       : `${execucoes.length} comando(s) reexecutado(s) com sucesso`,
     execucoes,
@@ -375,10 +436,16 @@ function verificarSobConducao(
   // acumulador em vez de verificacao.
   registrarCriteriosDePronto(raiz, threadId);
 
+  // RM-037 (fatia 6): o registro de instabilidade da arvore verificada e a janela de steal da rodada.
+  const instabilidade = lerRegistroDeInstabilidade(cwd, opcoes.agoraMs);
+  const leitor = opcoes.lerProcStat ?? lerProcStat;
+  const janelaDaRodada = abrirJanela(leitor);
+
   // I-37 (D2, D3): o prazo de cada comando sai do manifesto carregado no inicio da rodada;
   // editar o manifesto no meio dela nao muda o teto de quem ainda vai rodar.
-  const executor: ExecutorVerify = executorSobConducao(opcoes.executor
-    ?? ((nome, comando, dirDeTrabalho) => executar(nome, comando, dirDeTrabalho, prazoDoComando(manifesto, nome))), manifesto, conducao);
+  const executor: ExecutorVerify = executorSobConducao(executorComSteal(opcoes.executor
+    ?? ((nome, comando, dirDeTrabalho) => executar(nome, comando, dirDeTrabalho, prazoDoComando(manifesto, nome))),
+  leitor, testesDeRelogioVigentes(instabilidade)), manifesto, conducao);
 
   // I-54 (D10): o preparo roda UMA vez, antes das claims. Ele nunca e condicao para uma claim
   // passar (cada uma roda o proprio comando inteiro); ele so deixa pronta a compilacao. A
@@ -414,7 +481,7 @@ function verificarSobConducao(
   const estouros: ResultadoDeComando[] = [];
   for (const atual of comandos) {
     if (atual.ok) continue;
-    if (atual.causa === 'timeout') {
+    if (semVereditoPorTempo(atual)) {
       estouros.push(atual);
       continue;
     }
@@ -428,6 +495,17 @@ function verificarSobConducao(
   const identidadeFinal = preparo ? identidadeDoProduto(cwd) : null;
   const produtoAlterado = !!preparo && identidadeFinal !== preparo.identidade;
   const naoExecutados = comandos.filter((c) => c.executado === false);
+
+  const rodadaPct = janelaDaRodada.fechar();
+  const todos = [...(preparo ? [preparo.resultado] : []), ...claims.flatMap((c) => c.execucoes), ...comandos];
+  const steal: MedidaDeSteal = {
+    fonte: FONTE_STEAL,
+    medido: rodadaPct !== null,
+    rodadaPct,
+    limiarPct: LIMIAR_STEAL_PCT,
+    porComando: Object.fromEntries(todos.map((c) => [c.nome, c.stealPct ?? null])),
+    relogioSobSteal: todos.filter((c) => c.relogioSobSteal?.length).map((c) => c.nome),
+  };
 
   const motivos: MotivoGate[] = [];
   if (claims.some((c) => c.motivo === 'claims.failed')) motivos.push('claims.failed');
@@ -462,6 +540,10 @@ function verificarSobConducao(
     falhasSemBaseline: falhasSemBaseline.map((r) => r.nome),
     estouros: estouros.map((r) => r.nome),
     prazoMs: manifesto.verify.timeout_ms ?? TIMEOUT_VERIFY_MS,
+    steal,
+    ...(instabilidade.presente ? { instabilidade: { contrato: 'ork.instabilidade/v1', arquivo: instabilidade.arquivo,
+      vigentes: instabilidade.vigentes.map((e) => e.teste), vencidas: instabilidade.vencidas.map((e) => e.teste),
+      erros: instabilidade.erros } } : {}),
     ...(preparo ? { preparo: { ...comandoNoLedger(preparo.resultado), duracaoMs: preparo.resultado.duracaoMs,
       identidade: preparo.identidade.slice(0, 16), identidadeFinal: identidadeFinal!.slice(0, 16), produtoAlterado } } : {}),
     motivos,
@@ -485,7 +567,8 @@ function verificarSobConducao(
           : motivo === 'verify.regression'
             ? `regressao em: ${regressoes.map((r) => r.nome).join(', ')}`
             : motivo === 'verify.timeout'
-              ? `estourou o prazo sem terminar: ${[...estouros.map((r) => r.nome),
+              ? `sem veredito por tempo (prazo estourado, ou teste com relogio sob steal acima de ${LIMIAR_STEAL_PCT}%): ${[
+                ...estouros.map((r) => r.nome),
                 ...claims.filter((c) => c.motivo === 'verify.timeout').map((c) => c.claim.id)].join(', ')}`
               : motivo === 'verify.sem-veredito'
                 ? [produtoAlterado ? 'o produto mudou entre o preparo e o fim da rodada' : '',
@@ -517,6 +600,8 @@ function verificarSobConducao(
     falhasSemBaseline,
     estouros,
     preparo: preparo ? { ...preparo, identidadeFinal: identidadeFinal!, produtoAlterado } : null,
+    steal,
+    instabilidade,
     motivos,
     ok,
   };
@@ -526,6 +611,7 @@ function verificarSobConducao(
 function situacaoDoComando(c: ResultadoDeComando): string {
   const s = (ms?: number) => `${Math.round((ms ?? 0) / 1000)} s`;
   if (c.causa === 'timeout') return `ESTOUROU O PRAZO (${s(c.prazoMs)}, rodou ${s(c.duracaoMs)})`;
+  if (c.relogioSobSteal?.length) return `RELOGIO SOB STEAL (${c.stealPct}% de steal, acima de ${LIMIAR_STEAL_PCT}%)`;
   if (c.causa === 'nao-encontrado') return `NAO EXECUTOU (comando nao encontrado, codigo ${c.code})`;
   if (c.causa === 'sinal') return `MORTO POR SINAL (codigo ${c.code})`;
   return `FALHOU (codigo ${c.code})`;
@@ -545,6 +631,15 @@ export function textoDoVerify(r: ResultadoVerify): string {
     linhas.push(`  preparo     ${p.resultado.ok ? 'ok' : situacaoDoComando(p.resultado)} em ` +
       `${Math.round((p.resultado.duracaoMs ?? 0) / 1000)} s, uma vez para a rodada; produto ` +
       `${p.produtoAlterado ? 'MUDOU no meio da rodada: nenhum veredito vale' : 'conferido do preparo ao fim'}`);
+  }
+  linhas.push(`  steal       ${r.steal.medido
+    ? `${r.steal.rodadaPct}% na rodada (${r.steal.fonte}; acima de ${r.steal.limiarPct}%, teste com relogio que reprova fica sem veredito)`
+    : `nao medido (sem ${r.steal.fonte} nesta maquina): nenhuma reprovacao e atenuada`}`);
+  if (r.instabilidade.erros.length > 0) {
+    linhas.push(`  instabilidade ${r.instabilidade.arquivo} FORA DO CONTRATO, nenhuma entrada vale: ${r.instabilidade.erros.join('; ')}`);
+  } else if (r.instabilidade.vencidas.length > 0) {
+    linhas.push(`  instabilidade ${r.instabilidade.vencidas.length} entrada(s) vencida(s), sem valor ate nova medida: ` +
+      r.instabilidade.vencidas.map((e) => e.teste).join(', '));
   }
   linhas.push('');
   linhas.push('Claims reexecutadas no HEAD real:');
@@ -571,7 +666,7 @@ export function textoDoVerify(r: ResultadoVerify): string {
   }
   if (r.estouros.length > 0) {
     linhas.push('');
-    linhas.push(`Estouro de prazo (nao e reprovacao, a prova nao terminou): ${r.estouros.map((c) => c.nome).join(', ')}`);
+    linhas.push(`Sem veredito por tempo (nao e reprovacao: prazo estourado ou relogio sob steal): ${r.estouros.map((c) => c.nome).join(', ')}`);
   }
   if (r.regressoes.length > 0 || r.preExistentes.length > 0 || r.falhasSemBaseline.length > 0) {
     linhas.push('');
