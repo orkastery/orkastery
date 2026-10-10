@@ -145,7 +145,11 @@ function checarFontesDoSite(raiz, snapshot, opcoes = {}) {
  * da partida entraria como se fosse da mudanca.
  */
 function arquivosMudados(raiz, base) {
-  const git = (...args) => spawnSync('git', ['-C', raiz, ...args], { encoding: 'utf8' });
+  const git = (...args) => {
+    const r = spawnSync('git', ['-C', raiz, ...args], { encoding: 'utf8' });
+    if (r.error) throw new Error(`--base ${base}: o git não rodou (${r.error.message})`);
+    return r;
+  };
   if (git('rev-parse', '--is-inside-work-tree').stdout.trim() !== 'true') throw new Error(`--base ${base}: ${raiz} não é um repositório git`);
   const ref = git('rev-parse', '--verify', '--quiet', `${base}^{commit}`);
   if (ref.status !== 0) throw new Error(`--base ${base}: o git não conhece esse commit`);

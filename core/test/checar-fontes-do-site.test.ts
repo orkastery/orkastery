@@ -315,6 +315,16 @@ test('erro de uso e snapshot invalido saem 2, sem relatorio', () => {
       assert.match(r.stderr, erro);
       assert.equal(r.stdout, '');
     }
+    // Sem o git no PATH, o --base diz que o git nao rodou, em vez de quebrar.
+    const vazio = dirTemporario('fontes-site-sem-git');
+    try {
+      const semGit = spawnSync(process.execPath, [SCRIPT, '--snapshot', '-', '--raiz', raiz, '--base', 'HEAD'],
+        { encoding: 'utf8', input: JSON.stringify(valido), env: { ...process.env, PATH: vazio } });
+      assert.equal(semGit.status, 2, semGit.stdout);
+      assert.match(semGit.stderr, /--base HEAD: o git não rodou/);
+    } finally {
+      fs.rmSync(vazio, { recursive: true, force: true });
+    }
     const semSnapshot = spawnSync(process.execPath, [SCRIPT, '--raiz', raiz], { encoding: 'utf8' });
     assert.equal(semSnapshot.status, 2);
     assert.match(semSnapshot.stderr, /falta --snapshot/);
