@@ -152,7 +152,9 @@ export function lerJsonl<T extends { id: string }>(caminho: string): T[] {
 /** Anexa um registro ao armazem JSONL, criando o diretorio que faltar. */
 export function anexarJsonl(caminho: string, valor: unknown): void {
   fs.mkdirSync(path.dirname(caminho), { recursive: true });
-  fs.appendFileSync(caminho, JSON.stringify(valor) + '\n', 'utf8');
+  // RM-047: O_NOFOLLOW; um armazém versionado como link (claims, board) não leva o append para fora da raiz.
+  const fd = fs.openSync(caminho, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o644);
+  try { fs.writeFileSync(fd, JSON.stringify(valor) + '\n', 'utf8'); } finally { fs.closeSync(fd); }
 }
 
 /** Proximo id sequencial de um armazem (`C1`, `C2`, ... / `F1`, `F2`, ...). */

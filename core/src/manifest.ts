@@ -17,6 +17,7 @@ import { lerFusoDoDono } from './horario';
 import { validarPreferencias } from './experiencia';
 import { ENVS_DE_PROVIDER_PAGO } from './runtime-ambiente';
 import { LIMITE_TIMEOUT_DO_UNIVERSO_MS, MODELO_DE_EMBEDDING, TIMEOUT_DO_UNIVERSO_MS } from './orkmind';
+import { branchValida } from './branch-de-estado';
 
 export const NOME_MANIFESTO = 'orkastery.yaml';
 export const NOME_MANIFESTO_LEGADO = 'devmaster.yaml';
@@ -62,7 +63,12 @@ export function acharRaiz(dirInicial: string = diretorioDoProjeto()): string {
 
 /** Caminho do diretorio de estado da raiz informada. */
 export function dirEstado(raiz: string): string {
-  return path.join(raiz, DIR_ESTADO);
+  // RM-047 (fronteira de confiança): `.orkastery` versionado como link levaria o estado para fora da raiz.
+  const dir = path.join(raiz, DIR_ESTADO);
+  if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    throw new Error(`estado.link: ${DIR_ESTADO} é link simbólico; o estado do ork fica numa pasta de verdade dentro da raiz. Remova o link.`);
+  }
+  return dir;
 }
 
 function texto(v: ValorYaml, padrao: string): string {
@@ -289,6 +295,12 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push('conduction.delegation exige thread, escopo premissas, prazo ISO, evidencia e delegado');
   }
   const worktree = mapa(dados.worktree);
+  // RM-047 (fronteira de confiança): a base vai ao git em rev-parse, log, fetch e worktree add. Nome que o
+  // git não aceita como branch (começa com `-`, tem `..`) viraria opção dele; a regra é a do check-ref-format.
+  if (worktree.base_branch !== undefined && worktree.base_branch !== null && !branchValida(texto(worktree.base_branch, ''))) {
+    erros.push(`worktree.base_branch invalido: ${JSON.stringify(texto(worktree.base_branch, '')).slice(0, 60)} ` +
+      '(esperado nome de branch do git, sem "-" no começo e sem "..")');
+  }
   const verify = mapa(dados.verify);
   const ci = mapa(dados.ci);
   const concurrency = mapa(dados.concurrency);
@@ -416,6 +428,14 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     erros.push(
       `memory.database_url_env invalido: "${variavelDaDsn}" (esperado nome de variavel de ambiente, [A-Z][A-Z0-9_]*)`
     );
+  }
+  // RM-047 (fronteira de confiança): `memory.cli` escolhe o executável que o `ork doctor`, a memória e o
+  // `ork brain` rodam. Caminho relativo apontaria para um arquivo do próprio clone; só nome procurado no
+  // PATH (o `orkmind` instalado) ou caminho absoluto escolhido por quem instalou.
+  const cliDaMemoria = texto(memory.cli, 'orkmind');
+  if (!cliDaMemoriaValido(cliDaMemoria)) {
+    erros.push(`memory.cli invalido: ${JSON.stringify(cliDaMemoria).slice(0, 60)} ` +
+      '(esperado nome de executável no PATH, como orkmind, ou caminho absoluto; caminho relativo não é aceito)');
   }
   if (modoDeMemoria === 'orkmind' && variavelDaDsn === '') {
     avisos.push(
@@ -546,6 +566,17 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
   };
 
   return { caminho: achado.caminho, raiz, legado: achado.legado, bytes, manifesto, erros, avisos };
+}
+
+/**
+ * RM-047: `memory.cli` aceito. Nome simples (procurado no PATH, sem barra e sem `-` no começo) ou caminho
+ * absoluto normalizado. Caminho relativo (`./bin/x`, `bin/x`) resolveria dentro do repositório clonado.
+ */
+export function cliDaMemoriaValido(cli: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  if (cli === '' || /[\x00-\x1f\x7f]/.test(cli)) return false;
+  if (/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/.test(cli)) return true;
+  return path.isAbsolute(cli) && path.normalize(cli) === cli;
 }
 
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
