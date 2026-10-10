@@ -1,7 +1,13 @@
-/** KG5: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia. */
+/**
+ * KG5: composicao pura do contexto da thread. Sem E/S, relogio ou inferencia.
+ *
+ * KG5 fatia 5 (D5): quem chama passa a situacao das fontes na arvore (o CLI le os bytes); o grupo cuja
+ * origem ou alvo nao confere ganha `arvore: "modificada"`, e o que confere sai sem o campo. Sem a situacao,
+ * ou com a arvore limpa, o pacote e o de antes, byte a byte.
+ */
 import { createHash } from 'node:crypto';
 import { canonico, compararUtf8, type GrafoCodigo, type Evidencia, type TipoDeAresta } from './intelligence-graph-contract';
-import { AVISO_DE_PARCIALIDADE, ErroDeConsulta, rotuloDoNo, type CabecalhoDoIndice } from './intelligence-graph-query';
+import { AVISO_DE_PARCIALIDADE, ErroDeConsulta, TUDO_IGUAL, rotuloDoNo, type CabecalhoDoIndice, type SituacaoNaArvore } from './intelligence-graph-query';
 
 export const CONTEXTO_SCHEMA = 'ork.thread-graph-context/v2' as const;
 export const CONTEXTO_TETO_PADRAO = 32768;
@@ -70,13 +76,15 @@ interface Grupo {
   kind: TipoDeAresta; origem: string; destino: string; alvo: string; quantidade: number;
   evidencias: Map<string, TuplaDeEvidencia>; entreArquivos: boolean; distancia: number;
   salto: 1 | 2;
+  /** KG5 fatia 5 (D5): calculado quando o grupo entra no pacote, e guardado. */
+  modificada?: boolean;
 }
 const compararTipo = (a: TipoDeAresta, b: TipoDeAresta): number =>
   Number(a === 'cites') - Number(b === 'cites') || compararUtf8(a, b);
 
 /** O grafo recebido ja deve estar filtrado pela concessao de quem consulta. */
 export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, entrada: EntradaDoContexto,
-  tetoBytes = CONTEXTO_TETO_PADRAO): string {
+  tetoBytes = CONTEXTO_TETO_PADRAO, situacao: SituacaoNaArvore = TUDO_IGUAL): string {
   if (!Number.isInteger(tetoBytes) || tetoBytes < 4096 || tetoBytes > 65536)
     throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
   const porId = new Map(grafo.nodes.map((n) => [n.node_id, n]));
@@ -160,6 +168,9 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     total_sementes: sementes.length, sementes_fora_do_indice: ausentes.length, total_arestas: totalArestas,
     total_ligacoes: ordenados.length, resumidas: { estruturais }, parcial: AVISO_DE_PARCIALIDADE };
   const selecionadas: typeof sementes = [], ligacoes: Grupo[] = [];
+  // D4 e D5: as evidencias do grupo estao no arquivo da origem; o alvo pesa como nas consultas por no.
+  const modificado = (a: Grupo): boolean =>
+    (a.modificada ??= situacao(a.origem.slice(5)) !== 'igual' || situacao(porId.get(a.alvo)!.locator.path) !== 'igual');
   const totalDiretas = ordenados.filter((a) => a.salto === 1).length;
   const totalSegundoSalto = ordenados.length - totalDiretas;
   const montar = (): string => {
@@ -176,7 +187,7 @@ export function pacoteDeContexto(grafo: GrafoCodigo, indice: CabecalhoDoIndice, 
     const cortado = omitidos.sementes > 0 || omitidos.ligacoes > 0 || diretasOmitidas > 0 || auxiliaresDiretas > 0;
     const r = { ...fixo, sementes: selecionadas, nos: Object.fromEntries([...refs].map(([r, ref]) => [ref, r])),
       arestas: ligacoes.map((a) => ({ kind: a.kind, from: refs.get(a.origem)!, to: refs.get(a.destino)!, quantidade: a.quantidade,
-        ...(a.salto === 2 ? { salto: 2 } : {}),
+        ...(a.salto === 2 ? { salto: 2 } : {}), ...(modificado(a) ? { arvore: 'modificada' } : {}),
         evidencias: [...a.evidencias].sort(([a], [b]) => compararUtf8(a, b)).map(([, e]) => e) })),
       truncado: cortado, omitidos, teto: { bytes: tetoBytes, cortado },
       medida: { pacote_bytes: 0, leitura_crua_bytes: fontes.reduce((s, f) => s + f.size_bytes, 0),

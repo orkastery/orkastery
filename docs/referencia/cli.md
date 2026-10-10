@@ -416,8 +416,11 @@ reextrai só o que a mudança alcança, com os mesmos bytes da extração comple
 
 O nó é `caminho`, `caminho#fragmento`, `tipo:caminho#fragmento` ou um nome solto, que precisa
 ser único: nome ambíguo sai com os candidatos. `--limite` mantém as arestas mais perto do alvo. A resposta é parcial por construção (só o que o
-extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Saída 0 com
-resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
+extrator prova) e diz isso; com a árvore modificada, ela é a do HEAD e avisa. Desde a
+[fatia 5 do KG5](contratos/consumo-grafo-kg5.md#fatia-5-proveniência-conferida-contra-a-árvore), o texto
+marca com `[fonte modificada na arvore]` a aresta cuja origem, alvo ou evidência mudou depois do HEAD e
+lista até cinco fontes que mudaram; no JSON, cada aresta traz `arvore`, e a resposta traz `fontes`. Saída
+0 com resposta, mesmo vazia; erro tipado sai 1 e, com `--json`, vem como objeto.
 
 `--teto-bytes N` (KG5, só com `--json`) escreve a resposta em JSON compacto de no máximo N bytes: se ela
 não cabe, as arestas mais longe do alvo saem, pelo maior `--limite` que cabe, e o campo `teto` diz o
