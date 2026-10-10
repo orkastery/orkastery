@@ -58,7 +58,8 @@ node core/scripts/medir-piloto-de-contribuicao.cjs
 ```
 
 - De fora é quem não é dono nem membro da organização, e não é bot. Convidado com acesso de escrita conta como de fora.
-- A primeira execução é o primeiro run do CI do PR, na branch de origem dele, mesmo que o commit tenha saído depois por push forçado. Esperar o mantenedor liberar o CI do fork não é execução, nem o run cancelado pelo push seguinte; reexecutar até passar não vira verde na primeira.
+- A primeira execução é o primeiro run do CI do PR, na branch de origem dele, mesmo que o commit tenha saído depois por push forçado. Esperar o mantenedor liberar o CI do fork não é execução, nem run cancelado (com `cancel-in-progress`, o push seguinte cancela o anterior); reexecutar até passar não vira verde na primeira.
+- Com o fork apagado, a medida casa os runs só pelo nome da branch e marca o PR para conferir, fora do fechamento: guarde a coleta enquanto o fork existe.
 - Sem ajuda quer dizer nenhum commit de outra pessoa nem commit sem login do GitHub no PR. Ajuda em comentário não vira dado: confira nos PRs que a medida lista.
 - `--salvar-dados <arquivo>` guarda a coleta, e `--dados <arquivo>` mede de novo sem rede. Guarde a coleta de cada rodada: quem é de fora sai da associação de hoje com a organização, e um convidado que vira membro some das medidas seguintes.
 
