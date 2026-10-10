@@ -90,10 +90,10 @@ sdlc:
   - rótulos com os nomes padrão do GitHub, e `needs triage` como o único novo;
   - primeira resposta em até 7 dias, a mesma meta do `SECURITY.md`;
   - a checagem dos comandos dos guias entra como claim da thread e teste da suíte, sem passo novo no CI.
-- **Decisões da rodada de 10/10/2026:** autônomas da thread `ork-rm050guia3`, D1 a D8 no ledger da thread, a ratificar pelo dono:
+- **Decisões da rodada de 10/10/2026:** autônomas da thread `ork-rm050guia3`, D1 a D9 no ledger da thread, a ratificar pelo dono:
   - escopo só neste repositório; a revisão da página nos sites e o guia do OrkMind ficam como próxima ação;
   - PR de fora é o de autor que não é dono nem membro da organização, nem bot; convidado com acesso de escrita conta;
-  - a primeira execução é o primeiro run do CI sobre um commit do PR; liberar o CI do fork não conta, e reexecutar até passar não vira verde;
+  - a primeira execução é o primeiro run do CI na branch de origem do PR, enquanto ele esteve aberto (a D9 revisou a D4 depois da revisão independente: só os commits de hoje perdiam o run do commit que saiu por push forçado); liberar o CI do fork e o run cancelado pelo push seguinte não contam, e reexecutar até passar não vira verde;
   - sem ajuda quer dizer nenhum commit de outra pessoa nem commit sem login do GitHub; ajuda em comentário o mantenedor confere;
   - os dois comandos não entram no CI e a suíte os testa sem rede.
 
@@ -105,7 +105,7 @@ sdlc:
 - O rótulo `needs triage`, já usado pelos modelos de issue, existe nos dois repositórios. A condução confirmou a criação em 03/10/2026; é configuração do GitHub, sem commit de produto. Os modelos do Orkastery vieram no PR #22 (`3c7e8a7`). Consulta reproduzível: `gh label list --repo orkastery/orkastery --search "needs triage"` e `gh label list --repo orkastery/orkmind --search "needs triage"`.
 - Rodada de 10/10/2026, thread `ork-rm050guia3`: `gh label list` mostra nos dois repositórios os 11 rótulos da tabela de [triagem](../guias/contribuir/triagem.md), com `needs triage`; o Discussions tem as categorias `ideas` e `q-a` que os modelos citam; os checks obrigatórios da `main` são os quatro do `CONTRIBUTING.md`. O guia de [documentação](../guias/contribuir/documentacao.md#como-o-site-usa-este-texto) passou a descrever o catálogo dos dois sites, e a triagem ganhou a medida do piloto.
 - A página `contribuir` do orkastery.com está atrás da fonte: o snapshot do site (`src/data/docs-sources.json`, revisado em 03/10) é anterior ao caminho curto em inglês do `CONTRIBUTING.md` (commit `1b212e36`, 03/10) e aos guias desta rodada. O build do site não acusa, porque sem `--source` confere só o snapshot. Consulta reproduzível: `gh api repos/orkastery/orkastery.com/contents/src/data/docs-sources.json -H 'Accept: application/vnd.github.raw' | node core/scripts/checar-fontes-do-site.cjs --snapshot -`.
-- Piloto: em 10/10/2026, `node core/scripts/medir-piloto-de-contribuicao.cjs` não acha PR de fora nos dois repositórios desde 29/09. A taxa segue sem medida, e o fechamento está em 0 de 2. O ensaio da medida sobre PRs do mantenedor (`--tratar-como-externo`) bate com o GitHub: o #117 sai reprovado na primeira execução (run 37127788195), o #118 verde (run 37132186392) e o #87 reprovado na tentativa 1 do run 37106955227, hoje verde na tentativa 2.
+- Piloto: em 10/10/2026, `node core/scripts/medir-piloto-de-contribuicao.cjs` não acha PR de fora nos dois repositórios desde 29/09. A taxa segue sem medida, e o fechamento está em 0 de 2. O ensaio da medida sobre PRs do mantenedor (`node core/scripts/medir-piloto-de-contribuicao.cjs --repo orkastery/orkastery --desde 2026-10-03 --tratar-como-externo <login do mantenedor>`) bate com o GitHub: o #117 sai reprovado na primeira execução (run 37127788195), o #118 verde (run 37132186392) e o #87 reprovado na tentativa 1 do run 37106955227, hoje verde na tentativa 2.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
 
@@ -138,4 +138,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-01 | Parte do Orkastery na versão 0.5.0 | tag `v0.5.0` (PR #36) | Julio |
 | 2026-10-03 | o texto registra a página "Contribuir" no ar nos dois sites | `curl` 200 em `orkastery.com/docs/contribuir/` e `orkmind.com/docs/contribuir/` (PT, EN e ES); `orkastery.com` PR #6 (`e29d05e`), `orkmind.com` `5adde94`; thread `ork-b3fatosdoroa`, item B3 | Claude (agente, #Auto), revisão de Julio pendente |
 | 2026-10-03 | Rótulo needs triage criado nos dois repositórios; item em piloto, com exposição geral | Confirmação da condução; modelos no PR #22 (`3c7e8a7`) e guia do OrkMind no PR #6 (`c78a7f3`); falta medir os dois PRs externos do critério de aceite | Codex (agente, #Fast), revisão pendente |
-| 2026-10-10 | Guia de documentação com o catálogo dos dois sites; comandos para ver que página do site revisar e para medir o piloto | Thread `ork-rm050guia3` (#Auto), decisões D1 a D8 no ledger da thread; medida de 10/10: zero PRs de fora; página `contribuir` do orkastery.com atrás da fonte desde `1b212e36` | Claude (agente, #Auto), revisão de Julio pendente |
+| 2026-10-10 | Guia de documentação com o catálogo dos dois sites; comandos para ver que página do site revisar e para medir o piloto | Thread `ork-rm050guia3` (#Auto), decisões D1 a D9 no ledger da thread; medida de 10/10: zero PRs de fora; página `contribuir` do orkastery.com atrás da fonte desde `1b212e36` | Claude (agente, #Auto), revisão de Julio pendente |
