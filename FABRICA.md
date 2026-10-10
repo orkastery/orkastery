@@ -15,7 +15,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 | srvjcp86 | ork-rm047procede | #Auto | GOAL | sem despacho | — | — | 03/10 08:52 |
 | srvjcp86 | ork-rm049quickst | #Auto | GOAL | sem despacho | RM-049 | — | 03/10 08:52 |
 | vps | ork-rm031grafo3 | #Auto | GO | claude-bg opus/max | — | — | 10/10 03:05 |
-| vps | ork-rm038busca3 | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 10/10 03:05 |
+| vps | ork-rm038busca3 | #Auto | GO | claude-bg opus/max | — | — | 10/10 03:05 |
 | vps | ork-rm050guia3 | #Auto | PLAN | codex gpt-5.6-sol/xhigh | — | — | 10/10 03:05 |
 | vps | ork-rm052projet2 | #Auto | GOAL | codex gpt-5.6-sol/xhigh | — | — | 10/10 03:05 |
 | vps | ork-rm055impedi2 | #Auto | GO | claude-bg opus/max | — | — | 10/10 03:05 |
