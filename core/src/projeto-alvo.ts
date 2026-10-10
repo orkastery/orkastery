@@ -534,6 +534,8 @@ export function consultaDoProjeto(carregado: ManifestoCarregado,
     opcoes: { lido: string[]; naoLido: string[]; origem?: OrigemDoProjeto; outrosProjetos?: boolean;
       /** A URL ja lida por quem chama (`remotoDoProjeto`), para nao consultar o git duas vezes. */
       remoto?: string | null }): ConsultaDoProjeto {
+  // Fatia 2 (D3): o comando monta o proprio cabecalho; a linha generica do fim nao se repete.
+  if (declaracao) declaracao.feita = true;
   const alvo = projetoAlvoAtual();
   const origem = opcoes.origem ?? (alvo && path.resolve(alvo.raiz) === path.resolve(carregado.raiz) ? alvo.origem : 'cwd');
   const outros = opcoes.outrosProjetos === false ? 0 : outrosProjetosConhecidos(carregado.raiz);
@@ -548,11 +550,71 @@ export function consultaDoProjeto(carregado: ManifestoCarregado,
   };
 }
 
+/** A linha do projeto consultado: a primeira do cabecalho e a que a declaracao da fatia 2 escreve. */
+export function linhaDoProjeto(p: ConsultaDoProjeto['projeto']): string {
+  return `Projeto consultado: ${p.nome} (${p.abbrev || '-'}) · ${p.raiz} · ${p.remoto ?? 'sem remoto'} · ${ORIGENS_DO_PROJETO[p.origem]}`;
+}
+
 /** As duas linhas do cabecalho em texto: o projeto consultado e o que nao foi lido. */
 export function linhasDaConsulta(c: ConsultaDoProjeto): string[] {
-  const p = c.projeto;
   return [
-    `Projeto consultado: ${p.nome} (${p.abbrev || '-'}) · ${p.raiz} · ${p.remoto ?? 'sem remoto'} · ${ORIGENS_DO_PROJETO[p.origem]}`,
+    linhaDoProjeto(c.projeto),
     `Não lido: ${c.naoLido.length ? c.naoLido.join(' · ') : 'nada fora do projeto consultado'}`,
   ];
+}
+
+// ---------------------------------------------------------------------------
+// A declaracao do projeto consultado (fatia 2, D3).
+// ---------------------------------------------------------------------------
+
+/**
+ * Na fatia 1, so maestro, board, fabrica e roadmap status diziam qual projeto leram; dez das catorze
+ * tools de projeto do OpenClaw respondiam sem nomea-lo, e com um so projeto conhecido a resposta era a
+ * dele, sem aviso. Agora todo comando que le um projeto que o leitor nao tem como adivinhar termina com
+ * a linha `Projeto consultado: ...` no stderr: o OpenClaw junta stdout e stderr no texto da tool, e o
+ * JSON do stdout continua inteiro para quem o consome.
+ */
+let declaracao: { alvo: ProjetoAlvo; feita: boolean } | null = null;
+
+/** Zera o pedido de declaracao do processo (os testes chamam `main` em serie no mesmo processo). */
+export function iniciarDeclaracaoDoProjeto(): void {
+  declaracao = null;
+}
+
+/**
+ * Pede a linha para o comando que vai ler `alvo`, so quando o leitor nao sabe qual projeto foi lido:
+ * no host (`ORK_PROJETO_EXPLICITO=1`), cuja resposta vai a um canal de conversa, ou quando o projeto nao
+ * e o do diretorio atual. No terminal, dentro do proprio projeto, nada muda (BR-030-02).
+ */
+export function pedirDeclaracaoDoProjeto(alvo: ProjetoAlvo | null,
+    entrada: { ambiente?: NodeJS.ProcessEnv; cwd?: string } = {}): void {
+  declaracao = null;
+  if (!alvo) return;
+  const ambiente = entrada.ambiente ?? process.env;
+  const host = (ambiente[ENV_PROJETO_EXPLICITO] ?? '').trim() === '1';
+  if (!host && raizDoDiretorio(entrada.cwd ?? process.cwd()) === alvo.raiz) return;
+  declaracao = { alvo, feita: false };
+}
+
+/** A raiz do manifesto que o diretorio enxerga subindo, com caminho real; `null` fora de projeto. */
+function raizDoDiretorio(cwd: string): string | null {
+  const achada = subirAte(path.resolve(cwd), NOME_MANIFESTO) ?? subirAte(path.resolve(cwd), NOME_MANIFESTO_LEGADO);
+  if (!achada) return null;
+  try { return fs.realpathSync(achada); } catch { return null; }
+}
+
+/**
+ * A linha que faltou, e consome o pedido: `null` sem pedido, ou quando o comando montou o proprio
+ * cabecalho (`consultaDoProjeto`).
+ */
+export function declaracaoQueFaltou(): string | null {
+  const d = declaracao;
+  declaracao = null;
+  if (!d || d.feita) return null;
+  let carregado: ManifestoCarregado | null;
+  try { carregado = carregarManifesto(d.alvo.raiz); } catch { return null; }
+  if (!carregado) return null;
+  const m = carregado.manifesto;
+  return linhaDoProjeto({ nome: m.project.name, abbrev: m.project.abbrev, raiz: raizParaExibir(carregado.raiz),
+    remoto: remotoDoProjeto(carregado.raiz, m.fabrica?.remoto ?? 'origin'), origem: d.alvo.origem });
 }

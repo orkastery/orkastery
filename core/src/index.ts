@@ -241,10 +241,10 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
-  FORA_DA_CONSULTA,
-  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
-  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
+  fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
+  linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
+  remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -4062,14 +4062,32 @@ const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos
  */
 export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
 
-/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
-function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+/**
+ * Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. Fatia 2 (D3): com
+ * `declarar`, o comando termina dizendo qual projeto leu, quando o leitor nao tem como saber.
+ */
+function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
   fixarProjetoAlvo(alvo);
+  if (declarar) pedirDeclaracaoDoProjeto(alvo);
   return alvo;
 }
 
+/**
+ * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
+ * fora do diretorio dele) termina com a linha `Projeto consultado: ...` no stderr, tambem quando falha,
+ * salvo se ja montou o proprio cabecalho.
+ */
 export function main(argvBruto: string[]): number {
+  iniciarDeclaracaoDoProjeto();
+  try { return executarComando(argvBruto); }
+  finally {
+    const linha = declaracaoQueFaltou();
+    if (linha) console.error(linha);
+  }
+}
+
+function executarComando(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
   // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
@@ -4096,8 +4114,9 @@ export function main(argvBruto: string[]): number {
   }
   if (argv[0] === 'maestro') {
     if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
-    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
-    const alvo = fixarAlvoDoProcesso(projeto);
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
+    // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
+    const alvo = fixarAlvoDoProcesso(projeto, false);
     return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
       : runMaestroCli(argv.slice(1));
   }
@@ -4113,8 +4132,10 @@ export function main(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
-  else if (projeto !== undefined && comando !== 'projetos') {
+  // Fatia 2 (D3): `sessions event` e o sensor dos hooks, maquina falando com maquina; nao declara.
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
+    fixarAlvoDoProcesso(projeto, !(comando === 'sessions' && args.posicionais[1] === 'event'));
+  } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
       : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
