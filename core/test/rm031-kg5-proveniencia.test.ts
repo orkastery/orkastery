@@ -513,3 +513,22 @@ test('KG5 proveniencia: com a arvore modificada, vizinhos (com e sem teto, corta
     r.limpar();
   }
 });
+
+/**
+ * CHECK rodada 1 (S2): o sha256 que o codigo da base 8248d98d da para este pacote, com as mesmas entradas. A versao do
+ * extrator embute a do Node e a do Unicode, entao as duas sao fixadas antes de compor: o pacote nao depende do Node do CI.
+ */
+const SHA_DO_PACOTE_NA_BASE = '6cb56b0fb20df07cc5c80a733383130b4087895213f793c3dc2552d9b7229fd8';
+
+test('KG5 proveniencia: com a arvore limpa, o pacote v2 tem os bytes que o codigo da base produz (CHECK rodada 1, S2)', () => {
+  const fixar = (v: string): string => v.replace(/\+node\.[0-9.]+/, '+node.fixo').replace(/\+unicode\.[0-9.]+/, '+unicode.fixo');
+  const c = structuredClone(GRAFO);
+  c.snapshot.extractors = c.snapshot.extractors.map((e) => ({ ...e, extractor_version: fixar(e.extractor_version) }));
+  for (const a of c.edges) a.evidence = a.evidence.map((e) => ({ ...e, extractor_version: fixar(e.extractor_version) }));
+  for (const d of c.diagnostics) d.extractor_version = fixar(d.extractor_version);
+  const g = validarGrafo(derivarIds(c));
+  for (const texto of [pacoteDeContexto(g, cabecalho('limpa', g), ENTRADA), pacoteDeContexto(g, cabecalho('limpa', g), ENTRADA, 32768, () => 'igual')]) {
+    assert.equal(sha256(texto), SHA_DO_PACOTE_NA_BASE);
+    assert.equal(Buffer.byteLength(texto), 2516);
+  }
+});
