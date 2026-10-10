@@ -20,8 +20,9 @@
  *   node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json|-> [--raiz DIR]
  *        [--base REF] [--json]
  *
- * `--snapshot -` le da entrada padrao. `--base REF` restringe aos arquivos mudados desde REF
- * (`git diff`, mais os arquivos novos fora do indice): a pergunta de quem abre o PR.
+ * `--snapshot -` le da entrada padrao. `--base REF` restringe aos arquivos que a mudanca tocou desde
+ * que saiu de REF (`git diff` a partir do merge-base com o HEAD, mais os arquivos novos fora do
+ * indice): a pergunta de quem abre o PR, mesmo com a base andando depois.
  * Sai 0 com tudo em dia, 1 com fonte a revisar e 2 com erro de uso ou snapshot invalido.
  */
 'use strict';
@@ -121,21 +122,30 @@ function checarFontesDoSite(raiz, snapshot, opcoes = {}) {
   };
 }
 
-/** Os arquivos mudados desde `base`: o diff contra a arvore de trabalho e os novos fora do indice. */
+/**
+ * Os arquivos da mudanca: o diff do ponto em que ela saiu de `base` (o merge-base com o HEAD) ate a
+ * arvore de trabalho, mais os novos fora do indice. Contra a ponta da base, o que a base mudou depois
+ * da partida entraria como se fosse da mudanca.
+ */
 function arquivosMudados(raiz, base) {
   const git = (...args) => spawnSync('git', ['-C', raiz, ...args], { encoding: 'utf8' });
   const ref = git('rev-parse', '--verify', '--quiet', `${base}^{commit}`);
   if (ref.status !== 0) throw new Error(`--base ${base}: o git não conhece esse commit`);
+  const partida = git('merge-base', ref.stdout.trim(), 'HEAD');
+  if (partida.status !== 0) throw new Error(`--base ${base}: sem ponto em comum com o HEAD`);
   // Sem deteccao de renomeacao: o caminho antigo tambem entra, e a fonte removida aparece.
-  const diff = git('diff', '--name-only', '--no-renames', '--relative', base);
+  const diff = git('diff', '--name-only', '--no-renames', '--relative', partida.stdout.trim());
   const novos = git('ls-files', '--others', '--exclude-standard');
   if (diff.status !== 0 || novos.status !== 0) throw new Error(`git falhou: ${(diff.stderr || novos.stderr).trim()}`);
-  return [...diff.stdout.split('\n'), ...novos.stdout.split('\n')].map((l) => l.trim()).filter(Boolean);
+  return {
+    partida: partida.stdout.trim(),
+    arquivos: [...diff.stdout.split('\n'), ...novos.stdout.split('\n')].map((l) => l.trim()).filter(Boolean),
+  };
 }
 
-function relatorio(r, raiz, base) {
+function relatorio(r, raiz) {
   const linhas = [`Fontes do site do produto ${r.produto}: ${r.fontesNoSnapshot} no snapshot, comparadas com ${raiz}`];
-  if (base) linhas.push(`Só os arquivos mudados desde ${base}.`);
+  if (r.base) linhas.push(`Só os arquivos mudados desde que a mudança saiu de ${r.base} (${r.partida.slice(0, 8)}).`);
   if (r.emDia) {
     linhas.push('Nenhuma fonte a revisar: o snapshot do site está em dia com estes arquivos.');
     return linhas.join('\n');
@@ -199,9 +209,12 @@ function main(argv = process.argv.slice(2)) {
     } catch {
       throw new Error(`snapshot inválido: ${args.snapshot} não é JSON`);
     }
-    const arquivos = args.base ? arquivosMudados(raiz, args.base) : undefined;
-    const r = checarFontesDoSite(raiz, snapshot, { arquivos });
-    console.log(args.json ? JSON.stringify(r, null, 2) : relatorio(r, raiz, args.base));
+    const mudanca = args.base ? arquivosMudados(raiz, args.base) : null;
+    const r = {
+      ...checarFontesDoSite(raiz, snapshot, { arquivos: mudanca?.arquivos }),
+      ...(mudanca ? { base: args.base, partida: mudanca.partida } : {}),
+    };
+    console.log(args.json ? JSON.stringify(r, null, 2) : relatorio(r, raiz));
     return r.emDia ? 0 : 1;
   } catch (e) {
     console.error(e.message);

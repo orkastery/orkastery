@@ -166,39 +166,56 @@ test('--snapshot - le o snapshot da entrada padrao', () => {
   });
 });
 
-test('--base so lista os arquivos mudados desde a ref, com o caminho antigo de uma renomeacao', () => {
+test('--base lista so o que a mudanca tocou desde que saiu da base, mesmo com a base andando depois', () => {
   comArvore(ARVORE, (raiz) => {
-    const snapshot = snapshotDe(ARVORE);
+    // O site revisou um README mais antigo: o README de hoje ja esta defasado, mas nao e da mudanca.
+    const snapshot = snapshotDe({ ...ARVORE, 'README.md': '# Orkastery antigo\n' });
     git(raiz, 'init', '-q', '-b', 'main');
     git(raiz, 'add', '--', ...Object.keys(ARVORE));
     git(raiz, 'commit', '-q', '-m', 'base');
-    // Defasagem antiga, de fora do diff: o README muda num commit que ja esta na base.
+    git(raiz, 'checkout', '-q', '-b', 'pr');
+    // A main anda depois que a mudanca saiu dela: o README muda la, e nao na branch.
+    git(raiz, 'checkout', '-q', 'main');
     fs.writeFileSync(path.join(raiz, 'README.md'), '# Orkastery\n\nOutro texto.\n');
-    git(raiz, 'commit', '-q', '-am', 'readme');
-    const base = git(raiz, 'rev-parse', 'HEAD').trim();
+    git(raiz, 'commit', '-q', '-am', 'readme na main');
+    git(raiz, 'checkout', '-q', 'pr');
     // A mudanca do PR: triagem editada, RM-050 renomeado e um guia novo ainda fora do indice.
     fs.writeFileSync(path.join(raiz, 'docs/guias/contribuir/triagem.md'), '# Triagem\n\nPrazo.\n');
     git(raiz, 'mv', 'docs/roadmap/RM-050.md', 'docs/roadmap/RM-050-guia.md');
     escrever(raiz, { 'docs/guias/contribuir/novo.md': '# Novo\n' });
 
-    const r = rodar(raiz, snapshot, '--base', base, '--json');
+    const r = rodar(raiz, snapshot, '--base', 'main', '--json');
     assert.equal(r.status, 1, r.stderr);
     const json = JSON.parse(r.stdout);
     assert.equal(json.restrito, true);
+    assert.equal(json.base, 'main');
+    assert.equal(json.partida, git(raiz, 'merge-base', 'main', 'pr').trim(), 'a partida e o merge-base, nao a ponta da main');
     assert.deepEqual(json.fontes.map((f: { caminho: string; estado: string }) => `${f.estado} ${f.caminho}`), [
       'nova docs/guias/contribuir/novo.md',
       'mudada docs/guias/contribuir/triagem.md',
       'nova docs/roadmap/RM-050-guia.md',
       'removida docs/roadmap/RM-050.md',
     ]);
-    assert.ok(!json.fontes.some((f: { caminho: string }) => f.caminho === 'README.md'), 'a defasagem de antes da base fica fora');
+    assert.ok(!json.fontes.some((f: { caminho: string }) => f.caminho === 'README.md'), 'o que a main mudou depois da partida nao e da mudanca');
 
-    // Com tudo commitado, a mesma pergunta contra o HEAD nao acha mudanca, mesmo com o README atrasado.
+    // Sem --base, o README defasado aparece: a lista e tudo o que o site ainda nao revisou.
+    const tudo = JSON.parse(rodar(raiz, snapshot, '--json').stdout);
+    assert.ok(tudo.fontes.some((f: { caminho: string }) => f.caminho === 'README.md'));
+
+    // Com tudo commitado, a mesma pergunta contra o HEAD nao acha mudanca.
     git(raiz, 'add', '--', 'docs/guias/contribuir/novo.md', 'docs/guias/contribuir/triagem.md');
     git(raiz, 'commit', '-q', '-m', 'pr');
     const semMudanca = rodar(raiz, snapshot, '--base', 'HEAD');
     assert.equal(semMudanca.status, 0, semMudanca.stdout);
-    assert.match(semMudanca.stdout, /Só os arquivos mudados desde HEAD\.\nNenhuma fonte a revisar/);
+    assert.match(semMudanca.stdout, /Só os arquivos mudados desde que a mudança saiu de HEAD \([0-9a-f]{8}\)\.\nNenhuma fonte a revisar/);
+
+    // Base sem historia em comum com o HEAD nao tem ponto de partida: erro de uso.
+    git(raiz, 'checkout', '-q', '--orphan', 'solta');
+    git(raiz, 'commit', '-q', '-m', 'solta');
+    git(raiz, 'checkout', '-q', 'pr');
+    const solta = rodar(raiz, snapshot, '--base', 'solta');
+    assert.equal(solta.status, 2, solta.stdout);
+    assert.match(solta.stderr, /sem ponto em comum com o HEAD/);
   });
 });
 
