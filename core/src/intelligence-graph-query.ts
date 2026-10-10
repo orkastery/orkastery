@@ -11,6 +11,10 @@
  *
  * D7: a resposta e a mesma para o mesmo grafo e a mesma pergunta, byte a byte, em texto e em JSON
  * (`ork.code-graph-query/v0`, provisorio e fora do contrato): ordem por code point, sem horario.
+ *
+ * RM-031 KG5 fatia 5 (D2 a D4, D9, D10): a resposta traz `fontes`, o sha256 e o blob de cada caminho
+ * citado, e cada aresta diz se as fontes dela conferem com a arvore. Quem chama passa a situacao de
+ * cada caminho (o CLI le os bytes); sem ela, tudo vale `igual`, e a consulta continua sem arquivo.
  */
 import {
   TIPOS_DE_ARESTA, compararUtf8, type Acesso, type Aresta, type Evidencia, type GrafoCodigo, type No, type TipoDeAresta, type TipoDeNo,
@@ -28,6 +32,12 @@ export const AVISO_DE_PARCIALIDADE =
 export type Sentido = 'entrada' | 'saida' | 'ambos';
 export type TipoDeConsulta = 'vizinhos' | 'chamadores' | 'importadores' | 'caminho';
 export interface Concessao { tenant_id: string; acl_refs: readonly string[] }
+/** KG5 fatia 5 (D3): a fonte na arvore tem os bytes do indice, outros bytes, ou nao ha arquivo regular no caminho. */
+export type SituacaoDaFonte = 'igual' | 'modificada' | 'ausente';
+/** Quem chama diz a situacao de cada caminho do manifesto; a consulta nao le arquivo. */
+export type SituacaoNaArvore = (p: string) => SituacaoDaFonte;
+/** Sem saber da arvore, toda fonte vale `igual`: e o que a arvore limpa garante. */
+export const TUDO_IGUAL: SituacaoNaArvore = () => 'igual';
 
 /** Erro tipado da consulta; `candidatos` so no nome ambiguo, e so com nos visiveis. */
 export class ErroDeConsulta extends Error {
@@ -47,6 +57,8 @@ export interface GrafoConsultavel {
   /** Por no, as arestas que saem e as que chegam, na ordem fixa (tipo, outra ponta, id). */
   saida: Map<string, Aresta[]>;
   entrada: Map<string, Aresta[]>;
+  /** KG5 fatia 5 (D2): por caminho do manifesto visivel na concessao, o sha256 e o blob dos bytes indexados. */
+  fontes: Map<string, { source_hash: string; source_version: string }>;
 }
 
 const TIPOS_DE_NO_COM_FRAGMENTO: readonly TipoDeNo[] = ['symbol', 'section', 'artifact'];
@@ -102,7 +114,9 @@ export function prepararConsulta(grafoInteiro: GrafoCodigo, concessao: Concessao
   for (const lista of saida.values()) lista.sort(ordem((a) => rotulos.get(a.to) as string));
   for (const lista of entrada.values()) lista.sort(ordem((a) => rotulos.get(a.from) as string));
   for (const lista of porFragmento.values()) lista.sort((x, y) => compararUtf8(rotuloDoNo(x), rotuloDoNo(y)));
-  return { repository_id: grafo.repository_id, snapshot_id: grafo.snapshot.snapshot_id, nos, rotulos, porLocalizador, arquivos, porFragmento, saida, entrada };
+  const fontes = new Map<string, { source_hash: string; source_version: string }>();
+  for (const m of grafo.snapshot.source_manifest) if (visivel(m.access, concessao)) fontes.set(m.path, { source_hash: m.source_hash, source_version: m.source_version });
+  return { repository_id: grafo.repository_id, snapshot_id: grafo.snapshot.snapshot_id, nos, rotulos, porLocalizador, arquivos, porFragmento, saida, entrada, fontes };
 }
 
 function ambiguo(texto: string, candidatos: No[]): never {
@@ -158,9 +172,17 @@ export interface NoDaResposta { rotulo: string; kind: TipoDeNo; path: string; fr
 export interface EvidenciaDaResposta {
   extractor_id: string; extractor_version: string; extraction_method: Evidencia['extraction_method']; path: string; span: Evidencia['span'];
 }
-/** `distancia`: na vizinhanca, os saltos do alvo ate o no que a explorou; no caminho, o numero do passo. */
-export interface ArestaDaResposta { kind: TipoDeAresta; from: string; to: string; edge_id: string; distancia: number; evidencias: EvidenciaDaResposta[] }
+/**
+ * `distancia`: na vizinhanca, os saltos do alvo ate o no que a explorou; no caminho, o numero do passo.
+ * `arvore` (KG5 fatia 5, D4): `igual` so quando todas as fontes da aresta, as duas pontas e as evidencias,
+ * tem na arvore os bytes do indice.
+ */
+export interface ArestaDaResposta {
+  kind: TipoDeAresta; from: string; to: string; edge_id: string; distancia: number; arvore: 'igual' | 'modificada'; evidencias: EvidenciaDaResposta[];
+}
 export interface PassoDoCaminho { sentido: 'saida' | 'entrada'; aresta: ArestaDaResposta }
+/** KG5 fatia 5 (D2): a identidade dos bytes de que as evidencias vieram, um caminho por entrada, e a situacao dele na arvore. */
+export interface FonteDaResposta { path: string; source_hash: string; source_version: string; arvore: SituacaoDaFonte }
 
 /** O que o chamador sabe do indice: vai no cabecalho da resposta. */
 export interface CabecalhoDoIndice {
@@ -190,6 +212,8 @@ export interface RespostaDeConsulta {
   truncado: boolean;
   caminho: PassoDoCaminho[] | null;
   nos_explorados: number | null;
+  /** KG5 fatia 5 (D2, D10): os caminhos dos nos e das evidencias devolvidas, em ordem UTF-8. */
+  fontes: FonteDaResposta[];
   parcial: string;
 }
 
@@ -197,7 +221,9 @@ function noDaResposta(g: GrafoConsultavel, n: No, distancia: number | null): NoD
   return { rotulo: g.rotulos.get(n.node_id) as string, kind: n.kind, path: n.locator.path, fragment: n.locator.fragment, node_id: n.node_id, distancia };
 }
 
-function arestaDaResposta(g: GrafoConsultavel, a: Aresta, distancia: number): ArestaDaResposta {
+type ArestaSemArvore = Omit<ArestaDaResposta, 'arvore'>;
+
+function arestaDaResposta(g: GrafoConsultavel, a: Aresta, distancia: number): ArestaSemArvore {
   const evidencias = a.evidence.map((e): EvidenciaDaResposta => ({
     extractor_id: e.extractor_id, extractor_version: e.extractor_version, extraction_method: e.extraction_method, path: e.path, span: e.span,
   })).sort((x, y) => compararUtf8(x.path, y.path) || (x.span.byte_start - y.span.byte_start) || (x.span.byte_end - y.span.byte_end)
@@ -205,8 +231,32 @@ function arestaDaResposta(g: GrafoConsultavel, a: Aresta, distancia: number): Ar
   return { kind: a.kind, from: g.rotulos.get(a.from) as string, to: g.rotulos.get(a.to) as string, edge_id: a.edge_id, distancia, evidencias };
 }
 
+/**
+ * KG5 fatia 5 (D4): a aresta so e `igual` quando as fontes dela inteiras conferem: o arquivo da origem, o
+ * do alvo (calls e imports resolvem o alvo nele) e os das evidencias. So as devolvidas pedem a situacao.
+ * Com teto, a busca binaria monta respostas com limites diferentes, e o CLI le os arquivos citados pela
+ * maior delas, a do limite pedido, mesmo os que o corte tira (CHECK rodada 1, S4).
+ */
+function comArvore(g: GrafoConsultavel, a: Aresta, r: ArestaSemArvore, situacao: SituacaoNaArvore): ArestaDaResposta {
+  const caminhos = [(g.nos.get(a.from) as No).locator.path, (g.nos.get(a.to) as No).locator.path, ...r.evidencias.map((e) => e.path)];
+  const { evidencias, ...resto } = r;
+  return { ...resto, arvore: caminhos.every((p) => situacao(p) === 'igual') ? 'igual' : 'modificada', evidencias };
+}
+
+/** KG5 fatia 5 (D2, D10): uma entrada por caminho dos nos e das evidencias da resposta, em ordem UTF-8. */
+function fontesDaResposta(g: GrafoConsultavel, nos: readonly NoDaResposta[], arestas: readonly ArestaDaResposta[], situacao: SituacaoNaArvore): FonteDaResposta[] {
+  const caminhos = new Set(nos.map((n) => n.path));
+  for (const a of arestas) for (const e of a.evidencias) caminhos.add(e.path);
+  const fontes: FonteDaResposta[] = [];
+  for (const p of [...caminhos].sort(compararUtf8)) {
+    const f = g.fontes.get(p);
+    if (f) fontes.push({ path: p, source_hash: f.source_hash, source_version: f.source_version, arvore: situacao(p) });
+  }
+  return fontes;
+}
+
 /** CHECK rodada 1 (A2): primeiro as arestas mais perto do alvo, e o limite corta as mais longe. */
-const ordemDasArestas = (x: ArestaDaResposta, y: ArestaDaResposta): number => (x.distancia - y.distancia)
+const ordemDasArestas = (x: ArestaSemArvore, y: ArestaSemArvore): number => (x.distancia - y.distancia)
   || compararUtf8(x.kind, y.kind) || compararUtf8(x.from, y.from) || compararUtf8(x.to, y.to) || compararUtf8(x.edge_id, y.edge_id);
 
 function incidentes(g: GrafoConsultavel, id: string, sentido: Sentido, tipos: ReadonlySet<TipoDeAresta>): { aresta: Aresta; outra: string; sentido: 'saida' | 'entrada' }[] {
@@ -236,7 +286,8 @@ function tiposValidos(tipos: readonly TipoDeAresta[] | undefined): TipoDeAresta[
  * cada uma com a distancia do no que a explorou. `limite` corta pela distancia e pela ordem fixa, e
  * a lista de nos so traz o alvo e as pontas das arestas devolvidas.
  */
-function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: TipoDeConsulta, texto: string, opcoes: OpcoesDeVizinhanca): RespostaDeConsulta {
+function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: TipoDeConsulta, texto: string, opcoes: OpcoesDeVizinhanca,
+  situacao: SituacaoNaArvore): RespostaDeConsulta {
   const profundidade = inteiroEntre('profundidade', opcoes.profundidade ?? 1, 1, PROFUNDIDADE_MAXIMA);
   const limite = inteiroEntre('limite', opcoes.limite ?? LIMITE_PADRAO, 1, LIMITE_MAXIMO);
   const sentido = opcoes.sentido ?? 'ambos';
@@ -258,8 +309,8 @@ function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: Tip
     }
     camada = proxima;
   }
-  const todas = [...vistas.values()].map(({ aresta, d }) => arestaDaResposta(g, aresta, d)).sort(ordemDasArestas);
-  const devolvidas = todas.slice(0, limite);
+  const todas = [...vistas.values()].map(({ aresta, d }) => ({ aresta, r: arestaDaResposta(g, aresta, d) })).sort((x, y) => ordemDasArestas(x.r, y.r));
+  const devolvidas = todas.slice(0, limite).map(({ aresta, r }) => comArvore(g, aresta, r, situacao));
   const idPorRotulo = new Map([...distancia.keys()].map((id) => [g.rotulos.get(id) as string, id]));
   const pontas = new Set([alvo.node_id, ...devolvidas.flatMap((a) => [idPorRotulo.get(a.from), idPorRotulo.get(a.to)] as string[])]);
   const nos = [...pontas].map((id) => noDaResposta(g, g.nos.get(id) as No, distancia.get(id) as number))
@@ -269,25 +320,28 @@ function vizinhanca(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, tipo: Tip
     consulta: { tipo, alvo: texto, para: null, profundidade, sentido, tipos, limite },
     indice: cabecalho, alvo: noDaResposta(g, alvo, 0), para: null, nos, total_nos: distancia.size,
     arestas: devolvidas, total_arestas: todas.length, truncado: todas.length > limite,
-    caminho: null, nos_explorados: null, parcial: AVISO_DE_PARCIALIDADE,
+    caminho: null, nos_explorados: null, fontes: fontesDaResposta(g, nos, devolvidas, situacao), parcial: AVISO_DE_PARCIALIDADE,
   };
 }
 
-export function vizinhos(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: OpcoesDeVizinhanca = {}): RespostaDeConsulta {
-  return vizinhanca(g, cabecalho, 'vizinhos', alvo, opcoes);
+export function vizinhos(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: OpcoesDeVizinhanca = {},
+  situacao: SituacaoNaArvore = TUDO_IGUAL): RespostaDeConsulta {
+  return vizinhanca(g, cabecalho, 'vizinhos', alvo, opcoes, situacao);
 }
 
 /** Quem chama o simbolo: as arestas `calls` que chegam, ate `profundidade` saltos. */
-export function chamadores(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: Pick<OpcoesDeVizinhanca, 'profundidade' | 'limite'> = {}): RespostaDeConsulta {
+export function chamadores(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: Pick<OpcoesDeVizinhanca, 'profundidade' | 'limite'> = {},
+  situacao: SituacaoNaArvore = TUDO_IGUAL): RespostaDeConsulta {
   if (resolverNo(g, alvo).kind !== 'symbol') throw new ErroDeConsulta('grafo.consulta.alvo-invalido', 'chamadores pede um simbolo; para arquivo, use importadores ou vizinhos');
-  return vizinhanca(g, cabecalho, 'chamadores', alvo, { ...opcoes, sentido: 'entrada', tipos: ['calls'] });
+  return vizinhanca(g, cabecalho, 'chamadores', alvo, { ...opcoes, sentido: 'entrada', tipos: ['calls'] }, situacao);
 }
 
 /** Quem importa o arquivo ou o simbolo: as arestas `imports` que chegam, ate `profundidade` saltos. */
-export function importadores(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: Pick<OpcoesDeVizinhanca, 'profundidade' | 'limite'> = {}): RespostaDeConsulta {
+export function importadores(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, alvo: string, opcoes: Pick<OpcoesDeVizinhanca, 'profundidade' | 'limite'> = {},
+  situacao: SituacaoNaArvore = TUDO_IGUAL): RespostaDeConsulta {
   const kind = resolverNo(g, alvo).kind;
   if (kind !== 'file' && kind !== 'symbol') throw new ErroDeConsulta('grafo.consulta.alvo-invalido', 'importadores pede um arquivo ou um simbolo');
-  return vizinhanca(g, cabecalho, 'importadores', alvo, { ...opcoes, sentido: 'entrada', tipos: ['imports'] });
+  return vizinhanca(g, cabecalho, 'importadores', alvo, { ...opcoes, sentido: 'entrada', tipos: ['imports'] }, situacao);
 }
 
 /**
@@ -296,7 +350,7 @@ export function importadores(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, 
  * sempre o mesmo. Sem caminho, `caminho` e `null`, com os nos explorados.
  */
 export function caminho(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, de: string, para: string,
-  opcoes: { sentido?: Sentido; tipos?: readonly TipoDeAresta[] } = {}): RespostaDeConsulta {
+  opcoes: { sentido?: Sentido; tipos?: readonly TipoDeAresta[] } = {}, situacao: SituacaoNaArvore = TUDO_IGUAL): RespostaDeConsulta {
   const sentido = opcoes.sentido ?? 'saida';
   if (!['entrada', 'saida', 'ambos'].includes(sentido)) throw new ErroDeConsulta('grafo.consulta.uso', `sentido desconhecido: ${sentido}`);
   const tipos = tiposValidos(opcoes.tipos), permitidos = new Set(tipos);
@@ -313,22 +367,22 @@ export function caminho(g: GrafoConsultavel, cabecalho: CabecalhoDoIndice, de: s
   let passos: PassoDoCaminho[] | null = null;
   let nos = [noDaResposta(g, origem, 0), noDaResposta(g, destino, null)];
   if (anterior.has(destino.node_id)) {
-    const cadeia: { id: string; passo: PassoDoCaminho }[] = [];
+    const cadeia: { id: string; sentido: 'saida' | 'entrada'; aresta: Aresta }[] = [];
     for (let id = destino.node_id, atual = anterior.get(id); atual; id = atual.de, atual = anterior.get(id)) {
-      cadeia.push({ id, passo: { sentido: atual.sentido, aresta: arestaDaResposta(g, atual.aresta, 0) } });
+      cadeia.push({ id, sentido: atual.sentido, aresta: atual.aresta });
     }
     cadeia.reverse();
-    cadeia.forEach((c, n) => { c.passo.aresta.distancia = n; });
-    passos = cadeia.map((c) => c.passo);
+    passos = cadeia.map((c, n) => ({ sentido: c.sentido, aresta: comArvore(g, c.aresta, arestaDaResposta(g, c.aresta, n), situacao) }));
     nos = [origem.node_id, ...cadeia.map((c) => c.id)].map((id, d) => noDaResposta(g, g.nos.get(id) as No, d));
   }
+  const arestas = passos ? passos.map((p) => p.aresta) : [];
   return {
     schema: CONSULTA_SCHEMA,
     consulta: { tipo: 'caminho', alvo: de, para, profundidade: null, sentido, tipos, limite: null },
     indice: cabecalho, alvo: noDaResposta(g, origem, 0), para: noDaResposta(g, destino, passos ? passos.length : null),
     nos, total_nos: nos.length,
-    arestas: passos ? passos.map((p) => p.aresta) : [], total_arestas: passos ? passos.length : 0, truncado: false,
-    caminho: passos, nos_explorados: anterior.size, parcial: AVISO_DE_PARCIALIDADE,
+    arestas, total_arestas: arestas.length, truncado: false,
+    caminho: passos, nos_explorados: anterior.size, fontes: fontesDaResposta(g, nos, arestas, situacao), parcial: AVISO_DE_PARCIALIDADE,
   };
 }
 
@@ -344,8 +398,18 @@ function linhasDaEvidencia(e: EvidenciaDaResposta): string {
   return `      ${e.extractor_id} ${e.extraction_method} ${onde} bytes ${s.byte_start}-${s.byte_end}`;
 }
 
+/** KG5 fatia 5 (D9): a aresta cuja fonte mudou diz isso na propria linha, como o JSON diz no campo `arvore`. */
 function linhasDaAresta(a: ArestaDaResposta, prefixo = '  '): string[] {
-  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}`, ...a.evidencias.map(linhasDaEvidencia)];
+  const marca = a.arvore === 'modificada' ? '  [fonte modificada na arvore]' : '';
+  return [`${prefixo}${a.kind}  ${a.from} -> ${a.to}${marca}`, ...a.evidencias.map(linhasDaEvidencia)];
+}
+
+/** KG5 fatia 5 (D9): ate cinco fontes que nao tem na arvore os bytes do indice, com a situacao de cada uma. */
+function linhaDasFontesMudadas(fontes: readonly FonteDaResposta[]): string[] {
+  const mudaram = fontes.filter((f) => f.arvore !== 'igual');
+  if (!mudaram.length) return [];
+  const resto = mudaram.length > 5 ? ` e mais ${mudaram.length - 5}` : '';
+  return [`fontes que mudaram na arvore: ${mudaram.slice(0, 5).map((f) => `${f.path} (${f.arvore})`).join(', ')}${resto}`];
 }
 
 export function textoDaResposta(r: RespostaDeConsulta): string {
@@ -354,6 +418,7 @@ export function textoDaResposta(r: RespostaDeConsulta): string {
     `grafo de ${i.repository_id} na revisao ${i.revision.slice(0, 12)}, indice ${i.chave.slice(0, 16)}, snapshot ${i.snapshot_id.slice(0, 17)}`,
   ];
   if (i.arvore === 'modificada') linhas.push('aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore');
+  linhas.push(...linhaDasFontesMudadas(r.fontes));
   linhas.push(`extratores: ${i.extratores.map((e) => `${e.extractor_id} ${e.extractor_version}`).join(', ')}`);
   if (c.tipo === 'caminho') {
     const para = r.para as NoDaResposta;
