@@ -36,6 +36,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **O `ork portfolio show` deixa de aceitar em silêncio as sobras do `objective`** ([RM-043](docs/roadmap/RM-043-aposentadoria.md)):
+  a ajuda ainda listava `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`
+  sob `portfolio show`, herança do `objective` aposentado na I-43, e o comando as aceitava e ignorava. Elas saem da
+  ajuda e recusam com `portfolio.opcao-aposentada` (saída 2), apontando `ork thread new --exige-runtime-diferente` e
+  `--done`, como a recusa `objective.aposentado`.
+
 - **Teste da coleta após falha de limpeza do candidato** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   os cenários de `EPERM`, com aquisição bem-sucedida ou erro original, agora exigem que um concorrente
   recolha o candidato após `ESRCH` simulado e deixe a fila vazia, com `flock` e transporte portátil.

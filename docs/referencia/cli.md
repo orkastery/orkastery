@@ -177,7 +177,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | `ork ledger estimate <thread> --sem-ia H --ia-sem-ork H --por Q --metodo M --premissas P [--incerteza I]` | Registra as estimativas explícitas da fase PLAN |
 | `ork portfolio create <product\|project\|initiative> <id> --title T [--parent ID]` | Cria a entidade no catálogo produto, projeto e iniciativa ([FEAT-025](../produto/FEAT-025-catalogo-de-portfolio.md)) |
 | `ork portfolio list [product\|project\|initiative] [--parent ID] [--json]` | Lista o catálogo |
-| `ork portfolio show <id> [--json]` | Mostra a entidade do catálogo: id, título e estado (`--json` devolve a entidade inteira) |
+| `ork portfolio show <id> [--json]` | Mostra a entidade do catálogo: id, título e estado (`--json` devolve a entidade inteira). `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`, sobras do `objective` aposentado na I-43, recusam com `portfolio.opcao-aposentada` (saída 2), apontando `thread new --exige-runtime-diferente` e `--done` |
 | `ork portfolio inspect <id> --json` | Entidade, origem e ciclos, com as lacunas explícitas |
 | `ork creation start --input-file F --json` | Criação durável, com a identidade do processo local |
 | `ork creation show\|list\|events [id] --json` | Consulta o journal da criação e a recuperação |
