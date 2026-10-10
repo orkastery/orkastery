@@ -2,14 +2,17 @@
 
 O KG5 deixa um agente numa fase (GOAL, PLAN, GO ou CHECK) consultar o grafo de código pelo MCP do
 projeto, sem ler o repositório cru: cinco tools de leitura com o contrato do `ork grafo`, que
-respondem pelo índice do HEAD da worktree da thread, com a proveniência de cada aresta e a resposta
-limitada em bytes. O contrato [`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md) não muda. É
-o quinto pacote do [RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D10 da
-thread `ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
+respondem pelo índice do HEAD da worktree da thread, com a proveniência de cada aresta, conferida
+contra a árvore da thread, e a resposta limitada em bytes. O contrato
+[`ork.code-artifact-graph/v1`](grafo-deterministico-kg1.md) não muda. É o quinto pacote do
+[RM-031](../../roadmap/RM-031-grafo-de-codigo.md) e segue as decisões D1 a D10 da thread
+`ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
 
 Fica desligado por padrão: a exposição e a habilitação são do dono. A fatia 1 entrega as quatro
 consultas pelo MCP; a [fatia 2](#fatia-2-pacote-de-contexto-da-thread) acrescenta o pacote
-determinístico da thread e a dica no pedido da fase, na thread `ork-rm031kg5fati`.
+determinístico da thread e a dica no pedido da fase, na thread `ork-rm031kg5fati`; a
+[fatia 5](#fatia-5-proveniência-conferida-contra-a-árvore) faz cada resposta dizer, por aresta, se as
+fontes dela conferem com a árvore, e traz o sha256 e o blob de cada fonte, na thread `ork-rm031grafo3`.
 
 ## O que o KG5 garante e o que não garante
 
@@ -19,7 +22,8 @@ determinístico da thread e a dica no pedido da fase, na thread `ork-rm031kg5fat
 | A resposta da tool é, byte a byte, o JSON que o `ork grafo <consulta> ... --json --teto-bytes N` escreve na worktree da thread (a CLI só acrescenta a quebra de linha final) | Que o host não corta a resposta por um limite próprio |
 | Toda aresta sai com toda a evidência: o teto tira arestas inteiras, as mais longe do alvo | Que a recusa cabe no teto: ele vale para a resposta |
 | Sem os analisadores na instalação, a tool recusa com `grafo.parser.indisponivel`, nunca responde pela metade | Economia de contexto: isso é o benchmark do [protocolo](benchmark-grafo-kg1.md) |
-| Sem o índice do HEAD, a recusa diz o caso e a correção; a tool nunca responde por outro índice | Que o índice acompanha a árvore editada: a resposta é do HEAD, e diz quando a árvore mudou |
+| Sem o índice do HEAD, a recusa diz o caso e a correção; a tool nunca responde por outro índice | Que a aresta vale na árvore editada: a resposta é do HEAD; ela diz, por aresta, quando uma fonte mudou, sem refazer a extração |
+| Toda aresta diz se as fontes dela (as duas pontas e as evidências) têm na árvore os bytes do índice, e a consulta por nó traz o sha256 e o blob de cada fonte citada (fatia 5) | Mudança que o `skip-worktree` ou o `assume-unchanged` esconde do `git status`: com o status limpo, nada é lido |
 | O servidor MCP não carrega o grafo: a consulta roda num processo filho, com prazo e cancelamento | Prova numa sessão live de Claude Code ou Codex: os testes usam o servidor com transporte em memória |
 
 ## A flag
@@ -80,7 +84,9 @@ ork_grafo_vizinhos {threadId, alvo: "src/a.ts#a", profundidade: 2, tipos: ["call
 
 A resposta das quatro consultas por nó é o JSON `ork.code-graph-query/v0` da CLI, compacto, com o cabeçalho do índice (revisão,
 chave, snapshot, digest, estado da árvore e extratores), os nós, as arestas com extrator, versão,
-método, arquivo, linhas e bytes de cada evidência, o aviso de parcialidade e o campo `teto`.
+método, arquivo, linhas e bytes de cada evidência e a situação delas na árvore (`arvore`), as fontes
+citadas (`fontes`, desde a [fatia 5](#fatia-5-proveniência-conferida-contra-a-árvore)), o aviso de
+parcialidade e o campo `teto`.
 
 ## Teto da resposta
 
@@ -121,7 +127,7 @@ worker, schema) vêm como `{erro}`, como em todo o servidor. As do índice tamb�
 No GO, cada commit move o HEAD: a consulta seguinte recusa com `grafo.indice.outra-revisao` até o
 `ork grafo indexar` (incremental, alguns segundos), que exige a árvore limpa. Com mudança ainda não
 commitada, a consulta responde pelo índice do HEAD e diz isso no campo `indice.arvore`
-(`modificada`).
+(`modificada`) e, desde a fatia 5, em cada aresta que a mudança alcança (`arvore`).
 
 ## Execução
 
@@ -145,7 +151,8 @@ Com a flag, o despacho `claude-bg` põe as cinco tools (`mcp__orkastery__ork_gra
 sessão filha logo depois das consultas, nos perfis `interactive` e `worktree` e no PLAN (D7); sem a
 flag, o comando é o de antes. A flag é lida do manifesto da raiz pelo contexto do runtime, a mesma que
 o servidor da sessão filha lê. No Codex nada muda: as tools são de leitura, como as consultas, e não
-pedem grant. Na fatia 1, o prompt não mudava (D10); a fatia 2 acrescenta a dica descrita abaixo.
+pedem grant. Na fatia 1, o prompt não mudava (D10); a fatia 2 acrescenta a dica descrita abaixo, e a
+fatia 5 acrescenta a ela o que a marca `arvore: modificada` quer dizer.
 
 ## Fronteira
 
@@ -159,15 +166,31 @@ com os hashes congelados.
 
 Registro em
 [`core/test/fixtures/kg5-medida-mcp.json`](../../../core/test/fixtures/kg5-medida-mcp.json)
-(`ork.graph-mcp-cost/v0`), gerado por `core/scripts/medir-mcp-grafo.cjs` na revisão `9000f52e` da
-branch da thread, com a árvore limpa, carga 7,4 em 8 núcleos, Node v22.23.2 e 3 repetições por braço,
-nas seis perguntas da [medida do KG3](indice-grafo-kg3.md#primeira-medida-do-custo-de-consulta) (D9).
+(`ork.graph-mcp-cost/v0`), gerado por `core/scripts/medir-mcp-grafo.cjs` na revisão `b91573e6` da
+branch da thread `ork-rm031grafo3` (fatia 5, com `fontes` e `arvore` na resposta), num clone com a
+árvore limpa, carga 14,3 em 8 núcleos, Node v22.23.2 e 3 repetições por braço, nas seis perguntas da
+[medida do KG3](indice-grafo-kg3.md#primeira-medida-do-custo-de-consulta) (D9).
 **Não é o benchmark `ork.graph-benchmark/v1`** e não conclui economia.
 
 - **Tool:** o worker com o argv que a tool monta e o teto padrão; ao agente chega o texto da resposta.
 - **CLI:** `ork grafo <consulta> --json`, sem teto (o braço do grafo do KG3).
 - **Cru:** `git grep -n -I -F` do nome e a leitura inteira de cada arquivo com ocorrência (o do KG3).
 - **Tokens:** `unavailable` nos três braços.
+
+| Pergunta | Tool: bytes | Tool: arestas | Tool: latência | CLI: bytes | CLI: arestas | Cru: bytes | Cru: arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| P1 quem chama `lerRepositorio` | 2.964 | 1 de 1 | 1.331,1 ms | 3.686 | 1 | 332.153 | 12 |
+| P2 quem chama `dirEstado` | 16.997 | 18 de 18 | 1.304,6 ms | 23.153 | 18 | 764.962 | 27 |
+| P3 quem importa o contrato do grafo | 14.132 | 13 de 13 | 1.643,9 ms | 18.838 | 13 | 1.215.032 | 32 |
+| P4 quem importa o leitor de YAML | 10.417 | 10 de 10 | 1.278,7 ms | 14.127 | 10 | 304.308 | 13 |
+| P5 vizinhança de `raizDoEstado` | 32.145 | 34 de 123, cortada | 1.244,7 ms | 140.204 | 123 | 1.593.128 | 59 |
+| P6 caminho de `main` a `dirEstado` | 4.985 | 2 de 2 | 1.154 ms | 6.716 | 2 | indisponível | indisponível |
+
+**Descoberta**, o custo fixo de ligar a flag: as cinco definições somam 7.735 bytes no `tools/list`,
+que vai de 24.234 para 31.974 bytes (de 31 para 36 tools), num projeto temporário com e sem a flag.
+
+O retrato da fatia 1, na revisão `9000f52e` (carga 7,4, quatro tools, sem `fontes` nem `arvore`), fica
+como estava medido:
 
 | Pergunta | Tool: bytes | Tool: arestas | Tool: latência | CLI: bytes | CLI: arestas | Cru: bytes | Cru: arquivos |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -178,13 +201,14 @@ nas seis perguntas da [medida do KG3](indice-grafo-kg3.md#primeira-medida-do-cus
 | P5 vizinhança de `raizDoEstado` | 32.087 | 41 de 104, cortada | 758,9 ms | 106.363 | 104 | 1.179.908 | 51 |
 | P6 caminho de `main` a `dirEstado` | 4.325 | 2 de 2 | 783,2 ms | 5.880 | 2 | indisponível | indisponível |
 
-**Descoberta**, o custo fixo de ligar a flag: as quatro definições somam 5.931 bytes no `tools/list`,
-que vai de 23.289 para 29.224 bytes (de 30 para 34 tools), num projeto temporário com e sem a flag.
+Na fatia 1, as quatro definições somavam 5.931 bytes, e o `tools/list` ia de 23.289 para 29.224 bytes
+(de 30 para 34 tools). As duas tabelas medem revisões diferentes, com o repositório maior na segunda:
+o custo do formato novo, isolado no mesmo índice, está na [fatia 5](#teto-e-custo).
 
 Como ler, sem concluir além do medido:
 
 - Bytes não são tokens: o hex dos ids e o JSON tokenizam diferente de prosa.
-- A tool corta pelo teto: na P5 ela entrega 41 das 104 arestas, as mais perto do alvo, e diz que cortou.
+- A tool corta pelo teto: na P5 ela entrega 34 das 123 arestas, as mais perto do alvo, e diz que cortou.
   Sem corte, a resposta da tool tem as mesmas arestas da CLI, em JSON compacto.
 - As respostas dos braços não são as mesmas: o grafo só responde o que o extrator prova, e a leitura
   crua acha texto, comentário e nome igual em outro escopo.
@@ -364,8 +388,9 @@ HEAD durante a leitura recusa com `grafo.contexto.revisao-mudou`.
 ### Dica e medidas
 
 Com `grafo.mcp: true` na raiz, o pedido da fase recebe a dica curta de contexto, as quatro
-consultas por nó, correção do índice e parcialidade. A dica entra antes da renderização e do
-hash do prompt. Com a flag ausente ou `false`, o prompt permanece byte a byte igual ao anterior.
+consultas por nó, correção do índice e parcialidade e, desde a fatia 5, o que a marca
+`arvore: modificada` quer dizer. A dica entra antes da renderização e do hash do prompt. Com a flag
+ausente ou `false`, o prompt permanece byte a byte igual ao anterior.
 
 `medida.pacote_bytes` mede o JSON UTF-8 completo, incluindo esse campo. `leitura_crua_bytes`
 é apenas a soma dos tamanhos do `source_manifest` dos arquivos presentes no pacote, listados
@@ -470,18 +495,125 @@ Esses ensaios locais não são recibo oficial do núcleo.
 Os testes integrados CLI/worker/MCP exigem subprocessos permitidos; a passagem dos testes puros
 não substitui a suíte, `ork verify` ou a revisão independente da condutora.
 
+## Fatia 5: proveniência conferida contra a árvore
+
+Thread `ork-rm031grafo3`, decisões D1 a D10 tomadas em #Auto e registradas no ledger. Antes dela,
+num clone com três linhas inseridas no topo de `core/src/intelligence-graph-index.ts`, sem commit,
+`ork grafo chamadores core/src/intelligence-graph-repo.ts#lerRepositorio --json` devolvia a aresta
+`calls` com evidência na linha 501, que no arquivo editado é `}`, e só o cabeçalho dizia
+`arvore: modificada`. A resposta também não trazia o `source_hash` nem o `source_version` que o
+[contrato KG1](grafo-deterministico-kg1.md#proveniência-por-aresta) põe em cada evidência.
+
+### O que a resposta traz
+
+- **`fontes`**, nas quatro consultas por nó, antes de `parcial`: uma entrada por caminho citado (os dos
+  nós e os das evidências devolvidas), em ordem UTF-8, com `path`, `source_hash` (sha256 dos bytes
+  indexados), `source_version` (o blob do Git) e `arvore`: `igual` (a árvore tem esses bytes),
+  `modificada` (outros bytes) ou `ausente` (não há arquivo regular legível no caminho, dentro da
+  raiz). Uma entrada por caminho, não por evidência: o contrato KG1 garante que hash e versão de toda
+  evidência são os do manifesto daquele caminho. A autoridade fica fora: é sempre `git:<repositório>`,
+  e o cabeçalho já traz o repositório (D2).
+- **`arvore` em cada aresta**, entre `distancia` e `evidencias`: `igual` só quando todas as fontes
+  dela estão iguais, o arquivo da origem, o do alvo e os das evidências; senão, `modificada`. O alvo
+  conta porque `calls` e `imports` resolvem o alvo no arquivo dele: marcar a mais leva a reconferir, e
+  marcar a menos levaria a confiar numa evidência velha (D4). No caminho, os passos repetem as arestas
+  com a mesma marca.
+- **No pacote v2**, só o grupo cuja origem ou alvo não confere ganha `arvore: "modificada"`; sem o
+  campo, as fontes do grupo conferem. O pacote não ganha tabela de fontes e segue
+  `ork.thread-graph-context/v2`: com a árvore limpa, os bytes são os de antes, e a medida histórica e
+  a fixture sintética continuam valendo (D5). A proveniência completa de um grupo sai da consulta por nó.
+- **No texto da CLI**, a aresta de fonte mudada ganha `[fonte modificada na arvore]` na linha, e uma
+  linha lista até cinco fontes que mudaram, com a situação de cada uma; o resumo do
+  `ork grafo contexto` conta as ligações marcadas (D9). O exemplo do começo, com o código da fatia:
+
+```text
+aviso: a arvore tem mudanca rastreada; a resposta e do HEAD, nao da arvore
+fontes que mudaram na arvore: core/src/intelligence-graph-index.ts (modificada)
+  calls  symbol core/src/intelligence-graph-index.ts#construirIndice -> symbol core/src/intelligence-graph-repo.ts#lerRepositorio  [fonte modificada na arvore]
+      ork.ts-ast ast core/src/intelligence-graph-index.ts:501 bytes 24702-24717
+```
+
+### Como a situação é lida
+
+- O CLI do grafo só lê a árvore quando o cabeçalho diz `modificada`, pelo `git status` dos rastreados,
+  como antes. Com a árvore limpa, toda fonte vale `igual` e nada é lido. Limite aceito: a mudança que o
+  `skip-worktree` ou o `assume-unchanged` esconde do `git status` passa como `igual`, o mesmo limite do
+  `indice.arvore` (D3).
+- Com a árvore modificada, cada caminho que a resposta cita é lido uma vez, sob demanda: só caminho do
+  manifesto do índice, sem seguir link (nem no último nome nem numa pasta do caminho, pelo caminho real
+  dentro da raiz) e só arquivo regular; tamanho diferente do indexado já é `modificada`, sem abrir; no
+  resto, decide o sha256 dos bytes, lidos até o tamanho indexado mais um, contra o `source_hash`. FIFO
+  no lugar da fonte não trava a consulta, e nada é escrito (D6).
+- A consulta continua pura: recebe a situação de quem chama, e sem ela tudo vale `igual`. O worker e o
+  servidor não mudam, e a resposta da tool segue igual à da CLI byte a byte.
+- Nenhum módulo da impressão do extrator muda: a chave dos índices guardados é a mesma, e ninguém
+  reindexa por causa da fatia.
+
+### Teto e custo
+
+`fontes` e as marcas contam no teto. O corte continua pelo limite, as arestas mais longe saem primeiro,
+e `fontes` só traz os caminhos dos nós e das evidências que ficaram; o tamanho segue crescendo com o
+limite, então a busca binária acha o mesmo maior limite. O caminho continua sem corte, e a recusa não
+muda (D10).
+
+Custo medido nesta thread no mesmo índice (revisão `b91573e6`, árvore limpa), com o teto padrão, pelo
+CLI da base `8248d98d` e pelo da fatia; os dois leem o mesmo índice porque o extrator não mudou. Os
+bytes são os da saída da CLI, com a quebra de linha final (a tool entrega um byte a menos):
+
+| Pergunta | Base: bytes | Base: arestas | Fatia 5: bytes | Fatia 5: arestas | Fontes |
+| --- | --- | --- | --- | --- | --- |
+| P1 | 2.526 | 1 de 1 | 2.965 | 1 de 1 | 2 |
+| P2 | 14.012 | 18 de 18 | 16.998 | 18 de 18 | 14 |
+| P3 | 10.986 | 13 de 13 | 14.133 | 13 de 13 | 14 |
+| P4 | 8.075 | 10 de 10 | 10.418 | 10 de 10 | 11 |
+| P5 | 32.460 | 41 de 123, cortada | 32.146 | 34 de 123, cortada | 21 |
+| P6 | 4.334 | 2 de 2 | 4.986 | 2 de 2 | 3 |
+
+Sem corte, a resposta cresce de 15% a 29%, com as mesmas arestas. Com corte, cabem menos arestas (34
+contra 41 na P5), e as que ficam são as primeiras da resposta da base, na mesma ordem. Na P5 pelo
+worker, com cinco repetições e carga perto de 12, a mediana foi de 1.157 ms com a árvore limpa e de
+1.287 ms com `core/src/estado-thread.ts` modificado (as 34 arestas marcadas, porque o alvo mora nele);
+a carga varia demais para separar o custo da leitura. Para refazer o A/B:
+
+```sh
+mkdir -p /tmp/base && git archive 8248d98d | tar -x -C /tmp/base
+ln -s "$PWD/core/node_modules" /tmp/base/core/node_modules && npm --prefix /tmp/base/core run build
+env -u ORK_PROJETO node core/dist/index.js grafo indexar
+for cli in /tmp/base/core/dist/index.js core/dist/index.js; do
+  env -u ORK_PROJETO node "$cli" grafo chamadores core/src/manifest.ts#dirEstado --json --teto-bytes 32768 | wc -c
+done
+```
+
+### Conformidade da fatia 5
+
+```sh
+npm --prefix core run build:test && node --test core/dist-test/test/rm031-kg5-proveniencia.test.js
+```
+
+O grupo `KG5 proveniencia` cobre a consulta pura (padrão tudo igual, marca pela origem, pelo alvo e por
+evidência auxiliar, situação pedida só para o que a resposta cita), a CLI com a árvore limpa e
+modificada (mesmo tamanho, outro tamanho, apagada, link, pasta, pasta-mãe trocada por link para fora,
+FIFO e mudança só no índice do Git), o `skip-worktree` do D3, a leitura única com o tamanho antes de
+abrir, o teto, o pacote v2, as descrições das tools, a dica, e CLI, worker e MCP com a mesma resposta.
+Nove mutações temporárias no JavaScript compilado derrubaram o grupo (alvo ignorado, evidências fora
+das fontes, sem conferir o tamanho, sem o caminho real, situação pedida para todas as arestas, árvore
+limpa lida, pacote sem o alvo, pacote marcando tudo e CLI sem a situação no pacote); o código foi
+restaurado. Esses ensaios locais não são recibo oficial do núcleo.
+
 ## Fora destas fatias
 
 - As tools no OpenClaw e no Hermes: a paridade entre hosts é o KG7.
 - `indexar` pelo MCP: a tool diz a correção, e quem indexa é a CLI.
 - A habilitação da flag, que é do dono, e a rodada paga do protocolo.
+- Responder por um índice de revisão ancestral, marcando as arestas cujas fontes mudaram: a fatia 5
+  torna isso conferível, mas troca a garantia de nunca responder por outro índice; a decisão é do dono.
 
 ## Conformidade
 
 ```sh
-npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js core/dist-test/test/intelligence-kg1-boundary.test.js
+npm --prefix core run build:test && node --test core/dist-test/test/mcp-grafo.test.js core/dist-test/test/intelligence-kg1-boundary.test.js core/dist-test/test/rm031-kg5-proveniencia.test.js
 ```
 
-Os grupos `KG5 flag`, `KG5 contrato`, `KG5 teto`, `KG5 indice`, `KG5 worker`, `KG5 despacho` e
-`KG5 medida` usam repositórios Git temporários, o servidor MCP com transporte em memória e o worker
-num processo filho de verdade.
+Os grupos `KG5 flag`, `KG5 contrato`, `KG5 teto`, `KG5 indice`, `KG5 worker`, `KG5 despacho`,
+`KG5 medida` e `KG5 proveniencia` usam repositórios Git temporários, o servidor MCP com transporte em
+memória e o worker num processo filho de verdade.
