@@ -534,8 +534,9 @@ export function consultaDoProjeto(carregado: ManifestoCarregado,
     opcoes: { lido: string[]; naoLido: string[]; origem?: OrigemDoProjeto; outrosProjetos?: boolean;
       /** A URL ja lida por quem chama (`remotoDoProjeto`), para nao consultar o git duas vezes. */
       remoto?: string | null }): ConsultaDoProjeto {
-  // Fatia 2 (D3): o comando monta o proprio cabecalho; a linha generica do fim nao se repete.
-  if (declaracao) declaracao.feita = true;
+  // Fatia 2 (D3): o comando monta o proprio cabecalho DO ALVO; a linha generica do fim nao se repete.
+  // A consulta de outro projeto (sugestao A3 do CHECK) nao apaga a declaracao pedida.
+  if (declaracao && mesmaRaiz(carregado.raiz, declaracao.alvo.raiz)) declaracao.feita = true;
   const alvo = projetoAlvoAtual();
   const origem = opcoes.origem ?? (alvo && path.resolve(alvo.raiz) === path.resolve(carregado.raiz) ? alvo.origem : 'cwd');
   const outros = opcoes.outrosProjetos === false ? 0 : outrosProjetosConhecidos(carregado.raiz);
@@ -544,7 +545,7 @@ export function consultaDoProjeto(carregado: ManifestoCarregado,
   return {
     contrato: CONTRATO_CONSULTA,
     projeto: { nome: carregado.manifesto.project.name, abbrev: carregado.manifesto.project.abbrev,
-      raiz: raizParaExibir(carregado.raiz), remoto, origem },
+      raiz: raizParaExibir(carregado.raiz), remoto: remotoParaExibir(remoto), origem },
     lido: [...opcoes.lido],
     naoLido: [...opcoes.naoLido, ...(outros > 0 ? [`outros projetos desta máquina: ${outros} (ork projetos)`] : [])],
   };
@@ -596,6 +597,31 @@ export function pedirDeclaracaoDoProjeto(alvo: ProjetoAlvo | null,
   declaracao = { alvo, feita: false };
 }
 
+/** As duas raizes sao a mesma copia (caminho real; o resolvido quando o disco nao responde). */
+function mesmaRaiz(a: string, b: string): boolean {
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  return real(a) === real(b);
+}
+
+/**
+ * Fatia 2 (sugestao S1 do CHECK): o remoto que vai a um canal de conversa. Ele ja chega sem usuario e
+ * senha (`remotoSemCredencial`); aqui sai tambem o que vem depois de `?` ou `#` na URL (token em query,
+ * como `?private_token=`), o caminho local mostra `~` no lugar da pasta da conta (D8) e o remoto que
+ * ainda parecer segredo sai omitido. So a exibicao muda: o registro guarda o remoto como sempre.
+ */
+export function remotoParaExibir(remoto: string | null): string | null {
+  if (remoto === null) return null;
+  let exibido = remoto;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(exibido)) {
+    try {
+      const u = new URL(exibido);
+      u.search = ''; u.hash = '';
+      exibido = u.toString();
+    } catch { exibido = exibido.replace(/[?#].*$/, ''); }
+  } else if (path.isAbsolute(exibido)) exibido = raizParaExibir(exibido);
+  return procurarSegredos(exibido).length ? 'remoto omitido (parece carregar segredo)' : exibido;
+}
+
 /** A raiz do manifesto que o diretorio enxerga subindo, com caminho real; `null` fora de projeto. */
 function raizDoDiretorio(cwd: string): string | null {
   const achada = subirAte(path.resolve(cwd), NOME_MANIFESTO) ?? subirAte(path.resolve(cwd), NOME_MANIFESTO_LEGADO);
@@ -616,5 +642,5 @@ export function declaracaoQueFaltou(): string | null {
   if (!carregado) return null;
   const m = carregado.manifesto;
   return linhaDoProjeto({ nome: m.project.name, abbrev: m.project.abbrev, raiz: raizParaExibir(carregado.raiz),
-    remoto: remotoDoProjeto(carregado.raiz, m.fabrica?.remoto ?? 'origin'), origem: d.alvo.origem });
+    remoto: remotoParaExibir(remotoDoProjeto(carregado.raiz, m.fabrica?.remoto ?? 'origin')), origem: d.alvo.origem });
 }

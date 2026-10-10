@@ -4056,6 +4056,13 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
 /**
+ * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
+ * o `sessions event`, o sensor dos hooks do Claude Code: maquina falando com maquina, e o sensor compara
+ * o stderr da recusa. O `maestro` declara no snapshot e nao passa por aqui.
+ */
+const SEM_DECLARACAO_DO_PROJETO: ReadonlySet<string> = new Set(['sessions event']);
+
+/**
  * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
  * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
  * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
@@ -4075,8 +4082,8 @@ function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): Proj
 
 /**
  * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
- * fora do diretorio dele) termina com a linha `Projeto consultado: ...` no stderr, tambem quando falha,
- * salvo se ja montou o proprio cabecalho.
+ * fora do diretorio dele) escreve no fim a linha `Projeto consultado: ...` no stderr, salvo se ja montou
+ * o proprio cabecalho. Quando ele falha, a linha sai antes da mensagem de erro, que a entrada imprime.
  */
 export function main(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
@@ -4132,9 +4139,8 @@ function executarComando(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  // Fatia 2 (D3): `sessions event` e o sensor dos hooks, maquina falando com maquina; nao declara.
   if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
-    fixarAlvoDoProcesso(projeto, !(comando === 'sessions' && args.posicionais[1] === 'event'));
+    fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
   } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'

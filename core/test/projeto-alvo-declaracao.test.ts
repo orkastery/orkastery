@@ -15,10 +15,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import * as os from 'node:os';
 import { init } from '../src/init';
 import { exigirManifesto } from '../src/manifest';
 import { novaThread } from '../src/thread';
-import { registrarProjeto } from '../src/projeto-alvo';
+import { exec } from '../src/util';
+import {
+  consultaDoProjeto, declaracaoQueFaltou, iniciarDeclaracaoDoProjeto, pedirDeclaracaoDoProjeto, registrarProjeto,
+  remotoParaExibir,
+} from '../src/projeto-alvo';
 import { dirTemporario, projetoTemporario } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
@@ -98,6 +103,57 @@ test('L3: os comandos com cabecalho proprio declaram uma vez so; maestro e sessi
   const evento = ork(m.alfa.dir, ['--projeto', 'orkastery', 'sessions', 'event', '--tipo', 'stop',
     '--sessao', '11111111-2222-3333-4444-555555555555'], env, '{}');
   assert.equal(vezes(evento.stderr), 0, evento.stderr);
+});
+
+test('L3 (sugestao T1 do CHECK): no host, o unico projeto conhecido responde e diz que foi ele', (t) => {
+  const p = projetoTemporario('declaracao-unico');
+  const { thread } = novaThread(p.carregado, { nome: 'unico', modo: 'auto' });
+  const usuario = dirTemporario('declaracao-unico-usuario');
+  const gatewaySemProjeto = dirTemporario('declaracao-unico-gateway');
+  const anterior = process.env.ORK_USUARIO_DIR;
+  process.env.ORK_USUARIO_DIR = usuario;
+  registrarProjeto(p.dir, 'init');
+  t.after(() => {
+    if (anterior === undefined) delete process.env.ORK_USUARIO_DIR; else process.env.ORK_USUARIO_DIR = anterior;
+    p.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); fs.rmSync(gatewaySemProjeto, { recursive: true, force: true });
+  });
+  // A tool chamada sem `projeto` numa maquina que so conhece um: a resposta e dele, e o diz.
+  const r = ork(gatewaySemProjeto, ['thread', 'status', thread.id], { ...process.env, ORK_USUARIO_DIR: usuario, ORK_PROJETO_EXPLICITO: '1' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stderr, /^Projeto consultado: orkastery \(ork\) · .* · único projeto conhecido nesta máquina$/m);
+});
+
+test('L3 (sugestao A3 do CHECK): a consulta de outro projeto nao apaga a declaracao pedida', (t) => {
+  const a = projetoTemporario('declaracao-a3-a');
+  const b = projetoTemporario('declaracao-a3-b');
+  init(b.dir, { nome: 'beta', abbrev: 'bet', force: true });
+  b.carregado = exigirManifesto(b.dir);
+  t.after(() => { iniciarDeclaracaoDoProjeto(); a.limpar(); b.limpar(); });
+  const alvo = { raiz: fs.realpathSync(a.dir), origem: 'opcao' as const, pedido: 'orkastery' };
+  pedirDeclaracaoDoProjeto(alvo, { ambiente: { ORK_PROJETO_EXPLICITO: '1' }, cwd: b.dir });
+  consultaDoProjeto(b.carregado, { lido: [], naoLido: [] });
+  assert.match(declaracaoQueFaltou() ?? '', /^Projeto consultado: orkastery \(ork\) /);
+  pedirDeclaracaoDoProjeto(alvo, { ambiente: { ORK_PROJETO_EXPLICITO: '1' }, cwd: b.dir });
+  consultaDoProjeto(a.carregado, { lido: [], naoLido: [] });
+  assert.equal(declaracaoQueFaltou(), null, 'o cabecalho do proprio alvo dispensa a linha');
+});
+
+test('L3 (sugestao S1 do CHECK): o remoto exibido perde query, fragmento e a pasta da conta; segredo sai omitido', (t) => {
+  assert.equal(remotoParaExibir('https://gitlab.example.com/dono/repo.git?private_token=glpat-FAKE0123456789#x'),
+    'https://gitlab.example.com/dono/repo.git');
+  assert.equal(remotoParaExibir(path.join(os.homedir(), 'repos', 'privado', 'repo.git')), `~${path.sep}repos${path.sep}privado${path.sep}repo.git`);
+  assert.equal(remotoParaExibir('https://github.com/dono/ghp_0123456789abcdefghij0123/repo.git'), 'remoto omitido (parece carregar segredo)');
+  assert.equal(remotoParaExibir('git@github.com:orkastery/orkastery.git'), 'git@github.com:orkastery/orkastery.git');
+  assert.equal(remotoParaExibir(null), null);
+  // Pelo CLI: a linha do stderr e o cabecalho nao carregam o token da query.
+  const m = maquina(t);
+  exec('git', ['remote', 'add', 'origin', 'https://gitlab.example.com/dono/repo.git?private_token=glpat-FAKE0123456789'], m.orkastery.dir);
+  const env = { ...process.env, ORK_USUARIO_DIR: m.usuario };
+  for (const args of [['thread', 'status', m.thread], ['board']]) {
+    const r = ork(m.alfa.dir, ['--projeto', 'orkastery', ...args], env);
+    assert.match(r.stdout + r.stderr, /Projeto consultado: orkastery \(ork\) · .* · https:\/\/gitlab\.example\.com\/dono\/repo\.git · /, args.join(' '));
+    assert.doesNotMatch(r.stdout + r.stderr, /glpat-FAKE|private_token/, args.join(' '));
+  }
 });
 
 /** A extensao OpenClaw instalada, com o gateway parado no cwd do workspace. */
