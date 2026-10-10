@@ -29,6 +29,7 @@ import { dirThread, lerThread } from './thread';
 import { formatarDataHoraRotulada } from './horario';
 import { exec, agora } from './util';
 import { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO } from './runtime-ambiente';
+import { AMBIENTE_SEM_PROJETO_HERDADO } from './projeto-alvo';
 import {
   CanalDeConducao, ConducaoAtual, DadosDaConducao, DonoDaConducao, EventoLedger, Fase, Lease, OperacaoDeConducao,
 } from './types';
@@ -102,9 +103,14 @@ export function canalDoProcesso(explicito?: string | null, ambiente: NodeJS.Proc
 /** Identidade do despacho no ambiente da sessao filha, para as chamadas do CLI de dentro dela. */
 export { ENV_IDENTIDADE_DE_DESPACHO, ENV_THREAD_DO_DESPACHO };
 
-/** O que o despacho poe no ambiente da sessao filha: identidade, thread e canal de origem. */
+/**
+ * O que o despacho poe no ambiente da sessao filha: identidade, thread e canal de origem. RM-052
+ * (fatia 2, D2): tambem neutraliza o projeto-alvo de quem despachou, porque a sessao roda dentro do
+ * projeto (a worktree da thread) e le o projeto pelo proprio cwd; o modo host do gateway nao a segue.
+ */
 export function ambienteDaConducao(identidade: string, threadId: string, canal: CanalDeConducao): Record<string, string> {
-  return { [ENV_IDENTIDADE_DE_DESPACHO]: identidade, [ENV_THREAD_DO_DESPACHO]: threadId, [ENV_CANAL]: canal };
+  return { [ENV_IDENTIDADE_DE_DESPACHO]: identidade, [ENV_THREAD_DO_DESPACHO]: threadId, [ENV_CANAL]: canal,
+    ...AMBIENTE_SEM_PROJETO_HERDADO };
 }
 
 /** Variavel que o Claude Code poe em cada sessao, com o UUID dela; nao vem do daemon. */

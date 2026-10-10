@@ -18,7 +18,7 @@ import { discoverMaestro } from '../src/maestro-discovery';
 import { readMaestro, maestroText } from '../src/maestro-cli';
 import { validateMaestroSnapshot } from '../src/maestro-contract';
 import { novaThread } from '../src/thread';
-import { raizParaExibir, registrarProjeto } from '../src/projeto-alvo';
+import { raizParaExibir, registrarProjeto, remotoParaExibir } from '../src/projeto-alvo';
 import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
@@ -57,11 +57,11 @@ test('roadmap status: titulo aprovado na linha 1, o fuso na 2, depois o projeto 
     assert.match(linhas[0], /^Roadmap do Orkastery \(\d{2}\/\d{2}, \d{2}:\d{2}\)$/);
     // Fatia 2 do ensaio da 0.5.0 (P7): o fuso vem logo abaixo do titulo.
     assert.match(linhas[1], /^Horários (?:de Brasília|em .+)\.$/);
-    assert.equal(linhas[2], `Projeto consultado: orkastery (ork) · ${raizParaExibir(a.dir)} · ${a.remoto} · pela opção --projeto`);
+    assert.equal(linhas[2], `Projeto consultado: orkastery (ork) · ${raizParaExibir(a.dir)} · ${remotoParaExibir(a.remoto)} · pela opção --projeto`);
     assert.equal(linhas[3], 'Não lido: reservas do roadmap (ork network roadmap) · threads de outras máquinas (ork network roadmap) · ' +
       'outros projetos desta máquina: 1 (ork projetos)');
     const json = JSON.parse(ork(usuario, a.dir, ['roadmap', 'status', '--json']));
-    assert.deepEqual(json.consulta.projeto, { nome: 'orkastery', abbrev: 'ork', raiz: raizParaExibir(a.dir), remoto: a.remoto, origem: 'cwd' });
+    assert.deepEqual(json.consulta.projeto, { nome: 'orkastery', abbrev: 'ork', raiz: raizParaExibir(a.dir), remoto: remotoParaExibir(a.remoto), origem: 'cwd' });
     assert.deepEqual(json.consulta.lido, ['roadmap (docs/roadmap)', 'threads deste projeto nesta máquina']);
     assert.equal(json.consulta.contrato, 'ork.consulta/v1');
   } finally { a.limpar(); b.limpar(); fs.rmSync(usuario, { recursive: true, force: true }); }

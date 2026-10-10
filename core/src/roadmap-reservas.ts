@@ -481,8 +481,30 @@ export function soltarReservasOrfas(raiz: string, opcoes: OpcoesDeReserva = {}):
   });
 }
 
+/**
+ * RM-052 (fatia 2, D4): de onde vieram as reservas que a resposta mostra. Sem o remoto, ou com o remoto
+ * mudo e sem copia local, nada foi lido; "nenhum item reservado" so vale depois de uma leitura. Foi essa
+ * troca, "nao li" por "nao tem", que fez 13 itens reservados virarem "roadmap vazio" em 29/09.
+ */
+export type LeituraDasReservas = 'lido-agora' | 'copia-local' | 'sem-copia' | 'sem-remoto';
+
+export function leituraDasReservas(p: PainelDeReservas, temRemoto: boolean): LeituraDasReservas {
+  if (!temRemoto) return 'sem-remoto';
+  return p.atualizado ? 'lido-agora' : p.ponta ? 'copia-local' : 'sem-copia';
+}
+
 /** O texto de `ork roadmap reservas` para o terminal, no fuso do dono. */
-export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = []): string {
+export function textoDasReservas(p: PainelDeReservas, orfas: readonly ReservaOrfa[] = [],
+    lida: { remoto?: string; projeto?: string; temRemoto?: boolean } = {}): string {
+  const remoto = lida.remoto ?? REMOTO_PADRAO;
+  const leitura = leituraDasReservas(p, lida.temRemoto !== false);
+  if (leitura === 'sem-remoto') {
+    const projeto = lida.projeto ? `o projeto ${lida.projeto}` : 'o projeto';
+    return `Reservas do roadmap: ${projeto} não tem o remoto ${remoto}; nada foi lido de ${BRANCH_DE_RESERVAS}.`;
+  }
+  if (leitura === 'sem-copia') {
+    return `Reservas do roadmap: o remoto ${remoto} não respondeu e esta máquina não tem cópia de ${BRANCH_DE_RESERVAS}; nada foi lido.`;
+  }
   const linhas: string[] = [];
   if (!p.atualizado) linhas.push('AVISO: sem acesso ao remoto; esta e a ultima copia lida nesta maquina.', '');
   const feats = p.feats ?? [];

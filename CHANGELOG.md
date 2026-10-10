@@ -36,6 +36,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Projeto-alvo explícito, fatia 2: o que faltou da resposta honesta** ([RM-052](docs/roadmap/RM-052-projeto-alvo-explicito.md)):
+  a sessão despachada por um host (fase, retry e `ork audit run`) deixa de herdar o modo host e o `ORK_PROJETO`
+  do gateway (o despacho leva `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0`), e o `ork` dela, na worktree da
+  thread, lê a própria thread em vez de recusar com `projeto.escolha`; o filho `fabrica publicar` herda o mesmo.
+  `ork roadmap reservas` abre com o cabeçalho do projeto consultado e, sem remoto ou sem cópia, diz que nada foi
+  lido, nunca "Nenhum item do roadmap reservado"; o JSON ganha `consulta` e `leitura`. Todo comando que lê um
+  projeto que o leitor não tem como adivinhar (no host, ou fora do diretório dele) termina com a linha
+  `Projeto consultado: ...` no stderr, com o remoto sem query, sem fragmento e sem a pasta da conta, e a skill
+  do Hermes manda `--projeto` em todo `ork` de projeto do terminal.
+
 - **O `ork portfolio show` deixa de aceitar em silêncio as sobras do `objective`** ([RM-043](docs/roadmap/RM-043-aposentadoria.md)):
   a ajuda ainda listava `--constraints`, `--outcomes`, `--threads`, `--execution-runtime` e `--validation-runtimes`
   sob `portfolio show`, herança do `objective` aposentado na I-43, e o comando as aceitava e ignorava. Elas saem da

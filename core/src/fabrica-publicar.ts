@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fabricaCompartilhada } from './maquina';
 import { carregarManifesto, ManifestoCarregado } from './manifest';
+import { AMBIENTE_SEM_PROJETO_HERDADO } from './projeto-alvo';
 import { publicarRedeEmSegundoPlano } from './rede-adesao';
 
 /**
@@ -29,8 +30,9 @@ export function publicarEmSegundoPlano(raiz: string): boolean {
   const cli = path.join(__dirname, 'index.js');
   if (!fs.existsSync(cli)) return false;
   try {
+    // RM-052 (fatia 2, D2): o filho publica o projeto do proprio cwd; o modo host de quem chamou nao o segue.
     const filho = spawn(process.execPath, [cli, 'fabrica', 'publicar', '--silencioso'],
-      { cwd: carregado.raiz, detached: true, stdio: 'ignore', env: process.env });
+      { cwd: carregado.raiz, detached: true, stdio: 'ignore', env: { ...process.env, ...AMBIENTE_SEM_PROJETO_HERDADO } });
     filho.unref();
     return true;
   } catch { return false; }
