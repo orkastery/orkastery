@@ -4079,6 +4079,11 @@ function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): Proj
  * salvo se ja montou o proprio cabecalho.
  */
 export function main(argvBruto: string[]): number {
+  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
+  // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
+  registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
+  // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
+  fixarProjetoAlvo(null);
   iniciarDeclaracaoDoProjeto();
   try { return executarComando(argvBruto); }
   finally {
@@ -4088,11 +4093,6 @@ export function main(argvBruto: string[]): number {
 }
 
 function executarComando(argvBruto: string[]): number {
-  // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
-  // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
-  registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
-  // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
-  fixarProjetoAlvo(null);
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
