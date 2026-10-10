@@ -363,8 +363,6 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   portfolio create <product|project|initiative> <id> --title T [--parent ID]
   portfolio list [product|project|initiative] [--parent ID] [--json]
   portfolio show <id> [--json]              Catálogo prod -> proj -> init
-        [--constraints A;B] [--outcomes A;B] [--threads N]
-        [--execution-runtime R] [--validation-runtimes R1,R2]
   objective ...                             Aposentado na I-43: as duas vigas viraram
                                             --exige-runtime-diferente e --done de thread
 
@@ -2132,6 +2130,26 @@ function comandoShip(args: Args): number {
   return r.ok ? 0 : 1;
 }
 
+/**
+ * RM-043 (sobra achada na RM-044): opcoes que o `portfolio show` herdou do `objective`,
+ * aposentado na I-43. A ajuda as listava e o `parseArgs` as aceitava, mas o `show` nunca as
+ * leu: eram ignoradas em silencio. A recusa e tipada e diz para onde ir, como a do
+ * `objective.aposentado`.
+ */
+const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
+
+function recusarSobraDoObjective(opcao: string): number {
+  console.error(
+    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+    '        o CHECK precisa de runtime que o GO nao usou\n' +
+    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
+  );
+  return 2;
+}
+
 function comandoPortfolio(args: Args): number {
   const root = exigirManifesto().raiz;
   const sub = args.posicionais[1] ?? 'list';
@@ -2153,6 +2171,8 @@ function comandoPortfolio(args: Args): number {
     return 0;
   }
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
     const item = findEntity(root, id);
@@ -3431,6 +3451,8 @@ function comandoAudit(args: Args): number {
   }
 
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
       console.error('uso: ork audit show <rodada> [--ledger]');
