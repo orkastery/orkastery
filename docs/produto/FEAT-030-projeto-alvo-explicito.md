@@ -53,7 +53,7 @@ fontes:
 
 # FEAT-030 — Projeto-alvo explícito e resposta honesta nos hosts
 
-> **Em uma frase:** todo comando e toda tool `ork_*` leem o projeto pedido, nunca o do diretório do gateway, e toda resposta de maestro, board, fábrica e roadmap diz qual projeto leu e o que não leu.
+> **Em uma frase:** todo comando e toda tool `ork_*` leem o projeto pedido, nunca o do diretório do gateway, e toda resposta diz qual projeto leu, no cabeçalho ou na linha `Projeto consultado` do fim.
 
 - **Estado:** vigente · **Verificado em:** 2026-10-01 · **Versão:** main@a24a187 (PR #24), publicada na 0.5.0; a fatia 2 da RM-052 (sessão despachada com o projeto neutro, reservas, a linha "Projeto consultado" em toda resposta e o Hermes) em PR
 - **Onde fica:** [PLAT-01](PLAT-01-orkastery.md) > [SYS-02](SYS-02-hosts-e-canais.md) > [MOD-06](MOD-06-integracao-com-hosts.md)
@@ -70,7 +70,7 @@ fontes:
   2. Resolve o alvo: `--projeto`, depois `ORK_PROJETO`, depois o host sem diretório de projeto (`ORK_PROJETO_EXPLICITO=1`), depois o diretório atual.
   3. As raízes padrão do manifesto partem do alvo; o `maestro` recebe o alvo como seleção.
   4. A resposta começa pelo cabeçalho da consulta: projeto, raiz com `~`, remoto sem credencial, origem, e o que não foi lido.
-  5. Fatia 2: o comando que não monta o próprio cabeçalho termina com a linha `Projeto consultado: ...` no stderr quando o leitor não tem como saber qual projeto foi lido (no host, ou com o projeto fora do diretório atual), também quando falha; `maestro` declara no snapshot e `sessions event` (o sensor dos hooks) fica sem a linha.
+  5. Fatia 2: o comando que não monta o próprio cabeçalho escreve no fim a linha `Projeto consultado: ...` no stderr quando o leitor não tem como saber qual projeto foi lido (no host, ou com o projeto fora do diretório atual); quando ele falha, a linha sai antes da mensagem de erro. `maestro` declara no snapshot e `sessions event` (o sensor dos hooks) fica sem a linha.
 
 - **Alternativas, erros e recuperação:**
   - nome fora do registro: `projeto.desconhecido`, com os registrados;
@@ -89,8 +89,8 @@ fontes:
   - BR-030-04: o MCP continua fixado na instalação; o parâmetro `projeto` só confere.
   - BR-030-05: sem o remoto, board e fábrica dizem que nada foi lido de `ork/fabrica-estado`; nunca "nenhuma publicou ainda".
   - BR-030-06: comandos com `--projeto` próprio (`network`, da RM-054) recebem a opção intacta.
-  - BR-030-08: a sessão despachada e o filho `fabrica publicar` leem o projeto pelo próprio cwd: o ambiente da condução leva `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0`, e o modo host de quem despachou não os segue.
-  - BR-030-09: resposta de projeto que o leitor não tem como adivinhar diz qual projeto leu, uma vez só: o cabeçalho do comando, ou a linha `Projeto consultado` no fim, no stderr.
+  - BR-030-08: a sessão despachada (fase, retry e `ork audit run`) e o filho `fabrica publicar` leem o projeto pelo próprio cwd: o despacho leva `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0`, e o modo host de quem despachou não os segue.
+  - BR-030-09: cada comando de projeto que o leitor não tem como adivinhar diz qual projeto leu, uma vez por comando: o cabeçalho dele, ou a linha `Projeto consultado` no fim, no stderr. Um script que encadeia dois comandos (como o `ork-abrir-thread.sh` do Hermes) mostra a linha de cada um.
   - BR-030-10: "nenhum item reservado" só depois de ler `ork/roadmap-reservas`; sem leitura, a resposta diz que nada foi lido.
 - **Critérios de aceite e testes:** Dado o gateway parado num projeto sem remoto e o orkastery registrado, quando a tool de roadmap é chamada com `projeto: orkastery`, então a resposta é o roadmap do orkastery e o declara; sem `projeto`, a resposta é a escolha (`core/test/projeto-alvo-incidente.test.ts`). Fatia 2: dado um host com dois projetos registrados, quando ele despacha uma fase, então o `ork` da sessão na worktree lê a thread (`core/test/projeto-alvo-despacho.test.ts`); quando qualquer tool de projeto do OpenClaw é chamada com `projeto`, então a resposta nomeia o projeto lido uma vez (`core/test/projeto-alvo-declaracao.test.ts`); quando o projeto não tem remoto, então `ork roadmap reservas` diz que nada foi lido (`core/test/projeto-alvo-reservas.test.ts`).
 - **Interface e acessibilidade:** o cabeçalho tem duas linhas curtas em texto; em JSON, o objeto `consulta` (`ork.consulta/v1`).
@@ -105,7 +105,7 @@ fontes:
 
 - **Configuração:** `ORK_PROJETO` fixa o projeto do shell inteiro; `ORK_PROJETO_EXPLICITO=1` é declarado pelos adaptadores OpenClaw e Hermes, e `0` desliga no Hermes.
 - **Observabilidade:** `ork projetos` mostra cada cópia e se ela ainda está no disco.
-- **Acesso, privacidade e conformidade:** o registro não guarda segredo: o remoto perde usuário e senha, e a gravação passa pela varredura de segredo antes do disco (arquivo `0600`).
+- **Acesso, privacidade e conformidade:** o registro não guarda segredo: o remoto perde usuário e senha, e a gravação passa pela varredura de segredo antes do disco (arquivo `0600`). Na resposta (cabeçalho e linha do stderr), o remoto perde também query e fragmento, o caminho local mostra `~` no lugar da pasta da conta, e o remoto que ainda parecer segredo sai omitido.
 - **Dependências e rollback:** usa o manifesto e o git do projeto; para voltar, apague `~/.orkastery/projetos.json` e rode sem `--projeto`, o que devolve o comportamento pelo diretório atual.
 
 ## Histórico

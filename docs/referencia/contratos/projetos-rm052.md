@@ -73,8 +73,8 @@ Comandos com `--projeto` próprio recebem a opção intacta e não resolvem o al
 `network` (RM-054, `--projeto github:dono/repo`). Comandos que não leem projeto (`init`, `mcp`,
 `demo`, `ciclos`, `projetos`) também não resolvem; `init` e `mcp` recusam `--projeto`.
 
-A sessão despachada (`ork phase run`, `ork retry run`) recebe no ambiente da condução
-`ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0` (fatia 2): o projeto dela é o do próprio cwd, a
+A sessão despachada (`ork phase run`, `ork retry run` e `ork audit run`) recebe no ambiente do
+despacho `ORK_PROJETO` vazio e `ORK_PROJETO_EXPLICITO=0` (fatia 2): o projeto dela é o do próprio cwd, a
 worktree da thread, e o modo host de quem despachou não a segue. No codex, os dois valores vão por
 cima do ambiente herdado; no claude-bg, pelo `--settings`, que vence o ambiente do daemon. O filho
 `fabrica publicar` herda o mesmo.
@@ -100,13 +100,19 @@ No texto, duas linhas logo no alto: `Projeto consultado: ...` e `Não lido: ...`
 outros projetos da máquina. Sem o remoto, o `naoLido` diz que nada foi lido de `ork/fabrica-estado`
 ou, nas reservas, de `ork/roadmap-reservas`; o JSON das reservas traz também `leitura`
 (`lido-agora`, `copia-local`, `sem-copia` ou `sem-remoto`), e só `lido-agora` ou `copia-local`
-sem reserva viram "Nenhum item do roadmap reservado".
+sem reserva viram "Nenhum item do roadmap reservado". Nas reservas, `projeto.remoto` é o remoto
+lido (`--remoto`, ou `origin`); em `board` e `fabrica`, é o `fabrica.remoto` do manifesto.
 
 Os demais comandos que leem um projeto terminam com a mesma primeira linha, `Projeto consultado:
 ...`, no stderr (fatia 2), quando o leitor não tem como saber qual projeto foi lido: no host
-(`ORK_PROJETO_EXPLICITO=1`) ou com o projeto fora do diretório atual. Ela vem uma vez só, também
-quando o comando falha; quem monta o cabeçalho não a repete, e o stdout, inclusive o JSON, não
-muda. `maestro` declara no snapshot e `sessions event`, o sensor dos hooks, não declara.
+(`ORK_PROJETO_EXPLICITO=1`) ou com o projeto fora do diretório atual. Ela vem uma vez por comando,
+também quando ele falha (aí, antes da mensagem de erro); quem monta o cabeçalho do próprio projeto
+não a repete, e o stdout, inclusive o JSON, não muda. Um script que encadeia dois comandos mostra a
+linha de cada um. `maestro` declara no snapshot e `sessions event`, o sensor dos hooks, não declara.
+
+No cabeçalho e na linha, o remoto é o de exibição: sem usuário e senha, sem query e fragmento, o
+caminho local com `~` no lugar da pasta da conta, e omitido quando ainda parece segredo. O registro
+guarda o remoto sem credencial, como antes.
 
 ## Para quem consome
 
