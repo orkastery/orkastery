@@ -1,51 +1,53 @@
 {
   "schema": "ork.graph-mcp-cost/v0",
-  "medido_em": "2026-10-02T05:19:01.578Z",
-  "revisao": "9000f52e67786e33c9050bb57d39feeb9e8d4727",
-  "chave_do_indice": "idx-b60ae0dfb948f470a6472b5de6a0493b38cd20fefc44fecb4742fd8426fa985e",
-  "graph_digest": "40c0be6d0bc95c3fc20075e122c17d9c283a9d8b8682fc6188fd3245b0b24815",
+  "medido_em": "2026-10-10T06:55:47.518Z",
+  "revisao": "b91573e6c92d74c6a92b3e3ecf13bad8f78c47c3",
+  "chave_do_indice": "idx-c1f69c05f2cf541cf940b8b2e57991c369e99f4aaf1d3f1d6c875228b83a99db",
+  "graph_digest": "6b8baff661f665f066ae1ba1f867ad3bc92d5e327402aa7773072ec12fad2769",
   "teto_padrao": 32768,
   "maquina": {
     "node": "v22.23.2",
     "plataforma": "linux 7.0.0-31-generic",
     "cpus": 8,
-    "carga_1min": 7.4
+    "carga_1min": 14.3
   },
   "metodo": {
     "tool": "tool-mcp/v0: o worker das tools ork_grafo_* (core/dist/mcp-grafo-worker.js) com o argv que a tool monta e o teto padrao, num processo novo com o ambiente minimo do MCP; ao agente chega o texto da resposta da tool, e ele nao abre arquivo",
     "cli": "consulta-grafo/v0 do KG3: ork grafo <consulta> --json num processo novo, sem teto",
     "cru": "leitura-crua/v0 do KG3: git grep -n -I -F do nome nos arquivos rastreados, mais a leitura inteira de cada arquivo com ocorrencia",
-    "descoberta": "bytes do JSON das definicoes das quatro tools no tools/list de um servidor MCP num projeto temporario com grafo.mcp: true, e do tools/list inteiro com e sem a flag",
+    "descoberta": "bytes do JSON das definicoes das cinco tools no tools/list de um servidor MCP num projeto temporario com grafo.mcp: true, e do tools/list inteiro com e sem a flag",
     "latencia": "relogio monotonico do processo que mede, de ponta a ponta por repeticao, com a mediana",
     "repeticoes": 3
   },
   "preparo_do_indice": {
     "comando": "ork grafo indexar --json",
-    "estado": "criado",
-    "modo": "incremental",
-    "ms": 12743,
-    "bytes_do_indice": 33869902,
-    "fontes": 1023,
-    "arestas": 26725
+    "estado": "existente",
+    "modo": null,
+    "ms": 618,
+    "bytes_do_indice": 41172144,
+    "fontes": 1206,
+    "arestas": 32512
   },
   "descoberta": {
     "tools": [
       "ork_grafo_vizinhos",
       "ork_grafo_chamadores",
       "ork_grafo_importadores",
-      "ork_grafo_caminho"
+      "ork_grafo_caminho",
+      "ork_grafo_contexto"
     ],
     "bytes_por_tool": {
-      "ork_grafo_vizinhos": 1702,
-      "ork_grafo_chamadores": 1330,
-      "ork_grafo_importadores": 1328,
-      "ork_grafo_caminho": 1571
+      "ork_grafo_vizinhos": 1862,
+      "ork_grafo_chamadores": 1482,
+      "ork_grafo_importadores": 1480,
+      "ork_grafo_caminho": 1731,
+      "ork_grafo_contexto": 1180
     },
-    "bytes_das_tools": 5931,
-    "tools_sem_flag": 30,
-    "tools_com_flag": 34,
-    "bytes_tools_list_sem_flag": 23289,
-    "bytes_tools_list_com_flag": 29224
+    "bytes_das_tools": 7735,
+    "tools_sem_flag": 31,
+    "tools_com_flag": 36,
+    "bytes_tools_list_sem_flag": 24234,
+    "bytes_tools_list_com_flag": 31974
   },
   "perguntas": [
     {
@@ -60,7 +62,7 @@
         "argumentos": {
           "alvo": "core/src/intelligence-graph-repo.ts#lerRepositorio"
         },
-        "bytes_ao_agente": 2525,
+        "bytes_ao_agente": 2964,
         "arestas_devolvidas": 1,
         "total_arestas": 1,
         "cortado": false,
@@ -68,37 +70,37 @@
         "evidencias": 1,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          809.8,
-          731.4,
-          782.7
+          1330.5,
+          1668.1,
+          1331.1
         ],
-        "latencia_mediana_ms": 782.7
+        "latencia_mediana_ms": 1331.1
       },
       "cli": {
-        "bytes_ao_agente": 3148,
+        "bytes_ao_agente": 3686,
         "arestas_devolvidas": 1,
         "total_arestas": 1,
         "evidencias": 1,
         "latencia_ms": [
-          874.6,
-          915.2,
-          913.5
+          1388,
+          2144.9,
+          3428
         ],
-        "latencia_mediana_ms": 913.5
+        "latencia_mediana_ms": 2144.9
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e lerRepositorio",
         "bytes_grep": 3423,
-        "bytes_arquivos": 289087,
-        "bytes_ao_agente": 292510,
+        "bytes_arquivos": 328730,
+        "bytes_ao_agente": 332153,
         "ocorrencias": 27,
         "arquivos_abertos": 12,
         "latencia_ms": [
-          24.8,
-          18.6,
-          30.2
+          48.1,
+          45.7,
+          52.1
         ],
-        "latencia_mediana_ms": 24.8
+        "latencia_mediana_ms": 48.1
       },
       "tokens": {
         "tool": {
@@ -130,7 +132,7 @@
         "argumentos": {
           "alvo": "core/src/manifest.ts#dirEstado"
         },
-        "bytes_ao_agente": 14009,
+        "bytes_ao_agente": 16997,
         "arestas_devolvidas": 18,
         "total_arestas": 18,
         "cortado": false,
@@ -138,37 +140,37 @@
         "evidencias": 18,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          802.5,
-          815.4,
-          823.1
+          1304.6,
+          1267.6,
+          1706.2
         ],
-        "latencia_mediana_ms": 815.4
+        "latencia_mediana_ms": 1304.6
       },
       "cli": {
-        "bytes_ao_agente": 19426,
+        "bytes_ao_agente": 23153,
         "arestas_devolvidas": 18,
         "total_arestas": 18,
         "evidencias": 18,
         "latencia_ms": [
-          887,
-          880.7,
-          852.1
+          1680.2,
+          1725.4,
+          1856.2
         ],
-        "latencia_mediana_ms": 880.7
+        "latencia_mediana_ms": 1725.4
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e dirEstado",
-        "bytes_grep": 7207,
-        "bytes_arquivos": 630904,
-        "bytes_ao_agente": 638111,
-        "ocorrencias": 68,
-        "arquivos_abertos": 26,
+        "bytes_grep": 9754,
+        "bytes_arquivos": 755208,
+        "bytes_ao_agente": 764962,
+        "ocorrencias": 87,
+        "arquivos_abertos": 27,
         "latencia_ms": [
-          17.6,
-          31.2,
-          23
+          44.6,
+          67.7,
+          49.1
         ],
-        "latencia_mediana_ms": 23
+        "latencia_mediana_ms": 49.1
       },
       "tokens": {
         "tool": {
@@ -200,45 +202,45 @@
         "argumentos": {
           "alvo": "core/src/intelligence-graph-contract.ts"
         },
-        "bytes_ao_agente": 8136,
-        "arestas_devolvidas": 9,
-        "total_arestas": 9,
+        "bytes_ao_agente": 14132,
+        "arestas_devolvidas": 13,
+        "total_arestas": 13,
         "cortado": false,
         "limite_efetivo": 500,
-        "evidencias": 9,
+        "evidencias": 13,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          781.5,
-          795.2,
-          781.6
+          1643.9,
+          1753.6,
+          1489.7
         ],
-        "latencia_mediana_ms": 781.6
+        "latencia_mediana_ms": 1643.9
       },
       "cli": {
-        "bytes_ao_agente": 11015,
-        "arestas_devolvidas": 9,
-        "total_arestas": 9,
-        "evidencias": 9,
+        "bytes_ao_agente": 18838,
+        "arestas_devolvidas": 13,
+        "total_arestas": 13,
+        "evidencias": 13,
         "latencia_ms": [
-          888.3,
-          898.8,
-          910.8
+          1623,
+          1361.8,
+          1378.4
         ],
-        "latencia_mediana_ms": 898.8
+        "latencia_mediana_ms": 1378.4
       },
       "cru": {
         "comando": "git grep -n -I -F -e intelligence-graph-contract",
-        "bytes_grep": 5415,
-        "bytes_arquivos": 564305,
-        "bytes_ao_agente": 569720,
-        "ocorrencias": 36,
-        "arquivos_abertos": 21,
+        "bytes_grep": 61215,
+        "bytes_arquivos": 1153817,
+        "bytes_ao_agente": 1215032,
+        "ocorrencias": 78,
+        "arquivos_abertos": 32,
         "latencia_ms": [
-          18.2,
-          25.8,
-          18
+          51.4,
+          36.3,
+          38.2
         ],
-        "latencia_mediana_ms": 18.2
+        "latencia_mediana_ms": 38.2
       },
       "tokens": {
         "tool": {
@@ -270,7 +272,7 @@
         "argumentos": {
           "alvo": "core/src/yaml.ts"
         },
-        "bytes_ao_agente": 8074,
+        "bytes_ao_agente": 10417,
         "arestas_devolvidas": 10,
         "total_arestas": 10,
         "cortado": false,
@@ -278,37 +280,37 @@
         "evidencias": 10,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          787.1,
-          820.9,
-          745.6
+          1278.7,
+          1216.1,
+          1367.8
         ],
-        "latencia_mediana_ms": 787.1
+        "latencia_mediana_ms": 1278.7
       },
       "cli": {
-        "bytes_ao_agente": 11235,
+        "bytes_ao_agente": 14127,
         "arestas_devolvidas": 10,
         "total_arestas": 10,
         "evidencias": 10,
         "latencia_ms": [
-          863.3,
-          878.2,
-          838.7
+          1651.9,
+          1264.7,
+          1429.3
         ],
-        "latencia_mediana_ms": 863.3
+        "latencia_mediana_ms": 1429.3
       },
       "cru": {
         "comando": "git grep -n -I -F -e \"/yaml'\"",
         "bytes_grep": 1111,
-        "bytes_arquivos": 272704,
-        "bytes_ao_agente": 273815,
+        "bytes_arquivos": 303197,
+        "bytes_ao_agente": 304308,
         "ocorrencias": 13,
         "arquivos_abertos": 13,
         "latencia_ms": [
-          19.9,
-          15.3,
-          18
+          41.8,
+          23.1,
+          23.3
         ],
-        "latencia_mediana_ms": 18
+        "latencia_mediana_ms": 23.3
       },
       "tokens": {
         "tool": {
@@ -340,45 +342,45 @@
         "argumentos": {
           "alvo": "core/src/estado-thread.ts#raizDoEstado"
         },
-        "bytes_ao_agente": 32087,
-        "arestas_devolvidas": 41,
-        "total_arestas": 104,
+        "bytes_ao_agente": 32145,
+        "arestas_devolvidas": 34,
+        "total_arestas": 123,
         "cortado": true,
-        "limite_efetivo": 41,
-        "evidencias": 47,
+        "limite_efetivo": 34,
+        "evidencias": 42,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          736.6,
-          758.9,
-          821.5
+          1118.7,
+          1368.4,
+          1244.7
         ],
-        "latencia_mediana_ms": 758.9
+        "latencia_mediana_ms": 1244.7
       },
       "cli": {
-        "bytes_ao_agente": 106363,
-        "arestas_devolvidas": 104,
-        "total_arestas": 104,
-        "evidencias": 111,
+        "bytes_ao_agente": 140204,
+        "arestas_devolvidas": 123,
+        "total_arestas": 123,
+        "evidencias": 132,
         "latencia_ms": [
-          902.3,
-          983.2,
-          892.4
+          1451.6,
+          1489.4,
+          1373.4
         ],
-        "latencia_mediana_ms": 902.3
+        "latencia_mediana_ms": 1451.6
       },
       "cru": {
         "comando": "git grep -n -I -F -w -e raizDoEstado",
-        "bytes_grep": 14444,
-        "bytes_arquivos": 1165464,
-        "bytes_ao_agente": 1179908,
-        "ocorrencias": 133,
-        "arquivos_abertos": 51,
+        "bytes_grep": 17498,
+        "bytes_arquivos": 1575630,
+        "bytes_ao_agente": 1593128,
+        "ocorrencias": 159,
+        "arquivos_abertos": 59,
         "latencia_ms": [
-          24.3,
-          22.8,
-          24.7
+          41.6,
+          53.1,
+          51.7
         ],
-        "latencia_mediana_ms": 24.3
+        "latencia_mediana_ms": 51.7
       },
       "tokens": {
         "tool": {
@@ -412,7 +414,7 @@
           "de": "core/src/index.ts#main",
           "para": "core/src/manifest.ts#dirEstado"
         },
-        "bytes_ao_agente": 4325,
+        "bytes_ao_agente": 4985,
         "arestas_devolvidas": 2,
         "total_arestas": 2,
         "cortado": false,
@@ -420,23 +422,23 @@
         "evidencias": 2,
         "arquivos_abertos": 0,
         "latencia_ms": [
-          783.2,
-          789.1,
-          764.4
+          1152.4,
+          1269,
+          1154
         ],
-        "latencia_mediana_ms": 783.2
+        "latencia_mediana_ms": 1154
       },
       "cli": {
-        "bytes_ao_agente": 5880,
+        "bytes_ao_agente": 6716,
         "arestas_devolvidas": 2,
         "total_arestas": 2,
         "evidencias": 2,
         "latencia_ms": [
-          893.7,
-          1128.2,
-          1063.3
+          1187.1,
+          1251.8,
+          1162
         ],
-        "latencia_mediana_ms": 1063.3
+        "latencia_mediana_ms": 1187.1
       },
       "cru": {
         "indisponivel": "a leitura crua nao tem procedimento fixo que ache um caminho de chamadas sem inferir o simbolo que contem cada ocorrencia"
