@@ -178,6 +178,12 @@ export function varrerPulse(opcoes: {
     const servidas=threadsComPerguntaViva(raiz,quando,dir);
     const jaServida=(i:ItemPulse)=>!!i.thread&&servidas.has(i.thread);
     novas=itens.filter(i=>vistas[i.id]!==assinaturaPulse(i)&&!jaServida(i)).length;
+    // RM-055 (continuacao, D3): o impedimento que so o dono destrava vai no resumo com o comando de cada um,
+    // e o que ele ainda nao viu sai na hora, como pergunta nova: esperar a janela da cadencia deixava a
+    // fase parada sem ele saber. O ja avisado nao volta a tocar sozinho.
+    const impedimentos=itens.filter(i=>i.impedimento&&i.thread).map(i=>({thread:i.thread as string,fase:i.fase,
+      comando:i.impedimento!.comando,retry:i.impedimento!.retry}));
+    const impedimentoNovo=itens.some(i=>i.impedimento&&vistas[i.id]!==assinaturaPulse(i)&&!jaServida(i));
     for(const i of itens) if(jaServida(i)) vistas[i.id]=assinaturaPulse(i);
 
     const entregar=(mensagem:string,oQue:string):void=>{
@@ -217,12 +223,13 @@ export function varrerPulse(opcoes: {
     // cadencia do dono, e a novidade que esperou continua nao vista ate sair.
     const noPrazo=!opcoes.comCadencia||janelaAberta(cadencia,lerUltimoResumo(opcoes.raiz,dir),quando);
     const informacaoNova=novas>0||decisoesNovas.length>0||paradosNovos.length>0;
-    const adiada=!conjuntoNovo&&!esperaNovaFora&&informacaoNova&&!noPrazo;
-    if(conjuntoNovo||esperaNovaFora||(noPrazo&&informacaoNova)) {
+    const adiada=!conjuntoNovo&&!esperaNovaFora&&!impedimentoNovo&&informacaoNova&&!noPrazo;
+    if(conjuntoNovo||esperaNovaFora||impedimentoNovo||(noPrazo&&informacaoNova)) {
       const guardadas=anterior?fila.candidatos.filter(c=>anterior.candidatos.some(a=>a.thread===c.thread)).length:0;
       const resumo=resumirHitl(itens,{quando,janelaMin,prontas:fila.candidatos.length,acumuladas:guardadas,
         consertos:fila.consertos,atoDoItem:i=>fila.atos.get(`${i.thread}|${i.fase}`),
         decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras,paradosNoCondutor:parados,
+        impedimentosDoDono:impedimentos,
         // RM-057 (fatia 3): a linha so acompanha o resumo que ja sai; nao e novidade nem fura a cadencia.
         ...(pulse.hitlDeConducao?{hitlDeConducao:pulse.hitlDeConducao}:{})});
       // Pedir licenca para mandar zero perguntas era o defeito: sem pergunta, nao ha codigo.

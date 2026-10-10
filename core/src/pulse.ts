@@ -40,6 +40,11 @@ export interface ItemPulse {
   canais?: readonly CanalOferecido[];
   /** RM-048 (D1): o pedido no contrato curto, pronto para o canal. So pergunta v2 de gate com codigo. */
   apresentacaoCurta?: { telegram: string; terminal: string };
+  /**
+   * RM-055 (continuacao, D3): o impedimento do despacho que so o dono resolve, tipado: o comando que ele roda
+   * no terminal e o retry que devolve a fase ao runtime. E o que o resumo entregue leva ao dono.
+   */
+  impedimento?: { motivo: string; comando: string; retry: string };
 }
 export interface Pulse {
   contrato: typeof CONTRATO_PULSE; consultadoEm: string;
@@ -185,12 +190,13 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
       fontes:['monitor'],contextoLogs:[]};
     // RM-055: o impedimento do despacho sai no contrato curto, com o comando exato e o re-despacho depois.
     if (p.impedimento) {
+      item.impedimento = { motivo: p.motivo, comando: p.impedimento.comando, retry: `ork retry run ${l.thread}` };
       try {
         const curto = pedidoCurtoDoImpedimento({ thread: l.thread, fase: p.fase, motivo: p.motivo, detalhe: p.detalhe,
           desdeEm: p.desdeEm, impedimento: p.impedimento }, quando);
         item.apresentacaoCurta = { telegram: textoDoPedidoCurto(curto, 'telegram'), terminal: textoDoPedidoCurto(curto, 'terminal') };
         item.opcoes = curto.alternativas.map(a => `${a.chave}. ${a.texto}`);
-        item.comandoResposta = `ork retry run ${l.thread}`;
+        item.comandoResposta = item.impedimento.retry;
       } catch { item.evidencia.push('Pedido curto do impedimento indisponível; a correção acima vale.'); }
     }
     // I-45: vaga parada e sinal do escalonador (`ork board reap` devolve a vaga), nao pergunta ao dono.

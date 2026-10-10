@@ -11,10 +11,15 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { dirTemporario, projetoTemporario } from './apoio';
 import { classificarImpedimento, impedimentoResolvido } from '../src/impedimento';
-import { lerLedger } from '../src/ledger';
+import { lerLedger, registrar } from '../src/ledger';
 import { rodarFase } from '../src/phase';
 import { executarRetry } from '../src/retry';
 import { dirThread, novaThread } from '../src/thread';
+import { definirFusoDoDono } from '../src/horario';
+import { ItemPulse, montarPulse, Pulse } from '../src/pulse';
+import { varrerPulse } from '../src/pulse-delivery';
+import { gravarCadencia } from '../src/pulse-cadencia';
+import { resumirHitl, SEM_PERGUNTA_COM_IMPEDIMENTO, SEM_PERGUNTA_NO_RESUMO, TETO_DE_IMPEDIMENTOS, textoDoResumo } from '../src/hitl-resumo';
 
 const ctx = { thread: 'ork-x', fase: 'GO', runtime: 'claude-bg', cwd: '/w/repo/.claude/worktrees/ork-x' };
 
@@ -214,4 +219,145 @@ test('S3: a recusa repetida pelo mesmo impedimento do dono nao gasta tentativa; 
     process.env.PATH = anterior.PATH;
     if (anterior.CLAUDE === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = anterior.CLAUDE;
   }
+});
+
+/** O stub do incidente de 29/09: recusa todo `--bg` pela confianca do diretorio, como o claude 2.1.296. */
+function claudeQueRecusaAConfianca(dir: string): { restaurar: () => void } {
+  const bin = path.join(dir, 'bin'), conta = path.join(dir, 'conta-processo'), apoio = path.join(dir, 'stub');
+  fs.mkdirSync(bin); fs.mkdirSync(conta); fs.mkdirSync(apoio);
+  fs.writeFileSync(path.join(apoio, 'auth.json'),
+    `${JSON.stringify({ loggedIn: true, authMethod: 'claude.ai', apiProvider: 'firstParty', configDirectory: conta })}\n`);
+  // A frase entra por arquivo: crase dentro de aspas duplas no sh rodaria `claude` de novo, e a saida de
+  // `$(cat ...)` o shell nao reinterpreta.
+  fs.writeFileSync(path.join(apoio, 'antes.txt'), 'Workspace not trusted. Run `claude` in ');
+  fs.writeFileSync(path.join(apoio, 'depois.txt'), ' once and accept the trust prompt, then retry.');
+  fs.writeFileSync(path.join(bin, 'claude'), [
+    '#!/bin/sh',
+    `if [ "$1" = "auth" ]; then cat "${apoio}/auth.json"; exit 0; fi`,
+    `if [ "$1" = "agents" ]; then echo '[]'; exit 0; fi`,
+    `echo "$(cat "${apoio}/antes.txt")$(pwd)$(cat "${apoio}/depois.txt")" >&2`,
+    'exit 1',
+    '',
+  ].join('\n'), { mode: 0o755 });
+  const anterior = { PATH: process.env.PATH, CLAUDE: process.env.CLAUDE_CONFIG_DIR };
+  process.env.PATH = `${bin}:${anterior.PATH ?? ''}`;
+  process.env.CLAUDE_CONFIG_DIR = conta;
+  return { restaurar: () => {
+    process.env.PATH = anterior.PATH;
+    if (anterior.CLAUDE === undefined) delete process.env.CLAUDE_CONFIG_DIR; else process.env.CLAUDE_CONFIG_DIR = anterior.CLAUDE;
+  } };
+}
+
+test('S4: o resumo entregue traz thread, fase, comando e ork retry run de cada impedimento do dono aberto', () => {
+  const p = projetoTemporario('rm055c-resumo');
+  const stub = claudeQueRecusaAConfianca(p.dir);
+  definirFusoDoDono('America/Sao_Paulo');
+  try {
+    const threads = ['alfa', 'bravo'].map(nome => {
+      const t = novaThread(p.carregado, { nome, modo: 'auto' }).thread;
+      assert.equal(rodarFase(p.carregado, t.id, { fase: 'GOAL', prompt: 'objetivo', runtime: 'claude-bg' }).motivo,
+        'runtime.workspace-untrusted');
+      const gate = lerLedger(dirThread(p.dir, t.id)).filter(e => e.tipo === 'gate_blocked').at(-1);
+      return { id: t.id, cwd: String(gate?.cwd) };
+    });
+    const quando = new Date().toISOString();
+    const pulse = montarPulse(p.carregado, { consulta: { ok: true, sessoes: [], detalhe: '' }, quando });
+    for (const t of threads) {
+      const item = pulse.precisaDeHumanoAgora.find(i => i.thread === t.id && i.motivo === 'runtime.workspace-untrusted');
+      assert.deepEqual(item?.impedimento, { motivo: 'runtime.workspace-untrusted', comando: `cd ${t.cwd} && claude`,
+        retry: `ork retry run ${t.id}` });
+    }
+
+    const mensagens: string[] = [];
+    const r = varrerPulse({ raiz: p.dir, quando, consultar: () => pulse, enviar: m => { mensagens.push(m); return true; } });
+    assert.equal(r.enviadas, 1, r.detalhe);
+    const texto = mensagens[0];
+    assert.match(texto, /🔑 Só você destrava, no terminal: 2/);
+    for (const t of threads) {
+      assert.ok(texto.includes(`• ${t.id} GOAL: rode \`cd ${t.cwd} && claude\`; depois \`ork retry run ${t.id}\``), texto);
+    }
+    assert.match(texto, /Esperando você: 2/);
+    assert.match(texto, /Perguntas para você: 0/);
+    assert.ok(texto.endsWith(SEM_PERGUNTA_COM_IMPEDIMENTO), texto);
+
+    // O terminal le o mesmo conteudo, com o marcador dele.
+    const terminal = textoDoResumo(resumirHitl(pulse.precisaDeHumanoAgora, { quando,
+      impedimentosDoDono: threads.map(t => ({ thread: t.id, fase: 'GOAL', comando: `cd ${t.cwd} && claude`, retry: `ork retry run ${t.id}` })) }),
+      { canal: 'terminal' });
+    assert.match(terminal, /^ {2}Só você destrava, no terminal: 2$/m);
+    for (const t of threads) assert.ok(terminal.includes(`  • ${t.id} GOAL: rode \`cd ${t.cwd} && claude\`; depois \`ork retry run ${t.id}\``), terminal);
+  } finally {
+    definirFusoDoDono(undefined);
+    stub.restaurar();
+    p.limpar();
+  }
+});
+
+/** Um instante dado na hora de Brasilia, em ISO. */
+const brt = (hhmm: string) => new Date(`2026-10-10T${hhmm}:00-03:00`).toISOString();
+
+const pulseCom = (itens: ItemPulse[], quando: string): Pulse => ({
+  contrato: 'ork.pulse/v1', consultadoEm: quando, runtime: { ok: true, detalhe: '' },
+  precisaDeHumanoAgora: itens, acoesAutomaticas: [],
+  resumo: { humanos: itens.length, automaticas: 0, scores: 0, fasesOrfas: 0 },
+});
+
+test('S4: com a cadência ligada, impedimento novo sai na hora, e o mesmo impedimento já avisado não volta a tocar', () => {
+  const p = projetoTemporario('rm055c-cadencia');
+  definirFusoDoDono('America/Sao_Paulo');
+  try {
+    const monitor = path.join(p.dir, '.orkastery', 'monitor');
+    gravarCadencia(p.dir, '#OrkPulseOn', { por: 'telegram:42', canal: 'hermes', em: brt('08:00') }, monitor);
+    // Uma thread parada no gate de GOAL do #Classic: a pergunta que abre a primeira janela.
+    const g = novaThread(p.carregado, { nome: 'gate classic', modo: 'classic' }).thread;
+    registrar(dirThread(p.dir, g.id), g.id, 'phase_result', { fase: 'GOAL', evidencia: 'fixture simulada' });
+    const gate: ItemPulse = { id: `thread:${g.id}:GOAL:human.pending:ledger`, classe: 'thread', motivo: 'human.pending',
+      thread: g.id, fase: 'GOAL', sessionId: null, desdeEm: brt('08:30'), paradaHaMin: 35, impacto: 1,
+      pergunta: 'bloco fechado em GOAL: espera o veredito humano sobre objetivo', opcoes: [], recomendacao: '',
+      comandoResposta: 'ork thread status', evidencia: [], fontes: ['monitor'], contextoLogs: [] };
+    const i = novaThread(p.carregado, { nome: 'impedida', modo: 'auto' }).thread;
+    const impedida: ItemPulse = { id: `thread:${i.id}:GO:runtime.workspace-untrusted:ledger`, classe: 'thread',
+      motivo: 'runtime.workspace-untrusted', thread: i.id, fase: 'GO', sessionId: null, desdeEm: brt('09:10'), paradaHaMin: 10,
+      impacto: 3, pergunta: 'o claude não confia no diretório da worktree e recusou o despacho de GO', opcoes: [],
+      recomendacao: 'rode `cd /w/impedida && claude`', comandoResposta: `ork retry run ${i.id}`, evidencia: [],
+      fontes: ['monitor'], contextoLogs: [],
+      impedimento: { motivo: 'runtime.workspace-untrusted', comando: 'cd /w/impedida && claude', retry: `ork retry run ${i.id}` } };
+    const mensagens: string[] = [];
+    const bater = (quando: string, itens: ItemPulse[]) => varrerPulse({ raiz: p.dir, consultar: () => pulseCom(itens, quando),
+      quando, comCadencia: true, enviar: m => { mensagens.push(m); return true; } });
+
+    // 09:05: a pergunta do gate sai na hora e abre a janela das 08h as 10h.
+    assert.equal(bater(brt('09:05'), [gate]).enviadas, 1);
+    // 09:20: o impedimento novo nao espera a janela das 10h: sai agora, com o comando.
+    const agora = bater(brt('09:20'), [gate, impedida]);
+    assert.equal(agora.enviadas, 1, agora.detalhe);
+    assert.ok(mensagens[1].includes(`• ${i.id} GO: rode \`cd /w/impedida && claude\`; depois \`ork retry run ${i.id}\``), mensagens[1]);
+    // 09:35: nada mudou; o impedimento ja avisado nao toca sozinho de novo.
+    const depois = bater(brt('09:35'), [gate, impedida]);
+    assert.equal(depois.enviadas, 0);
+    assert.equal(depois.detalhe, 'sem novidade');
+    assert.equal(mensagens.length, 2);
+  } finally {
+    definirFusoDoDono(undefined);
+    p.limpar();
+  }
+});
+
+test('S4: com mais de cinco impedimentos o resumo detalha cinco e conta o resto; sem impedimento, o texto e o de antes', () => {
+  definirFusoDoDono('America/Sao_Paulo');
+  try {
+    const quando = brt('10:00');
+    const impedimentosDoDono = Array.from({ length: TETO_DE_IMPEDIMENTOS + 2 }, (_, n) => ({ thread: `ork-t${n}`, fase: 'GO',
+      comando: `cd /w/t${n} && claude`, retry: `ork retry run ork-t${n}` }));
+    for (const canal of ['telegram', 'terminal'] as const) {
+      const texto = textoDoResumo(resumirHitl([], { quando, impedimentosDoDono }), { canal });
+      assert.match(texto, new RegExp(`Só você destrava, no terminal: ${TETO_DE_IMPEDIMENTOS + 2}`));
+      assert.equal(texto.split('\n').filter(l => l.includes('• ork-t')).length, TETO_DE_IMPEDIMENTOS, texto);
+      assert.match(texto, /e mais 2: ork pulse/);
+      assert.ok(texto.endsWith(SEM_PERGUNTA_COM_IMPEDIMENTO), texto);
+      const semImpedimento = textoDoResumo(resumirHitl([], { quando }), { canal });
+      assert.equal(semImpedimento.includes('Só você destrava'), false);
+      assert.ok(semImpedimento.endsWith(SEM_PERGUNTA_NO_RESUMO), semImpedimento);
+    }
+  } finally { definirFusoDoDono(undefined); }
 });
