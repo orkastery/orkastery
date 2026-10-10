@@ -318,7 +318,8 @@ test('prova do C4: o script imprime os tres conjuntos e a exclusiva da busca sem
       return { saida: (erro.stdout ?? '') + (erro.stderr ?? ''), codigo: erro.status ?? -1 };
     }
   };
-  const semIndice = rodar([]);
+  // Os pares padrao (decisao do dono em 10/10/2026, RM-038) nao tem alvo no duble: o par do duble prova a cadeia sem indice.
+  const semIndice = rodar(['rotacao|trocar de conta quando acaba a cota']);
   assert.equal(semIndice.codigo, 1, 'sem indice nao ha exclusiva, e a prova reprova');
   assert.doesNotMatch(semIndice.saida, /exclusiva da busca semantica/);
   // Diagnostico da RM-038 (10/10): sem indice nao ha ranking vetorial nem cobertura a mostrar.

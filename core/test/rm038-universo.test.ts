@@ -353,6 +353,57 @@ console.log(JSON.stringify({resultados, origem: vetor ? 'primario' : 'fts', mode
   assert.match(cortado.stdout, /posicao dos alvos\s+decision\/nunca-indexada fora dos 7 primeiros do ranking vetorial$/m);
 });
 
+test('rm038 prova: pares padrao sao os dois que o dono decidiu e argumentos os substituem', (t) => {
+  const raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-rm038-pares-'));
+  t.after(() => fs.rmSync(raiz, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(raiz, 'core', 'scripts'), { recursive: true });
+  fs.mkdirSync(path.join(raiz, 'core', 'dist'), { recursive: true });
+  const script = path.join(raiz, 'core', 'scripts', 'prova-busca-semantica.sh');
+  fs.copyFileSync(path.resolve(__dirname, '../../scripts/prova-busca-semantica.sh'), script);
+  // CLI falsa que grava os argumentos de cada busca e responde vazio: o teste olha so quais pares a prova consultou.
+  fs.writeFileSync(path.join(raiz, 'core', 'dist', 'index.js'), `
+const fs = require('fs');
+const args = process.argv.slice(2);
+if (args[1] === 'status') { console.log(JSON.stringify({tenant:'fabrica'})); process.exit(0); }
+fs.appendFileSync('argumentos.jsonl', JSON.stringify(args) + require('os').EOL);
+if (args.includes('--tags')) { console.log('[]'); process.exit(0); }
+console.log(JSON.stringify({resultados: [], origem: args.includes('vetor') ? 'primario' : 'fts', modeloUsado: null,
+  motivo: null, coberturaDoIndice: null}));
+`);
+  const rodar = (args: string[]) => {
+    fs.rmSync(path.join(raiz, 'argumentos.jsonl'), { force: true });
+    const r = spawnSync('bash', [script, ...args], { cwd: raiz, encoding: 'utf8', timeout: 10000 });
+    const chamadas = fs.readFileSync(path.join(raiz, 'argumentos.jsonl'), 'utf8').trim().split(os.EOL)
+      .map((linha) => JSON.parse(linha) as string[]);
+    return { ...r, chamadas };
+  };
+  const textos = (chamadas: string[][], modo: string) => chamadas
+    .filter((a) => a.includes('--texto') && a[a.indexOf('--modo') + 1] === modo)
+    .map((a) => a[a.indexOf('--texto') + 1]);
+  // Decisao do dono em 10/10/2026 (D6 da ork-rm038busca3, opcao A): os dois pares pre-registrados da ork-rm038univers.
+  const pares = [
+    ['watchdog', 'vigia agendado que inunda a conversa privada com avisos repetidos'],
+    ['duplicacao', 'dois repositorios gemeos fundidos num unico oficial'],
+  ];
+  const padrao = rodar([]);
+  assert.equal(padrao.status, 1, padrao.stderr);
+  // Por par, quatro buscas na ordem: FTS do termo, tag, FTS da parafrase e vetor da parafrase.
+  assert.equal(padrao.chamadas.length, 8);
+  assert.deepEqual(textos(padrao.chamadas, 'fts'), [pares[0][0], pares[0][1], pares[1][0], pares[1][1]]);
+  assert.deepEqual(textos(padrao.chamadas, 'vetor'), [pares[0][1], pares[1][1]]);
+  pares.forEach(([termo, frase], i) => assert.ok(
+    padrao.stdout.includes(`par ${i + 1}: termo "${termo}" | parafrase "${frase}"`), padrao.stdout));
+  assert.doesNotMatch(padrao.stdout, /par 3:/);
+  assert.doesNotMatch(JSON.stringify(padrao.chamadas), /rotacao|handoff/);
+
+  // Par passado como argumento substitui os padrao: nenhuma busca leva os pares decididos.
+  const explicito = rodar(['termo|parafrase']);
+  assert.equal(explicito.status, 1, explicito.stderr);
+  assert.equal(explicito.chamadas.length, 4);
+  assert.deepEqual(textos(explicito.chamadas, 'fts'), ['termo', 'parafrase']);
+  assert.doesNotMatch(JSON.stringify(explicito.chamadas), /watchdog|duplicacao/);
+});
+
 test('rm038 universo: normalizacao preserva governanca e predicado recusa injecao e expiracao', () => {
   const agora = Date.parse('2030-01-01T00:00:00Z');
   const inj = entradaDoJson(json({ ...entrada('inj'), injection_risk: true, expires_at: null }))!;

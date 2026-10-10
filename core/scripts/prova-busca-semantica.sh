@@ -15,6 +15,9 @@
 # A exclusiva continua julgada so nos 5 primeiros da mesma resposta.
 #
 # Uso: bash core/scripts/prova-busca-semantica.sh ["termo|parafrase" ...]
+# Sem argumentos, usa os pares padrao que o dono decidiu em 10/10/2026 (RM-038, D6 da ork-rm038busca3,
+# opcao A): os dois pares pre-registrados no PLAN da ork-rm038univers. Os pares anteriores (rotacao e
+# handoff) ficam no historico da pagina da RM-038. Pares passados como argumentos substituem os padrao.
 # Roda o CLI deste checkout contra o manifesto do diretorio corrente. Custo com o primario do
 # OpenRouter: uma consulta embedada por par (cerca de 20 tokens cada); com o fallback local, so CPU.
 set -euo pipefail
@@ -37,7 +40,10 @@ buscar() {
 if [ "$#" -gt 0 ]; then
   PARES=("$@")
 else
-  PARES=("rotacao|trocar de conta quando acaba a cota" "handoff|esquecimento da memoria entre sessoes")
+  PARES=(
+    "watchdog|vigia agendado que inunda a conversa privada com avisos repetidos"
+    "duplicacao|dois repositorios gemeos fundidos num unico oficial"
+  )
 fi
 
 # Le o JSON do stdin e imprime "colecao/id" por linha: resultados da busca por texto ou entradas da busca por tag.
