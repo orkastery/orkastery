@@ -37,6 +37,18 @@ export const ENV_PROJETO = 'ORK_PROJETO';
 export const ENV_PROJETO_EXPLICITO = 'ORK_PROJETO_EXPLICITO';
 /** Codigo de saida da recusa de projeto-alvo no CLI (D3). */
 export const SAIDA_DE_PROJETO = 4;
+/**
+ * RM-052 (fatia 2, D2): o ambiente de quem o nucleo inicia ja dentro do projeto resolvido, a sessao
+ * despachada na worktree da thread e o filho `fabrica publicar`. O modo host e o `ORK_PROJETO` sao do
+ * gateway que pediu: herdados, recusavam todo `ork` da sessao com `projeto.escolha`, ou liam outro
+ * projeto. Valores neutros, e nao a ausencia das variaveis: o `claude --bg` entrega a sessao a um daemon
+ * que guarda o ambiente de quem o iniciou, e so o `env` do `--settings` vence o herdado. Com eles, o
+ * projeto da sessao e o do proprio cwd.
+ */
+export const AMBIENTE_SEM_PROJETO_HERDADO: Readonly<Record<string, string>> = Object.freeze({
+  [ENV_PROJETO]: '',
+  [ENV_PROJETO_EXPLICITO]: '0',
+});
 const ARQUIVO = 'projetos.json';
 const TRAVA = 'projetos.json.lock';
 /** Nome ou abbrev de projeto: o mesmo alfabeto dos identificadores de thread, sem barra. */
