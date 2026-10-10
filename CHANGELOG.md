@@ -25,6 +25,21 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
+- **Impedimento que só o dono resolve, RM-055, continuação** ([RM-055](docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md)):
+  - a classificação segue as frases reais do claude 2.1.296: o aviso de termos que bloqueia ("[ACTION
+    REQUIRED] ... You must run `claude` to review the updated terms.") e os portões do `--bg` para o modo
+    sem permissões e o modo auto viram `runtime.consent-pending`, com o comando exato tirado da própria
+    frase (só na forma fechada do binário com opções); "could not be resolved on disk", o diretório home e
+    o aviso de carência dos termos não viram espera do dono, porque aceitar a confiança não os resolve;
+  - a prova de que o dono aceitou a confiança segue a regra que o claude aplica no `--bg`: vale o diretório
+    e os de cima até a raiz git, e o repositório principal de uma worktree vinculada, dentro ou fora dele; o
+    diretório acima do repositório não vale mais (dava "resolvido" onde o claude recusa, e travava o
+    re-despacho numa worktree fora do repositório);
+  - o redespacho recusado de novo pelo mesmo impedimento não gasta tentativa nem sobe esforço: antes, a
+    quarta chamada do `ork retry run` escalava e o retry nunca mais re-despachava, nem depois do aceite;
+  - o resumo que chega ao dono traz o bloco "Só você destrava, no terminal", com a thread, a fase, o
+    comando e o `ork retry run` de cada impedimento, e o impedimento novo sai na hora, sem esperar a janela
+    da cadência.
 - **Teste da coleta após falha de limpeza do candidato** ([RM-036](docs/roadmap/RM-036-maestro-multicanal.md)):
   os cenários de `EPERM`, com aquisição bem-sucedida ou erro original, agora exigem que um concorrente
   recolha o candidato após `ESRCH` simulado e deixe a fila vazia, com `flock` e transporte portátil.
