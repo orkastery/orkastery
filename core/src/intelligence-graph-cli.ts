@@ -426,16 +426,19 @@ function contexto(ctx: ContextoDoCli, p: Pedido): number {
     throw new ErroDeConsulta('grafo.contexto.teto-invalido', 'teto deve ser inteiro de 4096 a 65536 bytes');
   if (!ctx.contextoDaThread) throw new ErroDeConsulta('grafo.contexto.indisponivel', 'borda sem leitor da thread');
   const lido = ctx.contextoDaThread(p.posicionais[0]);
-  const { grafo, cabecalho } = consultavel({ ...ctx, raiz: lido.raiz });
+  const { grafo, cabecalho, situacao } = consultavel({ ...ctx, raiz: lido.raiz });
   if (lido.head !== cabecalho.revision) throw new ErroDeConsulta('grafo.contexto.revisao-mudou', 'HEAD mudou durante a leitura; repita a consulta');
-  const json = pacoteDeContexto(grafo, cabecalho, lido.entrada, teto);
+  const json = pacoteDeContexto(grafo, cabecalho, lido.entrada, teto, situacao);
   if (p.bandeiras.has('json')) ctx.escrever(json);
   else {
     const r = JSON.parse(json);
+    // KG5 fatia 5 (D9): o resumo conta as ligacoes cuja fonte mudou na arvore, como o JSON marca.
+    const mudadas = (r.arestas as { arvore?: string }[]).filter((a) => a.arvore === 'modificada').length;
     ctx.escrever([`Contexto ${r.thread} @ ${r.indice.revision}`,
       `  ${r.sementes.length}/${r.total_sementes} sementes, ${r.arestas.length}/${r.total_ligacoes} ligacoes agregadas; ${r.medida.pacote_bytes} bytes JSON`,
       `  tamanho dos arquivos no pacote (nao descoberta): ${r.medida.leitura_crua_bytes} bytes (revisao indexada); tokens: unavailable`,
       `  diff: ${r.fontes.diff}`,
+      ...(mudadas ? [`  ligacoes com fonte modificada na arvore: ${mudadas}`] : []),
       `  truncado: ${r.truncado}; arvore: ${r.indice.arvore}; use --json para nos e evidencias`, json].join('\n'));
   }
   return 0;

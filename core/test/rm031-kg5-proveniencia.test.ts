@@ -4,7 +4,9 @@
  * Grupo `KG5 proveniencia`: a consulta pura traz `fontes` (o sha256 e o blob de cada caminho citado) e a
  * situacao de cada aresta, com o padrao "tudo igual" (D2 a D4); o CLI so le a arvore modificada, pelos
  * bytes, e marca o que mudou, sumiu ou virou link, pasta ou FIFO, sem travar nem sair da raiz (D3, D6); o
- * texto marca a aresta (D9); o teto e a igualdade entre o worker e a CLI valem com os campos novos (D10).
+ * texto marca a aresta (D9); o teto e a igualdade entre o worker e a CLI valem com os campos novos (D10). No
+ * pacote de contexto v2, so o grupo de fonte mudada ganha `arvore: "modificada"`, e a arvore limpa deixa os
+ * bytes de antes (D5); CLI, worker e MCP entregam a mesma marca.
  */
 import { strict as assert } from 'node:assert';
 import { before, test } from 'node:test';
@@ -12,7 +14,10 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { compararUtf8, derivarIds, validarGrafo, type GrafoCodigo } from '../src/intelligence-graph-contract';
+import { pacoteDeContexto, type EntradaDoContexto } from '../src/intelligence-graph-contexto';
 import { extrairGrafo } from '../src/intelligence-graph-extract';
 import { carregarAnalisadores } from '../src/intelligence-graph-parsers';
 import {
@@ -22,9 +27,12 @@ import {
 import { executarGrafo, situacaoNaArvore } from '../src/intelligence-graph-cli';
 import { exigirManifesto } from '../src/manifest';
 import { raizDoEstado } from '../src/estado-thread';
-import { argvDaTool, consultarPeloWorker } from '../src/mcp-grafo';
+import { argvDaTool, consultarPeloWorker, lerEntradaDaThread } from '../src/mcp-grafo';
 import { rodarConsulta } from '../src/mcp-grafo-worker';
-import { dirTemporario } from './apoio';
+import { criarServidorMcp } from '../src/mcp-server';
+import { escreverArtefatoMcp } from '../src/mcp-artifacts';
+import { novaThread } from '../src/thread';
+import { commitar, dirTemporario, projetoTemporario } from './apoio';
 
 const UTIL = 'export function soma(a: number, b: number): number { return a + b; }\nexport function dobro(x: number): number { return soma(x, x); }\n';
 const APP = "import { dobro } from './util';\nexport function principal(): number { return dobro(2); }\n";
@@ -317,5 +325,105 @@ test('KG5 proveniencia: com a arvore modificada, o teto corta pelo limite com fo
     assert.match(texto.saida, /^  calls  symbol src\/chamadores\.ts#chama00 -> symbol src\/alvo\.ts#alvo  \[fonte modificada na arvore\]$/m);
   } finally {
     r.limpar();
+  }
+});
+
+const ENTRADA: EntradaDoContexto = {
+  thread: 'demo-proveniencia', base: 'a'.repeat(40), diff: [], diffEstado: 'ignorado-sem-worktree', goal: 'Editar `src/util.ts`', plan: null, claims: [],
+};
+type Grupo = { from: string; to: string; arvore?: string };
+type Pacote = { nos: Record<string, string>; arestas: Grupo[]; indice: { arvore: string }; medida: { pacote_bytes: number } };
+/** O caminho de um rotulo local do pacote (`symbol src/a.ts#f` da `src/a.ts`). */
+const caminhoDoRotulo = (rotulo: string): string => rotulo.slice(rotulo.indexOf(' ') + 1).split('#')[0];
+const tocam = (r: Pacote, p: string): boolean[] => r.arestas.map((a) => [r.nos[a.from], r.nos[a.to]].some((x) => caminhoDoRotulo(x) === p));
+
+test('KG5 proveniencia: no pacote v2, so o grupo cuja origem ou alvo mudou ganha a marca, e sem mudanca os bytes sao os de antes (D5)', () => {
+  const antes = pacoteDeContexto(GRAFO, cabecalho(), ENTRADA);
+  assert.equal(pacoteDeContexto(GRAFO, cabecalho(), ENTRADA, 32768, () => 'igual'), antes, 'situacao toda igual nao muda um byte');
+  const r0 = JSON.parse(antes) as Pacote;
+  assert.ok(r0.arestas.length >= 4 && r0.arestas.every((a) => !('arvore' in a)));
+  const marcado = JSON.parse(pacoteDeContexto(GRAFO, cabecalho('modificada'), ENTRADA, 32768, marcando('src/app.ts'))) as Pacote;
+  const esperadas = tocam(marcado, 'src/app.ts');
+  assert.ok(esperadas.some(Boolean) && !esperadas.every(Boolean), 'ha grupo de app.ts e grupo so de util.ts');
+  assert.deepEqual(marcado.arestas.map((a) => a.arvore === 'modificada'), esperadas);
+  assert.ok(marcado.arestas.every((a) => a.arvore === undefined || a.arvore === 'modificada'), 'a marca so existe quando a fonte mudou');
+  // Tirando a marca, o cabecalho da arvore e a medida do proprio pacote, o resto e identico.
+  const sem = (r: Pacote) => ({ ...r, arestas: r.arestas.map(({ arvore: _, ...g }) => g), indice: { ...r.indice, arvore: 'limpa' }, medida: { ...r.medida, pacote_bytes: 0 } });
+  assert.deepEqual(sem(marcado), sem(r0));
+  // O alvo pesa como nas consultas por no (D4): mudar so util.ts marca a chamada que parte de app.ts.
+  const peloAlvo = JSON.parse(pacoteDeContexto(GRAFO, cabecalho('modificada'), ENTRADA, 32768, marcando('src/util.ts'))) as Pacote;
+  assert.deepEqual(peloAlvo.arestas.map((a) => a.arvore === 'modificada'), tocam(peloAlvo, 'src/util.ts'));
+});
+
+test('KG5 proveniencia: o ork grafo contexto marca so os grupos da fonte editada e conta no resumo, e a arvore limpa nao marca nada', () => {
+  const r = repositorio(REPO, 'kg5f5-contexto-cli');
+  try {
+    assert.equal(grafo(r.dir, 'indexar').codigo, 0);
+    const head = r.git('rev-parse', 'HEAD').trim();
+    const contexto = (...opcoes: string[]): { codigo: number; saida: string } => {
+      let saida = '';
+      const codigo = executarGrafo(['contexto', ENTRADA.thread, ...opcoes], { raiz: r.dir, estado: raizDoEstado(r.dir), repositorio: 'demo',
+        contextoDaThread: (id) => ({ raiz: r.dir, head, entrada: { ...ENTRADA, thread: id, base: head } }), escrever: (s) => { saida = s; } });
+      return { codigo, saida };
+    };
+    const limpo = contexto('--json');
+    assert.equal(limpo.codigo, 0, limpo.saida);
+    assert.ok((JSON.parse(limpo.saida) as Pacote).arestas.every((a) => !('arvore' in a)));
+    assert.ok(!contexto().saida.includes('fonte modificada'));
+    fs.appendFileSync(path.join(r.dir, 'src/app.ts'), '// depois do HEAD\n');
+    const sujo = JSON.parse(contexto('--json').saida) as Pacote;
+    assert.equal(sujo.indice.arvore, 'modificada');
+    const esperadas = tocam(sujo, 'src/app.ts');
+    assert.ok(esperadas.some(Boolean) && !esperadas.every(Boolean));
+    assert.deepEqual(sujo.arestas.map((a) => a.arvore === 'modificada'), esperadas);
+    assert.match(contexto().saida, new RegExp(`^  ligacoes com fonte modificada na arvore: ${esperadas.filter(Boolean).length}$`, 'm'));
+  } finally {
+    r.limpar();
+  }
+});
+
+test('KG5 proveniencia: com a arvore modificada, o pacote pelo MCP e pelo worker traz a mesma marca que a CLI', async () => {
+  const p = projetoTemporario('kg5f5-contexto-mcp');
+  let cliente: Client | undefined, servidor: ReturnType<typeof criarServidorMcp> | undefined;
+  try {
+    for (const [arquivo, conteudo] of Object.entries(PURO)) commitar(p.dir, arquivo, conteudo, 'fixture da proveniencia');
+    commitar(p.dir, 'orkastery.yaml', fs.readFileSync(path.join(p.dir, 'orkastery.yaml'), 'utf8') + '\ngrafo:\n  mcp: true\n', 'flag da fixture');
+    const t = novaThread(p.carregado, { nome: 'proveniencia do contexto', modo: 'auto', worktree: null }).thread;
+    escreverArtefatoMcp(p.dir, t.id, 'goal', 'Editar `src/util.ts`', null);
+    const cli = (...argv: string[]): { codigo: number; saida: string } => {
+      let saida = '';
+      const codigo = executarGrafo(argv, { raiz: p.dir, estado: p.dir, repositorio: p.carregado.manifesto.project.name,
+        contextoDaThread: (id) => lerEntradaDaThread(p.dir, id), escrever: (s) => { saida = s; } });
+      return { codigo, saida };
+    };
+    assert.equal(cli('indexar').codigo, 0);
+    fs.appendFileSync(path.join(p.dir, 'src/app.ts'), '// depois do HEAD\n');
+    const argv = argvDaTool('ork_grafo_contexto', { threadId: t.id });
+    const esperado = cli(...argv);
+    assert.equal(esperado.codigo, 0, esperado.saida);
+    const r = JSON.parse(esperado.saida) as Pacote;
+    assert.ok(r.arestas.some((a) => a.arvore === 'modificada'));
+    assert.deepEqual(r.arestas.map((a) => a.arvore === 'modificada'), tocam(r, 'src/app.ts'));
+    let worker = '';
+    assert.equal(rodarConsulta({ raiz: p.dir, argv }, p.dir, (s) => { worker = s; }), 0);
+    assert.equal(worker, esperado.saida);
+    servidor = criarServidorMcp({ projeto: p.dir, host: 'claude-code' });
+    cliente = new Client({ name: 'kg5f5-contexto', version: '1' });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    await servidor.connect(st);
+    await cliente.connect(ct);
+    const resposta = await cliente.callTool({ name: 'ork_grafo_contexto', arguments: { threadId: t.id } });
+    assert.ok(!resposta.isError, JSON.stringify(resposta));
+    assert.equal((resposta.content as { type: string; text: string }[])[0].text, esperado.saida);
+    // A consulta por no pela tool tambem traz as fontes e a marca da aresta.
+    const porNo = await cliente.callTool({ name: 'ork_grafo_chamadores', arguments: { threadId: t.id, alvo: 'dobro' } });
+    assert.ok(!porNo.isError, JSON.stringify(porNo));
+    const c = JSON.parse((porNo.content as { type: string; text: string }[])[0].text) as RespostaDeConsulta;
+    assert.deepEqual(porPar(c), { [CHAMADA]: 'modificada' });
+    assert.deepEqual(situacoes(c), { 'src/app.ts': 'modificada', 'src/util.ts': 'igual' });
+  } finally {
+    await cliente?.close();
+    await servidor?.close();
+    p.limpar();
   }
 });
