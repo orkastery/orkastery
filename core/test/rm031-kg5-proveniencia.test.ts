@@ -478,3 +478,38 @@ test('KG5 proveniencia: as descricoes das tools citam fontes e a marca arvore, e
   assert.match(dica, /O grafo e parcial e descreve o HEAD; aresta com arvore: modificada vem de fonte que mudou depois dele: confira o arquivo antes de usar\.\n$/);
   assert.equal(pedidoComDicaDoGrafo('implementar\n', 'ork-x', false), 'implementar\n', 'sem a flag, o pedido fica byte a byte');
 });
+
+test('KG5 proveniencia: com a arvore modificada, vizinhos (com e sem teto, cortado), importadores e caminho tambem marcam pela CLI (CHECK rodada 1, A2)', () => {
+  const r = repositorio(REPO, 'kg5f5-quatro');
+  try {
+    assert.equal(grafo(r.dir, 'indexar').codigo, 0);
+    fs.writeFileSync(path.join(r.dir, 'src/app.ts'), APP.replace('dobro(2)', 'dobro(3)'));
+    const vizinhanca = {
+      [CHAMADA]: 'modificada', [IMPORT_DO_SIMBOLO]: 'modificada',
+      'calls symbol src/util.ts#dobro -> symbol src/util.ts#soma': 'igual', 'declares file src/util.ts -> symbol src/util.ts#dobro': 'igual',
+    };
+    for (const opcoes of [[], ['--teto-bytes', '32768']]) {
+      const v = consulta(r.dir, 'vizinhos', 'src/util.ts#dobro', ...opcoes);
+      assert.deepEqual(porPar(v), vizinhanca, `vizinhos ${opcoes.join(' ')}`);
+      assert.deepEqual(situacoes(v), { 'src/app.ts': 'modificada', 'src/util.ts': 'igual' });
+    }
+    // Cortada pelo teto: a busca binaria monta as respostas menores com a mesma situacao. Com 80% dos bytes da inteira,
+    // ela nao cabe (o numero do teto encolhe poucos bytes) e ao menos a aresta mais perto cabe.
+    const cheia = consulta(r.dir, 'vizinhos', 'src/util.ts#dobro', '--teto-bytes', '999999');
+    const cortada = consulta(r.dir, 'vizinhos', 'src/util.ts#dobro', '--teto-bytes', String(Math.floor(Buffer.byteLength(JSON.stringify(cheia)) * 0.8)));
+    assert.ok((cortada.teto as { cortado: boolean }).cortado && cortada.arestas.length < cheia.arestas.length);
+    assert.deepEqual(cortada.arestas.map((a) => a.arvore), cheia.arestas.slice(0, cortada.arestas.length).map((a) => a.arvore));
+    assert.equal(cortada.arestas[0].arvore, 'modificada', 'a chamada que parte de app.ts vem primeiro e marcada');
+    assert.deepEqual(porPar(consulta(r.dir, 'importadores', 'src/util.ts')), { 'imports file src/app.ts -> file src/util.ts': 'modificada' });
+    // No caminho, so os passos que tocam app.ts ficam marcados, e os passos repetem as arestas.
+    const c = consulta(r.dir, 'caminho', 'docs/guia.md', 'dobro');
+    assert.deepEqual(porPar(c), {
+      'contains file docs/guia.md -> section docs/guia.md#guia': 'igual', 'references section docs/guia.md#guia -> file src/app.ts': 'modificada',
+      [IMPORT_DO_SIMBOLO]: 'modificada',
+    });
+    assert.deepEqual(c.caminho?.map((p) => p.aresta.arvore), ['igual', 'modificada', 'modificada']);
+    assert.deepEqual(situacoes(c), { 'docs/guia.md': 'igual', 'src/app.ts': 'modificada', 'src/util.ts': 'igual' });
+  } finally {
+    r.limpar();
+  }
+});
