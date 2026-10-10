@@ -11,8 +11,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 - **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
   ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
-  vetorial, agora com `--limite 100`. O critério da prova (alvo no top 5 da semântica, fora da tag e do
-  FTS da paráfrase), os pares padrão e os códigos de saída não mudam.
+  vetorial, agora com `--limite 100`. O diagnóstico não muda o critério da prova (alvo no top 5 da
+  semântica, fora da tag e do FTS da paráfrase) nem os códigos de saída.
 - **Proveniência conferida contra a árvore nas tools do grafo, KG5 fatia 5** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   as consultas por nó (`ork grafo vizinhos`, `chamadores`, `importadores` e `caminho` com `--json`, e as
   tools `ork_grafo_*`) trazem `fontes`, com o sha256 e o blob do Git de cada arquivo citado e a situação
@@ -38,6 +38,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   histórica continua v3, com o mesmo comparador: a cobertura do pacote vai de 23% para 69% (KG3) e de
   41% para 65% (KG4), acima da descoberta por grep nos dois casos; a precisão cai para 36% e 61%, ainda acima
   dela; o pacote quase dobra (28.015 e 32.706 bytes) e, no KG4, passa a saída do grep (25.988).
+
+### Alterado
+
+- **A prova da busca por significado usa os pares que o dono decidiu** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
+  sem argumentos, `core/scripts/prova-busca-semantica.sh` consulta
+  `watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
+  `duplicacao|dois repositorios gemeos fundidos num unico oficial` (decisão do dono em 10/10/2026), no lugar
+  dos pares `rotacao` e `handoff`; pares passados como argumentos substituem os padrão.
 
 ### Corrigido
 
