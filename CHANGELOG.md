@@ -8,6 +8,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
+  `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
+  do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
+  que saiu da ref. Sai 0 em dia, 1 com fonte a revisar e 2 com erro. `node core/scripts/medir-piloto-de-contribuicao.cjs`
+  mede pelo `gh api` os PRs de fora desde a publicação do guia, a conclusão da primeira execução do CI de cada um e o
+  critério de dois PRs mesclados sem ajuda; lacuna da coleta reprova em vez de virar zero. O guia de documentação passa
+  a explicar o catálogo dos dois sites, e a triagem, a medida.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes

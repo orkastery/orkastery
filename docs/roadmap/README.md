@@ -74,7 +74,7 @@ Gerado por `ork docs sincronizar` a partir do frontmatter de cada item.
 | [RM-047](RM-047-fabrica-em-varias-maquinas.md) | Fábrica em várias máquinas, com threads em mais de um computador | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-048](RM-048-hitl-humano-no-centro.md) | HITL humano no centro: decisão curta, clara e com recomendação em qualquer canal | Em validação | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-049](RM-049-lancamento.md) | Lançamento do Orkastery, com documentação no site, marketplaces e anúncio | Em desenvolvimento | Mesclado | Aprovados | Produção | 2026-10-03 |
-| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-03 |
+| [RM-050](RM-050-guia-de-contribuicao.md) | Guia de contribuição nos repositórios e nos sites | Piloto | Mesclado | Aprovados | Produção | 2026-10-10 |
 | [RM-051](RM-051-pacote-de-experiencia.md) | Pacote de experiência de orquestração | Disponível | Mesclado | Aprovados | Produção | 2026-10-01 |
 | [RM-052](RM-052-projeto-alvo-explicito.md) | Projeto-alvo explícito e resposta honesta nos hosts | Em validação | Mesclado | Aprovados | Produção | 2026-10-03 |
 | [RM-053](RM-053-orkastery-network.md) | Orkastery Network, as máquinas de uma pessoa em rede | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-03 |
