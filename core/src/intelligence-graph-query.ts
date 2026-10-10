@@ -233,8 +233,9 @@ function arestaDaResposta(g: GrafoConsultavel, a: Aresta, distancia: number): Ar
 
 /**
  * KG5 fatia 5 (D4): a aresta so e `igual` quando as fontes dela inteiras conferem: o arquivo da origem, o
- * do alvo (calls e imports resolvem o alvo nele) e os das evidencias. So as devolvidas pedem a situacao,
- * entao o CLI so le os arquivos que a resposta cita.
+ * do alvo (calls e imports resolvem o alvo nele) e os das evidencias. So as devolvidas pedem a situacao.
+ * Com teto, a busca binaria monta respostas com limites diferentes, e o CLI le os arquivos citados pela
+ * maior delas, a do limite pedido, mesmo os que o corte tira (CHECK rodada 1, S4).
  */
 function comArvore(g: GrafoConsultavel, a: Aresta, r: ArestaSemArvore, situacao: SituacaoNaArvore): ArestaDaResposta {
   const caminhos = [(g.nos.get(a.from) as No).locator.path, (g.nos.get(a.to) as No).locator.path, ...r.evidencias.map((e) => e.path)];

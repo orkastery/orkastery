@@ -400,7 +400,8 @@ Não mede a árvore editada; tokens permanecem `unavailable`.
 Na mesma fixture sintética de 30 funções chamadoras e três arquivos, o v2 mediu **3.119 bytes**,
 sem corte, contra os **22.973 bytes** registrados no v0: aproximadamente **7,4 vezes menor**.
 Os arquivos continuam somando **1.567 bytes**. A redução supera a meta de 4–5 vezes para essa
-fixture; ela não demonstra economia de tokens nem cobertura em trabalho real.
+fixture; ela não demonstra economia de tokens nem cobertura em trabalho real. Depois da fatia 4, a
+mesma fixture dá 3.137 bytes, na base da fatia 5 e com o código dela.
 
 ```sh
 npm --prefix core run build:test
@@ -509,8 +510,8 @@ num clone com três linhas inseridas no topo de `core/src/intelligence-graph-ind
 - **`fontes`**, nas quatro consultas por nó, antes de `parcial`: uma entrada por caminho citado (os dos
   nós e os das evidências devolvidas), em ordem UTF-8, com `path`, `source_hash` (sha256 dos bytes
   indexados), `source_version` (o blob do Git) e `arvore`: `igual` (a árvore tem esses bytes),
-  `modificada` (outros bytes) ou `ausente` (não há arquivo regular legível no caminho, dentro da
-  raiz). Uma entrada por caminho, não por evidência: o contrato KG1 garante que hash e versão de toda
+  `modificada` (outros bytes) ou `ausente` (não há arquivo regular legível no próprio caminho
+  indexado, sem link no caminho). Uma entrada por caminho, não por evidência: o contrato KG1 garante que hash e versão de toda
   evidência são os do manifesto daquele caminho. A autoridade fica fora: é sempre `git:<repositório>`,
   e o cabeçalho já traz o repositório (D2).
 - **`arvore` em cada aresta**, entre `distancia` e `evidencias`: `igual` só quando todas as fontes
@@ -521,7 +522,9 @@ num clone com três linhas inseridas no topo de `core/src/intelligence-graph-ind
 - **No pacote v2**, só o grupo cuja origem ou alvo não confere ganha `arvore: "modificada"`; sem o
   campo, as fontes do grupo conferem. O pacote não ganha tabela de fontes e segue
   `ork.thread-graph-context/v2`: com a árvore limpa, os bytes são os de antes, e a medida histórica e
-  a fixture sintética continuam valendo (D5). A proveniência completa de um grupo sai da consulta por nó.
+  a fixture sintética continuam valendo (D5). Com a árvore modificada, a marca ocupa bytes do teto e
+  pode trocar ou tirar ligações da seleção, sempre do mesmo jeito para a mesma árvore. A proveniência
+  completa de um grupo sai da consulta por nó.
 - **No texto da CLI**, a aresta de fonte mudada ganha `[fonte modificada na arvore]` na linha, e uma
   linha lista até cinco fontes que mudaram, com a situação de cada uma; o resumo do
   `ork grafo contexto` conta as ligações marcadas (D9). O exemplo do começo, com o código da fatia:
@@ -539,11 +542,16 @@ fontes que mudaram na arvore: core/src/intelligence-graph-index.ts (modificada)
   como antes. Com a árvore limpa, toda fonte vale `igual` e nada é lido. Limite aceito: a mudança que o
   `skip-worktree` ou o `assume-unchanged` esconde do `git status` passa como `igual`, o mesmo limite do
   `indice.arvore` (D3).
-- Com a árvore modificada, cada caminho que a resposta cita é lido uma vez, sob demanda: só caminho do
-  manifesto do índice, sem seguir link (nem no último nome nem numa pasta do caminho, pelo caminho real
-  dentro da raiz) e só arquivo regular; tamanho diferente do indexado já é `modificada`, sem abrir; no
-  resto, decide o sha256 dos bytes, lidos até o tamanho indexado mais um, contra o `source_hash`. FIFO
-  no lugar da fonte não trava a consulta, e nada é escrito (D6).
+- Com a árvore modificada, cada caminho citado pelas respostas que a consulta monta é lido uma vez, sob
+  demanda: só caminho do manifesto do índice e só arquivo regular, sem seguir link, nem no último nome
+  nem numa pasta do caminho: o caminho real tem de ser o próprio caminho indexado, mesmo quando o link
+  aponta para uma cópia idêntica dentro da raiz. Tamanho diferente do indexado já é `modificada`, sem
+  abrir; no resto, decide o sha256 dos bytes, lidos até o tamanho indexado mais um, contra o
+  `source_hash`. O arquivo aberto tem de ser o mesmo do `lstat` (dispositivo e inode): uma troca entre a
+  conferência e a abertura vira `ausente`; duas trocas seguidas nesse intervalo ainda passam e revelariam
+  só se os bytes são os indexados. FIFO no lugar da fonte não trava a consulta, e nada é escrito (D6).
+- Com teto, a busca binária monta respostas com limites diferentes, e a primeira é a do limite pedido:
+  são lidos os arquivos que ela cita, mesmo os que o corte depois tira.
 - A consulta continua pura: recebe a situação de quem chama, e sem ela tudo vale `igual`. O worker e o
   servidor não mudam, e a resposta da tool segue igual à da CLI byte a byte.
 - Nenhum módulo da impressão do extrator muda: a chave dos índices guardados é a mesma, e ninguém
@@ -553,8 +561,8 @@ fontes que mudaram na arvore: core/src/intelligence-graph-index.ts (modificada)
 
 `fontes` e as marcas contam no teto. O corte continua pelo limite, as arestas mais longe saem primeiro,
 e `fontes` só traz os caminhos dos nós e das evidências que ficaram; o tamanho segue crescendo com o
-limite, então a busca binária acha o mesmo maior limite. O caminho continua sem corte, e a recusa não
-muda (D10).
+limite, então a busca binária acha o maior limite que cabe, sempre o mesmo para a mesma árvore. O
+caminho continua sem corte, e a recusa não muda (D10).
 
 Custo medido nesta thread no mesmo índice (revisão `b91573e6`, árvore limpa), com o teto padrão, pelo
 CLI da base `8248d98d` e pelo da fatia; os dois leem o mesmo índice porque o extrator não mudou. Os
@@ -592,13 +600,20 @@ npm --prefix core run build:test && node --test core/dist-test/test/rm031-kg5-pr
 
 O grupo `KG5 proveniencia` cobre a consulta pura (padrão tudo igual, marca pela origem, pelo alvo e por
 evidência auxiliar, situação pedida só para o que a resposta cita), a CLI com a árvore limpa e
-modificada (mesmo tamanho, outro tamanho, apagada, link, pasta, pasta-mãe trocada por link para fora,
-FIFO e mudança só no índice do Git), o `skip-worktree` do D3, a leitura única com o tamanho antes de
-abrir, o teto, o pacote v2, as descrições das tools, a dica, e CLI, worker e MCP com a mesma resposta.
-Nove mutações temporárias no JavaScript compilado derrubaram o grupo (alvo ignorado, evidências fora
-das fontes, sem conferir o tamanho, sem o caminho real, situação pedida para todas as arestas, árvore
-limpa lida, pacote sem o alvo, pacote marcando tudo e CLI sem a situação no pacote); o código foi
-restaurado. Esses ensaios locais não são recibo oficial do núcleo.
+modificada (mesmo tamanho, outro tamanho, apagada, link no último nome para fora e para dentro da raiz,
+pasta, pasta-mãe trocada por link para fora e para dentro, FIFO e mudança só no índice do Git), as
+quatro consultas com a árvore modificada (vizinhos sem teto, com teto e cortado, chamadores,
+importadores e caminho), o `skip-worktree` do D3, a leitura única com o tamanho antes de abrir e o
+inode conferido, o teto, o pacote v2 (com o sha256 que o código da base dá para o mesmo pacote), as
+descrições das tools, a dica, e CLI, worker e MCP com a mesma resposta.
+
+Mutações temporárias no JavaScript compilado derrubaram o grupo: as nove da implementação (alvo
+ignorado, evidências fora das fontes, sem conferir o tamanho, sem o caminho real, situação pedida para
+todas as arestas, árvore limpa lida, pacote sem o alvo, pacote marcando tudo e CLI sem a situação no
+pacote) e as oito do GO-FIX da rodada 1 do CHECK (caminho real só dentro da raiz, inode sem conferir,
+link seguido no último nome, situação fora de vizinhos, de chamadores, de importadores e de caminho, e
+grupo igual marcado no pacote); o código foi restaurado. Esses ensaios locais não são recibo oficial do
+núcleo.
 
 ## Fora destas fatias
 
