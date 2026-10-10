@@ -368,8 +368,9 @@ export function ultimaReprovacao(raiz: string, threadId: string): EventoLedger |
  * planejou: planejar nao gasta janela nem toca no repositorio.
  */
 export function tentativasFeitas(raiz: string, threadId: string, fase: Fase, motivo: MotivoGate): number {
+  // RM-055 (continuacao, D2): a recusa pelo impedimento do dono fica no ledger com `conta: false` e nao conta.
   return lerLedger(dirThread(raiz, threadId)).filter(
-    (e) => e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo
+    (e) => e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo && e.conta !== false
   ).length;
 }
 
@@ -1416,7 +1417,7 @@ export function executarRetry(
   }
 
   const acaoBase = plano.politica?.acao ?? plano.acao;
-  const registrarTentativa = (ok: boolean, detalhe: string): void => {
+  const registrarTentativa = (ok: boolean, detalhe: string, extra: Record<string, unknown> = {}): void => {
     registrar(dir, threadId, TIPOS_DE_EVENTO.retryTentado, {
       fase: plano.fase,
       motivo: plano.motivo,
@@ -1434,6 +1435,7 @@ export function executarRetry(
         : `politica de retry do bloco B3 (bloco sem pausa no modo ${thread.modo})`,
       ok,
       detalhe,
+      ...extra,
     });
   };
 
@@ -1527,7 +1529,11 @@ export function executarRetry(
       dryRun: opcoes.dryRun,
     }
   );
-  registrarTentativa(redespacho.ok, redespacho.detalhe);
+  // RM-055 (continuacao, D2): o runtime recusou o redespacho por um motivo que so o dono resolve. Nada rodou
+  // e a espera do dono voltou com o mesmo comando: a recusa fica no ledger, mas nao gasta tentativa nem sobe
+  // esforco. Contada, a quarta chamada escalava e o retry nunca mais re-despachava, nem depois do aceite.
+  const recusaDoDono = !redespacho.ok && ehImpedimentoDoDono(redespacho.motivo);
+  registrarTentativa(redespacho.ok, redespacho.detalhe, recusaDoDono ? { conta: false } : {});
   return {
     ...vazio,
     executada: redespacho.ok,

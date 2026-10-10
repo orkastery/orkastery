@@ -162,11 +162,52 @@ export function classificarImpedimento(saida: string, ctx: ContextoDoImpedimento
   return null;
 }
 
+/** O caminho como o claude o compara: o real, sem link; o resolvido quando ele nao existe no disco. */
+function caminhoReal(caminho: string): string {
+  try { return fs.realpathSync.native(caminho); } catch { return path.resolve(caminho); }
+}
+
+/** A raiz git do diretorio: o ancestral mais proximo, ele incluido, com `.git` (arquivo ou diretorio). */
+function raizGit(dir: string): string | null {
+  for (let d = dir; ; d = path.dirname(d)) {
+    try {
+      const st = fs.lstatSync(path.join(d, '.git'));
+      if (st.isFile() || st.isDirectory()) return d;
+    } catch { /* sem `.git` aqui: sobe */ }
+    if (path.dirname(d) === d) return null;
+  }
+}
+
+/**
+ * A raiz canonica de uma raiz git, conferida como o claude 2.1.296 confere: numa worktree vinculada (o
+ * arquivo `.git` aponta `gitdir:` para `<comum>/worktrees/<nome>`, que tem `commondir` e um `gitdir` de
+ * volta para `<raiz>/.git`), e o repositorio principal, o diretorio de cima do `<comum>` chamado `.git`.
+ * Qualquer conferencia que falha devolve a propria raiz, e um repositorio comum (`.git` diretorio) tambem.
+ */
+function raizCanonica(raiz: string): string {
+  try {
+    const conteudo = fs.readFileSync(path.join(raiz, '.git'), 'utf8').trim();
+    if (!conteudo.startsWith('gitdir:')) return raiz;
+    const gitdir = path.resolve(raiz, conteudo.slice('gitdir:'.length).trim());
+    const comum = path.resolve(gitdir, fs.readFileSync(path.join(gitdir, 'commondir'), 'utf8').trim());
+    if (path.dirname(gitdir) !== path.join(comum, 'worktrees')) return raiz;
+    const deVolta = path.resolve(gitdir, fs.readFileSync(path.join(gitdir, 'gitdir'), 'utf8').trim());
+    if (caminhoReal(deVolta) !== path.join(caminhoReal(raiz), '.git')) return raiz;
+    if (path.basename(comum) !== '.git') return fs.existsSync(path.join(comum, '.git')) ? raiz : comum;
+    return path.dirname(comum);
+  } catch { return raiz; }
+}
+
 /**
  * O impedimento ja foi resolvido? So o de confianca do diretorio tem prova local: o `claude` grava
- * `hasTrustDialogAccepted` por projeto no `.claude.json` da conta (o do perfil, com `CLAUDE_CONFIG_DIR`),
- * e a confianca de um diretorio vale para os de baixo. `null` e "nao sei": o retry despacha e o runtime
- * decide; se recusar de novo, a mesma pausa volta.
+ * `hasTrustDialogAccepted` por projeto no `.claude.json` da conta (o do perfil, com `CLAUDE_CONFIG_DIR`).
+ * `null` e "nao sei": o retry despacha e o runtime decide; se recusar de novo, a mesma pausa volta.
+ *
+ * RM-055 (continuacao, D1): a regra e a que o claude 2.1.296 aplica no `--bg`, medida com worktrees git
+ * reais: vale a confianca do proprio diretorio e dos de cima ate a raiz git, inclusive, e a da raiz
+ * canonica de uma worktree vinculada (o repositorio principal), more a worktree dentro ou fora dele. Acima
+ * da raiz git nada vale: com so o diretorio de cima do repositorio confiado, o claude recusa a worktree.
+ * Fora de git, qualquer diretorio de cima vale, como no claude.
  */
 export function impedimentoResolvido(motivo: MotivoGate, ctx: { cwd: string; runtime: string; configDir?: string | null;
   home?: string }): boolean | null {
@@ -180,9 +221,13 @@ export function impedimentoResolvido(motivo: MotivoGate, ctx: { cwd: string; run
     if (!dados || typeof dados.projects !== 'object' || dados.projects === null) return null;
     projetos = dados.projects as typeof projetos;
   } catch { return null; }
-  for (let dir = path.resolve(ctx.cwd); ; dir = path.dirname(dir)) {
-    if (projetos[dir]?.hasTrustDialogAccepted === true) return true;
-    if (path.dirname(dir) === dir) return false;
+  const confia = (dir: string): boolean => projetos[dir]?.hasTrustDialogAccepted === true;
+  const cwd = caminhoReal(ctx.cwd);
+  const raiz = raizGit(cwd);
+  if (raiz && confia(raizCanonica(raiz))) return true;
+  for (let dir = cwd; ; dir = path.dirname(dir)) {
+    if (confia(dir)) return true;
+    if (dir === raiz || path.dirname(dir) === dir) return false;
   }
 }
 
