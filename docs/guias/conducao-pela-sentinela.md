@@ -58,7 +58,7 @@ A Sentinela ainda relê a condução logo antes de despachar, nunca usa `ork con
 
 A Sentinela não decide a fase sozinha: segue o `threads[].acao` do núcleo. No #Auto, depois de uma fase concluída, sai a fase seguinte à prova mais adiantada que a sessão do bloco deixou: o artefato da fase (`goal.md`, `plan.md`, `check.md`) gravado depois do despacho, o produto na branch (houve GO) ou o `ship_done` e o `master_done`. Se o bloco já passou do CHECK, nada sai: o passo é o da entrega, com o condutor externo e o dono. O CHECK que terminou sem exatamente um veredito é redespachado, e o despacho que falhou antes de abrir sessão vai ao `ork retry plan`. Pendência do dono (thread pausada, pergunta aberta, escalação) segura qualquer passo. Sem pedido guardado na criação da thread (`ork thread new --pedido`), a Sentinela não despacha e avisa.
 
-Recusa que passa (outro condutor, projeto sem vaga, pedido aberto, falha) não queima o turno: a Sentinela tenta de novo 3 min depois. Só o despacho feito, ou o pedido repetido de quem já conduz, fica de vez.
+Recusa que passa (outro condutor, projeto sem vaga, pedido aberto, falha) não queima o turno: a Sentinela tenta de novo depois de 3 min, e a mesma recusa seguida dobra a espera até 30 min. Só o despacho feito, ou o pedido repetido de quem já conduz, fica de vez.
 
 Se o seu condutor externo despacha pela última linha do ledger, ele pode repetir uma fase que a sessão do bloco já fez. Ler `threads[].acao` do mesmo status evita isso; a troca é sua.
 
