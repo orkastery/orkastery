@@ -88,7 +88,7 @@ export function retratoDe(t) {
  */
 export function montar(on, opcoes) {
   const mundo = { abertas: opcoes.abertas, retratos: { ...opcoes.retratos }, paineis: opcoes.paineis ?? [],
-    respostas: { ...(opcoes.respostas ?? {}) }, carregados: opcoes.carregados ?? [], listaFalha: opcoes.listaFalha ?? false,
+    respostas: { ...(opcoes.respostas ?? {}) }, carregados: opcoes.carregados ?? [], listaFalha: opcoes.listaFalha ?? false, mostradoFalha: 0,
     maestro: [], ler: [], mcp: [], faixas: [], mostrados: [], comandos: [], abertos: [], toasts: [], rodados: [] }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('classic.FileChanged', () => ({}))
@@ -109,7 +109,11 @@ export function montar(on, opcoes) {
         return resposta === undefined ? falha() : ok(resposta)
       }
       if (e.tool === 'faixa') { mundo.faixas.push(e.args); return ok({ publicada: e.args.texto !== undefined }) }
-      if (e.tool === 'mostrado') { mundo.mostrados.push(e.args); return ok(null) }
+      if (e.tool === 'mostrado') {
+        if (mundo.mostradoFalha > 0) { mundo.mostradoFalha--; return falha() }
+        mundo.mostrados.push(e.args)
+        return ok(null)
+      }
       return falha()
     }
     mundo.mcp.push({ server: e.server, tool: e.tool, args: e.args })

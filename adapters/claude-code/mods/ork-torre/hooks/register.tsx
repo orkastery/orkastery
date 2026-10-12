@@ -51,6 +51,8 @@ let tudoPedido = false
 let listaPedida = true
 let listaLidaEm: number | null = null
 const marcadas = new Set<string>()
+/** Threads que o dono mandou reler agora (o Atualizar do detalhe): passam pelo laco unico, sem o intervalo. */
+const forcadas = new Set<string>()
 const threadLidaEm: Record<string, number> = {}
 /** O que o desenho poe na janela de rolagem e ainda nao foi ao registro da ponte (D10). */
 const vistosNoDesenho = new Map<string, TorreMostrado>()
@@ -221,13 +223,15 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
     }
   }
   const conhecidas = new Set(atual.linhas.map(l => l.thread))
-  const pedidas = tudo ? abertas : abertas.filter(t => marcadas.has(t) || !conhecidas.has(t))
+  const agoraForcadas = abertas.filter(t => forcadas.has(t))
+  forcadas.clear()
+  const pedidas = tudo ? abertas : abertas.filter(t => (marcadas.has(t) || !conhecidas.has(t)) && !agoraForcadas.includes(t))
   const intervalo = (await painelAVista($)) ? INTERVALO_POR_THREAD_MS : INTERVALO_ESCONDIDO_MS
   const escolha = tudo ? { ler: pedidas, adiadas: [] as string[], proximaEm: null } : escolher(pedidas, threadLidaEm, agora, intervalo)
-  for (const t of [...marcadas]) if (pedidas.includes(t) || !abertas.includes(t)) marcadas.delete(t)
+  for (const t of [...marcadas]) if (pedidas.includes(t) || agoraForcadas.includes(t) || !abertas.includes(t)) marcadas.delete(t)
   for (const t of escolha.adiadas) marcadas.add(t)
   const novas = new Map<string, TorreLinha>()
-  for (const t of escolha.ler) novas.set(t, await lerThread($, t, agora))
+  for (const t of tudo ? escolha.ler : [...agoraForcadas, ...escolha.ler]) novas.set(t, await lerThread($, t, agora))
   await update($, quadro, anterior => {
     const antigas = new Map(anterior.linhas.map(l => [l.thread, l]))
     const linhas = abertas.map(t => novas.get(t) ?? antigas.get(t) ??
@@ -239,13 +243,13 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
   await registrarMostrados($)
 }
 
-/** So a thread do detalhe, pelo Atualizar dele: o resto do quadro fica como esta (D16). */
+/**
+ * So a thread do detalhe, pelo Atualizar dele (D16): ela entra no proximo passo do laco unico de leitura, sem o
+ * intervalo, e o resto do quadro fica como esta. Pelo laco, nenhuma leitura mais velha grava por cima dela.
+ */
 async function releerThread($: EngineInterface, thread: string): Promise<void> {
-  const linha = await lerThread($, thread, await $.clock.now())
-  await update($, quadro, anterior => (anterior.linhas.some(l => l.thread === thread)
-    ? { ...anterior, linhas: ordenarLinhas(anterior.linhas.map(l => (l.thread === thread ? linha : l))) }
-    : anterior))
-  await publicarFaixa($)
+  forcadas.add(thread)
+  await atualizar($)
 }
 
 /**
@@ -256,10 +260,13 @@ async function releerThread($: EngineInterface, thread: string): Promise<void> {
 async function registrarMostrados($: EngineInterface): Promise<void> {
   const existentes = new Set(mostradosDoQuadro(await read($, quadro)).map(m => `${m.chave}|${m.texto}`))
   for (const vista of [...jaMostrado]) if (!existentes.has(vista)) jaMostrado.delete(vista)
-  if (vistosNoDesenho.size === 0 || !await painelAVista($)) return
+  for (const vista of [...vistosNoDesenho.keys()]) if (!existentes.has(vista)) vistosNoDesenho.delete(vista)
+  if (vistosNoDesenho.size === 0) return
+  // Com o painel escondido, o que foi anotado e descartado: o proximo desenho a vista anota de novo (A-1).
+  if (!await painelAVista($)) { vistosNoDesenho.clear(); return }
   for (const [vista, m] of [...vistosNoDesenho]) {
     vistosNoDesenho.delete(vista)
-    if (jaMostrado.has(vista) || !existentes.has(vista)) continue
+    if (jaMostrado.has(vista)) continue
     try {
       await $.ork.mostrado({ mod: MOD, canal: 'painel', chave: m.chave, thread: m.thread, texto: m.texto })
       jaMostrado.add(vista)
@@ -275,7 +282,10 @@ function anotarVistos(vistos: readonly TorreMostrado[]): void {
   for (const m of vistos) vistosNoDesenho.set(`${m.chave}|${m.texto}`, m)
 }
 
-/** Grava o que o detalhe leu de uma thread, so se ela ainda e a aberta: leitura atrasada nao apaga a de outra. */
+/**
+ * Grava o que o detalhe leu de uma thread, so se ela ainda e a aberta: leitura atrasada nao apaga a de outra.
+ * O mapa guarda so o detalhe aberto (o `abrir` o recomeca).
+ */
 async function gravarDetalhe($: EngineInterface, thread: string, mudar: (d: TorreDetalhe) => TorreDetalhe): Promise<void> {
   if ((await read($, aberta)) !== thread) return
   await update($, detalhes, todos => ({ ...todos, [thread]: mudar(todos[thread] ?? DETALHE_VAZIO) }))
@@ -309,7 +319,7 @@ async function carregarDetalhe($: EngineInterface, thread: string): Promise<void
 
 async function abrir($: EngineInterface, thread: string): Promise<void> {
   await update($, aberta, () => thread)
-  await update($, detalhes, todos => ({ ...todos, [thread]: DETALHE_VAZIO }))
+  await update($, detalhes, () => ({ [thread]: DETALHE_VAZIO }))
   await carregarDetalhe($, thread)
   await registrarMostrados($)
 }

@@ -231,6 +231,24 @@ test('com o painel escondido ou ainda sem lugar, nada desenhado vai ao registro'
   await ui.unmount()
   await torre($)
   expect(mundo.mostrados).toEqual([])
+  // O que foi desenhado sem estar a vista foi descartado: ficar a vista depois, sem novo desenho, nao registra.
+  mundo.paineis = A_VISTA
+  await torre($)
+  expect(mundo.mostrados).toEqual([])
+})
+
+test('item desenhado que some do quadro antes do registro nao vai ao registro', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-b'], paineis: A_VISTA, retratos: {
+    'ork-b': retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', motivo: 'lease.busy', acoes: [] }),
+  } })
+  await iniciar($)
+  await torre($)
+  const ui = await montarPainel($, 'terminal')
+  await ui.unmount()
+  mundo.retratos['ork-b'] = retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', acoes: [] })
+  await torre($)
+  expect(mundo.mostrados).toEqual([])
 })
 
 test('com o detalhe de uma thread aberto, o bloqueio novo de outra thread nao vai ao registro', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -277,4 +295,101 @@ test('retrato que falha vira linha sem leitura com o motivo, sem inventar fase, 
   expect(detalhe.some(t => t.includes('ação'))).toBe(false)
   await ui.unmount()
   expect(mundo.mcp.every(c => c.tool === 'ork_phase_list' || c.tool === 'ork_claims_list')).toBe(true)
+})
+
+test('anotacao feita com o painel a vista e descartada se o painel some antes do registro, e item que volta precisa ser desenhado de novo', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-a', 'ork-b'], paineis: A_VISTA, retratos: {
+    'ork-a': retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'classic', acoes: [] }),
+    'ork-b': retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', motivo: 'lease.busy', acoes: [] }),
+  } })
+  await iniciar($)
+  await torre($)
+  let ui = await montarPainel($, 'terminal')
+  await ui.unmount()
+  mundo.paineis = []
+  mundo.retratos['ork-b'] = retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', acoes: [] })
+  await $.classic.FileChanged({ file_path: '/p/.orkastery/threads/ork-b/ledger.jsonl', event: 'change' })
+  await relogio.advance(62000)
+  mundo.retratos['ork-b'] = retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', motivo: 'lease.busy', acoes: [] })
+  await $.classic.FileChanged({ file_path: '/p/.orkastery/threads/ork-b/ledger.jsonl', event: 'change' })
+  await relogio.advance(62000)
+  mundo.paineis = A_VISTA
+  ui = await montarPainel($, 'terminal', { offset: 0, bodyRows: 2 })
+  await ui.unmount()
+  await torre($)
+  expect(mundo.mostrados).toEqual([])
+  ui = await montarPainel($, 'terminal')
+  await ui.unmount()
+  await torre($)
+  expect(mundo.mostrados).toEqual([
+    { mod: 'ork-torre', canal: 'painel', chave: 'bloqueio:ork-b:lease.busy', thread: 'ork-b', texto: 'ork-b: outra thread segura a região' },
+  ])
+})
+
+test('item que sai do quadro volta a contar quando reaparece, e registro recusado pela ponte e tentado de novo', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-b'], paineis: A_VISTA, retratos: {
+    'ork-b': retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', motivo: 'lease.busy', acoes: [] }),
+  } })
+  await iniciar($)
+  await torre($)
+  mundo.mostradoFalha = 1
+  let ui = await montarPainel($, 'terminal')
+  await ui.unmount()
+  await torre($)
+  expect(mundo.mostrados).toEqual([])
+  await torre($)
+  expect(mundo.mostrados.length).toBe(1)
+  mundo.retratos['ork-b'] = retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', acoes: [] })
+  await torre($)
+  mundo.retratos['ork-b'] = retratoDe({ thread: 'ork-b', fase: 'GO', modo: 'auto', motivo: 'lease.busy', acoes: [] })
+  await torre($)
+  ui = await montarPainel($, 'desktop')
+  await ui.unmount()
+  await torre($)
+  expect(mundo.mostrados.map(m => m.chave)).toEqual(['bloqueio:ork-b:lease.busy', 'bloqueio:ork-b:lease.busy'])
+})
+
+test('no detalhe, a janela comeca depois da linha de Voltar e Atualizar', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-a'], paineis: A_VISTA,
+    respostas: { ork_phase_list: { phases: { eventos: [] } }, ork_claims_list: [] }, retratos: {
+      'ork-a': retratoDe({ thread: 'ork-a', fase: 'SHIP', modo: 'classic', motivo: 'human.pending', pedidos: [{ id: 'p1', texto: 'Autorizar' }], acoes: [] }),
+    } })
+  await iniciar($)
+  await torre($)
+  // A lista com 3 linhas (placar, rede, linha da ork-a) nao mostra o pedido; o detalhe com 4 mostra Voltar e
+  // Atualizar, a linha da thread, o condutor e o bloqueio, e deixa o pedido de fora.
+  let ui = await montarPainel($, 'terminal', { offset: 0, bodyRows: 3 })
+  await ui.press({ key: 'abrir:ork-a' })
+  await ui.unmount()
+  ui = await montarPainel($, 'terminal', { offset: 0, bodyRows: 4 })
+  await ui.unmount()
+  await torre($)
+  expect(mundo.mostrados.map(m => m.chave)).toEqual(['bloqueio:ork-a:human.pending'])
+})
+
+test('retrato que nao volta para no prazo de 20 s, vira lacuna e o laco segue; leitura que falhou e relida no tique', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  on('mcp.call', { server: 'orkastery', tool: 'ork_maestro' }, async ($2, e, next) => {
+    if (e.args.threadId === 'ork-x' && mundo.travada) await relogio.sleep(30 * 60000)
+    return next(e)
+  })
+  const mundo = montar(on, { papel: 'dono', abertas: ['ork-c', 'ork-x'], retratos: { 'ork-c': RETRATOS['ork-c'] } })
+  mundo.travada = true
+  await iniciar($)
+  const pedido = torre($)
+  await relogio.advance(20000)
+  expect((await pedido).text).toBe('Torre de Controle aberta.')
+  let textos = await textosDoPainel($, 'terminal')
+  expect(textos).toContain('  lacuna: a leitura passou de 20 s')
+  expect(textos).toContain('>  ork-c  ●●◉○○○ GO  #Auto')
+  mundo.travada = false
+  mundo.retratos['ork-x'] = retratoDe({ thread: 'ork-x', fase: 'PLAN', modo: 'auto', acoes: [] })
+  mundo.maestro.length = 0
+  await relogio.advance(60000)
+  expect(mundo.maestro).toEqual(['ork-x'])
+  textos = await textosDoPainel($, 'terminal')
+  expect(textos).toContain('-  ork-x  ●◉○○○○ PLAN  #Auto')
 })

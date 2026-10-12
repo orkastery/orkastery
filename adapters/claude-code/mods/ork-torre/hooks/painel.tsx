@@ -147,9 +147,9 @@ function pedidaPeloEstado(operacao: string, l: TorreLinha): boolean {
   switch (operacao) {
     case 'hitl.decide': return l.pedidos.length > 0 || motivo === 'human.pending'
     case 'retry': return l.estado === 'parada'
-    case 'phase': return l.estado === 'quieta'
+    case 'phase': return l.estado === 'quieta' && l.fase !== 'MASTER'
     case 'verify': return /^(claims|verify)\./.test(motivo)
-    case 'ship': return l.fase === 'SHIP' && l.entrega !== 'delivered'
+    case 'ship': return l.fase === 'SHIP' && l.entrega !== 'delivered' && l.estado !== 'andando'
     case 'master': return (l.entrega === 'delivered' || l.fase === 'MASTER') && l.master !== 'recorded'
     default: return false
   }
@@ -275,8 +275,8 @@ export function cortar(texto: string, largura?: number): string {
 
 /** Uma linha da tela do painel, na ordem do desenho; cada uma ocupa uma linha so. */
 export type LinhaDoPainel =
-  | { tipo: 'placar' | 'rede' | 'omitidas'; texto: string }
-  | { tipo: 'cabecalho' | 'rede-cabecalho' | 'rede-pergunta'; texto: string; thread: string }
+  | { tipo: 'placar' | 'rede' | 'omitidas'; texto: string; thread?: undefined; mostrado?: undefined }
+  | { tipo: 'cabecalho' | 'rede-cabecalho' | 'rede-pergunta'; texto: string; thread: string; mostrado?: undefined }
   | { tipo: 'detalhe'; texto: string; thread: string; indice: number; mostrado?: TorreMostrado }
 
 /**
@@ -304,7 +304,7 @@ export function linhasDoPainel(q: TorreQuadro, opcoes: { agora: number; rede?: T
  * `offset + bodyRows`. Sem janela, nada conta como visto: o registro nunca diz que o dono viu o que talvez
  * nao estivesse na tela.
  */
-export function mostradosVisiveis(linhas: ReadonlyArray<{ mostrado?: TorreMostrado }>, primeira: number,
+export function mostradosVisiveis(linhas: ReadonlyArray<{ texto: string; mostrado?: TorreMostrado | undefined }>, primeira: number,
   janela: { offset: number; bodyRows: number } | undefined): TorreMostrado[] {
   if (!janela || !(janela.bodyRows > 0)) return []
   const fim = janela.offset + janela.bodyRows
@@ -337,7 +337,7 @@ export function desenharPainel(el: { Box: any; Text: any; Button: any }, q: Torr
         if (l.tipo === 'detalhe') return <Text key={`detalhe:${l.thread}:${l.indice}`} dimColor wrap="truncate">{l.texto}</Text>
         if (l.tipo === 'omitidas') return <Text key="omitidas" dimColor wrap="truncate">{l.texto}</Text>
         if (l.tipo === 'rede-cabecalho') return <Text key={`rede-cabecalho:${l.thread}`} wrap="truncate">{l.texto}</Text>
-        return <Text key={`rede-pergunta:${l.thread}`} dimColor wrap="truncate">{l.texto}</Text>
+        return <Text key={`rede-pergunta:${l.thread ?? ''}`} dimColor wrap="truncate">{l.texto}</Text>
       })}
     </Box>
   )

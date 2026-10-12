@@ -1,5 +1,5 @@
 import { test, expect, mock } from 'claude-code/testing'
-import { iniciar, montar, montarPainel, PONTE_FALSA, retratoDe, textosDe, textosDoPainel, torre } from './apoio'
+import { EPOCA, iniciar, montar, montarPainel, PONTE_FALSA, retratoDe, textosDe, textosDoPainel, torre } from './apoio'
 
 // A rede (threads das outras maquinas, pelo panorama do nucleo) e a linha da faixa publicada pela ponte (T1.3).
 const RETRATOS = {
@@ -32,7 +32,7 @@ const A_VISTA = [{ id: 'torre', title: 'Torre', isShown: true, isFocused: false,
 const daRede = mundo => mundo.mcp.filter(c => c.tool === 'ork_network_roadmap')
 
 test('sem leitura da rede, o placar diz nao lida e nada pede a rede no inicio nem com o painel escondido', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const relogio = mock.clock(on, { now: 1000 })
+  const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, respostas: { ork_network_roadmap: PANORAMA } })
   await iniciar($)
   await torre($)
@@ -44,7 +44,7 @@ test('sem leitura da rede, o placar diz nao lida e nada pede a rede no inicio ne
 })
 
 test('o botao Ler a rede traz as threads das outras maquinas com a idade, sem repetir a thread local', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  mock.clock(on, { now: 1000 })
+  mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, respostas: { ork_network_roadmap: PANORAMA } })
   await iniciar($)
   await torre($)
@@ -65,7 +65,7 @@ test('o botao Ler a rede traz as threads das outras maquinas com a idade, sem re
 })
 
 test('a faixa sai pela ponte com o texto certo e so e republicada quando o texto muda', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  mock.clock(on, { now: 1000 })
+  mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, respostas: { ork_network_roadmap: PANORAMA } })
   await iniciar($)
   await torre($)
@@ -83,7 +83,7 @@ test('a faixa sai pela ponte com o texto certo e so e republicada quando o texto
 })
 
 test('com o painel a vista, a rede e relida pelo tique no maximo a cada 10 min', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  const relogio = mock.clock(on, { now: 1000 })
+  const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, respostas: { ork_network_roadmap: PANORAMA }, paineis: A_VISTA })
   await iniciar($)
   await relogio.advance(9 * 60000)
@@ -97,7 +97,7 @@ test('com o painel a vista, a rede e relida pelo tique no maximo a cada 10 min',
 })
 
 test('leitura da rede que falha guarda o que havia e diz o erro; sem leitura anterior, diz nao lida e o motivo', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  mock.clock(on, { now: 1000 })
+  mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, respostas: {} })
   await iniciar($)
   await torre($)
@@ -115,7 +115,7 @@ test('leitura da rede que falha guarda o que havia e diz o erro; sem leitura ant
 })
 
 test('sem quadro lido a linha sai da faixa, e lista que deixa de ser relida aparece na faixa', { plugins: [PONTE_FALSA] }, async ($, on) => {
-  mock.clock(on, { now: 1000 })
+  mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', abertas: ABERTAS, retratos: RETRATOS, listaFalha: true })
   await iniciar($)
   await torre($)

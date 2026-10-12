@@ -470,7 +470,9 @@ test('D15: a leitura aparece sempre que disponivel, e a acao com efeito so quand
   assert.deepEqual(ops({ motivo: 'human.pending' }), [...leituras, 'hitl.decide']);
   assert.deepEqual(ops({ motivo: 'verify.regression' }), [...leituras, 'retry', 'verify']);
   assert.deepEqual(ops({ motivo: 'lease.busy' }), [...leituras, 'retry']);
-  assert.deepEqual(ops({ fase: 'SHIP', conducao: 'x' }), [...leituras, 'ship']);
+  assert.deepEqual(ops({ fase: 'SHIP' }), [...leituras, 'phase', 'ship']);
+  assert.deepEqual(ops({ fase: 'SHIP', conducao: 'x' }), leituras);
+  assert.deepEqual(ops({ fase: 'MASTER' }), [...leituras, 'master']);
   assert.deepEqual(ops({ fase: 'SHIP', conducao: 'x' }, { entrega: 'delivered' }), [...leituras, 'master']);
   assert.deepEqual(ops({ fase: 'MASTER', conducao: 'x' }, { master: 'recorded' }), leituras);
   assert.deepEqual(ops({}, { estado: 'sem-leitura' }), []);
