@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002, FEAT-026, FEAT-031, FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-03T11:45:00-03:00
+atualizado_em: 2026-10-12T09:00:00-03:00
 estado:
   ciclo: Refinamento
   documentacao: Em revisão
@@ -36,7 +36,7 @@ sdlc:
 
 <!-- ork-docs:relance:fim -->
 
-**Proposta em refinamento.** Esta página planeja o #Noctum; o modo ainda não está implementado nem habilitado. As regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
+**Proposta em refinamento, com as quatro decisões de produto tomadas.** Esta página planeja o #Noctum; o modo ainda não está implementado nem habilitado. As regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado. Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto. O ciclo continua em Refinamento até o dono autorizar o primeiro piloto.
 
 Features relacionadas: [modos de condução](../produto/FEAT-002-modos-de-conducao.md), [reservas do roadmap](../produto/FEAT-026-reservas-do-roadmap.md), [Orkastery Network](../produto/FEAT-031-orkastery-network.md) e [roadmap da rede](../produto/FEAT-032-roadmap-da-rede.md). São bases existentes, não prova de execução autônoma entre máquinas.
 
@@ -94,7 +94,7 @@ O agendador retirará apenas o trabalho inelegível da fila executável e contin
 ### Arco e fila
 
 1. **Preparar:** conferir envelope, dependências, ferramentas disponíveis, baseline, reservas e panorama de [RM-054](RM-054-roadmaps-e-threads-da-rede.md). Fonte não lida será lacuna; não será tratada como fila vazia.
-2. **Escolher:** filtrar os itens autorizados por dependências cumpridas, escopo claro e prova executável; ordenar pela prioridade ratificada, depois idade na fila e ID para desempate reproduzível. Itens novos descobertos durante o arco serão propostas para o lote.
+2. **Escolher:** filtrar os itens autorizados por dependências cumpridas, escopo claro e prova executável; ordenar pela prioridade final definida pelo dono (ainda pendente), depois idade na fila e ID para desempate reproduzível. Itens novos descobertos durante o arco serão propostas para o lote.
 3. **Reservar e distribuir:** ganhar a reserva antes de abrir a thread, conforme [RM-047](RM-047-fabrica-em-varias-maquinas.md); só despachar em máquina aderida, apta e autorizada. Capacidade anunciada será reconferida no executor.
 4. **Fatiar:** cada tarefa deverá ter resultado pequeno, touch paths, claims, comando de aceite e commit próprio. Cada thread percorrerá GOAL → PLAN → GO → CHECK → SHIP → MASTER com os gates do núcleo.
 5. **Limitar:** contabilizar sessões de execução e de revisão, incluindo outros projetos. Aplicar simultaneamente o teto da máquina e o teto global da conta entre máquinas; uma sessão só começa se ambos admitirem. Os limites serão explícitos no envelope, com margem reservada à revisão.
@@ -116,7 +116,7 @@ Se uma máquina perder batidas, o arco suspenderá novos despachos para ela, con
 
 | Ocorrência relatada | Como o Noctum deverá detectar | O que deverá fazer sozinho |
 | --- | --- | --- |
-| Condutor parou duas vezes; foram necessários despertador a cada 30 min e vigias | Supervisor externo à sessão comparará batida e avanço do ledger com o prazo de cada fase e sondará controlador/runtime; pouca saída, sozinha, não provará travamento | Retomar do checkpoint com nova sessão vinculada e geração válida; preservar gates e tentativas; isolar falha repetida. A cadência proposta está em D3 |
+| Condutor parou duas vezes; foram necessários despertador a cada 30 min e vigias | Supervisor externo à sessão comparará batida e avanço do ledger com o prazo de cada fase e sondará controlador/runtime; pouca saída, sozinha, não provará travamento | Retomar do checkpoint com nova sessão vinculada e geração válida; preservar gates e tentativas; isolar falha repetida. A cadência decidida em D3 é de 5 min, ainda como parâmetro a medir |
 | Contas atingiram teto de gasto e limite semanal; rodízio detectou tarde e foi preciso trocar Claude por Codex | Conferir consumo, saldo/reset declarados pelo runtime, recusas tipadas e idade da última leitura antes do despacho e durante a execução | Retirar conta esgotada da seleção; aguardar reset ou escolher perfil/runtime previamente autorizado; transferir contexto com proveniência, sem contornar teto do arco ou violação de custo |
 | Watcher Codex morreu em sessão longa; condução ficou presa por até 12 h, com correção indicada no #117 | Vigia independente observará o próprio watcher, eventos terminais e recibos auditados; canário incluirá falha durante commit MCP e sessão sem novo rollout | Exigir instalação com a correção e canário aprovado; recuperar sob trava e só assumir condução após provar ausência das identidades anteriores. Não esperar expirar uma janela de horas para perceber watcher morto |
 | Verify concorrente com build/testes produziu regressão falsa | Registrar ocupação, geração dos artefatos compilados e aquisição do recurso por worktree; comparar falha com a baseline em ambiente estável | Enfileirar verifies e builds/testes pesados por máquina e impedir escritores concorrentes no mesmo artefato; preservar a primeira falha e repetir de forma isolada dentro do orçamento. Nova falha consistente continuará bloqueando |
@@ -152,7 +152,7 @@ O envio terá ID do arco e recibo por destino para evitar duplicação. Canal in
 
 Antes do início, o envelope deverá fixar teto total do arco, subtetos por conta, unidade e fonte de medição, margem para operações em voo e frequência de atualização. Gastos conhecidos e reservas de consumo das sessões ativas entrarão na decisão de admitir mais trabalho. Conta de assinatura terá limites de uso/reset separados do custo monetário; consumo desconhecido será lacuna, nunca zero.
 
-Ao iniciar operação, reservar capacidade; ao concluir, reconciliar consumo. Rotação de conta não restaurará saldo global. Estimativa não será apresentada como gasto medido: se o runtime não oferecer limite ou medição suficiente para garantir o teto, ele não será elegível para esse regime até haver mecanismo comprovado. A decisão sobre regime está em D4.
+Ao iniciar operação, reservar capacidade; ao concluir, reconciliar consumo. Rotação de conta não restaurará saldo global. Estimativa não será apresentada como gasto medido: se o runtime não oferecer limite ou medição suficiente para garantir o teto, ele não será elegível para esse regime até haver mecanismo comprovado. O regime foi decidido em D4: vários perfis autenticados e runtimes de assinatura, com teto do arco e subtetos; os valores continuam pendentes.
 
 | Condição | Comportamento proposto | Estado deixado para retomar |
 | --- | --- | --- |
@@ -177,7 +177,7 @@ Os aceites abaixo são testes a construir durante a implementação; não são p
 
 | Fatia | Resultado | Critério de aceite verificável | Dependências |
 | --- | --- | --- | --- |
-| N1 — Envelope e estado do arco | Contrato persistente de autorização, prazo, exclusões, orçamento e decisões em lote | Testes de ingresso negam origem sem prova, ação excluída, hash antigo, revogação e expiração imediatamente antes do efeito; restart mantém limites e não inventa resposta do dono | Decisões D1–D4; RM-048, RM-057 e policies vigentes |
+| N1 — Envelope e estado do arco | Contrato persistente de autorização, prazo, exclusões, orçamento e decisões em lote | Testes de ingresso negam origem sem prova, ação excluída, hash antigo, revogação e expiração imediatamente antes do efeito; restart mantém limites e não inventa resposta do dono | Decisões D1–D4 (tomadas em 12/10/2026); valores do teto e canal do relatório; RM-048, RM-057 e policies vigentes |
 | N2 — Fila local e capacidade | Seleção determinística e execução de muitas threads em uma máquina, com slots de revisão e recursos pesados | Fixture com itens independentes, dependência bloqueada e fila vazia prova ordem, progresso possível e encerramento; disputa entre dois processos nunca ultrapassa slots nem escreve no mesmo artefato compilado | N1; RM-037, RM-040, RM-056 |
 | N3 — Coordenação entre máquinas | Transporte de ordens/recibos, reservas exclusivas, slots compartilhados e serialização de integração | Ensaio com dois executores prova um vencedor por item, limite global por conta e um integrador por destino; queda, partição e retorno do executor antigo não duplicam escrita ou entrega; base alterada invalida candidato | N2; RM-047, RM-053, RM-054 |
 | N4 — Supervisão e recuperação | Vigia independente, checkpoints, rodízio autorizado e reconciliação após falha | Injetar parada do condutor/watcher, limite semanal, reset desconhecido, falha de autenticação e resultado incerto do push; provar recuperação limitada ou isolamento, sem renovar envelope nem trocar identidade | N2; N3 para retomada remota; correção indicada no #117 e canários da RM-036 |
@@ -205,36 +205,26 @@ Os aceites abaixo são testes a construir durante a implementação; não são p
 - Publicar versões, criar tags ou repositórios públicos e executar ações destrutivas; alterar produção sem a autorização própria dela.
 - Remover policies, aceitar autoavaliação como revisão ou obter nota humana durante o arco.
 
-### Decisões para o dono
+### Decisões do dono
 
-As decisões D1–D4 abaixo concentram as escolhas de produto. Cada uma tem quatro alternativas e uma recomendada; nenhuma está ratificada. As recomendações orientaram este planejamento, não concedem permissão para execução. Julio revisará antes de autorizar o primeiro piloto.
+Em 12/10/2026 o dono escolheu, nas quatro decisões de produto D1–D4, a alternativa que havia sido recomendada. As demais alternativas ficam abaixo, descartadas, para o histórico. A escolha orienta o planejamento e as fatias N1 a N6; não autoriza execução: o primeiro piloto só começa quando o dono o autorizar, com o envelope descrito acima.
 
-- **D1. Até onde vai a entrega automática?**
-  - A) só commits locais;
-  - B) push e PR, sem merge;
-  - C) push, PR e merge com todas as provas no SHA exato;
-  - D) escolher antes, por repositório, entre A, B e C.
-  - **Recomendo C:** o arco entrega completo, limitado ao destino autorizado e aos gates. Se o núcleo não conseguir provar, a ação fica bloqueada.
-- **D2. Como entra o multimáquina?**
-  - A) primeira implementação só local;
-  - B) piloto local, depois piloto em duas máquinas antes de ampliar;
-  - C) várias máquinas já no primeiro piloto;
-  - D) só preparar PRs nas máquinas, com integração concentrada em uma.
-  - **Recomendo B:** prova a recuperação local antes de somar partição, exclusão mútua e retomada remota, sem tirar o multimáquina do escopo.
-- **D3. Janela e supervisão?**
-  - A) arcos fixos de 6 h;
-  - B) arcos fixos de 12 h;
-  - C) janela entre 6 e 12 h, vigia externo a cada 5 min e prazo de avanço por fase;
-  - D) janela entre 6 e 12 h, vigia externo a cada 30 min.
-  - **Recomendo C:** dá o período pedido com detecção mais rápida que o despertador manual; os 5 min são um parâmetro a medir (custo e falso alarme).
-- **D4. Custo e rodízio?**
-  - A) um runtime e uma conta, com teto;
-  - B) vários perfis autenticados e runtimes de assinatura, com teto do arco e subtetos;
-  - C) também provider pago explicitamente autorizado, com limite imposto pelo provider;
-  - D) sem rodízio automático: o limite da conta encerra o arco.
-  - **Recomendo B:** usa a capacidade já autorizada e troca de runtime sem ampliar provider. Exige informar valores, unidades, margens e contas antes de começar, sem teto ilimitado por padrão.
+**Continuam pendentes**, e a página não as presume: a prioridade final do item no [índice](README.md#prioridade-para-a-comunidade-de-product-builders), o horário e o canal do relatório da manhã e os valores do teto (total do arco, subtetos por conta, unidades e margens), que o dono preenche antes do primeiro piloto.
 
-Como mudar: registrar a escolha do dono por ingresso autenticado e atualizar esta seção e o contrato afetado, mantendo o histórico. Custo agora: revisão documental. Depois de N1–N6: migração do contrato, ajuste de admissões e repetição dos ensaios relacionados. Prioridade final, horário/canal e valores de teto também deverão ser preenchidos pelo dono antes do piloto.
+- **D1. Até onde vai a entrega automática?** Decidida em 12/10/2026: **C**.
+  - **C) push, PR e merge com todas as provas no SHA exato**, limitado ao destino autorizado e aos gates. Se o núcleo não conseguir provar, a ação fica bloqueada.
+  - Descartadas: A) só commits locais; B) push e PR, sem merge; D) escolher antes, por repositório, entre A, B e C.
+- **D2. Como entra o multimáquina?** Decidida em 12/10/2026: **B**.
+  - **B) piloto local, depois piloto em duas máquinas antes de ampliar.** Prova a recuperação local antes de somar partição, exclusão mútua e retomada remota, sem tirar o multimáquina do escopo.
+  - Descartadas: A) primeira implementação só local; C) várias máquinas já no primeiro piloto; D) só preparar PRs nas máquinas, com integração concentrada em uma.
+- **D3. Janela e supervisão?** Decidida em 12/10/2026: **C**.
+  - **C) janela entre 6 e 12 h, vigia externo a cada 5 min e prazo de avanço por fase.** Dá o período pedido com detecção mais rápida que o despertador manual; os 5 min são um parâmetro a medir (custo e falso alarme).
+  - Descartadas: A) arcos fixos de 6 h; B) arcos fixos de 12 h; D) janela entre 6 e 12 h, vigia externo a cada 30 min.
+- **D4. Custo e rodízio?** Decidida em 12/10/2026: **B**.
+  - **B) vários perfis autenticados e runtimes de assinatura, com teto do arco e subtetos.** Usa a capacidade já autorizada e troca de runtime sem ampliar provider. Exige informar valores, unidades, margens e contas antes de começar, sem teto ilimitado por padrão.
+  - Descartadas: A) um runtime e uma conta, com teto; C) também provider pago explicitamente autorizado, com limite imposto pelo provider; D) sem rodízio automático: o limite da conta encerra o arco.
+
+Como mudar: registrar a nova escolha do dono por ingresso autenticado e atualizar esta seção e o contrato afetado, mantendo o histórico. Custo agora: revisão documental. Depois de N1–N6: migração do contrato, ajuste de admissões e repetição dos ensaios relacionados.
 
 ## Estado com evidências
 
@@ -244,13 +234,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Refinamento | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Não iniciado | — | 2026-10-03 | Julio |
-| Testes | Não iniciados | — | 2026-10-03 | Julio |
-| Deploy | Não implantado | — | 2026-10-03 | Julio |
-| Exposição | Flag desligada | — | 2026-10-03 | Julio |
-| Habilitação | Pendente | — | 2026-10-03 | Julio |
+| Ciclo do item | Refinamento | — | 2026-10-12 | Julio |
+| Documentação | Em revisão | — | 2026-10-12 | Julio |
+| Código | Não iniciado | — | 2026-10-12 | Julio |
+| Testes | Não iniciados | — | 2026-10-12 | Julio |
+| Deploy | Não implantado | — | 2026-10-12 | Julio |
+| Exposição | Flag desligada | — | 2026-10-12 | Julio |
+| Habilitação | Pendente | — | 2026-10-12 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -258,8 +248,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI:** R: fábrica Orkastery na elaboração e nas futuras fatias; A: Julio; C: revisores independentes designados por fatia; I: dono pelo canal autorizado.
 - **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio revisará prioridade e D1–D4 antes de autorizar N1; a fábrica deverá converter os aceites em contratos e testes por fatia, sem data de lançamento definida.
+- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a fábrica deverá converter os aceites em contratos e testes por fatia, sem data de lançamento definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-03 | Proposta em Refinamento, seis fatias e posição 5 sugerida | Pedido do dono para planejar #Noctum; relato de condução manual e dependências documentadas acima | Codex propõe; Julio decide produto e prioridade |
+| 2026-10-12 | D1 a D4 decididas (C, B, C, B); prioridade final, horário e canal do relatório e valores do teto seguem pendentes; ciclo continua em Refinamento | Decisão do dono de 12/10/2026, registrada na seção Decisões do dono | Julio |

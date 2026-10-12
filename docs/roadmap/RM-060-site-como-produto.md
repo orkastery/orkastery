@@ -6,24 +6,24 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T00:07:23-03:00
+atualizado_em: 2026-10-12T00:51:48-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Branch criada
+  codigo: Mesclado
   testes: Não iniciados
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
 evidencias:
   codigo:
-    commit: null
+    commit: "8087442"
     pr: null
 sdlc:
   thread: ork-rm059erm060p
   modo: "#Fast"
   fase: GO
-  status: aberta
+  status: fechada
 ---
 
 # RM-060: Site como produto
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Mesclado | Não iniciados | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -103,7 +103,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Branch criada | — | 2026-10-12 | Julio |
+| Código | Mesclado | commit `8087442` | 2026-10-12 | Julio |
 | Testes | Não iniciados | — | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
