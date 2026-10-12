@@ -235,7 +235,7 @@ test('E13: a v2 completa vira conteúdo com trabalhos e capacidade, na ordem do 
   assert.notEqual(hashDoEnvelope(validarPedidoDeAbertura(invertida)), hashDoEnvelope(c));
   assert.notEqual(hashDoEnvelope(c), hashDoEnvelope(validarPedidoDeAbertura(pedido())), 'v2 e v1 nunca têm o mesmo hash');
   const resumo = resumoDoEnvelope(c, hashDoEnvelope(c)).join('\n');
-  assert.match(resumo, /Trabalho a \(RM-901\), prioridade 1: abre uma thread com o pedido "Fatia A SIMULADA/);
+  assert.match(resumo, /Trabalho a \(RM-901\), prioridade 1: abre uma thread com o pedido abaixo \(1 linha\(s\), sha256 [0-9a-f]{12}\)\n {2}\| Fatia A SIMULADA: o primeiro trabalho independente\.\n/);
   assert.match(resumo, /Trabalho b \(RM-902\), prioridade 2, depois de a:/);
   assert.match(resumo, /Trabalho c \(RM-903\), prioridade 3: thread ork-simulada/);
   assert.match(resumo, /Sessões ao mesmo tempo: 3 na máquina, 1 delas só para revisão/);
@@ -282,7 +282,14 @@ test('E15: dependência fora da lista, ciclo, thread e pedido juntos, id repetid
     [p => { trabalhosDe(p)[0].prioridade = 1.5; }, /prioridade: inteiro a partir de 1/],
     [p => { trabalhosDe(p)[0].item = 'RM-58'; }, /item do roadmap/],
     [p => { trabalhosDe(p)[0].id = 'A maiusculo'; }, /letras minúsculas/],
-    [p => { trabalhosDe(p)[0].pedido = 'x'.repeat(16 * 1024 + 1); }, /até 16384 bytes/],
+    [p => { trabalhosDe(p)[0].pedido = 'x'.repeat(4 * 1024 + 1); }, /até 4096 bytes/],
+    // A7 do CHECK: o retorno de carro com o apagador de linha do terminal e a marca de direção escondem texto na tela.
+    [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo.${String.fromCharCode(13, 27)}[2KOutra coisa.`; }, /o caractere U\+000D esconde/],
+    [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo.${String.fromCharCode(27)}[2K`; }, /o caractere U\+001B esconde/],
+    [p => { trabalhosDe(p)[0].pedido = `Corrigir ${String.fromCharCode(0x202e)}opyt o.`; }, /o caractere U\+202E esconde/],
+    [p => { trabalhosDe(p)[0].pedido = `Uma linha${String.fromCharCode(0x2028)}outra.`; }, /o caractere U\+2028 esconde/],
+    [p => { p.trabalhos = Array.from({ length: 5 }, (_, i) => ({ id: `t${i}`, item: 'RM-901', prioridade: 1, dependeDe: [],
+      pedido: `${i}${'y'.repeat(4000)}` })); }, /os pedidos somam 20005 bytes; até 16384 por arco/],
     [p => { trabalhosDe(p)[2].thread = '../fora'; }, /id de uma thread que já existe/],
     [p => { trabalhosDe(p)[0].extra = true; }, /trabalhos\[0\]\.extra: campo desconhecido/],
     [p => { p.trabalhos = Array.from({ length: 31 }, (_, i) => ({ id: `t${i}`, item: 'RM-901', prioridade: 1, dependeDe: [], thread: `ork-t${i}` })); },
@@ -326,4 +333,21 @@ test('E17: a v1 segue como antes da N2: hash igual ao da base e trabalhos como c
   assert.equal(envelopeComTrabalhos(validarPedidoDeAbertura(pedido())), false, 'arco com v1 não despacha nada');
   assert.match(recusa(() => validarPedidoDeAbertura({ ...pedido(), contrato: 'ork.noctum-envelope/v3' }), 'noctum.envelope.invalido'),
     /ork\.noctum-envelope\/v1 ou ork\.noctum-envelope\/v2/);
+});
+
+test('E18: o resumo que o dono autoriza traz o pedido inteiro, linha por linha, com tab e quebra de linha', () => {
+  const p = pedidoV2();
+  const tab = String.fromCharCode(9);
+  trabalhosDe(p)[0].pedido = `Corrigir o typo do README.\nAtualizar as dependências.\n${tab}E também o passo escondido na terceira linha.`;
+  const c = validarPedidoDeAbertura(p);
+  const resumo = resumoDoEnvelope(c, hashDoEnvelope(c));
+  const i = resumo.findIndex(l => l.startsWith('Trabalho a (RM-901)'));
+  assert.match(resumo[i], /abre uma thread com o pedido abaixo \(3 linha\(s\), sha256 [0-9a-f]{12}\)$/);
+  assert.deepEqual(resumo.slice(i + 1, i + 4), ['  | Corrigir o typo do README.', '  | Atualizar as dependências.',
+    `  | ${tab}E também o passo escondido na terceira linha.`]);
+  assert.match(resumo[i + 4], /^Trabalho b \(RM-902\)/, 'o próximo trabalho começa depois da última linha do pedido');
+  // Nada no resumo passa caractere de controle além do tab do próprio pedido.
+  for (const linha of resumo) {
+    assert.equal([...linha].some(ch => { const cp = ch.codePointAt(0)!; return cp < 0x20 && cp !== 9; }), false, linha);
+  }
 });

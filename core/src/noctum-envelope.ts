@@ -23,9 +23,13 @@ export const CONTRATO_ENVELOPE = 'ork.noctum-envelope/v1' as const;
 export const CONTRATO_ENVELOPE_V2 = 'ork.noctum-envelope/v2' as const;
 export type ContratoDoEnvelope = typeof CONTRATO_ENVELOPE | typeof CONTRATO_ENVELOPE_V2;
 
-/** D1 da ork-rm058n2: a lista do arco é fechada e curta, e cada pedido cabe com folga numa linha do log do arco. */
+/**
+ * D1 da ork-rm058n2: a lista do arco é fechada e curta. O dono lê cada pedido inteiro no resumo que autoriza (A7 do
+ * CHECK), então o pedido é texto curto: cada um e a soma deles cabem numa leitura.
+ */
 export const MAXIMO_DE_TRABALHOS = 30;
-export const TETO_DO_PEDIDO_DO_TRABALHO = 16 * 1024;
+export const TETO_DO_PEDIDO_DO_TRABALHO = 4 * 1024;
+export const TETO_DOS_PEDIDOS_DO_ARCO = 16 * 1024;
 /** Mais sessões que isto numa máquina não limita nada: é a ausência do limite escrita como número. */
 export const MAXIMO_DE_SESSOES_DA_MAQUINA = 64;
 
@@ -366,6 +370,21 @@ export function shaDoPedido(texto: string): string {
 }
 
 /**
+ * A7 do CHECK da ork-rm058n2: o caractere que esconde ou reordena texto na tela de quem autoriza (controles, fora o
+ * tab e a quebra de linha; as marcas de direção; os separadores de linha do Unicode). Pelo código, sem escapes no fonte.
+ */
+function caractereQueEsconde(texto: string): number | null {
+  for (const c of texto) {
+    const cp = c.codePointAt(0)!;
+    if ((cp < 0x20 && cp !== 0x09 && cp !== 0x0a) || (cp >= 0x7f && cp <= 0x9f) || cp === 0x61c || cp === 0x200e ||
+        cp === 0x200f || (cp >= 0x202a && cp <= 0x202e) || (cp >= 0x2066 && cp <= 0x2069) || cp === 0x2028 || cp === 0x2029) return cp;
+  }
+  return null;
+}
+
+const codigoDoCaractere = (cp: number): string => `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`;
+
+/**
  * D1 e D2 da ork-rm058n2: a lista fechada de trabalhos. A ordem da lista é do dono e entra no hash, porque a
  * posição desempata a fila (D3); a ordem dentro de `dependeDe` não muda nada e é normalizada.
  */
@@ -408,6 +427,9 @@ function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
     } else if (typeof t.pedido !== 'string' || !t.pedido.trim()) { p.invalidos.push(`${onde}.pedido: o texto do dono para a thread nova`); ok = false; }
     else if (Buffer.byteLength(t.pedido.trim(), 'utf8') > TETO_DO_PEDIDO_DO_TRABALHO) {
       p.invalidos.push(`${onde}.pedido: até ${TETO_DO_PEDIDO_DO_TRABALHO} bytes`); ok = false;
+    } else if (caractereQueEsconde(t.pedido) !== null) {
+      p.invalidos.push(`${onde}.pedido: o caractere ${codigoDoCaractere(caractereQueEsconde(t.pedido)!)} esconde ou reordena texto na tela; ` +
+        'o pedido é texto, com tab e quebra de linha'); ok = false;
     } else if (typeof t.item === 'string' && pedidos.has(`${t.item}|${shaDoPedido(t.pedido)}`)) {
       // O vínculo da thread aberta é o item mais o sha256 do pedido: dois trabalhos iguais seriam a mesma thread.
       p.invalidos.push(`${onde}.pedido: o mesmo item e o mesmo pedido em dois trabalhos`); ok = false;
@@ -419,6 +441,11 @@ function lerTrabalhos(v: unknown, p: Problemas): Trabalho[] | undefined {
     }
   });
   if (lidos.length !== v.length) return undefined;
+  const somaDosPedidos = lidos.reduce((n, t) => n + (t.pedido ? Buffer.byteLength(t.pedido, 'utf8') : 0), 0);
+  if (somaDosPedidos > TETO_DOS_PEDIDOS_DO_ARCO) {
+    p.invalidos.push(`trabalhos: os pedidos somam ${somaDosPedidos} bytes; até ${TETO_DOS_PEDIDOS_DO_ARCO} por arco`);
+    return undefined;
+  }
   for (const t of lidos) {
     for (const d of t.dependeDe) {
       if (d === t.id) p.invalidos.push(`trabalho ${t.id}: depende de si mesmo`);
@@ -622,16 +649,20 @@ export function resumoDoEnvelope(conteudo: ConteudoDoEnvelope, envelopeSha256: s
   ];
 }
 
-/** O que a `v2` acrescenta ao resumo: cada trabalho, na ordem do dono, e os limites. O pedido vai pelo começo e pelo hash. */
+/**
+ * O que a `v2` acrescenta ao resumo: cada trabalho, na ordem do dono, e os limites. O pedido vai inteiro, uma linha do
+ * resumo por linha dele (A7 do CHECK): o dono autoriza só o que leu.
+ */
 function linhasDaV2(c: ConteudoDoEnvelope & { trabalhos: Trabalho[]; capacidade: Capacidade }): string[] {
-  const inicio = (texto: string): string => {
-    const linha = texto.split('\n')[0];
-    return linha.length > 80 ? `${linha.slice(0, 77)}...` : linha;
-  };
   return [
-    ...c.trabalhos.map(t => `Trabalho ${t.id} (${t.item}), prioridade ${t.prioridade}` +
-      `${t.dependeDe.length ? `, depois de ${t.dependeDe.join(', ')}` : ''}: ` +
-      (t.thread ? `thread ${t.thread}` : `abre uma thread com o pedido "${inicio(t.pedido!)}" (sha256 ${shaDoPedido(t.pedido!).slice(0, 12)})`)),
+    ...c.trabalhos.flatMap(t => {
+      const cabeca = `Trabalho ${t.id} (${t.item}), prioridade ${t.prioridade}` +
+        `${t.dependeDe.length ? `, depois de ${t.dependeDe.join(', ')}` : ''}: `;
+      if (t.thread) return [`${cabeca}thread ${t.thread}`];
+      const linhas = t.pedido!.split('\n');
+      return [`${cabeca}abre uma thread com o pedido abaixo (${linhas.length} linha(s), sha256 ${shaDoPedido(t.pedido!).slice(0, 12)})`,
+        ...linhas.map(l => `  | ${l}`)];
+    }),
     `Sessões ao mesmo tempo: ${c.capacidade.maquina} na máquina, ${c.capacidade.revisao} delas só para revisão`,
     ...c.capacidade.porConta.map(s => `Sessões ao mesmo tempo na conta ${s.conta}: ${s.sessoes}`),
     ...c.capacidade.porRuntime.map(s => `Sessões ao mesmo tempo no runtime ${s.runtime}: ${s.sessoes}`),
