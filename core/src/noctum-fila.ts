@@ -8,9 +8,10 @@
  * que a sessão do bloco deixou): o bloco inteiro numa sessão só, cujo `phase_result` sai com a fase do despacho, não ganha
  * um PLAN repetido (aprendizado 3 de 12/10).
  *
- * Quando a fila acaba: vazia (todo trabalho entregue ou encerrado) encerra cedo; só bloqueada, ou com fonte que não foi
- * lida, espera com backoff até o fim da janela; com sessão em curso, espera a cadência de 5 min. Lacuna nunca vira fila
- * vazia. Fechar o arco e o relatório são da N6.
+ * Quando a fila acaba: vazia (todo trabalho entregue, encerrado ou preso a uma dependência que fechou sem entrega)
+ * encerra cedo; só bloqueada, ou com fonte que não foi lida, espera com backoff até o fim da janela; com sessão em curso,
+ * espera a cadência de 5 min. Lacuna nunca vira fila vazia. O trabalho cujo despacho falhou no núcleo três vezes seguidas
+ * fica bloqueado (`erro-repetido`): o passo não insiste no mesmo erro a noite toda. Fechar o arco e o relatório são da N6.
  *
  * `fatosDaFila` relê o disco a cada chamada; `montarFila` é pura sobre os fatos e o instante. Nada aqui despacha nem grava.
  */
@@ -37,7 +38,12 @@ export type EstadoDoTrabalho = 'entregue' | 'encerrado-sem-entrega' | 'em-curso'
 export type MotivoDoBloqueio =
   | 'dependencia' | 'reserva-ausente' | 'reserva-de-outra-maquina' | 'reserva-sem-leitura' | 'decisao-no-lote' | 'dono'
   | 'retomada' | 'fim-de-turno-sem-resultado' | 'sem-passo' | 'modo' | 'pedido-ausente' | 'thread-ausente' | 'thread-ambigua'
-  | 'thread-ilegivel' | 'item-divergente';
+  | 'thread-ilegivel' | 'item-divergente' | 'erro-repetido' | 'dependencia-encerrada';
+
+/** Quantas falhas seguidas do núcleo no despacho de um trabalho o bloqueiam (A4 do CHECK da ork-rm058n2). */
+export const ERROS_SEGUIDOS_QUE_BLOQUEIAM = 3;
+/** O motivo que o passo grava no log do arco quando o despacho de um candidato falha antes de lançar a sessão. */
+export const MOTIVO_DO_ERRO_NO_DESPACHO = 'noctum.despacho.erro';
 
 /** Bloqueio que vem de fonte não lida, e não de um fato: vira lacuna, nunca trabalho a menos. */
 const DE_LACUNA: readonly MotivoDoBloqueio[] = ['reserva-sem-leitura', 'thread-ilegivel', 'thread-ambigua'];
@@ -110,6 +116,8 @@ export interface FatosDaFila {
   porTrabalho: Map<string, FatosDoTrabalho>;
   /** Threads do projeto que não puderam ser lidas: uma delas pode ser a de um trabalho a abrir. */
   threadsIlegiveis: string[];
+  /** Os modos que o manifesto deixa criar (`conduction.allowed_modes`): sem `auto`, o arco não abre thread. */
+  modosPermitidos: readonly string[];
 }
 
 const adiante = (t: TrabalhoNaFila): number => t.estado === 'abrir' ? -1 : t.fase ? FASES.indexOf(t.fase) : -1;
@@ -121,9 +129,23 @@ function antes(a: TrabalhoNaFila, b: TrabalhoNaFila): number {
 
 const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];
 
-/** O estado de um trabalho do envelope pelos fatos; `entregues` são os ids já entregues (para as dependências). */
+/** As falhas seguidas do núcleo nos despachos mais recentes do trabalho, contadas do último para trás. */
+function errosSeguidos(trabalho: string, despachos: EstadoDoArco['despachos']): number {
+  let n = 0;
+  for (const d of despachos.filter(x => x.trabalho === trabalho).sort((a, b) => b.seq - a.seq)) {
+    if (d.desfecho !== 'recusado' || d.motivo !== MOTIVO_DO_ERRO_NO_DESPACHO) break;
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * O estado de um trabalho do envelope pelos fatos; `entregues` são os ids já entregues (para as dependências) e
+ * `semSaida` os que nunca mais entregam neste arco (fecharam sem entrega, ou dependem de quem fechou).
+ */
 function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefined, fatos: FatosDaFila, entregues: ReadonlySet<string>,
-  decisoes: EstadoDoArco['decisoes']): TrabalhoNaFila {
+  semSaida: ReadonlySet<string>, estado: EstadoDoArco): TrabalhoNaFila {
+  const decisoes = estado.decisoes;
   const base = { id: t.id, item: t.item, prioridade: t.prioridade, posicao, thread: null as string | null, fase: null as Fase | null,
     motivo: null as MotivoDoBloqueio | null, entregueEm: null as string | null };
   const bloqueado = (motivo: MotivoDoBloqueio, detalhe: string): TrabalhoNaFila => ({ ...base, estado: 'bloqueado', motivo, detalhe });
@@ -139,6 +161,10 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (th && f.entregueEm) return { ...base, estado: 'entregue', entregueEm: f.entregueEm, detalhe: `ship_done da thread ${th.id}` };
   if (th && th.status === 'fechada') return { ...base, estado: 'encerrado-sem-entrega', detalhe: `a thread ${th.id} fechou sem ship_done` };
   if (th && f.passo?.conduzida) return { ...base, estado: 'em-curso', detalhe: `a thread ${th.id} está sendo conduzida agora` };
+  const mortas = t.dependeDe.filter(d => semSaida.has(d));
+  if (mortas.length) {
+    return bloqueado('dependencia-encerrada', `depende de ${mortas.join(', ')}, que não entrega mais neste arco (fechou sem entrega)`);
+  }
   const faltam = t.dependeDe.filter(d => !entregues.has(d));
   if (faltam.length) return bloqueado('dependencia', `depende de ${faltam.join(', ')}, ainda não entregue(s)`);
   if (fatos.reservas.leitura === 'sem-copia') return bloqueado('reserva-sem-leitura', 'esta máquina não tem cópia da branch de reservas');
@@ -148,7 +174,15 @@ function classificar(t: Trabalho, posicao: number, f: FatosDoTrabalho | undefine
   if (th && decisoes.some(d => d.thread === th.id || d.dependentes.includes(th.id))) {
     return bloqueado('decisao-no-lote', `a thread ${th.id} espera uma decisão do dono no lote do arco`);
   }
-  if (!th) return { ...base, estado: 'abrir', fase: 'GOAL', detalhe: `abre a thread do item ${t.item} com o pedido do dono` };
+  const erros = errosSeguidos(t.id, estado.despachos);
+  if (erros >= ERROS_SEGUIDOS_QUE_BLOQUEIAM) {
+    return bloqueado('erro-repetido', `os ${erros} últimos despachos falharam no núcleo antes de abrir sessão; quem decide é a N4 ou o dono`);
+  }
+  if (!th) {
+    // A4 do CHECK: abrir a thread num projeto que não deixa criar #Auto falharia toda noite; o arco nem tenta.
+    if (!fatos.modosPermitidos.includes('auto')) return bloqueado('modo', 'o projeto não deixa criar thread #Auto (conduction.allowed_modes)');
+    return { ...base, estado: 'abrir', fase: 'GOAL', detalhe: `abre a thread do item ${t.item} com o pedido do dono` };
+  }
   if (th.modo !== 'auto') return bloqueado('modo', `a thread ${th.id} está em ${th.modo}; o arco só conduz #Auto`);
   if (f.doDono) return bloqueado('dono', `a thread ${th.id} espera o dono (${f.doDono})`);
   if (!f.pedidoGuardado) return bloqueado('pedido-ausente', `a thread ${th.id} não guardou o pedido na criação; o arco não inventa um`);
@@ -198,11 +232,23 @@ export function montarFila(fatos: FatosDaFila): FilaDoArco {
     const f = fatos.porTrabalho.get(t.id);
     return !!f && f.threads.length === 1 && !!f.entregueEm && f.threads[0].roadmap === t.item;
   }).map(t => t.id));
-  const trabalhos = conteudo.trabalhos.map((t, i) => classificar(t, i, fatos.porTrabalho.get(t.id), fatos, entregues, estado.decisoes));
+  // S7 do CHECK: quem fechou sem entrega nunca mais entrega neste arco, nem quem depende dele, de qualquer distância.
+  const semSaida = new Set(conteudo.trabalhos.filter(t => {
+    const f = fatos.porTrabalho.get(t.id);
+    return !!f && f.threads.length === 1 && !f.entregueEm && f.threads[0].status === 'fechada' && f.threads[0].roadmap === t.item;
+  }).map(t => t.id));
+  for (let mudou = true; mudou;) {
+    mudou = false;
+    for (const t of conteudo.trabalhos) {
+      if (!semSaida.has(t.id) && !entregues.has(t.id) && t.dependeDe.some(d => semSaida.has(d))) { semSaida.add(t.id); mudou = true; }
+    }
+  }
+  const trabalhos = conteudo.trabalhos.map((t, i) => classificar(t, i, fatos.porTrabalho.get(t.id), fatos, entregues, semSaida, estado));
   const candidatos = trabalhos.filter(t => t.estado === 'despachavel' || t.estado === 'abrir').sort(antes);
-  const lacunas = [...trabalhos.filter(t => t.motivo && DE_LACUNA.includes(t.motivo)).map(t => `trabalho ${t.id}: ${t.detalhe}`),
-    ...(fatos.threadsIlegiveis.length ? [`threads ilegíveis: ${fatos.threadsIlegiveis.join(', ')}`] : [])];
-  const terminal = (t: TrabalhoNaFila) => t.estado === 'entregue' || t.estado === 'encerrado-sem-entrega';
+  // Thread ilegível só é lacuna quando pode ser a de um trabalho (S7 do CHECK): a classificação já a pôs no trabalho.
+  const lacunas = trabalhos.filter(t => t.motivo && DE_LACUNA.includes(t.motivo)).map(t => `trabalho ${t.id}: ${t.detalhe}`);
+  const terminal = (t: TrabalhoNaFila) => t.estado === 'entregue' || t.estado === 'encerrado-sem-entrega' ||
+    t.motivo === 'dependencia-encerrada';
   const situacao: SituacaoDaFila = candidatos.length ? 'com-trabalho' : trabalhos.some(t => t.estado === 'em-curso') ? 'em-curso'
     : lacunas.length ? 'fonte-indisponivel' : trabalhos.every(terminal) ? 'vazia' : 'bloqueada';
   const fim = conteudo.janela.fim;
@@ -228,6 +274,7 @@ export function fatosDaFila(carregado: ManifestoCarregado, arco: string, opcoes:
     ? { leitura: 'sem-copia' as const, reservas: [] }
     : { leitura: 'copia-local' as const, reservas: reservasLocais(raiz) }) as LeitorDeReservas)();
   const fatos: FatosDaFila = { arco, quando, maquina, estado, porTrabalho: new Map(), threadsIlegiveis: [],
+    modosPermitidos: carregado.manifesto.conduction.allowed_modes,
     reservas: { leitura: lidas.leitura, porItem: new Map(lidas.reservas.map(r => [r.item, { maquina: r.maquina, thread: r.thread }])) } };
   if (!estado?.conteudo || !envelopeComTrabalhos(estado.conteudo)) return fatos;
   const threads: Thread[] = [];

@@ -8,11 +8,14 @@ import { test } from 'node:test';
 import { commitar, projetoTemporario } from './apoio';
 import { abrirArco, autorizarPedido, concluirFase, despachar, entregar, gravarArtefato, passar, prepararIngressoSimulado, revogarArco,
   stopSemResultado, threadDoTrabalho, TrabalhoSimulado } from './noctum-apoio';
-import { BACKOFF_MAXIMO_MS, CADENCIA_MS, fatosDaFila, FilaDoArco, montarFila, TrabalhoNaFila } from '../src/noctum-fila';
-import { enfileirarDecisao, proporEnvelope } from '../src/noctum-arco';
+import * as fs from 'node:fs';
+import { BACKOFF_MAXIMO_MS, CADENCIA_MS, ERROS_SEGUIDOS_QUE_BLOQUEIAM, fatosDaFila, FilaDoArco, montarFila, MOTIVO_DO_ERRO_NO_DESPACHO,
+  TrabalhoNaFila } from '../src/noctum-fila';
+import { concluirDespacho, enfileirarDecisao, lerArco, proporEnvelope, reservarDespacho } from '../src/noctum-arco';
+import { passosDoCondutor } from '../src/conducao-sentinela';
 import { CONTRATO_ENVELOPE } from '../src/noctum-envelope';
 import { pegarItem } from '../src/roadmap-reservas';
-import { novaThread } from '../src/thread';
+import { caminhoThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { registrar } from '../src/ledger';
 import { dirThread } from '../src/thread';
 
@@ -279,3 +282,98 @@ function pedidoV1(arco: string): Record<string, unknown> {
     relatorio: { horario: '07:30', canal: 'telegram' },
   };
 }
+
+test('F11: o CHECK despachado sozinho e concluído fica aguardando a entrega, mesmo com a Sentinela pedindo o SHIP', () => {
+  const p = projetoTemporario('noctum-f11');
+  try {
+    const t = threadDoTrabalho(p.carregado, 'check sozinho', 'RM-901', 'Pedido SIMULADO do CHECK.');
+    abrirArco(p.dir, 'arco-f11', { trabalhos: [{ id: 'x', item: 'RM-901', prioridade: 1, dependeDe: [], thread: t.id }] });
+    const d = despachar(p.dir, t.id, 'CHECK', 11);
+    concluirFase(p.dir, t.id, 'CHECK', d.sessionId);
+    const passo = passosDoCondutor(p.carregado, {}).find(x => x.thread === t.id);
+    assert.deepEqual([passo?.acao, passo?.fase], ['despachar', 'SHIP'], 'a Sentinela diz despachar SHIP');
+    const f = fila(p, 'arco-f11', { reservas: reservadas(['RM-901']) });
+    assert.equal(resumo(f.trabalhos[0]), 'aguardando-entrega', 'a entrega nunca sai do arco da N2');
+    assert.deepEqual(f.candidatos, []);
+    assert.equal(f.decisao.acao, 'aguardar');
+  } finally { p.limpar(); }
+});
+
+test('F12: thread ilegível segura o trabalho que ainda não tem thread, mas a alheia não impede a fila de acabar', () => {
+  const p = projetoTemporario('noctum-f12');
+  try {
+    const alheia = novaThread(p.carregado, { nome: 'alheia ao arco', modo: 'auto' }).thread;
+    fs.writeFileSync(caminhoThread(p.dir, alheia.id), '{ ilegível');
+    abrirArco(p.dir, 'arco-f12', { trabalhos: [{ id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: PEDIDO.a }] });
+    // A ilegível pode ser a do trabalho: abrir outra duplicaria a thread.
+    let f = fila(p, 'arco-f12');
+    assert.equal(resumo(f.trabalhos[0]), 'bloqueado:thread-ilegivel');
+    assert.deepEqual(f.candidatos, []);
+    assert.equal(f.situacao, 'fonte-indisponivel');
+    // Com o trabalho entregue, a thread ilegível alheia não vira lacuna: a fila está vazia e encerra cedo.
+    const a = threadDoTrabalho(p.carregado, 'fatia a', 'RM-901', PEDIDO.a);
+    entregar(p.dir, a.id);
+    f = fila(p, 'arco-f12');
+    assert.deepEqual(f.lacunas, []);
+    assert.deepEqual(f.decisao, { acao: 'encerrar', motivo: 'fila-vazia' });
+  } finally { p.limpar(); }
+});
+
+test('F13: quem depende de um trabalho que fechou sem entrega, de qualquer distância, não segura o arco aberto', () => {
+  const p = projetoTemporario('noctum-f13');
+  try {
+    abrirArco(p.dir, 'arco-f13', { trabalhos: [
+      { id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: PEDIDO.a },
+      { id: 'b', item: 'RM-902', prioridade: 2, dependeDe: ['a'], pedido: PEDIDO.b },
+      { id: 'd', item: 'RM-903', prioridade: 3, dependeDe: ['b'], pedido: PEDIDO.c },
+    ] });
+    const a = threadDoTrabalho(p.carregado, 'fatia a', 'RM-901', PEDIDO.a);
+    let f = fila(p, 'arco-f13');
+    assert.equal(resumo(porId(f).get('d')), 'bloqueado:dependencia', 'enquanto A pode entregar, D só espera');
+    const fechada = lerThread(p.dir, a.id);
+    fechada.status = 'fechada';
+    gravarThread(p.dir, fechada);
+    f = fila(p, 'arco-f13');
+    assert.equal(resumo(porId(f).get('a')), 'encerrado-sem-entrega');
+    assert.equal(resumo(porId(f).get('b')), 'bloqueado:dependencia-encerrada');
+    assert.equal(resumo(porId(f).get('d')), 'bloqueado:dependencia-encerrada', 'D depende de B, que nunca mais entrega');
+    assert.deepEqual(f.decisao, { acao: 'encerrar', motivo: 'fila-vazia' });
+  } finally { p.limpar(); }
+});
+
+test('F14: três falhas seguidas do núcleo no despacho bloqueiam o trabalho; outro desfecho no meio zera a conta', () => {
+  const p = projetoTemporario('noctum-f14');
+  try {
+    const h = abrirArco(p.dir, 'arco-f14', { trabalhos: [TRES[0], TRES[2]], tetoDoArco: 40 });
+    const falhar = (motivo: string) => {
+      const r = reservarDespacho(p.dir, { arco: 'arco-f14', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+        conta: 'perfil-a', revisao: false });
+      concluirDespacho(p.dir, 'arco-f14', r.seq, { motivo });
+    };
+    assert.equal(ERROS_SEGUIDOS_QUE_BLOQUEIAM, 3);
+    falhar(MOTIVO_DO_ERRO_NO_DESPACHO);
+    falhar(MOTIVO_DO_ERRO_NO_DESPACHO);
+    assert.equal(resumo(porId(fila(p, 'arco-f14')).get('a')), 'abrir:GOAL', 'duas falhas ainda tentam de novo');
+    falhar('concurrency.limite');
+    falhar(MOTIVO_DO_ERRO_NO_DESPACHO);
+    falhar(MOTIVO_DO_ERRO_NO_DESPACHO);
+    assert.equal(resumo(porId(fila(p, 'arco-f14')).get('a')), 'abrir:GOAL', 'a recusa do núcleo no meio zera a conta');
+    falhar(MOTIVO_DO_ERRO_NO_DESPACHO);
+    const f = fila(p, 'arco-f14');
+    assert.equal(resumo(porId(f).get('a')), 'bloqueado:erro-repetido');
+    assert.deepEqual(f.candidatos.map(t => t.id), ['c'], 'o outro trabalho segue');
+    assert.equal(lerArco(p.dir, 'arco-f14')!.consumo.arco, 0, 'as falhas devolveram as sessões');
+  } finally { p.limpar(); }
+});
+
+test('F15: sem #Auto entre os modos do projeto, o arco não tenta abrir thread', () => {
+  const p = projetoTemporario('noctum-f15');
+  try {
+    abrirArco(p.dir, 'arco-f15', { trabalhos: [TRES[0]] });
+    p.carregado.manifesto.conduction.allowed_modes = p.carregado.manifesto.conduction.allowed_modes.filter(m => m !== 'auto');
+    const f = fila(p, 'arco-f15');
+    assert.equal(resumo(f.trabalhos[0]), 'bloqueado:modo');
+    assert.match(f.trabalhos[0].detalhe, /conduction\.allowed_modes/);
+    assert.deepEqual(f.candidatos, []);
+  } finally { p.limpar(); }
+});
