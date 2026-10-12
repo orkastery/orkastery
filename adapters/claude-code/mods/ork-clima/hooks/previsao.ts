@@ -126,7 +126,8 @@ export function registrarLeituras(guardado: unknown, leituras: readonly unknown[
 
 /**
  * A previsao de cada janela que ainda nao renovou, da mais urgente para a mais calma. O ritmo e a diferenca
- * entre a primeira leitura do intervalo recente e a ultima, porque o uso so cresce dentro da janela (D4).
+ * entre a primeira leitura do intervalo recente e a ultima, porque o uso so cresce dentro da janela (D4); com
+ * leitura esparsa, entre a ultima e a mais nova que esta ao menos `MINIMO_DO_RITMO_MS` antes dela (D12).
  */
 export function prever(guardado: unknown, agora: number): ClimaPrevisao[] {
   const previsoes: ClimaPrevisao[] = []
@@ -136,8 +137,13 @@ export function prever(guardado: unknown, agora: number): ClimaPrevisao[] {
     const intervalo = Object.prototype.hasOwnProperty.call(INTERVALO_DO_RITMO_MS, j.kind)
       ? (INTERVALO_DO_RITMO_MS[j.kind] as number) : INTERVALO_PADRAO_DO_RITMO_MS
     const recentes = j.pontos.filter(p => p.em >= ultimo.em - intervalo)
-    const primeiro = recentes[0]
-    const ritmoPorMs = primeiro !== undefined && recentes.length >= 2 && ultimo.em - primeiro.em >= MINIMO_DO_RITMO_MS
+    let primeiro = recentes[0]
+    if (primeiro === undefined || ultimo.em - primeiro.em < MINIMO_DO_RITMO_MS) {
+      // Leitura esparsa (o dono parado enquanto as fases gastam a mesma conta): o intervalo recente ficou com um
+      // ponto so, e o ritmo sai do ponto mais novo que guarda o minimo de distancia, dentro da mesma janela.
+      primeiro = [...j.pontos].reverse().find(p => ultimo.em - p.em >= MINIMO_DO_RITMO_MS)
+    }
+    const ritmoPorMs = primeiro !== undefined && ultimo.em - primeiro.em >= MINIMO_DO_RITMO_MS
       ? (ultimo.pct - primeiro.pct) / (ultimo.em - primeiro.em) : null
     let estado: ClimaEstado
     let acabaEm: number | null = null

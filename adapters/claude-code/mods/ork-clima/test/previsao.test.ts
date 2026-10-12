@@ -116,6 +116,17 @@ test('a janela que renova comeca uma serie nova', { plugins: [PONTE_FALSA] }, as
   expect(texto).not.toContain('75%')
 })
 
+test('leitura esparsa ainda da ritmo: o dono parado por 90 min enquanto a janela andou 15 pontos', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const renova = T0 + 4 * HORA
+  const { relogio } = fundo(on)
+  await medir($, cinco(70, renova))
+  await relogio.set(T0 + 90 * MIN)
+  await medir($, cinco(85, renova))
+  const agora = T0 + 90 * MIN
+  expect((await ponte($)).faixa).toEqual({ 'ork-clima': `5 h em 85%, acaba ~${hora(T0 + 3 * HORA, agora)}, renova ${hora(renova, agora)}` })
+  expect(await clima($)).toContain('- 5 h: 85%, ritmo de 10 pontos por hora')
+})
+
 test('o limiar de atencao avisa mesmo sem ritmo, e a janela esgotada aparece primeiro', { plugins: [PONTE_FALSA] }, async ($, on) => {
   fundo(on)
   await medir($, [...cinco(92), { kind: 'seven_day', percentUsed: 100, resetsAt: iso(T0 + 2 * 24 * HORA) }])

@@ -150,6 +150,14 @@ test('previsao: folga, sem ritmo, esgotada, intervalo recente por janela e janel
   assert.equal(prever(semana, T0 + 150 * MIN)[0].ritmoPorHora, 24);
   // A janela que ja renovou nao entra na previsao.
   assert.deepEqual(prever(duas(60, 70), RENOVA + 2 * MIN), []);
+  // Leitura esparsa: 70% as 14:00 e 85% as 15:30, com o dono parado, dao 10 por hora, e nao `sem-ritmo` (D12).
+  const esparsa = prever(duas(70, 85, 90 * MIN, T0 + 4 * HORA), T0 + 90 * MIN)[0];
+  assert.deepEqual([esparsa.estado, esparsa.ritmoPorHora, esparsa.acabaEm], ['acaba-antes', 10, T0 + 3 * HORA]);
+  // Na ultima hora so ha dois pontos a 5 min um do outro (69% as 15:05 e 70% as 15:10): o ritmo vem das 14:00 (60%).
+  let juntos = registrarLeituras(undefined, cinco(60), T0);
+  juntos = registrarLeituras(juntos, cinco(69), T0 + 65 * MIN);
+  juntos = registrarLeituras(juntos, cinco(70), T0 + 70 * MIN);
+  assert.equal(prever(juntos, T0 + 70 * MIN)[0].ritmoPorHora, 8.6);
   // A mais urgente vem primeiro.
   const mista = registrarLeituras(undefined, [...cinco(30), { kind: 'seven_day', percentUsed: 100, resetsAt: iso(T0 + 2 * 24 * HORA) }], T0);
   assert.deepEqual(prever(mista, T0).map((p: { kind: string }) => p.kind), ['seven_day', 'five_hour']);
