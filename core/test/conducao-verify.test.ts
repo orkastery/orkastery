@@ -127,8 +127,10 @@ test('a sessao que conduz reentra pela identidade do despacho; outra identidade 
   assert.equal(lease.conducao!.dono.tipo, 'sessao');
   // RM-037 (defeitosdeco D-4): a sessao filha recebe a identidade, a thread e o canal POR SESSAO, em
   // `--settings`; o ambiente do processo `claude` (o que o daemon da conta guardaria) vem sem eles.
+  // RM-052 (fatia 2, D2): e o projeto-alvo de quem despachou chega neutro; a sessao le o da propria worktree.
   const settings = JSON.parse(fs.readFileSync(path.join(runtime.dir, 'settings'), 'utf8')) as { env: Record<string, string> };
-  assert.deepEqual(settings.env, { ORK_DISPATCH_ID: identidade, ORK_DISPATCH_THREAD: thread.id, ORK_CANAL: 'hermes' });
+  assert.deepEqual(settings.env, { ORK_DISPATCH_ID: identidade, ORK_DISPATCH_THREAD: thread.id, ORK_CANAL: 'hermes',
+    ORK_PROJETO: '', ORK_PROJETO_EXPLICITO: '0' });
   assert.equal(fs.readFileSync(path.join(runtime.dir, 'dispatch-id'), 'utf8'), '');
   assert.equal(fs.readFileSync(path.join(runtime.dir, 'canal'), 'utf8'), '');
 

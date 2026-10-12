@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-02T01:43:18-03:00
+atualizado_em: 2026-10-10T04:02:28-03:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -25,9 +25,9 @@ evidencias:
   deploy:
     release: v0.5.0, @orkastery/cli 0.5.0 no npm
 sdlc:
-  thread: ork-rm031kg5cons
+  thread: ork-rm031grafo3
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** Não aplicável — sem feature vigente
-- **Thread:** `ork-rm031kg5cons` (KG5, consumo pelas fases pelo MCP); a correção de empacotamento (o grafo em quem instala do npm) é a `ork-rm031grafofu`; o KG4 foi a `ork-rm031kg4incr`, o KG3, a `ork-rm031kg3`, o KG2, a `ork-rm031kg2extr` e o KG1, a `ork-i31kg1contra`
+- **Thread:** `ork-rm031grafo3` (KG5 fatia 5, proveniência conferida contra a árvore); as fatias 1 a 4 do KG5 foram a `ork-rm031kg5cons`, a `ork-rm031kg5fati`, a `ork-rm031kg5fat2` e a `ork-rm031kg5fat3`; a correção de empacotamento (o grafo em quem instala do npm) é a `ork-rm031grafofu`; o KG4 foi a `ork-rm031kg4incr`, o KG3, a `ork-rm031kg3`, o KG2, a `ork-rm031kg2extr` e o KG1, a `ork-i31kg1contra`
 
 ## Problema e resultado
 
@@ -61,14 +61,16 @@ sdlc:
 - **KG4, mesclado (PR #40, commit `99b10d3`):** o [índice incremental](../referencia/contratos/incremental-grafo-kg4.md): sem o índice do HEAD, o `ork grafo indexar` parte do índice da revisão ancestral com o mesmo extrator e reextrai só o que a mudança alcança, com os mesmos bytes da extração completa, ou extrai completo e diz por quê; e a linha de base do protocolo.
 - **KG5, fatia 1, thread `ork-rm031kg5cons`:** o [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP: originalmente quatro consultas por nó (`ork_grafo_vizinhos`, `ork_grafo_chamadores`, `ork_grafo_importadores` e `ork_grafo_caminho`) com o contrato do `ork grafo`, a proveniência de cada aresta e a resposta limitada em bytes (`--teto-bytes`, 32.768 por padrão), atrás da flag `grafo.mcp`, desligada; sem o índice do HEAD, a tool diz se não há índice ou se ele é de outra revisão ou de outro extrator e dá a correção (`ork grafo indexar`). A quinta tool, de contexto, foi acrescentada na fatia 2 e seu formato v2 está descrito abaixo.
 - **Benchmark:** formato e veredito prontos; protocolo fixado (`not-run`), parte determinística medida e harness da rodada paga pronto e testado com agente simulado; a rodada paga não rodou e não há número de economia.
-- **KG5, fatia 2, na thread `ork-rm031kg5fati`:** pacote determinístico `ork grafo contexto <thread>` / `ork_grafo_contexto`, com fontes diff/GOAL/PLAN/claims, um salto, proveniência, teto em bytes e medida offline dos mesmos arquivos. Dica no pedido da fase somente com a flag ligada; desligada, igualdade byte a byte. [Contrato da fatia 2](../referencia/contratos/consumo-grafo-kg5.md#fatia-2-pacote-de-contexto-da-thread). Implementação em GO, pendente da verificação oficial e revisão independente.
-- **KG5, fatia 3, thread `ork-rm031kg5fat2`:** contrato de pacote v2 com referências locais, fan-in agregado, prioridade entre arquivos e proximidade ao diff, sementes ausentes limitadas e diff ignorado sem worktree. Fixture sintética após o GO-FIX: 3.119 bytes contra 22.973 no v0 (7,4 vezes menor). Medida histórica v3 em dois casos reais, na tabela do [contrato](../referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas): pacote mais preciso que a descoberta por grep, com cobertura parcial; sem conclusão sobre tokens.
-- **Fora até aqui:** a rodada paga do A/B, identidade estável entre revisões (o contrato v1 deriva os IDs do snapshot), a habilitação da flag `grafo.mcp` (dono), federação (KG6) e paridade entre hosts (KG7).
+- **KG5, fatia 2, na thread `ork-rm031kg5fati`:** pacote determinístico `ork grafo contexto <thread>` / `ork_grafo_contexto`, com fontes diff/GOAL/PLAN/claims, um salto, proveniência, teto em bytes e medida offline dos mesmos arquivos. Dica no pedido da fase somente com a flag ligada; desligada, igualdade byte a byte. [Contrato da fatia 2](../referencia/contratos/consumo-grafo-kg5.md#fatia-2-pacote-de-contexto-da-thread). Mesclada (merge `4a36782d`) e publicada na 0.5.3.
+- **KG5, fatia 3, thread `ork-rm031kg5fat2`:** contrato de pacote v2 com referências locais, fan-in agregado, prioridade entre arquivos e proximidade ao diff, sementes ausentes limitadas e diff ignorado sem worktree. Fixture sintética após o GO-FIX: 3.119 bytes contra 22.973 no v0 (7,4 vezes menor). Medida histórica v3 em dois casos reais, na tabela do [contrato](../referencia/contratos/consumo-grafo-kg5.md#dica-e-medidas): pacote mais preciso que a descoberta por grep, com cobertura parcial; sem conclusão sobre tokens. Mesclada (merge `a9f2be7a`) e publicada na 0.5.3.
+- **KG5, fatia 4, thread `ork-rm031kg5fat3`:** arestas `cites` de citação literal e segundo salto no pacote com a sobra do orçamento. Mesclada (merge `601302b2`), ainda em "Não publicado".
+- **KG5, fatia 5, thread `ork-rm031grafo3`:** a [proveniência conferida contra a árvore](../referencia/contratos/consumo-grafo-kg5.md#fatia-5-proveniência-conferida-contra-a-árvore): as consultas por nó trazem `fontes` (sha256, blob do Git e a situação de cada arquivo citado na árvore) e cada aresta traz `arvore`, `modificada` quando a origem, o alvo ou uma evidência mudou depois do HEAD; no pacote v2, só o grupo de fonte mudada ganha a marca, e a árvore limpa deixa os bytes de antes. A árvore só é lida quando o `git status` diz que mudou, pelos bytes, sem seguir link; a chave dos índices guardados não muda.
+- **Fora até aqui:** a rodada paga do A/B, identidade estável entre revisões (o contrato v1 deriva os IDs do snapshot), a habilitação da flag `grafo.mcp` (dono), responder por um índice de revisão ancestral marcando as arestas que mudaram (dono: troca a garantia de nunca responder por outro índice), federação (KG6) e paridade entre hosts (KG7).
 
 ## Plano e decisões
 
-- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, KG3, D1 a D10 da thread `ork-rm031kg3`, KG4, D1 a D11 da thread `ork-rm031kg4incr`, e KG5, D1 a D10 da thread `ork-rm031kg5cons`, tomadas em #Auto e registradas no ledger.
-- **Próximo passo:** o dono decide ligar `grafo.mcp` (exposição e habilitação); concluir CHECK/SHIP/MASTER da fatia 2 e, depois, a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
+- **Decisões:** KG1, D1 a D11 da thread `ork-i31kg1contra`, com premissas aprovadas pelo dono em 27/09/2026 (gate `premissas`). KG2, D1 a D16 da thread `ork-rm031kg2extr`, KG3, D1 a D10 da thread `ork-rm031kg3`, KG4, D1 a D11 da thread `ork-rm031kg4incr`, KG5, D1 a D10 da thread `ork-rm031kg5cons`, e KG5 fatia 5, D1 a D10 da thread `ork-rm031grafo3`, tomadas em #Auto e registradas no ledger.
+- **Próximo passo:** o dono decide ligar `grafo.mcp` (exposição e habilitação), se a consulta pode responder pelo índice de uma revisão ancestral com a marca por aresta, e a rodada paga do protocolo (o dono confirma os controles, regera o protocolo e roda o harness com `--pago`).
 
 ## Estado com evidências
 
@@ -84,6 +86,7 @@ sdlc:
 - KG5 na branch da thread: com `grafo.mcp: true`, o servidor MCP acrescenta cinco tools de grafo às tools regulares, e cada uma responde, byte a byte, o JSON que o `ork grafo ... --json --teto-bytes N` escreve na worktree da thread (sem a quebra de linha final); sem a flag, mantém o conjunto regular de tools e o mesmo comando de despacho (`core/test/mcp-grafo.test.ts`, grupos `KG5`). A consulta roda num processo filho com o ambiente mínimo do MCP, prazo e cancelamento, e o servidor não alcança a família do grafo (teste de fronteira).
 - KG5, medida offline em `core/test/fixtures/kg5-medida-mcp.json`, na revisão `9000f52e`: nas seis perguntas, a tool entrega de 2.525 a 32.087 bytes (a P5 cortada pelo teto, 41 de 104 arestas), a CLI sem teto de 3.148 a 106.363 e a leitura crua de 273.815 a 1.179.908; as quatro definições custam 5.931 bytes no `tools/list`. Tokens indisponíveis e nenhuma conclusão de economia.
 - KG5, revisão independente do CHECK: na rodada 1, nenhum bloqueador e quatro avisos (recusa de outro extrator sem dizer o que mudou, texto do teto e da saída da CLI, pré-requisito dos analisadores), corrigidos no GO-FIX 1 com as sugestões de teste e de endurecimento; as de desempenho e a do worker que segue se o servidor morre de repente ficaram sem mudança, por decisão no ledger. Na rodada 2, nenhum bloqueador nem aviso.
+- KG5 fatia 5 na branch da thread `ork-rm031grafo3`: o grupo `KG5 proveniencia` (`core/test/rm031-kg5-proveniencia.test.ts`) cobre a consulta pura, a CLI com a árvore limpa e modificada (mesmo tamanho, outro tamanho, apagada, link no último nome e pasta-mãe trocada por link, para fora e para dentro da raiz, pasta, FIFO e mudança só no índice do Git), as quatro consultas com a árvore modificada, o `skip-worktree`, o inode conferido, o teto, o pacote v2 fixado contra o código da base e CLI, worker e MCP com a mesma resposta; dezessete mutações temporárias no JavaScript compilado o derrubaram. A rodada 1 do CHECK (revisor independente: nenhum bloqueador, três avisos e seis sugestões) foi corrigida no GO-FIX 1 a 4. No mesmo índice (revisão `b91573e6`), a resposta sem corte cresce de 15% a 29%, com as mesmas arestas, e a P5, cortada pelo teto, traz 34 arestas em vez de 41; a medida das tools (`core/test/fixtures/kg5-medida-mcp.json`) foi regravada nessa revisão.
 - CI verde no push de cada merge: KG1 (run 36563021189), KG2 (run 36721687751), KG3 (run 36773338449) e KG4 (run 36961667790).
 - KG1, KG2 e KG3 em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450). O `ork grafo` pede o `typescript` e o micromark no pacote do `ork`, que não são dependências dele; sem eles, a recusa é `grafo.parser.indisponivel` (CHANGELOG da 0.5.0).
 - Correção de empacotamento na thread `ork-rm031grafofu`: o `typescript` 5.9.3, o micromark 4.0.2, a tabela GFM 2.1.1 e os dois decodificadores de referência de caractere passam a ser dependências de runtime do `@orkastery/cli`, com versão exata, e os rótulos `ork.ts-ast` e `ork.md-structure` não mudam. A prova `core/scripts/provar-grafo-instalado.cjs` empacota a árvore, instala o tarball com `npm install -g` num prefixo e num HOME temporários e indexa e consulta um repositório novo; roda no CI (job `nucleo`, em cada Node da matriz) e no `publicar.yml`, num job só de leitura, sem o `id-token`, de que a publicação depende. O `ork doctor` ganha o check "analisadores do grafo", e o `ork grafo status` diz a correção quando eles faltam. Medida: o tarball vai de 1.132.641 para 1.133.927 bytes, e a instalação, de 96 para 125 pacotes e de 29,3 para 55,7 MB em disco.
@@ -94,13 +97,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-02 | Julio |
-| Documentação | Em revisão | — | 2026-10-02 | Julio |
-| Código | Mesclado | commit `99b10d3` · PR #40 · anteriores: 8589330 (PR #20, KG1), d2b180e (PR #32, KG2), c507a3a (PR #35, KG3) | 2026-10-02 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36563021189, 36721687751, 36773338449 e 36961667790) e no da v0.5.0 (run 36815186450) | 2026-10-02 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-02 | Julio |
-| Exposição | Flag desligada | — | 2026-10-02 | Julio |
-| Habilitação | Pendente | — | 2026-10-02 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-10 | Julio |
+| Documentação | Em revisão | — | 2026-10-10 | Julio |
+| Código | Mesclado | commit `99b10d3` · PR #40 · anteriores: 8589330 (PR #20, KG1), d2b180e (PR #32, KG2), c507a3a (PR #35, KG3) | 2026-10-10 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36563021189, 36721687751, 36773338449 e 36961667790) e no da v0.5.0 (run 36815186450) | 2026-10-10 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-10 | Julio |
+| Exposição | Flag desligada | — | 2026-10-10 | Julio |
+| Habilitação | Pendente | — | 2026-10-10 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -128,3 +131,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-10-03 | KG5 fatia 3 em GO, thread `ork-rm031kg5fat2` | formato v2 e medida histórica executada; GO-FIX corrige o comparador, sementes de prosa e evidências auxiliares; medida v3 regravada pela condutora (mapa contra mapa, pacote 2,2 e 1,5 vez menor que a saída do grep; precisão 43% e 88% contra 7% e 55%; cobertura 23% e 41% contra 23% e 35%) | agente em #Auto |
 | 2026-10-03 | KG5 fatia 4 em GO, thread `ork-rm031kg5fat3` | arestas `cites` de literais e segundo salto com orçamento restante, marcado no pacote v2; medida v3 regravada pela condutora: cobertura 69% e 65% (antes 23% e 41%), precisão 36% e 61%, pacote de 28.015 e 32.706 bytes, maior que a saída do grep no KG4 | agente em #Auto |
 | 2026-10-03 | KG5 fatia 4, GO-FIX 2, thread `ork-rm031kg5fat3` | variantes de diretório preservadas no incremental, código inline em rótulo resolvido sem duplicação e nomes de pacote sem sondas; regressões com mutantes em `core/test/rm031-kg5-citacoes.test.ts`; nova medida histórica e verify pela condutora | agente em #Auto |
+| 2026-10-10 | KG5 fatia 5 em GO, thread `ork-rm031grafo3` | GOAL e PLAN das sessões codex de 05/10 sem artefato (EROFS no estado) refeitos pela sessão de GO; proveniência conferida contra a árvore nas consultas por nó e no pacote v2; custo medido no mesmo índice: de 15% a 29% a mais de bytes, 34 em vez de 41 arestas na P5 cortada; decisões D1 a D10 no ledger | agente em #Auto |
+| 2026-10-10 | KG5 fatia 5, CHECK rodada 1 e GO-FIX, thread `ork-rm031grafo3` | revisor independente: nenhum bloqueador; avisos A1 (pasta do caminho trocada por link para dentro da raiz era seguida), A2 (marca não testada em vizinhos, importadores e caminho) e A3 (cenário de link passando por acaso), e seis sugestões, corrigidos no GO-FIX 1 a 4; decisão D11 no ledger | agente em #Auto |

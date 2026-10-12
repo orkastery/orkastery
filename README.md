@@ -184,7 +184,7 @@ ork adapter install claude-code --dry-run
 | Roadmap item reservations across machines | **works** since 2026-09-27 ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)); thread state is still per machine |
 | Stable local verify on a machine whose CPU the hypervisor steals | **does not exist**: on such a machine, the reliable proof is CI ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)) |
 | A `runtime_reported` measurement of the context window | **does not exist**: `claude-bg` does not expose context usage, and the gate says `unavailable` |
-| Deterministic code graph | **planned** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
+| Deterministic code graph | **works** in the CLI (`ork grafo`: index, incremental update, queries and thread context, with each edge's provenance), for npm installs since 0.5.3; the MCP tools and the hint in the phase request stay behind the `grafo.mcp` flag, off by default ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
 
 The full picture, item by item and with git evidence, is in the [roadmap index](docs/roadmap/README.md).
 

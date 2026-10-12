@@ -315,13 +315,14 @@ seu estado:
 | Camada | O que é | Estado |
 | --- | --- | --- |
 | Contrato | [grafo](../referencia/contratos/grafo-deterministico-kg1.md) e [benchmark](../referencia/contratos/benchmark-grafo-kg1.md) versionados, validação pura e corpus sintético (KG1) | entregue |
-| Serviço | [extração](../referencia/contratos/extracao-grafo-kg2.md) (KG2), [índice e consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (KG3), [incremental](../referencia/contratos/incremental-grafo-kg4.md) (KG4) e [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP (KG5) | entregue até o KG5, com o consumo atrás da flag `grafo.mcp`, desligada; pacote de contexto da thread, federação (KG6) e paridade entre hosts (KG7) não existem |
+| Serviço | [extração](../referencia/contratos/extracao-grafo-kg2.md) (KG2), [índice e consulta](../referencia/contratos/indice-grafo-kg3.md) pelo `ork grafo` (KG3), [incremental](../referencia/contratos/incremental-grafo-kg4.md) (KG4) e [consumo pelas fases](../referencia/contratos/consumo-grafo-kg5.md) pelo MCP (KG5) | entregue até o KG5: o `ork grafo` consulta e monta o pacote de contexto da thread, com a proveniência de cada aresta conferida contra a árvore, e as tools MCP ficam atrás da flag `grafo.mcp`, desligada; federação (KG6) e paridade entre hosts (KG7) não existem |
 | Evidência de economia | registro `measured` do benchmark, com recibos revisados | não existe: o protocolo está fixado (`not-run`) e a rodada paga, pendente |
 
 O consumo pelas fases (KG5) passa pelo MCP do projeto: as tools `ork_grafo_*` rodam a consulta do
 `ork grafo` na worktree da thread, num processo filho com o ambiente mínimo do MCP, prazo e
-cancelamento, e a resposta tem teto em bytes. O servidor MCP não carrega o grafo, e sem a flag ele
-lista as mesmas tools de antes.
+cancelamento, e a resposta tem teto em bytes. Cada aresta diz se as fontes dela conferem com a árvore
+da thread, e a consulta por nó traz o sha256 e o blob de cada fonte. O servidor MCP não carrega o
+grafo, e sem a flag ele lista as mesmas tools de antes.
 
 O grafo é projeção descartável: não substitui o estado em arquivos do Ork nem o Company
 Brain. O contrato do grafo não é emitido como evento do OrkMind e não amplia o schema
