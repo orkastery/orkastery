@@ -33,20 +33,6 @@
       "lint": []
     },
     {
-      "id": "C4",
-      "thread": "ork-rm026k7conhe",
-      "fase": "GOAL",
-      "arquivo": "docs/roadmap/README.md",
-      "alegacao": "a documentação segue em paridade com o frontmatter e o git",
-      "negativa": false,
-      "verificar": [
-        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar"
-      ],
-      "criadoEm": "2026-10-03T03:43:10.202Z",
-      "estado": "verificado",
-      "lint": []
-    },
-    {
       "id": "C5",
       "thread": "ork-rm026k7conhe",
       "fase": "GO",
@@ -99,6 +85,20 @@
         "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
       ],
       "criadoEm": "2026-10-12T13:01:59.321Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "a documentação segue em paridade com o frontmatter e o git, na regra do PR: merge de outra thread e índice que divergem da main só avisam",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-12T13:37:57.001Z",
       "estado": "verificado",
       "lint": []
     }
