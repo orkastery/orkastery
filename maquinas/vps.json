@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T02:50:46.378Z",
+  "publicadoEm": "2026-10-12T02:50:50.333Z",
   "threads": [
     {
       "id": "ork-modsorquestr",
@@ -33,23 +33,6 @@
       "branch": "ork/ork-rm031grafo3-full",
       "atualizadaEm": "2026-10-10T20:49:41.741Z",
       "entregue": "f720fad1",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
-    },
-    {
-      "id": "ork-rm038busca3",
-      "nome": "rm038busca3",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-rm038busca3-full",
-      "atualizadaEm": "2026-10-12T02:50:42.446Z",
-      "entregue": "e252b17e",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
