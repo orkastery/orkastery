@@ -5,7 +5,7 @@ Antes de pegar um item do roadmap: `ork roadmap reservas`.
 
 | Máquina | Thread | Modo | Fase | Runtime | Item | Espera você | Publicado | Sessão |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 12/10 17:06 | parada desde 03/10 03:13: nenhuma sessão despachada na fase GOAL |
+| srvjcp86 | ork-ciactionsfor | #Auto | GOAL | sem despacho | — | — | 12/10 17:15 | parada desde 03/10 03:13: nenhuma sessão despachada na fase GOAL |
 | vps | ork-designkit | #Fast | GO | sem despacho | — | — | 12/10 17:02 | — |
 | vps | ork-rm058n2 | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 17:02 | — |
 | vps | ork-rm059pista | #Auto | GOAL | claude-bg opus/max | — | — | 12/10 17:02 | — |
