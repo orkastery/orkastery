@@ -188,8 +188,10 @@ Para tirar um mod das sessões de fase, mude o papel no `orkastery-mod.json` do 
 mod, e rode `ork adapter install claude-code` de novo.
 
 O mod de papel `dono` não vai ao despacho: ele roda na sessão de quem conduz. Num projeto com o
-adaptador instalado, a cópia dele já está em `.claude/plugins/orkastery/mods/<mod>`, conferida pelo
-`INSTALADO.json` e com os arquivos comuns da raiz de `mods/` ao lado. Carregue-a na sessão com:
+adaptador instalado, a cópia dele já está em `.claude/plugins/orkastery/mods/<mod>`, com cada
+arquivo registrado no `INSTALADO.json` e os arquivos comuns da raiz de `mods/` ao lado. Nesse
+carregamento ninguém confere os bytes: a conferência contra o recibo roda no despacho, para mod de
+fase. Carregue-a na sessão com:
 
 ```bash
 claude --plugin-dir .claude/plugins/orkastery/mods/<mod>
