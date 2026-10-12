@@ -6,6 +6,20 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
+  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
+  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
+  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
+  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
+  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
+  `ork_session_inbox` (reserva uma vez, mesmo turno, mesmo sha256), como chegou, e o resto é consumido antes do modelo.
+  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
+  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
+  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
+
 ## [0.5.6] - 2026-10-12
 
 ### Adicionado
@@ -87,17 +101,6 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado, e a consulta que falha não apaga o
   que o núcleo leu. O guia `docs/guias/pista-de-entrega.md`
   diz ao condutor externo como trocar a publicação crua pelo `ork ship publicar`.
-- **Mensageiro de Sessões, mod de papéis `dono` e `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
-  a resposta que o dono dá pelo diálogo nativo da sessão do Claude Code chega à sessão de fase `claude-bg` que parou
-  esperando por ela. O núcleo abre o pedido de sessão `claude-bg` preso ao turno que parou (a transcrição do próprio
-  Claude Code), compõe a mensagem no contrato `ork.session-delivery/v1` e a guarda numa caixa de saída só na memória do
-  servidor MCP do dono (`ork_session_outbox`); o ledger guarda só o sha256. Na sessão do dono,
-  `adapters/claude-code/mods/ork-mensageiro` leva a mensagem por `$.session.send`, com reenvio pela D10 e o painel
-  `/mensageiro`; na sessão de fase, só entra na conversa a mensagem de outra sessão que o núcleo confirma pelo
-  `ork_session_inbox` (reserva uma vez, mesmo turno, mesmo sha256), como chegou, e o resto é consumido antes do modelo.
-  Muda para todos: o despacho `claude-bg` acrescenta `crossSessionInbound: accept` ao `--settings` só com o Mensageiro na
-  sessão e o `ORK_DISPATCH_ID`; a resposta a uma sessão `claude-bg` pelo Telegram, ou sem um Mensageiro vivo na sessão do
-  dono, recusa com `runtime.unavailable` antes de gravar nada. O guia é o `docs/guias/mensageiro-de-sessoes.md`.
 - **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
   arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
   em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que
