@@ -6,10 +6,12 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { dirTemporario, semAutoridadeHitlNoAmbiente } from './apoio';
 import { assinaturaDaResposta, RespostaHumana } from '../src/hitl-gates';
+import { chaveLocal } from '../src/hitl-local-receipt';
+import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 import { nativeMessage, nativeSignature, NativeAnswer } from '../src/hitl-native';
 import { CONTRATO_ENVELOPE, PedidoDeEfeito, RecusaDoArco } from '../src/noctum-envelope';
 import * as arcoMod from '../src/noctum-arco';
@@ -136,7 +138,7 @@ test('A2: ingresso sem prova não autoriza, por nenhuma das portas', () => comRa
   assert.equal(linhasDoLog(raiz, 'arco-a').length, 1, 'nenhuma tentativa gravou linha');
 }));
 
-test('A3: o módulo não exporta escritor de autorização sem prova', () => {
+test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo confia no callback do servidor, como criarIngressoLocal', () => {
   assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'PRAZO_PARA_AUTORIZAR_MIN',
     'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
     'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
@@ -190,7 +192,7 @@ test('A7: revogação vale na chamada seguinte e é terminal', () => comRaiz('re
   const revogado = revogarPeloIngresso(raiz, 'arco-a', assinado('arco-a', TEXTO_DE_REVOGACAO, DENTRO), DENTRO);
   assert.equal(revogado.situacao, 'revogado');
   recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.efeito.revogado');
-  recusa(() => proporEnvelope(raiz, pedido('arco-a', 10), DENTRO), 'noctum.efeito.revogado');
+  recusa(() => proporEnvelope(raiz, pedido('arco-a', 35), DENTRO), 'noctum.efeito.revogado');
 }));
 
 test('A8: expiração vale no instante do fim, sem renovação', () => comRaiz('expira', raiz => {
@@ -255,7 +257,8 @@ test('A11: restart num processo novo mantém limites, janela e fila, sem respost
     `console.log(JSON.stringify({ estado: m.lerArco(raiz, 'arco-a', ${JSON.stringify(DENTRO)}),`,
     `  dentro: tentar(${JSON.stringify(DENTRO)}), fim: tentar(${JSON.stringify(FIM)}) }));`,
   ].join('\n');
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('ORK_HITL_')));
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('ORK_HITL_'))),
+    [ENV_HITL_VERIFIERS]: publicHitlVerifiers(process.env)! };
   const r = spawnSync(process.execPath, ['-e', script], { stdio: ['ignore', fd, fd], env, timeout: 30000 });
   fs.closeSync(fd);
   const texto = fs.readFileSync(saida, 'utf8');
@@ -307,6 +310,9 @@ test('A13: diálogo nativo do host autoriza só quando o dono confirma', async (
   const outraOpcao = criarDialogoDoArco(raiz, { host: 'claude-code', connectionId: 'c1' },
     async () => ({ action: 'accept', content: { opcao: 'Não autorizar' } }));
   await recusaAssincrona(() => outraOpcao.autorizar('arco-a', h), 'noctum.origem.sem-prova');
+  const comExtra = criarDialogoDoArco(raiz, { host: 'claude-code', connectionId: 'c1' },
+    async a => ({ action: 'accept', content: { opcao: a.opcoes[0], extra: 'x' } as unknown as { opcao: string } }));
+  await recusaAssincrona(() => comExtra.autorizar('arco-a', h), 'noctum.origem.sem-prova');
   assert.equal(lerArco(raiz, 'arco-a')!.situacao, 'proposto');
   let visto: arcoMod.ApresentacaoDoArco | undefined;
   const confirmou = criarDialogoDoArco(raiz, { host: 'claude-code', connectionId: 'c1' }, async a => {
@@ -331,14 +337,16 @@ test('A14: callback nativo autoriza só quando assina o hash, o contexto e o pra
   process.env.ORK_HITL_NATIVE_BINDING_HERMES = JSON.stringify(binding);
   try {
     const { envelopeSha256: h, prazo, versao } = proporEnvelope(raiz, pedido('arco-a'), P);
-    const resposta = (pedidoSha256: string, messageId: string): RespostaHumana => {
-      const native = { ...binding, messageId, context: contextoDoArco('arco-a', versao), pedidoSha256, expiresAt: prazo };
+    const resposta = (pedidoSha256: string, messageId: string, context = contextoDoArco('arco-a', versao), expiresAt = prazo): RespostaHumana => {
+      const native = { ...binding, messageId, context, pedidoSha256, expiresAt };
       const r: NativeAnswer = { origem: 'native', canal: 'hermes', conta: binding.accountId, native, por: 'native:hermes:42',
         mensagem: nativeMessage(native), recebidoEm: A, resposta: textoDeAutorizacao(h), prova: '' };
       r.prova = nativeSignature(ALVO_DO_NOCTUM, enderecoDoArco('arco-a'), r, chaveNativa);
       return r as unknown as RespostaHumana;
     };
     recusa(() => autorizarPeloIngresso(raiz, 'arco-a', h, resposta('c'.repeat(64), 'm1'), A), 'noctum.origem.sem-prova');
+    recusa(() => autorizarPeloIngresso(raiz, 'arco-a', h, resposta(h, 'm3', contextoDoArco('arco-a', versao + 1)), A), 'noctum.origem.sem-prova');
+    recusa(() => autorizarPeloIngresso(raiz, 'arco-a', h, resposta(h, 'm4', undefined, '2026-10-13T01:31:00.000Z'), A), 'noctum.origem.sem-prova');
     const estado = autorizarPeloIngresso(raiz, 'arco-a', h, resposta(h, 'm2'), A);
     assert.equal(estado.envelopeSha256, h);
     assert.equal((estado.autorizadoPor as Record<string, unknown>).origem, 'native');
@@ -346,4 +354,133 @@ test('A14: callback nativo autoriza só quando assina o hash, o contexto e o pra
     delete process.env.ORK_HITL_NATIVE_KEY_HERMES;
     delete process.env.ORK_HITL_NATIVE_BINDING_HERMES;
   }
+}));
+
+test('A15: a prova do dono é reconferida antes do efeito pelo recibo do canal, com chave ou verificador público', () => comRaiz('recibo', raiz => {
+  const h = abrir(raiz, 'arco-a');
+  const arcoDir = path.join(raiz, '.orkastery', 'noctum', 'arcos', 'arco-a');
+  const recibos = fs.readdirSync(path.join(arcoDir, 'ingresso')).sort();
+  assert.equal(recibos.length, 2, 'o recibo e o .public ficam ao lado do log');
+  assert.ok(recibos.some(n => n.endsWith('.json.public')));
+  const verificadores = publicHitlVerifiers(process.env)!;
+  delete process.env.ORK_HITL_INGRESS_KEY_HERMES;
+  try {
+    recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.origem.sem-prova');
+    process.env[ENV_HITL_VERIFIERS] = verificadores;
+    assert.equal(conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO).ok, true);
+    // Sem o .public, o verificador público não tem o que conferir.
+    const publico = path.join(arcoDir, 'ingresso', recibos.find(n => n.endsWith('.public'))!);
+    const guardado = fs.readFileSync(publico);
+    fs.unlinkSync(publico);
+    recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.estado.adulterado');
+    fs.writeFileSync(publico, guardado, { mode: 0o600 });
+    assert.equal(conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO).ok, true);
+  } finally {
+    process.env.ORK_HITL_INGRESS_KEY_HERMES = CHAVE;
+    delete process.env[ENV_HITL_VERIFIERS];
+  }
+}));
+
+test('A16: quem tem só a chave local do núcleo não forja autorização do dono', () => comRaiz('forja', raiz => {
+  abrir(raiz, 'arco-a');
+  const { envelopeSha256: v2, versao } = proporEnvelope(raiz, pedido('arco-a', 30), A);
+  const arcoDir = path.join(raiz, '.orkastery', 'noctum', 'arcos', 'arco-a');
+  const arquivo = path.join(arcoDir, 'arco.jsonl');
+  // O recibo forjado: mesmo formato, MAC com uma chave que não é a do canal.
+  const ingresso = { origem: 'telegram', canal: 'hermes', conta: null, por: 'telegram:42', mensagem: 'telegram:-7:999',
+    recebidoEm: A, recibo: 'e'.repeat(64) };
+  const dados = { contrato: 'ork.noctum-ingresso/v1', arco: 'arco-a', endereco: enderecoDoArco('arco-a'), ato: 'autorizar',
+    envelopeSha256: v2, ...ingresso };
+  const bytes = JSON.stringify({ dados, assinatura: createHmac('sha256', 'chave-que-nao-e-do-canal-0000000000').update(JSON.stringify(dados)).digest('hex') });
+  const nome = `${sha(ingresso.mensagem)}.json`;
+  fs.writeFileSync(path.join(arcoDir, 'ingresso', nome), bytes, { mode: 0o600 });
+  // A linha forjada tem MAC certo, porque este atacante leu a chave local do núcleo.
+  const subchave = createHmac('sha256', chaveLocal(raiz, false)).update('ork.noctum-arco/v1').digest();
+  const linhas = fs.readFileSync(arquivo, 'utf8').trim().split('\n');
+  const linha = { contrato: 'ork.noctum-arco/v1', arco: 'arco-a', seq: linhas.length + 1, anterior: sha(linhas.at(-1)!), em: A,
+    evento: { tipo: 'autorizado', versao, envelopeSha256: v2, ingresso: { ...ingresso,
+      evidencia: `.orkastery/noctum/arcos/arco-a/ingresso/${nome}`, evidenciaSha256: sha(bytes) } } };
+  fs.appendFileSync(arquivo, JSON.stringify({ dados: linha, mac: createHmac('sha256', subchave).update(JSON.stringify(linha)).digest('hex') }) + '\n');
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.envelopeSha256, v2, 'o log aceita a linha: a guarda é o recibo');
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', v2), DENTRO), 'noctum.estado.adulterado');
+}));
+
+const pedidoComJanela = (arco: string, inicio: string, fim: string): Record<string, unknown> =>
+  ({ ...pedido(arco), janela: { inicio, fim, fuso: 'America/Sao_Paulo' } });
+
+test('A17: cauda incompleta no log não deixa efeito passar, e a revogação do dono ainda grava', () => comRaiz('cauda', raiz => {
+  const h = abrir(raiz, 'arco-a');
+  const arquivo = path.join(raiz, '.orkastery', 'noctum', 'arcos', 'arco-a', 'arco.jsonl');
+  // Escrita curta: a revogação falha alto e o log volta byte a byte ao que era; ninguém lê "revogado".
+  const nodeFs = require('node:fs') as typeof fs;
+  const original = nodeFs.writeSync;
+  const antes = fs.readFileSync(arquivo);
+  (nodeFs as { writeSync: unknown }).writeSync = (fd: number, dado: unknown, ...resto: unknown[]) =>
+    Buffer.isBuffer(dado) && dado.includes('"mac"') ? original(fd, dado.subarray(0, 20))
+      : (original as (...a: unknown[]) => number)(fd, dado, ...resto);
+  try {
+    recusa(() => revogarPeloIngresso(raiz, 'arco-a', assinado('arco-a', TEXTO_DE_REVOGACAO, DENTRO), DENTRO), 'noctum.estado.adulterado');
+  } finally { (nodeFs as { writeSync: unknown }).writeSync = original; }
+  assert.deepEqual(fs.readFileSync(arquivo), antes, 'a escrita curta não deixa meia linha');
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.situacao, 'vigente');
+  // Cauda rasgada, como a de uma queda no meio da gravação: nenhum efeito passa, e a revogação ainda grava.
+  fs.appendFileSync(arquivo, '{"dados":{"meia linha');
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.estado.adulterado');
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.situacao, 'vigente', 'a leitura de estado ignora a cauda, sem autoridade');
+  const revogado = revogarPeloIngresso(raiz, 'arco-a', assinado('arco-a', TEXTO_DE_REVOGACAO, DENTRO), DENTRO);
+  assert.equal(revogado.situacao, 'revogado');
+  assert.ok(fs.readFileSync(arquivo, 'utf8').endsWith('\n'), 'o escritor descartou a cauda sob o lock');
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h), DENTRO), 'noctum.efeito.revogado');
+}));
+
+test('A18: mensagem já usada e proposta vencida não autorizam', () => comRaiz('reuso', raiz => {
+  const { envelopeSha256: v1 } = proporEnvelope(raiz, pedido('arco-a'), P);
+  const primeira = assinado('arco-a', textoDeAutorizacao(v1));
+  autorizarPeloIngresso(raiz, 'arco-a', v1, primeira, A);
+  const { envelopeSha256: v2 } = proporEnvelope(raiz, pedido('arco-a', 30), A);
+  // Assinatura válida, mas com a mensagem que já provou a autorização da versão 1.
+  const r = { resposta: textoDeAutorizacao(v2), origem: 'telegram' as const, canal: 'hermes' as const, por: 'telegram:42',
+    mensagem: primeira.mensagem, recebidoEm: A };
+  const reuso = { ...r, prova: assinaturaDaResposta(ALVO_DO_NOCTUM, enderecoDoArco('arco-a'), r, CHAVE) };
+  assert.match(recusa(() => autorizarPeloIngresso(raiz, 'arco-a', v2, reuso, A), 'noctum.origem.sem-prova'), /já provou outro ato/);
+  const r2 = { ...r, resposta: TEXTO_DE_REVOGACAO };
+  const reusoNaRevogacao = { ...r2, prova: assinaturaDaResposta(ALVO_DO_NOCTUM, enderecoDoArco('arco-a'), r2, CHAVE) };
+  assert.match(recusa(() => revogarPeloIngresso(raiz, 'arco-a', reusoNaRevogacao, A), 'noctum.origem.sem-prova'), /já provou outro ato/);
+  // Uma hora e um minuto depois da proposta, a mesma autorização chega tarde.
+  const tarde = '2026-10-13T01:31:00.000Z';
+  assert.match(recusa(() => autorizarPeloIngresso(raiz, 'arco-a', v2, assinado('arco-a', textoDeAutorizacao(v2), tarde), tarde),
+    'noctum.envelope.invalido'), /proposta vencida/);
+  // Proposta feita meia hora antes do fim: dentro do prazo dela, mas depois do fim da janela, não autoriza.
+  const { envelopeSha256: b1 } = proporEnvelope(raiz, pedido('arco-b'), '2026-10-13T08:30:00.000Z');
+  recusa(() => autorizarPeloIngresso(raiz, 'arco-b', b1, assinado('arco-b', textoDeAutorizacao(b1), '2026-10-13T09:00:00.000Z'),
+    '2026-10-13T09:00:30.000Z'), 'noctum.efeito.expirado');
+}));
+
+test('A19: ação excluída vem antes de tudo, e o log precisa ser arquivo privado do núcleo', () => comRaiz('ordem', raiz => {
+  const { envelopeSha256: h } = proporEnvelope(raiz, pedido('arco-a'), P);
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h, { acao: 'tag' }), DENTRO), 'noctum.efeito.acao-excluida');
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-nenhum', h, { acao: 'producao' }), DENTRO), 'noctum.efeito.acao-excluida');
+  autorizarPeloIngresso(raiz, 'arco-a', h, assinado('arco-a', textoDeAutorizacao(h)), A);
+  revogarPeloIngresso(raiz, 'arco-a', assinado('arco-a', TEXTO_DE_REVOGACAO, DENTRO), DENTRO);
+  recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', h, { acao: 'segredos' }), DENTRO), 'noctum.efeito.acao-excluida');
+  const arquivo = path.join(raiz, '.orkastery', 'noctum', 'arcos', 'arco-a', 'arco.jsonl');
+  fs.chmodSync(arquivo, 0o644);
+  recusa(() => lerArco(raiz, 'arco-a', DENTRO), 'noctum.estado.adulterado');
+  fs.chmodSync(arquivo, 0o600);
+  const ligacao = path.join(raiz, 'outro-nome.jsonl');
+  fs.linkSync(arquivo, ligacao);
+  recusa(() => lerArco(raiz, 'arco-a', DENTRO), 'noctum.estado.adulterado');
+  fs.unlinkSync(ligacao);
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.situacao, 'revogado');
+}));
+
+test('A20: emenda não prorroga o fim, não muda o início e não reabre arco que terminou', () => comRaiz('emenda', raiz => {
+  abrir(raiz, 'arco-a');
+  assert.match(recusa(() => proporEnvelope(raiz, pedidoComJanela('arco-a', '2026-10-12T22:00:00-03:00', '2026-10-13T07:00:00-03:00'), A),
+    'noctum.envelope.invalido'), /não prorroga/);
+  recusa(() => proporEnvelope(raiz, pedidoComJanela('arco-a', '2026-10-12T23:00:00-03:00', '2026-10-13T06:00:00-03:00'), A),
+    'noctum.envelope.invalido');
+  assert.equal(proporEnvelope(raiz, pedidoComJanela('arco-a', '2026-10-12T22:00:00-03:00', '2026-10-13T05:00:00-03:00'), A).versao, 2);
+  assert.match(recusa(() => proporEnvelope(raiz, pedido('arco-a', 30), '2026-10-13T09:00:00.000Z'), 'noctum.envelope.invalido'),
+    /terminou/);
 }));

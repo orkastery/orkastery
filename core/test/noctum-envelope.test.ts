@@ -2,7 +2,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
-  avaliarEfeito, canonico, CONTRATO_ENVELOPE, ConteudoDoEnvelope, EXCLUSOES_FIXAS, hashDoEnvelope, PedidoDeEfeito,
+  avaliarEfeito, canonico, CONTRATO_ENVELOPE, ConteudoDoEnvelope, EXCLUSOES_FIXAS, exclusaoDaAcao, hashDoEnvelope, PedidoDeEfeito,
   RecusaDoArco, validarPedidoDeAbertura,
 } from '../src/noctum-envelope';
 import { extrairTagDoPedido, MODOS_LEGADOS, parseModo } from '../src/modos';
@@ -140,6 +140,13 @@ test('E8: o efeito respeita exclusão, janela e destino', () => {
   avaliarEfeito(c, efeito(), '2026-10-13T05:59:59.999-03:00');
   recusa(() => avaliarEfeito(c, efeito(), '2026-10-13T06:00:00-03:00'), 'noctum.efeito.expirado');
   assert.match(recusa(() => avaliarEfeito(c, efeito({ branch: 'main' }), dentro), 'noctum.efeito.fora-do-destino'), /push direto na base/);
+  // Só nome curto de branch: ref completa, forma curta de tag, HEAD e a base em outra caixa nunca passam.
+  assert.match(recusa(() => avaliarEfeito(c, efeito({ branch: 'MAIN' }), dentro), 'noctum.efeito.fora-do-destino'), /push direto na base/);
+  for (const branch of ['refs/heads/main', 'refs/tags/v1.0.0', 'tags/v1.0.0', 'heads/main', 'HEAD', 'head',
+    'refs/remotes/origin/main', 'ork/x..y', 'ork/.oculta', 'ork/trava.lock', 'ork//dupla']) {
+    recusa(() => avaliarEfeito(c, efeito({ branch }), dentro), 'noctum.efeito.fora-do-destino');
+    recusa(() => avaliarEfeito(c, efeito({ acao: 'merge', branch }), dentro), 'noctum.efeito.fora-do-destino');
+  }
   recusa(() => avaliarEfeito(c, efeito({ acao: 'pr', branch: 'outra' }), dentro), 'noctum.efeito.fora-do-destino');
   recusa(() => avaliarEfeito(c, efeito({ repositorio: 'exemplo/outro' }), dentro), 'noctum.efeito.fora-do-destino');
   recusa(() => avaliarEfeito(c, efeito({ acao: 'rebase' }), dentro), 'noctum.efeito.fora-do-destino');
@@ -162,4 +169,34 @@ test('E10: horário e canal do relatório são do dono e ficam no contrato', () 
   const canal = pedido();
   (canal.relatorio as Record<string, unknown>).canal = 'email';
   assert.match(recusa(() => validarPedidoDeAbertura(canal), 'noctum.envelope.invalido'), /terminal, telegram, openclaw/);
+});
+
+test('E11: teto finito absurdo, subteto acima do teto, fuso que não é IANA, base com ref e conta repetida são recusados', () => {
+  for (const valor of [Number.MAX_VALUE, 1e300]) {
+    assert.match(recusa(() => validarPedidoDeAbertura(comTeto(valor)), 'noctum.envelope.teto-ilimitado'), /inteiro seguro/);
+  }
+  recusa(() => validarPedidoDeAbertura(comTeto(2.5)), 'noctum.envelope.invalido');
+  const subteto = pedido();
+  (subteto.orcamento as { porConta: unknown[] }).porConta = [{ conta: 'perfil-a', teto: { valor: 41, unidade: 'sessoes' } }];
+  assert.match(recusa(() => validarPedidoDeAbertura(subteto), 'noctum.envelope.invalido'), /passa do teto do arco/);
+  const fuso = pedido();
+  (fuso.janela as Record<string, unknown>).fuso = '+03:00';
+  recusa(() => validarPedidoDeAbertura(fuso), 'noctum.envelope.invalido');
+  const base = pedido();
+  (base.destinos as Array<Record<string, unknown>>)[0].base = 'refs/heads/main';
+  assert.match(recusa(() => validarPedidoDeAbertura(base), 'noctum.envelope.invalido'), /nome curto de branch/);
+  const contas = pedido();
+  (contas.orcamento as { porConta: unknown[] }).porConta = [
+    { conta: 'perfil-a', teto: { valor: 10, unidade: 'sessoes' } }, { conta: 'PERFIL-A', teto: { valor: 10, unidade: 'sessoes' } }];
+  assert.match(recusa(() => validarPedidoDeAbertura(contas), 'noctum.envelope.invalido'), /repetido/);
+});
+
+test('E12: a busca de ação excluída não cai no protótipo do mapa', () => {
+  assert.equal(exclusaoDaAcao('constructor'), undefined);
+  assert.equal(exclusaoDaAcao('__proto__'), undefined);
+  assert.equal(exclusaoDaAcao('toString'), undefined);
+  assert.equal(exclusaoDaAcao('TAG'), 'tag-e-publicacao');
+  const c = validarPedidoDeAbertura(pedido());
+  recusa(() => avaliarEfeito(c, { arco: c.arco, envelopeSha256: hashDoEnvelope(c), acao: 'constructor', repositorio: 'exemplo/produto',
+    branch: 'ork/trabalho' }, '2026-10-13T02:00:00-03:00'), 'noctum.efeito.fora-do-destino');
 });

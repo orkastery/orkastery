@@ -14,8 +14,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   manhã) e recusa pedido sem os valores do dono, listando o que falta, teto ilimitado e as ações que nunca entram (tag e
   publicação, produção, segredos, ação destrutiva, repositório público novo). `core/src/noctum-arco.ts` guarda o estado
   do arco num log encadeado e com MAC, só aceita autorização e revogação com prova de origem do dono pelo caminho do HITL
-  (Telegram assinado, callback nativo ou diálogo nativo do host) e confere hash, revogação, janela e destino
-  imediatamente antes de cada efeito. O modo continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
+  (Telegram assinado, callback nativo ou diálogo nativo do host), com recibo durável do canal, e confere o recibo,
+  o hash, a revogação, a janela e o destino imediatamente antes de cada efeito. O modo continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a

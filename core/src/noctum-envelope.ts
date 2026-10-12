@@ -58,6 +58,9 @@ const RAZAO_DA_EXCLUSAO: Readonly<Record<Exclusao, string>> = Object.freeze({
 export const UNIDADES = ['sessoes', 'minutos-de-sessao', 'tokens', 'percentual-da-cota'] as const;
 export type Unidade = typeof UNIDADES[number];
 
+/** Contadas em inteiros. Acima do inteiro seguro do JavaScript, o teto deixa de limitar e vira ilimitado na prática. */
+const UNIDADES_INTEIRAS: readonly Unidade[] = ['sessoes', 'minutos-de-sessao', 'tokens'];
+
 /** Os destinos do relatório da manhã que a página da RM-058 nomeia. */
 export const CANAIS_DO_RELATORIO = ['terminal', 'telegram', 'openclaw'] as const;
 export type CanalDoRelatorio = typeof CANAIS_DO_RELATORIO[number];
@@ -124,12 +127,29 @@ const HORARIO = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const PALAVRAS_DE_ILIMITADO = /ilimitad|unlimited|infinit|sem[ -]?(?:teto|limite)/i;
 
 const objeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/**
+ * O nome curto de uma branch, nas regras de `git check-ref-format --branch`, ou nada. Ref completa
+ * (`refs/heads/main`), forma curta de outra ref (`heads/`, `tags/`, `remotes/`) e `HEAD` nunca são
+ * destino: com o texto cru, um push em `refs/heads/main` passaria pela recusa do push direto na base
+ * e `refs/tags/v1` criaria tag, que é exclusão fixa.
+ */
+export function nomeDaBranch(v: unknown): string | undefined {
+  if (typeof v !== 'string' || !BRANCH.test(v)) return undefined;
+  const minusculo = v.toLowerCase();
+  if (/^(?:refs|heads|tags|remotes)\//.test(minusculo) || minusculo === 'head' || v.includes('..') || v.includes('//') ||
+      /(?:^|\/)\./.test(v) || /\.lock(?:\/|$)/.test(v) || v.endsWith('/') || v.endsWith('.')) return undefined;
+  return v;
+}
 const ausente = (v: unknown): boolean => v === undefined || v === null || v === '';
 const sha256 = (s: string): string => createHash('sha256').update(s).digest('hex');
 
 /** A exclusão que um nome de ação representa, quando representa. */
 export function exclusaoDaAcao(acao: unknown): Exclusao | undefined {
-  return typeof acao === 'string' ? EXCLUSAO_POR_NOME[acao.trim().toLowerCase()] : undefined;
+  if (typeof acao !== 'string') return undefined;
+  const nome = acao.trim().toLowerCase();
+  // `constructor` e `__proto__` não são exclusão: a busca é só nas chaves próprias do mapa.
+  return Object.hasOwn(EXCLUSAO_POR_NOME, nome) ? EXCLUSAO_POR_NOME[nome] : undefined;
 }
 
 /** O que uma conferência acumula antes de recusar, para dizer tudo de uma vez. */
@@ -162,6 +182,11 @@ function lerTeto(v: unknown, onde: string, p: Problemas): Teto | undefined {
     p.invalidos.push(`${onde}.valor: percentual da cota vai até 100`);
     valor = undefined;
   }
+  if (unidade !== undefined && UNIDADES_INTEIRAS.includes(unidade) && valor !== undefined) {
+    if (valor > Number.MAX_SAFE_INTEGER) p.ilimitados.push(`${onde}.valor (${String(valor)}, acima do inteiro seguro)`);
+    else if (!Number.isInteger(valor)) p.invalidos.push(`${onde}.valor: ${unidade} se conta em inteiros`);
+    if (!Number.isSafeInteger(valor)) valor = undefined;
+  }
   return valor !== undefined && unidade !== undefined ? { valor, unidade } : undefined;
 }
 
@@ -181,7 +206,10 @@ function lerJanela(v: unknown, p: Problemas): Janela | undefined {
   const inicio = instante('inicio'), fim = instante('fim');
   let fuso: string | undefined;
   if (ausente(v.fuso)) p.faltas.push('janela.fuso');
-  else if (!(fuso = normalizarFuso(v.fuso))) p.invalidos.push(`janela.fuso: fuso IANA, como ${FUSO_DE_BRASILIA}`);
+  else if (!(fuso = normalizarFuso(v.fuso)) || !(fuso === 'UTC' || /^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+)+$/.test(fuso))) {
+    p.invalidos.push(`janela.fuso: fuso IANA, como ${FUSO_DE_BRASILIA}`);
+    fuso = undefined;
+  }
   if (inicio && fim) {
     const horas = (Date.parse(fim) - Date.parse(inicio)) / 3600000;
     if (!(horas >= JANELA_MINIMA_H && horas <= JANELA_MAXIMA_H)) {
@@ -209,8 +237,9 @@ function lerDestinos(v: unknown, p: Problemas): Destino[] | undefined {
       p.invalidos.push(`${onde}.repositorio: dono/nome de um repositório que já existe`); ok = false;
     } else if (vistos.has(d.repositorio.toLowerCase())) { p.invalidos.push(`${onde}.repositorio: repetido`); ok = false; }
     else vistos.add(d.repositorio.toLowerCase());
+    const base = nomeDaBranch(d.base);
     if (ausente(d.base)) { p.faltas.push(`${onde}.base`); ok = false; }
-    else if (typeof d.base !== 'string' || !BRANCH.test(d.base) || d.base.includes('..')) { p.invalidos.push(`${onde}.base: nome de branch`); ok = false; }
+    else if (base === undefined) { p.invalidos.push(`${onde}.base: nome curto de branch, sem refs/, heads/, tags/ ou HEAD`); ok = false; }
     const permissoes: Permissao[] = [];
     if (ausente(d.permissoes) || (Array.isArray(d.permissoes) && d.permissoes.length === 0)) { p.faltas.push(`${onde}.permissoes`); ok = false; }
     else if (!Array.isArray(d.permissoes)) { p.invalidos.push(`${onde}.permissoes: precisa ser lista`); ok = false; }
@@ -222,7 +251,7 @@ function lerDestinos(v: unknown, p: Problemas): Destino[] | undefined {
         else if (!permissoes.includes(x as Permissao)) permissoes.push(x as Permissao);
       }
     }
-    if (ok) destinos.push({ repositorio: d.repositorio as string, base: d.base as string,
+    if (ok) destinos.push({ repositorio: d.repositorio as string, base: base!,
       permissoes: PERMISSOES.filter(x => permissoes.includes(x)) });
   });
   return destinos.length === v.length ? destinos.sort((a, b) => a.repositorio.localeCompare(b.repositorio, 'en')) : undefined;
@@ -242,8 +271,8 @@ function lerSubtetos<K extends 'conta' | 'runtime'>(v: unknown, chave: K, onde: 
     let ok = true;
     if (ausente(nome)) { p.faltas.push(`${aqui}.${chave}`); ok = false; }
     else if (typeof nome !== 'string' || !aceito(nome)) { p.invalidos.push(`${aqui}.${chave}: ${explicacao}`); ok = false; }
-    else if (vistos.has(nome)) { p.invalidos.push(`${aqui}.${chave}: repetido`); ok = false; }
-    else vistos.add(nome);
+    else if (vistos.has(nome.toLowerCase())) { p.invalidos.push(`${aqui}.${chave}: repetido`); ok = false; }
+    else vistos.add(nome.toLowerCase());
     const teto = lerTeto(s.teto, `${aqui}.teto`, p);
     if (ok && teto) itens.push({ [chave]: nome, teto } as Record<K, string> & { teto: Teto });
   });
@@ -263,6 +292,13 @@ function lerOrcamento(v: unknown, p: Problemas): Orcamento | undefined {
     'id de perfil de conta já autenticado', p);
   const porRuntime = lerSubtetos(v.porRuntime, 'runtime', 'orcamento.porRuntime',
     x => (RUNTIMES_COM_PERFIL as readonly string[]).includes(x), `runtime de assinatura: ${RUNTIMES_COM_PERFIL.join(', ')}`, p);
+  // Subteto acima do teto do arco, na mesma unidade, não limita nada: é teto do arco disfarçado.
+  for (const [nome, teto] of [...(porConta ?? []).map(s => [`conta ${s.conta}`, s.teto] as const),
+    ...(porRuntime ?? []).map(s => [`runtime ${s.runtime}`, s.teto] as const)]) {
+    if (arco && teto.unidade === arco.unidade && teto.valor > arco.valor) {
+      p.invalidos.push(`orcamento: o subteto da ${nome} passa do teto do arco na mesma unidade`);
+    }
+  }
   return arco && porConta && porRuntime ? { arco, porConta, porRuntime } : undefined;
 }
 
@@ -358,14 +394,16 @@ export function avaliarEfeito(conteudo: ConteudoDoEnvelope, efeito: PedidoDeEfei
   if (!destino.permissoes.includes(efeito.acao as Permissao)) {
     throw new RecusaDoArco('noctum.efeito.fora-do-destino', `${efeito.acao} não autorizado em ${destino.repositorio}`);
   }
-  if (efeito.acao === 'push' && efeito.branch === destino.base) {
+  const branch = nomeDaBranch(efeito.branch);
+  if (branch === undefined) {
+    throw new RecusaDoArco('noctum.efeito.fora-do-destino', 'branch inválida: nome curto de branch, nunca ref completa, tag ou HEAD');
+  }
+  // Sem caixa: `MAIN` e `main` colidem em sistema de arquivos sem caixa, e o push direto na base fica fora de qualquer forma.
+  if (efeito.acao === 'push' && branch.toLowerCase() === destino.base.toLowerCase()) {
     throw new RecusaDoArco('noctum.efeito.fora-do-destino', `push direto na base ${destino.base} fica fora do envelope`);
   }
-  if (efeito.acao !== 'push' && efeito.branch !== destino.base) {
+  if (efeito.acao !== 'push' && branch !== destino.base) {
     throw new RecusaDoArco('noctum.efeito.fora-do-destino', `${efeito.acao} só para a base ${destino.base}`);
-  }
-  if (typeof efeito.branch !== 'string' || !BRANCH.test(efeito.branch) || efeito.branch.includes('..')) {
-    throw new RecusaDoArco('noctum.efeito.fora-do-destino', 'branch inválida');
   }
 }
 
