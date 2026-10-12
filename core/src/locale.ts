@@ -62,6 +62,7 @@ import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
 import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
+import { CONHECIMENTO_EN, CONHECIMENTO_PT_BR } from './locale-conhecimento';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -399,6 +400,7 @@ const PT_BR = {
   pulse: PULSE_PT_BR,
   roadmap: ROADMAP_PT_BR,
   gerados: GERADOS_PT_BR,
+  conhecimento: CONHECIMENTO_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -657,6 +659,7 @@ const EN: Mensagens = {
   pulse: PULSE_EN,
   roadmap: ROADMAP_EN,
   gerados: GERADOS_EN,
+  conhecimento: CONHECIMENTO_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

@@ -7,14 +7,16 @@
  *
  * Só leitura. Documento inválido ou referência que não confere vira lacuna tipada, nunca resposta (D4). A pasta
  * vem com o repositório e segue a fronteira da RM-047 (D6): relativa, dentro da raiz pelo caminho real, sem
- * seguir link e sem executar nada. Nesta fatia a decisão confere no ledger canônico e o id do Brain só pela forma
- * (D5); a CLI, as tools MCP e a conferência pelo Brain chegam nas fatias 2 e 3. Contrato:
+ * seguir link e sem executar nada. O leitor confere a decisão no ledger canônico e o id do Brain só pela forma
+ * (D5); a conferência por `get` mora na consulta (`conhecimento-consulta.ts`, fatia 2), a porta pública da CLI e das
+ * tools MCP. O detalhe das lacunas sai pelo catálogo (família `conhecimento`). Contrato:
  * docs/referencia/contratos/conhecimento-rm026.md.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { bytesHash } from './company-brain-journal';
 import { ehPaginaDeDocs, separarFrontmatter } from './docs';
+import { Mensagens, textoDoCatalogo } from './locale';
 import { ManifestoCarregado } from './manifest';
 import { ID_DE_ENTIDADE } from './portfolio';
 import { emUmaLinha, INVISIVEL } from './saida-segura';
@@ -62,7 +64,9 @@ export type CodigoDeLacunaDoConhecimento =
   | 'documento.link' | 'documento.nao-regular' | 'documento.nome-invalido' | 'documento.grande-demais' | 'documento.codificacao'
   | 'documento.sem-frontmatter' | 'documento.frontmatter-invalido' | 'documento.chave-desconhecida' | 'documento.id-invalido'
   | 'documento.id-repetido' | 'documento.titulo-invalido' | 'documento.colecoes-invalidas' | 'documento.referencias-invalidas'
-  | 'referencia.invalida' | 'referencia.decisao-ausente' | 'referencia.nao-e-decisao';
+  | 'referencia.invalida' | 'referencia.decisao-ausente' | 'referencia.nao-e-decisao'
+  // Fatia 2: as da consulta. O `mostrar` de um id sem documento válido (D13) e a conferência do id do Brain por `get` (D12).
+  | 'documento.inexistente' | 'referencia.brain-inexistente' | 'referencia.brain-retido' | 'referencia.brain-indisponivel';
 
 export interface LacunaDoConhecimento {
   codigo: CodigoDeLacunaDoConhecimento;
@@ -89,12 +93,20 @@ export interface DocumentoDeConhecimento {
   id: string;
   titulo: string;
   colecoes: string[];
-  /** `brain` confere só pela forma nesta fatia (D5); `decisoes` confere no ledger canônico. */
+  /** `brain` confere só pela forma no leitor (D5; o `get` é da consulta); `decisoes` confere no ledger canônico. */
   referencias: { brain: string[]; decisoes: DecisaoCitada[] };
   /** Caminho real do arquivo, relativo à raiz, com `/`. */
   arquivo: string;
   bytes: number;
   sha256: string;
+  /** O Markdown depois do frontmatter, com as quebras de linha em `\n`; só no documento pedido por `corpoDe`. */
+  corpo?: string;
+}
+
+/** O que a leitura devolve além do padrão. */
+export interface OpcoesDaLeitura {
+  /** O id do documento cujo corpo volta na resposta (o `ork conhecimento mostrar`). */
+  corpoDe?: string;
 }
 
 export interface Conhecimento {
@@ -111,15 +123,27 @@ const ehMapa = (v: ValorYaml | undefined): v is { [k: string]: ValorYaml } => !!
 /** Texto que veio do repositório, pronto para a resposta: numa linha, sem invisível e, com teto, cortado sem partir caractere. */
 const limpo = (v: string, teto = Infinity) => Array.from(emUmaLinha(v)).slice(0, teto).join('');
 const relativo = (raizReal: string, abs: string) => path.relative(raizReal, abs).split(path.sep).join('/');
-const LINK = 'link simbólico não é seguido; o documento é o arquivo versionado';
+/**
+ * O detalhe de uma lacuna, pelo catálogo (D13 da fatia 2): nasce no locale ativo, o pt-BR do `--json` e do MCP, e a
+ * impressão do comando coberto o remonta no locale dela.
+ */
+export const detalheDoConhecimento = (montar: (l: Mensagens['conhecimento']['lacunas']) => string): string =>
+  textoDoCatalogo((m) => montar(m.conhecimento.lacunas));
+const t = detalheDoConhecimento;
 /** `stat` que nunca lança: a pasta que some ou não abre vale como ausente. */
 const statOuNulo = (p: string): fs.Stats | null => { try { return fs.statSync(p, { throwIfNoEntry: false }) ?? null; } catch { return null; } };
 
-function lacuna(codigo: CodigoDeLacunaDoConhecimento, detalhe: string,
+/** Uma lacuna, com a referência como escrita, numa linha e cortada (a mesma regra no leitor e na consulta). */
+export function lacunaDoConhecimento(codigo: CodigoDeLacunaDoConhecimento, detalhe: string,
   onde: { arquivo?: string | null; documento?: string | null; referencia?: string | null } = {}): LacunaDoConhecimento {
   return { codigo, arquivo: onde.arquivo ?? null, documento: onde.documento ?? null,
     referencia: typeof onde.referencia === 'string' ? limpo(onde.referencia, 200) : null, detalhe };
 }
+const lacuna = lacunaDoConhecimento;
+
+/** A ordem estável das lacunas: por arquivo, código e referência. */
+export const compararLacunas = (a: LacunaDoConhecimento, b: LacunaDoConhecimento): number =>
+  comparar(a.arquivo ?? '', b.arquivo ?? '') || comparar(a.codigo, b.codigo) || comparar(a.referencia ?? '', b.referencia ?? '');
 
 /**
  * D6: a pasta declarada, pelo caminho real. A forma recusa antes de tocar o disco (vazia, absoluta, `..`, `\`,
@@ -130,22 +154,19 @@ function pastaDoConhecimento(raiz: string, dir: string): { real: string; raizRea
   const segmentos = dir.split('/').filter((s) => s !== '' && s !== '.');
   if (path.isAbsolute(dir) || dir.includes('\\') || INVISIVEL.test(dir) || !segmentos.length || segmentos.includes('..') ||
       reservada(segmentos[0])) {
-    return lacuna('conhecimento.dir-invalido', 'conhecimento.dir precisa ser uma pasta relativa à raiz, sem "..", ' +
-      'fora de .git e .orkastery, como docs/conhecimento; nada foi lido');
+    return lacuna('conhecimento.dir-invalido', t((l) => l.dirForma));
   }
   let raizReal: string, real: string;
   try { raizReal = fs.realpathSync(raiz); real = fs.realpathSync(path.join(raizReal, ...segmentos)); }
-  catch { return lacuna('conhecimento.dir-ausente', 'a pasta de conhecimento.dir não existe ou não abre'); }
+  catch { return lacuna('conhecimento.dir-ausente', t((l) => l.dirNaoAbre)); }
   const rel = path.relative(raizReal, real);
   if (rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) {
-    return lacuna('conhecimento.dir-fora-da-raiz', 'pelo caminho real (links resolvidos), conhecimento.dir sai da raiz ' +
-      'do projeto; o manifesto vem com o repositório e não escolhe caminho fora dela; nada foi lido');
+    return lacuna('conhecimento.dir-fora-da-raiz', t((l) => l.dirForaDaRaiz));
   }
   if (rel === '' || reservada(rel.split(path.sep)[0]) || INVISIVEL.test(rel)) {
-    return lacuna('conhecimento.dir-invalido', 'pelo caminho real, conhecimento.dir é a própria raiz, cai em .git ou ' +
-      '.orkastery, ou tem caractere invisível; nada foi lido');
+    return lacuna('conhecimento.dir-invalido', t((l) => l.dirReal));
   }
-  if (!statOuNulo(real)?.isDirectory()) return lacuna('conhecimento.dir-ausente', 'conhecimento.dir não é uma pasta');
+  if (!statOuNulo(real)?.isDirectory()) return lacuna('conhecimento.dir-ausente', t((l) => l.dirNaoEPasta));
   return { real, raizReal };
 }
 
@@ -166,36 +187,35 @@ function varrer(real: string, raizReal: string, limites: LimitesDoConhecimento, 
     // conferido logo antes da listagem. Num clone parado não há troca; a conferência fecha a janela larga.
     let realDaPasta: string | null;
     try { realDaPasta = fs.realpathSync(atual.abs); } catch { realDaPasta = null; }
-    if (realDaPasta !== atual.abs) { lacunas.push(lacuna('documento.link', LINK, { arquivo: relativo(raizReal, atual.abs) })); continue; }
+    if (realDaPasta !== atual.abs) { lacunas.push(lacuna('documento.link', t((l) => l.link), { arquivo: relativo(raizReal, atual.abs) })); continue; }
     let nomes: Buffer[];
     try { nomes = fs.readdirSync(atual.abs, { encoding: 'buffer' }).sort(Buffer.compare); }
     catch {
-      lacunas.push(lacuna('documento.nao-regular', 'a pasta não abriu para leitura; o que está nela não foi lido',
-        { arquivo: relativo(raizReal, atual.abs) }));
+      lacunas.push(lacuna('documento.nao-regular', t((l) => l.pastaNaoAbriu), { arquivo: relativo(raizReal, atual.abs) }));
       continue;
     }
     for (const bruto of nomes) {
       if (bruto[0] === 0x2e) continue;
-      if (++entradas > limites.entradas) return { teto: `a pasta passa de ${limites.entradas} entradas` };
+      if (++entradas > limites.entradas) return { teto: t((l) => l.limiteEntradas(limites.entradas)) };
       const nome = bruto.toString('utf8');
       if (!Buffer.from(nome, 'utf8').equals(bruto) || INVISIVEL.test(nome)) {
-        lacunas.push(lacuna('documento.nome-invalido', 'nome fora de UTF-8 ou com caractere invisível; não foi lido',
+        lacunas.push(lacuna('documento.nome-invalido', t((l) => l.nomeInvalido),
           { arquivo: relativo(raizReal, path.join(atual.abs, nome.replace(INVISIVEIS, '?'))) }));
         continue;
       }
       const abs = path.join(atual.abs, nome), arquivo = relativo(raizReal, abs);
       let st: fs.Stats | undefined;
       try { st = fs.lstatSync(abs, { throwIfNoEntry: false }); }
-      catch { lacunas.push(lacuna('documento.nao-regular', 'a entrada não abriu para leitura; não foi lida', { arquivo })); continue; }
+      catch { lacunas.push(lacuna('documento.nao-regular', t((l) => l.entradaNaoAbriu), { arquivo })); continue; }
       if (!st) continue;
-      if (st.isSymbolicLink()) { lacunas.push(lacuna('documento.link', LINK, { arquivo })); continue; }
+      if (st.isSymbolicLink()) { lacunas.push(lacuna('documento.link', t((l) => l.link), { arquivo })); continue; }
       if (st.isDirectory()) {
-        if (atual.profundidade + 1 > limites.profundidade) return { teto: `a pasta passa de ${limites.profundidade} níveis` };
+        if (atual.profundidade + 1 > limites.profundidade) return { teto: t((l) => l.limiteNiveis(limites.profundidade)) };
         pilha.push({ abs, profundidade: atual.profundidade + 1 });
         continue;
       }
       if (!ehPaginaDeDocs(nome)) continue;
-      if (!st.isFile()) { lacunas.push(lacuna('documento.nao-regular', 'não é arquivo comum; não foi lido', { arquivo })); continue; }
+      if (!st.isFile()) { lacunas.push(lacuna('documento.nao-regular', t((l) => l.naoRegular), { arquivo })); continue; }
       candidatos.push({ abs, arquivo, st });
     }
   }
@@ -243,35 +263,29 @@ interface Valido { id: string; titulo: string; colecoes: string[]; brain: string
 
 /** D2 e D3: o frontmatter vale inteiro ou devolve a lacuna do primeiro problema, com o id quando ele já vale. */
 function validarFrontmatter(dados: ValorYaml, arquivo: string): Valido | LacunaDoConhecimento {
-  if (!ehMapa(dados)) return lacuna('documento.frontmatter-invalido', 'o frontmatter precisa ser um mapa de chaves', { arquivo });
+  if (!ehMapa(dados)) return lacuna('documento.frontmatter-invalido', t((l) => l.frontmatterNaoEMapa), { arquivo });
   const id = typeof dados.id === 'string' && ID_DE_DOCUMENTO.test(dados.id) ? dados.id : null;
-  if (!id) {
-    return lacuna('documento.id-invalido', 'id precisa ser doc- seguido de 3 a 48 letras minúsculas, números ou hífens, ' +
-      'começando por letra ou número', { arquivo });
-  }
+  if (!id) return lacuna('documento.id-invalido', t((l) => l.idInvalido), { arquivo });
   const onde = { arquivo, documento: id };
   const estranhas = Object.keys(dados).filter((k) => !CHAVES_DO_DOCUMENTO.includes(k));
   if (estranhas.length) {
-    return lacuna('documento.chave-desconhecida', `chave fora do contrato: ${estranhas.map((k) => JSON.stringify(limpo(k, 40))).join(', ')} ` +
-      `(o frontmatter tem só ${CHAVES_DO_DOCUMENTO.join(', ')})`, onde);
+    const chaves = estranhas.map((k) => JSON.stringify(limpo(k, 40))).join(', ');
+    return lacuna('documento.chave-desconhecida', t((l) => l.chaveDesconhecida(chaves, CHAVES_DO_DOCUMENTO.join(', '))), onde);
   }
   const titulo = typeof dados.titulo === 'string' ? dados.titulo.trim() : '';
   if (!titulo || titulo.length > LIMITE_DO_TITULO || INVISIVEL.test(titulo)) {
-    return lacuna('documento.titulo-invalido', `titulo precisa ser texto de 1 a ${LIMITE_DO_TITULO} caracteres, ` +
-      'sem caractere de controle', onde);
+    return lacuna('documento.titulo-invalido', t((l) => l.tituloInvalido(LIMITE_DO_TITULO)), onde);
   }
   const colecoes = lista(dados.colecoes);
   if (!colecoes || !colecoes.length || colecoes.length > COLECOES_POR_DOCUMENTO ||
       colecoes.some((c) => !NOME_DE_COLECAO.test(c)) || new Set(colecoes).size !== colecoes.length) {
-    return lacuna('documento.colecoes-invalidas', `colecoes precisa listar de 1 a ${COLECOES_POR_DOCUMENTO} nomes ` +
-      'de 1 a 48 letras minúsculas, números ou hífens, sem repetir', onde);
+    return lacuna('documento.colecoes-invalidas', t((l) => l.colecoesInvalidas(COLECOES_POR_DOCUMENTO)), onde);
   }
   const refs = dados.referencias ?? null;
   const brain = ehMapa(refs) ? lista(refs.brain) : [], decisoes = ehMapa(refs) ? lista(refs.decisoes) : [];
   if ((refs !== null && !ehMapa(refs)) || (ehMapa(refs) && Object.keys(refs).some((k) => !CHAVES_DAS_REFERENCIAS.includes(k))) ||
       !brain || brain.length > REFERENCIAS_POR_LISTA || !decisoes || decisoes.length > REFERENCIAS_POR_LISTA) {
-    return lacuna('documento.referencias-invalidas', 'referencias é um mapa só com brain e decisoes, cada uma uma lista ' +
-      `de até ${REFERENCIAS_POR_LISTA} textos`, onde);
+    return lacuna('documento.referencias-invalidas', t((l) => l.referenciasInvalidas(REFERENCIAS_POR_LISTA)), onde);
   }
   return { id, titulo, colecoes: [...colecoes].sort(comparar), brain: [...new Set(brain)], decisoes: [...new Set(decisoes)] };
 }
@@ -286,19 +300,19 @@ type LinhasCitadas = { linhas: Map<number, string>; completas: number } | { moti
 function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, teto: number): LinhasCitadas {
   let arquivo: string;
   try { arquivo = path.join(dirThread(raiz, thread), 'ledger.jsonl'); }
-  catch { return { motivo: 'a pasta da thread no estado do projeto é link ou fica fora da regra de id' }; }
+  catch { return { motivo: t((l) => l.ledgerLinkOuId) }; }
   let st: fs.Stats | undefined;
   try { st = fs.lstatSync(arquivo, { throwIfNoEntry: false }); }
   catch (e) {
     // A pasta da thread que é arquivo comum dá ENOTDIR: a thread não tem ledger, e nada lança.
-    if ((e as NodeJS.ErrnoException).code !== 'ENOTDIR') return { motivo: `o ledger da thread ${thread} não abriu para leitura` };
+    if ((e as NodeJS.ErrnoException).code !== 'ENOTDIR') return { motivo: t((l) => l.ledgerNaoAbriu(thread)) };
   }
-  if (!st) return { motivo: `a thread ${thread} não tem ledger neste projeto` };
+  if (!st) return { motivo: t((l) => l.semLedger(thread)) };
   const bytes = lerArquivo(arquivo, st, teto, true);
-  if (!Buffer.isBuffer(bytes)) return { motivo: `o ledger da thread ${thread} não é arquivo comum de até ${teto / 1024 / 1024} MiB` };
+  if (!Buffer.isBuffer(bytes)) return { motivo: t((l) => l.ledgerNaoRegular(thread, teto / 1024 / 1024)) };
   const fim = bytes.lastIndexOf(10) + 1;
   const completo = bytes.subarray(0, fim).toString('utf8');
-  if (!Buffer.from(completo, 'utf8').equals(bytes.subarray(0, fim))) return { motivo: `o ledger da thread ${thread} não é UTF-8` };
+  if (!Buffer.from(completo, 'utf8').equals(bytes.subarray(0, fim))) return { motivo: t((l) => l.ledgerNaoUtf8(thread)) };
   const todas = completo.split('\n').slice(0, -1);
   const linhas = new Map<number, string>();
   for (const n of citadas) if (n <= todas.length) linhas.set(n, todas[n - 1]);
@@ -308,26 +322,25 @@ function linhasCitadas(raiz: string, thread: string, citadas: Set<number>, teto:
 /** D5: a referência `thread#linha` confere quando a linha completa existe, é da thread e é uma decisão. */
 function conferirDecisao(ref: string, ledgers: Map<string, LinhasCitadas>): DecisaoCitada | { codigo: CodigoDeLacunaDoConhecimento; detalhe: string } {
   const m = REFERENCIA_DE_DECISAO.exec(ref);
-  if (!m) return { codigo: 'referencia.invalida', detalhe: 'decisão é <thread>#<linha>, com o id da thread e a linha do ledger a partir de 1' };
+  if (!m) return { codigo: 'referencia.invalida', detalhe: t((l) => l.decisaoForma) };
   const thread = m[1], linha = Number(m[2]);
   const ledger = ledgers.get(thread)!;
   if ('motivo' in ledger) return { codigo: 'referencia.decisao-ausente', detalhe: ledger.motivo };
   const bruta = ledger.linhas.get(linha);
   if (bruta === undefined) {
-    return { codigo: 'referencia.decisao-ausente', detalhe: `o ledger da thread ${thread} tem ${ledger.completas} linha(s) completa(s)` };
+    return { codigo: 'referencia.decisao-ausente', detalhe: t((l) => l.linhasCompletas(thread, ledger.completas)) };
   }
   let evento: { thread?: unknown; tipo?: unknown } | null = null;
   try {
     const lido: unknown = JSON.parse(bruta);
     if (lido && typeof lido === 'object' && !Array.isArray(lido)) evento = lido;
   } catch { /* linha que não é JSON não é decisão */ }
-  const onde = `a linha ${linha} do ledger da thread ${thread}`;
-  if (!evento) return { codigo: 'referencia.nao-e-decisao', detalhe: `${onde} não é um evento JSON` };
-  if (evento.thread !== thread) return { codigo: 'referencia.nao-e-decisao', detalhe: `${onde} é de outra thread` };
-  const tipo = TIPOS_DE_DECISAO.find((t) => t === evento?.tipo);
+  if (!evento) return { codigo: 'referencia.nao-e-decisao', detalhe: t((l) => l.naoEJson(linha, thread)) };
+  if (evento.thread !== thread) return { codigo: 'referencia.nao-e-decisao', detalhe: t((l) => l.outraThread(linha, thread)) };
+  const tipo = TIPOS_DE_DECISAO.find((x) => x === evento?.tipo);
   if (!tipo) {
-    const visto = typeof evento.tipo === 'string' && /^[a-z_]{1,40}$/.test(evento.tipo) ? evento.tipo : 'sem tipo conhecido';
-    return { codigo: 'referencia.nao-e-decisao', detalhe: `${onde} é ${visto}, não decisão (${TIPOS_DE_DECISAO.join(', ')})` };
+    const visto = typeof evento.tipo === 'string' && /^[a-z_]{1,40}$/.test(evento.tipo) ? evento.tipo : null;
+    return { codigo: 'referencia.nao-e-decisao', detalhe: t((l) => l.naoEDecisao(linha, thread, visto, TIPOS_DE_DECISAO.join(', '))) };
   }
   return { ref, thread, linha, tipo, fonte: `threads/${thread}/ledger.jsonl#L${linha}`, sha256: bytesHash(bruta) };
 }
@@ -336,58 +349,63 @@ function conferirDecisao(ref: string, ledgers: Map<string, LinhasCitadas>): Deci
  * Lê o conhecimento declarado no manifesto: documentos válidos, coleções e lacunas, tudo em ordem estável.
  * Nunca lança por causa do conteúdo do repositório; o que não vale vira lacuna tipada.
  */
-export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConhecimento = LIMITES_DO_CONHECIMENTO): Conhecimento {
+export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConhecimento = LIMITES_DO_CONHECIMENTO,
+  opcoes: OpcoesDaLeitura = {}): Conhecimento {
   const declarado = c.manifesto.conhecimento?.dir ?? null;
   const dir = declarado === null ? null : limpo(declarado);
   const so = (l: LacunaDoConhecimento): Conhecimento => ({ contrato: CONTRATO_CONHECIMENTO, dir, documentos: [], colecoes: [], lacunas: [l] });
-  if (declarado === null) return so(lacuna('conhecimento.nao-declarado', 'o orkastery.yaml não declara conhecimento.dir'));
+  if (declarado === null) return so(lacuna('conhecimento.nao-declarado', t((l) => l.naoDeclarado)));
   const pasta = pastaDoConhecimento(c.raiz, declarado);
   if ('codigo' in pasta) return so(pasta);
-  const teto = (detalhe: string) => so(lacuna('conhecimento.limite', `${detalhe}; nenhum documento foi devolvido`));
+  const teto = (detalhe: string) => so(lacuna('conhecimento.limite', detalhe));
 
   const lacunas: LacunaDoConhecimento[] = [];
   const candidatos = varrer(pasta.real, pasta.raizReal, limites, lacunas);
   if (!Array.isArray(candidatos)) return teto(candidatos.teto);
 
   const decodificador = new TextDecoder('utf-8', { fatal: true });
-  const validos: (Valido & { arquivo: string; bytes: number; sha256: string })[] = [];
+  const validos: (Valido & { arquivo: string; bytes: number; sha256: string; corpo?: string })[] = [];
   const declarados = new Map<string, number>();
   let total = 0;
   for (const { abs, arquivo, st } of candidatos) {
     const bytes = lerArquivo(abs, st, limites.bytesPorDocumento);
-    if (bytes === 'link') { lacunas.push(lacuna('documento.link', LINK, { arquivo })); continue; }
+    if (bytes === 'link') { lacunas.push(lacuna('documento.link', t((l) => l.link), { arquivo })); continue; }
     if (bytes === 'nao-regular') {
-      lacunas.push(lacuna('documento.nao-regular', 'não abriu como arquivo comum, ou mudou durante a leitura', { arquivo }));
+      lacunas.push(lacuna('documento.nao-regular', t((l) => l.naoAbriuComoArquivo), { arquivo }));
       continue;
     }
     if (bytes === 'grande') {
-      lacunas.push(lacuna('documento.grande-demais', `o documento passa de ${limites.bytesPorDocumento / 1024} KiB`, { arquivo }));
+      lacunas.push(lacuna('documento.grande-demais', t((l) => l.grandeDemais(limites.bytesPorDocumento / 1024)), { arquivo }));
       continue;
     }
     total += bytes.length;
-    if (total > limites.bytesNoTotal) return teto(`os documentos passam de ${limites.bytesNoTotal / 1024 / 1024} MiB no total`);
+    if (total > limites.bytesNoTotal) return teto(t((l) => l.limiteTotal(limites.bytesNoTotal / 1024 / 1024)));
     let texto: string;
     try { texto = decodificador.decode(bytes); }
-    catch { lacunas.push(lacuna('documento.codificacao', 'o arquivo não é UTF-8', { arquivo })); continue; }
-    const { bruto } = separarFrontmatter(texto);
+    catch { lacunas.push(lacuna('documento.codificacao', t((l) => l.codificacao), { arquivo })); continue; }
+    const { bruto, corpo } = separarFrontmatter(texto);
     if (bruto === null) {
-      lacunas.push(lacuna('documento.sem-frontmatter', 'o arquivo não começa com o frontmatter entre duas linhas ---', { arquivo }));
+      lacunas.push(lacuna('documento.sem-frontmatter', t((l) => l.semFrontmatter), { arquivo }));
       continue;
     }
     if (Buffer.byteLength(bruto, 'utf8') > limites.bytesDoFrontmatter) {
-      lacunas.push(lacuna('documento.frontmatter-invalido', `o frontmatter passa de ${limites.bytesDoFrontmatter / 1024} KiB`, { arquivo }));
+      lacunas.push(lacuna('documento.frontmatter-invalido', t((l) => l.frontmatterGrande(limites.bytesDoFrontmatter / 1024)), { arquivo }));
       continue;
     }
     let dados: ValorYaml;
     // A linha do `---` de abertura entra na leitura (e é pulada nela) para o erro dizer a linha do arquivo.
     try { dados = lerYaml('---\n' + bruto, { estrito: true }); }
-    catch (e) { lacunas.push(lacuna('documento.frontmatter-invalido', limpo((e as Error).message, 200), { arquivo })); continue; }
+    catch (e) {
+      const erro = limpo((e as Error).message, 200);
+      lacunas.push(lacuna('documento.frontmatter-invalido', t((l) => l.frontmatterYaml(erro)), { arquivo }));
+      continue;
+    }
     // D4: o id na forma certa conta para a regra do repetido mesmo quando o resto do documento não vale.
     const idDeclarado = ehMapa(dados) && typeof dados.id === 'string' && ID_DE_DOCUMENTO.test(dados.id) ? dados.id : null;
     if (idDeclarado) declarados.set(idDeclarado, (declarados.get(idDeclarado) ?? 0) + 1);
     const v = validarFrontmatter(dados, arquivo);
     if ('codigo' in v) { lacunas.push(v); continue; }
-    validos.push({ ...v, arquivo, bytes: bytes.length, sha256: bytesHash(bytes) });
+    validos.push({ ...v, arquivo, bytes: bytes.length, sha256: bytesHash(bytes), ...(v.id === opcoes.corpoDe ? { corpo } : {}) });
   }
 
   // D4: id repetido não escolhe arquivo; todos os documentos com ele saem da resposta, também quando a outra
@@ -395,8 +413,7 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
   const unicos = validos.filter((v) => {
     const vezes = declarados.get(v.id)!;
     if (vezes > 1) {
-      lacunas.push(lacuna('documento.id-repetido', `o id aparece em ${vezes} arquivos; nenhum deles vale até sobrar um`,
-        { arquivo: v.arquivo, documento: v.id }));
+      lacunas.push(lacuna('documento.id-repetido', t((l) => l.idRepetido(vezes)), { arquivo: v.arquivo, documento: v.id }));
     }
     return vezes === 1;
   });
@@ -416,7 +433,7 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
     const brain: string[] = [], decisoes: DecisaoCitada[] = [];
     for (const referencia of v.brain) {
       if (ID_DE_ENTIDADE.test(referencia)) brain.push(referencia);
-      else lacunas.push(lacuna('referencia.invalida', 'id do Brain é prod-, proj- ou init-, na regra dos ids do portfólio', { ...onde, referencia }));
+      else lacunas.push(lacuna('referencia.invalida', t((l) => l.brainForma), { ...onde, referencia }));
     }
     for (const referencia of v.decisoes) {
       const r = conferirDecisao(referencia, ledgers);
@@ -425,7 +442,7 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
     }
     documentos.push({ id: v.id, titulo: v.titulo, colecoes: v.colecoes,
       referencias: { brain: brain.sort(comparar), decisoes: decisoes.sort((a, b) => comparar(a.thread, b.thread) || a.linha - b.linha) },
-      arquivo: v.arquivo, bytes: v.bytes, sha256: v.sha256 });
+      arquivo: v.arquivo, bytes: v.bytes, sha256: v.sha256, ...(v.corpo !== undefined ? { corpo: v.corpo } : {}) });
   }
 
   const colecoes = new Map<string, string[]>();
@@ -438,7 +455,6 @@ export function lerConhecimento(c: ManifestoCarregado, limites: LimitesDoConheci
     contrato: CONTRATO_CONHECIMENTO, dir,
     documentos: documentos.sort((a, b) => comparar(a.id, b.id)),
     colecoes: [...colecoes].map(([nome, ids]) => ({ nome, documentos: ids.sort(comparar) })).sort((a, b) => comparar(a.nome, b.nome)),
-    lacunas: lacunas.sort((a, b) => comparar(a.arquivo ?? '', b.arquivo ?? '') || comparar(a.codigo, b.codigo) ||
-      comparar(a.referencia ?? '', b.referencia ?? '')),
+    lacunas: lacunas.sort(compararLacunas),
   };
 }
