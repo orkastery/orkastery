@@ -5,9 +5,10 @@
  * estado. Cada linha leva o sha256 da anterior e um MAC de subchave derivada da chave local do
  * núcleo (`.orkastery/private`, a mesma fronteira do recibo local do HITL), e linha trocada reprova
  * toda leitura. Essa chave fica legível para qualquer processo com o mesmo usuário do sistema, que é
- * o caso dos agentes da fábrica: o MAC do log não os impede de forjar uma linha. O que eles não forjam
- * é o recibo do canal que a autorização assinada deixa e que a conferência antes do efeito relê. A
- * autorização pelo diálogo do host não tem esse recibo e fica na fronteira do recibo local do HITL.
+ * o caso dos agentes da fábrica: o MAC do log não os impede de escrever uma linha. Uma linha que se diz
+ * do Telegram ou do callback nativo ainda precisa do recibo do canal, que a conferência antes do efeito
+ * relê e que a chave local não produz. Uma linha que se diz do diálogo do host não tem recibo do canal:
+ * a fronteira dela é a conta do sistema, como no recibo local do HITL, e com a chave local ela passa.
  * Truncar o log também segue possível, como no ledger (D5 da ork-rm058n1, limites ditos na página).
  *
  * Proposta não autoriza nada. O envelope só passa a valer por ingresso com prova de origem do
@@ -26,12 +27,12 @@ import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
 import { formatarDataHora } from './horario';
 import { Canal, parseCanal, variavelDaChaveDoCanal } from './hitl-canais';
 import { autenticarResposta, RespostaHumana } from './hitl-gates';
-import { chaveDoIngresso } from './hitl-ingress-receipt';
+import { chaveDoIngresso, contaDoEnvelope } from './hitl-ingress-receipt';
 import { LETRAS_DE_ALTERNATIVA, LetraDeAlternativa, MAXIMO_DE_ALTERNATIVAS_DE_CONDUCAO,
   MINIMO_DE_ALTERNATIVAS_DE_CONDUCAO, TETOS_HITL_V2 } from './hitl-contract';
 import { comLockInspecionavel } from './hitl-lock';
 import { chaveLocal } from './hitl-local-receipt';
-import { nativeContextSchema, nativeKey } from './hitl-native';
+import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
 import { avaliarEfeito, canonico, ConteudoDoEnvelope, hashDoEnvelope, ID_DO_ARCO, PedidoDeEfeito, RecusaDoArco,
   recusaDeExclusao, resumoDoEnvelope, validarPedidoDeAbertura } from './noctum-envelope';
@@ -69,7 +70,7 @@ type IngressoAssinado =
  * local, como o recibo local do HITL.
  */
 export type IngressoDoDono =
-  | (IngressoAssinado & { evidencia: string; evidenciaSha256: string })
+  | (IngressoAssinado & { evidencia: string; evidenciaSha256: string; semRecibo?: string })
   | { origem: 'mcp-local'; host: 'claude-code' | 'codex'; conexao: string; solicitacao: string; por: string;
     recebidoEm: string; respostaSha256: string };
 
@@ -192,7 +193,7 @@ interface LogDoArco {
  */
 function lerLog(raiz: string, arco: string): LogDoArco {
   const file = path.join(dirDoArco(raiz, arco), ARQUIVO);
-  let bruto: string;
+  let bruto: Buffer;
   try {
     const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     try {
@@ -200,7 +201,7 @@ function lerLog(raiz: string, arco: string): LogDoArco {
       if (!st.isFile() || st.nlink !== 1 || st.uid !== process.getuid?.() || (st.mode & 0o077) !== 0) {
         throw adulterado('log do arco não é arquivo privado do núcleo');
       }
-      bruto = fs.readFileSync(fd, 'utf8');
+      bruto = fs.readFileSync(fd);
     } finally { fs.closeSync(fd); }
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
@@ -209,10 +210,10 @@ function lerLog(raiz: string, arco: string): LogDoArco {
     if (e instanceof RecusaDoArco) throw e;
     throw adulterado('log do arco ilegível');
   }
-  const completas = bruto.slice(0, bruto.lastIndexOf('\n') + 1);
-  const textos = completas.split('\n').slice(0, -1);
-  const tamanhos = { terminaEmQuebra: completas.length === bruto.length, bytesCompletos: Buffer.byteLength(completas),
-    bytesLidos: Buffer.byteLength(bruto) };
+  // Em bytes, não em caracteres: cauda que corta um caractere de vários bytes não desalinha os tamanhos.
+  const fim = bruto.lastIndexOf(0x0a) + 1;
+  const textos = bruto.subarray(0, fim).toString('utf8').split('\n').slice(0, -1);
+  const tamanhos = { terminaEmQuebra: fim === bruto.length, bytesCompletos: fim, bytesLidos: bruto.length };
   if (!textos.length) return { linhas: [], ultimaLinha: null, ...tamanhos };
   let chave: Buffer;
   try { chave = chaveDoArco(raiz, false); } catch { throw adulterado('chave do núcleo ausente para conferir o log'); }
@@ -266,16 +267,36 @@ function anexar(raiz: string, arco: string, log: LogDoArco, evento: EventoDoArco
 /** Tentativas de 100 ms pelo lock: a revogação não perde para um escritor que segura o arco por um instante. */
 const TENTATIVAS_DO_LOCK = 30;
 
-function comLockDoArco<T>(raiz: string, arco: string, criar: boolean, executar: () => T): T {
+function dirParaLock(raiz: string, arco: string, criar: boolean): string {
   const dir = dirDoArco(raiz, arco);
   if (criar) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   else if (!fs.existsSync(dir)) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem proposta`);
+  return dir;
+}
+
+/** Só a disputa pelo kernel espera; qualquer outra falha, inclusive a recusa de dentro, sobe na hora. */
+const disputaDoLock = (e: unknown): boolean => e instanceof Error && e.message.startsWith('HITL ocupado; exclusão do kernel');
+
+/** `esperar` só na revogação, o ato de segurança; o resto falha na hora, sem prender o processo. */
+function comLockDoArco<T>(raiz: string, arco: string, criar: boolean, executar: () => T, esperar = false): T {
+  const dir = dirParaLock(raiz, arco, criar);
   for (let tentativa = 1; ; tentativa++) {
     try { return comLockInspecionavel(dir, 'noctum-arco', executar); }
     catch (e) {
-      // Só a disputa pelo kernel espera; qualquer outra falha, inclusive a recusa de dentro, sobe na hora.
-      if (tentativa >= TENTATIVAS_DO_LOCK || !(e instanceof Error) || !e.message.startsWith('HITL ocupado; exclusão do kernel')) throw e;
+      if (!esperar || tentativa >= TENTATIVAS_DO_LOCK || !disputaDoLock(e)) throw e;
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    }
+  }
+}
+
+/** A mesma espera, sem prender o event loop: é a que o diálogo usa dentro do servidor MCP. */
+async function comLockDoArcoAssincrono<T>(raiz: string, arco: string, executar: () => T): Promise<T> {
+  const dir = dirParaLock(raiz, arco, false);
+  for (let tentativa = 1; ; tentativa++) {
+    try { return comLockInspecionavel(dir, 'noctum-arco', executar); }
+    catch (e) {
+      if (tentativa >= TENTATIVAS_DO_LOCK || !disputaDoLock(e)) throw e;
+      await new Promise(r => setTimeout(r, 100));
     }
   }
 }
@@ -293,7 +314,12 @@ interface Derivado {
 
 function derivar(linhas: DadosDaLinha[]): Derivado {
   const d: Derivado = { propostas: new Map(), ultima: null, autorizacao: null, revogacao: null, decisoes: [], usadas: new Set() };
-  const usar = (i: IngressoDoDono) => d.usadas.add(i.origem === 'mcp-local' ? `mcp-local:${i.solicitacao}` : `${i.origem}:${i.mensagem}`);
+  const usar = (i: IngressoDoDono) => {
+    const prova = i.origem === 'mcp-local' ? `mcp-local:${i.solicitacao}` : `${i.origem}:${i.mensagem}`;
+    // Uma prova do dono vale para um ato só: reaproveitada noutra linha, o log foi emendado à mão.
+    if (d.usadas.has(prova)) throw adulterado('a mesma prova do dono aparece em dois atos do log');
+    d.usadas.add(prova);
+  };
   for (const { evento: e } of linhas) {
     if (e.tipo === 'proposto') {
       const p = { versao: e.versao, envelopeSha256: e.envelopeSha256, conteudo: e.conteudo, prazo: e.prazo };
@@ -373,7 +399,7 @@ function exigirEmendaSemProrrogar(d: Derivado, conteudo: ConteudoDoEnvelope, qua
   if (!(Date.parse(quando) < Date.parse(janela.fim))) {
     throw new RecusaDoArco('noctum.efeito.expirado', `o arco terminou em ${janela.fim}; emenda não reabre arco, abra outro`);
   }
-  if (conteudo.janela.inicio !== janela.inicio || Date.parse(conteudo.janela.fim) > Date.parse(janela.fim)) {
+  if (Date.parse(conteudo.janela.inicio) !== Date.parse(janela.inicio) || Date.parse(conteudo.janela.fim) > Date.parse(janela.fim)) {
     throw new RecusaDoArco('noctum.envelope.invalido', 'emenda mantém o início e não prorroga o fim do envelope autorizado');
   }
 }
@@ -424,8 +450,9 @@ function provarEnvelope(arco: string, texto: string, envelope: RespostaHumana, q
 }
 
 /** O corpo do recibo durável: o que o ingresso provou e para qual ato, sem o texto assinado. */
-function dadosDoRecibo(arco: string, ato: Ato, envelopeSha256: string | null, i: IngressoAssinado): Record<string, unknown> {
-  return { contrato: 'ork.noctum-ingresso/v1', arco, endereco: enderecoDoArco(arco), ato, envelopeSha256,
+function dadosDoRecibo(arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoAssinado): Record<string, unknown> {
+  return { contrato: 'ork.noctum-ingresso/v1', arco, endereco: enderecoDoArco(arco), ato, envelopeSha256, versao,
     origem: i.origem, canal: i.canal, conta: i.conta, por: i.por, mensagem: i.mensagem, recebidoEm: i.recebidoEm,
     recibo: i.recibo, ...(i.origem === 'native' ? { native: i.native } : {}) };
 }
@@ -448,13 +475,13 @@ const nomeDoRecibo = (i: { mensagem: string }): string => `${sha(i.mensagem)}.js
  * da chave do canal e, ao lado, o `.public` que deixa reconferir sem a chave. É ele que a conferência
  * antes do efeito relê (como o FX2 faz no gate): quem tem só a chave local do núcleo não o forja.
  */
-function gravarRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, i: IngressoAssinado):
-  { evidencia: string; evidenciaSha256: string } {
+function gravarRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoAssinado): { evidencia: string; evidenciaSha256: string } {
   const dir = path.join(dirDoArco(raiz, arco), 'ingresso');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const nome = nomeDoRecibo(i), file = path.join(dir, nome);
   const canal: Canal | null = i.canal === null ? null : parseCanal(i.canal);
-  const dados = dadosDoRecibo(arco, ato, envelopeSha256, i);
+  const dados = dadosDoRecibo(arco, ato, envelopeSha256, versao, i);
   const chave = i.origem === 'native' ? nativeKey(String(canal)) : chaveDoIngresso(canal);
   const bytes = JSON.stringify({ dados, assinatura: createHmac('sha256', chave).update(JSON.stringify(dados)).digest('hex') });
   const temp = path.join(dir, `${randomUUID()}.tmp`);
@@ -473,8 +500,8 @@ function gravarRecibo(raiz: string, arco: string, ato: Ato, envelopeSha256: stri
  * com o verificador público herdado (`ORK_RECEIPT_VERIFIERS`). Chave presente e inválida reprova; sem
  * chave e sem verificador, a prova não pode ser reconferida aqui.
  */
-function reciboConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, i: IngressoDoDono):
-  'ok' | 'sem-verificador' | 'falhou' {
+function reciboConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: string | null, versao: number | null,
+  i: IngressoDoDono): 'ok' | 'sem-verificador' | 'falhou' {
   if (i.origem === 'mcp-local') return 'ok';
   try {
     const nome = nomeDoRecibo(i);
@@ -485,7 +512,7 @@ function reciboConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: str
     const v = JSON.parse(bytes.toString('utf8')) as unknown;
     const { evidencia: _evidencia, evidenciaSha256: _sha, ...assinado } = i;
     if (!objeto(v) || Object.keys(v).sort().join(',') !== 'assinatura,dados' || typeof v.assinatura !== 'string' ||
-        !/^[a-f0-9]{64}$/.test(v.assinatura) || canonico(v.dados) !== canonico(dadosDoRecibo(arco, ato, envelopeSha256, assinado))) {
+        !/^[a-f0-9]{64}$/.test(v.assinatura) || canonico(v.dados) !== canonico(dadosDoRecibo(arco, ato, envelopeSha256, versao, assinado))) {
       return 'falhou';
     }
     const native = i.origem === 'native';
@@ -493,6 +520,10 @@ function reciboConfere(raiz: string, arco: string, ato: Ato, envelopeSha256: str
     if (i.canal !== null && canal !== i.canal) return 'falhou';
     const variavel = native ? `ORK_HITL_NATIVE_KEY_${String(canal).toUpperCase()}` : variavelDaChaveDoCanal(canal);
     if (process.env[variavel] !== undefined) {
+      // A conta e o vínculo de agora, como no gate: depois de uma troca, o que a conta antiga autorizou não vale.
+      if (i.origem === 'native') {
+        if (Object.entries(nativeBinding(String(canal))).some(([k, v]) => i.native[k] !== v)) return 'falhou';
+      } else contaDoEnvelope(canal, i.conta ?? undefined);
       const chave = native ? nativeKey(String(canal)) : chaveDoIngresso(canal);
       return timingSafeEqual(Buffer.from(v.assinatura, 'hex'), createHmac('sha256', chave).update(JSON.stringify(v.dados)).digest())
         ? 'ok' : 'falhou';
@@ -527,7 +558,7 @@ export function autorizarPeloIngresso(raiz: string, arco: string, envelopeSha256
     if (d.autorizacao?.envelopeSha256 === envelopeSha256 && !d.revogacao) return estadoDe(arco, d, quando);
     if (d.usadas.has(`${provado.origem}:${provado.mensagem}`)) throw semProva('esta mensagem já provou outro ato neste arco');
     const proposta = propostaAutorizavel(d, envelopeSha256, quando);
-    const ingresso = { ...provado, ...gravarRecibo(raiz, arco, 'autorizar', envelopeSha256, provado) };
+    const ingresso = { ...provado, ...gravarRecibo(raiz, arco, 'autorizar', envelopeSha256, proposta.versao, provado) };
     anexar(raiz, arco, log, { tipo: 'autorizado', versao: proposta.versao, envelopeSha256, ingresso }, quando);
     return confirmado(raiz, arco, quando, e => e.envelopeSha256 === envelopeSha256 && e.situacao !== 'revogado', 'autorização');
   });
@@ -542,10 +573,14 @@ export function revogarPeloIngresso(raiz: string, arco: string, envelope: Respos
       { pedidoSha256: hashDaRevogacao(arco), contexto: contextoDoArco(arco, 0) });
     if (d.revogacao) return estadoDe(arco, d, quando);
     if (d.usadas.has(`${provado.origem}:${provado.mensagem}`)) throw semProva('esta mensagem já provou outro ato neste arco');
-    const ingresso = { ...provado, ...gravarRecibo(raiz, arco, 'revogar', null, provado) };
+    // O recibo da revogação é auditoria e nunca é reconferido: falha nele não segura o ato de segurança, e o motivo fica na linha.
+    let recibo: { evidencia: string; evidenciaSha256: string; semRecibo?: string };
+    try { recibo = gravarRecibo(raiz, arco, 'revogar', null, null, provado); }
+    catch (e) { recibo = { evidencia: '', evidenciaSha256: '', semRecibo: String((e as Error).message ?? e).slice(0, 200) }; }
+    const ingresso = { ...provado, ...recibo };
     anexar(raiz, arco, log, { tipo: 'revogado', ingresso }, quando);
     return confirmado(raiz, arco, quando, e => e.situacao === 'revogado', 'revogação');
-  });
+  }, true);
 }
 
 /** O que o diálogo nativo do host mostra ao dono. Só identificadores e o resumo; nenhuma resposta. */
@@ -602,7 +637,7 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
         resumo: resumoDoEnvelope(antes.conteudo, envelopeSha256), opcoes: ['Autorizar este envelope', 'Não autorizar'] };
       const { requestId, recebidoEm } = await perguntar(a, antes.prazo);
       // O mundo pode ter mudado enquanto o dono lia: tudo é conferido de novo sob o lock.
-      return comLockDoArco(raiz, arco, false, () => {
+      return comLockDoArcoAssincrono(raiz, arco, () => {
         const log = lerLog(raiz, arco), d = derivar(log.linhas);
         if (d.autorizacao?.envelopeSha256 === envelopeSha256 && !d.revogacao) return estadoDe(arco, d, recebidoEm);
         const proposta = propostaAutorizavel(d, envelopeSha256, recebidoEm);
@@ -617,7 +652,7 @@ export function criarDialogoDoArco(raiz: string, origem: { host: 'claude-code' |
         resumo: [`Revogar o arco ${arco}: nenhum efeito novo passa depois disto, e o arco não reabre`],
         opcoes: ['Revogar o arco', 'Manter o arco'] };
       const { requestId, recebidoEm } = await perguntar(a, undefined);
-      return comLockDoArco(raiz, arco, false, () => {
+      return comLockDoArcoAssincrono(raiz, arco, () => {
         const log = lerLog(raiz, arco), d = derivar(log.linhas);
         if (!d.revogacao) anexar(raiz, arco, log, { tipo: 'revogado', ingresso: ingressoDoDialogo(requestId, recebidoEm, a.opcoes[0]) }, recebidoEm);
         return confirmado(raiz, arco, recebidoEm, e => e.situacao === 'revogado', 'revogação');
@@ -711,7 +746,7 @@ export function conferirAntesDoEfeito(raiz: string, efeito: PedidoDeEfeito, quan
   if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', `arco ${efeito.arco} revogado pelo dono`);
   if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${efeito.arco} sem envelope autorizado`);
   // A prova do dono é reconferida aqui, pelo recibo do canal, e não lida da linha do log (FX2 no gate).
-  const prova = reciboConfere(raiz, efeito.arco, 'autorizar', d.autorizacao.envelopeSha256, d.autorizacao.ingresso);
+  const prova = reciboConfere(raiz, efeito.arco, 'autorizar', d.autorizacao.envelopeSha256, d.autorizacao.versao, d.autorizacao.ingresso);
   if (prova === 'sem-verificador') {
     throw new RecusaDoArco('noctum.origem.sem-prova', 'a prova do dono não pode ser reconferida neste processo: falta a chave ou o verificador público do canal');
   }

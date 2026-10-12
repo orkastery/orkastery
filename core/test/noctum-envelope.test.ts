@@ -143,7 +143,7 @@ test('E8: o efeito respeita exclusão, janela e destino', () => {
   // Só nome curto de branch: ref completa, forma curta de tag, HEAD e a base em outra caixa nunca passam.
   assert.match(recusa(() => avaliarEfeito(c, efeito({ branch: 'MAIN' }), dentro), 'noctum.efeito.fora-do-destino'), /push direto na base/);
   for (const branch of ['refs/heads/main', 'refs/tags/v1.0.0', 'tags/v1.0.0', 'heads/main', 'HEAD', 'head',
-    'refs/remotes/origin/main', 'ork/x..y', 'ork/.oculta', 'ork/trava.lock', 'ork//dupla']) {
+    'refs/remotes/origin/main', 'ork/x..y', 'ork/.oculta', 'ork/trava.lock', 'ork//dupla', 'ork/fim/', 'ork/fim.']) {
     recusa(() => avaliarEfeito(c, efeito({ branch }), dentro), 'noctum.efeito.fora-do-destino');
     recusa(() => avaliarEfeito(c, efeito({ acao: 'merge', branch }), dentro), 'noctum.efeito.fora-do-destino');
   }
