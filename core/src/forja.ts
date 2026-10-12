@@ -83,7 +83,7 @@ const HOST = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9]
 /**
  * Sem shell, sem token: a CLI usa a autenticacao que ja tem; prompt e aviso de versao desligados.
  * RM-054 (fatia 3): o binario e procurado como na rede (D11 da RM-053), no PATH e depois nas pastas de
- * usuario (`~/.local/bin` e as outras): o gateway e o cron rodam com PATH curto, e o `gh` da srvjcp86
+ * usuario (`~/.local/bin` e as outras): o gateway e o cron rodam com PATH curto, e o `gh` da maquina-b
  * mora em `~/.local/bin`. Sem achar, o nome vai cru ao spawn, e o ENOENT continua `forja.ausente`.
  */
 export const executorPadrao: ExecutorDaForja = (cmd, args, entrada, timeoutMs) => {

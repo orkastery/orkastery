@@ -41,7 +41,7 @@ sdlc:
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** o product builder que conduz várias threads ao mesmo tempo. Quando o runtime recusava o despacho por um impedimento que só ele resolve (confiar no diretório da worktree, aceitar termos novos do CLI), o `ork` gravava só `phase_dispatch_failed`. A thread ficava `aberta` sem pedido nenhum, e o board, a fábrica e o pulse diziam "espera você: -".
-- **Evidências e fonte:** em 29/09/2026, no srvjcp86, três despachos `claude --bg` (`ork-rm052projeto`, `ork-rm053network` e `ork-rm054roadmap`) morreram com `Workspace not trusted. Run claude in <worktree> once and accept the trust prompt, then retry.` (ledger de cada thread, `phase_dispatch_failed` de 16:32 UTC). O dono só soube horas depois, perguntando. Em 10/10/2026, na VPS, o despacho de GO da continuação (thread `ork-rm055impedi2`) foi recusado com a mesma frase e o ork instalado gravou o `gate_blocked` tipado `runtime.workspace-untrusted` com o comando (ledger da thread, 06:04:44 UTC).
+- **Evidências e fonte:** em 29/09/2026, na maquina-b, três despachos `claude --bg` (`ork-rm052projeto`, `ork-rm053network` e `ork-rm054roadmap`) morreram com `Workspace not trusted. Run claude in <worktree> once and accept the trust prompt, then retry.` (ledger de cada thread, `phase_dispatch_failed` de 16:32 UTC). O dono só soube horas depois, perguntando. Em 10/10/2026, na VPS, o despacho de GO da continuação (thread `ork-rm055impedi2`) foi recusado com a mesma frase e o ork instalado gravou o `gate_blocked` tipado `runtime.workspace-untrusted` com o comando (ledger da thread, 06:04:44 UTC).
 - **Objetivo/OKR:** nenhum impedimento do dono fica invisível. Ele chega na hora, com o comando e o que acontece depois.
 - **Hipótese:** se a saída do runtime vira motivo tipado e o motivo do dono abre a espera dele com o comando exato, então o tempo entre a recusa e o dono saber cai de horas para o próximo pulse, porque o pedido chega pelo mesmo canal das outras esperas.
 - **Métrica principal / linha de base / meta / janela / fonte:** despachos recusados por impedimento do dono sem espera aberta no ledger. A linha de base é 3 de 3 (29/09), a meta é 0, a janela é 30 dias e a fonte é o `gate_blocked` tipado depois de cada `phase_dispatch_failed`.
@@ -61,7 +61,7 @@ sdlc:
   - espera do dono no monitor, na fábrica e no pulse, e retry que só re-despacha depois do aceite → o teste de ponta a ponta do mesmo arquivo, com o stub do `claude` repetindo a frase do incidente;
   - pedido curto dentro do teto de linhas, com comando, "desde" e `ork retry run` → o mesmo arquivo;
   - continuação → `core/test/rm055-continuacao.test.ts`: S1 (frases literais dos binários), S2 (prova da confiança com worktrees git reais), S3 (recusa repetida sem gastar tentativa e re-despacho do mesmo prompt depois do aceite) e S4 (o resumo entregue com o comando e a saída na hora com a cadência ligada).
-- **Piloto, medição e critérios de expansão/interrupção:** o piloto é o srvjcp86 e a VPS. Se aparecer frase nova de impedimento do dono, ela entra na lista de frases com teste. Se um motivo do dono for classificado por engano, a frase sai da lista.
+- **Piloto, medição e critérios de expansão/interrupção:** o piloto é a maquina-b e a VPS. Se aparecer frase nova de impedimento do dono, ela entra na lista de frases com teste. Se um motivo do dono for classificado por engano, a frase sai da lista.
 
 ## Plano e decisões
 
@@ -99,7 +99,7 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R agente condutor (srvjcp86) / A Julio / C VPS / I comunidade
+- **RACI (R / A / C / I):** R agente condutor (maquina-b) / A Julio / C VPS / I comunidade
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** a GOAL foi despachada ao codex em 01/10. A implementação, os testes e o PR ficaram com o agente condutor (Claude Code), em `#Auto` com autorização de push e merge do dono até 02/10, 23h. O CHECK independente roda no CI (`ork-verify`). A continuação (10/10, thread `ork-rm055impedi2`, rm055impedim3) foi conduzida em `#Auto` por uma sessão claude-bg na VPS, depois de as sessões GOAL e PLAN do codex terminarem sem artefato (EROFS no estado da thread, sem MCP).
 - **Próxima ação, responsável e prazo:** entregar a continuação pelo `ork ship` da thread `ork-rm055impedi2` e fechar com o MASTER; responsável: o agente condutor; prazo: 10/10/2026.
 
