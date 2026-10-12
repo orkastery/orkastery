@@ -47,6 +47,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   duas línguas na reinstalação e na remoção. A referência do CLI ganha a versão em inglês,
   [`docs/referencia/cli.en.md`](docs/referencia/cli.en.md), ligada à de pt-BR e conferida por teste. O catálogo vai de
   835 para 877 entradas.
+- **Conhecimento escrito, fatia 1: o contrato e a leitura** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  o bloco `conhecimento: { dir }` do `orkastery.yaml` declara uma pasta de documentos Markdown no contrato
+  `ork.conhecimento/v1` ([contrato](docs/referencia/contratos/conhecimento-rm026.md)), com frontmatter fechado: `id`
+  (`doc-...`), `titulo`, `colecoes` e `referencias` a ids do Brain e a decisões `thread#linha` do ledger. O núcleo lê a
+  pasta e devolve os documentos válidos, as coleções e as lacunas tipadas: documento inválido ou referência que não
+  confere nunca entra na resposta. A decisão confere no ledger canônico da thread, com a fonte e o sha256 da linha que a
+  captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
+  dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
+  2 e 3); projeto sem o bloco segue igual.
 - **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
   `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
   linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
