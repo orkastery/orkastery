@@ -45,7 +45,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork ship publicar <thread>` (`ork.ship-publicar/v1`) publica a branch da thread e abre o PR pelo núcleo, só no modo
   que já autoriza o push (#Auto e #Maestro). Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a
   branch com produto, o CHECK com veredito PASSOU depois do último commit de produto, o último `ork verify` verde no
-  HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas, o remoto do GitHub e os
+  HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas e os comandos delas, o remoto do GitHub e os
   PRs da branch; a recusa antes de qualquer efeito volta com motivo tipado e não grava nada. Empurra sem força o sha
   conferido, prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o texto do `pr-body.md` da thread
   (título `ship(<thread>): ...`) e grava `ship_published`, também para o push que ficou sem prova; repetido, ou com o

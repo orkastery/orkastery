@@ -34,8 +34,11 @@ const IDADE_ESCONDIDO_MS = 15 * 60000
 const INTERVALO_MINIMO_MS = 30000
 /** Os ledgers que mudam juntos entram numa leitura so. */
 const ESPERA_DO_LOTE_MS = 5000
-/** Teto do `ork ship pista`: um `ls-remote` e a lista de PRs. */
-const PRAZO_DA_PISTA_MS = 120000
+/**
+ * Teto do `ork ship pista`: o `ls-remote --heads` (ate 60 s), a leitura dos PRs (ate 60 s) e o git local; 3 min deixam
+ * folga em rede lenta (S11 da revisao).
+ */
+const PRAZO_DA_PISTA_MS = 180000
 /**
  * Teto do `ork ship publicar`: o pior caso do nucleo (ls-remote, lista de PRs, push, ls-remote, criacao e releitura do
  * PR) soma 435 s; 9 min cabem nele com folga, abaixo dos 10 min que o motor da a um processo.

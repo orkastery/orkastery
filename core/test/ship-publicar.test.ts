@@ -11,13 +11,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { prepararBundleCi } from '../src/ci';
-import { adicionarClaim, retirarClaim } from '../src/claims';
+import { adicionarClaim, anexarComando, retirarClaim } from '../src/claims';
 import { tomarConducao } from '../src/conducao';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
+import { comLocale } from '../src/locale';
 import { ManifestoCarregado } from '../src/manifest';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
 import { shaNoRemoto } from '../src/ship';
-import { comandoDoDono, pistaDeEntrega, publicarEntrega, tituloDoPr } from '../src/ship-publicar';
+import { comandoDoDono, linhasDaPublicacao, pistaDeEntrega, Publicacao, publicarEntrega, tituloDoPr } from '../src/ship-publicar';
 import { dirThread, novaThread } from '../src/thread';
 import { Modo } from '../src/types';
 import { exec } from '../src/util';
@@ -80,7 +81,8 @@ interface Entrega { id: string; branch: string }
  * `ci(<thread>)` e o CHECK com PASSOU depois do commit. Cada parte pode faltar, para os casos de recusa.
  */
 function prepararEntrega(p: ProjetoDeTeste, nome: string, modo: Modo,
-  opcoes: { semVerify?: boolean; verifyReprovado?: boolean; semBundle?: boolean; comClaim?: boolean; check?: 'ausente' | 'velho' | string } = {}): Entrega {
+  opcoes: { semVerify?: boolean; verifyReprovado?: boolean; semBundle?: boolean; comClaim?: boolean; check?: 'ausente' | 'velho' | string;
+    carregado?: ManifestoCarregado } = {}): Entrega {
   const { thread } = novaThread(p.carregado, { nome, modo });
   const branch = branchDaWorktree(thread);
   exec('git', ['checkout', '-q', '-b', branch, 'main'], p.dir);
@@ -94,7 +96,7 @@ function prepararEntrega(p: ProjetoDeTeste, nome: string, modo: Modo,
     adicionarClaim(p.dir, thread.id, { arquivo: `${nome}.txt`, alegacao: 'existe', verificar: [`test -f '${nome}.txt'`], semProvaLocal: true });
   }
   if (!opcoes.semBundle) {
-    const arquivo = prepararBundleCi(p.carregado, thread.id);
+    const arquivo = prepararBundleCi(opcoes.carregado ?? p.carregado, thread.id);
     exec('git', ['add', '--', path.relative(p.dir, arquivo)], p.dir);
     exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle`], p.dir);
   }
@@ -179,6 +181,7 @@ test('publicar: em #Auto e #Maestro publica a branch, prova pelo ls-remote, abre
       assert.equal(r.pushVerificado, true);
       assert.equal(r.remotaAntes, null);
       assert.equal(r.pr?.criado, true);
+      assert.equal(r.pr?.head, head, 'o head do PR na releitura (S10)');
       assert.equal(gh.criacoes(), 1);
       const criacao = gh.chamadas.find((c) => c[1] === 'create')!;
       assert.ok(criacao.includes(`--head=${e.branch}`) && criacao.includes('--base=main'), criacao.join(' '));
@@ -190,7 +193,7 @@ test('publicar: em #Auto e #Maestro publica a branch, prova pelo ls-remote, abre
       assert.equal(ev[0].shaRemoto, head);
       assert.equal(ev[0].fonteDaProva, `git ls-remote origin refs/heads/${e.branch}`);
       assert.equal(ev[0].tipoDeAutorizacao, 'modo');
-      assert.deepEqual(ev[0].pr, { numero: r.pr?.numero, url: `https://github.com/acme/app/pull/${r.pr?.numero}`, criado: true });
+      assert.deepEqual(ev[0].pr, { numero: r.pr?.numero, url: `https://github.com/acme/app/pull/${r.pr?.numero}`, criado: true, head });
     }
   } finally { p.limpar(); }
 });
@@ -374,6 +377,13 @@ test('publicar: sem GitHub no remoto ou com a lista de PRs falhando, recusa ante
     assert.equal(rf.motivo, 'runtime.unavailable');
     assert.match(rf.detalhe, /lista de PRs da branch falhou: HTTP 502/);
     assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), '', 'sem a lista, nada foi empurrado');
+    // S6: o stderr do gh passa pela redacao antes do JSON e do ledger.
+    const segredo = 'ghp_SEGREDOdeTESTE0123456789';
+    const vazador: ExecutorDoGh = () => ({ status: 1, stdout: '', stderr: `HTTP 401 em https://x-access-token:${segredo}@github.com/acme/app e token=${segredo}` });
+    const rv = publicarEntrega(p.carregado, e.id, { executorGh: vazador, forja: FORJA });
+    assert.equal(rv.motivo, 'runtime.unavailable');
+    assert.match(rv.detalhe, /HTTP 401/);
+    assert.ok(!JSON.stringify(rv).includes(segredo), rv.detalhe);
   } finally { p.limpar(); }
 });
 
@@ -414,6 +424,16 @@ test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corp
     assert.ok(criacao.includes(`--title=ship(${e.id}): RM-059, a pista`), criacao.join(' '));
     assert.ok(criacao.includes('--body=## RM-059, a pista\n\nCorpo do PR.\n'), criacao.join(' '));
     assert.ok(!criacao.some((a) => a.startsWith('--body-file') || a.includes('TOKEN-DE-MENTIRA')), criacao.join(' '));
+    // O corpo com NUL nao passa como argumento: vale o corpo padrao, e o titulo vem do nome da thread.
+    const nul = prepararEntrega(p, 'corpo com nul', 'auto');
+    fs.writeFileSync(path.join(dirThread(p.dir, nul.id), 'pr-body.md'), '## titulo\n\ncom NUL \0 no meio\n');
+    const gh2 = ghFalso(p);
+    const rn = publicarEntrega(p.carregado, nul.id, { executorGh: gh2.executor, forja: FORJA });
+    assert.equal(rn.acao, 'publicou', rn.detalhe);
+    assert.equal(rn.corpo, 'padrao');
+    const criacaoNul = gh2.chamadas.find((c) => c[1] === 'create')!;
+    assert.ok(criacaoNul.every((a) => !a.includes('\0') && !a.includes('com NUL')), criacaoNul.join(' '));
+    assert.ok(criacaoNul.includes(`--title=ship(${nul.id}): corpo com nul`), criacaoNul.join(' '));
   } finally { p.limpar(); }
 });
 
@@ -631,7 +651,7 @@ test('publicar: commit de produto e o que muda produto; so o bundle em .ork-ci e
     // S2: com build no manifesto, o verify so de claims (sem os comandos) nao vale; com os comandos, vale.
     const comBuild: ManifestoCarregado = { ...p.carregado,
       manifesto: { ...p.carregado.manifesto, verify: { ...p.carregado.manifesto.verify, build: 'true' } } };
-    const soClaims = prepararEntrega(p, 'so claims', 'auto');
+    const soClaims = prepararEntrega(p, 'so claims', 'auto', { carregado: comBuild });
     const rs = ensaio(soClaims.id, comBuild);
     assert.equal(rs.motivo, 'verify.failed', rs.detalhe);
     assert.match(rs.detalhe, /rodou só as claims/);
@@ -640,6 +660,21 @@ test('publicar: commit de produto e o que muda produto; so o bundle em .ork-ci e
       comandos: [{ nome: 'build', ok: true, code: 0 }] });
     const rc = ensaio(soClaims.id, comBuild);
     assert.equal(rc.acao, 'publicaria', rc.detalhe);
+
+    // A14 (rodada 2): a claim que mudou de comando sem mudar de id deixa o bundle velho; o runner rodaria o antigo.
+    const anexada = prepararEntrega(p, 'claim anexada', 'auto', { comClaim: true });
+    anexarComando(p.dir, anexada.id, 'C1', 'true');
+    const rx = ensaio(anexada.id);
+    assert.equal(rx.motivo, 'artifact.missing', rx.detalhe);
+    assert.match(rx.detalhe, /o comando das claims C1 mudou depois dele/);
+    // Os comandos do manifesto que o bundle leva tambem: o bundle gerado sem o build nao vale com o build no manifesto.
+    const semBuild = prepararEntrega(p, 'manifesto novo', 'auto');
+    registrar(dirThread(p.dir, semBuild.id), semBuild.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: exec('git', ['rev-parse', semBuild.branch], p.dir).stdout.trim(), veredito: 'verdade sustentada', motivos: [],
+      comandos: [{ nome: 'build', ok: true, code: 0 }] });
+    const ry = ensaio(semBuild.id, comBuild);
+    assert.equal(ry.motivo, 'artifact.missing', ry.detalhe);
+    assert.match(ry.detalhe, /os comandos de verify do manifesto mudaram depois dele/);
 
     // O merge da base na branch depois do CHECK nao e produto; o verify vai no HEAD do merge.
     const comMerge = entregaEm(p, 'com merge', t0);
@@ -762,7 +797,7 @@ test('pista: o PR mesclado de outro head nao vale para a ponta nova, e a pista o
   } finally { p.limpar(); }
 });
 
-test('pista: so a thread na entrega vai a conferencia uma a uma, e a lista cortada deixa o PR nao lido, e nao sem PR (A7)', () => {
+test('pista: so a thread na entrega vai a conferencia uma a uma, e a lista cortada so deixa em duvida o PR que nao foi conferido (A7, S8)', () => {
   const p = projetoTemporario('pista-forja', true);
   try {
     const gh = ghFalso(p);
@@ -774,17 +809,29 @@ test('pista: so a thread na entrega vai a conferencia uma a uma, e a lista corta
     assert.deepEqual(porBranch, [`--head=${pronta.branch}`], 'as threads em GO nao custam leitura da forja');
     assert.equal(gh.chamadas.filter((c) => c[1] === 'list').length, 3);
 
-    // A lista dos abertos cortada no teto: com a branch publicada e sem o PR dela na leitura, o PR fica nao lido.
+    // Uma entrega com PR aberto, publicada antes de a lista encher.
+    const comPr = prepararEntrega(p, 'com pr', 'auto');
+    assert.equal(publicarEntrega(p.carregado, comPr.id, { executorGh: gh.executor, forja: FORJA }).acao, 'publicou');
+    // Uma thread fora da entrega pelo que se le sem a forja (sem CHECK, sem branch no remoto), com um PR fechado na lista.
+    const fechada = prepararEntrega(p, 'pr fechado', 'auto', { check: 'ausente' });
+    gh.prs.push({ number: 900, state: 'CLOSED', headRefName: fechada.branch, headRefOid: exec('git', ['rev-parse', fechada.branch], p.dir).stdout.trim(),
+      baseRefName: 'main', isDraft: false, mergeable: 'UNKNOWN', checks: [], mergedAt: null });
+    // A lista dos abertos cortada no teto, e a branch pronta no remoto, sem PR.
     for (let i = 0; i < 200; i++) {
       gh.prs.push({ number: 1000 + i, state: 'OPEN', headRefName: `ork/outra-${i}`, headRefOid: 'f'.repeat(40), baseRefName: 'main',
         isDraft: false, mergeable: 'MERGEABLE', checks: [], mergedAt: null });
     }
     assert.equal(exec('git', ['push', '-q', 'origin', `${pronta.branch}:refs/heads/${pronta.branch}`], p.dir).ok, true);
-    const x = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA, thread: pronta.id }).pistas[0];
-    assert.deepEqual(x.etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
-    assert.match(x.etapas.find((y) => y.id === 'pr')?.texto ?? '', /cortada nos 200 mais novos/);
-    assert.equal(x.proximo.acao, null);
-    assert.equal(x.proximo.comando, `ork ship pista ${pronta.id}`);
+    const lidas = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA });
+    const de = (e: Entrega) => lidas.pistas.find((x) => x.thread === e.id)!;
+    // S8: a candidata sem nenhum PR foi conferida pelo --head, que a lista cortada nao limita: vale "sem PR", com o Publicar.
+    assert.equal(de(pronta).etapas.find((y) => y.id === 'pr')?.estado, 'pendente');
+    assert.deepEqual(de(pronta).proximo, { acao: 'publicar', disponivel: true, texto: 'publique a branch e abra o PR', comando: `ork ship publicar ${pronta.id}` });
+    // O PR aberto achado na lista cortada vale como lido.
+    assert.equal(de(comPr).etapas.find((y) => y.id === 'pr')?.estado, 'feita');
+    // A thread que so entra pela lista, com o PR fechado: a lista cortada pode esconder um aberto, e o PR fica nao lido.
+    assert.deepEqual(de(fechada).etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
+    assert.match(de(fechada).etapas.find((y) => y.id === 'pr')?.texto ?? '', /cortada nos 200 mais novos/);
   } finally { p.limpar(); }
 });
 
@@ -814,4 +861,50 @@ test('pista: entregue, merge sem registro e conduzida tem cada uma o seu proximo
     assert.deepEqual(m.proximo, { acao: 'registrar', disponivel: true, texto: 'mesclado na base: registre a entrega',
       comando: `ork ship registrar-pr ${semRegistro.id}` });
   } finally { p.limpar(); }
+});
+
+test('publicar: o push que sai com erro mas chegou ao remoto conta como feito; o que nao chegou recusa sem evento (A13)', () => {
+  const p = projetoTemporario('publicar-push-com-erro', true);
+  try {
+    const e = prepararEntrega(p, 'push com erro', 'auto');
+    const head = exec('git', ['rev-parse', e.branch], p.dir).stdout.trim();
+    // O push chega ao remoto, e o processo sai como se o prazo tivesse vencido.
+    const chegouComErro = (args: string[], prazoMs: number) => {
+      const real = exec('git', args, p.dir, prazoMs);
+      assert.equal(real.ok, true, real.stderr);
+      return { ...real, ok: false, code: 124, stderr: 'prazo vencido' };
+    };
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: ghFalso(p).executor, forja: FORJA, executorGit: chegouComErro });
+    assert.equal(r.acao, 'publicou', r.detalhe);
+    assert.equal(r.pushVerificado, true);
+    assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), head);
+    const ev = publicados(p, e.id);
+    assert.equal(ev.length, 1);
+    assert.equal(ev[0].pushFeito, true);
+
+    // O push que sai com erro e nao chegou: recusa, e nada vai ao ledger.
+    const outra = prepararEntrega(p, 'push que nao chegou', 'auto');
+    const naoChegou = () => ({ ok: false, code: 128, stdout: '', stderr: 'fatal: unable to access: Could not resolve host' });
+    const r2 = publicarEntrega(p.carregado, outra.id, { executorGh: ghFalso(p).executor, forja: FORJA, executorGit: naoChegou });
+    assert.equal(r2.acao, 'recusada');
+    assert.equal(r2.motivo, 'runtime.unavailable');
+    assert.match(r2.detalhe, /Could not resolve host/);
+    assert.equal(publicados(p, outra.id).length, 0);
+  } finally { p.limpar(); }
+});
+
+test('publicar: a saida de texto so mostra a linha do push quando ha push a provar (A2)', () => {
+  const sha = 'a'.repeat(40);
+  const mesclada: Publicacao = { contrato: 'ork.ship-publicar/v1', thread: 'ork-x', modo: 'auto', tag: '#Auto', acao: 'ja-publicada', motivo: null,
+    detalhe: 'o PR #7 já foi mesclado no HEAD; nada a publicar', correcao: 'registre a entrega: ork ship registrar-pr ork-x', branch: 'ork/ork-x-full',
+    base: 'main', remoto: 'origin', head: sha, remotaAntes: null, remota: null, pushVerificado: false,
+    pr: { numero: 7, url: null, criado: false, head: sha }, corpo: null,
+    passos: ['git ls-remote origin refs/heads/ork/ork-x-full', 'gh pr list --head ork/ork-x-full --state all'], dryRun: false };
+  const linhas = comLocale('pt-BR', () => linhasDaPublicacao(mesclada));
+  assert.ok(!linhas.some((l) => l.startsWith('  push ')), linhas.join('\n'));
+  assert.ok(linhas.some((l) => l.includes('registrar-pr ork-x')), linhas.join('\n'));
+  const publicada = comLocale('pt-BR', () => linhasDaPublicacao({ ...mesclada, acao: 'publicou', remota: sha, pushVerificado: true }));
+  assert.ok(publicada.includes('  push          PROVADO pelo ls-remote (mesmo sha do HEAD)'), publicada.join('\n'));
+  const outraPonta = comLocale('pt-BR', () => linhasDaPublicacao({ ...mesclada, remota: 'b'.repeat(40) }));
+  assert.ok(outraPonta.includes('  push          sem prova'), outraPonta.join('\n'));
 });

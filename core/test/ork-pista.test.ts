@@ -163,6 +163,15 @@ test('pista: a ordem, a marca, a faixa e as linhas do painel com o que fica a vi
   assert.equal(p.linhasDaTela(`  ${'x'.repeat(117)}`, 120), 1);
   assert.equal(p.linhasDaTela(`  ${'x'.repeat(118)}`, 120), 2, 'uma coluna de folga: os 120 caracteres contam duas linhas em 120 colunas');
   assert.equal(p.linhasDaTela('qualquer texto', undefined), 1);
+  assert.equal(p.linhasDaTela(`  ${'x'.repeat(118)}`, 120, 0), 1, 'sem a folga, os 120 caracteres cabem em 120 colunas');
+  // S9 da revisao (rodada 2): a folga atrasa as linhas de baixo; na borda de cima a conta usa o topo mais cedo. Em 40
+  // colunas, a segunda linha esta na linha 1 ou na 2 da tela: a janela que comeca na 2 nao a garante inteira.
+  const marca = { chave: 'pista:ork-y', thread: 'ork-y', texto: 'ork-y: ab' };
+  const bordas = [{ tipo: 'proximo', texto: 'x'.repeat(40) }, { tipo: 'proximo', texto: 'ab', mostrado: marca }];
+  assert.deepEqual(p.mostradosVisiveis(bordas, { offset: 2, bodyRows: 5 }, 40), []);
+  assert.deepEqual(p.mostradosVisiveis(bordas, { offset: 1, bodyRows: 5 }, 40), [marca]);
+  assert.deepEqual(p.mostradosVisiveis(bordas, { offset: 0, bodyRows: 2 }, 40), [], 'embaixo, a conta usa o fim mais tarde');
+  assert.deepEqual(p.mostradosVisiveis(bordas, { offset: 0, bodyRows: 3 }, 40), [marca]);
   assert.equal(p.threadDoLedger('/p/.orkastery/threads/ork-a/ledger.jsonl'), 'ork-a');
   for (const ruim of ['/p/.orkastery/threads/ork-a/thread.json', '/p/.orkastery/threads/../ledger.jsonl', 3, undefined]) {
     assert.equal(p.threadDoLedger(ruim), null, String(ruim));

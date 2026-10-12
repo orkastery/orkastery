@@ -185,7 +185,9 @@ export const SHIP_PT_BR = {
     bundleOutraBranch: (arquivo: string, branch: string) => `o bundle ${arquivo} no HEAD é da branch ${branch}`,
     bundleVelho: (faltam: string, sobram: string) => `o bundle no HEAD está velho` +
       `${faltam ? `: faltam as claims ${faltam}` : ''}${sobram ? `${faltam ? ';' : ':'} sobram as claims ${sobram}` : ''}`,
-    bundleFeito: (n: number) => `bundle no HEAD com as ${n} claims ativas`,
+    bundleMudou: (ids: string) => `o bundle no HEAD está velho: o comando das claims ${ids} mudou depois dele`,
+    bundleManifestoMudou: 'o bundle no HEAD está velho: os comandos de verify do manifesto mudaram depois dele',
+    bundleFeito: (n: number) => `bundle no HEAD com as ${n} claims ativas e os comandos delas`,
     bundleCorrecao: (thread: string) => `rode ork ci prepare ${thread} na worktree e commite o bundle como ci(${thread}): bundle`,
     semRemoto: (remoto: string) => `o remoto ${remoto} não está configurado neste repositório`,
     semRemotoCorrecao: 'configure o remoto (git remote add) ou informe outro em --remoto',
@@ -430,7 +432,9 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     bundleOutraBranch: (arquivo, branch) => `the bundle ${arquivo} on HEAD belongs to branch ${branch}`,
     bundleVelho: (faltam, sobram) => `the bundle on HEAD is stale` +
       `${faltam ? `: claims ${faltam} are missing` : ''}${sobram ? `${faltam ? ';' : ':'} claims ${sobram} are left over` : ''}`,
-    bundleFeito: (n) => `bundle on HEAD with the ${n} active claims`,
+    bundleMudou: (ids) => `the bundle on HEAD is stale: the command of claims ${ids} changed after it`,
+    bundleManifestoMudou: 'the bundle on HEAD is stale: the manifest verify commands changed after it',
+    bundleFeito: (n) => `bundle on HEAD with the ${n} active claims and their commands`,
     bundleCorrecao: (thread) => `run ork ci prepare ${thread} in the worktree and commit the bundle as ci(${thread}): bundle`,
     semRemoto: (remoto) => `remote ${remoto} is not configured in this repository`,
     semRemotoCorrecao: 'configure the remote (git remote add) or give another one in --remoto',

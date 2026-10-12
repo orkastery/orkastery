@@ -245,7 +245,7 @@ import { linhaDoLintDeClaim } from './claim-lint';
 import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLicoes } from './licoes';
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
-import { pistaDeEntrega, publicarEntrega } from './ship-publicar';
+import { linhasDaPublicacao, pistaDeEntrega, publicarEntrega } from './ship-publicar';
 import {
   caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
   fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
@@ -1911,31 +1911,7 @@ function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number 
     console.log(JSON.stringify(r, null, 2));
     return r.acao === 'recusada' ? 1 : 0;
   }
-  const curtoOuTraco = (sha: string | null) => (sha ? sha.slice(0, 7) : '-');
-  console.log(p.cabecalho(r.dryRun, r.thread, r.tag ?? '-'));
-  if (r.branch) console.log(p.linhaBranch(r.branch, curtoOuTraco(r.head)));
-  if (r.passos.length) {
-    console.log(p.linhaRemoto(r.remoto, curtoOuTraco(r.remotaAntes), curtoOuTraco(r.remota)));
-    // O PR ja mesclado no HEAD com a branch apagada no remoto nao tem push a provar: a linha some.
-    if (!r.dryRun && r.acao !== 'recusada' && (r.pushVerificado || r.remota !== null)) {
-      console.log(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
-    }
-  }
-  if (r.pr) console.log(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
-  if (r.corpo) console.log(p.linhaCorpo(r.corpo));
-  if (r.acao === 'recusada') {
-    console.log(m.bloqueado(r.motivo ?? '-'));
-    console.log(m.detalhe(remontar(r.detalhe)));
-    if (r.correcao) console.log(m.correcao(remontar(r.correcao)));
-  } else {
-    console.log(p.resultado(p.acoes[r.acao] ?? r.acao));
-    if (r.detalhe) console.log(m.detalhe(remontar(r.detalhe)));
-    if (r.correcao) console.log(m.correcao(remontar(r.correcao)));
-  }
-  if (r.passos.length) {
-    console.log(m.evidencia);
-    for (const passo of r.passos) console.log(`  ${remontar(passo)}`);
-  }
+  for (const linha of linhasDaPublicacao(r)) console.log(linha);
   return r.acao === 'recusada' ? 1 : 0;
 }
 

@@ -258,12 +258,11 @@ export function linhasDoPainel(q: PistaQuadro, opcoes: { agora: number; foco?: s
 
 /**
  * As linhas da tela que um texto com `wrap="wrap"` ocupa em `colunas` celulas: quebra por palavra, e a palavra maior que
- * a linha quebra no meio. A conta usa uma coluna de folga: na duvida sobra linha, e o que sobra fica fora da janela; o
- * mostrado nunca passa do que o dono viu.
+ * a linha quebra no meio. A `folga` (uma coluna, por padrao) tira colunas da conta: com ela a estimativa sobra.
  */
-export function linhasDaTela(texto: string, colunas: number | undefined): number {
-  if (typeof colunas !== 'number' || !(colunas > 1)) return 1
-  const largura = colunas - 1
+export function linhasDaTela(texto: string, colunas: number | undefined, folga = 1): number {
+  if (typeof colunas !== 'number' || !(colunas > folga)) return 1
+  const largura = colunas - folga
   let linhas = 1
   let usadas = 0
   texto.split(' ').forEach((palavra, i) => {
@@ -286,25 +285,33 @@ export function linhasDaTela(texto: string, colunas: number | undefined): number
   return linhas
 }
 
-/** A altura de uma linha do painel na tela: `proximo` e `comando` quebram (`wrap="wrap"`); as outras truncam numa so. */
-function alturaNaTela(l: { tipo?: string; texto?: string }, colunas: number | undefined): number {
-  return l.tipo === 'proximo' || l.tipo === 'comando' ? linhasDaTela(l.texto ?? '', colunas) : 1
+/**
+ * A altura de uma linha do painel na tela, sem e com a folga: `proximo` e `comando` quebram (`wrap="wrap"`); as outras
+ * truncam numa so.
+ */
+function alturasNaTela(l: { tipo?: string; texto?: string }, colunas: number | undefined): [number, number] {
+  if (l.tipo !== 'proximo' && l.tipo !== 'comando') return [1, 1]
+  return [linhasDaTela(l.texto ?? '', colunas, 0), linhasDaTela(l.texto ?? '', colunas, 1)]
 }
 
 /**
  * O que esta inteiro dentro da janela de rolagem do painel: so isso conta como mostrado ao dono (M5). A janela conta
- * linhas da tela (`offset` e `bodyRows`), e a linha que quebra nas `colunas` do corpo ocupa mais de uma.
+ * linhas da tela (`offset` e `bodyRows`), e a linha que quebra nas `colunas` do corpo ocupa mais de uma. Como a quebra
+ * do motor e estimada, cada linha tem o topo mais cedo (a conta sem folga) e o mais tarde (com folga): ela so conta com
+ * o mais cedo abaixo do alto da janela e o fim mais tarde acima do pe dela, nas duas bordas.
  */
 export function mostradosVisiveis(linhas: ReadonlyArray<{ tipo?: string; texto?: string; mostrado?: PistaMostrado }>,
   janela: { offset: number; bodyRows: number } | undefined, colunas?: number): PistaMostrado[] {
   if (!janela || !(janela.bodyRows > 0)) return []
   const fim = janela.offset + janela.bodyRows
   const vistos: PistaMostrado[] = []
-  let topo = 0
+  let cedo = 0
+  let tarde = 0
   for (const l of linhas) {
-    const altura = alturaNaTela(l, colunas)
-    if (l.mostrado && topo >= janela.offset && topo + altura <= fim) vistos.push(l.mostrado)
-    topo += altura
+    const [menor, maior] = alturasNaTela(l, colunas)
+    if (l.mostrado && cedo >= janela.offset && tarde + maior <= fim) vistos.push(l.mostrado)
+    cedo += menor
+    tarde += maior
   }
   return vistos
 }

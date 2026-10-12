@@ -25,7 +25,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { branchValida, exigirRemoto } from './branch-de-estado';
-import { BundleCi } from './ci';
+import { BundleCi, comandosDoBundle } from './ci';
 import { redigirSegredos } from './hitl';
 import { lerClaims } from './claims';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -38,11 +38,11 @@ import { mergeDaEntrega } from './entrega-pr';
 import { MODOS_QUE_AUTORIZAM_PUSH } from './ship';
 import { estadoDoArtefato, vereditoDoParecer } from './session-watcher-claude';
 import { dirThread, lerThread, listarIds } from './thread';
-import { ConducaoAtual, EventoLedger, MotivoGate, Thread } from './types';
-import { exec } from './util';
+import { Claim, ConducaoAtual, EventoLedger, MotivoGate, Thread } from './types';
+import { exec, ResultadoExec } from './util';
 import { comandosDoManifesto } from './verify';
 import { branchDaWorktree } from './worktree';
-import { Mensagens, textoDoCatalogo } from './locale';
+import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 
 export const CONTRATO_DA_PUBLICACAO = 'ork.ship-publicar/v1' as const;
 export const CONTRATO_DA_PISTA = 'ork.ship-pista/v1' as const;
@@ -180,8 +180,12 @@ function conferirVerify(raiz: string, eventos: readonly EventoLedger[], head: st
     : etapa('verify', 'pendente', textoDoCatalogo((m) => m.ship.publicar.verifyAntigo(curto(commit))));
 }
 
-/** O bundle no HEAD: desta thread, desta branch e com exatamente as claims ativas (sem claim retirada nem faltando). */
-function conferirBundle(raiz: string, t: Thread, branch: string, head: string | null): EtapaDaPista {
+/**
+ * O bundle no HEAD: desta thread, desta branch, com exatamente as claims ativas (sem claim retirada nem faltando), o
+ * comando de cada uma como esta agora e os comandos do manifesto que o runner roda.
+ */
+function conferirBundle(raiz: string, t: Thread, branch: string, head: string | null,
+  comandos: readonly { name: string; command: string }[]): EtapaDaPista {
   const arquivo = `.ork-ci/${t.id}.json`;
   if (!head) return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleAusente(arquivo)));
   const r = git(raiz, ['show', `${head}:${arquivo}`]);
@@ -197,18 +201,29 @@ function conferirBundle(raiz: string, t: Thread, branch: string, head: string | 
     return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleOutraBranch(arquivo, String(bundle.branch))));
   }
   const noBundle = new Set([...bundle.claims.map((c) => c.id), ...(bundle.deferredClaims ?? []).map((c) => c.id)]);
-  let ativas: string[] = [];
-  try { ativas = lerClaims(raiz, t.id).filter((c) => c.estado !== 'retirada').map((c) => c.id); } catch { /* sem claims: lista vazia */ }
+  let claimsAtivas: Claim[] = [];
+  try { claimsAtivas = lerClaims(raiz, t.id).filter((c) => c.estado !== 'retirada'); } catch { /* sem claims: lista vazia */ }
+  const ativas = claimsAtivas.map((c) => c.id);
   const faltam = ativas.filter((id) => !noBundle.has(id));
   const sobram = [...noBundle].filter((id) => !ativas.includes(id));
   if (faltam.length || sobram.length) {
     return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleVelho(faltam.join(', '), sobram.join(', '))));
   }
+  // A14 da revisao (rodada 2): a claim que mudou de comando sem mudar de id (o `ork claims anexar`) deixa o bundle velho,
+  // e o runner rodaria o comando antigo; o mesmo vale para os comandos do manifesto que o bundle leva.
+  const comandoDe = new Map(claimsAtivas.map((c) => [c.id, JSON.stringify(c.verificar)]));
+  const mudaram = bundle.claims.filter((c) => comandoDe.has(c.id) && comandoDe.get(c.id) !== JSON.stringify(c.verificar)).map((c) => c.id);
+  if (mudaram.length) return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleMudou(mudaram.join(', '))));
+  if (JSON.stringify(bundle.commands ?? []) !== JSON.stringify(comandos)) {
+    return etapa('bundle', 'pendente', textoDoCatalogo((m) => m.ship.publicar.bundleManifestoMudou));
+  }
   return etapa('bundle', 'feita', textoDoCatalogo((m) => m.ship.publicar.bundleFeito(ativas.length)));
 }
 
-function fatosDaThread(raiz: string, t: Thread, refs: Map<string, string>, baseRef: string | null, quando: string,
-  esperados: number): FatosDaThread {
+function fatosDaThread(carregado: ManifestoCarregado, t: Thread, refs: Map<string, string>, baseRef: string | null,
+  quando: string): FatosDaThread {
+  const raiz = carregado.raiz;
+  const esperados = comandosDoManifesto(carregado.manifesto).length;
   let eventos: EventoLedger[] = [];
   try { eventos = lerLedger(dirThread(raiz, t.id)); } catch { /* ledger ilegivel: sem verify nem conducao provada */ }
   const branch = branchDaWorktree(t);
@@ -218,7 +233,8 @@ function fatosDaThread(raiz: string, t: Thread, refs: Map<string, string>, baseR
   const check = conferirCheck(raiz, t, baseRef, head);
   return {
     t, eventos, branch, head, comProduto, conducao: conducaoAgora(raiz, t, eventos, quando),
-    check: check.etapa, checkPassou: check.passou, verify: conferirVerify(raiz, eventos, head, esperados), bundle: conferirBundle(raiz, t, branch, head),
+    check: check.etapa, checkPassou: check.passou, verify: conferirVerify(raiz, eventos, head, esperados),
+    bundle: conferirBundle(raiz, t, branch, head, comandosDoBundle(carregado)),
   };
 }
 
@@ -339,6 +355,8 @@ export interface PrDaPublicacao {
   url: string | null;
   /** O PR foi aberto agora por este comando. */
   criado: boolean;
+  /** O head do PR como a forja o devolveu: um push de outro depois do nosso aparece aqui (S10 da revisao). */
+  head: string | null;
 }
 
 export interface Publicacao {
@@ -375,6 +393,8 @@ export interface OpcoesDaPublicacao {
   executorGh?: ExecutorDoGh;
   /** O GitHub do remoto; os testes o fixam, porque o remoto deles e um repositorio bare local. Nunca vem da CLI. */
   forja?: Forja;
+  /** Quem roda o `git push`; os testes trocam para simular o push que sai com erro depois de chegar. Nunca vem da CLI. */
+  executorGit?: (args: string[], prazoMs: number) => ResultadoExec;
 }
 
 /**
@@ -414,7 +434,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
   const refs = refsLocais(raiz, remoto);
   const baseRef = refDaBase(refs, remoto, base);
-  const f = fatosDaThread(raiz, t, refs, baseRef, quando, comandosDoManifesto(carregado.manifesto).length);
+  const f = fatosDaThread(carregado, t, refs, baseRef, quando);
   r.branch = f.branch;
   r.head = f.head;
   const corpo = corpoDaThread(raiz, t.id);
@@ -473,11 +493,11 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   r.pushVerificado = noRemoto;
   // A2 da revisao: o PR mesclado no HEAD ja e a entrega, com ou sem a branch no remoto (o GitHub pode te-la apagado).
   if (mesclado && !aberto) {
-    return { ...r, acao: 'ja-publicada', pr: { numero: mesclado.numero, url: mesclado.url, criado: false },
+    return { ...r, acao: 'ja-publicada', pr: { numero: mesclado.numero, url: mesclado.url, criado: false, head: mesclado.head },
       detalhe: textoDoCatalogo((m) => p(m).jaMesclado(mesclado.numero)), correcao: textoDoCatalogo((m) => p(m).registreAEntrega(t.id)) };
   }
   if (noRemoto && aberto) {
-    return { ...r, acao: 'ja-publicada', pr: { numero: aberto.numero, url: aberto.url, criado: false },
+    return { ...r, acao: 'ja-publicada', pr: { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head },
       detalhe: textoDoCatalogo((m) => p(m).jaPublicada(aberto.numero)) };
   }
   // O remoto com commit que a branch local nao tem, ou que esta copia nem conhece (A3 da revisao): o push sem forca
@@ -500,7 +520,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
     if (!noRemoto) passos.push(`git push -- ${remoto} ${refspec}`, provaDoPush);
     passos.push(aberto ? textoDoCatalogo((m) => p(m).passoReaproveita(aberto.numero))
       : `gh pr create --base ${base} --head ${f.branch} --title "${titulo}" --body <${corpo ? 'pr-body.md' : 'padrao'}>`);
-    return { ...r, acao: 'publicaria', passos, pr: aberto ? { numero: aberto.numero, url: aberto.url, criado: false } : null,
+    return { ...r, acao: 'publicaria', passos, pr: aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null,
       detalhe: textoDoCatalogo((m) => p(m).publicaria(curto(head), aberto?.numero ?? null)) };
   }
 
@@ -515,7 +535,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   // Efeito 1: o push sem forca do sha conferido, provado pelo ls-remote.
   if (!noRemoto) {
     const argv = ['push', '--', remoto, refspec];
-    const push = git(raiz, argv, PRAZO_DO_PUSH_MS);
+    const push = (opcoes.executorGit ?? ((args: string[], prazoMs: number) => git(raiz, args, prazoMs)))(argv, PRAZO_DO_PUSH_MS);
     r.passos.push(`git ${argv.join(' ')}`);
     const depois = pontaNoRemoto(raiz, remoto, f.branch);
     r.passos.push(provaDoPush);
@@ -538,7 +558,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
 
   // Efeito 2: o PR aberto da branch, ou um novo, provado pela releitura da lista.
-  let pr: PrDaPublicacao | null = aberto ? { numero: aberto.numero, url: aberto.url, criado: false } : null;
+  let pr: PrDaPublicacao | null = aberto ? { numero: aberto.numero, url: aberto.url, criado: false, head: aberto.head } : null;
   let erroDoPr: string | null = null;
   if (!pr) {
     const argv = ['pr', 'create', `--repo=${forja.host}/${forja.repositorio}`, `--base=${base}`, `--head=${f.branch}`, `--title=${titulo}`,
@@ -548,7 +568,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
     const relidos = prsDaBranch(executor, forja, base, f.branch);
     r.passos.push(`gh pr list --head ${f.branch} --state all   (prova do PR)`);
     const achado = relidos.prs.find((x) => x.estado === 'aberto') ?? null;
-    if (achado) pr = { numero: achado.numero, url: achado.url, criado: criado.status === 0 };
+    if (achado) pr = { numero: achado.numero, url: achado.url, criado: criado.status === 0, head: achado.head };
     else {
       erroDoPr = criado.status !== 0 ? deFora(criado.stderr || criado.stdout || `codigo ${criado.status ?? '-'}`)
         : relidos.erro ?? textoDoCatalogo((m) => p(m).prSemReleitura);
@@ -558,7 +578,7 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
 
   // A evidencia: so com efeito (push ou PR novo), com a prova.
   if (pushFeito || pr?.criado || erroDoPr) {
-    gravar({ pr: pr ? { numero: pr.numero, url: pr.url, criado: pr.criado } : null,
+    gravar({ pr: pr ? { numero: pr.numero, url: pr.url, criado: pr.criado, head: pr.head } : null,
       ...(pr ? { provaDoPr: `gh pr list --head ${f.branch} --state all` } : {}), ...(erroDoPr ? { erroDoPr } : {}) });
   }
   if (erroDoPr) {
@@ -571,6 +591,35 @@ export function publicarEntrega(carregado: ManifestoCarregado, threadId: string,
   }
   return { ...r, acao: 'publicou', motivo: null, correcao: '',
     detalhe: textoDoCatalogo((m) => p(m).publicou(curto(head), pr?.numero ?? 0, pr?.criado === true)) };
+}
+
+/** As linhas da saida de texto do `ork ship publicar`, no locale ativo. */
+export function linhasDaPublicacao(r: Publicacao): string[] {
+  const m = msg().ship;
+  const p = m.publicar;
+  const curtoOuTraco = (sha: string | null) => (sha ? sha.slice(0, 7) : '-');
+  const linhas = [p.cabecalho(r.dryRun, r.thread, r.tag ?? '-')];
+  if (r.branch) linhas.push(p.linhaBranch(r.branch, curtoOuTraco(r.head)));
+  if (r.passos.length) {
+    linhas.push(p.linhaRemoto(r.remoto, curtoOuTraco(r.remotaAntes), curtoOuTraco(r.remota)));
+    // O PR ja mesclado no HEAD com a branch apagada no remoto nao tem push a provar: a linha some.
+    if (!r.dryRun && r.acao !== 'recusada' && (r.pushVerificado || r.remota !== null)) {
+      linhas.push(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
+    }
+  }
+  if (r.pr) linhas.push(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
+  if (r.corpo) linhas.push(p.linhaCorpo(r.corpo));
+  if (r.acao === 'recusada') linhas.push(m.bloqueado(r.motivo ?? '-'), m.detalhe(remontar(r.detalhe)));
+  else {
+    linhas.push(p.resultado(p.acoes[r.acao] ?? r.acao));
+    if (r.detalhe) linhas.push(m.detalhe(remontar(r.detalhe)));
+  }
+  if (r.correcao) linhas.push(m.correcao(remontar(r.correcao)));
+  if (r.passos.length) {
+    linhas.push(m.evidencia);
+    for (const passo of r.passos) linhas.push(`  ${remontar(passo)}`);
+  }
+  return linhas;
 }
 
 // ---------------------------------------------------------------------------
@@ -774,7 +823,6 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
   const lidoEm = opcoes.quando ?? new Date().toISOString();
   const contexto = carregado.manifesto.ci.context || 'ork-verify';
   const ciExigido = carregado.manifesto.ci.required_for_ship === true;
-  const esperados = comandosDoManifesto(carregado.manifesto).length;
   const refs = refsLocais(raiz, remoto);
   const baseRef = refDaBase(refs, remoto, base);
   const ids = opcoes.thread ? [opcoes.thread] : listarIds(raiz);
@@ -783,7 +831,7 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
     let t: Thread;
     try { t = lerThread(raiz, id); } catch { if (opcoes.thread) throw new Error(`ship.pista: a thread ${id} nao existe`); continue; }
     if (t.status === 'fechada') continue;
-    fatos.push(fatosDaThread(raiz, t, refs, baseRef, lidoEm, esperados));
+    fatos.push(fatosDaThread(carregado, t, refs, baseRef, lidoEm));
   }
   const comBranch = fatos.filter((f) => f.head && branchValida(f.branch));
   const remotas = comBranch.length ? pontasNoRemoto(raiz, remoto) : new Map<string, string>();
@@ -806,7 +854,12 @@ export function pistaDeEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaPi
       prsNaoLidos = deFora(leitura.erro);
     }
   }
-  const corte = (branch: string): CorteDaLeitura => (parcial ? 'parcial' : semConferir.has(branch) ? 'sem-conferir' : null);
+  // S8 da revisao (rodada 2): a candidata sem nenhum PR na leitura foi conferida uma a uma pelo `--head`, que a lista
+  // cortada nao limita; so a que nao foi conferida, ou que so tem PR achado na lista cortada, fica em duvida.
+  const comPrNaLeitura = new Set((prs ?? []).map((x) => x.branch));
+  const conferida = (branch: string) => candidatas.includes(branch) && !comPrNaLeitura.has(branch);
+  const corte = (branch: string): CorteDaLeitura => (semConferir.has(branch) ? 'sem-conferir'
+    : parcial && !conferida(branch) ? 'parcial' : null);
   const pistas = fatos.flatMap((f) => {
     const local = locais.get(f.t.id);
     const x = local ? pistaDaThread(carregado, f, local, { remoto, base, remotasLidas: remotas !== null, prs, prsNaoLidos, corte, ciExigido, contexto })
