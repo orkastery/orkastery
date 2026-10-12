@@ -136,7 +136,7 @@ test('o que vem a seguir diz o estado real: parado no condutor, PR lido do retra
     gravarRetratoDePrs(c.p.dir, retrato(c));
     fabricaLocal(c.p, [{ maquina: 'pc-b', publicadoEm: '2026-10-01T06:21:00.000Z' }, { maquina: 'pc-c', publicadoEm: '2026-10-02T00:21:00.000Z' },
       { maquina: 'pc-a', publicadoEm: '2026-10-02T01:15:00.000Z' }]);
-    // RM-062 (F2): o runtime respondeu e nenhuma sessao da fixture esta nele.
+    // RM-063 (F2): o runtime respondeu e nenhuma sessao da fixture esta nele.
     const status = montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery',
       runtime: () => ({ responderam: ['claude-bg'], falhas: [], sessoes: [] }) });
     const linhas = textoDoStatusDoRoadmap(status).split('\n');
@@ -145,7 +145,7 @@ test('o que vem a seguir diz o estado real: parado no condutor, PR lido do retra
     const fecho = linhas.slice(seguir + 1);
     assert.ok(fecho.includes(`• RM-031: ${c.vermelho.t.id} parado no condutor desde 19:07: corrigir o check ork-verify vermelho do PR #40 ` +
       'e despachar a correção (PR lido às 22:15).'), fecho.join('\n'));
-    // RM-062 (F2): a entrega em curso vem com a vida da sessao: a do despacho nao esta no runtime, entao nao ha "sigo".
+    // RM-063 (F2): a entrega em curso vem com a vida da sessao: a do despacho nao esta no runtime, entao nao ha "sigo".
     assert.ok(fecho.some(l => l.startsWith(`• RM-037: ${c.verde.t.id} parada desde `) && l.endsWith(': sessão 00000000 não aparece no runtime; ' +
       'PR #39 com os checks verdes, esperando o merge (PR lido às 22:15).')), fecho.join('\n'));
     assert.ok(fecho.includes(`• RM-049: ${c.semPr.t.id} parado no condutor desde 04:27: abrir o PR da branch ${c.semPr.branch} (PR lido às 22:15).`),

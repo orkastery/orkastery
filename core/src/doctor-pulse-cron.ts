@@ -7,7 +7,7 @@
  * sem bloquear, quando a linha da varredura falta ou bate mais devagar que o template
  * `monitor/pulse.cron`. O doctor nunca edita o crontab: a correcao traz a linha pronta.
  *
- * RM-062 (F1): com thread aberta no projeto, a falta da batida REPROVA, com ou sem `pulse-host.json`.
+ * RM-063 (F1): com thread aberta no projeto, a falta da batida REPROVA, com ou sem `pulse-host.json`.
  * Sem transporte o doctor calava, e o srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura nenhuma. A
  * correcao e o `ork fabrica batida instalar`, que instala a linha do template de forma idempotente.
  */
@@ -34,7 +34,7 @@ export function lerCrontabDoSistema(): LeituraDoCrontab {
   const r = exec('crontab', ['-l'], undefined, 5000);
   if (r.ok) return { ok: true, texto: r.stdout };
   if (r.error === 'ENOENT') return { ok: false, motivo: msg().doctor.cronSemComando };
-  // RM-062 (F1): o usuario sem crontab tem um crontab vazio, nao uma leitura que falhou; e o caso da maquina nova.
+  // RM-063 (F1): o usuario sem crontab tem um crontab vazio, nao uma leitura que falhou; e o caso da maquina nova.
   if (/no crontab for /i.test(`${r.stderr}${r.stdout}`)) return { ok: true, texto: '' };
   const primeira = (r.stderr || r.stdout).trim().split('\n')[0] ?? '';
   return { ok: false, motivo: primeira ? msg().doctor.cronFalhou(primeira) : msg().doctor.cronSaiu(r.code) };
@@ -114,7 +114,7 @@ export function mesmoCaminho(a: string, b: string): boolean {
 }
 
 /**
- * RM-062 (F1): a linha da varredura vale para o projeto quando nao aponta OUTRO projeto. A linha antiga do
+ * RM-063 (F1): a linha da varredura vale para o projeto quando nao aponta OUTRO projeto. A linha antiga do
  * template, sem `ORK_PULSE_PROJECT`, continua valendo (RM-039); a que diz outro projeto e a batida dele.
  */
 export function linhaValeParaOProjeto(linha: string, raiz: string): boolean {
@@ -122,7 +122,7 @@ export function linhaValeParaOProjeto(linha: string, raiz: string): boolean {
   return alvo === null || mesmoCaminho(alvo, raiz);
 }
 
-/** RM-062 (F1): threads nao fechadas no estado do projeto (`.orkastery/threads/<id>/thread.json`). */
+/** RM-063 (F1): threads nao fechadas no estado do projeto (`.orkastery/threads/<id>/thread.json`). */
 export function threadsAbertasNoEstado(dirEstado: string): number {
   const dir = path.join(dirEstado, 'threads');
   let nomes: string[];
@@ -137,7 +137,7 @@ export function threadsAbertasNoEstado(dirEstado: string): number {
   return abertas;
 }
 
-/** O comando que instala a batida; e a correcao do doctor quando ela falta (RM-062, F1). */
+/** O comando que instala a batida; e a correcao do doctor quando ela falta (RM-063, F1). */
 export const COMANDO_DE_INSTALAR_A_BATIDA = 'ork fabrica batida instalar';
 
 /** Aspas de shell so quando o caminho precisa (a linha vai colada no crontab, que roda por `sh`). */
@@ -173,7 +173,7 @@ export function comandoDaVarredura(raizDoProjeto: string, scriptDoOrk: string | 
  * Check "cadencia do pulse no cron". `null` quando o projeto nao tem transporte do pulse nem thread
  * aberta: sem `pulse-host.json` e sem thread a vigiar, o doctor nao fala de cron.
  *
- * RM-062 (F1): com thread aberta (`abertas`, contadas no estado ao lado de `dirMonitor`), a falta da
+ * RM-063 (F1): com thread aberta (`abertas`, contadas no estado ao lado de `dirMonitor`), a falta da
  * batida reprova, com ou sem transporte, e a correcao e o `ork fabrica batida instalar`.
  */
 export function checarCronDoPulse(dirMonitor: string, raizDoCheckout: string,

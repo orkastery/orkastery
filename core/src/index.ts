@@ -2239,7 +2239,7 @@ const CONTRATO_DO_BOARD = 'ork.board/v1';
 function comandoFabrica(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
-  // RM-062 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
+  // RM-063 (F1): a batida e do crontab desta maquina; nao le nem escreve o remoto.
   if (sub === 'batida') return comandoDaBatida(carregado, args);
   // RM-047: o remoto vem do manifesto de quem fez o repositorio; fora do formato, recusa antes do git.
   // O `publicar` recusa dentro do try (publicarMaquina), para o silencioso deixar a recusa no log.
@@ -2322,7 +2322,7 @@ function comandoFabrica(args: Args): number {
 }
 
 /**
- * RM-062 (F1): `ork fabrica batida` instala, mostra e remove a batida da varredura do pulse no crontab desta
+ * RM-063 (F1): `ork fabrica batida` instala, mostra e remove a batida da varredura do pulse no crontab desta
  * maquina. `status` sai 0 com a batida instalada e 1 sem ela (ou sem crontab legivel); `instalar` e
  * `remover` gravam o evento no ledger da maquina quando o crontab muda.
  */

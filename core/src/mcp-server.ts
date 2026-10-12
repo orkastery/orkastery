@@ -403,7 +403,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       // RM-052: origem `instalacao`; o servidor fixado nao revela os outros projetos da maquina.
       const consulta=consultaDoProjeto(c,{origem:'instalacao',outrosProjetos:false,
         lido:['roadmap (docs/roadmap)',FORA_DA_CONSULTA.threadsDaMaquina],naoLido:[FORA_DA_CONSULTA.reservas,'threads de outras máquinas (ork network roadmap)']});
-      // RM-062 (F2): a mesma fila do `ork pulse`; a consulta que falha e dita no fecho, nunca "Nada agora".
+      // RM-063 (F2): a mesma fila do `ork pulse`; a consulta que falha e dita no fecho, nunca "Nada agora".
       const status=montarStatusDoRoadmap(raiz,{projeto:c.manifesto.project.name,consulta,fila:(quando)=>filaDoDono(c,{quando})});
       return resposta({texto:textoDoStatusDoRoadmap(status),status});
     });

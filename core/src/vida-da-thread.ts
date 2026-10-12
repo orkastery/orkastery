@@ -1,7 +1,7 @@
 /**
- * RM-062 (F2): a sessao de cada thread, verificada no runtime, para as superficies que dizem "sigo".
+ * RM-063 (F2): a sessao de cada thread, verificada no runtime, para as superficies que dizem "sigo".
  *
- * Incidente de 12/10/2026 (P2 da pagina da RM-062): com o despacho do GO da K7 morto e o daemon do
+ * Incidente de 12/10/2026 (P2 da pagina da RM-063): com o despacho do GO da K7 morto e o daemon do
  * claude-bg fora do ar, o `ork roadmap status` disse "sigo ork-rm026k7conhe na fase GO". O "sigo" saia de
  * toda thread aberta com fase, ou do lease de conducao, que sobrevive a sessao morta ate a prova do fim.
  *

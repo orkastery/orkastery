@@ -94,7 +94,7 @@ test('#HITL só no que espera o dono; o impedimento técnico não chama o dono',
     const precisa = linhas.indexOf('O que precisa de você'), seguir = linhas.indexOf('O que eu faço em seguida');
     assert.ok(precisa > 0 && seguir > precisa);
     assert.match(linhas[precisa + 1], /^• RM-004: Qual é o veredito sobre objetivo\? A pergunta chega no próximo resumo\.$/);
-    // RM-062 (F2): o despacho falho nao vira "sigo"; a linha diz desde quando e por que a thread parou.
+    // RM-063 (F2): o despacho falho nao vira "sigo"; a linha diz desde quando e por que a thread parou.
     const bloqueio = lerLedger(dirThread(p.dir, runtime.id)).find((e) => e.tipo === 'gate_blocked')!;
     assert.equal(linhas[seguir + 1],
       `• RM-005: ${runtime.id} ${paradaDesde({ desdeEm: bloqueio.ts, motivo: 'despacho de GOAL falhou (runtime.unavailable: simulado)' }, { agora: QUANDO })}.`);

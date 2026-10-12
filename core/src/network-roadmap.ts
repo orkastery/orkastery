@@ -520,7 +520,7 @@ function fatosDoRetrato(m: EstadoDaMaquina, entregues: Set<string>, itemDaReserv
     entregueHoje: () => entregues.has(t.id),
     espera: () => t.esperaVoce ? { thread: t.id, pergunta: pontuar(t.pergunta ?? 'o veredito da pausa'), maquina: m.maquina } : undefined,
     maquina: m.maquina,
-    // RM-062 (F2): a sessao que a outra maquina verificou ao publicar; retrato sem o campo nao diz "sigo".
+    // RM-063 (F2): a sessao que a outra maquina verificou ao publicar; retrato sem o campo nao diz "sigo".
     vida: () => vidaDoRetrato(t.sessao),
   }));
 }

@@ -130,7 +130,7 @@ test('rede: agrega roadmap, reservas e threads das duas maquinas, com fonte e ho
     const itens = new Map(x.roadmap!.grupos.flatMap((g) => g.itens.map((i) => [i.id, { ...i, grupo: g.id }])));
     assert.deepEqual([...itens.keys()].sort(), ['RM-001', 'RM-002', 'RM-003', 'RM-004']);
     assert.equal(itens.get('RM-001')!.hitl?.maquina, 'pc-a');
-    // RM-062 (F2): a pc-b publicou a vida da sessao da thread; sem sessao despachada, ela nao anda e nao ha "sigo".
+    // RM-063 (F2): a pc-b publicou a vida da sessao da thread; sem sessao despachada, ela nao anda e nao ha "sigo".
     const { vida: daPcB, ...conduzindo } = itens.get('RM-002')!.conduzindo!;
     assert.deepEqual(conduzindo, { thread: r.anda, fase: 'GOAL', maquina: 'pc-b' });
     assert.deepEqual([daPcB?.viva, daPcB?.motivo], [false, 'nenhuma sessão despachada na fase GOAL']);

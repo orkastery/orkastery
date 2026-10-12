@@ -8,7 +8,7 @@
  * item do roadmap continua no #HITL e nao conta como fora; e, sem thread fora do roadmap esperando,
  * o texto e o JSON saem byte a byte como antes. Projeto, itens e threads SIMULADOS.
  *
- * RM-062 (F2, pedido do dono de 12/10/2026): com algo do dono no fecho, ele nao diz mais "Nada agora"
+ * RM-063 (F2, pedido do dono de 12/10/2026): com algo do dono no fecho, ele nao diz mais "Nada agora"
  * (a alternativa a mantinha as duas linhas juntas); e o "sigo" so sai com sessao viva no runtime.
  */
 import { strict as assert } from 'node:assert';
@@ -65,7 +65,7 @@ test('R3: thread fora do roadmap parada pelo impedimento do dono acende a linha 
     assert.deepEqual(s.foraDoRoadmap, { threads: [fora.id] });
     const linhas = textoDoStatusDoRoadmap(s).split('\n');
     const precisa = linhas.indexOf('O que precisa de você');
-    // RM-062 (F2): a linha vem logo debaixo do titulo, e o "Nada agora" sai: ha uma thread esperando o dono.
+    // RM-063 (F2): a linha vem logo debaixo do titulo, e o "Nada agora" sai: ha uma thread esperando o dono.
     assert.deepEqual(linhas.slice(precisa, precisa + 3), ['O que precisa de você', LINHA(1), '']);
     assert.ok(!linhas.includes('• Nada agora.'));
     assert.equal(linhas.filter(l => l.startsWith('• Fora do roadmap')).length, 1);
@@ -133,7 +133,7 @@ test('R3: sem thread fora do roadmap esperando, texto e JSON saem byte a byte co
       '• Nada agora.',
       '',
       'O que eu faço em seguida',
-      // RM-062 (F2): o despacho sem sessao nao vira "sigo".
+      // RM-063 (F2): o despacho sem sessao nao vira "sigo".
       `• RM-002: ${conduz.id} ${paradaDesde({ desdeEm: ultimo.ts, motivo: 'nenhuma sessão despachada na fase GOAL' }, { agora: QUANDO })}.`,
     ].join('\n'));
   } finally { p.limpar(); definirFusoDoDono(undefined); }

@@ -748,7 +748,7 @@ export interface EstadoDaEntrega {
   prNaoLido: string | null;
   conduzidaAgora: boolean;
   /**
-   * RM-062 (F2): quem conduz agora, quando alguem conduz. O lease de uma SESSAO sobrevive a sessao morta ate a prova do
+   * RM-063 (F2): quem conduz agora, quando alguem conduz. O lease de uma SESSAO sobrevive a sessao morta ate a prova do
    * fim; so o processo do condutor (um `ork verify`, um `ork ship`) e a reserva do canal dizem, por si, que ha trabalho agora.
    */
   donoDaConducao: 'sessao' | 'processo' | 'reserva' | null;

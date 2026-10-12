@@ -128,7 +128,7 @@ O template `monitor/pulse.cron` bate de 15 em 15 minutos (`*/15 * * * *`), e o n
 o que sai em cada batida pela cadência que o dono escolheu com uma tag (seção J). O host precisa
 encontrar `node`, `claude` e seu transportador pelo PATH ou por caminhos absolutos.
 
-### A batida instalada pelo `ork` (RM-062, F1)
+### A batida instalada pelo `ork` (RM-063, F1)
 
 A linha do template não se instala sozinha: no srvjcp86, de 03/10 a 12/10/2026, ela nunca entrou
 no crontab, e o `ork doctor` calava porque só conferia o cron com `pulse-host.json`. Agora quem
@@ -165,7 +165,7 @@ monitor/varredura-pulse.sh
 cat .orkastery/monitor/hitl.log
 ```
 
-### O fecho do status lê a fila do pulse (RM-062, F2)
+### O fecho do status lê a fila do pulse (RM-063, F2)
 
 O `ork roadmap status` monta o "O que precisa de você" com a mesma fila do `ork pulse`
 (`precisaDeHumanoAgora`), sem tocar a forja e sem registrar. Com item do dono na fila, ou com a

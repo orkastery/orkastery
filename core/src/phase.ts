@@ -970,7 +970,7 @@ function rodarFaseSobLock(
       }
     }
     const cwd = diretorioDaThread(raiz, thread);
-    // RM-062 (F3): o prompt vai ao disco e ao ledger, com o sha256, ANTES do contexto do runtime e do adaptador. No
+    // RM-063 (F3): o prompt vai ao disco e ao ledger, com o sha256, ANTES do contexto do runtime e do adaptador. No
     // incidente de 12/10/2026 a fase morreu no despacho e o `ork retry run` saiu com "nao ha despacho falho registrado
     // em GO com prompt gravado"; daqui em diante, toda tentativa deixa o prompt que o retry redespacha sem pedir o texto.
     gravar(promptPath, prompt);
@@ -1094,7 +1094,7 @@ function rodarFaseSobLock(
     let resultado: ResultadoDeDespacho;
     try { resultado = rt.despachar(pedidoAoRuntime); }
     catch (e) {
-      // RM-062 (F3): o adaptador que lanca (o daemon do runtime fora do ar) deixa no ledger a falha do despacho com o
+      // RM-063 (F3): o adaptador que lanca (o daemon do runtime fora do ar) deixa no ledger a falha do despacho com o
       // prompt e o sha256, e o gate tipado que o `ork retry run` le; o erro segue para quem chamou, como antes.
       if (!opcoes.dryRun) {
         const erro = `runtime.unavailable: o runtime adapter lancou no despacho: ${(e as Error).message}`;
@@ -1219,7 +1219,7 @@ function rodarFaseSobLock(
           motivo: impedimento.motivo, violacoes, naFila: null, erro: `${impedimento.motivo}: ${impedimento.trecho}` };
       }
 
-      // RM-062 (F3): a falha seca do adaptador vira gate tipado, com o prompt e o sha256. Antes so o `phase_dispatch_failed`
+      // RM-063 (F3): a falha seca do adaptador vira gate tipado, com o prompt e o sha256. Antes so o `phase_dispatch_failed`
       // a registrava: o `ork retry plan` nao a via e a fase ficava parada sem ninguem saber.
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
         detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger,

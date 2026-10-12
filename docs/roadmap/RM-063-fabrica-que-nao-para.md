@@ -1,5 +1,5 @@
 ---
-id: RM-062
+id: RM-063
 tipo: roadmap
 titulo: Fábrica que não para
 categoria: iniciativa
@@ -26,7 +26,7 @@ sdlc:
   status: aberta
 ---
 
-# RM-062 — Fábrica que não para
+# RM-063 — Fábrica que não para
 
 > **Em uma frase:** nenhuma máquina da fábrica fica parada sem que o dono saiba em até 30 minutos, e nenhum bloqueio de infraestrutura ou de condução para a fábrica: o ork se recupera sozinho e só sobe ao dono o que é ato dele.
 
@@ -64,7 +64,7 @@ sdlc:
 ## Escopo e validação
 
 - **Incluído:** as frentes F1 a F7 abaixo, com fatias por camada.
-- **Fora de escopo:** planejar arcos autônomos de muitas threads, que é a [RM-058](RM-058-modo-noctum.md) (#Noctum). A RM-062 é a condição dela: o #Noctum planeja o arco, e a RM-062 garante que a máquina segue viva dentro dele. Também ficam fora a decisão de merge, tag e publicação, que segue com o dono ou com a autorização durável que ele der.
+- **Fora de escopo:** planejar arcos autônomos de muitas threads, que é a [RM-058](RM-058-modo-noctum.md) (#Noctum). A RM-063 é a condição dela: o #Noctum planeja o arco, e a RM-063 garante que a máquina segue viva dentro dele. Também ficam fora a decisão de merge, tag e publicação, que segue com o dono ou com a autorização durável que ele der.
 
 ### Frentes no núcleo (`ork`)
 
@@ -134,3 +134,4 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado com as frentes do núcleo, dos mods e dos hosts | Incidente do srvjcp86 de 03/10 a 12/10/2026 (P1 a P7) | Julio |
 | 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do srvjcp86 (#Auto) |
+| 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do srvjcp86 (#Auto) |

@@ -83,7 +83,7 @@ export interface ThreadNaFabrica {
   modelo?: string | null;
   esforco?: string | null;
   /**
-   * RM-062 (F2): a sessao da fase corrente verificada no runtime quando o retrato foi feito: viva, ou parada desde
+   * RM-063 (F2): a sessao da fase corrente verificada no runtime quando o retrato foi feito: viva, ou parada desde
    * quando e por que. Opcional no contrato: retrato de antes nao tem, e `null` e thread entregue (nada a conferir).
    */
   sessao?: { viva: boolean; desdeEm: string | null; motivo: string | null } | null;
@@ -166,7 +166,7 @@ export function entregasNaBase(raiz: string, base: string, remoto = 'origin'): M
 /** O retrato desta maquina: as threads nao fechadas do projeto, com a verdade do git por cima. */
 export function retratoDaMaquina(carregado: ManifestoCarregado,
   opcoes: { agora?: string; maquina?: string; por?: string; remoto?: string;
-    /** RM-062 (F2): a leitura do runtime (padrao: `claude agents` e codex desta maquina, so quando preciso). */
+    /** RM-063 (F2): a leitura do runtime (padrao: `claude agents` e codex desta maquina, so quando preciso). */
     runtime?: () => LeituraDoRuntime } = {}): EstadoDaMaquina {
   const quando = opcoes.agora ?? agoraIso();
   const raiz = carregado.raiz;
@@ -186,7 +186,7 @@ export function retratoDaMaquina(carregado: ManifestoCarregado,
     let eventos: EventoLedger[] = [];
     try { eventos = lerLedger(dirThread(raizDoPerfil, t.id)); } catch { eventos = []; }
     try { espera = esperaDoCondutor(t, eventos, quando); } catch { espera = null; }
-    // RM-062 (F2): a fabrica so mostra a thread como andando com a sessao viva verificada no runtime.
+    // RM-063 (F2): a fabrica so mostra a thread como andando com a sessao viva verificada no runtime.
     let sessao: ThreadNaFabrica['sessao'] = null;
     if (!entregue) {
       try { const v = vidaDaThread(t, eventos, lerUmaVez); sessao = { viva: v.viva, desdeEm: v.desdeEm, motivo: v.motivo }; }
@@ -345,7 +345,7 @@ function tabela(cabecalho: string[], linhas: string[][]): string[] {
   return [linha(cabecalho), linha(largura.map((n) => '-'.repeat(n))), ...linhas.map(linha)];
 }
 
-/** RM-062 (F2): a coluna da sessao: `viva`, `parada desde HH:MM: <motivo>`, ou `-` no retrato que nao a traz. */
+/** RM-063 (F2): a coluna da sessao: `viva`, `parada desde HH:MM: <motivo>`, ou `-` no retrato que nao a traz. */
 function sessaoNaFabrica(t: ThreadNaFabrica, teto: number): string {
   const v = vidaDoRetrato(t.sessao);
   return v.viva ? 'viva' : v.motivo === null ? '-' : curto(paradaDesde(v), teto);

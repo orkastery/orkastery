@@ -554,7 +554,7 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
 }
 
 /**
- * RM-062 (F3): onde esta o prompt gravado. O ledger guarda o caminho relativo a raiz de codigo de quem despachou:
+ * RM-063 (F3): onde esta o prompt gravado. O ledger guarda o caminho relativo a raiz de codigo de quem despachou:
  * da worktree, ele sai `../../../.orkastery/threads/...` (a K7 de 12/10/2026), e lido do checkout principal aponta
  * para fora do projeto. O arquivo certo e o que tem o MESMO sha256: absoluto, relativo a raiz de codigo, a raiz do
  * estado ou a pasta de prompts da thread. Sem nenhum com o sha, vale o primeiro que existe (a recusa diz que o prompt
@@ -572,7 +572,7 @@ export function localizarPromptGravado(raiz: string, threadId: string, promptPat
 }
 
 /**
- * RM-062 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
+ * RM-063 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
  * sessao que morreu depois de despachada, como a K7 de 12/10/2026, nao deixa `phase_dispatch_failed`), depois o
  * proprio gate quando ele carrega o prompt, e por fim a tentativa mais recente da fase com prompt gravado:
  * `phase_dispatch_failed` ou `phase_prompt_recorded` (e o `phase_dispatch`, no silencio do runtime).
@@ -1492,7 +1492,7 @@ export function executarRetry(
     return trocarDestinoDoModelo(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
 
-  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime. RM-062 (F3): o gate que o plano leu diz de que
+  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime. RM-063 (F3): o gate que o plano leu diz de que
   // despacho e o prompt; sem ele, a tentativa mais recente da fase com prompt gravado.
   const reprovacao = ultimaReprovacao(raiz, threadId);
   const gateDoPlano = reprovacao && reprovacao.motivo === plano.motivo && faseDoEvento(reprovacao, thread) === plano.fase

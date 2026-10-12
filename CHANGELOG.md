@@ -13,7 +13,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
   barreira no `ork verify` e no `ork ci prepare`, nome genérico de máquina na evidência de rede e o relatório honesto de
   quando algo escapou. Só a página e o registro no índice; o código das fatias vem depois.
-- **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-062](docs/roadmap/RM-062-fabrica-que-nao-para.md), F1):
+- **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
   `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
   linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
   `claude` e o transporte, e a marca `# ork-batida`; preserva as outras entradas, nunca grava sem ler e confere
@@ -218,7 +218,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Corrigido
 
-- **Superfícies honestas: "sigo" só com sessão viva** ([RM-062](docs/roadmap/RM-062-fabrica-que-nao-para.md), F2): o
+- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
   `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
   Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
   `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
@@ -226,7 +226,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
   coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
   12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
-- **Retry que sempre tem o prompt** ([RM-062](docs/roadmap/RM-062-fabrica-que-nao-para.md), F3): o `ork phase run`
+- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
   grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
   adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
   acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o

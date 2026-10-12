@@ -298,7 +298,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                             depois de entrar, sai sozinho ao criar thread, despachar fase,
                                             entregar e fechar, e a cada batida do pulse
   fabrica sair                              Para de publicar daqui e tira o retrato desta maquina da branch
-  fabrica batida [status|instalar|remover]  A batida da varredura do pulse no crontab desta maquina (RM-062): instalar
+  fabrica batida [status|instalar|remover]  A batida da varredura do pulse no crontab desta maquina (RM-063): instalar
         [--por Q] [--json]                       poe a linha do monitor/pulse.cron (idempotente), remover tira so ela;
                                                  status diz a linha e a ultima rodada do hitl.log
   network status [--json] [--sem-remoto]    A Orkastery Network desta pessoa: as maquinas, de qualquer diretorio,
@@ -670,7 +670,7 @@ Usage: ork [--projeto <name|path>] <command> [arguments]
                                             after joining, it goes out on its own when a thread is created, a phase is dispatched,
                                             delivered and closed, and at every pulse beat
   fabrica sair                              Stops publishing from here and removes the snapshot of this machine from the branch
-  fabrica batida [status|instalar|remover]  The pulse scan beat in this machine's crontab (RM-062): instalar
+  fabrica batida [status|instalar|remover]  The pulse scan beat in this machine's crontab (RM-063): instalar
         [--por Q] [--json]                       adds the monitor/pulse.cron line (idempotent), remover takes out only it;
                                                  status shows the line and the last run in hitl.log
   network status [--json] [--sem-remoto]    This person's Orkastery Network: the machines, from any directory,

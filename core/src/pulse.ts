@@ -270,7 +270,7 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   /** RM-037 (fatia 4): quem roda o `gh` na leitura dos PRs; os testes trocam por resposta gravada. */
   executorDoGh?: ExecutorDoGh;
   /**
-   * RM-062 (F2): sem tocar a forja. A fila do dono nao depende dos PRs; quem so le a fila (o status do roadmap)
+   * RM-063 (F2): sem tocar a forja. A fila do dono nao depende dos PRs; quem so le a fila (o status do roadmap)
    * nao espera a rede nem grava o retrato dos PRs.
    */
   semForja?: boolean;
@@ -333,7 +333,7 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
 }
 
 /**
- * RM-062 (F2): a fila do dono que o `ork roadmap status` le, a MESMA do `ork pulse` (`precisaDeHumanoAgora`). Em 12/10/2026
+ * RM-063 (F2): a fila do dono que o `ork roadmap status` le, a MESMA do `ork pulse` (`precisaDeHumanoAgora`). Em 12/10/2026
  * o status disse "Nada agora" com o pulse contando 3: as duas superficies montavam a fila cada uma do seu jeito. Sem
  * forja e sem registrar; o texto de cada item sai numa linha, redigido.
  */

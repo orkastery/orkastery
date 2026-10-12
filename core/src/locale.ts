@@ -346,7 +346,7 @@ const PT_BR = {
     cronLento: (ritmo: string, linha: string) =>
       `a varredura do pulse bate ${ritmo} (\`${linha}\`): a cadencia por tag (RM-039) pede 15 minutos`,
     cronTroque: (linha: string) => `troque a linha no crontab (crontab -e) por: ${linha}`,
-    // RM-062 (F1): com thread aberta, a falta da batida reprova, com ou sem pulse-host.json.
+    // RM-063 (F1): com thread aberta, a falta da batida reprova, com ou sem pulse-host.json.
     batidaAusente: (abertas: number, detalhe: string) =>
       `${abertas} thread(s) aberta(s) e nenhuma batida da varredura: ${detalhe}; a fabrica para sem ninguem saber`,
     batidaSemLeitura: (motivo: string) => `sem crontab para ler (${motivo})`,

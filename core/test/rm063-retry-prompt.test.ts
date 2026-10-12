@@ -1,7 +1,7 @@
 /**
- * RM-062 (F3): retry que sempre tem o prompt.
+ * RM-063 (F3): retry que sempre tem o prompt.
  *
- * O incidente de 12/10/2026 (P3 da pagina da RM-062): o GO da K7 morreu no despacho, com o daemon do
+ * O incidente de 12/10/2026 (P3 da pagina da RM-063): o GO da K7 morreu no despacho, com o daemon do
  * claude-bg fora do ar, e o `ork retry run` saiu com "nao ha despacho falho registrado em GO com prompt
  * gravado". O observador grava `gate_blocked runtime.unavailable` da sessao que morreu, mas o retry so
  * procurava `phase_dispatch_failed`; e o caminho do prompt no ledger era relativo a worktree.

@@ -1,7 +1,7 @@
 /**
- * RM-062 (F2): superficies honestas.
+ * RM-063 (F2): superficies honestas.
  *
- * O incidente de 12/10/2026 (P2 da pagina da RM-062): com o despacho do GO da K7 morto e o daemon do
+ * O incidente de 12/10/2026 (P2 da pagina da RM-063): com o despacho do GO da K7 morto e o daemon do
  * claude-bg fora do ar, o `ork roadmap status` disse "Precisa de voce: nada agora" e "sigo ork-rm026k7conhe
  * na fase GO", enquanto o `ork pulse` contava 3 itens que precisavam do dono.
  *
