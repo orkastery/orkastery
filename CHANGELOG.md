@@ -34,6 +34,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
   `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
   guardado segue como antes.
+- **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
+  da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
+  consultas `--json` do CLI, a faixa acima do prompt e os `watchPaths` com dono único, e o registro do que um mod
+  mostrou ao dono (`ork.mod-mostrado/v1`). A regra de autoridade (nenhum mod aprova gate, permissão, nota do MASTER,
+  push ou tag pelo dono, nem fala como o dono) mora em `adapters/claude-code/mods/autoridade.json` e tem duas guardas:
+  `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
+  `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
+  quem conduz.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
@@ -46,6 +55,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
   com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
   valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
+
+### Alterado
+
+- **Teto do `test` no verify deste repositório** ([RM-037](docs/roadmap/RM-037-verify-rapido-e-confiavel.md)):
+  o `orkastery.yaml` do projeto passa a dar 40 min ao comando `test` (`verify.timeout_ms_por_comando.test`),
+  porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
+  outros comandos seguem no prazo padrão.
 
 ## [0.5.4] - 2026-10-12
 
