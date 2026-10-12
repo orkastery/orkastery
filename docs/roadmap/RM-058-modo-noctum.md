@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: [FEAT-002, FEAT-026, FEAT-031, FEAT-032]
 owner: Julio
-atualizado_em: 2026-10-12T09:00:00-03:00
+atualizado_em: 2026-10-12T08:47:42-03:00
 estado:
-  ciclo: Refinamento
+  ciclo: Em desenvolvimento
   documentacao: Em revisão
-  codigo: Não iniciado
-  testes: Não iniciados
+  codigo: Branch criada
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -19,9 +19,13 @@ evidencias:
   codigo:
     commit: null
     pr: null
+  testes:
+    n1: core/test/noctum-envelope.test.ts (E1 a E10) e core/test/noctum-arco.test.ts (A1 a A14)
 sdlc:
-  thread: null
-  modo: null
+  thread: ork-rm058n1
+  modo: "#Auto"
+  fase: GOAL
+  status: aberta
 ---
 
 # RM-058 — Modo #Noctum: arcos autônomos de muitas threads e máquinas
@@ -32,11 +36,15 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Refinamento | Não iniciado | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
-**Proposta em refinamento, com as quatro decisões de produto tomadas.** Esta página planeja o #Noctum; o modo ainda não está implementado nem habilitado. As regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado. Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto. O ciclo continua em Refinamento até o dono autorizar o primeiro piloto.
+**Em desenvolvimento, com as quatro decisões de produto tomadas e a fatia N1 implementada na thread `ork-rm058n1`.** Esta página planeja o #Noctum; o modo ainda não está habilitado e `#Noctum` não é aceito como modo.
+
+- Fora da [N1](#n1-envelope-e-estado-do-arco), as regras abaixo são requisitos futuros. A duração vem do pedido do dono, não de um ensaio de autonomia já aprovado.
+- Em 12/10/2026 o dono decidiu D1 a D4 (veja [Decisões do dono](#decisões-do-dono)); seguem pendentes a prioridade final, o horário e o canal do relatório da manhã e os valores do teto, que o dono preenche antes do primeiro piloto.
+- O primeiro piloto continua dependendo da autorização do dono.
 
 Features relacionadas: [modos de condução](../produto/FEAT-002-modos-de-conducao.md), [reservas do roadmap](../produto/FEAT-026-reservas-do-roadmap.md), [Orkastery Network](../produto/FEAT-031-orkastery-network.md) e [roadmap da rede](../produto/FEAT-032-roadmap-da-rede.md). São bases existentes, não prova de execução autônoma entre máquinas.
 
@@ -70,7 +78,7 @@ O #Noctum não reduzirá checks nem converterá `policy: block`, autenticação 
 
 O dono deverá conceder um envelope por ingresso autenticado do host antes do início. O núcleo guardará sua versão e hash, recibo de origem humana, projetos e repositórios, branches de destino, itens elegíveis, máquinas, contas e runtimes permitidos, início, expiração, fuso, tetos, limites de concorrência e canal/horário do relatório. Não haverá autorização por silêncio nem renovação automática.
 
-O registro ficará no estado governado pelo núcleo, referenciado por todo evento do arco, sem credenciais no documento ou no ledger. Cada executor terá de conferir a versão vigente, revogação, escopo, tempo e orçamento antes do despacho e imediatamente antes de um efeito externo. Um retrato da rede ou texto de um agente não substituirá esse recibo. O contrato persistente e seu transporte ainda serão definidos na fatia N1.
+O registro ficará no estado governado pelo núcleo, referenciado por todo evento do arco, sem credenciais no documento ou no ledger. Cada executor terá de conferir a versão vigente, revogação, escopo, tempo e orçamento antes do despacho e imediatamente antes de um efeito externo. Um retrato da rede ou texto de um agente não substituirá esse recibo. O contrato persistente e o ingresso no núcleo foram definidos na [N1](#n1-envelope-e-estado-do-arco); o comando dos gateways e a ferramenta do MCP que levam esse ingresso até o núcleo ficam para a fatia que liga o transporte.
 
 | Operação | Autorização que deverá constar | Conferência antes de executar |
 | --- | --- | --- |
@@ -82,6 +90,20 @@ O registro ficará no estado governado pelo núcleo, referenciado por todo event
 **Nunca entra em nenhum envelope:** tag e publicação de versão, pacote ou site; acesso ou circulação de segredos; ações destrutivas; criação de repositório público. A atualização de produção também fica fora: só com autorização explícita própria e fluxo próprio, descrito abaixo. Credenciais continuarão locais, consumidas apenas pelo mecanismo já autorizado do host. Nenhum agente poderá ampliar permissões, mudar sandbox, trocar identidade ou habilitar provider pago para recuperar o arco.
 
 Uma implantação em produção exigirá autorização específica do dono e fluxo próprio; não será inferida de push, PR ou merge. Revogação ou expiração negará novos efeitos imediatamente. Trabalho em voo será interrompido ou encerrado em checkpoint seguro, conforme o limite do host, sem aproveitar uma ação iniciada antes do prazo para autorizar a seguinte.
+
+### N1: envelope e estado do arco
+
+Implementada na thread `ork-rm058n1` (modo #Auto), sem ligar o modo: nenhum comando, ferramenta ou gateway abre arco ainda, e `#Noctum` segue recusado como modo.
+
+- **Contrato `ork.noctum-envelope/v1`** (`core/src/noctum-envelope.ts`): o pedido de abertura traz o arco, a janela (`inicio` e `fim` com deslocamento explícito, `fuso` IANA, de 6 a 12 h), os destinos (repositório já existente, base e permissões entre `push`, `pr` e `merge`), o orçamento (teto do arco e subtetos por conta e por runtime `claude-bg` ou `codex`, cada um com valor finito maior que zero e unidade entre `sessoes`, `minutos-de-sessao`, `tokens` e `percentual-da-cota`) e o relatório da manhã (`horario` `HH:MM` no fuso da janela e um `canal` entre `terminal`, `telegram` e `openclaw`). As exclusões são fixas e ficam guardadas no envelope: `tag-e-publicacao`, `producao`, `segredos`, `acao-destrutiva` e `repositorio-publico-novo`. O hash é o sha256 do conteúdo canônico.
+- **Nenhum valor do dono é presumido:** pedido sem algum desses campos é recusado com `noctum.envelope.valores-ausentes`, que lista tudo o que falta de uma vez; teto infinito, zero, negativo ou escrito como ilimitado é recusado com `noctum.envelope.teto-ilimitado`, sem opção de liberar. Os valores reais continuam do dono antes do primeiro piloto.
+- **Ingresso com prova de origem, pelo caminho do HITL** (`core/src/noctum-arco.ts`): proposta não autoriza nada. Autorizar exige o envelope assinado do Telegram ou do callback nativo do host, conferido por `autenticarResposta` (chave do canal, allowlists, conta homologada e janela de 60 s) no endereço `noctum` / `arco:<arco>`, com o texto `autorizar <sha256>`; revogar exige o texto `revogar`. O `:` deixa esse endereço fora do alcance de `/ork gate`, `/ork session` e do pulse. O diálogo nativo do host entra por `criarDialogoDoArco`, com o callback de elicitação que o servidor fornece. Ainda não há comando do CLI, ferramenta do MCP nem comando dos gateways para esse ingresso.
+- **Estado do arco:** log append-only em `.orkastery/noctum/arcos/<arco>/arco.jsonl`, na raiz do estado, com cada linha encadeada pelo sha256 da anterior e com MAC de subchave derivada da chave local do núcleo (`.orkastery/private`). A situação (`proposto`, `agendado`, `vigente`, `expirado`, `revogado`) é derivada do disco e do instante a cada leitura; nada fica em memória, e restart não renova o envelope nem responde pelo dono. Limite conhecido: quem tem o mesmo usuário do sistema ainda consegue truncar o log, como o ledger.
+- **Antes de cada efeito** (`conferirAntesDoEfeito`): recusa, nesta ordem, ação excluída (`noctum.efeito.acao-excluida`), estado adulterado (`noctum.estado.adulterado`), revogação (`noctum.efeito.revogado`), falta de autorização (`noctum.efeito.sem-autorizacao`), hash diferente do vigente (`noctum.efeito.hash-antigo`), fora da janela (`noctum.efeito.fora-da-janela` e `noctum.efeito.expirado`) e destino ou permissão fora do envelope, inclusive `push` direto na base (`noctum.efeito.fora-do-destino`). Emenda é versão nova com prova nova; revogação é terminal.
+- **Fila de decisões em lote:** `enfileirarDecisao` guarda o que só o dono resolve, com thread, ação impedida, dependentes, impacto e 3 a 5 alternativas com exatamente uma recomendada, id estável e sempre `pendente`; não existe campo de resposta.
+- **Fica para depois:** consumo e reserva do orçamento (N2 e N6; a conferência da N1 não mede consumo), as provas do `merge` no SHA exato (N5), a fila e a execução (N2), o multimáquina (N3), a supervisão (N4) e o relatório (N6).
+
+Evidência: `core/test/noctum-envelope.test.ts` (E1 a E10) e `core/test/noctum-arco.test.ts` (A1 a A14), que rodam em `npm --prefix core test`.
 
 ### Sem HITL no meio, com decisões registradas
 
@@ -228,16 +250,16 @@ Como mudar: registrar a nova escolha do dono por ingresso autenticado e atualiza
 
 ## Estado com evidências
 
-O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` prepara somente o planejamento; nenhum ensaio Noctum ou entrega do modo é alegado aqui.
+O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`. Código e testes referem-se ao modo proposto, não à existência desta página. A thread `ork-rm058planeja` preparou o planejamento e a `ork-rm058n1` implementa a [N1](#n1-envelope-e-estado-do-arco); nenhum ensaio Noctum ou entrega do modo é alegado aqui.
 
 <!-- ork-docs:estado:inicio -->
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Refinamento | — | 2026-10-12 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
 | Documentação | Em revisão | — | 2026-10-12 | Julio |
-| Código | Não iniciado | — | 2026-10-12 | Julio |
-| Testes | Não iniciados | — | 2026-10-12 | Julio |
+| Código | Branch criada | — | 2026-10-12 | Julio |
+| Testes | Em execução | n1: core/test/noctum-envelope.test.ts (E1 a E10) e core/test/noctum-arco.test.ts (A1 a A14) | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
 | Habilitação | Pendente | — | 2026-10-12 | Julio |
@@ -247,10 +269,11 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 ## Responsabilidades e histórico
 
 - **RACI:** R: fábrica Orkastery na elaboração e nas futuras fatias; A: Julio; C: revisores independentes designados por fatia; I: dono pelo canal autorizado.
-- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a fábrica deverá converter os aceites em contratos e testes por fatia, sem data de lançamento definida.
+- **Agentes envolvidos, atuação e autonomia:** agente Codex redigiu a proposta em #Auto, restrita à documentação; agente Claude Code implementou a N1 em #Auto, na thread `ork-rm058n1`. Revisão independente e ratificação de produto não são presumidas; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** Julio define a prioridade final, o horário e o canal do relatório e os valores do teto, e autoriza o primeiro piloto; D1–D4 já estão decididas; a N1 está implementada e a próxima fatia é a N2 (fila local e capacidade), sem data de lançamento definida.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-03 | Proposta em Refinamento, seis fatias e posição 5 sugerida | Pedido do dono para planejar #Noctum; relato de condução manual e dependências documentadas acima | Codex propõe; Julio decide produto e prioridade |
 | 2026-10-12 | D1 a D4 decididas (C, B, C, B); prioridade final, horário e canal do relatório e valores do teto seguem pendentes; ciclo continua em Refinamento | Decisão do dono de 12/10/2026, registrada na seção Decisões do dono | Julio |
+| 2026-10-12 | N1 implementada: contrato do envelope, estado do arco, ingresso com prova de origem e recusas antes do efeito, com testes; ciclo passa a Em desenvolvimento; valores do teto, horário e canal do relatório seguem pendentes | Thread `ork-rm058n1`, testes E1 a E10 e A1 a A14 | Fábrica Orkastery em #Auto; Julio decide valores e piloto |

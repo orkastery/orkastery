@@ -8,6 +8,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
+  `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
+  manhã) e recusa pedido sem os valores do dono, listando o que falta, teto ilimitado e as ações que nunca entram (tag e
+  publicação, produção, segredos, ação destrutiva, repositório público novo). `core/src/noctum-arco.ts` guarda o estado
+  do arco num log encadeado e com MAC, só aceita autorização e revogação com prova de origem do dono pelo caminho do HITL
+  (Telegram assinado, callback nativo ou diálogo nativo do host) e confere hash, revogação, janela e destino
+  imediatamente antes de cada efeito. O modo continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
