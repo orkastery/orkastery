@@ -46,6 +46,13 @@
  * O gerador recebe o locale por parametro, com pt-BR por omissao, e so a entrada do CLI passa a lingua do dono: o
  * locale ativo nunca escolhe a lingua de um arquivo. Chave, valor e marcador do arquivo nao mudam com a lingua.
  *
+ * F3b (G4 e D1 a D5 da thread ork-rm061f3b): o resto da lista do dono (`thread list|close|entrega`, `worktree`,
+ * `claims`, `decisao placar`, `accounts`, `network`, `roadmap reservas|pegar|soltar|feat`, `docs verificar|sincronizar`,
+ * `adapter` e os erros de estado) sai pelo catalogo, com o que vai ao ledger, ao `claims.jsonl` ou ao `--json` nascido em
+ * pt-BR e remontado na impressao. O `ork adapter install` copia, com o dono em ingles, as variantes de
+ * `core/assets/{skills,references,adapters}-en/`. Seguem em pt-BR, para a F3c: `decisao registrar` (G5), `network roadmap`
+ * (G6), `thread new --from-finding` e os prompts de fase (G7).
+ *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
  * e identificador dentro de frase vao entre crases; valor que e so um comando (a linha `fix:`) fica nu.
@@ -77,11 +84,11 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
 /**
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
- * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
- * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync` e
+ * `experiencia uninstall`. A F2b (G3) acrescenta `verify` (com `--baseline`),
  * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
- * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`;
- * `docs verificar` e `docs sincronizar` seguem em pt-BR.
+ * `master pedir`, `pulse` (sem `responder` nem `cadencia`) e `roadmap status`. A F3a (D5) acrescenta `docs init`, e a
+ * F3b (D1), o resto da lista do dono, fora `decisao registrar` (G5) e `network roadmap` (G6).
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',

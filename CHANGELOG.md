@@ -95,6 +95,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   duas línguas na reinstalação e na remoção. A referência do CLI ganha a versão em inglês,
   [`docs/referencia/cli.en.md`](docs/referencia/cli.en.md), ligada à de pt-BR e conferida por teste. O catálogo vai de
   835 para 877 entradas.
+- **CLI em inglês e pt-BR, fatia F3b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): seguem também o
+  locale `ork thread list`, `thread close` e `thread entrega`, `ork worktree`, `ork claims`, `ork decisao placar`,
+  `ork accounts`, `ork network` (fora `network roadmap`), `ork roadmap reservas`, `pegar`, `soltar` e `feat`,
+  `ork docs verificar` e `docs sincronizar`, `ork adapter` e os erros de estado. Com o dono em inglês, o
+  `ork adapter install` copia as skills, as checklists, os comandos e os subagentes em inglês (variantes em
+  `core/assets/*-en/`) para o mesmo destino, e trocar a língua troca no lugar a cópia intacta. O `--json`, o ledger, o
+  `claims.jsonl`, o recibo `INSTALADO.json` e o que o `ork docs verificar` lê nas páginas não mudam; o pt-BR segue igual
+  byte a byte. Ficam em pt-BR, para a F3c, `decisao registrar`, `network roadmap`, `thread new --from-finding` e os
+  prompts de fase. O catálogo vai de 1.020 para 1.637 entradas (cobertura de 25,3% para 39,4%).
 - **Conhecimento escrito, fatia 1: o contrato e a leitura** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
   o bloco `conhecimento: { dir }` do `orkastery.yaml` declara uma pasta de documentos Markdown no contrato
   `ork.conhecimento/v1` ([contrato](docs/referencia/contratos/conhecimento-rm026.md)), com frontmatter fechado: `id`

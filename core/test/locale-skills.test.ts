@@ -49,6 +49,7 @@ function problemasDeParidade(original: string, variante: string): string[] {
     else if (!['description', 'argument-hint'].includes(String(ka)) && la[i] !== lb[i]) p.push(`frontmatter linha ${i + 1}: valor de ${ka} mudou`);
   }
   const crases = (s: string) => JSON.stringify(s.match(/`[^`]*`/g) ?? []);
+  const links = (s: string) => JSON.stringify(s.match(/\]\([^)]*\)/g) ?? []);
   const titulo = (s: string) => /^(#{1,6})\s/.exec(s)?.[1] ?? '';
   let cerca = false;
   for (let i = fim + 1; i < la.length; i++) {
@@ -61,6 +62,8 @@ function problemasDeParidade(original: string, variante: string): string[] {
     }
     if (titulo(a) !== titulo(b)) p.push(`linha ${i + 1}: titulo em nivel diferente`);
     if (crases(a) !== crases(b)) p.push(`linha ${i + 1}: trechos entre crases diferentes`);
+    // O link da variante vale a partir do original (checar-links.cjs): o alvo e o mesmo, linha a linha.
+    if (links(a) !== links(b)) p.push(`linha ${i + 1}: alvos de link diferentes`);
     if ((a.trim() === '') !== (b.trim() === '')) p.push(`linha ${i + 1}: linha vazia so num dos dois`);
   }
   const marcadores = (s: string) => (s.match(/\{\{[^}]*\}\}/g) ?? []).join(',');
