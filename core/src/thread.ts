@@ -402,8 +402,12 @@ export function prepararPedido(bruto: string): { texto: string; meta: PedidoDaTh
 export function pedidoDaThread(raiz: string, thread: Thread): { texto: string; sha256: string } | null {
   const meta = thread.pedido;
   if (!meta) return null;
-  const arquivo = path.join(dirThread(raiz, thread.id), meta.arquivo);
   const restaurar = 'passe --pedido no render ou restaure o arquivo';
+  // O nome do arquivo e fixo: um thread.json editado nao aponta o render para outro arquivo do projeto.
+  if (meta.arquivo !== ARQUIVO_DO_PEDIDO || !/^[a-f0-9]{64}$/.test(String(meta.sha256))) {
+    throw new Error(`thread.pedido.divergente: o pedido da thread ${thread.id} no thread.json nao e o que a criacao grava; ${restaurar}`);
+  }
+  const arquivo = path.join(dirThread(raiz, thread.id), ARQUIVO_DO_PEDIDO);
   let fd: number;
   try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (e) {
@@ -421,6 +425,21 @@ export function pedidoDaThread(raiz: string, thread: Thread): { texto: string; s
     }
     return { texto: bytes.toString('utf8'), sha256 };
   } finally { fs.closeSync(fd); }
+}
+
+/**
+ * Grava o pedido sem meio-termo: escreve num temporario com fsync e o liga ao nome final, que nao pode existir
+ * (o `link` recusa sobrescrever). Uma falha no meio nao deixa `pedido.md` pela metade.
+ */
+function gravarPedido(dir: string, texto: string): void {
+  fs.mkdirSync(dir, { recursive: true });
+  const alvo = path.join(dir, ARQUIVO_DO_PEDIDO);
+  const temporario = path.join(dir, `.${ARQUIVO_DO_PEDIDO}.${process.pid}.${Date.now()}.tmp`);
+  const fd = fs.openSync(temporario, 'wx', 0o600);
+  try {
+    try { fs.writeFileSync(fd, texto, 'utf8'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    fs.linkSync(temporario, alvo);
+  } finally { fs.rmSync(temporario, { force: true }); }
 }
 
 export interface ResultadoNovaThread {
@@ -622,9 +641,10 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     };
   }
 
+  // RM-059 (T6.0): o pedido vai ao lado do thread.json, so com permissao do dono, como ele, e antes dele: o
+  // thread.json nunca aponta para um pedido que nao foi gravado.
+  if (pedido) gravarPedido(dirThread(raiz, id), pedido.texto);
   gravarThread(raiz, thread);
-  // RM-059 (T6.0): o pedido vai ao lado do thread.json, so com permissao do dono, como ele.
-  if (pedido) fs.writeFileSync(path.join(dirThread(raiz, id), ARQUIVO_DO_PEDIDO), pedido.texto, { flag: 'wx', mode: 0o600 });
   registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.threadCriada, {
     ...(origin ? { creationOrigin: origin } : {}),
     slug,

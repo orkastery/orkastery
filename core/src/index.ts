@@ -211,7 +211,8 @@ import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
-  linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+  linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, prepararPedido, resumoDaThread, tabelaDeThreads,
+  threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
@@ -811,6 +812,11 @@ function comandoThread(args: Args): number {
       return 2;
     }
     const pedidoDoBuilder = texto(args.opcoes.pedido);
+    // A4 do CHECK: pedido invalido e erro de uso, e sai antes da reserva do roadmap, que vai ao remoto.
+    if (pedidoDoBuilder !== undefined) {
+      try { prepararPedido(pedidoDoBuilder); }
+      catch (e) { console.error(`uso: ${(e as Error).message}`); return 2; }
+    }
     // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread; um caminho reusa um
     // diretorio que ja existe. P4 do ensaio da 0.5.0: sem flag, `worktree.por_thread: true` cria como o
     // `--worktree auto`, e `--sem-worktree` cria sem ela. Uso invalido sai antes da reserva do roadmap.

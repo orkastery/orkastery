@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { projetoTemporario } from './apoio';
 import { lerLedger } from '../src/ledger';
-import { ARQUIVO_DO_PEDIDO, dirThread, lerThread, novaThread, pedidoDaThread, prepararPedido, TETO_DO_PEDIDO } from '../src/thread';
+import { ARQUIVO_DO_PEDIDO, dirThread, gravarThread, lerThread, novaThread, pedidoDaThread, prepararPedido, TETO_DO_PEDIDO } from '../src/thread';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const PEDIDO = '  Implementar a fatia X do plano dos mods.\n\nCriterio: o teste Y passa, sem tocar em Z. #Auto\n';
@@ -34,6 +34,7 @@ test('S1 a thread criada com pedido guarda o texto em pedido.md, e o sha256 no t
     const criada = lerLedger(dirThread(p.dir, thread.id)).find((e) => e.tipo === 'thread_created') as Record<string, unknown> | undefined;
     assert.deepEqual(criada?.pedido, thread.pedido);
     assert.deepEqual(pedidoDaThread(p.dir, lerThread(p.dir, thread.id)), { texto: TEXTO, sha256: SHA });
+    assert.deepEqual(fs.readdirSync(dirThread(p.dir, thread.id)).filter((n) => n.endsWith('.tmp')), [], 'nenhum temporario fica');
   } finally { p.limpar(); }
 });
 
@@ -102,6 +103,14 @@ test('S5 pedido editado fora do nucleo ou apagado vira erro tipado no render, e 
     assert.match(apagado.stderr, /thread\.pedido\.ausente/);
     fs.symlinkSync(path.join(p.dir, 'README.md'), arquivo);
     assert.match(ork(p.dir, 'prompt', 'render', thread.id, 'GOAL').stderr, /thread\.pedido\.divergente: pedido\.md da thread .* nao abre como arquivo comum/);
+    // O thread.json editado para outro arquivo do projeto, com o sha256 certo dele, nao leva esse arquivo ao prompt.
+    const manifesto = fs.readFileSync(path.join(p.dir, 'orkastery.yaml'));
+    gravarThread(p.dir, { ...lerThread(p.dir, thread.id), pedido: { arquivo: '../../../orkastery.yaml' as 'pedido.md',
+      sha256: createHash('sha256').update(manifesto).digest('hex'), bytes: manifesto.length } });
+    const desviado = ork(p.dir, 'prompt', 'render', thread.id, 'GOAL');
+    assert.equal(desviado.status, 1);
+    assert.match(desviado.stderr, /thread\.pedido\.divergente: o pedido da thread .* no thread\.json nao e o que a criacao grava/);
+    assert.equal(desviado.stdout.includes(manifesto.toString('utf8').split('\n')[0]), false);
   } finally { p.limpar(); }
 });
 
@@ -113,5 +122,10 @@ test('S6 o CLI guarda o pedido no thread new e recusa --pedido sem texto', () =>
     assert.match(criada.stdout, /pedido: guardado em \.orkastery\/threads\/ork-pelocli\/pedido\.md \(sha256 [0-9a-f]{8}, \d+ bytes\)/);
     assert.equal(lerThread(p.dir, 'ork-pelocli').pedido?.sha256, SHA);
     assert.equal(ork(p.dir, 'thread', 'new', 'sem texto', '--modo', 'auto', '--pedido').status, 2);
+    // Pedido invalido sai como uso (2) antes da reserva do roadmap: sem remoto, a reserva sairia 1.
+    const comItem = ork(p.dir, 'thread', 'new', 'com item', '--modo', 'auto', '--pedido', '   ', '--roadmap', 'RM-999');
+    assert.equal(comItem.status, 2, comItem.stderr);
+    assert.match(comItem.stderr, /uso: thread\.pedido\.invalido: o pedido esta vazio/);
+    assert.equal(fs.existsSync(dirThread(p.dir, 'ork-comitem')), false);
   } finally { p.limpar(); }
 });
