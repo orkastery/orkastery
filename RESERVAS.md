@@ -5,8 +5,7 @@ não edite à mão. Antes de começar um item: `ork roadmap reservas`.
 
 | Item | Com quem | Máquina | Thread | Desde | Nota |
 | --- | --- | --- | --- | --- | --- |
-| RM-026 | Julio Pessoa | srvjcp86 | ork-rm026k7conhe | 03/10 00:39 | — |
-| RM-037 | Julio Pessoa | srvjcp86 | ork-rm037fatia6r | 02/10 23:48 | — |
-| RM-061 | Julio Pessoa | vps | ork-rm061f2a | 12/10 01:40 | — |
+| RM-026 | Julio Pessoa | srvjcp86 | ork-rm026k7conhe | 03/10 03:39 | — |
+| RM-061 | Julio Pessoa | vps | ork-rm061f2a | 12/10 04:40 | — |
 
-Horários de Brasília.
+Horários em UTC.
