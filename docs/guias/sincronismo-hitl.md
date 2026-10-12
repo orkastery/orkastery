@@ -125,20 +125,53 @@ Os argumentos são passados diretamente ao executável, sem shell ou eval. Um ad
 Hermes pode fornecer um executável determinístico com a mesma interface e código 0
 somente após confirmar a entrega. Não use uma sessão de chat ou cron LLM como transporte.
 O template `monitor/pulse.cron` bate de 15 em 15 minutos (`*/15 * * * *`), e o núcleo decide
-o que sai em cada batida pela cadência que o dono escolheu com uma tag (seção J). Renderize o
-caminho da main e instale junto das entradas existentes. O host precisa encontrar `node`, `claude` e seu
-transportador pelo PATH ou por caminhos absolutos. No pacote npm, execute com o projeto
-como cwd, ou defina `ORK_PULSE_PROJECT` explicitamente.
+o que sai em cada batida pela cadência que o dono escolheu com uma tag (seção J). O host precisa
+encontrar `node`, `claude` e seu transportador pelo PATH ou por caminhos absolutos.
+
+### A batida instalada pelo `ork` (RM-062, F1)
+
+A linha do template não se instala sozinha: no srvjcp86, de 03/10 a 12/10/2026, ela nunca entrou
+no crontab, e o `ork doctor` calava porque só conferia o cron com `pulse-host.json`. Agora quem
+instala é o próprio `ork`, num comando que o dono autoriza uma vez:
+
+```bash
+ork fabrica batida instalar   # põe a linha do template no crontab desta máquina
+ork fabrica batida status     # a linha, e a última rodada do hitl.log com a idade
+ork fabrica batida remover    # tira só a linha que o ork instalou
+```
+
+O `instalar` lê o crontab, tira a linha antiga do `ork` e a linha posta à mão da varredura deste
+projeto, e acrescenta uma só, com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha o
+`node`, o `claude`, o `codex`, o `gh`, o `git` e o executável do `pulse-host.json`, e a marca
+`# ork-batida` no fim. As outras entradas ficam como estavam: nada de `PATH=` solto, que mudaria
+todas. Rodar de novo com a mesma linha não grava nada. A gravação só vale depois de relida, e o
+evento `batida_instalada` (ou `batida_removida`) vai ao ledger da máquina,
+`~/.orkastery/ledger.jsonl`, com a linha que entrou e as que saíram. Crontab que não se lê não é
+gravado: o comando recusa com `fabrica.batida.sem-leitura`.
+
+O `status` sai 1 sem a batida e avisa "atrasada" quando a batida está instalada e a última rodada
+do `hitl.log` passou de 30 minutos. O `ork doctor` reprova quando o projeto tem thread aberta e
+nenhuma batida, com ou sem `pulse-host.json`, e a correção é `ork fabrica batida instalar`. A
+linha que diz outro projeto (`ORK_PULSE_PROJECT` de outro checkout) não conta como batida deste.
 
 Provas de operação:
 
 ```bash
 npm --prefix core test
 node core/dist/index.js eval --json
+ork fabrica batida status
 crontab -l
 monitor/varredura-pulse.sh
 cat .orkastery/monitor/hitl.log
 ```
+
+### O fecho do status lê a fila do pulse (RM-062, F2)
+
+O `ork roadmap status` monta o "O que precisa de você" com a mesma fila do `ork pulse`
+(`precisaDeHumanoAgora`), sem tocar a forja e sem registrar. Com item do dono na fila, ou com a
+fila lida pela metade, ele não diz "Nada agora". E o `sigo <thread> na fase <F>` só sai com a
+sessão viva verificada no runtime; a sessão fantasma, o despacho falho e a falta de sessão viram
+`<thread> parada desde HH:MM: <motivo>`.
 
 O canário `fx-hitl-latency` usa sessão fake e destino local real: entrega em quatro
 minutos simulados e nenhum reenvio sem novidade. Isso não comprova Telegram real nem sete

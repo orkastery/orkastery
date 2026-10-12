@@ -6,12 +6,12 @@ categoria: iniciativa
 pai: null
 features: []
 owner: Julio
-atualizado_em: 2026-10-12T12:28:11+00:00
+atualizado_em: 2026-10-12T13:11:47+00:00
 estado:
   ciclo: Em desenvolvimento
-  documentacao: Rascunho
+  documentacao: Em revisão
   codigo: Branch criada
-  testes: Não iniciados
+  testes: Em execução
   deploy: Não implantado
   exposicao: Flag desligada
   habilitacao: Pendente
@@ -22,7 +22,7 @@ evidencias:
 sdlc:
   thread: ork-rm062fabrica
   modo: auto
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -34,7 +34,7 @@ sdlc:
 
 | Ciclo do item | Código | Testes | Deploy | Exposição |
 | --- | --- | --- | --- | --- |
-| Em desenvolvimento | Branch criada | Não iniciados | Não implantado | Flag desligada |
+| Em desenvolvimento | Branch criada | Em execução | Não implantado | Flag desligada |
 
 <!-- ork-docs:relance:fim -->
 
@@ -115,9 +115,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
 | Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
-| Documentação | Rascunho | — | 2026-10-12 | Julio |
+| Documentação | Em revisão | — | 2026-10-12 | Julio |
 | Código | Branch criada | — | 2026-10-12 | Julio |
-| Testes | Não iniciados | — | 2026-10-12 | Julio |
+| Testes | Em execução | — | 2026-10-12 | Julio |
 | Deploy | Não implantado | — | 2026-10-12 | Julio |
 | Exposição | Flag desligada | — | 2026-10-12 | Julio |
 | Habilitação | Pendente | — | 2026-10-12 | Julio |
@@ -128,8 +128,9 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 - **RACI (R / A / C / I):** R: condutor do srvjcp86 (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do srvjcp86 (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** GO da fatia 1 (F1, F2, F3) na thread `ork-rm062fabrica`; responsável: condutor do srvjcp86; prazo: 14/10/2026.
+- **Próxima ação, responsável e prazo:** merge do PR da fatia 1 (F1, F2, F3) e, com ele na base, `ork fabrica batida instalar` no srvjcp86 (o crontab é do dono, autorizado uma vez); depois, a fatia 2 (F4, F5, F6). Responsável: condutor do srvjcp86; prazo: 14/10/2026.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado com as frentes do núcleo, dos mods e dos hosts | Incidente do srvjcp86 de 03/10 a 12/10/2026 (P1 a P7) | Julio |
+| 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do srvjcp86 (#Auto) |
