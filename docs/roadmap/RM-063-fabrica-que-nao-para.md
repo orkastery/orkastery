@@ -43,13 +43,13 @@ sdlc:
 ## Problema e resultado
 
 - **Público e problema/oportunidade:** o dono de uma fábrica #Auto. Hoje, uma máquina pode ficar dias sem batida e horas com uma fase morta, e as superfícies dizem "Nada agora" e "sigo na fase GO".
-- **Evidências e fonte:** o incidente do srvjcp86, de 03/10 a 12/10/2026 (tabela abaixo).
+- **Evidências e fonte:** o incidente do maquina-b, de 03/10 a 12/10/2026 (tabela abaixo).
 - **Objetivo/OKR:** tempo de máquina parada sem aviso igual a zero; tempo de fábrica parada por falha de infraestrutura abaixo de 30 minutos.
 - **Hipótese:** se a batida for instalada e vigiada pelo próprio ork, se a falha de despacho virar retry automático com o prompt gravado e se as superfícies só disserem "sigo" quando há sessão viva, então nenhuma parada passa despercebida, porque cada camada que hoje falha em silêncio passa a ter dono, prazo e canal.
 - **Métrica principal / linha de base / meta / janela / fonte:** minutos entre a parada (última sessão viva ou última batida) e o aviso ao dono. Linha de base: 13.300 min (03/10 08:52 a 12/10 06:00, sem batida) e 318 min (K7 com o despacho morto). Meta: ≤ 30 min. Janela: 14 dias. Fonte: `ork ledger stats` e o `hitl.log` da varredura.
 - **Métricas de proteção:** nenhuma mensagem por item no canal do dono (o teto de um resumo por varredura continua); nenhum redespacho que mude o prompt; nenhum merge, tag ou publicação fora do que o dono autorizou.
 
-### O incidente de 03/10 a 12/10/2026 no srvjcp86
+### O incidente de 03/10 a 12/10/2026 no maquina-b
 
 | # | O que parou | Por que ninguém viu | Camada |
 | --- | --- | --- | --- |
@@ -96,7 +96,7 @@ Proposta para a VPS incluir na RM-059 ou conduzir aqui, o que o dono decidir:
 - **H4 Falha do transporte também avisa:** quando o `openclaw message send` falha, a varredura tenta o outro host configurado e grava a falha no `ork doctor`.
 
 - **Entregáveis e critérios de aceite:** cada frente acima, com a prova da tabela; o critério do item é o ensaio de parada: matar o daemon do runtime no meio de um GO e confirmar que o dono recebe o aviso e a fase volta a andar em até 30 minutos, sem intervenção.
-- **Piloto, medição e critérios de expansão/interrupção:** 14 dias no srvjcp86 e na VPS; interrompe se o canal do dono receber mais de um resumo por varredura.
+- **Piloto, medição e critérios de expansão/interrupção:** 14 dias no maquina-b e na VPS; interrompe se o canal do dono receber mais de um resumo por varredura.
 
 ## Plano e decisões
 
@@ -126,12 +126,12 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 ## Responsabilidades e histórico
 
-- **RACI (R / A / C / I):** R: condutor do srvjcp86 (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
-- **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do srvjcp86 (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** merge do PR da fatia 1 (F1, F2, F3) e, com ele na base, `ork fabrica batida instalar` no srvjcp86 (o crontab é do dono, autorizado uma vez); depois, a fatia 2 (F4, F5, F6). Responsável: condutor do srvjcp86; prazo: 14/10/2026.
+- **RACI (R / A / C / I):** R: condutor do maquina-b (núcleo e hosts) e VPS (mods, se o dono decidir); A: Julio; C: —; I: —.
+- **Agentes envolvidos, atuação, autonomia e revisor humano:** condutor do maquina-b (#Auto), merge pela X1.a até 18/10/2026; revisor humano: Julio.
+- **Próxima ação, responsável e prazo:** merge do PR da fatia 1 (F1, F2, F3) e, com ele na base, `ork fabrica batida instalar` no maquina-b (o crontab é do dono, autorizado uma vez); depois, a fatia 2 (F4, F5, F6). Responsável: condutor do maquina-b; prazo: 14/10/2026.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
-| 2026-10-12 | Item criado com as frentes do núcleo, dos mods e dos hosts | Incidente do srvjcp86 de 03/10 a 12/10/2026 (P1 a P7) | Julio |
-| 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do srvjcp86 (#Auto) |
-| 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do srvjcp86 (#Auto) |
+| 2026-10-12 | Item criado com as frentes do núcleo, dos mods e dos hosts | Incidente do maquina-b de 03/10 a 12/10/2026 (P1 a P7) | Julio |
+| 2026-10-12 | Fatia 1 no GO da thread `ork-rm062fabrica`: F1 (`ork fabrica batida` e o doctor que reprova sem batida), F2 ("sigo" só com sessão viva e o fecho lendo a fila do pulse) e F3 (prompt no ledger antes do adaptador e retry pelo sha256); F4 a F7, mods e hosts ficam para as fatias seguintes | Testes `core/test/rm062-batida.test.ts`, `rm062-superficies.test.ts` e `rm062-retry-prompt.test.ts`; decisões no ledger da thread | condutor do maquina-b (#Auto) |
+| 2026-10-12 | Item renumerado de RM-062 para RM-063; a thread segue `ork-rm062fabrica` | A RM-062 "Repositório público sem dado privado" nasceu em paralelo (thread `ork-rm062privado`), sem reserva de nenhuma das duas, e já estava na `main` e na branch da versão 0.5.5; a renumeração desta, ainda sem merge, é a troca barata. Decisão no ledger da thread | condutor do maquina-b (#Auto) |

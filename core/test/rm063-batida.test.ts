@@ -1,7 +1,7 @@
 /**
  * RM-063 (F1): a batida instalada e vigiada pelo proprio `ork`.
  *
- * O incidente do srvjcp86 (03/10 a 12/10/2026, P1 e P7): sem `pulse-host.json` o `ork doctor` nao lia o
+ * O incidente do maquina-b (03/10 a 12/10/2026, P1 e P7): sem `pulse-host.json` o `ork doctor` nao lia o
  * crontab e calava; a maquina ficou nove dias sem varredura. Prova, com crontab FALSO (executor injetado,
  * ou um binario `crontab` falso no PATH, conferido antes de cada uso): `ork fabrica batida instalar` poe a
  * linha do template de forma idempotente, preserva as outras entradas e grava `batida_instalada` no ledger
@@ -274,7 +274,7 @@ test('F1: com thread aberta e sem batida, o doctor REPROVA mesmo sem pulse-host.
   try {
     novaThread(p.carregado, { nome: 'aberta', modo: 'auto' });
     const monitor = path.join(p.dir, '.orkastery', 'monitor');
-    assert.equal(fs.existsSync(path.join(monitor, 'pulse-host.json')), false, 'sem transporte, como no srvjcp86');
+    assert.equal(fs.existsSync(path.join(monitor, 'pulse-host.json')), false, 'sem transporte, como no maquina-b');
     const semLinha = (): LeituraDoCrontab => ({ ok: true, texto: OUTRAS });
     const c = checar(p.dir, [], semLinha).find((x) => x.nome === NOME);
     assert.equal(c?.nivel, 'fail', JSON.stringify(c));

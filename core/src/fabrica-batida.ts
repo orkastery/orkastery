@@ -1,7 +1,7 @@
 /**
  * RM-063 (F1): a batida da fabrica, instalada e vigiada pelo proprio `ork`.
  *
- * Incidente do srvjcp86, de 03/10 a 12/10/2026 (P1 e P7 da pagina da RM-063): o cron da varredura do
+ * Incidente do maquina-b, de 03/10 a 12/10/2026 (P1 e P7 da pagina da RM-063): o cron da varredura do
  * pulse nunca foi instalado, o `ork doctor` so conferia o crontab com `pulse-host.json` e, sem
  * transporte, calava; a correcao (editar o crontab) foi barrada como persistencia nao autorizada. A
  * maquina ficou nove dias sem batida e ninguem soube.

@@ -130,7 +130,7 @@ encontrar `node`, `claude` e seu transportador pelo PATH ou por caminhos absolut
 
 ### A batida instalada pelo `ork` (RM-063, F1)
 
-A linha do template não se instala sozinha: no srvjcp86, de 03/10 a 12/10/2026, ela nunca entrou
+A linha do template não se instala sozinha: no maquina-b, de 03/10 a 12/10/2026, ela nunca entrou
 no crontab, e o `ork doctor` calava porque só conferia o cron com `pulse-host.json`. Agora quem
 instala é o próprio `ork`, num comando que o dono autoriza uma vez:
 

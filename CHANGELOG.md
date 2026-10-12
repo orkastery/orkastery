@@ -18,7 +18,7 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   entradas seguintes, aspas, `~` e `$HOME`), e o que mudou entre a leitura e a gravação não é sobrescrito. O
   `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida deste projeto, com ou sem
   `pulse-host.json`, com a correção `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a
-  batida de outro agendador. Antes, sem transporte, ele calava, e o srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura.
+  batida de outro agendador. Antes, sem transporte, ele calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura.
 
 ### Corrigido
 

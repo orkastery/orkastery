@@ -8,7 +8,7 @@
  * `monitor/pulse.cron`. O doctor nunca edita o crontab: a correcao traz a linha pronta.
  *
  * RM-063 (F1): com thread aberta no projeto, a falta da batida REPROVA, com ou sem `pulse-host.json`.
- * Sem transporte o doctor calava, e o srvjcp86 ficou de 03/10 a 12/10/2026 sem varredura nenhuma. A
+ * Sem transporte o doctor calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura nenhuma. A
  * correcao e o `ork fabrica batida instalar`, que instala a linha do template de forma idempotente.
  */
 
