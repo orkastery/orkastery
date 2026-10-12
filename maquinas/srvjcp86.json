@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.5",
-  "publicadoEm": "2026-10-12T16:57:20.483Z",
+  "publicadoEm": "2026-10-12T17:06:07.403Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -21,7 +21,12 @@
       "paradaDesde": null,
       "runtime": null,
       "modelo": null,
-      "esforco": null
+      "esforco": null,
+      "sessao": {
+        "viva": false,
+        "desdeEm": "2026-10-03T03:13:45.108Z",
+        "motivo": "nenhuma sessão despachada na fase GOAL"
+      }
     },
     {
       "id": "ork-rm026k7conhe",
@@ -38,24 +43,26 @@
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": null
     },
     {
       "id": "ork-rm062fabrica",
       "nome": "RM-062 Fabrica que nao para: batida, liveness e conducao autonoma",
       "modo": "#Auto",
-      "fase": "GO",
+      "fase": "SHIP",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm062fabrica-full",
-      "atualizadaEm": "2026-10-12T14:03:31.401Z",
-      "entregue": null,
+      "atualizadaEm": "2026-10-12T17:06:07.235Z",
+      "entregue": "adc973d7",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
       "runtime": "claude-bg",
       "modelo": "opus",
-      "esforco": "max"
+      "esforco": "max",
+      "sessao": null
     }
   ]
 }
