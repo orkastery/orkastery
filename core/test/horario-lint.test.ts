@@ -149,6 +149,7 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'liveness.ts', trecho: 'chave = `${d.ts}|', razao: 'chave de deduplicação' },
   { arquivo: 'session-watcher.ts', trecho: 'heartbeat:${cursor.crescimentoEm}', razao: 'identificador do heartbeat' },
   { arquivo: 'session-watcher.ts', trecho: "update(sessionId + '|' + sessao.despachadaEm)", razao: 'entrada do hash que identifica o watcher da sessão' },
+  { arquivo: 'conducao.ts', trecho: "update(dono.sessionId + '|' + sessao.despachadaEm)", razao: 'entrada do mesmo hash do watcher para localizar a fonte fixada; não é texto para pessoa' },
   { arquivo: 'handoff.ts', trecho: 'em ${b.gravadaEm}', razao: 'documento para a próxima sessão de agente (D12)' },
   { arquivo: 'handoff.ts', trecho: 'em ${eventos[eventos.length - 1].ts}', razao: 'documento para a próxima sessão de agente (D12)' },
   { arquivo: 'memoria.ts', trecho: 'em ${d.decididaEm}.', razao: 'registro de memória no OrkMind (D12)' },

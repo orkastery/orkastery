@@ -1072,7 +1072,8 @@
     {
       "id": "EN5",
       "tipo": "achado",
-      "estado": "registrado",
+      "estado": "em-pr",
+      "pr": 111,
       "o_que": "o quickstart EN do site para em 'ork thread new', 'thread status' e 'phase list': não manda phase run, verify, ship nem master, que o quickstart do repositório (docs/comecar/quickstart.md, em português) cobre em 10 passos; e os exemplos do texto EN seguem em português ('meu-produto', 'corrigir o filtro de data', 'ork setup <modo> --bloco N')",
       "recomendacao": "a) (Recomendação) na próxima sincronização dos docs do site (repositório orkastery.com), traduzir os passos do ciclo completo e trocar os exemplos por exemplos em inglês; b) só um link do quickstart EN para a seção 'Your first thread' do README; c) deixar",
       "comandos": [

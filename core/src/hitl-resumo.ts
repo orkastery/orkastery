@@ -56,6 +56,13 @@ export interface ResumoDeMaquina {
  */
 export interface LinhaDoCondutor { thread: string; caso: string; desdeEm: string; proximoPasso: string }
 
+/**
+ * RM-055 (continuacao, D3): um impedimento do despacho que so o dono resolve, como o resumo o mostra: a
+ * thread, a fase, o comando que ele roda no terminal e o retry que devolve a fase ao runtime. Nao e
+ * pergunta deste canal (a resposta e no terminal), e por isso fica fora de "Perguntas para voce".
+ */
+export interface LinhaDoImpedimento { thread: string; fase: string | null; comando: string; retry: string }
+
 export interface ResumoHitl extends ContagemDeClassificacao {
   contrato: typeof CONTRATO_RESUMO;
   consultadoEm: string;
@@ -95,6 +102,8 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   threadsTecnicas: string[];
   /** RM-037 (fatia 4): uma linha por thread parada no condutor, fora das contagens do dono. */
   paradosNoCondutor?: LinhaDoCondutor[];
+  /** RM-055 (continuacao, D3): os impedimentos do despacho que so o dono resolve, com o comando de cada um. */
+  impedimentosDoDono?: LinhaDoImpedimento[];
   /**
    * RM-057 (fatia 3): o tempo parado por HITL de conducao, so quando passou da meta de 5 min (uma
    * aberta alem dela ou a mediana dos 7 dias acima). Vira uma linha; nao conta como pergunta nem e
@@ -115,6 +124,7 @@ export interface OpcoesDeResumo {
   acimaDoLimiar?: readonly FaseAcimaDoLimiar[];
   outrasMaquinas?: readonly ResumoDeMaquina[];
   paradosNoCondutor?: readonly LinhaDoCondutor[];
+  impedimentosDoDono?: readonly LinhaDoImpedimento[];
   hitlDeConducao?: HitlDeConducaoAgora;
 }
 
@@ -135,6 +145,8 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
     threadsTecnicas: [...new Set(tecnicos.map(i => i.thread).filter((t): t is string => !!t))].sort(),
     ...(opcoes.paradosNoCondutor?.length ? { paradosNoCondutor: opcoes.paradosNoCondutor.map(p => ({ thread: p.thread, caso: p.caso,
       desdeEm: p.desdeEm, proximoPasso: p.proximoPasso })) } : {}),
+    ...(opcoes.impedimentosDoDono?.length ? { impedimentosDoDono: opcoes.impedimentosDoDono.map(i => ({ thread: i.thread,
+      fase: i.fase, comando: i.comando, retry: i.retry })) } : {}),
     ...(opcoes.hitlDeConducao?.acimaDaMeta ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
 }
@@ -157,6 +169,26 @@ export function linhasDoCondutor(r: ResumoHitl, marcador: string, recuo: string)
   const parados = r.paradosNoCondutor ?? [];
   const mostradas = parados.slice(0, TETO_DE_PARADOS_NO_CONDUTOR), sobra = parados.length - mostradas.length;
   return [...mostradas.map(p => `${marcador}${linhaDoParadoNoCondutor(p, { agora: r.consultadoEm })}`),
+    ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
+}
+
+/** Quantos impedimentos do dono o resumo detalha antes de contar o resto. */
+export const TETO_DE_IMPEDIMENTOS = 5;
+
+/** Uma linha so, sem caractere de controle e sem corte: o comando precisa chegar inteiro para ser copiado. */
+const semQuebra = (texto: string): string => String(texto).replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * RM-055 (continuacao, D3): o titulo e uma linha por impedimento do dono, iguais nos dois canais (so o
+ * marcador e o recuo mudam). Cada linha diz a thread, a fase, o comando exato e o retry que vem depois.
+ */
+export function linhasDosImpedimentos(r: ResumoHitl, marcador: string, recuo: string): string[] {
+  const impedimentos = r.impedimentosDoDono ?? [];
+  if (!impedimentos.length) return [];
+  const mostrados = impedimentos.slice(0, TETO_DE_IMPEDIMENTOS), sobra = impedimentos.length - mostrados.length;
+  return [`${marcador}Só você destrava, no terminal: ${impedimentos.length}`,
+    ...mostrados.map(i => `${recuo}• ${semQuebra(i.thread)}${i.fase ? ` ${semQuebra(i.fase)}` : ''}: ` +
+      `rode \`${semQuebra(i.comando)}\`; depois \`${semQuebra(i.retry)}\``),
     ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : [])];
 }
 
@@ -227,6 +259,9 @@ export function linhasDasDecisoes(r: ResumoHitl, marcador: string, recuo: string
 /** Quando nao ha pergunta, o resumo diz isso em vez de pedir licenca para mandar nada. */
 export const SEM_PERGUNTA_NO_RESUMO = 'Nada aqui pede resposta sua por este canal agora.';
 
+/** RM-055 (continuacao, D3): sem pergunta, mas com impedimento do dono: o que fazer esta no bloco acima. */
+export const SEM_PERGUNTA_COM_IMPEDIMENTO = 'Nada aqui pede resposta sua por este canal agora; o que só você destrava está acima, no terminal.';
+
 /** A linha das perguntas prontas, uma so para os dois canais, pelo mesmo motivo da de baixo. */
 export function linhaDasPerguntas(n: number): string {
   return `Perguntas para você: ${n}`;
@@ -281,7 +316,7 @@ function abertura(r: ResumoHitl, codigo: string | undefined, marca: string, resp
 }
 
 function fecho(r: ResumoHitl): string[] {
-  return r.pergunta ? [] : ['', SEM_PERGUNTA_NO_RESUMO];
+  return r.pergunta ? [] : ['', r.impedimentosDoDono?.length ? SEM_PERGUNTA_COM_IMPEDIMENTO : SEM_PERGUNTA_NO_RESUMO];
 }
 
 function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
@@ -299,6 +334,7 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.tecnicos ? [`🔧 ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).map(l => `⏳ ${l}`),
+    ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '🔑 ', '   ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
@@ -332,6 +368,7 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.tecnicos ? ['', `  ${linhaDosTecnicos(r)}`] : []),
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).flatMap(l => ['', `  ${l}`]),
+    ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '  ', '  ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),
