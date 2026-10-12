@@ -61,7 +61,8 @@ test('decisao obvia: as quatro condicoes, uma chamada de ork_decision_record, se
   expect(Object.keys(d).sort()).toEqual(['comoMudar', 'criterio', 'custoAgora', 'custoDepois', 'decidido', 'evidencia', 'porque', 'quemDecidiu', 'threadId'])
   expect(d.threadId).toBe('ork-b')
   expect(d.decidido).toBe('Sem te chamar: o pedido B2X9 (ob000000) da ork-b segue a recomendada a (Aprovar com as evidências apresentadas) no prazo 12/10 14:46 (horário de Brasília)')
-  expect(d.criterio).toEqual({ tipo: 'medicao', referencia: '.orkastery/threads/ork-b/ledger.jsonl: o hitl_requested do pedido ob000000-0000-4000-8000-000000000002 declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível' })
+  expect(d.criterio).toEqual({ tipo: 'medicao',
+    referencia: `grep -F '"id":"ob000000-0000-4000-8000-000000000002"' .orkastery/threads/ork-b/ledger.jsonl | grep -qF '"acaoPadraoAoExpirar":"seguir-recomendada"'` })
   expect(d.quemDecidiu).toBe('mod ork-mesa na sessão do dono, pelo teste das quatro condições')
   expect(d.comoMudar).toBe('Na Mesa, Decidir no cartão do pedido B2X9 antes do prazo ou B2X9 a pelo Telegram')
   for (const campo of ['decidido', 'porque', 'comoMudar']) expect(d[campo].length <= 200 && !/\n/.test(d[campo])).toBe(true)
@@ -185,20 +186,71 @@ test('cada condicao que falha sozinha deixa o pedido como pergunta com Decidir, 
 test('notificacao que nao sai fica no aviso, nao entra no registro e volta na leitura seguinte; a que saiu nao repete', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', pulse: pulseCom({ pedidos: [PEDIDO_4] }), pendentes: { 'ork-a': pendentesDe('ork-a', [PEDIDO_4]) } })
-  mundo.notificacaoSai = false
+  mundo.notificacaoNaoSai = 'refused'
   await iniciar($)
   await drenar()
   expect(mundo.notificacoes.length).toBe(1)
   expect(mundo.mostrados.filter(m => m.canal === 'notificacao')).toEqual([])
   expect(await textosDoPainel($, 'terminal')).toContain(
-    'não avisei o dono do pedido novo: a notificação do sistema não saiu (disabled); a faixa e o painel seguem')
-  mundo.notificacaoSai = true
+    'não avisei o dono do pedido novo: a notificação do sistema não saiu (o terminal recusou a notificação); a faixa e o painel seguem')
+  mundo.notificacaoNaoSai = null
   await mesa($)
   expect(mundo.notificacoes.length).toBe(2)
   expect(mundo.mostrados.filter(m => m.canal === 'notificacao').length).toBe(1)
   await relogio.advance(20 * 60000)
   await mesa($)
   expect(mundo.notificacoes.length).toBe(2)
+})
+
+test('notificacao desligada pelo dono e escolha dele: sem aviso, sem nova tentativa e sem registro', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', pulse: pulseCom({ pedidos: [PEDIDO_4] }), pendentes: { 'ork-a': pendentesDe('ork-a', [PEDIDO_4]) } })
+  mundo.notificacaoNaoSai = 'disabled'
+  await iniciar($)
+  await drenar()
+  await relogio.advance(20 * 60000)
+  await mesa($)
+  expect(mundo.notificacoes.length).toBe(1)
+  expect(mundo.mostrados.filter(m => m.canal === 'notificacao')).toEqual([])
+  expect((await textosDoPainel($, 'terminal')).some(t => t.startsWith('não avisei o dono'))).toBe(false)
+})
+
+test('a decisao incerta que o pulse nao confirma vence aos 10 min: so entao vira pergunta e notifica', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', relogio, pulse: pulseCom({ pedidos: [PEDIDO_OBVIO] }), pendentes: { 'ork-b': pendentesDe('ork-b', [PEDIDO_OBVIO]) },
+    paineis: A_VISTA })
+  // O nucleo nunca responde a gravacao a tempo, e o pulse nunca mostra a decisao.
+  mundo.atrasoDaDecisaoMs = 60 * 60000
+  await iniciar($)
+  await drenar()
+  await relogio.advance(9 * 60000)
+  await drenar()
+  expect(mundo.notificacoes).toEqual([])
+  await relogio.advance(2 * 60000)
+  await drenar()
+  expect(mundo.notificacoes).toEqual([{ text: 'ork-b espera você: Qual é o veredito sobre as evidências do CHECK?', title: 'Mesa do Dono' }])
+  expect(await textosDoPainel($, 'terminal')).toContain(
+    '  a Mesa não decidiu: o pulse não mostrou a decisão gravada a tempo (a leitura passou de 60 s); vale como pergunta')
+  expect(mundo.decisoes.length).toBe(1)
+})
+
+test('a incerta de um pedido que sai da fila nao prende a leitura do pulse', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', relogio, pulse: pulseCom({ pedidos: [PEDIDO_OBVIO] }), pendentes: { 'ork-b': pendentesDe('ork-b', [PEDIDO_OBVIO]) },
+    paineis: A_VISTA })
+  mundo.atrasoDaDecisaoMs = 60 * 60000
+  await iniciar($)
+  await drenar()
+  await relogio.advance(61000)
+  await drenar()
+  // O dono respondeu pelo Telegram: o pedido sai da fila com a decisao ainda incerta.
+  mundo.pulse = pulseCom({})
+  mundo.pendentes['ork-b'] = pendentesDe('ork-b', [])
+  await mesa($)
+  const antes = mundo.ler.filter(l => l.consulta === 'pulse').length
+  await relogio.advance(30 * 60000)
+  await drenar()
+  expect(mundo.ler.filter(l => l.consulta === 'pulse').length - antes).toBeLessThanOrEqual(7)
 })
 
 test('o pedido que o registro da ponte ja diz notificado (de antes de uma recarga) nao notifica de novo', { plugins: [PONTE_FALSA] }, async ($, on) => {

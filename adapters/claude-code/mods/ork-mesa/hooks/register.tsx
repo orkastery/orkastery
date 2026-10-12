@@ -9,7 +9,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { MesaDecidindo, MesaFila, MesaObvia, MesaPergunta } from '../types'
 import type { MesaMostrado } from './cartoes'
 import { desenharMesa, linhasDaMesa, mostradosVisiveis, paginaDoLote } from './cartoes'
-import { argsDaDecisaoObvia, argsDoDecidir, jaDecidida, resultadoDoDecidir } from './decidir'
+import { argsDaDecisaoObvia, argsDoDecidir, jaDecidida, motivoDaNotificacao, resultadoDoDecidir, soltarAbrindo } from './decidir'
 import {
   assinaturaDoRetrato, conferirNoNucleo, decisoesVistas, esperamODono, FILA_VAZIA, filaDoPulse, jsonDoMcp, ordenarPerguntas,
   pedidosNotificados, textoDaFaixa, threadsComPergunta, umaLinha,
@@ -58,6 +58,8 @@ let pulseLidoEm: number | null = null
 /** A ultima falha do pulse e o recuo ate a proxima tentativa automatica. */
 let pulseFalhouEm: number | null = null
 let recuoMs = 0
+/** O retrato mudou e o pulse ainda nao foi relido por causa disso (a mudanca vista no recuo nao se perde). */
+let mudancaPendente = false
 let lendo: Promise<void> | undefined
 let pendente = false
 /** Pedidos que esta sessao ja levou ao dono por notificacao. */
@@ -123,10 +125,16 @@ async function papelDaSessao($: EngineInterface): Promise<string | null> {
 async function ativar($: EngineInterface): Promise<void> {
   if (ativa) return
   ativa = true
-  await $.command.register({ name: 'mesa', description: 'Abre a Mesa do Dono: o que espera você no Orkastery, com a recomendação na frente', immediate: true })
+  try {
+    await $.command.register({ name: 'mesa', description: 'Abre a Mesa do Dono: o que espera você no Orkastery, com a recomendação na frente', immediate: true })
+  } catch (erro) {
+    // Sem o /mesa o painel nao abre: a Mesa volta a dormente e tenta de novo na espera longa.
+    ativa = false
+    $.clock.after(ESPERA_LONGA_DO_PAPEL_MS, () => { emSegundoPlano($, conferirPapel($, ESPERAS_DO_PAPEL_MS.length), 'a conferência do papel') })
+    throw erro
+  }
   // Depois de uma recarga do modulo, nenhum Decidir esta em curso: o que ficou "abrindo" no estado volta a ter botao.
-  await update($, decidindo, d => Object.fromEntries(Object.entries(d).map(([id, v]) => [id, v.estado === 'abrindo'
-    ? { estado: 'sem-resposta' as const, texto: 'o diálogo ficou sem resposta (a Mesa recarregou); o pedido segue aberto', em: v.em } : v])))
+  await update($, decidindo, soltarAbrindo)
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { emSegundoPlano($, tique($), 'o tique da Mesa') })
   emSegundoPlano($, atualizar($), 'a primeira leitura da fila')
@@ -164,20 +172,23 @@ async function tique($: EngineInterface): Promise<void> {
 /** O retrato da secao `hitl` como sinal de mudanca, e o pulse quando o retrato muda ou o pulse fica velho (D3). */
 async function conferirMudanca($: EngineInterface, aVista: boolean): Promise<void> {
   const agora = await $.clock.now()
-  let mudou = false
   try {
     const r = await comPrazo($, $.ork.retrato({ secao: 'hitl' }))
     const nova = assinaturaDoRetrato(r.retrato)
-    mudou = assinatura !== null && nova !== assinatura
+    if (assinatura !== null && nova !== assinatura) mudancaPendente = true
     assinatura = nova
   } catch (erro) {
     await anotarAviso($, `não li o retrato do núcleo: ${mensagem(erro)}`)
   }
   const idade = pulseLidoEm === null ? Number.POSITIVE_INFINITY : agora - pulseLidoEm
-  const noRecuo = pulseFalhouEm !== null && agora - pulseFalhouEm < recuoMs
-  // Decisao obvia incerta: o pulse e relido a cada conferencia ate ela aparecer ou vencer a incerteza.
-  const incerta = Object.values(await read($, obvias)).some(o => o.estado === 'incerta')
-  if (!noRecuo && (mudou || incerta || idade >= (aVista ? IDADE_DO_PULSE_A_VISTA_MS : IDADE_DO_PULSE_ESCONDIDO_MS))) await atualizar($)
+  if (pulseFalhouEm !== null && agora - pulseFalhouEm < recuoMs) return
+  // Decisao obvia incerta de pedido ainda na fila: o pulse e relido a cada conferencia ate ela se resolver.
+  const naFila = new Set((await read($, fila)).perguntas.map(p => p.pedidoId))
+  const incerta = Object.entries(await read($, obvias)).some(([id, o]) => o.estado === 'incerta' && naFila.has(id))
+  if (mudancaPendente || incerta || idade >= (aVista ? IDADE_DO_PULSE_A_VISTA_MS : IDADE_DO_PULSE_ESCONDIDO_MS)) {
+    mudancaPendente = false
+    await atualizar($)
+  }
 }
 
 /** Uma leitura por vez; pedido que chega no meio volta a rodar logo depois, e quem pediu espera as duas. */
@@ -262,13 +273,21 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
 async function registrarObvias($: EngineInterface, f: MesaFila, agora: number): Promise<boolean> {
   let pediu = false
   const ja = await read($, obvias)
+  // A incerta de pedido que saiu da fila (respondido, substituido ou vencido) nao tem mais o que confirmar.
+  const naFila = new Set(f.perguntas.map(p => p.pedidoId))
+  const sairam = Object.keys(ja).filter(id => ja[id]?.estado === 'incerta' && !naFila.has(id))
+  if (sairam.length) await update($, obvias, o => Object.fromEntries(Object.entries(o).filter(([id]) => !sairam.includes(id))))
   for (const p of f.perguntas) {
     const anterior = ja[p.pedidoId]
     if (anterior) {
+      // A incerteza vence em 10 min ou no prazo do pedido, o que vier antes: o dono ainda precisa de tempo para decidir.
+      const prazo = Date.parse(p.prazo ?? '')
+      const vence = Math.min(anterior.em + INCERTEZA_MAXIMA_MS, Number.isFinite(prazo) ? prazo : Number.POSITIVE_INFINITY)
       if (anterior.estado !== 'registrada' && jaDecidida(f.decisoes, p)) {
         await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'registrada', texto: 'registrada no núcleo (conferida no pulse)', em: agora } }))
-      } else if (anterior.estado === 'incerta' && agora - anterior.em >= INCERTEZA_MAXIMA_MS) {
-        await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'recusada', texto: anterior.texto, em: agora } }))
+      } else if (anterior.estado === 'incerta' && agora >= vence) {
+        await update($, obvias, o => ({ ...o, [p.pedidoId]: { estado: 'recusada',
+          texto: `o pulse não mostrou a decisão gravada a tempo (${anterior.texto}); vale como pergunta`, em: agora } }))
       }
       continue
     }
@@ -325,7 +344,12 @@ async function notificarNovas($: EngineInterface, f: MesaFila, jaNotificados: Re
   let motivo: string | null
   try {
     const enviada = await $.ui.notify(texto, { title: TITULO })
-    motivo = enviada.isSent ? null : `a notificação do sistema não saiu (${String(enviada.reason)})`
+    if (!enviada.isSent && enviada.reason === 'disabled') {
+      // O dono desligou as notificacoes: escolha dele, sem aviso e sem nova tentativa; a faixa e o painel seguem.
+      for (const p of novas) notificados.add(p.pedidoId)
+      return
+    }
+    motivo = enviada.isSent ? null : motivoDaNotificacao(enviada.reason)
   } catch (erro) {
     motivo = mensagem(erro)
   }

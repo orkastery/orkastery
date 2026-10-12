@@ -3,11 +3,13 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
+import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { classificarDecisao, exigirSelecaoDeConducao, validarPedidoHitlV2 } from '../src/hitl-contract';
 import { criarServidorMcp } from '../src/mcp-server';
 import { decisoesParaODono } from '../src/decisao-autonoma';
+import { registrarPedidoHitl } from '../src/hitl-gates';
 import { lerLedger } from '../src/ledger';
 import { dirThread, gravarThread, novaThread } from '../src/thread';
 import { projetoTemporario } from './apoio';
@@ -220,7 +222,7 @@ test('obvia: o pedido que declara seguir-recomendada passa nas quatro; cada port
   const r = o.testeDaObvia(certa, EPOCA);
   assert.equal(r.obvia, true);
   assert.equal(r.alternativa.chave, 'a');
-  assert.equal(r.referencia, '.orkastery/threads/ork-b/ledger.jsonl: o hitl_requested do pedido ob000000-0000-4000-8000-000000000002 declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível');
+  assert.equal(r.referencia, `grep -F '"id":"ob000000-0000-4000-8000-000000000002"' .orkastery/threads/ork-b/ledger.jsonl | grep -qF '"acaoPadraoAoExpirar":"seguir-recomendada"'`);
   const casos: Array<[string, Record<string, unknown>]> = [
     ['irreversivel', { irreversivel: true, ato: 'push-base-protegida' }],
     ['dinheiro', { motivo: 'cost.violation' }],
@@ -279,6 +281,15 @@ test('Decidir: os argumentos sao so threadId e pedidoId; a marca do pedido acha 
   assert.deepEqual(d.resultadoDoDecidir({ ok: true, estado: 'aprovado', repetida: true }, 5), { estado: 'respondido', texto: 'o pedido já estava respondido no núcleo: aprovado', em: 5 });
   assert.deepEqual(d.resultadoDoDecidir({ ok: true, estado: 'aguardando', repetida: false }, 5), { estado: 'respondido', texto: 'respondido pelo diálogo: aguardando', em: 5 });
   assert.equal(d.resultadoDoDecidir({ ok: false, estado: 'pendente' }, 5).estado, 'sem-resposta');
+  // Depois de uma recarga do modulo, o "abrindo" que sobrou no estado vira "sem-resposta" e o resto fica como esta.
+  const soltos = d.soltarAbrindo({ p1: { estado: 'abrindo', texto: 'x', em: 3 }, p2: { estado: 'respondido', texto: 'y', em: 4 } });
+  assert.equal(soltos.p1.estado, 'sem-resposta');
+  assert.equal(soltos.p1.em, 3);
+  assert.deepEqual(soltos.p2, { estado: 'respondido', texto: 'y', em: 4 });
+  assert.equal(d.motivoDaNotificacao('refused'), 'a notificação do sistema não saiu (o terminal recusou a notificação)');
+  assert.equal(d.motivoDaNotificacao('outro'), 'a notificação do sistema não saiu (outro)');
+  assert.ok(fs.readFileSync(path.join(MESA, 'hooks/register.tsx'), 'utf8').includes('await update($, decidindo, soltarAbrindo)'),
+    'o ativar solta o Decidir preso na recarga');
 });
 
 test('decisao obvia: o ork_decision_record de um servidor MCP de verdade aceita os argumentos da Mesa, e o pulse a traz de volta', async () => {
@@ -293,7 +304,11 @@ test('decisao obvia: o ork_decision_record de um servidor MCP de verdade aceita 
     const { thread } = novaThread(p.carregado, { nome: 'mesa obvia', modo: 'classic' });
     thread.faseAtual = 'GO';
     gravarThread(p.dir, thread);
-    const args = d.argsDaDecisaoObvia({ ...certa, thread: thread.id }, teste.alternativa, teste.referencia, new Date(EPOCA).toISOString());
+    // Como no registro da Mesa: o teste e os argumentos saem da mesma pergunta, a da thread do projeto temporario.
+    const daThread = { ...certa, thread: thread.id };
+    const testeDaThread = o.testeDaObvia(daThread, EPOCA);
+    assert.equal(testeDaThread.obvia, true);
+    const args = d.argsDaDecisaoObvia(daThread, testeDaThread.alternativa, testeDaThread.referencia, new Date(EPOCA).toISOString());
     assert.deepEqual(Object.keys(args).sort(), ['comoMudar', 'criterio', 'custoAgora', 'custoDepois', 'decidido', 'evidencia', 'porque', 'quemDecidiu', 'threadId']);
     for (const campo of ['decidido', 'porque', 'comoMudar']) assert.ok(args[campo].length <= 200 && !/[\r\n]/.test(args[campo]), campo);
     for (const campo of ['custoAgora', 'custoDepois']) assert.ok(args[campo].length <= 140, campo);
@@ -311,6 +326,13 @@ test('decisao obvia: o ork_decision_record de um servidor MCP de verdade aceita 
       await client.close();
       await server.close();
     }
+    // O criterio e um comando que o CHECK roda contra o ledger: sai 0 com o pedido que declara seguir a recomendada no
+    // prazo, e 1 com um que espera o dono.
+    registrarPedidoHitl(p.dir, { ...a.PEDIDO_OBVIO, thread: thread.id });
+    const rodar = (comando: string) => spawnSync('/bin/sh', ['-c', comando], { cwd: p.dir, stdio: 'ignore' }).status;
+    assert.equal(rodar(args.criterio.referencia), 0, args.criterio.referencia);
+    const outro = o.referenciaDoCriterio({ ...certa, thread: thread.id, pedidoId: 'nao-existe-no-ledger' });
+    assert.equal(rodar(outro), 1);
     const evento = lerLedger(dirThread(p.dir, thread.id)).filter((e) => e.tipo === 'autonomous_decision').at(-1);
     assert.equal(evento?.quemDecidiu, d.QUEM_DECIDIU);
     assert.equal((evento?.pedido as { classe?: string } | undefined)?.classe, 'decidido');

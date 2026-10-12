@@ -63,6 +63,8 @@ export function linhasDaPergunta(p: MesaPergunta, e: EstadoDaMesa, agora: number
     linhas.push({ tipo: 'dim', chave: k('obvia'), texto: '  a Mesa pediu ao núcleo a decisão óbvia e confere na próxima leitura se ela foi gravada' })
   } else if (obvia?.estado === 'recusada') {
     linhas.push({ tipo: 'aviso', chave: k('obvia'), texto: `  a Mesa não decidiu: ${obvia.texto}` })
+  } else if (!p.conferida) {
+    linhas.push({ tipo: 'dim', chave: k('porque-pergunta'), texto: '  não conferido no núcleo agora: sem Decidir e sem decisão óbvia; use a reserva' })
   } else {
     // Sem criterio escrito e o caso de todo gate que espera o dono: dizer isso em cada cartao so repetiria a regra.
     const teste = testeDaObvia(p, agora)
@@ -159,8 +161,9 @@ export function linhasDaMesa(e: EstadoDaMesa, opcoes: { agora: number }): LinhaD
   fila.avisos.forEach((a, i) => linhas.push({ tipo: 'aviso', chave: `aviso:${i}`, texto: a }))
   if (foco) linhas.push({ tipo: 'foco', chave: 'foco', texto: `só ${foco}` })
 
-  linhas.push({ tipo: 'secao', chave: 'secao-perguntas', texto: 'Esperam você' })
-  if (!perguntas.length) linhas.push({ tipo: 'dim', chave: 'sem-perguntas', texto: '  nenhum pedido espera você agora' })
+  // A secao lista todo pedido aberto; o placar conta so os que esperam o dono (a decisao obvia nao espera).
+  linhas.push({ tipo: 'secao', chave: 'secao-perguntas', texto: 'Pedidos abertos' })
+  if (!perguntas.length) linhas.push({ tipo: 'dim', chave: 'sem-perguntas', texto: '  nenhum pedido aberto agora' })
   const { pagina, paginas } = paginaDoLote(perguntas.length, e.pagina)
   for (const p of perguntas.slice(pagina * TAMANHO_DO_LOTE, (pagina + 1) * TAMANHO_DO_LOTE)) linhas.push(...linhasDaPergunta(p, e, agora))
   if (paginas > 1) linhas.push({ tipo: 'nav', chave: 'nav', texto: `lote ${pagina + 1} de ${paginas}` })

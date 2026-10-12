@@ -147,7 +147,8 @@ export function montar(on, opcoes) {
     atrasoDaDecisaoMs: 0, atrasoDoDecidirMs: 0, atrasoRealDoDecidirMs: 0,
     // O pulse que o nucleo passa a servir depois que a decisao obvia e gravada.
     pulseDepoisDaDecisao: opcoes.pulseDepoisDaDecisao ?? null,
-    notificacaoSai: true, registroFalha: false,
+    // O motivo da notificacao que nao sai (`disabled`, `refused`, ...); `null` e a que sai.
+    notificacaoNaoSai: null, registroFalha: false,
     ler: [], maestro: 0, hitlPending: [], decidir: [], decisoes: [], outrasMcp: [], faixas: [], mostrados: [], notificacoes: [],
     comandos: [], abertos: [], toasts: [], proibidas: [],
   }
@@ -201,7 +202,7 @@ export function montar(on, opcoes) {
   on('ui.toast', ($, e) => { mundo.toasts.push(e.text); return { value: undefined } })
   on('ui.notify', ($, e) => {
     mundo.notificacoes.push({ text: e.text, title: e.title })
-    return { value: mundo.notificacaoSai ? { isSent: true, channel: 'iterm2' } : { isSent: false, reason: 'disabled' } }
+    return { value: mundo.notificacaoNaoSai ? { isSent: false, reason: mundo.notificacaoNaoSai } : { isSent: true, channel: 'iterm2' } }
   })
   on('process.run', ($, e) => { mundo.proibidas.push({ evento: 'process.run', argv: e.argv }); return { value: { exitCode: 1, stdout: '', stderr: '' } } })
   on('prompt.submit', ($, e) => { mundo.proibidas.push({ evento: 'prompt.submit' }); return { drop: 'teste' } })

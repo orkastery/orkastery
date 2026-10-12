@@ -78,6 +78,26 @@ export function argsDaDecisaoObvia(p: MesaPergunta, recomendada: { chave: string
   }
 }
 
+/**
+ * Depois de uma recarga do modulo nenhum Decidir esta em curso: o que ficou `abrindo` no estado vira `sem-resposta`,
+ * e o cartao volta a ter o botao.
+ */
+export function soltarAbrindo(decidindo: Readonly<Record<string, MesaDecidindo>>): Record<string, MesaDecidindo> {
+  return Object.fromEntries(Object.entries(decidindo).map(([id, v]) => [id, v.estado === 'abrindo'
+    ? { estado: 'sem-resposta' as const, texto: 'o diálogo ficou sem resposta (a Mesa recarregou); o pedido segue aberto', em: v.em } : v]))
+}
+
+/** Por que a notificacao do sistema nao saiu, em pt-BR (o motor manda o codigo em ingles). */
+export function motivoDaNotificacao(reason: unknown): string {
+  const motivos: Record<string, string> = {
+    'no-channel': 'nenhum canal de notificação configurado',
+    'no-surface': 'nenhuma superfície para mostrar',
+    refused: 'o terminal recusou a notificação',
+    disabled: 'as notificações estão desligadas',
+  }
+  return `a notificação do sistema não saiu (${motivos[String(reason)] ?? String(reason)})`
+}
+
 /** O que o cartao diz do Decidir, a partir do que o nucleo devolveu (`{ ok, pedidoId, estado, repetida }`). */
 export function resultadoDoDecidir(resposta: unknown, agora: number): MesaDecidindo {
   const r = (resposta && typeof resposta === 'object' ? resposta : {}) as { ok?: unknown; estado?: unknown; repetida?: unknown }

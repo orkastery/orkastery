@@ -60,6 +60,7 @@ test('sem o ork_hitl_pending o cartao fica com o pulse, sem Decidir, e o aviso d
   const textos = await textosDoPainel($, 'terminal')
   expect(textos).toContain('? ork-a · CHECK · código K7Q2 · vence em 46 min')
   expect(textos).toContain('não conferi os pedidos da ork-a no núcleo: thread sem pedidos')
+  expect(textos).toContain('  não conferido no núcleo agora: sem Decidir e sem decisão óbvia; use a reserva')
   expect(textos).not.toContain('Decidir')
 })
 
@@ -296,6 +297,12 @@ test('falha em segundo plano vira aviso no painel, e nunca rejeicao sem tratamen
   await drenar()
   const textos = await textosDoPainel($, 'terminal')
   expect(textos.some(t => t.startsWith('a conferência do papel parou: '))).toBe(true)
+  // Sem o /mesa o painel nao abre: a Mesa tenta de novo na espera longa e liga quando o registro passa.
+  expect(mundo.comandos).toEqual([])
+  mundo.registroFalha = false
+  await relogio.advance(5 * 60000)
+  await drenar()
+  expect(mundo.comandos).toEqual(['mesa'])
 })
 
 test('fora de sessao interativa (-p ou SDK) a Mesa nao confere o papel nem liga', { plugins: [PONTE_FALSA] }, async ($, on) => {

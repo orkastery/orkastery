@@ -48,9 +48,12 @@ export type ResultadoDaObvia =
   | { obvia: true; alternativa: MesaAlternativa; referencia: string }
   | { obvia: false; falhou: Condicao[] }
 
-/** A referencia do criterio que a Mesa cita: onde o fato fica escrito para sempre (o pedido no ledger) e o fato. */
+/**
+ * A referencia do criterio que a Mesa cita: a medicao como comando que o CHECK roda contra o ledger, onde o pedido fica
+ * escrito para sempre (sai 0 so se o pedido declara seguir a recomendada no prazo).
+ */
 export function referenciaDoCriterio(p: MesaPergunta): string {
-  return `.orkastery/threads/${p.thread}/ledger.jsonl: o hitl_requested do pedido ${p.pedidoId} declara acaoPadraoAoExpirar seguir-recomendada, sem ato irreversível`
+  return `grep -F '"id":"${p.pedidoId}"' .orkastery/threads/${p.thread}/ledger.jsonl | grep -qF '"acaoPadraoAoExpirar":"seguir-recomendada"'`
 }
 
 /** Os sinais a partir do pedido servido pelo nucleo e do instante da leitura, em ms. */
