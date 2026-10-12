@@ -100,7 +100,10 @@ sdlc:
   - recusar no `ork guard` o verify com `&` e o `pgrep -f` cujo padrão casa com o próprio comando: o guard lê o texto inteiro do comando e recusaria o heredoc ou a documentação que só cita a regra;
   - o observador da sessão desiste sem `phase_result` depois de 600 s em `done` sem Stop, estado desconhecido ou consulta falhando, e não volta (`core/src/session-watcher-claude.ts`): o portão de vaga agora solta essa sessão quando o runtime a mostra encerrada, mas o ledger segue sem o resultado;
   - a prova de fim da sessão da própria thread (`provaDeFimDaSessao`, `core/src/conducao.ts`) consulta só a conta do processo: a sessão despachada por perfil nunca é provada encerrada ali;
-  - o bloco do `AGENTS.md` que o `ork init` escreve e o bloco da experiência do `CLAUDE.md` não levam a regra: o primeiro pede o snapshot de locale, e o segundo é reconhecido sem recibo pelo texto exato.
+  - o bloco do `AGENTS.md` que o `ork init` escreve e o bloco da experiência do `CLAUDE.md` não levam a regra: o primeiro pede o snapshot de locale, e o segundo é reconhecido sem recibo pelo texto exato;
+  - o portão decide o fantasma numa leitura só: um instante sem `pid` (troca de processo, atualização automática) soltaria a vaga uma vez, enquanto o observador da sessão pede uma segunda observação; nesta máquina, em 12/10, toda `blocked` sem `pid` era registro morto havia horas;
+  - o parser do `claude agents --json --all` é estrito: um registro malformado entre os cerca de 150 invalida a leitura da conta inteira (a sessão segue contando, sem aviso de que o runtime não foi lido), e a vaga solta pela prova do runtime não deixa rastro no ledger;
+  - a regra cita o `pgrep -f` cujo padrão aparece no próprio comando; o texto que outro processo carrega também prende a espera (o prompt de outra sessão traz `ork verify`), e a saída que a regra dá, o arquivo de saída com prazo ou o PID guardado, cobre os dois casos.
 
 ## Estado com evidências
 
