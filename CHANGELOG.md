@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
+  da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
+  consultas `--json` do CLI, a faixa acima do prompt e os `watchPaths` com dono único, e o registro do que um mod
+  mostrou ao dono (`ork.mod-mostrado/v1`). A regra de autoridade (nenhum mod aprova gate, permissão, nota do MASTER,
+  push ou tag pelo dono, nem fala como o dono) mora em `adapters/claude-code/mods/autoridade.json` e tem duas guardas:
+  `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
+  `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
+  quem conduz.
 - **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
   `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
   do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
