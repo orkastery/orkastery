@@ -269,6 +269,174 @@
       "criadoEm": "2026-10-12T14:03:31.401Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4 degrau 1: o daemon de pe com o control.sock mudo sai por claude daemon stop --any --keep-workers e o MESMO prompt volta ao mesmo destino (runtime, perfil, modelo e esforco), com runtime_recuperacao no ledger; a leitura do claude daemon status separa responde, travado, parado e nao lido",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4(: a leitura| degrau 1)\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:20.749Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4 degraus 2 e 3: com o claude-bg fora, o mesmo prompt vai ao fallback do bloco (codex) e, sem fallback, a outro perfil do runtime que nao e a conta do despacho; o degrau sem destino e pulado sem gastar tentativa",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4 degrau [23]\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:20.925Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "F4: os tres degraus sem sessao chamam o dono com gate_blocked human.pending, tres alternativas e uma recomendada (RM-057) e o comando que retoma com o mesmo prompt; o pulse leva o pedido curto; o retry plan deixa de ser automatico; o pedido novo da fase recomeca a escada",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4: os tres degraus\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "F4: CLI: ork retry plan diz o degrau da escada e ork retry run sobe o degrau 1 pelo claude daemon do stub (status, stop, status) e redespacha o mesmo sha256",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4: CLI\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.270Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "F4 sem regressao: os testes da F3 e do B3 seguem verdes com a escada (o redespacho sai com origem retry.escada e o mesmo sha256; a 2a tentativa de runtime.unavailable vai ao degrau 2 sem escalar o esforco), e a fixture pt-BR da F2b so mudou na politica do retry",
+      "negativa": false,
+      "verificar": [
+        "node --test core/dist-test/test/rm063-retry-prompt.test.js core/dist-test/test/retry.test.js core/dist-test/test/locale-f2b-snapshot.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.442Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/autorizacao-duravel.ts",
+      "alegacao": "F5: a autorizacao duravel vale so inteira, desta maquina, deste projeto e no prazo; cada recusa tem motivo tipado (ausente, ilegivel, contrato, campo, acao desconhecida, outra maquina, outro projeto, expirada, rastreada no git)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: a autorizacao duravel\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.617Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "F5: sem autorizacao, o merge de branch ork/* na main sem ship_done, feito em outro clone, aparece na batida seguinte como item da fila do dono com ork ship registrar-pr, e o resumo da batida o mostra; nada e feito",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: sem autorizacao\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.794Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "F5: com a autorizacao, a batida registra a entrega do PR mesclado e, 30 min depois e quieta a thread, fecha pelo MASTER por omissao, cada acao em varredura_acao com quem autorizou, ate quando e o sha256 do arquivo",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: com a autorizacao, a batida registra\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:21.967Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "F5: com a autorizacao a batida solta a sessao fantasma (sessao_morta, origem varredura) e grava varredura_acoes no hitl.log; sem ela a fantasma e item da fila; vencida, nada e feito; o fabrica batida status diz a autorizacao",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: com a autorizacao, a batida solta\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:22.131Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/maquina-ociosa.ts",
+      "alegacao": "F6: 0 sessoes vivas e reserva aberta geram maquinaOciosa no pulse, com as proximas threads sugeridas e o comando de cada uma; sem vaga livre ou com a reserva de outra maquina, nao ha alerta",
+      "negativa": true,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F6: 0 sessoes\" core/dist-test/test/rm063-ociosa.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:22.297Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/pulse-delivery.ts",
+      "alegacao": "F6: a varredura avisa a maquina ociosa na hora, furando a cadencia, uma vez por episodio, e de novo so no episodio seguinte; cada aviso vai ao ledger do projeto como maquina_ociosa_avisada",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F6: a varredura avisa\" core/dist-test/test/rm063-ociosa.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:22.461Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/autorizacao-duravel-rm063.md",
+      "alegacao": "Documentacao da fatia 2 no modo de PR: ork docs verificar --pr sem erro, markdownlint sem erro, nenhum link relativo quebrado, e a referencia do CLI em ingles anda junto com a de pt-BR e com o parser",
+      "negativa": true,
+      "verificar": [
+        "node core/dist/index.js docs verificar --pr && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs && node --test core/dist-test/test/locale-f3a-referencia.test.js core/dist-test/test/rm044-paridade-cli-md.test.js"
+      ],
+      "criadoEm": "2026-10-12T18:12:22.628Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
