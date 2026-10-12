@@ -24,8 +24,8 @@
  * ausente, os erros de argumento de `thread new`, `--runtime` e o modelo ao trocar de runtime no `phase run`)
  * e remontado no locale do comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
  * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
- * memoria, o erro de estado durante a gravacao e, na F2b, a recusa `ship.remoto-invalido` do `exigirRemoto`
- * (`branch-de-estado.ts`, modulo compartilhado com a fabrica e a rede). O cabecalho `Projeto consultado:` e `Não lido:` e
+ * memoria e o erro de estado durante a gravacao; a recusa `<prefixo>.remoto-invalido` do `exigirRemoto` (`branch-de-estado.ts`),
+ * que a F2b deixou em pt-BR, vai ao catalogo na F3b. O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
  *
  * F2b (G2 e D1 da thread ork-rm061f2b): o texto que o proprio comando monta e que tambem vai ao ledger ou

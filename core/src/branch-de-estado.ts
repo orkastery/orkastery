@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { redigirCredenciaisUrl } from './redacao-url';
+import { ErroDoCatalogo } from './locale';
 
 export interface SaidaGit { ok: boolean; stdout: string; stderr: string }
 
@@ -66,9 +67,9 @@ export function remotoRedigido(remoto: unknown): string {
  */
 export function exigirRemoto(remoto: unknown, prefixo: string): string {
   if (remotoValido(remoto)) return remoto;
-  throw new Error(`${prefixo}.remoto-invalido: o remoto ${remotoRedigido(remoto)} não é nome de remoto do git ` +
-    '(letras, dígitos, ".", "_", "-" e "/" entre partes, cada parte começando por letra ou dígito, sem URL); nada foi passado ao git. ' +
-    'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).');
+  // RM-061 (F3b): a recusa nasce do catalogo; o codigo `<prefixo>.remoto-invalido` e o mesmo nas duas linguas.
+  const redigido = remotoRedigido(remoto);
+  throw new ErroDoCatalogo((m) => m.estado.remotoInvalido(prefixo, redigido));
 }
 
 /**

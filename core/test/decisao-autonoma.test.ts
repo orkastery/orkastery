@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { projetoTemporario, runtimePorConta } from './apoio';
+import { envPtBr, projetoTemporario, runtimePorConta } from './apoio';
 import {
   decisoesParaODono, LIMIAR_DE_DECISOES_POR_FASE, NOMES_HISTORICOS_DE_QUEM, placarDaThread, rastroDaDecisao,
   registrarDecisao, taxaDeReversao,
@@ -196,7 +196,8 @@ test('CLI: ork decisao registrar grava a decisão e ork decisao placar mostra a 
       '--evidencia', d.evidencia], { cwd: p.dir, encoding: 'utf8' }));
     assert.equal(saida.ok, true);
     assert.equal(saida.placar.informadas, 1);
-    const placar = execFileSync(process.execPath, [CLI, 'decisao', 'placar', t.id], { cwd: p.dir, encoding: 'utf8' });
+    // RM-061 (F3b): o `decisao placar` segue o locale; o teste le o texto em pt-BR.
+    const placar = execFileSync(process.execPath, [CLI, 'decisao', 'placar', t.id], { cwd: p.dir, encoding: 'utf8', env: envPtBr() });
     assert.match(placar, /GOAL/);
     assert.match(placar, /taxa de reversão das decisões informadas: 0%/);
     const json = JSON.parse(execFileSync(process.execPath, [CLI, 'decisao', 'placar', t.id, '--json'], { cwd: p.dir, encoding: 'utf8' }));

@@ -50,6 +50,10 @@ export const ESTADO_PT_BR = {
   posturaEstadoLink: 'estado.link: .orkastery precisa ser pasta de verdade',
   posturaPrivadaLink: 'estado.link: .orkastery/private precisa ser pasta de verdade',
   posturaRastreada: (nome: string) => `estado.rastreado: ${nome} está versionado no git; tire-o do índice (git rm --cached) antes de confirmar`,
+  // branch-de-estado.ts: o remoto que nunca vai ao git (`<prefixo>` e de quem usa: ship, roadmap, fabrica, ci)
+  remotoInvalido: (prefixo: string, remoto: string) => `${prefixo}.remoto-invalido: o remoto ${remoto} não é nome de remoto do git ` +
+    '(letras, dígitos, ".", "_", "-" e "/" entre partes, cada parte começando por letra ou dígito, sem URL); nada foi passado ao git. ' +
+    'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).',
 };
 
 export type MensagensDeEstado = typeof ESTADO_PT_BR;
@@ -89,4 +93,7 @@ export const ESTADO_EN: MensagensDeEstado = {
   posturaEstadoLink: 'estado.link: .orkastery must be a real folder',
   posturaPrivadaLink: 'estado.link: .orkastery/private must be a real folder',
   posturaRastreada: (nome) => `estado.rastreado: ${nome} is versioned in git; take it out of the index (\`git rm --cached\`) before confirming`,
+  remotoInvalido: (prefixo, remoto) => `${prefixo}.remoto-invalido: remote ${remoto} is not a git remote name ` +
+    '(letters, digits, ".", "_", "-" and "/" between parts, each part starting with a letter or digit, no URL); nothing was passed to git. ' +
+    'Fix `fabrica.remoto` in `orkastery.yaml` or `--remoto` (default: origin).',
 };

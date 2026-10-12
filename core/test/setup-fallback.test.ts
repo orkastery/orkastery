@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 import { alvosDeFallback } from '../src/retry';
 import { lerPerfis } from '../src/runtime-profiles';
 import { caminhoSetup, configDoBloco, ConfigDeBlocoComFallback, editarBloco, fallbackDoBloco, lerSetup, normalizarFallback, textoDoSetup } from '../src/setup';
@@ -17,7 +17,8 @@ const ORK = path.resolve(__dirname, '../../dist/index.js');
 
 function ork(cwd: string, args: string[], env: NodeJS.ProcessEnv = process.env): { saida: string; codigo: number } {
   try {
-    return { saida: execFileSync(process.execPath, [ORK, ...args], { cwd, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }), codigo: 0 };
+    // RM-061 (F3b): `accounts` segue o locale; o teste le o texto em pt-BR.
+    return { saida: execFileSync(process.execPath, [ORK, ...args], { cwd, env: envPtBr(env), encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }), codigo: 0 };
   } catch (e) {
     const erro = e as { status?: number; stdout?: string; stderr?: string };
     return { saida: (erro.stdout ?? '') + (erro.stderr ?? ''), codigo: erro.status ?? -1 };

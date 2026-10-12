@@ -53,6 +53,10 @@ test('locale en F3b reservas: pegar, reservas, feat e soltar saem em ingles, e a
     assert.equal(ork(c, EN, false, 'roadmap', 'pegar', 'XX-1').stderr, 'error: roadmap.item: "XX-1" is not a roadmap item (expected RM-NNN)\n');
     assert.match(ork(c, EN, false, 'roadmap', 'voar').stderr, /^usage: ork roadmap status \[--json\] \| reservas /);
     assert.equal(ork(c, EN, false, 'roadmap', 'reservas', '--soltar-orfas').stdout, 'No orphan reservation on this machine.\n');
+    // O remoto que nunca vai ao git: a recusa sai do catalogo, com o codigo igual nas duas linguas.
+    const remotoInvalido = (env: Record<string, string>) => ork(c, env, false, 'roadmap', 'reservas', '--remoto=--upload-pack=x');
+    assert.match(remotoInvalido(EN).stderr, /^error: roadmap\.remoto-invalido: remote "--upload-pack=x" is not a git remote name \(letters, digits, /);
+    assert.match(remotoInvalido(PT).stderr, /^erro: roadmap\.remoto-invalido: o remoto "--upload-pack=x" não é nome de remoto do git /);
     // O --json e o mesmo nas duas linguas.
     const semVariavel = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>').replace(/[0-9a-f]{40}/g, '<SHA>');
     assert.equal(semVariavel(ork(c, EN, false, 'roadmap', 'reservas', '--json').stdout), semVariavel(ork(c, PT, false, 'roadmap', 'reservas', '--json').stdout));
