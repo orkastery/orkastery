@@ -54,7 +54,8 @@ export interface OpcoesDoArco {
 export function pedidoV2(arco: string, o: OpcoesDoArco): Record<string, unknown> {
   const agora = Date.now() + (o.deslocamentoH ?? 0) * 3600_000;
   const contas = o.contas ?? [{ conta: 'perfil-a', sessoes: 2 }];
-  const runtimes = o.runtimes ?? [{ runtime: 'claude-bg', sessoes: 3 }];
+  // Nenhum limite passa da máquina (o envelope recusa o que não limita).
+  const runtimes = o.runtimes ?? [{ runtime: 'claude-bg', sessoes: Math.min(3, o.maquina ?? 3) }];
   const teto = o.tetoDoArco ?? 40;
   return {
     contrato: CONTRATO_ENVELOPE_V2, arco,
