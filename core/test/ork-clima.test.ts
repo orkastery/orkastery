@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as ts from 'typescript';
 
 // RM-059 (onda 1, F4): o Clima de Cota testado sem o Claude Code. O sandbox do `ork verify` e o runner do
 // CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros do mod com o compilador do
@@ -14,6 +15,22 @@ const PONTE = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-ponte');
 const { carregarModuloDoMod, checarMods } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
 const carregar = (rel: string) => carregarModuloDoMod(path.join(CLIMA, rel));
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(CLIMA, rel), 'utf8'));
+
+/** Carrega `contas.ts`, que importa valores de `./previsao`: so esse import e resolvido (D9 da thread). */
+function carregarContas() {
+  const previsao = carregar('hooks/previsao.ts');
+  const arquivo = path.join(CLIMA, 'hooks/contas.ts');
+  const saida = ts.transpileModule(fs.readFileSync(arquivo, 'utf8'), {
+    fileName: arquivo, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const modulo = { exports: {} as Record<string, any> };
+  const exigir = (id: string) => {
+    if (id === './previsao') return previsao;
+    throw new Error(`modulo puro do mod nao importa valor: ${id}`);
+  };
+  new Function('exports', 'require', 'module', saida.outputText)(modulo.exports, exigir, modulo);
+  return modulo.exports;
+}
 
 const FUSO = 'America/Sao_Paulo';
 const MIN = 60 * 1000;
@@ -57,6 +74,13 @@ test('o modulo puro so importa tipos, e o registro nao abre processo nem le disc
   for (const gancho of ["on('session.start'", "on('session.measure'", "on('command.run', { command: 'clima' }"]) {
     assert.ok(registro.includes(gancho), gancho);
   }
+  // T4.2: o nucleo so pela ponte, e o que foi mostrado vai ao registro dela.
+  for (const chamada of ['$.ork.retrato()', "$.ork.ler({ consulta: 'accounts.esgotamentos' })", '$.ork.mostrado(']) {
+    assert.ok(registro.includes(chamada), chamada);
+  }
+  // `contas.ts` so importa tipos e o `./previsao` do proprio mod.
+  const contas = fs.readFileSync(path.join(CLIMA, 'hooks/contas.ts'), 'utf8').split('\n').filter((l) => /^\s*import\s/.test(l));
+  assert.deepEqual(contas.filter((l) => !/^\s*import type\s/.test(l)), ["import { duracao, emAlerta, formatarHora, rotuloDaJanela, textoDaFaixa } from './previsao'"]);
 });
 
 test('serie: uma janela por kind, corrida plana compacta, janela que renova recomeca e a vencida sai', () => {
@@ -192,4 +216,102 @@ test('guarda: o Clima passa na guarda estatica, sozinho e junto dos outros mods'
   const todos = checarMods({});
   assert.equal(todos.ok, true, JSON.stringify(todos.mods.filter((m: { ok: boolean }) => !m.ok)));
   assert.ok(todos.mods.some((m: { mod: string }) => m.mod === 'ork-clima'));
+});
+
+test('cruzamento: retomadas e paradas do retrato, com a parcialidade, e as marcas do registro de contas', () => {
+  const c = carregarContas();
+  const retrato = { sections: {
+    retries: { state: 'available', coverage: { nextOffset: null }, items: [
+      { id: 'R3', status: 'aguardando', refs: [{ kind: 'thread', id: 'ork-x' }], facts: { availableAt: iso(T0 + HORA), attempts: 2 } },
+      { id: 'R4', status: 'due', refs: [{ kind: 'thread', id: 'ork-y' }], facts: { availableAt: iso(T0 - MIN) } },
+      { id: 'R5', status: 'retomado', refs: [{ kind: 'thread', id: 'ork-z' }], facts: {} },
+      { id: 'X1', status: 'aguardando', refs: [{ kind: 'thread', id: 'ork-q' }], facts: {} },
+      { id: 'R6', status: 'aguardando', refs: [{ kind: 'thread', id: '../fora' }], facts: {} },
+    ] },
+    blockers: { state: 'unavailable', coverage: { nextOffset: null }, items: [
+      { id: 'gate:ork-a', refs: [{ kind: 'thread', id: 'ork-a' }], facts: { reason: 'runtime.quota-exhausted' } },
+      { id: 'gate:ork-b', refs: [{ kind: 'thread', id: 'ork-b' }], facts: { reason: 'runtime.silencio' } },
+      { id: 'gate:ork-c', refs: [{ kind: 'thread', id: 'ork-c' }], facts: { reason: 'runtime.rate-limited' } },
+    ] },
+  } };
+  assert.deepEqual(c.retomadasDoRetrato(retrato), { parcial: false, itens: [
+    { id: 'R3', thread: 'ork-x', estado: 'aguardando', liberaEm: T0 + HORA, tentativas: 2 },
+    { id: 'R4', thread: 'ork-y', estado: 'due', liberaEm: T0 - MIN, tentativas: null },
+  ] });
+  assert.deepEqual(c.paradasDoRetrato(retrato), { parcial: true, itens: [
+    { thread: 'ork-a', motivo: 'runtime.quota-exhausted' }, { thread: 'ork-c', motivo: 'runtime.rate-limited' },
+  ] });
+  assert.deepEqual(c.retomadasDoRetrato(null), { itens: [], parcial: true });
+  assert.equal(c.retomadasDoRetrato({ sections: { retries: { state: 'available', coverage: { nextOffset: 50 }, items: [] } } }).parcial, true);
+  assert.deepEqual(c.marcasDoRelatorio({ contrato: 'ork.esgotamentos/v1', marcas: [
+    { conta: '1a2b3c4d5e6f', runtime: 'claude-bg', estado: 'esgotado', motivo: 'runtime.quota-exhausted', esgotadoAte: iso(RENOVA), projeto: 'orkastery' },
+    { conta: '/caminho/de/conta', runtime: 'codex', estado: 'esgotado' },
+    { conta: 'abcdefabcdef', runtime: 'codex', estado: 'sem-auth', esgotadoAte: null },
+  ] }), [
+    { conta: '1a2b3c4d5e6f', runtime: 'claude-bg', estado: 'esgotado', motivo: 'runtime.quota-exhausted', esgotadoAte: RENOVA, projeto: 'orkastery' },
+    { conta: 'abcdefabcdef', runtime: 'codex', estado: 'sem-auth', motivo: 'sem motivo', esgotadoAte: null, projeto: 'nao registrado' },
+  ]);
+  assert.equal(c.marcasDoRelatorio({ contrato: 'outro', marcas: [] }), null);
+});
+
+test('cruzamento: nao cabe entre o esgotamento e a renovacao, cabe antes com folga, depois de renovar (D7)', () => {
+  const p = carregar('hooks/previsao.ts');
+  const c = carregarContas();
+  const agora = T0 + 30 * MIN;
+  const previsoes = p.prever(p.registrarLeituras(p.registrarLeituras(undefined, cinco(60), T0), cinco(70), agora), agora);
+  const r = (id: string, thread: string, liberaEm: number | null, estado = 'aguardando') => ({ id, thread, estado, liberaEm, tentativas: null });
+  const d = c.cruzar(previsoes, [r('R4', 'ork-y', T0 + 60 * MIN), r('R3', 'ork-x', T0 + 150 * MIN), r('R5', 'ork-z', T0 + 4 * HORA),
+    r('R8', 'ork-v', T0 - 10 * MIN, 'due')], agora);
+  assert.deepEqual(d.map((x: any) => [x.retomada.id, x.classe, x.folgaMs]),
+    [['R3', 'nao-cabe', null], ['R8', 'cabe', 90 * MIN], ['R4', 'cabe', 60 * MIN], ['R5', 'depois-de-renovar', null]]);
+  assert.equal(c.textoDoDespacho(d[0], FUSO, agora), 'R3 da ork-x volta 16:30 e não cabe: a janela de 5 h acaba ~16:00 e renova 17:00.');
+  assert.equal(c.textoDoDespacho(d[1], FUSO, agora), 'R8 da ork-v volta agora, com ~1h30 de cota no ritmo atual.');
+  assert.equal(c.textoDoDespacho(d[3], FUSO, agora), 'R5 da ork-z volta 18:00, depois de a janela de 5 h renovar.');
+  assert.equal(c.sufixoDaFaixa(d), '; não cabe: ork-x');
+  // Janela esgotada: tudo que despacha antes de renovar nao cabe.
+  const esgotada = p.prever(p.registrarLeituras(undefined, cinco(100), T0), T0 + 5 * MIN);
+  const e = c.cruzar(esgotada, [r('R9', 'ork-u', T0 + 10 * MIN)], T0 + 5 * MIN);
+  assert.equal(c.textoDoDespacho(e[0], FUSO, T0 + 5 * MIN), 'R9 da ork-u volta 14:10 e não cabe: a janela de 5 h já se esgotou e renova 17:00.');
+  // Sem janela em alerta: cabe, sem folga.
+  const calma = p.prever(p.registrarLeituras(p.registrarLeituras(undefined, cinco(20), T0), cinco(25), agora), agora);
+  const sem = c.cruzar(calma, [r('R4', 'ork-y', T0 + 60 * MIN)], agora);
+  assert.deepEqual([sem[0].classe, sem[0].folgaMs, sem[0].janela], ['cabe', null, null]);
+  assert.equal(c.textoDoDespacho(sem[0], FUSO, agora), 'R4 da ork-y volta 15:00.');
+  // A faixa nomeia ate tres threads.
+  const muitas = c.cruzar(previsoes, ['a', 'b', 'c', 'd', 'e'].map((x, i) => r('R' + (i + 1), 'ork-' + x, T0 + 150 * MIN)), agora);
+  assert.equal(c.sufixoDaFaixa(muitas), '; não cabe: ork-a, ork-b, ork-c e mais 2');
+  assert.equal(c.resumoDoClima(previsoes, d, FUSO, agora), '5 h em 70%, acaba ~16:00, renova 17:00; não cabe: ork-x');
+  assert.equal(c.resumoDoClima(calma, [], FUSO, agora), 'nenhuma janela pede atenção');
+});
+
+test('cruzamento no /clima: linhas, leitura que falhou vira aviso, e sugestoes do nucleo sem --por que a guarda aceita', () => {
+  const p = carregar('hooks/previsao.ts');
+  const c = carregarContas();
+  const agora = T0 + 30 * MIN;
+  const previsoes = p.prever(p.registrarLeituras(p.registrarLeituras(undefined, cinco(60), T0), cinco(70), agora), agora);
+  const d = c.cruzar(previsoes, [{ id: 'R3', thread: 'ork-x', estado: 'aguardando', liberaEm: T0 + 150 * MIN, tentativas: 1 }], agora);
+  const marca = { conta: '1a2b3c4d5e6f', runtime: 'claude-bg', estado: 'esgotado', motivo: 'runtime.quota-exhausted', esgotadoAte: RENOVA, projeto: 'orkastery' };
+  assert.deepEqual(c.linhasDoCruzamento({ despachos: d, paradas: [{ thread: 'ork-a', motivo: 'runtime.quota-exhausted' }], parcial: true,
+    erroDoRetrato: null, marcas: [marca], erroDoRegistro: null }, previsoes, FUSO, agora), [
+    'Despachos que dependem da cota (retrato do núcleo):',
+    '- R3 da ork-x volta 16:30 e não cabe: a janela de 5 h acaba ~16:00 e renova 17:00.',
+    '- ork-a parada por runtime.quota-exhausted.',
+    '- Retrato parcial: a fila de retomada ou os bloqueios vieram incompletos.',
+    'Contas no registro do núcleo (ork accounts esgotamentos):',
+    '- conta 1a2b3c4d5e6f (claude-bg): esgotado até 17:00, visto em orkastery (runtime.quota-exhausted).',
+    'O que o núcleo já sabe fazer:',
+    ...c.SUGESTOES.map((s: string) => '- ' + s),
+  ]);
+  assert.deepEqual(c.linhasDoCruzamento({ despachos: null, paradas: [], parcial: false, erroDoRetrato: 'x', marcas: null, erroDoRegistro: 'y' }, [], FUSO, agora), [
+    'Despachos que dependem da cota (retrato do núcleo):', '- Retrato do núcleo indisponível (x).',
+    'Contas no registro do núcleo (ork accounts esgotamentos):', '- Registro de contas indisponível (y).',
+  ]);
+  assert.equal(c.SUGESTOES.length, 3);
+  for (const s of c.SUGESTOES) assert.doesNotMatch(s, /--por/);
+  assert.ok(c.SUGESTOES.some((s: string) => s.includes('ork accounts list') && s.includes('ork retry run <thread>')));
+  // A guarda da ponte, com a lista real, nao acusa as sugestoes nem os comandos citados, e acusa o --por.
+  const guarda = carregarModuloDoMod(path.join(PONTE, 'hooks/guarda.ts'));
+  const autoridade = guarda.lerAutoridade(fs.readFileSync(path.join(raizDoRepo, 'adapters/claude-code/mods/autoridade.json'), 'utf8'));
+  for (const s of [...c.SUGESTOES, 'ork retry run ork-x', 'ork accounts list', 'ork retry list']) assert.equal(guarda.avaliarTexto(autoridade, s), null, s);
+  assert.notEqual(guarda.avaliarTexto(autoridade, 'ork retry run ork-x --por dono'), null);
 });
