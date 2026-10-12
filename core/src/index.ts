@@ -139,7 +139,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { PROXIMO_PASSO_INIT } from './init';
+import { ativarLocale, COMANDOS_COM_LOCALE, msg, resolverLocale } from './locale';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -213,7 +213,8 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cami
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
+import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
+  soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
@@ -240,10 +241,10 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
-  FORA_DA_CONSULTA,
-  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
-  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
+  fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
+  linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
+  remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -2997,9 +2998,27 @@ function comandoRoadmap(args: Args): number {
         : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
       return 0;
     }
-    const painel = listarReservas(carregado.raiz, { remoto });
+    // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
+    // sem copia, tambem nao. A resposta diz qual projeto leu e o que ficou de fora, nunca "nenhum item".
+    // RM-047: nome fora do formato de remoto recusa antes do git, como sempre.
+    const nomeDoRemoto = exigirRemoto(remoto ?? REMOTO_PADRAO, 'roadmap');
+    const url = remotoDoProjeto(carregado.raiz, nomeDoRemoto);
+    const painel: PainelDeReservas = url === null ? { reservas: [], feats: [], atualizado: false, ponta: null }
+      : listarReservas(carregado.raiz, { remoto });
+    const leitura = leituraDasReservas(painel, url !== null);
     const orfas = reservasOrfas(carregado.raiz, painel.reservas);
-    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
+    const lido = leitura === 'lido-agora' || leitura === 'copia-local';
+    const consulta = consultaDoProjeto(carregado, {
+      remoto: url,
+      lido: lido ? [`reservas do roadmap (${BRANCH_DE_RESERVAS} em ${nomeDoRemoto}, ${leitura === 'lido-agora' ? 'lido agora' : 'última cópia local'})`] : [],
+      naoLido: [FORA_DA_CONSULTA.roadmap,
+        ...(leitura === 'sem-remoto' ? [`reservas do roadmap: o projeto não tem o remoto ${nomeDoRemoto}, nada foi lido de ${BRANCH_DE_RESERVAS}`]
+          : leitura === 'sem-copia' ? [`reservas do roadmap: o remoto ${nomeDoRemoto} não respondeu e não há cópia local de ${BRANCH_DE_RESERVAS}`]
+            : [])],
+    });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas, leitura, consulta }, null, 2)
+      : [...linhasDaConsulta(consulta), '', textoDasReservas(painel, orfas,
+        { remoto: nomeDoRemoto, projeto: carregado.manifesto.project.name, temRemoto: url !== null })].join('\n'));
     return 0;
   }
   if (sub === 'status') {
@@ -4037,25 +4056,52 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
 /**
+ * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
+ * o `sessions event`, o sensor dos hooks do Claude Code: maquina falando com maquina, e o sensor compara
+ * o stderr da recusa. O `maestro` declara no snapshot e nao passa por aqui.
+ */
+const SEM_DECLARACAO_DO_PROJETO: ReadonlySet<string> = new Set(['sessions event']);
+
+/**
  * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
  * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
  * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
  */
 export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
 
-/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
-function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+/**
+ * Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. Fatia 2 (D3): com
+ * `declarar`, o comando termina dizendo qual projeto leu, quando o leitor nao tem como saber.
+ */
+function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
   fixarProjetoAlvo(alvo);
+  if (declarar) pedirDeclaracaoDoProjeto(alvo);
   return alvo;
 }
 
+/**
+ * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
+ * fora do diretorio dele) escreve no fim a linha `Projeto consultado: ...` no stderr, salvo se ja montou
+ * o proprio cabecalho. Quando ele falha, a linha sai antes da mensagem de erro, que a entrada imprime.
+ */
 export function main(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
   // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
+  // Prova de conceito do CLI por locale: cada chamada comeca em pt-BR; so os comandos cobertos trocam.
+  ativarLocale(undefined);
+  iniciarDeclaracaoDoProjeto();
+  try { return executarComando(argvBruto); }
+  finally {
+    const linha = declaracaoQueFaltou();
+    if (linha) console.error(linha);
+  }
+}
+
+function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
@@ -4077,8 +4123,9 @@ export function main(argvBruto: string[]): number {
   }
   if (argv[0] === 'maestro') {
     if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
-    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
-    const alvo = fixarAlvoDoProcesso(projeto);
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
+    // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
+    const alvo = fixarAlvoDoProcesso(projeto, false);
     return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
       : runMaestroCli(argv.slice(1));
   }
@@ -4094,8 +4141,9 @@ export function main(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
-  else if (projeto !== undefined && comando !== 'projetos') {
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
+    fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
+  } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
       : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'
@@ -4110,6 +4158,13 @@ export function main(argvBruto: string[]): number {
     // O gate oficial precisa observar e registrar a violação (inclusive warn).
     // Diagnósticos continuam acessíveis; os adapters sanitizam seus filhos sempre.
     if (violacoes.length === 0) for (const nome of ENVS_DE_PROVIDER_PAGO) delete process.env[nome];
+  }
+
+  // Prova de conceito do CLI por locale (EN1, EN7): a escolha do onboarding (owner.language) ou o
+  // LC_ALL/LC_MESSAGES/LANG decidem a lingua do TEXTO dos comandos cobertos; `--json` e contrato e
+  // `doctor --modo` (preflight) ainda nao passa pelo catalogo, entao os dois ficam em pt-BR.
+  if (COMANDOS_COM_LOCALE.includes(comando) && args.opcoes.json === undefined && args.opcoes.modo === undefined) {
+    ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
   }
 
   switch (comando) {
@@ -4170,22 +4225,23 @@ export function main(argvBruto: string[]): number {
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);
+      const m = msg().init, estadoAgents = m.estadosAgents[agents.estado] ?? agents.estado;
       if (!r.criado) {
-        console.log(`Manifesto ja existe: ${r.caminho}`);
-        console.log('Nada foi sobrescrito. Use --force para regerar.');
-        console.log(`AGENTS.md ${agents.estado}: ${agents.caminho}`);
+        console.log(m.jaExiste(r.caminho));
+        console.log(m.nadaSobrescrito);
+        console.log(m.agentsMd(estadoAgents, agents.caminho));
         return 0;
       }
-      console.log(`Manifesto criado: ${r.caminho}`);
-      console.log(`  projeto     ${r.deteccao.nome} (abbrev "${r.deteccao.abbrev}")`);
-      console.log(`  branch base ${r.deteccao.baseBranch}`);
-      console.log(`  gerenciador ${r.deteccao.gerenciador}`);
-      console.log(`  verify      ${Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || '(nenhum script detectado)'}`);
-      console.log(`  AGENTS.md   ${agents.estado}: ${agents.caminho}`);
+      console.log(m.criado(r.caminho));
+      console.log(m.projeto(r.deteccao.nome, r.deteccao.abbrev));
+      console.log(m.branchBase(r.deteccao.baseBranch));
+      console.log(m.gerenciador(r.deteccao.gerenciador));
+      console.log(m.verify(Object.entries(r.deteccao.verify).map(([k, v]) => `${k}="${v}"`).join(', ') || m.semScript));
+      console.log(m.agentsMdLinha(estadoAgents, agents.caminho));
       // Fatia 2 do ensaio da 0.5.0 (P3): o estado fica fora do git por um `.gitignore` proprio.
-      if (r.estadoIgnorado) console.log(`  estado      ${DIR_ESTADO}/ fora do git (${DIR_ESTADO}/.gitignore com *; o seu .gitignore fica como está)`);
+      if (r.estadoIgnorado) console.log(m.estado(DIR_ESTADO));
       console.log('');
-      console.log(PROXIMO_PASSO_INIT);
+      console.log(m.proximoPasso);
       return 0;
     }
     case 'modos': {

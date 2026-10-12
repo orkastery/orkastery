@@ -29,6 +29,7 @@ import {
 } from './auditoria';
 import { hashDoPrompt } from './phase';
 import { avaliarPolicies, bloqueantes } from './policies';
+import { AMBIENTE_SEM_PROJETO_HERDADO } from './projeto-alvo';
 import { DIR_ESTADO, dirEstado, ManifestoCarregado } from './manifest';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import {
@@ -436,6 +437,9 @@ export function rodarAuditoria(
     cwd: raiz,
     model: base.custo.model,
     effort,
+    // RM-052 (fatia 2, D2, aviso A1 do CHECK): a sessao da auditoria roda na raiz do projeto e le o
+    // projeto pelo proprio cwd; o `ORK_PROJETO` e o modo host de quem chamou (ou do daemon) nao a seguem.
+    ambienteExtra: { ...AMBIENTE_SEM_PROJETO_HERDADO },
   });
 
   if (!resultado.ok || !resultado.sessionId) {
