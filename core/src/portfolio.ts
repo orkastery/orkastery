@@ -17,7 +17,8 @@ export interface Portfolio {
 }
 export interface CycleScope { projectId: string; delivery: 'project' | 'initiatives'; initiativeIds: string[]; }
 
-const ID = /^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$/;
+/** Id de produto, projeto ou iniciativa: o mesmo que o Brain recebe e o conhecimento cita (RM-026 K7, D3). */
+export const ID_DE_ENTIDADE = /^(prod|proj|init)-[a-z0-9][a-z0-9-]{2,47}$/;
 const PREFIX: Record<PortfolioKind, string> = { product: 'prod-', project: 'proj-', initiative: 'init-' };
 const statuses: PortfolioStatus[] = ['idea', 'planned', 'ready', 'in_progress', 'validating', 'delivered', 'blocked', 'cancelled'];
 const unique = (values: string[] = []) => [...new Set(values.map((v) => v.trim()).filter(Boolean))];
@@ -41,7 +42,7 @@ function mutatePortfolio<T>(root:string, run:()=>T):T {
 }
 
 function validateBase(kind: PortfolioKind, input: Partial<PortfolioEntity> & { id: string; title: string }): void {
-  if (!ID.test(input.id) || !input.id.startsWith(PREFIX[kind])) throw new Error(`${kind} exige id ${PREFIX[kind]}...`);
+  if (!ID_DE_ENTIDADE.test(input.id) || !input.id.startsWith(PREFIX[kind])) throw new Error(`${kind} exige id ${PREFIX[kind]}...`);
   if (!input.title.trim() || input.title.length > 160) throw new Error('título deve ter entre 1 e 160 caracteres');
   if (input.status && !statuses.includes(input.status)) throw new Error('status de portfólio inválido');
 }
