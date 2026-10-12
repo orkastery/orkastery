@@ -1,0 +1,57 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versao056",
+  "branch": "ork/ork-versao056-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-versao056",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "O CLI, o lockfile e o adaptador OpenClaw declaram a versão 0.5.6.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"process.exit(require(\\\"./core/package.json\\\").version===\\\"0.5.6\\\"?0:1)\" && grep -cF \"\\\"version\\\": \\\"0.5.6\\\"\" core/package-lock.json | grep -vx 0 && grep -F \"\\\"version\\\": \\\"0.5.6\\\"\" adapters/openclaw/package.json adapters/openclaw/openclaw.plugin.json | wc -l | grep -x 2"
+      ],
+      "criadoEm": "2026-10-12T20:24:27.979Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-versao056",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "Os plugins dos marketplaces declaram a 0.5.6 e batem com o gerador.",
+      "negativa": false,
+      "verificar": [
+        "grep -lF \"\\\"version\\\": \\\"0.5.6\\\"\" marketplaces/claude-code/orkastery/.claude-plugin/plugin.json marketplaces/codex/orkastery/.codex-plugin/plugin.json | wc -l | grep -x 2 && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T20:24:28.289Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-versao056",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG publica a 0.5.6 com a Não publicado vazia e marca a 0.5.4 e a 0.5.5 como não publicadas.",
+      "negativa": false,
+      "verificar": [
+        "awk \"/^## Não publicado/{f=1;next} /^## \\\\[0\\\\.5\\\\.6\\\\] - 2026-10-12/{exit} f && /[^[:space:]]/{n++} END{exit n?1:0}\" CHANGELOG.md && test $(grep -cF \"Não publicada no npm; o conteúdo saiu na 0.5.6.\" CHANGELOG.md) -eq 2"
+      ],
+      "criadoEm": "2026-10-12T20:24:28.622Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
