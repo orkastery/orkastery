@@ -45,7 +45,7 @@ id: doc-politica-de-ferias
 titulo: Política de férias
 colecoes: [rh, politicas]
 referencias:
-  brain: [proj-portal-rh]
+  brain: [proj-portal-rh, proj-portal-antigo]
   decisoes:
     - ork-rm026k7conhe#14
 ---
@@ -73,21 +73,28 @@ O documento vale inteiro ou vira lacuna. A referência vale sozinha: a que não 
 documento segue na resposta sem ela.
 
 - **Decisão:** confere no ledger canônico da thread, o da árvore principal, também quando o leitor roda de
-  dentro de uma worktree. O ledger é lido como a captura do Brain o lê: só linhas completas, em UTF-8 exato, como
+  dentro de uma worktree. Só confere onde a resposta mostra a referência (o `mostrar` e o `verificar`): o `listar` e o
+  `colecoes` não leem ledger, e o `mostrar` lê só os do documento pedido. O ledger é lido como a captura do Brain o lê: só linhas completas, em UTF-8 exato, como
   estavam quando ele foi aberto, mesmo que ele cresça durante a leitura. A linha citada precisa ser um evento da
   própria thread do tipo `autonomous_decision`, `hitl_requested` ou `human_gate`; `human_decision` é relato sem
   recibo e não conta, como no dossiê. A citação devolvida traz `fonte` (`threads/<thread>/ledger.jsonl#L<linha>`)
-  e o `sha256` da linha, o mesmo `source_ref` e `source_hash` que a captura grava para ela no Brain.
+  e o `sha256` da linha, o mesmo `source_ref` e `source_hash` que a captura grava para ela no Brain. Cada ledger é
+  lido uma vez, até a maior linha citada, e os ledgers de uma consulta têm um teto de bytes somados: o que não cabe
+  vira `referencia.decisao-ausente`.
 - **Id do Brain:** a forma é a dos ids do portfólio (`prod-`, `proj-`, `init-`), conferida pelo leitor. Na consulta
   que mostra referência (o `mostrar`, as do documento pedido, e o `verificar`, as de todos), cada id distinto confere
   por `get` no Company Brain da [RM-025](../../roadmap/RM-025-company-brain-fundacao.md), pelo transporte do
   `ork brain get`: o `memory.cli` do manifesto, com a configuração de memória da árvore principal e o tenant dela. A
   resposta `ok` vale só no contrato `orkmind.company-brain-entity/v1`, com o id e o tenant pedidos, e vira a referência
-  com o tipo, o título, a versão, a fonte (`source_ref`) e o `sha256` (`source_hash`) da entidade no Brain. `unknown`
-  vira `referencia.brain-inexistente`, `withheld` vira `referencia.brain-retido`, e o resto vira
-  `referencia.brain-indisponivel`: o Brain fora do ar ou sem configuração, a recusa dele, a resposta fora do contrato e
-  o teto de `get` da consulta. Depois da primeira falha do Brain nenhum `get` sai, e as referências que faltavam levam o
-  mesmo detalhe. `listar` e `colecoes` não abrem o Brain nem mostram referência.
+  com o tipo, o título, a versão, a fonte (`source_ref`) e o `sha256` (`source_hash`) da entidade no Brain. `unknown` e
+  `empty` viram `referencia.brain-inexistente`, como no dossiê; `withheld` vira `referencia.brain-retido`; o resto vira
+  `referencia.brain-indisponivel`. A falha do Brain para a conferência: `unavailable` (fora do ar, sem configuração ou
+  com o transporte quebrado), `forbidden`, `conflict` e a configuração de memória que não abre. Depois dela, nenhum
+  `get` sai, e as referências que faltavam levam o mesmo detalhe; o teto de `get` e o prazo da consulta param do mesmo
+  jeito. A resposta fora do contrato (`ok` com a entidade que não confere, estado desconhecido) vale só para o id dela,
+  e a conferência segue. `listar` e `colecoes` não abrem o Brain nem mostram referência. O executável é o `memory.cli`
+  que o manifesto escolhe, como no `ork brain`; a [fronteira de confiança](../fronteira-de-confianca.md) registra esse
+  pendente do dono (P6).
 
 ## As consultas
 
@@ -103,7 +110,7 @@ em ordem estável: documentos por id, coleções por nome, lacunas por arquivo, 
 | `verificar` | `documentos`, com as referências conferidas, e `colecoes` | Todas |
 
 A versão de um documento é o `sha256` dos bytes do arquivo, com o caminho real dele. O `corpo` é o Markdown depois do
-frontmatter, com as quebras de linha em `\n`.
+frontmatter, decodificado do UTF-8 sem o BOM e com cada `\r\n` trocado por `\n` (um `\r` sozinho fica).
 
 ```json
 {
@@ -144,11 +151,11 @@ frontmatter, com as quebras de linha em `\n`.
   },
   "lacunas": [
     {
-      "codigo": "referencia.decisao-ausente",
+      "codigo": "referencia.brain-inexistente",
       "arquivo": "docs/conhecimento/rh/ferias.md",
       "documento": "doc-politica-de-ferias",
-      "referencia": "ork-rm026k7conhe#900",
-      "detalhe": "o ledger da thread ork-rm026k7conhe tem 52 linha(s) completa(s)"
+      "referencia": "proj-portal-antigo",
+      "detalhe": "o Company Brain não tem este id (o get respondeu unknown)"
     }
   ]
 }
@@ -158,7 +165,7 @@ Toda lacuna tem `codigo`, `arquivo` (relativo à raiz, `null` nas da pasta), `do
 valia, e o pedido no `documento.inexistente`), `referencia` (nas de referência) e `detalhe`, texto para gente. O
 contrato é o código. O detalhe nasce em pt-BR, o do `--json` e do MCP, e a CLI o imprime na língua do dono. Texto
 vindo do repositório chega à resposta numa linha e sem caractere invisível, pela regra do `saida-segura.ts`, salvo o
-corpo, que vem como está no arquivo: no `--json` e no MCP o caractere invisível sai escrito como `\uXXXX`, o mesmo
+corpo, que vem com o texto do arquivo: no `--json` e no MCP o caractere invisível sai escrito como `\uXXXX`, o mesmo
 valor, e no texto da CLI o corpo sai linha a linha, sem ele.
 
 ## CLI e tools MCP
@@ -176,7 +183,9 @@ sessão filha vinculada a uma thread. A resposta é o JSON da consulta, compacto
 coleção fora da forma, campo a mais) recusa antes de ler qualquer arquivo.
 
 A CLI sai 1, e a tool vem com `isError`, quando a consulta não responde: `listar` e `colecoes` sem a pasta lida,
-`mostrar` sem documento e `verificar` com qualquer lacuna. Uso errado na CLI recusa com o uso do comando. O texto
+`mostrar` sem documento e `verificar` com qualquer lacuna. Uso errado na CLI sai 2, com o uso do comando, para o gate
+de CI separar o erro de digitação da lacuna. A tool roda no processo do servidor: a conferência do Brain o ocupa até
+o prazo da consulta. O texto
 da CLI segue a língua do dono ([RM-061](../../roadmap/RM-061-cli-em-ingles-e-pt-br.md)); o `--json` é o mesmo nas duas
 línguas. No despacho `claude-bg`, as tools ainda não entram na allowlist da sessão filha, como o `ork_brain_dossie`.
 
@@ -203,12 +212,12 @@ línguas. No despacho `claude-bg`, as tools ainda não entram na allowlist da se
 | `documento.colecoes-invalidas` | Sem coleção, mais de 16, nome fora da forma, repetido, nulo ou booleano | O documento |
 | `documento.referencias-invalidas` | `referencias` que não é mapa, com chave fora de `brain` e `decisoes`, ou lista longa demais ou com item nulo, booleano ou decimal | O documento |
 | `referencia.invalida` | Id do Brain ou citação de decisão fora da forma | A referência |
-| `referencia.decisao-ausente` | A thread não tem ledger, a pasta dela é link ou não é pasta, o ledger não abre, passa do teto ou não é UTF-8, ou a linha não está entre as completas | A referência |
+| `referencia.decisao-ausente` | A thread não tem ledger, a pasta dela é link ou não é pasta, o ledger não abre, passa do teto ou não é UTF-8, a linha não está entre as completas, ou os ledgers da consulta passam do teto somado | A referência |
 | `referencia.nao-e-decisao` | A linha não é evento JSON, é de outra thread ou não é de um tipo de decisão | A referência |
 | `documento.inexistente` | No `mostrar`, nenhum documento válido tem o id pedido, e nenhuma outra lacuna fala dele | O documento |
-| `referencia.brain-inexistente` | O `get` respondeu `unknown`: o Brain não tem o id | A referência |
+| `referencia.brain-inexistente` | O `get` respondeu `unknown` (ou `empty`): o Brain não tem o id | A referência |
 | `referencia.brain-retido` | O `get` respondeu `withheld`: o Brain tem o id e o retém para esta leitura | A referência |
-| `referencia.brain-indisponivel` | O Brain fora do ar, sem configuração ou recusando, a resposta fora do contrato da entidade ou o teto de `get` da consulta | A referência |
+| `referencia.brain-indisponivel` | O Brain fora do ar, sem configuração, recusando ou em conflito, a resposta fora do contrato da entidade, ou o teto de `get` ou o prazo da consulta | A referência |
 
 ## Tetos
 
@@ -220,7 +229,9 @@ línguas. No despacho `claude-bg`, as tools ainda não entram na allowlist da se
 | Bytes de um documento | 1 MiB | `documento.grande-demais` |
 | Bytes do frontmatter | 16 KiB | `documento.frontmatter-invalido` |
 | Bytes do ledger citado | 16 MiB | `referencia.decisao-ausente` |
+| Bytes dos ledgers lidos numa consulta, somados | 64 MiB | `referencia.decisao-ausente` |
 | Ids do Brain conferidos por `get` numa consulta | 100 | `referencia.brain-indisponivel` |
+| Prazo da conferência do Brain numa consulta (cada `get` tem o `memory.timeout_ms`, até 15 s) | 60 s | `referencia.brain-indisponivel` |
 
 ## Próximas fatias
 

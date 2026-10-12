@@ -424,8 +424,9 @@ writing a document is a commit in a thread, with a PR.
 An invalid document and a reference that does not check out come back as a typed gap, never as an answer: the id the
 Brain does not have (`referencia.brain-inexistente`), the one it withholds (`referencia.brain-retido`) and the Brain
 down or not configured (`referencia.brain-indisponivel`) are distinct gaps. `listar` and `colecoes` exit 1 only when
-the folder was not read, and `mostrar`, when the id has no valid document (`documento.inexistente`). The text follows
-the owner's language; `--json` is the same in both languages and the same as the MCP tools `ork_conhecimento_listar`,
+the folder was not read, and `mostrar`, when the id has no valid document (`documento.inexistente`); wrong usage exits
+2. Only `mostrar` and `verificar` call the Brain and read the decisions' ledgers, with limits on `get` calls, time and
+bytes per query ([contract](contratos/conhecimento-rm026.md#tetos)). The text follows the owner's language; `--json` is the same in both languages and the same as the MCP tools `ork_conhecimento_listar`,
 `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` and `ork_conhecimento_verificar`.
 
 ```bash

@@ -422,8 +422,9 @@ escrever um documento é um commit numa thread, com PR.
 Documento inválido e referência que não confere saem como lacuna tipada, nunca como resposta: o id que o Brain não
 tem (`referencia.brain-inexistente`), o que ele retém (`referencia.brain-retido`) e o Brain fora do ar ou sem
 configuração (`referencia.brain-indisponivel`) são lacunas distintas. `listar` e `colecoes` saem 1 só quando a pasta
-não foi lida, e `mostrar`, quando o id não tem documento válido (`documento.inexistente`). O texto segue a língua do
-dono; o `--json` é o mesmo nas duas línguas e o mesmo das tools MCP `ork_conhecimento_listar`,
+não foi lida, e `mostrar`, quando o id não tem documento válido (`documento.inexistente`); uso errado sai 2. Só o
+`mostrar` e o `verificar` chamam o Brain e leem os ledgers das decisões, com teto de `get`, de prazo e de bytes por
+consulta ([contrato](contratos/conhecimento-rm026.md#tetos)). O texto segue a língua do dono; o `--json` é o mesmo nas duas línguas e o mesmo das tools MCP `ork_conhecimento_listar`,
 `ork_conhecimento_mostrar`, `ork_conhecimento_colecoes` e `ork_conhecimento_verificar`.
 
 ```bash

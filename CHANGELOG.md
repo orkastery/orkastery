@@ -63,9 +63,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   ([contrato](docs/referencia/contratos/conhecimento-rm026.md)). O `mostrar` traz o corpo, a versão (sha256), a fonte e
   as referências, com cada id do Brain conferido por `get` no Company Brain: o id que o Brain não tem, o que ele retém e
   o Brain fora do ar viram lacunas distintas (`referencia.brain-inexistente`, `referencia.brain-retido` e
-  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain, e `verificar` confere a
-  pasta inteira e sai 1 com qualquer lacuna. O texto sai em pt-BR e em inglês pelo catálogo, e o `--json` é o mesmo nas
-  duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3.
+  `referencia.brain-indisponivel`), nunca resposta. `listar` e `colecoes` não chamam o Brain nem leem ledger, e
+  `verificar` confere a pasta inteira e sai 1 com qualquer lacuna (uso errado sai 2). A conferência tem teto de 100
+  `get`, prazo de 60 s e teto de 64 MiB de ledger por consulta. O texto sai em pt-BR e em inglês pelo catálogo, e o
+  `--json` é o mesmo nas duas línguas. Os hosts OpenClaw e Hermes chegam na fatia 3. No transporte do Company Brain,
+  `memory.timeout_ms` fora da faixa (0, negativo, fração) passa a valer o padrão de 15 s, em vez de esperar sem prazo.
 
 ## [0.5.5] - 2026-10-12
 
