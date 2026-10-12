@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.5] - 2026-10-12
+
 ### Adicionado
 
 - **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
@@ -220,6 +222,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.5.
 
 ### Adicionado
 
