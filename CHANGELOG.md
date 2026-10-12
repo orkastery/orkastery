@@ -46,6 +46,28 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   porque a suíte mede 3,6 min com CPU livre e 24 a 30 min quando o hipervisor rouba CPU. O `build` e os
   outros comandos seguem no prazo padrão.
 
+### Segurança
+
+- **Fronteira de confiança do repositório clonado** ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)):
+  auditoria de cada chamada de processo e de cada caminho montado com dado do clone em `core/src`, com a matriz em
+  [docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md). Corrigido:
+  - o `mergeSha` e o `para` de um `ship_done` do ledger só chegam ao `git log` da detecção de reversão como sha
+    hexadecimal e nome de branch, depois de `--end-of-options`; antes, um ledger versionado no clone passava uma
+    opção ao git em `ork master` e `ork ship`;
+  - `ork docs sincronizar` não cai mais na base crua do manifesto quando ela não resolve, e o sha do ledger e o
+    commit do frontmatter só vão ao git como sha hexadecimal;
+  - o manifesto recusa `worktree.base_branch` que o git não aceita como nome de branch (começa com `-`, tem `..`);
+  - o manifesto recusa `memory.cli` relativo: vale nome procurado no PATH, como `orkmind`, ou caminho absoluto. A
+    sonda do OrkMind (inclusive a do `ork doctor`) ignora entradas relativas do PATH e shebang com interpretador
+    relativo, e o `ork brain` roda o executável com cwd no `$HOME`, não na raiz do clone;
+  - `.orkastery`, `.orkastery/threads` e a pasta de uma thread como link simbólico recusam com `estado.link`, e o
+    append do ledger, das claims e do board usa `O_NOFOLLOW`; antes, um link versionado levava a escrita para fora
+    da raiz;
+  - o id de uma rodada de auditoria lido do `run.json` precisa ser um nome simples (`audit.rodada-invalida`).
+  - O SECURITY.md passa a listar todos os comandos declarados que o `ork` executa (inclusive `verify.preparo`,
+    `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
+    como pendentes do dono.
+
 ## [0.5.4] - 2026-10-12
 
 ### Adicionado
