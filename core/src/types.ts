@@ -625,6 +625,21 @@ export interface ResultadoDeComando {
    * que nao rodou, e ele nunca vira verificado. Ausente so em baseline gravada antes da I-54.
    */
   executado?: boolean;
+  /**
+   * RM-037 (fatia 6): steal da CPU na janela do comando, em %, lido de `/proc/stat`. `null` sem
+   * medida (sem `/proc/stat`, janela vazia). Ausente em resultado anterior a fatia 6.
+   */
+  stealPct?: number | null;
+  /**
+   * RM-037 (fatia 6): os testes que reprovaram, cada um com a natureza da falha (estouro do relogio
+   * do runner ou nao). So em comando que falha e cujo runner nomeia os testes.
+   */
+  falhasDeTeste?: { nome: string; relogio: boolean }[];
+  /**
+   * RM-037 (fatia 6): a reprovacao foi so de teste com relogio, sob steal acima de 40%. Os nomes. O
+   * verify trata como `verify.timeout` (sem veredito, o retry reexecuta), nunca como regressao.
+   */
+  relogioSobSteal?: string[];
 }
 
 /** Baseline gravada antes do GO: separa regressao de divida pre-existente. */

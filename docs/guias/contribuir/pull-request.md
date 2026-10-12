@@ -4,7 +4,7 @@
 
 ## Título
 
-- Curto, em pt-BR, dizendo o resultado para quem usa: "O CI para de cair em teste com relógio (RM-037)".
+- Curto, em pt-BR ou em inglês, dizendo o resultado para quem usa: "O CI para de cair em teste com relógio (RM-037)".
 - Cite o item do roadmap entre parênteses, quando houver.
 
 ## Descrição
@@ -56,7 +56,7 @@ A `main` é protegida: o merge só sai com os checks obrigatórios verdes no úl
 
 ## Commits
 
-- Mensagem em pt-BR, no formato `<área>: <o que muda>`, como `docs: guia de testes sem contagem fixa`.
+- Mensagem em pt-BR ou em inglês, no formato `<área>: <o que muda>`, como `docs: guia de testes sem contagem fixa`.
 - Um commit por mudança lógica. Depois que a revisão começar, prefira commit novo a reescrever o histórico.
 
 ## Depois de abrir
