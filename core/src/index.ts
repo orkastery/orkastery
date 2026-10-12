@@ -233,6 +233,7 @@ import { lerLedger } from './ledger';
 import { gateDeTokens, textoDoGateDeTokens } from './tokens';
 import { ClasseDeFalha, ColecaoDoOrk, Fase, FASES, FonteDeMedida, Modo, MotivoGate, UniversoDaBusca } from './types';
 import { gravarBaseline, textoDoVerify, verificar } from './verify';
+import { ErroDaFilaPesada, OcupanteDaFila } from './fila-pesada';
 import {
   auditarWorktree,
   garantirWorktree,
@@ -1407,7 +1408,10 @@ function comandoVerify(args: Args): number {
     console.error(m.uso);
     return 2;
   }
-  const conducao = conducaoDoCli(args);
+  // RM-058 N2 (D10): enquanto a fila de recursos pesados nao da a vez, o CLI diz uma vez por quem espera.
+  const aoEsperar = (ocupantes: OcupanteDaFila[]) => console.error(m.filaPesadaEsperando(args.opcoes.baseline === true ? 'baseline' : 'verify',
+    ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; ')));
+  const conducao = { ...conducaoDoCli(args), filaPesada: { aoEsperar } };
   if (args.opcoes.baseline === true) {
     // RM-061 (F2b, G2): a baseline e o ledger sao gravados em pt-BR; so a impressao segue o locale.
     const b = comLocale('pt-BR', () => gravarBaseline(carregado, id, undefined, conducao));
@@ -4301,6 +4305,10 @@ if (require.main === module) {
   } catch (e) {
     // I-36 (T12): a recusa de conducao e resposta, nao erro: o texto para o humano, ou o JSON.
     if (e instanceof ErroDeConducao) {
+      console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
+      process.exitCode = 3;
+    } else if (e instanceof ErroDaFilaPesada) {
+      // RM-058 N2 (D10): a fila pesada que nao deu a vez no prazo responde como a conducao: o texto ou o JSON, e 3.
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.recusa.texto);
       process.exitCode = 3;
     } else if (e instanceof ErroDeProjeto) {

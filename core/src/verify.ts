@@ -38,6 +38,7 @@ import { falhasDeTeste, redigirSaida, testesQueCairam } from './redacao-saida';
 import { abrirJanela, FONTE_STEAL, LeitorProcStat, LIMIAR_STEAL_PCT, lerProcStat, reprovacaoSoDeRelogio, stealAlto,
   TestesDeRelogio } from './steal';
 import { lerRegistroDeInstabilidade, RegistroLido, testesDeRelogioVigentes } from './instabilidade';
+import { comRecursoPesado, OcupanteDaFila, UsoDaFilaPesada } from './fila-pesada';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { canalDoProcesso, comConducao, ConducaoTomada, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { diretorioDaThread } from './procedencia';
@@ -240,6 +241,28 @@ export interface ConducaoDoVerify {
   identidade?: string | null;
   /** `--esperar`: espera a vez ate este prazo em vez de recusar na hora (D2). */
   esperarMs?: number;
+  /**
+   * RM-058 N2 (D10 da ork-rm058n2): a espera pela fila de recursos pesados. Sem ela, `esperarMs` e depois
+   * `ESPERA_DA_FILA_PESADA_MS`; o MCP pede pouco, porque tem prazo total curto.
+   */
+  filaPesada?: { esperarMs?: number; aoEsperar?: (ocupantes: OcupanteDaFila[]) => void };
+}
+
+/** RM-058 N2 (D10): quanto o verify espera a vez na fila pesada quando ninguem disse outro prazo. */
+export const ESPERA_DA_FILA_PESADA_MS = 60 * 60 * 1000;
+
+/**
+ * RM-058 N2 (D9 e D10 da ork-rm058n2): a rodada inteira na fila de recursos pesados, depois da conducao. O
+ * artefato e o diretorio de trabalho da thread; as vagas sao `concurrency.max_parallel_heavy` (0 desliga). Sem a
+ * vez no prazo, `ErroDaFilaPesada` sai antes de qualquer comando rodar e de qualquer evento ir ao ledger.
+ */
+function naFilaPesada<T>(carregado: ManifestoCarregado, threadId: string, operacao: 'verify' | 'baseline',
+  conducao: ConducaoDoVerify, executar: (uso: UsoDaFilaPesada) => T): T {
+  const cwd = cwdDaThread(carregado.raiz, lerThread(carregado.raiz, threadId));
+  const espera = conducao.filaPesada?.esperarMs ?? conducao.esperarMs ?? ESPERA_DA_FILA_PESADA_MS;
+  return comRecursoPesado(carregado.raiz, { artefato: cwd, operacao, thread: threadId,
+    slots: carregado.manifesto.concurrency.max_parallel_heavy, esperarMs: espera, aoEsperar: conducao.filaPesada?.aoEsperar,
+    comandoDeEsperar: `ork verify ${threadId}${operacao === 'baseline' ? ' --baseline' : ''} --esperar 60` }, executar);
 }
 
 /** O pedido de conducao de uma verificacao, com o prazo derivado dos comandos que ela vai rodar (D3). */
@@ -274,8 +297,8 @@ export type OrigemDaBaseline = 'cli' | 'phase.run';
 export function gravarBaseline(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify = executar,
   conducao: ConducaoDoVerify = {}, origem: OrigemDaBaseline = 'cli'): Baseline {
   const pedido = pedidoDoVerify(carregado, threadId, 'baseline', comandosDoManifesto(carregado.manifesto).length, conducao);
-  return comConducao(carregado.raiz, threadId, pedido,
-    (tomada) => gravarBaselineSobConducao(carregado, threadId, executorSobConducao(executor, carregado.manifesto, tomada), origem));
+  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'baseline', conducao,
+    () => gravarBaselineSobConducao(carregado, threadId, executorSobConducao(executor, carregado.manifesto, tomada), origem)));
 }
 
 function gravarBaselineSobConducao(carregado: ManifestoCarregado, threadId: string, executor: ExecutorVerify,
@@ -319,6 +342,8 @@ export interface ResultadoVerify {
   steal: MedidaDeSteal;
   /** RM-037 (fatia 6): o registro de instabilidade lido na arvore verificada. */
   instabilidade: RegistroLido;
+  /** RM-058 N2: a vez na fila de recursos pesados que a rodada segurou. */
+  filaPesada: UsoDaFilaPesada;
   motivos: MotivoGate[];
   /** True quando nenhum motivo BLOQUEANTE apareceu. */
   ok: boolean;
@@ -418,7 +443,8 @@ export function verificar(
   const planejados = lerClaims(carregado.raiz, threadId).filter((c) => c.estado !== 'retirada')
     .reduce((n, c) => n + c.verificar.length, 0) + (opcoes.soClaims ? 0 : comandosDoManifesto(carregado.manifesto).length) + 1;
   const pedido = pedidoDoVerify(carregado, threadId, opcoes.operacao ?? 'verify', planejados, opcoes.conducao ?? {});
-  return comConducao(carregado.raiz, threadId, pedido, (tomada) => verificarSobConducao(carregado, threadId, opcoes, tomada, pedido.canal));
+  return comConducao(carregado.raiz, threadId, pedido, (tomada) => naFilaPesada(carregado, threadId, 'verify', opcoes.conducao ?? {},
+    (uso) => verificarSobConducao(carregado, threadId, opcoes, tomada, pedido.canal, uso)));
 }
 
 function verificarSobConducao(
@@ -426,7 +452,8 @@ function verificarSobConducao(
   threadId: string,
   opcoes: OpcoesVerify,
   conducao: ConducaoTomada,
-  canal: CanalDeConducao
+  canal: CanalDeConducao,
+  filaPesada: UsoDaFilaPesada
 ): ResultadoVerify {
   const { raiz, manifesto } = carregado;
   const thread = lerThread(raiz, threadId);
@@ -555,6 +582,8 @@ function verificarSobConducao(
     // I-36: por qual canal a verificacao chegou; a reentrada da sessao que conduz aparece aqui.
     canal,
     conducao: { identidade: conducao.identidade, reentrada: conducao.reentrada },
+    // RM-058 N2: se a rodada esperou a vez na fila pesada, e quanto.
+    filaPesada,
   });
 
   for (const motivo of bloqueantes) {
@@ -606,6 +635,7 @@ function verificarSobConducao(
     preparo: preparo ? { ...preparo, identidadeFinal: identidadeFinal!, produtoAlterado } : null,
     steal,
     instabilidade,
+    filaPesada,
     motivos,
     ok,
   };

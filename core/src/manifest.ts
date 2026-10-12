@@ -80,6 +80,11 @@ function numero(v: ValorYaml, padrao: number): number {
   return typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' && !isNaN(Number(v)) ? Number(v) : padrao;
 }
 
+/** RM-058 N2: as vagas da fila pesada, inteiras de 0 a 64; valor sem sentido volta ao padrao 1, nunca a "sem fila". */
+function vagasPesadas(v: number): number {
+  return Number.isFinite(v) && v >= 0 ? Math.min(64, Math.trunc(v)) : 1;
+}
+
 /**
  * I-37 (D2): `verify.timeout_ms` e `verify.timeout_ms_por_comando`. Prazo so vale inteiro
  * positivo em milissegundos, entre 1 s e 24 h; o resto e erro do manifesto, porque um prazo
@@ -513,6 +518,8 @@ export function carregarManifesto(dirInicial: string = diretorioDoProjeto()): Ma
     concurrency: {
       max_parallel_threads: numero(concurrency.max_parallel_threads, 3),
       stale_after_min: Math.max(1, Math.trunc(numero(concurrency.stale_after_min, 240))),
+      // RM-058 N2 (D9): uma operacao pesada por vez nesta raiz, por padrao; 0 desliga a fila.
+      max_parallel_heavy: vagasPesadas(numero(concurrency.max_parallel_heavy, 1)),
     },
     liveness: { silencio_max_min: silencioMaxMin },
     handoff: {

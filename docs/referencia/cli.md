@@ -266,7 +266,7 @@ há, `1` quando o runtime não respondeu).
 | `ork claims verificar <thread> <claim-id> --comando "<cmd>"` | Anexa o comando que comprova uma claim já feita |
 | `ork claims retirar <thread> <claim-id> --motivo "<motivo>"` | Retira a alegação. **O histórico fica no `claims.jsonl`** |
 | `ork claims ausente <thread> --paths A,B --motivo "<motivo>" [--commit SHA]` | Ciclo sem CHECK: declara no ledger o que ficou sem prova (o `#Fast` usa, ver [modos.md](../guias/modos.md)) |
-| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Reexecuta claims e verify do manifesto **no HEAD real** |
+| `ork verify <thread> [--baseline] [--so-claims] [--canal C] [--esperar [min]]` | Reexecuta claims e verify do manifesto **no HEAD real**. A rodada e a baseline esperam a vez na fila de recursos pesados (`concurrency.max_parallel_heavy`, padrão 1, 0 desliga): no máximo essa quantidade ao mesmo tempo nas worktrees do projeto nesta máquina e nunca duas na mesma worktree, com trava do kernel que solta quando o processo morre. Espera em primeiro plano até `--esperar` ou 60 min (o `ork_verify` do MCP, até 20 s), avisa uma vez no stderr e então recusa com `fila-pesada.ocupada`, diz quem ocupa e sai com 3 (RM-058) |
 | `ork gate next <thread> [--proximo FASE]` | Gate de tokens: mesma sessão ou nova sessão |
 | ↳ opções | `[--ocupacao 0..1] [--fonte F] [--transcript ARQ] [--janela N] [--refazer]` |
 | `ork gate request <thread> [--motivo M]` | Abre o pedido correlacionado à pausa ou escalação atual |
