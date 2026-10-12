@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.4",
-  "publicadoEm": "2026-10-12T06:15:17.771Z",
+  "publicadoEm": "2026-10-12T06:15:23.611Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -84,23 +84,6 @@
       "branch": "ork/ork-rm043sobrasd-full",
       "atualizadaEm": "2026-10-03T11:35:14.872Z",
       "entregue": "bf5d527b",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-rm047frontei",
-      "nome": "RM-047: fronteira de confiança do repositório clonado",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": "RM-047",
-      "branch": "ork/ork-rm047frontei-full",
-      "atualizadaEm": "2026-10-12T06:15:17.613Z",
-      "entregue": "ba54c4ce",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
