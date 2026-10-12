@@ -2981,11 +2981,13 @@ function comandoDocs(args: Args): number {
     return 0;
   }
   if (sub === 'init') {
-    const criados = iniciarDocs(raiz);
+    // RM-061 (F3a, D1 e D5): os sete arquivos nascem na lingua do dono, resolvida pelo manifesto (tambem com `--json`,
+    // que tira so o texto impresso do locale); o texto segue o locale do comando coberto.
+    const criados = iniciarDocs(raiz, resolverLocale(carregado?.manifesto.owner?.language).locale);
+    const m = msg().gerados.docsInit;
     console.log(criados.length === 0
-      ? 'Documentacao como codigo ja estava no projeto: nada criado.'
-      : ['Criado:', ...criados.map((c) => `  ${c}`), '',
-        'Proximo passo: copie docs/produto/_modelo-feature.md e docs/roadmap/_modelo-item.md, e rode ork docs verificar'].join('\n'));
+      ? m.jaEstava
+      : [m.criado, ...criados.map((c) => `  ${c}`), '', m.proximoPasso].join('\n'));
     return 0;
   }
   console.error(`uso: ork docs verificar [--json] [--pr] | sincronizar [--escrever] [--so RM-NNN] [--todos] | init`);
@@ -3128,6 +3130,8 @@ function comandoAdapter(args: Args): number {
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
       aceitarCatalogo: (texto(args.opcoes['aceitar-catalogo']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
       manterCopia: (texto(args.opcoes['manter-copia']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
+      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; o texto impresso segue em pt-BR (F3b).
+      locale: resolverLocale(carregado?.manifesto.owner?.language).locale,
     });
     console.log(textoDaInstalacao(r));
     return r.ok ? 0 : 2;
@@ -4066,13 +4070,18 @@ function executarComando(argvBruto: string[]): number {
     }
     case 'init': {
       exigirRepositorioParaInit(process.cwd());
+      // RM-061 (F3a, D1 e D2): os arquivos nascem na lingua do dono no momento da geracao, resolvida pelo manifesto lido
+      // antes do `--force` regrava-lo (o YAML e o AGENTS.md saem na mesma lingua) e independente do texto impresso, que
+      // nao segue o locale com `--json` (GO-FIX do CHECK, W3).
+      const localeDosArquivos = resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale;
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),
         abbrev: texto(args.opcoes.abbrev),
+        locale: localeDosArquivos,
       });
       const carregado = exigirManifesto(r.deteccao.raiz);
-      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto);
+      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto, localeDosArquivos);
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);

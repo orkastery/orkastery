@@ -37,6 +37,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   depois de um bloco que passou do CHECK, e a pendência do dono segura tudo. `bater` e `desligar`
   mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
   O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
+- **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
+  arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
+  em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que
+  `ork adapter install` põe no `CLAUDE.md` (ou no `AGENTS.md` do Codex) e os sete arquivos do `ork docs init`, que passa
+  a imprimir em inglês também. Chaves, valores e marcadores não mudam, nem o que o `ork docs verificar` lê nas páginas
+  (frontmatter, nomes das seções e a linha `Em uma frase` seguem em pt-BR); o pt-BR segue igual byte a byte. Rodar
+  `ork init` de novo regrava o bloco do `AGENTS.md` na língua do momento, e o bloco da experiência é reconhecido nas
+  duas línguas na reinstalação e na remoção. A referência do CLI ganha a versão em inglês,
+  [`docs/referencia/cli.en.md`](docs/referencia/cli.en.md), ligada à de pt-BR e conferida por teste. O catálogo vai de
+  835 para 877 entradas.
 - **Portão de Tarefas, o segundo mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-portao` faz do quadro de tarefas do Claude Code, na sessão de fase do GO, o quadro
   do plano: a tarefa só entra apontando uma tarefa do plano com `touch_paths` e verify, e só fecha com a conferência
