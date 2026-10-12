@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-004, FEAT-014]
 owner: Julio
-atualizado_em: 2026-10-01T02:30:00-03:00
+atualizado_em: 2026-10-03T00:30:00-03:00
 estado:
   ciclo: Piloto
   documentacao: Em revisão
@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-004](../produto/FEAT-004-claims-e-verify.md), [FEAT-014](../produto/FEAT-014-monitor-board-e-pulse.md)
-- **Thread:** `ork-rm037fatia5p` (a mais recente); antes, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
+- **Thread:** `ork-rm037fatia6r` (a mais recente); antes, `ork-rm037fatia5p`, `ork-rm037fatia4t`, `ork-rm037fatia3d`, `ork-rm037noite`, `ork-rm037defeito`, `ork-defeitosdeco`, `ork-i54compilaca` e `ork-verifytimeou`
 
 ## Problema e resultado
 
@@ -74,6 +74,11 @@ sdlc:
   - A3: no #Auto, o CHECK que termina em `done` sem o veredito sai do dono e vira a linha `<thread> parado no condutor desde HH:MM: redespachar o CHECK (ork phase run <thread> CHECK --prompt "<pedido da fase>")`, antes de qualquer caso de entrega; fora do #Auto, segue com o dono;
   - A5: a forja sem leitura de PR (GitLab, caminho local, host em que o `gh` não tem login) é dita uma vez por remoto e host (`prs.sem-leitura`), e as linhas e o status deixam de dizer "PR não lido" dela; o GitHub Enterprise, o host próprio em que `gh auth status --hostname` passa, é lido pelo host do remoto, e o retrato `ork.prs-abertos/v1` guarda o host;
   - rodízio no limite de gasto: na madrugada de 02/10, as sessões de uma conta pararam às 03:00 com `You've hit your individual spend limit · ... · your session limit resets 4:40am (America/Sao_Paulo)`, a cota só foi classificada às 04:15, quando o processo morreu, e o redespacho das 03:14 caiu na mesma conta. Agora o observador da sessão viva relê a transcrição quando ela cresce e, com o erro de esgotamento depois do despacho (as frases que o rodízio já conhece, D16), marca o perfil esgotado até a hora da mensagem, no fuso dela, ou por 1 h contada da mensagem, e grava `runtime_quota_detected` uma vez; o despacho seguinte pula o perfil (`rotate_same_runtime_on_quota`) e o `ork accounts list` mostra o prazo em `ESGOTADO ATE`. A hora de volta dita com o fuso entre parênteses passa a ser lida nesse fuso, e não no relógio da máquina.
+- **Registro de instabilidade e verify ciente do steal (thread `ork-rm037fatia6r`, fatia 6, 03/10/2026):** a T15 do P6 e o steal, na forma recomendada do item; os testes `core/test/rm037-fatia6-*.test.ts` reprovam o código anterior (não compilam contra `e7c465a`: o módulo e os campos não existiam):
+  - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](../referencia/contratos/instabilidade-rm037.md)), nasce vazio e só aceita entrada com a taxa medida (falhas em rodadas, o comando que mediu e a data) e revalidação em até 30 dias da medida; vencida não vale, e registro fora do contrato não vale inteiro;
+  - o `ork verify` (CLI, MCP e CHECK-REVERIFY) mede o steal do `/proc/stat` na rodada e na janela de cada comando e grava a medida no `verify_run` (`steal` e `stealPct`); a reprovação só de teste com relógio (assinatura de prazo do `node --test` ou entrada vigente do registro) sob steal acima de 40% vira `verify.timeout`, que o retry reexecuta, nunca regressão; asserção comum continua regressão, sem `/proc/stat` nada é atenuado e o `ork ci run` não atenua;
+  - o `testeQueCaiu` do ledger passa a ler a seção "failing tests" do reporter `spec`, o padrão do `node --test` 24 fora de TTY, que antes saía vazio;
+  - o PLAN da `ork-verifytimeou` não existe mais no repositório, nas branches nem no `.orkastery` (saiu no corte de 27/09): a T15 seguiu o texto da recomendada, decisão no ledger.
 - **Incluído:** causa tipada do estouro (T3), `verify.timeout` (T4), prazo do manifesto (T6), compilação única.
 - **P2, compilação única (27/09/2026, thread `ork-i54compilaca`):** `verify.preparo` roda uma vez antes das claims; o produto é conferido do preparo ao fim da rodada; `executado` entrou no contrato e comando que não rodou nunca vira verificado (`verify.sem-veredito`). O `incremental` dos dois tsconfig já estava ligado.
 - **P6, lint do comando de claim (27/09/2026, thread `ork-i53lintdocom`):** a suíte inteira do npm é recusada no `ci prepare` para a claim nascida sob a regra; SHA intermediário e contagem de commits só avisam; claim antiga só avisa. A lista das integrações locais passou a ter uma fonte só.
@@ -97,7 +102,8 @@ sdlc:
 - P2 (compilação única e `verify.sem-veredito`) e o lint de comando de claim do P6 (`core/src/claim-lint.ts`) estão na `main` desde `10ca416` (Orkastery 0.3.0).
 - Defeitos de condução: os de 28/09 na `main` pelo PR #18 (merge `a61e1e4`) e na versão 0.4.3; os de 29/09 pelo PR #28 (merge `baf065e`) e os da noite de 29/09 pelo PR #34 (merge `36def09`), os dois na versão 0.5.0. CI verde no push de cada merge (runs 36560460823, 36663174203 e 36725816649).
 - Em produção na versão 0.5.0: tag `v0.5.0` (merge `2418a4e`, PR #36), `@orkastery/cli` 0.5.0 no npm, CI verde no push da versão (run 36815186450).
-- Falta: o registro de instabilidade do P6 e o verify ciente do steal; nenhum código de steal existe em `core/src`. Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
+- Fatia 6 (thread `ork-rm037fatia6r`, 03/10/2026): o registro de instabilidade do P6 e o verify ciente do steal, na forma recomendada abaixo, com decisões no ledger e testes `rm037-fatia6-*`; PR a abrir. O contrato é classe 2: a ratificação do dono foi relatada à thread pelo condutor da sessão em 03/10/2026 e não chegou por ingresso autenticado, então o merge fica com o dono.
+- Antes da fatia 6, faltavam o registro de instabilidade do P6 e o verify ciente do steal; nenhum código de steal existia em `core/src`. Ficaram fora da fatia 4 por decisão registrada em 02/10/2026: o registro é contrato público versionado (classe 2) e pede a ratificação do dono. Recomendada: thread própria com a T15 do PLAN da `ork-verifytimeou` (`core/instabilidade.json` no schema `ork.instabilidade/v1`, que nasce vazio e só aceita entrada com taxa medida e revalidação em até 30 dias) e um verify que mede o steal de `/proc/stat` durante a rodada, grava a medida no `verify_run` e trata a reprovação de teste com relógio sob steal acima de 40% como `verify.timeout` (reexecuta), nunca como regressão.
 - Fatia 5 (thread `ork-rm037fatia5p`, 02/10/2026): A1, A3 e A5 da rodada 5 do CHECK da fatia 4 e o rodízio no limite de gasto entraram com decisões no ledger e testes `rm037-fatia5-*`; PR a abrir.
 
 O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincronizar`.
@@ -106,13 +112,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Piloto | — | 2026-10-01 | Julio |
-| Documentação | Em revisão | — | 2026-10-01 | Julio |
-| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-01 | Julio |
-| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-01 | Julio |
-| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-01 | Julio |
-| Exposição | Parcial | — | 2026-10-01 | Julio |
-| Habilitação | Em andamento | — | 2026-10-01 | Julio |
+| Ciclo do item | Piloto | — | 2026-10-03 | Julio |
+| Documentação | Em revisão | — | 2026-10-03 | Julio |
+| Código | Mesclado | commit `36def09` · PR #34 · anteriores: baf065e (PR #28), a61e1e4 (PR #18), 10ca416 (Orkastery 0.3.0) | 2026-10-03 | Julio |
+| Testes | Aprovados | ci: verde no push dos merges (runs 36560460823, 36663174203 e 36725816649) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
+| Deploy | Produção | release: v0.5.0 (PR #28 e #34) e v0.4.3 (PR #18), @orkastery/cli no npm | 2026-10-03 | Julio |
+| Exposição | Parcial | — | 2026-10-03 | Julio |
+| Habilitação | Em andamento | — | 2026-10-03 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -139,5 +145,6 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | defeitos da noite de 29/09 mesclados na `main` | PR #34, merge `36def09` | Julio |
 | 2026-10-01 | defeitos de 29/09 e da noite de 29/09 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
 | 2026-10-02 | fatia 4: trabalho parado no condutor no pulse e status do roadmap com o estado real da entrega e a batida da fábrica; registro de instabilidade e steal ficam pendentes com a recomendada | thread `ork-rm037fatia4t`, decisões no ledger, testes `rm037-fatia4-*`, PR a abrir | Julio |
+| 2026-10-03 | fatia 6: registro de instabilidade `ork.instabilidade/v1` e verify que mede o steal de `/proc/stat` e não chama de regressão o teste com relógio sob steal acima de 40% | thread `ork-rm037fatia6r`, decisões no ledger, testes `rm037-fatia6-*`, PR a abrir | Julio |
 | 2026-10-02 | fatia 5: `mergeSha` do merge que incorporou a branch (A1), CHECK sem veredito no condutor no #Auto (A3), forja sem leitura de PR dita uma vez e GitHub Enterprise (A5), e a cota vista ao vivo com o perfil fora do rodízio até a hora da mensagem | thread `ork-rm037fatia5p`, decisões no ledger, testes `rm037-fatia5-*`, PR a abrir | Julio |
 | 2026-10-03 | teste instável do lease da sucessora (B-1 de `rm037-baseline-no-despacho`, run 37096532937 no Node 22): corrida com o watcher destacado, reproduzida com atraso injetado e consertada lendo a identidade no lease depois do fim da sessão; 50 rodadas seguidas sob carga na claim | thread `ork-rm037testede`, decisões e claims no ledger | Julio |
