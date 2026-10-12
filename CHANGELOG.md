@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.5] - 2026-10-12
+
 ### Adicionado
 
 - **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
@@ -229,6 +231,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.5.
 
 ### Adicionado
 
