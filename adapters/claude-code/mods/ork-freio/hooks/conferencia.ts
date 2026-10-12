@@ -9,8 +9,13 @@ export const FORMATO_DA_CONFERENCIA = 'ork.claims-conferencia/v1'
 export const PRAZO_DA_CONFERENCIA_S = 180
 /** O vigia do mod: a conferencia que passar disto e encerrada e fica sem veredito (D6, D7). */
 export const VIGIA_DA_CONFERENCIA_MS = 240000
-/** Depois do vigia, quanto o laco espera o processo fechar antes de seguir (a rodada nova nao corre junto). */
+/**
+ * Depois do vigia, quanto o laco espera o processo fechar; se ele seguir aberto, a conferencia fica indisponivel
+ * e nenhuma rodada nova abre enquanto ele nao fechar (duas conferencias nunca correm juntas).
+ */
 export const ESPERA_DO_FIM_MS = 30000
+/** O motivo de indisponivel quando o processo da rodada anterior nao fechou. */
+export const MOTIVO_PROCESSO_ABERTO = 'o processo anterior do ork claims conferir nao fechou depois do vigia'
 /** Claims por rodada; so uma rodada roda por vez (D5). */
 export const TETO_POR_RODADA = 6
 /** A pausa depois de uma conferencia indisponivel (D7). */
@@ -118,6 +123,7 @@ export function entregaVazia(): FreioEntrega {
 export function comConferencia(v: FreioVigia): Required<FreioVigia> {
   return {
     rodada: null, entrega: entregaVazia(), emRisco: [], pausaAte: 0, indisponivel: null, avisouIndisponivel: false, foraPendentes: [],
+    avisadas: [],
     ...v,
   } as Required<FreioVigia>
 }
@@ -154,11 +160,13 @@ function pedidosDaRodada(rodada: FreioRodada, ids: readonly string[]): FreioPedi
 
 /**
  * Abre a rodada: tira da fila ate o teto, se nao ha rodada aberta nem pausa; a rodada aberta segue como esta.
- * Com a lista das claims ativas, a claim que saiu dela (retirada ou desconhecida) sai da fila antes (aviso 2).
+ * Com a lista das claims ativas, a claim que saiu dela (retirada) sai da fila antes; a claim com numero acima do
+ * maior que a leitura viu (cadastrada depois dela) fica, e a recusa por claim do nucleo cobre o resto.
  */
-export function iniciarRodada(vigia: FreioVigia, agora: number, teto = TETO_POR_RODADA, ativas: readonly string[] | null = null): Required<FreioVigia> {
+export function iniciarRodada(vigia: FreioVigia, agora: number, teto = TETO_POR_RODADA,
+  ativas: { ids: readonly string[]; maior: number } | null = null): Required<FreioVigia> {
   const v = comConferencia(vigia)
-  const fila = ativas ? v.fila.filter(p => ativas.includes(p.id)) : v.fila
+  const fila = ativas ? v.fila.filter(p => ativas.ids.includes(p.id) || numero(p.id) > ativas.maior) : v.fila
   if (v.rodada || fila.length === 0 || agora < v.pausaAte) return fila === v.fila ? v : { ...v, fila }
   const escolhidos = fila.slice(0, teto)
   const rodada: FreioRodada = {
@@ -197,6 +205,7 @@ export function fecharRodada(vigia: FreioVigia, leitura: Leitura, agora: number)
   if (leitura.tipo === 'ocupada') {
     return { ...v, rodada: null, fila: devolverAFila(v.fila, pedidosDaRodada(rodada, rodada.ids)), pausaAte: agora + PAUSA_DE_CONDUCAO_MS }
   }
+  const avisadas = new Set(v.avisadas)
   const falhas = new Map(v.entrega.falhas.map(f => [f.id, f]))
   const semVeredito = new Map(v.entrega.semVeredito.map(s => [s.id, s]))
   const recuperadas = new Set(v.entrega.recuperadas)
@@ -208,10 +217,11 @@ export function fecharRodada(vigia: FreioVigia, leitura: Leitura, agora: number)
     for (const item of leitura.itens) {
       if (!rodada.ids.includes(item.id) || velha(v, rodada, item.id)) continue
       if (item.verificado) {
-        // So volta como recuperada a claim cuja falha o modelo ja recebeu; a nao entregue sai sem barulho.
-        const naoEntregue = falhas.delete(item.id)
+        // So volta como recuperada a claim cuja falha o modelo ja recebeu; a que ele nunca viu sai sem barulho.
+        falhas.delete(item.id)
         semVeredito.delete(item.id)
-        if (emRisco.delete(item.id) && !naoEntregue) recuperadas.add(item.id)
+        emRisco.delete(item.id)
+        if (avisadas.delete(item.id)) recuperadas.add(item.id)
       } else if (item.motivo === 'claims.failed') {
         const falha: FreioFalha = { id: item.id, alegacao: item.alegacao, arquivo: item.arquivo, comando: item.comando, codigo: item.codigo, fim: item.fim }
         falhas.set(item.id, falha)
@@ -222,15 +232,28 @@ export function fecharRodada(vigia: FreioVigia, leitura: Leitura, agora: number)
     }
   }
   return {
-    ...v, rodada: null, indisponivel: null, emRisco: [...emRisco],
+    ...v, rodada: null, indisponivel: null, emRisco: [...emRisco], avisadas: [...avisadas],
     entrega: { ...v.entrega, falhas: [...falhas.values()], semVeredito: [...semVeredito.values()], recuperadas: [...recuperadas] },
   }
 }
 
-/** Tira a entrega da vigia para o lote devolver: a vigia fica com a entrega vazia. */
+/**
+ * A conferencia fica indisponivel sem rodada aberta (o processo da rodada anterior nao fechou): o mesmo efeito da
+ * leitura indisponivel (D7), avisando o modelo so na primeira vez.
+ */
+export function indisponivelSemRodada(vigia: FreioVigia, motivo: string, agora: number): Required<FreioVigia> {
+  const v = comConferencia(vigia)
+  return {
+    ...v, fila: [], pausaAte: agora + PAUSA_SEM_CONFERENCIA_MS, indisponivel: motivo,
+    entrega: v.avisouIndisponivel ? v.entrega : { ...v.entrega, indisponivel: motivo }, avisouIndisponivel: true,
+  }
+}
+
+/** Tira a entrega da vigia para o lote devolver: a vigia fica com a entrega vazia e lembra as falhas avisadas. */
 export function tomarEntrega(vigia: FreioVigia): { vigia: Required<FreioVigia>; entrega: FreioEntrega } {
   const v = comConferencia(vigia)
-  return { vigia: { ...v, entrega: entregaVazia() }, entrega: v.entrega }
+  const avisadas = [...new Set([...v.avisadas, ...v.entrega.falhas.map(f => f.id)])]
+  return { vigia: { ...v, entrega: entregaVazia(), avisadas }, entrega: v.entrega }
 }
 
 /** O fim da saida de uma claim: as ultimas linhas e o ultimo trecho, dentro dos tetos (D8). */

@@ -71,6 +71,20 @@ export function claimsDoNucleo(bruto: unknown): FreioClaim[] {
     .sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
 }
 
+/**
+ * O maior numero de claim que o nucleo ja deu na thread, retiradas incluidas: claim com numero acima dele foi
+ * cadastrada depois desta leitura, e a rodada nao a tira da fila por nao estar na lista.
+ */
+export function maiorNumeroDeClaim(bruto: unknown): number {
+  if (!Array.isArray(bruto)) return 0
+  let maior = 0
+  for (const item of bruto) {
+    const id = (item as { id?: unknown } | null)?.id
+    if (typeof id === 'string' && ID_DE_CLAIM.test(id)) maior = Math.max(maior, Number(id.slice(1)))
+  }
+  return maior
+}
+
 /** O texto do plano que o `ork_artifact_read` devolve, ou `null` quando a thread ainda nao tem plano. */
 export function textoDoPlano(bruto: unknown): string | null {
   const documento = bruto as { tipo?: unknown; conteudo?: unknown } | null
@@ -132,7 +146,7 @@ export function threadAtiva(status: string | null): boolean {
 
 /** A carga de uma thread antes da primeira leitura. */
 export function cargaVazia(thread: string): FreioCarga {
-  return { thread, statusDaThread: null, claims: null, claimsEm: 0, touchPaths: null, planoLido: false, planoEm: 0, erros: [] }
+  return { thread, statusDaThread: null, claims: null, claimsEm: 0, maiorClaim: 0, touchPaths: null, planoLido: false, planoEm: 0, erros: [] }
 }
 
 /** As claims precisam ser relidas: nunca lidas, velhas, ou o lote mexeu nelas. */

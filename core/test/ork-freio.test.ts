@@ -382,14 +382,14 @@ test('conferencia: a rodada sai da fila ate o teto, nao abre com pausa nem com o
   assert.deepEqual(iniciarRodada({ ...v, pausaAte: 10 }, 10, 2).rodada.ids, ['C1', 'C2']);
   assert.equal(iniciarRodada({ ...v, fila: [] }, 0).rodada, null);
   assert.deepEqual(Object.keys(comConferencia(vigiaVazia('ork-a'))).sort(),
-    ['avisadosFora', 'avisouIndisponivel', 'emRisco', 'entrega', 'fila', 'foraPendentes', 'foto', 'indisponivel', 'pausaAte', 'rodada', 'seq', 'thread', 'toques']);
+    ['avisadas', 'avisadosFora', 'avisouIndisponivel', 'emRisco', 'entrega', 'fila', 'foraPendentes', 'foto', 'indisponivel', 'pausaAte', 'rodada', 'seq', 'thread', 'toques']);
 });
 
 test('conferencia: fechar a rodada separa quebra, sem veredito, recuperada e resultado velho', () => {
   const { fecharRodada } = carregar('hooks/conferencia.ts');
   const { vigiaVazia } = carregar('hooks/lote.ts');
   const rodada = { ids: ['C1', 'C2', 'C3', 'C4'], caminhos: { C1: ['a.ts'], C2: ['b.ts'], C3: ['c.ts'], C4: ['d.ts'] }, inicio: 5 };
-  const v = { ...vigiaVazia('ork-a'), seq: 6, toques: { 'a.ts': 5, 'b.ts': 4, 'c.ts': 5, 'd.ts': 6 }, rodada, emRisco: ['C2', 'C4'] };
+  const v = { ...vigiaVazia('ork-a'), seq: 6, toques: { 'a.ts': 5, 'b.ts': 4, 'c.ts': 5, 'd.ts': 6 }, rodada, emRisco: ['C2', 'C4'], avisadas: ['C2', 'C4'] };
   const leitura = { tipo: 'resultado', itens: [
     { id: 'C1', alegacao: 'a', arquivo: 'a.ts', verificado: false, motivo: 'claims.failed', comando: 'x', codigo: 1, fim: 'f' },
     { id: 'C2', alegacao: 'b', arquivo: null, verificado: true, motivo: null, comando: 'y', codigo: 0, fim: '' },
@@ -531,16 +531,19 @@ test('conferencia: a recusa de uma claim so e a conducao alheia (saida 3) nao vi
   assert.equal(lerConferencia(recusa('claims.conferir.sandbox-indisponivel: x'), 2, '').tipo, 'indisponivel');
 });
 
-test('conferencia: a rodada leva so claims ativas e guarda a forca de cada uma', () => {
+test('conferencia: a rodada leva so claims ativas, guarda a forca de cada uma e mantem a claim mais nova que a leitura', () => {
   const { iniciarRodada } = carregar('hooks/conferencia.ts');
   const { vigiaVazia } = carregar('hooks/lote.ts');
   const fila = [{ id: 'C3', forca: 3, caminhos: ['c.ts'] }, { id: 'C2', forca: 2, caminhos: ['b.ts'] }, { id: 'C1', forca: 1, caminhos: ['a.ts'] }];
-  const r = iniciarRodada({ ...vigiaVazia('ork-a'), seq: 2, fila }, 0, 6, ['C1', 'C3']);
+  const r = iniciarRodada({ ...vigiaVazia('ork-a'), seq: 2, fila }, 0, 6, { ids: ['C1', 'C3'], maior: 3 });
   assert.deepEqual(r.rodada, { ids: ['C3', 'C1'], caminhos: { C3: ['c.ts'], C1: ['a.ts'] }, forcas: { C3: 3, C1: 1 }, inicio: 2 });
   assert.deepEqual(r.fila, []);
-  const soDesconhecidas = iniciarRodada({ ...vigiaVazia('ork-a'), fila }, 0, 6, []);
-  assert.equal(soDesconhecidas.rodada, null);
-  assert.deepEqual(soDesconhecidas.fila, []);
+  const retiradas = iniciarRodada({ ...vigiaVazia('ork-a'), fila }, 0, 6, { ids: [], maior: 3 });
+  assert.equal(retiradas.rodada, null);
+  assert.deepEqual(retiradas.fila, []);
+  // A C9 foi cadastrada depois da leitura (numero acima do maior que ela viu): fica e roda.
+  const nova = iniciarRodada({ ...vigiaVazia('ork-a'), fila: [{ id: 'C9', forca: 3, caminhos: ['z.ts'] }, ...fila] }, 0, 6, { ids: ['C1'], maior: 3 });
+  assert.deepEqual(nova.rodada.ids, ['C9', 'C1']);
 });
 
 test('conferencia: a claim que voltou para a fila durante a rodada tem resultado velho, por qualquer caminho', () => {
@@ -565,8 +568,36 @@ test('conferencia: so volta como recuperada a claim cuja falha o modelo ja receb
     { tipo: 'resultado', itens: [passou] }, 0);
   assert.deepEqual(naoEntregue.entrega, { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null });
   assert.deepEqual(naoEntregue.emRisco, []);
-  const entregue = fecharRodada({ ...vigiaVazia('ork-a'), seq: 5, rodada, emRisco: ['C1'] }, { tipo: 'resultado', itens: [passou] }, 0);
+  const entregue = fecharRodada({ ...vigiaVazia('ork-a'), seq: 5, rodada, emRisco: ['C1'], avisadas: ['C1'] }, { tipo: 'resultado', itens: [passou] }, 0);
   assert.deepEqual(entregue.entrega.recuperadas, ['C1']);
+  assert.deepEqual(entregue.avisadas, []);
+  // Falha ja avisada e outra pendente no meio: ao passar, volta como recuperada e a pendente some.
+  const comPendente = fecharRodada({ ...vigiaVazia('ork-a'), seq: 5, rodada, emRisco: ['C1'], avisadas: ['C1'],
+    entrega: { falhas: [falha], semVeredito: [], recuperadas: [], indisponivel: null } }, { tipo: 'resultado', itens: [passou] }, 0);
+  assert.deepEqual(comPendente.entrega.falhas, []);
+  assert.deepEqual(comPendente.entrega.recuperadas, ['C1']);
+});
+
+test('conferencia: tomar a entrega lembra as falhas avisadas; sem rodada, o processo aberto deixa a conferencia indisponivel', () => {
+  const { tomarEntrega, indisponivelSemRodada, MOTIVO_PROCESSO_ABERTO, PAUSA_SEM_CONFERENCIA_MS } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const falha = { id: 'C4', alegacao: 'a', arquivo: null, comando: 'x', codigo: 1, fim: '' };
+  const t = tomarEntrega({ ...vigiaVazia('ork-a'), avisadas: ['C1'], entrega: { falhas: [falha], semVeredito: [], recuperadas: [], indisponivel: null } });
+  assert.deepEqual(t.vigia.avisadas, ['C1', 'C4']);
+  const parada = indisponivelSemRodada({ ...vigiaVazia('ork-a'), fila: [{ id: 'C2', forca: 3, caminhos: [] }] }, MOTIVO_PROCESSO_ABERTO, 10);
+  assert.deepEqual(parada.fila, []);
+  assert.equal(parada.pausaAte, 10 + PAUSA_SEM_CONFERENCIA_MS);
+  assert.equal(parada.entrega.indisponivel, MOTIVO_PROCESSO_ABERTO);
+  assert.equal(parada.avisouIndisponivel, true);
+  const segunda = indisponivelSemRodada({ ...parada, entrega: { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null } }, MOTIVO_PROCESSO_ABERTO, 20);
+  assert.equal(segunda.entrega.indisponivel, null);
+});
+
+test('carga: o maior numero de claim conta as retiradas e ignora id fora do formato', () => {
+  const { maiorNumeroDeClaim } = carregar('hooks/carga.ts');
+  assert.equal(maiorNumeroDeClaim([{ id: 'C2', estado: 'pendente' }, { id: 'C7', estado: 'retirada' }, { id: 'T9' }, null]), 7);
+  assert.equal(maiorNumeroDeClaim([]), 0);
+  assert.equal(maiorNumeroDeClaim({ id: 'C3' }), 0);
 });
 
 test('conferencia: a recusa por claim devolve as outras a fila sem pausa; a conducao alheia devolve todas com pausa curta', () => {

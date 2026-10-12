@@ -7,7 +7,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { FreioCarga, FreioFoto, FreioVigia } from '../types'
 import {
   argsDaFerramenta, cargaVazia, claimsDoNucleo, claimsVelhas, FERRAMENTA_DAS_CLAIMS, FERRAMENTA_DO_PLANO, jsonDoMcp,
-  planoVelho, SERVIDOR, statusNoRetrato, textoDoPlano, threadAtiva, touchPathsDoPlano,
+  maiorNumeroDeClaim, planoVelho, SERVIDOR, statusNoRetrato, textoDoPlano, threadAtiva, touchPathsDoPlano,
 } from './carga'
 import {
   aplicarLote, ARGV_DO_STATUS, assinatura, caminhosDoLote, diferenca, juntar, lerStatus, mexeuNasClaims, mexeuNoPlano,
@@ -15,8 +15,8 @@ import {
 } from './lote'
 import type { Chamada } from './lote'
 import {
-  acumular, argvDaConferencia, ESPERA_DO_FIM_MS, fecharRodada, iniciarRodada, lerConferencia, limitarTexto, precisaDeLaco,
-  TETO_POR_RODADA, textoDaEntrega, textoDoStatus, tomarEntrega, VIGIA_DA_CONFERENCIA_MS,
+  acumular, argvDaConferencia, ESPERA_DO_FIM_MS, fecharRodada, indisponivelSemRodada, iniciarRodada, lerConferencia, limitarTexto,
+  MOTIVO_PROCESSO_ABERTO, precisaDeLaco, TETO_POR_RODADA, textoDaEntrega, textoDoStatus, tomarEntrega, VIGIA_DA_CONFERENCIA_MS,
 } from './conferencia'
 import type { Leitura } from './conferencia'
 
@@ -28,6 +28,11 @@ const TENTATIVAS_DE_ESCRITA = 5
  * worker mata o laco junto com a marca, e a rodada que ficou aberta no estado e retomada pelo laco seguinte.
  */
 let rodando = false
+/**
+ * O processo da ultima rodada ainda nao fechou (o vigia venceu e o `return` nao chegou a ele, como num processo que
+ * nao escreve nada). Enquanto ele existir, nenhuma rodada nova abre: duas conferencias nunca correm juntas.
+ */
+let fluxoAberto: Promise<unknown> | null = null
 
 /** A sessao de fase com thread, pelo contexto da ponte; qualquer outra sessao fica sem Freio (D10). */
 type ContextoDeFase = { thread: string; raiz: string }
@@ -72,6 +77,7 @@ async function carregar($: EngineInterface, ctx: ContextoDeFase, partes: { retra
   const erros: string[] = []
   let status: string | null | undefined
   let claims: FreioCarga['claims'] | undefined
+  let maiorClaim = 0
   let touchPaths: string[] | null = null
   let planoLido = false
   if (partes.retrato) {
@@ -82,7 +88,9 @@ async function carregar($: EngineInterface, ctx: ContextoDeFase, partes: { retra
   if (partes.claims) {
     try {
       const r = await $.mcp.call(SERVIDOR, FERRAMENTA_DAS_CLAIMS, argsDaFerramenta(FERRAMENTA_DAS_CLAIMS, ctx.thread))
-      claims = claimsDoNucleo(jsonDoMcp(r, FERRAMENTA_DAS_CLAIMS))
+      const lista = jsonDoMcp(r, FERRAMENTA_DAS_CLAIMS)
+      claims = claimsDoNucleo(lista)
+      maiorClaim = maiorNumeroDeClaim(lista)
     } catch (erro) { erros.push(`claims: ${mensagem(erro)}`) }
   }
   if (partes.plano) {
@@ -92,11 +100,12 @@ async function carregar($: EngineInterface, ctx: ContextoDeFase, partes: { retra
       planoLido = true
     } catch (erro) { erros.push(`plano: ${mensagem(erro)}`) }
   }
+  // Uma leitura mais velha nunca sobrescreve outra mais nova que gravou antes dela (duas cargas ao mesmo tempo).
   return atualizarCarga($, ctx.thread, atual => ({
     ...atual,
     ...(status !== undefined ? { statusDaThread: status } : {}),
-    ...(claims !== undefined ? { claims, claimsEm: agora } : {}),
-    ...(planoLido ? { touchPaths, planoLido: true, planoEm: agora } : {}),
+    ...(claims !== undefined && agora >= atual.claimsEm ? { claims, claimsEm: agora, maiorClaim } : {}),
+    ...(planoLido && agora >= atual.planoEm ? { touchPaths, planoLido: true, planoEm: agora } : {}),
     erros,
   }))
 }
@@ -145,10 +154,12 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: re
       return fluxo.result
     })()
     lido.catch(() => undefined)
+    fluxoAberto = lido
+    void lido.catch(() => undefined).then(() => { if (fluxoAberto === lido) fluxoAberto = null })
     const vencido = new Promise<'vencido'>(resolver => { vigia = $.clock.after(VIGIA_DA_CONFERENCIA_MS, () => resolver('vencido')) })
     const fim = await Promise.race([lido, vencido])
     if (fim === 'vencido') {
-      // Encerra o processo e espera ele fechar (com teto), para a rodada seguinte nao correr junto com ele.
+      // Encerra o processo e espera ele fechar (com teto); se ele seguir aberto, o laco nao abre rodada nova.
       void fluxo.return(undefined as never).catch(() => undefined)
       await Promise.race([lido.catch(() => undefined), new Promise(resolver => { $.clock.after(ESPERA_DO_FIM_MS, () => resolver(undefined)) })])
       return { tipo: 'prazo' }
@@ -161,10 +172,10 @@ async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: re
   }
 }
 
-/** As claims ativas da carga, para a rodada nao levar claim retirada ou desconhecida; `null` sem lista lida. */
-async function claimsAtivas($: EngineInterface, ctx: ContextoDeFase): Promise<string[] | null> {
+/** As claims ativas da carga e o maior numero ja dado, para a rodada nao levar claim retirada; `null` sem lista lida. */
+async function claimsAtivas($: EngineInterface, ctx: ContextoDeFase): Promise<{ ids: string[]; maior: number } | null> {
   const carga = (await $.state.get(CARGA)).value
-  return carga && carga.thread === ctx.thread && carga.claims ? carga.claims.map(c => c.id) : null
+  return carga && carga.thread === ctx.thread && carga.claims ? { ids: carga.claims.map(c => c.id), maior: carga.maiorClaim ?? 0 } : null
 }
 
 /**
@@ -176,6 +187,16 @@ async function conferirEmLaco($: EngineInterface, ctx: ContextoDeFase): Promise<
   rodando = true
   try {
     for (;;) {
+      if (fluxoAberto) {
+        const aberto = fluxoAberto
+        await Promise.race([aberto.catch(() => undefined), new Promise(resolver => { $.clock.after(ESPERA_DO_FIM_MS, () => resolver(undefined)) })])
+        if (fluxoAberto === aberto) {
+          const quando = await $.clock.now()
+          const parada = await atualizarVigia($, ctx.thread, v => ({ vigia: indisponivelSemRodada(v, MOTIVO_PROCESSO_ABERTO, quando), extra: null }))
+          $.ui.status(textoDoStatus(parada.vigia, quando))
+          break
+        }
+      }
       const agora = await $.clock.now()
       const ativas = await claimsAtivas($, ctx)
       const { vigia } = await atualizarVigia($, ctx.thread, v => ({ vigia: iniciarRodada(v, agora, TETO_POR_RODADA, ativas), extra: null }))

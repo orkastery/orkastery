@@ -19,6 +19,8 @@ export type FreioCarga = {
   claims: FreioClaim[] | null
   /** Quando as claims foram lidas, em ms desde a epoca. */
   claimsEm: number
+  /** O maior numero de claim da thread na leitura, retiradas incluidas (falta na carga gravada antes dele). */
+  maiorClaim?: number
   /** A uniao dos `touch_paths` das tarefas do plano; `null` sem plano ou sem nenhum. */
   touchPaths: string[] | null
   /** O plano ja foi lido (com ou sem `touch_paths`). */
@@ -73,6 +75,8 @@ export type FreioVigia = {
   avisouIndisponivel?: boolean
   /** Caminhos fora dos `touch_paths` que o laco principal ainda nao recebeu (lote de subagente nao recebe aviso). */
   foraPendentes?: string[]
+  /** As claims cuja falha o modelo ja recebeu: so elas voltam como recuperadas quando passam. */
+  avisadas?: string[]
 }
 
 /** Uma rodada de conferencia: as claims, os caminhos que afetaram cada uma e o lote em que ela comecou (T2.3). */

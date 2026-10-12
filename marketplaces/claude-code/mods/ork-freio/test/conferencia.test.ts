@@ -16,13 +16,13 @@ async function preparar($, on, respostas: RespostaDoProcesso[], claims: unknown[
   comInicio(on)
   const status = comLote(on)
   const nuc = { claims, plano: null as string | null }
-  nucleo(on, nuc)
+  const pedidosDoNucleo = nucleo(on, nuc)
   const d = disco(on)
   const pedidos = nucleoDeConferencia(on, relogio, respostas)
   await iniciar($)
   await relogio.settle()
   const mexer = (rel: string, n: number) => { d.sujos[rel] = { xy: '.M', size: n, mtimeMs: n } }
-  return { relogio, d, pedidos, status, mexer, nuc }
+  return { relogio, d, pedidos, status, mexer, nuc, pedidosDoNucleo }
 }
 
 test('a claim que a conferencia reprova volta no lote seguinte com o id, o comando e o fim da saida', { plugins: PLUGINS }, async ($, on) => {
@@ -134,20 +134,45 @@ test('sem veredito no nucleo vira uma linha so, sem fim da saida', { plugins: PL
   expect((await lote($, ler('src/lote.ts'))).additionalContext).toEqual(['Freio de Lote: a conferencia de C1 terminou sem veredito (verify.timeout); o ork verify decide.'])
 })
 
-test('o vigia de 240 s encerra a conferencia muda: depois da espera do fim, as claims ficam sem veredito e o laco segue', { plugins: PLUGINS }, async ($, on) => {
-  const presa = { ...respostaDe([quebrou('C1', COMANDO, 'x')]), espera: 1000000000 }
-  const { relogio, pedidos, mexer } = await preparar($, on, [presa, respostaDe([passou('C1')])])
-  mexer('src/lote.ts', 1)
-  await lote($, editar('src/lote.ts'))
+test('o vigia de 240 s: a conferencia muda fica sem veredito e nenhuma rodada nova corre junto enquanto o processo nao fecha', { plugins: PLUGINS }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1000 })
+  ambiente(on)
+  comInicio(on)
+  comLote(on)
+  nucleo(on, { claims: [claim('C1', 'src/a.ts', 'true'), claim('C2', 'src/b.ts', 'true')], plano: null })
+  const d = disco(on)
+  const marca = { abriu: 0, encerrou: 0 }
+  on('process.spawn', async function* () {
+    const n = ++marca.abriu
+    try {
+      // O primeiro processo nao escreve nada por 400 s: o return do vigia nao chega a ele antes disso.
+      if (n === 1) await relogio.sleep(400000)
+      const r = respostaDe([passou(n === 1 ? 'C1' : 'C2')])
+      yield { stream: 'stdout', text: r.stdout }
+      return { value: { code: r.code, signal: null } }
+    } finally { marca.encerrou++ }
+  })
+  await iniciar($)
   await relogio.settle()
+  d.sujos['src/a.ts'] = { xy: '.M', size: 1, mtimeMs: 1 }
+  await lote($, editar('src/a.ts'))
+  await relogio.settle()
+  d.sujos['src/b.ts'] = { xy: '.M', size: 1, mtimeMs: 1 }
+  await lote($, editar('src/b.ts'))
   await relogio.advance(240000)
-  expect((await estado($, 'vigia')).rodada.ids).toEqual(['C1'])
   await relogio.advance(30000)
-  expect((await lote($, ler('src/lote.ts'))).additionalContext).toEqual(['Freio de Lote: a conferencia de C1 terminou sem veredito (prazo do Freio); o ork verify decide.'])
-  mexer('src/lote.ts', 2)
-  await lote($, editar('src/lote.ts'))
+  await relogio.advance(30000)
+  expect(marca).toEqual({ abriu: 1, encerrou: 0 })
+  const texto = (await lote($, ler('src/a.ts'))).additionalContext[0]
+  expect(texto).toContain('Freio de Lote: a conferencia de C1 terminou sem veredito (prazo do Freio); o ork verify decide.')
+  expect(texto).toContain('indisponivel nesta sessao (o processo anterior do ork claims conferir nao fechou depois do vigia)')
+  await relogio.advance(100000)
+  expect(marca).toEqual({ abriu: 1, encerrou: 1 })
+  await relogio.advance(600000)
+  d.sujos['src/b.ts'] = { xy: '.M', size: 2, mtimeMs: 2 }
+  await lote($, editar('src/b.ts'))
   await relogio.settle()
-  expect(pedidos.length).toBe(2)
+  expect(marca.abriu).toBe(2)
 })
 
 test('uma conferencia por vez, com no maximo 6 claims por rodada, as mais novas primeiro', { plugins: PLUGINS }, async ($, on) => {
@@ -181,14 +206,18 @@ test('resultado velho por outro caminho da mesma claim: a falha do estado anteri
   // C1 depende de src/a.ts (arquivo) e de src/b.ts (citado no comando); a rodada abre pelo src/a.ts.
   const claims = [claim('C1', 'src/a.ts', 'grep -c x src/b.ts')]
   const lenta = { ...respostaDe([quebrou('C1', 'grep -c x src/b.ts', 'falha do estado ANTIGO')]), espera: 5000 }
-  const { relogio, pedidos, mexer } = await preparar($, on, [lenta, respostaDe([passou('C1')])], claims)
+  const segunda = { ...respostaDe([passou('C1')]), espera: 5000 }
+  const { relogio, pedidos, mexer } = await preparar($, on, [lenta, segunda], claims)
   mexer('src/a.ts', 1)
   await lote($, editar('src/a.ts'))
   await relogio.settle()
   mexer('src/b.ts', 2)
   await lote($, editar('src/b.ts'))
   await relogio.advance(5000)
+  // A primeira rodada fechou e a segunda roda: a falha velha nao chega nem neste intervalo.
   expect(pedidos.length).toBe(2)
+  expect(await lote($, ler('src/a.ts'))).toEqual({})
+  await relogio.advance(5000)
   expect(await lote($, ler('src/a.ts'))).toEqual({})
   expect((await estado($, 'vigia')).emRisco).toEqual([])
 })
@@ -196,12 +225,15 @@ test('resultado velho por outro caminho da mesma claim: a falha do estado anteri
 test('o proprio arquivo da claim tocado durante a rodada aberta pelo comando: a falha velha nao chega', { plugins: PLUGINS }, async ($, on) => {
   const claims = [claim('C1', 'src/a.ts', 'grep -c x src/b.ts')]
   const lenta = { ...respostaDe([quebrou('C1', 'grep -c x src/b.ts', 'falha anterior', 'src/a.ts')]), espera: 5000 }
-  const { relogio, mexer } = await preparar($, on, [lenta, respostaDe([passou('C1')])], claims)
+  const segunda = { ...respostaDe([passou('C1')]), espera: 5000 }
+  const { relogio, mexer } = await preparar($, on, [lenta, segunda], claims)
   mexer('src/b.ts', 1)
   await lote($, editar('src/b.ts'))
   await relogio.settle()
   mexer('src/a.ts', 2)
   await lote($, editar('src/a.ts'))
+  await relogio.advance(5000)
+  expect(await lote($, ler('src/a.ts'))).toEqual({})
   await relogio.advance(5000)
   expect(await lote($, ler('src/a.ts'))).toEqual({})
 })
@@ -222,12 +254,15 @@ test('claim que passa antes de a falha dela ser entregue sai sem barulho: nem fa
 test('claim retirada que ficou na fila: so ela sai, as outras rodam, sem aviso de indisponivel e sem pausa', { plugins: PLUGINS }, async ($, on) => {
   const claims = [claim('C1', 'src/a.ts', 'test -s src/a.ts'), claim('C2', 'src/b.ts', 'test -s src/b.ts'), claim('C3', 'src/c.ts', 'test -s src/c.ts')]
   const recusa = { stdout: JSON.stringify({ formato: 'ork.claims-conferencia/v1', thread: 'ork-exemplo', ok: false, erro: 'claims.conferir.retirada: C2 foi retirada (trocada pela C4)' }), code: 2 }
-  const { relogio, pedidos, mexer, status } = await preparar($, on, [recusa, respostaDe([passou('C3')])], claims)
+  const { relogio, pedidos, mexer, status, pedidosDoNucleo } = await preparar($, on, [recusa, respostaDe([passou('C3')])], claims)
+  const leiturasAntes = pedidosDoNucleo.filter(p => p.tool === 'ork_claims_list').length
   mexer('src/b.ts', 1)
   mexer('src/c.ts', 1)
   await lote($, editar('src/b.ts'), editar('src/c.ts'))
   await relogio.settle()
   expect(pedidos.map(p => p.argv[5])).toEqual(['C3,C2', 'C3'])
+  // Depois da recusa, o laco rele a lista de claims do nucleo.
+  expect(pedidosDoNucleo.filter(p => p.tool === 'ork_claims_list').length).toBe(leiturasAntes + 1)
   expect(await lote($, ler('src/a.ts'))).toEqual({})
   expect(status[status.length - 1]).toBeUndefined()
   const vigia = await estado($, 'vigia')
@@ -318,4 +353,41 @@ test('o aviso de touch_paths de um lote de subagente chega ao laco principal, um
   expect(await $.classic.PostToolBatch({ tool_calls: [editar('src/fora.ts')], agent_id: 'a-sub-1', agent_type: 'general-purpose' })).toEqual({})
   expect((await lote($, ler('src/a.ts'))).additionalContext).toEqual(['Freio de Lote: o lote mexeu fora dos touch_paths do plano: src/fora.ts.'])
   expect(await lote($, ler('src/a.ts'))).toEqual({})
+})
+
+test('a claim cuja falha o modelo ja recebeu volta como recuperada, mesmo com outra falha pendente no meio', { plugins: PLUGINS }, async ($, on) => {
+  const respostas = [respostaDe([quebrou('C1', COMANDO, 'primeira')]), respostaDe([quebrou('C1', COMANDO, 'segunda')]), respostaDe([passou('C1')])]
+  const { relogio, mexer } = await preparar($, on, respostas)
+  mexer('src/lote.ts', 1)
+  await lote($, editar('src/lote.ts'))
+  await relogio.settle()
+  expect((await lote($, ler('src/lote.ts'))).additionalContext[0]).toContain('  | primeira')
+  mexer('src/lote.ts', 2)
+  await lote($, editar('src/lote.ts'))
+  await relogio.settle()
+  // Um subagente toca de novo: a segunda falha fica pendente e a terceira rodada passa.
+  mexer('src/lote.ts', 3)
+  await $.classic.PostToolBatch({ tool_calls: [editar('src/lote.ts')], agent_id: 'a-sub-1', agent_type: 'general-purpose' })
+  await relogio.settle()
+  expect((await lote($, ler('src/lote.ts'))).additionalContext).toEqual(['Freio de Lote: C1 voltou a passar na conferencia do nucleo.'])
+})
+
+test('o texto do lote com falha e aviso de touch_paths juntos respeita o teto de caracteres', { plugins: PLUGINS }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1000 })
+  ambiente(on)
+  comInicio(on)
+  comLote(on)
+  nucleo(on, { claims: [claim('C1', 'src/lote.ts', COMANDO)], plano: '- **touch_paths:** `src/lote.ts`' })
+  const d = disco(on)
+  const longa = { ...quebrou('C1', COMANDO, 'x'), alegacao: 'z'.repeat(5950) }
+  nucleoDeConferencia(on, relogio, [respostaDe([longa])])
+  await iniciar($)
+  await relogio.settle()
+  d.sujos['src/lote.ts'] = { xy: '.M', size: 1, mtimeMs: 1 }
+  await lote($, editar('src/lote.ts'))
+  await relogio.settle()
+  d.sujos['src/fora.ts'] = { xy: '??', size: 1, mtimeMs: 1 }
+  const texto = (await lote($, editar('src/fora.ts'))).additionalContext[0]
+  expect(texto.length <= 6000).toBe(true)
+  expect(texto.endsWith('(texto cortado pelo Freio de Lote)')).toBe(true)
 })
