@@ -84,12 +84,12 @@
     "cobertura": 0.1122
   },
   "depois": {
-    "arvore": "e79edcc1",
-    "descricao": "F2b: verify, ship, ship registrar-pr, pulse, master (indice, aceite por omissao, pedir), retry plan e run, roadmap status",
+    "arvore": "9fe77ee5",
+    "descricao": "F2b com o GO-FIX da revisao: verify, ship, ship registrar-pr, pulse (inclusive as paradas do monitor, o estado e a recomendacao do radar, a consulta do runtime, a descricao de cada motivo, as alternativas do impedimento e a correcao das vagas do escalonador), master (indice, aceite por omissao, pedir), retry plan e run, roadmap status (inclusive o motivo da fabrica nao lida)",
     "schema": "ork.locale-cobertura/v1",
     "arquivos": 223,
-    "literaisComTexto": 4761,
-    "emPosicaoDeSaida": 2831,
+    "literaisComTexto": 4702,
+    "emPosicaoDeSaida": 2801,
     "arquivosComSaida": 156,
     "maiores": [
       {
@@ -199,10 +199,6 @@
         "saida": 41
       },
       {
-        "arquivo": "hitl.ts",
-        "saida": 40
-      },
-      {
         "arquivo": "runtime-context.ts",
         "saida": 40
       },
@@ -217,10 +213,6 @@
       {
         "arquivo": "orkmind.ts",
         "saida": 38
-      },
-      {
-        "arquivo": "board.ts",
-        "saida": 36
       },
       {
         "arquivo": "policies.ts",
@@ -239,8 +231,8 @@
         "saida": 34
       },
       {
-        "arquivo": "orquestracao.ts",
-        "saida": 32
+        "arquivo": "board.ts",
+        "saida": 33
       },
       {
         "arquivo": "session-watcher-claude.ts",
@@ -259,12 +251,12 @@
         "saida": 28
       },
       {
-        "arquivo": "parado-no-condutor.ts",
+        "arquivo": "hitl.ts",
         "saida": 27
       },
       {
-        "arquivo": "adapters/claude-bg.ts",
-        "saida": 25
+        "arquivo": "parado-no-condutor.ts",
+        "saida": 27
       },
       {
         "arquivo": "auditoria.ts",
@@ -273,6 +265,10 @@
       {
         "arquivo": "evalrunner.ts",
         "saida": 24
+      },
+      {
+        "arquivo": "adapters/claude-bg.ts",
+        "saida": 23
       },
       {
         "arquivo": "preflight.ts",
@@ -284,6 +280,10 @@
       },
       {
         "arquivo": "adapters/codex-controller-worker.ts",
+        "saida": 22
+      },
+      {
+        "arquivo": "orquestracao.ts",
         "saida": 22
       },
       {
@@ -519,10 +519,6 @@
         "saida": 6
       },
       {
-        "arquivo": "ratelimit.ts",
-        "saida": 6
-      },
-      {
         "arquivo": "worktree-local.ts",
         "saida": 6
       },
@@ -596,6 +592,10 @@
       },
       {
         "arquivo": "pulse.ts",
+        "saida": 4
+      },
+      {
+        "arquivo": "ratelimit.ts",
         "saida": 4
       },
       {
@@ -760,7 +760,7 @@
       }
     ],
     "catalogo": {
-      "entradas": 760,
+      "entradas": 825,
       "arquivos": [
         {
           "arquivo": "locale-ajuda.ts",
@@ -780,7 +780,7 @@
         },
         {
           "arquivo": "locale-pulse.ts",
-          "entradas": 25
+          "entradas": 84
         },
         {
           "arquivo": "locale-retry.ts",
@@ -788,11 +788,11 @@
         },
         {
           "arquivo": "locale-roadmap.ts",
-          "entradas": 27
+          "entradas": 29
         },
         {
           "arquivo": "locale-ship.ts",
-          "entradas": 111
+          "entradas": 112
         },
         {
           "arquivo": "locale-thread.ts",
@@ -804,19 +804,19 @@
         },
         {
           "arquivo": "locale.ts",
-          "entradas": 192
+          "entradas": 195
         }
       ]
     },
-    "cobertura": 0.2116
+    "cobertura": 0.2275
   },
   "familiasNovas": {
     "locale-master.ts": 47,
-    "locale-pulse.ts": 25,
+    "locale-pulse.ts": 84,
     "locale-retry.ts": 115,
-    "locale-roadmap.ts": 27,
-    "locale-ship.ts": 111,
+    "locale-roadmap.ts": 29,
+    "locale-ship.ts": 112,
     "locale-verify.ts": 46
   },
-  "nota": "a diferenca de entradas entre antes e depois inclui as mudancas de locale.ts (o horario e as chaves novas); a politica de retry (26 motivos, porque e correcao) passou a ter a fonte no catalogo e conta como entrada do locale-retry.ts"
+  "nota": "a diferenca de entradas entre antes e depois inclui as mudancas de locale.ts (o horario, as chaves novas e quanto falta na fila de rate limit); a politica de retry (26 motivos, porque e correcao) e a descricao de cada motivo de gate (26) passaram a ter a fonte no catalogo e contam como entradas do locale-retry.ts e do locale-pulse.ts"
 }
