@@ -32,7 +32,9 @@
  * `textoDoCatalogo`, dentro do escopo da gravacao, e a impressao o remonta no locale ativo por `remontar`.
  * O registro dos montadores so existe nos comandos cobertos (`ligarRemontagem`); o servidor MCP e o cron
  * nunca o ligam. O que outro processo gravou, a policy avaliada e a saida de ferramenta externa saem como
- * vieram.
+ * vieram, e tambem (G5) o proximo passo e o estado da entrega de uma thread parada no condutor
+ * (`parado-no-condutor.ts`, a familia de entregas), ate a F3. Motivo, acao, bloqueio e codigo saem iguais
+ * nas duas linguas (G4).
  *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag

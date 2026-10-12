@@ -157,13 +157,24 @@ A coluna "Só a F2a" mede a fatia antes do merge da `origin/main`; a final já t
 
 Fica fora da F2a, por decisão da thread (D1 e D14), o texto que já é dado gravado (erro do ledger, recusa registrada, policy avaliada) e o que vem de módulo compartilhado ainda sem família no catálogo (o validador do manifesto, o regime de memória e o erro de estado durante a gravação): ele sai como o módulo dono escreve, em pt-BR, até a família migrar. O cabeçalho `Projeto consultado:` é contrato do RM-052 com os hosts e fica igual nas duas línguas.
 
+A F2b mede no mesmo contador, com o recibo em [`cobertura-f2b.json`](evidencias/RM-061/cobertura-f2b.json):
+
+| Medida | F2a na `main` (`17bbdea6`) | F2b (`e79edcc1`) |
+| --- | --- | --- |
+| Entradas do catálogo | 389 | 760 |
+| Literais de saída fora do catálogo | 3.077 | 2.831 |
+| Cobertura | 11,2% | 21,2% |
+
+As famílias novas são `verify` (46 entradas), `ship` (111), `retry` (115, com a política dos 26 motivos), `master` (47), `pulse` (25) e `roadmap` (27). O texto que o comando monta e também grava, ou devolve no `--json` (o detalhe da claim, o bloqueio do ship, a razão do retry), nasce em pt-BR e só a impressão o remonta no locale. Seguem como o módulo dono escreve, além da fronteira da F2a: o próximo passo e o estado da entrega de uma thread parada no condutor (família de entregas) e o que outro processo gravou no ledger.
+
 ## Responsabilidades e histórico
 
 - **RACI (R / A / C / I):** R: fábrica Orkastery nas fatias; A: Julio; C: revisão humana do inglês; I: quem usa o CLI em inglês.
 - **Agentes envolvidos, atuação, autonomia e revisor humano:** agente Claude Code redigiu esta página em #Fast, restrita à documentação. O código da F1 vem do #113, mesclado por outra thread. Revisor humano: Julio.
-- **Próxima ação, responsável e prazo:** revisar o inglês da F2a, abrir a F2b (`verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status`) e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
+- **Próxima ação, responsável e prazo:** revisar o inglês da F2a e da F2b, abrir a F3 e fechar o EN5; responsável: fábrica, com a revisão do inglês pelo dono; sem data definida nesta página.
 
 | Data | Mudança de plano, escopo ou status | Motivo e evidência | Decisor |
 | --- | --- | --- | --- |
 | 2026-10-12 | Item criado em Desenvolvimento, com F1 a F3; F1 já mesclada (#113) | Decisão do dono sobre a prova de conceito #113 e o recibo `ensaio-2026-10-03-en.json` | Julio |
 | 2026-10-12 | F2 dividida em F2a e F2b; a F2a leva o caminho da primeira experiência ao catálogo, com a cobertura medida | Thread `ork-rm061f2a` e o recibo `cobertura-f2a.json` | Fábrica, pelo pedido do dono |
+| 2026-10-12 | A F2b leva `verify`, `ship`, `pulse`, `master`, `retry` e `roadmap status` ao catálogo, com a cobertura medida | Thread `ork-rm061f2b` e o recibo `cobertura-f2b.json` | Fábrica, pelo pedido do dono |

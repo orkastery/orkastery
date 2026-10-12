@@ -15,6 +15,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua. Erro do validador
   do manifesto, do regime de memória e de estado durante a gravação segue em pt-BR até a F2b.
   `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 382 entradas).
+- **CLI em inglês e pt-BR, fatia F2b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork verify` (com
+  `--baseline`), `ork ship`, `ork ship registrar-pr`, `ork pulse`, `ork master` (o índice, `--aceitar-omissao` e
+  `master pedir`), `ork retry plan`, `ork retry run` e `ork roadmap status` saem em inglês quando `owner.language` ou o
+  locale pedem `en`. O pt-BR segue igual byte a byte; o `--json`, o ledger, o MASTER log e os demais arquivos gravados
+  não mudam com a língua: o texto que o comando monta e grava nasce em pt-BR, e só a impressão o remonta. Motivo
+  tipado, ação e código saem iguais nas duas línguas. O catálogo vai de 389 para 760 entradas.
 - **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos

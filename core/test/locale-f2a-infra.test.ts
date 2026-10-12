@@ -27,14 +27,21 @@ test('locale F2a infra: a chave de cada linha de comando, com o subcomando padra
 });
 
 test('locale F2a infra: cobreLocale so com a entrada na lista, nunca com --json nem nos recortes da D2', () => {
-  for (const chave of COMANDOS_COM_LOCALE) assert.ok(cobreLocale(chave.split(' '), {}), chave);
+  // A chave e a linha de comando partida em palavras, salvo a rota que vem de opcao (F2b: o aceite por omissao).
+  const linhaDaChave: Record<string, [string[], Record<string, unknown>]> = { 'master aceitar-omissao': [['master'], { 'aceitar-omissao': true }] };
+  for (const chave of COMANDOS_COM_LOCALE) {
+    const [posicionais, opcoes] = linhaDaChave[chave] ?? [chave.split(' '), {}];
+    assert.ok(cobreLocale(posicionais, opcoes), chave);
+  }
   assert.equal(cobreLocale(['doctor'], { json: true }), false);
   assert.equal(cobreLocale(['doctor'], { modo: 'fast' }), false);
   assert.equal(cobreLocale(['init'], { json: true }), false);
   assert.equal(cobreLocale(['thread', 'new', 'x'], { 'from-finding': 'A1' }), false);
   assert.equal(cobreLocale(['thread', 'new', 'x'], { 'do-achado': 'A1' }), false);
-  // A F2b (G3) cobre `verify` e as demais rotas na ordem das familias; aqui ficam so as que seguem em pt-BR.
-  for (const fora of [['ship', 'x'], ['pulse'], ['master'], ['retry', 'list'], ['roadmap', 'status'], ['thread', 'list'],
+  // A F2b (G3) cobre `verify`, `ship`, `pulse`, `master`, `retry plan|run` e `roadmap status`; aqui ficam so as
+  // rotas que seguem em pt-BR.
+  for (const fora of [['retry', 'list'], ['retry', 'policy'], ['pulse', 'cadencia'], ['master', 'classes'], ['master', 'x'],
+    ['roadmap', 'reservas'], ['network', 'roadmap'], ['thread', 'list'],
     ['thread', 'close', 'x'], ['onboarding', 'sync'], ['experiencia', 'uninstall', 'codex'], ['projetos'], ['modos']]) {
     assert.equal(cobreLocale(fora, {}), false, fora.join(' '));
   }
