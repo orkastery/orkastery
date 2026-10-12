@@ -13,11 +13,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
   do `INSTALADO.json` e o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods. Arquivo a
   mais, link ou declaração inválida recusa o despacho com `runtime.context.installation`; mod que pede versão mais nova
-  fica de fora e o despacho segue. Sem mods, o comando é o de antes.
+  fica de fora e o despacho segue, e o mod que depende dele sai junto. O `ork adapter install claude-code` tira da cópia
+  o arquivo de mod que saiu do catálogo. Sem mods, o comando é o de antes.
 - **Mods no marketplace próprio, pelo gerador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
-  `node core/scripts/gerar-marketplaces.cjs` põe cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` no
-  `.claude-plugin/marketplace.json`, com `source` na pasta do mod, e o `--verificar` confere a declaração, o manifesto do
-  mod e o `hooks/hooks.json`. A pasta do diretório da Anthropic segue sem mods e sem hooks.
+  `node core/scripts/gerar-marketplaces.cjs` copia cada mod de `adapters/claude-code/mods/*/orkastery-mod.json` para
+  `marketplaces/claude-code/mods/<mod>/`, com os arquivos comuns da raiz de `mods/` dentro de cada cópia, e põe o mod no
+  `.claude-plugin/marketplace.json` com `source` na cópia. O `--verificar` confere a declaração, o manifesto, o
+  `hooks/hooks.json` e a cópia em dia. A pasta do diretório da Anthropic segue sem mods e sem hooks.
 - **Job dos mods no CI e canário de eventos** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)): o job
   `mods` instala o Claude Code 2.1.296 fixado pelo npm, sem credencial nem chave de API, e roda
   `node core/scripts/canario-eventos-mods.cjs --com-plugin`: `claude plugin validate --strict` e `claude plugin test` em
