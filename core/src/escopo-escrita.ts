@@ -23,7 +23,12 @@ export function exigirEscopoDeEscrita(threads: readonly string[] | undefined): R
 /** Um nome autorizado nao pode ser alias de outra thread ou de estado externo. */
 export function validarDiretorioDeThread(raiz: string, id: string): void {
   validarThreadDeEscrita(id);
-  const dir = estadoCanonico(raiz, id);
+  let dir: string;
+  // RM-047: o estadoCanonico já recusa link (estado.link); aqui a recusa mantém o código do escopo.
+  try { dir = estadoCanonico(raiz, id); } catch (e) {
+    if ((e as Error).message.startsWith('estado.link')) throw new Error('scope.thread.alias');
+    throw e;
+  }
   for (const candidato of [path.dirname(path.dirname(dir)), path.dirname(dir), dir]) {
     const stat = fs.lstatSync(candidato, { throwIfNoEntry: false });
     if (!stat) throw new Error('scope.thread.missing');

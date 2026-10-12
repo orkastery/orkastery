@@ -49,7 +49,7 @@ fontes:
 ## Comportamento
 
 - **Casos de uso e operações:** entrar na fábrica com um nome de máquina; ver o que cada máquina conduz; saber em qual máquina uma thread espera você; sair.
-- **Pré-condições e gatilho:** repositório com remoto; a máquina entrou (`ork fabrica entrar`) ou o projeto declara `fabrica.compartilhada: true`.
+- **Pré-condições e gatilho:** repositório com remoto; a máquina entrou (`ork fabrica entrar`, ou `ORK_FABRICA_COMPARTILHADA=1`). O `fabrica.compartilhada: true` do projeto só pede: não liga a publicação desta máquina (RM-047, P5).
 - **Fluxo principal:**
 
   1. `ork fabrica entrar --maquina pc-casa` grava o nome e a adesão em `~/.orkastery/maquina.json` e publica o primeiro retrato.
@@ -79,7 +79,7 @@ fontes:
 
 ## Operação e controle
 
-- **Configuração:** `ork fabrica entrar` e `ork fabrica sair`; `ORK_MAQUINA` vence o nome do arquivo; `ORK_FABRICA_COMPARTILHADA=1` ou `0` vence a adesão; `fabrica.compartilhada` e `fabrica.remoto` no manifesto para o time.
+- **Configuração:** `ork fabrica entrar` e `ork fabrica sair`; `ORK_MAQUINA` vence o nome do arquivo; `ORK_FABRICA_COMPARTILHADA=1` ou `0` vence a adesão; `fabrica.compartilhada` (o pedido do time, que o `ork doctor` avisa) e `fabrica.remoto` no manifesto.
 - **Observabilidade:** `ork fabrica`, o `FABRICA.md` da branch e `.orkastery/monitor/fabrica.log`.
 - **Rollback:** `ork fabrica sair` em cada máquina; apagar a branch `ork/fabrica-estado` zera o retrato de todas sem afetar a `main`.
 

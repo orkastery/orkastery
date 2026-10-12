@@ -35,6 +35,8 @@ import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega, forjaSemLeituraDoRemoto, lerRetratoDePrs } from './parado-no-condutor';
 import { exec } from './util';
+import { ehEsperaDoDono } from './impedimento';
+import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -137,6 +139,12 @@ export interface StatusDoRoadmap {
    * sai com pergunta aberta ou resposta medida na semana; a visao da rede nao o soma.
    */
   hitlDeConducao?: HitlDeConducaoAgora;
+  /**
+   * R3 do ensaio da RM-049 (decisao do dono, alternativa a): as threads abertas que esperam o dono e
+   * nao conduzem nenhum item do roadmap. Campo opcional e aditivo: so sai quando ha pelo menos uma, e
+   * sem ele o relatorio e o de antes, byte a byte.
+   */
+  foraDoRoadmap?: { threads: string[] };
 }
 
 /**
@@ -156,6 +164,11 @@ export interface FatoDeThread {
   maquina?: string;
   /** RM-037 (fatia 4): o estado da entrega, so das threads deste disco. */
   entrega?: () => EntregaNoStatus | undefined;
+  /**
+   * R3 (RM-049): a thread espera o dono por qualquer motivo que o pulse conta, inclusive o impedimento
+   * do despacho (`runtime.workspace-untrusted`). Sem ele, vale `espera()`.
+   */
+  esperaVoce?: () => boolean;
 }
 
 type Mapa = { [k: string]: ValorYaml };
@@ -205,6 +218,20 @@ export function esperaDoDono(raiz: string, t: Thread, quando: string): EsperaDoD
 }
 
 /**
+ * R3 (RM-049): a thread espera o dono, pela regra de `esperaDoDono` ou pela do monitor e do pulse
+ * (`ehEsperaDoDono`): a escalada `human.pending` ou o impedimento do despacho que so o dono resolve,
+ * ainda sem evento que destrave. O fim de turno sem pergunta continua do condutor. Leitura pura.
+ */
+export function esperaVoce(raiz: string, t: Thread, quando: string): boolean {
+  if (t.status === 'fechada') return false;
+  if (esperaDoDono(raiz, t, quando)) return true;
+  const eventos = lerLedger(dirThread(raiz, t.id));
+  const doCondutor = esperaDoCondutor(t, eventos, quando) !== null;
+  return eventos.some((e, i) => ehEsperaDoDono(e) && !(doCondutor && e.motivo === 'human.pending') &&
+    !eventos.slice(i + 1).some(p => EVENTOS_QUE_DESTRAVAM.includes(p.tipo) || ehAprovacaoHumana(p)));
+}
+
+/**
  * Os fatos das threads deste disco: `ship_done` do dia e espera do dono lidos do ledger local.
  * `fuso`: o do projeto consultado, na visao da rede; sem ele, o do dono deste processo.
  */
@@ -238,6 +265,7 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
       id: t.id, roadmap: t.roadmap ?? null, aberta: t.status !== 'fechada', fase: t.faseAtual,
       entregueHoje: () => lerLedger(dirThread(raiz, t.id)).some(e => e.tipo === 'ship_done' && dataLocal(e.ts, fuso) === hoje),
       espera: () => esperaDoDono(raiz, t, quando),
+      esperaVoce: () => esperaVoce(raiz, t, quando),
       entrega: () => (t.status === 'fechada' ? undefined : entrega(t.id)),
     });
   }
@@ -339,6 +367,11 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     });
   }
   const grupos = GRUPOS_DO_ROADMAP.map(g => ({ ...g, itens: itens.filter(i => i.grupo === g.id) }));
+  // R3 (RM-049): a thread aberta que nao conduz item nenhum e espera o dono. O relatorio continua por item;
+  // isto so evita que "O que precisa de voce" negue o que o pulse mostra.
+  const doRoadmap = new Set(itens.flatMap(i => i.threads));
+  const fora = fatos.filter(f => f.aberta && !doRoadmap.has(f.id) && (f.esperaVoce ? f.esperaVoce() : !!f.espera()))
+    .map(f => f.id).sort();
   return {
     contrato: CONTRATO_STATUS_DO_ROADMAP, consultadoEm: quando,
     projeto: opcoes.projeto ?? 'projeto', grupos,
@@ -347,6 +380,7 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     ...(opcoes.consulta ? { consulta: opcoes.consulta } : {}),
     ...(opcoes.fabrica ? { fabrica: opcoes.fabrica } : {}),
     ...(opcoes.hitlDeConducao ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
+    ...(fora.length ? { foraDoRoadmap: { threads: fora } } : {}),
   };
 }
 
@@ -419,6 +453,8 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
       (x.espera.codigo ? ` Responda ${x.espera.codigo} ${x.espera.recomendada ?? 'a'} (ou outra letra).` : ' A pergunta chega no próximo resumo.'))
       : ['• Nada agora.']),
+    // R3 (RM-049, alternativa a do dono): so quando ha; o detalhe de cada thread esta no `ork pulse`.
+    ...(s.foraDoRoadmap?.threads.length ? [`• Fora do roadmap: ${s.foraDoRoadmap.threads.length} thread(s) esperam você (ork pulse).`] : []),
     // RM-057 (fatia 3): ha quanto tempo cada pergunta de conducao parou a thread, e a mediana da semana.
     ...(s.hitlDeConducao ? [`• HITL de condução: ${s.hitlDeConducao.abertas.length} aberta(s); ${textoDaMediana(s.hitlDeConducao)}.`,
       ...cortar(s.hitlDeConducao.abertas, a => `  ${linhaDaPerguntaParada(a, { agora: s.consultadoEm, fuso })}.`)] : []),

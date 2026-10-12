@@ -21,6 +21,8 @@ utilizável como gate de pipeline.
 | `ork ciclos` | As 5 variantes de ciclo de `ork thread new --ciclo` |
 | `ork setup <modo> --bloco N [--runtime R] [--model M] [--effort E]` | Edita o bloco do modo e carimba `setup_configured` no ledger do projeto |
 | `ork setup <modo> --bloco N --fallback R:M[:E],...` | Ordem de fallback de runtime do bloco (I-33); `--fallback ""` remove |
+| `ork setup sandbox [confirmar <postura>\|revogar] [--json]` | Postura de sandbox desta máquina (RM-047): o `runtime.sandbox` que afrouxa (`danger-full-access`) só despacha pelo Codex depois de confirmado aqui. A confirmação fica em `.orkastery/private/postura-local.json` (0600, fora do git) e vale só para este checkout; sem ela, `ork phase run` e `ork retry run` recusam com `runtime.sandbox-nao-confirmado` |
+| `ork setup worktree [confirmar [<dir>]\|revogar] [--json]` | Pasta das worktrees desta máquina (RM-047): o `worktree.dir` que leva para fora da raiz, pelo caminho real, só cria worktree depois de confirmado aqui. A confirmação fica em `.orkastery/private/worktree-local.json` (0600, fora do git) e vale só para este checkout e esta pasta; sem ela, a criação recusa com `worktree.dir-fora-da-raiz` |
 | `ork setup versionar` | Leva o setup que vale para `orkastery.setup.json`, na raiz do checkout: por PR, vale em todas as máquinas e passa a ser o arquivo editado (I-52) |
 | `ork setup [<modo>] --reset` | Volta o modo (ou todos) ao default |
 | `ork onboarding [show\|set <etapa>\|reset [etapa]] [--conteudo JSON] [--por Q] [--json]` | Pauta e respostas do projeto (9 etapas); o reset (também `--reset [etapa]`) é seletivo ou total e idempotente. Segredos ficam no ambiente do processo ou no cofre do host. Passo a passo em [onboarding.md](../guias/onboarding.md) |
@@ -150,7 +152,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]` |
 | ↳ worktree | Com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree e a branch `ork/<slug>` sem flag; com a chave `false` ou ausente, só com `--worktree auto`. `--worktree DIR` reusa um diretório que já existe; `--sem-worktree` cria sem ela e avisa o que acontece no `ork ship` (na branch base, `push_direto_na_base: block`, o padrão do `ork init`, barra a entrega); `--dry-run` mostra a worktree que seria criada, ou por que a criação a recusaria. A pasta é a da árvore principal, mesmo com o comando rodando de dentro de outra worktree |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
-| `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Leitura pura; os canais transportam o texto (RM-048) |
+| `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Quando uma thread fora do roadmap espera o dono, o fecho ganha a linha `• Fora do roadmap: N thread(s) esperam você (ork pulse).` e o `--json`, o campo opcional `foraDoRoadmap` (`{ threads: [...] }`); sem ela, a saída não muda (R3 da RM-049). Leitura pura; os canais transportam o texto (RM-048) |
 | `ork roadmap reservas [--json] [--remoto R] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N] [--por Q] [--maquina M]` | Reserva o item por push atômico: o primeiro vence. A máquina é `--maquina`, `ORK_MAQUINA` ou o hostname. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
 | `ork roadmap soltar RM-NNN [--forcar --motivo M]` | Devolve o item quando o trabalho termina |
@@ -575,7 +577,7 @@ Um template do projeto (`prompts/<id>.md`) sobrescreve o embutido de mesmo id.
 
 | Comando | O que faz |
 | --- | --- |
-| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills |
+| `ork eval [--skill S] [--canario C] [--so-canarios] [--so-skills] [--json]` | Canários de comportamento e corpus das skills do catálogo do pacote que está rodando; um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio` (RM-047) |
 
 Sai diferente de zero em qualquer falha. Canários: `fx-happy`, `fx-hallucination`,
 `fx-stale-base`, `fx-wiki-destroy`, `fx-schema-drift`, `fx-concurrency`.

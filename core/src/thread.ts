@@ -5,6 +5,7 @@
  * carimbada pelo `ork` (nunca escolhida pelo executor), worktree e sessoes despachadas.
  */
 
+import { exigirPastaDasWorktrees } from './worktree-local';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { aplicarVariante, definicaoDaVariante } from './ciclos';
@@ -184,6 +185,8 @@ export function criarWorktree(
   opcoes: OpcoesDeWorktree = {}
 ): WorktreeDaThread {
   const { raiz, manifesto } = carregado;
+  // RM-047 (P3): worktree.dir do manifesto fora da raiz só cria checkout com a confirmação desta máquina.
+  exigirPastaDasWorktrees(raiz, manifesto);
   const { dir, branch } = alvoDaWorktree(carregado, id, slug, opcoes);
 
   if (fs.existsSync(dir)) {

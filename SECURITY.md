@@ -35,12 +35,33 @@ Vale saber o que o Orkastery é, antes de procurar o que ele expõe:
 | Estado | Arquivos no repositório, sob `.orkastery/` |
 
 O que ele **executa**: comandos declarados por você, no manifesto (`verify.build`,
-`verify.test`) e nas claims (`--verificar "<comando>"`), além do binário do runtime adapter.
+`verify.test`, `verify.typecheck`, `verify.preparo`, `ci.command`), nas claims
+(`--verificar "<comando>"`, o `--done` da thread, as correções do GO-FIX, os achados de auditoria)
+e no bundle `.ork-ci/<thread>.json` do CI, além do binário do runtime adapter e do executável do
+OrkMind (`memory.cli`, só nome no PATH ou caminho absoluto).
 
 Isso é a superfície real, e ela merece a atenção: **um manifesto ou uma claim de origem não
 confiável executam comando na sua máquina.** Trate `orkastery.yaml` e `claims.jsonl` de um
 repositório de terceiros com o mesmo cuidado que você trata um `Makefile` ou um script de
 `postinstall`.
+
+Fora desses comandos declarados, um valor que vem do repositório (manifesto, estado em `.orkastery/`,
+branches `ork/*`, arquivos de outra máquina) não vira opção de processo, executável nem caminho fora da
+raiz. A matriz de cada chamada de processo e de cada caminho, com o que ainda depende de decisão, está em
+[docs/referencia/fronteira-de-confianca.md](docs/referencia/fronteira-de-confianca.md).
+
+Algumas decisões ficam com a máquina, nunca com o repositório. A postura de sandbox que afrouxa o agente
+(`runtime.sandbox: danger-full-access`) só despacha depois de `ork setup sandbox confirmar <postura>`
+nesta máquina. E o estado de `.orkastery/` versionado no git não escolhe onde git e agente rodam nem o
+executável do pulse e do digest: o cwd só vale na raiz ou numa worktree registrada no `git worktree list`.
+Os ponteiros que o estado guarda (o `location` do `handoff.json`, o arquivo de uma claim, o prompt de uma
+sessão) só leem arquivo que, pelo caminho real, fica na raiz do projeto ou na worktree registrada da thread.
+O `worktree.dir` que leva para fora da raiz (pelo caminho real) só cria checkout depois de
+`ork setup worktree confirmar` nesta máquina.
+O `ork eval` só executa o catálogo (canários, hooks e `core/dist`) do pacote que está rodando, nunca o de um
+diretório achado a partir do cwd.
+A publicação do retrato desta máquina na fábrica compartilhada só liga por adesão da máquina
+(`ork fabrica entrar`); o `fabrica.compartilhada` do manifesto é só o pedido do time.
 
 ---
 

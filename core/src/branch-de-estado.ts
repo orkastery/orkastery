@@ -71,6 +71,24 @@ export function exigirRemoto(remoto: unknown, prefixo: string): string {
     'Corrija fabrica.remoto no orkastery.yaml ou --remoto (padrão: origin).');
 }
 
+/**
+ * RM-047 (fronteira de confiança): nome de branch que pode ir ao git como argumento. O valor vem do
+ * `worktree.base_branch` do manifesto, do campo `para` do ledger ou do frontmatter, e todos podem ser
+ * do clone: um nome que começa com `-` viraria opção do git (`--output=<arquivo>` grava arquivo).
+ * A regra é a do `git check-ref-format --branch`, então nenhum nome que o git aceite é recusado.
+ */
+export function branchValida(branch: unknown): branch is string {
+  if (typeof branch !== 'string' || branch.length === 0 || branch.length > 255) return false;
+  if (branch.startsWith('-') || branch === '@' || branch.includes('..') || branch.includes('@{')) return false;
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x20\x7f~^:?*[\\]/.test(branch)) return false;
+  if (branch.startsWith('/') || branch.endsWith('/') || branch.includes('//') || branch.endsWith('.')) return false;
+  return branch.split('/').every((parte) => !parte.startsWith('.') && !parte.endsWith('.lock'));
+}
+
+/** Sha hexadecimal (abreviado ou inteiro, SHA-1 ou SHA-256): o único formato de commit lido do ledger que vai ao git. */
+export const shaValido = (sha: unknown): sha is string => typeof sha === 'string' && /^[0-9a-f]{7,64}$/i.test(sha);
+
 export const refRemota = (remoto: string, branch: string): string => `refs/remotes/${remoto}/${branch}`;
 
 /** A ultima copia lida da branch nesta maquina, sem rede. `null` quando nunca foi lida. */

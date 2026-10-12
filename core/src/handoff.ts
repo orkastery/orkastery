@@ -44,6 +44,7 @@ import {
 } from './memoria';
 import { Fase, Handoff, ItemInline, Ponteiro, Proveniencia, Resumo, Thread } from './types';
 import { agora, gravarJson } from './util';
+import { caminhoContidoOuNulo, exigirCaminhoContido } from './procedencia';
 
 /** sha256 de um arquivo em disco, a prova de proveniencia de cada item. */
 export function sha256DoArquivo(caminho: string): string {
@@ -72,7 +73,8 @@ export function caminhoDoArtefato(raiz: string, thread: Thread, arquivo: string)
     ? [path.resolve(thread.worktree, arquivo), path.resolve(raiz, arquivo)]
     : [path.resolve(raiz, arquivo)];
   for (const c of candidatos) {
-    if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+    // RM-047 (P2): o arquivo da claim vem do estado; fora da raiz e da worktree registrada, não vira ponteiro.
+    if (fs.existsSync(c) && fs.statSync(c).isFile() && caminhoContidoOuNulo(raiz, thread, c)) return c;
   }
   return null;
 }
@@ -253,7 +255,7 @@ export function exportarHandoff(
   for (const s of thread.sessoes) {
     if (s.origem === 'adocao') continue;
     const caminhoPrompt = path.resolve(raiz, s.promptPath);
-    if (!fs.existsSync(caminhoPrompt)) continue;
+    if (!fs.existsSync(caminhoPrompt) || !caminhoContidoOuNulo(raiz, thread, caminhoPrompt)) continue;
     addPonteiro(
       `Prompt da sessao ${s.slug} (fase ${s.fase})`,
       caminhoPrompt,
@@ -306,7 +308,7 @@ export function exportarHandoff(
     for (const e of anteriores) {
       const arquivo = arquivoDoHandoff(e);
       const emDisco = arquivo ? path.resolve(raiz, arquivo) : '';
-      if (!emDisco || !fs.existsSync(emDisco)) continue;
+      if (!emDisco || !fs.existsSync(emDisco) || !caminhoContidoOuNulo(raiz, thread, emDisco)) continue;
       addPonteiro(
         `Handoff anterior desta thread (${arquivo})`,
         emDisco,
@@ -320,7 +322,7 @@ export function exportarHandoff(
     for (const e of licoesDoProduto(memoria, manifesto, threadId)) {
       const postmortem = postmortemDaLicao(e);
       const emDisco = postmortem ? path.resolve(raiz, postmortem) : '';
-      if (!emDisco || !fs.existsSync(emDisco)) continue;
+      if (!emDisco || !fs.existsSync(emDisco) || !caminhoContidoOuNulo(raiz, thread, emDisco)) continue;
       addPonteiro(
         `Licao da thread ${threadDaEntrada(e) ?? '(anterior)'}`,
         emDisco,
@@ -473,9 +475,11 @@ export function recall(
   if (!fs.existsSync(caminho) || !fs.statSync(caminho).isFile()) {
     throw new Error(`ponteiro nao resolve: arquivo "${bruto}" nao existe a partir de ${raiz}`);
   }
-  const conteudoBruto = fs.readFileSync(caminho, 'utf8');
+  // RM-047 (P2): o `location` vem do handoff.json (estado, talvez versionado); só lê dentro do projeto.
+  const real = exigirCaminhoContido(raiz, lerThread(raiz, threadId), caminho, bruto);
+  const conteudoBruto = fs.readFileSync(real, 'utf8');
   const linhas = conteudoBruto.split('\n');
-  const sha = sha256DoArquivo(caminho);
+  const sha = sha256DoArquivo(real);
   const base = { location: `${bruto}#${ancora}`, caminho, ancora, sha256: sha };
 
   const registrarRecall = (r: ResultadoRecall): ResultadoRecall => {
