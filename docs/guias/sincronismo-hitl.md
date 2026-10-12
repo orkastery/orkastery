@@ -188,25 +188,34 @@ Agora o `runtime.unavailable` sobe uma escada no `ork retry run`, sempre com o m
 | --- | --- | --- |
 | 1, reerguer o daemon | No claude-bg, `claude daemon status` (na conta do despacho) diz se o `control.sock` responde; o daemon de pé com o socket mudo sai por `claude daemon stop --any --keep-workers` (as sessões destacadas ficam), e o prompt volta ao mesmo runtime, perfil, modelo e esforço | nunca: daemon parado, que responde ou que não se deixa ler fica como está, e o redespacho sai do mesmo jeito |
 | 2, o fallback do bloco | O primeiro alvo da ordem `--fallback` do bloco (I-33) com destino agora: o perfil da vez do runtime dele, ou o ambiente do processo | o bloco não tem fallback, ou nenhum alvo tem perfil disponível |
-| 3, outro perfil | Outra conta do runtime que falhou (RM-056), que não seja a do despacho nem tenha o mesmo diretório | o runtime não tem outro perfil disponível |
+| 3, outro perfil | Outra conta do runtime que falhou (RM-056), que não seja a do despacho (nem a que o degrau 1 de fato usou, quando o despacho nasceu sem perfil) nem tenha o mesmo diretório | o runtime não tem outro perfil disponível |
 
-Cada degrau vai ao ledger da thread como `runtime_recuperacao`, feito, pulado ou falho, com o destino e a prova (no
-degrau 1, o que o daemon disse antes e depois). O degrau pulado não gasta tentativa. Uma falha que não é do destino
-(impedimento do dono, policy, worktree, condução, prompt mudado) para a escada. Esgotados os três degraus, o dono é
-chamado: `gate_blocked human.pending` com três alternativas, uma recomendada (RM-057), o comando que confere o runtime e
-o que retoma a fase com o mesmo prompt (`ork phase run <thread> <fase> --prompt "$(cat <prompt gravado>)"`); o pulse
-leva o pedido curto e o resumo o manda na hora, como um impedimento do dono. A escada vale por episódio: o pedido novo
-da fase recomeça os degraus. O `ork retry plan` diz o degrau da vez.
+Cada degrau vai ao ledger da thread como `runtime_recuperacao`, feito, pulado, falho ou interrompido, com o destino
+efetivo e a prova (no degrau 1, o que o daemon disse antes e depois). O degrau pulado não gasta tentativa. O adaptador
+que lança vira falha do destino no ledger, e a escada segue. Uma falha que não é do destino (impedimento do dono,
+policy, worktree, condução, prompt mudado) para a escada sem consumir o degrau (`interrompido`, sem gastar tentativa):
+destravado, o mesmo degrau vale de novo. Entre um degrau e outro, a prova de vida: se o degrau anterior abriu a sessão e
+saiu como falha (o `claude --bg` lento diz o id e estoura o prazo), ou se o runtime não responde, nada mais sai, e a
+fase nunca ganha uma segunda sessão na mesma worktree. Com o `claude agents` sem resposta (o daemon travado), o retry
+reergue o daemon antes da prova; na terceira recusa seguida sem resposta no episódio, o dono é chamado.
+
+Esgotados os três degraus, o dono é chamado: `gate_blocked human.pending` com três alternativas, uma recomendada
+(RM-057), o comando que confere o runtime e o que retoma a fase com o mesmo prompt
+(`ork phase run <thread> <fase> --prompt "$(cat '<caminho absoluto do prompt gravado>')"`); o pulse leva o pedido curto e
+o resumo o manda na hora, como um impedimento do dono. O mesmo pedido não é gravado de novo enquanto nada for
+despachado na fase. A escada vale por episódio: o pedido novo da fase recomeça os degraus. O `ork retry plan` diz o
+degrau da vez.
 
 O mod `ork-sentinela` (RM-059) retoma pelo `ork retry plan` e pelo `ork retry run`: ele herda a escada sem mudar nada.
 
 ### A varredura que age (RM-063, F5)
 
 O PR #112 ficou dois dias mesclado sem `ork ship registrar-pr`, e sessões fantasmas de threads fechadas ficaram
-registradas, porque ninguém roda esses comandos sem um condutor. Agora a batida age antes de consultar o pulse, só com
-a autorização durável do dono gravada nesta máquina, em `.orkastery/monitor/autorizacao.json` (fora do git, como o
-`pulse-host.json`; o contrato está em
-[autorizacao-duravel-rm063.md](../referencia/contratos/autorizacao-duravel-rm063.md)):
+registradas, porque ninguém roda esses comandos sem um condutor. Agora a batida age logo depois de entregar o resumo ao
+dono (a busca da base e o registro do PR não atrasam o resumo), uma batida por vez, só com a autorização durável do dono
+gravada nesta máquina, em `.orkastery/monitor/autorizacao.json` (fora do git, como o `pulse-host.json`; o contrato está
+em [autorizacao-duravel-rm063.md](../referencia/contratos/autorizacao-duravel-rm063.md)). O `por` nomeia a pessoa (nome
+de agente ou de runtime não autoriza), e os instantes levam o fuso:
 
 ```json
 { "contrato": "ork.autorizacao-duravel/v1", "maquina": "maquina-b", "projeto": "orkastery", "por": "Dono",
@@ -215,16 +224,18 @@ a autorização durável do dono gravada nesta máquina, em `.orkastery/monitor/
 
 | Ação | O que a batida faz | Sem autorização |
 | --- | --- | --- |
-| `limpar` | Solta a sessão fantasma presa a uma thread deste projeto (`sessao_morta`, o runtime não é tocado) | item da fila do dono: `ork sessions limpar-fantasmas` |
-| `registrar` | Traz a base remota e registra a entrega do merge `ship(<thread>)` sem `ship_done` | item da fila do dono: `ork ship registrar-pr <thread>` |
-| `master` | Fecha pelo MASTER por omissão a thread entregue e quieta (30 min depois do `ship_done`, nada despachado depois, ninguém conduzindo, a branch sem commit novo) | o item da entrega sem nota, na faixa automática, com `ork master <thread> --aceitar-omissao` |
+| `limpar` | Solta a sessão fantasma presa a uma thread deste projeto, sem sinal de vida há pelo menos 30 min (`sessao_morta`, o runtime não é tocado) | item da fila do dono: `ork sessions limpar-fantasmas` |
+| `registrar` | Traz a base remota e registra a entrega do merge `ship(<thread>)` sem `ship_done`, com a thread parada | item da fila do dono: `ork ship registrar-pr <thread>` |
+| `master` | Fecha pelo MASTER por omissão a thread entregue e quieta (30 min depois do `ship_done`, nada despachado depois, a thread parada) | o item da entrega sem nota, na faixa automática, com `ork master <thread> --aceitar-omissao` |
 
 Cada ação feita ou recusada vai ao ledger da thread como `varredura_acao`, com quem autorizou e até quando, e cada
 rodada grava `varredura_acoes` no `hitl.log`. A autorização vencida, ilegível, de outra máquina ou de outro projeto
 não autoriza nada, e o pulse diz o motivo tipado. O resumo ao dono ganha dois blocos: a arrumação que a varredura faria
 com a autorização dele, com o comando de cada uma, e o que ela fez sozinha. O `ork fabrica batida status` diz a
-autorização em vigor. Registrar por cima de quem trabalha na thread nunca é automático: com alguém conduzindo, ou com
-trabalho novo depois do merge, a ação fica com o dono, com o motivo.
+autorização em vigor. Registrar ou fechar por cima de quem trabalha na thread nunca é automático: com alguém
+conduzindo, sessão viva na worktree (ou o runtime sem resposta, sem a prova), alteração não commitada, commit na branch
+depois do head do PR ou despacho depois dele, a ação fica com o dono, com o motivo tipado, e o comando que ele recebe é
+`ork thread status <thread>`. A mesma recusa da batida anterior não vira linha nova no ledger.
 
 ### Máquina ociosa é alerta (RM-063, F6)
 
