@@ -2942,10 +2942,12 @@ function comandoRoadmap(args: Args): number {
   if (sub === 'reservas') {
     // RM-037 (rm037noite, defeito 3): a reserva de thread ja fechada aparece como orfa e sai com registro.
     if (args.opcoes['soltar-orfas'] === true) {
-      const soltas = soltarReservasOrfas(carregado.raiz, { remoto });
+      // RM-061 (F3b, D3): a soltura grava no escopo pt-BR (ledger, branch de reservas); o detalhe e remontado no texto.
+      const soltas = comLocale('pt-BR', () => soltarReservasOrfas(carregado.raiz, { remoto }));
+      const mr = msg().reservas;
       if (args.opcoes.json === true) console.log(JSON.stringify(soltas, null, 2));
-      else console.log(soltas.length === 0 ? 'Nenhuma reserva órfã desta máquina.'
-        : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
+      else console.log(soltas.length === 0 ? mr.nenhumaOrfa
+        : soltas.map((s) => mr.soltura(s.item, remontar(s.detalhe), s.thread)).join('\n'));
       return 0;
     }
     // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
@@ -2986,20 +2988,20 @@ function comandoRoadmap(args: Args): number {
   }
   // RM-037 (rm037noite, defeito 6): o numero da FEAT nova sai da mesma branch de reservas.
   if (sub === 'feat') {
-    const r = reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
-      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null });
+    const r = comLocale('pt-BR', () => reservarFeat(carregado.raiz, { remoto, por: texto(args.opcoes.por), maquina: texto(args.opcoes.maquina),
+      thread: texto(args.opcoes.thread) ?? null, nota: texto(args.opcoes.nota) ?? null }));
+    const mr = msg().reservas;
     if (args.opcoes.json === true) console.log(JSON.stringify(r, null, 2));
     else {
-      console.log(`${r.feat}: reservado para esta maquina${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}.`);
-      console.log(`  crie docs/produto/${r.feat}-<assunto>.md; o numero nao volta, mesmo que a feature nao saia`);
-      console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+      console.log(mr.feat(r.feat, r.reserva.thread ?? null));
+      console.log(mr.crieAPagina(r.feat));
+      console.log(mr.branch(r.commit.slice(0, 7)));
     }
     return 0;
   }
   const item = args.posicionais[2];
   if ((sub !== 'pegar' && sub !== 'soltar') || !item) {
-    console.error('uso: ork roadmap status [--json] | reservas [--soltar-orfas] | pegar <RM-NNN> [--thread T] [--nota N] | ' +
-      'soltar <RM-NNN> [--forcar --motivo M] | feat [--thread T] [--nota N]');
+    console.error(msg().reservas.uso);
     return 2;
   }
   const opcoes = {
@@ -3011,16 +3013,15 @@ function comandoRoadmap(args: Args): number {
     forcar: args.opcoes.forcar === true,
     motivo: texto(args.opcoes.motivo),
   };
-  const r = sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes);
+  const r = comLocale('pt-BR', () => sub === 'pegar' ? pegarItem(carregado.raiz, item, opcoes) : soltarItem(carregado.raiz, item, opcoes));
   if (args.opcoes.json === true) {
     console.log(JSON.stringify(r, null, 2));
     return 0;
   }
-  const verbo = { pegou: 'reservado para esta maquina', renovou: 'reserva renovada', tomou: 'reserva TOMADA de outra maquina',
-    soltou: 'devolvido', nada: 'ja estava livre' }[r.acao];
-  console.log(`${r.item}: ${verbo}.`);
-  if (r.reserva && r.acao !== 'soltou') console.log(`  com ${r.reserva.por} em ${r.reserva.maquina}${r.reserva.thread ? `, thread ${r.reserva.thread}` : ''}`);
-  if (r.commit) console.log(`  branch ork/roadmap-reservas em ${r.commit.slice(0, 7)}`);
+  const mr = msg().reservas;
+  console.log(mr.itemAcao(r.item, mr.acao(r.acao)));
+  if (r.reserva && r.acao !== 'soltou') console.log(mr.com(r.reserva.por, r.reserva.maquina, r.reserva.thread ?? null));
+  if (r.commit) console.log(mr.branch(r.commit.slice(0, 7)));
   return 0;
 }
 

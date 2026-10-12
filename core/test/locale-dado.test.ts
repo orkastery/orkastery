@@ -15,7 +15,7 @@ import { cenario, EN, ork, PT } from './locale-apoio';
 type Arvore = Record<string, unknown>;
 
 /** RM-061 (F3b): as familias que a fatia acrescenta ao catalogo, na ordem em que entram. */
-const FAMILIAS_DA_F3B: readonly string[] = ['worktree', 'estado', 'claims', 'decisao', 'accounts', 'network'];
+const FAMILIAS_DA_F3B: readonly string[] = ['worktree', 'estado', 'claims', 'decisao', 'accounts', 'network', 'reservas'];
 
 /** Cada folha do catalogo: o caminho, o tipo (`string`, `function`, `number`) e o valor. */
 function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknown }> {
