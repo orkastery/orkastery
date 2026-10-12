@@ -478,7 +478,7 @@
         "python3 -I -c \"import json; m=json.load(open('.claude-plugin/marketplace.json')); e=[p for p in m['plugins'] if p['name']=='ork-ponte']; d=json.load(open('adapters/claude-code/mods/ork-ponte/.claude-plugin/plugin.json')); assert len(e)==1 and e[0]['source']=='./marketplaces/claude-code/mods/ork-ponte' and e[0]['category']=='development' and e[0]['description']==d['description'], e; print('entrada da ork-ponte aponta para a copia gerada')\" && node core/scripts/gerar-marketplaces.cjs --verificar && diff -r -x autoridade.json adapters/claude-code/mods/ork-ponte marketplaces/claude-code/mods/ork-ponte && cmp adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-ponte/autoridade.json"
       ],
       "criadoEm": "2026-10-12T05:48:24.263Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -492,7 +492,7 @@
         "grep -F \"...(fs.existsSync(path.join(RAIZ, 'adapters/claude-code/mods')) ? ['adapters/claude-code/mods'] : []),\" core/test/marketplaces.test.ts && npm --prefix core run build:test && node --test core/dist-test/test/marketplaces.test.js"
       ],
       "criadoEm": "2026-10-12T05:51:01.208Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -506,7 +506,7 @@
         "grep -F \"function itemDoVerify(bloco: string[], k: number, inicio: string): string {\" core/src/claims-conferir.ts && grep -F \"return m ? [itemDoVerify(bloco, k, m[1].trim())] : [];\" core/src/claims-conferir.ts && grep -E \"^function worktreeConferida[(]raiz: string, thread: Thread[)]: string [{]\" core/src/claims-conferir.ts && grep -F \"const projeto = fs.realpathSync(raizDoEstado(raiz));\" core/src/claims-conferir.ts && grep -F \"if (!worktreesDoGit(projeto).some((w) => w.dir === dir && w.branch === branch))\" core/src/claims-conferir.ts && grep -F \"const cwd = worktreeConferida(raiz, thread);\" core/src/claims-conferir.ts && grep -F \"a conferencia nao escolhe qual pedaco rodar\" core/src/claims-conferir.ts && ! grep -qF \"worktreesDoGit(dir)\" core/src/claims-conferir.ts"
       ],
       "criadoEm": "2026-10-12T06:00:43.077Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -520,7 +520,7 @@
         "grep -F \"Rodada 2 do CHECK: o item do verify continua nas linhas de baixo\" core/test/claims-conferir.test.ts && grep -F \"e o teste da fatia 1 (\" core/test/claims-conferir.test.ts && grep -F \"worktree-fora-do-projeto\" core/test/claims-conferir.test.ts && grep -F \"alheio(path.join(p.dir, 'aninhado'), path.join(p.dir, 'aninhado-wt'));\" core/test/claims-conferir.test.ts"
       ],
       "criadoEm": "2026-10-12T06:00:59.366Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -534,7 +534,7 @@
         "grep -E \"^function conferirRaizDosMods[(]raiz: string, instalacao: string, arquivos: ReadonlyMap<string, string>[)]: void [{]\" core/src/runtime-context.ts && grep -F \"if (achados.length) conferirRaizDosMods(raiz, instalacao, arquivos);\" core/src/runtime-context.ts && grep -F \"runtime.context.installation: mods/: \" core/src/runtime-context.ts && grep -F \"if (entrada.isSymbolicLink()) throw recusa(\" core/src/runtime-context.ts"
       ],
       "criadoEm": "2026-10-12T06:01:34.339Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -548,7 +548,7 @@
         "grep -F \"copia guarda como foram instalados (sha256 do recibo), os de cada mod e os comuns da raiz de\" core/src/hosts.ts && grep -E \"^function sobrasDeMods[(]destino: string, recibo: ReciboDeInstalacao [|] null, arquivos: ArquivoInstalado[[][]][)]: string[[][]] [{]\" core/src/hosts.ts"
       ],
       "criadoEm": "2026-10-12T06:01:37.323Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -562,7 +562,7 @@
         "grep -F \"S11 arquivo comum da raiz de mods/ so vale com recibo\" core/test/claude-bg-mods.test.ts && grep -F \"assert.deepEqual(r.removidos, ['mods/autoridade.json']);\" core/test/claude-bg-mods.test.ts"
       ],
       "criadoEm": "2026-10-12T06:01:40.317Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -576,7 +576,7 @@
         "grep -F \"claude --plugin-dir .claude/plugins/orkastery/mods/<mod>\" adapters/claude-code/README.md && grep -F \"remover um marketplace desinstala os plugins que vieram dele\" adapters/claude-code/README.md && grep -F \"e o plugin do marketplace do repositório não traz o guard\" adapters/claude-code/README.md && grep -F \"antes da própria pasta, segue a mesma regra quando há mod de fase no despacho\" adapters/claude-code/README.md && ! grep -qF \"tire-o antes com\" adapters/claude-code/README.md"
       ],
       "criadoEm": "2026-10-12T06:02:53.779Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -590,6 +590,20 @@
         "python3 -I -c \"import json,re; b=json.load(open('.ork-ci/ork-rm059nucleo.json')); ids=[c['id'] for c in b['claims']]; adiadas=dict((d['id'],d['reason']) for d in b.get('deferredClaims',[])); t=open('.ork-ci/ork-rm059nucleo.json',encoding='utf-8').read(); assert b['schema']=='ork.ci-bundle/v1' and b['thread']=='ork-rm059nucleo' and b['branch']=='ork/ork-rm059nucleo-full'; fora=set(['C4','C13','C23','C30','C31','C42','C63']+['C%d'%i for i in range(43,60)]); esperadas=set('C%d'%i for i in range(3,69))-fora-set(['C32']); assert esperadas <= set(ids), sorted(esperadas-set(ids)); assert not fora & set(ids), sorted(fora & set(ids)); assert adiadas==dict(C1='artifact-not-in-checkout',C2='artifact-not-in-checkout',C32='local-integration-required'), adiadas; assert b['commands']==[dict(name='ci',command='npm --prefix core run test:ci')]; assert not re.search('/hom[e]/|@gmai[l]', t) and chr(0x2014) not in t; print('bundle ok:', len(ids), 'claims no CI,', len(adiadas), 'adiadas')\""
       ],
       "criadoEm": "2026-10-12T06:06:22.328Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C70",
+      "thread": "ork-rm059nucleo",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "Sugestão da rodada 3 do CHECK: o README não diz mais que a cópia do mod de dono é conferida pelo INSTALADO.json ao carregar por --plugin-dir; diz que cada arquivo está registrado no recibo e que a conferência dos bytes roda no despacho, para mod de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -F \"carregamento ninguém confere os bytes: a conferência contra o recibo roda no despacho, para mod de\" adapters/claude-code/README.md && ! grep -qF \"conferida pelo\" adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T06:15:59.579Z",
       "estado": "pendente",
       "lint": []
     }
