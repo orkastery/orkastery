@@ -6,6 +6,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.5] - 2026-10-12
+
 ### Adicionado
 
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
@@ -200,6 +202,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
 
 ## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.5.
 
 ### Adicionado
 
