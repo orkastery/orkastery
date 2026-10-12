@@ -85,7 +85,7 @@ test('S1 presenca: a batida toma, renova e recusa a segunda sessao; vencida, out
   assert.deepEqual(eventos[1].anterior, { sessao: 'sessao-a', expiraEm: em(60000 + PRAZO_DA_PRESENCA_MS).toISOString() });
   assert.equal(eventos[2].motivo, 'sessao do dono fechou');
   assert.throws(() => baterSentinela(p.dir, { sessao: 'com espaco', maquina: MAQUINA }), /conducao\.sentinela\.sessao/);
-  assert.equal(path.basename(caminhoDaPresenca(p.dir, 'vps/casa 2')), 'sentinela-vps-casa-2.json');
+  assert.equal(path.basename(caminhoDaPresenca(p.dir, 'maquina/casa 2')), 'sentinela-maquina-casa-2.json');
   assert.equal(path.dirname(caminhoDaPresenca(p.dir, MAQUINA)), path.join(dirEstado(p.dir), 'conducao'));
 });
 
