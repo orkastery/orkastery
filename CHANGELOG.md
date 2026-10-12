@@ -10,11 +10,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
-  língua virá de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
+  língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
   byte a byte, o `--json` não muda com a língua e as datas seguem o locale. Fatias: F1, a prova de
-  conceito do rascunho #113 (`doctor`, `init`, catálogo tipado e datas) mais os achados EN5 e EN9; F2, o
-  caminho da primeira experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. Só
-  documentação: o código do #113 segue em PR aberto.
+  conceito do #113 (`doctor`, `init`, catálogo tipado e datas), já mesclada; F2, o caminho da primeira
+  experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. A entrada é só
+  documentação.
 - **Decisões do dono no modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): em 12/10/2026 o
   dono decidiu D1 a D4 (entrega com push, PR e merge no SHA exato; piloto local e depois em duas
   máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
