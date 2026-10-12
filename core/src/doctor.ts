@@ -30,6 +30,7 @@ import { sondasDeAmbiente } from './preflight';
 import { configDoBloco, ConfigDeBlocoComFallback, lerSetup } from './setup';
 import { checarCronDoPulse, LeitorDoCrontab, lerCrontabDoSistema } from './doctor-pulse-cron';
 import { checarRede } from './doctor-rede';
+import { msg, nomeDoCheck } from './locale';
 
 /**
  * Ensaio de 03/10/2026 (RM-049): o manifesto e achado subindo a partir do diretorio atual. Um
@@ -69,7 +70,7 @@ export function checarContas(raiz: string, auth: (p: PerfilDeDespacho) => Status
       correcao: 'o store fica em .orkastery/private/runtime-profiles.json (arquivo 0600, pasta 0700)' };
   }
   if (perfis.length === 0) return { nome: 'contas por runtime', nivel: 'ok',
-    detalhe: 'nenhum perfil configurado: cada runtime despacha pelo ambiente do processo' };
+    detalhe: msg().doctor.semPerfis };
   const partes: string[] = [];
   let nivel: Check['nivel'] = 'ok';
   for (const runtime of RUNTIMES_COM_PERFIL) {
@@ -115,7 +116,7 @@ function versaoNode(): number {
 export function checarChaveDeEmbedding(carregado: ManifestoCarregado, env: NodeJS.ProcessEnv = process.env): Check {
   const nome = 'chave de embedding';
   const config = configDeEmbedding(carregado.manifesto);
-  if (config.provider === 'none') return { nome, nivel: 'ok', detalhe: 'memory.embedding com provider none: busca por significado desligada' };
+  if (config.provider === 'none') return { nome, nivel: 'ok', detalhe: msg().doctor.embeddingNone };
   const variavel = config.api_key_env;
   if ((ENVS_DE_PROVIDER_PAGO as readonly string[]).includes(variavel)) {
     return { nome, nivel: 'fail', detalhe: `memory.embedding.api_key_env declara ${variavel}, nome da lista de provider pago`,
@@ -200,7 +201,7 @@ export function checarOnboarding(carregado: ManifestoCarregado): Check[] {
   const estado = lerOnboarding(carregado.raiz);
   const pendentes = ETAPAS_ONBOARDING.filter(e => estado.etapas[e] === null);
   const checks: Check[] = [{ nome: 'onboarding', nivel: pendentes.length ? 'warn' : 'ok',
-    detalhe: pendentes.length ? `${pendentes.length} etapa(s) pendente(s): ${pendentes.join(', ')}` : '9 etapas respondidas',
+    detalhe: pendentes.length ? msg().doctor.onboardingPendente(pendentes.length, pendentes.join(', ')) : msg().doctor.onboardingCompleto,
     ...(pendentes.length ? { correcao: 'ork onboarding' } : {}) }];
   const escolha = estado.etapas.memoria?.conteudo;
   const modo = escolha === 'sim' || escolha === true ? 'orkmind' :
@@ -282,15 +283,12 @@ export function checarRuntimeClaude(carregado: ManifestoCarregado | null, claude
   versao: string | null, auth: StatusDeAuth | null = null): Check {
   const nome = 'runtime claude-bg';
   if (claude) {
-    const detalhe = `${claude} (${versao ?? 'versao desconhecida'})`;
+    const detalhe = `${claude} (${versao ?? msg().doctor.versaoDesconhecida})`;
     // Ensaio de 03/10 (R1): sem perfil de conta, o despacho usa o login do proprio `claude`; sem ele, o
     // primeiro despacho falha. Conferencia inconclusiva (timeout, JSON ilegivel) nao prova falta de login.
     if (auth && !auth.ok && !auth.transitorio) {
-      return { nome, nivel: 'warn', detalhe: `${detalhe}; ${auth.detalhe}: o despacho pelo claude-bg falharia`,
-        correcao: auth.pago
-          ? 'faca o login de assinatura (claude.ai) no `claude`, sem API key nem provider de nuvem'
-          : 'rode `claude` uma vez, faca o login de assinatura (/login) e aceite a confianca no diretorio do projeto; ' +
-            'ou crie um perfil com ork accounts add <id> --runtime claude-bg --dir <pasta>' };
+      return { nome, nivel: 'warn', detalhe: msg().doctor.claudeSemLogin(detalhe, auth.detalhe),
+        correcao: auth.pago ? msg().doctor.claudeLoginPago : msg().doctor.claudeLogin };
     }
     return { nome, nivel: 'ok', detalhe };
   }
@@ -360,7 +358,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     nome: 'node',
     nivel: major >= 20 ? 'ok' : 'fail',
     detalhe: `v${process.versions.node}`,
-    correcao: major >= 20 ? undefined : 'instale Node 20 ou superior',
+    correcao: major >= 20 ? undefined : msg().doctor.instaleNode,
   });
   if (analisadores) checks.push(analisadores());
 
@@ -368,8 +366,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   checks.push({
     nome: 'git',
     nivel: git ? 'ok' : 'fail',
-    detalhe: git ?? 'nao encontrado no PATH',
-    correcao: git ? undefined : 'instale o git',
+    detalhe: git ?? msg().doctor.gitAusente,
+    correcao: git ? undefined : msg().doctor.instaleGit,
   });
 
   const repo = exec('git', ['rev-parse', '--is-inside-work-tree'], dirInicial);
@@ -381,8 +379,8 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
   checks.push({
     nome: 'repositorio',
     nivel: dentroDeRepo ? 'ok' : 'fail',
-    detalhe: dentroDeRepo ? `branch ${branch}${semCommit ? ' (sem commit)' : ''}` : 'fora de um repositorio git',
-    correcao: dentroDeRepo ? undefined : 'rode o ork dentro de um repositorio git',
+    detalhe: dentroDeRepo ? msg().doctor.branch(branch, semCommit) : msg().doctor.foraDeRepo,
+    correcao: dentroDeRepo ? undefined : msg().doctor.rodeDentroDeRepo,
   });
   if (dentroDeRepo) {
     const dono = checarDonoDoGit(dirInicial);
@@ -409,13 +407,13 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     nome: 'runtime codex',
     nivel: codex ? 'ok' : 'warn',
     detalhe: codex
-      ? `${codex} (${codexVersao ?? 'versao desconhecida'})`
+      ? `${codex} (${codexVersao ?? msg().doctor.versaoDesconhecida})`
       : usaCodex
-        ? 'binario `codex` fora do PATH (o projeto despacha por ele: veja despacho pelo codex)'
-        : 'binario `codex` fora do PATH (opcional: claude-bg e o runtime padrao)',
+        ? msg().doctor.codexAusenteUsado
+        : msg().doctor.codexAusenteOpcional,
     correcao: codex
       ? undefined
-      : 'para despachar pelo codex, instale o Codex CLI e autentique com `codex login`',
+      : msg().doctor.instaleCodex,
   });
 
   // Pitfall MEDIDO em 06/09/2026: com o sandbox quebrado, o `codex exec` sai 0 e o agente
@@ -427,12 +425,11 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'sandbox do codex',
       nivel: sondaDoCodex.ok ? 'ok' : 'warn',
       detalhe: sondaDoCodex.ok
-        ? '`codex sandbox true` executa nesta maquina'
-        : `sonda \`codex sandbox true\` falhou: ${sondaDoCodex.detalhe}`,
+        ? msg().doctor.sandboxOk
+        : msg().doctor.sandboxFalhou(sondaDoCodex.detalhe),
       correcao: sondaDoCodex.ok
         ? undefined
-        : 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
-          'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco',
+        : msg().doctor.sandboxCorrecao,
     });
   }
 
@@ -440,9 +437,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
     checks.push({
       nome: 'manifesto',
       nivel: 'fail',
-      detalhe: `${NOME_MANIFESTO} nao encontrado a partir de ${dirInicial}`,
+      detalhe: msg().doctor.manifestoAusente(NOME_MANIFESTO, dirInicial),
       // Ensaio de 03/10/2026 (RM-049): fora de repositorio, o `ork init` recusa; a correcao diz onde roda-lo.
-      correcao: dentroDeRepo ? 'ork init' : 'entre no repositorio do projeto (ou crie um com git init e o primeiro commit) e rode ork init',
+      correcao: dentroDeRepo ? msg().doctor.rodeInit : msg().doctor.entreNoRepoEInit,
     });
   } else {
     checks.push({
@@ -451,9 +448,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       detalhe:
         carregado.erros.length > 0
           ? `${carregado.caminho}: ${carregado.erros.join('; ')}`
-          : `${carregado.caminho} (${carregado.bytes} B de ${LIMITE_MANIFESTO_BYTES})` +
+          : msg().doctor.manifestoOk(carregado.caminho, carregado.bytes, LIMITE_MANIFESTO_BYTES) +
             (carregado.avisos.length > 0 ? `; ${carregado.avisos.join('; ')}` : ''),
-      correcao: carregado.erros.length > 0 ? 'corrija o manifesto e rode ork doctor de novo' : undefined,
+      correcao: carregado.erros.length > 0 ? msg().doctor.corrijaManifesto : undefined,
     });
     if (dentroDeRepo) {
       const fora = manifestoForaDoRepositorio(dirInicial, carregado.caminho);
@@ -467,18 +464,16 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'abbrev do projeto',
       nivel: checkAbbrev.ok ? 'ok' : 'fail',
       detalhe: checkAbbrev.ok
-        ? `"${abbrev}" (parte 1 do slug de sessao)`
+        ? msg().doctor.abbrevOk(abbrev)
         : (checkAbbrev.erro as string),
-      correcao: checkAbbrev.ok ? undefined : 'defina project.abbrev com ate 3 caracteres [a-z0-9]',
+      correcao: checkAbbrev.ok ? undefined : msg().doctor.abbrevCorrecao,
     });
 
     const cond = carregado.manifesto.conduction;
     checks.push({
       nome: 'modos de conducao',
       nivel: 'ok',
-      detalhe:
-        `padrao ${MODOS[cond.default_mode].tag}; ` +
-        `permitidos ${cond.allowed_modes.map((m) => MODOS[m].tag).join(', ')}`,
+      detalhe: msg().doctor.modos(MODOS[cond.default_mode].tag, cond.allowed_modes.map((m) => MODOS[m].tag).join(', ')),
     });
 
     // I-35: o fuso em que todo horario chega ao dono; valor invalido avisa e nao para nada.
@@ -487,9 +482,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'fuso do dono',
       nivel: fuso.aviso ? 'warn' : 'ok',
       detalhe: fuso.aviso ?? (fuso.origem === 'manifesto'
-        ? `${fuso.fuso} (${CHAVE_DO_FUSO}); horarios para pessoas em ${rotuloDoFuso(fuso.fuso)}`
-        : `${fuso.fuso} (fuso do sistema; ${CHAVE_DO_FUSO} nao configurado)`),
-      correcao: fuso.aviso ? `corrija ${CHAVE_DO_FUSO} com um nome IANA` : undefined,
+        ? msg().doctor.fusoDoManifesto(fuso.fuso, CHAVE_DO_FUSO, rotuloDoFuso(fuso.fuso))
+        : msg().doctor.fusoDoSistema(fuso.fuso, CHAVE_DO_FUSO)),
+      correcao: fuso.aviso ? msg().doctor.fusoCorrecao(CHAVE_DO_FUSO) : undefined,
     });
 
     // Quando o manifesto ou um bloco de modo permitido ELEGE o codex, a ausencia dele (ou um
@@ -506,21 +501,21 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'custo e provider herdado',
       nivel: bloqueia ? 'fail' : soAssinatura && pagas.length > 0 ? 'warn' : 'ok',
       detalhe: bloqueia
-        ? `politica ${politica} violada: ${redirecionam.join(', ')} redireciona o despacho do claude`
+        ? msg().doctor.politicaViolada(politica, redirecionam.join(', '))
         : pagas.length > 0
-          ? `politica ${politica}; despacho segue na assinatura local, mas ha credencial paga no ambiente: ${pagas.join(', ')}`
-          : `politica ${politica}; nenhuma variavel de provider pago ativa`,
+          ? msg().doctor.politicaComPaga(politica, pagas.join(', '))
+          : msg().doctor.politicaLimpa(politica),
       correcao: bloqueia
-        ? `remova do ambiente: ${redirecionam.join(', ')} (o despacho usa a assinatura Claude local)`
+        ? msg().doctor.removaDoAmbiente(redirecionam.join(', '))
         : pagas.length > 0
-          ? `nenhuma acao obrigatoria; nunca despache fase por ${pagas.join(', ')}`
+          ? msg().doctor.nuncaDespachePorPaga(pagas.join(', '))
           : undefined,
     });
     const efetivas = nomesDeProviderAtivos();
     checks.push({
       nome: 'provider efetivo da fabrica',
       nivel: soAssinatura && efetivas.length ? 'warn' : 'ok',
-      detalhe: efetivas.length ? `nomes ativos: ${efetivas.join(', ')}` : 'nenhum nome da lista de provider ativo',
+      detalhe: efetivas.length ? msg().doctor.providersAtivos(efetivas.join(', ')) : msg().doctor.nenhumProvider,
     });
 
     // Bloco B6: o regime de memoria e um CHECK, nao um detalhe do manifesto. Manifesto
@@ -538,7 +533,7 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
           ? `pedido orkmind, efetivo files (${estado.motivo}): ${estado.detalhe}`
           : estado.efetivo === 'orkmind'
             ? `orkmind ativo no tenant "${estado.tenant}" pela variavel ${estado.variavel}`
-            : 'files (fallback honesto: handoff por arquivos, ponteiro path#ancora)',
+            : msg().doctor.memoriaFiles,
       correcao: estado.pedido === 'orkmind' && estado.efetivo === 'files' ? estado.correcao : undefined,
     });
 
@@ -555,9 +550,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nivel: escalados.length > 0 ? 'warn' : 'ok',
       detalhe:
         fila.length === 0
-          ? 'vazia: nenhuma fase morreu por limite de uso neste projeto'
-          : `${esperando.length} aguardando janela, ${escalados.length} escalado(s) para humano` +
-            (esperando.length > 0 ? `; proxima janela em ${formatarDataHoraRotulada(esperando[0].liberaEm)}` : ''),
+          ? msg().doctor.filaVazia
+          : msg().doctor.filaResumo(esperando.length, escalados.length) +
+            (esperando.length > 0 ? msg().doctor.filaProxima(formatarDataHoraRotulada(esperando[0].liberaEm)) : ''),
       correcao:
         escalados.length > 0
           ? `pedido escalado alem do limite de retry.max_tentativas: ork retry list e ork gate request <thread>`
@@ -575,9 +570,9 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
       nome: 'estado do projeto',
       nivel: fs.existsSync(dirEstadoProjeto) ? 'ok' : 'warn',
       detalhe: fs.existsSync(dirEstadoProjeto)
-        ? `${dirEstadoProjeto} (${qtd} thread(s))`
-        : `${dirEstadoProjeto} ausente`,
-      correcao: fs.existsSync(dirEstadoProjeto) ? undefined : 'ork init cria o diretorio de estado',
+        ? msg().doctor.estadoOk(dirEstadoProjeto, qtd)
+        : msg().doctor.estadoAusente(dirEstadoProjeto),
+      correcao: fs.existsSync(dirEstadoProjeto) ? undefined : msg().doctor.estadoCorrecao,
     });
     // RM-039 (B6): com o transporte do pulse configurado, a varredura tem de bater de 15 em 15
     // minutos; a instalacao antiga em `0 * * * *` vira aviso com a linha nova. Nunca edita o crontab.
@@ -614,9 +609,10 @@ export function checar(dirInicial: string = process.cwd(), nomesHerdados = nomes
 /** Texto do relatorio, com o resumo "o que vale nesta maquina agora". */
 export function relatorio(checks: Check[]): string {
   const linhas: string[] = [];
-  linhas.push('ork doctor: o que vale nesta maquina agora');
+  const m = msg().doctor;
+  linhas.push(m.titulo);
   linhas.push('');
-  const largura = Math.max(...checks.map((c) => c.nome.length));
+  const largura = Math.max(...checks.map((c) => nomeDoCheck(c.nome).length));
   // I-35: o Check guarda o ISO (dado de maquina, tambem lido por teste); quem imprime para o dono
   // localiza. Vale para todo check, nao so o de contas: nenhum horario chega cru ao relatorio.
   let localizou = false;
@@ -626,9 +622,9 @@ export function relatorio(checks: Check[]): string {
     return l;
   };
   for (const c of checks) {
-    linhas.push(`  ${simbolo(c.nivel)} ${c.nome.padEnd(largura)}  ${local(c.detalhe)}`);
+    linhas.push(`  ${simbolo(c.nivel)} ${nomeDoCheck(c.nome).padEnd(largura)}  ${local(c.detalhe)}`);
     if (c.nivel !== 'ok' && c.correcao) {
-      linhas.push(`         ${' '.repeat(largura)}  correcao: ${local(c.correcao)}`);
+      linhas.push(`         ${' '.repeat(largura)}  ${m.correcao}: ${local(c.correcao)}`);
     }
   }
   // O fuso sai uma vez por mensagem, antes do veredito, que segue sendo a ultima linha.
@@ -638,8 +634,8 @@ export function relatorio(checks: Check[]): string {
   linhas.push('');
   linhas.push(
     falhas > 0
-      ? `Veredito: BLOQUEADO (${falhas} fail, ${avisos} warn). Corrija os itens acima antes de despachar fase.`
-      : `Veredito: PRONTO (${avisos} warn). Despacho de fase liberado por \`ork phase run\`.`
+      ? m.bloqueado(falhas, avisos)
+      : m.pronto(avisos)
   );
   return linhas.join('\n');
 }
