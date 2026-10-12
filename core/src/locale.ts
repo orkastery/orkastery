@@ -62,6 +62,8 @@ import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 import { PULSE_EN, PULSE_PT_BR } from './locale-pulse';
 import { ROADMAP_EN, ROADMAP_PT_BR } from './locale-roadmap';
 import { GERADOS_EN, GERADOS_PT_BR } from './locale-gerados';
+import { WORKTREE_EN, WORKTREE_PT_BR } from './locale-worktree';
+import { ESTADO_EN, ESTADO_PT_BR } from './locale-estado';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -79,7 +81,7 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
   'master', 'master aceitar-omissao', 'master pedir', 'pulse', 'roadmap status', 'docs init',
   // F3b (D1): o resto do CLI, na ordem do pedido.
-  'thread list', 'thread close', 'thread entrega'];
+  'thread list', 'thread close', 'thread entrega', 'worktree ensure', 'worktree sync', 'worktree audit', 'worktree release', 'worktree ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -90,6 +92,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['retry', { padrao: null, conhecidos: ['plan', 'run', 'policy', 'parse', 'list', 'resume', 'cancel'] }],
   ['roadmap', { padrao: 'reservas', conhecidos: ['reservas', 'status', 'feat', 'pegar', 'soltar'] }],
   ['docs', { padrao: 'verificar', conhecidos: ['verificar', 'sincronizar', 'init'] }],
+  ['worktree', { padrao: null, conhecidos: ['ensure', 'sync', 'audit', 'release'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -409,6 +412,8 @@ const PT_BR = {
   pulse: PULSE_PT_BR,
   roadmap: ROADMAP_PT_BR,
   gerados: GERADOS_PT_BR,
+  worktree: WORKTREE_PT_BR,
+  estado: ESTADO_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -673,6 +678,8 @@ const EN: Mensagens = {
   pulse: PULSE_EN,
   roadmap: ROADMAP_EN,
   gerados: GERADOS_EN,
+  worktree: WORKTREE_EN,
+  estado: ESTADO_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',
@@ -712,6 +719,14 @@ export class ErroDoCatalogo extends Error {
 /** A mensagem de um erro para a pessoa: a do catalogo no locale ativo; as demais como vieram. */
 export function mensagemDoErro(e: unknown): string {
   return e instanceof ErroDoCatalogo ? e.montar(msg()) : e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * F3b (D3): o texto de um erro para guardar num resultado que o comando coberto imprime depois. O do catalogo e
+ * registrado para a remontagem, como `textoDoCatalogo`; os demais saem como vieram.
+ */
+export function textoDoErro(e: unknown): string {
+  return e instanceof ErroDoCatalogo ? textoDoCatalogo(e.montar) : e instanceof Error ? e.message : String(e);
 }
 
 /** Monta um texto do catalogo a partir das mensagens de um locale. */

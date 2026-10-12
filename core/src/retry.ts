@@ -1482,7 +1482,8 @@ export function executarRetry(
 
   if (acaoBase === 'sincronizar-worktree') {
     const sync = sincronizarWorktree(carregado, threadId, { dryRun: opcoes.dryRun });
-    const detalhe = textoDoCatalogo((m) => sync.ok ? m.retry.sincronizada(sync.passos.join('; ')) : m.retry.sincronizacaoFalhou(sync.detalhe));
+    // RM-061 (F3b): o detalhe da worktree tambem vem do catalogo; remontado aqui, ele segue o locale da impressao.
+    const detalhe = textoDoCatalogo((m) => sync.ok ? m.retry.sincronizada(sync.passos.join('; ')) : m.retry.sincronizacaoFalhou(remontar(sync.detalhe)));
     registrarTentativa(sync.ok, detalhe);
     return { ...vazio, executada: sync.ok, sync, detalhe };
   }

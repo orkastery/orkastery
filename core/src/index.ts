@@ -2635,69 +2635,69 @@ function comandoWorktree(args: Args): number {
   const carregado = exigirManifesto();
   const sub = args.posicionais[1];
   const id = args.posicionais[2];
+  // RM-061 (F3b, D3): a moldura pelo catalogo; o que os quatro subcomandos gravam (ledger, thread.json, a soltura dos
+  // leases) roda no escopo pt-BR, e o detalhe e a correcao do resultado sao remontados no locale do comando.
+  const m = msg().worktree;
   if (!sub || !id) {
-    console.error('uso: ork worktree <ensure|sync|audit|release> <thread-id>');
+    console.error(m.uso);
     return 2;
   }
+  const bloqueio = (titulo: string, r: { motivo: string | null; detalhe: string; correcao: string }) => {
+    console.error(titulo);
+    console.error(m.motivoTipado(r.motivo));
+    console.error(m.detalhe(remontar(r.detalhe)));
+    console.error(m.correcao(remontar(r.correcao)));
+  };
   if (sub === 'ensure') {
-    const r = garantirWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => garantirWorktree(carregado, id));
     if (!r.ok) {
-      console.error(`Worktree da thread ${id} NAO garantida.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.naoGarantida(id), r);
       return 1;
     }
-    console.log(r.criada ? `Worktree criada para a thread ${id}.` : `Worktree ja existia para a thread ${id}.`);
-    console.log(`  dir     ${r.dir}`);
-    console.log(`  branch  ${r.branch}`);
-    console.log(`  base    ${r.base} (resolvida pelo ork, nao pelo executor)`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.criada ? m.criada(id) : m.jaExistia(id));
+    console.log(m.linhaDir(r.dir));
+    console.log(m.linhaBranch(r.branch));
+    console.log(m.linhaBase(r.base));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
   if (sub === 'sync') {
-    const r = sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true });
+    const r = comLocale('pt-BR', () => sincronizarWorktree(carregado, id, { dryRun: args.opcoes['dry-run'] === true }));
     if (!r.ok) {
-      console.error(`Sync da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.syncBloqueado(id), r);
       return 1;
     }
-    console.log(r.dryRun ? `Sync (--dry-run) da thread ${id}: nada foi executado.` : `Sync da thread ${id}.`);
-    console.log(`  base       ${r.base} @ ${r.shaBase.slice(0, 8)}`);
-    console.log(`  branch     ${r.branch} @ ${r.shaAntes.slice(0, 8)} -> ${r.shaDepois.slice(0, 8)}`);
-    console.log(`  rebase     ${r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(r.dryRun ? m.syncEnsaio(id) : m.syncFeito(id));
+    console.log(m.syncBase(r.base, r.shaBase.slice(0, 8)));
+    console.log(m.syncBranch(r.branch, r.shaAntes.slice(0, 8), r.shaDepois.slice(0, 8)));
+    console.log(m.syncRebase(r.rebaseFeito ? 'feito' : r.jaAtualizada ? 'desnecessario' : 'seria feito'));
+    console.log(`  ${remontar(r.detalhe)}`);
     if (r.passos.length > 0) {
       console.log('');
-      console.log('  Comandos reais, na ordem:');
-      for (const passo of r.passos) console.log(`    ${passo}`);
+      console.log(m.comandosReais);
+      for (const passo of r.passos) console.log(`    ${remontar(passo)}`);
     }
     return 0;
   }
   if (sub === 'audit') {
-    const r = auditarWorktree(carregado, id);
+    const r = comLocale('pt-BR', () => auditarWorktree(carregado, id));
     console.log(textoDoAudit(id, r));
     return r.ok ? 0 : 1;
   }
   if (sub === 'release') {
-    const r = liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true });
+    const r = comLocale('pt-BR', () => liberarWorktree(carregado, id, { forcar: args.opcoes.forcar === true }));
     if (!r.ok) {
-      console.error(`Release da worktree da thread ${id} BLOQUEADO.`);
-      console.error(`  motivo tipado: ${r.motivo}`);
-      console.error(`  detalhe: ${r.detalhe}`);
-      console.error(`  correcao: ${r.correcao}`);
+      bloqueio(m.releaseBloqueado(id), r);
       return 1;
     }
-    console.log(`Worktree da thread ${id} liberada.`);
-    console.log(`  dir      ${r.dir}`);
-    console.log(`  removida ${r.removida ? 'sim' : 'nao (o diretorio ja nao existia)'}`);
-    console.log(`  leases   ${r.leasesLiberados.join(', ') || '(nenhum lease de escrita para soltar)'}`);
-    console.log(`  ${r.detalhe}`);
+    console.log(m.liberada(id));
+    console.log(m.releaseDir(r.dir));
+    console.log(m.releaseRemovida(r.removida));
+    console.log(m.releaseLeases(r.leasesLiberados.join(', ')));
+    console.log(`  ${remontar(r.detalhe)}`);
     return 0;
   }
-  console.error(`subcomando desconhecido: worktree ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('worktree', sub));
   return 2;
 }
 
