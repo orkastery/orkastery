@@ -111,6 +111,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
     `ci.command`, `.ork-ci/` e `doneWhen`). Cinco itens que exigem mudar comportamento aceito hoje ficam na matriz
     como pendentes do dono.
 
+### Corrigido
+
+- **Prova de mod em sessão de fase** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `core/scripts/prova-mods-sessao-de-fase.cjs` abre a sessão de sonda com `--strict-mcp-config`, como o despacho de fase;
+  sem a flag, a sessão parava na aprovação do MCP do projeto e a prova saía inconclusiva. Veredito da T0.1: o mod carrega
+  numa sessão `claude --bg` e recebe `classic.PostToolBatch`.
+
 ## [0.5.4] - 2026-10-12
 
 ### Adicionado

@@ -143,7 +143,8 @@ function gravarSonda(dir) {
 
 /** O argv exato do `claude --bg` da prova. */
 function montarComando({ sonda, marca, nome }) {
-  return ['claude', '--bg', PROMPT, '--name', nome, '--plugin-dir', sonda,
+  // --strict-mcp-config como no despacho de fase: sem ele a sessao para na tela de aprovacao do MCP do projeto.
+  return ['claude', '--bg', PROMPT, '--name', nome, '--plugin-dir', sonda, '--strict-mcp-config',
     '--settings', JSON.stringify({ env: { ORK_SONDA_MARCA: marca } }), '--allowedTools', 'Bash(true)'];
 }
 
