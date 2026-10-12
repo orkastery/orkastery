@@ -481,6 +481,9 @@ Node 20.19, 22.12 ou mais novo.
 | `ork lease release <nome> [--thread T] [--forcar]` | Libera |
 | `ork conducao status <thread> [--json]` | Quem conduz a thread agora: canal, sessão ou processo, fase e desde quando. Libera, com prova, a condução sem dono |
 | `ork conducao assumir <thread> --por Q --motivo M [--canal C]` | Handoff: encerra a condução atual pelo runtime, registra quem assumiu, de qual canal e por que, e reserva a vez para esse canal |
+| `ork conducao sentinela status [--json]` | A Sentinela do Condutor nesta máquina (canal `claude-code`, sessão, batida e prazo) e o passo do condutor em cada thread aberta, calculado pelo núcleo; o condutor externo lê para ceder o despacho (`ork.conducao-sentinela/v1`) |
+| `ork conducao sentinela bater --sessao S [--json]` | A batida da Sentinela: renova a presença da sessão por 3 min ou a toma quando não há outra viva; com outra sessão viva na máquina, sai 3 |
+| `ork conducao sentinela desligar --sessao S [--json]` | Tira a presença da própria sessão; o condutor externo volta a conduzir |
 
 Famílias: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
 `service:<porta>` e `exec:<thread>`. Todas as famílias e a fila por colisão moram no

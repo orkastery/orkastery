@@ -483,6 +483,9 @@ Node 20.19, 22.12 or newer.
 | `ork lease release <nome> [--thread T] [--forcar]` | Releases it |
 | `ork conducao status <thread> [--json]` | Who conducts the thread now: channel, session or process, phase and since when. Releases, with proof, a conduction with no owner |
 | `ork conducao assumir <thread> --por Q --motivo M [--canal C]` | Handoff: ends the current conduction through the runtime, records who took over, from which channel and why, and reserves the turn for that channel |
+| `ork conducao sentinela status [--json]` | The Conductor Sentinel on this machine (channel `claude-code`, session, beat and deadline) and the conductor's step in each open thread, computed by the core; the external conductor reads it to yield the dispatch (`ork.conducao-sentinela/v1`) |
+| `ork conducao sentinela bater --sessao S [--json]` | The Sentinel's beat: renews the session's presence for 3 min, or takes it when no other session is alive; with another live session on the machine, it exits 3 |
+| `ork conducao sentinela desligar --sessao S [--json]` | Removes the session's own presence; the external conductor goes back to conducting |
 
 Families: `main-tree`, `worktree-write:<thread>`, `path:<glob>`, `board:<card>`,
 `service:<porta>` and `exec:<thread>`. All families and the collision queue live in the

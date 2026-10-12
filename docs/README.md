@@ -36,6 +36,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Experiência de orquestração](guias/orchestration-experience.pt-BR.md) / [English](guias/orchestration-experience.md) | Preferências, instalação reversível e limites do pacote |
 | [Onboarding do projeto](guias/onboarding.md) | Você está trazendo um repositório novo para o `ork` |
 | [Várias máquinas](guias/varias-maquinas.md) | Você conduz o mesmo produto de mais de um computador, ou com mais de um builder |
+| [Condução pela Sentinela](guias/conducao-pela-sentinela.md) | Você liga a Sentinela do Condutor na sua sessão do Claude Code e quer que o condutor externo ceda o despacho |
 | [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |
 
 ## Referência
