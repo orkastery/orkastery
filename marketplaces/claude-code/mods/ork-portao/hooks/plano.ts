@@ -23,8 +23,13 @@ const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 const CABECALHO_DE_TAREFA = /^(#{2,6})\s+T(\d+(?:\.\d+)*)(?=[\s.:)]|$)(.*)$/
 /** A linha de verify nos formatos que o núcleo aceita; o grupo 1 é o que vem depois do rótulo. */
 const ROTULO_DE_VERIFY = /^\s*(?:[-*]\s+)?(?:\*\*verify:\*\*|\*\*verify\*\*\s*:|`verify`\s*:|verify\s*:)\s*(.*)$/i
-/** O rótulo de `touch_paths` nos formatos em uso nos planos (o mesmo da carga do Freio). */
-const ROTULO_DE_TOUCH_PATHS = /^\s*(?:[-*+]\s+)?(?:\*\*touch_paths:?\*\*\s*:?|`touch_paths`\s*:|touch_paths\s*:)\s*(.*)$/i
+/**
+ * O rótulo de `touch_paths` nos formatos em uso nos planos (o da carga do Freio), também com a contagem entre parênteses
+ * antes dos dois-pontos (`- touch_paths (4): ...`).
+ */
+const ROTULO_DE_TOUCH_PATHS = /^\s*(?:[-*+]\s+)?(?:\*\*touch_paths(?:\s*\([^)]*\))?:?\*\*\s*:?|`touch_paths`(?:\s*\([^)]*\))?\s*:|touch_paths(?:\s*\([^)]*\))?\s*:)\s*(.*)$/i
+/** Trecho entre crases com cara de caminho: barra, ponto ou curinga. Identificador da prosa (`Modo`, `fast`) não conta. */
+const CARA_DE_CAMINHO = /[/.*?]/
 /** Linha que abre outro item de lista, cabeçalho ou cerca de código. */
 const ABRE_BLOCO = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|```|~~~)/
 const TRECHO = /`([^`]+)`/g
@@ -109,7 +114,9 @@ function touchPathsDoBloco(bloco: readonly string[]): string[] {
   const achados: string[] = []
   const juntar = (texto: string) => {
     for (const m of texto.matchAll(TRECHO)) {
-      const caminho = normalizar(m[1] as string)
+      const bruto = (m[1] as string).trim()
+      if (!CARA_DE_CAMINHO.test(bruto)) continue
+      const caminho = normalizar(bruto)
       if (ehCaminho(caminho) && !achados.includes(caminho)) achados.push(caminho)
     }
   }
@@ -207,7 +214,7 @@ function motivoEmTexto(v: Extract<VereditoDaCriacao, { tipo: 'recusa' }>): strin
     case 'ambigua': return `o assunto cita mais de uma tarefa do plano (${v.ids.join(', ')}), e cada tarefa do quadro é uma tarefa do plano`
     case 'fora-do-plano': return `o plano não tem a tarefa ${id}`
     case 'repetida': return `o plano tem mais de um cabeçalho da tarefa ${id}`
-    case 'sem-touch-paths': return `a tarefa ${id} do plano não tem touch_paths, então ninguém sabe que arquivos ela toca`
+    case 'sem-touch-paths': return `a tarefa ${id} do plano não tem touch_paths (caminhos entre crases, com barra, ponto ou curinga), então ninguém sabe que arquivos ela toca`
     case 'sem-verify': return `a tarefa ${id} do plano não tem um verify que o núcleo confira (${DETALHE_DO_VERIFY[v.tarefa?.problema ?? ''] ?? 'sem comando'})`
   }
 }
@@ -277,10 +284,14 @@ export function escopoDoRetrato(retrato: { status: string | null; bloco: string 
   return { ativo: true, avisos: [] }
 }
 
-/** A outra metade: o plano legível com ao menos uma tarefa `T<n>`. */
+/**
+ * A outra metade (D1 refinada): o plano legível com ao menos uma tarefa que serve ao quadro. Plano em que nenhuma tarefa
+ * tem `touch_paths` e verify conferível não ganha portão: travaria o quadro inteiro do GO.
+ */
 export function escopoDoPlano(tarefas: readonly PortaoTarefa[] | null): Escopo {
   if (tarefas === null) return { ativo: false, motivo: 'a thread ainda não tem plano legível' }
   if (tarefas.length === 0) return { ativo: false, motivo: 'o plano não tem tarefas T<n>' }
+  if (!tarefas.some(serveAoQuadro)) return { ativo: false, motivo: 'nenhuma tarefa do plano tem touch_paths e verify conferível' }
   return { ativo: true, avisos: [] }
 }
 

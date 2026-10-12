@@ -29,7 +29,10 @@ export type PortaoFalha = {
   em: number
 }
 
-/** O quadro que o Portão guarda da sessão de fase (D9 do plano da thread). */
+/**
+ * O quadro que o Portão guarda da sessão de fase (D9 do plano da thread). Ele vale para esta sessão: numa sessão de GO
+ * redespachada, o que fechou na anterior não está aqui.
+ */
 export type PortaoQuadro = {
   /** A thread do despacho, do contexto da ponte. */
   thread: string
@@ -43,8 +46,6 @@ export type PortaoQuadro = {
   atribuicoes: Record<string, string>
   /** As tarefas que um teammate devolveu ao ficar ocioso sem concluí-las: saem da distribuição automática. */
   devolvidas: string[]
-  /** Os leases `path:` que o Portão tomou nesta sessão, com quando o prazo do núcleo vence (ms desde a época). */
-  leases: Record<string, number>
   /** A última falha do Portão, para a linha de status e o log. */
   ultimaFalha: PortaoFalha | null
 }

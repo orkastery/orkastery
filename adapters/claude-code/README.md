@@ -241,32 +241,38 @@ conferência a mais.
 
 ### Portão de Tarefas (`ork-portao`)
 
-O segundo mod de papel `fase`. Ele age só na sessão de fase cujo bloco atual tem o GO (pelo slug do
-bloco no retrato do núcleo) e cuja thread tem plano com tarefas `T<n>`; fora disso, os ganchos passam
-sem tocar em nada. Com ele, o quadro de tarefas do Claude Code é o do plano:
+O segundo mod de papel `fase`. Os portões do quadro agem só na sessão de fase cujo bloco atual tem o GO
+(pelo slug do bloco no retrato do núcleo) e cuja thread tem plano com ao menos uma tarefa `T<n>` que
+serve ao quadro: com `touch_paths` (caminhos entre crases, com barra, ponto ou curinga) e um verify com um
+comando só entre crases, a regra do `ork claims conferir --tarefa`. Plano sem nenhuma tarefa assim não
+ganha portão, para não travar o quadro do GO. Com o portão ligado:
 
 - **criação:** `TaskCreated` recusa a tarefa cujo assunto não traz o id de uma tarefa do plano
-  (`T2.1 ...`), ou cuja tarefa do plano não tem `touch_paths` ou não tem verify com um comando só entre
-  crases, a regra do `ork claims conferir --tarefa`. A recusa volta ao modelo com o motivo e as tarefas
-  do plano que servem;
-- **conclusão:** `TaskCompleted` de uma tarefa do plano pede ao núcleo
-  `ork claims conferir <thread> --tarefa T2.1 --prazo 540 --json`, no sandbox do verify, e só deixa a
-  tarefa fechar com o item aprovado. Reprovação volta com o comando, o código e o fim da saída; sem
-  veredito, recusa tipada, outra condução na thread ou conferência que não roda também bloqueiam, sempre
-  com a saída: corrigir e concluir de novo, ou devolver a tarefa para `pending` e seguir. Uma conferência
-  por vez: a conclusão que chega no meio de outra é recusada na hora. Da terceira reprovação igual em
-  diante, o texto manda deixar a tarefa aberta;
+  (`T2.1 ...`), ou cuja tarefa do plano não serve ao quadro. A recusa volta ao modelo com o motivo e as
+  tarefas do plano que servem;
+- **conclusão:** `TaskCompleted` da tarefa registrada na criação, ou da que cita no assunto uma tarefa do
+  plano que serve, pede ao núcleo `ork claims conferir <thread> --tarefa T2.1 --prazo 540 --json`, no
+  sandbox do verify, e só deixa a tarefa fechar com o item aprovado. Reprovação volta com o comando, o
+  código e o fim da saída; sem veredito, recusa tipada, outra condução na thread, conferência que não roda
+  ou falha do próprio Portão também bloqueiam, sempre com a saída: corrigir e concluir de novo, ou devolver
+  a tarefa para `pending` e seguir. A tarefa registrada continua conferida mesmo com o plano ilegível na
+  hora, porque o núcleo lê o plano por conta própria. Uma conferência por vez: a conclusão que chega no
+  meio de outra é recusada na hora. Da terceira reprovação igual em diante, o texto manda deixar a tarefa
+  aberta;
 - **teammate ocioso:** com agent teams no piloto (abaixo), `TeammateIdle` entrega ao teammate a próxima
-  tarefa do plano cuja região está livre: nenhum lease ativo de outra thread cruza os `touch_paths` dela
-  (seção `leases` do retrato) e ela não cruza as tarefas de outros teammates. Os leases
-  `path:<touch_path>` são tomados por `ork lease acquire`, e o que a thread já segura não é pedido de
-  novo. Quem fica ocioso sem concluir devolve a tarefa, que sai da distribuição automática e fica com o
-  líder.
+  tarefa do plano que serve, não fechou nesta sessão e cuja região está livre: nenhum lease `path:` ativo,
+  de nenhuma thread, cruza os `touch_paths` dela e ela não cruza as tarefas dos outros teammates. Os leases
+  vêm do retrato de todas as threads, página a página, pela consulta `maestro` da ponte
+  (`ork maestro --json`), porque o servidor MCP da sessão de fase só mostra os da própria thread. O Portão
+  não toma nem solta lease: o `ork_git_commit` toma o `path:` de cada arquivo na hora do commit e recusa o
+  commit com qualquer lease no caminho. Quem fica ocioso sem concluir devolve a tarefa, que sai da
+  distribuição automática desta sessão. Sem os leases legíveis, no teto de custo ou sem tarefa livre, o
+  teammate fica ocioso.
 
 O Portão nunca roda o verify por conta própria: quem verifica de verdade continua sendo o `ork verify`.
-Ele lê o papel, o estado, o bloco e os leases pelo `$.ork.retrato` da ponte e o plano pelo
-`ork_artifact_read`, nunca do disco em `.orkastery/`. Teste que cria processo pode reprovar no sandbox e
-passar no `ork verify`, e o bloqueio diz isso.
+Ele lê o papel pelo `$.ork.contexto` da ponte, o estado e o bloco pelo `$.ork.retrato`, os leases pela
+consulta `maestro` da ponte e o plano pelo `ork_artifact_read`, nunca do disco em `.orkastery/`. Teste que
+cria processo pode reprovar no sandbox e passar no `ork verify`, e o bloqueio diz isso.
 
 Agent teams na sessão de fase só rodam no piloto, desligado por padrão. Quem conduz liga no manifesto da
 raiz:
@@ -282,11 +288,22 @@ runtime:
 Com a chave ligada, o GO no bloco da fase atual e o Portão entre os mods que vão à sessão, o despacho
 `claude-bg` acrescenta ao `--settings` a variável `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, os dois tetos
 (`ORK_AGENT_TEAMS_TEAMMATES` e `ORK_AGENT_TEAMS_CUSTO_USD`) e `teammateMode` `in-process`, porque a sessão
-de fundo não tem `tmux`. Teto inválido vira aviso do manifesto e deixa desligado. Na sessão de fase, o
-Portão recusa o nascimento de teammate sem os tetos, no teto de teammates vivos ou com o custo da sessão
-no teto, e no teto de custo não entrega tarefa nova. O comportamento desses eventos numa sessão
-`claude --bg` real com agent teams ainda não foi medido; os testes do kit e do núcleo cobrem o mod e o
-despacho.
+de fundo não tem `tmux`. Teto inválido vira aviso do manifesto e deixa desligado. Em toda sessão de fase,
+com ou sem o portão do quadro, o Portão recusa o nascimento de teammate sem os tetos, no teto de teammates
+vivos ou com o custo da sessão no teto, e no teto de custo não entrega tarefa nova.
+
+Limites conhecidos:
+
+- o quadro do Portão vale para a sessão: numa sessão de GO redespachada, tarefa fechada na anterior pode
+  ser entregue de novo ao teammate, que a encontra pronta no quadro e no git;
+- o líder não recebe aviso quando um teammate devolve uma tarefa; ele a vê aberta no quadro;
+- a conferência do Freio, em segundo plano, e a do Portão, na conclusão, podem rodar ao mesmo tempo na
+  mesma worktree; cada mod só serializa as próprias;
+- os tetos dependem de o Portão carregar de verdade: o despacho decide pelo `--plugin-dir`, e se o mod não
+  registrar na sessão, agent teams fica ligado sem ninguém aplicando os tetos;
+- se o turno for interrompido no meio da conferência, o Claude Code segue sem a resposta do gancho;
+- o comportamento desses eventos numa sessão `claude --bg` real com agent teams ainda não foi medido; os
+  testes do kit e do núcleo cobrem o mod e o despacho.
 
 ## A #TAG de conducao
 

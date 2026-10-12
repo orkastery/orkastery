@@ -8,9 +8,9 @@ export const THREAD = 'ork-exemplo'
 export const RAIZ = '/projeto/.claude/worktrees/ork-exemplo'
 
 /**
- * A ponte falsa: papel em `ORK_TESTE_PAPEL` (padrão `fase`), status da thread em `ORK_TESTE_STATUS` (padrão
- * `aberta`; `sem-retrato` faz o retrato falhar), slug do bloco em `ORK_TESTE_BLOCO` (padrão `full`) e os leases da
- * seção `leases` em `ORK_TESTE_LEASES` (JSON com `nome`, `thread`, `status`).
+ * A ponte falsa: papel em `ORK_TESTE_PAPEL` (padrão `fase`; `explode` faz o contexto falhar), status da thread em
+ * `ORK_TESTE_STATUS` (padrão `aberta`; `sem-retrato` faz o retrato falhar) e slug do bloco em `ORK_TESTE_BLOCO` (padrão
+ * `full`). O `ler` da consulta `maestro` vai ao `process.run`, como a ponte de verdade faz, e o fundo do teste responde.
  */
 export const PONTE = {
   name: 'ork-ponte',
@@ -22,24 +22,13 @@ export const PONTE = {
         papel: async () => papel(),
         contexto: async () => {
           const p = await papel()
+          if (p === 'explode') throw new Error('ork-ponte: contexto quebrado no teste')
           return { papel: p, thread: p === 'fase' ? 'ork-exemplo' : null, raiz: '/projeto/.claude/worktrees/ork-exemplo' }
         },
-        retrato: async pedido => {
+        retrato: async () => {
           const status = await built.env.get('ORK_TESTE_STATUS')
           if (status === 'sem-retrato') throw new Error('ork-ponte: o ork_maestro respondeu com erro')
           const quando = '2026-01-01T00:00:00.000Z'
-          if (pedido && pedido.secao === 'leases') {
-            const leases = JSON.parse((await built.env.get('ORK_TESTE_LEASES')) ?? '[]')
-            return {
-              fonte: 'mcp', lidoEm: 0,
-              retrato: {
-                schema: 'ork.maestro-snapshot/v1', observedAt: quando, gaps: [],
-                sections: { leases: { state: leases.length ? 'available' : 'empty', source: 's', observedAt: quando, gaps: [],
-                  items: leases.map(l => ({ id: l.nome, title: 'Região reservada', status: l.status ?? 'active',
-                    refs: [{ kind: 'thread', id: l.thread }], facts: { expiresAt: '2026-01-01T00:30:00.000Z' } })) } },
-              },
-            }
-          }
           const bloco = (await built.env.get('ORK_TESTE_BLOCO')) ?? 'full'
           return {
             fonte: 'mcp', lidoEm: 0,
@@ -50,7 +39,13 @@ export const PONTE = {
             },
           }
         },
-        ler: async () => ({}),
+        ler: async pedido => {
+          if (pedido.consulta !== 'maestro') return {}
+          const argv = ['ork', 'maestro', '--json', ...(pedido.secao ? ['--section', pedido.secao, '--offset', String(pedido.offset ?? 0)] : [])]
+          const r = await built.process.run(argv, { timeoutMs: 10000 })
+          if (r.exitCode !== 0) throw new Error(`ork-ponte: ork maestro --json saiu ${r.exitCode}`)
+          return JSON.parse(r.stdout)
+        },
         faixa: async () => ({ publicada: false }),
         vigiar: async () => ({ caminhos: [], valeNoProximoInicio: false }),
         mostrado: async () => undefined,
@@ -77,13 +72,12 @@ export async function quadro($) {
   return JSON.parse(r.text)
 }
 
-/** O ambiente que a ponte falsa lê: papel, status e bloco da thread, e os leases do retrato. */
-export function ambiente(on, opcoes: { papel?: 'dono' | 'fase' | 'dormente'; status?: string; bloco?: string; leases?: unknown[]; extra?: Record<string, string> } = {}) {
+/** O ambiente que a ponte falsa lê: papel, status e bloco da thread, e o que o teste quiser a mais (os tetos). */
+export function ambiente(on, opcoes: { papel?: 'dono' | 'fase' | 'dormente' | 'explode'; status?: string; bloco?: string; extra?: Record<string, string> } = {}) {
   mock.env(on, {
     ...(opcoes.papel ? { ORK_TESTE_PAPEL: opcoes.papel } : {}),
     ...(opcoes.status ? { ORK_TESTE_STATUS: opcoes.status } : {}),
     ...(opcoes.bloco ? { ORK_TESTE_BLOCO: opcoes.bloco } : {}),
-    ...(opcoes.leases ? { ORK_TESTE_LEASES: JSON.stringify(opcoes.leases) } : {}),
     ...(opcoes.extra ?? {}),
   })
 }
@@ -150,13 +144,17 @@ export function comFundos(on) {
   return { status, logs }
 }
 
-/** O preparo comum: relógio falso, ambiente, núcleo e fundos. */
+/**
+ * O preparo comum: relógio falso, ambiente, núcleo e fundos. `nuc` é o que o núcleo falso responde: o teste pode mudar
+ * o plano ou fazer a leitura falhar no meio.
+ */
 export function preparar(on, opcoes: Parameters<typeof ambiente>[1] & { plano?: string | null; erroPlano?: boolean } = {}) {
   const relogio = mock.clock(on, { now: 1000 })
   ambiente(on, opcoes)
-  const pedidos = nucleo(on, { plano: opcoes.plano, erroPlano: opcoes.erroPlano })
+  const nuc = { plano: opcoes.plano, erroPlano: opcoes.erroPlano }
+  const pedidos = nucleo(on, nuc)
   const fundos = comFundos(on)
-  return { relogio, pedidos, ...fundos }
+  return { relogio, pedidos, nuc, ...fundos }
 }
 
 const base = { session_id: 'sessao-de-fase', transcript_path: '/projeto/transcript.jsonl', cwd: RAIZ }
@@ -199,22 +197,46 @@ export function recusa(erro: string, code = 2) {
 /** Uma resposta de processo do núcleo: a saída, o código, a espera no relógio falso e a falha ao abrir. */
 export type RespostaDoProcesso = { stdout?: string; stderr?: string; code?: number; espera?: number; naoAbre?: string }
 
+/** Um lease ativo (ou vencido) como o retrato do núcleo o lista. */
+export type LeaseDoTeste = { nome: string; thread: string; status?: 'active' | 'expired' }
+
 /**
  * O fundo do `process.run` do Portão. `ork claims conferir` tira a próxima resposta da lista (`espera` segura a resposta
- * até o relógio falso andar); `ork lease acquire` sai com o código de `leases[nome]` (padrão 0) e `release` sai 0. Cada
- * chamada fica anotada com o argv, o cwd e o vigia; qualquer outro processo derruba o teste.
+ * até o relógio falso andar); `ork maestro --json --section leases --offset N` devolve a página N dos leases, com
+ * `pagina` itens por página, `esperaDoMaestro` no relógio falso e a seção indisponível com `maestroIndisponivel`.
+ * Cada chamada fica anotada; `ork lease` é anotado à parte (o Portão nunca deve pedi-lo) e qualquer outro processo
+ * derruba o teste.
  */
-export function processos(on, relogio, opcoes: { conferencias?: RespostaDoProcesso[]; leases?: Record<string, number> } = {}) {
+export function processos(on, relogio, opcoes: {
+  conferencias?: RespostaDoProcesso[]; leasesAtivos?: LeaseDoTeste[]; pagina?: number; esperaDoMaestro?: number; maestroIndisponivel?: boolean
+} = {}) {
   const conferencias: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
-  const leases: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
+  const maestro: string[][] = []
+  const leases: string[][] = []
   const respostas = opcoes.conferencias ?? []
   on('process.run', async ($, e) => {
     const pedido = { argv: [...e.argv], cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs }
     const saida = (exitCode: number, stdout = '', stderr = '') => ({ value: { exitCode, stdout, stderr, isStdoutTruncated: false, isStderrTruncated: false } })
-    if (e.argv[0] === 'ork' && e.argv[1] === 'lease' && (e.argv[2] === 'acquire' || e.argv[2] === 'release')) {
-      leases.push(pedido)
-      const code = e.argv[2] === 'acquire' ? (opcoes.leases?.[e.argv[3]] ?? 0) : 0
-      return saida(code, code === 0 ? `Lease ${e.argv[3]} [path] adquirido.` : '', code === 0 ? '' : `Lease ${e.argv[3]} NAO adquirido.`)
+    if (e.argv[0] === 'ork' && e.argv[1] === 'lease') {
+      leases.push([...e.argv])
+      return saida(1, '', 'o Portão não pede lease')
+    }
+    if (e.argv[0] === 'ork' && e.argv[1] === 'maestro') {
+      maestro.push([...e.argv])
+      if (opcoes.esperaDoMaestro) await relogio.sleep(opcoes.esperaDoMaestro)
+      const todos = opcoes.leasesAtivos ?? []
+      const tamanho = opcoes.pagina ?? 50
+      const i = e.argv.indexOf('--offset')
+      const offset = i >= 0 ? Number(e.argv[i + 1]) : 0
+      const itens = todos.slice(offset, offset + tamanho).map(l => ({
+        id: l.nome, title: 'Região reservada', status: l.status ?? 'active', refs: [{ kind: 'thread', id: l.thread }], facts: {},
+      }))
+      const seguinte = offset + itens.length < todos.length ? offset + itens.length : null
+      const secao = opcoes.maestroIndisponivel
+        ? { state: 'unavailable', gaps: ['leases.unavailable'], items: [] }
+        : { state: todos.length ? 'available' : 'empty', gaps: [], items: itens,
+          coverage: { total: todos.length, offset, returned: itens.length, omitted: todos.length - offset - itens.length, nextOffset: seguinte, limit: tamanho } }
+      return saida(0, JSON.stringify({ schema: 'ork.maestro-snapshot/v1', sections: { leases: secao } }))
     }
     if (e.argv[0] !== 'ork' || e.argv[1] !== 'claims' || e.argv[2] !== 'conferir') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)
     conferencias.push(pedido)
@@ -223,7 +245,7 @@ export function processos(on, relogio, opcoes: { conferencias?: RespostaDoProces
     if (r.naoAbre) throw new Error(r.naoAbre)
     return saida(r.code ?? 0, r.stdout ?? '', r.stderr ?? '')
   })
-  return { conferencias, leases }
+  return { conferencias, maestro, leases }
 }
 
 /** Só as conferências do `ork claims conferir`, para os testes da conclusão. */
@@ -234,10 +256,13 @@ export function nucleoDeConferencia(on, relogio, respostas: RespostaDoProcesso[]
 /** Os tetos do piloto de agent teams no ambiente da sessão, como o núcleo os passa (D10). */
 export const TETOS = { ORK_AGENT_TEAMS_TEAMMATES: '2', ORK_AGENT_TEAMS_CUSTO_USD: '10' }
 
-/** Os fundos do time: os agentes da sessão, o custo do `/cost` e o nascimento de um agente. */
-export function time(on, opcoes: { agentes?: Array<{ id: string; teammateId?: string; status: string }>; custo?: number | null } = {}) {
+/** Os fundos do time: os agentes da sessão, o custo do `/cost` e o nascimento de um agente. `quebrado` faz a lista falhar. */
+export function time(on, opcoes: { agentes?: Array<{ id: string; teammateId?: string; status: string }>; custo?: number | null; quebrado?: boolean } = {}) {
   const nascidos: string[] = []
-  on('agent.list', () => ({ value: (opcoes.agentes ?? []).map(a => ({ description: 'x', type: a.teammateId ? 'teammate' : 'general-purpose', ...a })) }))
+  on('agent.list', () => {
+    if (opcoes.quebrado) throw new Error('agent.list quebrado no teste')
+    return { value: (opcoes.agentes ?? []).map(a => ({ description: 'x', type: a.teammateId ? 'teammate' : 'general-purpose', ...a })) }
+  })
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 0 }, rateLimits: [], ...(opcoes.custo === null ? {} : { cost: { usd: opcoes.custo ?? 0 } }) } }))
   on('agent.spawn', ($, e) => { nascidos.push(String(e.name)); return { model: 'opus', agentId: `ag-${nascidos.length}`, ...(e.isTeammate ? { teammateId: `${e.name}@time` } : {}) } })
   return nascidos

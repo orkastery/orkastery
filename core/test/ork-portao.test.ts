@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import * as ts from 'typescript';
 import { FORMATO_DA_CONFERENCIA, PRAZO_MAXIMO_MS, ResultadoDaConferencia, verifyDaTarefa } from '../src/claims-conferir';
 import { slugDasFases } from '../src/modos';
-import { alvoDoLease, globParaRegex, globsColidem, leasesColidem, tipoDoLease, TTL_PADRAO_MS } from '../src/leases';
+import { alvoDoLease, globParaRegex, globsColidem, leasesColidem, tipoDoLease } from '../src/leases';
 import { FASES, Fase } from '../src/types';
 
 // RM-059 (fatia F10): o Portão de Tarefas `ork-portao` testado sem o Claude Code. O sandbox do `ork verify` e o
@@ -60,7 +60,7 @@ test('contrato de tipos: o quadro do Portão declarado, sem noun no $, sem impor
   assert.match(contrato, /repeticoes: Record<string, PortaoRepeticao>/);
   assert.match(contrato, /atribuicoes: Record<string, string>/);
   assert.match(contrato, /devolvidas: string\[\]/);
-  assert.match(contrato, /leases: Record<string, number>/);
+  assert.doesNotMatch(contrato, /leases: Record/);
   assert.doesNotMatch(contrato, /interface EngineInterface/);
   assert.doesNotMatch(contrato, /^\s*import\s/m);
   assert.doesNotMatch(contrato, /\/\/\/\s*<reference/);
@@ -339,32 +339,37 @@ test('lease: a colisão de glob e de nome de lease do mod é a do núcleo, nos d
     assert.equal(m.alvoDoLease(a), alvoDoLease(a), a);
     for (const b of nomes) assert.equal(m.leasesColidem(a, b), leasesColidem(a, b), `${a} x ${b}`);
   }
-  assert.equal(m.PRAZO_DO_LEASE_MS, TTL_PADRAO_MS);
 });
 
-test('lease: os leases ativos da seção leases do retrato, só com thread, e null sem a seção', () => {
-  const { leasesDoRetrato } = carregar('hooks/lease.ts');
+test('lease: os leases ativos de uma página do retrato, a página seguinte, a lacuna e a seção indisponível', () => {
+  const { leasesDoRetrato, paginaDosLeases, nomeDoTeammate } = carregar('hooks/lease.ts');
   const item = (id: string, status: string, thread?: string) => ({ id, title: 'Região reservada', status, refs: thread ? [{ kind: 'thread', id: thread }] : [], facts: {} });
-  const retrato = { sections: { leases: { state: 'available', items: [item('path:a', 'active', 'ork-a'), item('path:b', 'expired', 'ork-a'), item('path:c', 'active')] } } };
-  assert.deepEqual(leasesDoRetrato(retrato), [{ nome: 'path:a', thread: 'ork-a' }]);
-  assert.deepEqual(leasesDoRetrato({ sections: { leases: { state: 'empty', items: [] } } }), []);
-  assert.equal(leasesDoRetrato({ sections: { leases: { state: 'unavailable', items: [] } } }), null);
-  assert.equal(leasesDoRetrato({ sections: {} }), null);
-  assert.equal(leasesDoRetrato(null), null);
-});
-
-test('lease: argv só de path: de um touch_path, com thread válida e o motivo; nome do teammate conferido', () => {
-  const { argvDoLease, nomeDoTeammate } = carregar('hooks/lease.ts');
-  assert.deepEqual(argvDoLease('acquire', 'path:src/a.ts', 'ork-a', 'ork-portao: T1 com ana'),
-    ['ork', 'lease', 'acquire', 'path:src/a.ts', '--thread', 'ork-a', '--motivo', 'ork-portao: T1 com ana']);
-  assert.deepEqual(argvDoLease('release', 'path:src/a.ts', 'ork-a'), ['ork', 'lease', 'release', 'path:src/a.ts', '--thread', 'ork-a']);
-  for (const nome of ['main-tree', 'board:x', 'path:', 'path:a b', 'src/a.ts']) assert.throws(() => argvDoLease('acquire', nome, 'ork-a'), /só pede lease path:/, nome);
-  assert.throws(() => argvDoLease('acquire', 'path:a', '../x'), /id de thread inválido/);
+  const secao = (extra: object) => ({ sections: { leases: { state: 'available', gaps: [], items: [item('path:a', 'active', 'ork-a'), item('path:b', 'expired', 'ork-a'),
+    item('path:c', 'active'), item('exec:ork-a', 'active', 'ork-a')], ...extra } } });
+  assert.deepEqual(leasesDoRetrato(secao({})), [{ nome: 'path:a', thread: 'ork-a' }, { nome: 'exec:ork-a', thread: 'ork-a' }]);
+  assert.deepEqual(paginaDosLeases(secao({ coverage: { nextOffset: 50 } })).proximo, 50);
+  assert.deepEqual(paginaDosLeases(secao({ coverage: { nextOffset: null } })).proximo, null);
+  assert.match(paginaDosLeases(secao({ gaps: ['lease.invalid:x'] })).lacuna, /veio com lacunas \(lease\.invalid:x\)/);
+  assert.throws(() => paginaDosLeases({ sections: { leases: { state: 'unavailable', gaps: ['leases.unavailable'], items: [] } } }), /indisponível \(leases\.unavailable\)/);
+  assert.throws(() => paginaDosLeases({ sections: {} }), /sem a seção leases/);
+  assert.throws(() => leasesDoRetrato(null), /sem a seção leases/);
   assert.equal(nomeDoTeammate('ana'), 'ana');
   assert.equal(nomeDoTeammate('ana@time'), 'ana@time');
-  assert.equal(nomeDoTeammate('-x'), null);
-  assert.equal(nomeDoTeammate(''), null);
-  assert.equal(nomeDoTeammate(3), null);
+  for (const ruim of ['-x', '', 3, 'a b']) assert.equal(nomeDoTeammate(ruim), null, String(ruim));
+});
+
+test('lease: o Portão nunca pede lease e lê os leases pela consulta maestro da ponte, página a página', () => {
+  const registro = fs.readFileSync(path.join(PORTAO, 'hooks/register.ts'), 'utf8');
+  for (const { rel, fonte } of fontesDoMod()) {
+    visitar(fonte, (n) => {
+      if (!ts.isArrayLiteralExpression(n)) return;
+      const textos = n.elements.map((el) => (ts.isStringLiteral(el) ? el.text : ''));
+      assert.ok(!(textos.includes('ork') && textos.includes('lease')), `${rel}: argv de ork lease`);
+    });
+  }
+  assert.match(registro, /consulta: 'maestro' as const, secao: 'leases' as const, offset/);
+  assert.match(registro, /paginaDosLeases\(await \$\.ork\.ler\(pedido\)\)/);
+  assert.doesNotMatch(registro, /retrato\(\{ secao: 'leases'/);
 });
 
 test('tetos: lidos do ambiente nos limites do piloto, e a recusa do teammate por teto, por custo e sem tetos', () => {
@@ -388,27 +393,56 @@ test('tetos: lidos do ambiente nos limites do piloto, e a recusa do teammate por
   assert.deepEqual([...VIVOS], ['pending', 'running', 'waiting', 'idle']);
 });
 
-test('escolha: a próxima tarefa livre na ordem do plano, sem a de outro teammate, sem região cruzada e sem lease de outra thread', () => {
+test('escolha: a próxima tarefa livre na ordem do plano, sem a de outro teammate, sem região cruzada e sem lease path: ativo de thread nenhuma', () => {
   const { escolherTarefa, textoDaEntrega } = carregar('hooks/lease.ts');
   const t = (id: string, touchPaths: string[], extra: Record<string, unknown> = {}) => ({ id, titulo: `tarefa ${id}`, touchPaths, verify: 'true', problema: null, ...extra });
   const tarefas = [t('T1', ['src/a.ts', 'docs']), t('T2', ['src/**']), t('T3', ['docs/b.md']), t('T4', ['x'], { verify: null, problema: 'tarefa-sem-verify' }), t('T5', ['y/z.ts'])];
-  const vazio = { thread: 'ork-a', tarefas: {}, concluidas: [], repeticoes: {}, atribuicoes: {}, devolvidas: [], leases: {}, ultimaFalha: null };
-  const escolher = (quadro: object, extra: Record<string, unknown> = {}) =>
-    escolherTarefa({ tarefas, quadro: { ...vazio, ...quadro }, teammate: 'ana', thread: 'ork-a', leases: [], agora: 1000, ...extra });
-  assert.deepEqual(escolher({}), { tarefa: tarefas[0], tomar: ['path:src/a.ts', 'path:docs'] });
-  assert.equal(escolher({ atribuicoes: { bia: 'T1' } }).tarefa.id, 'T5', 'T2 e T3 cruzam a região de T1');
-  assert.equal(escolher({ atribuicoes: { bia: 'T1' }, concluidas: ['T1'] }).tarefa.id, 'T2', 'tarefa concluída não segura região');
-  assert.equal(escolher({ concluidas: ['T1'], devolvidas: ['T2'] }).tarefa.id, 'T3');
-  assert.equal(escolher({}, { pular: ['T1', 'T2', 'T3'] }).tarefa.id, 'T5');
-  assert.equal(escolher({}, { leases: [{ nome: 'path:src/**', thread: 'ork-b' }] }).tarefa.id, 'T3');
-  assert.deepEqual(escolher({}, { leases: [{ nome: 'path:docs', thread: 'ork-a' }] }).tomar, ['path:src/a.ts']);
-  assert.deepEqual(escolher({ leases: { 'path:src/a.ts': 2000 } }).tomar, ['path:docs'], 'lease do Portão ainda no prazo');
-  assert.deepEqual(escolher({ leases: { 'path:src/a.ts': 500 } }).tomar, ['path:src/a.ts', 'path:docs'], 'lease do Portão vencido');
-  assert.equal(escolher({}, { leases: [{ nome: 'path:**', thread: 'ork-b' }] }), null);
-  assert.equal(escolher({ atribuicoes: { ana: 'T1' } }).tarefa.id, 'T1', 'a própria atribuição não bloqueia o teammate');
+  const vazio = { thread: 'ork-a', tarefas: {}, concluidas: [], repeticoes: {}, atribuicoes: {}, devolvidas: [], ultimaFalha: null };
+  const escolher = (quadro: object, leases: Array<{ nome: string; thread: string }> = []) =>
+    escolherTarefa({ tarefas, quadro: { ...vazio, ...quadro }, teammate: 'ana', leases })?.id ?? null;
+  assert.equal(escolher({}), 'T1');
+  assert.equal(escolher({ atribuicoes: { bia: 'T1' } }), 'T5', 'T2 e T3 cruzam a região de T1');
+  assert.equal(escolher({ atribuicoes: { bia: 'T1' }, concluidas: ['T1'] }), 'T2', 'tarefa concluída não segura região');
+  assert.equal(escolher({ concluidas: ['T1'], devolvidas: ['T2'] }), 'T3');
+  assert.equal(escolher({}, [{ nome: 'path:src/**', thread: 'ork-b' }]), 'T3');
+  assert.equal(escolher({}, [{ nome: 'path:docs', thread: 'ork-a' }]), 'T2', 'o lease path: da própria thread também barra: barra o commit');
+  assert.equal(escolher({}, [{ nome: 'exec:ork-a', thread: 'ork-a' }, { nome: 'worktree-write:ork-a', thread: 'ork-a' }, { nome: 'main-tree', thread: 'ork-b' }]), 'T1',
+    'família que não é path não cruza região');
+  assert.equal(escolher({}, [{ nome: 'path:**', thread: 'ork-b' }]), null);
+  assert.equal(escolher({ atribuicoes: { ana: 'T1' } }), 'T1', 'a própria atribuição não bloqueia o teammate');
   const texto = textoDaEntrega(tarefas[0], 'ana');
   assert.match(texto, /^Portão de Tarefas: ana, pegue a tarefa T1 do plano \(tarefa T1\)\.\n  touch_paths: src\/a\.ts, docs\n  verify: true\n/);
   assert.match(texto, /crie-a com o assunto começando por T1/);
+  assert.match(texto, /nenhum lease path: ativo cruzava essa região/);
+});
+
+test('escopo do plano: só com ao menos uma tarefa que serve ao quadro', () => {
+  const { escopoDoPlano, tarefasDoPlano } = carregar('hooks/plano.ts');
+  const q = String.fromCharCode(96);
+  const so = (linhas: string[]) => escopoDoPlano(tarefasDoPlano(linhas.join('\n')));
+  assert.deepEqual(so(['### T1 a', `- **verify:** ${q}true${q}`, '### T2 b', `- **touch_paths:** ${q}src/b.ts${q}`]),
+    { ativo: false, motivo: 'nenhuma tarefa do plano tem touch_paths e verify conferível' });
+  assert.equal(so(['### T1 a', `- **verify:** ${q}true${q}`, `- **touch_paths:** ${q}src/a.ts${q}`]).ativo, true);
+  assert.equal(escopoDoPlano(null).ativo, false);
+  assert.equal(escopoDoPlano([]).ativo, false);
+});
+
+test('touch_paths: rótulo com contagem entre parênteses e só trecho com cara de caminho', () => {
+  const { tarefasDoPlano } = carregar('hooks/plano.ts');
+  const q = String.fromCharCode(96);
+  const t = tarefasDoPlano([
+    '### T1 a', `- touch_paths (4): ${q}core/src/a.ts${q}, ${q}docs/${q}, ${q}README.md${q} e ${q}src/**${q}`,
+    '### T2 b', `- **touch_paths:** o ${q}Modo${q}, o ${q}fast${q} e ${q}ORDEM_DOS_MODOS${q}`,
+    '### T3 c', `- ${q}touch_paths${q} (2): ${q}a/b.ts${q}`, '### T4 d', `- **touch_paths (1):** ${q}x.y${q}`,
+  ].join('\n')) as Array<{ id: string; touchPaths: string[] }>;
+  assert.deepEqual(t.map((x) => [x.id, x.touchPaths]), [['T1', ['core/src/a.ts', 'docs', 'README.md', 'src/**']], ['T2', []], ['T3', ['a/b.ts']], ['T4', ['x.y']]]);
+});
+
+test('conferência: a recusa de condução com --json vem no stdout com o texto da recusa', () => {
+  const { lerConferencia } = carregar('hooks/verify.ts');
+  const recusa = JSON.stringify({ contrato: 'ork.conducao-recusa/v1', motivo: 'conducao.em-andamento', texto: 'conduzida por outra sessao\nespere' });
+  assert.deepEqual(lerConferencia('T1', recusa, 3, ''), { tipo: 'ocupada', motivo: 'conduzida por outra sessao' });
+  assert.deepEqual(lerConferencia('T1', '', 3, 'erro: outra conducao\n'), { tipo: 'ocupada', motivo: 'erro: outra conducao' });
 });
 
 test('os testes do kit cobrem os três portões: criação sem touch_paths, conclusão reprovada e teammate com lease ocupado', () => {
@@ -423,4 +457,7 @@ test('os testes do kit cobrem os três portões: criação sem touch_paths, conc
   // O kit roda nos dois lugares em que o `claude` existe: o host e o job `mods` do CI (canário com --com-plugin).
   assert.ok(nomes('portao.test.ts').length + nomes('verify.test.ts').length + nomes('lease.test.ts').length >= 30);
   for (const rel of ['portao.test.ts', 'verify.test.ts', 'lease.test.ts']) assert.doesNotMatch(kit(rel), /\$\.process\.(run|spawn)\(/, `${rel}: o teste não roda processo`);
+  assert.ok(kit('lease.test.ts').split('expect(leases).toEqual([])').length >= 4, 'os testes do teammate conferem que nenhum lease é pedido');
+  assert.ok(nomes('lease.test.ts').includes('dois teammates ociosos ao mesmo tempo nao recebem regioes que se cruzam'));
+  assert.ok(nomes('verify.test.ts').includes('quando o proprio Portao falha na conclusao, a tarefa que cita um id do plano nao fecha; a sem id passa'));
 });

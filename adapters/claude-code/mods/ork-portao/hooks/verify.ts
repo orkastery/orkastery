@@ -49,7 +49,7 @@ type Execucao = { comando?: unknown; ok?: unknown; code?: unknown; fim?: unknown
  * solto de um `ork` antigo, JSON sem o item) é indisponível.
  */
 export function lerConferencia(tarefa: string, stdout: string, codigo: number | null, stderr: string): Leitura {
-  let j: { formato?: unknown; itens?: unknown; erro?: unknown } | null = null
+  let j: { formato?: unknown; itens?: unknown; erro?: unknown; texto?: unknown } | null = null
   try { j = JSON.parse(stdout) } catch { j = null }
   if (j && j.formato === FORMATO_DA_CONFERENCIA && Array.isArray(j.itens) && (codigo === 0 || codigo === 1)) {
     const item = (j.itens as Array<{ id?: unknown; verificado?: unknown; motivo?: unknown; detalhe?: unknown; execucoes?: unknown } | null>)
@@ -69,7 +69,11 @@ export function lerConferencia(tarefa: string, stdout: string, codigo: number | 
     }
   }
   const erro = j && typeof j.erro === 'string' ? j.erro.trim().slice(0, 300) : ''
-  if (codigo === SAIDA_DE_CONDUCAO) return { tipo: 'ocupada', motivo: erro || ultimaLinha(stderr) || 'outra condução segura a thread' }
+  if (codigo === SAIDA_DE_CONDUCAO) {
+    // Com `--json`, a recusa de condução sai no stdout (`ork.conducao-recusa/v1`), com o texto para quem lê.
+    const texto = j && typeof j.texto === 'string' ? (j.texto.trim().split('\n')[0] ?? '').slice(0, 300) : ''
+    return { tipo: 'ocupada', motivo: texto || erro || ultimaLinha(stderr) || 'outra condução segura a thread' }
+  }
   if (erro.startsWith('claims.conferir.')) return { tipo: 'recusada', motivo: erro }
   const motivo = erro || ultimaLinha(stderr) || (j === null ? ultimaLinha(stdout) : '') || `saiu com código ${codigo ?? 'desconhecido'}`
   return { tipo: 'indisponivel', motivo: `ork claims conferir sem resultado: ${motivo}` }

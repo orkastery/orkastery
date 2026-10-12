@@ -1,8 +1,9 @@
 // O teammate ocioso e os leases (RM-059, fatia F10, T10.3). Módulo puro: a colisão de leases e de `touch_paths` pela
 // regra do núcleo (`leasesColidem` e `globsColidem` de `core/src/leases.ts`, reimplementados aqui porque mod não
-// importa código do núcleo, e cruzados no teste do núcleo), os leases da seção `leases` do retrato, a escolha da
-// próxima tarefa para o teammate, o argv de `ork lease acquire` e `release`, os tetos do piloto de agent teams e os
-// textos. As chamadas ao `$` ficam no register.ts.
+// importa código do núcleo, e cruzados no teste do núcleo), os leases ativos de todas as threads página a página do
+// retrato do `ork maestro --json`, a escolha da próxima tarefa para o teammate, os tetos do piloto de agent teams e os
+// textos. O Portão não toma nem solta lease (D8 revista): o `ork_git_commit` toma o `path:` de cada arquivo na hora do
+// commit e recusa com qualquer lease no caminho, até da própria thread. As chamadas ao `$` ficam no register.ts.
 import type { PortaoQuadro, PortaoTarefa } from '../types'
 
 /** Os tetos do piloto (D10 do plano da thread), como o núcleo os passa no `env` do `--settings`. */
@@ -10,12 +11,8 @@ export const ENV_TEAMMATES = 'ORK_AGENT_TEAMS_TEAMMATES'
 export const ENV_CUSTO = 'ORK_AGENT_TEAMS_CUSTO_USD'
 export const TETO_MAXIMO_DE_TEAMMATES = 8
 export const TETO_MAXIMO_DE_CUSTO_USD = 500
-/** O prazo de um lease no núcleo (`TTL_PADRAO_MS` de `core/src/leases.ts`): o Portão o usa só para a própria conta. */
-export const PRAZO_DO_LEASE_MS = 30 * 60 * 1000
-/** O teto de cada `ork lease` pelo `$.process.run`. */
-export const TETO_DO_LEASE_MS = 10000
-/** Quantas tarefas o Portão tenta numa vez, quando outra thread toma o lease no meio. */
-export const TENTATIVAS_DE_TAREFA = 8
+/** Quantas páginas da seção `leases` o Portão lê numa vez (o retrato traz até 50 itens por página). */
+export const TETO_DE_PAGINAS_DE_LEASES = 5
 /** Os estados de agente que contam como teammate vivo para o teto. */
 export const VIVOS: readonly string[] = ['pending', 'running', 'waiting', 'idle']
 
@@ -94,18 +91,33 @@ export function nomeDoLease(touchPath: string): string {
 /** Um lease ativo do retrato: o nome e a thread que o segura. */
 export type LeaseAtivo = { nome: string; thread: string }
 
-/** Os leases ativos da seção `leases` do retrato `ork.maestro-snapshot/v1`; `null` quando a seção não veio. */
-export function leasesDoRetrato(retrato: unknown): LeaseAtivo[] | null {
-  const secao = (retrato as { sections?: { leases?: { state?: unknown; items?: unknown } } } | null)?.sections?.leases
-  if (!secao || secao.state === 'unavailable' || !Array.isArray(secao.items)) return null
+/** Os leases ativos de uma página da seção `leases` do retrato `ork.maestro-snapshot/v1`, de qualquer família. */
+export function leasesDoRetrato(retrato: unknown): LeaseAtivo[] {
+  const itens = (retrato as { sections?: { leases?: { items?: unknown } } } | null)?.sections?.leases?.items
+  if (!Array.isArray(itens)) throw new Error('ork-portao: o retrato veio sem a seção leases')
   const ativos: LeaseAtivo[] = []
-  for (const bruto of secao.items) {
+  for (const bruto of itens) {
     const item = bruto as { id?: unknown; status?: unknown; refs?: unknown } | null
     if (!item || typeof item.id !== 'string' || item.status !== 'active' || !Array.isArray(item.refs)) continue
     const ref = (item.refs as Array<{ kind?: unknown; id?: unknown } | null>).find(r => r?.kind === 'thread')
     if (ref && typeof ref.id === 'string') ativos.push({ nome: item.id, thread: ref.id })
   }
   return ativos
+}
+
+/** Uma página da seção `leases`: os ativos, o offset da página seguinte (`coverage.nextOffset`) e o que faltou. */
+export type PaginaDeLeases = { leases: LeaseAtivo[]; proximo: number | null; lacuna: string | null }
+
+/** A página da seção `leases` de um retrato; seção indisponível lança (sem ela, nenhuma região está livre). */
+export function paginaDosLeases(retrato: unknown): PaginaDeLeases {
+  type Secao = { state?: unknown; gaps?: unknown; coverage?: { nextOffset?: unknown } }
+  const secao = (retrato as { sections?: { leases?: Secao } } | null)?.sections?.leases
+  if (!secao || typeof secao !== 'object') throw new Error('ork-portao: o retrato veio sem a seção leases')
+  const faltas = Array.isArray(secao.gaps) ? secao.gaps.filter((g): g is string => typeof g === 'string') : []
+  if (secao.state === 'unavailable') throw new Error(`ork-portao: a seção leases veio indisponível${faltas.length ? ` (${faltas.join(', ')})` : ''}`)
+  const seguinte = secao.coverage?.nextOffset
+  const proximo = typeof seguinte === 'number' && Number.isInteger(seguinte) && seguinte > 0 ? seguinte : null
+  return { leases: leasesDoRetrato(retrato), proximo, lacuna: faltas.length > 0 ? `a seção leases veio com lacunas (${faltas.join(', ')})` : null }
 }
 
 /** Os tetos do piloto lidos do ambiente: teammates inteiro de 1 a 8 e custo de 0 a 500 dólares; `null` sem os dois. */
@@ -132,58 +144,34 @@ export function recusaDoTeammate(tetos: { teammates: number; custoUsd: number } 
   return null
 }
 
-/** O argv de `ork lease acquire` de um lease da tarefa, com o motivo que diz a tarefa e o teammate. */
-export function argvDoLease(acao: 'acquire' | 'release', nome: string, thread: string, motivo?: string): string[] {
-  if (!ID_DE_THREAD.test(thread)) throw new Error('ork-portao: id de thread inválido')
-  if (familiaDoLease(nome) !== 'path' || !nome.startsWith('path:') || alvoDoLease(nome) === '' || /\s/.test(nome)) {
-    throw new Error('ork-portao: o Portão só pede lease path: de um touch_path')
-  }
-  return acao === 'acquire'
-    ? ['ork', 'lease', 'acquire', nome, '--thread', thread, '--motivo', motivo ?? 'ork-portao']
-    : ['ork', 'lease', 'release', nome, '--thread', thread]
-}
-
 /** O nome do teammate como o evento traz, conferido; `null` quando não serve. */
 export function nomeDoTeammate(bruto: unknown): string | null {
   return typeof bruto === 'string' && NOME_DE_TEAMMATE.test(bruto) ? bruto : null
 }
 
-/** A escolha da próxima tarefa: a tarefa e os leases que a thread ainda precisa tomar para ela. */
-export type Escolha = { tarefa: PortaoTarefa; tomar: string[] }
-
 /**
- * A próxima tarefa para o teammate (D7, D8): na ordem do plano, a que serve ao quadro, não fechou, não foi devolvida,
- * não está com outro teammate, não cruza os `touch_paths` das tarefas com outros teammates e não cruza lease ativo de
- * outra thread. `tomar` são os leases dos `touch_paths` que a thread ainda não segura (pelo retrato ou pela conta do
- * Portão): pedir de novo o que já é da thread a poria na fila atrás de si mesma.
+ * A próxima tarefa para o teammate (D7 e D8 revista): na ordem do plano, a que serve ao quadro, não fechou, não foi
+ * devolvida, não está com outro teammate, não cruza os `touch_paths` das tarefas com outros teammates e não cruza lease
+ * `path:` ativo de nenhuma thread, a própria incluída, porque o `ork_git_commit` recusa o commit com qualquer lease no
+ * caminho. Sem tarefa livre, `null`.
  */
 export function escolherTarefa(entrada: {
   tarefas: readonly PortaoTarefa[]
   quadro: PortaoQuadro
   teammate: string
-  thread: string
-  leases: readonly LeaseAtivo[] | null
-  agora: number
-  pular?: readonly string[]
-}): Escolha | null {
-  const { tarefas, quadro, teammate, thread, leases, agora } = entrada
-  const pular = entrada.pular ?? []
+  leases: readonly LeaseAtivo[]
+}): PortaoTarefa | null {
+  const { tarefas, quadro, teammate, leases } = entrada
   const comOutros = Object.entries(quadro.atribuicoes)
     .filter(([quem, tarefa]) => quem !== teammate && !quadro.concluidas.includes(tarefa))
     .map(([, tarefa]) => tarefa)
   const regiaoDosOutros = tarefas.filter(t => comOutros.includes(t.id)).flatMap(t => t.touchPaths)
-  const daThread = new Set([
-    ...(leases ?? []).filter(l => l.thread === thread).map(l => l.nome),
-    ...Object.entries(quadro.leases).filter(([, vence]) => vence > agora).map(([nome]) => nome),
-  ])
-  const deOutras = (leases ?? []).filter(l => l.thread !== thread)
   for (const tarefa of tarefas) {
     const livre = tarefa.touchPaths.length > 0 && tarefa.verify !== null && tarefa.problema === null &&
       !quadro.concluidas.includes(tarefa.id) && !quadro.devolvidas.includes(tarefa.id) && !comOutros.includes(tarefa.id) &&
-      !pular.includes(tarefa.id) &&
       !tarefa.touchPaths.some(tp => regiaoDosOutros.some(outro => globsColidem(tp, outro))) &&
-      !tarefa.touchPaths.some(tp => deOutras.some(l => leasesColidem(nomeDoLease(tp), l.nome)))
-    if (livre) return { tarefa, tomar: tarefa.touchPaths.map(nomeDoLease).filter(nome => !daThread.has(nome)) }
+      !tarefa.touchPaths.some(tp => leases.some(l => leasesColidem(nomeDoLease(tp), l.nome)))
+    if (livre) return tarefa
   }
   return null
 }
@@ -196,6 +184,7 @@ export function textoDaEntrega(t: PortaoTarefa, teammate: string): string {
     `  verify: ${t.verify ?? ''}`,
     'Antes de começar, confira o quadro (TaskList): se ela já está em andamento com outro dono, não a pegue e fique ocioso. ' +
       `Se ela não está no quadro, crie-a com o assunto começando por ${t.id}; marque-a em andamento com você como dono. ` +
-      'Os leases path: dessa região já são da thread, e ela só fecha com o verify aprovado pela conferência do núcleo.',
+      'Quando o Portão a escolheu, nenhum lease path: ativo cruzava essa região, e o commit pelo ork_git_commit toma o lease ' +
+      'de cada arquivo na hora. Ela só fecha com o verify aprovado pela conferência do núcleo.',
   ].join('\n')
 }

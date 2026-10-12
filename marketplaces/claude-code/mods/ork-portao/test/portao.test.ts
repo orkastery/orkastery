@@ -96,3 +96,23 @@ test('plano que o nucleo nao entrega vira falha anotada uma vez, e a criacao pas
   expect(status[status.length - 1]).toBe('portão: falhou em leitura do plano')
   expect(logs.filter(l => l.startsWith('Portão de Tarefas: falhou em leitura do plano: ork-portao: ork_artifact_read respondeu com erro')).length).toBe(1)
 })
+
+test('plano com tarefas mas nenhuma que sirva ao quadro deixa a criacao passar', { plugins: PLUGINS }, async ($, on) => {
+  const plano = ['### T1 a', '- **verify:** `make check`', '### T2 b', '- **touch_paths:** `src/b.ts`'].join('\n')
+  preparar(on, { plano })
+  expect(await criar($, '1', 'Qualquer coisa')).toEqual({})
+  expect(await criar($, '2', 'T1 a')).toEqual({})
+  expect(await quadro($)).toBeNull()
+})
+
+test('touch_paths com a contagem no rotulo valem, e identificador da prosa entre crases nao vira caminho', { plugins: PLUGINS }, async ($, on) => {
+  const plano = [
+    '### T1 a', '- touch_paths (2): `src/a.ts`, `docs/`', '- **verify:** `make check`',
+    '### T2 b', '- **touch_paths:** o `Modo` e o `fast`', '- **verify:** `make check`',
+  ].join('\n')
+  preparar(on, { plano })
+  expect(await criar($, '1', 'T1 a')).toEqual({})
+  const r = await criar($, '2', 'T2 b')
+  expect(r.block).toContain('a tarefa T2 do plano não tem touch_paths (caminhos entre crases, com barra, ponto ou curinga)')
+  expect(r.block).toContain('Tarefas do plano que servem: T1 (a).')
+})

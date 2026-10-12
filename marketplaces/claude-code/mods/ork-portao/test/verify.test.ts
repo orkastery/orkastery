@@ -64,6 +64,18 @@ test('a tarefa registrada na criacao e conferida mesmo depois de renomeada', { p
   expect(pedidos.map(p => p.argv[5])).toEqual(['T1'])
 })
 
+test('com o plano ilegivel na conclusao, a tarefa registrada na criacao ainda e conferida; a nao registrada passa', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio, nuc, logs } = preparar(on)
+  const pedidos = nucleoDeConferencia(on, relogio, [conferencia('T1', 'reprovada')])
+  expect(await criar($, '5', 'T1 Tarefa completa')).toEqual({})
+  nuc.erroPlano = true
+  await relogio.advance(60000)
+  expect((await concluir($, '5', 'T1 Tarefa completa')).block).toContain('a tarefa T1 não fecha')
+  expect(await concluir($, '6', 'T5 Outra completa')).toEqual({})
+  expect(pedidos.map(p => p.argv[5])).toEqual(['T1'])
+  expect(logs.some(l => l.startsWith('Portão de Tarefas: falhou em leitura do plano'))).toBe(true)
+})
+
 test('conclusao que chega no meio de outra conferencia e recusada na hora, sem segundo processo', { plugins: PLUGINS }, async ($, on) => {
   const { relogio } = preparar(on)
   const pedidos = nucleoDeConferencia(on, relogio, [{ ...conferencia('T1', 'aprovada'), espera: 5000 }])
@@ -110,4 +122,33 @@ test('no bloco sem GO a conclusao passa sem conferencia', { plugins: PLUGINS }, 
   const pedidos = nucleoDeConferencia(on, relogio, [])
   expect(await concluir($, '1', 'T1 a')).toEqual({})
   expect(pedidos).toEqual([])
+})
+
+test('quando o proprio Portao falha na conclusao, a tarefa que cita um id do plano nao fecha; a sem id passa', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio, logs } = preparar(on, { papel: 'explode' })
+  const pedidos = nucleoDeConferencia(on, relogio, [])
+  const r = await concluir($, '1', 'T1 Tarefa completa')
+  expect(r.block).toContain('a tarefa T1 não fecha: a conferência do núcleo não deu resultado (o Portão falhou ao conferir: ')
+  expect(r.block).toContain('devolva a tarefa para pending')
+  expect(await concluir($, '2', 'Anotar o progresso')).toEqual({})
+  expect(pedidos).toEqual([])
+  expect(logs.some(l => l.startsWith('Portão de Tarefas: falhou em conclusão de tarefa'))).toBe(true)
+})
+
+test('tarefa que cita uma tarefa do plano que nao serve ao quadro conclui sem conferencia', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio } = preparar(on)
+  const pedidos = nucleoDeConferencia(on, relogio, [])
+  expect(await concluir($, '1', 'T3 Sem verify')).toEqual({})
+  expect(await concluir($, '2', 'T4 Verify com dois comandos')).toEqual({})
+  expect(pedidos).toEqual([])
+})
+
+test('recusa de conducao com --json no stdout vira o texto da recusa', { plugins: PLUGINS }, async ($, on) => {
+  const { relogio } = preparar(on)
+  const recusaDeConducao = {
+    contrato: 'ork.conducao-recusa/v1', motivo: 'conducao.em-andamento', thread: THREAD,
+    texto: 'A thread ork-exemplo esta sendo conduzida por outra sessao.\nEspere a vez.',
+  }
+  nucleoDeConferencia(on, relogio, [{ stdout: JSON.stringify(recusaDeConducao), code: 3 }])
+  expect((await concluir($, '1', 'T1 a')).block).toContain('não fecha agora: outra condução segura a thread (A thread ork-exemplo esta sendo conduzida por outra sessao.)')
 })
