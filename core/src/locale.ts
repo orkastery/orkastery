@@ -297,6 +297,12 @@ const PT_BR = {
     cronLento: (ritmo: string, linha: string) =>
       `a varredura do pulse bate ${ritmo} (\`${linha}\`): a cadencia por tag (RM-039) pede 15 minutos`,
     cronTroque: (linha: string) => `troque a linha no crontab (crontab -e) por: ${linha}`,
+    // RM-062 (F1): com thread aberta, a falta da batida reprova, com ou sem pulse-host.json.
+    batidaAusente: (abertas: number, detalhe: string) =>
+      `${abertas} thread(s) aberta(s) e nenhuma batida da varredura: ${detalhe}; a fabrica para sem ninguem saber`,
+    batidaSemLeitura: (motivo: string) => `sem crontab para ler (${motivo})`,
+    batidaSemLinha: (script: string) => `nenhuma linha do crontab roda ${script} para este projeto`,
+    batidaInstale: (comando: string) => `${comando} (instala a linha do template monitor/pulse.cron no crontab desta maquina)`,
     redeSaiu: 'fora da rede (saiu com ork network sair)',
     redeMembroHerdado: 'membro herdado da fabrica',
     redeMembro: 'membro',
@@ -551,6 +557,11 @@ const EN: Mensagens = {
       : intervalo === 60 ? 'every hour' : `every ${intervalo} minutes`,
     cronLento: (ritmo, linha) => `the pulse scan runs ${ritmo} (\`${linha}\`): the cadence by tag (RM-039) needs 15 minutes`,
     cronTroque: (linha) => `replace the crontab line (\`crontab -e\`) with: ${linha}`,
+    batidaAusente: (abertas, detalhe) =>
+      `${abertas} open thread(s) and no scan beat: ${detalhe}; the factory stops and nobody knows`,
+    batidaSemLeitura: (motivo) => `no crontab to read (${motivo})`,
+    batidaSemLinha: (script) => `no crontab line runs ${script} for this project`,
+    batidaInstale: (comando) => `\`${comando}\` (installs the \`monitor/pulse.cron\` template line in this machine's crontab)`,
     redeSaiu: 'outside the network (left with `ork network sair`)',
     redeMembroHerdado: 'member inherited from the factory',
     redeMembro: 'member',

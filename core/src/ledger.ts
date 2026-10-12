@@ -135,6 +135,11 @@ export const TIPOS_DE_EVENTO = {
   // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
   conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
+  // RM-062 (F1): a batida da varredura instalada ou removida no crontab desta maquina, pelo
+  // `ork fabrica batida`. Mora no ledger da maquina (`~/.orkastery/ledger.jsonl`, thread `maquina`):
+  // o crontab e do usuario na maquina, nao de uma thread. Escritor: `fabrica-batida.ts`.
+  batidaInstalada: 'batida_instalada',
+  batidaRemovida: 'batida_removida',
 } as const;
 
 /**
