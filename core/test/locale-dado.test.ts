@@ -15,7 +15,7 @@ import { cenario, EN, ork, PT } from './locale-apoio';
 type Arvore = Record<string, unknown>;
 
 /** RM-061 (F3b): as familias que a fatia acrescenta ao catalogo, na ordem em que entram. */
-const FAMILIAS_DA_F3B: readonly string[] = ['worktree', 'estado', 'claims'];
+const FAMILIAS_DA_F3B: readonly string[] = ['worktree', 'estado', 'claims', 'decisao'];
 
 /** Cada folha do catalogo: o caminho, o tipo (`string`, `function`, `number`) e o valor. */
 function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknown }> {
@@ -44,7 +44,7 @@ test('locale F2a catalogo: nenhuma mensagem vazia nem igual ao pt-BR por descuid
     'verify.comandoOk', 'retry.politica.runtime.silencio.correcao', 'retry.politica.human.pending.correcao',
     'master.colunas.0', 'master.colunas.1', 'master.colunas.4', 'master.colunasAceitas.0',
     // F3b: os rotulos de tabela que sao a mesma palavra nas duas linguas.
-    'thread.colunasDaLista.0', 'thread.colunasDaLista.1', 'thread.colunasDaLista.4', 'claims.colunas.0']);
+    'thread.colunasDaLista.0', 'thread.colunasDaLista.1', 'thread.colunasDaLista.4', 'claims.colunas.0', 'decisao.dentroDoLimiar']);
   en.forEach(({ k, tipo, v }, i) => {
     if (tipo !== 'string') return;
     assert.ok((v as string).trim(), `${k} vazia`);

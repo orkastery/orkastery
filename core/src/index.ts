@@ -1244,7 +1244,9 @@ function comandoDecisao(args: Args): number {
     return 0;
   }
   if (sub === 'placar') {
-    if (!id) throw new Error('uso: ork decisao placar <thread-id> [--json]');
+    // RM-061 (F3b): o placar pelo catalogo; o `--json` e a fase de cada linha sao dado e nao mudam.
+    const md = msg().decisao;
+    if (!id) throw new ErroDoCatalogo((m) => m.decisao.usoPlacar);
     lerThread(carregado.raiz, id);
     const placar = placarDaThread(lerLedger(dirThread(carregado.raiz, id)));
     const taxa = taxaDeReversao(placar);
@@ -1252,13 +1254,13 @@ function comandoDecisao(args: Args): number {
       console.log(JSON.stringify({ thread: id, limiar: LIMIAR_DE_DECISOES_POR_FASE, taxaDeReversao: taxa, fases: placar }, null, 2));
       return 0;
     }
-    console.log(tabela(['FASE', 'DECIDIDAS', 'INFORMADAS', 'PERGUNTAS', 'REVERTIDAS', 'SEM RASTRO', 'LIMIAR'],
+    console.log(tabela([...md.colunasDoPlacar],
       placar.map(f => [f.fase, String(f.decididas), String(f.informadas), String(f.perguntas), String(f.revertidas),
-        String(f.semRastro), f.acimaDoLimiar ? `acima de ${LIMIAR_DE_DECISOES_POR_FASE}: revisar` : 'ok'])));
-    console.log(`\ntaxa de reversão das decisões informadas: ${taxa === null ? 'sem decisão informada ainda' : `${Math.round(taxa * 100)}%`}`);
+        String(f.semRastro), f.acimaDoLimiar ? md.acimaDoLimiar(LIMIAR_DE_DECISOES_POR_FASE) : md.dentroDoLimiar])));
+    console.log(md.taxaDeReversao(taxa));
     return 0;
   }
-  throw new Error('uso: ork decisao registrar|placar <thread-id>');
+  throw new ErroDoCatalogo((m) => m.decisao.uso);
 }
 
 /**
