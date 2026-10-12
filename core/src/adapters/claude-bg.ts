@@ -144,13 +144,21 @@ function atende(versao: number[], minimo: number[]): boolean {
 
 /**
  * RM-059 (T0.7, D2): os mods de fase que este `claude` carrega. O mod que pede versao mais nova fica de
- * fora e o despacho segue, porque o nucleo nao depende de mod; versao ilegivel nao leva mod nenhum.
+ * fora e o despacho segue, porque o nucleo nao depende de mod; versao ilegivel nao leva mod nenhum. Mod
+ * cuja dependencia ficou de fora (por versao, ou por ser so de papel `dono`) tambem fica: sem ela, ele
+ * carregaria pela metade na sessao de fase.
  */
 export function modsParaOClaude(mods: readonly ModDeFase[], versao: string | null | undefined): ModDeFase[] {
   const atual = versaoNumerica(versao);
   if (!atual) return [];
   const piso = versaoNumerica(MINIMO_DA_API_DE_MODS)!;
-  return mods.filter((m) => atende(atual, piso) && atende(atual, versaoNumerica(m.claudeCodeMinimo) ?? piso));
+  let vao = mods.filter((m) => atende(atual, piso) && atende(atual, versaoNumerica(m.claudeCodeMinimo) ?? piso));
+  for (;;) {
+    const nomes = new Set(vao.map((m) => m.nome));
+    const sobram = vao.filter((m) => m.dependencias.every((d) => nomes.has(d)));
+    if (sobram.length === vao.length) return vao;
+    vao = sobram;
+  }
 }
 
 /** Monta a linha de comando exata do despacho (usada tambem pelo `--dry-run`). */

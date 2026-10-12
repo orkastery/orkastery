@@ -172,8 +172,11 @@ próprio `--plugin-dir`, logo depois do plugin do Orkastery, quando:
 - o `claude --version` atende o `claudeCodeMinimo` do mod e o 2.1.287 da API de mods.
 
 Mod que pede versão mais nova fica fora do comando, e o despacho segue: o núcleo não depende de
-mod. Declaração inválida, manifesto fora do recibo ou arquivo a mais na pasta recusa o despacho com
-`runtime.context.installation`, como um byte divergente. A dependência (`dependencies` do
+mod. Mod cuja dependência ficou de fora (pela versão, ou por ser só de papel `dono`) também fica.
+Declaração inválida, manifesto fora do recibo ou arquivo a mais na pasta recusa o despacho com
+`runtime.context.installation`, como um byte divergente. Arquivo de mod que saiu do catálogo sai da
+cópia na reinstalação: o `ork adapter install claude-code` tira o que ele mesmo instalou e ninguém
+editou. Arquivo editado ou acrescentado à mão fica, e a recusa diz o caminho para apagar. A dependência (`dependencies` do
 `plugin.json` do mod) entra antes de quem depende; o resto segue o nome. Os mods que foram ficam no
 comando gravado no evento `phase_dispatch` do ledger da thread.
 

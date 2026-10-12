@@ -22,7 +22,7 @@ const RAIZ = exigirCatalogo(path.resolve(__dirname, '../../..'));
 const EXEMPLO = path.join(RAIZ, 'core', 'test', 'fixtures', 'mods', 'ork-exemplo');
 const VERSAO = '2.1.296 (Claude Code)';
 
-interface ModDoCatalogo { nome: string; papeis: unknown; minimo?: string; dependencias?: unknown; semManifesto?: boolean }
+interface ModDoCatalogo { nome: string; papeis: unknown; minimo?: string; dependencias?: unknown; semManifesto?: boolean; modulo?: string }
 
 /** Copia do catalogo com os mods pedidos no lugar dos que o repositorio tiver em `adapters/claude-code/mods/`. */
 function catalogoCom(mods: ModDoCatalogo[]): string {
@@ -41,6 +41,10 @@ function catalogoCom(mods: ModDoCatalogo[]): string {
     if (m.dependencias !== undefined) manifesto.dependencies = m.dependencias;
     fs.writeFileSync(arquivoDoManifesto, JSON.stringify(manifesto, null, 2) + '\n');
     if (m.semManifesto) fs.rmSync(arquivoDoManifesto);
+    if (m.modulo) {
+      fs.renameSync(path.join(alvo, 'hooks', 'register.js'), path.join(alvo, 'hooks', m.modulo));
+      fs.writeFileSync(path.join(alvo, 'hooks', 'hooks.json'), JSON.stringify({ modules: [`./${m.modulo}`] }, null, 2) + '\n');
+    }
     fs.writeFileSync(path.join(alvo, 'orkastery-mod.json'),
       JSON.stringify({ formato: 'ork.mod/v1', papeis: m.papeis, claudeCodeMinimo: m.minimo ?? '2.1.287' }) + '\n');
   }
@@ -157,7 +161,7 @@ test('S6 versao: abaixo do minimo do mod ou da API de mods, ou ilegivel, o mod f
     assert.deepEqual(pastasDePlugin(f.comando(null)), [base]);
     assert.deepEqual(pastasDePlugin(f.comando('claude sem numero')), [base]);
   } finally { f.limpar(); }
-  const antigo: ModDeFase = { nome: 'ork-velho', dir: '/x', claudeCodeMinimo: '2.0.0' };
+  const antigo: ModDeFase = { nome: 'ork-velho', dir: '/x', claudeCodeMinimo: '2.0.0', dependencias: [] };
   assert.deepEqual(modsParaOClaude([antigo], '2.1.280 (Claude Code)'), [], 'o piso da API de mods vale mesmo com minimo declarado menor');
   assert.deepEqual(modsParaOClaude([antigo], '2.1.287 (Claude Code)'), [antigo]);
   assert.deepEqual(modsParaOClaude([antigo], '10.0.0'), [antigo]);
@@ -175,4 +179,68 @@ test('S7 a dependencia vai antes de quem depende, nas formas de dependencies ace
     const nomes = pastasDePlugin(f.comando()).slice(1).map((p) => path.basename(p));
     assert.deepEqual(nomes, ['ork-ponte', 'ork-a', 'ork-b', 'ork-c', 'ork-d']);
   } finally { f.limpar(); }
+});
+
+test('S8 arquivo de mod que saiu do catalogo sai da copia na reinstalacao; o editado a mao fica e a recusa diz onde apagar', () => {
+  const f = preparar('mods-renomeado', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  const novo = catalogoCom([{ nome: 'ork-exemplo', papeis: ['fase'], modulo: 'registro.js' }]);
+  try {
+    const mod = path.join(f.instalado.destino, 'mods', 'ork-exemplo');
+    const ensaio = instalarAdaptador('claude-code', { projeto: f.p.dir, catalogo: novo, orkBin: 'ork', dryRun: true });
+    assert.deepEqual(ensaio.removidos, ['mods/ork-exemplo/hooks/register.js']);
+    assert.equal(fs.existsSync(path.join(mod, 'hooks', 'register.js')), true, 'o ensaio nao apaga');
+    const r = instalarAdaptador('claude-code', { projeto: f.p.dir, catalogo: novo, orkBin: 'ork' });
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.removidos, ['mods/ork-exemplo/hooks/register.js']);
+    assert.equal(fs.existsSync(path.join(mod, 'hooks', 'register.js')), false);
+    assert.equal(fs.existsSync(path.join(mod, 'hooks', 'registro.js')), true);
+    assert.equal(pastasDePlugin(f.comando()).length, 2, 'o despacho leva o mod de novo, sem passo a mao');
+    // Editado a mao depois da instalacao: o instalador nao apaga, e o despacho recusa dizendo o caminho.
+    const velho = catalogoCom([{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+    try {
+      instalarAdaptador('claude-code', { projeto: f.p.dir, catalogo: velho, orkBin: 'ork', force: true });
+      fs.appendFileSync(path.join(mod, 'hooks', 'register.js'), '// editado a mao\n');
+      const de = instalarAdaptador('claude-code', { projeto: f.p.dir, catalogo: novo, orkBin: 'ork' });
+      assert.equal(de.removidos, undefined);
+      assert.throws(() => f.comando(), (e: Error) => /arquivo fora do INSTALADO\.json \(hooks\/register\.js\)/.test(e.message) &&
+        e.message.includes(`apague ${path.join(mod, 'hooks', 'register.js')}`));
+    } finally { fs.rmSync(velho, { recursive: true, force: true }); }
+  } finally { f.limpar(); fs.rmSync(novo, { recursive: true, force: true }); }
+});
+
+test('S9 mod cuja dependencia ficou de fora (por versao ou por ser so de dono) tambem fica de fora', () => {
+  const f = preparar('mods-dependencia', [
+    { nome: 'ork-ponte', papeis: ['dono'] },
+    { nome: 'ork-a', papeis: ['fase'], dependencias: ['ork-ponte'] },
+    { nome: 'ork-novo', papeis: ['fase'], minimo: '2.1.300' },
+    { nome: 'ork-b', papeis: ['fase'], dependencias: [{ name: 'ork-novo' }] },
+    { nome: 'ork-c', papeis: ['fase'], dependencias: ['plugin-de-fora'] },
+  ]);
+  try {
+    const nomes = (versao: string) => pastasDePlugin(f.comando(versao)).slice(1).map((p) => path.basename(p));
+    assert.deepEqual(nomes(VERSAO), ['ork-c'], 'ork-a sem a ponte (so de dono), ork-b sem o ork-novo (versao); dependencia de fora da instalacao nao conta');
+    assert.deepEqual(nomes('2.1.300 (Claude Code)'), ['ork-novo', 'ork-b', 'ork-c']);
+  } finally { f.limpar(); }
+});
+
+test('S10 o claude --version so roda quando a instalacao tem mod de fase', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-test-claude-falso-'));
+  const registro = path.join(dir, 'chamadas.log');
+  fs.writeFileSync(path.join(dir, 'claude'), `#!/bin/sh\necho "$*" >> '${registro}'\necho '2.1.296 (Claude Code)'\n`);
+  fs.chmodSync(path.join(dir, 'claude'), 0o755);
+  const sem = preparar('mods-chamada-sem', []);
+  const com = preparar('mods-chamada-com', [{ nome: 'ork-exemplo', papeis: ['fase'] }]);
+  const PATH = process.env.PATH;
+  try {
+    process.env.PATH = `${dir}${path.delimiter}${PATH}`;
+    const semArgs = montarComando({ cwd: sem.t.worktree!, nome: 'f', prompt: 'p', contextoRuntime: contextoDoProjeto(sem.p.dir, 'claude-bg', sem.t.worktree!, sem.t.id)! });
+    assert.equal(fs.existsSync(registro), false, 'sem mod de fase, o claude nao e chamado');
+    assert.equal(pastasDePlugin(semArgs).length, 1);
+    const comArgs = montarComando({ cwd: com.t.worktree!, nome: 'f', prompt: 'p', contextoRuntime: contextoDoProjeto(com.p.dir, 'claude-bg', com.t.worktree!, com.t.id)! });
+    assert.deepEqual(fs.readFileSync(registro, 'utf8').trim().split('\n'), ['--version']);
+    assert.equal(pastasDePlugin(comArgs).length, 2);
+  } finally {
+    process.env.PATH = PATH;
+    sem.limpar(); com.limpar(); fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

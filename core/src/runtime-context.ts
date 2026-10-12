@@ -167,8 +167,11 @@ export function validarContextoRuntime(contexto: ContextoRuntime, cwd: string) {
  */
 export type PapelDeMod = 'dono' | 'fase';
 export interface DeclaracaoDeMod { formato: 'ork.mod/v1'; papeis: PapelDeMod[]; claudeCodeMinimo: string }
-/** Um mod de papel `fase` conferido contra o recibo, na ordem em que vai ao despacho. */
-export interface ModDeFase { nome: string; dir: string; claudeCodeMinimo: string }
+/**
+ * Um mod de papel `fase` conferido contra o recibo, na ordem em que vai ao despacho. `dependencias` sao os mods
+ * desta instalacao (de qualquer papel) que o `plugin.json` dele cita: sem eles na sessao, o mod tambem fica fora.
+ */
+export interface ModDeFase { nome: string; dir: string; claudeCodeMinimo: string; dependencias: string[] }
 
 const DECLARACAO_OU_MANIFESTO_DE_MOD = /^mods\/[^/]+\/(?:orkastery-mod\.json|\.claude-plugin\/plugin\.json)$/;
 const DECLARACAO_DE_MOD = /^mods\/([^/]+)\/orkastery-mod\.json$/;
@@ -217,7 +220,8 @@ function tipoDoMotor(relativo: string): boolean {
  */
 function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arquivos: ReadonlyMap<string, string>): string {
   const dir = path.join(instalacao, 'mods', nome);
-  const recusa = (motivo: string) => Error(`runtime.context.installation: mod ${nome}: ${motivo}; reinstale com ork adapter install claude-code`);
+  const recusa = (motivo: string, correcao = 'reinstale com ork adapter install claude-code') =>
+    Error(`runtime.context.installation: mod ${nome}: ${motivo}; ${correcao}`);
   if (!fs.lstatSync(dir, { throwIfNoEntry: false })?.isDirectory() || dentro(raiz, dir) !== dir) throw recusa('pasta instalada ausente ou fora da instalacao');
   const visitar = (atual: string, prefixo: string): void => {
     for (const entrada of fs.readdirSync(atual, { withFileTypes: true })) {
@@ -225,7 +229,10 @@ function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arqu
       if (entrada.isSymbolicLink()) throw recusa(`link em ${relativo}`);
       if (entrada.isDirectory()) { visitar(path.join(atual, entrada.name), relativo); continue; }
       if (!entrada.isFile()) throw recusa(`arquivo especial em ${relativo}`);
-      if (!arquivos.has(`mods/${nome}/${relativo}`) && !tipoDoMotor(relativo)) throw recusa(`arquivo fora do INSTALADO.json (${relativo})`);
+      if (!arquivos.has(`mods/${nome}/${relativo}`) && !tipoDoMotor(relativo)) {
+        throw recusa(`arquivo fora do INSTALADO.json (${relativo})`, 'se ele saiu do catalogo, ork adapter install claude-code o tira da copia; ' +
+          `se foi editado ou acrescentado a mao, apague ${path.join(dir, relativo)}`);
+      }
     }
   };
   visitar(dir, '');
@@ -239,8 +246,9 @@ function conferirPastaDoMod(raiz: string, instalacao: string, nome: string, arqu
  */
 export function modsDeFaseInstalados(raiz: string, instalacao: string, arquivos: ReadonlyMap<string, string>,
   conferidos: ReadonlyMap<string, Buffer>): ModDeFase[] {
-  const achados: (ModDeFase & { dependencias: string[] })[] = [];
+  const achados: ModDeFase[] = [];
   const nomes = [...arquivos.keys()].flatMap((arquivo) => DECLARACAO_DE_MOD.exec(arquivo)?.[1] ?? []).sort();
+  const daInstalacao = new Set(nomes);
   for (const nome of nomes) {
     const arquivo = `mods/${nome}/orkastery-mod.json`;
     const recusa = (motivo: string) => Error(`runtime.context.installation: mod ${nome}: ${motivo}; reinstale com ork adapter install claude-code`);
@@ -251,20 +259,21 @@ export function modsDeFaseInstalados(raiz: string, instalacao: string, arquivos:
     const manifesto = conferidos.get(`mods/${nome}/.claude-plugin/plugin.json`);
     if (!manifesto) throw recusa('.claude-plugin/plugin.json fora do recibo');
     let dependencias: string[];
-    try { dependencias = dependenciasDoManifesto(manifesto.toString('utf8')); } catch (e) { throw recusa((e as Error).message); }
+    try { dependencias = dependenciasDoManifesto(manifesto.toString('utf8')).filter((d) => daInstalacao.has(d) && d !== nome); }
+    catch (e) { throw recusa((e as Error).message); }
     achados.push({ nome, dir: conferirPastaDoMod(raiz, instalacao, nome, arquivos), claudeCodeMinimo: declaracao.claudeCodeMinimo, dependencias });
   }
   const porNome = new Map(achados.map((m) => [m.nome, m]));
   const ordem: ModDeFase[] = [];
   const feitos = new Set<string>(), abertos = new Set<string>();
   // Busca em profundidade: a dependencia sai antes; num ciclo, a aresta de volta e ignorada (melhor esforco).
-  const visitar = (m: ModDeFase & { dependencias: string[] }): void => {
+  const visitar = (m: ModDeFase): void => {
     if (feitos.has(m.nome) || abertos.has(m.nome)) return;
     abertos.add(m.nome);
     for (const dep of [...m.dependencias].sort()) { const alvo = porNome.get(dep); if (alvo) visitar(alvo); }
     abertos.delete(m.nome);
     feitos.add(m.nome);
-    ordem.push({ nome: m.nome, dir: m.dir, claudeCodeMinimo: m.claudeCodeMinimo });
+    ordem.push(m);
   };
   for (const m of achados) visitar(m);
   return ordem;
