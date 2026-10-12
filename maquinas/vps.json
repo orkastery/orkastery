@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T12:30:02.629Z",
+  "publicadoEm": "2026-10-12T12:30:23.880Z",
   "threads": [
     {
       "id": "ork-rm058n1",
@@ -27,11 +27,11 @@
       "id": "ork-rm059mesa",
       "nome": "rm059mesa",
       "modo": "#Auto",
-      "fase": "GOAL",
+      "fase": "PLAN",
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm059mesa-full",
-      "atualizadaEm": "2026-10-12T11:49:39.040Z",
+      "atualizadaEm": "2026-10-12T12:30:23.494Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
