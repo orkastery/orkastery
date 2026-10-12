@@ -4,8 +4,25 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T16:45:02.601Z",
+  "publicadoEm": "2026-10-12T17:02:40.060Z",
   "threads": [
+    {
+      "id": "ork-designkit",
+      "nome": "designkit",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-designkit-go",
+      "atualizadaEm": "2026-10-12T17:02:39.733Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
     {
       "id": "ork-rm058n2",
       "nome": "rm058n2",
