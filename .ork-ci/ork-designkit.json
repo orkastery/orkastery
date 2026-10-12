@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-designkit",
+  "branch": "ork/ork-designkit-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-designkit",
+      "fase": "GO",
+      "arquivo": "docs/design/DESIGN.md",
+      "alegacao": "O design system Partitura está no repositório, com tokens, marca e o README de entrada, e o AGENTS.md aponta para ele.",
+      "negativa": false,
+      "verificar": [
+        "test -s docs/design/DESIGN.md && test -s docs/design/partitura/partitura.css && test -s docs/design/partitura/partitura.json && test -s docs/design/marca/svg/assinatura.svg && grep -qF \"docs/design/README.md\" AGENTS.md && grep -qF \"design/README.md\" docs/README.md"
+      ],
+      "criadoEm": "2026-10-12T17:05:51.828Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -308,6 +308,15 @@ export interface Manifesto {
   grafo: {
     mcp: boolean;
   };
+  /**
+   * RM-026 K7 (D1): a pasta dos documentos `ork.conhecimento/v1`, relativa a raiz. Ausente: o projeto nao
+   * declarou conhecimento (nao ha pasta padrao). `dir` vazio: o bloco veio fora do formato. A regra do caminho
+   * (dentro da raiz pelo caminho real, sem seguir link) mora no leitor, `conhecimento.ts`, que recusa com lacuna
+   * tipada.
+   */
+  conhecimento?: {
+    dir: string;
+  };
   policies?: Record<string, string>;
 }
 

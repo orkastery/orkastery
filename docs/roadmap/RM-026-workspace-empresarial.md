@@ -6,7 +6,7 @@ categoria: iniciativa
 pai: null
 features: [FEAT-024, FEAT-033]
 owner: Julio
-atualizado_em: 2026-10-03T03:42:28+00:00
+atualizado_em: 2026-10-12T13:00:25+00:00
 estado:
   ciclo: Em desenvolvimento
   documentacao: Em revisão
@@ -27,7 +27,7 @@ evidencias:
 sdlc:
   thread: ork-rm026k7conhe
   modo: "#Auto"
-  fase: GOAL
+  fase: GO
   status: aberta
 ---
 
@@ -44,7 +44,7 @@ sdlc:
 <!-- ork-docs:relance:fim -->
 
 - **Features:** [FEAT-024](../produto/FEAT-024-company-brain-no-cli.md), [FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)
-- **Thread:** `ork-rm026k7conhe` (K7, GOAL e PLAN); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
+- **Thread:** `ork-rm026k7conhe` (K7: GOAL, PLAN e a fatia 1 do GO); antes, `ork-rm026k3dossi` (K3.1) e `ork-companybrai3`
 
 ## Problema e resultado
 
@@ -59,23 +59,24 @@ sdlc:
   - K1, cartões, estados e criação: identidade, estado e criação recuperável no núcleo (merge `580abb9`).
   - Investigar: o pacote de contexto citável da [RM-025](RM-025-company-brain-fundacao.md) (B4.1) chega aos quatro hosts (thread `ork-companybrai3`, PR #21, merge `a17ff88`).
   - K3.1, dossiê de decisão somente leitura ([FEAT-033](../produto/FEAT-033-dossie-de-decisao.md)): `ork brain dossie` e `ork_brain_dossie` no MCP, no OpenClaw e no repasse do Hermes. Liga cada decisão da thread ao objetivo (o ticket do K1) e ao projeto do portfólio, com o contexto citável, as alternativas, quem decidiu, a evidência e os ids do Brain (thread `ork-rm026k3dossi`, PR #27, merge `46220bc`).
+  - K7, fatia 1: o contrato `ork.conhecimento/v1` e a leitura da pasta declarada no `orkastery.yaml`, com as lacunas tipadas, ainda sem CLI pública nem MCP (thread `ork-rm026k7conhe`, por PR).
 - **Saiu com a interface web:** o protótipo K2 (biblioteca, estratégia e Kanban) vivia na interface web, que saiu dos repositórios públicos em 28/09/2026 (commit `7eb942d`).
 - **Faltando, sem interface web:**
   - O resto do K3: objetivo estratégico e projeto organizacional (dependem da B3), alternativas na decisão informada (mudança do contrato HITL), respostas a sessão nativa e o `objective_id` no `cycle` capturado pelo Brain.
   - K4, Maestro com contexto citado nos quatro hosts.
   - K5, roadmap, decisões e indicadores.
   - K6, aceite da jornada por tarefas nos hosts, no lugar do aceite de interface.
-  - K7, conhecimento escrito (documentos, coleções e referências) por CLI e MCP.
+  - K7, conhecimento escrito: a CLI e as tools MCP, com os ids do Brain conferidos por `get` (fatia 2), e os hosts OpenClaw e Hermes com a página de produto (fatia 3).
 
 ## Plano e decisões
 
 - **Dependência:** [RM-025](RM-025-company-brain-fundacao.md).
 - **Superfície:** agentes, CLI, MCP e hosts. A interface web está fora do escopo (decisão do dono em 28/09/2026).
 
-### K7, conhecimento escrito: GOAL e PLAN, à espera da escolha do dono
+### K7, conhecimento escrito
 
-Thread `ork-rm026k7conhe` (#Auto, 03/10/2026). Nenhum código entra antes da escolha: o K7 pede
-contrato público novo (classe 2), e contrato novo é do dono.
+Thread `ork-rm026k7conhe` (#Auto). GOAL e PLAN de 03/10/2026: o K7 pede contrato público novo
+(classe 2), e contrato novo é do dono. O dono escolheu a alternativa (a) em 11/10/2026.
 
 - **Objetivo:** um agente, pela CLI ou pelo MCP, lista, lê e cita um documento escrito da empresa
   (política, especificação, guia), sabe a que coleção ele pertence e a que produto, projeto,
@@ -91,7 +92,7 @@ contrato público novo (classe 2), e contrato novo é do dono.
   mesmo teste reprova o código de antes; os quatro hosts (Claude Code, Codex, Hermes e OpenClaw)
   chegam às mesmas tools, como no K3.1.
 
-Alternativas, para o dono escolher uma:
+Alternativas que o dono avaliou (escolhida: a):
 
 - **a) (Recomendação) Documento como arquivo versionado no repositório, contrato do lado do ork.**
   Schema novo `ork.conhecimento/v1`: cada documento é um Markdown numa pasta declarada no
@@ -114,9 +115,15 @@ Alternativas, para o dono escolher uma:
 - **d) Esperar o K5 e o K6.** O K7 volta depois que o dono disser o que o K5 mede. Custo: o item
   fica parado.
 
-Se a escolha for a (a), o GO segue em três fatias: (1) o schema, a leitura da pasta e a validação,
-com as lacunas tipadas; (2) a CLI e as tools MCP, com as referências conferidas; (3) os hosts
-OpenClaw e Hermes e a página de produto nova.
+O GO segue em três fatias:
+
+1. **Schema, leitura e validação, com as lacunas tipadas.** Entregue pela thread `ork-rm026k7conhe`
+   (12/10/2026): o bloco `conhecimento: { dir }` do `orkastery.yaml`, o leitor `core/src/conhecimento.ts` e o
+   [contrato `ork.conhecimento/v1`](../referencia/contratos/conhecimento-rm026.md). A decisão `thread#linha`
+   confere no ledger canônico, com a citação que a captura do Brain grava; o id do Brain, só pela forma.
+2. **CLI e tools MCP, com as referências conferidas:** `ork conhecimento colecoes|listar|ler|referencias` e as
+   tools `ork_conhecimento_*`, com cada id do Brain conferido por `get`.
+3. **Hosts e página de produto:** OpenClaw e Hermes chegam às mesmas tools, e o item ganha a página de produto.
 
 ## Estado com evidências
 
@@ -131,13 +138,13 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 
 | Dimensão | Estado | Evidência | Data | Responsável |
 | --- | --- | --- | --- | --- |
-| Ciclo do item | Em desenvolvimento | — | 2026-10-03 | Julio |
-| Documentação | Em revisão | — | 2026-10-03 | Julio |
-| Código | Mesclado | commit `46220bc` · PR #27 · anteriores: a17ff88 (PR #21, contexto citável) | 2026-10-03 | Julio |
-| Testes | Aprovados | ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450) | 2026-10-03 | Julio |
-| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-03 | Julio |
-| Exposição | Parcial | — | 2026-10-03 | Julio |
-| Habilitação | Em andamento | — | 2026-10-03 | Julio |
+| Ciclo do item | Em desenvolvimento | — | 2026-10-12 | Julio |
+| Documentação | Em revisão | — | 2026-10-12 | Julio |
+| Código | Mesclado | commit `46220bc` · PR #27 · anteriores: a17ff88 (PR #21, contexto citável) | 2026-10-12 | Julio |
+| Testes | Aprovados | ci: verde no push do merge (run 36662685901) e no da v0.5.0 (run 36815186450) | 2026-10-12 | Julio |
+| Deploy | Produção | release: v0.5.0, @orkastery/cli 0.5.0 no npm | 2026-10-12 | Julio |
+| Exposição | Parcial | — | 2026-10-12 | Julio |
+| Habilitação | Em andamento | — | 2026-10-12 | Julio |
 
 <!-- ork-docs:estado:fim -->
 
@@ -156,3 +163,5 @@ O estado se edita no frontmatter; esta tabela é gerada por `ork docs sincroniza
 | 2026-09-30 | K3.1 mesclado na `main` | PR #27, merge `46220bc` | Julio |
 | 2026-10-01 | contexto citável e K3.1 em produção na versão 0.5.0 | tag `v0.5.0` (PR #36), `@orkastery/cli` 0.5.0 no npm | Julio |
 | 2026-10-03 | K7: GOAL e PLAN com quatro alternativas; o código espera a escolha do dono, porque o K7 é contrato público novo (classe 2) | thread `ork-rm026k7conhe`, decisões no ledger | thread `ork-rm026k7conhe` (#Auto) |
+| 2026-10-11 | K7: alternativa (a), conhecimento em Markdown versionado no repositório, no contrato `ork.conhecimento/v1` do lado do ork | decisão do dono (3.a) | Julio |
+| 2026-10-12 | K7, fatia 1: o contrato, a leitura da pasta declarada e a validação, com as lacunas tipadas | thread `ork-rm026k7conhe`, por PR, decisões D1 a D9 no ledger | thread `ork-rm026k7conhe` (#Auto) |

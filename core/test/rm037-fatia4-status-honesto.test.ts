@@ -136,17 +136,23 @@ test('o que vem a seguir diz o estado real: parado no condutor, PR lido do retra
     gravarRetratoDePrs(c.p.dir, retrato(c));
     fabricaLocal(c.p, [{ maquina: 'pc-b', publicadoEm: '2026-10-01T06:21:00.000Z' }, { maquina: 'pc-c', publicadoEm: '2026-10-02T00:21:00.000Z' },
       { maquina: 'pc-a', publicadoEm: '2026-10-02T01:15:00.000Z' }]);
-    const status = montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery' });
+    // RM-063 (F2): o runtime respondeu e nenhuma sessao da fixture esta nele.
+    const status = montarStatusDoRoadmap(c.p.dir, { quando: AGORA, projeto: 'orkastery',
+      runtime: () => ({ responderam: ['claude-bg'], falhas: [], sessoes: [] }) });
     const linhas = textoDoStatusDoRoadmap(status).split('\n');
     const seguir = linhas.indexOf('O que eu faço em seguida'), precisa = linhas.indexOf('O que precisa de você');
     assert.equal(linhas[precisa + 1], '• Nada agora.', 'o fim de turno sem pergunta nao e do dono');
     const fecho = linhas.slice(seguir + 1);
     assert.ok(fecho.includes(`• RM-031: ${c.vermelho.t.id} parado no condutor desde 19:07: corrigir o check ork-verify vermelho do PR #40 ` +
       'e despachar a correção (PR lido às 22:15).'), fecho.join('\n'));
-    assert.ok(fecho.includes(`• RM-037: ${c.verde.t.id} na fase GOAL, PR #39 com os checks verdes, esperando o merge (PR lido às 22:15).`), fecho.join('\n'));
+    // RM-063 (F2): a entrega em curso vem com a vida da sessao: a do despacho nao esta no runtime, entao nao ha "sigo".
+    assert.ok(fecho.some(l => l.startsWith(`• RM-037: ${c.verde.t.id} parada desde `) && l.endsWith(': sessão 00000000 não aparece no runtime; ' +
+      'PR #39 com os checks verdes, esperando o merge (PR lido às 22:15).')), fecho.join('\n'));
     assert.ok(fecho.includes(`• RM-049: ${c.semPr.t.id} parado no condutor desde 04:27: abrir o PR da branch ${c.semPr.branch} (PR lido às 22:15).`),
       fecho.join('\n'));
-    assert.ok(fecho.includes(`• RM-005: sigo ${c.anda.t.id} na fase GOAL.`), fecho.join('\n'));
+    assert.ok(fecho.some(l => l.startsWith(`• RM-005: ${c.anda.t.id} parada desde `) && l.endsWith(': nenhuma sessão despachada na fase GOAL.')),
+      fecho.join('\n'));
+    assert.ok(!fecho.some(l => l.includes(': sigo ')), 'nenhuma sessao viva verificada: nenhum sigo');
     // A batida: so a outra maquina velha, numa linha; esta maquina (que publicou ha pouco) e a recente ficam de fora.
     assert.ok(linhas.includes('Fábrica: pc-b sem batida há 19h00 (último retrato 01/10 03:21), pela cópia local de ork/fabrica-estado.'), linhas.join('\n'));
     assert.equal(linhas.filter(l => l.startsWith('Fábrica:')).length, 1);

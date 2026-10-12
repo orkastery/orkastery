@@ -264,10 +264,11 @@ export interface ConsultaDeSessoes {
  * falha aqui (o observador e o pulse não concluem nada dele); só o inventário o trata como fonte
  * ausente, com a correção.
  */
-export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura()): ConsultaDeSessoes {
+export function consultarSessoes(cwd?: string, todas = false, ambiente: NodeJS.ProcessEnv = ambienteDeAssinatura(),
+  prazoMs = 60000): ConsultaDeSessoes {
   const args = ['agents', '--json'];
   if (todas) args.push('--all');
-  const r = exec('claude', args, undefined, 60000, ambiente);
+  const r = exec('claude', args, undefined, prazoMs, ambiente);
   if (r.error === 'ENOENT') return { ok: false, ausente: true, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeForaDoPath) };
   if (!r.ok) return { ok: false, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.claudeAgentsFalhou(r.code)) };
   let dados: SessaoRuntime[];

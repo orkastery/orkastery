@@ -168,6 +168,12 @@ export const RETRY_PT_BR = {
     `rode a fase de novo com \`ork phase run ${thread} ${fase} --prompt "..."\``,
   semConfianca: (motivo: string, cwd: string, thread: string) => `${motivo}: o runtime ainda nao confia em ${cwd}; nada foi despachado. ` +
     `Rode \`cd ${cwd} && claude\`, aceite a confianca e repita \`ork retry run ${thread}\``,
+  /** RM-063 (F3): a sessao viva na thread; redespachar abriria a segunda na mesma worktree. */
+  sessaoAindaViva: (sessao: string, thread: string) => `a sessao ${sessao} ainda trabalha na thread no runtime; nada foi ` +
+    `redespachado (uma segunda sessao na mesma worktree). Espere ela terminar, ou pare-a com \`ork sessions stop ${sessao}\`, ` +
+    `e repita \`ork retry run ${thread}\``,
+  runtimeSemProva: (detalhe: string, thread: string) => `o runtime nao respondeu (${detalhe}): sem a prova de que nenhuma ` +
+    `sessao trabalha na thread, nada foi redespachado; repita \`ork retry run ${thread}\` quando ele responder`,
   semDespachoComPrompt: (motivo: string, fase: string) =>
     `nao ha despacho com prompt gravado para ${motivo} em ${fase}: rode a fase de novo com ork phase run`,
   rotacaoRecusada: (erro: string) => `rotacao recusada: ${erro}`,
@@ -355,6 +361,11 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     `run the phase again with \`ork phase run ${thread} ${fase} --prompt "..."\``,
   semConfianca: (motivo, cwd, thread) => `${motivo}: the runtime does not trust ${cwd} yet; nothing was dispatched. ` +
     `Run \`cd ${cwd} && claude\`, accept the trust and repeat \`ork retry run ${thread}\``,
+  sessaoAindaViva: (sessao, thread) => `session ${sessao} is still working on the thread in the runtime; nothing was ` +
+    `redispatched (a second session on the same worktree). Wait for it to end, or stop it with \`ork sessions stop ${sessao}\`, ` +
+    `and repeat \`ork retry run ${thread}\``,
+  runtimeSemProva: (detalhe, thread) => `the runtime did not respond (${detalhe}): with no proof that no session works on the ` +
+    `thread, nothing was redispatched; repeat \`ork retry run ${thread}\` when it responds`,
   semDespachoComPrompt: (motivo, fase) => `no dispatch with a written prompt for ${motivo} in ${fase}: run the phase again with \`ork phase run\``,
   rotacaoRecusada: (erro) => `rotation refused: ${erro}`,
   producaoParcialConta: (cota, evidencia) => `partial production under ${cota ? 'an exhausted quota' : 'missing auth'}: ${evidencia}; ` +

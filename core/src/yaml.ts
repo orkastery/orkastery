@@ -52,10 +52,16 @@ export function escalar(bruto: string): ValorYaml {
   return t;
 }
 
-function preparar(texto: string): LinhaUtil[] {
+function preparar(texto: string, estrito: boolean): LinhaUtil[] {
   const linhas: LinhaUtil[] = [];
   texto.split('\n').forEach((original, i) => {
-    const semComentario = tirarComentario(original).replace(/\s+$/, '');
+    const cortada = tirarComentario(original);
+    // D9: no modo estrito, o `#` depois do valor nao corta o valor calado (`titulo: Decisao #42`); com o `#`
+    // no texto, o valor vai entre aspas. Comentario na linha inteira segue valendo.
+    if (estrito && cortada !== original && cortada.trim() !== '') {
+      throw new Error(`YAML invalido na linha ${i + 1}: comentario depois do valor (com # no texto, use aspas)`);
+    }
+    const semComentario = cortada.replace(/\s+$/, '');
     if (semComentario.trim() === '') return;
     if (semComentario.trim() === '---') return;
     const indent = semComentario.length - semComentario.trimStart().length;
@@ -64,7 +70,7 @@ function preparar(texto: string): LinhaUtil[] {
   return linhas;
 }
 
-function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [ValorYaml, number] {
+function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number, estrito: boolean): [ValorYaml, number] {
   let i = inicio;
   if (i >= linhas.length) return [null, i];
 
@@ -86,6 +92,9 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
       throw new Error(`YAML invalido na linha ${linha.numero}: esperado "chave: valor"`);
     }
     const chave = linha.conteudo.slice(0, sep).trim().replace(/^["']|["']$/g, '');
+    if (estrito && (chave === '__proto__' || Object.hasOwn(mapa, chave))) {
+      throw new Error(`YAML invalido na linha ${linha.numero}: chave ${chave === '__proto__' ? 'reservada' : 'repetida'}`);
+    }
     const resto = linha.conteudo.slice(sep + 1).trim();
     i++;
     if (resto !== '') {
@@ -93,7 +102,7 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
       continue;
     }
     if (i < linhas.length && linhas[i].indent > indent) {
-      const [filho, proximo] = parseBloco(linhas, i, linhas[i].indent);
+      const [filho, proximo] = parseBloco(linhas, i, linhas[i].indent, estrito);
       mapa[chave] = filho;
       i = proximo;
     } else {
@@ -103,10 +112,20 @@ function parseBloco(linhas: LinhaUtil[], inicio: number, indent: number): [Valor
   return [mapa, i];
 }
 
-/** Le um documento YAML do subconjunto suportado. */
-export function lerYaml(texto: string): ValorYaml {
-  const linhas = preparar(texto);
+/**
+ * Le um documento YAML do subconjunto suportado.
+ *
+ * RM-026 K7 (D9): `estrito` serve a quem le texto que nao e do `ork` (o frontmatter do conhecimento). Chave
+ * repetida no mesmo mapa, `__proto__`, comentario depois do valor e linha que sobra (indentacao fora do bloco)
+ * recusam, em vez de sumir calados como no modo padrao, que o `orkastery.yaml` e as paginas de docs seguem usando.
+ */
+export function lerYaml(texto: string, opcoes: { estrito?: boolean } = {}): ValorYaml {
+  const estrito = opcoes.estrito === true;
+  const linhas = preparar(texto, estrito);
   if (linhas.length === 0) return {};
-  const [valor] = parseBloco(linhas, 0, linhas[0].indent);
+  const [valor, proximo] = parseBloco(linhas, 0, linhas[0].indent, estrito);
+  if (estrito && proximo < linhas.length) {
+    throw new Error(`YAML invalido na linha ${linhas[proximo].numero}: indentacao fora do bloco`);
+  }
   return valor;
 }

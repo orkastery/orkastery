@@ -29,6 +29,29 @@ export const ROADMAP_PT_BR = {
   comEstado: (item: string, thread: string, fase: string, maquina: string, estado: string, leitura: string) =>
     `• ${item}: ${thread} na fase ${fase}${maquina}, ${estado}${leitura}.`,
   sigo: (item: string, thread: string, fase: string, maquina: string) => `• ${item}: sigo ${thread} na fase ${fase}${maquina}.`,
+  /** RM-063 (F2): a thread sem sessao viva verificada no runtime: desde quando e por que (o estado da entrega, quando ha). */
+  parada: (item: string, thread: string, maquina: string, desde: string | null, motivo: string, estado: string | null) =>
+    `• ${item}: ${thread}${maquina} parada${desde ? ` desde ${desde}` : ''}: ${motivo}${estado ? `; ${estado}` : ''}.`,
+  semSessaoVerificada: (item: string, thread: string, fase: string, maquina: string) =>
+    `• ${item}: ${thread} na fase ${fase}${maquina}, sem sessão verificada no runtime.`,
+  /** RM-063 (F2): a fila do `ork pulse` no fecho. */
+  filaNaoLida: (detalhe: string | null) => `• Fila do pulse não lida inteira${detalhe ? ` (${detalhe})` : ''}: confira com ork pulse.`,
+  responder: (comando: string) => ` Responder: ${comando}`,
+  sessaoSemThread: (id: string) => `sessão ${id}`,
+  /** RM-063 (F2): por que a thread parou, pelo tipo; o detalhe e dado (o ledger, o runtime). */
+  motivoDaParada: {
+    nenhumaSessao: (fase: string) => `nenhuma sessão despachada na fase ${fase}`,
+    despachoFalhou: (fase: string | null, detalhe: string) => `despacho${fase ? ` de ${fase}` : ''} falhou (${detalhe})`,
+    sessaoCaiu: (sessao: string, motivo: string) => `sessão ${sessao} caiu (${motivo})`,
+    runtimeSemResposta: (runtime: string, detalhe: string | null, sessao: string) =>
+      `runtime ${runtime} sem resposta${detalhe ? ` (${detalhe})` : ''}; a sessão ${sessao} não foi verificada`,
+    naoAparece: (sessao: string) => `sessão ${sessao} não aparece no runtime`,
+    fantasma: (sessao: string) => `sessão ${sessao} sem processo (fantasma)`,
+    encerrada: (sessao: string, estado: string) => `sessão ${sessao} encerrada (${estado})`,
+    naoLida: (detalhe: string) => `vida da sessão não lida (${detalhe})`,
+    semAtividade: (sessao: string, minutos: number) => `sessão ${sessao} sem atividade no rollout há ${minutos} min`,
+    retratoVelho: (minutos: number) => `retrato da máquina sem atualização há ${minutos} min; a sessão não foi reverificada`,
+  },
   fabricaNaoLida: (motivo: string) => `Fábrica: não lido (${motivo}).`,
   fabricaSemCopia: (branch: string) => `esta máquina não tem cópia local de ${branch}`,
   fabricaClone: (branch: string) => `clone parcial: a cópia local de ${branch} não é lida sem rede`,
@@ -56,6 +79,24 @@ export const ROADMAP_EN: typeof ROADMAP_PT_BR = {
   sigoComEstado: (item, thread, fase, maquina, estado, leitura) => `• ${item}: I continue with ${thread} in phase ${fase}${maquina}; ${estado}${leitura}.`,
   comEstado: (item, thread, fase, maquina, estado, leitura) => `• ${item}: ${thread} in phase ${fase}${maquina}, ${estado}${leitura}.`,
   sigo: (item, thread, fase, maquina) => `• ${item}: I continue with ${thread} in phase ${fase}${maquina}.`,
+  parada: (item, thread, maquina, desde, motivo, estado) =>
+    `• ${item}: ${thread}${maquina} stopped${desde ? ` since ${desde}` : ''}: ${motivo}${estado ? `; ${estado}` : ''}.`,
+  semSessaoVerificada: (item, thread, fase, maquina) => `• ${item}: ${thread} in phase ${fase}${maquina}, no session verified in the runtime.`,
+  filaNaoLida: (detalhe) => `• Pulse queue not fully read${detalhe ? ` (${detalhe})` : ''}: check \`ork pulse\`.`,
+  responder: (comando) => ` Reply: ${comando}`,
+  sessaoSemThread: (id) => `session ${id}`,
+  motivoDaParada: {
+    nenhumaSessao: (fase) => `no session dispatched in phase ${fase}`,
+    despachoFalhou: (fase, detalhe) => `dispatch${fase ? ` of ${fase}` : ''} failed (${detalhe})`,
+    sessaoCaiu: (sessao, motivo) => `session ${sessao} went down (${motivo})`,
+    runtimeSemResposta: (runtime, detalhe, sessao) => `runtime ${runtime} not responding${detalhe ? ` (${detalhe})` : ''}; session ${sessao} was not verified`,
+    naoAparece: (sessao) => `session ${sessao} does not appear in the runtime`,
+    fantasma: (sessao) => `session ${sessao} with no process (ghost)`,
+    encerrada: (sessao, estado) => `session ${sessao} ended (${estado})`,
+    naoLida: (detalhe) => `session liveness not read (${detalhe})`,
+    semAtividade: (sessao, minutos) => `session ${sessao} with no rollout activity for ${minutos} min`,
+    retratoVelho: (minutos) => `machine snapshot not updated for ${minutos} min; the session was not re-verified`,
+  },
   fabricaNaoLida: (motivo) => `Factory: not read (${motivo}).`,
   fabricaSemCopia: (branch) => `this machine has no local copy of ${branch}`,
   fabricaClone: (branch) => `partial clone: the local copy of ${branch} is not read without network`,
