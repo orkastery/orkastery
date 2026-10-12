@@ -641,6 +641,30 @@ export function cliDaMemoriaValido(cli: string): boolean {
   return path.isAbsolute(cli) && path.normalize(cli) === cli;
 }
 
+/** Os comandos de verify e o comando do CI de um manifesto. */
+export interface ComandosDoManifesto {
+  typecheck: string | undefined;
+  build: string | undefined;
+  test: string | undefined;
+  ciCommand: string | undefined;
+}
+
+/**
+ * RM-059 (A15 da revisao da ork-rm059pista): os comandos de verify e o do CI de um `orkastery.yaml` lido como texto (o
+ * do HEAD de uma branch, pelo `git show`), com as mesmas regras do `carregarManifesto`. `null` quando o texto nao abre.
+ */
+export function comandosDoTextoDoManifesto(bruto: string): ComandosDoManifesto | null {
+  let dados: Record<string, ValorYaml>;
+  try {
+    dados = mapa(lerYaml(bruto));
+  } catch {
+    return null;
+  }
+  const verify = mapa(dados.verify), ci = mapa(dados.ci);
+  const opcional = (v: ValorYaml | undefined): string | undefined => (v === null || v === undefined ? undefined : texto(v, ''));
+  return { typecheck: opcional(verify.typecheck), build: opcional(verify.build), test: opcional(verify.test), ciCommand: opcional(ci.command) };
+}
+
 /** Carrega o manifesto ou encerra com mensagem acionavel (uso nos subcomandos). */
 export function exigirManifesto(dirInicial: string = diretorioDoProjeto()): ManifestoCarregado {
   const carregado = carregarManifesto(dirInicial);

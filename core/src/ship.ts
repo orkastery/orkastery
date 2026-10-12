@@ -143,8 +143,8 @@ function contratosDaEntrega(raiz: string, shaPara: string, shaDe: string): strin
   return diff.ok ? contratosTocados(diff.stdout.split('\n').map((l) => l.trim()).filter(Boolean)) : [];
 }
 
-/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente. */
-const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
+/** Modos em que a propria #TAG do pedido autoriza o push antecipadamente (o `ork ship publicar` usa a mesma lista). */
+export const MODOS_QUE_AUTORIZAM_PUSH: readonly Thread['modo'][] = ['maestro', 'auto'];
 
 /**
  * Quem autoriza o push desta thread.
@@ -288,9 +288,9 @@ export function shaNoRemoto(dir: string, remoto: string, branch: string): string
   // RM-047: so nome de remoto chega ao git, e depois do `--` (nunca vira opcao nem transporte).
   const r = exec('git', ['ls-remote', '--', exigirRemoto(remoto, 'ship'), `refs/heads/${branch}`], dir, 120000);
   if (!r.ok) return null;
-  const linha = r.stdout.split('\n').find((l) => l.trim() !== '');
-  if (!linha) return null;
-  const sha = linha.split(/\s+/)[0];
+  // RM-059 (S1 da revisao da ork-rm059pista): o padrao do ls-remote casa por sufixo; vale so a linha da ref exata.
+  const linha = r.stdout.split('\n').map((l) => l.trim().split(/\s+/)).find((partes) => partes[1] === `refs/heads/${branch}`);
+  const sha = linha?.[0] ?? '';
   return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
 }
 
