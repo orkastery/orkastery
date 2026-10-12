@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SECTION_NAMES } from '../src/maestro-contract';
+import { msg } from '../src/locale';
 
 // RM-059 (onda 0): a ponte `ork-ponte` testada sem o Claude Code. O sandbox do `ork verify` e o runner
 // do CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da ponte com o compilador
@@ -78,7 +79,8 @@ test('nucleo: as secoes da ponte sao as do contrato do retrato do nucleo', () =>
 
 test('nucleo: cada consulta da lista fechada existe no CLI com --json', () => {
   const { CONSULTAS } = carregar('hooks/nucleo.ts');
-  const ajuda = fs.readFileSync(path.join(raizDoRepo, 'core/src/index.ts'), 'utf8');
+  // A ajuda mora no catalogo do locale desde a RM-061 (F2a); as linhas de comando sao as mesmas nas duas linguas.
+  const ajuda = msg('pt-BR').ajuda.texto({ versao: '0.0.0', modos: 0, segredos: '', tags: '' });
   const ajudaDoMaestro = fs.readFileSync(path.join(raizDoRepo, 'core/src/maestro-cli.ts'), 'utf8');
   for (const [consulta, modelo] of Object.entries(CONSULTAS) as Array<[string, { argv: string[] }]>) {
     const palavras = modelo.argv.filter((a) => !a.startsWith('-') && a !== '<thread>');
