@@ -390,17 +390,19 @@ test('F16: a thread nunca despachada com o despacho falho no runtime vai para a 
   } finally { p.limpar(); }
 });
 
-test('F17: a reserva pendente conta como falha seguida no erro-repetido, e conta no teto', () => {
+test('F17: a reserva pendente segura o trabalho na retomada e conta no teto; a falha sem id que não abriu nada deixa seguir', () => {
   const p = projetoTemporario('noctum-f17');
   try {
     const h = abrirArco(p.dir, 'arco-f17', { trabalhos: [TRES[0], TRES[2]] });
-    const reservar = () => reservarDespacho(p.dir, { arco: 'arco-f17', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL',
-      runtime: 'claude-bg', conta: 'perfil-a', revisao: false });
-    reservar();
-    concluirDespacho(p.dir, 'arco-f17', reservar().seq, { motivo: MOTIVO_DO_ERRO_NO_DESPACHO });
-    assert.equal(resumo(porId(fila(p, 'arco-f17')).get('a')), 'abrir:GOAL', 'uma pendente e uma recusa por erro: duas falhas');
-    reservar();
-    assert.equal(resumo(porId(fila(p, 'arco-f17')).get('a')), 'bloqueado:erro-repetido');
-    assert.equal(lerArco(p.dir, 'arco-f17')!.consumo.arco, 2, 'as duas pendentes contam no teto');
+    const t = threadDoTrabalho(p.carregado, 'sem cota', 'RM-903', PEDIDO.c);
+    // A1 da rodada 3: a conta sem cota falhou sem dizer id de sessão, e o passo devolveu a reserva: o trabalho segue.
+    registrar(dirThread(p.dir, t.id), t.id, 'phase_dispatch_failed', { fase: 'GOAL', erro: 'runtime.quota-exhausted: SIMULADO' });
+    assert.equal(resumo(porId(fila(p, 'arco-f17')).get('c')), 'despachavel:GOAL', 'a próxima vez sai por outra conta');
+    reservarDespacho(p.dir, { arco: 'arco-f17', envelopeSha256: h, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg',
+      conta: 'perfil-a', revisao: false });
+    const f = fila(p, 'arco-f17');
+    assert.equal(resumo(porId(f).get('a')), 'bloqueado:retomada', 'o lançamento incerto não ganha outro por cima');
+    assert.deepEqual(f.candidatos.map(x => x.id), ['c']);
+    assert.equal(lerArco(p.dir, 'arco-f17')!.consumo.arco, 1, 'a pendente conta no teto');
   } finally { p.limpar(); }
 });

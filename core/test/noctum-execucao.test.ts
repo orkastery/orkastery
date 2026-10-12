@@ -186,43 +186,40 @@ test('X4: dois processos concorrentes com capacidade 1 despacham uma vez só', {
   } finally { p.limpar(); }
 });
 
-test('X5: o despacho que o núcleo recusa devolve a sessão ao orçamento e diz o motivo', { skip: semKernel }, () => {
+test('X5: sem sessão no resultado do núcleo, só a recusa de antes do lançamento devolve a sessão ao orçamento', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-x5');
   try {
-    abrirArco(p.dir, 'arco-x5', { trabalhos: AC });
-    const recusou = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: true, motivo: 'concurrency.limite',
-      erro: 'concurrency.limite: SIMULADO' }) as unknown as ResultadoRun });
-    assert.ok(recusou.acao === 'recusado' && recusou.motivo === 'concurrency.limite', JSON.stringify(recusou.acao));
-    const estado = lerArco(p.dir, 'arco-x5')!;
-    assert.equal(estado.despachos[0].desfecho, 'recusado');
-    assert.equal(estado.consumo.arco, 0, 'a recusa devolveu a sessão');
-    // B1 da rodada 2: o núcleo que volta sem sessão, sem recusa e sem dizer por quê pode ter aberto a sessão; a reserva
-    // fica pendente e contada até a N4 reconciliar.
-    const semSessao = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: false, motivo: null }) as unknown as ResultadoRun });
-    assert.ok(semSessao.acao === 'recusado' && semSessao.motivo === 'despacho.sem-sessao' && semSessao.reserva !== null,
-      JSON.stringify(semSessao.acao));
-    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente']);
-    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 1);
-    // O limite de uso da conta recusa antes de rodar; sem id de sessão na falha, a sessão volta ao orçamento.
-    const limite = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: false, motivo: 'runtime.rate-limited',
-      erro: 'limite de uso SIMULADO' }) as unknown as ResultadoRun });
-    assert.ok(limite.acao === 'recusado' && limite.motivo === 'runtime.rate-limited', JSON.stringify(limite.acao));
-    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente', 'recusado']);
-    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 1);
-    // Com o id da sessão dito na falha, nem o limite de uso devolve: a sessão existe até a N4 provar o contrário.
-    const comId = passo(p, 'arco-x5', { despachar: (_k, threadId, o) => {
-      registrar(dirThread(p.dir, threadId), threadId, 'phase_dispatch_failed', { fase: o.fase, erro: 'limite SIMULADO depois do id',
+    // Cada caso num arco e num item próprios: a reserva pendente segura o trabalho na retomada, e o caso seguinte não a veria.
+    const comId = (motivo: string): NonNullable<OpcoesDoPasso['despachar']> => (_k, threadId, o) => {
+      registrar(dirThread(p.dir, threadId), threadId, 'phase_dispatch_failed', { fase: o.fase, erro: `${motivo} SIMULADO depois do id`,
         sessionId: '99999999-0000-4000-8000-0000000000aa' });
-      return { sessionId: null, bloqueado: false, motivo: 'runtime.rate-limited', erro: 'limite de uso SIMULADO' } as unknown as ResultadoRun;
-    } });
-    assert.ok(comId.acao === 'recusado' && comId.reserva !== null, JSON.stringify(comId.acao));
-    assert.match(comId.acao === 'recusado' ? comId.detalhe : '', /a sessão pode ter aberto \(99999999-0000-4000-8000-0000000000aa\)/);
-    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'pendente', 'recusado', 'pendente']);
-    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 2);
+      return { sessionId: null, bloqueado: false, motivo, erro: `${motivo}: SIMULADO` } as unknown as ResultadoRun;
+    };
+    const sem = (r: Record<string, unknown>): NonNullable<OpcoesDoPasso['despachar']> => () => ({ sessionId: null, ...r }) as unknown as ResultadoRun;
+    const casos: Array<[string, NonNullable<OpcoesDoPasso['despachar']>, string, 'recusado' | 'pendente']> = [
+      ['o portão do núcleo recusa antes de chamar o runtime', sem({ bloqueado: true, motivo: 'concurrency.limite', erro: 'SIMULADO' }),
+        'concurrency.limite', 'recusado'],
+      ['o limite de uso sem id de sessão: nada rodou', sem({ bloqueado: false, motivo: 'runtime.rate-limited', erro: 'SIMULADO' }),
+        'runtime.rate-limited', 'recusado'],
+      ['o núcleo mudo, sem sessão nem recusa', sem({ bloqueado: false, motivo: null }), 'despacho.sem-sessao', 'pendente'],
+      ['a falha seca do runtime, sem id (o prazo estourou antes)', sem({ bloqueado: false, motivo: 'runtime.unavailable', erro: 'SIMULADO' }),
+        'runtime.unavailable', 'pendente'],
+      ['o limite de uso com o id dito na falha', comId('runtime.rate-limited'), 'runtime.rate-limited', 'pendente'],
+    ];
+    casos.forEach(([nome, despachar, motivo, desfecho], i) => {
+      const arco = `arco-x5-${i}`, item = `RM-${910 + i}`;
+      abrirArco(p.dir, arco, { trabalhos: [{ id: 'a', item, prioridade: 1, dependeDe: [], pedido: `Fatia SIMULADA do caso ${i}.` }] });
+      const r = passo(p, arco, { itens: [item], despachar });
+      assert.ok(r.acao === 'recusado' && r.motivo === motivo && r.reserva !== null, `${nome}: ${JSON.stringify(r.acao)}`);
+      const estado = lerArco(p.dir, arco)!;
+      assert.deepEqual(estado.despachos.map(d => d.desfecho), [desfecho], nome);
+      assert.equal(estado.consumo.arco, desfecho === 'pendente' ? 1 : 0, nome);
+      if (desfecho === 'pendente') assert.match(r.acao === 'recusado' ? r.detalhe : '', /a sessão pode ter aberto/, nome);
+    });
   } finally { p.limpar(); }
 });
 
-test('X6: a queda dentro do núcleo sobe e deixa a reserva pendente; o passo seguinte acha a thread pelo pedido, sem duplicar', { skip: semKernel }, () => {
+test('X6: a queda dentro do núcleo sobe e deixa a reserva pendente; o passo seguinte não despacha o mesmo trabalho de novo', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-x6');
   try {
     abrirArco(p.dir, 'arco-x6', { trabalhos: AC });
@@ -231,13 +228,15 @@ test('X6: a queda dentro do núcleo sobe e deixa a reserva pendente; o passo seg
     // A sessão pode ter aberto antes da queda: a reserva fica pendente e conta no orçamento até a N4 reconciliar.
     assert.deepEqual(lerArco(p.dir, 'arco-x6')!.despachos.map(d => d.desfecho), ['pendente']);
     assert.equal(lerArco(p.dir, 'arco-x6')!.consumo.arco, 1);
+    // A1 da rodada 3: o trabalho com a reserva pendente vai para a retomada, e o passo segue para o outro.
     const registro: string[] = [];
     const r = passo(p, 'arco-x6', { despachar: despachoSimulado(registro) });
-    assert.ok(r.acao === 'despachou' && r.trabalho === 'a', JSON.stringify(r.acao));
-    assert.equal(threadsDoItem(p, 'RM-901').length, 1, 'a mesma thread, não uma segunda');
+    assert.ok(r.acao === 'despachou' && r.trabalho === 'c', JSON.stringify(r.acao));
+    assert.equal(r.acao === 'despachou' && r.fila.trabalhos.find(t => t.id === 'a')?.motivo, 'retomada');
+    assert.equal(threadsDoItem(p, 'RM-901').length, 1, 'nenhuma segunda thread de A');
     assert.equal(registro.length, 1);
     const estado = lerArco(p.dir, 'arco-x6')!;
-    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['pendente', 'concluido']);
+    assert.deepEqual(estado.despachos.map(d => `${d.trabalho}:${d.desfecho}`), ['a:pendente', 'c:concluido']);
     assert.equal(estado.consumo.arco, 2);
   } finally { p.limpar(); }
 });
