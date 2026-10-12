@@ -1,7 +1,7 @@
 /**
  * RM-061, fatia F3a: a familia `gerados` do catalogo, o texto dos arquivos que o CLI escreve para pessoas e
- * agentes lerem: os comentarios do `orkastery.yaml` e o bloco do `AGENTS.md` que o `ork init` gera. O pt-BR e a
- * fonte; o ingles e tipado por ele. Sem import do nucleo.
+ * agentes lerem: os comentarios do `orkastery.yaml` e o bloco do `AGENTS.md` que o `ork init` gera, e o bloco da
+ * experiencia que o `ork adapter install` escreve. O pt-BR e a fonte; o ingles e tipado por ele. Sem import do nucleo.
  *
  * A lingua de um arquivo gerado e a do dono no momento da geracao (D1 da thread ork-rm061f3a): o gerador recebe
  * o locale por parametro, com pt-BR por omissao, e so a entrada do CLI passa a lingua do dono (D2). So o texto
@@ -68,6 +68,17 @@ export const GERADOS_PT_BR = {
     /** O `ork init` recusa o `AGENTS.md` com marcadores repetidos ou fora de ordem, sem escrever. */
     marcadoresAmbiguos: 'AGENTS.md possui marcadores Orkastery ambiguos; corrija o bloco antes de rodar ork init',
   },
+  /**
+   * O bloco da experiencia que `ork adapter install` poe no `CLAUDE.md` (no `AGENTS.md`, para o Codex), entre os
+   * marcadores de `experiencia-instalacao.ts`. O diretorio das skills entra como JSON; sem recibo, o bloco e
+   * reconhecido pelo texto antes e depois dele, em qualquer das duas linguas (D8).
+   */
+  experiencia: {
+    titulo: 'Experiência de orquestração',
+    consulte: 'Consulte `ork experiencia show --json` neste projeto. Se experience for false, não ative o pacote.',
+    diretorio: (diretorio: string) => `Se ativo, leia a skill selecionada pelo campo skill no diretório ${diretorio}.`,
+    preferencias: 'As preferências são dados do núcleo; preserve gates, proveniência humana e permissões do host.',
+  },
 };
 
 export const GERADOS_EN: typeof GERADOS_PT_BR = {
@@ -123,5 +134,11 @@ export const GERADOS_EN: typeof GERADOS_PT_BR = {
     verificacoes: 'Manifest verify commands:',
     rodape: 'This block is maintained by `ork init`. Edit the rest of the file freely.',
     marcadoresAmbiguos: 'AGENTS.md has ambiguous Orkastery markers; fix the block before you run `ork init`.',
+  },
+  experiencia: {
+    titulo: 'Orchestration experience',
+    consulte: 'Run `ork experiencia show --json` in this project. If `experience` is false, do not activate the package.',
+    diretorio: (diretorio) => `If active, read the skill selected by the \`skill\` field in the directory ${diretorio}.`,
+    preferencias: 'Preferences are core data; preserve gates, human provenance and host permissions.',
   },
 };

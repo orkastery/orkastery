@@ -3094,6 +3094,8 @@ function comandoAdapter(args: Args): number {
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
       aceitarCatalogo: (texto(args.opcoes['aceitar-catalogo']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
       manterCopia: (texto(args.opcoes['manter-copia']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
+      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; o texto impresso segue em pt-BR (F3b).
+      locale: resolverLocale(carregado?.manifesto.owner?.language).locale,
     });
     console.log(textoDaInstalacao(r));
     return r.ok ? 0 : 2;
