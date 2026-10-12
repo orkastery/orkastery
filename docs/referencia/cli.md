@@ -136,7 +136,7 @@ Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**;
 | `ork projetos registrar [caminho]` | Registra a cópia que já existia antes do registro. `ork init`, `ork thread new` e `ork fabrica entrar` já registram sozinhos |
 | `ork projetos esquecer <nome\|caminho>` | Tira do registro a cópia que sumiu ou sobrou; nada no disco é apagado |
 
-Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
+Toda resposta de `maestro`, `board`, `board plan`, `fabrica`, `roadmap status` e `roadmap reservas` começa dizendo o projeto consultado e o que não foi lido; os demais comandos que leem um projeto que o leitor não tem como adivinhar (no host, ou fora do diretório dele) terminam com a linha `Projeto consultado: ...` no stderr (fatia 2). O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
 
 Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool `ork_network_roadmap` do OpenClaw e do Hermes chama `ork network roadmap`, e a do MCP lê o projeto servido em todas as máquinas dele. Sem projeto e com mais de um conhecido, a recusa `projeto.escolha` termina oferecendo o mesmo panorama.
 
@@ -338,7 +338,14 @@ tipo B não é CHECK.
 (`modo.files`, `dsn.env-ausente`, `orkmind.indisponivel`), com motivo tipado em texto e JSON,
 como `memory index`. Universo vazio lido com sucesso continua saindo 0. A prova
 `core/scripts/prova-busca-semantica.sh` imprime a resposta com o motivo antes de encerrar
-quando uma busca falha, preservando seu código de saída.
+quando uma busca falha, preservando seu código de saída. Por par, a prova também mostra, como
+diagnóstico, a posição e a similaridade de cada alvo no ranking vetorial e quantas entradas da
+busca têm vetor coerente no índice, numa única consulta vetorial com `--limite 100`; a exclusiva
+continua julgada nos 5 primeiros dessa resposta, e o diagnóstico não muda os pares nem os códigos
+de saída. Sem argumentos, a prova usa os pares padrão que o dono decidiu em 10/10/2026 (RM-038):
+`watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
+`duplicacao|dois repositorios gemeos fundidos num unico oficial`; pares passados como argumentos
+(`"termo|parafrase"`) substituem os padrão.
 
 A leitura das cinco coleções usa `memory.universo_timeout_ms`: inteiro de 1 a 86.400.000 ms
 (24 h), com padrão de 90.000 ms, independente de `memory.timeout_ms` (15.000 ms por padrão nas
