@@ -34,6 +34,26 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `ork thread new --pedido "<texto>"` guarda o pedido em `pedido.md`, com o sha256 no `thread.json` e no
   `thread_created`, e o `ork prompt render` sem `--pedido` usa esse pedido, conferido pelo sha256. Thread sem pedido
   guardado segue como antes.
+- **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
+  roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
+  língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
+  byte a byte, o `--json` não muda com a língua e as datas seguem o locale. Fatias: F1, a prova de
+  conceito do #113 (`doctor`, `init`, catálogo tipado e datas), já mesclada; F2, o caminho da primeira
+  experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. A entrada é só
+  documentação.
+- **Decisões do dono no modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): em 12/10/2026 o
+  dono decidiu D1 a D4 (entrega com push, PR e merge no SHA exato; piloto local e depois em duas
+  máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
+  com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
+  valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
+
+## [0.5.4] - 2026-10-12
+
+### Adicionado
+
+- **Quickstart até a primeira thread em `#Fast`** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  `docs/comecar/quickstart.md` ganha o atalho do menor ciclo completo, de `ork thread new --modo fast` a
+  `ork master`, com a saída para `runtime.workspace-untrusted` e para o `human.pending` do `ship`; um teste confere os comandos.
 - **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
   `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
   do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
@@ -89,6 +109,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Primeira experiência em inglês e o recibo do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  o `README.md` traz a primeira thread e o glossário do CLI, o `CONTRIBUTING.md` o caminho curto, e o recibo do ensaio
+  em inglês (EN1 a EN10) registra os achados corrigidos com o PR e o commit de cada um.
 - **A prova da busca por significado usa os pares que o dono decidiu** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   sem argumentos, `core/scripts/prova-busca-semantica.sh` consulta
   `watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
