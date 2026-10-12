@@ -136,7 +136,7 @@ Nome ambíguo ou desconhecido **recusa com a lista de candidatos, na saída 4**;
 | `ork projetos registrar [caminho]` | Registra a cópia que já existia antes do registro. `ork init`, `ork thread new` e `ork fabrica entrar` já registram sozinhos |
 | `ork projetos esquecer <nome\|caminho>` | Tira do registro a cópia que sumiu ou sobrou; nada no disco é apagado |
 
-Toda resposta de `maestro`, `board`, `board plan`, `fabrica` e `roadmap status` começa dizendo o projeto consultado e o que não foi lido. O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
+Toda resposta de `maestro`, `board`, `board plan`, `fabrica`, `roadmap status` e `roadmap reservas` começa dizendo o projeto consultado e o que não foi lido; os demais comandos que leem um projeto que o leitor não tem como adivinhar (no host, ou fora do diretório dele) terminam com a linha `Projeto consultado: ...` no stderr (fatia 2). O contrato completo, para quem consome o registro (RM-053, RM-054), está em [projetos-rm052](contratos/projetos-rm052.md).
 
 Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool `ork_network_roadmap` do OpenClaw e do Hermes chama `ork network roadmap`, e a do MCP lê o projeto servido em todas as máquinas dele. Sem projeto e com mais de um conhecido, a recusa `projeto.escolha` termina oferecendo o mesmo panorama.
 
