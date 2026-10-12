@@ -4,8 +4,25 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T20:15:03.162Z",
+  "publicadoEm": "2026-10-12T20:20:43.853Z",
   "threads": [
+    {
+      "id": "ork-rm059ritual",
+      "nome": "rm059ritual",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm059ritual-full",
+      "atualizadaEm": "2026-10-12T20:20:43.577Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
     {
       "id": "ork-rm060previa",
       "nome": "rm060previa",
