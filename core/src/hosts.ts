@@ -271,9 +271,29 @@ export interface OpcoesInstalacao {
   manterCopia?: string[];
   /**
    * RM-061 (F3a, D1 e D2): a língua do bloco da experiência no `CLAUDE.md` ou no `AGENTS.md`. Sem ela, pt-BR; o
-   * `ork adapter install` passa a língua do dono (`owner.language`, senão o locale do ambiente).
+   * `ork adapter install` passa a língua do dono (`owner.language`, senão o locale do ambiente). Na F3b (D4), também a
+   * língua das skills, das checklists, dos comandos e dos subagentes que têm variante inglesa (`varianteEmIngles`).
    */
   locale?: Locale;
+}
+
+/** RM-061 (F3b, D4): as pastas das variantes inglesas, ao lado do catálogo (`core/assets` no repositório, `assets` no pacote). */
+const PASTAS_DAS_VARIANTES: Readonly<Record<string, string>> = { skills: 'skills-en', references: 'references-en', adapters: 'adapters-en' };
+
+/**
+ * RM-061 (F3b, D4): a variante inglesa de um arquivo `.md` do catálogo (`skills/<bucket>/<nome>/SKILL.md`,
+ * `references/<arquivo>.md`, `adapters/<host>/<relativo>.md`), quando existe; sem ela, `null` e o arquivo sai em pt-BR.
+ * A variante mora com o catálogo de onde o arquivo sai, nunca no pacote de outro: um catálogo sem `assets` instala em pt-BR.
+ * O par `orchestration-experience` e `orchestration-experience-pt-br` já é bilíngue e não tem variante.
+ */
+export function varianteEmIngles(catalogo: string, origem: string): string | null {
+  const m = /^(skills|references|adapters)\/(.+\.md)$/.exec(path.relative(catalogo, origem).split(path.sep).join('/'));
+  if (!m) return null;
+  for (const assets of [path.join(catalogo, 'core', 'assets'), path.join(catalogo, 'assets')]) {
+    const candidato = path.join(assets, PASTAS_DAS_VARIANTES[m[1]], ...m[2].split('/'));
+    if (fs.existsSync(candidato)) return candidato;
+  }
+  return null;
 }
 
 function sha256(conteudo: Buffer | string): string {
@@ -366,6 +386,11 @@ export function instalarAdaptador(host: Host, opcoes: OpcoesInstalacao = {}): Re
     for (const skill of skillsDoCatalogo(catalogo).filter(s => ['orchestration-experience', 'orchestration-experience-pt-br'].includes(s.nome))) {
       fontes.push({ origem: skill.caminho, relativo: path.posix.join('skills', skill.nome, 'SKILL.md') });
     }
+  }
+  // RM-061 (F3b, D4): com o dono em inglês, o arquivo com variante sai dela, no mesmo destino; o recibo guarda a origem
+  // real, e reinstalar na outra língua troca no lugar a cópia intacta (`catalogo-andou`).
+  if (opcoes.locale === 'en') {
+    for (const fonte of fontes) fonte.origem = varianteEmIngles(catalogo, fonte.origem) ?? fonte.origem;
   }
 
   // A experiência é opcional: manifesto com erro, bloco alheio ou caminho inadequado pulam só a
