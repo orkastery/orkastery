@@ -249,8 +249,10 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   const v = entrada.varredura;
   const recomendacaoDaVarredura = (a: VarreduraDoPulse['pendentes'][number]): string =>
     a.quemFaz === 'varredura' && v!.autorizacao.por && v!.autorizacao.ate
-      ? textoDoCatalogo((m) => m.pulse.varredura.daVarredura(v!.autorizacao.por!, v!.autorizacao.ate!))
-      : textoDoCatalogo((m) => m.pulse.varredura.doDono(a.acao));
+      ? textoDoCatalogo((m) => m.pulse.varredura.daVarredura(v!.autorizacao.por!,
+        formatarDataHoraRotulada(v!.autorizacao.ate!, { agora: quando })))
+      : a.bloqueio ? textoDoCatalogo((m) => m.pulse.varredura.comBloqueioRecomendacao(a.thread, a.comando))
+        : textoDoCatalogo((m) => m.pulse.varredura.doDono(a.acao));
   const masterDaVarredura = new Map((v?.pendentes ?? []).filter(a => a.acao === 'master').map(a => [a.thread, a] as const));
   for(const b of batch) {
     const eventos=lerLedger(dirThread(carregado.raiz,b.thread.id));
@@ -271,8 +273,9 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     const daVarredura = masterDaVarredura.get(b.thread.id);
     if (daVarredura) {
       const item = automaticas[automaticas.length - 1];
-      item.comandoResposta = daVarredura.comando;
+      item.comandoResposta = comandoDaAcaoDaVarredura(daVarredura);
       item.recomendacao = recomendacaoDaVarredura(daVarredura);
+      if (daVarredura.bloqueio || daVarredura.recusa) item.pergunta = `${item.pergunta} ${textoDaAcaoDaVarredura(daVarredura)}`;
       item.evidencia.push(daVarredura.evidencia);
       if (!item.fontes.includes('varredura')) item.fontes.push('varredura');
       masterDaVarredura.delete(b.thread.id);
@@ -295,13 +298,11 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   for (const a of v?.pendentes ?? []) {
     if (a.acao === 'master' && !masterDaVarredura.has(a.thread)) continue;
     const daVarredura = a.quemFaz === 'varredura' || a.acao === 'master';
-    const pergunta = a.recusa ? textoDoCatalogo((m) => m.pulse.varredura.comRecusa(a.oQue, a.recusa!.detalhe))
-      : a.bloqueio ? textoDoCatalogo((m) => m.pulse.varredura.comBloqueio(a.oQue, a.bloqueio!)) : a.oQue;
     const item: ItemPulse = { id: `varredura:${a.acao}:${a.thread}${a.sessionId ? `:${a.sessionId.slice(0, 8)}` : ''}`,
       classe: 'varredura', motivo: `varredura.${a.acao}`, thread: a.thread, fase: a.fase, sessionId: null, desdeEm: a.desdeEm,
-      paradaHaMin: minutos(a.desdeEm, quando), impacto: impacto(a.fase), pergunta, opcoes: [],
-      recomendacao: recomendacaoDaVarredura(a), comandoResposta: a.comando, evidencia: [a.evidencia], fontes: ['varredura'],
-      contextoLogs: [] };
+      paradaHaMin: minutos(a.desdeEm, quando), impacto: impacto(a.fase), pergunta: textoDaAcaoDaVarredura(a), opcoes: [],
+      recomendacao: recomendacaoDaVarredura(a), comandoResposta: comandoDaAcaoDaVarredura(a), evidencia: [a.evidencia],
+      fontes: ['varredura'], contextoLogs: [] };
     (daVarredura ? automaticas : humanos).push(item);
   }
   const unicos=(items:ItemPulse[])=>[...new Map(items.map(i=>[i.id,i])).values()].sort(ordenar);
@@ -335,6 +336,20 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     ...(entregas?.parados.length ? { paradoNoCondutor: entregas.parados } : {}),
     ...(v && (v.pendentes.length || v.feitas.length || v.autorizacao.estado !== 'ausente') ? { varredura: v } : {})};
 }
+
+/** RM-063 (F5): com bloqueio, o comando do dono e olhar a thread: a acao iria por cima do trabalho que esta nela. */
+export function comandoDaAcaoDaVarredura(a: AcaoPendente): string {
+  return a.bloqueio ? `ork thread status ${a.thread}` : a.comando;
+}
+
+/** RM-063 (F5): o que a acao faz, com o motivo da ultima recusa ou do bloqueio quando ha. */
+export function textoDaAcaoDaVarredura(a: AcaoPendente): string {
+  return a.recusa ? textoDoCatalogo((m) => m.pulse.varredura.comRecusa(a.oQue, a.recusa!.detalhe))
+    : a.bloqueio ? textoDoCatalogo((m) => m.pulse.varredura.comBloqueio(a.oQue, a.bloqueio!)) : a.oQue;
+}
+
+/** RM-063 (F5): os estados em que a sessao da consulta ja nao trabalha na worktree. */
+const TERMINAIS_DA_CONSULTA = ['failed', 'done', 'stopped', 'completed', 'exited'];
 
 /** RM-063 (F5): a autorizacao e as acoes como o pulse as leva: cada acao com quem a faz agora. */
 export function varreduraDoPulse(leitura: LeituraDaAutorizacao, pendentes: readonly AcaoPendente[],
@@ -408,8 +423,15 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
   let varredura: VarreduraDoPulse | undefined;
   try {
     const leitura = lerAutorizacao(carregado.raiz, { projeto: carregado.manifesto.project.name, agora: new Date(quando) });
-    const fantasmas = opcoes.fantasmas ?? (opcoes.consulta || opcoes.semRuntime ? () => null : undefined);
-    const pendentes = acoesPendentes(carregado, { quando, fantasmas });
+    // Com a consulta injetada (os testes) ou sem o runtime, as sessoes vem dela: sem a leitura, nada se afirma, e o
+    // registro e o MASTER ficam com o dono (`sessoes-sem-leitura`).
+    const injetada = opcoes.fantasmas || opcoes.consulta || opcoes.semRuntime;
+    const consultada = consulta;
+    const pendentes = acoesPendentes(carregado, { quando, ...(injetada ? {
+      fantasmas: opcoes.fantasmas ?? (() => null),
+      vivas: () => consultada.ok ? consultada.sessoes.filter((s) => typeof s.cwd === 'string' && !TERMINAIS_DA_CONSULTA.includes(estadoBruto(s)))
+        .map((s) => ({ sessionId: s.sessionId, cwd: s.cwd as string })) : null,
+    } : {}) });
     const feitas = acoesFeitasDesde(carregado.raiz, new Date(Date.parse(quando) - JANELA_DAS_DECISOES_MS).toISOString());
     varredura = varreduraDoPulse(leitura, pendentes, feitas);
   } catch (e) { diagnosticos.push(`varredura.indisponivel: ${(e as Error).message.slice(0, 120)}`); }

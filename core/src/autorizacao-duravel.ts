@@ -17,6 +17,7 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { raizDoEstado } from './estado-thread';
 import { formatarDataHoraRotulada } from './horario';
+import { autoriaHumana } from './master';
 import { nomeDaMaquina } from './maquina';
 import { rastreadoPeloGit } from './procedencia';
 
@@ -63,7 +64,9 @@ export function caminhoDaAutorizacao(raiz: string): string {
   return path.join(raizDoEstado(raiz), '.orkastery', 'monitor', ARQUIVO_DA_AUTORIZACAO);
 }
 
-const instante = (v: unknown): boolean => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && Number.isFinite(Date.parse(v));
+/** O instante com o fuso explicito (`Z` ou `-03:00`): sem ele, o prazo dependeria do fuso de quem le. */
+const instante = (v: unknown): boolean => typeof v === 'string' &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v));
 const textoCurto = (v: unknown, teto: number): v is string => typeof v === 'string' && v.trim() !== '' && v.length <= teto &&
   !/\p{Cc}/u.test(v);
 
@@ -92,8 +95,14 @@ export function lerAutorizacao(raiz: string, opcoes: { projeto: string; agora?: 
   for (const [campo, teto] of [['maquina', 80], ['projeto', 80], ['por', 120]] as const) {
     if (!textoCurto(dado[campo], teto)) return recusa('autorizacao.campo', `o campo ${campo} precisa ser texto de ate ${teto} caracteres`);
   }
+  // A autoria e a mesma regra da nota do MASTER: nome de agente, de runtime ou generico nao autoriza nada.
+  if (!autoriaHumana(dado.por)) {
+    return recusa('autorizacao.campo', 'o campo por precisa nomear a pessoa que autorizou; agente, runtime ou nome generico nao autoriza');
+  }
   for (const campo of ['concedidaEm', 'ate'] as const) {
-    if (!instante(dado[campo])) return recusa('autorizacao.campo', `o campo ${campo} precisa ser um instante ISO (2026-10-18T23:59:00-03:00)`);
+    if (!instante(dado[campo])) {
+      return recusa('autorizacao.campo', `o campo ${campo} precisa ser um instante ISO com fuso (Z ou -03:00), como 2026-10-18T23:59:00-03:00`);
+    }
   }
   if (dado.nota !== undefined && !textoCurto(dado.nota, 300)) return recusa('autorizacao.campo', 'a nota precisa ser texto de ate 300 caracteres');
   const pode = dado.pode;
@@ -118,7 +127,8 @@ export function lerAutorizacao(raiz: string, opcoes: { projeto: string; agora?: 
   }
   const agora = opcoes.agora ?? new Date();
   if (Date.parse(autorizacao.ate) <= agora.getTime()) {
-    return recusa('autorizacao.expirada', `o prazo acabou em ${autorizacao.ate}`, autorizacao);
+    return recusa('autorizacao.expirada', `o prazo acabou em ${formatarDataHoraRotulada(autorizacao.ate, { agora: agora.toISOString() })}`,
+      autorizacao);
   }
   return { valida: true, arquivo, autorizacao, sha256: createHash('sha256').update(bruto, 'utf8').digest('hex') };
 }

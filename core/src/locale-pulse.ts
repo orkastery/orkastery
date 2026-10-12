@@ -113,12 +113,17 @@ export const PULSE_PT_BR = {
         'do ledger vira a nota, e a sua nota, quando vier, vale',
     },
     bloqueios: {
-      conduzida: 'alguém conduz a thread agora',
-      trabalhoNovo: 'a thread recebeu trabalho novo depois do merge, e o registro mudaria a fase dela',
-      branchComCommits: 'a branch tem commits depois da entrega',
-      gitSemResposta: 'o git não respondeu sobre a branch',
+      'conduzida': 'alguém conduz a thread agora',
+      'sessao-viva': 'há sessão viva trabalhando na worktree da thread',
+      'sessoes-sem-leitura': 'sem a leitura das sessões vivas do runtime agora, não dá para provar a worktree parada',
+      'worktree-suja': 'a worktree da thread tem alteração não commitada',
+      'branch-com-commits': 'a branch tem commits depois do head do PR mesclado',
+      'trabalho-novo': 'a thread recebeu trabalho novo depois do PR, e a ação mudaria a fase dela',
+      'git-sem-resposta': 'o git não respondeu sobre a branch',
     },
     comBloqueio: (oQue: string, bloqueio: string) => `${oQue}. A varredura não faz isso sozinha agora: ${bloqueio}`,
+    comBloqueioRecomendacao: (thread: string, comando: string) =>
+      `veja a thread antes (ork thread status ${thread}); quando o trabalho nela parar, o comando é ${comando}`,
     comRecusa: (oQue: string, detalhe: string) => `${oQue}. A varredura tentou e não fez: ${detalhe}`,
     daVarredura: (por: string, ate: string) => `a varredura faz isso na próxima batida, pela autorização durável de ${por} até ${ate}`,
     doDono: (acao: string) => `rode o comando; para a varredura fazer isso sozinha, autorize a ação ${acao} na autorização ` +
@@ -245,12 +250,17 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
         'ledger index becomes the score, and your score, when it comes, wins',
     },
     bloqueios: {
-      conduzida: 'someone conducts the thread now',
-      trabalhoNovo: 'the thread got new work after the merge, and recording would change its phase',
-      branchComCommits: 'the branch has commits after the delivery',
-      gitSemResposta: 'git did not answer about the branch',
+      'conduzida': 'someone conducts the thread now',
+      'sessao-viva': 'a live session works in the thread worktree',
+      'sessoes-sem-leitura': 'without a reading of the runtime live sessions now, the worktree cannot be proven idle',
+      'worktree-suja': 'the thread worktree has uncommitted changes',
+      'branch-com-commits': 'the branch has commits after the head of the merged PR',
+      'trabalho-novo': 'the thread got new work after the PR, and the action would change its phase',
+      'git-sem-resposta': 'git did not answer about the branch',
     },
     comBloqueio: (oQue, bloqueio) => `${oQue}. The sweep does not do this on its own now: ${bloqueio}`,
+    comBloqueioRecomendacao: (thread, comando) =>
+      `look at the thread first (ork thread status ${thread}); once the work in it stops, the command is ${comando}`,
     comRecusa: (oQue, detalhe) => `${oQue}. The sweep tried and did not do it: ${detalhe}`,
     daVarredura: (por, ate) => `the sweep does this at the next beat, under the durable authorization of ${por} until ${ate}`,
     doDono: (acao) => `run the command; for the sweep to do this on its own, authorize the action ${acao} in this machine's ` +

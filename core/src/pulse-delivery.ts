@@ -6,7 +6,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { ItemPulse, Pulse, CONTRATO_PULSE } from './pulse';
+import { comandoDaAcaoDaVarredura, ItemPulse, Pulse, CONTRATO_PULSE, textoDaAcaoDaVarredura } from './pulse';
 import { raizDoEstado } from './estado-thread';
 import { exigirHostLocal } from './procedencia';
 import { contextoSeguro, redigirSegredos } from './hitl';
@@ -256,7 +256,7 @@ export function varrerPulse(opcoes: {
         impedimentosDoDono:impedimentos,
         // RM-063 (F5): o que espera o dono na varredura, com o comando, e o que ela fez sozinha desde o ultimo resumo.
         acoesDaVarredura:(pulse.varredura?.pendentes??[]).filter(a=>a.quemFaz==='dono')
-          .map(a=>({thread:a.thread,acao:a.acao,texto:a.oQue,comando:a.comando})),
+          .map(a=>({thread:a.thread,acao:a.acao,texto:textoDaAcaoDaVarredura(a),comando:comandoDaAcaoDaVarredura(a)})),
         feitasPelaVarredura:feitasNovas.map(f=>({thread:f.thread,acao:f.acao,texto:`${f.acao}: ${f.detalhe}`,comando:null})),
         maquinaOciosa:ociosa?{maquina:ociosa.maquina,livres:ociosa.livres,limite:ociosa.limite,reservados:ociosa.reservados,
           sugeridas:ociosa.sugeridas.map(x=>({item:x.item,thread:x.thread,passo:x.passo,comando:x.comando}))}:null,
@@ -293,21 +293,31 @@ export function varrerPulse(opcoes: {
 }
 
 /**
- * RM-063 (F5): a parte que age da batida, com o registro de cada rodada no `hitl.log` (`varredura_acoes`): o estado da
- * autorizacao, a busca da base, o que foi feito e o que ficou para o dono. Nunca lanca.
+ * RM-063 (F5): a parte que age da batida, depois da entrega ao dono (a busca da base e o registro do PR nao atrasam o
+ * resumo), com o registro de cada rodada no `hitl.log` (`varredura_acoes`): o estado da autorizacao, a busca da base, o
+ * que foi feito e o que ficou para o dono. Uma batida por vez (`varredura-acoes.lock`): a que chega com outra agindo so
+ * registra a vez perdida. Nunca lanca.
  */
-export function agirAntesDaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge | null {
+export function agirDepoisDaEntrega(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge | null {
   const dir=path.join(raizDoEstado(carregado.raiz),'.orkastery','monitor');
   const quando=opcoes.quando??new Date().toISOString();
+  const log=(linha:Record<string,unknown>)=>{
+    try {
+      fs.mkdirSync(dir,{recursive:true});
+      fs.appendFileSync(path.join(dir,'hitl.log'),JSON.stringify({ts:quando,tipo:'varredura_acoes',...linha})+'\n',{mode:0o600});
+    } catch { /* o log e da batida; sem ele, o ledger da thread ainda guarda cada acao */ }
+  };
+  let trava: ReturnType<typeof adquirirLockMonitor>;
+  try { fs.mkdirSync(dir,{recursive:true}); trava=adquirirLockMonitor(path.join(dir,'varredura-acoes.lock')); }
+  catch(e) { log({erro:(e as Error).message.slice(0,300)}); return null; }
+  if(!trava.ok) { log({ocupada:true,detalhe:trava.detalhe}); return null; }
   let r:VarreduraQueAge|null=null, erro:string|null=null;
   try { r=agirNaVarredura(carregado,{...opcoes,quando}); } catch(e) { erro=(e as Error).message.slice(0,300); }
-  try {
-    fs.mkdirSync(dir,{recursive:true});
-    fs.appendFileSync(path.join(dir,'hitl.log'),JSON.stringify({ts:quando,tipo:'varredura_acoes',
-      autorizacao:r?(r.autorizacao.valida?'valida':r.autorizacao.motivo):null,busca:r?.busca??null,
-      feitas:r?.feitas.map(f=>({acao:f.acao,thread:f.thread,resultado:f.resultado}))??[],
-      pendentes:r?.pendentes.map(p=>({acao:p.acao,thread:p.thread}))??[],...(erro?{erro}:{})})+'\n',{mode:0o600});
-  } catch { /* o log e da batida; sem ele, o ledger da thread ainda guarda cada acao */ }
+  finally { trava.liberar(); }
+  log({autorizacao:r?(r.autorizacao.valida?'valida':r.autorizacao.motivo):null,busca:r?.busca??null,
+    feitas:r?.feitas.map(f=>({acao:f.acao,thread:f.thread,resultado:f.resultado}))??[],
+    pendentes:r?.pendentes.map(p=>({acao:p.acao,thread:p.thread,...(p.motivoDoBloqueio?{bloqueio:p.motivoDoBloqueio}:{})}))??[],
+    ...(erro?{erro}:{})});
   return r;
 }
 
@@ -344,15 +354,17 @@ if(require.main===module) {
     }
     const outrasMaquinas=compartilhada
       ? ()=>resumoDasOutrasMaquinas(lerFabrica(carregado.raiz,{remoto,semRemoto:true}),nomeDaMaquina()) : undefined;
-    // RM-063 (F5): a varredura que age vem antes do pulse: com a autorizacao duravel do dono, limpa as sessoes
-    // fantasmas, registra a entrega do PR ja mesclado e fecha pelo MASTER por omissao; o pulse que vem depois ja ve o
-    // estado novo, e o que ficou sem autorizacao vai a fila do dono. Falha aqui nunca segura a entrega ao dono.
-    agirAntesDaVarredura(carregado);
     // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
     // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora).
     const r=varrerEDepoisPublicarNaRede(()=>varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas}),()=>{
-      try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }
-      catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
+      // RM-063 (F5): a varredura que age vem depois da entrega ao dono e antes da rede: com a autorizacao duravel do
+      // dono, limpa as sessoes fantasmas, registra a entrega do PR ja mesclado e fecha pelo MASTER por omissao; o resumo
+      // seguinte diz o que ela fez, e o que ficou sem autorizacao ja esta na fila do dono. Ela nunca lanca.
+      try { agirDepoisDaEntrega(carregado); }
+      finally {
+        try { const rede=publicarRedeNaBatida({diretorio:carregado.raiz}); if(rede) registrarNaRede({...rede,origem:'pulse'}); }
+        catch(e) { registrarNaRede({acao:'falhou',origem:'pulse',erro:(e as Error).message}); }
+      }
     });
     console.log(JSON.stringify(r));process.exitCode=r.code;
   } catch(e) { console.error((e as Error).message);process.exitCode=1; }

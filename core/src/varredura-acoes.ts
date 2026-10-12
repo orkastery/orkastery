@@ -5,18 +5,25 @@
  * dias sem `ork ship registrar-pr`, e as sessoes fantasmas de threads ja fechadas ficaram registradas, porque ninguem
  * roda esses comandos sem um condutor. Aqui moram as tres acoes de arrumacao que a batida (`pulse-delivery`) faz:
  *
- *  - `limpar`: a sessao fantasma (sem pid e sem processo, RM-056) ainda presa a uma thread deste projeto sai do ork pelo
- *    `ork sessions limpar-fantasmas`, que grava `sessao_morta` e nunca toca o runtime;
+ *  - `limpar`: a sessao fantasma (sem pid e sem processo, RM-056) ainda presa a uma thread deste projeto, sem sinal de
+ *    vida ha pelo menos 30 min, sai do ork pelo `ork sessions limpar-fantasmas`, que grava `sessao_morta` e nunca toca o
+ *    runtime;
  *  - `registrar`: o merge `ship(<thread>)` da branch `ork/*` da thread na base remota, sem `ship_done`, vira entrega
  *    pelo `ork ship registrar-pr`, com a mesma prova de sempre (merge dentro da ponta remota e CI verde);
- *  - `master`: a thread entregue, sem nota do dono e quieta (nada despachado depois da entrega, ninguem conduzindo, 30
- *    min depois do `ship_done`) fecha pelo MASTER por omissao, so ela (`ork master <thread> --aceitar-omissao`).
+ *  - `master`: a thread entregue, sem nota do dono e quieta (nada despachado depois da entrega, 30 min depois do
+ *    `ship_done`) fecha pelo MASTER por omissao, so ela (`ork master <thread> --aceitar-omissao`).
+ *
+ * `registrar` e `master` nunca agem sozinhos por cima de trabalho na thread: alguem conduzindo, sessao viva na worktree
+ * (ou o runtime que nao respondeu, sem a prova), worktree com alteracao nao commitada, commit na branch depois do head do
+ * PR mesclado, ou despacho depois dele. Nesses casos a acao fica com o dono, com o motivo tipado (`motivoDoBloqueio`).
  *
  * A deteccao (`acoesPendentes`) e leitura pura e alimenta a fila do pulse. A execucao (`agirNaVarredura`) so faz o que
  * a autorizacao duravel do dono permite (`autorizacao-duravel.ts`), e cada acao feita ou recusada vai ao ledger da
- * thread como `varredura_acao`, com a autorizacao que a permitiu. Sem autorizacao, nada e feito: cada acao vira um item
- * da fila do pulse com o comando pronto.
+ * thread como `varredura_acao`, com a autorizacao que a permitiu; a mesma recusa seguida nao vira linha nova. Sem
+ * autorizacao, nada e feito: cada acao vira um item da fila do pulse com o comando pronto.
  */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { autorizada, LeituraDaAutorizacao, lerAutorizacao, referenciaDaAutorizacao } from './autorizacao-duravel';
 import { conducaoDaThread } from './conducao';
 import { registrarEntregaPorPr } from './entrega-pr';
@@ -27,13 +34,20 @@ import { ManifestoCarregado } from './manifest';
 import { aceitarPendentesPorOmissao, motivoForaDaOmissao } from './master';
 import { LIMIAR_PARADO_NO_CONDUTOR_MIN } from './parado-no-condutor';
 import { FantasmaTratado, limparFantasmas } from './sessoes';
+import { inventariarSessoes } from './sessoes-inventario';
 import { dirThread, lerThread, listarIds } from './thread';
 import { EventoLedger, Thread } from './types';
 import { exec } from './util';
+import { PRAZO_DA_LEITURA_MS } from './vida-da-thread';
 import { branchDaWorktree } from './worktree';
 
 export const ACOES_DA_VARREDURA = ['limpar', 'registrar', 'master'] as const;
 export type AcaoDaVarredura = typeof ACOES_DA_VARREDURA[number];
+
+/** Por que nem a autorizacao faz a acao sozinha agora. */
+export const MOTIVOS_DO_BLOQUEIO = ['conduzida', 'sessao-viva', 'sessoes-sem-leitura', 'worktree-suja', 'branch-com-commits',
+  'trabalho-novo', 'git-sem-resposta'] as const;
+export type MotivoDoBloqueio = typeof MOTIVOS_DO_BLOQUEIO[number];
 
 export interface AcaoPendente {
   acao: AcaoDaVarredura;
@@ -50,19 +64,33 @@ export interface AcaoPendente {
   evidencia: string;
   /** Por que nem a autorizacao faz esta acao sozinha agora; ela fica com o dono. */
   bloqueio: string | null;
+  motivoDoBloqueio: MotivoDoBloqueio | null;
   /** A ultima tentativa da varredura, autorizada, que nao fez; o dono ve o motivo. */
   recusa: { em: string; detalhe: string } | null;
 }
+
+/** Uma sessao viva agora, pelo cwd: e o que prova trabalho na worktree de uma thread. */
+export interface SessaoViva { sessionId: string; cwd: string }
 
 export interface OpcoesDaDeteccao {
   quando?: string;
   /** As sessoes fantasmas que o `limpar` soltaria; `null` quando o runtime nao foi lido (nada se afirma). */
   fantasmas?: () => FantasmaTratado[] | null;
+  /**
+   * As sessoes vivas agora; `null` quando o runtime nao foi lido: sem a prova, `registrar` e `master` nao agem sozinhos.
+   * Sem esta opcao e sem `fantasmas`, as duas saem de uma leitura so do inventario de todas as contas.
+   */
+  vivas?: () => readonly SessaoViva[] | null;
 }
+
+/** A sessao so e tratada como fantasma depois de duas batidas sem sinal: a recem-despachada pode nao ter pid ainda. */
+export const IDADE_MINIMA_DA_FANTASMA_MIN = 30;
 
 const SHA = /^[0-9a-f]{40}$/;
 /** Os eventos de trabalho novo numa fase: o pedido de despacho e o despacho. */
 const TRABALHO_NOVO: readonly string[] = [TIPOS_DE_EVENTO.promptGravado, TIPOS_DE_EVENTO.faseDespachada];
+/** Os eventos que nao sao sinal de vida da sessao: a contabilidade do proprio ork. */
+const SO_DO_ORK = /^(conducao_|retry_|despacho_idempotente$|varredura_acao$)/;
 
 function lerThreads(raiz: string): Thread[] {
   const saida: Thread[] = [];
@@ -87,37 +115,81 @@ const conduzida = (raiz: string, id: string, quando: string): boolean => {
   try { return conducaoDaThread(raiz, id, { agora: new Date(quando) }) !== null; } catch { return true; }
 };
 
+const real = (p: string): string => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+
+/** O instante do commit pela copia local; `null` quando o git nao responde. */
+function dataDoCommit(raiz: string, sha: string): string | null {
+  const r = exec('git', ['log', '-1', '--format=%cI', sha, '--'], raiz, 30000);
+  const ms = r.ok ? Date.parse(r.stdout.trim()) : NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+}
+
+const comMotivo = (motivo: MotivoDoBloqueio): { motivo: MotivoDoBloqueio; texto: string } =>
+  ({ motivo, texto: textoDoCatalogo((m) => m.pulse.varredura.bloqueios[motivo]) });
+
+/**
+ * O trabalho em curso na worktree da thread, que nenhuma acao automatica atropela: alguem conduzindo, sessao viva nela
+ * (ou o runtime que nao respondeu, sem a prova), ou alteracao nao commitada.
+ */
+function trabalhoNaWorktree(raiz: string, t: Thread, quando: string, vivas: readonly SessaoViva[] | null):
+  { motivo: MotivoDoBloqueio; texto: string } | null {
+  if (conduzida(raiz, t.id, quando)) return comMotivo('conduzida');
+  if (vivas === null) return comMotivo('sessoes-sem-leitura');
+  const wt = t.worktree ? real(t.worktree) : null;
+  if (!wt || !fs.existsSync(wt)) return null;
+  if (vivas.some((v) => { const c = real(v.cwd); return c === wt || c.startsWith(wt + path.sep); })) return comMotivo('sessao-viva');
+  const st = exec('git', ['status', '--porcelain', '--', '.', ':(exclude).orkastery'], wt, 30000);
+  if (!st.ok) return comMotivo('git-sem-resposta');
+  return st.stdout.trim() ? comMotivo('worktree-suja') : null;
+}
+
+/** Commits na branch da thread depois de `sha` (o head do PR mesclado); `null` quando o git nao responde. */
+function commitsDepois(raiz: string, t: Thread, sha: string): number | null {
+  const branch = branchDaWorktree(t);
+  if (!exec('git', ['rev-parse', '--verify', '-q', `refs/heads/${branch}`], raiz, 30000).ok) return 0;
+  const r = exec('git', ['rev-list', '--count', `${sha}..refs/heads/${branch}`], raiz, 30000);
+  return r.ok ? Number(r.stdout.trim()) : null;
+}
+
 /**
  * Os merges `ship(<thread>)` da base remota (a copia local dela) numa leitura so, do mais novo ao mais velho: fica o mais
- * novo de cada thread, com o instante do commit. E a mesma busca do `ork ship registrar-pr` (`mergeDaEntrega`).
+ * novo de cada thread, com o head do PR (o segundo pai) e o instante do commit. E a mesma busca do `ork ship
+ * registrar-pr` (`mergeDaEntrega`).
  */
-function mergesDaBase(raiz: string, remoto: string, base: string): Map<string, { mergeSha: string; em: string | null }> {
-  const mapa = new Map<string, { mergeSha: string; em: string | null }>();
-  const r = exec('git', ['log', `refs/remotes/${remoto}/${base}`, '--first-parent', '--format=%H%x09%cI%x09%s', '--grep=^ship(', '--'],
-    raiz, 60000);
+function mergesDaBase(raiz: string, remoto: string, base: string):
+  Map<string, { mergeSha: string; headSha: string | null; em: string | null }> {
+  const mapa = new Map<string, { mergeSha: string; headSha: string | null; em: string | null }>();
+  const r = exec('git', ['log', `refs/remotes/${remoto}/${base}`, '--first-parent', '--format=%H%x09%P%x09%cI%x09%s', '--grep=^ship(',
+    '--'], raiz, 60000);
   if (!r.ok) return mapa;
   for (const linha of r.stdout.split('\n')) {
-    const [sha, em, assunto] = linha.split('\t');
+    const [sha, pais, em, assunto] = linha.split('\t');
     const m = /^ship\(([A-Za-z0-9._-]+)\)/.exec(assunto ?? '');
     if (!m || !sha || !SHA.test(sha) || mapa.has(m[1])) continue;
+    const segundo = (pais ?? '').split(' ')[1] ?? null;
     const ms = Date.parse(em ?? '');
-    mapa.set(m[1], { mergeSha: sha, em: Number.isFinite(ms) ? new Date(ms).toISOString() : null });
+    mapa.set(m[1], { mergeSha: sha, headSha: segundo && SHA.test(segundo) ? segundo : null,
+      em: Number.isFinite(ms) ? new Date(ms).toISOString() : null });
   }
   return mapa;
 }
 
-/** As sessoes fantasmas presas a threads deste projeto, uma acao por sessao. */
-function pendentesDeLimpar(raiz: string, threads: Map<string, Thread>, fantasmas: FantasmaTratado[] | null): AcaoPendente[] {
+/** As sessoes fantasmas presas a threads deste projeto, sem sinal de vida ha 30 min, uma acao por sessao. */
+function pendentesDeLimpar(raiz: string, threads: Map<string, Thread>, fantasmas: FantasmaTratado[] | null, quando: string): AcaoPendente[] {
   const saida: AcaoPendente[] = [];
   for (const f of fantasmas ?? []) {
-    if (f.acao !== 'solto' || !f.thread || !threads.has(f.thread)) continue;
-    const eventos = ledgerDe(raiz, f.thread);
-    const ultimo = [...eventos].reverse().find((e) => e.sessionId === f.sessionId)?.ts ?? null;
+    const t = f.thread ? threads.get(f.thread) : undefined;
+    if (f.acao !== 'solto' || !t) continue;
+    const eventos = ledgerDe(raiz, t.id);
+    // O ultimo sinal da sessao, sem a contabilidade do ork: a recusa da propria varredura nao rejuvenesce a fantasma.
+    const ultimo = [...eventos].reverse().find((e) => e.sessionId === f.sessionId && !SO_DO_ORK.test(e.tipo))?.ts ??
+      (t.sessoes ?? []).find((s) => s.sessionId === f.sessionId)?.despachadaEm ?? null;
+    if (!ultimo || Date.parse(quando) - Date.parse(ultimo) < IDADE_MINIMA_DA_FANTASMA_MIN * 60000) continue;
     const id = f.sessionId.slice(0, 8);
-    saida.push({ acao: 'limpar', thread: f.thread, fase: f.fase, sessionId: f.sessionId, desdeEm: ultimo,
+    saida.push({ acao: 'limpar', thread: t.id, fase: f.fase, sessionId: f.sessionId, desdeEm: ultimo,
       comando: 'ork sessions limpar-fantasmas', oQue: textoDoCatalogo((m) => m.pulse.varredura.oQue.limpar(id)),
       evidencia: `claude agents lista a sessão ${id} sem pid ou com pid sem processo${f.perfil ? ` (perfil ${f.perfil})` : ''}`,
-      bloqueio: null, recusa: recusaDe(eventos, 'limpar', f.sessionId, ultimo) });
+      bloqueio: null, motivoDoBloqueio: null, recusa: recusaDe(eventos, 'limpar', f.sessionId, ultimo) });
   }
   return saida;
 }
@@ -126,12 +198,14 @@ function pendentesDeLimpar(raiz: string, threads: Map<string, Thread>, fantasmas
  * O merge `ship(<thread>)` da branch `ork/*` da thread na base remota (a copia local dela) sem `ship_done` que o cubra.
  * O `ship_done` antigo sem o sha, ou o que gravou a ponta da base que contem o merge, cobre (a mesma regra do pulse).
  */
-function pendentesDeRegistrar(carregado: ManifestoCarregado, threads: Thread[], quando: string): AcaoPendente[] {
+function pendentesDeRegistrar(carregado: ManifestoCarregado, threads: Thread[], quando: string,
+  vivas: readonly SessaoViva[] | null): AcaoPendente[] {
   const { raiz, manifesto } = carregado;
   const remoto = manifesto.fabrica.remoto, base = manifesto.worktree.base_branch;
   const saida: AcaoPendente[] = [];
   const abertas = threads.filter((t) => t.status !== 'fechada' && branchDaWorktree(t).startsWith('ork/'));
-  const merges = abertas.length ? mergesDaBase(raiz, remoto, base) : new Map<string, { mergeSha: string; em: string | null }>();
+  const merges = abertas.length ? mergesDaBase(raiz, remoto, base)
+    : new Map<string, { mergeSha: string; headSha: string | null; em: string | null }>();
   for (const t of abertas) {
     const merge = merges.get(t.id);
     if (!merge) continue;
@@ -140,18 +214,19 @@ function pendentesDeRegistrar(carregado: ManifestoCarregado, threads: Thread[], 
     const coberto = ships.some((e) => typeof e.mergeSha !== 'string' || !SHA.test(e.mergeSha) || e.mergeSha === merge.mergeSha ||
       exec('git', ['merge-base', '--is-ancestor', merge.mergeSha, e.mergeSha], raiz, 30000).code === 0);
     if (coberto) continue;
-    const desde = merge.em;
-    // Trabalho novo depois do merge (outra fatia despachada) ou alguem conduzindo: registrar agora avancaria a fase da
-    // thread por baixo de quem trabalha nela. O dono decide.
-    const depois = desde ? eventos.filter((e) => TRABALHO_NOVO.includes(e.tipo) && e.ts > desde) : [];
-    const bloqueio = conduzida(raiz, t.id, quando) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios.conduzida)
-      : depois.length ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios.trabalhoNovo) : null;
+    // O registro avanca a fase da thread para SHIP: ele nao vai por cima do trabalho que veio depois do PR. Conta a partir
+    // do head do PR (o merge pode chegar horas depois): commit novo na branch, ou despacho depois dele.
+    const desde = (merge.headSha ? dataDoCommit(raiz, merge.headSha) : null) ?? merge.em;
+    const depois = merge.headSha ? commitsDepois(raiz, t, merge.headSha) : 0;
+    const motivo = trabalhoNaWorktree(raiz, t, quando, vivas)
+      ?? (depois === null ? comMotivo('git-sem-resposta') : depois > 0 ? comMotivo('branch-com-commits') : null)
+      ?? (desde && eventos.some((e) => TRABALHO_NOVO.includes(e.tipo) && e.ts > desde) ? comMotivo('trabalho-novo') : null);
     const curto = merge.mergeSha.slice(0, 7);
-    saida.push({ acao: 'registrar', thread: t.id, fase: t.faseAtual, sessionId: null, desdeEm: desde,
+    saida.push({ acao: 'registrar', thread: t.id, fase: t.faseAtual, sessionId: null, desdeEm: merge.em,
       comando: `ork ship registrar-pr ${t.id}`,
       oQue: textoDoCatalogo((m) => m.pulse.varredura.oQue.registrar(curto, branchDaWorktree(t), `${remoto}/${base}`)),
       evidencia: `git log ${remoto}/${base}: merge ship(${t.id}) ${curto}, sem ship_done no ledger`,
-      bloqueio, recusa: recusaDe(eventos, 'registrar', null, desde) });
+      bloqueio: motivo?.texto ?? null, motivoDoBloqueio: motivo?.motivo ?? null, recusa: recusaDe(eventos, 'registrar', null, merge.em) });
   }
   return saida;
 }
@@ -168,7 +243,8 @@ function produtoNovo(carregado: ManifestoCarregado, t: Thread): boolean | null {
 }
 
 /** A thread entregue e quieta, sem nota do dono: fecha pelo MASTER por omissao. */
-function pendentesDeMaster(carregado: ManifestoCarregado, threads: Thread[], quando: string): AcaoPendente[] {
+function pendentesDeMaster(carregado: ManifestoCarregado, threads: Thread[], quando: string,
+  vivas: readonly SessaoViva[] | null): AcaoPendente[] {
   const { raiz } = carregado;
   const saida: AcaoPendente[] = [];
   for (const t of threads) {
@@ -179,36 +255,59 @@ function pendentesDeMaster(carregado: ManifestoCarregado, threads: Thread[], qua
     const eventos = ledgerDe(raiz, t.id);
     const ship = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.shipConcluido).at(-1);
     if (!ship) continue;
-    // Quieta: nada pedido ou despachado depois da entrega, ninguem conduzindo, e o condutor teve 30 min para o MASTER dele.
+    // Quieta: nada pedido ou despachado depois da entrega, e o condutor teve 30 min para o MASTER dele.
     if (eventos.some((e) => TRABALHO_NOVO.includes(e.tipo) && e.ts > ship.ts)) continue;
     if (Date.parse(quando) - Date.parse(ship.ts) < LIMIAR_PARADO_NO_CONDUTOR_MIN * 60000) continue;
+    // A entrega conta do head que ela levou (o registro pode vir horas depois do PR): despacho depois dele e trabalho novo.
+    const desdeOHead = typeof ship.shaDe === 'string' && SHA.test(ship.shaDe) ? dataDoCommit(raiz, ship.shaDe) : null;
     const novo = produtoNovo(carregado, t);
-    const bloqueio = conduzida(raiz, t.id, quando) ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios.conduzida)
-      : novo === true ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios.branchComCommits)
-      : novo === null ? textoDoCatalogo((m) => m.pulse.varredura.bloqueios.gitSemResposta) : null;
+    const motivo = trabalhoNaWorktree(raiz, t, quando, vivas)
+      ?? (novo === true ? comMotivo('branch-com-commits') : novo === null ? comMotivo('git-sem-resposta') : null)
+      ?? (desdeOHead && eventos.some((e) => TRABALHO_NOVO.includes(e.tipo) && e.ts > desdeOHead) ? comMotivo('trabalho-novo') : null);
     saida.push({ acao: 'master', thread: t.id, fase: t.faseAtual, sessionId: null, desdeEm: ship.ts,
       comando: `ork master ${t.id} --aceitar-omissao`, oQue: textoDoCatalogo((m) => m.pulse.varredura.oQue.master),
       evidencia: 'ledger: ship_done sem despacho nem MASTER depois dele',
-      bloqueio, recusa: recusaDe(eventos, 'master', null, ship.ts) });
+      bloqueio: motivo?.texto ?? null, motivoDoBloqueio: motivo?.motivo ?? null, recusa: recusaDe(eventos, 'master', null, ship.ts) });
   }
   return saida;
 }
 
 /**
+ * As fantasmas e as sessoes vivas numa leitura so do inventario de todas as contas, com o prazo curto da leitura da vida
+ * (20 s por conta): o pulse e o status nao esperam um daemon travado. Conta que nao respondeu deixa as vivas sem prova.
+ */
+function lerSessoes(raiz: string, opcoes: OpcoesDaDeteccao): { fantasmas: FantasmaTratado[] | null; vivas: readonly SessaoViva[] | null } {
+  if (opcoes.fantasmas || opcoes.vivas) {
+    let fantasmas: FantasmaTratado[] | null = null, vivas: readonly SessaoViva[] | null = null;
+    try { fantasmas = opcoes.fantasmas ? opcoes.fantasmas() : null; } catch { fantasmas = null; }
+    try { vivas = opcoes.vivas ? opcoes.vivas() : null; } catch { vivas = null; }
+    return { fantasmas, vivas };
+  }
+  try {
+    const inventario = inventariarSessoes(raiz, { global: true, prazoMs: PRAZO_DA_LEITURA_MS });
+    const fantasmas = limparFantasmas(raiz, { dryRun: true, inventario }).itens;
+    const claude = inventario.fontes.filter((f) => f.origem.startsWith('claude agents'));
+    const vivas = claude.every((f) => f.ok)
+      ? inventario.sessoes.filter((s) => s.viva && typeof s.cwd === 'string').map((s) => ({ sessionId: s.sessionId, cwd: s.cwd as string }))
+      : null;
+    return { fantasmas, vivas };
+  } catch { return { fantasmas: null, vivas: null }; }
+}
+
+/**
  * As acoes que a varredura faria agora, sem fazer nenhuma. Leitura pura (o git da copia local, o ledger, o runtime pelo
- * `fantasmas`), na ordem em que a execucao as faz: `limpar`, `registrar`, `master`.
+ * inventario), na ordem em que a execucao as faz: `limpar`, `registrar`, `master`.
  */
 export function acoesPendentes(carregado: ManifestoCarregado, opcoes: OpcoesDaDeteccao = {}): AcaoPendente[] {
   const raiz = raizDoEstado(carregado.raiz);
   const quando = opcoes.quando ?? new Date().toISOString();
   const doProjeto = { ...carregado, raiz };
   const threads = lerThreads(raiz);
-  let fantasmas: FantasmaTratado[] | null = null;
-  try { fantasmas = opcoes.fantasmas ? opcoes.fantasmas() : limparFantasmas(raiz, { dryRun: true }).itens; } catch { fantasmas = null; }
+  const { fantasmas, vivas } = lerSessoes(raiz, opcoes);
   return [
-    ...pendentesDeLimpar(raiz, new Map(threads.map((t) => [t.id, t])), fantasmas),
-    ...pendentesDeRegistrar(doProjeto, threads, quando),
-    ...pendentesDeMaster(doProjeto, threads, quando),
+    ...pendentesDeLimpar(raiz, new Map(threads.map((t) => [t.id, t])), fantasmas, quando),
+    ...pendentesDeRegistrar(doProjeto, threads, quando, vivas),
+    ...pendentesDeMaster(doProjeto, threads, quando, vivas),
   ];
 }
 
@@ -249,33 +348,40 @@ export function buscarBase(carregado: ManifestoCarregado): { ok: boolean; detalh
 
 /**
  * A batida que age: traz a base, detecta as acoes e faz as que a autorizacao duravel permite, na ordem. Cada acao feita
- * ou recusada vai ao ledger da thread (`varredura_acao`), com quem autorizou e ate quando. Sem autorizacao valida, nada
- * e feito e tudo fica pendente para a fila do pulse.
+ * ou recusada vai ao ledger da thread (`varredura_acao`), com quem autorizou e ate quando; a mesma recusa da vez anterior
+ * nao vira linha nova. Sem autorizacao valida, nada e feito e tudo fica pendente para a fila do pulse.
  */
 export function agirNaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge {
   const raiz = raizDoEstado(carregado.raiz);
   const quando = opcoes.quando ?? new Date().toISOString();
   const leitura = opcoes.autorizacao ?? lerAutorizacao(raiz, { projeto: carregado.manifesto.project.name, agora: new Date(quando) });
   const busca = opcoes.buscar === false ? null : buscarBase(carregado);
-  const pendentes = acoesPendentes(carregado, { quando, fantasmas: opcoes.fantasmas });
+  const sessoes = lerSessoes(raiz, opcoes);
+  const pendentes = acoesPendentes(carregado, { quando, fantasmas: () => sessoes.fantasmas, vivas: () => sessoes.vivas });
   const feitas: AcaoFeita[] = [];
   const ficam: AcaoPendente[] = [];
   const referencia = referenciaDaAutorizacao(leitura);
   const gravar = (p: AcaoPendente, resultado: AcaoFeita['resultado'], detalhe: string): void => {
-    registrar(dirThread(raiz, p.thread), p.thread, TIPOS_DE_EVENTO.acaoDaVarredura, {
-      fase: p.fase, acao: p.acao, resultado, detalhe: detalhe.slice(0, 400), comando: p.comando,
-      ...(p.sessionId ? { sessionId: p.sessionId } : {}), origem: 'varredura', autorizacao: referencia,
-      quemDecidiu: referencia ? `varredura do ork, pela autorização durável de ${String(referencia.por)} até ${String(referencia.ate)}` : null,
-      evidencia: p.evidencia,
-    });
+    const curto = detalhe.slice(0, 400);
+    // A mesma recusa da vez anterior (mesma acao, sessao e motivo) nao vira linha nova a cada batida.
+    const anterior = [...ledgerDe(raiz, p.thread)].reverse().find((e) => e.tipo === TIPOS_DE_EVENTO.acaoDaVarredura &&
+      e.acao === p.acao && (p.sessionId === null || e.sessionId === p.sessionId));
+    if (!(resultado === 'recusada' && anterior?.resultado === 'recusada' && anterior.detalhe === curto)) {
+      registrar(dirThread(raiz, p.thread), p.thread, TIPOS_DE_EVENTO.acaoDaVarredura, {
+        fase: p.fase, acao: p.acao, resultado, detalhe: curto, comando: p.comando,
+        ...(p.sessionId ? { sessionId: p.sessionId } : {}), origem: 'varredura', autorizacao: referencia,
+        quemDecidiu: referencia ? `varredura do ork, pela autorização durável de ${String(referencia.por)}` : null,
+        evidencia: p.evidencia,
+      });
+    }
     feitas.push({ acao: p.acao, thread: p.thread, sessionId: p.sessionId, resultado, detalhe });
   };
-  // `limpar` e uma chamada so para todas as fantasmas: e o mesmo `ork sessions limpar-fantasmas`.
+  // `limpar` e uma chamada so para as fantasmas que a deteccao ja viu velhas: e o mesmo `ork sessions limpar-fantasmas`.
   const aLimpar = pendentes.filter((p) => p.acao === 'limpar' && !p.bloqueio && autorizada(leitura, 'limpar'));
   let soltas: Map<string, FantasmaTratado> | null = null;
   if (aLimpar.length) {
     try {
-      const r = limparFantasmas(raiz, { origem: 'varredura' });
+      const r = limparFantasmas(raiz, { origem: 'varredura', sessoes: aLimpar.map((p) => p.sessionId as string) });
       soltas = new Map(r.itens.filter((i) => i.thread).map((i) => [`${i.thread}|${i.sessionId}`, i]));
     } catch (e) {
       soltas = null;
@@ -288,7 +394,7 @@ export function agirNaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaV
       if (!soltas) continue;
       const i = soltas.get(`${p.thread}|${p.sessionId}`);
       if (i?.acao === 'solto' || i?.acao === 'ja-solto') gravar(p, 'feita', `sessão ${String(p.sessionId).slice(0, 8)} solta: sessao_morta no ledger`);
-      else gravar(p, 'recusada', i ? `limpar-fantasmas respondeu ${i.acao}` : 'a sessão não apareceu como fantasma na execução');
+      else { gravar(p, 'recusada', i ? `limpar-fantasmas respondeu ${i.acao}` : 'a sessão não apareceu como fantasma na execução'); ficam.push(p); }
       continue;
     }
     if (p.acao === 'registrar') {
