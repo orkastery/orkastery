@@ -12,7 +12,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { comAmbientePtBr, projetoTemporario } from './apoio';
 import { montarStatusDoRoadmap, textoDoStatusDoRoadmap } from '../src/roadmap-status';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { registrar } from '../src/ledger';
@@ -93,10 +93,10 @@ test('R3: CLI --json traz foraDoRoadmap e o texto traz a linha', () => {
     const fora = foraComImpedimento(p);
     process.chdir(p.dir);
     let saida = ''; console.log = (s: unknown) => { saida += String(s) + '\n'; };
-    assert.equal(main(['roadmap', 'status', '--json']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status', '--json'])), 0);
     assert.deepEqual(JSON.parse(saida).foraDoRoadmap, { threads: [fora.id] });
     saida = '';
-    assert.equal(main(['roadmap', 'status']), 0);
+    assert.equal(comAmbientePtBr(() => main(['roadmap', 'status'])), 0);
     assert.ok(saida.split('\n').includes(LINHA(1)), saida);
   } finally { console.log = log; process.chdir(cwd); p.limpar(); definirFusoDoDono(undefined); }
 });

@@ -33,6 +33,7 @@ import { duracaoRelativa, formatarHora } from './horario';
 import { lerLedger } from './ledger';
 import { dirThread, listarIds } from './thread';
 import { EventoLedger } from './types';
+import { msg } from './locale';
 
 /** A meta da RM-057: mediana de resposta abaixo de 5 minutos. */
 export const META_DA_MEDIANA_DE_RESPOSTA_MS = 5 * 60_000;
@@ -200,14 +201,13 @@ const emMinutos = (ms: number): string => `${(ms / 60_000).toFixed(1)} min`;
 /** "mediana de 7 dias 3.0 min (dentro da meta de 5 min)", ou sem resposta medida. */
 export function textoDaMediana(h: HitlDeConducaoAgora): string {
   const s = h.seteDias;
-  if (s.medianaRespostaMs === null) return 'mediana de 7 dias sem resposta medida';
-  return `mediana de 7 dias ${emMinutos(s.medianaRespostaMs)} (${s.dentroDaMeta ? 'dentro' : 'acima'} da meta de 5 min, ` +
-    `${s.respondidos} resposta(s))`;
+  if (s.medianaRespostaMs === null) return msg().pulse.medianaSemResposta;
+  return msg().pulse.mediana(emMinutos(s.medianaRespostaMs), s.dentroDaMeta, s.respondidos);
 }
 
 /** "<thread> (<fase>) parada ha 12min, desde 01:02": a hora no fuso do dono (RM-035). */
 export function linhaDaPerguntaParada(p: PerguntaParada, opcoes: { agora: string; fuso?: string }): string {
-  return `${p.thread} (${p.fase}) parada há ${duracaoRelativa(p.paradaHaMin)}, desde ${formatarHora(p.desdeEm, opcoes)}`;
+  return msg().pulse.perguntaParada(p.thread, p.fase, duracaoRelativa(p.paradaHaMin), formatarHora(p.desdeEm, opcoes));
 }
 
 /**

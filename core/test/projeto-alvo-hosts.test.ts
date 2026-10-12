@@ -14,7 +14,7 @@ import { instalarAdaptador } from '../src/hosts';
 import { init } from '../src/init';
 import { exigirManifesto } from '../src/manifest';
 import { registrarProjeto } from '../src/projeto-alvo';
-import { dirTemporario, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { dirTemporario, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -26,7 +26,8 @@ function projeto(nome: string, abbrev: string): ProjetoDeTeste {
 }
 
 function sh(script: string, args: string[], cwd: string, env: Record<string, string>) {
-  const base = { ...process.env };
+  // RM-061 (F2b, D13 da F2a): o teste le o texto pt-BR do comando; o filho nao herda o LANG de quem roda.
+  const base = { ...envPtBr(process.env) };
   delete base.ORK_PROJETO; delete base.ORK_PROJETO_EXPLICITO;
   return spawnSync('/bin/sh', [script, ...args], { cwd, encoding: 'utf8', timeout: 60000, env: { ...base, ...env } });
 }

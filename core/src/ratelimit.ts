@@ -25,6 +25,7 @@ import { dirEstado, ManifestoCarregado } from './manifest';
 import { Fase, Manifesto, MotivoGate, PedidoDeRetomada, SinalDeFalhaDeConta, SinalDeRateLimit } from './types';
 import { agora, anexarJsonl, lerJsonl, proximoIdSequencial, tabela } from './util';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { msg } from './locale';
 import { marcarFalhaDePerfil, PerfilDeDespacho, PerfilDeRuntime } from './runtime-profiles';
 
 export { parseRateLimit } from './adapters/claude-bg';
@@ -194,9 +195,10 @@ export function vencidos(raiz: string, quando: string = agora()): PedidoDeRetoma
 /** Quanto falta para a janela de um pedido, em texto curto para o CLI. */
 export function faltaPara(pedido: PedidoDeRetomada, quando: string = agora()): string {
   const ms = new Date(pedido.liberaEm).getTime() - new Date(quando).getTime();
-  if (ms <= 0) return 'ja liberou';
+  const m = msg().horario;
+  if (ms <= 0) return m.jaLiberou;
   const min = Math.ceil(ms / 60000);
-  return min < 60 ? `em ${min} min` : `em ${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
+  return min < 60 ? m.emMinutos(min) : m.emHoras(Math.floor(min / 60), String(min % 60).padStart(2, '0'));
 }
 
 /** Tabela de `ork retry list`. */

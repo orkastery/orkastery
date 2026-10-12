@@ -34,6 +34,7 @@ import {
   Thread,
 } from './types';
 import { agora, exec, gravarJson, lerJson, tabela } from './util';
+import { msg } from './locale';
 import * as fs from 'node:fs';
 import { formatarDataHora, formatarDataHoraRotulada, legendaDoFuso } from './horario';
 import { calcularIndice, Indice } from './indice';
@@ -751,6 +752,7 @@ export function pendentesDeScore(raiz: string, todas = false): PendenteDeScore[]
  * inteiro, e a nota humana continua sobrescrevendo o indice quando o dono reclama.
  */
 export function tabelaDeEntregas(raiz: string, todas = false): string {
+  const m = msg().master;
   const pendentes = pendentesDeScore(raiz, todas);
   const omissoes = aceitosPorOmissao(raiz);
 
@@ -761,25 +763,20 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
   );
   const secaoOmissao = omissoes.length === 0
     ? []
-    : ['', `Aceitas por omissao (${omissoes.length}): o que passou sem voce olhar.`, '',
-       tabela(['ID', 'INDICE', 'SCORE GRAVADO', 'ACEITA EM'],
+    : ['', m.aceitasTitulo(omissoes.length), '',
+       tabela([...m.colunasAceitas],
          omissoes.map((o) => [o.thread, `${o.indice.valor}/${o.indice.base}`,
            typeof o.scoreGravado === 'number' ? `${o.scoreGravado}/5` : '-',
            formatarDataHora(o.aceitoEm)])),
        legendaDoFuso(),
        ...(caiuDepoisDeAceita.length === 0 ? [] : ['',
-         `ATENCAO: ${caiuDepoisDeAceita.length} entrega(s) cairam DEPOIS de aceitas: ` +
-           caiuDepoisDeAceita.map((o) => o.thread).join(', ') + '.',
-         '  O MASTER log e contrato congelado e nao se reescreve sozinho. Pontue para o',
-         '  registro humano alcancar o fato; o registro da omissao permanece no ledger.']),
-       '', 'Discordou de alguma? A nota humana sobrescreve, e o registro da omissao permanece:',
-       '  ork master <thread-id> --score <0-5> --justificativa "<por que>" --por <humano>'];
+         m.caiuDepois(caiuDepoisDeAceita.length, caiuDepoisDeAceita.map((o) => o.thread).join(', ')),
+         m.caiuDepoisLinha1, m.caiuDepoisLinha2]),
+       '', m.discordouDeAlguma, m.pontuar];
 
   if (pendentes.length === 0) {
     return [
-      todas
-        ? 'Nenhuma thread aberta sem score.'
-        : 'Nenhuma entrega esperando decisao. Para ver tambem as que ainda nao entregaram: ork master --todas',
+      todas ? m.semEntregaTodas : m.semEntrega,
       ...secaoOmissao,
     ].join('\n');
   }
@@ -791,24 +788,24 @@ export function tabelaDeEntregas(raiz: string, todas = false): string {
       p.thread.slug,
       tagDoModo(p.thread.modo),
       p.thread.faseAtual,
-      p.thread.status,
-      p.entregou ? 'sim' : 'nao',
+      msg().thread.status(p.thread.status),
+      m.simNao(p.entregou),
       `${indice.valor}/${indice.base}`,
-      indice.parcelas.length === 0 ? 'sem tropeco' : indice.parcelas.map((x) => `${x.evento} x${x.ocorrencias}`).join(', '),
+      indice.parcelas.length === 0 ? m.semTropeco : indice.parcelas.map((x) => `${x.evento} x${x.ocorrencias}`).join(', '),
     ];
   });
 
   return [
-    `Entregas (${pendentes.length}) com o indice ja derivado do ledger. O numero nao foi digitado por ninguem.`,
+    m.entregas(pendentes.length),
     '',
-    tabela(['ID', 'SLUG', 'MODO', 'FASE', 'STATUS', 'ENTREGOU', 'INDICE', 'DE ONDE VEIO'], linhas),
+    tabela([...m.colunas], linhas),
     '',
-    'ENTREGUE E ACEITO, a menos que voce diga o contrario.',
-    '  ork master <id> --aceitar-omissao     aceita so esta entrega, com o indice e os insumos no ledger',
-    '  ork master --aceitar-omissao          aceita TODAS as entregues da lista (--dry-run mostra quais, sem gravar)',
-    '  ork master <id> --score <0-5> --justificativa "<por que>" --por <humano>   se quiser reclamar',
+    m.entregueEAceito,
+    m.aceitarEsta,
+    m.aceitarTodas,
+    m.reclamar,
     '',
-    `Classes fixas: ${ORDEM_DAS_CLASSES.join(', ')}`,
+    m.classesFixas(ORDEM_DAS_CLASSES.join(', ')),
     ...secaoOmissao,
   ].join('\n');
 }
@@ -846,13 +843,13 @@ export function entregasParaOmissao(raiz: string, thread?: string): PendenteDeSc
 export function motivoForaDaOmissao(raiz: string, id: string): { motivo: 'ja-fechada' | 'fechamento-admin' | 'sem-entrega'; texto: string } | null {
   const thread = lerThread(raiz, id);
   if (thread.fechamentoAdmin) {
-    return { motivo: 'fechamento-admin', texto: `a thread ${id} foi fechada administrativamente (${thread.fechamentoAdmin.motivo}); nao ha entrega para aceitar.` };
+    return { motivo: 'fechamento-admin', texto: msg().master.foraAdmin(id, thread.fechamentoAdmin.motivo) };
   }
   if (masterRatificado(raiz, id)) {
-    return { motivo: 'ja-fechada', texto: `a thread ${id} ja tem MASTER registrado; nada a aceitar.` };
+    return { motivo: 'ja-fechada', texto: msg().master.foraJaFechada(id) };
   }
   if (!entregou(raiz, id)) {
-    return { motivo: 'sem-entrega', texto: `a thread ${id} ainda nao entregou (sem ship_done no ledger); registre a entrega antes: ork ship registrar-pr ${id}` };
+    return { motivo: 'sem-entrega', texto: msg().master.foraSemEntrega(id) };
   }
   return null;
 }

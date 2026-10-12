@@ -37,6 +37,7 @@ import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega
 import { exec } from './util';
 import { ehEsperaDoDono } from './impedimento';
 import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
+import { localeAtivo, msg, remontar, textoDoCatalogo } from './locale';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -291,13 +292,13 @@ export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): 
   // a 2.45 ignora o GIT_NO_LAZY_FETCH, entao o clone parcial nem e lido aqui (N4 da seguranca, rodada 2).
   // N4 da seguranca (rodada 3): o git novo registra o clone parcial no `remote.<r>.promisor`, o velho no `extensions`.
   if (exec('git', ['config', '--get-regexp', '^(extensions\\.partialclone|remote\\..+\\.promisor)$'], carregado.raiz).stdout.trim()) {
-    return { lido: false, motivo: `clone parcial: a cópia local de ${BRANCH_DA_FABRICA} não é lida sem rede`, semBatida: [] };
+    return { lido: false, motivo: textoDoCatalogo((m) => m.roadmap.fabricaClone(BRANCH_DA_FABRICA)), semBatida: [] };
   }
   const antes = process.env.GIT_NO_LAZY_FETCH;
   process.env.GIT_NO_LAZY_FETCH = '1';
   let painel: ReturnType<typeof lerFabrica>;
   try { painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true }); }
-  catch { return { lido: false, motivo: `a cópia local de ${BRANCH_DA_FABRICA} está ilegível`, semBatida: [] }; }
+  catch { return { lido: false, motivo: textoDoCatalogo((m) => m.roadmap.fabricaIlegivel(BRANCH_DA_FABRICA)), semBatida: [] }; }
   finally { if (antes === undefined) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = antes; }
   if (!painel.ponta) return { lido: false, semBatida: [] };
   const eu = nomeDaMaquina(), agora = Date.parse(quando);
@@ -395,33 +396,34 @@ const naMaquina = (maquina?: string): string => maquina ? ` (${maquina})` : '';
  * proximo passo; entrega em curso, com o estado do PR e a hora em que ele foi lido; sem nada disso, a fase.
  */
 function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, fuso?: string): string {
+  const m = msg().roadmap;
   const e = x.entrega;
   if (e?.parado) {
     const { prLidoEm: lido } = e.parado;
     return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}` +
-      `${lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : ''}.`;
+      `${lido ? m.prLido(formatarHora(lido, { agora, fuso })) : ''}.`;
   }
   if (e?.estado) {
     const { prLidoEm: lido } = e;
-    const daLeitura = lido ? ` (PR lido às ${formatarHora(lido, { agora, fuso })})` : '';
-    return e.conduzida ? `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}; ${e.estado}${daLeitura}.`
-      : `• ${x.item}: ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}, ${e.estado}${daLeitura}.`;
+    const daLeitura = lido ? m.prLido(formatarHora(lido, { agora, fuso })) : '';
+    return e.conduzida ? m.sigoComEstado(x.item, x.thread, x.fase, naMaquina(x.maquina), e.estado, daLeitura)
+      : m.comEstado(x.item, x.thread, x.fase, naMaquina(x.maquina), e.estado, daLeitura);
   }
-  return `• ${x.item}: sigo ${x.thread} na fase ${x.fase}${naMaquina(x.maquina)}.`;
+  return m.sigo(x.item, x.thread, x.fase, naMaquina(x.maquina));
 }
 
 /** RM-037 (fatia 4, D8): uma linha so para a fabrica, e so quando ha o que avisar. */
 function linhaDaFabrica(f: BatidaDaFabrica | undefined, agora: string, fuso?: string): string[] {
   if (!f) return [];
-  if (!f.lido) return [`Fábrica: não lido (${f.motivo ?? `esta máquina não tem cópia local de ${BRANCH_DA_FABRICA}`}).`];
+  const m = msg().roadmap;
+  if (!f.lido) return [m.fabricaNaoLida(f.motivo !== undefined ? remontar(f.motivo) : m.fabricaSemCopia(BRANCH_DA_FABRICA))];
   if (f.copiaVelha) {
     const { ultimoDestaMaquina: ultimo } = f.copiaVelha;
-    return [`Fábrica: a cópia local de ${BRANCH_DA_FABRICA} está velha (${ultimo ? `esta máquina publicou nela por último em ` +
-      `${formatarDataHora(ultimo, { agora, fuso })}` : 'esta máquina não aparece nela'}); não dá para dizer quem está sem batida.`];
+    return [m.fabricaVelha(BRANCH_DA_FABRICA, ultimo ? formatarDataHora(ultimo, { agora, fuso }) : null)];
   }
   if (!f.semBatida.length) return [];
-  return [`Fábrica: ${f.semBatida.map(m => `${m.maquina} sem batida há ${duracaoCurta(m.idadeMin)} ` +
-    `(último retrato ${formatarDataHora(m.publicadoEm, { agora, fuso })})`).join('; ')}, pela cópia local de ${BRANCH_DA_FABRICA}.`];
+  return [m.fabricaSemBatida(f.semBatida.map(x => m.semBatida(x.maquina, duracaoCurta(x.idadeMin),
+    formatarDataHora(x.publicadoEm, { agora, fuso }))).join('; '), BRANCH_DA_FABRICA)];
 }
 
 /**
@@ -440,26 +442,29 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes
       ? ` (${i.conduzindo.fase}${i.conduzindo.maquina ? `, ${i.conduzindo.maquina}` : ''})` : '';
     return `• ${i.id} ${i.titulo}${detalhe}${i.hitl ? ' #HITL' : ''}`;
   };
+  const m = msg().roadmap;
   const cortar = <T>(lista: T[], f: (x: T) => string): string[] =>
-    [...lista.slice(0, TETO_DO_FECHO).map(f), ...(lista.length > TETO_DO_FECHO ? [`• e mais ${lista.length - TETO_DO_FECHO}`] : [])];
+    [...lista.slice(0, TETO_DO_FECHO).map(f), ...(lista.length > TETO_DO_FECHO ? [m.eMais(lista.length - TETO_DO_FECHO)] : [])];
   return [
-    `Roadmap do ${capitalizar(s.projeto)} (${p.dia}/${p.mes}, ${p.hora}:${p.minuto})`,
+    m.titulo(capitalizar(s.projeto), p),
     ...(opcoes.legenda === false ? [] : [legendaDoFuso(fuso, s.consultadoEm)]),
     // RM-052: logo abaixo do titulo aprovado (e do fuso), qual projeto foi lido e o que nao foi.
     ...(s.consulta ? linhasDaConsulta(s.consulta) : []),
     ...linhaDaFabrica(s.fabrica, s.consultadoEm, fuso),
-    ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${g.titulo}`, ...g.itens.map(linhaDoItem)]),
-    '', 'O que precisa de você',
+    // RM-061 (F2b, D4): o titulo do grupo e dado do contrato; a impressao o traduz pelo id.
+    ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${localeAtivo() === 'pt-BR' ? g.titulo : m.grupos[g.id] ?? g.titulo}`,
+      ...g.itens.map(linhaDoItem)]),
+    '', m.precisaDeVoce,
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
-      (x.espera.codigo ? ` Responda ${x.espera.codigo} ${x.espera.recomendada ?? 'a'} (ou outra letra).` : ' A pergunta chega no próximo resumo.'))
-      : ['• Nada agora.']),
+      (x.espera.codigo ? m.responda(x.espera.codigo, x.espera.recomendada ?? 'a') : m.chegaNoResumo))
+      : [m.nadaAgora]),
     // R3 (RM-049, alternativa a do dono): so quando ha; o detalhe de cada thread esta no `ork pulse`.
-    ...(s.foraDoRoadmap?.threads.length ? [`• Fora do roadmap: ${s.foraDoRoadmap.threads.length} thread(s) esperam você (ork pulse).`] : []),
+    ...(s.foraDoRoadmap?.threads.length ? [m.foraDoRoadmap(s.foraDoRoadmap.threads.length)] : []),
     // RM-057 (fatia 3): ha quanto tempo cada pergunta de conducao parou a thread, e a mediana da semana.
-    ...(s.hitlDeConducao ? [`• HITL de condução: ${s.hitlDeConducao.abertas.length} aberta(s); ${textoDaMediana(s.hitlDeConducao)}.`,
+    ...(s.hitlDeConducao ? [m.hitlDeConducao(s.hitlDeConducao.abertas.length, textoDaMediana(s.hitlDeConducao)),
       ...cortar(s.hitlDeConducao.abertas, a => `  ${linhaDaPerguntaParada(a, { agora: s.consultadoEm, fuso })}.`)] : []),
-    '', 'O que eu faço em seguida',
+    '', m.emSeguida,
     ...(s.emSeguida.length ? cortar(s.emSeguida, x => linhaDoQueVem(x, s.consultadoEm, fuso))
-      : ['• Nada em andamento; sigo o que você priorizar.']),
+      : [m.nadaEmAndamento]),
   ].join('\n');
 }
