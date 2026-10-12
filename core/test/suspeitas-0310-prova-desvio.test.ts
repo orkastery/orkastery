@@ -20,7 +20,7 @@ const DESVIOS = [
   'bash -lc "$(which ork) maestro --json"',
   'bash -lc "`which ork` maestro"',
   'node core/dist/index.js maestro --json',
-  'node /home/julio/orkastery/core/dist/index.js maestro',
+  'node /home/usuario/orkastery/core/dist/index.js maestro',
   'npx @orkastery/cli maestro --json',
   'npx -y @orkastery/cli@0.5.2 maestro',
   'ork --projeto "/srv/meu projeto" maestro --json',

@@ -33,9 +33,9 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
 ```json
 {
   "contrato": "ork.rede-maquina/v1",
-  "maquina": "srvjcp86",
+  "maquina": "maquina-b",
   "id": "2f0b6c1e-8a57-4c1b-9f0e-3d2a6b7c8d90",
-  "hostname": "srvjcp86",
+  "hostname": "maquina-b",
   "adesao": "rede",
   "forjas": [{ "forja": "github", "host": "github.com", "cli": "gh", "versao": "2.101.0", "usuario": "juliopessoa" }],
   "runtimes": [{ "runtime": "claude-bg", "binario": "claude", "versao": "2.1.285" }],
@@ -43,7 +43,7 @@ Arquivo `maquinas/<maquina>.json` na casa da rede. Cada máquina escreve só o p
     { "host": "claude-code", "versao": "2.1.285", "adaptador": null },
     { "host": "openclaw", "versao": "2026.9.4", "adaptador": "0.4.3" }
   ],
-  "projetos": [{ "nome": "orkastery", "remoto": "https://github.com/orkastery/orkastery.git", "caminho": "/home/julio/orkastery" }],
+  "projetos": [{ "nome": "orkastery", "remoto": "https://github.com/orkastery/orkastery.git", "caminho": "/home/usuario/orkastery" }],
   "versaoOrk": "0.4.3",
   "publicadoEm": "2026-09-29T23:40:00.000Z"
 }
@@ -85,13 +85,13 @@ Saída de `ork network status --json` e de `lerRede()` em `core/src/rede-status.
   "contrato": "ork.rede-status/v1",
   "consultadoEm": "2026-09-29T23:41:00.000Z",
   "casa": { "forja": "github", "host": "github.com", "dono": "juliopessoa", "repositorio": "orkastery-network", "origem": "rede.json" },
-  "estaMaquina": { "maquina": "srvjcp86", "membro": true, "adesao": "rede", "publicada": true, "nomeEmUso": false },
+  "estaMaquina": { "maquina": "maquina-b", "membro": true, "adesao": "rede", "publicada": true, "nomeEmUso": false },
   "fontes": [
     { "fonte": "rede", "ref": "github.com/juliopessoa/orkastery-network#main", "ponta": "1a2b3c4…", "atualizado": true },
     { "fonte": "fabrica-estado", "projeto": "orkastery", "ref": "ork/fabrica-estado", "ponta": "5d6e7f8…", "atualizado": true }
   ],
   "membros": [
-    { "maquina": "srvjcp86", "origem": "rede", "idadeMs": 60000, "...": "o retrato inteiro" },
+    { "maquina": "maquina-b", "origem": "rede", "idadeMs": 60000, "...": "o retrato inteiro" },
     { "maquina": "vps", "origem": "fabrica-estado", "pessoa": "Julio Pessoa", "versaoOrk": "0.4.2", "idadeMs": 900000 }
   ],
   "lacunas": [],

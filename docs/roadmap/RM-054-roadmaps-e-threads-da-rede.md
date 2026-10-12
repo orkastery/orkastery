@@ -44,13 +44,13 @@ sdlc:
 ## Problema e resultado
 
 - **Público e problema:** o dono e todo agente que responde por ele. Um host fora de um clone (o gateway do OpenClaw, um cron) não enxerga `ork/fabrica-estado` nem `ork/roadmap-reservas`, e a saída não dizia qual projeto foi lido nem o que ficou de fora.
-- **Evidência (Telegram, 29/09/2026, srvjcp86):** a pergunta "orkastery maestro - qual é o status report do roadmap do orkastery agora?" voltou o panorama de `~/.openclaw/workspace` (projeto `workspace`, 0 threads), com "o roadmap está vazio" e "nenhuma outra máquina publicou". O roadmap tinha 13 itens reservados, e a `vps`, 10 threads ativas.
+- **Evidência (Telegram, 29/09/2026, maquina-b):** a pergunta "orkastery maestro - qual é o status report do roadmap do orkastery agora?" voltou o panorama de `~/.openclaw/workspace` (projeto `workspace`, 0 threads), com "o roadmap está vazio" e "nenhuma outra máquina publicou". O roadmap tinha 13 itens reservados, e a `vps`, 10 threads ativas.
 - **Causas verificadas:**
   - a extensão do OpenClaw publicada no npm (0.4.3) não tem tool de roadmap;
   - as tools chamam o `ork` sem projeto-alvo, e o núcleo resolve pelo cwd (RM-052);
   - as branches de estado vivem no remoto de um repositório, e fora de um clone ninguém as lê;
   - a saída não dizia o que não foi consultado, e o modelo leu "0 threads neste projeto" como "roadmap vazio";
-  - achado na prova ao vivo da fatia 2: com `tools.profile: coding` (o padrão do OpenClaw e o config da srvjcp86), nenhuma tool `ork_*` chegava ao modelo, porque o manifesto não as declarava no perfil; o modelo ia ao `ork` 0.4.3 pelo shell.
+  - achado na prova ao vivo da fatia 2: com `tools.profile: coding` (o padrão do OpenClaw e o config da maquina-b), nenhuma tool `ork_*` chegava ao modelo, porque o manifesto não as declarava no perfil; o modelo ia ao `ork` 0.4.3 pelo shell.
 - **Objetivo:** a pergunta pelo roadmap de um projeto, feita de qualquer lugar da rede, volta o roadmap real, com as threads de todas as máquinas e a fonte e a hora de cada parte.
 - **Hipótese:** Se o núcleo juntar, de qualquer diretório, o roadmap, as reservas e as threads por máquina de cada projeto, lendo a forja quando não há clone e declarando cada lacuna, então nenhum agente conclui "roadmap vazio" a partir de uma fonte que não leu, porque a resposta cita a fonte de cada parte e diz o que não foi consultado.
 - **Métrica principal:** fontes não lidas que aparecem como lacuna tipada. Linha de base: 0% (o incidente de 29/09). Meta: 100%. Janela: cada pedido de status do roadmap pelos canais, a partir da fatia 2. Fonte: os testes `rede: lacuna` e `rede: incidente`, e na fatia 2 `rede nos hosts: incidente` e a prova ao vivo pelo OpenClaw.
@@ -69,19 +69,19 @@ sdlc:
   - o status do roadmap nos hosts vem da rede; `ork_roadmap_status` fica como o relatório só desta máquina e aponta para ela;
   - a frase "orkastery maestro" sem projeto nomeado oferece o panorama da rede, nas entradas dos hosts e na própria recusa `projeto.escolha` do núcleo;
   - o núcleo em modo host (`ORK_PROJETO_EXPLICITO=1`): o `--projeto` do `network` é nome registrado ou `github:`/`gitlab:`, e o projeto do cwd do gateway só entra pelo registro; em modo fixado, o MCP lê só o projeto servido, em todas as máquinas dele;
-  - o critério de aceite do incidente: da srvjcp86, pelo OpenClaw, "qual é o status report do roadmap do orkastery agora?" devolve o roadmap real do `orkastery/orkastery` com as threads da `vps` e da `srvjcp86`, citando a fonte e o horário de cada parte.
+  - o critério de aceite do incidente: da maquina-b, pelo OpenClaw, "qual é o status report do roadmap do orkastery agora?" devolve o roadmap real do `orkastery/orkastery` com as threads da `vps` e da `maquina-b`, citando a fonte e o horário de cada parte.
 - **Lacunas tipadas da fatia 2, que dependiam da RM-053 na `main` (fatia 3, thread `ork-rm054fatia3s`):**
   - `ork_network_status` nos hosts: o núcleo desta base não expõe `ork network status`;
   - a rede por pessoa (`ork.rede-status/v1`) como fonte de projetos e máquinas: o panorama segue dizendo "rede por pessoa (RM-053): não lida";
   - o localizador de binário da forja para o PATH curto do gateway e do cron (o `gh` desta máquina está em `~/.local/bin`);
-  - o leitor do GitLab provado com `glab` de verdade (`glab` não está instalado na srvjcp86).
+  - o leitor do GitLab provado com `glab` de verdade (`glab` não está instalado na maquina-b).
 - **Fatia 3, a rede por pessoa e o status da rede nos hosts (thread `ork-rm054fatia3s`):**
   - o panorama lê a casa da RM-053 (`ork.rede-status/v1`): a seção "Rede por pessoa" traz a casa, com o commit e a hora, e cada máquina com a batida, a versão do `ork` e os projetos que declara; as lacunas da casa (`forja.sem-login`, `rede.sem-repositorio`, `rede.sem-leitura` e as outras) entram nas lacunas da consulta, e o JSON ganha `rede`;
   - o projeto que uma máquina da rede declara com remoto de forja passa a ser conhecido pelo nome: do gateway de uma máquina sem clone nem registro, "o roadmap do orkastery" acha o projeto pela rede e o lê pela forja;
   - a máquina da rede que declara o projeto e não publicou na fábrica dele aparece em "Threads por máquina" com as threads não lidas (`threadsLidas: false`) e a lacuna `maquina.sem-fabrica`, nunca como "0 ativas";
   - `ork_network_status` no OpenClaw (perfis `coding` e `messaging`, sem `projeto`), no Hermes (`bin/ork-network-status.sh`) e no MCP (só o projeto servido em cada máquina), e a regra nas entradas do Claude Code e do Codex; no host (`ORK_PROJETO_EXPLICITO=1`), `ork network status` não lê o projeto do diretório do gateway;
   - a forja do panorama acha o `gh` e o `glab` como a rede (D11 da RM-053): no PATH e nas pastas de usuário, como `~/.local/bin`;
-  - fica como lacuna, com decisão no ledger: o leitor do GitLab com `glab` de verdade, que não está instalado na srvjcp86.
+  - fica como lacuna, com decisão no ledger: o leitor do GitLab com `glab` de verdade, que não está instalado na maquina-b.
 - **Critérios de aceite da fatia 3, cada um com o teste que prova** (`core/test/rm054-fatia3-rede.test.ts`, os nove reprovam o código da fatia 2):
   - a rede no panorama, com a casa, a batida, os projetos e as lacunas da casa: `rm054 fatia 3: o panorama le a rede por pessoa`;
   - a máquina da rede sem fábrica: `a maquina da rede que declara o projeto e nao publicou na fabrica`;
@@ -98,7 +98,7 @@ sdlc:
   - de um cwd com manifesto de outro projeto, a resposta é do projeto pedido: `rede: incidente`;
   - o CLI e o contrato: `rede: CLI`, todos em `core/test/network-roadmap.test.ts`;
   - identidade da forja, GitHub, GitLab e erro sem segredo: `core/test/forja.test.ts`.
-- **Prova ao vivo (29/09/2026, srvjcp86):** `ork network roadmap --projeto github:orkastery/orkastery`, de um diretório sem manifesto, devolveu o roadmap da `main`, as 16 reservas e as threads da `vps` (10) e da `srvjcp86` (4), com a fonte e a hora de cada parte.
+- **Prova ao vivo (29/09/2026, maquina-b):** `ork network roadmap --projeto github:orkastery/orkastery`, de um diretório sem manifesto, devolveu o roadmap da `main`, as 16 reservas e as threads da `vps` (10) e da `maquina-b` (4), com a fonte e a hora de cada parte.
 - **Critérios de aceite da fatia 2, cada um com o teste que prova** (`core/test/network-roadmap-hosts.test.ts`, salvo o OpenClaw):
   - modo host: caminho e URL recusam com saída 4 sem ecoar o pedido, e o cwd fora do registro vai ao não consultado: `rede nos hosts: host`;
   - sem projeto, a recusa `projeto.escolha` oferece o panorama da rede: `rede nos hosts: escolha`;
@@ -107,7 +107,7 @@ sdlc:
   - Hermes, o wrapper, o manifesto e a skill: `rede nos hosts: Hermes`;
   - Claude Code e Codex, a rota e a frase sem projeto: `rede nos hosts: Claude Code`;
   - o incidente pela extensão do OpenClaw com o `ork` real, sem LLM, com as duas máquinas e a hora de cada fonte: `rede nos hosts: incidente`.
-- **Prova ao vivo da fatia 2 (30/09/2026, srvjcp86):** num turno isolado do OpenClaw 2026.9.4 (`openclaw agent exec` com config e state temporários, o modelo do gateway, `openrouter/~deepseek/deepseek-flash-latest`, e o perfil `coding` do `~/.openclaw/openclaw.json`), com a extensão desta worktree numa cópia temporária, "orkastery maestro - qual é o status report do roadmap do orkastery agora?" fez uma chamada, `ork_network_roadmap` com `projeto: orkastery`, e voltou o roadmap da `origin/main`, as threads da `srvjcp86` (5, estado local) e da `vps` (8, retrato de 30/09 03:15), as reservas e a fonte e a hora de cada parte, sem lacuna. Sem a declaração de perfil no manifesto, nenhuma tool `ork_*` chegava ao modelo, e ele respondeu pelo shell. A extensão global em `~/.openclaw/extensions` e o gateway não foram tocados.
+- **Prova ao vivo da fatia 2 (30/09/2026, maquina-b):** num turno isolado do OpenClaw 2026.9.4 (`openclaw agent exec` com config e state temporários, o modelo do gateway, `openrouter/~deepseek/deepseek-flash-latest`, e o perfil `coding` do `~/.openclaw/openclaw.json`), com a extensão desta worktree numa cópia temporária, "orkastery maestro - qual é o status report do roadmap do orkastery agora?" fez uma chamada, `ork_network_roadmap` com `projeto: orkastery`, e voltou o roadmap da `origin/main`, as threads da `maquina-b` (5, estado local) e da `vps` (8, retrato de 30/09 03:15), as reservas e a fonte e a hora de cada parte, sem lacuna. Sem a declaração de perfil no manifesto, nenhuma tool `ork_*` chegava ao modelo, e ele respondeu pelo shell. A extensão global em `~/.openclaw/extensions` e o gateway não foram tocados.
 - **Para valer no Telegram (ato do dono, depois do merge e da publicação da RM-049):** `npm i -g @orkastery/cli@<versão nova> && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`. Volta: `npm i -g @orkastery/cli@0.4.3 && ork adapter install openclaw --dir ~/.openclaw && openclaw daemon restart`.
 
 ## Plano e decisões
