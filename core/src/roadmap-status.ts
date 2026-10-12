@@ -17,6 +17,11 @@
  * RM-054: o montador recebe FATOS de thread (`FatoDeThread`), nao so as threads deste disco. O
  * relatorio local continua com os fatos locais; o panorama da rede soma os retratos das outras
  * maquinas, e so ai o fecho diz entre parenteses em que maquina a thread anda.
+ *
+ * RM-063 (F2): o fecho so diz "sigo <thread> na fase <F>" com sessao viva verificada no runtime
+ * (`vida-da-thread.ts`) ou com o processo do condutor conduzindo agora; sessao fantasma, despacho falho ou
+ * nenhuma sessao viram "<thread> parada desde HH:MM: <motivo>". E "O que precisa de voce" le a MESMA fila do `ork pulse` (`precisaDeHumanoAgora`),
+ * que o CLI e o MCP passam: com item do dono na fila, o fecho nunca diz "Nada agora".
  */
 import { carregarDocs, Documento } from './docs';
 import { ValorYaml } from './yaml';
@@ -38,6 +43,7 @@ import { exec } from './util';
 import { ehEsperaDoDono } from './impedimento';
 import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
 import { localeAtivo, msg, remontar, textoDoCatalogo } from './locale';
+import { LeituraDoRuntime, lerRuntime, motivoDaCausa, VidaDaThread, vidaDaThread } from './vida-da-thread';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -85,7 +91,10 @@ const recomendadaDe = (p: PedidoHitlQualquer): string | undefined =>
  */
 export interface EntregaNoStatus {
   estado: string | null;
-  /** Alguem conduz a thread agora (sessao trabalhando, processo do condutor): o "sigo" continua valendo. */
+  /**
+   * O processo do condutor (ou a reserva do canal) conduz a thread agora: o "sigo" continua valendo. RM-063 (F2): o lease
+   * de uma sessao nao conta aqui; a sessao so faz "sigo" viva no runtime (`vida`).
+   */
   conduzida?: boolean;
   /** `prLidoEm`: a hora da leitura do PR, quando a parada depende dela. */
   parado?: { desdeEm: string; proximoPasso: string; prLidoEm?: string };
@@ -115,8 +124,11 @@ export interface ItemDoStatus {
   emAberto: string[];
   /** As threads ligadas ao item (`sdlc.thread` e `thread.json.roadmap`). */
   threads: string[];
-  /** A thread aberta que conduz o item agora, com a fase (e a maquina, na visao da rede). */
-  conduzindo?: { thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus };
+  /**
+   * A thread aberta que conduz o item agora, com a fase (e a maquina, na visao da rede). RM-063 (F2): `vida`, a
+   * sessao verificada no runtime; sem ela (retrato antigo de outra maquina), nada foi verificado.
+   */
+  conduzindo?: { thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus; vida?: VidaDaThread };
   /** O que espera o dono, quando espera: e isto que acende o #HITL. */
   hitl?: EsperaDoDono;
 }
@@ -127,7 +139,7 @@ export interface StatusDoRoadmap {
   projeto: string;
   grupos: { id: GrupoDoRoadmap; icone: string; titulo: string; itens: ItemDoStatus[] }[];
   precisaDeVoce: { item: string; espera: EsperaDoDono }[];
-  emSeguida: { item: string; thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus }[];
+  emSeguida: { item: string; thread: string; fase: string; maquina?: string; entrega?: EntregaNoStatus; vida?: VidaDaThread }[];
   /** RM-037 (fatia 4): so com fabrica compartilhada; sem copia local, `lido: false`. */
   fabrica?: BatidaDaFabrica;
   /**
@@ -146,7 +158,21 @@ export interface StatusDoRoadmap {
    * sem ele o relatorio e o de antes, byte a byte.
    */
   foraDoRoadmap?: { threads: string[] };
+  /**
+   * RM-063 (F2): os itens da fila do `ork pulse` que precisam do dono e que o fecho ainda nao dizia (nem no
+   * `precisaDeVoce` nem no `foraDoRoadmap`), ou a fila que nao foi lida inteira. Campo aditivo: so sai quando ha.
+   */
+  filaDoDono?: { lida: boolean; detalhe?: string; itens: (ItemDaFilaDoDono & { item?: string })[] };
 }
+
+/** RM-063 (F2): um item da fila do `ork pulse` que precisa do dono agora (`precisaDeHumanoAgora`), ja em uma linha. */
+export interface ItemDaFilaDoDono {
+  id: string; thread: string | null; sessionId: string | null; fase: string | null; classe: string; motivo: string;
+  pergunta: string; comando: string; paradaHaMin: number | null;
+}
+
+/** RM-063 (F2): a fila do pulse que o fecho le; `lida: false` quando a consulta veio incompleta (`detalhe` diz por que). */
+export interface FilaDoDono { lida: boolean; detalhe: string | null; itens: ItemDaFilaDoDono[] }
 
 /**
  * RM-054: o que o relatorio precisa saber de uma thread, venha ela deste disco ou do retrato de
@@ -170,6 +196,8 @@ export interface FatoDeThread {
    * do despacho (`runtime.workspace-untrusted`). Sem ele, vale `espera()`.
    */
   esperaVoce?: () => boolean;
+  /** RM-063 (F2): a sessao da fase corrente verificada no runtime; sem ela, nada foi verificado e nao ha "sigo". */
+  vida?: () => VidaDaThread | undefined;
 }
 
 type Mapa = { [k: string]: ValorYaml };
@@ -236,9 +264,13 @@ export function esperaVoce(raiz: string, t: Thread, quando: string): boolean {
  * Os fatos das threads deste disco: `ship_done` do dia e espera do dono lidos do ledger local.
  * `fuso`: o do projeto consultado, na visao da rede; sem ele, o do dono deste processo.
  */
-export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDeThread[] {
+export function fatosLocais(raiz: string, quando: string, fuso?: string,
+  opcoes: { runtime?: () => LeituraDoRuntime } = {}): FatoDeThread[] {
   const hoje = dataLocal(quando, fuso);
   const fatos: FatoDeThread[] = [];
+  // RM-063 (F2): o runtime e consultado uma vez por relatorio, e so quando alguma thread tem sessao a conferir.
+  let leitura: LeituraDoRuntime | undefined;
+  const lerUmaVez = (): LeituraDoRuntime => (leitura ??= (opcoes.runtime ?? (() => lerRuntime(raiz)))());
   // RM-037 (fatia 4): o estado das entregas sai uma vez, sob demanda, do git local e do retrato de PRs do pulse.
   let entregas: EntregasDoProjeto | null | undefined;
   const lerEntregas = (): EntregasDoProjeto | null => {
@@ -268,6 +300,14 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
       espera: () => esperaDoDono(raiz, t, quando),
       esperaVoce: () => esperaVoce(raiz, t, quando),
       entrega: () => (t.status === 'fechada' ? undefined : entrega(t.id)),
+      vida: () => {
+        if (t.status === 'fechada') return undefined;
+        try { return vidaDaThread(t, lerLedger(dirThread(raiz, t.id)), lerUmaVez, Date.parse(quando)); }
+        catch (e) {
+          const causa = { tipo: 'naoLida' as const, detalhe: (e as Error).message.slice(0, 80) };
+          return { viva: false, sessionId: null, desdeEm: null, motivo: motivoDaCausa(causa), causa };
+        }
+      },
     });
   }
   return fatos;
@@ -276,7 +316,8 @@ export function fatosLocais(raiz: string, quando: string, fuso?: string): FatoDe
 /** O estado da entrega como o status o diz: so quando ha o que dizer. */
 function entregaNoStatus(e: EstadoDaEntrega | undefined): EntregaNoStatus | undefined {
   if (!e || (!e.resumo && !e.parado)) return undefined;
-  return { estado: e.resumo, ...(e.conduzidaAgora ? { conduzida: true } : {}),
+  // RM-063 (F2): o lease de sessao nao prova trabalho (a K7 morta seguia com ele); quem diz e a vida da sessao no runtime.
+  return { estado: e.resumo, ...(e.conduzidaAgora && e.donoDaConducao !== 'sessao' ? { conduzida: true } : {}),
     ...(e.parado ? { parado: { desdeEm: e.parado.desdeEm, proximoPasso: e.parado.proximoPasso,
       ...(e.parado.prLidoEm ? { prLidoEm: e.parado.prLidoEm } : {}) } } : {}),
     ...(e.prLidoEm ? { prLidoEm: e.prLidoEm } : {}) };
@@ -317,7 +358,11 @@ export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): 
 
 /** Monta o relatorio. Leitura pura: nada e escrito, nenhum pedido e aberto. */
 export function montarStatusDoRoadmap(raiz: string,
-    opcoes: { quando?: string; projeto?: string; consulta?: ConsultaDoProjeto } = {}): StatusDoRoadmap {
+    opcoes: { quando?: string; projeto?: string; consulta?: ConsultaDoProjeto;
+      /** RM-063 (F2): a leitura do runtime (padrao: `claude agents` e codex desta maquina, so quando preciso). */
+      runtime?: () => LeituraDoRuntime;
+      /** RM-063 (F2): a fila do `ork pulse`; o CLI e o MCP passam a de verdade, e sem ela o fecho nao a le. */
+      fila?: (quando: string) => FilaDoDono } = {}): StatusDoRoadmap {
   const quando = opcoes.quando ?? new Date().toISOString();
   let fabrica: BatidaDaFabrica | undefined;
   try { fabrica = batidaDaFabrica(exigirManifesto(raiz), quando); } catch { fabrica = undefined; }
@@ -327,14 +372,20 @@ export function montarStatusDoRoadmap(raiz: string,
     const h = lerHitlDeConducaoAgora(raiz, quando);
     if (h.abertas.length || h.seteDias.pedidos || h.seteDias.respondidos) hitlDeConducao = h;
   } catch { hitlDeConducao = undefined; }
-  return montarStatusDeFatos(carregarDocs(raiz).docs, fatosLocais(raiz, quando), { quando, projeto: opcoes.projeto, consulta: opcoes.consulta,
-    ...(fabrica ? { fabrica } : {}), ...(hitlDeConducao ? { hitlDeConducao } : {}) });
+  let fila: FilaDoDono | undefined;
+  if (opcoes.fila) {
+    try { fila = opcoes.fila(quando); }
+    catch (e) { fila = { lida: false, detalhe: (e as Error).message.slice(0, 160), itens: [] }; }
+  }
+  return montarStatusDeFatos(carregarDocs(raiz).docs, fatosLocais(raiz, quando, undefined, { runtime: opcoes.runtime }),
+    { quando, projeto: opcoes.projeto, consulta: opcoes.consulta,
+      ...(fabrica ? { fabrica } : {}), ...(hitlDeConducao ? { hitlDeConducao } : {}), ...(fila ? { fila } : {}) });
 }
 
 /** O relatorio a partir das paginas do roadmap e dos fatos das threads, de onde quer que venham. */
 export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly FatoDeThread[],
   opcoes: { quando: string; projeto?: string; consulta?: ConsultaDoProjeto; fabrica?: BatidaDaFabrica;
-    hitlDeConducao?: HitlDeConducaoAgora }): StatusDoRoadmap {
+    hitlDeConducao?: HitlDeConducaoAgora; fila?: FilaDoDono }): StatusDoRoadmap {
   const quando = opcoes.quando;
   const porId = new Map(fatos.map(f => [f.id, f]));
   const porItem = new Map<string, Set<string>>();
@@ -352,8 +403,11 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
     for (const f of abertas) { hitl = f.espera(); if (hitl) break; }
     // RM-037 (fatia 4): a thread que diz o estado real vem primeiro: a parada no condutor, depois a entrega em curso.
     const entregas = new Map(abertas.map(f => [f.id, f.entrega?.()]));
-    const conduz = abertas.find(f => entregas.get(f.id)?.parado) ?? abertas.find(f => entregas.get(f.id)?.estado) ?? abertas[0];
+    // RM-063 (F2): sem parada nem entrega a dizer, a thread com sessao viva vem antes das paradas.
+    const conduz = abertas.find(f => entregas.get(f.id)?.parado) ?? abertas.find(f => entregas.get(f.id)?.estado) ??
+      abertas.find(f => f.vida?.()?.viva) ?? abertas[0];
     const entrega = conduz ? entregas.get(conduz.id) : undefined;
+    const vida = conduz?.vida?.();
     const emAberto = GRUPO_DO_CICLO[ciclo] === 'disponiveis' ? [
       ...(texto(estado.exposicao) && texto(estado.exposicao) !== 'Geral' ? [`exposição ${texto(estado.exposicao)}`] : []),
       ...(texto(estado.habilitacao) && texto(estado.habilitacao) !== 'Concluída' ? [`habilitação ${texto(estado.habilitacao)}`] : []),
@@ -363,7 +417,7 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
       grupo: entregueHoje ? 'hoje' : GRUPO_DO_CICLO[ciclo] ?? 'proposto',
       emAberto, threads: ligadas,
       ...(conduz ? { conduzindo: { thread: conduz.id, fase: conduz.fase, ...(conduz.maquina ? { maquina: conduz.maquina } : {}),
-        ...(entrega ? { entrega } : {}) } } : {}),
+        ...(entrega ? { entrega } : {}), ...(vida ? { vida } : {}) } } : {}),
       ...(hitl ? { hitl } : {}),
     });
   }
@@ -373,15 +427,26 @@ export function montarStatusDeFatos(docs: readonly Documento[], fatos: readonly 
   const doRoadmap = new Set(itens.flatMap(i => i.threads));
   const fora = fatos.filter(f => f.aberta && !doRoadmap.has(f.id) && (f.esperaVoce ? f.esperaVoce() : !!f.espera()))
     .map(f => f.id).sort();
+  const precisaDeVoce = itens.filter(i => i.hitl).map(i => ({ item: i.id, espera: i.hitl! }));
+  // RM-063 (F2): a fila do pulse entra no fecho com o que ele ainda nao dizia; a thread que espera o dono sai do "sigo".
+  const ditas = new Set([...precisaDeVoce.map(x => x.espera.thread), ...fora]);
+  const itemDaThread = new Map(itens.flatMap(i => i.threads.map(t => [t, i.id] as const)));
+  const daFila = (opcoes.fila?.itens ?? []).filter(x => !(x.thread && ditas.has(x.thread)))
+    .map(x => (x.thread && itemDaThread.has(x.thread) ? { ...x, item: itemDaThread.get(x.thread)! } : x));
+  const esperamODono = new Set(daFila.map(x => x.thread).filter((t): t is string => !!t));
+  const fila = opcoes.fila;
   return {
     contrato: CONTRATO_STATUS_DO_ROADMAP, consultadoEm: quando,
     projeto: opcoes.projeto ?? 'projeto', grupos,
-    precisaDeVoce: itens.filter(i => i.hitl).map(i => ({ item: i.id, espera: i.hitl! })),
-    emSeguida: itens.filter(i => i.conduzindo && !i.hitl).map(i => ({ item: i.id, ...i.conduzindo! })),
+    precisaDeVoce,
+    emSeguida: itens.filter(i => i.conduzindo && !i.hitl && !esperamODono.has(i.conduzindo.thread))
+      .map(i => ({ item: i.id, ...i.conduzindo! })),
     ...(opcoes.consulta ? { consulta: opcoes.consulta } : {}),
     ...(opcoes.fabrica ? { fabrica: opcoes.fabrica } : {}),
     ...(opcoes.hitlDeConducao ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
     ...(fora.length ? { foraDoRoadmap: { threads: fora } } : {}),
+    ...(fila && (!fila.lida || daFila.length) ? { filaDoDono: { lida: fila.lida,
+      ...(!fila.lida && fila.detalhe ? { detalhe: fila.detalhe } : {}), itens: daFila } } : {}),
   };
 }
 
@@ -403,13 +468,29 @@ function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, f
     return `• ${x.item}: ${linhaDoParadoNoCondutor({ thread: x.thread, ...e.parado }, { agora, fuso })}${naMaquina(x.maquina)}` +
       `${lido ? m.prLido(formatarHora(lido, { agora, fuso })) : ''}.`;
   }
-  if (e?.estado) {
-    const { prLidoEm: lido } = e;
-    const daLeitura = lido ? m.prLido(formatarHora(lido, { agora, fuso })) : '';
-    return e.conduzida ? m.sigoComEstado(x.item, x.thread, x.fase, naMaquina(x.maquina), e.estado, daLeitura)
-      : m.comEstado(x.item, x.thread, x.fase, naMaquina(x.maquina), e.estado, daLeitura);
-  }
-  return m.sigo(x.item, x.thread, x.fase, naMaquina(x.maquina));
+  const daLeitura = e?.estado && e.prLidoEm ? m.prLido(formatarHora(e.prLidoEm, { agora, fuso })) : '';
+  const maquina = naMaquina(x.maquina);
+  const linha = (sigo: boolean): string => e?.estado
+    ? (sigo ? m.sigoComEstado(x.item, x.thread, x.fase, maquina, e.estado, daLeitura) : m.comEstado(x.item, x.thread, x.fase, maquina, e.estado, daLeitura))
+    : (sigo ? m.sigo(x.item, x.thread, x.fase, maquina) : m.semSessaoVerificada(x.item, x.thread, x.fase, maquina));
+  const v = x.vida;
+  // Sem `vida` (status montado sem ela), a linha de antes: "sigo" sem entrega, ou com o processo do condutor.
+  if (!v) return linha(!e?.estado || !!e.conduzida);
+  // RM-063 (F2): "sigo" so com a sessao viva verificada no runtime ou com o processo do condutor conduzindo agora; sem
+  // isso, a parada com o desde e o motivo; sem motivo (retrato que nao publica a sessao), nada foi verificado.
+  if (v.viva || e?.conduzida) return linha(true);
+  if (!v.motivo) return linha(false);
+  return m.parada(x.item, x.thread, maquina, v.desdeEm && Number.isFinite(Date.parse(v.desdeEm)) ? formatarHora(v.desdeEm, { agora, fuso }) : null,
+    v.causa ? motivoDaCausa(v.causa, m.motivoDaParada) : v.motivo, e?.estado ? `${e.estado}${daLeitura}` : null);
+}
+
+/** RM-063 (F2): um item da fila do pulse no fecho, numa linha: quem, a pergunta e o que responder. */
+function linhaDaFila(x: ItemDaFilaDoDono & { item?: string }): string {
+  const m = msg().roadmap;
+  const quem = x.item ? `${x.item} (${x.thread}${x.fase ? `, ${x.fase}` : ''})`
+    : x.thread ? `${x.thread}${x.fase ? ` (${x.fase})` : ''}` : m.sessaoSemThread((x.sessionId ?? '?').slice(0, 8));
+  const pergunta = x.pergunta.trim();
+  return `• ${quem}: ${pergunta}${/[.?!…]$/u.test(pergunta) ? '' : '.'}${x.comando ? m.responder(x.comando) : ''}`;
 }
 
 /** RM-037 (fatia 4, D8): uma linha so para a fabrica, e so quando ha o que avisar. */
@@ -455,11 +536,15 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes
     ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${localeAtivo() === 'pt-BR' ? g.titulo : m.grupos[g.id] ?? g.titulo}`,
       ...g.itens.map(linhaDoItem)]),
     '', m.precisaDeVoce,
-    ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
-      (x.espera.codigo ? m.responda(x.espera.codigo, x.espera.recomendada ?? 'a') : m.chegaNoResumo))
-      : [m.nadaAgora]),
-    // R3 (RM-049, alternativa a do dono): so quando ha; o detalhe de cada thread esta no `ork pulse`.
+    ...cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
+      (x.espera.codigo ? m.responda(x.espera.codigo, x.espera.recomendada ?? 'a') : m.chegaNoResumo)),
+    // RM-063 (F2): a fila do pulse, com o que ainda nao foi dito; a que nao foi lida inteira e dita, nunca "Nada agora".
+    ...cortar(s.filaDoDono?.itens ?? [], linhaDaFila),
+    ...(s.filaDoDono && !s.filaDoDono.lida ? [m.filaNaoLida(s.filaDoDono.detalhe ?? null)] : []),
+    // R3 (RM-049): so quando ha; o detalhe de cada thread esta no `ork pulse`.
     ...(s.foraDoRoadmap?.threads.length ? [m.foraDoRoadmap(s.foraDoRoadmap.threads.length)] : []),
+    // RM-063 (F2): "Nada agora" so quando nada do dono foi dito acima (substitui a alternativa a da R3).
+    ...(!s.precisaDeVoce.length && !s.filaDoDono && !s.foraDoRoadmap?.threads.length ? [m.nadaAgora] : []),
     // RM-057 (fatia 3): ha quanto tempo cada pergunta de conducao parou a thread, e a mediana da semana.
     ...(s.hitlDeConducao ? [m.hitlDeConducao(s.hitlDeConducao.abertas.length, textoDaMediana(s.hitlDeConducao)),
       ...cortar(s.hitlDeConducao.abertas, a => `  ${linhaDaPerguntaParada(a, { agora: s.consultadoEm, fuso })}.`)] : []),

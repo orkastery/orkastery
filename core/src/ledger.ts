@@ -20,6 +20,10 @@ export const TIPOS_DE_EVENTO = {
   faseDespachada: 'phase_dispatch',
   despachoVerificado: 'phase_dispatch_verified',
   despachoFalhou: 'phase_dispatch_failed',
+  // RM-063 (F3): o prompt foi ao disco e ao ledger, com o sha256, ANTES do adaptador. O despacho que morre
+  // depois (contexto do runtime, adaptador que lanca, processo morto) deixa o que o `ork retry run`
+  // redespacha sem pedir o texto. Escritor: `phase.ts` (`rodarFaseSobLock`).
+  promptGravado: 'phase_prompt_recorded',
   decisaoAutonoma: 'autonomous_decision',
   pausaHumana: 'human_gate',
   // Bloco B1: verdade, leases, ship e handoff
@@ -135,6 +139,11 @@ export const TIPOS_DE_EVENTO = {
   // RM-037 (rm037defeito, A-1 do CHECK 3): o despacho recusado antes da sessao devolveu o lease que a tomada consumiu.
   conducaoDevolvida: 'conducao_devolvida',
   conducaoRenovada: 'conducao_renovada',
+  // RM-063 (F1): a batida da varredura instalada ou removida no crontab desta maquina, pelo
+  // `ork fabrica batida`. Mora no ledger da maquina (`~/.orkastery/ledger.jsonl`, thread `maquina`):
+  // o crontab e do usuario na maquina, nao de uma thread. Escritor: `fabrica-batida.ts`.
+  batidaInstalada: 'batida_instalada',
+  batidaRemovida: 'batida_removida',
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',
