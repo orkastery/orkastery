@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T03:04:05.674Z",
+  "publicadoEm": "2026-10-12T03:04:11.652Z",
   "threads": [
     {
       "id": "ork-rm050guia3",
@@ -49,6 +49,23 @@
       "roadmap": null,
       "branch": "ork/ork-rm059erm060p-go",
       "atualizadaEm": "2026-10-12T03:04:05.233Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-rm059ponte",
+      "nome": "rm059ponte",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm059ponte-full",
+      "atualizadaEm": "2026-10-12T03:04:11.365Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
