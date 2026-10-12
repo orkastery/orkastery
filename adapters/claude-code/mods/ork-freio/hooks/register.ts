@@ -14,10 +14,20 @@ import {
   soLeitura, TETO_DE_STAT, TETO_DO_STATUS_MS, textoDoFora, vigiaVazia,
 } from './lote'
 import type { Chamada } from './lote'
+import {
+  acumular, argvDaConferencia, fecharRodada, iniciarRodada, lerConferencia, textoDaEntrega, textoDoStatus, tomarEntrega,
+  VIGIA_DA_CONFERENCIA_MS,
+} from './conferencia'
+import type { Leitura } from './conferencia'
 
 const CARGA = { plugin: 'ork-freio', key: 'carga' } as const
 const VIGIA = { plugin: 'ork-freio', key: 'vigia' } as const
 const TENTATIVAS_DE_ESCRITA = 5
+/**
+ * O laco de conferencia desta carga do modulo esta rodando (D10). Fica no modulo, nao no `$.state`: uma troca do
+ * worker mata o laco junto com a marca, e a rodada que ficou aberta no estado e retomada pelo laco seguinte.
+ */
+let rodando = false
 
 /** A sessao de fase com thread, pelo contexto da ponte; qualquer outra sessao fica sem Freio (D10). */
 type ContextoDeFase = { thread: string; raiz: string }
@@ -116,6 +126,65 @@ async function primeiraFoto($: EngineInterface, ctx: ContextoDeFase): Promise<vo
   await atualizarVigia($, ctx.thread, v => ({ vigia: v.foto ? v : { ...v, foto }, extra: null }))
 }
 
+/**
+ * Uma rodada no nucleo (D6): `ork claims conferir` por `$.process.spawn`, na raiz da sessao, com o vigia do mod.
+ * O processo que nao abre e a saida fora do formato viram conferencia indisponivel (D7).
+ */
+async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, ids: readonly string[]): Promise<Leitura> {
+  let stdout = ''
+  let stderr = ''
+  let vigia: { cancel: () => void } | undefined
+  try {
+    const fluxo = $.process.spawn({ argv: argvDaConferencia(ctx.thread, ids), cwd: ctx.raiz })
+    const lido = (async () => {
+      for await (const pedaco of fluxo) {
+        if (pedaco.stream === 'stdout') stdout = acumular(stdout, pedaco.text, false)
+        else stderr = acumular(stderr, pedaco.text, true)
+      }
+      return fluxo.result
+    })()
+    lido.catch(() => undefined)
+    const vencido = new Promise<'vencido'>(resolver => { vigia = $.clock.after(VIGIA_DA_CONFERENCIA_MS, () => resolver('vencido')) })
+    const fim = await Promise.race([lido, vencido])
+    if (fim === 'vencido') {
+      void fluxo.return(undefined as never).catch(() => undefined)
+      return { tipo: 'prazo' }
+    }
+    return lerConferencia(stdout, fim.code, stderr)
+  } catch (erro) {
+    return { tipo: 'indisponivel', motivo: `ork claims conferir nao rodou: ${mensagem(erro)}` }
+  } finally {
+    vigia?.cancel()
+  }
+}
+
+/** O laco de fundo (T2.3): uma rodada por vez, ate a fila acabar, a pausa chegar ou a conferencia faltar. */
+async function conferirEmLaco($: EngineInterface, ctx: ContextoDeFase): Promise<void> {
+  if (rodando) return
+  rodando = true
+  try {
+    for (;;) {
+      const agora = await $.clock.now()
+      const { vigia } = await atualizarVigia($, ctx.thread, v => ({ vigia: iniciarRodada(v, agora), extra: null }))
+      if (!vigia.rodada) break
+      $.ui.status(textoDoStatus(vigia, agora))
+      const leitura = await rodarConferencia($, ctx, vigia.rodada.ids)
+      const depois = await $.clock.now()
+      const fechada = await atualizarVigia($, ctx.thread, v => ({ vigia: fecharRodada(v, leitura, depois), extra: null }))
+      $.ui.status(textoDoStatus(fechada.vigia, depois))
+      if (leitura.tipo === 'indisponivel') break
+    }
+  } finally {
+    rodando = false
+  }
+}
+
+/** Abre o laco fora do despacho do lote, por `$.clock.after`; o laco que ja roda pega a fila nova. */
+function pedirConferencia($: EngineInterface, ctx: ContextoDeFase): void {
+  if (rodando) return
+  $.clock.after(0, () => { void conferirEmLaco($, ctx).catch(() => undefined) })
+}
+
 export const register: Register = on => {
   // A carga roda fora do inicio da sessao: o MCP pode ainda estar conectando, e o inicio nao espera por ela.
   // O `session.start` dispara de novo num reload, e a carga refaz a leitura do mesmo jeito (D10).
@@ -135,8 +204,9 @@ export const register: Register = on => {
     return iniciada
   })
 
-  // O lote (T2.2): os arquivos tocados, as claims afetadas na fila e o aviso de `touch_paths`. Responde so com
-  // `additionalContext` e nunca para o laco: na sessao de fundo nao ha quem o retome. Falha deixa o lote passar.
+  // O lote (T2.2 e T2.3): devolve o que a conferencia apurou desde o lote anterior, acha os arquivos tocados e as
+  // claims afetadas, pede a conferencia ao nucleo e avisa os `touch_paths`. Responde so com `additionalContext` e
+  // nunca para o laco: na sessao de fundo nao ha quem o retome. Falha deixa o lote passar.
   on('classic.PostToolBatch', async ($, e, next) => {
     const resultado = await next(e)
     const ctx = await contextoDeFase($)
@@ -146,7 +216,7 @@ export const register: Register = on => {
     const chamadas: Chamada[] = Array.isArray(e.tool_calls) ? e.tool_calls : []
     const doLote = caminhosDoLote(chamadas, ctx.raiz)
     const foto = soLeitura(chamadas) ? null : await fotografar($, ctx.raiz)
-    if (doLote.length === 0 && !foto) return resultado
+    const mexeu = doLote.length > 0 || foto !== null
     // Claims e plano so sao relidos quando ha caminho tocado para casar com eles.
     const lida = (await $.state.get(VIGIA)).value
     const anterior = lida && lida.thread === ctx.thread ? lida.foto : null
@@ -159,11 +229,15 @@ export const register: Register = on => {
       if (relerClaims || relerPlano) carga = await carregar($, ctx, { retrato: false, claims: relerClaims, plano: relerPlano })
     }
     const lote = { foto, doLote, claims: carga?.thread === ctx.thread ? carga.claims : null, touchPaths: carga?.thread === ctx.thread ? carga.touchPaths : null }
-    const { extra } = await atualizarVigia($, ctx.thread, v => {
-      const r = aplicarLote(v, lote)
-      return { vigia: r.vigia, extra: r }
+    const { vigia, extra } = await atualizarVigia($, ctx.thread, v => {
+      const r = mexeu ? aplicarLote(v, lote) : { vigia: v, fora: [] as string[] }
+      const t = tomarEntrega(r.vigia)
+      return { vigia: t.vigia, extra: { fora: r.fora, entrega: t.entrega } }
     })
-    const texto = textoDoFora(extra.fora)
+    // A rodada que ficou aberta no estado (o laco morreu com o worker) e retomada como a fila.
+    if (vigia.fila.length > 0 || vigia.rodada) pedirConferencia($, ctx)
+    $.ui.status(textoDoStatus(vigia, await $.clock.now()))
+    const texto = [textoDaEntrega(extra.entrega), textoDoFora(extra.fora)].filter(t => t !== '').join('\n')
     return texto ? { ...resultado, additionalContext: [...(resultado.additionalContext ?? []), texto] } : resultado
   }).catch(($, e, next) => next(e))
 }

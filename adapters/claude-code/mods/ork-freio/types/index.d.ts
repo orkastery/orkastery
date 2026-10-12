@@ -58,6 +58,53 @@ export type FreioVigia = {
   fila: FreioPedido[]
   /** Os caminhos fora dos `touch_paths` ja avisados nesta sessao. */
   avisadosFora: string[]
+  // Os campos da conferencia (T2.3) faltam na vigia gravada antes deles; `comConferencia` os preenche.
+  /** A rodada em curso no nucleo, ou `null`. */
+  rodada?: FreioRodada | null
+  /** O que o lote seguinte devolve ao modelo. */
+  entrega?: FreioEntrega
+  /** As claims cuja ultima conferencia reprovou. */
+  emRisco?: string[]
+  /** Ate quando o Freio nao pede conferencia (depois de uma indisponivel), em ms desde a epoca. */
+  pausaAte?: number
+  /** Por que a ultima conferencia ficou indisponivel, ou `null`. */
+  indisponivel?: string | null
+  /** O modelo ja foi avisado da conferencia indisponivel nesta sessao. */
+  avisouIndisponivel?: boolean
+}
+
+/** Uma rodada de conferencia: as claims, os caminhos que afetaram cada uma e o lote em que ela comecou (T2.3). */
+export type FreioRodada = {
+  ids: string[]
+  caminhos: Record<string, string[]>
+  /** O numero do lote no inicio; toque mais novo deixa o resultado da claim velho (D6). */
+  inicio: number
+}
+
+/** Uma claim que a conferencia reprovou (`claims.failed`), como volta ao modelo. */
+export type FreioFalha = {
+  id: string
+  alegacao: string
+  arquivo: string | null
+  comando: string
+  codigo: number | null
+  /** O fim da saida, ja redigido pelo nucleo. */
+  fim: string
+}
+
+/** Uma claim cuja conferencia terminou sem veredito (prazo, comando que nao rodou). */
+export type FreioSemVeredito = {
+  id: string
+  motivo: string
+}
+
+/** O que o lote seguinte devolve ao modelo. */
+export type FreioEntrega = {
+  falhas: FreioFalha[]
+  semVeredito: FreioSemVeredito[]
+  recuperadas: string[]
+  /** O motivo da conferencia indisponivel, so na primeira vez da sessao. */
+  indisponivel: string | null
 }
 
 declare module 'claude-code' {

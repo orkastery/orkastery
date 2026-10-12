@@ -10,7 +10,7 @@ import * as ts from 'typescript';
 // roda num escopo proprio. Modulo puro so importa tipos: nenhum `require` acontece.
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const FREIO = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-freio');
-const MODULOS_PUROS = ['hooks/carga.ts', 'hooks/lote.ts'];
+const MODULOS_PUROS = ['hooks/carga.ts', 'hooks/lote.ts', 'hooks/conferencia.ts'];
 const { carregarModuloDoMod } = require(path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'));
 const carregar = (rel: string) => carregarModuloDoMod(path.join(FREIO, rel));
 const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(FREIO, rel), 'utf8'));
@@ -332,4 +332,143 @@ test('lote: aplicar o lote na vigia marca os toques, enfileira, avisa o fora uma
   assert.equal(r2.vigia.toques['src/z.ts'], 2);
   assert.equal(textoDoFora(['a', 'b']), 'Freio de Lote: o lote mexeu fora dos touch_paths do plano: a, b.');
   assert.equal(textoDoFora([]), '');
+});
+
+const item = (id: string, verificado: boolean, motivo: string | null, extra: Record<string, unknown> = {}) => ({
+  id, alegacao: `alegacao de ${id}`, arquivo: null, verificado, motivo, detalhe: '',
+  execucoes: [{ nome: `${id}.1`, comando: 'true', ok: true, code: 0, executado: true, fim: '' },
+    ...(verificado ? [] : [{ nome: `${id}.2`, comando: `cmd ${id}`, ok: false, code: 1, executado: true, fim: `fim ${id}` }])],
+  ...extra,
+});
+
+test('conferencia: argv do ork claims conferir so com thread e ids validos, e o acumulo da saida com teto', () => {
+  const { argvDaConferencia, acumular, TETO_DO_ERRO_LIDO, PRAZO_DA_CONFERENCIA_S } = carregar('hooks/conferencia.ts');
+  assert.deepEqual(argvDaConferencia('ork-a', ['C3', 'C7']), ['ork', 'claims', 'conferir', 'ork-a', '--claims', 'C3,C7', '--prazo', String(PRAZO_DA_CONFERENCIA_S), '--json']);
+  assert.equal(PRAZO_DA_CONFERENCIA_S, 180);
+  assert.throws(() => argvDaConferencia('../x', ['C1']), /thread invalido/);
+  assert.throws(() => argvDaConferencia('ork-a', []), /ids de claim/);
+  assert.throws(() => argvDaConferencia('ork-a', ['C1', 'rm -rf']), /ids de claim/);
+  assert.equal(acumular('ab', 'cd', false), 'abcd');
+  assert.equal(acumular('x'.repeat(TETO_DO_ERRO_LIDO), 'fim', true).endsWith('fim'), true);
+  assert.equal(acumular('x'.repeat(TETO_DO_ERRO_LIDO), 'fim', true).length, TETO_DO_ERRO_LIDO);
+});
+
+test('conferencia: leitura do resultado, do erro tipado, do ork antigo e de JSON fora do formato', () => {
+  const { lerConferencia, FORMATO_DA_CONFERENCIA } = carregar('hooks/conferencia.ts');
+  const ok = JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, itens: [item('C1', true, null), item('C2', false, 'claims.failed')] });
+  assert.deepEqual(lerConferencia(ok, 1, ''), { tipo: 'resultado', itens: [
+    { id: 'C1', alegacao: 'alegacao de C1', arquivo: null, verificado: true, motivo: null, comando: 'true', codigo: 0, fim: '' },
+    { id: 'C2', alegacao: 'alegacao de C2', arquivo: null, verificado: false, motivo: 'claims.failed', comando: 'cmd C2', codigo: 1, fim: 'fim C2' },
+  ] });
+  assert.equal(lerConferencia(ok, 0, '').tipo, 'resultado');
+  assert.deepEqual(lerConferencia(ok, 2, ''), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: saiu com codigo 2' });
+  assert.deepEqual(lerConferencia(JSON.stringify({ ok: false, erro: 'claims.conferir.thread-fechada: x' }), 2, ''), { tipo: 'indisponivel', motivo: 'claims.conferir.thread-fechada: x' });
+  assert.deepEqual(lerConferencia('uso: ork', 2, 'linha\ncomando desconhecido: claims\n'), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: comando desconhecido: claims' });
+  assert.deepEqual(lerConferencia(JSON.stringify({ formato: 'outro/v1', itens: [] }), 0, ''), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: saiu com codigo 0' });
+  assert.deepEqual(lerConferencia(JSON.stringify({ formato: 'outro/v1' }), 1, 'Error: quebrou\n    at x'), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: at x' });
+  assert.deepEqual(lerConferencia('', null, ''), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: saiu com codigo desconhecido' });
+});
+
+test('conferencia: a rodada sai da fila ate o teto, nao abre com pausa nem com outra aberta, e marca o lote do inicio', () => {
+  const { iniciarRodada, comConferencia } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const fila = [1, 2, 3].map((n) => ({ id: `C${n}`, forca: 3, caminhos: [`a${n}.ts`] }));
+  const v = { ...vigiaVazia('ork-a'), seq: 7, fila };
+  const r = iniciarRodada(v, 0, 2);
+  assert.deepEqual(r.rodada, { ids: ['C1', 'C2'], caminhos: { C1: ['a1.ts'], C2: ['a2.ts'] }, inicio: 7 });
+  assert.deepEqual(r.fila.map((p: { id: string }) => p.id), ['C3']);
+  assert.deepEqual(iniciarRodada(r, 0, 2).rodada, r.rodada);
+  assert.equal(iniciarRodada({ ...v, pausaAte: 10 }, 9, 2).rodada, null);
+  assert.deepEqual(iniciarRodada({ ...v, pausaAte: 10 }, 10, 2).rodada.ids, ['C1', 'C2']);
+  assert.equal(iniciarRodada({ ...v, fila: [] }, 0).rodada, null);
+  assert.deepEqual(Object.keys(comConferencia(vigiaVazia('ork-a'))).sort(),
+    ['avisadosFora', 'avisouIndisponivel', 'emRisco', 'entrega', 'fila', 'foto', 'indisponivel', 'pausaAte', 'rodada', 'seq', 'thread', 'toques']);
+});
+
+test('conferencia: fechar a rodada separa quebra, sem veredito, recuperada e resultado velho', () => {
+  const { fecharRodada } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const rodada = { ids: ['C1', 'C2', 'C3', 'C4'], caminhos: { C1: ['a.ts'], C2: ['b.ts'], C3: ['c.ts'], C4: ['d.ts'] }, inicio: 5 };
+  const v = { ...vigiaVazia('ork-a'), seq: 6, toques: { 'a.ts': 5, 'b.ts': 4, 'c.ts': 5, 'd.ts': 6 }, rodada, emRisco: ['C2', 'C4'] };
+  const leitura = { tipo: 'resultado', itens: [
+    { id: 'C1', alegacao: 'a', arquivo: 'a.ts', verificado: false, motivo: 'claims.failed', comando: 'x', codigo: 1, fim: 'f' },
+    { id: 'C2', alegacao: 'b', arquivo: null, verificado: true, motivo: null, comando: 'y', codigo: 0, fim: '' },
+    { id: 'C3', alegacao: 'c', arquivo: null, verificado: false, motivo: 'verify.timeout', comando: 'z', codigo: -1, fim: '' },
+    { id: 'C4', alegacao: 'd', arquivo: null, verificado: false, motivo: 'claims.failed', comando: 'w', codigo: 1, fim: 'velho' },
+    { id: 'C9', alegacao: 'fora da rodada', arquivo: null, verificado: false, motivo: 'claims.failed', comando: 'q', codigo: 1, fim: '' },
+  ] };
+  const r = fecharRodada(v, leitura, 100);
+  assert.equal(r.rodada, null);
+  assert.deepEqual(r.entrega.falhas, [{ id: 'C1', alegacao: 'a', arquivo: 'a.ts', comando: 'x', codigo: 1, fim: 'f' }]);
+  assert.deepEqual(r.entrega.semVeredito, [{ id: 'C3', motivo: 'verify.timeout' }]);
+  assert.deepEqual(r.entrega.recuperadas, ['C2']);
+  assert.deepEqual([...r.emRisco].sort(), ['C1', 'C4']);
+  assert.equal(r.indisponivel, null);
+  const semRodada = fecharRodada({ ...v, rodada: null }, leitura, 100);
+  assert.equal(semRodada.rodada, null);
+  assert.deepEqual(semRodada.entrega, { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null });
+  assert.deepEqual(semRodada.emRisco, ['C2', 'C4']);
+});
+
+test('conferencia: indisponivel avisa so a primeira vez, limpa a fila e pausa; o prazo do Freio fica sem veredito', () => {
+  const { fecharRodada, PAUSA_SEM_CONFERENCIA_MS } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const rodada = { ids: ['C1'], caminhos: { C1: ['a.ts'] }, inicio: 1 };
+  const v = { ...vigiaVazia('ork-a'), seq: 1, rodada, fila: [{ id: 'C2', forca: 3, caminhos: ['b.ts'] }] };
+  const r1 = fecharRodada(v, { tipo: 'indisponivel', motivo: 'sem sandbox' }, 50);
+  assert.equal(r1.entrega.indisponivel, 'sem sandbox');
+  assert.deepEqual(r1.fila, []);
+  assert.equal(r1.pausaAte, 50 + PAUSA_SEM_CONFERENCIA_MS);
+  assert.equal(r1.avisouIndisponivel, true);
+  const r2 = fecharRodada({ ...r1, entrega: { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null }, rodada }, { tipo: 'indisponivel', motivo: 'de novo' }, 60);
+  assert.equal(r2.entrega.indisponivel, null);
+  assert.equal(r2.indisponivel, 'de novo');
+  const r3 = fecharRodada(v, { tipo: 'prazo' }, 70);
+  assert.deepEqual(r3.entrega.semVeredito, [{ id: 'C1', motivo: 'prazo do Freio' }]);
+  assert.equal(r3.pausaAte, 0);
+});
+
+test('conferencia: tomar a entrega esvazia a vigia; o fim da saida respeita linhas e caracteres', () => {
+  const { tomarEntrega, fimDaSaida, TETO_DE_LINHAS_DA_SAIDA, TETO_DE_CARACTERES_DA_SAIDA } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const falha = { id: 'C1', alegacao: 'a', arquivo: null, comando: 'x', codigo: 1, fim: '' };
+  const t = tomarEntrega({ ...vigiaVazia('ork-a'), entrega: { falhas: [falha], semVeredito: [], recuperadas: [], indisponivel: null } });
+  assert.deepEqual(t.entrega.falhas, [falha]);
+  assert.deepEqual(t.vigia.entrega, { falhas: [], semVeredito: [], recuperadas: [], indisponivel: null });
+  const linhas = Array.from({ length: 30 }, (_, i) => `linha ${i}`).join('\n');
+  assert.equal(fimDaSaida(linhas).length, TETO_DE_LINHAS_DA_SAIDA);
+  assert.equal(fimDaSaida(linhas)[TETO_DE_LINHAS_DA_SAIDA - 1], 'linha 29');
+  assert.equal(fimDaSaida('y'.repeat(5000)).join('').length, TETO_DE_CARACTERES_DA_SAIDA);
+  assert.deepEqual(fimDaSaida('a\nb\n\n'), ['a', 'b']);
+});
+
+test('conferencia: o texto do lote detalha ate 3 quebras, cita o resto por id e fala de recuperada, sem veredito e indisponivel', () => {
+  const { textoDaEntrega, TETO_DO_TEXTO } = carregar('hooks/conferencia.ts');
+  const falha = (id: string) => ({ id, alegacao: `alegacao ${id}`, arquivo: `src/${id}.ts`, comando: `cmd ${id}`, codigo: 1, fim: `fim ${id}` });
+  assert.equal(textoDaEntrega({ falhas: [], semVeredito: [], recuperadas: [], indisponivel: null }), '');
+  const quatro = textoDaEntrega({ falhas: ['C1', 'C2', 'C3', 'C4'].map(falha), semVeredito: [], recuperadas: [], indisponivel: null });
+  assert.match(quatro, /^Freio de Lote: a conferencia do nucleo reprovou 4 claims ligadas ao que voce mexeu/);
+  assert.match(quatro, /- C3 \(src\/C3\.ts\): alegacao C3/);
+  assert.doesNotMatch(quatro, /- C4 \(/);
+  assert.match(quatro, /- e mais 1: C4/);
+  assert.match(quatro, / {2}\| fim C1/);
+  assert.equal(textoDaEntrega({ falhas: [], semVeredito: [], recuperadas: ['C1', 'C2'], indisponivel: null }), 'Freio de Lote: C1, C2 voltaram a passar na conferencia do nucleo.');
+  assert.equal(textoDaEntrega({ falhas: [], semVeredito: [{ id: 'C5', motivo: 'verify.timeout' }, { id: 'C6', motivo: 'verify.timeout' }], recuperadas: [], indisponivel: null }),
+    'Freio de Lote: a conferencia de C5, C6 terminou sem veredito (verify.timeout); o ork verify decide.');
+  assert.match(textoDaEntrega({ falhas: [], semVeredito: [], recuperadas: [], indisponivel: 'sem sandbox' }), /indisponivel nesta sessao \(sem sandbox\)/);
+  const enorme = textoDaEntrega({ falhas: [{ ...falha('C1'), alegacao: 'z'.repeat(9000) }], semVeredito: [], recuperadas: [], indisponivel: null });
+  assert.ok(enorme.length <= TETO_DO_TEXTO);
+  assert.match(enorme, /\(texto cortado pelo Freio de Lote\)$/);
+});
+
+test('conferencia: a linha de status diz indisponivel so na pausa, a rodada em curso e as claims em risco', () => {
+  const { textoDoStatus } = carregar('hooks/conferencia.ts');
+  const { vigiaVazia } = carregar('hooks/lote.ts');
+  const v = vigiaVazia('ork-a');
+  assert.equal(textoDoStatus(v, 0), undefined);
+  assert.equal(textoDoStatus({ ...v, indisponivel: 'x', pausaAte: 10 }, 9), 'freio: conferencia indisponivel');
+  assert.equal(textoDoStatus({ ...v, indisponivel: 'x', pausaAte: 10 }, 10), undefined);
+  assert.equal(textoDoStatus({ ...v, rodada: { ids: ['C1', 'C2'], caminhos: {}, inicio: 0 } }, 0), 'freio: conferindo C1, C2');
+  assert.equal(textoDoStatus({ ...v, emRisco: ['C3'] }, 0), 'freio: 1 claim em risco (C3)');
+  assert.equal(textoDoStatus({ ...v, emRisco: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'] }, 0), 'freio: 6 claims em risco (C1, C2, C3, C4, C5, ...)');
 });

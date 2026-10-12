@@ -128,9 +128,55 @@ export function disco(on, inicial: { head?: string; sujos?: Record<string, Sujo>
   return estado
 }
 
-/** O fundo do lote: nenhum settings hook embaixo. */
+/** O fundo do lote (nenhum settings hook embaixo) e da linha de status, com cada status anotado. */
 export function comLote(on) {
+  const status: Array<string | undefined> = []
   on('classic.PostToolBatch', () => ({}))
+  on('ui.status', ($, e) => { status.push(e.text); return { value: undefined } })
+  return status
+}
+
+/** Uma claim que a conferencia aprovou, como o `ork claims conferir --json` devolve. */
+export const passou = (id: string) => ({ id, alegacao: `alegacao de ${id}`, arquivo: null, verificado: true, motivo: null,
+  detalhe: '1 comando(s) reexecutado(s) com sucesso', execucoes: [{ nome: `${id}.1`, comando: 'true', ok: true, code: 0, executado: true, fim: '' }] })
+
+/** Uma claim que a conferencia reprovou (`claims.failed`), com o comando e o fim da saida. */
+export const quebrou = (id: string, comando: string, fim: string, arquivo: string | null = null) => ({ id, alegacao: `alegacao de ${id}`, arquivo,
+  verificado: false, motivo: 'claims.failed', detalhe: `comando saiu com codigo 1`, execucoes: [{ nome: `${id}.1`, comando, ok: false, code: 1, executado: true, fim }] })
+
+/** Uma claim que terminou sem veredito no nucleo (prazo do comando). */
+export const semVeredito = (id: string, motivo = 'verify.timeout') => ({ id, alegacao: `alegacao de ${id}`, arquivo: null, verificado: false, motivo,
+  detalhe: 'estourou o prazo', execucoes: [{ nome: `${id}.1`, comando: 'sleep 999', ok: false, code: -1, executado: true, causa: 'timeout', fim: '' }] })
+
+/** A resposta do nucleo com estes itens, com a saida 0 ou 1 como o `ork claims conferir` da. */
+export function respostaDe(itens: Array<{ id: string; verificado: boolean; motivo: string | null }>) {
+  const resultado = {
+    formato: 'ork.claims-conferencia/v1', thread: THREAD, commit: 'c'.repeat(40), cwd: RAIZ, executor: 'codex-sandbox',
+    reciboOficial: false, prazoTotalMs: 180000, alvo: { tipo: 'claims', ids: itens.map(i => i.id) }, itens,
+    ok: itens.every(i => i.verificado), motivos: [...new Set(itens.map(i => i.motivo).filter(m => m !== null))],
+  }
+  return { stdout: JSON.stringify(resultado, null, 2), code: resultado.ok ? 0 : 1 }
+}
+
+/** Uma resposta do processo do nucleo: a saida, o codigo, a espera no relogio falso e a falha ao abrir. */
+export type RespostaDoProcesso = { stdout?: string; stderr?: string; code?: number; espera?: number; naoAbre?: string }
+
+/**
+ * O fundo do `process.spawn`: cada conferencia pedida tira a proxima resposta da lista (sem resposta, tudo
+ * passou) e fica anotada com o argv e o cwd. `espera` segura a resposta ate o relogio falso andar.
+ */
+export function nucleoDeConferencia(on, relogio, respostas: RespostaDoProcesso[]) {
+  const pedidos: Array<{ argv: string[]; cwd: unknown }> = []
+  on('process.spawn', async function* ($, e) {
+    pedidos.push({ argv: [...e.argv], cwd: e.cwd })
+    const r = respostas.shift() ?? respostaDe([])
+    if (r.naoAbre) throw new Error(r.naoAbre)
+    if (r.espera) await relogio.sleep(r.espera)
+    if (r.stdout) yield { stream: 'stdout', text: r.stdout }
+    if (r.stderr) yield { stream: 'stderr', text: r.stderr }
+    return { value: { code: r.code ?? 0, signal: null } }
+  })
+  return pedidos
 }
 
 /** Um lote de ferramentas como o motor o levanta depois de todas resolverem. */
