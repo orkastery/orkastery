@@ -49,6 +49,35 @@ export function exigirCatalogo(inicial?: string): string {
   return raiz;
 }
 
+/** A raiz do catálogo do pacote que está rodando: subindo a partir do próprio código, nunca do cwd. */
+export function catalogoDoPacote(): string | null {
+  return subirProcurando(__dirname);
+}
+
+function real(p: string): string {
+  try { return fs.realpathSync(p); } catch { return path.resolve(p); }
+}
+
+/**
+ * RM-047 (P4): o catálogo que o `ork eval` executa. O eval roda os canários, os hooks e o `core/dist`
+ * do catálogo, então ele só vale o do pacote que está rodando. Um diretório com `skills/`,
+ * `references/` e `eval/` achado a partir do cwd (um clone qualquer) que não seja o próprio pacote é
+ * recusado com `eval.catalogo-alheio`, com o comando que roda o eval daquele checkout de propósito.
+ */
+export function exigirCatalogoDoPacote(inicial: string): string {
+  const pacote = catalogoDoPacote();
+  if (!pacote) {
+    throw new Error('catalogo do Orkastery nao encontrado (esperado um diretorio com skills/, references/ e eval/)');
+  }
+  const doCwd = subirProcurando(inicial);
+  if (doCwd && real(doCwd) !== real(pacote)) {
+    throw new Error(`eval.catalogo-alheio: ${doCwd} tem skills/, references/ e eval/, mas nao e o pacote deste ork ` +
+      `(${pacote}). O eval executa os canarios, os hooks e o core/dist do catalogo, e so roda o do proprio pacote. ` +
+      `Para avaliar aquele checkout de proposito, rode o ork dele: node ${path.join(doCwd, 'core', 'dist', 'index.js')} eval`);
+  }
+  return pacote;
+}
+
 export interface SkillDoCatalogo {
   nome: string;
   bucket: string;

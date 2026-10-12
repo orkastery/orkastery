@@ -85,8 +85,8 @@ const PT_BR = {
     instaleCodex: 'para despachar pelo codex, instale o Codex CLI e autentique com `codex login`',
     sandboxOk: '`codex sandbox true` executa nesta maquina',
     sandboxFalhou: (detalhe: string) => `sonda \`codex sandbox true\` falhou: ${detalhe}`,
-    sandboxCorrecao: 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
-      'nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco',
+    sandboxCorrecao: (confirmar: string) => 'instale o pacote bubblewrap do sistema (o bwrap embutido nao cria user namespace ' +
+      `nesta maquina) ou declare runtime.sandbox: danger-full-access ciente do risco e confirme nesta maquina com ${confirmar}`,
     manifestoAusente: (nome: string, dir: string) => `${nome} nao encontrado a partir de ${dir}`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'entre no repositorio do projeto (ou crie um com git init e o primeiro commit) e rode ork init',
@@ -192,8 +192,8 @@ const EN: Mensagens = {
     instaleCodex: 'to dispatch through codex, install the Codex CLI and sign in with `codex login`',
     sandboxOk: '`codex sandbox true` runs on this machine',
     sandboxFalhou: (detalhe) => `probe \`codex sandbox true\` failed: ${detalhe}`,
-    sandboxCorrecao: 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
-      'on this machine) or declare runtime.sandbox: danger-full-access knowing the risk',
+    sandboxCorrecao: (confirmar) => 'install the system bubblewrap package (the bundled bwrap cannot create a user namespace ' +
+      `on this machine) or declare runtime.sandbox: danger-full-access knowing the risk, and confirm on this machine with ${confirmar}`,
     manifestoAusente: (nome, dir) => `${nome} not found from ${dir}`,
     rodeInit: 'ork init',
     entreNoRepoEInit: 'enter the project repository (or create one with git init and a first commit) and run ork init',

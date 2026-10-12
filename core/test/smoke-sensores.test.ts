@@ -7,6 +7,7 @@ import * as vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { sandboxGit } from '../src/sandbox';
+import { confirmarPosturaLocal } from '../src/postura-local';
 const { ambiente, avaliarClaude, avaliarCodex } = require(path.resolve(__dirname, '../../scripts/smoke-sensores.cjs'));
 const runtime = require(path.resolve(__dirname, '../../scripts/smoke-runtime.cjs'));
 
@@ -64,6 +65,8 @@ test('harness passa os três sandboxes e preserva tentativa quando despacho lanc
     try {
       const manifesto = path.join(s.dir, 'orkastery.yaml');
       fs.writeFileSync(manifesto, fs.readFileSync(manifesto, 'utf8').replace('sandbox: workspace-write', 'sandbox: ' + sandbox));
+      // RM-047 (P1): o sandbox que afrouxa só despacha com a confirmação local do projeto.
+      if (sandbox === 'danger-full-access') confirmarPosturaLocal(s.dir, sandbox, 'teste');
       const code = `
         const cp=require('child_process'),fs=require('fs');const spawn=cp.spawnSync;
         require(${JSON.stringify(helper)}).prepararRuntime=async(runtime,raiz)=>{fs.mkdirSync(raiz);return {env:process.env,prova:{raiz},fechar:async()=>{}};};
@@ -159,6 +162,8 @@ async function executarHarnessSimulado(modo: string) {
     thread: { novaThread: () => ({ thread: { id: 'ork-fixture', sessoes: [] } }), gravarThread: () => {}, dirThread: () => dir },
     ledger: { lerLedger: () => modo === 'timeout' ? eventos.slice(0, 2) : modo === 'sem-registro' ? eventos.slice(1) : eventos },
     manifest: { exigirManifesto: () => ({ manifesto: { runtime: { sandbox: 'workspace-write' } } }) },
+    'postura-local': { recusaDePostura: () => null, posturaAfrouxada: () => null,
+      confirmarPosturaLocal: () => { throw new Error('workspace-write nao pede confirmacao'); } },
     codex: { acharRollout: () => { throw new Error('descoberta paralela proibida'); } },
     'codex-controller-sensor': {
       registrarFonteController: () => ({ rollout: roll, rolloutIno: fs.statSync(roll).ino, rolloutDev: fs.statSync(roll).dev }),
