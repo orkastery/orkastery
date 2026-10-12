@@ -1,0 +1,874 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm061f2b",
+  "branch": "ork/ork-rm061f2b-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2b-snapshot.test.ts",
+      "alegacao": "C1 da F2b: o texto pt-BR de verify, ship, retry, master, pulse e roadmap status (e os detalhes que eles gravam no ledger) fica igual byte a byte a fixture gerada na base.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2b-snapshot.test.js > \"$l\" 2>&1; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:18:15.811Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "C1 da F2b (A/B na base): a fixture do snapshot pt-BR saiu do codigo da base; o mesmo teste passa numa copia git archive do merge-base com a origin/main, sem nada da F2b.",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d) && l=$(mktemp) && git archive \"$(git merge-base HEAD origin/main)\" | tar -x -C \"$d\" && ln -s \"$PWD/core/node_modules\" \"$d/core/node_modules\" && cp core/test/locale-f2b-casos.ts core/test/locale-f2b-snapshot.test.ts \"$d/core/test/\" && mkdir -p \"$d/core/test/fixtures\" && cp core/test/fixtures/locale-f2b-pt-BR.json \"$d/core/test/fixtures/\" && (cd \"$d/core\" && npm run build >/dev/null && npm run build:test >/dev/null; node --test --test-reporter=tap dist-test/test/locale-f2b-snapshot.test.js > \"$l\" 2>&1); rm -rf \"$d\"; grep -qx '# pass 1' \"$l\" && grep -qx '# fail 0' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:18:19.379Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2b-casos.ts",
+      "alegacao": "C1 da F2b: a fixture cobre as seis familias (verify, ship, retry, master, pulse, roadmap) com pelo menos 80 casos, nenhum caso em erro inesperado e nenhum caminho de maquina.",
+      "negativa": true,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/locale-f2b-pt-BR.json\"); const k=Object.keys(c); const f=[\"verify\",\"ship\",\"retry\",\"master\",\"pulse\",\"roadmap\"]; process.exit(k.length>=80 && f.every(x=>k.some(n=>n.startsWith(x))) && k.every(n=>!c[n].startsWith(\"ERRO\")) ? 0 : 1)' && ! grep -qE '/hom[e]/|/Use[r]s/' core/test/fixtures/locale-f2b-pt-BR.json"
+      ],
+      "criadoEm": "2026-10-12T09:18:22.144Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-verify.test.ts",
+      "alegacao": "C2 da F2b (verify): com LANG en ou owner.language en-US, ork verify e ork verify --baseline saem em ingles (relatorio, classificacao, veredito VERIFIED/FAILED com os motivos tipados), o ledger gravado e igual nas duas linguas, e retry list/policy seguem pt-BR byte a byte.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-verify.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=5 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:31:53.609Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-verify.ts",
+      "alegacao": "D4 da F2b: o veredito do verify em ingles e Verdict: VERIFIED / Verdict: FAILED. Typed reasons, e o pt-BR segue VERDADE SUSTENTADA / REPROVADO, pelo catalogo.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").verify, pt=msg(\"pt-BR\").verify; process.exit(en.verdade===\"Verdict: VERIFIED (no blocking reason).\" && en.reprovado(\"claims.failed\")===\"Verdict: FAILED. Typed reasons: claims.failed\" && pt.verdade===\"Veredito: VERDADE SUSTENTADA (nenhum motivo bloqueante).\" && pt.reprovado(\"claims.failed\")===\"Veredito: REPROVADO. Motivos tipados: claims.failed\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:31:57.063Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D1 e D2 da F2b: verify segue o locale pelo COMANDOS_COM_LOCALE, e a remontagem (textoDoCatalogo/remontar/ligarRemontagem) so guarda montador com o registro ligado.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2a-infra.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\" && node -e 'const L=require(\"./core/dist/locale\"); L.ligarRemontagem(false); L.ativarLocale(\"pt-BR\"); const a=L.textoDoCatalogo((m)=>m.verify.claimSaiu(\"false\",1)); L.ativarLocale(\"en\"); const semRegistro=L.remontar(a); L.ligarRemontagem(true); L.ativarLocale(\"pt-BR\"); const b=L.textoDoCatalogo((m)=>m.verify.claimSaiu(\"false\",1)); L.ativarLocale(\"en\"); process.exit(semRegistro===a && L.remontar(b)===\"command \\\"false\\\" exited with code 1\" && L.cobreLocale([\"verify\",\"x\"],{}) && !L.cobreLocale([\"verify\",\"x\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:32:02.110Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/verify.ts",
+      "alegacao": "G2 da F2b no verify: o detalhe da claim reexecutada nasce pelo catalogo (textoDoCatalogo) e o relatorio inteiro sai por msg().verify, sem literal de veredito no modulo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'textoDoCatalogo' core/src/verify.ts)\" -ge 4 && grep -qF 'remontar(c.detalhe)' core/src/verify.ts && ! grep -qE 'VERDADE SUSTENTADA|REPROVADO. Motivos' core/src/verify.ts"
+      ],
+      "criadoEm": "2026-10-12T09:32:04.417Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 e D1 da F2b no CLI: ork verify grava baseline e verify_run em comLocale pt-BR e imprime no locale; o main desliga a remontagem a cada chamada e so os comandos cobertos a ligam.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => verificar(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => gravarBaseline(\" core/src/index.ts && grep -qF 'ligarRemontagem(false);' core/src/index.ts && grep -qF 'ligarRemontagem(true);' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T09:32:07.008Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2b-apoio.ts",
+      "alegacao": "Apoio dos testes en da F2b: manifesto com verify de verdade (bash no PATH do cenario) e o dado do ledger sem os campos volateis, para comparar pt-BR e en.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'export function comVerify' core/test/locale-f2b-apoio.ts && grep -q 'export function dadoDoLedger' core/test/locale-f2b-apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T09:32:09.059Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-f2a-infra.test.ts",
+      "alegacao": "P8 da F2b: o teste de infra deixa de afirmar que verify fica fora do locale e segue negando as rotas que ficam em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-f2a-infra.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\" && grep -qE \"\\['retry', 'list'\\]\" core/test/locale-f2a-infra.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:32:11.974Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-dado.test.ts",
+      "alegacao": "C4 da F2b: o teste do catalogo inteiro cobre as familias novas (mesmas chaves e tipos, nenhuma vazia, nenhuma igual ao pt-BR fora da lista, nenhum U+2014) e o --json dos comandos cobertos.",
+      "negativa": true,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-dado.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\" && grep -qF \"'ajuda', 'verify'\" core/test/locale-dado.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:32:14.648Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-ship.test.ts",
+      "alegacao": "C2 da F2b (ship): ork ship (ensaio, bloqueio, entrega sem remoto, ja incorporada) e ork ship registrar-pr saem em ingles com LANG en; o --json do registrar-pr e igual nas duas linguas; o que o ship grava no ledger e igual nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-ship.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:42:44.345Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-ship.ts",
+      "alegacao": "D4 da F2b no ship: BLOCKED. Typed reason e WAITING FOR HUMAN AUTHORIZATION em ingles; BLOQUEADO. motivo tipado e AGUARDANDO AUTORIZACAO HUMANA seguem no pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").ship, pt=msg(\"pt-BR\").ship; process.exit(en.bloqueado(\"ci.failed\")===\"BLOCKED. Typed reason: ci.failed\" && en.aguardandoAutorizacao.includes(\"WAITING FOR HUMAN AUTHORIZATION\") && pt.bloqueado(\"ci.failed\")===\"BLOQUEADO. motivo tipado: ci.failed\" && pt.aguardandoAutorizacao.includes(\"AGUARDANDO AUTORIZACAO HUMANA\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:42:47.743Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/ship.ts",
+      "alegacao": "G2 da F2b no ship: razao da autorizacao, detalhe e correcao dos bloqueios e passos do ensaio nascem pelo catalogo (textoDoCatalogo), e o textoDoShip sai por msg().ship, sem as frases pt-BR soltas no modulo.",
+      "negativa": true,
+      "verificar": [
+        "test \"$(grep -c 'textoDoCatalogo' core/src/ship.ts)\" -ge 20 && grep -qF 'const m = msg().ship;' core/src/ship.ts && ! grep -qE 'AGUARDANDO AUTORIZACAO HUMANA|nao foi possivel ler o HEAD apos o merge|Passos que o ship real' core/src/ship.ts"
+      ],
+      "criadoEm": "2026-10-12T09:42:50.544Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/entrega-pr.ts",
+      "alegacao": "G2 da F2b no registrar-pr: o motivo de cada registro nasce pelo catalogo em pt-BR (o --json nao muda) e o CLI o remonta no locale ao imprimir.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'textoDoCatalogo' core/src/entrega-pr.ts)\" -ge 18 && ! grep -qE \"'thread ja fechada'|nenhum merge ship\" core/src/entrega-pr.ts"
+      ],
+      "criadoEm": "2026-10-12T09:42:52.597Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/ci.ts",
+      "alegacao": "G2 da F2b no CI: o detalhe da consulta que o nucleo monta nasce pelo catalogo, e a saida do gh segue como veio.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'textoDoCatalogo' core/src/ci.ts)\" -ge 6 && ! grep -qF 'gate de CI não exigido pelo manifesto' core/src/ci.ts"
+      ],
+      "criadoEm": "2026-10-12T09:42:54.744Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 da F2b no CLI do ship: ork ship e ork ship registrar-pr gravam em comLocale pt-BR e imprimem no locale, com a acao traduzida so na impressao.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => ship(carregado, id, {\" core/src/index.ts && grep -qF 'm.acoes[x.acao]' core/src/index.ts && grep -qF 'remontar(x.motivo)' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T09:42:56.895Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/horario-lint.test.ts",
+      "alegacao": "O lint de horario segue verde: as excecoes do ship.ts que deixaram de casar (os textos foram para o catalogo, e a impressao localiza) sairam da lista.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/horario-lint.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=4 && f==0)}' \"$l\" && ! grep -qF 'registrada no ledger em ${antecipada.ts}' core/test/horario-lint.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:42:59.544Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D2 da F2b no ship: ork ship <thread> e ork ship registrar-pr seguem o locale (a thread no lugar do subcomando nao vira ?), nunca com --json.",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); process.exit(L.chaveDoLocale([\"ship\",\"loc-x\"],{})===\"ship\" && L.chaveDoLocale([\"ship\",\"registrar-pr\",\"loc-x\"],{})===\"ship registrar-pr\" && L.cobreLocale([\"ship\",\"loc-x\"],{para:\"main\"}) && L.cobreLocale([\"ship\",\"registrar-pr\"],{todas:true}) && !L.cobreLocale([\"ship\",\"registrar-pr\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:43:02.502Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-retry.test.ts",
+      "alegacao": "C2 e C5 da F2b (retry): retry plan e retry run saem em ingles com LANG en; o motivo tipado sai igual e o grep auth-missing|quota-exhausted do condutor casa nas duas linguas; o --json do plano e o ledger do retry run sao iguais nas duas linguas; retry list, policy e parse seguem pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-retry.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:53:37.110Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-retry.ts",
+      "alegacao": "D3 da F2b: a politica de retry tem a fonte no catalogo pt-BR (POLITICA_DE_RETRY le dele, texto identico) e o ingles cobre os 26 motivos.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const {POLITICA_DE_RETRY:P}=require(\"./core/dist/retry\"); const en=msg(\"en\").retry.politica, pt=msg(\"pt-BR\").retry.politica; const k=Object.keys(P); process.exit(k.length===26 && k.every(x=>P[x].porque===pt[x].porque && P[x].correcao===pt[x].correcao && en[x] && en[x].porque!==pt[x].porque) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:53:40.349Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "G2 da F2b no retry: a razao do plano e o detalhe da execucao e do redespacho nascem pelo catalogo, e o textoDoPlano e o textoDoRetry saem por msg().retry, sem as frases pt-BR soltas no modulo.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'textoDoCatalogo' core/src/retry.ts)\" -ge 30 && grep -qF \"...TEXTOS_DA_POLITICA['human.pending'],\" core/src/retry.ts && ! grep -qE 'Plano de retry da thread|nao ha o que repetir|nenhum gate reprovado no ledger' core/src/retry.ts"
+      ],
+      "criadoEm": "2026-10-12T09:53:43.117Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 da F2b no CLI do retry: retry plan e retry run montam e gravam em comLocale pt-BR e imprimem no locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => planejarRetry(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => executarRetry(\" core/src/index.ts && grep -qF 'msg().retry.usoPlanRun(sub)' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T09:53:45.398Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D2 da F2b no retry: so retry plan e retry run seguem o locale; retry list, policy, parse, resume e cancel ficam em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const c=(a)=>L.cobreLocale(a,{}); process.exit(c([\"retry\",\"plan\",\"x\"]) && c([\"retry\",\"run\",\"x\"]) && !c([\"retry\",\"list\"]) && !c([\"retry\",\"policy\"]) && !c([\"retry\",\"parse\"]) && !c([\"retry\",\"resume\"]) && !c([\"retry\",\"cancel\",\"x\"]) && !L.cobreLocale([\"retry\",\"plan\",\"x\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:53:48.413Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-master.test.ts",
+      "alegacao": "C2 da F2b (master): o indice, o aceite por omissao (com e sem ensaio, e o aviso de processo de agente) e o master pedir saem em ingles com LANG en; MASTER log, POSTMORTEM e pedido de nota gravados sao iguais nas duas linguas; classes, a nota e os --json seguem pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-master.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=3 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T09:59:56.138Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-master.ts",
+      "alegacao": "D4 da F2b no master: SHIPPED AND ACCEPTED, unless you say otherwise e Accepted by default em ingles; o pt-BR segue ENTREGUE E ACEITO e Aceitas por omissao.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").master, pt=msg(\"pt-BR\").master; process.exit(en.entregueEAceito===\"SHIPPED AND ACCEPTED, unless you say otherwise.\" && en.aceitas(1).startsWith(\"Accepted by default: 1.\") && pt.entregueEAceito===\"ENTREGUE E ACEITO, a menos que voce diga o contrario.\" && pt.aceitas(1).startsWith(\"Aceitas por omissao: 1.\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T09:59:59.285Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/master.ts",
+      "alegacao": "O indice das entregas e a recusa fora da omissao saem por msg().master; o status e o sim/nao da tabela so se traduzem na impressao.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const m = msg().master;' core/src/master.ts && grep -qF 'msg().thread.status(p.thread.status)' core/src/master.ts && ! grep -qE 'ENTREGUE E ACEITO|ja tem MASTER registrado; nada a aceitar' core/src/master.ts"
+      ],
+      "criadoEm": "2026-10-12T10:00:01.606Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/master-nota.ts",
+      "alegacao": "O pedido de nota (master pedir) sai por msg().master nos formatos telegram e terminal, com a resposta no mesmo formato de codigo nas duas linguas.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.notaResponda(tg, p.codigo)' core/src/master-nota.ts && ! grep -qF 'Responda: ${p.codigo}' core/src/master-nota.ts"
+      ],
+      "criadoEm": "2026-10-12T10:00:05.563Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/thread-close.ts",
+      "alegacao": "D14 aplicada ao master: os dois erros da entrega que o MASTER exige sao ErroDoCatalogo, remontados no locale do comando pela entrada do CLI.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'new ErroDoCatalogo' core/src/thread-close.ts)\" -ge 2 && ! grep -qF 'MASTER exige entrega: ship_done' core/src/thread-close.ts"
+      ],
+      "criadoEm": "2026-10-12T10:00:09.360Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 da F2b no CLI do master: o aceite por omissao e o pedido de nota gravam em comLocale pt-BR e imprimem no locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => aceitarPendentesPorOmissao(\" core/src/index.ts && grep -qF \"comLocale('pt-BR', () => pedirNota(\" core/src/index.ts && grep -qF 'msg().master.avisoSemThread(' core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T10:00:11.084Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D2 da F2b no master: seguem o locale o indice, o aceite por omissao e o pedir; ficam em pt-BR pedir --formato json, classes, a nota (--score), --batch e os --json.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const c=(a,o)=>L.cobreLocale(a,o||{}); process.exit(c([\"master\"]) && c([\"master\",\"x\"],{\"aceitar-omissao\":true}) && c([\"master\"],{\"aceitar-omissao\":true}) && c([\"master\",\"pedir\",\"x\"]) && !c([\"master\",\"pedir\",\"x\"],{formato:\"json\"}) && !c([\"master\",\"classes\"]) && !c([\"master\",\"x\"],{score:\"4\"}) && !c([\"master\"],{batch:true}) && !c([\"master\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T10:00:11.651Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-pulse.test.ts",
+      "alegacao": "C2 da F2b (pulse): ork pulse em texto sai em ingles com LANG en (todas as secoes, com a pergunta e o detalhe que o pulse monta remontados); o --json e igual nas duas linguas; pulse cadencia segue pt-BR.",
+      "negativa": true,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-pulse.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T10:05:51.515Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-pulse.ts",
+      "alegacao": "O pulse em ingles diz Needs a human now e Pending automatic actions; o pt-BR segue Precisa de humano agora e Acoes automaticas pendentes.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").pulse, pt=msg(\"pt-BR\").pulse; process.exit(en.precisaDeHumano(1)===\"Needs a human now: 1\" && en.automaticas(2)===\"Pending automatic actions: 2\" && pt.precisaDeHumano(1)===\"Precisa de humano agora: 1\" && pt.automaticas(2)===\"Ações automáticas pendentes: 2\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T10:05:54.462Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse.ts",
+      "alegacao": "G2 da F2b no pulse: o textoDoPulse sai por msg().pulse e a pergunta de fase sem heartbeat e o detalhe do runtime nascem pelo catalogo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const m = msg().pulse;' core/src/pulse.ts && grep -qF 'm.pulse.semHeartbeat(o.fase, o.ultimoHeartbeatEm)' core/src/pulse.ts && ! grep -qE 'Precisa de humano agora|sem heartbeat desde' core/src/pulse.ts"
+      ],
+      "criadoEm": "2026-10-12T10:05:56.814Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-resumo.ts",
+      "alegacao": "A linha do condutor sai por msg().pulse (a moldura); o proximo passo segue como a familia de entregas escreve (G5).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'msg().pulse.linhaDoCondutor(' core/src/hitl-resumo.ts && ! grep -qF 'parado no condutor desde ${' core/src/hitl-resumo.ts"
+      ],
+      "criadoEm": "2026-10-12T10:05:58.861Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl-tempo-parado.ts",
+      "alegacao": "A mediana de 7 dias e a pergunta de conducao parada saem por msg().pulse, seguindo o locale ativo (o resumo do Telegram, sem ativacao, segue pt-BR).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'msg().pulse.mediana(' core/src/hitl-tempo-parado.ts && grep -qF 'msg().pulse.perguntaParada(' core/src/hitl-tempo-parado.ts && ! grep -qF 'mediana de 7 dias sem resposta medida' core/src/hitl-tempo-parado.ts"
+      ],
+      "criadoEm": "2026-10-12T10:06:01.253Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/horario.ts",
+      "alegacao": "A duracao relativa abaixo de 1 minuto segue o locale ativo pelo catalogo horario (menos de 1 min / less than 1 min).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'msg().horario.menosDeUmMin' core/src/horario.ts && ! grep -qF \"'menos de 1 min'\" core/src/horario.ts"
+      ],
+      "criadoEm": "2026-10-12T10:06:02.969Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C38",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D2 da F2b no pulse: ork pulse segue o locale; pulse cadencia, pulse responder e --json ficam em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const c=(a,o)=>L.cobreLocale(a,o||{}); process.exit(c([\"pulse\"]) && c([\"pulse\"],{\"sem-runtime\":true}) && !c([\"pulse\",\"cadencia\"]) && !c([\"pulse\",\"responder\"]) && !c([\"pulse\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T10:06:05.424Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 da F2b no CLI do pulse: montarPulse roda em comLocale pt-BR (o que grava e o --json) e so o texto segue o locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => montarPulse(\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T10:06:06.901Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-roadmap.test.ts",
+      "alegacao": "C2 da F2b (roadmap status): sai em ingles com LANG en (titulo com data ISO, grupos, fecho, o que vem a seguir, fabrica); o bloco Projeto consultado/Nao lido do RM-052 e igual nas duas linguas; o --json e igual; roadmap reservas segue pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/locale-roadmap.test.js > \"$l\" 2>&1; awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=2 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T10:10:55.747Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-roadmap.ts",
+      "alegacao": "D4 da F2b no roadmap: o titulo em ingles sai com data ISO (Loc roadmap (2025-09-19 14:21)) e o pt-BR segue Roadmap do Loc (19/09, 14:21); os grupos tem ingles pelo id.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const p={ano:\"2025\",mes:\"09\",dia:\"19\",hora:\"14\",minuto:\"21\"}; const en=msg(\"en\").roadmap, pt=msg(\"pt-BR\").roadmap; process.exit(en.titulo(\"Loc\",p)===\"Loc roadmap (2025-09-19 14:21)\" && pt.titulo(\"Loc\",p)===\"Roadmap do Loc (19/09, 14:21)\" && en.grupos.concluidos===\"Done\" && Object.keys(en.grupos).length===8 ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T10:10:59.229Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/roadmap-status.ts",
+      "alegacao": "O texto do roadmap status sai por msg().roadmap, com o titulo do grupo traduzido so na impressao pelo id (o --json guarda o pt-BR) e o bloco do RM-052 intocado.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const m = msg().roadmap;' core/src/roadmap-status.ts && grep -qF 'm.grupos[g.id] ?? g.titulo' core/src/roadmap-status.ts && grep -qF 'linhasDaConsulta(s.consulta)' core/src/roadmap-status.ts && ! grep -qE \"'O que precisa de voc|Nada em andamento; sigo\" core/src/roadmap-status.ts"
+      ],
+      "criadoEm": "2026-10-12T10:11:02.119Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "D2 da F2b no roadmap: so roadmap status segue o locale; roadmap (reservas), pegar, soltar, feat e network roadmap ficam em pt-BR.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const L=require(\"./core/dist/locale\"); const c=(a,o)=>L.cobreLocale(a,o||{}); process.exit(c([\"roadmap\",\"status\"]) && !c([\"roadmap\"]) && !c([\"roadmap\",\"reservas\"]) && !c([\"roadmap\",\"pegar\",\"RM-1\"]) && !c([\"roadmap\",\"soltar\",\"RM-1\"]) && !c([\"roadmap\",\"feat\"]) && !c([\"network\",\"roadmap\"]) && !c([\"roadmap\",\"status\"],{json:true}) ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T10:11:05.136Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C44",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/index.ts",
+      "alegacao": "G2 da F2b no CLI do roadmap status: o status e montado em comLocale pt-BR (o --json que os canais transportam) e so o texto segue o locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comLocale('pt-BR', () => montarStatusDoRoadmap(\" core/src/index.ts"
+      ],
+      "criadoEm": "2026-10-12T10:11:06.869Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "C8 da F2b: uma entrada da F2b em Nao publicado, e o checador do CHANGELOG passa contra a origin/main.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -qF 'CLI em inglês e pt-BR, fatia F2b' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T10:16:14.777Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "README.md",
+      "alegacao": "C8 da F2b: o README diz, nas duas listas, que verify, ship, pulse, master, retry plan, retry run e roadmap status seguem o locale ingles.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c '`ork retry run`, `ork roadmap status` and the help' README.md)\" -ge 2"
+      ],
+      "criadoEm": "2026-10-12T10:16:16.591Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "README.pt-BR.md",
+      "alegacao": "C8 da F2b: o espelho em portugues do README lista os mesmos comandos que seguem o locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '`ork retry run`, `ork roadmap status` e a ajuda' README.pt-BR.md"
+      ],
+      "criadoEm": "2026-10-12T10:16:18.086Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "CONTRIBUTING.md",
+      "alegacao": "C8 da F2b: o CONTRIBUTING lista os mesmos comandos que seguem o locale.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '`ork retry run`, `ork roadmap status` and the help' CONTRIBUTING.md"
+      ],
+      "criadoEm": "2026-10-12T10:16:19.543Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
+      "alegacao": "C6 da F2b: a pagina da RM-061 traz a cobertura medida da F2b (de 11,2% para 21,2%) com o recibo e a linha do historico.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'cobertura-f2b.json' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF '| Cobertura | 11,2% | 21,2% |' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'Thread `ork-rm061f2b`' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+      ],
+      "criadoEm": "2026-10-12T10:16:22.100Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f2b.json",
+      "alegacao": "C6 da F2b: o recibo da cobertura confere com o contador no HEAD (entradas do catalogo) e e coerente (de 389 para mais de 700 entradas, cobertura = entradas / (entradas + literais)).",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && node core/scripts/contar-mensagens-de-saida.cjs --json core/src > \"$l\" && node -e 'const e=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f2b.json\"); const h=JSON.parse(require(\"fs\").readFileSync(process.argv[1],\"utf8\")); const c=(m)=>Number((m.catalogo.entradas/(m.catalogo.entradas+m.emPosicaoDeSaida)).toFixed(4)); process.exit(e.fatia===\"F2b\" && e.antes.catalogo.entradas===389 && e.depois.catalogo.entradas===h.catalogo.entradas && e.depois.catalogo.entradas>=700 && c(e.antes)===e.antes.cobertura && c(e.depois)===e.depois.cobertura ? 0 : 1)' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T10:16:25.741Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/master-omissao-alvo.test.ts",
+      "alegacao": "C7 da F2b (T8): os testes que leem o texto pt-BR de master, roadmap status, ship e registrar-pr passam tambem com LANG=en_US.UTF-8, porque fixam o pt-BR no filho (envPtBr) ou no main do processo (comAmbientePtBr).",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && (cd core && LANG=en_US.UTF-8 node --test --test-reporter=tap dist-test/test/master-omissao-alvo.test.js dist-test/test/projeto-alvo-consulta.test.js dist-test/test/projeto-alvo-hosts.test.js dist-test/test/projeto-alvo-incidente.test.js dist-test/test/r3-fora-do-roadmap.test.js dist-test/test/remoto-linha-de-comando.test.js dist-test/test/rm037-entrega-externa.test.js dist-test/test/rm037-fatia3-registrar-pr-ensaio.test.js dist-test/test/rm037-fatia4-status-honesto.test.js dist-test/test/roadmap-status.test.js dist-test/test/ship-remoto-validado.test.js > \"$l\" 2>&1); awk '/^# pass/{p=$3} /^# fail/{f=$3} END{exit !(p>=50 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T10:23:45.097Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-consulta.test.ts",
+      "alegacao": "T8 da F2b: o teste fixa o pt-BR no filho do CLI (envPtBr), sem herdar o LANG de quem roda.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const base = { ...envPtBr(process.env) };' core/test/projeto-alvo-consulta.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:23:51.738Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-hosts.test.ts",
+      "alegacao": "T8 da F2b: o teste dos hosts fixa o pt-BR no filho (envPtBr), sem herdar o LANG de quem roda.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const base = { ...envPtBr(process.env) };' core/test/projeto-alvo-hosts.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:23:53.431Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/projeto-alvo-incidente.test.ts",
+      "alegacao": "T8 da F2b: o teste do incidente fixa LANG=C.UTF-8 para o ork que o host chama, e restaura o ambiente ao fim.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"process.env.LANG = 'C.UTF-8'; delete process.env.LC_ALL; delete process.env.LC_MESSAGES;\" core/test/projeto-alvo-incidente.test.ts && grep -qF 'LC_MESSAGES: process.env.LC_MESSAGES };' core/test/projeto-alvo-incidente.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:23:55.769Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/r3-fora-do-roadmap.test.ts",
+      "alegacao": "T8 da F2b: o main do roadmap status roda no proprio processo em pt-BR (comAmbientePtBr), e o locale nao vaza para os testes seguintes.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'comAmbientePtBr(() => main(' core/test/r3-fora-do-roadmap.test.ts)\" -ge 2"
+      ],
+      "criadoEm": "2026-10-12T10:23:57.890Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C56",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/remoto-linha-de-comando.test.ts",
+      "alegacao": "T8 da F2b: o teste do --remoto fixa o pt-BR no filho do CLI (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'env: { ...envPtBr(process.env), ...env }' core/test/remoto-linha-de-comando.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:23:59.426Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C57",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-entrega-externa.test.ts",
+      "alegacao": "T8 da F2b: o teste do registrar-pr externo fixa o pt-BR no filho do CLI (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"stdio: 'pipe', env: envPtBr() })\" core/test/rm037-entrega-externa.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:24:01.148Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C58",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia3-registrar-pr-ensaio.test.ts",
+      "alegacao": "T8 da F2b: o teste do ensaio do registrar-pr fixa o pt-BR no filho do CLI (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"env: { ...envPtBr(process.env), ORK_FABRICA_PUBLICAR: '0' }\" core/test/rm037-fatia3-registrar-pr-ensaio.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:24:03.065Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C59",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/rm037-fatia4-status-honesto.test.ts",
+      "alegacao": "T8 da F2b: o main do roadmap status roda no proprio processo em pt-BR (comAmbientePtBr), e o locale nao vaza para os testes seguintes do arquivo.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF \"comAmbientePtBr(() => main(['roadmap', 'status']))\" core/test/rm037-fatia4-status-honesto.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:24:04.942Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C60",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/roadmap-status.test.ts",
+      "alegacao": "T8 da F2b: o main do roadmap status roda no proprio processo em pt-BR (comAmbientePtBr).",
+      "negativa": false,
+      "verificar": [
+        "test \"$(grep -c 'comAmbientePtBr(() => main(' core/test/roadmap-status.test.ts)\" -ge 2"
+      ],
+      "criadoEm": "2026-10-12T10:24:06.467Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C61",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/ship-remoto-validado.test.ts",
+      "alegacao": "T8 da F2b: o teste do ship com --remoto fixa o pt-BR no filho do CLI (envPtBr).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'const env = { ...envPtBr(process.env), PATH: e.PATH,' core/test/ship-remoto-validado.test.ts"
+      ],
+      "criadoEm": "2026-10-12T10:24:07.934Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C62",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
