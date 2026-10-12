@@ -48,6 +48,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   dono, e a correção diz o comando dele. `ork ship pista --json` (`ork.ship-pista/v1`) dá, por thread aberta na
   entrega, as etapas (CHECK, verify, bundle, branch, PR, CI, conflito e `ship_done`) e o próximo passo com a ação
   que o núcleo declara disponível. A leitura dos PRs do pulse passa a trazer o estado de merge do PR aberto.
+- **Pista de Entrega, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-pista` liga só na sessão do dono e abre com `/pista [thread]` (a Torre abre a Pista
+  assim) um painel com uma pista por entrega: as oito etapas do `ork ship pista --json` (CHECK, verify, bundle, branch,
+  PR, CI, conflito e `ship_done`), o texto do núcleo em cada uma que falta e o próximo passo com o comando dele, no
+  terminal e no desktop. Relê a pista fora do desenho, uma leitura por vez, quando um ledger muda, quando o retrato da
+  ponte diz que uma entrega andou e por idade; publica na faixa só o que pede o dono e registra pela ponte o que o
+  painel à vista mostrou, para o Telegram não repetir. O guia `docs/guias/pista-de-entrega.md` diz ao condutor externo
+  como trocar a publicação crua pelo `ork ship publicar`.
 
 ## [0.5.5] - 2026-10-12
 

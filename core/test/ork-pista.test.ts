@@ -1,0 +1,275 @@
+import { test } from 'node:test';
+import * as assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import * as ts from 'typescript';
+import { prepararBundleCi } from '../src/ci';
+import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
+import { dirThread, novaThread } from '../src/thread';
+import { exec } from '../src/util';
+import { branchDaWorktree } from '../src/worktree';
+import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
+
+// RM-059 (fatia F7): a Pista de Entrega (`ork-pista`) testada sem o Claude Code. O sandbox do `ork verify` e o runner do
+// CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da Pista com o compilador do `core` e os roda
+// num escopo proprio, como os testes da ponte, da Torre e da Sentinela. O fonte do mod tambem e varrido pela AST (D6 e D8
+// da thread: so a lista fechada de chamadas ao `$`, e todo argv sai dos construtores dos modulos puros), e a leitura da
+// pista roda contra o `ork ship pista --json` de verdade.
+const raizDoRepo = path.resolve(__dirname, '../../..');
+const PISTA = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-pista');
+const CLI = path.resolve(__dirname, '../../dist/index.js');
+const MODULOS_PUROS = ['hooks/pista.tsx'];
+/** D8: tudo que a Pista chama direto no `$`. */
+const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
+  'clock.every', 'process.run', 'state.get', 'state.set', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
+/** D8: nada de disco, de MCP proprio, de ambiente, de texto como o dono, de agente ou de ferramenta. */
+const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'fs', 'prompt', 'agent', 'tool', 'session'];
+/** D6: os unicos construtores de argv da Pista, nos modulos puros. */
+const CONSTRUTORES_DE_ARGV = ['argvDaPista'];
+
+type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
+(globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
+  ({ tipo, props: props ?? {}, filhos: filhos.flat(Infinity) });
+
+const modulos = new Map<string, Record<string, any>>();
+function resolver(base: string): string {
+  for (const ext of ['', '.ts', '.tsx']) if (fs.existsSync(base + ext) && fs.statSync(base + ext).isFile()) return base + ext;
+  throw new Error(`modulo da Pista nao encontrado: ${base}`);
+}
+/** Transpila e roda um modulo puro da Pista; o `require` so resolve outro modulo puro dela. */
+function carregar(rel: string): Record<string, any> {
+  const arquivo = resolver(path.join(PISTA, rel));
+  const pronto = modulos.get(arquivo);
+  if (pronto) return pronto;
+  const saida = ts.transpileModule(fs.readFileSync(arquivo, 'utf8'), {
+    fileName: arquivo,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, jsxFactory: 'h' },
+  });
+  const modulo = { exports: {} as Record<string, any> };
+  modulos.set(arquivo, modulo.exports);
+  const exigir = (id: string) => {
+    const alvo = path.relative(PISTA, path.join(path.dirname(arquivo), id));
+    if (!id.startsWith('./') || !MODULOS_PUROS.includes(path.relative(PISTA, resolver(path.join(PISTA, alvo))))) {
+      throw new Error(`modulo puro da Pista nao importa valor de fora dela: ${id}`);
+    }
+    return carregar(alvo);
+  };
+  new Function('exports', 'require', 'module', saida.outputText)(modulo.exports, exigir, modulo);
+  return modulo.exports;
+}
+const lerJson = (rel: string) => JSON.parse(fs.readFileSync(path.join(PISTA, rel), 'utf8'));
+const saida = (exitCode: number, stdout: unknown, stderr = '') => ({ exitCode, stdout: typeof stdout === 'string' ? stdout : JSON.stringify(stdout), stderr });
+const SHA = 'a'.repeat(40);
+const etapas = (estados: Record<string, string> = {}) => ['check', 'verify', 'bundle', 'branch', 'pr', 'ci', 'conflito', 'entrega']
+  .map((id) => ({ id, estado: estados[id] ?? 'feita', texto: `${id} ${estados[id] ?? 'feita'}` }));
+const pista = (thread: string, extra: Record<string, unknown> = {}) => ({
+  thread, nome: thread, modo: 'auto', tag: '#Auto', publicavel: true, conduzida: false, branch: `ork/${thread}-full`, head: SHA, remota: null, pr: null,
+  etapas: etapas(), proximo: { acao: 'publicar', disponivel: true, texto: 'publique a branch e abra o PR', comando: `ork ship publicar ${thread}` }, ...extra,
+});
+const contrato = (pistas: unknown[], extra: Record<string, unknown> = {}) => ({ contrato: 'ork.ship-pista/v1', lidoEm: '2026-10-12T15:00:00.000Z',
+  base: 'main', remoto: 'origin', remotoLido: true, prsLidos: true, prsNaoLidos: null, ciExigido: true, contextoDoCi: 'ork-verify', pistas, ...extra });
+
+test('manifesto da Pista: nome, contrato de estado, dependencia da ponte, papel dono e nenhuma chave de papel', () => {
+  const m = lerJson('.claude-plugin/plugin.json');
+  assert.equal(m.name, 'ork-pista');
+  assert.equal(m.types, './types/index.d.ts');
+  assert.deepEqual(m.dependencies, ['ork-ponte']);
+  assert.equal(typeof m.author?.name, 'string');
+  const conhecidas = new Set(['name', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'keywords', 'types', 'dependencies']);
+  assert.deepEqual(Object.keys(m).filter((k) => !conhecidas.has(k)), []);
+  assert.deepEqual(lerJson('orkastery-mod.json'), { formato: 'ork.mod/v1', papeis: ['dono'], claudeCodeMinimo: '2.1.287' });
+  assert.deepEqual(lerJson('hooks/hooks.json'), { modules: ['./register.tsx'] });
+  assert.ok(fs.readdirSync(path.join(PISTA, 'test')).some((n) => /\.test\.tsx?$/.test(n)));
+});
+
+test('o contrato declara o estado da Pista em PluginState, sem import nem referencia', () => {
+  const contratoDoEstado = fs.readFileSync(path.join(PISTA, 'types/index.d.ts'), 'utf8');
+  assert.match(contratoDoEstado, /interface PluginState \{\s*'ork-pista': \{/);
+  for (const chave of ['quadro: PistaQuadro', 'foco: string | null', 'acoes: Record<string, PistaAcao>', 'ci: Record<string, PistaCi>']) {
+    assert.ok(contratoDoEstado.includes(chave), chave);
+  }
+  assert.doesNotMatch(contratoDoEstado, /^\s*import\s/m);
+  assert.doesNotMatch(contratoDoEstado, /\/\/\/\s*<reference/);
+  assert.doesNotMatch(contratoDoEstado, /interface EngineInterface/);
+});
+
+test('modulo puro da Pista so importa tipos ou outro modulo puro dela, e nao chama o $', () => {
+  for (const rel of MODULOS_PUROS) {
+    const fonte = fs.readFileSync(path.join(PISTA, rel), 'utf8');
+    for (const linha of fonte.split('\n').filter((l) => /^\s*import\s/.test(l))) {
+      if (/^\s*import type\s/.test(linha)) continue;
+      const de = /from '(\.\/[a-z]+)'/.exec(linha)?.[1];
+      assert.ok(de && MODULOS_PUROS.includes(path.relative(PISTA, resolver(path.join(PISTA, 'hooks', de)))), `${rel}: ${linha}`);
+    }
+    assert.doesNotMatch(fonte, /\$\./, `${rel} chama o $`);
+  }
+});
+
+test('pista: o argv da leitura, a conferencia do contrato e o que fica de fora', () => {
+  const p = carregar('hooks/pista.tsx');
+  assert.deepEqual(p.argvDaPista(), ['ork', 'ship', 'pista', '--json']);
+  assert.deepEqual(p.argvDaPista('ork-a'), ['ork', 'ship', 'pista', 'ork-a', '--json']);
+  for (const ruim of ['', '../x', '--json', '-x', 'a b', 'a'.repeat(81), 3, null]) {
+    assert.throws(() => p.argvDaPista(ruim), /id de thread invalido/, String(ruim));
+  }
+  const agora = Date.parse('2026-10-12T15:00:00.000Z');
+  const q = p.lerPista(saida(0, contrato([
+    pista('ork-b', { proximo: { acao: null, disponivel: true, texto: 'esperando', comando: null } }),
+    pista('ork-a'),
+    pista('../x'),
+    pista('ork-c', { etapas: etapas().slice(0, 7) }),
+    pista('ork-d', { proximo: { acao: 'merge', disponivel: true, texto: 'mergear', comando: null } }),
+    pista('ork-e', { pr: { numero: 0, url: null, estado: 'aberto', rascunho: false, head: SHA } }),
+  ], { prsLidos: false, prsNaoLidos: 'gh sem login' })), agora);
+  assert.deepEqual(q.linhas.map((l: { thread: string }) => l.thread), ['ork-a', 'ork-b']);
+  assert.equal(q.linhas[1].proximo.disponivel, false, 'so acao conhecida pode estar disponivel');
+  assert.equal(q.lidoEm, agora);
+  assert.deepEqual(q.avisos, ['os PRs não foram lidos: gh sem login', '4 pista(s) fora do contrato ficaram de fora']);
+  assert.throws(() => p.lerPista(saida(0, { contrato: 'outro', pistas: [] }), agora), /não é o contrato ork\.ship-pista\/v1/);
+  assert.throws(() => p.lerPista(saida(0, 'nao e json'), agora), /não devolveu JSON/);
+  assert.throws(() => p.lerPista(saida(2, '', 'subcomando desconhecido: ship pista'), agora), /o ork deste PATH não tem ork ship pista/);
+  assert.throws(() => p.lerPista(saida(1, '', 'linha\nerro: ship.remoto-invalido'), agora), /saída 1\): linha erro: ship\.remoto-invalido/);
+});
+
+test('pista: a ordem, a marca, a faixa e as linhas do painel com o que fica a vista', () => {
+  const p = carregar('hooks/pista.tsx');
+  const comBotao = pista('ork-z');
+  const doDono = pista('ork-y', { publicavel: false, proximo: { acao: 'publicar', disponivel: false, texto: 'publique do seu terminal', comando: 'o comando do dono' } });
+  const vermelha = pista('ork-x', { etapas: etapas({ ci: 'falhou' }), proximo: { acao: null, disponivel: false, texto: 'CI vermelho', comando: null } });
+  const andando = pista('ork-w', { etapas: etapas({ ci: 'pendente', entrega: 'pendente' }), proximo: { acao: null, disponivel: false, texto: 'esperando o CI', comando: null } });
+  const entregue = pista('ork-v', { proximo: { acao: null, disponivel: false, texto: 'entregue', comando: null } });
+  const registrar = pista('ork-u', { proximo: { acao: 'registrar', disponivel: true, texto: 'registre a entrega', comando: 'ork ship registrar-pr ork-u' } });
+  const q = p.lerPista(saida(0, contrato([entregue, andando, vermelha, doDono, comBotao, registrar])), 0);
+  assert.deepEqual(q.linhas.map((l: { thread: string }) => `${p.marcaDaPista(l)} ${l.thread}`), ['! ork-u', '! ork-z', '? ork-y', 'x ork-x', '> ork-w', '- ork-v']);
+  assert.equal(p.textoDaFaixa(q), '1 pronta para publicar · 1 pede o seu push · 1 para registrar · 1 com CI vermelho ou conflito · /pista');
+  assert.equal(p.textoDaFaixa({ linhas: [andando, entregue].map(p.linhaDaPista), lidoEm: 0, erro: null, avisos: [] }), undefined, 'sem nada do dono, a linha sai');
+  const linhas = p.linhasDoPainel(q, { agora: 120000, foco: 'ork-w' });
+  assert.equal(linhas[0].texto, 'Pista de Entrega · 6 entregas · 2 com botão · lida há 2 min');
+  assert.equal(linhas[1].texto, '>  ork-w  #Auto  ork/ork-w-full  (em foco)');
+  assert.equal(linhas[2].texto, '  CHECK ✓ · verify ✓ · bundle ✓ · branch ✓ · PR ✓ · CI · · conflito ✓ · entrega ·');
+  assert.ok(linhas.some((l: { texto: string }) => l.texto === '  no seu terminal: o comando do dono'));
+  assert.ok(!linhas.some((l: { texto: string }) => l.texto.includes('ork ship publicar ork-z')), 'o comando do botao nao aparece como texto');
+  const vistos = p.mostradosVisiveis(linhas, { offset: 0, bodyRows: 6 });
+  assert.deepEqual(vistos, [{ chave: 'pista:ork-w', thread: 'ork-w', texto: 'ork-w: esperando o CI' }]);
+  assert.deepEqual(p.mostradosVisiveis(linhas, undefined), []);
+  assert.equal(p.threadDoLedger('/p/.orkastery/threads/ork-a/ledger.jsonl'), 'ork-a');
+  for (const ruim of ['/p/.orkastery/threads/ork-a/thread.json', '/p/.orkastery/threads/../ledger.jsonl', 3, undefined]) {
+    assert.equal(p.threadDoLedger(ruim), null, String(ruim));
+  }
+  const retrato = (itens: unknown[]) => ({ retrato: { sections: { ship: { items: itens } } } });
+  assert.equal(p.assinaturaDoRetrato(null), null);
+  assert.equal(p.assinaturaDoRetrato(retrato([])), '');
+  assert.notEqual(p.assinaturaDoRetrato(retrato([{ id: 'ship:ork-a', status: 'delivered', facts: { receiptAt: 'x' } }])), p.assinaturaDoRetrato(retrato([])));
+  const arvore = p.desenharPista({ Box: 'Box', Text: 'Text', Button: 'Button' }, q, { agora: 0 }) as No;
+  const botoes = (arvore.filhos as No[]).flatMap((n) => (n.tipo === 'Button' ? [n] : (n.filhos as No[]).filter((x) => x?.tipo === 'Button')));
+  assert.deepEqual(botoes.map((b) => b.props.label), ['Atualizar'], 'a T7.2 so tem o botao de releitura');
+});
+
+/** Uma thread pronta para publicar num projeto temporario: produto, verify verde, bundle e CHECK com PASSOU. */
+function prontaParaPublicar(p: ProjetoDeTeste, nome: string): { id: string; branch: string } {
+  const { thread } = novaThread(p.carregado, { nome, modo: 'auto' });
+  const branch = branchDaWorktree(thread);
+  exec('git', ['checkout', '-q', '-b', branch, 'main'], p.dir);
+  const produto = commitar(p.dir, `${nome}.txt`, 'feito\n', `feat(${thread.id}): ${nome}`);
+  registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada', motivos: [] });
+  const arquivo = prepararBundleCi(p.carregado, thread.id);
+  exec('git', ['add', '--', path.relative(p.dir, arquivo)], p.dir);
+  exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle`], p.dir);
+  exec('git', ['checkout', '-q', 'main'], p.dir);
+  const doc = path.join(dirThread(p.dir, thread.id), 'docs', 'check.md');
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  fs.writeFileSync(doc, '# CHECK\n\nVeredito: PASSOU\n');
+  const depois = new Date(Date.now() + 5000);
+  fs.utimesSync(doc, depois, depois);
+  return { id: thread.id, branch };
+}
+
+test('pista: a leitura da Pista casa com o ork ship pista --json de verdade', (t) => {
+  const pm = carregar('hooks/pista.tsx');
+  const p = projetoTemporario('ork-pista-contrato', true);
+  t.after(() => p.limpar());
+  const e = prontaParaPublicar(p, 'pronta');
+  const env = envPtBr();
+  for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_CANAL', 'CLAUDECODE', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO']) delete env[nome];
+  const rodar = (argv: string[]) => {
+    assert.equal(argv[0], 'ork');
+    const r = spawnSync(process.execPath, [CLI, ...argv.slice(1)], { cwd: p.dir, encoding: 'utf8', env });
+    return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+  };
+  const q = pm.lerPista(rodar(pm.argvDaPista()), 1);
+  assert.deepEqual(q.linhas.map((l: { thread: string }) => l.thread), [e.id]);
+  const l = q.linhas[0];
+  assert.equal(l.branch, e.branch);
+  assert.deepEqual(l.etapas.map((x: { id: string }) => x.id), ['check', 'verify', 'bundle', 'branch', 'pr', 'ci', 'conflito', 'entrega']);
+  assert.deepEqual(l.etapas.slice(0, 4).map((x: { estado: string }) => x.estado), ['feita', 'feita', 'feita', 'pendente']);
+  assert.equal(l.proximo.acao, 'publicar');
+  assert.equal(l.proximo.disponivel, true);
+  assert.match(q.avisos.join(' '), /os PRs não foram lidos/, 'o remoto do teste e um bare local, sem forja');
+  assert.deepEqual(pm.lerPista(rodar(pm.argvDaPista(e.id)), 1).linhas.map((x: { thread: string }) => x.thread), [e.id]);
+});
+
+type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };
+function chamadasDoFonte(arquivo: string): { chamadas: Chamada[]; fonte: ts.SourceFile } {
+  const texto = fs.readFileSync(arquivo, 'utf8');
+  const fonte = ts.createSourceFile(arquivo, texto, ts.ScriptTarget.ES2022, true, /\.tsx$/.test(arquivo) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const chamadas: Chamada[] = [];
+  const visitar = (no: ts.Node) => {
+    if (ts.isCallExpression(no)) {
+      const cadeia: string[] = [];
+      let e: ts.Expression = no.expression;
+      while (ts.isPropertyAccessExpression(e)) { cadeia.unshift(e.name.text); e = e.expression; }
+      if (ts.isIdentifier(e)) cadeia.unshift(e.text);
+      chamadas.push({ cadeia, no, linha: fonte.getLineAndCharacterOfPosition(no.getStart(fonte)).line + 1 });
+    }
+    ts.forEachChild(no, visitar);
+  };
+  visitar(fonte);
+  return { chamadas, fonte };
+}
+
+function fontesDoMod(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const abs = path.join(dir, e.name);
+    if (e.isDirectory()) return e.name === 'test' || e.name === 'node_modules' || e.name === 'types' ? [] : fontesDoMod(abs);
+    return /\.(ts|tsx)$/.test(e.name) && !/\.test\./.test(e.name) && !e.name.endsWith('.d.ts') ? [abs] : [];
+  });
+}
+
+test('D6 e D8: a Pista so chama no $ a lista fechada, e todo argv sai dos construtores, sem git nem gh', () => {
+  const fontes = fontesDoMod(PISTA);
+  assert.ok(fontes.some((f) => f.endsWith('hooks/register.tsx')));
+  const vistas = new Set<string>();
+  let processos = 0;
+  for (const arquivo of fontes) {
+    const { chamadas, fonte } = chamadasDoFonte(arquivo);
+    for (const c of chamadas) {
+      if (c.cadeia[0] !== '$') continue;
+      const onde = `${path.relative(raizDoRepo, arquivo)}:${c.linha} ${c.cadeia.join('.')}`;
+      const chamada = c.cadeia.slice(1).join('.');
+      assert.ok(!NOUNS_PROIBIDOS.includes(c.cadeia[1] ?? ''), `noun proibido: ${onde}`);
+      assert.ok(CHAMADAS_PERMITIDAS.includes(chamada), `chamada fora da lista fechada do $: ${onde}`);
+      vistas.add(chamada);
+      if (chamada === 'process.run') {
+        processos++;
+        const argv = c.no.arguments[0];
+        assert.ok(argv && ts.isCallExpression(argv) && ts.isIdentifier(argv.expression) && CONSTRUTORES_DE_ARGV.includes(argv.expression.text),
+          `argv que nao sai de um construtor: ${onde}: ${argv?.getText(fonte)}`);
+      }
+    }
+    // Nenhum literal do fonte forma argv de git ou de gh, nem a autorizacao de push pelo dono.
+    const texto = fs.readFileSync(arquivo, 'utf8');
+    assert.doesNotMatch(texto, /'(git|gh)'/, `${path.relative(raizDoRepo, arquivo)} cita git ou gh como argv`);
+    assert.doesNotMatch(texto, /autorizar-push/, `${path.relative(raizDoRepo, arquivo)} cita a autorizacao de push`);
+  }
+  assert.ok(processos >= 1, `process.run achados: ${processos}`);
+  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'process.run', 'command.register', 'clock.every', 'ui.open']) {
+    assert.ok(vistas.has(esperada), esperada);
+  }
+});
+
+test('a guarda estatica dos mods aprova a Pista', () => {
+  const r = spawnSync(process.execPath, [path.join(raizDoRepo, 'core/scripts/checar-mods.cjs'), PISTA], { encoding: 'utf8' });
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  assert.match(r.stdout, /ok ork-pista/);
+});

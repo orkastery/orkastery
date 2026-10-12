@@ -37,6 +37,7 @@ Cada guia resolve uma tarefa, com os comandos na ordem em que você vai usar.
 | [Onboarding do projeto](guias/onboarding.md) | Você está trazendo um repositório novo para o `ork` |
 | [Várias máquinas](guias/varias-maquinas.md) | Você conduz o mesmo produto de mais de um computador, ou com mais de um builder |
 | [Condução pela Sentinela](guias/conducao-pela-sentinela.md) | Você liga a Sentinela do Condutor na sua sessão do Claude Code e quer que o condutor externo ceda o despacho |
+| [Pista de Entrega](guias/pista-de-entrega.md) | Você quer ver do CHECK verde ao merge sem sair do terminal, ou trocar o push cru do condutor externo pelo `ork ship publicar` |
 | [Contribuir](guias/contribuir/o-que-contribuir.md) | Você quer mandar um PR, abrir uma issue ou cuidar da triagem: um guia por tarefa, com o índice no [CONTRIBUTING](../CONTRIBUTING.md) |
 
 ## Referência
