@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Conhecimento escrito, fatia 1: o contrato e a leitura** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  o bloco `conhecimento: { dir }` do `orkastery.yaml` declara uma pasta de documentos Markdown no contrato
+  `ork.conhecimento/v1` ([contrato](docs/referencia/contratos/conhecimento-rm026.md)), com frontmatter fechado: `id`
+  (`doc-...`), `titulo`, `colecoes` e `referencias` a ids do Brain e a decisões `thread#linha` do ledger. O núcleo lê a
+  pasta e devolve os documentos válidos, as coleções e as lacunas tipadas: documento inválido ou referência que não
+  confere nunca entra na resposta. A decisão confere no ledger canônico da thread, com a fonte e o sha256 da linha que a
+  captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
+  dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
+  2 e 3); projeto sem o bloco segue igual.
 - **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
   mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
