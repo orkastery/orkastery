@@ -10,6 +10,9 @@ import { assinaturaProposta } from './master-batch';
 import { montarMonitor } from './orquestracao';
 import { pedidoCurtoDoImpedimento } from './impedimento';
 import { pedidoCurtoDaEscada } from './runtime-escada';
+import { autorizada, LeituraDaAutorizacao, lerAutorizacao } from './autorizacao-duravel';
+import { AcaoPendente, acoesFeitasDesde, acoesPendentes } from './varredura-acoes';
+import type { FantasmaTratado } from './sessoes';
 import { dirThread, lerThread } from './thread';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { lerLedger } from './ledger';
@@ -75,6 +78,20 @@ export interface Pulse {
    * ha pergunta aberta ou resposta medida na semana, e pulse de antes continua valido sem ele.
    */
   hitlDeConducao?: HitlDeConducaoAgora;
+  /**
+   * RM-063 (F5): a varredura que age. A autorizacao duravel desta maquina, as acoes que a varredura faria agora (cada
+   * uma com quem a faz: ela, pela autorizacao, ou o dono, com o comando pronto) e as que ela fez nos ultimos 7 dias.
+   * Campo aditivo: so sai com acao pendente ou feita, ou com uma autorizacao gravada.
+   */
+  varredura?: VarreduraDoPulse;
+}
+
+/** RM-063 (F5): a varredura que age, como o pulse a mostra. */
+export interface VarreduraDoPulse {
+  autorizacao: { estado: 'valida' | 'ausente' | 'invalida'; motivo: string | null; detalhe: string | null;
+    por: string | null; ate: string | null; pode: string[] };
+  pendentes: (AcaoPendente & { quemFaz: 'varredura' | 'dono' })[];
+  feitas: { acao: string; thread: string; detalhe: string; em: string; eventId: string }[];
 }
 
 /** Uma semana: o resumo cita a decisao uma vez, e ela continua lida ate sair da janela. */
@@ -103,6 +120,8 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   radar: RadarDeSessoes; monitor: MonitorDeOrquestracao; batch: PendenteDeScore[]; orfas: FaseOrfa[];
   /** RM-037 (fatia 4): o estado das entregas ja lido (com a forja); sem ele, so o git local e o ledger. */
   entregas?: EntregasDoProjeto;
+  /** RM-063 (F5): as acoes da varredura que age, ja lidas; cada uma vira item da fila do dono ou acao automatica. */
+  varredura?: VarreduraDoPulse;
 }): Pulse {
   const {radar,monitor,batch,orfas}=entrada, quando=radar.consultadoEm;
   const humanos: ItemPulse[]=[], automaticas: ItemPulse[]=[];
@@ -219,6 +238,14 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
     const esperaAutomatica=['lease.busy','conducao.em-andamento','concurrency.limite','runtime.rate-limited','vaga.stale'].includes(p.motivo);
     (esperaAutomatica?automaticas:humanos).push(item);
   }
+  // RM-063 (F5): o MASTER por omissao da varredura nao vira item do dono (I-45: a entrega sem nota fica na faixa
+  // automatica). Ele completa o item da entrega com o comando desta thread so (RM-008) e com quem o faz agora.
+  const v = entrada.varredura;
+  const recomendacaoDaVarredura = (a: VarreduraDoPulse['pendentes'][number]): string =>
+    a.quemFaz === 'varredura' && v!.autorizacao.por && v!.autorizacao.ate
+      ? textoDoCatalogo((m) => m.pulse.varredura.daVarredura(v!.autorizacao.por!, v!.autorizacao.ate!))
+      : textoDoCatalogo((m) => m.pulse.varredura.doDono(a.acao));
+  const masterDaVarredura = new Map((v?.pendentes ?? []).filter(a => a.acao === 'master').map(a => [a.thread, a] as const));
   for(const b of batch) {
     const eventos=lerLedger(dirThread(carregado.raiz,b.thread.id));
     const desde=eventos.filter(e=>e.tipo==='ship_done').at(-1)?.ts ??
@@ -235,6 +262,15 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
       recomendacao:'Aceitar por padrão com registro; a nota humana, quando vier, sobrescreve.',
       comandoResposta:'ork master --aceitar-omissao',
       evidencia:[`ork master; regime ${b.regime}`],fontes:['master'],contextoLogs:[]});
+    const daVarredura = masterDaVarredura.get(b.thread.id);
+    if (daVarredura) {
+      const item = automaticas[automaticas.length - 1];
+      item.comandoResposta = daVarredura.comando;
+      item.recomendacao = recomendacaoDaVarredura(daVarredura);
+      item.evidencia.push(daVarredura.evidencia);
+      if (!item.fontes.includes('varredura')) item.fontes.push('varredura');
+      masterDaVarredura.delete(b.thread.id);
+    }
   }
   for(const o of orfas) {
     if (ehRegistro(o.thread)) continue;
@@ -246,6 +282,21 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
         `ork retry plan ${o.thread} --motivo runtime.silencio --fase ${o.fase}`,
       evidencia:[...o.evidencia,`retry ${o.retry.tentativas}/${o.retry.limite}`],fontes:['liveness'],contextoLogs:[]};
     (o.retry.automatica?automaticas:humanos).push(item);
+  }
+  // RM-063 (F5): cada acao da varredura e um item. Sem a autorizacao do dono para ela (ou com bloqueio, ou com a tentativa
+  // recusada), e do dono, com o comando pronto; autorizada, e acao automatica da proxima batida. O MASTER ja foi no item
+  // da entrega sem nota; so o que sobrou dele (sem item de entrega) entra aqui, na faixa automatica.
+  for (const a of v?.pendentes ?? []) {
+    if (a.acao === 'master' && !masterDaVarredura.has(a.thread)) continue;
+    const daVarredura = a.quemFaz === 'varredura' || a.acao === 'master';
+    const pergunta = a.recusa ? textoDoCatalogo((m) => m.pulse.varredura.comRecusa(a.oQue, a.recusa!.detalhe))
+      : a.bloqueio ? textoDoCatalogo((m) => m.pulse.varredura.comBloqueio(a.oQue, a.bloqueio!)) : a.oQue;
+    const item: ItemPulse = { id: `varredura:${a.acao}:${a.thread}${a.sessionId ? `:${a.sessionId.slice(0, 8)}` : ''}`,
+      classe: 'varredura', motivo: `varredura.${a.acao}`, thread: a.thread, fase: a.fase, sessionId: null, desdeEm: a.desdeEm,
+      paradaHaMin: minutos(a.desdeEm, quando), impacto: impacto(a.fase), pergunta, opcoes: [],
+      recomendacao: recomendacaoDaVarredura(a), comandoResposta: a.comando, evidencia: [a.evidencia], fontes: ['varredura'],
+      contextoLogs: [] };
+    (daVarredura ? automaticas : humanos).push(item);
   }
   const unicos=(items:ItemPulse[])=>[...new Map(items.map(i=>[i.id,i])).values()].sort(ordenar);
   const h=unicos(humanos),a=unicos(automaticas);
@@ -275,7 +326,21 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
   }
   return {contrato:CONTRATO_PULSE,consultadoEm:quando,runtime:{ok:radar.runtimeConsultado,detalhe:radar.runtimeDetalhe},
     precisaDeHumanoAgora:h,acoesAutomaticas:a,resumo:{humanos:h.length,automaticas:a.length,scores:batch.length,fasesOrfas:orfas.length},
-    ...(entregas?.parados.length ? { paradoNoCondutor: entregas.parados } : {})};
+    ...(entregas?.parados.length ? { paradoNoCondutor: entregas.parados } : {}),
+    ...(v && (v.pendentes.length || v.feitas.length || v.autorizacao.estado !== 'ausente') ? { varredura: v } : {})};
+}
+
+/** RM-063 (F5): a autorizacao e as acoes como o pulse as leva: cada acao com quem a faz agora. */
+export function varreduraDoPulse(leitura: LeituraDaAutorizacao, pendentes: readonly AcaoPendente[],
+  feitas: readonly { acao: string; thread: string; detalhe: string; em: string; eventId: string }[]): VarreduraDoPulse {
+  const a = leitura.valida ? leitura.autorizacao : null;
+  return {
+    autorizacao: { estado: leitura.valida ? 'valida' : leitura.motivo === 'autorizacao.ausente' ? 'ausente' : 'invalida',
+      motivo: leitura.valida ? null : leitura.motivo, detalhe: leitura.valida ? null : leitura.detalhe,
+      por: a?.por ?? null, ate: a?.ate ?? null, pode: a ? [...a.pode] : [] },
+    pendentes: pendentes.map((p) => ({ ...p, quemFaz: autorizada(leitura, p.acao) && !p.bloqueio && !p.recusa ? 'varredura' : 'dono' })),
+    feitas: feitas.map((f) => ({ acao: f.acao, thread: f.thread, detalhe: f.detalhe, em: f.em, eventId: f.eventId })),
+  };
 }
 
 export function montarPulse(carregado: ManifestoCarregado, opcoes: {
@@ -288,6 +353,11 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
    * nao espera a rede nem grava o retrato dos PRs.
    */
   semForja?: boolean;
+  /**
+   * RM-063 (F5): as sessoes fantasmas que o `limpar` soltaria. Sem a opcao, o inventario de todas as contas (o mesmo do
+   * `ork sessions limpar-fantasmas --dry-run`); com a consulta injetada ou sem o runtime, nenhuma (nada se afirma).
+   */
+  fantasmas?: () => FantasmaTratado[] | null;
 } = {}): Pulse {
   if (opcoes.registrar) exigirEscopoDeEscrita(opcoes.escopo);
   const diagnosticos: string[] = [];
@@ -327,7 +397,18 @@ export function montarPulse(carregado: ManifestoCarregado, opcoes: {
       if (novidade) diagnosticos.push(`prs.sem-leitura: ${leitura.erro.slice(0, 160)}`);
     } else if (leitura && !leitura.ok) diagnosticos.push(`prs.nao-lidos: ${leitura.erro.slice(0, 160)}`);
   } catch (e) { diagnosticos.push(`entregas.indisponiveis: ${(e as Error).message.slice(0, 120)}`); }
-  const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz),...(entregas?{entregas}:{})});
+  // RM-063 (F5): o que a varredura faria sozinha, com a autorizacao duravel desta maquina. Leitura; falhar aqui nunca
+  // derruba a fila de atencao.
+  let varredura: VarreduraDoPulse | undefined;
+  try {
+    const leitura = lerAutorizacao(carregado.raiz, { projeto: carregado.manifesto.project.name, agora: new Date(quando) });
+    const fantasmas = opcoes.fantasmas ?? (opcoes.consulta || opcoes.semRuntime ? () => null : undefined);
+    const pendentes = acoesPendentes(carregado, { quando, fantasmas });
+    const feitas = acoesFeitasDesde(carregado.raiz, new Date(Date.parse(quando) - JANELA_DAS_DECISOES_MS).toISOString());
+    varredura = varreduraDoPulse(leitura, pendentes, feitas);
+  } catch (e) { diagnosticos.push(`varredura.indisponivel: ${(e as Error).message.slice(0, 120)}`); }
+  const pulse = comporPulse(carregado,{radar,monitor,orfas,batch:pendentesDeScore(carregado.raiz),...(entregas?{entregas}:{}),
+    ...(varredura?{varredura}:{})});
   // RM-061 (F2b, G2): a linha de conducao e da familia `thread` e segue o locale ativo; o JSON a guarda em pt-BR.
   const conducoes = monitor.linhas.filter((l) => l.conducao)
     .map((l) => ({ thread: l.thread, linha: textoDoCatalogo(() => linhaDeConducao(l.conducao!, { agora: quando })) }));
@@ -405,5 +486,15 @@ export function textoDoPulse(p: Pulse): string {
   // RM-061 (F2b, D4): o item do radar sem tipo de HITL usa a classe como motivo; ela sai pelo id, o motivo tipado fica.
   for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo === i.classe ? m.classe(i.motivo) : i.motivo,
     remontar(i.comandoResposta)));
+  // RM-063 (F5): a autorizacao da varredura e o que ela fez sozinha na semana.
+  if (p.varredura) {
+    const v = p.varredura, a = v.autorizacao;
+    linhas.push('', a.estado === 'valida' ? m.varredura.autorizacaoValida(String(a.por), formatarDataHoraRotulada(String(a.ate), { agora: p.consultadoEm }),
+      a.pode.join(', ')) : a.estado === 'ausente' ? m.varredura.autorizacaoAusente : m.varredura.autorizacaoInvalida(String(a.motivo), String(a.detalhe)));
+    if (v.feitas.length) {
+      linhas.push(m.varredura.feitas(v.feitas.length));
+      for (const f of v.feitas) linhas.push(m.varredura.feita(f.thread, f.acao, f.detalhe));
+    }
+  }
   return linhas.join('\n');
 }

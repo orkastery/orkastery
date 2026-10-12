@@ -64,6 +64,12 @@ export interface LinhaDoCondutor { thread: string; caso: string; desdeEm: string
  */
 export interface LinhaDoImpedimento { thread: string; fase: string | null; comando: string; retry: string }
 
+/**
+ * RM-063 (F5): uma acao da varredura, como o resumo a mostra: a que fica com o dono (sem a autorizacao dele), com o
+ * comando pronto, ou a que a varredura fez sozinha, pela autorizacao.
+ */
+export interface LinhaDaVarredura { thread: string; acao: string; texto: string; comando: string | null }
+
 export interface ResumoHitl extends ContagemDeClassificacao {
   contrato: typeof CONTRATO_RESUMO;
   consultadoEm: string;
@@ -105,6 +111,10 @@ export interface ResumoHitl extends ContagemDeClassificacao {
   paradosNoCondutor?: LinhaDoCondutor[];
   /** RM-055 (continuacao, D3): os impedimentos do despacho que so o dono resolve, com o comando de cada um. */
   impedimentosDoDono?: LinhaDoImpedimento[];
+  /** RM-063 (F5): as acoes da varredura que esperam o dono (sem a autorizacao dele), com o comando de cada uma. */
+  acoesDaVarredura?: LinhaDaVarredura[];
+  /** RM-063 (F5): o que a varredura fez sozinha desde o ultimo resumo, pela autorizacao do dono. */
+  feitasPelaVarredura?: LinhaDaVarredura[];
   /**
    * RM-057 (fatia 3): o tempo parado por HITL de conducao, so quando passou da meta de 5 min (uma
    * aberta alem dela ou a mediana dos 7 dias acima). Vira uma linha; nao conta como pergunta nem e
@@ -126,6 +136,8 @@ export interface OpcoesDeResumo {
   outrasMaquinas?: readonly ResumoDeMaquina[];
   paradosNoCondutor?: readonly LinhaDoCondutor[];
   impedimentosDoDono?: readonly LinhaDoImpedimento[];
+  acoesDaVarredura?: readonly LinhaDaVarredura[];
+  feitasPelaVarredura?: readonly LinhaDaVarredura[];
   hitlDeConducao?: HitlDeConducaoAgora;
 }
 
@@ -148,8 +160,31 @@ export function resumirHitl(itens: readonly ItemClassificavel[], opcoes: OpcoesD
       desdeEm: p.desdeEm, proximoPasso: p.proximoPasso })) } : {}),
     ...(opcoes.impedimentosDoDono?.length ? { impedimentosDoDono: opcoes.impedimentosDoDono.map(i => ({ thread: i.thread,
       fase: i.fase, comando: i.comando, retry: i.retry })) } : {}),
+    ...(opcoes.acoesDaVarredura?.length ? { acoesDaVarredura: opcoes.acoesDaVarredura.map(a => ({ ...a })) } : {}),
+    ...(opcoes.feitasPelaVarredura?.length ? { feitasPelaVarredura: opcoes.feitasPelaVarredura.map(a => ({ ...a })) } : {}),
     ...(opcoes.hitlDeConducao?.acimaDaMeta ? { hitlDeConducao: opcoes.hitlDeConducao } : {}),
   };
+}
+
+/** Quantas acoes da varredura o resumo detalha antes de contar o resto. */
+export const TETO_DA_VARREDURA = 5;
+
+/**
+ * RM-063 (F5): as acoes da varredura no resumo, iguais nos dois canais: as que esperam o dono, com o comando (o
+ * incidente do PR #112, mesclado e dois dias sem registro sem nenhum canal avisar), e as que ela fez sozinha.
+ */
+export function linhasDaVarredura(r: ResumoHitl, marcadores: { dono: string; feitas: string }, recuo: string): string[] {
+  const linhas: string[] = [];
+  const bloco = (lista: readonly LinhaDaVarredura[], titulo: string) => {
+    if (!lista.length) return;
+    const mostradas = lista.slice(0, TETO_DA_VARREDURA), sobra = lista.length - mostradas.length;
+    if (linhas.length) linhas.push('');
+    linhas.push(titulo, ...mostradas.map(a => `${recuo}• ${semQuebra(a.thread)}: ${uma(a.texto, 140)}` +
+      (a.comando ? ` (\`${semQuebra(a.comando)}\`)` : '')), ...(sobra > 0 ? [`${recuo}e mais ${sobra}: ork pulse`] : []));
+  };
+  bloco(r.acoesDaVarredura ?? [], `${marcadores.dono}Arrumação que a varredura faria com a sua autorização: ${(r.acoesDaVarredura ?? []).length}`);
+  bloco(r.feitasPelaVarredura ?? [], `${marcadores.feitas}A varredura fez sozinha, pela sua autorização: ${(r.feitasPelaVarredura ?? []).length}`);
+  return linhas;
 }
 
 /** Quantas linhas do condutor o resumo mostra antes de contar o resto. */
@@ -336,6 +371,7 @@ function textoTelegram(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.consertos ? [`🔧 ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).map(l => `⏳ ${l}`),
     ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '🔑 ', '   ')] : []),
+    ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '🧹 ', feitas: '🤖 ' }, '   ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '🚧 ', '   ')] : []),
     ...(r.acumuladas ? ['', `📥 ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '🧭 ', '   ')] : []),
@@ -370,6 +406,7 @@ function textoTerminal(r: ResumoHitl, codigo: string | undefined): string {
     ...(r.consertos ? ['', `  ${linhaDosConsertos(r.consertos)}`] : []),
     ...linhaDoHitlParado(r).flatMap(l => ['', `  ${l}`]),
     ...(r.impedimentosDoDono?.length ? ['', ...linhasDosImpedimentos(r, '  ', '  ')] : []),
+    ...(r.acoesDaVarredura?.length || r.feitasPelaVarredura?.length ? ['', ...linhasDaVarredura(r, { dono: '  ', feitas: '  ' }, '    ')] : []),
     ...(r.paradosNoCondutor?.length ? ['', ...linhasDoCondutor(r, '  ', '  ')] : []),
     ...(r.acumuladas ? ['', `  ${linhaDoLoteGuardado(r.acumuladas)}`] : []),
     ...(r.decisoes.length || r.acimaDoLimiar.length ? ['', ...linhasDasDecisoes(r, '', '  ').map(l => l.startsWith('  ') ? l : `  ${l}`)] : []),

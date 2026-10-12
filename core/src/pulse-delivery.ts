@@ -1,4 +1,4 @@
-import { exigirManifesto } from './manifest';
+import { exigirManifesto, ManifestoCarregado } from './manifest';
 import { lerAtivacao } from './write-activation';
 import { exigirEscopoDeEscrita } from './escopo-escrita';
 /** D5: transporte determinístico, cache só depois do recibo, sem inferência. */
@@ -22,6 +22,7 @@ import { fabricaCompartilhada, nomeDaMaquina } from './maquina';
 import { publicarRedeNaBatida } from './rede';
 import { registrarNaRede } from './rede-adesao';
 import { lerCadencia, janelaAberta, lerUltimoResumo, gravarUltimoResumo } from './pulse-cadencia';
+import { agirNaVarredura, OpcoesDaVarreduraQueAge, VarreduraQueAge } from './varredura-acoes';
 
 // O lock dos monitores mudou de modulo (I-41, GO-FIX 1); quem o importava daqui continua importando.
 export { adquirirLockMonitor } from './monitor-lock';
@@ -163,6 +164,10 @@ export function varrerPulse(opcoes: {
     const parados=pulse.paradoNoCondutor??[];
     const chaveDoParado=(p:{thread:string;caso:string})=>`parado:${p.thread}:${p.caso}`;
     for(const p of parados) presentes.add(chaveDoParado(p));
+    // RM-063 (F5): o que a varredura fez sozinha, pela autorizacao do dono, e noticia uma vez, como a decisao informada.
+    const feitas=pulse.varredura?.feitas??[];
+    const chaveDaFeita=(id:string)=>`varredura:${id}`;
+    for(const f of feitas) presentes.add(chaveDaFeita(f.eventId));
     // A parada que some por uma batida (gh que falhou, um `ork verify` do condutor) e volta nao e noticia
     // nova: a marca fica guardada por `RETEM_PARADO_MS` depois da ultima vez que a parada apareceu.
     const guardada=(id:string,valor:string)=>id.startsWith('parado:')&&
@@ -170,6 +175,7 @@ export function varrerPulse(opcoes: {
     vistas=Object.fromEntries(Object.entries(vistas).filter(([id,valor])=>presentes.has(id)||guardada(id,valor)));
     const esperaNovaFora=esperasFora.some(k=>vistas[k]===undefined);
     const decisoesNovas=decisoes.filter(d=>vistas[chaveDaDecisao(d.id)]===undefined);
+    const feitasNovas=feitas.filter(f=>vistas[chaveDaFeita(f.eventId)]===undefined);
     const paradosNovos=parados.filter(p=>vistas[chaveDoParado(p)]===undefined);
     // A marca guarda o instante em milissegundos: e dado de maquina, nao texto para o dono.
     for(const p of parados) if(vistas[chaveDoParado(p)]!==undefined) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
@@ -225,7 +231,7 @@ export function varrerPulse(opcoes: {
     // I-50: pergunta nova sai na hora; o resto (status, decisoes informadas) espera a janela da
     // cadencia do dono, e a novidade que esperou continua nao vista ate sair.
     const noPrazo=!opcoes.comCadencia||janelaAberta(cadencia,lerUltimoResumo(opcoes.raiz,dir),quando);
-    const informacaoNova=novas>0||decisoesNovas.length>0||paradosNovos.length>0;
+    const informacaoNova=novas>0||decisoesNovas.length>0||paradosNovos.length>0||feitasNovas.length>0;
     const adiada=!conjuntoNovo&&!esperaNovaFora&&!impedimentoNovo&&informacaoNova&&!noPrazo;
     if(conjuntoNovo||esperaNovaFora||impedimentoNovo||(noPrazo&&informacaoNova)) {
       const guardadas=anterior?fila.candidatos.filter(c=>anterior.candidatos.some(a=>a.thread===c.thread)).length:0;
@@ -233,6 +239,10 @@ export function varrerPulse(opcoes: {
         consertos:fila.consertos,atoDoItem:i=>fila.atos.get(`${i.thread}|${i.fase}`),
         decisoes:decisoesNovas,acimaDoLimiar:pulse.acimaDoLimiar??[],outrasMaquinas:outras,paradosNoCondutor:parados,
         impedimentosDoDono:impedimentos,
+        // RM-063 (F5): o que espera o dono na varredura, com o comando, e o que ela fez sozinha desde o ultimo resumo.
+        acoesDaVarredura:(pulse.varredura?.pendentes??[]).filter(a=>a.quemFaz==='dono')
+          .map(a=>({thread:a.thread,acao:a.acao,texto:a.oQue,comando:a.comando})),
+        feitasPelaVarredura:feitasNovas.map(f=>({thread:f.thread,acao:f.acao,texto:`${f.acao}: ${f.detalhe}`,comando:null})),
         // RM-057 (fatia 3): a linha so acompanha o resumo que ja sai; nao e novidade nem fura a cadencia.
         ...(pulse.hitlDeConducao?{hitlDeConducao:pulse.hitlDeConducao}:{})});
       // Pedir licenca para mandar zero perguntas era o defeito: sem pergunta, nao ha codigo.
@@ -247,6 +257,7 @@ export function varrerPulse(opcoes: {
       for(const d of decisoes) vistas[chaveDaDecisao(d.id)]='informada';
       for(const k of esperasFora) vistas[k]='informada';
       for(const p of parados) vistas[chaveDoParado(p)]=`informada|${Date.parse(quando)}`;
+      for(const f of feitas) vistas[chaveDaFeita(f.eventId)]='informada';
       gravarUltimoResumo(opcoes.raiz,quando,dir);
     }
     gravarCache(cache,vistas);
@@ -255,6 +266,25 @@ export function varrerPulse(opcoes: {
         :adiada?`novidade guardada para a janela seguinte da cadencia ${cadencia.tag}`:'sem novidade'});
   } catch(e) {return log({code:1,novas,enviadas,detalhe:(e as Error).message});}
   finally { trava.liberar(); }
+}
+
+/**
+ * RM-063 (F5): a parte que age da batida, com o registro de cada rodada no `hitl.log` (`varredura_acoes`): o estado da
+ * autorizacao, a busca da base, o que foi feito e o que ficou para o dono. Nunca lanca.
+ */
+export function agirAntesDaVarredura(carregado: ManifestoCarregado, opcoes: OpcoesDaVarreduraQueAge = {}): VarreduraQueAge | null {
+  const dir=path.join(raizDoEstado(carregado.raiz),'.orkastery','monitor');
+  const quando=opcoes.quando??new Date().toISOString();
+  let r:VarreduraQueAge|null=null, erro:string|null=null;
+  try { r=agirNaVarredura(carregado,{...opcoes,quando}); } catch(e) { erro=(e as Error).message.slice(0,300); }
+  try {
+    fs.mkdirSync(dir,{recursive:true});
+    fs.appendFileSync(path.join(dir,'hitl.log'),JSON.stringify({ts:quando,tipo:'varredura_acoes',
+      autorizacao:r?(r.autorizacao.valida?'valida':r.autorizacao.motivo):null,busca:r?.busca??null,
+      feitas:r?.feitas.map(f=>({acao:f.acao,thread:f.thread,resultado:f.resultado}))??[],
+      pendentes:r?.pendentes.map(p=>({acao:p.acao,thread:p.thread}))??[],...(erro?{erro}:{})})+'\n',{mode:0o600});
+  } catch { /* o log e da batida; sem ele, o ledger da thread ainda guarda cada acao */ }
+  return r;
 }
 
 /**
@@ -290,6 +320,10 @@ if(require.main===module) {
     }
     const outrasMaquinas=compartilhada
       ? ()=>resumoDasOutrasMaquinas(lerFabrica(carregado.raiz,{remoto,semRemoto:true}),nomeDaMaquina()) : undefined;
+    // RM-063 (F5): a varredura que age vem antes do pulse: com a autorizacao duravel do dono, limpa as sessoes
+    // fantasmas, registra a entrega do PR ja mesclado e fecha pelo MASTER por omissao; o pulse que vem depois ja ve o
+    // estado novo, e o que ficou sem autorizacao vai a fila do dono. Falha aqui nunca segura a entrega ao dono.
+    agirAntesDaVarredura(carregado);
     // RM-053 (D9): depois da entrega ao dono, a mesma batida publica o retrato desta maquina na rede da
     // pessoa (so membro, uma tentativa a cada 14 min, retrato igual so de hora em hora).
     const r=varrerEDepoisPublicarNaRede(()=>varrerPulse({raiz,escopo,comCadencia:true,outrasMaquinas}),()=>{
