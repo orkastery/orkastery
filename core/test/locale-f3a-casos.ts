@@ -120,6 +120,10 @@ function casosDaExperiencia(casos: Record<string, string>): void {
       // Instalado, a remocao devolve o arquivo de antes (ou o apaga, quando foi o pacote que o criou).
       aplicarExperiencia(plano);
       casos[`experiencia ${host}: ${nome}, remocao`] = textoDoPlano(projeto, planejarExperiencia(projeto, host, null));
+      // Sem recibo (clone novo, `.orkastery/` apagado): o bloco e reconhecido pelo texto, na reinstalacao e na remocao.
+      fs.unlinkSync(path.join(projeto, '.orkastery', 'experiencia', `${host}.json`));
+      casos[`experiencia ${host}: ${nome}, adocao sem recibo`] = textoDoPlano(projeto, planejarExperiencia(projeto, host, DIRETORIO_DAS_SKILLS[host]));
+      casos[`experiencia ${host}: ${nome}, remocao sem recibo`] = textoDoPlano(projeto, planejarExperiencia(projeto, host, null));
     }
   }
 }
