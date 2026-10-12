@@ -1,0 +1,189 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm055impedi2",
+  "branch": "ork/ork-rm055impedi2-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C6",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/impedimento.ts",
+      "alegacao": "S1 (GOAL, substitui C1): as frases reais do claude 2.1.296 e do codex 0.154.0 viram o motivo certo. [ACTION REQUIRED] dos termos, bypass e modo auto do --bg viram runtime.consent-pending com o comando tirado da frase (claude, claude --dangerously-skip-permissions, claude --permission-mode auto); \"could not be resolved on disk\", \"home directory\" e o aviso de carência devolvem null; a recusa de confiança do claude e as duas do codex continuam runtime.workspace-untrusted; comando forjado fora da forma fechada vira o binário puro.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S1: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S1:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:39:23.585Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/impedimento.ts",
+      "alegacao": "S2 (GOAL, substitui C2): a prova local da confiança segue a regra observada no claude 2.1.296 com worktrees git reais: só o repositório principal confiado vale para worktree dentro (E1) e fora (E2) dele; só o diretório acima do repositório não vale (E3); diretório fora de git aceita ancestral confiado; sem .claude.json, null.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S2: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S2:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:39:26.188Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "S3 (GOAL, substitui C3): com o runtime recusando o redespacho pelo mesmo impedimento do dono, quatro ork retry run seguidos não escalam para retry.max_tentativas, não sobem esforço e não contam tentativa (retry_attempt com conta false); o primeiro depois do aceite re-despacha a mesma fase com o mesmo sha256 do prompt.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S3: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S3:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:39:28.781Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/pulse-delivery.ts",
+      "alegacao": "S4 (GOAL, substitui C4): o resumo entregue ao dono (Telegram e terminal) traz thread, fase, comando exato e ork retry run de cada impedimento do dono aberto; com a cadência ligada, impedimento novo sai na hora e o mesmo impedimento já avisado não volta a tocar sozinho.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S4: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S4:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:39:31.263Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/test/rm055-continuacao.test.ts",
+      "alegacao": "O arquivo de teste da continuação passa inteiro, e os testes da fatia 1 da RM-055 continuam verdes junto dele.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/rm055-continuacao.test.js core/dist-test/test/rm055-impedimento.test.js | awk '/^ok [0-9]+ - /{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:39:33.364Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/pulse.ts",
+      "alegacao": "O item do pulse de um impedimento do dono leva o impedimento tipado (motivo, comando exato e ork retry run da thread), além do contrato curto da fatia 1; é o que o resumo entregue usa.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S4: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S4:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:52:10.871Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "core/src/hitl-resumo.ts",
+      "alegacao": "O resumo HITL (Telegram e terminal) mostra o bloco \"Só você destrava, no terminal: N\" com thread, fase, comando e ork retry run de cada impedimento, teto de 5 com o resto contado, e o fecho aponta para ele; sem impedimento, o texto do resumo segue o de antes (suítes do resumo, da cadência e da entrega verdes).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap --test-name-pattern=S4: core/dist-test/test/rm055-continuacao.test.js | awk '/^ok [0-9]+ - S4:/{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'",
+        "npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test --test-reporter=tap core/dist-test/test/hitl-resumo.test.js core/dist-test/test/pulse-cadencia.test.js core/dist-test/test/pulse-delivery.test.js | awk '/^ok [0-9]+ - /{p++} /^not ok/{f++} END{exit !(p>0 && f==0)}'"
+      ],
+      "criadoEm": "2026-10-10T06:52:14.912Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+      "alegacao": "S6 (GOAL, substitui C5): a RM-055 registra a continuação (thread rm055impedim3, decisões e a regra da confiança corrigida), o CHANGELOG traz a entrada em Não publicado, e o docs verificar --pr da própria worktree (sem ORK_PROJETO) não acha erro de paridade.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && env -u ORK_PROJETO node core/dist/index.js docs verificar --pr",
+        "grep -qF 'RM-055, continuação' CHANGELOG.md",
+        "grep -qF 'rm055impedim3' docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+        "grep -qF 'terms_not_accepted' docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md"
+      ],
+      "criadoEm": "2026-10-10T06:53:48.068Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG traz em Não publicado, Corrigido, a entrada \"Impedimento que só o dono resolve, RM-055, continuação\" com as quatro correções, e a paridade da documentação continua sem erro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'RM-055, continuação' CHANGELOG.md",
+        "npm --prefix core run build >/dev/null && env -u ORK_PROJETO node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-10T06:56:31.398Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "docs/guias/verificacao.md",
+      "alegacao": "A tabela de retry do guia de verificação diz a regra da confiança observada (até a raiz git ou o repositório principal da worktree; acima não vale), que o diretório inexistente e o home não são do dono, e que a recusa repetida pelo mesmo impedimento não gasta tentativa nem sobe esforço.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'acima da raiz git não vale' docs/guias/verificacao.md && grep -qF 'essa recusa não gasta tentativa nem sobe esforço' docs/guias/verificacao.md"
+      ],
+      "criadoEm": "2026-10-10T06:56:33.552Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "docs/referencia/cli.md",
+      "alegacao": "A linha do ork retry run na referência da CLI diz onde a confiança vale e que a recusa do runtime pelo mesmo impedimento não gasta tentativa, e os blocos maestro dos documentos continuam válidos.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'a recusa do runtime pelo mesmo impedimento não gasta tentativa' docs/referencia/cli.md && node core/scripts/verify-maestro-docs.cjs >/dev/null"
+      ],
+      "criadoEm": "2026-10-10T06:56:35.464Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm055impedi2",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap, regerado pelo ork docs sincronizar --so RM-055, mostra a RM-055 atualizada em 2026-10-10 sem mudar os estados, e a paridade continua sem erro.",
+      "negativa": false,
+      "verificar": [
+        "grep -qF '| [RM-055](RM-055-impedimento-do-dono-vira-hitl.md) | Impedimento que só o dono resolve vira pedido a ele | Em desenvolvimento | Mesclado | Em execução | Não implantado | 2026-10-10 |' docs/roadmap/README.md",
+        "npm --prefix core run build >/dev/null && env -u ORK_PROJETO node core/dist/index.js docs verificar --pr"
+      ],
+      "criadoEm": "2026-10-10T06:56:37.867Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
