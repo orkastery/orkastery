@@ -44,6 +44,7 @@ import { THREAD_EN, THREAD_PT_BR } from './locale-thread';
 import { PHASE_EN, PHASE_PT_BR } from './locale-phase';
 import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
 import { VERIFY_EN, VERIFY_PT_BR } from './locale-verify';
+import { SHIP_EN, SHIP_PT_BR } from './locale-ship';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -51,11 +52,12 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * Comandos cujo texto ja sai pelo catalogo, por `comando` ou por `comando subcomando`; `comando ?` e o
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
- * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`).
+ * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
+ * `ship` e `ship registrar-pr`.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
-  'phase list', 'phase run', 'phase ?', 'verify'];
+  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -68,6 +70,8 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
 export function chaveDoLocale(posicionais: readonly (string | undefined)[], opcoes: Readonly<Record<string, unknown>>): string {
   const [comando = '', bruto] = posicionais;
+  // F2b (D2): `ork ship <thread>` tem a thread no lugar do subcomando; so `registrar-pr` e rota propria.
+  if (comando === 'ship') return bruto === 'registrar-pr' ? 'ship registrar-pr' : 'ship';
   const familia = FAMILIAS.get(comando);
   if (!familia) return comando;
   const sub = comando === 'onboarding' && 'reset' in opcoes ? 'reset' : bruto ?? familia.padrao;
@@ -343,6 +347,7 @@ const PT_BR = {
   phase: PHASE_PT_BR,
   ajuda: AJUDA_PT_BR,
   verify: VERIFY_PT_BR,
+  ship: SHIP_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -592,6 +597,7 @@ const EN: Mensagens = {
   phase: PHASE_EN,
   ajuda: AJUDA_EN,
   verify: VERIFY_EN,
+  ship: SHIP_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

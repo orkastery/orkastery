@@ -140,7 +140,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, resetarOnboarding, textoDaPauta, validarPedidoDeEtapa } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, comLocale, ligarRemontagem, Locale, localeAtivo, mensagemDoErro, msg, remontar, resolverLocale } from './locale';
 import { DadosDaAjuda } from './locale-ajuda';
 import {
   abrirMemoria,
@@ -1850,6 +1850,7 @@ function comandoHandoff(args: Args): number {
 
 function comandoShip(args: Args): number {
   const carregado = exigirManifesto();
+  const m = msg().ship;
   if (args.posicionais[1] === 'registrar-pr') {
     // I-57 (RM-008): a entrega feita por PR vira ship_done, provada no remoto e no CI.
     const alvo = args.posicionais[2];
@@ -1857,28 +1858,30 @@ function comandoShip(args: Args): number {
     // RM-037 (defeito 5): PR mesclado em repositorio externo declarado em ci.external_repositories.
     const repo = texto(args.opcoes.repo), numeroDoPr = texto(args.opcoes.pr);
     if ((!alvo && args.opcoes.todas !== true) || (!!repo !== !!numeroDoPr) || (repo && !alvo)) {
-      console.error('uso: ork ship registrar-pr <thread-id> [--repo <dono/nome> --pr <n>] | --todas [--remoto R] [--json] [--dry-run]');
+      console.error(m.usoRegistrarPr);
       return 2;
     }
     // RM-047: o `--remoto` da linha de comando so chega ao git como nome de remoto (ship.remoto-invalido).
     if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
     // RM-037 (fatia 3, defeito 6): o `--dry-run` era ignorado, e o ensaio gravava o ship_done de verdade.
     const dryRun = args.opcoes['dry-run'] === true;
-    const r = alvo && repo ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
-      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun });
+    // RM-061 (F2b, G2): o ship_done e o motivo nascem em pt-BR; so a impressao segue o locale.
+    const r = comLocale('pt-BR', () => alvo && repo
+      ? [registrarEntregaExternaPorPr(carregado, alvo, { repositorio: repo, pr: Number(numeroDoPr), dryRun })]
+      : alvo ? [registrarEntregaPorPr(carregado, alvo, { remoto, dryRun })] : registrarEntregasPorPr(carregado, { remoto, dryRun }));
     if (args.opcoes.json === true) { console.log(JSON.stringify(r, null, 2)); return r.some((x) => x.acao === 'recusada') ? 1 : 0; }
-    if (dryRun) console.log('Ensaio (--dry-run): nada foi gravado.');
-    if (r.length === 0) console.log('Nenhuma thread aberta com merge ship(<thread>) na base.');
-    for (const x of r) console.log(`  ${x.thread.padEnd(20)} ${x.acao.padEnd(13)} ${x.motivo}`);
+    if (dryRun) console.log(m.ensaio);
+    if (r.length === 0) console.log(m.nenhumaComMerge);
+    for (const x of r) console.log(m.linhaDoRegistro(x.thread, m.acoes[x.acao] ?? x.acao, remontar(x.motivo)));
     // RM-044 (A3): a pagina que o push da base vai reprovar em docs.paridade.merge, com o comando que corrige.
     // So aviso: nada e gravado e o codigo de saida nao muda.
     const pendentes = r.flatMap((x) => x.docsPendentes.map((d) => ({ thread: x.thread, ...d })));
     if (pendentes.length) {
       console.log('');
-      console.log(`Aviso: ${pendentes.length} pagina(s) do roadmap com estado.codigo fora de "Mesclado" depois do merge; o push da base reprova em docs.paridade.merge:`);
+      console.log(m.avisoDeDocs(pendentes.length));
       for (const d of pendentes) {
-        console.log(`  ${d.id} (${d.arquivo}): merge ${d.merge.slice(0, 7)} de ship(${d.thread}), estado.codigo "${d.codigo || 'vazio'}"`);
-        console.log(`    ${d.comando}   (num PR de docs sobre a base atualizada)`);
+        console.log(m.docPendente(d.id, d.arquivo, d.merge.slice(0, 7), d.thread, d.codigo));
+        console.log(m.docPendenteComando(d.comando));
       }
     }
     const registradas = r.filter((x) => x.acao === 'registrou').length;
@@ -1887,26 +1890,27 @@ function comandoShip(args: Args): number {
       console.log('');
       // RM-008 (03/10): o texto ensina a forma COM a thread. A forma sem thread fechava tambem as
       // entregues de outras frentes paralelas, e era ela que os condutores copiavam daqui.
-      console.log(`${registradas} entrega(s) registrada(s). Fechar pelo MASTER so a(s) desta entrega (a nota humana sobrescreve):`);
+      console.log(m.registradas(registradas));
       for (const x of r.filter((y) => y.acao === 'registrou')) console.log(`  ork master ${x.thread} --aceitar-omissao`);
     }
     if (registrariam) {
       console.log('');
-      console.log(`${registrariam} entrega(s) seria(m) registrada(s). Para gravar, rode o mesmo comando sem --dry-run.`);
+      console.log(m.registrariam(registrariam));
     }
     return r.some((x) => x.acao === 'recusada') ? 1 : 0;
   }
   const id = args.posicionais[1];
   const para = texto(args.opcoes.para) ?? texto(args.opcoes.to);
   if (!id || !para) {
-    console.error('uso: ork ship <thread-id> --para <branch> [--de <branch>] [--dry-run]');
+    console.error(m.uso);
     return 2;
   }
   // RM-047: como no registrar-pr, o `--remoto` so chega ao git como nome de remoto (ship.remoto-invalido),
   // e `--remoto` sem valor nao vira `origin` em silencio.
   if (args.opcoes.remoto !== undefined) exigirRemoto(args.opcoes.remoto, 'ship');
   const autorizar = args.opcoes['autorizar-push'];
-  const r = ship(carregado, id, {
+  // RM-061 (F2b, G2): o que o ship grava (ledger, verificacao, mensagem do merge) nasce em pt-BR.
+  const r = comLocale('pt-BR', () => ship(carregado, id, {
     para,
     de: texto(args.opcoes.de),
     remoto: texto(args.opcoes.remoto),
@@ -1914,7 +1918,7 @@ function comandoShip(args: Args): number {
     dryRun: args.opcoes['dry-run'] === true,
     autorizarPush: typeof autorizar === 'string' ? autorizar : undefined,
     semPush: args.opcoes['sem-push'] === true,
-  });
+  }));
   console.log(textoDoShip(r));
   return r.ok ? 0 : 1;
 }
