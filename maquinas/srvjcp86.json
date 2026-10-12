@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.4",
-  "publicadoEm": "2026-10-12T06:04:21.373Z",
+  "publicadoEm": "2026-10-12T06:05:49.719Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -15,6 +15,23 @@
       "roadmap": null,
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
+    },
+    {
+      "id": "ork-en8adecisaod",
+      "nome": "EN8: ship do #Fast sem autorização não desconta o índice",
+      "modo": "#Fast",
+      "fase": "GO",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-en8fastship-go",
+      "atualizadaEm": "2026-10-12T06:05:49.570Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
