@@ -38,6 +38,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   - `core/instabilidade.json`, contrato `ork.instabilidade/v1` ([contrato](docs/referencia/contratos/instabilidade-rm037.md)),
     nasce vazio e só aceita entrada com a taxa medida e revalidação em até 30 dias;
   - o `testeQueCaiu` do ledger lê a seção "failing tests" do reporter `spec` do `node --test` 24, que antes saía vazio.
+- **O `ork roadmap status` diz quando uma thread fora do roadmap espera você** ([RM-049](docs/roadmap/RM-049-lancamento.md), R3):
+  no ensaio, uma thread sem item do roadmap esperava o dono por `runtime.workspace-untrusted`, e o relatório dizia
+  "O que precisa de você: Nada agora" enquanto o `ork pulse` dizia "Precisa de humano agora: 1". Pela alternativa (a)
+  da decisão do dono, o fecho ganha a linha "Fora do roadmap: N thread(s) esperam você (ork pulse)", só quando há, e o
+  `--json` o campo opcional e aditivo `foraDoRoadmap`. Sem thread fora do roadmap esperando, a saída fica igual byte a byte.
 
 ### Alterado
 
