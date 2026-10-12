@@ -161,7 +161,7 @@ test('locale en F2a doctor (doctor-rede.ts, rede-status.ts): rede e duracao em i
     });
     const tudo = linhas.join('\n');
     assert.match(tudo, /outside the network \(left with `ork network sair`\)/);
-    assert.match(tudo, /member; home github\.com\/exemplo\/orkastery-network; last beat 2025-09-19 14:16 \(6 min ago\); no failure in rede\.log/);
+    assert.match(tudo, /member; home github\.com\/exemplo\/orkastery-network; last heartbeat 2025-09-19 14:16 \(6 min ago\); no failure in rede\.log/);
     assert.match(tudo, /unknown time \| less than 1 min \| 5 min/);
     assert.deepEqual(linhasEmPortugues(tudo), [], tudo);
   } finally {

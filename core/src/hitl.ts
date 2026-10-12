@@ -51,6 +51,8 @@ import { agora, tabela } from './util';
 import { duracaoCurta, duracaoRelativa } from './horario';
 import { carimbarSessoes } from './hitl-estado';
 import { redigirCredenciaisUrl } from './redacao-url';
+import { textoDoCatalogo } from './locale';
+import { PULSE_PT_BR } from './locale-pulse';
 
 /** Limite de atencao padrao, em minutos, igual ao do monitor de orquestracao. */
 export const ATENCAO_PADRAO_MIN = 30;
@@ -83,28 +85,29 @@ interface Regra {
  * `stopped` NAO pede humano: a sessao foi parada por decisao de alguem. `failed` pede,
  * porque alguem precisa decidir entre retomar, corrigir ou abandonar.
  */
+// RM-061 (F2b): o detalhe de cada estado tem a fonte no catalogo pt-BR (`locale-pulse.ts`), com o ingles ao lado.
 const REGRA_POR_ESTADO: Record<string, Regra> = {
   blocked: {
     classe: 'hitl',
     precisaDeHumano: true,
-    detalhe: 'sessao parada esperando acao humana (prompt, permissao ou credencial)',
+    detalhe: PULSE_PT_BR.sessao.blocked,
   },
   failed: {
     classe: 'falha',
     precisaDeHumano: true,
-    detalhe: 'sessao terminou em erro: alguem decide entre retomar, corrigir ou abandonar',
+    detalhe: PULSE_PT_BR.sessao.failed,
   },
-  working: { classe: 'trabalhando', precisaDeHumano: false, detalhe: 'sessao em execucao' },
-  done: { classe: 'concluida', precisaDeHumano: false, detalhe: 'sessao concluiu' },
+  working: { classe: 'trabalhando', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.working },
+  done: { classe: 'concluida', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.done },
   stopped: {
     classe: 'interrompida',
     precisaDeHumano: false,
-    detalhe: 'sessao parada por decisao humana (`claude stop`)',
+    detalhe: PULSE_PT_BR.sessao.stopped,
   },
   idle: {
     classe: 'interativa',
     precisaDeHumano: false,
-    detalhe: 'sessao interativa ociosa, conduzida por um humano no terminal',
+    detalhe: PULSE_PT_BR.sessao.idle,
   },
 };
 
@@ -117,13 +120,12 @@ export function estadoBruto(s: SessaoRuntime): string {
 /** Classifica o estado cru do runtime. Estado que nao esta no mapa avisa a mais. */
 export function classificarEstado(estado: string): Regra {
   const regra = REGRA_POR_ESTADO[estado];
-  if (regra) return regra;
+  // RM-061 (F2b, G2): o detalhe vem do catalogo (o mesmo pt-BR da tabela) e o pulse o remonta no locale.
+  if (regra) return { ...regra, detalhe: textoDoCatalogo((m) => m.pulse.sessao[estado] ?? regra.detalhe) };
   return {
     classe: 'desconhecida',
     precisaDeHumano: true,
-    detalhe: estado === ''
-      ? 'runtime nao informou estado desta sessao: tratada como possivel parada'
-      : `estado "${estado}" nao esta no catalogo do ork: tratado como possivel parada`,
+    detalhe: textoDoCatalogo((m) => estado === '' ? m.pulse.sessaoSemEstado : m.pulse.sessaoEstadoForaDoCatalogo(estado)),
   };
 }
 
@@ -290,34 +292,19 @@ export function recomendarPara(
   tipo: TipoDeHitl | null,
   id: string
 ): string {
-  if (classe === 'abandonada') {
-    return (
-      'nao responda: o job ja saiu. Confira o que ficou na worktree da sessao e ' +
-      'redespache so o resto do trabalho.'
-    );
-  }
-  if (classe === 'falha') {
-    return `leia \`ork sessions logs ${id}\` e decida entre retomar, corrigir a causa ou abandonar a sessao.`;
-  }
-  if (classe === 'desconhecida') {
-    return `estado fora do catalogo: confirme no \`ork sessions logs ${id}\` se a sessao esta mesmo parada.`;
-  }
-  switch (tipo) {
-    case 'hitl.credencial':
-      return (
-        `entregue o segredo agora (\`claude attach ${id}\`) para nao segurar a entrega; ` +
-        'se este mesmo bloqueio ja se repetiu, troque por credencial de automacao e ele nao volta.'
-      );
-    case 'hitl.permissao':
-      return (
-        `responda o prompt (\`claude attach ${id}\`); se o comando e rotineiro nesse projeto, ` +
-        'coloque-o na allowlist de permissoes para nao parar de novo pelo mesmo motivo.'
-      );
-    case 'hitl.pergunta':
-      return `abra a sessao (\`claude attach ${id}\`) e escolha entre as opcoes que ela listou.`;
-    default:
-      return `veja o que a sessao pede com \`ork sessions logs ${id}\` antes de responder.`;
-  }
+  // RM-061 (F2b, G2): nasce em pt-BR pelo catalogo (o --json guarda) e o pulse a remonta no locale.
+  return textoDoCatalogo((m) => {
+    const r = m.pulse.recomendacaoDoRadar;
+    if (classe === 'abandonada') return r.abandonada;
+    if (classe === 'falha') return r.falha(id);
+    if (classe === 'desconhecida') return r.desconhecida(id);
+    switch (tipo) {
+      case 'hitl.credencial': return r.credencial(id);
+      case 'hitl.permissao': return r.permissao(id);
+      case 'hitl.pergunta': return r.pergunta(id);
+      default: return r.outra(id);
+    }
+  });
 }
 
 /** Minutos inteiros entre um epoch em ms e um carimbo ISO (nunca negativo). */
@@ -473,7 +460,7 @@ export function varrerSessoes(opcoes: OpcoesDoRadar = {}): RadarDeSessoes {
   }
   const consultaClaude = opcoes.consulta ?? (adapter.disponivel()
     ? adapter.consultarSessoes(opcoes.soDaRaiz && raiz ? raiz : undefined, true)
-    : { ok: false, sessoes: [], detalhe: 'runtime adapter indisponivel nesta maquina (`claude` fora do PATH)' });
+    : { ok: false, sessoes: [], detalhe: textoDoCatalogo((m) => m.pulse.adapterIndisponivel) });
 
   const consulta = { ...consultaClaude, ok: consultaClaude.ok || nativas.size > 0,
     sessoes: [...consultaClaude.sessoes, ...nativas.values()] };
