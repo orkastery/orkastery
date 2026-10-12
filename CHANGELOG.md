@@ -8,6 +8,35 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Fundação dos mods no Claude Code, lado do adaptador** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ponte `ork-ponte` (`adapters/claude-code/mods/ork-ponte`) acrescenta ao `$` dos mods o noun `$.ork`, com o papel
+  da sessão (`dono`, `fase` ou `dormente`), o retrato do núcleo pelo `ork_maestro` com reserva numa lista fechada de
+  consultas `--json` do CLI, a faixa acima do prompt e os `watchPaths` com dono único, e o registro do que um mod
+  mostrou ao dono (`ork.mod-mostrado/v1`). A regra de autoridade (nenhum mod aprova gate, permissão, nota do MASTER,
+  push ou tag pelo dono, nem fala como o dono) mora em `adapters/claude-code/mods/autoridade.json` e tem duas guardas:
+  `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
+  `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
+  quem conduz.
+- **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
+  roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
+  língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico
+  byte a byte, o `--json` não muda com a língua e as datas seguem o locale. Fatias: F1, a prova de
+  conceito do #113 (`doctor`, `init`, catálogo tipado e datas), já mesclada; F2, o caminho da primeira
+  experiência; F3, o resto do CLI, os arquivos gerados e a referência em inglês. A entrada é só
+  documentação.
+- **Decisões do dono no modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): em 12/10/2026 o
+  dono decidiu D1 a D4 (entrega com push, PR e merge no SHA exato; piloto local e depois em duas
+  máquinas; janela de 6 a 12 h com vigia externo a cada 5 min; vários perfis e runtimes de assinatura
+  com teto e subtetos). Continuam pendentes a prioridade final, o horário e o canal do relatório e os
+  valores do teto; o item segue em Refinamento até o dono autorizar o primeiro piloto.
+
+## [0.5.4] - 2026-10-12
+
+### Adicionado
+
+- **Quickstart até a primeira thread em `#Fast`** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  `docs/comecar/quickstart.md` ganha o atalho do menor ciclo completo, de `ork thread new --modo fast` a
+  `ork master`, com a saída para `runtime.workspace-untrusted` e para o `human.pending` do `ship`; um teste confere os comandos.
 - **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
   `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
   do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
@@ -41,6 +70,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   bytes por resposta; na pergunta cortada pelo teto, 34 arestas em vez de 41. A flag `grafo.mcp`
   continua desligada.
 - **Planejamento do modo #Noctum** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)): proposta no roadmap de arcos autônomos de 6 a 12 horas, com envelope de autorização, muitas threads e máquinas, resiliência, qualidade, custo e relatório; modo ainda não implementado.
+- **CLI em inglês e pt-BR, fatia 1 da RM-061** (achados EN1, EN6 e EN7 do
+  [recibo do ensaio em inglês](docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json)): o texto de `ork doctor` e
+  `ork init` sai em inglês quando `owner.language` (a escolha do onboarding) ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou
+  `LANG` pedem `en`; com `en`, as datas desses comandos saem em ISO (`2026-10-03 06:30`). O padrão segue pt-BR, igual
+  byte a byte; os demais comandos, o `--json` e o `ork doctor --modo` não mudam. Sem dependência nova
+  (`core/src/locale.ts`).
 - **Citações e segundo salto no contexto da thread, KG5 fatia 4** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)):
   arestas `cites` ligam caminhos literais em Markdown e strings de testes/scripts a arquivos existentes
   no índice, com evidência de linha, sem duplicar links ou imports resolvidos, inclusive código inline
@@ -57,6 +92,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Primeira experiência em inglês e o recibo do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  o `README.md` traz a primeira thread e o glossário do CLI, o `CONTRIBUTING.md` o caminho curto, e o recibo do ensaio
+  em inglês (EN1 a EN10) registra os achados corrigidos com o PR e o commit de cada um.
 - **A prova da busca por significado usa os pares que o dono decidiu** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   sem argumentos, `core/scripts/prova-busca-semantica.sh` consulta
   `watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
