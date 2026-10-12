@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T16:15:02.977Z",
+  "publicadoEm": "2026-10-12T16:15:33.760Z",
   "threads": [
     {
       "id": "ork-rm058n2",
@@ -31,7 +31,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm059pista-full",
-      "atualizadaEm": "2026-10-12T16:09:31.062Z",
+      "atualizadaEm": "2026-10-12T16:15:15.179Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
@@ -141,6 +141,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
+    },
+    {
+      "id": "ork-sitedesignom",
+      "nome": "sitedesignom",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-sitedesignom-full",
+      "atualizadaEm": "2026-10-12T16:15:33.474Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-siteorkaste2",
