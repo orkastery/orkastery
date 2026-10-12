@@ -257,7 +257,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     },
     'runtime.unavailable': {
       porque: 'an infrastructure failure in the dispatch is not a content failure: the SAME prompt, with the same sha256, is dispatched again without changing a comma',
-      correcao: '`ork retry run <thread>` dispatches again the prompt already written to disk',
+      correcao: '`ork retry run <thread>` re-dispatches the prompt already on disk',
     },
     'runtime.silencio': {
       porque: 'phase with no heartbeat: resume the original dispatch with the hash checked and an attempt limit',
@@ -281,11 +281,11 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     },
     'runtime.workspace-untrusted': {
       porque: 'the runtime refused the worktree directory before running anything: once the owner accepts trust in the terminal, the SAME prompt, with the same sha256, goes back to the same phase; while the trust is not in the account .claude.json, nothing is dispatched',
-      correcao: 'the owner runs the pause command (`cd <worktree> && claude`, accepting the trust); `ork retry run <thread>` dispatches again the prompt already written',
+      correcao: 'the owner runs the pause command (`cd <worktree> && claude`, accepting the trust); `ork retry run <thread>` re-dispatches the prompt already on disk',
     },
     'runtime.consent-pending': {
       porque: 'the runtime waits for the owner to accept new terms before running anything: after the acceptance, the SAME prompt, with the same sha256, goes back to the same phase; if the runtime refuses again, the same owner pause comes back',
-      correcao: 'the owner opens the runtime CLI and accepts the terms; `ork retry run <thread>` dispatches again the prompt already written',
+      correcao: 'the owner opens the runtime CLI and accepts the terms; `ork retry run <thread>` re-dispatches the prompt already on disk',
     },
     'tree.blocked': {
       porque: 'the target tree moved under the thread: rebasing the worktree onto the base is the step that unblocks it, and rerunning before that only repeats the conflict',
@@ -375,7 +375,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     `${tentativas} switch attempt(s) for ${motivo} in ${fase}, at the manifest limit of ${limite}: a typed escalation pauses any mode`,
   modeloSemDestino: (rotulo, tentados, correcao) => `model ${rotulo} is not available on ${tentados} and the block has no other target: ${correcao}`,
   correcaoDoModelo: (modo, bloco) =>
-    `ork setup ${modo} --bloco ${bloco} --model <available model>, or declare \`--fallback runtime:model\` in the same block`,
+    `\`ork setup ${modo} --bloco ${bloco} --model <available model>\`, or declare \`--fallback runtime:model\` in the same block`,
   promptSumiu: (caminho) => `the written prompt is gone from disk: ${caminho}`,
   promptMudou: (caminho, atual, original) => `the prompt at ${caminho} changed since the original dispatch ` +
     `(sha256 ${atual} != ${original}): resuming means dispatching the SAME text again`,

@@ -2826,7 +2826,8 @@ function comandoRoadmap(args: Args): number {
     // RM-052: com o projeto consultado e o que ficou de fora (as outras maquinas nao sao lidas aqui).
     const consulta = consultaDoProjeto(carregado, { lido: ['roadmap (docs/roadmap)', FORA_DA_CONSULTA.threadsDaMaquina],
       naoLido: [FORA_DA_CONSULTA.reservas, 'threads de outras máquinas (ork network roadmap)'] });
-    // RM-061 (F2b, G2): o status e montado em pt-BR (o --json e o que os canais transportam); so o texto segue o locale.
+    // RM-061 (F2b, G2): o status e montado em pt-BR, como o --json; so o texto segue o locale. Os canais (Hermes,
+    // OpenClaw) transportam o texto: com owner.language ou LANG en no host, o dono o recebe em ingles.
     const status = comLocale('pt-BR', () => montarStatusDoRoadmap(carregado.raiz, { projeto: carregado.manifesto.project.name, consulta }));
     console.log(args.opcoes.json === true ? JSON.stringify(status, null, 2) : textoDoStatusDoRoadmap(status));
     return 0;
@@ -3906,6 +3907,9 @@ export function main(argvBruto: string[]): number {
   iniciarDeclaracaoDoProjeto();
   try { return executarComando(argvBruto); }
   finally {
+    // RM-061 (F2b): o registro dos textos remontaveis nao sobrevive a chamada (o locale sim: a entrada do CLI
+    // ainda imprime o erro no locale do comando).
+    ligarRemontagem(false);
     const linha = declaracaoQueFaltou();
     if (linha) console.error(linha);
   }

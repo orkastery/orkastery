@@ -59,14 +59,14 @@ export const MASTER_PT_BR = {
 
 export const MASTER_EN: typeof MASTER_PT_BR = {
   semEntregaTodas: 'No open thread without a score.',
-  semEntrega: 'No delivery waiting for a decision. To also see the ones that have not shipped yet: ork master --todas',
+  semEntrega: 'No delivery waiting for a decision. To also see the ones that have not shipped yet: `ork master --todas`',
   entregas: (n) => `Deliveries (${n}), with the index already derived from the ledger. Nobody typed the number.`,
   colunas: ['ID', 'SLUG', 'MODE', 'PHASE', 'STATUS', 'SHIPPED', 'INDEX', 'WHERE IT CAME FROM'],
   simNao: (sim) => sim ? 'yes' : 'no',
-  semTropeco: 'no stumble',
+  semTropeco: 'no setbacks',
   entregueEAceito: 'SHIPPED AND ACCEPTED, unless you say otherwise.',
   aceitarEsta: '  ork master <id> --aceitar-omissao     accepts only this delivery, with the index and its inputs in the ledger',
-  aceitarTodas: '  ork master --aceitar-omissao          accepts ALL shipped deliveries in the list (--dry-run shows which, without writing)',
+  aceitarTodas: '  ork master --aceitar-omissao          accepts ALL shipped deliveries in the list (`--dry-run` shows which, without writing)',
   reclamar: '  ork master <id> --score <0-5> --justificativa "<why>" --por <human>   if you want to dispute it',
   classesFixas: (classes) => `Fixed classes: ${classes}`,
   aceitasTitulo: (n) => `Accepted by default (${n}): what went through without you looking.`,
@@ -88,7 +88,7 @@ export const MASTER_EN: typeof MASTER_PT_BR = {
   foraSemEntrega: (id) =>
     `thread ${id} has not shipped yet (no ship_done in the ledger); record the delivery first: ork ship registrar-pr ${id}`,
   avisoSemThread: (marca, ensaio, n) => `warning: master.omissao-sem-thread: an agent process (${marca}) ` +
-    `${ensaio ? 'would close' : 'closed'} ${n} threads, including those of other parallel fronts.`,
+    `${ensaio ? 'would close' : 'closed'} ${n} threads, including those of other parallel workstreams.`,
   avisoSoASua: (propria, ensaio) => `  To close only yours: ork master ${propria} --aceitar-omissao` +
     (ensaio ? '' : '  (a human score overrides the acceptance of what was not yours)'),
   marcaDespachada: 'dispatched session (ORK_DISPATCH_ID)',

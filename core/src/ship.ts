@@ -187,7 +187,8 @@ export function autorizacaoDePush(
       return {
         autorizado: true,
         tipo: 'humano-antecipado',
-        por: String(antecipada.autorizadoPor ?? 'humano'),
+        por: antecipada.autorizadoPor !== undefined && antecipada.autorizadoPor !== null ? String(antecipada.autorizadoPor)
+          : textoDoCatalogo((m) => m.ship.humano),
         razao: textoDoCatalogo((m) => m.ship.autorizadoAntes(String(antecipada.ts))),
       };
     }

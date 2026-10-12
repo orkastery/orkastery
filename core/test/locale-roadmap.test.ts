@@ -7,6 +7,7 @@
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import { cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
 import { ativarLocale } from '../src/locale';
 import { definirFusoDoDono } from '../src/horario';
@@ -24,7 +25,7 @@ test('locale en F2b roadmap: roadmap status do CLI sai em ingles, com o bloco do
     assert.equal(bloco(en.stdout).length, 2);
     assert.deepEqual(bloco(en.stdout), bloco(pt.stdout));
     assert.deepEqual(l.slice(4), ['', 'What needs you', '• Nothing right now.', '', 'What I do next',
-      '• Nothing in progress; I follow what you prioritize.', '']);
+      '• Nothing in progress; next is whatever you prioritize.', '']);
     // O bloco do RM-052 e contrato com os hosts (pt-BR nas duas linguas); o resto nao tem pt-BR.
     assert.deepEqual(linhasEmPortugues(en.stdout.split('\n').filter((x) => !bloco(x).length).join('\n')), []);
     const semData = (t: string) => t.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
@@ -35,6 +36,13 @@ test('locale en F2b roadmap: roadmap status do CLI sai em ingles, com o bloco do
       assert.equal(b.stdout, a.stdout, args.join(' '));
       assert.equal(b.stderr, a.stderr, args.join(' '));
     }
+    // A fabrica compartilhada num clone parcial: o motivo de nao ler sai pelo catalogo.
+    execFileSync('git', ['config', 'extensions.partialclone', 'origin'], { cwd: c.dir });
+    const clone = ork(c, { ...EN, ORK_FABRICA_COMPARTILHADA: '1' }, false, 'roadmap', 'status');
+    assert.equal(clone.status, 0, clone.stderr);
+    assert.ok(clone.stdout.includes('\nFactory: not read (partial clone: the local copy of ork/fabrica-estado is not read without network).\n'),
+      clone.stdout);
+    assert.deepEqual(linhasEmPortugues(clone.stdout.split('\n').filter((x) => !bloco(x).length).join('\n')), []);
   } finally { c.limpar(); }
 });
 
@@ -59,17 +67,17 @@ test('locale en F2b roadmap: grupos, fecho, o que vem a seguir e a fabrica em in
     const texto = textoDoStatusDoRoadmap(s);
     const l = texto.split('\n');
     assert.equal(l[0], 'Loc roadmap (2025-09-19 14:21)');
-    assert.match(l[2], /^Factory: vps with no beat for 1h35 \(last snapshot 2025-09-19 14:16\), from the local copy of ork\/fabrica-estado\.$/);
+    assert.match(l[2], /^Factory: vps with no heartbeat for 1h35 \(last snapshot 2025-09-19 14:16\), from the local copy of ork\/fabrica-estado\.$/);
     for (const titulo of ['Done', 'Available with something open', 'Shipped today', 'Pilot', 'In development', 'Refinement', 'Proposed', 'Discontinued']) {
       assert.ok(l.some((x) => x.endsWith(` ${titulo}`)), titulo);
     }
     assert.ok(texto.includes('\nWhat needs you\n• RM-1: Q? Reply AB12 b (or another letter).\n• RM-2: Q? The question comes in the next summary.\n' +
-      '• Outside the roadmap: 1 thread(s) waiting for you (ork pulse).\n'), texto);
-    assert.ok(texto.endsWith('\nWhat I do next\n• RM-3: I follow loc-c in phase GO.\n• RM-4: I follow loc-d in phase SHIP; PR #4 aberto (PR read at 14:16).\n' +
+      '• Outside the roadmap: 1 thread(s) waiting for you (`ork pulse`).\n'), texto);
+    assert.ok(texto.endsWith('\nWhat I do next\n• RM-3: I continue with loc-c in phase GO.\n• RM-4: I continue with loc-d in phase SHIP; PR #4 aberto (PR read at 14:16).\n' +
       '• RM-5: loc-e in phase SHIP, PR #5 aberto.'), texto);
     const textoVelho = textoDoStatusDoRoadmap({ ...s, grupos: [], fabrica: { lido: true, copiaVelha: { ultimoDestaMaquina: null }, semBatida: [] } });
     assert.ok(textoVelho.includes('\nFactory: the local copy of ork/fabrica-estado is stale (this machine does not appear in it); ' +
-      'there is no telling who has no beat.\n'), textoVelho);
+      'there is no telling which machine has no heartbeat.\n'), textoVelho);
     // O estado da entrega e dado da familia de entregas (G5).
     assert.deepEqual(linhasEmPortugues(`${texto}\n${textoVelho}`, ['PR #4 aberto', 'PR #5 aberto', 'Titulo']), []);
   } finally { ativarLocale(undefined); definirFusoDoDono(undefined); }

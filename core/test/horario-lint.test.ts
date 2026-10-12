@@ -134,7 +134,6 @@ const EXCECOES: { arquivo: string; trecho: string; razao: string }[] = [
   { arquivo: 'retry.ts', trecho: 'fila duravel: pedido ${pedido.id} libera em ${pedido.liberaEm}', razao: 'detalhe gravado no evento retry_tentado' },
   { arquivo: 'leases.ts', trecho: 'desde ${dono.adquiridoEm}', razao: 'detalhe de lease.busy devolvido e gravado; o CLI localiza' },
   { arquivo: 'phase.ts', trecho: 'aguarde ate ${pedido.liberaEm})', razao: 'correção gravada no evento rate_limit_enqueued' },
-  { arquivo: 'orquestracao.ts', trecho: '(${p.liberaEm}, ', razao: 'detalhe do JSON do monitor guarda ISO; linhaDaParada localiza' },
   { arquivo: 'ocupacao.ts', trecho: '(${PAUSA_PREVISTA}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
   { arquivo: 'ocupacao.ts', trecho: '(${String(e.motivo)}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },
   { arquivo: 'ocupacao.ts', trecho: '(${motivo}) em ${e.ts}', razao: 'evidência cita o evento do ledger; o board localiza' },

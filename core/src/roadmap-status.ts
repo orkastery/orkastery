@@ -37,7 +37,7 @@ import { EntregasDoProjeto, entregasDoProjeto, esperaDoCondutor, EstadoDaEntrega
 import { exec } from './util';
 import { ehEsperaDoDono } from './impedimento';
 import { ehAprovacaoHumana, EVENTOS_QUE_DESTRAVAM } from './ocupacao';
-import { msg } from './locale';
+import { localeAtivo, msg, remontar, textoDoCatalogo } from './locale';
 
 export const CONTRATO_STATUS_DO_ROADMAP = 'ork.roadmap-status/v1' as const;
 
@@ -292,13 +292,13 @@ export function batidaDaFabrica(carregado: ManifestoCarregado, quando: string): 
   // a 2.45 ignora o GIT_NO_LAZY_FETCH, entao o clone parcial nem e lido aqui (N4 da seguranca, rodada 2).
   // N4 da seguranca (rodada 3): o git novo registra o clone parcial no `remote.<r>.promisor`, o velho no `extensions`.
   if (exec('git', ['config', '--get-regexp', '^(extensions\\.partialclone|remote\\..+\\.promisor)$'], carregado.raiz).stdout.trim()) {
-    return { lido: false, motivo: `clone parcial: a cópia local de ${BRANCH_DA_FABRICA} não é lida sem rede`, semBatida: [] };
+    return { lido: false, motivo: textoDoCatalogo((m) => m.roadmap.fabricaClone(BRANCH_DA_FABRICA)), semBatida: [] };
   }
   const antes = process.env.GIT_NO_LAZY_FETCH;
   process.env.GIT_NO_LAZY_FETCH = '1';
   let painel: ReturnType<typeof lerFabrica>;
   try { painel = lerFabrica(carregado.raiz, { remoto: carregado.manifesto.fabrica.remoto, semRemoto: true }); }
-  catch { return { lido: false, motivo: `a cópia local de ${BRANCH_DA_FABRICA} está ilegível`, semBatida: [] }; }
+  catch { return { lido: false, motivo: textoDoCatalogo((m) => m.roadmap.fabricaIlegivel(BRANCH_DA_FABRICA)), semBatida: [] }; }
   finally { if (antes === undefined) delete process.env.GIT_NO_LAZY_FETCH; else process.env.GIT_NO_LAZY_FETCH = antes; }
   if (!painel.ponta) return { lido: false, semBatida: [] };
   const eu = nomeDaMaquina(), agora = Date.parse(quando);
@@ -416,7 +416,7 @@ function linhaDoQueVem(x: StatusDoRoadmap['emSeguida'][number], agora: string, f
 function linhaDaFabrica(f: BatidaDaFabrica | undefined, agora: string, fuso?: string): string[] {
   if (!f) return [];
   const m = msg().roadmap;
-  if (!f.lido) return [m.fabricaNaoLida(f.motivo ?? m.fabricaSemCopia(BRANCH_DA_FABRICA))];
+  if (!f.lido) return [m.fabricaNaoLida(f.motivo !== undefined ? remontar(f.motivo) : m.fabricaSemCopia(BRANCH_DA_FABRICA))];
   if (f.copiaVelha) {
     const { ultimoDestaMaquina: ultimo } = f.copiaVelha;
     return [m.fabricaVelha(BRANCH_DA_FABRICA, ultimo ? formatarDataHora(ultimo, { agora, fuso }) : null)];
@@ -452,7 +452,8 @@ export function textoDoStatusDoRoadmap(s: StatusDoRoadmap, fuso?: string, opcoes
     ...(s.consulta ? linhasDaConsulta(s.consulta) : []),
     ...linhaDaFabrica(s.fabrica, s.consultadoEm, fuso),
     // RM-061 (F2b, D4): o titulo do grupo e dado do contrato; a impressao o traduz pelo id.
-    ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${m.grupos[g.id] ?? g.titulo}`, ...g.itens.map(linhaDoItem)]),
+    ...s.grupos.filter(g => g.itens.length).flatMap(g => ['', `${g.icone} ${localeAtivo() === 'pt-BR' ? g.titulo : m.grupos[g.id] ?? g.titulo}`,
+      ...g.itens.map(linhaDoItem)]),
     '', m.precisaDeVoce,
     ...(s.precisaDeVoce.length ? cortar(s.precisaDeVoce, x => `• ${x.item}${naMaquina(x.espera.maquina)}: ${x.espera.pergunta}` +
       (x.espera.codigo ? m.responda(x.espera.codigo, x.espera.recomendada ?? 'a') : m.chegaNoResumo))

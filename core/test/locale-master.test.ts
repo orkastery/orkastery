@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Cenario, cenario, EN, linhasEmPortugues, ork, PT } from './locale-apoio';
+import { dadoDoLedger } from './locale-f2b-apoio';
 
 function entregar(c: Cenario, id: string): void {
   const sha256 = createHash('sha256').update(fs.readFileSync(path.join(c.dir, 'README.md'))).digest('hex');
@@ -30,14 +31,14 @@ test('locale en F2b master: indice, aceite por omissao e pedido de nota saem em 
   const c = cenario('master-en');
   try {
     const vazio = ork(c, EN, false, 'master');
-    assert.equal(vazio.stdout, 'No delivery waiting for a decision. To also see the ones that have not shipped yet: ork master --todas\n');
+    assert.equal(vazio.stdout, 'No delivery waiting for a decision. To also see the ones that have not shipped yet: `ork master --todas`\n');
     preparar(c);
     const indice = ork(c, EN, false, 'master');
     assert.equal(indice.status, 0, indice.stderr);
     const l = indice.stdout.split('\n');
     assert.equal(l[0], 'Deliveries (2), with the index already derived from the ledger. Nobody typed the number.');
     assert.match(l[2], /^ {2}ID +SLUG +MODE +PHASE +STATUS +SHIPPED +INDEX +WHERE IT CAME FROM$/);
-    assert.match(l[4], /^ {2}loc-primeira +loc-primeira-full +#Auto +GOAL +open +yes +5\/5 +no stumble$/);
+    assert.match(l[4], /^ {2}loc-primeira +loc-primeira-full +#Auto +GOAL +open +yes +5\/5 +no setbacks$/);
     assert.ok(indice.stdout.includes('\nSHIPPED AND ACCEPTED, unless you say otherwise.\n'), indice.stdout);
     assert.ok(indice.stdout.includes('\nFixed classes: '), indice.stdout);
 
@@ -46,7 +47,7 @@ test('locale en F2b master: indice, aceite por omissao e pedido de nota saem em 
     assert.equal(ensaio.stdout, 'Dry run (--dry-run): nothing was written.\nWould close by default: 2.\n' +
       '  loc-primeira         index 5/5\n  loc-segunda          index 5/5\n');
     assert.equal(ensaio.stderr, '\nwarning: master.omissao-sem-thread: an agent process (claude-code) would close 2 threads, ' +
-      'including those of other parallel fronts.\n  To close only yours: ork master <thread-id> --aceitar-omissao\n');
+      'including those of other parallel workstreams.\n  To close only yours: ork master <thread-id> --aceitar-omissao\n');
 
     const pedirSem = ork(c, EN, false, 'master', 'pedir', 'loc-aberta');
     assert.equal(pedirSem.status, 1);
@@ -78,7 +79,7 @@ test('locale en F2b master: indice, aceite por omissao e pedido de nota saem em 
   } finally { c.limpar(); }
 });
 
-test('locale en F2b master: MASTER log, POSTMORTEM e pedido de nota gravados nao mudam com a lingua', () => {
+test('locale en F2b master: MASTER log, POSTMORTEM, aceite e pedido de nota gravados nao mudam com a lingua', () => {
   const a = cenario('master-dado-pt'), b = cenario('master-dado-en');
   try {
     const gravado = (c: Cenario, locale: Record<string, string>) => {
@@ -88,7 +89,11 @@ test('locale en F2b master: MASTER log, POSTMORTEM e pedido de nota gravados nao
       const dir = path.join(c.dir, '.orkastery', 'threads', 'loc-primeira');
       const arquivos = fs.readdirSync(dir).filter((f) => /MASTER|POSTMORTEM/.test(f)).sort()
         .map((f) => `${f}\n${fs.readFileSync(path.join(dir, f), 'utf8')}`).join('\n');
-      return arquivos.split(c.dir).join('<dir>').replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>')
+      // O aceite e o pedido de nota vao ao ledger; o codigo do pedido e sorteado.
+      const ledger = JSON.stringify([dadoDoLedger(c, 'loc-primeira', ['aceite_por_omissao', 'master_done']),
+        dadoDoLedger(c, 'loc-segunda', ['master_nota_pedida'])]).replace(/"codigo":"[A-Z0-9]+"/g, '"codigo":"<codigo>"');
+      assert.ok(ledger.includes('master_nota_pedida') && ledger.includes('aceite_por_omissao'), ledger);
+      return `${arquivos}\n${ledger}`.split(c.dir).join('<dir>').replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>')
         .replace(/[0-9a-f]{64}/g, '<sha256>').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<uuid>');
     };
     const pt = gravado(a, PT), en = gravado(b, EN);

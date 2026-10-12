@@ -196,7 +196,7 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
         const curto = pedidoCurtoDoImpedimento({ thread: l.thread, fase: p.fase, motivo: p.motivo, detalhe: p.detalhe,
           desdeEm: p.desdeEm, impedimento: p.impedimento }, quando);
         item.apresentacaoCurta = { telegram: textoDoPedidoCurto(curto, 'telegram'), terminal: textoDoPedidoCurto(curto, 'terminal') };
-        item.opcoes = curto.alternativas.map(a => `${a.chave}. ${a.texto}`);
+        item.opcoes = curto.alternativas.map(a => textoDoCatalogo((m) => `${a.chave}. ${m.pulse.alternativaDoImpedimento(a.texto)}`));
         item.comandoResposta = item.impedimento.retry;
       } catch { item.evidencia.push('Pedido curto do impedimento indisponível; a correção acima vale.'); }
     }
@@ -341,7 +341,7 @@ export function textoDoPulse(p: Pulse): string {
   if(!p.runtime.ok) linhas.push(m.consultaIncompleta(detalhe(p.runtime.detalhe)));
   for(const i of p.precisaDeHumanoAgora) {
     linhas.push('',m.item(String(i.thread??i.sessionId), i.classe, i.paradaHaMin==null?m.desconhecido:i.paradaHaMin<1?m.menosDeUm:String(i.paradaHaMin)),local(i.pergunta),
-      ...i.opcoes.map(o=>m.opcao(o)),m.recomendacao(remontar(i.recomendacao)),m.responder(i.comandoResposta),
+      ...i.opcoes.map(o=>m.opcao(remontar(o))),m.recomendacao(remontar(i.recomendacao)),m.responder(remontar(i.comandoResposta)),
       ...i.contextoLogs.map(l=>m.log(l)));
   }
   if (p.conducoes?.length) {
@@ -360,6 +360,6 @@ export function textoDoPulse(p: Pulse): string {
     for (const a of h.abertas) linhas.push(linhaDaPerguntaParada(a, { agora: p.consultadoEm }));
   }
   linhas.push('',m.automaticas(p.resumo.automaticas));
-  for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo, i.comandoResposta));
+  for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo, remontar(i.comandoResposta)));
   return linhas.join('\n');
 }

@@ -23,7 +23,7 @@ function folhas(o: Arvore, pre = ''): Array<{ k: string; tipo: string; v: unknow
 test('locale F2a catalogo: o ingles tem as mesmas chaves e os mesmos tipos de folha do pt-BR em todas as familias', () => {
   const pt = folhas(msg('pt-BR') as unknown as Arvore), en = folhas(msg('en') as unknown as Arvore);
   assert.deepEqual(en.map(({ k, tipo }) => [k, tipo]), pt.map(({ k, tipo }) => [k, tipo]));
-  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda', 'verify', 'ship', 'retry', 'master']) {
+  for (const familia of ['cli', 'horario', 'doctor', 'init', 'onboarding', 'thread', 'phase', 'ajuda', 'verify', 'ship', 'retry', 'master', 'pulse', 'roadmap']) {
     assert.ok(pt.some(({ k }) => k.startsWith(`${familia}.`)), familia);
   }
 });

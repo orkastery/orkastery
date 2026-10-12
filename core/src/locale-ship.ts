@@ -71,6 +71,8 @@ export const SHIP_PT_BR = {
     `lease ${lease} esta com a thread ${thread} desde ${desde} (${motivo}); esta thread entrou na merge queue na posicao ${posicao}`,
   desconhecida: '(desconhecida)',
   semMotivo: 'sem motivo',
+  /** Quem autorizou o push antes, quando o ledger nao diz o nome. */
+  humano: 'humano',
   arvoreSuja: (para: string, dona: string) =>
     `a branch de destino "${para}" esta em check-out em ${dona} com alteracoes nao commitadas; commite ou reverta la antes do ship`,
   arvoreNaoMontada: (para: string, erro: string) => `nao foi possivel montar a arvore de merge de "${para}": ${erro}`,
@@ -155,7 +157,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   correcao: (correcao) => `  fix       ${correcao}`,
   passosDoEnsaio: 'Steps the real ship would run, in this order:',
   nadaAMergear: (de, para, sha) => `Nothing to merge: ${de} was already in ${para}, brought in by ${sha}.`,
-  mergeConcluido: (sha) => `Merge --no-ff done: ${sha}`,
+  mergeConcluido: (sha) => `\`--no-ff\` merge done: ${sha}`,
   pushProvado: (remoto, para, sha) => `Push PROVEN: ls-remote of ${remoto}/${para} returned ${sha}`,
   mesmoSha: (sha) => `  and the local target is at the same sha: ${sha}`,
   pushNaoProvado: (detalhe) => `Push not proven: ${detalhe}`,
@@ -192,6 +194,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
     `lease ${lease} is held by thread ${thread} since ${desde} (${motivo}); this thread joined the merge queue at position ${posicao}`,
   desconhecida: '(unknown)',
   semMotivo: 'no reason',
+  humano: 'a human',
   arvoreSuja: (para, dona) =>
     `target branch "${para}" is checked out at ${dona} with uncommitted changes; commit or revert them there before shipping`,
   arvoreNaoMontada: (para, erro) => `could not set up the merge tree for "${para}": ${erro}`,
@@ -220,7 +223,7 @@ export const SHIP_EN: typeof SHIP_PT_BR = {
   ensaio: 'Dry run (--dry-run): nothing was written.',
   nenhumaComMerge: 'No open thread with a ship(<thread>) merge on the base.',
   linhaDoRegistro: (thread, acao, motivo) => `  ${thread.padEnd(20)} ${acao.padEnd(13)} ${motivo}`,
-  acoes: { 'registrou': 'recorded', 'registraria': 'would record', 'ja-registrada': 'already done', 'sem-merge': 'no merge',
+  acoes: { 'registrou': 'recorded', 'registraria': 'would record', 'ja-registrada': 'already recorded', 'sem-merge': 'no merge',
     'recusada': 'refused' },
   avisoDeDocs: (n) => `Warning: ${n} roadmap page(s) with \`estado.codigo\` other than "Mesclado" after the merge; ` +
     'the push to the base fails on docs.paridade.merge:',

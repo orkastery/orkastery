@@ -95,7 +95,7 @@ test('locale en F2b verify: o ledger e a baseline gravados nao mudam com a lingu
   } finally { pt.limpar(); en.limpar(); }
 });
 
-test('locale en F2b verify: o que fica fora segue pt-BR com LANG en (retry list, ship sem verify)', () => {
+test('locale en F2b verify: o que fica fora segue pt-BR com LANG en (retry list e retry policy)', () => {
   const c = cenario('verify-fora');
   try {
     for (const args of [['retry', 'list'], ['retry', 'policy']]) {

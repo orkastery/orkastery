@@ -25,6 +25,14 @@ import { textoDoStatusDoRoadmap, GRUPOS_DO_ROADMAP, StatusDoRoadmap, ItemDoStatu
 import { linhaDoParadoNoCondutor } from '../src/hitl-resumo';
 import { linhaDaPerguntaParada, textoDaMediana, HitlDeConducaoAgora } from '../src/hitl-tempo-parado';
 import { Claim, PlanoDeRetry, ResultadoDeComando } from '../src/types';
+import { classificarEstado, recomendarPara } from '../src/hitl';
+import { planejar } from '../src/board';
+import { DESCRICAO_DO_MOTIVO } from '../src/gates';
+import { enfileirar, faltaPara } from '../src/ratelimit';
+import { registrar } from '../src/ledger';
+import { montarMonitor } from '../src/orquestracao';
+import { exigirManifesto } from '../src/manifest';
+import { gravarThread, lerThread } from '../src/thread';
 import { exec, noPath } from '../src/util';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
@@ -127,7 +135,7 @@ function texto(s: Saida): string {
 function textosDoLedger(repo: string, thread: string, tipos: readonly string[]): string {
   const ledger = path.join(repo, '.orkastery', 'threads', thread, 'ledger.jsonl');
   if (!fs.existsSync(ledger)) return '<sem ledger>';
-  const campos = ['detalhe', 'correcao', 'razao', 'motivo', 'veredito', 'diagnostico'];
+  const campos = ['detalhe', 'correcao', 'razao', 'motivo', 'veredito', 'diagnostico', 'autorizadoPor'];
   return fs.readFileSync(ledger, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>)
     .filter((e) => tipos.includes(String(e.tipo)))
     .map((e) => {
@@ -326,7 +334,8 @@ function casosDoShip(casos: Record<string, string>): void {
   fs.writeFileSync(path.join(repo, 'passa.txt'), 'sim\n');
   exec('git', ['branch', 'feature'], repo);
   caso(casos, 'ship cli: uso', () => texto(ork(repo, amb, 'ship')));
-  caso(casos, 'ship cli: ensaio reprovado pela verificacao', () => texto(ork(repo, amb, 'ship', 'shp-reprova', '--para', 'main', '--dry-run')));
+  caso(casos, 'ship cli: ensaio barrado pela policy push_direto_na_base', () =>
+    texto(ork(repo, amb, 'ship', 'shp-reprova', '--para', 'main', '--dry-run')));
   caso(casos, 'ship cli: modo que pausa sem autorizacao', () => texto(ork(repo, amb, 'ship', 'shp-pausa', '--para', 'main')));
   caso(casos, 'ship cli: destino inexistente', () => texto(ork(repo, amb, 'ship', 'shp-entrega', '--para', 'nada', '--de', 'feature')));
   caso(casos, 'ship cli: origem inexistente', () => texto(ork(repo, amb, 'ship', 'shp-entrega', '--para', 'main', '--de', 'nada')));
@@ -387,7 +396,7 @@ function casosDoRetry(casos: Record<string, string>): void {
   caso(casos, 'retry: execucao com rodada, reverify e fila', () => textoDoRetry(retry({ executada: true,
     detalhe: `pedido R1 na fila ate ${T2}`,
     rodada: { rodada: 2, correcoes: [{ id: 'F1', tipo: 'A', origem: 'claims.failed' }, { id: 'F2', tipo: 'B', origem: 'verify.regression' }] } as never,
-    reverify: { veredito: 'PASSOU', cobertura: 'total' } as never,
+    reverify: { veredito: 'PASSOU', cobertura: 'completa' } as never,
     fila: [{ id: 'R1', fase: 'GO', liberaEm: T2, janelaEstimada: true } as never, { id: 'R2', fase: 'CHECK', liberaEm: T2, janelaEstimada: false } as never] })));
   caso(casos, 'retry: execucao sem acao', () => textoDoRetry(retry({ detalhe: 'nenhum pedido aguardando na fila para esta thread' })));
 
@@ -409,8 +418,9 @@ function casosDoRetry(casos: Record<string, string>): void {
   caso(casos, 'retry cli: run com motivo de cota sem despacho', () =>
     texto(ork(repo, amb, 'retry', 'run', 'rty-limpa', '--motivo', 'runtime.quota-exhausted', '--fase', 'GO')));
   caso(casos, 'retry cli: run de verify reprovado', () => texto(ork(repo, amb, 'retry', 'run', 'rty-falha')));
-  caso(casos, 'retry cli: ledger do retry', () => [textosDoLedger(repo, 'rty-falha', ['retry_attempted', 'gate_blocked', 'fix_opened']),
-    textosDoLedger(repo, 'rty-limpa', ['retry_attempted', 'gate_blocked'])].join('\n'));
+  const tiposDoRetry = ['retry_planned', 'retry_attempt', 'retry_escalated', 'gate_blocked', 'go_fix_opened'];
+  caso(casos, 'retry cli: ledger do retry', () => [textosDoLedger(repo, 'rty-falha', tiposDoRetry),
+    textosDoLedger(repo, 'rty-limpa', tiposDoRetry)].join('\n'));
 }
 
 // ---------------------------------------------------------------------------
@@ -457,7 +467,51 @@ function casosDoMaster(casos: Record<string, string>): void {
       .map((f) => `${f}\n${fs.readFileSync(path.join(dir, f), 'utf8')}`).join('\n');
   });
   caso(casos, 'master cli: pulse sem runtime com entregas', () => texto(ork(repo, amb, 'pulse', '--sem-runtime')));
+  caso(casos, 'master cli: pulse sem o claude no PATH', () => texto(orkComEnv(repo, amb, { PATH: amb.bin }, 'pulse')));
+  // A pausa prevista ao fim do bloco (#Classic), a thread pausada, a fila de rate limit e o gate sem detalhe.
+  ork(repo, amb, 'thread', 'new', 'Classica', '--modo', 'classic', '--sem-worktree');
+  registrar(path.join(repo, '.orkastery', 'threads', 'mst-classica'), 'mst-classica', 'human_gate',
+    { fase: 'GOAL', slug: 'mst-classica-goal', sessionId: '11111111-2222-3333-4444-555555555555', previstaSobre: 'objetivo',
+      estado: 'prevista ao fim do bloco' });
+  ork(repo, amb, 'thread', 'new', 'Pausada', '--modo', 'classic', '--sem-worktree');
+  const pausada = lerThread(repo, 'mst-pausada');
+  gravarThread(repo, { ...pausada, status: 'pausada' });
+  registrar(path.join(repo, '.orkastery', 'threads', 'mst-aberta'), 'mst-aberta', 'gate_blocked',
+    { gate: 'verify', motivo: 'verify.failed', fase: 'GO', modo: 'auto' });
+  enfileirar(exigirManifesto(repo), { thread: 'mst-aberta', fase: 'GO', slug: 'mst-aberta-full', promptPath: 'prompt.md',
+    promptSha256: '0'.repeat(64), cwd: repo, model: null, effort: null,
+    sinal: { resetEm: '2099-01-01T00:00:00.000Z', fonte: 'epoch', trecho: 'SIMULADO' }, detalhe: 'rate limit SIMULADO' });
+  caso(casos, 'master cli: pulse com pausa, thread pausada, fila e gate sem detalhe', () =>
+    texto(ork(repo, amb, 'pulse', '--sem-runtime')));
+  caso(casos, 'monitor: paradas que o monitor monta', () => {
+    const monitor = montarMonitor(exigirManifesto(repo), { agora: '2098-12-31T23:00:00.000Z', estados: null });
+    return monitor.linhas.flatMap((l) => l.paradas.map((p) => `${l.thread} ${p.motivo} | ${p.detalhe} | ${p.correcao}`)).sort().join('\n');
+  });
   caso(casos, 'master cli: roadmap status sem itens', () => texto(ork(repo, amb, 'roadmap', 'status')));
+  // A fabrica compartilhada num clone parcial: o motivo que o proprio status monta.
+  exec('git', ['config', 'extensions.partialclone', 'origin'], repo);
+  caso(casos, 'master cli: roadmap status com a fabrica num clone parcial', () =>
+    texto(orkComEnv(repo, amb, { ORK_FABRICA_COMPARTILHADA: '1' }, 'roadmap', 'status')));
+  exec('git', ['config', '--unset', 'extensions.partialclone'], repo);
+  // O impedimento do despacho que so o dono resolve (RM-055): as alternativas que o pulse monta.
+  ork(repo, amb, 'thread', 'new', 'Impedida', '--modo', 'auto', '--sem-worktree');
+  registrar(path.join(repo, '.orkastery', 'threads', 'mst-impedida'), 'mst-impedida', 'gate_blocked',
+    { gate: 'dispatch', motivo: 'runtime.workspace-untrusted', fase: 'GO', modo: 'auto', detalhe: 'SIMULADO: pasta sem confianca',
+      impedimento: { comando: 'claude', depois: 'o ork despacha o mesmo prompt de novo', trecho: 'SIMULADO' } });
+  caso(casos, 'master cli: pulse com o impedimento do despacho', () => texto(ork(repo, amb, 'pulse', '--sem-runtime')));
+  // As vagas do escalonador: uma sessao trabalhando com o limite em 1, outra parada ha muito tempo e uma livre na fila.
+  ork(repo, amb, 'thread', 'new', 'Ativa', '--modo', 'auto', '--sem-worktree');
+  ork(repo, amb, 'thread', 'new', 'Esquecida', '--modo', 'auto', '--sem-worktree');
+  ork(repo, amb, 'thread', 'new', 'Livre', '--modo', 'auto', '--sem-worktree');
+  const ativa = '22222222-3333-4444-5555-666666666666', esquecida = '33333333-4444-5555-6666-777777777777';
+  registrar(path.join(repo, '.orkastery', 'threads', 'mst-ativa'), 'mst-ativa', 'phase_dispatch', { fase: 'GOAL', sessionId: ativa });
+  registrar(path.join(repo, '.orkastery', 'threads', 'mst-esquecida'), 'mst-esquecida', 'phase_dispatch', { fase: 'GOAL', sessionId: esquecida });
+  caso(casos, 'monitor: vagas do escalonador', () => {
+    const c = exigirManifesto(repo);
+    const limite1 = { ...c, manifesto: { ...c.manifesto, concurrency: { ...c.manifesto.concurrency, max_parallel_threads: 1 } } };
+    return planejar(limite1, { agora: '2098-12-31T23:00:00.000Z', estados: new Map([[ativa, 'working']]) }).vagas
+      .filter((v) => v.motivo).map((v) => `${v.thread} ${v.motivo} | ${v.correcao}`).sort().join('\n');
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +552,15 @@ function casosDoPulse(casos: Record<string, string>): void {
       evidencia: [], branch: 'ork/loc-z', pr: 12, sessionId: null } as never],
     hitlDeConducao: HITL,
   }));
+  caso(casos, 'pulse: estado da sessao no radar', () =>
+    ['blocked', 'failed', 'working', 'done', 'stopped', 'idle', '', 'xyz'].map((e) => `${e}: ${classificarEstado(e).detalhe}`).join('\n'));
+  caso(casos, 'pulse: descricao de cada motivo', () => JSON.stringify(DESCRICAO_DO_MOTIVO, null, 1));
+  caso(casos, 'pulse: recomendacao do radar por tipo de parada', () => [recomendarPara('abandonada', null, 'abc12345'),
+    recomendarPara('falha', null, 'abc12345'), recomendarPara('desconhecida', null, 'abc12345'),
+    recomendarPara('hitl', 'hitl.credencial', 'abc12345'), recomendarPara('hitl', 'hitl.permissao', 'abc12345'),
+    recomendarPara('hitl', 'hitl.pergunta', 'abc12345'), recomendarPara('hitl', null, 'abc12345')].join('\n'));
+  caso(casos, 'pulse: quanto falta na fila', () => ['2025-09-19T18:00:00.000Z', '2025-09-19T18:46:00.000Z', '2025-09-19T20:21:00.000Z']
+    .map((liberaEm) => faltaPara({ liberaEm } as never, T1)).join(' | '));
   caso(casos, 'pulse: linhas auxiliares', () => [
     linhaDoParadoNoCondutor({ thread: 'loc-z', desdeEm: T0, proximoPasso: 'mescle o PR #12' }, { agora: T1 }),
     textoDaMediana(HITL),

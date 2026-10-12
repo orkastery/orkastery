@@ -67,7 +67,7 @@ test('locale en F2b ship: ensaio, bloqueio e entrega saem em ingles', () => {
 
     const entrega = ork(c, EN, false, 'ship', 'loc-entrega', '--para', 'main', '--de', 'feature');
     assert.equal(entrega.status, 0, entrega.stderr);
-    assert.match(entrega.stdout, /\n {2}lease {9}main-tree taken by loc-entrega and released at the end\n\nMerge --no-ff done: [0-9a-f]{40}\n/);
+    assert.match(entrega.stdout, /\n {2}lease {9}main-tree taken by loc-entrega and released at the end\n\n`--no-ff` merge done: [0-9a-f]{40}\n/);
     assert.ok(entrega.stdout.includes('\nPush not proven: remote "origin" not configured: local merge done, no push to prove\n\nEvidence (commands run):\n'),
       entrega.stdout);
     assert.ok(entrega.stdout.endsWith('\nLedger: `ork phase list loc-entrega`  (ship_done event)\n'), entrega.stdout);
@@ -124,4 +124,18 @@ test('locale en F2b ship: o que o ship grava nao muda com a lingua', () => {
     assert.ok(dadoPt.includes('branch de destino \\"missing-branch\\" nao existe neste repositorio'), 'o detalhe gravado e pt-BR');
     assert.deepEqual(JSON.parse(dadoEn), JSON.parse(dadoPt));
   } finally { pt.limpar(); en.limpar(); }
+});
+
+test('locale en F2b ship: thread inexistente sai no locale do comando em ship, registrar-pr, master e retry', () => {
+  const c = cenario('ship-inexistente');
+  try {
+    for (const args of [['ship', 'nada', '--para', 'main'], ['ship', 'registrar-pr', 'nada'], ['master', 'pedir', 'nada'],
+      ['master', 'nada', '--aceitar-omissao'], ['retry', 'plan', 'nada']]) {
+      const en = ork(c, EN, false, ...args), pt = ork(c, PT, false, ...args);
+      assert.notEqual(en.status, 0, args.join(' '));
+      assert.equal(en.status, pt.status, args.join(' '));
+      assert.ok(en.stderr.includes('thread "nada" not found in '), `${args.join(' ')}\n${en.stderr}`);
+      assert.ok(pt.stderr.includes('thread "nada" nao encontrada em '), `${args.join(' ')}\n${pt.stderr}`);
+    }
+  } finally { c.limpar(); }
 });

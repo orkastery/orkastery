@@ -33,8 +33,10 @@
  * O registro dos montadores so existe nos comandos cobertos (`ligarRemontagem`); o servidor MCP e o cron
  * nunca o ligam. O que outro processo gravou, a policy avaliada e a saida de ferramenta externa saem como
  * vieram, e tambem (G5) o proximo passo e o estado da entrega de uma thread parada no condutor
- * (`parado-no-condutor.ts`, a familia de entregas), ate a F3. Motivo, acao, bloqueio e codigo saem iguais
- * nas duas linguas (G4).
+ * (`parado-no-condutor.ts`, a familia de entregas), ate a F3. Motivo tipado, acao e bloqueio do retry, codigo,
+ * comando e sha saem iguais nas duas linguas (G4); valor de estado mostrado em tabela ou entre parenteses (a
+ * acao do `registrar-pr`, o tipo da autorizacao do ship, o status da thread, o veredito e a cobertura do
+ * CHECK-REVERIFY, o titulo do grupo do roadmap) e dado do `--json` e so se traduz na impressao, pelo id (D4).
  *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
@@ -177,6 +179,10 @@ const PT_BR = {
     legenda: (rotulo: string) => `Horários em ${rotulo}.`,
     duracaoDesconhecida: 'tempo desconhecido',
     menosDeUmMin: 'menos de 1 min',
+    /** `faltaPara` (ratelimit.ts): quanto falta para o pedido da fila liberar. */
+    jaLiberou: 'ja liberou',
+    emMinutos: (n: number) => `em ${n} min`,
+    emHoras: (h: number, mm: string) => `em ${h}h${mm}`,
   },
   doctor: {
     titulo: 'ork doctor: o que vale nesta maquina agora',
@@ -414,6 +420,9 @@ const EN: Mensagens = {
     legenda: (rotulo) => `Times in ${rotulo}.`,
     duracaoDesconhecida: 'unknown time',
     menosDeUmMin: 'less than 1 min',
+    jaLiberou: 'already released',
+    emMinutos: (n) => `in ${n} min`,
+    emHoras: (h, mm) => `in ${h}h${mm}`,
   },
   doctor: {
     titulo: 'ork doctor: what holds on this machine now',
@@ -603,12 +612,12 @@ const EN: Mensagens = {
     redeMembro: 'member',
     redeCasa: (casa) => `home ${casa}`,
     redeSemCasa: 'home not recorded yet',
-    redeBatida: (quando, idade) => `last beat ${quando} (${idade} ago)`,
-    redeSemBatida: 'no beat published',
+    redeBatida: (quando, idade) => `last heartbeat ${quando} (${idade} ago)`,
+    redeSemBatida: 'no heartbeat published',
     redeFalha: (quando, origem, erro) => `last failure ${quando}${origem ? ` (${origem})` : ''}: ${erro}`,
     redeSemDetalhe: 'no detail',
     redeSemFalha: 'no failure in rede.log',
-    redeParadaCorrecao: 'the beat comes from the pulse: check the pulse cron and run `ork network publicar`',
+    redeParadaCorrecao: 'the heartbeat comes from the pulse: check the pulse cron and run `ork network publicar`',
     redeSemCasaCorrecao: 'the network home does not exist yet: the owner runs `ork network entrar`, which creates the private ' +
       'repository; or `ork network sair`, to take this machine out of the network',
     redeSemForjaCorrecao: 'sign in to the forge (`gh auth login` or `glab auth login`) and run `ork network publicar`',
