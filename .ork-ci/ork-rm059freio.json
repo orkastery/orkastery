@@ -1,0 +1,678 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm059freio",
+  "branch": "ork/ork-rm059freio-full",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/.claude-plugin/plugin.json",
+      "alegacao": "O manifesto do Freio se chama ork-freio, publica o contrato de tipos em ./types/index.d.ts, depende só da ork-ponte, tem author e não leva chave de papel (o papel mora no orkastery-mod.json).",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./adapters/claude-code/mods/ork-freio/.claude-plugin/plugin.json'); process.exit(m.name==='ork-freio'&&m.types==='./types/index.d.ts'&&m.dependencies.length===1&&m.dependencies[0]==='ork-ponte'&&typeof m.author.name==='string'&&m.papeis===undefined&&m.formato===undefined?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T07:53:32.255Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/orkastery-mod.json",
+      "alegacao": "O Freio declara só o papel fase na convenção ork.mod/v1, com Claude Code mínimo 2.1.287, exatamente como o pedido manda.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const a=require('./adapters/claude-code/mods/ork-freio/orkastery-mod.json'); process.exit(JSON.stringify(a)===JSON.stringify({formato:'ork.mod/v1',papeis:['fase'],claudeCodeMinimo:'2.1.287'})?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T07:53:37.870Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/hooks.json",
+      "alegacao": "O hooks.json do Freio carrega um módulo só, ./register.ts, que existe na pasta hooks.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const h=require('./adapters/claude-code/mods/ork-freio/hooks/hooks.json'); process.exit(h.modules.length===1&&h.modules[0]==='./register.ts'?0:1)\" && test -f adapters/claude-code/mods/ork-freio/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T07:53:38.797Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/register.ts",
+      "alegacao": "O register.ts do Freio passa na guarda estática de autoridade, tem o gancho session.start que abre a carga, lê as claims pela ferramenta da lista fechada e só age na sessão de papel fase.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-freio && grep -cF \"on('session.start'\" adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'FERRAMENTA_DAS_CLAIMS, argsDaFerramenta(FERRAMENTA_DAS_CLAIMS' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF \"ctx.papel === 'fase'\" adapters/claude-code/mods/ork-freio/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T07:53:39.604Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/carga.ts",
+      "alegacao": "O carga.ts do Freio, transpilado pelo carregador da guarda, lê os touch_paths do plano normalizados, descarta claim retirada, mantém a lista fechada das duas ferramentas de leitura e deixa o Freio dormente com a thread fechada.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const c=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/carga.ts')); const q=String.fromCharCode(96); const tp=c.touchPathsDoPlano('- **touch_paths:** '+q+'./src/a.ts'+q+', '+q+'docs/'+q); const cl=c.claimsDoNucleo([{id:'C1',arquivo:'a',verificar:['x'],estado:'retirada'},{id:'C2',arquivo:'./b',verificar:['y']}]); process.exit(tp.join()==='docs,src/a.ts'&&cl.length===1&&cl[0].id==='C2'&&cl[0].arquivo==='b'&&c.FERRAMENTAS_DO_FREIO.join()==='ork_claims_list,ork_artifact_read'&&c.threadAtiva('fechada')===false?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T07:53:43.666Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "O contrato de tipos do Freio declara o estado ork-freio com as chaves carga e vigia, sem import e sem noun novo no $.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"'ork-freio': {\" adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'carga: FreioCarga' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'vigia: FreioVigia' adapters/claude-code/mods/ork-freio/types/index.d.ts && ! grep -nE '^import ' adapters/claude-code/mods/ork-freio/types/index.d.ts && ! grep -nF 'interface EngineInterface' adapters/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T07:53:46.397Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/apoio.ts",
+      "alegacao": "O apoio dos testes do kit tem a ponte falsa autocontida (configurada pelo ambiente), a sonda que lê o estado do Freio e o núcleo de baixo com as duas ferramentas de leitura.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"name: 'ork-ponte'\" adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF ORK_TESTE_PAPEL adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF ork_artifact_read adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF \"name: 'ork-sonda-freio'\" adapters/claude-code/mods/ork-freio/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T07:53:49.097Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/carga.test.ts",
+      "alegacao": "Os testes do kit da carga cobrem pelo menos sete cenários, entre eles a leitura só pelas ferramentas de leitura (ork_claims_list) e o Freio dormente fora da sessão de fase.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/carga.test.ts) -ge 7 && grep -cF claude-code/testing adapters/claude-code/mods/ork-freio/test/carga.test.ts && grep -cF 'fica dormente' adapters/claude-code/mods/ork-freio/test/carga.test.ts && grep -cF \"tool: 'ork_claims_list'\" adapters/claude-code/mods/ork-freio/test/carga.test.ts"
+      ],
+      "criadoEm": "2026-10-12T07:53:51.859Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-freio.test.ts",
+      "alegacao": "O teste hermético do Freio no núcleo passa sem o claude: manifesto, convenção, contrato de tipos, módulos puros transpilados e a lista fechada de ferramentas MCP conferida pela AST.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-freio.test.js"
+      ],
+      "criadoEm": "2026-10-12T07:53:53.539Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/lote.ts",
+      "alegacao": "O lote.ts do Freio lê o git status porcelain v2 (HEAD e caminhos), separa commit de reversão na diferença entre fotos, só casa caminho citado com fronteira e casa touch_paths com curinga sem tratar ponto como curinga.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/lote.ts')); const z=String.fromCharCode(0); const h='c'.repeat(40); const s=l.lerStatus(['# branch.oid '+h,'1 .M N... 100644 100644 100644 '+h+' '+h+' src/a.ts','? b.md',''].join(z)); const a={head:'h',caminhos:{'x.ts':'.M|1|1'}}; process.exit(s.head===h&&s.entradas.length===2&&s.entradas[0].caminho==='src/a.ts'&&s.entradas[1].xy==='??'&&l.diferenca(a,{head:'h2',caminhos:{}}).length===0&&l.diferenca(a,{head:'h',caminhos:{}}).join()==='x.ts'&&l.citaCaminho('grep -c x src/a.ts','src/a.ts')&&!l.citaCaminho('grep -c x src/a.tsx','src/a.ts')&&l.casaTouchPath('src/b/c.ts','src/b/**')&&!l.casaTouchPath('srcxa.ts','src.a.ts')?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T08:01:33.293Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/lote.test.ts",
+      "alegacao": "Os testes do kit do lote cobrem pelo menos dez cenários: a edição por Bash pela diferença do git status, o lote só de leitura sem git status, o lote sem claim afetada sem texto e o aviso fora dos touch_paths do plano.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/lote.test.ts) -ge 10 && grep -cF 'pela diferenca do git status' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'fora dos touch_paths do plano' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'nao roda o git status' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'passa sem texto e sem fila' adapters/claude-code/mods/ork-freio/test/lote.test.ts"
+      ],
+      "criadoEm": "2026-10-12T08:01:36.443Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C12",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/register.ts",
+      "alegacao": "O register.ts do Freio tem o gancho classic.PostToolBatch com .catch que deixa o lote passar, tira a foto pelo git status na raiz da sessão e aplica o lote na vigia, e segue verde na guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF \"on('classic.PostToolBatch'\" adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF '.catch(($, e, next) => next(e))' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'ARGV_DO_STATUS, { cwd: raiz' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'aplicarLote(v, lote)' adapters/claude-code/mods/ork-freio/hooks/register.ts && node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-freio"
+      ],
+      "criadoEm": "2026-10-12T08:01:39.589Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "O contrato de tipos do Freio declara o pedido da fila (FreioPedido) e a vigia com a fila e os toques por caminho.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export type FreioPedido' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'fila: FreioPedido[]' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'toques: Record<string, number>' adapters/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T08:01:41.850Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/apoio.ts",
+      "alegacao": "O apoio do kit tem a worktree falsa que responde o git status porcelain v2 e o fs.stat que o lote do Freio lê.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export function disco' adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF '# branch.oid' adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF \"on('fs.stat'\" adapters/claude-code/mods/ork-freio/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T08:01:43.983Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/conferencia.test.ts",
+      "alegacao": "Os testes do kit da conferência cobrem pelo menos dez cenários, entre eles a claim reprovada que volta no lote seguinte, o resultado velho que não é entregue, o aviso único de conferência indisponível e o comando da claim que nunca roda no processo do mod.",
+      "negativa": true,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts) -ge 10 && grep -cF 'volta no lote seguinte' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'resultado velho nao e entregue' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'nunca roda no processo do mod' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'avisa uma vez' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T08:10:25.617Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "O contrato de tipos do Freio declara a rodada e a entrega da conferência, com a rodada como campo opcional da vigia.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export type FreioEntrega' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'export type FreioRodada' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'rodada?: FreioRodada | null' adapters/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T08:10:31.113Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/apoio.ts",
+      "alegacao": "O apoio do kit tem o núcleo de conferência falso: o fundo de process.spawn que responde no formato ork.claims-conferencia/v1.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'export function nucleoDeConferencia' adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF \"on('process.spawn'\" adapters/claude-code/mods/ork-freio/test/apoio.ts && grep -cF 'ork.claims-conferencia/v1' adapters/claude-code/mods/ork-freio/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T08:10:33.304Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "core/test/ork-freio-despacho.test.ts",
+      "alegacao": "Com o catálogo real instalado, o recibo do adaptador lista cada arquivo do Freio, o Freio entra nos mods de fase com a ponte como dependência, e o despacho claude-bg leva o plugin do Orkastery, a ponte e, depois dela, o Freio; com um claude abaixo da API de mods, o Freio fica de fora.",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/ork-freio-despacho.test.js"
+      ],
+      "criadoEm": "2026-10-12T08:13:19.805Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/.claude-plugin/plugin.json",
+      "alegacao": "A cópia gerada do manifesto do Freio no marketplace próprio é igual à fonte, e o gerador confere o marketplace sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/.claude-plugin/plugin.json marketplaces/claude-code/mods/ork-freio/.claude-plugin/plugin.json"
+      ],
+      "criadoEm": "2026-10-12T08:13:21.795Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/autoridade.json",
+      "alegacao": "A cópia do Freio no marketplace leva dentro dela a lista de autoridade comum da raiz de mods, igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/autoridade.json marketplaces/claude-code/mods/ork-freio/autoridade.json"
+      ],
+      "criadoEm": "2026-10-12T08:13:23.791Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/carga.ts",
+      "alegacao": "A cópia gerada do carga.ts do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/hooks/carga.ts marketplaces/claude-code/mods/ork-freio/hooks/carga.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:25.648Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/conferencia.ts",
+      "alegacao": "A cópia gerada do conferencia.ts do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/hooks/conferencia.ts marketplaces/claude-code/mods/ork-freio/hooks/conferencia.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:27.547Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/hooks.json",
+      "alegacao": "A cópia gerada do hooks.json do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/hooks/hooks.json marketplaces/claude-code/mods/ork-freio/hooks/hooks.json"
+      ],
+      "criadoEm": "2026-10-12T08:13:29.392Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/lote.ts",
+      "alegacao": "A cópia gerada do lote.ts do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/hooks/lote.ts marketplaces/claude-code/mods/ork-freio/hooks/lote.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:31.244Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/hooks/register.ts",
+      "alegacao": "A cópia gerada do register.ts do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/hooks/register.ts marketplaces/claude-code/mods/ork-freio/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:33.048Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/orkastery-mod.json",
+      "alegacao": "A cópia gerada do orkastery-mod.json do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/orkastery-mod.json marketplaces/claude-code/mods/ork-freio/orkastery-mod.json"
+      ],
+      "criadoEm": "2026-10-12T08:13:34.953Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/test/apoio.ts",
+      "alegacao": "A cópia gerada do apoio dos testes do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/test/apoio.ts marketplaces/claude-code/mods/ork-freio/test/apoio.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:36.848Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/test/carga.test.ts",
+      "alegacao": "A cópia gerada do teste da carga do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/test/carga.test.ts marketplaces/claude-code/mods/ork-freio/test/carga.test.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:38.687Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/test/conferencia.test.ts",
+      "alegacao": "A cópia gerada do teste da conferência do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/test/conferencia.test.ts marketplaces/claude-code/mods/ork-freio/test/conferencia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:40.553Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/test/lote.test.ts",
+      "alegacao": "A cópia gerada do teste do lote do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/test/lote.test.ts marketplaces/claude-code/mods/ork-freio/test/lote.test.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:42.456Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C33",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "marketplaces/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "A cópia gerada do contrato de tipos do Freio no marketplace é igual à fonte, e o gerador confere sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/gerar-marketplaces.cjs --verificar && cmp adapters/claude-code/mods/ork-freio/types/index.d.ts marketplaces/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T08:13:44.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C34",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": ".claude-plugin/marketplace.json",
+      "alegacao": "O marketplace próprio da raiz tem a entrada ork-freio com source na cópia gerada e categoria development, e o gerador confere o arquivo sem deriva.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const m=require('./.claude-plugin/marketplace.json'); const e=m.plugins.find(p=>p.name==='ork-freio'); process.exit(e&&e.source==='./marketplaces/claude-code/mods/ork-freio'&&e.category==='development'?0:1)\" && node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T08:13:46.392Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C35",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "O README do adaptador tem a seção do Freio de Lote: o que ele faz na sessão de fase, o comando ork claims conferir que ele pede ao núcleo, que nunca roda o comando de uma claim e que lê as claims pela ferramenta ork_claims_list.",
+      "negativa": true,
+      "verificar": [
+        "grep -cF '### Freio de Lote (' adapters/claude-code/README.md && grep -cF 'ork claims conferir <thread> --claims ... --json' adapters/claude-code/README.md && grep -cF 'nunca roda o comando de uma claim' adapters/claude-code/README.md && grep -cF 'ork_claims_list' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T08:17:15.631Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C36",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG tem a linha do Freio de Lote em Não publicado, citando adapters/claude-code/mods/ork-freio, e a regra do CHANGELOG contra a origin/main passa.",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && node -e \"const t=require('fs').readFileSync('CHANGELOG.md','utf8');const i=t.indexOf('o publicado');const j=t.indexOf(String.fromCharCode(10)+'## ',i);process.exit(i>0&&t.slice(i,j).includes('adapters/claude-code/mods/ork-freio')&&t.slice(i,j).includes('Freio de Lote')?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T08:17:18.131Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C37",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/conferencia.ts",
+      "alegacao": "O conferencia.ts do Freio descarta a falha de claim que voltou para a fila durante a rodada (tocada por qualquer caminho que a afeta), entrega a falha atual, trata a recusa de uma claim retirada como recusa só dela (as outras voltam para a fila, sem pausa) e a condução alheia (saída 3) como pausa curta com a rodada de volta na fila, e o laço retoma a rodada aberta.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const c=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/conferencia.ts')); const base={thread:'ork-a',foto:null,seq:2,toques:{'a.ts':1,'b.ts':2},avisadosFora:[]}; const rodada={ids:['C1'],caminhos:{C1:['a.ts']},forcas:{C1:3},inicio:1}; const falha={id:'C1',alegacao:'a',arquivo:'a.ts',verificado:false,motivo:'claims.failed',comando:'k',codigo:1,fim:'z'}; const velha=c.fecharRodada({...base,rodada,fila:[{id:'C1',forca:2,caminhos:['b.ts']}]},{tipo:'resultado',itens:[falha]},0); const nova=c.fecharRodada({...base,rodada,fila:[]},{tipo:'resultado',itens:[falha]},0); const rec=c.lerConferencia(JSON.stringify({erro:'claims.conferir.retirada: C2 foi retirada'}),2,''); const r2={ids:['C3','C2'],caminhos:{C3:['c.ts'],C2:['b.ts']},forcas:{C3:3,C2:2},inicio:1}; const f=c.fecharRodada({...base,rodada:r2,fila:[]},rec,9); const oc=c.fecharRodada({...base,rodada:r2,fila:[]},c.lerConferencia('{}',3,''),9); process.exit(velha.entrega.falhas.length===0&&nova.entrega.falhas.length===1&&rec.tipo==='recusada'&&rec.id==='C2'&&f.fila.map(p=>p.id).join()==='C3'&&f.pausaAte===0&&oc.fila.length===2&&oc.pausaAte===9+c.PAUSA_DE_CONDUCAO_MS&&c.precisaDeLaco({...base,fila:[],rodada:r2})?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T09:12:36.284Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C39",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/lote.ts",
+      "alegacao": "O lote.ts do Freio não toma como mudado o caminho que só passou a borda do teto de stat, deixa claim sem comando fora da fila, guarda os caminhos fora dos touch_paths até o laço principal tomá-los, reconhece o CLI de claims pelo index.js e põe teto de caminhos no aviso.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const l=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/lote.ts')); const r=l.aplicarLote({...l.vigiaVazia('ork-a'),foto:{head:'h',caminhos:{}}},{foto:null,doLote:['z.ts'],claims:[{id:'C1',arquivo:'z.ts',comandos:[]}],touchPaths:['a.ts']}); const t=l.tomarFora(r.vigia); process.exit(!l.mudou('.M|1|1','.M')&&l.mudou('.M|1|1','.M|1|2')&&r.vigia.fila.length===0&&t.fora.join()==='z.ts'&&t.vigia.foraPendentes.length===0&&l.mexeuNasClaims([{tool_name:'Bash',tool_input:{command:'node core/dist/index.js claims retirar ork-a C2'}}])&&l.textoDoFora(Array.from({length:25},(x,i)=>'p'+i)).includes('e mais 5')?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T09:12:45.968Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C40",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/carga.ts",
+      "alegacao": "O carga.ts do Freio lê os touch_paths com a continuação quebrada na linha de baixo, como nos planos reais, e para no item de lista seguinte.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const c=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/carga.ts')); const q=String.fromCharCode(96); const n=String.fromCharCode(10); const plano=['- touch_paths: '+q+'a.ts'+q+', '+q+'b.ts'+q+',','  '+q+'c.ts'+q,'- o que faz: '+q+'fora.ts'+q].join(n); const tp=c.touchPathsDoPlano(plano); process.exit(tp.join()==='a.ts,b.ts,c.ts'?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T09:12:49.067Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C41",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "O contrato de tipos do Freio declara a força de cada claim na rodada e os caminhos fora dos touch_paths pendentes na vigia, os dois opcionais para o estado gravado antes deles.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'forcas?: Record<string, number>' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'foraPendentes?: string[]' adapters/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T09:12:51.430Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C42",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/conferencia.test.ts",
+      "alegacao": "Os testes do kit da conferência têm as regressões da revisão independente: resultado velho por outro caminho da mesma claim, recusa só da claim retirada, lote de subagente que conta toques sem levar a entrega, condução alheia e o vigia que encerra o processo que ainda escreve.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts) -ge 19 && grep -cF 'resultado velho por outro caminho da mesma claim' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'so ela sai, as outras rodam' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'lote de subagente conta os toques' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'outra conducao segura a thread' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'o vigia encerra o processo que ainda escreve' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:12:55.248Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C43",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/lote.test.ts",
+      "alegacao": "Os testes do kit do lote têm as regressões da revisão independente: a borda do teto de stat, a claim registrada num lote sem edição, o plano regravado e o git status sem lock opcional.",
+      "negativa": false,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/lote.test.ts) -ge 17 && grep -cF 'passa a borda do teto de stat' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'registrada num lote sem edicao' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'regrava o plano' adapters/claude-code/mods/ork-freio/test/lote.test.ts && grep -cF 'sem lock opcional' adapters/claude-code/mods/ork-freio/test/lote.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:12:58.222Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C45",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/conferencia.ts",
+      "alegacao": "O conferencia.ts do Freio só devolve como recuperada a claim cuja falha o modelo já recebeu, mesmo com outra falha pendente no meio; a rodada mantém a claim cadastrada depois da última leitura de claims; e o processo da rodada anterior aberto deixa a conferência indisponível, com a fila limpa e o aviso.",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const c=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/conferencia.ts')); const base={thread:'ork-a',foto:null,seq:5,toques:{},fila:[],avisadosFora:[]}; const rodada={ids:['C1'],caminhos:{C1:['a.ts']},forcas:{C1:3},inicio:5}; const passou={id:'C1',alegacao:'a',arquivo:null,verificado:true,motivo:null,comando:'x',codigo:0,fim:''}; const falha={id:'C1',alegacao:'a',arquivo:null,comando:'x',codigo:1,fim:''}; const vista=c.fecharRodada({...base,rodada,emRisco:['C1'],avisadas:['C1'],entrega:{falhas:[falha],semVeredito:[],recuperadas:[],indisponivel:null}},{tipo:'resultado',itens:[passou]},0); const nunca=c.fecharRodada({...base,rodada,emRisco:['C1'],entrega:{falhas:[falha],semVeredito:[],recuperadas:[],indisponivel:null}},{tipo:'resultado',itens:[passou]},0); const fila=[{id:'C9',forca:3,caminhos:[]},{id:'C2',forca:3,caminhos:[]}]; const r=c.iniciarRodada({...base,fila},0,6,{ids:['C1'],maior:3}); const p=c.indisponivelSemRodada({...base,fila},c.MOTIVO_PROCESSO_ABERTO,1); process.exit(vista.entrega.recuperadas.join()==='C1'&&nunca.entrega.recuperadas.length===0&&r.rodada.ids.join()==='C9'&&p.fila.length===0&&p.entrega.indisponivel===c.MOTIVO_PROCESSO_ABERTO?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T09:44:37.481Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C46",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/register.ts",
+      "alegacao": "O register.ts do Freio roda o git status sem lock opcional, deixa a entrega para o lote do laço principal, retoma a rodada aberta, não abre rodada nova enquanto o processo da anterior não fechar (depois do vigia e da espera de até 30 s, a conferência fica indisponível), relê as claims depois de uma recusa por claim, não sobrescreve uma leitura de claims mais nova e pede a conferência pelo argv do ork claims conferir, verde na guarda estática.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'GIT_OPTIONAL_LOCKS' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF \"typeof e.agent_id === 'string'\" adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'precisaDeLaco(vigia)' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'let fluxoAberto' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'indisponivelSemRodada(v, MOTIVO_PROCESSO_ABERTO' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF \"leitura.tipo === 'recusada'\" adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'agora >= atual.claimsEm' adapters/claude-code/mods/ork-freio/hooks/register.ts && grep -cF 'argvDaConferencia(ctx.thread, ids)' adapters/claude-code/mods/ork-freio/hooks/register.ts && node core/scripts/checar-mods.cjs adapters/claude-code/mods/ork-freio"
+      ],
+      "criadoEm": "2026-10-12T09:44:42.475Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/hooks/carga.ts",
+      "alegacao": "O carga.ts do Freio calcula o maior número de claim da thread contando as retiradas, e a carga vazia nasce com ele em zero.",
+      "negativa": true,
+      "verificar": [
+        "node -e \"const c=require('./core/scripts/checar-mods.cjs').carregarModuloDoMod(require('path').resolve('adapters/claude-code/mods/ork-freio/hooks/carga.ts')); process.exit(c.maiorNumeroDeClaim([{id:'C2'},{id:'C7',estado:'retirada'},{id:'T9'}])===7&&c.cargaVazia('ork-a').maiorClaim===0?0:1)\""
+      ],
+      "criadoEm": "2026-10-12T09:44:44.875Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/types/index.d.ts",
+      "alegacao": "O contrato de tipos do Freio declara as claims avisadas na vigia e o maior número de claim na carga, os dois opcionais para o estado gravado antes deles.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'avisadas?: string[]' adapters/claude-code/mods/ork-freio/types/index.d.ts && grep -cF 'maiorClaim?: number' adapters/claude-code/mods/ork-freio/types/index.d.ts"
+      ],
+      "criadoEm": "2026-10-12T09:44:46.827Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/conferencia.test.ts",
+      "alegacao": "Os testes do kit da conferência têm as regressões da rodada 2 da revisão: nenhuma rodada nova com o processo mudo aberto, a recuperação depois de falha avisada com outra pendente no meio, o teto do texto juntado e a releitura das claims depois da recusa.",
+      "negativa": true,
+      "verificar": [
+        "test $(grep -c '^test(' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts) -ge 21 && grep -cF 'nenhuma rodada nova corre junto enquanto o processo nao fecha' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'mesmo com outra falha pendente no meio' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'juntos respeita o teto de caracteres' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'o laco rele a lista de claims do nucleo' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts"
+      ],
+      "criadoEm": "2026-10-12T09:44:50.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/README.md",
+      "alegacao": "O README do adaptador diz que um Edit que falhou também conta como toque e pode pedir uma conferência a mais, e que a falha de claim tocada de novo durante a conferência não é entregue.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'conta como toque e pode pedir uma' adapters/claude-code/README.md && grep -cF 'tocado de novo durante a confer' adapters/claude-code/README.md"
+      ],
+      "criadoEm": "2026-10-12T09:44:51.910Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm059freio",
+      "fase": "GOAL",
+      "arquivo": "adapters/claude-code/mods/ork-freio/test/conferencia.test.ts",
+      "alegacao": "Depois do vigia de 240 s há uma espera só, de até 30 s, antes de a conferência ficar indisponível com o processo mudo aberto: o teste do kit confere o estado aos 270 s, e o register.ts deixa a espera só para a volta seguinte do laço.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF 'aos 270 s a conferencia ja esta indisponivel' adapters/claude-code/mods/ork-freio/test/conferencia.test.ts && grep -cF 'a volta seguinte do laco espera ele fechar (uma espera so' adapters/claude-code/mods/ork-freio/hooks/register.ts"
+      ],
+      "criadoEm": "2026-10-12T10:03:51.200Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C52",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}

@@ -8,6 +8,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **Freio de Lote, o primeiro mod de papel `fase`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  `adapters/claude-code/mods/ork-freio` acha, a cada lote de ferramentas da sessão de fase, os arquivos que o lote
+  mexeu (inclusive por `Bash`, pela diferença do `git status`) e as claims da thread que os citam, pede ao núcleo a
+  conferência delas em segundo plano (`ork claims conferir`, no sandbox do verify) e devolve o que quebrou no lote
+  seguinte, com o id da claim, o comando e o fim da saída; também avisa o lote que mexeu fora dos `touch_paths` do
+  plano. Nunca roda comando de claim, nunca grava estado de claim e nunca para o laço: o `ork verify` continua sendo
+  quem verifica. Vai às sessões de fase pela distribuição dos mods e ao marketplace próprio pelo gerador; sem um
+  `ork` com `claims conferir`, avisa uma vez que a conferência está indisponível.
 - **CLI em inglês e pt-BR, fatia F2a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork doctor` inteiro, o
   erro de `ork init` fora do repositório, `ork onboarding` (pauta, `show`, `set`, `reset`), `ork experiencia show`,
   `ork thread new`, `ork thread status`, `ork phase list`, o resumo de `ork phase run` e a ajuda (`ork --help` e a ajuda
