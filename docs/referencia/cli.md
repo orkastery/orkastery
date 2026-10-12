@@ -150,6 +150,7 @@ Nos hosts, o status do roadmap vem do panorama da rede (RM-054, fatia 2): a tool
 | ↳ opções | `[--slug S] [--assunto A] [--worktree auto\|DIR] [--sem-worktree] [--ciclo C] [--dry-run]` |
 | ↳ worktree | Com `worktree.por_thread: true`, o que o `ork init` grava, a thread nasce com a worktree e a branch `ork/<slug>` sem flag; com a chave `false` ou ausente, só com `--worktree auto`. `--worktree DIR` reusa um diretório que já existe; `--sem-worktree` cria sem ela e avisa o que acontece no `ork ship` (na branch base, `push_direto_na_base: block`, o padrão do `ork init`, barra a entrega); `--dry-run` mostra a worktree que seria criada, ou por que a criação a recusaria. A pasta é a da árvore principal, mesmo com o comando rodando de dentro de outra worktree |
 | `ork thread new <nome> --modo <MODO> --roadmap RM-NNN` | Reserva o item do roadmap para esta máquina **antes** de criar a thread; outra máquina com o mesmo item recebe `roadmap.reservado` e não cria nada (I-47) |
+| `ork thread new <nome> --modo <MODO> --pedido "<texto>"` | Guarda o pedido do builder em `pedido.md`, na pasta da thread, com o sha256 no `thread.json` e no `thread_created`; o `ork prompt render` usa esse pedido quando falta `--pedido`. Vazio ou acima de 64 KiB recusa antes de gravar (RM-059) |
 | `ork roadmap status [--json]` | Status report único do roadmap no formato aprovado: grupos com ícones, `#HITL` no que espera o dono e o fecho com o que precisa dele e o que vem a seguir. Leitura pura; os canais transportam o texto (RM-048) |
 | `ork roadmap reservas [--json] [--remoto R] [--soltar-orfas]` | Com quem está cada item do roadmap, lido da branch `ork/roadmap-reservas` do remoto; marca a reserva órfã (desta máquina, de thread já fechada) e, com `--soltar-orfas`, a solta ou a passa para outra thread aberta do mesmo item, com registro (RM-037) |
 | `ork roadmap pegar RM-NNN [--thread T] [--nota N] [--por Q] [--maquina M]` | Reserva o item por push atômico: o primeiro vence. A máquina é `--maquina`, `ORK_MAQUINA` ou o hostname. `--forcar --motivo M` toma a reserva de uma máquina parada, e o motivo fica registrado |
@@ -561,7 +562,7 @@ do projeto quando o limite de sessões está cheio.
 | --- | --- |
 | `ork prompt list` | Os templates de prompt (embutidos e os do projeto) |
 | `ork prompt lint [--template ID]` | **Reprova template quebrado antes de ele virar despacho** |
-| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger |
+| `ork prompt render <thread> --fase F [--pedido "<texto>"] [--template ID]` | O prompt exato, com o sha256 que vai ao ledger. Sem `--pedido`, usa o pedido guardado na criação da thread, conferido pelo sha256 (`thread.pedido.divergente` quando o arquivo foi editado fora do núcleo); thread sem pedido guardado segue com o texto de exemplo (RM-059) |
 | `ork prompt render --exemplo --fase F --modo M` | Renderiza sem thread nenhuma, para revisar o texto |
 | `ork adapter list` | Os adaptadores de host (Camada 1) e o destino de cada um |
 | `ork adapter show <host>` | Os 3 pitfalls de instalação do host |

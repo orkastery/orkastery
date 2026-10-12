@@ -207,11 +207,11 @@ import {
   threadDeExemplo,
 } from './prompts';
 import { comandoDeAttach, limparFantasmas, logsDaSessao, pararSessao, textoDaLimpeza } from './sessoes';
-import { exec, tabela } from './util';
+import { exec, shaCurto, tabela } from './util';
 import { ship, textoDoShip } from './ship';
 import { consultarCi, executarBundleCi, executarCi, executarCiDaBranch, prepararBundleCi } from './ci';
 import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, caminhoThread, canalDaSessao, dirThread, exigirFase, lerThread,
-  linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
+  linhaDaWorktree, listarIds, novaThread, pedidoDaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
 import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
@@ -353,6 +353,8 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
                                                  push_direto_na_base: block, o padrão do ork init); com
                                                  worktree.por_thread: true, a worktree nasce sem flag
         [--roadmap RM-NNN]                       reserva o item do roadmap antes de criar (I-47)
+        [--pedido "<texto>"]                     guarda o pedido do builder (pedido.md, com sha256): o
+                                                 prompt render usa quando falta --pedido (RM-059)
   thread list [--todas] [--json]            Threads NAO fechadas do projeto (--todas inclui as fechadas)
   thread close <id> --motivo orfa|engano|superada --por Q --justificativa J
   thread entrega <id> --arquivo A --sha256 H --por Q
@@ -559,7 +561,7 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   prompt list                               Templates de prompt (embutidos e os do projeto)
   prompt lint [--template ID]               Reprova template quebrado antes de ele virar despacho
   prompt render <thread-id> --fase F        Mostra o prompt exato, com o sha256 que vai ao ledger
-        [--pedido "<texto>"] [--template ID]
+        [--pedido "<texto>"] [--template ID]     sem --pedido, o guardado na criacao da thread (RM-059)
   prompt render --exemplo --fase F --modo M Renderiza sem thread nenhuma, para revisar o texto
 
   roadmap status [--json]                   Status report unico do roadmap: grupos com icones, #HITL no que espera
@@ -803,6 +805,12 @@ function comandoThread(args: Args): number {
         return { criterio, comando };
       });
     const dryRun = args.opcoes['dry-run'] === true;
+    // RM-059 (T6.0): o pedido do builder, guardado para o render da fase quando falta `--pedido`.
+    if (args.opcoes.pedido === true) {
+      console.error('uso: --pedido "<texto do pedido do builder>"');
+      return 2;
+    }
+    const pedidoDoBuilder = texto(args.opcoes.pedido);
     // `--worktree auto` (ou `--worktree` sozinho) cria a worktree isolada da thread; um caminho reusa um
     // diretorio que ja existe. P4 do ensaio da 0.5.0: sem flag, `worktree.por_thread: true` cria como o
     // `--worktree auto`, e `--sem-worktree` cria sem ela. Uso invalido sai antes da reserva do roadmap.
@@ -848,6 +856,7 @@ function comandoThread(args: Args): number {
         exigeRuntimeDiferente,
         doneWhen,
         roadmap: itemReservado,
+        ...(pedidoDoBuilder !== undefined ? { pedido: pedidoDoBuilder } : {}),
       });
     } catch (e) {
       if (itemDoRoadmap) {
@@ -872,6 +881,10 @@ function comandoThread(args: Args): number {
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
+    if (thread.pedido) {
+      console.log(`  pedido: ${gravada ? 'guardado em' : 'seria guardado em'} .orkastery/threads/${thread.id}/${thread.pedido.arquivo} ` +
+        `(sha256 ${shaCurto(thread.pedido.sha256)}, ${thread.pedido.bytes} bytes); o ork prompt render o usa quando falta --pedido`);
+    }
     if (gravada) {
       console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
@@ -3241,12 +3254,17 @@ function comandoPrompt(args: Args): number {
       return 2;
     }
     const thread = lerThread(obrigatorio.raiz, threadId);
+    // RM-059 (T6.0): sem --pedido, o pedido guardado na criacao, conferido pelo sha256; thread sem pedido
+    // guardado segue com o texto de exemplo, como antes.
+    const guardado = texto(args.opcoes.pedido) === undefined ? pedidoDaThread(obrigatorio.raiz, thread) : null;
+    const pedidoDaFase = guardado?.texto ?? pedido;
     const template = idTemplate ? exigirTemplate(idTemplate, obrigatorio.raiz) : templateDaFase(fase, obrigatorio.raiz);
     const prompt = idTemplate
-      ? renderizar(template, valoresDoPrompt(thread, fase, pedido))
-      : montarPrompt(thread, fase, pedido, obrigatorio.raiz);
+      ? renderizar(template, valoresDoPrompt(thread, fase, pedidoDaFase))
+      : montarPrompt(thread, fase, pedidoDaFase, obrigatorio.raiz);
     console.log(`# template ${template.id} v${template.versao} (origem: ${template.origem})`);
     console.log(`# thread ${thread.id}, fase ${fase}, sha256 ${hashDoPrompt(prompt)}`);
+    if (guardado) console.log(`# pedido guardado na criacao da thread (sha256 ${shaCurto(guardado.sha256)})`);
     console.log('');
     console.log(prompt);
     return 0;

@@ -11,9 +11,10 @@ import { aplicarVariante, definicaoDaVariante } from './ciclos';
 import { definicaoDoModo, MODOS, ORDEM_DOS_MODOS, tagDoModo } from './modos';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { montarSlug, normalizarAssunto, REGEX_SLUG, slugValido } from './slug';
+import { createHash } from 'node:crypto';
 import {
-  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Manifesto, Modo, SessaoDaThread, Thread,
-  VarianteDeCiclo,
+  BlocoDeLoop, CanalDeConducao, ConducaoAtual, CriterioDePronto, DefinicaoDeModo, Fase, FASES, Manifesto, Modo, PedidoDaThread, SessaoDaThread,
+  Thread, VarianteDeCiclo,
 } from './types';
 import { agora, COMMIT_DESCONHECIDO, exec, ignorarPastaNoGit, lerJson, shaCurto, tabela } from './util';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
@@ -372,6 +373,54 @@ export interface OpcoesNovaThread {
   doneWhen?: CriterioDePronto[];
   /** I-51 (RM-047): o item do roadmap reservado para esta thread (`--roadmap RM-NNN`). */
   roadmap?: string;
+  /** RM-059 (T6.0): o pedido do builder, guardado para o render da fase quando falta `--pedido`. */
+  pedido?: string;
+}
+
+/** RM-059 (T6.0): o arquivo do pedido guardado, na pasta da thread. */
+export const ARQUIVO_DO_PEDIDO = 'pedido.md';
+/**
+ * O prompt da fase vai inteiro como UM argumento do `claude --bg`, e o Linux recusa argumento acima de
+ * 128 KiB (MAX_ARG_STRLEN); o pedido fica com a metade, para o template caber junto.
+ */
+export const TETO_DO_PEDIDO = 64 * 1024;
+
+/** O pedido como ele vai ser guardado: sem espaco nas pontas, nao vazio e dentro do teto. */
+export function prepararPedido(bruto: string): { texto: string; meta: PedidoDaThread } {
+  const texto = bruto.trim();
+  if (!texto) throw new Error('thread.pedido.invalido: o pedido esta vazio');
+  const bytes = Buffer.byteLength(texto, 'utf8');
+  if (bytes > TETO_DO_PEDIDO) throw new Error(`thread.pedido.invalido: o pedido tem ${bytes} bytes, e o teto e ${TETO_DO_PEDIDO}`);
+  return { texto, meta: { arquivo: ARQUIVO_DO_PEDIDO, sha256: createHash('sha256').update(texto, 'utf8').digest('hex'), bytes } };
+}
+
+/**
+ * RM-059 (T6.0): o pedido guardado na criacao da thread, conferido contra o sha256 gravado; `null` na
+ * thread criada sem pedido. Arquivo que falta ou que nao bate com o sha256 (editado fora do nucleo) e
+ * erro tipado: o render nunca usa um pedido sem a prova de que e o da criacao.
+ */
+export function pedidoDaThread(raiz: string, thread: Thread): { texto: string; sha256: string } | null {
+  const meta = thread.pedido;
+  if (!meta) return null;
+  const arquivo = path.join(dirThread(raiz, thread.id), meta.arquivo);
+  const restaurar = 'passe --pedido no render ou restaure o arquivo';
+  let fd: number;
+  try { fd = fs.openSync(arquivo, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`thread.pedido.ausente: a thread ${thread.id} guardou o pedido em ${meta.arquivo} e ele sumiu; ${restaurar}`);
+    throw new Error(`thread.pedido.divergente: ${meta.arquivo} da thread ${thread.id} nao abre como arquivo comum; ${restaurar}`);
+  }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || st.size > TETO_DO_PEDIDO) throw new Error(`thread.pedido.divergente: ${meta.arquivo} da thread ${thread.id} nao e o arquivo guardado; ${restaurar}`);
+    const bytes = fs.readFileSync(fd);
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    if (sha256 !== meta.sha256) {
+      throw new Error(`thread.pedido.divergente: ${meta.arquivo} da thread ${thread.id} nao bate com o sha256 gravado na criacao ` +
+        `(${shaCurto(meta.sha256)}): foi editado fora do nucleo; ${restaurar}`);
+    }
+    return { texto: bytes.toString('utf8'), sha256 };
+  } finally { fs.closeSync(fd); }
 }
 
 export interface ResultadoNovaThread {
@@ -425,6 +474,8 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   if (!assuntoBruto) {
     throw new Error(`nome "${opcoes.nome}" nao produz assunto valido (esperado [a-z0-9])`);
   }
+  // RM-059 (T6.0): o pedido e conferido antes de qualquer gravacao, tambem no ensaio.
+  const pedido = opcoes.pedido !== undefined ? prepararPedido(opcoes.pedido) : null;
   const abbrev = manifesto.project.abbrev;
   const def = definicaoDoModo(opcoes.modo);
   const variante = opcoes.variante ?? null;
@@ -514,6 +565,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     sessoes: [],
     ...(opcoes.exigeRuntimeDiferente === true ? { exigeRuntimeDiferente: true } : {}),
     ...(opcoes.doneWhen && opcoes.doneWhen.length > 0 ? { doneWhen: opcoes.doneWhen } : {}),
+    ...(pedido ? { pedido: pedido.meta } : {}),
     decisoes: [],
     claims: [],
     leases: [],
@@ -571,6 +623,8 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   }
 
   gravarThread(raiz, thread);
+  // RM-059 (T6.0): o pedido vai ao lado do thread.json, so com permissao do dono, como ele.
+  if (pedido) fs.writeFileSync(path.join(dirThread(raiz, id), ARQUIVO_DO_PEDIDO), pedido.texto, { flag: 'wx', mode: 0o600 });
   registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.threadCriada, {
     ...(origin ? { creationOrigin: origin } : {}),
     slug,
@@ -587,6 +641,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
     branchDeOrigem: opcoes.branch ?? null,
     maquina: thread.maquina,
     ...(thread.roadmap ? { roadmap: thread.roadmap } : {}),
+    ...(pedido ? { pedido: pedido.meta } : {}),
   });
   if (worktreeCriada) {
     registrar(dirThread(raiz, id), id, TIPOS_DE_EVENTO.worktreeCriada, {
