@@ -17,6 +17,11 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
   dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
   2 e 3); projeto sem o bloco segue igual.
+
+## [0.5.5] - 2026-10-12
+
+### Adicionado
+
 - **Item novo de roadmap, RM-062: repositório público sem dado privado** ([RM-062](docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)):
   nada privado do dono entra em repositório público, nem em linha, nem em nome de arquivo, nem em JSON de evidência.
   Quatro fatias: barreira no CI do núcleo e dos sites (padrões genéricos mais uma lista local fora do git), a mesma
@@ -229,6 +234,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   anteriores, porque o histórico não é reescrito.
 
 ## [0.5.4] - 2026-10-12
+
+Não publicada no npm; o conteúdo saiu na 0.5.5.
 
 ### Adicionado
 
