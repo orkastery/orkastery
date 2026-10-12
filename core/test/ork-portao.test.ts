@@ -3,7 +3,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ts from 'typescript';
-import { verifyDaTarefa } from '../src/claims-conferir';
+import { FORMATO_DA_CONFERENCIA, PRAZO_MAXIMO_MS, ResultadoDaConferencia, verifyDaTarefa } from '../src/claims-conferir';
 import { slugDasFases } from '../src/modos';
 import { FASES, Fase } from '../src/types';
 
@@ -55,13 +55,15 @@ test('contrato de tipos: o quadro do Portão declarado, sem noun no $, sem impor
   const contrato = fs.readFileSync(path.join(PORTAO, 'types/index.d.ts'), 'utf8');
   assert.match(contrato, /interface PluginState \{\s*'ork-portao': \{/);
   assert.match(contrato, /quadro: PortaoQuadro/);
+  assert.match(contrato, /concluidas: string\[\]/);
+  assert.match(contrato, /repeticoes: Record<string, PortaoRepeticao>/);
   assert.doesNotMatch(contrato, /interface EngineInterface/);
   assert.doesNotMatch(contrato, /^\s*import\s/m);
   assert.doesNotMatch(contrato, /\/\/\/\s*<reference/);
 });
 
 test('módulo puro do Portão só importa tipos', () => {
-  assert.ok(modulosPuros().includes('hooks/plano.ts'));
+  assert.ok(modulosPuros().includes('hooks/plano.ts') && modulosPuros().includes('hooks/verify.ts'));
   for (const rel of modulosPuros()) {
     const fonte = fs.readFileSync(path.join(PORTAO, rel), 'utf8');
     const imports = fonte.split('\n').filter((l) => /^\s*import\s/.test(l));
@@ -245,4 +247,70 @@ test('guarda: o Portão passa na guarda estática, sozinho e junto dos outros mo
   const todos = checarMods({});
   assert.equal(todos.ok, true, JSON.stringify(todos.mods.filter((m: { ok: boolean }) => !m.ok)));
   assert.ok(todos.mods.some((m: { mod: string }) => m.mod === 'ork-portao'));
+});
+
+/** Um resultado de conferência com a forma do núcleo: o tipo `ResultadoDaConferencia` quebra a compilação se mudar. */
+function resultadoDoNucleo(tarefa: string, item: ResultadoDaConferencia['itens'][number]): ResultadoDaConferencia {
+  return {
+    formato: FORMATO_DA_CONFERENCIA, thread: 'ork-a', commit: 'c'.repeat(40), cwd: '/w', executor: 'codex-sandbox', reciboOficial: false,
+    prazoTotalMs: 540000, alvo: { tipo: 'tarefa', tarefa, plano: { arquivo: 'docs/plan.md', sha256: 'x'.repeat(64) }, comando: 'npm test' },
+    itens: [item], ok: item.verificado, motivos: item.motivo ? [item.motivo] : [],
+  };
+}
+
+test('conferência: argv do ork claims conferir só com thread e tarefa válidas, prazo dentro do teto do núcleo e vigia no teto do process.run', () => {
+  const { argvDaConferencia, PRAZO_DA_CONFERENCIA_S, VIGIA_DA_CONFERENCIA_MS, FORMATO_DA_CONFERENCIA: formato } = carregar('hooks/verify.ts');
+  assert.deepEqual(argvDaConferencia('ork-a', 'T2.1'), ['ork', 'claims', 'conferir', 'ork-a', '--tarefa', 'T2.1', '--prazo', '540', '--json']);
+  assert.throws(() => argvDaConferencia('-x', 'T1'), /id de thread inválido/);
+  assert.throws(() => argvDaConferencia('ork-a', 'C3'), /id de tarefa inválido/);
+  assert.equal(formato, FORMATO_DA_CONFERENCIA);
+  assert.ok(PRAZO_DA_CONFERENCIA_S * 1000 <= PRAZO_MAXIMO_MS);
+  assert.ok(VIGIA_DA_CONFERENCIA_MS > PRAZO_DA_CONFERENCIA_S * 1000 && VIGIA_DA_CONFERENCIA_MS <= 600000);
+});
+
+test('conferência: a leitura do JSON do núcleo para aprovada, reprovada, sem veredito, recusa tipada, condução alheia e o resto', () => {
+  const { lerConferencia } = carregar('hooks/verify.ts');
+  const execucao = (ok: boolean, code: number, fim = '') => ({ nome: 'T1.1', comando: 'npm test', ok, code, executado: true, fim });
+  const aprovada = resultadoDoNucleo('T1', { id: 'T1', alegacao: 'a', arquivo: 'docs/plan.md', verificado: true, motivo: null, detalhe: 'ok', execucoes: [execucao(true, 0)] });
+  assert.deepEqual(lerConferencia('T1', JSON.stringify(aprovada), 0, ''), { tipo: 'aprovada', comando: 'npm test' });
+  const reprovada = resultadoDoNucleo('T1', { id: 'T1', alegacao: 'a', arquivo: null, verificado: false, motivo: 'claims.failed', detalhe: 'x', execucoes: [execucao(false, 1, 'not ok 1')] });
+  assert.deepEqual(lerConferencia('T1', JSON.stringify(reprovada), 1, ''), { tipo: 'reprovada', comando: 'npm test', codigo: 1, fim: 'not ok 1' });
+  const prazo = resultadoDoNucleo('T1', { id: 'T1', alegacao: 'a', arquivo: null, verificado: false, motivo: 'verify.timeout', detalhe: 'estourou', execucoes: [execucao(false, -1)] });
+  assert.deepEqual(lerConferencia('T1', JSON.stringify(prazo), 1, ''), { tipo: 'sem-veredito', comando: 'npm test', motivo: 'verify.timeout', detalhe: 'estourou' });
+  assert.equal(lerConferencia('T2', JSON.stringify(aprovada), 0, '').tipo, 'indisponivel', 'resposta de outra tarefa');
+  assert.equal(lerConferencia('T1', JSON.stringify(aprovada), 1, '').tipo, 'sem-veredito', 'item aprovado com saída 1 não fecha');
+  let erro = '';
+  try { verifyDaTarefa('### T1 x\n', 'T1'); } catch (e) { erro = (e as Error).message; }
+  assert.match(erro, /^claims\.conferir\.tarefa-sem-verify: /);
+  const recusa = JSON.stringify({ formato: FORMATO_DA_CONFERENCIA, thread: 'ork-a', ok: false, erro });
+  assert.deepEqual(lerConferencia('T1', recusa, 2, ''), { tipo: 'recusada', motivo: erro });
+  assert.deepEqual(lerConferencia('T1', '', 3, 'conducao em andamento\n'), { tipo: 'ocupada', motivo: 'conducao em andamento' });
+  assert.deepEqual(lerConferencia('T1', 'texto solto', 2, 'uso: ork\ncomando desconhecido\n'),
+    { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: comando desconhecido' });
+  assert.deepEqual(lerConferencia('T1', '', null, ''), { tipo: 'indisponivel', motivo: 'ork claims conferir sem resultado: saiu com código desconhecido' });
+});
+
+test('conferência: texto do bloqueio com a saída sempre dita, fim da saída nos tetos e a terceira vez igual', () => {
+  const { textoDoBloqueio, textoDeOutraConferencia, textoDoStatus, fimDaSaida, assinatura, contarRepeticao, TETO_DE_LINHAS_DA_SAIDA, TETO_DE_CARACTERES_DA_SAIDA } = carregar('hooks/verify.ts');
+  const reprovada = { tipo: 'reprovada', comando: 'npm test', codigo: 1, fim: Array.from({ length: 40 }, (_, i) => `linha ${i}`).join('\n') };
+  const texto = textoDoBloqueio('T1', reprovada, 1);
+  assert.match(texto, /^Portão de Tarefas: a tarefa T1 não fecha: o verify do plano reprovou/);
+  assert.match(texto, /  \| linha 39$/m);
+  assert.doesNotMatch(texto, /linha 24\n/);
+  assert.match(texto, /devolva a tarefa para pending \(TaskUpdate\) e siga: o ork verify continua sendo quem verifica\.$/);
+  assert.equal(fimDaSaida(reprovada.fim).length, TETO_DE_LINHAS_DA_SAIDA);
+  assert.ok(fimDaSaida('x'.repeat(5000)).join('').length <= TETO_DE_CARACTERES_DA_SAIDA);
+  assert.deepEqual(fimDaSaida('   '), []);
+  assert.match(textoDoBloqueio('T1', reprovada, 3), /É a 3ª vez seguida com o mesmo resultado/);
+  assert.match(textoDoBloqueio('T1', { tipo: 'reprovada', comando: '', codigo: null, fim: '' }), /saiu com código desconhecido, sem saída/);
+  for (const l of [{ tipo: 'sem-veredito', motivo: 'm', comando: 'c', detalhe: '' }, { tipo: 'recusada', motivo: 'm' }, { tipo: 'ocupada', motivo: 'm' }, { tipo: 'indisponivel', motivo: 'm' }]) {
+    assert.match(textoDoBloqueio('T1', l), /devolva a tarefa para pending/, l.tipo);
+    assert.match(textoDoStatus('T1', l), /^portão: T1 não fechou \(/);
+  }
+  assert.equal(textoDoStatus('T1', { tipo: 'aprovada', comando: '' }), undefined);
+  assert.match(textoDeOutraConferencia('T5', 'T1'), /conferindo a tarefa T1 no núcleo, uma conferência por vez/);
+  const a = assinatura(reprovada);
+  assert.deepEqual(contarRepeticao(contarRepeticao(undefined, a), a), { assinatura: a, vezes: 2 });
+  assert.deepEqual(contarRepeticao({ assinatura: a, vezes: 2 }, assinatura({ ...reprovada, fim: 'outro' })).vezes, 1);
+  assert.notEqual(assinatura({ tipo: 'ocupada', motivo: 'a' }), assinatura({ tipo: 'indisponivel', motivo: 'a' }));
 });

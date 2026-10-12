@@ -165,3 +165,53 @@ const base = { session_id: 'sessao-de-fase', transcript_path: '/projeto/transcri
 export function criar($, taskId: string, assunto: string, teammate?: string) {
   return $.classic.TaskCreated({ ...base, hook_event_name: 'TaskCreated', task_id: taskId, task_subject: assunto, ...(teammate ? { teammate_name: teammate } : {}) })
 }
+
+/** A conclusão de uma tarefa nativa, como o motor a levanta (pelo modelo ou pelo teammate que fecha o turno). */
+export function concluir($, taskId: string, assunto: string, teammate?: string) {
+  return $.classic.TaskCompleted({ ...base, hook_event_name: 'TaskCompleted', task_id: taskId, task_subject: assunto, ...(teammate ? { teammate_name: teammate } : {}) })
+}
+
+/** A resposta do `ork claims conferir --tarefa --json` como o núcleo a dá, com a saída 0 ou 1. */
+export function conferencia(tarefa: string, resultado: 'aprovada' | 'reprovada' | 'sem-veredito', opcoes: { comando?: string; fim?: string } = {}) {
+  const comando = opcoes.comando ?? 'npm test'
+  const cabeca = { id: tarefa, alegacao: `verify da tarefa ${tarefa} do plano`, arquivo: 'docs/plan.md' }
+  const item = resultado === 'aprovada'
+    ? { ...cabeca, verificado: true, motivo: null, detalhe: '1 comando(s) reexecutado(s) com sucesso',
+      execucoes: [{ nome: `${tarefa}.1`, comando, ok: true, code: 0, executado: true, fim: '' }] }
+    : resultado === 'reprovada'
+      ? { ...cabeca, verificado: false, motivo: 'claims.failed', detalhe: 'comando saiu com codigo 1',
+        execucoes: [{ nome: `${tarefa}.1`, comando, ok: false, code: 1, executado: true, fim: opcoes.fim ?? 'ok 1 - a\nnot ok 2 - soma\n# fail 1' }] }
+      : { ...cabeca, verificado: false, motivo: 'verify.timeout', detalhe: 'estourou o prazo de 540 s',
+        execucoes: [{ nome: `${tarefa}.1`, comando, ok: false, code: -1, executado: true, causa: 'timeout', fim: '' }] }
+  const r = {
+    formato: 'ork.claims-conferencia/v1', thread: THREAD, commit: 'c'.repeat(40), cwd: RAIZ, executor: 'codex-sandbox', reciboOficial: false,
+    prazoTotalMs: 540000, alvo: { tipo: 'tarefa', tarefa, plano: { arquivo: 'docs/plan.md', sha256: 'x'.repeat(64) }, comando },
+    itens: [item], ok: item.verificado, motivos: item.motivo ? [item.motivo] : [],
+  }
+  return { stdout: JSON.stringify(r, null, 2), code: r.ok ? 0 : 1 }
+}
+
+/** A recusa tipada do núcleo (saída 2 com o JSON `{ ok: false, erro }`). */
+export function recusa(erro: string, code = 2) {
+  return { stdout: JSON.stringify({ formato: 'ork.claims-conferencia/v1', thread: THREAD, ok: false, erro }, null, 2), code }
+}
+
+/** Uma resposta de processo do núcleo: a saída, o código, a espera no relógio falso e a falha ao abrir. */
+export type RespostaDoProcesso = { stdout?: string; stderr?: string; code?: number; espera?: number; naoAbre?: string }
+
+/**
+ * O fundo do `process.run` para o `ork claims conferir`: cada conferência pedida tira a próxima resposta da lista e
+ * fica anotada com o argv, o cwd e o vigia. `espera` segura a resposta até o relógio falso andar.
+ */
+export function nucleoDeConferencia(on, relogio, respostas: RespostaDoProcesso[]) {
+  const pedidos: Array<{ argv: string[]; cwd: unknown; timeoutMs: unknown }> = []
+  on('process.run', async ($, e) => {
+    if (e.argv[0] !== 'ork' || e.argv[1] !== 'claims' || e.argv[2] !== 'conferir') throw new Error(`processo fora do teste: ${e.argv.join(' ')}`)
+    pedidos.push({ argv: [...e.argv], cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs })
+    const r: RespostaDoProcesso = respostas.shift() ?? recusa('claims.conferir.uso: sem resposta preparada no teste')
+    if (r.espera) await relogio.sleep(r.espera)
+    if (r.naoAbre) throw new Error(r.naoAbre)
+    return { value: { exitCode: r.code ?? 0, stdout: r.stdout ?? '', stderr: r.stderr ?? '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  return pedidos
+}

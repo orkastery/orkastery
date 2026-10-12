@@ -16,6 +16,12 @@ export type PortaoTarefa = {
   problema: null | 'tarefa-sem-verify' | 'tarefa-ambigua' | 'tarefa-sem-comando' | 'tarefa-repetida'
 }
 
+/** A repetição de bloqueios da conclusão de uma tarefa (D6): a assinatura do último resultado e quantas vezes seguidas. */
+export type PortaoRepeticao = {
+  assinatura: string
+  vezes: number
+}
+
 /** Uma falha do próprio Portão: onde, o motivo e quando (ms desde a época). */
 export type PortaoFalha = {
   onde: string
@@ -29,6 +35,10 @@ export type PortaoQuadro = {
   thread: string
   /** A tarefa nativa (`task_id`) para a tarefa do plano, gravada quando a criação passou. */
   tarefas: Record<string, string>
+  /** As tarefas do plano que fecharam com a conferência do núcleo aprovada nesta sessão. */
+  concluidas: string[]
+  /** A repetição de bloqueios da conclusão, por tarefa do plano. */
+  repeticoes: Record<string, PortaoRepeticao>
   /** A última falha do Portão, para a linha de status e o log. */
   ultimaFalha: PortaoFalha | null
 }

@@ -1,14 +1,20 @@
 // O Portão de Tarefas (RM-059, fatia F10). Na sessão de fase do GO, o quadro de tarefas do Claude Code é o do
 // plano: a tarefa nativa só entra apontando uma tarefa do plano com `touch_paths` e verify que o núcleo confere
-// (T10.1). O Portão lê o núcleo pelo `$.ork` da ponte e pela ferramenta de leitura do plano, nunca o estado interno
-// do disco, e nunca fala pelo dono. A lógica fica nos módulos puros ao lado; aqui só as chamadas ao `$`, sempre
-// escritas como `x.noun.metodo(...)`, como o validador exige.
+// (T10.1), e só fecha com essa conferência aprovada (T10.2). O Portão lê o núcleo pelo `$.ork` da ponte e pela
+// ferramenta de leitura do plano, nunca o estado interno do disco; age só por comando do `ork`; nunca roda o verify
+// por conta própria e nunca fala pelo dono. A lógica fica nos módulos puros ao lado; aqui só as chamadas ao `$`,
+// sempre escritas como `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
 import type { PortaoQuadro, PortaoTarefa } from '../types'
 import {
   argsDoPlano, decidirCriacao, escopoDoPlano, escopoDoRetrato, FERRAMENTA_DO_PLANO, IDADE_DO_PLANO_MS, IDADE_SEM_PLANO_MS,
-  jsonDoMcp, SERVIDOR, tarefasDoPlano, textoDaRecusa, textoDoPlano, threadNoRetrato,
+  idsNoAssunto, jsonDoMcp, SERVIDOR, tarefasDoPlano, textoDaRecusa, textoDoPlano, threadNoRetrato,
 } from './plano'
+import {
+  argvDaConferencia, assinatura, contarRepeticao, lerConferencia, textoDeOutraConferencia, textoDoBloqueio, textoDoStatus,
+  VIGIA_DA_CONFERENCIA_MS,
+} from './verify'
+import type { Leitura } from './verify'
 
 const QUADRO = { plugin: 'ork-portao', key: 'quadro' } as const
 
@@ -19,6 +25,11 @@ const QUADRO = { plugin: 'ork-portao', key: 'quadro' } as const
 let quadro: PortaoQuadro | null = null
 /** O plano lido e quando, por thread; relido depois da idade (D3). */
 let plano: { thread: string; em: number; tarefas: PortaoTarefa[] | null } | null = null
+/**
+ * A tarefa do plano que o Portão está conferindo no núcleo agora (D5): uma conferência por vez. Fica no módulo, não no
+ * `$.state`: uma troca do worker mata o processo junto com a marca.
+ */
+let conferindo: string | null = null
 
 /** A sessão de fase com thread, pelo contexto da ponte; qualquer outra sessão fica sem Portão (D1). */
 type ContextoDeFase = { thread: string; raiz: string }
@@ -28,7 +39,7 @@ type Ativo = { ctx: ContextoDeFase; tarefas: PortaoTarefa[] }
 const mensagem = (erro: unknown) => (erro instanceof Error ? erro.message : String(erro)).slice(0, 300)
 
 function quadroVazio(thread: string): PortaoQuadro {
-  return { thread, tarefas: {}, ultimaFalha: null }
+  return { thread, tarefas: {}, concluidas: [], repeticoes: {}, ultimaFalha: null }
 }
 
 async function contextoDeFase($: EngineInterface): Promise<ContextoDeFase | null> {
@@ -102,6 +113,30 @@ async function anotarFalha($: EngineInterface, onde: string, erro: unknown, thre
   if (atual) await gravarQuadro($, { ...atual, ultimaFalha: { onde, motivo, em: await $.clock.now() } })
 }
 
+/**
+ * A tarefa do plano de uma tarefa nativa (D2): a registrada na criação vence (renomear não tira a tarefa do portão);
+ * sem registro, o assunto que cita uma tarefa do plano, e uma só. Fora disso, a tarefa não é do plano.
+ */
+function tarefaDoEvento(assunto: unknown, taskId: string, q: PortaoQuadro, tarefas: readonly PortaoTarefa[]): string | null {
+  const registrada = q.tarefas[taskId]
+  if (registrada) return registrada
+  const ids = idsNoAssunto(assunto).filter(id => tarefas.some(t => t.id === id))
+  return ids.length === 1 ? (ids[0] as string) : null
+}
+
+/**
+ * A conferência do verify da tarefa no núcleo (D4, D5): `ork claims conferir --tarefa` por `$.process.run`, na raiz
+ * da sessão, com o vigia do mod. A espera é chamada de `$` e não conta no orçamento do gancho.
+ */
+async function rodarConferencia($: EngineInterface, ctx: ContextoDeFase, tarefa: string): Promise<Leitura> {
+  try {
+    const r = await $.process.run(argvDaConferencia(ctx.thread, tarefa), { cwd: ctx.raiz, timeoutMs: VIGIA_DA_CONFERENCIA_MS })
+    return lerConferencia(tarefa, r.stdout, r.exitCode, r.stderr)
+  } catch (erro) {
+    return { tipo: 'indisponivel', motivo: `ork claims conferir não rodou: ${mensagem(erro)}` }
+  }
+}
+
 export const register: Register = on => {
   // A criação (T10.1): a tarefa nativa só entra apontando uma tarefa do plano que serve ao quadro (D2, D3). A recusa
   // volta ao modelo pelo `block`, com o motivo e as tarefas que servem; a que passa fica registrada pelo id nativo.
@@ -117,5 +152,47 @@ export const register: Register = on => {
     // Na reentrada o gancho nem rodou e as chamadas de `$` recusam: só a falha de verdade é anotada.
     if (next.error && next.error.kind !== 're-entry') await anotarFalha($, 'criação de tarefa', next.error.message ?? next.error.kind)
     return next(e)
+  })
+
+  // A conclusão (T10.2): a tarefa do plano só fecha com a conferência do núcleo aprovada (D4), uma por vez (D5).
+  // Todo bloqueio volta ao modelo com o motivo e a saída (corrigir, ou devolver a tarefa para pending), e a terceira
+  // vez seguida com o mesmo resultado manda deixar a tarefa aberta (D6). Tarefa que não é do plano passa.
+  on('classic.TaskCompleted', async ($, e, next) => {
+    const ativo = await portaoAtivo($)
+    if (!ativo) return next(e)
+    const tarefa = tarefaDoEvento(e.task_subject, String(e.task_id), await lerQuadro($, ativo.ctx.thread), ativo.tarefas)
+    if (!tarefa) return next(e)
+    if (conferindo) return { block: textoDeOutraConferencia(tarefa, conferindo) }
+    conferindo = tarefa
+    let leitura: Leitura
+    try {
+      $.ui.status(`portão: conferindo ${tarefa} no núcleo`)
+      leitura = await rodarConferencia($, ativo.ctx, tarefa)
+    } finally {
+      conferindo = null
+    }
+    const atual = await lerQuadro($, ativo.ctx.thread)
+    if (leitura.tipo === 'aprovada') {
+      const resultado = await next(e)
+      if (!resultado.block) {
+        const repeticoes = { ...atual.repeticoes }
+        delete repeticoes[tarefa]
+        await gravarQuadro($, { ...atual, concluidas: atual.concluidas.includes(tarefa) ? atual.concluidas : [...atual.concluidas, tarefa], repeticoes })
+      }
+      $.ui.status(textoDoStatus(tarefa, leitura))
+      return resultado
+    }
+    const repeticao = contarRepeticao(atual.repeticoes[tarefa], assinatura(leitura))
+    await gravarQuadro($, { ...atual, repeticoes: { ...atual.repeticoes, [tarefa]: repeticao } })
+    $.ui.status(textoDoStatus(tarefa, leitura))
+    return { block: textoDoBloqueio(tarefa, leitura, repeticao.vezes) }
+  }).catch(async ($, e, next) => {
+    // A conclusão fecha só aprovada (D4): se o próprio Portão falhou no meio de uma tarefa do plano, ela não fecha.
+    if (!next.error || next.error.kind === 're-entry') return next(e)
+    const motivo = next.error.message ?? next.error.kind
+    await anotarFalha($, 'conclusão de tarefa', motivo)
+    const tarefa = quadro ? tarefaDoEvento(e.task_subject, String(e.task_id), quadro, plano?.tarefas ?? []) : null
+    if (!tarefa) return next(e)
+    return { block: textoDoBloqueio(tarefa, { tipo: 'indisponivel', motivo: `o Portão falhou ao conferir: ${motivo}` }) }
   })
 }
