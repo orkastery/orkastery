@@ -59,6 +59,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   `node core/scripts/checar-mods.cjs` reprova o mod pelo fonte, e a ponte recusa em tempo de execução. O script
   `core/scripts/prova-mods-sessao-de-fase.cjs` prova se um mod carrega numa sessão `claude --bg`; o veredito fica com
   quem conduz.
+- **Clima de Cota no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), onda 1): o mod
+  `ork-clima` (`adapters/claude-code/mods/ork-clima`), na sessão do dono, lê as janelas de limite da conta a cada
+  medição do motor (`session.measure`), guarda a série e prevê quando cada janela acaba no ritmo atual. Na faixa da
+  ponte, só no alerta, aparece algo como `não cabe: ork-x; 5 h com 80% ou mais, acaba ~16:45, renova 17:00`, com a
+  retomada da fila que cai entre o esgotamento e a renovação na frente; o `/clima` mostra cada janela, a fila de
+  retomada, as threads abertas paradas por cota e as contas do registro (`ork accounts esgotamentos`), com o que o
+  núcleo já sabe fazer. O Clima só lê e avisa: troca de conta, de runtime ou de modelo fica com o núcleo e com o dono.
 - **Torre de Controle no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F1):
   o mod `ork-torre` (`adapters/claude-code/mods/ork-torre`), sobre a ponte, abre na sessão do dono um painel com cada
   thread aberta numa linha: o trilho das seis fases, o modo, quem conduz e desde quando, o bloqueio tipado numa frase

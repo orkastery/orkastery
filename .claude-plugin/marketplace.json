@@ -15,6 +15,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-clima",
+      "source": "./marketplaces/claude-code/mods/ork-clima",
+      "description": "Clima de Cota do Orkastery no Claude Code: prevê quando a cota da conta acaba no ritmo atual, avisa na faixa antes de a fase morrer no meio e diz qual retomada não cabe. Só lê e avisa.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-freio",
       "source": "./marketplaces/claude-code/mods/ork-freio",
       "description": "Freio de Lote do Orkastery no Claude Code: na sessão de fase, acha as claims que o lote de ferramentas mexeu, pede ao núcleo a conferência delas no sandbox do verify e devolve o que quebrou no lote seguinte.",
