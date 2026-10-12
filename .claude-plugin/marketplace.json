@@ -29,6 +29,13 @@
       "homepage": "https://orkastery.com/"
     },
     {
+      "name": "ork-mesa",
+      "source": "./marketplaces/claude-code/mods/ork-mesa",
+      "description": "Mesa do Dono do Orkastery no Claude Code: tudo que espera o dono num painel, um cartão por pedido com a recomendação na frente e a decisão pelo diálogo nativo do host. Só decide pelo dono pela decisão autônoma do núcleo, quando a decisão é óbvia, e nunca responde um pedido.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
+    },
+    {
       "name": "ork-ponte",
       "source": "./marketplaces/claude-code/mods/ork-ponte",
       "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
