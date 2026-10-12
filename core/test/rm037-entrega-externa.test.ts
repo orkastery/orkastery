@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 import { ExecutorGitHub, registrarEntregaExternaPorPr, registrarEntregaPorPr } from '../src/entrega-pr';
 import { ExecutorCi } from '../src/ci';
 import { carregarManifesto } from '../src/manifest';
@@ -133,7 +133,8 @@ test('defeito 5: o manifesto le ci.external_repositories e recusa forma invalida
 
     const t = novaThread(p.carregado, { nome: 'cli', modo: 'auto' }).thread;
     const ork = (args: string[]) => {
-      try { return { codigo: 0, saida: execFileSync(process.execPath, [ORK, ...args], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe' }) }; }
+      // RM-061 (F2b): o filho le o texto pt-BR do registrar-pr sem herdar o LANG de quem roda.
+      try { return { codigo: 0, saida: execFileSync(process.execPath, [ORK, ...args], { cwd: p.dir, encoding: 'utf8', stdio: 'pipe', env: envPtBr() }) }; }
       catch (e) { const x = e as { status?: number; stdout?: string; stderr?: string }; return { codigo: x.status ?? -1, saida: `${x.stdout ?? ''}${x.stderr ?? ''}` }; }
     };
     const semPr = ork(['ship', 'registrar-pr', t.id, '--repo', 'orkastery/orkastery.com']);

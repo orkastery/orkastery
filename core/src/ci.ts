@@ -14,6 +14,7 @@ import { analisarComandos, linhaDoLintDeClaim } from './claim-lint';
 import { TESTES_DE_INTEGRACAO_LOCAL } from './integracoes-locais';
 import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirThread, lerThread } from './thread';
+import { textoDoCatalogo } from './locale';
 
 export type EstadoCi = 'disabled' | 'success' | 'pending' | 'failure' | 'missing' | 'unavailable';
 
@@ -128,11 +129,11 @@ function executorPadrao(input: { repository: string; sha: string; context: strin
 export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto = 'origin', executor: ExecutorCi = executorPadrao): ResultadoCi {
   const { ci } = carregado.manifesto;
   const context = ci.context || 'ork-verify';
-  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: 'gate de CI não exigido pelo manifesto' };
+  if (!ci.required_for_ship) return { schema: 'ork.ci-status/v1', required: false, ok: true, provider: 'github', repository: null, sha, context, state: 'disabled', url: null, detail: textoDoCatalogo((m) => m.ship.ciNaoExigidoDetalhe) };
   // RM-047: o `--remoto` do `ork ci status` vem da linha de comando; so nome de remoto chega ao git.
   const remote = exec('git', ['remote', 'get-url', '--', exigirRemoto(remoto, 'ci')], carregado.raiz);
   const repository = remote.ok ? repositorioGitHub(remote.stdout) : null;
-  if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: `remoto ${remoto} não é um repositório GitHub reconhecível` };
+  if (!repository) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository: null, sha, context, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRemotoNaoGithub(remoto)) };
   return consultarCiDoRepositorio(repository, sha, context, executor);
 }
 
@@ -142,21 +143,21 @@ export function consultarCi(carregado: ManifestoCarregado, sha: string, remoto =
  */
 export function consultarCiDoRepositorio(repository: string, sha: string, context: string, executor: ExecutorCi = executorPadrao): ResultadoCi {
   const result = executor({ repository, sha, context });
-  if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || 'consulta ao GitHub falhou').trim().slice(0, 400) };
+  if (!result.ok) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: (result.stderr || result.stdout || textoDoCatalogo((m) => m.ship.ciConsultaFalhou)).trim().slice(0, 400) };
   let payload: { check_runs?: Array<{ name?: string; status?: string; conclusion?: string | null; html_url?: string }> };
   try {
     payload = JSON.parse(result.stdout) as typeof payload;
   } catch {
-    return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: 'GitHub devolveu uma resposta de checks inválida' };
+    return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'unavailable', url: null, detail: textoDoCatalogo((m) => m.ship.ciRespostaInvalida) };
   }
   const checks = (payload.check_runs ?? []).filter((check) => check.name === context);
-  if (!checks.length) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'missing', url: null, detail: `check ${context} não encontrado no commit` };
+  if (!checks.length) return { schema: 'ork.ci-status/v1', required: true, ok: false, provider: 'github', repository, sha, context, state: 'missing', url: null, detail: textoDoCatalogo((m) => m.ship.ciSemCheck(context)) };
   const check = checks.at(-1)!;
   const status = check.status ?? 'unknown';
   const conclusion = check.conclusion ?? '';
   const url = check.html_url ?? '';
   const state: EstadoCi = status !== 'completed' ? 'pending' : conclusion === 'success' ? 'success' : 'failure';
-  return { schema: 'ork.ci-status/v1', required: true, ok: state === 'success', provider: 'github', repository, sha, context, state, url: url || null, detail: state === 'success' ? 'CHECK independente verde no GitHub' : `check ${context}: ${status}/${conclusion || 'sem conclusão'}` };
+  return { schema: 'ork.ci-status/v1', required: true, ok: state === 'success', provider: 'github', repository, sha, context, state, url: url || null, detail: textoDoCatalogo((m) => state === 'success' ? m.ship.ciVerde : m.ship.ciEstado(context, String(status), conclusion)) };
 }
 
 export function executarCi(carregado: ManifestoCarregado, threadId: string): { status: ResultadoCi; verify: ResultadoVerify } {
