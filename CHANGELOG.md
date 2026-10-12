@@ -6,6 +6,22 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+### Adicionado
+
+- **Ritual do MASTER, mod de papel `dono`, e a nota pelo diálogo nativo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  a ferramenta MCP `ork_request_master_note`, só no servidor do dono, recebe só o `threadId`, pede ao host um formulário
+  com a nota de 0 a 5 e o porquê e grava o MASTER com `avaliadoPor` `mcp-local:claude-code` e o recibo assinado do
+  ingresso local (`ork.hitl-local-master-note/v1`); sem formulário no cliente, recusa com `master.nota.sem-dialogo` sem
+  gravar nada. A nota com essa identidade vale como nota humana só com o recibo conferido, o aceite por omissão e a
+  resposta pelo Telegram não a trocam, e ela não se digita no `--por`. O recibo prova o caminho, não a pessoa: a chave
+  local é legível pelo mesmo usuário do sistema. A seção `master` do retrato do Maestro passa a trazer o regime, o
+  índice derivado do ledger com as parcelas, as reprovações tipadas, as classes e a entrega.
+  `adapters/claude-code/mods/ork-ritual` mostra na sessão do dono as entregas dos últimos 7 dias que esperam a nota
+  (inclusive as aceitas por omissão), a prova de cada uma (o índice, o POSTMORTEM e as claims com comando e estado, uma
+  por vez) e o botão Dar a nota, que chama só a ferramenta da nota; sem diálogo, Pelo Telegram mostra o código do
+  `ork master pedir`. A prova do diálogo pedido por mod fica com o dono (`core/scripts/prova-ritual-nota-nativa.cjs`), e
+  o guia é o [Ritual do MASTER](docs/guias/ritual-do-master.md).
+
 ## [0.5.6] - 2026-10-12
 
 ### Adicionado
