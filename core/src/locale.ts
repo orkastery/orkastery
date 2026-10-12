@@ -46,6 +46,7 @@ import { AJUDA_EN, AJUDA_PT_BR } from './locale-ajuda';
 import { VERIFY_EN, VERIFY_PT_BR } from './locale-verify';
 import { SHIP_EN, SHIP_PT_BR } from './locale-ship';
 import { RETRY_EN, RETRY_PT_BR } from './locale-retry';
+import { MASTER_EN, MASTER_PT_BR } from './locale-master';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -54,11 +55,13 @@ export const LOCALE_PADRAO: Locale = 'pt-BR';
  * subcomando desconhecido (o erro de uso e do proprio comando). Os demais seguem em pt-BR. Ficam de
  * fora por decisao (D2 da F2a): `doctor --modo`, `thread new --from-finding`, `onboarding sync`,
  * `experiencia uninstall` e `thread list|close|entrega`. A F2b (G3) acrescenta `verify` (com `--baseline`),
- * `ship`, `ship registrar-pr`, `retry plan` e `retry run`.
+ * `ship`, `ship registrar-pr`, `retry plan`, `retry run`, `master` (o indice), `master aceitar-omissao` e
+ * `master pedir`.
  */
 export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboarding show', 'onboarding set', 'onboarding reset',
   'onboarding ?', 'experiencia show', 'experiencia ?', 'thread new', 'thread status', 'thread ?',
-  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run'];
+  'phase list', 'phase run', 'phase ?', 'verify', 'ship', 'ship registrar-pr', 'retry plan', 'retry run',
+  'master', 'master aceitar-omissao', 'master pedir'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -74,10 +77,27 @@ export function chaveDoLocale(posicionais: readonly (string | undefined)[], opco
   const [comando = '', bruto] = posicionais;
   // F2b (D2): `ork ship <thread>` tem a thread no lugar do subcomando; so `registrar-pr` e rota propria.
   if (comando === 'ship') return bruto === 'registrar-pr' ? 'ship registrar-pr' : 'ship';
+  if (comando === 'master') return chaveDoMaster(bruto, opcoes);
   const familia = FAMILIAS.get(comando);
   if (!familia) return comando;
   const sub = comando === 'onboarding' && 'reset' in opcoes ? 'reset' : bruto ?? familia.padrao;
   return `${comando} ${sub !== null && familia.conhecidos.includes(sub) ? sub : '?'}`;
+}
+
+/** Os subcomandos do `ork master` que nao seguem o locale (G3 da F2b): cada um e rota propria. */
+const SUBCOMANDOS_DO_MASTER: readonly string[] = ['audit', 'digest', 'migrar', 'classes', 'ratificar', 'batch', 'propor'];
+
+/**
+ * A rota do `ork master`, na mesma ordem em que o comando a decide: `pedir` (nunca com `--formato json`),
+ * os subcomandos proprios, `--batch`, o aceite por omissao e, sem nada, o indice. A thread sozinha e a nota
+ * (`--score`), que segue em pt-BR.
+ */
+function chaveDoMaster(bruto: string | undefined, opcoes: Readonly<Record<string, unknown>>): string {
+  if (bruto === 'pedir') return opcoes.formato === 'json' ? 'master pedir json' : 'master pedir';
+  if (bruto !== undefined && SUBCOMANDOS_DO_MASTER.includes(bruto)) return `master ${bruto}`;
+  if (opcoes.batch !== undefined) return 'master batch';
+  if (opcoes['aceitar-omissao'] !== undefined) return 'master aceitar-omissao';
+  return bruto === undefined ? 'master' : 'master <thread>';
 }
 
 /** O comando pede o texto pelo locale? Nunca com `--json`, nem nos recortes da D2. */
@@ -351,6 +371,7 @@ const PT_BR = {
   verify: VERIFY_PT_BR,
   ship: SHIP_PT_BR,
   retry: RETRY_PT_BR,
+  master: MASTER_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -602,6 +623,7 @@ const EN: Mensagens = {
   verify: VERIFY_EN,
   ship: SHIP_EN,
   retry: RETRY_EN,
+  master: MASTER_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

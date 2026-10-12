@@ -2564,8 +2564,9 @@ function comandoMaster(args: Args): number {
     // RM-048 (item 8): a nota com prova. O canal mostra a linha; o dono responde pelo Telegram.
     const id = args.posicionais[2];
     const formato = texto(args.opcoes.formato) ?? 'telegram';
-    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error('uso: ork master pedir <thread> [--formato telegram|terminal|json]');
-    const pedido = pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) });
+    if (!id || !['telegram', 'terminal', 'json'].includes(formato)) throw new Error(msg().master.usoPedir);
+    // RM-061 (F2b, G2): o pedido de nota e gravado no escopo pt-BR; o erro da entrega volta no locale do comando.
+    const pedido = comLocale('pt-BR', () => pedirNota(carregado.raiz, id, { codigosEmUso: codigosEmUso(carregado.raiz) }));
     console.log(formato === 'json' ? JSON.stringify(pedido, null, 2) : textoDoPedidoDeNota(carregado.raiz, pedido, formato as 'telegram' | 'terminal'));
     return 0;
   }
@@ -2708,7 +2709,7 @@ function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | un
   const candidatos = [posicional, texto(args.opcoes.thread), typeof bruto === 'string' ? bruto : undefined]
     .filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
   if (args.opcoes.thread === true || new Set(candidatos).size > 1) {
-    console.error('uso: ork master <thread-id> --aceitar-omissao [--dry-run] [--json]   (ou --thread <thread-id>, uma thread so)');
+    console.error(msg().master.usoOmissao);
     return 2;
   }
   const alvo = candidatos[0];
@@ -2725,21 +2726,24 @@ function comandoAceitarOmissao(args: Args, raiz: string, posicional: string | un
   if (dryRun) {
     const fecharia = entregasParaOmissao(raiz, alvo).map((p) => ({ thread: p.thread.id, indice: indiceDaThread(raiz, p.thread.id) }));
     if (json) { console.log(JSON.stringify({ dryRun: true, fecharia }, null, 2)); return 0; }
-    console.log('Ensaio (--dry-run): nada foi gravado.');
-    if (fecharia.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-    console.log(`Fecharia por omissao: ${fecharia.length}.`);
-    for (const f of fecharia) console.log(`  ${f.thread.padEnd(20)} indice ${f.indice.valor}/${f.indice.base}`);
+    const m = msg().master;
+    console.log(m.ensaio);
+    if (fecharia.length === 0) { console.log(m.nadaEsperando); return 0; }
+    console.log(m.fecharia(fecharia.length));
+    for (const f of fecharia) console.log(m.linhaDoIndice(f.thread, f.indice.valor, f.indice.base));
     avisoDeOmissaoSemAlvo(alvo, fecharia.length, true);
     return 0;
   }
-  const aceitos = aceitarPendentesPorOmissao(raiz, { thread: alvo });
+  // RM-061 (F2b, G2): o MASTER log, o POSTMORTEM e o registro da omissao nascem em pt-BR.
+  const aceitos = comLocale('pt-BR', () => aceitarPendentesPorOmissao(raiz, { thread: alvo }));
   avisoDeOmissaoSemAlvo(alvo, aceitos.length, false);
   if (json) { console.log(JSON.stringify(aceitos, null, 2)); return 0; }
-  if (aceitos.length === 0) { console.log('Nenhuma entrega esperando decisao.'); return 0; }
-  console.log(`Aceitas por omissao: ${aceitos.length}. O indice e os insumos foram ao ledger.`);
-  for (const a of aceitos) console.log(`  ${a.thread.padEnd(20)} indice ${a.indice.valor}/${a.indice.base}`);
+  const m = msg().master;
+  if (aceitos.length === 0) { console.log(m.nadaEsperando); return 0; }
+  console.log(m.aceitas(aceitos.length));
+  for (const a of aceitos) console.log(m.linhaDoIndice(a.thread, a.indice.valor, a.indice.base));
   console.log('');
-  console.log('Discordou? A nota humana sobrescreve, e o registro da omissao permanece.');
+  console.log(m.discordou);
   return 0;
 }
 
@@ -2754,10 +2758,8 @@ function avisoDeOmissaoSemAlvo(alvo: string | undefined, quantas: number, ensaio
   if (!marca) return;
   const propria = (process.env[ENV_THREAD_DO_DESPACHO] ?? '').trim();
   console.error('');
-  console.error(`aviso: master.omissao-sem-thread: processo de agente (${marca}) ${ensaio ? 'fecharia' : 'fechou'} ${quantas} threads, ` +
-    'inclusive as de outras frentes paralelas.');
-  console.error(`  Para fechar so a sua: ork master ${propria || '<thread-id>'} --aceitar-omissao` +
-    (ensaio ? '' : '  (a nota humana sobrescreve o aceite de quem nao era seu)'));
+  console.error(msg().master.avisoSemThread(marca, ensaio, quantas));
+  console.error(msg().master.avisoSoASua(propria || '<thread-id>', ensaio));
 }
 
 /** I-55 (RM-008): `ork licoes` mostra o que volta no proximo GOAL e PLAN, e as propostas de policy. */
