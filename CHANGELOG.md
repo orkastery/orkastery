@@ -41,6 +41,12 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   segue igual byte a byte; o `--json`, o ledger, o `thread.json` e os prompts não mudam com a língua. Erro do validador
   do manifesto, do regime de memória e de estado durante a gravação segue em pt-BR até a F2b.
   `core/scripts/contar-mensagens-de-saida.cjs` mede a cobertura do catálogo (de 92 para 382 entradas).
+- **CLI em inglês e pt-BR, fatia F2b** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): `ork verify` (com
+  `--baseline`), `ork ship`, `ork ship registrar-pr`, `ork pulse`, `ork master` (o índice, `--aceitar-omissao` e
+  `master pedir`), `ork retry plan`, `ork retry run` e `ork roadmap status` saem em inglês quando `owner.language` ou o
+  locale pedem `en`. O pt-BR segue igual byte a byte; o `--json`, o ledger, o MASTER log e os demais arquivos gravados
+  não mudam com a língua: o texto que o comando monta e grava nasce em pt-BR, e só a impressão o remonta. Motivo
+  tipado, ação e código saem iguais nas duas línguas. O catálogo vai de 389 para 835 entradas.
 - **Mods de papel `fase` nas sessões de fase, conferidos contra o recibo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   o despacho `claude-bg` passa um `--plugin-dir` por mod de `adapters/claude-code/mods/` que declara o papel `fase` no
   `orkastery-mod.json` (`ork.mod/v1`), depois do plugin do Orkastery, quando a pasta instalada tem exatamente os arquivos
@@ -102,6 +108,16 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   no terminal, tabela nas outras superfícies), os arquivos em conflito, o lease `path:` que cobre cada um e o comando
   `ork worktree sync <thread> --dry-run` que resolve, como texto. A colisão nova vira uma linha na faixa pela ponte, e
   o que o dono viu entra no registro da ponte, para o Telegram não repetir.
+- **Mesa do Dono no Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md), fatia F5): o
+  mod `ork-mesa` (`adapters/claude-code/mods/ork-mesa`), sobre a ponte, junta na sessão do dono tudo que espera por
+  ele. `/mesa` abre um painel com o lote de até cinco perguntas, cada uma com a recomendada na frente, o porquê e a
+  consequência das outras alternativas; as decisões que a fábrica tomou por ele na semana, com como mudar e o custo de
+  reverter agora e depois; e as paradas, só leitura. O botão Decidir só pede ao núcleo o diálogo nativo do host
+  (`ork_request_decision`, com o `threadId` e o `pedidoId`), e o código e a letra para o Telegram ficam sempre à
+  vista. A Mesa só decide pelo dono pela decisão autônoma do núcleo (`ork_decision_record`), quando o pedido passa no
+  mesmo teste das quatro condições do núcleo, e nunca responde um pedido. A prova de que o diálogo abre quando o
+  pedido vem de um mod fica com o dono: `core/scripts/prova-mods-dialogo-nativo.cjs` e
+  `docs/roadmap/evidencias/mods-dialogo-nativo.md`.
 - **CLI em inglês e pt-BR** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): nova página do
   roadmap, em desenvolvimento, com a decisão do dono de 12/10/2026 de que o CLI fala inglês e pt-BR. A
   língua vem de `owner.language` e, sem ela, de `LC_ALL`, `LC_MESSAGES` e `LANG`; o pt-BR fica idêntico

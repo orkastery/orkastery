@@ -41,6 +41,7 @@ import { agora, tabela } from './util';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { formatarDesde, legendaDoFuso, localizarTexto } from './horario';
 import { conducaoDaThread, dormir } from './conducao';
+import { textoDoCatalogo } from './locale';
 import { linhaDeConducao } from './conducao-texto';
 
 /** Um perfil de board: um diretorio de threads com um nome. */
@@ -310,9 +311,8 @@ export function planejar(
         situacao: 'espera',
         motivo: 'vaga.stale',
         detalhe: oc.detalhe,
-        correcao:
-          `redespache com ork phase run ${t.id} --fase ${t.faseAtual}, ` +
-          `ou feche com ork master ${t.id}`,
+        // RM-061 (F2b, G2): o pulse mostra esta correcao nas acoes automaticas e a remonta no locale.
+        correcao: textoDoCatalogo((m) => m.pulse.vagaStaleCorrecao(t.id, t.faseAtual)),
         leases: meus,
       });
       continue;
@@ -344,8 +344,7 @@ export function planejar(
         situacao: 'espera',
         motivo: 'concurrency.limite',
         detalhe: `a maquina ja tem ${ocupadas} thread(s) em andamento, o limite e ${max}`,
-        correcao:
-          'espere uma thread liberar, ou suba concurrency.max_parallel_threads no orkastery.yaml',
+        correcao: textoDoCatalogo((m) => m.pulse.limiteCorrecao),
         leases: [],
       });
       continue;
