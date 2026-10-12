@@ -13,11 +13,12 @@ import { assinaturaDaResposta, RespostaHumana } from '../src/hitl-gates';
 import { chaveLocal } from '../src/hitl-local-receipt';
 import { ENV_HITL_VERIFIERS, publicHitlVerifiers } from '../src/hitl-public-receipt';
 import { nativeMessage, nativeSignature, NativeAnswer } from '../src/hitl-native';
-import { CONTRATO_ENVELOPE, PedidoDeEfeito, RecusaDoArco } from '../src/noctum-envelope';
+import { CONTRATO_ENVELOPE, CONTRATO_ENVELOPE_V2, PedidoDeEfeito, RecusaDoArco } from '../src/noctum-envelope';
 import * as arcoMod from '../src/noctum-arco';
 import {
-  ALVO_DO_NOCTUM, autorizarPeloIngresso, conferirAntesDoEfeito, contextoDoArco, criarDialogoDoArco, enderecoDoArco,
-  enfileirarDecisao, lerArco, proporEnvelope, revogarPeloIngresso, TEXTO_DE_REVOGACAO, textoDeAutorizacao,
+  ALVO_DO_NOCTUM, autorizarPeloIngresso, concluirDespacho, conferirAntesDoEfeito, contextoDoArco, criarDialogoDoArco, enderecoDoArco,
+  enfileirarDecisao, lerArco, PedidoDeDespacho, proporEnvelope, reservarDespacho, revogarPeloIngresso, TEXTO_DE_REVOGACAO,
+  textoDeAutorizacao,
 } from '../src/noctum-arco';
 
 semAutoridadeHitlNoAmbiente();
@@ -139,10 +140,11 @@ test('A2: ingresso sem prova não autoriza, por nenhuma das portas', () => comRa
 }));
 
 test('A3: o módulo não exporta escritor de autorização sem prova; o diálogo confia no callback do servidor, como criarIngressoLocal', () => {
+  // RM-058 N2: reservarDespacho e concluirDespacho gravam despacho, nunca autorização (A30 prova que sem ela nada passa).
   assert.deepEqual(Object.keys(arcoMod).sort(), ['ALVO_DO_NOCTUM', 'CONTRATO_ARCO', 'PRAZO_PARA_AUTORIZAR_MIN',
-    'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
+    'TEXTO_DE_REVOGACAO', 'autorizarPeloIngresso', 'concluirDespacho', 'conferirAntesDoEfeito', 'contextoDoArco', 'criarDialogoDoArco',
     'enderecoDoArco', 'enfileirarDecisao', 'hashDaRevogacao', 'idDaDecisao', 'lerArco', 'proporEnvelope',
-    'revogarPeloIngresso', 'textoDeAutorizacao']);
+    'reservarDespacho', 'revogarPeloIngresso', 'textoDeAutorizacao']);
 });
 
 test('A4: autorização com prova vale dentro da janela e registra quem e por qual ingresso', () => comRaiz('autoriza', raiz => {
@@ -597,4 +599,113 @@ test('A26: a prova de um ato não volta noutra linha do log', () => comRaiz('rep
   const autorizacaoV1 = JSON.parse(fs.readFileSync(arquivo, 'utf8').trim().split('\n')[1]).dados.evento;
   forjarLinha(raiz, 'arco-a', autorizacaoV1, '2026-10-13T00:32:00.000Z');
   recusa(() => conferirAntesDoEfeito(raiz, efeito('arco-a', v1), DENTRO), 'noctum.estado.adulterado');
+}));
+
+// RM-058 (N2, D11 e D12 da ork-rm058n2): conferência antes do despacho, reserva e desfecho no log do arco.
+
+const pedidoV2 = (arco: string, x: { tetoDoArco?: number; unidadeDaConta?: string } = {}): Record<string, unknown> => ({
+  ...pedido(arco, x.tetoDoArco ?? 40), contrato: CONTRATO_ENVELOPE_V2,
+  orcamento: {
+    arco: { valor: x.tetoDoArco ?? 40, unidade: 'sessoes' },
+    // O subteto nunca passa do teto do arco na mesma unidade (N1).
+    porConta: [{ conta: 'perfil-a', teto: { valor: Math.min(20, x.tetoDoArco ?? 40), unidade: x.unidadeDaConta ?? 'sessoes' } }],
+    porRuntime: [{ runtime: 'claude-bg', teto: { valor: Math.min(30, x.tetoDoArco ?? 40), unidade: 'sessoes' } }],
+  },
+  trabalhos: [
+    { id: 'a', item: 'RM-901', prioridade: 1, dependeDe: [], pedido: 'Fatia A SIMULADA.' },
+    { id: 'c', item: 'RM-903', prioridade: 2, dependeDe: ['a'], thread: 'ork-simulada' },
+  ],
+  capacidade: { maquina: 2, porConta: [{ conta: 'perfil-a', sessoes: 2 }], porRuntime: [{ runtime: 'claude-bg', sessoes: 2 }], revisao: 0 },
+});
+
+function abrirV2(raiz: string, arco: string, x: Parameters<typeof pedidoV2>[1] = {}): string {
+  const { envelopeSha256 } = proporEnvelope(raiz, pedidoV2(arco, x), P);
+  autorizarPeloIngresso(raiz, arco, envelopeSha256, assinado(arco, textoDeAutorizacao(envelopeSha256)), A);
+  return envelopeSha256;
+}
+
+const despacho = (arco: string, envelopeSha256: string, x: Partial<PedidoDeDespacho> = {}): PedidoDeDespacho =>
+  ({ arco, envelopeSha256, trabalho: 'a', thread: null, fase: 'GOAL', runtime: 'claude-bg', conta: 'perfil-a', revisao: false, ...x });
+
+test('A27: o despacho reserva uma sessão sob o lock do arco, e o desfecho conclui ou devolve, uma vez só', () => comRaiz('despacho', raiz => {
+  const h = abrirV2(raiz, 'arco-a');
+  const r1 = reservarDespacho(raiz, despacho('arco-a', h), DENTRO);
+  assert.equal(r1.consumo.arco, 1);
+  assert.equal(r1.consumo.porConta['perfil-a'], 1);
+  assert.equal(Date.parse(r1.fim), Date.parse(FIM), 'a janela fecha onde o dono disse');
+  const concluido = concluirDespacho(raiz, 'arco-a', r1.seq, { thread: 'ork-aberta', sessionId: 'sessao-simulada', idempotente: false }, DENTRO);
+  const d1 = concluido.despachos.find(x => x.seq === r1.seq)!;
+  assert.equal(d1.desfecho, 'concluido');
+  assert.equal(d1.threadDespachada, 'ork-aberta');
+  // O segundo desfecho da mesma reserva não grava nada.
+  const linhas = linhasDoLog(raiz, 'arco-a').length;
+  concluirDespacho(raiz, 'arco-a', r1.seq, { motivo: 'concurrency.limite' }, DENTRO);
+  assert.equal(linhasDoLog(raiz, 'arco-a').length, linhas);
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.despachos.find(x => x.seq === r1.seq)!.desfecho, 'concluido');
+  // A recusa do núcleo devolve a sessão ao orçamento.
+  const r2 = reservarDespacho(raiz, despacho('arco-a', h, { trabalho: 'c', thread: 'ork-simulada', fase: 'PLAN' }), DENTRO);
+  assert.equal(r2.consumo.arco, 2);
+  const recusado = concluirDespacho(raiz, 'arco-a', r2.seq, { motivo: 'concurrency.limite' }, DENTRO);
+  assert.equal(recusado.consumo.arco, 1);
+  assert.equal(recusado.despachos.find(x => x.seq === r2.seq)!.motivo, 'concurrency.limite');
+  // Restart: um processo novo lê o mesmo consumo do disco.
+  const filho = spawnSync(process.execPath, ['-e', `const { lerArco } = require(${JSON.stringify(path.resolve(__dirname, '../src/noctum-arco'))});
+    process.stdout.write(JSON.stringify(lerArco(${JSON.stringify(raiz)}, 'arco-a', ${JSON.stringify(DENTRO)}).consumo));`], { encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(filho.stdout), { arco: 1, porConta: { 'perfil-a': 1 }, porRuntime: { 'claude-bg': 1 } });
+}));
+
+test('A28: o orçamento só em sessoes: teto esgotado recusa, e teto em outra unidade recusa por falta de medida', () => comRaiz('orcamento', raiz => {
+  const h = abrirV2(raiz, 'arco-a', { tetoDoArco: 2 });
+  reservarDespacho(raiz, despacho('arco-a', h), DENTRO);
+  const r = reservarDespacho(raiz, despacho('arco-a', h, { trabalho: 'c', thread: 'ork-simulada' }), DENTRO);
+  assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-a', h), DENTRO), 'noctum.orcamento.esgotado'),
+    /o teto do arco é de 2 sessoes e 2 já foram reservadas/);
+  // A reserva recusada pelo núcleo volta, e a vez seguinte cabe de novo.
+  concluirDespacho(raiz, 'arco-a', r.seq, { motivo: 'runtime.quota-exhausted' }, DENTRO);
+  assert.equal(reservarDespacho(raiz, despacho('arco-a', h), DENTRO).consumo.arco, 2);
+  const t = abrirV2(raiz, 'arco-b', { unidadeDaConta: 'tokens' });
+  assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-b', t), DENTRO), 'noctum.orcamento.sem-medicao'),
+    /o teto da conta perfil-a está em tokens, e a N2 só mede sessoes/);
+  assert.equal(lerArco(raiz, 'arco-b', DENTRO)!.despachos.length, 0, 'nada foi reservado');
+}));
+
+test('A29: o despacho fora do envelope, da janela ou do hash vigente é recusado antes de reservar', () => comRaiz('fora', raiz => {
+  const h = abrirV2(raiz, 'arco-a');
+  const casos: Array<[Partial<PedidoDeDespacho>, string, RegExp]> = [
+    [{ trabalho: 'z' }, 'noctum.despacho.fora-do-envelope', /o trabalho z não está na lista/],
+    [{ trabalho: 'c', thread: 'ork-outra' }, 'noctum.despacho.fora-do-envelope', /o trabalho c é a thread ork-simulada/],
+    [{ conta: 'perfil-x' }, 'noctum.despacho.fora-do-envelope', /a conta perfil-x não está no envelope/],
+    [{ runtime: 'codex' }, 'noctum.despacho.fora-do-envelope', /o runtime codex não está no envelope/],
+    [{ envelopeSha256: 'f'.repeat(64) }, 'noctum.efeito.hash-antigo', /o envelope vigente é/],
+  ];
+  for (const [x, motivo, texto] of casos) assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-a', h, x), DENTRO), motivo), texto);
+  recusa(() => reservarDespacho(raiz, despacho('arco-a', h), ANTES), 'noctum.efeito.fora-da-janela');
+  recusa(() => reservarDespacho(raiz, despacho('arco-a', h), FIM), 'noctum.efeito.expirado');
+  assert.equal(lerArco(raiz, 'arco-a', DENTRO)!.despachos.length, 0);
+  // Arco autorizado na v1 não despacha nada.
+  const v1 = abrir(raiz, 'arco-v1');
+  assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-v1', v1), DENTRO), 'noctum.despacho.fora-do-envelope'), /é v1, sem lista/);
+}));
+
+test('A30: sem autorização nada se reserva, e a revogação depois da reserva recusa a seguinte sem apagar a contabilidade', () => comRaiz('revoga', raiz => {
+  const { envelopeSha256: h } = proporEnvelope(raiz, pedidoV2('arco-a'), P);
+  recusa(() => reservarDespacho(raiz, despacho('arco-a', h), DENTRO), 'noctum.efeito.sem-autorizacao');
+  autorizarPeloIngresso(raiz, 'arco-a', h, assinado('arco-a', textoDeAutorizacao(h)), A);
+  const r = reservarDespacho(raiz, despacho('arco-a', h), DENTRO);
+  revogarPeloIngresso(raiz, 'arco-a', assinado('arco-a', TEXTO_DE_REVOGACAO, DENTRO), DENTRO);
+  recusa(() => reservarDespacho(raiz, despacho('arco-a', h, { trabalho: 'c', thread: 'ork-simulada' }), DENTRO), 'noctum.efeito.revogado');
+  // O despacho que já estava em voo ainda fecha a contabilidade dele.
+  const depois = concluirDespacho(raiz, 'arco-a', r.seq, { thread: 'ork-aberta', sessionId: null, idempotente: true }, DENTRO);
+  assert.equal(depois.situacao, 'revogado');
+  assert.equal(depois.despachos[0].desfecho, 'concluido');
+  assert.equal(depois.consumo.arco, 1);
+}));
+
+test('A31: desfecho sem reserva pendente só existe em log emendado, e reprova a leitura', () => comRaiz('desfecho-forjado', raiz => {
+  const h = abrirV2(raiz, 'arco-a');
+  const r = reservarDespacho(raiz, despacho('arco-a', h), DENTRO);
+  concluirDespacho(raiz, 'arco-a', r.seq, { motivo: 'concurrency.limite' }, DENTRO);
+  forjarLinha(raiz, 'arco-a', { tipo: 'despacho_concluido', reserva: r.seq, thread: 'ork-x', sessionId: null, idempotente: false }, DENTRO);
+  recusa(() => lerArco(raiz, 'arco-a', DENTRO), 'noctum.estado.adulterado');
+  recusa(() => reservarDespacho(raiz, despacho('arco-a', h), DENTRO), 'noctum.estado.adulterado');
 }));

@@ -84,6 +84,8 @@ export const MOTIVOS_DE_RECUSA = [
   'noctum.efeito.sem-autorizacao', 'noctum.efeito.hash-antigo', 'noctum.efeito.revogado',
   'noctum.efeito.expirado', 'noctum.efeito.fora-da-janela', 'noctum.efeito.fora-do-destino',
   'noctum.estado.adulterado',
+  // RM-058 N2 (D11 e D12 da ork-rm058n2): o despacho fora da lista, conta ou runtime do envelope, e o orçamento.
+  'noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado', 'noctum.orcamento.sem-medicao',
 ] as const;
 export type MotivoDeRecusaDoArco = typeof MOTIVOS_DE_RECUSA[number];
 
@@ -570,14 +572,7 @@ export function recusaDeExclusao(acao: unknown): RecusaDoArco | undefined {
 export function avaliarEfeito(conteudo: ConteudoDoEnvelope, efeito: PedidoDeEfeito, quando: string): void {
   const excluida = recusaDeExclusao(efeito.acao);
   if (excluida) throw excluida;
-  const agora = Date.parse(quando);
-  if (!Number.isFinite(agora)) throw new RecusaDoArco('noctum.efeito.fora-da-janela', 'instante da conferência inválido');
-  if (agora < Date.parse(conteudo.janela.inicio)) {
-    throw new RecusaDoArco('noctum.efeito.fora-da-janela', `a janela só começa em ${conteudo.janela.inicio}`);
-  }
-  if (agora >= Date.parse(conteudo.janela.fim)) {
-    throw new RecusaDoArco('noctum.efeito.expirado', `a janela terminou em ${conteudo.janela.fim}; nada a renova`);
-  }
+  avaliarJanela(conteudo, quando);
   if (!(PERMISSOES as readonly string[]).includes(efeito.acao)) {
     throw new RecusaDoArco('noctum.efeito.fora-do-destino', `ação ${String(efeito.acao)} fora de ${PERMISSOES.join(', ')}`);
   }
@@ -596,6 +591,18 @@ export function avaliarEfeito(conteudo: ConteudoDoEnvelope, efeito: PedidoDeEfei
   }
   if (efeito.acao !== 'push' && branch !== destino.base) {
     throw new RecusaDoArco('noctum.efeito.fora-do-destino', `${efeito.acao} só para a base ${destino.base}`);
+  }
+}
+
+/** Só a janela: o instante precisa estar entre o início e o fim, e nada renova o fim. Lança a recusa tipada. */
+export function avaliarJanela(conteudo: ConteudoDoEnvelope, quando: string): void {
+  const agora = Date.parse(quando);
+  if (!Number.isFinite(agora)) throw new RecusaDoArco('noctum.efeito.fora-da-janela', 'instante da conferência inválido');
+  if (agora < Date.parse(conteudo.janela.inicio)) {
+    throw new RecusaDoArco('noctum.efeito.fora-da-janela', `a janela só começa em ${conteudo.janela.inicio}`);
+  }
+  if (agora >= Date.parse(conteudo.janela.fim)) {
+    throw new RecusaDoArco('noctum.efeito.expirado', `a janela terminou em ${conteudo.janela.fim}; nada a renova`);
   }
 }
 

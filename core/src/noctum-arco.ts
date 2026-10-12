@@ -34,8 +34,9 @@ import { comLockInspecionavel } from './hitl-lock';
 import { chaveLocal } from './hitl-local-receipt';
 import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
-import { avaliarEfeito, canonico, ConteudoDoEnvelope, hashDoEnvelope, ID_DO_ARCO, PedidoDeEfeito, RecusaDoArco,
-  recusaDeExclusao, resumoDoEnvelope, validarPedidoDeAbertura } from './noctum-envelope';
+import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
+  PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, Teto, validarPedidoDeAbertura } from './noctum-envelope';
+import { Fase } from './types';
 
 export const CONTRATO_ARCO = 'ork.noctum-arco/v1' as const;
 
@@ -102,11 +103,48 @@ export interface DecisaoEmLote extends PedidoDeDecisaoEmLote {
   estado: 'pendente';
 }
 
+/**
+ * RM-058 N2 (D11 e D12 da ork-rm058n2): a reserva de um despacho do arco, gravada sob o lock do arco junto com a
+ * conferência do envelope e ANTES do efeito. Ela consome uma sessão do orçamento até ser recusada.
+ */
+export interface ReservaDeDespacho {
+  /** O id do trabalho na lista do envelope `v2`. */
+  trabalho: string;
+  /** A thread despachada; `null` quando o despacho abre a thread do trabalho. */
+  thread: string | null;
+  fase: Fase;
+  runtime: string;
+  conta: string;
+  revisao: boolean;
+  versao: number;
+  envelopeSha256: string;
+}
+
+/** Um despacho do arco como o log o conta: a reserva e o desfecho dela. */
+export interface DespachoDoArco extends ReservaDeDespacho {
+  /** O `seq` da linha da reserva: o id dela no log. */
+  seq: number;
+  reservadoEm: string;
+  desfecho: 'pendente' | 'concluido' | 'recusado';
+  /** A thread de fato despachada, depois da abertura. */
+  threadDespachada: string | null;
+  sessionId: string | null;
+  idempotente: boolean;
+  motivo: string | null;
+  concluidoEm: string | null;
+}
+
+/** Sessões consumidas (reservadas e não recusadas), no arco e por conta e runtime. A N2 só mede `sessoes`. */
+export interface ConsumoDoArco { arco: number; porConta: Record<string, number>; porRuntime: Record<string, number> }
+
 type EventoDoArco =
   | { tipo: 'proposto'; versao: number; envelopeSha256: string; conteudo: ConteudoDoEnvelope; prazo: string }
   | { tipo: 'autorizado'; versao: number; envelopeSha256: string; ingresso: IngressoDoDono }
   | { tipo: 'revogado'; ingresso: IngressoDoDono }
-  | { tipo: 'decisao_enfileirada'; decisao: DecisaoEmLote };
+  | { tipo: 'decisao_enfileirada'; decisao: DecisaoEmLote }
+  | { tipo: 'despacho_reservado'; reserva: ReservaDeDespacho }
+  | { tipo: 'despacho_concluido'; reserva: number; thread: string; sessionId: string | null; idempotente: boolean }
+  | { tipo: 'despacho_recusado'; reserva: number; motivo: string };
 
 interface DadosDaLinha {
   contrato: typeof CONTRATO_ARCO;
@@ -133,6 +171,9 @@ export interface EstadoDoArco {
   /** Proposta mais nova que ainda espera o dono, quando há uma. */
   propostaPendente: { versao: number; envelopeSha256: string; prazo: string } | null;
   decisoes: DecisaoEmLote[];
+  /** RM-058 N2: os despachos do arco, na ordem do log, e o consumo que eles reservaram. */
+  despachos: DespachoDoArco[];
+  consumo: ConsumoDoArco;
 }
 
 export interface ConferenciaDoEfeito {
@@ -277,7 +318,10 @@ function dirParaLock(raiz: string, arco: string, criar: boolean): string {
 /** Só a disputa pelo kernel espera; qualquer outra falha, inclusive a recusa de dentro, sobe na hora. */
 const disputaDoLock = (e: unknown): boolean => e instanceof Error && e.message.startsWith('HITL ocupado; exclusão do kernel');
 
-/** `esperar` só na revogação, o ato de segurança; o resto falha na hora, sem prender o processo. */
+/**
+ * `esperar` na revogação, o ato de segurança, e na reserva e no desfecho do despacho (N2), que são passos curtos de quem
+ * já tem a vez de despachar; o resto falha na hora, sem prender o processo.
+ */
 function comLockDoArco<T>(raiz: string, arco: string, criar: boolean, executar: () => T, esperar = false): T {
   const dir = dirParaLock(raiz, arco, criar);
   for (let tentativa = 1; ; tentativa++) {
@@ -310,17 +354,34 @@ interface Derivado {
   decisoes: DecisaoEmLote[];
   /** Mensagens e solicitações que já provaram um ato: nenhuma prova serve duas vezes. */
   usadas: Set<string>;
+  /** RM-058 N2: os despachos pelo `seq` da reserva. */
+  despachos: Map<number, DespachoDoArco>;
 }
 
 function derivar(linhas: DadosDaLinha[]): Derivado {
-  const d: Derivado = { propostas: new Map(), ultima: null, autorizacao: null, revogacao: null, decisoes: [], usadas: new Set() };
+  const d: Derivado = { propostas: new Map(), ultima: null, autorizacao: null, revogacao: null, decisoes: [], usadas: new Set(),
+    despachos: new Map() };
   const usar = (i: IngressoDoDono) => {
     const prova = i.origem === 'mcp-local' ? `mcp-local:${i.solicitacao}` : `${i.origem}:${i.mensagem}`;
     // Uma prova do dono vale para um ato só: reaproveitada noutra linha, o log foi emendado à mão.
     if (d.usadas.has(prova)) throw adulterado('a mesma prova do dono aparece em dois atos do log');
     d.usadas.add(prova);
   };
-  for (const { evento: e } of linhas) {
+  for (const { evento: e, seq, em } of linhas) {
+    if (e.tipo === 'despacho_reservado') {
+      d.despachos.set(seq, { ...e.reserva, seq, reservadoEm: em, desfecho: 'pendente', threadDespachada: null, sessionId: null,
+        idempotente: false, motivo: null, concluidoEm: null });
+      continue;
+    }
+    if (e.tipo === 'despacho_concluido' || e.tipo === 'despacho_recusado') {
+      const r = d.despachos.get(e.reserva);
+      // Desfecho sem reserva, ou um segundo desfecho, só existe num log emendado à mão.
+      if (!r || r.desfecho !== 'pendente') throw adulterado(`desfecho da reserva ${e.reserva} sem reserva pendente`);
+      if (e.tipo === 'despacho_concluido') Object.assign(r, { desfecho: 'concluido', threadDespachada: e.thread, sessionId: e.sessionId,
+        idempotente: e.idempotente, concluidoEm: em });
+      else Object.assign(r, { desfecho: 'recusado', motivo: e.motivo, concluidoEm: em });
+      continue;
+    }
     if (e.tipo === 'proposto') {
       const p = { versao: e.versao, envelopeSha256: e.envelopeSha256, conteudo: e.conteudo, prazo: e.prazo };
       if (hashDoEnvelope(p.conteudo) !== p.envelopeSha256) throw adulterado(`proposta ${p.versao} com hash que não confere`);
@@ -355,7 +416,19 @@ function estadoDe(arco: string, d: Derivado, quando: string): EstadoDoArco {
     envelopeSha256: vigente?.envelopeSha256 ?? null, conteudo: vigente?.conteudo ?? null,
     autorizadoPor: d.autorizacao?.ingresso ?? null, revogadoPor: d.revogacao,
     propostaPendente: pendente ? { versao: pendente.versao, envelopeSha256: pendente.envelopeSha256, prazo: pendente.prazo } : null,
-    decisoes: d.decisoes };
+    decisoes: d.decisoes, despachos: [...d.despachos.values()], consumo: consumoDe(d) };
+}
+
+/** D12 da ork-rm058n2: a reserva consome uma sessão até ser recusada; a concluída e a pendente contam. */
+function consumoDe(d: Derivado): ConsumoDoArco {
+  const c: ConsumoDoArco = { arco: 0, porConta: {}, porRuntime: {} };
+  for (const r of d.despachos.values()) {
+    if (r.desfecho === 'recusado') continue;
+    c.arco += 1;
+    c.porConta[r.conta] = (c.porConta[r.conta] ?? 0) + 1;
+    c.porRuntime[r.runtime] = (c.porRuntime[r.runtime] ?? 0) + 1;
+  }
+  return c;
 }
 
 /**
@@ -742,27 +815,128 @@ export function lerArco(raiz: string, arco: string, quando = new Date().toISOStr
 export function conferirAntesDoEfeito(raiz: string, efeito: PedidoDeEfeito, quando = new Date().toISOString()): ConferenciaDoEfeito {
   const excluida = recusaDeExclusao(efeito?.acao);
   if (excluida) throw excluida;
-  const log = lerLog(raiz, efeito.arco);
+  const { vigente } = vigenteConferido(raiz, efeito.arco, efeito.envelopeSha256, lerLog(raiz, efeito.arco));
+  avaliarEfeito(vigente.conteudo, efeito, quando);
+  return { ok: true, arco: efeito.arco, versao: vigente.versao, envelopeSha256: vigente.envelopeSha256,
+    acao: efeito.acao, repositorio: efeito.repositorio, branch: efeito.branch, conferidoEm: quando, fim: vigente.conteudo.janela.fim };
+}
+
+/**
+ * A cadeia comum da conferência antes de um efeito (N1) e antes de um despacho (N2), na ordem da N1: cauda incompleta,
+ * linha adulterada, revogação, falta de autorização, recibo do dono que não confere ou não pode ser reconferido,
+ * conteúdo que diverge do hash e hash diferente do vigente. Relê só o que já foi lido do disco.
+ */
+function vigenteConferido(raiz: string, arco: string, envelopeSha256: unknown, log: LogDoArco): { d: Derivado; vigente: Proposta } {
   // Cauda sem quebra pode ser a revogação que está sendo gravada: na dúvida, nenhum efeito passa.
   if (!log.terminaEmQuebra) throw adulterado('linha incompleta no fim do log (gravação abortada ou em curso); repita a conferência');
   const d = derivar(log.linhas);
-  if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', `arco ${efeito.arco} revogado pelo dono`);
-  if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${efeito.arco} sem envelope autorizado`);
+  if (d.revogacao) throw new RecusaDoArco('noctum.efeito.revogado', `arco ${arco} revogado pelo dono`);
+  if (!d.autorizacao) throw new RecusaDoArco('noctum.efeito.sem-autorizacao', `arco ${arco} sem envelope autorizado`);
   // A prova do dono é reconferida aqui, pelo recibo do canal, e não lida da linha do log (FX2 no gate).
-  const prova = reciboConfere(raiz, efeito.arco, 'autorizar', d.autorizacao.envelopeSha256, d.autorizacao.versao, d.autorizacao.ingresso);
+  const prova = reciboConfere(raiz, arco, 'autorizar', d.autorizacao.envelopeSha256, d.autorizacao.versao, d.autorizacao.ingresso);
   if (prova === 'sem-verificador') {
     throw new RecusaDoArco('noctum.origem.sem-prova', 'a prova do dono não pode ser reconferida neste processo: falta a chave ou o verificador público do canal');
   }
   if (prova === 'falhou') throw adulterado('o recibo do ingresso que autorizou o envelope não confere');
   const vigente = d.propostas.get(d.autorizacao.versao)!;
   if (hashDoEnvelope(vigente.conteudo) !== d.autorizacao.envelopeSha256) throw adulterado('conteúdo vigente diverge do hash autorizado');
-  if (efeito.envelopeSha256 !== d.autorizacao.envelopeSha256) {
+  if (envelopeSha256 !== d.autorizacao.envelopeSha256) {
     // Hash de uma emenda que o dono ainda não autorizou não é antigo: é envelope sem autorização.
-    const naoAutorizado = d.ultima !== null && d.ultima.versao > d.autorizacao.versao && d.ultima.envelopeSha256 === efeito.envelopeSha256;
+    const naoAutorizado = d.ultima !== null && d.ultima.versao > d.autorizacao.versao && d.ultima.envelopeSha256 === envelopeSha256;
     throw new RecusaDoArco(naoAutorizado ? 'noctum.efeito.sem-autorizacao' : 'noctum.efeito.hash-antigo',
-      `o envelope vigente é ${d.autorizacao.envelopeSha256}; o efeito trouxe ${String(efeito.envelopeSha256)}`);
+      `o envelope vigente é ${d.autorizacao.envelopeSha256}; o efeito trouxe ${String(envelopeSha256)}`);
   }
-  avaliarEfeito(vigente.conteudo, efeito, quando);
-  return { ok: true, arco: efeito.arco, versao: vigente.versao, envelopeSha256: d.autorizacao.envelopeSha256,
-    acao: efeito.acao, repositorio: efeito.repositorio, branch: efeito.branch, conferidoEm: quando, fim: vigente.conteudo.janela.fim };
+  return { d, vigente };
+}
+
+/** O que o executor do arco pede para despachar, imediatamente antes do efeito (RM-058 N2). */
+export interface PedidoDeDespacho {
+  arco: string;
+  /** O hash que o executor leu no início do passo. Diferente do vigente é hash antigo, como no efeito. */
+  envelopeSha256: string;
+  trabalho: string;
+  thread: string | null;
+  fase: Fase;
+  runtime: string;
+  conta: string;
+  revisao: boolean;
+}
+
+export interface DespachoReservado {
+  arco: string;
+  /** O `seq` da reserva: o executor o devolve em `concluirDespacho`. */
+  seq: number;
+  versao: number;
+  envelopeSha256: string;
+  /** Quando a janela fecha. Nada prorroga este instante. */
+  fim: string;
+  consumo: ConsumoDoArco;
+}
+
+/**
+ * D11 e D12 da ork-rm058n2: confere o envelope e reserva o despacho, as duas coisas sob o lock do arco, imediatamente
+ * antes do efeito. A cadeia da N1 (`vigenteConferido`) mais a janela, o trabalho na lista `v2`, a conta e o runtime do
+ * envelope e o orçamento: cada despacho reserva uma sessão no teto do arco e nos subtetos da conta e do runtime, e teto
+ * em outra unidade recusa, porque a N2 não mede consumo nela. A revogação usa o mesmo lock: ou ela vem antes e nada é
+ * reservado, ou vem depois e vale para o despacho seguinte.
+ */
+export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando = new Date().toISOString()): DespachoReservado {
+  return comLockDoArco(raiz, pedido.arco, false, () => {
+    const log = lerLog(raiz, pedido.arco);
+    const { d, vigente } = vigenteConferido(raiz, pedido.arco, pedido.envelopeSha256, log);
+    const c = vigente.conteudo;
+    avaliarJanela(c, quando);
+    const fora = (detalhe: string) => new RecusaDoArco('noctum.despacho.fora-do-envelope', detalhe);
+    if (!envelopeComTrabalhos(c)) throw fora('o envelope vigente é v1, sem lista de trabalhos: só uma emenda v2 autorizada pelo dono despacha');
+    const t = c.trabalhos.find(x => x.id === pedido.trabalho);
+    if (!t) throw fora(`o trabalho ${String(pedido.trabalho)} não está na lista do envelope`);
+    if (t.thread !== undefined && pedido.thread !== t.thread) throw fora(`o trabalho ${t.id} é a thread ${t.thread}, não ${String(pedido.thread)}`);
+    const tetoDoRuntime = c.orcamento.porRuntime.find(x => x.runtime === pedido.runtime)?.teto;
+    if (!tetoDoRuntime || !c.capacidade.porRuntime.some(x => x.runtime === pedido.runtime)) {
+      throw fora(`o runtime ${String(pedido.runtime)} não está no envelope`);
+    }
+    const tetoDaConta = c.orcamento.porConta.find(x => x.conta === pedido.conta)?.teto;
+    if (!tetoDaConta || !c.capacidade.porConta.some(x => x.conta === pedido.conta)) {
+      throw fora(`a conta ${String(pedido.conta)} não está no envelope`);
+    }
+    const consumo = consumoDe(d);
+    const tetos: Array<[string, Teto, number]> = [['do arco', c.orcamento.arco, consumo.arco],
+      [`da conta ${pedido.conta}`, tetoDaConta, consumo.porConta[pedido.conta] ?? 0],
+      [`do runtime ${pedido.runtime}`, tetoDoRuntime, consumo.porRuntime[pedido.runtime] ?? 0]];
+    for (const [nome, teto, usado] of tetos) {
+      if (teto.unidade !== 'sessoes') {
+        throw new RecusaDoArco('noctum.orcamento.sem-medicao', `o teto ${nome} está em ${teto.unidade}, e a N2 só mede sessoes: ` +
+          'sem medir o consumo, o teto não é garantido, e consumo desconhecido nunca vale zero');
+      }
+      if (usado + 1 > teto.valor) {
+        throw new RecusaDoArco('noctum.orcamento.esgotado', `o teto ${nome} é de ${teto.valor} sessoes e ${usado} já foram reservadas`);
+      }
+    }
+    const reserva: ReservaDeDespacho = { trabalho: t.id, thread: pedido.thread, fase: pedido.fase, runtime: pedido.runtime,
+      conta: pedido.conta, revisao: pedido.revisao === true, versao: vigente.versao, envelopeSha256: vigente.envelopeSha256 };
+    anexar(raiz, pedido.arco, log, { tipo: 'despacho_reservado', reserva }, quando);
+    const seq = log.linhas.length + 1;
+    const estado = confirmado(raiz, pedido.arco, quando, e => e.despachos.some(x => x.seq === seq && x.desfecho === 'pendente'), 'reserva do despacho');
+    return { arco: pedido.arco, seq, versao: vigente.versao, envelopeSha256: vigente.envelopeSha256, fim: c.janela.fim, consumo: estado.consumo };
+  }, true);
+}
+
+/**
+ * O desfecho da reserva, uma vez só: o despacho que abriu sessão (ou que a sessão em andamento já atendia), ou o que o
+ * núcleo recusou, que devolve a sessão ao orçamento. Vale também depois de revogação ou expiração: é a contabilidade do
+ * que já estava em voo, não um efeito novo.
+ */
+export function concluirDespacho(raiz: string, arco: string, seq: number,
+  desfecho: { thread: string; sessionId: string | null; idempotente: boolean } | { motivo: string }, quando = new Date().toISOString()): EstadoDoArco {
+  return comLockDoArco(raiz, arco, false, () => {
+    const log = lerLog(raiz, arco), d = derivar(log.linhas);
+    const r = d.despachos.get(seq);
+    if (!r) throw new RecusaDoArco('noctum.envelope.invalido', `reserva ${seq} inexistente neste arco`);
+    if (r.desfecho !== 'pendente') return estadoDe(arco, d, quando);
+    const evento: EventoDoArco = 'motivo' in desfecho
+      ? { tipo: 'despacho_recusado', reserva: seq, motivo: String(desfecho.motivo).slice(0, 200) }
+      : { tipo: 'despacho_concluido', reserva: seq, thread: desfecho.thread, sessionId: desfecho.sessionId, idempotente: desfecho.idempotente };
+    anexar(raiz, arco, log, evento, quando);
+    return confirmado(raiz, arco, quando, e => e.despachos.some(x => x.seq === seq && x.desfecho !== 'pendente'), 'conclusão do despacho');
+  }, true);
 }
