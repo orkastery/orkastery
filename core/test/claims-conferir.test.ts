@@ -6,6 +6,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -18,6 +19,7 @@ import {
 import { conducaoDaThread, dormir, ErroDeConducao } from '../src/conducao';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { ResultadoDeComando } from '../src/types';
+import { branchDaWorktree } from '../src/worktree';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 
@@ -163,6 +165,21 @@ test('S5 --tarefa le o verify da tarefa nos formatos de plano em uso, e recusa o
   ]) {
     assert.throws(() => verifyDaTarefa(`### T1 x\n${linha}\n`, 'T1'), /claims\.conferir\.tarefa-ambigua: o verify da tarefa T1 tem \d trecho/, linha);
   }
+  // Rodada 2 do CHECK: o item do verify continua nas linhas de baixo (como na T1 da ork-rm055impedi2), e o pedaco
+  // de baixo conta. Continuacao recuada, continuacao colada, subitem e paragrafo recuado depois de linha em branco.
+  for (const item of [
+    '- Verify: `true`\n  e o teste da fatia 1 (`false`).',
+    '- **verify:** `true`\ne tambem `false`',
+    '- **verify:** `true`\n  - e o teste `false`',
+    '- **verify:** `true`\n\n  e depois `false`.',
+    'Verify: `true`\n  com `false`.',
+  ]) {
+    assert.throws(() => verifyDaTarefa(`### T1 x\n${item}\n`, 'T1'), /claims\.conferir\.tarefa-ambigua: o verify da tarefa T1 tem 2 trecho/, item);
+  }
+  // O que ja e outro item, outro paragrafo ou outro cabecalho nao entra no verify.
+  for (const resto of ['- **touch_paths:** `b`', '\nTexto solto com `b`.', '#### Notas `b`', '\n- `b` em outra lista']) {
+    assert.deepEqual(verifyDaTarefa(`### T1 x\n- **verify:** \`a\`\n${resto}\n`, 'T1'), { tarefa: 'T1', comando: 'a' }, resto);
+  }
   assert.throws(() => verifyDaTarefa('### T1 x\n', 'Tx'), /claims\.conferir\.uso: tarefa invalida/);
 });
 
@@ -199,6 +216,27 @@ test('S3b sem worktree propria e registrada no git na branch da thread, a confer
       (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.worktree-nao-registrada/.test(e.message));
     assert.throws(() => conferirClaims(p.carregado, 'ork-naoexiste', { claims: ['C1'], fabrica: s.fabrica }),
       (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.thread-ausente/.test(e.message));
+
+    // Rodada 2 do CHECK: worktree de outro repositorio, na branch que a thread espera, nao serve. Fora do
+    // projeto recusa pela pasta; dentro dele, por nao ser worktree do git do projeto.
+    const branch = branchDaWorktree(lerThread(p.dir, semWorktree.id));
+    const alheio = (raizDoOutro: string, dir: string) => {
+      fs.mkdirSync(raizDoOutro, { recursive: true });
+      const git = (...args: string[]) => spawnSync('git', ['-C', raizDoOutro, ...args], { stdio: 'ignore' });
+      git('init', '-q');
+      git('-c', 'user.name=t', '-c', 'user.email=t@exemplo.invalid', 'commit', '-q', '--allow-empty', '-m', 'outro repositorio');
+      assert.equal(git('worktree', 'add', '-q', '-b', branch, dir).status, 0);
+      gravarThread(p.dir, { ...lerThread(p.dir, semWorktree.id), worktree: dir });
+    };
+    const fora = fs.mkdtempSync(path.join(os.tmpdir(), 'ork-conferir-alheio-'));
+    try {
+      alheio(path.join(fora, 'repo'), path.join(fora, 'wt'));
+      assert.throws(() => conferirClaims(p.carregado, semWorktree.id, { claims: ['C1'], fabrica: s.fabrica }),
+        (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.worktree-fora-do-projeto/.test(e.message));
+    } finally { fs.rmSync(fora, { recursive: true, force: true }); }
+    alheio(path.join(p.dir, 'aninhado'), path.join(p.dir, 'aninhado-wt'));
+    assert.throws(() => conferirClaims(p.carregado, semWorktree.id, { claims: ['C1'], fabrica: s.fabrica }),
+      (e: Error) => e instanceof ErroDeConferencia && /claims\.conferir\.worktree-nao-registrada: .*git do projeto/.test(e.message));
     assert.equal(s.chamadas.length, 0);
   } finally { p.limpar(); }
 });

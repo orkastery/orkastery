@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto';
 import { lerClaims } from './claims';
 import { canalDoProcesso, comConducao, identidadeDoAmbiente, prazoDaVerificacao } from './conducao';
 import { ManifestoCarregado } from './manifest';
+import { raizDoEstado } from './estado-thread';
 import { redigirSaida } from './redacao-saida';
 import { caminhoThread, dirThread, lerThread } from './thread';
 import { CanalDeConducao, Claim, MotivoGate, ResultadoDeComando, Thread } from './types';
@@ -110,12 +111,35 @@ export function idsDeClaims(bruto: string): string[] {
  */
 const ROTULO_DE_VERIFY = /^\s*(?:[-*]\s+)?(?:\*\*verify:\*\*|\*\*verify\*\*\s*:|`verify`\s*:|verify\s*:)\s*(.*)$/i;
 
+/** Linha que abre outro item de lista, cabecalho ou cerca de codigo. */
+const ABRE_BLOCO = /^\s*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|```|~~~)/;
+const recuo = (linha: string) => /^[ \t]*/.exec(linha)![0].replace(/\t/g, '    ').length;
+
+/**
+ * O item inteiro do verify da linha `k`: o texto depois do rotulo e as linhas que o Markdown junta a ele, a
+ * continuacao logo abaixo que nao abre outro item e as linhas mais recuadas que o rotulo, mesmo depois de
+ * linha em branco. Verify que quebra na linha seguinte ("e o teste da fatia 1 (`node --test ...`)") e um
+ * item so, e o pedaco da linha de baixo nao pode ficar de fora.
+ */
+function itemDoVerify(bloco: string[], k: number, inicio: string): string {
+  const base = recuo(bloco[k]);
+  const partes = [inicio];
+  let depoisDeBranco = false;
+  for (const linha of bloco.slice(k + 1)) {
+    if (!linha.trim()) { depoisDeBranco = true; continue; }
+    if (recuo(linha) <= base && (depoisDeBranco || ABRE_BLOCO.test(linha))) break;
+    partes.push(linha.trim());
+    depoisDeBranco = false;
+  }
+  return partes.join(' ').trim();
+}
+
 /**
  * O comando de verify da tarefa `T<id>` no texto do plano (D7). O cabeçalho (niveis `##` a `######`)
- * aparece uma vez so; no bloco dele, ate o proximo cabecalho de nivel igual ou maior, ha uma unica
- * linha `verify`, e ela e um trecho entre crases e nada mais (ponto final aceito). Linha com dois
- * trechos ou com texto alem do comando ("`git status` vazio e `ork verify`") recusa: rodar so um
- * pedaco daria "passou" a um verify que nao rodou inteiro.
+ * aparece uma vez so; no bloco dele, ate o proximo cabecalho de nivel igual ou maior, ha um unico
+ * item `verify`, e ele e um trecho entre crases e nada mais (ponto final aceito), contando as linhas
+ * de continuacao do item. Item com dois trechos ou com texto alem do comando ("`git status` vazio e
+ * `ork verify`") recusa: rodar so um pedaco daria "passou" a um verify que nao rodou inteiro.
  */
 export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: string; comando: string } {
   const id = tarefaBruta.trim().replace(/^T/i, '');
@@ -132,9 +156,9 @@ export function verifyDaTarefa(plano: string, tarefaBruta: string): { tarefa: st
   const { i, nivel } = inicios[0];
   const fimDoBloco = linhas.findIndex((l, j) => j > i && new RegExp(`^#{1,${nivel}}\\s`).test(l));
   const bloco = linhas.slice(i + 1, fimDoBloco < 0 ? undefined : fimDoBloco);
-  const verifies = bloco.flatMap((l) => {
+  const verifies = bloco.flatMap((l, k) => {
     const m = ROTULO_DE_VERIFY.exec(l);
-    return m ? [m[1].trim()] : [];
+    return m ? [itemDoVerify(bloco, k, m[1].trim())] : [];
   });
   if (verifies.length === 0) throw recusa('tarefa-sem-verify', `a tarefa ${tarefa} nao tem linha de verify`);
   if (verifies.length > 1) throw recusa('tarefa-ambigua', `a tarefa ${tarefa} tem ${verifies.length} linhas de verify`);
@@ -173,17 +197,22 @@ function lerPlano(raiz: string, threadId: string): { arquivo: string; sha256: st
 }
 
 /**
- * Como o `ork_verify` (`mcp-verify.ts`): so a worktree propria da thread, registrada no git na branch dela, fica
- * gravavel no sandbox. Thread sem worktree seria conferida com a arvore principal gravavel, e isso recusa.
+ * Como o `ork_verify` (`mcp-verify.ts`): so a worktree propria da thread, dentro do projeto e registrada no git
+ * dele na branch da thread, fica gravavel no sandbox. O projeto e a arvore principal, mesmo com o CLI rodando de
+ * dentro de uma worktree. Thread sem worktree seria conferida com a arvore principal gravavel, e worktree de
+ * outro repositorio numa branch de mesmo nome abriria escrita fora do projeto: as duas recusam.
  */
-function worktreeConferida(thread: Thread): string {
+function worktreeConferida(raiz: string, thread: Thread): string {
   if (!thread.worktree) throw recusa('sem-worktree', `a thread ${thread.id} nao tem worktree propria; a conferencia so roda nela`);
   let dir: string;
   try { dir = fs.realpathSync(thread.worktree); }
   catch { throw recusa('worktree-ausente', `a worktree da thread ${thread.id} nao existe no disco`); }
+  const projeto = fs.realpathSync(raizDoEstado(raiz));
+  if (!dir.startsWith(projeto + path.sep))
+    throw recusa('worktree-fora-do-projeto', `a worktree da thread ${thread.id} fica fora do projeto`);
   const branch = branchDaWorktree(thread);
-  if (!worktreesDoGit(dir).some((w) => w.dir === dir && w.branch === branch))
-    throw recusa('worktree-nao-registrada', `a worktree da thread ${thread.id} nao esta registrada no git na branch ${branch}`);
+  if (!worktreesDoGit(projeto).some((w) => w.dir === dir && w.branch === branch))
+    throw recusa('worktree-nao-registrada', `a worktree da thread ${thread.id} nao esta registrada no git do projeto na branch ${branch}`);
   return dir;
 }
 
@@ -217,7 +246,7 @@ export function conferirClaims(carregado: ManifestoCarregado, threadId: string, 
     throw recusa('thread-ausente', `a thread ${threadId} nao existe neste projeto`);
   const thread = lerThread(raiz, threadId);
   if (thread.status === 'fechada') throw recusa('thread-fechada', `a thread ${threadId} esta fechada`);
-  const cwd = worktreeConferida(thread);
+  const cwd = worktreeConferida(raiz, thread);
 
   // O que vai rodar, inteiro resolvido antes de tomar a conducao: recusa de uso nao toca a worktree.
   let alvo: ResultadoDaConferencia['alvo'];
