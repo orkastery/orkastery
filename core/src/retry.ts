@@ -29,6 +29,8 @@ import { alvosDaOrdemDeFallback, AlvoDeFallback, configDoBloco, lerSetup, limite
 import { registrarGateBloqueado } from './gates';
 import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
+import { raizDoEstado } from './estado-thread';
+import { sessaoVivaNaThread } from './vida-da-thread';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -73,7 +75,7 @@ import {
 } from './conducao';
 import { linhaDeConducao } from './conducao-texto';
 import { CanalDeConducao } from './types';
-import { cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
+import { caminhoContidoOuNulo, cwdLocalOuNulo, diretorioDaThread, exigirCwdLocal } from './procedencia';
 import { comandoDeConfirmacao, posturaAfrouxada, recusaDePostura } from './postura-local';
 import { Mensagens, msg, remontar, textoDoCatalogo } from './locale';
 import { RETRY_PT_BR } from './locale-retry';
@@ -552,6 +554,60 @@ export function redespachar(carregado: ManifestoCarregado, thread: Thread, fase:
   } finally { retida.devolver(); }
 }
 
+/**
+ * RM-063 (F3): onde esta o prompt gravado. O ledger guarda o caminho relativo a raiz de codigo de quem despachou:
+ * da worktree, ele sai `../../../.orkastery/threads/...` (a K7 de 12/10/2026), e lido do checkout principal aponta
+ * para fora do projeto. O arquivo certo e o que tem o MESMO sha256: absoluto, relativo a raiz de codigo, a raiz do
+ * estado ou a pasta de prompts da thread. Sem nenhum com o sha, vale o primeiro que existe (a recusa diz que o prompt
+ * mudou); sem nenhum arquivo comum dentro do projeto, `null` (a recusa diz que sumiu).
+ */
+export function localizarPromptGravado(raiz: string, threadId: string, promptPath: string, sha: string): string | null {
+  const candidatos = path.isAbsolute(promptPath) ? [promptPath] : [path.join(raiz, promptPath)];
+  try { candidatos.push(path.join(raizDoEstado(raiz), promptPath)); } catch { /* raiz sem estado legivel */ }
+  candidatos.push(path.join(dirThread(raiz, threadId), 'prompts', path.basename(promptPath)));
+  let thread: { id: string; worktree: string | null } | null = null;
+  try { const t = lerThread(raiz, threadId); thread = { id: t.id, worktree: t.worktree }; } catch { thread = null; }
+  // O ponteiro vem do estado: so arquivo comum, de tamanho de prompt, dentro do projeto ou da worktree da thread (RM-047).
+  const legivel = (c: string): boolean => {
+    try {
+      const st = fs.lstatSync(c);
+      return st.isFile() && st.size <= TETO_DO_PROMPT_GRAVADO && caminhoContidoOuNulo(raiz, thread, c) !== null;
+    } catch { return false; }
+  };
+  const existentes = [...new Set(candidatos.map((c) => path.resolve(c)))].filter(legivel);
+  for (const c of existentes) {
+    try { if (hashDoPrompt(fs.readFileSync(c, 'utf8')) === sha) return c; } catch { /* ilegivel: tenta o proximo */ }
+  }
+  return existentes[0] ?? null;
+}
+
+/** Um prompt de fase tem dezenas de KB; acima disto o ponteiro do estado nao e um prompt gravado pelo ork. */
+export const TETO_DO_PROMPT_GRAVADO = 4 * 1024 * 1024;
+
+/**
+ * RM-063 (F3): o despacho cujo prompt o `reexecutar` devolve ao runtime. Primeiro o despacho da sessao do gate (a
+ * sessao que morreu depois de despachada, como a K7 de 12/10/2026, nao deixa `phase_dispatch_failed`), depois o
+ * proprio gate quando ele carrega o prompt, e por fim a tentativa mais recente da fase com prompt gravado:
+ * `phase_dispatch_failed` ou `phase_prompt_recorded` (e o `phase_dispatch`, no silencio do runtime).
+ */
+export function despachoParaRedespachar(eventos: readonly EventoLedger[], fase: Fase, gate: EventoLedger | null,
+  silencio = false): EventoLedger | null {
+  const comPrompt = (e: EventoLedger | undefined | null): e is EventoLedger =>
+    !!e && typeof e.promptPath === 'string' && typeof e.promptSha256 === 'string';
+  if (gate && typeof gate.sessionId === 'string') {
+    const daSessao = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.sessionId === gate.sessionId).at(-1);
+    if (comPrompt(daSessao)) return daSessao;
+  }
+  if (comPrompt(gate)) return gate;
+  for (let i = eventos.length - 1; i >= 0; i--) {
+    const e = eventos[i];
+    if (e.fase !== fase || !comPrompt(e)) continue;
+    if (e.tipo === TIPOS_DE_EVENTO.despachoFalhou || e.tipo === TIPOS_DE_EVENTO.promptGravado ||
+        (silencio && e.tipo === TIPOS_DE_EVENTO.faseDespachada)) return e;
+  }
+  return null;
+}
+
 function redespacharSobLock(
   carregado: ManifestoCarregado,
   thread: Thread,
@@ -563,15 +619,14 @@ function redespacharSobLock(
   tomadaPrevia?: ConducaoTomada
 ): ResultadoDoRedespacho {
   const { raiz, manifesto } = carregado;
-  const absoluto = path.isAbsolute(promptRelativo)
-    ? promptRelativo
-    : path.join(raiz, promptRelativo);
+  const achado = localizarPromptGravado(raiz, thread.id, promptRelativo, sha);
+  const absoluto = achado ?? '';
   const slug = opcoes.slug ?? slugDaSessao(thread, fase);
   const vazio = { slug, sessionId: null, verificada: false, sinal: null, comando: [] as string[] };
   const erroDeEstado = estadoParaDespacho(raiz, thread, opcoes.dryRun);
   if (erroDeEstado) return { ...vazio, ok: false, motivo: 'tree.blocked', detalhe: erroDeEstado, dryRun: opcoes.dryRun === true };
 
-  if (!fs.existsSync(absoluto)) {
+  if (!achado) {
     return {
       ...vazio,
       ok: false,
@@ -1451,8 +1506,13 @@ export function executarRetry(
     return trocarDestinoDoModelo(carregado, thread, plano, opcoes, vazio, registrarTentativa);
   }
 
-  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime.
-  const falho = ultimoDespachoFalho(raiz, threadId, plano.fase as Fase, plano.motivo === 'runtime.silencio');
+  // `reexecutar` e `escalar-esforco`: o MESMO prompt volta ao runtime. RM-063 (F3): o gate que o plano leu diz de que
+  // despacho e o prompt; sem ele, a tentativa mais recente da fase com prompt gravado.
+  const reprovacao = ultimaReprovacao(raiz, threadId);
+  const gateDoPlano = reprovacao && reprovacao.motivo === plano.motivo && faseDoEvento(reprovacao, thread) === plano.fase
+    ? reprovacao : null;
+  const falho = despachoParaRedespachar(lerLedger(dirThread(raiz, threadId)), plano.fase as Fase, gateDoPlano,
+    plano.motivo === 'runtime.silencio');
   if (!falho || typeof falho.promptPath !== 'string' || typeof falho.promptSha256 !== 'string') {
     const detalhe = textoDoCatalogo((m) => m.retry.semDespachoFalho(plano.fase, threadId));
     registrarTentativa(false, detalhe);
@@ -1469,6 +1529,18 @@ export function executarRetry(
       const detalhe = textoDoCatalogo((m) => m.retry.semConfianca(motivo, cwd, threadId));
       return { ...vazio, detalhe };
     }
+  }
+  // RM-063 (F3, GO-FIX): antes de devolver o prompt ao runtime, a prova de que nenhuma sessao viva trabalha na thread. O
+  // despacho que falhou depois de abrir a sessao (o `claude --bg` lento) e o adaptador que lanca deixariam duas sessoes
+  // na mesma worktree. Sem a prova, nada e redespachado, e a tentativa nao conta.
+  const ids = [falho.sessionId, gateDoPlano?.sessionId].filter((x): x is string => typeof x === 'string' && !!x);
+  const viva = sessaoVivaNaThread(raiz, thread, ids);
+  if (!viva.respondeu || viva.sessionId) {
+    const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+    const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+      : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+    registrarTentativa(false, detalhe, { conta: false });
+    return { ...vazio, detalhe };
   }
   const redespacho = redespachar(
     carregado,

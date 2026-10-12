@@ -18,7 +18,7 @@ import { iniciarWatcher, validarFonteWatcher } from './session-watcher';
 import { fonteClaudeDoDespacho, headDaWorktree } from './session-watcher-claude';
 import { ManifestoCarregado, exigirManifesto } from './manifest';
 import { grafoLigado } from './mcp-grafo';
-import { resolverRuntime, runtimeConhecido } from './runtimes';
+import { PedidoDeDespacho, ResultadoDeDespacho, resolverRuntime, runtimeConhecido } from './runtimes';
 import { configDoBloco, fallbackDoBloco, lerSetup, limitesDoBloco } from './setup';
 import { definicaoDoModo, INVARIANTES } from './modos';
 import { registrarGateBloqueado } from './gates';
@@ -974,18 +974,27 @@ function rodarFaseSobLock(
       }
     }
     const cwd = diretorioDaThread(raiz, thread);
+    // RM-063 (F3): o prompt vai ao disco e ao ledger, com o sha256, ANTES do contexto do runtime e do adaptador. No
+    // incidente de 12/10/2026 a fase morreu no despacho e o `ork retry run` saiu com "nao ha despacho falho registrado
+    // em GO com prompt gravado"; daqui em diante, toda tentativa deixa o prompt que o retry redespacha sem pedir o texto.
+    gravar(promptPath, prompt);
+    const promptNoLedger = { promptPath: path.relative(raiz, promptPath), promptSha256: sha };
+    if (!opcoes.dryRun) {
+      registrar(dir, thread.id, TIPOS_DE_EVENTO.promptGravado, { fase, slug, modo: thread.modo, runtime, model, effort, cwd,
+        ...promptNoLedger, origem: 'phase.run', canal, ...(opcoes.correlacao ? { correlacao: opcoes.correlacao } : {}), identidade });
+    }
+    const correcaoDoRetry = `ork retry run ${thread.id} redespacha o mesmo prompt (sha256 ${sha.slice(0, 12)})`;
     let contextoRuntime: ContextoRuntime | undefined;
     try { contextoRuntime = contextoDoProjeto(raiz, runtime, cwd, thread.id); }
     catch (e) {
       const erro = `runtime.unavailable: ${(e as Error).message}`;
       registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable',
-        modo: thread.modo, detalhe: erro, fase, slug });
+        modo: thread.modo, detalhe: erro, fase, slug, ...(opcoes.dryRun ? {} : { ...promptNoLedger, correcao: correcaoDoRetry }) });
       return { thread, slug, promptPath, promptSha256: sha, comando: [], sessionId: null,
         verificada: false, pausaAoFim: pausaNaThread(thread, fase), dryRun: opcoes.dryRun === true,
         runtime, model, effort, bloqueado: true, motivo: 'runtime.unavailable', violacoes, erro };
     }
     if (contextoRuntime) contextoRuntime.identidade = identidade;
-    gravar(promptPath, prompt);
     // I-33 (D2, D4, D7): o perfil sai do store com o login conferido. Sem perfil disponivel, o
     // despacho nao sai pela conta errada: o prompt ja gravado fica registrado para a rotacao do
     // retry (outro runtime da ordem de fallback, ou a fila), com o motivo tipado.
@@ -1044,7 +1053,7 @@ function rodarFaseSobLock(
       : undefined;
     // I-33 (N1): lido antes de a sessao existir; depois dela, um commit rapido ja estaria no HEAD.
     const headNoDespacho = fase === 'GO' && runtime === 'codex' && !opcoes.dryRun ? headDaWorktree(cwd) : undefined;
-    const resultado = rt.despachar({
+    const pedidoAoRuntime: PedidoDeDespacho = {
       prompt,
       nome: slug,
       cwd,
@@ -1065,8 +1074,7 @@ function rodarFaseSobLock(
       ...(limites ? { duracaoMaximaMs: limites.duracaoMs } : {}),
       // I-36 (D4): a sessao filha herda a identidade do despacho e o canal; e assim que ela reentra.
       ambienteExtra: ambienteDaConducao(identidade.dispatchId, thread.id, canal),
-    });
-
+    };
     const ctx: ContextoDeDespacho = {
       identidade,
       canal,
@@ -1087,6 +1095,20 @@ function rodarFaseSobLock(
       ...(perfil ? { perfil } : {}),
       ...(headNoDespacho !== undefined ? { headNoDespacho } : {}),
     };
+    let resultado: ResultadoDeDespacho;
+    try { resultado = rt.despachar(pedidoAoRuntime); }
+    catch (e) {
+      // RM-063 (F3): o adaptador que lanca (o daemon do runtime fora do ar) deixa no ledger a falha do despacho com o
+      // prompt e o sha256, e o gate tipado que o `ork retry run` le; o erro segue para quem chamou, como antes.
+      if (!opcoes.dryRun) {
+        const erro = `runtime.unavailable: o runtime adapter lancou no despacho: ${(e as Error).message}`;
+        registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, { ...dadosDoDespacho(ctx, []), erro });
+        registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
+          detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger,
+          evidencia: 'excecao real do runtime adapter no despacho, nao relato do agente' });
+      }
+      throw e;
+    }
     const comum = dadosDoDespacho(ctx, resultado.comando);
 
     if (opcoes.dryRun) {
@@ -1113,11 +1135,15 @@ function rodarFaseSobLock(
 
     if (!resultado.ok || !resultado.sessionId) {
       const erro = resultado.erro ?? 'sem sessionId na saida do runtime';
+      // RM-063 (F3, GO-FIX): o `claude --bg` que sai com erro, ou estoura o prazo, depois de dizer o id deixa a sessao
+      // aberta; o id vai a falha e ao gate, para o retry conferir que ela morreu antes de redespachar.
+      const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dir, thread.id, TIPOS_DE_EVENTO.despachoFalhou, {
         ...comum,
         controlador: resultado.controlador,
         erro,
         stderr: resultado.stderr.slice(0, 500),
+        ...daSessao,
       });
 
       // I-33 (D1, D5): a CONTA recusou o despacho. Nada rodou, entao nada foi produzido: o perfil
@@ -1201,6 +1227,11 @@ function rodarFaseSobLock(
           motivo: impedimento.motivo, violacoes, naFila: null, erro: `${impedimento.motivo}: ${impedimento.trecho}` };
       }
 
+      // RM-063 (F3): a falha seca do adaptador vira gate tipado, com o prompt e o sha256. Antes so o `phase_dispatch_failed`
+      // a registrava: o `ork retry plan` nao a via e a fase ficava parada sem ninguem saber.
+      registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'runtime.unavailable', modo: thread.modo,
+        detalhe: erro, correcao: correcaoDoRetry, fase, slug, runtime, origem: 'phase.run', ...promptNoLedger, ...daSessao,
+        evidencia: 'saida real do runtime adapter no despacho, nao relato do agente' });
       return {
         thread,
         slug,

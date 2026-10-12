@@ -24,6 +24,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   sessão com o turno encerrado sem resultado deixa a vaga do `ork phase run` depois de 15 min sem atividade; e o prompt
   de fase pede verify, build e suíte em primeiro plano, nunca com `&`. O modo continua desligado: `#Noctum` não é
   aceito e nenhum comando abre ou executa arco.
+- **Design system Partitura no repositório** ([docs/design](docs/design/README.md)): o kit do Claude Design do dono (tokens
+  em `docs/design/partitura/`, marca em `docs/design/marca/`, manual, brand kit, componentes, diretrizes e revisão de
+  copy) entra no repositório, com um README de entrada e um apontamento no `AGENTS.md` para toda sessão que mexer em UI,
+  design, frontend, componentes visuais ou layout. Em conflito, a Partitura vence o `tokens.css` legado.
 - **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
   `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
   `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
@@ -53,6 +57,55 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   depois de um bloco que passou do CHECK, e a pendência do dono segura tudo. `bater` e `desligar`
   mantêm a presença, uma por máquina, com `sentinela_ligada` e `sentinela_desligada` no ledger do projeto só na troca.
   O guia `docs/guias/conducao-pela-sentinela.md` diz ao condutor externo como ceder o despacho enquanto ela conduz.
+- **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
+  arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
+  em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que
+  `ork adapter install` põe no `CLAUDE.md` (ou no `AGENTS.md` do Codex) e os sete arquivos do `ork docs init`, que passa
+  a imprimir em inglês também. Chaves, valores e marcadores não mudam, nem o que o `ork docs verificar` lê nas páginas
+  (frontmatter, nomes das seções e a linha `Em uma frase` seguem em pt-BR); o pt-BR segue igual byte a byte. Rodar
+  `ork init` de novo regrava o bloco do `AGENTS.md` na língua do momento, e o bloco da experiência é reconhecido nas
+  duas línguas na reinstalação e na remoção. A referência do CLI ganha a versão em inglês,
+  [`docs/referencia/cli.en.md`](docs/referencia/cli.en.md), ligada à de pt-BR e conferida por teste. O catálogo vai de
+  835 para 877 entradas.
+- **Conhecimento escrito, fatia 1: o contrato e a leitura** ([RM-026](docs/roadmap/RM-026-workspace-empresarial.md)):
+  o bloco `conhecimento: { dir }` do `orkastery.yaml` declara uma pasta de documentos Markdown no contrato
+  `ork.conhecimento/v1` ([contrato](docs/referencia/contratos/conhecimento-rm026.md)), com frontmatter fechado: `id`
+  (`doc-...`), `titulo`, `colecoes` e `referencias` a ids do Brain e a decisões `thread#linha` do ledger. O núcleo lê a
+  pasta e devolve os documentos válidos, as coleções e as lacunas tipadas: documento inválido ou referência que não
+  confere nunca entra na resposta. A decisão confere no ledger canônico da thread, com a fonte e o sha256 da linha que a
+  captura do Brain grava; o id do Brain confere só pela forma até a fatia 2. A pasta segue a fronteira da RM-047: fica
+  dentro da raiz pelo caminho real, link não é seguido e nada é executado. Ainda sem CLI pública nem tools MCP (fatias
+  2 e 3); projeto sem o bloco segue igual.
+- **Batida da fábrica instalada e vigiada pelo `ork`** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F1):
+  `ork fabrica batida instalar|status|remover`. O `instalar` põe no crontab desta máquina, de forma idempotente, a
+  linha do template `monitor/pulse.cron` com o checkout canônico (`ORK_PULSE_PROJECT`), o PATH que acha `node`,
+  `claude` e o transporte, e a marca `# ork-batida`; preserva as outras entradas, nunca grava sem ler e confere
+  relendo. O `remover` tira só a linha marcada; o `status` diz a linha e a última rodada do `hitl.log`, com a idade,
+  e sai 1 sem a batida. Os eventos novos `batida_instalada` e `batida_removida` vão ao ledger da máquina
+  (`~/.orkastery/ledger.jsonl`). O crontab é lido como o cron e o `sh` o leem (linha de ambiente que vale para as
+  entradas seguintes, aspas, `~` e `$HOME`), e o que mudou entre a leitura e a gravação não é sobrescrito. O
+  `ork doctor` passa a reprovar quando o projeto tem thread aberta e não há batida deste projeto, com ou sem
+  `pulse-host.json`, com a correção `ork fabrica batida instalar`; uma rodada de até 30 min no `hitl.log` prova a
+  batida de outro agendador. Antes, sem transporte, ele calava, e o maquina-b ficou de 03/10 a 12/10/2026 sem varredura.
+
+### Corrigido
+
+- **Superfícies honestas: "sigo" só com sessão viva** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F2): o
+  `ork roadmap status` (o fecho "O que eu faço em seguida", também no MCP e na visão da rede) só diz `sigo <thread> na fase <F>` com a sessão viva verificada no runtime (`claude agents --json --all` de cada conta e os rollouts do
+  Codex) ou com o processo do condutor conduzindo agora; sessão fantasma, despacho falho e nenhuma sessão viram
+  `<thread> parada desde HH:MM: <motivo>`. O "O que precisa de você" lê a mesma fila do `ork pulse`
+  (`precisaDeHumanoAgora`, sem forja e sem registrar) e nunca diz "Nada agora" com item do dono nela, nem com a fila
+  lida pela metade; o campo aditivo `filaDoDono` leva os itens no `--json`. O `ork fabrica` e o `FABRICA.md` ganham a
+  coluna da sessão de cada thread (`viva` ou `parada desde HH:MM`), publicada no retrato (`sessao`, opcional). Em
+  12/10/2026 o status disse "Nada agora" e "sigo" com o despacho da K7 morto e o pulse contando 3.
+- **Retry que sempre tem o prompt** ([RM-063](docs/roadmap/RM-063-fabrica-que-nao-para.md), F3): o `ork phase run`
+  grava o prompt e o evento `phase_prompt_recorded` (prompt e sha256) antes de chamar o adaptador; a falha seca do
+  adaptador e a exceção dele viram `gate_blocked runtime.unavailable` com o prompt e o sha256. O `ork retry run`
+  acha o prompt pelo despacho da sessão do gate, pelo próprio gate ou pela tentativa mais recente da fase, localiza o
+  arquivo pelo sha256, só dentro do projeto (o caminho gravado da worktree não resolvia do checkout), e redespacha o
+  mesmo sha256 sem pedir o texto. Antes de redespachar, confere no runtime que nenhuma sessão viva trabalha na thread
+  (o `claude --bg` lento devolve erro com a sessão aberta): com ela, ou sem resposta do runtime, nada sai e a tentativa
+  não conta. Antes saía com "não há despacho falho registrado em GO com prompt gravado".
 
 ## [0.5.5] - 2026-10-12
 
