@@ -9,7 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { projetoTemporario } from './apoio';
+import { envPtBr, projetoTemporario } from './apoio';
 import { lerLedger } from '../src/ledger';
 import { ARQUIVO_DO_PEDIDO, dirThread, gravarThread, lerThread, novaThread, pedidoDaThread, prepararPedido, TETO_DO_PEDIDO } from '../src/thread';
 
@@ -18,8 +18,9 @@ const PEDIDO = '  Implementar a fatia X do plano dos mods.\n\nCriterio: o teste 
 const TEXTO = PEDIDO.trim();
 const SHA = createHash('sha256').update(TEXTO).digest('hex');
 
+// RM-061 (D13): o thread new segue o locale; o teste le o texto pt-BR, entao fixa o pt-BR no filho.
 function ork(dir: string, ...args: string[]) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8' });
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: envPtBr() });
 }
 
 test('S1 a thread criada com pedido guarda o texto em pedido.md, e o sha256 no thread.json e no thread_created', () => {

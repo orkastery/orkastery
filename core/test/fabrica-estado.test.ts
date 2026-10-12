@@ -23,7 +23,7 @@ import { gravarCadencia } from '../src/pulse-cadencia';
 import { varrerPulse } from '../src/pulse-delivery';
 import { dirThread, lerThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
-import { commitar, dirTemporario, projetoTemporario } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const brt = (hhmm: string, dia = '2026-09-27') => new Date(`${dia}T${hhmm}:00-03:00`).toISOString();
@@ -53,7 +53,8 @@ function duasMaquinas(nome: string) {
 }
 
 function ork(dir: string, args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 60000 });
+  // RM-061 (D13): os testes leem o texto de thread new em pt-BR; o locale de quem roda nao entra.
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8', env: envPtBr({ ...process.env, ...env }), timeout: 60000 });
 }
 
 test('duas maquinas: cada uma publica o seu retrato e ve o da outra, com a verdade do git por cima', () => {

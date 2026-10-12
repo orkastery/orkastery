@@ -15,7 +15,7 @@ import * as path from 'node:path';
 import { lerLedger } from '../src/ledger';
 import { resolverDespacho, rodarFase, tabelaDoLedger } from '../src/phase';
 import { dirThread, novaThread } from '../src/thread';
-import { ajustarManifesto, projetoTemporario, runtimeFalso } from './apoio';
+import { ajustarManifesto, envPtBr, projetoTemporario, runtimeFalso } from './apoio';
 
 const ORK = path.resolve(__dirname, '../../dist/index.js');
 
@@ -164,7 +164,8 @@ test('o ensaio devolve o par resolvido e continua sem tocar no ledger', () => {
   const saida = execFileSync(
     process.execPath,
     [ORK, 'phase', 'run', thread.id, 'GOAL', '--prompt', 'mapear o objetivo', '--model', 'fable', '--dry-run'],
-    { cwd: p.dir, encoding: 'utf8' }
+    // RM-061 (D13): o teste le o resumo em pt-BR; o locale de quem roda nao entra.
+    { cwd: p.dir, encoding: 'utf8', env: envPtBr() }
   );
   assert.ok(saida.includes('modelo/esforco : fable/high'), saida);
 

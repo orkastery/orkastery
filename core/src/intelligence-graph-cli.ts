@@ -49,17 +49,33 @@ const RECUSA_DOS_ANALISADORES = 'grafo.parser.indisponivel';
  * de `MODULOS_DO_EXTRATOR`, para a redacao nao entrar na chave do indice; a versao vem de quem chama
  * (o `index.ts`), porque o CLI do grafo so importa a propria familia (fronteira do KG3).
  */
-export function correcaoDosAnalisadores(motivo: string, versao?: string): string {
-  if (/ERR_REQUIRE_ESM/.test(motivo)) {
-    return `o micromark e so ESM, e este Node (${process.version}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, ` +
-      'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)';
-  }
+export function correcaoDosAnalisadores(motivo: string, versao?: string,
+  redacao: RedacaoDosAnalisadores = REDACAO_DOS_ANALISADORES): string {
+  if (/ERR_REQUIRE_ESM/.test(motivo)) return redacao.soEsm(process.version);
   // Sem a versao do pacote (`0.0.0-desconhecida` quando o package.json dele nao e achado), o comando
   // sai sem `@<versao>` e o npm instala a ultima publicada.
   const fixada = versao && /^\d+\.\d+\.\d+/.test(versao) && !versao.startsWith('0.0.0') ? `@${versao}` : '';
-  return `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${fixada}` +
-    ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)';
+  return redacao.reinstale(fixada);
 }
+
+/**
+ * RM-061 (F2a): a redacao do check e da correcao. A familia do grafo nao importa o catalogo de mensagens
+ * (fronteira do KG3): o pt-BR mora aqui, para o `ork grafo status`, e o doctor passa a do catalogo, no
+ * locale do comando. Um teste confere que o pt-BR do catalogo e este.
+ */
+export interface RedacaoDosAnalisadores {
+  recusa: (motivo: string) => string;
+  soEsm: (versaoDoNode: string) => string;
+  reinstale: (fixada: string) => string;
+}
+
+export const REDACAO_DOS_ANALISADORES: RedacaoDosAnalisadores = {
+  recusa: (motivo) => `${motivo}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`,
+  soEsm: (versaoDoNode) => `o micromark e so ESM, e este Node (${versaoDoNode}) nao o carrega por require: use Node 20.19, 22.12 ou mais novo, ` +
+    'sem a opcao --no-experimental-require-module (na linha de comando ou no NODE_OPTIONS)',
+  reinstale: (fixada) => `reinstale o ork global, que traz os analisadores como dependencias: npm install -g @orkastery/cli${fixada}` +
+    ' (instalado dentro de um projeto ou pelo npx, o npm deixa os analisadores fora do pacote do ork, e o grafo os recusa)',
+};
 
 /** O check do `ork doctor`, na forma do `Check` do nucleo (`types.ts`, que o CLI do grafo nao importa). */
 export interface CheckDosAnalisadores { nome: string; nivel: 'ok' | 'warn'; detalhe: string; correcao?: string }
@@ -72,16 +88,15 @@ export interface CheckDosAnalisadores { nome: string; nivel: 'ok' | 'warn'; deta
  * `index.ts` passa este check ao doctor, que nao importa o grafo.
  */
 export function checarAnalisadoresDoGrafo(versao?: string, carregar: () => unknown = carregarAnalisadores,
-  versoes: () => VersoesDosAnalisadores = versoesDosAnalisadores): CheckDosAnalisadores {
+  versoes: () => VersoesDosAnalisadores = versoesDosAnalisadores,
+  redacao: RedacaoDosAnalisadores = REDACAO_DOS_ANALISADORES): CheckDosAnalisadores {
   const nome = 'analisadores do grafo';
   try {
     carregar();
     return { nome, nivel: 'ok', detalhe: descreverVersoes(versoes()) };
   } catch (e) {
     const motivo = (e as Error).message;
-    return { nome, nivel: 'warn',
-      detalhe: `${motivo}: o ork grafo indexar recusa nesta instalacao, e sem o indice as consultas e as tools ork_grafo_* tambem`,
-      correcao: correcaoDosAnalisadores(motivo, versao) };
+    return { nome, nivel: 'warn', detalhe: redacao.recusa(motivo), correcao: correcaoDosAnalisadores(motivo, versao, redacao) };
   }
 }
 /** O mesmo schema da amostra do KG2: as amostras auditadas continuam validas. */

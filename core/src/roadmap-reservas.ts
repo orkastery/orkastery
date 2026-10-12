@@ -20,6 +20,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { buscarBranch, git, gravarNaBranch, jsonsDaPonta, OpcoesDeGit, pontaLocal } from './branch-de-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { ErroDoCatalogo } from './locale';
 import { registrarSeExiste, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina } from './maquina';
 import { dirThread, lerThread, listarIds } from './thread';
@@ -104,14 +105,15 @@ const PREFIXO = 'roadmap';
 /** O item precisa existir no roadmap do projeto (`docs/roadmap/RM-NNN-*.md`). */
 export function exigirItem(raiz: string, item: string): string {
   const id = item.trim().toUpperCase();
-  if (!ITEM.test(id)) throw new Error(`roadmap.item: "${item}" nao e um item do roadmap (esperado RM-NNN)`);
+  // RM-061 (D14): `thread new --roadmap` chama isto no escopo pt-BR da reserva; a entrada do CLI remonta no locale dele.
+  if (!ITEM.test(id)) throw new ErroDoCatalogo((m) => m.thread.roadmapItemInvalido(item));
   const dir = path.join(raiz, 'docs', 'roadmap');
   const doItem = (f: string) => path.basename(f).startsWith(`${id}-`) && f.endsWith('.md');
   const naArvore = fs.existsSync(dir) && fs.readdirSync(dir).some(doItem);
   // O checkout pode estar numa branch antiga, sem o item: vale tambem o que a main ja tem.
   const naBase = !naArvore && ['main', 'origin/main'].some((ref) =>
     git(raiz, ['ls-tree', '--name-only', ref, '--', 'docs/roadmap/']).stdout.split('\n').some(doItem));
-  if (!naArvore && !naBase) throw new Error(`roadmap.item: ${id} nao existe em docs/roadmap`);
+  if (!naArvore && !naBase) throw new ErroDoCatalogo((m) => m.thread.roadmapItemInexistente(id));
   return id;
 }
 

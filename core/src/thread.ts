@@ -24,6 +24,8 @@ import { readCreationOperation, withCreationLock, writeCreationJson } from './cr
 import { formatarDataHoraRotulada } from './horario';
 import { nomeDaMaquina } from './maquina';
 import { linhaDeConducao } from './conducao-texto';
+import { ErroDoCatalogo, msg } from './locale';
+import { CasoSemWorktree } from './locale-thread';
 
 /** Diretorio de threads do projeto. */
 export function dirThreads(raiz: string): string {
@@ -55,7 +57,7 @@ export function listarIds(raiz: string): string[] {
 export function lerThread(raiz: string, id: string): Thread {
   const caminho = caminhoThread(raiz, id);
   if (!fs.existsSync(caminho)) {
-    throw new Error(`thread "${id}" nao encontrada em ${dirThreads(raiz)}`);
+    throw new Error(msg().thread.naoEncontrada(id, dirThreads(raiz)));
   }
   return lerJson<Thread>(caminho);
 }
@@ -82,11 +84,7 @@ function carimbarBase(raiz: string): { branch: string; commit: string } {
  */
 export function avisoDeThreadSemBase(thread: Thread, gravada: boolean): string | null {
   if (thread.base.commit !== COMMIT_DESCONHECIDO) return null;
-  return gravada
-    ? `Aviso: o repositório ainda não tem commit, e a thread ${thread.id} nasceu sem base: o ship não tem de onde partir. ` +
-      `Faça o primeiro commit, feche esta com ork thread close ${thread.id} --motivo engano --por <quem> ` +
-      '--justificativa "aberta antes do primeiro commit" e abra outra.'
-    : 'Aviso: o repositório ainda não tem commit, e a thread nasceria sem base: faça o primeiro commit antes de abrir a primeira thread.';
+  return msg().thread.semBase(thread.id, gravada);
 }
 
 /** Resolve um id livre a partir do assunto normalizado (`<abbrev>-<assunto>`). */
@@ -245,12 +243,10 @@ export function pedidoDeWorktree(
   porThread: boolean
 ): PedidoDeWorktree {
   const worktree = flags.worktree === false ? undefined : flags.worktree;
-  if (typeof worktree === 'string' && !worktree.trim()) throw new Error('uso: --worktree pede auto ou um diretório que já existe');
-  if (typeof flags.semWorktree === 'string') {
-    throw new Error(`uso: --sem-worktree não leva valor (recebeu "${flags.semWorktree}")`);
-  }
+  if (typeof worktree === 'string' && !worktree.trim()) throw new Error(msg().thread.worktreeVazia);
+  if (typeof flags.semWorktree === 'string') throw new Error(msg().thread.semWorktreeComValor(flags.semWorktree));
   const semWorktree = flags.semWorktree === true;
-  if (semWorktree && worktree !== undefined) throw new Error('uso: --worktree e --sem-worktree se excluem; use um dos dois');
+  if (semWorktree && worktree !== undefined) throw new Error(msg().thread.worktreeESemWorktree);
   if (semWorktree) return { criar: false, dir: null, origem: 'sem-worktree' };
   if (worktree === true || worktree === 'auto') return { criar: true, dir: null, origem: 'flag' };
   if (typeof worktree === 'string') return { criar: false, dir: worktree, origem: 'diretorio' };
@@ -267,12 +263,10 @@ export function linhaDaWorktree(
   variante?: VarianteDeCiclo | null
 ): string | null {
   if (!por || (gravada && por !== 'chave')) return null;
-  const verbo = gravada ? 'criada' : 'seria criada';
-  if (por === 'chave') {
-    return `  worktree: ${verbo} pela chave worktree.por_thread do orkastery.yaml; para criar sem ela, use --sem-worktree`;
-  }
-  if (por === 'flag') return `  worktree: ${verbo} pelo --worktree auto`;
-  return `  worktree: ${verbo} pelo ciclo ${variante ?? 'da thread'}, que exige worktree isolada`;
+  const m = msg().thread;
+  if (por === 'chave') return m.worktreeChave(gravada);
+  if (por === 'flag') return m.worktreeFlag(gravada);
+  return m.worktreeCiclo(gravada, variante ?? null);
 }
 
 /**
@@ -284,29 +278,13 @@ export function linhaDaWorktree(
 export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto, gravada = true): string {
   const base = manifesto.worktree.base_branch;
   const branch = thread.base.branch;
-  const inicio = gravada
-    ? `Aviso: thread ${thread.id} sem worktree (--sem-worktree): ela trabalha na raiz do projeto`
-    : `Aviso: sem worktree (--sem-worktree), a thread ${thread.id} trabalharia na raiz do projeto`;
-  const ensure = `Antes do GO, ork worktree ensure ${thread.id} cria a worktree e a branch da thread`;
-  if (thread.base.commit === COMMIT_DESCONHECIDO) {
-    // Sem commit, nem o `ork worktree ensure` tem de onde partir: o caminho e o do aviso de thread sem base.
-    return `${inicio}, num repositório ainda sem commit, fora de qualquer branch, e o ork ship não tem branch de origem ` +
-      'para entregar. Faça o primeiro commit e siga o aviso de thread sem base.';
-  }
-  if (branch === 'HEAD') {
-    return `${inicio}, com o HEAD destacado, fora de qualquer branch, e o ork ship não tem branch de origem para entregar. ${ensure}.`;
-  }
-  if (branch !== base) {
-    return `${inicio}, na branch ${branch}, e o ork ship entrega essa branch como estiver, com o que mais entrar nela; ` +
-      `com --para ${branch}, a entrega vira push direto, que a policy push_direto_na_base confere. ${ensure}.`;
-  }
+  const aviso = (c: CasoSemWorktree) => msg().thread.avisoSemWorktree(thread.id, gravada, c);
+  // Sem commit, nem o `ork worktree ensure` tem de onde partir: o caminho e o do aviso de thread sem base.
+  if (thread.base.commit === COMMIT_DESCONHECIDO) return aviso({ caso: 'sem-commit' });
+  if (branch === 'HEAD') return aviso({ caso: 'head' });
+  if (branch !== base) return aviso({ caso: 'outra', branch });
   const policy = manifesto.policies?.push_direto_na_base;
-  const efeito = policy === 'block'
-    ? 'o ork ship barra a entrega por push_direto_na_base (block): não há branch de thread para mergear'
-    : policy === undefined || policy === 'off'
-      ? 'o ork ship empurra a base direto, sem branch de thread (push_direto_na_base desligada)'
-      : `o ork ship avisa push_direto_na_base (${policy}) e empurra a base direto, sem branch de thread`;
-  return `${inicio}, na branch base ${base}, e ${efeito}. ${ensure}; depois do GO, os commits já estão na base e o ship não os separa.`;
+  return aviso({ caso: 'base', base, policy: policy === undefined ? undefined : String(policy) });
 }
 
 /**
@@ -314,21 +292,12 @@ export function avisoDeThreadSemWorktree(thread: Thread, manifesto: Manifesto, g
  * O ciclo que exige worktree nao aceita `--sem-worktree`, entao a saida so e sugerida para a chave e a flag.
  */
 export function avisoDeWorktreeQueFalharia(f: { motivo: FalhaDaWorktree; dir: string; branch: string; por: OrigemDaWorktree }): string {
-  const semWorktree = f.por === 'ciclo' ? '' : ' ou crie com --sem-worktree';
-  if (f.motivo === 'pasta-existe') {
-    return `Aviso: a pasta ${f.dir} já existe, e a criação de verdade recusaria a worktree da thread: tire a pasta${semWorktree}.`;
-  }
-  if (f.motivo === 'branch-existe') {
-    return `Aviso: a branch ${f.branch} já existe, e a criação de verdade recusaria a worktree da thread: tire a branch${semWorktree}.`;
-  }
-  return 'Aviso: o repositório ainda não tem commit, e a criação de verdade recusaria a worktree da thread no git worktree add: ' +
-    'faça o primeiro commit antes.';
+  return msg().thread.worktreeFalharia(f.motivo, f.dir, f.branch, f.por === 'ciclo');
 }
 
 /** P4 do ensaio da 0.5.0: a worktree que a chave pede nao tem de onde partir num repositorio sem commit. */
 export function avisoDeChaveSemCommit(gravada: boolean): string {
-  return 'Aviso: worktree.por_thread pede a worktree da thread, mas o repositório ainda não tem commit: ' +
-    `a thread ${gravada ? 'nasceu' : 'nasceria'} na raiz do projeto, sem worktree.`;
+  return msg().thread.chaveSemCommit(gravada);
 }
 
 /** P4: o aviso de worktree do `ork thread new`, para o stderr, ou `null` quando nao ha o que avisar. */
@@ -391,9 +360,9 @@ export const TETO_DO_PEDIDO = 64 * 1024;
 /** O pedido como ele vai ser guardado: sem espaco nas pontas, nao vazio e dentro do teto. */
 export function prepararPedido(bruto: string): { texto: string; meta: PedidoDaThread } {
   const texto = bruto.trim();
-  if (!texto) throw new Error('thread.pedido.invalido: o pedido esta vazio');
+  if (!texto) throw new ErroDoCatalogo((m) => m.thread.pedidoVazio);
   const bytes = Buffer.byteLength(texto, 'utf8');
-  if (bytes > TETO_DO_PEDIDO) throw new Error(`thread.pedido.invalido: o pedido tem ${bytes} bytes, e o teto e ${TETO_DO_PEDIDO}`);
+  if (bytes > TETO_DO_PEDIDO) throw new ErroDoCatalogo((m) => m.thread.pedidoGrande(bytes, TETO_DO_PEDIDO));
   return { texto, meta: { arquivo: ARQUIVO_DO_PEDIDO, sha256: createHash('sha256').update(texto, 'utf8').digest('hex'), bytes } };
 }
 
@@ -475,10 +444,7 @@ export function exigirVarianteCompativel(variante: VarianteDeCiclo, def: Definic
   if (!definicaoDaVariante(variante).mudaBlocos) return;
   const [unico, ...resto] = def.blocos;
   if (unico && resto.length === 0 && unico.fases.length < FASES.length) {
-    throw new Error(
-      `o ciclo ${variante} redesenha os blocos e o modo ${def.tag} tem um bloco so ` +
-        `(${unico.fases.join('-')}): crie a thread sem --ciclo ou escolha um modo de ciclo completo`
-    );
+    throw new ErroDoCatalogo((m) => m.thread.varianteIncompativel(variante, def.tag, unico.fases.join('-')));
   }
 }
 
@@ -486,15 +452,14 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const { raiz, manifesto } = carregado;
   const permitidos = manifesto.conduction.allowed_modes;
   if (!permitidos.includes(opcoes.modo)) {
-    throw new Error(
-      `modo ${MODOS[opcoes.modo].tag} fora de conduction.allowed_modes ` +
-        `(permitidos: ${permitidos.map((m) => MODOS[m].tag).join(', ')})`
-    );
+    const tag = MODOS[opcoes.modo].tag, lista = permitidos.map((p) => MODOS[p].tag).join(', ');
+    throw new ErroDoCatalogo((m) => m.thread.modoNaoPermitido(tag, lista));
   }
 
   const assuntoBruto = normalizarAssunto(opcoes.assunto ?? opcoes.nome);
   if (!assuntoBruto) {
-    throw new Error(`nome "${opcoes.nome}" nao produz assunto valido (esperado [a-z0-9])`);
+    const nome = opcoes.nome;
+    throw new ErroDoCatalogo((m) => m.thread.nomeSemAssunto(nome));
   }
   // RM-059 (T6.0): o pedido e conferido antes de qualquer gravacao, tambem no ensaio.
   const pedido = opcoes.pedido !== undefined ? prepararPedido(opcoes.pedido) : null;
@@ -509,18 +474,17 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   if (variante) {
     const dv = definicaoDaVariante(variante);
     if (dv.exigeBranch && !opcoes.branch) {
-      throw new Error(
-        `o ciclo ${variante} parte de uma branch que ja existe: informe --branch <branch>`
-      );
+      throw new ErroDoCatalogo((m) => m.thread.cicloExigeBranch(variante));
     }
-    if (opcoes.branch) {
-      const existe = exec('git', ['rev-parse', '--verify', `refs/heads/${opcoes.branch}`], raiz);
+    const branch = opcoes.branch;
+    if (branch) {
+      const existe = exec('git', ['rev-parse', '--verify', `refs/heads/${branch}`], raiz);
       if (!existe.ok) {
-        throw new Error(`branch "${opcoes.branch}" nao existe neste repositorio`);
+        throw new ErroDoCatalogo((m) => m.thread.branchInexistente(branch));
       }
     }
   } else if (opcoes.branch) {
-    throw new Error('--branch so vale com --ciclo merge-branch');
+    throw new ErroDoCatalogo((m) => m.thread.branchSemCiclo);
   }
   // `greenfield`, `merge-branch` e `feature-xl-faseada` exigem worktree isolada: sao os
   // ciclos que escrevem codigo em paralelo com outras threads.
@@ -563,7 +527,7 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const slug = opcoes.slug ?? montarSlug(abbrev, assunto, blocos[0].slugFases);
   // O override `--slug` do builder tambem passa pela regex canonica.
   if (!slugValido(slug)) {
-    throw new Error(`slug invalido: "${slug}" (regex canonica: ${REGEX_SLUG.source})`);
+    throw new ErroDoCatalogo((m) => m.thread.slugInvalido(slug, REGEX_SLUG.source));
   }
 
   const thread: Thread = {
@@ -627,8 +591,9 @@ function criarThreadSerializada(carregado: ManifestoCarregado, opcoes: OpcoesNov
   const ocupadaPelaChave = pelaChave && !exigeWorktree && prevista &&
     (prevista.falha === 'pasta-existe' || prevista.falha === 'branch-existe') ? prevista : null;
   if (ocupadaPelaChave) {
-    const qual = ocupadaPelaChave.falha === 'pasta-existe' ? `a pasta ${ocupadaPelaChave.dir}` : `a branch ${ocupadaPelaChave.branch}`;
-    throw new Error(`${qual} já existe, e a chave worktree.por_thread pede a worktree da thread: tire-a ou crie com --sem-worktree`);
+    const pasta = ocupadaPelaChave.falha === 'pasta-existe';
+    const alvo = pasta ? ocupadaPelaChave.dir : ocupadaPelaChave.branch;
+    throw new ErroDoCatalogo((m) => m.thread.ocupadaPelaChave(pasta, alvo));
   }
 
   let worktreeCriada: WorktreeDaThread | null = null;
@@ -712,38 +677,37 @@ export function canalDaSessao(s: SessaoDaThread): CanalDeConducao | 'desconhecid
 
 export function resumoDaThread(thread: Thread, conducao?: ConducaoAtual | null): string {
   const def = definicaoDoModo(thread.modo);
+  const m = msg().thread, r = m.rotulos;
+  // RM-061 (F2a): o rotulo vem do catalogo, na largura do locale; o valor gravado (nome, criterio) sai como esta.
+  const campo = (rotulo: string, valor: string) => `  ${rotulo.padEnd(m.largura)} ${valor}`;
   const linhas: string[] = [];
-  linhas.push(`  id        ${thread.id}`);
-  linhas.push(`  slug      ${thread.slug}`);
-  linhas.push(`  nome      ${thread.nome}`);
-  linhas.push(`  modo      ${def.tag} (${pausasDaThread(thread)} pausas humanas previstas)`);
-  linhas.push(`  ciclo     ${thread.variante ?? 'padrao do modo'}`);
-  linhas.push(`  fase      ${thread.faseAtual}`);
-  linhas.push(`  status    ${thread.status}`);
-  linhas.push(`  base      ${thread.base.branch} @ ${shaCurto(thread.base.commit)}`);
-  linhas.push(`  worktree  ${thread.worktree ?? '(raiz do projeto)'}`);
+  linhas.push(campo(r.id, thread.id));
+  linhas.push(campo(r.slug, thread.slug));
+  linhas.push(campo(r.nome, thread.nome));
+  linhas.push(campo(r.modo, m.modo(def.tag, pausasDaThread(thread))));
+  linhas.push(campo(r.ciclo, thread.variante ?? m.cicloPadrao));
+  linhas.push(campo(r.fase, thread.faseAtual));
+  linhas.push(campo(r.status, m.status(thread.status)));
+  linhas.push(campo(r.base, `${thread.base.branch} @ ${shaCurto(thread.base.commit)}`));
+  linhas.push(campo(r.worktree, thread.worktree ?? m.raizDoProjeto));
   // I-36 (T17): quem passa a leitura da conducao ve a linha unica; sem ela o resumo fica como era.
-  if (conducao !== undefined) linhas.push(`  conducao  ${conducao ? linhaDeConducao(conducao) : 'ninguem conduz agora'}`);
+  if (conducao !== undefined) linhas.push(campo(r.conducao, conducao ? linhaDeConducao(conducao) : m.ninguemConduz));
   // I-43 (D4, viga a): a exigencia so aparece quando existe, para nao poluir o resumo
   // das threads que nao a declararam.
-  if (thread.exigeRuntimeDiferente === true) {
-    linhas.push('  validacao CHECK em runtime diferente do GO (exigido pela thread)');
-  }
+  if (thread.exigeRuntimeDiferente === true) linhas.push(m.validacao);
   // I-43 (D4, viga b): o criterio aparece COM o comando. Mostrar so o criterio seria
   // reproduzir a prosa do envelope numa tela nova.
   if (thread.doneWhen && thread.doneWhen.length > 0) {
-    linhas.push(`  pronto quando (${thread.doneWhen.length} criterio(s) executaveis)`);
+    linhas.push(m.prontoQuando(thread.doneWhen.length));
     for (const d of thread.doneWhen) linhas.push(`    ${d.criterio}\n      $ ${d.comando}`);
   }
   if (thread.score) {
-    linhas.push(
-      `  score     ${thread.score.valor}/5 por ${thread.score.avaliadoPor} ` +
-        `(${thread.score.regime}) em ${formatarDataHoraRotulada(thread.score.avaliadoEm)}`
-    );
+    linhas.push(campo(r.score, m.score(thread.score.valor, thread.score.avaliadoPor, thread.score.regime,
+      formatarDataHoraRotulada(thread.score.avaliadoEm))));
   }
-  linhas.push('  blocos previstos');
+  linhas.push(m.blocosPrevistos);
   for (const b of thread.blocos) {
-    const marca = b.pausa ? `pausa prevista: ${b.pausaSobre}` : 'sem pausa humana prevista';
+    const marca = b.pausa ? m.pausaPrevista(m.pausaSobre(b.pausaSobre)) : m.semPausa;
     linhas.push(`    ${b.slugFases.padEnd(6)} ${b.fases.join('-').padEnd(18)} ${marca}`);
   }
   return linhas.join('\n');
@@ -818,7 +782,7 @@ export function tabelaDeThreads(raiz: string, opcoes: OpcoesListagem = {}): stri
 export function exigirFase(thread: Thread, bruto: string): Fase {
   const fase = bruto.toUpperCase() as Fase;
   if (!thread.fases.includes(fase)) {
-    throw new Error(`fase invalida: "${bruto}" (esperado uma de ${thread.fases.join(', ')})`);
+    throw new Error(msg().phase.faseInvalida(bruto, thread.fases.join(', ')));
   }
   return fase;
 }

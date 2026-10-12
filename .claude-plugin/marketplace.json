@@ -27,6 +27,13 @@
       "description": "Ponte dos mods do Orkastery no Claude Code: o papel da sessão, a leitura do núcleo, a faixa e os caminhos vigiados com dono único, e a guarda de autoridade que nenhum mod passa.",
       "category": "development",
       "homepage": "https://orkastery.com/"
+    },
+    {
+      "name": "ork-torre",
+      "source": "./marketplaces/claude-code/mods/ork-torre",
+      "description": "Torre de Controle do Orkastery no Claude Code: a fábrica num painel, cada thread aberta numa linha com a fase, quem conduz, o bloqueio e a ação que o estado dela pede. Só lê; ação com efeito vai ao mod dono dela ou aparece como o comando do ork.",
+      "category": "development",
+      "homepage": "https://orkastery.com/"
     }
   ]
 }
