@@ -186,7 +186,7 @@ import { exigirModoVivo, extrairTagAposentadaDoPedido, extrairTagDoPedido, MODOS
 import { migrarModosAposentados, textoDaMigracaoModos } from './modos-migracao';
 import { editarBloco, lerSetup, resetarSetup, textoDaEntrevista, textoDoSetup, versionarSetup } from './setup';
 import {
-  adicionarPerfil, COLUNAS_DE_PERFIS, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
+  adicionarPerfil, desativarPerfil, lerPerfis, lerPerfisComContas, linhasDePerfis, marcarFalhaDePerfil, perfilDeDespacho, PerfilDeDespacho,
   perfisComHorario, prepararDiretorioDoPerfil, reativarPerfil, registrarConferenciaInconclusiva, VARIAVEL_DO_PERFIL,
 } from './runtime-profiles';
 import { ambienteDoPerfil as ambienteDoPerfilClaude, conferirAuth as conferirAuthClaude } from './adapters/claude-bg';
@@ -703,13 +703,15 @@ function comandoAccounts(args: Args): number {
   const raiz = carregado.raiz;
   const sub = args.posicionais[1] ?? 'list';
   const conferir = (p: PerfilDeDespacho) => p.runtime === 'claude-bg' ? conferirAuthClaude(p) : conferirAuthCodex(p);
+  // RM-061 (F3b, D3): o texto pelo catalogo; o que se grava (store de perfis, registro de contas) roda no escopo pt-BR,
+  // e o id, o runtime, o diretorio, o motivo tipado e o detalhe que o CLI do runtime devolve saem como vieram.
+  const ma = msg().accounts;
   const imprimir = () => {
     const store = lerPerfis(raiz);
     if (args.opcoes.json === true) { console.log(JSON.stringify(store, null, 2)); return; }
     // I-49: a tabela mostra o que o despacho enxerga, com o que outra fabrica viu na mesma conta.
     const visto = lerPerfisComContas(raiz);
-    console.log(visto.perfis.length === 0 ? 'Nenhum perfil configurado: cada runtime despacha pelo ambiente do processo.'
-      : tabela(COLUNAS_DE_PERFIS, linhasDePerfis(visto)));
+    console.log(visto.perfis.length === 0 ? ma.semPerfis : tabela([...ma.colunas], linhasDePerfis(visto)));
     // I-35: a tabela mostra horario do dono; o fuso sai uma vez, no fim da mensagem.
     if (perfisComHorario(store)) console.log(legendaDoFuso());
   };
@@ -717,7 +719,7 @@ function comandoAccounts(args: Args): number {
   if (sub === 'add') {
     const id = args.posicionais[2], runtime = texto(args.opcoes.runtime), dirBruto = texto(args.opcoes.dir);
     if (!id || !runtime || !dirBruto) {
-      console.error('uso: ork accounts add <id> --runtime claude-bg|codex --dir <diretorio> [--sem-login]');
+      console.error(ma.usoAdd);
       return 2;
     }
     const dir = path.resolve(dirBruto);
@@ -726,9 +728,9 @@ function comandoAccounts(args: Args): number {
       // A7: diretorio inacessivel ou de outro usuario e recusado antes de qualquer gravacao no store.
       prepararDiretorioDoPerfil(dir);
       const desativado = lerPerfis(raiz).perfis.some(p => p.id === id && p.estado === 'desativado');
-      perfil = adicionarPerfil(raiz, { id, runtime, dir });
-      if (desativado) console.log(`Perfil ${id} reativado: mesmo id, runtime e diretorio do perfil desativado.`);
-    } catch (e) { console.error(`perfil recusado: ${(e as Error).message}`); return 1; }
+      perfil = comLocale('pt-BR', () => adicionarPerfil(raiz, { id, runtime, dir }));
+      if (desativado) console.log(ma.reativado(id));
+    } catch (e) { console.error(ma.recusado(mensagemDoErro(e))); return 1; }
     const despacho = perfilDeDespacho(perfil);
     const variavel = VARIAVEL_DO_PERFIL[perfil.runtime];
     // D13: o login do claude e fixado na assinatura (`--claudeai`), nunca no Console de API.
@@ -738,43 +740,45 @@ function comandoAccounts(args: Args): number {
       const env = perfil.runtime === 'claude-bg' ? ambienteDoPerfilClaude(despacho) : ambienteDoDespachoCodex(process.env, despacho);
       spawnSync(comando[0], comando.slice(1), { stdio: 'inherit', env });
     } else {
-      console.log(`Login pendente: rode ${variavel}=${aspasDeShell(dir)} ${comando.join(' ')} e depois ork accounts check ${id}`);
+      console.log(ma.loginPendente(variavel, aspasDeShell(dir), comando.join(' '), id));
     }
     const auth = conferir(despacho);
     // A14: conferencia inconclusiva nao marca sem-auth; o preflight do proximo despacho confere de novo.
-    if (!auth.ok && !auth.transitorio) marcarFalhaDePerfil(raiz, id, auth.pago
+    if (!auth.ok && !auth.transitorio) comLocale('pt-BR', () => marcarFalhaDePerfil(raiz, id, auth.pago
       ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-    console.log(`Perfil ${id} (${perfil.runtime}) em ${dir}: ${auth.ok ? 'login de assinatura conferido'
-      : auth.transitorio ? `conferencia de login inconclusiva (${auth.detalhe}); o proximo despacho confere de novo`
-      : auth.pago ? `provider pago (${auth.detalhe}); nunca recebe despacho` : `sem login (${auth.detalhe}); fora do rodizio`}`);
+      : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe }));
+    console.log(ma.resultadoAdd(id, perfil.runtime, dir, auth.ok ? ma.conferido
+      : auth.transitorio ? ma.inconclusivaAdd(auth.detalhe)
+      : auth.pago ? ma.pagoAdd(auth.detalhe) : ma.semLoginAdd(auth.detalhe)));
     return 0;
   }
   if (sub === 'remove') {
     const id = args.posicionais[2];
-    if (!id) { console.error('uso: ork accounts remove <id>'); return 2; }
-    try { desativarPerfil(raiz, id); } catch (e) { console.error((e as Error).message); return 1; }
-    console.log(`Perfil ${id} desativado: o diretorio e o login do CLI ficam onde estao.`);
+    if (!id) { console.error(ma.usoRemove); return 2; }
+    try { comLocale('pt-BR', () => desativarPerfil(raiz, id)); } catch (e) { console.error(mensagemDoErro(e)); return 1; }
+    console.log(ma.desativado(id));
     return 0;
   }
   if (sub === 'check') {
     const alvo = args.posicionais[2];
     const perfis = lerPerfis(raiz).perfis.filter(p => p.estado !== 'desativado' && (alvo === undefined || p.id === alvo));
-    if (alvo !== undefined && perfis.length === 0) { console.error(`perfil ativo "${alvo}" nao existe (veja: ork accounts list)`); return 1; }
+    if (alvo !== undefined && perfis.length === 0) { console.error(ma.perfilAtivoNaoExiste(alvo)); return 1; }
     let falhas = 0;
     for (const p of perfis) {
       const auth = conferir(perfilDeDespacho(p));
-      if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+      comLocale('pt-BR', () => {
+        if (auth.ok && (p.estado === 'sem-auth' || p.estado === 'provider-pago')) reativarPerfil(raiz, p.id);
+        if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
+        else if (!auth.ok) {
+          marcarFalhaDePerfil(raiz, p.id, auth.pago
+            ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
+            : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
+        }
+      });
       if (!auth.ok) falhas++;
-      if (!auth.ok && auth.transitorio) registrarConferenciaInconclusiva(raiz, p.id, auth.detalhe);
-      else if (!auth.ok) {
-        marcarFalhaDePerfil(raiz, p.id, auth.pago
-          ? { estado: 'provider-pago', esgotadoAte: null, motivo: 'cost.violation', detalhe: auth.detalhe }
-          : { estado: 'sem-auth', esgotadoAte: null, motivo: 'runtime.auth-missing', detalhe: auth.detalhe });
-      }
-      console.log(`${p.id} (${p.runtime}): ${auth.ok ? 'login de assinatura conferido'
-        : auth.transitorio ? `conferencia de login inconclusiva, estado mantido (${auth.detalhe})`
-        : auth.pago ? `provider pago, nunca despacha (${auth.detalhe})` : `sem login (${auth.detalhe})`}`);
+      console.log(ma.resultadoCheck(p.id, p.runtime, auth.ok ? ma.conferido
+        : auth.transitorio ? ma.inconclusivaCheck(auth.detalhe)
+        : auth.pago ? ma.pagoCheck(auth.detalhe) : ma.semLoginCheck(auth.detalhe)));
     }
     console.log('');
     imprimir();
@@ -784,11 +788,11 @@ function comandoAccounts(args: Args): number {
     // RM-040 (B7): so leitura do registro de contas e dos ledgers dos projetos registrados.
     let relatorio;
     try { relatorio = relatorioDeEsgotamentos({ desde: texto(args.opcoes.desde) ?? '7d' }); }
-    catch (e) { console.error(`${(e as Error).message} (use --desde 7d, 24h, 30m ou uma data ISO)`); return 2; }
+    catch (e) { console.error(ma.periodoInvalido((e as Error).message)); return 2; }
     console.log(args.opcoes.json === true ? JSON.stringify(relatorio, null, 2) : textoDosEsgotamentos(relatorio));
     return 0;
   }
-  console.error(`subcomando desconhecido: accounts ${sub} (use list, add, remove, check ou esgotamentos)`);
+  console.error(ma.desconhecido(sub));
   return 2;
 }
 
