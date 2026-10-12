@@ -70,6 +70,7 @@ import { ACCOUNTS_EN, ACCOUNTS_PT_BR } from './locale-accounts';
 import { NETWORK_EN, NETWORK_PT_BR } from './locale-network';
 import { RESERVAS_EN, RESERVAS_PT_BR } from './locale-reservas';
 import { DOCS_EN, DOCS_PT_BR } from './locale-docs';
+import { ADAPTER_EN, ADAPTER_PT_BR } from './locale-adapter';
 
 export type Locale = 'pt-BR' | 'en';
 export const LOCALE_PADRAO: Locale = 'pt-BR';
@@ -96,7 +97,8 @@ export const COMANDOS_COM_LOCALE: readonly string[] = ['doctor', 'init', 'onboar
   'network status', 'network entrar', 'network sair', 'network publicar', 'network ?',
   'roadmap reservas', 'roadmap pegar', 'roadmap soltar', 'roadmap feat', 'roadmap ?',
   // O contrato que o `docs verificar` le nas paginas (chaves, valores, secoes, marcadores) segue em pt-BR; so a mensagem muda.
-  'docs verificar', 'docs sincronizar', 'docs ?'];
+  'docs verificar', 'docs sincronizar', 'docs ?',
+  'adapter list', 'adapter show', 'adapter install', 'adapter ?'];
 
 /** Os comandos com subcomando: o padrao (sem subcomando) e os conhecidos; o resto vira `?`. */
 const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonly string[] }> = new Map([
@@ -112,6 +114,7 @@ const FAMILIAS: ReadonlyMap<string, { padrao: string | null; conhecidos: readonl
   ['decisao', { padrao: null, conhecidos: ['registrar', 'placar'] }],
   ['accounts', { padrao: 'list', conhecidos: ['list', 'add', 'remove', 'check', 'esgotamentos'] }],
   ['network', { padrao: 'status', conhecidos: ['status', 'entrar', 'sair', 'publicar', 'roadmap'] }],
+  ['adapter', { padrao: 'list', conhecidos: ['list', 'show', 'install'] }],
 ]);
 
 /** A entrada de `COMANDOS_COM_LOCALE` que a linha de comando pede, com o subcomando padrao de cada um. */
@@ -439,6 +442,7 @@ const PT_BR = {
   network: NETWORK_PT_BR,
   reservas: RESERVAS_PT_BR,
   docs: DOCS_PT_BR,
+  adapter: ADAPTER_PT_BR,
   init: {
     foraDoRepositorio: (dir: string) => `init.fora-do-repositorio: ${dir} não está num repositório git; nada foi criado. ` +
       'Entre no repositório do projeto (ou crie um com git init e o primeiro commit) e rode ork init de novo.',
@@ -711,6 +715,7 @@ const EN: Mensagens = {
   network: NETWORK_EN,
   reservas: RESERVAS_EN,
   docs: DOCS_EN,
+  adapter: ADAPTER_EN,
   init: {
     foraDoRepositorio: (dir) => `init.fora-do-repositorio: ${dir} is not inside a git repository; nothing was created. ` +
       'Enter the project repository (or create one with `git init` and a first commit) and run `ork init` again.',

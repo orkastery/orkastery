@@ -102,7 +102,7 @@ import { aprovarGateHumano } from './gates';
 import { abrirPedidoGate, contextoDoPedidoNativo, lerRespostaStdin, responderGate } from './hitl-gates';
 import { exportarHandoff, recall, textoDoHandoff } from './handoff';
 import {
-  HOSTS,
+  destinoPadraoDe,
   instalarAdaptador,
   ORDEM_DOS_HOSTS,
   parseHost,
@@ -3210,6 +3210,7 @@ function orkEmExecucao(): string | undefined {
 
 function comandoAdapter(args: Args): number {
   const sub = args.posicionais[1] ?? 'list';
+  const ma = msg().adapter;
 
   if (sub === 'list') {
     console.log(tabelaDeHosts());
@@ -3219,13 +3220,12 @@ function comandoAdapter(args: Args): number {
   if (sub === 'show') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
-    const def = HOSTS[host];
-    console.log(`Adaptador ${host}`);
-    console.log(`  ${def.descricao}`);
-    console.log(`  destino padrao: <projeto>/${def.destinoPadrao}${def.subdir ? '/' + def.subdir : ''}`);
+    console.log(ma.adaptador(host));
+    console.log(`  ${ma.hosts[host].descricao}`);
+    console.log(`  ${ma.destinoPadrao(destinoPadraoDe(host))}`);
     console.log('');
     console.log(textoDosPitfalls(host));
     return 0;
@@ -3234,11 +3234,12 @@ function comandoAdapter(args: Args): number {
   if (sub === 'install') {
     const host = parseHost(args.posicionais[2]);
     if (!host) {
-      console.error(`host desconhecido: "${args.posicionais[2] ?? ''}". Use: ${ORDEM_DOS_HOSTS.join(' | ')}`);
+      console.error(ma.hostDesconhecido(args.posicionais[2] ?? '', ORDEM_DOS_HOSTS.join(' | ')));
       return 2;
     }
     const carregado = carregarManifesto();
-    const r = instalarAdaptador(host, {
+    // RM-061 (F3b, G4): instala no escopo pt-BR; os avisos nascem pelo catalogo e o texto os remonta no locale do comando.
+    const r = comLocale('pt-BR', () => instalarAdaptador(host, {
       projeto: carregado?.raiz ?? diretorioDoProjeto(),
       dir: texto(args.opcoes.dir),
       dryRun: args.opcoes['dry-run'] === true,
@@ -3251,14 +3252,14 @@ function comandoAdapter(args: Args): number {
       // unico caminho de saida. `;` separa varios, como o resto do CLI ja faz.
       aceitarCatalogo: (texto(args.opcoes['aceitar-catalogo']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
       manterCopia: (texto(args.opcoes['manter-copia']) ?? '').split(';').map(x => x.trim()).filter(Boolean),
-      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; o texto impresso segue em pt-BR (F3b).
+      // RM-061 (F3a, D1 e D9): o bloco da experiência nasce na língua do dono; na F3b, o texto impresso segue o locale.
       locale: resolverLocale(carregado?.manifesto.owner?.language).locale,
-    });
+    }));
     console.log(textoDaInstalacao(r));
     return r.ok ? 0 : 2;
   }
 
-  console.error(`subcomando desconhecido: adapter ${sub}`);
+  console.error(ma.subcomandoDesconhecido(sub));
   return 2;
 }
 
