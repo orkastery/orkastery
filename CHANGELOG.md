@@ -20,6 +20,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   mede pelo `gh api` os PRs de fora desde a publicação do guia, a conclusão da primeira execução do CI de cada um e o
   critério de dois PRs mesclados sem ajuda; lacuna da coleta reprova em vez de virar zero. O guia de documentação passa
   a explicar o catálogo dos dois sites, e a triagem, a medida.
+- **Roadmap: condução dentro do Claude Code** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
+  página nova do item que leva a condução da fábrica para a sessão do Claude Code com dez mods (Freio de Lote,
+  Sentinela do Condutor, Torre de Controle, Mesa do Dono, Portão de Tarefas, Clima de Cota, Pista de Entrega,
+  Ritual do MASTER, Mensageiro de Sessões e Radar de Colisão), em quatro ondas, com as decisões do dono, os
+  riscos e as métricas pelo ledger. Só documentação: nenhum mod existe ainda.
+- **Roadmap: site como produto** ([RM-060](docs/roadmap/RM-060-site-como-produto.md)): página nova do item que
+  trata os dois sites públicos como produto, com seis fatias (código que não quebra, quickstart, mesma regra
+  no site do OrkMind, docs e home por versão, CI e prévia de PR) e a regra de que nada é mesclado nem
+  publicado sem a aprovação do dono. Só documentação.
 - **Diagnóstico na prova da busca por significado** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   `core/scripts/prova-busca-semantica.sh` mostra, por par, a posição e a similaridade de cada alvo no
   ranking vetorial e quantas entradas da busca têm vetor coerente no índice, na mesma consulta
