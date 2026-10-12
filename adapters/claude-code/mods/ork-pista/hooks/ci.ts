@@ -83,20 +83,35 @@ const ETAPA_DO_CI: Readonly<Record<PistaCi['estado'], PistaEstadoDaEtapa>> = {
   success: 'feita', failure: 'falhou', pending: 'pendente', missing: 'pendente', unavailable: 'nao-lida', disabled: 'nao-se-aplica',
 }
 
-/** A pista com a leitura do CI mais nova por cima da etapa da leitura da pista, so quando ela e do head do PR aberto. */
+/** A consulta leu o check no head: `unavailable` (a consulta falhou) e `disabled` (o CI nao e exigido) nao leram nada. */
+function leuOCheck(lido: PistaCi): boolean {
+  return lido.estado !== 'unavailable' && lido.estado !== 'disabled'
+}
+
+/**
+ * A pista com a leitura do CI mais nova por cima da etapa da leitura da pista, so quando ela e do head do PR aberto. A
+ * consulta que nao leu nada nunca apaga o que o nucleo ja leu: a etapa fica como o nucleo disse, com a falha ao lado.
+ */
 export function comCi(q: PistaQuadro, ci: Readonly<Record<string, PistaCi>>): PistaQuadro {
   return {
     ...q,
     linhas: q.linhas.map(l => {
       const lido = ci[l.thread]
       if (!lido || l.pr?.estado !== 'aberto' || lido.sha !== l.pr.head) return l
+      if (!leuOCheck(lido)) {
+        return { ...l, etapas: l.etapas.map(e => (e.id === 'ci' ? { ...e, texto: `${e.texto} (consulta: ${lido.texto})` } : e)) }
+      }
       const origem = lido.motivo === 'evento' ? ' (pelo evento do GitHub)' : ''
       return { ...l, etapas: l.etapas.map(e => (e.id === 'ci' ? { id: 'ci', estado: ETAPA_DO_CI[lido.estado], texto: `${lido.texto}${origem}` } : e)) }
     }),
   }
 }
 
-/** A leitura nova fecha o CI (verde ou vermelho) que a pista ainda tinha aberto: o proximo passo do nucleo muda. */
-export function fechouOCi(l: PistaLinha, lido: PistaCi): boolean {
-  return (lido.estado === 'success' || lido.estado === 'failure') && precisaDoCi(l)
+/**
+ * A leitura nova diz do CI outra coisa que a etapa da pista: o CI fechou, ou mudou depois de uma rodada nova. O proximo
+ * passo do nucleo muda com ele, e a pista inteira e relida. A consulta que nao leu nada nao muda nada.
+ */
+export function mudouOCi(l: PistaLinha, lido: PistaCi): boolean {
+  if (!leuOCheck(lido) || l.pr?.estado !== 'aberto' || lido.sha !== l.pr.head) return false
+  return l.etapas.find(e => e.id === 'ci')?.estado !== ETAPA_DO_CI[lido.estado]
 }

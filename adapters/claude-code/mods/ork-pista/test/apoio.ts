@@ -151,9 +151,10 @@ export async function esperar(condicao: () => boolean, passos = 200) {
   for (let i = 0; i < passos && !condicao(); i++) await new Promise(r => setTimeout(r, 2))
 }
 
-/** O painel montado numa superficie. */
-export async function montarPainel($, surface, janela?) {
-  return $.ui.mount({ plugin: 'ork-pista', surface, component: 'Pane', requestId: 'pista', props: janela ? { ...PANE, scroll: janela } : PANE })
+/** O painel montado numa superficie, com a janela de rolagem e a largura do corpo que o teste escolhe. */
+export async function montarPainel($, surface, janela?, colunas?: number) {
+  return $.ui.mount({ plugin: 'ork-pista', surface, component: 'Pane', requestId: 'pista',
+    props: { ...PANE, ...(janela ? { scroll: janela } : {}), ...(colunas ? { bodyColumns: colunas } : {}) } })
 }
 
 /** Os textos de `Text` e `Button` de um painel montado. */

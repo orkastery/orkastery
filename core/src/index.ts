@@ -1915,7 +1915,10 @@ function comandoShipPublicar(carregado: ManifestoCarregado, args: Args): number 
   if (r.branch) console.log(p.linhaBranch(r.branch, curtoOuTraco(r.head)));
   if (r.passos.length) {
     console.log(p.linhaRemoto(r.remoto, curtoOuTraco(r.remotaAntes), curtoOuTraco(r.remota)));
-    if (!r.dryRun && r.acao !== 'recusada') console.log(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
+    // O PR ja mesclado no HEAD com a branch apagada no remoto nao tem push a provar: a linha some.
+    if (!r.dryRun && r.acao !== 'recusada' && (r.pushVerificado || r.remota !== null)) {
+      console.log(r.pushVerificado ? p.linhaPushProvado : p.linhaPushSemProva);
+    }
   }
   if (r.pr) console.log(p.linhaPr(r.pr.numero, r.pr.criado, r.pr.url ?? ''));
   if (r.corpo) console.log(p.linhaCorpo(r.corpo));

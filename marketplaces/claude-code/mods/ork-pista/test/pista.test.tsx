@@ -133,6 +133,27 @@ test('so o que esta na janela de rolagem do painel a vista vai ao registro da po
   expect(mundo.mostrados.length).toBe(3)
 })
 
+test('a linha do proximo passo que quebra na largura do painel so conta como mostrada quando cabe inteira na janela', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', pista: PISTAS, paineis: A_VISTA })
+  await iniciar($)
+  await relogio.advance(1)
+  await esperar(() => mundo.faixas.length > 0)
+  // Em 30 colunas, o proximo passo da ork-a (40 caracteres) ocupa duas linhas da tela: a janela de oito so mostra a
+  // primeira, e nada vai ao registro.
+  const estreita = await montarPainel($, 'terminal', { offset: 0, bodyRows: 8 }, 30)
+  await estreita.unmount()
+  await relogio.advance(60000)
+  await esperar(() => false, 30)
+  expect(mundo.mostrados).toEqual([])
+  // Com nove linhas, ele cabe inteiro.
+  const inteira = await montarPainel($, 'terminal', { offset: 0, bodyRows: 9 }, 30)
+  await inteira.unmount()
+  await relogio.advance(60000)
+  await esperar(() => mundo.mostrados.length > 0)
+  expect(mundo.mostrados.map(m => (m as { chave: string }).chave)).toEqual(['pista:ork-a'])
+})
+
 test('/pista com uma thread a poe em foco no alto, e id que nao e de thread abre sem foco', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', pista: PISTAS })

@@ -153,6 +153,16 @@ test('pista: a ordem, a marca, a faixa e as linhas do painel com o que fica a vi
   const vistos = p.mostradosVisiveis(linhas, { offset: 0, bodyRows: 6 });
   assert.deepEqual(vistos, [{ chave: 'pista:ork-w', thread: 'ork-w', texto: 'ork-w: esperando o CI' }]);
   assert.deepEqual(p.mostradosVisiveis(linhas, undefined), []);
+  // A8 da revisao: a janela conta linhas da tela. Em 20 colunas o proximo passo da ork-w quebra em duas, e so entra
+  // inteiro numa janela de sete.
+  assert.equal(p.linhasDaTela('  próximo: esperando o CI', 20), 2);
+  assert.deepEqual(p.mostradosVisiveis(linhas, { offset: 0, bodyRows: 6 }, 20), []);
+  assert.deepEqual(p.mostradosVisiveis(linhas, { offset: 0, bodyRows: 7 }, 20), vistos);
+  assert.deepEqual(p.mostradosVisiveis(linhas, { offset: 1, bodyRows: 6 }, 20), vistos);
+  assert.equal(p.linhasDaTela('a'.repeat(250), 121), 3, 'a palavra maior que a linha quebra no meio');
+  assert.equal(p.linhasDaTela(`  ${'x'.repeat(117)}`, 120), 1);
+  assert.equal(p.linhasDaTela(`  ${'x'.repeat(118)}`, 120), 2, 'uma coluna de folga: os 120 caracteres contam duas linhas em 120 colunas');
+  assert.equal(p.linhasDaTela('qualquer texto', undefined), 1);
   assert.equal(p.threadDoLedger('/p/.orkastery/threads/ork-a/ledger.jsonl'), 'ork-a');
   for (const ruim of ['/p/.orkastery/threads/ork-a/thread.json', '/p/.orkastery/threads/../ledger.jsonl', 3, undefined]) {
     assert.equal(p.threadDoLedger(ruim), null, String(ruim));
@@ -313,9 +323,17 @@ test('ci: o argv no sha exato, as pistas que o evento cita so por campo asserido
   assert.deepEqual(comVerde.linhas[0].etapas.find((e: { id: string }) => e.id === 'ci'), { id: 'ci', estado: 'feita', texto: 'verde (pelo evento do GitHub)' });
   assert.equal(c.comCi(q, { 'ork-c': { ...lido, sha: SHA, estado: 'failure' } }).linhas[0].etapas.find((e: { id: string }) => e.id === 'ci').estado, 'pendente',
     'leitura de outro head nao muda a etapa');
-  assert.equal(c.fechouOCi(aberta, { ...lido, estado: 'failure' }), true);
-  assert.equal(c.fechouOCi(aberta, lido), false);
-  assert.equal(c.fechouOCi(verde, { ...lido, estado: 'success' }), false);
+  // A9 da revisao: a consulta que falhou nao apaga o que o nucleo leu, e a que diz outra coisa que a pista a faz reler.
+  const falhou = c.comCi(q, { 'ork-c': { ...lido, estado: 'unavailable', texto: 'o CI não foi lido: HTTP 502' } });
+  assert.deepEqual(falhou.linhas[0].etapas.find((e: { id: string }) => e.id === 'ci'),
+    { id: 'ci', estado: 'pendente', texto: 'ci pendente (consulta: o CI não foi lido: HTTP 502)' });
+  assert.equal(c.mudouOCi(aberta, { ...lido, estado: 'failure' }), true);
+  assert.equal(c.mudouOCi(aberta, lido), false, 'pending com a pista esperando nao muda nada');
+  assert.equal(c.mudouOCi(aberta, { ...lido, estado: 'missing' }), false);
+  assert.equal(c.mudouOCi(aberta, { ...lido, estado: 'unavailable' }), false);
+  assert.equal(c.mudouOCi(verde, { ...lido, sha: SHA, estado: 'success' }), false);
+  assert.equal(c.mudouOCi(verde, { ...lido, sha: SHA, estado: 'failure' }), true, 'a rodada nova vermelha depois do verde');
+  assert.equal(c.mudouOCi(verde, { ...lido, estado: 'failure' }), false, 'leitura de outro head nao muda nada');
 });
 
 test('ci: a leitura casa com o ork ci status de verdade, com o CI desligado e com o remoto que nao e GitHub', (t) => {

@@ -9,7 +9,7 @@ import type { PistaAcao, PistaCi, PistaLinha, PistaMostrado, PistaQuadro } from 
 import type { AcaoDoBotao } from './acoes'
 import { argvDoPublicar, argvDoRegistro, botaoDaPista, lerPublicacao, lerRegistro, ROTULO_DO_BOTAO } from './acoes'
 import {
-  argvDoCi, comCi, fechouOCi, INTERVALO_DO_CI_A_VISTA_MS, INTERVALO_DO_CI_ESCONDIDO_MS, lerCi, pistasDoEvento, vencidasDoCi,
+  argvDoCi, comCi, INTERVALO_DO_CI_A_VISTA_MS, INTERVALO_DO_CI_ESCONDIDO_MS, lerCi, mudouOCi, pistasDoEvento, vencidasDoCi,
 } from './ci'
 import type { BotaoDaPista } from './pista'
 import {
@@ -36,8 +36,12 @@ const INTERVALO_MINIMO_MS = 30000
 const ESPERA_DO_LOTE_MS = 5000
 /** Teto do `ork ship pista`: um `ls-remote` e a lista de PRs. */
 const PRAZO_DA_PISTA_MS = 120000
-/** Teto do `ork ship publicar` (push, prova e PR) e do `ork ship registrar-pr` (fetch, prova e CI), abaixo dos 10 min do motor. */
-const PRAZO_DO_PUBLICAR_MS = 300000
+/**
+ * Teto do `ork ship publicar`: o pior caso do nucleo (ls-remote, lista de PRs, push, ls-remote, criacao e releitura do
+ * PR) soma 435 s; 9 min cabem nele com folga, abaixo dos 10 min que o motor da a um processo.
+ */
+const PRAZO_DO_PUBLICAR_MS = 540000
+/** Teto do `ork ship registrar-pr` (fetch, prova e CI). */
 const PRAZO_DO_REGISTRO_MS = 180000
 /** Teto do `ork ci status`: uma consulta ao GitHub. */
 const PRAZO_DO_CI_MS = 60000
@@ -63,6 +67,8 @@ const emCurso = new Set<string>()
 /** O CI lido de cada pista (T7.4), e as pistas com uma consulta de CI rodando agora. */
 let ci: Record<string, PistaCi> = {}
 const ciEmCurso = new Set<string>()
+/** As leituras do CI que ja fizeram a pista ser relida (thread, head e estado): a mesma nao rele de novo. */
+const relidasPeloCi = new Set<string>()
 /** A ultima tentativa de leitura (ms), lida ou nao: segura o intervalo minimo. */
 let tentadaEm = 0
 let assinatura: string | null = null
@@ -214,18 +220,23 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
 
 /**
  * O CI das pistas pedidas pelo nucleo (`ork ci status --sha <head> --json`, D7): pelo evento do GitHub que as cita, pelo
- * relogio de reserva ou pelo dono. Uma consulta por pista por vez. Quando a leitura fecha um CI que a pista tinha aberto
- * (verde ou vermelho), a pista inteira e relida: o proximo passo do nucleo muda.
+ * relogio de reserva ou pelo dono. Uma consulta por pista por vez. Quando a leitura diz do CI outra coisa que a pista (o
+ * CI fechou, ou mudou depois de uma rodada nova), a pista inteira e relida, uma vez por leitura: o proximo passo do
+ * nucleo muda com ele.
  */
 async function lerCiDe($: EngineInterface, threads: readonly string[], motivo: PistaCi['motivo']): Promise<void> {
-  let fechou = false
+  let mudou = false
   for (const thread of threads) {
     const linha = quadro.linhas.find(l => l.thread === thread)
     if (!linha?.pr || linha.pr.estado !== 'aberto' || ciEmCurso.has(thread)) continue
     ciEmCurso.add(thread)
     try {
       const lido = lerCi(await $.process.run(argvDoCi(linha.pr.head), { timeoutMs: PRAZO_DO_CI_MS }), linha.pr.head, await $.clock.now(), motivo)
-      if (fechouOCi(linha, lido)) fechou = true
+      const chave = `${thread}|${lido.sha}|${lido.estado}`
+      if (mudouOCi(linha, lido) && !relidasPeloCi.has(chave)) {
+        relidasPeloCi.add(chave)
+        mudou = true
+      }
       ci = { ...ci, [thread]: lido }
       await $.state.set(CI, ci)
     } catch (erro) {
@@ -237,7 +248,7 @@ async function lerCiDe($: EngineInterface, threads: readonly string[], motivo: P
     }
   }
   await publicarFaixa($)
-  if (fechou) await atualizar($, true)
+  if (mudou) await atualizar($, true)
 }
 
 /** O tique: a assinatura do retrato (uma entrega andou), a idade da pista e o registro do que o painel mostrou. */
@@ -414,7 +425,7 @@ export const register: Register = on => {
     const comLeitura = comCi(q, lidos)
     const comProblema: PistaQuadro = problemaSemAviso ? { ...comLeitura, avisos: [...comLeitura.avisos, problemaSemAviso] } : comLeitura
     const botoes = botoesDo(comProblema)
-    anotarVistos(mostradosVisiveis(linhasDoPainel(comProblema, { agora, foco: emFoco, acoes: ultimas, botoes }), e.props.scroll))
+    anotarVistos(mostradosVisiveis(linhasDoPainel(comProblema, { agora, foco: emFoco, acoes: ultimas, botoes }), e.props.scroll, e.props.bodyColumns))
     return desenharPista({ Box, Text, Button }, comProblema, {
       agora, foco: emFoco, acoes: ultimas, botoes,
       atualizar: () => { emSegundoPlano($, atualizar($, true), 'a leitura da pista') },

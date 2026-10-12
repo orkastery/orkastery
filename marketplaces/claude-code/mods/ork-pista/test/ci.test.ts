@@ -15,10 +15,13 @@ const ci = (state: string, sha = SHA_B) => ({ schema: 'ork.ci-status/v1', requir
 const evento = (data: Record<string, unknown>, untrustedKeys: string[] = [], source = 'github') =>
   ({ origin: { kind: 'task-notification' }, text: 'evento do GitHub', event: { source, kind: 'check_run.completed', data, untrustedKeys } })
 const consultasDoCi = mundo => mundo.processos.filter(a => a[1] === 'ci')
+const leiturasDaPista = mundo => mundo.processos.filter(a => a[2] === 'pista').length
+const VERMELHA = pista('ork-x', { pr: { ...PR_ABERTO, numero: 9 }, estados: { ci: 'falhou', entrega: 'pendente' },
+  proximo: { acao: null, disponivel: false, texto: 'o check ork-verify está vermelho no PR #9: corrija pela sessão de GO e publique de novo', comando: null } })
 
-async function ligada($, on, paineis: unknown[] = []) {
+async function ligada($, on, paineis: unknown[] = [], pistas: unknown[] = [ESPERANDO, VERDE, SEM_PR]) {
   const relogio = mock.clock(on, { now: EPOCA })
-  const mundo = montar(on, { papel: 'dono', pista: saidaDaPista([ESPERANDO, VERDE, SEM_PR]), paineis })
+  const mundo = montar(on, { papel: 'dono', pista: saidaDaPista(pistas), paineis })
   await iniciar($)
   await relogio.advance(1)
   await esperar(() => mundo.processos.length > 0)
@@ -99,12 +102,45 @@ test('o CI vermelho pela consulta aparece na pista e na faixa, e o CI do commit 
   expect(textos).toContain('  CHECK ✓ · verify ✓ · bundle ✓ · branch ✓ · PR #7 ✓ · CI ✗ · conflito ✓ · entrega ·')
   expect(textos).toContain('    CI: check ork-verify vermelho no head bbbbbbb')
   await ui.unmount()
-  // O nucleo respondeu por outro commit: a leitura nao vale e vira CI nao lido.
+  // O nucleo respondeu por outro commit: a leitura nao vale; a etapa volta a ser a que o nucleo leu, com a falha ao lado.
   mundo.respostas['ork ci status --sha'] = saida(1, ci('failure', SHA_C))
   await $.session.receive(evento({ pr: 'acme/app#7' }))
   await relogio.settle()
   await esperar(() => false, 30)
   const depois = await montarPainel($, 'terminal')
-  expect((await textosDe(depois)).some(t => t.startsWith('    CI: o CI não foi lido: o ork ci status respondeu pelo commit'))).toBe(true)
+  expect((await textosDe(depois)).some(t => t.startsWith('    CI: ci pendente (consulta: o CI não foi lido: o ork ci status respondeu pelo commit'))).toBe(true)
   await depois.unmount()
+})
+
+test('a consulta que falha nao apaga o CI verde que o nucleo leu, nem rele a pista', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = await ligada($, on)
+  mundo.respostas['ork ci status --sha'] = saida(1, '', 'HTTP 502: gateway')
+  mundo.processos.length = 0
+  await $.session.receive(evento({ pr: 'acme/app#8' }))
+  await relogio.settle()
+  await esperar(() => consultasDoCi(mundo).length > 0)
+  await esperar(() => false, 30)
+  expect(consultasDoCi(mundo)).toEqual([['ork', 'ci', 'status', '--sha', SHA_C, '--json']])
+  expect(leiturasDaPista(mundo)).toBe(0)
+  const ui = await montarPainel($, 'terminal')
+  expect(await textosDe(ui)).toContain('  CHECK ✓ · verify ✓ · bundle ✓ · branch ✓ · PR #8 ✓ · CI ✓ · conflito ✓ · entrega ·')
+  await ui.unmount()
+})
+
+test('a consulta que diz outra coisa que a pista (verde depois do vermelho) rele a pista uma vez por leitura', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = await ligada($, on, [], [VERMELHA])
+  mundo.respostas['ork ci status --sha'] = saida(0, ci('success'))
+  mundo.processos.length = 0
+  await $.session.receive(evento({ pr: 'acme/app#9' }))
+  await relogio.settle()
+  await esperar(() => leiturasDaPista(mundo) > 0)
+  expect(mundo.processos).toEqual([['ork', 'ci', 'status', '--sha', SHA_B, '--json'], ['ork', 'ship', 'pista', '--json']])
+  // O nucleo ainda le o vermelho: a mesma leitura do CI nao rele a pista de novo.
+  await relogio.advance(60000)
+  await $.session.receive(evento({ pr: 'acme/app#9' }))
+  await relogio.settle()
+  await esperar(() => consultasDoCi(mundo).length > 1)
+  await esperar(() => false, 30)
+  expect(consultasDoCi(mundo).length).toBe(2)
+  expect(leiturasDaPista(mundo)).toBe(1)
 })

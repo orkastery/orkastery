@@ -256,11 +256,57 @@ export function linhasDoPainel(q: PistaQuadro, opcoes: { agora: number; foco?: s
   return saida
 }
 
-/** O que esta dentro da janela de rolagem do painel: so isso conta como mostrado ao dono (M5). */
-export function mostradosVisiveis(linhas: ReadonlyArray<{ mostrado?: PistaMostrado }>, janela: { offset: number; bodyRows: number } | undefined): PistaMostrado[] {
+/**
+ * As linhas da tela que um texto com `wrap="wrap"` ocupa em `colunas` celulas: quebra por palavra, e a palavra maior que
+ * a linha quebra no meio. A conta usa uma coluna de folga: na duvida sobra linha, e o que sobra fica fora da janela; o
+ * mostrado nunca passa do que o dono viu.
+ */
+export function linhasDaTela(texto: string, colunas: number | undefined): number {
+  if (typeof colunas !== 'number' || !(colunas > 1)) return 1
+  const largura = colunas - 1
+  let linhas = 1
+  let usadas = 0
+  texto.split(' ').forEach((palavra, i) => {
+    let tamanho = Array.from(palavra).length
+    const espaco = i === 0 ? 0 : 1
+    if (usadas + espaco + tamanho <= largura) {
+      usadas += espaco + tamanho
+      return
+    }
+    if (usadas > 0) {
+      linhas++
+      usadas = 0
+    }
+    while (tamanho > largura) {
+      linhas++
+      tamanho -= largura
+    }
+    usadas = tamanho
+  })
+  return linhas
+}
+
+/** A altura de uma linha do painel na tela: `proximo` e `comando` quebram (`wrap="wrap"`); as outras truncam numa so. */
+function alturaNaTela(l: { tipo?: string; texto?: string }, colunas: number | undefined): number {
+  return l.tipo === 'proximo' || l.tipo === 'comando' ? linhasDaTela(l.texto ?? '', colunas) : 1
+}
+
+/**
+ * O que esta inteiro dentro da janela de rolagem do painel: so isso conta como mostrado ao dono (M5). A janela conta
+ * linhas da tela (`offset` e `bodyRows`), e a linha que quebra nas `colunas` do corpo ocupa mais de uma.
+ */
+export function mostradosVisiveis(linhas: ReadonlyArray<{ tipo?: string; texto?: string; mostrado?: PistaMostrado }>,
+  janela: { offset: number; bodyRows: number } | undefined, colunas?: number): PistaMostrado[] {
   if (!janela || !(janela.bodyRows > 0)) return []
   const fim = janela.offset + janela.bodyRows
-  return linhas.flatMap((l, i) => (l.mostrado && i >= janela.offset && i < fim ? [l.mostrado] : []))
+  const vistos: PistaMostrado[] = []
+  let topo = 0
+  for (const l of linhas) {
+    const altura = alturaNaTela(l, colunas)
+    if (l.mostrado && topo >= janela.offset && topo + altura <= fim) vistos.push(l.mostrado)
+    topo += altura
+  }
+  return vistos
 }
 
 /** Os gestos do painel: atualizar a pista e, na T7.3, os botoes que o nucleo declara. */

@@ -42,12 +42,14 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   que já autoriza o push (#Auto e #Maestro). Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a
   branch com produto, o CHECK com veredito PASSOU depois do último commit de produto, o último `ork verify` verde no
   HEAD (ou só o bundle depois dele), o bundle `.ork-ci/<thread>.json` com as claims ativas, o remoto do GitHub e os
-  PRs da branch; a recusa volta com motivo tipado e não grava nada. Empurra sem força, prova pelo `git ls-remote`,
-  reaproveita o PR aberto ou abre um com o `pr-body.md` da thread (título `ship(<thread>): ...`) e grava
-  `ship_published`; repetido, responde `ja-publicada`. Não aceita `--autorizar-push`: nos outros modos o push é do
+  PRs da branch; a recusa antes de qualquer efeito volta com motivo tipado e não grava nada. Empurra sem força o sha
+  conferido, prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o texto do `pr-body.md` da thread
+  (título `ship(<thread>): ...`) e grava `ship_published`, também para o push que ficou sem prova; repetido, ou com o
+  PR já mesclado no HEAD, responde `ja-publicada`. Não aceita `--autorizar-push`: nos outros modos o push é do
   dono, e a correção diz o comando dele. `ork ship pista --json` (`ork.ship-pista/v1`) dá, por thread aberta na
   entrega, as etapas (CHECK, verify, bundle, branch, PR, CI, conflito e `ship_done`) e o próximo passo com a ação
-  que o núcleo declara disponível. A leitura dos PRs do pulse passa a trazer o estado de merge do PR aberto.
+  que o núcleo declara disponível. A leitura dos PRs do pulse passa a trazer o estado de merge do PR aberto, e a prova
+  do push pelo `git ls-remote` passa a valer só pela ref exata, também no `ork ship`.
 - **Pista de Entrega, mod de papel `dono`** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `adapters/claude-code/mods/ork-pista` liga só na sessão do dono e abre com `/pista [thread]` (a Torre abre a Pista
   assim) um painel com uma pista por entrega: as oito etapas do `ork ship pista --json` (CHECK, verify, bundle, branch,
@@ -59,7 +61,8 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   da thread antes de valer, roda o argv do próprio mod (nunca `git` nem `gh`) e deixa o resultado na pista. Fora de
   #Auto e #Maestro, só o comando para o dono. O CI acompanha o evento do GitHub que a sessão recebe (`session.receive`,
   fonte `github`, só pelos campos asseridos) como gatilho da consulta `ork ci status --sha <head> --json`, com reserva
-  a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado. O guia `docs/guias/pista-de-entrega.md`
+  a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado, e a consulta que falha não apaga o
+  que o núcleo leu. O guia `docs/guias/pista-de-entrega.md`
   diz ao condutor externo como trocar a publicação crua pelo `ork ship publicar`.
 
 ## [0.5.5] - 2026-10-12

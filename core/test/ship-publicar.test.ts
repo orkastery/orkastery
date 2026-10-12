@@ -11,17 +11,18 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { prepararBundleCi } from '../src/ci';
-import { adicionarClaim } from '../src/claims';
+import { adicionarClaim, retirarClaim } from '../src/claims';
 import { tomarConducao } from '../src/conducao';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { ManifestoCarregado } from '../src/manifest';
 import { ExecutorDoGh } from '../src/parado-no-condutor';
-import { pistaDeEntrega, publicarEntrega, tituloDoPr } from '../src/ship-publicar';
+import { shaNoRemoto } from '../src/ship';
+import { comandoDoDono, pistaDeEntrega, publicarEntrega, tituloDoPr } from '../src/ship-publicar';
 import { dirThread, novaThread } from '../src/thread';
 import { Modo } from '../src/types';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
-import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
+import { commitar, dirTemporario, envPtBr, projetoTemporario, ProjetoDeTeste, shaNoRemotoDeTeste } from './apoio';
 
 const CLI = path.resolve(__dirname, '../../dist/index.js');
 const FORJA = { host: 'github.com', repositorio: 'acme/app' };
@@ -79,7 +80,7 @@ interface Entrega { id: string; branch: string }
  * `ci(<thread>)` e o CHECK com PASSOU depois do commit. Cada parte pode faltar, para os casos de recusa.
  */
 function prepararEntrega(p: ProjetoDeTeste, nome: string, modo: Modo,
-  opcoes: { semVerify?: boolean; verifyReprovado?: boolean; semBundle?: boolean; check?: 'ausente' | 'velho' | string } = {}): Entrega {
+  opcoes: { semVerify?: boolean; verifyReprovado?: boolean; semBundle?: boolean; comClaim?: boolean; check?: 'ausente' | 'velho' | string } = {}): Entrega {
   const { thread } = novaThread(p.carregado, { nome, modo });
   const branch = branchDaWorktree(thread);
   exec('git', ['checkout', '-q', '-b', branch, 'main'], p.dir);
@@ -88,6 +89,9 @@ function prepararEntrega(p: ProjetoDeTeste, nome: string, modo: Modo,
   if (!opcoes.semVerify) {
     registrar(dir, thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: opcoes.verifyReprovado ? 'reprovado' : 'verdade sustentada',
       motivos: opcoes.verifyReprovado ? ['claims.failed'] : [] });
+  }
+  if (opcoes.comClaim) {
+    adicionarClaim(p.dir, thread.id, { arquivo: `${nome}.txt`, alegacao: 'existe', verificar: [`test -f '${nome}.txt'`], semProvaLocal: true });
   }
   if (!opcoes.semBundle) {
     const arquivo = prepararBundleCi(p.carregado, thread.id);
@@ -109,6 +113,55 @@ function escreverCheck(p: ProjetoDeTeste, id: string, veredito: string, velho = 
 }
 
 const publicados = (p: ProjetoDeTeste, id: string) => lerLedger(dirThread(p.dir, id)).filter((e) => e.tipo === TIPOS_DE_EVENTO.shipPublicado);
+
+/** O ambiente do git com a hora do autor e do commit fixada (segundos da epoca). */
+const comHora = (segundos: number): NodeJS.ProcessEnv =>
+  ({ ...process.env, GIT_AUTHOR_DATE: `@${segundos} +0000`, GIT_COMMITTER_DATE: `@${segundos} +0000` });
+
+/** Commit com a hora fixada: o CHECK cai antes ou depois dele sem depender do relogio do teste. */
+function commitarEm(dir: string, arquivo: string, conteudo: string, mensagem: string, segundos: number): string {
+  const destino = path.join(dir, arquivo);
+  fs.mkdirSync(path.dirname(destino), { recursive: true });
+  fs.writeFileSync(destino, conteudo);
+  exec('git', ['add', '--', arquivo], dir);
+  assert.equal(exec('git', ['commit', '-q', '-m', mensagem], dir, 60000, comHora(segundos)).ok, true, mensagem);
+  return exec('git', ['rev-parse', 'HEAD'], dir).stdout.trim();
+}
+
+/** O CHECK com PASSOU gravado numa hora fixada (segundos da epoca). */
+function escreverCheckEm(p: ProjetoDeTeste, id: string, segundos: number): void {
+  escreverCheck(p, id, 'PASSOU');
+  fs.utimesSync(path.join(dirThread(p.dir, id), 'docs', 'check.md'), segundos, segundos);
+}
+
+/** Uma thread #Auto com o produto em t0, o verify verde nele e o bundle commitado em t0 + 10; sem o CHECK. */
+function entregaEm(p: ProjetoDeTeste, nome: string, t0: number): Entrega & { produto: string } {
+  const { thread } = novaThread(p.carregado, { nome, modo: 'auto' });
+  const branch = branchDaWorktree(thread);
+  exec('git', ['checkout', '-q', '-b', branch, 'main'], p.dir);
+  const produto = commitarEm(p.dir, `${thread.id}.txt`, 'feito\n', `feat(${thread.id}): ${nome}`, t0);
+  registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada', motivos: [] });
+  const bundle = path.relative(p.dir, prepararBundleCi(p.carregado, thread.id));
+  exec('git', ['add', '--', bundle], p.dir);
+  assert.equal(exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle`], p.dir, 60000, comHora(t0 + 10)).ok, true);
+  exec('git', ['checkout', '-q', 'main'], p.dir);
+  return { id: thread.id, branch, produto };
+}
+
+/** Um clone a parte cria a branch no remoto a partir da main, com um commit que a copia local nao tem. */
+function avancarNoRemoto(p: ProjetoDeTeste, branch: string, sufixo: string): string {
+  const clone = path.join(path.dirname(p.dir), `${path.basename(p.dir)}-${sufixo}`);
+  assert.equal(exec('git', ['clone', '-q', p.remoto!, clone]).ok, true);
+  try {
+    exec('git', ['config', 'user.email', 'teste@orkastery.local'], clone);
+    exec('git', ['config', 'user.name', 'Teste Orkastery'], clone);
+    exec('git', ['checkout', '-q', '-b', branch], clone);
+    // O conteudo leva o sufixo: dois clones no mesmo segundo fariam o mesmo commit, com o mesmo sha.
+    const sha = commitar(clone, `outro-${sufixo}.txt`, `outro ${sufixo}\n`, `feat: de outro lugar (${sufixo})`);
+    assert.equal(exec('git', ['push', '-q', 'origin', branch], clone).ok, true);
+    return sha;
+  } finally { fs.rmSync(clone, { recursive: true, force: true }); }
+}
 
 test('publicar: em #Auto e #Maestro publica a branch, prova pelo ls-remote, abre o PR e grava ship_published', () => {
   const p = projetoTemporario('publicar-ok', true);
@@ -152,7 +205,7 @@ test('publicar: fora de #Auto e #Maestro recusa com human.pending, sem push, sem
       assert.equal(r.acao, 'recusada');
       assert.equal(r.motivo, 'human.pending');
       assert.match(r.detalhe, /pede a autorização do dono para o push/);
-      assert.match(r.correcao, new RegExp(`git push -u origin ${e.branch.replace(/[.*+?^${}()|[\]\\/]/g, '.')}`));
+      assert.ok(r.correcao.includes(`git push -u 'origin' '${e.branch}' && gh pr create --base 'main' --head '${e.branch}'`), r.correcao);
       assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), '', 'nada foi empurrado');
       assert.equal(gh.chamadas.length, 0, 'nem a lista de PRs foi lida');
       assert.equal(publicados(p, e.id).length, 0);
@@ -258,20 +311,12 @@ test('publicar: CHECK, verify, bundle, conducao e produto que faltam viram recus
   } finally { p.limpar(); }
 });
 
-test('publicar: remoto que divergiu recusa com tree.blocked sem forcar, e push aceito sem a ponta no remoto nao vale', () => {
+test('publicar: remoto que divergiu recusa com tree.blocked sem tentar o push, e o push sem a ponta no remoto vai ao ledger', () => {
   const p = projetoTemporario('publicar-remoto', true);
   try {
-    // O remoto com um commit na branch que a local nao tem.
+    // O remoto com um commit na branch que a local nao tem, ja trazido pelo fetch.
     const e = prepararEntrega(p, 'divergiu', 'auto');
-    const clone = path.join(path.dirname(p.dir), `${path.basename(p.dir)}-clone`);
-    assert.equal(exec('git', ['clone', '-q', p.remoto!, clone]).ok, true);
-    try {
-      exec('git', ['config', 'user.email', 'teste@orkastery.local'], clone);
-      exec('git', ['config', 'user.name', 'Teste Orkastery'], clone);
-      exec('git', ['checkout', '-q', '-b', e.branch], clone);
-      commitar(clone, 'outro.txt', 'outro\n', 'feat: de outro lugar');
-      assert.equal(exec('git', ['push', '-q', 'origin', e.branch], clone).ok, true);
-    } finally { fs.rmSync(clone, { recursive: true, force: true }); }
+    avancarNoRemoto(p, e.branch, 'clone1');
     const remotoAntes = shaNoRemotoDeTeste(p.dir, 'origin', e.branch);
     exec('git', ['fetch', '-q', 'origin'], p.dir);
     const gh = ghFalso(p);
@@ -279,10 +324,27 @@ test('publicar: remoto que divergiu recusa com tree.blocked sem forcar, e push a
     assert.equal(r.acao, 'recusada');
     assert.equal(r.motivo, 'tree.blocked');
     assert.match(r.correcao, /nunca force/);
+    assert.ok(!r.passos.some((x) => x.startsWith('git push')), `a divergencia e conferida antes do push: ${r.passos.join(' | ')}`);
     assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), remotoAntes, 'o remoto ficou como estava');
     assert.equal(gh.criacoes(), 0);
 
-    // O remoto que aceita o push e desfaz a ref no gancho: o codigo de saida diz ok, o ls-remote nao.
+    // A3: o remoto andou e esta copia nem tem o commit dele (sem fetch). Tambem divergiu: o ensaio e o real recusam sem
+    // tentar o push, e a pista mostra a branch falhando, sem botao.
+    const semFetch = prepararEntrega(p, 'sem fetch', 'auto');
+    const alheio = avancarNoRemoto(p, semFetch.branch, 'clone2');
+    assert.equal(exec('git', ['cat-file', '-e', `${alheio}^{commit}`], p.dir).ok, false, 'a copia local nao tem o commit do remoto');
+    for (const dryRun of [true, false]) {
+      const rs = publicarEntrega(p.carregado, semFetch.id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun });
+      assert.equal(rs.acao, 'recusada', `dryRun ${dryRun}: ${rs.detalhe}`);
+      assert.equal(rs.motivo, 'tree.blocked');
+      assert.ok(!rs.passos.some((x) => x.startsWith('git push')), rs.passos.join(' | '));
+    }
+    const pista = pistaDeEntrega(p.carregado, { executorGh: ghFalso(p).executor, forja: FORJA, thread: semFetch.id }).pistas[0];
+    assert.equal(pista.etapas.find((x) => x.id === 'branch')?.estado, 'falhou');
+    assert.equal(pista.proximo.acao, null);
+
+    // O remoto que aceita o push e desfaz a ref no gancho: o codigo de saida diz ok, o ls-remote nao. O push aconteceu,
+    // entao a tentativa vai ao ledger, sem prova (B1 da revisao).
     const gancho = path.join(p.remoto!, 'hooks', 'post-receive');
     fs.writeFileSync(gancho, '#!/bin/sh\nwhile read velho novo ref; do git update-ref -d "$ref"; done\n', { mode: 0o755 });
     const sumiu = prepararEntrega(p, 'sem prova', 'auto');
@@ -291,7 +353,11 @@ test('publicar: remoto que divergiu recusa com tree.blocked sem forcar, e push a
     assert.equal(rp.motivo, 'runtime.unavailable');
     assert.equal(rp.pushVerificado, false);
     assert.match(rp.detalhe, /não ficou provado/);
-    assert.equal(publicados(p, sumiu.id).length, 0);
+    const ev = publicados(p, sumiu.id);
+    assert.equal(ev.length, 1, 'o push que aconteceu vai ao ledger, mesmo sem prova');
+    assert.equal(ev[0].pushFeito, true);
+    assert.equal(ev[0].pushVerificado, false);
+    assert.equal(ev[0].pr, null);
     fs.rmSync(gancho);
   } finally { p.limpar(); }
 });
@@ -323,7 +389,7 @@ test('publicar: a criacao que falha mas deixa o PR aberto e reaproveitada pela r
   } finally { p.limpar(); }
 });
 
-test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corpo vai por arquivo', () => {
+test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corpo vai como o texto lido, nunca por arquivo', () => {
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'x' }, '## RM-1, a coisa\n\ntexto'), 'ship(ork-x): RM-1, a coisa');
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'nome da thread' }, 'texto sem cabecalho\n# depois'), 'ship(ork-x): nome da thread');
   assert.equal(tituloDoPr({ id: 'ork-x', nome: 'x' }, '# ship(ork-x): ja pronto'), 'ship(ork-x): ja pronto');
@@ -332,13 +398,22 @@ test('publicar: o titulo do PR vem do primeiro cabecalho do pr-body.md, e o corp
   try {
     const gh = ghFalso(p);
     const e = prepararEntrega(p, 'com corpo', 'auto');
-    fs.writeFileSync(path.join(dirThread(p.dir, e.id), 'pr-body.md'), '## RM-059, a pista\n\nCorpo do PR.\n');
-    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA });
+    const corpo = path.join(dirThread(p.dir, e.id), 'pr-body.md');
+    fs.writeFileSync(corpo, '## RM-059, a pista\n\nCorpo do PR.\n');
+    // A5 da revisao: o pr-body.md trocado por um link depois da leitura nao muda o que o gh recebe.
+    const segredo = path.join(p.dir, 'segredo.txt');
+    fs.writeFileSync(segredo, 'TOKEN-DE-MENTIRA\n');
+    const executor: ExecutorDoGh = (args, prazo) => {
+      if (args[1] === 'list') { fs.rmSync(corpo, { force: true }); fs.symlinkSync(segredo, corpo); }
+      return gh.executor(args, prazo);
+    };
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: executor, forja: FORJA });
     assert.equal(r.acao, 'publicou', r.detalhe);
     assert.equal(r.corpo, 'pr-body.md');
     const criacao = gh.chamadas.find((c) => c[1] === 'create')!;
     assert.ok(criacao.includes(`--title=ship(${e.id}): RM-059, a pista`), criacao.join(' '));
-    assert.ok(criacao.includes(`--body-file=${path.join(dirThread(p.dir, e.id), 'pr-body.md')}`), criacao.join(' '));
+    assert.ok(criacao.includes('--body=## RM-059, a pista\n\nCorpo do PR.\n'), criacao.join(' '));
+    assert.ok(!criacao.some((a) => a.startsWith('--body-file') || a.includes('TOKEN-DE-MENTIRA')), criacao.join(' '));
   } finally { p.limpar(); }
 });
 
@@ -362,6 +437,12 @@ test('publicar: a CLI recusa --autorizar-push com saida 2 e devolve a recusa do 
     assert.equal(r.contrato, 'ork.ship-publicar/v1');
     assert.equal(r.acao, 'recusada');
     assert.equal(r.motivo, 'human.pending');
+    const inexistente = rodar('ship', 'publicar', 'ork-nao-existe', '--json');
+    assert.equal(inexistente.status, 1, inexistente.stderr);
+    const ri = JSON.parse(inexistente.stdout);
+    assert.equal(ri.contrato, 'ork.ship-publicar/v1');
+    assert.equal(ri.acao, 'recusada');
+    assert.equal(ri.motivo, 'artifact.missing');
     const texto = rodar('ship', 'publicar', e.id);
     assert.equal(texto.status, 1);
     assert.match(texto.stdout, /BLOQUEADO\. motivo tipado: human\.pending/);
@@ -418,7 +499,7 @@ test('pista: as etapas e o proximo passo de cada entrega, com o botao so onde o 
     assert.equal(b.publicavel, false);
     assert.equal(b.proximo.acao, 'publicar');
     assert.equal(b.proximo.disponivel, false, 'fora de #Auto e #Maestro, nenhum botao');
-    assert.match(b.proximo.comando ?? '', /^git push -u origin /);
+    assert.ok((b.proximo.comando ?? '').startsWith(`git push -u 'origin' '${classic.branch}' && gh pr create`), b.proximo.comando ?? '');
 
     const c = de(esperando)!;
     assert.equal(c.pr?.estado, 'aberto');
@@ -456,5 +537,281 @@ test('pista: sem a forja, PR, CI e conflito ficam sem leitura, e o publicar segu
     const x = r.pistas.find((y) => y.thread === e.id)!;
     assert.deepEqual(x.etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
     assert.equal(x.proximo.acao, 'publicar');
+  } finally { p.limpar(); }
+});
+
+test('publicar: o push leva o sha conferido; o commit que chega a branch depois das conferencias fica fora (B1)', () => {
+  const p = projetoTemporario('publicar-commit-tardio', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'commit tardio', 'auto');
+    const conferido = exec('git', ['rev-parse', e.branch], p.dir).stdout.trim();
+    let tardio = '';
+    // A janela: o primeiro gh pr list, depois das conferencias e antes do push. Um commit chega a branch nela.
+    const executor: ExecutorDoGh = (args, prazo) => {
+      if (!tardio && args[1] === 'list') {
+        exec('git', ['checkout', '-q', e.branch], p.dir);
+        tardio = commitar(p.dir, 'tardio.txt', 'tardio\n', `fix(${e.id}): chegou depois`);
+        exec('git', ['checkout', '-q', 'main'], p.dir);
+      }
+      return gh.executor(args, prazo);
+    };
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: executor, forja: FORJA });
+    assert.equal(r.acao, 'publicou', r.detalhe);
+    assert.equal(r.head, conferido);
+    assert.ok(tardio && tardio !== conferido);
+    assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), conferido, 'o remoto ficou no sha conferido, sem o commit tardio');
+    assert.ok(r.passos.includes(`git push -- origin ${conferido}:refs/heads/${e.branch}`), r.passos.join(' | '));
+    assert.equal(gh.prs[0].headRefOid, conferido, 'o PR nasceu no sha conferido');
+    const ev = publicados(p, e.id);
+    assert.equal(ev.length, 1);
+    assert.equal(ev[0].head, conferido);
+    // A pista ve o commit tardio: o verify dele ainda nao rodou, e o proximo passo e o verify, nao outro push.
+    const x = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA, thread: e.id }).pistas[0];
+    assert.equal(x.head, tardio);
+    assert.equal(x.proximo.comando, `ork verify ${e.id}`);
+  } finally { p.limpar(); }
+});
+
+test('publicar: commit de produto e o que muda produto; so o bundle em .ork-ci e o merge da base nao contam (A6, B2, S1, S2)', () => {
+  const p = projetoTemporario('publicar-conferencias-finas', true);
+  try {
+    const t0 = Math.floor(Date.now() / 1000) - 1000;
+    const ensaio = (id: string, c: ManifestoCarregado = p.carregado) =>
+      publicarEntrega(c, id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun: true });
+
+    // A6: um commit de workflow com assunto ci( depois do CHECK e produto, e o CHECK fica velho.
+    const workflow = entregaEm(p, 'workflow', t0);
+    escreverCheckEm(p, workflow.id, t0 + 20);
+    exec('git', ['checkout', '-q', workflow.branch], p.dir);
+    const doWorkflow = commitarEm(p.dir, '.github/workflows/ci.yml', 'on: push\n', `ci(${workflow.id}): workflow novo`, t0 + 30);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    const rw = ensaio(workflow.id);
+    assert.equal(rw.motivo, 'artifact.missing', rw.detalhe);
+    assert.match(rw.detalhe, new RegExp(`anterior ao commit ${doWorkflow.slice(0, 7)}`));
+
+    // So o bundle em .ork-ci, com qualquer assunto, depois do CHECK: nao e produto, e o CHECK e o verify continuam valendo.
+    const soBundle = entregaEm(p, 'so bundle', t0);
+    escreverCheckEm(p, soBundle.id, t0 + 20);
+    exec('git', ['checkout', '-q', soBundle.branch], p.dir);
+    commitarEm(p.dir, '.ork-ci/nota.txt', 'nota\n', `docs(${soBundle.id}): nota ao lado do bundle`, t0 + 30);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    const rb = ensaio(soBundle.id);
+    assert.equal(rb.acao, 'publicaria', rb.detalhe);
+
+    // B2 (a): o verify verde num ancestral, com um commit de produto depois dele, nao vale, nem com o CHECK novo.
+    const ancestral = entregaEm(p, 'verify ancestral', t0);
+    exec('git', ['checkout', '-q', ancestral.branch], p.dir);
+    commitarEm(p.dir, 'mais.txt', 'mais\n', `fix(${ancestral.id}): mais`, t0 + 30);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    escreverCheckEm(p, ancestral.id, t0 + 40);
+    const ra = ensaio(ancestral.id);
+    assert.equal(ra.motivo, 'verify.failed', ra.detalhe);
+    assert.match(ra.detalhe, /e o HEAD mudou depois dele além do bundle/);
+
+    // B2 (b): o bundle com uma claim que foi retirada depois dele levaria a claim ao runner: recusa.
+    const retirada = prepararEntrega(p, 'claim retirada', 'auto', { comClaim: true });
+    retirarClaim(p.dir, retirada.id, 'C1', 'a alegacao mudou');
+    const rr = ensaio(retirada.id);
+    assert.equal(rr.motivo, 'artifact.missing', rr.detalhe);
+    assert.match(rr.detalhe, /sobram as claims C1/);
+
+    // O bundle de outra branch nao vale.
+    const outra = prepararEntrega(p, 'outra branch', 'auto');
+    exec('git', ['checkout', '-q', outra.branch], p.dir);
+    const arquivo = `.ork-ci/${outra.id}.json`;
+    const bundle = JSON.parse(fs.readFileSync(path.join(p.dir, arquivo), 'utf8')) as Record<string, unknown>;
+    commitar(p.dir, arquivo, `${JSON.stringify({ ...bundle, branch: 'ork/outra-full' }, null, 2)}\n`, `ci(${outra.id}): bundle de outra branch`);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    escreverCheck(p, outra.id, 'PASSOU');
+    const ro = ensaio(outra.id);
+    assert.equal(ro.motivo, 'artifact.missing', ro.detalhe);
+    assert.match(ro.detalhe, /é da branch ork\/outra-full/);
+
+    // S2: com build no manifesto, o verify so de claims (sem os comandos) nao vale; com os comandos, vale.
+    const comBuild: ManifestoCarregado = { ...p.carregado,
+      manifesto: { ...p.carregado.manifesto, verify: { ...p.carregado.manifesto.verify, build: 'true' } } };
+    const soClaims = prepararEntrega(p, 'so claims', 'auto');
+    const rs = ensaio(soClaims.id, comBuild);
+    assert.equal(rs.motivo, 'verify.failed', rs.detalhe);
+    assert.match(rs.detalhe, /rodou só as claims/);
+    registrar(dirThread(p.dir, soClaims.id), soClaims.id, TIPOS_DE_EVENTO.verificacao, {
+      commit: exec('git', ['rev-parse', soClaims.branch], p.dir).stdout.trim(), veredito: 'verdade sustentada', motivos: [],
+      comandos: [{ nome: 'build', ok: true, code: 0 }] });
+    const rc = ensaio(soClaims.id, comBuild);
+    assert.equal(rc.acao, 'publicaria', rc.detalhe);
+
+    // O merge da base na branch depois do CHECK nao e produto; o verify vai no HEAD do merge.
+    const comMerge = entregaEm(p, 'com merge', t0);
+    escreverCheckEm(p, comMerge.id, t0 + 20);
+    commitarEm(p.dir, 'base.txt', 'a base andou\n', 'feat: a base andou', t0 + 25);
+    assert.equal(exec('git', ['push', '-q', 'origin', 'main'], p.dir).ok, true);
+    exec('git', ['checkout', '-q', comMerge.branch], p.dir);
+    assert.equal(exec('git', ['merge', '-q', '--no-ff', '-m', 'Merge main', 'main'], p.dir, 60000, comHora(t0 + 30)).ok, true);
+    const doMerge = exec('git', ['rev-parse', 'HEAD'], p.dir).stdout.trim();
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    registrar(dirThread(p.dir, comMerge.id), comMerge.id, TIPOS_DE_EVENTO.verificacao, { commit: doMerge, veredito: 'verdade sustentada', motivos: [] });
+    const rm = ensaio(comMerge.id);
+    assert.equal(rm.acao, 'publicaria', rm.detalhe);
+
+    // S1: a ref de sufixo igual no remoto nao engana a prova do push, nem no publicar nem no ork ship.
+    const sufixo = prepararEntrega(p, 'sufixo', 'auto');
+    const daMain = exec('git', ['rev-parse', 'main'], p.dir).stdout.trim();
+    assert.equal(exec('git', ['update-ref', `refs/heads/a/refs/heads/${sufixo.branch}`, daMain], p.remoto!).ok, true);
+    const real = publicarEntrega(p.carregado, sufixo.id, { executorGh: ghFalso(p).executor, forja: FORJA });
+    assert.equal(real.acao, 'publicou', real.detalhe);
+    assert.equal(real.remotaAntes, null);
+    assert.equal(real.pushVerificado, true);
+    assert.equal(shaNoRemoto(p.dir, 'origin', sufixo.branch), exec('git', ['rev-parse', sufixo.branch], p.dir).stdout.trim());
+  } finally { p.limpar(); }
+});
+
+test('publicar: a thread que nao existe e o remoto que falta voltam como recusa tipada, no contrato (S3)', () => {
+  const p = projetoTemporario('publicar-sem-remoto', false);
+  try {
+    const r = publicarEntrega(p.carregado, 'ork-nao-existe', { executorGh: ghFalso(p).executor, forja: FORJA });
+    assert.equal(r.contrato, 'ork.ship-publicar/v1');
+    assert.equal(r.acao, 'recusada');
+    assert.equal(r.motivo, 'artifact.missing');
+    assert.match(r.detalhe, /a thread ork-nao-existe não foi lida/);
+    const e = prepararEntrega(p, 'sem remoto', 'auto');
+    const rs = publicarEntrega(p.carregado, e.id, { executorGh: ghFalso(p).executor, forja: FORJA });
+    assert.equal(rs.motivo, 'runtime.unavailable', rs.detalhe);
+    assert.match(rs.detalhe, /o remoto origin não está configurado/);
+  } finally { p.limpar(); }
+});
+
+test('publicar: com o PR ja mesclado no HEAD responde ja-publicada, mesmo com a branch apagada no remoto (A2)', () => {
+  const p = projetoTemporario('publicar-mesclada', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'mesclada', 'auto');
+    assert.equal(publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA }).acao, 'publicou');
+    Object.assign(gh.prs[0], { state: 'MERGED', mergedAt: '2026-10-12T11:00:00Z' });
+    // O GitHub apagou a branch depois do merge.
+    assert.equal(exec('git', ['push', '-q', 'origin', '--delete', e.branch], p.dir).ok, true);
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA });
+    assert.equal(r.acao, 'ja-publicada', r.detalhe);
+    assert.equal(r.pr?.numero, gh.prs[0].number);
+    assert.match(r.correcao, /ork ship registrar-pr/);
+    assert.ok(!r.passos.some((x) => x.startsWith('git push')), r.passos.join(' | '));
+    assert.equal(shaNoRemotoDeTeste(p.dir, 'origin', e.branch), '', 'a branch nao foi recriada');
+    assert.equal(gh.criacoes(), 1);
+    assert.equal(publicados(p, e.id).length, 1);
+  } finally { p.limpar(); }
+});
+
+test('publicar: a criacao que falha com a branch ja no remoto e o PR aberto na releitura responde ja-publicada (S7)', () => {
+  const p = projetoTemporario('publicar-de-outro', true);
+  try {
+    const gh = ghFalso(p, { criaMasFalha: true });
+    const e = prepararEntrega(p, 'de outro', 'auto');
+    const head = exec('git', ['rev-parse', e.branch], p.dir).stdout.trim();
+    assert.equal(exec('git', ['push', '-q', 'origin', `${e.branch}:refs/heads/${e.branch}`], p.dir).ok, true);
+    const r = publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA });
+    assert.equal(r.acao, 'ja-publicada', r.detalhe);
+    assert.equal(r.pr?.criado, false);
+    assert.equal(r.remota, head);
+    assert.equal(publicados(p, e.id).length, 0, 'sem push e sem PR aberto por este processo, nada a gravar');
+  } finally { p.limpar(); }
+});
+
+test('publicar: o comando do dono poe cada parte entre aspas simples, e nada dele vira comando no shell (A4)', () => {
+  const dir = dirTemporario('comando-do-dono');
+  try {
+    const bin = path.join(dir, 'bin');
+    fs.mkdirSync(bin);
+    for (const nome of ['git', 'gh']) {
+      fs.writeFileSync(path.join(bin, nome), `#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a"; done >> '${path.join(dir, `${nome}.args`)}'\n`, { mode: 0o755 });
+    }
+    const branch = 'ork/x;touch${IFS}marcador-injetado;true';
+    const base = 'main$(touch base-injetada)';
+    const titulo = "ship(ork-x): o 'titulo' com $HOME, `crase` e barra \\";
+    const comando = comandoDoDono('origin', base, branch, titulo, '.orkastery/threads/ork-x/pr-body.md');
+    assert.equal(spawnSync('bash', ['-n', '-c', comando]).status, 0, `o shell le o comando inteiro: ${comando}`);
+    const r = spawnSync('bash', ['-c', comando], { cwd: dir, env: { ...process.env, PATH: `${bin}:/usr/bin:/bin` }, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.existsSync(path.join(dir, 'marcador-injetado')), false, 'a branch nao virou comando');
+    assert.equal(fs.existsSync(path.join(dir, 'base-injetada')), false, 'a base nao virou comando');
+    const doGit = fs.readFileSync(path.join(dir, 'git.args'), 'utf8').split('\n');
+    assert.deepEqual(doGit.slice(0, 4), ['push', '-u', 'origin', branch]);
+    const doGh = fs.readFileSync(path.join(dir, 'gh.args'), 'utf8').split('\n');
+    assert.ok(doGh.includes(titulo) && doGh.includes(base) && doGh.includes(branch), doGh.join(' | '));
+    assert.ok(doGh.includes('.orkastery/threads/ork-x/pr-body.md'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('pista: o PR mesclado de outro head nao vale para a ponta nova, e a pista oferece publicar de novo (A1)', () => {
+  const p = projetoTemporario('pista-segunda-entrega', true);
+  try {
+    const gh = ghFalso(p);
+    const e = prepararEntrega(p, 'segunda entrega', 'auto');
+    assert.equal(publicarEntrega(p.carregado, e.id, { executorGh: gh.executor, forja: FORJA }).acao, 'publicou');
+    Object.assign(gh.prs[0], { state: 'MERGED', mergedAt: '2026-10-12T11:00:00Z' });
+    // A segunda entrega na mesma branch: um commit novo, verificado, com o CHECK depois dele e a branch no remoto.
+    exec('git', ['checkout', '-q', e.branch], p.dir);
+    const novo = commitar(p.dir, 'segunda.txt', 'segunda\n', `feat(${e.id}): segunda`);
+    exec('git', ['checkout', '-q', 'main'], p.dir);
+    registrar(dirThread(p.dir, e.id), e.id, TIPOS_DE_EVENTO.verificacao, { commit: novo, veredito: 'verdade sustentada', motivos: [] });
+    escreverCheck(p, e.id, 'PASSOU');
+    assert.equal(exec('git', ['push', '-q', 'origin', `${e.branch}:refs/heads/${e.branch}`], p.dir).ok, true);
+    const x = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA, thread: e.id }).pistas[0];
+    assert.equal(x.pr, null, 'o mesclado do head velho nao e o PR da ponta nova');
+    assert.equal(x.etapas.find((y) => y.id === 'pr')?.estado, 'pendente');
+    assert.deepEqual(x.proximo, { acao: 'publicar', disponivel: true, texto: 'publique a branch e abra o PR', comando: `ork ship publicar ${e.id}` });
+  } finally { p.limpar(); }
+});
+
+test('pista: so a thread na entrega vai a conferencia uma a uma, e a lista cortada deixa o PR nao lido, e nao sem PR (A7)', () => {
+  const p = projetoTemporario('pista-forja', true);
+  try {
+    const gh = ghFalso(p);
+    const pronta = prepararEntrega(p, 'pronta', 'auto');
+    for (const nome of ['em go 1', 'em go 2']) prepararEntrega(p, nome, 'auto', { check: 'ausente' });
+    const r = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA });
+    assert.deepEqual(r.pistas.map((x) => x.thread), [pronta.id]);
+    const porBranch = gh.chamadas.filter((c) => c[1] === 'list').map((c) => c.find((a) => a.startsWith('--head='))).filter(Boolean);
+    assert.deepEqual(porBranch, [`--head=${pronta.branch}`], 'as threads em GO nao custam leitura da forja');
+    assert.equal(gh.chamadas.filter((c) => c[1] === 'list').length, 3);
+
+    // A lista dos abertos cortada no teto: com a branch publicada e sem o PR dela na leitura, o PR fica nao lido.
+    for (let i = 0; i < 200; i++) {
+      gh.prs.push({ number: 1000 + i, state: 'OPEN', headRefName: `ork/outra-${i}`, headRefOid: 'f'.repeat(40), baseRefName: 'main',
+        isDraft: false, mergeable: 'MERGEABLE', checks: [], mergedAt: null });
+    }
+    assert.equal(exec('git', ['push', '-q', 'origin', `${pronta.branch}:refs/heads/${pronta.branch}`], p.dir).ok, true);
+    const x = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA, thread: pronta.id }).pistas[0];
+    assert.deepEqual(x.etapas.filter((y) => ['pr', 'ci', 'conflito'].includes(y.id)).map((y) => y.estado), ['nao-lida', 'nao-lida', 'nao-lida']);
+    assert.match(x.etapas.find((y) => y.id === 'pr')?.texto ?? '', /cortada nos 200 mais novos/);
+    assert.equal(x.proximo.acao, null);
+    assert.equal(x.proximo.comando, `ork ship pista ${pronta.id}`);
+  } finally { p.limpar(); }
+});
+
+test('pista: entregue, merge sem registro e conduzida tem cada uma o seu proximo passo (A12)', () => {
+  const p = projetoTemporario('pista-estados', true);
+  try {
+    const gh = ghFalso(p);
+    const entregue = prepararEntrega(p, 'entregue', 'auto');
+    const head = exec('git', ['rev-parse', entregue.branch], p.dir).stdout.trim();
+    registrar(dirThread(p.dir, entregue.id), entregue.id, TIPOS_DE_EVENTO.shipConcluido, { shaDe: head, mergeSha: 'e'.repeat(40) });
+    const conduzida = prepararEntrega(p, 'conduzida', 'auto');
+    tomarConducao(p.dir, conduzida.id, { canal: 'cli', operacao: 'verify', prazoMs: 60_000 });
+    const semRegistro = prepararEntrega(p, 'merge sem registro', 'auto');
+    // O merge ship(<thread>) na base remota, sem o ship_done no ledger.
+    assert.equal(exec('git', ['merge', '-q', '--no-ff', '-m', `ship(${semRegistro.id}): merge sem registro`, semRegistro.branch], p.dir).ok, true);
+    assert.equal(exec('git', ['push', '-q', 'origin', 'main'], p.dir).ok, true);
+    const r = pistaDeEntrega(p.carregado, { executorGh: gh.executor, forja: FORJA });
+    const de = (e: Entrega) => r.pistas.find((x) => x.thread === e.id)!;
+    assert.equal(de(entregue).etapas.find((x) => x.id === 'entrega')?.estado, 'feita');
+    assert.deepEqual(de(entregue).proximo, { acao: null, disponivel: false, texto: 'entregue; o MASTER fecha a thread', comando: null });
+    assert.equal(de(conduzida).conduzida, true);
+    assert.equal(de(conduzida).proximo.acao, null);
+    assert.equal(de(conduzida).proximo.comando, `ork conducao status ${conduzida.id}`);
+    assert.match(de(conduzida).proximo.texto, /conduz a thread agora/);
+    const m = de(semRegistro);
+    assert.match(m.etapas.find((x) => x.id === 'entrega')?.texto ?? '', /^merge [0-9a-f]{7} na base, sem ship_done$/);
+    assert.deepEqual(m.proximo, { acao: 'registrar', disponivel: true, texto: 'mesclado na base: registre a entrega',
+      comando: `ork ship registrar-pr ${semRegistro.id}` });
   } finally { p.limpar(); }
 });

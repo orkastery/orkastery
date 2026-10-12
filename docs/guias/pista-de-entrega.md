@@ -10,11 +10,11 @@ Com o mod `ork-pista` ligado na sua sessão (papel `dono`), `/pista` abre um pai
 
 | Etapa | Feita quando |
 | --- | --- |
-| CHECK | o `docs/check.md` tem exatamente um veredito, PASSOU, gravado depois do último commit de produto (merge e `ci(` não contam) |
-| verify | o último `ork verify` da thread passou no HEAD, ou num ancestral dele com só o bundle depois |
+| CHECK | o `docs/check.md` tem exatamente um veredito, PASSOU, gravado depois do último commit de produto (merge e commit que só muda o bundle em `.ork-ci/` não contam) |
+| verify | o último `ork verify` da thread passou, com o build e o test do manifesto, no HEAD ou num ancestral dele com só o bundle depois |
 | bundle | o `.ork-ci/<thread>.json` está no HEAD, é desta branch e lista exatamente as claims ativas |
-| branch | o `git ls-remote` do remoto devolve o HEAD da branch |
-| PR | há PR aberto (ou mesclado) da branch |
+| branch | o `git ls-remote` do remoto devolve o HEAD da branch; um commit do remoto que esta cópia não tem é divergência |
+| PR | há PR aberto da branch, ou o PR dela foi mesclado no HEAD; o mesclado de uma entrega anterior não conta |
 | CI | o check `ork-verify` está verde no head do PR |
 | conflito | o GitHub diz que o PR mergeia sem conflito com a base |
 | entrega | o `ship_done` está no ledger |
@@ -43,7 +43,7 @@ A etapa de CI vem da leitura da pista (o rollup de checks do PR aberto) e, quand
 - **Pelo evento do GitHub:** quando a sua sessão recebe um evento do GitHub (`session.receive` com a fonte `github`, de um PR que você acompanha), a Pista procura nele o PR (`dono/repo#N` ou o número), a branch ou o head de uma pista, só nos campos que o servidor assere; campo escrito por terceiros não conta. O evento só dispara a consulta: o conteúdo dele nunca vira estado da Pista, e a entrega segue para o modelo como chegou.
 - **Sem evento:** a reserva consulta, a cada 2 min com o painel à vista e a cada 10 min escondido, só as pistas com PR aberto e CI ainda aberto.
 
-Quando a consulta fecha o CI (verde ou vermelho), a Pista relê a pista inteira, porque o próximo passo do núcleo muda; o CI vermelho também aparece na faixa. Leitura de outro commit não vale para a pista.
+Quando a consulta diz do CI outra coisa que a pista (o CI fechou, ou mudou depois de uma rodada nova), a Pista relê a pista inteira, uma vez por leitura, porque o próximo passo do núcleo muda; o CI vermelho também aparece na faixa. A consulta que falhou não apaga o que o núcleo já leu: a etapa fica como estava, com a falha ao lado. Leitura de outro commit não vale para a pista.
 
 ## O que a Pista nunca faz
 
@@ -53,8 +53,8 @@ Quando a consulta fecha o CI (verde ou vermelho), a Pista relê a pista inteira,
 
 ## O que o núcleo oferece
 
-- `ork ship pista [<thread>] --json` (`ork.ship-pista/v1`): as oito etapas e o próximo passo de cada pista, com `acao` (`publicar`, `registrar` ou `null`), `disponivel` e `comando`. É uma leitura: um `git ls-remote --heads` do remoto e uma leitura dos PRs pelo `gh`, sem gravar nada.
-- `ork ship publicar <thread> [--dry-run] [--json]` (`ork.ship-publicar/v1`): publica a branch e abre o PR, só em #Auto e #Maestro. Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a branch com produto, o CHECK, o verify e o bundle no HEAD, o remoto do GitHub e os PRs da branch; a recusa volta com motivo tipado e não grava nada. Empurra sem força, prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o `.orkastery/threads/<thread>/pr-body.md` (título `ship(<thread>): ...`, do primeiro cabeçalho do corpo) e grava `ship_published` no ledger. Repetido, responde `ja-publicada`. Não aceita `--autorizar-push`.
+- `ork ship pista [<thread>] --json` (`ork.ship-pista/v1`): as oito etapas e o próximo passo de cada pista, com `acao` (`publicar`, `registrar` ou `null`), `disponivel` e `comando`. É uma leitura: um `git ls-remote --heads` do remoto e uma leitura dos PRs pelo `gh`, sem gravar nada. Só a thread que já está na entrega pelo que se lê sem a forja vai à leitura dos PRs, e a lista dos PRs abertos cortada no teto deixa o PR como não lido, nunca como sem PR.
+- `ork ship publicar <thread> [--dry-run] [--json]` (`ork.ship-publicar/v1`): publica a branch e abre o PR, só em #Auto e #Maestro. Antes de qualquer efeito confere a thread aberta, ninguém conduzindo, a branch com produto, o CHECK, o verify e o bundle no HEAD, o remoto do GitHub, a ponta da branch nele e os PRs da branch; a recusa antes de qualquer efeito volta com motivo tipado e não grava nada. Empurra sem força o sha conferido, e não a ref (o commit que chegar à branch depois fica para a próxima publicação), prova pelo `git ls-remote`, reaproveita o PR aberto ou abre um com o texto do `.orkastery/threads/<thread>/pr-body.md` (título `ship(<thread>): ...`, do primeiro cabeçalho do corpo) e grava `ship_published` no ledger; o push que aconteceu sem prova também fica lá. Repetido, ou com o PR já mesclado no HEAD, responde `ja-publicada`. Não aceita `--autorizar-push`.
 
 A Pista lê o retrato do núcleo pela ponte (`ork-ponte`) para saber quando uma entrega andou, e relê a pista quando um ledger muda, a cada 5 min com o painel à vista e a cada 15 min escondido. O que o painel à vista mostrou entra no registro da ponte (`ork.mod-mostrado/v1`), para o Telegram não repetir.
 
