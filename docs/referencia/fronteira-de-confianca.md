@@ -33,6 +33,7 @@ Auditoria de 03/10/2026 (thread `ork-rm047frontei`), sobre a `main` depois dos m
 | **Inerte** | Só constantes, ou dado confiável |
 | **Defendido** | Dado externo, mas validado, depois de `--`/`--end-of-options`, qualificado com `refs/`, ou sha conferido |
 | **Corrigido nesta auditoria** | Era injeção de opção, executável escolhido pelo clone ou caminho fora da raiz |
+| **Corrigido, em decisão do dono** | Fecha um pendente da seção 6 mudando comportamento; o dono escolheu mesclar como patch de segurança (S1 a, 11/10/2026), na thread `ork-rm047procede` |
 | **Pendente do dono** | Fechar exige mudar comportamento documentado ou aceito hoje; a decisão é do dono |
 
 Toda chamada de processo do núcleo é `spawn`/`spawnSync` com vetor de argumentos e sem shell
@@ -75,10 +76,10 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `verify.ts`, `ci.ts`, `claims.ts`, `fix.ts`, `auditrun.ts` | `bash -c` | comandos declarados | documentado | Declarado |
 | `verify-sandbox.ts`, `mcp-ship.ts` | python3 supervisor, `codex sandbox` | comando da claim (MCP) | worktree com realpath, binário fixo, sem rede | Declarado e defendido |
 | `adapters/claude-bg.ts`, `adapters/codex*.ts` | claude, codex | `runtime.model`, `runtime.effort`, setup | cada valor logo depois da flag que o consome; no Codex vão por JSON-RPC | Defendido |
-| `adapters/codex-controller-worker.ts` | codex app-server | `runtime.sandbox` | lista fechada de valores | **Pendente do dono** (P1) |
-| `session-watcher*.ts`, `liveness.ts`, `worktree.ts`, `conducao.ts`, `retry.ts` (git status, log, rev-parse) | git | cwd = `thread.worktree` ou `cwd` do ledger | argumentos constantes; cwd sem conferência de registro | **Pendente do dono** (P2) |
-| `pulse-delivery.ts`, `master-digest.ts` | transporte do host | `executavel` e `argumentos` de `.orkastery/monitor/*-host.json` | tipos conferidos | **Pendente do dono** (P2) |
-| `canarios*.ts` (via `ork eval`) | node | hooks e `core/dist` do catálogo achado a partir do cwd | nenhuma | **Pendente do dono** (P4) |
+| `adapters/codex-controller-worker.ts` | codex app-server | `runtime.sandbox` | lista fechada; a postura que afrouxa só despacha com a confirmação local da máquina (`runtime.sandbox-nao-confirmado`) | **Corrigido, em decisão do dono** (P1) |
+| `session-watcher*.ts`, `liveness.ts`, `worktree.ts`, `conducao.ts`, `retry.ts`, `verify.ts`, `phase.ts`, `ci.ts` (git status, log, rev-parse; cwd do agente) | git, runtime | cwd = `thread.worktree`, `cwd` do ledger ou da fila | cwd só na raiz ou em worktree do `git worktree list` (`estado.worktree-nao-registrada`); estado versionado não escolhe (`estado.rastreado`) | **Corrigido, em decisão do dono** (P2) |
+| `pulse-delivery.ts`, `master-digest.ts` | transporte do host | `executavel` e `argumentos` de `.orkastery/monitor/*-host.json` | tipos conferidos; só o arquivo local, comum e fora do índice do git (`transporte.rastreado`) | **Corrigido, em decisão do dono** (P2) |
+| `canarios*.ts` (via `ork eval`) | node | hooks e `core/dist` do catálogo achado a partir do cwd | o eval só executa o catálogo do pacote que está rodando; um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio` | **Corrigido, em decisão do dono** (P4) |
 | `intelligence-graph-*.ts`, `superficie.ts`, `ledger-stats.ts`, `demo.ts`, `init.ts`, `doctor.ts`, `preflight.ts`, `hitl-*.ts`, `creation-operation-store.ts`, `fabrica-publicar.ts` | git, node, flock | nenhum, ou sha validado | `-c core.fsmonitor=false` no grafo; `O_NOFOLLOW` nos locks | Inerte |
 
 ## 5. Matriz de caminhos
@@ -90,9 +91,9 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 | `ledger.jsonl`, `claims.jsonl`, `board.jsonl` | arquivo versionado como link | append seguia o link | append com `O_NOFOLLOW` |
 | `.orkastery/audits/<rodada>` e `docs/audit/<rodada>.md` | `id` lido do `run.json` | sem validação | `exigirIdDeRodada` (`audit.rodada-invalida`) |
 | `memory.cli` | manifesto | `path.resolve` no cwd | nome no PATH ou absoluto |
-| `worktree.dir` | manifesto | `..` e absoluto aceitos | **Pendente do dono** (P3) |
-| `thread.worktree` | `thread.json` | cwd de agente, git e `ci prepare` | **Pendente do dono** (P2) |
-| ponteiros do `ork recall` e do handoff | `handoff.json`, `claim.arquivo`, `promptPath` | `path.resolve` sem contenção | **Pendente do dono** (P2) |
+| `worktree.dir` | manifesto | `..` e absoluto aceitos | dentro da raiz, pelo caminho real, como antes; fora dela (`..`, absoluto, link), a criação recusa com `worktree.dir-fora-da-raiz` até `ork setup worktree confirmar` nesta máquina (**Corrigido, em decisão do dono**, P3) |
+| `thread.worktree` | `thread.json` | cwd de agente, git e `ci prepare` | só worktree registrada no git e `thread.json` fora do índice (**Corrigido, em decisão do dono**, P2) |
+| ponteiros do `ork recall` e do handoff | `handoff.json`, `claim.arquivo`, `promptPath` | `path.resolve` sem contenção | pelo caminho real, só dentro da raiz ou da worktree registrada da thread: o recall recusa com `ponteiro.fora-da-raiz`, e o export não aponta para fora (**Corrigido, em decisão do dono**, P2) |
 | `.ork-ci/*.json` | bundle do clone | lido até 1 MiB, segue link | Declarado (o bundle é executado por desenho no CI) |
 | `docs/roadmap/*.md`, `README.md`, `orkastery.setup.json`, `orkastery.yaml` como link | arquivo do clone | escrita segue o link, só se o alvo tiver o formato esperado e só em comando explícito | Defendido pelo formato; baixo |
 | nomes vindos das branches `ork/*` e de outras máquinas | branch de estado | nunca viram caminho local | Inerte |
@@ -100,22 +101,27 @@ Agrupada por módulo. "Dado externo" é o que pode vir do clone; o resto é iner
 
 ## 6. Pendentes do dono
 
-Fechar estes itens exige mudar comportamento que hoje é aceito ou documentado. Por isso a thread não os
-alterou.
+Fechar estes itens exige mudar comportamento que hoje é aceito ou documentado. Por isso a auditoria não os
+alterou. P1 a P5 ganharam correção na thread `ork-rm047procede`, mesclada por decisão do dono (S1 a, 11/10/2026)
+como patch de segurança; a coluna da direita diz o estado de cada um. A regra é a mesma nos cinco: o que vem com o repositório
+não decide executável, caminho fora da raiz nem publicação desta máquina; quando o uso é legítimo, a máquina
+confirma fora do git, e a recusa é tipada e diz o comando.
 
-| Id | Classe do problema | Por que é contrato |
+| Id | Classe do problema | Por que é contrato, ou o estado |
 | --- | --- | --- |
-| P1 | O manifesto escolhe a postura de sandbox do agente: `runtime.sandbox: danger-full-access` do clone vira sandbox desligado com aprovação `never` no `ork phase run` com Codex | O valor está documentado no modelo do `ork init` e no `doctor`. Fechar pede, por exemplo, exigir a confirmação no setup local da máquina |
-| P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro: `thread.worktree` e `cwd` do ledger escolhem onde o git e o agente rodam, o transporte do pulse e do digest sai de `.orkastery/monitor/*-host.json`, e os ponteiros do recall leem arquivo fora da raiz | O núcleo trata estado versionado como suportado (`vincularEstado` preserva o índice da main). Fechar pede uma regra de procedência: estado rastreado pelo git não vale como local, ou cwd só em worktree registrada |
-| P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | Worktree fora da raiz é um uso comum e não está proibido em lugar nenhum. O MCP já recusa; o CLI aceita |
-| P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | O comando é do CI do kit e roda o próprio código de propósito; falta decidir se ele confere a raiz do pacote |
-| P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | É opt-in documentado no manifesto; a pergunta é se o opt-in deve ser da máquina, não do repositório |
+| P1 | O manifesto escolhe a postura de sandbox do agente | **Corrigido, em decisão do dono.** A postura que afrouxa o sandbox (`danger-full-access`) só despacha, no `ork phase run` e no `ork retry run`, depois de a máquina confirmá-la no setup local, fora do git (`ork setup sandbox confirmar <postura>`). Sem isso, o despacho recusa com `runtime.sandbox-nao-confirmado` e diz o comando |
+| P2 | Estado de `.orkastery/` versionado no clone é lido como verdadeiro | **Corrigido, em decisão do dono.** Estado rastreado pelo git não escolhe cwd, worktree nem executável; o cwd de git e agente só vale na raiz ou numa worktree do `git worktree list` do repositório; o transporte do pulse e do digest só vale do arquivo de host local; os ponteiros do recall e do handoff só leem arquivo que, pelo caminho real, fica na raiz ou na worktree registrada da thread (`ponteiro.fora-da-raiz`) |
+| P3 | `worktree.dir` do manifesto aceita `..` e caminho absoluto, e o `git worktree add` cria o checkout fora da raiz | **Corrigido, em decisão do dono.** Worktree fora da raiz segue possível, mas quem decide é a máquina: fora da raiz pelo caminho real (`..`, absoluto, link no caminho, `.git`), a criação recusa com `worktree.dir-fora-da-raiz` até `ork setup worktree confirmar`, gravado em `.orkastery/private/worktree-local.json` (0600, fora do git, só para este checkout e esta pasta). O `ork doctor` acusa. O MCP segue recusando |
+| P4 | `ork eval` trata qualquer diretório com `skills/`, `references/` e `eval/` como catálogo e executa os hooks e o `core/dist` dele | **Corrigido, em decisão do dono.** O eval só executa o catálogo do pacote que está rodando (achado a partir do próprio código). Um catálogo achado a partir do cwd que não é o do pacote recusa com `eval.catalogo-alheio`, e a mensagem diz como rodar o `ork` daquele checkout de propósito. O CI do kit (`node core/dist/index.js eval` na raiz) não muda |
+| P5 | `fabrica.compartilhada: true` vindo do manifesto liga a publicação, em segundo plano, do retrato desta máquina (threads, nome, host) para o remoto do clone | **Corrigido, em decisão do dono.** O opt-in é da máquina: só `ork fabrica entrar` (`~/.orkastery/maquina.json`) ou `ORK_FABRICA_COMPARTILHADA=1` ligam a publicação e a leitura das outras máquinas. O `fabrica.compartilhada` do manifesto vira pedido do time: o `ork doctor` e o `ork fabrica` avisam (`fabrica.nao-confirmada`) e dizem o comando |
 
 Também ficam registrados, com risco baixo: `ork retry run --dry-run` na ação `corrigir-dirigido`
 reexecuta claims e verify (comandos declarados, mas contra a semântica do `--dry-run`); o perfil do
 runtime gravado no ledger escolhe `CLAUDE_CONFIG_DIR`/`CODEX_HOME` de comandos de consulta; o
 `memory.database_url_env` aceita nome de qualquer variável de ambiente; e `ci.external_repositories`
-aceita segmento `..` no caminho de um `gh api` de leitura.
+aceita segmento `..` no caminho de um `gh api` de leitura. O `ork adapter install` ainda acha o catálogo a partir
+do projeto, como o `ork eval` achava (P4), mas só copia o adaptador para dentro do próprio projeto e usa o `ork` do
+PATH quando ele existe; fica registrado com risco baixo.
 
 ## 7. Para quem contribui
 
@@ -126,4 +132,8 @@ aceita segmento `..` no caminho de um `gh api` de leitura.
   configuração não é a raiz do clone.
 - Caminho com id vindo de arquivo: um segmento só, com regex, e o diretório de estado não é link.
 - Append em estado: `O_NOFOLLOW`. Escrita de arquivo inteiro: temporário com `wx` e `rename`.
-- O teste da correção reprova o código anterior: veja `core/test/fronteira-de-confianca.test.ts`.
+- Caminho lido de ponteiro guardado no estado: confira pelo caminho real com `exigirCaminhoContido`
+  (`core/src/procedencia.ts`). Decisão que o manifesto não pode tomar sozinho: confirmação local em
+  `.orkastery/private/` (`lerArquivoPrivado`/`gravarArquivoPrivado`, em `core/src/postura-local.ts`).
+- O teste da correção reprova o código anterior: veja `core/test/fronteira-de-confianca.test.ts`,
+  `core/test/procedencia-e-postura.test.ts` e `core/test/fronteira-pendentes.test.ts`.
