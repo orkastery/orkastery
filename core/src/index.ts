@@ -298,10 +298,6 @@ function texto(v: string | boolean | undefined): string | undefined {
 }
 
 /**
- * I-36 (D2, D6): o que o CLI declara sobre a conducao. `--canal` (sem ele, o que a borda exporta),
- * `--correlacao` (conversa ou mensagem de origem) e `--esperar [minutos]` (sem valor, 30).
- */
-/**
  * RM-058 N2 (A1 da rodada 2 do CHECK): a fila de recursos pesados de um comando que verifica por dentro, pelo `--esperar`
  * dele, com o aviso no stderr e o comando que a recusa sugere. Sem `--esperar`, vale o padrão curto do verify.
  */
@@ -313,6 +309,10 @@ function filaPesadaDoCli(args: Args, operacao: 'verify' | 'baseline', comandoDeE
       ocupantes.map((o) => m.filaPesadaOcupante(o.operacao, o.thread, formatarDataHora(o.desde))).join('; '))) };
 }
 
+/**
+ * I-36 (D2, D6): o que o CLI declara sobre a conducao. `--canal` (sem ele, o que a borda exporta),
+ * `--correlacao` (conversa ou mensagem de origem) e `--esperar [minutos]` (sem valor, 30).
+ */
 function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>; correlacao: string | null; esperarMs: number | undefined } {
   if (args.opcoes.canal === true) throw new Error(msg().phase.canalUso);
   const bruto = args.opcoes.esperar;

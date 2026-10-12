@@ -377,21 +377,24 @@ const FORMATO_OU_PRIVADO = /[\p{Cf}\p{Co}]/u;
 /** Letras e marcas que não desenham nada: os preenchedores do Hangul, o juntador de grafemas e as vogais mudas do khmer. */
 const SEM_DESENHO: ReadonlySet<number> = new Set([0x115f, 0x1160, 0x3164, 0xffa0, 0x34f, 0x17b4, 0x17b5]);
 const seletorDeVariacao = (cp: number): boolean => cp >= 0xfe00 && cp <= 0xfe0f;
+/** O que pode levar o seletor de texto ou de emoji: o pictograma e a base da tecla (dígito, `#` e `*`). */
+const BASE_DE_EMOJI = /^[\p{Extended_Pictographic}0-9#*]$/u;
 
 /**
  * A7 do CHECK da ork-rm058n2, e o resto que a rodada 2 achou: o caractere que esconde ou reordena texto na tela de quem
  * autoriza. Os controles (fora o tab e a quebra de linha), os separadores de linha do Unicode, os de formato e de uso
- * privado, os que não desenham nada, os seletores de variação suplementares e mais de um seletor seguido (um só, depois
- * de um caractere, é o do emoji). Pelo código e pela categoria, sem escapes no fonte.
+ * privado, os que não desenham nada, os seletores de variação suplementares e o seletor fora do emoji: só o de texto ou de
+ * emoji (U+FE0E, U+FE0F), um só, logo depois de um pictograma ou da base da tecla. Seletores em série carregariam texto
+ * escondido, 4 bits por seletor (S2 da rodada 3). Pelo código e pela categoria, sem escapes no fonte.
  */
 function caractereQueEsconde(texto: string): number | null {
-  let anterior = -1;
+  let anterior = '';
   for (const c of texto) {
     const cp = c.codePointAt(0)!;
     if ((cp < 0x20 && cp !== 0x09 && cp !== 0x0a) || (cp >= 0x7f && cp <= 0x9f) || cp === 0x2028 || cp === 0x2029 ||
         FORMATO_OU_PRIVADO.test(c) || SEM_DESENHO.has(cp) || (cp >= 0xe0100 && cp <= 0xe01ef) ||
-        (seletorDeVariacao(cp) && (anterior < 0 || seletorDeVariacao(anterior)))) return cp;
-    anterior = cp;
+        (seletorDeVariacao(cp) && !((cp === 0xfe0e || cp === 0xfe0f) && BASE_DE_EMOJI.test(anterior)))) return cp;
+    anterior = c;
   }
   return null;
 }

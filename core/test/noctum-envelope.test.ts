@@ -300,6 +300,9 @@ test('E15: dependência fora da lista, ciclo, thread e pedido juntos, id repetid
     [p => { trabalhosDe(p)[0].pedido = `Corrigir${String.fromCharCode(0x3164)} o typo.`; }, /o caractere U\+3164 esconde/],
     [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo${String.fromCodePoint(0xe0100)}.`; }, /o caractere U\+E0100 esconde/],
     [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo${String.fromCodePoint(0x2764, 0xfe0f, 0xfe0e)}.`; }, /o caractere U\+FE0E esconde/],
+    // S2 da rodada 3: o seletor depois de uma letra, ou um seletor que não é o de texto nem o de emoji, carregaria bits.
+    [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo${String.fromCodePoint(0xfe0f)} agora.`; }, /o caractere U\+FE0F esconde/],
+    [p => { trabalhosDe(p)[0].pedido = `Corrigir o typo ${String.fromCodePoint(0x2764, 0xfe01)}.`; }, /o caractere U\+FE01 esconde/],
     [p => { p.trabalhos = Array.from({ length: 5 }, (_, i) => ({ id: `t${i}`, item: 'RM-901', prioridade: 1, dependeDe: [],
       pedido: `${i}${'y'.repeat(4000)}` })); }, /os pedidos somam 20005 bytes; até 16384 por arco/],
     [p => { trabalhosDe(p)[2].thread = '../fora'; }, /id de uma thread que já existe/],
@@ -364,6 +367,6 @@ test('E18: o resumo que o dono autoriza traz o pedido inteiro, linha por linha, 
   }
   // O emoji com um seletor de variação depois do caractere é texto visível, e passa.
   const comEmoji = pedidoV2();
-  trabalhosDe(comEmoji)[0].pedido = `Corrigir o typo ${String.fromCodePoint(0x2764, 0xfe0f)} e seguir.`;
+  trabalhosDe(comEmoji)[0].pedido = `Corrigir o typo ${String.fromCodePoint(0x2764, 0xfe0f)} e seguir no passo ${String.fromCodePoint(0x31, 0xfe0f, 0x20e3)}.`;
   assert.match(validarPedidoDeAbertura(comEmoji).trabalhos![0].pedido!, /^Corrigir o typo /);
 });
