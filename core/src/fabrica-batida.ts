@@ -27,6 +27,7 @@ import { registrar, TIPOS_DE_EVENTO } from './ledger';
 import { nomeDaMaquina, pastaDoUsuario } from './maquina';
 import { formatarHora, legendaDoFuso } from './horario';
 import { noPath } from './util';
+import { exigirHostLocal } from './procedencia';
 
 /** O comentario no fim da linha que o `ork` instalou; o `sh` do cron o ignora. */
 export const MARCA_DA_BATIDA = '# ork-batida';
@@ -64,9 +65,15 @@ function diretorioAceito(dir: string): boolean {
   return caminhoAceito(dir) && !dir.includes(':');
 }
 
-function transporteDoProjeto(dirMonitor: string): string | null {
+/**
+ * O executavel do transporte, so do `pulse-host.json` local desta maquina (RM-047, P2): o versionado no git, ou o link,
+ * nao poe diretorio nenhum no PATH da batida.
+ */
+function transporteDoProjeto(raiz: string, dirMonitor: string): string | null {
+  const arquivo = path.join(dirMonitor, 'pulse-host.json');
   try {
-    const config = JSON.parse(fs.readFileSync(path.join(dirMonitor, 'pulse-host.json'), 'utf8')) as { executavel?: unknown };
+    exigirHostLocal(raiz, arquivo);
+    const config = JSON.parse(fs.readFileSync(arquivo, 'utf8')) as { executavel?: unknown };
     return typeof config.executavel === 'string' && config.executavel.trim() ? config.executavel.trim() : null;
   } catch { return null; }
 }
@@ -120,7 +127,7 @@ export function linhaDaBatida(raiz: string, opcoes: OpcoesDaLinha = {}): string 
     }
   }
   const PATH = caminhoDaBatida({ node: opcoes.node, achar: opcoes.achar,
-    transporte: transporteDoProjeto(path.join(raiz, '.orkastery', 'monitor')) });
+    transporte: transporteDoProjeto(raiz, path.join(raiz, '.orkastery', 'monitor')) });
   return `${BATIDA_DO_TEMPLATE} ORK_PULSE_PROJECT=${citarNoShell(raiz)} PATH=${citarNoShell(PATH)} ` +
     `${citarNoShell(script)} ${MARCA_DA_BATIDA}`;
 }

@@ -21,7 +21,7 @@ import {
 import { lerLedger, TIPOS_DE_EVENTO } from '../src/ledger';
 import { gravarThread, lerThread, novaThread } from '../src/thread';
 import { main } from '../src/index';
-import { noPath } from '../src/util';
+import { exec, noPath } from '../src/util';
 
 const NOME = 'cadencia do pulse no cron';
 const OUTRAS = 'MAILTO=""\n# backup da noite\n0 3 * * * /usr/local/bin/backup --tudo\n';
@@ -164,6 +164,20 @@ test('F1: status diz a linha, a ultima rodada do hitl.log e ha quanto tempo; atr
     assert.doesNotMatch(texto, /atrasada/);
     const tarde = estadoDaBatida(p.dir, { executor: cron, quando: '2026-10-12T16:00:00.000Z' });
     assert.match(textoDoEstadoDaBatida(tarde, '2026-10-12T16:00:00.000Z'), /atrasada: nenhuma rodada há 75 min/);
+  } finally { p.limpar(); }
+});
+
+test('F1: o diretorio do transporte so entra no PATH da linha pelo pulse-host.json local, nunca pelo versionado no git', () => {
+  const p = projetoComVarredura('rm062-batida-transporte');
+  try {
+    const monitor = path.join(p.dir, '.orkastery', 'monitor');
+    const transporte = path.join(p.dir, 'transporte-simulado', 'bin', 'openclaw');
+    fs.mkdirSync(monitor, { recursive: true });
+    fs.writeFileSync(path.join(monitor, 'pulse-host.json'), JSON.stringify({ executavel: transporte, argumentos: ['{{mensagem}}'] }));
+    assert.ok(linhaDaBatida(p.dir).includes(path.dirname(transporte)), 'o local entra');
+    // O mesmo arquivo versionado (RM-047, P2) nao poe diretorio nenhum no PATH da batida.
+    exec('git', ['add', '-f', path.join('.orkastery', 'monitor', 'pulse-host.json')], p.dir);
+    assert.ok(!linhaDaBatida(p.dir).includes(path.dirname(transporte)), 'o versionado nao entra');
   } finally { p.limpar(); }
 });
 
