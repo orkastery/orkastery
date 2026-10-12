@@ -101,6 +101,7 @@ export function montar(on, opcoes: { papel: string; pista?: unknown; paineis?: u
     atrasos: {} as Record<string, () => Promise<void>>,
   }
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.receive', ($, e) => ({ text: e.text }))
   on('classic.FileChanged', () => ({}))
   on('env.get', ($, e) => ({ value: e.name === 'ORK_TESTE_PAPEL' ? mundo.papel : undefined }))
   on('mcp.call', ($, e) => {

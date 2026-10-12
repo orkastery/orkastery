@@ -36,6 +36,15 @@ O clique relê a pista daquela thread antes de valer: se, entre o desenho e o cl
 
 O argv sai sempre do mod, nunca do texto do JSON, e a ponte confere cada um contra a lista de autoridade dos mods.
 
+## O CI
+
+A etapa de CI vem da leitura da pista (o rollup de checks do PR aberto) e, quando há algo mais novo, da consulta ao núcleo no head exato do PR: `ork ci status --sha <head> --json` (`ork.ci-status/v1`).
+
+- **Pelo evento do GitHub:** quando a sua sessão recebe um evento do GitHub (`session.receive` com a fonte `github`, de um PR que você acompanha), a Pista procura nele o PR (`dono/repo#N` ou o número), a branch ou o head de uma pista, só nos campos que o servidor assere; campo escrito por terceiros não conta. O evento só dispara a consulta: o conteúdo dele nunca vira estado da Pista, e a entrega segue para o modelo como chegou.
+- **Sem evento:** a reserva consulta, a cada 2 min com o painel à vista e a cada 10 min escondido, só as pistas com PR aberto e CI ainda aberto.
+
+Quando a consulta fecha o CI (verde ou vermelho), a Pista relê a pista inteira, porque o próximo passo do núcleo muda; o CI vermelho também aparece na faixa. Leitura de outro commit não vale para a pista.
+
 ## O que a Pista nunca faz
 
 - Merge, tag ou promoção de site. O merge do PR verde continua com você ou com o condutor externo, e o `ship_done` vem do `ork ship registrar-pr`.

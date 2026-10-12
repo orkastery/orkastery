@@ -7,6 +7,8 @@ import {
 // O esqueleto da Pista (T7.2): na sessao do dono, o painel com uma pista por entrega, lida do nucleo pelo
 // `ork ship pista --json` fora do desenho, a linha da faixa pela ponte e o registro do que o painel a vista mostrou.
 // O nucleo e o fundo `process.run`; as etapas e o proximo passo vem prontos dele.
+/** So as leituras da pista: a reserva do CI (T7.4) tambem chama o nucleo pelo `process.run`. */
+const leituras = mundo => mundo.processos.filter(a => a[2] === 'pista').length
 const PR_ABERTO = { numero: 7, url: 'https://github.com/acme/app/pull/7', estado: 'aberto', rascunho: false, head: SHA_B }
 const PISTAS = saidaDaPista([
   pista('ork-c', { pr: PR_ABERTO, estados: { ci: 'pendente', entrega: 'pendente' },
@@ -151,18 +153,18 @@ test('ledger de thread que muda rele a pista em lote, sem passar do intervalo mi
   const mundo = montar(on, { papel: 'dono', pista: PISTAS })
   await iniciar($)
   await relogio.advance(1)
-  await esperar(() => mundo.processos.length > 0)
+  await esperar(() => leituras(mundo) > 0)
   const ledger = thread => ({ file_path: `/projeto/.orkastery/threads/${thread}/ledger.jsonl`, event: 'change' })
   await $.classic.FileChanged(ledger('ork-a'))
   await $.classic.FileChanged(ledger('ork-b'))
   await $.classic.FileChanged({ file_path: '/projeto/outro/arquivo.txt', event: 'change' })
   await relogio.advance(5000)
-  expect(mundo.processos.length).toBe(1)
+  expect(leituras(mundo)).toBe(1)
   await relogio.advance(25000)
-  await esperar(() => mundo.processos.length > 1)
-  expect(mundo.processos.length).toBe(2)
+  await esperar(() => leituras(mundo) > 1)
+  expect(leituras(mundo)).toBe(2)
   await relogio.advance(60000)
-  expect(mundo.processos.length).toBe(2)
+  expect(leituras(mundo)).toBe(2)
 })
 
 test('a entrega que anda no retrato da ponte rele a pista antes da idade; sem mudanca, so a idade rele', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -170,18 +172,18 @@ test('a entrega que anda no retrato da ponte rele a pista antes da idade; sem mu
   const mundo = montar(on, { papel: 'dono', pista: PISTAS, retrato: retratoDoShip([]) })
   await iniciar($)
   await relogio.advance(1)
-  await esperar(() => mundo.processos.length > 0)
+  await esperar(() => leituras(mundo) > 0)
   await relogio.advance(60000)
   await relogio.advance(60000)
-  expect(mundo.processos.length).toBe(1)
+  expect(leituras(mundo)).toBe(1)
   expect(mundo.maestro).toBeGreaterThan(0)
   mundo.retrato = retratoDoShip([{ thread: 'ork-c', status: 'delivered', em: '2025-10-09T10:05:00.000Z' }])
   await relogio.advance(60000)
-  await esperar(() => mundo.processos.length > 1)
-  expect(mundo.processos.length).toBe(2)
+  await esperar(() => leituras(mundo) > 1)
+  expect(leituras(mundo)).toBe(2)
   // Escondido, a idade de 15 min rele.
   await relogio.advance(15 * 60000)
-  await esperar(() => mundo.processos.length > 2)
-  expect(mundo.processos.length).toBe(3)
+  await esperar(() => leituras(mundo) > 2)
+  expect(leituras(mundo)).toBe(3)
   expect(saida(0, '').value.exitCode).toBe(0)
 })

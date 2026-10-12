@@ -5,9 +5,12 @@
 // logica fica nos modulos puros ao lado; aqui so os ganchos e as chamadas ao `$`, sempre escritas como
 // `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
-import type { PistaAcao, PistaLinha, PistaMostrado, PistaQuadro } from '../types'
+import type { PistaAcao, PistaCi, PistaLinha, PistaMostrado, PistaQuadro } from '../types'
 import type { AcaoDoBotao } from './acoes'
 import { argvDoPublicar, argvDoRegistro, botaoDaPista, lerPublicacao, lerRegistro, ROTULO_DO_BOTAO } from './acoes'
+import {
+  argvDoCi, comCi, fechouOCi, INTERVALO_DO_CI_A_VISTA_MS, INTERVALO_DO_CI_ESCONDIDO_MS, lerCi, pistasDoEvento, vencidasDoCi,
+} from './ci'
 import type { BotaoDaPista } from './pista'
 import {
   argvDaPista, assinaturaDoRetrato, desenharPista, exigirThread, lerPista, linhasDoPainel, mostradosVisiveis, textoDaFaixa,
@@ -20,6 +23,7 @@ const TITULO = 'Pista de Entrega'
 const QUADRO = { plugin: 'ork-pista', key: 'quadro' } as const
 const FOCO = { plugin: 'ork-pista', key: 'foco' } as const
 const ACOES = { plugin: 'ork-pista', key: 'acoes' } as const
+const CI = { plugin: 'ork-pista', key: 'ci' } as const
 const QUADRO_VAZIO: PistaQuadro = { linhas: [], lidoEm: null, erro: null, avisos: [] }
 /** O tique: idade da pista, assinatura do retrato e registro do mostrado. */
 const PERIODO_DO_TIQUE_MS = 60000
@@ -35,6 +39,8 @@ const PRAZO_DA_PISTA_MS = 120000
 /** Teto do `ork ship publicar` (push, prova e PR) e do `ork ship registrar-pr` (fetch, prova e CI), abaixo dos 10 min do motor. */
 const PRAZO_DO_PUBLICAR_MS = 300000
 const PRAZO_DO_REGISTRO_MS = 180000
+/** Teto do `ork ci status`: uma consulta ao GitHub. */
+const PRAZO_DO_CI_MS = 60000
 /** O servidor do nucleo pode conectar depois do inicio da sessao: o papel e conferido de novo nestas esperas. */
 const ESPERAS_DO_PAPEL_MS = [3000, 10000, 30000]
 const ESPERA_LONGA_DO_PAPEL_MS = 300000
@@ -54,6 +60,9 @@ let foco: string | null = null
 /** O ultimo botao de cada thread, como o estado o guarda; e as threads com um clique rodando no nucleo agora. */
 let acoes: Record<string, PistaAcao> = {}
 const emCurso = new Set<string>()
+/** O CI lido de cada pista (T7.4), e as pistas com uma consulta de CI rodando agora. */
+let ci: Record<string, PistaCi> = {}
+const ciEmCurso = new Set<string>()
 /** A ultima tentativa de leitura (ms), lida ou nao: segura o intervalo minimo. */
 let tentadaEm = 0
 let assinatura: string | null = null
@@ -121,6 +130,7 @@ async function ativar($: EngineInterface): Promise<void> {
   acoes = Object.fromEntries(Object.entries(guardadas).map(([t, a]) =>
     [t, a.estado === 'rodando' ? { ...a, estado: 'falhou' as const, texto: 'o clique anterior foi interrompido por uma recarga' } : a]))
   await $.state.set(ACOES, acoes)
+  ci = (await $.state.get(CI)).value ?? {}
   ciclo?.cancel()
   ciclo = $.clock.every(PERIODO_DO_TIQUE_MS, () => { emSegundoPlano($, tique($), 'o tique da Pista') })
   agendar($, 1)
@@ -189,11 +199,45 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
   try {
     const r = await $.process.run(argvDaPista(), { timeoutMs: PRAZO_DA_PISTA_MS })
     await gravarQuadro($, lerPista(r, await $.clock.now()))
+    // A leitura do CI que nao e mais do head de um PR aberto sai: o painel nao mostra CI de commit velho.
+    const atuais = Object.fromEntries(Object.entries(ci).filter(([t, c]) => quadro.linhas.some(l => l.thread === t && l.pr?.head === c.sha)))
+    if (Object.keys(atuais).length !== Object.keys(ci).length) {
+      ci = atuais
+      await $.state.set(CI, ci)
+    }
   } catch (erro) {
     await gravarQuadro($, { ...quadro, erro: mensagem(erro) })
   }
   await publicarFaixa($)
   await registrarMostrados($)
+}
+
+/**
+ * O CI das pistas pedidas pelo nucleo (`ork ci status --sha <head> --json`, D7): pelo evento do GitHub que as cita, pelo
+ * relogio de reserva ou pelo dono. Uma consulta por pista por vez. Quando a leitura fecha um CI que a pista tinha aberto
+ * (verde ou vermelho), a pista inteira e relida: o proximo passo do nucleo muda.
+ */
+async function lerCiDe($: EngineInterface, threads: readonly string[], motivo: PistaCi['motivo']): Promise<void> {
+  let fechou = false
+  for (const thread of threads) {
+    const linha = quadro.linhas.find(l => l.thread === thread)
+    if (!linha?.pr || linha.pr.estado !== 'aberto' || ciEmCurso.has(thread)) continue
+    ciEmCurso.add(thread)
+    try {
+      const lido = lerCi(await $.process.run(argvDoCi(linha.pr.head), { timeoutMs: PRAZO_DO_CI_MS }), linha.pr.head, await $.clock.now(), motivo)
+      if (fechouOCi(linha, lido)) fechou = true
+      ci = { ...ci, [thread]: lido }
+      await $.state.set(CI, ci)
+    } catch (erro) {
+      ci = { ...ci, [thread]: { sha: linha.pr.head, estado: 'unavailable', texto: `o CI não foi lido: ${mensagem(erro)}`, url: null,
+        lidoEm: await $.clock.now(), motivo } }
+      await $.state.set(CI, ci)
+    } finally {
+      ciEmCurso.delete(thread)
+    }
+  }
+  await publicarFaixa($)
+  if (fechou) await atualizar($, true)
 }
 
 /** O tique: a assinatura do retrato (uma entrega andou), a idade da pista e o registro do que o painel mostrou. */
@@ -211,12 +255,15 @@ async function tique($: EngineInterface): Promise<void> {
   if (nova !== null) assinatura = nova
   const idade = quadro.lidoEm === null ? Infinity : agora - quadro.lidoEm
   if (mudou || idade >= (aVista ? IDADE_A_VISTA_MS : IDADE_ESCONDIDO_MS)) await atualizar($)
+  // A reserva do CI sem evento do GitHub (D7): so as pistas com PR aberto e CI ainda aberto.
+  const vencidas = vencidasDoCi(quadro.linhas, ci, agora, aVista ? INTERVALO_DO_CI_A_VISTA_MS : INTERVALO_DO_CI_ESCONDIDO_MS)
+  if (vencidas.length) await lerCiDe($, vencidas, 'consulta')
   await registrarMostrados($)
 }
 
 /** A linha da faixa pela ponte (D9), so quando o texto muda; sem nada que peca o dono, a linha sai da faixa. */
 async function publicarFaixa($: EngineInterface): Promise<void> {
-  const texto = textoDaFaixa(quadro)
+  const texto = textoDaFaixa(comCi(quadro, ci))
   if (texto === ultimaFaixa) return
   try {
     if (texto === undefined) await $.ork.faixa({ mod: MOD })
@@ -232,7 +279,7 @@ async function publicarFaixa($: EngineInterface): Promise<void> {
  * vez por chave e texto enquanto o texto existir na pista: o Telegram nao repete o que o dono ja viu no terminal.
  */
 async function registrarMostrados($: EngineInterface): Promise<void> {
-  const existentes = new Set(linhasDoPainel(quadro, { agora: 0, foco, acoes }).flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
+  const existentes = new Set(linhasDoPainel(comCi(quadro, ci), { agora: 0, foco, acoes }).flatMap(l => (l.mostrado ? [`${l.mostrado.chave}|${l.mostrado.texto}`] : [])))
   for (const vista of [...jaMostrado]) if (!existentes.has(vista)) jaMostrado.delete(vista)
   for (const vista of [...vistosNoDesenho.keys()]) if (!existentes.has(vista)) vistosNoDesenho.delete(vista)
   if (vistosNoDesenho.size === 0) return
@@ -337,6 +384,17 @@ export const register: Register = on => {
     return { text: (aberto.isPlaced ? 'Pista de Entrega aberta.' : `Pista de Entrega aberta, à espera de lugar: ${aberto.reason}`) + aviso }
   })
 
+  // Uma entrega do GitHub chegou a sessao (D7): o evento que cita o PR, a branch ou o head de uma pista so dispara a
+  // consulta do CI pelo nucleo, em segundo plano, e o conteudo dele nunca vira estado. A entrega segue sempre para o
+  // modelo, como chegou: a Pista nao consome nem reescreve nada.
+  on('session.receive', async ($, e, next) => {
+    if (ativa && e.event?.source === 'github') {
+      const citadas = pistasDoEvento(e.event, quadro.linhas)
+      if (citadas.length) emSegundoPlano($, lerCiDe($, citadas, 'evento'), 'o CI pelo evento do GitHub')
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   // O ledger de uma thread mudou (commit, verify, claim, entrega): a releitura entra no proximo lote. Os caminhos
   // vigiados sao os que a ponte pede para o papel dono; a Pista nao pede outros.
   on('classic.FileChanged', async ($, e, next) => {
@@ -351,8 +409,10 @@ export const register: Register = on => {
     const q = (await $.state.get(QUADRO)).value ?? QUADRO_VAZIO
     const emFoco = (await $.state.get(FOCO)).value ?? null
     const ultimas = (await $.state.get(ACOES)).value ?? {}
+    const lidos = (await $.state.get(CI)).value ?? {}
     const agora = await $.clock.now()
-    const comProblema: PistaQuadro = problemaSemAviso ? { ...q, avisos: [...q.avisos, problemaSemAviso] } : q
+    const comLeitura = comCi(q, lidos)
+    const comProblema: PistaQuadro = problemaSemAviso ? { ...comLeitura, avisos: [...comLeitura.avisos, problemaSemAviso] } : comLeitura
     const botoes = botoesDo(comProblema)
     anotarVistos(mostradosVisiveis(linhasDoPainel(comProblema, { agora, foco: emFoco, acoes: ultimas, botoes }), e.props.scroll))
     return desenharPista({ Box, Text, Button }, comProblema, {

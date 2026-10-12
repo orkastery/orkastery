@@ -57,8 +57,10 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   painel à vista mostrou, para o Telegram não repetir. Botão só com a ação que o núcleo declara disponível: Publicar
   (`ork ship publicar`, só em #Auto e #Maestro) e Registrar a entrega (`ork ship registrar-pr`); o clique relê a pista
   da thread antes de valer, roda o argv do próprio mod (nunca `git` nem `gh`) e deixa o resultado na pista. Fora de
-  #Auto e #Maestro, só o comando para o dono. O guia `docs/guias/pista-de-entrega.md` diz ao condutor externo como
-  trocar a publicação crua pelo `ork ship publicar`.
+  #Auto e #Maestro, só o comando para o dono. O CI acompanha o evento do GitHub que a sessão recebe (`session.receive`,
+  fonte `github`, só pelos campos asseridos) como gatilho da consulta `ork ci status --sha <head> --json`, com reserva
+  a cada 2 min à vista e 10 min escondido; o conteúdo do evento nunca vira estado. O guia `docs/guias/pista-de-entrega.md`
+  diz ao condutor externo como trocar a publicação crua pelo `ork ship publicar`.
 
 ## [0.5.5] - 2026-10-12
 

@@ -9,7 +9,7 @@ import { registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { dirThread, novaThread } from '../src/thread';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
-import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
+import { ajustarManifesto, commitar, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
 
 // RM-059 (fatia F7): a Pista de Entrega (`ork-pista`) testada sem o Claude Code. O sandbox do `ork verify` e o runner do
 // CI nao tem o `claude`, entao a claim hermetica transpila os modulos puros da Pista com o compilador do `core` e os roda
@@ -19,14 +19,14 @@ import { commitar, envPtBr, projetoTemporario, ProjetoDeTeste } from './apoio';
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const PISTA = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-pista');
 const CLI = path.resolve(__dirname, '../../dist/index.js');
-const MODULOS_PUROS = ['hooks/pista.tsx', 'hooks/acoes.ts'];
+const MODULOS_PUROS = ['hooks/pista.tsx', 'hooks/acoes.ts', 'hooks/ci.ts'];
 /** D8: tudo que a Pista chama direto no `$`. */
 const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.now', 'clock.after',
   'clock.every', 'process.run', 'state.get', 'state.set', 'ui.open', 'ui.panes', 'ui.resolve', 'ui.toast'];
 /** D8: nada de disco, de MCP proprio, de ambiente, de texto como o dono, de agente ou de ferramenta. */
 const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'fs', 'prompt', 'agent', 'tool', 'session'];
 /** D6: os unicos construtores de argv da Pista, nos modulos puros. */
-const CONSTRUTORES_DE_ARGV = ['argvDaPista', 'argvDoPublicar', 'argvDoRegistro'];
+const CONSTRUTORES_DE_ARGV = ['argvDaPista', 'argvDoPublicar', 'argvDoRegistro', 'argvDoCi'];
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
 (globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
@@ -280,6 +280,63 @@ test('acoes: a leitura casa com o ork ship publicar e o ork ship registrar-pr de
   const reg = a.lerRegistro(rodar(a.argvDoRegistro(auto.id)), auto.id);
   assert.equal(reg.estado, 'recusada');
   assert.match(reg.texto, /^sem-merge: nenhum merge ship\(/);
+});
+
+test('ci: o argv no sha exato, as pistas que o evento cita so por campo asserido e a reserva por intervalo', () => {
+  const c = carregar('hooks/ci.ts');
+  const p = carregar('hooks/pista.tsx');
+  const B = 'b'.repeat(40);
+  assert.deepEqual(c.argvDoCi(B), ['ork', 'ci', 'status', '--sha', B, '--json']);
+  for (const ruim of ['HEAD', 'b'.repeat(39), 'B'.repeat(40), `${B} --remoto x`, 3]) assert.throws(() => c.argvDoCi(ruim), /sha invalido/, String(ruim));
+  const aberta = p.linhaDaPista(pista('ork-c', { pr: { numero: 7, url: null, estado: 'aberto', rascunho: false, head: B },
+    etapas: etapas({ ci: 'pendente', entrega: 'pendente' }), proximo: { acao: null, disponivel: false, texto: 'esperando', comando: null } }));
+  const verde = p.linhaDaPista(pista('ork-d', { pr: { numero: 8, url: null, estado: 'aberto', rascunho: false, head: SHA }, etapas: etapas(),
+    proximo: { acao: null, disponivel: false, texto: 'pronto', comando: null } }));
+  const semPr = p.linhaDaPista(pista('ork-a'));
+  const linhas = [aberta, verde, semPr];
+  const evento = (data: Record<string, unknown>, untrustedKeys: string[] = [], source = 'github') => ({ source, kind: 'x', data, untrustedKeys });
+  assert.deepEqual(c.pistasDoEvento(evento({ pr: 'acme/app#7' }), linhas), ['ork-c']);
+  assert.deepEqual(c.pistasDoEvento(evento({ number: 8 }), linhas), ['ork-d']);
+  assert.deepEqual(c.pistasDoEvento(evento({ head_sha: B }), linhas), ['ork-c']);
+  assert.deepEqual(c.pistasDoEvento(evento({ branch: 'ork/ork-a-full' }), linhas), ['ork-a']);
+  assert.deepEqual(c.pistasDoEvento(evento({ pr: 'acme/app#7' }, ['pr']), linhas), [], 'campo de terceiros nao cita');
+  assert.deepEqual(c.pistasDoEvento(evento({ pr: 'acme/app#7' }, [], 'artifact-room'), linhas), [], 'so o GitHub');
+  assert.deepEqual(c.pistasDoEvento(evento({ comment: '#7' }), linhas), [], 'numero solto em campo qualquer nao cita');
+  assert.deepEqual(c.pistasDoEvento(null, linhas), []);
+  assert.deepEqual(c.vencidasDoCi(linhas, {}, 0, 120000), ['ork-c'], 'so a pista com PR aberto e CI aberto');
+  const lido = { sha: B, estado: 'pending', texto: 't', url: null, lidoEm: 1000, motivo: 'consulta' };
+  assert.deepEqual(c.vencidasDoCi(linhas, { 'ork-c': lido }, 120999, 120000), []);
+  assert.deepEqual(c.vencidasDoCi(linhas, { 'ork-c': lido }, 121000, 120000), ['ork-c']);
+  assert.deepEqual(c.vencidasDoCi(linhas, { 'ork-c': { ...lido, sha: SHA } }, 1001, 120000), ['ork-c'], 'leitura de outro head nao conta');
+  const q = { linhas, lidoEm: 0, erro: null, avisos: [] };
+  const comVerde = c.comCi(q, { 'ork-c': { ...lido, estado: 'success', texto: 'verde', motivo: 'evento' } });
+  assert.deepEqual(comVerde.linhas[0].etapas.find((e: { id: string }) => e.id === 'ci'), { id: 'ci', estado: 'feita', texto: 'verde (pelo evento do GitHub)' });
+  assert.equal(c.comCi(q, { 'ork-c': { ...lido, sha: SHA, estado: 'failure' } }).linhas[0].etapas.find((e: { id: string }) => e.id === 'ci').estado, 'pendente',
+    'leitura de outro head nao muda a etapa');
+  assert.equal(c.fechouOCi(aberta, { ...lido, estado: 'failure' }), true);
+  assert.equal(c.fechouOCi(aberta, lido), false);
+  assert.equal(c.fechouOCi(verde, { ...lido, estado: 'success' }), false);
+});
+
+test('ci: a leitura casa com o ork ci status de verdade, com o CI desligado e com o remoto que nao e GitHub', (t) => {
+  const c = carregar('hooks/ci.ts');
+  const p = projetoTemporario('ork-pista-ci', true);
+  t.after(() => p.limpar());
+  const env = envPtBr();
+  for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_CANAL', 'CLAUDECODE', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO']) delete env[nome];
+  const rodar = (argv: string[]) => {
+    assert.equal(argv[0], 'ork');
+    const r = spawnSync(process.execPath, [CLI, ...argv.slice(1)], { cwd: p.dir, encoding: 'utf8', env });
+    return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+  };
+  const head = exec('git', ['rev-parse', 'HEAD'], p.dir).stdout.trim();
+  const desligado = c.lerCi(rodar(c.argvDoCi(head)), head, 5, 'consulta');
+  assert.deepEqual({ estado: desligado.estado, texto: desligado.texto }, { estado: 'disabled', texto: 'CI não exigido pelo manifesto' });
+  ajustarManifesto(p, /required_for_ship: false/, 'required_for_ship: true');
+  const semGithub = c.lerCi(rodar(c.argvDoCi(head)), head, 5, 'evento');
+  assert.equal(semGithub.estado, 'unavailable');
+  assert.match(semGithub.texto, /^o CI não foi lido: remoto origin não é um repositório GitHub reconhecível/);
+  assert.throws(() => c.lerCi(rodar(c.argvDoCi(head)), 'f'.repeat(40), 5, 'evento'), /respondeu pelo commit/);
 });
 
 type Chamada = { cadeia: string[]; no: ts.CallExpression; linha: number };
