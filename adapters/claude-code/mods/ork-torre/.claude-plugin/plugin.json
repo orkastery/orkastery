@@ -1,0 +1,14 @@
+{
+  "name": "ork-torre",
+  "version": "0.1.0",
+  "description": "Torre de Controle do Orkastery no Claude Code: a fábrica num painel, cada thread aberta numa linha com a fase, quem conduz, o bloqueio e as ações que o núcleo declara. Só lê; ação com efeito vai ao mod dono dela ou aparece como o comando do ork.",
+  "author": {
+    "name": "Orkastery contributors",
+    "url": "https://github.com/orkastery"
+  },
+  "homepage": "https://orkastery.com/",
+  "repository": "https://github.com/orkastery/orkastery",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "dependencies": ["ork-ponte"]
+}
