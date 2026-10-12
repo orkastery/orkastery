@@ -216,7 +216,8 @@ export const RETRY_PT_BR = {
       'outro-perfil': 'outro perfil do runtime' } as Record<'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil', string>,
     pulos: { 'sem-fallback': 'o bloco nao tem fallback de runtime', 'fallback-sem-destino': 'nenhum alvo do fallback do bloco tem perfil disponivel',
       'sem-outro-perfil': 'o runtime nao tem outro perfil disponivel' } as Record<'sem-fallback' | 'fallback-sem-destino' | 'sem-outro-perfil', string>,
-    resultados: { redespachada: 'redespachada', falhou: 'falhou', pulado: 'pulado' } as Record<'redespachada' | 'falhou' | 'pulado', string>,
+    resultados: { redespachada: 'redespachada', falhou: 'falhou', pulado: 'pulado', interrompido: 'interrompido' } as
+      Record<'redespachada' | 'falhou' | 'pulado' | 'interrompido', string>,
     linhaDoDegrau: (n: number, tipo: string, resultado: string, motivo: string | null) =>
       `degrau ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,
     noPlano: (n: number, tipo: string) => `  escada          degrau ${n} de 3, ${tipo}`,
@@ -228,6 +229,9 @@ export const RETRY_PT_BR = {
     ensaio: (n: number, tipo: string, destino: string) => `ensaio: o degrau ${n} (${tipo}) mandaria o mesmo prompt a ${destino}`,
     ensaioPulado: (n: number, tipo: string, pulo: string) => `ensaio: o degrau ${n} (${tipo}) seria pulado: ${pulo}`,
     ensaioEsgotada: 'ensaio: nenhum degrau da escada tem destino agora; o dono seria chamado',
+    lancou: (erro: string) => `runtime.unavailable: o adaptador lancou no redespacho: ${erro}`,
+    semResposta: (vezes: number, detalhe: string) => `o runtime nao respondeu a prova de vida em ${vezes} tentativa(s) seguidas ` +
+      `(${detalhe}), mesmo depois de reerguer o daemon: sem a prova, nada foi redespachado`,
   },
 };
 
@@ -424,7 +428,7 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
       'outro-perfil': 'another runtime profile' },
     pulos: { 'sem-fallback': 'the block has no runtime fallback', 'fallback-sem-destino': 'no target of the block fallback has an available profile',
       'sem-outro-perfil': 'the runtime has no other available profile' },
-    resultados: { redespachada: 'dispatched again', falhou: 'failed', pulado: 'skipped' },
+    resultados: { redespachada: 'dispatched again', falhou: 'failed', pulado: 'skipped', interrompido: 'interrupted' },
     linhaDoDegrau: (n, tipo, resultado, motivo) => `step ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,
     noPlano: (n, tipo) => `  ladder          step ${n} of 3, ${tipo}`,
     noPlanoEsgotada: '  ladder          the 3 steps are spent in this episode',
@@ -435,5 +439,8 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
     ensaio: (n, tipo, destino) => `dry run: step ${n} (${tipo}) would send the same prompt to ${destino}`,
     ensaioPulado: (n, tipo, pulo) => `dry run: step ${n} (${tipo}) would be skipped: ${pulo}`,
     ensaioEsgotada: 'dry run: no step of the ladder has a target now; the owner would be called',
+    lancou: (erro) => `runtime.unavailable: the adapter threw in the redispatch: ${erro}`,
+    semResposta: (vezes, detalhe) => `the runtime did not answer the liveness proof in ${vezes} attempt(s) in a row ` +
+      `(${detalhe}), even after bringing the daemon back up: without the proof, nothing was redispatched`,
   },
 };

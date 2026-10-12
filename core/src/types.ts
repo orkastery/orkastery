@@ -1681,7 +1681,7 @@ export interface PlanoDeRetry {
   escada?: {
     degrau: 1 | 2 | 3 | null;
     tipo: 'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil' | null;
-    consumidos: { degrau: 1 | 2 | 3; tipo: string; resultado: 'redespachada' | 'falhou' | 'pulado'; em: string }[];
+    consumidos: { degrau: 1 | 2 | 3; tipo: string; resultado: 'redespachada' | 'falhou' | 'pulado' | 'interrompido'; em: string }[];
   };
 }
 

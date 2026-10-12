@@ -12,8 +12,10 @@
  * runtime real.
  */
 import { strict as assert } from 'node:assert';
-import { mock, test } from 'node:test';
-import { projetoTemporario, runtimeFalso, runtimePorConta } from './apoio';
+import * as path from 'node:path';
+import { after, before, mock, test } from 'node:test';
+import * as fs from 'node:fs';
+import { dirTemporario, projetoTemporario, runtimeFalso, runtimePorConta } from './apoio';
 import { lerStatusDoDaemon, SondaDoDaemon } from '../src/adapters/claude-bg';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { rodarFase } from '../src/phase';
@@ -25,7 +27,13 @@ import { editarBloco } from '../src/setup';
 import { dirThread, novaThread } from '../src/thread';
 import { EventoLedger } from '../src/types';
 import { main } from '../src/index';
+import * as vidaDaThread from '../src/vida-da-thread';
 import { ativarLocale } from '../src/locale';
+
+// A prova de vida le tambem o codex: a pasta dele e temporaria, nunca a da pessoa que roda o teste.
+const codexAnterior = process.env.CODEX_HOME;
+before(() => { process.env.CODEX_HOME = dirTemporario('rm063-f4-codex'); });
+after(() => { if (codexAnterior === undefined) delete process.env.CODEX_HOME; else process.env.CODEX_HOME = codexAnterior; });
 
 const PEDIDO = 'implemente a fatia do GO da escada';
 const FALHA_SECA = { ok: false, comando: [], sessionId: null, verificada: false, stdout: '',
@@ -165,7 +173,8 @@ test('F4: os tres degraus sem sessao chamam o dono com tres alternativas e uma r
   const escada = gate.escada as { alternativas: { chave: string; recomendada?: unknown }[]; retomar: string; conferir: string };
   assert.equal(escada.alternativas.length, 3);
   assert.deepEqual(escada.alternativas.filter((a) => a.recomendada).map((a) => a.chave), ['a']);
-  assert.equal(escada.retomar, `ork phase run ${thread.id} GO --prompt "$(cat ${r.promptPath.slice(p.dir.length + 1)})"`);
+  // O caminho absoluto do prompt gravado, entre aspas: o comando vale de qualquer pasta.
+  assert.equal(escada.retomar, `ork phase run ${thread.id} GO --prompt "$(cat '${path.resolve(p.dir, r.promptPath)}')"`);
   assert.equal(escada.conferir, 'claude daemon status');
   assert.equal(doTipo(dir, TIPOS_DE_EVENTO.retryEscalado).at(-1)?.origem, 'retry.escada');
 
@@ -215,4 +224,154 @@ test('F4: CLI: ork retry run sobe o degrau 1 pelo claude daemon do stub e o plan
   const [degrau] = doTipo(dirThread(p.dir, thread.id), TIPOS_DE_EVENTO.recuperacaoDoRuntime);
   assert.deepEqual([degrau.resultado, (degrau.daemon as { acao: string }).acao], ['redespachada', 'derrubado']);
   assert.match(saida, new RegExp(r.promptSha256.slice(0, 12)));
+});
+
+const CODEX_OK = { ok: true, comando: ['codex', 'exec'], sessionId: 'c0dec0de-0000-4000-8000-000000000002', verificada: true, stdout: '',
+  stderr: '' };
+
+test('F4: o degrau que abre a sessao e falha depois (o claude --bg lento) segura a escada: nenhuma segunda sessao na worktree', (t) => {
+  const p = projetoTemporario('rm063-f4-lenta');
+  const runtime = runtimeFalso('rm063-f4-lenta');
+  assert.equal(editarBloco(p.dir, 'auto', 1, { fallback: ['codex:modelo-SIMULADO'] }).ok, true);
+  const { thread } = novaThread(p.carregado, { nome: 'f4 lenta', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  registrar(dir, thread.id, TIPOS_DE_EVENTO.baselineGravada, { commit: 'simulado', comandos: [] });
+  let chamadas = 0;
+  const claude = mock.method(RUNTIMES['claude-bg'], 'despachar', () => {
+    if (++chamadas === 1) return FALHA_SECA;
+    // O `claude --bg` lento: a sessao abriu e trabalha, mas o despacho estourou o prazo e saiu como falha.
+    fs.writeFileSync(path.join(runtime.dir, 'sessao'), runtime.sessionId);
+    fs.writeFileSync(path.join(runtime.dir, 'cwd'), p.dir);
+    return { ...FALHA_SECA, sessionId: runtime.sessionId, erro: 'runtime.unavailable: o claude --bg passou do prazo (simulado)' };
+  });
+  const codex = mock.method(RUNTIMES['codex'], 'despachar', () => CODEX_OK);
+  t.after(() => { claude.mock.restore(); codex.mock.restore(); runtime.restaurar(); p.limpar(); });
+  assert.equal(rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO }).motivo, 'runtime.unavailable');
+
+  const rr = executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  assert.equal(rr.executada, false);
+  assert.equal(codex.mock.callCount(), 0, 'o fallback nao abriu uma segunda sessao na mesma worktree');
+  assert.match(rr.detalhe, new RegExp(`a sessao ${runtime.sessionId.slice(0, 8)} ainda trabalha na thread`));
+  assert.deepEqual(degraus(dir), [[1, 'falhou', 'claude-bg', null]]);
+  assert.equal(doTipo(dir, TIPOS_DE_EVENTO.recuperacaoDoRuntime)[0].sessionId, runtime.sessionId);
+  assert.equal(doTipo(dir, 'phase_dispatch_failed').at(-1)?.sessionId, runtime.sessionId, 'a falha guarda a sessao que abriu');
+});
+
+test('F4 degrau 3: o despacho que nasceu sem perfil nao volta a conta que o degrau 1 de fato usou', (t) => {
+  const p = projetoTemporario('rm063-f4-efetiva');
+  const { thread } = novaThread(p.carregado, { nome: 'f4 efetiva', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  // O despacho caiu antes de existir perfil; o dono cadastrou as contas depois.
+  const falha = mock.method(RUNTIMES['claude-bg'], 'despachar', () => FALHA_SECA);
+  const r = rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO });
+  falha.mock.restore();
+  assert.equal(r.motivo, 'runtime.unavailable');
+  const contas = runtimePorConta('rm063-f4-efetiva');
+  t.after(() => { contas.restaurar(); p.limpar(); });
+  contas.conta(p.dir, 'a', { falha: 'Error: erro generico do runtime (simulado)' });
+  contas.conta(p.dir, 'b');
+
+  const rr = executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  assert.equal(rr.executada, true, rr.detalhe);
+  assert.deepEqual(degraus(dir), [[1, 'falhou', 'claude-bg', 'a'], [2, 'pulado', null, null], [3, 'redespachada', 'claude-bg', 'b']]);
+});
+
+test('F4: o degrau parado por um motivo que nao e do destino (impedimento do dono) nao e consumido nem gasta tentativa', (t) => {
+  const p = projetoTemporario('rm063-f4-interrompido');
+  const runtime = runtimeFalso('rm063-f4-interrompido');
+  const { thread } = novaThread(p.carregado, { nome: 'f4 interrompido', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  let chamadas = 0;
+  const claude = mock.method(RUNTIMES['claude-bg'], 'despachar', () => ++chamadas === 1 ? FALHA_SECA
+    : { ...FALHA_SECA, stderr: 'Workspace not trusted. Run `claude` in /tmp/simulada once and accept the trust prompt, then retry.',
+      erro: 'workspace not trusted (simulado)' });
+  t.after(() => { claude.mock.restore(); runtime.restaurar(); p.limpar(); });
+  assert.equal(rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO }).motivo, 'runtime.unavailable');
+
+  const rr = executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  assert.equal(rr.executada, false);
+  assert.deepEqual(degraus(dir), [[1, 'interrompido', 'claude-bg', null]]);
+  const escada = estadoDaEscada(lerLedger(dir), 'GO');
+  assert.deepEqual([escada.consumidos.length, escada.proximo], [0, 1], 'destravado o impedimento, o degrau 1 vale de novo');
+  assert.equal(doTipo(dir, TIPOS_DE_EVENTO.retryTentado).filter((e) => e.conta !== false).length, 0, 'nenhuma tentativa gasta');
+  assert.equal(claude.mock.callCount(), 2, 'o degrau 2 nao foi tentado por cima do impedimento');
+});
+
+test('F4: o adaptador que lanca no degrau vira falha do destino no ledger, e a escada segue para o degrau seguinte', (t) => {
+  const p = projetoTemporario('rm063-f4-lanca');
+  const runtime = runtimeFalso('rm063-f4-lanca');
+  assert.equal(editarBloco(p.dir, 'auto', 1, { fallback: ['codex:modelo-SIMULADO'] }).ok, true);
+  const { thread } = novaThread(p.carregado, { nome: 'f4 lanca', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  registrar(dir, thread.id, TIPOS_DE_EVENTO.baselineGravada, { commit: 'simulado', comandos: [] });
+  let chamadas = 0;
+  const claude = mock.method(RUNTIMES['claude-bg'], 'despachar', () => {
+    if (++chamadas === 1) return FALHA_SECA;
+    throw new Error('EPIPE no control.sock (simulado)');
+  });
+  const codex = mock.method(RUNTIMES['codex'], 'despachar', () => CODEX_OK);
+  t.after(() => { claude.mock.restore(); codex.mock.restore(); runtime.restaurar(); p.limpar(); });
+  assert.equal(rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO }).motivo, 'runtime.unavailable');
+
+  const rr = executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  assert.equal(rr.executada, true, rr.detalhe);
+  assert.deepEqual(degraus(dir), [[1, 'falhou', 'claude-bg', null], [2, 'redespachada', 'codex', null]]);
+  assert.match(String(doTipo(dir, TIPOS_DE_EVENTO.recuperacaoDoRuntime)[0].detalhe), /o adaptador lancou no redespacho: EPIPE/);
+});
+
+test('F4: a escada esgotada que o plano acha (o processo caiu antes de chamar o dono) chama o dono pela escada', (t) => {
+  const p = projetoTemporario('rm063-f4-plano');
+  const runtime = runtimeFalso('rm063-f4-plano');
+  const { thread } = novaThread(p.carregado, { nome: 'f4 plano', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  const claude = mock.method(RUNTIMES['claude-bg'], 'despachar', () => FALHA_SECA);
+  t.after(() => { claude.mock.restore(); runtime.restaurar(); p.limpar(); });
+  const r = rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO });
+  // Os tres degraus no ledger, sem o pedido ao dono: o processo da escada morreu antes dele.
+  for (const [degrau, tipoDoDegrau, resultado] of [[1, 'reerguer-daemon', 'falhou'], [2, 'fallback-do-bloco', 'pulado'],
+    [3, 'outro-perfil', 'pulado']] as const) {
+    registrar(dir, thread.id, TIPOS_DE_EVENTO.recuperacaoDoRuntime, { fase: 'GO', motivo: 'runtime.unavailable', degrau, tipoDoDegrau,
+      origem: 'retry.escada', resultado, para: null, promptSha256: r.promptSha256 });
+  }
+  const plano = planejarRetry(p.carregado, thread.id);
+  assert.deepEqual([plano.acao, plano.automatica, plano.escada?.degrau], ['escalar-humano', false, null]);
+
+  executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  const gate = doTipo(dir, TIPOS_DE_EVENTO.gateBloqueado).at(-1)!;
+  assert.deepEqual([gate.motivo, gate.origem], ['human.pending', 'retry.escada']);
+  const escada = gate.escada as { alternativas: { chave: string; recomendada?: unknown }[]; retomar: string };
+  assert.deepEqual(escada.alternativas.filter((a) => a.recomendada).map((a) => a.chave), ['a']);
+  assert.equal(escada.retomar, `ork phase run ${thread.id} GO --prompt "$(cat '${path.resolve(p.dir, r.promptPath)}')"`);
+  // Rodar de novo nao repete o pedido ao dono.
+  executarRetry(p.carregado, thread.id, { daemon: daemonFalso(['responde']) });
+  assert.equal(doTipo(dir, TIPOS_DE_EVENTO.gateBloqueado).filter((e) => e.origem === 'retry.escada').length, 1);
+});
+
+test('F4: com o runtime mudo (o claude agents nao responde), o retry reergue o daemon e, na terceira vez seguida, chama o dono', (t) => {
+  const p = projetoTemporario('rm063-f4-mudo');
+  const runtime = runtimeFalso('rm063-f4-mudo');
+  const { thread } = novaThread(p.carregado, { nome: 'f4 mudo', modo: 'auto' });
+  const dir = dirThread(p.dir, thread.id);
+  const claude = mock.method(RUNTIMES['claude-bg'], 'despachar', () => FALHA_SECA);
+  t.after(() => { claude.mock.restore(); runtime.restaurar(); p.limpar(); });
+  assert.equal(rodarFase(p.carregado, thread.id, { fase: 'GO', prompt: PEDIDO }).motivo, 'runtime.unavailable');
+  const mudo = mock.method(vidaDaThread, 'sessaoVivaNaThread', () => ({ respondeu: false, sessionId: null,
+    detalhe: 'claude agents: sem resposta (simulado)' }));
+  t.after(() => mudo.mock.restore());
+
+  const daemon = daemonFalso(['nao-responde']);
+  const escalada = () => doTipo(dir, TIPOS_DE_EVENTO.gateBloqueado).filter((e) => e.origem === 'retry.escada');
+  // O limite do retry (`LIMITE_SEM_PROVA`) e 3 recusas seguidas sem resposta no episodio.
+  for (let vez = 1; vez <= 3; vez++) {
+    const rr = executarRetry(p.carregado, thread.id, { daemon });
+    assert.equal(rr.executada, false);
+    assert.equal(daemon.derrubadas, vez, 'o daemon travado sai a cada vez, antes da prova');
+    assert.equal(escalada().length, vez === 3 ? 1 : 0, `vez ${vez}`);
+  }
+  assert.equal(claude.mock.callCount(), 1, 'sem a prova de vida, nada foi redespachado');
+  assert.match(String(escalada()[0].detalhe), /o runtime nao respondeu a prova de vida em 3 tentativa\(s\) seguidas/);
+  assert.equal(doTipo(dir, TIPOS_DE_EVENTO.retryTentado).filter((e) => e.conta !== false).length, 0, 'nenhuma tentativa gasta');
+  // Chamado o dono, o retry nao fica derrubando o daemon a cada batida.
+  const plano = planejarRetry(p.carregado, thread.id);
+  assert.equal(plano.automatica, false, plano.razao);
 });

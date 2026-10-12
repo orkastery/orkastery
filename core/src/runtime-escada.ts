@@ -39,7 +39,11 @@ import type { ResultadoDoRedespacho } from './retry';
 export const DEGRAUS_DA_ESCADA = ['reerguer-daemon', 'fallback-do-bloco', 'outro-perfil'] as const;
 export type TipoDeDegrau = typeof DEGRAUS_DA_ESCADA[number];
 export type NumeroDoDegrau = 1 | 2 | 3;
-export type ResultadoDoDegrau = 'redespachada' | 'falhou' | 'pulado';
+/**
+ * `interrompido`: o redespacho parou por um motivo que nao e do destino (condução de outro, worktree, policy, prompt que
+ * mudou, impedimento do dono). O degrau nao e consumido nem gasta tentativa: destravado, a escada o tenta de novo.
+ */
+export type ResultadoDoDegrau = 'redespachada' | 'falhou' | 'pulado' | 'interrompido';
 /** Por que um degrau nao tinha para onde mandar o prompt. */
 export type MotivoDoPulo = 'sem-fallback' | 'fallback-sem-destino' | 'sem-outro-perfil';
 
@@ -117,7 +121,8 @@ export function destinoDoEpisodio(eventos: readonly EventoLedger[], fase: Fase):
 function lerDegrau(e: EventoLedger): DegrauDaEscada | null {
   const n = Number(e.degrau);
   if (n !== 1 && n !== 2 && n !== 3) return null;
-  const resultado = e.resultado === 'redespachada' || e.resultado === 'falhou' || e.resultado === 'pulado' ? e.resultado : null;
+  const resultado = e.resultado === 'redespachada' || e.resultado === 'falhou' || e.resultado === 'pulado' ||
+    e.resultado === 'interrompido' ? e.resultado : null;
   if (!resultado) return null;
   const para = e.para as Partial<DestinoDoDegrau> | null | undefined;
   return {
@@ -137,7 +142,8 @@ export function estadoDaEscada(eventos: readonly EventoLedger[], fase: Fase): Es
     const e = eventos[i];
     if (e.tipo !== TIPOS_DE_EVENTO.recuperacaoDoRuntime || e.fase !== fase) continue;
     const d = lerDegrau(e);
-    if (d) consumidos.push(d);
+    // O degrau interrompido (o motivo nao era do destino) fica para depois: nao e consumido.
+    if (d && d.resultado !== 'interrompido') consumidos.push(d);
   }
   const feitos = new Set(consumidos.map((d) => d.degrau));
   const proximo = ([1, 2, 3] as const).find((n) => !feitos.has(n)) ?? null;
@@ -184,14 +190,22 @@ export function planoDoDegrau(carregado: ManifestoCarregado, thread: Thread, fas
     }
     return { pulo: 'fallback-sem-destino' };
   }
-  // Degrau 3: outra conta do runtime que falhou. O diretorio de cada conta e o que separa um daemon do outro.
+  // Degrau 3: outra conta do runtime que falhou. O diretorio de cada conta e o que separa um daemon do outro. Os perfis
+  // tentados sao os efetivos (o redespacho sem perfil pedido escolhe um, e e ele que falhou); o despacho que nasceu sem
+  // perfil (o runtime caiu antes da escolha) tem como conta de origem a que o degrau 1 de fato usou.
   const jaTentados = new Set(tentados.flatMap((d) => d.destino?.runtime === despacho.runtime && d.destino.perfil ? [d.destino.perfil] : []));
+  const doDegrau1 = tentados.find((d) => d.degrau === 1 && d.destino?.runtime === despacho.runtime)?.destino?.perfil ?? null;
+  let contaDeOrigem: PerfilDeDespacho | null = despacho.perfil;
+  if (!contaDeOrigem && doDegrau1) {
+    const usado = perfisDoRuntime(store, despacho.runtime).find((x) => x.id === doDegrau1);
+    if (usado) contaDeOrigem = perfilDeDespacho(usado);
+  }
   let dirOriginal: string | null = null;
   if (runtimeComPerfil(despacho.runtime)) {
-    try { dirOriginal = diretorioEfetivo(despacho.runtime, despacho.perfil); } catch { dirOriginal = null; }
+    try { dirOriginal = diretorioEfetivo(despacho.runtime, contaDeOrigem); } catch { dirOriginal = null; }
   }
   const outro = perfisDoRuntime(store, despacho.runtime).find((p) => {
-    if (p.id === despacho.perfil?.id || jaTentados.has(p.id) || !perfilDisponivel(p, agoraMs)) return false;
+    if (p.id === contaDeOrigem?.id || jaTentados.has(p.id) || !perfilDisponivel(p, agoraMs)) return false;
     const d = perfilDeDespacho(p);
     return !dirOriginal || (d.configDir ?? d.codexHome) !== dirOriginal;
   });
@@ -243,6 +257,9 @@ export interface SaidaDaEscada {
   escalada: boolean;
 }
 
+/** A prova de que ninguem trabalha na worktree: a de `sessaoVivaNaThread`, injetada pelo retry. */
+export type ProvaDeVida = (ids: readonly string[]) => { respondeu: boolean; sessionId: string | null; detalhe: string | null };
+
 export interface EntradaDaEscada {
   carregado: ManifestoCarregado;
   thread: Thread;
@@ -253,6 +270,12 @@ export interface EntradaDaEscada {
   limite: number;
   dryRun?: boolean;
   daemon?: ControleDoDaemon;
+  /** O degrau 1 ja reergueu o daemon antes da prova de vida (o runtime nao respondia): nao derruba de novo. */
+  daemonJaReerguido?: DaemonNoDegrau | null;
+  /** As sessoes que ja se sabe serem da thread (a do gate, a do despacho que falhou). */
+  idsConhecidos?: readonly string[];
+  /** A prova de vida entre um degrau e outro: com sessao viva, ou sem resposta do runtime, nada mais sai. */
+  provaDeVida: ProvaDeVida;
   redespachar: (destino: DestinoDoDegrau) => ResultadoDoRedespacho;
   registrarTentativa: (ok: boolean, detalhe: string, extra?: Record<string, unknown>) => void;
   agoraMs?: number;
@@ -263,9 +286,22 @@ function rotuloDoDestino(d: DestinoDoDegrau | null): string {
   return [d.runtime, d.perfil ? `perfil ${d.perfil}` : null, d.model, d.effort].filter(Boolean).join(' ');
 }
 
+const linhaCurta = (texto: string): string => texto.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+
+/** O redespacho que lanca vira falha do destino: o degrau fica no ledger, e a escada segue. */
+function redespacharSemLancar(e: EntradaDaEscada, destino: DestinoDoDegrau): ResultadoDoRedespacho {
+  try { return e.redespachar(destino); }
+  catch (erro) {
+    const detalhe = textoDoCatalogo((m) => m.retry.escada.lancou(linhaCurta((erro as Error).message ?? String(erro))));
+    return { ok: false, slug: '', sessionId: null, verificada: false, motivo: 'runtime.unavailable', detalhe, sinal: null,
+      comando: [], dryRun: false };
+  }
+}
+
 /**
  * Sobe a escada a partir do proximo degrau do episodio, ate um degrau abrir a sessao, uma falha que nao e do destino
- * parar, o limite de tentativas do manifesto ou o fim dos degraus. No fim sem sessao, chama o dono (`escalarEscada`).
+ * parar, a prova de vida achar sessao (ou o runtime nao responder), o limite de tentativas do manifesto ou o fim dos
+ * degraus. No fim sem sessao, chama o dono (`escalarEscada`).
  */
 export function subirAEscada(e: EntradaDaEscada): SaidaDaEscada {
   const { carregado, thread, fase, despacho } = e;
@@ -274,7 +310,9 @@ export function subirAEscada(e: EntradaDaEscada): SaidaDaEscada {
   const estado = estadoDaEscada(lerLedger(dir), fase);
   const feitos: DegrauDaEscada[] = [];
   const tentados = [...estado.consumidos];
+  const ids = [...(e.idsConhecidos ?? [])];
   let tentativas = e.tentativas;
+  let ultimo: ResultadoDoRedespacho | null = null;
   const original: DestinoDoDegrau = { runtime: despacho.runtime, perfil: despacho.perfil?.id ?? null, model: despacho.model,
     effort: despacho.effort };
   for (const n of [1, 2, 3] as const) {
@@ -287,7 +325,7 @@ export function subirAEscada(e: EntradaDaEscada): SaidaDaEscada {
         ? textoDoCatalogo((m) => m.retry.escada.ensaioPulado(n, m.retry.escada.degraus[tipo], m.retry.escada.pulos[plano.pulo]))
         : textoDoCatalogo((m) => m.retry.escada.ensaio(n, m.retry.escada.degraus[tipo], rotuloDoDestino(plano.destino)));
       if ('pulo' in plano) continue;
-      const r = e.redespachar(plano.destino);
+      const r = redespacharSemLancar(e, plano.destino);
       return { executada: false, redespacho: r, detalhe, degraus: [], escalada: false };
     }
     const base = { fase, motivo: 'runtime.unavailable', degrau: n, tipoDoDegrau: tipo, origem: 'retry.escada',
@@ -301,27 +339,44 @@ export function subirAEscada(e: EntradaDaEscada): SaidaDaEscada {
       feitos.push(d); tentados.push(d);
       continue;
     }
-    const noDaemon = n === 1 && despacho.runtime === 'claude-bg' ? reerguerDaemon(daemon, despacho.perfil) : null;
-    const r = e.redespachar(plano.destino);
+    // GO-FIX (achado 1 da revisao): o degrau anterior pode ter aberto a sessao e falhado depois (o `claude --bg` lento).
+    // Antes de outro destino, a prova de que ninguem trabalha na worktree; sem ela, nada mais sai e o degrau fica.
+    if (ultimo) {
+      const viva = e.provaDeVida(ids);
+      if (!viva.respondeu || viva.sessionId) {
+        const sessao = viva.sessionId;
+        const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), thread.id))
+          : textoDoCatalogo((m) => m.retry.runtimeSemProva(viva.detalhe ?? '', thread.id));
+        return { executada: false, redespacho: ultimo, detalhe, degraus: feitos, escalada: false };
+      }
+    }
+    const noDaemon = n === 1 && despacho.runtime === 'claude-bg'
+      ? (e.daemonJaReerguido ?? reerguerDaemon(daemon, despacho.perfil)) : null;
+    const r = redespacharSemLancar(e, plano.destino);
+    ultimo = r;
+    if (r.sessionId) ids.push(r.sessionId);
+    const resultado: ResultadoDoDegrau = r.ok ? 'redespachada' : falhaDoDestino(r.motivo) ? 'falhou' : 'interrompido';
     e.registrarTentativa(r.ok, r.detalhe, { degrau: n, tipoDoDegrau: tipo, tentativa: tentativas + 1,
-      ...(r.ok ? {} : { motivoDoRedespacho: r.motivo }) });
-    tentativas += 1;
-    const resultado: ResultadoDoDegrau = r.ok ? 'redespachada' : 'falhou';
-    const ev = registrar(dir, thread.id, TIPOS_DE_EVENTO.recuperacaoDoRuntime, { ...base, resultado, para: plano.destino,
+      ...(r.ok ? {} : { motivoDoRedespacho: r.motivo }), ...(resultado === 'interrompido' ? { conta: false } : {}) });
+    if (resultado !== 'interrompido') tentativas += 1;
+    // O perfil efetivo: o redespacho sem perfil pedido escolhe um, e e ele que o degrau 3 nao repete.
+    const efetivo: DestinoDoDegrau = { ...plano.destino, perfil: r.perfil?.id ?? plano.destino.perfil };
+    const ev = registrar(dir, thread.id, TIPOS_DE_EVENTO.recuperacaoDoRuntime, { ...base, resultado, para: efetivo,
       ...(noDaemon ? { daemon: noDaemon } : {}), motivoDoDegrau: r.ok ? null : r.motivo, detalhe: r.detalhe,
       ...(r.sessionId ? { sessionId: r.sessionId } : {}) });
-    const d: DegrauDaEscada = { degrau: n, tipo, resultado, em: ev.ts, destino: plano.destino, motivo: r.ok ? null : r.motivo,
+    const d: DegrauDaEscada = { degrau: n, tipo, resultado, em: ev.ts, destino: efetivo, motivo: r.ok ? null : r.motivo,
       detalhe: r.detalhe };
-    feitos.push(d); tentados.push(d);
+    feitos.push(d);
+    if (resultado !== 'interrompido') tentados.push(d);
     if (r.ok) return { executada: true, redespacho: r, detalhe: r.detalhe, degraus: feitos, escalada: false };
-    if (!falhaDoDestino(r.motivo)) return { executada: false, redespacho: r, detalhe: r.detalhe, degraus: feitos, escalada: false };
+    if (resultado === 'interrompido') return { executada: false, redespacho: r, detalhe: r.detalhe, degraus: feitos, escalada: false };
   }
   if (e.dryRun) {
     return { executada: false, redespacho: null, detalhe: textoDoCatalogo((m) => m.retry.escada.ensaioEsgotada), degraus: [],
       escalada: false };
   }
   const detalhe = escalarEscada(carregado, thread, fase, despacho, tentados, tentativas, e.limite);
-  return { executada: false, redespacho: null, detalhe, degraus: feitos, escalada: true };
+  return { executada: false, redespacho: ultimo, detalhe, degraus: feitos, escalada: true };
 }
 
 /** "degrau 1 (reerguer o daemon do runtime): falhou (runtime.unavailable)", uma por degrau. */
@@ -334,14 +389,22 @@ export function resumoDosDegraus(degraus: readonly DegrauDaEscada[]): string {
 
 /** O comando que confere o runtime do despacho no terminal do dono. */
 export function comandoDeConferir(runtime: string, perfil: PerfilDeDespacho | null): string {
-  if (runtime === 'claude-bg') return perfil?.configDir ? `CLAUDE_CONFIG_DIR=${perfil.configDir} claude daemon status` : 'claude daemon status';
-  if (runtime === 'codex') return perfil?.codexHome ? `CODEX_HOME=${perfil.codexHome} codex login status` : 'codex login status';
+  if (runtime === 'claude-bg') return perfil?.configDir ? `CLAUDE_CONFIG_DIR=${citar(perfil.configDir)} claude daemon status` : 'claude daemon status';
+  if (runtime === 'codex') return perfil?.codexHome ? `CODEX_HOME=${citar(perfil.codexHome)} codex login status` : 'codex login status';
   return 'ork doctor';
 }
 
-/** O comando que devolve a fase ao runtime com o MESMO prompt: um pedido novo, e a escada recomeca. */
+/** Aspas simples do shell, com a aspa de dentro escapada. */
+function citar(caminho: string): string {
+  return `'${caminho.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * O comando que devolve a fase ao runtime com o MESMO prompt: um pedido novo, e a escada recomeca. O caminho e o
+ * absoluto do prompt gravado (o do ledger e relativo a quem despachou), entre aspas.
+ */
 export function comandoDeRetomar(thread: string, fase: Fase, promptPath: string): string {
-  return `ork phase run ${thread} ${fase} --prompt "$(cat ${promptPath})"`;
+  return `ork phase run ${thread} ${fase} --prompt "$(cat ${citar(promptPath)})"`;
 }
 
 /** A escada que acabou, como o `gate_blocked` a guarda e o pulse a mostra. */
@@ -362,26 +425,37 @@ function numeroDoBloco(thread: Thread, fase: Fase): string {
 
 /**
  * RM-057: as tres alternativas, uma recomendada, em linguagem simples. A recomendada e o despacho de novo com o mesmo
- * pedido depois de conferir o runtime: nada rodou nos degraus, e o dono nao reescreve nada.
+ * pedido depois de conferir o runtime: o dono nao reescreve nada.
  */
 export function alternativasDaEscada(thread: Thread, fase: Fase, retomar: string): AlternativaCurta[] {
   const bloco = numeroDoBloco(thread, fase);
   return [
     { chave: 'a', texto: 'Conferir o runtime e despachar de novo com o mesmo pedido',
       consequencia: `\`${retomar}\` devolve ${fase} ao runtime com o mesmo prompt, e a escada recomeça`,
-      recomendada: { porque: 'nada rodou nos três degraus; o pedido volta igual, sem você reescrever nada' } },
+      recomendada: { porque: 'a fábrica não religou o runtime sozinha; o pedido volta igual, sem você reescrever nada' } },
     { chave: 'b', texto: 'Trocar o runtime do bloco',
       consequencia: `ork setup ${thread.modo} --bloco ${bloco} --runtime <outro> (ou --fallback), e depois o mesmo despacho` },
     { chave: 'c', texto: 'Deixar parada', consequencia: 'nada é despachado; a thread segue esperando você' },
   ];
 }
 
-/** Chama o dono: o `gate_blocked human.pending` com a escada e as alternativas, e o `retry_escalated`. */
-function escalarEscada(carregado: ManifestoCarregado, thread: Thread, fase: Fase, despacho: DespachoDaEscada,
-  degraus: readonly DegrauDaEscada[], tentativas: number, limite: number): string {
+/**
+ * Chama o dono: o `gate_blocked human.pending` com a escada e as alternativas, e o `retry_escalated`. Tambem quem acha a
+ * escada esgotada pelo plano (a sessao do ultimo degrau morreu depois) e quem desiste do runtime que nao responde chamam
+ * por aqui, com o detalhe deles.
+ */
+export function escalarEscada(carregado: ManifestoCarregado, thread: Thread, fase: Fase, despacho: DespachoDaEscada,
+  degraus: readonly DegrauDaEscada[], tentativas: number, limite: number, detalheProprio?: string): string {
   const dir = dirThread(carregado.raiz, thread.id);
   const resumo = resumoDosDegraus(degraus);
-  const detalhe = textoDoCatalogo((m) => m.retry.escada.esgotada(resumo));
+  const detalhe = detalheProprio ?? textoDoCatalogo((m) => m.retry.escada.esgotada(resumo || '-'));
+  // O dono ja foi chamado pela escada nesta fase e nada foi despachado depois: o mesmo pedido nao e gravado de novo.
+  const eventos = lerLedger(dir);
+  const aberto = [...eventos].reverse().find((x) => x.tipo === TIPOS_DE_EVENTO.gateBloqueado && x.origem === 'retry.escada' && x.fase === fase);
+  if (aberto && !eventos.slice(eventos.indexOf(aberto) + 1).some((x) => x.fase === fase &&
+      (x.tipo === TIPOS_DE_EVENTO.faseDespachada || x.tipo === TIPOS_DE_EVENTO.promptGravado))) {
+    return typeof aberto.detalhe === 'string' ? aberto.detalhe : detalhe;
+  }
   const retomar = comandoDeRetomar(thread.id, fase, despacho.promptPath);
   const escada: EscadaEsgotada = {
     degraus: [...degraus].sort((a, b) => a.degrau - b.degrau).map((d) => ({ degrau: d.degrau, tipo: d.tipo, resultado: d.resultado,
@@ -392,7 +466,7 @@ function escalarEscada(carregado: ManifestoCarregado, thread: Thread, fase: Fase
   registrarGateBloqueado(dir, thread.id, { gate: 'phase.dispatch', motivo: 'human.pending', modo: thread.modo as ModoLegado,
     detalhe, correcao: textoDoCatalogo((m) => m.retry.escada.correcao(escada.conferir, retomar)), fase, origem: 'retry.escada',
     promptPath: despacho.promptPath, promptSha256: despacho.promptSha256, escada, pausaQualquerModo: true,
-    evidencia: 'runtime_recuperacao no ledger da thread: os tres degraus da escada, nenhum com sessao' });
+    evidencia: 'runtime_recuperacao no ledger da thread: os degraus da escada deste episodio' });
   registrar(dir, thread.id, TIPOS_DE_EVENTO.retryEscalado, { fase, motivo: 'runtime.unavailable', origem: 'retry.escada',
     acao: 'reexecutar', tentativas, limite, modo: thread.modo, razao: detalhe });
   return detalhe;
@@ -416,7 +490,7 @@ export function escadaDoEvento(e: { [campo: string]: unknown }): EscadaEsgotada 
 export function pedidoCurtoDaEscada(d: { thread: string; fase: string | null; desdeEm: string | null;
   escada: Pick<EscadaEsgotada, 'conferir' | 'retomar' | 'alternativas'> & { degraus: readonly { degrau: number; resultado: string }[] } },
 quando: string): PedidoCurto {
-  const subidos = d.escada.degraus.map((x) => `${x.degrau} ${x.resultado}`).join(', ');
+  const subidos = d.escada.degraus.map((x) => `${x.degrau} ${x.resultado}`).join(', ') || '-';
   return montarPedidoCurto({
     thread: d.thread, fase: d.fase, desde: d.desdeEm,
     pergunta: 'A fábrica não conseguiu religar o runtime sozinha: como seguimos?',

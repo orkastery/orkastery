@@ -31,7 +31,11 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { raizDoEstado } from './estado-thread';
 import { sessaoVivaNaThread } from './vida-da-thread';
-import { ControleDoDaemon, DEGRAUS_DA_ESCADA, destinoDoEpisodio, estadoDaEscada, inicioDoEpisodio, resumoDosDegraus, subirAEscada } from './runtime-escada';
+import {
+  ControleDoDaemon, DEGRAUS_DA_ESCADA, destinoDoEpisodio, escalarEscada, estadoDaEscada, inicioDoEpisodio, ProvaDeVida, reerguerDaemon,
+  resumoDosDegraus, subirAEscada,
+} from './runtime-escada';
+import { DAEMON_DO_CLAUDE } from './adapters/claude-bg';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -817,10 +821,14 @@ function redespacharSobLock(
     }
 
     if (!resultado.ok || !resultado.sessionId) {
+      // RM-063 (F4, GO-FIX): o `claude --bg` lento diz o id e estoura o prazo com a sessao aberta. A falha guarda a sessao,
+      // como no `ork phase run`: e por ela que o retry e a escada provam que ninguem trabalha na worktree antes de outro
+      // destino.
+      const daSessao = resultado.sessionId ? { sessionId: resultado.sessionId } : {};
       registrar(dirThread(raiz, thread.id), thread.id, 'phase_dispatch_failed', { fase, runtime, slug, cwd,
         promptPath: absoluto, promptSha256: sha, controlador: resultado.controlador, model, effort,
         erro: resultado.erro ?? 'runtime.unavailable: sem sessionId', stderr: (resultado.stderr ?? '').slice(0, 500),
-        origem: 'retry', ...(perfil ? { perfil } : {}) });
+        origem: 'retry', ...(perfil ? { perfil } : {}), ...daSessao });
       const sinal = resultado.rateLimit ?? null;
       // RM-055: o redespacho recusado pelo que so o dono resolve reabre a pausa dele, com o mesmo comando.
       const impedimento = !resultado.falhaDeConta && !sinal
@@ -839,7 +847,7 @@ function redespacharSobLock(
       return {
         ok: false,
         slug,
-        sessionId: null,
+        sessionId: resultado.sessionId ?? null,
         verificada: false,
         // I-33 (D11b): falha de conta reconhecida na saida e o motivo mais especifico.
         motivo: resultado.falhaDeConta?.motivo ?? (sinal ? 'runtime.rate-limited' : 'runtime.unavailable'),
@@ -1376,6 +1384,25 @@ function ultimoDespachoFalho(raiz: string, threadId: string, fase: Fase, silenci
   return null;
 }
 
+/**
+ * RM-063 (F4, GO-FIX): quantas recusas seguidas, no episodio da fase, sairam porque o runtime nao respondeu a prova de
+ * vida (`semProva`). Uma tentativa que andou (contada, ou recusada com sessao viva) zera a conta.
+ */
+export function recusasSemProvaSeguidas(eventos: readonly EventoLedger[], fase: Fase): number {
+  const desde = inicioDoEpisodio(eventos, fase);
+  let seguidas = 0;
+  for (let i = eventos.length - 1; i > desde; i--) {
+    const e = eventos[i];
+    if (e.tipo !== TIPOS_DE_EVENTO.retryTentado || e.fase !== fase || e.motivo !== 'runtime.unavailable') continue;
+    if (e.semProva !== true) break;
+    seguidas += 1;
+  }
+  return seguidas;
+}
+
+/** Recusas seguidas sem resposta do runtime, no mesmo episodio, ate o dono ser chamado. */
+export const LIMITE_SEM_PROVA = 3;
+
 export interface OpcoesDeExecucao extends OpcoesDePlano {
   dryRun?: boolean;
   /** Encadeia o CHECK-REVERIFY logo apos abrir a rodada de GO-FIX. */
@@ -1435,6 +1462,24 @@ export function executarRetry(
   });
 
   if (!plano.automatica || plano.motivo === null) {
+    // RM-063 (F4, GO-FIX, achado 9): a escada esgotada pelo plano (a sessao do ultimo degrau morreu depois) chama o dono
+    // pela escada, com as alternativas e o comando que retoma com o mesmo prompt; a escalada generica so repetia o retry.
+    if (plano.motivo === 'runtime.unavailable' && plano.escada && plano.escada.degrau === null && plano.fase && !opcoes.dryRun) {
+      const eventos = lerLedger(dir);
+      const ultimo = despachoParaRedespachar(eventos, plano.fase, null);
+      if (ultimo && typeof ultimo.promptPath === 'string' && typeof ultimo.promptSha256 === 'string') {
+        const origem = destinoDoEpisodio(eventos, plano.fase);
+        let perfil: PerfilDeDespacho | null = null;
+        try { perfil = perfilDoEvento(ultimo); } catch { perfil = null; }
+        const despacho = { promptPath: localizarPromptGravado(raiz, threadId, ultimo.promptPath, ultimo.promptSha256) ?? ultimo.promptPath,
+          promptSha256: ultimo.promptSha256, perfil: origem?.perfil ?? perfil,
+          runtime: origem?.runtime ?? (typeof ultimo.runtime === 'string' ? ultimo.runtime : carregado.manifesto.runtime.adapter),
+          model: origem?.model ?? null, effort: origem?.effort ?? null };
+        const detalhe = escalarEscada(carregado, thread, plano.fase, despacho, estadoDaEscada(eventos, plano.fase).consumidos,
+          plano.tentativas, plano.limite);
+        return { ...vazio, detalhe };
+      }
+    }
     // Escalacao e custo viram gate humano explicito no ledger, nao silencio.
     if (plano.bloqueio === 'escalacao.limite' || plano.acao === 'sem-retry') {
       registrarGateBloqueado(dir, threadId, {
@@ -1557,14 +1602,8 @@ export function executarRetry(
   // despacho que falhou depois de abrir a sessao (o `claude --bg` lento) e o adaptador que lanca deixariam duas sessoes
   // na mesma worktree. Sem a prova, nada e redespachado, e a tentativa nao conta.
   const ids = [falho.sessionId, gateDoPlano?.sessionId].filter((x): x is string => typeof x === 'string' && !!x);
-  const viva = sessaoVivaNaThread(raiz, thread, ids);
-  if (!viva.respondeu || viva.sessionId) {
-    const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
-    const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
-      : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
-    registrarTentativa(false, detalhe, { conta: false });
-    return { ...vazio, detalhe };
-  }
+  const provar: ProvaDeVida = (conhecidos) => sessaoVivaNaThread(raiz, thread, conhecidos);
+  let viva = provar(ids);
   // RM-063 (F4): `runtime.unavailable` sobe a escada de recuperacao (reerguer o daemon, o fallback do bloco, outro perfil),
   // sempre com o mesmo prompt e o mesmo sha256. Ate aqui o retry so sabia repetir o destino que tinha acabado de falhar.
   if (plano.motivo === 'runtime.unavailable') {
@@ -1572,14 +1611,40 @@ export function executarRetry(
     try { perfilFalho = perfilDoEvento(falho); } catch { perfilFalho = null; }
     // O destino de origem e o do pedido novo que abriu o episodio; o despacho do gate completa o que faltar.
     const origem = destinoDoEpisodio(lerLedger(dir), plano.fase as Fase);
-    const promptPath = falho.promptPath, sha = falho.promptSha256;
+    const sha = falho.promptSha256;
+    // GO-FIX (achado 10): o caminho do ledger e relativo a quem despachou; o absoluto e o que o dono roda de qualquer lugar.
+    const promptPath = localizarPromptGravado(raiz, threadId, falho.promptPath, sha) ?? falho.promptPath;
+    const despacho = { promptPath, promptSha256: sha, perfil: origem?.perfil ?? perfilFalho,
+      runtime: origem?.runtime ?? (typeof falho.runtime === 'string' ? falho.runtime : carregado.manifesto.runtime.adapter),
+      model: origem?.model ?? (typeof falho.model === 'string' ? falho.model : null),
+      effort: origem?.effort ?? (typeof falho.effort === 'string' ? falho.effort : plano.effort) };
+    // GO-FIX (a conferir da revisao): com o daemon travado, o proprio `claude agents` pode nao responder, e a prova de vida
+    // segurava a escada para sempre. No claude-bg, o degrau 1 reergue o daemon antes (o `--keep-workers` deixa as sessoes
+    // de pe) e a prova e refeita; sem resposta de novo, nada sai, e na terceira vez seguida no episodio o dono e chamado.
+    let daemonJaReerguido: ReturnType<typeof reerguerDaemon> | null = null;
+    if (!viva.respondeu && despacho.runtime === 'claude-bg' && !opcoes.dryRun) {
+      daemonJaReerguido = reerguerDaemon(opcoes.daemon ?? DAEMON_DO_CLAUDE, despacho.perfil);
+      viva = provar(ids);
+    }
+    if (!viva.respondeu || viva.sessionId) {
+      const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+      const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+        : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+      registrarTentativa(false, detalhe, { conta: false, ...(sessao ? {} : { semProva: true }),
+        ...(daemonJaReerguido ? { daemon: daemonJaReerguido } : {}) });
+      const seguidas = sessao ? 0 : recusasSemProvaSeguidas(lerLedger(dir), plano.fase as Fase);
+      if (seguidas >= LIMITE_SEM_PROVA && !opcoes.dryRun) {
+        const escada = estadoDaEscada(lerLedger(dir), plano.fase as Fase);
+        const motivo = textoDoCatalogo((m) => m.retry.escada.semResposta(seguidas, falhaDaConsulta ?? '-'));
+        return { ...vazio, detalhe: escalarEscada(carregado, thread, plano.fase as Fase, despacho, escada.consumidos, plano.tentativas,
+          plano.limite, motivo) };
+      }
+      return { ...vazio, detalhe };
+    }
     const saida = subirAEscada({
-      carregado, thread, fase: plano.fase as Fase,
-      despacho: { promptPath, promptSha256: sha, perfil: origem?.perfil ?? perfilFalho,
-        runtime: origem?.runtime ?? (typeof falho.runtime === 'string' ? falho.runtime : carregado.manifesto.runtime.adapter),
-        model: origem?.model ?? (typeof falho.model === 'string' ? falho.model : null),
-        effort: origem?.effort ?? (typeof falho.effort === 'string' ? falho.effort : plano.effort) },
-      tentativas: plano.tentativas, limite: plano.limite, dryRun: opcoes.dryRun, daemon: opcoes.daemon,
+      carregado, thread, fase: plano.fase as Fase, despacho,
+      tentativas: plano.tentativas, limite: plano.limite, dryRun: opcoes.dryRun, daemon: opcoes.daemon, daemonJaReerguido,
+      idsConhecidos: ids, provaDeVida: provar,
       redespachar: (d) => redespachar(carregado, thread, plano.fase as Fase, promptPath, sha, { runtime: d.runtime, perfil: d.perfil,
         model: d.model, effort: d.effort, origem: 'retry.escada', dryRun: opcoes.dryRun }),
       // RM-055 (D2): a recusa do runtime por um impedimento do dono nao gasta tentativa, tambem na escada.
@@ -1587,6 +1652,13 @@ export function executarRetry(
         { ...extra, ...(ehImpedimentoDoDono(extra.motivoDoRedespacho) ? { conta: false } : {}) }),
     });
     return { ...vazio, executada: saida.executada, redespacho: saida.redespacho, detalhe: saida.detalhe };
+  }
+  if (!viva.respondeu || viva.sessionId) {
+    const { sessionId: sessao, detalhe: falhaDaConsulta } = viva;
+    const detalhe = sessao ? textoDoCatalogo((m) => m.retry.sessaoAindaViva(sessao.slice(0, 8), threadId))
+      : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
+    registrarTentativa(false, detalhe, { conta: false });
+    return { ...vazio, detalhe };
   }
   const redespacho = redespachar(
     carregado,
