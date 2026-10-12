@@ -362,8 +362,14 @@ for (const camada of ['arquivo', 'leases', '.orkastery']) {
     const alvo = path.join(c.base, 'fora');
     fs.renameSync(origem, alvo);
     fs.symlinkSync(alvo, origem);
-    assert.deepEqual(leases.leasesColidentes(c.raiz, 'main-tree'), []);
-    assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA, true).ok, true);
+    if (camada === '.orkastery') {
+      // RM-047: o estado do ork nunca segue link para fora da raiz; recusa antes de ler ou apagar.
+      assert.throws(() => leases.leasesColidentes(c.raiz, 'main-tree'), /estado\.link/);
+      assert.throws(() => leases.liberar(c.raiz, 'main-tree', OUTRA, true), /estado\.link/);
+    } else {
+      assert.deepEqual(leases.leasesColidentes(c.raiz, 'main-tree'), []);
+      assert.equal(leases.liberar(c.raiz, 'main-tree', OUTRA, true).ok, true);
+    }
     assert.equal(fs.lstatSync(origem).isSymbolicLink(), true);
     const conteudo = camada === 'arquivo' ? alvo : path.join(alvo, camada === 'leases' ? '' : 'leases', 'main-tree.json');
     assert.equal(JSON.parse(fs.readFileSync(conteudo, 'utf8')).thread, DONO);
