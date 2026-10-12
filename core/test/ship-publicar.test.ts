@@ -937,9 +937,7 @@ test('publicar: o verify e o bundle valem pelo manifesto do HEAD da branch, e na
     const produto = commitar(p.dir, 'produto.txt', 'feito\n', `feat(${thread.id}): produto`);
     const daWorktree: ManifestoCarregado = { ...p.carregado,
       manifesto: { ...p.carregado.manifesto, verify: { ...p.carregado.manifesto.verify, build: 'true' } } };
-    // O verify da worktree rodou o build, e o ci prepare dela gerou o bundle com ele.
-    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada',
-      motivos: [], comandos: [{ nome: 'build', ok: true, code: 0 }] });
+    // O ci prepare da worktree gerou o bundle com o build do manifesto dela.
     const bundle = path.relative(p.dir, prepararBundleCi(daWorktree, thread.id));
     exec('git', ['add', '--', bundle], p.dir);
     exec('git', ['commit', '-q', '-m', `ci(${thread.id}): bundle`], p.dir);
@@ -947,6 +945,15 @@ test('publicar: o verify e o bundle valem pelo manifesto do HEAD da branch, e na
     // O checkout volta para a main, que nao versiona o manifesto: o git o tirou da arvore, e o teste o devolve como era.
     fs.writeFileSync(manifesto, original);
     escreverCheck(p, thread.id, 'PASSOU');
+    // S14 (rodada 4): o verify so de claims nao vale, porque o manifesto da branch pede o build, mesmo com quem chama sem
+    // build nenhum.
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada', motivos: [] });
+    const soClaims = publicarEntrega(p.carregado, thread.id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun: true });
+    assert.equal(soClaims.motivo, 'verify.failed', soClaims.detalhe);
+    assert.match(soClaims.detalhe, /rodou só as claims/);
+    // O verify da worktree, com o build que o manifesto dela pede, vale.
+    registrar(dirThread(p.dir, thread.id), thread.id, TIPOS_DE_EVENTO.verificacao, { commit: produto, veredito: 'verdade sustentada',
+      motivos: [], comandos: [{ nome: 'build', ok: true, code: 0 }] });
     const r = publicarEntrega(p.carregado, thread.id, { executorGh: ghFalso(p).executor, forja: FORJA, dryRun: true });
     assert.equal(r.acao, 'publicaria', `${r.detalhe} ${r.correcao}`);
 
