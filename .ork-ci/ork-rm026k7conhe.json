@@ -45,6 +45,62 @@
       "criadoEm": "2026-10-03T03:43:10.202Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/test/conhecimento.test.ts",
+      "alegacao": "GO fatia 1: o leitor ork.conhecimento/v1 lê a pasta declarada e devolve documentos, coleções e lacunas tipadas; documento inválido ou referência que não confere nunca entra na resposta; pasta fora da raiz e link recusam e a leitura não cria processo (testes D1 a D9)",
+      "negativa": true,
+      "verificar": [
+        "npm --prefix core run build && npm --prefix core run build:test && node --test core/dist-test/test/conhecimento.test.js"
+      ],
+      "criadoEm": "2026-10-12T13:01:58.823Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "core/src/conhecimento.ts",
+      "alegacao": "GO fatia 1: o comportamento é novo: a base da thread na main não tem o leitor nem o modo estrito do lerYaml, e o teste importa os dois",
+      "negativa": false,
+      "verificar": [
+        "B=$(git merge-base origin/main HEAD) && git cat-file -e \"$B:core/src/yaml.ts\" && ! git cat-file -e \"$B:core/src/conhecimento.ts\" && ! git show \"$B:core/src/yaml.ts\" | grep -q estrito && git cat-file -e HEAD:core/src/conhecimento.ts && grep -q \"from '../src/conhecimento'\" core/test/conhecimento.test.ts && grep -q \"estrito: true\" core/test/conhecimento.test.ts"
+      ],
+      "criadoEm": "2026-10-12T13:01:58.989Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/conhecimento-rm026.md",
+      "alegacao": "GO fatia 1: o contrato ork.conhecimento/v1 está em docs/referencia/contratos, a pasta entra na matriz da fronteira de confiança e o PR traz linha em Não publicado do CHANGELOG",
+      "negativa": false,
+      "verificar": [
+        "node core/scripts/checar-changelog.cjs --base origin/main && grep -q 'ork.conhecimento/v1' docs/referencia/contratos/conhecimento-rm026.md && grep -q 'conhecimento.dir' docs/referencia/fronteira-de-confianca.md && grep -q 'O GO segue em três fatias' docs/roadmap/RM-026-workspace-empresarial.md"
+      ],
+      "criadoEm": "2026-10-12T13:01:59.156Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm026k7conhe",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "GO fatia 1: a documentação passa no markdownlint e nos links relativos",
+      "negativa": false,
+      "verificar": [
+        "core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-12T13:01:59.321Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
