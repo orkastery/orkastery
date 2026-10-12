@@ -8,6 +8,15 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Adicionado
 
+- **#Noctum, fatia N1: envelope e estado do arco** ([RM-058](docs/roadmap/RM-058-modo-noctum.md)):
+  `core/src/noctum-envelope.ts` define o contrato `ork.noctum-envelope/v1` (janela de 6 a 12 h com fuso, destinos com
+  `push`, `pr` e `merge`, teto do arco e subtetos por conta e por runtime com unidade, horário e canal do relatório da
+  manhã) e recusa pedido sem os valores do dono, listando o que falta, teto ilimitado e as ações que nunca entram (tag e
+  publicação, produção, segredos, ação destrutiva, repositório público novo). `core/src/noctum-arco.ts` guarda o estado
+  do arco num log encadeado e com MAC, só aceita autorização e revogação com prova de origem do dono pelo caminho do HITL
+  (Telegram assinado e callback nativo, com recibo durável do canal, ou diálogo nativo do host, na fronteira da conta
+  do sistema) e confere o recibo, o hash, a revogação, a janela e o destino imediatamente antes de cada efeito. O modo
+  continua desligado: `#Noctum` não é aceito e nenhum comando abre arco ainda.
 - **CLI em inglês e pt-BR, fatia F3a** ([RM-061](docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md)): o que o CLI escreve em
   arquivo nasce na língua do dono no momento da geração (`owner.language` ou, sem ela, `LC_ALL`, `LC_MESSAGES` ou `LANG`
   em `en`): os comentários do `orkastery.yaml` e o bloco do `AGENTS.md` do `ork init`, o bloco da experiência que

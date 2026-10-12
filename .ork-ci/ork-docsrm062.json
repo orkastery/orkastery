@@ -1,0 +1,29 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-docsrm062",
+  "branch": "ork/ork-docsrm062-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-docsrm062",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "A RM-062 registra o código como mesclado no commit do #141.",
+      "negativa": false,
+      "verificar": [
+        "grep -qE \"^  codigo: Mesclado\" docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
+      ],
+      "criadoEm": "2026-10-12T13:59:53.967Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
