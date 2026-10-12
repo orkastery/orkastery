@@ -214,6 +214,28 @@ plugin do adaptador: remover um marketplace desinstala os plugins que vieram del
 Claude Code 2.1.296), e o plugin do marketplace do repositório não traz o guard `PreToolUse` nem o
 MCP do adaptador.
 
+### Freio de Lote (`ork-freio`)
+
+O primeiro mod de papel `fase`. Na sessão de fase, depois de cada lote de ferramentas, ele:
+
+- acha os arquivos que o lote mexeu: os caminhos de `Edit`, `Write`, `MultiEdit` e `NotebookEdit` e a
+  diferença do `git status` entre um lote e outro, que pega também a edição feita por `Bash`;
+- acha as claims da thread que citam esses arquivos, pelo `arquivo` ou pelo texto do comando, e avisa
+  quando o lote mexeu fora dos `touch_paths` do plano;
+- pede ao núcleo, em segundo plano, a conferência dessas claims com
+  `ork claims conferir <thread> --claims ... --json`, no sandbox do verify, uma rodada por vez;
+- devolve ao modelo, no lote seguinte, o que quebrou: o id da claim, o comando e o fim da saída. Lote
+  sem claim afetada passa sem texto, e a linha de status mostra as claims em risco.
+
+O Freio nunca roda o comando de uma claim, nunca grava estado de claim e nunca para o laço: quem
+verifica de verdade continua sendo o `ork verify`. Ele lê o papel e a thread pelo `$.ork` da ponte, e
+as claims e o plano pelas ferramentas de leitura `ork_claims_list` e `ork_artifact_read`, nunca do
+disco em `.orkastery/`. Precisa de um `ork` com `ork claims conferir` no `PATH` da sessão; sem ele, ou
+sem o sandbox do verify, avisa uma vez que a conferência está indisponível e segue. Teste que cria
+processo pode reprovar no sandbox e passar no `ork verify`, e o aviso diz isso junto da falha. O
+resultado chega no lote seguinte: se a sessão terminar antes dele, a última conferência fica sem
+entrega.
+
 ## A #TAG de conducao
 
 O comando `/goal` extrai o modo do proprio pedido, sem reimplementar nada:
