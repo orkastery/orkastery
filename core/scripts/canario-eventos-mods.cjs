@@ -74,6 +74,34 @@ function nomesDoMod(dir) {
   return [...nomes].sort();
 }
 
+/** Os `.d.ts` de um mod, onde ele declara o contrato do noun que acrescenta a `$`. */
+function declaracoesDoMod(dir) {
+  const achados = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const alvo = path.join(dir, e.name);
+    if (e.isDirectory() && e.name !== 'node_modules') achados.push(...declaracoesDoMod(alvo));
+    else if (e.isFile() && e.name.endsWith('.d.ts')) achados.push(alvo);
+  }
+  return achados;
+}
+
+/**
+ * Os nouns que os mods acrescentam a `$` (`interface EngineInterface { ork: Ork }` no contrato de tipos do mod,
+ * como a ponte faz com `$.ork`): sao do mod, nao do binario, e as chamadas deles ficam fora da busca.
+ */
+function nounsDosMods(dirs) {
+  const nouns = new Set();
+  for (const dir of dirs) {
+    for (const arquivo of declaracoesDoMod(dir)) {
+      const texto = fs.readFileSync(arquivo, 'utf8');
+      for (const bloco of texto.matchAll(/interface\s+EngineInterface\s*\{([^}]*)\}/g)) {
+        for (const m of bloco[1].matchAll(/([A-Za-z_$][\w$]*)\s*\??\s*:/g)) nouns.add(m[1]);
+      }
+    }
+  }
+  return [...nouns].sort();
+}
+
 /** As pastas de mod (com `orkastery-mod.json`) da pasta dos mods; vazio quando ela nao existe. */
 function modsDaPasta(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -145,7 +173,8 @@ function canario(argv) {
   const binarioPedido = opcao(argv, '--binario');
   const relatorio = {
     formato: 'ork.canario-mods/v1', ok: false, claude: { comando: claude, versao: null, binario: null },
-    mods: modsDaPasta(pastaDosMods), plugin: [], nomes: { contrato: CONTRATO.length, dosMods: 0, procurados: [], faltando: [] },
+    mods: modsDaPasta(pastaDosMods), plugin: [],
+    nomes: { contrato: CONTRATO.length, dosMods: 0, nounsDosMods: [], ignorados: [], procurados: [], faltando: [] },
     controle: { nome: CONTROLE, achado: null }, erro: null,
   };
   const recusa = (erro) => ({ relatorio: { ...relatorio, erro }, codigo: 2 });
@@ -174,9 +203,15 @@ function canario(argv) {
       }
     }
   }
-  const dosMods = relatorio.mods.flatMap((mod) => nomesDoMod(path.join(pastaDosMods, mod)));
+  const dirs = relatorio.mods.map((mod) => path.join(pastaDosMods, mod));
+  const nouns = nounsDosMods(dirs);
+  const usados = [...new Set(dirs.flatMap((dir) => nomesDoMod(dir)))];
+  // A chamada de um noun que o proprio mod acrescenta (`$.ork.retrato`) nao existe no binario: fica fora.
+  const dosMods = usados.filter((n) => !nouns.includes(n.split('.')[0]));
   const nomes = [...new Set([...CONTRATO, ...dosMods])];
-  relatorio.nomes.dosMods = new Set(dosMods).size;
+  relatorio.nomes.dosMods = dosMods.length;
+  relatorio.nomes.nounsDosMods = nouns;
+  relatorio.nomes.ignorados = usados.filter((n) => !dosMods.includes(n)).sort();
   relatorio.nomes.procurados = nomes;
   const busca = procurar(binario, [...nomes, CONTROLE]);
   relatorio.nomes.faltando = busca.faltando.filter((n) => n !== CONTROLE);
@@ -192,6 +227,7 @@ function texto(r) {
   linhas.push(`  mods       ${r.mods.length ? `${r.mods.length}: ${r.mods.join(', ')}` : `nenhum em ${MODS}`}`);
   for (const p of r.plugin) linhas.push(`  plugin     ${p.mod}: ${p.comando} ${p.ok ? 'ok' : `REPROVOU (codigo ${p.codigo})`}${p.saida ? `\n             ${p.saida.split('\n').join('\n             ')}` : ''}`);
   linhas.push(`  nomes      ${r.nomes.procurados.length} procurados (${r.nomes.contrato} do contrato do plano, ${r.nomes.dosMods} dos mods), ${r.nomes.procurados.length - r.nomes.faltando.length} achados`);
+  if (r.nomes.ignorados.length) linhas.push(`  dos mods   ${r.nomes.ignorados.join(', ')} (noun ${r.nomes.nounsDosMods.join(', ')} acrescentado por mod, fora da busca)`);
   if (r.nomes.faltando.length) linhas.push(`  FALTANDO   ${r.nomes.faltando.join(', ')}`);
   linhas.push(`  controle   ${r.controle.nome} ${r.controle.achado ? 'ACHADO: o arquivo procurado nao e o binario do Claude Code' : 'ausente, como deve'}`);
   linhas.push(`  resultado  ${r.ok ? 'ok' : 'REPROVADO'}`);
@@ -209,6 +245,6 @@ function main(argv) {
   return saida.codigo;
 }
 
-module.exports = { CONTRATO, CONTROLE, MODS, nomesDoMod, modsDaPasta, procurar, comoNoBinario, canario };
+module.exports = { CONTRATO, CONTROLE, MODS, nomesDoMod, nounsDosMods, modsDaPasta, procurar, comoNoBinario, canario };
 
 if (require.main === module) process.exitCode = main(process.argv.slice(2));

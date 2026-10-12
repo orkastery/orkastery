@@ -15,6 +15,7 @@ interface Canario {
   CONTRATO: string[];
   CONTROLE: string;
   nomesDoMod(dir: string): string[];
+  nounsDosMods(dirs: string[]): string[];
   procurar(arquivo: string, nomes: string[]): { achados: string[]; faltando: string[] };
   comoNoBinario(nome: string): string;
 }
@@ -157,4 +158,31 @@ test('S8 o job mods do CI instala o Claude Code fixado, sem credencial, e roda o
   assert.match(job, /CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'/);
   assert.match(job, /persist-credentials: false/);
   assert.doesNotMatch(job, /ANTHROPIC_API_KEY|secrets\./);
+});
+
+test('S9 a chamada de um noun que um mod acrescenta a $ (o $.ork da ponte) fica fora da busca no binario', () => {
+  comDir((dir) => {
+    const mods = path.join(dir, 'mods');
+    const ponte = path.join(mods, 'ork-ponte');
+    const torre = path.join(mods, 'ork-torre');
+    fs.cpSync(EXEMPLO, ponte, { recursive: true });
+    fs.cpSync(EXEMPLO, torre, { recursive: true });
+    fs.mkdirSync(path.join(ponte, 'types'));
+    fs.writeFileSync(path.join(ponte, 'types', 'index.d.ts'),
+      "export type Ork = { retrato(s: unknown): Promise<unknown> }\ndeclare module 'claude-code' {\n  interface EngineInterface {\n    ork: Ork\n  }\n}\n");
+    fs.writeFileSync(path.join(torre, 'hooks', 'painel.js'),
+      "export const painel = async ($) => { await $.ork.retrato({ secao: 'threads' }); $.ui.toast('ok') }\n");
+    assert.deepEqual(canario.nounsDosMods([ponte, torre]), ['ork']);
+    const binario = binarioFalso(dir, canario.CONTRATO);
+    const r = rodar(['--binario', binario, '--mods', mods, '--json']);
+    assert.equal(r.codigo, 0, r.saida);
+    assert.deepEqual(r.json.nomes.nounsDosMods, ['ork']);
+    assert.deepEqual(r.json.nomes.ignorados, ['ork.retrato']);
+    assert.deepEqual(r.json.nomes.faltando, []);
+    // Sem o contrato de tipos, a mesma chamada volta a ser procurada e reprova: a exclusao vem so da declaracao.
+    fs.rmSync(path.join(ponte, 'types'), { recursive: true });
+    const sem = rodar(['--binario', binario, '--mods', mods, '--json']);
+    assert.equal(sem.codigo, 1);
+    assert.deepEqual(sem.json.nomes.faltando, ['ork.retrato']);
+  });
 });
