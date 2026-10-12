@@ -30,6 +30,7 @@ import { conferirAuth as authCodex } from './adapters/codex';
 import { abrirMemoria, injecaoDaFase, Memoria } from './memoria';
 import { pedidoComDicaDoGrafo, renderizar, templateDaFase } from './prompts';
 import { montarSlug, parseSlug, proximaRotacao } from './slug';
+import { msg } from './locale';
 import { blocoDaThread, dirThread, gravarThread, lerThread, pausaNaThread } from './thread';
 import {
   CanalDeConducao,
@@ -1302,7 +1303,5 @@ export function tabelaDoLedger(raiz: string, threadId: string): string {
 /** Slug legivel por humano de uma sessao (usado nas mensagens do CLI). */
 export function descreverSlug(slug: string): string {
   const p = parseSlug(slug);
-  if (!p) return slug;
-  const rot = p.rotacao ? `, rotacao ${p.rotacao}` : '';
-  return `produto "${p.produto}", assunto "${p.assunto}", fases "${p.fases}"${rot}`;
+  return p ? msg().thread.slug(p.produto, p.assunto, p.fases, p.rotacao) : slug;
 }

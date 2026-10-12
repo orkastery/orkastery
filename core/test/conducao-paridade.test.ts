@@ -49,11 +49,13 @@ test('a linha de conducao e a mesma nas cinco superficies e mora num lugar so (T
   superficies['orkastery maestro'] = String(fato);
   for (const [nome, texto] of Object.entries(superficies)) assert.ok(texto.includes(linha), `${nome} nao traz a linha:\n${texto}`);
 
-  // Domicilio unico do texto: nenhuma superficie nem host reimplementa a frase.
+  // Domicilio unico do texto: nenhuma superficie nem host reimplementa a frase. Desde a RM-061 (F2a) a redacao
+  // mora no catalogo de mensagens (pt-BR e ingles), e `linhaDeConducao` (conducao-texto.ts) a monta.
   const src = path.resolve(__dirname, '../../src');
   const achados = fs.readdirSync(src).filter((f) => f.endsWith('.ts'))
     .filter((f) => fs.readFileSync(path.join(src, f), 'utf8').includes('conduzido agora por'));
-  assert.deepEqual(achados, ['conducao-texto.ts']);
+  assert.deepEqual(achados, ['locale-thread.ts']);
+  assert.ok(fs.readFileSync(path.join(src, 'conducao-texto.ts'), 'utf8').includes('msg().thread.conduzido('), 'a linha sai de linhaDeConducao');
 });
 
 test('CLI e MCP disputam o mesmo lease: o MCP recebe a mesma recusa tipada do CLI (T8, T18, CS10)', async () => {

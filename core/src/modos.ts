@@ -7,6 +7,7 @@
  */
 
 import { BlocoDeLoop, DIGITO_DA_FASE, DefinicaoDeModo, Fase, FASES, Modo, ModoAposentado, ModoLegado } from './types';
+import { msg } from './locale';
 
 /** Invariantes que valem em TODOS os modos, inclusive `#Auto`. */
 export const INVARIANTES: readonly string[] = [
@@ -183,10 +184,7 @@ export const MOTIVO_MODO_APOSENTADO = 'modo.aposentado' as const;
  * O texto e DERIVADO de `ORDEM_DOS_MODOS` (ver `substitutosVivos`), nunca escrito a mao.
  */
 export function recusaDeModoAposentado(modo: ModoAposentado): string {
-  const tag = MODOS[modo].tag;
-  return `${MOTIVO_MODO_APOSENTADO}: ${tag} foi aposentado e nao abre trabalho novo. `
-    + `Use ${substitutosVivos().join(' ou ')}. `
-    + `Thread ja gravada em ${tag} continua abrindo normalmente.`;
+  return msg().thread.modoAposentado(MOTIVO_MODO_APOSENTADO, MODOS[modo].tag, substitutosVivos());
 }
 
 /**
@@ -201,8 +199,7 @@ export function exigirModoVivo(entrada: string | undefined | null): Modo {
   if (vivo) return vivo;
   const cru = (entrada ?? '').trim().replace(/^--?modo[= ]/i, '').replace(/^#/, '').toLowerCase();
   if (modoAposentado(cru)) throw new Error(recusaDeModoAposentado(cru));
-  throw new Error(`modo.desconhecido: "${entrada ?? ''}" nao e um modo de conducao. `
-    + `Use um de: ${ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(', ')}.`);
+  throw new Error(msg().thread.modoDesconhecido(entrada ?? '', ORDEM_DOS_MODOS.map((m) => MODOS[m].tag).join(', ')));
 }
 
 /**

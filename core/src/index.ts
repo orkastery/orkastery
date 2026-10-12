@@ -766,8 +766,9 @@ function comandoThread(args: Args): number {
     }
 
     const nome = args.posicionais[2];
+    const mt = msg().thread;
     if (!nome) {
-      console.error('uso: ork thread new <nome> --modo <MODO>');
+      console.error(mt.usoNew);
       return 2;
     }
     const avisoRoadmap = avisoRoadmapSemAssociacao(nome, texto(args.opcoes.roadmap));
@@ -788,13 +789,10 @@ function comandoThread(args: Args): number {
     const doneWhen = (texto(args.opcoes.done) ?? '').split(';;').map((p) => p.trim()).filter(Boolean)
       .map((entrada) => {
         const corte = entrada.indexOf('::');
-        if (corte < 0) {
-          throw new Error(`done.sem-comando: "${entrada}" nao traz comando. `
-            + 'Use --done "<criterio> :: <comando que o prova>"; criterio sem comando e prosa, nao criterio de pronto.');
-        }
+        if (corte < 0) throw new Error(mt.doneSemComando(entrada));
         const criterio = entrada.slice(0, corte).trim();
         const comando = entrada.slice(corte + 2).trim();
-        if (!criterio || !comando) throw new Error(`done.incompleto: "${entrada}" precisa de criterio E comando`);
+        if (!criterio || !comando) throw new Error(mt.doneIncompleto(entrada));
         return { criterio, comando };
       });
     const dryRun = args.opcoes['dry-run'] === true;
@@ -809,15 +807,13 @@ function comandoThread(args: Args): number {
     const brutoCiclo = texto(args.opcoes.ciclo) ?? texto(args.opcoes.variante);
     const variante = brutoCiclo ? parseVariante(brutoCiclo) : null;
     if (brutoCiclo && !variante) {
-      console.error(
-        `variante de ciclo invalida: "${brutoCiclo}". Use uma de: ${Object.keys(VARIANTES).join(', ')}`
-      );
+      console.error(mt.varianteInvalida(brutoCiclo, Object.keys(VARIANTES).join(', ')));
       return 2;
     }
     // P4 do ensaio da 0.5.0 (D4, CHECK): a recusa do ciclo sai antes da reserva do roadmap, como os outros erros de
     // uso; a do `novaThread` fica como defesa de quem o chama direto.
     if (variante && definicaoDaVariante(variante).exigeWorktree && pedido.origem === 'sem-worktree') {
-      console.error(`uso: o ciclo ${variante} exige worktree isolada: crie a thread sem --sem-worktree ou escolha outro ciclo`);
+      console.error(mt.cicloExigeWorktree(variante));
       return 2;
     }
     const brutoFatias = texto(args.opcoes.fatias);
@@ -825,10 +821,11 @@ function comandoThread(args: Args): number {
     // atomico entre maquinas (o primeiro push vence); a thread e local. Se a criacao falhar,
     // a reserva e devolvida; se der certo, ela passa a apontar para a thread.
     const itemDoRoadmap = dryRun ? undefined : texto(args.opcoes.roadmap);
-    const itemReservado = itemDoRoadmap ? pegarItem(carregado.raiz, itemDoRoadmap).item : undefined;
+    // RM-061 (F2a, D6): o que grava estado (reserva, thread, ledger, worktree, registro, publicacoes) roda em pt-BR.
+    const itemReservado = itemDoRoadmap ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap).item) : undefined;
     let criada: ReturnType<typeof novaThread>;
     try {
-      criada = novaThread(carregado, {
+      criada = comLocale('pt-BR', () => novaThread(carregado, {
         nome,
         modo,
         slug: texto(args.opcoes.slug),
@@ -843,39 +840,40 @@ function comandoThread(args: Args): number {
         exigeRuntimeDiferente,
         doneWhen,
         roadmap: itemReservado,
-      });
+      }));
     } catch (e) {
       if (itemDoRoadmap) {
-        try { soltarItem(carregado.raiz, itemDoRoadmap); } catch { /* fica reservado; `ork roadmap soltar` resolve */ }
+        try { comLocale('pt-BR', () => soltarItem(carregado.raiz, itemDoRoadmap)); } catch { /* fica reservado; `ork roadmap soltar` resolve */ }
       }
       throw e;
     }
     const { thread, gravada } = criada;
-    const reservaDoItem = itemDoRoadmap && gravada ? pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id }) : null;
+    const reservaDoItem = itemDoRoadmap && gravada
+      ? comLocale('pt-BR', () => pegarItem(carregado.raiz, itemDoRoadmap, { thread: thread.id })) : null;
     // I-51 (RM-047): com a fabrica compartilhada, as outras maquinas veem a thread nova.
-    if (gravada) publicarEmSegundoPlano(carregado.raiz);
+    if (gravada) comLocale('pt-BR', () => publicarEmSegundoPlano(carregado.raiz));
     // RM-052 (D7): quem abre thread aqui conhece este projeto; o aviso nunca derruba a criacao.
-    const avisoDoRegistro = gravada ? registrarProjetoEmSilencio(carregado.raiz, 'thread new') : null;
+    const avisoDoRegistro = gravada ? comLocale('pt-BR', () => registrarProjetoEmSilencio(carregado.raiz, 'thread new')) : null;
     if (avisoDoRegistro) console.error(avisoDoRegistro);
-    console.log(gravada ? 'Thread criada.' : 'Simulacao (--dry-run), nada foi gravado.');
-    if (reservaDoItem) console.log(`  roadmap: ${reservaDoItem.item} reservado para esta maquina (${reservaDoItem.reserva?.maquina})`);
+    console.log(gravada ? mt.criada : mt.simulacao);
+    if (reservaDoItem) console.log(mt.roadmapReservado(reservaDoItem.item, reservaDoItem.reserva?.maquina));
     console.log(resumoDaThread(thread));
     console.log('');
-    console.log(`  slug em 3 partes: ${descreverSlug(thread.slug)}`);
+    console.log(mt.slugEm3Partes(descreverSlug(thread.slug)));
     const linhaDaWorktreeNova = linhaDaWorktree(criada.worktreePor, gravada, variante);
     if (linhaDaWorktreeNova) console.log(linhaDaWorktreeNova);
     const avisoDaWorktreeNova = criada.worktreeFalharia ? avisoDeWorktreeQueFalharia(criada.worktreeFalharia)
       : avisoDaWorktree(pedido.origem, criada, carregado.manifesto);
     const avisoSemBase = avisoDeThreadSemBase(thread, gravada);
     if (gravada) {
-      console.log(`  estado: .orkastery/threads/${thread.id}/thread.json`);
+      console.log(mt.estado(thread.id));
       // Bloco B6: a origem da thread e as policies do projeto vao para a memoria
       // semantica quando ela esta ligada. Em regime files nada muda nesta saida.
-      relatarPublicacao(publicar(carregado, thread.id));
+      relatarPublicacao(comLocale('pt-BR', () => publicar(carregado, thread.id)));
       // Thread sem base nao tem fase para rodar: o proximo passo e o do aviso.
       if (!avisoSemBase) {
         console.log('');
-        console.log(`Proximo passo: ork phase run ${thread.id} ${thread.faseAtual} --prompt "<pedido>"`);
+        console.log(mt.proximoPasso(thread.id, thread.faseAtual));
       }
     }
     if (avisoDaWorktreeNova) console.error(avisoDaWorktreeNova);
@@ -899,8 +897,9 @@ function comandoThread(args: Args): number {
   if (sub === 'status') {
     const carregado = exigirManifesto();
     const id = args.posicionais[2];
+    const mt = msg().thread;
     if (!id) {
-      console.error('uso: ork thread status <thread-id>');
+      console.error(mt.usoStatus);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
@@ -914,21 +913,18 @@ function comandoThread(args: Args): number {
     console.log(resumoDaThread(thread, conducaoDaThread(carregado.raiz, thread.id)));
     console.log('');
     if (thread.sessoes.length === 0) {
-      console.log('  nenhuma sessao despachada ainda');
+      console.log(mt.nenhumaSessao);
     } else {
-      console.log('  sessoes despachadas (estado real conferido em `ork sessions`)');
+      console.log(mt.sessoesDespachadas);
       for (const s of thread.sessoes) {
-        console.log(
-          `    ${s.slug.padEnd(24)} ${s.fase.padEnd(6)} ${s.sessionId.slice(0, 8)}  ` +
-            `verificada no runtime: ${s.verificada ? 'sim' : 'nao'}  canal: ${canalDaSessao(s)}`
-        );
+        console.log(`    ${s.slug.padEnd(24)} ${s.fase.padEnd(6)} ${s.sessionId.slice(0, 8)}  ` + mt.sessao(s.verificada, canalDaSessao(s)));
       }
     }
     console.log('');
-    console.log(`  pausas humanas do modo: ${pausasDoModo(thread.modo)}`);
+    console.log(mt.pausasDoModo(pausasDoModo(thread.modo)));
     return 0;
   }
-  console.error(`subcomando desconhecido: thread ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('thread', sub));
   return 2;
 }
 
@@ -3745,7 +3741,8 @@ function comandoAudit(args: Args): number {
  * que sempre teve. E o que garante que ligar o B6 nao muda o que o builder ja conhece.
  */
 function relatarPublicacao(r: ResultadoDoSync): void {
-  if (r.publicacao?.estado === 'pendente') { console.log(`Memoria: publicacao pendente (${r.publicacao.motivo}); ativacao explicita necessaria.`); return; }
+  const m = msg().thread;
+  if (r.publicacao?.estado === 'pendente') { console.log(m.publicacaoPendente(`${r.publicacao.motivo}`)); return; }
   if (r.regime !== 'orkmind') return;
   const gravados = [
     `${r.decisoes.gravadas.filter((g) => g.ok).length} decision`,
@@ -3755,8 +3752,8 @@ function relatarPublicacao(r: ResultadoDoSync): void {
     r.roadmap?.ok ? '1 roadmap' : '',
   ].filter((t) => t !== '');
   console.log('');
-  console.log(`Memoria (orkmind, tenant ${r.estado.tenant}): ${gravados.join(', ') || 'nada a gravar'}.`);
-  if (r.falhas > 0) console.log(`  ${r.falhas} gravacao(oes) nao concluida(s); veja ork memory status.`);
+  console.log(m.memoriaGravada(`${r.estado.tenant}`, gravados.join(', ') || m.nadaAGravar));
+  if (r.falhas > 0) console.log(m.gravacoesFalhas(r.falhas));
 }
 
 /** Janela de origem e corte de apresentação são inteiros positivos explícitos. */
@@ -3978,7 +3975,7 @@ function comandoMemory(args: Args): number {
 export function avisoRoadmapSemAssociacao(nome: string, roadmap?: string): string | null {
   const item = /\bRM-\d{3}\b/i.exec(nome)?.[0].toUpperCase();
   if (!item || roadmap) return null;
-  return `Aviso: ${item} no nome não associa a thread ao roadmap. No terminal, consulte ork roadmap reservas e ork fabrica; para associar e reservar, use --roadmap ${item} em ork thread new. Nenhuma reserva foi criada por este aviso.`;
+  return msg().thread.roadmapNoNome(item);
 }
 
 /**
