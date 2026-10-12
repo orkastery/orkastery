@@ -1,0 +1,161 @@
+{
+  "schema": "ork.locale-cobertura-evidencia/v1",
+  "item": "RM-061",
+  "fatia": "F2a",
+  "thread": "ork-rm061f2a",
+  "contador": "core/scripts/contar-mensagens-de-saida.cjs",
+  "metodo": "reimplementacao do metodo descrito no PR #113 (D3 da thread): literais com texto de pessoa em posicao de saida, fora do catalogo, e folhas do catalogo ingles; cobertura = entradas / (entradas + literais de saida)",
+  "comando": "node core/scripts/contar-mensagens-de-saida.cjs --json <core/src da arvore>",
+  "referencia113": {
+    "arquivos": 207,
+    "literaisComTexto": 4970,
+    "emPosicaoDeSaida": 3240,
+    "arquivosComSaida": 159,
+    "entradas": 92,
+    "nota": "numeros do corpo do PR #113, aproximados e medidos antes do merge; o contador reimplementado le 92 entradas na arvore da F1, igual ao #113"
+  },
+  "antes": {
+    "arvore": "4a889fcb",
+    "descricao": "F1 na main (PR #113): doctor em parte e init",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 207,
+    "literaisComTexto": 5157,
+    "emPosicaoDeSaida": 3162,
+    "arquivosComSaida": 154,
+    "maiores": [
+      {
+        "arquivo": "index.ts",
+        "saida": 457
+      },
+      {
+        "arquivo": "retry.ts",
+        "saida": 97
+      },
+      {
+        "arquivo": "network-roadmap.ts",
+        "saida": 95
+      },
+      {
+        "arquivo": "docs.ts",
+        "saida": 90
+      },
+      {
+        "arquivo": "auditrun.ts",
+        "saida": 72
+      },
+      {
+        "arquivo": "hosts.ts",
+        "saida": 66
+      },
+      {
+        "arquivo": "worktree.ts",
+        "saida": 65
+      },
+      {
+        "arquivo": "pulse-resposta.ts",
+        "saida": 63
+      },
+      {
+        "arquivo": "hitl-contract.ts",
+        "saida": 56
+      },
+      {
+        "arquivo": "ship.ts",
+        "saida": 56
+      }
+    ],
+    "catalogo": {
+      "entradas": 92,
+      "arquivos": [
+        {
+          "arquivo": "locale.ts",
+          "entradas": 92
+        }
+      ]
+    },
+    "cobertura": 0.0283
+  },
+  "depois": {
+    "arvore": "47afbe82",
+    "descricao": "F2a: doctor inteiro, erro do init, onboarding, experiencia show, thread new, thread status, phase list, phase run e a ajuda",
+    "nota": "arvore do ultimo commit de produto da F2a, antes do merge da origin/main: o core/src dela e o mesmo do ultimo commit de teste da fatia, entao a diferenca para o antes e so da F2a",
+    "schema": "ork.locale-cobertura/v1",
+    "arquivos": 211,
+    "literaisComTexto": 4928,
+    "emPosicaoDeSaida": 2972,
+    "arquivosComSaida": 151,
+    "maiores": [
+      {
+        "arquivo": "index.ts",
+        "saida": 406
+      },
+      {
+        "arquivo": "retry.ts",
+        "saida": 97
+      },
+      {
+        "arquivo": "network-roadmap.ts",
+        "saida": 95
+      },
+      {
+        "arquivo": "docs.ts",
+        "saida": 90
+      },
+      {
+        "arquivo": "auditrun.ts",
+        "saida": 72
+      },
+      {
+        "arquivo": "hosts.ts",
+        "saida": 66
+      },
+      {
+        "arquivo": "worktree.ts",
+        "saida": 65
+      },
+      {
+        "arquivo": "pulse-resposta.ts",
+        "saida": 63
+      },
+      {
+        "arquivo": "hitl-contract.ts",
+        "saida": 56
+      },
+      {
+        "arquivo": "ship.ts",
+        "saida": 56
+      }
+    ],
+    "catalogo": {
+      "entradas": 356,
+      "arquivos": [
+        {
+          "arquivo": "locale-ajuda.ts",
+          "entradas": 2
+        },
+        {
+          "arquivo": "locale-onboarding.ts",
+          "entradas": 23
+        },
+        {
+          "arquivo": "locale-phase.ts",
+          "entradas": 67
+        },
+        {
+          "arquivo": "locale-thread.ts",
+          "entradas": 81
+        },
+        {
+          "arquivo": "locale.ts",
+          "entradas": 183
+        }
+      ]
+    },
+    "cobertura": 0.107
+  },
+  "ajuda": {
+    "linhas": 355,
+    "antes": "fora do catalogo, em core/src/index.ts",
+    "depois": "no catalogo (core/src/locale-ajuda.ts), em pt-BR e em ingles"
+  }
+}
