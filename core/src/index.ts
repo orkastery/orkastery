@@ -139,7 +139,7 @@ import { formatarDataHora, formatarDataHoraRotulada, fusoDoManifesto, legendaDoF
 import { gravarEtapa, lerOnboarding, ONDE_FICAM_OS_SEGREDOS, resetarOnboarding, textoDaPauta } from './onboarding';
 import { resolverExperiencia } from './experiencia';
 import { desinstalarExperiencia } from './hosts';
-import { ativarLocale, COMANDOS_COM_LOCALE, msg, resolverLocale } from './locale';
+import { ativarLocale, cobreLocale, msg, resolverLocale } from './locale';
 import {
   abrirMemoria,
   sondarEmbeddings,
@@ -4160,10 +4160,10 @@ function executarComando(argvBruto: string[]): number {
     if (violacoes.length === 0) for (const nome of ENVS_DE_PROVIDER_PAGO) delete process.env[nome];
   }
 
-  // Prova de conceito do CLI por locale (EN1, EN7): a escolha do onboarding (owner.language) ou o
-  // LC_ALL/LC_MESSAGES/LANG decidem a lingua do TEXTO dos comandos cobertos; `--json` e contrato e
-  // `doctor --modo` (preflight) ainda nao passa pelo catalogo, entao os dois ficam em pt-BR.
-  if (COMANDOS_COM_LOCALE.includes(comando) && args.opcoes.json === undefined && args.opcoes.modo === undefined) {
+  // CLI por locale (RM-061, EN1 e EN7): a escolha do onboarding (owner.language) ou o LC_ALL/LC_MESSAGES/LANG
+  // decidem a lingua do TEXTO dos comandos cobertos (`cobreLocale`); `--json` e contrato, e os recortes da D2
+  // da F2a (`doctor --modo`, `thread new --from-finding` e os subcomandos fora da lista) ficam em pt-BR.
+  if (cobreLocale(args.posicionais, args.opcoes)) {
     ativarLocale(resolverLocale(ambienteManifesto?.manifesto.owner?.language).locale);
   }
 
@@ -4209,7 +4209,8 @@ function executarComando(argvBruto: string[]): number {
         const r=preflight(diretorioDoProjeto(),exigirModoVivo(bruto),nomesHerdados);console.log(textoPreflight(r));return r.prontoPrimeiroBloco?0:1;
       }
       // RM-031: o check dos analisadores do grafo entra por aqui, a porta da familia do grafo (fronteira do KG1).
-      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK));
+      // RM-061 (F2a): a redacao do check vem do catalogo, no locale do comando (a familia do grafo nao o importa).
+      const r = doctor(diretorioDoProjeto(), nomesHerdados, () => checarAnalisadoresDoGrafo(VERSAO_DO_ORK, undefined, undefined, msg().doctor.grafo));
       console.log(r.texto);
       return r.codigo;
     }
@@ -4453,7 +4454,8 @@ if (require.main === module) {
       console.log(process.argv.includes('--json') ? JSON.stringify(e.recusa, null, 2) : e.texto);
       process.exitCode = SAIDA_DE_PROJETO;
     } else {
-      console.error(`erro: ${(e as Error).message}`);
+      // RM-061 (F2a, D11): o prefixo segue o locale do comando coberto; a mensagem sai como veio.
+      console.error(msg().cli.erro((e as Error).message));
       process.exitCode = 1;
     }
   }

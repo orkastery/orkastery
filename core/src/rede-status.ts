@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import { buscarBranch, git, pontaLocal, remotoRedigido, remotoValido } from './branch-de-estado';
 import { BRANCH_DA_FABRICA, lerFabrica } from './fabrica-estado';
 import { formatarDataHora, legendaDoFuso } from './horario';
+import { msg } from './locale';
 import { carregarManifesto } from './manifest';
 import { nomeDaMaquina } from './maquina';
 import { arquivoDoRetrato, BRANCH_DA_REDE, cachePronto, CasaDaRede, dirDoCache, ForjaNoRetrato, HostNoRetrato, idNoArquivo, lerMarcaDaRede, nomeSeguro,
@@ -262,9 +263,9 @@ export function lerRede(o: OpcoesDaLeitura = {}): StatusDaRede {
 }
 
 export function duracao(ms: number): string {
-  if (!Number.isFinite(ms)) return 'tempo desconhecido';
+  if (!Number.isFinite(ms)) return msg().horario.duracaoDesconhecida;
   const min = Math.round(ms / 60000);
-  if (min < 1) return 'menos de 1 min';
+  if (min < 1) return msg().horario.menosDeUmMin;
   if (min < 120) return `${min} min`;
   const h = Math.round(ms / 3600000);
   return h < 48 ? `${h} h` : `${Math.round(ms / 86400000)} d`;

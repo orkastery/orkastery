@@ -152,13 +152,13 @@ const INIT_EN = [
   '  AGENTS.md   created: <DIR>/AGENTS.md',
   '  state       .orkastery/ kept out of git (.orkastery/.gitignore with *; your .gitignore stays as is)',
   '',
-  'Next step: ork doctor; then ork onboarding to run the project interview.',
+  'Next step: `ork doctor`; then `ork onboarding` to run the project interview.',
   '',
 ].join('\n');
 
 const INIT_EN_DE_NOVO = [
   'Manifest already exists: <DIR>/orkastery.yaml',
-  'Nothing was overwritten. Use --force to regenerate.',
+  'Nothing was overwritten. Use `--force` to regenerate.',
   'AGENTS.md unchanged: <DIR>/AGENTS.md',
   '',
 ].join('\n');
