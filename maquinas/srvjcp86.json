@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T03:41:58.141Z",
+  "publicadoEm": "2026-10-12T03:42:16.246Z",
   "threads": [
     {
       "id": "ork-ciactionsfor",
@@ -16,23 +16,6 @@
       "branch": "ork/ork-ciactionsfor-full",
       "atualizadaEm": "2026-10-03T03:13:01.526Z",
       "entregue": null,
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": null,
-      "modelo": null,
-      "esforco": null
-    },
-    {
-      "id": "ork-provadeconce",
-      "nome": "Prova de conceito: CLI por locale (EN1, EN6, EN7)",
-      "modo": "#Auto",
-      "fase": "SHIP",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-provadeconce-full",
-      "atualizadaEm": "2026-10-12T03:41:57.997Z",
-      "entregue": "4a889fcb",
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
