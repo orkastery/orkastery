@@ -16,7 +16,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
   seguinte das threads #Auto que o núcleo manda despachar, uma vez por turno: relê a condução e o retrato da thread,
   renderiza o prompt com o pedido guardado e despacha por `ork phase run --canal claude-code --correlacao
   sentinela:<sessão>`; a recusa do núcleo (outro condutor, pedido repetido) fica no diário, e a retomada só roda
-  `ork retry run` quando o `ork retry plan` é automático.
+  `ork retry run` quando o `ork retry plan` é automático. A cada 5 min, o que só o dono resolve no `ork pulse --json` vira
+  notificação do sistema, linha no diário e conta na faixa, uma vez por texto e com o próximo passo do núcleo (em #Auto,
+  nunca o pedido de gate); o que foi mostrado entra no registro da ponte, para o Telegram não repetir.
 - **Condução pela Sentinela no núcleo** ([RM-059](docs/roadmap/RM-059-conducao-dentro-do-claude-code.md)):
   `ork conducao sentinela status --json` (`ork.conducao-sentinela/v1`) diz se a Sentinela do Condutor está ligada nesta
   máquina (canal `claude-code`, sessão, batida e prazo de 3 min) e dá o passo do condutor em cada thread aberta, com as

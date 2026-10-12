@@ -95,6 +95,13 @@ export function status(passos: unknown[], presenca: string | null = SESSAO) {
   }
 }
 
+/** O `ork pulse --json` (`ork.pulse/v1`) com o que precisa do dono e o que está parado no condutor. */
+export function pulso(opcoes: { humanos?: unknown[]; parados?: unknown[] } = {}) {
+  return { contrato: 'ork.pulse/v1', consultadoEm: iso(T0), runtime: { ok: true, detalhe: '' }, precisaDeHumanoAgora: opcoes.humanos ?? [],
+    acoesAutomaticas: [], resumo: { humanos: (opcoes.humanos ?? []).length, automaticas: 0, scores: 0, fasesOrfas: 0 },
+    ...(opcoes.parados ? { paradoNoCondutor: opcoes.parados } : {}) }
+}
+
 const saida = (exitCode: number, stdout: unknown, stderr = '') =>
   ({ value: { exitCode, stdout: typeof stdout === 'string' ? stdout : JSON.stringify(stdout), stderr, isStdoutTruncated: false, isStderrTruncated: false } })
 
@@ -109,7 +116,7 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
     papel: opcoes.papel ?? 'dono', sessao: SESSAO, status: status([]) as unknown, statusFalha: false,
     batida: 'minha' as 'minha' | 'outra' | 'falha',
     conducao: {} as Record<string, unknown>, render: {} as Record<string, string | null>, despacho: { exitCode: 0, stdout: 'Fase despachada.', stderr: '' },
-    retry: {} as Record<string, unknown>, retryRun: { exitCode: 0, stdout: 'retomada', stderr: '' }, pulse: null as unknown,
+    retry: {} as Record<string, unknown>, retryRun: { exitCode: 0, stdout: 'retomada', stderr: '' }, pulse: pulso() as unknown,
     hitl: {} as Record<string, unknown[]>,
     processos: [] as Array<{ argv: string[]; env?: Record<string, string> }>, comandos: [] as string[], notificacoes: [] as Array<{ text: string; title?: string }>,
     logs: [] as string[], toasts: [] as string[], retratos: [] as unknown[],

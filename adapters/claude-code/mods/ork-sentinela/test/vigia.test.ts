@@ -5,6 +5,7 @@ import { argvs, faixaEm, iniciar, iso, MIN, montar, passo, ponte, PONTE_FALSA, S
 const BATER = `ork conducao sentinela bater --sessao ${SESSAO} --json`
 const STATUS = 'ork conducao sentinela status --json'
 const DESLIGAR = `ork conducao sentinela desligar --sessao ${SESSAO} --json`
+const PULSE = 'ork pulse --json'
 const vezes = (mundo, linha: string) => argvs(mundo).filter(a => a === linha).length
 
 test('no papel dono a Sentinela liga: o /sentinela, a batida com o id da sessao, o status e a faixa no terminal e no desktop', { plugins: [PONTE_FALSA] }, async ($, on) => {
@@ -15,7 +16,7 @@ test('no papel dono a Sentinela liga: o /sentinela, a batida com o id da sessao,
   ])
   await iniciar($, relogio)
   expect(mundo.comandos).toEqual(['sentinela'])
-  expect(argvs(mundo)).toEqual([BATER, STATUS])
+  expect(argvs(mundo)).toEqual([BATER, STATUS, PULSE])
   for (const surface of ['terminal', 'desktop'] as const) {
     expect(await faixaEm($, surface)).toEqual(['sentinela: 1 thread andando, 1 parada há mais de 30 min'])
   }
@@ -73,7 +74,7 @@ test('dormente no inicio, a Sentinela liga quando o papel vira dono', { plugins:
   expect(mundo.comandos).toEqual(['sentinela'])
   await relogio.advance(1000)
   await relogio.settle()
-  expect(argvs(mundo)).toEqual([BATER, STATUS])
+  expect(argvs(mundo)).toEqual([BATER, STATUS, PULSE])
 })
 
 test('/sentinela mostra o passo e o diario; pausar desliga a presenca e a faixa diz pausada; retomar volta a bater', { plugins: [PONTE_FALSA] }, async ($, on) => {

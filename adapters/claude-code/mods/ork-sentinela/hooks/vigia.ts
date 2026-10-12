@@ -136,23 +136,25 @@ export function haQuantoTempo(minutos: number): string {
 }
 
 /**
- * A linha da faixa: quantas threads andam, quantas estão paradas e há quanto tempo a mais antiga, e quantas estão
- * na vez da Sentinela. Pausada, ou com outra sessão conduzindo, diz isso. Sem nada a dizer, a linha sai.
+ * A linha da faixa: quantas threads andam, quantas estão paradas e há quanto tempo a mais antiga, quantas estão na vez
+ * da Sentinela e quantos avisos do pulse esperam o dono. Pausada, ou com outra sessão conduzindo, diz isso. Sem nada a
+ * dizer, a linha sai.
  */
-export function textoDaFaixa(r: SentinelaResumo, pausada: boolean, agora: number): string | undefined {
+export function textoDaFaixa(r: SentinelaResumo, pausada: boolean, agora: number, avisos = 0): string | undefined {
   if (pausada) return 'pausada; o condutor externo conduz'
   if (r.presenca === 'outra') return 'outra sessão conduz nesta máquina; esta só olha'
   if (r.lidoEm === null) return r.erro ? `sem leitura do núcleo (${r.erro})` : undefined
   const andando = r.passos.filter(p => p.conduzida).length
   const paradas = r.passos.filter(p => !p.conduzida && p.acao === 'avisar')
   const naVez = r.passos.filter(p => !p.conduzida && (p.acao === 'despachar' || p.acao === 'retomar')).length
-  if (andando === 0 && paradas.length === 0 && naVez === 0) return r.erro ? `sem leitura do núcleo (${r.erro})` : undefined
+  if (andando === 0 && paradas.length === 0 && naVez === 0 && avisos === 0) return r.erro ? `sem leitura do núcleo (${r.erro})` : undefined
   const partes = [contar(andando, 'thread andando', 'threads andando')]
   if (paradas.length > 0) {
     const ha = haQuantoTempo(Math.max(...paradas.map(p => minutosDesde(p.desdeEm, agora) ?? 0)))
     partes.push(`${contar(paradas.length, 'parada', 'paradas')}${ha ? ` ${ha}` : ''}`)
   }
   if (naVez > 0) partes.push(`${naVez} na vez da Sentinela`)
+  if (avisos > 0) partes.push(contar(avisos, 'aviso para você', 'avisos para você'))
   return partes.join(', ')
 }
 

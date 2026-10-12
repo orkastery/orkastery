@@ -16,15 +16,15 @@ import { envPtBr, projetoTemporario, runtimeFalso } from './apoio';
 const raizDoRepo = path.resolve(__dirname, '../../..');
 const SENTINELA = path.join(raizDoRepo, 'adapters/claude-code/mods/ork-sentinela');
 const CLI = path.resolve(__dirname, '../../dist/index.js');
-const MODULOS_PUROS = ['hooks/vigia.ts', 'hooks/despacho.ts'];
+const MODULOS_PUROS = ['hooks/vigia.ts', 'hooks/despacho.ts', 'hooks/alertas.ts'];
 /** D2: tudo que a Sentinela chama direto no `$`; o estado passa pelo `read` e pelo `update` do motor. */
-const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'command.register', 'clock.now', 'clock.after',
-  'clock.every', 'process.run', 'session.id', 'state.get', 'state.set', 'ui.toast'];
+const CHAMADAS_PERMITIDAS = ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'ork.mostrado', 'command.register', 'clock.now',
+  'clock.after', 'clock.every', 'process.run', 'session.id', 'state.get', 'state.set', 'ui.notify', 'ui.toast'];
 const NOUNS_PROIBIDOS = ['mcp', 'store', 'env', 'fs', 'prompt', 'agent', 'tool'];
 /** D2: os unicos construtores de argv da Sentinela, nos modulos puros. */
 const CONSTRUTORES_DE_ARGV = ['argvDoStatus', 'argvDaBatida', 'argvDoDesligar', 'argvDoRender', 'argvDoDespacho', 'argvDaRetomada'];
 /** D9: as consultas da lista fechada da ponte que a Sentinela le. */
-const CONSULTAS_PERMITIDAS = ['conducao.status', 'retry.plan'];
+const CONSULTAS_PERMITIDAS = ['conducao.status', 'retry.plan', 'pulse'];
 
 type No = { tipo: string; props: Record<string, unknown>; filhos: unknown[] };
 (globalThis as unknown as { h: unknown }).h = (tipo: string, props: Record<string, unknown> | null, ...filhos: unknown[]): No =>
@@ -244,7 +244,8 @@ test('D2: a Sentinela so chama no $ a lista fechada, todo argv sai dos construto
     assert.doesNotMatch(fs.readFileSync(arquivo, 'utf8'), /'assumir'/, `${path.relative(raizDoRepo, arquivo)} cita o handoff`);
   }
   assert.ok(processos >= 6, `process.run achados: ${processos}`);
-  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'process.run', 'session.id', 'command.register', 'clock.every']) {
+  for (const esperada of ['ork.papel', 'ork.faixa', 'ork.ler', 'ork.retrato', 'ork.mostrado', 'ui.notify', 'process.run', 'session.id', 'command.register',
+    'clock.every']) {
     assert.ok(vistas.has(esperada), esperada);
   }
   const v = carregar('hooks/vigia.ts');
@@ -320,4 +321,47 @@ test('despacho: o render, o phase run e a conducao de verdade casam com a leitur
   const despacho = lerLedger(dirThread(p.dir, thread.id)).find((e) => e.tipo === 'phase_dispatch')!;
   assert.deepEqual([despacho.canal, despacho.correlacao], ['claude-code', 'sentinela:sessao-a']);
   assert.ok(v.lerStatus(rodar(v.argvDoStatus()), 'sessao-a').passos.some((x: { thread: string; conduzida: boolean }) => x.thread === thread.id && x.conduzida));
+});
+
+test('alertas: o pulse vira aviso do que so o dono resolve e do parado que ninguem faz sozinho, sem pedir gate em #Auto', () => {
+  const a = carregar('hooks/alertas.ts');
+  const v = carregar('hooks/vigia.ts');
+  const passos = [passo('ork-a'), passo('ork-b', { modo: 'classic' }), passo('ork-c', { conduzida: true })];
+  const pulse = {
+    contrato: 'ork.pulse/v1',
+    precisaDeHumanoAgora: [
+      { thread: 'ork-a', motivo: 'human.pending', comandoResposta: 'rode ork gate request ork-a; depois siga' },
+      { thread: 'ork-b', motivo: 'human.pending', comandoResposta: 'ork gate request ork-b' },
+      { thread: 'ork-c', motivo: 'claims.failed', comandoResposta: 'rode ork verify' },
+      { thread: 'ork-a', motivo: 'verify.timeout', comandoResposta: 'ork retry run ork-a' },
+      { thread: null, motivo: 'runtime.unavailable', comandoResposta: '', recomendacao: 'faca login no runtime' },
+    ],
+    paradoNoCondutor: ['sem-push', 'pr-verde', 'fase-seguinte', 'check-sem-veredito', 'sessao-sem-pergunta'].map((caso) =>
+      ({ thread: 'ork-a', caso, proximoPasso: `passo de ${caso}` })),
+  };
+  assert.deepEqual(a.avisosDoPulse(pulse, passos), [
+    { chave: 'dono:ork-a:human.pending', thread: 'ork-a', texto: 'ork-a (human.pending): rode; depois siga (em #Auto o núcleo não abre gate; resolva pela ação da thread)' },
+    { chave: 'dono:ork-b:human.pending', thread: 'ork-b', texto: 'ork-b (human.pending): ork gate request ork-b' },
+    { chave: 'dono:-:runtime.unavailable', thread: null, texto: 'fábrica (runtime.unavailable): faca login no runtime' },
+    { chave: 'parado:ork-a:sessao-sem-pergunta', thread: 'ork-a', texto: 'ork-a parado no condutor (sessao-sem-pergunta): passo de sessao-sem-pergunta' },
+  ]);
+  assert.throws(() => a.avisosDoPulse({ contrato: 'outro' }, passos), /nao e o contrato ork\.pulse\/v1/);
+  const avisos = a.avisosDoPulse(pulse, passos);
+  assert.deepEqual(a.avisosNovos(avisos, [a.marcaDoAviso(avisos[0])], 2).map((x: { chave: string }) => x.chave),
+    ['dono:ork-b:human.pending', 'dono:-:runtime.unavailable']);
+  assert.equal(a.semPedirGate('ork gate request ork-a', 'maestro'), 'ork gate request ork-a');
+  assert.deepEqual(a.CASOS_DE_OUTRO, ['sem-push', 'pr-verde', 'fase-seguinte', 'check-sem-veredito']);
+  assert.match(a.avisoDoDespacho(passo('ork-a', { fase: 'PLAN', desdeEm: 'x' }), 'sem pedido').texto, /^ork-a: a Sentinela não despachou o PLAN \(sem pedido\)$/);
+  assert.equal(v.textoDaFaixa({ lidoEm: 1, presenca: 'minha', passos: [], erro: null }, false, 1, 2), '0 threads andando, 2 avisos para você');
+});
+
+test('alertas: o pulse de verdade casa com o contrato que a Sentinela le', (t) => {
+  const a = carregar('hooks/alertas.ts');
+  const p = projetoTemporario('ork-sentinela-pulse');
+  t.after(() => p.limpar());
+  const env = envPtBr({ ...process.env });
+  for (const nome of ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_CANAL', 'CLAUDECODE', 'ORK_PROJETO']) delete env[nome];
+  const r = spawnSync(process.execPath, [CLI, 'pulse', '--json', '--sem-runtime'], { cwd: p.dir, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(a.avisosDoPulse(JSON.parse(r.stdout), []), []);
 });
