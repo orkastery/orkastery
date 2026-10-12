@@ -184,7 +184,7 @@ ork adapter install claude-code --dry-run
 | Medida `runtime_reported` da janela de contexto | **não existe**: o `claude-bg` não expõe uso de contexto, e o gate diz `unavailable` |
 | Modo `#Fast`: uma fase, prova mínima, sem push sozinho | **funciona** desde 27/09/2026 ([RM-042](docs/roadmap/RM-042-modo-fast.md)) |
 | Reservas de item do roadmap entre máquinas | **funciona** desde 27/09/2026 ([RM-047](docs/roadmap/RM-047-fabrica-em-varias-maquinas.md)); o estado das threads ainda é por máquina |
-| Grafo determinístico de código | **planejado** ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
+| Grafo determinístico de código | **funciona** na CLI (`ork grafo`: índice, atualização incremental, consultas e contexto da thread, com a proveniência de cada aresta), em quem instala pelo npm desde a 0.5.3; as tools MCP e a dica no pedido da fase ficam atrás da flag `grafo.mcp`, desligada por padrão ([RM-031](docs/roadmap/RM-031-grafo-de-codigo.md)) |
 
 O quadro completo, item por item e com evidência do git, está no [índice do roadmap](docs/roadmap/README.md).
 

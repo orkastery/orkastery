@@ -36,9 +36,11 @@ export function exigirSessaoDespachada(sessao: SessaoDaThread, sessionId: string
   return sessao as SessaoDespachada;
 }
 
-export function resolverSessao(raiz: string, sessionId: string): { thread: Thread; sessao: SessaoDaThread } {
+export function resolverSessao(raiz: string, sessionId: string, threadId?: string): { thread: Thread; sessao: SessaoDaThread } {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(sessionId)) throw new Error('sessionId inválido');
-  const achadas = listarIds(raiz).flatMap(id => {
+  // Um watcher já vinculado não depende da leitura de threads alheias a cada poll.
+  // O vínculo explícito continua exigindo uma única sessão e o estado canônico.
+  const achadas = (threadId === undefined ? listarIds(raiz) : [threadId]).flatMap(id => {
     const thread = lerThread(raiz, id);
     return thread.sessoes.filter(s => s.sessionId === sessionId).map(sessao => ({ thread, sessao }));
   });
@@ -46,7 +48,9 @@ export function resolverSessao(raiz: string, sessionId: string): { thread: Threa
   const achada = achadas[0];
   if (achada.thread.worktree) {
     const estado = auditarEstado(raiz, achada.thread.id, achada.thread.worktree);
-    if (estado.nivel !== 'ok') throw new Error(estado.detalhe);
+    // comEstadoParaGit materializa o estado local durante commit/rebase. Não leia essa
+    // cópia: o watcher pode repetir a auditoria, com seu orçamento finito de falhas.
+    if (estado.nivel !== 'ok') throw Object.assign(new Error(estado.detalhe), { code: 'SESSION_STATE_SPLIT' });
   }
   return achada;
 }

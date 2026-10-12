@@ -213,7 +213,8 @@ import { avisoDaWorktree, avisoDeThreadSemBase, avisoDeWorktreeQueFalharia, cami
   linhaDaWorktree, listarIds, novaThread, pedidoDeWorktree, PedidoDeWorktree, resumoDaThread, tabelaDeThreads, threadsDaListagem,
 } from './thread';
 import { escopoPadraoDoSync, iniciarDocs, sincronizarDocs, textoDaSincronizacao, textoDaVerificacao, verificarDocs } from './docs';
-import { listarReservas, pegarItem, reservarFeat, reservasOrfas, soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
+import { BRANCH_DE_RESERVAS, leituraDasReservas, listarReservas, PainelDeReservas, pegarItem, REMOTO_PADRAO, reservarFeat, reservasOrfas,
+  soltarItem, soltarReservasOrfas, textoDasReservas } from './roadmap-reservas';
 import { lerFabrica, publicarMaquina, registrarPublicacao, removerMaquina, textoDaFabrica, textoDasOutrasMaquinas } from './fabrica-estado';
 import { exigirRemoto } from './branch-de-estado';
 import { ErroDoPedidoDeProjeto, montarPanoramaDaRede, SAIDA_DO_PEDIDO, textoDoPanoramaDaRede } from './network-roadmap';
@@ -240,10 +241,10 @@ import { propostasDePolicy, registrarPropostasNovas, resumoDasLicoes, textoDeLic
 import { executarDemo } from './demo';
 import { registrarEntregaExternaPorPr, registrarEntregaPorPr, registrarEntregasPorPr } from './entrega-pr';
 import {
-  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto, fixarProjetoAlvo,
-  FORA_DA_CONSULTA,
-  linhasDaConsulta, listarProjetos, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio, remotoDoProjeto,
-  resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
+  caminhoDoRegistro, consultaDoProjeto, CONTRATO_PROJETOS, declaracaoQueFaltou, ENV_PROJETO_EXPLICITO, ErroDeProjeto, esquecerProjeto,
+  fixarProjetoAlvo, FORA_DA_CONSULTA, iniciarDeclaracaoDoProjeto,
+  linhasDaConsulta, listarProjetos, pedirDeclaracaoDoProjeto, ProjetoAlvo, raizParaExibir, registrarProjeto, registrarProjetoEmSilencio,
+  remotoDoProjeto, resolverProjetoAlvo, SAIDA_DE_PROJETO, semRemoto,
 } from './projeto-alvo';
 
 /** A versao publicada em `@orkastery/cli`, lida do package.json (`versao.ts`). */
@@ -363,8 +364,6 @@ Uso: ork [--projeto <nome|caminho>] <comando> [argumentos]
   portfolio create <product|project|initiative> <id> --title T [--parent ID]
   portfolio list [product|project|initiative] [--parent ID] [--json]
   portfolio show <id> [--json]              Catálogo prod -> proj -> init
-        [--constraints A;B] [--outcomes A;B] [--threads N]
-        [--execution-runtime R] [--validation-runtimes R1,R2]
   objective ...                             Aposentado na I-43: as duas vigas viraram
                                             --exige-runtime-diferente e --done de thread
 
@@ -2132,6 +2131,26 @@ function comandoShip(args: Args): number {
   return r.ok ? 0 : 1;
 }
 
+/**
+ * RM-043 (sobra achada na RM-044): opcoes que o `portfolio show` herdou do `objective`,
+ * aposentado na I-43. A ajuda as listava e o `parseArgs` as aceitava, mas o `show` nunca as
+ * leu: eram ignoradas em silencio. A recusa e tipada e diz para onde ir, como a do
+ * `objective.aposentado`.
+ */
+const SOBRAS_DO_OBJECTIVE = ['constraints', 'outcomes', 'threads', 'execution-runtime', 'validation-runtimes'];
+
+function recusarSobraDoObjective(opcao: string): number {
+  console.error(
+    `portfolio.opcao-aposentada: --${opcao} era do Objective Envelope, aposentado na I-43, e o\n` +
+    '  portfolio show nunca a leu. As duas vigas do envelope viraram propriedade de thread comum:\n' +
+    '    ork thread new "<nome>" --modo <MODO> --exige-runtime-diferente\n' +
+    '        o CHECK precisa de runtime que o GO nao usou\n' +
+    '    ork thread new "<nome>" --modo <MODO> --done "<criterio> :: <comando>"\n' +
+    '        criterio de pronto EXECUTAVEL, que vira claim e roda no ork verify'
+  );
+  return 2;
+}
+
 function comandoPortfolio(args: Args): number {
   const root = exigirManifesto().raiz;
   const sub = args.posicionais[1] ?? 'list';
@@ -2153,6 +2172,8 @@ function comandoPortfolio(args: Args): number {
     return 0;
   }
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) { console.error('uso: ork portfolio show <id>'); return 2; }
     const item = findEntity(root, id);
@@ -2977,9 +2998,27 @@ function comandoRoadmap(args: Args): number {
         : soltas.map((s) => `${s.item}: ${s.detalhe} (thread fechada ${s.thread})`).join('\n'));
       return 0;
     }
-    const painel = listarReservas(carregado.raiz, { remoto });
+    // RM-052 (fatia 2, D4): as reservas moram no remoto do projeto. Sem ele, nada e lido; com ele mudo e
+    // sem copia, tambem nao. A resposta diz qual projeto leu e o que ficou de fora, nunca "nenhum item".
+    // RM-047: nome fora do formato de remoto recusa antes do git, como sempre.
+    const nomeDoRemoto = exigirRemoto(remoto ?? REMOTO_PADRAO, 'roadmap');
+    const url = remotoDoProjeto(carregado.raiz, nomeDoRemoto);
+    const painel: PainelDeReservas = url === null ? { reservas: [], feats: [], atualizado: false, ponta: null }
+      : listarReservas(carregado.raiz, { remoto });
+    const leitura = leituraDasReservas(painel, url !== null);
     const orfas = reservasOrfas(carregado.raiz, painel.reservas);
-    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas }, null, 2) : textoDasReservas(painel, orfas));
+    const lido = leitura === 'lido-agora' || leitura === 'copia-local';
+    const consulta = consultaDoProjeto(carregado, {
+      remoto: url,
+      lido: lido ? [`reservas do roadmap (${BRANCH_DE_RESERVAS} em ${nomeDoRemoto}, ${leitura === 'lido-agora' ? 'lido agora' : 'última cópia local'})`] : [],
+      naoLido: [FORA_DA_CONSULTA.roadmap,
+        ...(leitura === 'sem-remoto' ? [`reservas do roadmap: o projeto não tem o remoto ${nomeDoRemoto}, nada foi lido de ${BRANCH_DE_RESERVAS}`]
+          : leitura === 'sem-copia' ? [`reservas do roadmap: o remoto ${nomeDoRemoto} não respondeu e não há cópia local de ${BRANCH_DE_RESERVAS}`]
+            : [])],
+    });
+    console.log(args.opcoes.json === true ? JSON.stringify({ ...painel, orfas, leitura, consulta }, null, 2)
+      : [...linhasDaConsulta(consulta), '', textoDasReservas(painel, orfas,
+        { remoto: nomeDoRemoto, projeto: carregado.manifesto.project.name, temRemoto: url !== null })].join('\n'));
     return 0;
   }
   if (sub === 'status') {
@@ -3431,6 +3470,8 @@ function comandoAudit(args: Args): number {
   }
 
   if (sub === 'show') {
+    const sobra = SOBRAS_DO_OBJECTIVE.find((opcao) => args.opcoes[opcao] !== undefined);
+    if (sobra) return recusarSobraDoObjective(sobra);
     const id = args.posicionais[2];
     if (!id) {
       console.error('uso: ork audit show <rodada> [--ledger]');
@@ -4015,25 +4056,50 @@ export function extrairOpcaoDeProjeto(argv: readonly string[]): { argv: string[]
 const COMANDOS_SEM_PROJETO = new Set(['demo', 'ciclos', 'mcp', 'init', 'projetos']);
 
 /**
+ * Fatia 2 (D3): os comandos que leem projeto e nao terminam com a linha `Projeto consultado`. Hoje so
+ * o `sessions event`, o sensor dos hooks do Claude Code: maquina falando com maquina, e o sensor compara
+ * o stderr da recusa. O `maestro` declara no snapshot e nao passa por aqui.
+ */
+const SEM_DECLARACAO_DO_PROJETO: ReadonlySet<string> = new Set(['sessions event']);
+
+/**
  * Comandos cujo `--projeto` e DELES (RM-054: `ork network roadmap --projeto github:dono/repo`, que
  * le varios projetos). A opcao volta intacta ao argv do subcomando e o alvo global nao e resolvido:
  * nem `--projeto`, nem `ORK_PROJETO`, nem o modo host escolhem um projeto por eles.
  */
 export const COMANDOS_COM_PROJETO_PROPRIO: ReadonlySet<string> = new Set(['network']);
 
-/** Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. */
-function fixarAlvoDoProcesso(projeto: string | undefined): ProjetoAlvo | null {
+/**
+ * Resolve e fixa o projeto-alvo do processo (D2, D3). `null`: vale o cwd de sempre. Fatia 2 (D3): com
+ * `declarar`, o comando termina dizendo qual projeto leu, quando o leitor nao tem como saber.
+ */
+function fixarAlvoDoProcesso(projeto: string | undefined, declarar = true): ProjetoAlvo | null {
   const alvo = resolverProjetoAlvo({ opcao: projeto ?? null });
   fixarProjetoAlvo(alvo);
+  if (declarar) pedirDeclaracaoDoProjeto(alvo);
   return alvo;
 }
 
+/**
+ * RM-052 (fatia 2, D3): o comando que leu um projeto que o leitor nao tem como adivinhar (no host, ou
+ * fora do diretorio dele) escreve no fim a linha `Projeto consultado: ...` no stderr, salvo se ja montou
+ * o proprio cabecalho. Quando ele falha, a linha sai antes da mensagem de erro, que a entrada imprime.
+ */
 export function main(argvBruto: string[]): number {
   // I-35: todo horário para pessoa sai no fuso do dono deste projeto (lido só se for preciso, e já
   // depois de o projeto-alvo abaixo estar fixado: a fonte é preguiçosa).
   registrarFonteDoFuso(() => fusoDoManifesto(carregarManifesto()));
   // RM-052: sem alvo herdado de uma chamada anterior no mesmo processo (os testes chamam `main` em serie).
   fixarProjetoAlvo(null);
+  iniciarDeclaracaoDoProjeto();
+  try { return executarComando(argvBruto); }
+  finally {
+    const linha = declaracaoQueFaltou();
+    if (linha) console.error(linha);
+  }
+}
+
+function executarComando(argvBruto: string[]): number {
   const extraida = extrairOpcaoDeProjeto(argvBruto);
   const proprio = COMANDOS_COM_PROJETO_PROPRIO.has(parseArgs(extraida.argv).posicionais[0] ?? '');
   const argv = proprio && extraida.projeto !== undefined
@@ -4055,8 +4121,9 @@ export function main(argvBruto: string[]): number {
   }
   if (argv[0] === 'maestro') {
     if (argv.length === 2 && argv[1] === '--help') return runMaestroCli(argv.slice(1));
-    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre.
-    const alvo = fixarAlvoDoProcesso(projeto);
+    // RM-052: o alvo explicito vira SELECAO entre as raizes permitidas; sem ele, o cwd de sempre. O
+    // snapshot ja declara o projeto consultado (project.root, notConsulted): sem a linha da fatia 2.
+    const alvo = fixarAlvoDoProcesso(projeto, false);
     return alvo ? runMaestroCli(argv.slice(1), alvo.raiz, { allowedRoots: [alvo.raiz], selected: alvo.raiz })
       : runMaestroCli(argv.slice(1));
   }
@@ -4072,8 +4139,9 @@ export function main(argvBruto: string[]): number {
     console.log(AJUDA);
     return 0;
   }
-  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) fixarAlvoDoProcesso(projeto);
-  else if (projeto !== undefined && comando !== 'projetos') {
+  if (!COMANDOS_SEM_PROJETO.has(comando) && !proprio) {
+    fixarAlvoDoProcesso(projeto, !SEM_DECLARACAO_DO_PROJETO.has(`${comando} ${args.posicionais[1] ?? ''}`.trim()));
+  } else if (projeto !== undefined && comando !== 'projetos') {
     throw new Error(comando === 'init'
       ? 'uso: ork init cria o projeto no diretório atual; entre nele e rode ork init, sem --projeto'
       : comando === 'mcp' ? 'uso: o servidor MCP recebe a raiz por --project <raiz absoluta>, não por --projeto'

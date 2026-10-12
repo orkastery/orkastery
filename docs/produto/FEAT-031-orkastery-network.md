@@ -4,7 +4,7 @@ tipo: feature
 titulo: Orkastery Network, a rede das máquinas de uma pessoa
 estado: em desenvolvimento
 pai: MOD-01
-roadmap: [RM-053]
+roadmap: [RM-053, RM-058]
 owner: Julio
 aprovador: Julio
 verificado_em: 2026-09-30T02:33:06-03:00
