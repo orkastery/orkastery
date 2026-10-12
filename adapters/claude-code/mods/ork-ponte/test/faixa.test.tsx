@@ -1,4 +1,5 @@
 import { test, expect, mock } from 'claude-code/testing'
+import { comDisco } from './apoio'
 
 // A faixa, os caminhos vigiados e o registro do que foi mostrado, pelo `$.ork` como outro mod o chama.
 const P = { isFullscreen: false, columns: 100 }
@@ -44,6 +45,7 @@ function sessao(on, { papel, ledgers = {} }) {
 }
 
 test('a faixa desenha uma linha por mod, em ordem de nome, cortada a largura', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'fase' })
@@ -58,6 +60,7 @@ test('a faixa desenha uma linha por mod, em ordem de nome, cortada a largura', {
 })
 
 test('sem linha publicada, ou com pesquisa na faixa, a faixa fica com quem esta abaixo', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'fase' })
@@ -79,6 +82,7 @@ test('sem linha publicada, ou com pesquisa na faixa, a faixa fica com quem esta 
 })
 
 test('na fase, o watchPaths junta o de baixo, o ledger da thread e os pedidos, e o pedido tardio vale no proximo inicio', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'fase' })
@@ -91,6 +95,7 @@ test('na fase, o watchPaths junta o de baixo, o ledger da thread e os pedidos, e
 })
 
 test('no dono, o watchPaths leva a pasta das threads e os ledgers mais recentes', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'dono', ledgers: { 'ork-velha': 10, 'ork-nova': 30, 'ork-meio': 20 } })
@@ -101,6 +106,7 @@ test('no dono, o watchPaths leva a pasta das threads e os ledgers mais recentes'
 })
 
 test('fora do Orkastery a ponte nao mexe no watchPaths', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'dormente' })
@@ -110,6 +116,7 @@ test('fora do Orkastery a ponte nao mexe no watchPaths', { plugins: [MODS] }, as
 })
 
 test('pedido de caminho relativo, com .. ou de mod sem nome valido e recusado', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.store(on)
   expect((await ponte($, 'vigiar', { mod: 'ork-freio', caminhos: ['plano.json'] })).erro).toMatch(/absoluto/)
   expect((await ponte($, 'vigiar', { mod: 'ork-freio', caminhos: ['/p/../etc'] })).erro).toMatch(/absoluto/)
@@ -118,6 +125,7 @@ test('pedido de caminho relativo, com .. ou de mod sem nome valido e recusado', 
 })
 
 test('na sessao do dono, o que a faixa publica e o que o mod declara entram no registro do mostrado', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   const relogio = mock.clock(on, { now: Date.UTC(2026, 0, 1) })
   mock.store(on)
   sessao(on, { papel: 'dono' })
@@ -135,6 +143,7 @@ test('na sessao do dono, o que a faixa publica e o que o mod declara entram no r
 })
 
 test('na sessao de fase, a faixa nao entra no registro do mostrado', { plugins: [MODS] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   mock.store(on)
   sessao(on, { papel: 'fase' })

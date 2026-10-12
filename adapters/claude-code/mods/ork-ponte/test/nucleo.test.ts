@@ -1,4 +1,5 @@
 import { test, expect, mock } from 'claude-code/testing'
+import { comDisco } from './apoio'
 
 // A leitura do nucleo pela ponte, como outro mod do Orkastery a chama: retrato pelo `ork_maestro`,
 // cache enquanto o `stat` dos ledgers nao muda, reserva pelo CLI e a lista fechada de consultas.
@@ -44,6 +45,7 @@ function projeto(on, stat) {
 }
 
 test('retrato pelo MCP, do cache enquanto o ledger nao muda, e de novo quando muda', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   const relogio = mock.clock(on, { now: 1000 })
   const stat = { tamanho: 10, mtimeMs: 5 }
   projeto(on, stat)
@@ -62,6 +64,7 @@ test('retrato pelo MCP, do cache enquanto o ledger nao muda, e de novo quando mu
 })
 
 test('o cache vence pelo teto de 60 s mesmo sem mudanca no ledger', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   const relogio = mock.clock(on, { now: 1000 })
   projeto(on, { tamanho: 1, mtimeMs: 1 })
   let chamadas = 0
@@ -73,6 +76,7 @@ test('o cache vence pelo teto de 60 s mesmo sem mudanca no ledger', { plugins: [
 })
 
 test('sem o MCP, o retrato cai na consulta maestro do CLI com teto de 10 s', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   mock.clock(on, { now: 1000 })
   projeto(on, { tamanho: 1, mtimeMs: 1 })
   on('mcp.call', () => ({ value: { content: [], isError: true } }))
@@ -88,6 +92,7 @@ test('sem o MCP, o retrato cai na consulta maestro do CLI com teto de 10 s', { p
 })
 
 test('pedido de retrato invalido e recusado antes de qualquer leitura', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   let leu = false
   on('mcp.call', () => { leu = true; return { value: { content: [], isError: true } } })
   expect((await rodar($, 'retrato', { secao: 'tudo' })).erro).toMatch(/secao desconhecida/)
@@ -97,6 +102,7 @@ test('pedido de retrato invalido e recusado antes de qualquer leitura', { plugin
 })
 
 test('ler roda so a lista fechada, com a thread no lugar certo', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   const rodados = []
   on('process.run', ($2, e) => {
     rodados.push(e.argv)
@@ -111,6 +117,7 @@ test('ler roda so a lista fechada, com a thread no lugar certo', { plugins: [LEI
 })
 
 test('consulta que sai diferente de zero vira erro com o fim do stderr', { plugins: [LEITOR] }, async ($, on) => {
+  comDisco(on)
   on('process.run', () => ({ value: { exitCode: 3, stdout: '', stderr: 'linha 1\nconducao.em-andamento', isStdoutTruncated: false, isStderrTruncated: false } }))
   expect((await rodar($, 'ler', { consulta: 'pulse' })).erro).toMatch(/ork pulse --json saiu 3: linha 1 conducao.em-andamento/)
 })

@@ -1,10 +1,15 @@
 // A ponte dos mods do Orkastery (RM-059, onda 0). Acrescenta ao `$` o noun `$.ork`, que os outros mods
 // do Orkastery usam para saber em que sessao estao, ler o nucleo, publicar na faixa e pedir caminhos
-// vigiados. A logica fica nos modulos puros ao lado; aqui so as chamadas ao `$`, sempre escritas como
-// `x.noun.metodo(...)`, como o validador exige.
+// vigiados, e guarda a regra de autoridade (T0.6): nenhum mod aprova gate, permissao, nota do MASTER,
+// push ou tag pelo dono, nem fala como o dono. A logica fica nos modulos puros ao lado; aqui so as
+// chamadas ao `$`, sempre escritas como `x.noun.metodo(...)`, como o validador exige.
 import type { Register } from 'claude-code'
 import type { Ork, OrkAssinatura, OrkContexto, OrkMaestro, OrkMostrado, OrkRetratoGuardado } from '../types'
 import { comporFaixa, desenharFaixa, nomeDeModValido, trocarLinha } from './faixa'
+import type { Achado, Autoridade } from './guarda'
+import {
+  avaliarAmbiente, avaliarArgv, avaliarCaminho, avaliarUses, ehModDoOrkastery, lerAutoridade, MARCA_DE_MOD, NOME_DA_PONTE,
+} from './guarda'
 import { CHAVE_NO_STORE, conferirMostrado, lerRegistro, registrarMostrado } from './mostrado'
 import {
   argsDoMaestro, argvDaConsulta, cacheValido, caminhosCobertos, chaveDoPedido, conferirPedidoDeRetrato, FERRAMENTA_DO_RETRATO,
@@ -27,6 +32,44 @@ type Interno = {
 let interno: Interno | undefined
 /** O `classic.SessionStart` desta carga ja respondeu os `watchPaths`. */
 let inicioRespondido = false
+
+// A guarda (T0.6). A lista de autoridade e lida do disco uma vez por carga (D6 da thread): `null` quando
+// falta ou nao tem o formato, e entao tudo que a guarda cobre fecha para os mods do Orkastery.
+let autoridade: Autoridade | null | undefined
+let motivoSemLista = ''
+let raizDaPonte = ''
+/** Mods do Orkastery sem prefixo `ork-`, conhecidos pelo `orkastery-mod.json` no `plugin.register`. */
+const conhecidos = new Set<string>()
+
+function pai(dir: string): string {
+  const sem = dir.replace(/\/+$/, '')
+  const i = sem.lastIndexOf('/')
+  return i <= 0 ? '/' : sem.slice(0, i)
+}
+
+/** A lista ao lado dos mods e, na falta dela, dentro da pasta da ponte (contrato para a distribuicao). */
+async function obterAutoridade(ler: (caminho: string) => Promise<unknown>): Promise<Autoridade | null> {
+  if (autoridade !== undefined) return autoridade
+  const candidatos = [juntar(pai(raizDaPonte), 'autoridade.json'), juntar(raizDaPonte, 'autoridade.json')]
+  const motivos: string[] = []
+  for (const caminho of candidatos) {
+    try {
+      autoridade = lerAutoridade(String(await ler(caminho)))
+      return autoridade
+    } catch (erro) {
+      motivos.push(`${caminho}: ${erro instanceof Error ? erro.message : String(erro)}`)
+    }
+  }
+  motivoSemLista = motivos.join('; ').slice(0, 400)
+  autoridade = null
+  return null
+}
+
+const recusa = (a: Achado) => `ork-ponte: ${a.regra}: ${a.porque}. Mod do Orkastery nao age pelo dono; ` +
+  'registre uma decisao autonoma pelo nucleo ou leve a pergunta ao dono pelo dialogo nativo'
+const semLista = () => `ork-ponte: lista de autoridade ausente ou invalida (${motivoSemLista || 'nao lida'}); ` +
+  'a guarda fecha para os mods do Orkastery'
+const ehMod = (nome: unknown) => ehModDoOrkastery(nome, conhecidos)
 
 export const register: Register = on => {
   on('engine.create', async ($, e, next) => {
@@ -155,6 +198,7 @@ export const register: Register = on => {
     }
 
     interno = { contexto: lerContexto, raizDoEstado: acharRaizDoEstado, ledgersRecentes: lerLedgersRecentes }
+    raizDaPonte = built.plugin.root
     return { ...built, ork }
   })
 
@@ -178,5 +222,110 @@ export const register: Register = on => {
     if (linhas.length === 0) return next(e)
     const { Box, Text } = $.ui.resolve(e)
     return desenharFaixa({ Box, Text }, linhas)
+  })
+
+  // A guarda em tempo de execucao (T0.6). Cada chamada de `$` e um evento que passa por todos os ganchos,
+  // de qualquer camada, menos o de quem chamou: a ponte ve a chamada do mod onde quer que ele esteja na
+  // cadeia. So um gancho mais externo que respondesse sem `next` a contornaria, e por isso esses eventos
+  // ficam reservados a ponte (o `plugin.register` abaixo recusa o mod que os registra). Cada gancho tem
+  // `.catch` que fecha: sem poder chamar o `$`, o `.catch` decide so com o evento e a lista ja lida.
+
+  // A lista tambem e lida no inicio, para a sessao saber logo quando a guarda esta fechada.
+  on('session.start', async ($, e, next) => {
+    const lida = await obterAutoridade(caminho => $.fs.read(caminho))
+    if (lida === null) $.ui.status(semLista())
+    return next(e)
+  })
+
+  on('process.run', async ($, e, next) => {
+    if (!ehMod(next.origin.plugin)) return next(e)
+    const a = await obterAutoridade(caminho => $.fs.read(caminho))
+    if (a === null) return { deny: semLista() }
+    const achado = avaliarArgv(a, e.argv, e.init?.stdin)
+    return achado ? { deny: recusa(achado) } : next(e)
+  }).catch(($, e, next) => {
+    if (next.called || !ehMod(next.origin.plugin)) return next(e)
+    if (!autoridade) return { deny: semLista() }
+    const achado = avaliarArgv(autoridade, e.argv, e.init?.stdin)
+    return achado ? { deny: recusa(achado) } : next(e)
+  })
+
+  on('process.spawn', async function* ($, e, next) {
+    if (ehMod(next.origin.plugin)) {
+      const a = await obterAutoridade(caminho => $.fs.read(caminho))
+      if (a === null) return { deny: semLista() }
+      const achado = avaliarArgv(a, e.argv, e.input)
+      if (achado) return { deny: recusa(achado) }
+    }
+    return yield* next(e)
+  }).catch(async function* ($, e, next) {
+    if (next.called || !ehMod(next.origin.plugin)) return yield* next(e)
+    if (!autoridade) return { deny: semLista() }
+    const achado = avaliarArgv(autoridade, e.argv, e.input)
+    if (achado) return { deny: recusa(achado) }
+    return yield* next(e)
+  })
+
+  // Mod do Orkastery que hooka evento proibido ou reservado, chama `$.prompt.submit` ou le `ORK_HITL_*`
+  // nem carrega. O nome `ork-ponte` fica reservado a esta pasta.
+  on('plugin.register', async ($, e, next) => {
+    if (e.root === raizDaPonte) return next(e)
+    if (e.name === NOME_DA_PONTE) return { refuse: `ork-ponte: o nome ${NOME_DA_PONTE} e reservado a ponte do Orkastery` }
+    const marcado = e.name.startsWith('ork-') || await $.fs.exists(juntar(e.root, MARCA_DE_MOD)).catch(() => false)
+    if (!marcado) return next(e)
+    conhecidos.add(e.name)
+    const a = await obterAutoridade(caminho => $.fs.read(caminho))
+    if (a === null) return { refuse: semLista() }
+    const achado = avaliarUses(a, e.uses)
+    return achado ? { refuse: recusa(achado) } : next(e)
+  }).catch(($, e, next) => (e.root !== raizDaPonte && (e.name.startsWith('ork-') || conhecidos.has(e.name))
+    ? { refuse: 'ork-ponte: a guarda falhou ao conferir o mod do Orkastery' } : next(e)))
+
+  // Texto enviado como se fosse do dono, vindo de mod do Orkastery, nao entra.
+  on('prompt.submit', ($, e, next) => {
+    const mod = e.origin.kind === 'plugin' && 'name' in e.origin ? e.origin.name : undefined
+    if (ehMod(mod)) {
+      return { drop: `ork-ponte: o mod ${String(mod)} nao fala pelo dono; use a faixa, uma notificacao ou a decisao autonoma do nucleo` }
+    }
+    return next(e)
+  }).catch(($, e, next) => (next.called ? next(e)
+    : ehMod(e.origin.kind === 'plugin' && 'name' in e.origin ? e.origin.name : undefined)
+      ? { drop: 'ork-ponte: a guarda falhou; texto de mod nao entra' } : next(e)))
+
+  on('session.append', ($, e, next) => {
+    const mod = e.origin.kind === 'plugin' && 'name' in e.origin ? e.origin.name : undefined
+    if (ehMod(mod) && e.message.type === 'user') {
+      return { deny: `ork-ponte: o mod ${String(mod)} nao grava linha de usuario; o modelo a leria como palavra do dono` }
+    }
+    return next(e)
+  }).catch(($, e, next) => (next.called ? next(e)
+    : ehMod(e.origin.kind === 'plugin' && 'name' in e.origin ? e.origin.name : undefined) && e.message.type === 'user'
+      ? { deny: 'ork-ponte: a guarda falhou; linha de usuario de mod nao entra' } : next(e)))
+
+  // A propria ponte le o ambiente e a lista do disco: so os outros mods do Orkastery passam por aqui.
+  on('env.get', async ($, e, next) => {
+    const origem = next.origin.plugin
+    if (origem === NOME_DA_PONTE || !ehMod(origem)) return next(e)
+    const a = await obterAutoridade(caminho => $.fs.read(caminho))
+    if (a === null) return { deny: semLista() }
+    const achado = avaliarAmbiente(a, e.name)
+    return achado ? { deny: recusa(achado) } : next(e)
+  }).catch(($, e, next) => {
+    if (next.called || next.origin.plugin === NOME_DA_PONTE || !ehMod(next.origin.plugin)) return next(e)
+    const achado = autoridade ? avaliarAmbiente(autoridade, e.name) : null
+    return autoridade && !achado ? next(e) : { deny: achado ? recusa(achado) : semLista() }
+  })
+
+  on('fs.read', async ($, e, next) => {
+    const origem = next.origin.plugin
+    if (origem === NOME_DA_PONTE || !ehMod(origem)) return next(e)
+    const a = await obterAutoridade(caminho => $.fs.read(caminho))
+    if (a === null) return { deny: semLista() }
+    const achado = avaliarCaminho(a, e.path)
+    return achado ? { deny: recusa(achado) } : next(e)
+  }).catch(($, e, next) => {
+    if (next.called || next.origin.plugin === NOME_DA_PONTE || !ehMod(next.origin.plugin)) return next(e)
+    const achado = autoridade ? avaliarCaminho(autoridade, e.path) : null
+    return autoridade && !achado ? next(e) : { deny: achado ? recusa(achado) : semLista() }
   })
 }

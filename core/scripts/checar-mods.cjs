@@ -33,7 +33,10 @@ const GUARDA = `${PASTA_DOS_MODS}/ork-ponte/hooks/guarda.ts`;
 const PONTE = 'ork-ponte';
 const FORMATO = 'ork.checar-mods/v1';
 const FONTE = /\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
-const DE_TESTE = /\.test\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
+/** Teste do mod (nome `*.test.*` ou pasta `test`, `tests`, `__tests__`): nao carrega na sessao e nao entra. */
+const DE_TESTE = /(\.test\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$)|(^|\/)(test|tests|__tests__)\//;
+/** T0.6: os ganchos da guarda em tempo de execucao que a ponte registra, cada um com `.catch` que fecha. */
+const GUARDA_DA_PONTE = ['process.run', 'process.spawn', 'plugin.register', 'prompt.submit', 'session.append', 'env.get', 'fs.read'];
 const PAPEIS = ['dono', 'fase'];
 const CHAVES_DO_PAPEL = ['formato', 'papeis', 'claudeCodeMinimo'];
 const CHAVES_FORA_DO_MANIFESTO = ['formato', 'papeis', 'claudeCodeMinimo', 'orkastery'];
@@ -137,6 +140,7 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
   };
   const ganchos = [];
   const decisoes = [];
+  const comCatch = [];
   const visitar = (no) => {
     if (ts.isCallExpression(no)) {
       if (ts.isIdentifier(no.expression) && no.expression.text === 'on' && no.arguments.length >= 2) {
@@ -144,6 +148,10 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
         if (evento !== undefined) {
           const matcher = no.arguments.length >= 3 && ts.isObjectLiteralExpression(no.arguments[1]) ? no.arguments[1] : undefined;
           ganchos.push({ evento, matcher, no });
+          // `on(...).catch(handler)`: a registracao tem quem responda no lugar do gancho que falha.
+          const acima = no.parent;
+          if (acima && ts.isPropertyAccessExpression(acima) && acima.name.text === 'catch' && acima.parent && ts.isCallExpression(acima.parent)
+            && acima.parent.arguments.length === 1) comCatch.push(evento);
         }
       }
       const final = cadeia(no.expression).slice(-2).join('.');
@@ -194,7 +202,7 @@ function varrerFonte(ctx, arquivo, texto, ehPonte) {
     if (!ganchos.some((g) => guarda.sobrepoe(g.evento, d.evento))) continue;
     for (const no of decisoes) if (nomeDe(no) === 'decision' && textoDe(no.initializer) === d.decisao) achar(no, { regra: d.id, porque: d.porque });
   }
-  return achados;
+  return { achados, comCatch };
 }
 
 function rodarClaude(args, opcoes) {
@@ -271,8 +279,15 @@ function checarMod(ctx, dir) {
 
   const arquivos = listarArquivos(dir);
   if (!arquivos.some((a) => /\.test\.tsx?$/.test(a))) achar('sem-teste', 'o mod precisa de pelo menos um *.test.ts para o claude plugin test');
-  for (const arquivo of arquivos.filter((a) => FONTE.test(a) && !DE_TESTE.test(a))) {
-    achados.push(...varrerFonte(ctx, path.relative(ctx.raiz, arquivo) || arquivo, fs.readFileSync(arquivo, 'utf8'), ehPonte));
+  const comCatch = new Set();
+  for (const arquivo of arquivos.filter((a) => FONTE.test(a) && !DE_TESTE.test(path.relative(dir, a)))) {
+    const r = varrerFonte(ctx, path.relative(ctx.raiz, arquivo) || arquivo, fs.readFileSync(arquivo, 'utf8'), ehPonte);
+    achados.push(...r.achados);
+    for (const evento of r.comCatch) comCatch.add(evento);
+  }
+  if (ehPonte) {
+    const faltam = GUARDA_DA_PONTE.filter((evento) => !comCatch.has(evento));
+    if (faltam.length) achar('ponte-guarda', `a ponte precisa registrar com .catch os ganchos da guarda: ${faltam.join(', ')}`);
   }
   if (ctx.comClaude) achados.push(...conferirComClaude(ctx, dir, rel));
   return { mod: nome, pasta: rel, ok: achados.length === 0, achados };

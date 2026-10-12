@@ -103,6 +103,25 @@ test('cada item da lista de autoridade e reprovado no fonte de um mod', () => {
   });
 });
 
+test('a ponte precisa registrar os ganchos da guarda, cada um com .catch; apoio de teste nao entra', () => {
+  const GUARDA = ['process.run', 'process.spawn', 'plugin.register', 'prompt.submit', 'session.append', 'env.get', 'fs.read'];
+  const ganchos = (comCatch: string[]) => GUARDA.map((ev) => (comCatch.includes(ev)
+    ? `  on('${ev}', ($, e, next) => next(e)).catch(($, e, next) => next(e))`
+    : `  on('${ev}', ($, e, next) => next(e))`)).join('\n');
+  comPasta((base) => {
+    const inteira = criarMod(path.join(base, 'a'), 'ork-ponte', ganchos(GUARDA), { 'test/apoio.ts': "export const x = 'gh pr merge 1'\n" });
+    assert.deepEqual(regrasDe(inteira), []);
+    const semDois = criarMod(path.join(base, 'b'), 'ork-ponte', ganchos(GUARDA.filter((ev) => ev !== 'fs.read' && ev !== 'process.spawn')));
+    const achado = checarMods({ pastas: [semDois] }).mods[0].achados.find((a: { regra: string }) => a.regra === 'ponte-guarda');
+    assert.ok(achado, 'esperava ponte-guarda');
+    assert.match(achado.porque, /process\.spawn, fs\.read$/);
+    const vazia = criarMod(path.join(base, 'c'), 'ork-ponte', "  on('session.start', ($, e, next) => next(e))");
+    assert.ok(regrasDe(vazia).includes('ponte-guarda'));
+    const outro = criarMod(path.join(base, 'd'), 'ork-outro', "  on('session.start', ($, e, next) => next(e))", { 'test/apoio.ts': "export const x = 'gh pr merge 1'\n" });
+    assert.deepEqual(regrasDe(outro), []);
+  });
+});
+
 test('linha de sistema no transcript e gancho comum passam', () => {
   comPasta((base) => {
     const dir = criarMod(base, 'ork-aviso', [
