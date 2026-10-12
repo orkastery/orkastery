@@ -52,6 +52,7 @@ import { duracaoCurta, duracaoRelativa } from './horario';
 import { carimbarSessoes } from './hitl-estado';
 import { redigirCredenciaisUrl } from './redacao-url';
 import { textoDoCatalogo } from './locale';
+import { PULSE_PT_BR } from './locale-pulse';
 
 /** Limite de atencao padrao, em minutos, igual ao do monitor de orquestracao. */
 export const ATENCAO_PADRAO_MIN = 30;
@@ -84,28 +85,29 @@ interface Regra {
  * `stopped` NAO pede humano: a sessao foi parada por decisao de alguem. `failed` pede,
  * porque alguem precisa decidir entre retomar, corrigir ou abandonar.
  */
+// RM-061 (F2b): o detalhe de cada estado tem a fonte no catalogo pt-BR (`locale-pulse.ts`), com o ingles ao lado.
 const REGRA_POR_ESTADO: Record<string, Regra> = {
   blocked: {
     classe: 'hitl',
     precisaDeHumano: true,
-    detalhe: 'sessao parada esperando acao humana (prompt, permissao ou credencial)',
+    detalhe: PULSE_PT_BR.sessao.blocked,
   },
   failed: {
     classe: 'falha',
     precisaDeHumano: true,
-    detalhe: 'sessao terminou em erro: alguem decide entre retomar, corrigir ou abandonar',
+    detalhe: PULSE_PT_BR.sessao.failed,
   },
-  working: { classe: 'trabalhando', precisaDeHumano: false, detalhe: 'sessao em execucao' },
-  done: { classe: 'concluida', precisaDeHumano: false, detalhe: 'sessao concluiu' },
+  working: { classe: 'trabalhando', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.working },
+  done: { classe: 'concluida', precisaDeHumano: false, detalhe: PULSE_PT_BR.sessao.done },
   stopped: {
     classe: 'interrompida',
     precisaDeHumano: false,
-    detalhe: 'sessao parada por decisao humana (`claude stop`)',
+    detalhe: PULSE_PT_BR.sessao.stopped,
   },
   idle: {
     classe: 'interativa',
     precisaDeHumano: false,
-    detalhe: 'sessao interativa ociosa, conduzida por um humano no terminal',
+    detalhe: PULSE_PT_BR.sessao.idle,
   },
 };
 

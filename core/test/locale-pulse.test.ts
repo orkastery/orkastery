@@ -164,3 +164,22 @@ test('locale en F2b pulse: o impedimento do despacho, as vagas do escalonador e 
     assert.equal(remontar(recomendacao), 'read `ork sessions logs abc12345` and decide whether to resume, fix the cause or drop the session.');
   } finally { ligarRemontagem(false); ativarLocale(undefined); c.limpar(); }
 });
+
+test('locale en F2b pulse: a classe do item sai pelo id em ingles, e o motivo tipado fica', () => {
+  definirFusoDoDono('America/New_York');
+  ativarLocale('en');
+  try {
+    const item = (extra: Partial<ItemPulse>): ItemPulse => ({ id: 'x', classe: 'thread', motivo: 'runtime.silencio', thread: 'loc-x',
+      fase: 'GO', sessionId: null, desdeEm: '2025-09-19T18:16:00.000Z', paradaHaMin: 3, impacto: 3, pergunta: 'Q?', opcoes: [],
+      recomendacao: 'ork retry plan loc-x', comandoResposta: 'ork retry plan loc-x', evidencia: [], fontes: [], contextoLogs: [], ...extra });
+    const texto = textoDoPulse({ contrato: 'ork.pulse/v1' as Pulse['contrato'], consultadoEm: '2025-09-19T18:21:30.000Z',
+      runtime: { ok: true, detalhe: '' },
+      precisaDeHumanoAgora: [item({ classe: 'falha' }), item({ classe: 'desconhecida' }), item({ classe: 'fase_orfa' }), item({ classe: 'hitl' })],
+      acoesAutomaticas: [item({ classe: 'abandonada', motivo: 'abandonada', comandoResposta: 'ork sessions logs abc' }),
+        item({ classe: 'hitl', motivo: 'hitl.permissao', comandoResposta: 'claude attach abc' })],
+      resumo: { humanos: 4, automaticas: 2, scores: 0, fasesOrfas: 1 } });
+    for (const classe of ['failed', 'unknown', 'orphan phase', 'hitl']) assert.ok(texto.includes(`\nloc-x [${classe}] 3 min\n`), `${classe}\n${texto}`);
+    assert.ok(texto.endsWith('\nloc-x: abandoned; ork sessions logs abc\nloc-x: hitl.permissao; claude attach abc'), texto);
+    assert.deepEqual(linhasEmPortugues(texto, ['Q?']), []);
+  } finally { ativarLocale(undefined); definirFusoDoDono(undefined); }
+});

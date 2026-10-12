@@ -555,6 +555,11 @@ function casosDoPulse(casos: Record<string, string>): void {
   caso(casos, 'pulse: estado da sessao no radar', () =>
     ['blocked', 'failed', 'working', 'done', 'stopped', 'idle', '', 'xyz'].map((e) => `${e}: ${classificarEstado(e).detalhe}`).join('\n'));
   caso(casos, 'pulse: descricao de cada motivo', () => JSON.stringify(DESCRICAO_DO_MOTIVO, null, 1));
+  caso(casos, 'pulse: classe da sessao no item e na acao automatica', () => textoDoPulse({ ...base,
+    precisaDeHumanoAgora: ['hitl', 'falha', 'abandonada', 'desconhecida', 'fase_orfa'].map((classe) => item({ classe, paradaHaMin: 3 })),
+    acoesAutomaticas: [item({ classe: 'falha', motivo: 'falha', comandoResposta: 'ork sessions logs abc12345' }),
+      item({ classe: 'hitl', motivo: 'hitl.permissao', comandoResposta: 'claude attach abc12345' })],
+    resumo: { humanos: 5, automaticas: 2, scores: 0, fasesOrfas: 1 } }));
   caso(casos, 'pulse: recomendacao do radar por tipo de parada', () => [recomendarPara('abandonada', null, 'abc12345'),
     recomendarPara('falha', null, 'abc12345'), recomendarPara('desconhecida', null, 'abc12345'),
     recomendarPara('hitl', 'hitl.credencial', 'abc12345'), recomendarPara('hitl', 'hitl.permissao', 'abc12345'),

@@ -340,7 +340,7 @@ export function textoDoPulse(p: Pulse): string {
   }
   if(!p.runtime.ok) linhas.push(m.consultaIncompleta(detalhe(p.runtime.detalhe)));
   for(const i of p.precisaDeHumanoAgora) {
-    linhas.push('',m.item(String(i.thread??i.sessionId), i.classe, i.paradaHaMin==null?m.desconhecido:i.paradaHaMin<1?m.menosDeUm:String(i.paradaHaMin)),local(i.pergunta),
+    linhas.push('',m.item(String(i.thread??i.sessionId), m.classe(i.classe), i.paradaHaMin==null?m.desconhecido:i.paradaHaMin<1?m.menosDeUm:String(i.paradaHaMin)),local(i.pergunta),
       ...i.opcoes.map(o=>m.opcao(remontar(o))),m.recomendacao(remontar(i.recomendacao)),m.responder(remontar(i.comandoResposta)),
       ...i.contextoLogs.map(l=>m.log(l)));
   }
@@ -360,6 +360,8 @@ export function textoDoPulse(p: Pulse): string {
     for (const a of h.abertas) linhas.push(linhaDaPerguntaParada(a, { agora: p.consultadoEm }));
   }
   linhas.push('',m.automaticas(p.resumo.automaticas));
-  for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo, remontar(i.comandoResposta)));
+  // RM-061 (F2b, D4): o item do radar sem tipo de HITL usa a classe como motivo; ela sai pelo id, o motivo tipado fica.
+  for(const i of p.acoesAutomaticas) linhas.push(m.automatica(String(i.thread), i.motivo === i.classe ? m.classe(i.motivo) : i.motivo,
+    remontar(i.comandoResposta)));
   return linhas.join('\n');
 }

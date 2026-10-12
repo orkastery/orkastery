@@ -10,6 +10,12 @@
  * A descricao por motivo tipado tem a fonte aqui: `DESCRICAO_DO_MOTIVO` (gates.ts) le o pt-BR.
  */
 
+/** A classe da sessao no radar (`ClasseDeSessao`) e a da fase orfa, pelo id; `hitl` e `thread` sao iguais. */
+const CLASSES_EN: Readonly<Record<string, string>> = {
+  abandonada: 'abandoned', falha: 'failed', trabalhando: 'working', concluida: 'done', interrompida: 'stopped',
+  interativa: 'interactive', desconhecida: 'unknown', fase_orfa: 'orphan phase', score_pendente: 'pending score',
+};
+
 /** As alternativas do pedido curto do impedimento do despacho (`impedimento.ts`), pelo texto que ele grava. */
 const ALTERNATIVAS_DO_IMPEDIMENTO_EN: Readonly<Record<string, string>> = {
   'Rodei o comando': 'I ran the command', 'Trocar o runtime do bloco': 'Switch the block runtime', 'Deixar parada': 'Leave it stopped',
@@ -22,6 +28,8 @@ export const PULSE_PT_BR = {
   diagnostico: (detalhe: string) => `[diagnostico] ${detalhe}`,
   consultaIncompleta: (detalhe: string) => `[consulta incompleta] ${detalhe}`,
   item: (quem: string, classe: string, minutos: string) => `${quem} [${classe}] ${minutos} min`,
+  /** A classe do item (`ItemPulse.classe`), dado do `--json`: o ingles a traduz pelo id na impressao (D4). */
+  classe: (classe: string): string => classe,
   desconhecido: 'desconhecido',
   menosDeUm: 'menos de 1',
   opcao: (opcao: string) => `  opção: ${opcao}`,
@@ -125,6 +133,7 @@ export const PULSE_EN: typeof PULSE_PT_BR = {
   diagnostico: (detalhe) => `[diagnostic] ${detalhe}`,
   consultaIncompleta: (detalhe) => `[incomplete query] ${detalhe}`,
   item: (quem, classe, minutos) => `${quem} [${classe}] ${minutos} min`,
+  classe: (classe) => CLASSES_EN[classe] ?? classe,
   desconhecido: 'unknown',
   menosDeUm: 'less than 1',
   opcao: (opcao) => `  option: ${opcao}`,

@@ -24,7 +24,8 @@
  * ausente, os erros de argumento de `thread new`, `--runtime` e o modelo ao trocar de runtime no `phase run`)
  * e remontado no locale do comando pela entrada do CLI. Seguem como o modulo dono escreve, ate a familia dele migrar: o validador
  * do manifesto (fora os avisos de preferencia da experiencia, traduzidos na impressao), o regime de
- * memoria e o erro de estado durante a gravacao. O cabecalho `Projeto consultado:` e `Não lido:` e
+ * memoria, o erro de estado durante a gravacao e, na F2b, a recusa `ship.remoto-invalido` do `exigirRemoto`
+ * (`branch-de-estado.ts`, modulo compartilhado com a fabrica e a rede). O cabecalho `Projeto consultado:` e `Não lido:` e
  * contrato do RM-052 com os hosts e fica igual nas duas linguas.
  *
  * F2b (G2 e D1 da thread ork-rm061f2b): o texto que o proprio comando monta e que tambem vai ao ledger ou
@@ -36,7 +37,8 @@
  * (`parado-no-condutor.ts`, a familia de entregas), ate a F3. Motivo tipado, acao e bloqueio do retry, codigo,
  * comando e sha saem iguais nas duas linguas (G4); valor de estado mostrado em tabela ou entre parenteses (a
  * acao do `registrar-pr`, o tipo da autorizacao do ship, o status da thread, o veredito e a cobertura do
- * CHECK-REVERIFY, o titulo do grupo do roadmap) e dado do `--json` e so se traduz na impressao, pelo id (D4).
+ * CHECK-REVERIFY, o titulo do grupo do roadmap, a classe do item do pulse) e dado do `--json` e so se traduz
+ * na impressao, pelo id (D4).
  *
  * Ingles (D8): curto, no imperativo onde e instrucao, com os mesmos termos em todo o CLI (`thread`,
  * `phase`, `claim`, `verify`, `ship`, `pulse`, `lease`, `ledger`, `worktree`, `slug`). Comando, flag
