@@ -869,7 +869,7 @@
         "test \"$(grep -c 'textoDoCatalogo' core/src/orquestracao.ts)\" -ge 8 && grep -qF 'm.thread.pausaSobre(sobre)' core/src/orquestracao.ts && ! grep -qE 'thread carimbada como pausada|na fila de rate limit|bloco fechado em|ainda esta trabalhando no runtime|espere a thread' core/src/orquestracao.ts"
       ],
       "criadoEm": "2026-10-12T11:28:45.082Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -883,7 +883,7 @@
         "test \"$(grep -c 'textoDoCatalogo' core/src/hitl.ts)\" -ge 3 && grep -qF 'm.pulse.sessao[estado] ?? regra.detalhe' core/src/hitl.ts && ! grep -qE 'runtime nao informou estado desta sessao|nao esta no catalogo do ork: tratado|runtime adapter indisponivel nesta maquina' core/src/hitl.ts"
       ],
       "criadoEm": "2026-10-12T11:28:47.434Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -897,7 +897,7 @@
         "grep -qF 'textoDoCatalogo((m) => m.pulse.claudeForaDoPath)' core/src/adapters/claude-bg.ts && grep -qF 'm.pulse.claudeAgentsFalhou(r.code)' core/src/adapters/claude-bg.ts && ! grep -qF \"sessoes: [], detalhe: 'bin\" core/src/adapters/claude-bg.ts"
       ],
       "criadoEm": "2026-10-12T11:28:49.772Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -911,7 +911,7 @@
         "npm --prefix core run build >/dev/null && node -e 'const {DESCRICAO_DO_MOTIVO:D}=require(\"./core/dist/gates\"); const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").pulse.motivos, pt=msg(\"pt-BR\").pulse.motivos; const k=Object.keys(D); process.exit(k.length===26 && k.every(x=>D[x]===pt[x] && en[x] && en[x]!==pt[x]) ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:28:52.377Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -925,7 +925,7 @@
         "grep -qF 'const m = msg().horario;' core/src/ratelimit.ts && ! grep -qF \"'ja liberou'\" core/src/ratelimit.ts && npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const en=msg(\"en\").horario, pt=msg(\"pt-BR\").horario; process.exit(pt.emHoras(1,\"05\")===\"em 1h05\" && en.emHoras(1,\"05\")===\"in 1h05\" && pt.emMinutos(7)===\"em 7 min\" && en.jaLiberou===\"already released\" ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:28:55.276Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -939,7 +939,7 @@
         "grep -qF 'throw new ErroDoCatalogo((m) => m.thread.naoEncontrada(id, dirThreads(raiz)));' core/src/thread.ts"
       ],
       "criadoEm": "2026-10-12T11:28:56.927Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -953,21 +953,7 @@
         "grep -qF 'm.roadmap.fabricaClone(BRANCH_DA_FABRICA)' core/src/roadmap-status.ts && grep -qF 'remontar(f.motivo)' core/src/roadmap-status.ts && grep -qF \"localeAtivo() === 'pt-BR' ? g.titulo\" core/src/roadmap-status.ts && ! grep -qF 'clone parcial: a c' core/src/roadmap-status.ts"
       ],
       "criadoEm": "2026-10-12T11:29:01.634Z",
-      "estado": "pendente",
-      "lint": []
-    },
-    {
-      "id": "C70",
-      "thread": "ork-rm061f2b",
-      "fase": "GOAL",
-      "arquivo": "core/src/pulse.ts",
-      "alegacao": "O pulse remonta no locale a recomendacao, a resposta e o comando das acoes automaticas que o monitor montou (GO-FIX, B1).",
-      "negativa": false,
-      "verificar": [
-        "grep -qF 'm.responder(remontar(i.comandoResposta))' core/src/pulse.ts && grep -qF 'm.automatica(String(i.thread), i.motivo, remontar(i.comandoResposta))' core/src/pulse.ts"
-      ],
-      "criadoEm": "2026-10-12T11:29:03.347Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -981,7 +967,7 @@
         "test \"$(grep -c 'ligarRemontagem(false);' core/src/index.ts)\" -ge 2 && grep -qF 'ligarRemontagem(true);' core/src/index.ts"
       ],
       "criadoEm": "2026-10-12T11:29:05.032Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -995,7 +981,7 @@
         "grep -qF 'textoDoCatalogo((m) => m.ship.humano)' core/src/ship.ts && npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); process.exit(msg(\"pt-BR\").ship.humano===\"humano\" && msg(\"en\").ship.humano===\"a human\" ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:29:07.238Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1009,7 +995,7 @@
         "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const e=msg(\"en\"), p=msg(\"pt-BR\"); process.exit(e.master.semTropeco===\"no setbacks\" && e.master.avisoSemThread(\"x\",true,2).includes(\"parallel workstreams\") && e.pulse.paradoNoCondutor(1)===\"Waiting on the conductor: 1\" && e.ship.acoes[\"ja-registrada\"]===\"already recorded\" && e.roadmap.sigo(\"RM-1\",\"t\",\"GO\",\"\").endsWith(\"RM-1: I continue with t in phase GO.\") && e.roadmap.nadaEmAndamento.endsWith(\"next is whatever you prioritize.\") && e.doctor.redeSemBatida===\"no heartbeat published\" && p.master.semTropeco===\"sem tropeco\" && p.doctor.redeSemBatida===\"nenhuma batida publicada\" ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:29:11.143Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1023,7 +1009,7 @@
         "node -e 'const c=require(\"./core/test/fixtures/locale-f2b-pt-BR.json\"); const k=Object.keys(c); const novos=[\"monitor: paradas que o monitor monta\",\"pulse: estado da sessao no radar\",\"pulse: descricao de cada motivo\",\"pulse: quanto falta na fila\",\"master cli: pulse sem o claude no PATH\",\"master cli: roadmap status com a fabrica num clone parcial\"]; process.exit(k.length>=93 && novos.every(n=>k.includes(n)) && c[\"monitor: paradas que o monitor monta\"].includes(\"bloco fechado em GOAL\") ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:29:14.135Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1037,7 +1023,7 @@
         "grep -qF \"'retry_planned', 'retry_attempt', 'retry_escalated', 'gate_blocked', 'go_fix_opened'\" core/test/locale-f2b-casos.ts && grep -qF \"cobertura: 'completa'\" core/test/locale-f2b-casos.ts && grep -qF 'ensaio barrado pela policy push_direto_na_base' core/test/locale-f2b-casos.ts && ! grep -qF 'retry_attempted' core/test/locale-f2b-casos.ts && ! grep -qF \"'fix_opened'\" core/test/locale-f2b-casos.ts"
       ],
       "criadoEm": "2026-10-12T11:29:19.717Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1051,7 +1037,7 @@
         "! grep -qF \"arquivo: 'orquestracao.ts', trecho: '(\" core/test/horario-lint.test.ts"
       ],
       "criadoEm": "2026-10-12T11:29:21.369Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1065,7 +1051,7 @@
         "grep -qF \"'retry', 'master', 'pulse', 'roadmap'\" core/test/locale-dado.test.ts"
       ],
       "criadoEm": "2026-10-12T11:29:22.882Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1079,7 +1065,7 @@
         "grep -qF 'retry list e retry policy' core/test/locale-verify.test.ts && ! grep -qF 'ship sem verify' core/test/locale-verify.test.ts"
       ],
       "criadoEm": "2026-10-12T11:29:24.472Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1093,7 +1079,7 @@
         "grep -qF 'last heartbeat' core/test/locale-doctor.test.ts && ! grep -qF 'last beat' core/test/locale-doctor.test.ts"
       ],
       "criadoEm": "2026-10-12T11:29:25.971Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1107,7 +1093,7 @@
         "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && for f in pulse ship master roadmap; do node --test-reporter=tap core/dist-test/test/locale-$f.test.js; done > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F2b pulse: a pausa .*Classic, a thread pausada/{a++} /^ok [0-9]+ - locale en F2b ship: thread inexistente/{b++} /^ok [0-9]+ - locale en F2b master: MASTER log, POSTMORTEM, aceite e pedido de nota/{c++} /^ok [0-9]+ - locale en F2b roadmap: roadmap status do CLI/{d++} /^not ok/{f++} END{exit !(a==1 && b==1 && c==1 && d==1 && f==0)}' \"$l\" && grep -qF 'Factory: not read (partial clone' core/test/locale-roadmap.test.ts"
       ],
       "criadoEm": "2026-10-12T11:29:30.056Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1121,7 +1107,7 @@
         "grep -qF 'textoDoCatalogo((m) => m.pulse.vagaStaleCorrecao(t.id, t.faseAtual))' core/src/board.ts && grep -qF 'textoDoCatalogo((m) => m.pulse.limiteCorrecao)' core/src/board.ts && ! grep -qE 'redespache com ork phase run|espere uma thread liberar, ou suba' core/src/board.ts"
       ],
       "criadoEm": "2026-10-12T11:49:02.654Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1135,7 +1121,7 @@
         "grep -qF 'const r = m.pulse.recomendacaoDoRadar;' core/src/hitl.ts && ! grep -qE 'nao responda: o job ja saiu|escolha entre as opcoes que ela listou' core/src/hitl.ts"
       ],
       "criadoEm": "2026-10-12T11:49:04.611Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1149,7 +1135,7 @@
         "grep -qF 'm.pulse.alternativaDoImpedimento(a.texto)' core/src/pulse.ts && grep -qF 'm.opcao(remontar(o))' core/src/pulse.ts"
       ],
       "criadoEm": "2026-10-12T11:49:06.649Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1163,7 +1149,7 @@
         "node -e 'const c=require(\"./core/test/fixtures/locale-f2b-pt-BR.json\"); const k=Object.keys(c); const v=c[\"monitor: vagas do escalonador\"]||\"\"; process.exit(k.length>=96 && k.includes(\"master cli: pulse com o impedimento do despacho\") && k.includes(\"pulse: recomendacao do radar por tipo de parada\") && v.includes(\"concurrency.limite\") && v.includes(\"vaga.stale\") ? 0 : 1)'"
       ],
       "criadoEm": "2026-10-12T11:49:09.512Z",
-      "estado": "pendente",
+      "estado": "verificado",
       "lint": []
     },
     {
@@ -1177,48 +1163,132 @@
         "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test-reporter=tap core/dist-test/test/locale-pulse.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F2b pulse: o impedimento do despacho, as vagas do escalonador/{a++} /^not ok/{f++} END{exit !(a==1 && f==0)}' \"$l\""
       ],
       "criadoEm": "2026-10-12T11:49:12.123Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C89",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/pulse.ts",
+      "alegacao": "O pulse remonta a recomendacao e a resposta, traduz pelo id a classe do item e a classe que faz as vezes de motivo na acao automatica (D4), e deixa o motivo tipado como veio (rodada 2 da revisao, N1).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'm.item(String(i.thread??i.sessionId), m.classe(i.classe)' core/src/pulse.ts && grep -qF 'i.motivo === i.classe ? m.classe(i.motivo) : i.motivo' core/src/pulse.ts && grep -qF 'm.responder(remontar(i.comandoResposta))' core/src/pulse.ts"
+      ],
+      "criadoEm": "2026-10-12T12:19:10.312Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C86",
+      "id": "C90",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/hitl.ts",
+      "alegacao": "O detalhe de cada estado da sessao na tabela do radar le o pt-BR do catalogo (PULSE_PT_BR.sessao): uma fonte so para o texto (rodada 2 da revisao, N2).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'detalhe: PULSE_PT_BR.sessao.blocked,' core/src/hitl.ts && grep -qF 'detalhe: PULSE_PT_BR.sessao.idle,' core/src/hitl.ts && ! grep -qF \"detalhe: 'sessao parada esperando acao humana\" core/src/hitl.ts"
+      ],
+      "criadoEm": "2026-10-12T12:19:12.676Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C91",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale.ts",
+      "alegacao": "O cabecalho do catalogo declara a recusa ship.remoto-invalido do exigirRemoto na fronteira da D14 e a classe do item do pulse na lista da D4 (rodada 2 da revisao, N1 e N3).",
+      "negativa": false,
+      "verificar": [
+        "grep -qF 'na F2b, a recusa' core/src/locale.ts && grep -qF 'exigirRemoto' core/src/locale.ts && grep -qF 'a classe do item do pulse) e dado do' core/src/locale.ts"
+      ],
+      "criadoEm": "2026-10-12T12:19:14.695Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C92",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/src/locale-pulse.ts",
+      "alegacao": "A classe do item do pulse tem traducao pelo id no ingles (failed, orphan phase; hitl igual) e e a identidade no pt-BR (rodada 2 da revisao, N1).",
+      "negativa": false,
+      "verificar": [
+        "npm --prefix core run build >/dev/null && node -e 'const {msg}=require(\"./core/dist/locale\"); const e=msg(\"en\").pulse, p=msg(\"pt-BR\").pulse; process.exit(e.classe(\"falha\")===\"failed\" && e.classe(\"fase_orfa\")===\"orphan phase\" && e.classe(\"hitl\")===\"hitl\" && p.classe(\"falha\")===\"falha\" ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T12:19:17.431Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C93",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/fixtures/locale-f2b-pt-BR.json",
+      "alegacao": "A fixture pt-BR, gerada na base, trava tambem a classe da sessao no item e na acao automatica do pulse (97 casos).",
+      "negativa": false,
+      "verificar": [
+        "node -e 'const c=require(\"./core/test/fixtures/locale-f2b-pt-BR.json\"); const k=Object.keys(c); const v=c[\"pulse: classe da sessao no item e na acao automatica\"]||\"\"; process.exit(k.length>=97 && v.includes(\"loc-x [desconhecida] 3 min\") && v.includes(\"loc-x: falha; ork sessions logs abc12345\") ? 0 : 1)'"
+      ],
+      "criadoEm": "2026-10-12T12:19:19.934Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C94",
+      "thread": "ork-rm061f2b",
+      "fase": "GOAL",
+      "arquivo": "core/test/locale-pulse.test.ts",
+      "alegacao": "Em ingles, a classe do item do pulse sai pelo id (failed, unknown, orphan phase), a classe que faz as vezes de motivo tambem, e o motivo tipado fica como veio.",
+      "negativa": false,
+      "verificar": [
+        "l=$(mktemp) && npm --prefix core run build >/dev/null && npm --prefix core run build:test >/dev/null && node --test-reporter=tap core/dist-test/test/locale-pulse.test.js > \"$l\" 2>&1; awk '/^ok [0-9]+ - locale en F2b pulse: a classe do item sai pelo id em ingles/{a++} /^not ok/{f++} END{exit !(a==1 && f==0)}' \"$l\""
+      ],
+      "criadoEm": "2026-10-12T12:19:22.183Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C95",
       "thread": "ork-rm061f2b",
       "fase": "GOAL",
       "arquivo": "docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md",
-      "alegacao": "A pagina da RM-061 traz a cobertura recontada depois do GO-FIX (de 11,2% para 22,8%, recibo cobertura-f2b.json da arvore 9fe77ee5) e declara o que fica de fronteira, inclusive que os adaptadores transportam o texto do comando.",
+      "alegacao": "A pagina da RM-061 traz a cobertura recontada depois da rodada 2 (de 11,2% para 23,0%, recibo cobertura-f2b.json da arvore 5ec8387e) e declara as fronteiras, inclusive a recusa ship.remoto-invalido e que os adaptadores transportam o texto do comando.",
       "negativa": false,
       "verificar": [
-        "grep -qF 'cobertura-f2b.json' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF '| Cobertura | 11,2% | 22,8% |' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'transportam o texto do comando' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
+        "grep -qF 'cobertura-f2b.json' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF '| Cobertura | 11,2% | 23,0% |' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'transportam o texto do comando' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md && grep -qF 'remoto-invalido' docs/roadmap/RM-061-cli-em-ingles-e-pt-br.md"
       ],
-      "criadoEm": "2026-10-12T11:50:48.646Z",
+      "criadoEm": "2026-10-12T12:20:29.397Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C87",
+      "id": "C96",
       "thread": "ork-rm061f2b",
       "fase": "GOAL",
       "arquivo": "CHANGELOG.md",
-      "alegacao": "A linha da F2b no CHANGELOG traz a contagem recontada do catalogo depois do GO-FIX (de 389 para 825 entradas).",
+      "alegacao": "A linha da F2b no CHANGELOG traz a contagem recontada do catalogo depois da rodada 2 (de 389 para 835 entradas).",
       "negativa": false,
       "verificar": [
-        "grep -qF 'de 389 para 825 entradas' CHANGELOG.md"
+        "grep -qF 'de 389 para 835 entradas' CHANGELOG.md"
       ],
-      "criadoEm": "2026-10-12T11:50:50.159Z",
+      "criadoEm": "2026-10-12T12:20:30.813Z",
       "estado": "pendente",
       "lint": []
     },
     {
-      "id": "C88",
+      "id": "C97",
       "thread": "ork-rm061f2b",
       "fase": "GOAL",
       "arquivo": "docs/roadmap/evidencias/RM-061/cobertura-f2b.json",
-      "alegacao": "O recibo de cobertura da F2b mede a arvore do GO-FIX (9fe77ee5): 825 entradas no catalogo e 2801 literais de saida fora dele, com a mesma conta do contador.",
+      "alegacao": "O recibo de cobertura da F2b mede a arvore da rodada 2 (5ec8387e): 835 entradas no catalogo e 2795 literais de saida fora dele.",
       "negativa": false,
       "verificar": [
-        "node -e 'const e=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f2b.json\"); process.exit(e.depois.arvore===\"9fe77ee5\" && e.depois.catalogo.entradas===825 && e.depois.emPosicaoDeSaida===2801 && e.familiasNovas[\"locale-pulse.ts\"]===84 ? 0 : 1)'"
+        "node -e 'const e=require(\"./docs/roadmap/evidencias/RM-061/cobertura-f2b.json\"); process.exit(e.depois.arvore===\"5ec8387e\" && e.depois.catalogo.entradas===835 && e.depois.emPosicaoDeSaida===2795 && e.familiasNovas[\"locale-pulse.ts\"]===94 ? 0 : 1)'"
       ],
-      "criadoEm": "2026-10-12T11:50:52.451Z",
+      "criadoEm": "2026-10-12T12:20:33.054Z",
       "estado": "pendente",
       "lint": []
     }
