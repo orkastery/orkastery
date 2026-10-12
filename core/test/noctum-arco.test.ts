@@ -677,6 +677,10 @@ test('A29: o despacho fora do envelope, da janela ou do hash vigente é recusado
     [{ conta: 'perfil-x' }, 'noctum.despacho.fora-do-envelope', /a conta perfil-x não está no envelope/],
     [{ runtime: 'codex' }, 'noctum.despacho.fora-do-envelope', /o runtime codex não está no envelope/],
     [{ envelopeSha256: 'f'.repeat(64) }, 'noctum.efeito.hash-antigo', /o envelope vigente é/],
+    // A2 do CHECK: o trabalho de pedido só despacha a thread aberta para ele, e a entrega nunca sai do arco da N2.
+    [{ thread: 'ork-alheia' }, 'noctum.despacho.fora-do-envelope', /a thread ork-alheia não é a do trabalho a: o vínculo é o item RM-901/],
+    [{ trabalho: 'c', thread: 'ork-simulada', fase: 'SHIP' }, 'noctum.despacho.fora-do-envelope', /a fase SHIP é entrega/],
+    [{ fase: 'MASTER' }, 'noctum.despacho.fora-do-envelope', /a fase MASTER é entrega/],
   ];
   for (const [x, motivo, texto] of casos) assert.match(recusa(() => reservarDespacho(raiz, despacho('arco-a', h, x), DENTRO), motivo), texto);
   recusa(() => reservarDespacho(raiz, despacho('arco-a', h), ANTES), 'noctum.efeito.fora-da-janela');

@@ -35,7 +35,8 @@ import { chaveLocal } from './hitl-local-receipt';
 import { nativeBinding, nativeContextSchema, nativeKey } from './hitl-native';
 import { publicBindingMatches, publicReceiptAuthority, signPublicReceipt, verifyPublicReceipt } from './hitl-public-receipt';
 import { avaliarEfeito, avaliarJanela, canonico, ConteudoDoEnvelope, envelopeComTrabalhos, hashDoEnvelope, ID_DO_ARCO,
-  PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, Teto, validarPedidoDeAbertura } from './noctum-envelope';
+  PedidoDeEfeito, RecusaDoArco, recusaDeExclusao, resumoDoEnvelope, shaDoPedido, Teto, validarPedidoDeAbertura } from './noctum-envelope';
+import { lerThread, pedidoDaThread } from './thread';
 import { Fase } from './types';
 
 export const CONTRATO_ARCO = 'ork.noctum-arco/v1' as const;
@@ -880,6 +881,17 @@ export interface DespachoReservado {
  * em outra unidade recusa, porque a N2 não mede consumo nela. A revogação usa o mesmo lock: ou ela vem antes e nada é
  * reservado, ou vem depois e vale para o despacho seguinte.
  */
+/** As fases que o arco da N2 nunca despacha: a entrega fica com a condutora (A2 do CHECK da ork-rm058n2). */
+const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];
+
+/** A thread é a do trabalho de pedido? O item dela mais o sha256 do pedido guardado na criação. Ilegível não é. */
+function threadDoPedido(raiz: string, id: string, item: string, texto: string): boolean {
+  try {
+    const t = lerThread(raiz, id);
+    return t.roadmap === item && pedidoDaThread(raiz, t)?.sha256 === shaDoPedido(texto);
+  } catch { return false; }
+}
+
 export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando = new Date().toISOString()): DespachoReservado {
   return comLockDoArco(raiz, pedido.arco, false, () => {
     const log = lerLog(raiz, pedido.arco);
@@ -891,6 +903,13 @@ export function reservarDespacho(raiz: string, pedido: PedidoDeDespacho, quando 
     const t = c.trabalhos.find(x => x.id === pedido.trabalho);
     if (!t) throw fora(`o trabalho ${String(pedido.trabalho)} não está na lista do envelope`);
     if (t.thread !== undefined && pedido.thread !== t.thread) throw fora(`o trabalho ${t.id} é a thread ${t.thread}, não ${String(pedido.thread)}`);
+    // A2 do CHECK: a thread de um trabalho de pedido é a que o arco abriu para ele, nunca outra qualquer.
+    if (t.pedido !== undefined && pedido.thread !== null && !threadDoPedido(raiz, pedido.thread, t.item, t.pedido)) {
+      throw fora(`a thread ${String(pedido.thread)} não é a do trabalho ${t.id}: o vínculo é o item ${t.item} mais o sha256 do pedido do envelope`);
+    }
+    if (FASES_DA_ENTREGA.includes(pedido.fase)) {
+      throw fora(`a fase ${String(pedido.fase)} é entrega: a N2 não despacha SHIP nem MASTER, que ficam com a condutora`);
+    }
     const tetoDoRuntime = c.orcamento.porRuntime.find(x => x.runtime === pedido.runtime)?.teto;
     if (!tetoDoRuntime || !c.capacidade.porRuntime.some(x => x.runtime === pedido.runtime)) {
       throw fora(`o runtime ${String(pedido.runtime)} não está no envelope`);
