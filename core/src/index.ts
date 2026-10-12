@@ -4032,13 +4032,17 @@ function executarComando(argvBruto: string[]): number {
     }
     case 'init': {
       exigirRepositorioParaInit(process.cwd());
+      // RM-061 (F3a, D1 e D2): os arquivos nascem na lingua do dono no momento da geracao, a do comando, resolvida
+      // antes do `--force` regravar o manifesto: o YAML e o AGENTS.md saem na mesma lingua.
+      const localeDosArquivos = localeAtivo();
       const r = init(process.cwd(), {
         force: args.opcoes.force === true,
         nome: texto(args.opcoes.name) ?? texto(args.opcoes.nome),
         abbrev: texto(args.opcoes.abbrev),
+        locale: localeDosArquivos,
       });
       const carregado = exigirManifesto(r.deteccao.raiz);
-      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto);
+      const agents = atualizarAgentsMd(r.deteccao.raiz, carregado.manifesto, localeDosArquivos);
       // RM-052 (D7): o projeto entra no registro desta maquina; falha vira aviso, nunca derruba o init.
       const avisoDoRegistro = registrarProjetoEmSilencio(r.deteccao.raiz, 'init');
       if (avisoDoRegistro) console.error(avisoDoRegistro);
