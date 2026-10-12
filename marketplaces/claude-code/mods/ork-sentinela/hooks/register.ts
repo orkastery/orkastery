@@ -9,7 +9,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 import type { SentinelaEntrada, SentinelaPasso, SentinelaPresenca, SentinelaResumo } from '../types'
 import {
-  ADIAMENTO_MS, AMBIENTE_DA_RETOMADA, argvDaRetomada, argvDoDespacho, argvDoRender, chaveDaRetomada, chaveDoDespacho, conducaoLivre, lerDespacho,
+  adiamentoDa, AMBIENTE_DA_RETOMADA, argvDaRetomada, argvDoDespacho, argvDoRender, chaveDaRetomada, chaveDoDespacho, conducaoLivre, lerDespacho,
   lerRetomada, paraDespachar, paraRetomar, pedidoAbertoNoRetrato, PRAZO_DA_RETOMADA_MS, PRAZO_DO_DESPACHO_MS, PRAZO_DO_RENDER_MS,
   promptDoRender, retomadaAutomatica,
 } from './despacho'
@@ -79,10 +79,25 @@ let ultimaBatida: SentinelaPresenca = 'desconhecida'
  * conduz) e a retomada que o plano declara do dono ficam de vez; a recusa que passa (outro condutor, sem vaga, pedido
  * aberto, falha) volta depois do adiamento, porque o fim do turno que a chave carrega não muda com ela.
  */
-const adiados = new Map<string, number>()
+const adiados = new Map<string, { ate: number; vezes: number }>()
+/** A sessão acabou (`session.end`): batida que chega depois disso desliga a presença de novo, em vez de refazê-la. */
+let encerrada = false
 
 function emEspera(agora: number): string[] {
-  return [...adiados].filter(([, ate]) => ate > agora).map(([chave]) => chave)
+  return [...adiados].filter(([, a]) => a.ate > agora).map(([chave]) => chave)
+}
+
+/** Adia a chave pela vez seguida dela: a mesma recusa dobra a espera até o teto (3 min a 30 min). */
+function adiarChave(chave: string, agora: number): number {
+  const vezes = (adiados.get(chave)?.vezes ?? 0) + 1
+  const espera = adiamentoDa(vezes)
+  adiados.set(chave, { ate: agora + espera, vezes })
+  return espera
+}
+
+/** Tira do adiamento o que o núcleo não pede mais (o turno andou, o bloqueio saiu): o Map não cresce sem fim. */
+function podarAdiados(vivas: ReadonlySet<string>): void {
+  for (const chave of [...adiados.keys()]) if (!vivas.has(chave)) adiados.delete(chave)
 }
 
 function mensagem(erro: unknown): string {
@@ -161,6 +176,11 @@ function pedirBatida($: EngineInterface): Promise<void> | undefined {
   const esta = (async () => {
     try {
       ultimaBatida = await bater($)
+      // A pausa ou o fim da sessão chegou com a batida no ar: ela refez a presença, que sai de novo.
+      if (memoria.pausada || encerrada) {
+        await desligar($, memoria.pausada ? 'batida que chegou depois da pausa' : 'batida que chegou depois do fim da sessão')
+        ultimaBatida = 'nenhuma'
+      }
     } catch (erro) {
       falhaSemRegistro = mensagem(erro)
     } finally {
@@ -171,8 +191,9 @@ function pedirBatida($: EngineInterface): Promise<void> | undefined {
   return esta
 }
 
-/** O relógio da Sentinela: a batida e, depois dela, uma rodada de reserva. */
+/** O relógio da Sentinela: a batida e, depois dela, uma rodada de reserva. Depois de um `/clear` o processo segue. */
 function tique($: EngineInterface): void {
+  encerrada = false
   const batida = pedirBatida($)
   if (batida) void batida.then(() => { void pedirRodada($) })
   else void pedirRodada($)
@@ -300,6 +321,7 @@ async function avisar($: EngineInterface, a: Aviso): Promise<void> {
 /** T6.2: o despacho e a retomada que o núcleo manda, cada turno feito uma vez só e o recusado depois do adiamento. */
 async function conduzir($: EngineInterface, passos: readonly SentinelaPasso[]): Promise<void> {
   if (!sessaoValida(sessao)) return
+  podarAdiados(new Set(passos.flatMap(p => [chaveDoDespacho(p), chaveDaRetomada(p)]).filter((c): c is string => c !== null)))
   const esperando = emEspera(await $.clock.now())
   for (const p of paraDespachar(passos, [...memoria.despachados, ...esperando])) await despachar($, p, sessao)
   for (const p of paraRetomar(passos, [...memoria.retomados, ...esperando])) await retomarThread($, p)
@@ -320,11 +342,11 @@ async function despachar($: EngineInterface, p: SentinelaPasso, sessaoDoDono: st
   const chave = chaveDoDespacho(p) as string
   const fase = p.fase as string
   const anotarAqui = async (tipo: SentinelaEntrada['tipo'], texto: string) => anotar($, entrada(await $.clock.now(), tipo, p.thread, texto))
+  let volta = ''
   const adiar = async () => {
     await mudar($, 'despachados', d => d.filter(c => c !== chave))
-    adiados.set(chave, (await $.clock.now()) + ADIAMENTO_MS)
+    volta = `; tenta de novo em ${Math.round(adiarChave(chave, await $.clock.now()) / 60000)} min`
   }
-  const volta = `; tenta de novo em ${Math.round(ADIAMENTO_MS / 60000)} min`
   await mudar($, 'despachados', d => guardarChave(d, chave))
   try {
     if (!conducaoLivre(await $.ork.ler({ consulta: 'conducao.status', thread: p.thread }))) {
@@ -372,11 +394,11 @@ async function despachar($: EngineInterface, p: SentinelaPasso, sessaoDoDono: st
 async function retomarThread($: EngineInterface, p: SentinelaPasso): Promise<void> {
   const chave = chaveDaRetomada(p) as string
   const anotarAqui = async (texto: string) => anotar($, entrada(await $.clock.now(), 'retomada', p.thread, texto))
+  let volta = ''
   const adiar = async () => {
     await mudar($, 'retomados', d => d.filter(c => c !== chave))
-    adiados.set(chave, (await $.clock.now()) + ADIAMENTO_MS)
+    volta = `; tenta de novo em ${Math.round(adiarChave(chave, await $.clock.now()) / 60000)} min`
   }
-  const volta = `; tenta de novo em ${Math.round(ADIAMENTO_MS / 60000)} min`
   await mudar($, 'retomados', d => guardarChave(d, chave))
   let plano: unknown
   try {
@@ -466,6 +488,7 @@ export const register: Register = on => {
   // A sessão acabou: a presença sai na hora, para o condutor externo não esperar o prazo. Num `/clear` o processo
   // segue com outro id, e a próxima batida toma a presença com ele.
   on('session.end', async ($, e, next) => {
+    encerrada = true
     if (ativa && !memoria.pausada) await desligar($, `fim da sessão (${e.reason})`)
     return next(e)
   }).catch(($, e, next) => next(e))

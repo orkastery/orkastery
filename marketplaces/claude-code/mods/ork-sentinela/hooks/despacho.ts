@@ -13,6 +13,13 @@ export const PRAZO_DA_RETOMADA_MS = 200000
  * passo é tentado de novo depois disto. A batida e o adiamento são da Sentinela; quem diz se sai é sempre o núcleo.
  */
 export const ADIAMENTO_MS = 3 * 60 * 1000
+/** A mesma recusa de novo dobra o adiamento, até este teto: falha que não passa não vira despacho a cada 3 min. */
+export const TETO_DO_ADIAMENTO_MS = 30 * 60 * 1000
+
+/** O adiamento da n-ésima recusa seguida do mesmo turno: 3, 6, 12 e 24 min, depois 30. */
+export function adiamentoDa(vez: number): number {
+  return Math.min(TETO_DO_ADIAMENTO_MS, ADIAMENTO_MS * 2 ** Math.max(0, Math.floor(vez) - 1))
+}
 /** A linha que o `ork prompt render` imprime quando usa o pedido guardado na criação da thread (T6.0). */
 export const MARCA_DO_PEDIDO = '# pedido guardado na criacao da thread'
 /** O teto do prompt que o despacho aceita (o mesmo do `ork_phase_run`). */

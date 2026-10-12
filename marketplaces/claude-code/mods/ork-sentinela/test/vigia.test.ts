@@ -123,3 +123,18 @@ test('a leitura do nucleo que falha vai a faixa e ao diario uma vez so, e a segu
   await relogio.settle()
   expect(await faixaEm($, 'terminal')).toEqual(['sentinela: 1 thread andando'])
 })
+
+test('batida no ar quando a pausa chega: a presenca que ela refez sai de novo, e o fim da sessao tambem', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = montar(on)
+  mundo.status = status([passo('ork-a', { conduzida: true })])
+  await iniciar($, relogio)
+  mundo.atrasoDaBatida = 5000
+  await relogio.advance(59000)
+  await relogio.settle()
+  // A batida do minuto 1 esta no ar (5 s): a pausa desliga agora, e a batida que chega depois refaz a presenca.
+  expect(await sentinela($, 'pausar')).toContain('Sentinela pausada')
+  await relogio.advance(10000)
+  await relogio.settle()
+  expect(mundo.sequencia.slice(-2)).toEqual(['fim-da-batida', 'desligar'])
+  expect(vezes(mundo, DESLIGAR)).toBe(2)
+})

@@ -120,6 +120,10 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
     hitl: {} as Record<string, unknown[]>,
     /** O `ork phase run` responde depois disto, pelo relógio falso: um despacho lento no meio da rodada. */
     atrasoDoDespacho: 0,
+    /** A batida responde depois disto, pelo relógio falso: uma batida no ar quando a pausa chega. */
+    atrasoDaBatida: 0,
+    /** A ordem em que a batida terminou e o desligar chegou, para o teste da batida no ar. */
+    sequencia: [] as string[],
     processos: [] as Array<{ argv: string[]; env?: Record<string, string> }>, comandos: [] as string[], notificacoes: [] as Array<{ text: string; title?: string }>,
     logs: [] as string[], toasts: [] as string[], retratos: [] as unknown[],
   }
@@ -146,10 +150,15 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
     const [, a, b, c] = argv
     if (a === 'conducao' && b === 'sentinela' && c === 'status') return mundo.statusFalha ? saida(1, '', 'falhou') : saida(0, mundo.status)
     if (a === 'conducao' && b === 'sentinela' && c === 'bater') {
+      if (mundo.atrasoDaBatida > 0) await relogio.sleep(mundo.atrasoDaBatida)
+      mundo.sequencia.push('fim-da-batida')
       if (mundo.batida === 'falha') return saida(1, '', 'erro: conducao.sentinela.trava')
       return mundo.batida === 'minha' ? saida(0, { ok: true, ligou: false, presenca: {} }) : saida(3, { ok: false, ligou: false, presenca: {} })
     }
-    if (a === 'conducao' && b === 'sentinela' && c === 'desligar') return saida(0, { desligada: true, presenca: null })
+    if (a === 'conducao' && b === 'sentinela' && c === 'desligar') {
+      mundo.sequencia.push('desligar')
+      return saida(0, { desligada: true, presenca: null })
+    }
     if (a === 'conducao' && b === 'status') return saida(0, { thread: c, conducao: mundo.conducao[c as string] ?? null })
     if (a === 'prompt' && b === 'render') {
       const r = mundo.render[c as string]

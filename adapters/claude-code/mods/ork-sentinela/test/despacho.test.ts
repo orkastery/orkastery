@@ -179,10 +179,24 @@ test('retomar espera o pedido aberto ao dono e a conducao de outro: o retry run 
   await relogio.settle()
   expect(retomadas(mundo)).toEqual([])
   mundo.conducao['ork-a'] = null
-  await relogio.advance(4 * MIN)
+  // A segunda recusa seguida dobrou o adiamento (6 min): a retomada sai na rodada depois dele.
+  await relogio.advance(7 * MIN)
   await relogio.settle()
   expect(retomadas(mundo).length).toBe(1)
   await relogio.advance(5 * MIN)
   await relogio.settle()
   expect(retomadas(mundo).length).toBe(1)
+})
+
+test('a mesma recusa seguida dobra o adiamento ate o teto: falha que nao passa nao vira despacho a cada 3 min', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = montar(on)
+  mundo.status = status([despachar('ork-a')])
+  mundo.despacho = { exitCode: 1, stdout: '', stderr: 'erro: runtime.unavailable: sem runtime' }
+  await iniciar($, relogio)
+  await relogio.advance(30 * MIN)
+  await relogio.settle()
+  // Tentativas em 0, 3, 9, 21 min (3, 6 e 12 min de espera): 4 em 30 min, contra 10 com a espera fixa.
+  expect(despachos(mundo).length).toBe(4)
+  expect(mundo.notificacoes.length).toBe(1)
+  expect(await sentinela($)).toContain('tenta de novo em 24 min')
 })
