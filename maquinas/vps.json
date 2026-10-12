@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T13:23:56.317Z",
+  "publicadoEm": "2026-10-12T13:28:27.621Z",
   "threads": [
     {
       "id": "ork-rm058n1",
@@ -22,6 +22,23 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
+    },
+    {
+      "id": "ork-rm059portao",
+      "nome": "rm059portao",
+      "modo": "#Auto",
+      "fase": "GOAL",
+      "status": "aberta",
+      "roadmap": null,
+      "branch": "ork/ork-rm059portao-full",
+      "atualizadaEm": "2026-10-12T13:28:27.318Z",
+      "entregue": null,
+      "esperaVoce": false,
+      "pergunta": null,
+      "paradaDesde": null,
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm059sentin",
@@ -107,23 +124,6 @@
       "runtime": "claude-bg",
       "modelo": "opus",
       "esforco": "max"
-    },
-    {
-      "id": "ork-versao055",
-      "nome": "versao055",
-      "modo": "#Fast",
-      "fase": "GO",
-      "status": "aberta",
-      "roadmap": null,
-      "branch": "ork/ork-versao055-go",
-      "atualizadaEm": "2026-10-12T13:10:57.559Z",
-      "entregue": "583a0c40",
-      "esperaVoce": false,
-      "pergunta": null,
-      "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "sonnet",
-      "esforco": "high"
     }
   ]
 }
