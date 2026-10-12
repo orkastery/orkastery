@@ -437,6 +437,132 @@
       "criadoEm": "2026-10-12T18:12:22.628Z",
       "estado": "verificado",
       "lint": []
+    },
+    {
+      "id": "C47",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4 GO-FIX: o degrau que abre a sessao e sai como falha (o claude --bg lento) segura a escada: a falha guarda a sessao, a prova de vida entre os degraus acha a sessao viva e o fallback nao abre uma segunda sessao na worktree",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4: o degrau que abre a sessao\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:02.815Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C48",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4 GO-FIX: o despacho que nasceu sem perfil nao volta, no degrau 3, a conta que o degrau 1 de fato usou (o perfil efetivo vai ao ledger)",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4 degrau 3: o despacho que nasceu sem perfil\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:02.993Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C49",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/runtime-escada.ts",
+      "alegacao": "F4 GO-FIX: o degrau parado por motivo que nao e do destino fica interrompido, sem ser consumido nem gastar tentativa; o adaptador que lanca vira falha do destino no ledger e a escada segue",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4: o (degrau parado|adaptador que lanca)\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:03.162Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C50",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/retry.ts",
+      "alegacao": "F4 GO-FIX: a escada esgotada que o plano acha chama o dono pela escada uma vez so; com o claude agents mudo, o retry reergue o daemon antes da prova e chama o dono na terceira recusa seguida, sem redespachar nem gastar tentativa",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F4: (a escada esgotada que o plano acha|com o runtime mudo)\" core/dist-test/test/rm063-escada.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:03.341Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C51",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "F5 GO-FIX: o registro e o MASTER por omissao nao agem por cima de trabalho na thread (worktree suja, sessao viva, runtime sem leitura, commit depois do head do PR), cada bloqueio com motivo tipado; com bloqueio, o pulse e o resumo dao ork thread status, nao o comando da acao",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: o registro e o MASTER nao vao\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:03.520Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C52",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/varredura-acoes.ts",
+      "alegacao": "F5 GO-FIX: o despacho depois do PR segura o registro (trabalho-novo), e a mesma recusa da varredura vira uma linha so no ledger por mais batidas que venham",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: o despacho depois do PR\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:03.691Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C53",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/autorizacao-duravel.ts",
+      "alegacao": "F5 GO-FIX: a autorizacao com instante sem fuso ou com por de agente (claude, Codex GPT-5) e recusada com autorizacao.campo",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: a autorizacao duravel\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:03.886Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C54",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "core/src/pulse-delivery.ts",
+      "alegacao": "F5 GO-FIX: a fantasma recem-despachada nao e item nem acao; com 31 min sem sinal, a acao da batida depois da entrega (agirDepoisDaEntrega) a solta com a autorizacao e grava varredura_acoes no hitl.log",
+      "negativa": false,
+      "verificar": [
+        "node --test --test-name-pattern=\"^F5: com a autorizacao, a batida solta\" core/dist-test/test/rm063-varredura.test.js"
+      ],
+      "criadoEm": "2026-10-12T19:04:04.059Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C55",
+      "thread": "ork-rm062fabrica",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/autorizacao-duravel-rm063.md",
+      "alegacao": "Docs do GO-FIX: o contrato traz a tabela dos bloqueios, o fuso obrigatorio e a autoria humana; docs verificar --pr, markdownlint e links sem erro",
+      "negativa": false,
+      "verificar": [
+        "grep -q \"sessoes-sem-leitura\" docs/referencia/contratos/autorizacao-duravel-rm063.md && grep -q \"fuso explícito\" docs/referencia/contratos/autorizacao-duravel-rm063.md && node core/dist/index.js docs verificar --pr && core/node_modules/.bin/markdownlint-cli2 && node core/scripts/checar-links.cjs"
+      ],
+      "criadoEm": "2026-10-12T19:04:04.234Z",
+      "estado": "verificado",
+      "lint": []
     }
   ],
   "deferredClaims": [],
