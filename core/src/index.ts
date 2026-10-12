@@ -293,13 +293,13 @@ function texto(v: string | boolean | undefined): string | undefined {
  * `--correlacao` (conversa ou mensagem de origem) e `--esperar [minutos]` (sem valor, 30).
  */
 function conducaoDoCli(args: Args): { canal: ReturnType<typeof canalDoProcesso>; correlacao: string | null; esperarMs: number | undefined } {
-  if (args.opcoes.canal === true) throw new Error('uso: --canal <claude-code|hermes|openclaw|codex|mcp|cli>');
+  if (args.opcoes.canal === true) throw new Error(msg().phase.canalUso);
   const bruto = args.opcoes.esperar;
   let esperarMs: number | undefined;
   if (bruto === true) esperarMs = ESPERA_PADRAO_MS;
   else if (typeof bruto === 'string') {
     const minutos = Number(bruto);
-    if (!Number.isFinite(minutos) || minutos <= 0 || minutos > 24 * 60) throw new Error('uso: --esperar [minutos], de 1 a 1440 (sem valor, 30)');
+    if (!Number.isFinite(minutos) || minutos <= 0 || minutos > 24 * 60) throw new Error(msg().phase.esperarUso);
     esperarMs = Math.round(minutos * 60_000);
   }
   return { canal: canalDoProcesso(texto(args.opcoes.canal)), correlacao: texto(args.opcoes.correlacao) ?? null, esperarMs };
@@ -986,7 +986,7 @@ function aspasDeShell(valor: string): string {
  * `retry`, `accounts`), nao so no `ork doctor`: valor invalido nunca liga a troca em silencio.
  */
 function avisarChavesDePerfis(carregado: ReturnType<typeof exigirManifesto>): void {
-  for (const a of carregado.avisos) if (a.startsWith('runtime_profiles.')) console.error(`aviso: ${a}`);
+  for (const a of carregado.avisos) if (a.startsWith('runtime_profiles.')) console.error(msg().phase.aviso(a));
 }
 
 function comandoAccounts(args: Args): number {
@@ -1164,19 +1164,21 @@ function comandoSetup(args: Args): number {
 function comandoPhase(args: Args): number {
   const sub = args.posicionais[1];
   const carregado = exigirManifesto();
+  const m = msg().phase;
   if (sub === 'run') {
     avisarChavesDePerfis(carregado);
     const id = args.posicionais[2];
     const faseBruta = args.posicionais[3];
     const prompt = texto(args.opcoes.prompt);
     if (!id || !faseBruta || !prompt) {
-      console.error('uso: ork phase run <thread-id> <FASE> --prompt "<texto>"');
+      console.error(m.usoRun);
       return 2;
     }
     const thread = lerThread(carregado.raiz, id);
     const fase: Fase = exigirFase(thread, faseBruta);
     const conducao = conducaoDoCli(args);
-    const r = rodarFase(carregado, id, {
+    // RM-061 (F2a, D6): o despacho grava prompt, ledger, lease e pedidos em pt-BR; so a impressao segue o locale.
+    const r = comLocale('pt-BR', () => rodarFase(carregado, id, {
       fase,
       prompt,
       runtime: texto(args.opcoes.runtime),
@@ -1187,7 +1189,7 @@ function comandoPhase(args: Args): number {
       canal: conducao.canal,
       ...(conducao.correlacao ? { correlacao: conducao.correlacao } : {}),
       ...(conducao.esperarMs ? { esperarMs: conducao.esperarMs } : {}),
-    });
+    }));
     // I-36 (T12, T14): pedido repetido e segundo pedido tem resposta propria, antes dos outros gates.
     if (r.idempotente && r.conducao) {
       console.log(textoDoPedidoRepetido(id, r.conducao));
@@ -1200,79 +1202,80 @@ function comandoPhase(args: Args): number {
     // RM-037 (defeito 3): a recusa por vaga e espera, como a da conducao (codigo 3), e diz quem ocupa.
     if (r.motivo === 'concurrency.limite' && r.vaga) {
       if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, ...r.vaga }, null, 2)); return 3; }
-      console.log(`Despacho recusado: concurrency.limite. O projeto ja tem ${r.vaga.ocupam.length} sessao(oes) viva(s) ` +
-        `em outras threads e o limite e ${r.vaga.limite} (concurrency.max_parallel_threads).`);
+      console.log(m.vagaRecusada(r.vaga.ocupam.length, r.vaga.limite));
       for (const o of r.vaga.ocupam) {
         console.log(`  ${o.thread.padEnd(20)} ${(o.fase ?? '-').padEnd(6)} ` +
-          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : 'despacho em curso'}, desde ${localizarTextoRotulado(o.desde)}`);
+          `${o.sessao ? `${o.runtime} ${o.sessao.slice(0, 8)}` : m.despachoEmCurso}, ${m.desde(localizarTextoRotulado(o.desde))}`);
       }
-      console.log(`  correcao: ${r.vaga.correcao}`);
-      console.log(r.dryRun ? '  ensaio (--dry-run): nada foi gravado.' : `  evento slot_refused no ledger de ${id}; nenhuma sessao aberta.`);
+      console.log(m.correcao(r.vaga.correcao));
+      console.log(r.dryRun ? m.vagaEnsaio : m.vagaLedger(id));
       return 3;
     }
     // RM-037 (S-4 do CHECK 3): a baseline que o despacho nao conseguiu gravar nao e gate reprovado.
     if (r.motivo === 'baseline.pendente') {
       if (args.opcoes.json === true) { console.log(JSON.stringify({ motivo: r.motivo, detalhe: r.erro }, null, 2)); return 1; }
-      console.error(`Despacho recusado: ${r.erro}`);
-      console.error('  nenhuma sessao aberta; o ledger nao ganhou gate_blocked');
+      console.error(m.recusado(`${r.erro}`));
+      console.error(m.baselinePendente);
       return 1;
     }
+    // RM-061 (F2a): o resumo do despacho sai pelo catalogo; o rotulo tem largura 14, como antes.
+    const campo = (rotulo: string, valor: string) => `  ${rotulo.padEnd(14)} : ${valor}`, rt = m.rotulos;
     if (r.dryRun && !r.bloqueado) {
-      console.log('Simulacao (--dry-run), nada foi despachado.');
-      console.log(`  slug da sessao : ${r.slug}`);
-      console.log(`  prompt         : ${r.promptPath}`);
-      console.log(`  sha256         : ${r.promptSha256}`);
-      console.log(`  pausa ao fim   : ${r.pausaAoFim ? 'sim' : 'nao'}`);
-      console.log(`  runtime        : ${r.runtime}`);
-      console.log(`  modelo/esforco : ${r.model}/${r.effort}`);
+      console.log(m.simulacao);
+      console.log(campo(rt.slug, r.slug));
+      console.log(campo(rt.prompt, `${r.promptPath}`));
+      console.log(campo(rt.sha256, `${r.promptSha256}`));
+      console.log(campo(rt.pausaAoFim, m.simNao(!!r.pausaAoFim)));
+      console.log(campo(rt.runtime, `${r.runtime}`));
+      console.log(campo(rt.modelo, `${r.model}/${r.effort}`));
       // O prompt inteiro nao cabe na tela: o argumento longo aparece mascarado.
-      console.log(`  comando        : ${r.comando.map((c) => (c.length > 80 ? '"<prompt>"' : c)).join(' ')}`);
+      console.log(campo(rt.comando, r.comando.map((c) => (c.length > 80 ? '"<prompt>"' : c)).join(' ')));
       for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
       return 0;
     }
     if (r.bloqueado) {
-      console.error(`Despacho BLOQUEADO pelo gate tipado: ${r.motivo}`);
+      console.error(m.bloqueado(`${r.motivo}`));
       for (const v of r.violacoes) {
         console.error(`  [${v.severidade}] policy ${v.policy}: ${v.detalhe}`);
-        console.error(`           correcao: ${v.correcao}`);
+        console.error(m.violacaoCorrecao(v.correcao));
       }
-      console.error(`  o prompt nao foi gravado em disco; evento gate_blocked no ledger de ${id}`);
+      console.error(m.promptNaoGravado(id));
       return 1;
     }
     if (!r.sessionId) {
       // I-35: o erro vai ao ledger com o ISO; o dono le no fuso dele, com o fuso dito uma vez.
-      console.error(`Despacho falhou: ${r.erro ? localizarTextoRotulado(r.erro) : r.erro}`);
-      console.error(`  evento registrado no ledger de ${id}`);
+      console.error(m.falhou(`${r.erro ? localizarTextoRotulado(r.erro) : r.erro}`));
+      console.error(m.falhouLedger(id));
       return 1;
     }
-    console.log(`Fase ${fase} despachada como background agent.`);
+    console.log(m.despachada(fase));
     for (const l of linhasDeAviso(r.violacoes ?? [])) console.log(l);
-    console.log(`  sessionId      : ${r.sessionId}`);
-    console.log(`  slug da sessao : ${r.slug} (${descreverSlug(r.slug)})`);
-    console.log(`  prompt         : ${r.promptPath}`);
-    console.log(`  sha256         : ${r.promptSha256}`);
-    console.log(`  runtime        : ${r.runtime}`);
-    console.log(`  modelo/esforco : ${r.model}/${r.effort} (gravado no ledger, veja \`ork phase list\`)`);
-    console.log(`  verificada no runtime: ${r.verificada ? 'sim' : 'NAO (confira `ork sessions`)'}`);
-    console.log(`  pausa ao fim do bloco: ${r.pausaAoFim ? 'sim' : 'nao (decisao autonoma no ledger)'}`);
+    console.log(campo(rt.sessionId, r.sessionId));
+    console.log(campo(rt.slug, `${r.slug} (${descreverSlug(r.slug)})`));
+    console.log(campo(rt.prompt, `${r.promptPath}`));
+    console.log(campo(rt.sha256, `${r.promptSha256}`));
+    console.log(campo(rt.runtime, `${r.runtime}`));
+    console.log(campo(rt.modelo, m.modeloGravado(`${r.model}`, `${r.effort}`)));
+    console.log(m.verificada(!!r.verificada));
+    console.log(m.pausaNoFim(!!r.pausaAoFim));
     console.log('');
     if (r.runtime === 'claude-bg') {
-      console.log(`Acompanhe: claude attach ${r.sessionId}  |  ork phase list ${id}`);
+      console.log(m.acompanheClaude(r.sessionId, id));
     } else {
-      console.log(`Acompanhe: ork phase list ${id} (eventos do despacho no log da thread)`);
+      console.log(m.acompanhe(id));
     }
     return r.verificada ? 0 : 1;
   }
   if (sub === 'list') {
     const id = args.posicionais[2];
     if (!id) {
-      console.error('uso: ork phase list <thread-id>');
+      console.error(m.usoList);
       return 2;
     }
     console.log(tabelaDoLedger(carregado.raiz, id));
     return 0;
   }
-  console.error(`subcomando desconhecido: phase ${sub}`);
+  console.error(msg().cli.subcomandoDesconhecido('phase', sub));
   return 2;
 }
 

@@ -708,7 +708,7 @@ export function tabelaDeThreads(raiz: string, opcoes: OpcoesListagem = {}): stri
 export function exigirFase(thread: Thread, bruto: string): Fase {
   const fase = bruto.toUpperCase() as Fase;
   if (!thread.fases.includes(fase)) {
-    throw new Error(`fase invalida: "${bruto}" (esperado uma de ${thread.fases.join(', ')})`);
+    throw new Error(msg().phase.faseInvalida(bruto, thread.fases.join(', ')));
   }
   return fase;
 }

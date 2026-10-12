@@ -1238,66 +1238,69 @@ export function tabelaDoLedger(raiz: string, threadId: string): string {
   // Thread inexistente e erro, nao ledger vazio: o CLI precisa reprovar o id errado.
   lerThread(raiz, threadId);
   const eventos = lerLedger(dirThread(raiz, threadId));
+  // RM-061 (F2a): a moldura e os rotulos vem do catalogo; o valor de cada evento (decisao, estado,
+  // erro, detalhe) e dado do ledger e sai como foi gravado.
+  const m = msg().phase;
   if (eventos.length === 0) {
-    return `Ledger vazio para a thread ${threadId}.`;
+    return m.ledgerVazio(threadId);
   }
   const linhas = eventos.map((e) => {
     const detalhe: string[] = [];
     if (e.fase) detalhe.push(String(e.fase));
     if (e.slug) detalhe.push(String(e.slug));
-    if (e.sessionId) detalhe.push(`sessao ${String(e.sessionId).slice(0, 8)}`);
+    if (e.sessionId) detalhe.push(m.sessao(String(e.sessionId).slice(0, 8)));
     if (e.decisao) detalhe.push(String(e.decisao));
-    if (e.previstaSobre) detalhe.push(`pausa sobre ${String(e.previstaSobre)}`);
-    if (e.encontrada !== undefined) detalhe.push(`no runtime: ${e.encontrada ? 'sim' : 'nao'}`);
+    if (e.previstaSobre) detalhe.push(m.pausaSobre(msg().thread.pausaSobre(String(e.previstaSobre))));
+    if (e.encontrada !== undefined) detalhe.push(m.noRuntime(!!e.encontrada));
     // Fato verificavel do despacho: o par modelo/esforco real, lido do proprio evento.
-    if (e.model) detalhe.push(`modelo ${String(e.model)}/${String(e.effort ?? '-')}`);
+    if (e.model) detalhe.push(m.modelo(String(e.model), String(e.effort ?? '-')));
     // Eventos do bloco B1: motivo tipado, veredito e as provas do ship.
-    if (e.motivo) detalhe.push(`motivo ${String(e.motivo)}`);
+    if (e.motivo) detalhe.push(m.motivo(String(e.motivo)));
     if (e.claim) detalhe.push(`claim ${String(e.claim)}`);
-    if (e.veredito) detalhe.push(`veredito: ${String(e.veredito)}`);
+    if (e.veredito) detalhe.push(m.veredito(String(e.veredito)));
     if (e.fonte && e.ocupacao !== undefined) {
-      detalhe.push(`ocupacao ${e.ocupacao === null ? 'nao medivel' : String(e.ocupacao)} (${String(e.fonte)})`);
+      detalhe.push(m.ocupacao(e.ocupacao === null ? null : String(e.ocupacao), String(e.fonte)));
     }
-    if (e.slugSugerido) detalhe.push(`proximo slug ${String(e.slugSugerido)}`);
+    if (e.slugSugerido) detalhe.push(m.proximoSlug(String(e.slugSugerido)));
     if (e.lease) detalhe.push(`lease ${String(e.lease)}`);
     // Eventos do bloco B3: acao de retry, playbook da retomada e rodada de GO-FIX.
-    if (e.acao) detalhe.push(`acao ${String(e.acao)}`);
+    if (e.acao) detalhe.push(m.acao(String(e.acao)));
     if (e.playbook) detalhe.push(`playbook ${String(e.playbook)}`);
     // Ensaio de 03/10/2026 (RM-049): na decisao autonoma o pedido e o objeto `ork.hitl/v2`, e a tabela
     // mostrava "pedido [object Object]"; do objeto sai o id curto.
-    if (typeof e.pedido === 'string' && e.pedido !== '') detalhe.push(`pedido ${e.pedido}`);
+    if (typeof e.pedido === 'string' && e.pedido !== '') detalhe.push(m.pedido(e.pedido));
     else if (e.pedido && typeof e.pedido === 'object' && typeof (e.pedido as { id?: unknown }).id === 'string') {
-      detalhe.push(`pedido ${(e.pedido as { id: string }).id.slice(0, 8)}`);
+      detalhe.push(m.pedido((e.pedido as { id: string }).id.slice(0, 8)));
     }
-    if (e.rodada !== undefined) detalhe.push(`rodada ${String(e.rodada)}`);
-    if (e.cobertura) detalhe.push(`cobertura ${String(e.cobertura)}`);
-    if (e.liberaEm) detalhe.push(`libera em ${formatarDataHora(String(e.liberaEm))}`);
+    if (e.rodada !== undefined) detalhe.push(m.rodada(String(e.rodada)));
+    if (e.cobertura) detalhe.push(m.cobertura(String(e.cobertura)));
+    if (e.liberaEm) detalhe.push(m.liberaEm(formatarDataHora(String(e.liberaEm))));
     if (e.tentativa !== undefined && e.limite !== undefined) {
-      detalhe.push(`tentativa ${String(e.tentativa)}/${String(e.limite)}`);
+      detalhe.push(m.tentativa(String(e.tentativa), String(e.limite)));
     }
     if (e.mergeSha) detalhe.push(`merge ${String(e.mergeSha).slice(0, 8)}`);
-    if (e.shaRemoto) detalhe.push(`remoto ${String(e.shaRemoto).slice(0, 8)}`);
-    if (e.pushVerificado !== undefined) detalhe.push(`push provado: ${e.pushVerificado ? 'sim' : 'nao'}`);
-    if (e.autorizadoPor) detalhe.push(`autorizado por ${String(e.autorizadoPor)}`);
-    if (e.sobre) detalhe.push(`sobre ${String(e.sobre)}`);
+    if (e.shaRemoto) detalhe.push(m.remoto(String(e.shaRemoto).slice(0, 8)));
+    if (e.pushVerificado !== undefined) detalhe.push(m.pushProvado(!!e.pushVerificado));
+    if (e.autorizadoPor) detalhe.push(m.autorizadoPor(String(e.autorizadoPor)));
+    if (e.sobre) detalhe.push(m.sobre(String(e.sobre)));
     if (e.estado) detalhe.push(String(e.estado));
     if (typeof e.de === 'string' && typeof e.para === 'string') {
       detalhe.push(`${e.de} -> ${e.para}`);
     }
-    if (e.dryRun === true) detalhe.push('ensaio (--dry-run)');
+    if (e.dryRun === true) detalhe.push(m.ensaio);
     if (e.tipo === TIPOS_DE_EVENTO.worktreeCriada && e.dir) {
-      detalhe.push(`${String(e.branch)} em ${String(e.dir)}`);
+      detalhe.push(m.worktreeEm(String(e.branch), String(e.dir)));
     }
     if (e.inline !== undefined) {
-      detalhe.push(`triagem ${String(e.inline)} inline / ${String(e.pointers)} ponteiros / ${String(e.summaries)} resumos`);
+      detalhe.push(m.triagem(String(e.inline), String(e.pointers), String(e.summaries)));
     }
-    if (e.location) detalhe.push(`ponteiro ${String(e.location)}`);
-    if (e.erro) detalhe.push(`erro: ${String(e.erro)}`);
+    if (e.location) detalhe.push(m.ponteiro(String(e.location)));
+    if (e.erro) detalhe.push(m.erro(String(e.erro)));
     if (e.detalhe && !e.decisao) detalhe.push(localizarTexto(String(e.detalhe)).slice(0, 90));
-    if (e.modo && !e.fase) detalhe.push(`modo ${String(e.modo)}`);
+    if (e.modo && !e.fase) detalhe.push(m.modo(String(e.modo)));
     return [formatarDataHora(e.ts, { segundos: true }), e.tipo, detalhe.join(' | ')];
   });
-  return `${tabela(['QUANDO', 'EVENTO', 'DETALHE'], linhas)}\n${legendaDoFuso()}`;
+  return `${tabela([...m.colunas], linhas)}\n${legendaDoFuso()}`;
 }
 
 /** Slug legivel por humano de uma sessao (usado nas mensagens do CLI). */

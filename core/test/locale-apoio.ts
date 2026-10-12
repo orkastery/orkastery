@@ -111,14 +111,16 @@ const PALAVRAS_PT = [
   'entrevista', 'escolheu', 'informou', 'declara', 'revise', 'altera', 'fase', 'fases', 'despachar', 'rode', 'instale',
   'garanta', 'binario', 'binário', 'fora', 'dentro', 'deste', 'desta', 'nesta', 'neste', 'esse', 'essa', 'isso', 'ela', 'ele',
 ];
-// Palavra colada a ponto (dominio, extensao de arquivo: `github.com`, `rede.log`) nao conta.
-const RE_PT = new RegExp(`(^|[^\\p{L}.])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}.]|$)`, 'iu');
+// Palavra colada a ponto ou a sublinhado (dominio, arquivo, identificador: `github.com`, `rede.log`,
+// `despacho_idempotente`) nao conta.
+const RE_PT = new RegExp(`(^|[^\\p{L}._])(${PALAVRAS_PT.join('|')})(?=[^\\p{L}._]|$)`, 'iu');
 
 /** As linhas do texto que ainda trazem palavra pt-BR fora de crases e fora dos trechos de dado. */
 export function linhasEmPortugues(texto: string, dados: readonly string[] = []): string[] {
   return texto.split('\n').filter((linha) => {
-    // Entre crases e entre aspas duplas ficam comando, identificador e chave de JSON: nao contam.
-    let l = linha.replace(/`[^`]*`/g, ' ').replace(/"[^"]*"/g, ' ');
+    // Entre crases e entre aspas duplas ficam comando, identificador e chave de JSON; o nome de um
+    // comando do `ork` (`ork conducao status`) tambem e identificador: nada disso conta.
+    let l = linha.replace(/`[^`]*`/g, ' ').replace(/"[^"]*"/g, ' ').replace(/\bork [a-z]+(?: [a-z][a-z-]*)?/g, ' ');
     for (const d of dados) l = l.split(d).join(' ');
     return RE_PT.test(l);
   });
