@@ -4,10 +4,13 @@
  * O Ritual lê as entregas só pelo retrato da ponte (`$.ork.retrato`). Antes, o item do MASTER trazia só o status e o
  * score: a aceita por omissão e a nota do dono eram iguais. Agora cada item traz o regime e as classes do MASTER log,
  * o índice derivado dos eventos já lidos (sem git, sem ensaio), as reprovações tipadas e a entrega; e o MASTER log da
- * nota pelo diálogo nativo (`mcp-local:claude-code`) é `recorded`, não `master.invalid`.
+ * nota pelo diálogo nativo (`dono (dialogo nativo)`, D12) é `recorded`, não `master.invalid`, pelo validador de sempre.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -17,6 +20,7 @@ import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
 import { discoverMaestro } from '../src/maestro-discovery';
 import { collectMaestroSources } from '../src/maestro-sources';
 import { aceitarPorOmissao, proporMaster } from '../src/master';
+import { registrarArtefato } from '../src/thread-close';
 import { criarServidorMcp } from '../src/mcp-server';
 import { definirFusoDoDono, formatarDataHoraRotulada } from '../src/horario';
 
@@ -133,3 +137,26 @@ test('retrato do MASTER: a nota pelo diálogo nativo é recorded, não master.in
     assert.equal(item!.facts.regime, 'batch');
   } finally { p.limpar(); }
 });
+
+test('retrato do MASTER: a entrega por artefato tem a hora do artefato, sem merge, e entra sem MASTER e aceita por omissão', () => comFuso(() => {
+  const p = projetoTemporario('maestro-master-artefato');
+  try {
+    fs.writeFileSync(path.join(p.dir, 'plano-entregue.md'), '# plano\n');
+    const sha = createHash('sha256').update('# plano\n').digest('hex');
+    const [aceita, pendente] = ['artefato aceito', 'artefato pendente'].map((nome) => novaThread(p.carregado, { nome, modo: 'auto' }).thread);
+    for (const t of [aceita!, pendente!]) registrarArtefato(p.dir, t.id, 'plano-entregue.md', sha, 'Dono Simulado');
+    aceitarPorOmissao(p.dir, aceita!.id);
+    for (const [t, status] of [[aceita!, 'recorded'], [pendente!, 'pending']] as const) {
+      const { item } = itemDo(p, t.id);
+      const quando = lerLedger(dirThread(p.dir, t.id)).find(e => e.tipo === TIPOS_DE_EVENTO.artefatoEntregue)!.ts;
+      assert.equal(item?.status, status, t.id);
+      assert.equal(item!.facts.deliveredAt, quando);
+      assert.equal(item!.facts.deliveredAtLocal, formatarDataHoraRotulada(quando));
+      assert.equal(item!.facts.deliveredSha, null);
+      assert.equal(item!.facts.deliveredArtifact, 'plano-entregue.md');
+    }
+    // Com ship_done, o fato do artefato nem aparece.
+    const { item } = itemDo(p, comTropecos(p, 'com ship').id);
+    assert.equal('deliveredArtifact' in item!.facts, false);
+  } finally { p.limpar(); }
+}));

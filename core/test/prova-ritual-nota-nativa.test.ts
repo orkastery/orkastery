@@ -86,7 +86,7 @@ test('a copia nunca fica dentro do repositorio nem de um projeto, e a recusa nao
 }));
 
 test('a conferencia separa a nota com recibo, o dialogo fechado sem nota, o recibo que nao confere e o nada', () => comPasta(async (fora) => {
-  // O dialogo aceito: o master_done com mcp-local:claude-code e o recibo conferido.
+  // O dialogo aceito: o master_done com dono (dialogo nativo), pelo canal claude-code, e o recibo conferido.
   const aceita = prova.prepararCopia({ saida: fora });
   const { r, formularios } = await pedirNaCopia(aceita.raiz, aceita.thread, { action: 'accept', content: { nota: '4', porque: 'a prova sintetica do roteiro' } });
   assert.equal(r.isError, undefined, JSON.stringify(r.content));
@@ -95,8 +95,8 @@ test('a conferencia separa a nota com recibo, o dialogo fechado sem nota, o reci
   const ok = prova.conferirCopia(aceita.raiz);
   assert.equal(ok.respondido, true);
   assert.equal(ok.recibo, true);
-  assert.equal(ok.autorizadoPor, 'mcp-local:claude-code');
-  assert.equal(ok.veredito, 'Veredito: o diálogo nativo abre pelo $.mcp.call do Ritual e grava a nota 4/5 com autorizadoPor mcp-local:claude-code e recibo conferido');
+  assert.equal(ok.autorizadoPor, 'dono (dialogo nativo)');
+  assert.equal(ok.veredito, 'Veredito: o diálogo nativo abre pelo $.mcp.call do Ritual e grava a nota 4/5 com autorizadoPor dono (dialogo nativo) pelo canal claude-code e recibo conferido');
   // O recibo adulterado: a nota chegou, mas a conferencia nao a aceita.
   const feito = lerLedger(dirThread(aceita.raiz, aceita.thread)).filter((e) => e.tipo === 'master_done').at(-1)!;
   const recibo = path.join(aceita.raiz, String(feito.evidencia));

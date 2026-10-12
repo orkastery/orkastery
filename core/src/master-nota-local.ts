@@ -5,7 +5,8 @@
  * dono. A sessao do Claude Code nao tinha como pedir a nota com recibo: o `--por` de processo de host e recusado por
  * `exigirNotaSemHost`. Aqui a nota entra pelo MESMO ingresso local que o gate ja aceita: o servidor MCP pede ao
  * cliente um formulario (elicitation), o dono escolhe de 0 a 5 e escreve o porque, e o nucleo grava o MASTER com
- * `avaliadoPor` `mcp-local:<host>` e o recibo assinado em `hitl-ingress-local/`.
+ * `avaliadoPor` `dono (dialogo nativo)` (D12: uma identidade que o `autoriaHumana` de qualquer versao aceita), o host
+ * no `canal` e o recibo assinado em `hitl-ingress-local/`.
  *
  * Quem chama passa so o `threadId`. A nota e o porque nunca chegam por argumento de ferramenta: chegam pela resposta
  * do formulario, que o callback do servidor recebe da propria conexao. O mod Ritual do MASTER (`ork-ritual`) so
@@ -14,8 +15,8 @@
  * Ordem das conferencias (D4 da thread ork-rm059ritual): nota humana ja registrada devolve `repetida` sem dialogo;
  * sem entrega, a recusa do nucleo; sem formulario no cliente, `master.nota.sem-dialogo` ANTES de qualquer escrita
  * (nem o pedido de nota nasce); so entao o pedido de nota do `ork master pedir` (o mesmo codigo do Telegram) e o
- * dialogo. A gravacao roda sob a trava da thread, como a resposta do Telegram (`responderNota`): a nota humana que
- * chegou no meio, por qualquer caminho, vence.
+ * dialogo. A gravacao roda sob a trava da thread, como a resposta do Telegram (`responderNota`) e o aceite por omissao:
+ * a nota humana que chegou no meio, por qualquer caminho, vence, e a omissao nunca troca a nota gravada aqui.
  *
  * LIMITE DITO: o recibo prova o caminho (esta conexao MCP, esta solicitacao, esta nota), nao a pessoa. A chave local e
  * legivel pelo mesmo usuario do sistema, entao quem ja roda como ele forja o recibo; e a mesma fronteira do gate pelo
@@ -27,7 +28,7 @@ import { comLockHitl } from './hitl-gates';
 import { exigirEntrega, provaDeEntrega } from './thread-close';
 import { lerClaims } from './claims';
 import { formatarDataHoraRotulada } from './horario';
-import { indiceDaThread, notaHumanaRegistrada, registrarMaster } from './master';
+import { AUTOR_DA_NOTA_NATIVA, indiceDaThread, notaHumanaRegistrada, registrarMaster } from './master';
 import { CONTRATO_PEDIDO_DE_NOTA, pedirNota, PedidoDeNota } from './master-nota';
 import { codigosEmUso } from './pulse-resposta';
 import { CONTRATO_RECIBO_DA_NOTA, gravarEvidenciaLocalNota } from './hitl-local-receipt';
@@ -137,7 +138,7 @@ export function criarIngressoDaNota(
       if (!ID.test(threadId)) throw new Error('master.nota.identificador-invalido');
       if (signal?.aborted) return pendente(threadId);
       const t = lerThread(raiz, threadId);
-      if (notaHumanaRegistrada(raiz, t)) return { ok: true, threadId, estado: 'registrada', repetida: true, score: t.score!.valor };
+      if (notaHumanaRegistrada(t)) return { ok: true, threadId, estado: 'registrada', repetida: true, score: t.score!.valor };
       exigirEntrega(raiz, threadId);
       if (!temFormulario()) {
         throw new Error(`${ERRO_SEM_DIALOGO}: este cliente MCP não abre formulário; peça a nota pelo Telegram com ork master pedir ${threadId}`);
@@ -160,11 +161,11 @@ export function criarIngressoDaNota(
         const recebidoEm = new Date().toISOString();
         return comLockHitl(raiz, threadId, (): ResultadoDaNotaLocal => {
           const atual = lerThread(raiz, threadId);
-          if (notaHumanaRegistrada(raiz, atual)) return { ok: true, threadId, estado: 'registrada', repetida: true, score: atual.score!.valor };
+          if (notaHumanaRegistrada(atual)) return { ok: true, threadId, estado: 'registrada', repetida: true, score: atual.score!.valor };
           const recibo = gravarEvidenciaLocalNota(raiz, { thread: threadId, pedidoId: pedido.pedidoId, host: conexao.host,
             connectionId: conexao.connectionId, requestId, recebidoEm, score: nota.score, justificativaSha256: sha(nota.justificativa) });
           registrarMaster(raiz, threadId, {
-            score: nota.score, justificativa: nota.justificativa, por: `mcp-local:${conexao.host}`, refazer: !!atual.score,
+            score: nota.score, justificativa: nota.justificativa, por: AUTOR_DA_NOTA_NATIVA, refazer: !!atual.score,
             prova: {
               origem: 'mcp-local', canal: conexao.host, contratoResposta: CONTRATO_RECIBO_DA_NOTA, conexao: conexao.connectionId,
               solicitacao: requestId, recebidoEm, recibo: recibo.recibo, evidencia: recibo.arquivo, evidenciaSha256: recibo.sha256,

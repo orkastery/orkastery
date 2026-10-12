@@ -4,8 +4,8 @@
  * (`ork-ritual`, pelo `$.mcp.call` da ferramenta `ork_request_master_note`).
  *
  * O botao "Dar a nota" chama a ferramenta so com o `threadId`; o nucleo pede ao host um formulario (elicitation) com a
- * nota de 0 a 5 e o porque, e grava o MASTER com `avaliadoPor` `mcp-local:claude-code` e o recibo assinado do ingresso
- * local. Os tipos do Claude Code dizem que a chamada do plugin e a concessao, e nao dizem se a elicitation dela chega ao
+ * nota de 0 a 5 e o porque, e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal `claude-code` e o
+ * recibo assinado do ingresso local. Os tipos do Claude Code dizem que a chamada do plugin e a concessao, e nao dizem se a elicitation dela chega ao
  * dialogo: isso so se prova numa sessao interativa do dono, e a sessao de fase nao abre uma. Este roteiro deixa a prova
  * pronta:
  *
@@ -15,9 +15,9 @@
  *     condutor faz depois do SHIP). Grava o `mcp-prova.json` com so o servidor `orkastery` dessa copia e imprime o comando
  *     da sessao interativa com a ponte e o Ritual por `--plugin-dir`.
  *   node core/scripts/prova-ritual-nota-nativa.cjs --conferir DIR [--json]
- *     le o ledger da copia e diz o que aconteceu: o `master_done` com `autorizadoPor` `mcp-local:claude-code` e o recibo
- *     conferido (o dialogo abriu e gravou), so o pedido de nota (o dialogo foi pedido e fechou sem nota) ou nada; imprime
- *     a linha de veredito para `docs/roadmap/evidencias/mods-nota-nativa.md`.
+ *     le o ledger da copia e diz o que aconteceu: o `master_done` com `autorizadoPor` `dono (dialogo nativo)` pelo canal
+ *     `claude-code` e o recibo conferido (o dialogo abriu e gravou), so o pedido de nota (o dialogo foi pedido e fechou
+ *     sem nota) ou nada; imprime a linha de veredito para `docs/roadmap/evidencias/mods-nota-nativa.md`.
  *   node core/scripts/prova-ritual-nota-nativa.cjs --ensaio [--json]
  *     prepara, confere (sem resposta, o veredito fica pendente) e apaga a copia; nao abre sessao nem chama o `claude`.
  *
@@ -42,7 +42,8 @@ const ARQUIVO_DO_MCP = 'mcp-prova.json';
 const PONTE = path.join(RAIZ, 'adapters/claude-code/mods/ork-ponte');
 const RITUAL = path.join(RAIZ, 'adapters/claude-code/mods/ork-ritual');
 const PENDENTE = 'Veredito: pendente do dono';
-const IDENTIDADE = 'mcp-local:claude-code';
+const IDENTIDADE = 'dono (dialogo nativo)';
+const CANAL = 'claude-code';
 /** O que nao entra no ambiente do roteiro nem no da sessao do dono: despacho de fase e projeto fixado. */
 const SEM_ESTES = ['ORK_DISPATCH_ID', 'ORK_DISPATCH_THREAD', 'ORK_PROJETO', 'ORK_PROJETO_EXPLICITO'];
 /** O MASTER publica em segundo plano a fabrica e a rede da pessoa; a copia de prova nunca. */
@@ -133,23 +134,24 @@ function prepararCopia(opcoes = {}) {
 
 /**
  * O que o ledger da copia diz da nota. So o `master_done` gravado pelo ingresso local do Claude Code, com o recibo
- * conferido, prova o dialogo; o pedido de nota sem esse `master_done` diz que o dialogo foi pedido e fechou sem nota.
+ * conferido contra ele, prova o dialogo; o pedido de nota sem esse `master_done` diz que o dialogo foi pedido e fechou
+ * sem nota.
  */
 function conferirCopia(dir) {
   semIdentidadeDeDespacho();
   const { lerLedger, TIPOS_DE_EVENTO } = doNucleo('ledger');
   const { dirThread } = doNucleo('thread');
-  const { masterRatificado } = doNucleo('master');
+  const { conferirReciboLocalNota } = doNucleo('hitl-local-receipt');
   const arquivo = path.join(dir, ARQUIVO_DA_PROVA);
   if (!fs.existsSync(arquivo)) throw new ErroDeUso(`nao e uma copia de prova (falta ${ARQUIVO_DA_PROVA}): ${dir}`);
   const prova = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
   if (prova.formato !== FORMATO) throw new ErroDeUso(`formato da prova desconhecido: ${String(prova.formato)}`);
   const eventos = lerLedger(dirThread(dir, prova.thread));
-  const nota = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.masterConcluido && e.autorizadoPor === IDENTIDADE).at(-1);
+  const nota = eventos.filter((e) => e.tipo === TIPOS_DE_EVENTO.masterConcluido && e.autorizadoPor === IDENTIDADE && e.canal === CANAL).at(-1);
   const pedida = eventos.some((e) => e.tipo === TIPOS_DE_EVENTO.notaPedida);
-  const recibo = nota ? masterRatificado(dir, prova.thread) : false;
+  const recibo = nota ? conferirReciboLocalNota(dir, prova.thread, nota) : false;
   const veredito = nota && recibo
-    ? `Veredito: o diálogo nativo abre pelo $.mcp.call do Ritual e grava a nota ${String(nota.score)}/5 com autorizadoPor ${IDENTIDADE} e recibo conferido`
+    ? `Veredito: o diálogo nativo abre pelo $.mcp.call do Ritual e grava a nota ${String(nota.score)}/5 com autorizadoPor ${IDENTIDADE} pelo canal ${CANAL} e recibo conferido`
     : nota ? `Veredito: a nota chegou com ${IDENTIDADE}, mas o recibo não confere; repita e anote o que viu`
       : pedida ? 'Veredito: o diálogo foi pedido pelo Ritual e fechou sem nota; repita respondendo'
         : PENDENTE;

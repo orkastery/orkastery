@@ -112,8 +112,8 @@ export function montar(on, opcoes: { papel: string; paginas?: Record<number, unk
     comandos: [] as string[], abertos: [] as string[], toasts: [] as string[], processos: [] as unknown[], lidos: [] as unknown[],
     /** O "Dar a nota": os pedidos que chegaram ao nucleo, a resposta dele (ou o erro) e uma espera real antes de responder. */
     notas: [] as unknown[], respostaNota: null as unknown, erroNota: null as string | null, atrasoRealDaNotaMs: 0,
-    /** A reserva: a saida do `ork master pedir` (o padrao devolve o pedido de nota com o codigo). */
-    reserva: null as null | { exitCode: number; stdout: string; stderr: string },
+    /** A reserva: a saida do `ork master pedir` (o padrao devolve o pedido de nota com o codigo) e uma espera real antes dela. */
+    reserva: null as null | { exitCode: number; stdout: string; stderr: string }, atrasoRealDaReservaMs: 0,
     /** Ao registrar a nota, o nucleo passa a servir estas paginas (a entrega anotada sai). */
     paginasDepoisDaNota: null as null | Record<number, unknown>,
   }
@@ -146,9 +146,10 @@ export function montar(on, opcoes: { papel: string; paginas?: Record<number, unk
     mundo.outrasMcp.push({ server: e.server, tool: e.tool, args: e.args })
     return falha('ferramenta fora da lista')
   })
-  on('process.run', ($, e) => {
+  on('process.run', async ($, e) => {
     const argv = e.argv as string[]
     mundo.processos.push(argv)
+    if (mundo.atrasoRealDaReservaMs) await new Promise(r => setTimeout(r, mundo.atrasoRealDaReservaMs))
     if (argv.slice(0, 3).join(' ') === 'ork master pedir' && argv.length === 6) {
       if (mundo.reserva) return { value: { ...mundo.reserva, isStdoutTruncated: false, isStderrTruncated: false } }
       return saida(0, pedidoDeNota(argv[3] as string))

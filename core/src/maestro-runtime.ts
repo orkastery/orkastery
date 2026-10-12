@@ -127,11 +127,16 @@ export function operationalSources(reader: MaestroReader, threads: Thread[], nat
     // tambem nao entra, nem na entrega nem no indice.
     const validos=events.filter(e=>!['ship_done','ship_started','ship_blocked'].includes(e.tipo)||shipView.safeParse(e).success);
     const entrega=validos.filter(e=>e.tipo==='ship_done').at(-1);
-    const deliveredAt=typeof entrega?.ts==='string'&&Number.isFinite(Date.parse(entrega.ts))?entrega.ts:null;
+    // A entrega por artefato (`artifact_delivered`, a thread so de planejamento) tambem espera a nota: sem `ship_done`,
+    // vale o ultimo artefato, sem merge. O retrato nao confere o arquivo; o nucleo confere ao gravar a nota.
+    const artefato=entrega?undefined:events.filter(e=>e.tipo==='artifact_delivered'&&typeof e.arquivo==='string').at(-1);
+    const quando=(entrega??artefato)?.ts;
+    const deliveredAt=typeof quando==='string'&&Number.isFinite(Date.parse(quando))?quando:null;
     const indice=calcularIndice(validos);
     const daEntrega={index:indice.valor,indexDetail:safeText(indice.parcelas.map(x=>`${x.evento} x${x.ocorrencias}`).join(', ')),
       reprovals:events.filter(e=>e.tipo==='gate_blocked').length,deliveredAt,deliveredAtLocal:deliveredAt?local(deliveredAt):null,
-      deliveredSha:typeof entrega?.mergeSha==='string'&&/^[a-f0-9]{40}$/.test(entrega.mergeSha)?entrega.mergeSha:null};
+      deliveredSha:typeof entrega?.mergeSha==='string'&&/^[a-f0-9]{40}$/.test(entrega.mergeSha)?entrega.mergeSha:null,
+      ...(artefato?{deliveredArtifact:safeText(String(artefato.arquivo))}:{})};
     try {
       const receipt=reader.json<Record<string,unknown>>(`.orkastery/threads/${t.id}/master-log.json`);
       if(receipt) {
@@ -141,7 +146,7 @@ export function operationalSources(reader: MaestroReader, threads: Thread[], nat
         sections.master.items.push(item(`master:${t.id}`,pending?'Ratificação humana pendente':'MASTER',pending?'ratificacao-pendente':'recorded',refs,
           {score:pending?null:typeof receipt.score==='number'?receipt.score:null,
             regime:!pending&&typeof receipt.regime==='string'?safeText(receipt.regime):null,classes,...daEntrega}));
-      } else if(lastShip || t.faseAtual==='MASTER')sections.master.items.push(item(`master:${t.id}`,'Score humano pendente','pending',refs,
+      } else if(lastShip || artefato || t.faseAtual==='MASTER')sections.master.items.push(item(`master:${t.id}`,'Score humano pendente','pending',refs,
         {score:null,regime:null,classes:null,...daEntrega}));
     } catch {sections.master.gaps.push(`master.invalid:${t.id}`);}
   }

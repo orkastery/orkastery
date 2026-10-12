@@ -12,8 +12,8 @@ import {
 } from './nota'
 import { desenharRitual, linhasDoPainel, mostradosVisiveis } from './replay'
 import {
-  argsDasClaims, avisoDasLacunas, claimsDaProva, entregasDaJanela, exigirThread, jsonDoMcp, paginaDoMaster, plural, QUADRO_VAZIO,
-  SERVIDOR, TETO_DE_PAGINAS, textoDaFaixa, threadDoLedger, umaLinha,
+  argsDasClaims, avisosDasLacunas, claimsDaProva, entregasDaJanela, exigirThread, jsonDoMcp, paginaDoMaster, plural, QUADRO_VAZIO,
+  semNotaDada, SERVIDOR, TETO_DE_PAGINAS, textoDaFaixa, threadDoLedger, threadsSemLeitura, umaLinha,
 } from './ritual'
 
 const MOD = 'ork-ritual'
@@ -211,7 +211,8 @@ async function atualizar($: EngineInterface, forcar = false): Promise<void> {
 
 /**
  * As entregas pelo retrato da ponte, pagina a pagina da secao `master` (D2): a que espera a nota do dono, na janela de
- * dias. A falha fica no quadro, com a leitura anterior.
+ * dias, sem a que teve a nota registrada nesta sessao (a pagina guardada pela ponte pode ainda lista-la). A falha fica
+ * no quadro, com a leitura anterior.
  */
 async function lerUmaVez($: EngineInterface): Promise<void> {
   tentadaEm = await $.clock.now()
@@ -238,10 +239,10 @@ async function lerUmaVez($: EngineInterface): Promise<void> {
   }
   const agora = await $.clock.now()
   const { entregas, fora, alemDoTeto } = entregasDaJanela(itens, agora)
-  const daSecao = avisoDasLacunas(lacunas)
-  if (daSecao) avisos.unshift(daSecao)
+  avisos.unshift(...avisosDasLacunas(lacunas))
   if (alemDoTeto) avisos.push(`${plural(alemDoTeto, 'entrega além do teto do painel ficou', 'entregas além do teto do painel ficaram')} de fora (ork master)`)
-  await gravarQuadro($, { entregas, lidoEm: agora, erro: null, avisos, foraDaJanela: fora })
+  await gravarQuadro($, { entregas: semNotaDada(entregas, notas), lidoEm: agora, erro: null, avisos, foraDaJanela: fora,
+    semLeitura: threadsSemLeitura(lacunas) })
   await publicarFaixa($)
   await registrarMostrados($)
 }
@@ -321,8 +322,8 @@ async function gravarReserva($: EngineInterface, thread: string, r: RitualReserv
 
 /**
  * O "Dar a nota" (T8.3, DD2): um dialogo por thread, em segundo plano. A chamada leva exatamente o `threadId`; quem da a
- * nota e o porque e o dono, no dialogo nativo do host, e quem grava e o nucleo. A entrega anotada sai da lista na
- * releitura que vem logo depois.
+ * nota e o porque e o dono, no dialogo nativo do host, e quem grava e o nucleo. A entrega anotada sai da lista e da
+ * faixa assim que o nucleo responde, e a releitura logo depois confirma.
  */
 async function darNota($: EngineInterface, thread: string): Promise<void> {
   if (emDialogo.has(thread)) return
@@ -339,6 +340,10 @@ async function darNota($: EngineInterface, thread: string): Promise<void> {
       n = notaDoErro(erro, await $.clock.now())
     }
     await gravarNota($, thread, n)
+    if (n.estado === 'registrada' || n.estado === 'repetida') {
+      await gravarQuadro($, { ...quadro, entregas: semNotaDada(quadro.entregas, notas) })
+      await publicarFaixa($)
+    }
   } finally {
     emDialogo.delete(thread)
   }

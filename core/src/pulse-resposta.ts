@@ -35,7 +35,7 @@ import { FORMAS_DO_TEXTO_LIVRE, JANELA_DO_TEXTO_LIVRE_MIN, lerLista, lerSolta, l
 import { apresentarHitl } from './hitl-presentation';
 import { esperaDoDono } from './roadmap-status';
 import { CONTRATO_PEDIDO_DE_NOTA, lerNota, mensagemJaUsadaEmNota, PedidoDeNota, pedidoDeNotaDoCodigo, reciboDoCanal } from './master-nota';
-import { notaHumanaRegistrada, parseClasse, registrarMaster } from './master';
+import { autoriaHumana, parseClasse, registrarMaster } from './master';
 import { ratificarBatch } from './master-batch';
 import { responderLoteDigest } from './master-digest';
 import { ItemClassificavel, quemDecide } from './hitl-classificacao';
@@ -870,8 +870,7 @@ function responderNota(raiz: string, envelope: RespostaHumana, p: PedidoDeNota,
     // dada no mesmo instante por outro caminho nao ser sobrescrita.
     const ja = comLockHitl(raiz, p.thread, () => {
       const t = lerThread(raiz, p.thread);
-      // RM-059 (T8.1): a nota do dialogo nativo tambem e humana, e o Telegram nao a troca.
-      if (notaHumanaRegistrada(raiz, t)) return t.score!.valor;
+      if (t.score && t.score.regime !== 'omissao' && autoriaHumana(t.score.avaliadoPor)) return t.score.valor;
       const prova = reciboDoCanal(raiz, envelope, { notaPedida: { contrato: CONTRATO_PEDIDO_DE_NOTA, pedidoId: p.pedidoId, codigo: p.codigo },
         enderecoAssinado: { alvo: ALVO_DO_PULSE, endereco: ENDERECO_DA_RESPOSTA, contrato: CONTRATO_RESPOSTA_DO_PULSE, codigo: p.codigo,
           respostaDoDonoSha256: sha(envelope.resposta) } }, opcoes.estadoDir);

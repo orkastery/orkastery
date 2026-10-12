@@ -2,15 +2,18 @@
  * RM-059 (fatia F8, T8.1): a nota do MASTER pelo dialogo nativo do host (`ork_request_master_note`).
  *
  * Prova, pelo estado do projeto: sem formulario no cliente, a recusa tipada nao escreve nada; recusa e cancelamento
- * nao gravam nota; a nota aceita vai ao `master_done` com `mcp-local:claude-code`, o pedido de nota e o recibo
- * assinado; o recibo e o que faz a nota valer (adulterado ou apagado, deixa de valer); o aceite por omissao e o
- * Telegram nao trocam a nota local, e o caminho inverso tambem vale; a identidade do ingresso local nao se digita no
- * `--por`. O cliente MCP e SINTETICO, em memoria, no papel do host; nenhuma resposta de dono real entra aqui.
+ * nao gravam nota; a nota aceita vai ao `master_done` com `dono (dialogo nativo)` (D12), o host no canal, o pedido de
+ * nota e o recibo assinado, e o MASTER log passa no validador congelado sem caso novo; o recibo confere a nota que o
+ * dialogo gravou (adulterado, apagado, assinado por outra chave ou com outra nota, nao confere) e nunca decide se ela
+ * vale; o aceite por omissao (sob a mesma trava, inclusive na corrida) e o Telegram nao trocam a nota local, e o
+ * caminho inverso tambem vale; a identidade da nota nativa nao se digita no `--por`. O cliente MCP e SINTETICO, em
+ * memoria, no papel do host; nenhuma resposta de dono real entra aqui.
  */
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createHash } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -18,9 +21,11 @@ import { projetoTemporario, ProjetoDeTeste } from './apoio';
 import { ambienteDoIngresso, dizer } from './apoio-pulse';
 import { criarServidorMcp } from '../src/mcp-server';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from '../src/ledger';
-import { aceitarPendentesPorOmissao, aceitarPorOmissao, lerMasterLog, masterRatificado, motivoForaDaOmissao, notaHumanaRegistrada,
-  registrarMaster, validarMasterLog } from '../src/master';
-import { criarIngressoDaNota, ERRO_SEM_DIALOGO, esquemaDaNota, lerRespostaDaNota } from '../src/master-nota-local';
+import { aceitarPendentesPorOmissao, aceitarPorOmissao, AUTOR_DA_NOTA_NATIVA, autoriaHumana, entregasParaOmissao, lerMasterLog,
+  masterRatificado, motivoForaDaOmissao, notaHumanaRegistrada, registrarMaster, validarMasterLog } from '../src/master';
+import { criarIngressoDaNota, ERRO_SEM_DIALOGO, esquemaDaNota, lerRespostaDaNota, RespostaDaNota } from '../src/master-nota-local';
+import { conferirReciboLocalNota } from '../src/hitl-local-receipt';
+import { comLockHitl } from '../src/hitl-gates';
 import { arquivoDasNotas, pedirNota } from '../src/master-nota';
 import { responderPeloPulse } from '../src/pulse-resposta';
 import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
@@ -28,6 +33,7 @@ import { raizDoEstado } from '../src/estado-thread';
 
 const QUANDO = '2026-09-28T23:00:00.000Z';
 const PORQUE = 'entregou o painel e a nota com prova';
+const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
 
 type Formulario = { mode?: string; message?: string; requestedSchema?: Record<string, unknown> };
 type Resposta = { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> };
@@ -76,6 +82,18 @@ async function comServidor<T>(p: ProjetoDeTeste, opcoes: { formulario: boolean; 
     await server.close();
   }
 }
+
+/** O dialogo controlado pelo teste: abre e espera o teste soltar a resposta. */
+function dialogoControlado(p: ProjetoDeTeste, conexao: string) {
+  let soltar: (r: RespostaDaNota) => void = () => undefined;
+  const ingresso = criarIngressoDaNota(p.dir, { host: 'claude-code', connectionId: conexao },
+    () => new Promise<RespostaDaNota>((resolve) => { soltar = resolve; }), () => true);
+  return { ingresso, soltar: (r: RespostaDaNota) => soltar(r) };
+}
+
+/** O `master_done` sem os campos que o ledger carimba, para regravar uma variante dele. */
+const semCarimbo = (e: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(e).filter(([k]) => !['ts', 'thread', 'tipo', 'eventId'].includes(k)));
 
 async function pedirPeloDialogo(c: Client, args: Record<string, unknown>) {
   const r = await c.callTool({ name: 'ork_request_master_note', arguments: args });
@@ -161,7 +179,7 @@ test('nota local: diálogo recusado ou cancelado devolve pendente e não grava n
   } finally { p.limpar(); }
 });
 
-test('nota local: aceita, vai ao master_done com mcp-local:claude-code, o pedido de nota e o recibo; a omissão vira nota humana', async () => {
+test('nota local: aceita, vai ao master_done com dono (dialogo nativo), o pedido de nota e o recibo; a omissão vira nota humana', async () => {
   const p = projetoTemporario('nota-local-aceita');
   try {
     const t = entregue(p, 'aceita');
@@ -171,8 +189,9 @@ test('nota local: aceita, vai ao master_done com mcp-local:claude-code, o pedido
       assert.deepEqual(r.dados(), { ok: true, threadId: t.id, estado: 'registrada', repetida: false, score: 4 });
     });
     const feito = masterDone(p, t.id).at(-1)!;
-    assert.equal(feito.por, 'mcp-local:claude-code');
-    assert.equal(feito.autorizadoPor, 'mcp-local:claude-code');
+    assert.equal(AUTOR_DA_NOTA_NATIVA, 'dono (dialogo nativo)');
+    assert.equal(feito.por, AUTOR_DA_NOTA_NATIVA);
+    assert.equal(feito.autorizadoPor, AUTOR_DA_NOTA_NATIVA);
     assert.equal(feito.score, 4);
     assert.equal(feito.justificativa, PORQUE);
     assert.equal(feito.prova, 'ingresso-autenticado');
@@ -189,17 +208,22 @@ test('nota local: aceita, vai ao master_done com mcp-local:claude-code, o pedido
     assert.equal(JSON.parse(bruto).dados.contrato, 'ork.hitl-local-master-note/v1');
     const depois = lerThread(p.dir, t.id);
     assert.equal(depois.status, 'fechada');
-    assert.equal(depois.score!.avaliadoPor, 'mcp-local:claude-code');
+    assert.equal(depois.score!.avaliadoPor, AUTOR_DA_NOTA_NATIVA);
     assert.notEqual(depois.score!.regime, 'omissao');
     assert.equal(masterRatificado(p.dir, t.id), true);
-    assert.equal(notaHumanaRegistrada(p.dir, depois), true);
+    assert.equal(notaHumanaRegistrada(depois), true);
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, feito), true, 'o recibo confere com o master_done');
     assert.ok(lerMasterLog(p.dir, t.id), 'o MASTER log da nota local é válido e ratificado');
+    // D12: o validador do contrato congelado não ganhou caso novo; a identidade passa pela autoria humana de sempre.
+    assert.equal(autoriaHumana(AUTOR_DA_NOTA_NATIVA), true);
     assert.deepEqual(validarMasterLog(JSON.parse(fs.readFileSync(path.join(dirThread(p.dir, t.id), 'master-log.json'), 'utf8'))), []);
+    assert.deepEqual(validarMasterLog({ ...lerMasterLog(p.dir, t.id), avaliadoPor: 'mcp-local:claude-code' }),
+      ['avaliadoPor precisa de autoria humana explícita']);
     assert.ok(lerLedger(dirThread(p.dir, t.id)).some(e => e.tipo === TIPOS_DE_EVENTO.aceitePorOmissao), 'o aceite por omissão continua no ledger');
   } finally { p.limpar(); }
 });
 
-test('nota local: o recibo é o que faz a nota valer; adulterado, apagado ou com outra nota no ledger, ela deixa de valer', async () => {
+test('nota local: o recibo confere a nota do diálogo; adulterado, apagado, forjado ou com outra nota não confere, e a nota continua valendo', async () => {
   const p = projetoTemporario('nota-local-recibo');
   try {
     const t = entregue(p, 'recibo');
@@ -209,24 +233,50 @@ test('nota local: o recibo é o que faz a nota valer; adulterado, apagado ou com
     const feito = masterDone(p, t.id).at(-1)!;
     const recibo = path.join(raizDoEstado(p.dir), String(feito.evidencia));
     const original = fs.readFileSync(recibo, 'utf8');
-    assert.equal(masterRatificado(p.dir, t.id), true);
+    const confere = () => conferirReciboLocalNota(p.dir, t.id, masterDone(p, t.id).at(-1)!);
+    // D12: o recibo é a prova do caminho e nunca decide se a nota vale; a nota segue humana e a omissão não a troca.
+    const valeAinda = (porque: string) => {
+      assert.equal(masterRatificado(p.dir, t.id), true, porque);
+      assert.equal(notaHumanaRegistrada(lerThread(p.dir, t.id)), true, porque);
+      assert.deepEqual(aceitarPendentesPorOmissao(p.dir), [], porque);
+      assert.equal(lerThread(p.dir, t.id).score!.valor, 3, porque);
+    };
+    assert.equal(confere(), true);
     const adulterado = JSON.parse(original);
     adulterado.dados.score = 5;
     fs.writeFileSync(recibo, JSON.stringify(adulterado) + '\n');
-    assert.equal(masterRatificado(p.dir, t.id), false, 'recibo adulterado');
-    assert.equal(notaHumanaRegistrada(p.dir, lerThread(p.dir, t.id)), false);
+    assert.equal(confere(), false, 'recibo adulterado');
+    valeAinda('recibo adulterado');
     fs.writeFileSync(recibo, original);
-    assert.equal(masterRatificado(p.dir, t.id), true);
+    assert.equal(confere(), true);
     fs.renameSync(recibo, `${recibo}.fora`);
-    assert.equal(masterRatificado(p.dir, t.id), false, 'recibo apagado');
+    assert.equal(confere(), false, 'recibo apagado');
+    valeAinda('recibo apagado');
     fs.renameSync(`${recibo}.fora`, recibo);
-    // O mesmo recibo não sustenta outra nota: thread e evento que dizem 5 com o recibo do 3 não valem.
-    const resto = Object.fromEntries(Object.entries(feito).filter(([k]) => !['ts', 'thread', 'tipo', 'eventId'].includes(k)));
+    // HMAC: os dados certos com uma assinatura que a chave local não fez não conferem.
+    const forjada = 'f'.repeat(64), bytes = JSON.stringify({ dados: JSON.parse(original).dados, assinatura: forjada }) + '\n';
+    fs.writeFileSync(recibo, bytes);
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, recibo: sha256(forjada), evidenciaSha256: sha256(bytes) }), false,
+      'assinatura que a chave local não produziu');
+    fs.writeFileSync(recibo, original);
+    // A chave local trocada (outra máquina, restauração): o recibo deixa de conferir, e a nota do dono fica.
+    const chave = path.join(raizDoEstado(p.dir), '.orkastery', 'private', 'hitl-local-signing.key');
+    const chaveOriginal = fs.readFileSync(chave);
+    fs.writeFileSync(chave, 'e'.repeat(64) + '\n', { mode: 0o600 });
+    assert.equal(confere(), false, 'chave trocada');
+    valeAinda('chave trocada');
+    fs.writeFileSync(chave, chaveOriginal, { mode: 0o600 });
+    assert.equal(confere(), true);
+    // O mesmo recibo não sustenta outra nota, nem outro host, nem outra identidade.
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, score: 5 }), false, 'outra nota');
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, canal: 'codex' }), false, 'outro host');
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, por: 'mcp-local:claude-code' }), false, 'outra identidade');
+    assert.equal(conferirReciboLocalNota(p.dir, t.id, { ...feito, justificativa: `${PORQUE}!` }), false, 'outro porquê');
     const editada = lerThread(p.dir, t.id);
     editada.score = { ...editada.score!, valor: 5 };
     gravarThread(p.dir, editada);
-    registrar(dirThread(p.dir, t.id), t.id, TIPOS_DE_EVENTO.masterConcluido, { ...resto, score: 5 });
-    assert.equal(masterRatificado(p.dir, t.id), false, 'thread e evento com outra nota');
+    registrar(dirThread(p.dir, t.id), t.id, TIPOS_DE_EVENTO.masterConcluido, { ...semCarimbo(feito), score: 5 });
+    assert.equal(confere(), false, 'thread e evento com outra nota');
   } finally { p.limpar(); }
 });
 
@@ -248,9 +298,65 @@ test('nota local: o aceite por omissão e o Telegram não trocam a nota do diál
     assert.match(r.mensagem, /já tem nota humana 2\/5/);
     const depois = lerThread(p.dir, t.id);
     assert.equal(depois.score!.valor, 2);
-    assert.equal(depois.score!.avaliadoPor, 'mcp-local:claude-code');
+    assert.equal(depois.score!.avaliadoPor, AUTOR_DA_NOTA_NATIVA);
     assert.equal(masterDone(p, t.id).at(-1)!.eventId, feito.eventId);
   } finally { restaurar(); p.limpar(); }
+});
+
+test('nota local: a nota pelo Telegram que chega durante o diálogo vence, pela releitura sob a trava', async () => {
+  const p = projetoTemporario('nota-local-corrida-telegram'), restaurar = ambienteDoIngresso();
+  try {
+    const t = entregue(p, 'corrida telegram');
+    const { ingresso, soltar } = dialogoControlado(p, 'conexao-corrida-telegram');
+    const aberta = ingresso.solicitar(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    const pedida = lerLedger(dirThread(p.dir, t.id)).find((e) => e.tipo === TIPOS_DE_EVENTO.notaPedida)!;
+    const monitor = path.join(raizDoEstado(p.dir), '.orkastery', 'monitor');
+    const r = responderPeloPulse(p.dir, dizer(`${String(pedida.codigo)} 5 entregou tudo`, 'telegram:-7:950', QUANDO), { quando: QUANDO, estadoDir: monitor });
+    assert.match(r.mensagem, /Nota 5\/5 registrada/);
+    soltar({ action: 'accept', content: { nota: '1', porque: PORQUE } });
+    assert.deepEqual(await aberta, { ok: true, threadId: t.id, estado: 'registrada', repetida: true, score: 5 });
+    const depois = lerThread(p.dir, t.id);
+    assert.equal(depois.score!.valor, 5);
+    assert.equal(depois.score!.avaliadoPor, 'telegram:42');
+    assert.ok(!masterDone(p, t.id).some((e) => e.por === AUTOR_DA_NOTA_NATIVA), 'a nota do diálogo não foi gravada');
+  } finally { restaurar(); p.limpar(); }
+});
+
+test('nota local: o aceite por omissão que listou antes da nota grava sob a trava e não a troca', async () => {
+  const p = projetoTemporario('nota-local-corrida-omissao');
+  try {
+    const t = entregue(p, 'corrida omissao', false);
+    // O condutor lista as entregas (`ork master <t> --aceitar-omissao`) e a nota do diálogo grava no meio.
+    const lista = entregasParaOmissao(p.dir, t.id);
+    assert.deepEqual(lista.map((x) => x.thread.id), [t.id]);
+    const { ingresso, soltar } = dialogoControlado(p, 'conexao-corrida-omissao');
+    const aberta = ingresso.solicitar(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    soltar({ action: 'accept', content: { nota: '2', porque: PORQUE } });
+    assert.deepEqual(await aberta, { ok: true, threadId: t.id, estado: 'registrada', repetida: false, score: 2 });
+    const antes = retrato(p, t.id);
+    const aceites = lista.map((x) => aceitarPorOmissao(p.dir, x.thread.id));
+    assert.equal(aceites[0].preservada, true);
+    assert.equal(aceites[0].scoreGravado, 2);
+    assert.deepEqual(retrato(p, t.id), antes, 'o aceite atrasado não escreve nada');
+    assert.equal(lerThread(p.dir, t.id).score!.avaliadoPor, AUTOR_DA_NOTA_NATIVA);
+  } finally { p.limpar(); }
+});
+
+test('nota local: o aceite por omissão toma a trava da thread; ocupada, a lista segue sem ela e a thread indicada recebe o erro', () => {
+  const p = projetoTemporario('nota-local-omissao-trava');
+  try {
+    const t = entregue(p, 'trava ocupada', false);
+    const outra = entregue(p, 'outra entrega', false);
+    comLockHitl(p.dir, t.id, () => {
+      assert.throws(() => aceitarPorOmissao(p.dir, t.id), /HITL ocupado/);
+      assert.throws(() => aceitarPendentesPorOmissao(p.dir, { thread: t.id }), /HITL ocupado/);
+      assert.deepEqual(aceitarPendentesPorOmissao(p.dir).map((a) => a.thread), [outra.id]);
+    });
+    assert.equal(lerThread(p.dir, t.id).score ?? null, null, 'a thread com a trava tomada segue esperando');
+    assert.deepEqual(aceitarPendentesPorOmissao(p.dir).map((a) => a.thread), [t.id]);
+  } finally { p.limpar(); }
 });
 
 test('nota local: com nota humana pelo Telegram antes, a ferramenta devolve repetida sem abrir o diálogo', async () => {
@@ -272,17 +378,22 @@ test('nota local: com nota humana pelo Telegram antes, a ferramenta devolve repe
   } finally { restaurar(); p.limpar(); }
 });
 
-test('nota local: a identidade do ingresso local não se digita no --por, nem com uma prova inventada', () => {
+test('nota local: a identidade da nota nativa não se digita no --por, com qualquer grafia, nem com uma prova inventada', () => {
   const p = projetoTemporario('nota-local-por');
   try {
     const t = entregue(p, 'por');
     const antes = retrato(p, t.id);
+    const inventada = { origem: 'mcp-local', canal: 'claude-code', contratoResposta: 'ork.hitl-local-master-note/v1', conexao: 'c1',
+      solicitacao: 'r1', recebidoEm: QUANDO, recibo: 'a'.repeat(64), evidencia: `.orkastery/threads/${t.id}/hitl-ingress-local/x.json`,
+      evidenciaSha256: 'b'.repeat(64), notaPedida: { pedidoId: 'p1' } };
+    for (const por of [AUTOR_DA_NOTA_NATIVA, 'Dono (Diálogo Nativo)', '  dono   (dialogo  nativo) ']) {
+      assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true }), /não se digita no --por/, por);
+      assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true, prova: inventada }),
+        /não se digita no --por/, por);
+    }
+    // A forma antiga do ingresso local segue recusada pela autoria humana, como antes desta entrega.
     for (const por of ['mcp-local:claude-code', 'mcp-local:codex']) {
-      assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true }), /ingresso local/);
-      assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true,
-        prova: { origem: 'mcp-local', canal: por.slice(10), contratoResposta: 'ork.hitl-local-master-note/v1', conexao: 'c1', solicitacao: 'r1',
-          recebidoEm: QUANDO, recibo: 'a'.repeat(64), evidencia: `.orkastery/threads/${t.id}/hitl-ingress-local/x.json`, evidenciaSha256: 'b'.repeat(64),
-          notaPedida: { pedidoId: 'p1' } } }), /ingresso local/);
+      assert.throws(() => registrarMaster(p.dir, t.id, { score: 4, justificativa: 'x y z', por, refazer: true, prova: inventada }), /--por humano/);
     }
     assert.deepEqual(retrato(p, t.id), antes);
   } finally { p.limpar(); }

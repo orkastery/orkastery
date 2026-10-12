@@ -20,10 +20,12 @@ export type RitualEntrega = {
   reprovacoes: number
   /** As classes de falha do MASTER log (ou da proposta); null quando o POSTMORTEM ainda nao nasceu. */
   classes: string | null
-  /** A entrega (`ship_done`), em ISO e na hora local que o nucleo formatou, e o merge. */
+  /** A entrega (`ship_done` ou artefato), em ISO e na hora local que o nucleo formatou, e o merge. */
   entregueEm: string
   entregueEmLocal: string | null
   merge: string | null
+  /** O arquivo da entrega por artefato (a thread so de planejamento); ausente no quadro gravado antes deste campo. */
+  artefato?: string | null
 }
 
 /** A ultima leitura das entregas. */
@@ -37,6 +39,11 @@ export type RitualQuadro = {
   avisos: string[]
   /** Quantas entregas sem nota humana ficaram fora da janela de dias. */
   foraDaJanela: number
+  /**
+   * Quantas threads o retrato nao leu (o ledger passou do teto de leitura do Maestro, ou o MASTER log nao vale): com
+   * alguma, a contagem da faixa e "pelo menos". Ausente no quadro gravado antes deste campo.
+   */
+  semLeitura?: number
 }
 
 /** Uma claim no replay: o ultimo registro de cada id, como o `ork_claims_list` a da. Nunca a saida do comando. */

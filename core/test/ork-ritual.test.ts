@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import * as ts from 'typescript';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -15,6 +16,7 @@ import { aceitarPorOmissao, registrarMaster } from '../src/master';
 import { discoverMaestro } from '../src/maestro-discovery';
 import { maestroSnapshot } from '../src/maestro-snapshot';
 import { dirThread, novaThread } from '../src/thread';
+import { registrarArtefato } from '../src/thread-close';
 import { projetoTemporario, ProjetoDeTeste } from './apoio';
 
 // RM-059 (fatia F8): o Ritual do MASTER (`ork-ritual`) testado sem o Claude Code. O sandbox do `ork verify` e o runner
@@ -145,7 +147,12 @@ test('entregas: entra a sem MASTER, a proposta e a aceita por omissao da janela;
   assert.equal(alemDoTeto, 0);
   const a = entregas.find((e: { thread: string }) => e.thread === 'ork-a');
   assert.deepEqual(a, { thread: 'ork-a', status: 'recorded', regime: 'omissao', score: 4, indice: 4, parcelas: 'go_fix_opened x2', reprovacoes: 1,
-    classes: 'processo', entregueEm: new Date(EPOCA - 2 * DIA).toISOString(), entregueEmLocal: '10/10 14:20 (horário de Brasília)', merge: 'b'.repeat(40) });
+    classes: 'processo', entregueEm: new Date(EPOCA - 2 * DIA).toISOString(), entregueEmLocal: '10/10 14:20 (horário de Brasília)', merge: 'b'.repeat(40),
+    artefato: null });
+  // A entrega por artefato (sem merge) entra com o arquivo.
+  const porArtefato = r.entregaDoItem(item('ork-p', { facts: { deliveredSha: null, deliveredArtifact: 'docs/plano.md' } }));
+  assert.equal(porArtefato.merge, null);
+  assert.equal(porArtefato.artefato, 'docs/plano.md');
   // A janela e de 7 dias: exatamente no limite ainda entra.
   assert.equal(r.entregasDaJanela([item('ork-x', { dias: 7 })], EPOCA).entregas.length, 1);
   assert.equal(r.JANELA_DIAS, 7);
@@ -163,8 +170,26 @@ test('faixa, lacunas, paginas, json do MCP, ledger e numero', () => {
   assert.equal(r.textoDaFaixa(quadro(['ork-a', 'ork-b', 'ork-c', 'ork-d', 'ork-e'])), '5 entregas esperam a sua nota: ork-a, ork-b, ork-c e +2 · /nota');
   assert.equal(r.textoDaFaixa(quadro([])), undefined);
   assert.equal(r.textoDaFaixa(quadro(['ork-a'], null)), undefined);
-  assert.equal(r.avisoDasLacunas([]), null);
-  assert.equal(r.avisoDasLacunas(['a', 'b', 'a', 'c', 'd']), 'o retrato do MASTER veio incompleto: 4 lacunas (a, b, c, ...)');
+  assert.equal(r.textoDaFaixa({ ...quadro(['ork-a', 'ork-b']), semLeitura: 3 }), 'pelo menos 2 entregas esperam a sua nota: ork-a, ork-b · /nota');
+  assert.deepEqual(r.avisosDasLacunas([]), []);
+  assert.deepEqual(r.avisosDasLacunas(['a', 'b', 'a', 'c', 'd']), ['o retrato do MASTER veio incompleto: 4 lacunas (a, b, c, ...)']);
+  // O corte da pagina por bytes nao falta nada; as threads sem leitura somam as nomeadas e as omitidas (de todas as paginas).
+  assert.deepEqual(r.avisosDasLacunas(['maestro.page.byte_limit']), []);
+  assert.equal(r.threadsSemLeitura(['maestro.page.byte_limit']), 0);
+  const repetidas = ['ledger.unavailable:ork-x', 'master.invalid:ork-y', 'ledger.unavailable:ork-z', 'ledger.unavailable:ork-w', 'maestro.messages.omitted:23',
+    'maestro.page.byte_limit'];
+  assert.deepEqual(r.avisosDasLacunas([...repetidas, ...repetidas]),
+    ['o retrato não leu 27 threads (ork-x, ork-y, ork-z e +24): a lista pode estar incompleta; ork master lista todas']);
+  assert.equal(r.threadsSemLeitura([...repetidas, ...repetidas]), 27);
+  assert.deepEqual(r.avisosDasLacunas(['maestro.messages.omitted:2']), ['o retrato não leu 2 threads: a lista pode estar incompleta; ork master lista todas']);
+  assert.deepEqual(r.avisosDasLacunas(['ledger.unavailable:ork-x', 'maestro.snapshot.stale']),
+    ['o retrato não leu 1 thread (ork-x): a lista pode estar incompleta; ork master lista todas', 'o retrato do MASTER veio incompleto: 1 lacuna (maestro.snapshot.stale)']);
+  // A nota registrada (ou repetida) nesta sessao tira a entrega; a entrega mais nova que a nota volta.
+  const entregas = [{ thread: 'ork-a', entregueEm: new Date(EPOCA - DIA).toISOString() }, { thread: 'ork-b', entregueEm: new Date(EPOCA - DIA).toISOString() },
+    { thread: 'ork-c', entregueEm: new Date(EPOCA + DIA).toISOString() }, { thread: 'ork-d', entregueEm: new Date(EPOCA - DIA).toISOString() }];
+  const notas = { 'ork-a': { estado: 'registrada', texto: '', em: EPOCA }, 'ork-b': { estado: 'pendente', texto: '', em: EPOCA },
+    'ork-c': { estado: 'registrada', texto: '', em: EPOCA }, 'ork-d': { estado: 'repetida', texto: '', em: EPOCA } };
+  assert.deepEqual(r.semNotaDada(entregas, notas).map((e: { thread: string }) => e.thread), ['ork-b', 'ork-c']);
   const pagina = r.paginaDoMaster({ retrato: { sections: { master: { items: [1], gaps: ['g', 3], coverage: { nextOffset: 50 } } } } });
   assert.deepEqual(pagina, { itens: [1], proxima: 50, lacunas: ['g'] });
   assert.equal(r.paginaDoMaster({ retrato: { sections: { master: { items: [], coverage: { nextOffset: null } } } } }).proxima, null);
@@ -263,6 +288,20 @@ test('o parser do Ritual casa com o retrato e as claims de verdade do nucleo', (
     const daPendente = entregas.find((e: { thread: string }) => e.thread === pendente.id);
     assert.equal(daPendente.status, 'pending');
     assert.equal(daPendente.classes, null);
+    // A entrega por artefato (thread so de planejamento), aceita por omissao ou sem MASTER, tambem espera a nota.
+    fs.writeFileSync(path.join(p.dir, 'plano-entregue.md'), '# plano\n');
+    const sha = createHash('sha256').update('# plano\n').digest('hex');
+    const artefatos = ['artefato omissao', 'artefato pendente'].map((nome) => novaThread(p.carregado, { nome, modo: 'auto' }).thread);
+    for (const t of artefatos) registrarArtefato(p.dir, t.id, 'plano-entregue.md', sha, 'Dono Simulado');
+    aceitarPorOmissao(p.dir, artefatos[0]!.id);
+    const comArtefato = ritual().entregasDaJanela(ritual().paginaDoMaster({ retrato: maestroSnapshot(discoverMaestro({ cwd: p.dir })) }).itens, Date.now()).entregas;
+    for (const [t, status] of [[artefatos[0]!, 'recorded'], [artefatos[1]!, 'pending']] as const) {
+      const e = comArtefato.find((x: { thread: string }) => x.thread === t.id);
+      assert.ok(e, `a entrega por artefato da ${t.id} aparece`);
+      assert.equal(e.status, status);
+      assert.equal(e.merge, null);
+      assert.equal(e.artefato, 'plano-entregue.md');
+    }
     // As claims de verdade: duas registradas, uma retirada; o replay ve uma, e a retirada vira contagem.
     adicionarClaim(p.dir, pendente.id, { arquivo: 'README.md', alegacao: 'o README existe', verificar: ['test -s README.md'] });
     adicionarClaim(p.dir, pendente.id, { arquivo: 'README.md', alegacao: 'o README diz projeto', verificar: ['grep -q projeto README.md'] });

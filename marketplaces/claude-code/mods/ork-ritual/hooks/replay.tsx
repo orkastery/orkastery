@@ -50,7 +50,7 @@ export function situacaoDaEntrega(e: RitualEntrega): string {
 /** O cartao de uma entrega: cabecalho, situacao, indice e POSTMORTEM. */
 export function linhasDaEntrega(e: RitualEntrega): LinhaDoPainel[] {
   const quando = e.entregueEmLocal ?? e.entregueEm
-  const merge = e.merge ? ` · merge ${e.merge.slice(0, 8)}` : ''
+  const merge = e.merge ? ` · merge ${e.merge.slice(0, 8)}` : e.artefato ? ` · artefato ${e.artefato}` : ''
   const indice = e.indice === null ? 'índice derivado do ledger: lacuna (ork master)'
     : `índice derivado do ledger: ${numero(e.indice)} de 5 (${e.parcelas || 'sem desconto'}) · ork master`
   const reprovacoes = plural(e.reprovacoes, 'reprovação tipada', 'reprovações tipadas')
@@ -60,7 +60,10 @@ export function linhasDaEntrega(e: RitualEntrega): LinhaDoPainel[] {
     { tipo: 'indice', thread: e.thread, texto: `  ${indice}`,
       mostrado: { chave: `nota:${e.thread}`, thread: e.thread,
         texto: `${e.thread}: entregue, espera sua nota${e.indice === null ? '' : ` (índice ${numero(e.indice)} de 5)`}` } },
-    { tipo: 'postmortem', thread: e.thread, texto: e.classes ? `  POSTMORTEM: classes ${e.classes} · ${reprovacoes}`
+    // Na proposta, as classes sao as que a fabrica propos; a nota do dono grava as que o nucleo infere dos gates, como
+    // no terminal e no Telegram (D14).
+    { tipo: 'postmortem', thread: e.thread, texto: e.classes
+      ? `  POSTMORTEM${e.status === 'ratificacao-pendente' ? ' da proposta' : ''}: classes ${e.classes} · ${reprovacoes}`
       : `  POSTMORTEM: nasce no fechamento · ${reprovacoes}` },
   ]
 }
@@ -127,7 +130,7 @@ export function linhasDoPainel(q: RitualQuadro, opcoes: { agora: number; foco?: 
   const notas = opcoes.notas ?? {}
   const reservas = opcoes.reservas ?? {}
   saida.push({ tipo: 'placar', texto: foco ? `Ritual do MASTER · prova da ${foco}`
-    : `Ritual do MASTER · ${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota · ${haQuanto(q.lidoEm, opcoes.agora)}` })
+    : `Ritual do MASTER · ${q.semLeitura ? 'pelo menos ' : ''}${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota · ${haQuanto(q.lidoEm, opcoes.agora)}` })
   if (q.erro) saida.push({ tipo: 'aviso', texto: `a última leitura falhou: ${q.erro}` })
   for (const aviso of q.avisos) saida.push({ tipo: 'aviso', texto: aviso })
   saida.push(...notasFeitas(q, notas))

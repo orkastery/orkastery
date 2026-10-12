@@ -655,16 +655,18 @@ mudou o que o núcleo traduz depois dela.
   (`CODEX_SANDBOX`).
 - **Nota do MASTER pelo diálogo nativo (RM-059, fatia F8):** na sessão do dono, a ferramenta MCP
   `ork_request_master_note` recebe só o `threadId`, pede ao host um formulário com a nota de 0 a 5 e o
-  porquê e grava o `master_done` com `autorizadoPor` `mcp-local:claude-code`, o pedido de nota do
-  `ork master pedir` e o recibo assinado em `hitl-ingress-local/`. Sem formulário no cliente, recusa
-  com `master.nota.sem-dialogo` sem gravar nada. A nota com essa identidade só vale com o recibo
-  conferido, e nem o aceite por omissão nem a resposta pelo Telegram a trocam. O botão Dar a nota do
+  porquê e grava o `master_done` com `autorizadoPor` `dono (dialogo nativo)`, o canal `claude-code`, o
+  pedido de nota do `ork master pedir` e o recibo assinado em `hitl-ingress-local/`. Sem formulário no
+  cliente, recusa com `master.nota.sem-dialogo` sem gravar nada. O núcleo confere o recibo ao gravar (essa
+  identidade não se digita no `--por`), e a nota vale como nota humana em qualquer versão do `ork`: nem
+  o aceite por omissão nem a resposta pelo Telegram a trocam. O botão Dar a nota do
   [Ritual do MASTER](ritual-do-master.md) chama essa ferramenta.
 - **O que isto NÃO prova:** o canal do processo é declarado pelo ambiente e só serve para recusar;
   quem apaga as variáveis do próprio host passa como terminal, e o Codex interativo que não exporta
-  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal e a aceita por omissão não tomam o lock
-  da thread; a nota pelo canal e a nota pelo diálogo nativo tomam. O recibo do diálogo nativo prova o
-  caminho, não a pessoa: a chave local é legível pelo mesmo usuário do sistema.
+  `CODEX_SANDBOX` não é reconhecido. A nota dada do terminal não toma o lock da thread; a nota pelo
+  canal, a nota pelo diálogo nativo e o aceite por omissão tomam. O recibo do diálogo nativo prova o
+  caminho, não a pessoa: a chave local é legível pelo mesmo usuário do sistema, e um `ork` anterior a
+  esta versão aceita a identidade `dono (dialogo nativo)` no `--por` como qualquer nome.
 
 ## D. Rollback
 

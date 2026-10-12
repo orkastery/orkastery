@@ -1,6 +1,6 @@
 # Nota do MASTER pedida por mod: a prova da RM-059 (fatia F8)
 
-Esta página responde se o diálogo nativo do Claude Code abre quando quem pede a nota do MASTER é um mod. O Ritual do MASTER (`ork-ritual`) chama `ork_request_master_note` por `$.mcp.call`, só com o `threadId`; o núcleo pede ao host um formulário (elicitation do MCP) com a nota de 0 a 5 e o porquê, e grava o MASTER com `avaliadoPor` `mcp-local:claude-code` e o recibo assinado do ingresso local. Os tipos do Claude Code 2.1.296 dizem que a chamada do plugin é a concessão ("No permission prompt: the plugin's call, seen by the hooks above it, is the grant") e não dizem se a elicitation dessa chamada chega ao diálogo. Só uma sessão interativa do dono responde, e a sessão de fase que escreveu esta página não abre uma. É o mesmo elo que a [prova da Mesa](mods-dialogo-nativo.md) espera.
+Esta página responde se o diálogo nativo do Claude Code abre quando quem pede a nota do MASTER é um mod. O Ritual do MASTER (`ork-ritual`) chama `ork_request_master_note` por `$.mcp.call`, só com o `threadId`; o núcleo pede ao host um formulário (elicitation do MCP) com a nota de 0 a 5 e o porquê, e grava o MASTER com `avaliadoPor` `dono (dialogo nativo)`, o canal `claude-code` e o recibo assinado do ingresso local. Os tipos do Claude Code 2.1.296 dizem que a chamada do plugin é a concessão ("No permission prompt: the plugin's call, seen by the hooks above it, is the grant") e não dizem se a elicitation dessa chamada chega ao diálogo. Só uma sessão interativa do dono responde, e a sessão de fase que escreveu esta página não abre uma. É o mesmo elo que a [prova da Mesa](mods-dialogo-nativo.md) espera.
 
 Veredito: pendente do dono
 
@@ -10,7 +10,7 @@ Veredito: pendente do dono
 | --- | --- | --- |
 | O roteiro prepara a cópia | `node core/scripts/prova-ritual-nota-nativa.cjs --ensaio` | cópia fora do repositório, uma thread #Auto entregue e aceita por omissão, veredito pendente, cópia apagada |
 | O servidor oferece a ferramenta e pede o formulário | teste `core/test/master-nota-local.test.ts`, com um cliente MCP sintético em memória no papel do host | a ferramenta existe só no servidor do dono; sem formulário no cliente, recusa `master.nota.sem-dialogo` sem gravar nada; recusa e cancelamento não gravam nota |
-| A nota aceita vai ao MASTER com recibo | o mesmo teste | `master_done` com `autorizadoPor` `mcp-local:claude-code`, o pedido de nota do `ork master pedir` e o recibo em `hitl-ingress-local/`; o aceite por omissão e o Telegram não a trocam |
+| A nota aceita vai ao MASTER com recibo | o mesmo teste | `master_done` com `autorizadoPor` `dono (dialogo nativo)`, o canal `claude-code`, o pedido de nota do `ork master pedir` e o recibo em `hitl-ingress-local/`; o aceite por omissão e o Telegram não a trocam |
 | O `--conferir` lê o recibo certo | teste `core/test/prova-ritual-nota-nativa.test.ts` | separa a nota com recibo conferido, o recibo adulterado, o diálogo fechado sem nota e o nada |
 | O Ritual manda só o `threadId` | testes do kit do Ritual e a varredura do fonte em `core/test/ork-ritual.test.ts` | `ork_request_master_note` com exatamente `{ threadId }`; nenhum argv de `ork master` com nota |
 
@@ -33,7 +33,7 @@ O cliente sintético prova o lado do núcleo e o roteiro. O que falta é o elo d
    node core/scripts/prova-ritual-nota-nativa.cjs --conferir <pasta da cópia>
    ```
 
-O `--conferir` imprime a linha de veredito para trocar a de cima. Ele separa quatro casos: o `master_done` com `autorizadoPor` `mcp-local:claude-code` e o recibo conferido (o diálogo abriu e gravou); a nota com essa identidade e o recibo que não confere (anote o que viu); só o pedido de nota (o diálogo foi pedido e fechou sem nota: repita respondendo); e nada (o diálogo não foi pedido, ou o pedido não chegou ao núcleo).
+O `--conferir` imprime a linha de veredito para trocar a de cima. Ele separa quatro casos: o `master_done` com `autorizadoPor` `dono (dialogo nativo)` pelo canal `claude-code` e o recibo conferido (o diálogo abriu e gravou); a nota com essa identidade e o recibo que não confere (anote o que viu); só o pedido de nota (o diálogo foi pedido e fechou sem nota: repita respondendo); e nada (o diálogo não foi pedido, ou o pedido não chegou ao núcleo).
 
 ## O que muda com cada resposta
 

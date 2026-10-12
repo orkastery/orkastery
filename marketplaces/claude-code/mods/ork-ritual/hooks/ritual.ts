@@ -2,7 +2,7 @@
 // que esperam a nota do dono, saidas da secao `master` do retrato da ponte (D2 da thread ork-rm059ritual), a
 // linha da faixa e as claims do replay, saidas do `ork_claims_list`. Nada aqui le `.orkastery/` nem chama o `$`: as
 // chamadas ficam no register.tsx. So importa tipos.
-import type { RitualClaim, RitualEntrega, RitualQuadro } from '../types'
+import type { RitualClaim, RitualEntrega, RitualNota, RitualQuadro } from '../types'
 
 /** D1: a entrega dos ultimos 7 dias sem nota humana (sem MASTER, com proposta ou aceita por omissao). */
 export const JANELA_DIAS = 7
@@ -12,7 +12,7 @@ export const TETO_DE_PAGINAS = 20
 export const TETO_DE_ENTREGAS = 40
 export const TETO_DE_TEXTO = 200
 export const SERVIDOR = 'orkastery'
-export const QUADRO_VAZIO: RitualQuadro = { entregas: [], lidoEm: null, erro: null, avisos: [], foraDaJanela: 0 }
+export const QUADRO_VAZIO: RitualQuadro = { entregas: [], lidoEm: null, erro: null, avisos: [], foraDaJanela: 0, semLeitura: 0 }
 
 const ID_DE_THREAD = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/
 const DIA_MS = 86400000
@@ -72,8 +72,8 @@ const numeroOuNulo = (v: unknown): number | null => (typeof v === 'number' && Nu
 
 /**
  * A entrega de um item da secao `master`, quando ela espera a nota do dono: sem MASTER (`pending`), com proposta
- * (`ratificacao-pendente`) ou aceita por omissao (`recorded` com regime `omissao`). Nota humana registrada, item sem
- * entrega ou fora do contrato devolvem null.
+ * (`ratificacao-pendente`) ou aceita por omissao (`recorded` com regime `omissao`), entregue por `ship_done` ou por
+ * artefato. Nota humana registrada, item sem entrega ou fora do contrato devolvem null.
  */
 export function entregaDoItem(item: unknown): RitualEntrega | null {
   const i = (item ?? {}) as { id?: unknown; status?: unknown; facts?: Record<string, unknown> }
@@ -89,6 +89,7 @@ export function entregaDoItem(item: unknown): RitualEntrega | null {
     parcelas: textoOuNulo(f.indexDetail) ?? '', reprovacoes: numeroOuNulo(f.reprovals) ?? 0, classes: textoOuNulo(f.classes),
     entregueEm, entregueEmLocal: textoOuNulo(f.deliveredAtLocal, 80),
     merge: typeof f.deliveredSha === 'string' && /^[a-f0-9]{40}$/.test(f.deliveredSha) ? f.deliveredSha : null,
+    artefato: textoOuNulo(f.deliveredArtifact, 160),
   }
 }
 
@@ -101,20 +102,81 @@ export function entregasDaJanela(itens: readonly unknown[], agora: number, dias 
   return { entregas: dentro.slice(0, TETO_DE_ENTREGAS), fora: todas.length - dentro.length, alemDoTeto: Math.max(0, dentro.length - TETO_DE_ENTREGAS) }
 }
 
-/** O aviso da secao que veio incompleta: uma linha so, com as primeiras lacunas. */
-export function avisoDasLacunas(lacunas: readonly string[]): string | null {
-  const unicas = [...new Set(lacunas)]
-  if (!unicas.length) return null
-  const primeiras = unicas.slice(0, 3).join(', ')
-  return `o retrato do MASTER veio incompleto: ${plural(unicas.length, 'lacuna', 'lacunas')} (${primeiras}${unicas.length > 3 ? ', ...' : ''})`
+/** A lacuna que nao falta nada: o corte da pagina por bytes (a proxima pagina traz o resto, e o Ritual le todas). */
+const SO_PAGINACAO = new Set(['maestro.page.byte_limit'])
+const OMITIDAS = /^maestro\.messages\.omitted:(\d+)$/
+const SEM_LEITURA = /^(?:ledger\.unavailable|master\.invalid):([a-zA-Z0-9][a-zA-Z0-9._-]{0,79})$/
+
+/**
+ * As lacunas da secao `master`, somadas de todas as paginas (cada pagina repete as da secao): as threads que o retrato
+ * nao leu (o ledger passou do teto de leitura do Maestro, ou o MASTER log nao vale), quantas lacunas o retrato omitiu
+ * alem das quatro que publica (na secao `master` elas sao por thread) e as outras. O corte da pagina por bytes nao
+ * falta nada.
+ */
+export function lacunasDoMaster(lacunas: readonly string[]): { semLeitura: string[]; omitidas: number; outras: string[] } {
+  const semLeitura: string[] = []
+  const outras: string[] = []
+  let omitidas = 0
+  for (const lacuna of new Set(lacunas)) {
+    if (SO_PAGINACAO.has(lacuna)) continue
+    const omitida = OMITIDAS.exec(lacuna)
+    if (omitida) {
+      omitidas = Math.max(omitidas, Number(omitida[1]))
+      continue
+    }
+    const thread = SEM_LEITURA.exec(lacuna)?.[1]
+    if (thread) {
+      if (!semLeitura.includes(thread)) semLeitura.push(thread)
+      continue
+    }
+    outras.push(lacuna)
+  }
+  return { semLeitura, omitidas, outras }
 }
 
-/** A linha da faixa: quantas entregas esperam a nota e quais; sem nenhuma (ou antes da primeira leitura), sem linha. */
+/** Quantas threads o retrato nao leu: as nomeadas nas lacunas e as omitidas. */
+export function threadsSemLeitura(lacunas: readonly string[]): number {
+  const { semLeitura, omitidas } = lacunasDoMaster(lacunas)
+  return semLeitura.length + omitidas
+}
+
+/** Os avisos da secao que veio incompleta, uma linha cada: as threads que o retrato nao leu e as outras lacunas. */
+export function avisosDasLacunas(lacunas: readonly string[]): string[] {
+  const { semLeitura, omitidas, outras } = lacunasDoMaster(lacunas)
+  const avisos: string[] = []
+  const sem = semLeitura.length + omitidas
+  if (sem) {
+    const nomes = semLeitura.slice(0, 3)
+    const resto = sem - nomes.length
+    const quais = nomes.length ? ` (${nomes.join(', ')}${resto > 0 ? ` e +${resto}` : ''})` : ''
+    avisos.push(`o retrato não leu ${plural(sem, 'thread', 'threads')}${quais}: a lista pode estar incompleta; ork master lista todas`)
+  }
+  if (outras.length) {
+    avisos.push(`o retrato do MASTER veio incompleto: ${plural(outras.length, 'lacuna', 'lacunas')} (${outras.slice(0, 3).join(', ')}${outras.length > 3 ? ', ...' : ''})`)
+  }
+  return avisos
+}
+
+/**
+ * A entrega cuja nota o nucleo registrou nesta sessao (ou que ja tinha nota humana) sai da lista na hora: a pagina que a
+ * ponte guarda por ate 60 s ainda pode lista-la. A entrega mais nova que a nota volta a esperar.
+ */
+export function semNotaDada(entregas: readonly RitualEntrega[], notas: Readonly<Record<string, RitualNota>>): RitualEntrega[] {
+  return entregas.filter(e => {
+    const n = notas[e.thread]
+    return !n || (n.estado !== 'registrada' && n.estado !== 'repetida') || n.em < Date.parse(e.entregueEm)
+  })
+}
+
+/**
+ * A linha da faixa: quantas entregas esperam a nota e quais; sem nenhuma (ou antes da primeira leitura), sem linha. Com
+ * thread que o retrato nao leu, a contagem e "pelo menos".
+ */
 export function textoDaFaixa(q: RitualQuadro): string | undefined {
   if (q.lidoEm === null || !q.entregas.length) return undefined
   const nomes = q.entregas.slice(0, 3).map(e => e.thread)
   const resto = q.entregas.length - nomes.length
-  return `${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota: ${nomes.join(', ')}${resto > 0 ? ` e +${resto}` : ''} · /nota`
+  return `${q.semLeitura ? 'pelo menos ' : ''}${plural(q.entregas.length, 'entrega espera', 'entregas esperam')} a sua nota: ${nomes.join(', ')}${resto > 0 ? ` e +${resto}` : ''} · /nota`
 }
 
 /** A thread do ledger que mudou (`classic.FileChanged`), quando o caminho e o ledger de uma thread. */

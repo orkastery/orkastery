@@ -40,10 +40,15 @@ interface DadosReciboLocal {
 }
 
 /**
- * RM-059 (T8.1, D3 da thread ork-rm059ritual): o recibo da nota do MASTER pelo dialogo nativo. Mesmo cofre e mesma
+ * RM-059 (T8.1, D3 e D12 da thread ork-rm059ritual): o recibo da nota do MASTER pelo dialogo nativo. Mesmo cofre e mesma
  * chave do gate; guarda o hash do porque, nunca o texto (o texto vai ao MASTER log da thread).
  */
 export const CONTRATO_RECIBO_DA_NOTA = 'ork.hitl-local-master-note/v1' as const;
+/**
+ * RM-059 (D12 da thread ork-rm059ritual): o `avaliadoPor` da nota pelo dialogo nativo. O host da conexao fica no
+ * `canal` e no recibo; a identidade e uma so, aceita pelo `autoriaHumana` de qualquer versao do `ork`.
+ */
+export const IDENTIDADE_DA_NOTA_NATIVA = 'dono (dialogo nativo)' as const;
 interface DadosReciboLocalNota {
   contrato: typeof CONTRATO_RECIBO_DA_NOTA; thread: string; pedidoId: string;
   host: 'claude-code' | 'codex'; connectionId: string; requestId: string; recebidoEm: string;
@@ -188,16 +193,17 @@ export function gravarEvidenciaLocalNota(raiz: string, dados: Omit<DadosReciboLo
 }
 
 /**
- * RM-059 (T8.1): reconfere o recibo da nota contra o que o MASTER gravou, o ultimo `master_done` (leitura) ou a prova
- * do `preflightMaster` (escrita). Recibo ausente, adulterado, de outra thread, de outra conexao ou com outra nota nao vale.
+ * RM-059 (T8.1, D12): confere o recibo da nota contra a prova do `preflightMaster` (escrita: sem ele a identidade da
+ * nota nativa nao se grava) ou contra um `master_done` ja gravado (auditoria: a prova do caminho, que nao decide se a
+ * nota vale). Recibo ausente, adulterado, de outra thread, de outra conexao, de outro host ou com outra nota nao confere.
  */
 export function conferirReciboLocalNota(raiz: string, thread: string, campos: Record<string, unknown>): boolean {
   try {
-    const por = String(campos.por ?? '');
-    if (!['mcp-local:codex', 'mcp-local:claude-code'].includes(por)) return false;
-    const host = por.slice('mcp-local:'.length) as 'claude-code' | 'codex';
+    if (campos.por !== IDENTIDADE_DA_NOTA_NATIVA || campos.origem !== 'mcp-local' ||
+        (campos.canal !== 'claude-code' && campos.canal !== 'codex')) return false;
+    const host = campos.canal;
     const pedidoId = (campos.notaPedida as { pedidoId?: unknown } | undefined)?.pedidoId;
-    if (campos.canal !== host || campos.contratoResposta !== CONTRATO_RECIBO_DA_NOTA || typeof pedidoId !== 'string' ||
+    if (campos.contratoResposta !== CONTRATO_RECIBO_DA_NOTA || typeof pedidoId !== 'string' ||
         typeof campos.conexao !== 'string' || typeof campos.solicitacao !== 'string' || typeof campos.recebidoEm !== 'string' ||
         !Number.isInteger(campos.score) || typeof campos.justificativa !== 'string' || typeof campos.evidencia !== 'string' ||
         !/^[a-f0-9]{64}$/.test(String(campos.evidenciaSha256 ?? '')) || !/^[a-f0-9]{64}$/.test(String(campos.recibo ?? ''))) return false;

@@ -24,7 +24,7 @@ const LISTA = [
   '● espera sua nota · ork-e · entregue 20/10 14:20 (horário de Brasília) · merge aaaaaaaa',
   '  proposta da fábrica esperando a sua nota',
   '  índice derivado do ledger: 4,5 de 5 (check_reverify x1) · ork master',
-  '  POSTMORTEM: classes sem-falha · 1 reprovação tipada',
+  '  POSTMORTEM da proposta: classes sem-falha · 1 reprovação tipada',
   'Ver a prova',
   'Dar a nota',
   '● espera sua nota · ork-b · entregue 19/10 14:20 (horário de Brasília) · merge aaaaaaaa',
@@ -85,18 +85,21 @@ test('dormente no inicio, o Ritual confere o papel de novo e liga quando a sessa
   expect(mundo.comandos).toEqual(['nota'])
 })
 
-test('as paginas da secao master: segue o nextOffset ate o fim e avisa, numa linha, o retrato que veio incompleto', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('as paginas da secao master: segue o nextOffset ate o fim; o corte por bytes nao e lacuna, e a thread sem leitura vira pelo menos', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const relogio = mock.clock(on, { now: EPOCA })
   const mundo = montar(on, { papel: 'dono', paginas: {
-    0: retratoMaster([itemMaster('ork-a', { dias: 2 })], { proxima: 1 }),
+    0: retratoMaster([itemMaster('ork-a', { dias: 2 })], { proxima: 1, lacunas: ['maestro.page.byte_limit'] }),
     1: retratoMaster([itemMaster('ork-b', { dias: 1 })], { offset: 1, lacunas: ['ledger.unavailable:ork-x', 'master.invalid:ork-y'] }),
   } })
   await iniciar($)
   await relogio.advance(1)
   await esperar(() => mundo.faixas.length > 0)
   expect(mundo.maestro).toEqual([{ section: 'master', offset: 0 }, { section: 'master', offset: 1 }])
+  expect(mundo.faixas.at(-1)).toEqual({ mod: 'ork-ritual', texto: 'pelo menos 2 entregas esperam a sua nota: ork-b, ork-a · /nota' })
   const textos = await textosDoPainel($, 'terminal')
-  expect(textos).toContain('o retrato do MASTER veio incompleto: 2 lacunas (ledger.unavailable:ork-x, master.invalid:ork-y)')
+  expect(textos[0]).toBe('Ritual do MASTER · pelo menos 2 entregas esperam a sua nota · lido há 0 s')
+  expect(textos).toContain('o retrato não leu 2 threads (ork-x, ork-y): a lista pode estar incompleta; ork master lista todas')
+  expect(textos.some(t => t.includes('veio incompleto'))).toBe(false)
   expect(textos.filter(t => t.startsWith('● '))).toEqual([
     '● espera sua nota · ork-b · entregue 19/10 14:20 (horário de Brasília) · merge aaaaaaaa',
     '● espera sua nota · ork-a · entregue 18/10 14:20 (horário de Brasília) · merge aaaaaaaa',
@@ -195,6 +198,27 @@ test('so o que esta na janela de rolagem do painel a vista vai ao registro da po
   await relogio.advance(60000)
   await esperar(() => false, 20)
   expect(mundo.mostrados.length).toBe(3)
+})
+
+test('o desenho com o painel escondido desde o inicio nao vai ao registro do mostrado, nem depois do tique', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const relogio = mock.clock(on, { now: EPOCA })
+  const mundo = montar(on, { papel: 'dono', paginas: PAGINAS, paineis: [] })
+  await iniciar($)
+  await relogio.advance(1)
+  await esperar(() => mundo.faixas.length > 0)
+  const ui = await montarPainel($, 'terminal')
+  expect((await textosDe(ui)).filter(t => t.startsWith('● ')).length).toBe(3)
+  await ui.unmount()
+  await relogio.advance(60000)
+  await esperar(() => false, 30)
+  expect(mundo.mostrados).toEqual([])
+  // O mesmo desenho com o painel a vista vai ao registro: a guarda e a do painel escondido, nao a do desenho.
+  mundo.paineis = A_VISTA
+  const aVista = await montarPainel($, 'terminal')
+  await aVista.unmount()
+  await relogio.advance(60000)
+  await esperar(() => mundo.mostrados.length > 2)
+  expect(mundo.mostrados.map(m => (m as { chave: string }).chave)).toEqual(['nota:ork-e', 'nota:ork-b', 'nota:ork-a'])
 })
 
 test('a leitura que falha fica no painel com o motivo e a anterior continua; sem entrega, a faixa sai e o painel diz que nada espera', { plugins: [PONTE_FALSA] }, async ($, on) => {
