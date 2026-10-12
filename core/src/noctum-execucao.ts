@@ -8,25 +8,32 @@
  * `rodarFase`, que toma o lease de condução e é idempotente para a mesma fase e o mesmo prompt. O desfecho volta ao log do
  * arco (`concluirDespacho`): a recusa do núcleo devolve a sessão ao orçamento.
  *
+ * A baseline que o bloco com GO no codex pede nunca roda entre a reserva e o lançamento (A1 do CHECK da ork-rm058n2): o
+ * despacho recusa com `baseline.pendente`, a reserva volta, a trava de despacho é solta e só então a baseline é gravada;
+ * o passo seguinte confere o envelope de novo e despacha. A falha de um candidato antes de lançar (abrir a thread, ler o
+ * pedido) devolve a reserva e o passo segue para o próximo (A4); a falha depois de chamar o núcleo deixa a reserva pendente,
+ * porque a sessão pode ter aberto, e sobe. A recusa tipada do arco, inclusive a do log adulterado, volta como resultado.
+ *
  * A revogação nunca espera um despacho: ela usa o lock do arco, e a trava de despacho é outra. Quem chama decide quando
  * chamar de novo (o vigia é da N4); a decisão da fila diz até quando esperar. Nada aqui liga o modo.
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { vagaDoDespacho } from './board';
-import { canalDoProcesso } from './conducao';
+import { canalDoProcesso, ErroDeConducao } from './conducao';
 import { exigirEstadoSemLink, raizDoEstado } from './estado-thread';
-import { kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
+import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from './fila-pesada';
 import { ManifestoCarregado } from './manifest';
 import { concluirDespacho, reservarDespacho } from './noctum-arco';
 import { admitir, Admissao, escolherConta, fatosDeCapacidade, LeituraDeSessoes } from './noctum-capacidade';
 import { envelopeComTrabalhos, RecusaDoArco } from './noctum-envelope';
-import { DecisaoDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila } from './noctum-fila';
+import { DecisaoDaFila, FatosDaFila, fatosDaFila, FilaDoArco, LeitorDeReservas, montarFila, MOTIVO_DO_ERRO_NO_DESPACHO } from './noctum-fila';
 import { OpcoesRun, resolverDespacho, ResultadoRun, rodarFase } from './phase';
 import { lerPerfis, perfilDisponivel } from './runtime-profiles';
 import { configDoBloco, lerSetup } from './setup';
 import { lerThread, novaThread, OpcoesNovaThread, pedidoDaThread } from './thread';
 import { Fase, Thread } from './types';
+import { ConducaoDoVerify, gravarBaseline } from './verify';
 
 /** Quanto o passo espera a vez de despachar antes de devolver `aguardar`: o despacho de outro arco leva segundos. */
 export const ESPERA_DA_VEZ_DE_DESPACHAR_MS = 30_000;
@@ -42,6 +49,8 @@ export interface OpcoesDoPasso {
   lerReservas?: LeitorDeReservas;
   consultarSessoes?: () => LeituraDeSessoes;
   perfis?: () => Array<{ id: string; runtime: string }>;
+  /** A baseline que o despacho pediu, gravada fora da trava de despacho; em produção, `gravarBaseline`. */
+  gravarBaseline?: (carregado: ManifestoCarregado, threadId: string, conducao: ConducaoDoVerify) => void;
 }
 
 export type ResultadoDoPasso =
@@ -87,6 +96,17 @@ const aguardar = (decisao: Extract<DecisaoDaFila, { acao: 'aguardar' }>, fila: F
 /** O motivo que sobra quando nenhum candidato coube: a máquina cheia vale para todos, e o resto é do último tentado. */
 const MOTIVOS_DE_MAQUINA: readonly string[] = ['capacidade.fonte-indisponivel', 'capacidade.projeto', 'capacidade.maquina'];
 
+/** As recusas da reserva que são só deste candidato (A4): a janela, a revogação, o hash e o log valem para todos. */
+const RECUSAS_DO_CANDIDATO: readonly string[] = ['noctum.despacho.fora-do-envelope', 'noctum.orcamento.esgotado'];
+
+const mensagem = (e: unknown): string => (e instanceof Error ? e.message : String(e)).slice(0, 500);
+
+type Recusado = Extract<ResultadoDoPasso, { acao: 'recusado' }>;
+/** O despacho que parou na baseline: a reserva já voltou, e a baseline roda depois de soltar a trava de despacho. */
+interface BaselinePendente { acao: 'baseline'; thread: string; fila: FilaDoArco }
+/** A recusa que é só deste candidato: o passo segue para o próximo. */
+type RecusaDoCandidato = Recusado & { seguir: true };
+
 /**
  * Um passo do arco: no máximo um despacho, pelo núcleo, com o envelope conferido imediatamente antes. Lança só o erro
  * que não é recusa (disco, git); toda recusa tipada volta como resultado.
@@ -104,8 +124,15 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
     return { acao: 'aguardar', ate: cadencia, motivo: 'despacho-em-curso', fila: null,
       detalhe: 'outro passo de arco desta máquina segura a vez de despachar' };
   }
+  let pendente: BaselinePendente | null = null;
   try {
-    const fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas });
+    let fatos: FatosDaFila;
+    try { fatos = fatosDaFila(carregado, arco, { quando, maquina: opcoes.maquina, lerReservas: opcoes.lerReservas }); }
+    catch (e) {
+      // S6 do CHECK: a recusa tipada do arco (o log adulterado, por exemplo) volta como resultado, e não como exceção.
+      if (!(e instanceof RecusaDoArco)) throw e;
+      return { acao: 'aguardar', ate: cadencia, motivo: e.motivo, detalhe: e.message, fila: null };
+    }
     const fila = montarFila(fatos);
     if (fila.decisao.acao === 'encerrar') return { acao: 'encerrar', motivo: fila.decisao.motivo, fila };
     if (fila.decisao.acao === 'aguardar') return aguardar(fila.decisao, fila);
@@ -117,10 +144,19 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
     const capacidade = fatosDeCapacidade(carregado, { quando, consultar: opcoes.consultarSessoes });
     const perfis = (opcoes.perfis ?? (() => perfisDisponiveis(raiz, Date.parse(quando))))();
     let recusa: Extract<Admissao, { ok: false }> | null = null;
+    let doCandidato: Recusado | null = null;
     for (const candidato of fila.candidatos) {
       const fase = candidato.fase!;
-      const thread = candidato.thread ? lerThread(raiz, candidato.thread) : null;
-      const runtime = runtimeDaFase(carregado, thread?.modo ?? 'auto', fase);
+      let thread: Thread | null, runtime: string;
+      try {
+        thread = candidato.thread ? lerThread(raiz, candidato.thread) : null;
+        runtime = runtimeDaFase(carregado, thread?.modo ?? 'auto', fase);
+      } catch (e) {
+        // A4 do CHECK: a thread que não se lê ou o bloco sem runtime são deste candidato; os outros seguem.
+        doCandidato = { acao: 'recusado', trabalho: candidato.id, thread: candidato.thread, fase, motivo: MOTIVO_DO_ERRO_NO_DESPACHO,
+          detalhe: mensagem(e), reserva: null, fila };
+        continue;
+      }
       const doRuntime = perfis.filter(p => p.runtime === runtime).map(p => p.id);
       // A conta com mais folga; sem folga em nenhuma, a primeira do envelope no runtime, para `admitir` dizer o motivo na
       // ordem dele (a máquina cheia antes da conta).
@@ -136,12 +172,41 @@ export function passoDoArco(carregado: ManifestoCarregado, arco: string, opcoes:
         if (MOTIVOS_DE_MAQUINA.includes(admissao.motivo)) break;
         continue;
       }
-      return despacharCandidato(carregado, arco, fila, { trabalho: candidato.id, thread, item: candidato.item, fase, runtime,
+      const r = despacharCandidato(carregado, arco, fila, { trabalho: candidato.id, thread, item: candidato.item, fase, runtime,
         conta: conta!, quando, pedido: conteudo.trabalhos.find(t => t.id === candidato.id)?.pedido ?? null }, opcoes);
+      if (r.acao === 'baseline') { pendente = r; break; }
+      if ('seguir' in r) {
+        const { seguir: _seguir, ...recusado } = r;
+        doCandidato = recusado;
+        continue;
+      }
+      return r;
     }
-    return { acao: 'aguardar', ate: new Date(Math.min(Date.parse(quando) + 5 * 60_000, Date.parse(conteudo.janela.fim))).toISOString(),
-      motivo: recusa?.motivo ?? 'capacidade', detalhe: recusa?.detalhe ?? 'nenhum candidato coube', fila };
+    if (!pendente) {
+      // Sem vaga para ninguém, espera a vaga; sem vaga por erro de candidato, diz o erro.
+      if (doCandidato && !recusa) return doCandidato;
+      return { acao: 'aguardar', ate: new Date(Math.min(Date.parse(quando) + 5 * 60_000, Date.parse(conteudo.janela.fim))).toISOString(),
+        motivo: recusa?.motivo ?? 'capacidade', detalhe: recusa?.detalhe ?? 'nenhum candidato coube', fila };
+    }
   } finally { fs.closeSync(fd); }
+  return baselineForaDaTrava(carregado, arco, pendente, cadencia, opcoes);
+}
+
+/**
+ * A1 do CHECK: a baseline que o despacho pediu, com a trava de despacho já solta (os outros arcos não esperam a suíte).
+ * Ela espera a fila de recursos pesados como todo verify; sem a vez, ou com a thread conduzida, o passo espera a cadência.
+ */
+function baselineForaDaTrava(carregado: ManifestoCarregado, arco: string, p: BaselinePendente, cadencia: string,
+  opcoes: OpcoesDoPasso): ResultadoDoPasso {
+  const conducao: ConducaoDoVerify = { canal: canalDoProcesso(), correlacao: `noctum:${arco}` };
+  try {
+    (opcoes.gravarBaseline ?? ((k, t, c) => { gravarBaseline(k, t, undefined, c, 'phase.run'); }))(carregado, p.thread, conducao);
+  } catch (e) {
+    if (!(e instanceof ErroDaFilaPesada) && !(e instanceof ErroDeConducao)) throw e;
+    return { acao: 'aguardar', ate: cadencia, motivo: 'baseline-pendente', detalhe: mensagem(e), fila: p.fila };
+  }
+  return { acao: 'aguardar', ate: new Date().toISOString(), motivo: 'baseline-gravada', fila: p.fila,
+    detalhe: `a baseline da thread ${p.thread} foi gravada fora da trava de despacho; o próximo passo confere o envelope e despacha` };
 }
 
 /** Reserva, abre a thread quando falta e despacha pelo núcleo; o desfecho volta ao log do arco. */
@@ -149,7 +214,7 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
   c: { trabalho: string; thread: Thread | null; item: string; fase: Fase; runtime: string; conta: string; quando: string;
     /** O pedido do dono, para a thread que o arco abre; `null` no trabalho que já é uma thread. */
     pedido: string | null },
-  opcoes: OpcoesDoPasso): ResultadoDoPasso {
+  opcoes: OpcoesDoPasso): ResultadoDoPasso | BaselinePendente | RecusaDoCandidato {
   const { raiz } = carregado;
   let reserva: number;
   try {
@@ -157,34 +222,40 @@ function despacharCandidato(carregado: ManifestoCarregado, arco: string, fila: F
       fase: c.fase, runtime: c.runtime, conta: c.conta, revisao: c.fase === 'CHECK' }, c.quando).seq;
   } catch (e) {
     if (!(e instanceof RecusaDoArco)) throw e;
-    return { acao: 'recusado', trabalho: c.trabalho, thread: c.thread?.id ?? null, fase: c.fase, motivo: e.motivo, detalhe: e.message,
-      reserva: null, fila };
+    const r: Recusado = { acao: 'recusado', trabalho: c.trabalho, thread: c.thread?.id ?? null, fase: c.fase, motivo: e.motivo,
+      detalhe: e.message, reserva: null, fila };
+    return RECUSAS_DO_CANDIDATO.includes(e.motivo) ? { ...r, seguir: true } : r;
   }
-  const recusar = (motivo: string, detalhe: string, thread: string | null): ResultadoDoPasso => {
+  const recusar = (motivo: string, detalhe: string, thread: string | null): Recusado => {
     concluirDespacho(raiz, arco, reserva, { motivo });
     return { acao: 'recusado', trabalho: c.trabalho, thread, fase: c.fase, motivo, detalhe, reserva, fila };
   };
+  let thread = c.thread;
+  let pedido: { texto: string } | null;
   try {
-    let thread = c.thread;
     if (!thread) {
-      if (!c.pedido) return recusar('noctum.despacho.pedido-ausente', `o trabalho ${c.trabalho} não traz pedido para abrir a thread`, null);
+      if (!c.pedido) return { ...recusar('noctum.despacho.pedido-ausente', `o trabalho ${c.trabalho} não traz pedido para abrir a thread`, null), seguir: true };
       thread = (opcoes.abrirThread ?? ((k, o) => novaThread(k, o).thread))(carregado, { nome: `${c.item.toLowerCase()} ${c.trabalho}`,
         modo: 'auto', roadmap: c.item, pedido: c.pedido, criarWorktree: true });
     }
-    const pedido = pedidoDaThread(raiz, thread);
-    if (!pedido) return recusar('noctum.despacho.pedido-ausente', `a thread ${thread.id} não guardou o pedido`, thread.id);
-    const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedido.texto, perfil: c.conta,
-      canal: canalDoProcesso(), correlacao: `noctum:${arco}` });
-    if (r.bloqueado || (!r.sessionId && !r.idempotente)) {
-      return recusar(String(r.motivo ?? 'despacho.sem-sessao'), r.erro ?? 'o núcleo não abriu sessão', thread.id);
-    }
-    concluirDespacho(raiz, arco, reserva, { thread: thread.id, sessionId: r.sessionId, idempotente: r.idempotente === true });
-    return { acao: 'despachou', trabalho: c.trabalho, thread: thread.id, fase: c.fase, runtime: c.runtime, conta: c.conta,
-      sessionId: r.sessionId, idempotente: r.idempotente === true, reserva, fila };
+    pedido = pedidoDaThread(raiz, thread);
   } catch (e) {
-    // A falha no meio (disco, git) devolve a sessão e sobe: o passo seguinte relê tudo, e a thread aberta é achada pelo pedido.
-    try { concluirDespacho(raiz, arco, reserva, { motivo: 'noctum.despacho.erro' }); } catch { /* a reserva fica pendente e conta */ }
-    throw e;
+    // A4 do CHECK: a falha antes de lançar (abrir a thread, ler o pedido) é deste candidato: a reserva volta e o passo segue.
+    return { ...recusar(MOTIVO_DO_ERRO_NO_DESPACHO, mensagem(e), thread?.id ?? null), seguir: true };
   }
+  if (!pedido) return { ...recusar('noctum.despacho.pedido-ausente', `a thread ${thread.id} não guardou o pedido`, thread.id), seguir: true };
+  // S5 do CHECK: a falha de dentro do núcleo pode ter aberto a sessão; ela sobe, e a reserva fica pendente e conta.
+  const r = (opcoes.despachar ?? rodarFase)(carregado, thread.id, { fase: c.fase, prompt: pedido.texto, perfil: c.conta,
+    canal: canalDoProcesso(), correlacao: `noctum:${arco}`, baselinePeloDespacho: false });
+  if (r.motivo === 'baseline.pendente') {
+    concluirDespacho(raiz, arco, reserva, { motivo: 'baseline.pendente' });
+    return { acao: 'baseline', thread: thread.id, fila };
+  }
+  if (r.bloqueado || (!r.sessionId && !r.idempotente)) {
+    return recusar(String(r.motivo ?? 'despacho.sem-sessao'), r.erro ?? 'o núcleo não abriu sessão', thread.id);
+  }
+  concluirDespacho(raiz, arco, reserva, { thread: thread.id, sessionId: r.sessionId, idempotente: r.idempotente === true });
+  return { acao: 'despachou', trabalho: c.trabalho, thread: thread.id, fase: c.fase, runtime: c.runtime, conta: c.conta,
+    sessionId: r.sessionId, idempotente: r.idempotente === true, reserva, fila };
 }
 

@@ -13,9 +13,9 @@ import { abrirArco, concluirFase, entregar, gravarArtefato, prepararIngressoSimu
 import { passoDoArco, OpcoesDoPasso, ResultadoDoPasso } from '../src/noctum-execucao';
 import { lerArco } from '../src/noctum-arco';
 import { registrarConducaoDaSessao } from '../src/conducao';
-import { kernelDisponivel } from '../src/fila-pesada';
+import { ErroDaFilaPesada, kernelDisponivel, tentarTravaExclusiva } from '../src/fila-pesada';
 import { registrar } from '../src/ledger';
-import { ResultadoRun } from '../src/phase';
+import { OpcoesRun, ResultadoRun } from '../src/phase';
 import { dirThread, lerThread, listarIds, novaThread } from '../src/thread';
 
 prepararIngressoSimulado();
@@ -195,23 +195,31 @@ test('X5: o despacho que o núcleo recusa devolve a sessão ao orçamento e diz 
     const estado = lerArco(p.dir, 'arco-x5')!;
     assert.equal(estado.despachos[0].desfecho, 'recusado');
     assert.equal(estado.consumo.arco, 0, 'a recusa devolveu a sessão');
+    // O núcleo que volta sem sessão e sem idempotência também não despachou nada: é recusa, e a sessão volta.
+    const semSessao = passo(p, 'arco-x5', { despachar: () => ({ sessionId: null, bloqueado: false, motivo: null }) as unknown as ResultadoRun });
+    assert.ok(semSessao.acao === 'recusado' && semSessao.motivo === 'despacho.sem-sessao', JSON.stringify(semSessao.acao));
+    assert.deepEqual(lerArco(p.dir, 'arco-x5')!.despachos.map(d => d.desfecho), ['recusado', 'recusado']);
+    assert.equal(lerArco(p.dir, 'arco-x5')!.consumo.arco, 0);
   } finally { p.limpar(); }
 });
 
-test('X6: a queda entre abrir a thread e despachar não duplica a thread: o passo seguinte acha a dela pelo pedido', { skip: semKernel }, () => {
+test('X6: a queda dentro do núcleo sobe e deixa a reserva pendente; o passo seguinte acha a thread pelo pedido, sem duplicar', { skip: semKernel }, () => {
   const p = projetoTemporario('noctum-x6');
   try {
     abrirArco(p.dir, 'arco-x6', { trabalhos: AC });
     assert.throws(() => passo(p, 'arco-x6', { despachar: () => { throw new Error('queda SIMULADA do processo'); } }), /queda SIMULADA/);
     assert.equal(threadsDoItem(p, 'RM-901').length, 1);
+    // A sessão pode ter aberto antes da queda: a reserva fica pendente e conta no orçamento até a N4 reconciliar.
+    assert.deepEqual(lerArco(p.dir, 'arco-x6')!.despachos.map(d => d.desfecho), ['pendente']);
+    assert.equal(lerArco(p.dir, 'arco-x6')!.consumo.arco, 1);
     const registro: string[] = [];
     const r = passo(p, 'arco-x6', { despachar: despachoSimulado(registro) });
     assert.ok(r.acao === 'despachou' && r.trabalho === 'a', JSON.stringify(r.acao));
     assert.equal(threadsDoItem(p, 'RM-901').length, 1, 'a mesma thread, não uma segunda');
     assert.equal(registro.length, 1);
     const estado = lerArco(p.dir, 'arco-x6')!;
-    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['recusado', 'concluido']);
-    assert.equal(estado.consumo.arco, 1);
+    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['pendente', 'concluido']);
+    assert.equal(estado.consumo.arco, 2);
   } finally { p.limpar(); }
 });
 
@@ -244,5 +252,99 @@ test('X8: sem conta do envelope no runtime, ou com a fonte de sessões falhando,
       fontes: [{ origem: 'claude agents --json (perfil perfil-a)', ok: false, detalhe: 'saiu 1' }] }) });
     assert.ok(falha.acao === 'aguardar' && falha.motivo === 'capacidade.fonte-indisponivel');
     assert.equal(lerArco(p.dir, 'arco-x8')!.despachos.length, 0);
+  } finally { p.limpar(); }
+});
+
+test('X9: a vaga do projeto cheia (o portão do phase run) espera sem reservar, com a máquina e a conta livres', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x9');
+  try {
+    abrirArco(p.dir, 'arco-x9', { trabalhos: [AC[0]], maquina: 3 });
+    p.carregado.manifesto.concurrency.max_parallel_threads = 1;
+    const outra = novaThread(p.carregado, { nome: 'outra do projeto', modo: 'auto' }).thread;
+    const sessionId = '00000000-0000-4000-8000-0000000000e1';
+    registrarConducaoDaSessao(p.dir, outra.id, { canal: 'cli', operacao: 'phase.run', fase: 'GOAL', prazoMs: 3600_000 },
+      { sessionId, runtime: 'claude-bg', perfil: null });
+    registrar(dirThread(p.dir, outra.id), outra.id, 'phase_dispatch', { fase: 'GOAL', sessionId, runtime: 'claude-bg', pausaAoFim: false });
+    const r = passo(p, 'arco-x9');
+    assert.ok(r.acao === 'aguardar' && r.motivo === 'capacidade.projeto', JSON.stringify(r.acao === 'aguardar' ? r.motivo : r.acao));
+    assert.equal(lerArco(p.dir, 'arco-x9')!.despachos.length, 0);
+    assert.equal(threadsDoItem(p, 'RM-901').length, 0);
+  } finally { p.limpar(); }
+});
+
+test('X10: a baseline que o despacho pede roda fora da trava de despacho, e o passo seguinte confere de novo e despacha', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x10');
+  try {
+    abrirArco(p.dir, 'arco-x10', { trabalhos: [AC[0]] });
+    const pedidos: OpcoesRun[] = [];
+    let baselineGravada = false;
+    const simulado = despachoSimulado();
+    const despachar: NonNullable<OpcoesDoPasso['despachar']> = (k, threadId, o) => {
+      pedidos.push(o);
+      if (!baselineGravada) return { sessionId: null, bloqueado: true, motivo: 'baseline.pendente', erro: 'baseline.pendente: SIMULADO' } as unknown as ResultadoRun;
+      return simulado(k, threadId, o);
+    };
+    // Sem a vez da fila pesada, o passo espera a cadência e nada despacha.
+    const recusa = { contrato: 'ork.fila-pesada-recusa/v1' as const, motivo: 'fila-pesada.ocupada' as const, operacao: 'baseline', thread: null,
+      slots: 1, esperouMs: 0, ocupantes: [], texto: 'fila SIMULADA ocupada' };
+    const semVez = passo(p, 'arco-x10', { despachar, gravarBaseline: () => { throw new ErroDaFilaPesada(recusa); } });
+    assert.ok(semVez.acao === 'aguardar' && semVez.motivo === 'baseline-pendente', JSON.stringify(semVez.acao));
+    let travaLivre: boolean | null = null;
+    const r1 = passo(p, 'arco-x10', { despachar, gravarBaseline: (_k, _t, conducao) => {
+      // Outro arco pode despachar enquanto a suíte roda: a trava de despacho já foi solta.
+      const fd = tentarTravaExclusiva(path.join(p.dir, '.orkastery', 'noctum', 'despacho.lock'));
+      travaLivre = fd !== null;
+      if (fd !== null) fs.closeSync(fd);
+      assert.equal(conducao.correlacao, 'noctum:arco-x10');
+      baselineGravada = true;
+    } });
+    assert.ok(r1.acao === 'aguardar' && r1.motivo === 'baseline-gravada', JSON.stringify(r1.acao));
+    assert.equal(travaLivre, true, 'a baseline rodou fora da trava de despacho');
+    assert.ok(pedidos.length >= 2 && pedidos.every(o => o.baselinePeloDespacho === false), 'o arco nunca roda a suíte entre a reserva e o lançamento');
+    let estado = lerArco(p.dir, 'arco-x10')!;
+    assert.deepEqual(estado.despachos.map(d => `${d.desfecho}:${d.motivo}`), ['recusado:baseline.pendente', 'recusado:baseline.pendente']);
+    assert.equal(estado.consumo.arco, 0, 'as reservas voltaram');
+    const r2 = passo(p, 'arco-x10', { despachar });
+    assert.ok(r2.acao === 'despachou' && r2.trabalho === 'a', JSON.stringify(r2.acao));
+    estado = lerArco(p.dir, 'arco-x10')!;
+    assert.deepEqual(estado.despachos.map(d => d.desfecho), ['recusado', 'recusado', 'concluido']);
+    assert.equal(threadsDoItem(p, 'RM-901').length, 1, 'a thread aberta no primeiro passo é a que despacha');
+  } finally { p.limpar(); }
+});
+
+test('X11: a falha de um candidato antes de lançar devolve a reserva e o mesmo passo despacha o próximo; três seguidas o bloqueiam', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x11');
+  try {
+    abrirArco(p.dir, 'arco-x11', { trabalhos: AC });
+    const abrirThread: NonNullable<OpcoesDoPasso['abrirThread']> = (k, o) => {
+      if (o.roadmap === 'RM-901') throw new Error('worktree SIMULADA não pôde ser criada');
+      return novaThread(k, { ...o, criarWorktree: false }).thread;
+    };
+    const r1 = passo(p, 'arco-x11', { abrirThread });
+    assert.ok(r1.acao === 'despachou' && r1.trabalho === 'c', JSON.stringify(r1.acao));
+    // Só a falha de candidato, sem vaga recusada: o passo diz o erro, em vez de esperar.
+    const r2 = passo(p, 'arco-x11', { abrirThread });
+    assert.ok(r2.acao === 'recusado' && r2.trabalho === 'a' && r2.motivo === 'noctum.despacho.erro', JSON.stringify(r2.acao));
+    assert.match(r2.acao === 'recusado' ? r2.detalhe : '', /worktree SIMULADA/);
+    passo(p, 'arco-x11', { abrirThread });
+    const estado = lerArco(p.dir, 'arco-x11')!;
+    assert.deepEqual(estado.despachos.map(d => `${d.trabalho}:${d.desfecho}`), ['a:recusado', 'c:concluido', 'a:recusado', 'a:recusado']);
+    assert.equal(estado.consumo.arco, 1, 'as falhas devolveram as sessões');
+    const r4 = passo(p, 'arco-x11', { abrirThread });
+    assert.ok(r4.acao === 'aguardar' && r4.motivo === 'em-curso', JSON.stringify(r4.acao));
+    assert.equal(r4.acao === 'aguardar' && r4.fila?.trabalhos.find(t => t.id === 'a')?.motivo, 'erro-repetido');
+    assert.equal(lerArco(p.dir, 'arco-x11')!.despachos.length, 4, 'o trabalho bloqueado não ganha reserva nova');
+  } finally { p.limpar(); }
+});
+
+test('X12: o log do arco adulterado volta como recusa tipada do passo, sem exceção e sem despacho', { skip: semKernel }, () => {
+  const p = projetoTemporario('noctum-x12');
+  try {
+    abrirArco(p.dir, 'arco-x12', { trabalhos: AC });
+    fs.appendFileSync(path.join(p.dir, '.orkastery', 'noctum', 'arcos', 'arco-x12', 'arco.jsonl'),
+      JSON.stringify({ tipo: 'despacho_concluido', reserva: 1 }) + '\n');
+    const r = passo(p, 'arco-x12');
+    assert.ok(r.acao === 'aguardar' && r.motivo === 'noctum.estado.adulterado', JSON.stringify(r.acao === 'aguardar' ? r.motivo : r.acao));
+    assert.equal(listarIds(p.dir).length, 0);
   } finally { p.limpar(); }
 });
