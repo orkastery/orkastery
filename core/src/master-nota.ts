@@ -23,8 +23,14 @@
  *
  * LIMITE DITO: o canal do processo e declarado pelo ambiente (`canalDoProcesso`). Ele serve para
  * RECUSAR, nunca para autorizar, e um agente que apague as variaveis do proprio host de proposito
- * passa como terminal. Essa e a mesma fronteira do `humano-no-cli` do SHIP; fecha-la de vez exige o
- * dialogo nativo do host para a nota, que fica fora desta entrega.
+ * passa como terminal. Essa e a mesma fronteira do `humano-no-cli` do SHIP.
+ *
+ * RM-059 (fatia F8, T8.1): a sessao de host ganhou o caminho com recibo que faltava, o dialogo
+ * nativo (`ork_request_master_note`, em `master-nota-local.ts`): so o `threadId` entra pela
+ * ferramenta, a nota e o porque vem do formulario do host, e o MASTER grava `mcp-local:<host>` com o
+ * recibo assinado do ingresso local. O que fica: o `--por` do terminal continua sem prova, a recusa
+ * pelo ambiente continua sendo so recusa, e o recibo local prova o caminho, nao a pessoa (quem ja
+ * roda como o mesmo usuario do sistema le a chave local e forja o recibo).
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';

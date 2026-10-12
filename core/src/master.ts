@@ -41,6 +41,7 @@ import { calcularIndice, Indice } from './indice';
 import { registrarReversaoDaEntrega } from './ship';
 import { publicarEmSegundoPlano } from './fabrica-publicar';
 import { liberarAoFechar } from './fechamento';
+import { conferirReciboLocalNota } from './hitl-local-receipt';
 
 /** Identificador do contrato congelado do MASTER log. */
 export const CONTRATO_MASTER_LOG = 'ork.master-log/v1';
@@ -449,18 +450,47 @@ export function exigirAutoriaHumana(por: unknown): asserts por is string {
   if (!autoriaHumana(por)) throw new Error('ratificação exige --por humano explícito (ex.: --por "seu-nome"); agente ou autoria pendente não pode pontuar');
 }
 
+/**
+ * RM-059 (T8.1, D3 da thread ork-rm059ritual): as identidades do ingresso local do MCP. `autoriaHumana` as recusa (o
+ * nome do host casa com a lista de agentes), e isso fica: no `--por` elas nao se digitam. Elas so valem com o recibo
+ * assinado do dialogo nativo (`ork_request_master_note`), conferido na escrita e em toda leitura (`masterRatificado`).
+ */
+export const IDENTIDADES_DO_INGRESSO_LOCAL = ['mcp-local:claude-code', 'mcp-local:codex'] as const;
+export function identidadeDoIngressoLocal(por: unknown): por is typeof IDENTIDADES_DO_INGRESSO_LOCAL[number] {
+  return typeof por === 'string' && (IDENTIDADES_DO_INGRESSO_LOCAL as readonly string[]).includes(por);
+}
+function exigirReciboDoIngressoLocal(raiz: string, id: string, opcoes: OpcoesMaster): void {
+  if (!opcoes.prova || !conferirReciboLocalNota(raiz, id, { ...opcoes.prova, por: opcoes.por, score: opcoes.score,
+    justificativa: opcoes.justificativa.trim() })) {
+    throw new Error(`a identidade ${String(opcoes.por)} é do ingresso local do MCP e só vale com o recibo do diálogo nativo ` +
+      '(ork_request_master_note); ela não se digita no --por');
+  }
+}
+
+/** A thread tem nota humana, e nao a aceita por omissao: declarada no `--por` ou dada pelo ingresso local com recibo. */
+export function notaHumanaRegistrada(raiz: string, t: Thread): boolean {
+  if (!t.score || t.score.regime === 'omissao') return false;
+  if (autoriaHumana(t.score.avaliadoPor)) return true;
+  return identidadeDoIngressoLocal(t.score.avaliadoPor) && masterRatificado(raiz, t.id);
+}
+
 export function masterRatificado(raiz: string, id: string): boolean {
   const t = lerThread(raiz, id);
-  if (!t.score || !autoriaHumana(t.score.avaliadoPor) || t.fechamentoAdmin) return false;
+  if (!t.score || t.fechamentoAdmin) return false;
+  const declarada = autoriaHumana(t.score.avaliadoPor);
+  if (!declarada && !identidadeDoIngressoLocal(t.score.avaliadoPor)) return false;
   const e = [...lerLedger(dirThread(raiz, id))].reverse().find(e => e.tipo === TIPOS_DE_EVENTO.masterConcluido);
-  return !!e && e.por === t.score.avaliadoPor && e.score === t.score.valor && e.justificativa === t.score.justificativa;
+  if (!e || e.por !== t.score.avaliadoPor || e.score !== t.score.valor || e.justificativa !== t.score.justificativa) return false;
+  // RM-059 (T8.1, D3): a identidade do ingresso local so vale com o recibo assinado que confere com este evento.
+  return declarada || conferirReciboLocalNota(raiz, id, e);
 }
 
 /** Preflight reutilizado pelo lote, sem escrita. */
 export function preflightMaster(raiz: string, id: string, opcoes: OpcoesMaster): ResultadoMaster {
   // Mantém erros de valor e duplicação anteriores ao erro de autoria.
   const r = prepararDocumentos(raiz, id, opcoes);
-  exigirAutoriaHumana(opcoes.por);
+  if (identidadeDoIngressoLocal(opcoes.por)) exigirReciboDoIngressoLocal(raiz, id, opcoes);
+  else exigirAutoriaHumana(opcoes.por);
   const erros = validarMasterLog(r.masterLog);
   if (erros.length) throw new Error(erros.join('; '));
   return r;
@@ -534,7 +564,8 @@ export function validarMasterLog(bruto: unknown): string[] {
   if (typeof log.avaliadoEm !== 'string' || Number.isNaN(Date.parse(log.avaliadoEm))) {
     erros.push('campo "avaliadoEm" deve ser um carimbo ISO valido');
   }
-  if (!autoriaHumana(log.avaliadoPor)) erros.push('avaliadoPor precisa de autoria humana explícita');
+  // RM-059 (T8.1, D3): o contrato aceita a forma da identidade do ingresso local; o recibo e conferido em masterRatificado.
+  if (!autoriaHumana(log.avaliadoPor) && !identidadeDoIngressoLocal(log.avaliadoPor)) erros.push('avaliadoPor precisa de autoria humana explícita');
   return erros;
 }
 

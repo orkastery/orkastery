@@ -25,6 +25,7 @@ import { montarPanoramaDaRede, redeDoProjetoFixado, textoDoPanoramaDaRede } from
 import { jsonDaRede, textoDaRede } from './rede-status';
 import { controleNativo } from './hitl-sessions';
 import { criarIngressoLocal } from './hitl-local';
+import { criarIngressoDaNota } from './master-nota-local';
 import {lerArtefatoMcp,escreverArtefatoMcp,listarClaimsMcp,adicionarClaimMcp,validarArquivosEstadoMcp} from './mcp-artifacts';
 import {commitMcp,estadoGitMcp} from './mcp-git';
 import {preflight} from './preflight';
@@ -265,7 +266,7 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   function registrarTool<S extends z.AnyZodObject>(nome:string,
     config:{description:string;inputSchema:S;annotations:Tool['annotations']},
     executar:(args:z.infer<S>,extra:{signal:AbortSignal})=>Promise<CallToolResult>) {
-    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_preflight'].includes(nome)) return;
+    if(opcoes.threadId && ['ork_thread_new','ork_phase_run','ork_request_decision','ork_request_master_note','ork_preflight'].includes(nome)) return;
     const entrada=config.inputSchema.extend({projeto:campoProjeto.optional()});
     const schema=converterSchema(entrada,{$refStrategy:'none'});
     ferramentas.set(nome,{tool:{name:nome,description:config.description,annotations:config.annotations,
@@ -286,7 +287,8 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
       return {...resposta({erro:(e as Error).message}),isError:true};
     }
   });
-  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:randomUUID()},async (pedido,signal) => {
+  const conexaoLocal=randomUUID();
+  const ingresso = criarIngressoLocal(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (pedido,signal) => {
     carregar(); thread(pedido.thread);
     // D12: pergunta nativa que aceita texto NAO vira menu. Um menu sobre pergunta aberta
     // muda a pergunta, e a resposta que chega a sessao deixa de ser a do humano.
@@ -307,7 +309,15 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
     const parsed = z.object({opcao:z.string().min(1).max(limite)}).strict().parse(r.content);
     return {action:'accept',content:parsed};
   });
-  server.onclose = () => ingresso.fechar();
+  // RM-059 (fatia F8, T8.1): a nota do MASTER pelo mesmo ingresso local. O formulario e fixo (a nota de 0 a 5 e o
+  // porque); sem a capacidade de formulario no cliente, a recusa vem antes de qualquer escrita.
+  const ingressoDaNota = criarIngressoDaNota(raiz,{host:opcoes.host,connectionId:conexaoLocal},async (apresentacao,signal) => {
+    carregar(); thread(apresentacao.thread);
+    const r = await server.elicitInput({ mode:'form', message:apresentacao.mensagem,
+      requestedSchema:apresentacao.esquema },{signal,timeout:300000});
+    return r.action === 'accept' ? {action:'accept',content:r.content} : {action:r.action};
+  },()=>Boolean(server.getClientCapabilities()?.elicitation?.form));
+  server.onclose = () => { ingresso.fechar(); ingressoDaNota.fechar(); };
   registerBrainTools(registrarTool,carregar,thread,opcoes.brainWrites??[]);
   registrarConsultasExperiencia(registrarTool, { raiz, carregar, transporte: opcoes.transporteShip ?? 'github-ssh' });
   registerMaestro(registrarTool,{root:raiz,threadId:opcoes.threadId,load:carregar,checkThread:thread,tools:()=>[...ferramentas.keys()]});
@@ -463,6 +473,10 @@ export function criarServidorMcp(opcoes: OpcoesServidorMcp): Server {
   registrarTool('ork_request_decision',{description:'Apresenta pedido existente ao dono por dialogo nativo. Somente IDs; nunca forneca resposta nos argumentos.',
     inputSchema:daDecisao,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId,pedidoId},extra) => {
       thread(threadId); return resposta(await ingresso.solicitar(threadId,pedidoId,extra.signal));
+    });
+  registrarTool('ork_request_master_note',{description:'Pede ao dono, pelo dialogo nativo do host, a nota de 0 a 5 e o porque de uma entrega. Somente o threadId; nunca forneca nota nem porque nos argumentos.',
+    inputSchema:daThread,annotations:{readOnlyHint:false,destructiveHint:false}},async ({threadId},extra) => {
+      thread(threadId); return resposta(await ingressoDaNota.solicitar(threadId,extra.signal));
     });
   // RM-031 KG5 (D2): as tools do grafo so existem com a flag do manifesto da raiz no startup; sem ela, nada muda.
   // CHECK rodada 1 (S8): o startup le so o manifesto, como antes; as conferencias de estado ficam na chamada.

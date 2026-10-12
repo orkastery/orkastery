@@ -39,6 +39,17 @@ interface DadosReciboLocal {
   fase: VereditoGate['fase']; sobre: string; estado: VereditoGate['estado']; opcao: number | null;
 }
 
+/**
+ * RM-059 (T8.1, D3 da thread ork-rm059ritual): o recibo da nota do MASTER pelo dialogo nativo. Mesmo cofre e mesma
+ * chave do gate; guarda o hash do porque, nunca o texto (o texto vai ao MASTER log da thread).
+ */
+export const CONTRATO_RECIBO_DA_NOTA = 'ork.hitl-local-master-note/v1' as const;
+interface DadosReciboLocalNota {
+  contrato: typeof CONTRATO_RECIBO_DA_NOTA; thread: string; pedidoId: string;
+  host: 'claude-code' | 'codex'; connectionId: string; requestId: string; recebidoEm: string;
+  score: number; justificativaSha256: string;
+}
+
 const sha = (v: string | Buffer): string => createHash('sha256').update(v).digest('hex');
 const uid = (): number => {
   const atual = process.getuid?.();
@@ -98,7 +109,7 @@ export function chaveLocal(raiz: string, criar: boolean): Buffer {
   } finally { fs.closeSync(dfd); }
 }
 
-const assinatura = (chave: Buffer, dados: DadosReciboLocal | DadosReciboLocalSessao): string =>
+const assinatura = (chave: Buffer, dados: DadosReciboLocal | DadosReciboLocalSessao | DadosReciboLocalNota): string =>
   createHmac('sha256', chave).update(JSON.stringify(dados)).digest('hex');
 
 function referencia(thread: string, nome: string): string {
@@ -132,7 +143,7 @@ const nomeDoRecibo = (a: AtestacaoLocal): string =>
  * Escrita atomica e conferida do recibo assinado. Extraida porque gate e sessao gravam a
  * mesma coisa em lugares diferentes do contrato: duplicar aqui seria duplicar o cofre.
  */
-function gravarRecibo<D extends DadosReciboLocal | DadosReciboLocalSessao>(
+function gravarRecibo<D extends DadosReciboLocal | DadosReciboLocalSessao | DadosReciboLocalNota>(
   raiz: string, thread: string, nome: string, dados: D
 ): { arquivo: string; sha256: string; recibo: string } {
   const chave = chaveLocal(raiz, true);
@@ -168,6 +179,39 @@ export function gravarEvidenciaLocal(atestado: AtestacaoLocal, veredito: Veredit
     host: atestado.host, connectionId: atestado.connectionId, requestId: atestado.requestId,
     recebidoEm: atestado.recebidoEm, ...veredito };
   return gravarRecibo(atestado.raiz, atestado.thread, nomeDoRecibo(atestado), dados);
+}
+
+/** RM-059 (T8.1): grava o recibo assinado da nota; o nome sai da conexao e da solicitacao, como no gate. */
+export function gravarEvidenciaLocalNota(raiz: string, dados: Omit<DadosReciboLocalNota, 'contrato'>): { arquivo: string; sha256: string; recibo: string } {
+  const completos: DadosReciboLocalNota = { contrato: CONTRATO_RECIBO_DA_NOTA, ...dados };
+  return gravarRecibo(raiz, dados.thread, sha(JSON.stringify([dados.connectionId, dados.requestId])) + '.json', completos);
+}
+
+/**
+ * RM-059 (T8.1): reconfere o recibo da nota contra o que o MASTER gravou, o ultimo `master_done` (leitura) ou a prova
+ * do `preflightMaster` (escrita). Recibo ausente, adulterado, de outra thread, de outra conexao ou com outra nota nao vale.
+ */
+export function conferirReciboLocalNota(raiz: string, thread: string, campos: Record<string, unknown>): boolean {
+  try {
+    const por = String(campos.por ?? '');
+    if (!['mcp-local:codex', 'mcp-local:claude-code'].includes(por)) return false;
+    const host = por.slice('mcp-local:'.length) as 'claude-code' | 'codex';
+    const pedidoId = (campos.notaPedida as { pedidoId?: unknown } | undefined)?.pedidoId;
+    if (campos.canal !== host || campos.contratoResposta !== CONTRATO_RECIBO_DA_NOTA || typeof pedidoId !== 'string' ||
+        typeof campos.conexao !== 'string' || typeof campos.solicitacao !== 'string' || typeof campos.recebidoEm !== 'string' ||
+        !Number.isInteger(campos.score) || typeof campos.justificativa !== 'string' || typeof campos.evidencia !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(String(campos.evidenciaSha256 ?? '')) || !/^[a-f0-9]{64}$/.test(String(campos.recibo ?? ''))) return false;
+    const nome = sha(JSON.stringify([campos.conexao, campos.solicitacao])) + '.json';
+    if (campos.evidencia !== referencia(thread, nome)) return false;
+    const lido = lerRecibo<DadosReciboLocalNota>(raiz, thread, nome);
+    const esperado: DadosReciboLocalNota = { contrato: CONTRATO_RECIBO_DA_NOTA, thread, pedidoId, host,
+      connectionId: campos.conexao, requestId: campos.solicitacao, recebidoEm: campos.recebidoEm,
+      score: campos.score as number, justificativaSha256: sha(campos.justificativa) };
+    const sig = assinatura(chaveLocal(raiz, false), esperado);
+    return JSON.stringify(lido.dados) === JSON.stringify(esperado) &&
+      timingSafeEqual(Buffer.from(lido.assinatura, 'hex'), Buffer.from(sig, 'hex')) &&
+      campos.evidenciaSha256 === sha(lido.bytes) && campos.recibo === sha(lido.assinatura);
+  } catch { return false; }
 }
 
 /** D12: resposta de SESSAO pelo canal MCP local. Guarda o hash da resposta, nunca o texto. */
