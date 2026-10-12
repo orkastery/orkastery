@@ -1,0 +1,485 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-rm062privado",
+  "branch": "ork/ork-rm062privado-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json",
+      "alegacao": "O arquivo de evidência da RM-040 tem nome genérico, é o único da pasta e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "test -f docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json && test \"$(git ls-files docs/roadmap/evidencias/RM-040 | wc -l)\" = 1",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-040/maquina-b-2026-10-03.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:33:53.201Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-040-estado-de-conta-compartilhado.md",
+      "alegacao": "A página da RM-040 e o bundle da thread da RM-040 apontam para o novo caminho do arquivo de evidência.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'evidencias/RM-040/maquina-b-2026-10-03.json' docs/roadmap/RM-040-estado-de-conta-compartilhado.md",
+        "grep -q 'evidencias/RM-040/maquina-b-2026-10-03.json' .ork-ci/ork-rm040piloto.json"
+      ],
+      "criadoEm": "2026-10-12T12:33:54.578Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/referencia/contratos/rede-rm053.md",
+      "alegacao": "Nenhum arquivo versionado nem nome de arquivo leva hostname de máquina no formato srv seguido de letras e dígitos, e nenhum leva caminho de home do dono.",
+      "negativa": true,
+      "verificar": [
+        "! git grep -qI -E '\\bsrv[a-z0-9]*[0-9]{2,}\\b' && ! git ls-files | grep -qE 'srv[a-z0-9]*[0-9]{2,}'",
+        "! git grep -qI -E '/home/[j]ulio'"
+      ],
+      "criadoEm": "2026-10-12T12:33:55.840Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-provadeativa.json",
+      "alegacao": "O bundle .ork-ci/ork-provadeativa.json não traz hostname de máquina nem caminho de home do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' .ork-ci/ork-provadeativa.json",
+        "! grep -qE '/home/[j]ulio' .ork-ci/ork-provadeativa.json"
+      ],
+      "criadoEm": "2026-10-12T12:34:21.929Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm032ativaca.json",
+      "alegacao": "O bundle .ork-ci/ork-rm032ativaca.json não traz hostname de máquina nem caminho de home do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' .ork-ci/ork-rm032ativaca.json",
+        "! grep -qE '/home/[j]ulio' .ork-ci/ork-rm032ativaca.json"
+      ],
+      "criadoEm": "2026-10-12T12:34:23.185Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": ".ork-ci/ork-rm040piloto.json",
+      "alegacao": "O bundle .ork-ci/ork-rm040piloto.json não traz hostname de máquina nem caminho de home do dono, e é JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' .ork-ci/ork-rm040piloto.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('.ork-ci/ork-rm040piloto.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:24.538Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/network-roadmap.test.mjs",
+      "alegacao": "O teste network-roadmap.test.mjs do adaptador OpenClaw não traz caminho de home do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '/home/[j]ulio' adapters/openclaw/test/network-roadmap.test.mjs",
+        "grep -q '/home/usuario/.openclaw/workspace' adapters/openclaw/test/network-roadmap.test.mjs"
+      ],
+      "criadoEm": "2026-10-12T12:34:25.837Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/test/projeto-alvo.test.mjs",
+      "alegacao": "O teste projeto-alvo.test.mjs do adaptador OpenClaw não traz caminho de home do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '/home/[j]ulio' adapters/openclaw/test/projeto-alvo.test.mjs",
+        "grep -q '/home/usuario/.openclaw/workspace' adapters/openclaw/test/projeto-alvo.test.mjs"
+      ],
+      "criadoEm": "2026-10-12T12:34:27.062Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "core/src/doctor-rede.ts",
+      "alegacao": "O comentário de core/src/doctor-rede.ts não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' core/src/doctor-rede.ts",
+        "grep -q 'a maquina-b ficou de 02/10' core/src/doctor-rede.ts"
+      ],
+      "criadoEm": "2026-10-12T12:34:28.184Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C10",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "core/src/forja.ts",
+      "alegacao": "O comentário de core/src/forja.ts não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' core/src/forja.ts",
+        "grep -q 'o `gh` da maquina-b' core/src/forja.ts"
+      ],
+      "criadoEm": "2026-10-12T12:34:29.324Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C11",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "core/test/rm053-fatia2.test.ts",
+      "alegacao": "O teste rm053-fatia2.test.ts não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' core/test/rm053-fatia2.test.ts",
+        "grep -q 'O caso da maquina-b em 02/10' core/test/rm053-fatia2.test.ts"
+      ],
+      "criadoEm": "2026-10-12T12:34:30.483Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C13",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-032-bootstrap-maestro.md",
+      "alegacao": "A página da RM-032 não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-032-bootstrap-maestro.md",
+        "grep -q 'recibo real da maquina-b' docs/roadmap/RM-032-bootstrap-maestro.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:36.043Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C14",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-047-fabrica-em-varias-maquinas.md",
+      "alegacao": "A página da RM-047 não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-047-fabrica-em-varias-maquinas.md",
+        "grep -q 'maquina-b' docs/roadmap/RM-047-fabrica-em-varias-maquinas.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:37.347Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C15",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-053-orkastery-network.md",
+      "alegacao": "A página da RM-053 não traz hostname de máquina do dono nem caminho de home.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-053-orkastery-network.md",
+        "! grep -qE '/home/[j]ulio' docs/roadmap/RM-053-orkastery-network.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:38.505Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C16",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+      "alegacao": "A página da RM-054 não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md",
+        "grep -q 'maquina-b' docs/roadmap/RM-054-roadmaps-e-threads-da-rede.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:39.839Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C17",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+      "alegacao": "A página da RM-055 não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md",
+        "grep -q 'maquina-b' docs/roadmap/RM-055-impedimento-do-dono-vira-hitl.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:41.113Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C18",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-056-perfil-por-thread-e-carga.md",
+      "alegacao": "A página da RM-056 não traz hostname de máquina do dono.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/RM-056-perfil-por-thread-e-carga.md",
+        "grep -q 'maquina-b' docs/roadmap/RM-056-perfil-por-thread-e-carga.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:42.393Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C19",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/claude-code-2026-10-01.json",
+      "alegacao": "O recibo claude-code-2026-10-01.json da RM-032 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-032/claude-code-2026-10-01.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-032/claude-code-2026-10-01.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:43.951Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C20",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/codex-2026-10-03-desvio.json",
+      "alegacao": "O recibo codex-2026-10-03-desvio.json da RM-032 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-032/codex-2026-10-03-desvio.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-032/codex-2026-10-03-desvio.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:45.455Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C21",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/codex-2026-10-03.json",
+      "alegacao": "O recibo codex-2026-10-03.json da RM-032 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-032/codex-2026-10-03.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-032/codex-2026-10-03.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:46.867Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C22",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/openclaw-2026-10-01-travou.json",
+      "alegacao": "O recibo openclaw-2026-10-01-travou.json da RM-032 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-032/openclaw-2026-10-01-travou.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-032/openclaw-2026-10-01-travou.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:48.372Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C23",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-032/openclaw-2026-10-01.json",
+      "alegacao": "O recibo openclaw-2026-10-01.json da RM-032 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-032/openclaw-2026-10-01.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-032/openclaw-2026-10-01.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:49.770Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C24",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-candidato.json",
+      "alegacao": "O recibo ensaio-2026-10-03-candidato.json da RM-049 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-candidato.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-candidato.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:51.306Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C25",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json",
+      "alegacao": "O recibo ensaio-2026-10-03-en.json da RM-049 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-049/ensaio-2026-10-03-en.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:52.737Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C26",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json",
+      "alegacao": "O recibo ensaio-2026-10-03.json da RM-049 usa nome genérico de máquina e continua JSON válido.",
+      "negativa": false,
+      "verificar": [
+        "! grep -qE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json",
+        "node -e \"JSON.parse(require('fs').readFileSync('docs/roadmap/evidencias/RM-049/ensaio-2026-10-03.json','utf8'))\""
+      ],
+      "criadoEm": "2026-10-12T12:34:54.058Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C27",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md",
+      "alegacao": "A página da RM-062 existe em Em desenvolvimento, com as quatro fatias, o problema, o resultado e a relação com RM-046, RM-047 e RM-053.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^  ciclo: Em desenvolvimento$' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md && test \"$(grep -c '^| F[1-4]: ' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md)\" = 4",
+        "grep -q '(RM-046-go-to-open-source.md)' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md && grep -q '(RM-047-fabrica-em-varias-maquinas.md)' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md && grep -q '(RM-053-orkastery-network.md)' docs/roadmap/RM-062-repositorio-publico-sem-dado-privado.md"
+      ],
+      "criadoEm": "2026-10-12T12:34:59.028Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C28",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/RM-057-hitl-por-alternativas.md",
+      "alegacao": "A RM-057 traz o requisito de 12/10/2026: passo que depende do dono chega como pergunta com 3 alternativas, uma recomendada, em linguagem simples, sem comando cru nem termo técnico sem explicação.",
+      "negativa": false,
+      "verificar": [
+        "grep -q 'Requisito de 12/10/2026' docs/roadmap/RM-057-hitl-por-alternativas.md && grep -q 'o que é uma tag' docs/roadmap/RM-057-hitl-por-alternativas.md",
+        "grep -q '^| 2026-10-12 | Requisito novo' docs/roadmap/RM-057-hitl-por-alternativas.md"
+      ],
+      "criadoEm": "2026-10-12T12:35:00.766Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C29",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG, em Não publicado, registra a RM-062 nova, a correção do nome do arquivo de evidência e o requisito da RM-057.",
+      "negativa": false,
+      "verificar": [
+        "grep -c 'RM-062-repositorio-publico-sem-dado-privado.md' CHANGELOG.md | grep -qE '^[2-9]'",
+        "grep -q 'Requisito de linguagem simples no HITL por alternativas' CHANGELOG.md"
+      ],
+      "criadoEm": "2026-10-12T12:35:02.175Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C30",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/README.md",
+      "alegacao": "O índice do roadmap registra a RM-062 em Em desenvolvimento.",
+      "negativa": false,
+      "verificar": [
+        "grep -q '^| \\[RM-062\\](RM-062-repositorio-publico-sem-dado-privado.md) | Repositório público sem dado privado | Em desenvolvimento |' docs/roadmap/README.md",
+        "test \"$(grep -c 'RM-062-repositorio-publico-sem-dado-privado.md' docs/roadmap/README.md)\" = 1"
+      ],
+      "criadoEm": "2026-10-12T12:35:03.818Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C31",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-040",
+      "alegacao": "A pasta de evidências da RM-040 tem um único arquivo, com nome genérico de máquina, sem nome de host no formato srv seguido de letras e dígitos.",
+      "negativa": false,
+      "verificar": [
+        "test \"$(git ls-files docs/roadmap/evidencias/RM-040 | wc -l)\" = 1",
+        "! git ls-files docs/roadmap/evidencias/RM-040 | grep -qE 'srv[a-z0-9]*[0-9]{2,}'"
+      ],
+      "criadoEm": "2026-10-12T12:35:19.792Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C32",
+      "thread": "ork-rm062privado",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/RM-040/*",
+      "alegacao": "Os arquivos de evidência da RM-040 não têm hostname de máquina no nome nem no conteúdo.",
+      "negativa": false,
+      "verificar": [
+        "! git ls-files docs/roadmap/evidencias/RM-040 | grep -qE 'srv[a-z0-9]*[0-9]{2,}'",
+        "! grep -rqE '\\bsrv[a-z0-9]*[0-9]{2,}\\b' docs/roadmap/evidencias/RM-040"
+      ],
+      "criadoEm": "2026-10-12T12:35:38.834Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C12",
+      "reason": "host-runtime-required"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
