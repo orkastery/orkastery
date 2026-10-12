@@ -1,0 +1,135 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-versao054",
+  "branch": "ork/ork-versao054-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C2",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "core/package.json",
+      "alegacao": "A versão do @orkastery/cli é 0.5.4 em core/package.json e em core/package-lock.json (raiz e pacote).",
+      "negativa": false,
+      "verificar": [
+        "node -e \"const v=require('./core/package.json').version;const l=require('./core/package-lock.json');if(v!=='0.5.4'||l.version!==v||l.packages[''].version!==v)process.exit(1)\""
+      ],
+      "criadoEm": "2026-10-12T03:25:09.702Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C3",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/package.json",
+      "alegacao": "O adaptador openclaw e os dois plugins dos marketplaces estão em 0.5.4 e iguais ao que o catálogo gera.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '\"version\": \"0.5.4\"' adapters/openclaw/package.json adapters/openclaw/openclaw.plugin.json marketplaces/claude-code/orkastery/.claude-plugin/plugin.json marketplaces/codex/orkastery/.codex-plugin/plugin.json | wc -l | grep -qx 4",
+        "node core/scripts/gerar-marketplaces.cjs --verificar"
+      ],
+      "criadoEm": "2026-10-12T03:25:11.201Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C4",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "CHANGELOG.md",
+      "alegacao": "O CHANGELOG abre a seção [0.5.4] com a data de 12/10/2026, com Não publicado vazia acima dela, e os itens dos merges depois da 0.5.3 (inclui RM-049, RM-050, RM-052 e RM-055) estão nela.",
+      "negativa": false,
+      "verificar": [
+        "awk '/^## Não publicado/{f=1;next} /^## \\[0\\.5\\.4\\] - 2026-10-12$/{ok=1;exit} f&&NF{exit 1} END{exit !ok}' CHANGELOG.md",
+        "awk '/^## \\[0\\.5\\.4\\]/{f=1;next} /^## \\[0\\.5\\.3\\]/{exit} f' CHANGELOG.md | grep -E 'RM-049|RM-050|RM-052|RM-055' | wc -l | grep -vx 0"
+      ],
+      "criadoEm": "2026-10-12T03:25:13.301Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C5",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "core/package-lock.json",
+      "alegacao": "O lockfile do core declara a versão 0.5.4 na raiz e no pacote.",
+      "negativa": false,
+      "verificar": [
+        "grep -cF '\"version\": \"0.5.4\"' core/package-lock.json | grep -vx 0"
+      ],
+      "criadoEm": "2026-10-12T03:25:16.583Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C6",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "adapters/openclaw/openclaw.plugin.json",
+      "alegacao": "O manifesto do plugin openclaw declara a versão 0.5.4.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '\"version\": \"0.5.4\"' adapters/openclaw/openclaw.plugin.json"
+      ],
+      "criadoEm": "2026-10-12T03:25:17.519Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C7",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "marketplaces/claude-code/orkastery/.claude-plugin/plugin.json",
+      "alegacao": "O plugin do marketplace do Claude Code declara a versão 0.5.4.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '\"version\": \"0.5.4\"' marketplaces/claude-code/orkastery/.claude-plugin/plugin.json"
+      ],
+      "criadoEm": "2026-10-12T03:25:18.550Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C8",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "marketplaces/codex/orkastery/.codex-plugin/plugin.json",
+      "alegacao": "O plugin do marketplace do Codex declara a versão 0.5.4.",
+      "negativa": false,
+      "verificar": [
+        "grep -F '\"version\": \"0.5.4\"' marketplaces/codex/orkastery/.codex-plugin/plugin.json"
+      ],
+      "criadoEm": "2026-10-12T03:25:19.408Z",
+      "estado": "verificado",
+      "lint": []
+    },
+    {
+      "id": "C9",
+      "thread": "ork-versao054",
+      "fase": "GO",
+      "arquivo": "core/test/rm036-watcher-longo.test.ts",
+      "alegacao": "O teste do changelog do watcher aceita a seção da versão que publicou o item e passa com o CHANGELOG da 0.5.4.",
+      "negativa": false,
+      "verificar": [
+        "grep -F 'Não publicado|' core/test/rm036-watcher-longo.test.ts",
+        "npm --prefix core run build:test >/dev/null && node --test core/dist-test/test/rm036-watcher-longo.test.js 2>&1 | grep -E '^# fail 0'"
+      ],
+      "criadoEm": "2026-10-12T03:25:31.928Z",
+      "estado": "verificado",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [
+    {
+      "id": "C10",
+      "reason": "artifact-not-in-checkout"
+    }
+  ],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
