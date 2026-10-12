@@ -6,8 +6,13 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ## Não publicado
 
+## [0.5.4] - 2026-10-12
+
 ### Adicionado
 
+- **Quickstart até a primeira thread em `#Fast`** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  `docs/comecar/quickstart.md` ganha o atalho do menor ciclo completo, de `ork thread new --modo fast` a
+  `ork master`, com a saída para `runtime.workspace-untrusted` e para o `human.pending` do `ship`; um teste confere os comandos.
 - **Que página do site uma mudança deixa para revisar, e a medida do piloto de contribuição** ([RM-050](docs/roadmap/RM-050-guia-de-contribuicao.md)):
   `node core/scripts/checar-fontes-do-site.cjs --snapshot <docs-sources.json>` compara o checkout com o snapshot de fontes
   do site e lista, por página, as fontes mudadas, novas e removidas; com `--base <ref>`, só o que a mudança tocou desde
@@ -63,6 +68,9 @@ nova para a mais antiga. O detalhe de cada item, com a evidência de merge, est�
 
 ### Alterado
 
+- **Primeira experiência em inglês e o recibo do ensaio** ([RM-049](docs/roadmap/RM-049-lancamento.md)):
+  o `README.md` traz a primeira thread e o glossário do CLI, o `CONTRIBUTING.md` o caminho curto, e o recibo do ensaio
+  em inglês (EN1 a EN10) registra os achados corrigidos com o PR e o commit de cada um.
 - **A prova da busca por significado usa os pares que o dono decidiu** ([RM-038](docs/roadmap/RM-038-busca-semantica-na-memoria.md)):
   sem argumentos, `core/scripts/prova-busca-semantica.sh` consulta
   `watchdog|vigia agendado que inunda a conversa privada com avisos repetidos` e
