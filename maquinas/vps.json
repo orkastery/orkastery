@@ -4,7 +4,7 @@
   "por": "Julio Pessoa",
   "projeto": "orkastery",
   "versaoOrk": "0.5.3",
-  "publicadoEm": "2026-10-12T11:30:45.888Z",
+  "publicadoEm": "2026-10-12T11:44:06.634Z",
   "threads": [
     {
       "id": "ork-rm058n1",
@@ -41,21 +41,21 @@
       "esforco": "max"
     },
     {
-      "id": "ork-rm059radar",
-      "nome": "rm059radar",
+      "id": "ork-rm059sentin",
+      "nome": "rm059sentin",
       "modo": "#Auto",
-      "fase": "SHIP",
+      "fase": "GOAL",
       "status": "aberta",
       "roadmap": null,
-      "branch": "ork/ork-rm059radar-full",
-      "atualizadaEm": "2026-10-12T11:30:45.627Z",
-      "entregue": "5e45cc2f",
+      "branch": "ork/ork-rm059sentin-full",
+      "atualizadaEm": "2026-10-12T11:44:06.259Z",
+      "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
       "paradaDesde": null,
-      "runtime": "claude-bg",
-      "modelo": "opus",
-      "esforco": "max"
+      "runtime": null,
+      "modelo": null,
+      "esforco": null
     },
     {
       "id": "ork-rm060previa",
@@ -82,7 +82,7 @@
       "status": "aberta",
       "roadmap": null,
       "branch": "ork/ork-rm060release-full",
-      "atualizadaEm": "2026-10-12T10:03:37.728Z",
+      "atualizadaEm": "2026-10-12T11:41:23.412Z",
       "entregue": null,
       "esperaVoce": false,
       "pergunta": null,
