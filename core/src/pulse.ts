@@ -9,6 +9,7 @@ import { pendentesDeScore, PendenteDeScore, ORDEM_DAS_CLASSES } from './master';
 import { assinaturaProposta } from './master-batch';
 import { montarMonitor } from './orquestracao';
 import { pedidoCurtoDoImpedimento } from './impedimento';
+import { pedidoCurtoDaEscada } from './runtime-escada';
 import { dirThread, lerThread } from './thread';
 import { ehRegistroDeAdocao } from './sessoes-adopt';
 import { lerLedger } from './ledger';
@@ -200,6 +201,19 @@ export function comporPulse(carregado: ManifestoCarregado, entrada: {
         item.opcoes = curto.alternativas.map(a => textoDoCatalogo((m) => `${a.chave}. ${m.pulse.alternativaDoImpedimento(a.texto)}`));
         item.comandoResposta = item.impedimento.retry;
       } catch { item.evidencia.push('Pedido curto do impedimento indisponível; a correção acima vale.'); }
+    }
+    // RM-063 (F4): a escada de recuperacao do runtime que acabou sai como o impedimento, com o comando que confere o
+    // runtime, o que retoma a fase com o mesmo prompt e o pedido curto com as tres alternativas (RM-057).
+    if (p.escada) {
+      item.impedimento = { motivo: p.motivo, comando: p.escada.conferir, retry: p.escada.retomar };
+      item.comandoResposta = p.escada.retomar;
+      try {
+        const curto = pedidoCurtoDaEscada({ thread: l.thread, fase: p.fase, desdeEm: p.desdeEm, escada: p.escada }, quando);
+        item.apresentacaoCurta = { telegram: textoDoPedidoCurto(curto, 'telegram'), terminal: textoDoPedidoCurto(curto, 'terminal') };
+        item.opcoes = curto.alternativas.map(a => textoDoCatalogo((m) => `${a.chave}. ${m.pulse.alternativaDoImpedimento(a.texto)}`));
+        const recomendada = curto.alternativas.find(a => a.recomendada);
+        if (recomendada) item.recomendacao = `${recomendada.chave}. ${recomendada.texto}: ${recomendada.recomendada!.porque}`;
+      } catch { item.evidencia.push('Pedido curto da escada indisponível; a correção acima vale.'); }
     }
     // I-45: vaga parada e sinal do escalonador (`ork board reap` devolve a vaga), nao pergunta ao dono.
     const esperaAutomatica=['lease.busy','conducao.em-andamento','concurrency.limite','runtime.rate-limited','vaga.stale'].includes(p.motivo);

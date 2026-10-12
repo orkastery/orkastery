@@ -43,6 +43,7 @@ import {
 } from './ocupacao';
 import { faltaPara, lerFilaDeRetomada } from './ratelimit';
 import { ehEsperaDoDono, ehImpedimentoDoDono, impedimentoDoEvento } from './impedimento';
+import { escadaDoEvento } from './runtime-escada';
 import { blocoDaThread, dirThread } from './thread';
 import {
   EventoLedger,
@@ -217,6 +218,8 @@ function pausasAbertas(
     if (porFase.has(chave)) return;
     const { bloco, pausaSobre } = blocoDaFase(thread, fase);
     const imp = ehImpedimentoDoDono(e.motivo) ? impedimentoDoEvento(e) : null;
+    // RM-063 (F4): a escada de recuperacao do runtime que acabou chama o dono com as alternativas e o comando que retoma.
+    const escada = !imp && e.motivo === 'human.pending' ? escadaDoEvento(e) : null;
     porFase.set(
       chave,
       parada(
@@ -225,8 +228,10 @@ function pausasAbertas(
           motivo: imp ? (e.motivo as MotivoGate) : 'human.pending',
           fase,
           bloco,
-          pausaSobre: imp ? `rodar \`${imp.comando}\` no terminal` : pausaSobre || 'autorizacao da retomada',
+          pausaSobre: imp ? `rodar \`${imp.comando}\` no terminal` : escada ? 'a escada de recuperacao do runtime'
+            : pausaSobre || 'autorizacao da retomada',
           ...(imp ? { impedimento: imp } : {}),
+          ...(escada ? { escada } : {}),
           detalhe: typeof e.detalhe === 'string' && e.detalhe !== ''
             ? e.detalhe
             : textoDoCatalogo((m) => m.pulse.motivos['human.pending']),

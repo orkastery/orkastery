@@ -31,6 +31,7 @@ import { EventoLedger } from './types';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { raizDoEstado } from './estado-thread';
 import { sessaoVivaNaThread } from './vida-da-thread';
+import { ControleDoDaemon, DEGRAUS_DA_ESCADA, destinoDoEpisodio, estadoDaEscada, inicioDoEpisodio, resumoDosDegraus, subirAEscada } from './runtime-escada';
 import { ManifestoCarregado } from './manifest';
 import { hashDoPrompt, concluirDespacho, ContextoDeDespacho, EscolhaDePerfil, perfilParaDespacho, resolverDespacho, slugDaSessao,
   baselineDoDespachoNecessaria, estadoParaDespacho, garantirBaselineDoDespacho, modoDaSessaoDoBloco, prazoDaSessao } from './phase';
@@ -325,9 +326,13 @@ export function ultimaReprovacao(raiz: string, threadId: string): EventoLedger |
  * planejou: planejar nao gasta janela nem toca no repositorio.
  */
 export function tentativasFeitas(raiz: string, threadId: string, fase: Fase, motivo: MotivoGate): number {
+  const eventos = lerLedger(dirThread(raiz, threadId));
+  // RM-063 (F4): a escada de `runtime.unavailable` vale por episodio, e as tentativas dela tambem: o pedido novo da fase
+  // (`ork phase run`) recomeca a contagem.
+  const desde = motivo === 'runtime.unavailable' ? inicioDoEpisodio(eventos, fase) : -1;
   // RM-055 (continuacao, D2): a recusa pelo impedimento do dono fica no ledger com `conta: false` e nao conta.
-  return lerLedger(dirThread(raiz, threadId)).filter(
-    (e) => e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo && e.conta !== false
+  return eventos.filter(
+    (e, i) => i > desde && e.tipo === TIPOS_DE_EVENTO.retryTentado && e.fase === fase && e.motivo === motivo && e.conta !== false
   ).length;
 }
 
@@ -412,6 +417,18 @@ export function planejarRetry(
     };
   }
 
+  // RM-063 (F4): a escada de `runtime.unavailable` diz o proximo degrau do episodio; sem degrau, o dono e chamado.
+  const escada = motivo === 'runtime.unavailable' ? estadoDaEscada(lerLedger(dirThread(raiz, threadId)), fase) : null;
+  const naEscada = escada ? { degrau: escada.proximo, tipo: escada.proximo ? DEGRAUS_DA_ESCADA[escada.proximo - 1] : null,
+    consumidos: escada.consumidos.map((d) => ({ degrau: d.degrau, tipo: d.tipo, resultado: d.resultado, em: d.em })) } : null;
+  if (escada && escada.proximo === null) {
+    return {
+      thread: threadId, modo: thread.modo, fase, motivo, detalhe, politica, acao: 'escalar-humano', tentativas, limite,
+      effort: effortBase, effortAnterior: effortBase, automatica: false, bloqueio: 'escalacao.limite',
+      razao: textoDoCatalogo((m) => m.retry.escada.esgotada(resumoDosDegraus(escada.consumidos))), escada: naEscada!,
+    };
+  }
+
   // Limite de escalacao: pausa QUALQUER modo, inclusive #Auto.
   if (tentativas >= limite) {
     return {
@@ -435,7 +452,8 @@ export function planejarRetry(
   // Da 2a tentativa em diante o esforco sobe um degrau, quando o manifesto permite.
   // `tentativas` e quantas JA rodaram, entao a 1a tentativa (tentativas 0) sai no
   // esforco base do manifesto e so a partir da 2a a escada anda.
-  const escala = manifesto.retry.escalar_esforco && tentativas >= 1;
+  // RM-063 (F4): runtime fora nao e prompt fraco. A escada de `runtime.unavailable` troca o destino, nunca o esforco.
+  const escala = manifesto.retry.escalar_esforco && tentativas >= 1 && !escada;
   const effortAnterior = escalarEsforco(effortBase, Math.max(0, tentativas - 1));
   const effort = escala ? escalarEsforco(effortBase, tentativas) : effortBase;
   const acao: AcaoDeRetry = escala ? 'escalar-esforco' : politica.acao;
@@ -447,6 +465,9 @@ export function planejarRetry(
   let bloqueio: BloqueioDeRetry | null = null;
   let automatica = politica.automatica;
   let razao = textoDoCatalogo((m) => m.retry.politica[motivo].porque);
+  // RM-063 (F4): o plano de `runtime.unavailable` diz o degrau da escada que a execucao sobe.
+  const degrau = escada?.proximo ?? null;
+  if (degrau) razao = textoDoCatalogo((m) => m.retry.escada.proximo(degrau, m.retry.escada.degraus[DEGRAUS_DA_ESCADA[degrau - 1]]));
   if (delegacao.permitida && politica.automatica) {
     razao = textoDoCatalogo((m) => m.retry.comDelegacao(m.retry.politica[motivo].porque, delegacao.razao, String(delegacao.delegado),
       String(delegacao.evidencia)));
@@ -475,7 +496,7 @@ export function planejarRetry(
   }
   return {
     thread: threadId, modo: thread.modo, fase, motivo, detalhe, politica, acao, tentativas,
-    limite, effort, effortAnterior, automatica, bloqueio, razao,
+    limite, effort, effortAnterior, automatica, bloqueio, razao, ...(naEscada ? { escada: naEscada } : {}),
   };
 }
 
@@ -1359,6 +1380,8 @@ export interface OpcoesDeExecucao extends OpcoesDePlano {
   dryRun?: boolean;
   /** Encadeia o CHECK-REVERIFY logo apos abrir a rodada de GO-FIX. */
   reverify?: boolean;
+  /** RM-063 (F4): o daemon do runtime do degrau 1; sem ele, o `claude daemon` da conta (os testes injetam um falso). */
+  daemon?: ControleDoDaemon;
 }
 
 /**
@@ -1541,6 +1564,29 @@ export function executarRetry(
       : textoDoCatalogo((m) => m.retry.runtimeSemProva(falhaDaConsulta ?? '', threadId));
     registrarTentativa(false, detalhe, { conta: false });
     return { ...vazio, detalhe };
+  }
+  // RM-063 (F4): `runtime.unavailable` sobe a escada de recuperacao (reerguer o daemon, o fallback do bloco, outro perfil),
+  // sempre com o mesmo prompt e o mesmo sha256. Ate aqui o retry so sabia repetir o destino que tinha acabado de falhar.
+  if (plano.motivo === 'runtime.unavailable') {
+    let perfilFalho: PerfilDeDespacho | null = null;
+    try { perfilFalho = perfilDoEvento(falho); } catch { perfilFalho = null; }
+    // O destino de origem e o do pedido novo que abriu o episodio; o despacho do gate completa o que faltar.
+    const origem = destinoDoEpisodio(lerLedger(dir), plano.fase as Fase);
+    const promptPath = falho.promptPath, sha = falho.promptSha256;
+    const saida = subirAEscada({
+      carregado, thread, fase: plano.fase as Fase,
+      despacho: { promptPath, promptSha256: sha, perfil: origem?.perfil ?? perfilFalho,
+        runtime: origem?.runtime ?? (typeof falho.runtime === 'string' ? falho.runtime : carregado.manifesto.runtime.adapter),
+        model: origem?.model ?? (typeof falho.model === 'string' ? falho.model : null),
+        effort: origem?.effort ?? (typeof falho.effort === 'string' ? falho.effort : plano.effort) },
+      tentativas: plano.tentativas, limite: plano.limite, dryRun: opcoes.dryRun, daemon: opcoes.daemon,
+      redespachar: (d) => redespachar(carregado, thread, plano.fase as Fase, promptPath, sha, { runtime: d.runtime, perfil: d.perfil,
+        model: d.model, effort: d.effort, origem: 'retry.escada', dryRun: opcoes.dryRun }),
+      // RM-055 (D2): a recusa do runtime por um impedimento do dono nao gasta tentativa, tambem na escada.
+      registrarTentativa: (ok, detalhe, extra = {}) => registrarTentativa(ok, detalhe,
+        { ...extra, ...(ehImpedimentoDoDono(extra.motivoDoRedespacho) ? { conta: false } : {}) }),
+    });
+    return { ...vazio, executada: saida.executada, redespacho: saida.redespacho, detalhe: saida.detalhe };
   }
   const redespacho = redespachar(
     carregado,
@@ -1863,6 +1909,9 @@ export function textoDoPlano(p: PlanoDeRetry): string {
   linhas.push(m.tentativas(p.tentativas, p.limite));
   linhas.push(m.esforco(p.effort, p.effort !== p.effortAnterior ? p.effortAnterior : null));
   linhas.push(m.automatica(p.automatica));
+  // RM-063 (F4): o degrau da escada de `runtime.unavailable`, ou o fim dela.
+  const escada = p.escada;
+  if (escada) linhas.push(escada.degrau && escada.tipo ? m.escada.noPlano(escada.degrau, m.escada.degraus[escada.tipo]) : m.escada.noPlanoEsgotada);
   if (p.bloqueio) linhas.push(m.bloqueio(p.bloqueio));
   linhas.push(m.razao(remontar(p.razao)));
   if (p.politica && !p.automatica) linhas.push(m.correcao(p.motivo ? m.politica[p.motivo].correcao : p.politica.correcao));

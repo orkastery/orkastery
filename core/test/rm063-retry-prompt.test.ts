@@ -86,7 +86,8 @@ test('F3: falha do adaptador no despacho: retry plan ve o runtime.unavailable e 
   const despachos = lerLedger(dir).filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada);
   assert.equal(despachos.length, 1);
   assert.equal(despachos[0].promptSha256, r.promptSha256, 'o mesmo prompt, nem uma virgula a mais');
-  assert.equal(despachos[0].origem, 'retry.run');
+  // RM-063 (F4): o redespacho de `runtime.unavailable` e o degrau 1 da escada de recuperacao.
+  assert.equal(despachos[0].origem, 'retry.escada');
   assert.equal(runtime.chamadas().length, 1, 'o runtime recebeu o redespacho');
 });
 
@@ -115,7 +116,7 @@ test('F3: a sessao que morre depois do despacho (a K7) volta pelo prompt do desp
 
   const rr = executarRetry(p.carregado, thread.id);
   assert.equal(rr.executada, true, rr.detalhe);
-  const depois = lerLedger(dir).filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.origem === 'retry.run');
+  const depois = lerLedger(dir).filter((e) => e.tipo === TIPOS_DE_EVENTO.faseDespachada && e.origem === 'retry.escada');
   assert.equal(depois.length, 1);
   assert.equal(depois[0].promptSha256, r.promptSha256);
 });

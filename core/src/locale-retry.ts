@@ -61,8 +61,9 @@ export const RETRY_PT_BR = {
       correcao: 'publique a candidata, aguarde o check obrigatório e repita o SHIP; se reprovou, corrija a causa registrada no runner',
     },
     'runtime.unavailable': {
-      porque: 'falha de infraestrutura no despacho nao e falha de conteudo: o MESMO prompt, com o mesmo sha256, e redespachado sem alterar uma virgula',
-      correcao: 'ork retry run <thread> redespacha o prompt ja gravado em disco',
+      porque: 'falha de infraestrutura no despacho nao e falha de conteudo: o MESMO prompt, com o mesmo sha256, sobe a escada de recuperacao ' +
+        '(reerguer o daemon do runtime, o fallback do bloco, outro perfil) sem alterar uma virgula, e so depois dela o dono e chamado',
+      correcao: 'ork retry run <thread> sobe a escada com o prompt ja gravado em disco',
     },
     'runtime.silencio': {
       porque: 'fase sem heartbeat: retomar o despacho original com hash conferido e limite de tentativas',
@@ -209,6 +210,25 @@ export const RETRY_PT_BR = {
   semSessionId: 'sem sessionId na saida do runtime',
   redespachada: (sessao: string, sha: string, perfil: string | null, runtime: string) =>
     `sessao ${sessao} despachada com o mesmo prompt sha256 ${sha}` + (perfil ? ` no perfil ${perfil} (${runtime})` : ''),
+  /** RM-063 (F4): a escada de recuperacao do runtime. Vai ao ledger em pt-BR; a impressao remonta no locale. */
+  escada: {
+    degraus: { 'reerguer-daemon': 'reerguer o daemon do runtime', 'fallback-do-bloco': 'o fallback do bloco',
+      'outro-perfil': 'outro perfil do runtime' } as Record<'reerguer-daemon' | 'fallback-do-bloco' | 'outro-perfil', string>,
+    pulos: { 'sem-fallback': 'o bloco nao tem fallback de runtime', 'fallback-sem-destino': 'nenhum alvo do fallback do bloco tem perfil disponivel',
+      'sem-outro-perfil': 'o runtime nao tem outro perfil disponivel' } as Record<'sem-fallback' | 'fallback-sem-destino' | 'sem-outro-perfil', string>,
+    resultados: { redespachada: 'redespachada', falhou: 'falhou', pulado: 'pulado' } as Record<'redespachada' | 'falhou' | 'pulado', string>,
+    linhaDoDegrau: (n: number, tipo: string, resultado: string, motivo: string | null) =>
+      `degrau ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,
+    noPlano: (n: number, tipo: string) => `  escada          degrau ${n} de 3, ${tipo}`,
+    noPlanoEsgotada: '  escada          os 3 degraus acabaram neste episodio',
+    esgotada: (resumo: string) => `a escada de recuperacao do runtime acabou sem sessao (${resumo}): ` +
+      'escalacao tipada pausa qualquer modo, inclusive #Auto',
+    correcao: (conferir: string, retomar: string) => `confira o runtime (${conferir}) e retome com o mesmo prompt: ${retomar}`,
+    proximo: (n: number, tipo: string) => `o mesmo prompt sobe a escada de recuperacao no degrau ${n}: ${tipo}`,
+    ensaio: (n: number, tipo: string, destino: string) => `ensaio: o degrau ${n} (${tipo}) mandaria o mesmo prompt a ${destino}`,
+    ensaioPulado: (n: number, tipo: string, pulo: string) => `ensaio: o degrau ${n} (${tipo}) seria pulado: ${pulo}`,
+    ensaioEsgotada: 'ensaio: nenhum degrau da escada tem destino agora; o dono seria chamado',
+  },
 };
 
 export const RETRY_EN: typeof RETRY_PT_BR = {
@@ -262,8 +282,10 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
       correcao: 'publish the candidate, wait for the required check and run SHIP again; if it failed, fix the cause recorded on the runner',
     },
     'runtime.unavailable': {
-      porque: 'an infrastructure failure in the dispatch is not a content failure: the SAME prompt, with the same sha256, is dispatched again without changing a comma',
-      correcao: '`ork retry run <thread>` re-dispatches the prompt already on disk',
+      porque: 'an infrastructure failure in the dispatch is not a content failure: the SAME prompt, with the same sha256, climbs the ' +
+        'recovery ladder (bring the runtime daemon back up, the block fallback, another profile) without changing a comma, and only ' +
+        'after it is the owner called',
+      correcao: '`ork retry run <thread>` climbs the ladder with the prompt already on disk',
     },
     'runtime.silencio': {
       porque: 'phase with no heartbeat: resume the original dispatch with the hash checked and an attempt limit',
@@ -397,4 +419,21 @@ export const RETRY_EN: typeof RETRY_PT_BR = {
   semSessionId: 'no sessionId in the runtime output',
   redespachada: (sessao, sha, perfil, runtime) =>
     `session ${sessao} dispatched with the same prompt sha256 ${sha}` + (perfil ? ` on profile ${perfil} (${runtime})` : ''),
+  escada: {
+    degraus: { 'reerguer-daemon': 'bring the runtime daemon back up', 'fallback-do-bloco': 'the block fallback',
+      'outro-perfil': 'another runtime profile' },
+    pulos: { 'sem-fallback': 'the block has no runtime fallback', 'fallback-sem-destino': 'no target of the block fallback has an available profile',
+      'sem-outro-perfil': 'the runtime has no other available profile' },
+    resultados: { redespachada: 'dispatched again', falhou: 'failed', pulado: 'skipped' },
+    linhaDoDegrau: (n, tipo, resultado, motivo) => `step ${n} (${tipo}): ${resultado}${motivo ? ` (${motivo})` : ''}`,
+    noPlano: (n, tipo) => `  ladder          step ${n} of 3, ${tipo}`,
+    noPlanoEsgotada: '  ladder          the 3 steps are spent in this episode',
+    esgotada: (resumo) => `the runtime recovery ladder ended with no session (${resumo}): ` +
+      'a typed escalation pauses any mode, #Auto included',
+    correcao: (conferir, retomar) => `check the runtime (${conferir}) and resume with the same prompt: ${retomar}`,
+    proximo: (n, tipo) => `the same prompt climbs the recovery ladder at step ${n}: ${tipo}`,
+    ensaio: (n, tipo, destino) => `dry run: step ${n} (${tipo}) would send the same prompt to ${destino}`,
+    ensaioPulado: (n, tipo, pulo) => `dry run: step ${n} (${tipo}) would be skipped: ${pulo}`,
+    ensaioEsgotada: 'dry run: no step of the ladder has a target now; the owner would be called',
+  },
 };

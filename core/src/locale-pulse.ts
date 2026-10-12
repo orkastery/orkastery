@@ -19,6 +19,8 @@ const CLASSES_EN: Readonly<Record<string, string>> = {
 /** As alternativas do pedido curto do impedimento do despacho (`impedimento.ts`), pelo texto que ele grava. */
 const ALTERNATIVAS_DO_IMPEDIMENTO_EN: Readonly<Record<string, string>> = {
   'Rodei o comando': 'I ran the command', 'Trocar o runtime do bloco': 'Switch the block runtime', 'Deixar parada': 'Leave it stopped',
+  // RM-063 (F4): a alternativa recomendada da escada de recuperacao que acabou.
+  'Conferir o runtime e despachar de novo com o mesmo pedido': 'Check the runtime and dispatch again with the same request',
 };
 
 export const PULSE_PT_BR = {
