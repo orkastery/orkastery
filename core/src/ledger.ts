@@ -149,6 +149,13 @@ export const TIPOS_DE_EVENTO = {
   // RM-059 (F6, T6.4): a Sentinela do Condutor ligou ou desligou nesta maquina (ledger do projeto, so na troca).
   sentinelaLigada: 'sentinela_ligada',
   sentinelaDesligada: 'sentinela_desligada',
+  // RM-059 (F9, T9.1): a resposta de sessao `claude-bg` pelo Mensageiro de Sessoes (`entrega-por-mod.ts`), sem o
+  // texto, so o sha256 do corpo. Na fila: o `enviar` do controle por mod, no servidor do dono que recebeu a resposta.
+  // Enviada: a `ork_session_outbox` com o resultado do `$.session.send`. Reservada: a `ork_session_inbox` do servidor
+  // preso ao despacho, quando a conferencia no receptor passa. O `session_answered` sai da reconciliacao de sempre.
+  entregaNaFila: 'session_delivery_queued',
+  entregaEnviada: 'session_delivery_sent',
+  entregaReservada: 'session_delivery_reserved',
 } as const;
 
 /**
