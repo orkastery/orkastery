@@ -1,7 +1,7 @@
 {
   "contrato": "ork.prova-rm040/v1",
   "item": "RM-040",
-  "maquina": "srvjcp86",
+  "maquina": "maquina-b",
   "thread": "ork-rm040piloto",
   "em": "2026-10-03T07:19:44.128Z",
   "modo": "so leitura: nenhum perfil, store, login ou registro de contas foi gravado; nenhum despacho",
