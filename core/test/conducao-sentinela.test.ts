@@ -19,7 +19,7 @@ import {
 import { lerLedger, registrar } from '../src/ledger';
 import { dirEstado } from '../src/manifest';
 import { rodarFase } from '../src/phase';
-import { dirThread, novaThread } from '../src/thread';
+import { dirThread, gravarThread, lerThread, novaThread } from '../src/thread';
 import { EventoLedger } from '../src/types';
 import { exec } from '../src/util';
 import { branchDaWorktree } from '../src/worktree';
@@ -111,7 +111,7 @@ test('S2 CLI: bater, a segunda sessao sai 3, status com o contrato e desligar', 
   assert.equal(JSON.parse(ork(p.dir, 'conducao', 'sentinela', 'status', '--json').stdout).presenca, null);
 });
 
-test('S3 passo do #Auto: fase concluida sem produto despacha a seguinte; com produto, nao; conduzida, nada', (t) => {
+test('S3 passo do #Auto: sai a fase depois da prova mais adiantada do bloco; passado o CHECK, aviso; conduzida, nada', (t) => {
   const p = projetoTemporario('sentinela-passo');
   const runtime = runtimeFalso('sentinela-passo');
   t.after(() => { runtime.restaurar(); p.limpar(); });
@@ -125,27 +125,34 @@ test('S3 passo do #Auto: fase concluida sem produto despacha a seguinte; com pro
   assert.deepEqual([passo.acao, passo.fase, passo.conduzida, passo.pedidoGuardado, passo.modo], ['despachar', 'PLAN', false, true, 'auto']);
   assert.ok(passo.desdeEm, 'a chave do despacho e o fim do turno');
   assert.match(passo.porque, /GOAL concluida: a seguinte e PLAN/);
-  // A sessao fez o bloco (D1): o plan.md gravado depois do despacho prova o PLAN, e ele nao sai de novo.
-  const plano = path.join(dirThread(p.dir, thread.id), 'docs', 'plan.md');
-  fs.mkdirSync(path.dirname(plano), { recursive: true });
+  // A sessao do bloco fez o PLAN (D1): o plan.md gravado depois do despacho prova o PLAN, e quem sai e o GO.
+  const docs = path.join(dirThread(p.dir, thread.id), 'docs');
+  const plano = path.join(docs, 'plan.md');
+  fs.mkdirSync(docs, { recursive: true });
   fs.writeFileSync(plano, '# PLAN\n', 'utf8');
   const comPlano = passoDe(passosDoCondutor(p.carregado), thread.id);
-  assert.deepEqual([comPlano.acao === 'despachar', comPlano.fase], [false, null]);
-  assert.match(comPlano.porque, /ja fez o PLAN: o plan\.md foi gravado depois do despacho/);
-  // O plan.md de antes do despacho (de outra sessao) nao prova nada.
+  assert.deepEqual([comPlano.acao, comPlano.fase], ['despachar', 'GO']);
+  assert.match(comPlano.porque, /ja fez ate PLAN: o plan\.md foi gravado depois do despacho: a seguinte e GO/);
+  // O plan.md de antes do despacho (de outra sessao) nao prova nada: volta o PLAN.
   const antes = new Date(Date.now() - 24 * 60 * 60 * 1000);
   fs.utimesSync(plano, antes, antes);
-  assert.equal(passoDe(passosDoCondutor(p.carregado), thread.id).acao, 'despachar');
+  assert.deepEqual([passoDe(passosDoCondutor(p.carregado), thread.id).acao, passoDe(passosDoCondutor(p.carregado), thread.id).fase], ['despachar', 'PLAN']);
+  // O bloco passou do CHECK (plan.md e check.md depois do despacho, produto fora da branch): o passo e o da entrega.
+  fs.utimesSync(plano, new Date(), new Date());
+  fs.writeFileSync(path.join(docs, 'check.md'), '# CHECK\n', 'utf8');
+  const entrega = passoDe(passosDoCondutor(p.carregado), thread.id);
+  assert.deepEqual([entrega.acao === 'despachar', entrega.fase], [false, null]);
+  assert.match(entrega.porque, /ja passou do CHECK \(CHECK: o check\.md foi gravado depois do despacho\): o passo e o da entrega/);
   fs.rmSync(plano);
-  // Com produto na branch, o PLAN tambem nao sai.
+  fs.rmSync(path.join(docs, 'check.md'));
+  // Com produto na branch (houve GO) e sem check.md, o PLAN nao sai: sai o CHECK.
   const branch = branchDaWorktree(thread);
   exec('git', ['checkout', '-q', '-b', branch], p.dir);
   commitar(p.dir, 'src/fatia.ts', 'export const fatia = 1;\n', 'feat: a fatia');
   exec('git', ['checkout', '-q', 'main'], p.dir);
   const comProduto = passoDe(passosDoCondutor(p.carregado), thread.id);
-  assert.notEqual(comProduto.acao, 'despachar');
-  assert.equal(comProduto.fase, null);
-  assert.match(comProduto.porque, /ja fez o PLAN: a branch ja tem produto/);
+  assert.deepEqual([comProduto.acao, comProduto.fase], ['despachar', 'CHECK']);
+  assert.match(comProduto.porque, /ja fez ate GO: a branch ja tem produto, e o GO vem antes dele: a seguinte e CHECK/);
   const status = statusDaSentinela(p.carregado, { maquina: MAQUINA });
   assert.equal(status.contrato, CONTRATO_DA_SENTINELA);
   assert.equal(passoDe(status.threads, thread.id).acao, comProduto.acao);
@@ -174,16 +181,24 @@ test('S4 passo: GO concluida com produto despacha o CHECK; CHECK sem veredito re
   const doCheck = passoDe(passosDoCondutor(p.carregado), thread.id);
   assert.deepEqual([doCheck.acao, doCheck.fase], ['despachar', 'CHECK']);
   assert.match(doCheck.porque, /redespachar o CHECK/);
+  // O redespacho do CHECK falhou antes de abrir sessao: o passo e o retry plan, com o fallback, e nao outro despacho.
+  registrar(dirThread(p.dir, thread.id), thread.id, 'phase_dispatch_failed', { fase: 'CHECK', erro: 'runtime.unavailable: x' });
+  registrar(dirThread(p.dir, thread.id), thread.id, 'gate_blocked', { gate: 'phase.dispatch', motivo: 'runtime.unavailable', fase: 'CHECK' });
+  const falhou = passoDe(passosDoCondutor(p.carregado), thread.id);
+  assert.deepEqual([falhou.acao, falhou.bloqueio?.motivo, falhou.bloqueio?.deDespacho], ['retomar', 'runtime.unavailable', true]);
+  assert.match(falhou.porque, /o despacho depois do fim do turno falhou/);
 });
 
 test('S5 passo: bloqueio depois do despacho vira retomar; o gate liberado depois dele, nao; fora do #Auto, nunca despacha', (t) => {
   const evento = (tipo: string, ts: string, extra: Record<string, unknown> = {}) =>
     ({ ts, thread: 't', tipo, eventId: `${tipo}-${ts}`, ...extra }) as EventoLedger;
   assert.deepEqual(bloqueioDepoisDoDespacho([evento('phase_dispatch', '1'), evento('gate_blocked', '2', { motivo: 'runtime.quota-exhausted' })]),
-    { motivo: 'runtime.quota-exhausted', em: '2' });
+    { motivo: 'runtime.quota-exhausted', em: '2', deDespacho: false });
+  assert.deepEqual(bloqueioDepoisDoDespacho([evento('phase_dispatch', '1'), evento('gate_blocked', '2', { motivo: 'runtime.unavailable', gate: 'phase.dispatch' })]),
+    { motivo: 'runtime.unavailable', em: '2', deDespacho: true });
   assert.equal(bloqueioDepoisDoDespacho([evento('gate_blocked', '1', { motivo: 'x' }), evento('phase_dispatch', '2')]), null);
   assert.equal(bloqueioDepoisDoDespacho([evento('phase_dispatch', '1'), evento('gate_blocked', '2'), evento('gate_passed', '3')]), null);
-  assert.deepEqual(bloqueioDepoisDoDespacho([evento('phase_dispatch_failed', '1', { motivo: '' })]), { motivo: 'phase_dispatch_failed', em: '1' });
+  assert.deepEqual(bloqueioDepoisDoDespacho([evento('phase_dispatch_failed', '1', { motivo: '' })]), { motivo: 'phase_dispatch_failed', em: '1', deDespacho: true });
 
   const p = projetoTemporario('sentinela-retomar');
   const runtime = runtimeFalso('sentinela-retomar');
@@ -199,7 +214,13 @@ test('S5 passo: bloqueio depois do despacho vira retomar; o gate liberado depois
     classificacao: 'fase_concluida', estado: 'concluida', ok: true });
   const doClassico = passoDe(passosDoCondutor(p.carregado), classica.id);
   assert.notEqual(doClassico.acao, 'despachar', 'fora do #Auto a Sentinela nao despacha');
-  assert.match(doClassico.porque, /so o #Auto e conduzido sem o dono/);
+  assert.match(doClassico.porque, /so o #Auto e conduzido sem o dono|o passo e do dono/);
+  // A thread que o dono pausou nao e retomada, nem com o bloqueio de cota depois do despacho (B3 da revisao).
+  const pausada = lerThread(p.dir, thread.id);
+  gravarThread(p.dir, { ...pausada, status: 'pausada' });
+  const daPausada = passoDe(passosDoCondutor(p.carregado), thread.id);
+  assert.notEqual(daPausada.acao, 'retomar');
+  assert.match(daPausada.porque, /o passo e do dono \(thread pausada\)/);
 });
 
 test('S6 dois condutores ao mesmo tempo: a Sentinela e o cron pedem o PLAN em processos paralelos e sai um despacho so', async (t) => {

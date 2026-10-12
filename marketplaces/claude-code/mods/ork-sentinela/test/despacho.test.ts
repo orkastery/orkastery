@@ -33,7 +33,7 @@ test('fase concluida numa #Auto sem conducao: um despacho so, com o render do pe
   expect(despachos(mundo).map(p => p.argv[4])).toEqual(['PLAN', 'GO'])
 })
 
-test('outro condutor ja conduz: nada despachado; o phase run que sai 3 ou com HITL ocupado vira cedeu, sem repetir', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('outro condutor ja conduz: nada despachado; o phase run que sai 3 ou com HITL ocupado vira cedeu, sem repetir antes do adiamento', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const { relogio, mundo } = montar(on)
   mundo.status = status([despachar('ork-a'), despachar('ork-b'), despachar('ork-c')])
   mundo.conducao['ork-a'] = { thread: 'ork-a', canal: 'hermes', fase: 'PLAN' }
@@ -54,7 +54,7 @@ test('outro condutor ja conduz: nada despachado; o phase run que sai 3 ou com HI
   expect(despachos(mundo).length).toBe(2)
 })
 
-test('pedido repetido do nucleo e so diario; despacho que falha vai ao diario como erro e nao se repete no mesmo turno', { plugins: [PONTE_FALSA] }, async ($, on) => {
+test('pedido repetido do nucleo e so diario; despacho que falha vai ao diario como erro e so volta depois do adiamento', { plugins: [PONTE_FALSA] }, async ($, on) => {
   const { relogio, mundo } = montar(on)
   mundo.status = status([despachar('ork-a')])
   mundo.despacho = { exitCode: 0, stdout: 'Pedido ja em andamento: a fase PLAN da thread ork-a roda com este mesmo prompt', stderr: '' }
@@ -117,5 +117,72 @@ test('retomar: o retry plan decide; o retry run so roda automatico, sem --por e 
   await relogio.advance(60000)
   await relogio.settle()
   expect(argvs(mundo).filter(a => a.startsWith('ork retry plan')).length).toBe(2)
+  expect(retomadas(mundo).length).toBe(1)
+})
+
+const pedidoAberto = (thread: string) => [{ id: 'p1', title: 'Qual o veredito?', status: 'aberto', refs: [{ kind: 'thread', id: thread }], facts: { target: 'gate' } }]
+const batidas = mundo => argvs(mundo).filter(a => a.startsWith('ork conducao sentinela bater')).length
+
+test('recusa que passa nao queima o turno: pedido aberto respondido e projeto sem vaga despacham depois do adiamento', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = montar(on)
+  mundo.status = status([despachar('ork-a'), despachar('ork-b')])
+  mundo.hitl['ork-a'] = pedidoAberto('ork-a')
+  let vez = 0
+  Object.defineProperty(mundo, 'despacho', {
+    get: () => (vez++ === 0 ? { exitCode: 3, stdout: 'Projeto sem vaga: 3 de 3 sessoes ocupadas', stderr: '' } : { exitCode: 0, stdout: 'Fase despachada.', stderr: '' }),
+  })
+  await iniciar($, relogio)
+  expect(despachos(mundo).map(p => p.argv[3])).toEqual(['ork-b'])
+  mundo.hitl['ork-a'] = []
+  await relogio.advance(2 * MIN)
+  await relogio.settle()
+  expect(despachos(mundo).length).toBe(1)
+  await relogio.advance(2 * MIN)
+  await relogio.settle()
+  expect(despachos(mundo).map(p => p.argv[3])).toEqual(['ork-b', 'ork-a', 'ork-b'])
+  const diario = await sentinela($)
+  expect(diario).toContain('despacho ork-a: PLAN: despachada pelo núcleo')
+  expect(diario).toContain('despacho ork-b: PLAN: despachada pelo núcleo')
+  // Feito, o turno não sai mais.
+  await relogio.advance(5 * MIN)
+  await relogio.settle()
+  expect(despachos(mundo).length).toBe(3)
+})
+
+test('um despacho lento nao deixa a presenca vencer: a batida segue no relogio dela, e o turno sai uma vez', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = montar(on)
+  mundo.status = status([despachar('ork-a')])
+  mundo.atrasoDoDespacho = 4 * MIN
+  await iniciar($, relogio)
+  const antes = batidas(mundo)
+  await relogio.advance(3 * MIN)
+  await relogio.settle()
+  expect(batidas(mundo)).toBe(antes + 3)
+  await relogio.advance(2 * MIN)
+  await relogio.settle()
+  expect(despachos(mundo).length).toBe(1)
+  expect(await sentinela($)).toContain('despacho ork-a: PLAN: despachada pelo núcleo')
+})
+
+test('retomar espera o pedido aberto ao dono e a conducao de outro: o retry run so sai depois, e uma vez', { plugins: [PONTE_FALSA] }, async ($, on) => {
+  const { relogio, mundo } = montar(on)
+  mundo.status = status([passo('ork-a', { acao: 'retomar', bloqueio: { motivo: 'runtime.quota-exhausted', em: FIM }, desdeEm: FIM })])
+  mundo.retry['ork-a'] = { automatica: true, bloqueio: null }
+  mundo.hitl['ork-a'] = pedidoAberto('ork-a')
+  await iniciar($, relogio)
+  expect(retomadas(mundo)).toEqual([])
+  expect(argvs(mundo).filter(a => a.startsWith('ork retry plan'))).toEqual([])
+  expect(await sentinela($)).toContain('há pedido aberto ao dono na thread; a retomada espera a resposta')
+  mundo.hitl['ork-a'] = []
+  mundo.conducao['ork-a'] = { thread: 'ork-a', canal: 'hermes' }
+  await relogio.advance(4 * MIN)
+  await relogio.settle()
+  expect(retomadas(mundo)).toEqual([])
+  mundo.conducao['ork-a'] = null
+  await relogio.advance(4 * MIN)
+  await relogio.settle()
+  expect(retomadas(mundo).length).toBe(1)
+  await relogio.advance(5 * MIN)
+  await relogio.settle()
   expect(retomadas(mundo).length).toBe(1)
 })

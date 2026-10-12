@@ -8,6 +8,11 @@ export const PRAZO_DO_RENDER_MS = 30000
 /** O mesmo teto que o condutor externo dá ao `ork phase run`, com folga. */
 export const PRAZO_DO_DESPACHO_MS = 200000
 export const PRAZO_DA_RETOMADA_MS = 200000
+/**
+ * A recusa que passa (outro condutor, projeto sem vaga, pedido aberto, falha) não queima o turno: a chave volta e o
+ * passo é tentado de novo depois disto. A batida e o adiamento são da Sentinela; quem diz se sai é sempre o núcleo.
+ */
+export const ADIAMENTO_MS = 3 * 60 * 1000
 /** A linha que o `ork prompt render` imprime quando usa o pedido guardado na criação da thread (T6.0). */
 export const MARCA_DO_PEDIDO = '# pedido guardado na criacao da thread'
 /** O teto do prompt que o despacho aceita (o mesmo do `ork_phase_run`). */

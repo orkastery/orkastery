@@ -4,12 +4,12 @@
 // núcleo manda despachar, só pelo `ork phase run` e uma vez por turno (T6.2); e avisa o dono, por notificação e na
 // faixa, do que só ele resolve, com o próximo passo do núcleo (T6.3), registrando pela ponte o que mostrou para o
 // Telegram não repetir. Lê só pelo núcleo (o `ork` e o `$.ork` da ponte), nunca `.orkastery/` por conta própria, e
-// nunca assume a condução de ninguém. A lógica fica nos módulos
-// puros ao lado; aqui só os ganchos e as chamadas ao `$`, escritas como `x.noun.metodo(...)`, como o validador exige.
+// nunca assume a condução de ninguém. A lógica fica nos módulos puros ao lado; aqui só os ganchos e as chamadas ao
+// `$`, escritas como `x.noun.metodo(...)`, como o validador exige.
 import type { EngineInterface, Register } from 'claude-code'
 import type { SentinelaEntrada, SentinelaPasso, SentinelaPresenca, SentinelaResumo } from '../types'
 import {
-  AMBIENTE_DA_RETOMADA, argvDaRetomada, argvDoDespacho, argvDoRender, chaveDaRetomada, chaveDoDespacho, conducaoLivre, lerDespacho,
+  ADIAMENTO_MS, AMBIENTE_DA_RETOMADA, argvDaRetomada, argvDoDespacho, argvDoRender, chaveDaRetomada, chaveDoDespacho, conducaoLivre, lerDespacho,
   lerRetomada, paraDespachar, paraRetomar, pedidoAbertoNoRetrato, PRAZO_DA_RETOMADA_MS, PRAZO_DO_DESPACHO_MS, PRAZO_DO_RENDER_MS,
   promptDoRender, retomadaAutomatica,
 } from './despacho'
@@ -71,6 +71,19 @@ let falhaSemRegistro: string | null = null
 /** Quando o pulse foi lido pela última vez nesta carga, e quantos avisos ele trouxe (a faixa os conta). */
 let ultimoPulseEm = Number.NEGATIVE_INFINITY
 let avisosAtuais = 0
+let batendo: Promise<void> | undefined
+/** O que a última batida disse da presença desta sessão: `outra` segura o despacho e os avisos. */
+let ultimaBatida: SentinelaPresenca = 'desconhecida'
+/**
+ * Os turnos e bloqueios adiados nesta carga, com até quando. Só o despacho feito (ou o pedido repetido de quem já
+ * conduz) e a retomada que o plano declara do dono ficam de vez; a recusa que passa (outro condutor, sem vaga, pedido
+ * aberto, falha) volta depois do adiamento, porque o fim do turno que a chave carrega não muda com ela.
+ */
+const adiados = new Map<string, number>()
+
+function emEspera(agora: number): string[] {
+  return [...adiados].filter(([, ate]) => ate > agora).map(([chave]) => chave)
+}
 
 function mensagem(erro: unknown): string {
   return (erro instanceof Error ? erro.message : String(erro)).replace(/\s+/g, ' ').trim().slice(0, 200)
@@ -118,18 +131,51 @@ async function anotar($: EngineInterface, e: SentinelaEntrada): Promise<void> {
   })
 }
 
-/** Liga a Sentinela na sessão do dono: o `/sentinela`, a batida de 60 s e a primeira rodada. */
+/** Liga a Sentinela na sessão do dono: o `/sentinela`, a batida de 60 s e a primeira rodada. Falha deixa tudo desligado. */
 async function ativar($: EngineInterface): Promise<void> {
   if (ativa) return
   ativa = true
-  await carregarMemoria($)
-  await $.command.register({
-    name: 'sentinela', description: 'Sentinela do Condutor: o passo de cada thread e o diário do que ela despachou, cedeu e avisou; pausar ou retomar',
-    immediate: true,
-  })
+  try {
+    await carregarMemoria($)
+    await $.command.register({
+      name: 'sentinela', description: 'Sentinela do Condutor: o passo de cada thread e o diário do que ela despachou, cedeu e avisou; pausar ou retomar',
+      immediate: true,
+    })
+  } catch (erro) {
+    ativa = false
+    falhaSemRegistro = mensagem(erro)
+    $.ui.toast(`sentinela: a Sentinela do Condutor não ligou nesta sessão (${mensagem(erro)})`)
+    return
+  }
   ciclo?.cancel()
-  ciclo = $.clock.every(BATIDA_MS, () => { void pedirRodada($, true) })
-  $.clock.after(ESPERA_DA_PRIMEIRA_MS, () => { void pedirRodada($, true) })
+  ciclo = $.clock.every(BATIDA_MS, () => tique($))
+  $.clock.after(ESPERA_DA_PRIMEIRA_MS, () => tique($))
+}
+
+/**
+ * A batida tem relógio próprio, fora da rodada: um despacho lento (até 200 s) dentro de uma rodada não deixa a presença
+ * vencer (3 min), e o condutor externo não volta a conduzir no meio dela. Uma por vez; pausada, nenhuma.
+ */
+function pedirBatida($: EngineInterface): Promise<void> | undefined {
+  if (!ativa || memoria.pausada || batendo) return undefined
+  const esta = (async () => {
+    try {
+      ultimaBatida = await bater($)
+    } catch (erro) {
+      falhaSemRegistro = mensagem(erro)
+    } finally {
+      batendo = undefined
+    }
+  })()
+  batendo = esta
+  return esta
+}
+
+/** O relógio da Sentinela: a batida e, depois dela, uma rodada de reserva. */
+function tique($: EngineInterface): void {
+  const batida = pedirBatida($)
+  if (batida) void batida.then(() => { void pedirRodada($) })
+  else void pedirRodada($)
 }
 
 /** Confere o papel: liga no dono, desiste na fase ou sem a ponte, e tenta de novo enquanto dormente. */
@@ -143,15 +189,15 @@ async function conferirPapel($: EngineInterface, tentativa: number): Promise<voi
     return
   }
   const espera = ESPERAS_DO_PAPEL_MS[tentativa] ?? ESPERA_LONGA_DO_PAPEL_MS
-  $.clock.after(espera, () => { void conferirPapel($, tentativa + 1) })
+  $.clock.after(espera, () => { void conferirPapel($, tentativa + 1).catch(erro => { falhaSemRegistro = mensagem(erro) }) })
 }
 
 /**
  * Uma rodada por vez. Com uma em andamento, o pedido só marca que outra deve rodar logo depois e volta sem nada para
- * esperar: quem pediu nunca espera a rodada de outro despacho, cuja espera contaria no orçamento do gancho. A rodada
- * da batida também renova a presença. Devolve a rodada só a quem a começou.
+ * esperar: quem pediu nunca espera a rodada de outro despacho, cuja espera contaria no orçamento do gancho. Devolve a
+ * rodada só a quem a começou.
  */
-function pedirRodada($: EngineInterface, comBatida: boolean): Promise<void> | undefined {
+function pedirRodada($: EngineInterface): Promise<void> | undefined {
   if (!ativa) return undefined
   if (rodando) {
     pendente = true
@@ -159,11 +205,9 @@ function pedirRodada($: EngineInterface, comBatida: boolean): Promise<void> | un
   }
   const esta = (async () => {
     try {
-      let batida = comBatida
       do {
         pendente = false
-        await rodadaUmaVez($, batida)
-        batida = false
+        await rodadaUmaVez($)
       } while (pendente)
     } catch (erro) {
       // O `$` pode já não responder (a sessão fechou): o motivo fica numa variável do módulo, sem depender dele.
@@ -180,7 +224,7 @@ function pedirRodada($: EngineInterface, comBatida: boolean): Promise<void> | un
 function agendar($: EngineInterface, agora: number): void {
   if (acordar) return
   const espera = Math.max(ESPERA_DO_LEDGER_MS, ultimaRodadaEm + INTERVALO_MINIMO_MS - agora)
-  acordar = $.clock.after(espera, () => { acordar = undefined; void pedirRodada($, false) })
+  acordar = $.clock.after(espera, () => { acordar = undefined; void pedirRodada($) })
 }
 
 /** A batida da presença desta sessão; falha vira linha do diário e presença desconhecida. */
@@ -195,11 +239,10 @@ async function bater($: EngineInterface): Promise<SentinelaPresenca> {
   }
 }
 
-/** A rodada: a batida (na cadência dela), o status do núcleo e a linha da faixa. */
-async function rodadaUmaVez($: EngineInterface, comBatida: boolean): Promise<void> {
+/** A rodada: o status do núcleo, o despacho e os avisos (só com a presença desta sessão) e a linha da faixa. */
+async function rodadaUmaVez($: EngineInterface): Promise<void> {
   ultimaRodadaEm = await $.clock.now()
   const pausa = memoria.pausada
-  const batida = !pausa && comBatida ? await bater($) : null
   let lido: ReturnType<typeof lerStatus>
   try {
     lido = lerStatus(await $.process.run(argvDoStatus(), { timeoutMs: PRAZO_DO_STATUS_MS }), sessao)
@@ -210,7 +253,7 @@ async function rodadaUmaVez($: EngineInterface, comBatida: boolean): Promise<voi
     await publicarFaixa($)
     return
   }
-  const presenca: SentinelaPresenca = batida === 'outra' ? 'outra' : lido.presenca
+  const presenca: SentinelaPresenca = ultimaBatida === 'outra' ? 'outra' : lido.presenca
   await mudar($, 'resumo', () => ({ lidoEm: ultimaRodadaEm, presenca, passos: lido.passos, erro: null }))
   // Uma Sentinela por máquina: só a que tem a presença conduz e avisa, e nunca pausada (aí o condutor externo avisa).
   if (!pausa && presenca === 'minha') {
@@ -254,11 +297,12 @@ async function avisar($: EngineInterface, a: Aviso): Promise<void> {
   }
 }
 
-/** T6.2: o despacho e a retomada que o núcleo manda, cada turno e cada bloqueio uma vez só. */
+/** T6.2: o despacho e a retomada que o núcleo manda, cada turno feito uma vez só e o recusado depois do adiamento. */
 async function conduzir($: EngineInterface, passos: readonly SentinelaPasso[]): Promise<void> {
   if (!sessaoValida(sessao)) return
-  for (const p of paraDespachar(passos, memoria.despachados)) await despachar($, p, sessao)
-  for (const p of paraRetomar(passos, memoria.retomados)) await retomarThread($, p)
+  const esperando = emEspera(await $.clock.now())
+  for (const p of paraDespachar(passos, [...memoria.despachados, ...esperando])) await despachar($, p, sessao)
+  for (const p of paraRetomar(passos, [...memoria.retomados, ...esperando])) await retomarThread($, p)
 }
 
 const FRASE_DO_RESULTADO: Record<ResultadoDoDespacho['resultado'], string> = {
@@ -267,36 +311,43 @@ const FRASE_DO_RESULTADO: Record<ResultadoDoDespacho['resultado'], string> = {
 }
 
 /**
- * Um despacho: a chave do turno entra antes (uma rodada no meio, ou uma recarga, nunca pede o mesmo turno de novo);
- * a condução e o pedido aberto ao dono são relidos pelo núcleo logo antes; o prompt sai do render com o pedido
- * guardado; e o `ork phase run` decide, com o lease e a trava do kernel, se a sessão nova abre. Leitura que falha
- * devolve a chave, para a rodada seguinte tentar; o que o núcleo recusou fica no diário e não se repete.
+ * Um despacho: a chave do turno entra antes (uma recarga no meio nunca pede o mesmo turno de novo); a condução e o
+ * pedido aberto ao dono são relidos pelo núcleo logo antes; o prompt sai do render com o pedido guardado; e o
+ * `ork phase run` decide, com o lease e a trava do kernel, se a sessão nova abre. Só o despacho feito e o pedido
+ * repetido ficam de vez; o resto devolve a chave e espera o adiamento, e o diário diz quando volta.
  */
 async function despachar($: EngineInterface, p: SentinelaPasso, sessaoDoDono: string): Promise<void> {
   const chave = chaveDoDespacho(p) as string
   const fase = p.fase as string
   const anotarAqui = async (tipo: SentinelaEntrada['tipo'], texto: string) => anotar($, entrada(await $.clock.now(), tipo, p.thread, texto))
-  const devolver = () => mudar($, 'despachados', d => d.filter(c => c !== chave))
+  const adiar = async () => {
+    await mudar($, 'despachados', d => d.filter(c => c !== chave))
+    adiados.set(chave, (await $.clock.now()) + ADIAMENTO_MS)
+  }
+  const volta = `; tenta de novo em ${Math.round(ADIAMENTO_MS / 60000)} min`
   await mudar($, 'despachados', d => guardarChave(d, chave))
   try {
     if (!conducaoLivre(await $.ork.ler({ consulta: 'conducao.status', thread: p.thread }))) {
-      return anotarAqui('cedeu', `${fase}: outro condutor já conduz a thread; nada despachado`)
+      await adiar()
+      return anotarAqui('cedeu', `${fase}: outro condutor já conduz a thread; nada despachado${volta}`)
     }
     if (pedidoAbertoNoRetrato((await $.ork.retrato({ thread: p.thread })).retrato, p.thread)) {
-      return anotarAqui('cedeu', `${fase}: há pedido aberto ao dono na thread; o despacho espera a resposta`)
+      await adiar()
+      return anotarAqui('cedeu', `${fase}: há pedido aberto ao dono na thread; o despacho espera a resposta${volta}`)
     }
   } catch (erro) {
-    await devolver()
-    return anotarAqui('erro', `${fase}: a condução não foi relida (${mensagem(erro)}); a próxima rodada tenta de novo`)
+    await adiar()
+    return anotarAqui('erro', `${fase}: a condução não foi relida (${mensagem(erro)})${volta}`)
   }
   let render: ReturnType<typeof promptDoRender>
   try {
     render = promptDoRender(await $.process.run(argvDoRender(p.thread, fase), { timeoutMs: PRAZO_DO_RENDER_MS }))
   } catch (erro) {
-    await devolver()
-    return anotarAqui('erro', `${fase}: o render do prompt falhou (${mensagem(erro)}); a próxima rodada tenta de novo`)
+    await adiar()
+    return anotarAqui('erro', `${fase}: o render do prompt falhou (${mensagem(erro)})${volta}`)
   }
   if ('motivo' in render) {
+    await adiar()
     await anotarAqui('erro', `${fase}: não despachada: ${render.motivo}`)
     return avisar($, avisoDoDespacho(p, render.motivo))
   }
@@ -306,22 +357,41 @@ async function despachar($: EngineInterface, p: SentinelaPasso, sessaoDoDono: st
   } catch (erro) {
     r = { resultado: 'falhou', detalhe: mensagem(erro) }
   }
+  const deVez = r.resultado === 'despachada' || r.resultado === 'repetida'
+  if (!deVez) await adiar()
   const tipo = r.resultado === 'despachada' ? 'despacho' : r.resultado === 'falhou' ? 'erro' : 'cedeu'
-  await anotarAqui(tipo, `${fase}: ${FRASE_DO_RESULTADO[r.resultado]}${r.detalhe ? ` (${r.detalhe})` : ''}`)
+  await anotarAqui(tipo, `${fase}: ${FRASE_DO_RESULTADO[r.resultado]}${r.detalhe ? ` (${r.detalhe})` : ''}${deVez ? '' : volta}`)
   if (r.resultado === 'falhou') await avisar($, avisoDoDespacho(p, r.detalhe))
 }
 
-/** Uma retomada: o `ork retry plan` (pela ponte) decide, e o `ork retry run` só roda quando ele é automático. */
+/**
+ * Uma retomada: a condução e o pedido aberto ao dono são relidos antes, como no despacho; o `ork retry plan` (pela
+ * ponte) decide, e o `ork retry run` só roda quando ele é automático. O plano que é do dono fica de vez para esse
+ * bloqueio; a recusa que passa espera o adiamento.
+ */
 async function retomarThread($: EngineInterface, p: SentinelaPasso): Promise<void> {
   const chave = chaveDaRetomada(p) as string
   const anotarAqui = async (texto: string) => anotar($, entrada(await $.clock.now(), 'retomada', p.thread, texto))
+  const adiar = async () => {
+    await mudar($, 'retomados', d => d.filter(c => c !== chave))
+    adiados.set(chave, (await $.clock.now()) + ADIAMENTO_MS)
+  }
+  const volta = `; tenta de novo em ${Math.round(ADIAMENTO_MS / 60000)} min`
   await mudar($, 'retomados', d => guardarChave(d, chave))
   let plano: unknown
   try {
+    if (!conducaoLivre(await $.ork.ler({ consulta: 'conducao.status', thread: p.thread }))) {
+      await adiar()
+      return anotarAqui(`bloqueio ${p.bloqueio?.motivo}: outro condutor já conduz a thread${volta}`)
+    }
+    if (pedidoAbertoNoRetrato((await $.ork.retrato({ thread: p.thread })).retrato, p.thread)) {
+      await adiar()
+      return anotarAqui(`bloqueio ${p.bloqueio?.motivo}: há pedido aberto ao dono na thread; a retomada espera a resposta${volta}`)
+    }
     plano = await $.ork.ler({ consulta: 'retry.plan', thread: p.thread })
   } catch (erro) {
-    await mudar($, 'retomados', d => d.filter(c => c !== chave))
-    return anotarAqui(`o retry plan não foi lido (${mensagem(erro)}); a próxima rodada tenta de novo`)
+    await adiar()
+    return anotarAqui(`a condução ou o retry plan não foram lidos (${mensagem(erro)})${volta}`)
   }
   if (!retomadaAutomatica(plano)) {
     const { bloqueio } = (plano ?? {}) as { bloqueio?: unknown }
@@ -333,7 +403,8 @@ async function retomarThread($: EngineInterface, p: SentinelaPasso): Promise<voi
   } catch (erro) {
     r = { resultado: 'recusada', detalhe: mensagem(erro) }
   }
-  await anotarAqui(`bloqueio ${p.bloqueio?.motivo}: ${r.resultado === 'retomada' ? 'retomado pelo núcleo' : 'o núcleo não retomou'}${r.detalhe ? ` (${r.detalhe})` : ''}`)
+  if (r.resultado !== 'retomada') await adiar()
+  await anotarAqui(`bloqueio ${p.bloqueio?.motivo}: ${r.resultado === 'retomada' ? 'retomado pelo núcleo' : 'o núcleo não retomou'}${r.detalhe ? ` (${r.detalhe})` : ''}${r.resultado === 'retomada' ? '' : volta}`)
 }
 
 /** A linha da faixa pela ponte (D7 do plano dos mods), só quando o texto muda. */
@@ -362,6 +433,7 @@ async function desligar($: EngineInterface, motivo: string): Promise<void> {
 async function pausarSentinela($: EngineInterface): Promise<string> {
   await mudar($, 'pausada', () => true)
   await desligar($, 'pausa pelo dono')
+  ultimaBatida = 'nenhuma'
   await anotar($, entrada(await $.clock.now(), 'pausa', null, 'pausada pelo /sentinela; o condutor externo conduz'))
   await mudar($, 'resumo', r => ({ ...r, presenca: 'nenhuma' }))
   await publicarFaixa($)
@@ -371,7 +443,9 @@ async function pausarSentinela($: EngineInterface): Promise<string> {
 async function retomarSentinela($: EngineInterface): Promise<string> {
   await mudar($, 'pausada', () => false)
   await anotar($, entrada(await $.clock.now(), 'pausa', null, 'retomada pelo /sentinela'))
-  const propria = pedirRodada($, true)
+  const batida = pedirBatida($)
+  if (batida) await batida
+  const propria = pedirRodada($)
   if (propria) await propria
   return 'Sentinela retomada: ela volta a conduzir nesta máquina quando a presença for confirmada pelo núcleo.'
 }
@@ -404,7 +478,7 @@ export const register: Register = on => {
     if (pedido === 'pausar') return { text: await pausarSentinela($) }
     if (pedido === 'retomar') return { text: await retomarSentinela($) }
     if (pedido !== '') return { text: 'Uso: /sentinela (o passo de cada thread e o diário), /sentinela pausar ou /sentinela retomar.' }
-    const propria = pedirRodada($, false)
+    const propria = pedirRodada($)
     if (propria) await propria
     const texto = textoDoDiario(memoria.resumo, memoria.diario, memoria.pausada, await $.clock.now())
     const andamento = propria ? '' : '\nUma rodada já estava em andamento: o próximo /sentinela mostra a leitura nova.'

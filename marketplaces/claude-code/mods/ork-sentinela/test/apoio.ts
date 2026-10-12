@@ -118,6 +118,8 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
     conducao: {} as Record<string, unknown>, render: {} as Record<string, string | null>, despacho: { exitCode: 0, stdout: 'Fase despachada.', stderr: '' },
     retry: {} as Record<string, unknown>, retryRun: { exitCode: 0, stdout: 'retomada', stderr: '' }, pulse: pulso() as unknown,
     hitl: {} as Record<string, unknown[]>,
+    /** O `ork phase run` responde depois disto, pelo relógio falso: um despacho lento no meio da rodada. */
+    atrasoDoDespacho: 0,
     processos: [] as Array<{ argv: string[]; env?: Record<string, string> }>, comandos: [] as string[], notificacoes: [] as Array<{ text: string; title?: string }>,
     logs: [] as string[], toasts: [] as string[], retratos: [] as unknown[],
   }
@@ -138,7 +140,7 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
       hitl: { state: items.length ? 'available' : 'empty', source: 'teste', observedAt: iso(T0), items, gaps: [] } } }
     return { value: { content: [{ type: 'text', text: JSON.stringify(retrato) }], isError: false } }
   })
-  on('process.run', ($, e) => {
+  on('process.run', async ($, e) => {
     const argv = e.argv as string[]
     mundo.processos.push({ argv, env: e.init?.env })
     const [, a, b, c] = argv
@@ -154,7 +156,10 @@ export function montar(on, opcoes: { agora?: number; papel?: string } = {}) {
       if (r === null) return saida(1, '', 'thread.pedido.divergente')
       return saida(0, r ?? `# template fase-padrao v3 (origem: embutido)\n# thread ${c}, fase ${argv[4]}, sha256 abc\n${MARCA_DO_PEDIDO}\n\nO prompt da fase ${argv[4]} de ${c}.\n`)
     }
-    if (a === 'phase' && b === 'run') return { value: { ...mundo.despacho, isStdoutTruncated: false, isStderrTruncated: false } }
+    if (a === 'phase' && b === 'run') {
+      if (mundo.atrasoDoDespacho > 0) await relogio.sleep(mundo.atrasoDoDespacho)
+      return { value: { ...mundo.despacho, isStdoutTruncated: false, isStderrTruncated: false } }
+    }
     if (a === 'retry' && b === 'plan') return saida(0, mundo.retry[c as string] ?? { automatica: false, bloqueio: 'politica.nao-automatica' })
     if (a === 'retry' && b === 'run') return { value: { ...mundo.retryRun, isStdoutTruncated: false, isStderrTruncated: false } }
     if (a === 'pulse') return mundo.pulse === null ? saida(1, '', 'runtime.unavailable') : saida(0, mundo.pulse)

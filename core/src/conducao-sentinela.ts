@@ -8,9 +8,10 @@
  * - a PRESENCA dela nesta maquina, com prazo curto renovado pela batida: enquanto ela vale, o condutor externo cede
  *   o despacho e o retry; vencida (a sessao do dono fechou), ele volta a conduzir sozinho, como reserva;
  * - o PASSO DO CONDUTOR de cada thread aberta, calculado com as mesmas leituras do pulse (`entregasDoProjeto`,
- *   `esperaDoCondutor`), sem o limiar de 30 min e sem ler a forja. No #Auto, a fase seguinte a uma fase concluida
- *   so sai quando a branch ainda nao tem produto, ou quando a seguinte vem depois do GO: a sessao que fez o bloco
- *   inteiro nao ganha um PLAN repetido.
+ *   `esperaDoCondutor`), sem o limiar de 30 min e sem ler a forja. No #Auto, depois de uma fase concluida, sai a
+ *   fase seguinte a prova mais adiantada que a sessao do bloco deixou (artefato gravado depois do despacho, produto
+ *   na branch, `ship_done`, `master_done`), e nada sai quando o bloco ja passou do CHECK: a sessao que fez o bloco
+ *   inteiro nao ganha um PLAN repetido. A pendencia do dono (thread pausada, pergunta aberta) segura tudo.
  *
  * Nada aqui despacha nem toma conducao: quem despacha e o `ork phase run`, e a Sentinela nunca assume a conducao.
  */
@@ -22,7 +23,7 @@ import { raizDoEstado } from './estado-thread';
 import { lerLedger, registrar, TIPOS_DE_EVENTO } from './ledger';
 import { dirEstado, ManifestoCarregado } from './manifest';
 import { nomeDaMaquina } from './maquina';
-import { CasoParado, entregasDoProjeto, EstadoDaEntrega } from './parado-no-condutor';
+import { CasoParado, entregasDoProjeto, EstadoDaEntrega, pendenciaDoDono } from './parado-no-condutor';
 import { dirThread, lerThread, pedidoDaThread } from './thread';
 import { EventoLedger, Fase, Thread } from './types';
 
@@ -121,7 +122,12 @@ function comTrava<T>(arquivo: string, fn: () => T): T {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
       const st = fs.statSync(trava, { throwIfNoEntry: false });
-      if (st && Date.now() - st.mtimeMs > TRAVA_VELHA_MS) { fs.rmSync(trava, { force: true }); continue; }
+      if (st && Date.now() - st.mtimeMs > TRAVA_VELHA_MS) {
+        // So a mesma trava velha sai: se outra sessao a trocou no meio (outro inode ou outro mtime), ela fica.
+        const deNovo = fs.statSync(trava, { throwIfNoEntry: false });
+        if (deNovo && deNovo.ino === st.ino && deNovo.mtimeMs === st.mtimeMs) fs.rmSync(trava, { force: true });
+        continue;
+      }
       if (Date.now() > limite) throw new Error('conducao.sentinela.trava: outra escrita da presenca nao terminou; tente de novo');
       dormirSincrono(25);
     }
@@ -214,13 +220,16 @@ export interface PassoDoCondutor {
   porque: string;
   /** Desde quando o passo vale: o fim do turno do despacho, ou o bloqueio. E a chave do despacho na Sentinela. */
   desdeEm: string | null;
-  /** O ultimo `gate_blocked` ou `phase_dispatch_failed` depois do ultimo despacho, quando ha. */
-  bloqueio: { motivo: string; em: string } | null;
+  /**
+   * O ultimo `gate_blocked` ou `phase_dispatch_failed` depois do ultimo despacho, quando ha; `deDespacho` quando ele
+   * veio de um despacho que nao abriu sessao (e nao do observador, no fim do turno).
+   */
+  bloqueio: { motivo: string; em: string; deDespacho: boolean } | null;
   /** A thread tem o pedido guardado na criacao (T6.0): sem ele, o render cai no texto de exemplo. */
   pedidoGuardado: boolean;
 }
 
-/** As fases que, com produto ja na branch, a sessao do bloco ja fez. */
+/** As fases que, com produto ja na branch, a sessao do bloco ja fez (ha produto, entao houve GO). */
 const FASES_ANTES_DO_PRODUTO: readonly Fase[] = ['PLAN', 'GO'];
 /** O artefato de cada fase que tem um, na pasta `docs/` da thread. */
 const ARTEFATO_DA_FASE: Partial<Record<Fase, string>> = { GOAL: 'goal.md', PLAN: 'plan.md', CHECK: 'check.md' };
@@ -248,25 +257,34 @@ export function faseJaFeita(raiz: string, t: Thread, fase: Fase, estado: EstadoD
 }
 
 /** O bloqueio que sobrou do ultimo despacho: o ultimo evento de gate depois dele, quando reprova. */
-export function bloqueioDepoisDoDespacho(eventos: readonly EventoLedger[]): { motivo: string; em: string } | null {
+export function bloqueioDepoisDoDespacho(eventos: readonly EventoLedger[]): { motivo: string; em: string; deDespacho: boolean } | null {
   let inicio = -1;
   for (let i = eventos.length - 1; i >= 0; i--) if (eventos[i].tipo === TIPOS_DE_EVENTO.faseDespachada) { inicio = i; break; }
   for (let i = eventos.length - 1; i > inicio; i--) {
     const e = eventos[i];
     if (e.tipo === TIPOS_DE_EVENTO.gateLiberado) return null;
     if (BLOQUEIOS.includes(e.tipo)) {
-      return { motivo: typeof e.motivo === 'string' && e.motivo ? e.motivo : e.tipo, em: e.ts };
+      return { motivo: typeof e.motivo === 'string' && e.motivo ? e.motivo : e.tipo, em: e.ts,
+        deDespacho: e.tipo === TIPOS_DE_EVENTO.despachoFalhou || e.gate === 'phase.dispatch' };
     }
   }
   return null;
 }
 
+/** As fases da entrega: depois de um bloco que ja passou do CHECK, quem publica e entrega e o condutor externo e o dono. */
+const FASES_DA_ENTREGA: readonly Fase[] = ['SHIP', 'MASTER'];
+
 /**
  * O passo de uma thread, pelas leituras que o pulse ja faz dela (`EstadoDaEntrega`). `jaFeita` diz por que a
- * sessao do bloco ja fez uma fase (`faseJaFeita`), ou `null`.
+ * sessao do bloco ja fez uma fase (`faseJaFeita`), ou `null`; `doDono` e a pendencia do dono (`pendenciaDoDono`:
+ * thread pausada, pergunta aberta, escalacao), que segura qualquer passo automatico.
+ *
+ * No #Auto, depois de uma fase concluida, vale a prova mais adiantada que a sessao do bloco deixou: a fase seguinte a
+ * ela sai, e as do meio sem prova contam como feitas (nao ha CHECK sem GO). Se o bloco ja passou do CHECK, o passo e o
+ * da entrega (SHIP e MASTER ficam com o condutor externo e o dono) e vira aviso.
  */
 export function passoDaThread(t: Thread, estado: EstadoDaEntrega, eventos: readonly EventoLedger[], pedidoGuardado: boolean,
-  jaFeita: (fase: Fase) => string | null = () => null): PassoDoCondutor {
+  jaFeita: (fase: Fase) => string | null = () => null, doDono: string | null = null): PassoDoCondutor {
   const espera = estado.espera;
   const base: Omit<PassoDoCondutor, 'acao' | 'porque'> = {
     thread: t.id, modo: t.modo, faseAtual: t.faseAtual, conduzida: estado.conduzidaAgora, fase: null,
@@ -276,8 +294,15 @@ export function passoDaThread(t: Thread, estado: EstadoDaEntrega, eventos: reado
   };
   const avisarOuNada = (porque: string): PassoDoCondutor => ({ ...base, acao: base.caso ? 'avisar' : 'nada', porque });
   if (estado.conduzidaAgora) return { ...base, acao: 'nada', porque: 'conduzida agora: quem conduz segue' };
+  if (doDono) return avisarOuNada(`o passo e do dono (${doDono}): nada sai sozinho`);
   // Como o cron: so o #Auto anda sem o dono. Nos outros modos o caso do nucleo vira aviso.
   if (t.modo !== 'auto') return avisarOuNada(`modo ${t.modo}: so o #Auto e conduzido sem o dono`);
+  // Um despacho tentado depois do fim do turno falhou (a sessao nem abriu): quem decide o proximo passo e o retry plan,
+  // com a ordem de fallback do runtime, e nao um despacho repetido.
+  if (espera && base.bloqueio?.deDespacho && Date.parse(base.bloqueio.em) > Date.parse(espera.fimDoTurnoEm)) {
+    return { ...base, acao: 'retomar', desdeEm: base.bloqueio.em,
+      porque: `o despacho depois do fim do turno falhou (${base.bloqueio.motivo}): o retry plan diz se a retomada e automatica` };
+  }
   if (espera?.tipo === 'check-sem-veredito') {
     return { ...base, acao: 'despachar', fase: 'CHECK', desdeEm: espera.fimDoTurnoEm,
       porque: 'CHECK em done sem exatamente um veredito: o passo do nucleo e redespachar o CHECK' };
@@ -285,11 +310,22 @@ export function passoDaThread(t: Thread, estado: EstadoDaEntrega, eventos: reado
   if (espera?.tipo === 'concluida' && espera.comProva !== false) {
     const rodou = espera.fase as Fase | null;
     const i = rodou ? t.fases.indexOf(rodou) : -1;
-    const proxima = i >= 0 && i + 1 < t.fases.length ? t.fases[i + 1] : null;
-    if (!proxima) return avisarOuNada(`fase ${rodou ?? '-'} concluida e nao ha fase depois dela no ciclo`);
-    const feita = jaFeita(proxima);
-    if (feita) return avisarOuNada(`fase ${rodou} concluida, mas a sessao do bloco ja fez o ${proxima}: ${feita}`);
-    return { ...base, acao: 'despachar', fase: proxima, desdeEm: espera.fimDoTurnoEm, porque: `fase ${rodou} concluida: a seguinte e ${proxima}` };
+    if (i < 0 || i + 1 >= t.fases.length) return avisarOuNada(`fase ${rodou ?? '-'} concluida e nao ha fase depois dela no ciclo`);
+    // A prova mais adiantada que a sessao deixou depois da fase do resultado.
+    let maisAdiantada = -1;
+    let prova: string | null = null;
+    for (let k = i + 1; k < t.fases.length; k++) {
+      const feita = jaFeita(t.fases[k]);
+      if (feita) { maisAdiantada = k; prova = `${t.fases[k]}: ${feita}`; }
+    }
+    const proxima = t.fases[maisAdiantada >= 0 ? maisAdiantada + 1 : i + 1] ?? null;
+    if (!proxima) return avisarOuNada(`fase ${rodou} concluida, e a sessao do bloco ja fez ate o fim do ciclo (${prova})`);
+    if (maisAdiantada >= 0 && FASES_DA_ENTREGA.includes(proxima)) {
+      return avisarOuNada(`fase ${rodou} concluida, e a sessao do bloco ja passou do CHECK (${prova}): o passo e o da entrega`);
+    }
+    return { ...base, acao: 'despachar', fase: proxima, desdeEm: espera.fimDoTurnoEm,
+      porque: prova ? `fase ${rodou} concluida, e a sessao do bloco ja fez ate ${prova}: a seguinte e ${proxima}`
+        : `fase ${rodou} concluida: a seguinte e ${proxima}` };
   }
   if (!espera && base.bloqueio) {
     return { ...base, acao: 'retomar', desdeEm: base.bloqueio.em,
@@ -313,7 +349,7 @@ export function passosDoCondutor(carregado: ManifestoCarregado, opcoes: { quando
     let eventos: EventoLedger[] = [];
     try { eventos = lerLedger(dirThread(carregado.raiz, t.id)); } catch { /* ledger ilegivel: sem bloqueio */ }
     passos.push(passoDaThread(t, estado, eventos, temPedidoGuardado(carregado.raiz, t),
-      (fase) => faseJaFeita(carregado.raiz, t, fase, estado, eventos)));
+      (fase) => faseJaFeita(carregado.raiz, t, fase, estado, eventos), pendenciaDoDono(t, eventos, quando)));
   }
   return passos.sort((a, b) => (a.thread < b.thread ? -1 : a.thread > b.thread ? 1 : 0));
 }

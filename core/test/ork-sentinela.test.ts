@@ -277,6 +277,7 @@ test('despacho: so o passo despachar do #Auto, sem conducao, com fase do ciclo e
   }
   assert.deepEqual(d.argvDaRetomada('ork-a'), ['ork', 'retry', 'run', 'ork-a']);
   assert.deepEqual({ ...d.AMBIENTE_DA_RETOMADA }, { ORK_CANAL: 'claude-code' });
+  assert.equal(d.ADIAMENTO_MS, 180000, 'a recusa que passa volta em 3 min');
   assert.equal(d.pedidoAbertoNoRetrato({ sections: { hitl: { items: [{ status: 'aberto', refs: [{ kind: 'thread', id: 'ork-a' }], facts: { target: 'gate' } }] } } }, 'ork-a'), true);
   for (const item of [{ status: 'stale', refs: [{ kind: 'thread', id: 'ork-a' }] }, { status: 'aberto', refs: [{ kind: 'thread', id: 'ork-b' }] },
     { status: 'aberto', refs: [{ kind: 'thread', id: 'ork-a' }], facts: { target: 'decidido' } }]) {
