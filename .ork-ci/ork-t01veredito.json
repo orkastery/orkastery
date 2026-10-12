@@ -1,0 +1,43 @@
+{
+  "schema": "ork.ci-bundle/v1",
+  "thread": "ork-t01veredito",
+  "branch": "ork/ork-t01veredito-go",
+  "base": "main",
+  "claims": [
+    {
+      "id": "C1",
+      "thread": "ork-t01veredito",
+      "fase": "GO",
+      "arquivo": "docs/roadmap/evidencias/mods-sessao-de-fase.md",
+      "alegacao": "A página da T0.1 traz o veredito medido: o mod carrega em sessão de fase.",
+      "negativa": false,
+      "verificar": [
+        "grep -cE \"^Veredito: carrega\\.\" docs/roadmap/evidencias/mods-sessao-de-fase.md"
+      ],
+      "criadoEm": "2026-10-12T06:47:02.966Z",
+      "estado": "pendente",
+      "lint": []
+    },
+    {
+      "id": "C2",
+      "thread": "ork-t01veredito",
+      "fase": "GO",
+      "arquivo": "core/scripts/prova-mods-sessao-de-fase.cjs",
+      "alegacao": "A prova abre a sessão de sonda com --strict-mcp-config, como o despacho de fase.",
+      "negativa": false,
+      "verificar": [
+        "d=$(mktemp -d) && node core/scripts/prova-mods-sessao-de-fase.cjs --ensaio --json --saida $d > $d/s.json && node -e \"const j=require(process.argv[1]); process.exit(j.comando.includes(String.fromCharCode(45,45)+\\\"strict-mcp-config\\\")?0:1)\" $d/s.json"
+      ],
+      "criadoEm": "2026-10-12T06:47:03.284Z",
+      "estado": "pendente",
+      "lint": []
+    }
+  ],
+  "deferredClaims": [],
+  "commands": [
+    {
+      "name": "ci",
+      "command": "npm --prefix core run test:ci"
+    }
+  ]
+}
